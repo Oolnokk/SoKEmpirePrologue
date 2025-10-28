@@ -2,78 +2,34 @@
   "player": {
     "id": "player",
     "isPlayer": true,
-    "pos": {
-      "x": 360,
-      "y": 290
-    },
+    "pos": {"x": 360, "y": 360},
     "facingRad": 0,
-    "footing": 50,
+    "health": 100,
     "stamina": 100,
+    "footing": 50,
     "trailColor": "cyan",
     "sprites": {
       "torso": "https://i.imgur.com/YatjSyo.png",
       "head": "https://i.imgur.com/WsKQ2Eo.png",
-      "arm": {
-        "upper": "https://i.imgur.com/CAmWLbf.png",
-        "lower": "https://i.imgur.com/gOHujif.png"
-      },
-      "leg": {
-        "upper": "https://i.imgur.com/qgcQTmx.png",
-        "lower": "https://i.imgur.com/lZbF7j2.png"
-      }
+      "arm": {"upper": "https://i.imgur.com/CAmWLbf.png", "lower": "https://i.imgur.com/gOHujif.png"},
+      "leg": {"upper": "https://i.imgur.com/qgcQTmx.png", "lower": "https://i.imgur.com/lZbF7j2.png"}
     },
     "style": {
-      "widthFactor": {
-        "torso": 1.0,
-        "armUpper": 1.0,
-        "armLower": 1.0,
-        "legUpper": 1.0,
-        "legLower": 1.0,
-        "head": 1.0
-      },
       "xformUnits": "percent",
       "xform": {
-        "torso": {
-          "ax": -0.5,
-          "ay": -0.0,
-          "scaleX": 4.5,
-          "scaleY": 4.5,
-          "rotDeg": 180
-        },
-        "head": {
-          "ax": -1.4,
-          "ay": -0.2,
-          "scaleX": 4.5,
-          "scaleY": 4.5,
-          "rotDeg": 180
-        },
-        "armUpper": {
-          "ax": 0.0,
-          "ay": 0.0,
-          "scaleX": 3.0,
-          "scaleY": 3.0,
-          "rotDeg": 0
-        },
-        "armLower": {
-          "ax": 0.0,
-          "ay": 0.0,
-          "scaleX": 2.0,
-          "scaleY": 2.0,
-          "rotDeg": 0
-        }
+        "torso": {"ax": -0.5, "ay": -0.00, "scaleX": 4.5, "scaleY": 4.5, "rotDeg": 180}
       }
     }
   },
   "npc": {
     "id": "npc",
     "isPlayer": false,
-    "pos": {
-      "x": 540,
-      "y": 317
-    },
-    "facingRad": 3.1415926535,
-    "footing": 100,
+    "pos": {"x": 560, "y": 360},
+    "facingRad": 3.14159265,
+    "health": 100,
     "stamina": 100,
-    "trailColor": "red"
+    "footing": 100,
+    "trailColor": "red",
+    "sprites": {}
   }
 }
