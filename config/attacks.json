@@ -4,11 +4,33 @@
     "duration": 280,
     "iFrames": 50,
     "timeline": [
-      {"name":"windup","t0":0,"t1":80},
-      {"name":"active","t0":80,"t1":160, "hitboxes":[
-        {"bone":"armLowerR","offset":{"x": 28, "y": -70}, "w": 44, "h": 32, "damage": 7}
-      ]},
-      {"name":"recover","t0":160,"t1":280}
+      {
+        "name": "windup",
+        "t0": 0,
+        "t1": 80
+      },
+      {
+        "name": "active",
+        "t0": 80,
+        "t1": 160,
+        "hitboxes": [
+          {
+            "bone": "armLowerR",
+            "offset": {
+              "x": 28,
+              "y": -70
+            },
+            "w": 44,
+            "h": 32,
+            "damage": 7
+          }
+        ]
+      },
+      {
+        "name": "recover",
+        "t0": 160,
+        "t1": 280
+      }
     ]
   },
   "heavy": {
@@ -16,11 +38,33 @@
     "duration": 420,
     "iFrames": 40,
     "timeline": [
-      {"name":"windup","t0":0,"t1":160},
-      {"name":"active","t0":160,"t1":270, "hitboxes":[
-        {"bone":"armLowerL","offset":{"x": -32, "y": -60}, "w": 60, "h": 40, "damage": 14}
-      ]},
-      {"name":"recover","t0":270,"t1":420}
+      {
+        "name": "windup",
+        "t0": 0,
+        "t1": 160
+      },
+      {
+        "name": "active",
+        "t0": 160,
+        "t1": 270,
+        "hitboxes": [
+          {
+            "bone": "armLowerL",
+            "offset": {
+              "x": -32,
+              "y": -60
+            },
+            "w": 60,
+            "h": 40,
+            "damage": 14
+          }
+        ]
+      },
+      {
+        "name": "recover",
+        "t0": 270,
+        "t1": 420
+      }
     ]
   }
 }
