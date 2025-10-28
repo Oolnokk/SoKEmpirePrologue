@@ -2,25 +2,18 @@
   "default": {
     "root": { "x": 0, "y": 0 },
     "bones": [
-      { "id":"torso","len":60,"angleDeg":180,"minDeg":90,"maxDeg":270,"anchor":{"x":0,"y":0} },
-      { "id":"head","parent":"torso","len":20,"angleDeg":180,"minDeg":120,"maxDeg":240,"anchor":{"x":0,"y":-60} },
-      { "id":"armUpperL","parent":"torso","len":50,"angleDeg":220,"minDeg":120,"maxDeg":320,"anchor":{"x":-6,"y":-20} },
-      { "id":"armLowerL","parent":"armUpperL","len":50,"angleDeg":220,"minDeg":60,"maxDeg":340 },
-      { "id":"armUpperR","parent":"torso","len":50,"angleDeg":140,"minDeg":20,"maxDeg":200,"anchor":{"x":6,"y":-20} },
-      { "id":"armLowerR","parent":"armUpperR","len":50,"angleDeg":140,"minDeg":-20,"maxDeg":220 },
-      { "id":"legUpperL","parent":"torso","len":40,"angleDeg":200,"minDeg":120,"maxDeg":260,"anchor":{"x":-8,"y":30} },
-      { "id":"legLowerL","parent":"legUpperL","len":40,"angleDeg":200,"minDeg":80,"maxDeg":300 },
-      { "id":"legUpperR","parent":"torso","len":40,"angleDeg":160,"minDeg":100,"maxDeg":240,"anchor":{"x":8,"y":30} },
-      { "id":"legLowerR","parent":"legUpperR","len":40,"angleDeg":160,"minDeg":60,"maxDeg":280 }
+      { "id": "torso", "len": 60, "angleDeg": 180, "minDeg": 90, "maxDeg": 270, "anchor": { "x": 0, "y": 0 } },
+      { "id": "head", "parent": "torso", "len": 20, "angleDeg": 180, "minDeg": 120, "maxDeg": 240, "anchor": { "x": 0, "y": -60 } },
+      { "id": "armUpperL", "parent": "torso", "len": 50, "angleDeg": 220, "minDeg": 120, "maxDeg": 320, "anchor": { "x": -6, "y": -20 } },
+      { "id": "armLowerL", "parent": "armUpperL", "len": 50, "angleDeg": 220, "minDeg": 60, "maxDeg": 340 },
+      { "id": "armUpperR", "parent": "torso", "len": 50, "angleDeg": 140, "minDeg": 20, "maxDeg": 200, "anchor": { "x": 6, "y": -20 } },
+      { "id": "armLowerR", "parent": "armUpperR", "len": 50, "angleDeg": 140, "minDeg": -20, "maxDeg": 220 },
+      { "id": "legUpperL", "parent": "torso", "len": 40, "angleDeg": 200, "minDeg": 120, "maxDeg": 260, "anchor": { "x": -8, "y": 30 } },
+      { "id": "legLowerL", "parent": "legUpperL", "len": 40, "angleDeg": 200, "minDeg": 80, "maxDeg": 300 },
+      { "id": "legUpperR", "parent": "torso", "len": 40, "angleDeg": 160, "minDeg": 100, "maxDeg": 240, "anchor": { "x": 8, "y": 30 } },
+      { "id": "legLowerR", "parent": "legUpperR", "len": 40, "angleDeg": 160, "minDeg": 60, "maxDeg": 280 }
     ]
-  }
-}
-  "player": {
-    "extends": "default",
-    "bones": []
   },
-  "npc": {
-    "extends": "default",
-    "bones": []
-  }
+  "player": { "extends": "default", "bones": [] },
+  "npc":    { "extends": "default", "bones": [] }
 }
