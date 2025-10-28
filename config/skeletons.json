@@ -15,7 +15,6 @@
     ]
   }
 }
-
   "player": {
     "extends": "default",
     "bones": []
