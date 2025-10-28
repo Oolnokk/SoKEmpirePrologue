@@ -1,0 +1,4 @@
+{
+  "movement": { "gravity": 2400, "maxSpeedX": 420 },
+  "aiming":   { "enabled": true, "upperBodyOnly": true, "maxTorsoAngle": 45 }
+}
