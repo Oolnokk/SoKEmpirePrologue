@@ -1,4 +1,90 @@
 {
-  "movement": { "gravity": 2400, "maxSpeedX": 420 },
-  "aiming":   { "enabled": true, "upperBodyOnly": true, "maxTorsoAngle": 45 }
+  "movement": {
+    "authoredWeight": 0.6,
+    "physicsWeight": 0.4,
+    "gravity": 2400,
+    "jumpImpulse": -650,
+    "accelX": 1500,
+    "maxSpeedX": 420,
+    "friction": 8.0,
+    "restitution": 0.0,
+    "dashSpeedMultiplier": 2.2,
+    "facingSmooth": 10.0,
+    "attackPhases": [
+      "Windup",
+      "Strike"
+    ],
+    "lockFacingDuringAttack": true,
+    "rootVelRelative": true
+  },
+  "aiming": {
+    "enabled": true,
+    "upperBodyOnly": true,
+    "smoothing": 8.0,
+    "maxTorsoAngle": 45,
+    "maxShoulderAngle": 60,
+    "flipThreshold": 0.0
+  },
+  "walk": {
+    "enabled": true,
+    "onlyTorsoLegs": true,
+    "baseHz": 1.3,
+    "speedScale": 1.0,
+    "minSpeed": 80,
+    "amp": 1.0,
+    "poses": {
+      "A": {
+        "torso": 30,
+        "lHip": 0,
+        "lKnee": 45,
+        "rHip": 180,
+        "rKnee": 90
+      },
+      "B": {
+        "torso": 40,
+        "lHip": 180,
+        "lKnee": 90,
+        "rHip": 0,
+        "rKnee": 45
+      }
+    }
+  },
+  "ragdoll": {
+    "killAuthOnActive": true,
+    "enabled": true,
+    "autoCalvesMidAir": false,
+    "stiffness": 10.0,
+    "limbs": {
+      "lCalf": false,
+      "rCalf": false,
+      "lThigh": false,
+      "rThigh": false,
+      "lUpperArm": false,
+      "rUpperArm": false,
+      "lForearm": false,
+      "rForearm": false,
+      "torso": false,
+      "head": false
+    }
+  },
+  "colliders": {
+    "handMultiplier": 2.0,
+    "footMultiplier": 1.0
+  },
+  "knockback": {
+    "maxFooting": 100,
+    "weaponTypes": {
+      "unarmed": {
+        "type": "blunt",
+        "multiplier": 1.0
+      },
+      "blunt": {
+        "multiplier": 1.2
+      },
+      "sharp": {
+        "multiplier": 0.8
+      }
+    },
+    "currentWeapon": "unarmed"
+  }
 }
