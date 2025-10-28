@@ -1,51 +1,16 @@
 {
-  "actor": {
-    "scale": 0.7
-  },
-  "groundRatio": 0.7,
-  "canvas": {
-    "w": 720,
-    "h": 460,
-    "scale": 1
-  },
+  "actor": {"scale": 0.70},
+  "groundRatio": 0.70,
+  "canvas": {"w": 720, "h": 460, "scale": 1},
   "groundY": 380,
-  "colors": {
-    "body": "#e5f0ff",
-    "left": "#86efac",
-    "right": "#93c5fd",
-    "guide": "#233044",
-    "hitbox": "#0ea5e9"
-  },
-  "durations": {
-    "toWindup": 1600,
-    "toStrike": 160,
-    "toRecoil": 180,
-    "toStance": 0
-  },
+  "physics": {"dt": 16, "gravity": 0.8, "friction": 0.9, "angularDamp": 0.92},
+  "colors": {"body":"#e5f0ff","left":"#86efac","right":"#93c5fd","guide":"#233044","hitbox":"#0ea5e9"},
+  "durations": {"toWindup":1600,"toStrike":160,"toRecoil":180,"toStance":0},
   "parts": {
-    "hitbox": {
-      "w": 135,
-      "h": 180,
-      "r": 60,
-      "torsoAttach": {
-        "nx": 0.5,
-        "ny": 0.7
-      }
-    },
-    "torso": {
-      "len": 60
-    },
-    "arm": {
-      "upper": 50,
-      "lower": 50
-    },
-    "leg": {
-      "upper": 40,
-      "lower": 40
-    },
-    "head": {
-      "neck": 14,
-      "radius": 16
-    }
+    "hitbox": {"w":135, "h":180, "r":60, "torsoAttach":{"nx":0.5,"ny":0.7}},
+    "torso": {"len":60},
+    "arm": {"upper":50,"lower":50},
+    "leg": {"upper":40,"lower":40},
+    "head":{"neck":14,"radius":16}
   }
 }
