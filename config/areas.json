@@ -1,3 +1,78 @@
-{
-  "areas": {}
-}
+[
+  {
+    "id": "main_hall",
+    "name": "Main Hall",
+    "layers": [
+      {
+        "url": "https://i.imgur.com/placeholder1.jpg",
+        "parallaxSpeed": 0.02,
+        "z": 0,
+        "repeat": true
+      },
+      {
+        "url": "https://i.imgur.com/placeholder2.jpg",
+        "parallaxSpeed": 0.03,
+        "z": 0,
+        "repeat": true
+      },
+      {
+        "url": "https://i.imgur.com/placeholder3.jpg",
+        "parallaxSpeed": 0.06,
+        "z": 0,
+        "repeat": true
+      },
+      {
+        "url": "https://i.imgur.com/placeholder4.jpg",
+        "parallaxSpeed": 0.1,
+        "z": 1,
+        "repeat": true
+      },
+      {
+        "url": "https://i.imgur.com/placeholder5.jpg",
+        "parallaxSpeed": 0.2,
+        "z": 1,
+        "repeat": true
+      }
+    ],
+    "doors": [
+      {
+        "x": 800,
+        "y": -50,
+        "width": 120,
+        "height": 180,
+        "targetArea": "training_room",
+        "spawnX": 100,
+        "spawnY": 0
+      }
+    ]
+  },
+  {
+    "id": "training_room",
+    "name": "Training Room",
+    "layers": [
+      {
+        "url": "https://i.imgur.com/placeholder4.jpg",
+        "parallaxSpeed": 0.03,
+        "z": 0,
+        "repeat": true
+      },
+      {
+        "url": "https://i.imgur.com/placeholder5.jpg",
+        "parallaxSpeed": 0.2,
+        "z": 1,
+        "repeat": true
+      }
+    ],
+    "doors": [
+      {
+        "x": 100,
+        "y": -50,
+        "width": 120,
+        "height": 180,
+        "targetArea": "main_hall",
+        "spawnX": 750,
+        "spawnY": 0
+      }
+    ]
+  }
+]
