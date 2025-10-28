@@ -1,1 +1,4 @@
-[]
+[
+  {"name":"default","fighter":"player","area":"main_hall","pose":"Stance"},
+  {"name":"spar","fighter":"player","area":"training_room","pose":"Stance"}
+]
