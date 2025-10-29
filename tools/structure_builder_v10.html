@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Structure Builder v10 (Mobile-safe wiring + Tiny preview)</title>
+  <style>
+    :root{--bg:#0b0d10;--panel:#12161b;--card:#151b22;--muted:#8aa0b8;--text:#e6edf3;--line:#2a3442;--btn:#1d2633;--btnHi:#263142}
+    *{box-sizing:border-box}html,body{height:100%;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Noto Sans;margin:0;
+      padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);}
+    #app{display:grid;grid-template-columns:minmax(260px, 460px) 1fr;grid-template-rows:48px auto 1fr;grid-template-areas:"top top" "bar bar" "left right";height:100%}
+    header{grid-area:top;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+    header h1{font-size:14px;margin:0;color:var(--muted)}
+    button,select,input,textarea{background:var(--btn);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px}
+    button:hover{background:var(--btnHi)}
+    #left{grid-area:left;overflow:auto;border-right:1px solid var(--line);background:var(--panel)}
+    #right{grid-area:right;display:grid;grid-template-rows:auto 1fr;gap:8px;padding:8px;min-width:240px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin:8px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+    .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+    .row4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px}
+    .bar{display:flex;align-items:center;gap:8px;justify-content:space-between;margin:6px 0 2px}
+    label{font-size:11px;color:#8aa0b8;display:block;margin-bottom:4px}
+    #cvWrap{width:100%; position:relative; overflow:hidden; border:1px solid var(--line); border-radius:14px; background:var(--card)}
+    canvas{display:block; width:100%; height:100%}
+    .muted{color:#8aa0b8}
+    @media (max-width:1100px){#app{grid-template-columns:1fr;grid-template-rows:48px auto auto auto;grid-template-areas:"top" "bar" "right" "left"}
+      #right{height:50vh} }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Structure Builder <span style="color:#8aa0b8">v10</span></h1>
+    <div>
+      <button id="btnNew">New</button>
+      <button id="btnLoadPrefab">Load Prefab</button>
+      <button id="btnSavePrefab">Download Prefab</button>
+      <button id="btnCopyFactory">Copy Factory Call</button>
+    </div>
+  </header>
+
+  <div style="grid-area:bar;padding:6px 10px;background:#151b22;border-bottom:1px solid #2a3442">
+    Mobile-safe: robust wiring · throttled ResizeObserver · tiny preview (160/180/200) · zoom 25–200%
+  </div>
+
+  <aside id="left">
+    <div class="card" id="partsCard">
+      <div class="bar">
+        <strong>Selected Part</strong>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="display:flex;gap:6px;align-items:center;margin:0"><input id="autoApply" type="checkbox" checked> Auto-apply</label>
+          <button id="btnApply">Apply</button>
+        </div>
+      </div>
+
+      <div class="row3">
+        <div><label>Part</label><select id="partIndex"></select></div>
+        <div><label>Layer</label><select id="p_layer"><option value="near">near</option><option value="far" selected>far</option></select></div>
+        <div><label>Rel Z (front+)</label><input id="p_z" type="number" step="1" value="0"></div>
+      </div>
+
+      <div class="row"><div><label>Image URL</label><input id="p_url"></div><div><label>Part ID</label><input id="p_id" value="part01"></div></div>
+
+      <div class="row4">
+        <div><label>W</label><input id="p_w" type="number" value="360"></div>
+        <div><label>H</label><input id="p_h" type="number" value="480"></div>
+        <div><label>relX</label><input id="p_relx" type="number" value="0"></div>
+        <div><label>relY</label><input id="p_rely" type="number" value="0"></div>
+      </div>
+
+      <div class="row3">
+        <div><label>Pivot (rotation center)</label>
+          <select id="p_pivot">
+            <option value="bottom" selected>bottom</option>
+            <option value="center">center</option>
+            <option value="top">top</option>
+            <option value="custom">custom</option>
+          </select>
+        </div>
+        <div><label>Anchor X % <span class="muted">(custom)</span></label><input id="p_anchorX" type="number" step="0.1" value="50"></div>
+        <div><label>Anchor Y % <span class="muted">(custom)</span></label><input id="p_anchorY" type="number" step="0.1" value="100"></div>
+      </div>
+
+      <div class="row3">
+        <div><label>Transform order</label>
+          <select id="p_order">
+            <option value="scaleThenRotate" selected>scale → rotate</option>
+            <option value="rotateThenScale">rotate → scale</option>
+          </select>
+        </div>
+        <div><label>Translate Space</label><select id="p_space"><option value="screen" selected>screen</option><option value="local">local</option></select></div>
+        <div><label>Radius</label><input id="p_radius" type="number" value="800"></div>
+      </div>
+
+      <div class="row3">
+        <div><label>Ease</label><select id="p_ease"><option value="smoothstep">smoothstep</option><option value="linear">linear</option><option value="quadInOut">quadInOut</option></select></div>
+        <div><label>parallaxX</label><input id="p_prx" type="number" step="0.01" value="0.85"></div>
+        <div><label>clampPx</label><input id="p_clamp" type="number" value="64"></div>
+      </div>
+
+      <div class="row4">
+        <div><label>L dx</label><input id="Ldx" type="number" value="-24"><label>L sx</label><input id="Lsx" type="number" step="0.01" value="0.92"><label>L rz</label><input id="Lrz" type="number" value="-6"></div>
+        <div><label>C dx</label><input id="Cdx" type="number" value="0"><label>C sx</label><input id="Csx" type="number" step="0.01" value="1"><label>C rz</label><input id="Crz" type="number" value="0"></div>
+        <div><label>R dx</label><input id="Rdx" type="number" value="22"><label>R sx</label><input id="Rsx" type="number" step="0.01" value="0.92"><label>R rz</label><input id="Rrz" type="number" value="6"></div>
+        <div><button id="btnAddPart">Add Part</button><button id="btnDelPart">Delete</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong>Ordering & Debug</strong>
+      <div class="row">
+        <div><label>Z sort mode</label>
+          <select id="z_mode">
+            <option value="nearTop" selected>near above far</option>
+            <option value="layerOnly">layer only (near over far)</option>
+            <option value="zOnly">z only (ignore layer)</option>
+          </select>
+        </div>
+        <div><label>Show draw order</label>
+          <select id="z_debug">
+            <option value="none" selected>none</option>
+            <option value="canvas">draw labels</option>
+            <option value="console">debug panel</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <section id="right">
+    <div class="card" style="margin:0 8px 8px 8px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div>Preview</div><div style="flex:1"></div>
+        <div>t</div><input id="tSlider" type="range" min="-1" max="1" step="0.001" value="0" style="width:220px">
+        <input id="tNum" type="number" step="0.001" value="0" style="width:80px">
+        <span class="muted">Size</span>
+        <select id="previewSize">
+          <option value="lock160" selected>Lock 160px</option>
+          <option value="lock180">Lock 180px</option>
+          <option value="lock200">Lock 200px</option>
+          <option value="lock220">Lock 220px</option>
+          <option value="lock260">Lock 260px</option>
+          <option value="lock300">Lock 300px</option>
+          <option value="fit40">Fit (40vh)</option>
+          <option value="fit50">Fit (50vh)</option>
+        </select>
+        <span class="muted">Zoom</span>
+        <input id="previewZoom" type="range" min="0.25" max="2" step="0.01" value="1" style="width:140px">
+        <input id="previewZoomNum" type="number" min="0.25" max="2" step="0.01" value="1" style="width:70px">
+        <div id="ctm" class="muted" style="font:11px ui-monospace,Menlo,Consolas"></div>
+      </div>
+    </div>
+    <div style="padding:0 8px 8px 8px">
+      <div id="cvWrap"><canvas id="cv"></canvas></div>
+    </div>
+  </section>
+</div>
+
+<script>
+// Debug overlay (non-blocking)
+(function(){
+  const el = document.createElement('div');
+  el.id = '__debug_overlay__';
+  el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow:auto;font:12px ui-monospace,Menlo,Consolas;'+
+                     'background:rgba(10,12,16,.9);color:#cfe7ff;border-top:1px solid #2a3442;padding:6px;z-index:99999;pointer-events:none';
+  const bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px;pointer-events:auto';
+  const title = document.createElement('strong'); title.textContent = 'Debug';
+  const btnClear = document.createElement('button'); btnClear.textContent = 'Clear';
+  const btnHide = document.createElement('button'); btnHide.textContent = 'Hide';
+  [btnClear,btnHide].forEach(b=>{ b.style.cssText = 'background:#1d2633;color:#e6edf3;border:1px solid #2a3442;border-radius:8px;padding:4px 8px;font-size:12px' });
+  const feed = document.createElement('div'); feed.id = '__debug_feed__'; feed.style.whiteSpace='pre-wrap';
+  bar.appendChild(title); bar.appendChild(btnClear); bar.appendChild(btnHide); el.appendChild(bar); el.appendChild(feed);
+  btnClear.onclick = ()=> feed.textContent = '';
+  btnHide.onclick = ()=> el.style.display = 'none';
+  document.body.appendChild(el);
+  function write(line){
+    try{
+      const ts = new Date().toISOString().split('T')[1].replace('Z','');
+      feed.textContent += `[${ts}] ${line}\n`;
+      feed.scrollTop = feed.scrollHeight;
+    }catch{}
+  }
+  window.__DBG = write;
+  window.addEventListener('error', (e)=>{ write('Error: ' + e.message); });
+  window.addEventListener('unhandledrejection', (e)=>{ write('Promise rejection: ' + (e.reason && e.reason.message || e.reason)); });
+})();
+
+// Helpers
+function $(s){ return document.querySelector(s); }
+function clamp(v,l,h){ return Math.max(l, Math.min(h, v)); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function rad(d){ return d*Math.PI/180; }
+function ease01(n,x){ x=Math.max(0,Math.min(1,x)); if(n==='smoothstep')return x*x*(3-2*x); if(n==='quadInOut')return x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2; return x; }
+function blendKf(kf,cameraX,worldX){
+  const r=Math.max(1,kf.radius||600);
+  const t=Math.max(-1,Math.min(1,(cameraX-worldX)/r));
+  const L=kf.left||{dx:0,dy:0,scaleX:1,rotZdeg:0},C=kf.center||{dx:0,dy:0,scaleX:1,rotZdeg:0},R=kf.right||{dx:0,dy:0,scaleX:1,rotZdeg:0};
+  const e=kf.ease||'smoothstep'; let a=0,f=C,to=C; if(t<=0){a=ease01(e,t+1);f=L;to=C;} else {a=ease01(e,t);f=C;to=R;}
+  return {t,dx:lerp(f.dx||0,to.dx||0,a),dy:lerp(f.dy||0,to.dy||0,a),scaleX:lerp(f.scaleX??1,to.scaleX??1,a),rotZdeg:lerp(f.rotZdeg||0,to.rotZdeg||0,a),
+          translateSpace:kf.translateSpace||'screen',order:kf.transformOrder||'scaleThenRotate'};
+}
+
+// Safe event binding
+function on(el, ev, fn){ if (el && el.addEventListener){ el.addEventListener(ev, fn); } else { __DBG('Missing node for '+ev); } }
+function onId(id, ev, fn){ const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); else __DBG('Missing #' + id + ' for '+ev); }
+
+// Global refs (lazy; we will re-resolve inside init to avoid null binding on slow WebView)
+const els = {};
+
+function initRefs(){
+  ['partIndex','p_layer','p_z','p_url','p_id','p_w','p_h','p_relx','p_rely','p_prx','p_clamp','p_space','p_radius','p_ease','p_pivot','p_anchorX','p_anchorY','p_order',
+   'Ldx','Lsx','Lrz','Cdx','Csx','Crz','Rdx','Rsx','Rrz','tSlider','tNum','jsonBox','cv','cvWrap','btnAddPart','btnDelPart','btnApply','btnToBox','btnFromBox','btnSavePrefab','btnLoadPrefab','btnNew','btnCopyFactory','z_mode','z_debug','autoApply','previewSize','previewZoom','previewZoomNum','ctm']
+   .forEach(id=> els[id]=document.getElementById(id));
+}
+
+let cx, ro;
+const state = {
+  prefab: {
+    structureId: 'tower_v1',
+    base: {},
+    parts: [
+      { name:'near', layer:'near', relX:0, relY:0, z:10,
+        propTemplate: { id:'tower_near', url:'https://i.imgur.com/T32ZEPl.png', w:360, h:480, pivot:'bottom', anchorXPct:50, anchorYPct:100, parallaxX:1, parallaxClampPx:0,
+          kf: { radius:800, ease:'smoothstep', translateSpace:'screen', transformOrder:'scaleThenRotate',
+                left:{dx:0,dy:0,scaleX:1,rotZdeg:0}, center:{dx:0,dy:0,scaleX:1,rotZdeg:0}, right:{dx:0,dy:0,scaleX:1,rotZdeg:0} } } },
+      { name:'far', layer:'far', relX:0, relY:0, z:0,
+        propTemplate: { id:'tower_far', url:'https://i.imgur.com/rwNudcI.png', w:360, h:480, pivot:'bottom', anchorXPct:50, anchorYPct:100, parallaxX:0.85, parallaxClampPx:64,
+          kf: { radius:800, ease:'smoothstep', translateSpace:'screen', transformOrder:'scaleThenRotate',
+                left:{dx:-24,dy:0,scaleX:0.92,rotZdeg:-6}, center:{dx:0,dy:0,scaleX:1,rotZdeg:0}, right:{dx:22,dy:0,scaleX:0.92,rotZdeg:6} } } }
+    ]
+  },
+  images: new Map(),
+  ui: { preview: 'lock160', zoom: 1 }
+};
+
+function sizeCanvasToWrapper(){
+  const dpr = window.devicePixelRatio || 1;
+  const r = els.cvWrap.getBoundingClientRect();
+  const wantW = Math.max(1, Math.floor(r.width * dpr));
+  const wantH = Math.max(1, Math.floor(r.height * dpr));
+  if (els.cv.width !== wantW || els.cv.height !== wantH){
+    els.cv.width = wantW; els.cv.height = wantH;
+  }
+}
+function applyPreviewSize(){
+  const v = els.previewSize && els.previewSize.value || 'lock160';
+  state.ui.preview = v;
+  let h = 160;
+  if (v==='lock160') h = 160;
+  else if (v==='lock180') h = 180;
+  else if (v==='lock200') h = 200;
+  else if (v==='lock220') h = 220;
+  else if (v==='lock260') h = 260;
+  else if (v==='lock300') h = 300;
+  else if (v==='fit40') h = Math.round(clamp(window.innerHeight*0.4, 160, 600));
+  else if (v==='fit50') h = Math.round(clamp(window.innerHeight*0.5, 180, 640));
+  if (els.cvWrap) els.cvWrap.style.height = h + 'px';
+  sizeCanvasToWrapper();
+}
+
+// Throttled ResizeObserver
+let roPending = false;
+function ensureResizeObserver(){
+  try{
+    if (ro) ro.disconnect();
+    ro = new ResizeObserver(()=>{
+      if (roPending) return;
+      roPending = true;
+      requestAnimationFrame(()=>{ roPending = false; sizeCanvasToWrapper(); draw(); });
+    });
+    if (els.cvWrap) ro.observe(els.cvWrap);
+  }catch(err){ __DBG('RO error: ' + err.message); }
+}
+
+function setBaseline(){
+  const dpr = window.devicePixelRatio || 1;
+  cx.setTransform(1,0,0,1,0,0);
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  return dpr;
+}
+function computeAnchor(t){
+  const w=t.w||100, h=t.h||100;
+  const pv = t.pivot || 'bottom';
+  if (pv==='bottom') return {ax:w*0.5, ay:h};
+  if (pv==='center') return {ax:w*0.5, ay:h*0.5};
+  if (pv==='top') return {ax:w*0.5, ay:0};
+  const ax = (Number.isFinite(t.anchorXPct)? t.anchorXPct : 50) * 0.01 * w;
+  const ay = (Number.isFinite(t.anchorYPct)? t.anchorYPct : 100) * 0.01 * h;
+  return {ax, ay};
+}
+
+// Drawing
+function draw(){
+  if (!els.cv) return;
+  sizeCanvasToWrapper();
+  const dpr = setBaseline();
+  cx.clearRect(0,0,els.cv.width,els.cv.height);
+  const W = els.cv.width/dpr, H = els.cv.height/dpr;
+
+  const z = clamp(state.ui.zoom, 0.25, 2);
+  cx.save();
+  cx.scale(z, z);
+  const Wz = W / z, Hz = H / z;
+  const groundY = Hz*0.82;
+
+  const camX = +(els.tNum && els.tNum.value || 0) * (+(els.p_radius && els.p_radius.value || 800));
+
+  const mode = els.z_mode && els.z_mode.value || 'nearTop';
+  const drawList = state.prefab.parts.slice().map(p=>{
+    let base = 0;
+    if (mode==='nearTop') base = (p.layer==='far'?0:100000) + (+p.z||0);
+    else if (mode==='layerOnly') base = (p.layer==='far'?0:100000);
+    else base = (+p.z||0);
+    return {p, weight:base};
+  }).sort((a,b)=>a.weight-b.weight).map(x=>x.p);
+
+  cx.strokeStyle='rgba(255,255,255,.12)'; cx.beginPath(); cx.moveTo(0,groundY); cx.lineTo(Wz,groundY); cx.stroke();
+
+  for (let di=0; di<drawList.length; di++){
+    const part = drawList[di], t = part.propTemplate;
+    const img = state.images.get(t.url);
+    const kfb = blendKf(t.kf||{radius:800,ease:'smoothstep',translateSpace:'screen',transformOrder:'scaleThenRotate',left:{},center:{},right:{}}, camX, 0);
+    const {ax, ay} = computeAnchor(t);
+
+    cx.save();
+    const baseX = Wz/2 + (part.relX||0), baseY = groundY - (part.relY||0);
+    cx.translate(baseX, baseY);
+    if (kfb.translateSpace==='screen') cx.translate(kfb.dx||0, kfb.dy||0);
+    if (kfb.order==='scaleThenRotate'){ if (typeof kfb.scaleX==='number') cx.scale(kfb.scaleX, 1); if (kfb.rotZdeg) cx.rotate(rad(kfb.rotZdeg)); }
+    else { if (kfb.rotZdeg) cx.rotate(rad(kfb.rotZdeg)); if (typeof kfb.scaleX==='number') cx.scale(kfb.scaleX, 1); }
+    if (kfb.translateSpace==='local') cx.translate(kfb.dx||0, kfb.dy||0);
+
+    if (img) cx.drawImage(img, -ax, -ay, t.w||100, t.h||100);
+    else { cx.fillStyle='rgba(94,234,212,.12)'; cx.fillRect(-ax,-ay,t.w||100,t.h||100); cx.strokeStyle=part.layer==='near'?'#a78bfa':'#60a5fa'; cx.strokeRect(-ax,-ay,t.w||100,t.h||100); }
+
+    if (els.z_debug && els.z_debug.value==='canvas'){
+      cx.fillStyle='#cbd5e1'; cx.font='11px ui-monospace,Menlo,Consolas'; cx.fillText(`${di}: ${part.name} (${part.layer}) z=${part.z??0}`, -ax, -ay-4);
+    }
+    cx.restore();
+  }
+  cx.restore();
+
+  setBaseline();
+  const m = cx.getTransform(); if (els.ctm) els.ctm.textContent = `CTM a:${m.a.toFixed(2)} b:${m.b.toFixed(2)} c:${m.c.toFixed(2)} d:${m.d.toFixed(2)} zoom:${z.toFixed(2)}`;
+  cx.fillStyle='#9fb4ce'; cx.font='12px ui-monospace,Menlo,Consolas'; cx.fillText(`t=${(+(els.tNum && els.tNum.value || 0)).toFixed(3)}`,10,18);
+}
+
+// Image cache
+function loadImage(url){
+  return new Promise(res=>{
+    if (!url) return res({ok:false,img:null});
+    if (state.images.has(url)) return res({ok:true,img:state.images.get(url)});
+    const i = new Image(); i.crossOrigin = 'anonymous';
+    i.onload = ()=>{ state.images.set(url,i); res({ok:true,img:i}); };
+    i.onerror = ()=>{ __DBG('Image load failed: '+url); res({ok:false,img:null}); };
+    i.src = url;
+  });
+}
+async function ensureImages(){ for (const p of state.prefab.parts){ if (p.propTemplate.url) await loadImage(p.propTemplate.url); } }
+
+// Part IO
+function refreshPartList(){
+  if (!els.partIndex) return;
+  els.partIndex.innerHTML='';
+  state.prefab.parts.forEach((p,i)=>{
+    const o=document.createElement('option'); o.value=String(i); o.textContent=`${i}: ${p.name} (${p.layer})`; els.partIndex.appendChild(o);
+  });
+  if (state.prefab.parts.length===0) return;
+  els.partIndex.value='0'; loadPartFields(0);
+}
+function loadPartFields(i){
+  const part = state.prefab.parts[i]; if (!part) return;
+  const t = part.propTemplate;
+  if (els.p_layer) els.p_layer.value = part.layer;
+  if (els.p_z) els.p_z.value = part.z||0;
+  if (els.p_url) els.p_url.value = t.url||'';
+  if (els.p_id) els.p_id.value = t.id||'part';
+  if (els.p_w) els.p_w.value = t.w||100;
+  if (els.p_h) els.p_h.value = t.h||100;
+  if (els.p_relx) els.p_relx.value = part.relX||0;
+  if (els.p_rely) els.p_rely.value = part.relY||0;
+  if (els.p_prx) els.p_prx.value = t.parallaxX??1;
+  if (els.p_clamp) els.p_clamp.value = t.parallaxClampPx??0;
+  if (els.p_space) els.p_space.value = t.kf?.translateSpace || 'screen';
+  if (els.p_radius) els.p_radius.value = t.kf?.radius || 800;
+  if (els.p_ease) els.p_ease.value = t.kf?.ease || 'smoothstep';
+  if (els.p_pivot) els.p_pivot.value = t.pivot || 'bottom';
+  if (els.p_anchorX) els.p_anchorX.value = Number.isFinite(t.anchorXPct) ? t.anchorXPct : 50;
+  if (els.p_anchorY) els.p_anchorY.value = Number.isFinite(t.anchorYPct) ? t.anchorYPct : 100;
+  if (els.p_order) els.p_order.value = t.kf?.transformOrder || 'scaleThenRotate';
+}
+function applyPartFields(i){
+  const part = state.prefab.parts[i]; if (!part) return;
+  const t = part.propTemplate;
+  const oldUrl = t.url || '';
+  if (els.p_layer) part.layer = els.p_layer.value;
+  if (els.p_z) part.z = +els.p_z.value||0;
+  if (els.p_relx) part.relX = +els.p_relx.value||0;
+  if (els.p_rely) part.relY = +els.p_rely.value||0;
+  if (els.p_id) t.id = els.p_id.value||'part';
+  if (els.p_url) t.url = els.p_url.value||'';
+  if (els.p_w) t.w = +els.p_w.value||100;
+  if (els.p_h) t.h = +els.p_h.value||100;
+  if (els.p_pivot) t.pivot = els.p_pivot.value||'bottom';
+  if (els.p_anchorX) t.anchorXPct = +els.p_anchorX.value;
+  if (els.p_anchorY) t.anchorYPct = +els.p_anchorY.value;
+  if (els.p_prx) t.parallaxX=+els.p_prx.value||1;
+  if (els.p_clamp) t.parallaxClampPx=+els.p_clamp.value||0;
+  t.kf = t.kf || {};
+  if (els.p_radius) t.kf.radius = Math.max(1, +els.p_radius.value||800);
+  if (els.p_ease) t.kf.ease = els.p_ease.value||'smoothstep';
+  if (els.p_space) t.kf.translateSpace = els.p_space.value||'screen';
+  if (els.p_order) t.kf.transformOrder = els.p_order.value || 'scaleThenRotate';
+  t.kf.left   = { dx:+(els.Ldx&&els.Ldx.value||0), dy:0, scaleX:+(els.Lsx&&els.Lsx.value||1), rotZdeg:+(els.Lrz&&els.Lrz.value||0) };
+  t.kf.center = { dx:+(els.Cdx&&els.Cdx.value||0), dy:0, scaleX:+(els.Csx&&els.Csx.value||1), rotZdeg:+(els.Crz&&els.Crz.value||0) };
+  t.kf.right  = { dx:+(els.Rdx&&els.Rdx.value||0), dy:0, scaleX:+(els.Rsx&&els.Rsx.value||1), rotZdeg:+(els.Rrz&&els.Rrz.value||0) };
+
+  if (t.url && t.url !== oldUrl) { ensureImages().then(draw); } else { draw(); }
+}
+
+// Wiring
+function wireAutoApply(){
+  const ids = ['p_layer','p_z','p_url','p_id','p_w','p_h','p_relx','p_rely','p_prx','p_clamp','p_space','p_radius','p_ease','p_pivot','p_anchorX','p_anchorY','p_order','Ldx','Lsx','Lrz','Cdx','Csx','Crz','Rdx','Rsx','Rrz'];
+  const applyNow = ()=>{ const i=+(els.partIndex && els.partIndex.value || 0); applyPartFields(i); };
+  ids.forEach(id=>{
+    const n = document.getElementById(id);
+    if (!n) { __DBG('wireAutoApply missing #' + id); return; }
+    n.addEventListener('input', ()=>{ if (els.autoApply && els.autoApply.checked) applyNow(); });
+    n.addEventListener('change', ()=>{ if (els.autoApply && els.autoApply.checked) applyNow(); });
+  });
+}
+function wireAll(){
+  on(els.partIndex, 'change', ()=>{ loadPartFields(+(els.partIndex.value||0)); if (els.autoApply && els.autoApply.checked) applyPartFields(+(els.partIndex.value||0)); });
+  on(els.btnApply, 'click', ()=>{ applyPartFields(+(els.partIndex && els.partIndex.value || 0)); });
+  on(els.btnAddPart, 'click', ()=>{
+    const i=state.prefab.parts.length;
+    state.prefab.parts.push({name:`part_${i+1}`,layer:'far',relX:0,relY:0,z:0,propTemplate:{id:`part_${i+1}`,url:'',w:300,h:220,pivot:'bottom',anchorXPct:50,anchorYPct:100,parallaxX:0.85,parallaxClampPx:64,kf:{radius:800,ease:'smoothstep',translateSpace:'screen',transformOrder:'scaleThenRotate',left:{dx:-20,dy:0,scaleX:0.95,rotZdeg:-5},center:{dx:0,dy:0,scaleX:1,rotZdeg:0},right:{dx:20,dy:0,scaleX:0.95,rotZdeg:5}}}});
+    refreshPartList(); if (els.partIndex){ els.partIndex.value=String(i); loadPartFields(i); } ensureImages().then(draw);
+  });
+  on(els.btnDelPart, 'click', ()=>{ const i=+(els.partIndex && els.partIndex.value || 0); if (state.prefab.parts.length<=1) return; state.prefab.parts.splice(i,1); refreshPartList(); draw(); });
+
+  on(els.tSlider, 'input', e=>{ if (els.tNum) els.tNum.value=e.target.value; draw(); });
+  on(els.tNum, 'input', e=>{ let v=+e.target.value; v=clamp(v,-1,1); if (els.tSlider) els.tSlider.value=v; draw(); });
+
+  on(els.z_mode, 'change', draw);
+  on(els.z_debug, 'change', draw);
+
+  on(els.previewSize, 'change', ()=>{ applyPreviewSize(); draw(); });
+  on(window, 'resize', ()=>{ if (!els.previewSize) return; const v=els.previewSize.value; if (v==='fit40' || v==='fit50'){ applyPreviewSize(); } });
+
+  on(els.previewZoom, 'input', e=> setZoom(e.target.value));
+  on(els.previewZoomNum, 'input', e=> setZoom(e.target.value));
+
+  // File buttons by id (to avoid stale refs)
+  onId('btnToBox','click',()=>{ const jb=document.getElementById('jsonBox'); if (jb) jb.value = JSON.stringify(state.prefab,null,2); __DBG('Wrote prefab JSON to text area'); });
+  onId('btnFromBox','click',()=>{ try{ const jb=document.getElementById('jsonBox'); const obj=jb && JSON.parse(jb.value); if(obj && Array.isArray(obj.parts)){ state.prefab=obj; refreshPartList(); ensureImages().then(()=>{ wireAutoApply(); draw(); }); __DBG('Loaded prefab from text'); } else throw new Error('Invalid prefab'); }catch(err){ alert('Invalid JSON'); __DBG(err.message); } });
+  onId('btnSavePrefab','click',()=>{ const data=JSON.stringify(state.prefab,null,2); const b=new Blob([data],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=(state.prefab.structureId||'structure')+'.prefab.json'; document.body.appendChild(a); a.click(); a.remove(); __DBG('Downloaded prefab file'); });
+  onId('btnLoadPrefab','click',()=>{ try{ const i=document.createElement('input'); i.type='file'; i.accept='application/json'; i.onchange=(e)=>{ const f = e.target.files && e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ const obj=JSON.parse(rd.result); if(obj && Array.isArray(obj.parts)){ state.prefab=obj; refreshPartList(); ensureImages().then(()=>{ wireAutoApply(); draw(); }); __DBG('Loaded prefab from file'); } else throw new Error('Invalid prefab'); }catch(err){ alert('Invalid JSON'); __DBG(err.message); } }; rd.readAsText(f); }; i.click(); }catch(err){ __DBG('Load Prefab error: '+err.message); } });
+  onId('btnCopyFactory','click',()=>{ const stub="import { appendInstanceToSegment } from './structure_factory_v2.js';\nappendInstanceToSegment(map.segments, 0, prefab, { x: 620, y: 380, idSuffix: 'A' });"; navigator.clipboard && navigator.clipboard.writeText && navigator.clipboard.writeText(stub).then(()=>alert('Factory call copied.')); });
+}
+
+function setZoom(v){
+  state.ui.zoom = clamp(+v || 1, 0.25, 2);
+  if (els.previewZoom) els.previewZoom.value = state.ui.zoom;
+  if (els.previewZoomNum) els.previewZoomNum.value = state.ui.zoom.toFixed(2);
+  draw();
+}
+
+// Init on DOMContentLoaded (avoids null addEventListener in slow webviews)
+document.addEventListener('DOMContentLoaded', ()=>{
+  initRefs();
+  if (els.cv) cx = els.cv.getContext('2d', { alpha:true, desynchronized:true });
+  refreshPartList();
+  wireAutoApply();
+  wireAll();
+  applyPreviewSize();
+  ensureResizeObserver();
+  setZoom(1);
+  Promise.all(state.prefab.parts.map(p=>p.propTemplate.url&&loadImage(p.propTemplate.url))).then(draw);
+});
+</script>
+</body>
+</html>
