@@ -1,0 +1,132 @@
+{
+  "structureId": "tower_v1",
+  "base": {},
+  "parts": [
+    {
+      "name": "near",
+      "layer": "near",
+      "relX": 0,
+      "relY": 0,
+      "z": 10,
+      "propTemplate": {
+        "id": "tower_near",
+        "url": "https://i.imgur.com/T32ZEPl.png",
+        "w": 360,
+        "h": 480,
+        "pivot": "bottom",
+        "anchorXPct": 50,
+        "anchorYPct": 100,
+        "parallaxX": 1,
+        "parallaxClampPx": 0,
+        "kf": {
+          "radius": 800,
+          "ease": "smoothstep",
+          "translateSpace": "screen",
+          "transformOrder": "scaleThenRotate",
+          "left": {
+            "dx": 0,
+            "dy": 0,
+            "scaleX": 1,
+            "rotZdeg": 0
+          },
+          "center": {
+            "dx": 0,
+            "dy": 0,
+            "scaleX": 1,
+            "rotZdeg": 0
+          },
+          "right": {
+            "dx": 0,
+            "dy": 0,
+            "scaleX": 1,
+            "rotZdeg": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "far",
+      "layer": "far",
+      "relX": 0,
+      "relY": 0,
+      "z": 0,
+      "propTemplate": {
+        "id": "tower_farleft",
+        "url": "https://i.imgur.com/rwNudcI.png",
+        "w": 360,
+        "h": 480,
+        "pivot": "bottom",
+        "anchorXPct": 50,
+        "anchorYPct": 100,
+        "parallaxX": 0.85,
+        "parallaxClampPx": 64,
+        "kf": {
+          "radius": 800,
+          "ease": "smoothstep",
+          "translateSpace": "screen",
+          "transformOrder": "rotateThenScale",
+          "left": {
+            "dx": -140,
+            "dy": 0,
+            "scaleX": 1.2,
+            "rotZdeg": 13
+          },
+          "center": {
+            "dx": -130,
+            "dy": 0,
+            "scaleX": 0,
+            "rotZdeg": 11
+          },
+          "right": {
+            "dx": 100,
+            "dy": 0,
+            "scaleX": 1.5,
+            "rotZdeg": -6.5
+          }
+        }
+      }
+    },
+    {
+      "name": "part_3",
+      "layer": "far",
+      "relX": 0,
+      "relY": 0,
+      "z": 0,
+      "propTemplate": {
+        "id": "part_3",
+        "url": "https://i.imgur.com/rwNudcI.png",
+        "w": 360,
+        "h": 480,
+        "pivot": "bottom",
+        "anchorXPct": 50,
+        "anchorYPct": 100,
+        "parallaxX": 0.85,
+        "parallaxClampPx": 64,
+        "kf": {
+          "radius": 800,
+          "ease": "smoothstep",
+          "translateSpace": "screen",
+          "transformOrder": "rotateThenScale",
+          "left": {
+            "dx": 0,
+            "dy": 0,
+            "scaleX": 0,
+            "rotZdeg": 0
+          },
+          "center": {
+            "dx": 120,
+            "dy": 0,
+            "scaleX": 0,
+            "rotZdeg": -10
+          },
+          "right": {
+            "dx": 100,
+            "dy": 0,
+            "scaleX": 1.5,
+            "rotZdeg": -6.5
+          }
+        }
+      }
+    }
+  ]
+}
