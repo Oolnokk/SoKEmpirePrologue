@@ -341,4 +341,3 @@ window.CONFIG = window.CONFIG || {};
   CONFIG.presets = { SLAM, KICK, PUNCH };
   try { document.dispatchEvent(new Event('config:ready')); } catch(_){}
 })();
-
