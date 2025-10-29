@@ -162,3 +162,183 @@ const CONFIG = {
       currentWeapon: 'unarmed'
     }
   };
+
+
+/* ==== CONFIG.attacks (authoritative) ==== */
+window.CONFIG = window.CONFIG || {};
+(function initAttacks(){
+  const D = CONFIG.durations || { toWindup:320, toStrike:160, toRecoil:180, toStance:120 };
+  CONFIG.attacks = {
+    inputs: {
+      button1: { tapSlot: 1, holdSlot: 2, holdThresholdMs: 240 },
+      button2: { tapSlot: 3, holdSlot: 4, holdThresholdMs: 240 }
+    },
+    defaults: {
+      durations: { toWindup: D.toWindup ?? 320, toStrike: D.toStrike ?? 160, toRecoil: D.toRecoil ?? 180 },
+      comboWindowMs: 700,
+      heavyMaxHoldMs: 3000
+    },
+    slots: {
+      1: {
+        label: "Light Combo (4-hit)",
+        type: "light",
+        variety: "combo",
+        combo: {
+          steps: ["Jab", "Cross", "Hook", "Upper"],
+          interRecoil: { poseKey:"Recoil", durMs: 120 }
+        },
+        quickAltAfterHits: 4
+      },
+      2: {
+        label: "Heavy Hold (SLAM)",
+        type: "heavy",
+        variety: "hold_release",
+        requiresWindup: true,
+        knockbackBase: 250,
+        cancelWindowRecoil: 0.5,
+        sequence: [
+          { poseKey:"Windup", durMs:480 },
+          { poseKey:"Slam",   durMs:160, strike:{} },
+          { poseKey:"Recoil", durMs:200 }
+        ]
+      },
+      3: {
+        label: "Quick (KICK)",
+        type: "light",
+        variety: "quick",
+        knockbackBase: 180,
+        cancelWindowRecoil: 0.6,
+        quick: {
+          base: [
+            { poseKey:"KICK_Windup", durMs:180 },
+            { poseKey:"KICK_Strike", durMs:110, strike:{} },
+            { poseKey:"KICK_Recoil", durMs:680 }
+          ],
+          altAfterComboHits: {
+            hits: 4,
+            sequence: [
+              { poseKey:"KICK_Windup", durMs: 60 },
+              { poseKey:"KICK_Strike", durMs: 37, strike:{} },
+              { poseKey:"KICK_Windup", durMs: 90 },
+              { poseKey:"KICK_Strike", durMs: 55, strike:{} },
+              { poseKey:"KICK_Windup", durMs:180 },
+              { poseKey:"KICK_Strike", durMs:110, strike:{} },
+              { poseKey:"KICK_Windup", durMs:360 },
+              { poseKey:"KICK_Strike", durMs:220, strike:{} },
+              { poseKey:"KICK_Recoil", durMs:680 }
+            ]
+          }
+        }
+      },
+      4: {
+        label: "Heavy (SLAM)",
+        type: "heavy",
+        variety: "hold_release",
+        requiresWindup: true,
+        knockbackBase: 250,
+        cancelWindowRecoil: 0.5,
+        sequence: [
+          { poseKey:"Windup", durMs:480 },
+          { poseKey:"Slam",   durMs:160, strike:{} },
+          { poseKey:"Recoil", durMs:200 }
+        ]
+      }
+    },
+    library: {
+      // Unique names (if animator supports them)
+      Kick: { base:"Kick", overrides:{} },
+      Slam: { base:"Slam", overrides:{} },
+
+      // Default 4-hit combo mini-attacks (adapt base Strike)
+      Jab:   { base:"Strike", overrides:{ torso:40, lShoulder:-60, rShoulder:-30 } },
+      Cross: { base:"Strike", overrides:{ torso:60, lShoulder:-45, rShoulder:-45 } },
+      Hook:  { base:"Strike", overrides:{ torso:35, lShoulder:-20, rShoulder:-70 } },
+      Upper: { base:"Strike", overrides:{ torso:80, lShoulder:-80, rShoulder:-10 } },
+
+      // KICK role-specific overrides (from your presets)
+      KICK_Windup: { base:"Windup", overrides:{
+        torso:-10, lShoulder:-100, lElbow:-120, rShoulder:-80, rElbow:-100,
+        lHip:110, lKnee:30, rHip:170, rKnee:40,
+        rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
+        allowAiming:true, aimLegs:true, aimRightLegOnly:true,
+        anim_events:[{ time:0.00, velocityX:-80, velocityY:0 }]
+      }},
+      KICK_Strike: { base:"Strike", overrides:{
+        torso:90, lShoulder:-27, lElbow:0, rShoulder:90, rElbow:0,
+        lHip:87, lKnee:0, rHip:0, rKnee:0,
+        rootMoveVel:{x:0,y:0}, impulseMag:120, impulseDirDeg:0,
+        allowAiming:true, aimLegs:true, aimRightLegOnly:true,
+        flip:true, flipAt:0.1,
+        flipParts:['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'],
+        fullFlipFacing:true, fullFlipAt:0.1,
+        anim_events:[
+          { time:0.00, impulse:180, impulse_angle:0 },
+          { time:0.05, velocityX:0, velocityY:0, localVel:true }
+        ]
+      }},
+      KICK_Recoil: { base:"Recoil", overrides:{
+        torso:-6, lShoulder:-100, lElbow:-120, rShoulder:-90, rElbow:-120,
+        lHip:110, lKnee:40, rHip:30, rKnee:50,
+        rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
+        allowAiming:false, aimLegs:false,
+        flip:true, flipAt:0.9,
+        flipParts:['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'],
+        fullFlipFacing:true, fullFlipAt:0.9,
+        anim_events:[{ time:0.00, velocityX:0, velocityY:0 }]
+      }}
+    }
+  };
+})();
+
+
+/* Back-compat shim: rebuild CONFIG.presets from CONFIG.attacks */
+(function buildPresets(){
+  if (!window.CONFIG || !CONFIG.attacks) return;
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+
+  const SLAM = {
+    poses: clone(CONFIG.poses),
+    durations: clone(CONFIG.durations),
+    knockbackBase: (CONFIG.attacks.slots[2]?.knockbackBase ?? 250),
+    cancelWindow: (CONFIG.attacks.slots[2]?.cancelWindowRecoil ?? 0.5)
+  };
+
+  const KICK = {
+    durations: { toWindup:180, toStrike:110, toRecoil:680, toStance:0 },
+    knockbackBase: (CONFIG.attacks.slots[3]?.knockbackBase ?? 180),
+    cancelWindow: (CONFIG.attacks.slots[3]?.cancelWindowRecoil ?? 0.6),
+    poses: {
+      Stance: Object.assign(clone(CONFIG.poses.Stance), { resetFlipsBefore: true }),
+      Windup: clone(CONFIG.attacks.library.KICK_Windup.overrides),
+      Strike: clone(CONFIG.attacks.library.KICK_Strike.overrides),
+      Recoil: clone(CONFIG.attacks.library.KICK_Recoil.overrides)
+    }
+  };
+
+  const PUNCH = {
+    durations: { toWindup1:180, toWindup2:180, toStrike1:110, toStrike2:110, toRecoil:200, toStance:120 },
+    knockbackBase: 140,
+    cancelWindow: 0.7,
+    poses: {
+      Stance: clone(CONFIG.poses.Stance),
+      Windup: clone(CONFIG.poses.Windup),
+      Strike: clone(CONFIG.poses.Strike),
+      Recoil: clone(CONFIG.poses.Recoil),
+      Strike1: clone(CONFIG.attacks.library.PUNCH_Strike1?.overrides || {}),
+      Strike2: clone(CONFIG.attacks.library.PUNCH_Strike2?.overrides || {})
+    },
+    sequence: [
+      { pose:'Stance', durKey:'toStance' },
+      { pose:'Windup', durKey:'toWindup1' },
+      { pose:'Strike1', durKey:'toStrike1' },
+      { pose:'Windup', durKey:'toWindup2' },
+      { pose:'Strike2', durKey:'toStrike2' },
+      { pose:'Recoil', durKey:'toRecoil' },
+      { pose:'Stance', durKey:'toStance' }
+    ]
+  };
+
+  CONFIG.presets = { SLAM, KICK, PUNCH };
+  try { document.dispatchEvent(new Event('config:ready')); } catch(_){}
+})();
+
