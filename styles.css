@@ -1,0 +1,134 @@
+:root{
+  --controls-gap: clamp(10px, 2vw, 20px);
+  --action-size: 180px;
+  --interact-gap: 12px;
+  --page-max: 1280px; --gap: 20px; --pad: 16px; --card-br: 16px; --border: 1px solid #232325;
+  --glass: #0f0f10cc; --overlay-bg: linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.15) 60%, transparent);
+  --stage-h: clamp(320px, 60vh, 720px); --muted: #9aa6b2;
+  --control-scale: 0.75;
+  --stage-bottom-offset: clamp(10px, 1.4vw, 14px);
+}
+html, body { height: 100%; }
+body { margin: 0; background: #000; color: #f5f5f6; font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+main.stack { display: flex; flex-direction: column; gap: var(--gap); max-width: var(--page-max); margin-inline: auto; padding: var(--pad); }
+.widget { position: relative; background: var(--glass); border: var(--border); border-radius: var(--card-br); padding: clamp(12px, 2.6vw, 24px); }
+.widget--clear { background: transparent; border: 0; padding: 0; }
+
+.stage { position: relative; width: 100%; height: var(--stage-h); border-radius: var(--card-br); overflow: hidden; background: #0c0d10; outline: 1px solid #232325; isolation: isolate; display: grid; place-items: center; }
+canvas#game { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.controls-overlay { position: absolute; left: 0; right: 0; bottom: 0; top: 0; z-index: 3; pointer-events: none; }
+
+/* Virtual Joystick */
+.joystick-area { position: absolute; left: 20px; bottom: 20px; width: 140px; height: 140px; pointer-events: auto; }
+.joystick-base { position: absolute; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 50%; backdrop-filter: blur(4px); }
+.joystick-stick { position: absolute; width: 60px; height: 60px; background: rgba(255, 255, 255, 0.3); border: 3px solid rgba(255, 255, 255, 0.5); border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%, -50%); transition: all 0.1s ease-out; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+.joystick-stick.active { background: rgba(100, 200, 255, 0.5); border-color: rgba(100, 200, 255, 0.8); box-shadow: 0 0 20px rgba(100, 200, 255, 0.5); }
+
+/* Action Buttons */
+.action-buttons { position: absolute; right: 20px; bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 15px; width: 180px; height: 180px; pointer-events: auto; }
+.action-btn { border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.15); color: #f5f5f6; font-weight: 700; font-size: 18px; outline: 2px solid rgba(255, 255, 255, 0.25); backdrop-filter: blur(4px); cursor: pointer; transition: all 0.1s; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); touch-action: manipulation; }
+.action-btn:active { transform: scale(0.95); background: rgba(255, 255, 255, 0.25); outline-width: 3px; }
+.action-btn.attack-a { grid-column: 2; grid-row: 1; background: rgba(239, 68, 68, 0.2); outline-color: rgba(239, 68, 68, 0.4); }
+.action-btn.attack-a:active { background: rgba(239, 68, 68, 0.35); }
+.action-btn.attack-b { grid-column: 2; grid-row: 2; background: rgba(249, 115, 22, 0.2); outline-color: rgba(249, 115, 22, 0.4); }
+.action-btn.attack-b:active { background: rgba(249, 115, 22, 0.35); }
+.action-btn.jump { grid-column: 1; grid-row: 2; background: rgba(34, 197, 94, 0.2); outline-color: rgba(34, 197, 94, 0.4); font-size: 24px; }
+
+/* Interact Button */
+.interact-btn { position: absolute; bottom: 220px; right: 20px; width: 80px; height: 80px; border: 0; border-radius: 50%; background: rgba(34, 197, 94, 0.2); color: #22c55e; font-weight: 700; font-size: 32px; outline: 2px solid rgba(34, 197, 94, 0.4); backdrop-filter: blur(4px); cursor: pointer; transition: all 0.1s; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); pointer-events: auto; touch-action: manipulation; }
+.interact-btn:active { transform: scale(0.95); background: rgba(34, 197, 94, 0.35); }
+
+/* Top UI Bar */
+.top-ui { position: absolute; top: 10px; right: 10px; display: flex; gap: 10px; align-items: flex-start; pointer-events: auto; z-index: 4; }
+.ui-btn { border: 0; border-radius: 8px; padding: 8px 12px; background: rgba(255, 255, 255, 0.08); color: #f5f5f6; font-weight: 700; font-size: 14px; outline: 1px solid rgba(255, 255, 255, 0.14); cursor: pointer; backdrop-filter: blur(4px); transition: all 0.1s; touch-action: manipulation; }
+.ui-btn:active { transform: translateY(1px); background: rgba(255, 255, 255, 0.15); }
+.help-panel { position: absolute; top: 50px; right: 10px; background: rgba(0, 0, 0, 0.9); border: 1px solid #333; border-radius: 8px; padding: 12px; font-size: 12px; color: #ccc; max-width: 220px; pointer-events: auto; display: none; }
+.help-panel.visible { display: block; }
+.help-panel h4 { margin: 0 0 8px 0; color: #fff; font-size: 13px; }
+.help-panel .key { color: #86efac; font-weight: bold; }
+
+.settings { display: grid; gap: clamp(10px, 2vw, 14px); grid-template-columns: 1fr; }
+.box { padding: clamp(10px, 1.6vw, 16px); border-radius: 14px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.05); backdrop-filter: blur(4px); line-height: 1.5; min-height: 44px; }
+.label { font-size: 12px; opacity: 0.65; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.fields { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+.fields label { font-size: 12px; color: var(--muted); display: grid; gap: 6px; }
+.fields input[type="range"]{ width: 100%; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.pill { font-size: 12px; color: var(--muted); border: 1px solid #2b3947; border-radius: 999px; padding: 2px 8px; }
+
+/* Sprite debug & controls info */
+.sprite-debug { position: absolute; inset: 10px auto auto 10px; z-index: 5; font: 12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #e5e7eb; background: rgba(17,24,39,0.76); border: 1px solid rgba(255,255,255,0.16); border-radius: 10px; padding: 8px 10px; max-width: 42ch; backdrop-filter: blur(4px); }
+.sprite-debug h4 { margin: 0 0 6px 0; font-size: 12px; letter-spacing: .2px; opacity: .85; }
+.sprite-debug .grid { display: grid; grid-template-columns: auto auto; gap: 6px 12px; align-items: start; }
+.sprite-debug .ok { color: #86efac; }
+.sprite-debug .bad { color: #fca5a5; }
+.sprite-debug .warn { color: #fbbf24; }
+.sprite-debug .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.controls-info { position: absolute; top: 10px; right: 10px; z-index: 10; background: rgba(0,0,0,0.8); border: 1px solid #333; border-radius: 8px; padding: 10px; font-size: 11px; color: #ccc; max-width: 200px; }
+.controls-info h4 { margin: 0 0 5px 0; color: #fff; font-size: 12px; }
+.controls-info .key { color: #86efac; font-weight: bold; }
+
+/* Health/Stamina/Footing bars */
+.health-bar, .stamina-bar, .footing-bar { position: absolute; left: 14px; z-index: 10; background: rgba(0,0,0,0.8); border: 2px solid #333; backdrop-filter: blur(4px); }
+.health-bar { top: 32px; width: 200px; height: 20px; border-radius: 10px; padding: 2px; }
+.health-fill { height: 100%; background: linear-gradient(90deg, #ef4444 0%, #f87171 50%, #ef4444 100%); border-radius: 8px; transition: width 0.15s ease-out; box-shadow: 0 0 8px rgba(239, 68, 68, 0.5); }
+.health-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 10px; font-weight: bold; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none; }
+.stamina-bar { top: 55px; width: 200px; height: 20px; border-radius: 10px; padding: 2px; }
+.stamina-fill { height: 100%; background: linear-gradient(90deg, #22c55e 0%, #86efac 50%, #22c55e 100%); border-radius: 8px; transition: width 0.15s ease-out, background 0.2s; box-shadow: 0 0 8px rgba(34, 197, 94, 0.5); }
+.stamina-fill.low { background: linear-gradient(90deg, #ef4444 0%, #fca5a5 50%, #ef4444 100%); box-shadow: 0 0 8px rgba(239, 68, 68, 0.5); }
+.stamina-fill.dashing { background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 50%, #3b82f6 100%); box-shadow: 0 0 12px rgba(59, 130, 246, 0.8); animation: pulse 0.3s ease-in-out infinite alternate; }
+@keyframes pulse { from { opacity: 0.8; } to { opacity: 1; } }
+.stamina-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 10px; font-weight: bold; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none; }
+.footing-bar { top: 78px; width: 200px; height: 16px; border-radius: 8px; padding: 2px; }
+.footing-fill { height: 100%; background: linear-gradient(90deg, #d4d4d8 0%, #f4f4f5 50%, #d4d4d8 100%); border-radius: 6px; transition: width 0.15s ease-out; box-shadow: 0 0 6px rgba(212, 212, 216, 0.5); }
+.footing-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 9px; font-weight: bold; color: #27272a; text-shadow: 0 1px 1px rgba(255,255,255,0.5); pointer-events: none; }
+
+/* Interact prompt, transition overlay, area name */
+.interact-prompt { position: absolute; z-index: 15; background: rgba(0, 0, 0, 0.9); border: 2px solid #22c55e; border-radius: 12px; padding: 12px 18px; font-size: 14px; font-weight: bold; color: #22c55e; text-shadow: 0 0 8px rgba(34, 197, 94, 0.8); animation: promptPulse 1s ease-in-out infinite; pointer-events: none; box-shadow: 0 0 20px rgba(34, 197, 94, 0.4); display: none; }
+@keyframes promptPulse { 0%, 100% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(1.05); opacity: 1; } }
+.transition-overlay { position: absolute; inset: 0; background: black; z-index: 20; pointer-events: none; opacity: 0; transition: opacity 0.5s ease-in-out; }
+.transition-overlay.active { opacity: 1; }
+.area-name { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 25; font-size: 32px; font-weight: bold; color: white; text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); opacity: 0; transition: opacity 0.5s ease-in-out; pointer-events: none; }
+.area-name.visible { opacity: 1; }
+
+/* Overlay-aligned controls + scaling */
+.widget.widget--clear{ position: relative; }
+.controls-overlay{ position: absolute !important; inset: 0; pointer-events: none; z-index: 20; }
+.controls-overlay .joystick-area,
+.controls-overlay .action-buttons,
+.controls-overlay .interact-btn{
+  position: absolute !important;
+  pointer-events: auto;
+  z-index: 1000;
+}
+.controls-overlay .joystick-area{
+  left: var(--controls-gap);
+  bottom: var(--stage-bottom-offset);
+  transform: scale(var(--control-scale));
+  transform-origin: bottom left;
+}
+.controls-overlay .action-buttons{
+  right: var(--controls-gap);
+  bottom: var(--stage-bottom-offset);
+  transform: scale(var(--control-scale));
+  transform-origin: bottom right;
+}
+.controls-overlay .interact-btn{
+  right: var(--controls-gap);
+  bottom: calc(var(--stage-bottom-offset) + (var(--action-size) * var(--control-scale)) + (var(--interact-gap) * var(--control-scale)));
+  transform: scale(var(--control-scale));
+  transform-origin: bottom right;
+}
+
+@media (orientation: landscape) {
+  :root { --stage-h: clamp(360px, 72vh, 760px); }
+  .action-btn { font-size: 18px; }
+}
+@media (max-width: 768px) {
+  :root { --stage-h: clamp(340px, 70vh, 760px); }
+  main.stack { max-width: 100%; }
+}
+@media (max-width: 480px) {
+  :root { --stage-h: clamp(360px, 74vh, 780px); }
+  .controls-info { display: none; }
+}
