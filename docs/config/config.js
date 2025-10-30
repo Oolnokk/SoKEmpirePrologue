@@ -1,4 +1,4 @@
-// docs/config/config.js — same-origin mirror with live reload
+// docs/config/config.js — same-origin mirror with live reload + merge defaults
 (function(){
   async function loadCfg(){
     try {
@@ -7,10 +7,11 @@
       const text = await res.text();
       const fn = new Function(text + '\nreturn (typeof CONFIG!==\'undefined\') ? CONFIG : window.CONFIG;');
       const cfg = fn() || {};
-      window.CONFIG = cfg;
+      // Merge onto any defaults that config-shims.js seeded
+      window.CONFIG = Object.assign({}, window.CONFIG || {}, cfg);
       try { document.dispatchEvent(new Event('config:updated')); } catch(_){}
       console.log('[config mirror] loaded in-repo config into window.CONFIG');
-      return cfg;
+      return window.CONFIG;
     } catch (err){
       console.error('[config mirror] failed to load remote config:', err);
       window.CONFIG = window.CONFIG || {};

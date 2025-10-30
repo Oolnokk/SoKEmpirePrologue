@@ -1,7 +1,7 @@
-import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js';
-import { initFighters } from './fighter.js';
-import { initControls } from './controls.js';
-import { initCombat } from './combat.js';
+import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=4';
+import { initFighters } from './fighter.js?v=4';
+import { initControls } from './controls.js?v=4';
+import { initCombat } from './combat.js?v=4';
 
 const $$ = (sel, el=document) => el.querySelector(sel);
 function show(el, v){ if(!el) return; el.style.display = v ? '' : 'none'; }
@@ -33,7 +33,7 @@ if (reloadBtn){
   });
 }
 
-// Optional: respond to config updates triggered elsewhere
+// Re-init presets on external config updates
 document.addEventListener('config:updated', ()=>{
   initPresets();
   ensureAltSequenceUsesKickAlt();
@@ -89,4 +89,7 @@ function boot(){
   }
 }
 
-boot();
+(async function start(){
+  try { if (window.reloadConfig) await window.reloadConfig(); } catch(_){}
+  boot();
+})();
