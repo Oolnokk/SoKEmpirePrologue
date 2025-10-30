@@ -1,8 +1,1 @@
-{
-  "Stance": { "torso": 10, "head": 0, "armUpperL": -120, "armLowerL": -120, "armUpperR": -65, "armLowerR": -140, "legUpperL": 110, "legLowerL": 40, "legUpperR": 30, "legLowerR": 40 },
-  "Windup": { "torso": -35, "head": 0, "armUpperL": -360, "armLowerL": 0, "armUpperR": -360, "armLowerR": 0, "legUpperL": 40, "legLowerL": 90, "legUpperR": -90, "legLowerR": 90 },
-  "Strike": { "torso": 45, "head": 0, "armUpperL": -45, "armLowerL": 0, "armUpperR": -45, "armLowerR": 0, "legUpperL": 180, "legLowerL": 0, "legUpperR": 90, "legLowerR": 0 },
-  "Recoil": { "torso": -15, "head": 0, "armUpperL": -45, "armLowerL": 0, "armUpperR": -45, "armLowerR": 0, "legUpperL": 0, "legLowerL": 70, "legUpperR": 110, "legLowerR": 0 },
-  "Jump":   { "torso": -10, "head": 0, "armUpperL": -160, "armLowerL": -30, "armUpperR": -160, "armLowerR": -30, "legUpperL": 120, "legLowerL": 60, "legUpperR": 120, "legLowerR": 60 },
-  "Walk":   { "torso": 20, "head": 0, "armUpperL": -100, "armLowerL": -100, "armUpperR": -100, "armLowerR": -100, "legUpperL": 90, "legLowerL": 20, "legUpperR": 90, "legLowerR": 20 }
-}
+
