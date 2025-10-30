@@ -1,7 +1,9 @@
-import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=4';
-import { initFighters } from './fighter.js?v=4';
-import { initControls } from './controls.js?v=4';
-import { initCombat } from './combat.js?v=4';
+import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=5';
+import { initFighters } from './fighter.js?v=5';
+import { initControls } from './controls.js?v=5';
+import { initCombat } from './combat.js?v=5';
+import { updatePoses } from './animator.js?v=1';
+import { renderAll } from './render.js?v=1';
 
 const $$ = (sel, el=document) => el.querySelector(sel);
 function show(el, v){ if(!el) return; el.style.display = v ? '' : 'none'; }
@@ -67,7 +69,9 @@ let last = performance.now();
 function loop(t){
   const dt = (t - last) / 1000; last = t;
   if (window.GAME?.combat) window.GAME.combat.tick(dt);
+  updatePoses();
   drawStage();
+  renderAll(cx);
   updateHUD();
   requestAnimationFrame(loop);
 }
