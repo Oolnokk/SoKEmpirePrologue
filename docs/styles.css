@@ -1,0 +1,45 @@
+/* Minimal styles for HUD and layout */
+:root{ --bg:#0b0f16; --fg:#e5e7eb; --muted:#9ca3af; --accent:#60a5fa; }
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:14px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif}
+
+.stack{display:grid;gap:12px;padding:12px;max-width:1200px;margin:auto}
+.widget{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:12px;box-shadow:0 6px 30px rgba(0,0,0,.25)}
+.widget--clear{background:transparent;border:none;box-shadow:none;padding:0}
+
+.stage{position:relative;max-width:100%;aspect-ratio:16/10;margin:auto}
+.stage canvas{background:#0a0f14;border-radius:8px;display:block;width:100%;height:auto}
+
+.health-bar,.stamina-bar,.footing-bar{position:absolute;left:8px;right:8px;height:10px;border-radius:6px;overflow:hidden;border:1px solid #1f2937;background:#0b1220}
+.health-bar{top:8px}.stamina-bar{top:26px}.footing-bar{top:44px}
+.health-fill{height:100%;width:70%;background:linear-gradient(90deg,#ef4444,#f59e0b)}
+.stamina-fill{height:100%;width:50%;background:linear-gradient(90deg,#22d3ee,#3b82f6)}
+.footing-fill{height:100%;width:60%;background:linear-gradient(90deg,#34d399,#10b981)}
+.health-label,.stamina-label,.footing-label{position:absolute;top:-18px;font:12px/1.2 ui-monospace,monospace;color:#93c5fd;text-shadow:0 1px 0 #000}
+.health-label{left:8px}.stamina-label{left:8px}.footing-label{right:8px}
+
+.interact-prompt{position:absolute;bottom:12px;left:12px;background:rgba(17,24,39,.7);backdrop-filter:blur(4px);border:1px solid #334155;padding:6px 8px;border-radius:8px;font:12px ui-monospace,monospace;color:#e5e7eb;display:none}
+.transition-overlay{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .3s ease}
+.area-name{position:absolute;top:60px;left:12px;font-weight:600;color:#93c5fd}
+
+.controls-overlay{position:absolute;inset:0;pointer-events:none}
+.top-ui{position:absolute;top:8px;right:8px;display:flex;gap:6px;pointer-events:auto}
+.ui-btn{padding:6px 8px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:#e5e7eb}
+.help-panel{position:absolute;top:40px;right:8px;min-width:220px;background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:10px;display:none}
+.key{display:inline-block;min-width:72px;color:#a7f3d0}
+
+.joystick-area{position:absolute;bottom:12px;left:12px;width:140px;height:140px;border-radius:12px;background:rgba(17,24,39,.6);border:1px solid #334155;pointer-events:auto}
+.joystick-base{position:absolute;inset:0;border-radius:inherit;border:1px dashed #334155}
+.joystick-stick{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px;border-radius:50%;background:#111827;border:1px solid #374151;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+
+.action-buttons{position:absolute;bottom:12px;right:12px;display:flex;gap:8px;pointer-events:auto}
+.action-btn{width:48px;height:48px;border-radius:12px;border:1px solid #374151;background:#0b1220;color:#e5e7eb;font-weight:700}
+.action-btn.jump{font-size:20px}
+.interact-btn{position:absolute;bottom:70px;right:12px;width:48px;height:48px;border-radius:12px;border:1px solid #374151;background:#0b1220;color:#e5e7eb;font-weight:700;pointer-events:auto}
+
+.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.box{border:1px solid #1f2937;background:#0b1220;border-radius:12px;padding:10px}
+.label{font-size:12px;color:#a5b4fc;margin-bottom:6px}
+.fields{display:grid;gap:6px}
+.pill{display:inline-block;margin-right:6px;margin-bottom:6px;font-size:11px;padding:4px 6px;border-radius:16px;border:1px solid #334155;color:#9ca3af}
+
+@media (hover:none){ .help-panel{font-size:14px} }
