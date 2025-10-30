@@ -16,6 +16,28 @@ const staminaFill = $$('#staminaFill');
 const footingFill = $$('#footingFill');
 const healthFill = $$('#healthFill');
 const statusInfo = $$('#statusInfo');
+const reloadBtn = $$('#btnReloadCfg');
+
+if (reloadBtn){
+  reloadBtn.addEventListener('click', async ()=>{
+    try {
+      if (statusInfo) statusInfo.textContent = 'Reloading config…';
+      await window.reloadConfig?.();
+      initPresets();
+      ensureAltSequenceUsesKickAlt();
+      if (statusInfo) statusInfo.textContent = 'Config reloaded';
+    } catch (e){
+      if (statusInfo) statusInfo.textContent = 'Config reload failed';
+      console.error(e);
+    }
+  });
+}
+
+// Optional: respond to config updates triggered elsewhere
+document.addEventListener('config:updated', ()=>{
+  initPresets();
+  ensureAltSequenceUsesKickAlt();
+});
 
 function updateHUD(){
   const G = window.GAME;
