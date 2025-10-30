@@ -1,10 +1,14 @@
-// render.js — very simple stick-figure renderer + collider viz
+// render.js — simple stick-figure renderer + camera translation + collider viz
 export function renderAll(ctx){
   const G = window.GAME || {};
   const C = window.CONFIG || {};
   if (!ctx || !G.FIGHTERS) return;
+  const camX = G.CAMERA?.x || 0;
+  ctx.save();
+  ctx.translate(-camX, 0);
   renderFighter(ctx, G.FIGHTERS.npc, C);
   renderFighter(ctx, G.FIGHTERS.player, C);
+  ctx.restore();
 }
 
 function cos(a){ return Math.cos(a); }

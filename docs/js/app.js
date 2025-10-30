@@ -1,9 +1,11 @@
-import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=5';
-import { initFighters } from './fighter.js?v=5';
-import { initControls } from './controls.js?v=5';
-import { initCombat } from './combat.js?v=5';
-import { updatePoses } from './animator.js?v=1';
-import { renderAll } from './render.js?v=1';
+import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
+import { initFighters } from './fighter.js?v=6';
+import { initControls } from './controls.js?v=6';
+import { initCombat } from './combat.js?v=6';
+import { updatePoses } from './animator.js?v=2';
+import { renderAll } from './render.js?v=2';
+import { updateCamera } from './camera.js?v=1';
+import { initHitDetect, runHitDetect } from './hitdetect.js?v=1';
 
 const $$ = (sel, el=document) => el.querySelector(sel);
 function show(el, v){ if(!el) return; el.style.display = v ? '' : 'none'; }
@@ -19,6 +21,7 @@ const footingFill = $$('#footingFill');
 const healthFill = $$('#healthFill');
 const statusInfo = $$('#statusInfo');
 const reloadBtn = $$('#btnReloadCfg');
+const fpsHud = $$('#fpsHud');
 
 if (reloadBtn){
   reloadBtn.addEventListener('click', async ()=>{
@@ -54,25 +57,46 @@ function updateHUD(){
 function drawStage(){
   if (!cx) return;
   const C = window.CONFIG || {};
+  const camX = window.GAME?.CAMERA?.x || 0;
+  const worldW = window.GAME?.CAMERA?.worldWidth || 1600;
   cx.clearRect(0,0,cv.width,cv.height);
   cx.fillStyle = '#0b1220';
   cx.fillRect(0,0,cv.width,cv.height);
-  // ground
+  // ground (with camera offset)
   const gy = (C.canvas?.h||460) * (C.groundRatio||0.7);
+  cx.save();
+  cx.translate(-camX, 0);
   cx.strokeStyle = 'rgba(255,255,255,.15)';
-  cx.beginPath(); cx.moveTo(0, gy); cx.lineTo(cv.width, gy); cx.stroke();
+  cx.beginPath(); cx.moveTo(0, gy); cx.lineTo(worldW, gy); cx.stroke();
+  cx.restore();
+
   cx.fillStyle = '#93c5fd';
   cx.fillText('KHY Modular Build', 14, 22);
 }
 
 let last = performance.now();
+let fpsLast = performance.now();
+let frames = 0;
 function loop(t){
   const dt = (t - last) / 1000; last = t;
   if (window.GAME?.combat) window.GAME.combat.tick(dt);
   updatePoses();
+  updateCamera(cv);
   drawStage();
   renderAll(cx);
+  runHitDetect();
   updateHUD();
+
+  // FPS HUD
+  frames++;
+  const elapsed = (t - fpsLast);
+  if (elapsed >= 250){ // update every 1/4s for stability
+    const fps = Math.round((frames / elapsed) * 1000);
+    if (fpsHud) fpsHud.textContent = 'FPS: ' + fps;
+    fpsLast = t;
+    frames = 0;
+  }
+
   requestAnimationFrame(loop);
 }
 
@@ -84,6 +108,7 @@ function boot(){
     initFighters(cv, cx);
     initControls();
     initCombat();
+    initHitDetect();
     requestAnimationFrame(loop);
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);
   } catch (e){
