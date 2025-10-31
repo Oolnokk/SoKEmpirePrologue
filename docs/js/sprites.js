@@ -36,7 +36,7 @@ function getBones(C,G,fname){
     const torso = boneFrom(torsoStart, torsoEnd);
     const fcfg = (C.fighters?.[fname]) || {};
     const headNeck=(fcfg.parts?.head?.neck ?? C.parts?.head?.neck ?? 14)*(C.actor?.scale ?? 1)*(fcfg.actor?.scale ?? 1);
-    const headRad=(fccfg?.parts?.head?.radius ?? C.parts?.head?.radius ?? 16)*(C.actor?.scale ?? 1)*(fcfg.actor?.scale ?? 1);
+    const headRad=(fcfg.parts?.head?.radius ?? C.parts?.head?.radius ?? 16)*(C.actor?.scale ?? 1)*(fcfg.actor?.scale ?? 1);
     const headLen=headNeck+2*headRad;
     return {
       torso,
@@ -98,6 +98,7 @@ function drawBoneSprite(ctx, img, bone, styleKey, style, flip){
   const anchorMap = (style.anchor||{});
   const anchor = anchorMap[styleKey] || 'mid';
   const t = (anchor === 'start') ? 0.0 : 0.5;
+  // position from bone
   const px = bone.x + bone.len * t * Math.sin(bone.ang);
   const py = bone.y - bone.len * t * Math.cos(bone.ang);
 
@@ -106,20 +107,28 @@ function drawBoneSprite(ctx, img, bone, styleKey, style, flip){
   const Lunit = (units === 'percent') ? bone.len : 1;
   const pos = withAX(px, py, bone.ang, xform.ax||0, xform.ay||0, Lunit);
 
-  const widthFactor = (style.widthFactor && (style.widthFactor[styleKey] ?? style.widthFactor[styleKey.replace(/_.*/, '')])) ?? 1.0;
-  const baseH = bone.len * (xform.scaleY != null ? xform.scaleY : 1);
-  const aspect = (img.naturalWidth && img.naturalHeight) ? (img.naturalWidth / img.naturalHeight) : 1;
-  const baseW = baseH * aspect * (xform.scaleX != null ? xform.scaleX : 1) * widthFactor;
+  // === v19 sizing rules (no double-apply of scaleY to width) ===
+  const nh = img.naturalHeight || img.height || 1;
+  const nw = img.naturalWidth  || img.width  || 1;
+  const baseH = Math.max(1, bone.len);
+  const s = baseH / nh;
+  let w = nw * s * ((style.widthFactor && (style.widthFactor[styleKey] ?? style.widthFactor[styleKey?.replace(/_.*/, '')])) || 1);
+  let h = baseH;
+  const sx = (xform.scaleX==null?1:xform.scaleX);
+  const sy = (xform.scaleY==null?1:xform.scaleY);
+  w *= sx; h *= sy;
 
-  const theta = bone.ang + rad(xform.rotDeg || 0);
+  // rotation matches v19: add +PI baseline so art oriented upright by default
+  const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI;
 
   ctx.save();
   ctx.translate(pos[0], pos[1]);
   ctx.rotate(theta);
   if (flip){ ctx.scale(-1, 1); }
-  ctx.drawImage(img, -baseW/2, -baseH/2, baseW, baseH);
+  ctx.drawImage(img, -w/2, -h/2, w, h);
+
   const dbg = (style.debug||{});
-  if (dbg[styleKey]){ ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fillStyle = '#00e5ff'; ctx.fill(); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(baseW*0.25,0); ctx.strokeStyle = '#00e5ff'; ctx.lineWidth=2; ctx.stroke(); }
+  if (dbg[styleKey]){ ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fillStyle = '#00e5ff'; ctx.fill(); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(w*0.25,0); ctx.strokeStyle = '#00e5ff'; ctx.lineWidth=2; ctx.stroke(); }
   ctx.restore();
 }
 
@@ -141,12 +150,11 @@ export function renderSprites(ctx){
 }
 
 export function initSprites(){
-  // Optional: preload current fighter images
   const G = (window.GAME ||= {});
   const C = (window.CONFIG || {});
   const fname = pickFighterName(C, G);
   const f=C.fighters?.[fname];
   const S=(f?.sprites)||{};
   resolveImages(S);
-  console.log('[sprites] ready (ESM, v19 parenting + local flip) for', fname);
+  console.log('[sprites] ready (ESM v19 parenting + local flip) for', fname);
 }
