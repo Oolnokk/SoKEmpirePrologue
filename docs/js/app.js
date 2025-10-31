@@ -6,7 +6,7 @@ import { updatePoses } from './animator.js?v=2';
 import { renderAll } from './render.js?v=3';
 import { updateCamera } from './camera.js?v=1';
 import { initHitDetect, runHitDetect } from './hitdetect.js?v=1';
-import { initSprites, renderSprites } from './sprites.js?v=1';
+import { initSprites, renderSprites } from './sprites.js?v=2';
 
 const $$ = (sel, el=document) => el.querySelector(sel);
 function show(el, v){ if(!el) return; el.style.display = v ? '' : 'none'; }
