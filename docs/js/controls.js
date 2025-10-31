@@ -1,26 +1,36 @@
+// controls.js — keyboard/mouse input → window.GAME.input with edge taps
+// A/D move, Space/W jump (reserved), J/MouseLeft = button1, K/MouseRight = button2
+
 export function initControls(){
-  const GAME = window.GAME || {};
-  const on = (el,ev,fn)=>{ if(el) el.addEventListener(ev,fn,{passive:false}); };
-  const prevent = (e)=>{ e.preventDefault(); e.stopPropagation(); };
-  const joyArea = document.getElementById('joystickArea');
-  const joyStick = document.getElementById('joystickStick');
-  const btnA = document.getElementById('btnAttackA');
-  const btnB = document.getElementById('btnAttackB');
-  const btnJump = document.getElementById('btnJump');
-  const btnInteract = document.getElementById('btnInteract');
-  const P = GAME.FIGHTERS && GAME.FIGHTERS.player;
-  function setDir(dx,dy){ if(!P) return; P.input.left = dx < -0.2; P.input.right = dx > 0.2; }
-  let start=null;
-  function setStick(x,y){ if(!joyStick) return; joyStick.style.transform = 'translate(calc(-50% + '+x+'px), calc(-50% + '+y+'px))'; }
-  on(joyArea,'touchstart',function(e){ prevent(e); var t=e.touches[0]; var r=joyArea.getBoundingClientRect(); start={x:t.clientX-r.left,y:t.clientY-r.top}; setStick(0,0); });
-  on(joyArea,'touchmove',function(e){ prevent(e); if(!start) return; var t=e.touches[0]; var r=joyArea.getBoundingClientRect(); var dx=(t.clientX-r.left)-start.x; var dy=(t.clientY-r.top)-start.y; var lim=50; var nx=(dx/lim); var ny=(dy/lim); if (nx<-1) nx=-1; if(nx>1) nx=1; if(ny<-1) ny=-1; if(ny>1) ny=1; setDir(nx, ny); setStick(nx*lim, ny*lim); });
-  on(joyArea,'touchend',function(e){ prevent(e); start=null; setDir(0,0); setStick(0,0); });
-  on(document,'keydown',function(e){ if(!P) return; if(e.key==='a'||e.key==='ArrowLeft') P.input.left = true; if(e.key==='d'||e.key==='ArrowRight') P.input.right = true; if(e.key==='w'||e.key===' ') P.input.jump = true; if(e.key==='e') P.input.dash=true; });
-  on(document,'keyup',function(e){ if(!P) return; if(e.key==='a'||e.key==='ArrowLeft') P.input.left = false; if(e.key==='d'||e.key==='ArrowRight') P.input.right = false; if(e.key==='w'||e.key===' ') P.input.jump = false; if(e.key==='e') P.input.dash=false; });
-  on(btnA,'click',function(){ if(!P) return; P.attack.active = true; P.attack.preset = 'KICK'; P.attack.timer = 0; });
-  on(btnB,'click',function(){ if(!P) return; P.attack.active = true; P.attack.preset = 'PUNCH'; P.attack.timer = 0; });
-  on(btnJump,'click',function(){ if(!P) return; P.input.jump = true; setTimeout(function(){ P.input.jump=false; },180); });
-  on(btnInteract,'click',function(){ var prompt = document.getElementById('interactPrompt'); if(prompt){ prompt.style.display='block'; setTimeout(function(){ prompt.style.display='none'; }, 1000); } });
+  const G = (window.GAME ||= {});
+  G.input ||= { left:false, right:false, jump:false, dash:false, button1:false, button2:false, _taps:{} };
+  const I = G.input;
+  const setTap = (k)=>{ I._taps[k] = true; };
+  const setKey = (k, v)=>{ const was = !!I[k]; I[k] = !!v; if (v && !was && (k==='button1' || k==='button2')) setTap(k+'Tap'); };
+
+  function onKey(e, down){
+    switch(e.code){
+      case 'KeyA': setKey('left', down); break;
+      case 'KeyD': setKey('right', down); break;
+      case 'KeyW': case 'Space': setKey('jump', down); break;
+      case 'KeyJ': setKey('button1', down); break;
+      case 'KeyK': setKey('button2', down); break;
+      default: return;
+    }
+    e.preventDefault();
+  }
+  function onMouse(e, down){
+    if (e.button===0) setKey('button1', down);
+    else if (e.button===2) setKey('button2', down);
+  }
+
+  window.addEventListener('keydown', e=>onKey(e,true));
+  window.addEventListener('keyup',   e=>onKey(e,false));
+  window.addEventListener('mousedown', e=>onMouse(e,true));
+  window.addEventListener('mouseup',   e=>onMouse(e,false));
+  window.addEventListener('blur', ()=>{ Object.assign(I,{left:false,right:false,jump:false,dash:false,button1:false,button2:false}); I._taps={}; });
+
   console.log('[controls] wired');
-  return GAME;
 }
+
+export function consumeTaps(){ const I = (window.GAME?.input)||{}; const t = I._taps||{}; I._taps = {}; return t; }
