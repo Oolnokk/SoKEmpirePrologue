@@ -1,14 +1,6 @@
-// render.js — compute anchors from F.jointAngles (rad) and draw stick rig
-// v19 angle basis: 0 rad = up; segment forward = (sin,-cos).
-// Facing LEFT is a **mirror across the vertical axis**: we DO NOT change angles; we flip only the X components of vectors.
-// Outputs window.GAME.ANCHORS for use by sprites.js.
-
-function segPosFacing(x,y,len,ang,dir){ // dir: +1 right, -1 left
-  return [ x + len*(dir*Math.sin(ang)), y - len*Math.cos(ang) ];
-}
-function perpFacing(ang,dir){ // perpendicular to forward (cos, sin), mirror X by dir
-  return [ dir*Math.cos(ang), Math.sin(ang) ];
-}
+// render.js (v3): widen shoulder/hip spacing; keep vector-mirror flip; expose facingSign
+function segPosFacing(x,y,len,ang,dir){ return [ x + len*(dir*Math.sin(ang)), y - len*Math.cos(ang) ]; }
+function perpFacing(ang,dir){ return [ dir*Math.cos(ang), Math.sin(ang) ]; }
 function rad(v){ return (v==null?0:v); }
 
 function lengthsFor(C, fighterName){
@@ -30,11 +22,9 @@ function computeAnchorsFor(F, C, name){
   const gy = Math.round((C.groundRatio||0.7) * (C.canvas?.h || 460));
   const px = F.pos?.x ?? 0;
   const py = F.pos?.y ?? (gy-1);
-
-  // facing sign (+1 right, -1 left) — default from facingSign, fallback from facingRad
   const dir = (F.facingSign===-1) ? -1 : ( (F.facingSign===1) ? 1 : ((F.facingRad||0) > 1 ? -1 : 1) );
 
-  // base absolute angles (no facing baked in)
+  // base absolute (no facing baked in)
   const tAbs = rad(F.jointAngles?.torso);
   const lShAbs = tAbs + rad(F.jointAngles?.lShoulder);
   const rShAbs = tAbs + rad(F.jointAngles?.rShoulder);
@@ -49,9 +39,10 @@ function computeAnchorsFor(F, C, name){
   const torsoBot = [px, py];
   const torsoTop = segPosFacing(px, py, L.torso, tAbs, dir);
 
-  // shoulder/hip spacing along the **mirrored perpendicular**
-  const sOff = 0.18 * L.hitW;
-  const hOff = 0.22 * L.hitW;
+  // widen spacing: pick the larger of torso length or hitbox width as basis
+  const basis = Math.max(L.torso, L.hitW);
+  const sOff = Math.max(0.28 * basis, 10); // shoulders further out
+  const hOff = Math.max(0.32 * basis, 12); // hips a bit wider
   const perp = perpFacing(tAbs, dir);
   const lShoulderBase = [ torsoTop[0] - perp[0]*sOff, torsoTop[1] + perp[1]*sOff ];
   const rShoulderBase = [ torsoTop[0] + perp[0]*sOff, torsoTop[1] - perp[1]*sOff ];
@@ -81,13 +72,11 @@ export function renderAll(ctx){
   const camX = G.CAMERA?.x || 0;
   const colors = C.colors || { body:'#e5f0ff', left:'#86efac', right:'#93c5fd', guide:'#233044', hitbox:'#0ea5e9' };
 
-  // compute anchors from jointAngles with **vector-mirror** (not angle negation)
   const pName = (G.selectedFighter && C.fighters?.[G.selectedFighter]) ? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default');
   const Aplayer = computeAnchorsFor(G.FIGHTERS.player, C, pName);
   const Anpc    = computeAnchorsFor(G.FIGHTERS.npc,    C, pName);
   G.ANCHORS = { player: Aplayer, npc: Anpc };
 
-  // draw stick in camera space
   ctx.save();
   ctx.translate(-camX, 0);
   ctx.lineWidth = 3; ctx.strokeStyle = colors.body; ctx.fillStyle = colors.body;
