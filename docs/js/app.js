@@ -16,6 +16,15 @@ const cv = $$('#game');
 const cx = cv?.getContext('2d');
 window.GAME ||= {};
 
+// === Apply render layer order (user-specified) ===
+const RENDER_ORDER = ['HITBOX','ARM_R_LOWER','ARM_R_UPPER','LEG_R_LOWER','LEG_R_UPPER','HEAD','TORSO','LEG_L_UPPER','LEG_L_LOWER','ARM_L_UPPER','ARM_L_LOWER'];
+function applyRenderOrder(){
+  window.CONFIG ||= {};
+  window.CONFIG.render ||= {};
+  window.CONFIG.render.order = RENDER_ORDER;
+}
+applyRenderOrder();
+
 // HUD refs
 const staminaFill = $$('#staminaFill');
 const footingFill = $$('#footingFill');
@@ -31,6 +40,7 @@ if (reloadBtn){
       await window.reloadConfig?.();
       initPresets();
       ensureAltSequenceUsesKickAlt();
+      applyRenderOrder();
       if (statusInfo) statusInfo.textContent = 'Config reloaded';
     } catch (e){
       if (statusInfo) statusInfo.textContent = 'Config reload failed';
@@ -43,6 +53,7 @@ if (reloadBtn){
 document.addEventListener('config:updated', ()=>{
   initPresets();
   ensureAltSequenceUsesKickAlt();
+  applyRenderOrder();
 });
 
 function updateHUD(){
@@ -122,6 +133,7 @@ function boot(){
 
 (async function start(){
   try { if (window.reloadConfig) await window.reloadConfig(); } catch(_){}
+  applyRenderOrder();
   await initSprites();
   boot();
 })();
