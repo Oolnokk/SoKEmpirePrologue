@@ -1,91 +1,176 @@
-// render.js (v3): widen shoulder/hip spacing; keep vector-mirror flip; expose facingSign
-function segPosFacing(x,y,len,ang,dir){ return [ x + len*(dir*Math.sin(ang)), y - len*Math.cos(ang) ]; }
-function perpFacing(ang,dir){ return [ dir*Math.cos(ang), Math.sin(ang) ]; }
-function rad(v){ return (v==null?0:v); }
+// render.js — v19-accurate rig math wired for sprites.js
+// Angles in radians. 0 = up. Forward = (sin,-cos). Perp = (cos,sin).
+// We compute anchors from CONFIG offsets, then mirror around hitbox center when facing left.
 
-function lengthsFor(C, fighterName){
-  const s = (C.actor?.scale ?? 0.7) * (C.fighters?.[fighterName]?.actor?.scale ?? 1);
+function segPos(x, y, len, ang) {
+  return [x + len * Math.sin(ang), y - len * Math.cos(ang)];
+}
+function withAX(x, y, ang, off) {
+  if (!off) return [x, y];
+  const ax = off.ax || 0, ay = off.ay || 0;
+  const dx = ax * Math.sin(ang) + ay * Math.cos(ang);
+  const dy = ax * -Math.cos(ang) + ay * Math.sin(ang);
+  return [x + dx, y + dy];
+}
+
+function rad(v) { return v == null ? 0 : v; }
+
+function pickFighterConfig(C, name) {
+  const f = (C.fighters && (C.fighters[name] || C.fighters[Object.keys(C.fighters||{})[0] || ''])) || {};
+  return f;
+}
+
+function lengths(C, fcfg) {
+  const s = (C.actor?.scale ?? 1) * (fcfg.actor?.scale ?? 1);
   const P = C.parts || {};
-  const Pf = (C.fighters?.[fighterName]?.parts) || {};
-  const torso = (Pf.torso?.len ?? P.torso?.len ?? 60) * s;
-  const armU  = (Pf.arm?.upper ?? P.arm?.upper ?? 50) * s;
-  const armL  = (Pf.arm?.lower ?? P.arm?.lower ?? 50) * s;
-  const legU  = (Pf.leg?.upper ?? P.leg?.upper ?? 40) * s;
-  const legL  = (Pf.leg?.lower ?? P.leg?.lower ?? 40) * s;
-  const hitW  = (Pf.hitbox?.w   ?? P.hitbox?.w   ?? 120) * s;
-  const hitH  = (Pf.hitbox?.h   ?? P.hitbox?.h   ?? 160) * s;
-  return { torso, armU, armL, legU, legL, hitW, hitH, scale: s };
+  const Pf = fcfg.parts || {};
+  return {
+    torso: (Pf.torso?.len ?? P.torso?.len ?? 60) * s,
+    armU:  (Pf.arm?.upper ?? P.arm?.upper ?? 50) * s,
+    armL:  (Pf.arm?.lower ?? P.arm?.lower ?? 50) * s,
+    legU:  (Pf.leg?.upper ?? P.leg?.upper ?? 40) * s,
+    legL:  (Pf.leg?.lower ?? P.leg?.lower ?? 40) * s,
+    hbW:   (Pf.hitbox?.w   ?? P.hitbox?.w   ?? 120) * s,
+    hbH:   (Pf.hitbox?.h   ?? P.hitbox?.h   ?? 160) * s,
+    hbR:   (Pf.hitbox?.r   ?? P.hitbox?.r   ?? 60)  * s,
+    scale: s
+  };
 }
 
-function computeAnchorsFor(F, C, name){
-  const L = lengthsFor(C, name);
-  const gy = Math.round((C.groundRatio||0.7) * (C.canvas?.h || 460));
-  const px = F.pos?.x ?? 0;
-  const py = F.pos?.y ?? (gy-1);
-  const dir = (F.facingSign===-1) ? -1 : ( (F.facingSign===1) ? 1 : ((F.facingRad||0) > 1 ? -1 : 1) );
-
-  // base absolute (no facing baked in)
-  const tAbs = rad(F.jointAngles?.torso);
-  const lShAbs = tAbs + rad(F.jointAngles?.lShoulder);
-  const rShAbs = tAbs + rad(F.jointAngles?.rShoulder);
-  const lElAbs = lShAbs + rad(F.jointAngles?.lElbow);
-  const rElAbs = rShAbs + rad(F.jointAngles?.rElbow);
-  let lHipAbs = rad(F.jointAngles?.lHip);
-  let rHipAbs = rad(F.jointAngles?.rHip);
-  if (C.hierarchy?.legsFollowTorsoRotation){ lHipAbs += tAbs; rHipAbs += tAbs; }
-  const lKnAbs = lHipAbs + rad(F.jointAngles?.lKnee);
-  const rKnAbs = rHipAbs + rad(F.jointAngles?.rKnee);
-
-  const torsoBot = [px, py];
-  const torsoTop = segPosFacing(px, py, L.torso, tAbs, dir);
-
-  // widen spacing: pick the larger of torso length or hitbox width as basis
-  const basis = Math.max(L.torso, L.hitW);
-  const sOff = Math.max(0.28 * basis, 10); // shoulders further out
-  const hOff = Math.max(0.32 * basis, 12); // hips a bit wider
-  const perp = perpFacing(tAbs, dir);
-  const lShoulderBase = [ torsoTop[0] - perp[0]*sOff, torsoTop[1] + perp[1]*sOff ];
-  const rShoulderBase = [ torsoTop[0] + perp[0]*sOff, torsoTop[1] - perp[1]*sOff ];
-  const lHipBase      = [ torsoBot[0] - perp[0]*hOff, torsoBot[1] + perp[1]*hOff ];
-  const rHipBase      = [ torsoBot[0] + perp[0]*hOff, torsoBot[1] - perp[1]*hOff ];
-
-  const lElbow = segPosFacing(lShoulderBase[0], lShoulderBase[1], L.armU, lShAbs, dir);
-  const rElbow = segPosFacing(rShoulderBase[0], rShoulderBase[1], L.armU, rShAbs, dir);
-  const lHand  = segPosFacing(lElbow[0], lElbow[1], L.armL, lElAbs, dir);
-  const rHand  = segPosFacing(rElbow[0], rElbow[1], L.armL, rElAbs, dir);
-
-  const lKnee  = segPosFacing(lHipBase[0], lHipBase[1], L.legU, lHipAbs, dir);
-  const rKnee  = segPosFacing(rHipBase[0], rHipBase[1], L.legU, rHipAbs, dir);
-  const lFoot  = segPosFacing(lKnee[0], lKnee[1], L.legL, lKnAbs, dir);
-  const rFoot  = segPosFacing(rKnee[0], rKnee[1], L.legL, rKnAbs, dir);
-
-  return { torsoAbs: tAbs, torsoBot, torsoTop, lShoulderBase, rShoulderBase, lElbow, rElbow, lHand, rHand, lHipBase, rHipBase, lKnee, rKnee, lFoot, rFoot, facingSign: dir };
+function pickOffsets(C, fcfg) {
+  // v19 uses CONFIG.offsets.* with per-part origins; allow per-fighter overrides
+  function deepMerge(a,b){ const o = {...(a||{})}; for(const k in (b||{})){ o[k] = (typeof b[k]==='object' && !Array.isArray(b[k])) ? deepMerge(a?.[k], b[k]) : b[k]; } return o; }
+  return deepMerge(C.offsets || {}, fcfg.offsets || {});
 }
 
-function drawSegment(ctx, a, b){ ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke(); }
-function dot(ctx, p, r=2){ ctx.beginPath(); ctx.arc(p[0],p[1],r,0,Math.PI*2); ctx.fill(); }
+function computeAnchorsForFighter(F, C, fighterName) {
+  const fcfg = pickFighterConfig(C, fighterName);
+  const L = lengths(C, fcfg);
+  const OFF = pickOffsets(C, fcfg);
+  const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
 
-export function renderAll(ctx){
+  const centerX = F.pos?.x ?? 0;
+  const centerY = F.pos?.y ?? ((C.groundRatio||0.7) * (C.canvas?.h||460));
+  const torsoAng = rad(F.jointAngles?.torso);
+
+  // Hitbox attachment → torso base/top
+  const torsoAttach = {
+    x: centerX + (hbAttach.nx - 0.5) * L.hbW,
+    y: centerY + (hbAttach.ny - 0.5) * L.hbH
+  };
+  const base = withAX(torsoAttach.x, torsoAttach.y, torsoAng, OFF.torso?.origin);
+  const torsoTop = segPos(base[0], base[1], L.torso, torsoAng);
+
+  // Neck, shoulder, hip bases from CONFIG.offsets (v19 behavior)
+  const neckBase     = withAX(torsoTop[0], torsoTop[1], torsoAng, OFF.torso?.neck);
+  const shoulderBase = withAX(torsoTop[0], torsoTop[1], torsoAng, OFF.torso?.shoulder);
+  const hipBase      = withAX(base[0],      base[1],     torsoAng, OFF.torso?.hip);
+
+  // Arms: v19 draws with shoulderRel = torsoAng + lShoulderRel, elbowRel = lElbowRel
+  const lShoulderRel = rad(F.jointAngles?.lShoulder);
+  const rShoulderRel = rad(F.jointAngles?.rShoulder);
+  const lElbowRel    = rad(F.jointAngles?.lElbow);
+  const rElbowRel    = rad(F.jointAngles?.rElbow);
+
+  const lUpperAng = torsoAng + lShoulderRel;
+  const rUpperAng = torsoAng + rShoulderRel;
+  const lElbowPos = withAX(...segPos(shoulderBase[0], shoulderBase[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
+  const rElbowPos = withAX(...segPos(shoulderBase[0], shoulderBase[1], L.armU, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
+
+  const lLowerAng = lUpperAng + lElbowRel;
+  const rLowerAng = rUpperAng + rElbowRel;
+  const lWristPos = withAX(...segPos(lElbowPos[0], lElbowPos[1], L.armL, lLowerAng), lLowerAng, OFF.arm?.lower?.origin); // wrist start
+  const rWristPos = withAX(...segPos(rElbowPos[0], rElbowPos[1], L.armL, rLowerAng), rLowerAng, OFF.arm?.lower?.origin);
+
+  // Legs: v19 uses absolute hip angles; optionally add torso if legsFollowTorsoRotation
+  const legsFollow = !!C.hierarchy?.legsFollowTorsoRotation;
+  const lHipAng = rad(F.jointAngles?.lHip) + (legsFollow ? torsoAng : 0);
+  const rHipAng = rad(F.jointAngles?.rHip) + (legsFollow ? torsoAng : 0);
+  const lKneeRel = rad(F.jointAngles?.lKnee);
+  const rKneeRel = rad(F.jointAngles?.rKnee);
+
+  const lKneePos = withAX(...segPos(hipBase[0], hipBase[1], L.legU, lHipAng), lHipAng, OFF.leg?.upper?.knee);
+  const rKneePos = withAX(...segPos(hipBase[0], hipBase[1], L.legU, rHipAng), rHipAng, OFF.leg?.upper?.knee);
+  const lFootPos = segPos(lKneePos[0], lKneePos[1], L.legL, lHipAng + lKneeRel);
+  const rFootPos = segPos(rKneePos[0], rKneePos[1], L.legL, rHipAng + rKneeRel);
+
+  // Head sprite bone length like v19 (neck + 2*radius if present)
+  const headNeck = (fcfg.parts?.head?.neck ?? C.parts?.head?.neck ?? 14) * L.scale / (C.actor?.scale || 1);
+  const headRad  = (fcfg.parts?.head?.radius ?? C.parts?.head?.radius ?? 16) * L.scale / (C.actor?.scale || 1);
+  const headLen  = (headNeck + 2*headRad) * (C.actor?.scale ?? 1);
+
+  // Build ANCHORS (what sprites.js expects): start (x,y), len, ang
+  const A = {
+    center: { x: centerX, y: centerY },
+    torso:  { x: base[0], y: base[1], len: L.torso, ang: torsoAng },
+    head:   { x: neckBase[0], y: neckBase[1], len: headLen, ang: torsoAng },
+
+    arm_L_upper: { x: shoulderBase[0], y: shoulderBase[1], len: L.armU, ang: lUpperAng },
+    arm_L_lower: { x: lElbowPos[0],   y: lElbowPos[1],   len: L.armL, ang: lLowerAng },
+    arm_R_upper: { x: shoulderBase[0], y: shoulderBase[1], len: L.armU, ang: rUpperAng },
+    arm_R_lower: { x: rElbowPos[0],   y: rElbowPos[1],   len: L.armL, ang: rLowerAng },
+
+    leg_L_upper: { x: hipBase[0], y: hipBase[1], len: L.legU, ang: lHipAng },
+    leg_L_lower: { x: lKneePos[0], y: lKneePos[1], len: L.legL, ang: lHipAng + lKneeRel },
+    leg_R_upper: { x: hipBase[0], y: hipBase[1], len: L.legU, ang: rHipAng },
+    leg_R_lower: { x: rKneePos[0], y: rKneePos[1], len: L.legL, ang: rHipAng + rKneeRel },
+
+    hitbox: { w: L.hbW, h: L.hbH, r: L.hbR }
+  };
+
+  // Global MIRROR like v19 canvas flip, but applied to coordinates (so sprites.js sees the mirror)
+  const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
+  const flipLeft = Math.cos(facingRad) < 0;
+  if (flipLeft) {
+    const cx = centerX;
+    const mirrorX = (x) => (cx * 2 - x);
+    for (const k of Object.keys(A)) {
+      const b = A[k];
+      if (b && typeof b === 'object' && 'x' in b && 'y' in b) {
+        b.x = mirrorX(b.x);
+        // NOTE: angles are unchanged; sprites rotate using bone ang while their images already face "right".
+        // Limbs keep handedness because start points and angles mirror in world coordinates.
+      }
+    }
+  }
+
+  return A;
+}
+
+function drawStick(ctx, B) {
+  // compact bone debug for mobile
+  ctx.lineCap = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = '#a8b3c3';
+  const seg = (sx,sy,len,ang)=>{ const [ex,ey]=segPos(sx,sy,len,ang); ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke(); };
+  seg(B.torso.x, B.torso.y, B.torso.len, B.torso.ang);
+  seg(B.arm_L_upper.x, B.arm_L_upper.y, B.arm_L_upper.len, B.arm_L_upper.ang);
+  seg(B.arm_L_lower.x, B.arm_L_lower.y, B.arm_L_lower.len, B.arm_L_lower.ang);
+  seg(B.arm_R_upper.x, B.arm_R_upper.y, B.arm_R_upper.len, B.arm_R_upper.ang);
+  seg(B.arm_R_lower.x, B.arm_R_lower.y, B.arm_R_lower.len, B.arm_R_lower.ang);
+  seg(B.leg_L_upper.x, B.leg_L_upper.y, B.leg_L_upper.len, B.leg_L_upper.ang);
+  seg(B.leg_L_lower.x, B.leg_L_lower.y, B.leg_L_lower.len, B.leg_L_lower.ang);
+  seg(B.leg_R_upper.x, B.leg_R_upper.y, B.leg_R_upper.len, B.leg_R_upper.ang);
+  seg(B.leg_R_lower.x, B.leg_R_lower.y, B.leg_R_lower.len, B.leg_R_lower.ang);
+}
+
+export function renderAll(ctx) {
   const G = (window.GAME ||= {});
   const C = (window.CONFIG || {});
   if (!ctx || !G.FIGHTERS) return;
+
+  // pick fighter definition (TLETINGAN default if present)
+  const fName = (G.selectedFighter && C.fighters?.[G.selectedFighter])
+    ? G.selectedFighter
+    : (C.fighters?.TLETINGAN ? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default');
+
+  const pA = computeAnchorsForFighter(G.FIGHTERS.player, C, fName);
+  const nA = computeAnchorsForFighter(G.FIGHTERS.npc,    C, fName);
+  (G.ANCHORS ||= {}); G.ANCHORS.player = pA; G.ANCHORS.npc = nA;
+
+  // simple stick overlay (mobile-friendly)
   const camX = G.CAMERA?.x || 0;
-  const colors = C.colors || { body:'#e5f0ff', left:'#86efac', right:'#93c5fd', guide:'#233044', hitbox:'#0ea5e9' };
-
-  const pName = (G.selectedFighter && C.fighters?.[G.selectedFighter]) ? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default');
-  const Aplayer = computeAnchorsFor(G.FIGHTERS.player, C, pName);
-  const Anpc    = computeAnchorsFor(G.FIGHTERS.npc,    C, pName);
-  G.ANCHORS = { player: Aplayer, npc: Anpc };
-
   ctx.save();
   ctx.translate(-camX, 0);
-  ctx.lineWidth = 3; ctx.strokeStyle = colors.body; ctx.fillStyle = colors.body;
-  const A = Aplayer;
-  drawSegment(ctx, A.torsoBot, A.torsoTop);
-  drawSegment(ctx, A.lShoulderBase, A.lElbow); drawSegment(ctx, A.lElbow, A.lHand);
-  drawSegment(ctx, A.rShoulderBase, A.rElbow); drawSegment(ctx, A.rElbow, A.rHand);
-  drawSegment(ctx, A.lHipBase, A.lKnee);       drawSegment(ctx, A.lKnee, A.lFoot);
-  drawSegment(ctx, A.rHipBase, A.rKnee);       drawSegment(ctx, A.rKnee, A.rFoot);
-  dot(ctx, A.torsoTop, 2); dot(ctx, A.torsoBot, 2);
+  drawStick(ctx, pA);
+  // drawStick(ctx, nA); // uncomment for both
   ctx.restore();
 }
