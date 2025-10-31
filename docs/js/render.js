@@ -20,20 +20,21 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const hipBaseArr      = withAX(base[0],       base[1],        torsoAng, OFF.torso?.hip);
 
   const lShoulderRel = rad(F.jointAngles?.lShoulder); const rShoulderRel = rad(F.jointAngles?.rShoulder); const lElbowRel = rad(F.jointAngles?.lElbow); const rElbowRel = rad(F.jointAngles?.rElbow);
-  const lUpperAng = torsoAng + lShoulderRel; const rUpperAng = torsoAng + rShoulderRel;
+  let lUpperAng = torsoAng + lShoulderRel; let rUpperAng = torsoAng + rShoulderRel;
+  let lLowerAng = lUpperAng + lElbowRel;   let rLowerAng = rUpperAng + rElbowRel;
+
   const lElbowPosArr = withAX(...segPos(shoulderBaseArr[0], shoulderBaseArr[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
   const rElbowPosArr = withAX(...segPos(shoulderBaseArr[0], shoulderBaseArr[1], L.armU, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
-  const lLowerAng = lUpperAng + lElbowRel; const rLowerAng = rUpperAng + rElbowRel;
   const lWristPosArr = withAX(...segPos(lElbowPosArr[0], lElbowPosArr[1], L.armL, lLowerAng), lLowerAng, OFF.arm?.lower?.origin);
   const rWristPosArr = withAX(...segPos(rElbowPosArr[0], rElbowPosArr[1], L.armL, rLowerAng), rLowerAng, OFF.arm?.lower?.origin);
 
-  const legsFollow = !!C.hierarchy?.legsFollowTorsoRotation; const lHipAng = rad(F.jointAngles?.lHip) + (legsFollow ? torsoAng : 0); const rHipAng = rad(F.jointAngles?.rHip) + (legsFollow ? torsoAng : 0); const lKneeRel = rad(F.jointAngles?.lKnee); const rKneeRel = rad(F.jointAngles?.rKnee);
+  const legsFollow = !!C.hierarchy?.legsFollowTorsoRotation; let lHipAng = rad(F.jointAngles?.lHip) + (legsFollow ? torsoAng : 0); let rHipAng = rad(F.jointAngles?.rHip) + (legsFollow ? torsoAng : 0); const lKneeRel = rad(F.jointAngles?.lKnee); const rKneeRel = rad(F.jointAngles?.rKnee);
   const lKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], L.legU, lHipAng), lHipAng, OFF.leg?.upper?.knee);
   const rKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], L.legU, rHipAng), rHipAng, OFF.leg?.upper?.knee);
   const lFootPosArr = segPos(lKneePosArr[0], lKneePosArr[1], L.legL, lHipAng + lKneeRel);
   const rFootPosArr = segPos(rKneePosArr[0], rKneePosArr[1], L.legL, rHipAng + rKneeRel);
 
-  // Build bone objects (also keep base points as pseudo-bones so mirror hits them)
+  // Build bone objects (include base points)
   const B = {
     center:{x:centerX,y:centerY},
     torso:{x:base[0],y:base[1],len:L.torso,ang:torsoAng},
@@ -54,10 +55,13 @@ function computeAnchorsForFighter(F, C, fighterName) {
     leg_R_lower:{x:rKneePosArr[0],y:rKneePosArr[1],len:L.legL,ang:rHipAng+rKneeRel}
   };
 
-  // Mirror around hitbox center if facing left
+  // Mirror around hitbox center if facing left — also flip angles θ→-θ so sprites rotate correctly
   const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
   const flipLeft = Math.cos(facingRad) < 0;
-  if (flipLeft) { const cx = centerX; const mirrorX = (x)=> (cx*2 - x); for (const k in B){ const b=B[k]; if (b && typeof b==='object' && 'x' in b && 'y' in b){ b.x = mirrorX(b.x); } } }
+  if (flipLeft) {
+    const cx = centerX; const mirrorX = (x)=> (cx*2 - x);
+    for (const k in B){ const b=B[k]; if (b && typeof b==='object' && 'x' in b && 'y' in b){ b.x = mirrorX(b.x); if ('ang' in b){ b.ang = -b.ang; } } }
+  }
 
   return { B, L };
 }
