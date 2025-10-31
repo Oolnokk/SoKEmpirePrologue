@@ -73,45 +73,41 @@ function urlFor(prof, key){
 
 function rot(x,y,a){ const c=Math.cos(a), s=Math.sin(a); return [x*c - y*s, x*s + y*c]; }
 
-function drawBoneSprite(ctx, p0, p1, key, prof, style, faceLeft){
+function drawBoneSprite(ctx, p0, p1, key, prof, style){
   const url = urlFor(prof, key);
-  const imgRec = url && IMG_CACHE.get(url);
-  const img = imgRec?.ready ? imgRec.img : null;
+  const rec = url && IMG_CACHE.get(url);
+  const img = rec?.ready ? rec.img : null;
   if (!img) return; // stick fallback already drawn underneath
 
   const xf = getXf(style, key);
   const units = getUnits(style);
   const anchor = getAnchor(style, key); // 'start' | 'mid' | 'end'
-  const wf = getWF(style, key, key==='torso'?0.45:(key.startsWith('arm')?0.28:0.32));
+  const wf = getWF(style, key, 1.0);   // interpret as *multiplier on natural AR thickness*
 
   const dx = p1[0]-p0[0], dy = p1[1]-p0[1];
   const len = Math.hypot(dx,dy) || 1;
   const ang = Math.atan2(dy,dx);
 
-  // Map: bone length = image width; thickness = len*wf
-  const scaleX = (xf.scaleX ?? 1);
-  const scaleY = (xf.scaleY ?? 1);
-  const w = len * scaleX;
-  const h = Math.max(2, len * wf * scaleY);
+  const ar = (img.naturalHeight||img.height||1) / (img.naturalWidth||img.width||1);
+  const w = len * (xf.scaleX ?? 1);
+  const h = w * ar * (xf.scaleY ?? 1) * wf; // keep image aspect so limbs aren't blown up
 
-  // Base position: midpoint
+  // Base position: midpoint of the bone
   let baseX = (p0[0]+p1[0])/2;
   let baseY = (p0[1]+p1[1])/2;
 
-  // Anchor shift along bone
+  // Anchor shift along the bone's local X axis
   let anchorShift = 0;
   if (anchor==='start') anchorShift = -w/2;
-  else if (anchor==='end') anchorShift = w/2;
-  // Extra offsets (ax, ay) in specified units
+  else if (anchor==='end') anchorShift =  w/2;
+
+  // Extra offsets (ax, ay) in specified units (percent of sprite draw size if percent)
   let ax = (xf.ax ?? 0), ay = (xf.ay ?? 0);
   if (units==='percent'){ ax *= w; ay *= h; }
 
   ctx.save();
   ctx.translate(baseX, baseY);
   ctx.rotate(ang + (xf.rotDeg||0)*Math.PI/180);
-  if (faceLeft && key==='torso'){ ctx.scale(-1,1); } // optional: flip torso with facing
-
-  // Apply anchor/offset in bone-local space
   ctx.translate(anchorShift + ax, ay);
   ctx.drawImage(img, -w/2, -h/2, w, h);
 
@@ -124,7 +120,6 @@ function drawBoneSprite(ctx, p0, p1, key, prof, style, faceLeft){
 }
 
 function drawHeadFromBone(ctx, F, C, A, prof, style){
-  // Compute head center from torsoTop + rotated neck
   const s = C.actor?.scale ?? 0.7;
   const neck  = (prof.parts?.head?.neck ?? C.parts?.head?.neck ?? 12) * s;
   const radius= (prof.parts?.head?.radius ?? C.parts?.head?.radius ?? 12) * s;
@@ -134,19 +129,17 @@ function drawHeadFromBone(ctx, F, C, A, prof, style){
   const cy = A.torsoTop[1] + off[1];
 
   const url = urlFor(prof, 'head');
-  const imgRec = url && IMG_CACHE.get(url);
-  const img = imgRec?.ready ? imgRec.img : null;
+  const rec = url && IMG_CACHE.get(url);
+  const img = rec?.ready ? rec.img : null;
   const xf = getXf(style, 'head');
   const units = getUnits(style);
   let ax = (xf.ax ?? 0), ay = (xf.ay ?? 0);
   let w = radius*2*(xf.scaleX??1), h = radius*2*(xf.scaleY??1);
   if (units==='percent'){ ax *= w; ay *= h; }
-  const faceLeft = Math.cos(F.facingRad||0) < 0;
 
   ctx.save();
   ctx.translate(cx + ax, cy + ay);
   ctx.rotate(torsoAng * 0.25 + (xf.rotDeg||0)*Math.PI/180);
-  if (faceLeft) ctx.scale(-1,1);
   if (img){ ctx.drawImage(img, -w/2, -h/2, w, h); }
   else { ctx.beginPath(); ctx.arc(0,0,radius,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,.95)'; ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.stroke(); }
   if (style.debug?.head){ ctx.strokeStyle='#22d3ee'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(6,0); ctx.moveTo(0,-6); ctx.lineTo(0,6); ctx.stroke(); }
@@ -157,21 +150,15 @@ function drawFighterSprites(ctx, F, C, A){
   if (!F || !A) return;
   const { prof } = getProfile(C);
   const style = getStyle(prof);
-  const faceLeft = Math.cos(F.facingRad||0) < 0;
-
-  // === Z-order: legs → torso → arms → head ===
-  // Legs
-  drawBoneSprite(ctx, A.lHipBase, A.lKnee, 'legUpper', prof, style, faceLeft);
-  drawBoneSprite(ctx, A.lKnee, A.lFoot,  'legLower', prof, style, faceLeft);
-  drawBoneSprite(ctx, A.rHipBase, A.rKnee, 'legUpper', prof, style, faceLeft);
-  drawBoneSprite(ctx, A.rKnee, A.rFoot,  'legLower', prof, style, faceLeft);
-  // Torso
-  drawBoneSprite(ctx, A.torsoBot, A.torsoTop, 'torso', prof, style, faceLeft);
-  // Arms
-  drawBoneSprite(ctx, A.lShoulderBase, A.lElbow, 'armUpper', prof, style, faceLeft);
-  drawBoneSprite(ctx, A.lElbow, A.lHand, 'armLower', prof, style, faceLeft);
-  drawBoneSprite(ctx, A.rShoulderBase, A.rElbow, 'armUpper', prof, style, faceLeft);
-  drawBoneSprite(ctx, A.rElbow, A.rHand, 'armLower', prof, style, faceLeft);
-  // Head (bone-driven)
+  // Z: legs → torso → arms → head
+  drawBoneSprite(ctx, A.lHipBase, A.lKnee, 'legUpper', prof, style);
+  drawBoneSprite(ctx, A.lKnee, A.lFoot,  'legLower', prof, style);
+  drawBoneSprite(ctx, A.rHipBase, A.rKnee, 'legUpper', prof, style);
+  drawBoneSprite(ctx, A.rKnee, A.rFoot,  'legLower', prof, style);
+  drawBoneSprite(ctx, A.torsoBot, A.torsoTop, 'torso', prof, style);
+  drawBoneSprite(ctx, A.lShoulderBase, A.lElbow, 'armUpper', prof, style);
+  drawBoneSprite(ctx, A.lElbow, A.lHand, 'armLower', prof, style);
+  drawBoneSprite(ctx, A.rShoulderBase, A.rElbow, 'armUpper', prof, style);
+  drawBoneSprite(ctx, A.rElbow, A.rHand, 'armLower', prof, style);
   drawHeadFromBone(ctx, F, C, A, prof, style);
 }
