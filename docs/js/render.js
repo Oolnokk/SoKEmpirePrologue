@@ -1,9 +1,10 @@
-// render.js — simple stick-figure renderer + camera translation + collider viz
+// render.js — simple stick-figure renderer + camera translation + collider viz + anchors
 export function renderAll(ctx){
   const G = window.GAME || {};
   const C = window.CONFIG || {};
   if (!ctx || !G.FIGHTERS) return;
   const camX = G.CAMERA?.x || 0;
+  G.ANCHORS ||= {};
   ctx.save();
   ctx.translate(-camX, 0);
   renderFighter(ctx, G.FIGHTERS.npc, C);
@@ -56,6 +57,15 @@ function renderFighter(ctx, F, C){
   const rKnee = seg(rHipBase[0], rHipBase[1], legUpper, rHip);
   const rFoot = seg(rKnee[0], rKnee[1], legLower, rHip + rK);
 
+  // Expose anchors for sprite renderer
+  (window.GAME ||= {}).ANCHORS ||= {};
+  window.GAME.ANCHORS[F.id] = {
+    torsoTop, torsoBot, lShoulderBase, rShoulderBase, lHipBase, rHipBase,
+    lElbow, lHand, rElbow, rHand, lKnee, lFoot, rKnee, rFoot,
+    centerX, centerY, hb, s, torsoLen
+  };
+
+  // Lines
   ctx.save();
   ctx.lineWidth = 2;
   ctx.strokeStyle = 'rgba(255,255,255,.9)';
@@ -66,6 +76,7 @@ function renderFighter(ctx, F, C){
   ctx.beginPath(); ctx.moveTo(rHipBase[0], rHipBase[1]); ctx.lineTo(rKnee[0], rKnee[1]); ctx.lineTo(rFoot[0], rFoot[1]); ctx.stroke();
   ctx.restore();
 
+  // Colliders
   const G = window.GAME || {};
   if (G.COLLIDERS_POS && F.isPlayer){
     G.COLLIDERS_POS.handL = { x: lHand[0], y: lHand[1] };
