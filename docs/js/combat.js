@@ -1,77 +1,96 @@
+// combat.js — minimal attack stepper + movement using CONFIG
+import { pushPoseOverride } from './animator.js?v=2';
+import { consumeTaps } from './controls.js?v=6';
+
 export function initCombat(){
-  const GAME = window.GAME ||= {};
-  const C = window.CONFIG || {};
+  const G = (window.GAME ||= {});
+  const C = (window.CONFIG || {});
+  G.combat = makeCombat(G, C);
+  console.log('[combat] ready');
+}
 
-  function usePreset(name){ return (C.presets && C.presets[name]) || null; }
+function makeCombat(G, C){
+  const state = { seq:null, stepIndex:0, timeLeft:0, label:'' };
+  const P = ()=> G.FIGHTERS?.player;
 
-  function startAttack(P, name){
-    const preset = usePreset(name);
-    if(!preset){ P.attack.active=false; return; }
-    P.attack.active=true;
-    P.attack.preset=name;
-    P.attack.timer=0;
-    P.attack.phaseIndex=0;
-    P.attack.currentPhase = (preset.sequence?.[0]?.pose) || 'Windup';
-    P.attack.sequence = (preset.sequence||[
-      {pose:'Windup', durKey:'toWindup'},
-      {pose:'Strike', durKey:'toStrike'},
-      {pose:'Recoil', durKey:'toRecoil'},
-      {pose:'Stance', durKey:'toStance'}
-    ]);
+  function startSequence(steps, label=''){
+    if (!steps || !steps.length) return;
+    state.seq = steps.slice(); state.stepIndex = 0; state.timeLeft = (steps[0].durMs||120); state.label = label;
+    applyStep();
   }
+  function applyStep(){
+    const s = state.seq?.[state.stepIndex]; if (!s) return stopSequence();
+    const poseDeg = buildPoseFromKey(C, s.poseKey || s.pose || s.poseKeyName);
+    pushPoseOverride('player', poseDeg, s.durMs||120);
+  }
+  function nextStep(){
+    state.stepIndex++;
+    if (!state.seq || state.stepIndex>=state.seq.length) return stopSequence();
+    state.timeLeft = (state.seq[state.stepIndex].durMs||120);
+    applyStep();
+  }
+  function stopSequence(){ state.seq=null; state.stepIndex=0; state.timeLeft=0; state.label=''; }
 
-  function updateAttack(P, dt){
-    if(!P.attack.active) return;
-    const preset = usePreset(P.attack.preset);
-    if(!preset){ P.attack.active=false; return; }
-    const seq = P.attack.sequence;
-    if(!seq||seq.length===0){ P.attack.active=false; return; }
-    const cur = seq[P.attack.phaseIndex];
-    P.attack.currentPhase = cur.pose || P.attack.currentPhase || 'Stance';
-    let dur = cur.durMs || 0;
-    if (!dur && cur.durKey && preset.durations){ dur = preset.durations[cur.durKey] || 0; }
-    P.attack.timer += dt*1000;
-    if (P.attack.timer >= dur){
-      P.attack.timer = 0;
-      P.attack.phaseIndex++;
-      if (P.attack.phaseIndex >= seq.length){ P.attack.active=false; P.attack.currentPhase='Stance'; }
+  function handleInputAttacks(){
+    const taps = consumeTaps();
+    if (taps.button1Tap){
+      const s = getKickQuick(C);
+      if (s) startSequence(s, 'KICK');
+    } else if (taps.button2Tap){
+      const s = getHeavySlam(C);
+      if (s) startSequence(s, 'SLAM');
     }
   }
 
-  function updateStamina(P, dt){
-    const S = P.stamina; if (!S) return;
-    if (P.attack.active) S.current = Math.max(0, S.current - S.drainRate*dt);
-    else S.current = Math.min(S.max, S.current + S.regenRate*dt);
-  }
-
-  function updateMovement(P, dt){
-    const input = P.input; if(!input) return;
-    const sp = 140;
-    if (input.left) P.pos.x -= sp*dt;
-    if (input.right) P.pos.x += sp*dt;
-    if (input.jump && P.onGround){ P.vel.y = -280; P.onGround=false; }
-    P.vel.y += 700*dt; P.pos.y += P.vel.y*dt;
-    const ground = (C.canvas?.h||460) * (C.groundRatio||0.7);
-    const hb = (C.parts?.hitbox?.h||100) * (C.actor?.scale||0.7);
-    const maxY = ground - hb/2;
-    if (P.pos.y >= maxY){ P.pos.y = maxY; P.vel.y = 0; P.onGround = true; }
-  }
-
   function tick(dt){
-    const P = GAME.FIGHTERS?.player; if(!P) return;
-    updateMovement(P, dt);
-    updateAttack(P, dt);
-    updateStamina(P, dt);
+    // movement (A/D) → vel.x/pos.x
+    const p = P(); if (p){
+      const M = C.movement || {};
+      const I = G.input || {};
+      p.vel ||= {x:0,y:0}; p.pos ||= {x:0,y:0};
+      const ax = M.accelX || 1200; const max = M.maxSpeedX || 420; const fr = M.friction || 8;
+      if (I.left && !I.right) p.vel.x -= ax*dt; else if (I.right && !I.left) p.vel.x += ax*dt; else p.vel.x *= Math.max(0, 1 - fr*dt);
+      p.vel.x = Math.max(-max, Math.min(max, p.vel.x));
+      p.pos.x += p.vel.x * dt;
+      // face
+      if (Math.abs(p.vel.x)>1) p.facingRad = (p.vel.x>=0? 0 : Math.PI);
+    }
+
+    handleInputAttacks();
+
+    // attack stepper
+    if (state.seq){
+      state.timeLeft -= (dt*1000);
+      if (state.timeLeft <= 0){ nextStep(); }
+    }
   }
 
-  function wireButtons(){
-    const A=document.getElementById('btnAttackA');
-    const B=document.getElementById('btnAttackB');
-    if(A) A.addEventListener('click',()=>startAttack(GAME.FIGHTERS.player, 'KICK'));
-    if(B) B.addEventListener('click',()=>startAttack(GAME.FIGHTERS.player, 'PUNCH'));
-  }
-
-  wireButtons();
-  GAME.combat = { startAttack, tick };
-  return GAME;
+  return { tick, startSequence };
 }
+
+function getKickQuick(C){
+  const slot = C.attacks?.slots?.[3];
+  const quick = slot?.quick?.base;
+  return quick ? quick.map(x=>({ poseKey:x.poseKey || x.poseKeyName || x.poseKey || x.poseKey || x.poseKey, durMs:x.durMs })) : null;
+}
+function getHeavySlam(C){
+  const slot = C.attacks?.slots?.[4] || C.attacks?.slots?.[2];
+  const seq = slot?.sequence;
+  return seq ? seq.map(x=>({ poseKey:x.poseKey, durMs:x.durMs })) : null;
+}
+
+function buildPoseFromKey(C, key){
+  if (!key) return {};
+  const lib = C.attacks?.library || {};
+  const baseDef = lib[key];
+  if (baseDef){
+    const baseName = baseDef.base;
+    const basePose = (C.poses && C.poses[baseName]) ? clone(C.poses[baseName]) : {};
+    return Object.assign(basePose, clone(baseDef.overrides||{}));
+  } else {
+    // direct pose name in CONFIG.poses
+    const pose = (C.poses && C.poses[key]) ? clone(C.poses[key]) : {};
+    return pose;
+  }
+}
+function clone(o){ return JSON.parse(JSON.stringify(o||{})); }
