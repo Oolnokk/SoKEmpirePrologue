@@ -1,9 +1,9 @@
 // render.js — compute anchors from F.jointAngles (rad) and draw stick rig
 // v19 angle basis: 0 rad = up; segment end uses (sin,-cos).
+// Now mirrors facing by **reflecting angles across the vertical axis** (ang' = -ang when facing left).
 // Outputs window.GAME.ANCHORS for use by sprites.js.
 
 function segPos(x,y,len,ang){ return [ x + len*Math.sin(ang), y - len*Math.cos(ang) ]; }
-function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function rad(v){ return (v==null?0:v); }
 
 function lengthsFor(C, fighterName){
@@ -26,26 +26,40 @@ function computeAnchorsFor(F, C, name){
   const px = F.pos?.x ?? 0;
   const py = F.pos?.y ?? (gy-1);
 
-  // angles (rad)
-  const tAbs = rad(F.jointAngles?.torso) + rad(F.facingRad);
-  // shoulders relative to torso; elbows relative to shoulders
-  const lShAbs = tAbs + rad(F.jointAngles?.lShoulder);
-  const rShAbs = tAbs + rad(F.jointAngles?.rShoulder);
-  const lElAbs = lShAbs + rad(F.jointAngles?.lElbow);
-  const rElAbs = rShAbs + rad(F.jointAngles?.rElbow);
-  // hips are ABS (config limits are absolute); knees are relative
-  let lHipAbs = rad(F.jointAngles?.lHip);
-  let rHipAbs = rad(F.jointAngles?.rHip);
-  if (C.hierarchy?.legsFollowTorsoRotation){ lHipAbs += tAbs; rHipAbs += tAbs; }
-  const lKnAbs = lHipAbs + rad(F.jointAngles?.lKnee);
-  const rKnAbs = rHipAbs + rad(F.jointAngles?.rKnee);
+  // facing: +1 right, -1 left. Fallback to facingRad heuristic if needed.
+  const dir = (F.facingSign===-1) ? -1 : ( (F.facingSign===1) ? 1 : ((F.facingRad||0) > 1 ? -1 : 1) );
+
+  // angles (rad), computed WITHOUT facing, then mirrored if dir==-1 (ang' = -ang)
+  const tAbs0 = rad(F.jointAngles?.torso);
+  const lShAbs0 = tAbs0 + rad(F.jointAngles?.lShoulder);
+  const rShAbs0 = tAbs0 + rad(F.jointAngles?.rShoulder);
+  const lElAbs0 = lShAbs0 + rad(F.jointAngles?.lElbow);
+  const rElAbs0 = rShAbs0 + rad(F.jointAngles?.rElbow);
+
+  let lHipAbs0 = rad(F.jointAngles?.lHip);
+  let rHipAbs0 = rad(F.jointAngles?.rHip);
+  if (C.hierarchy?.legsFollowTorsoRotation){ lHipAbs0 += tAbs0; rHipAbs0 += tAbs0; }
+  const lKnAbs0 = lHipAbs0 + rad(F.jointAngles?.lKnee);
+  const rKnAbs0 = rHipAbs0 + rad(F.jointAngles?.rKnee);
+
+  // Apply mirror across vertical axis if facing left
+  const tAbs = (dir===1)? tAbs0 : -tAbs0;
+  const lShAbs = (dir===1)? lShAbs0 : -lShAbs0;
+  const rShAbs = (dir===1)? rShAbs0 : -rShAbs0;
+  const lElAbs = (dir===1)? lElAbs0 : -lElAbs0;
+  const rElAbs = (dir===1)? rElAbs0 : -rElAbs0;
+  const lHipAbs = (dir===1)? lHipAbs0 : -lHipAbs0;
+  const rHipAbs = (dir===1)? rHipAbs0 : -rHipAbs0;
+  const lKnAbs = (dir===1)? lKnAbs0 : -lKnAbs0;
+  const rKnAbs = (dir===1)? rKnAbs0 : -rKnAbs0;
 
   const torsoBot = [px, py];
   const torsoTop = segPos(px, py, L.torso, tAbs);
-  // simple shoulder/hip spacing along torso perpendicular
-  const sOff = 0.18 * L.hitW; // shoulder spread
-  const hOff = 0.22 * L.hitW; // hip spread
-  const perpX = Math.cos(tAbs), perpY = Math.sin(tAbs); // (cos,sin) is perp in our basis
+
+  // shoulder/hip spacing along torso perpendicular (perp of our basis = (cos,sin))
+  const sOff = 0.18 * L.hitW;
+  const hOff = 0.22 * L.hitW;
+  const perpX = Math.cos(tAbs), perpY = Math.sin(tAbs);
   const lShoulderBase = [ torsoTop[0] - perpX*sOff, torsoTop[1] + perpY*sOff ];
   const rShoulderBase = [ torsoTop[0] + perpX*sOff, torsoTop[1] - perpY*sOff ];
   const lHipBase      = [ torsoBot[0] - perpX*hOff, torsoBot[1] + perpY*hOff ];
@@ -79,7 +93,7 @@ export function renderAll(ctx){
   const camX = G.CAMERA?.x || 0;
   const colors = C.colors || { body:'#e5f0ff', left:'#86efac', right:'#93c5fd', guide:'#233044', hitbox:'#0ea5e9' };
 
-  // compute anchors from jointAngles
+  // compute anchors from jointAngles (mirrored by facingSign)
   const pName = (G.selectedFighter && C.fighters?.[G.selectedFighter]) ? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default');
   const Aplayer = computeAnchorsFor(G.FIGHTERS.player, C, pName);
   const Anpc    = computeAnchorsFor(G.FIGHTERS.npc,    C, pName);
@@ -93,8 +107,8 @@ export function renderAll(ctx){
   drawSegment(ctx, A.torsoBot, A.torsoTop);
   drawSegment(ctx, A.lShoulderBase, A.lElbow); drawSegment(ctx, A.lElbow, A.lHand);
   drawSegment(ctx, A.rShoulderBase, A.rElbow); drawSegment(ctx, A.rElbow, A.rHand);
-  drawSegment(ctx, A.lHipBase, A.lKnee); drawSegment(ctx, A.lKnee, A.lFoot);
-  drawSegment(ctx, A.rHipBase, A.rKnee); drawSegment(ctx, A.rKnee, A.rFoot);
+  drawSegment(ctx, A.lHipBase, A.lKnee);       drawSegment(ctx, A.lKnee, A.lFoot);
+  drawSegment(ctx, A.rHipBase, A.rKnee);       drawSegment(ctx, A.rKnee, A.rFoot);
   dot(ctx, A.torsoTop, 2); dot(ctx, A.torsoBot, 2);
   ctx.restore();
 }

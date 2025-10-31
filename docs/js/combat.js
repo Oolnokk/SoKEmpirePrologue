@@ -52,8 +52,8 @@ function makeCombat(G, C){
       if (I.left && !I.right) p.vel.x -= ax*dt; else if (I.right && !I.left) p.vel.x += ax*dt; else p.vel.x *= Math.max(0, 1 - fr*dt);
       p.vel.x = Math.max(-max, Math.min(max, p.vel.x));
       p.pos.x += p.vel.x * dt;
-      // face
-      if (Math.abs(p.vel.x)>1) p.facingRad = (p.vel.x>=0? 0 : Math.PI);
+      // face (mirror across vertical): set facingSign; keep facingRad at 0 (unused for flip)
+      if (Math.abs(p.vel.x)>1){ p.facingSign = (p.vel.x>=0? 1 : -1); p.facingRad = 0; }
     }
 
     handleInputAttacks();
@@ -71,10 +71,10 @@ function makeCombat(G, C){
 function getKickQuick(C){
   const slot = C.attacks?.slots?.[3];
   const quick = slot?.quick?.base;
-  return quick ? quick.map(x=>({ poseKey:x.poseKey || x.poseKeyName || x.poseKey || x.poseKey || x.poseKey, durMs:x.durMs })) : null;
+  return quick ? quick.map(x=>({ poseKey:x.poseKey || x.poseKeyName, durMs:x.durMs })) : null;
 }
 function getHeavySlam(C){
-  const slot = C.attacks?.slots?.[4] || C.attacks?.slots?.[2];
+  const slot = C.attacks?.slots?.[4] || C.attacks?.[2];
   const seq = slot?.sequence;
   return seq ? seq.map(x=>({ poseKey:x.poseKey, durMs:x.durMs })) : null;
 }

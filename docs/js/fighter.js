@@ -1,4 +1,4 @@
-// fighter.js — initialize fighters in STANCE, no forced Windup
+// fighter.js — initialize fighters in STANCE; set facingSign (player right, npc left)
 const RAD = Math.PI/180;
 function degPoseToRad(p){ if(!p) return {}; const o={}; for (const k of ['torso','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee']){ if (p[k]!=null) o[k]=p[k]*RAD; } return o; }
 
@@ -10,11 +10,11 @@ export function initFighters(cv, cx){
   const stance = C.poses?.Stance || { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:110, lKnee:40, rHip:30, rKnee:40 };
   const stanceRad = degPoseToRad(stance);
 
-  function makeF(id, x){
+  function makeF(id, x, faceSign){
     return {
       id, isPlayer: id==='player',
       pos:{ x, y: gy-1 }, vel:{ x:0, y:0 },
-      onGround:true, prevOnGround:true, facingRad: (id==='player'? 0 : Math.PI),
+      onGround:true, prevOnGround:true, facingRad: 0, facingSign: faceSign,
       footing: 50, ragdoll:false, stamina:{ current:100, max:100, drainRate:40, regenRate:25, minToDash:10 },
       jointAngles: { ...stanceRad },
       walk:{ phase:0, amp:0 },
@@ -23,6 +23,9 @@ export function initFighters(cv, cx){
     };
   }
 
-  G.FIGHTERS = { player: makeF('player', (C.canvas?.w||720)*0.5 - 60), npc: makeF('npc', (C.canvas?.w||720)*0.5 + 60) };
+  G.FIGHTERS = {
+    player: makeF('player', (C.canvas?.w||720)*0.5 - 60, 1),
+    npc:    makeF('npc',    (C.canvas?.w||720)*0.5 + 60, -1)
+  };
   console.log('[initFighters] Fighters initialized', G.FIGHTERS);
 }
