@@ -64,7 +64,10 @@ export function updatePoses(){
     // 1) pose target = override > walk > stance
     const over = getOverride(F);
     let targetDeg = null;
-    if (over && (!over.until || now < over.until)){ targetDeg = over.pose; } else if (over){ clearOverride(F); }
+    if (over){
+      if (over.until && now < over.until){ targetDeg = over.pose; }
+      else { clearOverride(F); if (over.until==null) console.log('[anim] cleared timeless override'); }
+    }
     if (!targetDeg){ const walkPose = computeWalkPose(F,C); if (walkPose._active) targetDeg = walkPose; }
     if (!targetDeg) targetDeg = pickBase(C);
 
