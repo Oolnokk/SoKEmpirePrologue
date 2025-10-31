@@ -1,118 +1,191 @@
-// sprites.js — v19 basis + per-fighter offsets + LAYER QUEUE (z-order)
-// Draw in camera space; bone length → sprite height; offsets in bone space;
-// Rotation basis matches v19 (0 rad = up): segPos(sin,-cos), angleBetween(dx,-dy).
+// sprites.js — v19-accurate sprite parenting to bones, with anchoring/xform and fixed draw order
+// Loads per-fighter sprite images and draws each sprite parented to the corresponding bone.
+// Uses CONFIG.fighters[<name>].sprites with style { widthFactor, xformUnits, anchor, debug, xform }.
+// Falls back to G.ANCHORS_OBJ (object bones) or reconstructs from legacy G.ANCHORS arrays.
 
-// ---------- image cache ----------
-const IMG_CACHE = new Map();
-function loadImg(url){
-  if (!url) return Promise.resolve(null);
-  if (IMG_CACHE.has(url)){ const rec = IMG_CACHE.get(url); return rec.ready ? Promise.resolve(rec.img) : rec.promise; }
-  const img = new Image();
-  let resolveFn, rejectFn;
-  const promise = new Promise((res, rej)=>{ resolveFn=res; rejectFn=rej; });
-  img.onload  = ()=>{ IMG_CACHE.set(url, { img, ready:true,  promise }); resolveFn(img); };
-  img.onerror = (e)=>{ console.warn('[sprites] failed', url, e); IMG_CACHE.set(url, { img:null, ready:false, promise }); rejectFn(e); };
-  img.crossOrigin = 'anonymous';
-  img.src = url;
-  IMG_CACHE.set(url, { img, ready:false, promise });
-  return promise;
-}
-async function preloadAll(urls){ const uniq = Array.from(new Set(urls.filter(Boolean))); await Promise.all(uniq.map(u=>loadImg(u).catch(()=>{}))); }
+(function(){
+  const W = (window.ASSETS ||= {});
+  const CACHE = (W.sprites ||= {});
 
-// ---------- public API ----------
-export async function initSprites(){
-  const C = window.CONFIG || {};
-  const prof = C.fighters?.[pickFighterName(C)] || {};
-  const sp = prof.sprites || {};
-  await preloadAll([ sp.torso, sp.head, sp.arm?.upper, sp.arm?.lower, sp.leg?.upper, sp.leg?.lower ]);
-  (window.GAME ||= {}).SPRITES = { preloaded:true, fighter: pickFighterName(C) };
-  console.log('[sprites] ready for', pickFighterName(C));
-}
+  function rad(deg){ return (deg||0) * Math.PI / 180; }
+  function dist(a,b){ const dx=b[0]-a[0], dy=b[1]-a[1]; return Math.sqrt(dx*dx+dy*dy); }
+  function angle(a,b){ return Math.atan2(b[0]-a[0], -(b[1]-a[1])); } // (sin,-cos) convention
+  function segEnd(sx,sy,len,ang){ return [ sx + len*Math.sin(ang), sy - len*Math.cos(ang) ]; }
+  function withAX(x,y,ang,ax,ay,unitsLen){
+    const L = (unitsLen||1);
+    const u = (ax||0) * L, v = (ay||0) * L;
+    const dx = u*Math.sin(ang) + v*Math.cos(ang);
+    const dy = u*-Math.cos(ang) + v*Math.sin(ang);
+    return [x+dx, y+dy];
+  }
 
-export function renderSprites(ctx){
-  const G = window.GAME || {};
-  const C = window.CONFIG || {};
-  if (!ctx || !G.FIGHTERS || !G.ANCHORS) return;
-  const camX = G.CAMERA?.x || 0;
-  ctx.save();
-  ctx.translate(-camX, 0); // camera space to match stick render
-  drawFighterSprites(ctx, G.FIGHTERS.player, C, G.ANCHORS.player);
-  drawFighterSprites(ctx, G.FIGHTERS.npc,    C, G.ANCHORS.npc);
-  ctx.restore();
-}
+  function load(url){
+    if (!url) return null;
+    if (CACHE[url]) return CACHE[url];
+    const img = new Image(); img.crossOrigin = 'anonymous'; img.src = url;
+    CACHE[url] = img;
+    return img;
+  }
 
-// ---------- fighter/profile/style helpers ----------
-function pickFighterName(C){
-  const sel = (window.GAME && window.GAME.selectedFighter) || null;
-  if (sel && C.fighters?.[sel]) return sel;
-  if (C.fighters){ if (C.fighters.TLETINGAN) return 'TLETINGAN'; const ks=Object.keys(C.fighters); if (ks.length) return ks[0]; }
-  return null;
-}
-function getProfile(C){ const name = pickFighterName(C); return { name, prof: (C.fighters?.[name] || {} ) }; }
-function getStyle(prof){ return prof.sprites?.style || {}; }
-function getUnits(style){ return (style.xformUnits||'px').toLowerCase().startsWith('percent') ? 'percent' : 'px'; }
-function getXf(style, key){ return (style.xform && style.xform[key]) || {}; }
-function getWF(style, key, def){ return (style.widthFactor && style.widthFactor[key]) ?? def; }
-function urlFor(prof, key){ const sp = prof.sprites || {}; return key==='torso'?sp.torso: key==='head'?sp.head: key==='armUpper'?sp.arm?.upper: key==='armLower'?sp.arm?.lower: key==='legUpper'?sp.leg?.upper: key==='legLower'?sp.leg?.lower: null; }
+  function pickFighterName(C, G){
+    if (G.selectedFighter && C.fighters?.[G.selectedFighter]) return G.selectedFighter;
+    if (C.fighters?.TLETINGAN) return 'TLETINGAN';
+    const k = Object.keys(C.fighters||{});
+    return k.length? k[0] : 'default';
+  }
 
-// ---------- v19 geometry basis ----------
-function segPos(x,y,len,ang){ const ex = x + len*Math.sin(ang); const ey = y - len*Math.cos(ang); return [ex,ey]; }
-function angleBetween(p0,p1){ const dx=p1[0]-p0[0], dy=p1[1]-p0[1]; return Math.atan2(dx, -dy); }
-function withAX(x,y,ang,ax,ay){ const s=Math.sin(ang), c=Math.cos(ang); const dx=ax*s + ay*c; const dy=ax*(-c) + ay*s; return [x+dx, y+dy]; }
-function dist(p0,p1){ return Math.hypot(p1[0]-p0[0], p1[1]-p0[1]); }
+  // Build bones from either object form or legacy arrays
+  function getBones(C, G, fname){
+    const AO = G.ANCHORS_OBJ?.player;
+    if (AO){
+      return {
+        torso:        { x:AO.torso.x,        y:AO.torso.y,        len:AO.torso.len,        ang:AO.torso.ang },
+        head:         { x:AO.head.x,         y:AO.head.y,         len:AO.head.len,         ang:AO.head.ang },
+        arm_L_upper:  { x:AO.arm_L_upper.x,  y:AO.arm_L_upper.y,  len:AO.arm_L_upper.len,  ang:AO.arm_L_upper.ang },
+        arm_L_lower:  { x:AO.arm_L_lower.x,  y:AO.arm_L_lower.y,  len:AO.arm_L_lower.len,  ang:AO.arm_L_lower.ang },
+        arm_R_upper:  { x:AO.arm_R_upper.x,  y:AO.arm_R_upper.y,  len:AO.arm_R_upper.len,  ang:AO.arm_R_upper.ang },
+        arm_R_lower:  { x:AO.arm_R_lower.x,  y:AO.arm_R_lower.y,  len:AO.arm_R_lower.len,  ang:AO.arm_R_lower.ang },
+        leg_L_upper:  { x:AO.leg_L_upper.x,  y:AO.leg_L_upper.y,  len:AO.leg_L_upper.len,  ang:AO.leg_L_upper.ang },
+        leg_L_lower:  { x:AO.leg_L_lower.x,  y:AO.leg_L_lower.y,  len:AO.leg_L_lower.len,  ang:AO.leg_L_lower.ang },
+        leg_R_upper:  { x:AO.leg_R_upper.x,  y:AO.leg_R_upper.y,  len:AO.leg_R_upper.len,  ang:AO.leg_R_upper.ang },
+        leg_R_lower:  { x:AO.leg_R_lower.x,  y:AO.leg_R_lower.y,  len:AO.leg_R_lower.len,  ang:AO.leg_R_lower.ang }
+      };
+    }
+    const A = G.ANCHORS?.player;
+    if (A){
+      // reconstruct using legacy arrays (starts and ends)
+      const torsoStart = A.torsoBot, torsoEnd = A.torsoTop;
+      const lUpStart = A.lShoulderBase, lElbow = A.lElbow, lHand = A.lHand;
+      const rUpStart = A.rShoulderBase, rElbow = A.rElbow, rHand = A.rHand;
+      const lHipStart = A.lHipBase, lKnee = A.lKnee, lFoot = A.lFoot;
+      const rHipStart = A.rHipBase, rKnee = A.rKnee, rFoot = A.rFoot;
+      const headStart = A.neckBase || A.torsoTop;
 
-// ---------- offsets ----------
-function off(prof, path){ const segs = path.split('.'); let o = prof.offsets || {}; for (const k of segs){ if (!o) break; o = o[k]; } return { ax: (o?.ax||0), ay: (o?.ay||0) }; }
-function originOffFor(prof, key){ if (key==='torso') return off(prof, 'torso.origin'); if (key==='head') return off(prof, 'head.origin'); if (key==='armUpper') return off(prof, 'arm.upper.origin'); if (key==='armLower') return off(prof, 'arm.lower.origin'); if (key==='legUpper') return off(prof, 'leg.upper.origin'); if (key==='legLower') return off(prof, 'leg.lower.origin'); return {ax:0, ay:0}; }
-function startJointOffFor(key){ if (key==='armUpper') return { path:'torso.shoulder', which:'torso' }; if (key==='legUpper') return { path:'torso.hip', which:'torso' }; if (key==='head') return { path:'torso.neck', which:'torso' }; if (key==='armLower') return { path:'arm.upper.elbow', which:'upperArm' }; if (key==='legLower') return { path:'leg.upper.knee',  which:'upperLeg' }; return null; }
+      function boneFrom(start,end){ const len=dist(start,end); const ang=angle(start,end); return { x:start[0], y:start[1], len, ang }; }
 
-// ---------- z-order (layer queue) ----------
-const DEFAULT_RENDER_ORDER = ['HITBOX','LEG_R_LOWER','LEG_R_UPPER','LEG_L_LOWER','LEG_L_UPPER','TORSO','HEAD','ARM_R_LOWER','ARM_R_UPPER','ARM_L_LOWER','ARM_L_UPPER'];
-function zOrder(tag){ const arr = (window.CONFIG?.render && Array.isArray(window.CONFIG.render.order)) ? window.CONFIG.render.order : DEFAULT_RENDER_ORDER; const i = arr.indexOf(tag); return (i === -1) ? (arr.length + 10) : i; }
-function enqueue(Q, tag, fn){ Q.push({ z: zOrder(tag), tag, fn }); }
+      const torso = boneFrom(torsoStart, torsoEnd);
+      // head length: use CONFIG like render.js
+      const fcfg = (C.fighters?.[fname]) || {}; const headNeck = (fcfg.parts?.head?.neck ?? C.parts?.head?.neck ?? 14) * (C.actor?.scale ?? 1) * (fcfg.actor?.scale ?? 1); const headRad = (fcfg.parts?.head?.radius ?? C.parts?.head?.radius ?? 16) * (C.actor?.scale ?? 1) * (fcfg.actor?.scale ?? 1); const headLen = headNeck + 2*headRad;
 
-// ---------- drawing ----------
-function drawBoneSprite(ctx, xStart, yStart, len, ang, key, prof, style, parentAng){
-  const url = urlFor(prof, key); const rec = url && IMG_CACHE.get(url); const img = rec?.ready ? rec.img : null; if (!img) return;
-  const j = startJointOffFor(key);
-  if (j){ const o = off(prof, j.path); const useAng = parentAng ?? ang; [xStart, yStart] = withAX(xStart, yStart, useAng, o.ax, o.ay); }
-  const xf = getXf(style, key); const units = getUnits(style); const wf = getWF(style, key, 1.0);
-  const nh = (img.naturalHeight||img.height||1); const nw = (img.naturalWidth||img.width||1); const baseH = Math.max(1, len); const s = baseH/nh;
-  const h = baseH * (xf.scaleY ?? 1); const w = (nw * s) * (xf.scaleX ?? 1) * wf;
-  let [x,y] = segPos(xStart, yStart, len*0.5, ang);
-  if (xf && (xf.ax || xf.ay)){ let ax = (xf.ax||0), ay = (xf.ay||0); if (units==='percent'){ ax = ax * len; ay = ay * len; } [x,y] = withAX(x,y, ang, ax, ay); }
-  const o = originOffFor(prof, key); if (o.ax || o.ay){ [x,y] = withAX(x,y, ang, o.ax, o.ay); }
-  const rot = (xf && xf.rotDeg ? (xf.rotDeg*Math.PI/180) : 0);
-  ctx.save(); ctx.translate(x, y); ctx.rotate(ang + rot + Math.PI); ctx.drawImage(img, -w/2, -h/2, w, h);
-  if (style.debug && style.debug[key]){ ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(6,0); ctx.moveTo(0,-6); ctx.lineTo(0,6); ctx.stroke(); }
-  ctx.restore();
-}
+      return {
+        torso,
+        head:        { x:headStart[0], y:headStart[1], len:headLen, ang:torso.ang },
+        arm_L_upper:  boneFrom(lUpStart, lElbow),
+        arm_L_lower:  boneFrom(lElbow,   lHand),
+        arm_R_upper:  boneFrom(rUpStart, rElbow),
+        arm_R_lower:  boneFrom(rElbow,   rHand),
+        leg_L_upper:  boneFrom(lHipStart, lKnee),
+        leg_L_lower:  boneFrom(lKnee,     lFoot),
+        leg_R_upper:  boneFrom(rHipStart, rKnee),
+        leg_R_lower:  boneFrom(rKnee,     rFoot)
+      };
+    }
+    return null;
+  }
 
-function drawHeadFromBone(ctx, F, C, A, prof, style){
-  const s = C.actor?.scale ?? 0.7; const neck=(prof.parts?.head?.neck ?? C.parts?.head?.neck ?? 12)*s; const radius=(prof.parts?.head?.radius ?? C.parts?.head?.radius ?? 12)*s; const len=Math.max(1, neck + radius*2); const torsoAng = (A.torsoAbs!=null) ? A.torsoAbs : ((F.jointAngles?.torso||0) + (F.facingRad||0)); let x0 = A.torsoTop[0], y0 = A.torsoTop[1]; const neckOff = off(prof,'torso.neck'); if (neckOff.ax||neckOff.ay){ [x0,y0] = withAX(x0,y0, torsoAng, neckOff.ax, neckOff.ay); } drawBoneSprite(ctx, x0, y0, len, torsoAng, 'head', prof, style, torsoAng); }
+  // Core draw: parent sprite to bone midpoint or start depending on style.anchor; then apply xform (ax,ay,rotDeg,scale)
+  function drawBoneSprite(ctx, img, bone, styleKey, style){
+    if (!img || !img.complete) return;
+    const anchorMap = (style.anchor||{});
+    const anchor = anchorMap[styleKey] || 'mid'; // 'start' or 'mid' (default mid like v19)
+    const t = (anchor === 'start') ? 0.0 : 0.5;
+    const px = bone.x + bone.len * t * Math.sin(bone.ang);
+    const py = bone.y - bone.len * t * Math.cos(bone.ang);
 
-function drawFighterSprites(ctx, F, C, A){
-  if (!F || !A) return; const { prof } = getProfile(C); const style = getStyle(prof); const tAng = (A.torsoAbs!=null) ? A.torsoAbs : 0;
-  const Q = [];
-  // Legs
-  let [lHipX,lHipY] = [A.lHipBase[0], A.lHipBase[1]]; let [rHipX,rHipY] = [A.rHipBase[0], A.rHipBase[1]]; const hipOff = off(prof,'torso.hip'); if (hipOff.ax||hipOff.ay){ [lHipX,lHipY]=withAX(lHipX,lHipY,tAng,hipOff.ax,hipOff.ay); [rHipX,rHipY]=withAX(rHipX,rHipY,tAng,hipOff.ax,hipOff.ay); }
-  const lUlen=dist(A.lHipBase,A.lKnee), lUang=angleBetween(A.lHipBase,A.lKnee); const lLlen=dist(A.lKnee,A.lFoot), lLang=angleBetween(A.lKnee,A.lFoot);
-  const rUlen=dist(A.rHipBase,A.rKnee), rUang=angleBetween(A.rHipBase,A.rKnee); const rLlen=dist(A.rKnee,A.rFoot), rLang=angleBetween(A.rKnee,A.rFoot);
-  enqueue(Q,'LEG_L_UPPER', ()=> drawBoneSprite(ctx, lHipX, lHipY, lUlen, lUang, 'legUpper', prof, style, lUang));
-  enqueue(Q,'LEG_L_LOWER', ()=> drawBoneSprite(ctx, A.lKnee[0], A.lKnee[1], lLlen, lLang, 'legLower', prof, style, lUang));
-  enqueue(Q,'LEG_R_UPPER', ()=> drawBoneSprite(ctx, rHipX, rHipY, rUlen, rUang, 'legUpper', prof, style, rUang));
-  enqueue(Q,'LEG_R_LOWER', ()=> drawBoneSprite(ctx, A.rKnee[0], A.rKnee[1], rLlen, rLang, 'legLower', prof, style, rUang));
-  // Torso / Head
-  const tLen=dist(A.torsoBot,A.torsoTop); enqueue(Q,'TORSO', ()=> drawBoneSprite(ctx, A.torsoBot[0], A.torsoBot[1], tLen, tAng, 'torso', prof, style, tAng));
-  enqueue(Q,'HEAD',  ()=> drawHeadFromBone(ctx, F, C, A, prof, style));
-  // Arms (apply shoulder offset at start)
-  let [lShX,lShY] = [A.lShoulderBase[0], A.lShoulderBase[1]]; let [rShX,rShY] = [A.rShoulderBase[0], A.rShoulderBase[1]]; const shOff=off(prof,'torso.shoulder'); if (shOff.ax||shOff.ay){ [lShX,lShY]=withAX(lShX,lShY,tAng,shOff.ax,shOff.ay); [rShX,rShY]=withAX(rShX,rShY,tAng,shOff.ax,shOff.ay); }
-  const lAulen=dist(A.lShoulderBase,A.lElbow), lAuang=angleBetween(A.lShoulderBase,A.lElbow); const lAllen=dist(A.lElbow,A.lHand), lAlang=angleBetween(A.lElbow,A.lHand);
-  const rAulen=dist(A.rShoulderBase,A.rElbow), rAuang=angleBetween(A.rShoulderBase,A.rElbow); const rAllen=dist(A.rElbow,A.rHand), rAlang=angleBetween(A.rElbow,A.rHand);
-  enqueue(Q,'ARM_L_UPPER', ()=> drawBoneSprite(ctx, lShX, lShY, lAulen, lAuang, 'armUpper', prof, style, lAuang));
-  enqueue(Q,'ARM_L_LOWER', ()=> drawBoneSprite(ctx, A.lElbow[0], A.lElbow[1], lAllen, lAlang, 'armLower', prof, style, lAuang));
-  enqueue(Q,'ARM_R_UPPER', ()=> drawBoneSprite(ctx, rShX, rShY, rAulen, rAuang, 'armUpper', prof, style, rAuang));
-  enqueue(Q,'ARM_R_LOWER', ()=> drawBoneSprite(ctx, A.rElbow[0], A.rElbow[1], rAllen, rAlang, 'armLower', prof, style, rAuang));
-  // Flush
-  Q.sort((a,b)=> a.z - b.z); for (const d of Q){ d.fn(); }
-}
+    const xform = (style.xform||{})[styleKey] || {};
+    const units = (style.xformUnits||'percent');
+    const Lunit = (units === 'percent') ? bone.len : 1;
+    const pos = withAX(px, py, bone.ang, xform.ax||0, xform.ay||0, Lunit);
+
+    const widthFactor = (style.widthFactor && (style.widthFactor[styleKey] ?? style.widthFactor[styleKey.replace(/_.*/, '')])) ?? 1.0;
+    const baseH = bone.len * (xform.scaleY != null ? xform.scaleY : 1);
+    const aspect = (img.naturalWidth && img.naturalHeight) ? (img.naturalWidth / img.naturalHeight) : 1;
+    const baseW = baseH * aspect * (xform.scaleX != null ? xform.scaleX : 1) * widthFactor;
+
+    const theta = bone.ang + rad(xform.rotDeg || 0);
+
+    ctx.save();
+    ctx.translate(pos[0], pos[1]);
+    ctx.rotate(theta);
+    // draw centered on anchor (v19 behavior)
+    ctx.drawImage(img, -baseW/2, -baseH/2, baseW, baseH);
+
+    // debug gizmo if requested
+    const dbg = (style.debug||{});
+    if (dbg[styleKey]){
+      ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fillStyle = '#00e5ff'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(baseW*0.25,0); ctx.strokeStyle = '#00e5ff'; ctx.lineWidth=2; ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Fixed draw order from your spec
+  const DRAW_ORDER = [
+    'arm_R_lower','arm_R_upper','leg_R_lower','leg_R_upper','head','torso','leg_L_upper','leg_L_lower','arm_L_upper','arm_L_lower'
+  ];
+
+  function resolveImages(spriteConf){
+    return {
+      torso: load(spriteConf.torso),
+      head:  load(spriteConf.head),
+      arm_L_upper: load(spriteConf.arm?.upper),
+      arm_L_lower: load(spriteConf.arm?.lower),
+      arm_R_upper: load(spriteConf.arm?.upper), // same art mirrored by world transform
+      arm_R_lower: load(spriteConf.arm?.lower),
+      leg_L_upper: load(spriteConf.leg?.upper),
+      leg_L_lower: load(spriteConf.leg?.lower),
+      leg_R_upper: load(spriteConf.leg?.upper),
+      leg_R_lower: load(spriteConf.leg?.lower)
+    };
+  }
+
+  function ensureFighterSprites(C, G, fname){
+    const f = C.fighters?.[fname];
+    const S = (f?.sprites) || {};
+    const imgs = resolveImages(S);
+    return { imgs, style: (S.style||{}) };
+  }
+
+  function drawFighterSprites(ctx, C, G){
+    const fname = pickFighterName(C, G);
+    const rig = getBones(C, G, fname);
+    if (!rig) return;
+    const pack = ensureFighterSprites(C, G, fname);
+    const { imgs, style } = pack;
+
+    for (const key of DRAW_ORDER){
+      const img = imgs[key]; const bone = rig[key];
+      if (!bone) continue;
+      const styleKey = mapStyleKey(key);
+      drawBoneSprite(ctx, img, bone, styleKey, style);
+    }
+  }
+
+  function mapStyleKey(boneKey){
+    // Convert bone keys to style keys in CONFIG.style maps
+    switch (boneKey){
+      case 'arm_L_upper':
+      case 'arm_R_upper': return 'armUpper';
+      case 'arm_L_lower':
+      case 'arm_R_lower': return 'armLower';
+      case 'leg_L_upper':
+      case 'leg_R_upper': return 'legUpper';
+      case 'leg_L_lower':
+      case 'leg_R_lower': return 'legLower';
+      case 'head': return 'head';
+      case 'torso': return 'torso';
+      default: return boneKey;
+    }
+  }
+
+  function renderSprites(ctx){
+    const G = (window.GAME ||= {});
+    const C = (window.CONFIG || {});
+    if (!ctx || !G.FIGHTERS) return;
+    drawFighterSprites(ctx, C, G);
+  }
+
+  // Export
+  window.renderSprites = renderSprites;
+  console.log('[sprites] ready for', (window.CONFIG?.fighters?.TLETINGAN ? 'TLETINGAN' : 'default'));
+})();
