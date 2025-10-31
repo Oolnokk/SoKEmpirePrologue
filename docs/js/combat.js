@@ -1,4 +1,4 @@
-// combat.js — minimal attack stepper + movement using CONFIG
+// combat.js — minimal attack stepper + movement using CONFIG (v2: face on input immediately)
 import { pushPoseOverride } from './animator.js?v=2';
 import { consumeTaps } from './controls.js?v=6';
 
@@ -43,17 +43,17 @@ function makeCombat(G, C){
   }
 
   function tick(dt){
-    // movement (A/D) → vel.x/pos.x
+    // movement (A/D) → vel.x/pos.x and **immediate facing**
     const p = P(); if (p){
       const M = C.movement || {};
       const I = G.input || {};
       p.vel ||= {x:0,y:0}; p.pos ||= {x:0,y:0};
       const ax = M.accelX || 1200; const max = M.maxSpeedX || 420; const fr = M.friction || 8;
-      if (I.left && !I.right) p.vel.x -= ax*dt; else if (I.right && !I.left) p.vel.x += ax*dt; else p.vel.x *= Math.max(0, 1 - fr*dt);
+      if (I.left && !I.right){ p.vel.x -= ax*dt; p.facingSign = -1; }
+      else if (I.right && !I.left){ p.vel.x += ax*dt; p.facingSign = 1; }
+      else { p.vel.x *= Math.max(0, 1 - fr*dt); }
       p.vel.x = Math.max(-max, Math.min(max, p.vel.x));
       p.pos.x += p.vel.x * dt;
-      // face (mirror across vertical): set facingSign; keep facingRad at 0 (unused for flip)
-      if (Math.abs(p.vel.x)>1){ p.facingSign = (p.vel.x>=0? 1 : -1); p.facingRad = 0; }
     }
 
     handleInputAttacks();
