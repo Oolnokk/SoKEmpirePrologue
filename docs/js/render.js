@@ -1,4 +1,4 @@
-// render.js — simple stick-figure renderer + camera translation + collider viz + anchors
+// render.js — expose bone anchors with absolute torso angle for sprite alignment
 export function renderAll(ctx){
   const G = window.GAME || {};
   const C = window.CONFIG || {};
@@ -23,6 +23,7 @@ function renderFighter(ctx, F, C){
   const torsoLen = hb * 0.5;
   const centerX = F.pos.x;
   const centerY = F.pos.y;
+  const torsoAbs = (F.jointAngles?.torso ?? 0) + (F.facingRad || 0);
   const torsoTop = seg(centerX, centerY, -torsoLen/2, Math.PI/2);
   const torsoBot = seg(centerX, centerY,  torsoLen/2, Math.PI/2);
 
@@ -57,15 +58,15 @@ function renderFighter(ctx, F, C){
   const rKnee = seg(rHipBase[0], rHipBase[1], legUpper, rHip);
   const rFoot = seg(rKnee[0], rKnee[1], legLower, rHip + rK);
 
-  // Expose anchors for sprite renderer
+  // Expose anchors for sprite renderer (add torsoAbs for bone-relative sprites)
   (window.GAME ||= {}).ANCHORS ||= {};
   window.GAME.ANCHORS[F.id] = {
     torsoTop, torsoBot, lShoulderBase, rShoulderBase, lHipBase, rHipBase,
     lElbow, lHand, rElbow, rHand, lKnee, lFoot, rKnee, rFoot,
-    centerX, centerY, hb, s, torsoLen
+    centerX, centerY, hb, s, torsoLen, torsoAbs, facingRad: (F.facingRad||0)
   };
 
-  // Lines
+  // Lines (keep stick for debug / fallback)
   ctx.save();
   ctx.lineWidth = 2;
   ctx.strokeStyle = 'rgba(255,255,255,.9)';
