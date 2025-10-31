@@ -1,9 +1,14 @@
 // render.js — compute anchors from F.jointAngles (rad) and draw stick rig
-// v19 angle basis: 0 rad = up; segment end uses (sin,-cos).
-// Now mirrors facing by **reflecting angles across the vertical axis** (ang' = -ang when facing left).
+// v19 angle basis: 0 rad = up; segment forward = (sin,-cos).
+// Facing LEFT is a **mirror across the vertical axis**: we DO NOT change angles; we flip only the X components of vectors.
 // Outputs window.GAME.ANCHORS for use by sprites.js.
 
-function segPos(x,y,len,ang){ return [ x + len*Math.sin(ang), y - len*Math.cos(ang) ]; }
+function segPosFacing(x,y,len,ang,dir){ // dir: +1 right, -1 left
+  return [ x + len*(dir*Math.sin(ang)), y - len*Math.cos(ang) ];
+}
+function perpFacing(ang,dir){ // perpendicular to forward (cos, sin), mirror X by dir
+  return [ dir*Math.cos(ang), Math.sin(ang) ];
+}
 function rad(v){ return (v==null?0:v); }
 
 function lengthsFor(C, fighterName){
@@ -26,61 +31,44 @@ function computeAnchorsFor(F, C, name){
   const px = F.pos?.x ?? 0;
   const py = F.pos?.y ?? (gy-1);
 
-  // facing: +1 right, -1 left. Fallback to facingRad heuristic if needed.
+  // facing sign (+1 right, -1 left) — default from facingSign, fallback from facingRad
   const dir = (F.facingSign===-1) ? -1 : ( (F.facingSign===1) ? 1 : ((F.facingRad||0) > 1 ? -1 : 1) );
 
-  // angles (rad), computed WITHOUT facing, then mirrored if dir==-1 (ang' = -ang)
-  const tAbs0 = rad(F.jointAngles?.torso);
-  const lShAbs0 = tAbs0 + rad(F.jointAngles?.lShoulder);
-  const rShAbs0 = tAbs0 + rad(F.jointAngles?.rShoulder);
-  const lElAbs0 = lShAbs0 + rad(F.jointAngles?.lElbow);
-  const rElAbs0 = rShAbs0 + rad(F.jointAngles?.rElbow);
-
-  let lHipAbs0 = rad(F.jointAngles?.lHip);
-  let rHipAbs0 = rad(F.jointAngles?.rHip);
-  if (C.hierarchy?.legsFollowTorsoRotation){ lHipAbs0 += tAbs0; rHipAbs0 += tAbs0; }
-  const lKnAbs0 = lHipAbs0 + rad(F.jointAngles?.lKnee);
-  const rKnAbs0 = rHipAbs0 + rad(F.jointAngles?.rKnee);
-
-  // Apply mirror across vertical axis if facing left
-  const tAbs = (dir===1)? tAbs0 : -tAbs0;
-  const lShAbs = (dir===1)? lShAbs0 : -lShAbs0;
-  const rShAbs = (dir===1)? rShAbs0 : -rShAbs0;
-  const lElAbs = (dir===1)? lElAbs0 : -lElAbs0;
-  const rElAbs = (dir===1)? rElAbs0 : -rElAbs0;
-  const lHipAbs = (dir===1)? lHipAbs0 : -lHipAbs0;
-  const rHipAbs = (dir===1)? rHipAbs0 : -rHipAbs0;
-  const lKnAbs = (dir===1)? lKnAbs0 : -lKnAbs0;
-  const rKnAbs = (dir===1)? rKnAbs0 : -rKnAbs0;
+  // base absolute angles (no facing baked in)
+  const tAbs = rad(F.jointAngles?.torso);
+  const lShAbs = tAbs + rad(F.jointAngles?.lShoulder);
+  const rShAbs = tAbs + rad(F.jointAngles?.rShoulder);
+  const lElAbs = lShAbs + rad(F.jointAngles?.lElbow);
+  const rElAbs = rShAbs + rad(F.jointAngles?.rElbow);
+  let lHipAbs = rad(F.jointAngles?.lHip);
+  let rHipAbs = rad(F.jointAngles?.rHip);
+  if (C.hierarchy?.legsFollowTorsoRotation){ lHipAbs += tAbs; rHipAbs += tAbs; }
+  const lKnAbs = lHipAbs + rad(F.jointAngles?.lKnee);
+  const rKnAbs = rHipAbs + rad(F.jointAngles?.rKnee);
 
   const torsoBot = [px, py];
-  const torsoTop = segPos(px, py, L.torso, tAbs);
+  const torsoTop = segPosFacing(px, py, L.torso, tAbs, dir);
 
-  // shoulder/hip spacing along torso perpendicular (perp of our basis = (cos,sin))
+  // shoulder/hip spacing along the **mirrored perpendicular**
   const sOff = 0.18 * L.hitW;
   const hOff = 0.22 * L.hitW;
-  const perpX = Math.cos(tAbs), perpY = Math.sin(tAbs);
-  const lShoulderBase = [ torsoTop[0] - perpX*sOff, torsoTop[1] + perpY*sOff ];
-  const rShoulderBase = [ torsoTop[0] + perpX*sOff, torsoTop[1] - perpY*sOff ];
-  const lHipBase      = [ torsoBot[0] - perpX*hOff, torsoBot[1] + perpY*hOff ];
-  const rHipBase      = [ torsoBot[0] + perpX*hOff, torsoBot[1] - perpY*hOff ];
+  const perp = perpFacing(tAbs, dir);
+  const lShoulderBase = [ torsoTop[0] - perp[0]*sOff, torsoTop[1] + perp[1]*sOff ];
+  const rShoulderBase = [ torsoTop[0] + perp[0]*sOff, torsoTop[1] - perp[1]*sOff ];
+  const lHipBase      = [ torsoBot[0] - perp[0]*hOff, torsoBot[1] + perp[1]*hOff ];
+  const rHipBase      = [ torsoBot[0] + perp[0]*hOff, torsoBot[1] - perp[1]*hOff ];
 
-  const lElbow = segPos(lShoulderBase[0], lShoulderBase[1], L.armU, lShAbs);
-  const rElbow = segPos(rShoulderBase[0], rShoulderBase[1], L.armU, rShAbs);
-  const lHand  = segPos(lElbow[0], lElbow[1], L.armL, lElAbs);
-  const rHand  = segPos(rElbow[0], rElbow[1], L.armL, rElAbs);
+  const lElbow = segPosFacing(lShoulderBase[0], lShoulderBase[1], L.armU, lShAbs, dir);
+  const rElbow = segPosFacing(rShoulderBase[0], rShoulderBase[1], L.armU, rShAbs, dir);
+  const lHand  = segPosFacing(lElbow[0], lElbow[1], L.armL, lElAbs, dir);
+  const rHand  = segPosFacing(rElbow[0], rElbow[1], L.armL, rElAbs, dir);
 
-  const lKnee  = segPos(lHipBase[0], lHipBase[1], L.legU, lHipAbs);
-  const rKnee  = segPos(rHipBase[0], rHipBase[1], L.legU, rHipAbs);
-  const lFoot  = segPos(lKnee[0], lKnee[1], L.legL, lKnAbs);
-  const rFoot  = segPos(rKnee[0], rKnee[1], L.legL, rKnAbs);
+  const lKnee  = segPosFacing(lHipBase[0], lHipBase[1], L.legU, lHipAbs, dir);
+  const rKnee  = segPosFacing(rHipBase[0], rHipBase[1], L.legU, rHipAbs, dir);
+  const lFoot  = segPosFacing(lKnee[0], lKnee[1], L.legL, lKnAbs, dir);
+  const rFoot  = segPosFacing(rKnee[0], rKnee[1], L.legL, rKnAbs, dir);
 
-  return {
-    torsoAbs: tAbs,
-    torsoBot, torsoTop,
-    lShoulderBase, rShoulderBase, lElbow, rElbow, lHand, rHand,
-    lHipBase, rHipBase, lKnee, rKnee, lFoot, rFoot
-  };
+  return { torsoAbs: tAbs, torsoBot, torsoTop, lShoulderBase, rShoulderBase, lElbow, rElbow, lHand, rHand, lHipBase, rHipBase, lKnee, rKnee, lFoot, rFoot, facingSign: dir };
 }
 
 function drawSegment(ctx, a, b){ ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke(); }
@@ -93,7 +81,7 @@ export function renderAll(ctx){
   const camX = G.CAMERA?.x || 0;
   const colors = C.colors || { body:'#e5f0ff', left:'#86efac', right:'#93c5fd', guide:'#233044', hitbox:'#0ea5e9' };
 
-  // compute anchors from jointAngles (mirrored by facingSign)
+  // compute anchors from jointAngles with **vector-mirror** (not angle negation)
   const pName = (G.selectedFighter && C.fighters?.[G.selectedFighter]) ? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default');
   const Aplayer = computeAnchorsFor(G.FIGHTERS.player, C, pName);
   const Anpc    = computeAnchorsFor(G.FIGHTERS.npc,    C, pName);
