@@ -1,12 +1,11 @@
-// Legacy shim — clear any leftover window-level pose override before boot.
-// Older builds toggled `window.GAME.poseOverride` without automatic TTL cleanup,
-// so we defensively remove it here to keep cached bundles stable.
-(function clearLegacyOverride() {
-  try {
-    if (window.GAME && window.GAME.poseOverride) {
-      delete window.GAME.poseOverride;
-    }
-  } catch (_err) {
-    // Ignore access errors (e.g., window undefined in non-browser contexts).
+// Legacy shim kept for cached bundles. Removes any lingering
+// window-level pose override before the modular bootstrap runs.
+(function clearLegacyOverride(){
+  var root = typeof globalThis !== 'undefined'
+    ? globalThis
+    : (typeof window !== 'undefined' ? window : undefined);
+  var game = root && root.GAME;
+  if (game && Object.prototype.hasOwnProperty.call(game, 'poseOverride')) {
+    delete game.poseOverride;
   }
 })();
