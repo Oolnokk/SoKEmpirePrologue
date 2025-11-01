@@ -13,3 +13,5 @@
     // ignore — older environments might not expose window/globalThis
   }
 })();
+
+export {};
