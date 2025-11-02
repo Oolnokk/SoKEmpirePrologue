@@ -305,7 +305,7 @@ export function renderSprites(ctx){
 
   const zOf = buildZMap(C);
   const queue = [];
-  function enqueue(tag, data){ queue.push({ z: zOf(tag), tag, data }); }
+  function enqueue(tag, drawFn){ queue.push({ z: zOf(tag), tag, drawFn }); }
 
   enqueue('TORSO', { kind: 'single', asset: assets.torso, bone: rig.torso, styleKey: 'torso' });
   enqueue('HEAD',  { kind: 'single', asset: assets.head,  bone: rig.head,  styleKey: 'head' });
