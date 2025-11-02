@@ -32,6 +32,7 @@ const footingFill = $$('#footingFill');
 const healthFill = $$('#healthFill');
 const statusInfo = $$('#statusInfo');
 const reloadBtn = $$('#btnReloadCfg');
+const toggleSpritesBtn = $$('#btnToggleSprites');
 const fpsHud = $$('#fpsHud');
 
 if (reloadBtn){
@@ -48,6 +49,19 @@ if (reloadBtn){
       console.error(e);
     }
   });
+}
+
+if (toggleSpritesBtn){
+  const updateToggleLabel = ()=>{
+    const hidden = !!window.RENDER?.hideSprites;
+    toggleSpritesBtn.textContent = hidden ? 'Show Sprites' : 'Hide Sprites';
+  };
+  toggleSpritesBtn.addEventListener('click', ()=>{
+    window.RENDER ||= {};
+    window.RENDER.hideSprites = !window.RENDER.hideSprites;
+    updateToggleLabel();
+  });
+  updateToggleLabel();
 }
 
 // Re-init presets on external config updates
