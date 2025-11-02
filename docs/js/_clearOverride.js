@@ -7,7 +7,9 @@
     typeof self !== 'undefined' ? self : undefined,
   ];
 
-  const root = candidates.find((candidate) => candidate && typeof candidate === 'object');
+  const root = candidates.find(
+    (candidate) => candidate && typeof candidate === 'object' && 'GAME' in candidate,
+  );
   if (!root) return;
 
   const game = root.GAME;
