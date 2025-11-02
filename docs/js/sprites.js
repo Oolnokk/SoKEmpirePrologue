@@ -11,6 +11,7 @@ if (typeof RENDER.hideSprites !== 'boolean') {
 RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
 
 function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'right'; return (z === 'up') ? 'up' : 'right'; }
+function spriteAngleZero(){ if (typeof window !== 'undefined' && window.SPRITE_ANGLE_ZERO != null) { const z = String(window.SPRITE_ANGLE_ZERO).toLowerCase(); return (z === 'right') ? 'right' : 'up'; } return 'up'; }
 function basisFor(ang){
   const fn = (typeof window !== 'undefined' && typeof window.BONE_BASIS === 'function') ? window.BONE_BASIS : null;
   if (fn) return fn(ang);
@@ -36,7 +37,18 @@ function withAX(x,y,ang,ax,ay,unitsLen){
   const dy = u*b.fy + v*b.ry;
   return [x+dx,y+dy];
 }
-function load(url){ if(!url) return null; if(CACHE[url]) return CACHE[url]; const img=new Image(); img.crossOrigin='anonymous'; img.src=url; CACHE[url]=img; return img; }
+function load(url){
+  if (!url) return null;
+  const cached = CACHE[url];
+  if (cached) return cached;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.referrerPolicy = 'no-referrer';
+  img.addEventListener('error', ()=>{ img.__broken = true; });
+  img.src = url;
+  CACHE[url] = img;
+  return img;
+}
 
 function pickFighterName(C){ if(GLOB.selectedFighter && C.fighters?.[GLOB.selectedFighter]) return GLOB.selectedFighter; if (C.fighters?.TLETINGAN) return 'TLETINGAN'; const k=Object.keys(C.fighters||{}); return k.length?k[0]:'default'; }
 
@@ -189,9 +201,24 @@ function originOffset(styleKey, offsets){
   }
 }
 
+const ORIENTATION_OFFSETS = {
+  torso: Math.PI / 2,
+  head: 0,
+  armUpper: -Math.PI / 2,
+  armLower: -Math.PI / 2,
+  legUpper: Math.PI / 2,
+  legLower: Math.PI / 2
+};
+
+function orientationOffsetFor(styleKey){
+  return ORIENTATION_OFFSETS[styleKey] || 0;
+}
+
 function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   const img = asset?.img;
-  if (!img || !img.complete) return;
+  if (!img || img.__broken) return;
+  if (!img.complete) return;
+  if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return;
   const anchorMap = (style.anchor||{});
   const anchor = anchorMap[styleKey] || 'mid';
   const t = (anchor === 'start') ? 0.0 : 0.5;
@@ -227,9 +254,11 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   w *= sx; h *= sy;
 
   // rotation with +PI baseline (v19)
-  const zeroMode = angleZero();
+  const zeroMode = spriteAngleZero();
   const angleComp = (zeroMode === 'right') ? -Math.PI/2 : 0;
-  const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI + angleComp;
+  const assetAlign = Number.isFinite(asset?.alignRad) ? asset.alignRad : 0;
+  const orient = orientationOffsetFor(styleKey);
+  const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI + angleComp + assetAlign + orient;
 
   ctx.save();
   ctx.translate(posX, posY);
