@@ -5,6 +5,9 @@ const ASSETS = (window.ASSETS ||= {});
 const CACHE = (ASSETS.sprites ||= {});
 const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
+if (typeof RENDER.hideSprites !== 'boolean') {
+  RENDER.hideSprites = false;
+}
 RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
 
 function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'right'; return (z === 'up') ? 'up' : 'right'; }
@@ -254,7 +257,7 @@ export function renderSprites(ctx){
   const C = (window.CONFIG || {});
   const fname = pickFighterName(C);
   const rig = getBones(C, GLOB, fname);
-  if (!rig) return;
+  if (!rig || RENDER.hideSprites) return;
   const { imgs, style, offsets } = ensureFighterSprites(C, fname);
   const facingFlip = (GLOB.FIGHTERS?.player?.facingSign || 1) < 0;
 
