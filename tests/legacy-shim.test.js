@@ -11,7 +11,7 @@ async function readJs(filename) {
 }
 
 const shimImportPattern = /import\s+['"]\.\/_clearOverride\.js\?v=\d+['"];?/;
-const aliasImportPattern = /import\s+['"]\.\/_clearOverride\.js\?v=\d+['"];?/;
+const aliasImportPattern = shimImportPattern;
 const moduleLoaderPattern = /<script\s+type="module"\s+src="\.\/js\/app\.js\?v=\d+"><\/script>/i;
 
 async function readIndex() {
@@ -45,22 +45,22 @@ test('index.html references the versioned app module directly', async () => {
   );
 });
 
-test('legacy clear override shim explains that it is intentionally blank', async () => {
+test('legacy clear override shim documents the cleanup behaviour', async () => {
   const shimSource = await readJs('_clearOverride.js');
   assert.match(
     shimSource,
-    /intentionally\s+blank/i,
-    'shim should document that it no longer performs any work',
+    /clears?\s+the\s+pre-modular\s+pose\s+override/i,
+    'shim should explain that it removes the legacy pose override flag',
   );
 });
 
-test('legacy clear override shim evaluates without side effects on GAME.poseOverride', async () => {
+test('legacy clear override shim removes configurable GAME.poseOverride flags', async () => {
   const shimSource = await readJs('_clearOverride.js');
   const context = { GAME: { poseOverride: 'stale' } };
   context.globalThis = context;
   vm.createContext(context);
   assert.doesNotThrow(() => vm.runInContext(shimSource, context));
-  assert.equal(context.GAME.poseOverride, 'stale');
+  assert.ok(!('poseOverride' in context.GAME));
 });
 
 test('legacy clear override shim evaluates safely when GAME is missing', async () => {
@@ -91,5 +91,20 @@ test('legacy clear override shim evaluates when only Node global is available', 
   context.self = undefined;
   vm.createContext(context);
   assert.doesNotThrow(() => vm.runInContext(shimSource, context));
-  assert.equal(context.GAME.poseOverride, 'legacy');
+  assert.ok(!('poseOverride' in context.GAME));
+});
+
+test('legacy clear override shim falls back to undefined when override is non-configurable', async () => {
+  const shimSource = await readJs('_clearOverride.js');
+  const context = { GAME: {} };
+  Object.defineProperty(context.GAME, 'poseOverride', {
+    value: 'locked',
+    configurable: false,
+    writable: true,
+    enumerable: true,
+  });
+  context.globalThis = context;
+  vm.createContext(context);
+  assert.doesNotThrow(() => vm.runInContext(shimSource, context));
+  assert.equal(context.GAME.poseOverride, undefined);
 });
