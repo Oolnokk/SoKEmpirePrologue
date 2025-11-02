@@ -1,0 +1,15 @@
+{
+  "name": "sok-empire-prologue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Toolkit and docs for the SoK Empire prologue demo.",
+  "scripts": {
+    "test": "echo \"No automated tests configured\" && exit 0"
+  },
+  "keywords": [
+    "sok",
+    "empire",
+    "prologue"
+  ],
+  "license": "UNLICENSED"
+}
