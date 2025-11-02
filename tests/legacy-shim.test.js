@@ -127,3 +127,15 @@ test('legacy clear override shim falls back to undefined when delete fails', asy
   vm.runInContext(shimSource, context);
   assert.equal(context.GAME.poseOverride, undefined);
 });
+
+test('legacy clear override shim can locate GAME via Node global fallback', async () => {
+  const shimSource = await readFile(await file('_clearOverride.js'), 'utf8');
+  const context = { GAME: { poseOverride: 'stale' } };
+  context.global = context;
+  context.globalThis = undefined;
+  context.window = undefined;
+  context.self = undefined;
+  vm.createContext(context);
+  vm.runInContext(shimSource, context);
+  assert.equal('poseOverride' in context.GAME, false);
+});

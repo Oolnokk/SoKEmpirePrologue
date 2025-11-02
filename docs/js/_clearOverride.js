@@ -4,6 +4,7 @@
   const resolveRoot = () => {
     const candidates = [
       typeof globalThis !== 'undefined' ? globalThis : undefined,
+      typeof global !== 'undefined' ? global : undefined,
       typeof window !== 'undefined' ? window : undefined,
       typeof self !== 'undefined' ? self : undefined,
     ];
