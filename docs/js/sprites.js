@@ -5,12 +5,37 @@ const ASSETS = (window.ASSETS ||= {});
 const CACHE = (ASSETS.sprites ||= {});
 const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
+if (typeof RENDER.hideSprites !== 'boolean') {
+  RENDER.hideSprites = false;
+}
 RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
 
+function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'right'; return (z === 'up') ? 'up' : 'right'; }
+function basisFor(ang){
+  const fn = (typeof window !== 'undefined' && typeof window.BONE_BASIS === 'function') ? window.BONE_BASIS : null;
+  if (fn) return fn(ang);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  if (angleZero() === 'right') { return { fx:c, fy:s, rx:-s, ry:c }; }
+  return { fx:s, fy:-c, rx:c, ry:s };
+}
 function rad(deg){ return (deg||0) * Math.PI / 180; }
 function dist(a,b){ const dx=b[0]-a[0], dy=b[1]-a[1]; return Math.sqrt(dx*dx+dy*dy); }
-function angle(a,b){ return Math.atan2(b[0]-a[0], -(b[1]-a[1])); } // (sin,-cos) canonical
-function withAX(x,y,ang,ax,ay,unitsLen){ const L=(unitsLen||1); const u=(ax||0)*L, v=(ay||0)*L; const dx=u*Math.sin(ang)+v*Math.cos(ang); const dy=u*-Math.cos(ang)+v*Math.sin(ang); return [x+dx,y+dy]; }
+function angle(a,b){
+  const dx = b[0]-a[0];
+  const dy = b[1]-a[1];
+  const fn = (typeof window !== 'undefined' && typeof window.BONE_ANGLE_FROM_DELTA === 'function') ? window.BONE_ANGLE_FROM_DELTA : null;
+  if (fn) return fn(dx, dy);
+  if (angleZero() === 'right') { return Math.atan2(dy, dx); }
+  return Math.atan2(dx, -dy);
+}
+function withAX(x,y,ang,ax,ay,unitsLen){
+  const L=(unitsLen||1);
+  const u=(ax||0)*L, v=(ay||0)*L;
+  const b = basisFor(ang);
+  const dx = u*b.fx + v*b.rx;
+  const dy = u*b.fy + v*b.ry;
+  return [x+dx,y+dy];
+}
 function load(url){ if(!url) return null; if(CACHE[url]) return CACHE[url]; const img=new Image(); img.crossOrigin='anonymous'; img.src=url; CACHE[url]=img; return img; }
 
 function pickFighterName(C){ if(GLOB.selectedFighter && C.fighters?.[GLOB.selectedFighter]) return GLOB.selectedFighter; if (C.fighters?.TLETINGAN) return 'TLETINGAN'; const k=Object.keys(C.fighters||{}); return k.length?k[0]:'default'; }
@@ -137,8 +162,9 @@ function drawBoneSprite(ctx, img, bone, styleKey, style, offsets, facingFlip){
   const anchor = anchorMap[styleKey] || 'mid';
   const t = (anchor === 'start') ? 0.0 : 0.5;
   // base anchor on bone
-  let px = bone.x + bone.len * t * Math.sin(bone.ang);
-  let py = bone.y - bone.len * t * Math.cos(bone.ang);
+  const bAxis = basisFor(bone.ang);
+  let px = bone.x + bone.len * t * bAxis.fx;
+  let py = bone.y + bone.len * t * bAxis.fy;
 
   // 1) apply fighter offsets.origin (absolute units) in bone-space
   const off = originOffset(styleKey, offsets);
@@ -167,7 +193,9 @@ function drawBoneSprite(ctx, img, bone, styleKey, style, offsets, facingFlip){
   w *= sx; h *= sy;
 
   // rotation with +PI baseline (v19)
-  const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI;
+  const zeroMode = angleZero();
+  const angleComp = (zeroMode === 'right') ? -Math.PI/2 : 0;
+  const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI + angleComp;
 
   ctx.save();
   ctx.translate(posX, posY);
@@ -229,7 +257,7 @@ export function renderSprites(ctx){
   const C = (window.CONFIG || {});
   const fname = pickFighterName(C);
   const rig = getBones(C, GLOB, fname);
-  if (!rig) return;
+  if (!rig || RENDER.hideSprites) return;
   const { imgs, style, offsets } = ensureFighterSprites(C, fname);
   const facingFlip = (GLOB.FIGHTERS?.player?.facingSign || 1) < 0;
 
