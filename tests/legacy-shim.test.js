@@ -45,16 +45,25 @@ test('index.html references the versioned app module directly', async () => {
   );
 });
 
-test('legacy clear override shim executes safely when GAME.poseOverride exists', async () => {
+test('legacy clear override shim explains that it is intentionally blank', async () => {
   const shimSource = await readJs('_clearOverride.js');
-  const context = { GAME: { poseOverride: true } };
-  context.globalThis = context;
-  vm.createContext(context);
-  vm.runInContext(shimSource, context);
-  assert.equal('poseOverride' in context.GAME, false, 'shim should delete poseOverride');
+  assert.match(
+    shimSource,
+    /intentionally\s+blank/i,
+    'shim should document that it no longer performs any work',
+  );
 });
 
-test('legacy clear override shim no-ops when GAME is missing', async () => {
+test('legacy clear override shim evaluates without side effects on GAME.poseOverride', async () => {
+  const shimSource = await readJs('_clearOverride.js');
+  const context = { GAME: { poseOverride: 'stale' } };
+  context.globalThis = context;
+  vm.createContext(context);
+  assert.doesNotThrow(() => vm.runInContext(shimSource, context));
+  assert.equal(context.GAME.poseOverride, 'stale');
+});
+
+test('legacy clear override shim evaluates safely when GAME is missing', async () => {
   const shimSource = await readJs('_clearOverride.js');
   const context = {};
   context.globalThis = context;
@@ -62,7 +71,7 @@ test('legacy clear override shim no-ops when GAME is missing', async () => {
   assert.doesNotThrow(() => vm.runInContext(shimSource, context));
 });
 
-test('legacy clear override shim tolerates non-object GAME containers', async () => {
+test('legacy clear override shim evaluates safely with non-object GAME containers', async () => {
   const shimSource = await readJs('_clearOverride.js');
   const context = { GAME: 'not-an-object' };
   context.globalThis = undefined;
@@ -73,29 +82,14 @@ test('legacy clear override shim tolerates non-object GAME containers', async ()
   assert.equal(context.GAME, 'not-an-object');
 });
 
-test('legacy clear override shim falls back to undefined when delete fails', async () => {
+test('legacy clear override shim evaluates when only Node global is available', async () => {
   const shimSource = await readJs('_clearOverride.js');
-  const game = {};
-  Object.defineProperty(game, 'poseOverride', {
-    configurable: false,
-    writable: true,
-    value: 'locked',
-  });
-  const context = { GAME: game };
-  context.globalThis = context;
-  vm.createContext(context);
-  vm.runInContext(shimSource, context);
-  assert.equal(context.GAME.poseOverride, undefined);
-});
-
-test('legacy clear override shim can locate GAME via Node global fallback', async () => {
-  const shimSource = await readJs('_clearOverride.js');
-  const context = { GAME: { poseOverride: 'stale' } };
+  const context = { GAME: { poseOverride: 'legacy' } };
   context.global = context;
   context.globalThis = undefined;
   context.window = undefined;
   context.self = undefined;
   vm.createContext(context);
-  vm.runInContext(shimSource, context);
-  assert.equal('poseOverride' in context.GAME, false);
+  assert.doesNotThrow(() => vm.runInContext(shimSource, context));
+  assert.equal(context.GAME.poseOverride, 'legacy');
 });
