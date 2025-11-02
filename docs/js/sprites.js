@@ -295,10 +295,9 @@ export function renderSprites(ctx){
   const { imgs, style, offsets } = ensureFighterSprites(C, fname);
   const facingFlip = (GLOB.FIGHTERS?.player?.facingSign || 1) < 0;
 
-  // z-order support (we keep it simple: we still draw branches, but enqueue according to order)
   const zOf = buildZMap(C);
-  const Q = [];
-  function enqueue(tag, fn){ Q.push({z:zOf(tag), tag, fn}); }
+  const queue = [];
+  function enqueue(tag, data){ queue.push({ z: zOf(tag), tag, data }); }
 
   enqueue('TORSO', ()=> drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, offsets, facingFlip));
   enqueue('HEAD',  ()=> drawBoneSprite(ctx, assets.head,  rig.head,  'head',  style, offsets, facingFlip));
@@ -311,8 +310,26 @@ export function renderSprites(ctx){
   enqueue('LEG_R_UPPER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, facingFlip));
   enqueue('LEG_R_LOWER', ()=> {});
 
-  Q.sort((a,b)=>a.z-b.z);
-  for (const d of Q){ d.fn && d.fn(); }
+  queue.sort((a, b) => a.z - b.z);
+  for (const entry of queue){
+    if (!entry || !entry.data) continue;
+    const data = entry.data;
+    switch (data.kind){
+      case 'single':
+        if (data.asset && data.bone){
+          drawBoneSprite(ctx, data.asset, data.bone, data.styleKey, style, offsets, facingFlip);
+        }
+        break;
+      case 'arm':
+        drawArmBranch(ctx, rig, data.side, assets, style, offsets, facingFlip);
+        break;
+      case 'leg':
+        drawLegBranch(ctx, rig, data.side, assets, style, offsets, facingFlip);
+        break;
+      default:
+        break;
+    }
+  }
 }
 
 export function initSprites(){
