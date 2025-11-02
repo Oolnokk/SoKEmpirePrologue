@@ -12,15 +12,15 @@
     "footing": 50,
     "trailColor": "cyan",
     "sprites": {
-      "torso": "https://i.imgur.com/YatjSyo.png",
-      "head": "https://i.imgur.com/WsKQ2Eo.png",
+      "torso": { "url": "https://i.imgur.com/YatjSyo.png", "alignDeg": 180 },
+      "head": { "url": "https://i.imgur.com/WsKQ2Eo.png", "alignDeg": 180 },
       "arm": {
-        "upper": "https://i.imgur.com/CAmWLbf.png",
-        "lower": "https://i.imgur.com/gOHujif.png"
+        "upper": { "url": "https://i.imgur.com/CAmWLbf.png", "alignDeg": 180 },
+        "lower": { "url": "https://i.imgur.com/gOHujif.png", "alignDeg": 180 }
       },
       "leg": {
-        "upper": "https://i.imgur.com/qgcQTmx.png",
-        "lower": "https://i.imgur.com/lZbF7j2.png"
+        "upper": { "url": "https://i.imgur.com/qgcQTmx.png", "alignDeg": 180 },
+        "lower": { "url": "https://i.imgur.com/lZbF7j2.png", "alignDeg": 180 }
       }
     }
   },
