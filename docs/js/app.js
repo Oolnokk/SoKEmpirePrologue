@@ -133,7 +133,7 @@ function boot(){
 }
 
 (async function start(){
-  try { if (window.reloadConfig) await window.reloadConfig(); } catch(_){}
+  try { if (window.reloadConfig) await window.reloadConfig(); } catch(_){ }
   applyRenderOrder();
   await initSprites();
   boot();
