@@ -11,6 +11,7 @@ if (typeof RENDER.hideSprites !== 'boolean') {
 RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
 
 function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'right'; return (z === 'up') ? 'up' : 'right'; }
+function spriteAngleZero(){ if (typeof window !== 'undefined' && window.SPRITE_ANGLE_ZERO != null) { const z = String(window.SPRITE_ANGLE_ZERO).toLowerCase(); return (z === 'right') ? 'right' : 'up'; } return 'up'; }
 function basisFor(ang){
   const fn = (typeof window !== 'undefined' && typeof window.BONE_BASIS === 'function') ? window.BONE_BASIS : null;
   if (fn) return fn(ang);
@@ -240,7 +241,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   w *= sx; h *= sy;
 
   // rotation with +PI baseline (v19)
-  const zeroMode = angleZero();
+  const zeroMode = spriteAngleZero();
   const angleComp = (zeroMode === 'right') ? -Math.PI/2 : 0;
   const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI + angleComp;
 
