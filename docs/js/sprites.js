@@ -261,7 +261,7 @@ function legMirrorFlag(side, upperTag, lowerTag){
   return !!(M[upperTag] || M[lowerTag] || M[side==="L"? 'LEG_L' : 'LEG_R'] || M['LEG'] || M['ALL']);
 }
 
-function drawArmBranch(ctx, rig, side, assets, style, offsets, facingFlip){
+function drawArmBranch(ctx, rig, side, assets, style, offsets, facingFlip, segment = 'both'){
   const upKey = side==='L' ? 'arm_L_upper':'arm_R_upper';
   const loKey = side==='L' ? 'arm_L_lower':'arm_R_lower';
   const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
@@ -269,12 +269,16 @@ function drawArmBranch(ctx, rig, side, assets, style, offsets, facingFlip){
   const mirror = limbMirrorFlag(side, tagU, tagL);
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
-    drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
-    if (lo) drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    if (segment !== 'lower'){
+      drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
+    }
+    if (segment !== 'upper' && lo){
+      drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    }
   });
 }
 
-function drawLegBranch(ctx, rig, side, assets, style, offsets, facingFlip){
+function drawLegBranch(ctx, rig, side, assets, style, offsets, facingFlip, segment = 'both'){
   const upKey = side==='L' ? 'leg_L_upper':'leg_R_upper';
   const loKey = side==='L' ? 'leg_L_lower':'leg_R_lower';
   const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
@@ -282,8 +286,12 @@ function drawLegBranch(ctx, rig, side, assets, style, offsets, facingFlip){
   const mirror = legMirrorFlag(side, tagU, tagL);
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
-    drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
-    if (lo) drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    if (segment !== 'lower'){
+      drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
+    }
+    if (segment !== 'upper' && lo){
+      drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    }
   });
 }
 
@@ -299,21 +307,21 @@ export function renderSprites(ctx){
   const queue = [];
   function enqueue(tag, data){ queue.push({ z: zOf(tag), tag, data }); }
 
-  enqueue('TORSO', ()=> drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, offsets, facingFlip));
-  enqueue('HEAD',  ()=> drawBoneSprite(ctx, assets.head,  rig.head,  'head',  style, offsets, facingFlip));
-  enqueue('ARM_L_UPPER', ()=> drawArmBranch(ctx, rig, 'L', assets, style, offsets, facingFlip));
-  enqueue('ARM_L_LOWER', ()=> {}); // lower is drawn inside branch; tag kept for ordering parity
-  enqueue('ARM_R_UPPER', ()=> drawArmBranch(ctx, rig, 'R', assets, style, offsets, facingFlip));
-  enqueue('ARM_R_LOWER', ()=> {});
-  enqueue('LEG_L_UPPER', ()=> drawLegBranch(ctx, rig, 'L', assets, style, offsets, facingFlip));
-  enqueue('LEG_L_LOWER', ()=> {});
-  enqueue('LEG_R_UPPER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, facingFlip));
-  enqueue('LEG_R_LOWER', ()=> {});
+  enqueue('TORSO', { kind: 'single', asset: assets.torso, bone: rig.torso, styleKey: 'torso' });
+  enqueue('HEAD',  { kind: 'single', asset: assets.head,  bone: rig.head,  styleKey: 'head' });
+  enqueue('ARM_L_UPPER', { kind: 'arm', side: 'L', segment: 'upper' });
+  enqueue('ARM_L_LOWER', { kind: 'arm', side: 'L', segment: 'lower' });
+  enqueue('ARM_R_UPPER', { kind: 'arm', side: 'R', segment: 'upper' });
+  enqueue('ARM_R_LOWER', { kind: 'arm', side: 'R', segment: 'lower' });
+  enqueue('LEG_L_UPPER', { kind: 'leg', side: 'L', segment: 'upper' });
+  enqueue('LEG_L_LOWER', { kind: 'leg', side: 'L', segment: 'lower' });
+  enqueue('LEG_R_UPPER', { kind: 'leg', side: 'R', segment: 'upper' });
+  enqueue('LEG_R_LOWER', { kind: 'leg', side: 'R', segment: 'lower' });
 
   queue.sort((a, b) => a.z - b.z);
   for (const entry of queue){
-    if (!entry || !entry.data) continue;
-    const data = entry.data;
+    const data = entry?.data;
+    if (!data) continue;
     switch (data.kind){
       case 'single':
         if (data.asset && data.bone){
@@ -321,10 +329,10 @@ export function renderSprites(ctx){
         }
         break;
       case 'arm':
-        drawArmBranch(ctx, rig, data.side, assets, style, offsets, facingFlip);
+        drawArmBranch(ctx, rig, data.side, assets, style, offsets, facingFlip, data.segment);
         break;
       case 'leg':
-        drawLegBranch(ctx, rig, data.side, assets, style, offsets, facingFlip);
+        drawLegBranch(ctx, rig, data.side, assets, style, offsets, facingFlip, data.segment);
         break;
       default:
         break;
