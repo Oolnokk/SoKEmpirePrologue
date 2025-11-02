@@ -11,22 +11,69 @@ async function file(pathname) {
   return loc;
 }
 
-test('app imports the legacy clear override shim with a versioned path', async () => {
+const appShimImportRegex = /import\s+['"]\.\/_clearOverride\.js\?v=(\d+)['"]/;
+const appScriptRegex = /<script\s+type="module"\s+src="\.\/js\/app\.js\?v=(\d+)"><\/script>/;
+
+async function readAppSource() {
   const appPath = await file('app.js');
-  const src = await readFile(appPath, 'utf8');
-  const importRegex = /import\s+['"]\.\/_clearOverride\.js\?v=(\d+)['"]/;
-  const match = src.match(importRegex);
-  assert.ok(match, 'docs/js/app.js must import ./_clearOverride.js with a version query');
+  return readFile(appPath, 'utf8');
+}
+
+async function readIndexSource() {
+  return readFile(path.resolve('docs/index.html'), 'utf8');
+}
+
+function extractVersion(source, regex, failureMessage) {
+  const match = source.match(regex);
+  assert.ok(match, failureMessage);
+  const version = Number(match[1]);
+  assert.ok(Number.isInteger(version), 'cache-busting query should be an integer');
+  return version;
+}
+
+test('app imports the legacy clear override shim with a versioned path', async () => {
+  const src = await readAppSource();
+  const version = extractVersion(
+    src,
+    appShimImportRegex,
+    'docs/js/app.js must import ./_clearOverride.js with a version query',
+  );
+  assert.ok(version >= 0, 'cache-busting query should be non-negative');
   const shimPath = await file('_clearOverride.js');
   await access(shimPath);
 });
 
 test('index.html loads the app entry point with a cache-busting query', async () => {
-  const html = await readFile(path.resolve('docs/index.html'), 'utf8');
-  const scriptRegex = /<script\s+type="module"\s+src="\.\/js\/app\.js\?v=(\d+)"><\/script>/;
-  const match = html.match(scriptRegex);
-  assert.ok(match, 'docs/index.html must load ./js/app.js with a numeric cache-busting query parameter');
-  assert.ok(Number.isInteger(Number(match[1])), 'cache-busting query should be an integer');
+  const html = await readIndexSource();
+  extractVersion(
+    html,
+    appScriptRegex,
+    'docs/index.html must load ./js/app.js with a numeric cache-busting query parameter',
+  );
+});
+
+test('cache-busting version stays in sync between index loader and shim import', async () => {
+  const [appSource, indexSource] = await Promise.all([
+    readAppSource(),
+    readIndexSource(),
+  ]);
+
+  const shimVersion = extractVersion(
+    appSource,
+    appShimImportRegex,
+    'docs/js/app.js must import ./_clearOverride.js with a version query',
+  );
+  const loaderVersion = extractVersion(
+    indexSource,
+    appScriptRegex,
+    'docs/index.html must load ./js/app.js with a numeric cache-busting query parameter',
+  );
+
+  assert.equal(
+    loaderVersion,
+    shimVersion,
+    'app.js and index.html cache-busting versions must match to avoid stale bundles',
+  );
 });
 
 test('legacy clear override shim executes safely when GAME.poseOverride exists', async () => {
