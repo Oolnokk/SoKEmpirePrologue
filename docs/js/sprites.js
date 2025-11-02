@@ -292,7 +292,7 @@ export function renderSprites(ctx){
   const fname = pickFighterName(C);
   const rig = getBones(C, GLOB, fname);
   if (!rig || RENDER.hideSprites) return;
-  const { imgs, style, offsets } = ensureFighterSprites(C, fname);
+  const { assets, style, offsets } = ensureFighterSprites(C, fname);
   const facingFlip = (GLOB.FIGHTERS?.player?.facingSign || 1) < 0;
 
   const zOf = buildZMap(C);
