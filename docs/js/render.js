@@ -1,7 +1,7 @@
 // render.js — v19-accurate rig math wired for sprites.js (compat arrays extended)
 // Angle basis is centralized so sprites.js can stay in sync (toggle via window.ANGLE_ZERO).
 
-function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'right'; return (z === 'up') ? 'up' : 'right'; }
+function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'up'; return (z === 'right') ? 'right' : 'up'; }
 function basis(ang){ const c = Math.cos(ang), s = Math.sin(ang); if (angleZero() === 'right') { return { fx:c, fy:s, rx:-s, ry:c }; } return { fx:s, fy:-c, rx:c, ry:s }; }
 function segPos(x, y, len, ang) { const b = basis(ang); return [x + len * b.fx, y + len * b.fy]; }
 function withAX(x, y, ang, off, len, units) {
@@ -156,29 +156,4 @@ function drawCompass(ctx, x, y, r, label){
   ctx.restore();
 }
 
-function ensureAngleZeroToggle(){
-  if (typeof document === 'undefined') return;
-  if (document.getElementById('angleZeroChk')) return;
-  const grid = document.getElementById('settingsGrid');
-  if (!grid) return;
-  const label = document.createElement('label');
-  label.style.fontSize = '12px';
-  label.style.display = 'inline-flex';
-  label.style.gap = '8px';
-  label.style.alignItems = 'center';
-  label.innerHTML = `Angle zero = <b id="angleZeroLbl">${angleZero()}</b>`;
-  const checkbox = document.createElement('input');
-  checkbox.type = 'checkbox';
-  checkbox.id = 'angleZeroChk';
-  checkbox.checked = angleZero() === 'right';
-  checkbox.addEventListener('change', (e)=>{
-    const mode = e.target.checked ? 'right' : 'up';
-    if (typeof window !== 'undefined') { window.ANGLE_ZERO = mode; }
-    const lbl = document.getElementById('angleZeroLbl');
-    if (lbl) lbl.textContent = mode;
-  });
-  label.appendChild(checkbox);
-  grid.appendChild(label);
-}
-
-export function renderAll(ctx){ const G=(window.GAME ||= {}); const C=(window.CONFIG || {}); if(!ctx||!G.FIGHTERS) return; const fName=(G.selectedFighter && C.fighters?.[G.selectedFighter])? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default'); const player=computeAnchorsForFighter(G.FIGHTERS.player,C,fName); const npc=computeAnchorsForFighter(G.FIGHTERS.npc,C,fName); (G.ANCHORS_OBJ ||= {}); G.ANCHORS_OBJ.player=player.B; G.ANCHORS_OBJ.npc=npc.B; (G.ANCHORS ||= {}); G.ANCHORS.player=toCompatArrays(player); G.ANCHORS.npc=toCompatArrays(npc); const camX=G.CAMERA?.x||0; ctx.save(); ctx.translate(-camX,0); drawStick(ctx, player.B); ctx.restore(); drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`); ensureAngleZeroToggle(); }
+export function renderAll(ctx){ const G=(window.GAME ||= {}); const C=(window.CONFIG || {}); if(!ctx||!G.FIGHTERS) return; const fName=(G.selectedFighter && C.fighters?.[G.selectedFighter])? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default'); const player=computeAnchorsForFighter(G.FIGHTERS.player,C,fName); const npc=computeAnchorsForFighter(G.FIGHTERS.npc,C,fName); (G.ANCHORS_OBJ ||= {}); G.ANCHORS_OBJ.player=player.B; G.ANCHORS_OBJ.npc=npc.B; (G.ANCHORS ||= {}); G.ANCHORS.player=toCompatArrays(player); G.ANCHORS.npc=toCompatArrays(npc); const camX=G.CAMERA?.x||0; ctx.save(); ctx.translate(-camX,0); drawStick(ctx, player.B); ctx.restore(); drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`); }
