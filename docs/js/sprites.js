@@ -208,6 +208,12 @@ const ORIENTATION_OFFSETS = {
   armLower: Math.PI / 2,
   legUpper: -Math.PI / 2,
   legLower: -Math.PI / 2
+  torso: Math.PI / 2,
+  head: 0,
+  armUpper: -Math.PI / 2,
+  armLower: -Math.PI / 2,
+  legUpper: Math.PI / 2,
+  legLower: Math.PI / 2
 };
 
 function orientationOffsetFor(styleKey){
@@ -359,6 +365,35 @@ export function renderSprites(ctx){
   for (const entry of queue){
     if (typeof entry?.drawFn === 'function'){
       entry.drawFn();
+  enqueue('TORSO', { kind: 'single', asset: assets.torso, bone: rig.torso, styleKey: 'torso' });
+  enqueue('HEAD',  { kind: 'single', asset: assets.head,  bone: rig.head,  styleKey: 'head' });
+  enqueue('ARM_L_UPPER', { kind: 'arm', side: 'L', segment: 'upper' });
+  enqueue('ARM_L_LOWER', { kind: 'arm', side: 'L', segment: 'lower' });
+  enqueue('ARM_R_UPPER', { kind: 'arm', side: 'R', segment: 'upper' });
+  enqueue('ARM_R_LOWER', { kind: 'arm', side: 'R', segment: 'lower' });
+  enqueue('LEG_L_UPPER', { kind: 'leg', side: 'L', segment: 'upper' });
+  enqueue('LEG_L_LOWER', { kind: 'leg', side: 'L', segment: 'lower' });
+  enqueue('LEG_R_UPPER', { kind: 'leg', side: 'R', segment: 'upper' });
+  enqueue('LEG_R_LOWER', { kind: 'leg', side: 'R', segment: 'lower' });
+
+  queue.sort((a, b) => a.z - b.z);
+  for (const entry of queue){
+    const data = entry?.data;
+    if (!data) continue;
+    switch (data.kind){
+      case 'single':
+        if (data.asset && data.bone){
+          drawBoneSprite(ctx, data.asset, data.bone, data.styleKey, style, offsets, facingFlip);
+        }
+        break;
+      case 'arm':
+        drawArmBranch(ctx, rig, data.side, assets, style, offsets, facingFlip, data.segment);
+        break;
+      case 'leg':
+        drawLegBranch(ctx, rig, data.side, assets, style, offsets, facingFlip, data.segment);
+        break;
+      default:
+        break;
     }
   }
 }
