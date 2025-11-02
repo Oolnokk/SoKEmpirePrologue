@@ -51,16 +51,29 @@ function pickOffsets(C, fcfg) { function deepMerge(a,b){ const o = {...(a||{})};
 
 function computeAnchorsForFighter(F, C, fighterName) {
   const fcfg = pickFighterConfig(C, fighterName); const L = lengths(C, fcfg); const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
-  const centerX = F.pos?.x ?? 0; const centerY = F.pos?.y ?? ((C.groundRatio||0.7) * (C.canvas?.h||460)); const torsoAng = rad(F.jointAngles?.torso);
+  const centerX = F.pos?.x ?? 0; const centerY = F.pos?.y ?? ((C.groundRatio||0.7) * (C.canvas?.h||460));
+  const torsoAngRaw = rad(F.jointAngles?.torso);
+  const torsoAng = torsoAngRaw + Math.PI * 1.5; // baseline rotated 90° CCW, then flipped 180° for current torso orientation
   const torsoAttach = { x: centerX + (hbAttach.nx - 0.5) * L.hbW, y: centerY + (hbAttach.ny - 0.5) * L.hbH };
-  const base = withAX(torsoAttach.x, torsoAttach.y, torsoAng, OFF.torso?.origin);
-  const torsoTopArr = segPos(base[0], base[1], L.torso, torsoAng);
+  const originBaseArr   = withAX(torsoAttach.x, torsoAttach.y, torsoAngRaw, OFF.torso?.origin);
+  const hipBaseArr      = withAX(originBaseArr[0], originBaseArr[1], torsoAngRaw, OFF.torso?.hip);
+  const torsoTopArr     = segPos(hipBaseArr[0], hipBaseArr[1], L.torso, torsoAng);
   const neckBaseArr     = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.neck);
   const shoulderBaseArr = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.shoulder);
-  const hipBaseArr      = withAX(base[0],       base[1],        torsoAng, OFF.torso?.hip);
+
+  const hitbox = {
+    x: centerX,
+    y: centerY,
+    w: L.hbW,
+    h: L.hbH,
+    ang: torsoAngRaw,
+    attachX: torsoAttach.x,
+    attachY: torsoAttach.y
+  };
 
   const lShoulderRel = rad(F.jointAngles?.lShoulder); const rShoulderRel = rad(F.jointAngles?.rShoulder); const lElbowRel = rad(F.jointAngles?.lElbow); const rElbowRel = rad(F.jointAngles?.rElbow);
-  let lUpperAng = torsoAng + lShoulderRel; let rUpperAng = torsoAng + rShoulderRel;
+  const armBaseOffset = -Math.PI / 2;
+  let lUpperAng = torsoAng + lShoulderRel + armBaseOffset; let rUpperAng = torsoAng + rShoulderRel + armBaseOffset;
   let lLowerAng = lUpperAng + lElbowRel;   let rLowerAng = rUpperAng + rElbowRel;
 
   const lElbowPosArr = withAX(...segPos(shoulderBaseArr[0], shoulderBaseArr[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
@@ -68,31 +81,40 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const lWristPosArr = withAX(...segPos(lElbowPosArr[0], lElbowPosArr[1], L.armL, lLowerAng), lLowerAng, OFF.arm?.lower?.origin);
   const rWristPosArr = withAX(...segPos(rElbowPosArr[0], rElbowPosArr[1], L.armL, rLowerAng), rLowerAng, OFF.arm?.lower?.origin);
 
-  const legsFollow = !!C.hierarchy?.legsFollowTorsoRotation; let lHipAng = rad(F.jointAngles?.lHip) + (legsFollow ? torsoAng : 0); let rHipAng = rad(F.jointAngles?.rHip) + (legsFollow ? torsoAng : 0); const lKneeRel = rad(F.jointAngles?.lKnee); const rKneeRel = rad(F.jointAngles?.rKnee);
+  const legsFollow = !!C.hierarchy?.legsFollowTorsoRotation;
+  let lHipAng = rad(F.jointAngles?.lHip) + (legsFollow ? torsoAngRaw : 0);
+  let rHipAng = rad(F.jointAngles?.rHip) + (legsFollow ? torsoAngRaw : 0);
+  const lKneeRel = rad(F.jointAngles?.lKnee);
+  const rKneeRel = rad(F.jointAngles?.rKnee);
+  const lKneeAng = lHipAng + lKneeRel;
+  const rKneeAng = rHipAng + rKneeRel;
   const lKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], L.legU, lHipAng), lHipAng, OFF.leg?.upper?.knee);
   const rKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], L.legU, rHipAng), rHipAng, OFF.leg?.upper?.knee);
-  const lFootPosArr = segPos(lKneePosArr[0], lKneePosArr[1], L.legL, lHipAng + lKneeRel);
-  const rFootPosArr = segPos(rKneePosArr[0], rKneePosArr[1], L.legL, rHipAng + rKneeRel);
+  const lAnklePosArr = withAX(...segPos(lKneePosArr[0], lKneePosArr[1], L.legL, lKneeAng), lKneeAng, OFF.leg?.lower?.origin);
+  const rAnklePosArr = withAX(...segPos(rKneePosArr[0], rKneePosArr[1], L.legL, rKneeAng), rKneeAng, OFF.leg?.lower?.origin);
 
   // Build bone objects (include base points)
+  const headLen = ((fcfg.parts?.head?.neck ?? C.parts?.head?.neck ?? 14) + 2*(fcfg.parts?.head?.radius ?? C.parts?.head?.radius ?? 16)) * (L.scale/(C.actor?.scale||1)) * (C.actor?.scale||1);
+  const headEndArr = segPos(neckBaseArr[0], neckBaseArr[1], headLen, torsoAng);
+
   const B = {
     center:{x:centerX,y:centerY},
-    torso:{x:base[0],y:base[1],len:L.torso,ang:torsoAng},
-    head:{x:neckBaseArr[0],y:neckBaseArr[1],len: ((fcfg.parts?.head?.neck ?? C.parts?.head?.neck ?? 14) + 2*(fcfg.parts?.head?.radius ?? C.parts?.head?.radius ?? 16)) * (L.scale/(C.actor?.scale||1)) * (C.actor?.scale||1), ang:torsoAng},
+    torso:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.torso,ang:torsoAng,endX:torsoTopArr[0],endY:torsoTopArr[1]},
+    head:{x:neckBaseArr[0],y:neckBaseArr[1],len:headLen,ang:torsoAng,endX:headEndArr[0],endY:headEndArr[1]},
     shoulderBase:{x:shoulderBaseArr[0],y:shoulderBaseArr[1]},
     hipBase:{x:hipBaseArr[0],y:hipBaseArr[1]},
     neckBase:{x:neckBaseArr[0],y:neckBaseArr[1]},
     torsoTop:{x:torsoTopArr[0],y:torsoTopArr[1]},
 
-    arm_L_upper:{x:shoulderBaseArr[0],y:shoulderBaseArr[1],len:L.armU,ang:lUpperAng},
-    arm_L_lower:{x:lElbowPosArr[0],y:lElbowPosArr[1],len:L.armL,ang:lLowerAng},
-    arm_R_upper:{x:shoulderBaseArr[0],y:shoulderBaseArr[1],len:L.armU,ang:rUpperAng},
-    arm_R_lower:{x:rElbowPosArr[0],y:rElbowPosArr[1],len:L.armL,ang:rLowerAng},
+    arm_L_upper:{x:shoulderBaseArr[0],y:shoulderBaseArr[1],len:L.armU,ang:lUpperAng,endX:lElbowPosArr[0],endY:lElbowPosArr[1]},
+    arm_L_lower:{x:lElbowPosArr[0],y:lElbowPosArr[1],len:L.armL,ang:lLowerAng,endX:lWristPosArr[0],endY:lWristPosArr[1]},
+    arm_R_upper:{x:shoulderBaseArr[0],y:shoulderBaseArr[1],len:L.armU,ang:rUpperAng,endX:rElbowPosArr[0],endY:rElbowPosArr[1]},
+    arm_R_lower:{x:rElbowPosArr[0],y:rElbowPosArr[1],len:L.armL,ang:rLowerAng,endX:rWristPosArr[0],endY:rWristPosArr[1]},
 
-    leg_L_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.legU,ang:lHipAng},
-    leg_L_lower:{x:lKneePosArr[0],y:lKneePosArr[1],len:L.legL,ang:lHipAng+lKneeRel},
-    leg_R_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.legU,ang:rHipAng},
-    leg_R_lower:{x:rKneePosArr[0],y:rKneePosArr[1],len:L.legL,ang:rHipAng+rKneeRel}
+    leg_L_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.legU,ang:lHipAng,endX:lKneePosArr[0],endY:lKneePosArr[1]},
+    leg_L_lower:{x:lKneePosArr[0],y:lKneePosArr[1],len:L.legL,ang:lKneeAng,endX:lAnklePosArr[0],endY:lAnklePosArr[1]},
+    leg_R_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.legU,ang:rHipAng,endX:rKneePosArr[0],endY:rKneePosArr[1]},
+    leg_R_lower:{x:rKneePosArr[0],y:rKneePosArr[1],len:L.legL,ang:rKneeAng,endX:rAnklePosArr[0],endY:rAnklePosArr[1]}
   };
 
   // Mirror around hitbox center if facing left — also flip angles θ→-θ so sprites rotate correctly
@@ -100,13 +122,23 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const flipLeft = Math.cos(facingRad) < 0;
   if (flipLeft) {
     const cx = centerX; const mirrorX = (x)=> (cx*2 - x);
-    for (const k in B){ const b=B[k]; if (b && typeof b==='object' && 'x' in b && 'y' in b){ b.x = mirrorX(b.x); if ('ang' in b){ b.ang = -b.ang; } } }
+    for (const k in B){
+      const b=B[k];
+      if (b && typeof b==='object' && 'x' in b && 'y' in b){
+        b.x = mirrorX(b.x);
+        if ('endX' in b) b.endX = mirrorX(b.endX);
+        if ('ang' in b){ b.ang = -b.ang; }
+      }
+    }
+    hitbox.x = mirrorX(hitbox.x);
+    hitbox.attachX = mirrorX(hitbox.attachX);
+    hitbox.ang = -hitbox.ang;
   }
 
-  return { B, L };
+  return { B, L, hitbox };
 }
 
-function toCompatArrays(obj){ const B=obj.B; const end=(b)=>segPos(b.x,b.y,b.len,b.ang); return {
+function toCompatArrays(obj){ const B=obj.B; const end=(b)=>{ if(!b) return [0,0]; if (Number.isFinite(b.endX) && Number.isFinite(b.endY)) return [b.endX, b.endY]; return segPos(b.x,b.y,b.len,b.ang); }; return {
   torsoAbs: B.torso.ang,
   torsoBot: [B.torso.x, B.torso.y],
   torsoTop: [B.torsoTop.x, B.torsoTop.y],
@@ -127,7 +159,82 @@ function toCompatArrays(obj){ const B=obj.B; const end=(b)=>segPos(b.x,b.y,b.len
   rFoot: end(B.leg_R_lower)
 }; }
 
-function drawStick(ctx, B) { ctx.lineCap='round'; ctx.lineWidth=3; ctx.strokeStyle='#a8b3c3'; const seg=(sx,sy,len,ang)=>{ const [ex,ey]=segPos(sx,sy,len,ang); ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke(); }; seg(B.torso.x,B.torso.y,B.torso.len,B.torso.ang); seg(B.arm_L_upper.x,B.arm_L_upper.y,B.arm_L_upper.len,B.arm_L_upper.ang); seg(B.arm_L_lower.x,B.arm_L_lower.y,B.arm_L_lower.len,B.arm_L_lower.ang); seg(B.arm_R_upper.x,B.arm_R_upper.y,B.arm_R_upper.len,B.arm_R_upper.ang); seg(B.arm_R_lower.x,B.arm_R_lower.y,B.arm_R_lower.len,B.arm_R_lower.ang); seg(B.leg_L_upper.x,B.leg_L_upper.y,B.leg_L_upper.len,B.leg_L_upper.ang); seg(B.leg_L_lower.x,B.leg_L_lower.y,B.leg_L_lower.len,B.leg_L_lower.ang); seg(B.leg_R_upper.x,B.leg_R_upper.y,B.leg_R_upper.len,B.leg_R_upper.ang); seg(B.leg_R_lower.x,B.leg_R_lower.y,B.leg_R_lower.len,B.leg_R_lower.ang); }
+export const LIMB_COLORS = {
+  torso: '#fbbf24',
+  head: '#d1d5db',
+  arm_L_upper: '#60a5fa',
+  arm_L_lower: '#3b82f6',
+  arm_R_upper: '#f87171',
+  arm_R_lower: '#ef4444',
+  leg_L_upper: '#34d399',
+  leg_L_lower: '#10b981',
+  leg_R_upper: '#fde68a',
+  leg_R_lower: '#f59e0b'
+};
+
+function drawJoint(ctx, x, y, color){
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function drawSegment(ctx, boneKey, B){
+  const bone = B[boneKey];
+  if (!bone) return;
+  const color = LIMB_COLORS[boneKey] || '#94a3b8';
+  const { x: sx, y: sy, len, ang } = bone;
+  const hasEnd = Number.isFinite(bone.endX) && Number.isFinite(bone.endY);
+  const [ex, ey] = hasEnd ? [bone.endX, bone.endY] : segPos(sx, sy, len, ang);
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(ex, ey);
+  ctx.strokeStyle = color;
+  ctx.stroke();
+  drawJoint(ctx, sx, sy, color);
+  drawJoint(ctx, ex, ey, color);
+}
+
+function drawStick(ctx, B) {
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 4;
+  const order = ['torso','head','arm_L_upper','arm_L_lower','arm_R_upper','arm_R_lower','leg_L_upper','leg_L_lower','leg_R_upper','leg_R_lower'];
+  for (const key of order) {
+    drawSegment(ctx, key, B);
+  }
+}
+
+function drawHitbox(ctx, hb) {
+  if (!ctx || !hb) return;
+  const stroke = (window.CONFIG?.colors?.hitbox) || '#0ea5e9';
+  ctx.save();
+  ctx.translate(hb.x, hb.y);
+  ctx.rotate(hb.ang);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = stroke;
+  ctx.fillStyle = 'rgba(14,165,233,0.08)';
+  const w = hb.w || 0;
+  const h = hb.h || 0;
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.strokeRect(-w / 2, -h / 2, w, h);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -h * 0.5);
+  ctx.stroke();
+  ctx.restore();
+
+  if (Number.isFinite(hb.attachX) && Number.isFinite(hb.attachY)) {
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(hb.attachX, hb.attachY);
+    ctx.lineTo(hb.x, hb.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
 
 
 

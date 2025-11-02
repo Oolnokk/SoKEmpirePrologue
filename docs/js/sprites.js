@@ -3,6 +3,7 @@
 
 const ASSETS = (window.ASSETS ||= {});
 const CACHE = (ASSETS.sprites ||= {});
+const FAILED = (ASSETS.failedSprites ||= new Set());
 const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
 if (typeof RENDER.hideSprites !== 'boolean') {
@@ -183,9 +184,14 @@ function resolveSpriteAssets(spriteConf){
   };
 }
 function ensureFighterSprites(C,fname){
-  const f=C.fighters?.[fname] || {};
-  const S=(f.sprites)||{};
-  return { assets: resolveSpriteAssets(S), style:(S.style||{}), offsets:(f.offsets||{}) };
+  const f = C.fighters?.[fname] || {};
+  const S = (f.sprites) || {};
+  const assets = resolveSpriteAssets(S);
+  const legacyImgs = {};
+  for (const key of Object.keys(assets)){
+    legacyImgs[key] = assets[key]?.img || null;
+  }
+  return { assets, imgs: legacyImgs, style:(S.style||{}), offsets:(f.offsets||{}) };
 }
 
 function originOffset(styleKey, offsets){
