@@ -53,7 +53,7 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const fcfg = pickFighterConfig(C, fighterName); const L = lengths(C, fcfg); const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
   const centerX = F.pos?.x ?? 0; const centerY = F.pos?.y ?? ((C.groundRatio||0.7) * (C.canvas?.h||460));
   const torsoAngRaw = rad(F.jointAngles?.torso);
-  const torsoAng = torsoAngRaw + Math.PI * 0.5;
+  const torsoAng = torsoAngRaw + Math.PI * 1.5; // baseline rotated 90° CCW, then flipped 180° for current torso orientation
   const torsoAttach = { x: centerX + (hbAttach.nx - 0.5) * L.hbW, y: centerY + (hbAttach.ny - 0.5) * L.hbH };
   const originBaseArr   = withAX(torsoAttach.x, torsoAttach.y, torsoAngRaw, OFF.torso?.origin);
   const hipBaseArr      = withAX(originBaseArr[0], originBaseArr[1], torsoAngRaw, OFF.torso?.hip);
@@ -158,7 +158,7 @@ function toCompatArrays(obj){ const B=obj.B; const end=(b)=>{ if(!b) return [0,0
   rFoot: end(B.leg_R_lower)
 }; }
 
-const LIMB_COLORS = {
+export const LIMB_COLORS = {
   torso: '#fbbf24',
   head: '#d1d5db',
   arm_L_upper: '#60a5fa',
