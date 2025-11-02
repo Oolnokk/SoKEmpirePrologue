@@ -1,6 +1,4 @@
-import { CACHE_BUST } from './cacheVersion.js';
-
-await import(`./_clearOverride.js?v=${CACHE_BUST}`);
+import './_clearOverride.js?v=1';
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=6';
 import { initControls } from './controls.js?v=6';
@@ -135,7 +133,7 @@ function boot(){
 }
 
 (async function start(){
-  try { if (window.reloadConfig) await window.reloadConfig(); } catch(_){}
+  try { if (window.reloadConfig) await window.reloadConfig(); } catch(_){ }
   applyRenderOrder();
   await initSprites();
   boot();

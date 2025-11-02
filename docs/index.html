@@ -139,13 +139,7 @@
   <script src="./config/config.js"></script>
   <!-- Local shims and modules -->
   <script src="./js/config-shims.js"></script>
-  <script type="module">
-    import { CACHE_BUST } from './js/cacheVersion.js';
-    import(`./js/app.js?v=${CACHE_BUST}`).catch((err) => {
-      console.error('Failed to load app.js', err);
-      throw err;
-    });
-  </script>
+  <script type="module" src="./js/app.js?v=6"></script>
 
   <!-- Hotfix loader (withAX + linear events + legs-follow-torso + HUD) -->
   <script src="./js/transform_fixes.js"></script>
