@@ -11,6 +11,7 @@ async function readJs(filename) {
 }
 
 const shimImportPattern = /import\s+['"]\.\/_clearOverride\.js\?v=\d+['"];?/;
+const aliasImportPattern = /import\s+['"]\.\/_clearOverride\.js\?v=\d+['"];?/;
 const moduleLoaderPattern = /<script\s+type="module"\s+src="\.\/js\/app\.js\?v=\d+"><\/script>/i;
 
 async function readIndex() {
@@ -23,6 +24,15 @@ test('app.js eagerly imports the legacy clear override shim', async () => {
     source,
     shimImportPattern,
     'docs/js/app.js must import ./_clearOverride.js with a cache-busting query',
+  );
+});
+
+test('clearOverride.js delegates to the underscore-prefixed shim', async () => {
+  const source = await readJs('clearOverride.js');
+  assert.match(
+    source,
+    aliasImportPattern,
+    'docs/js/clearOverride.js must import ./_clearOverride.js to stay in sync',
   );
 });
 

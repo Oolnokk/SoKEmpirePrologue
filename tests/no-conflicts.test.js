@@ -11,6 +11,7 @@ const criticalEntryPoints = [
   'docs/index.html',
   'docs/js/app.js',
   'docs/js/_clearOverride.js',
+  'docs/js/clearOverride.js',
 ];
 
 const markers = ['<<<<<<<', '=======', '>>>>>>>'];
