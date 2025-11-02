@@ -158,53 +158,27 @@ function drawCompass(ctx, x, y, r, label){
 
 function ensureAngleZeroToggle(){
   if (typeof document === 'undefined') return;
+  if (document.getElementById('angleZeroChk')) return;
   const grid = document.getElementById('settingsGrid');
   if (!grid) return;
-
-  if (!document.getElementById('angleZeroChk')) {
-    const label = document.createElement('label');
-    label.style.fontSize = '12px';
-    label.style.display = 'inline-flex';
-    label.style.gap = '8px';
-    label.style.alignItems = 'center';
-    label.innerHTML = `Angle zero = <b id="angleZeroLbl">${angleZero()}</b>`;
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.id = 'angleZeroChk';
-    checkbox.checked = angleZero() === 'right';
-    checkbox.addEventListener('change', (e)=>{
-      const mode = e.target.checked ? 'right' : 'up';
-      if (typeof window !== 'undefined') { window.ANGLE_ZERO = mode; }
-      const lbl = document.getElementById('angleZeroLbl');
-      if (lbl) lbl.textContent = mode;
-    });
-    label.appendChild(checkbox);
-    grid.appendChild(label);
-  }
-
-  if (!document.getElementById('hideSpritesChk')) {
-    const label = document.createElement('label');
-    label.style.fontSize = '12px';
-    label.style.display = 'inline-flex';
-    label.style.gap = '8px';
-    label.style.alignItems = 'center';
-    label.style.marginLeft = '12px';
-    label.textContent = 'Hide sprites (bones only)';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.id = 'hideSpritesChk';
-    if (typeof window !== 'undefined') {
-      window.RENDER ||= {};
-      checkbox.checked = !!window.RENDER.hideSprites;
-    }
-    checkbox.addEventListener('change', (e)=>{
-      if (typeof window === 'undefined') return;
-      window.RENDER ||= {};
-      window.RENDER.hideSprites = !!e.target.checked;
-    });
-    label.appendChild(checkbox);
-    grid.appendChild(label);
-  }
+  const label = document.createElement('label');
+  label.style.fontSize = '12px';
+  label.style.display = 'inline-flex';
+  label.style.gap = '8px';
+  label.style.alignItems = 'center';
+  label.innerHTML = `Angle zero = <b id="angleZeroLbl">${angleZero()}</b>`;
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.id = 'angleZeroChk';
+  checkbox.checked = angleZero() === 'right';
+  checkbox.addEventListener('change', (e)=>{
+    const mode = e.target.checked ? 'right' : 'up';
+    if (typeof window !== 'undefined') { window.ANGLE_ZERO = mode; }
+    const lbl = document.getElementById('angleZeroLbl');
+    if (lbl) lbl.textContent = mode;
+  });
+  label.appendChild(checkbox);
+  grid.appendChild(label);
 }
 
 export function renderAll(ctx){ const G=(window.GAME ||= {}); const C=(window.CONFIG || {}); if(!ctx||!G.FIGHTERS) return; const fName=(G.selectedFighter && C.fighters?.[G.selectedFighter])? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default'); const player=computeAnchorsForFighter(G.FIGHTERS.player,C,fName); const npc=computeAnchorsForFighter(G.FIGHTERS.npc,C,fName); (G.ANCHORS_OBJ ||= {}); G.ANCHORS_OBJ.player=player.B; G.ANCHORS_OBJ.npc=npc.B; (G.ANCHORS ||= {}); G.ANCHORS.player=toCompatArrays(player); G.ANCHORS.npc=toCompatArrays(npc); const camX=G.CAMERA?.x||0; ctx.save(); ctx.translate(-camX,0); drawStick(ctx, player.B); ctx.restore(); drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`); ensureAngleZeroToggle(); }

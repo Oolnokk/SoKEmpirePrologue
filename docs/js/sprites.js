@@ -226,11 +226,10 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   const sy = (xform.scaleY==null?1:xform.scaleY);
   w *= sx; h *= sy;
 
-  // rotation with per-sprite alignment baseline (v19)
+  // rotation with +PI baseline (v19)
   const zeroMode = angleZero();
   const angleComp = (zeroMode === 'right') ? -Math.PI/2 : 0;
-  const alignRad = Number.isFinite(asset?.alignRad) ? asset.alignRad : Math.PI;
-  const theta = bone.ang + rad(xform.rotDeg || 0) + alignRad + angleComp;
+  const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI + angleComp;
 
   ctx.save();
   ctx.translate(posX, posY);
@@ -293,7 +292,7 @@ export function renderSprites(ctx){
   const fname = pickFighterName(C);
   const rig = getBones(C, GLOB, fname);
   if (!rig || RENDER.hideSprites) return;
-  const { assets, style, offsets } = ensureFighterSprites(C, fname);
+  const { imgs, style, offsets } = ensureFighterSprites(C, fname);
   const facingFlip = (GLOB.FIGHTERS?.player?.facingSign || 1) < 0;
 
   // z-order support (we keep it simple: we still draw branches, but enqueue according to order)
