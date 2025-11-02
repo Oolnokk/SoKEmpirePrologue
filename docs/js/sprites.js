@@ -10,7 +10,7 @@ if (typeof RENDER.hideSprites !== 'boolean') {
 }
 RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
 
-function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'up'; return (z === 'right') ? 'right' : 'up'; }
+function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'right'; return (z === 'up') ? 'up' : 'right'; }
 function basisFor(ang){
   const fn = (typeof window !== 'undefined' && typeof window.BONE_BASIS === 'function') ? window.BONE_BASIS : null;
   if (fn) return fn(ang);

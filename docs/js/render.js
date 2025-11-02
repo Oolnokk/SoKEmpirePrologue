@@ -1,7 +1,7 @@
 // render.js — v19-accurate rig math wired for sprites.js (compat arrays extended)
 // Angle basis is centralized so sprites.js can stay in sync (toggle via window.ANGLE_ZERO).
 
-function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'up'; return (z === 'right') ? 'right' : 'up'; }
+function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'right'; return (z === 'up') ? 'up' : 'right'; }
 function basis(ang){ const c = Math.cos(ang), s = Math.sin(ang); if (angleZero() === 'right') { return { fx:c, fy:s, rx:-s, ry:c }; } return { fx:s, fy:-c, rx:c, ry:s }; }
 function segPos(x, y, len, ang) { const b = basis(ang); return [x + len * b.fx, y + len * b.fy]; }
 function withAX(x, y, ang, off, len, units) {
