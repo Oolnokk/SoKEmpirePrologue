@@ -55,11 +55,11 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const torsoAngRaw = rad(F.jointAngles?.torso);
   const torsoAng = torsoAngRaw + Math.PI * 0.5;
   const torsoAttach = { x: centerX + (hbAttach.nx - 0.5) * L.hbW, y: centerY + (hbAttach.ny - 0.5) * L.hbH };
-  const base = withAX(torsoAttach.x, torsoAttach.y, torsoAngRaw, OFF.torso?.origin);
-  const torsoTopArr = segPos(base[0], base[1], L.torso, torsoAng);
+  const originBaseArr   = withAX(torsoAttach.x, torsoAttach.y, torsoAngRaw, OFF.torso?.origin);
+  const hipBaseArr      = withAX(originBaseArr[0], originBaseArr[1], torsoAngRaw, OFF.torso?.hip);
+  const torsoTopArr     = segPos(hipBaseArr[0], hipBaseArr[1], L.torso, torsoAng);
   const neckBaseArr     = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.neck);
   const shoulderBaseArr = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.shoulder);
-  const hipBaseArr      = withAX(base[0],       base[1],        torsoAngRaw, OFF.torso?.hip);
 
   const hitbox = {
     x: centerX,
@@ -98,7 +98,7 @@ function computeAnchorsForFighter(F, C, fighterName) {
 
   const B = {
     center:{x:centerX,y:centerY},
-    torso:{x:base[0],y:base[1],len:L.torso,ang:torsoAng,endX:torsoTopArr[0],endY:torsoTopArr[1]},
+    torso:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.torso,ang:torsoAng,endX:torsoTopArr[0],endY:torsoTopArr[1]},
     head:{x:neckBaseArr[0],y:neckBaseArr[1],len:headLen,ang:torsoAng,endX:headEndArr[0],endY:headEndArr[1]},
     shoulderBase:{x:shoulderBaseArr[0],y:shoulderBaseArr[1]},
     hipBase:{x:hipBaseArr[0],y:hipBaseArr[1]},
