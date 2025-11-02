@@ -171,14 +171,9 @@ function resolveSpriteAssets(spriteConf){
   };
 }
 function ensureFighterSprites(C,fname){
-  const f = C.fighters?.[fname] || {};
-  const S = (f.sprites) || {};
-  const assets = resolveSpriteAssets(S);
-  const legacyImgs = {};
-  for (const key of Object.keys(assets)){
-    legacyImgs[key] = assets[key]?.img || null;
-  }
-  return { assets, imgs: legacyImgs, style:(S.style||{}), offsets:(f.offsets||{}) };
+  const f=C.fighters?.[fname] || {};
+  const S=(f.sprites)||{};
+  return { assets: resolveSpriteAssets(S), style:(S.style||{}), offsets:(f.offsets||{}) };
 }
 
 function originOffset(styleKey, offsets){
@@ -231,11 +226,10 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   const sy = (xform.scaleY==null?1:xform.scaleY);
   w *= sx; h *= sy;
 
-  // rotation with per-sprite alignment baseline (v19)
+  // rotation with +PI baseline (v19)
   const zeroMode = angleZero();
   const angleComp = (zeroMode === 'right') ? -Math.PI/2 : 0;
-  const alignRad = Number.isFinite(asset?.alignRad) ? asset.alignRad : Math.PI;
-  const theta = bone.ang + rad(xform.rotDeg || 0) + alignRad + angleComp;
+  const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI + angleComp;
 
   ctx.save();
   ctx.translate(posX, posY);
@@ -298,27 +292,23 @@ export function renderSprites(ctx){
   const fname = pickFighterName(C);
   const rig = getBones(C, GLOB, fname);
   if (!rig || RENDER.hideSprites) return;
-
-  const spriteBundle = ensureFighterSprites(C, fname) || {};
-  const assets = spriteBundle.assets || spriteBundle.imgs || {};
-  const style = spriteBundle.style || {};
-  const offsets = spriteBundle.offsets || {};
+  const { imgs, style, offsets } = ensureFighterSprites(C, fname);
   const facingFlip = (GLOB.FIGHTERS?.player?.facingSign || 1) < 0;
 
   const zOf = buildZMap(C);
   const queue = [];
   function enqueue(tag, data){ queue.push({ z: zOf(tag), tag, data }); }
 
-  enqueue('TORSO', { kind:'single', asset: assets.torso, bone: rig.torso, styleKey: 'torso' });
-  enqueue('HEAD',  { kind:'single', asset: assets.head,  bone: rig.head,  styleKey: 'head'  });
-  enqueue('ARM_L_UPPER', { kind:'arm', side:'L' });
-  enqueue('ARM_L_LOWER', { kind:'noop' });
-  enqueue('ARM_R_UPPER', { kind:'arm', side:'R' });
-  enqueue('ARM_R_LOWER', { kind:'noop' });
-  enqueue('LEG_L_UPPER', { kind:'leg', side:'L' });
-  enqueue('LEG_L_LOWER', { kind:'noop' });
-  enqueue('LEG_R_UPPER', { kind:'leg', side:'R' });
-  enqueue('LEG_R_LOWER', { kind:'noop' });
+  enqueue('TORSO', ()=> drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, offsets, facingFlip));
+  enqueue('HEAD',  ()=> drawBoneSprite(ctx, assets.head,  rig.head,  'head',  style, offsets, facingFlip));
+  enqueue('ARM_L_UPPER', ()=> drawArmBranch(ctx, rig, 'L', assets, style, offsets, facingFlip));
+  enqueue('ARM_L_LOWER', ()=> {}); // lower is drawn inside branch; tag kept for ordering parity
+  enqueue('ARM_R_UPPER', ()=> drawArmBranch(ctx, rig, 'R', assets, style, offsets, facingFlip));
+  enqueue('ARM_R_LOWER', ()=> {});
+  enqueue('LEG_L_UPPER', ()=> drawLegBranch(ctx, rig, 'L', assets, style, offsets, facingFlip));
+  enqueue('LEG_L_LOWER', ()=> {});
+  enqueue('LEG_R_UPPER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, facingFlip));
+  enqueue('LEG_R_LOWER', ()=> {});
 
   queue.sort((a, b) => a.z - b.z);
   for (const entry of queue){
