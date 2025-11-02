@@ -123,24 +123,57 @@ function buildZMap(C){
 }
 
 // Read per-fighter sprite images & style
-function resolveImages(spriteConf){
+function parseSpriteSpec(spec){
+  if (!spec) return { url: null, alignRad: null };
+  if (typeof spec === 'string') return { url: spec, alignRad: null };
+  if (typeof spec === 'object') {
+    const url = spec.url || spec.src || spec.href || null;
+    let alignRad = null;
+    const degVal = spec.alignDeg ?? spec.align ?? null;
+    const radVal = spec.alignRad;
+    if (Number.isFinite(radVal)) {
+      alignRad = radVal;
+    } else if (degVal != null) {
+      const num = Number(degVal);
+      if (!Number.isNaN(num)) {
+        alignRad = num * Math.PI / 180;
+      }
+    }
+    return { url, alignRad };
+  }
+  return { url: null, alignRad: null };
+}
+
+function resolveSpriteAssets(spriteConf){
+  function entry(spec){
+    const info = parseSpriteSpec(spec);
+    return { img: load(info.url), alignRad: info.alignRad };
+  }
+
+  const torso = entry(spriteConf.torso);
+  const head = entry(spriteConf.head);
+  const armUpper = entry(spriteConf.arm?.upper);
+  const armLower = entry(spriteConf.arm?.lower);
+  const legUpper = entry(spriteConf.leg?.upper);
+  const legLower = entry(spriteConf.leg?.lower);
+
   return {
-    torso: load(spriteConf.torso),
-    head:  load(spriteConf.head),
-    arm_L_upper: load(spriteConf.arm?.upper),
-    arm_L_lower: load(spriteConf.arm?.lower),
-    arm_R_upper: load(spriteConf.arm?.upper),
-    arm_R_lower: load(spriteConf.arm?.lower),
-    leg_L_upper: load(spriteConf.leg?.upper),
-    leg_L_lower: load(spriteConf.leg?.lower),
-    leg_R_upper: load(spriteConf.leg?.upper),
-    leg_R_lower: load(spriteConf.leg?.lower)
+    torso,
+    head,
+    arm_L_upper: armUpper,
+    arm_L_lower: armLower,
+    arm_R_upper: armUpper,
+    arm_R_lower: armLower,
+    leg_L_upper: legUpper,
+    leg_L_lower: legLower,
+    leg_R_upper: legUpper,
+    leg_R_lower: legLower
   };
 }
 function ensureFighterSprites(C,fname){
   const f=C.fighters?.[fname] || {};
   const S=(f.sprites)||{};
-  return { imgs: resolveImages(S), style:(S.style||{}), offsets:(f.offsets||{}) };
+  return { assets: resolveSpriteAssets(S), style:(S.style||{}), offsets:(f.offsets||{}) };
 }
 
 function originOffset(styleKey, offsets){
@@ -156,7 +189,8 @@ function originOffset(styleKey, offsets){
   }
 }
 
-function drawBoneSprite(ctx, img, bone, styleKey, style, offsets, facingFlip){
+function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
+  const img = asset?.img;
   if (!img || !img.complete) return;
   const anchorMap = (style.anchor||{});
   const anchor = anchorMap[styleKey] || 'mid';
@@ -227,7 +261,7 @@ function legMirrorFlag(side, upperTag, lowerTag){
   return !!(M[upperTag] || M[lowerTag] || M[side==="L"? 'LEG_L' : 'LEG_R'] || M['LEG'] || M['ALL']);
 }
 
-function drawArmBranch(ctx, rig, side, imgs, style, offsets, facingFlip){
+function drawArmBranch(ctx, rig, side, assets, style, offsets, facingFlip){
   const upKey = side==='L' ? 'arm_L_upper':'arm_R_upper';
   const loKey = side==='L' ? 'arm_L_lower':'arm_R_lower';
   const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
@@ -235,12 +269,12 @@ function drawArmBranch(ctx, rig, side, imgs, style, offsets, facingFlip){
   const mirror = limbMirrorFlag(side, tagU, tagL);
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
-    drawBoneSprite(ctx, imgs[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
-    if (lo) drawBoneSprite(ctx, imgs[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
+    if (lo) drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
   });
 }
 
-function drawLegBranch(ctx, rig, side, imgs, style, offsets, facingFlip){
+function drawLegBranch(ctx, rig, side, assets, style, offsets, facingFlip){
   const upKey = side==='L' ? 'leg_L_upper':'leg_R_upper';
   const loKey = side==='L' ? 'leg_L_lower':'leg_R_lower';
   const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
@@ -248,8 +282,8 @@ function drawLegBranch(ctx, rig, side, imgs, style, offsets, facingFlip){
   const mirror = legMirrorFlag(side, tagU, tagL);
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
-    drawBoneSprite(ctx, imgs[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
-    if (lo) drawBoneSprite(ctx, imgs[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
+    if (lo) drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
   });
 }
 
@@ -266,15 +300,15 @@ export function renderSprites(ctx){
   const Q = [];
   function enqueue(tag, fn){ Q.push({z:zOf(tag), tag, fn}); }
 
-  enqueue('TORSO', ()=> drawBoneSprite(ctx, imgs.torso, rig.torso, 'torso', style, offsets, facingFlip));
-  enqueue('HEAD',  ()=> drawBoneSprite(ctx, imgs.head,  rig.head,  'head',  style, offsets, facingFlip));
-  enqueue('ARM_L_UPPER', ()=> drawArmBranch(ctx, rig, 'L', imgs, style, offsets, facingFlip));
+  enqueue('TORSO', ()=> drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, offsets, facingFlip));
+  enqueue('HEAD',  ()=> drawBoneSprite(ctx, assets.head,  rig.head,  'head',  style, offsets, facingFlip));
+  enqueue('ARM_L_UPPER', ()=> drawArmBranch(ctx, rig, 'L', assets, style, offsets, facingFlip));
   enqueue('ARM_L_LOWER', ()=> {}); // lower is drawn inside branch; tag kept for ordering parity
-  enqueue('ARM_R_UPPER', ()=> drawArmBranch(ctx, rig, 'R', imgs, style, offsets, facingFlip));
+  enqueue('ARM_R_UPPER', ()=> drawArmBranch(ctx, rig, 'R', assets, style, offsets, facingFlip));
   enqueue('ARM_R_LOWER', ()=> {});
-  enqueue('LEG_L_UPPER', ()=> drawLegBranch(ctx, rig, 'L', imgs, style, offsets, facingFlip));
+  enqueue('LEG_L_UPPER', ()=> drawLegBranch(ctx, rig, 'L', assets, style, offsets, facingFlip));
   enqueue('LEG_L_LOWER', ()=> {});
-  enqueue('LEG_R_UPPER', ()=> drawLegBranch(ctx, rig, 'R', imgs, style, offsets, facingFlip));
+  enqueue('LEG_R_UPPER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, facingFlip));
   enqueue('LEG_R_LOWER', ()=> {});
 
   Q.sort((a,b)=>a.z-b.z);
@@ -286,7 +320,7 @@ export function initSprites(){
   const fname = pickFighterName(C);
   const f=C.fighters?.[fname];
   const S=(f?.sprites)||{};
-  resolveImages(S);
+  resolveSpriteAssets(S);
   console.log('[sprites] ready (v19 parenting + offsets + branch mirror + render.order) for', fname);
 }
 
