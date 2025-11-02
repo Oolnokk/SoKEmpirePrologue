@@ -6,7 +6,7 @@ const CACHE = (ASSETS.sprites ||= {});
 const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
 if (typeof RENDER.hideSprites !== 'boolean') {
-  RENDER.hideSprites = true;
+  RENDER.hideSprites = false;
 }
 RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
 
