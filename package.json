@@ -2,9 +2,10 @@
   "name": "sok-empire-prologue",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Toolkit and docs for the SoK Empire prologue demo.",
   "scripts": {
-    "test": "echo \"No automated tests configured\" && exit 0"
+    "test": "node --test"
   },
   "keywords": [
     "sok",
