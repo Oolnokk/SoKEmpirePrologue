@@ -1,4 +1,6 @@
-import './_clearOverride.js?v=10';
+import { CACHE_BUST } from './cacheVersion.js';
+
+await import(`./_clearOverride.js?v=${CACHE_BUST}`);
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=6';
 import { initControls } from './controls.js?v=6';
