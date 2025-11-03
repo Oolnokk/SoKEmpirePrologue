@@ -12,6 +12,7 @@ if (typeof RENDER.hideSprites !== 'boolean') {
 RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
 
 function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'right'; return (z === 'up') ? 'up' : 'right'; }
+function spriteAngleZero(){ if (typeof window !== 'undefined' && window.SPRITE_ANGLE_ZERO != null) { const z = String(window.SPRITE_ANGLE_ZERO).toLowerCase(); return (z === 'right') ? 'right' : 'up'; } return 'up'; }
 function basisFor(ang){
   const fn = (typeof window !== 'undefined' && typeof window.BONE_BASIS === 'function') ? window.BONE_BASIS : null;
   if (fn) return fn(ang);
@@ -38,16 +39,13 @@ function withAX(x,y,ang,ax,ay,unitsLen){
   return [x+dx,y+dy];
 }
 function load(url){
-  if (!url || FAILED.has(url)) return null;
+  if (!url) return null;
   const cached = CACHE[url];
   if (cached) return cached;
   const img = new Image();
   img.crossOrigin = 'anonymous';
   img.referrerPolicy = 'no-referrer';
-  img.loading = 'eager';
-  img.addEventListener('error', () => {
-    FAILED.add(url);
-  }, { once: true });
+  img.addEventListener('error', ()=>{ img.__broken = true; });
   img.src = url;
   CACHE[url] = img;
   return img;
@@ -125,6 +123,16 @@ function styleKeyOf(boneKey){
     case 'head': return 'head';
     case 'torso': return 'torso';
     default: return boneKey;
+  }
+}
+
+function spriteRotationOffset(styleKey){
+  switch (styleKey){
+    case 'legUpper':
+    case 'legLower':
+      return Math.PI;
+    default:
+      return 0;
   }
 }
 
@@ -209,9 +217,30 @@ function originOffset(styleKey, offsets){
   }
 }
 
+const ORIENTATION_OFFSETS = {
+  torso: -Math.PI / 2,
+  head: 0,
+  armUpper: Math.PI / 2,
+  armLower: Math.PI / 2,
+  legUpper: -Math.PI / 2,
+  legLower: -Math.PI / 2
+  torso: Math.PI / 2,
+  head: 0,
+  armUpper: -Math.PI / 2,
+  armLower: -Math.PI / 2,
+  legUpper: Math.PI / 2,
+  legLower: Math.PI / 2
+};
+
+function orientationOffsetFor(styleKey){
+  return ORIENTATION_OFFSETS[styleKey] || 0;
+}
+
 function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   const img = asset?.img;
-  if (!img || !img.complete) return;
+  if (!img || img.__broken) return;
+  if (!img.complete) return;
+  if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return;
   const anchorMap = (style.anchor||{});
   const anchor = anchorMap[styleKey] || 'mid';
   const t = (anchor === 'start') ? 0.0 : 0.5;
@@ -246,11 +275,12 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   const sy = (xform.scaleY==null?1:xform.scaleY);
   w *= sx; h *= sy;
 
-  // rotation with per-sprite alignment baseline (v19)
-  const zeroMode = angleZero();
+  // rotation with +PI baseline (v19)
+  const zeroMode = spriteAngleZero();
   const angleComp = (zeroMode === 'right') ? -Math.PI/2 : 0;
-  const alignRad = Number.isFinite(asset?.alignRad) ? asset.alignRad : Math.PI;
-  const theta = bone.ang + rad(xform.rotDeg || 0) + alignRad + angleComp;
+  const assetAlign = Number.isFinite(asset?.alignRad) ? asset.alignRad : 0;
+  const orient = orientationOffsetFor(styleKey);
+  const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI + angleComp + assetAlign + orient;
 
   ctx.save();
   ctx.translate(posX, posY);
@@ -282,7 +312,7 @@ function legMirrorFlag(side, upperTag, lowerTag){
   return !!(M[upperTag] || M[lowerTag] || M[side==="L"? 'LEG_L' : 'LEG_R'] || M['LEG'] || M['ALL']);
 }
 
-function drawArmBranch(ctx, rig, side, assets, style, offsets, facingFlip){
+function drawArmBranch(ctx, rig, side, assets, style, offsets, facingFlip, segment = 'both'){
   const upKey = side==='L' ? 'arm_L_upper':'arm_R_upper';
   const loKey = side==='L' ? 'arm_L_lower':'arm_R_lower';
   const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
@@ -290,12 +320,16 @@ function drawArmBranch(ctx, rig, side, assets, style, offsets, facingFlip){
   const mirror = limbMirrorFlag(side, tagU, tagL);
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
-    drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
-    if (lo) drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    if (segment !== 'lower'){
+      drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
+    }
+    if (segment !== 'upper' && lo){
+      drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    }
   });
 }
 
-function drawLegBranch(ctx, rig, side, assets, style, offsets, facingFlip){
+function drawLegBranch(ctx, rig, side, assets, style, offsets, facingFlip, segment = 'both'){
   const upKey = side==='L' ? 'leg_L_upper':'leg_R_upper';
   const loKey = side==='L' ? 'leg_L_lower':'leg_R_lower';
   const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
@@ -303,8 +337,12 @@ function drawLegBranch(ctx, rig, side, assets, style, offsets, facingFlip){
   const mirror = legMirrorFlag(side, tagU, tagL);
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
-    drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
-    if (lo) drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    if (segment !== 'lower'){
+      drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
+    }
+    if (segment !== 'upper' && lo){
+      drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    }
   });
 }
 
@@ -313,32 +351,51 @@ export function renderSprites(ctx){
   const fname = pickFighterName(C);
   const rig = getBones(C, GLOB, fname);
   if (!rig || RENDER.hideSprites) return;
-
-  const spriteBundle = ensureFighterSprites(C, fname) || {};
-  const assets = spriteBundle.assets || spriteBundle.imgs || {};
-  const style = spriteBundle.style || {};
-  const offsets = spriteBundle.offsets || {};
+  const { assets, style, offsets } = ensureFighterSprites(C, fname);
   const facingFlip = (GLOB.FIGHTERS?.player?.facingSign || 1) < 0;
 
   const zOf = buildZMap(C);
   const queue = [];
-  function enqueue(tag, data){ queue.push({ z: zOf(tag), tag, data }); }
+  function enqueue(tag, drawFn){ queue.push({ z: zOf(tag), tag, drawFn }); }
 
-  enqueue('TORSO', { kind:'single', asset: assets.torso, bone: rig.torso, styleKey: 'torso' });
-  enqueue('HEAD',  { kind:'single', asset: assets.head,  bone: rig.head,  styleKey: 'head'  });
-  enqueue('ARM_L_UPPER', { kind:'arm', side:'L' });
-  enqueue('ARM_L_LOWER', { kind:'noop' });
-  enqueue('ARM_R_UPPER', { kind:'arm', side:'R' });
-  enqueue('ARM_R_LOWER', { kind:'noop' });
-  enqueue('LEG_L_UPPER', { kind:'leg', side:'L' });
-  enqueue('LEG_L_LOWER', { kind:'noop' });
-  enqueue('LEG_R_UPPER', { kind:'leg', side:'R' });
-  enqueue('LEG_R_LOWER', { kind:'noop' });
+  enqueue('TORSO', ()=>{
+    if (assets.torso && rig.torso){
+      drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, offsets, facingFlip);
+    }
+  });
+  enqueue('HEAD', ()=>{
+    if (assets.head && rig.head){
+      drawBoneSprite(ctx, assets.head, rig.head, 'head', style, offsets, facingFlip);
+    }
+  });
+  enqueue('ARM_L_UPPER', ()=> drawArmBranch(ctx, rig, 'L', assets, style, offsets, facingFlip, 'upper'));
+  enqueue('ARM_L_LOWER', ()=> drawArmBranch(ctx, rig, 'L', assets, style, offsets, facingFlip, 'lower'));
+  enqueue('ARM_R_UPPER', ()=> drawArmBranch(ctx, rig, 'R', assets, style, offsets, facingFlip, 'upper'));
+  enqueue('ARM_R_LOWER', ()=> drawArmBranch(ctx, rig, 'R', assets, style, offsets, facingFlip, 'lower'));
+  enqueue('LEG_L_UPPER', ()=> drawLegBranch(ctx, rig, 'L', assets, style, offsets, facingFlip, 'upper'));
+  enqueue('LEG_L_LOWER', ()=> drawLegBranch(ctx, rig, 'L', assets, style, offsets, facingFlip, 'lower'));
+  enqueue('LEG_R_UPPER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, facingFlip, 'upper'));
+  enqueue('LEG_R_LOWER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, facingFlip, 'lower'));
 
   queue.sort((a, b) => a.z - b.z);
   for (const entry of queue){
-    if (!entry || !entry.data) continue;
-    const data = entry.data;
+    if (typeof entry?.drawFn === 'function'){
+      entry.drawFn();
+  enqueue('TORSO', { kind: 'single', asset: assets.torso, bone: rig.torso, styleKey: 'torso' });
+  enqueue('HEAD',  { kind: 'single', asset: assets.head,  bone: rig.head,  styleKey: 'head' });
+  enqueue('ARM_L_UPPER', { kind: 'arm', side: 'L', segment: 'upper' });
+  enqueue('ARM_L_LOWER', { kind: 'arm', side: 'L', segment: 'lower' });
+  enqueue('ARM_R_UPPER', { kind: 'arm', side: 'R', segment: 'upper' });
+  enqueue('ARM_R_LOWER', { kind: 'arm', side: 'R', segment: 'lower' });
+  enqueue('LEG_L_UPPER', { kind: 'leg', side: 'L', segment: 'upper' });
+  enqueue('LEG_L_LOWER', { kind: 'leg', side: 'L', segment: 'lower' });
+  enqueue('LEG_R_UPPER', { kind: 'leg', side: 'R', segment: 'upper' });
+  enqueue('LEG_R_LOWER', { kind: 'leg', side: 'R', segment: 'lower' });
+
+  queue.sort((a, b) => a.z - b.z);
+  for (const entry of queue){
+    const data = entry?.data;
+    if (!data) continue;
     switch (data.kind){
       case 'single':
         if (data.asset && data.bone){
@@ -346,10 +403,10 @@ export function renderSprites(ctx){
         }
         break;
       case 'arm':
-        drawArmBranch(ctx, rig, data.side, assets, style, offsets, facingFlip);
+        drawArmBranch(ctx, rig, data.side, assets, style, offsets, facingFlip, data.segment);
         break;
       case 'leg':
-        drawLegBranch(ctx, rig, data.side, assets, style, offsets, facingFlip);
+        drawLegBranch(ctx, rig, data.side, assets, style, offsets, facingFlip, data.segment);
         break;
       default:
         break;
