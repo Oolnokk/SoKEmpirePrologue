@@ -4,10 +4,10 @@ import { initFighters } from './fighter.js?v=6';
 import { initControls } from './controls.js?v=6';
 import { initCombat } from './combat.js?v=6';
 import { updatePoses } from './animator.js?v=2';
-import { renderAll } from './render.js?v=3';
+import { renderAll, LIMB_COLORS } from './render.js?v=4';
 import { updateCamera } from './camera.js?v=1';
 import { initHitDetect, runHitDetect } from './hitdetect.js?v=1';
-import { initSprites, renderSprites } from './sprites.js?v=3';
+import { initSprites, renderSprites } from './sprites.js?v=5';
 
 const $$ = (sel, el=document) => el.querySelector(sel);
 function show(el, v){ if(!el) return; el.style.display = v ? '' : 'none'; }
@@ -33,6 +33,7 @@ const healthFill = $$('#healthFill');
 const statusInfo = $$('#statusInfo');
 const reloadBtn = $$('#btnReloadCfg');
 const fpsHud = $$('#fpsHud');
+const boneKeyList = $$('#boneKeyList');
 
 if (reloadBtn){
   reloadBtn.addEventListener('click', async ()=>{
@@ -47,6 +48,43 @@ if (reloadBtn){
       if (statusInfo) statusInfo.textContent = 'Config reload failed';
       console.error(e);
     }
+  });
+}
+
+if (boneKeyList) {
+  const LABELS = {
+    torso: 'Torso',
+    head: 'Head',
+    arm_L_upper: 'Left Upper Arm',
+    arm_L_lower: 'Left Lower Arm',
+    arm_R_upper: 'Right Upper Arm',
+    arm_R_lower: 'Right Lower Arm',
+    leg_L_upper: 'Left Upper Leg',
+    leg_L_lower: 'Left Lower Leg',
+    leg_R_upper: 'Right Upper Leg',
+    leg_R_lower: 'Right Lower Leg'
+  };
+  boneKeyList.innerHTML = '';
+  Object.entries(LIMB_COLORS).forEach(([key, color]) => {
+    const item = document.createElement('div');
+    item.style.display = 'flex';
+    item.style.alignItems = 'center';
+    item.style.gap = '8px';
+
+    const swatch = document.createElement('span');
+    swatch.style.display = 'inline-block';
+    swatch.style.width = '16px';
+    swatch.style.height = '16px';
+    swatch.style.borderRadius = '4px';
+    swatch.style.background = color;
+    swatch.style.border = '1px solid rgba(255,255,255,0.2)';
+
+    const label = document.createElement('span');
+    label.textContent = LABELS[key] || key;
+
+    item.appendChild(swatch);
+    item.appendChild(label);
+    boneKeyList.appendChild(item);
   });
 }
 
