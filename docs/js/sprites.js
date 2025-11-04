@@ -1,172 +1,449 @@
-/* sprites.js — v2.1 aligned to khy-stage-game-v19.html
-   - Export ESM functions expected by app.js: initSprites, renderSprites
-   - Export draw helpers and also attach to window for legacy callers
-   - Limb sprites: joint at TOP-CENTER of image
-   - Torso/head respect CONFIG.sprites.style.xform.rotDeg (deg)
-   - Mobile debug overlay (?debug=1)
-*/
+// sprites.js — v19 semantics: bone-parenting, offsets, branch mirroring, render.order, and local facing flip
+// Exports: initSprites(), renderSprites(ctx), mirror API
 
-// ====== Utilities ======
-const deg2rad = (d) => d * Math.PI / 180;
+const ASSETS = (window.ASSETS ||= {});
+const CACHE = (ASSETS.sprites ||= {});
+const FAILED = (ASSETS.failedSprites ||= new Set());
+const GLOB = (window.GAME ||= {});
+const RENDER = (window.RENDER ||= {});
+if (typeof RENDER.hideSprites !== 'boolean') {
+  RENDER.hideSprites = false;
+}
+RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
 
-// Query toggle: add ?debug=1 to URL
-const DEBUG = (() => {
-  try { return new URLSearchParams(location.search).get('debug') === '1'; }
-  catch (_) { return false; }
-})();
-
-function debugAxes(ctx, size = 22, lw = 2) {
-  ctx.save();
-  ctx.lineWidth = lw;
-  // X
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(size, 0); ctx.stroke();
-  // Y
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, size); ctx.stroke();
-  ctx.restore();
+function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'right'; return (z === 'up') ? 'up' : 'right'; }
+function spriteAngleZero(){ if (typeof window !== 'undefined' && window.SPRITE_ANGLE_ZERO != null) { const z = String(window.SPRITE_ANGLE_ZERO).toLowerCase(); return (z === 'right') ? 'right' : 'up'; } return 'up'; }
+function basisFor(ang){
+  const fn = (typeof window !== 'undefined' && typeof window.BONE_BASIS === 'function') ? window.BONE_BASIS : null;
+  if (fn) return fn(ang);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  if (angleZero() === 'right') { return { fx:c, fy:s, rx:-s, ry:c }; }
+  return { fx:s, fy:-c, rx:c, ry:s };
+}
+function rad(deg){ return (deg||0) * Math.PI / 180; }
+function dist(a,b){ const dx=b[0]-a[0], dy=b[1]-a[1]; return Math.sqrt(dx*dx+dy*dy); }
+function angle(a,b){
+  const dx = b[0]-a[0];
+  const dy = b[1]-a[1];
+  const fn = (typeof window !== 'undefined' && typeof window.BONE_ANGLE_FROM_DELTA === 'function') ? window.BONE_ANGLE_FROM_DELTA : null;
+  if (fn) return fn(dx, dy);
+  if (angleZero() === 'right') { return Math.atan2(dy, dx); }
+  return Math.atan2(dx, -dy);
+}
+function withAX(x,y,ang,ax,ay,unitsLen){
+  const L=(unitsLen||1);
+  const u=(ax||0)*L, v=(ay||0)*L;
+  const b = basisFor(ang);
+  const dx = u*b.fx + v*b.rx;
+  const dy = u*b.fy + v*b.ry;
+  return [x+dx,y+dy];
+}
+function load(url){
+  if (!url) return null;
+  const cached = CACHE[url];
+  if (cached) return cached;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.referrerPolicy = 'no-referrer';
+  img.addEventListener('error', ()=>{ img.__broken = true; });
+  img.src = url;
+  CACHE[url] = img;
+  return img;
 }
 
-function debugRect(ctx, x, y, w, h) {
-  ctx.save();
-  ctx.setLineDash([4, 3]);
-  ctx.strokeRect(x, y, w, h);
-  ctx.restore();
+function pickFighterName(C){ if(GLOB.selectedFighter && C.fighters?.[GLOB.selectedFighter]) return GLOB.selectedFighter; if (C.fighters?.TLETINGAN) return 'TLETINGAN'; const k=Object.keys(C.fighters||{}); return k.length?k[0]:'default'; }
+
+function getBones(C,G,fname){
+  const AO = G.ANCHORS_OBJ?.player;
+  if (AO){
+    return {
+      torso: AO.torso, head: AO.head,
+      arm_L_upper: AO.arm_L_upper, arm_L_lower: AO.arm_L_lower,
+      arm_R_upper: AO.arm_R_upper, arm_R_lower: AO.arm_R_lower,
+      leg_L_upper: AO.leg_L_upper, leg_L_lower: AO.leg_L_lower,
+      leg_R_upper: AO.leg_R_upper, leg_R_lower: AO.leg_R_lower
+    };
+  }
+  const A = G.ANCHORS?.player;
+  if (A){
+    const torsoStart=A.torsoBot, torsoEnd=A.torsoTop;
+    const lUpStart=A.lShoulderBase, lElbow=A.lElbow, lHand=A.lHand;
+    const rUpStart=A.rShoulderBase, rElbow=A.rElbow, rHand=A.rHand;
+    const lHipStart=A.lHipBase, lKnee=A.lKnee, lFoot=A.lFoot;
+    const rHipStart=A.rHipBase, rKnee=A.rKnee, rFoot=A.rFoot;
+    const headStart=A.neckBase || A.torsoTop;
+    function boneFrom(s,e){ const len=dist(s,e); const ang=angle(s,e); return {x:s[0],y:s[1],len,ang}; }
+    const torso = boneFrom(torsoStart, torsoEnd);
+    const fcfg = (C.fighters?.[fname]) || {};
+    const headNeck=(fcfg.parts?.head?.neck ?? C.parts?.head?.neck ?? 14)*(C.actor?.scale ?? 1)*(fcfg.actor?.scale ?? 1);
+    const headRad =(fcfg.parts?.head?.radius?? C.parts?.head?.radius?? 16)*(C.actor?.scale ?? 1)*(fcfg.actor?.scale ?? 1);
+    const headLen=headNeck+2*headRad;
+    return {
+      torso,
+      head:{x:headStart[0],y:headStart[1],len:headLen,ang:torso.ang},
+      arm_L_upper:boneFrom(lUpStart,lElbow),
+      arm_L_lower:boneFrom(lElbow,lHand),
+      arm_R_upper:boneFrom(rUpStart,rElbow),
+      arm_R_lower:boneFrom(rElbow,rHand),
+      leg_L_upper:boneFrom(lHipStart,lKnee),
+      leg_L_lower:boneFrom(lKnee,lFoot),
+      leg_R_upper:boneFrom(rHipStart,rKnee),
+      leg_R_lower:boneFrom(rKnee,rFoot)
+    };
+  }
+  return null;
 }
 
-function debugLabel(ctx, text) {
-  ctx.save();
-  ctx.font = '12px system-ui, sans-serif';
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = '#9aa6b2';
-  ctx.fillText(text, 6, 6);
-  ctx.restore();
+// Tag helpers
+function tagOf(boneKey){
+  switch(boneKey){
+    case 'torso': return 'TORSO';
+    case 'head': return 'HEAD';
+    case 'arm_L_upper': return 'ARM_L_UPPER';
+    case 'arm_L_lower': return 'ARM_L_LOWER';
+    case 'arm_R_upper': return 'ARM_R_UPPER';
+    case 'arm_R_lower': return 'ARM_R_LOWER';
+    case 'leg_L_upper': return 'LEG_L_UPPER';
+    case 'leg_L_lower': return 'LEG_L_LOWER';
+    case 'leg_R_upper': return 'LEG_R_UPPER';
+    case 'leg_R_lower': return 'LEG_R_LOWER';
+    default: return boneKey.toUpperCase();
+  }
+}
+function styleKeyOf(boneKey){
+  switch (boneKey){
+    case 'arm_L_upper':
+    case 'arm_R_upper': return 'armUpper';
+    case 'arm_L_lower':
+    case 'arm_R_lower': return 'armLower';
+    case 'leg_L_upper':
+    case 'leg_R_upper': return 'legUpper';
+    case 'leg_L_lower':
+    case 'leg_R_lower': return 'legLower';
+    case 'head': return 'head';
+    case 'torso': return 'torso';
+    default: return boneKey;
+  }
 }
 
-// Accessors into CONFIG, defensively
-function getStyleXform(key) {
-  const s = (globalThis.CONFIG && globalThis.CONFIG.sprites && globalThis.CONFIG.sprites.style) || {};
-  const xf = (s.xform && s.xform[key]) || { ax: 0, ay: 0, scaleX: 1, scaleY: 1, rotDeg: 0 };
+function spriteRotationOffset(styleKey){
+  switch (styleKey){
+    case 'legUpper':
+    case 'legLower':
+      return Math.PI;
+    default:
+      return 0;
+  }
+}
+
+// Render order: use CONFIG.render.order if available; else fallback
+function buildZMap(C){
+  const def = ['HITBOX','ARM_L_UPPER','ARM_L_LOWER','LEG_L_UPPER','LEG_L_LOWER','TORSO','HEAD','LEG_R_UPPER','LEG_R_LOWER','ARM_R_UPPER','ARM_R_LOWER'];
+  const arr = (C.render && Array.isArray(C.render.order) && C.render.order.length) ? C.render.order.map(s=>String(s).toUpperCase()) : def;
+  const m = new Map();
+  arr.forEach((tag,i)=>m.set(tag, i));
+  return (tag)=> (m.has(tag) ? m.get(tag) : 999);
+}
+
+// Read per-fighter sprite images & style
+function parseSpriteSpec(spec){
+  if (!spec) return { url: null, alignRad: null };
+  if (typeof spec === 'string') return { url: spec, alignRad: null };
+  if (typeof spec === 'object') {
+    const url = spec.url || spec.src || spec.href || null;
+    let alignRad = null;
+    const degVal = spec.alignDeg ?? spec.align ?? null;
+    const radVal = spec.alignRad;
+    if (Number.isFinite(radVal)) {
+      alignRad = radVal;
+    } else if (degVal != null) {
+      const num = Number(degVal);
+      if (!Number.isNaN(num)) {
+        alignRad = num * Math.PI / 180;
+      }
+    }
+    return { url, alignRad };
+  }
+  return { url: null, alignRad: null };
+}
+
+function resolveSpriteAssets(spriteConf){
+  function entry(spec){
+    const info = parseSpriteSpec(spec);
+    return { img: load(info.url), alignRad: info.alignRad };
+  }
+
+  const torso = entry(spriteConf.torso);
+  const head = entry(spriteConf.head);
+  const armUpper = entry(spriteConf.arm?.upper);
+  const armLower = entry(spriteConf.arm?.lower);
+  const legUpper = entry(spriteConf.leg?.upper);
+  const legLower = entry(spriteConf.leg?.lower);
+
   return {
-    ax: +xf.ax || 0,
-    ay: +xf.ay || 0,
-    scaleX: +xf.scaleX || 1,
-    scaleY: +xf.scaleY || 1,
-    rotDeg: +xf.rotDeg || 0
+    torso,
+    head,
+    arm_L_upper: armUpper,
+    arm_L_lower: armLower,
+    arm_R_upper: armUpper,
+    arm_R_lower: armLower,
+    leg_L_upper: legUpper,
+    leg_L_lower: legLower,
+    leg_R_upper: legUpper,
+    leg_R_lower: legLower
   };
 }
-
-function getWidthFactor(key) {
-  const wf = (globalThis.CONFIG && globalThis.CONFIG.sprites && globalThis.CONFIG.sprites.style && globalThis.CONFIG.sprites.style.widthFactor) || {};
-  return +wf[key] || 1;
+function ensureFighterSprites(C,fname){
+  const f = C.fighters?.[fname] || {};
+  const S = (f.sprites) || {};
+  const assets = resolveSpriteAssets(S);
+  const legacyImgs = {};
+  for (const key of Object.keys(assets)){
+    legacyImgs[key] = assets[key]?.img || null;
+  }
+  return { assets, imgs: legacyImgs, style:(S.style||{}), offsets:(f.offsets||{}) };
 }
 
-// Resolve image from your sprite cache (matches your HTML demo structure)
-function getSpriteImage(key) {
-  const c = globalThis.SPRITES && globalThis.SPRITES.cache;
-  const img = c && c[key];
-  return img && img.complete ? img : null;
+function originOffset(styleKey, offsets){
+  if (!offsets) return null;
+  switch(styleKey){
+    case 'torso': return offsets.torso?.origin || null;
+    case 'head': return offsets.head?.origin || null;
+    case 'armUpper': return offsets.arm?.upper?.origin || null;
+    case 'armLower': return offsets.arm?.lower?.origin || null;
+    case 'legUpper': return offsets.leg?.upper?.origin || null;
+    case 'legLower': return offsets.leg?.lower?.origin || null;
+    default: return null;
+  }
 }
 
-// ====== Core draw: matches khy-stage-game-v19.html behavior ======
-// drawBoneSprite(x, y, segLen, baseAngle, key, widthFactorOverride)
-export function drawBoneSprite(x, y, segLen, baseAng, partKey, wfOverride) {
-  const img = getSpriteImage(partKey);
-  if (!img) return;
+const ORIENTATION_OFFSETS = {
+  torso: -Math.PI / 2,
+  head: 0,
+  armUpper: Math.PI / 2,
+  armLower: Math.PI / 2,
+  legUpper: -Math.PI / 2,
+  legLower: -Math.PI / 2
+  torso: Math.PI / 2,
+  head: 0,
+  armUpper: -Math.PI / 2,
+  armLower: -Math.PI / 2,
+  legUpper: Math.PI / 2,
+  legLower: Math.PI / 2
+};
 
-  // 1) per-part style from CONFIG
-  const xf = getStyleXform(partKey);
-  const partRot = deg2rad(xf.rotDeg);   // torso/head often use 180 deg here
-  const sx = xf.scaleX, sy = xf.scaleY;
+function orientationOffsetFor(styleKey){
+  return ORIENTATION_OFFSETS[styleKey] || 0;
+}
 
-  // 2) angle = bone direction + per-part rot (mirrors the demo)
-  const ang = baseAng + partRot;
+function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
+  const img = asset?.img;
+  if (!img || img.__broken) return;
+  if (!img.complete) return;
+  if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return;
+  const anchorMap = (style.anchor||{});
+  const anchor = anchorMap[styleKey] || 'mid';
+  const t = (anchor === 'start') ? 0.0 : 0.5;
+  // base anchor on bone
+  const bAxis = basisFor(bone.ang);
+  let px = bone.x + bone.len * t * bAxis.fx;
+  let py = bone.y + bone.len * t * bAxis.fy;
 
-  const ctx = globalThis.cx || (globalThis.cv && globalThis.cv.getContext && globalThis.cv.getContext('2d'));
-  if (!ctx) return;
+  // 1) apply fighter offsets.origin (absolute units) in bone-space
+  const off = originOffset(styleKey, offsets);
+  if (off){ const p = withAX(px, py, bone.ang, off.ax||0, off.ay||0, 1); px=p[0]; py=p[1]; }
+
+  // 2) then apply style xform (percent or px)
+  const xform = (style.xform||{})[styleKey] || {};
+  const units = (style.xformUnits||'percent');
+  const Lunit = (units === 'percent') ? bone.len : 1;
+  const p2 = withAX(px, py, bone.ang, xform.ax||0, xform.ay||0, Lunit);
+  const posX = p2[0], posY = p2[1];
+
+  // v19 sizing
+  const nh = img.naturalHeight || img.height || 1;
+  const nw = img.naturalWidth  || img.width  || 1;
+  const baseH = Math.max(1, bone.len);
+  const s = baseH / nh;
+
+  const wfTbl = style.widthFactor || {};
+  const wf = (wfTbl[styleKey] ?? wfTbl[styleKey?.replace(/_.*/, '')] ?? 1);
+
+  let w = nw * s * wf;
+  let h = baseH;
+  const sx = (xform.scaleX==null?1:xform.scaleX);
+  const sy = (xform.scaleY==null?1:xform.scaleY);
+  w *= sx; h *= sy;
+
+  // rotation with +PI baseline (v19)
+  const zeroMode = spriteAngleZero();
+  const angleComp = (zeroMode === 'right') ? -Math.PI/2 : 0;
+  const assetAlign = Number.isFinite(asset?.alignRad) ? asset.alignRad : 0;
+  const orient = orientationOffsetFor(styleKey);
+  const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI + angleComp + assetAlign + orient;
 
   ctx.save();
+  ctx.translate(posX, posY);
+  ctx.rotate(theta);
+  if (facingFlip){ ctx.scale(-1, 1); } // global facing left -> local sprite flip
+  ctx.drawImage(img, -w/2, -h/2, w, h);
 
-  // 3) world translate to bone start (origin/joint)
-  ctx.translate(x, y);
-
-  // 4) rotate to face along the bone (plus partRot)
-  ctx.rotate(ang);
-
-  // 5) local scale (mirroring handled by caller’s local flip blocks, same as demo)
-  ctx.scale(sx, sy);
-
-  // 6) width scaling: widthFactor multiplies image width; it's passed from caller.
-  const wf = (wfOverride != null ? wfOverride : getWidthFactor(partKey)) || 1;
-  const drawW = img.width * wf;
-  const drawH = img.height;
-
-  // 7) TOP-CENTER is the joint
-  const drawX = -drawW * 0.5;
-  const drawY = 0;
-
-  ctx.drawImage(img, drawX, drawY, drawW, drawH);
-
-  if (DEBUG) {
-    debugAxes(ctx);
-    debugRect(ctx, drawX, drawY, drawW, drawH);
-    debugLabel(ctx, partKey);
-  }
+  const dbg = (style.debug||{});
+  if (dbg[styleKey]){ ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fillStyle = '#00e5ff'; ctx.fill(); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(w*0.25,0); ctx.strokeStyle = '#00e5ff'; ctx.lineWidth=2; ctx.stroke(); }
   ctx.restore();
 }
 
-// Torso/head with a configurable pivot (optional)
-export function drawSpriteWithPivot({ x, y, baseAng = 0, partKey, pivot = { x: 0.5, y: 0.0 } } = {}) {
-  const img = getSpriteImage(partKey);
-  if (!img) return;
-
-  const xf = getStyleXform(partKey);
-  const sx = xf.scaleX, sy = xf.scaleY;
-  const partRot = deg2rad(xf.rotDeg);
-  const ang = baseAng + partRot;
-
-  const ctx = globalThis.cx || (globalThis.cv && globalThis.cv.getContext && globalThis.cv.getContext('2d'));
-  if (!ctx) return;
-
+// Branch-level mirror wrapper (as in v19)
+function withBranchMirror(ctx, originX, mirror, drawFn){
+  if (!mirror) return drawFn();
   ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(ang);
-  ctx.scale(sx, sy);
+  ctx.translate(originX, 0);
+  ctx.scale(-1, 1);
+  ctx.translate(-originX, 0);
+  try{ return drawFn(); } finally { ctx.restore(); }
+}
 
-  const drawX = -img.width * pivot.x;
-  const drawY = -img.height * pivot.y;
-  ctx.drawImage(img, drawX, drawY);
+function limbMirrorFlag(side, upperTag, lowerTag){
+  const M = RENDER.MIRROR || {};
+  return !!(M[upperTag] || M[lowerTag] || M[side==="L"? 'ARM_L' : 'ARM_R'] || M['ARM'] || M['ALL']);
+}
+function legMirrorFlag(side, upperTag, lowerTag){
+  const M = RENDER.MIRROR || {};
+  return !!(M[upperTag] || M[lowerTag] || M[side==="L"? 'LEG_L' : 'LEG_R'] || M['LEG'] || M['ALL']);
+}
 
-  if (DEBUG) {
-    debugAxes(ctx);
-    debugRect(ctx, drawX, drawY, img.width, img.height);
-    debugLabel(ctx, partKey);
+function drawArmBranch(ctx, rig, side, assets, style, offsets, facingFlip, segment = 'both'){
+  const upKey = side==='L' ? 'arm_L_upper':'arm_R_upper';
+  const loKey = side==='L' ? 'arm_L_lower':'arm_R_lower';
+  const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
+  const tagU = tagOf(upKey), tagL = tagOf(loKey);
+  const mirror = limbMirrorFlag(side, tagU, tagL);
+  const originX = up.x;
+  withBranchMirror(ctx, originX, mirror, ()=>{
+    if (segment !== 'lower'){
+      drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
+    }
+    if (segment !== 'upper' && lo){
+      drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    }
+  });
+}
+
+function drawLegBranch(ctx, rig, side, assets, style, offsets, facingFlip, segment = 'both'){
+  const upKey = side==='L' ? 'leg_L_upper':'leg_R_upper';
+  const loKey = side==='L' ? 'leg_L_lower':'leg_R_lower';
+  const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
+  const tagU = tagOf(upKey), tagL = tagOf(loKey);
+  const mirror = legMirrorFlag(side, tagU, tagL);
+  const originX = up.x;
+  withBranchMirror(ctx, originX, mirror, ()=>{
+    if (segment !== 'lower'){
+      drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets, facingFlip);
+    }
+    if (segment !== 'upper' && lo){
+      drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets, facingFlip);
+    }
+  });
+}
+
+export function renderSprites(ctx){
+  const C = (window.CONFIG || {});
+  const fname = pickFighterName(C);
+  const rig = getBones(C, GLOB, fname);
+  if (!rig || RENDER.hideSprites) return;
+  const { assets, style, offsets } = ensureFighterSprites(C, fname);
+  const facingFlip = (GLOB.FIGHTERS?.player?.facingSign || 1) < 0;
+
+  const zOf = buildZMap(C);
+  const queue = [];
+  function enqueue(tag, drawFn){ queue.push({ z: zOf(tag), tag, drawFn }); }
+
+  enqueue('TORSO', ()=>{
+    if (assets.torso && rig.torso){
+      drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, offsets, facingFlip);
+    }
+  });
+  enqueue('HEAD', ()=>{
+    if (assets.head && rig.head){
+      drawBoneSprite(ctx, assets.head, rig.head, 'head', style, offsets, facingFlip);
+    }
+  });
+  enqueue('ARM_L_UPPER', ()=> drawArmBranch(ctx, rig, 'L', assets, style, offsets, facingFlip, 'upper'));
+  enqueue('ARM_L_LOWER', ()=> drawArmBranch(ctx, rig, 'L', assets, style, offsets, facingFlip, 'lower'));
+  enqueue('ARM_R_UPPER', ()=> drawArmBranch(ctx, rig, 'R', assets, style, offsets, facingFlip, 'upper'));
+  enqueue('ARM_R_LOWER', ()=> drawArmBranch(ctx, rig, 'R', assets, style, offsets, facingFlip, 'lower'));
+  enqueue('LEG_L_UPPER', ()=> drawLegBranch(ctx, rig, 'L', assets, style, offsets, facingFlip, 'upper'));
+  enqueue('LEG_L_LOWER', ()=> drawLegBranch(ctx, rig, 'L', assets, style, offsets, facingFlip, 'lower'));
+  enqueue('LEG_R_UPPER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, facingFlip, 'upper'));
+  enqueue('LEG_R_LOWER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, facingFlip, 'lower'));
+
+  queue.sort((a, b) => a.z - b.z);
+  for (const entry of queue){
+    if (typeof entry?.drawFn === 'function'){
+      entry.drawFn();
+  enqueue('TORSO', { kind: 'single', asset: assets.torso, bone: rig.torso, styleKey: 'torso' });
+  enqueue('HEAD',  { kind: 'single', asset: assets.head,  bone: rig.head,  styleKey: 'head' });
+  enqueue('ARM_L_UPPER', { kind: 'arm', side: 'L', segment: 'upper' });
+  enqueue('ARM_L_LOWER', { kind: 'arm', side: 'L', segment: 'lower' });
+  enqueue('ARM_R_UPPER', { kind: 'arm', side: 'R', segment: 'upper' });
+  enqueue('ARM_R_LOWER', { kind: 'arm', side: 'R', segment: 'lower' });
+  enqueue('LEG_L_UPPER', { kind: 'leg', side: 'L', segment: 'upper' });
+  enqueue('LEG_L_LOWER', { kind: 'leg', side: 'L', segment: 'lower' });
+  enqueue('LEG_R_UPPER', { kind: 'leg', side: 'R', segment: 'upper' });
+  enqueue('LEG_R_LOWER', { kind: 'leg', side: 'R', segment: 'lower' });
+
+  queue.sort((a, b) => a.z - b.z);
+  for (const entry of queue){
+    const data = entry?.data;
+    if (!data) continue;
+    switch (data.kind){
+      case 'single':
+        if (data.asset && data.bone){
+          drawBoneSprite(ctx, data.asset, data.bone, data.styleKey, style, offsets, facingFlip);
+        }
+        break;
+      case 'arm':
+        drawArmBranch(ctx, rig, data.side, assets, style, offsets, facingFlip, data.segment);
+        break;
+      case 'leg':
+        drawLegBranch(ctx, rig, data.side, assets, style, offsets, facingFlip, data.segment);
+        break;
+      default:
+        break;
+    }
   }
-  ctx.restore();
 }
 
-// Back-compat / graceful torso missing
-function ensureTorsoAlias() {
-  const S = globalThis.SPRITES;
-  if (!S || !S.cache) return;
-  if (!S.cache.torso && S.cache.body) {
-    S.cache.torso = S.cache.body; // alias
-  }
+export function initSprites(){
+  const C = (window.CONFIG || {});
+  const fname = pickFighterName(C);
+  const f=C.fighters?.[fname];
+  const S=(f?.sprites)||{};
+  resolveSpriteAssets(S);
+  console.log('[sprites] ready (v19 parenting + offsets + branch mirror + render.order) for', fname);
 }
 
-// ====== ESM exports expected by app.js ======
-export function initSprites() {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureTorsoAlias, { once: true });
-  } else {
-    ensureTorsoAlias();
-  }
-  return true;
+// ==== MIRROR API (to be called by pose loader / combat events) ====
+export function resetMirror(){ RENDER.MIRROR = {}; }
+export function setMirrorForPart(part, val){
+  if (!RENDER.MIRROR) RENDER.MIRROR = {};
+  const M = RENDER.MIRROR;
+  const map = {
+    ALL:['TORSO','HEAD','ARM_L_UPPER','ARM_L_LOWER','ARM_R_UPPER','ARM_R_LOWER','LEG_L_UPPER','LEG_L_LOWER','LEG_R_UPPER','LEG_R_LOWER'],
+    ARM:['ARM_L_UPPER','ARM_L_LOWER','ARM_R_UPPER','ARM_R_LOWER'],
+    ARMUPPER:['ARM_L_UPPER','ARM_R_UPPER'], ARMLOWER:['ARM_L_LOWER','ARM_R_LOWER'],
+    LEG:['LEG_L_UPPER','LEG_L_LOWER','LEG_R_UPPER','LEG_R_LOWER'],
+    LEGUPPER:['LEG_L_UPPER','LEG_R_UPPER'], LEGLOWER:['LEG_L_LOWER','LEG_R_LOWER'],
+    ARM_L:['ARM_L_UPPER','ARM_L_LOWER'], ARM_R:['ARM_R_UPPER','ARM_R_LOWER'],
+    LEG_L:['LEG_L_UPPER','LEG_L_LOWER'], LEG_R:['LEG_R_UPPER','LEG_R_LOWER']
+  };
+  const key = String(part).toUpperCase();
+  const list = map[key] || [key];
+  for (const t of list){ M[t] = !!val; }
 }
-
-// Provided for compatibility; drawBoneSprite is used by render.js directly.
-export function renderSprites() {
-  return;
+export function applyPoseMirror(poseName){
+  const C = (window.CONFIG || {});
+  const p = C.poses?.[poseName];
+  if (!p || !p.mirror) return;
+  for (const k of Object.keys(p.mirror)){ setMirrorForPart(k, !!p.mirror[k]); }
 }
-
-// Also attach to global for legacy callers
-globalThis.drawBoneSprite = drawBoneSprite;
-globalThis.drawSpriteWithPivot = drawSpriteWithPivot;
