@@ -55,6 +55,7 @@
             <button type="button" id="btnHelp" class="ui-btn">❓ Help</button>
             <button type="button" id="btnFullscreen" class="ui-btn">⤢ Full</button>
             <button type="button" id="btnReloadCfg" class="ui-btn">↻ Config</button>
+            <button type="button" id="debugToggle" class="ui-btn">🔍 Debug</button>
           </div>
 
           <div class="help-panel" id="helpPanel">
@@ -147,6 +148,28 @@
         <div class="box" id="hitBox">
           <div class="label">Manual Hit Count</div>
           <input id="hitSlider" type="range" min="0" max="4" step="1" value="0" style="width: 100%;">
+        </div>
+      </div>
+    </section>
+
+    <!-- Debug Panel -->
+    <section class="widget debug-panel debug-panel--hidden" id="debugPanel">
+      <div class="debug-panel-header">
+        <div class="label" style="font-size: 14px; font-weight: 600;">🔍 Debug Panel</div>
+        <button type="button" id="debugCopyJson" class="debug-copy-btn">📋 Copy JSON</button>
+      </div>
+
+      <div class="debug-panel-content">
+        <div class="debug-column">
+          <div id="debugTransforms">
+            <!-- Transforms will be populated by JavaScript -->
+          </div>
+        </div>
+
+        <div class="debug-column">
+          <div id="debugPoseEditor">
+            <!-- Pose editor will be populated by JavaScript -->
+          </div>
         </div>
       </div>
     </section>

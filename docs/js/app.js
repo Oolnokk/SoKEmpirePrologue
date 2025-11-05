@@ -8,6 +8,7 @@ import { renderAll, LIMB_COLORS } from './render.js?v=4';
 import { updateCamera } from './camera.js?v=1';
 import { initHitDetect, runHitDetect } from './hitdetect.js?v=1';
 import { initSprites, renderSprites } from './sprites.js?v=5';
+import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
 
 const $$ = (sel, el=document) => el.querySelector(sel);
 function show(el, v){ if(!el) return; el.style.display = v ? '' : 'none'; }
@@ -167,6 +168,7 @@ function loop(t){
   renderSprites(cx);
   runHitDetect();
   updateHUD();
+  updateDebugPanel();
 
   // FPS HUD
   frames++;
@@ -190,6 +192,7 @@ function boot(){
     initControls();
     initCombat();
     initHitDetect();
+    initDebugPanel();
     requestAnimationFrame(loop);
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);
   } catch (e){
