@@ -512,7 +512,12 @@ function initRuntimeFixesSection() {
  */
 function updateRuntimeFixesSection() {
   const container = $$('#debugRuntimeFixes');
-  if (!container || !container.innerHTML) {
+  if (!container) return;
+  
+  // Check if already initialized by looking for actual content (not just comments)
+  const hasRealContent = container.querySelector('.debug-section-header') !== null;
+  
+  if (!hasRealContent) {
     // Not initialized yet
     initRuntimeFixesSection();
     return;
