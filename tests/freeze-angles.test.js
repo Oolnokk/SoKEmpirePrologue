@@ -99,11 +99,33 @@ describe('index.html freeze checkbox UI', () => {
 
   it('checkbox is within debug panel', () => {
     const debugPanelStart = indexSrc.indexOf('id="debugPanel"');
-    const debugPanelEnd = indexSrc.indexOf('</section>', debugPanelStart);
     const checkboxPos = indexSrc.indexOf('freezeAnglesCheckbox');
     
+    // Find the closing tag of the debug panel section by searching for the next main closing tag
+    let depth = 0;
+    let searchPos = debugPanelStart;
+    let debugPanelEnd = -1;
+    
+    while (searchPos < indexSrc.length) {
+      const nextOpenTag = indexSrc.indexOf('<section', searchPos + 1);
+      const nextCloseTag = indexSrc.indexOf('</section>', searchPos + 1);
+      
+      if (nextCloseTag === -1) break;
+      if (nextOpenTag !== -1 && nextOpenTag < nextCloseTag) {
+        depth++;
+        searchPos = nextOpenTag;
+      } else {
+        if (depth === 0) {
+          debugPanelEnd = nextCloseTag;
+          break;
+        }
+        depth--;
+        searchPos = nextCloseTag;
+      }
+    }
+    
     assert.ok(
-      checkboxPos > debugPanelStart && checkboxPos < debugPanelEnd,
+      debugPanelStart > -1 && checkboxPos > debugPanelStart && checkboxPos < debugPanelEnd,
       'freeze angles checkbox should be within debug panel section'
     );
   });
