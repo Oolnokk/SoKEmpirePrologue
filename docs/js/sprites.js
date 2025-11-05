@@ -356,10 +356,9 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   w *= scaleX;
   h *= scaleY;
 
-  // Rotation: bone.ang + rotDeg + alignRad + Math.PI
+  // Rotation: bone.ang + rotDeg + Math.PI (as specified in problem statement)
   const rotDeg = xform.rotDeg ?? 0;
-  const alignRad = asset.alignRad ?? 0;
-  const theta = bone.ang + rad(rotDeg) + alignRad + Math.PI;
+  const theta = bone.ang + rad(rotDeg) + Math.PI;
 
   ctx.save();
   ctx.translate(posX, posY);
