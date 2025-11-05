@@ -159,6 +159,13 @@
         <button type="button" id="debugCopyJson" class="debug-copy-btn">📋 Copy JSON</button>
       </div>
 
+      <div class="debug-panel-controls">
+        <label class="debug-checkbox-label" title="When checked, manual joint angle edits persist without being overwritten by animation or lerping">
+          <input type="checkbox" id="freezeAnglesCheckbox" />
+          <span>🔒 Freeze Joint Angles After Editing</span>
+        </label>
+      </div>
+
       <div class="debug-panel-content">
         <div class="debug-column">
           <div id="debugTransforms">

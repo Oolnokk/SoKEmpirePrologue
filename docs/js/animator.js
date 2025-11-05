@@ -31,6 +31,8 @@ function clearOverride(F){ if(F.anim) F.anim.override=null; }
 
 export function updatePoses(){
   const G = window.GAME || {}; const C = window.CONFIG || {}; const now = performance.now()/1000; if (!G.FIGHTERS) return;
+  // Check if joint angles are frozen (for debugging/manual pose editing)
+  if (C.debug?.freezeAngles) return;
   for (const id of ['player','npc']){ const F = G.FIGHTERS[id]; if(!F) continue; ensureAnimState(F); F.anim.dt = Math.max(0, now - F.anim.last); F.anim.last = now;
     let targetDeg = null; const over = getOverride(F);
     if (over){ if (over.until && now < over.until){ targetDeg = over.pose; } else { clearOverride(F); if (over.until==null) console.log('[anim] cleared timeless override'); } }

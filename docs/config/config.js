@@ -7,6 +7,9 @@ window.CONFIG = {
 
   colors: { body:'#e5f0ff', left:'#86efac', right:'#93c5fd', guide:'#233044', hitbox:'#0ea5e9' },
 
+  // Debug options
+  debug: { freezeAngles: false },
+
   // Global fallback durations (SLAM uses these)
   durations: { toWindup:1600, toStrike:160, toRecoil:180, toStance:0 },
 
