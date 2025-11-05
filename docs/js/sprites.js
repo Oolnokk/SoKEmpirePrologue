@@ -325,11 +325,11 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
 
   // Get xform config for this part
   const xform = (style.xform || {})[styleKey] || {};
-  const xformUnits = style.xformUnits || 'px';
+  const xformUnits = (style.xformUnits || 'px').toLowerCase();
   
   // Apply offsets (ax, ay) with percent units support
-  let ax = xform.ax || 0;
-  let ay = xform.ay || 0;
+  let ax = xform.ax ?? 0;
+  let ay = xform.ay ?? 0;
   if (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct') {
     ax *= bone.len;
     ay *= bone.len;
@@ -351,14 +351,14 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   let h = baseH;
   
   // Apply xform scales
-  const scaleX = xform.scaleX || 1;
-  const scaleY = xform.scaleY || 1;
+  const scaleX = xform.scaleX ?? 1;
+  const scaleY = xform.scaleY ?? 1;
   w *= scaleX;
   h *= scaleY;
 
   // Rotation: bone.ang + rotDeg + alignRad + Math.PI
-  const rotDeg = xform.rotDeg || 0;
-  const alignRad = asset.alignRad || 0;
+  const rotDeg = xform.rotDeg ?? 0;
+  const alignRad = asset.alignRad ?? 0;
   const theta = bone.ang + rad(rotDeg) + alignRad + Math.PI;
 
   ctx.save();
