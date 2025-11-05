@@ -14,9 +14,15 @@ const CACHE = (ASSETS.sprites ||= {});
 const FAILED = (ASSETS.failedSprites ||= new Set());
 const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
-if (typeof RENDER.hideSprites !== 'boolean') {
-  RENDER.hideSprites = false;
+
+// Legacy support: map old hideSprites to new RENDER_DEBUG
+if (typeof RENDER.hideSprites === 'boolean') {
+  if (typeof window !== 'undefined') {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.showSprites = !RENDER.hideSprites;
+  }
 }
+
 RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
 
 function angleZero(){ return 'up'; }
@@ -369,7 +375,14 @@ export function renderSprites(ctx){
   const C = (window.CONFIG || {});
   const fname = pickFighterName(C);
   const rig = getBones(C, GLOB, fname);
-  if (!rig || RENDER.hideSprites) return;
+  if (!rig) return;
+  
+  // Check if sprites should be rendered
+  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+  if (DEBUG.showSprites === false) {
+    return; // Skip sprite rendering if disabled
+  }
+  
   const { assets, style, offsets } = ensureFighterSprites(C, fname);
 
   const zOf = buildZMap(C);
