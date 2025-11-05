@@ -1,16 +1,12 @@
-// sprites.js — v19 semantics: bone-parenting, offsets, branch mirroring, render.order, and local facing flip
+// sprites.js — v20 semantics: simplified midpoint/rotation logic
 // Exports: initSprites(), renderSprites(ctx), mirror API
 //
-// NOTE: This file is a near-drop-in replacement for the repo's docs/js/sprites.js.
-// The principal change here is a simplified, single-file-compatible drawBoneSprite implementation:
-// - uses bone midpoint by default (anchor 'mid')
+// This implementation uses simplified midpoint and rotation logic:
+// - uses bone midpoint for all sprites (no anchor configuration)
 // - sizes sprite height to bone length (baseH) and scales width by widthFactor
-// - applies origin offsets and style.xform (percent or px) in the same order as prior code
-// - rotates sprite by (bone.ang + rotDeg + Math.PI) to match legacy single-file behaviour
+// - applies simple rotation: bone.ang + Math.PI
+// - removes complex offset and xform logic for simplicity
 // - leaves branch-level mirroring (withBranchMirror) and facingFlip logic intact
-//
-// If you want the original theta composition (asset.alignRad, orient, spriteRotationOffset, spriteAngleZero, etc.)
-// re-added for specific assets, you can re-enable parts of the rotation composition below.
 
 const ASSETS = (window.ASSETS ||= {});
 const CACHE = (ASSETS.sprites ||= {});
@@ -294,69 +290,41 @@ function drawLegBranch(ctx, rig, side, assets, style, offsets, facingFlip, segme
   });
 }
 
-// Simplified drawBoneSprite — kept intentionally compatible with single-file khy-stage-game-v20.html behavior.
-// Major points:
-// - uses anchor 'mid' by default (midpoint of bone)
-// - applies originOffset (fighter offsets) then style.xform (units: percent or px)
-// - sets baseH = bone.len and scales image to baseH vertically; width uses widthFactor
-// - rotation: bone.ang + rotDeg + Math.PI
-// - facingFlip is honored (local horizontal flip)
-// - returns true on a successful draw or false otherwise
+// Simplified drawBoneSprite — uses midpoint and simple rotation logic.
+// Matches khy-stage-game-v20.html behavior with minimal complexity:
+// - always uses bone midpoint for positioning
+// - sets sprite height to bone.len, width scaled by widthFactor
+// - simple rotation: bone.ang + Math.PI
+// - honors facingFlip for horizontal flip
+// - returns true on successful draw, false otherwise
 function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   const img = asset?.img;
   if (!img || img.__broken) return false;
   if (!img.complete) return false;
   if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return false;
 
-  // Anchor (start/mid)
-  const anchorMap = (style.anchor || {});
-  const anchor = anchorMap[styleKey] || 'mid';
-  const t = (anchor === 'start') ? 0.0 : 0.5;
-
-  // base anchor in bone-space using basisFor
+  // Always use midpoint (simplified - no anchor choice)
   const bAxis = basisFor(bone.ang);
-  let px = bone.x + bone.len * t * bAxis.fx;
-  let py = bone.y + bone.len * t * bAxis.fy;
+  const posX = bone.x + bone.len * 0.5 * bAxis.fx;
+  const posY = bone.y + bone.len * 0.5 * bAxis.fy;
 
-  // 1) apply fighter offsets.origin (absolute units)
-  const off = originOffset(styleKey, offsets);
-  if (off){ const p = withAX(px, py, bone.ang, off.ax||0, off.ay||0, 1); px = p[0]; py = p[1]; }
-
-  // 2) apply style xform (percent or px)
-  const xform = (style.xform || {})[styleKey] || {};
-  const units = (style.xformUnits || 'percent');
-  const Lunit = (units === 'percent') ? bone.len : 1;
-  const p2 = withAX(px, py, bone.ang, xform.ax || 0, xform.ay || 0, Lunit);
-  const posX = p2[0], posY = p2[1];
-
-  // sizing
+  // Sizing: sprite height = bone length, width based on aspect ratio and widthFactor
   const nh = img.naturalHeight || img.height || 1;
   const nw = img.naturalWidth  || img.width  || 1;
   const baseH = Math.max(1, bone.len);
   const wfTbl = style.widthFactor || {};
   const wf = (wfTbl[styleKey] ?? wfTbl[styleKey?.replace(/_.*/, '')] ?? 1);
-  let w = nw * (baseH / nh) * wf;
-  let h = baseH;
-  const sx = (xform.scaleX == null ? 1 : xform.scaleX);
-  const sy = (xform.scaleY == null ? 1 : xform.scaleY);
-  w *= sx; h *= sy;
+  const w = nw * (baseH / nh) * wf;
+  const h = baseH;
 
-  // rotation — simplified baseline to match single-file: bone.ang + rotDeg + Math.PI
-  const rot = rad(xform.rotDeg || 0);
-  const theta = bone.ang + rot + Math.PI;
+  // Simple rotation: bone angle + 180 degrees
+  const theta = bone.ang + Math.PI;
 
   ctx.save();
   ctx.translate(posX, posY);
   ctx.rotate(theta);
   if (facingFlip){ ctx.scale(-1, 1); }
   ctx.drawImage(img, -w/2, -h/2, w, h);
-
-  // optional debug dot/axis if enabled in style.debug
-  const dbg = (style.debug || {});
-  if (dbg[styleKey]){
-    ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI*2); ctx.fillStyle = '#00e5ff'; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w*0.25, 0); ctx.strokeStyle = '#00e5ff'; ctx.stroke();
-  }
   ctx.restore();
   return true;
 }
@@ -406,7 +374,7 @@ export function initSprites(){
   const f=C.fighters?.[fname];
   const S=(f?.sprites)||{};
   resolveSpriteAssets(S);
-  console.log('[sprites] ready (v19 parenting + offsets + branch mirror + render.order) for', fname);
+  console.log('[sprites] ready (v20 simplified midpoint/rotation) for', fname);
 }
 
 // ==== MIRROR API (to be called by pose loader / combat events) ====

@@ -1,0 +1,8 @@
+<svg width="20" height="60" xmlns="http://www.w3.org/2000/svg">
+  <!-- Purple arm with arrow pointing DOWN -->
+  <rect x="2" y="2" width="16" height="56" fill="#9664FF" stroke="black" stroke-width="1"/>
+  <!-- Arrow pointing DOWN -->
+  <line x1="10" y1="5" x2="10" y2="50" stroke="white" stroke-width="2"/>
+  <polygon points="10,55 5,45 15,45" fill="white"/>
+  <circle cx="10" cy="7" r="4" fill="yellow" stroke="black"/>
+</svg>

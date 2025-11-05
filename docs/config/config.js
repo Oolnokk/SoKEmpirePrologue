@@ -89,15 +89,15 @@ window.CONFIG = {
         head:{ origin:{ax:-1, ay:6} }
       },
       sprites: {
-        torso: { url: "./test-torso.svg", alignDeg: 180 },
-        head:  { url: "./test-head.svg", alignDeg: 0 },
+        torso: { url: "./assets/fightersprites/tletingan/test-torso.svg", alignDeg: 180 },
+        head:  { url: "./assets/fightersprites/tletingan/test-head.svg", alignDeg: 0 },
         arm: { 
-          upper: { url: "./test-arm-upper.svg", alignDeg: 180 },
-          lower: { url: "./test-arm-lower.svg", alignDeg: 180 }
+          upper: { url: "./assets/fightersprites/tletingan/test-arm-upper.svg", alignDeg: 180 },
+          lower: { url: "./assets/fightersprites/tletingan/test-arm-lower.svg", alignDeg: 180 }
         },
         leg: { 
-          upper: { url: "./test-leg-upper.svg", alignDeg: 180 },
-          lower: { url: "./test-leg-lower.svg", alignDeg: 180 }
+          upper: { url: "./assets/fightersprites/tletingan/test-leg-upper.svg", alignDeg: 180 },
+          lower: { url: "./assets/fightersprites/tletingan/test-leg-lower.svg", alignDeg: 180 }
         },
         style: {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
