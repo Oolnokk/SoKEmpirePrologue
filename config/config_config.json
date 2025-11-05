@@ -378,30 +378,30 @@
       },
       "sprites": {
         "torso": {
-          "url": "https://i.imgur.com/YatjSyo.png",
+          "url": "./assets/fightersprites/tletingan/torso.png",
           "alignDeg": 180
         },
         "head": {
-          "url": "https://i.imgur.com/WsKQ2Eo.png",
+          "url": "./assets/fightersprites/tletingan/head.png",
           "alignDeg": 0
         },
         "arm": {
           "upper": {
-            "url": "https://i.imgur.com/CAmWLbf.png",
+            "url": "./assets/fightersprites/tletingan/arm-upper.png",
             "alignDeg": 180
           },
           "lower": {
-            "url": "https://i.imgur.com/gOHujif.png",
+            "url": "./assets/fightersprites/tletingan/arm-lower.png",
             "alignDeg": 180
           }
         },
         "leg": {
           "upper": {
-            "url": "https://i.imgur.com/qgcQTmx.png",
+            "url": "./assets/fightersprites/tletingan/leg-upper.png",
             "alignDeg": 180
           },
           "lower": {
-            "url": "https://i.imgur.com/lZbF7j2.png",
+            "url": "./assets/fightersprites/tletingan/leg-lower.png",
             "alignDeg": 180
           }
         },
