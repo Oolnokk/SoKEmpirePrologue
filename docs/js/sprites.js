@@ -1,4 +1,4 @@
-// sprites.js — Full anchor/xform/rotation/mirror logic, fixed bone angle math (standard graphics coords: "right" = 0 radians)
+// sprites.js — Full anchor/xform/rotation/mirror logic, fixed bone angle math (standard graphics coords: "up" = 0 radians)
 // Exports: initSprites(), renderSprites(ctx), mirror API
 //
 // Matches khy-stage-game-v20.html behavior, with fixes:
@@ -27,7 +27,7 @@ RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
 function angleZero(){ return 'up'; }
 function spriteAngleZero(){ return 'up'; }
 
-// Standard "right" = 0 radians.
+// Standard "up" = 0 radians.
 function basisFor(ang){
   const fn = (typeof window !== 'undefined' && typeof window.BONE_BASIS === 'function') ? window.BONE_BASIS : null;
   if (fn) return fn(ang);
@@ -37,7 +37,7 @@ function basisFor(ang){
 function rad(deg){ return (deg||0) * Math.PI / 180; }
 function dist(a,b){ const dx=b[0]-a[0], dy=b[1]-a[1]; return Math.sqrt(dx*dx+dy*dy); }
 
-// FIXED: "right" = 0 radians (graphics standard)
+// FIXED: "up" = 0 radians
 function angle(a, b){
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
