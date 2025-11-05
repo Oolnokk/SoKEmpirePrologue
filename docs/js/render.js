@@ -1,5 +1,5 @@
-// render.js — v19-accurate rig math wired for sprites.js (compat arrays extended)
-// Angle basis is centralized so sprites.js can stay in sync (toggle via window.ANGLE_ZERO).
+// render.js — v20-compatible rig math with 'up' as zero angle
+// Angle basis is centralized so sprites.js stays in sync (always 'up' convention).
 
 function angleZero(){ return 'up'; }
 function basis(ang){ const c = Math.cos(ang), s = Math.sin(ang); return { fx:s, fy:-c, rx:c, ry:s }; }
