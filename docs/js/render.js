@@ -111,7 +111,8 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const lShoulderRel = rad(F.jointAngles?.lShoulder); const rShoulderRel = rad(F.jointAngles?.rShoulder); const lElbowRel = rad(F.jointAngles?.lElbow); const rElbowRel = rad(F.jointAngles?.rElbow);
   const armBaseOffset = 0; // with 'up' as zero, arms extend directly from shoulder angles
   let lUpperAng = torsoAng + lShoulderRel + armBaseOffset; let rUpperAng = torsoAng + rShoulderRel + armBaseOffset;
-  let lLowerAng = lUpperAng + lElbowRel;   let rLowerAng = rUpperAng + rElbowRel;
+  // SIGN FIX: Negate elbow angles to correct FK orientation (elbow joints have inverted sign convention)
+  let lLowerAng = lUpperAng - lElbowRel;   let rLowerAng = rUpperAng - rElbowRel;
 
   const lElbowPosArr = withAX(...segPos(shoulderBaseArr[0], shoulderBaseArr[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
   const rElbowPosArr = withAX(...segPos(shoulderBaseArr[0], shoulderBaseArr[1], L.armU, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
@@ -123,8 +124,9 @@ function computeAnchorsForFighter(F, C, fighterName) {
   let rHipAng = rad(F.jointAngles?.rHip) + (legsFollow ? torsoAngRaw : 0);
   const lKneeRel = rad(F.jointAngles?.lKnee);
   const rKneeRel = rad(F.jointAngles?.rKnee);
-  const lKneeAng = lHipAng + lKneeRel;
-  const rKneeAng = rHipAng + rKneeRel;
+  // SIGN FIX: Negate knee angles to correct FK orientation (knee joints have inverted sign convention)
+  const lKneeAng = lHipAng - lKneeRel;
+  const rKneeAng = rHipAng - rKneeRel;
   const lKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], L.legU, lHipAng), lHipAng, OFF.leg?.upper?.knee);
   const rKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], L.legU, rHipAng), rHipAng, OFF.leg?.upper?.knee);
   const lAnklePosArr = withAX(...segPos(lKneePosArr[0], lKneePosArr[1], L.legL, lKneeAng), lKneeAng, OFF.leg?.lower?.origin);
