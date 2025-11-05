@@ -321,44 +321,17 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
     // Anchor at bone midpoint (default)
     posX = bone.x + bone.len * 0.5 * bAxis.fx;
     posY = bone.y + bone.len * 0.5 * bAxis.fy;
-  }
-
-  // Get xform config for this part
-  const xform = (style.xform || {})[styleKey] || {};
-  const xformUnits = (style.xformUnits || 'px').toLowerCase();
-  
-  // Apply offsets (ax, ay) with percent units support
-  let ax = xform.ax ?? 0;
-  let ay = xform.ay ?? 0;
-  if (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct') {
-    ax *= bone.len;
-    ay *= bone.len;
-  }
-  
-  // Apply offset in bone-local space
-  const offsetX = ax * bAxis.fx + ay * bAxis.rx;
-  const offsetY = ax * bAxis.fy + ay * bAxis.ry;
-  posX += offsetX;
-  posY += offsetY;
-
-  // Sizing: sprite height = bone length, width based on aspect ratio and widthFactor
+  }  // Sizing: sprite height = bone length, width based on aspect ratio and widthFactor
   const nh = img.naturalHeight || img.height || 1;
   const nw = img.naturalWidth  || img.width  || 1;
   const baseH = Math.max(1, bone.len);
   const wfTbl = style.widthFactor || {};
   const wf = (wfTbl[styleKey] ?? wfTbl[styleKey?.replace(/_.*/, '')] ?? 1);
-  let w = nw * (baseH / nh) * wf;
-  let h = baseH;
-  
-  // Apply xform scales
-  const scaleX = xform.scaleX ?? 1;
-  const scaleY = xform.scaleY ?? 1;
-  w *= scaleX;
-  h *= scaleY;
+  const w = nw * (baseH / nh) * wf;
+  const h = baseH;
 
-  // Rotation: bone.ang + rotDeg + Math.PI (as specified in problem statement)
-  const rotDeg = xform.rotDeg ?? 0;
-  const theta = bone.ang + rad(rotDeg) + Math.PI;
+  // Rotation: bone.ang + Math.PI (simple v20 logic, no xform rotDeg)
+  const theta = bone.ang + Math.PI;
 
   ctx.save();
   ctx.translate(posX, posY);
