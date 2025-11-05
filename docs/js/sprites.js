@@ -218,12 +218,12 @@ function originOffset(styleKey, offsets){
 }
 
 const ORIENTATION_OFFSETS = {
-  torso: -Math.PI / 2,
+  torso: Math.PI / 2,
   head: 0,
-  armUpper: Math.PI / 2,
-  armLower: Math.PI / 2,
-  legUpper: -Math.PI / 2,
-  legLower: -Math.PI / 2
+  armUpper: -Math.PI / 2,
+  armLower: -Math.PI / 2,
+  legUpper: Math.PI / 2,
+  legLower: Math.PI / 2
 };
 
 function orientationOffsetFor(styleKey){
@@ -274,7 +274,8 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   const angleComp = (zeroMode === 'right') ? -Math.PI/2 : 0;
   const assetAlign = Number.isFinite(asset?.alignRad) ? asset.alignRad : 0;
   const orient = orientationOffsetFor(styleKey);
-  const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI + angleComp + assetAlign + orient;
+  const rotOffset = spriteRotationOffset(styleKey);
+  const theta = bone.ang + rad(xform.rotDeg || 0) + Math.PI + angleComp + assetAlign + orient + rotOffset;
 
   ctx.save();
   ctx.translate(posX, posY);
