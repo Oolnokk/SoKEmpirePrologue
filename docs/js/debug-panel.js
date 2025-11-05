@@ -33,6 +33,20 @@ export function initDebugPanel() {
     copyBtn.addEventListener('click', copyPoseConfigToClipboard);
   }
 
+  // Setup freeze angles checkbox
+  const freezeCheckbox = $$('#freezeAnglesCheckbox', panel);
+  if (freezeCheckbox) {
+    const C = window.CONFIG || {};
+    // Initialize checkbox state from config
+    freezeCheckbox.checked = C.debug?.freezeAngles || false;
+    
+    freezeCheckbox.addEventListener('change', (e) => {
+      if (!C.debug) C.debug = {};
+      C.debug.freezeAngles = e.target.checked;
+      console.log('[debug-panel] Freeze angles:', C.debug.freezeAngles);
+    });
+  }
+
   // Setup panel visibility toggle
   const toggleBtn = $$('#debugToggle');
   if (toggleBtn) {
