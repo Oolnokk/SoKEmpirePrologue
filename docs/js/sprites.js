@@ -283,7 +283,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   ctx.drawImage(img, -w/2, -h/2, w, h);
 
   const dbg = (style.debug||{});
-  if (dbg[styleKey]){ ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fillStyle = '#00e5ff'; ctx.fill(); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(w*0.25,0); ctx.strokeStyle = '#00e5ff'; ctx.lineWidth=2; ctx.stroke(); }
+  if (dbg[styleKey]){ ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fillStyle = '#00e5ff'; ctx.fill(); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(w*0.25,0); ctx.strokeStyle = '#00e5ff'; ctx.stroke(); }
   ctx.restore();
 }
 
@@ -375,35 +375,6 @@ export function renderSprites(ctx){
   for (const entry of queue){
     if (typeof entry?.drawFn === 'function'){
       entry.drawFn();
-  enqueue('TORSO', { kind: 'single', asset: assets.torso, bone: rig.torso, styleKey: 'torso' });
-  enqueue('HEAD',  { kind: 'single', asset: assets.head,  bone: rig.head,  styleKey: 'head' });
-  enqueue('ARM_L_UPPER', { kind: 'arm', side: 'L', segment: 'upper' });
-  enqueue('ARM_L_LOWER', { kind: 'arm', side: 'L', segment: 'lower' });
-  enqueue('ARM_R_UPPER', { kind: 'arm', side: 'R', segment: 'upper' });
-  enqueue('ARM_R_LOWER', { kind: 'arm', side: 'R', segment: 'lower' });
-  enqueue('LEG_L_UPPER', { kind: 'leg', side: 'L', segment: 'upper' });
-  enqueue('LEG_L_LOWER', { kind: 'leg', side: 'L', segment: 'lower' });
-  enqueue('LEG_R_UPPER', { kind: 'leg', side: 'R', segment: 'upper' });
-  enqueue('LEG_R_LOWER', { kind: 'leg', side: 'R', segment: 'lower' });
-
-  queue.sort((a, b) => a.z - b.z);
-  for (const entry of queue){
-    const data = entry?.data;
-    if (!data) continue;
-    switch (data.kind){
-      case 'single':
-        if (data.asset && data.bone){
-          drawBoneSprite(ctx, data.asset, data.bone, data.styleKey, style, offsets, facingFlip);
-        }
-        break;
-      case 'arm':
-        drawArmBranch(ctx, rig, data.side, assets, style, offsets, facingFlip, data.segment);
-        break;
-      case 'leg':
-        drawLegBranch(ctx, rig, data.side, assets, style, offsets, facingFlip, data.segment);
-        break;
-      default:
-        break;
     }
   }
 }
