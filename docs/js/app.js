@@ -204,20 +204,23 @@ function setupFighterButtons(fighterName) {
   const loadBtn = $$('#btnLoadFighter');
   const exportBtn = $$('#btnExportConfig');
 
-  // Remove old listeners by cloning nodes
-  if (refreshBtn && !refreshBtn.dataset.initialized) {
-    refreshBtn.addEventListener('click', () => refreshFighterSettings(fighterName));
-    refreshBtn.dataset.initialized = 'true';
-  }
-  
-  if (loadBtn && !loadBtn.dataset.initialized) {
-    loadBtn.addEventListener('click', () => loadFighterSettings(fighterName));
-    loadBtn.dataset.initialized = 'true';
-  }
-  
-  if (exportBtn && !exportBtn.dataset.initialized) {
+  // Only set up once - buttons persist across fighter selections
+  if (refreshBtn && !window._fighterButtonsInitialized) {
+    refreshBtn.addEventListener('click', () => {
+      if (currentSelectedFighter) {
+        refreshFighterSettings(currentSelectedFighter);
+      }
+    });
+    
+    loadBtn.addEventListener('click', () => {
+      if (currentSelectedFighter) {
+        loadFighterSettings(currentSelectedFighter);
+      }
+    });
+    
     exportBtn.addEventListener('click', () => exportConfig());
-    exportBtn.dataset.initialized = 'true';
+    
+    window._fighterButtonsInitialized = true;
   }
 }
 
