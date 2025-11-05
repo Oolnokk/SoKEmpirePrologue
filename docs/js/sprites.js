@@ -1,12 +1,13 @@
-// sprites.js — v20 semantics: simplified midpoint/rotation logic
+// sprites.js — v20-derived drawing logic with full anchor/xform support
 // Exports: initSprites(), renderSprites(ctx), mirror API
 //
-// This implementation uses simplified midpoint and rotation logic:
-// - uses bone midpoint for all sprites (no anchor configuration)
-// - sizes sprite height to bone length (baseH) and scales width by widthFactor
-// - applies simple rotation: bone.ang + Math.PI
-// - removes complex offset and xform logic for simplicity
-// - leaves branch-level mirroring (withBranchMirror) and facingFlip logic intact
+// This implementation matches khy-stage-game-v20.html behavior:
+// - anchors sprites at bone midpoint by default, or bone start if config specifies
+// - sizes sprite height to bone.len and scales width by aspect ratio and widthFactor
+// - applies xform offsets (ax, ay) with percent units (multiply by bone.len)
+// - applies xform scales (scaleX, scaleY) to computed dimensions
+// - applies rotation: bone.ang + rotDeg + alignRad + Math.PI
+// - global facing flip for walk; branch-level mirroring controlled by RENDER.MIRROR flags
 
 const ASSETS = (window.ASSETS ||= {});
 const CACHE = (ASSETS.sprites ||= {});
@@ -290,11 +291,13 @@ function drawLegBranch(ctx, rig, side, assets, style, offsets, facingFlip, segme
   });
 }
 
-// Simplified drawBoneSprite — uses midpoint and simple rotation logic.
-// Matches khy-stage-game-v20.html behavior with minimal complexity:
-// - always uses bone midpoint for positioning
-// - sets sprite height to bone.len, width scaled by widthFactor
-// - simple rotation: bone.ang + Math.PI
+// drawBoneSprite — v20-derived logic with anchor, xform, offsets, and rotation
+// Matches khy-stage-game-v20.html behavior:
+// - anchors at bone midpoint by default, or bone start if config says "start"
+// - sets sprite height to bone.len, width scaled by aspect ratio and widthFactor
+// - applies xform offsets (ax, ay) with percent units (multiply by bone.len)
+// - applies xform scales (scaleX, scaleY)
+// - rotation: bone.ang + rotDeg + alignRad + Math.PI
 // - honors facingFlip for horizontal flip
 // - returns true on successful draw, false otherwise
 function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
@@ -303,22 +306,59 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, facingFlip){
   if (!img.complete) return false;
   if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return false;
 
-  // Always use midpoint (simplified - no anchor choice)
+  // Get anchor config: default to "mid", but use "start" if specified
+  const anchorCfg = style.anchor || {};
+  const anchorMode = anchorCfg[styleKey] || 'mid';
+  
+  // Calculate base position based on anchor mode
   const bAxis = basisFor(bone.ang);
-  const posX = bone.x + bone.len * 0.5 * bAxis.fx;
-  const posY = bone.y + bone.len * 0.5 * bAxis.fy;
+  let posX, posY;
+  if (anchorMode === 'start') {
+    // Anchor at bone start
+    posX = bone.x;
+    posY = bone.y;
+  } else {
+    // Anchor at bone midpoint (default)
+    posX = bone.x + bone.len * 0.5 * bAxis.fx;
+    posY = bone.y + bone.len * 0.5 * bAxis.fy;
+  }
 
-  // Sizing: sprite height = bone length, width based on aspect ratio and widthFactor
+  // Get xform config for sprite-specific offsets
+  const xform = (style.xform || {})[styleKey] || {};
+  const xformUnits = (style.xformUnits || 'px').toLowerCase();
+  
+  // Apply sprite offsets (ax, ay) with percent units support
+  // These are additional offsets for sprite positioning, NOT bone joint offsets
+  let ax = xform.ax ?? 0;
+  let ay = xform.ay ?? 0;
+  if (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct') {
+    ax *= bone.len;
+    ay *= bone.len;
+  }
+  
+  // Apply offset in bone-local space
+  const offsetX = ax * bAxis.fx + ay * bAxis.rx;
+  const offsetY = ax * bAxis.fy + ay * bAxis.ry;
+  posX += offsetX;
+  posY += offsetY;  // Sizing: sprite height = bone length, width based on aspect ratio and widthFactor
   const nh = img.naturalHeight || img.height || 1;
   const nw = img.naturalWidth  || img.width  || 1;
   const baseH = Math.max(1, bone.len);
   const wfTbl = style.widthFactor || {};
   const wf = (wfTbl[styleKey] ?? wfTbl[styleKey?.replace(/_.*/, '')] ?? 1);
-  const w = nw * (baseH / nh) * wf;
-  const h = baseH;
+  let w = nw * (baseH / nh) * wf;
+  let h = baseH;
+  
+  // Apply xform scales for sprite sizing
+  const scaleX = xform.scaleX ?? 1;
+  const scaleY = xform.scaleY ?? 1;
+  w *= scaleX;
+  h *= scaleY;
 
-  // Simple rotation: bone angle + 180 degrees
-  const theta = bone.ang + Math.PI;
+  // Rotation: bone.ang + alignRad + Math.PI
+  // alignRad orients the sprite image, bone.ang is the bone direction, +Math.PI for canvas coords
+  const alignRad = asset.alignRad ?? 0;
+  const theta = bone.ang + alignRad + Math.PI;
 
   ctx.save();
   ctx.translate(posX, posY);
@@ -374,7 +414,7 @@ export function initSprites(){
   const f=C.fighters?.[fname];
   const S=(f?.sprites)||{};
   resolveSpriteAssets(S);
-  console.log('[sprites] ready (v20 simplified midpoint/rotation) for', fname);
+  console.log('[sprites] ready (v20-derived anchor/xform/rotation) for', fname);
 }
 
 // ==== MIRROR API (to be called by pose loader / combat events) ====
