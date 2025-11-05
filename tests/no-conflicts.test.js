@@ -1,11 +1,44 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, glob, access } from 'node:fs/promises';
+import { readFile, access, readdir } from 'node:fs/promises';
+import path from 'node:path';
 
-const trackedPatterns = [
-  'docs/**/*.html',
-  'docs/**/*.js',
-];
+/**
+ * Recursively finds files in a directory matching a pattern.
+ * @param {string} dir - Directory to search recursively
+ * @param {RegExp} pattern - Pattern to match file paths against
+ * @returns {Promise<string[]>} Array of matching file paths
+ */
+async function findFiles(dir, pattern) {
+  if (typeof dir !== 'string') {
+    throw new TypeError('dir must be a string');
+  }
+  if (!(pattern instanceof RegExp)) {
+    throw new TypeError('pattern must be a RegExp');
+  }
+  
+  const files = [];
+  async function walk(currentDir) {
+    try {
+      const entries = await readdir(currentDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(currentDir, entry.name);
+        if (entry.isDirectory()) {
+          await walk(fullPath);
+        } else if (entry.isFile() && pattern.test(fullPath)) {
+          files.push(fullPath);
+        }
+      }
+    } catch (err) {
+      // Skip directories that can't be read or were deleted during traversal
+      if (err.code !== 'EACCES' && err.code !== 'EPERM' && err.code !== 'ENOENT') {
+        throw err;
+      }
+    }
+  }
+  await walk(dir);
+  return files;
+}
 
 const criticalEntryPoints = [
   'docs/index.html',
@@ -28,16 +61,17 @@ test('no git conflict markers linger in critical published assets', async () => 
     files.add(entry);
   }
 
-  for (const pattern of trackedPatterns) {
-    const globber = glob(pattern, { nodir: true });
-    for await (const file of globber) {
-      files.add(file);
-    }
+  // Find all HTML and JS files in docs/
+  const htmlFiles = await findFiles('docs', /\.html$/);
+  const jsFiles = await findFiles('docs', /\.js$/);
+  
+  for (const file of [...htmlFiles, ...jsFiles]) {
+    files.add(file);
   }
 
   if (files.size === 0) {
     throw new Error(
-      `Conflict marker scan did not match any files. Check patterns: ${trackedPatterns.join(', ')}`
+      `Conflict marker scan did not match any files.`
     );
   }
 
