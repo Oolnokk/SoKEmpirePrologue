@@ -18,7 +18,7 @@ window.CONFIG = {
   hierarchy: { legsFollowTorsoRotation: false },
   ik: { calvesOnly: true },
 
-  basePose: { torso:0, lShoulder:-90, lElbow:0, rShoulder:-90, rElbow:0, lHip:90, lKnee:0, rHip:90, rKnee:0 },
+  basePose: { torso:0, lShoulder:0, lElbow:0, rShoulder:0, rElbow:0, lHip:0, lKnee:0, rHip:0, rKnee:0 },
   limits: {
     torso:{ absMin:-45, absMax:90 },
     shoulder:{ relMin:-360, relMax:-90 },
