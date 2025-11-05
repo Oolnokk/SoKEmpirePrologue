@@ -126,6 +126,55 @@ window.CONFIG = {
           }
         }
       }
+    },
+    'Mao-ao_M': {
+      actor: { scale: 0.70 },
+      parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:40 }, arm:{ upper:30, lower:40 }, leg:{ upper:30, lower:30 }, head:{ neck:10, radius:12 } },
+      hierarchy: { legsFollowTorsoRotation: false },
+      ik: { calvesOnly: true },
+      basePose: { torso:0, lShoulder:0, lElbow:0, rShoulder:0, rElbow:0, lHip:90, lKnee:0, rHip:0, rKnee:0 },
+      limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 } },
+      offsets: {
+        torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
+        arm: { upper:{ origin:{ax:0, ay:0}, elbow:{ax:0, ay:0} }, lower:{ origin:{ax:0, ay:0} } },
+        leg: { upper:{ origin:{ax:0, ay:0}, knee:{ax:0, ay:0}  }, lower:{ origin:{ax:0, ay:0} } },
+        head:{ origin:{ax:-1, ay:6} }
+      },
+      sprites: {
+        torso: { url: "./assets/fightersprites/tletingan/torso.png", alignDeg: 180 },
+        head:  { url: "./assets/fightersprites/tletingan/head.png", alignDeg: 0 },
+        arm: { 
+          upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", alignDeg: 180 },
+          lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", alignDeg: 180 }
+        },
+        leg: { 
+          upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", alignDeg: 180 },
+          lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", alignDeg: 180 }
+        },
+        style: {
+          widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
+          xformUnits: "percent",
+          // NEW: anchor mapping to align art with bones (v16-like)
+          anchor: {
+            torso: "start",
+            head: "mid",
+            armUpper: "start",
+            armLower: "mid",
+            legUpper: "start",
+            legLower: "mid"
+          },
+          // Optional: show anchor gizmo. Turn off after verifying.
+          debug: { torso:true, head:false, armUpper:false, armLower:false, legUpper:false, legLower:false },
+          xform: {
+            torso:    { ax:-0.5,  ay:-0.00, scaleX:4.50, scaleY:4.50, rotDeg:180 },
+            head:     { ax:-1.40, ay:-0.20, scaleX:4.50, scaleY:4.50, rotDeg:180 },
+            armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
+            armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
+            legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
+            legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
+          }
+        }
+      }
     }
   },
 
