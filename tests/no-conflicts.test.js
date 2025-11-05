@@ -10,6 +10,13 @@ import path from 'node:path';
  * @returns {Promise<string[]>} Array of matching file paths
  */
 async function findFiles(dir, pattern) {
+  if (typeof dir !== 'string') {
+    throw new TypeError('dir must be a string');
+  }
+  if (!(pattern instanceof RegExp)) {
+    throw new TypeError('pattern must be a RegExp');
+  }
+  
   const files = [];
   async function walk(currentDir) {
     try {
@@ -23,8 +30,8 @@ async function findFiles(dir, pattern) {
         }
       }
     } catch (err) {
-      // Skip directories that can't be read (permission errors, etc.)
-      if (err.code !== 'EACCES' && err.code !== 'EPERM') {
+      // Skip directories that can't be read or were deleted during traversal
+      if (err.code !== 'EACCES' && err.code !== 'EPERM' && err.code !== 'ENOENT') {
         throw err;
       }
     }
