@@ -1,12 +1,13 @@
-// sprites.js — v20 semantics: simplified midpoint/rotation logic
+// sprites.js — v20-derived drawing logic with full anchor/xform support
 // Exports: initSprites(), renderSprites(ctx), mirror API
 //
-// This implementation uses simplified midpoint and rotation logic:
-// - uses bone midpoint for all sprites (no anchor configuration)
-// - sizes sprite height to bone length (baseH) and scales width by widthFactor
-// - applies simple rotation: bone.ang + Math.PI
-// - removes complex offset and xform logic for simplicity
-// - leaves branch-level mirroring (withBranchMirror) and facingFlip logic intact
+// This implementation matches khy-stage-game-v20.html behavior:
+// - anchors sprites at bone midpoint by default, or bone start if config specifies
+// - sizes sprite height to bone.len and scales width by aspect ratio and widthFactor
+// - applies xform offsets (ax, ay) with percent units (multiply by bone.len)
+// - applies xform scales (scaleX, scaleY) to computed dimensions
+// - applies rotation: bone.ang + rotDeg + alignRad + Math.PI
+// - global facing flip for walk; branch-level mirroring controlled by RENDER.MIRROR flags
 
 const ASSETS = (window.ASSETS ||= {});
 const CACHE = (ASSETS.sprites ||= {});
@@ -414,7 +415,7 @@ export function initSprites(){
   const f=C.fighters?.[fname];
   const S=(f?.sprites)||{};
   resolveSpriteAssets(S);
-  console.log('[sprites] ready (v20 simplified midpoint/rotation) for', fname);
+  console.log('[sprites] ready (v20-derived anchor/xform/rotation) for', fname);
 }
 
 // ==== MIRROR API (to be called by pose loader / combat events) ====
