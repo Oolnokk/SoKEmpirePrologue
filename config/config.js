@@ -89,10 +89,16 @@ const CONFIG = {
         head:{ origin:{ax:-1, ay:6} }
       },
       sprites: {
-        torso: "https://i.imgur.com/YatjSyo.png",
-        head:  "https://i.imgur.com/WsKQ2Eo.png",
-        arm: { upper:"https://i.imgur.com/CAmWLbf.png", lower:"https://i.imgur.com/gOHujif.png" },
-        leg: { upper:"https://i.imgur.com/qgcQTmx.png", lower:"https://i.imgur.com/lZbF7j2.png" },
+        torso: { url: "https://i.imgur.com/YatjSyo.png", alignDeg: 180 },
+        head:  { url: "https://i.imgur.com/WsKQ2Eo.png", alignDeg: 0 },
+        arm: { 
+          upper: { url: "https://i.imgur.com/CAmWLbf.png", alignDeg: 180 },
+          lower: { url: "https://i.imgur.com/gOHujif.png", alignDeg: 180 }
+        },
+        leg: { 
+          upper: { url: "https://i.imgur.com/qgcQTmx.png", alignDeg: 180 },
+          lower: { url: "https://i.imgur.com/lZbF7j2.png", alignDeg: 180 }
+        },
         style: {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
           xformUnits: "percent",

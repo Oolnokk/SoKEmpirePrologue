@@ -377,15 +377,33 @@
         }
       },
       "sprites": {
-        "torso": { "url": "https://i.imgur.com/YatjSyo.png", "alignDeg": 180 },
-        "head": { "url": "https://i.imgur.com/WsKQ2Eo.png", "alignDeg": 180 },
+        "torso": {
+          "url": "https://i.imgur.com/YatjSyo.png",
+          "alignDeg": 180
+        },
+        "head": {
+          "url": "https://i.imgur.com/WsKQ2Eo.png",
+          "alignDeg": 0
+        },
         "arm": {
-          "upper": { "url": "https://i.imgur.com/CAmWLbf.png", "alignDeg": 180 },
-          "lower": { "url": "https://i.imgur.com/gOHujif.png", "alignDeg": 180 }
+          "upper": {
+            "url": "https://i.imgur.com/CAmWLbf.png",
+            "alignDeg": 180
+          },
+          "lower": {
+            "url": "https://i.imgur.com/gOHujif.png",
+            "alignDeg": 180
+          }
         },
         "leg": {
-          "upper": { "url": "https://i.imgur.com/qgcQTmx.png", "alignDeg": 180 },
-          "lower": { "url": "https://i.imgur.com/lZbF7j2.png", "alignDeg": 180 }
+          "upper": {
+            "url": "https://i.imgur.com/qgcQTmx.png",
+            "alignDeg": 180
+          },
+          "lower": {
+            "url": "https://i.imgur.com/lZbF7j2.png",
+            "alignDeg": 180
+          }
         },
         "style": {
           "widthFactor": {
@@ -400,7 +418,7 @@
           "xform": {
             "torso": {
               "ax": -0.5,
-              "ay": -0,
+              "ay": 0,
               "scaleX": 4.5,
               "scaleY": 4.5,
               "rotDeg": 180

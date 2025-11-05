@@ -13,7 +13,7 @@
     "trailColor": "cyan",
     "sprites": {
       "torso": { "url": "https://i.imgur.com/YatjSyo.png", "alignDeg": 180 },
-      "head": { "url": "https://i.imgur.com/WsKQ2Eo.png", "alignDeg": 180 },
+      "head": { "url": "https://i.imgur.com/WsKQ2Eo.png", "alignDeg": 0 },
       "arm": {
         "upper": { "url": "https://i.imgur.com/CAmWLbf.png", "alignDeg": 180 },
         "lower": { "url": "https://i.imgur.com/gOHujif.png", "alignDeg": 180 }

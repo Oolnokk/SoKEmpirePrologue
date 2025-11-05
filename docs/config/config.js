@@ -89,10 +89,16 @@ window.CONFIG = {
         head:{ origin:{ax:-1, ay:6} }
       },
       sprites: {
-        torso: "https://i.imgur.com/YatjSyo.png",
-        head:  "https://i.imgur.com/WsKQ2Eo.png",
-        arm: { upper:"https://i.imgur.com/CAmWLbf.png", lower:"https://i.imgur.com/gOHujif.png" },
-        leg: { upper:"https://i.imgur.com/qgcQTmx.png", lower:"https://i.imgur.com/lZbF7j2.png" },
+        torso: { url: "./test-torso.svg", alignDeg: 180 },
+        head:  { url: "./test-head.svg", alignDeg: 0 },
+        arm: { 
+          upper: { url: "./test-arm-upper.svg", alignDeg: 180 },
+          lower: { url: "./test-arm-lower.svg", alignDeg: 180 }
+        },
+        leg: { 
+          upper: { url: "./test-leg-upper.svg", alignDeg: 180 },
+          lower: { url: "./test-leg-lower.svg", alignDeg: 180 }
+        },
         style: {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
           xformUnits: "percent",

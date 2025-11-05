@@ -1,0 +1,7 @@
+<svg width="25" height="30" xmlns="http://www.w3.org/2000/svg">
+  <!-- Head with arrow pointing UP (scalp up) -->
+  <ellipse cx="12.5" cy="15" rx="11" ry="13" fill="#FFDCB4" stroke="black" stroke-width="1"/>
+  <!-- Arrow pointing UP -->
+  <polygon points="12.5,5 8,12 17,12" fill="#323232"/>
+  <line x1="12.5" y1="12" x2="12.5" y2="20" stroke="#323232" stroke-width="2"/>
+</svg>
