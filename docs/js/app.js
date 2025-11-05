@@ -262,42 +262,16 @@ function extractNumericFields(obj, prefix = '', fields = []) {
       
       fields.push({
         label: label,
-        path: key,
+        path: path,
         value: value,
         step: (value < 1 && value > -1) ? 0.01 : (value < 10 ? 0.1 : 1)
       });
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       // Recursively extract nested numeric fields
-      extractNumericFieldsNested(value, key, path, fields);
+      extractNumericFields(value, path, fields);
     }
   }
   return fields;
-}
-
-function extractNumericFieldsNested(obj, keyPrefix, fullPath, fields) {
-  for (const key in obj) {
-    if (!obj.hasOwnProperty(key)) continue;
-    
-    const value = obj[key];
-    const currentPath = `${keyPrefix}.${key}`;
-    
-    if (typeof value === 'number') {
-      // Format the label nicely
-      const label = fullPath.split('.').concat(key).map(part => 
-        part.replace(/([A-Z])/g, ' $1').trim()
-      ).join(' › ');
-      
-      fields.push({
-        label: label,
-        path: currentPath,
-        value: value,
-        step: (value < 1 && value > -1) ? 0.01 : (value < 10 ? 0.1 : 1)
-      });
-    } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      // Continue recursing
-      extractNumericFieldsNested(value, currentPath, fullPath, fields);
-    }
-  }
 }
 
 function setNestedValue(obj, path, value) {
