@@ -399,3 +399,38 @@
     font-size: 9px;
   }
 }
+
+/* Fighter Settings Menu */
+.fighter-settings-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: #a5b4fc;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+  transition: transform 0.2s;
+}
+
+.toggle-btn.collapsed {
+  transform: rotate(-90deg);
+}
+
+.fighter-settings-content {
+  margin-top: 8px;
+  max-height: 500px;
+  overflow-y: auto;
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+.fighter-settings-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+}

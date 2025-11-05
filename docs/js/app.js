@@ -125,6 +125,195 @@ document.addEventListener('config:updated', ()=>{
   applyRenderOrder();
 });
 
+// Fighter selection and settings management
+let currentSelectedFighter = null;
+
+function initFighterDropdown() {
+  const fighterSelect = $$('#fighterSelect');
+  if (!fighterSelect) return;
+
+  const C = window.CONFIG || {};
+  const fighters = C.fighters || {};
+
+  // Clear existing options
+  fighterSelect.innerHTML = '';
+
+  // Add a default option
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = '-- Select Fighter --';
+  fighterSelect.appendChild(defaultOption);
+
+  // Populate with fighters from config
+  Object.keys(fighters).forEach(fighterName => {
+    const option = document.createElement('option');
+    option.value = fighterName;
+    option.textContent = fighterName;
+    fighterSelect.appendChild(option);
+  });
+
+  // Handle selection change
+  fighterSelect.addEventListener('change', (e) => {
+    const selectedFighter = e.target.value;
+    currentSelectedFighter = selectedFighter;
+    if (selectedFighter) {
+      showFighterSettings(selectedFighter);
+    } else {
+      hideFighterSettings();
+    }
+  });
+
+  console.log('[initFighterDropdown] Fighter dropdown initialized with', Object.keys(fighters).length, 'fighters');
+}
+
+function showFighterSettings(fighterName) {
+  const settingsBox = $$('#fighterSettingsBox');
+  const settingsFields = $$('#fighterSettingsFields');
+  if (!settingsBox || !settingsFields) return;
+
+  const C = window.CONFIG || {};
+  const fighter = C.fighters?.[fighterName];
+  if (!fighter) return;
+
+  // Show the settings box
+  settingsBox.style.display = '';
+
+  // Populate with numeric values
+  populateFighterSettings(fighterName, fighter, settingsFields);
+
+  // Setup collapse/expand functionality if not already done
+  const toggleBtn = $$('#toggleFighterSettings');
+  const content = $$('#fighterSettingsContent');
+  const label = $$('.fighter-settings-label');
+  
+  if (toggleBtn && content && label && !label.dataset.initialized) {
+    label.addEventListener('click', () => {
+      content.classList.toggle('collapsed');
+      toggleBtn.classList.toggle('collapsed');
+      toggleBtn.textContent = content.classList.contains('collapsed') ? '▶' : '▼';
+    });
+    label.dataset.initialized = 'true';
+  }
+}
+
+function hideFighterSettings() {
+  const settingsBox = $$('#fighterSettingsBox');
+  if (settingsBox) {
+    settingsBox.style.display = 'none';
+  }
+}
+
+function populateFighterSettings(fighterName, fighter, container) {
+  container.innerHTML = '';
+
+  // Extract all numeric values from the fighter config
+  const numericFields = extractNumericFields(fighter, fighterName);
+
+  numericFields.forEach(field => {
+    const label = document.createElement('label');
+    label.style.display = 'flex';
+    label.style.justifyContent = 'space-between';
+    label.style.alignItems = 'center';
+    label.style.fontSize = '12px';
+    label.style.color = '#e5e7eb';
+
+    const labelText = document.createElement('span');
+    labelText.textContent = field.label;
+    labelText.style.flex = '1';
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.value = field.value;
+    input.step = field.step || 0.1;
+    input.style.width = '80px';
+    input.style.padding = '4px';
+    input.style.background = '#1f2937';
+    input.style.border = '1px solid #374151';
+    input.style.borderRadius = '4px';
+    input.style.color = '#e5e7eb';
+
+    // Handle real-time updates
+    input.addEventListener('input', (e) => {
+      const newValue = parseFloat(e.target.value);
+      if (!isNaN(newValue)) {
+        setNestedValue(fighter, field.path, newValue);
+        console.log(`[fighterSettings] Updated ${fighterName}.${field.path} = ${newValue}`);
+      }
+    });
+
+    label.appendChild(labelText);
+    label.appendChild(input);
+    container.appendChild(label);
+  });
+}
+
+function extractNumericFields(obj, prefix = '', fields = []) {
+  for (const key in obj) {
+    if (!obj.hasOwnProperty(key)) continue;
+    
+    const value = obj[key];
+    const path = prefix ? `${prefix}.${key}` : key;
+    
+    if (typeof value === 'number') {
+      // Format the label nicely
+      const label = path.split('.').map(part => 
+        part.replace(/([A-Z])/g, ' $1').trim()
+      ).join(' › ');
+      
+      fields.push({
+        label: label,
+        path: key,
+        value: value,
+        step: (value < 1 && value > -1) ? 0.01 : (value < 10 ? 0.1 : 1)
+      });
+    } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // Recursively extract nested numeric fields
+      extractNumericFieldsNested(value, key, path, fields);
+    }
+  }
+  return fields;
+}
+
+function extractNumericFieldsNested(obj, keyPrefix, fullPath, fields) {
+  for (const key in obj) {
+    if (!obj.hasOwnProperty(key)) continue;
+    
+    const value = obj[key];
+    const currentPath = `${keyPrefix}.${key}`;
+    
+    if (typeof value === 'number') {
+      // Format the label nicely
+      const label = fullPath.split('.').concat(key).map(part => 
+        part.replace(/([A-Z])/g, ' $1').trim()
+      ).join(' › ');
+      
+      fields.push({
+        label: label,
+        path: currentPath,
+        value: value,
+        step: (value < 1 && value > -1) ? 0.01 : (value < 10 ? 0.1 : 1)
+      });
+    } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // Continue recursing
+      extractNumericFieldsNested(value, currentPath, fullPath, fields);
+    }
+  }
+}
+
+function setNestedValue(obj, path, value) {
+  const keys = path.split('.');
+  let current = obj;
+  
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!current[keys[i]]) {
+      current[keys[i]] = {};
+    }
+    current = current[keys[i]];
+  }
+  
+  current[keys[keys.length - 1]] = value;
+}
+
 function updateHUD(){
   const G = window.GAME;
   const P = G.FIGHTERS?.player;
@@ -193,6 +382,7 @@ function boot(){
     initCombat();
     initHitDetect();
     initDebugPanel();
+    initFighterDropdown();
     requestAnimationFrame(loop);
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);
   } catch (e){
