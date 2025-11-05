@@ -194,6 +194,172 @@ function showFighterSettings(fighterName) {
     });
     label.dataset.initialized = 'true';
   }
+
+  // Setup button handlers if not already done
+  setupFighterButtons(fighterName);
+}
+
+function setupFighterButtons(fighterName) {
+  const refreshBtn = $$('#btnRefreshFighter');
+  const loadBtn = $$('#btnLoadFighter');
+  const exportBtn = $$('#btnExportConfig');
+
+  // Remove old listeners by cloning nodes
+  if (refreshBtn && !refreshBtn.dataset.initialized) {
+    refreshBtn.addEventListener('click', () => refreshFighterSettings(fighterName));
+    refreshBtn.dataset.initialized = 'true';
+  }
+  
+  if (loadBtn && !loadBtn.dataset.initialized) {
+    loadBtn.addEventListener('click', () => loadFighterSettings(fighterName));
+    loadBtn.dataset.initialized = 'true';
+  }
+  
+  if (exportBtn && !exportBtn.dataset.initialized) {
+    exportBtn.addEventListener('click', () => exportConfig());
+    exportBtn.dataset.initialized = 'true';
+  }
+}
+
+function refreshFighterSettings(fighterName) {
+  console.log('[refreshFighterSettings] Refreshing settings for', fighterName);
+  
+  // Re-populate the settings UI with current values from config
+  const settingsFields = $$('#fighterSettingsFields');
+  if (settingsFields) {
+    const C = window.CONFIG || {};
+    const fighter = C.fighters?.[fighterName];
+    if (fighter) {
+      populateFighterSettings(fighterName, fighter, settingsFields);
+      console.log('[refreshFighterSettings] Settings refreshed');
+    }
+  }
+}
+
+async function loadFighterSettings(fighterName) {
+  console.log('[loadFighterSettings] Loading settings for', fighterName);
+  
+  try {
+    // The config is already updated in memory via input handlers
+    // Reinitialize sprites and fighters to apply changes
+    if (statusInfo) statusInfo.textContent = 'Reloading fighter...';
+    
+    // Reload sprites with new config
+    await initSprites();
+    
+    // Reinit fighters
+    initFighters(cv, cx);
+    
+    // Reinit presets
+    initPresets();
+    ensureAltSequenceUsesKickAlt();
+    
+    if (statusInfo) statusInfo.textContent = 'Fighter loaded';
+    console.log('[loadFighterSettings] Fighter reloaded successfully');
+  } catch (e) {
+    if (statusInfo) statusInfo.textContent = 'Fighter reload failed';
+    console.error('[loadFighterSettings] Error:', e);
+  }
+}
+
+function exportConfig() {
+  console.log('[exportConfig] Exporting config...');
+  
+  const C = window.CONFIG || {};
+  
+  // Generate the config.js file content in the same format as the original
+  const configContent = generateConfigJS(C);
+  
+  // Create a blob and trigger download
+  const blob = new Blob([configContent], { type: 'text/javascript' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'config.js';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  console.log('[exportConfig] Config exported');
+}
+
+function generateConfigJS(config) {
+  // Generate JavaScript file content that matches the original format
+  const lines = [];
+  lines.push('// khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug');
+  lines.push('window.CONFIG = ' + JSON.stringify(config, null, 2) + ';');
+  lines.push('');
+  lines.push('');
+  lines.push('// ==== CONFIG.attacks (authoritative) ====');
+  lines.push('window.CONFIG = window.CONFIG || {};');
+  lines.push('(function initAttacks(){');
+  lines.push('  const D = CONFIG.durations || { toWindup:320, toStrike:160, toRecoil:180, toStance:120 };');
+  lines.push('  CONFIG.attacks = ' + JSON.stringify(config.attacks, null, 2).split('\n').map((line, i) => i === 0 ? line : '  ' + line).join('\n') + ';');
+  lines.push('})();');
+  lines.push('');
+  lines.push('');
+  lines.push('// Back-compat: build CONFIG.presets from CONFIG.attacks');
+  lines.push('(function buildPresets(){');
+  lines.push('  if (!window.CONFIG || !CONFIG.attacks) return;');
+  lines.push('  const clone = (o) => JSON.parse(JSON.stringify(o));');
+  lines.push('');
+  lines.push('  const SLAM = {');
+  lines.push('    poses: clone(CONFIG.poses),');
+  lines.push('    durations: clone(CONFIG.durations),');
+  lines.push('    knockbackBase: (CONFIG.attacks.slots[2]?.knockbackBase ?? 250),');
+  lines.push('    cancelWindow: (CONFIG.attacks.slots[2]?.cancelWindowRecoil ?? 0.5)');
+  lines.push('  };');
+  lines.push('');
+  lines.push('  const KICK = {');
+  lines.push('    durations: { toWindup:180, toStrike:110, toRecoil:680, toStance:0 },');
+  lines.push('    knockbackBase: (CONFIG.attacks.slots[3]?.knockbackBase ?? 180),');
+  lines.push('    cancelWindow: (CONFIG.attacks.slots[3]?.cancelWindowRecoil ?? 0.6),');
+  lines.push('    poses: {');
+  lines.push('      Stance: Object.assign(clone(CONFIG.poses.Stance), { resetFlipsBefore: true }),');
+  lines.push('      Windup: clone(CONFIG.attacks.library.KICK_Windup.overrides),');
+  lines.push('      Strike: clone(CONFIG.attacks.library.KICK_Strike.overrides),');
+  lines.push('      Recoil: clone(CONFIG.attacks.library.KICK_Recoil.overrides)');
+  lines.push('    }');
+  lines.push('  };');
+  lines.push('');
+  lines.push('  const PUNCH = {');
+  lines.push('    durations: { toWindup1:180, toWindup2:180, toStrike1:110, toStrike2:110, toRecoil:200, toStance:120 },');
+  lines.push('    knockbackBase: 140,');
+  lines.push('    cancelWindow: 0.7,');
+  lines.push('    poses: {');
+  lines.push('      Stance: clone(CONFIG.poses.Stance),');
+  lines.push('      Windup: clone(CONFIG.poses.Windup),');
+  lines.push('      Strike: clone(CONFIG.poses.Strike),');
+  lines.push('      Recoil: clone(CONFIG.poses.Recoil),');
+  lines.push('      Strike1: clone(CONFIG.attacks.library.PUNCH_Strike1?.overrides || {}),');
+  lines.push('      Strike2: clone(CONFIG.attacks.library.PUNCH_Strike2?.overrides || {})');
+  lines.push('    },');
+  lines.push('    sequence: [');
+  lines.push('      { pose:\'Stance\', durKey:\'toStance\' },');
+  lines.push('      { pose:\'Windup\', durKey:\'toWindup1\' },');
+  lines.push('      { pose:\'Strike1\', durKey:\'toStrike1\' },');
+  lines.push('      { pose:\'Windup\', durKey:\'toWindup2\' },');
+  lines.push('      { pose:\'Strike2\', durKey:\'toStrike2\' },');
+  lines.push('      { pose:\'Recoil\', durKey:\'toRecoil\' },');
+  lines.push('      { pose:\'Stance\', durKey:\'toStance\' }');
+  lines.push('    ]');
+  lines.push('  };');
+  lines.push('');
+  lines.push('  // IMPORTANT: merge instead of overwrite, then add weapon presets that opt into weapon colliders');
+  lines.push('  CONFIG.presets = Object.assign({}, CONFIG.presets || {}, { SLAM, KICK, PUNCH });');
+  lines.push('');
+  lines.push('  // Ensure core weapon presets exist and opt-in to weapon colliders.');
+  lines.push('  const ensurePreset = (name, base=\'PUNCH\') => {');
+  lines.push('    if (!CONFIG.presets[name]) CONFIG.presets[name] = clone(CONFIG.presets[base] || {});');
+  lines.push('    CONFIG.presets[name].useWeaponColliders = true;');
+  lines.push('  };');
+  lines.push('  [\'SLASH\',\'STAB\',\'THRUST\',\'SWEEP\',\'CHOP\',\'SMASH\',\'SWING\',\'HACK\',\'TOSS\'].forEach(n => ensurePreset(n));');
+  lines.push('');
+  lines.push('  try { document.dispatchEvent(new Event(\'config:ready\')); } catch(_){}');
+  lines.push('})();');
+  
+  return lines.join('\n');
 }
 
 function hideFighterSettings() {
@@ -231,8 +397,10 @@ function populateFighterSettings(fighterName, fighter, container) {
     input.style.border = '1px solid #374151';
     input.style.borderRadius = '4px';
     input.style.color = '#e5e7eb';
+    input.dataset.path = field.path;
+    input.dataset.originalValue = field.value;
 
-    // Handle real-time updates
+    // Handle real-time updates to the in-memory config
     input.addEventListener('input', (e) => {
       const newValue = parseFloat(e.target.value);
       if (!isNaN(newValue)) {

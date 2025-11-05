@@ -42,6 +42,17 @@
 .fields{display:grid;gap:6px}
 .pill{display:inline-block;margin-right:6px;margin-bottom:6px;font-size:11px;padding:4px 6px;border-radius:16px;border:1px solid #334155;color:#9ca3af}
 
+/* Fighter Settings */
+.fighter-settings-label{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+.toggle-btn{background:transparent;border:none;color:#a5b4fc;cursor:pointer;font-size:14px;padding:0;margin:0;transition:transform 0.2s}
+.toggle-btn.collapsed{transform:rotate(-90deg)}
+.fighter-settings-content.collapsed{display:none}
+.fighter-settings-buttons{display:flex;gap:8px;margin-top:12px;padding-top:8px;border-top:1px solid #1f2937}
+.fighter-btn{flex:1;padding:8px 12px;border-radius:8px;border:1px solid #374151;background:#1f2937;color:#e5e7eb;font-size:12px;cursor:pointer;transition:background 0.2s;font-weight:500}
+.fighter-btn:hover{background:#374151}
+.fighter-btn--primary{background:#2563eb;border-color:#3b82f6;color:#fff}
+.fighter-btn--primary:hover{background:#1d4ed8}
+
 @media (hover:none){ .help-panel{font-size:14px} }
 
 /* Debug Panel Styles */
