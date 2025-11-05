@@ -224,12 +224,6 @@ const ORIENTATION_OFFSETS = {
   armLower: Math.PI / 2,
   legUpper: -Math.PI / 2,
   legLower: -Math.PI / 2
-  torso: Math.PI / 2,
-  head: 0,
-  armUpper: -Math.PI / 2,
-  armLower: -Math.PI / 2,
-  legUpper: Math.PI / 2,
-  legLower: Math.PI / 2
 };
 
 function orientationOffsetFor(styleKey){
