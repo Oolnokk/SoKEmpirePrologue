@@ -6,13 +6,20 @@ import path from 'node:path';
 async function findFiles(dir, pattern) {
   const files = [];
   async function walk(currentDir) {
-    const entries = await readdir(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(fullPath);
-      } else if (entry.isFile() && pattern.test(fullPath)) {
-        files.push(fullPath);
+    try {
+      const entries = await readdir(currentDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(currentDir, entry.name);
+        if (entry.isDirectory()) {
+          await walk(fullPath);
+        } else if (entry.isFile() && pattern.test(fullPath)) {
+          files.push(fullPath);
+        }
+      }
+    } catch (err) {
+      // Skip directories that can't be read (permission errors, etc.)
+      if (err.code !== 'EACCES' && err.code !== 'EPERM') {
+        throw err;
       }
     }
   }
