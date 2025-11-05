@@ -1,8 +1,8 @@
 // render.js — v19-accurate rig math wired for sprites.js (compat arrays extended)
 // Angle basis is centralized so sprites.js can stay in sync (toggle via window.ANGLE_ZERO).
 
-function angleZero(){ const z = (typeof window !== 'undefined' && window.ANGLE_ZERO) ? String(window.ANGLE_ZERO).toLowerCase() : 'right'; return (z === 'up') ? 'up' : 'right'; }
-function basis(ang){ const c = Math.cos(ang), s = Math.sin(ang); if (angleZero() === 'right') { return { fx:c, fy:s, rx:-s, ry:c }; } return { fx:s, fy:-c, rx:c, ry:s }; }
+function angleZero(){ return 'up'; }
+function basis(ang){ const c = Math.cos(ang), s = Math.sin(ang); return { fx:s, fy:-c, rx:c, ry:s }; }
 function segPos(x, y, len, ang) { const b = basis(ang); return [x + len * b.fx, y + len * b.fy]; }
 function withAX(x, y, ang, off, len, units) {
   if (!off) return [x, y];
@@ -33,7 +33,6 @@ function withAX(x, y, ang, off, len, units) {
 }
 function rad(v) { return v == null ? 0 : v; }
 function angleFromDelta(dx, dy){
-  if (angleZero() === 'right') { return Math.atan2(dy, dx); }
   return Math.atan2(dx, -dy);
 }
 
@@ -53,7 +52,7 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const fcfg = pickFighterConfig(C, fighterName); const L = lengths(C, fcfg); const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
   const centerX = F.pos?.x ?? 0; const centerY = F.pos?.y ?? ((C.groundRatio||0.7) * (C.canvas?.h||460));
   const torsoAngRaw = rad(F.jointAngles?.torso);
-  const torsoAng = torsoAngRaw + Math.PI * 1.5; // baseline rotated 90° CCW, then flipped 180° for current torso orientation
+  const torsoAng = torsoAngRaw; // with 'up' as zero, torso angle is used directly
   const torsoAttach = { x: centerX + (hbAttach.nx - 0.5) * L.hbW, y: centerY + (hbAttach.ny - 0.5) * L.hbH };
   const originBaseArr   = withAX(torsoAttach.x, torsoAttach.y, torsoAngRaw, OFF.torso?.origin);
   const hipBaseArr      = withAX(originBaseArr[0], originBaseArr[1], torsoAngRaw, OFF.torso?.hip);
@@ -72,7 +71,7 @@ function computeAnchorsForFighter(F, C, fighterName) {
   };
 
   const lShoulderRel = rad(F.jointAngles?.lShoulder); const rShoulderRel = rad(F.jointAngles?.rShoulder); const lElbowRel = rad(F.jointAngles?.lElbow); const rElbowRel = rad(F.jointAngles?.rElbow);
-  const armBaseOffset = -Math.PI / 2;
+  const armBaseOffset = 0; // with 'up' as zero, arms extend directly from shoulder angles
   let lUpperAng = torsoAng + lShoulderRel + armBaseOffset; let rUpperAng = torsoAng + rShoulderRel + armBaseOffset;
   let lLowerAng = lUpperAng + lElbowRel;   let rLowerAng = rUpperAng + rElbowRel;
 
