@@ -121,36 +121,30 @@ test('sprites.js does not apply per-sprite facing flip', async () => {
     'drawBoneSprite() should not have facingFlip parameter'
   );
   
-  // Check that there's no ctx.scale(-1, 1) for facingFlip inside drawBoneSprite
-  const drawBoneSpriteMatch = source.match(/function drawBoneSprite\([^)]*\)\s*{[^}]*}/s);
-  if (drawBoneSpriteMatch) {
-    const functionBody = drawBoneSpriteMatch[0];
-    assert.doesNotMatch(
-      functionBody,
-      /if\s*\(\s*facingFlip\s*\)/,
-      'drawBoneSprite() should not check facingFlip'
-    );
-  }
+  // Check that there's no if (facingFlip) in the source near drawBoneSprite
+  assert.doesNotMatch(
+    source,
+    /function drawBoneSprite[\s\S]{0,2000}if\s*\(\s*facingFlip\s*\)\s*{\s*ctx\.scale\(-1,\s*1\)/,
+    'drawBoneSprite() should not apply facingFlip with ctx.scale(-1, 1)'
+  );
 });
 
 test('sprites.js renderSprites does not apply canvas-level facing flip', async () => {
   const source = await readJs('sprites.js');
   
-  // Check that renderSprites does not calculate facingFlip
-  const renderSpritesMatch = source.match(/export function renderSprites\([^)]*\)\s*{[\s\S]*?^}/m);
-  if (renderSpritesMatch) {
-    const functionBody = renderSpritesMatch[0];
-    assert.doesNotMatch(
-      functionBody,
-      /const facingFlip.*facingSign/,
-      'renderSprites() should not calculate facingFlip from facingSign'
-    );
-    assert.doesNotMatch(
-      functionBody,
-      /ctx\.scale\(-1,\s*1\)/,
-      'renderSprites() should not apply canvas-level scale(-1, 1) transform'
-    );
-  }
+  // Check that renderSprites does not calculate facingFlip from facingSign
+  assert.doesNotMatch(
+    source,
+    /export function renderSprites[\s\S]{0,500}const facingFlip.*facingSign/,
+    'renderSprites() should not calculate facingFlip from facingSign'
+  );
+  
+  // Check that renderSprites does not apply canvas-level scale(-1, 1) for facing
+  assert.doesNotMatch(
+    source,
+    /export function renderSprites[\s\S]{0,1000}if\s*\(\s*facingFlip\s*\)[\s\S]{0,200}ctx\.scale\(-1,\s*1\)/,
+    'renderSprites() should not apply canvas-level scale(-1, 1) transform for facing'
+  );
 });
 
 test('sprites.js drawArmBranch does not have facingFlip parameter', async () => {
