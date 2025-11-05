@@ -1,8 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, access, readdir, stat } from 'node:fs/promises';
+import { readFile, access, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
+/**
+ * Recursively finds files in a directory matching a pattern.
+ * @param {string} dir - Directory to search recursively
+ * @param {RegExp} pattern - Pattern to match file paths against
+ * @returns {Promise<string[]>} Array of matching file paths
+ */
 async function findFiles(dir, pattern) {
   const files = [];
   async function walk(currentDir) {
