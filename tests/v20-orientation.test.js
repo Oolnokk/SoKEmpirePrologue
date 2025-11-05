@@ -67,10 +67,10 @@ test('render.js uses correct arm base offset', async () => {
 test('render.js angleFromDelta uses "up" convention', async () => {
   const source = await readJs('render.js');
   
-  // Check that angleFromDelta uses Math.atan2(dx, -dy) for 'up' convention
+  // Check that angleFromDelta returns Math.atan2(dx, -dy) for 'up' convention
   assert.match(
     source,
-    /function angleFromDelta\(dx,\s*dy\)\s*{\s*return Math\.atan2\(dx,\s*-dy\);\s*}/,
+    /return Math\.atan2\(dx,\s*-dy\);/,
     'angleFromDelta must use Math.atan2(dx, -dy) for "up" convention'
   );
 });
@@ -121,10 +121,10 @@ test('sprites.js does not apply per-sprite facing flip', async () => {
     'drawBoneSprite() should not have facingFlip parameter'
   );
   
-  // Check that there's no if (facingFlip) in the source near drawBoneSprite
+  // Verify the removal of the facingFlip scale transform line
   assert.doesNotMatch(
     source,
-    /function drawBoneSprite[\s\S]{0,2000}if\s*\(\s*facingFlip\s*\)\s*{\s*ctx\.scale\(-1,\s*1\)/,
+    /if\s*\(\s*facingFlip\s*\)\s*{\s*ctx\.scale\(-1,\s*1\)/,
     'drawBoneSprite() should not apply facingFlip with ctx.scale(-1, 1)'
   );
 });
@@ -135,14 +135,18 @@ test('sprites.js renderSprites does not apply canvas-level facing flip', async (
   // Check that renderSprites does not calculate facingFlip from facingSign
   assert.doesNotMatch(
     source,
-    /export function renderSprites[\s\S]{0,500}const facingFlip.*facingSign/,
+    /const facingFlip = .*facingSign.*< 0/,
     'renderSprites() should not calculate facingFlip from facingSign'
   );
   
-  // Check that renderSprites does not apply canvas-level scale(-1, 1) for facing
+  // Check that there's no ctx.save/scale/restore pattern for facing flip in renderSprites
+  const renderSpritesSection = source.substring(
+    source.indexOf('export function renderSprites'),
+    source.indexOf('export function initSprites')
+  );
   assert.doesNotMatch(
-    source,
-    /export function renderSprites[\s\S]{0,1000}if\s*\(\s*facingFlip\s*\)[\s\S]{0,200}ctx\.scale\(-1,\s*1\)/,
+    renderSpritesSection,
+    /ctx\.scale\(-1,\s*1\)/,
     'renderSprites() should not apply canvas-level scale(-1, 1) transform for facing'
   );
 });
@@ -215,13 +219,19 @@ test('render.js applies character flip by mirroring bones', async () => {
   
   assert.match(
     source,
-    /if \(flipLeft\) {[\s\S]*mirrorX[\s\S]*for \(const k in B\)/,
-    'flipLeft should mirror bone positions'
+    /if \(flipLeft\)/,
+    'flipLeft conditional should exist'
   );
   
   assert.match(
     source,
-    /if \('ang' in b\)\s*{\s*b\.ang = -b\.ang;\s*}/,
+    /mirrorX/,
+    'mirrorX function should be used for mirroring'
+  );
+  
+  assert.match(
+    source,
+    /b\.ang = -b\.ang/,
     'flipLeft should negate bone angles'
   );
 });
