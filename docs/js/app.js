@@ -88,6 +88,35 @@ if (boneKeyList) {
   });
 }
 
+// Wire up render debug controls
+const toggleShowSprites = $$('#toggleShowSprites');
+const toggleShowBones = $$('#toggleShowBones');
+const toggleShowHitbox = $$('#toggleShowHitbox');
+
+if (toggleShowSprites) {
+  toggleShowSprites.checked = window.RENDER_DEBUG?.showSprites !== false;
+  toggleShowSprites.addEventListener('change', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.showSprites = e.target.checked;
+  });
+}
+
+if (toggleShowBones) {
+  toggleShowBones.checked = window.RENDER_DEBUG?.showBones !== false;
+  toggleShowBones.addEventListener('change', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.showBones = e.target.checked;
+  });
+}
+
+if (toggleShowHitbox) {
+  toggleShowHitbox.checked = window.RENDER_DEBUG?.showHitbox !== false;
+  toggleShowHitbox.addEventListener('change', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.showHitbox = e.target.checked;
+  });
+}
+
 // Re-init presets on external config updates
 document.addEventListener('config:updated', ()=>{
   initPresets();

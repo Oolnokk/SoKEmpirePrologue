@@ -1,5 +1,43 @@
 // render.js — v20-compatible rig math with 'up' as zero angle
 // Angle basis is centralized so sprites.js stays in sync (always 'up' convention).
+//
+// === COORDINATE SYSTEM & MATH BASIS ===
+// This module uses a coordinate system where:
+// - Zero angle (0 radians) points UP (negative Y direction in screen space)
+// - Positive angles rotate CLOCKWISE
+// - ALL joint angles MUST be in RADIANS (animator.js converts from degrees)
+//
+// Basis math convention (implemented in basis() function):
+// - Forward vector: fx = sin(angle), fy = -cos(angle)
+//   This makes 0° point up, 90° point right, 180° point down, 270° point left
+// - Right vector: rx = cos(angle), ry = sin(angle)
+//   This is perpendicular to the forward vector (90° clockwise)
+//
+// The rad() function below is a null-safe accessor that returns the value as-is
+// (or 0 if null). It does NOT convert degrees to radians - that conversion happens
+// in animator.js via degToRadPose() before values reach this module.
+
+// === RENDER DEBUG CONFIGURATION ===
+// Global config object for controlling what is rendered for debugging purposes
+if (typeof window !== 'undefined') {
+  window.RENDER_DEBUG = window.RENDER_DEBUG || {
+    showSprites: true,   // Show sprite images
+    showBones: true,     // Show skeleton bones
+    showHitbox: true,    // Show hitbox overlay
+    showBone: {          // Per-bone visibility (all default to true)
+      torso: true,
+      head: true,
+      arm_L_upper: true,
+      arm_L_lower: true,
+      arm_R_upper: true,
+      arm_R_lower: true,
+      leg_L_upper: true,
+      leg_L_lower: true,
+      leg_R_upper: true,
+      leg_R_lower: true
+    }
+  };
+}
 
 function angleZero(){ return 'up'; }
 function basis(ang){ const c = Math.cos(ang), s = Math.sin(ang); return { fx:s, fy:-c, rx:c, ry:s }; }
@@ -181,6 +219,14 @@ function drawJoint(ctx, x, y, color){
 function drawSegment(ctx, boneKey, B){
   const bone = B[boneKey];
   if (!bone) return;
+  
+  // Check if this specific bone should be rendered
+  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+  const showBoneMap = DEBUG.showBone || {};
+  if (showBoneMap.hasOwnProperty(boneKey) && !showBoneMap[boneKey]) {
+    return; // Skip this bone if explicitly disabled
+  }
+  
   const color = LIMB_COLORS[boneKey] || '#94a3b8';
   const { x: sx, y: sy, len, ang } = bone;
   const hasEnd = Number.isFinite(bone.endX) && Number.isFinite(bone.endY);
@@ -195,6 +241,12 @@ function drawSegment(ctx, boneKey, B){
 }
 
 function drawStick(ctx, B) {
+  // Check if bones should be rendered at all
+  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+  if (DEBUG.showBones === false) {
+    return; // Skip all bone rendering if disabled
+  }
+  
   ctx.lineCap = 'round';
   ctx.lineWidth = 4;
   const order = ['torso','head','arm_L_upper','arm_L_lower','arm_R_upper','arm_R_lower','leg_L_upper','leg_L_lower','leg_R_upper','leg_R_lower'];
@@ -205,6 +257,13 @@ function drawStick(ctx, B) {
 
 function drawHitbox(ctx, hb) {
   if (!ctx || !hb) return;
+  
+  // Check if hitbox should be rendered
+  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+  if (DEBUG.showHitbox === false) {
+    return; // Skip hitbox rendering if disabled
+  }
+  
   const stroke = (window.CONFIG?.colors?.hitbox) || '#0ea5e9';
   ctx.save();
   ctx.translate(hb.x, hb.y);
@@ -263,4 +322,24 @@ function drawCompass(ctx, x, y, r, label){
 }
 
 
-export function renderAll(ctx){ const G=(window.GAME ||= {}); const C=(window.CONFIG || {}); if(!ctx||!G.FIGHTERS) return; const fName=(G.selectedFighter && C.fighters?.[G.selectedFighter])? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default'); const player=computeAnchorsForFighter(G.FIGHTERS.player,C,fName); const npc=computeAnchorsForFighter(G.FIGHTERS.npc,C,fName); (G.ANCHORS_OBJ ||= {}); G.ANCHORS_OBJ.player=player.B; G.ANCHORS_OBJ.npc=npc.B; (G.ANCHORS ||= {}); G.ANCHORS.player=toCompatArrays(player); G.ANCHORS.npc=toCompatArrays(npc); const camX=G.CAMERA?.x||0; ctx.save(); ctx.translate(-camX,0); drawStick(ctx, player.B); ctx.restore(); drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`); }
+export function renderAll(ctx){ 
+  const G=(window.GAME ||= {}); 
+  const C=(window.CONFIG || {}); 
+  if(!ctx||!G.FIGHTERS) return; 
+  const fName=(G.selectedFighter && C.fighters?.[G.selectedFighter])? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default'); 
+  const player=computeAnchorsForFighter(G.FIGHTERS.player,C,fName); 
+  const npc=computeAnchorsForFighter(G.FIGHTERS.npc,C,fName); 
+  (G.ANCHORS_OBJ ||= {}); 
+  G.ANCHORS_OBJ.player=player.B; 
+  G.ANCHORS_OBJ.npc=npc.B; 
+  (G.ANCHORS ||= {}); 
+  G.ANCHORS.player=toCompatArrays(player); 
+  G.ANCHORS.npc=toCompatArrays(npc); 
+  const camX=G.CAMERA?.x||0; 
+  ctx.save(); 
+  ctx.translate(-camX,0); 
+  drawHitbox(ctx, player.hitbox); 
+  drawStick(ctx, player.B); 
+  ctx.restore(); 
+  drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`); 
+}
