@@ -225,7 +225,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   if (!img.complete) return false;
   if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return false;
 
-  // Get anchor config: default is "mid", else "start"
+  // Get anchor config: anchors at bone midpoint by default
   const anchorCfg = style.anchor || {};
   const anchorMode = anchorCfg[styleKey] || 'mid';
 
