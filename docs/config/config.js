@@ -113,7 +113,7 @@ window.CONFIG = {
         xformUnits: "percent",
         // NEW: anchor mapping to align art with bones (v16-like)
         anchor: {
-          torso: "start",
+          torso: "mid",
           head: "mid",
           armUpper: "start",
           armLower: "mid",
@@ -133,8 +133,8 @@ window.CONFIG = {
       }
     },
     'Mao-ao_M': {
-      actor: { scale: 0.70 },
-      parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:40 }, arm:{ upper:30, lower:40 }, leg:{ upper:30, lower:30 }, head:{ neck:10, radius:12 } },
+      actor: { scale: 1 },
+      parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:55 }, arm:{ upper:40, lower:50 }, leg:{ upper:40, lower:40 }, head:{ neck:10, radius:12 } },
       hierarchy: { legsFollowTorsoRotation: false },
       ik: { calvesOnly: true },
       limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 } },
