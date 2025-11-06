@@ -46,7 +46,7 @@ window.CONFIG = {
       ]
     },
     Strike:{
-      torso:45, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:180, lKnee:0, rHip:90, rKnee:0,
+      torso:45, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:180, lKnee:0, rHip:-90, rKnee:0,
       rootMoveVel:{x:0,y:0, flip: false }, impulseMag:0, impulseDirDeg:0,
       allowAiming: true, aimLegs: false,
       anim_events: [
@@ -55,7 +55,7 @@ window.CONFIG = {
       ]
     },
     Recoil:{ durMs:200, phase:'recoil',
-      torso:-15, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:0, lKnee:70, rHip:110, rKnee:0,
+      torso:-15, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:0, lKnee:70, rHip:-110, rKnee:0,
       rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
       allowAiming: false, aimLegs: false,
       anim_events: [
