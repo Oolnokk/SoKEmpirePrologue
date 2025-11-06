@@ -1,7 +1,9 @@
 // animator.js — restore basic idle/walk posing; robust speed detection; override TTL required
+import { degToRad } from './math-utils.js?v=1';
+
 const ANG_KEYS = ['torso','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee'];
-const RAD = Math.PI/180;
-function degToRadPose(p){ const o={}; for(const k of ANG_KEYS){ if (p&&p[k]!=null) o[k]=p[k]*RAD; } return o; }
+// Convert pose object from degrees to radians using centralized utility
+function degToRadPose(p){ const o={}; for(const k of ANG_KEYS){ if (p&&p[k]!=null) o[k]=degToRad(p[k]); } return o; }
 function lerp(a,b,t){ return a + (b-a)*t; }
 function damp(current, target, lambda, dt){ const t = 1 - Math.exp(-lambda*dt); return current + (target - current)*t; }
 

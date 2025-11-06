@@ -133,8 +133,40 @@ export function angle(a, b) {
   return angleFromDelta(dx, dy);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ANGLE CONVERSION UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+// 
+// CONVERSION BOUNDARY RULES:
+// 
+// 1. INTERNAL REPRESENTATION (RADIANS):
+//    - All F.jointAngles values are ALWAYS in radians
+//    - All bone.ang values are ALWAYS in radians
+//    - All math operations use radians
+//    - All function parameters expecting angles use radians (unless explicitly named *Deg)
+// 
+// 2. EXTERNAL BOUNDARIES (DEGREES):
+//    - CONFIG.poses.* values are in degrees (user-friendly authoring)
+//    - CONFIG.walk.poses.* values are in degrees
+//    - Debug panel inputs/displays are in degrees (user-friendly editing)
+//    - pushPoseOverride() accepts pose objects in degrees
+//    - JSON export from debug panel uses degrees
+// 
+// 3. CONVERSION POINTS:
+//    - animator.js: degToRadPose() converts CONFIG pose degrees → F.jointAngles radians
+//    - debug-panel.js: radToDeg() for display, degToRad() for user input
+//    - These utilities (degToRad, radToDeg) are the ONLY approved conversion methods
+// 
+// USAGE:
+//   import { degToRad, radToDeg } from './math-utils.js';
+//   const radians = degToRad(45);      // 45° → ~0.785 rad
+//   const degrees = radToDeg(1.5708);  // 1.5708 rad → "90.00"
+// 
+// ═══════════════════════════════════════════════════════════════════════════
+
 /**
  * Convert degrees to radians
+ * USE THIS: For all degree → radian conversions at system boundaries
  * @param {number} deg - Angle in degrees
  * @returns {number} Angle in radians
  */
@@ -144,6 +176,7 @@ export function degToRad(deg) {
 
 /**
  * Convert radians to degrees
+ * USE THIS: For all radian → degree conversions at system boundaries
  * @param {number} rad - Angle in radians
  * @returns {string} Angle in degrees, formatted to 2 decimal places
  */
