@@ -170,27 +170,6 @@ function computeAnchorsForFighter(F, C, fighterName) {
   return { B, L, hitbox };
 }
 
-function toCompatArrays(obj){ const B=obj.B; const end=(b)=>{ if(!b) return [0,0]; if (Number.isFinite(b.endX) && Number.isFinite(b.endY)) return [b.endX, b.endY]; return segPos(b.x,b.y,b.len,b.ang); }; return {
-  torsoAbs: B.torso.ang,
-  torsoBot: [B.torso.x, B.torso.y],
-  torsoTop: [B.torsoTop.x, B.torsoTop.y],
-  neckBase: [B.neckBase.x, B.neckBase.y],
-  shoulderBase: [B.shoulderBase.x, B.shoulderBase.y],
-  hipBase: [B.hipBase.x, B.hipBase.y],
-  lShoulderBase: [B.arm_L_upper.x, B.arm_L_upper.y],
-  rShoulderBase: [B.arm_R_upper.x, B.arm_R_upper.y],
-  lElbow: [B.arm_L_lower.x, B.arm_L_lower.y],
-  rElbow: [B.arm_R_lower.x, B.arm_R_lower.y],
-  lHand: end(B.arm_L_lower),
-  rHand: end(B.arm_R_lower),
-  lHipBase: [B.leg_L_upper.x, B.leg_L_upper.y],
-  rHipBase: [B.leg_R_upper.x, B.leg_R_upper.y],
-  lKnee: [B.leg_L_lower.x, B.leg_L_lower.y],
-  rKnee: [B.leg_R_lower.x, B.leg_R_lower.y],
-  lFoot: end(B.leg_L_lower),
-  rFoot: end(B.leg_R_lower)
-}; }
-
 export const LIMB_COLORS = {
   torso: '#fbbf24',
   head: '#d1d5db',
@@ -327,9 +306,6 @@ export function renderAll(ctx){
   (G.ANCHORS_OBJ ||= {}); 
   G.ANCHORS_OBJ.player=player.B; 
   G.ANCHORS_OBJ.npc=npc.B; 
-  (G.ANCHORS ||= {}); 
-  G.ANCHORS.player=toCompatArrays(player); 
-  G.ANCHORS.npc=toCompatArrays(npc); 
   const camX=G.CAMERA?.x||0; 
   ctx.save(); 
   ctx.translate(-camX,0); 

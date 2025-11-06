@@ -74,45 +74,11 @@ function load(url){
 }
 
 // Returns bone objects keyed by body part
+// This is a simple accessor that returns pre-computed bones from G.ANCHORS_OBJ
+// Bone creation happens in computeAnchorsForFighter() in render.js
 function getBones(C, G, fname){
-  const AO = G.ANCHORS_OBJ?.player;
-  if (AO){
-    return {
-      torso: AO.torso, head: AO.head,
-      arm_L_upper: AO.arm_L_upper, arm_L_lower: AO.arm_L_lower,
-      arm_R_upper: AO.arm_R_upper, arm_R_lower: AO.arm_R_lower,
-      leg_L_upper: AO.leg_L_upper, leg_L_lower: AO.leg_L_lower,
-      leg_R_upper: AO.leg_R_upper, leg_R_lower: AO.leg_R_lower
-    };
-  }
-  const A = G.ANCHORS?.player;
-  if (A){
-    const torsoStart=A.torsoBot, torsoEnd=A.torsoTop;
-    const lUpStart=A.lShoulderBase, lElbow=A.lElbow, lHand=A.lHand;
-    const rUpStart=A.rShoulderBase, rElbow=A.rElbow, rHand=A.rHand;
-    const lHipStart=A.lHipBase, lKnee=A.lKnee, lFoot=A.lFoot;
-    const rHipStart=A.rHipBase, rKnee=A.rKnee, rFoot=A.rFoot;
-    const headStart=A.neckBase || A.torsoTop;
-    function boneFrom(s,e){ const len=dist(s,e); const ang=angle(s,e); return {x:s[0],y:s[1],len,ang}; }
-    const torso = boneFrom(torsoStart, torsoEnd);
-    const fcfg = (C.fighters?.[fname]) || {};
-    const headNeck=(fcfg.parts?.head?.neck ?? C.parts?.head?.neck ?? 14)*(C.actor?.scale ?? 1)*(fcfg.actor?.scale ?? 1);
-    const headRad =(fcfg.parts?.head?.radius?? C.parts?.head?.radius?? 16)*(C.actor?.scale ?? 1)*(fcfg.actor?.scale ?? 1);
-    const headLen=headNeck+2*headRad;
-    return {
-      torso,
-      head:{x:headStart[0],y:headStart[1],len:headLen,ang:torso.ang},
-      arm_L_upper:boneFrom(lUpStart,lElbow),
-      arm_L_lower:boneFrom(lElbow,lHand),
-      arm_R_upper:boneFrom(rUpStart,rElbow),
-      arm_R_lower:boneFrom(rElbow,rHand),
-      leg_L_upper:boneFrom(lHipStart,lKnee),
-      leg_L_lower:boneFrom(lKnee,lFoot),
-      leg_R_upper:boneFrom(rHipStart,rKnee),
-      leg_R_lower:boneFrom(rKnee,rFoot)
-    };
-  }
-  return null;
+  // Return bones from the single source of truth: G.ANCHORS_OBJ
+  return G.ANCHORS_OBJ?.[fname] || null;
 }
 
 // Tag helpers
