@@ -7,46 +7,53 @@ describe('Sprite style configuration location', () => {
   const spritesContent = readFileSync('docs/js/sprites.js', 'utf8');
 
   it('TLETINGAN fighter has spriteStyle at fighter level, not in sprites', () => {
-    // Extract TLETINGAN fighter section
-    const tletinganMatch = configContent.match(/TLETINGAN:\s*{[\s\S]+?^\s{4}},/m);
-    strictEqual(!!tletinganMatch, true, 'TLETINGAN fighter should exist');
+    // Check that TLETINGAN has spriteStyle at fighter level
+    const tletinganIndex = configContent.indexOf('TLETINGAN:');
+    strictEqual(tletinganIndex !== -1, true, 'TLETINGAN fighter should exist');
     
-    const tletinganSection = tletinganMatch[0];
+    // Find the fighter section (ends at the next fighter or closing brace)
+    const nextFighterIndex = configContent.indexOf("'Mao-ao_M':", tletinganIndex);
+    const tletinganSection = configContent.substring(tletinganIndex, nextFighterIndex);
     
     // Should have spriteStyle at fighter level
-    const hasFighterLevelStyle = /spriteStyle:\s*{/.test(tletinganSection);
+    const hasFighterLevelStyle = tletinganSection.includes('spriteStyle:');
     strictEqual(hasFighterLevelStyle, true, 'TLETINGAN should have spriteStyle at fighter level');
     
-    // Extract just the sprites object
-    const spritesMatch = tletinganSection.match(/sprites:\s*{([^}]*(?:{[^}]*}[^}]*)*?)},\s*spriteStyle:/s);
-    strictEqual(!!spritesMatch, true, 'Should be able to extract sprites section');
+    // Extract the sprites section (between "sprites: {" and "},\n      spriteStyle:")
+    const spritesStart = tletinganSection.indexOf('sprites: {');
+    const spritesEnd = tletinganSection.indexOf('},\n      spriteStyle:', spritesStart);
+    strictEqual(spritesStart !== -1 && spritesEnd !== -1, true, 'Should be able to find sprites section boundaries');
     
-    const spritesSection = spritesMatch[1];
+    const spritesSection = tletinganSection.substring(spritesStart, spritesEnd);
     
-    // Should NOT have style nested inside sprites
-    const hasNestedStyle = /style:\s*{/.test(spritesSection);
+    // Should NOT have "style: {" nested inside sprites
+    // Count opening braces after "sprites: {" and ensure we don't see "style: {" before closing
+    const hasNestedStyle = /\bstyle:\s*{/.test(spritesSection);
     strictEqual(hasNestedStyle, false, 'TLETINGAN sprites should NOT have nested style object');
   });
 
   it('Mao-ao_M fighter has spriteStyle at fighter level, not in sprites', () => {
-    // Extract Mao-ao_M fighter section
-    const maoaoMatch = configContent.match(/['"]Mao-ao_M['"]\s*:\s*{[\s\S]+?^\s{4}}/m);
-    strictEqual(!!maoaoMatch, true, 'Mao-ao_M fighter should exist');
+    // Find the Mao-ao_M fighter section
+    const maoaoIndex = configContent.indexOf("'Mao-ao_M':");
+    strictEqual(maoaoIndex !== -1, true, 'Mao-ao_M fighter should exist');
     
-    const maoaoSection = maoaoMatch[0];
+    // Find the section (ends at closing braces before 'movement:')
+    const movementIndex = configContent.indexOf('movement:', maoaoIndex);
+    const maoaoSection = configContent.substring(maoaoIndex, movementIndex);
     
     // Should have spriteStyle at fighter level
-    const hasFighterLevelStyle = /spriteStyle:\s*{/.test(maoaoSection);
+    const hasFighterLevelStyle = maoaoSection.includes('spriteStyle:');
     strictEqual(hasFighterLevelStyle, true, 'Mao-ao_M should have spriteStyle at fighter level');
     
-    // Extract just the sprites object
-    const spritesMatch = maoaoSection.match(/sprites:\s*{([^}]*(?:{[^}]*}[^}]*)*?)},\s*spriteStyle:/s);
-    strictEqual(!!spritesMatch, true, 'Should be able to extract sprites section');
+    // Extract the sprites section (between "sprites: {" and "},\n      spriteStyle:")
+    const spritesStart = maoaoSection.indexOf('sprites: {');
+    const spritesEnd = maoaoSection.indexOf('},\n      spriteStyle:', spritesStart);
+    strictEqual(spritesStart !== -1 && spritesEnd !== -1, true, 'Should be able to find sprites section boundaries');
     
-    const spritesSection = spritesMatch[1];
+    const spritesSection = maoaoSection.substring(spritesStart, spritesEnd);
     
-    // Should NOT have style nested inside sprites
-    const hasNestedStyle = /style:\s*{/.test(spritesSection);
+    // Should NOT have "style: {" nested inside sprites
+    const hasNestedStyle = /\bstyle:\s*{/.test(spritesSection);
     strictEqual(hasNestedStyle, false, 'Mao-ao_M sprites should NOT have nested style object');
   });
 
