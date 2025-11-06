@@ -320,5 +320,8 @@ export function ensureFighterSprites(C, fname){
   for (const k in S){
     resolveSpriteAssets(S);
   }
-  return { assets: S, style: C.spriteStyle || {}, offsets: C.spriteOffsets || {} };
+  // Look for style in fighter config first, then fallback to global
+  const style = f.spriteStyle || C.spriteStyle || {};
+  const offsets = f.spriteOffsets || C.spriteOffsets || {};
+  return { assets: S, style, offsets };
 }
