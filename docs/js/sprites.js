@@ -268,6 +268,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
 
 export function renderSprites(ctx){
   const C = (window.CONFIG || {});
+  const G = (window.GAME || {});
   const fname = pickFighterName(C);
   const rig = getBones(C, GLOB, fname);
   if (!rig) return;
@@ -275,8 +276,21 @@ export function renderSprites(ctx){
   const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
   if (DEBUG.showSprites === false) return; // Skip sprite rendering if disabled
   
+  // Character-level horizontal flip when facing left
+  // Bones are already mirrored in render.js, but we need to flip sprite images too
+  const flipLeft = G.FLIP_STATE?.[fname] || false;
+  const hitbox = (fname === 'player' || fname === 'npc') 
+    ? G.FIGHTERS?.[fname]?.hitbox
+    : G.FIGHTERS?.player?.hitbox;
+  const centerX = hitbox?.x ?? 0;
+
+  ctx.save();
+  if (flipLeft) {
+    ctx.translate(centerX * 2, 0);
+    ctx.scale(-1, 1);
+  }
+
   // RENDER.MIRROR flags control per-limb mirroring (e.g., for attack animations)
-  // Character-level flipping is handled separately by bone mirroring in render.js
   
   const { assets, style, offsets } = ensureFighterSprites(C, fname);
 
@@ -295,13 +309,17 @@ export function renderSprites(ctx){
       drawBoneSprite(ctx, assets.head, rig.head, 'head', style, offsets);
     }
   });
-  // Arms & legs
+  // Arms & legs - enqueue as complete branches to match reference HTML order
+  // Left arm (both upper and lower)
   enqueue('ARM_L_UPPER', ()=> drawArmBranch(ctx, rig, 'L', assets, style, offsets, 'upper'));
   enqueue('ARM_L_LOWER', ()=> drawArmBranch(ctx, rig, 'L', assets, style, offsets, 'lower'));
+  // Right arm (both upper and lower)
   enqueue('ARM_R_UPPER', ()=> drawArmBranch(ctx, rig, 'R', assets, style, offsets, 'upper'));
   enqueue('ARM_R_LOWER', ()=> drawArmBranch(ctx, rig, 'R', assets, style, offsets, 'lower'));
+  // Left leg (both upper and lower)
   enqueue('LEG_L_UPPER', ()=> drawLegBranch(ctx, rig, 'L', assets, style, offsets, 'upper'));
   enqueue('LEG_L_LOWER', ()=> drawLegBranch(ctx, rig, 'L', assets, style, offsets, 'lower'));
+  // Right leg (both upper and lower)
   enqueue('LEG_R_UPPER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, 'upper'));
   enqueue('LEG_R_LOWER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, 'lower'));
 
@@ -311,6 +329,8 @@ export function renderSprites(ctx){
       entry.drawFn();
     }
   }
+  
+  ctx.restore(); // Restore canvas state (undo flip if applied)
 }
 
 export function initSprites(){

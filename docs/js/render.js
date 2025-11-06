@@ -149,25 +149,12 @@ function computeAnchorsForFighter(F, C, fighterName) {
     leg_R_lower:{x:rKneePosArr[0],y:rKneePosArr[1],len:L.legL,ang:rKneeAng,endX:rAnklePosArr[0],endY:rAnklePosArr[1]}
   };
 
-  // Mirror around hitbox center if facing left — also flip angles θ→-θ so sprites rotate correctly
+  // Determine if character is facing left for sprite rendering
+  // We DON'T mirror bones here anymore - sprites.js will handle flipping via canvas scale
   const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
   const flipLeft = Math.cos(facingRad) < 0;
-  if (flipLeft) {
-    const cx = centerX; const mirrorX = (x)=> (cx*2 - x);
-    for (const k in B){
-      const b=B[k];
-      if (b && typeof b==='object' && 'x' in b && 'y' in b){
-        b.x = mirrorX(b.x);
-        if ('endX' in b) b.endX = mirrorX(b.endX);
-        if ('ang' in b){ b.ang = -b.ang; }
-      }
-    }
-    hitbox.x = mirrorX(hitbox.x);
-    hitbox.attachX = mirrorX(hitbox.attachX);
-    hitbox.ang = -hitbox.ang;
-  }
 
-  return { B, L, hitbox };
+  return { B, L, hitbox, flipLeft };
 }
 
 export const LIMB_COLORS = {
@@ -305,7 +292,11 @@ export function renderAll(ctx){
   const npc=computeAnchorsForFighter(G.FIGHTERS.npc,C,fName); 
   (G.ANCHORS_OBJ ||= {}); 
   G.ANCHORS_OBJ.player=player.B; 
-  G.ANCHORS_OBJ.npc=npc.B; 
+  G.ANCHORS_OBJ.npc=npc.B;
+  // Store flip state so sprites.js can flip sprite images when facing left
+  (G.FLIP_STATE ||= {});
+  G.FLIP_STATE.player = player.flipLeft;
+  G.FLIP_STATE.npc = npc.flipLeft;
   
   // Fallback background so the viewport is never visually blank
   try{
@@ -330,7 +321,15 @@ export function renderAll(ctx){
   
   const camX=G.CAMERA?.x||0; 
   ctx.save(); 
-  ctx.translate(-camX,0); 
+  ctx.translate(-camX,0);
+  
+  // Apply character flip for debug bones, same as sprites
+  if (player.flipLeft) {
+    const centerX = player.hitbox?.x ?? 0;
+    ctx.translate(centerX * 2, 0);
+    ctx.scale(-1, 1);
+  }
+  
   drawHitbox(ctx, player.hitbox); 
   drawStick(ctx, player.B); 
   

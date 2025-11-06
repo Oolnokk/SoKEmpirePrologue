@@ -129,25 +129,25 @@ test('sprites.js does not apply per-sprite facing flip', async () => {
   );
 });
 
-test('sprites.js renderSprites does not apply canvas-level facing flip', async () => {
+test('sprites.js renderSprites applies canvas-level facing flip (reference HTML approach)', async () => {
   const source = await readJs('sprites.js');
   
-  // Check that renderSprites does not calculate facingFlip from facingSign
-  assert.doesNotMatch(
+  // Check that renderSprites uses flipLeft from G.FLIP_STATE
+  assert.match(
     source,
-    /const facingFlip = .*facingSign.*< 0/,
-    'renderSprites() should not calculate facingFlip from facingSign'
+    /G\.FLIP_STATE/,
+    'renderSprites() should check G.FLIP_STATE for flip state'
   );
   
-  // Check that there's no ctx.save/scale/restore pattern for facing flip in renderSprites
+  // Check that there IS a ctx.save/scale/restore pattern for facing flip in renderSprites
   const renderSpritesSection = source.substring(
     source.indexOf('export function renderSprites'),
     source.indexOf('export function initSprites')
   );
-  assert.doesNotMatch(
+  assert.match(
     renderSpritesSection,
     /ctx\.scale\(-1,\s*1\)/,
-    'renderSprites() should not apply canvas-level scale(-1, 1) transform for facing'
+    'renderSprites() should apply canvas-level scale(-1, 1) transform for facing (matching reference HTML)'
   );
 });
 
@@ -207,31 +207,27 @@ test('sprites.js defaults anchor to midpoint', async () => {
   );
 });
 
-test('render.js applies character flip by mirroring bones', async () => {
+test('render.js computes flipLeft but does NOT mirror bones (reference HTML approach)', async () => {
   const source = await readJs('render.js');
   
-  // Check that flipLeft logic exists and mirrors bones
+  // Check that flipLeft logic exists
   assert.match(
     source,
     /const flipLeft = Math\.cos\(facingRad\) < 0;/,
     'flipLeft should be determined by facingRad'
   );
   
+  // Check that flipLeft is returned to sprite renderer
   assert.match(
     source,
-    /if \(flipLeft\)/,
-    'flipLeft conditional should exist'
+    /return.*flipLeft/,
+    'flipLeft should be returned from computeAnchorsForFighter'
   );
   
-  assert.match(
+  // Check that bones are NOT mirrored (reference HTML approach uses canvas scale instead)
+  assert.doesNotMatch(
     source,
-    /mirrorX/,
-    'mirrorX function should be used for mirroring'
-  );
-  
-  assert.match(
-    source,
-    /b\.ang = -b\.ang/,
-    'flipLeft should negate bone angles'
+    /if \(flipLeft\)\s*{\s*[\s\S]*?b\.x = mirrorX\(b\.x\)/,
+    'bones should NOT be mirrored when flipLeft is true (canvas scale handles this instead)'
   );
 });
