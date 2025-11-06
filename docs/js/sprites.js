@@ -18,6 +18,7 @@ const CACHE = (ASSETS.sprites ||= {});
 const FAILED = (ASSETS.failedSprites ||= new Set());
 const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
+RENDER.MIRROR = RENDER.MIRROR || {}; // Initialize per-limb mirror flags
 
 // Legacy support: map old hideSprites to new RENDER_DEBUG
 if (typeof RENDER.hideSprites === 'boolean') {
@@ -277,11 +278,11 @@ export function renderSprites(ctx){
   if (DEBUG.showSprites === false) return; // Skip sprite rendering if disabled
   
   // Character-level horizontal flip when facing left
-  // Bones are already mirrored in render.js, but we need to flip sprite images too
-  const flipLeft = G.FLIP_STATE?.[fname] || false;
-  const hitbox = (fname === 'player' || fname === 'npc') 
-    ? G.FIGHTERS?.[fname]?.hitbox
-    : G.FIGHTERS?.player?.hitbox;
+  // Determine which entity we're rendering (player or npc)
+  // fname is the fighter config name (e.g., 'TLETINGAN'), but flip state is stored by entity name
+  const entity = 'player'; // For now, assume we're rendering the player
+  const flipLeft = G.FLIP_STATE?.[entity] || false;
+  const hitbox = G.FIGHTERS?.[entity]?.hitbox;
   const centerX = hitbox?.x ?? 0;
 
   ctx.save();
