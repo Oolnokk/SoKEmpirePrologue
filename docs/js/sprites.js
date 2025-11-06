@@ -274,6 +274,11 @@ export function renderSprites(ctx){
 
   const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
   if (DEBUG.showSprites === false) return; // Skip sprite rendering if disabled
+  
+  // Clear RENDER.MIRROR flags to avoid double-flipping since bones are already 
+  // mirrored at the bone level in render.js when facing left
+  resetMirror();
+  
   const { assets, style, offsets } = ensureFighterSprites(C, fname);
 
   const zOf = buildZMap(C);
@@ -340,5 +345,23 @@ export function ensureFighterSprites(C, fname){
   // Look for style in fighter config first (both f.spriteStyle and f.sprites.style), then fallback to global
   const style = f.spriteStyle || f.sprites?.style || C.spriteStyle || {};
   const offsets = f.spriteOffsets || C.spriteOffsets || {};
+  
+  // Convert rotDeg from xform config to alignRad on each sprite asset
+  const xform = style.xform || {};
+  for (const boneKey in S) {
+    const asset = S[boneKey];
+    if (asset && asset.url) {
+      const styleKey = styleKeyOf(boneKey);
+      const xformData = xform[styleKey];
+      if (xformData && typeof xformData.rotDeg === 'number') {
+        // Convert degrees to radians and store as alignRad
+        asset.alignRad = degToRad(xformData.rotDeg);
+      } else if (asset.alignRad === undefined) {
+        // Default to 0 if not set
+        asset.alignRad = 0;
+      }
+    }
+  }
+  
   return { assets: S, style, offsets };
 }
