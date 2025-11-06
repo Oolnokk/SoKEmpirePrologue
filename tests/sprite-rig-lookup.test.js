@@ -1,9 +1,11 @@
 import { describe, it } from 'node:test';
-import { readFileSync } from 'fs';
+import { readFileSync } from 'node:fs';
 import { strictEqual, notStrictEqual } from 'assert';
 
+// Read file once at module level for better performance
+const spritesContent = readFileSync('docs/js/sprites.js', 'utf8');
+
 describe('Sprite rig lookup fallback', () => {
-  const spritesContent = readFileSync('docs/js/sprites.js', 'utf8');
 
   it('getBones falls back to player anchor when fname not found', () => {
     // Check that getBones has fallback logic to G.ANCHORS_OBJ.player
@@ -40,7 +42,6 @@ describe('Sprite rig lookup fallback', () => {
 });
 
 describe('Sprite style fallback', () => {
-  const spritesContent = readFileSync('docs/js/sprites.js', 'utf8');
 
   it('ensureFighterSprites checks f.sprites?.style in addition to f.spriteStyle', () => {
     // Check that ensureFighterSprites looks for f.sprites?.style
