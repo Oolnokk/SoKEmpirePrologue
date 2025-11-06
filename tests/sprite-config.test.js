@@ -4,6 +4,19 @@ import { strictEqual } from 'assert';
 
 describe('Sprite configuration structure', () => {
   const configContent = readFileSync('docs/config/config.js', 'utf8');
+  
+  // Character limits for regex patterns to match fighter config sections
+  const FIGHTER_SECTION_MAX_CHARS = 2000;
+  const SPRITE_SECTION_MAX_CHARS = 800;
+
+  // Helper function to extract fighter sprite section from config
+  function getFighterSpriteSection(fighterName) {
+    const pattern = fighterName === 'TLETINGAN'
+      ? new RegExp(`TLETINGAN[\\s\\S]{1,${FIGHTER_SECTION_MAX_CHARS}}sprites:[\\s\\S]{1,${SPRITE_SECTION_MAX_CHARS}}style:`)
+      : new RegExp(`['"]${fighterName}['"]\\s*:[\\s\\S]{1,${FIGHTER_SECTION_MAX_CHARS}}sprites:[\\s\\S]{1,${SPRITE_SECTION_MAX_CHARS}}style:`);
+    const match = configContent.match(pattern);
+    return match ? match[0] : null;
+  }
 
   it('TLETINGAN fighter has flat sprite keys for arms and legs', () => {
     // Check that the config has flat keys, not nested ones
@@ -19,10 +32,8 @@ describe('Sprite configuration structure', () => {
   });
 
   it('TLETINGAN fighter does not have nested arm/leg sprite structure', () => {
-    // Look for the nested structure pattern in the TLETINGAN section
-    const tletinganMatch = configContent.match(/TLETINGAN[\s\S]{1,2000}sprites:[\s\S]{1,800}style:/);
-    if (tletinganMatch) {
-      const section = tletinganMatch[0];
+    const section = getFighterSpriteSection('TLETINGAN');
+    if (section) {
       // Should not have 'arm: {' followed by 'upper:' or 'lower:' in sprites section
       const hasNestedArm = /arm:\s*{\s*upper:/.test(section);
       const hasNestedLeg = /leg:\s*{\s*upper:/.test(section);
@@ -32,10 +43,8 @@ describe('Sprite configuration structure', () => {
   });
 
   it('Mao-ao_M fighter has flat sprite keys for arms and legs', () => {
-    // Check Mao-ao_M section
-    const maoaoMatch = configContent.match(/['"]Mao-ao_M['"]\s*:[\s\S]{1,2000}sprites:[\s\S]{1,800}style:/);
-    if (maoaoMatch) {
-      const section = maoaoMatch[0];
+    const section = getFighterSpriteSection('Mao-ao_M');
+    if (section) {
       const hasFlatKeys = section.includes('arm_L_upper:') && 
                           section.includes('arm_L_lower:') && 
                           section.includes('arm_R_upper:') && 
@@ -49,9 +58,8 @@ describe('Sprite configuration structure', () => {
   });
 
   it('Mao-ao_M fighter does not have nested arm/leg sprite structure', () => {
-    const maoaoMatch = configContent.match(/['"]Mao-ao_M['"]\s*:[\s\S]{1,2000}sprites:[\s\S]{1,800}style:/);
-    if (maoaoMatch) {
-      const section = maoaoMatch[0];
+    const section = getFighterSpriteSection('Mao-ao_M');
+    if (section) {
       const hasNestedArm = /arm:\s*{\s*upper:/.test(section);
       const hasNestedLeg = /leg:\s*{\s*upper:/.test(section);
       strictEqual(hasNestedArm, false, 'Mao-ao_M should not have nested arm sprite structure');
