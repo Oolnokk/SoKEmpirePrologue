@@ -141,16 +141,16 @@ window.CONFIG = {
         head:{ origin:{ax:-1, ay:6} }
       },
       sprites: {
-        torso: { url: "./assets/fightersprites/tletingan/torso.png" },
-        head:  { url: "./assets/fightersprites/tletingan/head.png" },
-        arm_L_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png" },
-        arm_L_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png" },
-        arm_R_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png" },
-        arm_R_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png" },
-        leg_L_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png" },
-        leg_L_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png" },
-        leg_R_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png" },
-        leg_R_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png" }
+        torso: { url: "./assets/fightersprites/mao-ao-m/torso.png" },
+        head:  { url: "./assets/fightersprites/mao-ao-m/head.png" },
+        arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png" },
+        arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png" },
+        arm_R_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png" },
+        arm_R_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png" },
+        leg_L_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png" },
+        leg_L_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png" },
+        leg_R_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png" },
+        leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png" }
       },
       spriteStyle: {
         widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
