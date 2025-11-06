@@ -275,9 +275,8 @@ export function renderSprites(ctx){
   const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
   if (DEBUG.showSprites === false) return; // Skip sprite rendering if disabled
   
-  // Clear RENDER.MIRROR flags to avoid double-flipping since bones are already 
-  // mirrored at the bone level in render.js when facing left
-  resetMirror();
+  // RENDER.MIRROR flags control per-limb mirroring (e.g., for attack animations)
+  // Character-level flipping is handled separately by bone mirroring in render.js
   
   const { assets, style, offsets } = ensureFighterSprites(C, fname);
 

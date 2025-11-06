@@ -2,25 +2,28 @@ import { describe, it } from 'node:test';
 import { readFileSync } from 'fs';
 import { strictEqual, ok } from 'assert';
 
-describe('RENDER.MIRROR synchronization (Issue #75)', () => {
+describe('RENDER.MIRROR per-limb flipping', () => {
   const spritesContent = readFileSync('docs/js/sprites.js', 'utf8');
 
-  it('renderSprites calls resetMirror to prevent double-flipping', () => {
-    // Check that resetMirror is called at the start of renderSprites
-    const callsResetMirror = /resetMirror\(\)/.test(spritesContent);
-    strictEqual(callsResetMirror, true, 'Should call resetMirror to clear RENDER.MIRROR flags');
+  it('renderSprites does NOT call resetMirror to allow attack-based limb flipping', () => {
+    // renderSprites should NOT clear RENDER.MIRROR flags every frame
+    // This allows attack animations to set limb-specific mirror flags that persist
+    const renderSpritesFunc = spritesContent.match(/export function renderSprites\([^)]*\)\s*\{[^}]*\}/s);
+    ok(renderSpritesFunc, 'Should find renderSprites function');
+    const callsResetMirror = /resetMirror\(\)/.test(renderSpritesFunc[0]);
+    strictEqual(callsResetMirror, false, 'renderSprites should NOT call resetMirror to allow limb-specific mirroring');
   });
 
-  it('resetMirror clears all RENDER.MIRROR flags', () => {
-    // Check that resetMirror is exported
+  it('resetMirror function is still exported for manual clearing', () => {
+    // Check that resetMirror is exported for use by animation system
     const exportsResetMirror = /export\s+function\s+resetMirror/.test(spritesContent);
-    strictEqual(exportsResetMirror, true, 'Should export resetMirror function');
+    strictEqual(exportsResetMirror, true, 'Should export resetMirror function for manual use');
   });
 
-  it('renderSprites has comment explaining mirror reset', () => {
-    // Check that there's a comment explaining why mirror flags are reset
-    const hasComment = /Clear RENDER\.MIRROR flags.*double-flipping/i.test(spritesContent);
-    strictEqual(hasComment, true, 'Should have comment explaining mirror reset to avoid double-flipping');
+  it('renderSprites has comment explaining RENDER.MIRROR system', () => {
+    // Check that there's a comment explaining the mirror flag system
+    const hasComment = /RENDER\.MIRROR flags control per-limb mirroring/i.test(spritesContent);
+    strictEqual(hasComment, true, 'Should have comment explaining RENDER.MIRROR per-limb mirroring system');
   });
 
   it('withBranchMirror respects mirror flag parameter', () => {
