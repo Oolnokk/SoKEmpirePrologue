@@ -32,12 +32,12 @@ window.CONFIG = {
 
   poses: {
     Stance:{ 
-      torso:10, lShoulder:-120, lElbow:120, rShoulder:-65, rElbow:140, lHip:190, lKnee:-70, rHip:120, rKnee:-40, 
+      torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40, 
       rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, resetFlipsBefore: true,
       allowAiming: true, aimLegs: false
     },
     Windup:{
-      torso:-35, lShoulder:-360, lElbow:0, rShoulder:-360, rElbow:0, lHip:40, lKnee:-90, rHip:-90, rKnee:-90,
+      torso:-35, lShoulder:-360, lElbow:0, rShoulder:-360, rElbow:0, lHip:40, lKnee:90, rHip:-90, rKnee:90,
       rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
       allowAiming: true, aimLegs: false,
       anim_events: [
@@ -55,7 +55,7 @@ window.CONFIG = {
       ]
     },
     Recoil:{ durMs:200, phase:'recoil',
-      torso:-15, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:0, lKnee:-70, rHip:110, rKnee:0,
+      torso:-15, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:0, lKnee:70, rHip:110, rKnee:0,
       rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
       allowAiming: false, aimLegs: false,
       anim_events: [
@@ -64,14 +64,14 @@ window.CONFIG = {
       ]
     },
     Jump:{ 
-      torso:-10, lShoulder:-160, lElbow:30, rShoulder:-160, rElbow:30, 
-      lHip:120, lKnee:-60, rHip:120, rKnee:-60, 
+      torso:-10, lShoulder:-160, lElbow:-30, rShoulder:-160, rElbow:-30, 
+      lHip:120, lKnee:60, rHip:120, rKnee:60, 
       rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
       allowAiming: true, aimLegs: false
     },
     Walk:{ 
-      torso:20, lShoulder:-100, lElbow:100, rShoulder:-100, rElbow:100,
-      lHip:90, lKnee:-20, rHip:90, rKnee:-20,
+      torso:20, lShoulder:-100, lElbow:-100, rShoulder:-100, rElbow:-100,
+      lHip:90, lKnee:20, rHip:90, rKnee:20,
       rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
       allowAiming: true, aimLegs: false
     }
@@ -198,8 +198,8 @@ window.CONFIG = {
   walk: { 
     enabled:true, onlyTorsoLegs:true, baseHz:1.3, speedScale:1.0, minSpeed:80, amp:1.0,
     poses:{ 
-      A:{ torso:30, lHip:0,   lKnee:-45, rHip:180, rKnee:-90 }, 
-      B:{ torso:40, lHip:180, lKnee:-90, rHip:0,   rKnee:-45 } 
+      A:{ torso:30, lHip:0,   lKnee:45, rHip:180, rKnee:90 }, 
+      B:{ torso:40, lHip:180, lKnee:90, rHip:0,   rKnee:45 } 
     } 
   },
   ragdoll: {
@@ -385,8 +385,8 @@ window.CONFIG = window.CONFIG || {};
       Hook:  { base:"Strike", overrides:{ torso:35, lShoulder:-20, rShoulder:-70 } },
       Upper: { base:"Strike", overrides:{ torso:80, lShoulder:-80, rShoulder:-10 } },
       KICK_Windup: { base:"Windup", overrides:{
-        torso:-10, lShoulder:-100, lElbow:120, rShoulder:-80, rElbow:100,
-        lHip:110, lKnee:-30, rHip:170, rKnee:-40,
+        torso:-10, lShoulder:-100, lElbow:-120, rShoulder:-80, rElbow:-100,
+        lHip:110, lKnee:30, rHip:170, rKnee:40,
         rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
         allowAiming:true, aimLegs:true, aimRightLegOnly:true,
         anim_events:[{ time:0.00, velocityX:-80, velocityY:0 }]
@@ -402,8 +402,8 @@ window.CONFIG = window.CONFIG || {};
         anim_events:[ { time:0.00, impulse:180, impulse_angle:0 }, { time:0.05, velocityX:0, velocityY:0, localVel:true } ]
       }},
       KICK_Recoil: { base:"Recoil", overrides:{
-        torso:-6, lShoulder:-100, lElbow:120, rShoulder:-90, rElbow:120,
-        lHip:110, lKnee:-40, rHip:30, rKnee:-50,
+        torso:-6, lShoulder:-100, lElbow:-120, rShoulder:-90, rElbow:-120,
+        lHip:110, lKnee:40, rHip:30, rKnee:50,
         rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
         allowAiming:false, aimLegs:false,
         flip:true, flipAt:0.9,
