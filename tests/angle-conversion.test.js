@@ -19,6 +19,8 @@ describe('Angle conversion centralization (Issue #56)', () => {
       'math-utils.js should export degToRad function');
     assert.ok(mathUtilsSrc.includes('export function radToDeg'), 
       'math-utils.js should export radToDeg function');
+    assert.ok(mathUtilsSrc.includes('export function radToDegNum'), 
+      'math-utils.js should export radToDegNum function (numeric version)');
     assert.ok(mathUtilsSrc.includes('CONVERSION BOUNDARY RULES'), 
       'math-utils.js should document conversion boundaries');
   });
@@ -69,6 +71,8 @@ describe('Angle conversion centralization (Issue #56)', () => {
     
     assert.ok(debugPanelSrc.includes('import') && debugPanelSrc.includes('radToDeg'), 
       'debug-panel.js should import radToDeg from math-utils.js');
+    assert.ok(debugPanelSrc.includes('import') && debugPanelSrc.includes('radToDegNum'), 
+      'debug-panel.js should import radToDegNum from math-utils.js');
     assert.ok(debugPanelSrc.includes('import') && debugPanelSrc.includes('degToRad'), 
       'debug-panel.js should import degToRad from math-utils.js');
     
@@ -76,6 +80,10 @@ describe('Angle conversion centralization (Issue #56)', () => {
     const radToDegConstCount = (debugPanelSrc.match(/const\s+RAD_TO_DEG/g) || []).length;
     assert.equal(radToDegConstCount, 0, 
       'debug-panel.js should not define RAD_TO_DEG constants');
+    
+    // Ensure no parseFloat on radToDeg results (use radToDegNum instead)
+    assert.ok(!debugPanelSrc.includes('parseFloat(radToDeg'), 
+      'debug-panel.js should use radToDegNum instead of parseFloat(radToDeg())');
   });
 
   it('documents conversion boundaries clearly', () => {

@@ -2,7 +2,7 @@
 // Provides live transform display, pose editing, and JSON export functionality
 
 import { $$, fmt } from './dom-utils.js?v=1';
-import { radToDeg, degToRad } from './math-utils.js?v=1';
+import { radToDeg, radToDegNum, degToRad } from './math-utils.js?v=1';
 
 // Initialize the debug panel
 export function initDebugPanel() {
@@ -169,9 +169,9 @@ function updatePoseEditor(fighter, config) {
   for (const key of inputs) {
     const input = $$(`#pose_${key}`, container);
     if (input && jointAngles[key] != null) {
-      const degValue = radToDeg(jointAngles[key]);
+      const degValue = radToDegNum(jointAngles[key]).toFixed(1);
       if (document.activeElement !== input) {
-        input.value = parseFloat(degValue).toFixed(1);
+        input.value = degValue;
       }
     }
   }
@@ -196,7 +196,7 @@ function createPoseEditorInputs(container, fighter, config) {
 
   for (const { key, label } of inputs) {
     const currentVal = fighter.jointAngles?.[key] || 0;
-    const degValue = parseFloat(radToDeg(currentVal)).toFixed(1);
+    const degValue = radToDegNum(currentVal).toFixed(1);
     
     html += '<div class="debug-input-group">';
     html += `<label for="pose_${key}">${label}</label>`;
@@ -271,7 +271,7 @@ function setPoseValue(fighter, key, radValue) {
     const degPose = {};
     
     for (const k in fighter.jointAngles) {
-      degPose[k] = parseFloat(radToDeg(fighter.jointAngles[k]));
+      degPose[k] = radToDegNum(fighter.jointAngles[k]);
     }
 
     // Import and use pushPoseOverride if available
@@ -315,7 +315,7 @@ function copyPoseConfigToClipboard() {
   
   for (const key of jointKeys) {
     if (player.jointAngles?.[key] != null) {
-      currentPose[key] = Math.round(parseFloat(radToDeg(player.jointAngles[key])));
+      currentPose[key] = Math.round(radToDegNum(player.jointAngles[key]));
     }
   }
 

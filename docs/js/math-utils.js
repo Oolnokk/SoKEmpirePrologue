@@ -184,6 +184,16 @@ export function radToDeg(rad) {
   return ((rad || 0) * 180 / Math.PI).toFixed(2);
 }
 
+/**
+ * Convert radians to degrees (numeric version)
+ * USE THIS: When you need a numeric value instead of formatted string
+ * @param {number} rad - Angle in radians
+ * @returns {number} Angle in degrees as a number
+ */
+export function radToDegNum(rad) {
+  return (rad || 0) * 180 / Math.PI;
+}
+
 // Export all functions to window for backwards compatibility
 if (typeof window !== 'undefined') {
   window.ANGLE_ZERO = angleZero();
