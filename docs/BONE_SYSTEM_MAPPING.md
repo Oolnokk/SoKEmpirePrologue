@@ -101,12 +101,12 @@ The system uses the following bone identifiers:
 5. Calculates shoulder and neck base positions with offsets
 6. For arms:
    - Computes upper arm angles: `torsoAng + shoulderRel`
-   - Computes lower arm angles: `upperAng - elbowRel` (SIGN FIX applied)
+   - Computes lower arm angles: `upperAng + elbowRel` (consistent addition)
    - Calculates elbow positions using `segPos()`
    - Calculates wrist positions using `segPos()` and offsets
 7. For legs:
    - Computes hip angles (with optional torso rotation inheritance)
-   - Computes knee angles: `hipAng - kneeRel` (SIGN FIX applied)
+   - Computes knee angles: `hipAng + kneeRel` (consistent addition)
    - Calculates knee positions using `segPos()`
    - Calculates ankle positions using `segPos()` and offsets
 8. Mirrors all bones horizontally if character faces left
@@ -729,7 +729,7 @@ Run tests with: `npm test`
 ## Notes
 
 1. **Joint angles are hierarchical**: Elbow/knee angles are relative to their parent limb angles.
-2. **Sign fixes applied**: Lower limb angles use subtraction (not addition) for correct orientation.
+2. **Consistent angle accumulation**: All child joint angles use addition for uniform hierarchical computation.
 3. **Mirroring is applied last**: Character facing flips bones after all computations.
 4. **All angles in radians internally**: Degree conversion only at input/output boundaries.
 5. **Bone objects are recreated each frame**: No incremental updates, full recomputation.

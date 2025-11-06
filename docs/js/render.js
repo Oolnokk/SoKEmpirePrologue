@@ -103,10 +103,9 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const lShoulderRel = rad(F.jointAngles?.lShoulder); const rShoulderRel = rad(F.jointAngles?.rShoulder); const lElbowRel = rad(F.jointAngles?.lElbow); const rElbowRel = rad(F.jointAngles?.rElbow);
   const armBaseOffset = 0; // with 'up' as zero, arms extend directly from shoulder angles
   let lUpperAng = torsoAng + lShoulderRel + armBaseOffset; let rUpperAng = torsoAng + rShoulderRel + armBaseOffset;
-  // SIGN FIX: Elbow relative angles must be subtracted (not added) to get correct lower arm orientation.
-  // Original code used addition, causing hands to point ~180° in the wrong direction.
-  let lLowerAng = lUpperAng - lElbowRel;
-  let rLowerAng = rUpperAng - rElbowRel;
+  // Elbow angles accumulate consistently with addition (child angle relative to parent)
+  let lLowerAng = lUpperAng + lElbowRel;
+  let rLowerAng = rUpperAng + rElbowRel;
 
   const lElbowPosArr = withAX(...segPos(shoulderBaseArr[0], shoulderBaseArr[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
   const rElbowPosArr = withAX(...segPos(shoulderBaseArr[0], shoulderBaseArr[1], L.armU, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
@@ -118,10 +117,9 @@ function computeAnchorsForFighter(F, C, fighterName) {
   let rHipAng = rad(F.jointAngles?.rHip) + (legsFollow ? torsoAngRaw : 0);
   const lKneeRel = rad(F.jointAngles?.lKnee);
   const rKneeRel = rad(F.jointAngles?.rKnee);
-  // SIGN FIX: Knee relative angles must be subtracted (not added) to get correct lower leg orientation.
-  // Original code used addition, causing legs to be misaligned by ~90° with incorrect basis.
-  const lKneeAng = lHipAng - lKneeRel;
-  const rKneeAng = rHipAng - rKneeRel;
+  // Knee angles accumulate consistently with addition (child angle relative to parent)
+  const lKneeAng = lHipAng + lKneeRel;
+  const rKneeAng = rHipAng + rKneeRel;
   const lKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], L.legU, lHipAng), lHipAng, OFF.leg?.upper?.knee);
   const rKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], L.legU, rHipAng), rHipAng, OFF.leg?.upper?.knee);
   const lAnklePosArr = withAX(...segPos(lKneePosArr[0], lKneePosArr[1], L.legL, lKneeAng), lKneeAng, OFF.leg?.lower?.origin);

@@ -177,11 +177,11 @@ Each bone contains:
 **9 Joint Angles** (all in radians):
 - `torso` - Absolute torso tilt angle
 - `lShoulder`, `rShoulder` - Relative to torso
-- `lElbow`, `rElbow` - Relative to upper arm (subtracted!)
+- `lElbow`, `rElbow` - Relative to upper arm
 - `lHip`, `rHip` - Absolute (or +torso if configured)
-- `lKnee`, `rKnee` - Relative to upper leg (subtracted!)
+- `lKnee`, `rKnee` - Relative to upper leg
 
-**Important:** Elbow and knee angles are **subtracted** (not added) to get correct lower limb orientation.
+**Important:** All child joint angles are **added** to their parent angles using a consistent hierarchical accumulation pattern.
 
 ## Configuration Sources
 
@@ -263,18 +263,18 @@ torsoAng (absolute from F.jointAngles.torso)
   ├── Head: ang = torsoAng
   │
   ├── Left Shoulder: ang = torsoAng + lShoulder
-  │     └── Left Elbow: ang = upperAng - lElbow  (SUBTRACTION!)
+  │     └── Left Elbow: ang = upperAng + lElbow
   │
   └── Right Shoulder: ang = torsoAng + rShoulder
-        └── Right Elbow: ang = upperAng - rElbow  (SUBTRACTION!)
+        └── Right Elbow: ang = upperAng + rElbow
 
 Hip Base
   │
   ├── Left Hip: ang = lHip (+ torsoAng if legsFollow)
-  │     └── Left Knee: ang = hipAng - lKnee  (SUBTRACTION!)
+  │     └── Left Knee: ang = hipAng + lKnee
   │
   └── Right Hip: ang = rHip (+ torsoAng if legsFollow)
-        └── Right Knee: ang = hipAng - rKnee  (SUBTRACTION!)
+        └── Right Knee: ang = hipAng + rKnee
 ```
 
 ### 2. Character Mirroring
