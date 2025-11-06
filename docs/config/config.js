@@ -21,6 +21,9 @@ window.CONFIG = {
   hierarchy: { legsFollowTorsoRotation: false },
   ik: { calvesOnly: true },
 
+  // basePose: Mathematical reference pose (T-pose/neutral skeleton state)
+  // This is the zero-angle reference used by angle calculations in the skeleton system.
+  // All fighters share the same skeleton structure, so this is global and not per-fighter.
   basePose: { torso:0, lShoulder:-90, lElbow:0, rShoulder:-90, rElbow:0, lHip:90, lKnee:0, rHip:90, rKnee:0 },
   limits: {
     torso:{ absMin:-45, absMax:90 },
@@ -30,6 +33,9 @@ window.CONFIG = {
     knee:{ relMin:0, relMax:170 }
   },
 
+  // CONFIG.poses: Visual animation poses
+  // Stance: The idle/ready visual pose used by the animation system (different from basePose)
+  // This is what fighters actually look like when standing idle, not the mathematical reference.
   poses: {
     Stance:{ 
       torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40, 
@@ -83,7 +89,6 @@ window.CONFIG = {
       parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:40 }, arm:{ upper:30, lower:40 }, leg:{ upper:30, lower:30 }, head:{ neck:10, radius:12 } },
       hierarchy: { legsFollowTorsoRotation: false },
       ik: { calvesOnly: true },
-      basePose: { torso:0, lShoulder:0, lElbow:0, rShoulder:0, rElbow:0, lHip:90, lKnee:0, rHip:90, rKnee:0 },
       limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 } },
       offsets: {
         torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
@@ -132,7 +137,6 @@ window.CONFIG = {
       parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:40 }, arm:{ upper:30, lower:40 }, leg:{ upper:30, lower:30 }, head:{ neck:10, radius:12 } },
       hierarchy: { legsFollowTorsoRotation: false },
       ik: { calvesOnly: true },
-      basePose: { torso:0, lShoulder:0, lElbow:0, rShoulder:0, rElbow:0, lHip:90, lKnee:0, rHip:0, rKnee:0 },
       limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 } },
       offsets: {
         torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
