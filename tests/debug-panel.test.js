@@ -27,17 +27,17 @@ describe('debug-panel.js module', () => {
   });
 
   it('uses correct angle conversion (radians to degrees)', () => {
-    assert.ok(debugPanelSrc.includes('function radToDeg(rad)'), 
-      'debug-panel.js should include radToDeg conversion function');
-    assert.ok(debugPanelSrc.includes('180 / Math.PI'), 
-      'debug-panel.js should use correct radian to degree conversion');
+    assert.ok(debugPanelSrc.includes('import') && debugPanelSrc.includes('radToDeg'), 
+      'debug-panel.js should import radToDeg from math-utils.js');
+    assert.ok(debugPanelSrc.includes('from \'./math-utils.js'), 
+      'debug-panel.js should import from math-utils.js');
   });
 
   it('uses correct angle conversion (degrees to radians)', () => {
-    assert.ok(debugPanelSrc.includes('function degToRad(deg)'), 
-      'debug-panel.js should include degToRad conversion function');
-    assert.ok(debugPanelSrc.includes('Math.PI') && debugPanelSrc.includes('/ 180'), 
-      'debug-panel.js should use correct degree to radian conversion');
+    assert.ok(debugPanelSrc.includes('import') && debugPanelSrc.includes('degToRad'), 
+      'debug-panel.js should import degToRad from math-utils.js');
+    assert.ok(debugPanelSrc.includes('from \'./math-utils.js'), 
+      'debug-panel.js should import from math-utils.js');
   });
 
   it('updates bone transforms display', () => {

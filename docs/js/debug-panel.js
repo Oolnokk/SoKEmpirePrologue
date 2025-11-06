@@ -2,17 +2,7 @@
 // Provides live transform display, pose editing, and JSON export functionality
 
 import { $$, fmt } from './dom-utils.js?v=1';
-import { radToDeg as radToDegUtil, degToRad as degToRadUtil } from './math-utils.js?v=1';
-
-// Convert radians to degrees for display
-function radToDeg(rad) {
-  return ((rad * 180) / Math.PI).toFixed(2);
-}
-
-// Convert degrees to radians for setting poses
-function degToRad(deg) {
-  return (deg * Math.PI) / 180;
-}
+import { radToDeg, radToDegNum, degToRad } from './math-utils.js?v=1';
 
 // Initialize the debug panel
 export function initDebugPanel() {
@@ -170,7 +160,6 @@ function updatePoseEditor(fighter, config) {
 
   // Update current values
   const jointAngles = fighter.jointAngles || {};
-  const RAD_TO_DEG = 180 / Math.PI;
 
   const inputs = [
     'torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow',
@@ -180,7 +169,7 @@ function updatePoseEditor(fighter, config) {
   for (const key of inputs) {
     const input = $$(`#pose_${key}`, container);
     if (input && jointAngles[key] != null) {
-      const degValue = (jointAngles[key] * RAD_TO_DEG).toFixed(1);
+      const degValue = radToDegNum(jointAngles[key]).toFixed(1);
       if (document.activeElement !== input) {
         input.value = degValue;
       }
@@ -207,7 +196,7 @@ function createPoseEditorInputs(container, fighter, config) {
 
   for (const { key, label } of inputs) {
     const currentVal = fighter.jointAngles?.[key] || 0;
-    const degValue = ((currentVal * 180) / Math.PI).toFixed(1);
+    const degValue = radToDegNum(currentVal).toFixed(1);
     
     html += '<div class="debug-input-group">';
     html += `<label for="pose_${key}">${label}</label>`;
@@ -280,10 +269,9 @@ function setPoseValue(fighter, key, radValue) {
   const G = window.GAME || {};
   if (G.FIGHTERS) {
     const degPose = {};
-    const RAD_TO_DEG = 180 / Math.PI;
     
     for (const k in fighter.jointAngles) {
-      degPose[k] = fighter.jointAngles[k] * RAD_TO_DEG;
+      degPose[k] = radToDegNum(fighter.jointAngles[k]);
     }
 
     // Import and use pushPoseOverride if available
@@ -320,7 +308,6 @@ function copyPoseConfigToClipboard() {
   }
 
   const player = G.FIGHTERS.player;
-  const RAD_TO_DEG = 180 / Math.PI;
 
   // Build pose object from current joint angles
   const currentPose = {};
@@ -328,7 +315,7 @@ function copyPoseConfigToClipboard() {
   
   for (const key of jointKeys) {
     if (player.jointAngles?.[key] != null) {
-      currentPose[key] = Math.round(player.jointAngles[key] * RAD_TO_DEG);
+      currentPose[key] = Math.round(radToDegNum(player.jointAngles[key]));
     }
   }
 

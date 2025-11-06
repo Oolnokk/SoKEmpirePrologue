@@ -1,6 +1,7 @@
 // fighter.js — initialize fighters in STANCE; set facingSign (player right, npc left)
-const RAD = Math.PI/180;
-function degPoseToRad(p){ if(!p) return {}; const o={}; for (const k of ['torso','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee']){ if (p[k]!=null) o[k]=p[k]*RAD; } return o; }
+import { degToRad } from './math-utils.js?v=1';
+
+function degPoseToRad(p){ if(!p) return {}; const o={}; for (const k of ['torso','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee']){ if (p[k]!=null) o[k]=degToRad(p[k]); } return o; }
 
 export function initFighters(cv, cx){
   const G = (window.GAME ||= {});
