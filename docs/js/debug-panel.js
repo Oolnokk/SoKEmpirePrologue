@@ -1,7 +1,8 @@
 // debug-panel.js - Debug panel for displaying and editing bone/sprite transforms and poses
 // Provides live transform display, pose editing, and JSON export functionality
 
-const $$ = (sel, el = document) => el.querySelector(sel);
+import { $$, fmt } from './dom-utils.js?v=1';
+import { radToDeg as radToDegUtil, degToRad as degToRadUtil } from './math-utils.js?v=1';
 
 // Convert radians to degrees for display
 function radToDeg(rad) {
@@ -11,12 +12,6 @@ function radToDeg(rad) {
 // Convert degrees to radians for setting poses
 function degToRad(deg) {
   return (deg * Math.PI) / 180;
-}
-
-// Format number for display
-function fmt(n, decimals = 2) {
-  if (n == null || !Number.isFinite(n)) return '0.00';
-  return Number(n).toFixed(decimals);
 }
 
 // Initialize the debug panel
