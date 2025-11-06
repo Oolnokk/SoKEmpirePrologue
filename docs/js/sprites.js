@@ -10,7 +10,7 @@
 // - rotation: bone.ang + alignRad + Math.PI
 // - Mirroring per part via RENDER.MIRROR flags
 
-import { angleZero, basis as basisFn, dist, angle as angleUtil, degToRad } from './math-utils.js?v=1';
+import { angleZero as angleZeroUtil, basis as basisFn, dist, angle as angleUtil, degToRad } from './math-utils.js?v=1';
 import { pickFighterName as pickFighterNameUtil } from './fighter-utils.js?v=1';
 
 const ASSETS = (window.ASSETS ||= {});
