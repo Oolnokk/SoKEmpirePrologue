@@ -49,14 +49,14 @@ test('render.js uses correct torso angle without offset', async () => {
 test('render.js uses correct arm base offset', async () => {
   const source = await readJs('render.js');
   
-  // Check that armBaseOffset is 0 for 'up' convention
+  // Check that shoulder angles are relative to torso (match reference HTML logic)
   assert.match(
     source,
-    /const armBaseOffset = 0;.*with 'up' as zero/,
-    'armBaseOffset should be 0 with "up" as zero'
+    /lShoulderRel - torsoAngRaw|rShoulderRel - torsoAngRaw/,
+    'Shoulder angles should be relative to torso (subtract torso from shoulder)'
   );
   
-  // Check that the old -Math.PI / 2 offset is gone
+  // Check that the old Math.PI / 2 offset is gone
   assert.doesNotMatch(
     source,
     /const armBaseOffset = -Math\.PI \/ 2;/,

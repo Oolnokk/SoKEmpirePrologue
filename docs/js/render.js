@@ -101,8 +101,8 @@ function computeAnchorsForFighter(F, C, fighterName) {
   };
 
   const lShoulderRel = rad(F.jointAngles?.lShoulder); const rShoulderRel = rad(F.jointAngles?.rShoulder); const lElbowRel = rad(F.jointAngles?.lElbow); const rElbowRel = rad(F.jointAngles?.rElbow);
-  const armBaseOffset = 0; // with 'up' as zero, arms extend directly from shoulder angles
-  let lUpperAng = torsoAng + lShoulderRel + armBaseOffset; let rUpperAng = torsoAng + rShoulderRel + armBaseOffset;
+  // Match reference: shoulder angles are relative to torso, so subtract torso from shoulder
+  let lUpperAng = torsoAng + (lShoulderRel - torsoAngRaw); let rUpperAng = torsoAng + (rShoulderRel - torsoAngRaw);
   // Elbow angles accumulate consistently with addition (child angle relative to parent)
   let lLowerAng = lUpperAng + lElbowRel;
   let rLowerAng = rUpperAng + rElbowRel;
