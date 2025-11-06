@@ -1,5 +1,5 @@
 // render.js — v20-compatible rig math with 'up' as zero angle
-// Angle basis is centralized so sprites.js stays in sync (always 'up' convention).
+// Angle basis is centralized in math-utils.js so sprites.js stays in sync (always 'up' convention).
 //
 // === COORDINATE SYSTEM & MATH BASIS ===
 // This module uses a coordinate system where:
@@ -7,15 +7,18 @@
 // - Positive angles rotate CLOCKWISE
 // - ALL joint angles MUST be in RADIANS (animator.js converts from degrees)
 //
-// Basis math convention (implemented in basis() function):
+// Basis math convention (implemented in math-utils.js basis() function):
 // - Forward vector: fx = sin(angle), fy = -cos(angle)
 //   This makes 0° point up, 90° point right, 180° point down, 270° point left
 // - Right vector: rx = cos(angle), ry = sin(angle)
 //   This is perpendicular to the forward vector (90° clockwise)
 //
-// The rad() function below is a null-safe accessor that returns the value as-is
+// The rad() function from math-utils.js is a null-safe accessor that returns the value as-is
 // (or 0 if null). It does NOT convert degrees to radians - that conversion happens
 // in animator.js via degToRadPose() before values reach this module.
+
+import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withAXUtil, rad, angleFromDelta as angleFromDeltaUtil } from './math-utils.js?v=1';
+import { pickFighterConfig, lengths, pickOffsets } from './fighter-utils.js?v=1';
 
 // === RENDER DEBUG CONFIGURATION ===
 // Global config object for controlling what is rendered for debugging purposes
@@ -41,35 +44,6 @@ if (typeof window !== 'undefined') {
 
 function angleZero(){ return 'up'; }
 function basis(ang){ const c = Math.cos(ang), s = Math.sin(ang); return { fx:s, fy:-c, rx:c, ry:s }; }
-function segPos(x, y, len, ang) { const b = basis(ang); return [x + len * b.fx, y + len * b.fy]; }
-function withAX(x, y, ang, off, len, units) {
-  if (!off) return [x, y];
-  let ax = 0, ay = 0;
-  if (Array.isArray(off)) {
-    ax = +off[0] || 0;
-    ay = +off[1] || 0;
-  } else if (typeof off === 'object') {
-    ax = +((off.ax ?? off.x) ?? 0) || 0;
-    ay = +((off.ay ?? off.y) ?? 0) || 0;
-  } else {
-    return [x, y];
-  }
-
-  const lenVal = +len;
-  const hasLen = Number.isFinite(lenVal) && lenVal !== 0;
-  const L = hasLen ? Math.abs(lenVal) : 1;
-  const unitStr = (units || off?.units || '').toString().toLowerCase();
-  if (unitStr === 'percent' || unitStr === '%' || unitStr === 'pct') {
-    ax *= L;
-    ay *= L;
-  }
-
-  const b = basis(ang);
-  const dx = ax * b.fx + ay * b.rx;
-  const dy = ax * b.fy + ay * b.ry;
-  return [x + dx, y + dy];
-}
-function rad(v) { return v == null ? 0 : v; }
 function angleFromDelta(dx, dy){
   return Math.atan2(dx, -dy);
 }
@@ -82,9 +56,27 @@ if (typeof window !== 'undefined') {
   window.BONE_ANGLE_FROM_DELTA = angleFromDelta;
 }
 
-function pickFighterConfig(C, name) { const f = (C.fighters && (C.fighters[name] || C.fighters[Object.keys(C.fighters||{})[0] || ''])) || {}; return f; }
-function lengths(C, fcfg) { const s = (C.actor?.scale ?? 1) * (fcfg.actor?.scale ?? 1); const P = C.parts || {}; const Pf = fcfg.parts || {}; return { torso:(Pf.torso?.len ?? P.torso?.len ?? 60)*s, armU:(Pf.arm?.upper ?? P.arm?.upper ?? 50)*s, armL:(Pf.arm?.lower ?? P.arm?.lower ?? 50)*s, legU:(Pf.leg?.upper ?? P.leg?.upper ?? 40)*s, legL:(Pf.leg?.lower ?? P.leg?.lower ?? 40)*s, hbW:(Pf.hitbox?.w ?? P.hitbox?.w ?? 120)*s, hbH:(Pf.hitbox?.h ?? P.hitbox?.h ?? 160)*s, hbR:(Pf.hitbox?.r ?? P.hitbox?.r ?? 60)*s, scale:s }; }
-function pickOffsets(C, fcfg) { function deepMerge(a,b){ const o = {...(a||{})}; for(const k in (b||{})){ o[k] = (typeof b[k]==='object' && !Array.isArray(b[k])) ? deepMerge(a?.[k], b[k]) : b[k]; } return o; } return deepMerge(C.offsets || {}, fcfg.offsets || {}); }
+// Wrapper for withAX that matches the signature used in render.js
+function withAX(x, y, ang, off, len, units) {
+  // Convert render.js offset format to math-utils format
+  if (!off) return [x, y];
+  
+  let ax = 0, ay = 0, offsetUnits = '';
+  
+  if (Array.isArray(off)) {
+    ax = +off[0] || 0;
+    ay = +off[1] || 0;
+  } else if (typeof off === 'object') {
+    ax = +((off.ax ?? off.x) ?? 0) || 0;
+    ay = +((off.ay ?? off.y) ?? 0) || 0;
+    offsetUnits = (off.units || '').toString().toLowerCase();
+  } else {
+    return [x, y];
+  }
+  
+  const unitStr = units || offsetUnits;
+  return withAXUtil(x, y, ang, ax, ay, len || 1, unitStr);
+}
 
 function computeAnchorsForFighter(F, C, fighterName) {
   const fcfg = pickFighterConfig(C, fighterName); const L = lengths(C, fcfg); const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });

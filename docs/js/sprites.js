@@ -10,6 +10,9 @@
 // - rotation: bone.ang + alignRad + Math.PI
 // - Mirroring per part via RENDER.MIRROR flags
 
+import { angleZero, basis as basisFn, dist, angle as angleUtil, degToRad } from './math-utils.js?v=1';
+import { pickFighterName as pickFighterNameUtil } from './fighter-utils.js?v=1';
+
 const ASSETS = (window.ASSETS ||= {});
 const CACHE = (ASSETS.sprites ||= {});
 const FAILED = (ASSETS.failedSprites ||= new Set());
@@ -27,15 +30,22 @@ RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
 function angleZero(){ return 'up'; }
 function spriteAngleZero(){ return 'up'; }
 
-// Standard "up" = 0 radians.
+// Standard "up" = 0 radians - use basisFn from math-utils.js
 function basisFor(ang){
   const fn = (typeof window !== 'undefined' && typeof window.BONE_BASIS === 'function') ? window.BONE_BASIS : null;
   if (fn) return fn(ang);
   const c = Math.cos(ang), s = Math.sin(ang);
   return { fx: s, fy: -c, rx: c, ry: s };
 }
-function rad(deg){ return (deg||0) * Math.PI / 180; }
-function dist(a,b){ const dx=b[0]-a[0], dy=b[1]-a[1]; return Math.sqrt(dx*dx+dy*dy); }
+
+function withAX(x,y,ang,ax,ay,unitsLen){
+  const L = (unitsLen||1);
+  const u = (ax||0)*L, v = (ay||0)*L;
+  const b = basisFor(ang);
+  const dx = u*b.fx + v*b.rx;
+  const dy = u*b.fy + v*b.ry;
+  return [x+dx,y+dy];
+}
 
 // FIXED: "up" = 0 radians
 function angle(a, b){
@@ -45,14 +55,11 @@ function angle(a, b){
   if (fn) return fn(dx, dy);
   return Math.atan2(dx, -dy);
 }
-function withAX(x,y,ang,ax,ay,unitsLen){
-  const L = (unitsLen||1);
-  const u = (ax||0)*L, v = (ay||0)*L;
-  const b = basisFor(ang);
-  const dx = u*b.fx + v*b.rx;
-  const dy = u*b.fy + v*b.ry;
-  return [x+dx,y+dy];
+
+function pickFighterName(C){
+  return pickFighterNameUtil(C);
 }
+
 function load(url){
   if (!url) return null;
   const cached = CACHE[url];
@@ -64,12 +71,6 @@ function load(url){
   img.src = url;
   CACHE[url] = img;
   return img;
-}
-
-function pickFighterName(C){
-  if(GLOB.selectedFighter && C.fighters?.[GLOB.selectedFighter]) return GLOB.selectedFighter;
-  if (C.fighters?.TLETINGAN) return 'TLETINGAN';
-  const k=Object.keys(C.fighters||{}); return k.length?k[0]:'default';
 }
 
 // Returns bone objects keyed by body part
@@ -289,7 +290,7 @@ export function renderSprites(ctx){
   if (!rig) return;
 
   const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
-  if (DEBUG.showSprites === false) return;
+  if (DEBUG.showSprites === false) return; // Skip sprite rendering if disabled
   const { assets, style, offsets } = ensureFighterSprites(C, fname);
 
   const zOf = buildZMap(C);

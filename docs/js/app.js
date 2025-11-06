@@ -9,9 +9,7 @@ import { updateCamera } from './camera.js?v=1';
 import { initHitDetect, runHitDetect } from './hitdetect.js?v=1';
 import { initSprites, renderSprites } from './sprites.js?v=5';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
-
-const $$ = (sel, el=document) => el.querySelector(sel);
-function show(el, v){ if(!el) return; el.style.display = v ? '' : 'none'; }
+import { $$, show } from './dom-utils.js?v=1';
 
 // Setup canvas
 const cv = $$('#game');
