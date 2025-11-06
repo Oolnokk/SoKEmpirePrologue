@@ -346,6 +346,9 @@ But angles measure from "up" direction:
 
 ## Character Mirroring Logic
 
+**Implementation (as of Issue #58 fix):**
+Mirroring is now applied **during** bone computation, not as a post-process. This ensures all intermediate bone values are correct for the character's facing direction, making debugging easier.
+
 ```
 Original (facing right, facingSign=1):
       
@@ -369,18 +372,27 @@ Mirrored (facing left, facingSign=-1):
      / \
     R   L ← legs (R at x=340, L at x=380, swapped!)
     
-Formula for each bone:
-  bone.x = centerX * 2 - bone.x
-  bone.ang = -bone.ang
+Formula applied during bone creation:
+  mirrorX = flipLeft ? ((x) => centerX * 2 - x) : ((x) => x)
+  mirrorAng = flipLeft ? ((ang) => -ang) : ((ang) => ang)
   
-Example for L arm at x=320:
-  newX = 360 * 2 - 320 = 720 - 320 = 400
+  bone.x = mirrorX(computedX)
+  bone.ang = mirrorAng(computedAng)
+  
+Example for L arm at x=320 when facing left:
+  mirroredX = 360 * 2 - 320 = 720 - 320 = 400
   (now on right side)
   
-Angle example for bone at +45°:
-  newAng = -45° = -0.785 rad
+Angle example for bone at +45° when facing left:
+  mirroredAng = -45° = -0.785 rad
   (mirror angle across vertical axis)
 ```
+
+**Key Benefits:**
+- Debug panel shows correct bone positions for both facing directions
+- Intermediate values are trustworthy during computation
+- Easier to debug poses and animations
+- Clearer separation of concerns (facing determined once, applied inline)
 
 ---
 

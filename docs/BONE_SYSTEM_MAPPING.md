@@ -492,7 +492,7 @@ return Math.atan2(dx, -dy)  // Note: -dy for "up" = 0 convention
 ---
 
 ### 17. Character Facing Mirroring
-**Location:** `docs/js/render.js:155-170`
+**Location:** `docs/js/render.js:85-89, 140-156`
 
 **Purpose:** Mirrors bone positions when character faces left.
 
@@ -501,19 +501,21 @@ return Math.atan2(dx, -dy)  // Note: -dy for "up" = 0 convention
 - `centerX` - Character center X position
 
 **Process:**
-1. Computes facing direction from `facingRad` or `facingSign`
-2. If facing left (cos(facingRad) < 0):
-   - For each bone in B:
-     - Mirrors X position: `x = centerX * 2 - x`
-     - Mirrors endX position if present
-     - Negates angle: `ang = -ang`
+1. Computes facing direction from `facingRad` or `facingSign` at start of `computeAnchorsForFighter()`
+2. Creates helper functions based on facing:
+   - `mirrorX`: mirrors X coordinates if facing left, identity function otherwise
+   - `mirrorAng`: negates angles if facing left, identity function otherwise
+3. Applies mirroring during bone creation (not as post-process):
+   - All X positions passed through `mirrorX(x)` 
+   - All angles passed through `mirrorAng(ang)`
 
 **Bone Alterations:**
-- **DIRECTLY MODIFIES** bone `x, endX, ang` values
-- Applied in `computeAnchorsForFighter()` after bone computation
+- Mirroring applied **DURING** bone object creation
+- Applied inline in `computeAnchorsForFighter()` as bones are built
 - Preserves Y coordinates, only flips X-axis
+- Ensures all intermediate bone values are correct for character's facing direction
 
-**Output:** Modifies bones in place
+**Output:** Returns bones with correct facing already applied
 
 ---
 
