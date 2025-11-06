@@ -78,7 +78,24 @@ function load(url){
 // Bone creation happens in computeAnchorsForFighter() in render.js
 function getBones(C, G, fname){
   // Return bones from the single source of truth: G.ANCHORS_OBJ
-  return G.ANCHORS_OBJ?.[fname] || null;
+  // Try direct lookup first (e.g., 'player', 'npc')
+  if (G.ANCHORS_OBJ?.[fname]) {
+    return G.ANCHORS_OBJ[fname];
+  }
+  // Fallback: if fname is a config fighter name (e.g., 'TLETINGAN'), 
+  // use 'player' as common case
+  if (G.ANCHORS_OBJ?.player) {
+    return G.ANCHORS_OBJ.player;
+  }
+  // Last resort: use first available anchor set
+  const anchors = G.ANCHORS_OBJ;
+  if (anchors && typeof anchors === 'object') {
+    const keys = Object.keys(anchors);
+    if (keys.length > 0) {
+      return anchors[keys[0]];
+    }
+  }
+  return null;
 }
 
 // Tag helpers
@@ -320,8 +337,8 @@ export function ensureFighterSprites(C, fname){
   for (const k in S){
     resolveSpriteAssets(S);
   }
-  // Look for style in fighter config first, then fallback to global
-  const style = f.spriteStyle || C.spriteStyle || {};
+  // Look for style in fighter config first (both f.spriteStyle and f.sprites.style), then fallback to global
+  const style = f.spriteStyle || f.sprites?.style || C.spriteStyle || {};
   const offsets = f.spriteOffsets || C.spriteOffsets || {};
   return { assets: S, style, offsets };
 }
