@@ -28,14 +28,20 @@ describe('Sprite rig lookup fallback', () => {
     // Function should have fallback logic, not just "return X || null"
     // Look for the getBones function - search for multiple return statements
     const getBonesFnStart = spritesContent.indexOf('function getBones(');
-    const getBonesFnEnd = spritesContent.indexOf('\nfunction ', getBonesFnStart + 1);
+    strictEqual(getBonesFnStart !== -1, true, 'getBones function should exist');
     
-    if (getBonesFnStart !== -1 && getBonesFnEnd !== -1) {
-      const fnBody = spritesContent.substring(getBonesFnStart, getBonesFnEnd);
-      // Should have multiple return statements or conditional logic
-      const returnCount = (fnBody.match(/return /g) || []).length;
-      strictEqual(returnCount >= 2, true, 'getBones should have fallback logic with multiple return paths');
+    // Find the end by looking for the closing of the function
+    // We'll search for the next function or end of file
+    let getBonesFnEnd = spritesContent.indexOf('\nfunction ', getBonesFnStart + 1);
+    if (getBonesFnEnd === -1) {
+      // If no next function, go to end of file
+      getBonesFnEnd = spritesContent.length;
     }
+    
+    const fnBody = spritesContent.substring(getBonesFnStart, getBonesFnEnd);
+    // Should have multiple return statements or conditional logic
+    const returnCount = (fnBody.match(/return /g) || []).length;
+    strictEqual(returnCount >= 2, true, 'getBones should have fallback logic with multiple return paths');
   });
 
   it('ensureFighterSprites checks f.sprites?.style as middle fallback', () => {
