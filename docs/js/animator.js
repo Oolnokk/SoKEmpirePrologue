@@ -5,6 +5,14 @@ import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
 const ANG_KEYS = ['torso','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee'];
 // Convert pose object from degrees to radians using centralized utility
 function degToRadPose(p){ const o={}; for(const k of ANG_KEYS){ if (p&&p[k]!=null) o[k]=degToRad(p[k]); } return o; }
+// Add basePose to pose (matching reference HTML addAngles function)
+function addAngles(base, delta){
+  const out = {};
+  for (const k of ANG_KEYS){
+    out[k] = (base?.[k] ?? 0) + (delta?.[k] ?? 0);
+  }
+  return out;
+}
 // Common easing helpers (restored from reference)
 const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 // Custom Windup easing: quick bias into the windup (ease-in-ish) then slow hold
@@ -147,7 +155,10 @@ export function updatePoses(){
     }
     if (!targetDeg){ const walkPose = computeWalkPose(F,C); if (walkPose._active) targetDeg = walkPose; }
     if (!targetDeg) targetDeg = pickBase(C);
-    const target = degToRadPose(targetDeg); const lambda = 10;
+    // Add basePose to targetDeg (matching reference HTML behavior)
+    const basePose = C.basePose || {};
+    const finalDeg = addAngles(basePose, targetDeg);
+    const target = degToRadPose(finalDeg); const lambda = 10;
     for(const k of ANG_KEYS){ const cur = F.jointAngles[k] ?? 0; const tar = target[k] ?? cur; F.jointAngles[k] = damp(cur, tar, lambda, F.anim.dt); }
   }
 }
