@@ -154,6 +154,7 @@ function initFighterDropdown() {
   fighterSelect.addEventListener('change', (e) => {
     const selectedFighter = e.target.value;
     currentSelectedFighter = selectedFighter;
+    window.GAME.selectedFighter = selectedFighter;
     if (selectedFighter) {
       showFighterSettings(selectedFighter);
     } else {
