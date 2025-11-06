@@ -200,6 +200,7 @@ function showFighterSettings(fighterName) {
 function setupFighterButtons(fighterName) {
   const refreshBtn = $$('#btnRefreshFighter');
   const loadBtn = $$('#btnLoadFighter');
+  const reinitializeBtn = $$('#btnReinitializeFighter');
   const exportBtn = $$('#btnExportConfig');
 
   // Only set up once - buttons persist across fighter selections
@@ -215,6 +216,14 @@ function setupFighterButtons(fighterName) {
         loadFighterSettings(currentSelectedFighter);
       }
     });
+    
+    if (reinitializeBtn) {
+      reinitializeBtn.addEventListener('click', () => {
+        if (currentSelectedFighter) {
+          reinitializeFighter(currentSelectedFighter);
+        }
+      });
+    }
     
     exportBtn.addEventListener('click', () => exportConfig());
     
@@ -260,6 +269,125 @@ async function loadFighterSettings(fighterName) {
   } catch (e) {
     if (statusInfo) statusInfo.textContent = 'Fighter reload failed';
     console.error('[loadFighterSettings] Error:', e);
+  }
+}
+
+/**
+ * Reinitialize fighter with asset reload while preserving all user edits.
+ * This function:
+ * 1. Captures current fighter state (joint angles, config values, debug settings)
+ * 2. Reloads sprites and skeleton
+ * 3. Restores all captured state so user edits are preserved
+ * 
+ * @param {string} fighterName - Name of fighter to reinitialize
+ */
+async function reinitializeFighter(fighterName) {
+  console.log('[reinitializeFighter] Reinitializing fighter while preserving settings:', fighterName);
+  
+  try {
+    const G = window.GAME || {};
+    const C = window.CONFIG || {};
+    
+    if (statusInfo) statusInfo.textContent = 'Reinitializing fighter...';
+    
+    // === Step 1: Capture current state from all sources ===
+    
+    // Capture fighter runtime state (joint angles, velocities, etc.)
+    const capturedState = {};
+    if (G.FIGHTERS) {
+      for (const [fighterId, fighter] of Object.entries(G.FIGHTERS)) {
+        capturedState[fighterId] = {
+          // Preserve joint angles (user may have edited these via debug panel)
+          jointAngles: fighter.jointAngles ? { ...fighter.jointAngles } : null,
+          // Preserve position and facing
+          pos: fighter.pos ? { ...fighter.pos } : null,
+          facingSign: fighter.facingSign,
+          facingRad: fighter.facingRad,
+          // Preserve stamina and footing
+          stamina: fighter.stamina ? { ...fighter.stamina } : null,
+          footing: fighter.footing,
+          // Preserve walk and attack state
+          walk: fighter.walk ? { ...fighter.walk } : null,
+          attack: fighter.attack ? { ...fighter.attack } : null,
+          combo: fighter.combo ? { ...fighter.combo } : null,
+          onGround: fighter.onGround,
+          prevOnGround: fighter.prevOnGround,
+          ragdoll: fighter.ragdoll
+        };
+      }
+    }
+    
+    // Capture debug settings
+    const debugSettings = {
+      freezeAngles: C.debug?.freezeAngles || false
+    };
+    
+    // Capture current config edits (these are already in CONFIG but we track them)
+    // The config values are already updated in memory by the input handlers
+    // so we don't need to capture/restore them explicitly
+    
+    console.log('[reinitializeFighter] Captured state:', { capturedState, debugSettings });
+    
+    // === Step 2: Reload sprites and fighters ===
+    
+    // Reload sprites with current config
+    await initSprites();
+    
+    // Reinit fighters (this resets them to default STANCE)
+    initFighters(cv, cx);
+    
+    // Reinit presets
+    initPresets();
+    ensureAltSequenceUsesKickAlt();
+    
+    // === Step 3: Restore captured state ===
+    
+    // Restore fighter runtime state
+    if (G.FIGHTERS) {
+      for (const [fighterId, fighter] of Object.entries(G.FIGHTERS)) {
+        const saved = capturedState[fighterId];
+        if (saved) {
+          // Restore joint angles (most important for user edits)
+          if (saved.jointAngles) {
+            fighter.jointAngles = { ...saved.jointAngles };
+          }
+          // Restore position and facing
+          if (saved.pos) {
+            fighter.pos = { ...saved.pos };
+          }
+          if (saved.facingSign !== undefined) fighter.facingSign = saved.facingSign;
+          if (saved.facingRad !== undefined) fighter.facingRad = saved.facingRad;
+          // Restore stamina and footing
+          if (saved.stamina) {
+            fighter.stamina = { ...saved.stamina };
+          }
+          if (saved.footing !== undefined) fighter.footing = saved.footing;
+          // Restore walk and attack state
+          if (saved.walk) fighter.walk = { ...saved.walk };
+          if (saved.attack) fighter.attack = { ...saved.attack };
+          if (saved.combo) fighter.combo = { ...saved.combo };
+          if (saved.onGround !== undefined) fighter.onGround = saved.onGround;
+          if (saved.prevOnGround !== undefined) fighter.prevOnGround = saved.prevOnGround;
+          if (saved.ragdoll !== undefined) fighter.ragdoll = saved.ragdoll;
+        }
+      }
+    }
+    
+    // Restore debug settings
+    if (!C.debug) C.debug = {};
+    C.debug.freezeAngles = debugSettings.freezeAngles;
+    
+    // Update freeze checkbox to match restored state
+    const freezeCheckbox = $$('#freezeAnglesCheckbox');
+    if (freezeCheckbox) {
+      freezeCheckbox.checked = debugSettings.freezeAngles;
+    }
+    
+    if (statusInfo) statusInfo.textContent = 'Fighter reinitialized, settings retained';
+    console.log('[reinitializeFighter] Fighter reinitialized successfully with preserved state');
+  } catch (e) {
+    if (statusInfo) statusInfo.textContent = 'Fighter reinitialize failed';
+    console.error('[reinitializeFighter] Error:', e);
   }
 }
 
