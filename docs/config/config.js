@@ -94,14 +94,14 @@ window.CONFIG = {
       sprites: {
         torso: { url: "./assets/fightersprites/tletingan/torso.png", alignDeg: 180 },
         head:  { url: "./assets/fightersprites/tletingan/head.png", alignDeg: 0 },
-        arm: { 
-          upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", alignDeg: 180 },
-          lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", alignDeg: 180 }
-        },
-        leg: { 
-          upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", alignDeg: 180 },
-          lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", alignDeg: 180 }
-        },
+        arm_L_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", alignDeg: 180 },
+        arm_L_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", alignDeg: 180 },
+        arm_R_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", alignDeg: 180 },
+        arm_R_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", alignDeg: 180 },
+        leg_L_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", alignDeg: 180 },
+        leg_L_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", alignDeg: 180 },
+        leg_R_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", alignDeg: 180 },
+        leg_R_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", alignDeg: 180 },
         style: {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
           xformUnits: "percent",
@@ -143,14 +143,14 @@ window.CONFIG = {
       sprites: {
         torso: { url: "./assets/fightersprites/tletingan/torso.png", alignDeg: 180 },
         head:  { url: "./assets/fightersprites/tletingan/head.png", alignDeg: 0 },
-        arm: { 
-          upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", alignDeg: 180 },
-          lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", alignDeg: 180 }
-        },
-        leg: { 
-          upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", alignDeg: 180 },
-          lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", alignDeg: 180 }
-        },
+        arm_L_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", alignDeg: 180 },
+        arm_L_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", alignDeg: 180 },
+        arm_R_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", alignDeg: 180 },
+        arm_R_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", alignDeg: 180 },
+        leg_L_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", alignDeg: 180 },
+        leg_L_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", alignDeg: 180 },
+        leg_R_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", alignDeg: 180 },
+        leg_R_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", alignDeg: 180 },
         style: {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
           xformUnits: "percent",
