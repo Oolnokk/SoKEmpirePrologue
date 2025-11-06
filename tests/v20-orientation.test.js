@@ -210,36 +210,28 @@ test('sprites.js defaults anchor to midpoint', async () => {
 test('render.js applies character flip by mirroring bones', async () => {
   const source = await readJs('render.js');
   
-  // Check that flipLeft logic exists and determines facing
+  // Check that flipLeft logic exists and mirrors bones
   assert.match(
     source,
     /const flipLeft = Math\.cos\(facingRad\) < 0;/,
     'flipLeft should be determined by facingRad'
   );
   
-  // Check that mirrorX and mirrorAng functions are created based on flipLeft
   assert.match(
     source,
-    /const mirrorX = flipLeft \? \(\(x\) => \(centerX \* 2 - x\)\) : \(\(x\) => x\);/,
-    'mirrorX function should conditionally mirror X based on flipLeft'
+    /if \(flipLeft\)/,
+    'flipLeft conditional should exist'
   );
   
   assert.match(
     source,
-    /const mirrorAng = flipLeft \? \(\(ang\) => -ang\) : \(\(ang\) => ang\);/,
-    'mirrorAng function should conditionally negate angles based on flipLeft'
-  );
-  
-  // Check that mirrorX and mirrorAng are used during bone creation
-  assert.match(
-    source,
-    /x:mirrorX\(/,
-    'mirrorX should be used for bone X positions'
+    /mirrorX/,
+    'mirrorX function should be used for mirroring'
   );
   
   assert.match(
     source,
-    /ang:mirrorAng\(/,
-    'mirrorAng should be used for bone angles'
+    /b\.ang = -b\.ang/,
+    'flipLeft should negate bone angles'
   );
 });

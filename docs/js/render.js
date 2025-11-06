@@ -81,13 +81,6 @@ function withAX(x, y, ang, off, len, units) {
 function computeAnchorsForFighter(F, C, fighterName) {
   const fcfg = pickFighterConfig(C, fighterName); const L = lengths(C, fcfg); const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
   const centerX = F.pos?.x ?? 0; const centerY = F.pos?.y ?? ((C.groundRatio||0.7) * (C.canvas?.h||460));
-  
-  // Determine facing direction early — mirroring is applied during bone creation
-  const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
-  const flipLeft = Math.cos(facingRad) < 0;
-  const mirrorX = flipLeft ? ((x) => (centerX * 2 - x)) : ((x) => x);
-  const mirrorAng = flipLeft ? ((ang) => -ang) : ((ang) => ang);
-  
   const torsoAngRaw = rad(F.jointAngles?.torso);
   const torsoAng = torsoAngRaw; // with 'up' as zero, torso angle is used directly
   const torsoAttach = { x: centerX + (hbAttach.nx - 0.5) * L.hbW, y: centerY + (hbAttach.ny - 0.5) * L.hbH };
@@ -98,12 +91,12 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const shoulderBaseArr = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.shoulder);
 
   const hitbox = {
-    x: mirrorX(centerX),
+    x: centerX,
     y: centerY,
     w: L.hbW,
     h: L.hbH,
-    ang: mirrorAng(torsoAngRaw),
-    attachX: mirrorX(torsoAttach.x),
+    ang: torsoAngRaw,
+    attachX: torsoAttach.x,
     attachY: torsoAttach.y
   };
 
@@ -137,24 +130,42 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const headEndArr = segPos(neckBaseArr[0], neckBaseArr[1], headLen, torsoAng);
 
   const B = {
-    center:{x:mirrorX(centerX),y:centerY},
-    torso:{x:mirrorX(hipBaseArr[0]),y:hipBaseArr[1],len:L.torso,ang:mirrorAng(torsoAng),endX:mirrorX(torsoTopArr[0]),endY:torsoTopArr[1]},
-    head:{x:mirrorX(neckBaseArr[0]),y:neckBaseArr[1],len:headLen,ang:mirrorAng(torsoAng),endX:mirrorX(headEndArr[0]),endY:headEndArr[1]},
-    shoulderBase:{x:mirrorX(shoulderBaseArr[0]),y:shoulderBaseArr[1]},
-    hipBase:{x:mirrorX(hipBaseArr[0]),y:hipBaseArr[1]},
-    neckBase:{x:mirrorX(neckBaseArr[0]),y:neckBaseArr[1]},
-    torsoTop:{x:mirrorX(torsoTopArr[0]),y:torsoTopArr[1]},
+    center:{x:centerX,y:centerY},
+    torso:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.torso,ang:torsoAng,endX:torsoTopArr[0],endY:torsoTopArr[1]},
+    head:{x:neckBaseArr[0],y:neckBaseArr[1],len:headLen,ang:torsoAng,endX:headEndArr[0],endY:headEndArr[1]},
+    shoulderBase:{x:shoulderBaseArr[0],y:shoulderBaseArr[1]},
+    hipBase:{x:hipBaseArr[0],y:hipBaseArr[1]},
+    neckBase:{x:neckBaseArr[0],y:neckBaseArr[1]},
+    torsoTop:{x:torsoTopArr[0],y:torsoTopArr[1]},
 
-    arm_L_upper:{x:mirrorX(shoulderBaseArr[0]),y:shoulderBaseArr[1],len:L.armU,ang:mirrorAng(lUpperAng),endX:mirrorX(lElbowPosArr[0]),endY:lElbowPosArr[1]},
-    arm_L_lower:{x:mirrorX(lElbowPosArr[0]),y:lElbowPosArr[1],len:L.armL,ang:mirrorAng(lLowerAng),endX:mirrorX(lWristPosArr[0]),endY:lWristPosArr[1]},
-    arm_R_upper:{x:mirrorX(shoulderBaseArr[0]),y:shoulderBaseArr[1],len:L.armU,ang:mirrorAng(rUpperAng),endX:mirrorX(rElbowPosArr[0]),endY:rElbowPosArr[1]},
-    arm_R_lower:{x:mirrorX(rElbowPosArr[0]),y:rElbowPosArr[1],len:L.armL,ang:mirrorAng(rLowerAng),endX:mirrorX(rWristPosArr[0]),endY:rWristPosArr[1]},
+    arm_L_upper:{x:shoulderBaseArr[0],y:shoulderBaseArr[1],len:L.armU,ang:lUpperAng,endX:lElbowPosArr[0],endY:lElbowPosArr[1]},
+    arm_L_lower:{x:lElbowPosArr[0],y:lElbowPosArr[1],len:L.armL,ang:lLowerAng,endX:lWristPosArr[0],endY:lWristPosArr[1]},
+    arm_R_upper:{x:shoulderBaseArr[0],y:shoulderBaseArr[1],len:L.armU,ang:rUpperAng,endX:rElbowPosArr[0],endY:rElbowPosArr[1]},
+    arm_R_lower:{x:rElbowPosArr[0],y:rElbowPosArr[1],len:L.armL,ang:rLowerAng,endX:rWristPosArr[0],endY:rWristPosArr[1]},
 
-    leg_L_upper:{x:mirrorX(hipBaseArr[0]),y:hipBaseArr[1],len:L.legU,ang:mirrorAng(lHipAng),endX:mirrorX(lKneePosArr[0]),endY:lKneePosArr[1]},
-    leg_L_lower:{x:mirrorX(lKneePosArr[0]),y:lKneePosArr[1],len:L.legL,ang:mirrorAng(lKneeAng),endX:mirrorX(lAnklePosArr[0]),endY:lAnklePosArr[1]},
-    leg_R_upper:{x:mirrorX(hipBaseArr[0]),y:hipBaseArr[1],len:L.legU,ang:mirrorAng(rHipAng),endX:mirrorX(rKneePosArr[0]),endY:rKneePosArr[1]},
-    leg_R_lower:{x:mirrorX(rKneePosArr[0]),y:rKneePosArr[1],len:L.legL,ang:mirrorAng(rKneeAng),endX:mirrorX(rAnklePosArr[0]),endY:rAnklePosArr[1]}
+    leg_L_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.legU,ang:lHipAng,endX:lKneePosArr[0],endY:lKneePosArr[1]},
+    leg_L_lower:{x:lKneePosArr[0],y:lKneePosArr[1],len:L.legL,ang:lKneeAng,endX:lAnklePosArr[0],endY:lAnklePosArr[1]},
+    leg_R_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.legU,ang:rHipAng,endX:rKneePosArr[0],endY:rKneePosArr[1]},
+    leg_R_lower:{x:rKneePosArr[0],y:rKneePosArr[1],len:L.legL,ang:rKneeAng,endX:rAnklePosArr[0],endY:rAnklePosArr[1]}
   };
+
+  // Mirror around hitbox center if facing left — also flip angles θ→-θ so sprites rotate correctly
+  const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
+  const flipLeft = Math.cos(facingRad) < 0;
+  if (flipLeft) {
+    const cx = centerX; const mirrorX = (x)=> (cx*2 - x);
+    for (const k in B){
+      const b=B[k];
+      if (b && typeof b==='object' && 'x' in b && 'y' in b){
+        b.x = mirrorX(b.x);
+        if ('endX' in b) b.endX = mirrorX(b.endX);
+        if ('ang' in b){ b.ang = -b.ang; }
+      }
+    }
+    hitbox.x = mirrorX(hitbox.x);
+    hitbox.attachX = mirrorX(hitbox.attachX);
+    hitbox.ang = -hitbox.ang;
+  }
 
   return { B, L, hitbox };
 }
