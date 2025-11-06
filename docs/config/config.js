@@ -108,7 +108,7 @@ window.CONFIG = {
         xformUnits: "percent",
         // NEW: anchor mapping to align art with bones (v16-like)
         anchor: {
-          torso: "mid",
+          torso: "start",
           head: "mid",
           armUpper: "start",
           armLower: "mid",
@@ -118,8 +118,8 @@ window.CONFIG = {
         // Optional: show anchor gizmo. Turn off after verifying.
         debug: { torso:true, head:false, armUpper:false, armLower:false, legUpper:false, legLower:false },
         xform: {
-          torso:    { ax:-0.5,  ay:-0.00, scaleX:4.50, scaleY:4.50, rotDeg:180 },
-          head:     { ax:-1.40, ay:-0.20, scaleX:4.50, scaleY:4.50, rotDeg:180 },
+          torso:    { ax:-0.5,  ay:-0.00, scaleX:4.50, scaleY:4.50, rotDeg:0 },
+          head:     { ax:-1.40, ay:-0.20, scaleX:4.50, scaleY:4.50, rotDeg:0 },
           armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
           armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
           legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
