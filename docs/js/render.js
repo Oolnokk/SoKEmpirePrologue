@@ -306,11 +306,51 @@ export function renderAll(ctx){
   (G.ANCHORS_OBJ ||= {}); 
   G.ANCHORS_OBJ.player=player.B; 
   G.ANCHORS_OBJ.npc=npc.B; 
+  
+  // Fallback background so the viewport is never visually blank
+  try{
+    ctx.fillStyle = '#eaeaea';
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    // If parallax isn't configured, draw a minimal horizon + ground
+    if (!window.PARALLAX || !window.PARALLAX.areas || !window.PARALLAX.areas[window.PARALLAX.currentAreaId]){
+      const groundY = Math.floor(ctx.canvas.height * 0.8);
+      // sky gradient
+      const g = ctx.createLinearGradient(0,0,0,ctx.canvas.height);
+      g.addColorStop(0, '#cfe8ff'); g.addColorStop(1, '#eaeaea');
+      ctx.fillStyle = g; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+      // ground
+      ctx.fillStyle = '#c8d0c3';
+      ctx.fillRect(0, groundY, ctx.canvas.width, ctx.canvas.height - groundY);
+      // marker text so it's obvious
+      ctx.fillStyle = '#445';
+      ctx.font = 'bold 14px system-ui, sans-serif';
+      ctx.fillText('NO AREA LOADED — fallback ground', 12, 22);
+    }
+  }catch(_e){ /* ignore */ }
+  
   const camX=G.CAMERA?.x||0; 
   ctx.save(); 
   ctx.translate(-camX,0); 
   drawHitbox(ctx, player.hitbox); 
   drawStick(ctx, player.B); 
+  
+  // Fallback player marker: draw a simple hitbox rect at player's position
+  try{
+    const hb = (C && C.parts && C.parts.hitbox) ? C.parts.hitbox : {w:40, h:80};
+    const hbW = hb.w * (C.actor && C.actor.scale || 1);
+    const hbH = hb.h * (C.actor && C.actor.scale || 1);
+    const px = (player.hitbox?.x ?? (G.FIGHTERS.player.pos?.x ?? 100)) - hbW/2;
+    const py = (player.hitbox?.y ?? (G.FIGHTERS.player.pos?.y ?? 100)) - hbH/2;
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#4b9ce2';
+    ctx.fillRect(px, py, hbW, hbH);
+    ctx.strokeStyle = '#1f4d7a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px, py, hbW, hbH);
+    ctx.restore();
+  }catch(_e){ /* ignore */ }
+  
   ctx.restore(); 
   drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`); 
 }
