@@ -254,21 +254,11 @@ function makeCombat(G, C){
     ATTACK.dirSign = (Math.cos(ATTACK.facingRadAtPress) >= 0) ? 1 : -1;
     ATTACK.downTime = now();
     
-    // Start charge for hold-release
+    // Start tracking charge time, but DON'T start animation yet
+    // Wait to see if it's a tap or hold
     CHARGE.active = true;
     CHARGE.stage = 0;
     CHARGE.startTime = now();
-    
-    if (slot.heavy && slot.heavy.type === 'hold-release'){
-      ATTACK.active = true;
-      ATTACK.isCharging = true;
-      ATTACK.preset = slot.heavy.preset;
-      
-      const windupPose = buildPoseFromKey('Windup');
-      pushPoseOverride('player', windupPose, 10000); // Long duration for charging
-      
-      console.log('Charge mode started');
-    }
   }
 
   // Button up handler
@@ -288,14 +278,14 @@ function makeCombat(G, C){
     if (tap){
       console.log(`TAP: light attack`);
       
-      // Cancel charge if active
+      // Should not be charging yet if it's a tap, but clear state just in case
       if (ATTACK.isCharging){
         ATTACK.active = false;
         ATTACK.isCharging = false;
-        ATTACK.slot = null;
-        TRANSITION.active = false;  // Clear any transition state
-        clearPoseOverride('player');  // Clear the windup pose from charging
+        clearPoseOverride('player');
       }
+      
+      ATTACK.slot = null;
       
       // Button A light = Combo
       if (slotKey === 'A' && slot.light.type === 'combo'){
@@ -369,6 +359,24 @@ function makeCombat(G, C){
     if (!CHARGE.active) return;
     
     const heldMs = now() - CHARGE.startTime;
+    
+    // Start charge windup animation after tap threshold (becomes a hold)
+    if (heldMs > ATTACK_INPUT.thresholds.tapMaxMs && !ATTACK.isCharging){
+      const slotKey = ATTACK.slot;
+      const slot = ATTACK_INPUT.slots[slotKey];
+      
+      if (slot?.heavy && slot.heavy.type === 'hold-release'){
+        ATTACK.active = true;
+        ATTACK.isCharging = true;
+        ATTACK.preset = slot.heavy.preset;
+        
+        const windupPose = buildPoseFromKey('Windup');
+        pushPoseOverride('player', windupPose, 10000); // Long duration for charging
+        
+        console.log('Charge mode started (hold detected)');
+      }
+    }
+    
     const newStage = Math.floor(heldMs / ATTACK_INPUT.thresholds.chargeStageMs);
     
     if (newStage !== CHARGE.stage){
