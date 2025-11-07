@@ -132,10 +132,10 @@ window.CONFIG = {
       ik: { calvesOnly: true },
       limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 } },
       offsets: {
-        torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
+        torso: { origin:{ax:0, ay:0}, shoulder:{ax:0, ay:0}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
         arm: { upper:{ origin:{ax:0, ay:0}, elbow:{ax:0, ay:0} }, lower:{ origin:{ax:0, ay:0} } },
         leg: { upper:{ origin:{ax:0, ay:0}, knee:{ax:0, ay:0}  }, lower:{ origin:{ax:0, ay:0} } },
-        head:{ origin:{ax:-1, ay:6} }
+        head:{ origin:{ax:0, ay:0} }
       },
       sprites: {
         torso: { url: "./assets/fightersprites/mao-ao-m/torso.png" },
@@ -150,30 +150,16 @@ window.CONFIG = {
         leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png" }
       },
       spriteStyle: {
-        widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
-        xformUnits: "percent",
-        // NEW: anchor mapping to align art with bones (v16-like)
-        anchor: {
-          torso: "start",
-          head: "mid",
-          armUpper: "start",
-          armLower: "mid",
-          legUpper: "start",
-          legLower: "mid"
-        },
-        // Optional: show anchor gizmo. Turn off after verifying.
-        debug: { torso:true, head:false, armUpper:false, armLower:false, legUpper:false, legLower:false },
-        xform: {
-          torso:    { ax:-0.5,  ay:-0.00, scaleX:4.50, scaleY:4.50, rotDeg:180 },
-          head:     { ax:-1.40, ay:-0.20, scaleX:4.50, scaleY:4.50, rotDeg:180 },
-          armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
-          armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
-          legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
-          legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
-        }
-      }
-    }
-  },
+          widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
+          xformUnits: "percent",
+          xform: {
+            torso:    { ax:-0.5,  ay:-0.00, scaleX:4.50, scaleY:4.50, rotDeg:180 },
+            head:     { ax:-1.40, ay:-0.20, scaleX:4.50, scaleY:4.50, rotDeg:180 },
+            armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
+            armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
+            legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
+            legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
+          }
 
   movement: {
     authoredWeight:0.6, physicsWeight:0.4,
