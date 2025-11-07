@@ -25,7 +25,12 @@ function easeWindup(t){
 function lerp(a,b,t){ return a + (b-a)*t; }
 function damp(current, target, lambda, dt){ const t = 1 - Math.exp(-lambda*dt); return current + (target - current)*t; }
 
-function ensureAnimState(F){ F.walk ||= { phase:0, amp:1, t:0 }; F.jointAngles ||= {}; if (!F.anim){ F.anim = { last: performance.now()/1000, override:null }; } }
+function ensureAnimState(F){ 
+  F.walk ||= { phase:0, amp:1, t:0 }; 
+  F.jointAngles ||= {}; 
+  F.aim ||= { targetAngle: 0, currentAngle: 0, torsoOffset: 0, shoulderOffset: 0, hipOffset: 0, active: false };
+  if (!F.anim){ F.anim = { last: performance.now()/1000, override:null }; } 
+}
 function pickBase(C){ return (C.poses && C.poses.Stance) ? C.poses.Stance : { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 }; }
 
 function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX = (F._prevX==null? F.pos?.x||0 : F._prevX); const curX = F.pos?.x||0; const v = (curX - prevX)/dt; F._prevX = curX; return Math.abs(Number.isFinite(F.vel?.x)? F.vel.x : v); }
@@ -141,6 +146,78 @@ function processAnimEventsForOverride(F, over){
   }
 }
 
+// Helper to clamp values
+function clamp(val, min, max){ return Math.min(max, Math.max(min, val)); }
+
+// Helper to convert radians to degrees
+function rad2deg(r){ return r * 180 / Math.PI; }
+
+// Update aiming offsets based on current pose
+function updateAiming(F, currentPose){
+  const C = window.CONFIG || {};
+  if (!C.aiming?.enabled) {
+    F.aim.active = false;
+    F.aim.torsoOffset = 0;
+    F.aim.shoulderOffset = 0;
+    F.aim.hipOffset = 0;
+    return;
+  }
+  
+  // Only aim if pose allows it
+  if (!currentPose.allowAiming) {
+    F.aim.active = false;
+    F.aim.torsoOffset = 0;
+    F.aim.shoulderOffset = 0;
+    F.aim.hipOffset = 0;
+    return;
+  }
+  
+  F.aim.active = true;
+  
+  // For now, use facingRad as aim angle (could be mouse position later)
+  F.aim.currentAngle = F.facingRad || 0;
+  
+  // Calculate offsets based on aim angle
+  const aimDeg = rad2deg(F.aim.currentAngle);
+  F.aim.torsoOffset = clamp(aimDeg * 0.5, -(C.aiming.maxTorsoAngle || 45), (C.aiming.maxTorsoAngle || 45));
+  F.aim.shoulderOffset = clamp(aimDeg * 0.7, -(C.aiming.maxShoulderAngle || 60), (C.aiming.maxShoulderAngle || 60));
+  
+  // Apply leg aiming if pose allows it
+  if (currentPose.aimLegs) {
+    if (currentPose.aimRightLegOnly) {
+      F.aim.hipOffset = clamp(aimDeg * 0.6, -50, 50); // Only right leg aims
+    } else {
+      F.aim.hipOffset = clamp(aimDeg * 0.4, -40, 40); // Both legs aim
+    }
+  } else {
+    F.aim.hipOffset = 0;
+  }
+}
+
+// Apply aiming offsets to a pose
+function applyAimingOffsets(poseDeg, F, currentPose){
+  if (!F.aim.active) return poseDeg;
+  
+  const result = {...poseDeg};
+  result.torso = (result.torso || 0) + F.aim.torsoOffset;
+  result.lShoulder = (result.lShoulder || 0) + F.aim.shoulderOffset;
+  result.rShoulder = (result.rShoulder || 0) + F.aim.shoulderOffset;
+  
+  // Apply leg aiming if present
+  if (F.aim.hipOffset !== 0) {
+    if (currentPose.aimRightLegOnly) {
+      // Only right leg
+      result.rHip = (result.rHip || 0) + F.aim.hipOffset;
+    } else if (currentPose.aimLegs) {
+      // Both legs
+      result.lHip = (result.lHip || 0) + F.aim.hipOffset;
+      result.rHip = (result.rHip || 0) + F.aim.hipOffset;
+    }
+  }
+  
+  return result;
+}
+
 export function updatePoses(){
   const G = window.GAME || {}; const C = window.CONFIG || {}; const now = performance.now()/1000; if (!G.FIGHTERS) return;
   // Check if joint angles are frozen (for debugging/manual pose editing)
@@ -155,9 +232,16 @@ export function updatePoses(){
     }
     if (!targetDeg){ const walkPose = computeWalkPose(F,C); if (walkPose._active) targetDeg = walkPose; }
     if (!targetDeg) targetDeg = pickBase(C);
+    
+    // Update aiming system based on current pose
+    updateAiming(F, targetDeg);
+    
     // Add basePose to targetDeg (matching reference HTML behavior)
     const basePose = C.basePose || {};
-    const finalDeg = addAngles(basePose, targetDeg);
+    let finalDeg = addAngles(basePose, targetDeg);
+    
+    // Apply aiming offsets to pose
+    finalDeg = applyAimingOffsets(finalDeg, F, targetDeg);
     
     // Debug: log once on first frame for player
     if (id === 'player' && F.anim.dt === 0 && !F.__debugLogged) {
