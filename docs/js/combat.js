@@ -8,6 +8,13 @@ export function initCombat(){
   console.log('[combat] ready');
 }
 
+function clearPoseOverride(fighterId){
+  const G = window.GAME || {};
+  const F = G.FIGHTERS?.[fighterId];
+  if (!F || !F.anim) return;
+  F.anim.override = null;
+}
+
 function makeCombat(G, C){
   const now = ()=> performance.now();
   const P = ()=> G.FIGHTERS?.player;
@@ -145,11 +152,17 @@ function makeCombat(G, C){
       return;
     }
 
-    const comboConfig = C.combo || {};
+    // Get combo config for current weapon (default to unarmed)
+    const p = P();
+    const weapon = p?.weapon || 'unarmed';
+    const comboConfig = C.combos?.[weapon] || C.combos?.unarmed || {};
     const useAlt = (COMBO.hits >= 4 && COMBO.timer > 0);
     const seq = useAlt ? (comboConfig.altSequence || []) : (comboConfig.sequence || []);
     
-    if (seq.length === 0) return;
+    if (seq.length === 0) {
+      console.log('No combo sequence found');
+      return;
+    }
     
     const presetName = seq[COMBO.sequenceIndex % seq.length];
     console.log(`Combo hit ${COMBO.hits+1}: ${presetName}`);
@@ -281,7 +294,7 @@ function makeCombat(G, C){
         ATTACK.isCharging = false;
         ATTACK.slot = null;
         TRANSITION.active = false;  // Clear any transition state
-        // Don't push stance pose yet - let the attack handle it
+        clearPoseOverride('player');  // Clear the windup pose from charging
       }
       
       // Button A light = Combo
