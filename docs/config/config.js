@@ -67,51 +67,52 @@ window.CONFIG = {
 
   fighters: {
     TLETINGAN: {
-      actor: { scale: 0.70 },
-      parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:40 }, arm:{ upper:30, lower:40 }, leg:{ upper:30, lower:30 }, head:{ neck:10, radius:12 } },
-      hierarchy: { legsFollowTorsoRotation: false },
-      ik: { calvesOnly: true },
-      limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 } },
+        actor: { scale: 0.70 },
+        parts: {
+          hitbox: { w:135, h:180, r:60, torsoAttach: { nx:0.5, ny:0.7 } },
+          torso: { len:60 },
+          arm: { upper:50, lower:50 },
+          leg: { upper:40, lower:40 },
+          head: { neck:14, radius:16 }
+        },
+        hierarchy: { legsFollowTorsoRotation: false },
+        ik: { calvesOnly: true },
+        limits: {
+          torso: { absMin:-45, absMax:90 },
+          shoulder: { relMin:-360, relMax:-90 },
+          elbow: { relMin:-170, relMax:0 },
+          hip: { absMin:90, absMax:210 },
+          knee: { relMin:0, relMax:170 }
+        },
       offsets: {
         torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
         arm: { upper:{ origin:{ax:0, ay:0}, elbow:{ax:0, ay:0} }, lower:{ origin:{ax:0, ay:0} } },
         leg: { upper:{ origin:{ax:0, ay:0}, knee:{ax:0, ay:0}  }, lower:{ origin:{ax:0, ay:0} } },
         head:{ origin:{ax:-1, ay:6} }
       },
-      sprites: {
-        torso: { url: "./assets/fightersprites/tletingan/torso.png" },
-        head:  { url: "./assets/fightersprites/tletingan/head.png" },
-        arm_L_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png" },
-        arm_L_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png" },
-        arm_R_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png" },
-        arm_R_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png" },
-        leg_L_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png" },
-        leg_L_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png" },
-        leg_R_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png" },
-        leg_R_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png" }
-      },
-      spriteStyle: {
-        widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
-        xformUnits: "percent",
-        // NEW: anchor mapping to align art with bones (v16-like)
-        anchor: {
-          torso: "mid",
-          head: "mid",
-          armUpper: "start",
-          armLower: "mid",
-          legUpper: "start",
-          legLower: "mid"
+        sprites: {
+          torso: { url: "https://i.imgur.com/YatjSyo.png" },
+          head:  { url: "https://i.imgur.com/WsKQ2Eo.png" },
+          arm_L_upper: { url: "https://i.imgur.com/CAmWLbf.png" },
+          arm_L_lower: { url: "https://i.imgur.com/gOHujif.png" },
+          arm_R_upper: { url: "https://i.imgur.com/CAmWLbf.png" },
+          arm_R_lower: { url: "https://i.imgur.com/gOHujif.png" },
+          leg_L_upper: { url: "https://i.imgur.com/qgcQTmx.png" },
+          leg_L_lower: { url: "https://i.imgur.com/lZbF7j2.png" },
+          leg_R_upper: { url: "https://i.imgur.com/qgcQTmx.png" },
+          leg_R_lower: { url: "https://i.imgur.com/lZbF7j2.png" }
         },
-        // Optional: show anchor gizmo. Turn off after verifying.
-        debug: { torso:true, head:false, armUpper:false, armLower:false, legUpper:false, legLower:false },
-        xform: {
-          torso:    { ax:-0.5,  ay:-0.00, scaleX:4.50, scaleY:4.50, rotDeg:180 },
-          head:     { ax:-1.40, ay:-0.20, scaleX:4.50, scaleY:4.50, rotDeg:180 },
-          armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
-          armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
-          legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
-          legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
-        }
+      spriteStyle: {
+          widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
+          xformUnits: "percent",
+          xform: {
+            torso:    { ax:-0.5,  ay:-0.00, scaleX:4.50, scaleY:4.50, rotDeg:180 },
+            head:     { ax:-1.40, ay:-0.20, scaleX:4.50, scaleY:4.50, rotDeg:180 },
+            armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
+            armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
+            legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
+            legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
+          }
       }
     },
     'Mao-ao_M': {
@@ -497,7 +498,7 @@ window.CONFIG = window.CONFIG || {};
 // Back-compat: build CONFIG.presets from CONFIG.attacks
 (function buildPresets(){
   if (!window.CONFIG || !CONFIG.attacks) return;
-  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const clone = (o) => o ? JSON.parse(JSON.stringify(o)) : {};
 
   const SLAM = {
     poses: clone(CONFIG.poses),
