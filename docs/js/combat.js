@@ -4,6 +4,8 @@ import { pushPoseOverride } from './animator.js?v=2';
 export function initCombat(){
   const G = (window.GAME ||= {});
   const C = (window.CONFIG || {});
+  console.log('[combat] CONFIG.presets:', C.presets);
+  console.log('[combat] CONFIG keys:', Object.keys(C));
   G.combat = makeCombat(G, C);
   console.log('[combat] ready');
 }
