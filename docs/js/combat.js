@@ -546,5 +546,5 @@ function makeCombat(G, C){
     processQueue();
   }
 
-  return { tick, slotDown };
+  return { tick, slotDown, slotUp };
 }
