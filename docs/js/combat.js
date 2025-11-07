@@ -140,14 +140,11 @@ function makeCombat(G, C){
     TRANSITION.elapsed = 0;
     TRANSITION.duration = durMs;
     TRANSITION.callback = callback;
+    TRANSITION.flipApplied = false;  // Track if flip has been applied
+    TRANSITION.flipAt = targetPose.flipAt;  // Store flip timing
+    TRANSITION.flipParts = targetPose.flipParts;  // Store parts to flip
     
-    // Apply sprite mirror flags if pose has flipParts
-    if (targetPose.flipParts && Array.isArray(targetPose.flipParts)) {
-      console.log(`[startTransition] Setting mirror for parts:`, targetPose.flipParts);
-      targetPose.flipParts.forEach(part => {
-        setMirrorForPart(part, true);
-      });
-    }
+    // Don't apply flip immediately - wait for flipAt progress
     
     pushPoseOverride('player', targetPose, durMs);
   }
@@ -471,6 +468,18 @@ function makeCombat(G, C){
     if (!TRANSITION.active) return;
     
     TRANSITION.elapsed += dt * 1000;
+    
+    // Apply flips at the specified progress point
+    if (TRANSITION.flipAt !== null && !TRANSITION.flipApplied && TRANSITION.flipParts){
+      const progress = TRANSITION.elapsed / TRANSITION.duration;
+      if (progress >= TRANSITION.flipAt){
+        console.log(`Applying flip at progress ${progress.toFixed(2)} (flipAt=${TRANSITION.flipAt})`);
+        for (const part of TRANSITION.flipParts){
+          setMirrorForPart(part, true);
+        }
+        TRANSITION.flipApplied = true;
+      }
+    }
     
     if (TRANSITION.elapsed >= TRANSITION.duration){
       TRANSITION.active = false;
