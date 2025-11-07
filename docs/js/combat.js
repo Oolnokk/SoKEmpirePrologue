@@ -166,6 +166,8 @@ function makeCombat(G, C){
     
     let presetName = seq[COMBO.sequenceIndex % seq.length];
     
+    console.log(`[playComboAttack] Raw preset name from sequence: "${presetName}"`);
+    
     // Map common attack names to library keys
     const presetMap = {
       'KICK': 'Kick',
@@ -174,6 +176,7 @@ function makeCombat(G, C){
     };
     presetName = presetMap[presetName] || presetName;
     
+    console.log(`[playComboAttack] Mapped preset name: "${presetName}"`);
     console.log(`Combo hit ${COMBO.hits+1}: ${presetName}`);
     
     playQuickAttack(presetName, 0);
@@ -186,10 +189,14 @@ function makeCombat(G, C){
 
   // Play quick attack
   function playQuickAttack(presetName, windupMs){
+    console.log(`[playQuickAttack] presetName=${presetName}, checking C.presets...`);
+    
     // Check if it's a preset with full config
     const preset = C.presets?.[presetName];
+    console.log(`[playQuickAttack] preset=${preset ? 'FOUND' : 'NOT FOUND'}`, preset);
     
     if (preset && preset.poses){
+      console.log(`[playQuickAttack] Using preset poses for ${presetName}`);
       // Preset with pose sequence
       ATTACK.active = true;
       ATTACK.preset = presetName;
