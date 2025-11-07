@@ -152,6 +152,9 @@ function makeCombat(G, C){
       return;
     }
 
+    // Mark attack as active immediately to prevent double-triggering
+    ATTACK.active = true;
+
     // Get combo config for current weapon (default to unarmed)
     const p = P();
     const weapon = p?.weapon || 'unarmed';
@@ -161,6 +164,7 @@ function makeCombat(G, C){
     
     if (seq.length === 0) {
       console.log('No combo sequence found');
+      ATTACK.active = false;  // Clear if we bail
       return;
     }
     
@@ -197,8 +201,7 @@ function makeCombat(G, C){
     
     if (preset && preset.poses){
       console.log(`[playQuickAttack] Using preset poses for ${presetName}`);
-      // Preset with pose sequence
-      ATTACK.active = true;
+      // Preset with pose sequence (ATTACK.active already set by caller)
       ATTACK.preset = presetName;
       
       const durs = preset.durations || {};
@@ -223,8 +226,8 @@ function makeCombat(G, C){
         });
       });
     } else {
-      // Simple library entry or fallback
-      ATTACK.active = true;
+      console.log(`[playQuickAttack] Fallback to generic poses`);
+      // Simple library entry or fallback (ATTACK.active already set by caller)
       ATTACK.preset = presetName;
       
       const durs = getPresetDurations(presetName);
