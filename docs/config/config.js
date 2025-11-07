@@ -543,7 +543,52 @@ window.CONFIG = window.CONFIG || {};
   };
 
   // IMPORTANT: merge instead of overwrite, then add weapon presets that opt into weapon colliders
-  CONFIG.presets = Object.assign({}, CONFIG.presets || {}, { SLAM, KICK, PUNCH });
+  CONFIG.presets = Object.assign({}, CONFIG.presets || {}, { SLAM, KICK, PUNCH,
+    ComboKICK1: {
+      durations: { toWindup:180, toStrike:110, toRecoil:680, toStance:0 },
+      knockbackBase: 180,
+      cancelWindow: 0.6,
+      poses: {
+        Stance: { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:110, lKnee:30, rHip:170, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, resetFlipsBefore: true, allowAiming: true, aimLegs: false },
+        Windup: { torso:-10, lShoulder:-100, lElbow:-120, rShoulder:-80, rElbow:-100, lHip:110, lKnee:30, rHip:170, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: true, aimRightLegOnly: true, anim_events: [{ time: 0.00, velocityX: -80, velocityY: 0 }] },
+        Strike: { torso:90, lShoulder:-27, lElbow:0, rShoulder:90, rElbow:0, lHip:87, lKnee:0, rHip:0, rKnee:0, rootMoveVel:{x:0,y:0}, impulseMag:120, impulseDirDeg:0, allowAiming: true, aimLegs: true, aimRightLegOnly: true, flip: true, flipAt: 0.1, flipParts: ['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'], fullFlipFacing: true, fullFlipAt: 0.1, anim_events: [ { time: 0.00, impulse: 180, impulse_angle: 0 }, { time: 0.05, velocityX: 0, velocityY: 0, localVel:true } ] },
+        Recoil: { torso:-6, lShoulder:-100, lElbow:-120, rShoulder:-90, rElbow:-120, lHip:110, lKnee:40, rHip:30, rKnee:50, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: false, aimLegs: false, flip: true, flipAt: 0.9, flipParts: ['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'], fullFlipFacing: true, fullFlipAt: 0.9, anim_events: [{ time: 0.00, velocityX: 0, velocityY: 0 }] }
+      }
+    },
+    ComboPUNCH1: {
+      durations: { toWindup1:180, toWindup2:180, toStrike1:110, toStrike2:110, toRecoil:200, toStance:120 },
+      knockbackBase: 140,
+      cancelWindow: 0.7,
+      poses: {
+        Stance: { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:110, lKnee:40, rHip:30, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, resetFlipsBefore: true, allowAiming: true, aimLegs: false },
+        Windup: { torso:-35, lShoulder:-360, lElbow:0, rShoulder:-360, rElbow:0, lHip:130, lKnee:90, rHip:100, rKnee:90, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: false, anim_events: [ { time: 0.00, velocityX: -15, velocityY: 0 }, { time: 0.65, impulse: 320, impulse_angle: -90 } ] },
+        Strike: { torso:45, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:180, lKnee:10, rHip:110, rKnee:20, rootMoveVel:{x:0,y:0, flip: false }, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: false, anim_events: [ { time: 0.00, impulse: 450, impulse_angle: -45 }, { time: 0.05, velocityX: 280, velocityY: 120, localVel: true } ] },
+        Recoil: { torso:-15, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:110, lKnee:70, rHip:100, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: false, aimLegs: false, anim_events: [ { time: 0.00, velocityX: 80, velocityY: -40 }, { time: 0.30, impulse: 120, impulse_angle: 160 } ] }
+      }
+    },
+    ComboKICK2: {
+      durations: { toWindup:180, toStrike:110, toRecoil:680, toStance:0 },
+      knockbackBase: 180,
+      cancelWindow: 0.6,
+      poses: {
+        Stance: { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:110, lKnee:30, rHip:170, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, resetFlipsBefore: true, allowAiming: true, aimLegs: false },
+        Windup: { torso:-10, lShoulder:-100, lElbow:-120, rShoulder:-80, rElbow:-100, lHip:110, lKnee:30, rHip:170, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: true, aimRightLegOnly: true, anim_events: [{ time: 0.00, velocityX: -80, velocityY: 0 }] },
+        Strike: { torso:90, lShoulder:-27, lElbow:0, rShoulder:90, rElbow:0, lHip:87, lKnee:0, rHip:0, rKnee:0, rootMoveVel:{x:0,y:0}, impulseMag:120, impulseDirDeg:0, allowAiming: true, aimLegs: true, aimRightLegOnly: true, flip: true, flipAt: 0.1, flipParts: ['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'], fullFlipFacing: true, fullFlipAt: 0.1, anim_events: [ { time: 0.00, impulse: 180, impulse_angle: 0 }, { time: 0.05, velocityX: 0, velocityY: 0, localVel:true } ] },
+        Recoil: { torso:-6, lShoulder:-100, lElbow:-120, rShoulder:-90, rElbow:-120, lHip:110, lKnee:40, rHip:30, rKnee:50, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: false, aimLegs: false, flip: true, flipAt: 0.9, flipParts: ['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'], fullFlipFacing: true, fullFlipAt: 0.9, anim_events: [{ time: 0.00, velocityX: 0, velocityY: 0 }] }
+      }
+    },
+    ComboPUNCH2: {
+      durations: { toWindup1:180, toWindup2:180, toStrike1:110, toStrike2:110, toRecoil:200, toStance:120 },
+      knockbackBase: 140,
+      cancelWindow: 0.7,
+      poses: {
+        Stance: { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:110, lKnee:40, rHip:30, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, resetFlipsBefore: true, allowAiming: true, aimLegs: false },
+        Windup: { torso:-35, lShoulder:-360, lElbow:0, rShoulder:-360, rElbow:0, lHip:130, lKnee:90, rHip:100, rKnee:90, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: false, anim_events: [ { time: 0.00, velocityX: -15, velocityY: 0 }, { time: 0.65, impulse: 320, impulse_angle: -90 } ] },
+        Strike: { torso:45, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:180, lKnee:10, rHip:110, rKnee:20, rootMoveVel:{x:0,y:0, flip: false }, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: false, anim_events: [ { time: 0.00, impulse: 450, impulse_angle: -45 }, { time: 0.05, velocityX: 280, velocityY: 120, localVel: true } ] },
+        Recoil: { torso:-15, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:110, lKnee:70, rHip:100, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: false, aimLegs: false, anim_events: [ { time: 0.00, velocityX: 80, velocityY: -40 }, { time: 0.30, impulse: 120, impulse_angle: 160 } ] }
+      }
+    }
+  });
 
   // Ensure core weapon presets exist and opt-in to weapon colliders.
   const ensurePreset = (name, base='PUNCH') => {
