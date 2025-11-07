@@ -1,3 +1,47 @@
+// Character selection and settings management
+function initCharacterDropdown() {
+  const characterSelect = document.getElementById('characterSelect');
+  if (!characterSelect || !window.CONFIG || !window.CONFIG.characters) return;
+  characterSelect.innerHTML = '';
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = '-- Select Character --';
+  characterSelect.appendChild(defaultOption);
+  const characters = window.CONFIG.characters;
+  Object.keys(characters).forEach(key => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = key;
+    characterSelect.appendChild(option);
+  });
+  characterSelect.addEventListener('change', (e) => {
+    const selectedChar = e.target.value;
+    if (!selectedChar || !characters[selectedChar]) return;
+    const charData = characters[selectedChar];
+    // Sync fighter, weapon, and appearance
+    window.GAME.selectedFighter = charData.fighter;
+    window.GAME.selectedWeapon = charData.weapon;
+    window.GAME.selectedAppearance = {
+      clothes: charData.clothes,
+      hairstyle: charData.hairstyle,
+      beard: charData.beard,
+      adornments: charData.adornments
+    };
+    // Optionally update UI or trigger re-render
+    if (typeof showFighterSettings === 'function') {
+      showFighterSettings(charData.fighter);
+    }
+    // Also update fighter dropdown to match
+    const fighterSelect = document.getElementById('fighterSelect');
+    if (fighterSelect) fighterSelect.value = charData.fighter;
+  });
+  console.log('[initCharacterDropdown] Character dropdown initialized with', Object.keys(characters).length, 'characters');
+}
+// Initialize dropdowns on page load
+window.addEventListener('DOMContentLoaded', () => {
+  initCharacterDropdown();
+  initFighterDropdown();
+});
 import './_clearOverride.js?v=1';
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=6';
