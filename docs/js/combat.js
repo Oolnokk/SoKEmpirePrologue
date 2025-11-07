@@ -174,11 +174,11 @@ function makeCombat(G, C){
     
     console.log(`[playComboAttack] Raw preset name from sequence: "${presetName}"`);
     
-    // Map common attack names to library keys
+    // Map common attack names to preset keys (keep uppercase for CONFIG.presets)
     const presetMap = {
-      'KICK': 'Kick',
-      'PUNCH': 'Jab',  // Default punch is Jab
-      'SLAM': 'Slam'
+      'KICK': 'KICK',
+      'PUNCH': 'PUNCH',
+      'SLAM': 'SLAM'
     };
     presetName = presetMap[presetName] || presetName;
     
