@@ -203,6 +203,9 @@ function makeCombat(G, C){
     
     if (preset && preset.poses){
       console.log(`[playQuickAttack] Using preset poses for ${presetName}`);
+      console.log(`[playQuickAttack] Preset poses:`, Object.keys(preset.poses));
+      console.log(`[playQuickAttack] Preset durations:`, preset.durations);
+      
       // Preset with pose sequence (ATTACK.active already set by caller)
       ATTACK.preset = presetName;
       
@@ -212,15 +215,24 @@ function makeCombat(G, C){
       const recoilPose = preset.poses.Recoil || buildPoseFromKey('Recoil');
       const stancePose = preset.poses.Stance || buildPoseFromKey('Stance');
       
+      console.log(`[playQuickAttack] Windup pose:`, windupPose);
+      console.log(`[playQuickAttack] Strike pose:`, strikePose);
+      
       const actualWindup = windupMs || durs.toWindup || 160;
       const strikeTime = durs.toStrike || 110;
       const recoilTime = durs.toRecoil || 200;
       const stanceTime = durs.toStance || 120;
       
+      console.log(`[playQuickAttack] Durations: windup=${actualWindup}, strike=${strikeTime}, recoil=${recoilTime}, stance=${stanceTime}`);
+      
       startTransition(windupPose, 'Windup', actualWindup, ()=>{
+        console.log(`[playQuickAttack] Windup complete, starting Strike`);
         startTransition(strikePose, 'Strike', strikeTime, ()=>{
+          console.log(`[playQuickAttack] Strike complete, starting Recoil`);
           startTransition(recoilPose, 'Recoil', recoilTime, ()=>{
+            console.log(`[playQuickAttack] Recoil complete, starting Stance`);
             startTransition(stancePose, 'Stance', stanceTime, ()=>{
+              console.log(`[playQuickAttack] Stance complete, attack finished`);
               ATTACK.active = false;
               ATTACK.preset = null;
             });
