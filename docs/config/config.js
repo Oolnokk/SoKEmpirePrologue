@@ -552,4 +552,5 @@ window.CONFIG = window.CONFIG || {};
   ['SLASH','STAB','THRUST','SWEEP','CHOP','SMASH','SWING','HACK','TOSS'].forEach(n => ensurePreset(n));
 
   try { document.dispatchEvent(new Event('config:ready')); } catch(_){}
+}
 
