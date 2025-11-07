@@ -7,24 +7,24 @@ window.CONFIG = {
 
   poses: {
     Stance: {
-      torso: 10,
-      lShoulder: -120,
-      lElbow: -120,
-      rShoulder: -65,
-      rElbow: -140,
-      lHip: 110,
-      lKnee: 30,
-      rHip: 170,
-      rKnee: 40,
-      rootMoveVel: { x: 0, y: 0 },
-      impulseMag: 0,
-      impulseDirDeg: 0,
-      resetFlipsBefore: true,
-      allowAiming: true,
-      aimLegs: false
+        torso: 10,
+        lShoulder: -120,
+        lElbow: -120,
+        rShoulder: -65,
+        rElbow: -140,
+        lHip: 110,
+        lKnee: 40,
+        rHip: 30,
+        rKnee: 40,
+        rootMoveVel: { x: 0, y: 0 },
+        impulseMag: 0,
+        impulseDirDeg: 0,
+        resetFlipsBefore: true,
+        allowAiming: true,
+        aimLegs: false
     },
     Windup: {
-      torso: -35, lShoulder: -360, lElbow: 0, rShoulder: -360, rElbow: 0, lHip: 130, lKnee: 90, rHip: 100, rKnee: 90,
+        torso: -35, lShoulder: -360, lElbow: 0, rShoulder: -360, rElbow: 0, lHip: 40, lKnee: 90, rHip: -90, rKnee: 90,
       rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: true, aimLegs: false,
       anim_events: [
@@ -33,7 +33,7 @@ window.CONFIG = {
       ]
     },
     Strike: {
-      torso: 45, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0, lHip: 180, lKnee: 10, rHip: 110, rKnee: 20,
+        torso: 45, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0, lHip: 180, lKnee: 0, rHip: 90, rKnee: 0,
       rootMoveVel: { x: 0, y: 0, flip: false }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: true, aimLegs: false,
       anim_events: [
@@ -42,7 +42,7 @@ window.CONFIG = {
       ]
     },
     Recoil: { durMs: 200, phase: 'recoil',
-      torso: -15, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0, lHip: 110, lKnee: 70, rHip: 100, rKnee: 40,
+        torso: -15, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0, lHip: 0, lKnee: 70, rHip: 110, rKnee: 0,
       rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: false, aimLegs: false,
       anim_events: [
@@ -51,14 +51,14 @@ window.CONFIG = {
       ]
     },
     Jump: {
-      torso: -10, lShoulder: -160, lElbow: -30, rShoulder: -160, rElbow: -30,
-      lHip: 120, lKnee: 60, rHip: 120, rKnee: 60,
+        torso: -10, lShoulder: -160, lElbow: -30, rShoulder: -160, rElbow: -30,
+        lHip: 120, lKnee: 60, rHip: 120, rKnee: 60,
       rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: true, aimLegs: false
     },
     Walk: {
-      torso: 20, lShoulder: -100, lElbow: -100, rShoulder: -100, rElbow: -100,
-      lHip: 90, lKnee: 20, rHip: 90, rKnee: 20,
+        torso: 20, lShoulder: -100, lElbow: -100, rShoulder: -100, rElbow: -100,
+        lHip: 90, lKnee: 20, rHip: 90, rKnee: 20,
       rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: true, aimLegs: false
     }
