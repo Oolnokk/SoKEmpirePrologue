@@ -280,6 +280,7 @@ function makeCombat(G, C){
         ATTACK.active = false;
         ATTACK.isCharging = false;
         ATTACK.slot = null;
+        TRANSITION.active = false;  // Clear any transition state
         // Don't push stance pose yet - let the attack handle it
       }
       
