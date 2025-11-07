@@ -1,5 +1,6 @@
 // combat.js — Full attack system matching reference HTML (tap/hold, charge, combo, queue)
 import { pushPoseOverride } from './animator.js?v=2';
+import { resetMirror, setMirrorForPart } from './sprites.js?v=8';
 
 export function initCombat(){
   const G = (window.GAME ||= {});
@@ -140,6 +141,14 @@ function makeCombat(G, C){
     TRANSITION.duration = durMs;
     TRANSITION.callback = callback;
     
+    // Apply sprite mirror flags if pose has flipParts
+    if (targetPose.flipParts && Array.isArray(targetPose.flipParts)) {
+      console.log(`[startTransition] Setting mirror for parts:`, targetPose.flipParts);
+      targetPose.flipParts.forEach(part => {
+        setMirrorForPart(part, true);
+      });
+    }
+    
     pushPoseOverride('player', targetPose, durMs);
   }
 
@@ -231,6 +240,13 @@ function makeCombat(G, C){
           console.log(`[playQuickAttack] Strike complete, starting Recoil`);
           startTransition(recoilPose, 'Recoil', recoilTime, ()=>{
             console.log(`[playQuickAttack] Recoil complete, starting Stance`);
+            
+            // Reset sprite mirror flags when returning to stance (if resetFlipsBefore is set)
+            if (stancePose.resetFlipsBefore) {
+              console.log(`[playQuickAttack] Resetting sprite mirrors`);
+              resetMirror();
+            }
+            
             startTransition(stancePose, 'Stance', stanceTime, ()=>{
               console.log(`[playQuickAttack] Stance complete, attack finished`);
               ATTACK.active = false;
