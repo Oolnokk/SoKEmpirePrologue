@@ -5,83 +5,65 @@ window.CONFIG = {
   canvas: { w: 720, h: 460, scale: 1 },
   groundY: 380,
 
-  colors: { body:'#e5f0ff', left:'#86efac', right:'#93c5fd', guide:'#233044', hitbox:'#0ea5e9' },
-
-  // Debug options
-  debug: { freezeAngles: false },
-
-  // Global fallback durations (SLAM uses these)
-  durations: { toWindup:1600, toStrike:160, toRecoil:180, toStance:0 },
-
-  parts: {
-    hitbox:{ w:135, h:180, r:60, torsoAttach:{ nx:0.5, ny:0.7 } },
-    torso:{ len:60 }, arm:{ upper:50, lower:50 }, leg:{ upper:40, lower:40 }, head:{ neck:14, radius:16 }
-  },
-
-  hierarchy: { legsFollowTorsoRotation: false },
-  ik: { calvesOnly: true },
-
-  // basePose: Mathematical reference pose (T-pose/neutral skeleton state)
-  // This is the zero-angle reference used by angle calculations in the skeleton system.
-  // All fighters share the same skeleton structure, so this is global and not per-fighter.
-  basePose: { torso:0, lShoulder:-90, lElbow:0, rShoulder:-90, rElbow:0, lHip:90, lKnee:0, rHip:90, rKnee:0 },
-  limits: {
-    torso:{ absMin:-45, absMax:90 },
-    shoulder:{ relMin:-360, relMax:-90 },
-    elbow:{ relMin:-170, relMax:0 },
-    hip:{ absMin:90, absMax:210 },
-    knee:{ relMin:0, relMax:170 }
-  },
-
-  // CONFIG.poses: Visual animation poses
-  // Stance: The idle/ready visual pose used by the animation system (different from basePose)
-  // This is what fighters actually look like when standing idle, not the mathematical reference.
   poses: {
-    Stance:{ 
-      torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40, 
-      rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, resetFlipsBefore: true,
-      allowAiming: true, aimLegs: false
+    Stance: {
+      torso: 10,
+      lShoulder: -120,
+      lElbow: -120,
+      rShoulder: -65,
+      rElbow: -140,
+      lHip: 110,
+      lKnee: 30,
+      rHip: 170,
+      rKnee: 40,
+      rootMoveVel: { x: 0, y: 0 },
+      impulseMag: 0,
+      impulseDirDeg: 0,
+      resetFlipsBefore: true,
+      allowAiming: true,
+      aimLegs: false
     },
-    Windup:{
-      torso:-35, lShoulder:-360, lElbow:0, rShoulder:-360, rElbow:0, lHip:130, lKnee:90, rHip:100, rKnee:90,
-      rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
+    Windup: {
+      torso: -35, lShoulder: -360, lElbow: 0, rShoulder: -360, rElbow: 0, lHip: 130, lKnee: 90, rHip: 100, rKnee: 90,
+      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: true, aimLegs: false,
       anim_events: [
         { time: 0.00, velocityX: -15, velocityY: 0 },
         { time: 0.65, impulse: 320, impulse_angle: -90 }
       ]
     },
-    Strike:{
-      torso:45, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:180, lKnee:10, rHip:110, rKnee:20,
-      rootMoveVel:{x:0,y:0, flip: false }, impulseMag:0, impulseDirDeg:0,
+    Strike: {
+      torso: 45, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0, lHip: 180, lKnee: 10, rHip: 110, rKnee: 20,
+      rootMoveVel: { x: 0, y: 0, flip: false }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: true, aimLegs: false,
       anim_events: [
         { time: 0.00, impulse: 450, impulse_angle: -45 },
         { time: 0.05, velocityX: 280, velocityY: 120, localVel: true }
       ]
     },
-    Recoil:{ durMs:200, phase:'recoil',
-      torso:-15, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:110, lKnee:70, rHip:100, rKnee:40,
-      rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
+    Recoil: { durMs: 200, phase: 'recoil',
+      torso: -15, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0, lHip: 110, lKnee: 70, rHip: 100, rKnee: 40,
+      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: false, aimLegs: false,
       anim_events: [
         { time: 0.00, velocityX: 80, velocityY: -40 },
         { time: 0.30, impulse: 120, impulse_angle: 160 }
       ]
     },
-    Jump:{ 
-      torso:-10, lShoulder:-160, lElbow:-30, rShoulder:-160, rElbow:-30, 
-      lHip:120, lKnee:60, rHip:120, rKnee:60, 
-      rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
+    Jump: {
+      torso: -10, lShoulder: -160, lElbow: -30, rShoulder: -160, rElbow: -30,
+      lHip: 120, lKnee: 60, rHip: 120, rKnee: 60,
+      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: true, aimLegs: false
     },
-    Walk:{ 
-      torso:20, lShoulder:-100, lElbow:-100, rShoulder:-100, rElbow:-100,
-      lHip:90, lKnee:20, rHip:90, rKnee:20,
-      rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
+    Walk: {
+      torso: 20, lShoulder: -100, lElbow: -100, rShoulder: -100, rElbow: -100,
+      lHip: 90, lKnee: 20, rHip: 90, rKnee: 20,
+      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: true, aimLegs: false
     }
   },
+  // ...existing code...
 
   fighters: {
     TLETINGAN: {
@@ -305,12 +287,37 @@ window.CONFIG = {
   },
 
   // === NEW: per-weapon combo tables (used by playComboAttack)
+
+  // === NEW: Character system ===
+  // Each character has fighter, weapon, slotted attacks, and appearance options
+  characters: {
+  player: {
+    fighter: 'TLETINGAN',
+    weapon: 'unarmed',
+    slottedAttacks: ['ComboKICK1','ComboPUNCH1','ComboKICK2','ComboPUNCH2'],
+    clothes: 'default',
+    hairstyle: 'short',
+    beard: 'none',
+    adornments: []
+  },
+  enemy1: {
+    fighter: 'Mao-ao_M',
+    weapon: 'dagger-swords',
+    slottedAttacks: ['SLASH','STAB','SLASH','STAB'],
+    clothes: 'robe',
+    hairstyle: 'long',
+    beard: 'goatee',
+    adornments: ['earring']
+  }
+  },
+  // Add more characters or pools for randomization as needed
+
   combos: {
-      unarmed: {
-        sequence: ['ComboKICK1','ComboPUNCH1','ComboKICK2','ComboPUNCH2'],
-        timerDuration: 3000,
-        type: 'blunt'
-      },
+  unarmed: {
+    sequence: ['ComboKICK1','ComboPUNCH1','ComboKICK2','ComboPUNCH2'],
+    timerDuration: 3000,
+    type: 'blunt'
+  },
   ComboKICK1: {
     durations: { toWindup:180, toStrike:110, toRecoil:680, toStance:0 },
     knockbackBase: 180,
@@ -355,31 +362,31 @@ window.CONFIG = {
       Recoil: { torso:-15, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:110, lKnee:70, rHip:100, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: false, aimLegs: false, anim_events: [ { time: 0.00, velocityX: 80, velocityY: -40 }, { time: 0.30, impulse: 120, impulse_angle: 160 } ] }
     }
   },
-      'dagger-swords': {
-        sequence: ['SLASH','STAB','SLASH','STAB'],
-        timerDuration: 2500,
-        type: 'sharp'
-      },
-      sarrarru: {
-        sequence: ['THRUST','SWEEP','THRUST','SWEEP'],
-        timerDuration: 3500,
-        type: 'sharp'
-      },
-      'light-greatblade': {
-        sequence: ['CHOP','SLASH','CHOP','SLASH'],
-        timerDuration: 4000,
-        type: 'sharp'
-      },
-      greatclub: {
-        sequence: ['SMASH','SWING','SMASH','SWING'],
-        timerDuration: 3000,
-        type: 'blunt'
-      },
-      hatchets: {
-        sequence: ['HACK','HACK','HACK','TOSS'],
-        timerDuration: 2800,
-        type: 'sharp'
-      }
+  },
+  'dagger-swords': {
+    sequence: ['SLASH','STAB','SLASH','STAB'],
+    timerDuration: 2500,
+    type: 'sharp'
+  },
+  sarrarru: {
+    sequence: ['THRUST','SWEEP','THRUST','SWEEP'],
+    timerDuration: 3500,
+    type: 'sharp'
+  },
+  'light-greatblade': {
+    sequence: ['CHOP','SLASH','CHOP','SLASH'],
+    timerDuration: 4000,
+    type: 'sharp'
+  },
+  greatclub: {
+    sequence: ['SMASH','SWING','SMASH','SWING'],
+    timerDuration: 3000,
+    type: 'blunt'
+  },
+  hatchets: {
+    sequence: ['HACK','HACK','HACK','TOSS'],
+    timerDuration: 2800,
+    type: 'sharp'
   }
 };
 
@@ -485,7 +492,6 @@ window.CONFIG = window.CONFIG || {};
       }}
     }
   };
-})();
 
 
 // Back-compat: build CONFIG.presets from CONFIG.attacks
@@ -546,4 +552,4 @@ window.CONFIG = window.CONFIG || {};
   ['SLASH','STAB','THRUST','SWEEP','CHOP','SMASH','SWING','HACK','TOSS'].forEach(n => ensurePreset(n));
 
   try { document.dispatchEvent(new Event('config:ready')); } catch(_){}
-})();
+
