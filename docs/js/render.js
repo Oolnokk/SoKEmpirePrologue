@@ -150,7 +150,6 @@ function computeAnchorsForFighter(F, C, fighterName) {
   };
 
   // Determine if character is facing left for sprite rendering
-  // We DON'T mirror bones here anymore - sprites.js will handle flipping via canvas scale
   const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
   const flipLeft = Math.cos(facingRad) < 0;
 

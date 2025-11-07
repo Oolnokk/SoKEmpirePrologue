@@ -277,18 +277,18 @@ export function renderSprites(ctx){
   const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
   if (DEBUG.showSprites === false) return; // Skip sprite rendering if disabled
   
-  // Character-level horizontal flip when facing left
-  // Determine which entity we're rendering (player or npc)
-  // fname is the fighter config name (e.g., 'TLETINGAN'), but flip state is stored by entity name
-  const entity = 'player'; // For now, assume we're rendering the player
+  // Get flip state
+  const entity = 'player';
   const flipLeft = G.FLIP_STATE?.[entity] || false;
   const hitbox = G.FIGHTERS?.[entity]?.hitbox;
   const centerX = hitbox?.x ?? 0;
-
+  
   ctx.save();
+  // Mirror around character center when facing left (matching reference HTML)
   if (flipLeft) {
-    ctx.translate(centerX * 2, 0);
+    ctx.translate(centerX, 0);
     ctx.scale(-1, 1);
+    ctx.translate(-centerX, 0);
   }
 
   // RENDER.MIRROR flags control per-limb mirroring (e.g., for attack animations)

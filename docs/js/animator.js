@@ -158,6 +158,18 @@ export function updatePoses(){
     // Add basePose to targetDeg (matching reference HTML behavior)
     const basePose = C.basePose || {};
     const finalDeg = addAngles(basePose, targetDeg);
+    
+    // Debug: log once on first frame for player
+    if (id === 'player' && F.anim.dt === 0 && !F.__debugLogged) {
+      console.log('[animator] basePose:', basePose);
+      console.log('[animator] targetDeg (Stance):', targetDeg);
+      console.log('[animator] finalDeg (basePose + Stance):', finalDeg);
+      console.log('[animator] Specifically legs:');
+      console.log('  basePose.lHip =', basePose.lHip, ', Stance.lHip =', targetDeg.lHip, ', final =', finalDeg.lHip);
+      console.log('  basePose.rHip =', basePose.rHip, ', Stance.rHip =', targetDeg.rHip, ', final =', finalDeg.rHip);
+      F.__debugLogged = true;
+    }
+    
     const target = degToRadPose(finalDeg); const lambda = 10;
     for(const k of ANG_KEYS){ const cur = F.jointAngles[k] ?? 0; const tar = target[k] ?? cur; F.jointAngles[k] = damp(cur, tar, lambda, F.anim.dt); }
   }
