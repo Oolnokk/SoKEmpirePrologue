@@ -164,7 +164,16 @@ function makeCombat(G, C){
       return;
     }
     
-    const presetName = seq[COMBO.sequenceIndex % seq.length];
+    let presetName = seq[COMBO.sequenceIndex % seq.length];
+    
+    // Map common attack names to library keys
+    const presetMap = {
+      'KICK': 'Kick',
+      'PUNCH': 'Jab',  // Default punch is Jab
+      'SLAM': 'Slam'
+    };
+    presetName = presetMap[presetName] || presetName;
+    
     console.log(`Combo hit ${COMBO.hits+1}: ${presetName}`);
     
     playQuickAttack(presetName, 0);
@@ -177,27 +186,59 @@ function makeCombat(G, C){
 
   // Play quick attack
   function playQuickAttack(presetName, windupMs){
-    ATTACK.active = true;
-    ATTACK.preset = presetName;
+    // Check if it's a preset with full config
+    const preset = C.presets?.[presetName];
     
-    const durs = getPresetDurations(presetName);
-    const windupPose = buildPoseFromKey('Windup');
-    const strikePose = buildPoseFromKey('Strike');
-    const recoilPose = buildPoseFromKey('Recoil');
-    const stancePose = buildPoseFromKey('Stance');
-    
-    const actualWindup = windupMs || durs.toWindup;
-    
-    startTransition(windupPose, 'Windup', actualWindup, ()=>{
-      startTransition(strikePose, 'Strike', durs.toStrike, ()=>{
-        startTransition(recoilPose, 'Recoil', durs.toRecoil, ()=>{
-          startTransition(stancePose, 'Stance', durs.toStance, ()=>{
-            ATTACK.active = false;
-            ATTACK.preset = null;
+    if (preset && preset.poses){
+      // Preset with pose sequence
+      ATTACK.active = true;
+      ATTACK.preset = presetName;
+      
+      const durs = preset.durations || {};
+      const windupPose = preset.poses.Windup || buildPoseFromKey('Windup');
+      const strikePose = preset.poses.Strike || buildPoseFromKey('Strike');
+      const recoilPose = preset.poses.Recoil || buildPoseFromKey('Recoil');
+      const stancePose = preset.poses.Stance || buildPoseFromKey('Stance');
+      
+      const actualWindup = windupMs || durs.toWindup || 160;
+      const strikeTime = durs.toStrike || 110;
+      const recoilTime = durs.toRecoil || 200;
+      const stanceTime = durs.toStance || 120;
+      
+      startTransition(windupPose, 'Windup', actualWindup, ()=>{
+        startTransition(strikePose, 'Strike', strikeTime, ()=>{
+          startTransition(recoilPose, 'Recoil', recoilTime, ()=>{
+            startTransition(stancePose, 'Stance', stanceTime, ()=>{
+              ATTACK.active = false;
+              ATTACK.preset = null;
+            });
           });
         });
       });
-    });
+    } else {
+      // Simple library entry or fallback
+      ATTACK.active = true;
+      ATTACK.preset = presetName;
+      
+      const durs = getPresetDurations(presetName);
+      const windupPose = buildPoseFromKey('Windup');
+      const strikePose = buildPoseFromKey('Strike');
+      const recoilPose = buildPoseFromKey('Recoil');
+      const stancePose = buildPoseFromKey('Stance');
+      
+      const actualWindup = windupMs || durs.toWindup;
+      
+      startTransition(windupPose, 'Windup', actualWindup, ()=>{
+        startTransition(strikePose, 'Strike', durs.toStrike, ()=>{
+          startTransition(recoilPose, 'Recoil', durs.toRecoil, ()=>{
+            startTransition(stancePose, 'Stance', durs.toStance, ()=>{
+              ATTACK.active = false;
+              ATTACK.preset = null;
+            });
+          });
+        });
+      });
+    }
   }
 
   // Execute heavy attack
