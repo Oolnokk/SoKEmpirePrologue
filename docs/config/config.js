@@ -6,118 +6,171 @@ window.CONFIG = {
   canvas: { w: 720, h: 460, scale: 1 },
   groundY: 380,
 
-  poses: {
+  posesLibrary: {
     Stance: {
-        torso: 10,
-        lShoulder: -120,
-        lElbow: -120,
-        rShoulder: -65,
-        rElbow: -140,
-        lHip: 110,
-        lKnee: 40,
-        rHip: 30,
-        rKnee: 40,
-        rootMoveVel: { x: 0, y: 0 },
-        impulseMag: 0,
-        impulseDirDeg: 0,
-        resetFlipsBefore: true,
-        allowAiming: true,
-        aimLegs: false
+      torso: 10,
+      lShoulder: -120,
+      lElbow: -120,
+      rShoulder: -65,
+      rElbow: -140,
+      lHip: 110,
+      lKnee: 40,
+      rHip: 30,
+      rKnee: 40,
+      rootMoveVel: { x: 0, y: 0 },
+      impulseMag: 0,
+      impulseDirDeg: 0,
+      resetFlipsBefore: true,
+      allowAiming: true,
+      aimLegs: false
     },
     Windup: {
-        torso: -35, lShoulder: -360, lElbow: 0, rShoulder: -360, rElbow: 0, lHip: 40, lKnee: 90, rHip: -90, rKnee: 90,
-      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
-      allowAiming: true, aimLegs: false,
+      torso: -35,
+      lShoulder: -360,
+      lElbow: 0,
+      rShoulder: -360,
+      rElbow: 0,
+      lHip: 40,
+      lKnee: 90,
+      rHip: -90,
+      rKnee: 90,
+      rootMoveVel: { x: 0, y: 0 },
+      impulseMag: 0,
+      impulseDirDeg: 0,
+      allowAiming: true,
+      aimLegs: false,
       anim_events: [
         { time: 0.00, velocityX: -15, velocityY: 0 },
         { time: 0.65, impulse: 320, impulse_angle: -90 }
       ]
     },
     Strike: {
-        torso: 45, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0, lHip: 180, lKnee: 0, rHip: 90, rKnee: 0,
-      rootMoveVel: { x: 0, y: 0, flip: false }, impulseMag: 0, impulseDirDeg: 0,
-      allowAiming: true, aimLegs: false,
+      torso: 45,
+      lShoulder: -45,
+      lElbow: 0,
+      rShoulder: -45,
+      rElbow: 0,
+      lHip: 180,
+      lKnee: 0,
+      rHip: 90,
+      rKnee: 0,
+      rootMoveVel: { x: 0, y: 0, flip: false },
+      impulseMag: 0,
+      impulseDirDeg: 0,
+      allowAiming: true,
+      aimLegs: false,
       anim_events: [
         { time: 0.00, impulse: 450, impulse_angle: -45 },
         { time: 0.05, velocityX: 280, velocityY: 120, localVel: true }
       ]
     },
-    Recoil: { durMs: 200, phase: 'recoil',
-        torso: -15, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0, lHip: 0, lKnee: 70, rHip: 110, rKnee: 0,
-      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
-      allowAiming: false, aimLegs: false,
-      anim_events: [
-        { time: 0.00, velocityX: 80, velocityY: -40 },
-        { time: 0.30, impulse: 120, impulse_angle: 160 }
-      ]
-    },
-    Jump: {
-        torso: -10, lShoulder: -160, lElbow: -30, rShoulder: -160, rElbow: -30,
-        lHip: 120, lKnee: 60, rHip: 120, rKnee: 60,
-      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
-      allowAiming: true, aimLegs: false
-    },
-    Walk: {
-        torso: 20, lShoulder: -100, lElbow: -100, rShoulder: -100, rElbow: -100,
-        lHip: 90, lKnee: 20, rHip: 90, rKnee: 20,
-      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
-      allowAiming: true, aimLegs: false
-    }
+    // ...existing code...
+    // ... other poses ...
   },
+
+  abilitiesLibrary: {
+    ComboKICK1: {
+      input: 'A',
+      slot: 'quick',
+      attackRef: 'ComboKICK1',
+      sequence: ['KICK_Windup', 'KICK_Strike', 'KICK_Recoil'],
+      hitEffects: ['knockback', 'flip'],
+    },
+    ComboKICK2: {
+      input: 'B',
+      slot: 'quick',
+      attackRef: 'ComboKICK2',
+      sequence: ['KICK_Windup', 'KICK_Strike', 'KICK_Recoil'],
+      hitEffects: ['knockback', 'flip'],
+    },
+    ComboPUNCH1: {
+      input: 'X',
+      slot: 'combo',
+      attackRef: 'ComboPUNCH1',
+      sequence: ['PUNCH_Windup', 'PUNCH_Strike', 'PUNCH_Recoil'],
+      hitEffects: ['knockback'],
+    },
+    ComboPUNCH2: {
+      input: 'Y',
+      slot: 'combo',
+      attackRef: 'ComboPUNCH2',
+      sequence: ['PUNCH_Windup', 'PUNCH_Strike', 'PUNCH_Recoil'],
+      hitEffects: ['knockback'],
+    },
+    SLASH: {
+      input: 'A',
+      slot: 'quick',
+      attackRef: 'SLASH',
+      sequence: ['SLASH_Windup', 'SLASH_Strike', 'SLASH_Recoil'],
+      hitEffects: ['cut'],
+    },
+    STAB: {
+      input: 'B',
+      slot: 'quick',
+      attackRef: 'STAB',
+      sequence: ['STAB_Windup', 'STAB_Strike', 'STAB_Recoil'],
+      hitEffects: ['pierce'],
+    },
+    // Add more abilities as needed
+  },
+  // ...existing code...
   // ...existing code...
 
   fighters: {
     TLETINGAN: {
-          actor: { scale: 0.70 },
-          parts: {
-            hitbox: { w:80, h:110, r:60, torsoAttach: { nx:0.4, ny:0.6 } },
-            torso: { len:40 },
-            arm: { upper:30, lower:40 },
-            leg: { upper:30, lower:30 },
-            head: { neck:10, radius:12 }
-          },
-        hierarchy: { legsFollowTorsoRotation: false },
-        ik: { calvesOnly: true },
-        limits: {
-          torso: { absMin:-45, absMax:90 },
-          shoulder: { relMin:-360, relMax:-90 },
-          elbow: { relMin:-170, relMax:0 },
-          hip: { absMin:90, absMax:210 },
-          knee: { relMin:0, relMax:170 }
-        },
+      actor: { scale: 0.70 },
+      parts: {
+        hitbox: { w:80, h:110, r:60, torsoAttach: { nx:0.4, ny:0.6 } },
+        torso: { len:40 },
+        arm: { upper:30, lower:40 },
+        leg: { upper:30, lower:30 }
+      },
+      abilities: {
+        ComboKICK1: { ref: 'abilitiesLibrary.ComboKICK1' },
+        ComboKICK2: { ref: 'abilitiesLibrary.ComboKICK2' },
+        ComboPUNCH1: { ref: 'abilitiesLibrary.ComboPUNCH1' },
+        ComboPUNCH2: { ref: 'abilitiesLibrary.ComboPUNCH2' }
+      },
+      limits: {
+        torso: { absMin:-45, absMax:90 },
+        shoulder: { relMin:-360, relMax:-90 },
+        elbow: { relMin:-170, relMax:0 },
+        hip: { absMin:90, absMax:210 },
+        knee: { relMin:0, relMax:170 }
+      },
       offsets: {
         torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
         arm: { upper:{ origin:{ax:0, ay:0}, elbow:{ax:0, ay:0} }, lower:{ origin:{ax:0, ay:0} } },
         leg: { upper:{ origin:{ax:0, ay:0}, knee:{ax:0, ay:0}  }, lower:{ origin:{ax:0, ay:0} } },
         head:{ origin:{ax:-1, ay:6} }
       },
-        sprites: {
-          torso: { url: "https://i.imgur.com/YatjSyo.png" },
-          head:  { url: "https://i.imgur.com/WsKQ2Eo.png" },
-          arm_L_upper: { url: "https://i.imgur.com/CAmWLbf.png" },
-          arm_L_lower: { url: "https://i.imgur.com/gOHujif.png" },
-          arm_R_upper: { url: "https://i.imgur.com/CAmWLbf.png" },
-          arm_R_lower: { url: "https://i.imgur.com/gOHujif.png" },
-          leg_L_upper: { url: "https://i.imgur.com/qgcQTmx.png" },
-          leg_L_lower: { url: "https://i.imgur.com/lZbF7j2.png" },
-          leg_R_upper: { url: "https://i.imgur.com/qgcQTmx.png" },
-          leg_R_lower: { url: "https://i.imgur.com/lZbF7j2.png" }
-        },
+      sprites: {
+        torso: { url: "https://i.imgur.com/YatjSyo.png" },
+        head:  { url: "https://i.imgur.com/WsKQ2Eo.png" },
+        arm_L_upper: { url: "https://i.imgur.com/CAmWLbf.png" },
+        arm_L_lower: { url: "https://i.imgur.com/gOHujif.png" },
+        arm_R_upper: { url: "https://i.imgur.com/CAmWLbf.png" },
+        arm_R_lower: { url: "https://i.imgur.com/gOHujif.png" },
+        leg_L_upper: { url: "https://i.imgur.com/qgcQTmx.png" },
+        leg_L_lower: { url: "https://i.imgur.com/lZbF7j2.png" },
+        leg_R_upper: { url: "https://i.imgur.com/qgcQTmx.png" },
+        leg_R_lower: { url: "https://i.imgur.com/lZbF7j2.png" }
+      },
       spriteStyle: {
-            widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
-            xformUnits: "percent",
-            anchor: {
-              legUpper: "start",
-              legLower: "mid"
-            },
-            xform: {
-              torso:    { ax:-0.5,  ay:-0.00, scaleX:4.50, scaleY:4.50, rotDeg:180 },
-              head:     { ax:-1.40, ay:-0.20, scaleX:4.50, scaleY:4.50, rotDeg:180 },
-              armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
-              armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
-              legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
-              legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
-            }
+        widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
+        xformUnits: "percent",
+        anchor: {
+          legUpper: "start",
+          legLower: "mid"
+        },
+        xform: {
+          torso:    { ax:-0.5,  ay:-0.00, scaleX:4.50, scaleY:4.50, rotDeg:180 },
+          head:     { ax:-1.40, ay:-0.20, scaleX:4.50, scaleY:4.50, rotDeg:180 },
+          armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
+          armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
+          legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
+          legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
+        }
       }
     },
     'Mao-ao_M': {
@@ -324,50 +377,10 @@ window.CONFIG = {
     timerDuration: 3000,
     type: 'blunt'
   },
-  ComboKICK1: {
-    durations: { toWindup:180, toStrike:110, toRecoil:680, toStance:0 },
-    knockbackBase: 180,
-    cancelWindow: 0.6,
-    poses: {
-      Stance: { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:110, lKnee:30, rHip:170, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, resetFlipsBefore: true, allowAiming: true, aimLegs: false },
-      Windup: { torso:-10, lShoulder:-100, lElbow:-120, rShoulder:-80, rElbow:-100, lHip:110, lKnee:30, rHip:170, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: true, aimRightLegOnly: true, anim_events: [{ time: 0.00, velocityX: -80, velocityY: 0 }] },
-      Strike: { torso:90, lShoulder:-27, lElbow:0, rShoulder:90, rElbow:0, lHip:87, lKnee:0, rHip:0, rKnee:0, rootMoveVel:{x:0,y:0}, impulseMag:120, impulseDirDeg:0, allowAiming: true, aimLegs: true, aimRightLegOnly: true, flip: true, flipAt: 0.1, flipParts: ['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'], fullFlipFacing: true, fullFlipAt: 0.1, anim_events: [ { time: 0.00, impulse: 180, impulse_angle: 0 }, { time: 0.05, velocityX: 0, velocityY: 0, localVel:true } ] },
-      Recoil: { torso:-6, lShoulder:-100, lElbow:-120, rShoulder:-90, rElbow:-120, lHip:110, lKnee:40, rHip:30, rKnee:50, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: false, aimLegs: false, flip: true, flipAt: 0.9, flipParts: ['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'], fullFlipFacing: true, fullFlipAt: 0.9, anim_events: [{ time: 0.00, velocityX: 0, velocityY: 0 }] }
-    }
-  },
-  ComboPUNCH1: {
-    durations: { toWindup1:180, toWindup2:180, toStrike1:110, toStrike2:110, toRecoil:200, toStance:120 },
-    knockbackBase: 140,
-    cancelWindow: 0.7,
-    poses: {
-      Stance: { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:110, lKnee:40, rHip:30, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, resetFlipsBefore: true, allowAiming: true, aimLegs: false },
-      Windup: { torso:-35, lShoulder:-360, lElbow:0, rShoulder:-360, rElbow:0, lHip:130, lKnee:90, rHip:100, rKnee:90, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: false, anim_events: [ { time: 0.00, velocityX: -15, velocityY: 0 }, { time: 0.65, impulse: 320, impulse_angle: -90 } ] },
-      Strike: { torso:45, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:180, lKnee:10, rHip:110, rKnee:20, rootMoveVel:{x:0,y:0, flip: false }, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: false, anim_events: [ { time: 0.00, impulse: 450, impulse_angle: -45 }, { time: 0.05, velocityX: 280, velocityY: 120, localVel: true } ] },
-      Recoil: { torso:-15, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:110, lKnee:70, rHip:100, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: false, aimLegs: false, anim_events: [ { time: 0.00, velocityX: 80, velocityY: -40 }, { time: 0.30, impulse: 120, impulse_angle: 160 } ] }
-    }
-  },
-  ComboKICK2: {
-    durations: { toWindup:180, toStrike:110, toRecoil:680, toStance:0 },
-    knockbackBase: 180,
-    cancelWindow: 0.6,
-    poses: {
-      Stance: { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:110, lKnee:30, rHip:170, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, resetFlipsBefore: true, allowAiming: true, aimLegs: false },
-      Windup: { torso:-10, lShoulder:-100, lElbow:-120, rShoulder:-80, rElbow:-100, lHip:110, lKnee:30, rHip:170, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: true, aimRightLegOnly: true, anim_events: [{ time: 0.00, velocityX: -80, velocityY: 0 }] },
-      Strike: { torso:90, lShoulder:-27, lElbow:0, rShoulder:90, rElbow:0, lHip:87, lKnee:0, rHip:0, rKnee:0, rootMoveVel:{x:0,y:0}, impulseMag:120, impulseDirDeg:0, allowAiming: true, aimLegs: true, aimRightLegOnly: true, flip: true, flipAt: 0.1, flipParts: ['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'], fullFlipFacing: true, fullFlipAt: 0.1, anim_events: [ { time: 0.00, impulse: 180, impulse_angle: 0 }, { time: 0.05, velocityX: 0, velocityY: 0, localVel:true } ] },
-      Recoil: { torso:-6, lShoulder:-100, lElbow:-120, rShoulder:-90, rElbow:-120, lHip:110, lKnee:40, rHip:30, rKnee:50, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: false, aimLegs: false, flip: true, flipAt: 0.9, flipParts: ['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'], fullFlipFacing: true, fullFlipAt: 0.9, anim_events: [{ time: 0.00, velocityX: 0, velocityY: 0 }] }
-    }
-  },
-  ComboPUNCH2: {
-    durations: { toWindup1:180, toWindup2:180, toStrike1:110, toStrike2:110, toRecoil:200, toStance:120 },
-    knockbackBase: 140,
-    cancelWindow: 0.7,
-    poses: {
-      Stance: { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:110, lKnee:40, rHip:30, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, resetFlipsBefore: true, allowAiming: true, aimLegs: false },
-      Windup: { torso:-35, lShoulder:-360, lElbow:0, rShoulder:-360, rElbow:0, lHip:130, lKnee:90, rHip:100, rKnee:90, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: false, anim_events: [ { time: 0.00, velocityX: -15, velocityY: 0 }, { time: 0.65, impulse: 320, impulse_angle: -90 } ] },
-      Strike: { torso:45, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:180, lKnee:10, rHip:110, rKnee:20, rootMoveVel:{x:0,y:0, flip: false }, impulseMag:0, impulseDirDeg:0, allowAiming: true, aimLegs: false, anim_events: [ { time: 0.00, impulse: 450, impulse_angle: -45 }, { time: 0.05, velocityX: 280, velocityY: 120, localVel: true } ] },
-      Recoil: { torso:-15, lShoulder:-45, lElbow:0, rShoulder:-45, rElbow:0, lHip:110, lKnee:70, rHip:100, rKnee:40, rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0, allowAiming: false, aimLegs: false, anim_events: [ { time: 0.00, velocityX: 80, velocityY: -40 }, { time: 0.30, impulse: 120, impulse_angle: 160 } ] }
-    }
-  },
+  ComboKICK1: { ref: 'library.ComboKICK1' },
+  ComboKICK2: { ref: 'library.ComboKICK2' },
+  ComboPUNCH1: { ref: 'library.ComboPUNCH1' },
+  ComboPUNCH2: { ref: 'library.ComboPUNCH2' },
   },
   'dagger-swords': {
     sequence: ['SLASH','STAB','SLASH','STAB'],
@@ -401,101 +414,60 @@ window.CONFIG = {
 window.CONFIG = window.CONFIG || {};
 (function initAttacks(){
   const D = CONFIG.durations || { toWindup:320, toStrike:160, toRecoil:180, toStance:120 };
-  CONFIG.attacks = {
-    inputs: {
-      button1: { tapSlot: 1, holdSlot: 2, holdThresholdMs: 240 },
-      button2: { tapSlot: 3, holdSlot: 4, holdThresholdMs: 240 }
+  CONFIG.attacksLibrary = {
+    Kick: { base:"Kick", overrides:{} },
+    Slam: { base:"Slam", overrides:{} },
+    Jab:   { base:"Strike", overrides:{ torso:40, lShoulder:-60, rShoulder:-30 } },
+    Cross: { base:"Strike", overrides:{ torso:60, lShoulder:-45, rShoulder:-45 } },
+    Hook:  { base:"Strike", overrides:{ torso:35, lShoulder:-20, rShoulder:-70 } },
+    Upper: { base:"Strike", overrides:{ torso:80, lShoulder:-80, rShoulder:-10 } },
+    ComboKICK1: {
+      base: "KICK",
+      category: "quick",
+      slot: 3,
+      sequence: [
+        { poseKey: "KICK_Windup", durMs: 50, anim_events: [{ time: 0.00, velocityX: -80, velocityY: 0 }] },
+        { poseKey: "KICK_Strike", durMs: 50, anim_events: [ { time: 0.00, impulse: 180, impulse_angle: 0 }, { time: 0.05, velocityX: 0, velocityY: 0, localVel:true } ] },
+        { poseKey: "KICK_Recoil", durMs: 50, anim_events: [{ time: 0.00, velocityX: 0, velocityY: 0 }] }
+      ],
+      knockbackBase: 180,
+      cancelWindow: 0.6
     },
-    defaults: {
-      durations: { toWindup: D.toWindup ?? 320, toStrike: D.toStrike ?? 160, toRecoil: D.toRecoil ?? 180 },
-      comboWindowMs: 700,
-      heavyMaxHoldMs: 3000
+    ComboKICK2: {
+      base: "KICK",
+      category: "quick",
+      slot: 3,
+      sequence: [
+        { poseKey: "KICK_Windup", durMs: 50, anim_events: [{ time: 0.00, velocityX: -80, velocityY: 0 }] },
+        { poseKey: "KICK_Strike", durMs: 50, anim_events: [ { time: 0.00, impulse: 180, impulse_angle: 0 }, { time: 0.05, velocityX: 0, velocityY: 0, localVel:true } ] },
+        { poseKey: "KICK_Recoil", durMs: 50, anim_events: [{ time: 0.00, velocityX: 0, velocityY: 0 }] }
+      ],
+      knockbackBase: 180,
+      cancelWindow: 0.6
     },
-    slots: {
-      1: {
-        label: "Light Combo (4-hit)",
-        type: "light",
-        variety: "combo",
-        combo: { steps: ["Jab", "Cross", "Hook", "Upper"], interRecoil: { poseKey:"Recoil", durMs: 120 } },
-        quickAltAfterHits: 4
-      },
-      2: {
-        label: "Heavy Hold (SLAM)",
-        type: "heavy",
-        variety: "hold_release",
-        requiresWindup: true,
-        knockbackBase: 250,
-        cancelWindowRecoil: 0.5,
-        sequence: [ { poseKey:"Windup", durMs:480 }, { poseKey:"Slam", durMs:160, strike:{} }, { poseKey:"Recoil", durMs:200 } ]
-      },
-      3: {
-        label: "Quick (KICK)",
-        type: "light",
-        variety: "quick",
-        knockbackBase: 180,
-        cancelWindowRecoil: 0.6,
-        quick: {
-          base: [ { poseKey:"KICK_Windup", durMs:180 }, { poseKey:"KICK_Strike", durMs:110, strike:{} }, { poseKey:"KICK_Recoil", durMs:680 } ],
-          altAfterComboHits: {
-            hits: 4,
-            sequence: [
-              { poseKey:"KICK_Windup", durMs: 60 },
-              { poseKey:"KICK_Strike", durMs: 37, strike:{} },
-              { poseKey:"KICK_Windup", durMs: 90 },
-              { poseKey:"KICK_Strike", durMs: 55, strike:{} },
-              { poseKey:"KICK_Windup", durMs:180 },
-              { poseKey:"KICK_Strike", durMs:110, strike:{} },
-              { poseKey:"KICK_Windup", durMs:360 },
-              { poseKey:"KICK_Strike", durMs:220, strike:{} },
-              { poseKey:"KICK_Recoil", durMs:680 }
-            ]
-          }
-        }
-      },
-      4: {
-        label: "Heavy (SLAM)",
-        type: "heavy",
-        variety: "hold_release",
-        requiresWindup: true,
-        knockbackBase: 250,
-        cancelWindowRecoil: 0.5,
-        sequence: [ { poseKey:"Windup", durMs:480 }, { poseKey:"Slam", durMs:160, strike:{} }, { poseKey:"Recoil", durMs:200 } ]
-      }
+    ComboPUNCH1: {
+      base: "PUNCH",
+      category: "combo",
+      slot: 1,
+      sequence: [
+        { poseKey: "PUNCH_Windup", durMs: 50, anim_events: [ { time: 0.00, velocityX: -15, velocityY: 0 }, { time: 0.65, impulse: 320, impulse_angle: -90 } ] },
+        { poseKey: "PUNCH_Strike", durMs: 50, anim_events: [ { time: 0.00, impulse: 450, impulse_angle: -45 }, { time: 0.05, velocityX: 280, velocityY: 120, localVel: true } ] },
+        { poseKey: "PUNCH_Recoil", durMs: 50, anim_events: [ { time: 0.00, velocityX: 80, velocityY: -40 }, { time: 0.30, impulse: 120, impulse_angle: 160 } ] }
+      ],
+      knockbackBase: 140,
+      cancelWindow: 0.7
     },
-    library: {
-      Kick: { base:"Kick", overrides:{} },
-      Slam: { base:"Slam", overrides:{} },
-      Jab:   { base:"Strike", overrides:{ torso:40, lShoulder:-60, rShoulder:-30 } },
-      Cross: { base:"Strike", overrides:{ torso:60, lShoulder:-45, rShoulder:-45 } },
-      Hook:  { base:"Strike", overrides:{ torso:35, lShoulder:-20, rShoulder:-70 } },
-      Upper: { base:"Strike", overrides:{ torso:80, lShoulder:-80, rShoulder:-10 } },
-      KICK_Windup: { base:"Windup", overrides:{
-        torso:-10, lShoulder:-100, lElbow:-120, rShoulder:-80, rElbow:-100,
-        lHip:110, lKnee:30, rHip:170, rKnee:40,
-        rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
-        allowAiming:true, aimLegs:true, aimRightLegOnly:true,
-        anim_events:[{ time:0.00, velocityX:-80, velocityY:0 }]
-      }},
-      KICK_Strike: { base:"Strike", overrides:{
-        torso:90, lShoulder:-27, lElbow:0, rShoulder:90, rElbow:0,
-        lHip:87, lKnee:0, rHip:0, rKnee:0,
-        rootMoveVel:{x:0,y:0}, impulseMag:120, impulseDirDeg:0,
-        allowAiming:true, aimLegs:true, aimRightLegOnly:true,
-        flip:true, flipAt:0.1,
-        flipParts:['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'],
-        fullFlipFacing:true, fullFlipAt:0.1,
-        anim_events:[ { time:0.00, impulse:180, impulse_angle:0 }, { time:0.05, velocityX:0, velocityY:0, localVel:true } ]
-      }},
-      KICK_Recoil: { base:"Recoil", overrides:{
-        torso:-6, lShoulder:-100, lElbow:-120, rShoulder:-90, rElbow:-120,
-        lHip:110, lKnee:40, rHip:30, rKnee:50,
-        rootMoveVel:{x:0,y:0}, impulseMag:0, impulseDirDeg:0,
-        allowAiming:false, aimLegs:false,
-        flip:true, flipAt:0.9,
-        flipParts:['ARM_R_UPPER','ARM_R_LOWER','LEG_R_UPPER','LEG_R_LOWER'],
-        fullFlipFacing:true, fullFlipAt:0.9,
-        anim_events:[{ time:0.00, velocityX:0, velocityY:0 }]
-      }}
+    ComboPUNCH2: {
+      base: "PUNCH",
+      category: "combo",
+      slot: 1,
+      sequence: [
+        { poseKey: "PUNCH_Windup", durMs: 50, anim_events: [ { time: 0.00, velocityX: -15, velocityY: 0 }, { time: 0.65, impulse: 320, impulse_angle: -90 } ] },
+        { poseKey: "PUNCH_Strike", durMs: 50, anim_events: [ { time: 0.00, impulse: 450, impulse_angle: -45 }, { time: 0.05, velocityX: 280, velocityY: 120, localVel: true } ] },
+        { poseKey: "PUNCH_Recoil", durMs: 50, anim_events: [ { time: 0.00, velocityX: 80, velocityY: -40 }, { time: 0.30, impulse: 120, impulse_angle: 160 } ] }
+      ],
+      knockbackBase: 140,
+      cancelWindow: 0.7
     }
   };
 
