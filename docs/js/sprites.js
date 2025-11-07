@@ -210,9 +210,23 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   if (!img.complete) return false;
   if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return false;
 
+  // Normalize styleKey: arm_L_upper -> armUpper, leg_R_lower -> legLower
+  // Convert underscore format with optional side marker (L/R) to camelCase used by style configs
+  function normalizeStyleKey(k){
+    if (!k || typeof k !== 'string') return k;
+    const parts = k.split('_');
+    // If format is like ['arm','L','upper'] remove the side marker
+    if (parts.length === 3 && (parts[1] === 'L' || parts[1] === 'R')) {
+      parts.splice(1,1);
+    }
+    // Join into camelCase: first part lower, rest capitalized
+    return parts.map((p,i)=> i===0 ? p : (p.charAt(0).toUpperCase() + p.slice(1)) ).join('');
+  }
+  const normalizedKey = normalizeStyleKey(styleKey);
+
   // Get anchor config: anchors at bone midpoint by default
   const anchorCfg = style.anchor || {};
-  const anchorMode = anchorCfg[styleKey] || 'mid';
+  const anchorMode = anchorCfg[normalizedKey] || anchorCfg[styleKey] || 'mid';
 
   // Basis vectors for local orientation
   const bAxis = basisFor(bone.ang);
@@ -226,7 +240,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   }
 
   // Offset config for fine-tuning sprite placement
-  const xform = (style.xform || {})[styleKey] || {};
+  const xform = (style.xform || {})[normalizedKey] || (style.xform || {})[styleKey] || {};
   const xformUnits = (style.xformUnits || 'px').toLowerCase();
 
   let ax = xform.ax ?? 0;
@@ -246,7 +260,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   const nw = img.naturalWidth  || img.width  || 1;
   const baseH = Math.max(1, bone.len);
   const wfTbl = style.widthFactor || {};
-  const wf = (wfTbl[styleKey] ?? wfTbl[styleKey?.replace(/_.*/, '')] ?? 1);
+  const wf = (wfTbl[normalizedKey] ?? wfTbl[styleKey] ?? 1);
   let w = nw * (baseH / nh) * wf;
   let h = baseH;
 
@@ -277,18 +291,18 @@ export function renderSprites(ctx){
   const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
   if (DEBUG.showSprites === false) return; // Skip sprite rendering if disabled
   
-  // Get flip state
-  const entity = 'player';
+  // Get flip state and center from render.js computed data
+  // rig is G.ANCHORS_OBJ.player (just the B bones object)
+  // flipLeft is stored separately in G.FLIP_STATE by render.js
+  const entity = (fname === 'player' || fname === 'npc') ? fname : 'player';
   const flipLeft = G.FLIP_STATE?.[entity] || false;
-  const hitbox = G.FIGHTERS?.[entity]?.hitbox;
-  const centerX = hitbox?.x ?? 0;
+  const centerX = rig.center?.x ?? 0;
   
   ctx.save();
-  // Mirror around character center when facing left (matching reference HTML)
+  // Mirror around character center when facing left (matching reference HTML exactly)
   if (flipLeft) {
-    ctx.translate(centerX, 0);
+    ctx.translate(centerX * 2, 0);
     ctx.scale(-1, 1);
-    ctx.translate(-centerX, 0);
   }
 
   // RENDER.MIRROR flags control per-limb mirroring (e.g., for attack animations)
@@ -298,6 +312,12 @@ export function renderSprites(ctx){
   const zOf = buildZMap(C);
   const queue = [];
   function enqueue(tag, drawFn){ queue.push({ z: zOf(tag), tag, drawFn }); }
+
+  // Helper to get mirror flag for a specific part
+  const getMirror = (tag) => !!RENDER.MIRROR[tag];
+
+  // Hitbox (if desired)
+  // enqueue('HITBOX', ()=> { /* draw hitbox if needed */ });
 
   // Torso & head
   enqueue('TORSO', ()=>{
@@ -310,21 +330,93 @@ export function renderSprites(ctx){
       drawBoneSprite(ctx, assets.head, rig.head, 'head', style, offsets);
     }
   });
-  // Arms & legs - enqueue as complete branches to match reference HTML order
-  // Left arm (both upper and lower)
-  enqueue('ARM_L_UPPER', ()=> drawArmBranch(ctx, rig, 'L', assets, style, offsets, 'upper'));
-  enqueue('ARM_L_LOWER', ()=> drawArmBranch(ctx, rig, 'L', assets, style, offsets, 'lower'));
-  // Right arm (both upper and lower)
-  enqueue('ARM_R_UPPER', ()=> drawArmBranch(ctx, rig, 'R', assets, style, offsets, 'upper'));
-  enqueue('ARM_R_LOWER', ()=> drawArmBranch(ctx, rig, 'R', assets, style, offsets, 'lower'));
-  // Left leg (both upper and lower)
-  enqueue('LEG_L_UPPER', ()=> drawLegBranch(ctx, rig, 'L', assets, style, offsets, 'upper'));
-  enqueue('LEG_L_LOWER', ()=> drawLegBranch(ctx, rig, 'L', assets, style, offsets, 'lower'));
-  // Right leg (both upper and lower)
-  enqueue('LEG_R_UPPER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, 'upper'));
-  enqueue('LEG_R_LOWER', ()=> drawLegBranch(ctx, rig, 'R', assets, style, offsets, 'lower'));
+
+  // Left arm - enqueue upper and lower separately (matching reference)
+  const lArmUpper = rig.arm_L_upper;
+  const lArmLower = rig.arm_L_lower;
+  const lArmMirror = getMirror('ARM_L_UPPER') || getMirror('ARM_L_LOWER');
+  if (lArmUpper) {
+    enqueue('ARM_L_UPPER', ()=> {
+      const originX = lArmUpper.x;
+      withBranchMirror(ctx, originX, lArmMirror, ()=> {
+        drawBoneSprite(ctx, assets.arm_L_upper, lArmUpper, 'arm_L_upper', style, offsets);
+      });
+    });
+  }
+  if (lArmLower) {
+    enqueue('ARM_L_LOWER', ()=> {
+      const originX = lArmUpper?.x ?? lArmLower.x;
+      withBranchMirror(ctx, originX, lArmMirror, ()=> {
+        drawBoneSprite(ctx, assets.arm_L_lower, lArmLower, 'arm_L_lower', style, offsets);
+      });
+    });
+  }
+
+  // Right arm
+  const rArmUpper = rig.arm_R_upper;
+  const rArmLower = rig.arm_R_lower;
+  const rArmMirror = getMirror('ARM_R_UPPER') || getMirror('ARM_R_LOWER');
+  if (rArmUpper) {
+    enqueue('ARM_R_UPPER', ()=> {
+      const originX = rArmUpper.x;
+      withBranchMirror(ctx, originX, rArmMirror, ()=> {
+        drawBoneSprite(ctx, assets.arm_R_upper, rArmUpper, 'arm_R_upper', style, offsets);
+      });
+    });
+  }
+  if (rArmLower) {
+    enqueue('ARM_R_LOWER', ()=> {
+      const originX = rArmUpper?.x ?? rArmLower.x;
+      withBranchMirror(ctx, originX, rArmMirror, ()=> {
+        drawBoneSprite(ctx, assets.arm_R_lower, rArmLower, 'arm_R_lower', style, offsets);
+      });
+    });
+  }
+
+  // Left leg
+  const lLegUpper = rig.leg_L_upper;
+  const lLegLower = rig.leg_L_lower;
+  const lLegMirror = getMirror('LEG_L_UPPER') || getMirror('LEG_L_LOWER');
+  if (lLegUpper) {
+    enqueue('LEG_L_UPPER', ()=> {
+      const originX = lLegUpper.x;
+      withBranchMirror(ctx, originX, lLegMirror, ()=> {
+        drawBoneSprite(ctx, assets.leg_L_upper, lLegUpper, 'leg_L_upper', style, offsets);
+      });
+    });
+  }
+  if (lLegLower) {
+    enqueue('LEG_L_LOWER', ()=> {
+      const originX = lLegUpper?.x ?? lLegLower.x;
+      withBranchMirror(ctx, originX, lLegMirror, ()=> {
+        drawBoneSprite(ctx, assets.leg_L_lower, lLegLower, 'leg_L_lower', style, offsets);
+      });
+    });
+  }
+
+  // Right leg
+  const rLegUpper = rig.leg_R_upper;
+  const rLegLower = rig.leg_R_lower;
+  const rLegMirror = getMirror('LEG_R_UPPER') || getMirror('LEG_R_LOWER');
+  if (rLegUpper) {
+    enqueue('LEG_R_UPPER', ()=> {
+      const originX = rLegUpper.x;
+      withBranchMirror(ctx, originX, rLegMirror, ()=> {
+        drawBoneSprite(ctx, assets.leg_R_upper, rLegUpper, 'leg_R_upper', style, offsets);
+      });
+    });
+  }
+  if (rLegLower) {
+    enqueue('LEG_R_LOWER', ()=> {
+      const originX = rLegUpper?.x ?? rLegLower.x;
+      withBranchMirror(ctx, originX, rLegMirror, ()=> {
+        drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, offsets);
+      });
+    });
+  }
 
   queue.sort((a, b) => a.z - b.z);
+  
   for (const entry of queue){
     if (typeof entry?.drawFn === 'function'){
       entry.drawFn();

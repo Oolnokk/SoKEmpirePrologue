@@ -7,7 +7,7 @@ import { updatePoses } from './animator.js?v=2';
 import { renderAll, LIMB_COLORS } from './render.js?v=4';
 import { updateCamera } from './camera.js?v=1';
 import { initHitDetect, runHitDetect } from './hitdetect.js?v=1';
-import { initSprites, renderSprites } from './sprites.js?v=5';
+import { initSprites, renderSprites } from './sprites.js?v=8';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
 import { $$, show } from './dom-utils.js?v=1';
 
@@ -16,8 +16,8 @@ const cv = $$('#game');
 const cx = cv?.getContext('2d');
 window.GAME ||= {};
 
-// === Apply render layer order (user-specified) ===
-const RENDER_ORDER = ['HITBOX','ARM_R_LOWER','ARM_R_UPPER','LEG_R_LOWER','LEG_R_UPPER','HEAD','TORSO','LEG_L_UPPER','LEG_L_LOWER','ARM_L_UPPER','ARM_L_LOWER'];
+// === Apply render layer order (matches reference HTML) ===
+const RENDER_ORDER = ['HITBOX','ARM_L_UPPER','ARM_L_LOWER','LEG_L_UPPER','LEG_L_LOWER','TORSO','HEAD','LEG_R_UPPER','LEG_R_LOWER','ARM_R_UPPER','ARM_R_LOWER'];
 function applyRenderOrder(){
   window.CONFIG ||= {};
   window.CONFIG.render ||= {};

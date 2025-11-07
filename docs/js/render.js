@@ -81,7 +81,7 @@ function withAX(x, y, ang, off, len, units) {
 function computeAnchorsForFighter(F, C, fighterName) {
   const fcfg = pickFighterConfig(C, fighterName); const L = lengths(C, fcfg); const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
   const centerX = F.pos?.x ?? 0; const centerY = F.pos?.y ?? ((C.groundRatio||0.7) * (C.canvas?.h||460));
-  const torsoAngRaw = rad(F.jointAngles?.torso);
+  const torsoAngRaw = F.jointAngles?.torso ?? 0; // already in radians from animator
   const torsoAng = torsoAngRaw; // with 'up' as zero, torso angle is used directly
   const torsoAttach = { x: centerX + (hbAttach.nx - 0.5) * L.hbW, y: centerY + (hbAttach.ny - 0.5) * L.hbH };
   const originBaseArr   = withAX(torsoAttach.x, torsoAttach.y, torsoAngRaw, OFF.torso?.origin);
@@ -100,9 +100,13 @@ function computeAnchorsForFighter(F, C, fighterName) {
     attachY: torsoAttach.y
   };
 
-  const lShoulderRel = rad(F.jointAngles?.lShoulder); const rShoulderRel = rad(F.jointAngles?.rShoulder); const lElbowRel = rad(F.jointAngles?.lElbow); const rElbowRel = rad(F.jointAngles?.rElbow);
+  const lShoulderRel = F.jointAngles?.lShoulder ?? 0;
+  const rShoulderRel = F.jointAngles?.rShoulder ?? 0;
+  const lElbowRel = F.jointAngles?.lElbow ?? 0;
+  const rElbowRel = F.jointAngles?.rElbow ?? 0;
   // Match reference: shoulder angles are relative to torso, so subtract torso from shoulder
-  let lUpperAng = torsoAng + (lShoulderRel - torsoAngRaw); let rUpperAng = torsoAng + (rShoulderRel - torsoAngRaw);
+  let lUpperAng = torsoAng + (lShoulderRel - torsoAngRaw);
+  let rUpperAng = torsoAng + (rShoulderRel - torsoAngRaw);
   // Elbow angles accumulate consistently with addition (child angle relative to parent)
   let lLowerAng = lUpperAng + lElbowRel;
   let rLowerAng = rUpperAng + rElbowRel;
@@ -113,10 +117,10 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const rWristPosArr = withAX(...segPos(rElbowPosArr[0], rElbowPosArr[1], L.armL, rLowerAng), rLowerAng, OFF.arm?.lower?.origin);
 
   const legsFollow = !!C.hierarchy?.legsFollowTorsoRotation;
-  let lHipAng = rad(F.jointAngles?.lHip) + (legsFollow ? torsoAngRaw : 0);
-  let rHipAng = rad(F.jointAngles?.rHip) + (legsFollow ? torsoAngRaw : 0);
-  const lKneeRel = rad(F.jointAngles?.lKnee);
-  const rKneeRel = rad(F.jointAngles?.rKnee);
+  let lHipAng = (F.jointAngles?.lHip ?? 0) + (legsFollow ? torsoAngRaw : 0);
+  let rHipAng = (F.jointAngles?.rHip ?? 0) + (legsFollow ? torsoAngRaw : 0);
+  const lKneeRel = F.jointAngles?.lKnee ?? 0;
+  const rKneeRel = F.jointAngles?.rKnee ?? 0;
   // Knee angles accumulate consistently with addition (child angle relative to parent)
   const lKneeAng = lHipAng + lKneeRel;
   const rKneeAng = rHipAng + rKneeRel;
