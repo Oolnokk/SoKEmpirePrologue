@@ -1,6 +1,7 @@
 // khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug
 window.CONFIG = {
   actor: { scale: 0.70 },
+  basePose: { torso:0, lShoulder:-90, lElbow:0, rShoulder:-90, rElbow:0, lHip:90, lKnee:0, rHip:90, rKnee:0 },
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },
   groundY: 380,
@@ -67,14 +68,14 @@ window.CONFIG = {
 
   fighters: {
     TLETINGAN: {
-        actor: { scale: 0.70 },
-        parts: {
-          hitbox: { w:135, h:180, r:60, torsoAttach: { nx:0.5, ny:0.7 } },
-          torso: { len:60 },
-          arm: { upper:50, lower:50 },
-          leg: { upper:40, lower:40 },
-          head: { neck:14, radius:16 }
-        },
+          actor: { scale: 0.70 },
+          parts: {
+            hitbox: { w:80, h:110, r:60, torsoAttach: { nx:0.4, ny:0.6 } },
+            torso: { len:40 },
+            arm: { upper:30, lower:40 },
+            leg: { upper:30, lower:30 },
+            head: { neck:10, radius:12 }
+          },
         hierarchy: { legsFollowTorsoRotation: false },
         ik: { calvesOnly: true },
         limits: {
