@@ -553,4 +553,4 @@ window.CONFIG = window.CONFIG || {};
 
   try { document.dispatchEvent(new Event('config:ready')); } catch(_){}
 }
-
+)()})();
