@@ -157,22 +157,42 @@ document.addEventListener('config:updated', ()=>{
 let currentSelectedFighter = null;
 
 function initFighterDropdown() {
+  const characterSelect = $$('#characterSelect');
   const fighterSelect = $$('#fighterSelect');
-  if (!fighterSelect) return;
+  if (!characterSelect || !fighterSelect) return;
 
   const C = window.CONFIG || {};
+  const characters = C.characters || {};
   const fighters = C.fighters || {};
 
-  // Clear existing options
-  fighterSelect.innerHTML = '';
+  // Populate character dropdown
+  characterSelect.innerHTML = '';
+  Object.keys(characters).forEach(charName => {
+    const option = document.createElement('option');
+    option.value = charName;
+    option.textContent = charName;
+    characterSelect.appendChild(option);
+  });
 
-  // Add a default option
+  // When character changes, update fighter/weapon/etc.
+  characterSelect.addEventListener('change', (e) => {
+    const selectedChar = e.target.value;
+    const charData = characters[selectedChar];
+    if (charData) {
+      // Set fighter dropdown to match character
+      fighterSelect.value = charData.fighter;
+      window.GAME.selectedFighter = charData.fighter;
+      showFighterSettings(charData.fighter);
+      // Optionally update weapon, attacks, etc. here
+    }
+  });
+
+  // Clear existing fighter options
+  fighterSelect.innerHTML = '';
   const defaultOption = document.createElement('option');
   defaultOption.value = '';
   defaultOption.textContent = '-- Select Fighter --';
   fighterSelect.appendChild(defaultOption);
-
-  // Populate with fighters from config
   Object.keys(fighters).forEach(fighterName => {
     const option = document.createElement('option');
     option.value = fighterName;
@@ -180,7 +200,7 @@ function initFighterDropdown() {
     fighterSelect.appendChild(option);
   });
 
-  // Handle selection change
+  // Handle fighter selection change as before
   fighterSelect.addEventListener('change', (e) => {
     const selectedFighter = e.target.value;
     currentSelectedFighter = selectedFighter;
@@ -192,7 +212,13 @@ function initFighterDropdown() {
     }
   });
 
-  console.log('[initFighterDropdown] Fighter dropdown initialized with', Object.keys(fighters).length, 'fighters');
+  // Default: select first character
+  if (Object.keys(characters).length) {
+    characterSelect.value = Object.keys(characters)[0];
+    characterSelect.dispatchEvent(new Event('change'));
+  }
+
+  console.log('[initFighterDropdown] Character & Fighter dropdowns initialized');
 }
 
 function showFighterSettings(fighterName) {
