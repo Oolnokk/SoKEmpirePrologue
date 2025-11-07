@@ -155,6 +155,8 @@ function rad2deg(r){ return r * 180 / Math.PI; }
 // Update aiming offsets based on current pose
 function updateAiming(F, currentPose){
   const C = window.CONFIG || {};
+  const G = window.GAME || {};
+  
   if (!C.aiming?.enabled) {
     F.aim.active = false;
     F.aim.torsoOffset = 0;
@@ -174,8 +176,34 @@ function updateAiming(F, currentPose){
   
   F.aim.active = true;
   
-  // For now, use facingRad as aim angle (could be mouse position later)
-  F.aim.currentAngle = F.facingRad || 0;
+  let targetAngle;
+  
+  // Use joystick for aiming if active (mobile), otherwise use mouse (desktop)
+  if (G.AIMING?.manualAim && G.JOYSTICK?.active) {
+    // Joystick aiming - use joystick angle directly
+    targetAngle = G.AIMING.targetAngle;
+  } else if (G.MOUSE) {
+    // Mouse aiming - calculate angle from fighter to mouse position
+    const dx = G.MOUSE.worldX - (F.pos?.x || 0);
+    const dy = G.MOUSE.worldY - (F.pos?.y || 0);
+    targetAngle = Math.atan2(dy, dx);
+  } else {
+    // Fallback to facingRad
+    targetAngle = F.facingRad || 0;
+  }
+  
+  // Convert target angle relative to current facing
+  const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
+  let relativeAngle = targetAngle - facingRad;
+  // Normalize to -PI to PI range
+  while (relativeAngle > Math.PI) relativeAngle -= Math.PI * 2;
+  while (relativeAngle < -Math.PI) relativeAngle += Math.PI * 2;
+  
+  // Smooth the aim angle (simple exponential smoothing)
+  const dt = F.anim?.dt || 0.016;
+  const smoothing = 1 - Math.exp(-(C.aiming.smoothing || 8) * dt);
+  const currentAngle = F.aim.currentAngle || 0;
+  F.aim.currentAngle = currentAngle + (relativeAngle - currentAngle) * smoothing;
   
   // Calculate offsets based on aim angle
   const aimDeg = rad2deg(F.aim.currentAngle);

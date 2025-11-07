@@ -3,18 +3,48 @@ import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=6';
 import { initControls } from './controls.js?v=7';
 import { initCombat } from './combat.js?v=19';
-import { updatePoses } from './animator.js?v=3';
+import { updatePoses } from './animator.js?v=4';
 import { renderAll, LIMB_COLORS } from './render.js?v=4';
 import { updateCamera } from './camera.js?v=1';
 import { initHitDetect, runHitDetect } from './hitdetect.js?v=1';
 import { initSprites, renderSprites } from './sprites.js?v=8';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
 import { $$, show } from './dom-utils.js?v=1';
+import { initTouchControls } from './touch-controls.js?v=1';
 
 // Setup canvas
 const cv = $$('#game');
 const cx = cv?.getContext('2d');
 window.GAME ||= {};
+
+// Mouse tracking state
+window.GAME.MOUSE = {
+  isDown: false,
+  x: 0,              // Canvas-space X
+  y: 0,              // Canvas-space Y
+  worldX: 0,         // World-space X (accounting for camera)
+  worldY: 0,         // World-space Y
+  isInCanvas: false  // Whether mouse is over canvas
+};
+
+// Joystick state for touch controls
+window.GAME.JOYSTICK = {
+  active: false,
+  startX: 0,
+  startY: 0,
+  currentX: 0,
+  currentY: 0,
+  deltaX: 0,
+  deltaY: 0,
+  distance: 0,
+  angle: 0
+};
+
+// Aiming state
+window.GAME.AIMING = {
+  manualAim: false,
+  targetAngle: 0
+};
 
 // === Apply render layer order (matches reference HTML) ===
 const RENDER_ORDER = ['HITBOX','ARM_L_UPPER','ARM_L_LOWER','LEG_L_UPPER','LEG_L_LOWER','TORSO','HEAD','LEG_R_UPPER','LEG_R_LOWER','ARM_R_UPPER','ARM_R_LOWER'];
@@ -644,6 +674,75 @@ function loop(t){
   requestAnimationFrame(loop);
 }
 
+// === Mouse event handlers ===
+function updateMousePosition(e) {
+  if (!cv) return;
+  const rect = cv.getBoundingClientRect();
+  // Get mouse position relative to canvas
+  const scaleX = cv.width / rect.width;
+  const scaleY = cv.height / rect.height;
+  window.GAME.MOUSE.x = (e.clientX - rect.left) * scaleX;
+  window.GAME.MOUSE.y = (e.clientY - rect.top) * scaleY;
+  // World coordinates account for camera offset
+  const camX = window.GAME?.CAMERA?.x || 0;
+  window.GAME.MOUSE.worldX = window.GAME.MOUSE.x + camX;
+  window.GAME.MOUSE.worldY = window.GAME.MOUSE.y;
+}
+
+if (cv) {
+  cv.addEventListener('mousemove', (e) => {
+    updateMousePosition(e);
+    window.GAME.MOUSE.isInCanvas = true;
+  });
+
+  cv.addEventListener('mouseenter', (e) => {
+    updateMousePosition(e);
+    window.GAME.MOUSE.isInCanvas = true;
+  });
+
+  cv.addEventListener('mouseleave', () => {
+    window.GAME.MOUSE.isInCanvas = false;
+  });
+
+  cv.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    window.GAME.MOUSE.isDown = true;
+    // Left click = Button A (combo attacks)
+    if (e.button === 0 && window.GAME.combat) {
+      window.GAME.combat.slotDown('A');
+    }
+    // Right click = Button B (single attacks)
+    else if (e.button === 2 && window.GAME.combat) {
+      window.GAME.combat.slotDown('B');
+    }
+  });
+
+  cv.addEventListener('mouseup', (e) => {
+    e.preventDefault();
+    window.GAME.MOUSE.isDown = false;
+    // Left click = Button A
+    if (e.button === 0 && window.GAME.combat) {
+      window.GAME.combat.slotUp('A');
+    }
+    // Right click = Button B
+    else if (e.button === 2 && window.GAME.combat) {
+      window.GAME.combat.slotUp('B');
+    }
+  });
+
+  // Prevent context menu on right click
+  cv.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+  });
+}
+
+// Track mouse globally for when it leaves canvas
+window.addEventListener('mousemove', (e) => {
+  if (!window.GAME.MOUSE.isInCanvas) {
+    updateMousePosition(e);
+  }
+});
+
 function boot(){
   try {
     if (statusInfo) statusInfo.textContent = 'Booted';
@@ -654,6 +753,7 @@ function boot(){
     initCombat();
     initHitDetect();
     initDebugPanel();
+    initTouchControls();
     initFighterDropdown();
     requestAnimationFrame(loop);
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);
