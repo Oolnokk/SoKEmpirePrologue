@@ -5,15 +5,15 @@ window.CONFIG = {
   canvas: { w: 720, h: 460, scale: 1 },
   groundY: 380,
   basePose: {
-    torso: 10,
-    lShoulder: -120,
-    lElbow: -120,
-    rShoulder: -65,
-    rElbow: -140,
-    lHip: 190,
-    lKnee: 70,
-    rHip: 120,
-    rKnee: 40
+    torso: 0,
+    lShoulder: -90,
+    lElbow: 0,
+    rShoulder: -90,
+    rElbow: 0,
+    lHip: 90,
+    lKnee: 0,
+    rHip: 90,
+    rKnee: 0
   },
 
   poses: {
