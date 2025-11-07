@@ -4,6 +4,17 @@ window.CONFIG = {
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },
   groundY: 380,
+  basePose: {
+    torso: 10,
+    lShoulder: -120,
+    lElbow: -120,
+    rShoulder: -65,
+    rElbow: -140,
+    lHip: 190,
+    lKnee: 70,
+    rHip: 120,
+    rKnee: 40
+  },
 
   poses: {
     Stance: {
