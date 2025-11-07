@@ -153,7 +153,7 @@ function clamp(val, min, max){ return Math.min(max, Math.max(min, val)); }
 function rad2deg(r){ return r * 180 / Math.PI; }
 
 // Update aiming offsets based on current pose
-function updateAiming(F, currentPose){
+function updateAiming(F, currentPose, fighterId){
   const C = window.CONFIG || {};
   const G = window.GAME || {};
   
@@ -177,16 +177,26 @@ function updateAiming(F, currentPose){
   F.aim.active = true;
   
   let targetAngle;
+  let aimSource = 'fallback';
   
   // Use joystick for aiming if active (mobile), otherwise use mouse (desktop)
   if (G.AIMING?.manualAim && G.JOYSTICK?.active) {
     // Joystick aiming - use joystick angle directly
     targetAngle = G.AIMING.targetAngle;
+    aimSource = 'joystick';
   } else if (G.MOUSE) {
     // Mouse aiming - calculate angle from fighter to mouse position
     const dx = G.MOUSE.worldX - (F.pos?.x || 0);
     const dy = G.MOUSE.worldY - (F.pos?.y || 0);
     targetAngle = Math.atan2(dy, dx);
+    aimSource = 'mouse';
+    
+    // Debug log once per second for player
+    if (fighterId === 'player' && !F._lastAimLog || (performance.now() - F._lastAimLog) > 1000) {
+      console.log('[aim] source:', aimSource, 'mouseWorld:', {x: G.MOUSE.worldX, y: G.MOUSE.worldY}, 
+                  'fighterPos:', {x: F.pos?.x, y: F.pos?.y}, 'targetAngle:', (targetAngle * 180 / Math.PI).toFixed(1));
+      F._lastAimLog = performance.now();
+    }
   } else {
     // Fallback to facingRad
     targetAngle = F.facingRad || 0;
@@ -262,7 +272,7 @@ export function updatePoses(){
     if (!targetDeg) targetDeg = pickBase(C);
     
     // Update aiming system based on current pose
-    updateAiming(F, targetDeg);
+    updateAiming(F, targetDeg, id);
     
     // Add basePose to targetDeg (matching reference HTML behavior)
     const basePose = C.basePose || {};
