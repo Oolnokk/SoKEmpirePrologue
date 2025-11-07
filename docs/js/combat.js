@@ -279,7 +279,8 @@ function makeCombat(G, C){
       if (ATTACK.isCharging){
         ATTACK.active = false;
         ATTACK.isCharging = false;
-        pushPoseOverride('player', buildPoseFromKey('Stance'), 200); // Quick return to stance
+        ATTACK.slot = null;
+        // Don't push stance pose yet - let the attack handle it
       }
       
       // Button A light = Combo
@@ -288,9 +289,7 @@ function makeCombat(G, C){
       }
       // Button B light = Quick
       else if (slotKey === 'B' && slot.light.type === 'quick'){
-        if (canAttackNow()){
-          playQuickAttack(slot.light.preset, slot.light.windupMs || 0);
-        }
+        playQuickAttack(slot.light.preset, slot.light.windupMs || 0);
       }
     }
     // HOLD = HEAVY
