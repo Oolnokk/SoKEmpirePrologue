@@ -290,7 +290,7 @@ function updateAiming(F, currentPose, fighterId){
   }
   F.aim.torsoOffset = clamp(aimDeg * 0.5, -(C.aiming.maxTorsoAngle || 45), (C.aiming.maxTorsoAngle || 45));
   F.aim.shoulderOffset = clamp(aimDeg * 0.7, -(C.aiming.maxShoulderAngle || 60), (C.aiming.maxShoulderAngle || 60));
-  
+
   // Apply leg aiming if pose allows it
   if (currentPose.aimLegs) {
     if (currentPose.aimRightLegOnly) {
