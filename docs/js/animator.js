@@ -76,7 +76,7 @@ function computeWalkPose(F, C){
 }
 
 function getOverride(F){ return (F.anim && F.anim.override) ? F.anim.override : null; }
-function clearOverride(F){ 
+function clearOverride(F){
   if (!F || !F.anim || !F.anim.override) return;
   const over = F.anim.override;
   // cleanup applied per-part flips
@@ -84,10 +84,9 @@ function clearOverride(F){
     if (over.__flipApplied && over.pose && Array.isArray(over.pose.flipParts)){
       for (const p of over.pose.flipParts){ setMirrorForPart(p, false); }
     }
-    // revert full-facing flip if we toggled it (attempt best-effort)
-    if (over.__fullFlipApplied){ F.facingSign = (F.facingSign || 1) * -1; }
+    // Leave full-facing flips intact so attacks that intentionally flip the character keep the new facing
   }catch(_e){ /* best-effort cleanup */ }
-  F.anim.override=null; 
+  F.anim.override=null;
 }
 
 function primeAnimEventsFromPose(pose){
