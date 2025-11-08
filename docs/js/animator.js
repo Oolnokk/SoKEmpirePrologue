@@ -141,7 +141,36 @@ function processAnimEventsForOverride(F, over){
   const fullFlipAt = (typeof P.fullFlipAt === 'number') ? Math.max(0, Math.min(1, P.fullFlipAt)) : flipAt;
   if (P.fullFlipFacing && !over.__fullFlipApplied && k >= fullFlipAt){
     over.__fullFlipApplied = true;
-    F.facingSign = (F.facingSign || 1) * -1;
+
+    const normAngle = (ang)=>{
+      const TAU = Math.PI * 2;
+      ang %= TAU;
+      return (ang < 0) ? ang + TAU : ang;
+    };
+
+    const prevRad = (typeof F.facingRad === 'number')
+      ? F.facingRad
+      : ((F.facingSign || 1) < 0 ? Math.PI : 0);
+    const newRad = normAngle(prevRad + Math.PI);
+
+    F.facingRad = newRad;
+
+    // Keep sign aligned with the new facing angle (fallback to simple toggle)
+    const cos = Math.cos(newRad);
+    if (Number.isFinite(cos) && Math.abs(cos) > 1e-6){
+      F.facingSign = cos >= 0 ? 1 : -1;
+    } else {
+      F.facingSign = (F.facingSign || 1) * -1;
+    }
+
+    const G = window.GAME || {};
+    if (G.FACE?.active && typeof G.FACE.rad === 'number'){
+      G.FACE.rad = normAngle(G.FACE.rad + Math.PI);
+    }
+
+    if (F.attack && typeof F.attack.dirSign === 'number'){
+      F.attack.dirSign *= -1;
+    }
   }
 }
 
