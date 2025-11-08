@@ -206,6 +206,7 @@ function updateAiming(F, currentPose, fighterId){
   
   let targetAngle;
   let aimSource = 'fallback';
+  let mouseDX = 0;
   
   // Use joystick for aiming if active (mobile), otherwise use mouse (desktop)
   if (G.AIMING?.manualAim && G.JOYSTICK?.active) {
@@ -218,6 +219,7 @@ function updateAiming(F, currentPose, fighterId){
     const dy = G.MOUSE.worldY - (F.pos?.y || 0);
     targetAngle = Math.atan2(dy, dx);
     aimSource = 'mouse';
+    mouseDX = dx;
     
     // Debug log once per second for player
     if (fighterId === 'player' && !F._lastAimLog || (performance.now() - F._lastAimLog) > 1000) {
@@ -230,7 +232,41 @@ function updateAiming(F, currentPose, fighterId){
     targetAngle = F.facingRad || 0;
   }
   
-  // Convert target angle relative to current facing
+  const normAngle = (ang) => {
+    const TAU = Math.PI * 2;
+    let out = ang % TAU;
+    if (out < 0) out += TAU;
+    return out;
+  };
+
+  const applyFacing = (rad) => {
+    const normalized = normAngle(rad);
+    F.facingRad = normalized;
+    const cos = Math.cos(normalized);
+    if (Number.isFinite(cos) && Math.abs(cos) > 1e-6) {
+      F.facingSign = cos >= 0 ? 1 : -1;
+    }
+  };
+
+  const isDashing = !!(F?.stamina?.isDashing || G.STAMINA?.isDashing || G.FIGHTERS?.[fighterId]?.stamina?.isDashing);
+  const initialFacing = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
+
+  if (!isDashing) {
+    if (aimSource === 'joystick') {
+      const joystickSide = Math.cos(targetAngle) >= 0 ? 0 : Math.PI;
+      const currentSide = Math.cos(initialFacing) >= 0 ? 0 : Math.PI;
+      if (joystickSide !== currentSide) {
+        applyFacing(joystickSide);
+      }
+    } else if (aimSource === 'mouse') {
+      const mouseSide = mouseDX >= 0 ? 0 : Math.PI;
+      const currentSide = Math.cos(initialFacing) >= 0 ? 0 : Math.PI;
+      if (G.MOUSE?.isDown && mouseSide !== currentSide) {
+        applyFacing(mouseSide);
+      }
+    }
+  }
+
   const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
   let relativeAngle = targetAngle - facingRad;
   // Normalize to -PI to PI range
