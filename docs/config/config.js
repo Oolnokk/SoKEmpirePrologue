@@ -176,7 +176,8 @@ window.CONFIG = {
             legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
           }
       }
-    },
+    }
+  },
 
   movement: {
     authoredWeight:0.6, physicsWeight:0.4,
@@ -576,7 +577,7 @@ window.CONFIG = window.CONFIG || {};
 
 
 // Back-compat: build CONFIG.presets from CONFIG.attacks
-(function buildPresets(){
+const buildPresets = () => {
   if (!window.CONFIG || !CONFIG.attacks) return;
   const clone = (o) => o ? JSON.parse(JSON.stringify(o)) : {};
 
@@ -683,5 +684,7 @@ window.CONFIG = window.CONFIG || {};
   ['SLASH','STAB','THRUST','SWEEP','CHOP','SMASH','SWING','HACK','TOSS'].forEach(n => ensurePreset(n));
 
   try { document.dispatchEvent(new Event('config:ready')); } catch(_){}
-}
-)()})();
+};
+
+  buildPresets();
+})();
