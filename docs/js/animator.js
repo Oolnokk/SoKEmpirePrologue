@@ -76,19 +76,6 @@ function computeWalkPose(F, C){
 }
 
 function getOverride(F){ return (F.anim && F.anim.override) ? F.anim.override : null; }
-function clearOverride(F){ 
-  if (!F || !F.anim || !F.anim.override) return;
-  const over = F.anim.override;
-  // cleanup applied per-part flips
-  try{
-    if (over.__flipApplied && over.pose && Array.isArray(over.pose.flipParts)){
-      for (const p of over.pose.flipParts){ setMirrorForPart(p, false); }
-    }
-    // revert full-facing flip if we toggled it (attempt best-effort)
-    if (over.__fullFlipApplied){ F.facingSign = (F.facingSign || 1) * -1; }
-  }catch(_e){ /* best-effort cleanup */ }
-  F.anim.override=null; 
-}
 
 function primeAnimEventsFromPose(pose){
   // normalize event list
@@ -266,7 +253,10 @@ export function updatePoses(){
       // process events / flips for active override (k-based)
       processAnimEventsForOverride(F, over);
       if (over.until && now < over.until){ targetDeg = over.pose; }
-      else { clearOverride(F); if (over.until==null) console.log('[anim] cleared timeless override'); }
+      else {
+        F.anim.override = null;
+        if (over.until == null) console.log('[anim] cleared timeless override');
+      }
     }
     if (!targetDeg){ const walkPose = computeWalkPose(F,C); if (walkPose._active) targetDeg = walkPose; }
     if (!targetDeg) targetDeg = pickBase(C);
