@@ -175,6 +175,8 @@ window.CONFIG = {
             legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
             legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
           }
+      }
+    },
 
   movement: {
     authoredWeight:0.6, physicsWeight:0.4,
@@ -667,6 +669,11 @@ window.CONFIG = window.CONFIG || {};
       }
     }
   });
+
+  if (!CONFIG.attacks.presets) {
+    CONFIG.attacks.presets = {};
+  }
+  Object.assign(CONFIG.attacks.presets, CONFIG.presets);
 
   // Ensure core weapon presets exist and opt-in to weapon colliders.
   const ensurePreset = (name, base='PUNCH') => {
