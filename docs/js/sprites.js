@@ -226,12 +226,13 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
 
   // Get anchor config: anchors at bone midpoint by default
   const anchorCfg = style.anchor || {};
-  const anchorMode = anchorCfg[normalizedKey] || anchorCfg[styleKey] || 'mid';
+  const anchorMode = anchorCfg[styleKey] || 'mid';
+  const resolvedAnchorMode = (anchorCfg[normalizedKey] != null) ? anchorCfg[normalizedKey] : anchorMode;
 
   // Basis vectors for local orientation
   const bAxis = basisFor(bone.ang);
   let posX, posY;
-  if (anchorMode === 'start') {
+  if (resolvedAnchorMode === 'start') {
     posX = bone.x;
     posY = bone.y;
   } else {
