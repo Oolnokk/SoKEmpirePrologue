@@ -47,9 +47,17 @@ export function runHitDetect(){
     // Increment counts
     const hc = G.HIT_COUNTS?.npc;
     if (hc){ for (const k of collisions){ hc[k] = (hc[k]||0) + 1; } hc.body = (hc.body||0) + 1; }
-    // Simple knockback
-    const dir = Math.cos(P.facingRad) >= 0 ? 1 : -1;
-    N.pos.x += 8 * dir;
+    const context = P.attack?.context;
+    if (context && typeof context.onHit === 'function'){
+      try {
+        context.onHit(N, collisions);
+      } catch(err){
+        console.warn('[hitdetect] onHit handler error', err);
+      }
+    } else {
+      const dir = Math.cos(P.facingRad) >= 0 ? 1 : -1;
+      N.pos.x += 8 * dir;
+    }
   }
 
   // Optional: overdraw colliders with collision tint

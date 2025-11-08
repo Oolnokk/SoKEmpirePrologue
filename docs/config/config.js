@@ -1,4 +1,19 @@
 // khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug
+
+const abilityKnockback = (base, { clamp } = {}) => {
+  return (context, opponent) => {
+    if (!opponent?.pos) return;
+    const facing = context?.character?.facingRad ?? context?.character?.facing ?? 0;
+    const dir = Math.cos(facing) >= 0 ? 1 : -1;
+    const multiplier = context?.multipliers?.knockback ?? 1;
+    let delta = base * multiplier * dir;
+    if (Number.isFinite(clamp)) {
+      delta = Math.max(-clamp, Math.min(clamp, delta));
+    }
+    opponent.pos.x += delta;
+  };
+};
+
 window.CONFIG = {
   actor: { scale: 0.70 },
   groundRatio: 0.70,
@@ -160,6 +175,8 @@ window.CONFIG = {
             legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
             legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
           }
+      }
+    },
 
   movement: {
     authoredWeight:0.6, physicsWeight:0.4,
@@ -384,6 +401,73 @@ window.CONFIG = {
     sequence: ['HACK','HACK','HACK','TOSS'],
     timerDuration: 2800,
     type: 'sharp'
+  },
+
+  abilitySystem: {
+    thresholds: { tapMaxMs: 200, chargeStageMs: 200 },
+    defaults: { comboWindowMs: 3000 },
+    attacks: {
+      ComboJab: { preset: 'ComboKICK1', tags: ['combo', 'light'] },
+      ComboCross: { preset: 'ComboPUNCH1', tags: ['combo', 'light'] },
+      ComboHook: { preset: 'ComboKICK2', tags: ['combo', 'light'] },
+      ComboUpper: { preset: 'ComboPUNCH2', tags: ['combo', 'light'] },
+      QuickKick: { preset: 'KICK', tags: ['quick', 'light'] },
+      QuickKickCombo: {
+        preset: 'KICK',
+        tags: ['quick', 'light', 'comboVariant'],
+        multipliers: { durations: 0.85, knockback: 1.35 }
+      },
+      Slam: {
+        preset: 'SLAM',
+        tags: ['heavy'],
+        multipliers: { durations: 1.1, knockback: 1.2 }
+      }
+    },
+    abilities: {
+      combo_light: {
+        name: 'Four-Strike Combo',
+        type: 'light',
+        trigger: 'combo',
+        tags: ['combo', 'light'],
+        sequence: ['ComboJab', 'ComboCross', 'ComboHook', 'ComboUpper'],
+        comboWindowMs: 3000,
+        multipliers: { durations: 1 },
+        onHit: abilityKnockback(8)
+      },
+      quick_light: {
+        name: 'Quick Kick',
+        type: 'light',
+        trigger: 'single',
+        tags: ['quick', 'light'],
+        variants: [
+          { id: 'postCombo', attack: 'QuickKickCombo', require: { comboHitsGte: 4, comboActive: true } },
+          { id: 'default', attack: 'QuickKick' }
+        ],
+        multipliers: { durations: 1 },
+        onHit: abilityKnockback(10)
+      },
+      heavy_hold: {
+        name: 'Charged Slam',
+        type: 'heavy',
+        trigger: 'hold-release',
+        tags: ['heavy', 'hold'],
+        attack: 'Slam',
+        charge: {
+          minStage: 1,
+          maxStage: 5,
+          stageDurationMs: 200,
+          stageMultipliers: (stage) => ({
+            durations: 1 + stage * 0.05,
+            knockback: 1 + stage * 0.25
+          })
+        },
+        onHit: abilityKnockback(14)
+      }
+    },
+    slots: {
+      A: { label: 'Primary Attack', light: 'combo_light', heavy: 'heavy_hold' },
+      B: { label: 'Secondary Attack', light: 'quick_light', heavy: 'heavy_hold' }
+    }
   }
 };
 
@@ -585,6 +669,11 @@ window.CONFIG = window.CONFIG || {};
       }
     }
   });
+
+  if (!CONFIG.attacks.presets) {
+    CONFIG.attacks.presets = {};
+  }
+  Object.assign(CONFIG.attacks.presets, CONFIG.presets);
 
   // Ensure core weapon presets exist and opt-in to weapon colliders.
   const ensurePreset = (name, base='PUNCH') => {
