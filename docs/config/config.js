@@ -373,12 +373,12 @@ window.CONFIG = {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
           xformUnits: "percent",
           xform: {
-            torso:    { ax:0,  ay:0, scaleX:1, scaleY:1, rotDeg:180 },
-            head:     { ax:0, ay:0, scaleX:1, scaleY:1, rotDeg:180 },
-            armUpper: { ax:0.00,  ay:0.00,  scaleX:1, scaleY:1, rotDeg:0 },
-            armLower: { ax:0.00,  ay:0.00,  scaleX:1, scaleY:1, rotDeg:0 },
-            legUpper: { ax:-0.10, ay:0.10,  scaleX:1,  scaleY:1,  rotDeg:0 },
-            legLower: { ax:-0.0,  ay:0.00,  scaleX:1,    scaleY:1, rotDeg:0 }
+            torso:    { ax:0,  ay:0, scaleX:1.5, scaleY:1.5, rotDeg:180 },
+            head:     { ax:0, ay:0, scaleX:1.5, scaleY:1.5, rotDeg:180 },
+            armUpper: { ax:0.00,  ay:0.00,  scaleX:2, scaleY:2, rotDeg:0 },
+            armLower: { ax:0.00,  ay:0.00,  scaleX:2, scaleY:2, rotDeg:0 },
+            legUpper: { ax:-0.10, ay:0.10,  scaleX:2,  scaleY:2,  rotDeg:0 },
+            legLower: { ax:-0.0,  ay:0.00,  scaleX:2,    scaleY:2, rotDeg:0 }
           }
       }
     }
