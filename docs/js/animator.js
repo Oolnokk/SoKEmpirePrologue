@@ -272,15 +272,22 @@ function updateAiming(F, currentPose, fighterId){
   // Normalize to -PI to PI range
   while (relativeAngle > Math.PI) relativeAngle -= Math.PI * 2;
   while (relativeAngle < -Math.PI) relativeAngle += Math.PI * 2;
-  
+
   // Smooth the aim angle (simple exponential smoothing)
   const dt = F.anim?.dt || 0.016;
   const smoothing = 1 - Math.exp(-(C.aiming.smoothing || 8) * dt);
   const currentAngle = F.aim.currentAngle || 0;
   F.aim.currentAngle = currentAngle + (relativeAngle - currentAngle) * smoothing;
-  
+
   // Calculate offsets based on aim angle
-  const aimDeg = rad2deg(F.aim.currentAngle);
+  const facingCos = Math.cos(facingRad);
+  let aimDeg = rad2deg(F.aim.currentAngle);
+  if (Number.isFinite(facingCos)) {
+    const orientationSign = Math.abs(facingCos) > 1e-4
+      ? (facingCos >= 0 ? -1 : 1)
+      : ((F.facingSign || 1) >= 0 ? -1 : 1);
+    aimDeg *= orientationSign;
+  }
   F.aim.torsoOffset = clamp(aimDeg * 0.5, -(C.aiming.maxTorsoAngle || 45), (C.aiming.maxTorsoAngle || 45));
   F.aim.shoulderOffset = clamp(aimDeg * 0.7, -(C.aiming.maxShoulderAngle || 60), (C.aiming.maxShoulderAngle || 60));
   
