@@ -15,19 +15,24 @@ async function readIndex() {
   return readFile(path.resolve('docs/index.html'), 'utf8');
 }
 
-test('app.js avoids importing deprecated shim modules', async () => {
+test('app.js no longer imports the legacy clear override shim', async () => {
   const source = await readJs('app.js');
   assert.ok(
-    !/from\s+'\.\/_[^']+'/.test(source),
-    'docs/js/app.js should not import modules prefixed with an underscore',
+    !/\.\/_clearOverride\.js/.test(source),
+    'docs/js/app.js should not import the legacy clear override shim',
   );
 });
 
-test('docs/js directory does not contain underscore-prefixed modules', async () => {
-  const entries = await readdir(rootDir);
-  assert.ok(
-    !entries.some((name) => name.startsWith('_')),
-    'docs/js should not contain underscore-prefixed modules',
+test('clearOverride shim files have been removed', async () => {
+  await assert.rejects(
+    () => readJs('_clearOverride.js'),
+    { code: 'ENOENT' },
+    'docs/js/_clearOverride.js should be removed',
+  );
+  await assert.rejects(
+    () => readJs('clearOverride.js'),
+    { code: 'ENOENT' },
+    'docs/js/clearOverride.js should be removed',
   );
 });
 
