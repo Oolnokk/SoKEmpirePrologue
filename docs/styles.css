@@ -22,6 +22,12 @@
 .area-name{position:absolute;top:60px;left:12px;font-weight:600;color:#93c5fd}
 
 .controls-overlay{position:absolute;inset:0;pointer-events:none}
+.controls-overlay .top-ui,
+.controls-overlay .help-panel,
+.controls-overlay .joystick-area,
+.controls-overlay .action-buttons,
+.controls-overlay button,
+.controls-overlay .interact-btn{pointer-events:auto}
 .top-ui{position:absolute;top:8px;right:8px;display:flex;gap:6px;pointer-events:auto}
 .ui-btn{padding:6px 8px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:#e5e7eb}
 .help-panel{position:absolute;top:40px;right:8px;min-width:220px;background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:10px;display:none}
@@ -108,11 +114,16 @@
 
 /* Show touch controls on touch devices or when screen is small */
 @media (hover:none),(max-width:768px){
-  .joystick-area,
+  .joystick-area{
+    display:block;
+  }
   .action-buttons{
     display:grid;
   }
 }
+
+.is-touch .joystick-area{display:block}
+.is-touch .action-buttons{display:grid}
 
 @media (hover:none){ .help-panel{font-size:14px} }
 

@@ -60,6 +60,32 @@ const cv = $$('#game');
 const cx = cv?.getContext('2d');
 window.GAME ||= {};
 
+// Detect touch devices early so we can surface on-screen controls reliably
+const rootElement = document.documentElement;
+function detectTouchSupport(){
+  const nav = navigator || {};
+  const coarsePointer = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+  const hasTouch = ('ontouchstart' in window) || (nav.maxTouchPoints > 0) || (nav.msMaxTouchPoints > 0) || coarsePointer;
+  rootElement.classList.toggle('is-touch', !!hasTouch);
+}
+detectTouchSupport();
+if (typeof window.matchMedia === 'function'){
+  const coarseQuery = window.matchMedia('(pointer: coarse)');
+  const applyFromQuery = (ev) => {
+    if (ev.matches) {
+      rootElement.classList.add('is-touch');
+    } else if (!('ontouchstart' in window) && (navigator.maxTouchPoints || 0) === 0) {
+      rootElement.classList.remove('is-touch');
+    }
+  };
+  if (typeof coarseQuery.addEventListener === 'function') {
+    coarseQuery.addEventListener('change', applyFromQuery);
+  } else if (typeof coarseQuery.addListener === 'function') {
+    coarseQuery.addListener(applyFromQuery);
+  }
+}
+window.addEventListener('touchstart', () => rootElement.classList.add('is-touch'), { once: true, passive: true });
+
 // Mouse tracking state
 window.GAME.MOUSE = {
   isDown: false,
@@ -104,6 +130,8 @@ const footingFill = $$('#footingFill');
 const healthFill = $$('#healthFill');
 const statusInfo = $$('#statusInfo');
 const reloadBtn = $$('#btnReloadCfg');
+const fullscreenBtn = $$('#btnFullscreen');
+const stageEl = document.getElementById('gameStage');
 const fpsHud = $$('#fpsHud');
 const boneKeyList = $$('#boneKeyList');
 
@@ -121,6 +149,40 @@ if (reloadBtn){
       console.error(e);
     }
   });
+}
+
+if (fullscreenBtn && stageEl){
+  const doc = document;
+  const requestFs = stageEl.requestFullscreen || stageEl.webkitRequestFullscreen || stageEl.msRequestFullscreen;
+  const exitFs = doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+  const updateFullscreenUi = () => {
+    const isFull = doc.fullscreenElement === stageEl || doc.webkitFullscreenElement === stageEl;
+    fullscreenBtn.textContent = isFull ? '⤡ Exit' : '⤢ Full';
+    fullscreenBtn.setAttribute('aria-pressed', isFull ? 'true' : 'false');
+  };
+
+  fullscreenBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (!requestFs || !exitFs){
+      console.warn('[fullscreen] Browser does not support fullscreen API');
+      return;
+    }
+    try {
+      const isFull = doc.fullscreenElement === stageEl || doc.webkitFullscreenElement === stageEl;
+      if (!isFull){
+        await requestFs.call(stageEl);
+      } else {
+        await exitFs.call(doc);
+      }
+    } catch (err){
+      console.error('[fullscreen] toggle failed', err);
+    }
+  });
+
+  doc.addEventListener('fullscreenchange', updateFullscreenUi);
+  doc.addEventListener('webkitfullscreenchange', updateFullscreenUi);
+  updateFullscreenUi();
 }
 
 if (boneKeyList) {
@@ -636,7 +698,7 @@ function generateConfigJS(config) {
   lines.push('  [\'SLASH\',\'STAB\',\'THRUST\',\'SWEEP\',\'CHOP\',\'SMASH\',\'SWING\',\'HACK\',\'TOSS\'].forEach(n => ensurePreset(n));');
   lines.push('');
   lines.push('  try { document.dispatchEvent(new Event(\'config:ready\')); } catch(_){}');
-})();
+  lines.push('})();');
 
   return lines.join('\n');
 }
