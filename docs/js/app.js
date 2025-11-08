@@ -42,7 +42,6 @@ window.addEventListener('DOMContentLoaded', () => {
   initCharacterDropdown();
   initFighterDropdown();
 });
-import './_clearOverride.js?v=1';
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=6';
 import { initControls } from './controls.js?v=7';

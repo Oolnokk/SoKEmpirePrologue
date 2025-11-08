@@ -265,7 +265,10 @@ export function updatePoses(){
       // process events / flips for active override (k-based)
       processAnimEventsForOverride(F, over);
       if (over.until && now < over.until){ targetDeg = over.pose; }
-      else { clearOverride(F); if (over.until==null) console.log('[anim] cleared timeless override'); }
+      else {
+        F.anim.override = null;
+        if (over.until == null) console.log('[anim] cleared timeless override');
+      }
     }
     if (!targetDeg){ const walkPose = computeWalkPose(F,C); if (walkPose._active) targetDeg = walkPose; }
     if (!targetDeg) targetDeg = pickBase(C);
