@@ -284,8 +284,8 @@ function updateAiming(F, currentPose, fighterId){
   let aimDeg = rad2deg(F.aim.currentAngle);
   if (Number.isFinite(facingCos)) {
     const orientationSign = Math.abs(facingCos) > 1e-4
-      ? (facingCos >= 0 ? -1 : 1)
-      : ((F.facingSign || 1) >= 0 ? -1 : 1);
+      ? (facingCos >= 0 ? 1 : -1)
+      : ((F.facingSign || 1) >= 0 ? 1 : -1);
     aimDeg *= orientationSign;
   }
   F.aim.torsoOffset = clamp(aimDeg * 0.5, -(C.aiming.maxTorsoAngle || 45), (C.aiming.maxTorsoAngle || 45));
