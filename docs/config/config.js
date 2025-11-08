@@ -750,12 +750,6 @@ window.CONFIG = window.CONFIG || {};
             sequence: [
               { poseKey:"KICK_Windup", durMs: 60 },
               { poseKey:"KICK_Strike", durMs: 37, strike:{} },
-              { poseKey:"KICK_Windup", durMs: 90 },
-              { poseKey:"KICK_Strike", durMs: 55, strike:{} },
-              { poseKey:"KICK_Windup", durMs:180 },
-              { poseKey:"KICK_Strike", durMs:110, strike:{} },
-              { poseKey:"KICK_Windup", durMs:360 },
-              { poseKey:"KICK_Strike", durMs:220, strike:{} },
               { poseKey:"KICK_Recoil", durMs:680 }
             ]
           }
