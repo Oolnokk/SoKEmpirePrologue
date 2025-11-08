@@ -11,13 +11,6 @@ export function initCombat(){
   console.log('[combat] ready');
 }
 
-function clearPoseOverride(fighterId){
-  const G = window.GAME || {};
-  const F = G.FIGHTERS?.[fighterId];
-  if (!F || !F.anim) return;
-  F.anim.override = null;
-}
-
 function makeCombat(G, C){
   const now = ()=> performance.now();
   const P = ()=> G.FIGHTERS?.player;
@@ -679,7 +672,6 @@ function makeCombat(G, C){
         ATTACK.active = false;
         ATTACK.isCharging = false;
         ATTACK.context = null;
-        clearPoseOverride('player');
       }
       const ability = getAbilityForSlot(slotKey, 'light');
       if (ability){

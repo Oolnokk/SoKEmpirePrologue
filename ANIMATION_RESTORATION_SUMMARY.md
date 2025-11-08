@@ -29,12 +29,9 @@
 ### 3. Transition State & Cleanup (Task #3)
 **File**: `docs/js/animator.js`
 
-- **Added** `clearOverride(F)` cleanup logic:
-  - Reverts per-part sprite mirrors (e.g., `ARM_R_UPPER`) if `__flipApplied`
-  - Reverts full-body facing flip if `__fullFlipApplied`
 - **Override metadata** in `pushPoseOverride`:
   - `__start`, `__dur`, `__events`, `__flipApplied`, `__fullFlipApplied`, `__k`
-  - Ensures state is reset when transitions complete, preventing lingering blend artifacts
+  - Drives event playback and flip scheduling in step with the authored pose timelines
 
 ---
 
@@ -83,9 +80,6 @@
 - **Flip timing** in `processAnimEventsForOverride`:
   - Per-part flip: `if (P.flip && !over.__flipApplied && k >= P.flipAt)` → calls `setMirrorForPart(partName, true)` for each part in `flipParts`
   - Full-body flip: `if (P.fullFlipFacing && !over.__fullFlipApplied && k >= P.fullFlipAt)` → toggles `F.facingSign *= -1`
-- **Cleanup** in `clearOverride`:
-  - Reverts all `flipParts` mirrors: `setMirrorForPart(p, false)`
-  - Reverts facing sign toggle: `F.facingSign *= -1`
 - **Sprite rendering** already respects `window.RENDER.MIRROR[partName]` flags (see `sprites.js`, `drawArmBranch`, `drawLegBranch`)
 
 ---
