@@ -199,6 +199,60 @@ document.addEventListener('config:updated', ()=>{
 // Fighter selection and settings management
 let currentSelectedFighter = null;
 
+// Debounced preview management so fighter settings immediately refresh the viewport
+let previewTimeoutId = null;
+let previewQueuedFighter = null;
+let previewInFlight = false;
+let notifyConfigTimeoutId = null;
+
+function scheduleConfigUpdatedEvent() {
+  if (typeof document === 'undefined') return;
+  if (notifyConfigTimeoutId) return;
+  notifyConfigTimeoutId = setTimeout(() => {
+    notifyConfigTimeoutId = null;
+    try {
+      document.dispatchEvent(new Event('config:updated'));
+    } catch (err) {
+      console.warn('[fighterSettings] Failed to dispatch config:updated event', err);
+    }
+  }, 0);
+}
+
+function scheduleFighterPreview(fighterName) {
+  if (!fighterName) return;
+  previewQueuedFighter = fighterName;
+
+  if (previewTimeoutId) {
+    clearTimeout(previewTimeoutId);
+  }
+
+  previewTimeoutId = setTimeout(async () => {
+    previewTimeoutId = null;
+
+    if (previewInFlight) {
+      // Preview currently running; queue the latest fighter once the current run finishes
+      previewQueuedFighter = fighterName;
+      return;
+    }
+
+    const queuedName = previewQueuedFighter;
+    previewQueuedFighter = null;
+    if (!queuedName) return;
+
+    previewInFlight = true;
+    try {
+      await reinitializeFighter(queuedName);
+    } catch (err) {
+      console.error('[fighterSettings] Fighter preview failed', err);
+    } finally {
+      previewInFlight = false;
+      if (previewQueuedFighter) {
+        scheduleFighterPreview(previewQueuedFighter);
+      }
+    }
+  }, 120);
+}
+
 function initFighterDropdown() {
   const fighterSelect = $$('#fighterSelect');
   if (!fighterSelect) return;
@@ -488,17 +542,41 @@ function exportConfig() {
 }
 
 function generateConfigJS(config) {
-  // Generate JavaScript file content that matches the original format
+  const INDENT = '  ';
+
+  function stringifyWithFunctions(value) {
+    const functions = [];
+    const json = JSON.stringify(value, (key, val) => {
+      if (typeof val === 'function') {
+        const id = functions.push(val.toString()) - 1;
+        return `__FUNC_${id}__`;
+      }
+      return val;
+    }, 2);
+    return json.replace(/"__FUNC_(\d+)__"/g, (_match, idx) => functions[Number(idx)] || 'undefined');
+  }
+
+  function formatAssignment(indentLevel, prefix, value) {
+    const serialized = stringifyWithFunctions(value).split('\n');
+    const indent = INDENT.repeat(indentLevel);
+    let statement = indent + prefix + serialized[0];
+    if (serialized.length > 1) {
+      statement += '\n' + serialized.slice(1).map(line => indent + line).join('\n');
+    }
+    return statement + ';';
+  }
+
   const lines = [];
   lines.push('// khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug');
-  lines.push('window.CONFIG = ' + JSON.stringify(config, null, 2) + ';');
+  const configLiteral = stringifyWithFunctions(config);
+  lines.push(`window.CONFIG = ${configLiteral};`);
   lines.push('');
   lines.push('');
   lines.push('// ==== CONFIG.attacks (authoritative) ====');
   lines.push('window.CONFIG = window.CONFIG || {};');
   lines.push('(function initAttacks(){');
   lines.push('  const D = CONFIG.durations || { toWindup:320, toStrike:160, toRecoil:180, toStance:120 };');
-  lines.push('  CONFIG.attacks = ' + JSON.stringify(config.attacks, null, 2).split('\n').map((line, i) => i === 0 ? line : '  ' + line).join('\n') + ';');
+  lines.push(formatAssignment(1, 'CONFIG.attacks = ', config.attacks || {}));
   lines.push('})();');
   lines.push('');
   lines.push('');
@@ -549,10 +627,8 @@ function generateConfigJS(config) {
   lines.push('    ]');
   lines.push('  };');
   lines.push('');
-  lines.push('  // IMPORTANT: merge instead of overwrite, then add weapon presets that opt into weapon colliders');
   lines.push('  CONFIG.presets = Object.assign({}, CONFIG.presets || {}, { SLAM, KICK, PUNCH });');
   lines.push('');
-  lines.push('  // Ensure core weapon presets exist and opt-in to weapon colliders.');
   lines.push('  const ensurePreset = (name, base=\'PUNCH\') => {');
   lines.push('    if (!CONFIG.presets[name]) CONFIG.presets[name] = clone(CONFIG.presets[base] || {});');
   lines.push('    CONFIG.presets[name].useWeaponColliders = true;');
@@ -560,8 +636,8 @@ function generateConfigJS(config) {
   lines.push('  [\'SLASH\',\'STAB\',\'THRUST\',\'SWEEP\',\'CHOP\',\'SMASH\',\'SWING\',\'HACK\',\'TOSS\'].forEach(n => ensurePreset(n));');
   lines.push('');
   lines.push('  try { document.dispatchEvent(new Event(\'config:ready\')); } catch(_){}');
-  lines.push('})();');
-  
+})();
+
   return lines.join('\n');
 }
 
@@ -609,6 +685,8 @@ function populateFighterSettings(fighterName, fighter, container) {
       if (!isNaN(newValue)) {
         setNestedValue(fighter, field.path, newValue);
         console.log(`[fighterSettings] Updated ${fighterName}.${field.path} = ${newValue}`);
+        scheduleConfigUpdatedEvent();
+        scheduleFighterPreview(fighterName);
       }
     });
 
