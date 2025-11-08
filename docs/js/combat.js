@@ -120,6 +120,49 @@ function makeCombat(G, C){
 
   function clone(o){ return JSON.parse(JSON.stringify(o||{})); }
 
+  function cloneSequence(sequence){
+    if (!Array.isArray(sequence)) return [];
+    return sequence.map(step => (typeof step === 'string' || typeof step === 'number') ? step : { ...step });
+  }
+
+  function getEquippedWeaponKey(){
+    return G.selectedWeapon || C.characters?.player?.weapon || C.knockback?.currentWeapon || 'unarmed';
+  }
+
+  function resolveComboAbilityForWeapon(baseAbility){
+    if (!baseAbility?.comboFromWeapon) return baseAbility;
+    const combos = C.weaponCombos || {};
+
+    const build = (comboDef, key) => {
+      if (!comboDef) return null;
+      const merged = { ...baseAbility };
+      merged.name = comboDef.name || baseAbility.name;
+      merged.sequence = cloneSequence(comboDef.sequence || baseAbility.sequence || []);
+      merged.comboWindowMs = comboDef.comboWindowMs ?? baseAbility.comboWindowMs;
+      if (comboDef.multipliers) {
+        merged.multipliers = combineMultiplierSources(baseAbility, { multipliers: comboDef.multipliers });
+      } else if (baseAbility.multipliers) {
+        merged.multipliers = clone(baseAbility.multipliers);
+      }
+      if (comboDef.tags) {
+        merged.tags = [...new Set([...(baseAbility.tags || []), ...(comboDef.tags || [])])];
+      }
+      if (comboDef.effects) {
+        merged.effects = { ...(baseAbility.effects || {}), ...comboDef.effects };
+      }
+      if (comboDef.onHit) {
+        merged.onHit = comboDef.onHit;
+      }
+      merged.weaponSource = comboDef.weapon || key || merged.weaponSource || null;
+      merged.comboFromWeapon = false;
+      return merged;
+    };
+
+    return build(combos[getEquippedWeaponKey()], getEquippedWeaponKey())
+        || build(combos[baseAbility.fallbackWeapon], baseAbility.fallbackWeapon)
+        || baseAbility;
+  }
+
   // Start transition with callback
   function startTransition(targetPose, label, durMs, callback){
     TRANSITION.active = true;
@@ -482,9 +525,10 @@ function makeCombat(G, C){
   }
 
   function triggerComboAbility(slotKey, abilityId){
-    const ability = getAbility(abilityId);
-    if (!ability) return;
+    const abilityTemplate = getAbility(abilityId);
+    if (!abilityTemplate) return;
 
+    const ability = resolveComboAbilityForWeapon(abilityTemplate);
     const sequence = ability.sequence || [];
     if (sequence.length === 0){
       console.warn(`[combat] combo ability "${abilityId}" has no sequence`);
