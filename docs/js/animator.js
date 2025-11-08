@@ -1,5 +1,5 @@
 // animator.js — restore basic idle/walk posing; robust speed detection; override TTL required
-import { degToRad } from './math-utils.js?v=1';
+import { degToRad, radToDegNum } from './math-utils.js?v=1';
 import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
 
 const ANG_KEYS = ['torso','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee'];
@@ -177,9 +177,6 @@ function processAnimEventsForOverride(F, over){
 // Helper to clamp values
 function clamp(val, min, max){ return Math.min(max, Math.max(min, val)); }
 
-// Helper to convert radians to degrees
-function rad2deg(r){ return r * 180 / Math.PI; }
-
 // Update aiming offsets based on current pose
 function updateAiming(F, currentPose, fighterId){
   const C = window.CONFIG || {};
@@ -222,9 +219,9 @@ function updateAiming(F, currentPose, fighterId){
     mouseDX = dx;
     
     // Debug log once per second for player
-    if (fighterId === 'player' && !F._lastAimLog || (performance.now() - F._lastAimLog) > 1000) {
-      console.log('[aim] source:', aimSource, 'mouseWorld:', {x: G.MOUSE.worldX, y: G.MOUSE.worldY}, 
-                  'fighterPos:', {x: F.pos?.x, y: F.pos?.y}, 'targetAngle:', (targetAngle * 180 / Math.PI).toFixed(1));
+    if (fighterId === 'player' && (!F._lastAimLog || (performance.now() - F._lastAimLog) > 1000)) {
+      console.log('[aim] source:', aimSource, 'mouseWorld:', {x: G.MOUSE.worldX, y: G.MOUSE.worldY},
+                  'fighterPos:', {x: F.pos?.x, y: F.pos?.y}, 'targetAngle:', radToDegNum(targetAngle).toFixed(1));
       F._lastAimLog = performance.now();
     }
   } else {
@@ -281,7 +278,7 @@ function updateAiming(F, currentPose, fighterId){
 
   // Calculate offsets based on aim angle
   const facingCos = Math.cos(facingRad);
-  let aimDeg = rad2deg(F.aim.currentAngle);
+  let aimDeg = radToDegNum(F.aim.currentAngle);
   if (Number.isFinite(facingCos)) {
     const orientationSign = Math.abs(facingCos) > 1e-4
       ? (facingCos >= 0 ? 1 : -1)

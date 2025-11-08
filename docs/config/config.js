@@ -40,10 +40,10 @@ const KICK_MOVE_POSES = {
     lElbow: -120,
     rShoulder: -80,
     rElbow: -100,
-    lHip: 110,
-    lKnee: 30,
-    rHip: 170,
-    rKnee: 40,
+    lHip:130,
+    lKnee:90,
+    rHip:100,
+    rKnee:90,
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -60,10 +60,10 @@ const KICK_MOVE_POSES = {
     lElbow: 0,
     rShoulder: 90,
     rElbow: 0,
-    lHip: 87,
-    lKnee: 0,
-    rHip: 0,
-    rKnee: 0,
+    lHip:180,
+    lKnee:0,
+    rHip:110,
+    rKnee:20,
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 120,
     impulseDirDeg: 0,
@@ -86,10 +86,10 @@ const KICK_MOVE_POSES = {
     lElbow: -120,
     rShoulder: -90,
     rElbow: -120,
-    lHip: 110,
-    lKnee: 40,
-    rHip: 30,
-    rKnee: 50,
+    lHip:110,
+    lKnee:60,
+    rHip:100,
+    rKnee:60,
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -217,6 +217,10 @@ window.CONFIG = {
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },
   groundY: 380,
+  // Debug options are surfaced in the debug panel; freezeAngles lets animators hold joints for edits
+  debug: {
+    freezeAngles: false
+  },
   basePose: {
     torso: 0,
     lShoulder: -90,
@@ -248,7 +252,8 @@ window.CONFIG = {
         aimLegs: false
     },
     Windup: {
-        torso: -35, lShoulder: -360, lElbow: 0, rShoulder: -360, rElbow: 0, lHip: 40, lKnee: 90, rHip: -90, rKnee: 90,
+        torso: -35, lShoulder: -360, lElbow: 0, rShoulder: -360, rElbow: 0,
+        lHip: 130, lKnee: 90, rHip: 100, rKnee: 90,
       rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: true, aimLegs: false,
       anim_events: [
@@ -257,7 +262,8 @@ window.CONFIG = {
       ]
     },
     Strike: {
-        torso: 45, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0, lHip: 180, lKnee: 0, rHip: 90, rKnee: 0,
+        torso: 45, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0,
+        lHip: 180, lKnee: 0, rHip: 110, rKnee: 20,
       rootMoveVel: { x: 0, y: 0, flip: false }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: true, aimLegs: false,
       anim_events: [
@@ -266,7 +272,8 @@ window.CONFIG = {
       ]
     },
     Recoil: { durMs: 200, phase: 'recoil',
-        torso: -15, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0, lHip: 0, lKnee: 70, rHip: 110, rKnee: 0,
+        torso: -15, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0,
+        lHip: 110, lKnee: 70, rHip: 100, rKnee: 40,
       rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
       allowAiming: false, aimLegs: false,
       anim_events: [
