@@ -698,7 +698,7 @@ function generateConfigJS(config) {
   lines.push('  [\'SLASH\',\'STAB\',\'THRUST\',\'SWEEP\',\'CHOP\',\'SMASH\',\'SWING\',\'HACK\',\'TOSS\'].forEach(n => ensurePreset(n));');
   lines.push('');
   lines.push('  try { document.dispatchEvent(new Event(\'config:ready\')); } catch(_){}');
-})();
+  lines.push('})();');
 
   return lines.join('\n');
 }
