@@ -1081,6 +1081,18 @@ function makeCombat(G, C){
     p.pos.x += p.vel.x * dt;
   }
 
+  function isPlayerAttacking(){
+    return !!ATTACK.active;
+  }
+
+  function isPlayerCharging(){
+    return !!CHARGE.active;
+  }
+
+  function isPlayerBusy(){
+    return ATTACK.active || CHARGE.active;
+  }
+
   function tick(dt){
     handleButtons();
     updateCharge(dt);
@@ -1090,5 +1102,13 @@ function makeCombat(G, C){
     processQueue();
   }
 
-  return { tick, slotDown, slotUp, updateSlotAssignments };
+  return {
+    tick,
+    slotDown,
+    slotUp,
+    updateSlotAssignments,
+    isPlayerAttacking,
+    isPlayerCharging,
+    isPlayerBusy
+  };
 }
