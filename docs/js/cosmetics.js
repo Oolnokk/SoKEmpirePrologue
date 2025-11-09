@@ -241,11 +241,35 @@ function normalizeEquipment(slotEntry){
   return { id, hsv, fighterOverrides };
 }
 
+function mergeSlotConfigs(baseSlots = {}, overrideDef = {}){
+  const overrides = overrideDef?.slots || overrideDef;
+  const merged = { ...baseSlots };
+  if (!overrides || typeof overrides !== 'object'){
+    return merged;
+  }
+  for (const [slot, value] of Object.entries(overrides)){
+    if (value == null){
+      delete merged[slot];
+      continue;
+    }
+    merged[slot] = (value && typeof value === 'object' && !Array.isArray(value))
+      ? deepMerge({}, value)
+      : value;
+  }
+  return merged;
+}
+
 export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
   const layers = [];
   const library = registerCosmeticLibrary(config.cosmeticLibrary || config.cosmetics?.library || {});
   const fighter = config.fighters?.[fighterName] || {};
-  const slotConfig = fighter.cosmetics?.slots || fighter.cosmetics || {};
+  let slotConfig = deepMerge({}, fighter.cosmetics?.slots || fighter.cosmetics || {});
+  if (typeof window !== 'undefined'){
+    const G = window.GAME || {};
+    if (G.selectedFighter === fighterName && G.selectedCosmetics){
+      slotConfig = mergeSlotConfigs(slotConfig, G.selectedCosmetics);
+    }
+  }
   for (const slot of COSMETIC_SLOTS){
     const equipped = normalizeEquipment(slotConfig[slot]);
     if (!equipped) continue;

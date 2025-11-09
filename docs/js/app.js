@@ -212,7 +212,8 @@ function initCharacterDropdown() {
     const selectedChar = e.target.value;
     if (!selectedChar || !map[selectedChar]) return;
     const charData = map[selectedChar];
-    // Sync fighter, weapon, and appearance
+    // Sync fighter, weapon, cosmetics, and appearance
+    window.GAME.selectedCharacter = selectedChar;
     window.GAME.selectedFighter = charData.fighter;
     window.GAME.selectedWeapon = charData.weapon || null;
     window.GAME.selectedAppearance = {
@@ -221,6 +222,17 @@ function initCharacterDropdown() {
       beard: charData.beard,
       adornments: charData.adornments
     };
+
+    if (charData.cosmetics) {
+      try {
+        window.GAME.selectedCosmetics = JSON.parse(JSON.stringify(charData.cosmetics));
+      } catch (_err) {
+        window.GAME.selectedCosmetics = charData.cosmetics;
+      }
+    } else {
+      delete window.GAME.selectedCosmetics;
+    }
+
     // Optionally update UI or trigger re-render
     if (typeof showFighterSettings === 'function') {
       showFighterSettings(charData.fighter);
@@ -250,7 +262,15 @@ function initCharacterDropdown() {
   }
   characterSelect._characterChangeHandler = onCharacterChange;
   characterSelect.addEventListener('change', onCharacterChange);
-  console.log('[initCharacterDropdown] Character dropdown initialized with', Object.keys(characters).length, 'characters');
+
+  const characterKeys = Object.keys(characters);
+  const preferredDefault = window.GAME?.selectedCharacter || (characters.player ? 'player' : characterKeys[0]);
+  if (preferredDefault && characters[preferredDefault]) {
+    characterSelect.value = preferredDefault;
+    onCharacterChange({ target: { value: preferredDefault } });
+  }
+
+  console.log('[initCharacterDropdown] Character dropdown initialized with', characterKeys.length, 'characters');
 }
 // Initialize dropdowns on page load
 window.addEventListener('DOMContentLoaded', () => {
