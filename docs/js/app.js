@@ -1,4 +1,197 @@
 // Character selection and settings management
+const ABILITY_SLOT_CONFIG = [
+  { slot: 'A', type: 'light', elementId: 'slotALight' },
+  { slot: 'A', type: 'heavy', elementId: 'slotAHeavy' },
+  { slot: 'B', type: 'light', elementId: 'slotBLight' },
+  { slot: 'B', type: 'heavy', elementId: 'slotBHeavy' }
+];
+
+const abilitySelectRefs = {};
+
+function ensureGameSelectionState() {
+  window.GAME ||= {};
+  window.GAME.selectedAbilities ||= {};
+  for (const { slot, type } of ABILITY_SLOT_CONFIG) {
+    const slotState = (window.GAME.selectedAbilities[slot] ||= { light: null, heavy: null });
+    if (!(type in slotState)) {
+      slotState[type] = null;
+    }
+  }
+}
+
+function normalizeAbilityValue(value) {
+  if (value === undefined || value === null || value === '') return null;
+  return String(value);
+}
+
+function setAbilitySelection(assignments = {}, { syncDropdowns = false } = {}) {
+  ensureGameSelectionState();
+  const updatesForCombat = {};
+
+  Object.entries(assignments).forEach(([slotKey, slotValues]) => {
+    if (!slotValues) return;
+    const slotState = (window.GAME.selectedAbilities[slotKey] ||= { light: null, heavy: null });
+    const combatSlot = {};
+
+    if ('light' in slotValues) {
+      const normalized = normalizeAbilityValue(slotValues.light);
+      slotState.light = normalized;
+      combatSlot.light = normalized;
+      const select = abilitySelectRefs?.[slotKey]?.light;
+      if (syncDropdowns && select) {
+        select.value = normalized ?? '';
+      }
+    }
+
+    if ('heavy' in slotValues) {
+      const normalized = normalizeAbilityValue(slotValues.heavy);
+      slotState.heavy = normalized;
+      combatSlot.heavy = normalized;
+      const select = abilitySelectRefs?.[slotKey]?.heavy;
+      if (syncDropdowns && select) {
+        select.value = normalized ?? '';
+      }
+    }
+
+    if (Object.keys(combatSlot).length) {
+      updatesForCombat[slotKey] = combatSlot;
+    }
+  });
+
+  if (Object.keys(updatesForCombat).length && window.GAME.combat?.updateSlotAssignments) {
+    window.GAME.combat.updateSlotAssignments(updatesForCombat);
+  }
+}
+
+function mapSlottedAbilitiesArray(values = []) {
+  const defaults = getDefaultAbilityAssignments();
+  const assignments = {};
+  ABILITY_SLOT_CONFIG.forEach(({ slot, type }, index) => {
+    const fallback = defaults?.[slot]?.[type] ?? null;
+    const chosen = values[index] !== undefined ? values[index] : fallback;
+    assignments[slot] ||= {};
+    assignments[slot][type] = normalizeAbilityValue(chosen);
+  });
+  return assignments;
+}
+
+function getDefaultAbilityAssignments() {
+  const slots = window.CONFIG?.abilitySystem?.slots || {};
+  const assignments = {};
+  Object.entries(slots).forEach(([slotKey, slotDef]) => {
+    assignments[slotKey] = {
+      light: normalizeAbilityValue(slotDef?.light),
+      heavy: normalizeAbilityValue(slotDef?.heavy)
+    };
+  });
+  return assignments;
+}
+
+function populateAbilityOptions(select, type, abilityDefs) {
+  if (!select) return;
+  const prevValue = select.value;
+  select.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = type === 'heavy' ? '-- Select Heavy Ability --' : '-- Select Light Ability --';
+  select.appendChild(placeholder);
+
+  const entries = Object.entries(abilityDefs || {})
+    .filter(([_, def]) => !def?.type || def.type === type)
+    .sort((a, b) => {
+      const aName = a[1]?.name || a[0];
+      const bName = b[1]?.name || b[0];
+      return aName.localeCompare(bName);
+    });
+
+  entries.forEach(([id, def]) => {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = def?.name || id;
+    select.appendChild(option);
+  });
+
+  const hasPrevious = entries.some(([id]) => id === prevValue);
+  select.value = hasPrevious ? prevValue : '';
+}
+
+function initAbilitySlotDropdowns() {
+  const abilitySystem = window.CONFIG?.abilitySystem;
+  if (!abilitySystem) return;
+
+  ensureGameSelectionState();
+  const abilityDefs = abilitySystem.abilities || {};
+
+  ABILITY_SLOT_CONFIG.forEach(({ slot, type, elementId }) => {
+    const select = document.getElementById(elementId);
+    if (!select) return;
+    abilitySelectRefs[slot] ||= {};
+    abilitySelectRefs[slot][type] = select;
+
+    populateAbilityOptions(select, type, abilityDefs);
+
+    if (!select.dataset.initialized) {
+      select.addEventListener('change', (event) => {
+        const value = event.target.value || null;
+        setAbilitySelection({ [slot]: { [type]: value } });
+      });
+      select.dataset.initialized = 'true';
+    }
+  });
+
+  const defaults = getDefaultAbilityAssignments();
+  const merged = { ...defaults };
+  Object.entries(window.GAME?.selectedAbilities || {}).forEach(([slotKey, slotValues]) => {
+    if (!slotValues) return;
+    const hasLight = slotValues.light != null;
+    const hasHeavy = slotValues.heavy != null;
+    if (!hasLight && !hasHeavy) return;
+    merged[slotKey] ||= {};
+    if (hasLight) merged[slotKey].light = slotValues.light;
+    if (hasHeavy) merged[slotKey].heavy = slotValues.heavy;
+  });
+
+  setAbilitySelection(merged, { syncDropdowns: true });
+}
+
+function initWeaponDropdown() {
+  const weaponSelect = document.getElementById('weaponSelect');
+  if (!weaponSelect) return;
+
+  const weapons = window.CONFIG?.weapons || {};
+  const previous = weaponSelect.value || window.GAME?.selectedWeapon || window.CONFIG?.characters?.player?.weapon || '';
+
+  weaponSelect.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = '-- Select Weapon --';
+  weaponSelect.appendChild(placeholder);
+
+  Object.keys(weapons).sort().forEach((key) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = key;
+    weaponSelect.appendChild(option);
+  });
+
+  const hasPrevious = previous && Object.prototype.hasOwnProperty.call(weapons, previous);
+  const fallback = Object.prototype.hasOwnProperty.call(weapons, 'unarmed') ? 'unarmed' : '';
+  weaponSelect.value = hasPrevious ? previous : fallback;
+
+  window.GAME ||= {};
+  window.GAME.selectedWeapon = weaponSelect.value || null;
+
+  if (!weaponSelect.dataset.initialized) {
+    weaponSelect.addEventListener('change', (event) => {
+      const value = event.target.value;
+      window.GAME.selectedWeapon = value || null;
+    });
+    weaponSelect.dataset.initialized = 'true';
+  }
+}
+
 function initCharacterDropdown() {
   const characterSelect = document.getElementById('characterSelect');
   if (!characterSelect || !window.CONFIG || !window.CONFIG.characters) return;
@@ -14,13 +207,14 @@ function initCharacterDropdown() {
     option.textContent = key;
     characterSelect.appendChild(option);
   });
-  characterSelect.addEventListener('change', (e) => {
+  const onCharacterChange = (e) => {
+    const map = window.CONFIG?.characters || {};
     const selectedChar = e.target.value;
-    if (!selectedChar || !characters[selectedChar]) return;
-    const charData = characters[selectedChar];
+    if (!selectedChar || !map[selectedChar]) return;
+    const charData = map[selectedChar];
     // Sync fighter, weapon, and appearance
     window.GAME.selectedFighter = charData.fighter;
-    window.GAME.selectedWeapon = charData.weapon;
+    window.GAME.selectedWeapon = charData.weapon || null;
     window.GAME.selectedAppearance = {
       clothes: charData.clothes,
       hairstyle: charData.hairstyle,
@@ -34,11 +228,34 @@ function initCharacterDropdown() {
     // Also update fighter dropdown to match
     const fighterSelect = document.getElementById('fighterSelect');
     if (fighterSelect) fighterSelect.value = charData.fighter;
-  });
+
+    const weaponSelect = document.getElementById('weaponSelect');
+    if (weaponSelect) {
+      const hasOption = Array.from(weaponSelect.options).some(opt => opt.value === charData.weapon);
+      if (!hasOption && charData.weapon) {
+        const option = document.createElement('option');
+        option.value = charData.weapon;
+        option.textContent = charData.weapon;
+        weaponSelect.appendChild(option);
+      }
+      weaponSelect.value = charData.weapon || '';
+    }
+
+    const abilityAssignments = mapSlottedAbilitiesArray(charData.slottedAbilities || []);
+    setAbilitySelection(abilityAssignments, { syncDropdowns: true });
+  };
+
+  if (characterSelect._characterChangeHandler) {
+    characterSelect.removeEventListener('change', characterSelect._characterChangeHandler);
+  }
+  characterSelect._characterChangeHandler = onCharacterChange;
+  characterSelect.addEventListener('change', onCharacterChange);
   console.log('[initCharacterDropdown] Character dropdown initialized with', Object.keys(characters).length, 'characters');
 }
 // Initialize dropdowns on page load
 window.addEventListener('DOMContentLoaded', () => {
+  initWeaponDropdown();
+  initAbilitySlotDropdowns();
   initCharacterDropdown();
   initFighterDropdown();
 });
@@ -143,6 +360,10 @@ if (reloadBtn){
       initPresets();
       ensureAltSequenceUsesKickAlt();
       applyRenderOrder();
+      initWeaponDropdown();
+      initAbilitySlotDropdowns();
+      initCharacterDropdown();
+      initFighterDropdown();
       if (statusInfo) statusInfo.textContent = 'Config reloaded';
     } catch (e){
       if (statusInfo) statusInfo.textContent = 'Config reload failed';
