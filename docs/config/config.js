@@ -373,12 +373,12 @@ window.CONFIG = {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
           xformUnits: "percent",
           xform: {
-            torso:    { ax:0,  ay:0, scaleX:1.5, scaleY:1.5, rotDeg:180 },
-            head:     { ax:0, ay:0, scaleX:1.5, scaleY:1.5, rotDeg:180 },
-            armUpper: { ax:0.00,  ay:0,  scaleX:1.5, scaleY:2, rotDeg:0 },
-            armLower: { ax:0.00,  ay:0,  scaleX:1.5, scaleY:2, rotDeg:0 },
-            legUpper: { ax:-0.10, ay:0,  scaleX:2, scaleY:2,  rotDeg:-15 },
-            legLower: { ax:-0.0,  ay:0,  scaleX:2, scaleY:2, rotDeg:30 }
+            torso:    { ax:0,  ay:-0.2, scaleX:1.4, scaleY:1.6, rotDeg:180 },
+            head:     { ax:-0.1, ay:0.01, scaleX:1.7, scaleY:1.8, rotDeg:180 },
+            armUpper: { ax:-0.2,  ay:0.1,  scaleX:1.6, scaleY:2.8, rotDeg:-10 },
+            armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-3 },
+            legUpper: { ax:-0.10, ay:0,  scaleX:1.7, scaleY:2.75,  rotDeg:-15 },
+            legLower: { ax:-0.0,  ay:0.2,  scaleX:1.7, scaleY:2.1, rotDeg:-4 }
           }
       }
     }
@@ -570,7 +570,7 @@ window.CONFIG = {
   // Each character has fighter, weapon, slotted attacks, and appearance options
   characters: {
     player: {
-      fighter: 'TLETINGAN',
+      fighter: 'Mao-ao_M',
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
       clothes: 'default',
