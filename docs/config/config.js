@@ -16,6 +16,127 @@ const abilityKnockback = (base, { clamp } = {}) => {
 
 const deepClone = (value) => JSON.parse(JSON.stringify(value || {}));
 
+const BASE_POSES = {
+  Stance: {
+    torso: 10,
+    lShoulder: -100,
+    lElbow: -110,
+    rShoulder: -40,
+    rElbow: -110,
+    lHip: 110,
+    lKnee: 40,
+    rHip: 30,
+    rKnee: 40,
+    rootMoveVel: { x: 0, y: 0 },
+    impulseMag: 0,
+    impulseDirDeg: 0,
+    resetFlipsBefore: true,
+    allowAiming: true,
+    aimLegs: false
+  },
+  Windup: {
+    torso: -35,
+    lShoulder: -360,
+    lElbow: 0,
+    rShoulder: -360,
+    rElbow: 0,
+    lHip: 130,
+    lKnee: 90,
+    rHip: 100,
+    rKnee: 90,
+    rootMoveVel: { x: 0, y: 0 },
+    impulseMag: 0,
+    impulseDirDeg: 0,
+    allowAiming: true,
+    aimLegs: false,
+    anim_events: [
+      { time: 0.00, velocityX: -15, velocityY: 0 },
+      { time: 0.65, impulse: 320, impulse_angle: -90 }
+    ]
+  },
+  Strike: {
+    torso: 45,
+    lShoulder: -45,
+    lElbow: 0,
+    rShoulder: -45,
+    rElbow: 0,
+    lHip: 180,
+    lKnee: 0,
+    rHip: 110,
+    rKnee: 20,
+    rootMoveVel: { x: 0, y: 0, flip: false },
+    impulseMag: 0,
+    impulseDirDeg: 0,
+    allowAiming: true,
+    aimLegs: false,
+    anim_events: [
+      { time: 0.00, impulse: 450, impulse_angle: -45 },
+      { time: 0.05, velocityX: 280, velocityY: 120, localVel: true }
+    ]
+  },
+  Recoil: {
+    durMs: 200,
+    phase: 'recoil',
+    torso: -15,
+    lShoulder: -45,
+    lElbow: 0,
+    rShoulder: -45,
+    rElbow: 0,
+    lHip: 110,
+    lKnee: 70,
+    rHip: 100,
+    rKnee: 40,
+    rootMoveVel: { x: 0, y: 0 },
+    impulseMag: 0,
+    impulseDirDeg: 0,
+    allowAiming: false,
+    aimLegs: false,
+    anim_events: [
+      { time: 0.00, velocityX: 80, velocityY: -40 },
+      { time: 0.30, impulse: 120, impulse_angle: 160 }
+    ]
+  },
+  Jump: {
+    torso: -10,
+    lShoulder: -160,
+    lElbow: -30,
+    rShoulder: -160,
+    rElbow: -30,
+    lHip: 120,
+    lKnee: 60,
+    rHip: 120,
+    rKnee: 60,
+    rootMoveVel: { x: 0, y: 0 },
+    impulseMag: 0,
+    impulseDirDeg: 0,
+    allowAiming: true,
+    aimLegs: false
+  },
+  Walk: {
+    torso: 20,
+    lShoulder: -100,
+    lElbow: -100,
+    rShoulder: -100,
+    rElbow: -100,
+    lHip: 90,
+    lKnee: 20,
+    rHip: 90,
+    rKnee: 20,
+    rootMoveVel: { x: 0, y: 0 },
+    impulseMag: 0,
+    impulseDirDeg: 0,
+    allowAiming: true,
+    aimLegs: false
+  }
+};
+
+// Pose angle summary used by tooling/tests to verify baseline corrections.
+const POSE_ANGLE_SUMMARY = {
+  Windup: { lHip:130, rHip:100 },
+  Strike: { lHip:180, rHip:110 },
+  Recoil: { lHip:110, rHip:100 }
+};
+
 const KICK_MOVE_POSES = {
   Stance: {
     torso: 10,
@@ -78,7 +199,8 @@ const KICK_MOVE_POSES = {
     anim_events: [
     ]
   },
-  Recoil: {
+  Recoil: // Kick recoil pose definition
+  {
     torso: 50,
     lShoulder: -27,
     lElbow: 0,
@@ -223,65 +345,12 @@ window.CONFIG = {
   },
 
   poses: {
-    Stance: {
-        torso: 10,
-        lShoulder: -100,
-        lElbow: -110,
-        rShoulder: -40,
-        rElbow: -110,
-        lHip: 110,
-        lKnee: 40,
-        rHip: 30,
-        rKnee: 40,
-        rootMoveVel: { x: 0, y: 0 },
-        impulseMag: 0,
-        impulseDirDeg: 0,
-        resetFlipsBefore: true,
-        allowAiming: true,
-        aimLegs: false
-    },
-    Windup: {
-        torso: -35, lShoulder: -360, lElbow: 0, rShoulder: -360, rElbow: 0,
-        lHip: 130, lKnee: 90, rHip: 100, rKnee: 90,
-      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
-      allowAiming: true, aimLegs: false,
-      anim_events: [
-        { time: 0.00, velocityX: -15, velocityY: 0 },
-        { time: 0.65, impulse: 320, impulse_angle: -90 }
-      ]
-    },
-    Strike: {
-        torso: 45, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0,
-        lHip: 180, lKnee: 0, rHip: 110, rKnee: 20,
-      rootMoveVel: { x: 0, y: 0, flip: false }, impulseMag: 0, impulseDirDeg: 0,
-      allowAiming: true, aimLegs: false,
-      anim_events: [
-        { time: 0.00, impulse: 450, impulse_angle: -45 },
-        { time: 0.05, velocityX: 280, velocityY: 120, localVel: true }
-      ]
-    },
-    Recoil: { durMs: 200, phase: 'recoil',
-        torso: -15, lShoulder: -45, lElbow: 0, rShoulder: -45, rElbow: 0,
-        lHip: 110, lKnee: 70, rHip: 100, rKnee: 40,
-      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
-      allowAiming: false, aimLegs: false,
-      anim_events: [
-        { time: 0.00, velocityX: 80, velocityY: -40 },
-        { time: 0.30, impulse: 120, impulse_angle: 160 }
-      ]
-    },
-    Jump: {
-        torso: -10, lShoulder: -160, lElbow: -30, rShoulder: -160, rElbow: -30,
-        lHip: 120, lKnee: 60, rHip: 120, rKnee: 60,
-      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
-      allowAiming: true, aimLegs: false
-    },
-    Walk: {
-        torso: 20, lShoulder: -100, lElbow: -100, rShoulder: -100, rElbow: -100,
-        lHip: 90, lKnee: 20, rHip: 90, rKnee: 20,
-      rootMoveVel: { x: 0, y: 0 }, impulseMag: 0, impulseDirDeg: 0,
-      allowAiming: true, aimLegs: false
-    }
+    Stance: deepClone(BASE_POSES.Stance),
+    Windup: deepClone(BASE_POSES.Windup),
+    Strike: deepClone(BASE_POSES.Strike),
+    Recoil: deepClone(BASE_POSES.Recoil),
+    Jump: deepClone(BASE_POSES.Jump),
+    Walk: deepClone(BASE_POSES.Walk)
   },
 
   fighters: {
@@ -719,6 +788,300 @@ window.CONFIG = {
     }
   }
 };
+
+const toPascalCase = (value = '') => {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/([0-9]+)/g, ' $1 ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join('');
+};
+
+const posePhaseInfo = (poseName) => {
+  const normalized = toPascalCase(poseName);
+  if (!normalized) return null;
+  if (normalized === 'Slam') {
+    return { suffix: 'Strike', phase: 'strike', poseSuffix: 'Slam' };
+  }
+  const phaseMap = {
+    Stance: 'stance',
+    Windup: 'windup',
+    Strike: 'strike',
+    Recoil: 'recoil'
+  };
+  const phase = phaseMap[normalized];
+  if (!phase) return null;
+  return { suffix: normalized, phase, poseSuffix: normalized };
+};
+
+const determineDefaultLimb = (moveId = '') => {
+  if (/KICK/i.test(moveId)) return 'rightLeg';
+  if (/PUNCH/i.test(moveId)) return 'rightArm';
+  if (/SLAM/i.test(moveId)) return 'bothArms';
+  return null;
+};
+
+const buildPoseLibraryV2 = (moves = {}) => {
+  const library = {};
+  Object.entries(moves).forEach(([moveId, moveDef]) => {
+    const moveName = toPascalCase(moveId);
+    Object.entries(moveDef.poses || {}).forEach(([poseName, poseValue]) => {
+      const info = posePhaseInfo(poseName) || { poseSuffix: toPascalCase(poseName) };
+      const poseKey = `${moveName}${info.poseSuffix || ''}`;
+      if (!poseKey) return;
+      if (!library[poseKey]) {
+        library[poseKey] = deepClone(poseValue);
+      }
+    });
+  });
+  return library;
+};
+
+const PHASE_TO_DURATION_KEY = {
+  stance: 'toStance',
+  windup: 'toWindup',
+  strike: 'toStrike',
+  recoil: 'toRecoil'
+};
+
+const buildStageLibraryV2 = (moves = {}, poseLibrary = {}) => {
+  const stages = {};
+  Object.entries(moves).forEach(([moveId, moveDef]) => {
+    const moveName = toPascalCase(moveId);
+    const durations = moveDef.durations || {};
+    Object.keys(moveDef.poses || {}).forEach((poseName) => {
+      const info = posePhaseInfo(poseName);
+      if (!info) return;
+      const poseKey = `${moveName}${info.poseSuffix}`;
+      if (!poseLibrary[poseKey]) return;
+      const stageId = `${moveName}${info.suffix}`;
+      if (!stages[stageId]) {
+        stages[stageId] = {
+          id: stageId,
+          pose: poseKey,
+          move: moveName,
+          phase: info.phase,
+          defaultDuration: durations[PHASE_TO_DURATION_KEY[info.phase]] ?? null
+        };
+      }
+    });
+  });
+  return stages;
+};
+
+const PHASE_ORDER = ['stance', 'windup', 'strike', 'recoil'];
+
+const buildMoveHierarchyV2 = (moves = {}, stageLibrary = {}, poseLibrary = {}) => {
+  const hierarchy = {};
+  Object.entries(moves).forEach(([moveId, moveDef]) => {
+    const moveName = toPascalCase(moveId);
+    const durations = moveDef.durations || {};
+    const stageRefs = [];
+    const extras = [];
+    Object.entries(moveDef.poses || {}).forEach(([poseName]) => {
+      const info = posePhaseInfo(poseName);
+      const poseSuffix = toPascalCase(poseName);
+      const poseKey = `${moveName}${poseSuffix}`;
+      if (info) {
+        const stageId = `${moveName}${info.suffix}`;
+        if (stageLibrary[stageId]) {
+          const durationKey = PHASE_TO_DURATION_KEY[info.phase];
+          const ref = { stage: stageId, phase: info.phase };
+          if (durationKey && Object.prototype.hasOwnProperty.call(durations, durationKey)) {
+            ref.duration = durations[durationKey];
+          }
+          stageRefs.push(ref);
+        }
+      } else if (poseLibrary[poseKey]) {
+        extras.push({ pose: poseKey, alias: poseSuffix });
+      }
+    });
+    stageRefs.sort((a, b) => PHASE_ORDER.indexOf(a.phase) - PHASE_ORDER.indexOf(b.phase));
+    const sequence = Array.isArray(moveDef.sequence)
+      ? moveDef.sequence.map((step) => {
+          const info = posePhaseInfo(step.poseKey);
+          if (info) {
+            const stageId = `${moveName}${info.suffix}`;
+            const converted = {
+              stage: stageId,
+              duration: step.durMs
+            };
+            if (step.strike) converted.strike = deepClone(step.strike);
+            if (step.phase) converted.phase = step.phase;
+            return converted;
+          }
+          return { pose: step.poseKey, duration: step.durMs };
+        })
+      : undefined;
+    hierarchy[moveName] = {
+      id: moveName,
+      legacyId: moveId,
+      name: moveDef.name || moveName,
+      tags: deepClone(moveDef.tags || []),
+      knockbackBase: moveDef.knockbackBase ?? moveDef.knockback ?? null,
+      cancelWindow: moveDef.cancelWindow ?? null,
+      inheritsFrom: moveDef.inherits ? toPascalCase(moveDef.inherits) : null,
+      limb: determineDefaultLimb(moveId),
+      stages: stageRefs,
+      extras: extras.length ? extras : undefined,
+      sequence
+    };
+  });
+  return hierarchy;
+};
+
+const buildAttackHierarchyV2 = (abilitySystem = {}, moveHierarchy = {}) => {
+  const attacks = {};
+  Object.entries(abilitySystem.attacks || {}).forEach(([attackId, def]) => {
+    const canonicalId = toPascalCase(attackId);
+    const presetId = def.preset || attackId;
+    const moveName = toPascalCase(presetId);
+    const attack = {
+      id: canonicalId,
+      legacyId: attackId,
+      name: canonicalId,
+      primaryMove: moveName,
+      moves: [
+        {
+          move: moveName,
+          limb: determineDefaultLimb(presetId),
+          startMs: 0
+        }
+      ],
+      tags: deepClone(def.tags || []),
+      classification: (def.tags || []).includes('heavy')
+        ? 'heavy'
+        : (def.tags || []).includes('light') ? 'light' : null
+    };
+    if (def.multipliers) attack.multipliers = deepClone(def.multipliers);
+    if (def.effects) attack.effects = deepClone(def.effects);
+    attacks[canonicalId] = attack;
+  });
+  return attacks;
+};
+
+const TRIGGER_TO_TYPE = {
+  combo: 'combo',
+  single: 'quick',
+  'hold-release': 'hold-release',
+  flurry: 'flurry'
+};
+
+const buildAbilityHierarchyV2 = (abilitySystem = {}, attackHierarchy = {}) => {
+  const abilities = {};
+  Object.entries(abilitySystem.abilities || {}).forEach(([abilityId, def]) => {
+    const ability = {
+      id: abilityId,
+      name: def.name || toPascalCase(abilityId),
+      type: TRIGGER_TO_TYPE[def.trigger] || def.trigger || null,
+      classification: def.type || null,
+      trigger: def.trigger || null,
+      tags: deepClone(def.tags || [])
+    };
+    if (def.attack) {
+      ability.attack = toPascalCase(def.attack);
+    }
+    if (Array.isArray(def.sequence)) {
+      ability.sequence = def.sequence.map((attackId) => toPascalCase(attackId));
+    }
+    if (Array.isArray(def.variants)) {
+      ability.variants = def.variants.map((variant) => ({
+        ...variant,
+        require: variant.require ? deepClone(variant.require) : undefined,
+        attack: toPascalCase(variant.attack)
+      }));
+    }
+    if (def.multipliers) ability.multipliers = deepClone(def.multipliers);
+    if (def.onHit) ability.onHit = def.onHit;
+    if (def.comboFromWeapon) ability.comboFromWeapon = true;
+    if (def.fallbackWeapon) ability.fallbackWeapon = def.fallbackWeapon;
+    if (def.charge) ability.charge = deepClone(def.charge);
+    abilities[abilityId] = ability;
+  });
+  return abilities;
+};
+
+const buildInputSlotHierarchyV2 = (slots = {}) => {
+  const slotMap = {};
+  Object.entries(slots).forEach(([slotKey, slotDef]) => {
+    slotMap[slotKey] = {
+      id: slotKey,
+      label: slotDef.label || slotKey,
+      assignments: {
+        light: slotDef.light || null,
+        heavy: slotDef.heavy || null
+      }
+    };
+  });
+  return slotMap;
+};
+
+const attachInputSlotsToAbilities = (abilities = {}, inputSlots = {}) => {
+  Object.entries(inputSlots).forEach(([slotKey, slotDef]) => {
+    ['light', 'heavy'].forEach((weight) => {
+      const abilityId = slotDef.assignments?.[weight];
+      if (abilityId && abilities[abilityId]) {
+        const slots = abilities[abilityId].inputSlots || [];
+        if (!slots.includes(slotKey)) {
+          slots.push(slotKey);
+        }
+        abilities[abilityId].inputSlots = slots;
+      }
+    });
+  });
+};
+
+const buildWeaponComboHierarchyV2 = (weaponCombos = {}) => {
+  const combos = {};
+  Object.entries(weaponCombos).forEach(([weaponKey, comboDef]) => {
+    combos[weaponKey] = {
+      ...comboDef,
+      sequence: Array.isArray(comboDef.sequence)
+        ? comboDef.sequence.map((step) => typeof step === 'string' ? toPascalCase(step) : step)
+        : undefined
+    };
+  });
+  return combos;
+};
+
+const attachHierarchy = () => {
+  if (!window.CONFIG) return;
+  const poseLibrary = buildPoseLibraryV2(CONFIG.moves || {});
+  const stages = buildStageLibraryV2(CONFIG.moves || {}, poseLibrary);
+  const moveHierarchy = buildMoveHierarchyV2(CONFIG.moves || {}, stages, poseLibrary);
+  const attackHierarchy = buildAttackHierarchyV2(CONFIG.abilitySystem || {}, moveHierarchy);
+  const abilityHierarchy = buildAbilityHierarchyV2(CONFIG.abilitySystem || {}, attackHierarchy);
+  const inputSlots = buildInputSlotHierarchyV2(CONFIG.abilitySystem?.slots || {});
+  attachInputSlotsToAbilities(abilityHierarchy, inputSlots);
+  const weaponComboHierarchy = buildWeaponComboHierarchyV2(CONFIG.weaponCombos || {});
+
+  CONFIG.poseLibrary = poseLibrary;
+  CONFIG.stageLibrary = stages;
+  CONFIG.moveLibrary = moveHierarchy;
+  CONFIG.attackLibrary = attackHierarchy;
+  CONFIG.abilityLibrary = abilityHierarchy;
+  CONFIG.inputSlotLibrary = inputSlots;
+  CONFIG.hierarchy = {
+    poses: poseLibrary,
+    stages,
+    moves: moveHierarchy,
+    attacks: attackHierarchy,
+    abilities: abilityHierarchy,
+    thresholds: deepClone(CONFIG.abilitySystem?.thresholds || {}),
+    defaults: deepClone(CONFIG.abilitySystem?.defaults || {}),
+    inputSlots,
+    characters: deepClone(CONFIG.characters || {}),
+    weapons: deepClone(CONFIG.weapons || {}),
+    weaponCombos: weaponComboHierarchy
+  };
+};
+
+attachHierarchy();
 
 
 // ==== CONFIG.attacks (authoritative) ====
