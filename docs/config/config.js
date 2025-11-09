@@ -344,6 +344,10 @@ window.CONFIG = {
     rKnee: 0
   },
 
+  limits: {
+    head: { relMin: -75, relMax: 75 }
+  },
+
   poses: {
     Stance: deepClone(BASE_POSES.Stance),
     Windup: deepClone(BASE_POSES.Windup),
@@ -370,7 +374,8 @@ window.CONFIG = {
           shoulder: { relMin:-360, relMax:-90 },
           elbow: { relMin:-170, relMax:0 },
           hip: { absMin:90, absMax:210 },
-          knee: { relMin:0, relMax:170 }
+          knee: { relMin:0, relMax:170 },
+          head: { relMin:-75, relMax:75 }
         },
       offsets: {
         torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
@@ -408,7 +413,7 @@ window.CONFIG = {
       parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:55 }, arm:{ upper:35, lower:50 }, leg:{ upper:40, lower:40 }, head:{ neck:10, radius:12 } },
       hierarchy: { legsFollowTorsoRotation: false },
       ik: { calvesOnly: true },
-      limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 } },
+      limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 }, head:{ relMin:-75, relMax:75 } },
       offsets: {
         torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
         arm: { upper:{ origin:{ax:0, ay:0}, elbow:{ax:0, ay:0} }, lower:{ origin:{ax:0, ay:0} } },

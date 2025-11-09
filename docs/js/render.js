@@ -131,12 +131,15 @@ function computeAnchorsForFighter(F, C, fighterName) {
 
   // Build bone objects (include base points)
   const headLen = ((fcfg.parts?.head?.neck ?? C.parts?.head?.neck ?? 14) + 2*(fcfg.parts?.head?.radius ?? C.parts?.head?.radius ?? 16)) * (L.scale/(C.actor?.scale||1)) * (C.actor?.scale||1);
-  const headEndArr = segPos(neckBaseArr[0], neckBaseArr[1], headLen, torsoAng);
+  const headAngRaw = F.jointAngles?.head;
+  const headAng = Number.isFinite(headAngRaw) ? headAngRaw : torsoAng;
+  const headBaseArr = withAX(neckBaseArr[0], neckBaseArr[1], headAng, OFF.head?.origin);
+  const headEndArr = segPos(headBaseArr[0], headBaseArr[1], headLen, headAng);
 
   const B = {
     center:{x:centerX,y:centerY},
     torso:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.torso,ang:torsoAng,endX:torsoTopArr[0],endY:torsoTopArr[1]},
-    head:{x:neckBaseArr[0],y:neckBaseArr[1],len:headLen,ang:torsoAng,endX:headEndArr[0],endY:headEndArr[1]},
+    head:{x:headBaseArr[0],y:headBaseArr[1],len:headLen,ang:headAng,endX:headEndArr[0],endY:headEndArr[1]},
     shoulderBase:{x:shoulderBaseArr[0],y:shoulderBaseArr[1]},
     hipBase:{x:hipBaseArr[0],y:hipBaseArr[1]},
     neckBase:{x:neckBaseArr[0],y:neckBaseArr[1]},
