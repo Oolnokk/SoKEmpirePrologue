@@ -55,6 +55,7 @@ export function initTouchControls(){
   function processJoystickInput(){
     const MOVE = G.FIGHTERS?.player?.move;
     if (!MOVE) return;
+    const sharedInput = G.input;
     
     const deadzone = 0.2;
     const normalized = G.JOYSTICK.distance / 40; // Normalize to 0-1
@@ -72,6 +73,11 @@ export function initTouchControls(){
     } else {
       MOVE.input.left = false;
       MOVE.input.right = false;
+    }
+
+    if (sharedInput){
+      sharedInput.left = MOVE.input.left;
+      sharedInput.right = MOVE.input.right;
     }
     
     // Aiming - update facing direction based on joystick
@@ -125,6 +131,10 @@ export function initTouchControls(){
       MOVE.input.left = false;
       MOVE.input.right = false;
     }
+    if (G.input){
+      G.input.left = false;
+      G.input.right = false;
+    }
     
     updateJoystickVisual();
     processJoystickInput();
@@ -159,6 +169,12 @@ export function initTouchControls(){
         if (action === 'down'){
           const P = G.FIGHTERS?.player;
           if (P) P.input.jump = true;
+          if (G.input) G.input.jump = true;
+        }
+        if (action === 'up'){
+          const P = G.FIGHTERS?.player;
+          if (P) P.input.jump = false;
+          if (G.input) G.input.jump = false;
         }
         break;
       case 'interact':
@@ -198,6 +214,10 @@ export function initTouchControls(){
     btnJump.addEventListener('touchstart', (e) => {
       e.preventDefault();
       handleTouchButton('jump', 'down');
+    }, { passive: false });
+    btnJump.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      handleTouchButton('jump', 'up');
     }, { passive: false });
   }
   

@@ -263,6 +263,7 @@ import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=6';
 import { initControls } from './controls.js?v=7';
 import { initCombat } from './combat.js?v=19';
+import { initPhysics, updatePhysics } from './physics.js?v=1';
 import { updatePoses } from './animator.js?v=4';
 import { renderAll, LIMB_COLORS } from './render.js?v=4';
 import { updateCamera } from './camera.js?v=1';
@@ -1114,6 +1115,7 @@ let frames = 0;
 function loop(t){
   const dt = (t - last) / 1000; last = t;
   if (window.GAME?.combat) window.GAME.combat.tick(dt);
+  updatePhysics(dt);
   updatePoses();
   updateCamera(cv);
   drawStage();
@@ -1213,6 +1215,7 @@ function boot(){
     initFighters(cv, cx);
     initControls();
     initCombat();
+    initPhysics();
     initHitDetect();
     initDebugPanel();
     initTouchControls();
