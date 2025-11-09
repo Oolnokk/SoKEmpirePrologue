@@ -71,10 +71,43 @@ test('ensureCosmeticLayers resolves equipment with HSV limits applied', () => {
   strictEqual(typeof layers[0].styleOverride, 'object');
 });
 
+test('ensureCosmeticLayers normalizes hsv arrays and string values', () => {
+  clearCosmeticCache();
+  const config = {
+    cosmeticLibrary: {
+      demo_item: {
+        slot: 'hat',
+        hsv: {
+          defaults: { h: 10, s: 0.1, v: -0.1 },
+          limits: { h: [-45, 45], s: [-0.5, 0.5], v: [-0.5, 0.5] }
+        },
+        parts: {
+          head: {
+            image: { url: 'https://example.com/head.png' }
+          }
+        }
+      }
+    },
+    fighters: {
+      hero: {
+        cosmetics: {
+          slots: {
+            hat: { id: 'demo_item', hsv: ['30', '0.4', '-0.2'] }
+          }
+        }
+      }
+    }
+  };
+  const layers = ensureCosmeticLayers(config, 'hero', {});
+  strictEqual(layers.length, 1);
+  deepStrictEqual(layers[0].hsv, { h: 30, s: 0.4, v: -0.2 });
+});
+
 test('sprites.js integrates cosmetic layers and z-order expansion', () => {
   const spritesContent = readFileSync(new URL('../docs/js/sprites.js', import.meta.url), 'utf8');
   strictEqual(/expanded\.push\(cosmeticTagFor\(tag, slot\)\);/.test(spritesContent), true, 'buildZMap should add cosmetic tags');
   strictEqual(/const \{ assets, style, offsets, cosmetics } = ensureFighterSprites/.test(spritesContent), true, 'renderSprites should read cosmetics');
+  strictEqual(/withBranchMirror\(ctx,\s*originX,\s*mirror,\s*\(\)\s*=>\s*\{\s*drawBoneSprite\(ctx, layer\.asset, bone, styleKey/.test(spritesContent), true, 'cosmetic layers should mirror with their limbs');
 });
 
 test('config references cosmetic library sources and fighter slot data', () => {

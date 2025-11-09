@@ -159,18 +159,37 @@ export function registerCosmeticLibrary(library = {}){
   return STATE.library;
 }
 
+function coerceNumber(value){
+  if (Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length){
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return Number.NaN;
+}
+
 function clamp(value, min, max){
-  if (!Number.isFinite(value)) return min;
-  return Math.min(Math.max(value, min), max);
+  const num = coerceNumber(value);
+  const lo = Number.isFinite(min) ? min : Number.NEGATIVE_INFINITY;
+  const hi = Number.isFinite(max) ? max : Number.POSITIVE_INFINITY;
+  if (!Number.isFinite(num)){
+    if (Number.isFinite(min)) return min;
+    if (Number.isFinite(max)) return max;
+    return 0;
+  }
+  return Math.min(Math.max(num, lo), hi);
 }
 
 function clampHSV(input = {}, cosmetic){
   const defaults = cosmetic?.hsv?.defaults || { h:0, s:0, v:0 };
   const limits = cosmetic?.hsv?.limits || {};
+  const source = Array.isArray(input)
+    ? { h: input[0], s: input[1], v: input[2] }
+    : (input && typeof input === 'object' ? input : {});
   return {
-    h: clamp(input.h ?? defaults.h ?? 0, limits.h?.[0] ?? -180, limits.h?.[1] ?? 180),
-    s: clamp(input.s ?? defaults.s ?? 0, limits.s?.[0] ?? -1, limits.s?.[1] ?? 1),
-    v: clamp(input.v ?? defaults.v ?? 0, limits.v?.[0] ?? -1, limits.v?.[1] ?? 1)
+    h: clamp(source.h ?? defaults.h ?? 0, limits.h?.[0] ?? -180, limits.h?.[1] ?? 180),
+    s: clamp(source.s ?? defaults.s ?? 0, limits.s?.[0] ?? -1, limits.s?.[1] ?? 1),
+    v: clamp(source.v ?? defaults.v ?? 0, limits.v?.[0] ?? -1, limits.v?.[1] ?? 1)
   };
 }
 

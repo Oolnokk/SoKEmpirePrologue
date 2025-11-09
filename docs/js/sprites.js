@@ -167,6 +167,10 @@ function legMirrorFlag(side, tagU, tagL){
   return !!RENDER.MIRROR[tagU] || !!RENDER.MIRROR[tagL];
 }
 
+function getMirrorFlag(tag){
+  return !!RENDER.MIRROR[tag];
+}
+
 // Leg drawing uses branch mirroring, standard math
 function drawLegBranch(ctx, rig, side, assets, style, offsets, segment='both'){
   const upKey = side==='L' ? 'leg_L_upper':'leg_R_upper';
@@ -209,6 +213,39 @@ function withBranchMirror(ctx, originX, mirror, drawFn){
   }
   drawFn();
   ctx.restore();
+}
+
+function resolveCosmeticMirror(rig, partKey, bone){
+  const tag = tagOf(partKey);
+  const fallbackOrigin = bone?.x ?? 0;
+  switch (tag){
+    case 'ARM_L_UPPER':
+    case 'ARM_L_LOWER':
+      return {
+        mirror: getMirrorFlag('ARM_L_UPPER') || getMirrorFlag('ARM_L_LOWER'),
+        originX: rig?.arm_L_upper?.x ?? rig?.arm_L_lower?.x ?? fallbackOrigin
+      };
+    case 'ARM_R_UPPER':
+    case 'ARM_R_LOWER':
+      return {
+        mirror: getMirrorFlag('ARM_R_UPPER') || getMirrorFlag('ARM_R_LOWER'),
+        originX: rig?.arm_R_upper?.x ?? rig?.arm_R_lower?.x ?? fallbackOrigin
+      };
+    case 'LEG_L_UPPER':
+    case 'LEG_L_LOWER':
+      return {
+        mirror: getMirrorFlag('LEG_L_UPPER') || getMirrorFlag('LEG_L_LOWER'),
+        originX: rig?.leg_L_upper?.x ?? rig?.leg_L_lower?.x ?? fallbackOrigin
+      };
+    case 'LEG_R_UPPER':
+    case 'LEG_R_LOWER':
+      return {
+        mirror: getMirrorFlag('LEG_R_UPPER') || getMirrorFlag('LEG_R_LOWER'),
+        originX: rig?.leg_R_upper?.x ?? rig?.leg_R_lower?.x ?? fallbackOrigin
+      };
+    default:
+      return { mirror: getMirrorFlag(tag), originX: fallbackOrigin };
+  }
 }
 
 // Sprite rendering for bones, fixed math
@@ -462,7 +499,7 @@ export function renderSprites(ctx){
   function enqueue(tag, drawFn){ queue.push({ z: zOf(tag), tag, drawFn }); }
 
   // Helper to get mirror flag for a specific part
-  const getMirror = (tag) => !!RENDER.MIRROR[tag];
+  const getMirror = getMirrorFlag;
 
   // Hitbox (if desired)
   // enqueue('HITBOX', ()=> { /* draw hitbox if needed */ });
@@ -570,13 +607,16 @@ export function renderSprites(ctx){
       const baseTag = tagOf(layer.partKey);
       const slotTag = cosmeticTagFor(baseTag, layer.slot);
       const styleKey = layer.styleKey || layer.partKey;
+      const { mirror, originX } = resolveCosmeticMirror(rig, layer.partKey, bone);
       enqueue(slotTag, ()=>{
-        drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, {
-          styleOverride: layer.styleOverride,
-          hsv: layer.hsv,
-          warp: layer.warp,
-          alignRad: layer.alignRad,
-          alignDeg: layer.alignRad == null ? layer.alignDeg : undefined
+        withBranchMirror(ctx, originX, mirror, ()=>{
+          drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, {
+            styleOverride: layer.styleOverride,
+            hsv: layer.hsv,
+            warp: layer.warp,
+            alignRad: layer.alignRad,
+            alignDeg: layer.alignRad == null ? layer.alignDeg : undefined
+          });
         });
       });
     }
