@@ -346,9 +346,7 @@ function updateAiming(F, currentPose, fighterId){
 
   const worldAimStandard = (F.aim.currentAngle || 0) + facingRad;
   if (Number.isFinite(worldAimStandard)) {
-    const dirX = Math.cos(worldAimStandard);
-    const dirY = Math.sin(worldAimStandard);
-    F.aim.headWorldTarget = angleFromDelta(dirX, dirY);
+    F.aim.headWorldTarget = normalizeRad((Math.PI / 2) - worldAimStandard);
   } else {
     F.aim.headWorldTarget = null;
   }
