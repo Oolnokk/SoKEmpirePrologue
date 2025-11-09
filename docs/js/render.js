@@ -164,6 +164,62 @@ function computeAnchorsForFighter(F, C, fighterName) {
   return { B, L, hitbox, flipLeft };
 }
 
+function pointFromBoneEnd(bone){
+  if (!bone) return null;
+  const { endX, endY } = bone;
+  if (Number.isFinite(endX) && Number.isFinite(endY)) {
+    return { x: endX, y: endY };
+  }
+  if (Number.isFinite(bone.x) && Number.isFinite(bone.y)) {
+    return { x: bone.x, y: bone.y };
+  }
+  return null;
+}
+
+function mirrorPointX(pt, pivotX){
+  if (!pt || !Number.isFinite(pivotX)) return pt;
+  pt.x = 2 * pivotX - pt.x;
+  return pt;
+}
+
+function updateColliderPositions(G, fighter){
+  if (!G || !fighter) return;
+  const B = fighter.B || {};
+  const hb = fighter.hitbox || {};
+  const pivotX = Number.isFinite(hb.x) ? hb.x : Number.isFinite(B.center?.x) ? B.center.x : null;
+  const pivotY = Number.isFinite(hb.y) ? hb.y : Number.isFinite(B.center?.y) ? B.center.y : null;
+  if (!Number.isFinite(pivotX) || !Number.isFinite(pivotY)) return;
+
+  const next = {
+    hitCenter: { x: pivotX, y: pivotY },
+    handL: pointFromBoneEnd(B.arm_L_lower) || pointFromBoneEnd(B.arm_L_upper),
+    handR: pointFromBoneEnd(B.arm_R_lower) || pointFromBoneEnd(B.arm_R_upper),
+    footL: pointFromBoneEnd(B.leg_L_lower) || pointFromBoneEnd(B.leg_L_upper),
+    footR: pointFromBoneEnd(B.leg_R_lower) || pointFromBoneEnd(B.leg_R_upper),
+  };
+
+  if (fighter.flipLeft) {
+    for (const key of ['handL','handR','footL','footR']) {
+      mirrorPointX(next[key], pivotX);
+    }
+  }
+
+  const mirrorFlags = (window.RENDER && window.RENDER.MIRROR) || {};
+  if (mirrorFlags.ARM_R_UPPER || mirrorFlags.ARM_R_LOWER) {
+    mirrorPointX(next.handR, pivotX);
+  }
+  if (mirrorFlags.LEG_R_UPPER || mirrorFlags.LEG_R_LOWER) {
+    mirrorPointX(next.footR, pivotX);
+  }
+
+  const colliders = (G.COLLIDERS_POS ||= {});
+  colliders.hitCenter = next.hitCenter;
+  colliders.handL = next.handL || null;
+  colliders.handR = next.handR || null;
+  colliders.footL = next.footL || null;
+  colliders.footR = next.footR || null;
+}
+
 export const LIMB_COLORS = {
   torso: '#fbbf24',
   head: '#d1d5db',
@@ -298,14 +354,15 @@ export function renderAll(ctx){
   const fName=(G.selectedFighter && C.fighters?.[G.selectedFighter])? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default'); 
   const player=computeAnchorsForFighter(G.FIGHTERS.player,C,fName); 
   const npc=computeAnchorsForFighter(G.FIGHTERS.npc,C,fName); 
-  (G.ANCHORS_OBJ ||= {}); 
-  G.ANCHORS_OBJ.player=player.B; 
+  (G.ANCHORS_OBJ ||= {});
+  G.ANCHORS_OBJ.player=player.B;
   G.ANCHORS_OBJ.npc=npc.B;
   // Store flip state so sprites.js can flip sprite images when facing left
   (G.FLIP_STATE ||= {});
   G.FLIP_STATE.player = player.flipLeft;
   G.FLIP_STATE.npc = npc.flipLeft;
-  
+  updateColliderPositions(G, player);
+
   // Fallback background so the viewport is never visually blank
   try{
     ctx.fillStyle = '#eaeaea';
