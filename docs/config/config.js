@@ -494,7 +494,7 @@ window.CONFIG = {
         torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
         arm: { upper:{ origin:{ax:0, ay:0}, elbow:{ax:0, ay:0} }, lower:{ origin:{ax:0, ay:0} } },
         leg: { upper:{ origin:{ax:0, ay:0}, knee:{ax:0, ay:0}  }, lower:{ origin:{ax:0, ay:0} } },
-        head:{ origin:{ax:-1, ay:6} }
+        head:{ origin:{ax:-1, ay:6}, eyes:{ax:0, ay:0.2} }
       },
         sprites: {
           torso: { url: "https://i.imgur.com/YatjSyo.png" },
@@ -537,7 +537,7 @@ window.CONFIG = {
         torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
         arm: { upper:{ origin:{ax:0, ay:0}, elbow:{ax:0, ay:0} }, lower:{ origin:{ax:0, ay:0} } },
         leg: { upper:{ origin:{ax:0, ay:0}, knee:{ax:0, ay:0}  }, lower:{ origin:{ax:0, ay:0} } },
-        head:{ origin:{ax:0, ay:0} }
+        head:{ origin:{ax:0, ay:0}, eyes:{ax:0, ay:0.2} }
       },
       sprites: {
         torso: { url: "./assets/fightersprites/mao-ao-m/torso.png" },

@@ -35,6 +35,7 @@ export function initFighters(cv, cx){
       recoveryTargetY: gy-1,
       stamina:{ current:100, max:100, drainRate:40, regenRate:25, minToDash:10, isDashing:false },
       jointAngles: { ...stanceRad },
+      gaze: { world: stanceRad.head ?? stanceRad.torso ?? 0, restOffsetRad: 0, aimOffsetRad: 0, source: 'pose', anchorRatio: 0.6 },
       walk:{ phase:0, amp:0 },
       attack:{ active:false, preset:null, slot:null },
       combo:{ active:false, sequenceIndex:0, attackDelay:0 },

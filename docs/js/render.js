@@ -30,6 +30,7 @@ if (typeof window !== 'undefined') {
     showBone: {          // Per-bone visibility (all default to true)
       torso: true,
       head: true,
+      eyes: true,
       arm_L_upper: true,
       arm_L_lower: true,
       arm_R_upper: true,
@@ -166,6 +167,7 @@ function computeAnchorsForFighter(F, C, fighterName) {
 export const LIMB_COLORS = {
   torso: '#fbbf24',
   head: '#d1d5db',
+  eyes: '#a855f7',
   arm_L_upper: '#60a5fa',
   arm_L_lower: '#3b82f6',
   arm_R_upper: '#f87171',
@@ -216,7 +218,7 @@ function drawStick(ctx, B) {
   
   ctx.lineCap = 'round';
   ctx.lineWidth = 4;
-  const order = ['torso','head','arm_L_upper','arm_L_lower','arm_R_upper','arm_R_lower','leg_L_upper','leg_L_lower','leg_R_upper','leg_R_lower'];
+  const order = ['torso','head','eyes','arm_L_upper','arm_L_lower','arm_R_upper','arm_R_lower','leg_L_upper','leg_L_lower','leg_R_upper','leg_R_lower'];
   for (const key of order) {
     drawSegment(ctx, key, B);
   }

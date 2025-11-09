@@ -76,7 +76,7 @@ function updateTransformsDisplay(fighter, bones) {
   html += '</div>';
 
   const boneOrder = [
-    'torso', 'head',
+    'torso', 'head', 'eyes',
     'arm_L_upper', 'arm_L_lower',
     'arm_R_upper', 'arm_R_lower',
     'leg_L_upper', 'leg_L_lower',
@@ -339,10 +339,32 @@ function copyPoseConfigToClipboard() {
     bones: {}
   };
 
+  const fighters = C.fighters || {};
+  const fighterKeys = Object.keys(fighters);
+  const selectedName = (window.GAME?.selectedFighter && fighters[window.GAME.selectedFighter])
+    ? window.GAME.selectedFighter
+    : (fighterKeys[0] || null);
+  if (selectedName) {
+    const fighterCfg = fighters[selectedName];
+    exportData.config.fighter = {
+      name: selectedName,
+      eyes: fighterCfg?.eyes || null
+    };
+  }
+
+  if (player.gaze?.world != null) {
+    exportData.eyes = {
+      worldDeg: Math.round(radToDegNum(player.gaze.world)),
+      source: player.gaze.source || 'pose',
+      restOffsetDeg: Math.round(radToDegNum(player.gaze.restOffsetRad || 0)),
+      aimOffsetDeg: Math.round(radToDegNum(player.gaze.aimOffsetRad || 0))
+    };
+  }
+
   // Add bone world transforms
   const bones = G.ANCHORS_OBJ?.player;
   if (bones) {
-    const boneKeys = ['torso', 'head', 'arm_L_upper', 'arm_L_lower', 'arm_R_upper', 'arm_R_lower',
+    const boneKeys = ['torso', 'head', 'eyes', 'arm_L_upper', 'arm_L_lower', 'arm_R_upper', 'arm_R_lower',
                      'leg_L_upper', 'leg_L_lower', 'leg_R_upper', 'leg_R_lower'];
     
     for (const key of boneKeys) {
