@@ -402,7 +402,7 @@ window.CONFIG = {
           head: { relMin:-75, relMax:75 }
         },
         headTracking: {
-          offsetDeg: 0
+          offsetDeg: -90
         },
       offsets: {
         torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
@@ -443,7 +443,7 @@ window.CONFIG = {
       ik: { calvesOnly: true },
       limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 }, head:{ relMin:-75, relMax:75 } },
       headTracking: {
-        offsetDeg: 0
+        offsetDeg: -90
       },
       offsets: {
         torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
