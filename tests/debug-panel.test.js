@@ -55,7 +55,7 @@ describe('debug-panel.js module', () => {
   });
 
   it('includes all joint angle fields', () => {
-    const joints = ['torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
+    const joints = ['torso', 'head', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
     for (const joint of joints) {
       assert.ok(debugPanelSrc.includes(`'${joint}'`) || debugPanelSrc.includes(`"${joint}"`), 
         `debug-panel.js should include ${joint} joint field`);
@@ -70,7 +70,7 @@ describe('debug-panel.js module', () => {
   });
 
   it('includes bone order for display', () => {
-    const expectedBones = ['torso', 'head', 'arm_L_upper', 'arm_L_lower', 'arm_R_upper', 'arm_R_lower',
+    const expectedBones = ['torso', 'head', 'eyes', 'arm_L_upper', 'arm_L_lower', 'arm_R_upper', 'arm_R_lower',
                           'leg_L_upper', 'leg_L_lower', 'leg_R_upper', 'leg_R_lower'];
     for (const bone of expectedBones) {
       assert.ok(debugPanelSrc.includes(`'${bone}'`) || debugPanelSrc.includes(`"${bone}"`), 

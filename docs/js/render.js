@@ -30,6 +30,7 @@ if (typeof window !== 'undefined') {
     showBone: {          // Per-bone visibility (all default to true)
       torso: true,
       head: true,
+      eyes: true,
       arm_L_upper: true,
       arm_L_lower: true,
       arm_R_upper: true,
@@ -131,12 +132,23 @@ function computeAnchorsForFighter(F, C, fighterName) {
 
   // Build bone objects (include base points)
   const headLen = ((fcfg.parts?.head?.neck ?? C.parts?.head?.neck ?? 14) + 2*(fcfg.parts?.head?.radius ?? C.parts?.head?.radius ?? 16)) * (L.scale/(C.actor?.scale||1)) * (C.actor?.scale||1);
-  const headEndArr = segPos(neckBaseArr[0], neckBaseArr[1], headLen, torsoAng);
+  const headAngRaw = F.jointAngles?.head;
+  const headAng = Number.isFinite(headAngRaw) ? headAngRaw : torsoAng;
+  const headBaseArr = withAX(neckBaseArr[0], neckBaseArr[1], headAng, OFF.head?.origin);
+  const headEndArr = segPos(headBaseArr[0], headBaseArr[1], headLen, headAng);
+  const eyeRadius = (fcfg.parts?.head?.radius ?? C.parts?.head?.radius ?? 16) * (L.scale/(C.actor?.scale||1)) * (C.actor?.scale||1);
+  const gazeRad = Number.isFinite(F.gaze?.world) ? F.gaze.world : headAng;
+  const anchorRatioRaw = Number.isFinite(F.gaze?.anchorRatio) ? F.gaze.anchorRatio : (typeof fcfg?.eyes?.anchorRatio === 'number' ? fcfg.eyes.anchorRatio : (typeof C.eyes?.anchorRatio === 'number' ? C.eyes.anchorRatio : 0.6));
+  const anchorRatio = Math.min(1, Math.max(0, Number.isFinite(anchorRatioRaw) ? anchorRatioRaw : 0.6));
+  const eyesAnchorBase = segPos(headBaseArr[0], headBaseArr[1], headLen * anchorRatio, headAng);
+  const eyesStartArr = withAX(eyesAnchorBase[0], eyesAnchorBase[1], headAng, OFF.head?.eyes);
+  const eyesEndArr = segPos(eyesStartArr[0], eyesStartArr[1], eyeRadius, gazeRad);
 
   const B = {
     center:{x:centerX,y:centerY},
     torso:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.torso,ang:torsoAng,endX:torsoTopArr[0],endY:torsoTopArr[1]},
-    head:{x:neckBaseArr[0],y:neckBaseArr[1],len:headLen,ang:torsoAng,endX:headEndArr[0],endY:headEndArr[1]},
+    head:{x:headBaseArr[0],y:headBaseArr[1],len:headLen,ang:headAng,endX:headEndArr[0],endY:headEndArr[1]},
+    eyes:{x:eyesStartArr[0],y:eyesStartArr[1],len:eyeRadius,ang:gazeRad,endX:eyesEndArr[0],endY:eyesEndArr[1]},
     shoulderBase:{x:shoulderBaseArr[0],y:shoulderBaseArr[1]},
     hipBase:{x:hipBaseArr[0],y:hipBaseArr[1]},
     neckBase:{x:neckBaseArr[0],y:neckBaseArr[1]},
@@ -163,6 +175,7 @@ function computeAnchorsForFighter(F, C, fighterName) {
 export const LIMB_COLORS = {
   torso: '#fbbf24',
   head: '#d1d5db',
+  eyes: '#a855f7',
   arm_L_upper: '#60a5fa',
   arm_L_lower: '#3b82f6',
   arm_R_upper: '#f87171',
@@ -213,7 +226,7 @@ function drawStick(ctx, B) {
   
   ctx.lineCap = 'round';
   ctx.lineWidth = 4;
-  const order = ['torso','head','arm_L_upper','arm_L_lower','arm_R_upper','arm_R_lower','leg_L_upper','leg_L_lower','leg_R_upper','leg_R_lower'];
+  const order = ['torso','head','eyes','arm_L_upper','arm_L_lower','arm_R_upper','arm_R_lower','leg_L_upper','leg_L_lower','leg_R_upper','leg_R_lower'];
   for (const key of order) {
     drawSegment(ctx, key, B);
   }

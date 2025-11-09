@@ -76,7 +76,7 @@ function updateTransformsDisplay(fighter, bones) {
   html += '</div>';
 
   const boneOrder = [
-    'torso', 'head',
+    'torso', 'head', 'eyes',
     'arm_L_upper', 'arm_L_lower',
     'arm_R_upper', 'arm_R_lower',
     'leg_L_upper', 'leg_L_lower',
@@ -162,7 +162,7 @@ function updatePoseEditor(fighter, config) {
   const jointAngles = fighter.jointAngles || {};
 
   const inputs = [
-    'torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow',
+    'torso', 'head', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow',
     'lHip', 'lKnee', 'rHip', 'rKnee'
   ];
 
@@ -184,6 +184,7 @@ function createPoseEditorInputs(container, fighter, config) {
 
   const inputs = [
     { key: 'torso', label: 'Torso' },
+    { key: 'head', label: 'Head' },
     { key: 'lShoulder', label: 'L Shoulder (rel)' },
     { key: 'lElbow', label: 'L Elbow (rel)' },
     { key: 'rShoulder', label: 'R Shoulder (rel)' },
@@ -311,7 +312,7 @@ function copyPoseConfigToClipboard() {
 
   // Build pose object from current joint angles
   const currentPose = {};
-  const jointKeys = ['torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
+  const jointKeys = ['torso', 'head', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
   
   for (const key of jointKeys) {
     if (player.jointAngles?.[key] != null) {
@@ -338,10 +339,32 @@ function copyPoseConfigToClipboard() {
     bones: {}
   };
 
+  const fighters = C.fighters || {};
+  const fighterKeys = Object.keys(fighters);
+  const selectedName = (window.GAME?.selectedFighter && fighters[window.GAME.selectedFighter])
+    ? window.GAME.selectedFighter
+    : (fighterKeys[0] || null);
+  if (selectedName) {
+    const fighterCfg = fighters[selectedName];
+    exportData.config.fighter = {
+      name: selectedName,
+      eyes: fighterCfg?.eyes || null
+    };
+  }
+
+  if (player.gaze?.world != null) {
+    exportData.eyes = {
+      worldDeg: Math.round(radToDegNum(player.gaze.world)),
+      source: player.gaze.source || 'pose',
+      restOffsetDeg: Math.round(radToDegNum(player.gaze.restOffsetRad || 0)),
+      aimOffsetDeg: Math.round(radToDegNum(player.gaze.aimOffsetRad || 0))
+    };
+  }
+
   // Add bone world transforms
   const bones = G.ANCHORS_OBJ?.player;
   if (bones) {
-    const boneKeys = ['torso', 'head', 'arm_L_upper', 'arm_L_lower', 'arm_R_upper', 'arm_R_lower',
+    const boneKeys = ['torso', 'head', 'eyes', 'arm_L_upper', 'arm_L_lower', 'arm_R_upper', 'arm_R_lower',
                      'leg_L_upper', 'leg_L_lower', 'leg_R_upper', 'leg_R_lower'];
     
     for (const key of boneKeys) {
