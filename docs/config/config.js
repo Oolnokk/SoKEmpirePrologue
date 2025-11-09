@@ -51,7 +51,7 @@ const KICK_MOVE_POSES = {
     aimLegs: true,
     aimRightLegOnly: true,
     anim_events: [
-      { time: 0.0, velocityX: -80, velocityY: 0 }
+      
     ]
   },
   Strike: {
@@ -65,7 +65,7 @@ const KICK_MOVE_POSES = {
     rHip:110,
     rKnee:20,
     rootMoveVel: { x: 0, y: 0 },
-    impulseMag: 120,
+    impulseMag: 0,
     impulseDirDeg: 0,
     allowAiming: false,
     aimLegs: true,
@@ -76,12 +76,10 @@ const KICK_MOVE_POSES = {
     fullFlipFacing: true,
     fullFlipAt: 0.1,
     anim_events: [
-      { time: 0.0, impulse: 180, impulse_angle: 0 },
-      { time: 0.05, velocityX: 0, velocityY: 0, localVel: true }
     ]
   },
   Recoil: {
-    torso: 90,
+    torso: 50,
     lShoulder: -27,
     lElbow: 0,
     rShoulder: 90,
@@ -101,87 +99,80 @@ const KICK_MOVE_POSES = {
     fullFlipFacing: true,
     fullFlipAt: 0.9,
     anim_events: [
-      { time: 0.0, velocityX: 0, velocityY: 0 }
     ]
   }
 };
 
 const PUNCH_MOVE_POSES = {
   Stance: {
-    torso: 10,
-    lShoulder: -120,
-    lElbow: -120,
-    rShoulder: -65,
-    rElbow: -140,
-    lHip: 110,
-    lKnee: 40,
-    rHip: 30,
-    rKnee: 40,
-    rootMoveVel: { x: 0, y: 0 },
-    impulseMag: 0,
-    impulseDirDeg: 0,
-    resetFlipsBefore: true,
-    allowAiming: true,
-    aimLegs: false
-  },
+        torso: 10,
+        lShoulder: -100,
+        lElbow: -110,
+        rShoulder: -40,
+        rElbow: -110,
+        lHip: 110,
+        lKnee: 40,
+        rHip: 30,
+        rKnee: 40,
+        rootMoveVel: { x: 0, y: 0 },
+        impulseMag: 0,
+        impulseDirDeg: 0,
+        resetFlipsBefore: true,
+        allowAiming: true,
+        aimLegs: false
+    },
   Windup: {
-    torso: -35,
-    lShoulder: -360,
-    lElbow: 0,
-    rShoulder: -360,
-    rElbow: 0,
-    lHip: 130,
-    lKnee: 90,
-    rHip: 100,
-    rKnee: 90,
+		torso: 10,
+        lShoulder: -100,
+        lElbow: -110,
+        rShoulder: 0,
+        rElbow: 120,
+        lHip: 110,
+        lKnee: 40,
+        rHip: 30,
+        rKnee: 40,
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
     allowAiming: true,
     aimLegs: false,
     anim_events: [
-      { time: 0.0, velocityX: -15, velocityY: 0 },
-      { time: 0.65, impulse: 320, impulse_angle: -90 }
     ]
   },
   Strike: {
-    torso: 45,
-    lShoulder: -45,
-    lElbow: 0,
-    rShoulder: -45,
-    rElbow: 0,
-    lHip: 180,
-    lKnee: 10,
-    rHip: 110,
-    rKnee: 20,
+		torso: 10,
+        lShoulder: -100,
+        lElbow: -110,
+        rShoulder: -230,
+        rElbow: 0,
+        lHip: 110,
+        lKnee: 40,
+        rHip: 30,
+        rKnee: 40,
     rootMoveVel: { x: 0, y: 0, flip: false },
     impulseMag: 0,
     impulseDirDeg: 0,
     allowAiming: true,
     aimLegs: false,
     anim_events: [
-      { time: 0.0, impulse: 450, impulse_angle: -45 },
-      { time: 0.05, velocityX: 280, velocityY: 120, localVel: true }
     ]
   },
   Recoil: {
-    torso: -15,
-    lShoulder: -45,
-    lElbow: 0,
-    rShoulder: -45,
-    rElbow: 0,
-    lHip: 110,
-    lKnee: 70,
-    rHip: 100,
-    rKnee: 40,
+		torso: 60,
+        lShoulder: -100,
+        lElbow: -110,
+        rShoulder: -180,
+        rElbow: 0,
+        lHip: 110,
+        lKnee: 40,
+        rHip: 30,
+        rKnee: 40,
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
     allowAiming: false,
     aimLegs: false,
     anim_events: [
-      { time: 0.0, velocityX: 80, velocityY: -40 },
-      { time: 0.30, impulse: 120, impulse_angle: 160 }
     ]
   }
 };
@@ -204,8 +195,6 @@ const SLAM_MOVE_POSES = {
     allowAiming: true,
     aimLegs: false,
     anim_events: [
-      { time: 0.0, velocityX: -15, velocityY: 0 },
-      { time: 0.65, impulse: 320, impulse_angle: -90 }
     ]
   },
   Slam: deepClone(PUNCH_MOVE_POSES.Strike),
@@ -236,10 +225,10 @@ window.CONFIG = {
   poses: {
     Stance: {
         torso: 10,
-        lShoulder: -120,
-        lElbow: -120,
-        rShoulder: -65,
-        rElbow: -140,
+        lShoulder: -100,
+        lElbow: -110,
+        rShoulder: -40,
+        rElbow: -110,
         lHip: 110,
         lKnee: 40,
         rHip: 30,
@@ -336,8 +325,8 @@ window.CONFIG = {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
           xformUnits: "percent",
           xform: {
-            torso:    { ax:-0.5,  ay:-0.00, scaleX:4.50, scaleY:4.50, rotDeg:180 },
-            head:     { ax:-1.40, ay:-0.20, scaleX:4.50, scaleY:4.50, rotDeg:180 },
+            torso:    { ax:-0.5,  ay:-0.2, scaleX:3.5, scaleY:4.50, rotDeg:180 },
+            head:     { ax:-1.40, ay:-0.20, scaleX:4.2, scaleY:4.2, rotDeg:180 },
             armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
             armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
             legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
@@ -347,7 +336,7 @@ window.CONFIG = {
     },
     'Mao-ao_M': {
       actor: { scale: 1 },
-      parts: { hitbox:{ w:80, h:180, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:55 }, arm:{ upper:40, lower:50 }, leg:{ upper:40, lower:40 }, head:{ neck:10, radius:12 } },
+      parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:55 }, arm:{ upper:35, lower:50 }, leg:{ upper:40, lower:40 }, head:{ neck:10, radius:12 } },
       hierarchy: { legsFollowTorsoRotation: false },
       ik: { calvesOnly: true },
       limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 } },
@@ -355,7 +344,7 @@ window.CONFIG = {
         torso: { origin:{ax:0, ay:0}, shoulder:{ax:-8, ay:-5}, hip:{ax:0, ay:0}, neck:{ax:0, ay:0} },
         arm: { upper:{ origin:{ax:0, ay:0}, elbow:{ax:0, ay:0} }, lower:{ origin:{ax:0, ay:0} } },
         leg: { upper:{ origin:{ax:0, ay:0}, knee:{ax:0, ay:0}  }, lower:{ origin:{ax:0, ay:0} } },
-        head:{ origin:{ax:-1, ay:6} }
+        head:{ origin:{ax:0, ay:0} }
       },
       sprites: {
         torso: { url: "./assets/fightersprites/mao-ao-m/torso.png" },
@@ -374,7 +363,7 @@ window.CONFIG = {
           xformUnits: "percent",
           xform: {
             torso:    { ax:0,  ay:-0.2, scaleX:1.4, scaleY:1.6, rotDeg:180 },
-            head:     { ax:-0.1, ay:0, scaleX:1.7, scaleY:1.8, rotDeg:180 },
+            head:     { ax:-0.1, ay:0.0, scaleX:1.7, scaleY:1.8, rotDeg:180 },
             armUpper: { ax:-0.2,  ay:0.1,  scaleX:1.6, scaleY:2.8, rotDeg:-10 },
             armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-3 },
             legUpper: { ax:-0.10, ay:0,  scaleX:1.7, scaleY:2.75,  rotDeg:-15 },
@@ -433,10 +422,18 @@ window.CONFIG = {
     KICK: {
       name: 'Quick Kick',
       tags: ['light', 'quick'],
-      durations: { toWindup: 180, toStrike: 110, toRecoil: 680, toStance: 0 },
+      durations: { toWindup: 280, toStrike: 110, toRecoil: 680, toStance: 200 },
       knockbackBase: 180,
       cancelWindow: 0.6,
       poses: deepClone(KICK_MOVE_POSES)
+    },
+	PUNCH: {
+      name: 'Punch',
+      tags: ['light', 'quick'],
+      durations: { toWindup: 180, toStrike: 110, toRecoil: 100, toStance: 120 },
+      knockbackBase: 140,
+      cancelWindow: 0.7,
+      poses: deepClone(PUNCH_MOVE_POSES)
     },
     ComboKICK1: {
       name: 'Combo Kick 1',
@@ -580,8 +577,8 @@ window.CONFIG = {
     },
     enemy1: {
       fighter: 'Mao-ao_M',
-      weapon: 'dagger-swords',
-      slottedAbilities: ['combo_light', 'heavy_hold', 'combo_light', 'heavy_hold'],
+      weapon: 'unarmed',
+      slottedAbilities: ['combo_light', 'heavy_hold', 'quick_punch', 'heavy_hold'],
       clothes: 'robe',
       hairstyle: 'long',
       beard: 'goatee',
@@ -651,6 +648,12 @@ window.CONFIG = {
         tags: ['quick', 'light', 'comboVariant'],
         multipliers: { durations: 0.85, knockback: 1.35 }
       },
+	  QuickPunch: { preset: 'PUNCH', tags: ['quick', 'light'] },
+      QuickPunchCombo: {
+        preset: 'PUNCH',
+        tags: ['quick', 'light', 'comboVariant'],
+        multipliers: { durations: 0.85, knockback: 1.35 }
+      },
       Slam: {
         preset: 'SLAM',
         tags: ['heavy'],
@@ -676,6 +679,18 @@ window.CONFIG = {
         variants: [
           { id: 'postCombo', attack: 'QuickKickCombo', require: { comboHitsGte: 4, comboActive: true } },
           { id: 'default', attack: 'QuickKick' }
+        ],
+        multipliers: { durations: 1 },
+        onHit: abilityKnockback(10)
+      },
+	  quick_punch: {
+        name: 'Quick Punch',
+        type: 'light',
+        trigger: 'single',
+        tags: ['quick', 'light'],
+        variants: [
+          { id: 'postCombo', attack: 'QuickPunchCombo', require: { comboHitsGte: 4, comboActive: true } },
+          { id: 'default', attack: 'QuickPunch' }
         ],
         multipliers: { durations: 1 },
         onHit: abilityKnockback(10)
