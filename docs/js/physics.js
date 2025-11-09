@@ -3,7 +3,6 @@
 // and produces pose offsets that blend with authored animation.
 
 import { degToRad } from './math-utils.js?v=1';
-import { pickFighterConfig, pickFighterName } from './fighter-utils.js?v=1';
 
 const TAU = Math.PI * 2;
 
@@ -206,29 +205,13 @@ function updatePlayerFacing(fighter, dt, C){
   fighter.facingSign = Math.cos(fighter.facingRad) >= 0 ? 1 : -1;
 }
 
-function resolveFighterScale(C, fcfg){
-  const base = C.actor?.scale ?? 1;
-  const fighterScale = fcfg?.actor?.scale ?? 1;
-  return base * fighterScale;
-}
-
-function resolveFighterParts(C, fcfg){
-  const baseParts = C.parts || {};
-  const fighterParts = fcfg?.parts || {};
-  return {
-    ...baseParts,
-    ...fighterParts,
-    hitbox: fighterParts.hitbox || baseParts.hitbox || { w: 120, h: 160, r: 60 }
-  };
-}
-
-function updateFighterPhysics(fighter, dt, C, worldWidth, fcfg){
+function updateFighterPhysics(fighter, dt, C, worldWidth){
   if (!fighter) return;
   ensureFighterState(fighter, C);
 
   const movement = C.movement || {};
-  const parts = resolveFighterParts(C, fcfg);
-  const actorScale = resolveFighterScale(C, fcfg);
+  const parts = C.parts || {};
+  const actorScale = C.actor?.scale ?? 1;
   const hb = parts.hitbox || { h: 160 };
   const hbHeight = (hb.h || 160) * actorScale;
   const canvasH = C.canvas?.h || 460;
@@ -368,14 +351,12 @@ export function updatePhysics(dt){
   const G = window.GAME || {};
   const fighters = G.FIGHTERS || {};
   const worldWidth = G.CAMERA?.worldWidth || C.world?.width || 1600;
-  const fighterName = pickFighterName(C);
-  const fighterConfig = pickFighterConfig(C, fighterName);
   if (fighters.player){
-    updateFighterPhysics(fighters.player, dt, C, worldWidth, fighterConfig);
+    updateFighterPhysics(fighters.player, dt, C, worldWidth);
     updatePlayerFacing(fighters.player, dt, C);
   }
   if (fighters.npc){
-    updateFighterPhysics(fighters.npc, dt, C, worldWidth, fighterConfig);
+    updateFighterPhysics(fighters.npc, dt, C, worldWidth);
   }
 }
 

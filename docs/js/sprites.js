@@ -445,10 +445,8 @@ export function renderSprites(ctx){
   const entity = (fname === 'player' || fname === 'npc') ? fname : 'player';
   const flipLeft = G.FLIP_STATE?.[entity] || false;
   const centerX = rig.center?.x ?? 0;
-  const camX = G.CAMERA?.x || 0;
-
+  
   ctx.save();
-  ctx.translate(-camX, 0);
   // Mirror around character center when facing left (matching reference HTML exactly)
   if (flipLeft) {
     ctx.translate(centerX * 2, 0);
@@ -487,7 +485,7 @@ export function renderSprites(ctx){
   const lArmMirror = getMirror('ARM_L_UPPER') || getMirror('ARM_L_LOWER');
   if (lArmUpper) {
     enqueue('ARM_L_UPPER', ()=> {
-      const originX = lArmUpper.x ?? 0;
+      const originX = lArmUpper.x;
       withBranchMirror(ctx, originX, lArmMirror, ()=> {
         drawBoneSprite(ctx, assets.arm_L_upper, lArmUpper, 'arm_L_upper', style, offsets);
       });
@@ -495,7 +493,7 @@ export function renderSprites(ctx){
   }
   if (lArmLower) {
     enqueue('ARM_L_LOWER', ()=> {
-      const originX = (lArmUpper?.x ?? lArmLower.x) ?? 0;
+      const originX = lArmUpper?.x ?? lArmLower.x;
       withBranchMirror(ctx, originX, lArmMirror, ()=> {
         drawBoneSprite(ctx, assets.arm_L_lower, lArmLower, 'arm_L_lower', style, offsets);
       });
@@ -508,7 +506,7 @@ export function renderSprites(ctx){
   const rArmMirror = getMirror('ARM_R_UPPER') || getMirror('ARM_R_LOWER');
   if (rArmUpper) {
     enqueue('ARM_R_UPPER', ()=> {
-      const originX = rArmUpper.x ?? 0;
+      const originX = rArmUpper.x;
       withBranchMirror(ctx, originX, rArmMirror, ()=> {
         drawBoneSprite(ctx, assets.arm_R_upper, rArmUpper, 'arm_R_upper', style, offsets);
       });
@@ -516,7 +514,7 @@ export function renderSprites(ctx){
   }
   if (rArmLower) {
     enqueue('ARM_R_LOWER', ()=> {
-      const originX = (rArmUpper?.x ?? rArmLower.x) ?? 0;
+      const originX = rArmUpper?.x ?? rArmLower.x;
       withBranchMirror(ctx, originX, rArmMirror, ()=> {
         drawBoneSprite(ctx, assets.arm_R_lower, rArmLower, 'arm_R_lower', style, offsets);
       });
@@ -529,7 +527,7 @@ export function renderSprites(ctx){
   const lLegMirror = getMirror('LEG_L_UPPER') || getMirror('LEG_L_LOWER');
   if (lLegUpper) {
     enqueue('LEG_L_UPPER', ()=> {
-      const originX = lLegUpper.x ?? 0;
+      const originX = lLegUpper.x;
       withBranchMirror(ctx, originX, lLegMirror, ()=> {
         drawBoneSprite(ctx, assets.leg_L_upper, lLegUpper, 'leg_L_upper', style, offsets);
       });
@@ -537,7 +535,7 @@ export function renderSprites(ctx){
   }
   if (lLegLower) {
     enqueue('LEG_L_LOWER', ()=> {
-      const originX = (lLegUpper?.x ?? lLegLower.x) ?? 0;
+      const originX = lLegUpper?.x ?? lLegLower.x;
       withBranchMirror(ctx, originX, lLegMirror, ()=> {
         drawBoneSprite(ctx, assets.leg_L_lower, lLegLower, 'leg_L_lower', style, offsets);
       });
@@ -550,7 +548,7 @@ export function renderSprites(ctx){
   const rLegMirror = getMirror('LEG_R_UPPER') || getMirror('LEG_R_LOWER');
   if (rLegUpper) {
     enqueue('LEG_R_UPPER', ()=> {
-      const originX = rLegUpper.x ?? 0;
+      const originX = rLegUpper.x;
       withBranchMirror(ctx, originX, rLegMirror, ()=> {
         drawBoneSprite(ctx, assets.leg_R_upper, rLegUpper, 'leg_R_upper', style, offsets);
       });
@@ -558,7 +556,7 @@ export function renderSprites(ctx){
   }
   if (rLegLower) {
     enqueue('LEG_R_LOWER', ()=> {
-      const originX = (rLegUpper?.x ?? rLegLower.x) ?? 0;
+      const originX = rLegUpper?.x ?? rLegLower.x;
       withBranchMirror(ctx, originX, rLegMirror, ()=> {
         drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, offsets);
       });
