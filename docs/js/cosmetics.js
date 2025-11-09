@@ -6,8 +6,59 @@ import { degToRad } from './math-utils.js?v=1';
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 const STATE = (ROOT.COSMETIC_SYSTEM ||= {
   library: {},
-  assetCache: new Map()
+  assetCache: new Map(),
+  profiles: new Map()
 });
+
+function normalizeProfile(rawProfile = {}){
+  const cosmetics = {};
+  for (const [cosmeticId, cosmeticData] of Object.entries(rawProfile.cosmetics || {})){
+    const norm = { ...cosmeticData, parts: {} };
+    for (const [partKey, partData] of Object.entries(cosmeticData.parts || {})){
+      if (partData && typeof partData === 'object'){
+        norm.parts[partKey] = deepMerge({}, partData);
+      }
+    }
+    cosmetics[cosmeticId] = norm;
+  }
+  return { cosmetics };
+}
+
+function getProfilePartOverrides(fighterName, cosmeticId, partKey){
+  if (!fighterName || !cosmeticId || !partKey) return null;
+  const profile = STATE.profiles?.get(fighterName);
+  if (!profile) return null;
+  return profile.cosmetics?.[cosmeticId]?.parts?.[partKey] || null;
+}
+
+function mergeConfig(baseValue, override){
+  if (override == null) return baseValue;
+  if (baseValue == null){
+    if (override && typeof override === 'object' && !Array.isArray(override)){
+      return deepMerge({}, override);
+    }
+    return override;
+  }
+  if (override && typeof override === 'object' && !Array.isArray(override) && typeof baseValue === 'object' && !Array.isArray(baseValue)){
+    return deepMerge(baseValue, override);
+  }
+  return override;
+}
+
+export function registerFighterCosmeticProfile(fighterName, profile = {}){
+  if (!fighterName) return null;
+  const normalized = normalizeProfile(profile);
+  const current = STATE.profiles.get(fighterName) || { cosmetics: {} };
+  const merged = {
+    cosmetics: deepMerge(current.cosmetics || {}, normalized.cosmetics || {})
+  };
+  STATE.profiles.set(fighterName, merged);
+  return merged;
+}
+
+export function getFighterCosmeticProfile(fighterName){
+  return fighterName ? STATE.profiles.get(fighterName) || null : null;
+}
 
 export const COSMETIC_SLOTS = [
   'hat',
@@ -123,14 +174,28 @@ function clampHSV(input = {}, cosmetic){
   };
 }
 
-function resolvePartConfig(partConfig = {}, fighterName){
-  const imageCfg = pickPerFighter(partConfig.image || partConfig.images, fighterName);
-  const styleCfg = pickPerFighter(partConfig.spriteStyle, fighterName);
-  const warpCfg = pickPerFighter(partConfig.warp, fighterName);
-  const anchorCfg = pickPerFighter(partConfig.anchor, fighterName);
-  const alignCfg = pickPerFighter(partConfig.align, fighterName);
-  const extra = partConfig.extra || {};
-  const styleKey = partConfig.styleKey || partConfig.style || partConfig.styleName;
+function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
+  let imageCfg = pickPerFighter(partConfig.image || partConfig.images, fighterName);
+  let styleCfg = pickPerFighter(partConfig.spriteStyle, fighterName);
+  let warpCfg = pickPerFighter(partConfig.warp, fighterName);
+  let anchorCfg = pickPerFighter(partConfig.anchor, fighterName);
+  let alignCfg = pickPerFighter(partConfig.align, fighterName);
+  let extra = (partConfig.extra && typeof partConfig.extra === 'object') ? deepMerge({}, partConfig.extra) : (partConfig.extra || {});
+  let styleKey = partConfig.styleKey || partConfig.style || partConfig.styleName;
+
+  const profileOverrides = getProfilePartOverrides(fighterName, cosmeticId, partKey);
+  if (profileOverrides){
+    imageCfg = mergeConfig(imageCfg, profileOverrides.image);
+    styleCfg = mergeConfig(styleCfg, profileOverrides.spriteStyle);
+    warpCfg = mergeConfig(warpCfg, profileOverrides.warp);
+    anchorCfg = mergeConfig(anchorCfg, profileOverrides.anchor);
+    alignCfg = mergeConfig(alignCfg, profileOverrides.align);
+    extra = mergeConfig(extra, profileOverrides.extra);
+    if (profileOverrides.styleKey != null){
+      styleKey = profileOverrides.styleKey;
+    }
+  }
+
   return {
     image: imageCfg,
     spriteStyle: styleCfg,
@@ -188,7 +253,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
     if (!cosmetic) continue;
     const hsv = clampHSV(equipped.hsv, cosmetic);
     for (const [partKey, partConfig] of Object.entries(cosmetic.parts || {})){
-      const resolved = resolvePartConfig(partConfig, fighterName);
+      const resolved = resolvePartConfig(partConfig, fighterName, cosmetic.id, partKey);
       if (!resolved?.image?.url) continue;
       const asset = ensureAsset(cosmetic.id, partKey, resolved.image);
       if (!asset) continue;
@@ -231,5 +296,8 @@ export function clearCosmeticCache(){
   }
   if (STATE.assetCache){
     STATE.assetCache.clear();
+  }
+  if (STATE.profiles instanceof Map){
+    STATE.profiles.clear();
   }
 }
