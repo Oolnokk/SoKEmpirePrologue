@@ -427,12 +427,7 @@ window.CONFIG = {
             legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
           }
       },
-      cosmetics: {
-        slots: {
-          hat: { id: 'basic_headband', hsv: { h: 12, s: 0.1, v: 0.05 } },
-          overwear: { id: 'layered_travel_cloak', hsv: { h: -10, s: -0.15, v: 0.1 } }
-        }
-      }
+      cosmetics: {}
     },
     'Mao-ao_M': {
       actor: { scale: 1 },
@@ -470,12 +465,7 @@ window.CONFIG = {
             legLower: { ax:-0.0,  ay:0.2,  scaleX:1.7, scaleY:2.1, rotDeg:-4 }
           }
       },
-      cosmetics: {
-        slots: {
-          hat: { id: 'basic_headband', hsv: { h: -20, s: 0.2, v: 0 } },
-          legs: { id: 'basic_pants', hsv: { h: 5, s: -0.1, v: 0.15 } }
-        }
-      }
+      cosmetics: {}
     }
   },
 
@@ -679,7 +669,13 @@ window.CONFIG = {
       clothes: 'default',
       hairstyle: 'short',
       beard: 'none',
-      adornments: []
+      adornments: [],
+      cosmetics: {
+        slots: {
+          hat: { id: 'basic_headband', hsv: { h: -20, s: 0.2, v: 0 } },
+          legs: { id: 'basic_pants', hsv: { h: 5, s: -0.1, v: 0.15 } }
+        }
+      }
     },
     enemy1: {
       fighter: 'Mao-ao_M',
@@ -688,7 +684,13 @@ window.CONFIG = {
       clothes: 'robe',
       hairstyle: 'long',
       beard: 'goatee',
-      adornments: ['earring']
+      adornments: ['earring'],
+      cosmetics: {
+        slots: {
+          hat: { id: 'basic_headband', hsv: { h: 12, s: 0.1, v: 0.05 } },
+          overwear: { id: 'layered_travel_cloak', hsv: { h: -10, s: -0.15, v: 0.1 } }
+        }
+      }
     }
   },
   // Add more characters or pools for randomization as needed
