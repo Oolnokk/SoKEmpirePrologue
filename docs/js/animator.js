@@ -3,7 +3,6 @@ import { degToRad, radToDegNum } from './math-utils.js?v=1';
 import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
 import { pickFighterConfig, pickFighterName } from './fighter-utils.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
-import { getPhysicsOffsets, getPhysicsJointAngles } from './physics.js?v=1';
 
 const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee'];
 // Convert pose object from degrees to radians using centralized utility
@@ -374,16 +373,6 @@ export function updatePoses(){
   const fighterName = pickFighterName(C);
   const fcfg = pickFighterConfig(C, fighterName);
   for (const id of ['player','npc']){ const F = G.FIGHTERS[id]; if(!F) continue; ensureAnimState(F); F.anim.dt = Math.max(0, now - F.anim.last); F.anim.last = now;
-    if (F.ragdoll){
-      const ragAngles = getPhysicsJointAngles(F) || {};
-      for (const key of ANG_KEYS){
-        if (typeof ragAngles[key] === 'number'){
-          F.jointAngles[key] = ragAngles[key];
-        }
-      }
-      continue;
-    }
-
     let targetDeg = null; const over = getOverride(F);
     if (over){
       // process events / flips for active override (k-based)
@@ -406,18 +395,6 @@ export function updatePoses(){
     
     // Apply aiming offsets to pose
     finalDeg = applyAimingOffsets(finalDeg, F, targetDeg);
-
-    // Blend in physics-driven offsets (lean, crouch) before converting to radians
-    const physOffsets = getPhysicsOffsets(F);
-    const physWeight = C.movement?.physicsWeight ?? 0;
-    if (physOffsets && physWeight > 0){
-      for (const key of ANG_KEYS){
-        const delta = physOffsets[key];
-        if (typeof delta === 'number' && delta !== 0){
-          finalDeg[key] = (finalDeg[key] || 0) + delta * physWeight;
-        }
-      }
-    }
 
     const headDeg = computeHeadTargetDeg(F, finalDeg, fcfg);
     if (typeof headDeg === 'number') {

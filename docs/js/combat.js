@@ -1045,11 +1045,48 @@ function makeCombat(G, C){
     }
   }
 
+  // Movement
+  function updateMovement(dt){
+    const p = P();
+    if (!p) return;
+    
+    const M = C.movement || {};
+    const I = G.input || {};
+    
+    p.vel ||= {x:0, y:0};
+    p.pos ||= {x:0, y:0};
+    
+    const ax = M.accelX || 1200;
+    const max = M.maxSpeedX || 420;
+    const fr = M.friction || 8;
+    
+    // Don't move during attacks
+    if (ATTACK.active){
+      p.vel.x *= Math.max(0, 1 - fr*dt);
+    } else {
+      if (I.left && !I.right){
+        p.vel.x -= ax*dt;
+        p.facingRad = Math.PI;
+        p.facingSign = -1;
+      } else if (I.right && !I.left){
+        p.vel.x += ax*dt;
+        p.facingRad = 0;
+        p.facingSign = 1;
+      } else {
+        p.vel.x *= Math.max(0, 1 - fr*dt);
+      }
+    }
+    
+    p.vel.x = Math.max(-max, Math.min(max, p.vel.x));
+    p.pos.x += p.vel.x * dt;
+  }
+
   function tick(dt){
     handleButtons();
     updateCharge(dt);
     updateTransitions(dt);
     updateCombo(dt);
+    updateMovement(dt);
     processQueue();
   }
 
