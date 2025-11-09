@@ -46,6 +46,7 @@ function makeCombat(G, C){
     pending: false,
     type: null,
     button: null,
+    abilityId: null,
     chargeStage: 0,
     downTime: 0
   };
@@ -517,7 +518,7 @@ function makeCombat(G, C){
     });
   }
 
-  function triggerComboAbility(slotKey, abilityId){
+  function triggerComboAbility(slotKey, abilityId, { skipQueue = false } = {}){
     const abilityTemplate = getAbility(abilityId);
     if (!abilityTemplate) return;
 
@@ -529,10 +530,13 @@ function makeCombat(G, C){
     }
 
     if (!canAttackNow()){
-      console.log('Combo blocked - queueing');
+      if (!skipQueue){
+        console.log('Combo blocked - queueing');
+      }
       QUEUE.pending = true;
-      QUEUE.type = 'light';
+      QUEUE.type = 'combo';
       QUEUE.button = slotKey;
+      QUEUE.abilityId = abilityId;
       QUEUE.downTime = now();
       return;
     }
@@ -568,15 +572,18 @@ function makeCombat(G, C){
     COMBO.lastAbilityId = abilityId;
   }
 
-  function triggerQuickAbility(slotKey, abilityId){
+  function triggerQuickAbility(slotKey, abilityId, { skipQueue = false } = {}){
     const ability = getAbility(abilityId);
     if (!ability) return;
 
     if (!canAttackNow()){
-      console.log('Quick attack blocked - queueing');
+      if (!skipQueue){
+        console.log('Quick attack blocked - queueing');
+      }
       QUEUE.pending = true;
-      QUEUE.type = 'light';
+      QUEUE.type = 'quick';
       QUEUE.button = slotKey;
+      QUEUE.abilityId = abilityId;
       QUEUE.downTime = now();
       return;
     }
@@ -634,6 +641,8 @@ function makeCombat(G, C){
       if (!QUEUE.pending){
         QUEUE.pending = true;
         QUEUE.button = slotKey;
+        QUEUE.type = 'light';
+        QUEUE.abilityId = null;
         QUEUE.downTime = now();
       }
       return;
@@ -713,14 +722,52 @@ function makeCombat(G, C){
   function processQueue(){
     if (!QUEUE.pending) return;
     if (!canAttackNow()) return;
-    
+
     console.log('Processing queued attack');
-    const btn = QUEUE.button;
+
+    const { type, button, abilityId, chargeStage } = QUEUE;
+
     QUEUE.pending = false;
+    QUEUE.type = null;
     QUEUE.button = null;
-    
-    // Trigger the queued button as if just pressed
-    slotDown(btn);
+    QUEUE.abilityId = null;
+    QUEUE.chargeStage = 0;
+    QUEUE.downTime = 0;
+
+    if (!button) return;
+
+    neutralizeMovement();
+
+    if (type === 'combo'){
+      triggerComboAbility(button, abilityId, { skipQueue: true });
+      return;
+    }
+
+    if (type === 'quick'){
+      triggerQuickAbility(button, abilityId, { skipQueue: true });
+      return;
+    }
+
+    if (type === 'heavy'){
+      if (abilityId){
+        executeHeavyAbility(button, abilityId, chargeStage);
+      } else {
+        const ability = getAbilityForSlot(button, 'heavy');
+        if (ability){
+          executeHeavyAbility(button, ability.id, chargeStage);
+        }
+      }
+      return;
+    }
+
+    const lightAbility = getAbilityForSlot(button, 'light');
+    if (!lightAbility) return;
+
+    if (lightAbility.trigger === 'combo'){
+      triggerComboAbility(button, lightAbility.id, { skipQueue: true });
+    } else {
+      triggerQuickAbility(button, lightAbility.id, { skipQueue: true });
+    }
   }
 
   // Handle button state changes
