@@ -344,7 +344,12 @@ function updateAiming(F, currentPose, fighterId){
     F.aim.hipOffset = 0;
   }
 
-  F.aim.headWorldTarget = (F.aim.currentAngle || 0) + facingRad;
+  const worldAimStandard = (F.aim.currentAngle || 0) + facingRad;
+  if (Number.isFinite(worldAimStandard)) {
+    F.aim.headWorldTarget = normalizeRad((Math.PI / 2) - worldAimStandard);
+  } else {
+    F.aim.headWorldTarget = null;
+  }
 }
 
 // Apply aiming offsets to a pose
