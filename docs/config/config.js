@@ -347,7 +347,7 @@ window.CONFIG = {
     },
     'Mao-ao_M': {
       actor: { scale: 1 },
-      parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:55 }, arm:{ upper:40, lower:50 }, leg:{ upper:40, lower:40 }, head:{ neck:10, radius:12 } },
+      parts: { hitbox:{ w:80, h:180, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:55 }, arm:{ upper:40, lower:50 }, leg:{ upper:40, lower:40 }, head:{ neck:10, radius:12 } },
       hierarchy: { legsFollowTorsoRotation: false },
       ik: { calvesOnly: true },
       limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 } },
@@ -374,7 +374,7 @@ window.CONFIG = {
           xformUnits: "percent",
           xform: {
             torso:    { ax:0,  ay:-0.2, scaleX:1.4, scaleY:1.6, rotDeg:180 },
-            head:     { ax:-0.1, ay:0.01, scaleX:1.7, scaleY:1.8, rotDeg:180 },
+            head:     { ax:-0.1, ay:0, scaleX:1.7, scaleY:1.8, rotDeg:180 },
             armUpper: { ax:-0.2,  ay:0.1,  scaleX:1.6, scaleY:2.8, rotDeg:-10 },
             armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-3 },
             legUpper: { ax:-0.10, ay:0,  scaleX:1.7, scaleY:2.75,  rotDeg:-15 },
