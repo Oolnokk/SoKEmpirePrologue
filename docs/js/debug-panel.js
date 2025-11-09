@@ -162,7 +162,7 @@ function updatePoseEditor(fighter, config) {
   const jointAngles = fighter.jointAngles || {};
 
   const inputs = [
-    'torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow',
+    'torso', 'head', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow',
     'lHip', 'lKnee', 'rHip', 'rKnee'
   ];
 
@@ -184,6 +184,7 @@ function createPoseEditorInputs(container, fighter, config) {
 
   const inputs = [
     { key: 'torso', label: 'Torso' },
+    { key: 'head', label: 'Head' },
     { key: 'lShoulder', label: 'L Shoulder (rel)' },
     { key: 'lElbow', label: 'L Elbow (rel)' },
     { key: 'rShoulder', label: 'R Shoulder (rel)' },
@@ -311,7 +312,7 @@ function copyPoseConfigToClipboard() {
 
   // Build pose object from current joint angles
   const currentPose = {};
-  const jointKeys = ['torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
+  const jointKeys = ['torso', 'head', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
   
   for (const key of jointKeys) {
     if (player.jointAngles?.[key] != null) {

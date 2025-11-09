@@ -55,7 +55,7 @@ describe('debug-panel.js module', () => {
   });
 
   it('includes all joint angle fields', () => {
-    const joints = ['torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
+    const joints = ['torso', 'head', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
     for (const joint of joints) {
       assert.ok(debugPanelSrc.includes(`'${joint}'`) || debugPanelSrc.includes(`"${joint}"`), 
         `debug-panel.js should include ${joint} joint field`);
