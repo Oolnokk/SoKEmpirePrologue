@@ -136,19 +136,11 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const headAng = Number.isFinite(headAngRaw) ? headAngRaw : torsoAng;
   const headBaseArr = withAX(neckBaseArr[0], neckBaseArr[1], headAng, OFF.head?.origin);
   const headEndArr = segPos(headBaseArr[0], headBaseArr[1], headLen, headAng);
-  const eyeRadius = (fcfg.parts?.head?.radius ?? C.parts?.head?.radius ?? 16) * (L.scale/(C.actor?.scale||1)) * (C.actor?.scale||1);
-  const gazeRad = Number.isFinite(F.gaze?.world) ? F.gaze.world : headAng;
-  const anchorRatioRaw = Number.isFinite(F.gaze?.anchorRatio) ? F.gaze.anchorRatio : (typeof fcfg?.eyes?.anchorRatio === 'number' ? fcfg.eyes.anchorRatio : (typeof C.eyes?.anchorRatio === 'number' ? C.eyes.anchorRatio : 0.6));
-  const anchorRatio = Math.min(1, Math.max(0, Number.isFinite(anchorRatioRaw) ? anchorRatioRaw : 0.6));
-  const eyesAnchorBase = segPos(headBaseArr[0], headBaseArr[1], headLen * anchorRatio, headAng);
-  const eyesStartArr = withAX(eyesAnchorBase[0], eyesAnchorBase[1], headAng, OFF.head?.eyes);
-  const eyesEndArr = segPos(eyesStartArr[0], eyesStartArr[1], eyeRadius, gazeRad);
 
   const B = {
     center:{x:centerX,y:centerY},
     torso:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.torso,ang:torsoAng,endX:torsoTopArr[0],endY:torsoTopArr[1]},
     head:{x:headBaseArr[0],y:headBaseArr[1],len:headLen,ang:headAng,endX:headEndArr[0],endY:headEndArr[1]},
-    eyes:{x:eyesStartArr[0],y:eyesStartArr[1],len:eyeRadius,ang:gazeRad,endX:eyesEndArr[0],endY:eyesEndArr[1]},
     shoulderBase:{x:shoulderBaseArr[0],y:shoulderBaseArr[1]},
     hipBase:{x:hipBaseArr[0],y:hipBaseArr[1]},
     neckBase:{x:neckBaseArr[0],y:neckBaseArr[1]},

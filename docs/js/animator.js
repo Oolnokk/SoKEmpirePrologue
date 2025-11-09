@@ -3,6 +3,7 @@ import { degToRad, radToDegNum } from './math-utils.js?v=1';
 import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
 import { pickFighterConfig, pickFighterName } from './fighter-utils.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
+import { getPhysicsOffsets, getPhysicsJointAngles } from './physics.js?v=1';
 
 const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee'];
 // Convert pose object from degrees to radians using centralized utility
@@ -30,8 +31,7 @@ function damp(current, target, lambda, dt){ const t = 1 - Math.exp(-lambda*dt); 
 function ensureAnimState(F){
   F.walk ||= { phase:0, amp:1, t:0 };
   F.jointAngles ||= {};
-  F.aim ||= { targetAngle: 0, currentAngle: 0, torsoOffset: 0, shoulderOffset: 0, hipOffset: 0, active: false, headWorldTarget: null, eyeWorldTarget: null };
-  F.gaze ||= { world: null, restOffsetRad: 0, aimOffsetRad: 0, source: 'pose' };
+  F.aim ||= { targetAngle: 0, currentAngle: 0, torsoOffset: 0, shoulderOffset: 0, hipOffset: 0, active: false, headWorldTarget: null };
   if (!F.anim){ F.anim = { last: performance.now()/1000, override:null }; }
 }
 function pickBase(C){ return (C.poses && C.poses.Stance) ? C.poses.Stance : { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 }; }
@@ -222,47 +222,6 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
   return radToDegNum(headRad);
 }
 
-function resolveEyesConfig(C, fcfg){
-  const base = C.eyes || {};
-  const fighterEyes = fcfg?.eyes || {};
-  const restOffsetDeg = (fighterEyes.restOffsetDeg ?? base.restOffsetDeg ?? 0);
-  const aimOffsetDeg = (fighterEyes.aimOffsetDeg ?? fighterEyes.restOffsetDeg ?? base.aimOffsetDeg ?? base.restOffsetDeg ?? 0);
-  const anchorRatio = (() => {
-    const raw = fighterEyes.anchorRatio ?? base.anchorRatio;
-    if (typeof raw !== 'number' || Number.isNaN(raw)) return 0.6;
-    return Math.min(1, Math.max(0, raw));
-  })();
-  return { restOffsetDeg, aimOffsetDeg, anchorRatio };
-}
-
-function updateEyeDirection(F, finalPoseDeg, computedHeadDeg, fcfg){
-  const C = window.CONFIG || {};
-  const cfg = resolveEyesConfig(C, fcfg);
-  const restOffsetRad = degToRad(cfg.restOffsetDeg || 0);
-  const aimOffsetRad = degToRad(cfg.aimOffsetDeg || 0);
-  const faceLockRad = getFaceLock();
-
-  let worldRad;
-  if (typeof faceLockRad === 'number') {
-    worldRad = faceLockRad + restOffsetRad;
-    F.gaze.source = 'faceLock';
-  } else if (F.aim?.active && typeof F.aim.eyeWorldTarget === 'number') {
-    worldRad = F.aim.eyeWorldTarget + aimOffsetRad;
-    F.gaze.source = 'aim';
-  } else {
-    const headDeg = (typeof computedHeadDeg === 'number') ? computedHeadDeg : (finalPoseDeg?.head ?? finalPoseDeg?.torso ?? 0);
-    const headRad = degToRad(headDeg || 0);
-    worldRad = headRad + restOffsetRad;
-    F.gaze.source = 'pose';
-  }
-
-  F.gaze.world = worldRad;
-  F.gaze.restOffsetRad = restOffsetRad;
-  F.gaze.aimOffsetRad = aimOffsetRad;
-  F.gaze.anchorRatio = cfg.anchorRatio;
-  return worldRad;
-}
-
 // Update aiming offsets based on current pose
 function updateAiming(F, currentPose, fighterId){
   const C = window.CONFIG || {};
@@ -274,7 +233,6 @@ function updateAiming(F, currentPose, fighterId){
     F.aim.shoulderOffset = 0;
     F.aim.hipOffset = 0;
     F.aim.headWorldTarget = null;
-    F.aim.eyeWorldTarget = null;
     return;
   }
 
@@ -285,7 +243,6 @@ function updateAiming(F, currentPose, fighterId){
     F.aim.shoulderOffset = 0;
     F.aim.hipOffset = 0;
     F.aim.headWorldTarget = null;
-    F.aim.eyeWorldTarget = null;
     return;
   }
   
@@ -383,9 +340,7 @@ function updateAiming(F, currentPose, fighterId){
     F.aim.hipOffset = 0;
   }
 
-  const currentRelative = F.aim.currentAngle || 0;
-  F.aim.headWorldTarget = currentRelative + facingRad;
-  F.aim.eyeWorldTarget = currentRelative + facingRad;
+  F.aim.headWorldTarget = (F.aim.currentAngle || 0) + facingRad;
 }
 
 // Apply aiming offsets to a pose
@@ -419,6 +374,16 @@ export function updatePoses(){
   const fighterName = pickFighterName(C);
   const fcfg = pickFighterConfig(C, fighterName);
   for (const id of ['player','npc']){ const F = G.FIGHTERS[id]; if(!F) continue; ensureAnimState(F); F.anim.dt = Math.max(0, now - F.anim.last); F.anim.last = now;
+    if (F.ragdoll){
+      const ragAngles = getPhysicsJointAngles(F) || {};
+      for (const key of ANG_KEYS){
+        if (typeof ragAngles[key] === 'number'){
+          F.jointAngles[key] = ragAngles[key];
+        }
+      }
+      continue;
+    }
+
     let targetDeg = null; const over = getOverride(F);
     if (over){
       // process events / flips for active override (k-based)
@@ -442,12 +407,22 @@ export function updatePoses(){
     // Apply aiming offsets to pose
     finalDeg = applyAimingOffsets(finalDeg, F, targetDeg);
 
+    // Blend in physics-driven offsets (lean, crouch) before converting to radians
+    const physOffsets = getPhysicsOffsets(F);
+    const physWeight = C.movement?.physicsWeight ?? 0;
+    if (physOffsets && physWeight > 0){
+      for (const key of ANG_KEYS){
+        const delta = physOffsets[key];
+        if (typeof delta === 'number' && delta !== 0){
+          finalDeg[key] = (finalDeg[key] || 0) + delta * physWeight;
+        }
+      }
+    }
+
     const headDeg = computeHeadTargetDeg(F, finalDeg, fcfg);
     if (typeof headDeg === 'number') {
       finalDeg.head = headDeg;
     }
-
-    updateEyeDirection(F, finalDeg, headDeg, fcfg);
 
     // Debug: log once on first frame for player
     if (id === 'player' && F.anim.dt === 0 && !F.__debugLogged) {
