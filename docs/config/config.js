@@ -297,7 +297,7 @@ window.CONFIG = {
 
   fighters: {
     TLETINGAN: {
-        actor: { scale: 0.70 },
+        actor: { scale: 0.9 },
         parts: {
           hitbox: { w:80, h:110, r:60, torsoAttach: { nx:0.4, ny:0.6 } },
           torso: { len:40 },
