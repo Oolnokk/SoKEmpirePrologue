@@ -33,10 +33,7 @@ export function initControls(){
     switch(e.code){
       case 'KeyA': case 'ArrowLeft': I.left = down; break;
       case 'KeyD': case 'ArrowRight': I.right = down; break;
-      case 'KeyW': case 'ArrowUp': case 'Space': case 'AltLeft': case 'AltRight':
-        I.jump = down;
-        if (down) e.preventDefault();
-        break;
+      case 'KeyW': case 'ArrowUp': case 'Space': I.jump = down; if(down) e.preventDefault(); break;
       case 'ShiftLeft': case 'ShiftRight': I.dash = down; break;
       case 'KeyE': case 'KeyJ': setButton('buttonA', down); break;
       case 'KeyF': case 'KeyK': setButton('buttonB', down); break;

@@ -13,36 +13,16 @@ export function initFighters(cv, cx){
   if (stanceRad.head == null) stanceRad.head = stanceRad.torso ?? 0;
 
   function makeF(id, x, faceSign){
-    const fighter = {
-      id,
-      isPlayer: id==='player',
-      pos:{ x, y: gy-1 },
-      vel:{ x:0, y:0 },
-      onGround:true,
-      prevOnGround:true,
-      landedImpulse:0,
-      facingRad: 0,
-      facingSign: faceSign,
-      footing: 50,
-      ragdoll:false,
-      ragdollTime:0,
-      ragdollVel:{ x:0, y:0 },
-      recovering:false,
-      recoveryTime:0,
-      recoveryDuration:0.8,
-      recoveryStartAngles:{},
-      recoveryStartY: gy-1,
-      recoveryTargetY: gy-1,
-      stamina:{ current:100, max:100, drainRate:40, regenRate:25, minToDash:10, isDashing:false },
+    return {
+      id, isPlayer: id==='player',
+      pos:{ x, y: gy-1 }, vel:{ x:0, y:0 },
+      onGround:true, prevOnGround:true, facingRad: 0, facingSign: faceSign,
+      footing: 50, ragdoll:false, stamina:{ current:100, max:100, drainRate:40, regenRate:25, minToDash:10 },
       jointAngles: { ...stanceRad },
       walk:{ phase:0, amp:0 },
       attack:{ active:false, preset:null, slot:null },
-      combo:{ active:false, sequenceIndex:0, attackDelay:0 },
-      input:{ left:false, right:false, jump:false, dash:false },
-      physics:{ offsets:{} }
+      combo:{ active:false, sequenceIndex:0, attackDelay:0 }
     };
-    fighter.move = fighter; // touch-controls legacy alias
-    return fighter;
   }
 
   G.FIGHTERS = {
