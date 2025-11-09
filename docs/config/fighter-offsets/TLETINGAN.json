@@ -1,0 +1,15 @@
+{
+  "cosmetics": {
+    "basic_headband": {
+      "parts": {
+        "head": {
+          "spriteStyle": {
+            "xform": {
+              "head": { "ax": -0.12, "ay": -0.15, "scaleX": 1.2, "scaleY": 1.1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

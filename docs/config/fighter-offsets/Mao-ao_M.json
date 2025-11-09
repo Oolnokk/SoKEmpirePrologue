@@ -1,0 +1,26 @@
+{
+  "cosmetics": {
+    "basic_headband": {
+      "parts": {
+        "head": {
+          "image": { "url": "./assets/fightersprites/mao-ao-m/head.png" },
+          "warp": {
+            "units": "percent",
+            "center": { "y": -0.02 }
+          }
+        }
+      }
+    },
+    "layered_travel_cloak": {
+      "parts": {
+        "torso": {
+          "spriteStyle": {
+            "xform": {
+              "torso": { "ax": -0.05, "scaleX": 1.6, "scaleY": 1.8 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

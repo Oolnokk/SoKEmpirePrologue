@@ -140,6 +140,11 @@ const POSE_ANGLE_SUMMARY = {
 const FIGHTER_TLETINGAN = 'TLETINGAN';
 const FIGHTER_MAOAO_M = 'Mao-ao_M';
 
+const COSMETIC_PROFILE_SOURCES = {
+  [FIGHTER_TLETINGAN]: './config/fighter-offsets/TLETINGAN.json',
+  [FIGHTER_MAOAO_M]: './config/fighter-offsets/Mao-ao_M.json'
+};
+
 const COSMETIC_LIBRARY = {
   basic_headband: {
     slot: 'hat',
@@ -150,22 +155,12 @@ const COSMETIC_LIBRARY = {
     parts: {
       head: {
         image: {
-          url: 'https://i.imgur.com/WsKQ2Eo.png',
-          fighters: {
-            'Mao-ao_M': './assets/fightersprites/mao-ao-m/head.png'
-          }
+          url: 'https://i.imgur.com/WsKQ2Eo.png'
         },
         spriteStyle: {
           base: {
             xform: {
               head: { ax: -0.05, ay: -0.08, scaleX: 1.1, scaleY: 1.05 }
-            }
-          },
-          fighters: {
-            [FIGHTER_TLETINGAN]: {
-              xform: {
-                head: { ax: -0.12, ay: -0.15, scaleX: 1.2, scaleY: 1.1 }
-              }
             }
           }
         },
@@ -175,12 +170,6 @@ const COSMETIC_LIBRARY = {
             tl: { y: -0.1 },
             tr: { y: -0.1 },
             center: { y: -0.05 }
-          },
-          fighters: {
-            [FIGHTER_MAOAO_M]: {
-              units: 'percent',
-              center: { y: -0.02 }
-            }
           }
         }
       }
@@ -201,13 +190,6 @@ const COSMETIC_LIBRARY = {
           base: {
             xform: {
               torso: { ax: -0.5, ay: -0.15, scaleX: 3.8, scaleY: 4.7 }
-            }
-          },
-          fighters: {
-            [FIGHTER_MAOAO_M]: {
-              xform: {
-                torso: { ax: -0.05, scaleX: 1.6, scaleY: 1.8 }
-              }
             }
           }
         },
@@ -469,6 +451,9 @@ window.CONFIG = {
   },
 
   cosmeticLibrary: COSMETIC_LIBRARY,
+  cosmetics: {
+    profileSources: COSMETIC_PROFILE_SOURCES
+  },
 
   fighters: {
     TLETINGAN: {
