@@ -3,7 +3,7 @@
     "basic_headband": {
       "parts": {
         "head": {
-          "image": { "url": "./assets/fightersprites/mao-ao-m/head.png" },
+          "image": { "url": "" },
           "warp": {
             "units": "percent",
             "center": { "y": -0.02 }
