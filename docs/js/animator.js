@@ -218,12 +218,6 @@ function updateAiming(F, currentPose, fighterId){
     aimSource = 'mouse';
     mouseDX = dx;
     
-    // Debug log once per second for player
-    if (fighterId === 'player' && (!F._lastAimLog || (performance.now() - F._lastAimLog) > 1000)) {
-      console.log('[aim] source:', aimSource, 'mouseWorld:', {x: G.MOUSE.worldX, y: G.MOUSE.worldY},
-                  'fighterPos:', {x: F.pos?.x, y: F.pos?.y}, 'targetAngle:', radToDegNum(targetAngle).toFixed(1));
-      F._lastAimLog = performance.now();
-    }
   } else {
     // Fallback to facingRad
     targetAngle = F.facingRad || 0;

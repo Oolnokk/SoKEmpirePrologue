@@ -83,6 +83,86 @@ function makeCombat(G, C){
     callback: null
   };
 
+  const debugLog = (...args) => {
+    if (console?.debug) {
+      console.debug(...args);
+    } else {
+      console.log(...args);
+    }
+  };
+
+  const formatIdentifier = (value, fallback = 'Unknown') => {
+    if (!value && value !== 0) return fallback;
+    const result = String(value)
+      .replace(/[_-]+/g, ' ')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+      .replace(/([0-9]+)/g, ' $1 ')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+    return result || fallback;
+  };
+
+  const getAbilityDisplayName = (abilityId, ability) => {
+    return ability?.name
+      || ABILITY_ABILITIES[abilityId]?.name
+      || formatIdentifier(abilityId, 'Unknown Ability');
+  };
+
+  const getAttackDisplayName = (attackId, attack) => {
+    return attack?.name
+      || ABILITY_ATTACKS[attackId]?.name
+      || formatIdentifier(attackId, 'Unknown Attack');
+  };
+
+  const getMoveDisplayName = (context) => {
+    const presetKey = context?.preset || context?.attack?.preset || context?.attackId;
+    if (!presetKey) return 'Unknown Move';
+    if (C.moves?.[presetKey]?.name) return C.moves[presetKey].name;
+    if (typeof presetKey === 'string') {
+      const upperKey = presetKey.toUpperCase();
+      if (C.moves?.[upperKey]?.name) return C.moves[upperKey].name;
+      const pascalKey = formatIdentifier(presetKey).replace(/\s+/g, '');
+      if (C.moveLibrary?.[pascalKey]?.name) return C.moveLibrary[pascalKey].name;
+    }
+    return formatIdentifier(presetKey, 'Unknown Move');
+  };
+
+  const getVariantDisplayName = (variant) => {
+    if (!variant) return null;
+    return variant.name || (variant.id ? formatIdentifier(variant.id) : null);
+  };
+
+  const logAbilityExecution = (context, source) => {
+    if (!context) return;
+    const abilityName = getAbilityDisplayName(context.abilityId, context.ability);
+    const attackName = getAttackDisplayName(context.attackId, context.attack);
+    const moveName = getMoveDisplayName(context);
+    const parts = [
+      `[combat:${source}]`,
+      `Ability: ${abilityName}`,
+      `Attack: ${attackName}`,
+      `Move: ${moveName}`
+    ];
+    const variantName = getVariantDisplayName(context.variant);
+    if (variantName) parts.push(`Variant: ${variantName}`);
+    if (Number.isFinite(context.chargeStage) && context.chargeStage > 0) {
+      parts.push(`Charge Stage: ${context.chargeStage}`);
+    }
+    debugLog(parts.join(' | '));
+  };
+
+  const logStageTransition = (label) => {
+    if (!label) return;
+    const context = ATTACK.context;
+    if (!context) return;
+    const abilityName = getAbilityDisplayName(context.abilityId, context.ability);
+    const attackName = getAttackDisplayName(context.attackId, context.attack);
+    const moveName = getMoveDisplayName(context);
+    debugLog(`[combat:stage] ${label} – ${moveName} (Ability: ${abilityName} | Attack: ${attackName})`);
+  };
+
   function canAttackNow(){
     return !ATTACK.active && !TRANSITION.active;
   }
@@ -186,6 +266,7 @@ function makeCombat(G, C){
     TRANSITION.flipParts = targetPose.flipParts;  // Store parts to flip
 
     if (label){
+      logStageTransition(label);
       updatePlayerAttackState(label, { active: label !== 'Stance' || !!ATTACK.active, context: ATTACK.context });
       if (ATTACK.context?.onPhase){
         try { ATTACK.context.onPhase(label); } catch(err){ console.warn('[combat] onPhase handler error', err); }
@@ -404,8 +485,6 @@ function makeCombat(G, C){
 
   // Play quick attack
   function playQuickAttack(presetName, windupMs, context){
-    console.log(`[playQuickAttack] presetName=${presetName}, checking C.presets...`);
-
     const preset = C.presets?.[presetName];
     const ctx = context || null;
     ATTACK.active = true;
@@ -507,6 +586,8 @@ function makeCombat(G, C){
       try { context.onExecute(); } catch(err){ console.warn('[combat] heavy onExecute error', err); }
     }
 
+    logAbilityExecution(context, 'heavy');
+
     const durs = computePresetDurationsWithContext(context.preset, context);
     const strikePose = buildPoseFromKey(attackDef.strikePoseKey || ability.strikePoseKey || 'Strike');
     const recoilPose = buildPoseFromKey(attackDef.recoilPoseKey || ability.recoilPoseKey || 'Recoil');
@@ -515,8 +596,6 @@ function makeCombat(G, C){
     const strikeDur = applyDurationMultiplier(durs.toStrike, context, 'Strike');
     const recoilDur = applyDurationMultiplier(durs.toRecoil, context, 'Recoil');
     const stanceDur = applyDurationMultiplier(durs.toStance, context, 'Stance');
-
-    console.log(`Heavy attack: ${context.preset} charge=${chargeStage}`);
 
     startTransition(strikePose, 'Strike', strikeDur, ()=>{
       startTransition(recoilPose, 'Recoil', recoilDur, ()=>{
@@ -585,7 +664,7 @@ function makeCombat(G, C){
       comboHits: COMBO.hits
     });
 
-    console.log(`[combo] ${abilityId} -> ${context.preset}`);
+    logAbilityExecution(context, 'combo');
 
     playQuickAttack(context.preset, windupOverride, context);
 
@@ -647,7 +726,7 @@ function makeCombat(G, C){
       comboHits: COMBO.hits
     });
 
-    console.log(`[quick] ${abilityId} variant=${variant?.id || 'default'} preset=${context.preset}`);
+    logAbilityExecution(context, 'quick');
 
     const windup = variant?.windupMs ?? attackDef.windupMs ?? ability.windupMs ?? 0;
     playQuickAttack(context.preset, windup, context);
