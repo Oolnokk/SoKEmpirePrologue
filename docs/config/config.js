@@ -67,7 +67,7 @@ const KICK_MOVE_POSES = {
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 120,
     impulseDirDeg: 0,
-    allowAiming: true,
+    allowAiming: false,
     aimLegs: true,
     aimRightLegOnly: true,
     flip: true,
