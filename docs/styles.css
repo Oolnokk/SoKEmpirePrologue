@@ -132,6 +132,10 @@
 .box{border:1px solid #1f2937;background:#0b1220;border-radius:12px;padding:10px}
 .label{font-size:12px;color:#a5b4fc;margin-bottom:6px}
 .fields{display:grid;gap:6px}
+.ability-slot-group{display:grid;gap:6px;padding:8px;border:1px solid rgba(30,41,59,0.85);border-radius:8px;background:rgba(15,23,42,0.5)}
+.ability-slot-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#a5b4fc}
+.ability-slot-group label{display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0}
+.ability-slot-group select{flex:1;min-width:0}
 .pill{display:inline-block;margin-right:6px;margin-bottom:6px;font-size:11px;padding:4px 6px;border-radius:16px;border:1px solid #334155;color:#9ca3af}
 
 /* Fighter Settings */

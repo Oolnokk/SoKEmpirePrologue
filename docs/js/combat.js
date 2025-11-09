@@ -22,6 +22,22 @@ function makeCombat(G, C){
   const ABILITY_ABILITIES = abilitySystem.abilities;
   const ABILITY_SLOTS = abilitySystem.slots;
 
+  const applySelectedAbilitiesFromGame = () => {
+    const selections = G.selectedAbilities || {};
+    Object.entries(selections).forEach(([slotKey, slotValues]) => {
+      const slot = ABILITY_SLOTS[slotKey];
+      if (!slot || !slotValues) return;
+      if (slotValues.light !== undefined) {
+        slot.lightAbilityId = slotValues.light || null;
+      }
+      if (slotValues.heavy !== undefined) {
+        slot.heavyAbilityId = slotValues.heavy || null;
+      }
+    });
+  };
+
+  applySelectedAbilitiesFromGame();
+
   const ATTACK = {
     active: false,
     preset: null,
@@ -338,6 +354,27 @@ function makeCombat(G, C){
       result = mergeMultipliers(result, data);
     }
     return result;
+  }
+
+  function updateSlotAssignments(assignments = {}) {
+    if (!assignments) return;
+    G.selectedAbilities ||= {};
+    Object.entries(assignments).forEach(([slotKey, slotValues]) => {
+      if (!slotValues) return;
+      const slot = ABILITY_SLOTS[slotKey];
+      if (!slot) return;
+      const state = (G.selectedAbilities[slotKey] ||= { light: null, heavy: null });
+      if ('light' in slotValues) {
+        const value = slotValues.light || null;
+        slot.lightAbilityId = value;
+        state.light = value;
+      }
+      if ('heavy' in slotValues) {
+        const value = slotValues.heavy || null;
+        slot.heavyAbilityId = value;
+        state.heavy = value;
+      }
+    });
   }
 
   function keyToPhase(key){
@@ -1053,5 +1090,5 @@ function makeCombat(G, C){
     processQueue();
   }
 
-  return { tick, slotDown, slotUp };
+  return { tick, slotDown, slotUp, updateSlotAssignments };
 }
