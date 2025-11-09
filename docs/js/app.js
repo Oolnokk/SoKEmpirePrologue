@@ -345,12 +345,44 @@ applyRenderOrder();
 const staminaFill = $$('#staminaFill');
 const footingFill = $$('#footingFill');
 const healthFill = $$('#healthFill');
+const staminaLabel = $$('#staminaLabel');
+const footingLabel = $$('#footingLabel');
+const healthLabel = $$('#healthLabel');
 const statusInfo = $$('#statusInfo');
 const reloadBtn = $$('#btnReloadCfg');
 const fullscreenBtn = $$('#btnFullscreen');
 const stageEl = document.getElementById('gameStage');
 const fpsHud = $$('#fpsHud');
 const boneKeyList = $$('#boneKeyList');
+const helpBtn = $$('#btnHelp');
+const helpPanel = $$('#helpPanel');
+
+if (helpBtn && helpPanel) {
+  const setHelpVisible = (visible) => {
+    helpPanel.classList.toggle('visible', visible);
+    helpBtn.setAttribute('aria-expanded', visible ? 'true' : 'false');
+  };
+
+  helpBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const next = !helpPanel.classList.contains('visible');
+    setHelpVisible(next);
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!helpPanel.contains(event.target) && !helpBtn.contains(event.target)) {
+      setHelpVisible(false);
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      setHelpVisible(false);
+    }
+  });
+
+  setHelpVisible(false);
+}
 
 if (reloadBtn){
   reloadBtn.addEventListener('click', async ()=>{
@@ -1025,9 +1057,35 @@ function updateHUD(){
   const P = G.FIGHTERS?.player;
   if (!P) return;
   const S = P.stamina;
-  if (S && staminaFill){ staminaFill.style.width = Math.round((S.current/S.max)*100)+'%'; }
-  if (footingFill){ footingFill.style.width = Math.round(P.footing)+'%'; }
-  if (healthFill){ healthFill.style.width = '100%'; }
+  if (S && staminaFill){
+    const ratio = S.max ? Math.max(0, Math.min(1, S.current / S.max)) : 0;
+    const pct = Math.round(ratio * 100);
+    staminaFill.style.width = `${pct}%`;
+    staminaFill.classList.toggle('low', ratio <= 0.25);
+    staminaFill.classList.toggle('dashing', !!S.isDashing);
+    if (staminaLabel){
+      staminaLabel.textContent = `Stamina ${pct}%`;
+    }
+  } else if (staminaLabel){
+    staminaLabel.textContent = 'Stamina';
+  }
+
+  if (footingFill){
+    const footing = Math.round(Math.max(0, Math.min(100, P.footing ?? 0)));
+    footingFill.style.width = `${footing}%`;
+    if (footingLabel){
+      footingLabel.textContent = `Footing ${footing}%`;
+    }
+  } else if (footingLabel){
+    footingLabel.textContent = 'Footing';
+  }
+
+  if (healthFill){
+    healthFill.style.width = '100%';
+    if (healthLabel){
+      healthLabel.textContent = 'HP: 100';
+    }
+  }
 }
 
 function drawStage(){
