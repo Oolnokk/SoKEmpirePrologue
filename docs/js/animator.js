@@ -217,7 +217,12 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
   const { min, max } = getHeadLimitsRad(C, fcfg);
   const relative = normalizeRad(desiredWorld - torsoRad);
   const clamped = clamp(relative, min, max);
-  const headRad = torsoRad + clamped;
+  const fighterOffsetDeg = fcfg?.headTracking?.offsetDeg;
+  const globalOffsetDeg = C.headTracking?.offsetDeg;
+  const offsetDeg = Number.isFinite(fighterOffsetDeg)
+    ? fighterOffsetDeg
+    : (Number.isFinite(globalOffsetDeg) ? globalOffsetDeg : 0);
+  const headRad = torsoRad + clamped + degToRad(offsetDeg);
   return radToDegNum(headRad);
 }
 
