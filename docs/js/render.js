@@ -327,14 +327,14 @@ export function renderAll(ctx){
     }
   }catch(_e){ /* ignore */ }
   
-  const camX=G.CAMERA?.x||0; 
-  ctx.save(); 
+  const camX=G.CAMERA?.x||0;
+  ctx.save();
   ctx.translate(-camX,0);
-  
+
   // Apply character flip for debug bones, same as sprites
   if (player.flipLeft) {
-    const centerX = player.hitbox?.x ?? 0;
-    ctx.translate(centerX * 2, 0);
+    const centerLocalX = (player.hitbox?.x ?? 0) - camX;
+    ctx.translate(centerLocalX * 2, 0);
     ctx.scale(-1, 1);
   }
   
