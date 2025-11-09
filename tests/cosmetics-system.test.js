@@ -77,8 +77,8 @@ test('sprites.js integrates cosmetic layers and z-order expansion', () => {
   strictEqual(/const \{ assets, style, offsets, cosmetics } = ensureFighterSprites/.test(spritesContent), true, 'renderSprites should read cosmetics');
 });
 
-test('config registers cosmetic library and fighter slot data', () => {
+test('config references cosmetic library sources and fighter slot data', () => {
   const configContent = readFileSync(new URL('../docs/config/config.js', import.meta.url), 'utf8');
-  strictEqual(/cosmeticLibrary:\s*COSMETIC_LIBRARY/.test(configContent), true, 'config should expose cosmeticLibrary');
+  strictEqual(/librarySources:\s*COSMETIC_LIBRARY_SOURCES/.test(configContent), true, 'config should expose librarySources');
   strictEqual(/cosmetics:\s*\{\s*slots:\s*\{\s*hat:/.test(configContent), true, 'fighters should define cosmetics slots');
 });
