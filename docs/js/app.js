@@ -1117,7 +1117,7 @@ function loop(t){
   if (window.GAME?.combat) window.GAME.combat.tick(dt);
   updatePhysics(dt);
   updatePoses();
-  updateCamera(cv);
+  updateCamera(cv, dt);
   drawStage();
   renderAll(cx);
   renderSprites(cx);

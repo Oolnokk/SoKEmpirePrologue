@@ -50,9 +50,16 @@ function ensureCamera(C){
     G.CAMERA = {
       x: 0,
       worldWidth: C.world?.width || defaultWorld,
-      smoothing: 0.15
+      smoothing: 0.15,
+      lookAhead: 0,
+      deadZone: 0
     };
-    return;
+  }
+  if (!Number.isFinite(G.CAMERA.x)){
+    G.CAMERA.x = 0;
+  }
+  if (!Number.isFinite(G.CAMERA.targetX)){
+    G.CAMERA.targetX = G.CAMERA.x;
   }
   if (!Number.isFinite(G.CAMERA.worldWidth)){
     G.CAMERA.worldWidth = C.world?.width || defaultWorld;
@@ -60,6 +67,19 @@ function ensureCamera(C){
   if (!Number.isFinite(G.CAMERA.smoothing)){
     G.CAMERA.smoothing = 0.15;
   }
+  if (!Number.isFinite(G.CAMERA.lookAhead)){
+    G.CAMERA.lookAhead = 0;
+  }
+  if (!Number.isFinite(G.CAMERA.deadZone)){
+    G.CAMERA.deadZone = 0;
+  }
+  const legacy = (window.CAMERA ||= {});
+  legacy.x = G.CAMERA.x;
+  legacy.targetX = G.CAMERA.targetX;
+  legacy.worldWidth = G.CAMERA.worldWidth;
+  legacy.smoothing = G.CAMERA.smoothing;
+  legacy.lookAhead = G.CAMERA.lookAhead;
+  legacy.deadZone = G.CAMERA.deadZone;
 }
 
 function ensureFighterState(fighter, C){
