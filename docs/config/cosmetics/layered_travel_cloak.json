@@ -1,5 +1,5 @@
 {
-  "slots": ["overwear", "torso"],
+  "slots": ["overwear"],
   "hsv": {
     "defaults": { "h": 0, "s": 0, "v": 0 },
     "limits": { "h": [-45, 45], "s": [-0.4, 0.4], "v": [-0.3, 0.5] }
@@ -7,7 +7,7 @@
   "parts": {
     "torso": {
       "image": {
-        "url": "https://i.imgur.com/YatjSyo.png"
+        "url": ""
       },
       "spriteStyle": {
         "base": {
@@ -27,7 +27,7 @@
     },
     "leg_L_upper": {
       "image": {
-        "url": "https://i.imgur.com/qgcQTmx.png"
+        "url": ""
       },
       "spriteStyle": {
         "base": {
@@ -39,7 +39,7 @@
     },
     "leg_R_upper": {
       "image": {
-        "url": "https://i.imgur.com/qgcQTmx.png"
+        "url": ""
       },
       "spriteStyle": {
         "base": {
