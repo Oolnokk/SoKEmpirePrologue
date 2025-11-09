@@ -71,7 +71,6 @@ export function initTouchControls(){
 
     if (!JOY.active){
       clearHorizontalInput();
-      applyAim(0, angle);
       return;
     }
 
@@ -153,7 +152,6 @@ export function initTouchControls(){
     JOY.deltaX = 0;
     JOY.deltaY = 0;
     JOY.distance = 0;
-    JOY.angle = 0;
 
     clearHorizontalInput();
     G.AIMING.manualAim = false;
