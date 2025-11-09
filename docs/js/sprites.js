@@ -21,6 +21,194 @@ const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
 RENDER.MIRROR = RENDER.MIRROR || {}; // Initialize per-limb mirror flags
 
+const HSV_TINT_CACHE = new WeakMap();
+
+function hsvKey(hsv){
+  if (!hsv) return '0|0|0';
+  const h = Number.isFinite(hsv.h) ? hsv.h : 0;
+  const s = Number.isFinite(hsv.s) ? hsv.s : 0;
+  const v = Number.isFinite(hsv.v) ? hsv.v : 0;
+  return `${h.toFixed(4)}|${s.toFixed(4)}|${v.toFixed(4)}`;
+}
+
+function createTintCanvas(width, height){
+  if (typeof OffscreenCanvas === 'function'){
+    try {
+      const canvas = new OffscreenCanvas(width, height);
+      return canvas;
+    } catch (err) {
+      // Fall back to DOM canvas
+    }
+  }
+  if (typeof document !== 'undefined' && typeof document.createElement === 'function'){
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  }
+  return null;
+}
+
+function rgbToHsv(r, g, b){
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+  let h = 0;
+  if (delta){
+    switch(max){
+      case rn:
+        h = ((gn - bn) / delta) % 6;
+        break;
+      case gn:
+        h = (bn - rn) / delta + 2;
+        break;
+      default:
+        h = (rn - gn) / delta + 4;
+        break;
+    }
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  const s = max === 0 ? 0 : delta / max;
+  const v = max;
+  return { h, s, v };
+}
+
+function hsvToRgb(h, s, v){
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h >= 0 && h < 60){
+    r = c; g = x; b = 0;
+  } else if (h >= 60 && h < 120){
+    r = x; g = c; b = 0;
+  } else if (h >= 120 && h < 180){
+    r = 0; g = c; b = x;
+  } else if (h >= 180 && h < 240){
+    r = 0; g = x; b = c;
+  } else if (h >= 240 && h < 300){
+    r = x; g = 0; b = c;
+  } else {
+    r = c; g = 0; b = x;
+  }
+  return {
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255)
+  };
+}
+
+function tintImageWithHSV(img, hsv){
+  if (!img || img.__broken) return img;
+  if (!(Number.isFinite(img.naturalWidth) ? img.naturalWidth : img.width)) return img;
+  if (!hsv || (!Number.isFinite(hsv.h) && !Number.isFinite(hsv.s) && !Number.isFinite(hsv.v))){
+    return img;
+  }
+  if (!img.complete || (img.naturalWidth || img.width || 0) === 0 || (img.naturalHeight || img.height || 0) === 0){
+    return img;
+  }
+
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  if (!(width > 0 && height > 0)) return img;
+
+  const key = hsvKey(hsv);
+  let cacheForImage = HSV_TINT_CACHE.get(img);
+  if (!cacheForImage){
+    cacheForImage = new Map();
+    HSV_TINT_CACHE.set(img, cacheForImage);
+  }
+  if (cacheForImage.has(key)){
+    return cacheForImage.get(key);
+  }
+
+  const hueShift = Number.isFinite(hsv.h) ? hsv.h : 0;
+  const satFactor = Number.isFinite(hsv.s) ? Math.max(0, 1 + hsv.s) : 1;
+  const valFactor = Number.isFinite(hsv.v) ? Math.max(0, 1 + hsv.v) : 1;
+
+  if (hueShift === 0 && satFactor === 1 && valFactor === 1){
+    cacheForImage.set(key, img);
+    return img;
+  }
+
+  const canvas = createTintCanvas(width, height);
+  if (!canvas) {
+    cacheForImage.set(key, img);
+    return img;
+  }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    cacheForImage.set(key, img);
+    return img;
+  }
+  ctx.clearRect(0, 0, width, height);
+  try {
+    ctx.drawImage(img, 0, 0, width, height);
+  } catch (err) {
+    cacheForImage.set(key, img);
+    return img;
+  }
+  let imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, width, height);
+  } catch (err) {
+    cacheForImage.set(key, img);
+    return img;
+  }
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4){
+    const alpha = data[i + 3];
+    if (alpha === 0) continue;
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const { h, s, v } = rgbToHsv(r, g, b);
+    let newH = (h + hueShift) % 360;
+    if (newH < 0) newH += 360;
+    let newS = s * satFactor;
+    if (newS < 0) newS = 0;
+    if (newS > 1) newS = 1;
+    let newV = v * valFactor;
+    if (newV < 0) newV = 0;
+    if (newV > 1) newV = 1;
+    const { r: nr, g: ng, b: nb } = hsvToRgb(newH, newS, newV);
+    data[i] = nr;
+    data[i + 1] = ng;
+    data[i + 2] = nb;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  cacheForImage.set(key, canvas);
+  return canvas;
+}
+
+function hasHsvAdjustments(hsv){
+  if (!hsv) return false;
+  return (Number.isFinite(hsv.h) && hsv.h !== 0)
+    || (Number.isFinite(hsv.s) && hsv.s !== 0)
+    || (Number.isFinite(hsv.v) && hsv.v !== 0);
+}
+
+function prepareImageForHSV(img, hsv){
+  if (!hasHsvAdjustments(hsv)){
+    return { image: img, applyFilter: false };
+  }
+  const tinted = tintImageWithHSV(img, hsv);
+  if (tinted && tinted !== img){
+    return { image: tinted, applyFilter: false };
+  }
+  return { image: img, applyFilter: true };
+}
+
+function imageDrawDimensions(img){
+  const width = img?.naturalWidth || img?.videoWidth || img?.width || 0;
+  const height = img?.naturalHeight || img?.videoHeight || img?.height || 0;
+  return { width, height };
+}
+
 // Legacy support: map old hideSprites to new RENDER_DEBUG
 if (typeof RENDER.hideSprites === 'boolean') {
   window.RENDER_DEBUG = window.RENDER_DEBUG || {};
@@ -308,12 +496,14 @@ function setTransformFromTriangle(ctx, srcTri, dstTri){
 }
 
 function drawWarpedImage(ctx, img, destPoints, w, h){
+  const { width: srcW, height: srcH } = imageDrawDimensions(img);
+  if (!(srcW > 0 && srcH > 0)) return;
   const srcPoints = {
-    center: [w / 2, h / 2],
+    center: [srcW / 2, srcH / 2],
     tl: [0, 0],
-    tr: [w, 0],
-    br: [w, h],
-    bl: [0, h]
+    tr: [srcW, 0],
+    br: [srcW, srcH],
+    bl: [0, srcH]
   };
   const triangles = [
     ['center', 'tl', 'tr'],
@@ -335,7 +525,7 @@ function drawWarpedImage(ctx, img, destPoints, w, h){
     ctx.closePath();
     ctx.clip();
     if (setTransformFromTriangle(ctx, srcTri, dstTri)){
-      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, w, h);
+      ctx.drawImage(img, 0, 0, srcW, srcH, 0, 0, w, h);
     }
     ctx.restore();
   }
@@ -347,6 +537,9 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   if (!img || img.__broken) return false;
   if (!img.complete) return false;
   if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return false;
+
+  const { image: renderImage, applyFilter } = prepareImageForHSV(img, options.hsv);
+  const sourceImage = renderImage || img;
 
   // Normalize styleKey: arm_L_upper -> armUpper, leg_R_lower -> legLower
   // Convert underscore format with optional side marker (L/R) to camelCase used by style configs
@@ -398,8 +591,8 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   posY += offsetY;
 
   // Sizing
-  const nh = img.naturalHeight || img.height || 1;
-  const nw = img.naturalWidth  || img.width  || 1;
+  const nh = sourceImage.naturalHeight || sourceImage.height || 1;
+  const nw = sourceImage.naturalWidth  || sourceImage.width  || 1;
   const baseH = Math.max(1, bone.len);
   const wfTbl = effectiveStyle.widthFactor || {};
   const wf = (wfTbl[normalizedKey] ?? wfTbl[styleKey] ?? 1);
@@ -418,7 +611,10 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
     : (options.alignDeg != null ? degToRad(options.alignDeg) : (asset.alignRad ?? 0));
   const theta = bone.ang + alignRad + Math.PI;
 
-  const filter = buildFilterString(ctx.filter, options.hsv);
+  const originalFilter = ctx.filter;
+  const filter = applyFilter
+    ? buildFilterString(originalFilter, options.hsv)
+    : (originalFilter && originalFilter !== '' ? originalFilter : 'none');
   const warp = options.warp;
   ctx.save();
   ctx.filter = filter;
@@ -456,11 +652,11 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
       const ry = local.x * sinT + local.y * cosT;
       dest[key] = { x: posX + rx, y: posY + ry };
     }
-    drawWarpedImage(ctx, img, dest, w, h);
+    drawWarpedImage(ctx, sourceImage, dest, w, h);
   } else {
     ctx.translate(posX, posY);
     ctx.rotate(theta);
-    ctx.drawImage(img, -w/2, -h/2, w, h);
+    ctx.drawImage(sourceImage, -w/2, -h/2, w, h);
   }
   ctx.restore();
   return true;
