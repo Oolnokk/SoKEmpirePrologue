@@ -446,13 +446,12 @@ export function renderSprites(ctx){
   const flipLeft = G.FLIP_STATE?.[entity] || false;
   const centerX = rig.center?.x ?? 0;
   const camX = G.CAMERA?.x || 0;
-  const centerLocalX = centerX - camX;
 
   ctx.save();
   ctx.translate(-camX, 0);
   // Mirror around character center when facing left (matching reference HTML exactly)
   if (flipLeft) {
-    ctx.translate(centerLocalX * 2, 0);
+    ctx.translate(centerX * 2, 0);
     ctx.scale(-1, 1);
   }
 
