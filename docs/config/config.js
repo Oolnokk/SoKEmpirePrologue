@@ -473,7 +473,7 @@ window.CONFIG = {
       cosmetics: {
         slots: {
           hat: { id: 'basic_headband', hsv: { h: -20, s: 0.2, v: 0 } },
-          torso: { id: 'layered_travel_cloak', hsv: { h: 5, s: -0.1, v: 0.15 } }
+          legs: { id: 'basic_pants', hsv: { h: 5, s: -0.1, v: 0.15 } }
         }
       }
     }
