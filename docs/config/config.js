@@ -420,7 +420,7 @@ window.CONFIG = {
           xformUnits: "percent",
           xform: {
             torso:    { ax:-0.5,  ay:-0.2, scaleX:3.5, scaleY:4.50, rotDeg:180 },
-            head:     { ax:-0.20, ay:-1.40, scaleX:4.2, scaleY:4.2, rotDeg:90 },
+            head:     { ax:-1.20, ay:-0.20, scaleX:4.2, scaleY:4.2, rotDeg:180 },
             armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
             armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
             legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
@@ -463,7 +463,7 @@ window.CONFIG = {
           xformUnits: "percent",
           xform: {
             torso:    { ax:0,  ay:-0.2, scaleX:1.4, scaleY:1.6, rotDeg:180 },
-            head:     { ax:-0.0, ay:-0.1, scaleX:1, scaleY:1.2, rotDeg:90 },
+            head:     { ax:-0.1, ay:-0.0, scaleX:1, scaleY:1.2, rotDeg:180 },
             armUpper: { ax:-0.2,  ay:0.1,  scaleX:1.6, scaleY:2.8, rotDeg:-10 },
             armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-3 },
             legUpper: { ax:-0.10, ay:0,  scaleX:1.7, scaleY:2.75,  rotDeg:-15 },
