@@ -42,6 +42,23 @@ function makeCombat(G, C){
     startTime: 0
   };
 
+  const PRESS = {};
+
+  function getPressState(slotKey){
+    if (!slotKey) return null;
+    if (!PRESS[slotKey]){
+      PRESS[slotKey] = {
+        id: 0,
+        downTime: 0,
+        tapHandled: true,
+        holdHandled: true,
+        active: false,
+        lastTap: null
+      };
+    }
+    return PRESS[slotKey];
+  }
+
   const QUEUE = {
     pending: false,
     type: null,
@@ -541,6 +558,12 @@ function makeCombat(G, C){
       return;
     }
 
+    if (COMBO.timer <= 0){
+      COMBO.sequenceIndex = 0;
+      COMBO.lastAbilityId = null;
+      COMBO.hits = 0;
+    }
+
     if (COMBO.lastAbilityId !== abilityId){
       COMBO.sequenceIndex = 0;
     }
@@ -634,6 +657,18 @@ function makeCombat(G, C){
     const slot = getSlot(slotKey);
     if (!slot) return;
 
+    const press = getPressState(slotKey);
+    if (press){
+      if (!press.active){
+        press.id += 1;
+      }
+      press.active = true;
+      press.downTime = now();
+      press.tapHandled = false;
+      press.holdHandled = false;
+      press.lastTap = null;
+    }
+
     neutralizeMovement();
 
     if (ATTACK.active || !canAttackNow()){
@@ -667,10 +702,39 @@ function makeCombat(G, C){
     const slot = getSlot(slotKey);
     if (!slot) return;
 
-    const heldMs = tUp - (ATTACK.downTime || tUp);
+    const press = getPressState(slotKey);
+    if (press && !press.active && (press.tapHandled || press.holdHandled)){
+      if (press.lastTap !== null){
+        const prevTap = press.lastTap ? 'tap' : 'hold';
+        console.log(`[combat] ignoring duplicate ${prevTap} release for button ${slotKey}`);
+      }
+      return;
+    }
+
+    const pressDownTime = ATTACK.downTime || press?.downTime || tUp;
+    const heldMs = tUp - pressDownTime;
     const tap = heldMs <= ABILITY_THRESHOLDS.tapMaxMs;
 
     console.log(`Button ${slotKey} released: held=${heldMs}ms, tap=${tap}`);
+
+    if (press){
+      press.lastTap = tap;
+      const alreadyHandled = tap ? press.tapHandled : press.holdHandled;
+      if (alreadyHandled){
+        return;
+      }
+      if (tap){
+        press.tapHandled = true;
+      } else {
+        press.holdHandled = true;
+      }
+      press.active = false;
+      press.downTime = 0;
+    }
+
+    if (ATTACK.slot === slotKey){
+      ATTACK.slot = null;
+    }
 
     CHARGE.active = false;
     CHARGE.stage = 0;
