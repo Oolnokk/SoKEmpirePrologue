@@ -1,5 +1,5 @@
 // animator.js — restore basic idle/walk posing; robust speed detection; override TTL required
-import { degToRad, radToDegNum } from './math-utils.js?v=1';
+import { degToRad, radToDegNum, angleFromDelta } from './math-utils.js?v=1';
 import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
 import { pickFighterConfig, pickFighterName } from './fighter-utils.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
@@ -344,7 +344,14 @@ function updateAiming(F, currentPose, fighterId){
     F.aim.hipOffset = 0;
   }
 
-  F.aim.headWorldTarget = (F.aim.currentAngle || 0) + facingRad;
+  const worldAimStandard = (F.aim.currentAngle || 0) + facingRad;
+  if (Number.isFinite(worldAimStandard)) {
+    const dirX = Math.cos(worldAimStandard);
+    const dirY = Math.sin(worldAimStandard);
+    F.aim.headWorldTarget = angleFromDelta(dirX, dirY);
+  } else {
+    F.aim.headWorldTarget = null;
+  }
 }
 
 // Apply aiming offsets to a pose
