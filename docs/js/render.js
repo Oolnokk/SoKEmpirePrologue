@@ -333,8 +333,8 @@ export function renderAll(ctx){
 
   // Apply character flip for debug bones, same as sprites
   if (player.flipLeft) {
-    const centerLocalX = (player.hitbox?.x ?? 0) - camX;
-    ctx.translate(centerLocalX * 2, 0);
+    const centerWorldX = player.hitbox?.x ?? 0;
+    ctx.translate(centerWorldX * 2, 0);
     ctx.scale(-1, 1);
   }
   
