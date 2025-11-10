@@ -51,6 +51,50 @@
         </label>
         <div id="styleFields"></div>
       </div>
+      <div class="panel" id="clothingCreator">
+        <h2>Clothing Creator</h2>
+        <p class="panel-intro">Pick an existing PNG from <code>docs/assets</code> to build or override outfits.</p>
+        <label class="creator-field">
+          <span>Search assets</span>
+          <input id="assetSearch" type="search" placeholder="legs" spellcheck="false" aria-label="Filter available PNG assets">
+        </label>
+        <div id="assetList" class="asset-list" role="listbox" aria-label="Available clothing sprites"></div>
+        <div id="assetPreview" class="asset-preview" aria-live="polite"></div>
+        <div class="creator-grid">
+          <label class="creator-field">
+            <span>New cosmetic ID</span>
+            <input id="creatorId" type="text" placeholder="custom_pants" spellcheck="false" aria-label="New cosmetic identifier">
+          </label>
+          <label class="creator-field">
+            <span>Display name</span>
+            <input id="creatorName" type="text" placeholder="Custom Pants" aria-label="Cosmetic display name">
+          </label>
+          <label class="creator-field">
+            <span>Equip slot</span>
+            <select id="creatorSlot" aria-label="Select slot for new cosmetic"></select>
+          </label>
+          <label class="creator-field creator-field--wide">
+            <span>Part keys (comma-separated)</span>
+            <input id="creatorParts" type="text" placeholder="leg_L_upper, leg_R_upper" spellcheck="false" aria-label="Parts to attach sprite to">
+          </label>
+        </div>
+        <div class="creator-actions">
+          <button type="button" id="creatorAdd">➕ Add Cosmetic To Library</button>
+          <button type="button" id="creatorEquip">🎯 Equip On Selected Fighter</button>
+          <button type="button" id="creatorApplyPart">🖼 Apply To Active Part</button>
+        </div>
+        <p class="panel-hint">The new cosmetic is stored in-memory for this session. Copy the override JSON below to persist it.</p>
+      </div>
+      <div class="panel" id="overridePanel">
+        <h2>Per-Fighter Overrides</h2>
+        <textarea id="overrideOutput" class="override-output" readonly spellcheck="false" aria-label="Generated override JSON"></textarea>
+        <div class="override-actions">
+          <button type="button" id="applyOverrides">✅ Apply To Preview</button>
+          <button type="button" id="copyOverrides">📋 Copy JSON</button>
+          <button type="button" id="downloadOverrides">⬇ Download JSON</button>
+        </div>
+        <p class="panel-hint">Overrides merge with the fighter's profile under <code>docs/config/fighter-offsets</code>. Equip the cosmetic and tweak parts to update the generated snippet.</p>
+      </div>
       <div class="panel">
         <h2>Status</h2>
         <div id="editorStatus" role="status" aria-live="polite"></div>

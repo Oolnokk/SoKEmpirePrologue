@@ -1,6 +1,13 @@
 import { initFighters } from './fighter.js?v=6';
 import { renderAll } from './render.js?v=4';
 import { initSprites, renderSprites } from './sprites.js?v=8';
+import {
+  COSMETIC_SLOTS,
+  getRegisteredCosmeticLibrary,
+  registerCosmeticLibrary,
+  registerFighterCosmeticProfile,
+  getFighterCosmeticProfile
+} from './cosmetics.js?v=1';
 import { COSMETIC_SLOTS, getRegisteredCosmeticLibrary } from './cosmetics.js?v=1';
 
 const CONFIG = window.CONFIG || {};
@@ -8,6 +15,15 @@ const GAME = (window.GAME ||= {});
 const editorState = (GAME.editorState ||= {
   slotOverrides: {},
   overlayHistory: [],
+  activeSlot: null,
+  activePartKey: null,
+  slotSelection: {},
+  assetManifest: [],
+  filteredAssets: [],
+  selectedAsset: null,
+  assetPinned: false,
+  activeFighter: null,
+  loadedProfile: {}
   activeSlot: null
 });
 
@@ -28,6 +44,20 @@ const bucketHint = document.getElementById('bucketHint');
 const bucketUndoBtn = document.getElementById('bucketUndo');
 const bucketClearBtn = document.getElementById('bucketClear');
 const statusEl = document.getElementById('editorStatus');
+const assetSearch = document.getElementById('assetSearch');
+const assetList = document.getElementById('assetList');
+const assetPreview = document.getElementById('assetPreview');
+const creatorIdInput = document.getElementById('creatorId');
+const creatorNameInput = document.getElementById('creatorName');
+const creatorSlotSelect = document.getElementById('creatorSlot');
+const creatorPartsInput = document.getElementById('creatorParts');
+const creatorAddBtn = document.getElementById('creatorAdd');
+const creatorEquipBtn = document.getElementById('creatorEquip');
+const creatorApplyBtn = document.getElementById('creatorApplyPart');
+const overrideOutput = document.getElementById('overrideOutput');
+const overrideApplyBtn = document.getElementById('applyOverrides');
+const overrideCopyBtn = document.getElementById('copyOverrides');
+const overrideDownloadBtn = document.getElementById('downloadOverrides');
 
 if (!canvas || !ctx){
   throw new Error('Cosmetic editor preview canvas is unavailable');
@@ -110,6 +140,327 @@ function showStatus(message, { tone = 'info', timeout = 1800 } = {}){
       }
     }, timeout);
   }
+}
+
+function populateCreatorSlotOptions(){
+  if (!creatorSlotSelect) return;
+  creatorSlotSelect.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  for (const slot of COSMETIC_SLOTS){
+    const option = document.createElement('option');
+    option.value = slot;
+    option.textContent = slot;
+    frag.appendChild(option);
+  }
+  creatorSlotSelect.appendChild(frag);
+}
+
+function highlightAssetSelection(){
+  if (!assetList) return;
+  const selected = editorState.selectedAsset;
+  const items = assetList.querySelectorAll('.asset-item');
+  items.forEach((item)=>{
+    item.classList.toggle('asset-item--selected', item.dataset.assetPath === selected);
+  });
+}
+
+function setSelectedAsset(path, { pinned = false } = {}){
+  editorState.selectedAsset = path || null;
+  if (pinned){
+    editorState.assetPinned = true;
+  } else if (!path){
+    editorState.assetPinned = false;
+  }
+  if (assetPreview){
+    assetPreview.innerHTML = '';
+    if (path){
+      const img = document.createElement('img');
+      img.src = path;
+      img.alt = 'Selected asset preview';
+      assetPreview.appendChild(img);
+    } else {
+      const span = document.createElement('span');
+      span.textContent = 'Select an asset to preview it here.';
+      assetPreview.appendChild(span);
+    }
+  }
+  highlightAssetSelection();
+}
+
+function renderAssetList(){
+  if (!assetList) return;
+  assetList.innerHTML = '';
+  const assets = editorState.filteredAssets || [];
+  if (!assets.length){
+    const empty = document.createElement('p');
+    empty.textContent = 'No assets match the current search.';
+    assetList.appendChild(empty);
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  for (const path of assets){
+    const item = document.createElement('div');
+    item.className = 'asset-item';
+    item.tabIndex = 0;
+    item.dataset.assetPath = path;
+    item.setAttribute('role', 'option');
+    const name = document.createElement('div');
+    name.className = 'asset-item__name';
+    const last = path.split('/').pop();
+    name.textContent = last || path;
+    const hint = document.createElement('div');
+    hint.className = 'asset-item__path';
+    hint.textContent = path;
+    item.appendChild(name);
+    item.appendChild(hint);
+    frag.appendChild(item);
+  }
+  assetList.appendChild(frag);
+  highlightAssetSelection();
+}
+
+function filterAssetList(query){
+  const manifest = editorState.assetManifest || [];
+  if (!Array.isArray(manifest)){
+    editorState.filteredAssets = [];
+    renderAssetList();
+    return;
+  }
+  const norm = (query || '').trim().toLowerCase();
+  if (!norm){
+    editorState.filteredAssets = manifest.slice();
+    renderAssetList();
+    return;
+  }
+  editorState.filteredAssets = manifest.filter((path)=> path.toLowerCase().includes(norm));
+  renderAssetList();
+}
+
+async function loadAssetManifest(){
+  if (typeof fetch !== 'function'){
+    showStatus('Asset manifest unavailable in this environment.', { tone: 'warn' });
+    return;
+  }
+  try {
+    const response = await fetch('./assets/asset-manifest.json', { cache: 'no-cache' });
+    if (!response.ok){
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    if (Array.isArray(data)){
+      editorState.assetManifest = data;
+      editorState.filteredAssets = data.slice();
+      renderAssetList();
+      setSelectedAsset(editorState.selectedAsset);
+    }
+  } catch (err){
+    console.warn('[cosmetic-editor] Failed to load asset manifest', err);
+    showStatus('Could not load asset manifest.', { tone: 'warn', timeout: 4000 });
+    renderAssetList();
+  }
+}
+
+function parsePartKeys(raw){
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((part)=> part.trim())
+    .filter((part)=> part.length > 0);
+}
+
+function buildOverridePayload(){
+  const slotSelection = editorState.slotSelection || {};
+  const payload = { cosmetics: {} };
+  for (const [slot, entry] of Object.entries(slotSelection)){
+    const id = entry?.id;
+    if (!id) continue;
+    const overrides = editorState.slotOverrides?.[slot];
+    if (!overrides || Object.keys(overrides).length === 0) continue;
+    payload.cosmetics[id] = deepClone(overrides);
+  }
+  return payload;
+}
+
+function updateOverrideOutputs(){
+  if (!overrideOutput) return;
+  const payload = buildOverridePayload();
+  const cosmetics = payload.cosmetics || {};
+  const hasOverrides = Object.keys(cosmetics).length > 0;
+  overrideOutput.value = hasOverrides
+    ? JSON.stringify(payload, null, 2)
+    : '// No overrides defined for this fighter.';
+  if (overrideApplyBtn) overrideApplyBtn.disabled = !hasOverrides;
+  if (overrideCopyBtn) overrideCopyBtn.disabled = !hasOverrides;
+  if (overrideDownloadBtn) overrideDownloadBtn.disabled = !hasOverrides;
+}
+
+function applyOverridesToProfile(){
+  if (!editorState.activeFighter){
+    showStatus('Load a fighter before applying overrides.', { tone: 'warn' });
+    return;
+  }
+  const payload = buildOverridePayload();
+  registerFighterCosmeticProfile(editorState.activeFighter, payload);
+  editorState.loadedProfile = deepClone(payload.cosmetics || {});
+  showStatus('Applied overrides to fighter preview.', { tone: 'info' });
+  updateOverrideOutputs();
+}
+
+async function copyOverridesToClipboard(){
+  if (!overrideOutput) return;
+  const text = overrideOutput.value || '';
+  if (!text || text.startsWith('// ')){
+    showStatus('No override JSON to copy yet.', { tone: 'warn' });
+    return;
+  }
+  if (!navigator?.clipboard){
+    showStatus('Clipboard API unavailable in this browser.', { tone: 'warn' });
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    showStatus('Override JSON copied to clipboard.', { tone: 'info' });
+  } catch (err){
+    console.warn('[cosmetic-editor] Copy failed', err);
+    showStatus('Unable to copy overrides to clipboard.', { tone: 'error' });
+  }
+}
+
+function downloadOverridesJson(){
+  if (!overrideOutput) return;
+  const text = overrideOutput.value || '';
+  if (!text || text.startsWith('// ')){
+    showStatus('No override JSON to download.', { tone: 'warn' });
+    return;
+  }
+  const blob = new Blob([text], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const fighter = editorState.activeFighter || 'fighter';
+  link.href = url;
+  link.download = `${fighter}-cosmetics.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.setTimeout(()=> URL.revokeObjectURL(url), 1000);
+  showStatus('Downloaded fighter override JSON.', { tone: 'info' });
+}
+
+function createCustomCosmetic(){
+  const asset = editorState.selectedAsset;
+  if (!asset){
+    showStatus('Select a PNG asset first.', { tone: 'warn' });
+    return;
+  }
+  const id = (creatorIdInput?.value || '').trim();
+  if (!id){
+    showStatus('Enter a cosmetic ID to register.', { tone: 'warn' });
+    creatorIdInput?.focus();
+    return;
+  }
+  const slot = creatorSlotSelect?.value;
+  if (!slot){
+    showStatus('Choose a slot for the new cosmetic.', { tone: 'warn' });
+    return;
+  }
+  const partKeys = parsePartKeys(creatorPartsInput?.value || '');
+  if (!partKeys.length){
+    showStatus('Provide at least one part key (e.g., leg_L_upper).', { tone: 'warn' });
+    creatorPartsInput?.focus();
+    return;
+  }
+  const displayNameRaw = (creatorNameInput?.value || '').trim();
+  const displayName = displayNameRaw || id.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').replace(/\b\w/g, (ch)=> ch.toUpperCase());
+  const parts = {};
+  for (const partKey of partKeys){
+    parts[partKey] = {
+      image: { url: asset }
+    };
+  }
+  const newCosmetic = {
+    slots: [slot],
+    meta: { name: displayName },
+    hsv: {
+      defaults: { h: 0, s: 0, v: 0 },
+      limits: { h: [-180, 180], s: [-1, 1], v: [-1, 1] }
+    },
+    parts
+  };
+  registerCosmeticLibrary({ [id]: newCosmetic });
+  buildSlotRows();
+  updateSlotSelectsFromState();
+  showStatus(`Registered cosmetic "${displayName}" in slot ${slot}.`, { tone: 'info' });
+}
+
+function equipCustomCosmetic(){
+  const slot = creatorSlotSelect?.value;
+  const id = (creatorIdInput?.value || '').trim();
+  if (!slot || !id){
+    showStatus('Enter both cosmetic ID and slot to equip.', { tone: 'warn' });
+    return;
+  }
+  const library = getRegisteredCosmeticLibrary();
+  if (!library[id]){
+    showStatus(`Cosmetic "${id}" is not in the library yet.`, { tone: 'warn' });
+    return;
+  }
+  setSlotSelection(slot, id);
+  updateSlotSelectsFromState();
+  showStyleInspector(slot);
+  showStatus(`Equipped ${library[id].meta?.name || id} to ${slot}.`, { tone: 'info' });
+}
+
+function applyAssetToActivePart(){
+  const asset = editorState.selectedAsset;
+  if (!asset){
+    showStatus('Select an asset before applying it.', { tone: 'warn' });
+    return;
+  }
+  const slot = editorState.activeSlot;
+  const partKey = editorState.activePartKey;
+  if (!slot || !partKey){
+    showStatus('Choose a slot and part in the style inspector first.', { tone: 'warn' });
+    return;
+  }
+  const slotOverride = (editorState.slotOverrides[slot] ||= {});
+  slotOverride.parts ||= {};
+  const partOverride = (slotOverride.parts[partKey] ||= {});
+  partOverride.image = { ...(partOverride.image || {}), url: asset };
+  cleanupEmptyOverrides(slot);
+  showStyleInspector(slot);
+  updateOverrideOutputs();
+  showStatus(`Applied ${asset} to ${slot} → ${partKey}.`, { tone: 'info' });
+}
+
+function getEffectivePartImage(slot, cosmetic, partKey){
+  const slotOverride = editorState.slotOverrides?.[slot];
+  const partOverride = slotOverride?.parts?.[partKey];
+  return partOverride?.image?.url
+    || slotOverride?.image?.url
+    || cosmetic?.parts?.[partKey]?.image?.url
+    || '';
+}
+
+function highlightActivePartAsset(slot, partKey, cosmetic){
+  if (!slot || !partKey) return;
+  if (editorState.assetPinned) return;
+  const current = getEffectivePartImage(slot, cosmetic, partKey);
+  if (current){
+    setSelectedAsset(current);
+  }
+}
+
+function mapProfileToSlotOverrides(slotMap, profile){
+  const overrides = {};
+  const cosmetics = profile?.cosmetics || {};
+  for (const [slot, entry] of Object.entries(slotMap || {})){
+    const id = entry?.id;
+    if (!id) continue;
+    const profileEntry = cosmetics[id];
+    if (!profileEntry) continue;
+    overrides[slot] = deepClone(profileEntry);
+  }
+  return overrides;
 }
 
 function parseHexColor(value){
@@ -223,6 +574,8 @@ function setSelectedCosmetics(slots){
     }
   }
   GAME.selectedCosmetics = { slots: slotMap };
+  editorState.slotSelection = deepClone(slotMap);
+  return slotMap;
 }
 
 function updateSlotSelectsFromState(){
@@ -240,6 +593,9 @@ function cleanupEmptyOverrides(slot){
   if (!slotOverride) return;
   if (slotOverride.parts){
     for (const [partKey, partOverride] of Object.entries(slotOverride.parts)){
+      if (partOverride?.image && !partOverride.image.url){
+        delete partOverride.image;
+      }
       const spriteStyle = partOverride?.spriteStyle;
       const xform = spriteStyle?.xform?.[partKey];
       if (xform && Object.keys(xform).length === 0){
@@ -271,6 +627,9 @@ function cleanupEmptyOverrides(slot){
   if (slotOverride.hsv && Object.keys(slotOverride.hsv).length === 0){
     delete slotOverride.hsv;
   }
+  if (slotOverride.image && !slotOverride.image.url){
+    delete slotOverride.image;
+  }
   if (Object.keys(slotOverride).length === 0){
     delete editorState.slotOverrides[slot];
   }
@@ -279,6 +638,20 @@ function cleanupEmptyOverrides(slot){
 function setSlotSelection(slot, cosmeticId){
   const selection = (GAME.selectedCosmetics ||= { slots: {} });
   if (!selection.slots) selection.slots = {};
+  editorState.slotSelection ||= {};
+  if (!cosmeticId){
+    selection.slots[slot] = null;
+    delete editorState.slotSelection[slot];
+    delete editorState.slotOverrides[slot];
+  } else {
+    const existing = normalizeSlotEntry(selection.slots[slot]) || {};
+    const next = { ...existing, id: cosmeticId };
+    selection.slots[slot] = next;
+    editorState.slotSelection[slot] = deepClone(next);
+    delete editorState.slotOverrides[slot];
+  }
+  cleanupEmptyOverrides(slot);
+  updateOverrideOutputs();
   if (!cosmeticId){
     selection.slots[slot] = null;
     delete editorState.slotOverrides[slot];
@@ -299,6 +672,7 @@ function resetSlotOverrides(slot){
   if (editorState.activeSlot === slot){
     showStyleInspector(slot);
   }
+  updateOverrideOutputs();
 }
 
 function resetPartOverrides(slot, partKey){
@@ -310,6 +684,7 @@ function resetPartOverrides(slot, partKey){
   if (editorState.activeSlot === slot){
     showStyleInspector(slot);
   }
+  updateOverrideOutputs();
 }
 
 function ensurePartOverride(slot, partKey){
@@ -335,6 +710,7 @@ function applyStyleValue(slot, partKey, field, rawValue){
     }
   }
   cleanupEmptyOverrides(slot);
+  updateOverrideOutputs();
 }
 
 function getBaseSpriteStyle(cosmetic, partKey){
@@ -387,6 +763,13 @@ function buildStyleFields(slot, cosmetic, partKey){
     }
     styleFields.appendChild(wrapper);
   }
+  const currentImageUrl = getEffectivePartImage(slot, cosmetic, partKey);
+  if (currentImageUrl){
+    const info = document.createElement('p');
+    info.className = 'style-asset-info';
+    info.innerHTML = `Current image: <code>${currentImageUrl}</code>`;
+    styleFields.appendChild(info);
+  }
 }
 
 function showStyleInspector(slot){
@@ -435,6 +818,7 @@ function showStyleInspector(slot){
   stylePartSelect.value = preferred;
   editorState.activePartKey = preferred;
   buildStyleFields(slot, cosmetic, preferred);
+  highlightActivePartAsset(slot, preferred, cosmetic);
 }
 
 function handlePartChange(){
@@ -447,6 +831,7 @@ function handlePartChange(){
   const partKey = stylePartSelect.value;
   editorState.activePartKey = partKey;
   buildStyleFields(slot, cosmetic, partKey);
+  highlightActivePartAsset(slot, partKey, cosmetic);
 }
 
 const slotRows = new Map();
@@ -454,6 +839,7 @@ const slotRows = new Map();
 function buildSlotRows(){
   const library = getRegisteredCosmeticLibrary();
   slotContainer.innerHTML = '';
+  slotRows.clear();
   for (const slot of COSMETIC_SLOTS){
     const row = document.createElement('div');
     row.className = 'slot-row';
@@ -521,6 +907,16 @@ function populateFighterSelect(){
 function loadFighter(fighterName){
   if (!fighterName) return;
   GAME.selectedFighter = fighterName;
+  editorState.activeFighter = fighterName;
+  const fighter = CONFIG.fighters?.[fighterName] || {};
+  const slots = fighter.cosmetics?.slots || fighter.cosmetics || {};
+  const slotMap = setSelectedCosmetics(slots);
+  clearOverlay();
+  editorState.assetPinned = false;
+  setSelectedAsset(null);
+  const profile = getFighterCosmeticProfile(fighterName) || null;
+  editorState.loadedProfile = deepClone(profile?.cosmetics || {});
+  editorState.slotOverrides = mapProfileToSlotOverrides(slotMap, profile);
   const fighter = CONFIG.fighters?.[fighterName] || {};
   const slots = fighter.cosmetics?.slots || fighter.cosmetics || {};
   setSelectedCosmetics(slots);
@@ -530,6 +926,7 @@ function loadFighter(fighterName){
   editorState.activePartKey = null;
   updateSlotSelectsFromState();
   showStyleInspector(null);
+  updateOverrideOutputs();
   showStatus(`Loaded fighter ${fighterName}`, { tone: 'info' });
 }
 
@@ -590,10 +987,45 @@ function attachEventListeners(){
       resetSlotOverrides(editorState.activeSlot);
     }
   });
+  assetSearch?.addEventListener('input', (event)=>{
+    filterAssetList(event.target.value);
+  });
+  assetList?.addEventListener('click', (event)=>{
+    const target = event.target.closest('.asset-item');
+    if (!target) return;
+    const path = target.dataset.assetPath;
+    if (path){
+      setSelectedAsset(path, { pinned: true });
+    }
+  });
+  assetList?.addEventListener('keydown', (event)=>{
+    if (event.key !== 'Enter' && event.key !== ' '){
+      return;
+    }
+    const target = event.target.closest('.asset-item');
+    if (!target) return;
+    event.preventDefault();
+    const path = target.dataset.assetPath;
+    if (path){
+      setSelectedAsset(path, { pinned: true });
+    }
+  });
+  creatorAddBtn?.addEventListener('click', createCustomCosmetic);
+  creatorEquipBtn?.addEventListener('click', equipCustomCosmetic);
+  creatorApplyBtn?.addEventListener('click', applyAssetToActivePart);
+  overrideApplyBtn?.addEventListener('click', applyOverridesToProfile);
+  overrideCopyBtn?.addEventListener('click', ()=>{ copyOverridesToClipboard(); });
+  overrideDownloadBtn?.addEventListener('click', downloadOverridesJson);
 }
 
 (async function bootstrap(){
   ensureOverlay();
+  setSelectedAsset(null);
+  await initSprites();
+  initFighters(canvas, ctx);
+  GAME.CAMERA = GAME.CAMERA || { x: 0, worldWidth: canvas.width };
+  populateCreatorSlotOptions();
+  await loadAssetManifest();
   await initSprites();
   initFighters(canvas, ctx);
   GAME.CAMERA = GAME.CAMERA || { x: 0, worldWidth: canvas.width };
