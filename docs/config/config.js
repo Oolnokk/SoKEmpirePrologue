@@ -683,7 +683,7 @@ window.CONFIG = {
       cosmetics: {
         slots: {
           hat: { id: 'basic_headband', hsv: { h: -20, s: 0.2, v: 0 } },
-          legs: { id: 'basic_pants', hsv: { h: 5, s: 100, v: 50 } }
+          legs: { id: 'basic_pants', hsv: { h: -120, s: 80, v: 10 } }
         }
       }
     },
@@ -698,7 +698,8 @@ window.CONFIG = {
       cosmetics: {
         slots: {
           hat: { id: 'basic_headband', hsv: { h: 12, s: 0.1, v: 0.05 } },
-          overwear: { id: 'layered_travel_cloak', hsv: { h: -10, s: -0.15, v: 100 } }
+          overwear: { id: 'layered_travel_cloak', hsv: { h: -10, s: -0.15, v: 100 } },
+          legs: { id: 'basic_pants', hsv: { h: 0, s: 85, v: 5 } }
         }
       }
     }
