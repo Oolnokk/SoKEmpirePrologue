@@ -33,6 +33,34 @@ function ensureAnimState(F){
   F.aim ||= { targetAngle: 0, currentAngle: 0, torsoOffset: 0, shoulderOffset: 0, hipOffset: 0, active: false, headWorldTarget: null };
   if (!F.anim){ F.anim = { last: performance.now()/1000, override:null }; }
 }
+
+function getFacingRad(F){
+  if (!F) return 0;
+  if (typeof F.facingRad === 'number') return F.facingRad;
+  return ((F.facingSign || 1) < 0) ? Math.PI : 0;
+}
+
+function getAimWorldRad(F){
+  if (!F) return 0;
+  const facingRad = getFacingRad(F);
+  const aim = F.aim;
+  if (aim && aim.active && Number.isFinite(aim.currentAngle)){
+    return facingRad + aim.currentAngle;
+  }
+  return facingRad;
+}
+
+function applyGravityScaleEvent(F, scale, { durationMs, reset } = {}){
+  if (!F) return;
+  if (reset){
+    delete F.gravityOverride;
+    return;
+  }
+  if (!Number.isFinite(scale)) return;
+  const now = performance.now() / 1000;
+  const expiresAt = Number.isFinite(durationMs) && durationMs > 0 ? now + (durationMs / 1000) : null;
+  F.gravityOverride = { value: scale, expiresAt };
+}
 function pickBase(C){ return (C.poses && C.poses.Stance) ? C.poses.Stance : { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 }; }
 
 function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX = (F._prevX==null? F.pos?.x||0 : F._prevX); const curX = F.pos?.x||0; const v = (curX - prevX)/dt; F._prevX = curX; return Math.abs(Number.isFinite(F.vel?.x)? F.vel.x : v); }
@@ -123,11 +151,30 @@ function processAnimEventsForOverride(F, over){
       }
       // impulse -> bump velocity
       if (Number.isFinite(ev.impulse)){
-        const dir = (Number.isFinite(ev.impulse_angle) ? degToRad(ev.impulse_angle) : 0);
+        let dir;
+        if (ev.aimRelative){
+          const baseAim = getAimWorldRad(F);
+          const offset = Number.isFinite(ev.impulse_angle) ? degToRad(ev.impulse_angle) : 0;
+          dir = baseAim + offset;
+        } else if (Number.isFinite(ev.impulse_angle)){
+          dir = degToRad(ev.impulse_angle);
+        } else {
+          dir = getFacingRad(F);
+        }
         const mag = ev.impulse || 0;
         F.vel = F.vel || {x:0,y:0};
-        F.vel.x = (F.vel.x||0) + Math.cos(dir) * mag * (ev.localVel ? (F.facingSign || 1) : 1);
+        const xMult = (ev.localVel && !ev.aimRelative) ? (F.facingSign || 1) : 1;
+        F.vel.x = (F.vel.x||0) + Math.cos(dir) * mag * xMult;
         F.vel.y = (F.vel.y||0) + Math.sin(dir) * mag;
+      }
+
+      if (ev.resetGravityScale){
+        applyGravityScaleEvent(F, null, { reset: true });
+      } else if (ev.gravityScale !== undefined){
+        const duration = Number.isFinite(ev.gravityScaleDurationMs)
+          ? ev.gravityScaleDurationMs
+          : (Number.isFinite(ev.gravityDurationMs) ? ev.gravityDurationMs : null);
+        applyGravityScaleEvent(F, ev.gravityScale, { durationMs: duration });
       }
     }
   }

@@ -31,6 +31,10 @@
         <button type="button" id="entryLaunchGame" class="entry-btn entry-btn--primary">Launch Game Demo</button>
         <a id="entryOpenEditor" class="entry-btn entry-btn--ghost" href="./cosmetic-editor.html">Open Cosmetic Editor</a>
       </div>
+      <label class="entry-remember">
+        <input type="checkbox" id="entryRememberChoice">
+        <span>Remember this choice for next time</span>
+      </label>
     </div>
   </div>
 
@@ -228,6 +232,9 @@
 
       const params = new URLSearchParams(window.location.search);
       const defaultMode = params.get('mode');
+      const skipKey = 'sok-entry-mode';
+      const remembered = localStorage.getItem(skipKey);
+      const defaultMode = params.get('mode') || remembered;
 
       const hideOverlay = () => {
         overlay.classList.add('entry-overlay--hidden');
@@ -247,12 +254,29 @@
       const launchBtn = document.getElementById('entryLaunchGame');
 
       launchBtn?.addEventListener('click', () => {
+      const rememberCheckbox = document.getElementById('entryRememberChoice');
+
+      if (remembered === 'game') {
+        rememberCheckbox.checked = true;
+      }
+
+      launchBtn?.addEventListener('click', () => {
+        if (rememberCheckbox?.checked) {
+          localStorage.setItem(skipKey, 'game');
+        } else {
+          localStorage.removeItem(skipKey);
+        }
         hideOverlay();
       });
 
       const editorLink = document.getElementById('entryOpenEditor');
       editorLink?.addEventListener('click', () => {
         /* no-op */
+        if (rememberCheckbox?.checked) {
+          localStorage.setItem(skipKey, 'editor');
+        } else {
+          localStorage.removeItem(skipKey);
+        }
       });
     })();
   </script>

@@ -8,6 +8,7 @@ import {
   registerFighterCosmeticProfile,
   getFighterCosmeticProfile
 } from './cosmetics.js?v=1';
+import { COSMETIC_SLOTS, getRegisteredCosmeticLibrary } from './cosmetics.js?v=1';
 
 const CONFIG = window.CONFIG || {};
 const GAME = (window.GAME ||= {});
@@ -23,6 +24,7 @@ const editorState = (GAME.editorState ||= {
   assetPinned: false,
   activeFighter: null,
   loadedProfile: {}
+  activeSlot: null
 });
 
 const canvas = document.getElementById('cosmeticCanvas');
@@ -650,6 +652,15 @@ function setSlotSelection(slot, cosmeticId){
   }
   cleanupEmptyOverrides(slot);
   updateOverrideOutputs();
+  if (!cosmeticId){
+    selection.slots[slot] = null;
+    delete editorState.slotOverrides[slot];
+  } else {
+    const existing = normalizeSlotEntry(selection.slots[slot]) || {};
+    selection.slots[slot] = { ...existing, id: cosmeticId };
+    delete editorState.slotOverrides[slot];
+  }
+  cleanupEmptyOverrides(slot);
   if (editorState.activeSlot === slot){
     showStyleInspector(slot);
   }
@@ -906,6 +917,11 @@ function loadFighter(fighterName){
   const profile = getFighterCosmeticProfile(fighterName) || null;
   editorState.loadedProfile = deepClone(profile?.cosmetics || {});
   editorState.slotOverrides = mapProfileToSlotOverrides(slotMap, profile);
+  const fighter = CONFIG.fighters?.[fighterName] || {};
+  const slots = fighter.cosmetics?.slots || fighter.cosmetics || {};
+  setSelectedCosmetics(slots);
+  clearOverlay();
+  editorState.slotOverrides = {};
   editorState.activeSlot = null;
   editorState.activePartKey = null;
   updateSlotSelectsFromState();
@@ -1010,6 +1026,9 @@ function attachEventListeners(){
   GAME.CAMERA = GAME.CAMERA || { x: 0, worldWidth: canvas.width };
   populateCreatorSlotOptions();
   await loadAssetManifest();
+  await initSprites();
+  initFighters(canvas, ctx);
+  GAME.CAMERA = GAME.CAMERA || { x: 0, worldWidth: canvas.width };
   buildSlotRows();
   populateFighterSelect();
   attachEventListeners();

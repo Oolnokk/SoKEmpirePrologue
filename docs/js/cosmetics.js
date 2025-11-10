@@ -369,6 +369,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
       if (slotOverride?.spriteStyle){
         styleOverride = mergeConfig(styleOverride, slotOverride.spriteStyle);
       }
+      const partOverride = slotOverride?.parts?.[partKey];
       if (partOverride?.hsv){
         hsv = clampHSV({ ...hsv, ...partOverride.hsv }, cosmetic);
       }

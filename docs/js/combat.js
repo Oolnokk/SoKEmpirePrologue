@@ -1049,17 +1049,34 @@ function makeCombat(G, C){
   function updateMovement(dt){
     const p = P();
     if (!p) return;
-    
+
     const M = C.movement || {};
     const I = G.input || {};
-    
+
     p.vel ||= {x:0, y:0};
     p.pos ||= {x:0, y:0};
-    
+
+    const prevOnGround = !!p.onGround;
+    const groundY = (C.canvas?.h || 460) * (C.groundRatio || 0.7) - 1;
+    const restitution = Number.isFinite(M.restitution) ? Math.max(0, M.restitution) : 0;
+    const gravityBase = Number.isFinite(M.gravity) ? M.gravity : 0;
+
+    if (!Number.isFinite(p.vel.y)) p.vel.y = 0;
+
+    if (p.gravityOverride?.expiresAt){
+      const nowSec = performance.now() / 1000;
+      if (p.gravityOverride.expiresAt <= nowSec){
+        delete p.gravityOverride;
+      }
+    }
+
+    const gravityScale = Number.isFinite(p.gravityOverride?.value) ? p.gravityOverride.value : 1;
+    const effectiveGravity = gravityBase * gravityScale;
+
     const ax = M.accelX || 1200;
     const max = M.maxSpeedX || 420;
     const fr = M.friction || 8;
-    
+
     // Don't move during attacks
     if (ATTACK.active){
       p.vel.x *= Math.max(0, 1 - fr*dt);
@@ -1076,9 +1093,36 @@ function makeCombat(G, C){
         p.vel.x *= Math.max(0, 1 - fr*dt);
       }
     }
-    
+
     p.vel.x = Math.max(-max, Math.min(max, p.vel.x));
     p.pos.x += p.vel.x * dt;
+
+    if (!p.onGround || p.vel.y < 0){
+      p.vel.y += effectiveGravity * dt;
+    } else if (p.onGround) {
+      p.vel.y = 0;
+    }
+
+    p.pos.y += p.vel.y * dt;
+
+    if (!Number.isFinite(p.pos.y)) p.pos.y = groundY;
+
+    if (p.pos.y >= groundY){
+      p.pos.y = groundY;
+      if (p.vel.y > 0){
+        p.vel.y = -p.vel.y * restitution;
+        if (Math.abs(p.vel.y) < 1) p.vel.y = 0;
+      }
+      p.onGround = true;
+    } else {
+      p.onGround = false;
+    }
+
+    if (p.onGround && Math.abs(p.vel.y) < 1){
+      p.vel.y = 0;
+    }
+
+    p.prevOnGround = prevOnGround;
   }
 
   function isPlayerAttacking(){
