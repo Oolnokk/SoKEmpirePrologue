@@ -138,6 +138,47 @@ test('ensureCosmeticLayers interprets percentage-style saturation and value', ()
   });
 });
 
+test('default character pants tint to blue for player and red for enemy', () => {
+  clearCosmeticCache();
+  const pants = JSON.parse(readFileSync(new URL('../docs/config/cosmetics/basic_pants.json', import.meta.url), 'utf8'));
+  const config = {
+    cosmeticLibrary: {
+      basic_pants: pants
+    },
+    fighters: {
+      player: {
+        cosmetics: {
+          slots: {
+            legs: { id: 'basic_pants', hsv: { h: -120, s: 80, v: 10 } }
+          }
+        }
+      },
+      enemy1: {
+        cosmetics: {
+          slots: {
+            legs: { id: 'basic_pants', hsv: { h: 0, s: 85, v: 5 } }
+          }
+        }
+      }
+    }
+  };
+
+  const playerLayers = ensureCosmeticLayers(config, 'player', {});
+  const enemyLayers = ensureCosmeticLayers(config, 'enemy1', {});
+
+  playerLayers
+    .filter((layer) => layer.slot === 'legs')
+    .forEach((layer) => {
+      deepStrictEqual(layer.hsv, { h: -120, s: 0.8, v: 0.1 });
+    });
+
+  enemyLayers
+    .filter((layer) => layer.slot === 'legs')
+    .forEach((layer) => {
+      deepStrictEqual(layer.hsv, { h: 0, s: 0.85, v: 0.05 });
+    });
+});
+
 test('sprites.js integrates cosmetic layers and z-order expansion', () => {
   const spritesContent = readFileSync(new URL('../docs/js/sprites.js', import.meta.url), 'utf8');
   strictEqual(/expanded\.push\(cosmeticTagFor\(tag, slot\)\);/.test(spritesContent), true, 'buildZMap should add cosmetic tags');
