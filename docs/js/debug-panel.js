@@ -397,8 +397,9 @@ if (typeof window !== 'undefined') {
   };
   window.pushPoseLayerOverride = function(fighterId, layerId, poseDeg, options = {}) {
     if (typeof runtimePushPoseLayerOverride === 'function') {
-      runtimePushPoseLayerOverride(fighterId, layerId, poseDeg, options);
+      return runtimePushPoseLayerOverride(fighterId, layerId, poseDeg, options);
     }
+    return null;
   };
 }
 

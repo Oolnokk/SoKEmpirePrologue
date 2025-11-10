@@ -96,7 +96,10 @@ function makeCombat(G, C){
     target: null,
     elapsed: 0,
     duration: 0,
-    callback: null
+    callback: null,
+    layerHandles: [],
+    tokenCounter: 0,
+    activeToken: 0
   };
 
   const debugLog = (...args) => {
@@ -106,6 +109,28 @@ function makeCombat(G, C){
       console.log(...args);
     }
   };
+
+  function cancelQueuedLayerOverrides(){
+    if (!Array.isArray(TRANSITION.layerHandles) || TRANSITION.layerHandles.length === 0) return;
+    const handles = TRANSITION.layerHandles.splice(0, TRANSITION.layerHandles.length);
+    handles.forEach(handle => {
+      if (handle && typeof handle.cancel === 'function'){
+        try { handle.cancel(); } catch(err){ console.warn('[combat] failed to cancel layer override', err); }
+      }
+    });
+  }
+
+  function registerTransitionLayerHandle(handle){
+    if (!handle) return;
+    const list = TRANSITION.layerHandles;
+    list.push(handle);
+    if (typeof handle.onSettle === 'function'){
+      handle.onSettle(()=>{
+        const idx = list.indexOf(handle);
+        if (idx !== -1) list.splice(idx, 1);
+      });
+    }
+  }
 
   const formatIdentifier = (value, fallback = 'Unknown') => {
     if (!value && value !== 0) return fallback;
@@ -272,11 +297,15 @@ function makeCombat(G, C){
 
   // Start transition with callback
   function startTransition(targetPose, label, durMs, callback){
+    cancelQueuedLayerOverrides();
+    TRANSITION.tokenCounter = (TRANSITION.tokenCounter + 1) || 1;
+    const stageToken = TRANSITION.tokenCounter;
     TRANSITION.active = true;
     TRANSITION.target = label;
     TRANSITION.elapsed = 0;
     TRANSITION.duration = durMs;
     TRANSITION.callback = callback;
+    TRANSITION.activeToken = stageToken;
     TRANSITION.flipApplied = false;  // Track if flip has been applied
     TRANSITION.flipAt = targetPose.flipAt;  // Store flip timing
     TRANSITION.flipParts = targetPose.flipParts;  // Store parts to flip
@@ -290,10 +319,10 @@ function makeCombat(G, C){
     }
 
     pushPoseOverride('player', targetPose, durMs);
-    queuePoseLayerOverrides(targetPose, label, durMs);
+    queuePoseLayerOverrides(targetPose, label, durMs, stageToken);
   }
 
-  function queuePoseLayerOverrides(targetPose, label, stageDurMs){
+  function queuePoseLayerOverrides(targetPose, label, stageDurMs, stageToken){
     if (!targetPose) return;
     const overrides = Array.isArray(targetPose.layerOverrides) ? targetPose.layerOverrides : [];
     if (!overrides.length) return;
@@ -313,14 +342,19 @@ function makeCombat(G, C){
         : Number.isFinite(layerDef.durationMs) ? layerDef.durationMs
         : Number.isFinite(layerDef.dur) ? layerDef.dur
         : stageDuration;
-      pushPoseLayerOverride('player', layerId, pose, {
+      const guard = ()=>{
+        return TRANSITION.active && TRANSITION.activeToken === stageToken && TRANSITION.target === label;
+      };
+      const handle = pushPoseLayerOverride('player', layerId, pose, {
         mask,
         priority,
         suppressWalk,
         useAsBase,
         durMs,
-        delayMs
+        delayMs,
+        guard
       });
+      registerTransitionLayerHandle(handle);
     });
   }
 
@@ -920,6 +954,7 @@ function makeCombat(G, C){
             ATTACK.active = false;
             ATTACK.preset = null;
             ATTACK.context = null;
+            cancelQueuedLayerOverrides();
             pushPoseOverride('player', buildPoseFromKey('Stance'), 200);
             updatePlayerAttackState('Stance', { active: false, context: null });
           }
@@ -1021,6 +1056,7 @@ function makeCombat(G, C){
         ATTACK.isCharging = true;
         ATTACK.preset = attackDef.preset || ability.preset || attackId;
         ATTACK.pendingAbilityId = ability.id;
+        cancelQueuedLayerOverrides();
         pushPoseOverride('player', windupPose, ability.charge?.windupHoldMs || 10000);
         updatePlayerAttackState('Windup', { active: true, context: null });
         console.log('Charge mode started (hold detected)', ability.id);

@@ -31,8 +31,36 @@ function ensureAnimState(F){
   F.walk ||= { phase:0, amp:1, t:0 };
   F.jointAngles ||= {};
   F.aim ||= { targetAngle: 0, currentAngle: 0, torsoOffset: 0, shoulderOffset: 0, hipOffset: 0, active: false, headWorldTarget: null };
-  if (!F.anim){ F.anim = { last: performance.now()/1000, override:null, layers: [] }; }
-  else if (!Array.isArray(F.anim.layers)){ F.anim.layers = []; }
+  if (!F.anim){ F.anim = { last: performance.now()/1000, override:null, layers: [], pendingLayerTimers: {} }; }
+  else {
+    if (!Array.isArray(F.anim.layers)){ F.anim.layers = []; }
+    if (!F.anim.pendingLayerTimers || typeof F.anim.pendingLayerTimers !== 'object'){
+      F.anim.pendingLayerTimers = {};
+    }
+  }
+}
+
+function trackPendingLayerTimer(F, layerId, handle){
+  if (!F?.anim) return;
+  const timers = (F.anim.pendingLayerTimers ||= {});
+  if (layerId){
+    const prev = timers[layerId];
+    if (prev && typeof prev.cancel === 'function'){
+      try { prev.cancel(); } catch(err){ console.warn('[animator] failed to cancel pending layer timer', err); }
+    }
+    if (handle && typeof handle.cancel === 'function'){
+      timers[layerId] = handle;
+      if (typeof handle.onSettle === 'function'){
+        handle.onSettle(()=>{
+          if (F.anim?.pendingLayerTimers?.[layerId] === handle){
+            delete F.anim.pendingLayerTimers[layerId];
+          }
+        });
+      }
+    } else {
+      delete timers[layerId];
+    }
+  }
 }
 
 function cleanupLayer(F, layer){
@@ -618,21 +646,88 @@ export function pushPoseLayerOverride(fighterId, layerId, poseDeg, options={}){
   if (!layerId) layerId = 'layer';
   const opts = options && typeof options === 'object' ? options : {};
   const delayMs = Number.isFinite(opts.delayMs) ? opts.delayMs : (Number.isFinite(opts.offsetMs) ? opts.offsetMs : 0);
+  const guard = typeof opts.guard === 'function' ? opts.guard : null;
+  const duration = opts.durMs ?? opts.durationMs ?? opts.dur ?? 300;
+  const settleCallbacks = [];
+  let settled = false;
+  let settleReason = null;
+  let timerId = null;
+
+  const runSettle = (reason)=>{
+    if (settled) return;
+    settled = true;
+    settleReason = reason;
+    if (typeof opts.onSettle === 'function'){
+      try { opts.onSettle(reason); } catch(err){ console.warn('[animator] layer override onSettle error', err); }
+    }
+    while (settleCallbacks.length){
+      const cb = settleCallbacks.shift();
+      try { cb(reason); } catch(err){ console.warn('[animator] layer override settle callback error', err); }
+    }
+  };
+
+  const handle = {
+    cancel(){
+      if (settled) return;
+      if (timerId != null){
+        clearTimeout(timerId);
+        timerId = null;
+      }
+      runSettle('canceled');
+    },
+    onSettle(cb){
+      if (typeof cb !== 'function') return handle;
+      if (settled){
+        try { cb(settleReason); } catch(err){ console.warn('[animator] layer override settle callback error', err); }
+      } else {
+        settleCallbacks.push(cb);
+      }
+      return handle;
+    }
+  };
+
   const apply = ()=>{
+    if (settled) return;
+    if (guard){
+      let allowed = true;
+      try { allowed = guard() !== false; }
+      catch(err){ console.warn('[animator] layer override guard error', err); allowed = false; }
+      if (!allowed){
+        runSettle('skipped');
+        return;
+      }
+    }
     const G = window.GAME || {};
     const F = G.FIGHTERS?.[fighterId];
-    if(!F) return;
+    if(!F){
+      runSettle('missing');
+      return;
+    }
     setOverrideLayer(F, layerId, poseDeg, {
-      durMs: opts.durMs ?? opts.durationMs ?? opts.dur ?? 300,
+      durMs: duration,
       mask: opts.mask,
       priority: opts.priority,
       suppressWalk: opts.suppressWalk,
       useAsBase: opts.useAsBase
     });
+    runSettle('applied');
   };
+
   if (delayMs > 0){
-    setTimeout(apply, delayMs);
+    timerId = setTimeout(()=>{
+      timerId = null;
+      apply();
+    }, delayMs);
   } else {
     apply();
   }
+
+  const G = window.GAME || {};
+  const F = G.FIGHTERS?.[fighterId];
+  if (F){
+    ensureAnimState(F);
+    trackPendingLayerTimer(F, layerId, handle);
+  }
+
+  return handle;
 }
