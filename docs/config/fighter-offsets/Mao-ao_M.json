@@ -20,7 +20,8 @@
             }
           }
         }
-      },
+      }
+    },
     "basic_pants": {
       "parts": {
         "leg_L_upper": {
@@ -61,7 +62,6 @@
           "styleKey": "torso"
         }
       }
-    }
     }
   }
 }
