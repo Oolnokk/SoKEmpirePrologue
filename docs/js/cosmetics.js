@@ -10,6 +10,15 @@ const STATE = (ROOT.COSMETIC_SYSTEM ||= {
   profiles: new Map()
 });
 
+export function getRegisteredCosmeticLibrary(){
+  const entries = Object.entries(STATE.library || {});
+  const out = {};
+  for (const [id, cosmetic] of entries){
+    out[id] = cosmetic ? deepMerge({}, cosmetic) : cosmetic;
+  }
+  return out;
+}
+
 function normalizeProfile(rawProfile = {}){
   const cosmetics = {};
   for (const [cosmeticId, cosmeticData] of Object.entries(rawProfile.cosmetics || {})){
@@ -318,18 +327,34 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
       slotConfig = mergeSlotConfigs(slotConfig, G.selectedCosmetics);
     }
   }
+  const editorState = (typeof window !== 'undefined')
+    ? (window.GAME?.editorState || null)
+    : null;
   for (const slot of COSMETIC_SLOTS){
     const equipped = normalizeEquipment(slotConfig[slot]);
     if (!equipped) continue;
     const cosmetic = library[equipped.id];
     if (!cosmetic) continue;
-    const hsv = clampHSV(equipped.hsv, cosmetic);
+    const slotOverride = editorState?.slotOverrides?.[slot];
+    let hsv = clampHSV(equipped.hsv, cosmetic);
+    if (slotOverride?.hsv){
+      hsv = clampHSV({ ...hsv, ...slotOverride.hsv }, cosmetic);
+    }
     for (const [partKey, partConfig] of Object.entries(cosmetic.parts || {})){
       const resolved = resolvePartConfig(partConfig, fighterName, cosmetic.id, partKey);
+      const partOverride = slotOverride?.parts?.[partKey];
+      if (slotOverride?.image){
+        resolved.image = mergeConfig(resolved.image, slotOverride.image);
+      }
+      if (partOverride?.image){
+        resolved.image = mergeConfig(resolved.image, partOverride.image);
+      }
       if (!resolved?.image?.url) continue;
       const asset = ensureAsset(cosmetic.id, partKey, resolved.image);
       if (!asset) continue;
       let styleOverride = resolved.spriteStyle;
+      let warpOverride = resolved.warp;
+      let anchorOverride = resolved.anchor;
       if (typeof resolved.anchor === 'string'){
         styleOverride = {
           ...(styleOverride || {}),
@@ -341,6 +366,27 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
           anchor: { ...(styleOverride?.anchor || {}), ...resolved.anchor }
         };
       }
+      if (slotOverride?.spriteStyle){
+        styleOverride = mergeConfig(styleOverride, slotOverride.spriteStyle);
+      }
+      if (partOverride?.hsv){
+        hsv = clampHSV({ ...hsv, ...partOverride.hsv }, cosmetic);
+      }
+      if (partOverride?.spriteStyle){
+        styleOverride = mergeConfig(styleOverride, partOverride.spriteStyle);
+      }
+      if (slotOverride?.warp){
+        warpOverride = mergeConfig(warpOverride, slotOverride.warp);
+      }
+      if (partOverride?.warp){
+        warpOverride = mergeConfig(warpOverride, partOverride.warp);
+      }
+      if (slotOverride?.anchor){
+        anchorOverride = mergeConfig(anchorOverride, slotOverride.anchor);
+      }
+      if (partOverride?.anchor){
+        anchorOverride = mergeConfig(anchorOverride, { [partKey]: partOverride.anchor });
+      }
       const alignDeg = resolved.align?.deg;
       const alignRad = resolved.align?.rad ?? (Number.isFinite(alignDeg) ? degToRad(alignDeg) : undefined);
       layers.push({
@@ -350,8 +396,8 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
         asset,
         hsv,
         styleOverride,
-        warp: resolved.warp,
-        anchorOverride: resolved.anchor,
+        warp: warpOverride,
+        anchorOverride,
         alignDeg,
         alignRad,
         styleKey: resolved.styleKey,

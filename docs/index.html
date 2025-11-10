@@ -23,6 +23,17 @@
     });
   </script>
 
+  <div class="entry-overlay" id="entryOverlay" role="dialog" aria-modal="true" aria-labelledby="entryTitle">
+    <div class="entry-card">
+      <h1 id="entryTitle">SoK Empire Toolkit</h1>
+      <p class="entry-subtitle">Choose which experience you want to open.</p>
+      <div class="entry-actions">
+        <button type="button" id="entryLaunchGame" class="entry-btn entry-btn--primary">Launch Game Demo</button>
+        <a id="entryOpenEditor" class="entry-btn entry-btn--ghost" href="./cosmetic-editor.html">Open Cosmetic Editor</a>
+      </div>
+    </div>
+  </div>
+
   <main class="stack">
     <section class="widget widget--clear">
       <div class="stage" id="gameStage">
@@ -209,6 +220,42 @@
       </div>
     </section>
   </main>
+
+  <script>
+    (() => {
+      const overlay = document.getElementById('entryOverlay');
+      if (!overlay) return;
+
+      const params = new URLSearchParams(window.location.search);
+      const defaultMode = params.get('mode');
+
+      const hideOverlay = () => {
+        overlay.classList.add('entry-overlay--hidden');
+        setTimeout(() => overlay.remove(), 400);
+      };
+
+      if (defaultMode === 'game') {
+        hideOverlay();
+        return;
+      }
+
+      if (defaultMode === 'editor') {
+        window.location.href = './cosmetic-editor.html';
+        return;
+      }
+
+      const launchBtn = document.getElementById('entryLaunchGame');
+
+      launchBtn?.addEventListener('click', () => {
+        hideOverlay();
+      });
+
+      const editorLink = document.getElementById('entryOpenEditor');
+      editorLink?.addEventListener('click', () => {
+        /* no-op */
+      });
+    })();
+  </script>
 
   <!-- In-repo config served same-origin under /docs -->
   <script src="./config/config.js"></script>

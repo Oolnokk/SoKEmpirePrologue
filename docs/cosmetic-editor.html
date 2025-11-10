@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Cosmetic Toolkit Preview</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./cosmetic-editor.css">
+</head>
+<body>
+  <main class="editor-layout">
+    <section class="editor-preview">
+      <canvas id="cosmeticCanvas" width="720" height="460" aria-label="Cosmetic preview"></canvas>
+      <div id="bucketHint" class="bucket-hint" hidden>Bucket mode active — click the canvas to fill with your selected colour.</div>
+    </section>
+    <section class="editor-controls">
+      <div class="panel">
+        <h2>Fighter</h2>
+        <select id="fighterSelect" aria-label="Select fighter"></select>
+        <p style="margin-top:8px;">Loads cosmetics from config.js so you can preview a fighter's wardrobe quickly.</p>
+      </div>
+      <div class="panel">
+        <h2>Cosmetic Slots</h2>
+        <div id="cosmeticSlotRows"></div>
+        <p style="margin-top:12px;">Use "Edit" to tweak sprite style overrides live.</p>
+      </div>
+      <div class="panel">
+        <h2>Bucket Tool</h2>
+        <label style="display:flex;flex-direction:column;gap:6px;">
+          <span>Hex colour</span>
+          <input id="bucketColor" type="text" placeholder="#ff3366" value="#ff3366" spellcheck="false" aria-label="Bucket fill hex colour">
+        </label>
+        <div class="bucket-actions" style="margin-top:12px;">
+          <button type="button" id="bucketToggle">🎨 Bucket Mode</button>
+          <button type="button" id="bucketUndo" disabled>↩ Undo</button>
+          <button type="button" id="bucketClear">🧹 Clear Paint</button>
+        </div>
+        <p style="margin-top:10px;">Bucket fill paints directly on the preview layer. Undo is limited to the last 20 fills.</p>
+      </div>
+      <div class="panel style-inspector" id="styleInspector" data-active="false">
+        <div class="style-header">
+          <strong id="styleActiveSlot">No slot selected</strong>
+          <div class="style-actions">
+            <button type="button" id="resetPartOverrides">Reset Part</button>
+            <button type="button" id="resetSlotOverrides">Reset Slot</button>
+          </div>
+        </div>
+        <label style="display:flex;flex-direction:column;gap:6px;">
+          <span>Part</span>
+          <select id="stylePartSelect" aria-label="Select cosmetic part"></select>
+        </label>
+        <div id="styleFields"></div>
+      </div>
+      <div class="panel" id="clothingCreator">
+        <h2>Clothing Creator</h2>
+        <p class="panel-intro">Pick an existing PNG from <code>docs/assets</code> to build or override outfits.</p>
+        <label class="creator-field">
+          <span>Search assets</span>
+          <input id="assetSearch" type="search" placeholder="legs" spellcheck="false" aria-label="Filter available PNG assets">
+        </label>
+        <div id="assetList" class="asset-list" role="listbox" aria-label="Available clothing sprites"></div>
+        <div id="assetPreview" class="asset-preview" aria-live="polite"></div>
+        <div class="creator-grid">
+          <label class="creator-field">
+            <span>New cosmetic ID</span>
+            <input id="creatorId" type="text" placeholder="custom_pants" spellcheck="false" aria-label="New cosmetic identifier">
+          </label>
+          <label class="creator-field">
+            <span>Display name</span>
+            <input id="creatorName" type="text" placeholder="Custom Pants" aria-label="Cosmetic display name">
+          </label>
+          <label class="creator-field">
+            <span>Equip slot</span>
+            <select id="creatorSlot" aria-label="Select slot for new cosmetic"></select>
+          </label>
+          <label class="creator-field creator-field--wide">
+            <span>Part keys (comma-separated)</span>
+            <input id="creatorParts" type="text" placeholder="leg_L_upper, leg_R_upper" spellcheck="false" aria-label="Parts to attach sprite to">
+          </label>
+        </div>
+        <div class="creator-actions">
+          <button type="button" id="creatorAdd">➕ Add Cosmetic To Library</button>
+          <button type="button" id="creatorEquip">🎯 Equip On Selected Fighter</button>
+          <button type="button" id="creatorApplyPart">🖼 Apply To Active Part</button>
+        </div>
+        <p class="panel-hint">The new cosmetic is stored in-memory for this session. Copy the override JSON below to persist it.</p>
+      </div>
+      <div class="panel" id="overridePanel">
+        <h2>Per-Fighter Overrides</h2>
+        <textarea id="overrideOutput" class="override-output" readonly spellcheck="false" aria-label="Generated override JSON"></textarea>
+        <div class="override-actions">
+          <button type="button" id="applyOverrides">✅ Apply To Preview</button>
+          <button type="button" id="copyOverrides">📋 Copy JSON</button>
+          <button type="button" id="downloadOverrides">⬇ Download JSON</button>
+        </div>
+        <p class="panel-hint">Overrides merge with the fighter's profile under <code>docs/config/fighter-offsets</code>. Equip the cosmetic and tweak parts to update the generated snippet.</p>
+      </div>
+      <div class="panel">
+        <h2>Status</h2>
+        <div id="editorStatus" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="./config/config.js"></script>
+  <script type="module" src="./js/cosmetic-library.js?v=1"></script>
+  <script type="module" src="./js/cosmetic-profiles.js?v=1"></script>
+  <script type="module" src="./js/cosmetic-editor-app.js?v=1"></script>
+</body>
+</html>
