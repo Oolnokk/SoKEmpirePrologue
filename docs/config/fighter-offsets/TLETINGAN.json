@@ -11,5 +11,46 @@
         }
       }
     }
+    "basic_pants": {
+      "parts": {
+        "leg_L_upper": {
+          "spriteStyle": {
+            "xform": {
+              "legUpper": {
+                "scaleX": 0.9,
+                "scaleY": 1.2
+              }
+            }
+          },
+          "styleKey": "legUpper"
+        },
+        "leg_R_upper": {
+          "spriteStyle": {
+            "xform": {
+              "legUpper": {
+                "scaleX": 0.9,
+                "scaleY": 1.2
+              }
+            }
+          },
+          "styleKey": "legUpper"
+        },
+        "torso": {
+          "image": {
+            "url": "./assets/cosmetics/clothes/legs/pants1_seat.png"
+          },
+          "spriteStyle": {
+            "xform": {
+              "torso": {
+                "scaleY": 0.5,
+                "scaleX": 0.5,
+                "ax": -0.4
+              }
+            }
+          },
+          "styleKey": "torso"
+        }
+      }
+    }
   }
 }
