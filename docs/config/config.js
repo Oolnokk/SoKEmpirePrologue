@@ -573,8 +573,28 @@ window.CONFIG = {
       durations: { toWindup: 380, toStrike: 110, toRecoil: 200, toStance: 120 },
       knockbackBase: 140,
       cancelWindow: 0.7,
-      poses: deepClone(PUNCH_MOVE_POSES)
-    },
+      poses: (() => {
+        const base = deepClone(PUNCH_MOVE_POSES);
+        const strikeBase = deepClone(PUNCH_MOVE_POSES.Strike);
+        const stanceArms = deepClone(PUNCH_MOVE_POSES.Stance);
+        strikeBase.lShoulder = stanceArms.lShoulder;
+        strikeBase.lElbow = stanceArms.lElbow;
+        strikeBase.rShoulder = stanceArms.rShoulder;
+        strikeBase.rElbow = stanceArms.rElbow;
+        strikeBase.layerOverrides = [
+          {
+            id: 'combo1-right',
+            pose: {
+              pose: {
+              rShoulder: PUNCH_MOVE_POSES.Strike.rShoulder,
+              rElbow: PUNCH_MOVE_POSES.Strike.rElbow
+            },
+            mask: ['rShoulder', 'rElbow'],
+            durMs: 200,
+            delayMs: 0,
+            priority: 140
+          }
+        ],
     ComboPUNCH2: {
       name: 'Combo Punch 2',
       tags: ['light', 'combo'],
@@ -608,8 +628,8 @@ window.CONFIG = {
               rElbow: PUNCH_MOVE_POSES.Strike.rElbow
             },
             mask: ['rShoulder', 'rElbow'],
-            durMs: 200,
-            delayMs: 500,
+            durMs: 100,
+            delayMs: 800,
             priority: 150
           }
         ];
