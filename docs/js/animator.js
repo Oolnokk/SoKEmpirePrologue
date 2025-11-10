@@ -31,7 +31,104 @@ function ensureAnimState(F){
   F.walk ||= { phase:0, amp:1, t:0 };
   F.jointAngles ||= {};
   F.aim ||= { targetAngle: 0, currentAngle: 0, torsoOffset: 0, shoulderOffset: 0, hipOffset: 0, active: false, headWorldTarget: null };
-  if (!F.anim){ F.anim = { last: performance.now()/1000, override:null }; }
+  if (!F.anim){ F.anim = { last: performance.now()/1000, override:null, layers: [], pendingLayerTimers: {} }; }
+  else {
+    if (!Array.isArray(F.anim.layers)){ F.anim.layers = []; }
+    if (!F.anim.pendingLayerTimers || typeof F.anim.pendingLayerTimers !== 'object'){
+      F.anim.pendingLayerTimers = {};
+    }
+  }
+}
+
+function trackPendingLayerTimer(F, layerId, handle){
+  if (!F?.anim) return;
+  const timers = (F.anim.pendingLayerTimers ||= {});
+  if (layerId){
+    const prev = timers[layerId];
+    if (prev && typeof prev.cancel === 'function'){
+      try { prev.cancel(); } catch(err){ console.warn('[animator] failed to cancel pending layer timer', err); }
+    }
+    if (handle && typeof handle.cancel === 'function'){
+      timers[layerId] = handle;
+      if (typeof handle.onSettle === 'function'){
+        handle.onSettle(()=>{
+          if (F.anim?.pendingLayerTimers?.[layerId] === handle){
+            delete F.anim.pendingLayerTimers[layerId];
+          }
+        });
+      }
+    } else {
+      delete timers[layerId];
+    }
+  }
+}
+
+function cleanupLayer(F, layer){
+  if (!layer) return;
+  try{
+    if (layer.__flipApplied && layer.pose && Array.isArray(layer.pose.flipParts)){
+      for (const p of layer.pose.flipParts){ setMirrorForPart(p, false); }
+    }
+  }catch(_e){ /* best-effort cleanup */ }
+}
+
+function refreshLegacyOverride(F){
+  if (!F?.anim) return;
+  const layers = Array.isArray(F.anim.layers) ? F.anim.layers : [];
+  if (layers.length === 0){
+    F.anim.override = null;
+    return;
+  }
+  const sorted = [...layers].sort((a,b)=> (a.priority||0) - (b.priority||0));
+  F.anim.override = sorted[sorted.length - 1] || null;
+}
+
+function removeOverrideLayer(F, layerId){
+  if (!F?.anim || !Array.isArray(F.anim.layers)) return;
+  const idx = F.anim.layers.findIndex(l=> l && l.id === layerId);
+  if (idx === -1) return;
+  const [layer] = F.anim.layers.splice(idx, 1);
+  cleanupLayer(F, layer);
+  refreshLegacyOverride(F);
+}
+
+function normalizeLayerMask(mask, pose){
+  if (Array.isArray(mask) && mask.length) return [...mask];
+  if (pose){
+    if (Array.isArray(pose.mask) && pose.mask.length) return [...pose.mask];
+    if (Array.isArray(pose.joints) && pose.joints.length) return [...pose.joints];
+  }
+  return null;
+}
+
+function setOverrideLayer(F, layerId, poseDeg, { durMs=300, mask, priority, suppressWalk, useAsBase } = {}){
+  if (!F) return null;
+  ensureAnimState(F);
+  const now = performance.now()/1000;
+  const dur = (durMs == null) ? 0 : (durMs/1000);
+  const layerMask = normalizeLayerMask(mask, poseDeg);
+  const defaultPriority = (layerId === 'primary') ? 100 : 200;
+  const hasMask = Array.isArray(layerMask) && layerMask.length > 0;
+  const layer = {
+    id: layerId,
+    pose: poseDeg,
+    mask: layerMask,
+    priority: priority ?? defaultPriority,
+    suppressWalk: suppressWalk ?? (layerId === 'primary' && !hasMask),
+    useAsBase: useAsBase ?? (!hasMask && layerId === 'primary'),
+    until: dur > 0 ? now + dur : (dur === 0 ? now : null),
+    __start: now,
+    __dur: dur,
+    __events: primeAnimEventsFromPose(poseDeg),
+    __flipApplied: false,
+    __fullFlipApplied: false,
+    __k: 0
+  };
+  removeOverrideLayer(F, layerId);
+  F.anim.layers.push(layer);
+  F.anim.layers.sort((a,b)=> (a.priority||0) - (b.priority||0));
+  refreshLegacyOverride(F);
+  return layer;
 }
 
 function getFacingRad(F){
@@ -105,18 +202,14 @@ function computeWalkPose(F, C){
   return pose;
 }
 
-function getOverride(F){ return (F.anim && F.anim.override) ? F.anim.override : null; }
+function getOverride(F){
+  if (!F?.anim) return null;
+  refreshLegacyOverride(F);
+  return F.anim.override || null;
+}
 function clearOverride(F){
-  if (!F || !F.anim || !F.anim.override) return;
-  const over = F.anim.override;
-  // cleanup applied per-part flips
-  try{
-    if (over.__flipApplied && over.pose && Array.isArray(over.pose.flipParts)){
-      for (const p of over.pose.flipParts){ setMirrorForPart(p, false); }
-    }
-    // Leave full-facing flips intact so attacks that intentionally flip the character keep the new facing
-  }catch(_e){ /* best-effort cleanup */ }
-  F.anim.override=null;
+  if (!F?.anim) return;
+  removeOverrideLayer(F, 'primary');
 }
 
 function primeAnimEventsFromPose(pose){
@@ -220,6 +313,41 @@ function processAnimEventsForOverride(F, over){
     if (F.attack && typeof F.attack.dirSign === 'number'){
       F.attack.dirSign *= -1;
     }
+  }
+}
+
+function getActiveLayers(F, now){
+  if (!F?.anim || !Array.isArray(F.anim.layers) || F.anim.layers.length === 0) return [];
+  const layers = F.anim.layers;
+  const active = [];
+  for (let i = layers.length - 1; i >= 0; i--){
+    const layer = layers[i];
+    if (!layer) continue;
+    if (layer.until != null && now >= layer.until){
+      cleanupLayer(F, layer);
+      layers.splice(i, 1);
+      continue;
+    }
+    processAnimEventsForOverride(F, layer);
+    active.push(layer);
+  }
+  active.sort((a,b)=> (a.priority||0) - (b.priority||0));
+  refreshLegacyOverride(F);
+  return active;
+}
+
+function applyLayerPose(targetPose, layer){
+  if (!layer?.pose || !targetPose) return;
+  const pose = layer.pose;
+  const mask = Array.isArray(layer.mask) && layer.mask.length ? layer.mask : ANG_KEYS;
+  for (const key of mask){
+    if (key === 'ALL'){
+      for (const k of ANG_KEYS){
+        if (pose[k] != null) targetPose[k] = pose[k];
+      }
+      continue;
+    }
+    if (pose[key] != null) targetPose[key] = pose[key];
   }
 }
 
@@ -438,29 +566,40 @@ export function updatePoses(){
   if (C.debug?.freezeAngles) return;
   const fighterName = pickFighterName(C);
   const fcfg = pickFighterConfig(C, fighterName);
-  for (const id of ['player','npc']){ const F = G.FIGHTERS[id]; if(!F) continue; ensureAnimState(F); F.anim.dt = Math.max(0, now - F.anim.last); F.anim.last = now;
-    let targetDeg = null; const over = getOverride(F);
-    if (over){
-      // process events / flips for active override (k-based)
-      processAnimEventsForOverride(F, over);
-      if (over.until && now < over.until){ targetDeg = over.pose; }
-      else {
-        F.anim.override = null;
-        if (over.until == null) console.log('[anim] cleared timeless override');
+  for (const id of ['player','npc']){
+    const F = G.FIGHTERS[id];
+    if(!F) continue;
+    ensureAnimState(F);
+    F.anim.dt = Math.max(0, now - F.anim.last);
+    F.anim.last = now;
+
+    const walkPose = computeWalkPose(F,C);
+    const basePoseConfig = pickBase(C);
+    let targetDeg = walkPose._active ? { ...walkPose } : { ...basePoseConfig };
+
+    const activeLayers = getActiveLayers(F, now);
+    const walkSuppressed = activeLayers.some(layer => layer.suppressWalk);
+    if (activeLayers.length){
+      if (walkSuppressed){
+        targetDeg = { ...basePoseConfig };
+      }
+      for (const layer of activeLayers){
+        applyLayerPose(targetDeg, layer);
       }
     }
-    if (!targetDeg){ const walkPose = computeWalkPose(F,C); if (walkPose._active) targetDeg = walkPose; }
-    if (!targetDeg) targetDeg = pickBase(C);
-    
+
+    const topLayer = activeLayers.length ? activeLayers[activeLayers.length - 1] : null;
+    const aimingPose = topLayer?.pose || (walkPose._active && !walkSuppressed ? walkPose : basePoseConfig);
+
     // Update aiming system based on current pose
-    updateAiming(F, targetDeg, id);
-    
+    updateAiming(F, aimingPose || targetDeg, id);
+
     // Add basePose to targetDeg (matching reference HTML behavior)
     const basePose = C.basePose || {};
     let finalDeg = addAngles(basePose, targetDeg);
-    
+
     // Apply aiming offsets to pose
-    finalDeg = applyAimingOffsets(finalDeg, F, targetDeg);
+    finalDeg = applyAimingOffsets(finalDeg, F, aimingPose || targetDeg);
 
     const headDeg = computeHeadTargetDeg(F, finalDeg, fcfg);
     if (typeof headDeg === 'number') {
@@ -483,22 +622,112 @@ export function updatePoses(){
   }
 }
 
-export function pushPoseOverride(fighterId, poseDeg, durMs=300){
+export function pushPoseOverride(fighterId, poseDeg, durMs=300, options={}){
+  let opts = (options && typeof options === 'object') ? options : {};
+  let durationArg = durMs;
+  if (durMs && typeof durMs === 'object' && !Array.isArray(durMs)){
+    opts = durMs;
+    durationArg = opts.durMs ?? opts.durationMs ?? opts.dur ?? 300;
+  }
+  const duration = Number.isFinite(durationArg) ? durationArg : (Number.isFinite(opts.durMs) ? opts.durMs : 300);
   const G = window.GAME || {};
   const F = G.FIGHTERS?.[fighterId];
   if(!F) return;
-  ensureAnimState(F);
-  const now = performance.now()/1000;
-  const dur = (durMs == null) ? 0 : (durMs/1000);
-  const over = {
-    pose: poseDeg,
-    until: dur > 0 ? now + dur : (dur === 0 ? now : null),
-    __start: now,
-    __dur: dur,
-    __events: primeAnimEventsFromPose(poseDeg),
-    __flipApplied: false,
-    __fullFlipApplied: false,
-    __k: 0
+  setOverrideLayer(F, 'primary', poseDeg, {
+    durMs: duration,
+    mask: opts.mask,
+    priority: opts.priority,
+    suppressWalk: opts.suppressWalk,
+    useAsBase: opts.useAsBase
+  });
+}
+
+export function pushPoseLayerOverride(fighterId, layerId, poseDeg, options={}){
+  if (!layerId) layerId = 'layer';
+  const opts = options && typeof options === 'object' ? options : {};
+  const delayMs = Number.isFinite(opts.delayMs) ? opts.delayMs : (Number.isFinite(opts.offsetMs) ? opts.offsetMs : 0);
+  const guard = typeof opts.guard === 'function' ? opts.guard : null;
+  const duration = opts.durMs ?? opts.durationMs ?? opts.dur ?? 300;
+  const settleCallbacks = [];
+  let settled = false;
+  let settleReason = null;
+  let timerId = null;
+
+  const runSettle = (reason)=>{
+    if (settled) return;
+    settled = true;
+    settleReason = reason;
+    if (typeof opts.onSettle === 'function'){
+      try { opts.onSettle(reason); } catch(err){ console.warn('[animator] layer override onSettle error', err); }
+    }
+    while (settleCallbacks.length){
+      const cb = settleCallbacks.shift();
+      try { cb(reason); } catch(err){ console.warn('[animator] layer override settle callback error', err); }
+    }
   };
-  F.anim.override = over;
+
+  const handle = {
+    cancel(){
+      if (settled) return;
+      if (timerId != null){
+        clearTimeout(timerId);
+        timerId = null;
+      }
+      runSettle('canceled');
+    },
+    onSettle(cb){
+      if (typeof cb !== 'function') return handle;
+      if (settled){
+        try { cb(settleReason); } catch(err){ console.warn('[animator] layer override settle callback error', err); }
+      } else {
+        settleCallbacks.push(cb);
+      }
+      return handle;
+    }
+  };
+
+  const apply = ()=>{
+    if (settled) return;
+    if (guard){
+      let allowed = true;
+      try { allowed = guard() !== false; }
+      catch(err){ console.warn('[animator] layer override guard error', err); allowed = false; }
+      if (!allowed){
+        runSettle('skipped');
+        return;
+      }
+    }
+    const G = window.GAME || {};
+    const F = G.FIGHTERS?.[fighterId];
+    if(!F){
+      runSettle('missing');
+      return;
+    }
+    setOverrideLayer(F, layerId, poseDeg, {
+      durMs: duration,
+      mask: opts.mask,
+      priority: opts.priority,
+      suppressWalk: opts.suppressWalk,
+      useAsBase: opts.useAsBase
+    });
+    runSettle('applied');
+  };
+
+  if (delayMs > 0){
+    timerId = setTimeout(()=>{
+      timerId = null;
+      apply();
+    }, delayMs);
+  } else {
+    apply();
+  }
+
+  const G = window.GAME || {};
+  const F = G.FIGHTERS?.[fighterId];
+  if (F){
+    ensureAnimState(F);
+    trackPendingLayerTimer(F, layerId, handle);
+  }
+
+  return handle;
 }
