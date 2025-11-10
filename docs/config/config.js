@@ -332,9 +332,17 @@ const SLAM_MOVE_POSES = {
     allowAiming: true,
     aimLegs: false,
     anim_events: [
+      { time: 0.00, velocityY: -680 },
+      { time: 0.00, gravityScale: 0.35, gravityScaleDurationMs: 1200 }
     ]
   },
-  Slam: deepClone(PUNCH_MOVE_POSES.Strike),
+  Slam: {
+    ...deepClone(PUNCH_MOVE_POSES.Strike),
+    anim_events: [
+      { time: 0.00, resetGravityScale: true },
+      { time: 0.00, impulse: 520, aimRelative: true }
+    ]
+  },
   Recoil: deepClone(PUNCH_MOVE_POSES.Recoil)
 };
 
