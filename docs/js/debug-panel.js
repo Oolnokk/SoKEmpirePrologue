@@ -3,6 +3,7 @@
 
 import { $$, fmt } from './dom-utils.js?v=1';
 import { radToDeg, radToDegNum, degToRad } from './math-utils.js?v=1';
+import { pushPoseOverride as runtimePushPoseOverride, pushPoseLayerOverride as runtimePushPoseLayerOverride } from './animator.js?v=3';
 
 // Initialize the debug panel
 export function initDebugPanel() {
@@ -276,8 +277,10 @@ function setPoseValue(fighter, key, radValue) {
     }
 
     // Import and use pushPoseOverride if available
-    if (window.pushPoseOverride) {
-      window.pushPoseOverride(fighter.id, degPose, 100); // 100ms override
+    if (typeof runtimePushPoseOverride === 'function') {
+      runtimePushPoseOverride(fighter.id, degPose, 100);
+    } else if (typeof window.pushPoseOverride === 'function') {
+      window.pushPoseOverride(fighter.id, degPose, 100); // fallback for legacy globals
     }
   }
 }
@@ -385,19 +388,17 @@ function showCopyNotification() {
   }, 1500);
 }
 
-// Export pushPoseOverride function for use by input handlers
+// Export animator helpers for use by debug panel input handlers
 if (typeof window !== 'undefined') {
-  window.pushPoseOverride = function(fighterId, poseDeg, durMs = 100) {
-    const G = window.GAME || {};
-    const F = G.FIGHTERS?.[fighterId];
-    if (!F) return;
-    
-    if (!F.anim) F.anim = { last: performance.now() / 1000 };
-    
-    F.anim.override = {
-      pose: poseDeg,
-      until: performance.now() / 1000 + durMs / 1000
-    };
+  window.pushPoseOverride = function(fighterId, poseDeg, durMs = 100, options = {}) {
+    if (typeof runtimePushPoseOverride === 'function') {
+      runtimePushPoseOverride(fighterId, poseDeg, durMs, options);
+    }
+  };
+  window.pushPoseLayerOverride = function(fighterId, layerId, poseDeg, options = {}) {
+    if (typeof runtimePushPoseLayerOverride === 'function') {
+      runtimePushPoseLayerOverride(fighterId, layerId, poseDeg, options);
+    }
   };
 }
 

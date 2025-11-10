@@ -1,5 +1,5 @@
 // combat.js — Full attack system matching reference HTML (tap/hold, charge, combo, queue)
-import { pushPoseOverride } from './animator.js?v=2';
+import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=3';
 import { resetMirror, setMirrorForPart } from './sprites.js?v=8';
 
 export function initCombat(){
@@ -290,6 +290,38 @@ function makeCombat(G, C){
     }
 
     pushPoseOverride('player', targetPose, durMs);
+    queuePoseLayerOverrides(targetPose, label, durMs);
+  }
+
+  function queuePoseLayerOverrides(targetPose, label, stageDurMs){
+    if (!targetPose) return;
+    const overrides = Array.isArray(targetPose.layerOverrides) ? targetPose.layerOverrides : [];
+    if (!overrides.length) return;
+    overrides.forEach((layerDef, index)=>{
+      if (!layerDef) return;
+      if (layerDef.enabled === false) return;
+      const pose = layerDef.pose || targetPose;
+      const layerId = layerDef.layer || layerDef.id || `${label || 'layer'}-${index}`;
+      const mask = layerDef.mask || layerDef.joints || pose.mask || pose.joints;
+      const priority = layerDef.priority;
+      const suppressWalk = layerDef.suppressWalk;
+      const useAsBase = layerDef.useAsBase;
+      const rawDelay = Number.isFinite(layerDef.delayMs) ? layerDef.delayMs : (Number.isFinite(layerDef.offsetMs) ? layerDef.offsetMs : 0);
+      const delayMs = rawDelay > 0 ? rawDelay : 0;
+      const stageDuration = Number.isFinite(stageDurMs) ? stageDurMs : 300;
+      const durMs = Number.isFinite(layerDef.durMs) ? layerDef.durMs
+        : Number.isFinite(layerDef.durationMs) ? layerDef.durationMs
+        : Number.isFinite(layerDef.dur) ? layerDef.dur
+        : stageDuration;
+      pushPoseLayerOverride('player', layerId, pose, {
+        mask,
+        priority,
+        suppressWalk,
+        useAsBase,
+        durMs,
+        delayMs
+      });
+    });
   }
 
   function normalizeAbilitySystem(raw){

@@ -578,10 +578,44 @@ window.CONFIG = {
     ComboPUNCH2: {
       name: 'Combo Punch 2',
       tags: ['light', 'combo'],
-      durations: { toWindup: 480, toStrike: 110, toRecoil: 200, toStance: 120 },
+      durations: { toWindup: 480, toStrike: 700, toRecoil: 220, toStance: 120 },
       knockbackBase: 140,
       cancelWindow: 0.7,
-      poses: deepClone(PUNCH_MOVE_POSES)
+      poses: (() => {
+        const base = deepClone(PUNCH_MOVE_POSES);
+        const strikeBase = deepClone(PUNCH_MOVE_POSES.Strike);
+        const stanceArms = deepClone(PUNCH_MOVE_POSES.Stance);
+        strikeBase.lShoulder = stanceArms.lShoulder;
+        strikeBase.lElbow = stanceArms.lElbow;
+        strikeBase.rShoulder = stanceArms.rShoulder;
+        strikeBase.rElbow = stanceArms.rElbow;
+        strikeBase.layerOverrides = [
+          {
+            id: 'combo2-left',
+            pose: {
+              lShoulder: PUNCH_MOVE_POSES.Strike.lShoulder,
+              lElbow: PUNCH_MOVE_POSES.Strike.lElbow
+            },
+            mask: ['lShoulder', 'lElbow'],
+            durMs: 200,
+            delayMs: 0,
+            priority: 140
+          },
+          {
+            id: 'combo2-right',
+            pose: {
+              rShoulder: PUNCH_MOVE_POSES.Strike.rShoulder,
+              rElbow: PUNCH_MOVE_POSES.Strike.rElbow
+            },
+            mask: ['rShoulder', 'rElbow'],
+            durMs: 200,
+            delayMs: 500,
+            priority: 150
+          }
+        ];
+        base.Strike = strikeBase;
+        return base;
+      })()
     },
     SLAM: {
       name: 'Charged Slam',
