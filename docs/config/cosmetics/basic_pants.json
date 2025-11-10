@@ -12,7 +12,7 @@
       "spriteStyle": {
         "base": {
           "xform": {
-            "legUpper": { "ax": 0, "ay": -0.1, "scaleX": 1, "scaleY": 1.25 }
+            "legUpper": { "ax": 0, "ay": -0.5, "scaleX": 0.8, "scaleY": 1.25 }
           }
         }
       }
@@ -24,7 +24,7 @@
       "spriteStyle": {
         "base": {
           "xform": {
-            "legUpper": { "ax": 0, "ay": -0.1, "scaleX": 1, "scaleY": 1.25 }
+            "legUpper": { "ax": 0, "ay": -0.5, "scaleX": 0.8, "scaleY": 1.25 }
           }
         }
       }
