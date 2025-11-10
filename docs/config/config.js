@@ -431,7 +431,7 @@ window.CONFIG = {
           leg_R_lower: { url: "https://i.imgur.com/lZbF7j2.png" }
         },
       spriteStyle: {
-          widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
+          widthFactor: { torso:0.75, armUpper:0.75, armLower:0.75, legUpper:0.75, legLower:0.75, head:0.75 },
           xformUnits: "percent",
           xform: {
             torso:    { ax:-0.5,  ay:-0.2, scaleX:3.5, scaleY:4.50, rotDeg:180 },
