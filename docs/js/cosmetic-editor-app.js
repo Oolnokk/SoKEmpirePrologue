@@ -38,6 +38,8 @@ const styleResetBtn = document.getElementById('resetPartOverrides');
 const styleSlotResetBtn = document.getElementById('resetSlotOverrides');
 const bucketToggle = document.getElementById('bucketToggle');
 const bucketColorInput = document.getElementById('bucketColor');
+const bucketToleranceInput = document.getElementById('bucketTolerance');
+const bucketExpandInput = document.getElementById('bucketExpand');
 const bucketHint = document.getElementById('bucketHint');
 const bucketUndoBtn = document.getElementById('bucketUndo');
 const bucketClearBtn = document.getElementById('bucketClear');
@@ -68,6 +70,29 @@ function deepClone(value){
   } catch (_err){
     return value;
   }
+}
+
+function clampNumber(value, min, max){
+  if (!Number.isFinite(value)) return min;
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
+
+function readBucketTolerance(){
+  const fallback = 24;
+  if (!bucketToleranceInput) return fallback;
+  const parsed = Number.parseFloat(bucketToleranceInput.value);
+  if (Number.isNaN(parsed)) return fallback;
+  return clampNumber(Math.round(parsed), 0, 255);
+}
+
+function readBucketExpansion(){
+  const fallback = 1;
+  if (!bucketExpandInput) return fallback;
+  const parsed = Number.parseFloat(bucketExpandInput.value);
+  if (Number.isNaN(parsed)) return fallback;
+  return clampNumber(Math.round(parsed), 0, 24);
 }
 
 function ensureOverlay(){
@@ -474,11 +499,15 @@ function parseHexColor(value){
   return { r: nums[0], g: nums[1], b: nums[2], a: 255 };
 }
 
-function applyBucketFill(x, y, rgba){
+function applyBucketFill(x, y, rgba, { tolerance: toleranceValue, expand: expandValue } = {}){
   ensureOverlay();
   const overlayCtx = editorState.overlayCtx;
   if (!overlayCtx || !ctx) return;
   if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
+
+  const tolerance = clampNumber(Number.isFinite(toleranceValue) ? Math.round(toleranceValue) : readBucketTolerance(), 0, 255);
+  const expandPixels = clampNumber(Number.isFinite(expandValue) ? Math.round(expandValue) : readBucketExpansion(), 0, 24);
+  const alphaTolerance = clampNumber(tolerance + 16, 0, 255);
 
   let baseData;
   let overlayData;
@@ -501,15 +530,15 @@ function applyBucketFill(x, y, rgba){
 
   const stack = [[x, y]];
   const visited = new Uint8Array(canvas.width * canvas.height);
-  const tolerance = 48;
   let painted = false;
+  const filledPixels = [];
 
   function matches(ix){
     const dr = Math.abs(baseData.data[ix] - target[0]);
     const dg = Math.abs(baseData.data[ix + 1] - target[1]);
     const db = Math.abs(baseData.data[ix + 2] - target[2]);
     const da = Math.abs(baseData.data[ix + 3] - target[3]);
-    return dr <= tolerance && dg <= tolerance && db <= tolerance && da <= 64;
+    return dr <= tolerance && dg <= tolerance && db <= tolerance && da <= alphaTolerance;
   }
 
   while (stack.length){
@@ -526,6 +555,7 @@ function applyBucketFill(x, y, rgba){
     overlayData.data[baseIdx + 2] = rgba.b;
     overlayData.data[baseIdx + 3] = rgba.a;
     painted = true;
+    filledPixels.push(idx);
 
     stack.push([px + 1, py]);
     stack.push([px - 1, py]);
@@ -538,6 +568,41 @@ function applyBucketFill(x, y, rgba){
     updateUndoButtonState();
     showStatus('No similar pixels found to fill.', { tone: 'warn' });
     return;
+  }
+
+  if (expandPixels > 0 && filledPixels.length){
+    const width = canvas.width;
+    const height = canvas.height;
+    const expanded = new Set(filledPixels);
+    let frontier = new Set(filledPixels);
+    for (let step = 0; step < expandPixels; step += 1){
+      const next = new Set();
+      for (const idx of frontier){
+        const px = idx % width;
+        const py = Math.floor(idx / width);
+        for (let dy = -1; dy <= 1; dy += 1){
+          for (let dx = -1; dx <= 1; dx += 1){
+            if (dx === 0 && dy === 0) continue;
+            const nx = px + dx;
+            const ny = py + dy;
+            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+            const neighborIdx = ny * width + nx;
+            if (expanded.has(neighborIdx)) continue;
+            expanded.add(neighborIdx);
+            next.add(neighborIdx);
+          }
+        }
+      }
+      if (!next.size) break;
+      frontier = next;
+    }
+    for (const idx of expanded){
+      const baseIdx = idx * 4;
+      overlayData.data[baseIdx] = rgba.r;
+      overlayData.data[baseIdx + 1] = rgba.g;
+      overlayData.data[baseIdx + 2] = rgba.b;
+      overlayData.data[baseIdx + 3] = rgba.a;
+    }
   }
 
   try {
@@ -944,7 +1009,10 @@ function handleCanvasClick(event){
   const scaleY = canvas.height / rect.height;
   const x = Math.floor((event.clientX - rect.left) * scaleX);
   const y = Math.floor((event.clientY - rect.top) * scaleY);
-  applyBucketFill(x, y, color);
+  applyBucketFill(x, y, color, {
+    tolerance: readBucketTolerance(),
+    expand: readBucketExpansion()
+  });
 }
 
 function draw(){
