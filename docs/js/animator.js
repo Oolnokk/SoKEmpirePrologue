@@ -189,11 +189,18 @@ function normalizeRad(angle){
 
 function getHeadLimitsRad(C, fcfg){
   const limits = fcfg?.limits?.head || C.limits?.head || {};
-  const relMin = degToRad(limits.relMin ?? -75);
-  const relMax = degToRad(limits.relMax ?? 75);
+  const relMin = normalizeRad(degToRad(limits.relMin ?? -75));
+  const relMax = normalizeRad(degToRad(limits.relMax ?? 75));
   const min = Math.min(relMin, relMax);
   const max = Math.max(relMin, relMax);
   return { min, max };
+}
+
+function convertAimToHeadRad(worldAimStandard, orientationSign){
+  const mirroredWorld = (orientationSign ?? 1) >= 0
+    ? worldAimStandard
+    : normalizeRad(Math.PI - worldAimStandard);
+  return normalizeRad((Math.PI / 2) - mirroredWorld);
 }
 
 function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
@@ -323,13 +330,15 @@ function updateAiming(F, currentPose, fighterId){
 
   // Calculate offsets based on aim angle
   const facingCos = Math.cos(facingRad);
+  let orientationSign = 1;
   let aimDeg = radToDegNum(F.aim.currentAngle);
   if (Number.isFinite(facingCos)) {
-    const orientationSign = Math.abs(facingCos) > 1e-4
+    orientationSign = Math.abs(facingCos) > 1e-4
       ? (facingCos >= 0 ? 1 : -1)
       : ((F.facingSign || 1) >= 0 ? 1 : -1);
     aimDeg *= orientationSign;
   }
+  F.aim.orientationSign = orientationSign;
   F.aim.torsoOffset = clamp(aimDeg * 0.5, -(C.aiming.maxTorsoAngle || 45), (C.aiming.maxTorsoAngle || 45));
   F.aim.shoulderOffset = clamp(aimDeg * 0.7, -(C.aiming.maxShoulderAngle || 60), (C.aiming.maxShoulderAngle || 60));
 
@@ -346,7 +355,7 @@ function updateAiming(F, currentPose, fighterId){
 
   const worldAimStandard = (F.aim.currentAngle || 0) + facingRad;
   if (Number.isFinite(worldAimStandard)) {
-    F.aim.headWorldTarget = normalizeRad((Math.PI / 2) - worldAimStandard);
+    F.aim.headWorldTarget = convertAimToHeadRad(worldAimStandard, orientationSign);
   } else {
     F.aim.headWorldTarget = null;
   }
