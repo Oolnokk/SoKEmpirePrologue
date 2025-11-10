@@ -10,17 +10,4 @@
           }
         }
       }
-    },
-    "basic_pants": {
-      "parts": {
-        "leg_L_Upper": {
-          "spriteStyle": {
-            "xform": {
-              "leg_L_Upper": { "ax": 0, "ay": 0, "scaleX": 2, "scaleY": 2 }
-            }
-          }
-        }
-      }
     }
-  }
-}
