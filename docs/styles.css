@@ -28,6 +28,101 @@ body{
   min-height:100vh;
 }
 
+.entry-overlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:radial-gradient(circle at center, rgba(9,12,20,0.88) 0%, rgba(5,7,13,0.96) 65%);
+  backdrop-filter:blur(4px);
+  z-index:999;
+  transition:opacity 0.35s ease;
+}
+
+.entry-overlay--hidden{
+  opacity:0;
+  pointer-events:none;
+}
+
+.entry-card{
+  width:min(440px, calc(100% - 32px));
+  padding:32px clamp(20px, 5vw, 36px);
+  border-radius:20px;
+  background:linear-gradient(165deg, rgba(15,23,42,0.95), rgba(9,9,11,0.92));
+  border:1px solid rgba(148,163,184,0.35);
+  box-shadow:0 28px 80px rgba(0,0,0,0.55);
+  text-align:center;
+}
+
+.entry-card h1{
+  margin:0 0 10px;
+  font-size:clamp(22px, 4vw, 30px);
+  letter-spacing:0.3px;
+}
+
+.entry-subtitle{
+  margin:0 0 26px;
+  color:var(--muted);
+  font-size:14px;
+}
+
+.entry-actions{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-bottom:18px;
+}
+
+.entry-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:12px 16px;
+  border-radius:12px;
+  font-weight:600;
+  font-size:15px;
+  letter-spacing:0.2px;
+  cursor:pointer;
+  text-decoration:none;
+  transition:transform 0.12s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  border:1px solid transparent;
+}
+
+.entry-btn--primary{
+  background:linear-gradient(135deg,#2563eb,#60a5fa);
+  color:white;
+  border-color:rgba(59,130,246,0.65);
+  box-shadow:0 14px 40px rgba(37,99,235,0.35);
+}
+
+.entry-btn--primary:hover{background:linear-gradient(135deg,#1d4ed8,#3b82f6);}
+
+.entry-btn--ghost{
+  background:rgba(15,23,42,0.35);
+  color:var(--fg);
+  border-color:rgba(148,163,184,0.35);
+}
+
+.entry-btn--ghost:hover{background:rgba(15,23,42,0.55);}
+
+.entry-btn:active{transform:translateY(1px);}
+
+.entry-remember{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  color:var(--muted);
+  font-size:13px;
+}
+
+.entry-remember input{
+  width:16px;
+  height:16px;
+}
+
 main.stack{
   display:flex;
   flex-direction:column;
