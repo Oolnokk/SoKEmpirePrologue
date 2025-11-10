@@ -592,12 +592,7 @@ window.CONFIG = {
             durMs: 200,
             delayMs: 0,
             priority: 140
-          }
-        ];
-        base.Strike = strikeBase;
-        return base;
-      })()
-    },
+          },
     ComboPUNCH2: {
       name: 'Combo Punch 2',
       tags: ['light', 'combo'],
