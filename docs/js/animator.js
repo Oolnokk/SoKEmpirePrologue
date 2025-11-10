@@ -189,8 +189,8 @@ function normalizeRad(angle){
 
 function getHeadLimitsRad(C, fcfg){
   const limits = fcfg?.limits?.head || C.limits?.head || {};
-  const relMin = degToRad(limits.relMin ?? -75);
-  const relMax = degToRad(limits.relMax ?? 75);
+  const relMin = normalizeRad(degToRad(limits.relMin ?? -75));
+  const relMax = normalizeRad(degToRad(limits.relMax ?? 75));
   const min = Math.min(relMin, relMax);
   const max = Math.max(relMin, relMax);
   return { min, max };
