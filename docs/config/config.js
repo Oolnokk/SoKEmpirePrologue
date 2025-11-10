@@ -528,7 +528,7 @@ window.CONFIG = {
     KICK: {
       name: 'Quick Kick',
       tags: ['light', 'quick'],
-      durations: { toWindup: 280, toStrike: 110, toRecoil: 680, toStance: 200 },
+      durations: { toWindup: 280, toStrike: 210, toRecoil: 680, toStance: 200 },
       knockbackBase: 180,
       cancelWindow: 0.6,
       poses: deepClone(KICK_MOVE_POSES)
@@ -536,7 +536,7 @@ window.CONFIG = {
 	PUNCH: {
       name: 'Punch',
       tags: ['light', 'quick'],
-      durations: { toWindup: 180, toStrike: 110, toRecoil: 100, toStance: 120 },
+      durations: { toWindup: 280, toStrike: 210, toRecoil: 200, toStance: 120 },
       knockbackBase: 140,
       cancelWindow: 0.7,
       poses: deepClone(PUNCH_MOVE_POSES)
@@ -545,7 +545,7 @@ window.CONFIG = {
       name: 'Combo Kick 1',
       tags: ['light', 'combo'],
       inherits: 'KICK',
-      durations: { toWindup: 180, toStrike: 110, toRecoil: 680, toStance: 0 },
+      durations: { toWindup: 280, toStrike: 110, toRecoil: 680, toStance: 0 },
       knockbackBase: 180,
       cancelWindow: 0.6,
       poses: deepClone(KICK_MOVE_POSES)
@@ -554,7 +554,7 @@ window.CONFIG = {
       name: 'Combo Kick 2',
       tags: ['light', 'combo'],
       inherits: 'KICK',
-      durations: { toWindup: 180, toStrike: 110, toRecoil: 680, toStance: 0 },
+      durations: { toWindup: 280, toStrike: 110, toRecoil: 680, toStance: 0 },
       knockbackBase: 180,
       cancelWindow: 0.6,
       poses: deepClone(KICK_MOVE_POSES)
@@ -562,7 +562,7 @@ window.CONFIG = {
     ComboPUNCH1: {
       name: 'Combo Punch 1',
       tags: ['light', 'combo'],
-      durations: { toWindup: 180, toStrike: 110, toRecoil: 200, toStance: 120 },
+      durations: { toWindup: 280, toStrike: 110, toRecoil: 200, toStance: 120 },
       knockbackBase: 140,
       cancelWindow: 0.7,
       poses: deepClone(PUNCH_MOVE_POSES)
@@ -570,7 +570,7 @@ window.CONFIG = {
     ComboPUNCH2: {
       name: 'Combo Punch 2',
       tags: ['light', 'combo'],
-      durations: { toWindup: 180, toStrike: 110, toRecoil: 200, toStance: 120 },
+      durations: { toWindup: 280, toStrike: 110, toRecoil: 200, toStance: 120 },
       knockbackBase: 140,
       cancelWindow: 0.7,
       poses: deepClone(PUNCH_MOVE_POSES)
