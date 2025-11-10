@@ -28,20 +28,24 @@ test('head limits allow wrap-around ranges after normalization', async () => {
 
   const normalizeSrc = extractFunction('normalizeRad');
   const getLimitsSrc = extractFunction('getHeadLimitsRad');
+  const convertSrc = extractFunction('convertAimToHeadRad');
 
   const script = `
     function degToRad(deg){ return deg * Math.PI / 180; }
     ${normalizeSrc}
     ${getLimitsSrc}
+    ${convertSrc}
     exports.getHeadLimitsRad = getHeadLimitsRad;
+    exports.convertAimToHeadRad = convertAimToHeadRad;
   `;
 
   const context = { Math, exports: {} };
   vm.createContext(context);
   vm.runInContext(script, context);
 
-  const { getHeadLimitsRad } = context.exports;
+  const { getHeadLimitsRad, convertAimToHeadRad } = context.exports;
   assert.equal(typeof getHeadLimitsRad, 'function', 'getHeadLimitsRad should be exported for testing');
+  assert.equal(typeof convertAimToHeadRad, 'function', 'convertAimToHeadRad should be exported for testing');
 
   const limits = getHeadLimitsRad(
     { limits: { head: {} } },
@@ -56,4 +60,14 @@ test('head limits allow wrap-around ranges after normalization', async () => {
     `Expected min limit near -90°, got ${minDeg.toFixed(3)}°`);
   assert.ok(maxDeg >= 70 && maxDeg <= 90,
     `Expected max limit near 75°, got ${maxDeg.toFixed(3)}°`);
+
+  const rightAim = convertAimToHeadRad(0, 1);
+  const leftAimMirrored = convertAimToHeadRad(Math.PI, -1);
+  assert.ok(Math.abs(rightAim - leftAimMirrored) < 1e-6,
+    `Expected mirrored head aim to match when facing left vs right (got ${rightAim} vs ${leftAimMirrored})`);
+
+  const upRightAim = convertAimToHeadRad(Math.PI / 4, 1);
+  const upLeftMirrored = convertAimToHeadRad((3 * Math.PI) / 4, -1);
+  assert.ok(Math.abs(upRightAim - upLeftMirrored) < 1e-6,
+    `Expected mirrored diagonal aim to match (got ${upRightAim} vs ${upLeftMirrored})`);
 });
