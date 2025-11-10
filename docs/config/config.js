@@ -585,7 +585,6 @@ window.CONFIG = {
           {
             id: 'combo1-right',
             pose: {
-              pose: {
               rShoulder: PUNCH_MOVE_POSES.Strike.rShoulder,
               rElbow: PUNCH_MOVE_POSES.Strike.rElbow
             },
@@ -610,26 +609,26 @@ window.CONFIG = {
         strikeBase.rElbow = stanceArms.rElbow;
         strikeBase.layerOverrides = [
           {
-            id: 'combo2-left',
-            pose: {
-              lShoulder: PUNCH_MOVE_POSES.Strike.lShoulder,
-              lElbow: PUNCH_MOVE_POSES.Strike.lElbow
-            },
-            mask: ['lShoulder', 'lElbow'],
-            durMs: 200,
-            delayMs: 0,
-            priority: 140
-          },
-          {
             id: 'combo2-right',
             pose: {
               rShoulder: PUNCH_MOVE_POSES.Strike.rShoulder,
               rElbow: PUNCH_MOVE_POSES.Strike.rElbow
             },
             mask: ['rShoulder', 'rElbow'],
-            durMs: 100,
-            delayMs: 800,
+            durMs: 220,
+            delayMs: 0,
             priority: 150
+          },
+          {
+            id: 'combo2-left',
+            pose: {
+              lShoulder: PUNCH_MOVE_POSES.Strike.lShoulder,
+              lElbow: PUNCH_MOVE_POSES.Strike.lElbow
+            },
+            mask: ['lShoulder', 'lElbow'],
+            durMs: 220,
+            delayMs: 320,
+            priority: 140
           }
         ];
         base.Strike = strikeBase;
