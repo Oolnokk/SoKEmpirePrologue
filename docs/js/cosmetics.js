@@ -342,6 +342,13 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
     }
     for (const [partKey, partConfig] of Object.entries(cosmetic.parts || {})){
       const resolved = resolvePartConfig(partConfig, fighterName, cosmetic.id, partKey);
+      const partOverride = slotOverride?.parts?.[partKey];
+      if (slotOverride?.image){
+        resolved.image = mergeConfig(resolved.image, slotOverride.image);
+      }
+      if (partOverride?.image){
+        resolved.image = mergeConfig(resolved.image, partOverride.image);
+      }
       if (!resolved?.image?.url) continue;
       const asset = ensureAsset(cosmetic.id, partKey, resolved.image);
       if (!asset) continue;
