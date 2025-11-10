@@ -260,8 +260,8 @@ const PUNCH_MOVE_POSES = {
     },
   Windup: {
 		torso: 10,
-        lShoulder: -100,
-        lElbow: -110,
+        lShoulder: 0,
+        lElbow: 120,
         rShoulder: 0,
         rElbow: 120,
         lHip: 110,
@@ -278,8 +278,8 @@ const PUNCH_MOVE_POSES = {
   },
   Strike: {
 		torso: 10,
-        lShoulder: -100,
-        lElbow: -110,
+        lShoulder: -230,
+        lElbow: 0,
         rShoulder: -230,
         rElbow: 0,
         lHip: 110,
@@ -297,7 +297,7 @@ const PUNCH_MOVE_POSES = {
   Recoil: {
 		torso: 60,
         lShoulder: -100,
-        lElbow: -110,
+        lElbow: 0,
         rShoulder: -180,
         rElbow: 0,
         lHip: 110,
