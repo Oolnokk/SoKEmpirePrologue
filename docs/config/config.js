@@ -260,8 +260,8 @@ const PUNCH_MOVE_POSES = {
     },
   Windup: {
 		torso: 10,
-        lShoulder: -100,
-        lElbow: -110,
+        lShoulder: 0,
+        lElbow: 120,
         rShoulder: 0,
         rElbow: 120,
         lHip: 110,
@@ -278,8 +278,8 @@ const PUNCH_MOVE_POSES = {
   },
   Strike: {
 		torso: 10,
-        lShoulder: -100,
-        lElbow: -110,
+        lShoulder: -230,
+        lElbow: 0,
         rShoulder: -230,
         rElbow: 0,
         lHip: 110,
@@ -297,7 +297,7 @@ const PUNCH_MOVE_POSES = {
   Recoil: {
 		torso: 60,
         lShoulder: -100,
-        lElbow: -110,
+        lElbow: 0,
         rShoulder: -180,
         rElbow: 0,
         lHip: 110,
@@ -399,7 +399,7 @@ window.CONFIG = {
           elbow: { relMin:-170, relMax:0 },
           hip: { absMin:90, absMax:210 },
           knee: { relMin:0, relMax:170 },
-          head: { relMin:75, relMax:270 }
+          head: { relMin:75, relMax:100 }
         },
         headTracking: {
           offsetDeg: -70
@@ -441,7 +441,7 @@ window.CONFIG = {
       parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:55 }, arm:{ upper:35, lower:50 }, leg:{ upper:40, lower:40 }, head:{ neck:10, radius:12 } },
       hierarchy: { legsFollowTorsoRotation: false },
       ik: { calvesOnly: true },
-      limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 }, head:{ relMin:75, relMax:270 } },
+      limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 }, head:{ relMin:75, relMax:100 } },
       headTracking: {
         offsetDeg: -70
       },
