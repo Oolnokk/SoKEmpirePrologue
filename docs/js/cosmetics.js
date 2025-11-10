@@ -186,10 +186,39 @@ function clampHSV(input = {}, cosmetic){
   const source = Array.isArray(input)
     ? { h: input[0], s: input[1], v: input[2] }
     : (input && typeof input === 'object' ? input : {});
+
+  function resolveLimitPair(limitPair, fallbackMin, fallbackMax){
+    const min = Number.isFinite(limitPair?.[0]) ? limitPair[0] : fallbackMin;
+    const max = Number.isFinite(limitPair?.[1]) ? limitPair[1] : fallbackMax;
+    return [min, max];
+  }
+
+  function clampWithPercentSupport(value, defaultValue, min, max, { allowPercent = false } = {}){
+    const fallback = Number.isFinite(defaultValue)
+      ? defaultValue
+      : (Number.isFinite(coerceNumber(defaultValue)) ? coerceNumber(defaultValue) : 0);
+    const raw = value ?? fallback;
+    let num = coerceNumber(raw);
+    if (!Number.isFinite(num)) {
+      num = fallback;
+    }
+    if (allowPercent){
+      const limitMagnitude = Math.max(Math.abs(min ?? 0), Math.abs(max ?? 0));
+      if (limitMagnitude <= 1 && Math.abs(num) > 2){
+        num = num / 100;
+      }
+    }
+    return clamp(num, min, max);
+  }
+
+  const [hMin, hMax] = resolveLimitPair(limits.h, -180, 180);
+  const [sMin, sMax] = resolveLimitPair(limits.s, -1, 1);
+  const [vMin, vMax] = resolveLimitPair(limits.v, -1, 1);
+
   return {
-    h: clamp(source.h ?? defaults.h ?? 0, limits.h?.[0] ?? -180, limits.h?.[1] ?? 180),
-    s: clamp(source.s ?? defaults.s ?? 0, limits.s?.[0] ?? -1, limits.s?.[1] ?? 1),
-    v: clamp(source.v ?? defaults.v ?? 0, limits.v?.[0] ?? -1, limits.v?.[1] ?? 1)
+    h: clampWithPercentSupport(source.h, defaults.h ?? 0, hMin, hMax),
+    s: clampWithPercentSupport(source.s, defaults.s ?? 0, sMin, sMax, { allowPercent: true }),
+    v: clampWithPercentSupport(source.v, defaults.v ?? 0, vMin, vMax, { allowPercent: true })
   };
 }
 

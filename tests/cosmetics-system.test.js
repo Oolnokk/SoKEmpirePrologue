@@ -103,6 +103,41 @@ test('ensureCosmeticLayers normalizes hsv arrays and string values', () => {
   deepStrictEqual(layers[0].hsv, { h: 30, s: 0.4, v: -0.2 });
 });
 
+test('ensureCosmeticLayers interprets percentage-style saturation and value', () => {
+  clearCosmeticCache();
+  const config = {
+    cosmeticLibrary: {
+      demo_item: {
+        slot: 'legs',
+        hsv: {
+          defaults: { h: 0, s: 0, v: 0 },
+          limits: { h: [-45, 45], s: [-0.5, 0.5], v: [-0.5, 0.5] }
+        },
+        parts: {
+          leg_L_upper: { image: { url: 'https://example.com/pants-left.png' } },
+          leg_R_upper: { image: { url: 'https://example.com/pants-right.png' } }
+        }
+      }
+    },
+    fighters: {
+      hero: {
+        cosmetics: {
+          slots: {
+            legs: { id: 'demo_item', hsv: { h: 10, s: 80, v: -50 } }
+          }
+        }
+      }
+    }
+  };
+
+  const layers = ensureCosmeticLayers(config, 'hero', {});
+  strictEqual(layers.length, 2);
+  layers.forEach((layer) => {
+    strictEqual(layer.slot, 'legs');
+    deepStrictEqual(layer.hsv, { h: 10, s: 0.5, v: -0.5 });
+  });
+});
+
 test('sprites.js integrates cosmetic layers and z-order expansion', () => {
   const spritesContent = readFileSync(new URL('../docs/js/sprites.js', import.meta.url), 'utf8');
   strictEqual(/expanded\.push\(cosmeticTagFor\(tag, slot\)\);/.test(spritesContent), true, 'buildZMap should add cosmetic tags');
