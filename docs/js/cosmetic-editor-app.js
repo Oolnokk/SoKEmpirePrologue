@@ -8,14 +8,12 @@ import {
   registerFighterCosmeticProfile,
   getFighterCosmeticProfile
 } from './cosmetics.js?v=1';
-import { COSMETIC_SLOTS, getRegisteredCosmeticLibrary } from './cosmetics.js?v=1';
 
 const CONFIG = window.CONFIG || {};
 const GAME = (window.GAME ||= {});
 const editorState = (GAME.editorState ||= {
   slotOverrides: {},
   overlayHistory: [],
-  activeSlot: null,
   activePartKey: null,
   slotSelection: {},
   assetManifest: [],
@@ -23,7 +21,7 @@ const editorState = (GAME.editorState ||= {
   selectedAsset: null,
   assetPinned: false,
   activeFighter: null,
-  loadedProfile: {}
+  loadedProfile: {},
   activeSlot: null
 });
 
@@ -917,11 +915,6 @@ function loadFighter(fighterName){
   const profile = getFighterCosmeticProfile(fighterName) || null;
   editorState.loadedProfile = deepClone(profile?.cosmetics || {});
   editorState.slotOverrides = mapProfileToSlotOverrides(slotMap, profile);
-  const fighter = CONFIG.fighters?.[fighterName] || {};
-  const slots = fighter.cosmetics?.slots || fighter.cosmetics || {};
-  setSelectedCosmetics(slots);
-  clearOverlay();
-  editorState.slotOverrides = {};
   editorState.activeSlot = null;
   editorState.activePartKey = null;
   updateSlotSelectsFromState();
