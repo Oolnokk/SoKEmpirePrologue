@@ -14,7 +14,6 @@ const GAME = (window.GAME ||= {});
 const editorState = (GAME.editorState ||= {
   slotOverrides: {},
   overlayHistory: [],
-  activeSlot: null,
   activePartKey: null,
   slotSelection: {},
   assetManifest: [],
@@ -22,7 +21,7 @@ const editorState = (GAME.editorState ||= {
   selectedAsset: null,
   assetPinned: false,
   activeFighter: null,
-  loadedProfile: {}
+  loadedProfile: {},
   activeSlot: null
 });
 
