@@ -12,7 +12,7 @@
       "spriteStyle": {
         "base": {
           "xform": {
-            "legUpper": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1.75 }
+            "legUpper": { "ax": 0, "ay": 0, "scaleX": 0.75, "scaleY": 1.5 }
           }
         }
       }
@@ -24,7 +24,19 @@
       "spriteStyle": {
         "base": {
           "xform": {
-            "legUpper": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1.75 }
+            "legUpper": { "ax": 0, "ay": 0, "scaleX": 0.75, "scaleY": 1.5 }
+          }
+        }
+      }
+    },
+    "torso": {
+      "image": {
+        "url": "./assets/cosmetics/clothes/legs/pants1LR.png"
+      },
+      "spriteStyle": {
+        "base": {
+          "xform": {
+            "legUpper": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 0.5 }
           }
         }
       }
