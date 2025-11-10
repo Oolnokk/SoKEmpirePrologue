@@ -585,7 +585,6 @@ window.CONFIG = {
           {
             id: 'combo1-right',
             pose: {
-              pose: {
               rShoulder: PUNCH_MOVE_POSES.Strike.rShoulder,
               rElbow: PUNCH_MOVE_POSES.Strike.rElbow
             },
@@ -594,7 +593,11 @@ window.CONFIG = {
             delayMs: 0,
             priority: 140
           }
-        ],
+        ];
+        base.Strike = strikeBase;
+        return base;
+      })()
+    },
     ComboPUNCH2: {
       name: 'Combo Punch 2',
       tags: ['light', 'combo'],
@@ -629,7 +632,7 @@ window.CONFIG = {
             },
             mask: ['rShoulder', 'rElbow'],
             durMs: 100,
-            delayMs: 800,
+            delayMs: 500,
             priority: 150
           }
         ];
