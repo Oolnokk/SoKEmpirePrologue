@@ -22,7 +22,8 @@ const editorState = (GAME.editorState ||= {
   assetPinned: false,
   activeFighter: null,
   loadedProfile: {},
-  activeSlot: null
+  activeSlot: null,
+  activeStyleKey: null
 });
 
 const canvas = document.getElementById('cosmeticCanvas');
@@ -481,7 +482,23 @@ function mapProfileToSlotOverrides(slotMap, profile){
     if (!id) continue;
     const profileEntry = cosmetics[id];
     if (!profileEntry) continue;
-    overrides[slot] = deepClone(profileEntry);
+    const clone = deepClone(profileEntry);
+    if (clone?.parts){
+      for (const partOverride of Object.values(clone.parts)){
+        const xform = partOverride?.spriteStyle?.xform;
+        if (xform){
+          if (xform[partOverride?.styleKey || '']){
+            // keep existing styleKey reference if valid
+          } else {
+            const keys = Object.keys(xform);
+            if (keys.length === 1){
+              partOverride.styleKey = keys[0];
+            }
+          }
+        }
+      }
+    }
+    overrides[slot] = clone;
   }
   return overrides;
 }
@@ -660,15 +677,21 @@ function cleanupEmptyOverrides(slot){
         delete partOverride.image;
       }
       const spriteStyle = partOverride?.spriteStyle;
-      const xform = spriteStyle?.xform?.[partKey];
-      if (xform && Object.keys(xform).length === 0){
-        delete spriteStyle.xform[partKey];
-      }
-      if (spriteStyle?.xform && Object.keys(spriteStyle.xform).length === 0){
-        delete spriteStyle.xform;
+      if (spriteStyle?.xform){
+        for (const [styleKey, values] of Object.entries(spriteStyle.xform)){
+          if (!values || Object.keys(values).length === 0){
+            delete spriteStyle.xform[styleKey];
+          }
+        }
+        if (Object.keys(spriteStyle.xform).length === 0){
+          delete spriteStyle.xform;
+        }
       }
       if (spriteStyle && Object.keys(spriteStyle).length === 0){
         delete partOverride.spriteStyle;
+      }
+      if (partOverride?.styleKey && !partOverride?.spriteStyle?.xform?.[partOverride.styleKey]){
+        delete partOverride.styleKey;
       }
       if (partOverride && Object.keys(partOverride).length === 0){
         delete slotOverride.parts[partKey];
@@ -750,18 +773,82 @@ function resetPartOverrides(slot, partKey){
   updateOverrideOutputs();
 }
 
-function ensurePartOverride(slot, partKey){
+function getPartOverride(slot, partKey){
+  return editorState.slotOverrides?.[slot]?.parts?.[partKey] || null;
+}
+
+function resolvePartStyleKey(cosmetic, slot, partKey){
+  const part = cosmetic?.parts?.[partKey];
+  const partOverride = getPartOverride(slot, partKey);
+  if (partOverride?.styleKey){
+    return partOverride.styleKey;
+  }
+  const overrideXform = partOverride?.spriteStyle?.xform;
+  if (overrideXform){
+    if (overrideXform[partKey]){
+      return partKey;
+    }
+    const keys = Object.keys(overrideXform);
+    if (keys.length === 1){
+      return keys[0];
+    }
+  }
+  const explicit = part?.styleKey
+    || part?.spriteStyle?.styleKey
+    || part?.style
+    || part?.spriteStyle?.style
+    || part?.spriteStyle?.styleName;
+  if (explicit){
+    return explicit;
+  }
+  const baseXform = part?.spriteStyle?.base?.xform;
+  if (baseXform){
+    if (baseXform[partKey]){
+      return partKey;
+    }
+    const keys = Object.keys(baseXform);
+    if (keys.length === 1){
+      return keys[0];
+    }
+  }
+  switch (partKey){
+    case 'arm_L_upper':
+    case 'arm_R_upper':
+      return 'armUpper';
+    case 'arm_L_lower':
+    case 'arm_R_lower':
+      return 'armLower';
+    case 'leg_L_upper':
+    case 'leg_R_upper':
+      return 'legUpper';
+    case 'leg_L_lower':
+    case 'leg_R_lower':
+      return 'legLower';
+    default:
+      return partKey;
+  }
+}
+
+function ensurePartOverride(slot, partKey, styleKey){
+  editorState.slotOverrides ||= {};
   const slotOverride = (editorState.slotOverrides[slot] ||= { parts: {} });
   slotOverride.parts ||= {};
   const partOverride = (slotOverride.parts[partKey] ||= {});
   partOverride.spriteStyle ||= {};
   partOverride.spriteStyle.xform ||= {};
-  partOverride.spriteStyle.xform[partKey] ||= {};
-  return partOverride.spriteStyle.xform[partKey];
+  const key = styleKey || partOverride.styleKey || partKey;
+  const prevKey = partOverride.styleKey;
+  if (prevKey && prevKey !== key && partOverride.spriteStyle.xform[prevKey] && !partOverride.spriteStyle.xform[key]){
+    partOverride.spriteStyle.xform[key] = partOverride.spriteStyle.xform[prevKey];
+    delete partOverride.spriteStyle.xform[prevKey];
+  }
+  partOverride.styleKey = key;
+  partOverride.spriteStyle.xform[key] ||= {};
+  return partOverride.spriteStyle.xform[key];
 }
 
-function applyStyleValue(slot, partKey, field, rawValue){
-  const xform = ensurePartOverride(slot, partKey);
+function applyStyleValue(slot, partKey, styleKey, field, rawValue){
+  const xform = ensurePartOverride(slot, partKey, styleKey);
   if (rawValue === '' || rawValue == null){
     delete xform[field];
   } else {
@@ -776,13 +863,23 @@ function applyStyleValue(slot, partKey, field, rawValue){
   updateOverrideOutputs();
 }
 
-function getBaseSpriteStyle(cosmetic, partKey){
+function getBaseSpriteStyle(cosmetic, partKey, styleKey){
   const part = cosmetic?.parts?.[partKey];
   if (!part) return {};
   const style = part.spriteStyle || {};
   const base = style.base || {};
   const xform = base.xform || {};
-  return xform[partKey] || {};
+  if (styleKey && xform[styleKey]){
+    return xform[styleKey];
+  }
+  if (xform[partKey]){
+    return xform[partKey];
+  }
+  const keys = Object.keys(xform);
+  if (keys.length === 1){
+    return xform[keys[0]];
+  }
+  return {};
 }
 
 function buildStyleFields(slot, cosmetic, partKey){
@@ -793,8 +890,10 @@ function buildStyleFields(slot, cosmetic, partKey){
     styleFields.appendChild(p);
     return;
   }
-  const baseXform = getBaseSpriteStyle(cosmetic, partKey);
-  const current = editorState.slotOverrides?.[slot]?.parts?.[partKey]?.spriteStyle?.xform?.[partKey] || {};
+  const styleKey = resolvePartStyleKey(cosmetic, slot, partKey);
+  const baseXform = getBaseSpriteStyle(cosmetic, partKey, styleKey);
+  const current = getPartOverride(slot, partKey)?.spriteStyle?.xform?.[styleKey] || {};
+  editorState.activeStyleKey = styleKey;
   const fields = [
     { key: 'ax', label: 'Offset X (ax)', step: 0.01 },
     { key: 'ay', label: 'Offset Y (ay)', step: 0.01 },
@@ -814,7 +913,7 @@ function buildStyleFields(slot, cosmetic, partKey){
       input.placeholder = String(baseXform[field.key]);
     }
     input.addEventListener('input', (event)=>{
-      applyStyleValue(slot, partKey, field.key, event.target.value);
+      applyStyleValue(slot, partKey, styleKey, field.key, event.target.value);
     });
     wrapper.appendChild(span);
     wrapper.appendChild(input);
@@ -837,6 +936,9 @@ function buildStyleFields(slot, cosmetic, partKey){
 
 function showStyleInspector(slot){
   editorState.activeSlot = slot;
+  if (!slot){
+    editorState.activeStyleKey = null;
+  }
   updateSlotSelectsFromState();
   if (!slot){
     styleInspector.dataset.active = 'false';
@@ -853,6 +955,7 @@ function showStyleInspector(slot){
     styleInspector.dataset.active = 'true';
     stylePartSelect.innerHTML = '';
     styleFields.innerHTML = '<p>Select a cosmetic for this slot to enable style editing.</p>';
+    editorState.activeStyleKey = null;
     return;
   }
   const cosmetic = library[cosmeticId];
@@ -860,6 +963,7 @@ function showStyleInspector(slot){
     styleInspector.dataset.active = 'true';
     stylePartSelect.innerHTML = '';
     styleFields.innerHTML = `<p>Cosmetic \"${cosmeticId}\" is not available in the library.</p>`;
+    editorState.activeStyleKey = null;
     return;
   }
   const parts = Object.keys(cosmetic.parts || {});
@@ -867,6 +971,7 @@ function showStyleInspector(slot){
   stylePartSelect.innerHTML = '';
   if (!parts.length){
     styleFields.innerHTML = '<p>This cosmetic has no editable sprite parts.</p>';
+    editorState.activeStyleKey = null;
     return;
   }
   for (const partKey of parts){
