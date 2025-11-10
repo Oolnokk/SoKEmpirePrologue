@@ -302,6 +302,50 @@ function setNestedValue(obj, path, value) {
 }
 
 // Copy current pose and config to clipboard as JSON
+function legacyCopyToClipboard(text) {
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+    return false;
+  }
+
+  const execCommand = document.execCommand;
+  if (typeof execCommand !== 'function') {
+    return false;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'absolute';
+  textarea.style.left = '-9999px';
+  textarea.style.opacity = '0';
+  textarea.style.pointerEvents = 'none';
+
+  document.body.appendChild(textarea);
+
+  const selection = typeof document.getSelection === 'function' ? document.getSelection() : null;
+  const previousRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+
+  let copied = false;
+  try {
+    copied = execCommand.call(document, 'copy');
+  } catch (err) {
+    copied = false;
+  }
+
+  if (selection) {
+    selection.removeAllRanges();
+    if (previousRange) {
+      selection.addRange(previousRange);
+    }
+  }
+
+  document.body.removeChild(textarea);
+  return copied;
+}
+
 function copyPoseConfigToClipboard() {
   const G = window.GAME || {};
   const C = window.CONFIG || {};
@@ -362,15 +406,37 @@ function copyPoseConfigToClipboard() {
 
   const json = JSON.stringify(exportData, null, 2);
 
-  // Copy to clipboard
-  navigator.clipboard.writeText(json).then(() => {
-    console.log('[debug-panel] Copied pose/config to clipboard');
+  const hasModernClipboard = typeof navigator !== 'undefined'
+    && navigator.clipboard
+    && typeof navigator.clipboard.writeText === 'function';
+  const onSuccess = (message = '[debug-panel] Copied pose/config to clipboard') => {
+    console.log(message);
     showCopyNotification();
-  }).catch(err => {
-    console.error('[debug-panel] Failed to copy:', err);
-    // Fallback: show in console
-    console.log('[debug-panel] JSON export:', json);
-  });
+  };
+
+  const handleFallback = (reason) => {
+    const fallbackCopied = legacyCopyToClipboard(json);
+    if (fallbackCopied) {
+      console.log('[debug-panel] Copied pose/config using legacy clipboard path');
+      showCopyNotification();
+    } else {
+      if (reason) {
+        console.warn('[debug-panel] Clipboard API unavailable, showing export in console instead:', reason);
+      }
+      console.log('[debug-panel] JSON export:', json);
+    }
+  };
+
+  if (hasModernClipboard) {
+    navigator.clipboard.writeText(json)
+      .then(() => onSuccess())
+      .catch((err) => {
+        console.warn('[debug-panel] Clipboard API failed, attempting legacy copy', err);
+        handleFallback(err);
+      });
+  } else {
+    handleFallback(new Error('navigator.clipboard.writeText not supported in this environment'));
+  }
 }
 
 // Show a temporary notification that copy succeeded
