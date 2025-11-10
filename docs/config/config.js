@@ -593,8 +593,7 @@ window.CONFIG = {
             durMs: 200,
             delayMs: 0,
             priority: 140
-          }
-        ],
+          },
     ComboPUNCH2: {
       name: 'Combo Punch 2',
       tags: ['light', 'combo'],
