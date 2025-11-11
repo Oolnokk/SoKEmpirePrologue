@@ -150,8 +150,10 @@ const COSMETIC_LIBRARY_SOURCES = {
   layered_travel_cloak: './config/cosmetics/layered_travel_cloak.json',
   simple_poncho: './config/cosmetics/simple_poncho.json',
   basic_pants: './config/cosmetics/basic_pants.json',
-  'appearance::Mao-ao_M::maoao_body_paint': './config/cosmetics/appearance/mao-ao/body_paint.json',
-  'appearance::Mao-ao_M::maoao_face_paint': './config/cosmetics/appearance/mao-ao/face_paint.json'
+  'appearance::Mao-ao_M::mao-ao_circled_eyes': './config/cosmetics/appearance/mao-ao/circled_eyes.json',
+  'appearance::Mao-ao_M::mao-ao_circled_eye_L': './config/cosmetics/appearance/mao-ao/circled_eye_L.json',
+  'appearance::Mao-ao_M::mao-ao_smooth_striped': './config/cosmetics/appearance/mao-ao/smooth_striped.json'
+	
 };
 
 const KICK_MOVE_POSES = {
