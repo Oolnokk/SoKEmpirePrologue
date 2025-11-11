@@ -85,6 +85,187 @@ export const COSMETIC_SLOTS = [
   'hair'
 ];
 
+const APPEARANCE_SLOT_PREFIX = 'appearance:';
+const APPEARANCE_ID_PREFIX = 'appearance::';
+
+function appearanceSlotKey(slotName){
+  if (!slotName) return `${APPEARANCE_SLOT_PREFIX}default`;
+  const trimmed = String(slotName).trim();
+  return trimmed.startsWith(APPEARANCE_SLOT_PREFIX)
+    ? trimmed
+    : `${APPEARANCE_SLOT_PREFIX}${trimmed}`;
+}
+
+function normalizeAppearanceId(fighterName, rawId){
+  if (!rawId) return null;
+  const id = String(rawId).trim();
+  if (!id.length) return null;
+  if (id.startsWith(APPEARANCE_ID_PREFIX)){
+    return id;
+  }
+  return `${APPEARANCE_ID_PREFIX}${fighterName}::${id}`;
+}
+
+function normalizeAppearanceSlotEntry(entry){
+  if (!entry) return null;
+  if (typeof entry === 'string'){
+    return { id: entry };
+  }
+  if (entry && typeof entry === 'object'){
+    const normalized = deepMerge({}, entry);
+    normalized.id = normalized.id
+      || normalized.cosmeticId
+      || normalized.item
+      || normalized.name;
+    if (!normalized.id) return null;
+    const colors = ensureArray(normalized.colors || normalized.bodyColors || normalized.appearanceColors);
+    if (colors.length){
+      normalized.colors = colors;
+    } else {
+      delete normalized.colors;
+    }
+    return normalized;
+  }
+  return null;
+}
+
+function buildBodyColorMap(source = {}){
+  const map = {};
+  for (const [key, value] of Object.entries(source || {})){
+    const letter = String(key || '').trim().toUpperCase();
+    if (!letter) continue;
+    map[letter] = clampHSV(value, null);
+  }
+  return map;
+}
+
+function resolveBodyColorSource(config = {}, fighterName){
+  if (!fighterName) return { colors: {}, characterKey: null };
+  const G = (typeof window !== 'undefined') ? (window.GAME || {}) : {};
+  const characters = config.characters || {};
+
+  if (G.selectedFighter === fighterName && G.selectedBodyColors){
+    return { colors: buildBodyColorMap(G.selectedBodyColors), characterKey: G.selectedCharacter || null };
+  }
+
+  if (G.selectedCharacter){
+    const selected = characters[G.selectedCharacter];
+    if (selected?.fighter === fighterName){
+      return { colors: buildBodyColorMap(selected.bodyColors), characterKey: G.selectedCharacter };
+    }
+  }
+
+  for (const [key, data] of Object.entries(characters)){
+    if (data?.fighter === fighterName){
+      return { colors: buildBodyColorMap(data.bodyColors), characterKey: key };
+    }
+  }
+
+  return { colors: {}, characterKey: null };
+}
+
+function prepareAppearanceForFighter(fighterName, appearance = {}){
+  if (!fighterName || !appearance) return { library: {}, slots: {} };
+  const preparedSlots = {};
+  const preparedLibrary = {};
+
+  for (const [slotName, slotEntry] of Object.entries(appearance.slots || {})){
+    const normalizedEntry = normalizeAppearanceSlotEntry(slotEntry);
+    if (!normalizedEntry?.id) continue;
+    const slotKey = appearanceSlotKey(slotName);
+    const normalizedId = normalizeAppearanceId(fighterName, normalizedEntry.id);
+    const colors = ensureArray(normalizedEntry.colors);
+    preparedSlots[slotKey] = {
+      ...normalizedEntry,
+      id: normalizedId,
+      colors: colors.length ? colors : undefined
+    };
+  }
+
+  const baseSlots = Object.keys(preparedSlots);
+
+  for (const [rawId, def] of Object.entries(appearance.library || {})){
+    const normalizedId = normalizeAppearanceId(fighterName, rawId);
+    if (!normalizedId) continue;
+    const raw = deepMerge({}, def || {});
+    const appearanceMeta = raw.appearance || {};
+    const explicitSlot = appearanceMeta.slot
+      || appearanceMeta.slotName
+      || raw.slot
+      || (Array.isArray(raw.slots) && raw.slots.find((slot)=> String(slot).startsWith(APPEARANCE_SLOT_PREFIX)))
+      || (baseSlots.length ? baseSlots[0] : appearanceSlotKey('body'));
+    const slotKey = appearanceSlotKey(explicitSlot.replace(APPEARANCE_SLOT_PREFIX, ''));
+    const defaultColors = ensureArray(appearanceMeta.bodyColors || raw.bodyColors || raw.colors);
+    raw.type = raw.type || 'appearance';
+    raw.appearance = {
+      ...appearanceMeta,
+      fighter: fighterName,
+      slot: slotKey.replace(APPEARANCE_SLOT_PREFIX, ''),
+      bodyColors: ensureArray(appearanceMeta.bodyColors || raw.bodyColors || raw.colors),
+      inheritSprite: appearanceMeta.inheritSprite || raw.inheritSprite || null,
+      originalId: appearanceMeta.originalId || rawId
+    };
+    delete raw.bodyColors;
+    delete raw.colors;
+    if (raw.slot) delete raw.slot;
+    raw.slots = ensureArray(raw.slots || []);
+    if (!raw.slots.includes(slotKey)){
+      raw.slots.push(slotKey);
+    }
+    preparedLibrary[normalizedId] = raw;
+    if (!preparedSlots[slotKey]){
+      preparedSlots[slotKey] = {
+        id: normalizedId,
+        colors: defaultColors.length ? defaultColors : undefined
+      };
+    }
+  }
+
+  return { library: preparedLibrary, slots: preparedSlots };
+}
+
+export function registerFighterAppearance(fighterName, appearance = {}){
+  const prepared = prepareAppearanceForFighter(fighterName, appearance);
+  if (prepared && prepared.library && Object.keys(prepared.library).length){
+    registerCosmeticLibrary(prepared.library);
+  }
+  return prepared;
+}
+
+export function resolveFighterBodyColors(config = {}, fighterName){
+  return resolveBodyColorSource(config, fighterName).colors;
+}
+
+function resolveAppearanceBaseHSV(equipped = {}, cosmetic = {}, bodyColors = {}){
+  const letters = ensureArray(equipped.colors || cosmetic.appearance?.bodyColors || cosmetic.bodyColors || cosmetic.colors);
+  for (const letter of letters){
+    const key = String(letter || '').trim().toUpperCase();
+    if (!key) continue;
+    const value = bodyColors[key];
+    if (value){
+      return deepMerge({}, value);
+    }
+  }
+  const fallback = bodyColors.A || bodyColors.B || bodyColors.C;
+  return fallback ? deepMerge({}, fallback) : { h: 0, s: 0, v: 0 };
+}
+
+function addHSV(base = {}, adjustment = {}){
+  return {
+    h: (Number(base.h) || 0) + (Number(adjustment.h) || 0),
+    s: (Number(base.s) || 0) + (Number(adjustment.s) || 0),
+    v: (Number(base.v) || 0) + (Number(adjustment.v) || 0)
+  };
+}
+
+function clampBodyHSV(hsv = {}){
+  return {
+    h: clamp(hsv.h, -180, 180),
+    s: clamp(hsv.s, -1, 1),
+    v: clamp(hsv.v, -1, 1)
+  };
+}
+
 function ensureArray(val){
   if (!val) return [];
   return Array.isArray(val) ? val : [val];
@@ -158,6 +339,15 @@ function normalizeCosmetic(id, raw = {}){
     }
   };
   if (raw.meta) norm.meta = { ...raw.meta };
+  if (raw.type) norm.type = raw.type;
+  if (raw.appearance){
+    norm.appearance = deepMerge({}, raw.appearance);
+    if (raw.bodyColors || raw.colors){
+      norm.appearance.bodyColors = ensureArray(norm.appearance.bodyColors || raw.bodyColors || raw.colors);
+    }
+  } else if (raw.bodyColors || raw.colors){
+    norm.appearance = { bodyColors: ensureArray(raw.bodyColors || raw.colors) };
+  }
   return norm;
 }
 
@@ -295,7 +485,13 @@ function normalizeEquipment(slotEntry){
   if (!id) return null;
   const hsv = slotEntry.hsv || slotEntry.tone || {};
   const fighterOverrides = slotEntry.fighterOverrides || {};
-  return { id, hsv, fighterOverrides };
+  const colors = ensureArray(slotEntry.colors || slotEntry.bodyColors || slotEntry.appearanceColors);
+  return {
+    id,
+    hsv,
+    fighterOverrides,
+    colors: colors.length ? colors : undefined
+  };
 }
 
 function mergeSlotConfigs(baseSlots = {}, overrideDef = {}){
@@ -321,6 +517,10 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
   const library = registerCosmeticLibrary(config.cosmeticLibrary || config.cosmetics?.library || {});
   const fighter = config.fighters?.[fighterName] || {};
   let slotConfig = deepMerge({}, fighter.cosmetics?.slots || fighter.cosmetics || {});
+  const appearanceData = registerFighterAppearance(fighterName, fighter.appearance || {});
+  if (appearanceData?.slots && Object.keys(appearanceData.slots).length){
+    slotConfig = mergeSlotConfigs(slotConfig, appearanceData.slots);
+  }
   if (typeof window !== 'undefined'){
     const G = window.GAME || {};
     if (G.selectedFighter === fighterName && G.selectedCosmetics){
@@ -330,15 +530,34 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
   const editorState = (typeof window !== 'undefined')
     ? (window.GAME?.editorState || null)
     : null;
-  for (const slot of COSMETIC_SLOTS){
+  const bodyColors = resolveFighterBodyColors(config, fighterName);
+  const slotKeys = new Set(COSMETIC_SLOTS);
+  const orderedSlots = [...COSMETIC_SLOTS];
+  for (const key of Object.keys(slotConfig || {})){
+    if (!slotKeys.has(key)){
+      slotKeys.add(key);
+      orderedSlots.push(key);
+    }
+  }
+  for (const slot of orderedSlots){
     const equipped = normalizeEquipment(slotConfig[slot]);
     if (!equipped) continue;
     const cosmetic = library[equipped.id];
     if (!cosmetic) continue;
     const slotOverride = editorState?.slotOverrides?.[slot];
-    let hsv = clampHSV(equipped.hsv, cosmetic);
-    if (slotOverride?.hsv){
-      hsv = clampHSV({ ...hsv, ...slotOverride.hsv }, cosmetic);
+    const isAppearance = slot.startsWith(APPEARANCE_SLOT_PREFIX) || cosmetic?.type === 'appearance' || !!cosmetic?.appearance;
+    let slotHSV = isAppearance
+      ? resolveAppearanceBaseHSV(equipped, cosmetic, bodyColors)
+      : clampHSV(equipped.hsv, cosmetic);
+    if (isAppearance){
+      if (equipped.hsv){
+        slotHSV = addHSV(slotHSV, clampHSV(equipped.hsv, cosmetic));
+      }
+      if (slotOverride?.hsv){
+        slotHSV = addHSV(slotHSV, clampHSV(slotOverride.hsv, cosmetic));
+      }
+    } else if (slotOverride?.hsv){
+      slotHSV = clampHSV({ ...slotHSV, ...slotOverride.hsv }, cosmetic);
     }
     for (const [partKey, partConfig] of Object.entries(cosmetic.parts || {})){
       const resolved = resolvePartConfig(partConfig, fighterName, cosmetic.id, partKey);
@@ -369,8 +588,13 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
       if (slotOverride?.spriteStyle){
         styleOverride = mergeConfig(styleOverride, slotOverride.spriteStyle);
       }
+      let hsv = isAppearance ? { ...slotHSV } : { ...slotHSV };
       if (partOverride?.hsv){
-        hsv = clampHSV({ ...hsv, ...partOverride.hsv }, cosmetic);
+        if (isAppearance){
+          hsv = addHSV(hsv, clampHSV(partOverride.hsv, cosmetic));
+        } else {
+          hsv = clampHSV({ ...hsv, ...partOverride.hsv }, cosmetic);
+        }
       }
       if (partOverride?.spriteStyle){
         styleOverride = mergeConfig(styleOverride, partOverride.spriteStyle);
@@ -387,8 +611,23 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
       if (partOverride?.anchor){
         anchorOverride = mergeConfig(anchorOverride, { [partKey]: partOverride.anchor });
       }
+      if (isAppearance && !resolved.styleKey && cosmetic.appearance?.inheritSprite){
+        resolved.styleKey = cosmetic.appearance.inheritSprite;
+      }
       const alignDeg = resolved.align?.deg;
       const alignRad = resolved.align?.rad ?? (Number.isFinite(alignDeg) ? degToRad(alignDeg) : undefined);
+      if (isAppearance){
+        hsv = clampBodyHSV(hsv);
+      }
+      const layerExtra = resolved.extra ? deepMerge({}, resolved.extra) : {};
+      if (isAppearance){
+        layerExtra.appearance = {
+          slot: slot.replace(APPEARANCE_SLOT_PREFIX, ''),
+          fighter: cosmetic.appearance?.fighter || fighterName,
+          originalId: cosmetic.appearance?.originalId || cosmetic.id,
+          bodyColors: ensureArray(equipped.colors || cosmetic.appearance?.bodyColors)
+        };
+      }
       layers.push({
         slot,
         partKey,
@@ -401,7 +640,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
         alignDeg,
         alignRad,
         styleKey: resolved.styleKey,
-        extra: resolved.extra || {}
+        extra: layerExtra
       });
     }
   }

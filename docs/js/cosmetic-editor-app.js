@@ -6,7 +6,8 @@ import {
   getRegisteredCosmeticLibrary,
   registerCosmeticLibrary,
   registerFighterCosmeticProfile,
-  getFighterCosmeticProfile
+  getFighterCosmeticProfile,
+  registerFighterAppearance
 } from './cosmetics.js?v=1';
 
 const CONFIG = window.CONFIG || {};
@@ -24,7 +25,8 @@ const editorState = (GAME.editorState ||= {
   loadedProfile: {},
   profileBaseSnapshot: { cosmetics: {} },
   activeSlot: null,
-  activeStyleKey: null
+  activeStyleKey: null,
+  appearanceSlotKeys: []
 });
 
 const canvas = document.getElementById('cosmeticCanvas');
@@ -53,6 +55,9 @@ const creatorIdInput = document.getElementById('creatorId');
 const creatorNameInput = document.getElementById('creatorName');
 const creatorSlotSelect = document.getElementById('creatorSlot');
 const creatorPartsInput = document.getElementById('creatorParts');
+const creatorAppearanceToggle = document.getElementById('creatorAppearance');
+const creatorBodyColorsInput = document.getElementById('creatorBodyColors');
+const creatorSpriteInput = document.getElementById('creatorSpriteKey');
 const creatorAddBtn = document.getElementById('creatorAdd');
 const creatorEquipBtn = document.getElementById('creatorEquip');
 const creatorApplyBtn = document.getElementById('creatorApplyPart');
@@ -214,10 +219,12 @@ function populateCreatorSlotOptions(){
   if (!creatorSlotSelect) return;
   creatorSlotSelect.innerHTML = '';
   const frag = document.createDocumentFragment();
-  for (const slot of COSMETIC_SLOTS){
+  for (const slot of getActiveSlotKeys()){
     const option = document.createElement('option');
     option.value = slot;
-    option.textContent = slot;
+    option.textContent = slot.startsWith('appearance:')
+      ? slot.replace('appearance:', 'appearance/')
+      : slot;
     frag.appendChild(option);
   }
   creatorSlotSelect.appendChild(frag);
@@ -336,6 +343,14 @@ function parsePartKeys(raw){
     .filter((part)=> part.length > 0);
 }
 
+function parseBodyColorLetters(raw){
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((entry)=> entry.trim().toUpperCase())
+    .filter((entry)=> entry.length > 0);
+}
+
 function buildOverridePayload(){
   const slotSelection = editorState.slotSelection || {};
   const payload = { cosmetics: {} };
@@ -433,6 +448,7 @@ function createCustomCosmetic(){
     showStatus('Choose a slot for the new cosmetic.', { tone: 'warn' });
     return;
   }
+  const isAppearance = slot.startsWith('appearance:') || !!creatorAppearanceToggle?.checked;
   const partKeys = parsePartKeys(creatorPartsInput?.value || '');
   if (!partKeys.length){
     showStatus('Provide at least one part key (e.g., leg_L_upper).', { tone: 'warn' });
@@ -441,6 +457,10 @@ function createCustomCosmetic(){
   }
   const displayNameRaw = (creatorNameInput?.value || '').trim();
   const displayName = displayNameRaw || id.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').replace(/\b\w/g, (ch)=> ch.toUpperCase());
+  const appearanceColors = isAppearance ? parseBodyColorLetters(creatorBodyColorsInput?.value || '') : [];
+  const inheritSprite = isAppearance
+    ? (creatorSpriteInput?.value || '').trim() || partKeys[0] || ''
+    : '';
   const parts = {};
   for (const partKey of partKeys){
     parts[partKey] = {
@@ -456,6 +476,13 @@ function createCustomCosmetic(){
     },
     parts
   };
+  if (isAppearance){
+    newCosmetic.type = 'appearance';
+    newCosmetic.appearance = {
+      inheritSprite: inheritSprite || undefined,
+      bodyColors: appearanceColors
+    };
+  }
   registerCosmeticLibrary({ [id]: newCosmetic });
   buildSlotRows();
   updateSlotSelectsFromState();
@@ -691,9 +718,17 @@ function normalizeSlotEntry(entry){
   return null;
 }
 
+function getActiveSlotKeys(){
+  const appearanceKeys = Array.isArray(editorState.appearanceSlotKeys)
+    ? editorState.appearanceSlotKeys
+    : [];
+  const merged = new Set([...COSMETIC_SLOTS, ...appearanceKeys]);
+  return Array.from(merged);
+}
+
 function setSelectedCosmetics(slots){
   const slotMap = {};
-  for (const slot of COSMETIC_SLOTS){
+  for (const slot of getActiveSlotKeys()){
     const value = normalizeSlotEntry(slots?.[slot]);
     if (value){
       slotMap[slot] = deepClone(value);
@@ -1055,13 +1090,15 @@ function buildSlotRows(){
   const library = getRegisteredCosmeticLibrary();
   slotContainer.innerHTML = '';
   slotRows.clear();
-  for (const slot of COSMETIC_SLOTS){
+  for (const slot of getActiveSlotKeys()){
     const row = document.createElement('div');
     row.className = 'slot-row';
     row.dataset.slot = slot;
     const label = document.createElement('span');
     label.className = 'slot-row__label';
-    label.textContent = slot;
+    label.textContent = slot.startsWith('appearance:')
+      ? slot.replace('appearance:', 'appearance/')
+      : slot;
     const select = document.createElement('select');
     const noneOption = document.createElement('option');
     noneOption.value = '';
@@ -1124,8 +1161,12 @@ function loadFighter(fighterName){
   GAME.selectedFighter = fighterName;
   editorState.activeFighter = fighterName;
   const fighter = CONFIG.fighters?.[fighterName] || {};
+  const appearance = registerFighterAppearance(fighterName, fighter.appearance || {});
+  editorState.appearanceSlotKeys = Object.keys(appearance.slots || {});
+  populateCreatorSlotOptions();
   const slots = fighter.cosmetics?.slots || fighter.cosmetics || {};
-  const slotMap = setSelectedCosmetics(slots);
+  const combinedSlots = { ...(appearance.slots || {}), ...(slots || {}) };
+  const slotMap = setSelectedCosmetics(combinedSlots);
   clearOverlay();
   editorState.assetPinned = false;
   setSelectedAsset(null);
@@ -1135,6 +1176,7 @@ function loadFighter(fighterName){
   editorState.slotOverrides = mapProfileToSlotOverrides(slotMap, profile);
   editorState.activeSlot = null;
   editorState.activePartKey = null;
+  buildSlotRows();
   updateSlotSelectsFromState();
   showStyleInspector(null);
   updateOverrideOutputs();

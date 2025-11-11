@@ -88,6 +88,20 @@
             <input id="creatorParts" type="text" placeholder="leg_L_upper, leg_R_upper" spellcheck="false" aria-label="Parts to attach sprite to">
           </label>
         </div>
+        <div class="creator-grid">
+          <label class="creator-field">
+            <span>Appearance overlay</span>
+            <input id="creatorAppearance" type="checkbox" aria-label="Treat cosmetic as appearance overlay">
+          </label>
+          <label class="creator-field">
+            <span>Body colors (A,B,C)</span>
+            <input id="creatorBodyColors" type="text" placeholder="A" spellcheck="false" aria-label="Body color letters to inherit">
+          </label>
+          <label class="creator-field creator-field--wide">
+            <span>Inherit sprite key</span>
+            <input id="creatorSpriteKey" type="text" placeholder="torso" spellcheck="false" aria-label="Sprite style key to inherit">
+          </label>
+        </div>
         <div class="creator-actions">
           <button type="button" id="creatorAdd">➕ Add Cosmetic To Library</button>
           <button type="button" id="creatorEquip">🎯 Equip On Selected Fighter</button>
