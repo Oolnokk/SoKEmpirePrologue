@@ -944,7 +944,8 @@ function buildStyleFields(slot, cosmetic, partKey){
     { key: 'ax', label: 'Offset X (ax)', step: 0.01 },
     { key: 'ay', label: 'Offset Y (ay)', step: 0.01 },
     { key: 'scaleX', label: 'Scale X', step: 0.01 },
-    { key: 'scaleY', label: 'Scale Y', step: 0.01 }
+    { key: 'scaleY', label: 'Scale Y', step: 0.01 },
+    { key: 'rotDeg', label: 'Rotation (deg)', step: 0.1 }
   ];
   for (const field of fields){
     const wrapper = document.createElement('label');
