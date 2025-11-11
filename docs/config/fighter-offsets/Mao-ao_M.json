@@ -1,66 +1,48 @@
 {
   "cosmetics": {
-    "basic_headband": {
-      "parts": {
-        "head": {
-          "image": { "url": "" },
-          "warp": {
-            "units": "percent",
-            "center": { "y": -0.02 }
-          }
-        }
-      }
-    },
-    "layered_travel_cloak": {
+    "basic_pants": {
       "parts": {
         "torso": {
           "spriteStyle": {
             "xform": {
-              "torso": { "ax": -0.05, "scaleX": 1.6, "scaleY": 1.8 }
-            }
-          }
-        }
-      }
-    },
-    "basic_pants": {
-      "parts": {
-        "leg_L_upper": {
-          "spriteStyle": {
-            "xform": {
-              "legUpper": {
-                "scaleX": 0.9,
-                "scaleY": 1.2
+              "torso": {
+                "scaleX": 0.7,
+                "scaleY": 0.75,
+                "ay": -0.07,
+                "ax": -0.55,
+                "rotDeg": -205
               }
             }
           },
-          "styleKey": "legUpper"
+          "styleKey": "torso"
         },
         "leg_R_upper": {
           "spriteStyle": {
             "xform": {
               "legUpper": {
-                "scaleX": 0.9,
-                "scaleY": 1.2
+                "scaleY": 1.1,
+                "ay": 0.2,
+                "scaleX": 1,
+                "ax": 0.05,
+                "rotDeg": 1
               }
             }
           },
           "styleKey": "legUpper"
         },
-        "torso": {
-          "image": {
-            "url": "./assets/cosmetics/clothes/legs/pants1_seat.png"
-          },
+        "leg_L_upper": {
           "spriteStyle": {
             "xform": {
-              "torso": {
-                "scaleY": 0.5,
-                "scaleX": 0.5,
-                "ax": -0.4
-                "rotDeg": -180
+              "legUpper": {
+                "scaleX": 1,
+                "scaleY": 1.1,
+                "ax": 0.05,
+                "ay": 0.2,
+                "rotDeg": 1
               }
             }
           },
-          "styleKey": "torso"
+          "styleKey": "legUpper"
         }
       }
     }
