@@ -689,7 +689,11 @@ export function renderSprites(ctx){
   const entity = (fname === 'player' || fname === 'npc') ? fname : 'player';
   const flipLeft = G.FLIP_STATE?.[entity] || false;
   const centerX = rig.center?.x ?? 0;
-  
+  const camX = window.GAME?.CAMERA?.x || 0;
+
+  ctx.save();
+  ctx.translate(-camX, 0);
+
   ctx.save();
   // Mirror around character center when facing left (matching reference HTML exactly)
   if (flipLeft) {
@@ -851,8 +855,9 @@ export function renderSprites(ctx){
       entry.drawFn();
     }
   }
-  
+
   ctx.restore(); // Restore canvas state (undo flip if applied)
+  ctx.restore(); // Restore camera translation offset
 }
 
 export function initSprites(){
