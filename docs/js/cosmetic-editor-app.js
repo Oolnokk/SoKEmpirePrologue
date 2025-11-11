@@ -7,7 +7,8 @@ import {
   registerCosmeticLibrary,
   registerFighterCosmeticProfile,
   getFighterCosmeticProfile,
-  registerFighterAppearance
+  registerFighterAppearance,
+  resolveCharacterAppearance
 } from './cosmetics.js?v=1';
 
 const CONFIG = window.CONFIG || {};
@@ -1161,7 +1162,12 @@ function loadFighter(fighterName){
   GAME.selectedFighter = fighterName;
   editorState.activeFighter = fighterName;
   const fighter = CONFIG.fighters?.[fighterName] || {};
-  const appearance = registerFighterAppearance(fighterName, fighter.appearance || {});
+  const { appearance: characterAppearance } = resolveCharacterAppearance(CONFIG, fighterName);
+  const appearance = registerFighterAppearance(
+    fighterName,
+    fighter.appearance || {},
+    characterAppearance
+  );
   editorState.appearanceSlotKeys = Object.keys(appearance.slots || {});
   populateCreatorSlotOptions();
   const slots = fighter.cosmetics?.slots || fighter.cosmetics || {};

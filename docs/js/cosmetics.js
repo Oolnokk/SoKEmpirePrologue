@@ -164,6 +164,74 @@ function resolveBodyColorSource(config = {}, fighterName){
   return { colors: {}, characterKey: null };
 }
 
+export function resolveCharacterAppearance(config = {}, fighterName){
+  if (!fighterName) return { appearance: null, characterKey: null };
+  const { characterKey } = resolveBodyColorSource(config, fighterName);
+  const characters = config.characters || {};
+
+  if (characterKey && characters[characterKey]?.appearance){
+    return { appearance: characters[characterKey].appearance, characterKey };
+  }
+
+  for (const [key, data] of Object.entries(characters)){
+    if (data?.fighter === fighterName && data?.appearance){
+      return { appearance: data.appearance, characterKey: key };
+    }
+  }
+
+  return { appearance: null, characterKey: null };
+}
+
+function mergeAppearanceSources(sources = []){
+  const queue = [];
+  for (const source of sources){
+    if (!source) continue;
+    if (Array.isArray(source)){
+      queue.push(...source);
+    } else {
+      queue.push(source);
+    }
+  }
+
+  const mergedSlots = {};
+  const mergedLibrary = {};
+  let hasSlots = false;
+  let hasLibrary = false;
+
+  for (const entry of queue){
+    if (!entry || typeof entry !== 'object') continue;
+    if (entry.slots && typeof entry.slots === 'object'){
+      for (const [slotName, slotEntry] of Object.entries(entry.slots)){
+        if (slotEntry == null){
+          delete mergedSlots[slotName];
+          continue;
+        }
+        mergedSlots[slotName] = deepMerge({}, slotEntry);
+        hasSlots = true;
+      }
+    }
+    if (entry.library && typeof entry.library === 'object'){
+      for (const [libId, libEntry] of Object.entries(entry.library)){
+        if (libEntry == null){
+          delete mergedLibrary[libId];
+          continue;
+        }
+        mergedLibrary[libId] = deepMerge({}, libEntry);
+        hasLibrary = true;
+      }
+    }
+  }
+
+  const result = {};
+  if (hasSlots && Object.keys(mergedSlots).length){
+    result.slots = mergedSlots;
+  }
+  if (hasLibrary && Object.keys(mergedLibrary).length){
+    result.library = mergedLibrary;
+  }
+  return result;
+}
+
 function prepareAppearanceForFighter(fighterName, appearance = {}){
   if (!fighterName || !appearance) return { library: {}, slots: {} };
   const preparedSlots = {};
@@ -224,8 +292,9 @@ function prepareAppearanceForFighter(fighterName, appearance = {}){
   return { library: preparedLibrary, slots: preparedSlots };
 }
 
-export function registerFighterAppearance(fighterName, appearance = {}){
-  const prepared = prepareAppearanceForFighter(fighterName, appearance);
+export function registerFighterAppearance(fighterName, ...sources){
+  const merged = mergeAppearanceSources(sources);
+  const prepared = prepareAppearanceForFighter(fighterName, merged);
   if (prepared && prepared.library && Object.keys(prepared.library).length){
     registerCosmeticLibrary(prepared.library);
   }
@@ -517,7 +586,12 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
   const library = registerCosmeticLibrary(config.cosmeticLibrary || config.cosmetics?.library || {});
   const fighter = config.fighters?.[fighterName] || {};
   let slotConfig = deepMerge({}, fighter.cosmetics?.slots || fighter.cosmetics || {});
-  const appearanceData = registerFighterAppearance(fighterName, fighter.appearance || {});
+  const { appearance: characterAppearance } = resolveCharacterAppearance(config, fighterName);
+  const appearanceData = registerFighterAppearance(
+    fighterName,
+    fighter.appearance || {},
+    characterAppearance
+  );
   if (appearanceData?.slots && Object.keys(appearanceData.slots).length){
     slotConfig = mergeSlotConfigs(slotConfig, appearanceData.slots);
   }

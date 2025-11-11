@@ -1,0 +1,16 @@
+{
+  "meta": { "name": "Face Paint" },
+  "type": "appearance",
+  "appearance": {
+    "inheritSprite": "head",
+    "bodyColors": ["B"],
+    "originalId": "maoao_face_paint"
+  },
+  "parts": {
+    "head": {
+      "image": {
+        "url": "./assets/fightersprites/mao-ao-m/head.png"
+      }
+    }
+  }
+}

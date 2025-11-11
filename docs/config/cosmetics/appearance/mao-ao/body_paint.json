@@ -1,0 +1,16 @@
+{
+  "meta": { "name": "Tribal Body Paint" },
+  "type": "appearance",
+  "appearance": {
+    "inheritSprite": "torso",
+    "bodyColors": ["A"],
+    "originalId": "maoao_body_paint"
+  },
+  "parts": {
+    "torso": {
+      "image": {
+        "url": "./assets/fightersprites/mao-ao-m/torso.png"
+      }
+    }
+  }
+}

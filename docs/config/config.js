@@ -149,7 +149,9 @@ const COSMETIC_LIBRARY_SOURCES = {
   basic_headband: './config/cosmetics/basic_headband.json',
   layered_travel_cloak: './config/cosmetics/layered_travel_cloak.json',
   simple_poncho: './config/cosmetics/simple_poncho.json',
-  basic_pants: './config/cosmetics/basic_pants.json'
+  basic_pants: './config/cosmetics/basic_pants.json',
+  'appearance::Mao-ao_M::maoao_body_paint': './config/cosmetics/appearance/mao-ao/body_paint.json',
+  'appearance::Mao-ao_M::maoao_face_paint': './config/cosmetics/appearance/mao-ao/face_paint.json'
 };
 
 const KICK_MOVE_POSES = {
@@ -483,28 +485,6 @@ window.CONFIG = {
             legLower: { ax:-0.0,  ay:0.2,  scaleX:1.7, scaleY:2.1, rotDeg:-4 }
           }
       },
-      appearance: {
-        slots: {
-          torso: { id: 'maoao_body_paint', colors: ['A'] },
-          head: { id: 'maoao_face_paint', colors: ['B'] }
-        },
-        library: {
-          maoao_body_paint: {
-            meta: { name: 'Tribal Body Paint' },
-            appearance: { inheritSprite: 'torso', bodyColors: ['A'] },
-            parts: {
-              torso: { image: { url: './assets/fightersprites/mao-ao-m/torso.png' } }
-            }
-          },
-          maoao_face_paint: {
-            meta: { name: 'Face Paint' },
-            appearance: { inheritSprite: 'head', bodyColors: ['B'] },
-            parts: {
-              head: { image: { url: './assets/fightersprites/mao-ao-m/head.png' } }
-            }
-          }
-        }
-      },
       cosmetics: {}
     }
   },
@@ -761,6 +741,12 @@ window.CONFIG = {
         B: { h: -20, s: 0.15, v: 0.1 },
         C: { h: 32, s: 0.25, v: -0.05 }
       },
+      appearance: {
+        slots: {
+          torso: { id: 'maoao_body_paint', colors: ['A'] },
+          head: { id: 'maoao_face_paint', colors: ['B'] }
+        }
+      },
       cosmetics: {
         slots: {
           hat: { id: 'basic_headband', hsv: { h: -20, s: 0.2, v: 0 } },
@@ -780,6 +766,12 @@ window.CONFIG = {
         A: { h: -8, s: 0.05, v: 0.08 },
         B: { h: 24, s: 0.18, v: -0.02 },
         C: { h: 72, s: 0.28, v: 0.12 }
+      },
+      appearance: {
+        slots: {
+          torso: { id: 'maoao_body_paint', colors: ['A'] },
+          head: { id: 'maoao_face_paint', colors: ['B'] }
+        }
       },
       cosmetics: {
         slots: {
