@@ -1,0 +1,186 @@
+/**
+ * MapRegistry maintains a registry of map areas without leaking implementation
+ * details to the rest of the runtime. The class is intentionally lightweight so
+ * the map system can fail in isolation without cascading errors into other
+ * toolchains.
+ */
+
+const clone = (value) => {
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value));
+};
+
+export class MapRegistryError extends Error {
+  constructor(message, details = undefined) {
+    super(message);
+    this.name = 'MapRegistryError';
+    if (details) {
+      this.details = details;
+    }
+  }
+}
+
+export class MapRegistry {
+  constructor({ logger = console } = {}) {
+    this._logger = logger;
+    this._areas = new Map();
+    this._activeAreaId = null;
+    this._listeners = new Map();
+  }
+
+  /**
+   * Subscribe to registry events. Returns an unsubscribe function.
+   */
+  on(event, handler) {
+    if (typeof handler !== 'function') {
+      throw new MapRegistryError('Event handler must be a function');
+    }
+    const listeners = this._listeners.get(event) || new Set();
+    listeners.add(handler);
+    this._listeners.set(event, listeners);
+    return () => listeners.delete(handler);
+  }
+
+  _emit(event, payload) {
+    const listeners = this._listeners.get(event);
+    if (!listeners) return;
+    for (const handler of listeners) {
+      try {
+        handler(payload);
+      } catch (error) {
+        this._logger.warn?.('[MapRegistry] listener error', error);
+      }
+    }
+  }
+
+  /**
+   * Register a single area descriptor.
+   */
+  registerArea(areaId, descriptor) {
+    if (!areaId || typeof areaId !== 'string') {
+      throw new MapRegistryError('Area id must be a non-empty string');
+    }
+    if (!descriptor || typeof descriptor !== 'object') {
+      throw new MapRegistryError('Area descriptor must be an object');
+    }
+
+    const { warnings, errors } = validateAreaDescriptor(descriptor);
+    if (errors.length) {
+      throw new MapRegistryError(`Invalid area descriptor for "${areaId}"`, {
+        errors,
+      });
+    }
+
+    warnings.forEach((w) => this._logger.warn?.(`[MapRegistry] ${w}`));
+
+    const frozen = deepFreeze(clone({ ...descriptor, id: areaId }));
+    this._areas.set(areaId, frozen);
+    this._emit('area-registered', frozen);
+    if (!this._activeAreaId) {
+      this._activeAreaId = areaId;
+      this._emit('active-area-changed', frozen);
+    }
+    return frozen;
+  }
+
+  /**
+   * Register multiple areas from an object map (compatible with CONFIG.areas).
+   */
+  registerAreas(areaMap) {
+    if (!areaMap || typeof areaMap !== 'object') {
+      throw new MapRegistryError('Area map must be an object');
+    }
+    const results = {};
+    for (const [areaId, descriptor] of Object.entries(areaMap)) {
+      results[areaId] = this.registerArea(areaId, descriptor);
+    }
+    return results;
+  }
+
+  /**
+   * Remove a single area by id.
+   */
+  removeArea(areaId) {
+    if (!this._areas.has(areaId)) return false;
+    this._areas.delete(areaId);
+    this._emit('area-removed', areaId);
+    if (this._activeAreaId === areaId) {
+      this._activeAreaId = this._areas.size ? this._areas.keys().next().value : null;
+      this._emit('active-area-changed', this.getActiveArea());
+    }
+    return true;
+  }
+
+  hasArea(areaId) {
+    return this._areas.has(areaId);
+  }
+
+  getArea(areaId) {
+    return this._areas.get(areaId) || null;
+  }
+
+  getActiveAreaId() {
+    return this._activeAreaId;
+  }
+
+  getActiveArea() {
+    return this._activeAreaId ? this.getArea(this._activeAreaId) : null;
+  }
+
+  setActiveArea(areaId) {
+    if (areaId == null) {
+      this._activeAreaId = null;
+      this._emit('active-area-changed', null);
+      return true;
+    }
+    if (!this._areas.has(areaId)) {
+      return false;
+    }
+    if (this._activeAreaId === areaId) {
+      return true;
+    }
+    this._activeAreaId = areaId;
+    this._emit('active-area-changed', this.getActiveArea());
+    return true;
+  }
+
+  toJSON() {
+    const result = {};
+    for (const [id, descriptor] of this._areas.entries()) {
+      result[id] = clone(descriptor);
+    }
+    return result;
+  }
+}
+
+function validateAreaDescriptor(descriptor) {
+  const warnings = [];
+  const errors = [];
+
+  if (!Array.isArray(descriptor.layers)) {
+    errors.push('"layers" must be an array');
+  }
+  if (descriptor.layers && descriptor.layers.length === 0) {
+    warnings.push('Area declares no parallax layers');
+  }
+  if (!Array.isArray(descriptor.instances) && !Array.isArray(descriptor.props)) {
+    warnings.push('Area declares neither "instances" nor "props" – runtime may need one');
+  }
+
+  return { warnings, errors };
+}
+
+function deepFreeze(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  Object.freeze(obj);
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  }
+  return obj;
+}
+
+export default MapRegistry;
