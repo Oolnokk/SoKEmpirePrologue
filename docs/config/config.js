@@ -420,22 +420,22 @@ window.CONFIG = {
       },
         sprites: {
           torso: { url: "https://i.imgur.com/YatjSyo.png", bodyColor: 'A' },
-          head:  { url: "https://i.imgur.com/WsKQ2Eo.png", bodyColor: 'B' },
+          head:  { url: "https://i.imgur.com/WsKQ2Eo.png", bodyColor: 'A' },
           arm_L_upper: { url: "https://i.imgur.com/CAmWLbf.png", bodyColor: 'A' },
           arm_L_lower: { url: "https://i.imgur.com/gOHujif.png", bodyColor: 'A' },
           arm_R_upper: { url: "https://i.imgur.com/CAmWLbf.png", bodyColor: 'A' },
           arm_R_lower: { url: "https://i.imgur.com/gOHujif.png", bodyColor: 'A' },
-          leg_L_upper: { url: "https://i.imgur.com/qgcQTmx.png", bodyColor: 'C' },
-          leg_L_lower: { url: "https://i.imgur.com/lZbF7j2.png", bodyColor: 'C' },
-          leg_R_upper: { url: "https://i.imgur.com/qgcQTmx.png", bodyColor: 'C' },
-          leg_R_lower: { url: "https://i.imgur.com/lZbF7j2.png", bodyColor: 'C' }
+          leg_L_upper: { url: "https://i.imgur.com/qgcQTmx.png", bodyColor: 'A' },
+          leg_L_lower: { url: "https://i.imgur.com/lZbF7j2.png", bodyColor: 'A' },
+          leg_R_upper: { url: "https://i.imgur.com/qgcQTmx.png", bodyColor: 'A' },
+          leg_R_lower: { url: "https://i.imgur.com/lZbF7j2.png", bodyColor: 'A' }
         },
       spriteStyle: {
           widthFactor: { torso:0.9, armUpper:0.9, armLower:0.9, legUpper:0.9, legLower:0.9, head:0.9 },
           xformUnits: "percent",
           xform: {
             torso:    { ax:-0.5,  ay:-0.2, scaleX:3.5, scaleY:4.50, rotDeg:180 },
-            head:     { ax:-1.20, ay:-0.0, scaleX:4.2, scaleY:4.2, rotDeg:180 },
+            head:     { ax:-1.20, ay:-0.60, scaleX:4.2, scaleY:4.2, rotDeg:180 },
             armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
             armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
             legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
@@ -461,15 +461,15 @@ window.CONFIG = {
       },
       sprites: {
         torso: { url: "./assets/fightersprites/mao-ao-m/torso.png", bodyColor: 'A' },
-        head:  { url: "./assets/fightersprites/mao-ao-m/head.png", bodyColor: 'B' },
-        arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'B' },
-        arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'B' },
-        arm_R_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'B' },
-        arm_R_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'B' },
-        leg_L_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'C' },
-        leg_L_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'C' },
-        leg_R_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'C' },
-        leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'C' }
+        head:  { url: "./assets/fightersprites/mao-ao-m/head.png", bodyColor: 'A' },
+        arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'A' },
+        arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'A' },
+        arm_R_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'A' },
+        arm_R_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'A' },
+        leg_L_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'A' },
+        leg_L_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'A' },
+        leg_R_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'A' },
+        leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'A' }
       },
       spriteStyle: {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
