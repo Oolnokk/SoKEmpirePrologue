@@ -34,4 +34,13 @@ describe('Sprite rotDeg to alignRad conversion (Issue #76)', () => {
     const usesAlignRad = /asset\.alignRad/.test(spritesContent);
     strictEqual(usesAlignRad, true, 'Should use asset.alignRad in rotation calculation');
   });
+
+  it('drawBoneSprite applies styleOverride rotDeg during rotation', () => {
+    const readsOverrideXform = /options\.styleOverride\?\.xform/.test(spritesContent);
+    const convertsOverrideRot = /degToRad\(overrideXform\.rotDeg\)/.test(spritesContent);
+    const addsExtraRotation = /alignRad \+ extraRotRad/.test(spritesContent);
+    ok(readsOverrideXform, 'Should read rotation overrides from styleOverride.xform');
+    ok(convertsOverrideRot, 'Should convert styleOverride rotDeg to radians');
+    ok(addsExtraRotation, 'Should add extra rotation from overrides to theta');
+  });
 });
