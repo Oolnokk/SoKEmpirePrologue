@@ -55,8 +55,7 @@
               "torso": {
                 "scaleY": 0.5,
                 "scaleX": 0.5,
-                "ax": -0.4,
-                "rotDeg": 180
+                "ax": -0.4
               }
             }
           },
