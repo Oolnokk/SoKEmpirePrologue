@@ -88,6 +88,38 @@
   ],
   "instances": [
     {
+      "id": 9001,
+      "prefabId": "spawn_player",
+      "layerId": "gameplay",
+      "slot": 0,
+      "nudgeX": 0,
+      "locked": true,
+      "scaleX": 1,
+      "scaleY": 1,
+      "offsetY": 0,
+      "rot": 0,
+      "x": -180,
+      "tags": [
+        "spawn:player"
+      ]
+    },
+    {
+      "id": 9002,
+      "prefabId": "spawn_npc",
+      "layerId": "gameplay",
+      "slot": 1,
+      "nudgeX": 0,
+      "locked": true,
+      "scaleX": 1,
+      "scaleY": 1,
+      "offsetY": 0,
+      "rot": 0,
+      "x": 120,
+      "tags": [
+        "spawn:npc"
+      ]
+    },
+    {
       "id": 1,
       "prefabId": "img_1000012768",
       "layerId": "bg1",
