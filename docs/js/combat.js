@@ -263,6 +263,18 @@ function makeCombat(G, C){
 
   function resolveComboAbilityForWeapon(baseAbility){
     if (!baseAbility?.comboFromWeapon) return baseAbility;
+    const weaponKey = getEquippedWeaponKey();
+    if (weaponKey === 'unarmed' && baseAbility?.id === 'combo_light') {
+      const unarmedAbility = ABILITY_ABILITIES?.unarmed_combo_light;
+      if (unarmedAbility) {
+        const merged = { ...clone(baseAbility), ...clone(unarmedAbility) };
+        merged.comboFromWeapon = false;
+        merged.weaponSource = 'unarmed';
+        merged.id = unarmedAbility.id || 'unarmed_combo_light';
+        return merged;
+      }
+    }
+
     const combos = C.weaponCombos || {};
 
     const build = (comboDef, key) => {
