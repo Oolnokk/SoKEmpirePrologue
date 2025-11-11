@@ -146,11 +146,7 @@ test('appearance cosmetics inherit character body colors', () => {
         fighter: 'hero',
         bodyColors: {
           A: { h: 15, s: 0.3, v: 0.1 }
-        }
-      }
-    },
-    fighters: {
-      hero: {
+        },
         appearance: {
           slots: {
             torso: { id: 'hero_markings', colors: ['A'] }
@@ -165,6 +161,9 @@ test('appearance cosmetics inherit character body colors', () => {
           }
         }
       }
+    },
+    fighters: {
+      hero: {}
     }
   };
 
