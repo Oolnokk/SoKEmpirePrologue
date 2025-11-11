@@ -22,6 +22,7 @@ const editorState = (GAME.editorState ||= {
   assetPinned: false,
   activeFighter: null,
   loadedProfile: {},
+  profileBaseSnapshot: { cosmetics: {} },
   activeSlot: null,
   activeStyleKey: null
 });
@@ -71,6 +72,49 @@ function deepClone(value){
   } catch (_err){
     return value;
   }
+}
+
+function isPlainObject(value){
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function mergeProfileData(baseProfile = {}, overrides = {}){
+  const baseClone = isPlainObject(baseProfile) || Array.isArray(baseProfile)
+    ? deepClone(baseProfile)
+    : {};
+
+  function mergeInto(target, source){
+    if (!isPlainObject(source)) return target;
+    for (const [key, value] of Object.entries(source)){
+      if (Array.isArray(value)){
+        target[key] = value.map((item)=> deepClone(item));
+        continue;
+      }
+      if (isPlainObject(value)){
+        const current = target[key];
+        target[key] = mergeInto(isPlainObject(current) ? current : {}, value);
+        continue;
+      }
+      target[key] = value;
+    }
+    return target;
+  }
+
+  return mergeInto(baseClone, overrides);
+}
+
+function buildMergedProfilePayload(overridePayload){
+  const baseProfile = editorState.profileBaseSnapshot || { cosmetics: {} };
+  const overrides = overridePayload || buildOverridePayload();
+  return mergeProfileData(baseProfile, overrides);
+}
+
+function prepareDownloadPayload(){
+  const overridePayload = buildOverridePayload();
+  const cosmetics = overridePayload.cosmetics || {};
+  const hasOverrides = Object.keys(cosmetics).length > 0;
+  const mergedProfile = hasOverrides ? buildMergedProfilePayload(overridePayload) : null;
+  return { overridePayload, mergedProfile, hasOverrides };
 }
 
 function clampNumber(value, min, max){
@@ -307,11 +351,9 @@ function buildOverridePayload(){
 
 function updateOverrideOutputs(){
   if (!overrideOutput) return;
-  const payload = buildOverridePayload();
-  const cosmetics = payload.cosmetics || {};
-  const hasOverrides = Object.keys(cosmetics).length > 0;
-  overrideOutput.value = hasOverrides
-    ? JSON.stringify(payload, null, 2)
+  const { mergedProfile, hasOverrides } = prepareDownloadPayload();
+  overrideOutput.value = hasOverrides && mergedProfile
+    ? JSON.stringify(mergedProfile, null, 2)
     : '// No overrides defined for this fighter.';
   if (overrideApplyBtn) overrideApplyBtn.disabled = !hasOverrides;
   if (overrideCopyBtn) overrideCopyBtn.disabled = !hasOverrides;
@@ -324,8 +366,9 @@ function applyOverridesToProfile(){
     return;
   }
   const payload = buildOverridePayload();
-  registerFighterCosmeticProfile(editorState.activeFighter, payload);
-  editorState.loadedProfile = deepClone(payload.cosmetics || {});
+  const mergedProfile = registerFighterCosmeticProfile(editorState.activeFighter, payload);
+  editorState.profileBaseSnapshot = deepClone(mergedProfile || { cosmetics: {} });
+  editorState.loadedProfile = deepClone(mergedProfile?.cosmetics || {});
   showStatus('Applied overrides to fighter preview.', { tone: 'info' });
   updateOverrideOutputs();
 }
@@ -351,11 +394,14 @@ async function copyOverridesToClipboard(){
 }
 
 function downloadOverridesJson(){
-  if (!overrideOutput) return;
-  const text = overrideOutput.value || '';
-  if (!text || text.startsWith('// ')){
+  const { mergedProfile, hasOverrides } = prepareDownloadPayload();
+  if (!hasOverrides || !mergedProfile){
     showStatus('No override JSON to download.', { tone: 'warn' });
     return;
+  }
+  const text = JSON.stringify(mergedProfile, null, 2);
+  if (overrideOutput){
+    overrideOutput.value = text;
   }
   const blob = new Blob([text], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -898,7 +944,8 @@ function buildStyleFields(slot, cosmetic, partKey){
     { key: 'ax', label: 'Offset X (ax)', step: 0.01 },
     { key: 'ay', label: 'Offset Y (ay)', step: 0.01 },
     { key: 'scaleX', label: 'Scale X', step: 0.01 },
-    { key: 'scaleY', label: 'Scale Y', step: 0.01 }
+    { key: 'scaleY', label: 'Scale Y', step: 0.01 },
+    { key: 'rotDeg', label: 'Rotation (deg)', step: 0.1 }
   ];
   for (const field of fields){
     const wrapper = document.createElement('label');
@@ -1083,6 +1130,7 @@ function loadFighter(fighterName){
   editorState.assetPinned = false;
   setSelectedAsset(null);
   const profile = getFighterCosmeticProfile(fighterName) || null;
+  editorState.profileBaseSnapshot = deepClone(profile || { cosmetics: {} });
   editorState.loadedProfile = deepClone(profile?.cosmetics || {});
   editorState.slotOverrides = mapProfileToSlotOverrides(slotMap, profile);
   editorState.activeSlot = null;

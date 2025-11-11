@@ -413,7 +413,7 @@ function makeCombat(G, C){
     if (weaponKey === 'unarmed' && baseAbility?.id === 'combo_light') {
       const unarmedAbility = ABILITY_ABILITIES?.unarmed_combo_light;
       if (unarmedAbility) {
-        const merged = { ...cloneAbilityForMerge(baseAbility), ...cloneAbilityForMerge(unarmedAbility) };
+        const merged = { ...clone(baseAbility), ...clone(unarmedAbility) };
         merged.comboFromWeapon = false;
         merged.weaponSource = 'unarmed';
         merged.id = unarmedAbility.id || 'unarmed_combo_light';

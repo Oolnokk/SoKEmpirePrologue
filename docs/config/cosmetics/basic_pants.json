@@ -10,7 +10,7 @@
   "parts": {
     "leg_L_upper": {
       "image": {
-        "url": "./assets/cosmetics/clothes/legs/pants1LR.png"
+        "url": "./assets/cosmetics/clothes/legs/pants1_leg_LR.png"
       },
       "spriteStyle": {
         "base": {
@@ -22,7 +22,7 @@
     },
     "leg_R_upper": {
       "image": {
-        "url": "./assets/cosmetics/clothes/legs/pants1LR.png"
+        "url": "./assets/cosmetics/clothes/legs/pants1_leg_LR.png"
       },
       "spriteStyle": {
         "base": {
@@ -31,6 +31,19 @@
           }
         }
       }
+    },
+    "torso": {
+      "image": {
+        "url": "./assets/cosmetics/clothes/legs/pants1_seat.png"
+      },
+      "spriteStyle": {
+        "base": {
+          "xform": {
+            "torso": { "ax": -0.4, "scaleX": 0.5, "scaleY": 0.5, "rotDeg": -180 }
+          }
+        }
+      },
+      "styleKey": "torso"
     }
   }
 }
