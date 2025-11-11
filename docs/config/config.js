@@ -732,10 +732,6 @@ window.CONFIG = {
       fighter: 'Mao-ao_M',
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
-      clothes: 'default',
-      hairstyle: 'short',
-      beard: 'none',
-      adornments: [],
       bodyColors: {
         A: { h: 0, s: 0, v: 0 },
         B: { h: -20, s: 0.15, v: 0.1 },
@@ -743,8 +739,7 @@ window.CONFIG = {
       },
       appearance: {
         slots: {
-          torso: { id: 'maoao_body_paint', colors: ['A'] },
-          head: { id: 'maoao_face_paint', colors: ['B'] }
+          eyes: { id: 'mao-ao_circled_eyeL', colors: ['B'] }
         }
       },
       cosmetics: {
@@ -758,10 +753,6 @@ window.CONFIG = {
       fighter: 'Mao-ao_M',
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_punch', 'heavy_hold'],
-      clothes: 'robe',
-      hairstyle: 'long',
-      beard: 'goatee',
-      adornments: ['earring'],
       bodyColors: {
         A: { h: -8, s: 0.05, v: 0.08 },
         B: { h: 24, s: 0.18, v: -0.02 },
@@ -769,8 +760,8 @@ window.CONFIG = {
       },
       appearance: {
         slots: {
-          torso: { id: 'maoao_body_paint', colors: ['A'] },
-          head: { id: 'maoao_face_paint', colors: ['B'] }
+          eyes: { id: 'mao-ao_circled_eyes', colors: ['B'] },
+          hair: { id: 'mao-ao_smooth_stripe', colors: ['B'] }
         }
       },
       cosmetics: {
