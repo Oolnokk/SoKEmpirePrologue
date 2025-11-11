@@ -1,24 +1,13 @@
 {
   "cosmetics": {
-    "basic_headband": {
-      "parts": {
-        "head": {
-          "spriteStyle": {
-            "xform": {
-              "head": { "ax": -0.12, "ay": -0.15, "scaleX": 1.2, "scaleY": 1.1 }
-            }
-          }
-        }
-      }
-    }
     "basic_pants": {
       "parts": {
         "leg_L_upper": {
           "spriteStyle": {
             "xform": {
               "legUpper": {
-                "scaleX": 0.9,
-                "scaleY": 1.2
+                "scaleX": 2,
+                "scaleY": 2
               }
             }
           },
@@ -28,23 +17,20 @@
           "spriteStyle": {
             "xform": {
               "legUpper": {
-                "scaleX": 0.9,
-                "scaleY": 1.2
+                "scaleY": 2,
+                "scaleX": 2
               }
             }
           },
           "styleKey": "legUpper"
         },
         "torso": {
-          "image": {
-            "url": "./assets/cosmetics/clothes/legs/pants1_seat.png"
-          },
           "spriteStyle": {
             "xform": {
               "torso": {
-                "scaleY": 0.5,
-                "scaleX": 0.5,
-                "ax": -0.4
+                "scaleY": 2,
+                "scaleX": 2,
+                "rotDeg": 0
               }
             }
           },
