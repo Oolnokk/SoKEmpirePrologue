@@ -549,8 +549,8 @@ window.CONFIG = {
       cancelWindow: 0.7,
       poses: deepClone(PUNCH_MOVE_POSES)
     },
-    ComboKICK1: {
-      name: 'Combo Kick 1',
+    ComboKICK_S: {
+      name: 'Combo Kick - Setup',
       tags: ['light', 'combo'],
       inherits: 'KICK',
       durations: { toWindup: 380, toStrike: 110, toRecoil: 680, toStance: 0 },
@@ -558,8 +558,8 @@ window.CONFIG = {
       cancelWindow: 0.6,
       poses: deepClone(KICK_MOVE_POSES)
     },
-    ComboKICK2: {
-      name: 'Combo Kick 2',
+    ComboKICK_F: {
+      name: 'Combo Kick - Finisher',
       tags: ['light', 'combo'],
       inherits: 'KICK',
       durations: { toWindup: 380, toStrike: 110, toRecoil: 680, toStance: 0 },
@@ -567,8 +567,8 @@ window.CONFIG = {
       cancelWindow: 0.6,
       poses: deepClone(KICK_MOVE_POSES)
     },
-    ComboPUNCH1: {
-      name: 'Combo Punch 1',
+    ComboPUNCH_R: {
+      name: 'Combo Punch - Right',
       tags: ['light', 'combo'],
       durations: { toWindup: 380, toStrike: 110, toRecoil: 200, toStance: 120 },
       knockbackBase: 140,
@@ -583,7 +583,7 @@ window.CONFIG = {
         strikeBase.rElbow = stanceArms.rElbow;
         strikeBase.layerOverrides = [
           {
-            id: 'combo1-right',
+            id: 'combo-right',
             pose: {
               rShoulder: PUNCH_MOVE_POSES.Strike.rShoulder,
               rElbow: PUNCH_MOVE_POSES.Strike.rElbow
@@ -598,10 +598,10 @@ window.CONFIG = {
         return base;
       })()
     },
-    ComboPUNCH2: {
-      name: 'Combo Punch 2',
+    ComboPUNCH_L: {
+      name: 'Combo Punch - Left',
       tags: ['light', 'combo'],
-      durations: { toWindup: 480, toStrike: 700, toRecoil: 220, toStance: 120 },
+      durations: { toWindup: 380, toStrike: 110, toRecoil: 200, toStance: 120 },
       knockbackBase: 140,
       cancelWindow: 0.7,
       poses: (() => {
@@ -614,26 +614,15 @@ window.CONFIG = {
         strikeBase.rElbow = stanceArms.rElbow;
         strikeBase.layerOverrides = [
           {
-            id: 'combo2-right',
-            pose: {
-              rShoulder: PUNCH_MOVE_POSES.Strike.rShoulder,
-              rElbow: PUNCH_MOVE_POSES.Strike.rElbow
-            },
-            mask: ['rShoulder', 'rElbow'],
-            durMs: 220,
-            delayMs: 0,
-            priority: 150
-          },
-          {
-            id: 'combo2-left',
+            id: 'combo-left',
             pose: {
               lShoulder: PUNCH_MOVE_POSES.Strike.lShoulder,
               lElbow: PUNCH_MOVE_POSES.Strike.lElbow
             },
             mask: ['lShoulder', 'lElbow'],
             durMs: 220,
-            delayMs: 320,
-            priority: 140
+            delayMs: 0,
+            priority: 150
           }
         ];
         base.Strike = strikeBase;
@@ -775,7 +764,7 @@ window.CONFIG = {
     unarmed: {
       weapon: 'unarmed',
       name: 'Unarmed Combo',
-      sequence: ['ComboKICK1', 'ComboPUNCH1', 'ComboKICK2', 'ComboPUNCH2'],
+      sequence: ['UnArCA1', 'UnArCA2', 'UnArCA3', 'UnArCA4'],
       comboWindowMs: 3000,
       multipliers: { durations: 1 },
       onHit: abilityKnockback(8),
@@ -822,26 +811,86 @@ window.CONFIG = {
     thresholds: { tapMaxMs: 200, chargeStageMs: 200 },
     defaults: { comboWindowMs: 3000 },
     attacks: {
-      ComboKICK1: { preset: 'ComboKICK1', tags: ['combo', 'light'] },
-      ComboKICK2: { preset: 'ComboKICK2', tags: ['combo', 'light'] },
-      ComboPUNCH1: { preset: 'ComboPUNCH1', tags: ['combo', 'light'] },
-      ComboPUNCH2: { preset: 'ComboPUNCH2', tags: ['combo', 'light'] },
-      QuickKick: { preset: 'KICK', tags: ['quick', 'light'] },
+      ComboKICK_S: {
+        preset: 'ComboKICK_S',
+        tags: ['combo', 'light'],
+        sequence: ['ComboKICK_S']
+      },
+      ComboKICK_F: {
+        preset: 'ComboKICK_F',
+        tags: ['combo', 'light'],
+        sequence: ['ComboKICK_F']
+      },
+      ComboPUNCH_R: {
+        preset: 'ComboPUNCH_R',
+        tags: ['combo', 'light'],
+        sequence: ['ComboPUNCH_R']
+      },
+      ComboPUNCH_L: {
+        preset: 'ComboPUNCH_L',
+        tags: ['combo', 'light'],
+        sequence: ['ComboPUNCH_L']
+      },
+      QuickKick: {
+        preset: 'KICK',
+        tags: ['quick', 'light'],
+        sequence: ['KICK']
+      },
       QuickKickCombo: {
         preset: 'KICK',
         tags: ['quick', 'light', 'comboVariant'],
+        sequence: ['KICK'],
         multipliers: { durations: 0.85, knockback: 1.35 }
       },
-	  QuickPunch: { preset: 'PUNCH', tags: ['quick', 'light'] },
+      QuickPunch: {
+        preset: 'PUNCH',
+        tags: ['quick', 'light'],
+        sequence: ['PUNCH']
+      },
       QuickPunchCombo: {
         preset: 'PUNCH',
         tags: ['quick', 'light', 'comboVariant'],
+        sequence: ['PUNCH'],
         multipliers: { durations: 0.85, knockback: 1.35 }
       },
       Slam: {
         preset: 'SLAM',
         tags: ['heavy'],
+        sequence: ['SLAM'],
         multipliers: { durations: 1.1, knockback: 1.2 }
+      },
+      UnArCA1: {
+        preset: 'ComboPUNCH_R',
+        name: 'Unarmed Combo A1',
+        tags: ['combo', 'light', 'unarmed'],
+        sequence: [
+          { move: 'ComboPUNCH_R', startMs: 0 }
+        ]
+      },
+      UnArCA2: {
+        preset: 'ComboKICK_S',
+        name: 'Unarmed Combo A2',
+        tags: ['combo', 'light', 'unarmed'],
+        sequence: [
+          { move: 'ComboKICK_S', startMs: 0 }
+        ]
+      },
+      UnArCA3: {
+        preset: 'ComboPUNCH_L',
+        name: 'Unarmed Combo A3',
+        tags: ['combo', 'light', 'unarmed'],
+        sequence: [
+          { move: 'ComboPUNCH_L', startMs: 0 },
+          { move: 'ComboPUNCH_R', startMs: 160 }
+        ]
+      },
+      UnArCA4: {
+        preset: 'ComboKICK_F',
+        name: 'Unarmed Combo A4',
+        tags: ['combo', 'light', 'unarmed'],
+        sequence: [
+          { move: 'ComboKICK_F', startMs: 0 }
+        ]
       }
     },
     abilities: {
@@ -853,6 +902,16 @@ window.CONFIG = {
         comboFromWeapon: true,
         fallbackWeapon: 'unarmed',
         multipliers: { durations: 1 },
+        onHit: abilityKnockback(8)
+      },
+      unarmed_combo_light: {
+        name: 'Unarmed Combo',
+        type: 'light',
+        trigger: 'combo',
+        tags: ['combo', 'light', 'unarmed'],
+        sequence: ['UnArCA1', 'UnArCA2', 'UnArCA3', 'UnArCA4'],
+        defaultAttack: 'UnArCA1',
+        comboWindowMs: 3000,
         onHit: abilityKnockback(8)
       },
       quick_light: {
@@ -1056,18 +1115,44 @@ const buildAttackHierarchyV2 = (abilitySystem = {}, moveHierarchy = {}) => {
     const canonicalId = toPascalCase(attackId);
     const presetId = def.preset || attackId;
     const moveName = toPascalCase(presetId);
+    const sequence = Array.isArray(def.sequence) ? def.sequence : null;
+    const normalizeEntry = (entry, index) => {
+      let moveId = null;
+      let limb = null;
+      let startMs = null;
+      let tags = null;
+      let name = null;
+      if (typeof entry === 'string') {
+        moveId = entry;
+      } else if (entry && typeof entry === 'object') {
+        moveId = entry.move || entry.id || entry.preset || presetId;
+        if (entry.limb) limb = entry.limb;
+        if (Number.isFinite(entry.startMs)) startMs = entry.startMs;
+        if (entry.tags) tags = deepClone(entry.tags);
+        if (entry.name) name = entry.name;
+      }
+      if (!moveId) moveId = presetId;
+      const normalizedMove = toPascalCase(moveId);
+      const resolvedLimb = limb || determineDefaultLimb(moveId);
+      const resolvedStart = Number.isFinite(startMs) ? startMs : index === 0 ? 0 : null;
+      const result = {
+        move: normalizedMove
+      };
+      if (resolvedLimb) result.limb = resolvedLimb;
+      if (Number.isFinite(resolvedStart)) result.startMs = resolvedStart;
+      if (tags) result.tags = tags;
+      if (name) result.name = name;
+      return result;
+    };
+    const moves = sequence && sequence.length > 0
+      ? sequence.map((entry, index) => normalizeEntry(entry, index))
+      : [normalizeEntry(presetId, 0)];
     const attack = {
       id: canonicalId,
       legacyId: attackId,
       name: canonicalId,
-      primaryMove: moveName,
-      moves: [
-        {
-          move: moveName,
-          limb: determineDefaultLimb(presetId),
-          startMs: 0
-        }
-      ],
+      primaryMove: moves[0]?.move || moveName,
+      moves,
       tags: deepClone(def.tags || []),
       classification: (def.tags || []).includes('heavy')
         ? 'heavy'
@@ -1100,6 +1185,9 @@ const buildAbilityHierarchyV2 = (abilitySystem = {}, attackHierarchy = {}) => {
     };
     if (def.attack) {
       ability.attack = toPascalCase(def.attack);
+    }
+    if (def.defaultAttack) {
+      ability.defaultAttack = toPascalCase(def.defaultAttack);
     }
     if (Array.isArray(def.sequence)) {
       ability.sequence = def.sequence.map((attackId) => toPascalCase(attackId));
@@ -1218,7 +1306,7 @@ window.CONFIG = window.CONFIG || {};
         label: "Light Combo (4-hit)",
         type: "light",
         variety: "combo",
-        combo: { steps: ['ComboKICK1', 'ComboPUNCH1', 'ComboKICK2', 'ComboPUNCH2'], interRecoil: { poseKey: 'Recoil', durMs: 120 } },
+        combo: { steps: ['UnArCA1', 'UnArCA2', 'UnArCA3', 'UnArCA4'], interRecoil: { poseKey: 'Recoil', durMs: 120 } },
         quickAltAfterHits: 4
       },
       2: {
@@ -1288,7 +1376,7 @@ const buildPresets = () => {
   Object.assign(CONFIG.attacks.presets, derivedPresets);
 
   // Ensure core weapon presets exist and opt-in to weapon colliders.
-  const ensurePreset = (name, base = 'ComboPUNCH1') => {
+  const ensurePreset = (name, base = 'ComboPUNCH_R') => {
     if (!CONFIG.presets[name]) CONFIG.presets[name] = clone(CONFIG.presets[base] || {});
     CONFIG.presets[name].useWeaponColliders = true;
   };
