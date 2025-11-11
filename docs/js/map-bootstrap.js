@@ -71,6 +71,7 @@ async function loadStartingArea() {
     window.GAME = window.GAME || {};
     window.GAME.mapRegistry = registry;
     window.GAME.currentAreaId = area.id;
+    window.GAME.__onMapRegistryReadyForCamera?.(registry);
 
     console.info(`[map-bootstrap] Loaded starting area "${area.id}"`);
   } catch (error) {
