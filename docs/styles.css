@@ -109,20 +109,6 @@ body{
 
 .entry-btn:active{transform:translateY(1px);}
 
-.entry-remember{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  color:var(--muted);
-  font-size:13px;
-}
-
-.entry-remember input{
-  width:16px;
-  height:16px;
-}
-
 main.stack{
   display:flex;
   flex-direction:column;
