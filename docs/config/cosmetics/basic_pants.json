@@ -31,6 +31,19 @@
           }
         }
       }
+    },
+    "torso": {
+      "image": {
+        "url": "./assets/cosmetics/clothes/legs/pants1_seat.png"
+      },
+      "spriteStyle": {
+        "base": {
+          "xform": {
+            "torso": { "ax": -0.4, "scaleX": 0.5, "scaleY": 0.5 }
+          }
+        }
+      },
+      "styleKey": "torso"
     }
   }
 }
