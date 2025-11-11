@@ -605,11 +605,22 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   w *= scaleX;
   h *= scaleY;
 
-  // Rotation (fixed): bone.ang + alignRad + Math.PI
+  const overrideXformSrc = options.styleOverride?.xform || {};
+  const overrideXform = overrideXformSrc[normalizedKey] || overrideXformSrc[styleKey] || null;
+  let extraRotRad = 0;
+  if (overrideXform){
+    if (Number.isFinite(overrideXform.rotRad)){
+      extraRotRad = overrideXform.rotRad;
+    } else if (Number.isFinite(overrideXform.rotDeg)){
+      extraRotRad = degToRad(overrideXform.rotDeg);
+    }
+  }
+
+  // Rotation (fixed): bone.ang + alignRad + extraRotRad + Math.PI
   const alignRad = (options.alignRad != null)
     ? options.alignRad
     : (options.alignDeg != null ? degToRad(options.alignDeg) : (asset.alignRad ?? 0));
-  const theta = bone.ang + alignRad + Math.PI;
+  const theta = bone.ang + alignRad + extraRotRad + Math.PI;
 
   const originalFilter = ctx.filter;
   const filter = applyFilter

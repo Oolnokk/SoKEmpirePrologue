@@ -177,14 +177,14 @@ test('sprites.js uses correct rotation formula in drawBoneSprite', async () => {
   // Check that rotation uses bone.ang + alignRad + Math.PI
   assert.match(
     source,
-    /const theta = bone\.ang \+ alignRad \+ Math\.PI;/,
-    'rotation should use: bone.ang + alignRad + Math.PI'
+    /const theta = bone\.ang \+ alignRad(?: \+ extraRotRad)? \+ Math\.PI;/,
+    'rotation should combine alignRad, optional extraRotRad, and Math.PI'
   );
   
   // Check the comment matches
   assert.match(
     source,
-    /rotation:\s*bone\.ang \+ alignRad \+ Math\.PI/,
+    /Rotation \(fixed\):\s*bone\.ang \+ alignRad \+ extraRotRad \+ Math\.PI/,
     'comment should document rotation formula correctly'
   );
 });
