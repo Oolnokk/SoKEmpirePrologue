@@ -1,0 +1,16 @@
+{
+  "meta": { "name": "Circled Eyes" },
+  "type": "appearance",
+  "appearance": {
+    "inheritSprite": "head",
+    "bodyColors": ["B"],
+    "originalId": "mao-ao_circled_eyes"
+  },
+  "parts": {
+    "head": {
+      "image": {
+        "url": "./assets/cosmetics/appearance/mao-ao/eyes/circled.png"
+      }
+    }
+  }
+}
