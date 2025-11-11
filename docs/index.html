@@ -31,10 +31,6 @@
         <button type="button" id="entryLaunchGame" class="entry-btn entry-btn--primary">Launch Game Demo</button>
         <a id="entryOpenEditor" class="entry-btn entry-btn--ghost" href="./cosmetic-editor.html">Open Cosmetic Editor</a>
       </div>
-      <label class="entry-remember">
-        <input type="checkbox" id="entryRememberChoice">
-        <span>Remember this choice for next time</span>
-      </label>
     </div>
   </div>
 
@@ -232,23 +228,15 @@
 
       const params = new URLSearchParams(window.location.search);
       const skipKey = 'sok-entry-mode';
-      const remembered = localStorage.getItem(skipKey);
       const requestedMode = params.get('mode');
-      const defaultMode = requestedMode || remembered || null;
+      const defaultMode = requestedMode || null;
 
-      const rememberCheckbox = document.getElementById('entryRememberChoice');
-      if (rememberCheckbox && (remembered === 'game' || remembered === 'editor')) {
-        rememberCheckbox.checked = true;
+      // Remove any legacy remembered choice so the overlay always shows unless a mode is requested.
+      try {
+        localStorage.removeItem(skipKey);
+      } catch (err) {
+        console.warn('Unable to clear legacy entry mode preference:', err);
       }
-
-      const updateRememberedChoice = (mode) => {
-        if (!rememberCheckbox) return;
-        if (rememberCheckbox.checked && mode) {
-          localStorage.setItem(skipKey, mode);
-        } else {
-          localStorage.removeItem(skipKey);
-        }
-      };
 
       const hideOverlay = () => {
         overlay.classList.add('entry-overlay--hidden');
@@ -266,15 +254,9 @@
       }
 
       const launchBtn = document.getElementById('entryLaunchGame');
-      launchBtn?.addEventListener('click', () => {
-        updateRememberedChoice('game');
-        hideOverlay();
-      });
+      launchBtn?.addEventListener('click', hideOverlay);
 
-      const editorLink = document.getElementById('entryOpenEditor');
-      editorLink?.addEventListener('click', () => {
-        updateRememberedChoice('editor');
-      });
+      // No additional handling for the editor link is needed now that the remember option is removed.
     })();
   </script>
 
