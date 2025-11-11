@@ -419,16 +419,16 @@ window.CONFIG = {
         head:{ origin:{ax:-1, ay:6} }
       },
         sprites: {
-          torso: { url: "https://i.imgur.com/YatjSyo.png" },
-          head:  { url: "https://i.imgur.com/WsKQ2Eo.png" },
-          arm_L_upper: { url: "https://i.imgur.com/CAmWLbf.png" },
-          arm_L_lower: { url: "https://i.imgur.com/gOHujif.png" },
-          arm_R_upper: { url: "https://i.imgur.com/CAmWLbf.png" },
-          arm_R_lower: { url: "https://i.imgur.com/gOHujif.png" },
-          leg_L_upper: { url: "https://i.imgur.com/qgcQTmx.png" },
-          leg_L_lower: { url: "https://i.imgur.com/lZbF7j2.png" },
-          leg_R_upper: { url: "https://i.imgur.com/qgcQTmx.png" },
-          leg_R_lower: { url: "https://i.imgur.com/lZbF7j2.png" }
+          torso: { url: "https://i.imgur.com/YatjSyo.png", bodyColor: 'A' },
+          head:  { url: "https://i.imgur.com/WsKQ2Eo.png", bodyColor: 'B' },
+          arm_L_upper: { url: "https://i.imgur.com/CAmWLbf.png", bodyColor: 'A' },
+          arm_L_lower: { url: "https://i.imgur.com/gOHujif.png", bodyColor: 'A' },
+          arm_R_upper: { url: "https://i.imgur.com/CAmWLbf.png", bodyColor: 'A' },
+          arm_R_lower: { url: "https://i.imgur.com/gOHujif.png", bodyColor: 'A' },
+          leg_L_upper: { url: "https://i.imgur.com/qgcQTmx.png", bodyColor: 'C' },
+          leg_L_lower: { url: "https://i.imgur.com/lZbF7j2.png", bodyColor: 'C' },
+          leg_R_upper: { url: "https://i.imgur.com/qgcQTmx.png", bodyColor: 'C' },
+          leg_R_lower: { url: "https://i.imgur.com/lZbF7j2.png", bodyColor: 'C' }
         },
       spriteStyle: {
           widthFactor: { torso:0.9, armUpper:0.9, armLower:0.9, legUpper:0.9, legLower:0.9, head:0.9 },
@@ -460,16 +460,16 @@ window.CONFIG = {
         head:{ origin:{ax:0, ay:0} }
       },
       sprites: {
-        torso: { url: "./assets/fightersprites/mao-ao-m/torso.png" },
-        head:  { url: "./assets/fightersprites/mao-ao-m/head.png" },
-        arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png" },
-        arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png" },
-        arm_R_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png" },
-        arm_R_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png" },
-        leg_L_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png" },
-        leg_L_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png" },
-        leg_R_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png" },
-        leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png" }
+        torso: { url: "./assets/fightersprites/mao-ao-m/torso.png", bodyColor: 'A' },
+        head:  { url: "./assets/fightersprites/mao-ao-m/head.png", bodyColor: 'B' },
+        arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'B' },
+        arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'B' },
+        arm_R_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'B' },
+        arm_R_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'B' },
+        leg_L_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'C' },
+        leg_L_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'C' },
+        leg_R_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'C' },
+        leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'C' }
       },
       spriteStyle: {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
@@ -482,6 +482,28 @@ window.CONFIG = {
             legUpper: { ax:-0.10, ay:0,  scaleX:1.7, scaleY:2.75,  rotDeg:-15 },
             legLower: { ax:-0.0,  ay:0.2,  scaleX:1.7, scaleY:2.1, rotDeg:-4 }
           }
+      },
+      appearance: {
+        slots: {
+          torso: { id: 'maoao_body_paint', colors: ['A'] },
+          head: { id: 'maoao_face_paint', colors: ['B'] }
+        },
+        library: {
+          maoao_body_paint: {
+            meta: { name: 'Tribal Body Paint' },
+            appearance: { inheritSprite: 'torso', bodyColors: ['A'] },
+            parts: {
+              torso: { image: { url: './assets/fightersprites/mao-ao-m/torso.png' } }
+            }
+          },
+          maoao_face_paint: {
+            meta: { name: 'Face Paint' },
+            appearance: { inheritSprite: 'head', bodyColors: ['B'] },
+            parts: {
+              head: { image: { url: './assets/fightersprites/mao-ao-m/head.png' } }
+            }
+          }
+        }
       },
       cosmetics: {}
     }
@@ -734,6 +756,11 @@ window.CONFIG = {
       hairstyle: 'short',
       beard: 'none',
       adornments: [],
+      bodyColors: {
+        A: { h: 0, s: 0, v: 0 },
+        B: { h: -20, s: 0.15, v: 0.1 },
+        C: { h: 32, s: 0.25, v: -0.05 }
+      },
       cosmetics: {
         slots: {
           hat: { id: 'basic_headband', hsv: { h: -20, s: 0.2, v: 0 } },
@@ -749,6 +776,11 @@ window.CONFIG = {
       hairstyle: 'long',
       beard: 'goatee',
       adornments: ['earring'],
+      bodyColors: {
+        A: { h: -8, s: 0.05, v: 0.08 },
+        B: { h: 24, s: 0.18, v: -0.02 },
+        C: { h: 72, s: 0.28, v: 0.12 }
+      },
       cosmetics: {
         slots: {
           hat: { id: 'basic_headband', hsv: { h: 12, s: 0.1, v: 0.05 } },

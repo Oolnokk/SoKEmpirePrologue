@@ -138,6 +138,44 @@ test('ensureCosmeticLayers interprets percentage-style saturation and value', ()
   });
 });
 
+test('appearance cosmetics inherit character body colors', () => {
+  clearCosmeticCache();
+  const config = {
+    characters: {
+      hero: {
+        fighter: 'hero',
+        bodyColors: {
+          A: { h: 15, s: 0.3, v: 0.1 }
+        }
+      }
+    },
+    fighters: {
+      hero: {
+        appearance: {
+          slots: {
+            torso: { id: 'hero_markings', colors: ['A'] }
+          },
+          library: {
+            hero_markings: {
+              appearance: { inheritSprite: 'torso', bodyColors: ['A'] },
+              parts: {
+                torso: { image: { url: 'https://example.com/markings.png' } }
+              }
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const layers = ensureCosmeticLayers(config, 'hero', {});
+  strictEqual(layers.length, 1);
+  strictEqual(layers[0].slot, 'appearance:torso');
+  deepStrictEqual(layers[0].hsv, { h: 15, s: 0.3, v: 0.1 });
+  deepStrictEqual(layers[0].extra?.appearance?.bodyColors, ['A']);
+  strictEqual(layers[0].styleKey, 'torso');
+});
+
 test('default character pants tint to blue for player and red for enemy', () => {
   clearCosmeticCache();
   const pants = JSON.parse(readFileSync(new URL('../docs/config/cosmetics/basic_pants.json', import.meta.url), 'utf8'));
@@ -182,7 +220,7 @@ test('default character pants tint to blue for player and red for enemy', () => 
 test('sprites.js integrates cosmetic layers and z-order expansion', () => {
   const spritesContent = readFileSync(new URL('../docs/js/sprites.js', import.meta.url), 'utf8');
   strictEqual(/expanded\.push\(cosmeticTagFor\(tag, slot\)\);/.test(spritesContent), true, 'buildZMap should add cosmetic tags');
-  strictEqual(/const \{ assets, style, offsets, cosmetics } = ensureFighterSprites/.test(spritesContent), true, 'renderSprites should read cosmetics');
+  strictEqual(/const \{ assets, style, offsets, cosmetics(?:, bodyColors)? } = ensureFighterSprites/.test(spritesContent), true, 'renderSprites should read cosmetics');
   strictEqual(/withBranchMirror\(ctx,\s*originX,\s*mirror,\s*\(\)\s*=>\s*\{\s*drawBoneSprite\(ctx, layer\.asset, bone, styleKey/.test(spritesContent), true, 'cosmetic layers should mirror with their limbs');
 });
 

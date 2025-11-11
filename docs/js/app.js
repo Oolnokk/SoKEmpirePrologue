@@ -223,6 +223,16 @@ function initCharacterDropdown() {
       adornments: charData.adornments
     };
 
+    if (charData.bodyColors){
+      try {
+        window.GAME.selectedBodyColors = JSON.parse(JSON.stringify(charData.bodyColors));
+      } catch (_err) {
+        window.GAME.selectedBodyColors = { ...charData.bodyColors };
+      }
+    } else {
+      delete window.GAME.selectedBodyColors;
+    }
+
     if (charData.cosmetics) {
       try {
         window.GAME.selectedCosmetics = JSON.parse(JSON.stringify(charData.cosmetics));
