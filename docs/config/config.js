@@ -741,7 +741,7 @@ window.CONFIG = {
       },
       appearance: {
         slots: {
-          eyes: { id: 'mao-ao_circled_eyeL', colors: ['B'] }
+          eyes: { id: 'mao-ao_circled_eye_L', colors: ['B'] }
         }
       },
       cosmetics: {
