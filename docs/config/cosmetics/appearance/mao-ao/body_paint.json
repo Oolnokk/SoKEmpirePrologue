@@ -1,15 +1,15 @@
 {
-  "meta": { "name": "Smooth Stripe" },
+  "meta": { "name": "Smooth Striped" },
   "type": "appearance",
   "appearance": {
     "inheritSprite": "head",
     "bodyColors": ["B"],
-    "originalId": "mao-ao_smooth_stripe"
+    "originalId": "mao-ao_smooth_striped"
   },
   "parts": {
     "head": {
       "image": {
-        "url": "./assets/cosmetics/appearance/mao-ao/hairstyle/smooth_stripe.png"
+        "url": "./assets/cosmetics/appearance/mao-ao/headhair/smooth_striped.png"
       }
     }
   }
