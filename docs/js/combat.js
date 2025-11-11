@@ -49,7 +49,8 @@ function makeCombat(G, C){
     isHoldRelease: false,
     chargeStage: 0,
     context: null,
-    pendingAbilityId: null
+    pendingAbilityId: null,
+    sequenceTimers: []
   };
 
   const CHARGE = {
@@ -252,9 +253,154 @@ function makeCombat(G, C){
 
   function clone(o){ return JSON.parse(JSON.stringify(o||{})); }
 
+  function cloneAbilityForMerge(def){
+    if (!def) return null;
+    const copy = { ...def };
+    if (Array.isArray(def.tags)) copy.tags = [...def.tags];
+    if (Array.isArray(def.sequence)) copy.sequence = cloneSequence(def.sequence);
+    if (def.multipliers && typeof def.multipliers === 'object') copy.multipliers = { ...def.multipliers };
+    if (def.effects && typeof def.effects === 'object') copy.effects = { ...def.effects };
+    if (def.variants) {
+      copy.variants = def.variants.map((variant) => {
+        const cloned = { ...variant };
+        if (Array.isArray(variant.tags)) cloned.tags = [...variant.tags];
+        if (variant.require && typeof variant.require === 'object') cloned.require = { ...variant.require };
+        if (variant.multipliers && typeof variant.multipliers === 'object') cloned.multipliers = { ...variant.multipliers };
+        return cloned;
+      });
+    }
+    if (def.charge && typeof def.charge === 'object') copy.charge = { ...def.charge };
+    return copy;
+  }
+
   function cloneSequence(sequence){
     if (!Array.isArray(sequence)) return [];
     return sequence.map(step => (typeof step === 'string' || typeof step === 'number') ? step : { ...step });
+  }
+
+  let sequenceLayerCounter = 0;
+
+  function clearAttackSequenceTimers(){
+    const timers = ATTACK.sequenceTimers;
+    if (Array.isArray(timers)){
+      while (timers.length){
+        const timer = timers.pop();
+        try {
+          clearTimeout(timer);
+        } catch(err){
+          console.warn('[combat] failed to clear sequence timer', err);
+        }
+      }
+    }
+    sequenceLayerCounter = 0;
+  }
+
+  function normalizeAttackSequence(sequence){
+    if (!Array.isArray(sequence) || sequence.length === 0) return [];
+    return sequence
+      .map((entry) => {
+        if (!entry && entry !== 0) return null;
+        if (typeof entry === 'string' || typeof entry === 'number'){
+          return { move: String(entry), startMs: 0 };
+        }
+        if (typeof entry === 'object'){
+          const move = entry.move || entry.attack || entry.preset || entry.id;
+          if (!move) return null;
+          const start = Number.isFinite(entry.startMs) ? entry.startMs
+            : Number.isFinite(entry.offsetMs) ? entry.offsetMs
+            : 0;
+          return { ...entry, move, startMs: start };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }
+
+  function resolveSequenceStepPreset(step){
+    if (!step) return null;
+    if (step.preset) return step.preset;
+    const attackId = step.attack || step.move;
+    const attack = getAttackDef && attackId ? getAttackDef(attackId) : null;
+    if (attack?.preset) return attack.preset;
+    if (typeof attackId === 'string' && C.presets?.[attackId]) return attackId;
+    if (typeof step.move === 'string') return step.move;
+    return null;
+  }
+
+  function scheduleAttackSequence(context){
+    clearAttackSequenceTimers();
+    if (!context) return;
+    const normalized = normalizeAttackSequence(context.attack?.sequence);
+    if (normalized.length === 0) return;
+    const timers = ATTACK.sequenceTimers;
+    const basePreset = context.preset;
+    normalized.forEach((step, index) => {
+      const presetName = resolveSequenceStepPreset(step);
+      if (!presetName) return;
+      const startMs = Number.isFinite(step.startMs) ? step.startMs : 0;
+      if (index === 0 && (!startMs || startMs <= 0) && presetName === basePreset) return;
+      const delayMs = Math.max(0, startMs);
+      const scaledDelay = context?.applyDuration ? context.applyDuration(delayMs, 'Strike') : delayMs;
+      const timer = setTimeout(() => {
+        if (ATTACK.context !== context) return;
+        playAttackSequenceStep({ ...step, preset: presetName }, context);
+      }, scaledDelay);
+      timers.push(timer);
+    });
+  }
+
+  function playAttackSequenceStep(step, context){
+    const presetName = step.preset || step.move;
+    if (!presetName) return;
+    const preset = C.presets?.[presetName];
+    if (!preset) return;
+    const strikePose = preset.poses?.Strike || buildPoseFromKey('Strike');
+    const overrides = Array.isArray(strikePose.layerOverrides) ? strikePose.layerOverrides : [];
+    const durations = computePresetDurationsWithContext(presetName, context);
+    const strikeDur = applyDurationMultiplier(durations.toStrike ?? 110, context, 'Strike');
+    const guard = () => ATTACK.context === context;
+    const basePriority = Number.isFinite(step.priority) ? step.priority : undefined;
+
+    if (overrides.length){
+      overrides.forEach((layerDef, index) => {
+        if (!layerDef || layerDef.enabled === false) return;
+        const pose = layerDef.pose || strikePose;
+        const layerId = layerDef.layer || layerDef.id || `${presetName}-seq-${index}-${sequenceLayerCounter++}`;
+        const mask = step.mask || step.joints || layerDef.mask || layerDef.joints || pose.mask || pose.joints;
+        const rawDelay = Number.isFinite(layerDef.delayMs) ? layerDef.delayMs
+          : Number.isFinite(layerDef.offsetMs) ? layerDef.offsetMs
+          : 0;
+        const durMs = Number.isFinite(step.durMs) ? step.durMs
+          : Number.isFinite(step.durationMs) ? step.durationMs
+          : Number.isFinite(layerDef.durMs) ? layerDef.durMs
+          : Number.isFinite(layerDef.durationMs) ? layerDef.durationMs
+          : Number.isFinite(layerDef.dur) ? layerDef.dur
+          : strikeDur;
+        const handle = pushPoseLayerOverride('player', layerId, pose, {
+          mask,
+          priority: basePriority ?? layerDef.priority,
+          suppressWalk: layerDef.suppressWalk,
+          useAsBase: layerDef.useAsBase,
+          durMs,
+          delayMs: rawDelay > 0 ? rawDelay : 0,
+          guard
+        });
+        registerTransitionLayerHandle(handle);
+      });
+    } else {
+      const layerId = `${presetName}-seq-${sequenceLayerCounter++}`;
+      const mask = step.mask || step.joints || strikePose.mask || strikePose.joints;
+      const handle = pushPoseLayerOverride('player', layerId, strikePose, {
+        mask,
+        priority: basePriority,
+        durMs: Number.isFinite(step.durMs) ? step.durMs
+          : Number.isFinite(step.durationMs) ? step.durationMs
+          : strikeDur,
+        delayMs: 0,
+        guard
+      });
+      registerTransitionLayerHandle(handle);
+    }
   }
 
   function getEquippedWeaponKey(){
@@ -279,7 +425,7 @@ function makeCombat(G, C){
 
     const build = (comboDef, key) => {
       if (!comboDef) return null;
-      const merged = { ...baseAbility };
+      const merged = { ...cloneAbilityForMerge(baseAbility) };
       merged.name = comboDef.name || baseAbility.name;
       merged.sequence = cloneSequence(comboDef.sequence || baseAbility.sequence || []);
       merged.comboWindowMs = comboDef.comboWindowMs ?? baseAbility.comboWindowMs;
@@ -296,6 +442,8 @@ function makeCombat(G, C){
       }
       if (comboDef.onHit) {
         merged.onHit = comboDef.onHit;
+      } else if (baseAbility.onHit) {
+        merged.onHit = baseAbility.onHit;
       }
       merged.weaponSource = comboDef.weapon || key || merged.weaponSource || null;
       merged.comboFromWeapon = false;
@@ -602,6 +750,7 @@ function makeCombat(G, C){
   function playQuickAttack(presetName, windupMs, context){
     const preset = C.presets?.[presetName];
     const ctx = context || null;
+    clearAttackSequenceTimers();
     ATTACK.active = true;
     ATTACK.preset = presetName;
     ATTACK.context = ctx;
@@ -611,6 +760,10 @@ function makeCombat(G, C){
     }
 
     const durs = computePresetDurationsWithContext(presetName, ctx);
+
+    if (ctx?.attack?.sequence) {
+      scheduleAttackSequence(ctx);
+    }
 
     if (preset && preset.poses){
       const windupPose = preset.poses.Windup || buildPoseFromKey('Windup');
@@ -632,6 +785,7 @@ function makeCombat(G, C){
 
             startTransition(stancePose, 'Stance', stanceTime, ()=>{
               const finishedContext = ATTACK.context;
+              clearAttackSequenceTimers();
               if (finishedContext?.onComplete){
                 try { finishedContext.onComplete(); } catch(err){ console.warn('[combat] onComplete error', err); }
               }
@@ -659,6 +813,7 @@ function makeCombat(G, C){
           startTransition(recoilPose, 'Recoil', recoilTime, ()=>{
             startTransition(stancePose, 'Stance', stanceTime, ()=>{
               const finishedContext = ATTACK.context;
+              clearAttackSequenceTimers();
               if (finishedContext?.onComplete){
                 try { finishedContext.onComplete(); } catch(err){ console.warn('[combat] onComplete error', err); }
               }
