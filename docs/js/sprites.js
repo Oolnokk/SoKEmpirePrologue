@@ -332,8 +332,9 @@ function spriteRotationOffset(styleKey){
 
 // Render order: use CONFIG.render.order if available; else fallback
 function buildZMap(C){
-  const def = ['HITBOX','ARM_L_UPPER','ARM_L_LOWER','LEG_L_UPPER','LEG_L_LOWER','TORSO','HEAD','LEG_R_UPPER','LEG_R_LOWER','ARM_R_UPPER','ARM_R_LOWER'];
-  const baseOrder = (C.render && Array.isArray(C.render.order) && C.render.order.length) ? C.render.order.map(s=>String(s).toUpperCase()) : def;
+  const def = ['HITBOX','ARM_L_UPPER','ARM_L_LOWER','LEG_L_LOWER','LEG_L_UPPER','TORSO','HEAD','LEG_R_LOWER','LEG_R_UPPER','ARM_R_UPPER','ARM_R_LOWER'];
+  const baseOrderRaw = (C.render && Array.isArray(C.render.order) && C.render.order.length) ? C.render.order.map(s=>String(s).toUpperCase()) : def;
+  const baseOrder = enforceLegLayering(baseOrderRaw);
   const expanded = [];
   for (const tag of baseOrder){
     expanded.push(tag);
@@ -344,6 +345,28 @@ function buildZMap(C){
   const m = new Map();
   expanded.forEach((tag,i)=>m.set(tag, i));
   return (tag)=> (m.has(tag) ? m.get(tag) : baseOrder.length + COSMETIC_SLOTS.length + 999);
+}
+
+function enforceLegLayering(order){
+  if (!Array.isArray(order)) return order;
+  const tags = order.slice();
+  const pairs = [
+    ['LEG_L_LOWER', 'LEG_L_UPPER'],
+    ['LEG_R_LOWER', 'LEG_R_UPPER']
+  ];
+  for (const [lower, upper] of pairs){
+    const lowerIdx = tags.indexOf(lower);
+    const upperIdx = tags.indexOf(upper);
+    if (lowerIdx === -1 || upperIdx === -1 || lowerIdx < upperIdx) continue;
+    tags.splice(lowerIdx, 1);
+    const refreshedUpperIdx = tags.indexOf(upper);
+    if (refreshedUpperIdx === -1){
+      tags.push(lower);
+    } else {
+      tags.splice(refreshedUpperIdx, 0, lower);
+    }
+  }
+  return tags;
 }
 
 // === MIRROR API ===
