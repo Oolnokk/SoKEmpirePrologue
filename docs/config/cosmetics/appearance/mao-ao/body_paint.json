@@ -1,15 +1,15 @@
 {
-  "meta": { "name": "Tribal Body Paint" },
+  "meta": { "name": "Smooth Stripe" },
   "type": "appearance",
   "appearance": {
-    "inheritSprite": "torso",
-    "bodyColors": ["A"],
-    "originalId": "maoao_body_paint"
+    "inheritSprite": "head",
+    "bodyColors": ["B"],
+    "originalId": "mao-ao_smooth_stripe"
   },
   "parts": {
-    "torso": {
+    "head": {
       "image": {
-        "url": "./assets/fightersprites/mao-ao-m/torso.png"
+        "url": "./assets/cosmetics/appearance/mao-ao/hairstyle/smooth_stripe.png"
       }
     }
   }
