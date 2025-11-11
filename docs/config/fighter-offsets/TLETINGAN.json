@@ -33,7 +33,7 @@
           "spriteStyle": {
             "xform": {
               "torso": {
-                "scaleY": 1.2,
+                "scaleY": 1.1,
                 "scaleX": 1.2,
                 "rotDeg": -180,
                 "ax": -0.55,
