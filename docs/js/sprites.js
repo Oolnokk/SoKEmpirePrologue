@@ -104,40 +104,126 @@ function hslToRgbNormalized(h, s, l){
   };
 }
 
+function rgbToHsvNormalized(r, g, b){
+  const rn = clamp01(r);
+  const gn = clamp01(g);
+  const bn = clamp01(b);
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+  let h = 0;
+  if (delta !== 0){
+    switch (max){
+      case rn:
+        h = ((gn - bn) / delta + (gn < bn ? 6 : 0)) / 6;
+        break;
+      case gn:
+        h = ((bn - rn) / delta + 2) / 6;
+        break;
+      default:
+        h = ((rn - gn) / delta + 4) / 6;
+        break;
+    }
+  }
+  const s = max === 0 ? 0 : delta / max;
+  const v = max;
+  return { h: wrapHue01(h), s: clamp01(s), v: clamp01(v) };
+}
+
+function hsvToRgbNormalized(h, s, v){
+  const hue = wrapHue01(h) * 6;
+  const sat = clamp01(s);
+  const value = clamp01(v);
+  if (sat === 0){
+    return { r: value, g: value, b: value };
+  }
+  const i = Math.floor(hue);
+  const f = hue - i;
+  const p = value * (1 - sat);
+  const q = value * (1 - sat * f);
+  const t = value * (1 - sat * (1 - f));
+  let rOut;
+  let gOut;
+  let bOut;
+  switch (i % 6){
+    case 0:
+      rOut = value;
+      gOut = t;
+      bOut = p;
+      break;
+    case 1:
+      rOut = q;
+      gOut = value;
+      bOut = p;
+      break;
+    case 2:
+      rOut = p;
+      gOut = value;
+      bOut = t;
+      break;
+    case 3:
+      rOut = p;
+      gOut = q;
+      bOut = value;
+      break;
+    case 4:
+      rOut = t;
+      gOut = p;
+      bOut = value;
+      break;
+    default:
+      rOut = value;
+      gOut = p;
+      bOut = q;
+      break;
+  }
+  return {
+    r: clamp01(rOut),
+    g: clamp01(gOut),
+    b: clamp01(bOut)
+  };
+}
+
 function applyHslAdjustmentsToPixel(r, g, b, adjustments){
   const adj = adjustments || {};
   const rn = r / 255;
   const gn = g / 255;
   const bn = b / 255;
-  const { h: baseH, s: baseS, l: baseL } = rgbToHslNormalized(rn, gn, bn);
+  const { h: baseHslH, s: baseHslS, l: baseL } = rgbToHslNormalized(rn, gn, bn);
+  const { h: baseHsvH, s: baseHsvS, v: baseV } = rgbToHsvNormalized(rn, gn, bn);
 
   const hueShift = Number.isFinite(adj.h) ? adj.h : 0;
   const satAdjust = Number.isFinite(adj.s) ? adj.s : 0;
-  const lightAdjustSource = (Number.isFinite(adj.l) ? adj.l : null);
-  const valueAdjustSource = lightAdjustSource == null && Number.isFinite(adj.v)
-    ? adj.v
-    : null;
-  const lightAdjust = lightAdjustSource ?? valueAdjustSource ?? 0;
+  const hasLightAdjust = Number.isFinite(adj.l);
+  const hasValueAdjust = !hasLightAdjust && Number.isFinite(adj.v);
+  const baseHue = hasLightAdjust ? baseHslH : baseHsvH;
+  const shiftedHue = wrapHue01(baseHue + hueShift / 360);
 
-  const shiftedHue = wrapHue01(baseH + hueShift / 360);
+  const adjustSaturation = (base, delta) => {
+    if (delta >= 0){
+      return base < 0.01
+        ? clamp01(delta)
+        : clamp01(base * (1 + delta));
+    }
+    return clamp01(base * Math.max(0, 1 + delta));
+  };
 
-  let saturation;
-  if (satAdjust >= 0){
-    saturation = baseS < 0.01
-      ? clamp01(satAdjust)
-      : clamp01(baseS * (1 + satAdjust));
-  } else {
-    saturation = clamp01(baseS * Math.max(0, 1 + satAdjust));
-  }
-
-  const lightness = clamp01(baseL + lightAdjust);
-
-  const { r: hr, g: hg, b: hb } = hslToRgbNormalized(shiftedHue, saturation, lightness);
+  const color = (() => {
+    if (hasLightAdjust){
+      const saturation = adjustSaturation(baseHslS, satAdjust);
+      const lightness = clamp01(baseL + adj.l);
+      return hslToRgbNormalized(shiftedHue, saturation, lightness);
+    }
+    const saturation = adjustSaturation(baseHsvS, satAdjust);
+    const valueAdjust = hasValueAdjust ? adj.v : 0;
+    const value = clamp01(baseV + valueAdjust);
+    return hsvToRgbNormalized(shiftedHue, saturation, value);
+  })();
 
   return [
-    Math.round(hr * 255),
-    Math.round(hg * 255),
-    Math.round(hb * 255)
+    Math.round(color.r * 255),
+    Math.round(color.g * 255),
+    Math.round(color.b * 255)
   ];
 }
 
@@ -151,7 +237,10 @@ function tintImageWithHsl(img, adjustments){
     imageCache = new Map();
     TINT_CACHE.set(img, imageCache);
   }
-  const key = `${Number.isFinite(adjustments.h) ? adjustments.h : 'h'}|${Number.isFinite(adjustments.s) ? adjustments.s : 's'}|${Number.isFinite(adjustments.l) ? adjustments.l : 'l'}`;
+  const lightKey = Number.isFinite(adjustments.l)
+    ? `l${adjustments.l}`
+    : (Number.isFinite(adjustments.v) ? `v${adjustments.v}` : 'l');
+  const key = `${Number.isFinite(adjustments.h) ? adjustments.h : 'h'}|${Number.isFinite(adjustments.s) ? adjustments.s : 's'}|${lightKey}`;
   if (imageCache.has(key)){
     return imageCache.get(key);
   }
