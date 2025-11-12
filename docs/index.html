@@ -11,16 +11,110 @@
   <!-- === Error Overlay (mobile-friendly) === -->
   <div id="bootError" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);color:#ffb4b4;font:14px ui-monospace,Menlo,Consolas,monospace;padding:16px;overflow:auto">
     <div style="max-width:900px;margin:auto">
-      <h3 style="margin:0 0 8px;color:#fecaca">Error</h3>
-      <pre id="bootErrorMsg" style="white-space:pre-wrap"></pre>
+      <h3 style="margin:0 0 12px;color:#fecaca">Boot Diagnostics</h3>
+      <div id="bootErrorLog" style="display:flex;flex-direction:column;gap:8px"></div>
       <button style="margin-top:12px;padding:8px 12px;background:#1f2937;color:#fff;border:1px solid #374151;border-radius:8px" onclick="this.closest('#bootError').style.display='none'">Dismiss</button>
     </div>
   </div>
   <script>
-    window.addEventListener('error', (e)=>{
-      const b=document.getElementById('bootError'), m=document.getElementById('bootErrorMsg');
-      if(b&&m){ m.textContent=(e.message||'Unknown error')+'\n'+(e.filename?e.filename+':'+e.lineno:''); b.style.display='block'; }
-    });
+    (function(){
+      const overlay=document.getElementById('bootError');
+      const log=document.getElementById('bootErrorLog');
+      if(!overlay||!log){return;}
+
+      const seen=new Set();
+      const limit=20;
+
+      function stringify(value){
+        if(value instanceof Error){
+          return value.stack||`${value.name||'Error'}: ${value.message||''}`.trim();
+        }
+        if(typeof value==='string'){return value;}
+        if(value===undefined){return 'undefined';}
+        if(value===null){return 'null';}
+        try{
+          return JSON.stringify(value,null,2);
+        }catch(err){
+          return String(value);
+        }
+      }
+
+      function formatArgs(args){
+        return args.map(stringify).join(' ');
+      }
+
+      function appendEntry(message,type='error',{dedupeKey}={}){
+        const key=dedupeKey?`${type}:${dedupeKey}`:'';
+        if(key&&seen.has(key)){return;}
+        if(key){seen.add(key);}
+
+        const container=document.createElement('div');
+        container.style.padding='10px 12px';
+        container.style.borderRadius='8px';
+        container.style.border=type==='fallback'?'1px solid rgba(253,224,71,0.45)':'1px solid rgba(248,113,113,0.45)';
+        container.style.background=type==='fallback'?'rgba(250,204,21,0.12)':'rgba(248,113,113,0.12)';
+        container.style.color=type==='fallback'?'#fef3c7':'#fee2e2';
+        container.style.fontSize='13px';
+        container.style.lineHeight='1.5';
+        container.style.whiteSpace='normal';
+
+        const title=document.createElement('div');
+        title.textContent=type==='fallback'?'Fallback triggered':'Error';
+        title.style.margin='0 0 4px';
+        title.style.fontWeight='600';
+        title.style.color=type==='fallback'?'#facc15':'#fca5a5';
+        container.appendChild(title);
+
+        const body=document.createElement('pre');
+        body.textContent=message;
+        body.style.margin='0';
+        body.style.whiteSpace='pre-wrap';
+        body.style.color=type==='fallback'?'#fde68a':'#fecaca';
+        body.style.fontFamily='inherit';
+        container.appendChild(body);
+
+        log.appendChild(container);
+        while(log.children.length>limit){log.removeChild(log.firstChild);}
+        overlay.style.display='block';
+      }
+
+      function handleErrorEvent(event){
+        const parts=[];
+        if(event.message){parts.push(event.message);}
+        if(event.filename){parts.push(`${event.filename}:${event.lineno||0}:${event.colno||0}`);}
+        const detail=event.error instanceof Error?event.error:undefined;
+        const message=detail?stringify(detail):parts.join('\n');
+        appendEntry(message||'Unknown error','error',{dedupeKey:message});
+      }
+
+      function handleRejection(event){
+        const reason=event.reason instanceof Error?event.reason:undefined;
+        const base=reason?stringify(reason):formatArgs([event.reason]);
+        appendEntry(`Unhandled promise rejection\n${base||'No additional details'}`,'error');
+      }
+
+      window.addEventListener('error',handleErrorEvent);
+      window.addEventListener('unhandledrejection',handleRejection);
+
+      const originalError=console.error.bind(console);
+      console.error=function(...args){
+        originalError(...args);
+        const text=formatArgs(args);
+        appendEntry(text||'console.error called with no arguments','error');
+      };
+
+      const originalWarn=console.warn.bind(console);
+      console.warn=function(...args){
+        originalWarn(...args);
+        const text=formatArgs(args);
+        appendEntry(text||'console.warn called with no arguments','fallback',{dedupeKey:text});
+      };
+
+      window.bootDiagnostics={
+        error(message){appendEntry(stringify(message),'error');},
+        fallback(message){appendEntry(stringify(message),'fallback');}
+      };
+    })();
   </script>
 
   <div class="entry-overlay" id="entryOverlay" role="dialog" aria-modal="true" aria-labelledby="entryTitle">
