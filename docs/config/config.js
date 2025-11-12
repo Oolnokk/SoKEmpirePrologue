@@ -1002,7 +1002,7 @@ window.CONFIG = {
       B: { label: 'Secondary Attack', light: 'quick_light', heavy: 'heavy_hold' }
     }
   }
-};
+}
 
 const toPascalCase = (value = '') => {
   return value
