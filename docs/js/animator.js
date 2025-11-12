@@ -412,7 +412,8 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
 function updateAiming(F, currentPose, fighterId){
   const C = window.CONFIG || {};
   const G = window.GAME || {};
-  
+  const poseFlags = currentPose || {};
+
   if (!C.aiming?.enabled) {
     F.aim.active = false;
     F.aim.torsoOffset = 0;
@@ -422,8 +423,8 @@ function updateAiming(F, currentPose, fighterId){
     return;
   }
 
-  // Only aim if pose allows it
-  if (!currentPose.allowAiming) {
+  // Only aim if the pose explicitly disables it
+  if (poseFlags.allowAiming === false) {
     F.aim.active = false;
     F.aim.torsoOffset = 0;
     F.aim.shoulderOffset = 0;
@@ -431,7 +432,7 @@ function updateAiming(F, currentPose, fighterId){
     F.aim.headWorldTarget = null;
     return;
   }
-  
+
   F.aim.active = true;
   
   let targetAngle;
@@ -518,8 +519,8 @@ function updateAiming(F, currentPose, fighterId){
   F.aim.shoulderOffset = clamp(aimDeg * 0.7, -(C.aiming.maxShoulderAngle || 60), (C.aiming.maxShoulderAngle || 60));
 
   // Apply leg aiming if pose allows it
-  if (currentPose.aimLegs) {
-    if (currentPose.aimRightLegOnly) {
+  if (poseFlags.aimLegs) {
+    if (poseFlags.aimRightLegOnly) {
       F.aim.hipOffset = clamp(aimDeg * 0.6, -50, 50); // Only right leg aims
     } else {
       F.aim.hipOffset = clamp(aimDeg * 0.4, -40, 40); // Both legs aim
@@ -539,24 +540,25 @@ function updateAiming(F, currentPose, fighterId){
 // Apply aiming offsets to a pose
 function applyAimingOffsets(poseDeg, F, currentPose){
   if (!F.aim.active) return poseDeg;
-  
+
+  const poseFlags = currentPose || {};
   const result = {...poseDeg};
   result.torso = (result.torso || 0) + F.aim.torsoOffset;
   result.lShoulder = (result.lShoulder || 0) + F.aim.shoulderOffset;
   result.rShoulder = (result.rShoulder || 0) + F.aim.shoulderOffset;
-  
+
   // Apply leg aiming if present
   if (F.aim.hipOffset !== 0) {
-    if (currentPose.aimRightLegOnly) {
+    if (poseFlags.aimRightLegOnly) {
       // Only right leg
       result.rHip = (result.rHip || 0) + F.aim.hipOffset;
-    } else if (currentPose.aimLegs) {
+    } else if (poseFlags.aimLegs) {
       // Both legs
       result.lHip = (result.lHip || 0) + F.aim.hipOffset;
       result.rHip = (result.rHip || 0) + F.aim.hipOffset;
     }
   }
-  
+
   return result;
 }
 
