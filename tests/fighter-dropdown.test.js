@@ -38,15 +38,32 @@ describe('Fighter dropdown selection fix', () => {
     // Find the fighterSelect.addEventListener('change', ...) section
     const changeHandlerRegex = /fighterSelect\.addEventListener\s*\(\s*['"]change['"]\s*,[\s\S]*?\}\s*\);/;
     const changeHandlerMatch = appJsSrc.match(changeHandlerRegex);
-    
+
     assert.ok(changeHandlerMatch, 'Fighter dropdown should have a change event listener');
-    
+
     const handlerCode = changeHandlerMatch[0];
-    
+
     // Verify that the handler still sets currentSelectedFighter (local variable)
     assert.ok(
       handlerCode.includes('currentSelectedFighter'),
       'Change handler should still set currentSelectedFighter for local tracking'
+    );
+  });
+
+  it('fighter dropdown restores previous selection when reinitialised', () => {
+    assert.ok(
+      /const previousSelection\s*=/.test(appJsSrc),
+      'initFighterDropdown should compute a previous selection before rebuilding options'
+    );
+
+    assert.ok(
+      appJsSrc.includes('window.GAME.selectedFighter = previousSelection'),
+      'initFighterDropdown should push the restored selection into window.GAME to keep the runtime in sync'
+    );
+
+    assert.ok(
+      appJsSrc.includes("fighterSelect.dataset.initialized = 'true'"),
+      'initFighterDropdown should guard the change listener to avoid duplicate registrations when reinitialised'
     );
   });
 });

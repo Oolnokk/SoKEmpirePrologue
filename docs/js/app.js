@@ -606,6 +606,11 @@ function initFighterDropdown() {
 
   const C = window.CONFIG || {};
   const fighters = C.fighters || {};
+  const previousSelection =
+    fighterSelect.value ||
+    currentSelectedFighter ||
+    window.GAME?.selectedFighter ||
+    null;
 
   // Clear existing options
   fighterSelect.innerHTML = '';
@@ -624,17 +629,37 @@ function initFighterDropdown() {
     fighterSelect.appendChild(option);
   });
 
-  // Handle selection change
-  fighterSelect.addEventListener('change', (e) => {
-    const selectedFighter = e.target.value;
-    currentSelectedFighter = selectedFighter;
-    window.GAME.selectedFighter = selectedFighter;
-    if (selectedFighter) {
-      showFighterSettings(selectedFighter);
-    } else {
+  const hasPreviousSelection =
+    previousSelection && Object.prototype.hasOwnProperty.call(fighters, previousSelection);
+
+  if (hasPreviousSelection) {
+    fighterSelect.value = previousSelection;
+    currentSelectedFighter = previousSelection;
+    window.GAME ||= {};
+    window.GAME.selectedFighter = previousSelection;
+    showFighterSettings(previousSelection);
+  } else {
+    fighterSelect.value = '';
+    if (!previousSelection) {
       hideFighterSettings();
     }
-  });
+  }
+
+  // Handle selection change
+  if (!fighterSelect.dataset.initialized) {
+    fighterSelect.addEventListener('change', (e) => {
+      const selectedFighter = e.target.value;
+      currentSelectedFighter = selectedFighter;
+      window.GAME ||= {};
+      window.GAME.selectedFighter = selectedFighter;
+      if (selectedFighter) {
+        showFighterSettings(selectedFighter);
+      } else {
+        hideFighterSettings();
+      }
+    });
+    fighterSelect.dataset.initialized = 'true';
+  }
 
   console.log('[initFighterDropdown] Fighter dropdown initialized with', Object.keys(fighters).length, 'fighters');
 }
