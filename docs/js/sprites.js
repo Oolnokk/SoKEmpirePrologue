@@ -21,6 +21,145 @@ const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
 RENDER.MIRROR = RENDER.MIRROR || {}; // Initialize per-limb mirror flags
 
+const TINT_CACHE = new WeakMap();
+
+function clamp01(value){
+  if (!Number.isFinite(value)) return 0;
+  if (value <= 0) return 0;
+  if (value >= 1) return 1;
+  return value;
+}
+
+function wrapHue01(value){
+  if (!Number.isFinite(value)) return 0;
+  let wrapped = value % 1;
+  if (wrapped < 0) wrapped += 1;
+  return wrapped;
+}
+
+function rgbToHslNormalized(r, g, b){
+  const rn = clamp01(r);
+  const gn = clamp01(g);
+  const bn = clamp01(b);
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  if (max === min){
+    return { h: 0, s: 0, l };
+  }
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  switch (max){
+    case rn:
+      h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6;
+      break;
+    case gn:
+      h = ((bn - rn) / d + 2) / 6;
+      break;
+    default:
+      h = ((rn - gn) / d + 4) / 6;
+      break;
+  }
+  return { h: wrapHue01(h), s: clamp01(s), l: clamp01(l) };
+}
+
+function hslToRgbNormalized(h, s, l){
+  const sat = clamp01(s);
+  const light = clamp01(l);
+  if (sat === 0){
+    return { r: light, g: light, b: light };
+  }
+  const hue = wrapHue01(h);
+  const q = light < 0.5
+    ? light * (1 + sat)
+    : light + sat - light * sat;
+  const p = 2 * light - q;
+  function hueToRgb(t){
+    let temp = t;
+    if (temp < 0) temp += 1;
+    if (temp > 1) temp -= 1;
+    if (temp < 1/6) return p + (q - p) * 6 * temp;
+    if (temp < 1/2) return q;
+    if (temp < 2/3) return p + (q - p) * (2/3 - temp) * 6;
+    return p;
+  }
+  return {
+    r: clamp01(hueToRgb(hue + 1/3)),
+    g: clamp01(hueToRgb(hue)),
+    b: clamp01(hueToRgb(hue - 1/3))
+  };
+}
+
+function applyHslAdjustmentsToPixel(r, g, b, adjustments){
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  let { h, s, l } = rgbToHslNormalized(rn, gn, bn);
+  if (Number.isFinite(adjustments.h)){
+    h = wrapHue01(h + adjustments.h / 360);
+  }
+  if (Number.isFinite(adjustments.s)){
+    s = clamp01(s + adjustments.s);
+  }
+  if (Number.isFinite(adjustments.l)){
+    l = clamp01(l + adjustments.l);
+  }
+  const { r: nr, g: ng, b: nb } = hslToRgbNormalized(h, s, l);
+  return [
+    Math.round(nr * 255),
+    Math.round(ng * 255),
+    Math.round(nb * 255)
+  ];
+}
+
+function tintImageWithHsl(img, adjustments){
+  if (!img || !adjustments || typeof document === 'undefined') return null;
+  const { width, height } = imageDrawDimensions(img);
+  if (!(width > 0 && height > 0)) return null;
+
+  let imageCache = TINT_CACHE.get(img);
+  if (!imageCache){
+    imageCache = new Map();
+    TINT_CACHE.set(img, imageCache);
+  }
+  const key = `${Number.isFinite(adjustments.h) ? adjustments.h : 'h'}|${Number.isFinite(adjustments.s) ? adjustments.s : 's'}|${Number.isFinite(adjustments.l) ? adjustments.l : 'l'}`;
+  if (imageCache.has(key)){
+    return imageCache.get(key);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx){
+    imageCache.set(key, null);
+    return null;
+  }
+  ctx.drawImage(img, 0, 0, width, height);
+
+  let imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, width, height);
+  } catch (err){
+    imageCache.set(key, null);
+    return null;
+  }
+
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4){
+    const alpha = data[i + 3];
+    if (!alpha) continue;
+    const [nr, ng, nb] = applyHslAdjustmentsToPixel(data[i], data[i + 1], data[i + 2], adjustments);
+    data[i] = nr;
+    data[i + 1] = ng;
+    data[i + 2] = nb;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  imageCache.set(key, canvas);
+  return canvas;
+}
+
 function hasHslAdjustments(hsl){
   if (!hsl) return false;
   return (Number.isFinite(hsl.h) && hsl.h !== 0)
@@ -28,8 +167,28 @@ function hasHslAdjustments(hsl){
     || (Number.isFinite(hsl.l) && hsl.l !== 0);
 }
 
+function normalizeHslInput(input){
+  if (!input || typeof input !== 'object') return null;
+  const out = {};
+  if (Number.isFinite(input.h)) out.h = Number(input.h);
+  if (Number.isFinite(input.s)) out.s = Number(input.s);
+  const lightness = Number.isFinite(input.l)
+    ? Number(input.l)
+    : (Number.isFinite(input.v) ? Number(input.v) : null);
+  if (lightness != null) out.l = Number(lightness);
+  return Object.keys(out).length ? out : null;
+}
+
 function prepareImageForHSL(img, hsl){
-  return { image: img, applyFilter: hasHslAdjustments(hsl) };
+  const normalized = normalizeHslInput(hsl);
+  if (!hasHslAdjustments(normalized)){
+    return { image: img, applyFilter: false, hsl: normalized };
+  }
+  const tinted = tintImageWithHsl(img, normalized);
+  if (tinted){
+    return { image: tinted, applyFilter: false, hsl: normalized };
+  }
+  return { image: img, applyFilter: true, hsl: normalized };
 }
 
 
@@ -368,7 +527,8 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   if (!img.complete) return false;
   if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return false;
 
-  const { image: renderImage, applyFilter } = prepareImageForHSL(img, options.hsl);
+  const tint = options.hsl || options.hsv;
+  const { image: renderImage, applyFilter, hsl: normalizedHsl } = prepareImageForHSL(img, tint);
   const sourceImage = renderImage || img;
 
   // Normalize styleKey: arm_L_upper -> armUpper, leg_R_lower -> legLower
@@ -454,7 +614,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
 
   const originalFilter = ctx.filter;
   const filter = applyFilter
-    ? buildFilterString(originalFilter, options.hsl)
+    ? buildFilterString(originalFilter, normalizedHsl)
     : (originalFilter && originalFilter !== '' ? originalFilter : 'none');
   const warp = options.warp;
   ctx.save();
@@ -551,7 +711,10 @@ export function renderSprites(ctx){
       if (!key) continue;
       const tint = bodyColors[key];
       if (tint){
-        return { hsl: { ...tint } };
+        const normalizedTint = normalizeHslInput(tint);
+        if (normalizedTint){
+          return { hsl: normalizedTint };
+        }
       }
     }
     return undefined;
@@ -668,7 +831,7 @@ export function renderSprites(ctx){
           withBranchMirror(ctx, originX, mirror, ()=>{
             drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, {
               styleOverride: layer.styleOverride,
-              hsv: layer.hsv,
+              hsl: layer.hsl || layer.hsv,
               warp: layer.warp,
               alignRad: layer.alignRad,
               alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
