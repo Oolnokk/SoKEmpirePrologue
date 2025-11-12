@@ -484,11 +484,10 @@ function clampHSL(input = {}, cosmetic){
   const limits = cosmetic?.hsl?.limits || {};
   const source = Array.isArray(input)
     ? { h: input[0], s: input[1], l: input[2] }
-    : (input && typeof input === 'object' ? { ...input } : {});
+    : (input && typeof input === 'object' ? input : {});
 
   if (source && source.l == null && source.v != null){
     source.l = source.v;
-    delete source.v;
   }
 
   function resolveLimitPair(limitPair, fallbackMin, fallbackMax){
