@@ -345,33 +345,22 @@ function tintImageWithHsl(img, adjustments){
     return imageCache.get(key);
   }
 
-  const [r, g, b] = applyHslAdjustmentsToPixel(255, 255, 255, adjustments);
-  const alpha = resolveBlendAlpha(adjustments);
-  if (alpha <= 0){
-    imageCache.set(key, null);
-    return null;
-  }
-  const blendColor = [clampColorByte(r), clampColorByte(g), clampColorByte(b), alpha];
-  const debugOptions = buildTintDebugOptions(blendColor, adjustments);
-
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
 
-  let tinted = false;
-  const helper = typeof tintSpriteToCanvas === 'function'
-    ? tintSpriteToCanvas
-    : (typeof window !== 'undefined' && typeof window.tintSpriteToCanvas === 'function'
-      ? window.tintSpriteToCanvas
-      : null);
-  if (helper){
-    tinted = helper(img, canvas, blendColor, debugOptions || undefined);
-  }
+  const [r, g, b] = applyHslAdjustmentsToPixel(255, 255, 255, adjustments);
+  const blendColor = [r, g, b, 255];
 
-  if (!tinted){
-    const legacy = legacyTintImageWithHsl(img, adjustments, width, height);
-    imageCache.set(key, legacy);
-    return legacy;
+  const debugFlag = Boolean(typeof window !== 'undefined' && window.RENDER_DEBUG?.tintSwatches);
+  const debugOptions = debugFlag
+    ? { debug: true, label: `rgba(${r|0},${g|0},${b|0},1.00)` }
+    : { debug: false };
+
+  const ok = tintSpriteToCanvas(img, canvas, blendColor, debugOptions);
+  if (!ok){
+    imageCache.set(key, null);
+    return null;
   }
 
   imageCache.set(key, canvas);
@@ -1152,5 +1141,6 @@ export const __TESTING__ = {
   applyHslAdjustmentsToPixel,
   normalizeHslInput,
   rgbToHslNormalized,
-  hslToRgbNormalized
+  hslToRgbNormalized,
+  tintImageWithHsl
 };
