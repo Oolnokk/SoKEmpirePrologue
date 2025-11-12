@@ -1133,6 +1133,36 @@ function drawStage(){
   cx.translate(-camX, 0);
   cx.strokeStyle = 'rgba(255,255,255,.15)';
   cx.beginPath(); cx.moveTo(0, gy); cx.lineTo(worldW, gy); cx.stroke();
+
+  const preview = window.GAME?.editorPreview;
+  const collider = preview?.groundCollider;
+  if (collider) {
+    const left = Number.isFinite(collider.left) ? collider.left : 0;
+    const width = Number.isFinite(collider.width)
+      ? collider.width
+      : (Number.isFinite(collider.right) ? collider.right - left : null);
+    const top = Number.isFinite(collider.top) ? collider.top : gy;
+    const height = Number.isFinite(collider.height)
+      ? collider.height
+      : Math.max(48, (preview?.groundOffset ?? 140) + 24);
+    if (width && width > 0 && Number.isFinite(height) && height > 0) {
+      const right = left + width;
+      const bottom = top + height;
+      cx.save();
+      cx.setLineDash([8, 6]);
+      cx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+      cx.lineWidth = 2;
+      cx.strokeRect(left, top, width, height);
+      cx.setLineDash([4, 4]);
+      cx.beginPath();
+      cx.moveTo(left, top);
+      cx.lineTo(right, top);
+      cx.moveTo(left, bottom);
+      cx.lineTo(right, bottom);
+      cx.stroke();
+      cx.restore();
+    }
+  }
   cx.restore();
 
   cx.fillStyle = '#93c5fd';
