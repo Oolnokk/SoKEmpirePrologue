@@ -6,6 +6,8 @@ const DEFAULT_SMOOTHING = 0.15;
 let attachedRegistry = null;
 let detachRegistryListener = null;
 let lastViewportWidth = DEFAULT_VIEWPORT_WIDTH;
+let lastLoggedPlayerX = null;
+let lastLoggedAreaId = null;
 
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) return min;
@@ -92,6 +94,8 @@ function attachToRegistry(registry) {
   if (registry === attachedRegistry) {
     return;
   }
+  lastLoggedAreaId = null;
+  lastLoggedPlayerX = null;
   if (typeof detachRegistryListener === 'function') {
     detachRegistryListener();
     detachRegistryListener = null;
@@ -140,6 +144,10 @@ export function updateCamera(canvas) {
   if (!P) return;
 
   const camera = ensureGameCamera();
+  const activeAreaId = (attachedRegistry && typeof attachedRegistry.getActiveAreaId === 'function')
+    ? attachedRegistry.getActiveAreaId()
+    : (window.GAME?.currentAreaId || null);
+
   const viewportWidth = canvas?.width || C.canvas?.w || lastViewportWidth || DEFAULT_VIEWPORT_WIDTH;
   lastViewportWidth = viewportWidth;
   camera.viewportWidth = viewportWidth;
@@ -154,6 +162,20 @@ export function updateCamera(canvas) {
     : Number.isFinite(P.pos?.x)
       ? P.pos.x
       : 0;
+  if (Number.isFinite(playerX)) {
+    const shouldLogArea = activeAreaId && activeAreaId !== lastLoggedAreaId;
+    const shouldLogPosition = lastLoggedPlayerX == null || Math.abs(playerX - lastLoggedPlayerX) >= 1;
+    if (shouldLogArea || shouldLogPosition) {
+      lastLoggedPlayerX = playerX;
+      lastLoggedAreaId = activeAreaId || lastLoggedAreaId;
+      console.debug('[camera] Player X in layout coordinates', {
+        areaId: activeAreaId || 'unknown',
+        x: Number(playerX.toFixed(2)),
+        viewportWidth,
+        cameraBounds: { min: minBound, max: maxBound },
+      });
+    }
+  }
   const desiredX = playerX - viewportWidth * 0.5;
   const target = clamp(desiredX, minBound, maxCameraX);
 
