@@ -1,6 +1,6 @@
 // animator.js — restore basic idle/walk posing; robust speed detection; override TTL required
 import { degToRad, radToDegNum, angleFromDelta } from './math-utils.js?v=1';
-import { setMirrorForPart, resetMirror } from './sprites.js?v=9';
+import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
 import { pickFighterConfig, pickFighterName } from './fighter-utils.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
 
