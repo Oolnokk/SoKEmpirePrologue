@@ -1,9 +1,33 @@
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const CONFIG = ROOT?.CONFIG || {};
 const STATE = (ROOT.COSMETIC_PALETTE_STATE ||= {
   cache: new Map(),
   preloaded: new Map(),
   imageToPalette: new Map()
 });
+
+function resolvePaletteResourceUrl(path) {
+  if (!path || typeof path !== 'string') return path;
+  const resolver = CONFIG?.resolveConfigUrl;
+  if (typeof resolver === 'function') {
+    try {
+      return resolver(path);
+    } catch (error) {
+      // fall through to location-based resolution
+    }
+  }
+  if (typeof URL === 'function') {
+    try {
+      const base = CONFIG?.__siteRoot || ROOT?.location?.href;
+      if (base) {
+        return new URL(path, base).href;
+      }
+    } catch (_error) {
+      // ignore resolution failures
+    }
+  }
+  return path;
+}
 
 const COLOR_KEYS = ['primary', 'secondary', 'tertiary'];
 const SHADE_KEYS = ['primary', 'secondary', 'tertiary'];
@@ -372,7 +396,8 @@ function getPaletteForImage(imageUrl){
   }
   if (typeof fetch === 'function'){
     try {
-      fetch(paletteUrl, { credentials: 'same-origin' })
+      const resolvedUrl = resolvePaletteResourceUrl(paletteUrl);
+      fetch(resolvedUrl, { credentials: 'same-origin' })
         .then((resp)=> resp.ok ? resp.json() : null)
         .then((json)=> {
           if (!json) return null;
