@@ -134,7 +134,7 @@ function buildBodyColorMap(source = {}){
   for (const [key, value] of Object.entries(source || {})){
     const letter = String(key || '').trim().toUpperCase();
     if (!letter) continue;
-    map[letter] = clampHSV(value, null);
+    map[letter] = clampHSL(value, null);
   }
   return map;
 }
@@ -305,7 +305,7 @@ export function resolveFighterBodyColors(config = {}, fighterName){
   return resolveBodyColorSource(config, fighterName).colors;
 }
 
-function resolveAppearanceBaseHSV(equipped = {}, cosmetic = {}, bodyColors = {}){
+function resolveAppearanceBaseHSL(equipped = {}, cosmetic = {}, bodyColors = {}){
   const letters = ensureArray(equipped.colors || cosmetic.appearance?.bodyColors || cosmetic.bodyColors || cosmetic.colors);
   for (const letter of letters){
     const key = String(letter || '').trim().toUpperCase();
@@ -316,22 +316,22 @@ function resolveAppearanceBaseHSV(equipped = {}, cosmetic = {}, bodyColors = {})
     }
   }
   const fallback = bodyColors.A || bodyColors.B || bodyColors.C;
-  return fallback ? deepMerge({}, fallback) : { h: 0, s: 0, v: 0 };
+  return fallback ? deepMerge({}, fallback) : { h: 0, s: 0, l: 0 };
 }
 
-function addHSV(base = {}, adjustment = {}){
+function addHSL(base = {}, adjustment = {}){
   return {
     h: (Number(base.h) || 0) + (Number(adjustment.h) || 0),
     s: (Number(base.s) || 0) + (Number(adjustment.s) || 0),
-    v: (Number(base.v) || 0) + (Number(adjustment.v) || 0)
+    l: (Number(base.l ?? base.v) || 0) + (Number(adjustment.l ?? adjustment.v) || 0)
   };
 }
 
-function clampBodyHSV(hsv = {}){
+function clampBodyHSL(hsl = {}){
   return {
-    h: clamp(hsv.h, -180, 180),
-    s: clamp(hsv.s, -1, 1),
-    v: clamp(hsv.v, -1, 1)
+    h: clamp(hsl.h, -180, 180),
+    s: clamp(hsl.s, -1, 1),
+    l: clamp(hsl.l ?? hsl.v, -1, 1)
   };
 }
 
@@ -394,16 +394,23 @@ function loadImage(url){
 
 function normalizeCosmetic(id, raw = {}){
   const slots = ensureArray(raw.slot || raw.slots);
+  const tintConfig = raw.hsl || raw.hsv || {};
+  const tintDefaults = tintConfig.defaults || {};
+  const tintLimits = tintConfig.limits || {};
   const norm = {
     id,
     slots: slots.length ? slots : COSMETIC_SLOTS,
     parts: raw.parts || {},
-    hsv: {
-      defaults: { h:0, s:0, v:0, ...(raw.hsv?.defaults || {}) },
+    hsl: {
+      defaults: {
+        h: tintDefaults.h ?? 0,
+        s: tintDefaults.s ?? 0,
+        l: (tintDefaults.l ?? tintDefaults.v ?? 0)
+      },
       limits: {
-        h: raw.hsv?.limits?.h ?? [-180, 180],
-        s: raw.hsv?.limits?.s ?? [-1, 1],
-        v: raw.hsv?.limits?.v ?? [-1, 1]
+        h: tintLimits.h ?? [-180, 180],
+        s: tintLimits.s ?? [-1, 1],
+        l: tintLimits.l ?? tintLimits.v ?? [-1, 1]
       }
     }
   };
@@ -448,12 +455,16 @@ function clamp(value, min, max){
   return Math.min(Math.max(num, lo), hi);
 }
 
-function clampHSV(input = {}, cosmetic){
-  const defaults = cosmetic?.hsv?.defaults || { h:0, s:0, v:0 };
-  const limits = cosmetic?.hsv?.limits || {};
+function clampHSL(input = {}, cosmetic){
+  const defaults = cosmetic?.hsl?.defaults || { h:0, s:0, l:0 };
+  const limits = cosmetic?.hsl?.limits || {};
   const source = Array.isArray(input)
-    ? { h: input[0], s: input[1], v: input[2] }
+    ? { h: input[0], s: input[1], l: input[2] }
     : (input && typeof input === 'object' ? input : {});
+
+  if (source && source.l == null && source.v != null){
+    source.l = source.v;
+  }
 
   function resolveLimitPair(limitPair, fallbackMin, fallbackMax){
     const min = Number.isFinite(limitPair?.[0]) ? limitPair[0] : fallbackMin;
@@ -481,12 +492,12 @@ function clampHSV(input = {}, cosmetic){
 
   const [hMin, hMax] = resolveLimitPair(limits.h, -180, 180);
   const [sMin, sMax] = resolveLimitPair(limits.s, -1, 1);
-  const [vMin, vMax] = resolveLimitPair(limits.v, -1, 1);
+  const [lMin, lMax] = resolveLimitPair(limits.l ?? limits.v, -1, 1);
 
   return {
     h: clampWithPercentSupport(source.h, defaults.h ?? 0, hMin, hMax),
     s: clampWithPercentSupport(source.s, defaults.s ?? 0, sMin, sMax, { allowPercent: true }),
-    v: clampWithPercentSupport(source.v, defaults.v ?? 0, vMin, vMax, { allowPercent: true })
+    l: clampWithPercentSupport(source.l, defaults.l ?? defaults.v ?? 0, lMin, lMax, { allowPercent: true })
   };
 }
 
@@ -552,12 +563,12 @@ function normalizeEquipment(slotEntry){
   }
   const id = slotEntry.id || slotEntry.cosmeticId || slotEntry.item || slotEntry.name;
   if (!id) return null;
-  const hsv = slotEntry.hsv || slotEntry.tone || {};
+  const hsl = slotEntry.hsl || slotEntry.hsv || slotEntry.tone || {};
   const fighterOverrides = slotEntry.fighterOverrides || {};
   const colors = ensureArray(slotEntry.colors || slotEntry.bodyColors || slotEntry.appearanceColors);
   return {
     id,
-    hsv,
+    hsl,
     fighterOverrides,
     colors: colors.length ? colors : undefined
   };
@@ -620,18 +631,19 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
     if (!cosmetic) continue;
     const slotOverride = editorState?.slotOverrides?.[slot];
     const isAppearance = slot.startsWith(APPEARANCE_SLOT_PREFIX) || cosmetic?.type === 'appearance' || !!cosmetic?.appearance;
-    let slotHSV = isAppearance
-      ? resolveAppearanceBaseHSV(equipped, cosmetic, bodyColors)
-      : clampHSV(equipped.hsv, cosmetic);
+    const equippedTint = equipped.hsl ?? equipped.hsv;
+    let slotHSL = isAppearance
+      ? resolveAppearanceBaseHSL(equipped, cosmetic, bodyColors)
+      : clampHSL(equippedTint, cosmetic);
     if (isAppearance){
-      if (equipped.hsv){
-        slotHSV = addHSV(slotHSV, clampHSV(equipped.hsv, cosmetic));
+      if (equippedTint){
+        slotHSL = addHSL(slotHSL, clampHSL(equippedTint, cosmetic));
       }
-      if (slotOverride?.hsv){
-        slotHSV = addHSV(slotHSV, clampHSV(slotOverride.hsv, cosmetic));
+      if (slotOverride?.hsl){
+        slotHSL = addHSL(slotHSL, clampHSL(slotOverride.hsl, cosmetic));
       }
-    } else if (slotOverride?.hsv){
-      slotHSV = clampHSV({ ...slotHSV, ...slotOverride.hsv }, cosmetic);
+    } else if (slotOverride?.hsl){
+      slotHSL = clampHSL({ ...slotHSL, ...slotOverride.hsl }, cosmetic);
     }
     for (const [partKey, partConfig] of Object.entries(cosmetic.parts || {})){
       const resolved = resolvePartConfig(partConfig, fighterName, cosmetic.id, partKey);
@@ -662,12 +674,12 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
       if (slotOverride?.spriteStyle){
         styleOverride = mergeConfig(styleOverride, slotOverride.spriteStyle);
       }
-      let hsv = isAppearance ? { ...slotHSV } : { ...slotHSV };
-      if (partOverride?.hsv){
+      let hsl = isAppearance ? { ...slotHSL } : { ...slotHSL };
+      if (partOverride?.hsl){
         if (isAppearance){
-          hsv = addHSV(hsv, clampHSV(partOverride.hsv, cosmetic));
+          hsl = addHSL(hsl, clampHSL(partOverride.hsl, cosmetic));
         } else {
-          hsv = clampHSV({ ...hsv, ...partOverride.hsv }, cosmetic);
+          hsl = clampHSL({ ...hsl, ...partOverride.hsl }, cosmetic);
         }
       }
       if (partOverride?.spriteStyle){
@@ -691,7 +703,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
       const alignDeg = resolved.align?.deg;
       const alignRad = resolved.align?.rad ?? (Number.isFinite(alignDeg) ? degToRad(alignDeg) : undefined);
       if (isAppearance){
-        hsv = clampBodyHSV(hsv);
+        hsl = clampBodyHSL(hsl);
       }
       const layerExtra = resolved.extra ? deepMerge({}, resolved.extra) : {};
       if (isAppearance){
@@ -707,7 +719,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
         partKey,
         cosmeticId: cosmetic.id,
         asset,
-        hsv,
+        hsl,
         styleOverride,
         warp: warpOverride,
         anchorOverride,

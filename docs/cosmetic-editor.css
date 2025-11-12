@@ -47,24 +47,6 @@ main.editor-layout {
   cursor: grab;
 }
 
-.editor-preview canvas.is-bucket {
-  cursor: crosshair;
-}
-
-.bucket-hint {
-  position: absolute;
-  inset: 18px;
-  pointer-events: none;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding: 12px;
-  font-size: 13px;
-  color: #fbbf24;
-  background: linear-gradient(135deg, rgba(15,23,42,0.0) 0%, rgba(15,23,42,0.65) 35%);
-  border-radius: 12px;
-}
-
 .editor-controls {
   display: flex;
   flex-direction: column;
@@ -156,50 +138,6 @@ button.is-active {
   background: rgba(30,64,175,0.18);
   border-radius: 10px;
   padding: 10px;
-}
-
-.bucket-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.bucket-settings {
-  display: grid;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.bucket-settings label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.bucket-settings input[type="number"] {
-  background: rgba(15,23,42,0.36);
-  border: 1px solid rgba(148,163,184,0.4);
-  border-radius: 6px;
-  padding: 6px 8px;
-  color: #e2e8f0;
-}
-
-.bucket-settings input[type="number"]:focus {
-  border-color: rgba(129,140,248,0.8);
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(129,140,248,0.2);
-}
-
-.bucket-actions button {
-  flex: 1 1 auto;
-}
-
-.bucket-actions button:last-child {
-  flex-basis: 100%;
-}
-
-.bucket-hint[hidden] {
-  display: none;
 }
 
 #editorStatus {

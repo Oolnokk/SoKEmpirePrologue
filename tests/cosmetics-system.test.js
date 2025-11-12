@@ -27,15 +27,15 @@ test('cosmeticTagFor uppercases base tag and slot', () => {
   strictEqual(cosmeticTagFor('torso', 'hat'), 'TORSO__COS__HAT');
 });
 
-test('ensureCosmeticLayers resolves equipment with HSV limits applied', () => {
+test('ensureCosmeticLayers resolves equipment with HSL limits applied', () => {
   clearCosmeticCache();
   const config = {
     cosmeticLibrary: {
       demo_item: {
         slot: 'hat',
-        hsv: {
-          defaults: { h: 0, s: 0, v: 0 },
-          limits: { h: [-30, 30], s: [-0.25, 0.25], v: [-0.5, 0.5] }
+        hsl: {
+          defaults: { h: 0, s: 0, l: 0 },
+          limits: { h: [-30, 30], s: [-0.25, 0.25], l: [-0.5, 0.5] }
         },
         parts: {
           head: {
@@ -57,7 +57,7 @@ test('ensureCosmeticLayers resolves equipment with HSV limits applied', () => {
       hero: {
         cosmetics: {
           slots: {
-            hat: { id: 'demo_item', hsv: { h: 60, s: 1, v: 1 } }
+            hat: { id: 'demo_item', hsl: { h: 60, s: 1, l: 1 } }
           }
         }
       }
@@ -67,19 +67,19 @@ test('ensureCosmeticLayers resolves equipment with HSV limits applied', () => {
   strictEqual(layers.length, 1);
   strictEqual(layers[0].slot, 'hat');
   strictEqual(layers[0].partKey, 'head');
-  deepStrictEqual(layers[0].hsv, { h: 30, s: 0.25, v: 0.5 });
+  deepStrictEqual(layers[0].hsl, { h: 30, s: 0.25, l: 0.5 });
   strictEqual(typeof layers[0].styleOverride, 'object');
 });
 
-test('ensureCosmeticLayers normalizes hsv arrays and string values', () => {
+test('ensureCosmeticLayers normalizes hsl arrays and string values', () => {
   clearCosmeticCache();
   const config = {
     cosmeticLibrary: {
       demo_item: {
         slot: 'hat',
-        hsv: {
-          defaults: { h: 10, s: 0.1, v: -0.1 },
-          limits: { h: [-45, 45], s: [-0.5, 0.5], v: [-0.5, 0.5] }
+        hsl: {
+          defaults: { h: 10, s: 0.1, l: -0.1 },
+          limits: { h: [-45, 45], s: [-0.5, 0.5], l: [-0.5, 0.5] }
         },
         parts: {
           head: {
@@ -92,7 +92,7 @@ test('ensureCosmeticLayers normalizes hsv arrays and string values', () => {
       hero: {
         cosmetics: {
           slots: {
-            hat: { id: 'demo_item', hsv: ['30', '0.4', '-0.2'] }
+            hat: { id: 'demo_item', hsl: ['30', '0.4', '-0.2'] }
           }
         }
       }
@@ -100,18 +100,18 @@ test('ensureCosmeticLayers normalizes hsv arrays and string values', () => {
   };
   const layers = ensureCosmeticLayers(config, 'hero', {});
   strictEqual(layers.length, 1);
-  deepStrictEqual(layers[0].hsv, { h: 30, s: 0.4, v: -0.2 });
+  deepStrictEqual(layers[0].hsl, { h: 30, s: 0.4, l: -0.2 });
 });
 
-test('ensureCosmeticLayers interprets percentage-style saturation and value', () => {
+test('ensureCosmeticLayers interprets percentage-style saturation and lightness', () => {
   clearCosmeticCache();
   const config = {
     cosmeticLibrary: {
       demo_item: {
         slot: 'legs',
-        hsv: {
-          defaults: { h: 0, s: 0, v: 0 },
-          limits: { h: [-45, 45], s: [-0.5, 0.5], v: [-0.5, 0.5] }
+        hsl: {
+          defaults: { h: 0, s: 0, l: 0 },
+          limits: { h: [-45, 45], s: [-0.5, 0.5], l: [-0.5, 0.5] }
         },
         parts: {
           leg_L_upper: { image: { url: 'https://example.com/pants-left.png' } },
@@ -123,7 +123,7 @@ test('ensureCosmeticLayers interprets percentage-style saturation and value', ()
       hero: {
         cosmetics: {
           slots: {
-            legs: { id: 'demo_item', hsv: { h: 10, s: 80, v: -50 } }
+            legs: { id: 'demo_item', hsl: { h: 10, s: 80, l: -50 } }
           }
         }
       }
@@ -134,7 +134,7 @@ test('ensureCosmeticLayers interprets percentage-style saturation and value', ()
   strictEqual(layers.length, 2);
   layers.forEach((layer) => {
     strictEqual(layer.slot, 'legs');
-    deepStrictEqual(layer.hsv, { h: 10, s: 0.5, v: -0.5 });
+    deepStrictEqual(layer.hsl, { h: 10, s: 0.5, l: -0.5 });
   });
 });
 
@@ -145,7 +145,7 @@ test('appearance cosmetics inherit character body colors', () => {
       hero: {
         fighter: 'hero',
         bodyColors: {
-          A: { h: 15, s: 0.3, v: 0.1 }
+          A: { h: 15, s: 0.3, l: 0.1 }
         },
         appearance: {
           slots: {
@@ -170,7 +170,7 @@ test('appearance cosmetics inherit character body colors', () => {
   const layers = ensureCosmeticLayers(config, 'hero', {});
   strictEqual(layers.length, 1);
   strictEqual(layers[0].slot, 'appearance:torso');
-  deepStrictEqual(layers[0].hsv, { h: 15, s: 0.3, v: 0.1 });
+  deepStrictEqual(layers[0].hsl, { h: 15, s: 0.3, l: 0.1 });
   deepStrictEqual(layers[0].extra?.appearance?.bodyColors, ['A']);
   strictEqual(layers[0].styleKey, 'torso');
 });
@@ -206,13 +206,13 @@ test('default character pants tint to blue for player and red for enemy', () => 
   playerLayers
     .filter((layer) => layer.slot === 'legs')
     .forEach((layer) => {
-      deepStrictEqual(layer.hsv, { h: -120, s: 0.8, v: 0.1 });
+      deepStrictEqual(layer.hsl, { h: -120, s: 0.8, l: 0.1 });
     });
 
   enemyLayers
     .filter((layer) => layer.slot === 'legs')
     .forEach((layer) => {
-      deepStrictEqual(layer.hsv, { h: 0, s: 0.85, v: 0.05 });
+      deepStrictEqual(layer.hsl, { h: 0, s: 0.85, l: 0.05 });
     });
 });
 

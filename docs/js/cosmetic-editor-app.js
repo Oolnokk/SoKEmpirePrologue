@@ -15,7 +15,6 @@ const CONFIG = window.CONFIG || {};
 const GAME = (window.GAME ||= {});
 const editorState = (GAME.editorState ||= {
   slotOverrides: {},
-  overlayHistory: [],
   activePartKey: null,
   slotSelection: {},
   assetManifest: [],
@@ -41,13 +40,6 @@ const styleFields = document.getElementById('styleFields');
 const styleHeader = document.getElementById('styleActiveSlot');
 const styleResetBtn = document.getElementById('resetPartOverrides');
 const styleSlotResetBtn = document.getElementById('resetSlotOverrides');
-const bucketToggle = document.getElementById('bucketToggle');
-const bucketColorInput = document.getElementById('bucketColor');
-const bucketToleranceInput = document.getElementById('bucketTolerance');
-const bucketExpandInput = document.getElementById('bucketExpand');
-const bucketHint = document.getElementById('bucketHint');
-const bucketUndoBtn = document.getElementById('bucketUndo');
-const bucketClearBtn = document.getElementById('bucketClear');
 const statusEl = document.getElementById('editorStatus');
 const assetSearch = document.getElementById('assetSearch');
 const assetList = document.getElementById('assetList');
@@ -128,77 +120,6 @@ function clampNumber(value, min, max){
   if (value < min) return min;
   if (value > max) return max;
   return value;
-}
-
-function readBucketTolerance(){
-  const fallback = 24;
-  if (!bucketToleranceInput) return fallback;
-  const parsed = Number.parseFloat(bucketToleranceInput.value);
-  if (Number.isNaN(parsed)) return fallback;
-  return clampNumber(Math.round(parsed), 0, 255);
-}
-
-function readBucketExpansion(){
-  const fallback = 1;
-  if (!bucketExpandInput) return fallback;
-  const parsed = Number.parseFloat(bucketExpandInput.value);
-  if (Number.isNaN(parsed)) return fallback;
-  return clampNumber(Math.round(parsed), 0, 24);
-}
-
-function ensureOverlay(){
-  if (!editorState.overlayCanvas){
-    const overlayCanvas = document.createElement('canvas');
-    overlayCanvas.width = canvas.width;
-    overlayCanvas.height = canvas.height;
-    const overlayCtx = overlayCanvas.getContext('2d');
-    editorState.overlayCanvas = overlayCanvas;
-    editorState.overlayCtx = overlayCtx;
-    editorState.overlayHistory = [];
-    captureOverlaySnapshot();
-  }
-  return editorState.overlayCanvas;
-}
-
-function captureOverlaySnapshot(){
-  const overlayCtx = editorState.overlayCtx;
-  if (!overlayCtx) return;
-  const data = overlayCtx.getImageData(0, 0, canvas.width, canvas.height);
-  const clone = new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
-  editorState.overlayHistory.push(clone);
-  if (editorState.overlayHistory.length > 20){
-    editorState.overlayHistory.shift();
-  }
-  updateUndoButtonState();
-}
-
-function restoreOverlayFromSnapshot(snapshot){
-  const overlayCtx = editorState.overlayCtx;
-  if (!overlayCtx || !snapshot) return;
-  overlayCtx.putImageData(snapshot, 0, 0);
-}
-
-function undoOverlay(){
-  const history = editorState.overlayHistory;
-  if (!history || history.length <= 1) return;
-  history.pop();
-  const previous = history[history.length - 1];
-  restoreOverlayFromSnapshot(previous);
-  updateUndoButtonState();
-}
-
-function clearOverlay(){
-  ensureOverlay();
-  if (!editorState.overlayCtx) return;
-  editorState.overlayCtx.clearRect(0, 0, canvas.width, canvas.height);
-  editorState.overlayHistory = [];
-  captureOverlaySnapshot();
-}
-
-function updateUndoButtonState(){
-  if (!bucketUndoBtn) return;
-  const hasUndo = (editorState.overlayHistory?.length || 0) > 1;
-  bucketUndoBtn.disabled = !hasUndo;
 }
 
 function showStatus(message, { tone = 'info', timeout = 1800 } = {}){
@@ -471,9 +392,9 @@ function createCustomCosmetic(){
   const newCosmetic = {
     slots: [slot],
     meta: { name: displayName },
-    hsv: {
-      defaults: { h: 0, s: 0, v: 0 },
-      limits: { h: [-180, 180], s: [-1, 1], v: [-1, 1] }
+    hsl: {
+      defaults: { h: 0, s: 0, l: 0 },
+      limits: { h: [-180, 180], s: [-1, 1], l: [-1, 1] }
     },
     parts
   };
@@ -577,137 +498,6 @@ function mapProfileToSlotOverrides(slotMap, profile){
   return overrides;
 }
 
-function parseHexColor(value){
-  if (!value) return null;
-  const trimmed = value.trim();
-  const hex = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
-  if (hex.length !== 3 && hex.length !== 6) return null;
-  const chars = hex.length === 3
-    ? hex.split('').map((ch)=> ch + ch)
-    : [hex.slice(0,2), hex.slice(2,4), hex.slice(4,6)];
-  const nums = chars.map((pair)=> Number.parseInt(pair, 16));
-  if (nums.some((n)=> Number.isNaN(n))) return null;
-  return { r: nums[0], g: nums[1], b: nums[2], a: 255 };
-}
-
-function applyBucketFill(x, y, rgba, { tolerance: toleranceValue, expand: expandValue } = {}){
-  ensureOverlay();
-  const overlayCtx = editorState.overlayCtx;
-  if (!overlayCtx || !ctx) return;
-  if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
-
-  const tolerance = clampNumber(Number.isFinite(toleranceValue) ? Math.round(toleranceValue) : readBucketTolerance(), 0, 255);
-  const expandPixels = clampNumber(Number.isFinite(expandValue) ? Math.round(expandValue) : readBucketExpansion(), 0, 24);
-  const alphaTolerance = clampNumber(tolerance + 16, 0, 255);
-
-  let baseData;
-  let overlayData;
-  try {
-    baseData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    overlayData = overlayCtx.getImageData(0, 0, canvas.width, canvas.height);
-  } catch (err){
-    console.warn('[cosmetic-editor] Bucket fill failed to access pixel data', err);
-    showStatus('Unable to bucket fill due to browser security (CORS) restrictions.', { tone: 'error', timeout: 4200 });
-    return;
-  }
-  const offset = (y * canvas.width + x) * 4;
-  const target = baseData.data.slice(offset, offset + 4);
-  if (target[3] === 0){
-    showStatus('Clicked transparent pixel – nothing to fill.', { tone: 'warn' });
-    return;
-  }
-
-  captureOverlaySnapshot();
-
-  const stack = [[x, y]];
-  const visited = new Uint8Array(canvas.width * canvas.height);
-  let painted = false;
-  const filledPixels = [];
-
-  function matches(ix){
-    const dr = Math.abs(baseData.data[ix] - target[0]);
-    const dg = Math.abs(baseData.data[ix + 1] - target[1]);
-    const db = Math.abs(baseData.data[ix + 2] - target[2]);
-    const da = Math.abs(baseData.data[ix + 3] - target[3]);
-    return dr <= tolerance && dg <= tolerance && db <= tolerance && da <= alphaTolerance;
-  }
-
-  while (stack.length){
-    const [px, py] = stack.pop();
-    if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) continue;
-    const idx = py * canvas.width + px;
-    if (visited[idx]) continue;
-    visited[idx] = 1;
-    const baseIdx = idx * 4;
-    if (!matches(baseIdx)) continue;
-
-    overlayData.data[baseIdx] = rgba.r;
-    overlayData.data[baseIdx + 1] = rgba.g;
-    overlayData.data[baseIdx + 2] = rgba.b;
-    overlayData.data[baseIdx + 3] = rgba.a;
-    painted = true;
-    filledPixels.push(idx);
-
-    stack.push([px + 1, py]);
-    stack.push([px - 1, py]);
-    stack.push([px, py + 1]);
-    stack.push([px, py - 1]);
-  }
-
-  if (!painted){
-    editorState.overlayHistory.pop();
-    updateUndoButtonState();
-    showStatus('No similar pixels found to fill.', { tone: 'warn' });
-    return;
-  }
-
-  if (expandPixels > 0 && filledPixels.length){
-    const width = canvas.width;
-    const height = canvas.height;
-    const expanded = new Set(filledPixels);
-    let frontier = new Set(filledPixels);
-    for (let step = 0; step < expandPixels; step += 1){
-      const next = new Set();
-      for (const idx of frontier){
-        const px = idx % width;
-        const py = Math.floor(idx / width);
-        for (let dy = -1; dy <= 1; dy += 1){
-          for (let dx = -1; dx <= 1; dx += 1){
-            if (dx === 0 && dy === 0) continue;
-            const nx = px + dx;
-            const ny = py + dy;
-            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-            const neighborIdx = ny * width + nx;
-            if (expanded.has(neighborIdx)) continue;
-            expanded.add(neighborIdx);
-            next.add(neighborIdx);
-          }
-        }
-      }
-      if (!next.size) break;
-      frontier = next;
-    }
-    for (const idx of expanded){
-      const baseIdx = idx * 4;
-      overlayData.data[baseIdx] = rgba.r;
-      overlayData.data[baseIdx + 1] = rgba.g;
-      overlayData.data[baseIdx + 2] = rgba.b;
-      overlayData.data[baseIdx + 3] = rgba.a;
-    }
-  }
-
-  try {
-    overlayCtx.putImageData(overlayData, 0, 0);
-  } catch (err){
-    console.warn('[cosmetic-editor] Failed to apply bucket fill', err);
-    editorState.overlayHistory.pop();
-    updateUndoButtonState();
-    showStatus('Failed to update paint layer.', { tone: 'error' });
-    return;
-  }
-  updateUndoButtonState();
-}
-
 function normalizeSlotEntry(entry){
   if (!entry) return null;
   if (typeof entry === 'string') return { id: entry };
@@ -792,8 +582,8 @@ function cleanupEmptyOverrides(slot){
   if (slotOverride.warp && Object.keys(slotOverride.warp).length === 0){
     delete slotOverride.warp;
   }
-  if (slotOverride.hsv && Object.keys(slotOverride.hsv).length === 0){
-    delete slotOverride.hsv;
+  if (slotOverride.hsl && Object.keys(slotOverride.hsl).length === 0){
+    delete slotOverride.hsl;
   }
   if (slotOverride.image && !slotOverride.image.url){
     delete slotOverride.image;
@@ -1173,7 +963,6 @@ function loadFighter(fighterName){
   const slots = fighter.cosmetics?.slots || fighter.cosmetics || {};
   const combinedSlots = { ...(appearance.slots || {}), ...(slots || {}) };
   const slotMap = setSelectedCosmetics(combinedSlots);
-  clearOverlay();
   editorState.assetPinned = false;
   setSelectedAsset(null);
   const profile = getFighterCosmeticProfile(fighterName) || null;
@@ -1189,55 +978,14 @@ function loadFighter(fighterName){
   showStatus(`Loaded fighter ${fighterName}`, { tone: 'info' });
 }
 
-function updateBucketMode(isActive){
-  editorState.bucketActive = isActive;
-  bucketToggle.classList.toggle('is-active', !!isActive);
-  canvas.classList.toggle('is-bucket', !!isActive);
-  if (bucketHint){
-    bucketHint.hidden = !isActive;
-  }
-}
-
-function handleCanvasClick(event){
-  if (!editorState.bucketActive) return;
-  const color = parseHexColor(bucketColorInput.value);
-  if (!color){
-    showStatus('Enter a valid hex color (e.g., #ff9933).', { tone: 'warn' });
-    return;
-  }
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  const x = Math.floor((event.clientX - rect.left) * scaleX);
-  const y = Math.floor((event.clientY - rect.top) * scaleY);
-  applyBucketFill(x, y, color, {
-    tolerance: readBucketTolerance(),
-    expand: readBucketExpansion()
-  });
-}
-
 function draw(){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   renderAll(ctx);
   renderSprites(ctx);
-  const overlayCanvas = ensureOverlay();
-  if (overlayCanvas){
-    ctx.drawImage(overlayCanvas, 0, 0);
-  }
   requestAnimationFrame(draw);
 }
 
 function attachEventListeners(){
-  canvas.addEventListener('click', handleCanvasClick);
-  bucketToggle.addEventListener('click', ()=>{
-    updateBucketMode(!editorState.bucketActive);
-  });
-  bucketUndoBtn.addEventListener('click', ()=>{
-    undoOverlay();
-  });
-  bucketClearBtn.addEventListener('click', ()=>{
-    clearOverlay();
-  });
   stylePartSelect.addEventListener('change', handlePartChange);
   styleResetBtn.addEventListener('click', ()=>{
     if (editorState.activeSlot && editorState.activePartKey){
@@ -1281,7 +1029,6 @@ function attachEventListeners(){
 }
 
 (async function bootstrap(){
-  ensureOverlay();
   setSelectedAsset(null);
   await initSprites();
   initFighters(canvas, ctx);
@@ -1295,7 +1042,6 @@ function attachEventListeners(){
   populateFighterSelect();
   attachEventListeners();
   updateSlotSelectsFromState();
-  updateBucketMode(false);
   requestAnimationFrame(draw);
 })();
 
