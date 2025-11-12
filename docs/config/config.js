@@ -434,18 +434,18 @@ window.CONFIG = {
         leg: { upper:{ origin:{ax:0, ay:0}, knee:{ax:0, ay:0}  }, lower:{ origin:{ax:0, ay:0} } },
         head:{ origin:{ax:-1, ay:6} }
       },
-        sprites: {
-          torso: { url: "https://i.imgur.com/YatjSyo.png", bodyColor: 'A' },
-          head:  { url: "https://i.imgur.com/WsKQ2Eo.png", bodyColor: 'A' },
-          arm_L_upper: { url: "https://i.imgur.com/CAmWLbf.png", bodyColor: 'A' },
-          arm_L_lower: { url: "https://i.imgur.com/gOHujif.png", bodyColor: 'A' },
-          arm_R_upper: { url: "https://i.imgur.com/CAmWLbf.png", bodyColor: 'A' },
-          arm_R_lower: { url: "https://i.imgur.com/gOHujif.png", bodyColor: 'A' },
-          leg_L_upper: { url: "https://i.imgur.com/qgcQTmx.png", bodyColor: 'A' },
-          leg_L_lower: { url: "https://i.imgur.com/lZbF7j2.png", bodyColor: 'A' },
-          leg_R_upper: { url: "https://i.imgur.com/qgcQTmx.png", bodyColor: 'A' },
-          leg_R_lower: { url: "https://i.imgur.com/lZbF7j2.png", bodyColor: 'A' }
-        },
+              sprites: {
+        torso: { url: "./assets/fightersprites/tletingan/torso.png", bodyColor: 'A' },
+        head:  { url: "./assets/fightersprites/tletingan/head.png", bodyColor: 'A' },
+        arm_L_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", bodyColor: 'A' },
+        arm_L_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", bodyColor: 'A' },
+        arm_R_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", bodyColor: 'A' },
+        arm_R_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", bodyColor: 'A' },
+        leg_L_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", bodyColor: 'A' },
+        leg_L_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", bodyColor: 'A' },
+        leg_R_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", bodyColor: 'A' },
+        leg_R_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", bodyColor: 'A' }
+      },
       spriteStyle: {
           widthFactor: { torso:0.9, armUpper:0.9, armLower:0.9, legUpper:0.9, legLower:0.9, head:0.9 },
           xformUnits: "percent",
