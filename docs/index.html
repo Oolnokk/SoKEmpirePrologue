@@ -35,6 +35,8 @@
     </div>
   </div>
 
+  <button type="button" id="editorReturnBtn" class="editor-preview-return" hidden>← Return to Editor</button>
+
   <main class="stack">
     <section class="widget widget--clear">
       <div class="stage" id="gameStage">
@@ -231,6 +233,8 @@
       const skipKey = 'sok-entry-mode';
       const requestedMode = params.get('mode');
       const defaultMode = requestedMode || null;
+      const previewToken = params.get('preview');
+      const returnBtn = document.getElementById('editorReturnBtn');
 
       // Remove any legacy remembered choice so the overlay always shows unless a mode is requested.
       try {
@@ -243,6 +247,22 @@
         overlay.classList.add('entry-overlay--hidden');
         setTimeout(() => overlay.remove(), 400);
       };
+
+      if (previewToken) {
+        document.body.classList.add('editor-preview-mode');
+        if (returnBtn) {
+          returnBtn.hidden = false;
+          returnBtn.addEventListener('click', () => {
+            if (window.opener && !window.opener.closed) {
+              window.close();
+            } else {
+              window.location.href = './map-editor.html';
+            }
+          });
+        }
+        hideOverlay();
+        return;
+      }
 
       if (defaultMode === 'game') {
         hideOverlay();

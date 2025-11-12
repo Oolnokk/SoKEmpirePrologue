@@ -175,20 +175,13 @@ function normalizeHslInput(input){
   const lightness = Number.isFinite(input.l)
     ? Number(input.l)
     : (Number.isFinite(input.v) ? Number(input.v) : null);
-  if (lightness != null) out.l = Number(lightness);
+  if (lightness != null) out.l = lightness;
   return Object.keys(out).length ? out : null;
 }
 
 function prepareImageForHSL(img, hsl){
   const normalized = normalizeHslInput(hsl);
-  if (!hasHslAdjustments(normalized)){
-    return { image: img, applyFilter: false, hsl: normalized };
-  }
-  const tinted = tintImageWithHsl(img, normalized);
-  if (tinted){
-    return { image: tinted, applyFilter: false, hsl: normalized };
-  }
-  return { image: img, applyFilter: true, hsl: normalized };
+  return { image: img, applyFilter: hasHslAdjustments(normalized), hsl: normalized };
 }
 
 
