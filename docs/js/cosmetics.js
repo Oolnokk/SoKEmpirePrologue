@@ -644,14 +644,6 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
     fighter.appearance || {},
     characterAppearance
   );
-  const appearanceLibrary = appearanceData?.library || {};
-  if (appearanceLibrary && Object.keys(appearanceLibrary).length){
-    for (const [appearanceId, cosmetic] of Object.entries(appearanceLibrary)){
-      if (!library[appearanceId]){
-        library[appearanceId] = cosmetic;
-      }
-    }
-  }
   if (appearanceData?.slots && Object.keys(appearanceData.slots).length){
     slotConfig = mergeSlotConfigs(slotConfig, appearanceData.slots);
   }
@@ -676,7 +668,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
   for (const slot of orderedSlots){
     const equipped = normalizeEquipment(slotConfig[slot]);
     if (!equipped) continue;
-    const cosmetic = library[equipped.id] || appearanceLibrary[equipped.id];
+    const cosmetic = library[equipped.id];
     if (!cosmetic) continue;
     const slotOverride = editorState?.slotOverrides?.[slot];
     const isAppearance = slot.startsWith(APPEARANCE_SLOT_PREFIX) || cosmetic?.type === 'appearance' || !!cosmetic?.appearance;

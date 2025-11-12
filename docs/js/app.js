@@ -283,20 +283,12 @@ function initCharacterDropdown() {
   console.log('[initCharacterDropdown] Character dropdown initialized with', characterKeys.length, 'characters');
 }
 // Initialize dropdowns on page load
-function initializeUiSelections(){
-  if (initializeUiSelections._ran) return;
-  initializeUiSelections._ran = true;
+window.addEventListener('DOMContentLoaded', () => {
   initWeaponDropdown();
   initAbilitySlotDropdowns();
   initCharacterDropdown();
   initFighterDropdown();
-}
-
-if (document.readyState === 'loading'){
-  window.addEventListener('DOMContentLoaded', initializeUiSelections, { once: true });
-} else {
-  initializeUiSelections();
-}
+});
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=6';
 import { initControls } from './controls.js?v=7';
@@ -1187,27 +1179,9 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
     }
   }
 
-  const layerEntries = layers.map((layer, index) => ({ layer, sourceIndex: index }));
-  const layerTypePriority = (layer) => {
-    const type = (layer?.type || '').toString().toLowerCase();
-    switch (type){
-      case 'parallax': return 0;
-      case 'background': return 1;
-      case 'gameplay': return 2;
-      case 'foreground': return 3;
-      default: return 4;
-    }
-  };
+  layers.sort((a, b) => (a?.z ?? 0) - (b?.z ?? 0));
 
-  layerEntries.sort((a, b) => {
-    const typeDelta = layerTypePriority(a.layer) - layerTypePriority(b.layer);
-    if (typeDelta !== 0) return typeDelta;
-    const aZ = Number.isFinite(a.layer?.z) ? a.layer.z : a.sourceIndex;
-    const bZ = Number.isFinite(b.layer?.z) ? b.layer.z : b.sourceIndex;
-    return aZ - bZ;
-  });
-
-  layerEntries.forEach(({ layer }, orderIndex) => {
+  layers.forEach((layer, index) => {
     const layerId = layer?.id;
     if (!layerId) return;
     const instances = instancesByLayer.get(layerId);
@@ -1216,42 +1190,24 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
     const parallax = Number.isFinite(layer?.parallax) ? layer.parallax : 1;
     const yOffset = Number(layer?.yOffset) || 0;
     const scale = Number.isFinite(layer?.scale) ? layer.scale : 1;
-    const tint = pickLayerDebugColor(layer, orderIndex);
-
-    const layerType = (layer?.type || '').toString().toLowerCase();
-    let alpha = 0.5;
-    if (layerType === 'foreground') {
-      alpha = 0.6;
-    } else if (layerType === 'gameplay') {
-      alpha = 0.55;
-    } else if (layerType === 'parallax' || layerType === 'background') {
-      alpha = 0.45;
-    }
+    const tint = pickLayerDebugColor(layer, index);
 
     cx.save();
     cx.translate((1 - parallax) * camX, yOffset);
-    cx.globalAlpha = alpha;
+    cx.globalAlpha = layer?.type === 'foreground' ? 0.55 : 0.42;
     cx.fillStyle = tint;
     cx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
     cx.lineWidth = 1.5;
 
-    const sortedInstances = [...instances].sort((a, b) => {
-      const ax = Number(a?.position?.x) || 0;
-      const bx = Number(b?.position?.x) || 0;
-      return ax - bx;
-    });
-
-    for (const inst of sortedInstances) {
+    for (const inst of instances) {
       const pos = inst?.position || {};
       const x = Number(pos.x) || 0;
       const y = Number(pos.y) || 0;
       const scaleX = Number.isFinite(inst?.scale?.x) ? inst.scale.x : (Number.isFinite(inst?.scale?.y) ? inst.scale.y : 1);
       const scaleY = Number.isFinite(inst?.scale?.y) ? inst.scale.y : scaleX;
 
-      const prefab = (inst?.prefab && typeof inst.prefab === 'object') ? inst.prefab : null;
-      const original = inst?.meta?.original || {};
-      const baseWidth = Number(prefab?.width ?? prefab?.w ?? original.w ?? original.width) || 120;
-      const baseHeight = Number(prefab?.height ?? prefab?.h ?? original.h ?? original.height) || 80;
+      const baseWidth = Number(inst?.meta?.original?.w || inst?.meta?.original?.width) || 120;
+      const baseHeight = Number(inst?.meta?.original?.h || inst?.meta?.original?.height) || 80;
       const width = Math.max(24, baseWidth * scale * scaleX);
       const height = Math.max(12, baseHeight * scale * scaleY);
 
@@ -1260,15 +1216,6 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
 
       cx.fillRect(left, top, width, height);
       cx.strokeRect(left, top, width, height);
-
-      if (Array.isArray(inst?.tags) && inst.tags.some((tag) => typeof tag === 'string' && tag.toLowerCase().startsWith('spawn'))){
-        cx.save();
-        cx.globalAlpha = 0.85;
-        cx.fillStyle = 'rgba(34,197,94,0.6)';
-        const markerSize = Math.min(width, height, 28);
-        cx.fillRect(left + width / 2 - markerSize / 2, top + height - markerSize, markerSize, markerSize);
-        cx.restore();
-      }
     }
 
     cx.restore();
