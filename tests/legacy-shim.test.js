@@ -9,7 +9,7 @@ async function readJs(filename) {
   return readFile(path.join(rootDir, filename), 'utf8');
 }
 
-const moduleLoaderPattern = /<script\s+type="module"\s+src="\.\/js\/app\.js\?v=\d+"><\/script>/i;
+const bootstrapLoaderPattern = /<script\s+src="\.\/js\/bootstrap\.js\?v=\d+"><\/script>/i;
 
 async function readIndex() {
   return readFile(path.resolve('docs/index.html'), 'utf8');
@@ -44,11 +44,20 @@ test('combat module does not define a clearPoseOverride bandaid', async () => {
   );
 });
 
-test('index.html references the versioned app module directly', async () => {
+test('index.html loads the versioned bootstrap loader', async () => {
   const html = await readIndex();
   assert.match(
     html,
-    moduleLoaderPattern,
-    'docs/index.html must load ./js/app.js via a versioned module script tag',
+    bootstrapLoaderPattern,
+    'docs/index.html must load ./js/bootstrap.js via a versioned script tag',
+  );
+});
+
+test('bootstrap loader triggers the versioned app module', async () => {
+  const loader = await readJs('bootstrap.js');
+  assert.match(
+    loader,
+    /script\.src\s*=\s*'\.\/js\/app\.js\?v=\d+'/,
+    'docs/js/bootstrap.js must load ./js/app.js via a versioned module script tag',
   );
 });
