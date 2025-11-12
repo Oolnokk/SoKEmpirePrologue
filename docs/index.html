@@ -30,6 +30,7 @@
       <div class="entry-actions">
         <button type="button" id="entryLaunchGame" class="entry-btn entry-btn--primary">Launch Game Demo</button>
         <a id="entryOpenEditor" class="entry-btn entry-btn--ghost" href="./cosmetic-editor.html">Open Cosmetic Editor</a>
+        <a id="entryOpenMapEditor" class="entry-btn entry-btn--ghost" href="./map-editor.html">Open Map Editor</a>
       </div>
     </div>
   </div>
@@ -250,6 +251,11 @@
 
       if (defaultMode === 'editor') {
         window.location.href = './cosmetic-editor.html';
+        return;
+      }
+
+      if (defaultMode === 'map-editor') {
+        window.location.href = './map-editor.html';
         return;
       }
 

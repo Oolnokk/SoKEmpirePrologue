@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Parallax Map Builder (Layered v15f)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <style>
+    :root {
+      --bg:#05070a; --panel:#10141a; --card:#151b22;
+      --line:#27303c; --muted:#7f8ea3; --text:#e6edf3;
+      --btn:#1a2330; --btnHi:#222d3c;
+    }
+    * { box-sizing:border-box; }
+
+    html, body {
+      margin:0;
+      padding:0;
+      height:100%;
+      min-height:100vh;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;
+      padding-left:env(safe-area-inset-left);
+      padding-right:env(safe-area-inset-right);
+      padding-bottom:env(safe-area-inset-bottom);
+    }
+
+    #app {
+      display:grid;
+      grid-template-rows:40px auto 1fr;
+      grid-template-columns:280px 1fr;
+      grid-template-areas:
+        "top top"
+        "left bar"
+        "left right";
+      height:100vh;
+      max-height:100vh;
+      overflow:hidden;
+    }
+
+    header {
+      grid-area:top;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:6px 8px;
+      background:var(--panel);
+      border-bottom:1px solid var(--line);
+      gap:6px;
+      font-size:11px;
+    }
+    header h1 {
+      margin:0;
+      font-size:13px;
+      font-weight:500;
+      color:var(--muted);
+    }
+
+    button, select, input {
+      background:var(--btn);
+      color:var(--text);
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:4px 8px;
+      font-size:16px; /* avoid mobile zoom */
+    }
+    button:hover { background:var(--btnHi); cursor:pointer; }
+
+    #bar {
+      grid-area:bar;
+      padding:4px 8px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      background:#111821;
+      border-bottom:1px solid var(--line);
+      font-size:11px;
+      color:var(--muted);
+      flex-wrap:wrap;
+    }
+
+    #left {
+      grid-area:left;
+      padding:6px;
+      border-right:1px solid var(--line);
+      background:var(--panel);
+      overflow:auto;
+      font-size:11px;
+    }
+
+    #right {
+      grid-area:right;
+      padding:6px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      overflow:hidden;
+    }
+
+    .card {
+      background:var(--card);
+      border-radius:12px;
+      border:1px solid var(--line);
+      padding:6px;
+      margin-bottom:4px;
+    }
+
+    .row {
+      display:flex;
+      gap:6px;
+      margin-top:4px;
+    }
+    .row label {
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      font-size:10px;
+    }
+    label span {
+      color:var(--muted);
+      font-size:10px;
+    }
+
+    #sceneWrap {
+      flex:1;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:transparent;
+      overflow:hidden;
+      position:relative;
+      min-height:0;
+    }
+    #sceneCanvas {
+      width:100%;
+      height:100%;
+      display:block;
+      touch-action:none;
+    }
+
+    #instList {
+      max-height:160px;
+      overflow:auto;
+      border-radius:8px;
+      border:1px solid var(--line);
+      padding:4px;
+      font-size:10px;
+    }
+    .inst {
+      padding:2px 4px;
+      border-radius:6px;
+      display:flex;
+      justify-content:space-between;
+      gap:4px;
+      align-items:center;
+    }
+    .inst span {
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .inst.active {
+      background:rgba(120,150,255,0.16);
+    }
+
+    .pill {
+      padding:1px 5px;
+      border-radius:999px;
+      background:#1c2330;
+      color:var(--muted);
+      font-size:9px;
+    }
+    .lock-pill {
+      margin-left:4px;
+      font-size:9px;
+      color:#facc15;
+    }
+
+    #debugText {
+      font-family:ui-monospace,Menlo,Consolas;
+      font-size:9px;
+      color:var(--muted);
+      margin-top:4px;
+      white-space:pre;
+    }
+
+    #exportStatus {
+      font-size:9px;
+      margin-top:2px;
+    }
+    #exportText {
+      width:100%;
+      height:80px;
+      margin-top:4px;
+      background:#020308;
+      color:#9ca3af;
+      border-radius:6px;
+      border:1px solid #27303c;
+      font-size:9px;
+      padding:4px;
+      font-family:ui-monospace,Menlo,Consolas;
+      resize:vertical;
+    }
+
+    .hidden-select {
+      display:none;
+    }
+
+    .layer-stack {
+      display:flex;
+      flex-direction:column-reverse; /* top tile = frontmost visually */
+      gap:4px;
+      margin-top:4px;
+    }
+    .layer-item {
+      padding:4px 6px;
+      border-radius:8px;
+      border:1px solid var(--line);
+      background:#111823;
+      font-size:9px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      cursor:pointer;
+    }
+    .layer-item span { pointer-events:none; }
+    .layer-item.active {
+      background:#1f2933;
+      border-color:#38bdf8;
+      box-shadow:0 0 0 1px rgba(56,189,248,0.25);
+    }
+    .layer-item.dragging { opacity:0.4; }
+    .layer-item-type {
+      padding:1px 5px;
+      border-radius:999px;
+      font-size:8px;
+      background:#0f172a;
+      color:#9ca3af;
+    }
+
+    @media (max-width:900px) {
+      #app {
+        grid-template-rows:40px auto 40% 1fr;
+        grid-template-columns:1fr;
+        grid-template-areas:
+          "top"
+          "bar"
+          "right"
+          "left";
+      }
+      #left {
+        border-right:none;
+        border-top:1px solid var(--line);
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Parallax Map Builder <span style="color:var(--muted)">· layered v15f</span></h1>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">
+      <button id="btnLoadPrefab">Load Structure JSON</button>
+      <button id="btnLoadImage">Load Image</button>
+      <button id="btnLoadMap">Load Map JSON</button>
+      <button id="btnUndo">Undo</button>
+      <button id="btnExportMap">Download Map JSON</button>
+    </div>
+  </header>
+
+  <div id="bar">
+    <span>
+      Cam:
+      <input id="camSlider" type="range" min="-4000" max="4000" value="0" style="width:120px">
+      <input id="camNum" type="number" value="0" style="width:70px">
+    </span>
+    <span>
+      Zoom:
+      <input id="zoomSlider" type="range" min="0.5" max="2.0" step="0.05" value="1" style="width:120px">
+      <input id="zoomNum" type="number" min="0.5" max="2.0" step="0.05" value="1" style="width:60px">
+    </span>
+    <label style="display:flex;align-items:center;gap:4px">
+      <input id="chkDebug" type="checkbox">
+      <span>Debug</span>
+    </label>
+    <button id="btnAddParallaxLayer">+ Parallax Layer</button>
+    <span class="pill">
+      Tap layer tiles to select · drag to reorder (top = front).
+    </span>
+  </div>
+
+  <aside id="left">
+    <!-- Instances -->
+    <div class="card">
+      <strong>Instances (active layer only)</strong>
+      <div id="instList"></div>
+      <small style="color:var(--muted);display:block;margin-top:4px">
+        Only instances on the active layer can be picked, dragged or jittered.
+      </small>
+    </div>
+
+    <!-- Selected instance -->
+    <div class="card">
+      <strong>Selected instance</strong>
+      <div class="row">
+        <label><span>ID</span><input id="instId" readonly></label>
+        <label><span>Prefab</span><select id="instPrefab"></select></label>
+      </div>
+      <div class="row">
+        <label>
+          <span>Layer</span>
+          <select id="instLayer" class="hidden-select"></select>
+        </label>
+        <label>
+          <span>Display X (world)</span>
+          <input id="instX" type="number">
+        </label>
+      </div>
+      <div class="row">
+        <label style="flex:none;display:flex;align-items:center;gap:4px">
+          <input id="instLocked" type="checkbox">
+          <span>Lock position</span>
+        </label>
+        <label><span>Grid (px)</span><input id="gridSize" type="number" value="10"></label>
+        <label><span>Delete</span><button id="btnDeleteInst">Remove</button></label>
+      </div>
+      <div class="row">
+        <label><span>Scale X</span><input id="instScaleX" type="number" step="0.05"></label>
+        <label><span>Scale Y</span><input id="instScaleY" type="number" step="0.05"></label>
+      </div>
+      <div class="row">
+        <label><span>Offset Y (from ground)</span><input id="instOffY" type="number" step="1"></label>
+        <label><span>Rot (deg)</span><input id="instRot" type="number" step="1"></label>
+      </div>
+      <div class="row">
+        <label><span>&nbsp;</span><button id="btnDuplicateInst">Duplicate</button></label>
+      </div>
+      <small style="color:var(--muted);display:block;margin-top:4px">
+        Duplicate copies all settings; lock blocks drag/jitter, not manual edits.
+      </small>
+    </div>
+
+    <!-- Prefab library -->
+    <div class="card">
+      <strong>Prefab Library</strong>
+      <div class="row">
+        <label>
+          <span>Prefab</span>
+          <select id="libPrefab"></select>
+        </label>
+        <label>
+          <span>Count</span>
+          <input id="libCount" type="number" min="1" max="50" value="8">
+        </label>
+      </div>
+      <div class="row">
+        <label><span>&nbsp;</span><button id="btnPlaceRow">Place row on active layer</button></label>
+      </div>
+      <small style="color:var(--muted);display:block;margin-top:4px">
+        Structures & uploads land here; stamp rows onto the active layer.
+      </small>
+    </div>
+
+    <!-- Layers -->
+    <div class="card">
+      <strong>Layers</strong>
+      <select id="activeLayerSelect" class="hidden-select"></select>
+      <div id="layerStack" class="layer-stack"></div>
+      <div class="row">
+        <label><span>parallax</span><input id="layerParallax" type="number" step="0.05"></label>
+        <label><span>y offset (from ground)</span><input id="layerYOffset" type="number"></label>
+      </div>
+      <div class="row">
+        <label><span>separation</span><input id="layerSep" type="number"></label>
+        <label><span>scale</span><input id="layerScale" type="number" step="0.05"></label>
+      </div>
+      <div class="row">
+        <label><span>&nbsp;</span><button id="btnDuplicateLayer">Duplicate active layer</button></label>
+      </div>
+      <small style="color:var(--muted);display:block;margin-top:4px">
+        Drag tiles to change draw order. Top tile renders in front.
+      </small>
+    </div>
+
+    <!-- Jitter -->
+    <div class="card">
+      <strong>Jitter (active layer, unlocked only)</strong>
+      <div class="row">
+        <label><span>Pos range (px)</span><input id="jitterRange" type="number" value="40"></label>
+        <label><span>Scale range (±)</span><input id="jitterScaleRange" type="number" step="0.05" value="0.15"></label>
+      </div>
+      <div class="row">
+        <label><span>&nbsp;</span><button id="btnJitter">Apply jitter</button></label>
+      </div>
+      <small style="color:var(--muted);display:block;margin-top:4px">
+        Randomizes nudgeX + scaleX/Y for unlocked instances on the active layer.
+      </small>
+    </div>
+
+    <!-- Global / Export -->
+    <div class="card">
+      <strong>Global & Export</strong>
+      <div class="row">
+        <label>
+          <span>Ground from bottom (px)</span>
+          <input id="groundOffset" type="number" value="140">
+        </label>
+      </div>
+      <div id="exportStatus"></div>
+      <textarea id="exportText" readonly
+        placeholder="Layout JSON appears here when you export."></textarea>
+      <small style="color:var(--muted);display:block;margin-top:4px">
+        If the new tab is blocked, long-press here to copy the JSON.
+      </small>
+    </div>
+
+    <div id="debugText"></div>
+  </aside>
+
+  <section id="right">
+    <div class="card">
+      <strong>Preview</strong>
+      <span style="font-size:10px;color:var(--muted);margin-left:6px">
+        Screen-space KF · select an instance & toggle Debug to see rays.
+      </span>
+    </div>
+    <div id="sceneWrap"><canvas id="sceneCanvas"></canvas></div>
+  </section>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+function lerp(a,b,t){ return a + (b-a)*t; }
+function rad(d){ return d * Math.PI/180; }
+
+/*** Undo history ***/
+const historyStack = [];
+const HISTORY_LIMIT = 50;
+let isRestoring = false;
+function snapshotState(){
+  return JSON.parse(JSON.stringify({
+    layers,
+    instances,
+    cameraX,
+    zoom,
+    groundOffset: getGroundOffset(),
+    activeLayerId
+  }));
+}
+function pushHistory(){
+  if(isRestoring) return;
+  historyStack.push(snapshotState());
+  if(historyStack.length > HISTORY_LIMIT) historyStack.shift();
+}
+function restoreState(state){
+  if(!state) return;
+  isRestoring = true;
+  layers = state.layers;
+  instances.length = 0;
+  (state.instances||[]).forEach(i => instances.push(i));
+  cameraX = state.cameraX || 0;
+  zoom = state.zoom || 1;
+  $('#groundOffset').value = state.groundOffset || 140;
+  activeLayerId = state.activeLayerId || (layers[0] && layers[0].id) || activeLayerId;
+  rebuildActiveLayerSelect();
+  rebuildLayerStack();
+  syncActiveLayerFields();
+  refreshInstanceList();
+  setCameraX(cameraX);
+  setZoom(zoom);
+  isRestoring = false;
+}
+function undo(){
+  const st = historyStack.pop();
+  if(st) restoreState(st);
+}
+
+/*** Easing + unified screen-space KF ***/
+function ease01(mode, x){
+  x = clamp(x,0,1);
+  if (mode === 'smoothstep') return x*x*(3 - 2*x);
+  if (mode === 'quadInOut')  return x < 0.5
+      ? 2*x*x
+      : 1 - Math.pow(-2*x + 2, 2) / 2;
+  return x; // linear
+}
+
+/*
+  Step 1: computeTFromDx(kfMeta, dxScreen)
+
+    reticleX = center of screen
+    dxScreen = rootScreenX - reticleX    (screen pixels)
+
+    radiusPx = kfMeta.radiusPx || kfMeta.radius || 600
+    t        = clamp(-dxScreen / radiusPx, -1, 1)
+
+  This is done ONCE per structure instance (root).
+*/
+function computeTFromDx(kfMeta, dxScreen){
+  const baseRadius =
+    (kfMeta && Number.isFinite(kfMeta.radiusPx) && kfMeta.radiusPx > 0) ? kfMeta.radiusPx :
+    (kfMeta && Number.isFinite(kfMeta.radius)   && kfMeta.radius   > 0) ? kfMeta.radius   :
+    600;
+  const radiusPx = Math.max(1, baseRadius);
+  const rawT = -dxScreen / radiusPx;
+  return {
+    t: clamp(rawT, -1, 1),
+    radiusPx
+  };
+}
+
+/*
+  Step 2: evalKfPose(kf, t)
+
+  Given a shared t in [-1,1], lerp between left/center/right for this part.
+  This matches the "single t, many parts" mental model.
+*/
+function evalKfPose(kf, t){
+  if(!kf){
+    return {
+      t,
+      dx:0, dy:0,
+      scaleX:1,
+      rotZdeg:0,
+      translateSpace:'screen',
+      order:'scaleThenRotate'
+    };
+  }
+
+  const ease = kf.ease || 'smoothstep';
+  const L = kf.left   || {dx:0,dy:0,scaleX:1,rotZdeg:0};
+  const C = kf.center || {dx:0,dy:0,scaleX:1,rotZdeg:0};
+  const R = kf.right  || {dx:0,dy:0,scaleX:1,rotZdeg:0};
+
+  let from, to, u;
+  if(t <= 0){
+    // -1..0 : LEFT -> CENTER
+    u = ease01(ease, t + 1); // [-1,0] -> [0,1]
+    from = L; to = C;
+  }else{
+    // 0..1 : CENTER -> RIGHT
+    u = ease01(ease, t);     // [0,1] -> [0,1]
+    from = C; to = R;
+  }
+
+  return {
+    t,
+    dx:      lerp(from.dx      || 0, to.dx      || 0, u),
+    dy:      lerp(from.dy      || 0, to.dy      || 0, u),
+    scaleX:  lerp(from.scaleX ?? 1, to.scaleX ?? 1, u),
+    rotZdeg: lerp(from.rotZdeg || 0, to.rotZdeg || 0, u),
+    translateSpace: kf.translateSpace || 'screen',
+    order:          kf.transformOrder || 'scaleThenRotate'
+  };
+}
+
+/*** Apply a pose into current ctx, respecting translateSpace/order */
+function applyPose(ctx, pose){
+  const dx = pose.dx || 0;
+  const dy = pose.dy || 0;
+  const sx = (pose.scaleX != null ? pose.scaleX : 1);
+  const rot = pose.rotZdeg || 0;
+  const space = pose.translateSpace || 'screen';
+  const order = pose.order || 'scaleThenRotate';
+
+  // "screen": offsets in current (screen) space, before local scaling/rot.
+  if(space === 'screen'){
+    ctx.translate(dx, dy);
+  }
+
+  if(order === 'scaleThenRotate'){
+    if(sx !== 1) ctx.scale(sx, 1);
+    if(rot) ctx.rotate(rad(rot));
+  }else{
+    if(rot) ctx.rotate(rad(rot));
+    if(sx !== 1) ctx.scale(sx, 1);
+  }
+
+  // "local": offsets after local transform (move in the part's space)
+  if(space === 'local'){
+    ctx.translate(dx, dy);
+  }
+}
+
+/*** Anchors ***/
+function computeAnchor(t){
+  const w = t.w || 100;
+  const h = t.h || 100;
+  if(t.pivot === 'bottom') return {ax:w*0.5, ay:h};
+  if(t.pivot === 'top')    return {ax:w*0.5, ay:0};
+  if(t.pivot === 'center') return {ax:w*0.5, ay:h*0.5};
+  const ax = (Number.isFinite(t.anchorXPct)? t.anchorXPct : 50) * 0.01 * w;
+  const ay = (Number.isFinite(t.anchorYPct)? t.anchorYPct : 100) * 0.01 * h;
+  return {ax, ay};
+}
+
+/*** Layers ***/
+let layers = [
+  { id:"bg1",  name:"Parallax 1", type:"parallax",  parallax:0.2, yOffset:-120, sep:220, scale:0.7 },
+  { id:"bg2",  name:"Parallax 2", type:"parallax",  parallax:0.4, yOffset:-90,  sep:220, scale:0.8 },
+  { id:"gameplay", name:"Gameplay", type:"gameplay", parallax:1.0, yOffset:-20, sep:180, scale:1.0 },
+  { id:"fg1",  name:"Foreground 1", type:"foreground", parallax:1.1, yOffset:-10, sep:180, scale:1.05 },
+  { id:"fg2",  name:"Foreground 2", type:"foreground", parallax:1.2, yOffset:0,   sep:180, scale:1.1 }
+];
+let activeLayerId = "gameplay";
+function getParallaxLayerCount(){ return layers.filter(l=>l.type==="parallax").length; }
+function findLayer(id){ return layers.find(l=>l.id===id) || null; }
+
+/*** Prefabs & Instances ***/
+const imageCache = new Map();
+const prefabs = {};
+let selectedPrefabId = null;
+let nextInstId = 1;
+const instances = [];
+let selectedInstId = null;
+const nextSlotByLayer = {};
+
+let cameraX = 0;
+let zoom = 1;
+let debugOverlay = false;
+
+function getGroundOffset(){
+  return parseFloat($('#groundOffset').value) || 140;
+}
+
+/*** Layer UI & stack ***/
+function rebuildActiveLayerSelect(){
+  const sel = $('#activeLayerSelect');
+  const instLayerSel = $('#instLayer');
+  sel.innerHTML = '';
+  instLayerSel.innerHTML = '';
+  layers.forEach(layer=>{
+    const o = document.createElement('option');
+    o.value = layer.id; o.textContent = layer.name;
+    sel.appendChild(o);
+    const o2 = document.createElement('option');
+    o2.value = layer.id; o2.textContent = layer.name;
+    instLayerSel.appendChild(o2);
+  });
+  if(!findLayer(activeLayerId) && layers.length){
+    activeLayerId = layers[0].id;
+  }
+  sel.value = activeLayerId;
+}
+function rebuildLayerStack(){
+  const stack = $('#layerStack');
+  stack.innerHTML = '';
+  layers.forEach(layer=>{
+    const div = document.createElement('div');
+    div.className = 'layer-item' + (layer.id===activeLayerId ? ' active' : '');
+    div.draggable = true;
+    div.dataset.layerId = layer.id;
+    div.innerHTML = `
+      <span>${layer.name}</span>
+      <span class="layer-item-type">${layer.type}</span>
+    `;
+    div.addEventListener('click', () => setActiveLayer(layer.id));
+    div.addEventListener('dragstart', e => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', layer.id);
+      div.classList.add('dragging');
+    });
+    div.addEventListener('dragend', () => {
+      div.classList.remove('dragging');
+    });
+    div.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+    div.addEventListener('drop', e => {
+      e.preventDefault();
+      const srcId = e.dataTransfer.getData('text/plain');
+      const dstId = layer.id;
+      if(!srcId || srcId === dstId) return;
+      pushHistory();
+      const srcIndex = layers.findIndex(l=>l.id===srcId);
+      const dstIndex = layers.findIndex(l=>l.id===dstId);
+      if(srcIndex<0 || dstIndex<0) return;
+      const [moved] = layers.splice(srcIndex,1);
+      const insertIndex = srcIndex < dstIndex ? dstIndex-1 : dstIndex;
+      layers.splice(insertIndex,0,moved);
+      rebuildActiveLayerSelect();
+      rebuildLayerStack();
+    });
+    stack.appendChild(div);
+  });
+}
+function syncActiveLayerFields(){
+  const layer = findLayer(activeLayerId);
+  if(!layer) return;
+  $('#layerParallax').value = layer.parallax;
+  $('#layerYOffset').value = layer.yOffset;
+  $('#layerSep').value = layer.sep;
+  $('#layerScale').value = layer.scale;
+  rebuildLayerStack();
+}
+function setActiveLayer(id){
+  if(!findLayer(id)) return;
+  activeLayerId = id;
+  $('#activeLayerSelect').value = id;
+  syncActiveLayerFields();
+  const first = instances.find(i=>i.layerId === activeLayerId);
+  selectedInstId = first ? first.id : null;
+  refreshInstanceList();
+}
+['layerParallax','layerYOffset','layerSep','layerScale'].forEach(id=>{
+  $(`#${id}`).addEventListener('input', e=>{
+    const layer = findLayer(activeLayerId);
+    if(!layer) return;
+    const v = parseFloat(e.target.value);
+    if(!Number.isFinite(v)) return;
+    pushHistory();
+    if(id==='layerParallax') layer.parallax=v;
+    if(id==='layerYOffset') layer.yOffset=v;
+    if(id==='layerSep')      layer.sep=v;
+    if(id==='layerScale')    layer.scale=v;
+  });
+});
+
+/*** Duplicate layer ***/
+$('#btnDuplicateLayer').addEventListener('click',()=>{
+  const layer = findLayer(activeLayerId);
+  if(!layer) return;
+  pushHistory();
+  let baseId = layer.id + '_copy';
+  let n = 1;
+  while(findLayer(baseId)) baseId = layer.id + '_copy' + (n++);
+  const newLayer = JSON.parse(JSON.stringify(layer));
+  newLayer.id = baseId;
+  newLayer.name = layer.name + ' copy';
+  const idx = layers.indexOf(layer);
+  layers.splice(idx+1,0,newLayer);
+  const clones = instances
+    .filter(inst=>inst.layerId===layer.id)
+    .map(inst=>{
+      const c = JSON.parse(JSON.stringify(inst));
+      c.id = nextInstId++;
+      c.layerId = newLayer.id;
+      return c;
+    });
+  instances.push(...clones);
+  rebuildActiveLayerSelect();
+  rebuildLayerStack();
+  activeLayerId = newLayer.id;
+  syncActiveLayerFields();
+  refreshInstanceList();
+});
+
+/*** Slots & baseX ***/
+function computeLayerSlotStats(){
+  const stats = {};
+  layers.forEach(l=>stats[l.id]={min:null,max:null});
+  instances.forEach(inst=>{
+    const s = stats[inst.layerId]; if(!s) return;
+    const sl = inst.slot ?? 0;
+    if(s.min===null || sl<s.min) s.min=sl;
+    if(s.max===null || sl>s.max) s.max=sl;
+  });
+  return stats;
+}
+function baseXFor(inst, stats){
+  const layer = findLayer(inst.layerId);
+  if(!layer) return 0;
+  const sep = layer.sep || 180;
+  const slot = inst.slot ?? 0;
+  const s = stats[inst.layerId];
+  let center = slot;
+  if(s && s.min!==null) center = (s.min + s.max)/2;
+  return (slot - center)*sep + (inst.nudgeX || 0);
+}
+
+/*** Image loading ***/
+function loadImage(url){
+  return new Promise(res=>{
+    if(!url) return res(null);
+    if(imageCache.has(url)) return res(imageCache.get(url));
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>{ imageCache.set(url,img); res(img); };
+    img.onerror=()=>res(null);
+    img.src=url;
+  });
+}
+
+/*** Prefabs ***/
+async function registerPrefab(obj){
+  if(!obj || !obj.structureId || !Array.isArray(obj.parts)){
+    alert('Invalid structure JSON'); return;
+  }
+  prefabs[obj.structureId]=obj;
+  if(!selectedPrefabId) selectedPrefabId=obj.structureId;
+  for(const part of obj.parts){
+    const t=part.propTemplate||{};
+    if(t.url) await loadImage(t.url);
+  }
+  rebuildPrefabSelect();
+  if(!instances.length && activeLayerId){
+    pushHistory();
+    addRowOnLayer(activeLayerId,8,obj.structureId);
+    refreshInstanceList();
+  }
+}
+function registerImagePrefab(file){
+  const url=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>{
+    const base=(file.name||'img').replace(/\.[^/.]+$/,'')||'img';
+    let id=`img_${base}`, c=1;
+    while(prefabs[id]) id=`img_${base}_${c++}`;
+    prefabs[id]={
+      structureId:id,
+      isImage:true,
+      parts:[{
+        name:id,
+        layer:'near',
+        relX:0,
+        relY:0,
+        propTemplate:{
+          id,
+          w:img.width,
+          h:img.height,
+          url:url,
+          pivot:'bottom',
+          anchorXPct:50,
+          anchorYPct:100
+        }
+      }]
+    };
+    imageCache.set(url,img);
+    selectedPrefabId=id;
+    rebuildPrefabSelect();
+    refreshLibrarySelect();
+  };
+  img.onerror=()=>alert('Failed to load image');
+  img.src=url;
+}
+function rebuildPrefabSelect(){
+  const instSel=$('#instPrefab');
+  instSel.innerHTML='';
+  Object.keys(prefabs).forEach(id=>{
+    const o=document.createElement('option');
+    o.value=id; o.textContent=id;
+    instSel.appendChild(o);
+  });
+  if(selectedPrefabId) instSel.value=selectedPrefabId;
+  refreshLibrarySelect();
+}
+function refreshLibrarySelect(){
+  const libSel=$('#libPrefab');
+  libSel.innerHTML='';
+  Object.keys(prefabs).forEach(id=>{
+    const o=document.createElement('option');
+    o.value=id; o.textContent=id;
+    libSel.appendChild(o);
+  });
+  if(selectedPrefabId) libSel.value=selectedPrefabId;
+}
+
+/*** Instances ***/
+function allocSlot(layerId){
+  const n=nextSlotByLayer[layerId] ?? 0;
+  nextSlotByLayer[layerId]=n+1;
+  return n;
+}
+function makeInstance(layerId,prefabId){
+  return {
+    id:nextInstId++,
+    prefabId,
+    layerId,
+    slot:allocSlot(layerId),
+    nudgeX:0,
+    locked:false,
+    scaleX:1,
+    scaleY:1,
+    offsetY:0,
+    rot:0
+  };
+}
+function addInstance(layerId,prefabId){
+  const layer=findLayer(layerId);
+  if(!layer) return;
+  const pid=prefabId || selectedPrefabId || Object.keys(prefabs)[0];
+  if(!prefabs[pid]) return;
+  const inst=makeInstance(layerId,pid);
+  instances.push(inst);
+  if(layerId===activeLayerId) selectedInstId=inst.id;
+}
+function addRowOnLayer(layerId,count,prefabId){
+  for(let i=0;i<count;i++) addInstance(layerId,prefabId);
+}
+function getSelectedInstance(){
+  return instances.find(i=>i.id===selectedInstId) || null;
+}
+function deleteSelectedInstance(){
+  const inst=getSelectedInstance();
+  if(!inst) return;
+  pushHistory();
+  const idx=instances.findIndex(i=>i.id===inst.id);
+  if(idx>=0) instances.splice(idx,1);
+  selectedInstId=null;
+  refreshInstanceList();
+}
+function duplicateSelectedInstance(){
+  const inst=getSelectedInstance();
+  if(!inst) return;
+  pushHistory();
+  const dup = JSON.parse(JSON.stringify(inst));
+  dup.id = nextInstId++;
+  dup.slot = (inst.slot ?? 0) + 1;
+  instances.push(dup);
+  selectedInstId = dup.id;
+  refreshInstanceList();
+}
+function refreshInstanceList(){
+  const stats=computeLayerSlotStats();
+  const list=$('#instList');
+  list.innerHTML='';
+  const visible=instances.filter(i=>i.layerId===activeLayerId);
+  for(const inst of visible){
+    const layer=findLayer(inst.layerId);
+    if(!layer) continue;
+    const div=document.createElement('div');
+    div.className='inst'+(inst.id===selectedInstId?' active':'');
+    const span=document.createElement('span');
+    const x=baseXFor(inst,stats).toFixed(1);
+    span.textContent=`${inst.id} · ${inst.prefabId} · x=${x}`;
+    if(inst.locked){
+      const lp=document.createElement('span');
+      lp.className='lock-pill';
+      lp.textContent='🔒';
+      span.appendChild(lp);
+    }
+    const pill=document.createElement('span');
+    pill.className='pill';
+    pill.textContent=layer.name;
+    div.appendChild(span);
+    div.appendChild(pill);
+    div.onclick=()=>{ selectedInstId=inst.id; fillInstEditor(); refreshInstanceList(); };
+    list.appendChild(div);
+  }
+  fillInstEditor();
+}
+function fillInstEditor(){
+  const stats=computeLayerSlotStats();
+  const inst=getSelectedInstance();
+  if(!inst || inst.layerId!==activeLayerId){
+    $('#instId').value='';
+    $('#instX').value='';
+    $('#instLayer').value=activeLayerId||'';
+    $('#instLocked').checked=false;
+    $('#instScaleX').value='';
+    $('#instScaleY').value='';
+    $('#instOffY').value='';
+    $('#instRot').value='';
+    return;
+  }
+  $('#instId').value=inst.id;
+  $('#instPrefab').value=inst.prefabId;
+  $('#instLayer').value=inst.layerId;
+  $('#instX').value=baseXFor(inst,stats).toFixed(1);
+  $('#instLocked').checked=!!inst.locked;
+  $('#instScaleX').value=inst.scaleX;
+  $('#instScaleY').value=inst.scaleY;
+  $('#instOffY').value=inst.offsetY;
+  $('#instRot').value=inst.rot;
+}
+
+/*** Instance editor bindings ***/
+function updateSelectedInstanceFromFields(){
+  const inst = getSelectedInstance();
+  if(!inst || inst.layerId !== activeLayerId) return;
+
+  let changed = false;
+
+  const pid = $('#instPrefab').value;
+  if(prefabs[pid] && pid !== inst.prefabId){
+    if(!changed) pushHistory();
+    changed = true;
+    inst.prefabId = pid;
+  }
+
+  const newLayerId = $('#instLayer').value;
+  if(findLayer(newLayerId) && newLayerId !== inst.layerId){
+    if(!changed) pushHistory();
+    changed = true;
+    inst.layerId = newLayerId;
+  }
+
+  const locked = $('#instLocked').checked;
+  if(locked !== !!inst.locked){
+    if(!changed) pushHistory();
+    changed = true;
+    inst.locked = locked;
+  }
+
+  const sx = parseFloat($('#instScaleX').value);
+  if(Number.isFinite(sx) && sx !== inst.scaleX){
+    if(!changed) pushHistory();
+    changed = true;
+    inst.scaleX = Math.max(0.05, sx);
+  }
+
+  const sy = parseFloat($('#instScaleY').value);
+  if(Number.isFinite(sy) && sy !== inst.scaleY){
+    if(!changed) pushHistory();
+    changed = true;
+    inst.scaleY = Math.max(0.05, sy);
+  }
+
+  const offY = parseFloat($('#instOffY').value);
+  if(Number.isFinite(offY) && offY !== inst.offsetY){
+    if(!changed) pushHistory();
+    changed = true;
+    inst.offsetY = offY;
+  }
+
+  const rot = parseFloat($('#instRot').value);
+  if(Number.isFinite(rot) && rot !== inst.rot){
+    if(!changed) pushHistory();
+    changed = true;
+    inst.rot = rot;
+  }
+
+  const xVal = parseFloat($('#instX').value);
+  if(Number.isFinite(xVal)){
+    const stats = computeLayerSlotStats();
+    const layerStats = stats[inst.layerId];
+    const layer = findLayer(inst.layerId);
+    if(layer){
+      const sep = layer.sep || 180;
+      const slot = inst.slot ?? 0;
+      let center = slot;
+      if(layerStats && layerStats.min !== null){
+        center = (layerStats.min + layerStats.max) / 2;
+      }
+      const grid = parseFloat($('#gridSize').value) || 0;
+      let target = xVal;
+      if(grid > 1){
+        target = Math.round(target / grid) * grid;
+        $('#instX').value = target.toFixed(1);
+      }
+      const newNudge = target - (slot - center) * sep;
+      if(newNudge !== inst.nudgeX){
+        if(!changed) pushHistory();
+        changed = true;
+        inst.nudgeX = newNudge;
+      }
+    }
+  }
+
+  if(changed){
+    refreshInstanceList();
+  }
+}
+
+['instPrefab','instLayer','instLocked',
+ 'instScaleX','instScaleY','instOffY','instRot','instX'
+].forEach(id=>{
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('change', updateSelectedInstanceFromFields);
+  el.addEventListener('blur', updateSelectedInstanceFromFields);
+});
+
+/*** Camera & Zoom ***/
+function setCameraX(v){
+  cameraX=clamp(v,-4000,4000);
+  $('#camSlider').value=cameraX;
+  $('#camNum').value=cameraX;
+}
+function setZoom(v){
+  zoom=clamp(v,0.5,2.0);
+  $('#zoomSlider').value=zoom;
+  $('#zoomNum').value=zoom.toFixed(2);
+}
+$('#camSlider').addEventListener('input',e=> setCameraX(parseFloat(e.target.value)||0));
+$('#camNum').addEventListener('input',e=> setCameraX(parseFloat(e.target.value)||0));
+$('#zoomSlider').addEventListener('input',e=> setZoom(parseFloat(e.target.value)||1));
+$('#zoomNum').addEventListener('input',e=> setZoom(parseFloat(e.target.value)||1));
+
+/*** Canvas & Render ***/
+const canvas=document.getElementById('sceneCanvas');
+const ctx=canvas.getContext('2d',{alpha:true,desynchronized:true});
+
+function resizeCanvas(){
+  const rect=canvas.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  const w=Math.max(1,rect.width*dpr);
+  const h=Math.max(1,rect.height*dpr);
+  if(canvas.width!==w || canvas.height!==h){
+    canvas.width=w; canvas.height=h;
+  }
+}
+function layerDrawOrder(layer){
+  return layers.indexOf(layer);
+}
+function partOrder(part){
+  if(part.layer==='far') return 0;
+  if(part.layer==='near') return 2;
+  return 1;
+}
+
+function render(){
+  resizeCanvas();
+  const dpr=window.devicePixelRatio||1;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const W=canvas.width/dpr;
+  const H=canvas.height/dpr;
+  const groundY=H-getGroundOffset();
+  const stats=computeLayerSlotStats();
+
+  ctx.clearRect(0,0,W,H);
+
+  // sky
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"rgba(59,63,69,0.9)");
+  sky.addColorStop(0.5,"rgba(80,89,96,0.5)");
+  sky.addColorStop(1,"rgba(32,38,50,0.0)");
+  ctx.fillStyle=sky;
+  ctx.fillRect(0,0,W,H);
+
+  // treeline
+  ctx.save();
+  ctx.translate(0,H*0.46);
+  ctx.beginPath();
+  ctx.moveTo(0,20);
+  const steps=24, step=W/steps;
+  for(let i=0;i<=steps;i++){
+    const h=(i%2===0)?-28:-46;
+    ctx.lineTo(i*step,h);
+  }
+  ctx.lineTo(W,20);
+  ctx.closePath();
+  ctx.fillStyle="rgba(22,51,33,0.9)";
+  ctx.fill();
+  ctx.restore();
+
+  const dbg=[];
+  const renderList=[];
+  for(const inst of instances){
+    const layer=findLayer(inst.layerId);
+    const prefab=prefabs[inst.prefabId];
+    if(!layer || !prefab) continue;
+    renderList.push({inst,layer,prefab});
+  }
+  renderList.sort((a,b)=>layerDrawOrder(a.layer)-layerDrawOrder(b.layer));
+
+  const retX=W/2;
+  const retY=groundY - 8*zoom;
+
+  for(const {inst,layer,prefab} of renderList){
+    const objX=baseXFor(inst,stats);
+    const par=layer.parallax ?? 1;
+    const layerScale=layer.scale || 1;
+    const instScaleX=inst.scaleX || 1;
+    const instScaleY=inst.scaleY || instScaleX;
+    const instOffsetY=inst.offsetY || 0;
+    const instRot=inst.rot || 0;
+
+    const baseOffset=(objX - cameraX*par)*zoom;
+    const rootScreenX=W/2 + baseOffset;
+    const rootScreenY=groundY + (layer.yOffset||0)*zoom - instOffsetY*zoom;
+
+    const dxScreen = rootScreenX - retX;
+
+    if(prefab.isImage){
+      const part=prefab.parts[0];
+      const t=part.propTemplate||{};
+      const img=imageCache.get(t.url);
+      if(!img) continue;
+      const w=t.w || img.width;
+      const h=t.h || img.height;
+      const {ax,ay}=computeAnchor(t);
+      ctx.save();
+      ctx.translate(rootScreenX,rootScreenY);
+      ctx.scale(layerScale*zoom*instScaleX,
+                layerScale*zoom*instScaleY);
+      if(instRot) ctx.rotate(rad(instRot));
+      ctx.drawImage(img,-ax,-ay,w,h);
+      if(debugOverlay){
+        const isSel=inst.id===selectedInstId;
+        ctx.strokeStyle=isSel?"#22c55e":"#9ca3af";
+        ctx.lineWidth=isSel?1.2:0.7;
+        ctx.strokeRect(-ax,-ay,w,h);
+        dbg.push(`img ${inst.id} @${layer.name} dx=${dxScreen.toFixed(1)}`);
+      }
+      ctx.restore();
+      continue;
+    }
+
+    // Structured prefab: compute shared t from root part
+    const rootPart = prefab.parts.find(p=>p.layer==='near') || prefab.parts[0];
+    if(!rootPart) continue;
+    const rootT = rootPart.propTemplate || {};
+    const rootRelY = rootPart.relY || 0;
+
+    const {t: sharedT, radiusPx} = computeTFromDx(rootT.kf || {}, dxScreen);
+    const rootPose = evalKfPose(rootT.kf || {}, sharedT);
+
+    const parts=[...prefab.parts].sort((a,b)=>
+      (partOrder(a)-partOrder(b)) || ((a.z||0)-(b.z||0))
+    );
+
+    for(const part of parts){
+      const t = part.propTemplate || {};
+      const img = imageCache.get(t.url);
+      const relX = part.relX || 0;
+      const relY = part.relY || 0;
+
+      const partPose = evalKfPose(t.kf || {}, sharedT);
+
+      ctx.save();
+      ctx.translate(rootScreenX, rootScreenY - rootRelY*layerScale*zoom);
+      ctx.scale(layerScale*zoom*instScaleX,
+                layerScale*zoom*instScaleY);
+      if(instRot) ctx.rotate(rad(instRot));
+
+      // apply root pose
+      applyPose(ctx, rootPose);
+
+      // part local offset
+      ctx.translate(relX, -relY);
+
+      // apply part pose
+      applyPose(ctx, partPose);
+
+      const w = t.w || 100;
+      const h = t.h || 100;
+      const {ax,ay} = computeAnchor(t);
+
+      if(img && img.complete && img.naturalWidth){
+        ctx.drawImage(img,-ax,-ay,w,h);
+      } else {
+        ctx.fillStyle="rgba(148,163,253,0.18)";
+        ctx.fillRect(-ax,-ay,w,h);
+      }
+
+      if(debugOverlay){
+        const isSel=inst.id===selectedInstId;
+        ctx.strokeStyle=isSel?"#22c55e":"#9ca3af";
+        ctx.lineWidth=isSel?1.1:0.6;
+        ctx.strokeRect(-ax,-ay,w,h);
+        ctx.fillStyle="#e5e7eb";
+        ctx.font="7px ui-monospace,Menlo,Consolas";
+        ctx.fillText(`${part.name}`, -ax, -ay-3);
+      }
+
+      ctx.restore();
+    }
+
+    if(debugOverlay){
+      const isSel = inst.id === selectedInstId;
+      dbg.push(
+        `struct ${inst.id} @${layer.name} dx=${dxScreen.toFixed(1)} t=${sharedT.toFixed(3)} rPx=${radiusPx.toFixed(1)}${inst.locked?' 🔒':''}`
+      );
+
+      if (isSel && rootT.kf){
+        const towerY = rootScreenY - rootRelY*layerScale*zoom;
+
+        ctx.save();
+        ctx.lineWidth = 0.8;
+
+        // Ray from reticle to tower horizontally
+        ctx.strokeStyle = "rgba(56,189,248,0.9)";
+        ctx.beginPath();
+        ctx.moveTo(retX, retY);
+        ctx.lineTo(rootScreenX, retY);
+        ctx.stroke();
+
+        // Down to tower
+        ctx.beginPath();
+        ctx.moveTo(rootScreenX, retY);
+        ctx.lineTo(rootScreenX, towerY);
+        ctx.stroke();
+
+        // Radius band around reticle in screen-space
+        const r = radiusPx;
+        ctx.strokeStyle = "rgba(148,163,253,0.35)";
+        ctx.beginPath();
+        ctx.moveTo(retX - r, retY);
+        ctx.lineTo(retX + r, retY);
+        ctx.stroke();
+
+        // Labels
+        ctx.fillStyle = "#e5e7eb";
+        ctx.font = "7px ui-monospace,Menlo,Consolas";
+        ctx.fillText(`dx=${dxScreen.toFixed(1)}px`, rootScreenX+4, towerY-18);
+        ctx.fillText(`t=${sharedT.toFixed(2)}`, rootScreenX+4, towerY-9);
+        ctx.fillText(`rPx=${r.toFixed(1)}`, retX+4, retY+12);
+
+        ctx.restore();
+      }
+    }
+  }
+
+  // ground line
+  ctx.save();
+  ctx.strokeStyle="rgba(250,204,21,0.35)";
+  ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(0,groundY+0.5);
+  ctx.lineTo(W,groundY+0.5);
+  ctx.stroke();
+  ctx.restore();
+
+  // reticle
+  const size=10*zoom;
+  ctx.save();
+  ctx.strokeStyle="#facc15";
+  ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(retX-size,retY);
+  ctx.lineTo(retX+size,retY);
+  ctx.moveTo(retX,retY-size);
+  ctx.lineTo(retX,retY+size);
+  ctx.stroke();
+  ctx.fillStyle="#facc15";
+  ctx.beginPath();
+  ctx.arc(retX,retY,2.5,0,Math.PI*2);
+  ctx.fill();
+  ctx.font="8px ui-monospace,Menlo,Consolas";
+  ctx.fillText("Cam/Player",retX+6,retY-6);
+  ctx.restore();
+
+  $('#debugText').textContent = debugOverlay
+    ? `camX=${cameraX} zoom=${zoom.toFixed(2)} activeLayer=${activeLayerId} · instances=${instances.length}\n` + dbg.join('\n')
+    : '';
+
+  requestAnimationFrame(render);
+}
+
+/*** Picking & drag ***/
+function pickInstanceAt(clientX,clientY){
+  const rect=canvas.getBoundingClientRect();
+  const px=clientX-rect.left;
+  const py=clientY-rect.top;
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.width/dpr;
+  const H=canvas.height/dpr;
+  const groundY=H-getGroundOffset();
+  const stats=computeLayerSlotStats();
+
+  const candidates=instances
+    .filter(i=>i.layerId===activeLayerId)
+    .map(inst=>{
+      const layer=findLayer(inst.layerId);
+      const prefab=prefabs[inst.prefabId];
+      return layer && prefab ? {inst,layer,prefab}:null;
+    })
+    .filter(Boolean);
+
+  candidates.sort((a,b)=>layerDrawOrder(b.layer)-layerDrawOrder(a.layer));
+
+  for(const {inst,layer,prefab} of candidates){
+    const objX=baseXFor(inst,stats);
+    const par=layer.parallax ?? 1;
+    const layerScale=layer.scale || 1;
+    const instScaleX=inst.scaleX || 1;
+    const instOffsetY=inst.offsetY || 0;
+    const baseOffset=(objX - cameraX*par)*zoom;
+    const rootScreenX=W/2 + baseOffset;
+    const rootScreenY=groundY + (layer.yOffset||0)*zoom - instOffsetY*zoom;
+
+    let part;
+    if(prefab.isImage) part=prefab.parts[0];
+    else part=prefab.parts.find(p=>p.layer==='near') || prefab.parts[0];
+    if(!part) continue;
+    const t=part.propTemplate||{};
+    const w=t.w || 100;
+    const h=t.h || 100;
+    const {ax,ay}=computeAnchor(t);
+    const sc=layerScale*zoom*instScaleX;
+
+    const left=rootScreenX - ax*sc;
+    const top =rootScreenY - h*sc;
+    const right=left + w*sc;
+    const bottom=top + h*sc;
+    if(px>=left && px<=right && py>=top && py<=bottom) return inst;
+  }
+  return null;
+}
+
+let draggingCamera=false;
+let draggingInst=null;
+let lastX=0;
+
+function pointerDown(ev){
+  const t=ev.touches?ev.touches[0]:ev;
+  lastX=t.clientX;
+  const hit=pickInstanceAt(t.clientX,t.clientY);
+  if(hit){
+    selectedInstId=hit.id;
+    const inst=getSelectedInstance();
+    if(inst && !inst.locked){
+      pushHistory();
+      draggingInst=inst;
+    }
+    refreshInstanceList();
+  }else{
+    pushHistory();
+    draggingCamera=true;
+  }
+}
+function pointerMove(ev){
+  if(!draggingCamera && !draggingInst) return;
+  const t=ev.touches?ev.touches[0]:ev;
+  const dx=t.clientX-lastX;
+  lastX=t.clientX;
+  if(draggingInst){
+    if(draggingInst.locked){ draggingInst=null; return; }
+    const layer=findLayer(draggingInst.layerId);
+    if(!layer) return;
+    const grid=parseFloat($('#gridSize').value)||1;
+    const effPar=Math.max(0.01,layer.parallax || 1);
+    draggingInst.nudgeX += dx/(effPar*zoom);
+    if(grid>1){
+      const stats=computeLayerSlotStats();
+      const cur=baseXFor(draggingInst,stats);
+      const snapped=Math.round(cur/grid)*grid;
+      draggingInst.nudgeX += (snapped-cur);
+    }
+    refreshInstanceList();
+  }else if(draggingCamera){
+    setCameraX(cameraX - dx*2);
+  }
+}
+function pointerUp(){
+  draggingCamera=false;
+  draggingInst=null;
+}
+canvas.addEventListener('mousedown',pointerDown);
+canvas.addEventListener('mousemove',pointerMove);
+window.addEventListener('mouseup',pointerUp);
+canvas.addEventListener('touchstart',e=>{e.preventDefault();pointerDown(e);},{passive:false});
+canvas.addEventListener('touchmove', e=>{e.preventDefault();pointerMove(e);},{passive:false});
+canvas.addEventListener('touchend',  e=>{e.preventDefault();pointerUp();},{passive:false});
+
+/*** Buttons & toggles ***/
+$('#btnJitter').addEventListener('click',()=>{
+  pushHistory();
+  const posRange=Math.abs(parseFloat($('#jitterRange').value)||0);
+  const scaleRange=Math.abs(parseFloat($('#jitterScaleRange').value)||0);
+  if(posRange<=0 && scaleRange<=0) return;
+  for(const inst of instances){
+    if(inst.layerId!==activeLayerId || inst.locked) continue;
+    if(posRange>0){
+      inst.nudgeX=(Math.random()*2-1)*posRange;
+    }
+    if(scaleRange>0){
+      const sx=1 + (Math.random()*2-1)*scaleRange;
+      const sy=1 + (Math.random()*2-1)*scaleRange;
+      inst.scaleX=Math.max(0.1,sx);
+      inst.scaleY=Math.max(0.1,sy);
+    }
+  }
+  refreshInstanceList();
+});
+$('#btnDeleteInst').addEventListener('click',deleteSelectedInstance);
+$('#btnDuplicateInst').addEventListener('click',duplicateSelectedInstance);
+$('#btnUndo').addEventListener('click',undo);
+$('#chkDebug').addEventListener('change',e=>{debugOverlay=e.target.checked;});
+$('#btnPlaceRow').addEventListener('click',()=>{
+  const pid=$('#libPrefab').value;
+  const count=parseInt($('#libCount').value,10)||1;
+  if(!prefabs[pid]){ alert('No prefab selected'); return; }
+  pushHistory();
+  for(let i=0;i<count;i++) addInstance(activeLayerId,pid);
+  refreshInstanceList();
+});
+$('#btnAddParallaxLayer').addEventListener('click',()=>{
+  const count=getParallaxLayerCount();
+  if(count>=10){ alert('Parallax layer limit reached (10).'); return; }
+  pushHistory();
+  const id=`bg${count+1}`;
+  layers.splice(count,0,{
+    id,
+    name:`Parallax ${count+1}`,
+    type:"parallax",
+    parallax:0.15 + 0.1*count,
+    yOffset:-140 + 20*count,
+    sep:220,
+    scale:0.6 + 0.05*count
+  });
+  rebuildActiveLayerSelect();
+  rebuildLayerStack();
+  syncActiveLayerFields();
+});
+
+/*** Export / Import map ***/
+function exportLayout(){
+  const statusEl = $('#exportStatus');
+  const textEl = $('#exportText');
+  try{
+    const stats=computeLayerSlotStats();
+    const layout={
+      cameraStartX:cameraX,
+      zoomStart:zoom,
+      groundOffset:getGroundOffset(),
+      activeLayerId,
+      layers,
+      instances:instances.map(inst=>({
+        id:inst.id,
+        prefabId:inst.prefabId,
+        layerId:inst.layerId,
+        slot:inst.slot,
+        nudgeX:inst.nudgeX,
+        locked:!!inst.locked,
+        scaleX:inst.scaleX,
+        scaleY:inst.scaleY,
+        offsetY:inst.offsetY,
+        rot:inst.rot,
+        x:baseXFor(inst,stats)
+      }))
+    };
+    const json=JSON.stringify(layout,null,2);
+    textEl.value=json;
+    const dataUrl='data:application/json;charset=utf-8,'+encodeURIComponent(json);
+    window.open(dataUrl,'_blank');
+    statusEl.style.color='#22c55e';
+    statusEl.textContent='Opened layout JSON in new tab. If blocked, copy JSON below.';
+  }catch(err){
+    statusEl.style.color='#f97316';
+    statusEl.textContent='Export error: '+err.message+' (JSON mirrored below)';
+  }
+}
+$('#btnExportMap').addEventListener('click', exportLayout);
+
+$('#btnLoadMap').addEventListener('click',()=>{
+  const inp=document.createElement('input');
+  inp.type='file';
+  inp.accept='application/json';
+  inp.onchange=e=>{
+    const f=e.target.files[0];
+    if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const layout=JSON.parse(r.result);
+        if(!layout.layers || !layout.instances) throw new Error('Missing layers/instances');
+        restoreState({
+          layers:layout.layers,
+          instances:layout.instances,
+          cameraX:layout.cameraStartX||0,
+          zoom:layout.zoomStart||1,
+          groundOffset:layout.groundOffset||140,
+          activeLayerId:layout.activeLayerId||layout.layers[0].id
+        });
+        historyStack.length=0;
+        pushHistory();
+      }catch(err){
+        alert('Invalid map JSON: '+err.message);
+      }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+});
+
+/*** Loaders for prefab/image ***/
+$('#btnLoadPrefab').addEventListener('click',()=>{
+  const inp=document.createElement('input');
+  inp.type='file';
+  inp.accept='application/json';
+  inp.onchange=e=>{
+    const f=e.target.files[0];
+    if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{ registerPrefab(JSON.parse(r.result)); }
+      catch(err){ alert('Invalid JSON: '+err.message); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+});
+$('#btnLoadImage').addEventListener('click', () => {
+  const inp = document.createElement('input');
+  inp.type = 'file';                  // <-- required
+  inp.accept = 'image/*';
+  inp.onchange = e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    registerImagePrefab(f);
+  };
+  inp.click();
+});
+
+/*** Init ***/
+rebuildActiveLayerSelect();
+rebuildLayerStack();
+syncActiveLayerFields();
+rebuildPrefabSelect();
+refreshInstanceList();
+setCameraX(0);
+setZoom(1);
+pushHistory();
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
