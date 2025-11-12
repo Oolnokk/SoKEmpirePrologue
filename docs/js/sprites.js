@@ -237,6 +237,96 @@ function applyHslAdjustmentsToPixel(r, g, b, adjustments){
   ];
 }
 
+function clampColorByte(value){
+  if (!Number.isFinite(value)) return 0;
+  if (value <= 0) return 0;
+  if (value >= 255) return 255;
+  return Math.round(value);
+}
+
+function resolveBlendAlpha(adjustments){
+  const alphaRaw = adjustments?.a ?? adjustments?.alpha ?? 255;
+  if (!Number.isFinite(alphaRaw)) return 255;
+  if (alphaRaw >= 0 && alphaRaw <= 1){
+    return Math.round(alphaRaw * 255);
+  }
+  return clampColorByte(alphaRaw);
+}
+
+function formatTintLabel(blendColor, adjustments, preference){
+  if (preference == null || preference === false) return undefined;
+  if (preference === true || preference === 'rgba'){
+    const [r, g, b, a = 255] = blendColor;
+    return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
+  }
+  if (preference === 'hsl'){
+    const h = Number.isFinite(adjustments?.h) ? adjustments.h : 0;
+    const s = Number.isFinite(adjustments?.s) ? adjustments.s : 0;
+    const light = Number.isFinite(adjustments?.l ?? adjustments?.v)
+      ? (adjustments.l ?? adjustments.v)
+      : 0;
+    return `h:${h} s:${s} l:${light}`;
+  }
+  if (preference === 'hsv'){
+    const h = Number.isFinite(adjustments?.h) ? adjustments.h : 0;
+    const s = Number.isFinite(adjustments?.s) ? adjustments.s : 0;
+    const val = Number.isFinite(adjustments?.v ?? adjustments?.l)
+      ? (adjustments.v ?? adjustments.l)
+      : 0;
+    return `h:${h} s:${s} v:${val}`;
+  }
+  if (typeof preference === 'function'){
+    try {
+      const result = preference({ blendColor, adjustments });
+      return typeof result === 'string' ? result : undefined;
+    } catch (error){
+      if (typeof console !== 'undefined' && typeof console.warn === 'function'){
+        console.warn('Tint debug label function failed', error);
+      }
+      return undefined;
+    }
+  }
+  if (typeof preference === 'string'){
+    return preference;
+  }
+  return undefined;
+}
+
+function buildTintDebugOptions(blendColor, adjustments){
+  if (typeof window === 'undefined') return undefined;
+  const tintDebug = window.RENDER_DEBUG?.tint;
+  if (!tintDebug || !tintDebug.enabled) return undefined;
+  const label = formatTintLabel(blendColor, adjustments, tintDebug.label);
+  return { debug: true, label };
+}
+
+function legacyTintImageWithHsl(img, adjustments, width, height){
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.drawImage(img, 0, 0, width, height);
+
+  let imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, width, height);
+  } catch (_err){
+    return null;
+  }
+
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4){
+    if (!data[i + 3]) continue;
+    const [nr, ng, nb] = applyHslAdjustmentsToPixel(data[i], data[i + 1], data[i + 2], adjustments);
+    data[i] = nr;
+    data[i + 1] = ng;
+    data[i + 2] = nb;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
 function tintImageWithHsl(img, adjustments){
   if (!img || !adjustments || typeof document === 'undefined') return null;
   const { width, height } = imageDrawDimensions(img);

@@ -1,6 +1,6 @@
 import { initFighters } from './fighter.js?v=6';
 import { renderAll } from './render.js?v=4';
-import { initSprites, renderSprites } from './sprites.js?v=8';
+import { initSprites, renderSprites } from './sprites.js?v=9';
 import {
   COSMETIC_SLOTS,
   getRegisteredCosmeticLibrary,
