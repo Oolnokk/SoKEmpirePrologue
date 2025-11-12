@@ -274,6 +274,7 @@
       <select id="mapRepoSelect" aria-label="Repository Map"></select>
       <button id="btnLoadMap">Load Map</button>
       <button id="btnUndo">Undo</button>
+      <button id="btnPreviewGameplay">Preview Gameplay</button>
       <button id="btnExportMap">Download Area JSON</button>
     </div>
   </header>
@@ -307,6 +308,12 @@
       <div style="display:flex;margin-top:6px">
         <button id="btnPlacePlayerSpawn" style="flex:1">Place Player Spawn</button>
       </div>
+      <div class="row">
+        <label><span>Spawn Height (px)</span><input id="spawnPosY" type="number" step="1"></label>
+      </div>
+      <small style="color:var(--muted);display:block;margin-top:4px">
+        Positive values push the spawn below ground; negative lifts it above.
+      </small>
       <small style="color:var(--muted);display:block;margin-top:4px">
         Only instances on the active layer can be picked, dragged or jittered. Use the button above and then click the preview to set the spawn (snaps to the grid unit).
       </small>
@@ -474,6 +481,7 @@ const DEFAULT_LAYOUT_META = {
 };
 const GRID_UNIT = (Number.isFinite(MAP_CONFIG.gridUnit) && MAP_CONFIG.gridUnit > 0) ? MAP_CONFIG.gridUnit : 10;
 const SPAWN_LAYER_ID = MAP_CONFIG.spawnLayerId || 'gameplay';
+const PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
 let runtimeModulePromise = null;
 
 function getRuntimeModule(){
@@ -749,6 +757,35 @@ function exitSpawnPlacement(){
   spawnPlacementMode = false;
   const canvasEl = document.getElementById('sceneCanvas');
   canvasEl?.classList.remove('spawn-mode');
+}
+
+function syncSpawnHeightField(){
+  const field = $('#spawnPosY');
+  if (!field) return;
+  const spawn = getPlayerSpawnInstance();
+  if (!spawn){
+    field.value = '';
+    return;
+  }
+  const pos = normalizePosition(spawn.position);
+  field.value = Number.isFinite(pos.y) ? pos.y : 0;
+}
+
+function updateSpawnHeightFromField(){
+  const field = $('#spawnPosY');
+  if (!field) return;
+  const spawn = ensurePlayerSpawn();
+  if (!spawn) return;
+  const val = parseFloat(field.value);
+  if (!Number.isFinite(val)) {
+    syncSpawnHeightField();
+    return;
+  }
+  spawn.position = normalizePosition(spawn.position);
+  if (spawn.position.y === val) return;
+  pushHistory();
+  spawn.position.y = val;
+  refreshInstanceList();
 }
 
 function toNumber(value, fallback){
@@ -1287,6 +1324,7 @@ function refreshInstanceList(){
     list.appendChild(div);
   }
   fillInstEditor();
+  syncSpawnHeightField();
 }
 function fillInstEditor(){
   const inst=getSelectedInstance();
@@ -1939,11 +1977,94 @@ async function exportLayout(){
 }
 $('#btnExportMap').addEventListener('click', exportLayout);
 
+function pruneOldPreviewPayloads(){
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const expiry = Date.now() - 10 * 60 * 1000;
+    for (let i = localStorage.length - 1; i >= 0; i--){
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(PREVIEW_STORAGE_PREFIX)) continue;
+      let remove = false;
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) {
+          remove = true;
+        } else {
+          const payload = JSON.parse(raw);
+          if (!payload || typeof payload !== 'object' || !Number.isFinite(payload.createdAt) || payload.createdAt < expiry){
+            remove = true;
+          }
+        }
+      } catch (_err) {
+        remove = true;
+      }
+      if (remove) {
+        try { localStorage.removeItem(key); } catch (_rmErr) { /* ignore */ }
+      }
+    }
+  } catch (_error) {
+    // Ignore storage errors (e.g., privacy mode)
+  }
+}
+
+function storePreviewPayload(layout){
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    pruneOldPreviewPayloads();
+    const token = `mp${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`;
+    const safeLayout = JSON.parse(JSON.stringify(layout));
+    const payload = {
+      createdAt: Date.now(),
+      layout: safeLayout,
+      version: 1,
+    };
+    localStorage.setItem(PREVIEW_STORAGE_PREFIX + token, JSON.stringify(payload));
+    return token;
+  } catch (error) {
+    console.error('[map-editor] Failed to store preview payload', error);
+    return null;
+  }
+}
+
+function launchGameplayPreview(){
+  try {
+    const area = buildAreaDescriptor();
+    area.meta = {
+      ...area.meta,
+      editorPreview: true,
+      exportedAt: new Date().toISOString(),
+    };
+    const token = storePreviewPayload(area);
+    if (!token) {
+      throw new Error('Storage is unavailable (private browsing or blocked cookies).');
+    }
+    const url = new URL('./index.html', window.location.href);
+    url.searchParams.set('mode', 'game');
+    url.searchParams.set('preview', token);
+    const win = window.open(url.toString(), '_blank');
+    if (!win) {
+      alert('Preview window was blocked. Allow pop-ups for this site to enable gameplay preview.');
+    }
+    win?.focus?.();
+  } catch (error) {
+    console.error('[map-editor] Failed to launch gameplay preview', error);
+    alert('Failed to launch gameplay preview: ' + error.message);
+  }
+}
+
 $('#btnLoadMap').addEventListener('click', async () => {
   const select = $('#mapRepoSelect');
   const mapId = select?.value || DEFAULT_LAYOUT_META.areaId;
   await loadRepositoryMapById(mapId);
 });
+
+$('#btnPreviewGameplay').addEventListener('click', launchGameplayPreview);
+const spawnHeightField = $('#spawnPosY');
+if (spawnHeightField){
+  ['change','blur','input'].forEach(evt => {
+    spawnHeightField.addEventListener(evt, updateSpawnHeightFromField);
+  });
+}
 
 /*** Loaders for prefab/image ***/
 $('#btnLoadPrefab').addEventListener('click',()=>{
