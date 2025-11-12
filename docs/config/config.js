@@ -458,6 +458,11 @@ window.CONFIG = {
             legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
           }
       },
+      bodyColors: {
+        A: { h: 18, s: 0.12, v: 0.08 },
+        B: { h: -24, s: 0.18, v: 0.05 },
+        C: { h: 96, s: 0.26, v: -0.06 }
+      },
       cosmetics: {}
     },
     'Mao-ao_M': {

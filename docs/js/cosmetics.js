@@ -180,6 +180,11 @@ function resolveBodyColorSource(config = {}, fighterName){
     }
   }
 
+  const fighterColors = config.fighters?.[fighterName]?.bodyColors;
+  if (fighterColors){
+    return { colors: buildBodyColorMap(fighterColors), characterKey: null };
+  }
+
   return { colors: {}, characterKey: null };
 }
 
