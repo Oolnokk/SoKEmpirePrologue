@@ -1075,6 +1075,8 @@ window.CONFIG = {
   }
 }
 
+ensureConfigSiteMetadata();
+
 const toPascalCase = (value = '') => {
   return value
     .replace(/[_-]+/g, ' ')
