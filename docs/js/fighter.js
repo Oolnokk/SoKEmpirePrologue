@@ -190,20 +190,6 @@ export function initFighters(cv, cx){
     player: makeF('player', playerSpawnX, 1, playerSpawnY),
     npc:    makeF('npc',    npcSpawnX, -1, npcSpawnY)
   };
-  G.spawnPoints = {
-    player: {
-      x: playerSpawnX,
-      y: playerSpawnY,
-      yOffset: playerSpawnYOffset,
-      source: playerSpawn ?? null,
-    },
-    npc: {
-      x: npcSpawnX,
-      y: npcSpawnY,
-      yOffset: resolvedNpcYOffset,
-      source: npcSpawn ?? null,
-    },
-  };
   if (G.editorPreview) {
     G.editorPreview.spawn = {
       player: {
