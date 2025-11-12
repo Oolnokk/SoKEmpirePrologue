@@ -366,7 +366,7 @@ window.CONFIG = {
       },
     ],
   },
-  groundY: 380,
+  groundY: 0,
   // Debug options are surfaced in the debug panel; freezeAngles lets animators hold joints for edits
   debug: {
     freezeAngles: false
@@ -459,7 +459,7 @@ window.CONFIG = {
           }
       },
       bodyColors: {
-        A: { h: 18, s: 0.12, v: 0.08 },
+        A: { h: 18, s: 1, v: 0.9 },
         B: { h: -24, s: 0.18, v: 0.05 },
         C: { h: 96, s: 0.26, v: -0.06 }
       },
@@ -504,9 +504,13 @@ window.CONFIG = {
             legLower: { ax:-0.0,  ay:0.2,  scaleX:1.7, scaleY:2.1, rotDeg:-4 }
           }
       },
+      bodyColors: {
+        A: { h: 18, s: 1, v: 0.9 },
+        B: { h: -24, s: 0.18, v: 0.05 },
+        C: { h: 96, s: 0.26, v: -0.06 }
+      },
       cosmetics: {}
-    }
-  },
+    },
 
   movement: {
     authoredWeight:0.6, physicsWeight:0.4,
