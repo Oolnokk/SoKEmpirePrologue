@@ -511,6 +511,7 @@ window.CONFIG = {
       },
       cosmetics: {}
     },
+  },
 
   movement: {
     authoredWeight:0.6, physicsWeight:0.4,
