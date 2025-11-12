@@ -195,13 +195,18 @@ function initWeaponDropdown() {
 function initCharacterDropdown() {
   const characterSelect = document.getElementById('characterSelect');
   if (!characterSelect || !window.CONFIG || !window.CONFIG.characters) return;
+  const characters = window.CONFIG.characters;
+  const characterKeys = Object.keys(characters);
+  const previousSelection =
+    characterSelect.value ||
+    window.GAME?.selectedCharacter ||
+    '';
   characterSelect.innerHTML = '';
   const defaultOption = document.createElement('option');
   defaultOption.value = '';
   defaultOption.textContent = '-- Select Character --';
   characterSelect.appendChild(defaultOption);
-  const characters = window.CONFIG.characters;
-  Object.keys(characters).forEach(key => {
+  characterKeys.forEach(key => {
     const option = document.createElement('option');
     option.value = key;
     option.textContent = key;
@@ -210,7 +215,34 @@ function initCharacterDropdown() {
   const onCharacterChange = (e) => {
     const map = window.CONFIG?.characters || {};
     const selectedChar = e.target.value;
-    if (!selectedChar || !map[selectedChar]) return;
+    window.GAME ||= {};
+    if (!selectedChar || !map[selectedChar]) {
+      characterSelect.value = '';
+      window.GAME.selectedCharacter = null;
+      window.GAME.selectedFighter = null;
+      window.GAME.selectedWeapon = null;
+      delete window.GAME.selectedAppearance;
+      delete window.GAME.selectedBodyColors;
+      delete window.GAME.selectedCosmetics;
+
+      if (typeof hideFighterSettings === 'function') {
+        hideFighterSettings();
+      }
+
+      const fighterSelect = document.getElementById('fighterSelect');
+      if (fighterSelect) {
+        fighterSelect.value = '';
+      }
+
+      const weaponSelect = document.getElementById('weaponSelect');
+      if (weaponSelect) {
+        weaponSelect.value = '';
+      }
+
+      const defaults = getDefaultAbilityAssignments();
+      setAbilitySelection(defaults, { syncDropdowns: true });
+      return;
+    }
     const charData = map[selectedChar];
     // Sync fighter, weapon, cosmetics, and appearance
     window.GAME.selectedCharacter = selectedChar;
@@ -273,11 +305,17 @@ function initCharacterDropdown() {
   characterSelect._characterChangeHandler = onCharacterChange;
   characterSelect.addEventListener('change', onCharacterChange);
 
-  const characterKeys = Object.keys(characters);
-  const preferredDefault = window.GAME?.selectedCharacter || (characters.player ? 'player' : characterKeys[0]);
-  if (preferredDefault && characters[preferredDefault]) {
-    characterSelect.value = preferredDefault;
-    onCharacterChange({ target: { value: preferredDefault } });
+  const preferredDefault = characters.player ? 'player' : characterKeys[0] || '';
+  const hasPreviousSelection =
+    previousSelection && Object.prototype.hasOwnProperty.call(characters, previousSelection);
+  const nextSelection = hasPreviousSelection ? previousSelection : preferredDefault;
+
+  if (nextSelection) {
+    characterSelect.value = nextSelection;
+    onCharacterChange({ target: { value: nextSelection } });
+  } else {
+    characterSelect.value = '';
+    onCharacterChange({ target: { value: '' } });
   }
 
   console.log('[initCharacterDropdown] Character dropdown initialized with', characterKeys.length, 'characters');
@@ -606,6 +644,11 @@ function initFighterDropdown() {
 
   const C = window.CONFIG || {};
   const fighters = C.fighters || {};
+  const previousSelection =
+    fighterSelect.value ||
+    currentSelectedFighter ||
+    window.GAME?.selectedFighter ||
+    null;
 
   // Clear existing options
   fighterSelect.innerHTML = '';
@@ -624,17 +667,37 @@ function initFighterDropdown() {
     fighterSelect.appendChild(option);
   });
 
-  // Handle selection change
-  fighterSelect.addEventListener('change', (e) => {
-    const selectedFighter = e.target.value;
-    currentSelectedFighter = selectedFighter;
-    window.GAME.selectedFighter = selectedFighter;
-    if (selectedFighter) {
-      showFighterSettings(selectedFighter);
-    } else {
+  const hasPreviousSelection =
+    previousSelection && Object.prototype.hasOwnProperty.call(fighters, previousSelection);
+
+  if (hasPreviousSelection) {
+    fighterSelect.value = previousSelection;
+    currentSelectedFighter = previousSelection;
+    window.GAME ||= {};
+    window.GAME.selectedFighter = previousSelection;
+    showFighterSettings(previousSelection);
+  } else {
+    fighterSelect.value = '';
+    if (!previousSelection) {
       hideFighterSettings();
     }
-  });
+  }
+
+  // Handle selection change
+  if (!fighterSelect.dataset.initialized) {
+    fighterSelect.addEventListener('change', (e) => {
+      const selectedFighter = e.target.value;
+      currentSelectedFighter = selectedFighter;
+      window.GAME ||= {};
+      window.GAME.selectedFighter = selectedFighter;
+      if (selectedFighter) {
+        showFighterSettings(selectedFighter);
+      } else {
+        hideFighterSettings();
+      }
+    });
+    fighterSelect.dataset.initialized = 'true';
+  }
 
   console.log('[initFighterDropdown] Fighter dropdown initialized with', Object.keys(fighters).length, 'fighters');
 }
