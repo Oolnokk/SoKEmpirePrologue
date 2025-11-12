@@ -1005,6 +1005,10 @@ window.CONFIG = {
   }
 }
 
+const CONFIG = (typeof window !== 'undefined' && window.CONFIG !== undefined)
+  ? window.CONFIG
+  : globalThis.CONFIG;
+
 const toPascalCase = (value = '') => {
   return value
     .replace(/[_-]+/g, ' ')
