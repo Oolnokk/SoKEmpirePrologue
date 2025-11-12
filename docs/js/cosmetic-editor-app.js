@@ -16,7 +16,6 @@ const CONFIG = window.CONFIG || {};
 const GAME = (window.GAME ||= {});
 const editorState = (GAME.editorState ||= {
   slotOverrides: {},
-  overlayHistory: [],
   activePartKey: null,
   slotSelection: {},
   assetManifest: [],
@@ -142,77 +141,6 @@ function clampNumber(value, min, max){
   if (value < min) return min;
   if (value > max) return max;
   return value;
-}
-
-function readBucketTolerance(){
-  const fallback = 24;
-  if (!bucketToleranceInput) return fallback;
-  const parsed = Number.parseFloat(bucketToleranceInput.value);
-  if (Number.isNaN(parsed)) return fallback;
-  return clampNumber(Math.round(parsed), 0, 255);
-}
-
-function readBucketExpansion(){
-  const fallback = 1;
-  if (!bucketExpandInput) return fallback;
-  const parsed = Number.parseFloat(bucketExpandInput.value);
-  if (Number.isNaN(parsed)) return fallback;
-  return clampNumber(Math.round(parsed), 0, 24);
-}
-
-function ensureOverlay(){
-  if (!editorState.overlayCanvas){
-    const overlayCanvas = document.createElement('canvas');
-    overlayCanvas.width = canvas.width;
-    overlayCanvas.height = canvas.height;
-    const overlayCtx = overlayCanvas.getContext('2d');
-    editorState.overlayCanvas = overlayCanvas;
-    editorState.overlayCtx = overlayCtx;
-    editorState.overlayHistory = [];
-    captureOverlaySnapshot();
-  }
-  return editorState.overlayCanvas;
-}
-
-function captureOverlaySnapshot(){
-  const overlayCtx = editorState.overlayCtx;
-  if (!overlayCtx) return;
-  const data = overlayCtx.getImageData(0, 0, canvas.width, canvas.height);
-  const clone = new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
-  editorState.overlayHistory.push(clone);
-  if (editorState.overlayHistory.length > 20){
-    editorState.overlayHistory.shift();
-  }
-  updateUndoButtonState();
-}
-
-function restoreOverlayFromSnapshot(snapshot){
-  const overlayCtx = editorState.overlayCtx;
-  if (!overlayCtx || !snapshot) return;
-  overlayCtx.putImageData(snapshot, 0, 0);
-}
-
-function undoOverlay(){
-  const history = editorState.overlayHistory;
-  if (!history || history.length <= 1) return;
-  history.pop();
-  const previous = history[history.length - 1];
-  restoreOverlayFromSnapshot(previous);
-  updateUndoButtonState();
-}
-
-function clearOverlay(){
-  ensureOverlay();
-  if (!editorState.overlayCtx) return;
-  editorState.overlayCtx.clearRect(0, 0, canvas.width, canvas.height);
-  editorState.overlayHistory = [];
-  captureOverlaySnapshot();
-}
-
-function updateUndoButtonState(){
-  if (!bucketUndoBtn) return;
-  const hasUndo = (editorState.overlayHistory?.length || 0) > 1;
-  bucketUndoBtn.disabled = !hasUndo;
 }
 
 function showStatus(message, { tone = 'info', timeout = 1800 } = {}){
@@ -485,9 +413,9 @@ function createCustomCosmetic(){
   const newCosmetic = {
     slots: [slot],
     meta: { name: displayName },
-    hsv: {
-      defaults: { h: 0, s: 0, v: 0 },
-      limits: { h: [-180, 180], s: [-1, 1], v: [-1, 1] }
+    hsl: {
+      defaults: { h: 0, s: 0, l: 0 },
+      limits: { h: [-180, 180], s: [-1, 1], l: [-1, 1] }
     },
     parts
   };
@@ -1353,8 +1281,8 @@ function cleanupEmptyOverrides(slot){
   if (slotOverride.warp && Object.keys(slotOverride.warp).length === 0){
     delete slotOverride.warp;
   }
-  if (slotOverride.hsv && Object.keys(slotOverride.hsv).length === 0){
-    delete slotOverride.hsv;
+  if (slotOverride.hsl && Object.keys(slotOverride.hsl).length === 0){
+    delete slotOverride.hsl;
   }
   if (slotOverride.image && !slotOverride.image.url){
     delete slotOverride.image;
@@ -1772,7 +1700,6 @@ function loadFighter(fighterName){
   const slots = fighter.cosmetics?.slots || fighter.cosmetics || {};
   const combinedSlots = { ...(appearance.slots || {}), ...(slots || {}) };
   const slotMap = setSelectedCosmetics(combinedSlots);
-  clearOverlay();
   editorState.assetPinned = false;
   setSelectedAsset(null);
   const profile = getFighterCosmeticProfile(fighterName) || null;
@@ -1788,41 +1715,10 @@ function loadFighter(fighterName){
   showStatus(`Loaded fighter ${fighterName}`, { tone: 'info' });
 }
 
-function updateBucketMode(isActive){
-  editorState.bucketActive = isActive;
-  bucketToggle.classList.toggle('is-active', !!isActive);
-  canvas.classList.toggle('is-bucket', !!isActive);
-  if (bucketHint){
-    bucketHint.hidden = !isActive;
-  }
-}
-
-function handleCanvasClick(event){
-  if (!editorState.bucketActive) return;
-  const color = parseHexColor(bucketColorInput.value);
-  if (!color){
-    showStatus('Enter a valid hex color (e.g., #ff9933).', { tone: 'warn' });
-    return;
-  }
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  const x = Math.floor((event.clientX - rect.left) * scaleX);
-  const y = Math.floor((event.clientY - rect.top) * scaleY);
-  applyBucketFill(x, y, color, {
-    tolerance: readBucketTolerance(),
-    expand: readBucketExpansion()
-  });
-}
-
 function draw(){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   renderAll(ctx);
   renderSprites(ctx);
-  const overlayCanvas = ensureOverlay();
-  if (overlayCanvas){
-    ctx.drawImage(overlayCanvas, 0, 0);
-  }
   requestAnimationFrame(draw);
 }
 
@@ -1881,7 +1777,6 @@ function attachEventListeners(){
 }
 
 (async function bootstrap(){
-  ensureOverlay();
   setSelectedAsset(null);
   await initSprites();
   initFighters(canvas, ctx);

@@ -21,187 +21,17 @@ const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
 RENDER.MIRROR = RENDER.MIRROR || {}; // Initialize per-limb mirror flags
 
-const HSV_TINT_CACHE = new WeakMap();
-
-function hsvKey(hsv){
-  if (!hsv) return '0|0|0';
-  const h = Number.isFinite(hsv.h) ? hsv.h : 0;
-  const s = Number.isFinite(hsv.s) ? hsv.s : 0;
-  const v = Number.isFinite(hsv.v) ? hsv.v : 0;
-  return `${h.toFixed(4)}|${s.toFixed(4)}|${v.toFixed(4)}`;
+function hasHslAdjustments(hsl){
+  if (!hsl) return false;
+  return (Number.isFinite(hsl.h) && hsl.h !== 0)
+    || (Number.isFinite(hsl.s) && hsl.s !== 0)
+    || (Number.isFinite(hsl.l) && hsl.l !== 0);
 }
 
-function createTintCanvas(width, height){
-  if (typeof OffscreenCanvas === 'function'){
-    try {
-      const canvas = new OffscreenCanvas(width, height);
-      return canvas;
-    } catch (err) {
-      // Fall back to DOM canvas
-    }
-  }
-  if (typeof document !== 'undefined' && typeof document.createElement === 'function'){
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    return canvas;
-  }
-  return null;
+function prepareImageForHSL(img, hsl){
+  return { image: img, applyFilter: hasHslAdjustments(hsl) };
 }
 
-function rgbToHsv(r, g, b){
-  const rn = r / 255;
-  const gn = g / 255;
-  const bn = b / 255;
-  const max = Math.max(rn, gn, bn);
-  const min = Math.min(rn, gn, bn);
-  const delta = max - min;
-  let h = 0;
-  if (delta){
-    switch(max){
-      case rn:
-        h = ((gn - bn) / delta) % 6;
-        break;
-      case gn:
-        h = (bn - rn) / delta + 2;
-        break;
-      default:
-        h = (rn - gn) / delta + 4;
-        break;
-    }
-    h *= 60;
-    if (h < 0) h += 360;
-  }
-  const s = max === 0 ? 0 : delta / max;
-  const v = max;
-  return { h, s, v };
-}
-
-function hsvToRgb(h, s, v){
-  const c = v * s;
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = v - c;
-  let r = 0, g = 0, b = 0;
-  if (h >= 0 && h < 60){
-    r = c; g = x; b = 0;
-  } else if (h >= 60 && h < 120){
-    r = x; g = c; b = 0;
-  } else if (h >= 120 && h < 180){
-    r = 0; g = c; b = x;
-  } else if (h >= 180 && h < 240){
-    r = 0; g = x; b = c;
-  } else if (h >= 240 && h < 300){
-    r = x; g = 0; b = c;
-  } else {
-    r = c; g = 0; b = x;
-  }
-  return {
-    r: Math.round((r + m) * 255),
-    g: Math.round((g + m) * 255),
-    b: Math.round((b + m) * 255)
-  };
-}
-
-function tintImageWithHSV(img, hsv){
-  if (!img || img.__broken) return img;
-  if (!(Number.isFinite(img.naturalWidth) ? img.naturalWidth : img.width)) return img;
-  if (!hsv || (!Number.isFinite(hsv.h) && !Number.isFinite(hsv.s) && !Number.isFinite(hsv.v))){
-    return img;
-  }
-  if (!img.complete || (img.naturalWidth || img.width || 0) === 0 || (img.naturalHeight || img.height || 0) === 0){
-    return img;
-  }
-
-  const width = img.naturalWidth || img.width;
-  const height = img.naturalHeight || img.height;
-  if (!(width > 0 && height > 0)) return img;
-
-  const key = hsvKey(hsv);
-  let cacheForImage = HSV_TINT_CACHE.get(img);
-  if (!cacheForImage){
-    cacheForImage = new Map();
-    HSV_TINT_CACHE.set(img, cacheForImage);
-  }
-  if (cacheForImage.has(key)){
-    return cacheForImage.get(key);
-  }
-
-  const hueShift = Number.isFinite(hsv.h) ? hsv.h : 0;
-  const satFactor = Number.isFinite(hsv.s) ? Math.max(0, 1 + hsv.s) : 1;
-  const valFactor = Number.isFinite(hsv.v) ? Math.max(0, 1 + hsv.v) : 1;
-
-  if (hueShift === 0 && satFactor === 1 && valFactor === 1){
-    cacheForImage.set(key, img);
-    return img;
-  }
-
-  const canvas = createTintCanvas(width, height);
-  if (!canvas) {
-    cacheForImage.set(key, img);
-    return img;
-  }
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    cacheForImage.set(key, img);
-    return img;
-  }
-  ctx.clearRect(0, 0, width, height);
-  try {
-    ctx.drawImage(img, 0, 0, width, height);
-  } catch (err) {
-    cacheForImage.set(key, img);
-    return img;
-  }
-  let imageData;
-  try {
-    imageData = ctx.getImageData(0, 0, width, height);
-  } catch (err) {
-    cacheForImage.set(key, img);
-    return img;
-  }
-  const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4){
-    const alpha = data[i + 3];
-    if (alpha === 0) continue;
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    const { h, s, v } = rgbToHsv(r, g, b);
-    let newH = (h + hueShift) % 360;
-    if (newH < 0) newH += 360;
-    let newS = s * satFactor;
-    if (newS < 0) newS = 0;
-    if (newS > 1) newS = 1;
-    let newV = v * valFactor;
-    if (newV < 0) newV = 0;
-    if (newV > 1) newV = 1;
-    const { r: nr, g: ng, b: nb } = hsvToRgb(newH, newS, newV);
-    data[i] = nr;
-    data[i + 1] = ng;
-    data[i + 2] = nb;
-  }
-  ctx.putImageData(imageData, 0, 0);
-  cacheForImage.set(key, canvas);
-  return canvas;
-}
-
-function hasHsvAdjustments(hsv){
-  if (!hsv) return false;
-  return (Number.isFinite(hsv.h) && hsv.h !== 0)
-    || (Number.isFinite(hsv.s) && hsv.s !== 0)
-    || (Number.isFinite(hsv.v) && hsv.v !== 0);
-}
-
-function prepareImageForHSV(img, hsv){
-  if (!hasHsvAdjustments(hsv)){
-    return { image: img, applyFilter: false };
-  }
-  const tinted = tintImageWithHSV(img, hsv);
-  if (tinted && tinted !== img){
-    return { image: tinted, applyFilter: false };
-  }
-  return { image: img, applyFilter: true };
-}
 
 function imageDrawDimensions(img){
   const width = img?.naturalWidth || img?.videoWidth || img?.width || 0;
@@ -455,22 +285,22 @@ function mergeSpriteStyles(base = {}, overrides = {}){
   return out;
 }
 
-function buildFilterString(baseFilter, hsv){
+function buildFilterString(baseFilter, hsl){
   const filters = [];
   if (baseFilter && baseFilter !== 'none'){
     filters.push(baseFilter);
   }
-  if (hsv){
-    if (Number.isFinite(hsv.h)){
-      filters.push(`hue-rotate(${hsv.h}deg)`);
+  if (hsl){
+    if (Number.isFinite(hsl.h)){
+      filters.push(`hue-rotate(${hsl.h}deg)`);
     }
-    if (Number.isFinite(hsv.s)){
-      const sat = Math.max(0, 1 + hsv.s);
+    if (Number.isFinite(hsl.s)){
+      const sat = Math.max(0, 1 + hsl.s);
       filters.push(`saturate(${sat})`);
     }
-    if (Number.isFinite(hsv.v)){
-      const bright = Math.max(0, 1 + hsv.v);
-      filters.push(`brightness(${bright})`);
+    if (Number.isFinite(hsl.l)){
+      const light = Math.max(0, 1 + hsl.l);
+      filters.push(`brightness(${light})`);
     }
   }
   return filters.length ? filters.join(' ') : 'none';
@@ -538,7 +368,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   if (!img.complete) return false;
   if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return false;
 
-  const { image: renderImage, applyFilter } = prepareImageForHSV(img, options.hsv);
+  const { image: renderImage, applyFilter } = prepareImageForHSL(img, options.hsl);
   const sourceImage = renderImage || img;
 
   // Normalize styleKey: arm_L_upper -> armUpper, leg_R_lower -> legLower
@@ -624,7 +454,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
 
   const originalFilter = ctx.filter;
   const filter = applyFilter
-    ? buildFilterString(originalFilter, options.hsv)
+    ? buildFilterString(originalFilter, options.hsl)
     : (originalFilter && originalFilter !== '' ? originalFilter : 'none');
   const warp = options.warp;
   ctx.save();
@@ -721,7 +551,7 @@ export function renderSprites(ctx){
       if (!key) continue;
       const tint = bodyColors[key];
       if (tint){
-        return { hsv: { ...tint } };
+        return { hsl: { ...tint } };
       }
     }
     return undefined;
