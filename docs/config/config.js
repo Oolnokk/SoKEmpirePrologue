@@ -753,6 +753,8 @@ window.CONFIG = {
       },
       appearance: {
         slots: {
+          head_hair: {},
+          facial_hair: {},
           eyes: { id: 'mao-ao_circled_eye_L', colors: ['B'] }
         }
       },
@@ -774,8 +776,9 @@ window.CONFIG = {
       },
       appearance: {
         slots: {
-          eyes: { id: 'mao-ao_circled_eyes', colors: ['B'] },
-          hair: { id: 'mao-ao_smooth_stripe', colors: ['B'] }
+          head_hair: { id: 'mao-ao_smooth_stripe', colors: ['B'] },
+          facial_hair: {},
+          eyes: { id: 'mao-ao_circled_eyes', colors: ['B'] }
         }
       },
       cosmetics: {
