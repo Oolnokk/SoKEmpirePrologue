@@ -1,5 +1,93 @@
 const SOURCE_ID = 'map-builder-layered-v15f';
 
+function isAreaDescriptor(candidate) {
+  if (!candidate || typeof candidate !== 'object') return false;
+  if (candidate.camera || candidate.ground) return true;
+  if (Array.isArray(candidate.instances)) {
+    return candidate.instances.some((inst) => inst && typeof inst === 'object' && (inst.position || inst.scale));
+  }
+  if (Array.isArray(candidate.layers)) {
+    return candidate.layers.some((layer) => layer && typeof layer === 'object' && ('parallaxSpeed' in layer || 'offsetY' in layer || 'separation' in layer));
+  }
+  return false;
+}
+
+function normalizeAreaDescriptor(area, options = {}) {
+  const {
+    areaId = area.id || area.areaId || 'builder_area',
+    areaName = area.name || area.areaName || areaId,
+    layerImageResolver = () => null,
+    prefabResolver = () => null,
+  } = options;
+
+  const rawLayers = Array.isArray(area.layers) ? area.layers : [];
+  const rawInstances = Array.isArray(area.instances)
+    ? area.instances
+    : Array.isArray(area.props)
+      ? area.props
+      : [];
+
+  const warnings = [];
+  if (!Array.isArray(area.layers)) {
+    warnings.push('area.layers missing – produced area has zero parallax layers');
+  }
+  if (!Array.isArray(area.instances) && !Array.isArray(area.props)) {
+    warnings.push('area.instances missing – produced area has zero instances');
+  }
+
+  const convertedLayers = rawLayers.map((layer, index) => ({
+    id: layer.id || `layer_${index}`,
+    name: layer.name || `Layer ${index + 1}`,
+    type: layer.type || 'gameplay',
+    parallaxSpeed: toNumber(layer.parallaxSpeed ?? layer.parallax, 1),
+    scale: toNumber(layer.scale, 1),
+    offsetY: toNumber(layer.offsetY ?? layer.yOffset, 0),
+    separation: toNumber(layer.separation ?? layer.sep, 0),
+    source: layer.source ?? layerImageResolver(layer) ?? null,
+    meta: layer.meta ? safeClone(layer.meta) : {},
+  }));
+
+  const convertedInstances = rawInstances.map((inst) => {
+    const tags = Array.isArray(inst.tags) ? inst.tags.map((tag) => String(tag)) : [];
+    const meta = inst.meta ? safeClone(inst.meta) : {};
+    return {
+      id: inst.id,
+      prefabId: inst.prefabId ?? null,
+      layerId: inst.layerId ?? null,
+      position: {
+        x: toNumber(inst.position?.x ?? inst.x ?? 0, 0),
+        y: toNumber(inst.position?.y ?? inst.y ?? 0, 0),
+      },
+      scale: {
+        x: toNumber(inst.scale?.x ?? inst.scaleX ?? 1, 1),
+        y: toNumber(inst.scale?.y ?? inst.scaleY ?? inst.scale?.x ?? inst.scaleX ?? 1, 1),
+      },
+      rotationDeg: toNumber(inst.rotationDeg ?? inst.rot ?? 0, 0),
+      locked: !!inst.locked,
+      prefab: inst.prefab ?? prefabResolver(inst.prefabId ?? null),
+      tags,
+      meta,
+    };
+  });
+
+  return {
+    id: areaId,
+    name: areaName,
+    source: area.source ?? SOURCE_ID,
+    camera: {
+      startX: toNumber(area.camera?.startX ?? area.cameraStartX, 0),
+      startZoom: toNumber(area.camera?.startZoom ?? area.zoomStart, 1),
+    },
+    ground: {
+      offset: toNumber(area.ground?.offset ?? area.groundOffset, 0),
+    },
+    layers: convertedLayers,
+    instances: convertedInstances,
+    warnings,
+    meta: area.meta ? safeClone(area.meta) : {},
+  };
+}
+
 /**
  * Convert a builder layout export into a runtime-friendly area descriptor.
  * The descriptor remains independent from the rest of the runtime so failures
@@ -9,12 +97,16 @@ export function convertLayoutToArea(layout, options = {}) {
   if (!layout || typeof layout !== 'object') {
     throw new TypeError('layout must be an object');
   }
-  const {
-    areaId = layout.areaId || layout.id || 'builder_area',
-    areaName = layout.areaName || layout.name || areaId,
-    layerImageResolver = () => null,
-    prefabResolver = () => null,
-  } = options;
+
+  if (isAreaDescriptor(layout)) {
+    return normalizeAreaDescriptor(layout, options);
+  }
+
+  const resolvedAreaId = options.areaId ?? layout.areaId ?? layout.id ?? 'builder_area';
+  const resolvedAreaName = options.areaName ?? layout.areaName ?? layout.name ?? resolvedAreaId;
+  const layerImageResolver = options.layerImageResolver ?? (() => null);
+  const prefabResolver = options.prefabResolver ?? (() => null);
+  const includeRaw = options.includeRaw ?? false;
 
   const layers = Array.isArray(layout.layers) ? layout.layers : [];
   const instances = Array.isArray(layout.instances) ? layout.instances : [];
@@ -46,6 +138,12 @@ export function convertLayoutToArea(layout, options = {}) {
       : (toNumber(inst.slot, 0) - center) * separation + nudge;
 
     const prefab = prefabResolver(inst.prefabId);
+    const tags = Array.isArray(inst.tags) ? inst.tags.map((tag) => String(tag)) : [];
+
+    const original = safeClone(inst);
+    if (tags.length && !Array.isArray(original.tags)) {
+      original.tags = [...tags];
+    }
 
     return {
       id: inst.id,
@@ -62,8 +160,9 @@ export function convertLayoutToArea(layout, options = {}) {
       rotationDeg: toNumber(inst.rot, 0),
       locked: !!inst.locked,
       prefab,
+      tags,
       meta: {
-        original: safeClone(inst),
+        original,
       },
     };
   });
@@ -77,8 +176,8 @@ export function convertLayoutToArea(layout, options = {}) {
   }
 
   return {
-    id: areaId,
-    name: areaName,
+    id: resolvedAreaId,
+    name: resolvedAreaName,
     source: SOURCE_ID,
     camera: {
       startX: toNumber(layout.cameraStartX, 0),
@@ -92,7 +191,7 @@ export function convertLayoutToArea(layout, options = {}) {
     warnings,
     meta: {
       exportedAt: layout.meta?.exportedAt || null,
-      raw: options.includeRaw ? safeClone(layout) : undefined,
+      raw: includeRaw ? safeClone(layout) : undefined,
     },
   };
 }

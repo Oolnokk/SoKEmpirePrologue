@@ -137,6 +137,9 @@
       display:block;
       touch-action:none;
     }
+    #sceneCanvas.spawn-mode {
+      cursor:crosshair;
+    }
 
     #instList {
       max-height:160px;
@@ -169,6 +172,11 @@
       background:#1c2330;
       color:var(--muted);
       font-size:9px;
+    }
+    .pill--spawn {
+      margin-left:4px;
+      background:#0f172a;
+      color:#38bdf8;
     }
     .lock-pill {
       margin-left:4px;
@@ -254,17 +262,19 @@
       }
     }
   </style>
+  <script src="./config/config.js"></script>
 </head>
 <body>
 <div id="app">
   <header>
     <h1>Parallax Map Builder <span style="color:var(--muted)">· layered v15f</span></h1>
-    <div style="display:flex;gap:4px;flex-wrap:wrap">
+    <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
       <button id="btnLoadPrefab">Load Structure JSON</button>
       <button id="btnLoadImage">Load Image</button>
-      <button id="btnLoadMap">Load Map JSON</button>
+      <select id="mapRepoSelect" aria-label="Repository Map"></select>
+      <button id="btnLoadMap">Load Map</button>
       <button id="btnUndo">Undo</button>
-      <button id="btnExportMap">Download Map JSON</button>
+      <button id="btnExportMap">Download Area JSON</button>
     </div>
   </header>
 
@@ -294,8 +304,11 @@
     <div class="card">
       <strong>Instances (active layer only)</strong>
       <div id="instList"></div>
+      <div style="display:flex;margin-top:6px">
+        <button id="btnPlacePlayerSpawn" style="flex:1">Place Player Spawn</button>
+      </div>
       <small style="color:var(--muted);display:block;margin-top:4px">
-        Only instances on the active layer can be picked, dragged or jittered.
+        Only instances on the active layer can be picked, dragged or jittered. Use the button above and then click the preview to set the spawn (snaps to the grid unit).
       </small>
     </div>
 
@@ -430,6 +443,46 @@
 
 <script>
 const $ = s => document.querySelector(s);
+const MAP_CONFIG = window.CONFIG?.map || {};
+const DEFAULT_CUSTOM_ENTRY = { id: 'custom_area', label: 'Empty Layout', path: null, areaName: 'Custom Area' };
+const REPOSITORY_LAYOUTS = (() => {
+  const normalized = Array.isArray(MAP_CONFIG.layouts) && MAP_CONFIG.layouts.length
+    ? MAP_CONFIG.layouts.map((entry) => ({
+        id: entry.id || entry.areaId || entry.path || 'custom_area',
+        label: entry.label || entry.areaName || entry.id || 'Map',
+        path: entry.path || null,
+        areaName: entry.areaName || entry.label || entry.id || 'Map',
+      }))
+    : [];
+  const seen = new Set();
+  const result = [];
+  const add = (entry) => {
+    if (entry && entry.id && !seen.has(entry.id)) {
+      result.push(entry);
+      seen.add(entry.id);
+    }
+  };
+  add(DEFAULT_CUSTOM_ENTRY);
+  normalized.forEach(add);
+  return result;
+})();
+const DEFAULT_LAYOUT_META = {
+  areaId: REPOSITORY_LAYOUTS[0]?.id || 'custom_area',
+  areaName: REPOSITORY_LAYOUTS[0]?.areaName || REPOSITORY_LAYOUTS[0]?.label || 'Custom Area',
+  sourcePath: REPOSITORY_LAYOUTS[0]?.path || null,
+  repositoryId: REPOSITORY_LAYOUTS[0]?.id || null,
+};
+const GRID_UNIT = (Number.isFinite(MAP_CONFIG.gridUnit) && MAP_CONFIG.gridUnit > 0) ? MAP_CONFIG.gridUnit : 10;
+const SPAWN_LAYER_ID = MAP_CONFIG.spawnLayerId || 'gameplay';
+let runtimeModulePromise = null;
+
+function getRuntimeModule(){
+  if (!runtimeModulePromise){
+    runtimeModulePromise = import('./js/vendor/map-runtime.js');
+  }
+  return runtimeModulePromise;
+}
+
 function clamp(v,a,b){ return v<a?a:v>b?b:v; }
 function lerp(a,b,t){ return a + (b-a)*t; }
 function rad(d){ return d * Math.PI/180; }
@@ -445,7 +498,9 @@ function snapshotState(){
     cameraX,
     zoom,
     groundOffset: getGroundOffset(),
-    activeLayerId
+    activeLayerId,
+    nextInstId,
+    meta: layoutMeta,
   }));
 }
 function pushHistory(){
@@ -456,13 +511,27 @@ function pushHistory(){
 function restoreState(state){
   if(!state) return;
   isRestoring = true;
-  layers = state.layers;
+  exitSpawnPlacement();
+  layoutMeta = { ...DEFAULT_LAYOUT_META, ...(state.meta || {}) };
+  layers = Array.isArray(state.layers) ? state.layers : createDefaultLayers();
   instances.length = 0;
-  (state.instances||[]).forEach(i => instances.push(i));
+  (state.instances||[]).forEach((inst) => {
+    const clone = JSON.parse(JSON.stringify(inst));
+    clone.tags = Array.isArray(clone.tags) ? clone.tags.map((tag) => String(tag)) : [];
+    instances.push(clone);
+  });
   cameraX = state.cameraX || 0;
   zoom = state.zoom || 1;
   $('#groundOffset').value = state.groundOffset || 140;
   activeLayerId = state.activeLayerId || (layers[0] && layers[0].id) || activeLayerId;
+  const maxId = instances.reduce((max, inst) => {
+    const num = Number(inst.id);
+    return Number.isFinite(num) ? Math.max(max, num) : max;
+  }, 0);
+  const nextFromState = Number.isFinite(state.nextInstId) ? state.nextInstId : 1;
+  nextInstId = Math.max(nextFromState, maxId + 1, 1);
+  ensurePlayerSpawn();
+  resetSlotCounters();
   rebuildActiveLayerSelect();
   rebuildLayerStack();
   syncActiveLayerFields();
@@ -596,14 +665,18 @@ function computeAnchor(t){
 }
 
 /*** Layers ***/
-let layers = [
-  { id:"bg1",  name:"Parallax 1", type:"parallax",  parallax:0.2, yOffset:-120, sep:220, scale:0.7 },
-  { id:"bg2",  name:"Parallax 2", type:"parallax",  parallax:0.4, yOffset:-90,  sep:220, scale:0.8 },
-  { id:"gameplay", name:"Gameplay", type:"gameplay", parallax:1.0, yOffset:-20, sep:180, scale:1.0 },
-  { id:"fg1",  name:"Foreground 1", type:"foreground", parallax:1.1, yOffset:-10, sep:180, scale:1.05 },
-  { id:"fg2",  name:"Foreground 2", type:"foreground", parallax:1.2, yOffset:0,   sep:180, scale:1.1 }
-];
-let activeLayerId = "gameplay";
+function createDefaultLayers(){
+  return [
+    { id:"bg1",  name:"Parallax 1", type:"parallax",  parallax:0.2, yOffset:-120, sep:220, scale:0.7 },
+    { id:"bg2",  name:"Parallax 2", type:"parallax",  parallax:0.4, yOffset:-90,  sep:220, scale:0.8 },
+    { id:"gameplay", name:"Gameplay", type:"gameplay", parallax:1.0, yOffset:-20, sep:180, scale:1.0 },
+    { id:"fg1",  name:"Foreground 1", type:"foreground", parallax:1.1, yOffset:-10, sep:180, scale:1.05 },
+    { id:"fg2",  name:"Foreground 2", type:"foreground", parallax:1.2, yOffset:0,   sep:180, scale:1.1 }
+  ];
+}
+let layers = createDefaultLayers();
+let activeLayerId = SPAWN_LAYER_ID && layers.some((l) => l.id === SPAWN_LAYER_ID) ? SPAWN_LAYER_ID : 'gameplay';
+let layoutMeta = { ...DEFAULT_LAYOUT_META };
 function getParallaxLayerCount(){ return layers.filter(l=>l.type==="parallax").length; }
 function findLayer(id){ return layers.find(l=>l.id===id) || null; }
 
@@ -615,6 +688,216 @@ let nextInstId = 1;
 const instances = [];
 let selectedInstId = null;
 const nextSlotByLayer = {};
+let playerSpawnInstId = null;
+let spawnPlacementMode = false;
+
+function resetSlotCounters(){
+  for (const key of Object.keys(nextSlotByLayer)) delete nextSlotByLayer[key];
+  for (const inst of instances){
+    const layerId = inst.layerId || '__unassigned__';
+    const slot = Number.isFinite(inst.slot) ? inst.slot : 0;
+    const current = nextSlotByLayer[layerId] ?? 0;
+    nextSlotByLayer[layerId] = Math.max(current, slot + 1);
+  }
+}
+
+function isPlayerSpawn(inst){
+  return Array.isArray(inst?.tags) && inst.tags.includes('spawn:player');
+}
+
+function getDefaultSpawnLayerId(){
+  if (findLayer(SPAWN_LAYER_ID)) return SPAWN_LAYER_ID;
+  const gameplay = layers.find((layer) => layer.type === 'gameplay');
+  return gameplay ? gameplay.id : (layers[0]?.id || 'gameplay');
+}
+
+function ensurePlayerSpawn(){
+  let spawn = instances.find(isPlayerSpawn);
+  const spawnLayerId = getDefaultSpawnLayerId();
+  if (!spawn){
+    spawn = {
+      id: nextInstId++,
+      prefabId: 'spawn_player',
+      layerId: spawnLayerId,
+      slot: 0,
+      nudgeX: 0,
+      locked: true,
+      scaleX: 1,
+      scaleY: 1,
+      offsetY: 0,
+      rot: 0,
+      x: 0,
+      tags: ['spawn:player'],
+    };
+    instances.push(spawn);
+  } else {
+    if (!Array.isArray(spawn.tags)) spawn.tags = [];
+    if (!spawn.tags.includes('spawn:player')) spawn.tags.push('spawn:player');
+    spawn.layerId = spawn.layerId || spawnLayerId;
+  }
+  playerSpawnInstId = spawn.id;
+  return spawn;
+}
+
+function getPlayerSpawnInstance(){
+  if (playerSpawnInstId != null){
+    const inst = instances.find((item) => item.id === playerSpawnInstId);
+    if (inst) return inst;
+  }
+  const spawn = instances.find(isPlayerSpawn) || null;
+  if (spawn) playerSpawnInstId = spawn.id;
+  return spawn;
+}
+
+function exitSpawnPlacement(){
+  spawnPlacementMode = false;
+  const canvasEl = document.getElementById('sceneCanvas');
+  canvasEl?.classList.remove('spawn-mode');
+}
+
+function toNumber(value, fallback){
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function sanitizeLayout(layout, context = {}){
+  const clone = layout && typeof layout === 'object' ? JSON.parse(JSON.stringify(layout)) : {};
+  clone.layers = Array.isArray(clone.layers) && clone.layers.length ? clone.layers : createDefaultLayers();
+  clone.instances = Array.isArray(clone.instances) ? clone.instances : [];
+  clone.cameraX = toNumber(clone.cameraX ?? clone.cameraStartX, 0);
+  clone.zoom = toNumber(clone.zoom ?? clone.zoomStart, 1);
+  clone.groundOffset = toNumber(clone.groundOffset, 140);
+  clone.activeLayerId = clone.activeLayerId || clone.meta?.activeLayerId || (clone.layers[0]?.id) || getDefaultSpawnLayerId();
+  clone.instances = clone.instances.map((inst) => {
+    const c = JSON.parse(JSON.stringify(inst));
+    c.tags = Array.isArray(c.tags) ? c.tags.map((tag) => String(tag)) : [];
+    return c;
+  });
+  clone.meta = {
+    areaId: clone.meta?.areaId || clone.areaId || clone.id || context.areaId || DEFAULT_LAYOUT_META.areaId,
+    areaName: clone.meta?.areaName || clone.areaName || clone.name || context.areaName || DEFAULT_LAYOUT_META.areaName,
+    sourcePath: context.sourcePath ?? clone.meta?.sourcePath ?? null,
+    repositoryId: context.repositoryId ?? clone.meta?.repositoryId ?? null,
+  };
+  return clone;
+}
+
+function convertAreaToLayout(area, context = {}){
+  const layersList = Array.isArray(area.layers) && area.layers.length
+    ? area.layers.map((layer, index) => ({
+        id: layer.id || `layer_${index}`,
+        name: layer.name || `Layer ${index + 1}`,
+        type: layer.type || 'gameplay',
+        parallax: toNumber(layer.parallaxSpeed ?? layer.parallax, 1),
+        scale: toNumber(layer.scale, 1),
+        yOffset: toNumber(layer.offsetY ?? layer.yOffset, 0),
+        sep: toNumber(layer.separation ?? layer.sep, 0),
+      }))
+    : createDefaultLayers();
+
+  const instancesList = Array.isArray(area.instances) ? area.instances : [];
+  let fallbackId = 1;
+  const layoutInstances = instancesList.map((inst) => {
+    const original = (inst.meta && typeof inst.meta.original === 'object') ? inst.meta.original : {};
+    const tags = Array.isArray(inst.tags) ? inst.tags.map((tag) => String(tag))
+      : Array.isArray(original.tags) ? original.tags.map((tag) => String(tag)) : [];
+    const layoutInst = {
+      id: inst.id ?? original.id ?? fallbackId++,
+      prefabId: inst.prefabId ?? original.prefabId ?? 'unknown_prefab',
+      layerId: inst.layerId ?? original.layerId ?? getDefaultSpawnLayerId(),
+      slot: toNumber(original.slot, 0),
+      nudgeX: toNumber(original.nudgeX, 0),
+      locked: original.locked ?? !!inst.locked,
+      scaleX: toNumber(original.scaleX, inst.scale?.x ?? 1),
+      scaleY: toNumber(original.scaleY, inst.scale?.y ?? inst.scale?.x ?? 1),
+      offsetY: toNumber(original.offsetY, -(toNumber(inst.position?.y, 0))),
+      rot: toNumber(original.rot, toNumber(inst.rotationDeg, 0)),
+      tags,
+    };
+    const originalX = toNumber(original.x, NaN);
+    const areaX = toNumber(inst.position?.x, NaN);
+    if (Number.isFinite(originalX)) layoutInst.x = originalX;
+    else if (Number.isFinite(areaX)) layoutInst.x = areaX;
+    return layoutInst;
+  });
+
+  const layout = {
+    layers: layersList,
+    instances: layoutInstances,
+    cameraX: toNumber(area.camera?.startX, 0),
+    zoom: toNumber(area.camera?.startZoom, 1),
+    groundOffset: toNumber(area.ground?.offset, 140),
+    activeLayerId: area.meta?.activeLayerId || area.meta?.original?.activeLayerId || layersList[0]?.id || getDefaultSpawnLayerId(),
+    meta: {
+      areaId: area.id || context.areaId || DEFAULT_LAYOUT_META.areaId,
+      areaName: area.name || context.areaName || DEFAULT_LAYOUT_META.areaName,
+      sourcePath: context.sourcePath ?? null,
+      repositoryId: context.repositoryId ?? null,
+    },
+  };
+
+  return sanitizeLayout(layout, layout.meta);
+}
+
+function interpretIncomingLayout(data, context = {}){
+  if (data && typeof data === 'object'){
+    if (data.camera || (Array.isArray(data.instances) && data.instances.some((inst) => inst && typeof inst === 'object' && (inst.position || inst.scale)))){
+      return convertAreaToLayout(data, context);
+    }
+    return sanitizeLayout(data, context);
+  }
+  return sanitizeLayout({}, context);
+}
+
+function getRepositoryEntry(mapId){
+  return REPOSITORY_LAYOUTS.find((entry) => entry.id === mapId) || null;
+}
+
+async function loadRepositoryMapById(mapId){
+  const entry = getRepositoryEntry(mapId) || getRepositoryEntry(DEFAULT_LAYOUT_META.areaId);
+  const context = {
+    areaId: entry?.id || DEFAULT_LAYOUT_META.areaId,
+    areaName: entry?.areaName || entry?.label || DEFAULT_LAYOUT_META.areaName,
+    sourcePath: entry?.path || null,
+    repositoryId: entry?.id || null,
+  };
+
+  if (!entry?.path){
+    restoreState(interpretIncomingLayout({}, context));
+    historyStack.length = 0;
+    pushHistory();
+    return;
+  }
+
+  try {
+    const response = await fetch(entry.path, { cache: 'no-cache' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const json = await response.json();
+    restoreState(interpretIncomingLayout(json, context));
+  } catch (error) {
+    console.error('[map-editor] failed to load map from repository', error);
+    restoreState(interpretIncomingLayout({}, context));
+    alert(`Failed to load map: ${error.message}. Loaded empty layout instead.`);
+  }
+  historyStack.length = 0;
+  pushHistory();
+  const select = $('#mapRepoSelect');
+  if (select) select.value = context.repositoryId || select.value;
+}
+
+function populateRepositorySelect(){
+  const select = $('#mapRepoSelect');
+  if (!select) return;
+  select.innerHTML = '';
+  REPOSITORY_LAYOUTS.forEach((entry) => {
+    const opt = document.createElement('option');
+    opt.value = entry.id;
+    opt.textContent = entry.label;
+    select.appendChild(opt);
+  });
+  const targetId = layoutMeta.repositoryId || DEFAULT_LAYOUT_META.repositoryId;
+  if (targetId) select.value = targetId;
+}
 
 let cameraX = 0;
 let zoom = 1;
@@ -760,6 +1043,7 @@ function computeLayerSlotStats(){
   return stats;
 }
 function baseXFor(inst, stats){
+  if (Number.isFinite(inst?.x)) return inst.x;
   const layer = findLayer(inst.layerId);
   if(!layer) return 0;
   const sep = layer.sep || 180;
@@ -874,7 +1158,8 @@ function makeInstance(layerId,prefabId){
     scaleX:1,
     scaleY:1,
     offsetY:0,
-    rot:0
+    rot:0,
+    tags:[],
   };
 }
 function addInstance(layerId,prefabId){
@@ -895,6 +1180,10 @@ function getSelectedInstance(){
 function deleteSelectedInstance(){
   const inst=getSelectedInstance();
   if(!inst) return;
+  if(isPlayerSpawn(inst)){
+    alert('Player spawn cannot be removed. Use the placement button to reposition it.');
+    return;
+  }
   pushHistory();
   const idx=instances.findIndex(i=>i.id===inst.id);
   if(idx>=0) instances.splice(idx,1);
@@ -904,6 +1193,10 @@ function deleteSelectedInstance(){
 function duplicateSelectedInstance(){
   const inst=getSelectedInstance();
   if(!inst) return;
+  if(isPlayerSpawn(inst)){
+    alert('Player spawn cannot be duplicated.');
+    return;
+  }
   pushHistory();
   const dup = JSON.parse(JSON.stringify(inst));
   dup.id = nextInstId++;
@@ -930,6 +1223,12 @@ function refreshInstanceList(){
       lp.className='lock-pill';
       lp.textContent='🔒';
       span.appendChild(lp);
+    }
+    if(isPlayerSpawn(inst)){
+      const spawnPill=document.createElement('span');
+      spawnPill.className='pill pill--spawn';
+      spawnPill.textContent='Player Spawn';
+      span.appendChild(spawnPill);
     }
     const pill=document.createElement('span');
     pill.className='pill';
@@ -1024,27 +1323,35 @@ function updateSelectedInstanceFromFields(){
 
   const xVal = parseFloat($('#instX').value);
   if(Number.isFinite(xVal)){
-    const stats = computeLayerSlotStats();
-    const layerStats = stats[inst.layerId];
-    const layer = findLayer(inst.layerId);
-    if(layer){
-      const sep = layer.sep || 180;
-      const slot = inst.slot ?? 0;
-      let center = slot;
-      if(layerStats && layerStats.min !== null){
-        center = (layerStats.min + layerStats.max) / 2;
-      }
-      const grid = parseFloat($('#gridSize').value) || 0;
-      let target = xVal;
-      if(grid > 1){
-        target = Math.round(target / grid) * grid;
-        $('#instX').value = target.toFixed(1);
-      }
-      const newNudge = target - (slot - center) * sep;
-      if(newNudge !== inst.nudgeX){
-        if(!changed) pushHistory();
-        changed = true;
-        inst.nudgeX = newNudge;
+    const grid = GRID_UNIT || 0;
+    let target = xVal;
+    if(grid > 0){
+      target = Math.round(target / grid) * grid;
+      $('#instX').value = target.toFixed(1);
+    }
+    if(isPlayerSpawn(inst)){
+      if(!changed) pushHistory();
+      changed = true;
+      inst.x = target;
+      inst.nudgeX = 0;
+      inst.slot = 0;
+    } else {
+      const stats = computeLayerSlotStats();
+      const layerStats = stats[inst.layerId];
+      const layer = findLayer(inst.layerId);
+      if(layer){
+        const sep = layer.sep || 180;
+        const slot = inst.slot ?? 0;
+        let center = slot;
+        if(layerStats && layerStats.min !== null){
+          center = (layerStats.min + layerStats.max) / 2;
+        }
+        const newNudge = target - (slot - center) * sep;
+        if(newNudge !== inst.nudgeX){
+          if(!changed) pushHistory();
+          changed = true;
+          inst.nudgeX = newNudge;
+        }
       }
     }
   }
@@ -1141,7 +1448,8 @@ function render(){
   for(const inst of instances){
     const layer=findLayer(inst.layerId);
     const prefab=prefabs[inst.prefabId];
-    if(!layer || !prefab) continue;
+    if(!layer) continue;
+    if(!prefab && !isPlayerSpawn(inst)) continue;
     renderList.push({inst,layer,prefab});
   }
   renderList.sort((a,b)=>layerDrawOrder(a.layer)-layerDrawOrder(b.layer));
@@ -1157,6 +1465,38 @@ function render(){
     const instScaleY=inst.scaleY || instScaleX;
     const instOffsetY=inst.offsetY || 0;
     const instRot=inst.rot || 0;
+
+    if(isPlayerSpawn(inst)){
+      const baseOffset=(objX - cameraX*par)*zoom;
+      const rootScreenX=W/2 + baseOffset;
+      const rootScreenY=groundY + (layer.yOffset||0)*zoom - instOffsetY*zoom;
+
+      ctx.save();
+      ctx.translate(rootScreenX, rootScreenY - 20*zoom);
+      ctx.strokeStyle='#38bdf8';
+      ctx.fillStyle='rgba(56,189,248,0.18)';
+      ctx.lineWidth=1.2;
+      const radius=10*zoom;
+      ctx.beginPath();
+      ctx.arc(0,0,radius,0,Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-radius,0);
+      ctx.lineTo(radius,0);
+      ctx.moveTo(0,-radius);
+      ctx.lineTo(0,radius);
+      ctx.stroke();
+      ctx.fillStyle='#38bdf8';
+      ctx.font=`${10*zoom}px ui-monospace,Menlo,Consolas`;
+      ctx.textAlign='center';
+      ctx.fillText('Player Spawn',0,-radius-6);
+      ctx.restore();
+
+      if(debugOverlay){
+        dbg.push(`spawn @${layer.name} x=${objX.toFixed(1)}`);
+      }
+      continue;
+    }
 
     const baseOffset=(objX - cameraX*par)*zoom;
     const rootScreenX=W/2 + baseOffset;
@@ -1346,7 +1686,7 @@ function pickInstanceAt(clientX,clientY){
     .map(inst=>{
       const layer=findLayer(inst.layerId);
       const prefab=prefabs[inst.prefabId];
-      return layer && prefab ? {inst,layer,prefab}:null;
+      return layer && (prefab || isPlayerSpawn(inst)) ? {inst,layer,prefab}:null;
     })
     .filter(Boolean);
 
@@ -1361,6 +1701,18 @@ function pickInstanceAt(clientX,clientY){
     const baseOffset=(objX - cameraX*par)*zoom;
     const rootScreenX=W/2 + baseOffset;
     const rootScreenY=groundY + (layer.yOffset||0)*zoom - instOffsetY*zoom;
+
+    if(isPlayerSpawn(inst)){
+      const radius = 12 * zoom;
+      const centerX = rootScreenX;
+      const centerY = rootScreenY - 20 * zoom;
+      const left = centerX - radius;
+      const right = centerX + radius;
+      const top = centerY - radius;
+      const bottom = centerY + radius;
+      if(px>=left && px<=right && py>=top && py<=bottom) return inst;
+      continue;
+    }
 
     let part;
     if(prefab.isImage) part=prefab.parts[0];
@@ -1385,9 +1737,37 @@ let draggingCamera=false;
 let draggingInst=null;
 let lastX=0;
 
+function pointerClientToWorldX(clientX, layer){
+  const rect=canvas.getBoundingClientRect();
+  const px=clientX-rect.left;
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.width/dpr;
+  const par=layer?.parallax ?? 1;
+  const baseOffset=(px - W/2)/zoom;
+  return baseOffset + cameraX*par;
+}
+
 function pointerDown(ev){
   const t=ev.touches?ev.touches[0]:ev;
   lastX=t.clientX;
+  if(spawnPlacementMode){
+    const spawn = ensurePlayerSpawn();
+    const layer = findLayer(spawn.layerId) || findLayer(getDefaultSpawnLayerId());
+    if(layer){
+      pushHistory();
+      const worldX = pointerClientToWorldX(t.clientX, layer);
+      const grid = GRID_UNIT || 0;
+      const snapped = grid > 0 ? Math.round(worldX / grid) * grid : worldX;
+      spawn.x = snapped;
+      spawn.slot = 0;
+      spawn.nudgeX = 0;
+      spawn.locked = true;
+      selectedInstId = spawn.id;
+      refreshInstanceList();
+    }
+    exitSpawnPlacement();
+    return;
+  }
   const hit=pickInstanceAt(t.clientX,t.clientY);
   if(hit){
     selectedInstId=hit.id;
@@ -1411,7 +1791,7 @@ function pointerMove(ev){
     if(draggingInst.locked){ draggingInst=null; return; }
     const layer=findLayer(draggingInst.layerId);
     if(!layer) return;
-    const grid=parseFloat($('#gridSize').value)||1;
+    const grid=GRID_UNIT||1;
     const effPar=Math.max(0.01,layer.parallax || 1);
     draggingInst.nudgeX += dx/(effPar*zoom);
     if(grid>1){
@@ -1437,6 +1817,14 @@ canvas.addEventListener('touchmove', e=>{e.preventDefault();pointerMove(e);},{pa
 canvas.addEventListener('touchend',  e=>{e.preventDefault();pointerUp();},{passive:false});
 
 /*** Buttons & toggles ***/
+$('#btnPlacePlayerSpawn').addEventListener('click', () => {
+  const spawn = ensurePlayerSpawn();
+  spawnPlacementMode = true;
+  selectedInstId = spawn.id;
+  const canvasEl = document.getElementById('sceneCanvas');
+  canvasEl?.classList.add('spawn-mode');
+  refreshInstanceList();
+});
 $('#btnJitter').addEventListener('click',()=>{
   pushHistory();
   const posRange=Math.abs(parseFloat($('#jitterRange').value)||0);
@@ -1488,37 +1876,41 @@ $('#btnAddParallaxLayer').addEventListener('click',()=>{
 });
 
 /*** Export / Import map ***/
-function exportLayout(){
+async function exportLayout(){
   const statusEl = $('#exportStatus');
   const textEl = $('#exportText');
   try{
     const stats=computeLayerSlotStats();
     const layout={
+      areaId: layoutMeta.areaId,
+      areaName: layoutMeta.areaName,
       cameraStartX:cameraX,
       zoomStart:zoom,
       groundOffset:getGroundOffset(),
       activeLayerId,
-      layers,
-      instances:instances.map(inst=>({
-        id:inst.id,
-        prefabId:inst.prefabId,
-        layerId:inst.layerId,
-        slot:inst.slot,
-        nudgeX:inst.nudgeX,
-        locked:!!inst.locked,
-        scaleX:inst.scaleX,
-        scaleY:inst.scaleY,
-        offsetY:inst.offsetY,
-        rot:inst.rot,
-        x:baseXFor(inst,stats)
-      }))
+      layers:JSON.parse(JSON.stringify(layers)),
+      instances:instances.map(inst=>{
+        const copy=JSON.parse(JSON.stringify(inst));
+        const computedX = baseXFor(inst,stats);
+        if(!Number.isFinite(copy.x)) copy.x = computedX;
+        return copy;
+      }),
+      meta:{
+        ...layoutMeta,
+        exportedAt: new Date().toISOString(),
+      }
     };
-    const json=JSON.stringify(layout,null,2);
+    const runtime = await getRuntimeModule();
+    const area=runtime.convertLayoutToArea(layout,{
+      areaId: layoutMeta.areaId,
+      areaName: layoutMeta.areaName,
+    });
+    const json=JSON.stringify(area,null,2);
     textEl.value=json;
     const dataUrl='data:application/json;charset=utf-8,'+encodeURIComponent(json);
     window.open(dataUrl,'_blank');
     statusEl.style.color='#22c55e';
-    statusEl.textContent='Opened layout JSON in new tab. If blocked, copy JSON below.';
+    statusEl.textContent='Opened area JSON in new tab. If blocked, copy JSON below.';
   }catch(err){
     statusEl.style.color='#f97316';
     statusEl.textContent='Export error: '+err.message+' (JSON mirrored below)';
@@ -1526,35 +1918,10 @@ function exportLayout(){
 }
 $('#btnExportMap').addEventListener('click', exportLayout);
 
-$('#btnLoadMap').addEventListener('click',()=>{
-  const inp=document.createElement('input');
-  inp.type='file';
-  inp.accept='application/json';
-  inp.onchange=e=>{
-    const f=e.target.files[0];
-    if(!f) return;
-    const r=new FileReader();
-    r.onload=()=>{
-      try{
-        const layout=JSON.parse(r.result);
-        if(!layout.layers || !layout.instances) throw new Error('Missing layers/instances');
-        restoreState({
-          layers:layout.layers,
-          instances:layout.instances,
-          cameraX:layout.cameraStartX||0,
-          zoom:layout.zoomStart||1,
-          groundOffset:layout.groundOffset||140,
-          activeLayerId:layout.activeLayerId||layout.layers[0].id
-        });
-        historyStack.length=0;
-        pushHistory();
-      }catch(err){
-        alert('Invalid map JSON: '+err.message);
-      }
-    };
-    r.readAsText(f);
-  };
-  inp.click();
+$('#btnLoadMap').addEventListener('click', async () => {
+  const select = $('#mapRepoSelect');
+  const mapId = select?.value || DEFAULT_LAYOUT_META.areaId;
+  await loadRepositoryMapById(mapId);
 });
 
 /*** Loaders for prefab/image ***/
@@ -1587,9 +1954,15 @@ $('#btnLoadImage').addEventListener('click', () => {
 });
 
 /*** Init ***/
+$('#gridSize').value = GRID_UNIT;
+$('#gridSize').disabled = true;
+$('#gridSize').title = `Grid locked to ${GRID_UNIT}px (configured)`;
+populateRepositorySelect();
 rebuildActiveLayerSelect();
 rebuildLayerStack();
 syncActiveLayerFields();
+ensurePlayerSpawn();
+resetSlotCounters();
 rebuildPrefabSelect();
 refreshInstanceList();
 setCameraX(0);
