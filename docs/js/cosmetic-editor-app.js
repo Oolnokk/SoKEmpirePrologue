@@ -33,29 +33,6 @@ const editorState = (GAME.editorState ||= {
   currentPaletteSource: { slot: null, partKey: null, cosmeticId: null }
 });
 
-function resolveStaticUrl(path){
-  if (!path || typeof path !== 'string') return path;
-  const resolver = typeof CONFIG.resolveConfigUrl === 'function' ? CONFIG.resolveConfigUrl : null;
-  if (resolver){
-    try {
-      return resolver(path);
-    } catch (error){
-      // fall through to location-based resolution
-    }
-  }
-  if (typeof URL === 'function'){
-    try {
-      const base = CONFIG.__siteRoot || window.location?.href;
-      if (base){
-        return new URL(path, base).href;
-      }
-    } catch (_err){
-      // ignore resolution failures
-    }
-  }
-  return path;
-}
-
 const canvas = document.getElementById('cosmeticCanvas');
 const ctx = canvas?.getContext('2d');
 
@@ -283,8 +260,7 @@ async function loadAssetManifest(){
     return;
   }
   try {
-    const manifestUrl = resolveStaticUrl('./assets/asset-manifest.json');
-    const response = await fetch(manifestUrl, { cache: 'no-cache' });
+    const response = await fetch('./assets/asset-manifest.json', { cache: 'no-cache' });
     if (!response.ok){
       throw new Error(`HTTP ${response.status}`);
     }
