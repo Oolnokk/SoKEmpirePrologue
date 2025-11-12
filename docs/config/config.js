@@ -1,35 +1,15 @@
 // khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug
 
-const deriveSiteRoot = (scriptUrl) => {
-  if (!scriptUrl) return '';
-  try {
-    const href = scriptUrl instanceof URL ? scriptUrl.href : String(scriptUrl);
-    const match = /^(.*\/)config\/config\.js(?:[?#].*)?$/i.exec(href);
-    if (match && match[1]) {
-      return match[1];
-    }
-    const normalized = scriptUrl instanceof URL
-      ? scriptUrl
-      : new URL(href, typeof window !== 'undefined' && window.location ? window.location.href : href);
-    return new URL('.', normalized).href;
-  } catch (_error) {
-    return '';
-  }
-};
-
 const __CONFIG_SCRIPT_CONTEXT__ = (() => {
   if (typeof document !== 'undefined') {
     const current = document.currentScript;
     if (current?.src) {
       try {
         const scriptUrl = new URL(current.src, window.location?.href || current.src);
-        const siteRoot = deriveSiteRoot(scriptUrl);
-        if (siteRoot) {
-          return {
-            scriptUrl,
-            siteRoot,
-          };
-        }
+        return {
+          scriptUrl,
+          siteRoot: new URL('../', scriptUrl).href,
+        };
       } catch (error) {
         console.warn?.('[config] Unable to derive site root from currentScript', error);
       }
@@ -45,13 +25,10 @@ const __CONFIG_SCRIPT_CONTEXT__ = (() => {
       if (!/\/config\/config\.js(?:[?#].*)?$/i.test(src)) continue;
       try {
         const scriptUrl = new URL(src, window.location?.href || src);
-        const siteRoot = deriveSiteRoot(scriptUrl);
-        if (siteRoot) {
-          return {
-            scriptUrl,
-            siteRoot,
-          };
-        }
+        return {
+          scriptUrl,
+          siteRoot: new URL('../', scriptUrl).href,
+        };
       } catch (error) {
         console.warn?.('[config] Unable to derive site root from script tag', error);
       }
@@ -83,8 +60,7 @@ const resolveConfigUrl = (relativePath) => {
   }
 };
 
-const ensureConfigSiteMetadata = () => {
-  if (typeof window === 'undefined') return;
+if (typeof window !== 'undefined') {
   window.CONFIG = window.CONFIG || {};
   if (CONFIG_SITE_ROOT && !window.CONFIG.__siteRoot) {
     window.CONFIG.__siteRoot = CONFIG_SITE_ROOT;
@@ -92,9 +68,7 @@ const ensureConfigSiteMetadata = () => {
   if (typeof window.CONFIG.resolveConfigUrl !== 'function') {
     window.CONFIG.resolveConfigUrl = resolveConfigUrl;
   }
-};
-
-ensureConfigSiteMetadata();
+}
 
 const abilityKnockback = (base, { clamp } = {}) => {
   return (context, opponent) => {
