@@ -435,16 +435,16 @@ window.CONFIG = {
         head:{ origin:{ax:-1, ay:6} }
       },
         sprites: {
-        torso: { url: "./assets/fightersprites/tletingan/torso.png", bodyColor: 'A' },
-        head:  { url: "./assets/fightersprites/tletingan/head.png", bodyColor: 'A' },
-        arm_L_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", bodyColor: 'A' },
-        arm_L_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", bodyColor: 'A' },
-        arm_R_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", bodyColor: 'A' },
-        arm_R_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", bodyColor: 'A' },
-        leg_L_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", bodyColor: 'A' },
-        leg_L_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", bodyColor: 'A' },
-        leg_R_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", bodyColor: 'A' },
-        leg_R_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", bodyColor: 'A' }
+        torso: { url: "./assets/fightersprites/tletingan/torso.png" },
+        head:  { url: "./assets/fightersprites/tletingan/head.png" },
+        arm_L_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png" },
+        arm_L_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png" },
+        arm_R_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png" },
+        arm_R_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png" },
+        leg_L_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png" },
+        leg_L_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png" },
+        leg_R_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png" },
+        leg_R_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png" }
       },
       spriteStyle: {
           widthFactor: { torso:0.9, armUpper:0.9, armLower:0.9, legUpper:0.9, legLower:0.9, head:0.9 },
@@ -459,9 +459,9 @@ window.CONFIG = {
           }
       },
       bodyColors: {
-        A: { h: 18, s: 1, v: 0.9 },
-        B: { h: -24, s: 0.18, v: 0.05 },
-        C: { h: 96, s: 0.26, v: -0.06 }
+        A: { h: 0, s: 0, l: 0 },
+        B: { h: 0, s: 0, l: 0 },
+        C: { h: 0, s: 0, l: 0 }
       },
       cosmetics: {}
     },
