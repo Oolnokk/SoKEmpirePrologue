@@ -40,6 +40,17 @@ if (typeof window !== 'undefined') {
       leg_R_lower: true
     }
   };
+  const tintDebug = window.RENDER_DEBUG.tint;
+  if (!tintDebug || typeof tintDebug !== 'object') {
+    window.RENDER_DEBUG.tint = { enabled: false, label: false };
+  } else {
+    if (!Object.prototype.hasOwnProperty.call(tintDebug, 'enabled')) {
+      tintDebug.enabled = !!tintDebug.enabled;
+    }
+    if (!Object.prototype.hasOwnProperty.call(tintDebug, 'label')) {
+      tintDebug.label = false;
+    }
+  }
 }
 
 function angleZero(){ return 'up'; }
