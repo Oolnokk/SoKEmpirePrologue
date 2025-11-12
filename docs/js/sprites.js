@@ -22,6 +22,19 @@ const RENDER = (window.RENDER ||= {});
 RENDER.MIRROR = RENDER.MIRROR || {}; // Initialize per-limb mirror flags
 
 const TINT_CACHE = new WeakMap();
+const CANVAS_FILTER_SUPPORTED = (() => {
+  if (typeof document === 'undefined') return false;
+  try {
+    const testCanvas = document.createElement('canvas');
+    const ctx = testCanvas.getContext('2d');
+    if (!ctx) return false;
+    const probe = 'hue-rotate(0deg)';
+    ctx.filter = probe;
+    return ctx.filter === probe;
+  } catch (err) {
+    return false;
+  }
+})();
 
 function clamp01(value){
   if (!Number.isFinite(value)) return 0;
@@ -99,13 +112,23 @@ function applyHslAdjustmentsToPixel(r, g, b, adjustments){
   if (Number.isFinite(adjustments.h)){
     h = wrapHue01(h + adjustments.h / 360);
   }
+
+  let saturation = s;
   if (Number.isFinite(adjustments.s)){
-    s = clamp01(s + adjustments.s);
+    const satFactor = Math.max(0, 1 + adjustments.s);
+    saturation = clamp01(s * satFactor);
   }
-  if (Number.isFinite(adjustments.l)){
-    l = clamp01(l + adjustments.l);
-  }
-  const { r: nr, g: ng, b: nb } = hslToRgbNormalized(h, s, l);
+
+  const brightnessFactor = Number.isFinite(adjustments.l)
+    ? Math.max(0, 1 + adjustments.l)
+    : 1;
+
+  const { r: hr, g: hg, b: hb } = hslToRgbNormalized(h, saturation, l);
+
+  const nr = clamp01(hr * brightnessFactor);
+  const ng = clamp01(hg * brightnessFactor);
+  const nb = clamp01(hb * brightnessFactor);
+
   return [
     Math.round(nr * 255),
     Math.round(ng * 255),
@@ -181,7 +204,25 @@ function normalizeHslInput(input){
 
 function prepareImageForHSL(img, hsl){
   const normalized = normalizeHslInput(hsl);
-  return { image: img, applyFilter: hasHslAdjustments(normalized), hsl: normalized };
+  const hasAdjustments = hasHslAdjustments(normalized);
+  if (!hasAdjustments){
+    return { image: img, applyFilter: false, hsl: normalized };
+  }
+
+  const wantsHueShift = Number.isFinite(normalized?.h) && normalized.h !== 0;
+  const wantsSaturationChange = Number.isFinite(normalized?.s) && normalized.s !== 0;
+  const wantsLightnessChange = Number.isFinite(normalized?.l) && normalized.l !== 0;
+
+  const preferPixelTint = wantsHueShift || (wantsSaturationChange && normalized.s > 0) || !CANVAS_FILTER_SUPPORTED;
+  if (preferPixelTint){
+    const tinted = tintImageWithHsl(img, normalized);
+    if (tinted){
+      return { image: tinted, applyFilter: false, hsl: normalized };
+    }
+  }
+
+  const canFilter = CANVAS_FILTER_SUPPORTED && (wantsHueShift || wantsSaturationChange || wantsLightnessChange);
+  return { image: img, applyFilter: canFilter, hsl: normalized };
 }
 
 
