@@ -184,6 +184,15 @@ function hsvToRgbNormalized(h, s, v){
   };
 }
 
+function adjustLightnessOrValue(base, delta){
+  if (!Number.isFinite(delta)) return clamp01(base);
+  const additive = base + delta;
+  if (base >= 0.95 && delta > 0.5){
+    return clamp01(delta);
+  }
+  return clamp01(additive);
+}
+
 function applyHslAdjustmentsToPixel(r, g, b, adjustments){
   const adj = adjustments || {};
   const rn = r / 255;
@@ -211,12 +220,12 @@ function applyHslAdjustmentsToPixel(r, g, b, adjustments){
   const color = (() => {
     if (hasLightAdjust){
       const saturation = adjustSaturation(baseHslS, satAdjust);
-      const lightness = clamp01(baseL + adj.l);
+      const lightness = adjustLightnessOrValue(baseL, adj.l);
       return hslToRgbNormalized(shiftedHue, saturation, lightness);
     }
     const saturation = adjustSaturation(baseHsvS, satAdjust);
     const valueAdjust = hasValueAdjust ? adj.v : 0;
-    const value = clamp01(baseV + valueAdjust);
+    const value = adjustLightnessOrValue(baseV, valueAdjust);
     return hsvToRgbNormalized(shiftedHue, saturation, value);
   })();
 
@@ -1022,7 +1031,7 @@ export function ensureFighterSprites(C, fname){
   // Look for style in fighter config first (both f.spriteStyle and f.sprites.style), then fallback to global
   const style = f.spriteStyle || f.sprites?.style || C.spriteStyle || {};
   const offsets = f.spriteOffsets || C.spriteOffsets || {};
-  
+
   // Convert rotDeg from xform config to alignRad on each sprite asset
   const xform = style.xform || {};
   for (const boneKey in S) {
@@ -1039,9 +1048,17 @@ export function ensureFighterSprites(C, fname){
       }
     }
   }
-  
+
   const cosmetics = ensureCosmeticLayers(C, fname, style);
   const bodyColors = resolveFighterBodyColors(C, fname);
 
   return { assets: S, style, offsets, cosmetics, bodyColors };
 }
+
+export const __TESTING__ = {
+  adjustLightnessOrValue,
+  applyHslAdjustmentsToPixel,
+  normalizeHslInput,
+  rgbToHslNormalized,
+  hslToRgbNormalized
+};
