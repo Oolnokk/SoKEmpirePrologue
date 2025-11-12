@@ -1,5 +1,101 @@
 // khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug
 
+const deriveSiteRoot = (scriptUrl) => {
+  if (!scriptUrl) return '';
+  try {
+    const href = scriptUrl instanceof URL ? scriptUrl.href : String(scriptUrl);
+    const match = /^(.*\/)config\/config\.js(?:[?#].*)?$/i.exec(href);
+    if (match && match[1]) {
+      return match[1];
+    }
+    const normalized = scriptUrl instanceof URL
+      ? scriptUrl
+      : new URL(href, typeof window !== 'undefined' && window.location ? window.location.href : href);
+    return new URL('.', normalized).href;
+  } catch (_error) {
+    return '';
+  }
+};
+
+const __CONFIG_SCRIPT_CONTEXT__ = (() => {
+  if (typeof document !== 'undefined') {
+    const current = document.currentScript;
+    if (current?.src) {
+      try {
+        const scriptUrl = new URL(current.src, window.location?.href || current.src);
+        const siteRoot = deriveSiteRoot(scriptUrl);
+        if (siteRoot) {
+          return {
+            scriptUrl,
+            siteRoot,
+          };
+        }
+      } catch (error) {
+        console.warn?.('[config] Unable to derive site root from currentScript', error);
+      }
+    }
+
+    const scripts = typeof document.getElementsByTagName === 'function'
+      ? document.getElementsByTagName('script')
+      : [];
+    for (let index = scripts.length - 1; index >= 0; index -= 1) {
+      const candidate = scripts[index];
+      const src = candidate?.src;
+      if (!src) continue;
+      if (!/\/config\/config\.js(?:[?#].*)?$/i.test(src)) continue;
+      try {
+        const scriptUrl = new URL(src, window.location?.href || src);
+        const siteRoot = deriveSiteRoot(scriptUrl);
+        if (siteRoot) {
+          return {
+            scriptUrl,
+            siteRoot,
+          };
+        }
+      } catch (error) {
+        console.warn?.('[config] Unable to derive site root from script tag', error);
+      }
+    }
+  }
+
+  if (typeof window !== 'undefined' && window.location) {
+    try {
+      const siteRoot = new URL('.', window.location.href).href;
+      return { scriptUrl: null, siteRoot };
+    } catch (error) {
+      console.warn?.('[config] Unable to derive site root from window.location', error);
+    }
+  }
+
+  return { scriptUrl: null, siteRoot: '' };
+})();
+
+const CONFIG_SITE_ROOT = __CONFIG_SCRIPT_CONTEXT__.siteRoot;
+
+const resolveConfigUrl = (relativePath) => {
+  if (!relativePath || typeof relativePath !== 'string') return relativePath;
+  try {
+    const base = CONFIG_SITE_ROOT || (typeof window !== 'undefined' && window.location ? window.location.href : undefined);
+    if (!base) return relativePath;
+    return new URL(relativePath, base).href;
+  } catch (_error) {
+    return relativePath;
+  }
+};
+
+const ensureConfigSiteMetadata = () => {
+  if (typeof window === 'undefined') return;
+  window.CONFIG = window.CONFIG || {};
+  if (CONFIG_SITE_ROOT && !window.CONFIG.__siteRoot) {
+    window.CONFIG.__siteRoot = CONFIG_SITE_ROOT;
+  }
+  if (typeof window.CONFIG.resolveConfigUrl !== 'function') {
+    window.CONFIG.resolveConfigUrl = resolveConfigUrl;
+  }
+};
+
+ensureConfigSiteMetadata();
+
 const abilityKnockback = (base, { clamp } = {}) => {
   return (context, opponent) => {
     if (!opponent?.pos) return;
@@ -1004,6 +1100,8 @@ window.CONFIG = {
     }
   }
 }
+
+ensureConfigSiteMetadata();
 
 const toPascalCase = (value = '') => {
   return value
