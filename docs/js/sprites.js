@@ -13,7 +13,6 @@
 import { angleZero as angleZeroUtil, basis as basisFn, dist, angle as angleUtil, degToRad } from './math-utils.js?v=1';
 import { pickFighterName as pickFighterNameUtil } from './fighter-utils.js?v=1';
 import { COSMETIC_SLOTS, ensureCosmeticLayers, cosmeticTagFor, resolveFighterBodyColors } from './cosmetics.js?v=1';
-import { tintSpriteToCanvas } from './sprite_tint_v2.js?v=1';
 
 const ASSETS = (window.ASSETS ||= {});
 const CACHE = (ASSETS.sprites ||= {});
@@ -258,21 +257,31 @@ function tintImageWithHsl(img, adjustments){
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx){
+    imageCache.set(key, null);
+    return null;
+  }
+  ctx.drawImage(img, 0, 0, width, height);
 
-  const [r, g, b] = applyHslAdjustmentsToPixel(255, 255, 255, adjustments);
-  const blendColor = [r, g, b, 255];
-
-  const debugFlag = Boolean(typeof window !== 'undefined' && window.RENDER_DEBUG?.tintSwatches);
-  const debugOptions = debugFlag
-    ? { debug: true, label: `rgba(${r|0},${g|0},${b|0},1.00)` }
-    : { debug: false };
-
-  const ok = tintSpriteToCanvas(img, canvas, blendColor, debugOptions);
-  if (!ok){
+  let imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, width, height);
+  } catch (err){
     imageCache.set(key, null);
     return null;
   }
 
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4){
+    const alpha = data[i + 3];
+    if (!alpha) continue;
+    const [nr, ng, nb] = applyHslAdjustmentsToPixel(data[i], data[i + 1], data[i + 2], adjustments);
+    data[i] = nr;
+    data[i + 1] = ng;
+    data[i + 2] = nb;
+  }
+  ctx.putImageData(imageData, 0, 0);
   imageCache.set(key, canvas);
   return canvas;
 }
@@ -1051,6 +1060,5 @@ export const __TESTING__ = {
   applyHslAdjustmentsToPixel,
   normalizeHslInput,
   rgbToHslNormalized,
-  hslToRgbNormalized,
-  tintImageWithHsl
+  hslToRgbNormalized
 };
