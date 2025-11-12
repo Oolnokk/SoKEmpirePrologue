@@ -28,21 +28,8 @@ function hasHslAdjustments(hsl){
     || (Number.isFinite(hsl.l) && hsl.l !== 0);
 }
 
-function normalizeHslInput(input){
-  if (!input || typeof input !== 'object') return null;
-  const out = {};
-  if (Number.isFinite(input.h)) out.h = Number(input.h);
-  if (Number.isFinite(input.s)) out.s = Number(input.s);
-  const lightness = Number.isFinite(input.l)
-    ? Number(input.l)
-    : (Number.isFinite(input.v) ? Number(input.v) : null);
-  if (lightness != null) out.l = lightness;
-  return Object.keys(out).length ? out : null;
-}
-
 function prepareImageForHSL(img, hsl){
-  const normalized = normalizeHslInput(hsl);
-  return { image: img, applyFilter: hasHslAdjustments(normalized), hsl: normalized };
+  return { image: img, applyFilter: hasHslAdjustments(hsl) };
 }
 
 
@@ -381,8 +368,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   if (!img.complete) return false;
   if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return false;
 
-  const tint = options.hsl || options.hsv;
-  const { image: renderImage, applyFilter, hsl: normalizedHsl } = prepareImageForHSL(img, tint);
+  const { image: renderImage, applyFilter } = prepareImageForHSL(img, options.hsl);
   const sourceImage = renderImage || img;
 
   // Normalize styleKey: arm_L_upper -> armUpper, leg_R_lower -> legLower
@@ -468,7 +454,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
 
   const originalFilter = ctx.filter;
   const filter = applyFilter
-    ? buildFilterString(originalFilter, normalizedHsl)
+    ? buildFilterString(originalFilter, options.hsl)
     : (originalFilter && originalFilter !== '' ? originalFilter : 'none');
   const warp = options.warp;
   ctx.save();
@@ -565,10 +551,7 @@ export function renderSprites(ctx){
       if (!key) continue;
       const tint = bodyColors[key];
       if (tint){
-        const normalizedTint = normalizeHslInput(tint);
-        if (normalizedTint){
-          return { hsl: normalizedTint };
-        }
+        return { hsl: { ...tint } };
       }
     }
     return undefined;
@@ -685,7 +668,7 @@ export function renderSprites(ctx){
           withBranchMirror(ctx, originX, mirror, ()=>{
             drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, {
               styleOverride: layer.styleOverride,
-              hsl: layer.hsl || layer.hsv,
+              hsv: layer.hsv,
               warp: layer.warp,
               alignRad: layer.alignRad,
               alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,

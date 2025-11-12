@@ -170,38 +170,6 @@ function hsvToHex(hsv){
   return rgbToHex(r, g, b);
 }
 
-function hslToHex(hsl){
-  if (!hsl || typeof hsl !== 'object') return null;
-  const hRaw = Number(hsl.h);
-  const sRaw = Number(hsl.s);
-  const lRaw = Number(hsl.l ?? hsl.v);
-  const hue = Number.isFinite(hRaw) ? hRaw : 0;
-  const saturation = clamp01(Number.isFinite(sRaw) ? 0.5 * (1 + sRaw) : 0.5);
-  const lightness = clamp01(Number.isFinite(lRaw) ? 0.5 + lRaw / 2 : 0.5);
-  if (saturation === 0){
-    const gray = Math.round(lightness * 255);
-    return rgbToHex(gray, gray, gray);
-  }
-  const h = (((hue % 360) + 360) % 360) / 360;
-  const q = lightness < 0.5
-    ? lightness * (1 + saturation)
-    : lightness + saturation - lightness * saturation;
-  const p = 2 * lightness - q;
-  function hueToRgb(t){
-    let temp = t;
-    if (temp < 0) temp += 1;
-    if (temp > 1) temp -= 1;
-    if (temp < 1/6) return p + (q - p) * 6 * temp;
-    if (temp < 1/2) return q;
-    if (temp < 2/3) return p + (q - p) * (2/3 - temp) * 6;
-    return p;
-  }
-  const r = Math.round(hueToRgb(h + 1/3) * 255);
-  const g = Math.round(hueToRgb(h) * 255);
-  const b = Math.round(hueToRgb(h - 1/3) * 255);
-  return rgbToHex(r, g, b);
-}
-
 function clone(obj){
   return obj ? JSON.parse(JSON.stringify(obj)) : obj;
 }
@@ -512,11 +480,9 @@ function paletteFromBodyColors(bodyColors = {}, { letters, shading, rowId = 'bod
   const colors = {};
   chosen.forEach((letter, index)=>{
     const key = COLOR_KEYS[index];
-    const color = bodyColors[String(letter).toUpperCase()];
-    if (!color) return;
-    const hex = (color && (color.l != null || color.v != null))
-      ? hslToHex(color)
-      : hsvToHex(color);
+    const hsv = bodyColors[String(letter).toUpperCase()];
+    if (!hsv) return;
+    const hex = hsvToHex(hsv);
     if (hex){
       colors[key] = hex;
     }
