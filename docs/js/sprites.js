@@ -105,34 +105,39 @@ function hslToRgbNormalized(h, s, l){
 }
 
 function applyHslAdjustmentsToPixel(r, g, b, adjustments){
+  const adj = adjustments || {};
   const rn = r / 255;
   const gn = g / 255;
   const bn = b / 255;
-  let { h, s, l } = rgbToHslNormalized(rn, gn, bn);
-  if (Number.isFinite(adjustments.h)){
-    h = wrapHue01(h + adjustments.h / 360);
+  const { h: baseH, s: baseS, l: baseL } = rgbToHslNormalized(rn, gn, bn);
+
+  const hueShift = Number.isFinite(adj.h) ? adj.h : 0;
+  const satAdjust = Number.isFinite(adj.s) ? adj.s : 0;
+  const lightAdjustSource = (Number.isFinite(adj.l) ? adj.l : null);
+  const valueAdjustSource = lightAdjustSource == null && Number.isFinite(adj.v)
+    ? adj.v
+    : null;
+  const lightAdjust = lightAdjustSource ?? valueAdjustSource ?? 0;
+
+  const shiftedHue = wrapHue01(baseH + hueShift / 360);
+
+  let saturation;
+  if (satAdjust >= 0){
+    saturation = baseS < 0.01
+      ? clamp01(satAdjust)
+      : clamp01(baseS * (1 + satAdjust));
+  } else {
+    saturation = clamp01(baseS * Math.max(0, 1 + satAdjust));
   }
 
-  let saturation = s;
-  if (Number.isFinite(adjustments.s)){
-    const satFactor = Math.max(0, 1 + adjustments.s);
-    saturation = clamp01(s * satFactor);
-  }
+  const lightness = clamp01(baseL + lightAdjust);
 
-  const brightnessFactor = Number.isFinite(adjustments.l)
-    ? Math.max(0, 1 + adjustments.l)
-    : 1;
-
-  const { r: hr, g: hg, b: hb } = hslToRgbNormalized(h, saturation, l);
-
-  const nr = clamp01(hr * brightnessFactor);
-  const ng = clamp01(hg * brightnessFactor);
-  const nb = clamp01(hb * brightnessFactor);
+  const { r: hr, g: hg, b: hb } = hslToRgbNormalized(shiftedHue, saturation, lightness);
 
   return [
-    Math.round(nr * 255),
-    Math.round(ng * 255),
-    Math.round(nb * 255)
+    Math.round(hr * 255),
+    Math.round(hg * 255),
+    Math.round(hb * 255)
   ];
 }
 
@@ -580,7 +585,15 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   const normalizedKey = normalizeStyleKey(styleKey);
 
   // Get anchor config: anchors at bone midpoint by default
-  const effectiveStyle = mergeSpriteStyles(style, options.styleOverride);
+  let effectiveStyle = mergeSpriteStyles(style, options.styleOverride);
+  if (options.anchorOverride){
+    const override = (typeof options.anchorOverride === 'string')
+      ? { [styleKey]: options.anchorOverride }
+      : options.anchorOverride;
+    if (override && typeof override === 'object'){
+      effectiveStyle = mergeSpriteStyles(effectiveStyle, { anchor: override });
+    }
+  }
   const anchorCfg = effectiveStyle.anchor || {};
   const anchorMode = anchorCfg[styleKey] || 'mid';
   const resolvedAnchorMode = (options.anchorMode != null)
@@ -865,6 +878,7 @@ export function renderSprites(ctx){
           withBranchMirror(ctx, originX, mirror, ()=>{
             drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, {
               styleOverride: layer.styleOverride,
+              anchorOverride: layer.anchorOverride,
               hsl: layer.hsl || layer.hsv,
               warp: layer.warp,
               alignRad: layer.alignRad,
