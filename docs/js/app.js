@@ -1119,6 +1119,99 @@ function updateHUD(){
   }
 }
 
+function resolveActiveParallaxArea() {
+  const parallax = window.PARALLAX;
+  if (parallax?.currentAreaId && parallax?.areas) {
+    return parallax.areas[parallax.currentAreaId] || null;
+  }
+  const registry = window.GAME?.mapRegistry;
+  if (registry?.getActiveArea) {
+    try {
+      return registry.getActiveArea();
+    } catch (_err) {
+      return null;
+    }
+  }
+  return null;
+}
+
+const LAYER_DEBUG_COLORS = {
+  parallax: '#1f2937',
+  background: '#0f172a',
+  gameplay: '#1f3b4d',
+  foreground: '#334155',
+};
+
+function pickLayerDebugColor(layer, index) {
+  const type = (layer?.type || '').toString().toLowerCase();
+  const base = LAYER_DEBUG_COLORS[type] || '#1f2937';
+  if (!base.startsWith('#') || base.length !== 7) return base;
+  const shade = Math.max(0, Math.min(0xff, 0x20 + index * 16));
+  const component = shade.toString(16).padStart(2, '0');
+  return `#${component}${base.slice(3, 5)}${base.slice(5)}`;
+}
+
+function drawEditorPreviewMap(cx, { camX, groundY }) {
+  const area = resolveActiveParallaxArea();
+  if (!area) return;
+
+  const layers = Array.isArray(area.layers) ? [...area.layers] : [];
+  if (!layers.length) return;
+
+  const instancesByLayer = new Map();
+  if (Array.isArray(area.instances)) {
+    for (const inst of area.instances) {
+      const layerId = inst?.layerId;
+      if (!layerId) continue;
+      const list = instancesByLayer.get(layerId) || [];
+      list.push(inst);
+      instancesByLayer.set(layerId, list);
+    }
+  }
+
+  layers.sort((a, b) => (a?.z ?? 0) - (b?.z ?? 0));
+
+  layers.forEach((layer, index) => {
+    const layerId = layer?.id;
+    if (!layerId) return;
+    const instances = instancesByLayer.get(layerId);
+    if (!instances?.length) return;
+
+    const parallax = Number.isFinite(layer?.parallax) ? layer.parallax : 1;
+    const yOffset = Number(layer?.yOffset) || 0;
+    const scale = Number.isFinite(layer?.scale) ? layer.scale : 1;
+    const tint = pickLayerDebugColor(layer, index);
+
+    cx.save();
+    cx.translate((1 - parallax) * camX, yOffset);
+    cx.globalAlpha = layer?.type === 'foreground' ? 0.55 : 0.42;
+    cx.fillStyle = tint;
+    cx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+    cx.lineWidth = 1.5;
+
+    for (const inst of instances) {
+      const pos = inst?.position || {};
+      const x = Number(pos.x) || 0;
+      const y = Number(pos.y) || 0;
+      const scaleX = Number.isFinite(inst?.scale?.x) ? inst.scale.x : (Number.isFinite(inst?.scale?.y) ? inst.scale.y : 1);
+      const scaleY = Number.isFinite(inst?.scale?.y) ? inst.scale.y : scaleX;
+
+      const baseWidth = Number(inst?.meta?.original?.w || inst?.meta?.original?.width) || 120;
+      const baseHeight = Number(inst?.meta?.original?.h || inst?.meta?.original?.height) || 80;
+      const width = Math.max(24, baseWidth * scale * scaleX);
+      const height = Math.max(12, baseHeight * scale * scaleY);
+
+      const left = x - width / 2;
+      const top = groundY + y - height;
+
+      cx.fillRect(left, top, width, height);
+      cx.strokeRect(left, top, width, height);
+    }
+
+    cx.restore();
+  });
+}
+
 function drawStage(){
   if (!cx) return;
   const C = window.CONFIG || {};
@@ -1131,6 +1224,9 @@ function drawStage(){
   const gy = (C.canvas?.h||460) * (C.groundRatio||0.7);
   cx.save();
   cx.translate(-camX, 0);
+
+  drawEditorPreviewMap(cx, { camX, groundY: gy });
+
   cx.strokeStyle = 'rgba(255,255,255,.15)';
   cx.beginPath(); cx.moveTo(0, gy); cx.lineTo(worldW, gy); cx.stroke();
 
