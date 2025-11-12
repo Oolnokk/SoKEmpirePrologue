@@ -4,17 +4,41 @@ const ROOT = typeof window !== 'undefined' ? window : globalThis;
 const CONFIG = ROOT?.CONFIG || {};
 const sources = CONFIG.cosmetics?.profileSources || {};
 
+function resolveProfileUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  const resolver = CONFIG?.resolveConfigUrl;
+  if (typeof resolver === 'function') {
+    try {
+      return resolver(url);
+    } catch (error) {
+      // fall through to location-based resolution
+    }
+  }
+  if (typeof URL === 'function') {
+    try {
+      const base = CONFIG?.__siteRoot || ROOT?.location?.href;
+      if (base) {
+        return new URL(url, base).href;
+      }
+    } catch (_error) {
+      // ignore resolution failures
+    }
+  }
+  return url;
+}
+
 async function loadProfile(fighterName, url){
   if (!fighterName || !url) return;
+  const resolvedUrl = resolveProfileUrl(url);
   try {
-    const response = await fetch(url, { cache: 'no-cache' });
+    const response = await fetch(resolvedUrl, { cache: 'no-cache' });
     if (!response.ok){
       throw new Error(`HTTP ${response.status}`);
     }
     const data = await response.json();
     registerFighterCosmeticProfile(fighterName, data);
   } catch (err) {
-    console.warn(`[cosmetics] Failed to load profile for ${fighterName} from ${url}`, err);
+    console.warn(`[cosmetics] Failed to load profile for ${fighterName} from ${resolvedUrl}`, err);
   }
 }
 
