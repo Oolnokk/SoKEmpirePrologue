@@ -354,6 +354,18 @@ window.CONFIG = {
   actor: { scale: 0.70 },
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },
+  map: {
+    gridUnit: 30,
+    spawnLayerId: 'gameplay',
+    layouts: [
+      {
+        id: 'examplestreet',
+        label: 'Example Street',
+        path: './config/maps/examplestreet.layout.json',
+        areaName: 'Example Street',
+      },
+    ],
+  },
   groundY: 380,
   // Debug options are surfaced in the debug panel; freezeAngles lets animators hold joints for edits
   debug: {
