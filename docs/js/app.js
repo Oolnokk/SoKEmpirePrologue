@@ -384,6 +384,7 @@ const reloadBtn = $$('#btnReloadCfg');
 const fullscreenBtn = $$('#btnFullscreen');
 const stageEl = document.getElementById('gameStage');
 const fpsHud = $$('#fpsHud');
+const coordHud = $$('#coordHud');
 const boneKeyList = $$('#boneKeyList');
 const helpBtn = $$('#btnHelp');
 const helpPanel = $$('#helpPanel');
@@ -1116,6 +1117,15 @@ function updateHUD(){
     if (healthLabel){
       healthLabel.textContent = 'HP: 100';
     }
+  }
+
+  if (coordHud) {
+    const fmt = (value) => (Number.isFinite(value) ? value.toFixed(1) : '—');
+    const pos = P.pos || {};
+    const spawn = window.GAME?.spawnPoints?.player || {};
+    const playerText = `Player: (${fmt(pos.x)}, ${fmt(pos.y)})`;
+    const spawnText = `Spawn: (${fmt(spawn.x)}, ${fmt(spawn.y)})`;
+    coordHud.textContent = `${playerText} | ${spawnText}`;
   }
 }
 
