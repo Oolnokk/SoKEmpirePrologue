@@ -342,7 +342,7 @@
         <label><span>Scale Y</span><input id="instScaleY" type="number" step="0.05"></label>
       </div>
       <div class="row">
-        <label><span>Offset Y (from ground)</span><input id="instOffY" type="number" step="1"></label>
+        <label><span>Position Y (from ground)</span><input id="instOffY" type="number" step="1"></label>
         <label><span>Rot (deg)</span><input id="instRot" type="number" step="1"></label>
       </div>
       <div class="row">
@@ -406,7 +406,7 @@
         <label><span>&nbsp;</span><button id="btnJitter">Apply jitter</button></label>
       </div>
       <small style="color:var(--muted);display:block;margin-top:4px">
-        Randomizes nudgeX + scaleX/Y for unlocked instances on the active layer.
+        Randomizes horizontal position (snapped to the grid) and scale for unlocked instances on the active layer.
       </small>
     </div>
 
@@ -493,14 +493,8 @@ const HISTORY_LIMIT = 50;
 let isRestoring = false;
 function snapshotState(){
   return JSON.parse(JSON.stringify({
-    layers,
-    instances,
-    cameraX,
-    zoom,
-    groundOffset: getGroundOffset(),
+    ...buildAreaDescriptor(),
     activeLayerId,
-    nextInstId,
-    meta: layoutMeta,
   }));
 }
 function pushHistory(){
@@ -512,32 +506,44 @@ function restoreState(state){
   if(!state) return;
   isRestoring = true;
   exitSpawnPlacement();
-  layoutMeta = { ...DEFAULT_LAYOUT_META, ...(state.meta || {}) };
-  layers = Array.isArray(state.layers) ? state.layers : createDefaultLayers();
+
+  const adopted = adoptAreaState(state, state.meta || {});
+  layoutMeta = { ...DEFAULT_LAYOUT_META, ...(adopted.meta || {}) };
+
+  layers = adopted.layers.map((layer, index) => normalizeLayer(layer, index));
   instances.length = 0;
-  (state.instances||[]).forEach((inst) => {
-    const clone = JSON.parse(JSON.stringify(inst));
-    clone.tags = Array.isArray(clone.tags) ? clone.tags.map((tag) => String(tag)) : [];
-    instances.push(clone);
-  });
-  cameraX = state.cameraX || 0;
-  zoom = state.zoom || 1;
-  $('#groundOffset').value = state.groundOffset || 140;
-  activeLayerId = state.activeLayerId || (layers[0] && layers[0].id) || activeLayerId;
-  const maxId = instances.reduce((max, inst) => {
-    const num = Number(inst.id);
-    return Number.isFinite(num) ? Math.max(max, num) : max;
-  }, 0);
-  const nextFromState = Number.isFinite(state.nextInstId) ? state.nextInstId : 1;
-  nextInstId = Math.max(nextFromState, maxId + 1, 1);
-  ensurePlayerSpawn();
-  resetSlotCounters();
+  nextInstId = 1;
+  for (const inst of adopted.instances){
+    const normalized = normalizeInstance(inst, nextInstId);
+    if (normalized.id == null){
+      normalized.id = nextInstId++;
+    } else {
+      nextInstId = Math.max(nextInstId, normalized.id + 1);
+    }
+    normalized.tags = Array.isArray(normalized.tags) ? normalized.tags : [];
+    normalized.position = normalizePosition(normalized.position);
+    normalized.scale = normalizeScale(normalized.scale);
+    instances.push(normalized);
+  }
+
+  const spawn = ensurePlayerSpawn();
+  if (spawn && spawn.id >= nextInstId){
+    nextInstId = spawn.id + 1;
+  }
+
+  activeLayerId = adopted.activeLayerId || layoutMeta.activeLayerId || getDefaultSpawnLayerId();
+  cameraX = toNumber(adopted.camera?.startX, 0);
+  zoom = toNumber(adopted.camera?.startZoom, 1);
+  $('#groundOffset').value = toNumber(adopted.ground?.offset, 140);
+  selectedInstId = getPlayerSpawnInstance()?.id || (instances[0]?.id ?? null);
+
   rebuildActiveLayerSelect();
   rebuildLayerStack();
   syncActiveLayerFields();
   refreshInstanceList();
   setCameraX(cameraX);
   setZoom(zoom);
+
   isRestoring = false;
 }
 function undo(){
@@ -667,11 +673,11 @@ function computeAnchor(t){
 /*** Layers ***/
 function createDefaultLayers(){
   return [
-    { id:"bg1",  name:"Parallax 1", type:"parallax",  parallax:0.2, yOffset:-120, sep:220, scale:0.7 },
-    { id:"bg2",  name:"Parallax 2", type:"parallax",  parallax:0.4, yOffset:-90,  sep:220, scale:0.8 },
-    { id:"gameplay", name:"Gameplay", type:"gameplay", parallax:1.0, yOffset:-20, sep:180, scale:1.0 },
-    { id:"fg1",  name:"Foreground 1", type:"foreground", parallax:1.1, yOffset:-10, sep:180, scale:1.05 },
-    { id:"fg2",  name:"Foreground 2", type:"foreground", parallax:1.2, yOffset:0,   sep:180, scale:1.1 }
+    { id:"bg1",  name:"Parallax 1", type:"parallax",  parallaxSpeed:0.2, offsetY:-120, separation:220, scale:0.7, meta:{} },
+    { id:"bg2",  name:"Parallax 2", type:"parallax",  parallaxSpeed:0.4, offsetY:-90,  separation:220, scale:0.8, meta:{} },
+    { id:"gameplay", name:"Gameplay", type:"gameplay", parallaxSpeed:1.0, offsetY:-20, separation:180, scale:1.0, meta:{} },
+    { id:"fg1",  name:"Foreground 1", type:"foreground", parallaxSpeed:1.1, offsetY:-10, separation:180, scale:1.05, meta:{} },
+    { id:"fg2",  name:"Foreground 2", type:"foreground", parallaxSpeed:1.2, offsetY:0,   separation:180, scale:1.1, meta:{} }
   ];
 }
 let layers = createDefaultLayers();
@@ -687,19 +693,8 @@ let selectedPrefabId = null;
 let nextInstId = 1;
 const instances = [];
 let selectedInstId = null;
-const nextSlotByLayer = {};
 let playerSpawnInstId = null;
 let spawnPlacementMode = false;
-
-function resetSlotCounters(){
-  for (const key of Object.keys(nextSlotByLayer)) delete nextSlotByLayer[key];
-  for (const inst of instances){
-    const layerId = inst.layerId || '__unassigned__';
-    const slot = Number.isFinite(inst.slot) ? inst.slot : 0;
-    const current = nextSlotByLayer[layerId] ?? 0;
-    nextSlotByLayer[layerId] = Math.max(current, slot + 1);
-  }
-}
 
 function isPlayerSpawn(inst){
   return Array.isArray(inst?.tags) && inst.tags.includes('spawn:player');
@@ -719,21 +714,22 @@ function ensurePlayerSpawn(){
       id: nextInstId++,
       prefabId: 'spawn_player',
       layerId: spawnLayerId,
-      slot: 0,
-      nudgeX: 0,
+      position: { x: 0, y: 0 },
+      scale: { x: 1, y: 1 },
+      rotationDeg: 0,
       locked: true,
-      scaleX: 1,
-      scaleY: 1,
-      offsetY: 0,
-      rot: 0,
-      x: 0,
       tags: ['spawn:player'],
+      meta: {},
     };
     instances.push(spawn);
   } else {
     if (!Array.isArray(spawn.tags)) spawn.tags = [];
     if (!spawn.tags.includes('spawn:player')) spawn.tags.push('spawn:player');
     spawn.layerId = spawn.layerId || spawnLayerId;
+    spawn.position = normalizePosition(spawn.position);
+    spawn.scale = normalizeScale(spawn.scale);
+    spawn.rotationDeg = Number.isFinite(spawn.rotationDeg) ? spawn.rotationDeg : 0;
+    spawn.meta = spawn.meta && typeof spawn.meta === 'object' ? spawn.meta : {};
   }
   playerSpawnInstId = spawn.id;
   return spawn;
@@ -760,93 +756,168 @@ function toNumber(value, fallback){
   return Number.isFinite(num) ? num : fallback;
 }
 
-function sanitizeLayout(layout, context = {}){
-  const clone = layout && typeof layout === 'object' ? JSON.parse(JSON.stringify(layout)) : {};
-  clone.layers = Array.isArray(clone.layers) && clone.layers.length ? clone.layers : createDefaultLayers();
-  clone.instances = Array.isArray(clone.instances) ? clone.instances : [];
-  clone.cameraX = toNumber(clone.cameraX ?? clone.cameraStartX, 0);
-  clone.zoom = toNumber(clone.zoom ?? clone.zoomStart, 1);
-  clone.groundOffset = toNumber(clone.groundOffset, 140);
-  clone.activeLayerId = clone.activeLayerId || clone.meta?.activeLayerId || (clone.layers[0]?.id) || getDefaultSpawnLayerId();
-  clone.instances = clone.instances.map((inst) => {
-    const c = JSON.parse(JSON.stringify(inst));
-    c.tags = Array.isArray(c.tags) ? c.tags.map((tag) => String(tag)) : [];
-    return c;
-  });
-  clone.meta = {
-    areaId: clone.meta?.areaId || clone.areaId || clone.id || context.areaId || DEFAULT_LAYOUT_META.areaId,
-    areaName: clone.meta?.areaName || clone.areaName || clone.name || context.areaName || DEFAULT_LAYOUT_META.areaName,
-    sourcePath: context.sourcePath ?? clone.meta?.sourcePath ?? null,
-    repositoryId: context.repositoryId ?? clone.meta?.repositoryId ?? null,
-  };
-  return clone;
-}
-
-function convertAreaToLayout(area, context = {}){
-  const layersList = Array.isArray(area.layers) && area.layers.length
-    ? area.layers.map((layer, index) => ({
-        id: layer.id || `layer_${index}`,
-        name: layer.name || `Layer ${index + 1}`,
-        type: layer.type || 'gameplay',
-        parallax: toNumber(layer.parallaxSpeed ?? layer.parallax, 1),
-        scale: toNumber(layer.scale, 1),
-        yOffset: toNumber(layer.offsetY ?? layer.yOffset, 0),
-        sep: toNumber(layer.separation ?? layer.sep, 0),
-      }))
-    : createDefaultLayers();
-
-  const instancesList = Array.isArray(area.instances) ? area.instances : [];
-  let fallbackId = 1;
-  const layoutInstances = instancesList.map((inst) => {
-    const original = (inst.meta && typeof inst.meta.original === 'object') ? inst.meta.original : {};
-    const tags = Array.isArray(inst.tags) ? inst.tags.map((tag) => String(tag))
-      : Array.isArray(original.tags) ? original.tags.map((tag) => String(tag)) : [];
-    const layoutInst = {
-      id: inst.id ?? original.id ?? fallbackId++,
-      prefabId: inst.prefabId ?? original.prefabId ?? 'unknown_prefab',
-      layerId: inst.layerId ?? original.layerId ?? getDefaultSpawnLayerId(),
-      slot: toNumber(original.slot, 0),
-      nudgeX: toNumber(original.nudgeX, 0),
-      locked: original.locked ?? !!inst.locked,
-      scaleX: toNumber(original.scaleX, inst.scale?.x ?? 1),
-      scaleY: toNumber(original.scaleY, inst.scale?.y ?? inst.scale?.x ?? 1),
-      offsetY: toNumber(original.offsetY, -(toNumber(inst.position?.y, 0))),
-      rot: toNumber(original.rot, toNumber(inst.rotationDeg, 0)),
-      tags,
-    };
-    const originalX = toNumber(original.x, NaN);
-    const areaX = toNumber(inst.position?.x, NaN);
-    if (Number.isFinite(originalX)) layoutInst.x = originalX;
-    else if (Number.isFinite(areaX)) layoutInst.x = areaX;
-    return layoutInst;
-  });
-
-  const layout = {
-    layers: layersList,
-    instances: layoutInstances,
-    cameraX: toNumber(area.camera?.startX, 0),
-    zoom: toNumber(area.camera?.startZoom, 1),
-    groundOffset: toNumber(area.ground?.offset, 140),
-    activeLayerId: area.meta?.activeLayerId || area.meta?.original?.activeLayerId || layersList[0]?.id || getDefaultSpawnLayerId(),
-    meta: {
-      areaId: area.id || context.areaId || DEFAULT_LAYOUT_META.areaId,
-      areaName: area.name || context.areaName || DEFAULT_LAYOUT_META.areaName,
-      sourcePath: context.sourcePath ?? null,
-      repositoryId: context.repositoryId ?? null,
-    },
-  };
-
-  return sanitizeLayout(layout, layout.meta);
-}
-
-function interpretIncomingLayout(data, context = {}){
-  if (data && typeof data === 'object'){
-    if (data.camera || (Array.isArray(data.instances) && data.instances.some((inst) => inst && typeof inst === 'object' && (inst.position || inst.scale)))){
-      return convertAreaToLayout(data, context);
-    }
-    return sanitizeLayout(data, context);
+function normalizePosition(position){
+  if (!position || typeof position !== 'object'){
+    return { x: 0, y: 0 };
   }
-  return sanitizeLayout({}, context);
+  const x = toNumber(position.x, 0);
+  const y = toNumber(position.y, 0);
+  return { x, y };
+}
+
+function normalizeScale(scale){
+  if (!scale || typeof scale !== 'object'){
+    return { x: 1, y: 1 };
+  }
+  const x = toNumber(scale.x, 1) || 1;
+  const y = toNumber(scale.y, scale.x ?? 1) || 1;
+  return { x, y };
+}
+
+function normalizeLayer(layer, index = 0){
+  const safe = layer && typeof layer === 'object' ? JSON.parse(JSON.stringify(layer)) : {};
+  const id = safe.id || `layer_${index}`;
+  const name = safe.name || `Layer ${index + 1}`;
+  const type = safe.type || 'gameplay';
+  const parallaxSpeed = toNumber(safe.parallaxSpeed ?? safe.parallax, 1);
+  const offsetY = toNumber(safe.offsetY ?? safe.yOffset, 0);
+  const separation = toNumber(safe.separation ?? safe.sep, 0);
+  const scale = toNumber(safe.scale, 1);
+  const source = safe.source ?? null;
+  const meta = safe.meta && typeof safe.meta === 'object' ? safe.meta : {};
+  return { id, name, type, parallaxSpeed, offsetY, separation, scale, source, meta };
+}
+
+function normalizeInstance(inst, fallbackId = 0){
+  const safe = inst && typeof inst === 'object' ? JSON.parse(JSON.stringify(inst)) : {};
+  const id = safe.id ?? safe.meta?.original?.id ?? fallbackId;
+  const prefabId = safe.prefabId ?? safe.meta?.original?.prefabId ?? 'unknown_prefab';
+  const layerId = safe.layerId ?? safe.meta?.original?.layerId ?? getDefaultSpawnLayerId();
+  const position = normalizePosition(safe.position ?? { x: safe.x, y: safe.y ?? (safe.offsetY != null ? -safe.offsetY : 0) });
+  const scale = normalizeScale(safe.scale ?? { x: safe.scaleX, y: safe.scaleY });
+  const rotationDeg = toNumber(safe.rotationDeg ?? safe.rot, 0);
+  const locked = !!(safe.locked ?? safe.meta?.original?.locked);
+  const tags = Array.isArray(safe.tags)
+    ? safe.tags.map((tag) => String(tag))
+    : Array.isArray(safe.meta?.original?.tags)
+      ? safe.meta.original.tags.map((tag) => String(tag))
+      : [];
+  const meta = safe.meta && typeof safe.meta === 'object' ? safe.meta : {};
+  return { id, prefabId, layerId, position, scale, rotationDeg, locked, tags, meta };
+}
+
+function adoptAreaState(area, context = {}){
+  const raw = area && typeof area === 'object' ? JSON.parse(JSON.stringify(area)) : {};
+  const id = raw.id || raw.areaId || context.areaId || DEFAULT_LAYOUT_META.areaId;
+  const name = raw.name || raw.areaName || context.areaName || DEFAULT_LAYOUT_META.areaName;
+  const camera = {
+    startX: toNumber(raw.camera?.startX ?? raw.cameraStartX, 0),
+    startZoom: toNumber(raw.camera?.startZoom ?? raw.zoomStart, 1),
+  };
+  const ground = {
+    offset: toNumber(raw.ground?.offset ?? raw.groundOffset, 140),
+  };
+  const layersList = Array.isArray(raw.layers) && raw.layers.length
+    ? raw.layers.map((layer, index) => normalizeLayer(layer, index))
+    : createDefaultLayers();
+  const instancesList = Array.isArray(raw.instances) ? raw.instances : [];
+  const normalizedInstances = [];
+  let fallbackId = 1;
+  for (const inst of instancesList){
+    const normalized = normalizeInstance(inst, fallbackId);
+    if (normalized.id == null){
+      normalized.id = fallbackId;
+    }
+    fallbackId = Math.max(fallbackId + 1, normalized.id + 1);
+    normalizedInstances.push(normalized);
+  }
+
+  const meta = raw.meta && typeof raw.meta === 'object' ? { ...raw.meta } : {};
+  const activeLayerId = raw.activeLayerId
+    || meta.activeLayerId
+    || layersList[0]?.id
+    || getDefaultSpawnLayerId();
+
+  return {
+    id,
+    name,
+    camera,
+    ground,
+    layers: layersList,
+    instances: normalizedInstances,
+    meta: {
+      ...meta,
+      areaId: id,
+      areaName: name,
+      sourcePath: context.sourcePath ?? meta.sourcePath ?? null,
+      repositoryId: context.repositoryId ?? meta.repositoryId ?? null,
+    },
+    activeLayerId,
+  };
+}
+
+function buildAreaDescriptor(){
+  ensurePlayerSpawn();
+  const clonedLayers = layers.map((layer, index) => {
+    const normalized = normalizeLayer(layer, index);
+    return {
+      id: normalized.id,
+      name: normalized.name,
+      type: normalized.type,
+      parallaxSpeed: normalized.parallaxSpeed,
+      offsetY: normalized.offsetY,
+      separation: normalized.separation,
+      scale: normalized.scale,
+      source: normalized.source ?? null,
+      meta: normalized.meta ? JSON.parse(JSON.stringify(normalized.meta)) : {},
+    };
+  });
+
+  const clonedInstances = instances.map((inst, index) => {
+    const normalized = normalizeInstance(inst, inst.id ?? index + 1);
+    normalized.position = normalizePosition(normalized.position);
+    normalized.scale = normalizeScale(normalized.scale);
+    return {
+      id: normalized.id ?? index + 1,
+      prefabId: normalized.prefabId,
+      layerId: normalized.layerId,
+      position: normalized.position,
+      scale: normalized.scale,
+      rotationDeg: toNumber(normalized.rotationDeg, 0),
+      locked: !!normalized.locked,
+      tags: Array.isArray(normalized.tags) ? normalized.tags.map((tag) => String(tag)) : [],
+      meta: normalized.meta ? JSON.parse(JSON.stringify(normalized.meta)) : {},
+    };
+  });
+
+  const meta = {
+    ...layoutMeta,
+    activeLayerId,
+  };
+
+  return {
+    id: meta.areaId || DEFAULT_LAYOUT_META.areaId,
+    name: meta.areaName || DEFAULT_LAYOUT_META.areaName,
+    source: 'map-editor',
+    camera: {
+      startX: cameraX,
+      startZoom: zoom,
+    },
+    ground: {
+      offset: getGroundOffset(),
+    },
+    layers: clonedLayers,
+    instances: clonedInstances,
+    meta,
+  };
+}
+
+async function convertDataToArea(data, context = {}){
+  const runtime = await getRuntimeModule();
+  return runtime.convertLayoutToArea(data || {}, {
+    areaId: context.areaId || context.meta?.areaId || DEFAULT_LAYOUT_META.areaId,
+    areaName: context.areaName || context.meta?.areaName || DEFAULT_LAYOUT_META.areaName,
+  });
 }
 
 function getRepositoryEntry(mapId){
@@ -862,21 +933,20 @@ async function loadRepositoryMapById(mapId){
     repositoryId: entry?.id || null,
   };
 
-  if (!entry?.path){
-    restoreState(interpretIncomingLayout({}, context));
-    historyStack.length = 0;
-    pushHistory();
-    return;
-  }
-
   try {
-    const response = await fetch(entry.path, { cache: 'no-cache' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const json = await response.json();
-    restoreState(interpretIncomingLayout(json, context));
+    const areaData = entry?.path
+      ? await (async () => {
+          const response = await fetch(entry.path, { cache: 'no-cache' });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const json = await response.json();
+          return convertDataToArea(json, context);
+        })()
+      : await convertDataToArea({}, context);
+    restoreState(areaData);
   } catch (error) {
     console.error('[map-editor] failed to load map from repository', error);
-    restoreState(interpretIncomingLayout({}, context));
+    const fallbackArea = await convertDataToArea({}, context);
+    restoreState(fallbackArea);
     alert(`Failed to load map: ${error.message}. Loaded empty layout instead.`);
   }
   historyStack.length = 0;
@@ -972,9 +1042,9 @@ function rebuildLayerStack(){
 function syncActiveLayerFields(){
   const layer = findLayer(activeLayerId);
   if(!layer) return;
-  $('#layerParallax').value = layer.parallax;
-  $('#layerYOffset').value = layer.yOffset;
-  $('#layerSep').value = layer.sep;
+  $('#layerParallax').value = layer.parallaxSpeed;
+  $('#layerYOffset').value = layer.offsetY;
+  $('#layerSep').value = layer.separation;
   $('#layerScale').value = layer.scale;
   rebuildLayerStack();
 }
@@ -994,9 +1064,9 @@ function setActiveLayer(id){
     const v = parseFloat(e.target.value);
     if(!Number.isFinite(v)) return;
     pushHistory();
-    if(id==='layerParallax') layer.parallax=v;
-    if(id==='layerYOffset') layer.yOffset=v;
-    if(id==='layerSep')      layer.sep=v;
+    if(id==='layerParallax') layer.parallaxSpeed=v;
+    if(id==='layerYOffset') layer.offsetY=v;
+    if(id==='layerSep')      layer.separation=v;
     if(id==='layerScale')    layer.scale=v;
   });
 });
@@ -1029,30 +1099,6 @@ $('#btnDuplicateLayer').addEventListener('click',()=>{
   syncActiveLayerFields();
   refreshInstanceList();
 });
-
-/*** Slots & baseX ***/
-function computeLayerSlotStats(){
-  const stats = {};
-  layers.forEach(l=>stats[l.id]={min:null,max:null});
-  instances.forEach(inst=>{
-    const s = stats[inst.layerId]; if(!s) return;
-    const sl = inst.slot ?? 0;
-    if(s.min===null || sl<s.min) s.min=sl;
-    if(s.max===null || sl>s.max) s.max=sl;
-  });
-  return stats;
-}
-function baseXFor(inst, stats){
-  if (Number.isFinite(inst?.x)) return inst.x;
-  const layer = findLayer(inst.layerId);
-  if(!layer) return 0;
-  const sep = layer.sep || 180;
-  const slot = inst.slot ?? 0;
-  const s = stats[inst.layerId];
-  let center = slot;
-  if(s && s.min!==null) center = (s.min + s.max)/2;
-  return (slot - center)*sep + (inst.nudgeX || 0);
-}
 
 /*** Image loading ***/
 function loadImage(url){
@@ -1148,18 +1194,19 @@ function allocSlot(layerId){
   return n;
 }
 function makeInstance(layerId,prefabId){
+  const grid = GRID_UNIT || 0;
+  const existing = instances.filter((inst) => inst.layerId === layerId);
+  const baseX = existing.length ? Math.max(...existing.map((inst) => inst.position?.x ?? 0)) + (grid || 100) : 0;
   return {
     id:nextInstId++,
     prefabId,
     layerId,
-    slot:allocSlot(layerId),
-    nudgeX:0,
+    position:{ x: Number.isFinite(baseX) ? baseX : 0, y: 0 },
+    scale:{ x:1, y:1 },
+    rotationDeg:0,
     locked:false,
-    scaleX:1,
-    scaleY:1,
-    offsetY:0,
-    rot:0,
     tags:[],
+    meta:{},
   };
 }
 function addInstance(layerId,prefabId){
@@ -1200,13 +1247,14 @@ function duplicateSelectedInstance(){
   pushHistory();
   const dup = JSON.parse(JSON.stringify(inst));
   dup.id = nextInstId++;
-  dup.slot = (inst.slot ?? 0) + 1;
+  dup.position = normalizePosition(dup.position);
+  const grid = GRID_UNIT || 0;
+  dup.position.x += grid > 0 ? grid : 50;
   instances.push(dup);
   selectedInstId = dup.id;
   refreshInstanceList();
 }
 function refreshInstanceList(){
-  const stats=computeLayerSlotStats();
   const list=$('#instList');
   list.innerHTML='';
   const visible=instances.filter(i=>i.layerId===activeLayerId);
@@ -1216,8 +1264,8 @@ function refreshInstanceList(){
     const div=document.createElement('div');
     div.className='inst'+(inst.id===selectedInstId?' active':'');
     const span=document.createElement('span');
-    const x=baseXFor(inst,stats).toFixed(1);
-    span.textContent=`${inst.id} · ${inst.prefabId} · x=${x}`;
+    const pos = normalizePosition(inst.position);
+    span.textContent=`${inst.id} · ${inst.prefabId} · x=${pos.x.toFixed(1)}`;
     if(inst.locked){
       const lp=document.createElement('span');
       lp.className='lock-pill';
@@ -1241,7 +1289,6 @@ function refreshInstanceList(){
   fillInstEditor();
 }
 function fillInstEditor(){
-  const stats=computeLayerSlotStats();
   const inst=getSelectedInstance();
   if(!inst || inst.layerId!==activeLayerId){
     $('#instId').value='';
@@ -1257,12 +1304,14 @@ function fillInstEditor(){
   $('#instId').value=inst.id;
   $('#instPrefab').value=inst.prefabId;
   $('#instLayer').value=inst.layerId;
-  $('#instX').value=baseXFor(inst,stats).toFixed(1);
+  const pos = normalizePosition(inst.position);
+  $('#instX').value=pos.x.toFixed(1);
   $('#instLocked').checked=!!inst.locked;
-  $('#instScaleX').value=inst.scaleX;
-  $('#instScaleY').value=inst.scaleY;
-  $('#instOffY').value=inst.offsetY;
-  $('#instRot').value=inst.rot;
+  const scale = normalizeScale(inst.scale);
+  $('#instScaleX').value=scale.x;
+  $('#instScaleY').value=scale.y;
+  $('#instOffY').value=pos.y;
+  $('#instRot').value=Number.isFinite(inst.rotationDeg) ? inst.rotationDeg : 0;
 }
 
 /*** Instance editor bindings ***/
@@ -1293,32 +1342,35 @@ function updateSelectedInstanceFromFields(){
     inst.locked = locked;
   }
 
+  inst.scale = normalizeScale(inst.scale);
+  inst.position = normalizePosition(inst.position);
+
   const sx = parseFloat($('#instScaleX').value);
-  if(Number.isFinite(sx) && sx !== inst.scaleX){
+  if(Number.isFinite(sx) && sx !== inst.scale.x){
     if(!changed) pushHistory();
     changed = true;
-    inst.scaleX = Math.max(0.05, sx);
+    inst.scale.x = Math.max(0.05, sx);
   }
 
   const sy = parseFloat($('#instScaleY').value);
-  if(Number.isFinite(sy) && sy !== inst.scaleY){
+  if(Number.isFinite(sy) && sy !== inst.scale.y){
     if(!changed) pushHistory();
     changed = true;
-    inst.scaleY = Math.max(0.05, sy);
+    inst.scale.y = Math.max(0.05, sy);
   }
 
   const offY = parseFloat($('#instOffY').value);
-  if(Number.isFinite(offY) && offY !== inst.offsetY){
+  if(Number.isFinite(offY) && offY !== inst.position.y){
     if(!changed) pushHistory();
     changed = true;
-    inst.offsetY = offY;
+    inst.position.y = offY;
   }
 
   const rot = parseFloat($('#instRot').value);
-  if(Number.isFinite(rot) && rot !== inst.rot){
+  if(Number.isFinite(rot) && rot !== inst.rotationDeg){
     if(!changed) pushHistory();
     changed = true;
-    inst.rot = rot;
+    inst.rotationDeg = rot;
   }
 
   const xVal = parseFloat($('#instX').value);
@@ -1329,30 +1381,10 @@ function updateSelectedInstanceFromFields(){
       target = Math.round(target / grid) * grid;
       $('#instX').value = target.toFixed(1);
     }
-    if(isPlayerSpawn(inst)){
+    if(target !== inst.position.x){
       if(!changed) pushHistory();
       changed = true;
-      inst.x = target;
-      inst.nudgeX = 0;
-      inst.slot = 0;
-    } else {
-      const stats = computeLayerSlotStats();
-      const layerStats = stats[inst.layerId];
-      const layer = findLayer(inst.layerId);
-      if(layer){
-        const sep = layer.sep || 180;
-        const slot = inst.slot ?? 0;
-        let center = slot;
-        if(layerStats && layerStats.min !== null){
-          center = (layerStats.min + layerStats.max) / 2;
-        }
-        const newNudge = target - (slot - center) * sep;
-        if(newNudge !== inst.nudgeX){
-          if(!changed) pushHistory();
-          changed = true;
-          inst.nudgeX = newNudge;
-        }
-      }
+      inst.position.x = target;
     }
   }
 
@@ -1415,7 +1447,6 @@ function render(){
   const W=canvas.width/dpr;
   const H=canvas.height/dpr;
   const groundY=H-getGroundOffset();
-  const stats=computeLayerSlotStats();
 
   ctx.clearRect(0,0,W,H);
 
@@ -1458,18 +1489,16 @@ function render(){
   const retY=groundY - 8*zoom;
 
   for(const {inst,layer,prefab} of renderList){
-    const objX=baseXFor(inst,stats);
-    const par=layer.parallax ?? 1;
+    const pos = normalizePosition(inst.position);
+    const scale = normalizeScale(inst.scale);
+    const par=layer.parallaxSpeed ?? 1;
     const layerScale=layer.scale || 1;
-    const instScaleX=inst.scaleX || 1;
-    const instScaleY=inst.scaleY || instScaleX;
-    const instOffsetY=inst.offsetY || 0;
-    const instRot=inst.rot || 0;
+    const instRot=Number.isFinite(inst.rotationDeg) ? inst.rotationDeg : 0;
 
     if(isPlayerSpawn(inst)){
-      const baseOffset=(objX - cameraX*par)*zoom;
+      const baseOffset=(pos.x - cameraX*par)*zoom;
       const rootScreenX=W/2 + baseOffset;
-      const rootScreenY=groundY + (layer.yOffset||0)*zoom - instOffsetY*zoom;
+      const rootScreenY=groundY + (layer.offsetY||0)*zoom + pos.y*zoom;
 
       ctx.save();
       ctx.translate(rootScreenX, rootScreenY - 20*zoom);
@@ -1493,14 +1522,14 @@ function render(){
       ctx.restore();
 
       if(debugOverlay){
-        dbg.push(`spawn @${layer.name} x=${objX.toFixed(1)}`);
+        dbg.push(`spawn @${layer.name} x=${pos.x.toFixed(1)}`);
       }
       continue;
     }
 
-    const baseOffset=(objX - cameraX*par)*zoom;
+    const baseOffset=(pos.x - cameraX*par)*zoom;
     const rootScreenX=W/2 + baseOffset;
-    const rootScreenY=groundY + (layer.yOffset||0)*zoom - instOffsetY*zoom;
+    const rootScreenY=groundY + (layer.offsetY||0)*zoom + pos.y*zoom;
 
     const dxScreen = rootScreenX - retX;
 
@@ -1514,8 +1543,8 @@ function render(){
       const {ax,ay}=computeAnchor(t);
       ctx.save();
       ctx.translate(rootScreenX,rootScreenY);
-      ctx.scale(layerScale*zoom*instScaleX,
-                layerScale*zoom*instScaleY);
+      ctx.scale(layerScale*zoom*scale.x,
+                layerScale*zoom*scale.y);
       if(instRot) ctx.rotate(rad(instRot));
       ctx.drawImage(img,-ax,-ay,w,h);
       if(debugOverlay){
@@ -1552,8 +1581,8 @@ function render(){
 
       ctx.save();
       ctx.translate(rootScreenX, rootScreenY - rootRelY*layerScale*zoom);
-      ctx.scale(layerScale*zoom*instScaleX,
-                layerScale*zoom*instScaleY);
+      ctx.scale(layerScale*zoom*scale.x,
+                layerScale*zoom*scale.y);
       if(instRot) ctx.rotate(rad(instRot));
 
       // apply root pose
@@ -1679,7 +1708,6 @@ function pickInstanceAt(clientX,clientY){
   const W=canvas.width/dpr;
   const H=canvas.height/dpr;
   const groundY=H-getGroundOffset();
-  const stats=computeLayerSlotStats();
 
   const candidates=instances
     .filter(i=>i.layerId===activeLayerId)
@@ -1693,14 +1721,13 @@ function pickInstanceAt(clientX,clientY){
   candidates.sort((a,b)=>layerDrawOrder(b.layer)-layerDrawOrder(a.layer));
 
   for(const {inst,layer,prefab} of candidates){
-    const objX=baseXFor(inst,stats);
-    const par=layer.parallax ?? 1;
+    const pos = normalizePosition(inst.position);
+    const scale = normalizeScale(inst.scale);
+    const par=layer.parallaxSpeed ?? 1;
     const layerScale=layer.scale || 1;
-    const instScaleX=inst.scaleX || 1;
-    const instOffsetY=inst.offsetY || 0;
-    const baseOffset=(objX - cameraX*par)*zoom;
+    const baseOffset=(pos.x - cameraX*par)*zoom;
     const rootScreenX=W/2 + baseOffset;
-    const rootScreenY=groundY + (layer.yOffset||0)*zoom - instOffsetY*zoom;
+    const rootScreenY=groundY + (layer.offsetY||0)*zoom + pos.y*zoom;
 
     if(isPlayerSpawn(inst)){
       const radius = 12 * zoom;
@@ -1722,7 +1749,7 @@ function pickInstanceAt(clientX,clientY){
     const w=t.w || 100;
     const h=t.h || 100;
     const {ax,ay}=computeAnchor(t);
-    const sc=layerScale*zoom*instScaleX;
+    const sc=layerScale*zoom*scale.x;
 
     const left=rootScreenX - ax*sc;
     const top =rootScreenY - h*sc;
@@ -1736,6 +1763,7 @@ function pickInstanceAt(clientX,clientY){
 let draggingCamera=false;
 let draggingInst=null;
 let lastX=0;
+let draggingInstOffset=0;
 
 function pointerClientToWorldX(clientX, layer){
   const rect=canvas.getBoundingClientRect();
@@ -1758,9 +1786,8 @@ function pointerDown(ev){
       const worldX = pointerClientToWorldX(t.clientX, layer);
       const grid = GRID_UNIT || 0;
       const snapped = grid > 0 ? Math.round(worldX / grid) * grid : worldX;
-      spawn.x = snapped;
-      spawn.slot = 0;
-      spawn.nudgeX = 0;
+      spawn.position = normalizePosition(spawn.position);
+      spawn.position.x = snapped;
       spawn.locked = true;
       selectedInstId = spawn.id;
       refreshInstanceList();
@@ -1775,6 +1802,13 @@ function pointerDown(ev){
     if(inst && !inst.locked){
       pushHistory();
       draggingInst=inst;
+      const layerForDrag = findLayer(inst.layerId);
+      if(layerForDrag){
+        inst.position = normalizePosition(inst.position);
+        draggingInstOffset = pointerClientToWorldX(t.clientX, layerForDrag) - inst.position.x;
+      } else {
+        draggingInstOffset = 0;
+      }
     }
     refreshInstanceList();
   }else{
@@ -1791,16 +1825,14 @@ function pointerMove(ev){
     if(draggingInst.locked){ draggingInst=null; return; }
     const layer=findLayer(draggingInst.layerId);
     if(!layer) return;
-    const grid=GRID_UNIT||1;
-    const effPar=Math.max(0.01,layer.parallax || 1);
-    draggingInst.nudgeX += dx/(effPar*zoom);
-    if(grid>1){
-      const stats=computeLayerSlotStats();
-      const cur=baseXFor(draggingInst,stats);
-      const snapped=Math.round(cur/grid)*grid;
-      draggingInst.nudgeX += (snapped-cur);
+    const worldX = pointerClientToWorldX(t.clientX, layer) - draggingInstOffset;
+    const grid=GRID_UNIT||0;
+    const snapped = grid>0 ? Math.round(worldX/grid)*grid : worldX;
+    draggingInst.position = normalizePosition(draggingInst.position);
+    if(snapped !== draggingInst.position.x){
+      draggingInst.position.x = snapped;
+      refreshInstanceList();
     }
-    refreshInstanceList();
   }else if(draggingCamera){
     setCameraX(cameraX - dx*2);
   }
@@ -1808,6 +1840,7 @@ function pointerMove(ev){
 function pointerUp(){
   draggingCamera=false;
   draggingInst=null;
+  draggingInstOffset=0;
 }
 canvas.addEventListener('mousedown',pointerDown);
 canvas.addEventListener('mousemove',pointerMove);
@@ -1833,13 +1866,20 @@ $('#btnJitter').addEventListener('click',()=>{
   for(const inst of instances){
     if(inst.layerId!==activeLayerId || inst.locked) continue;
     if(posRange>0){
-      inst.nudgeX=(Math.random()*2-1)*posRange;
+      const delta = (Math.random()*2-1)*posRange;
+      inst.position = normalizePosition(inst.position);
+      inst.position.x += delta;
+      const grid = GRID_UNIT || 0;
+      if(grid > 0){
+        inst.position.x = Math.round(inst.position.x / grid) * grid;
+      }
     }
     if(scaleRange>0){
       const sx=1 + (Math.random()*2-1)*scaleRange;
       const sy=1 + (Math.random()*2-1)*scaleRange;
-      inst.scaleX=Math.max(0.1,sx);
-      inst.scaleY=Math.max(0.1,sy);
+      inst.scale = normalizeScale(inst.scale);
+      inst.scale.x=Math.max(0.1,sx);
+      inst.scale.y=Math.max(0.1,sy);
     }
   }
   refreshInstanceList();
@@ -1865,10 +1905,11 @@ $('#btnAddParallaxLayer').addEventListener('click',()=>{
     id,
     name:`Parallax ${count+1}`,
     type:"parallax",
-    parallax:0.15 + 0.1*count,
-    yOffset:-140 + 20*count,
-    sep:220,
-    scale:0.6 + 0.05*count
+    parallaxSpeed:0.15 + 0.1*count,
+    offsetY:-140 + 20*count,
+    separation:220,
+    scale:0.6 + 0.05*count,
+    meta:{},
   });
   rebuildActiveLayerSelect();
   rebuildLayerStack();
@@ -1880,31 +1921,11 @@ async function exportLayout(){
   const statusEl = $('#exportStatus');
   const textEl = $('#exportText');
   try{
-    const stats=computeLayerSlotStats();
-    const layout={
-      areaId: layoutMeta.areaId,
-      areaName: layoutMeta.areaName,
-      cameraStartX:cameraX,
-      zoomStart:zoom,
-      groundOffset:getGroundOffset(),
-      activeLayerId,
-      layers:JSON.parse(JSON.stringify(layers)),
-      instances:instances.map(inst=>{
-        const copy=JSON.parse(JSON.stringify(inst));
-        const computedX = baseXFor(inst,stats);
-        if(!Number.isFinite(copy.x)) copy.x = computedX;
-        return copy;
-      }),
-      meta:{
-        ...layoutMeta,
-        exportedAt: new Date().toISOString(),
-      }
+    const area = buildAreaDescriptor();
+    area.meta = {
+      ...area.meta,
+      exportedAt: new Date().toISOString(),
     };
-    const runtime = await getRuntimeModule();
-    const area=runtime.convertLayoutToArea(layout,{
-      areaId: layoutMeta.areaId,
-      areaName: layoutMeta.areaName,
-    });
     const json=JSON.stringify(area,null,2);
     textEl.value=json;
     const dataUrl='data:application/json;charset=utf-8,'+encodeURIComponent(json);
@@ -1962,13 +1983,18 @@ rebuildActiveLayerSelect();
 rebuildLayerStack();
 syncActiveLayerFields();
 ensurePlayerSpawn();
-resetSlotCounters();
 rebuildPrefabSelect();
 refreshInstanceList();
-setCameraX(0);
-setZoom(1);
-pushHistory();
 requestAnimationFrame(render);
+
+(async () => {
+  try {
+    const initialId = layoutMeta.repositoryId || layoutMeta.areaId || DEFAULT_LAYOUT_META.areaId;
+    await loadRepositoryMapById(initialId);
+  } catch (error) {
+    console.error('[map-editor] failed to load initial map', error);
+  }
+})();
 </script>
 </body>
 </html>
