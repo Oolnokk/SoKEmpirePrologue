@@ -2,6 +2,11 @@
 // Provides slot definitions, library registration, equipment helpers, and per-fighter layer resolution
 
 import { degToRad } from './math-utils.js?v=1';
+import {
+  getPaletteForImage,
+  resolvePaletteAssignment,
+  clearPaletteCache as clearPaletteRegistry
+} from './cosmetic-palettes.js?v=1';
 
 const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 const STATE = (ROOT.COSMETIC_SYSTEM ||= {
@@ -52,6 +57,20 @@ function mergeConfig(baseValue, override){
     return deepMerge(baseValue, override);
   }
   return override;
+}
+
+function normalizePaletteSelection(value){
+  if (value == null) return null;
+  if (typeof value === 'string'){
+    return { row: value };
+  }
+  if (Array.isArray(value)){
+    return { rows: value.slice() };
+  }
+  if (value && typeof value === 'object'){
+    return deepMerge({}, value);
+  }
+  return null;
 }
 
 export function registerFighterCosmeticProfile(fighterName, profile = {}){
@@ -509,6 +528,14 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
   let alignCfg = pickPerFighter(partConfig.align, fighterName);
   let extra = (partConfig.extra && typeof partConfig.extra === 'object') ? deepMerge({}, partConfig.extra) : (partConfig.extra || {});
   let styleKey = partConfig.styleKey || partConfig.style || partConfig.styleName;
+  let paletteCfg = pickPerFighter(partConfig.palette, fighterName);
+  const paletteIsEmptyObject = paletteCfg
+    && typeof paletteCfg === 'object'
+    && !Array.isArray(paletteCfg)
+    && Object.keys(paletteCfg).length === 0;
+  if ((!paletteCfg || paletteIsEmptyObject) && partConfig.palette && typeof partConfig.palette === 'object' && !Array.isArray(partConfig.palette)){
+    paletteCfg = deepMerge({}, partConfig.palette);
+  }
 
   const profileOverrides = getProfilePartOverrides(fighterName, cosmeticId, partKey);
   if (profileOverrides){
@@ -518,6 +545,7 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
     anchorCfg = mergeConfig(anchorCfg, profileOverrides.anchor);
     alignCfg = mergeConfig(alignCfg, profileOverrides.align);
     extra = mergeConfig(extra, profileOverrides.extra);
+    paletteCfg = mergeConfig(paletteCfg, profileOverrides.palette);
     if (profileOverrides.styleKey != null){
       styleKey = profileOverrides.styleKey;
     }
@@ -530,7 +558,8 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
     anchor: anchorCfg,
     align: alignCfg,
     styleKey,
-    extra: extra
+    extra: extra,
+    palette: paletteCfg
   };
 }
 
@@ -544,10 +573,14 @@ function ensureAsset(cosmeticId, partKey, imageCfg){
   if (!asset){
     const img = loadImage(imageCfg.url);
     asset = { url: imageCfg.url, img, alignRad: imageCfg.alignRad ?? 0 };
+    asset.palette = getPaletteForImage(imageCfg.url) || null;
     STATE.assets.set(key, asset);
   }
   if (imageCfg.alignRad != null){
     asset.alignRad = imageCfg.alignRad;
+  }
+  if (!asset.palette){
+    asset.palette = getPaletteForImage(imageCfg.url) || null;
   }
   return asset;
 }
@@ -566,11 +599,13 @@ function normalizeEquipment(slotEntry){
   const hsl = slotEntry.hsl || slotEntry.hsv || slotEntry.tone || {};
   const fighterOverrides = slotEntry.fighterOverrides || {};
   const colors = ensureArray(slotEntry.colors || slotEntry.bodyColors || slotEntry.appearanceColors);
+  const palette = normalizePaletteSelection(slotEntry.palette || slotEntry.paletteId || slotEntry.paletteRow || slotEntry.paletteConfig);
   return {
     id,
     hsl,
     fighterOverrides,
-    colors: colors.length ? colors : undefined
+    colors: colors.length ? colors : undefined,
+    palette: palette || undefined
   };
 }
 
@@ -714,6 +749,28 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
           bodyColors: ensureArray(equipped.colors || cosmetic.appearance?.bodyColors)
         };
       }
+      const paletteBodySource = resolved.palette?.bodyColors
+        || partOverride?.palette?.bodyColors
+        || slotOverride?.palette?.bodyColors
+        || equipped.colors
+        || cosmetic.appearance?.bodyColors;
+      const palette = resolvePaletteAssignment({
+        imageUrl: asset.url,
+        assetPalette: asset.palette,
+        paletteConfigs: [
+          resolved.palette,
+          slotOverride?.palette,
+          partOverride?.palette,
+          equipped.palette
+        ],
+        fighterName,
+        isAppearance,
+        bodyColors,
+        bodyColorLetters: ensureArray(paletteBodySource)
+      });
+      if (!asset.palette && palette?.paletteUrl){
+        asset.palette = getPaletteForImage(asset.url) || null;
+      }
       layers.push({
         slot,
         partKey,
@@ -726,7 +783,8 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
         alignDeg,
         alignRad,
         styleKey: resolved.styleKey,
-        extra: layerExtra
+        extra: layerExtra,
+        palette
       });
     }
   }
@@ -743,4 +801,5 @@ export function clearCosmeticCache(){
   if (STATE.profiles instanceof Map){
     STATE.profiles.clear();
   }
+  clearPaletteRegistry();
 }

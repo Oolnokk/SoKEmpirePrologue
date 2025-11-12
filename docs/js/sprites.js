@@ -664,17 +664,18 @@ export function renderSprites(ctx){
       const slotTag = cosmeticTagFor(baseTag, layer.slot);
       const styleKey = layer.styleKey || layer.partKey;
       const { mirror, originX } = resolveCosmeticMirror(rig, layer.partKey, bone);
-      enqueue(slotTag, ()=>{
-        withBranchMirror(ctx, originX, mirror, ()=>{
-          drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, {
-            styleOverride: layer.styleOverride,
-            hsl: layer.hsl,
-            warp: layer.warp,
-            alignRad: layer.alignRad,
-            alignDeg: layer.alignRad == null ? layer.alignDeg : undefined
+        enqueue(slotTag, ()=>{
+          withBranchMirror(ctx, originX, mirror, ()=>{
+            drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, {
+              styleOverride: layer.styleOverride,
+              hsv: layer.hsv,
+              warp: layer.warp,
+              alignRad: layer.alignRad,
+              alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
+              palette: layer.palette
+            });
           });
         });
-      });
     }
   }
 

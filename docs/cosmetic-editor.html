@@ -23,6 +23,30 @@
         <div id="cosmeticSlotRows"></div>
         <p style="margin-top:12px;">Use "Edit" to tweak sprite style overrides live.</p>
       </div>
+      <div class="panel">
+        <h2>Bucket Tool</h2>
+        <label style="display:flex;flex-direction:column;gap:6px;">
+          <span>Hex colour</span>
+          <input id="bucketColor" type="text" placeholder="#ff3366" value="#ff3366" spellcheck="false" aria-label="Bucket fill hex colour">
+        </label>
+        <div id="bucketTargets" class="bucket-targets" role="group" aria-label="Palette buckets"></div>
+        <div class="bucket-settings">
+          <label>
+            <span>Colour tolerance</span>
+            <input id="bucketTolerance" type="number" min="0" max="255" step="1" value="24" aria-label="Bucket fill colour tolerance (0-255)">
+          </label>
+          <label>
+            <span>Edge expand (px)</span>
+            <input id="bucketExpand" type="number" min="0" max="24" step="1" value="1" aria-label="Expand bucket fill region by this many pixels">
+          </label>
+        </div>
+        <div class="bucket-actions" style="margin-top:12px;">
+          <button type="button" id="bucketToggle">🎨 Bucket Mode</button>
+          <button type="button" id="bucketUndo" disabled>↩ Undo</button>
+          <button type="button" id="bucketClear">🧹 Clear Paint</button>
+        </div>
+        <p style="margin-top:10px;">Bucket fill paints directly on the preview layer. Undo is limited to the last 20 fills.</p>
+      </div>
       <div class="panel style-inspector" id="styleInspector" data-active="false">
         <div class="style-header">
           <strong id="styleActiveSlot">No slot selected</strong>
