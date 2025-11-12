@@ -48,6 +48,12 @@ async function loadStartingArea() {
     }
 
     const layout = await response.json();
+    console.debug('[map-bootstrap] Loaded raw layout descriptor', {
+      id: layout?.areaId || layout?.id || DEFAULT_AREA_ID,
+      name: layout?.areaName || layout?.name || null,
+      source: layoutUrl.href,
+      layout,
+    });
     const area = convertLayoutToArea(layout, {
       areaId: layout.areaId || layout.id || DEFAULT_AREA_ID,
       areaName: layout.areaName || layout.name || 'Example Street',
