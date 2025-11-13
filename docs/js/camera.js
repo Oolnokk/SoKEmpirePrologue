@@ -9,6 +9,33 @@ let lastViewportWidth = DEFAULT_VIEWPORT_WIDTH;
 let lastLoggedPlayerX = null;
 let lastLoggedAreaId = null;
 
+function measureViewportWidth(canvas) {
+  if (!canvas) return null;
+
+  try {
+    if (typeof canvas.getBoundingClientRect === 'function') {
+      const rect = canvas.getBoundingClientRect();
+      if (rect && Number.isFinite(rect.width) && rect.width > 0) {
+        return rect.width;
+      }
+    }
+  } catch (_error) {
+    // Ignore DOM measurement failures (e.g., detached canvas)
+  }
+
+  const clientWidth = Number.isFinite(canvas.clientWidth) ? canvas.clientWidth : null;
+  if (clientWidth && clientWidth > 0) {
+    return clientWidth;
+  }
+
+  const attrWidth = Number.isFinite(canvas.width) ? canvas.width : null;
+  if (attrWidth && attrWidth > 0) {
+    return attrWidth;
+  }
+
+  return null;
+}
+
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) return min;
   if (!Number.isFinite(min) && !Number.isFinite(max)) return value;
@@ -115,8 +142,14 @@ function attachToRegistry(registry) {
 export function initCamera({ canvas, mapRegistry } = {}) {
   const camera = ensureGameCamera();
   const config = window.CONFIG || {};
-  lastViewportWidth = canvas?.width || config.canvas?.w || lastViewportWidth || DEFAULT_VIEWPORT_WIDTH;
+  const measuredWidth = measureViewportWidth(canvas);
+  lastViewportWidth = measuredWidth
+    || canvas?.width
+    || config.canvas?.w
+    || lastViewportWidth
+    || DEFAULT_VIEWPORT_WIDTH;
   camera.bounds = camera.bounds || { min: 0, max: camera.worldWidth || DEFAULT_WORLD_WIDTH };
+  camera.viewportWidth = lastViewportWidth;
 
   const registry = mapRegistry || window.GAME?.mapRegistry || window.__MAP_REGISTRY__;
   if (registry) {
@@ -148,7 +181,12 @@ export function updateCamera(canvas) {
     ? attachedRegistry.getActiveAreaId()
     : (window.GAME?.currentAreaId || null);
 
-  const viewportWidth = canvas?.width || C.canvas?.w || lastViewportWidth || DEFAULT_VIEWPORT_WIDTH;
+  const measuredWidth = measureViewportWidth(canvas);
+  const viewportWidth = measuredWidth
+    || canvas?.width
+    || C.canvas?.w
+    || lastViewportWidth
+    || DEFAULT_VIEWPORT_WIDTH;
   lastViewportWidth = viewportWidth;
   camera.viewportWidth = viewportWidth;
 
