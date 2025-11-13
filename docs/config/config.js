@@ -540,7 +540,7 @@ window.CONFIG = {
       ],
       bodyColors: {
         A: { h: 18, s: 1, v: 0.9 },
-        B: { h: -24, s: 0.18, v: 0.05 },
+        B: { h: -24, s: 0.58, v: 0.05 },
         C: { h: 96, s: 0.26, v: -0.06 }
       },
       cosmetics: {}
@@ -791,7 +791,7 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
       bodyColors: {
-        A: { h: -180, s: -0.23, v: -0.8 },
+        A: { h: -180, s: 0.23, v: -0.3 },
         B: { h: -20, s: 0.15, v: 0.1 },
         C: { h: 32, s: 0.25, v: -0.05 }
       },
