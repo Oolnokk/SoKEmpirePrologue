@@ -223,6 +223,7 @@ function initCharacterDropdown() {
       window.GAME.selectedWeapon = null;
       delete window.GAME.selectedAppearance;
       delete window.GAME.selectedBodyColors;
+      delete window.GAME.selectedBodyColorsFighter;
       delete window.GAME.selectedCosmetics;
 
       if (typeof hideFighterSettings === 'function') {
@@ -261,8 +262,10 @@ function initCharacterDropdown() {
       } catch (_err) {
         window.GAME.selectedBodyColors = { ...charData.bodyColors };
       }
+      window.GAME.selectedBodyColorsFighter = charData.fighter;
     } else {
       delete window.GAME.selectedBodyColors;
+      delete window.GAME.selectedBodyColorsFighter;
     }
 
     if (charData.cosmetics) {
@@ -320,12 +323,17 @@ function initCharacterDropdown() {
 
   console.log('[initCharacterDropdown] Character dropdown initialized with', characterKeys.length, 'characters');
 }
-// Initialize dropdowns on page load
-window.addEventListener('DOMContentLoaded', () => {
+
+function initSelectionDropdowns() {
   initWeaponDropdown();
   initAbilitySlotDropdowns();
   initCharacterDropdown();
   initFighterDropdown();
+}
+
+// Initialize dropdowns on page load
+window.addEventListener('DOMContentLoaded', () => {
+  initSelectionDropdowns();
 });
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=6';
@@ -333,7 +341,7 @@ import { initControls } from './controls.js?v=7';
 import { initCombat } from './combat.js?v=19';
 import { updatePoses } from './animator.js?v=4';
 import { renderAll, LIMB_COLORS } from './render.js?v=4';
-import { initCamera, updateCamera } from './camera.js?v=3';
+import { initCamera, updateCamera } from './camera.js?v=4';
 import { initHitDetect, runHitDetect } from './hitdetect.js?v=1';
 import { initSprites, renderSprites } from './sprites.js?v=8';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
@@ -458,14 +466,18 @@ if (reloadBtn){
   reloadBtn.addEventListener('click', async ()=>{
     try {
       if (statusInfo) statusInfo.textContent = 'Reloading config…';
+      const previousFighter = window.GAME?.selectedFighter || currentSelectedFighter || null;
       await window.reloadConfig?.();
       initPresets();
       ensureAltSequenceUsesKickAlt();
       applyRenderOrder();
-      initWeaponDropdown();
-      initAbilitySlotDropdowns();
-      initCharacterDropdown();
-      initFighterDropdown();
+      await initSprites();
+      initFighters(cv, cx);
+      initSelectionDropdowns();
+      if (previousFighter) {
+        scheduleFighterPreview(previousFighter);
+      }
+      scheduleConfigUpdatedEvent();
       if (statusInfo) statusInfo.textContent = 'Config reloaded';
     } catch (e){
       if (statusInfo) statusInfo.textContent = 'Config reload failed';
@@ -689,12 +701,25 @@ function initFighterDropdown() {
       const selectedFighter = e.target.value;
       currentSelectedFighter = selectedFighter;
       window.GAME ||= {};
+      const previousPaletteFighter = window.GAME.selectedBodyColorsFighter;
       window.GAME.selectedFighter = selectedFighter;
-      if (selectedFighter) {
-        showFighterSettings(selectedFighter);
-      } else {
+      if (!selectedFighter) {
+        delete window.GAME.selectedBodyColors;
+        delete window.GAME.selectedBodyColorsFighter;
+        delete window.GAME.selectedCosmetics;
+        delete window.GAME.selectedAppearance;
         hideFighterSettings();
+        return;
       }
+
+      if (previousPaletteFighter && previousPaletteFighter !== selectedFighter) {
+        delete window.GAME.selectedBodyColors;
+        delete window.GAME.selectedBodyColorsFighter;
+      }
+      delete window.GAME.selectedCosmetics;
+      delete window.GAME.selectedAppearance;
+
+      showFighterSettings(selectedFighter);
     });
     fighterSelect.dataset.initialized = 'true';
   }
@@ -1288,15 +1313,17 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
 function drawStage(){
   if (!cx) return;
   const C = window.CONFIG || {};
-  const camX = window.GAME?.CAMERA?.x || 0;
-  const worldW = window.GAME?.CAMERA?.worldWidth || 1600;
+  const camera = window.GAME?.CAMERA || {};
+  const camX = camera.x || 0;
+  const worldW = camera.worldWidth || 1600;
+  const zoom = Number.isFinite(camera.zoom) ? camera.zoom : 1;
   cx.clearRect(0,0,cv.width,cv.height);
   cx.fillStyle = '#0b1220';
   cx.fillRect(0,0,cv.width,cv.height);
   // ground (with camera offset)
   const gy = (C.canvas?.h||460) * (C.groundRatio||0.7);
   cx.save();
-  cx.translate(-camX, 0);
+  cx.setTransform(zoom, 0, 0, zoom, -zoom * camX, cv.height * (1 - zoom));
 
   drawEditorPreviewMap(cx, { camX, groundY: gy });
 
@@ -1373,12 +1400,17 @@ function updateMousePosition(e) {
   // Get mouse position relative to canvas
   const scaleX = cv.width / rect.width;
   const scaleY = cv.height / rect.height;
-  window.GAME.MOUSE.x = (e.clientX - rect.left) * scaleX;
-  window.GAME.MOUSE.y = (e.clientY - rect.top) * scaleY;
-  // World coordinates account for camera offset
-  const camX = window.GAME?.CAMERA?.x || 0;
-  window.GAME.MOUSE.worldX = window.GAME.MOUSE.x + camX;
-  window.GAME.MOUSE.worldY = window.GAME.MOUSE.y;
+  const pixelX = (e.clientX - rect.left) * scaleX;
+  const pixelY = (e.clientY - rect.top) * scaleY;
+  window.GAME.MOUSE.x = pixelX;
+  window.GAME.MOUSE.y = pixelY;
+  // World coordinates account for camera offset and zoom
+  const camera = window.GAME?.CAMERA || {};
+  const camX = camera.x || 0;
+  const zoom = Math.max(Number.isFinite(camera.zoom) ? camera.zoom : 1, 1e-4);
+  const verticalOffset = cv.height * (1 - zoom);
+  window.GAME.MOUSE.worldX = pixelX / zoom + camX;
+  window.GAME.MOUSE.worldY = (pixelY - verticalOffset) / zoom;
 }
 
 if (cv) {
@@ -1446,7 +1478,7 @@ function boot(){
     initHitDetect();
     initDebugPanel();
     initTouchControls();
-    initFighterDropdown();
+    initSelectionDropdowns();
     requestAnimationFrame(loop);
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);
   } catch (e){

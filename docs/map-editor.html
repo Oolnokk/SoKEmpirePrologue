@@ -2070,22 +2070,26 @@ function pruneOldPreviewPayloads(){
 }
 
 function storePreviewPayload(layout){
-  try {
-    if (typeof localStorage === 'undefined') return null;
-    pruneOldPreviewPayloads();
-    const token = `mp${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`;
-    const safeLayout = JSON.parse(JSON.stringify(layout));
-    const payload = {
-      createdAt: Date.now(),
-      layout: safeLayout,
-      version: 1,
-    };
-    localStorage.setItem(PREVIEW_STORAGE_PREFIX + token, JSON.stringify(payload));
-    return token;
-  } catch (error) {
-    console.error('[map-editor] Failed to store preview payload', error);
-    return null;
+  const token = `mp${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`;
+  const safeLayout = JSON.parse(JSON.stringify(layout));
+  const payload = {
+    createdAt: Date.now(),
+    layout: safeLayout,
+    version: 1,
+  };
+  let stored = false;
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      pruneOldPreviewPayloads();
+      localStorage.setItem(PREVIEW_STORAGE_PREFIX + token, JSON.stringify(payload));
+      stored = true;
+    } catch (error) {
+      console.error('[map-editor] Failed to store preview payload', error);
+    }
   }
+
+  return { token, payload, stored };
 }
 
 function launchGameplayPreview(){
@@ -2096,9 +2100,12 @@ function launchGameplayPreview(){
       editorPreview: true,
       exportedAt: new Date().toISOString(),
     };
-    const token = storePreviewPayload(area);
+    const { token, payload, stored } = storePreviewPayload(area);
     if (!token) {
-      throw new Error('Storage is unavailable (private browsing or blocked cookies).');
+      throw new Error('Failed to create preview token.');
+    }
+    if (!stored) {
+      console.warn('[map-editor] Preview payload could not be persisted; relying on direct preview handshake.');
     }
     const url = new URL('./index.html', window.location.href);
     url.searchParams.set('mode', 'game');
@@ -2106,6 +2113,25 @@ function launchGameplayPreview(){
     const win = window.open(url.toString(), '_blank');
     if (!win) {
       alert('Preview window was blocked. Allow pop-ups for this site to enable gameplay preview.');
+      return;
+    }
+    try {
+      const targetOrigin = url.origin || window.location.origin || '*';
+      const message = {
+        type: 'map-editor-preview',
+        token,
+        payload,
+      };
+      win.postMessage(message, targetOrigin);
+      setTimeout(() => {
+        try {
+          win.postMessage(message, targetOrigin);
+        } catch (_err) {
+          // Ignore follow-up delivery errors.
+        }
+      }, 50);
+    } catch (postError) {
+      console.warn('[map-editor] Failed to transmit preview payload to new window', postError);
     }
     win?.focus?.();
   } catch (error) {

@@ -392,6 +392,24 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
 
   // Get anchor config: anchors at bone midpoint by default
   const effectiveStyle = mergeSpriteStyles(style, options.styleOverride);
+  if (options.anchorOverride && typeof options.anchorOverride === 'object'){
+    const anchorSrc = options.anchorOverride;
+    const normalizedAnchor = {};
+    for (const [key, value] of Object.entries(anchorSrc)){
+      if (value == null) continue;
+      normalizedAnchor[key] = value;
+      const normalizedKey = normalizeStyleKey(key);
+      if (normalizedKey && normalizedKey !== key){
+        normalizedAnchor[normalizedKey] = value;
+      }
+    }
+    if (Object.keys(normalizedAnchor).length){
+      effectiveStyle.anchor = {
+        ...(effectiveStyle.anchor || {}),
+        ...normalizedAnchor
+      };
+    }
+  }
   const anchorCfg = effectiveStyle.anchor || {};
   const anchorMode = anchorCfg[styleKey] || 'mid';
   const resolvedAnchorMode = (options.anchorMode != null)
@@ -525,9 +543,11 @@ export function renderSprites(ctx){
   const flipLeft = G.FLIP_STATE?.[entity] || false;
   const centerX = rig.center?.x ?? 0;
   const camX = window.GAME?.CAMERA?.x || 0;
+  const zoom = Number.isFinite(window.GAME?.CAMERA?.zoom) ? window.GAME.CAMERA.zoom : 1;
+  const canvasHeight = ctx.canvas?.height || 0;
 
   ctx.save();
-  ctx.translate(-camX, 0);
+  ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, canvasHeight * (1 - zoom));
 
   ctx.save();
   // Mirror around character center when facing left (matching reference HTML exactly)
@@ -538,7 +558,7 @@ export function renderSprites(ctx){
 
   // RENDER.MIRROR flags control per-limb mirroring (e.g., for attack animations)
   
-  const { assets, style, offsets, cosmetics, bodyColors } = ensureFighterSprites(C, fname);
+  const { assets, style, offsets, cosmetics, bodyColors, untintedOverlays: activeUntintedOverlays } = ensureFighterSprites(C, fname);
 
   const zOf = buildZMap(C);
   const queue = [];
@@ -562,8 +582,7 @@ export function renderSprites(ctx){
     return undefined;
   }
 
-  const untintedOverlays = ensureFighterSprites.__lastResult?.untintedOverlays || {};
-  const overlayMap = untintedOverlays || {};
+  const overlayMap = activeUntintedOverlays || {};
   function drawUntintedOverlays(partKey, bone, styleKey){
     const overlays = overlayMap[partKey];
     if (!overlays || overlays.length === 0) return;
@@ -694,7 +713,7 @@ export function renderSprites(ctx){
           withBranchMirror(ctx, originX, mirror, ()=>{
             drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, {
               styleOverride: layer.styleOverride,
-              hsv: layer.hsv,
+              hsl: layer.hsl ?? layer.hsv,
               warp: layer.warp,
               alignRad: layer.alignRad,
               alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
@@ -714,7 +733,7 @@ export function renderSprites(ctx){
   }
 
   ctx.restore(); // Restore canvas state (undo flip if applied)
-  ctx.restore(); // Restore camera translation offset
+  ctx.restore(); // Restore camera/world transform
 }
 
 export function initSprites(){
@@ -738,7 +757,7 @@ function resolveSpriteAssets(spriteMap){
   }
 }
 
-function resolveUntintedOverlayMap(fighterConfig = {}){
+function resolveUntintedOverlayMap(fighterConfig = {}, spriteMap = {}){
   const source = fighterConfig.untintedOverlays
     || fighterConfig.sprites?.untintedOverlays
     || fighterConfig.sprites?.untinted_regions;
@@ -788,10 +807,17 @@ function resolveUntintedOverlayMap(fighterConfig = {}){
       const partKey = String(rawPart || '').trim();
       if (!partKey) continue;
       const list = map[partKey] || (map[partKey] = []);
+      const options = { ...baseOptions };
+      if (!Number.isFinite(options.alignRad)){
+        const baseAsset = spriteMap?.[partKey];
+        if (Number.isFinite(baseAsset?.alignRad)){
+          options.alignRad = baseAsset.alignRad;
+        }
+      }
       list.push({
         asset,
         styleKey: entry.styleKey,
-        options: { ...baseOptions }
+        options
       });
     }
   }
@@ -829,7 +855,7 @@ export function ensureFighterSprites(C, fname){
   
   const cosmetics = ensureCosmeticLayers(C, fname, style);
   const bodyColors = resolveFighterBodyColors(C, fname);
-  const untintedOverlays = resolveUntintedOverlayMap(f);
+  const untintedOverlays = resolveUntintedOverlayMap(f, S);
 
   const result = { assets: S, style, offsets, cosmetics, bodyColors, untintedOverlays };
   ensureFighterSprites.__lastResult = result;

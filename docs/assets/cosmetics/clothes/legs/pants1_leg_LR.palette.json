@@ -1,0 +1,16 @@
+{
+  "defaultRow": "default",
+  "rows": {
+    "default": {
+      "colors": {},
+      "shading": {},
+      "meta": {
+        "source": "placeholder",
+        "notes": "HSV tint driven; explicit palette not yet authored"
+      }
+    }
+  },
+  "meta": {
+    "generated": true
+  }
+}

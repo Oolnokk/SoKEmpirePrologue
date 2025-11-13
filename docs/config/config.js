@@ -355,6 +355,16 @@ window.CONFIG = {
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },
   camera: { manualOffsetX: 0 },
+  camera: {
+    awareness: {
+      normalZoom: 1,
+      scaleOffset: 0.25,
+      minZoom: 0.6,
+      maxZoom: 1.3,
+      inactivitySeconds: 15,
+      smoothing: 0.08
+    }
+  },
   map: {
     gridUnit: 30,
     spawnLayerId: 'gameplay',
@@ -524,7 +534,7 @@ window.CONFIG = {
       },
       untintedOverlays: [
         {
-          url: "./assets/fightersprites/mao-ao-m/untinted_overlays/ur-head.png",
+          url: "./assets/fightersprites/tletingan/untinted_regions/ur-head.png",
           parts: ['head']
         }
       ],

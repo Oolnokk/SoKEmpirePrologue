@@ -163,7 +163,12 @@ function resolveBodyColorSource(config = {}, fighterName){
   const G = (typeof window !== 'undefined') ? (window.GAME || {}) : {};
   const characters = config.characters || {};
 
-  if (G.selectedFighter === fighterName && G.selectedBodyColors){
+  const bodyColorFighter = G.selectedBodyColorsFighter;
+  if (
+    G.selectedFighter === fighterName
+    && G.selectedBodyColors
+    && (bodyColorFighter == null || bodyColorFighter === fighterName)
+  ){
     return { colors: buildBodyColorMap(G.selectedBodyColors), characterKey: G.selectedCharacter || null };
   }
 
