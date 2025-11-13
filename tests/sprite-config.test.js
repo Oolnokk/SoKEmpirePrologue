@@ -1,9 +1,25 @@
 import { describe, it } from 'node:test';
 import { readFileSync } from 'fs';
 import { strictEqual } from 'assert';
+import { runInNewContext } from 'node:vm';
 
 describe('Sprite configuration structure', () => {
   const configContent = readFileSync('docs/config/config.js', 'utf8');
+
+  const sandboxWindow = { CONFIG: {} };
+  const sandboxDocument = { dispatchEvent: () => {} };
+  function SandboxEvent(type) {
+    this.type = type;
+  }
+
+  const context = { window: sandboxWindow, document: sandboxDocument, Event: SandboxEvent };
+  Object.defineProperty(context, 'CONFIG', {
+    get() { return context.window.CONFIG; },
+    set(value) { context.window.CONFIG = value; }
+  });
+
+  runInNewContext(configContent, context, { filename: 'docs/config/config.js' });
+  const parsedConfig = context.window.CONFIG;
   
   // Character limits for regex patterns to match fighter config sections
   const FIGHTER_SECTION_MAX_CHARS = 2000;
@@ -71,10 +87,21 @@ describe('Sprite configuration structure', () => {
     // Verify that left and right use the same image URLs (mirroring handled by rendering code)
     const armUpperMatch = configContent.match(/arm_L_upper:\s*{\s*url:\s*["']([^"']+)["']/);
     const armUpperRMatch = configContent.match(/arm_R_upper:\s*{\s*url:\s*["']([^"']+)["']/);
-    
+
     if (armUpperMatch && armUpperRMatch) {
-      strictEqual(armUpperMatch[1], armUpperRMatch[1], 
+      strictEqual(armUpperMatch[1], armUpperRMatch[1],
         'Left and right arm upper sprites should use the same URL');
     }
+  });
+
+  it('default Mao-ao characters expose head_hair and eyes appearance slots', () => {
+    const playerSlots = parsedConfig?.characters?.player?.appearance?.slots || {};
+    const enemySlots = parsedConfig?.characters?.enemy1?.appearance?.slots || {};
+
+    strictEqual('head_hair' in playerSlots, true, 'player should have a head_hair appearance slot');
+    strictEqual('eyes' in playerSlots, true, 'player should have an eyes appearance slot');
+
+    strictEqual('head_hair' in enemySlots, true, 'enemy1 should have a head_hair appearance slot');
+    strictEqual('eyes' in enemySlots, true, 'enemy1 should have an eyes appearance slot');
   });
 });
