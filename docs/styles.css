@@ -170,9 +170,14 @@ main.stack{
 }
 
 .stage{
+  --stage-aspect-width:720;
+  --stage-aspect-height:460;
+  --stage-max-height:min(90vh,720px);
   position:relative;
-  width:100%;
-  height:clamp(320px,60vh,720px);
+  width:min(100%,calc(var(--stage-max-height)*var(--stage-aspect-width)/var(--stage-aspect-height)));
+  aspect-ratio:var(--stage-aspect-width)/var(--stage-aspect-height);
+  max-height:var(--stage-max-height);
+  margin-inline:auto;
   border-radius:var(--card-br);
   overflow:hidden;
   background:#080b12;
