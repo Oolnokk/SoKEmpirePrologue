@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"],
+    "allowJs": false,
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": "docs/js-src",
+    "outDir": "docs/js",
+    "noEmitOnError": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "docs/js-src",
+    "paths": {
+      "./vendor/*": ["../js/vendor/*"],
+      "./prefab-catalog.js": ["../js/prefab-catalog.js"]
+    }
+  },
+  "include": ["docs/js-src/**/*.ts"],
+  "exclude": []
+}

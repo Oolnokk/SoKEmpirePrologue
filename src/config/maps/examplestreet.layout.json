@@ -1,0 +1,1507 @@
+{
+  "id": "examplestreet",
+  "name": "Example Street",
+  "source": "map-builder-layered-v15f",
+  "camera": {
+    "startX": 105.75390625,
+    "startZoom": 1
+  },
+  "ground": {
+    "offset": 30
+  },
+  "layers": [
+    {
+      "id": "bg1",
+      "name": "Parallax 1",
+      "type": "parallax",
+      "parallaxSpeed": 1,
+      "scale": 0.6,
+      "offsetY": -120,
+      "separation": 220,
+      "source": null,
+      "meta": {}
+    },
+    {
+      "id": "bg1_copy",
+      "name": "Parallax 1 copy",
+      "type": "parallax",
+      "parallaxSpeed": 0.95,
+      "scale": 0.5,
+      "offsetY": -140,
+      "separation": 220,
+      "source": null,
+      "meta": {}
+    },
+    {
+      "id": "bg2",
+      "name": "Parallax 2",
+      "type": "parallax",
+      "parallaxSpeed": 0.7,
+      "scale": 0.8,
+      "offsetY": -90,
+      "separation": 220,
+      "source": null,
+      "meta": {}
+    },
+    {
+      "id": "bg3",
+      "name": "Parallax 3",
+      "type": "parallax",
+      "parallaxSpeed": 0.8,
+      "scale": 0.15,
+      "offsetY": -25,
+      "separation": 70,
+      "source": null,
+      "meta": {}
+    },
+    {
+      "id": "bg4",
+      "name": "Parallax 4",
+      "type": "parallax",
+      "parallaxSpeed": 0.9,
+      "scale": 0.2,
+      "offsetY": -7,
+      "separation": 80,
+      "source": null,
+      "meta": {}
+    },
+    {
+      "id": "bg6",
+      "name": "Parallax 6",
+      "type": "parallax",
+      "parallaxSpeed": 0.65,
+      "scale": 0.85,
+      "offsetY": -40,
+      "separation": 220,
+      "source": null,
+      "meta": {}
+    },
+    {
+      "id": "gameplay",
+      "name": "Gameplay",
+      "type": "gameplay",
+      "parallaxSpeed": 1,
+      "scale": 0.3,
+      "offsetY": 7,
+      "separation": 90,
+      "source": null,
+      "meta": {}
+    },
+    {
+      "id": "fg1",
+      "name": "Foreground 1",
+      "type": "foreground",
+      "parallaxSpeed": 1.1,
+      "scale": 1.05,
+      "offsetY": -10,
+      "separation": 180,
+      "source": null,
+      "meta": {}
+    },
+    {
+      "id": "fg2",
+      "name": "Foreground 2",
+      "type": "foreground",
+      "parallaxSpeed": 1.2,
+      "scale": 1.1,
+      "offsetY": 0,
+      "separation": 180,
+      "source": null,
+      "meta": {}
+    }
+  ],
+  "instances": [
+    {
+      "id": 9001,
+      "prefabId": "spawn_player",
+      "layerId": "gameplay",
+      "position": {
+        "x": -180,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [
+        "spawn:player"
+      ],
+      "meta": {}
+    },
+    {
+      "id": 9002,
+      "prefabId": "spawn_npc",
+      "layerId": "gameplay",
+      "position": {
+        "x": 120,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [
+        "spawn:npc"
+      ],
+      "meta": {}
+    },
+    {
+      "id": 1,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1",
+      "position": {
+        "x": -660,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.1
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 2,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1",
+      "position": {
+        "x": -330,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 3,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1",
+      "position": {
+        "x": -110,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 4,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1",
+      "position": {
+        "x": 160,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 5,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1",
+      "position": {
+        "x": 330,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 6,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1",
+      "position": {
+        "x": 550,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 7,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1",
+      "position": {
+        "x": 770,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 8,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": -622.5948595312665,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.0226217609734505,
+        "y": 1.046461629240801
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 9,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": -539.6774920478899,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.0543345923375522,
+        "y": 1.0574532874070361
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 10,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": -449.791997534357,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9080806554717658,
+        "y": 1.0365857398291691
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 11,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": -359.6055576059955,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9038096948732823,
+        "y": 1.062437946910797
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 12,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": -267.15509549359047,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.072117131185551,
+        "y": 1.0861833712514748
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 13,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": -184.6375621227893,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9754083821981897,
+        "y": 1.005791631649362
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 14,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": -89.50750736862975,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9802092887050037,
+        "y": 1.0329035828801791
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 15,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": 3.4972581309769035,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.0337234420659858,
+        "y": 0.9277483258793808
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 16,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": 94.453471169674,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9822829950453533,
+        "y": 1.0921703135279728
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 17,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": 180.16113071380744,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.0579855618813536,
+        "y": 1.0519443402337636
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 18,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": 264.4677119088877,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9595319918712899,
+        "y": 0.9627683674259854
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 19,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": 368.36032144170855,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9470504171614482,
+        "y": 0.99256099772189
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 20,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": 445.6569767200548,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.000149982994323,
+        "y": 1.0157007780163863
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 21,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": 539.07754987568,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.000448474356018,
+        "y": 0.9655974305544663
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 22,
+      "prefabId": "tower_v1",
+      "layerId": "gameplay",
+      "position": {
+        "x": 626.763104255851,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.98480878862666,
+        "y": 0.9107784561654805
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 23,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -1160,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 24,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -1080,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 25,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -1000,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 27,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -840,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 28,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -760,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 29,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -680,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 30,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -600,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 31,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -520,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 32,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -440,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 33,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -360,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 34,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -280,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 35,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -200,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 36,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -120,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 37,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": -40,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 38,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 40,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 39,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 120,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 40,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 41,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 280,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 42,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 360,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 43,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 440,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 44,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 520,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 45,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 46,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 680,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 47,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 760,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 48,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 840,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 49,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 920,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 50,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 51,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 1080,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 52,
+      "prefabId": "tower_v1",
+      "layerId": "bg4",
+      "position": {
+        "x": 1160,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 53,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": -490,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 54,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": -420,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 55,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": -350,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 56,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": -280,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 57,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": -210,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 58,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": -140,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 59,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": -70,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 60,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 61,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": 70,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 62,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": 140,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 63,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": 210,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 64,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": 280,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 65,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": 350,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 66,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": 420,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 67,
+      "prefabId": "tower_v1",
+      "layerId": "bg3",
+      "position": {
+        "x": 490,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 1,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1",
+      "position": {
+        "x": -440,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.1
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 2,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1_copy",
+      "position": {
+        "x": -660,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.1
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 3,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1_copy",
+      "position": {
+        "x": -330,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 4,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1_copy",
+      "position": {
+        "x": -110,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 5,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1_copy",
+      "position": {
+        "x": 160,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 6,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1_copy",
+      "position": {
+        "x": 330,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 7,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1_copy",
+      "position": {
+        "x": 550,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 8,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1_copy",
+      "position": {
+        "x": 770,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    },
+    {
+      "id": 9,
+      "prefabId": "img_1000012768",
+      "layerId": "bg1_copy",
+      "position": {
+        "x": -440,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.5,
+        "y": 0.1
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "prefab": null,
+      "tags": [],
+      "meta": {}
+    }
+  ],
+  "warnings": [],
+  "meta": {}
+}
