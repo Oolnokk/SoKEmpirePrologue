@@ -1,6 +1,27 @@
 import { MapRegistry, convertLayoutToArea } from './vendor/map-runtime.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 
+type PrefabLoadError = { type?: string; error?: unknown };
+type PrefabLibrary = { prefabs: Map<string, unknown>; errors: PrefabLoadError[] };
+type MapArea = ReturnType<typeof convertLayoutToArea>;
+type PrefabResolver = ReturnType<typeof createPrefabResolver>;
+
+type PreviewPayload = {
+  layout?: unknown;
+  createdAt?: number | string | null;
+};
+
+type PreviewMessageData = {
+  type?: string;
+  token?: string | null;
+  payload?: PreviewPayload | null;
+  createdAt?: number | string | null;
+};
+
+type WaitForPreviewOptions = {
+  timeoutMs?: number;
+};
+
 const layoutUrl = new URL('../config/maps/examplestreet.layout.json', import.meta.url);
 const DEFAULT_AREA_ID = 'examplestreet';
 const PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
@@ -9,7 +30,7 @@ const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
   ? MAP_CONFIG.prefabManifests.filter((entry) => typeof entry === 'string' && entry.trim())
   : [];
 
-const prefabLibraryPromise = (async () => {
+const prefabLibraryPromise: Promise<PrefabLibrary> = (async () => {
   if (!PREFAB_MANIFESTS.length) {
     return { prefabs: new Map(), errors: [] };
   }
@@ -28,7 +49,7 @@ const prefabLibraryPromise = (async () => {
   }
 })();
 
-function consumeEditorPreviewLayout(token) {
+function consumeEditorPreviewLayout(token: string | null): (PreviewPayload & { token: string }) | null {
   if (!token) return null;
   try {
     if (typeof localStorage === 'undefined') return null;
@@ -36,7 +57,7 @@ function consumeEditorPreviewLayout(token) {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     localStorage.removeItem(key);
-    const payload = JSON.parse(raw);
+    const payload = JSON.parse(raw) as PreviewPayload | null;
     if (!payload || typeof payload !== 'object') return null;
     return { ...payload, token };
   } catch (error) {
@@ -52,7 +73,10 @@ function consumeEditorPreviewLayout(token) {
   }
 }
 
-function applyEditorPreviewSettings(area, { token = null, createdAt = null } = {}) {
+function applyEditorPreviewSettings(
+  area: MapArea,
+  { token = null, createdAt = null }: { token?: string | null; createdAt?: number | string | null } = {}
+): void {
   const GAME = (window.GAME = window.GAME || {});
   const CONFIG = (window.CONFIG = window.CONFIG || {});
 
@@ -97,14 +121,14 @@ function applyEditorPreviewSettings(area, { token = null, createdAt = null } = {
   }
 }
 
-function ensureParallaxContainer() {
+function ensureParallaxContainer(): { layers: unknown[]; areas: Record<string, unknown>; currentAreaId: string | null } {
   const parallax = (window.PARALLAX = window.PARALLAX || { layers: [], areas: {}, currentAreaId: null });
   parallax.areas = parallax.areas || {};
   parallax.layers = Array.isArray(parallax.layers) ? parallax.layers : [];
   return parallax;
 }
 
-function adaptAreaToParallax(area) {
+function adaptAreaToParallax(area: MapArea) {
   return {
     id: area.id,
     name: area.name,
@@ -129,7 +153,7 @@ function adaptAreaToParallax(area) {
   };
 }
 
-function applyArea(area) {
+function applyArea(area: MapArea): void {
   const registry = (window.__MAP_REGISTRY__ instanceof MapRegistry)
     ? window.__MAP_REGISTRY__
     : new MapRegistry({ logger: console });
@@ -153,13 +177,29 @@ function applyArea(area) {
   console.info(`[map-bootstrap] Loaded area "${area.id}" (${area.source || 'unknown source'})`);
 }
 
-function applyPreviewLayout(descriptor, { previewToken = null, createdAt = null, prefabResolver }) {
+function applyPreviewLayout(
+  descriptor: unknown,
+  {
+    previewToken = null,
+    createdAt = null,
+    prefabResolver,
+  }: { previewToken?: string | null; createdAt?: number | string | null; prefabResolver: PrefabResolver }
+): boolean {
   if (!descriptor) return false;
   try {
-    const areaId = descriptor?.areaId || descriptor?.id || `editor_preview_${previewToken || 'area'}`;
-    const areaName = descriptor?.areaName || descriptor?.name || 'Editor Preview';
+    const record = (descriptor ?? {}) as Record<string, unknown>;
+    const areaId = typeof record.areaId === 'string'
+      ? record.areaId
+      : typeof record.id === 'string'
+        ? record.id
+        : `editor_preview_${previewToken || 'area'}`;
+    const areaName = typeof record.areaName === 'string'
+      ? record.areaName
+      : typeof record.name === 'string'
+        ? record.name
+        : 'Editor Preview';
     const area = convertLayoutToArea(descriptor, { areaId, areaName, prefabResolver });
-    area.source = descriptor?.source || 'map-editor-preview';
+    area.source = (record.source as string) || 'map-editor-preview';
     area.meta = {
       ...area.meta,
       editorPreview: true,
@@ -179,7 +219,7 @@ function applyPreviewLayout(descriptor, { previewToken = null, createdAt = null,
   }
 }
 
-function waitForPreviewMessage(previewToken, { timeoutMs = 3000 } = {}) {
+function waitForPreviewMessage(previewToken: string | null, { timeoutMs = 3000 }: WaitForPreviewOptions = {}): Promise<PreviewPayload | null> {
   if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') {
     return Promise.resolve(null);
   }
@@ -188,17 +228,17 @@ function waitForPreviewMessage(previewToken, { timeoutMs = 3000 } = {}) {
 
   return new Promise((resolve) => {
     let settled = false;
-    let timeoutId = null;
+    let timeoutId: number | null = null;
 
     const cleanup = () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      if (timeoutId != null) {
+        window.clearTimeout(timeoutId);
         timeoutId = null;
       }
-      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('message', handleMessage as EventListener);
     };
 
-    const handleMessage = (event) => {
+    const handleMessage = (event: MessageEvent<PreviewMessageData>) => {
       const origin = event?.origin ?? '';
       if (expectedOrigin && expectedOrigin !== 'null' && origin && origin !== expectedOrigin) {
         return;
@@ -212,15 +252,15 @@ function waitForPreviewMessage(previewToken, { timeoutMs = 3000 } = {}) {
       cleanup();
       const payload = data.payload || {};
       resolve({
-        layout: payload.layout || null,
-        createdAt: payload.createdAt ?? data.createdAt ?? null,
+        layout: payload?.layout || null,
+        createdAt: payload?.createdAt ?? data.createdAt ?? null,
       });
     };
 
-    window.addEventListener('message', handleMessage);
+    window.addEventListener('message', handleMessage as EventListener);
 
     if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
-      timeoutId = setTimeout(() => {
+      timeoutId = window.setTimeout(() => {
         if (!settled) {
           cleanup();
           resolve(null);
@@ -230,7 +270,7 @@ function waitForPreviewMessage(previewToken, { timeoutMs = 3000 } = {}) {
   });
 }
 
-async function loadStartingArea() {
+async function loadStartingArea(): Promise<void> {
   const params = new URLSearchParams(window.location.search);
   const configPreviewToken = typeof MAP_CONFIG.previewToken === 'string' ? MAP_CONFIG.previewToken : null;
   const previewToken = configPreviewToken || params.get('preview');
@@ -276,14 +316,14 @@ async function loadStartingArea() {
 
     const layout = await response.json();
     console.debug('[map-bootstrap] Loaded raw layout descriptor', {
-      id: layout?.areaId || layout?.id || DEFAULT_AREA_ID,
-      name: layout?.areaName || layout?.name || null,
+      id: (layout?.areaId as string) || (layout?.id as string) || DEFAULT_AREA_ID,
+      name: (layout?.areaName as string) || (layout?.name as string) || null,
       source: layoutUrl.href,
       layout,
     });
     const area = convertLayoutToArea(layout, {
-      areaId: layout.areaId || layout.id || DEFAULT_AREA_ID,
-      areaName: layout.areaName || layout.name || 'Example Street',
+      areaId: (layout?.areaId as string) || (layout?.id as string) || DEFAULT_AREA_ID,
+      areaName: (layout?.areaName as string) || (layout?.name as string) || 'Example Street',
       prefabResolver,
     });
     applyArea(area);

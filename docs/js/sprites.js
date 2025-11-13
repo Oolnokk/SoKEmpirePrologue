@@ -711,7 +711,6 @@ export function renderSprites(ctx){
           withBranchMirror(ctx, originX, mirror, ()=>{
             drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, {
               styleOverride: layer.styleOverride,
-              anchorOverride: layer.anchorOverride,
               hsl: layer.hsl ?? layer.hsv,
               warp: layer.warp,
               alignRad: layer.alignRad,
