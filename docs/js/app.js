@@ -341,7 +341,7 @@ import { initControls } from './controls.js?v=7';
 import { initCombat } from './combat.js?v=19';
 import { updatePoses } from './animator.js?v=4';
 import { renderAll, LIMB_COLORS } from './render.js?v=4';
-import { initCamera, updateCamera } from './camera.js?v=3';
+import { initCamera, updateCamera } from './camera.js?v=4';
 import { initHitDetect, runHitDetect } from './hitdetect.js?v=1';
 import { initSprites, renderSprites } from './sprites.js?v=8';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
@@ -1313,15 +1313,17 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
 function drawStage(){
   if (!cx) return;
   const C = window.CONFIG || {};
-  const camX = window.GAME?.CAMERA?.x || 0;
-  const worldW = window.GAME?.CAMERA?.worldWidth || 1600;
+  const camera = window.GAME?.CAMERA || {};
+  const camX = camera.x || 0;
+  const worldW = camera.worldWidth || 1600;
+  const zoom = Number.isFinite(camera.zoom) ? camera.zoom : 1;
   cx.clearRect(0,0,cv.width,cv.height);
   cx.fillStyle = '#0b1220';
   cx.fillRect(0,0,cv.width,cv.height);
   // ground (with camera offset)
   const gy = (C.canvas?.h||460) * (C.groundRatio||0.7);
   cx.save();
-  cx.translate(-camX, 0);
+  cx.setTransform(zoom, 0, 0, zoom, -zoom * camX, cv.height * (1 - zoom));
 
   drawEditorPreviewMap(cx, { camX, groundY: gy });
 
@@ -1398,12 +1400,17 @@ function updateMousePosition(e) {
   // Get mouse position relative to canvas
   const scaleX = cv.width / rect.width;
   const scaleY = cv.height / rect.height;
-  window.GAME.MOUSE.x = (e.clientX - rect.left) * scaleX;
-  window.GAME.MOUSE.y = (e.clientY - rect.top) * scaleY;
-  // World coordinates account for camera offset
-  const camX = window.GAME?.CAMERA?.x || 0;
-  window.GAME.MOUSE.worldX = window.GAME.MOUSE.x + camX;
-  window.GAME.MOUSE.worldY = window.GAME.MOUSE.y;
+  const pixelX = (e.clientX - rect.left) * scaleX;
+  const pixelY = (e.clientY - rect.top) * scaleY;
+  window.GAME.MOUSE.x = pixelX;
+  window.GAME.MOUSE.y = pixelY;
+  // World coordinates account for camera offset and zoom
+  const camera = window.GAME?.CAMERA || {};
+  const camX = camera.x || 0;
+  const zoom = Math.max(Number.isFinite(camera.zoom) ? camera.zoom : 1, 1e-4);
+  const verticalOffset = cv.height * (1 - zoom);
+  window.GAME.MOUSE.worldX = pixelX / zoom + camX;
+  window.GAME.MOUSE.worldY = (pixelY - verticalOffset) / zoom;
 }
 
 if (cv) {
