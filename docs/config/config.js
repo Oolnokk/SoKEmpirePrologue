@@ -354,6 +354,17 @@ window.CONFIG = {
   actor: { scale: 0.70 },
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },
+  camera: { manualOffsetX: 0 },
+  camera: {
+    awareness: {
+      normalZoom: 1,
+      scaleOffset: 0.25,
+      minZoom: 0.6,
+      maxZoom: 1.3,
+      inactivitySeconds: 15,
+      smoothing: 0.08
+    }
+  },
   map: {
     gridUnit: 30,
     spawnLayerId: 'gameplay',
@@ -476,7 +487,7 @@ window.CONFIG = {
         }
       ],
       bodyColors: {
-        A: { h: 68, s: 0.9, v: -0.5 },
+        A: { h: -135, s: -0.39, v: -0.9 },
         B: { h: -24, s: 0.18, v: 0.05 },
         C: { h: 96, s: 0.26, v: -0.06 }
       },
@@ -523,13 +534,13 @@ window.CONFIG = {
       },
       untintedOverlays: [
         {
-          url: "./assets/fightersprites/tletingan/untinted_regions/ur-head.png",
+          url: "./assets/fightersprites/mao-ao_m/untinted_regions/ur-head.png",
           parts: ['head']
         }
       ],
       bodyColors: {
         A: { h: 18, s: 1, v: 0.9 },
-        B: { h: -24, s: 0.18, v: 0.05 },
+        B: { h: -24, s: 0.58, v: 0.05 },
         C: { h: 96, s: 0.26, v: -0.06 }
       },
       cosmetics: {}
@@ -780,7 +791,7 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
       bodyColors: {
-        A: { h: 0, s: 0, v: 0 },
+        A: { h: -180, s: 0.23, v: -0.3 },
         B: { h: -20, s: 0.15, v: 0.1 },
         C: { h: 32, s: 0.25, v: -0.05 }
       },
@@ -803,7 +814,7 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_punch', 'heavy_hold'],
       bodyColors: {
-        A: { h: -8, s: 0.05, v: 0.08 },
+        A: { h: -11, s: -0.39, v: -0.71 },
         B: { h: 24, s: 0.18, v: -0.02 },
         C: { h: 72, s: 0.28, v: 0.12 }
       },

@@ -325,9 +325,11 @@ export function renderAll(ctx){
     }
   }catch(_e){ /* ignore */ }
   
-  const camX=G.CAMERA?.x||0; 
-  ctx.save(); 
-  ctx.translate(-camX,0);
+  const camX = G.CAMERA?.x || 0;
+  const zoom = Number.isFinite(G.CAMERA?.zoom) ? G.CAMERA.zoom : 1;
+  const canvasHeight = ctx.canvas?.height || 0;
+  ctx.save();
+  ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, canvasHeight * (1 - zoom));
   
   // Apply character flip for debug bones, same as sprites
   if (player.flipLeft) {

@@ -28,9 +28,9 @@ const editorState = (GAME.editorState ||= {
   activeSlot: null,
   activeStyleKey: null,
   appearanceSlotKeys: [],
-  activeBucketKey: 'primary',
   currentPalette: null,
-  currentPaletteSource: { slot: null, partKey: null, cosmeticId: null }
+  currentPaletteSource: { slot: null, partKey: null, cosmeticId: null },
+  activeMode: 'clothing'
 });
 
 const canvas = document.getElementById('cosmeticCanvas');
@@ -44,14 +44,7 @@ const styleFields = document.getElementById('styleFields');
 const styleHeader = document.getElementById('styleActiveSlot');
 const styleResetBtn = document.getElementById('resetPartOverrides');
 const styleSlotResetBtn = document.getElementById('resetSlotOverrides');
-const bucketToggle = document.getElementById('bucketToggle');
-const bucketColorInput = document.getElementById('bucketColor');
-const bucketTargetsContainer = document.getElementById('bucketTargets');
-const bucketToleranceInput = document.getElementById('bucketTolerance');
-const bucketExpandInput = document.getElementById('bucketExpand');
-const bucketHint = document.getElementById('bucketHint');
-const bucketUndoBtn = document.getElementById('bucketUndo');
-const bucketClearBtn = document.getElementById('bucketClear');
+const tintPreview = document.getElementById('tintPreview');
 const statusEl = document.getElementById('editorStatus');
 const assetSearch = document.getElementById('assetSearch');
 const assetList = document.getElementById('assetList');
@@ -66,19 +59,55 @@ const creatorSpriteInput = document.getElementById('creatorSpriteKey');
 const creatorAddBtn = document.getElementById('creatorAdd');
 const creatorEquipBtn = document.getElementById('creatorEquip');
 const creatorApplyBtn = document.getElementById('creatorApplyPart');
+const clothingCreatorPanel = document.getElementById('clothingCreator');
 const overrideOutput = document.getElementById('overrideOutput');
 const overrideApplyBtn = document.getElementById('applyOverrides');
 const overrideCopyBtn = document.getElementById('copyOverrides');
 const overrideDownloadBtn = document.getElementById('downloadOverrides');
+const modeButtons = Array.from(document.querySelectorAll('#modePanel [data-mode]'));
 
-const BUCKET_DEFS = [
-  { bucketKey: 'primary', label: 'Primary', type: 'color', colorKey: 'primary' },
-  { bucketKey: 'secondary', label: 'Secondary', type: 'color', colorKey: 'secondary' },
-  { bucketKey: 'tertiary', label: 'Tertiary', type: 'color', colorKey: 'tertiary' },
-  { bucketKey: 'primaryShade', label: 'Shade 1', type: 'shade', colorKey: 'primary' },
-  { bucketKey: 'secondaryShade', label: 'Shade 2', type: 'shade', colorKey: 'secondary' },
-  { bucketKey: 'tertiaryShade', label: 'Shade 3', type: 'shade', colorKey: 'tertiary' }
+const PALETTE_BUCKETS = [
+  { key: 'primary', label: 'Primary', type: 'color' },
+  { key: 'secondary', label: 'Secondary', type: 'color' },
+  { key: 'tertiary', label: 'Tertiary', type: 'color' },
+  { key: 'primary', label: 'Shade 1', type: 'shade' },
+  { key: 'secondary', label: 'Shade 2', type: 'shade' },
+  { key: 'tertiary', label: 'Shade 3', type: 'shade' }
 ];
+
+const MODE_DEFINITIONS = {
+  appearance: {
+    slots: new Set(['head_hair', 'facial_hair', 'eyes']),
+    enableSpriteEditing: false,
+    enableCreator: false
+  },
+  clothing: {
+    slots: new Set(['hat', 'hood', 'overwear', 'upper-face', 'lower-face', 'beard', 'hair']),
+    enableSpriteEditing: true,
+    enableCreator: true
+  },
+  fighterSprites: {
+    slots: new Set(['torso', 'legs', 'arms', 'hands', 'feet', 'shoulders']),
+    enableSpriteEditing: true,
+    enableCreator: false
+  }
+};
+
+function resolveModeKey(mode){
+  return MODE_DEFINITIONS[mode] ? mode : 'clothing';
+}
+
+function getModeConfig(mode){
+  return MODE_DEFINITIONS[resolveModeKey(mode)];
+}
+
+function isSpriteEditingEnabled(){
+  return !!getModeConfig(editorState.activeMode)?.enableSpriteEditing;
+}
+
+function isCreatorEnabled(){
+  return !!getModeConfig(editorState.activeMode)?.enableCreator;
+}
 
 if (!canvas || !ctx){
   throw new Error('Cosmetic editor preview canvas is unavailable');
@@ -161,6 +190,11 @@ function showStatus(message, { tone = 'info', timeout = 1800 } = {}){
 function populateCreatorSlotOptions(){
   if (!creatorSlotSelect) return;
   creatorSlotSelect.innerHTML = '';
+  if (!isCreatorEnabled()){
+    creatorSlotSelect.disabled = true;
+    return;
+  }
+  creatorSlotSelect.disabled = false;
   const frag = document.createDocumentFragment();
   for (const slot of getActiveSlotKeys()){
     const option = document.createElement('option');
@@ -307,15 +341,51 @@ function buildOverridePayload(){
   return payload;
 }
 
+function buildFighterSpriteExport(){
+  if (resolveModeKey(editorState.activeMode) !== 'fighterSprites'){
+    return null;
+  }
+  const fighter = editorState.activeFighter;
+  if (fighter == null || fighter === ''){
+    return null;
+  }
+  const slots = MODE_DEFINITIONS.fighterSprites.slots;
+  const exportSlots = {};
+  for (const slot of slots){
+    const overrides = editorState.slotOverrides?.[slot];
+    if (overrides && Object.keys(overrides).length > 0){
+      exportSlots[slot] = deepClone(overrides);
+    }
+  }
+  if (Object.keys(exportSlots).length === 0){
+    return null;
+  }
+  return {
+    fighters: {
+      [fighter]: {
+        sprites: { slots: exportSlots }
+      }
+    }
+  };
+}
+
 function updateOverrideOutputs(){
-  if (!overrideOutput) return;
+  if (overrideOutput == null) return;
   const { mergedProfile, hasOverrides } = prepareDownloadPayload();
-  overrideOutput.value = hasOverrides && mergedProfile
-    ? JSON.stringify(mergedProfile, null, 2)
-    : '// No overrides defined for this fighter.';
-  if (overrideApplyBtn) overrideApplyBtn.disabled = !hasOverrides;
-  if (overrideCopyBtn) overrideCopyBtn.disabled = !hasOverrides;
-  if (overrideDownloadBtn) overrideDownloadBtn.disabled = !hasOverrides;
+  const fighterEntry = buildFighterSpriteExport();
+  const sections = [];
+  if (fighterEntry){
+    sections.push('// Fighter sprite entry', JSON.stringify(fighterEntry, null, 2));
+  }
+  if (hasOverrides && mergedProfile){
+    sections.push(fighterEntry ? '// Cosmetic overrides' : '', JSON.stringify(mergedProfile, null, 2));
+  }
+  const hasAny = sections.length > 0;
+  overrideOutput.value = hasAny ? sections.filter((section)=> section !== '').join('\n\n') : '// No overrides defined for this fighter.';
+  const canApply = hasOverrides && mergedProfile;
+  if (overrideApplyBtn) overrideApplyBtn.disabled = canApply ? false : true;
+  if (overrideCopyBtn) overrideCopyBtn.disabled = hasAny ? false : true;
+  if (overrideDownloadBtn) overrideDownloadBtn.disabled = hasAny ? false : true;
 }
 
 function applyOverridesToProfile(){
@@ -353,25 +423,38 @@ async function copyOverridesToClipboard(){
 
 function downloadOverridesJson(){
   const { mergedProfile, hasOverrides } = prepareDownloadPayload();
-  if (!hasOverrides || !mergedProfile){
+  const fighterEntry = buildFighterSpriteExport();
+  const hasCosmetics = hasOverrides && mergedProfile;
+  if (!fighterEntry && !hasCosmetics){
     showStatus('No override JSON to download.', { tone: 'warn' });
     return;
   }
-  const text = JSON.stringify(mergedProfile, null, 2);
+  const fighter = editorState.activeFighter || 'fighter';
+  let text;
+  let filename;
+  if (fighterEntry && hasCosmetics){
+    text = JSON.stringify({ fighterSprites: fighterEntry.fighters, profile: mergedProfile }, null, 2);
+    filename = `${fighter}-sprites-and-cosmetics.json`;
+  } else if (fighterEntry){
+    text = JSON.stringify(fighterEntry, null, 2);
+    filename = `${fighter}-fighter-sprites.json`;
+  } else {
+    text = JSON.stringify(mergedProfile, null, 2);
+    filename = `${fighter}-cosmetics.json`;
+  }
   if (overrideOutput){
     overrideOutput.value = text;
   }
   const blob = new Blob([text], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  const fighter = editorState.activeFighter || 'fighter';
   link.href = url;
-  link.download = `${fighter}-cosmetics.json`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   window.setTimeout(()=> URL.revokeObjectURL(url), 1000);
-  showStatus('Downloaded fighter override JSON.', { tone: 'info' });
+  showStatus('Downloaded fighter data.', { tone: 'info' });
 }
 
 function createCustomCosmetic(){
@@ -530,124 +613,6 @@ function parseHexColor(value){
   const nums = chars.map((pair)=> Number.parseInt(pair, 16));
   if (nums.some((n)=> Number.isNaN(n))) return null;
   return { r: nums[0], g: nums[1], b: nums[2], a: 255 };
-}
-
-function applyBucketFill(x, y, rgba, { tolerance: toleranceValue, expand: expandValue } = {}){
-  ensureOverlay();
-  const overlayCtx = editorState.overlayCtx;
-  if (!overlayCtx || !ctx) return;
-  if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
-
-  const tolerance = clampNumber(Number.isFinite(toleranceValue) ? Math.round(toleranceValue) : readBucketTolerance(), 0, 255);
-  const expandPixels = clampNumber(Number.isFinite(expandValue) ? Math.round(expandValue) : readBucketExpansion(), 0, 24);
-  const alphaTolerance = clampNumber(tolerance + 16, 0, 255);
-
-  let baseData;
-  let overlayData;
-  try {
-    baseData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    overlayData = overlayCtx.getImageData(0, 0, canvas.width, canvas.height);
-  } catch (err){
-    console.warn('[cosmetic-editor] Bucket fill failed to access pixel data', err);
-    showStatus('Unable to bucket fill due to browser security (CORS) restrictions.', { tone: 'error', timeout: 4200 });
-    return;
-  }
-  const offset = (y * canvas.width + x) * 4;
-  const target = baseData.data.slice(offset, offset + 4);
-  if (target[3] === 0){
-    showStatus('Clicked transparent pixel – nothing to fill.', { tone: 'warn' });
-    return;
-  }
-
-  captureOverlaySnapshot();
-
-  const stack = [[x, y]];
-  const visited = new Uint8Array(canvas.width * canvas.height);
-  let painted = false;
-  const filledPixels = [];
-
-  function matches(ix){
-    const dr = Math.abs(baseData.data[ix] - target[0]);
-    const dg = Math.abs(baseData.data[ix + 1] - target[1]);
-    const db = Math.abs(baseData.data[ix + 2] - target[2]);
-    const da = Math.abs(baseData.data[ix + 3] - target[3]);
-    return dr <= tolerance && dg <= tolerance && db <= tolerance && da <= alphaTolerance;
-  }
-
-  while (stack.length){
-    const [px, py] = stack.pop();
-    if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) continue;
-    const idx = py * canvas.width + px;
-    if (visited[idx]) continue;
-    visited[idx] = 1;
-    const baseIdx = idx * 4;
-    if (!matches(baseIdx)) continue;
-
-    overlayData.data[baseIdx] = rgba.r;
-    overlayData.data[baseIdx + 1] = rgba.g;
-    overlayData.data[baseIdx + 2] = rgba.b;
-    overlayData.data[baseIdx + 3] = rgba.a;
-    painted = true;
-    filledPixels.push(idx);
-
-    stack.push([px + 1, py]);
-    stack.push([px - 1, py]);
-    stack.push([px, py + 1]);
-    stack.push([px, py - 1]);
-  }
-
-  if (!painted){
-    editorState.overlayHistory.pop();
-    updateUndoButtonState();
-    showStatus('No similar pixels found to fill.', { tone: 'warn' });
-    return;
-  }
-
-  if (expandPixels > 0 && filledPixels.length){
-    const width = canvas.width;
-    const height = canvas.height;
-    const expanded = new Set(filledPixels);
-    let frontier = new Set(filledPixels);
-    for (let step = 0; step < expandPixels; step += 1){
-      const next = new Set();
-      for (const idx of frontier){
-        const px = idx % width;
-        const py = Math.floor(idx / width);
-        for (let dy = -1; dy <= 1; dy += 1){
-          for (let dx = -1; dx <= 1; dx += 1){
-            if (dx === 0 && dy === 0) continue;
-            const nx = px + dx;
-            const ny = py + dy;
-            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-            const neighborIdx = ny * width + nx;
-            if (expanded.has(neighborIdx)) continue;
-            expanded.add(neighborIdx);
-            next.add(neighborIdx);
-          }
-        }
-      }
-      if (!next.size) break;
-      frontier = next;
-    }
-    for (const idx of expanded){
-      const baseIdx = idx * 4;
-      overlayData.data[baseIdx] = rgba.r;
-      overlayData.data[baseIdx + 1] = rgba.g;
-      overlayData.data[baseIdx + 2] = rgba.b;
-      overlayData.data[baseIdx + 3] = rgba.a;
-    }
-  }
-
-  try {
-    overlayCtx.putImageData(overlayData, 0, 0);
-  } catch (err){
-    console.warn('[cosmetic-editor] Failed to apply bucket fill', err);
-    editorState.overlayHistory.pop();
-    updateUndoButtonState();
-    showStatus('Failed to update paint layer.', { tone: 'error' });
-    return;
-  }
-  updateUndoButtonState();
 }
 
 function formatHexColor(rgba){
@@ -935,102 +900,17 @@ function setPaletteShadeHex(slot, partKey, colorKey, rawValue){
   return true;
 }
 
-function getBucketDisplayHex(palette, meta){
-  if (!palette || !meta) return '';
-  if (meta.type === 'color'){
-    return palette.colors?.[meta.colorKey] || '';
+function getTintHex(palette, colorKey){
+  if (!palette || !colorKey) return '';
+  if (palette.shaded?.[colorKey]){
+    return palette.shaded[colorKey];
   }
-  if (meta.type === 'shade'){
-    if (palette.shaded?.[meta.colorKey]){
-      return palette.shaded[meta.colorKey];
-    }
-    const baseHex = palette.colors?.[meta.colorKey];
-    const amount = palette.shading?.[meta.colorKey];
-    if (baseHex && amount != null){
-      return applyShade(baseHex, amount);
-    }
-    return '';
+  const baseHex = palette.colors?.[colorKey];
+  const amount = palette.shading?.[colorKey];
+  if (baseHex && amount != null){
+    return applyShade(baseHex, amount);
   }
-  return '';
-}
-
-function updateBucketTargetSelection(){
-  if (!bucketTargetsContainer) return;
-  const buttons = bucketTargetsContainer.querySelectorAll('[data-bucket]');
-  buttons.forEach((btn)=>{
-    const isActive = btn.dataset.bucket === editorState.activeBucketKey;
-    btn.classList.toggle('is-active', isActive);
-    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-  });
-}
-
-function syncActiveBucketColor(){
-  if (!bucketColorInput) return;
-  const palette = editorState.currentPalette;
-  const activeMeta = BUCKET_DEFS.find((entry)=> entry.bucketKey === editorState.activeBucketKey)
-    || BUCKET_DEFS[0];
-  if (!palette || !activeMeta){
-    return;
-  }
-  const hex = getBucketDisplayHex(palette, activeMeta);
-  bucketColorInput.value = hex || '';
-}
-
-function updateBucketTargets(palette){
-  if (!bucketTargetsContainer) return;
-  bucketTargetsContainer.innerHTML = '';
-  if (!palette){
-    const empty = document.createElement('p');
-    empty.className = 'bucket-targets__empty';
-    empty.textContent = 'Select a cosmetic part to configure palette buckets.';
-    bucketTargetsContainer.appendChild(empty);
-    updateBucketTargetSelection();
-    return;
-  }
-  BUCKET_DEFS.forEach((meta)=>{
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'bucket-target';
-    button.dataset.bucket = meta.bucketKey;
-    const label = document.createElement('span');
-    label.className = 'bucket-target__label';
-    label.textContent = meta.label;
-    const hexSpan = document.createElement('span');
-    hexSpan.className = 'bucket-target__hex';
-    const displayHex = getBucketDisplayHex(palette, meta);
-    hexSpan.textContent = displayHex || '—';
-    if (displayHex){
-      button.style.setProperty('--bucket-color', displayHex);
-    } else {
-      button.style.removeProperty('--bucket-color');
-    }
-    button.addEventListener('click', ()=>{
-      setActiveBucket(meta.bucketKey, { focusInput: true });
-    });
-    button.appendChild(label);
-    button.appendChild(hexSpan);
-    bucketTargetsContainer.appendChild(button);
-  });
-  if (!BUCKET_DEFS.some((entry)=> entry.bucketKey === editorState.activeBucketKey)){
-    editorState.activeBucketKey = BUCKET_DEFS[0]?.bucketKey || null;
-  }
-  updateBucketTargetSelection();
-  syncActiveBucketColor();
-}
-
-function setActiveBucket(bucketKey, { focusInput = false } = {}){
-  const meta = BUCKET_DEFS.find((entry)=> entry.bucketKey === bucketKey);
-  if (!meta && !editorState.activeBucketKey){
-    editorState.activeBucketKey = BUCKET_DEFS[0]?.bucketKey || null;
-  } else if (meta){
-    editorState.activeBucketKey = meta.bucketKey;
-  }
-  updateBucketTargetSelection();
-  syncActiveBucketColor();
-  if (focusInput && bucketColorInput){
-    bucketColorInput.focus();
-    bucketColorInput.select();
-  }
+  return baseHex || '';
 }
 
 function refreshPaletteEditor(){
@@ -1043,20 +923,20 @@ function refreshPaletteEditor(){
   const cosmeticId = row?.select?.value;
   const cosmetic = cosmeticId ? library[cosmeticId] : null;
   if (!slot || !partKey || !cosmetic){
-    container.innerHTML = '<p class="palette-hint">Select a cosmetic part to configure palette buckets.</p>';
+    container.innerHTML = '<p class="palette-hint">Select a cosmetic part to configure palette colours.</p>';
     editorState.currentPalette = null;
     editorState.currentPaletteSource = { slot: null, partKey: null, cosmeticId: null };
-    updateBucketTargets(null);
+    renderTintPreview();
     return;
   }
-  renderPaletteEditor(container, slot, cosmetic, partKey);
+  renderPaletteEditor(container, slot, cosmeticId, cosmetic, partKey);
 }
 
-function renderPaletteEditor(container, slot, cosmetic, partKey){
+function renderPaletteEditor(container, slot, cosmeticId, cosmetic, partKey){
   if (!container) return;
   container.innerHTML = '';
   const heading = document.createElement('h3');
-  heading.textContent = 'Palette Buckets';
+  heading.textContent = 'Palette Colours';
   container.appendChild(heading);
 
   if (!cosmetic?.parts?.[partKey]){
@@ -1066,17 +946,17 @@ function renderPaletteEditor(container, slot, cosmetic, partKey){
     container.appendChild(message);
     editorState.currentPalette = null;
     editorState.currentPaletteSource = { slot: null, partKey: null, cosmeticId: null };
-    updateBucketTargets(null);
+    renderTintPreview();
     return;
   }
 
   const palette = computeEffectivePalette(slot, partKey, cosmetic);
   editorState.currentPalette = palette;
-  editorState.currentPaletteSource = { slot, partKey, cosmeticId: cosmetic.id };
+  editorState.currentPaletteSource = { slot, partKey, cosmeticId: cosmeticId || cosmetic.id || null };
 
   const baseGrid = document.createElement('div');
   baseGrid.className = 'palette-grid';
-  BUCKET_DEFS.filter((meta)=> meta.type === 'color').forEach((meta)=>{
+  PALETTE_BUCKETS.filter((meta)=> meta.type === 'color').forEach((meta)=>{
     const row = document.createElement('div');
     row.className = 'palette-row';
     const label = document.createElement('span');
@@ -1084,34 +964,21 @@ function renderPaletteEditor(container, slot, cosmetic, partKey){
     label.textContent = meta.label;
     const input = document.createElement('input');
     input.type = 'text';
-    input.value = palette.colors?.[meta.colorKey] || '';
+    input.value = palette.colors?.[meta.key] || '';
     input.placeholder = '#336699';
     input.spellcheck = false;
     input.addEventListener('change', (event)=>{
-      setPaletteColor(slot, partKey, meta.colorKey, event.target.value);
-    });
-    const selectBtn = document.createElement('button');
-    selectBtn.type = 'button';
-    selectBtn.className = 'palette-select';
-    const colorHex = palette.colors?.[meta.colorKey] || '';
-    if (!colorHex){
-      selectBtn.dataset.empty = 'true';
-    }
-    selectBtn.textContent = '🎯 Use bucket';
-    selectBtn.title = `Select ${meta.label} bucket`;
-    selectBtn.addEventListener('click', ()=>{
-      setActiveBucket(meta.bucketKey, { focusInput: true });
+      setPaletteColor(slot, partKey, meta.key, event.target.value);
     });
     row.appendChild(label);
     row.appendChild(input);
-    row.appendChild(selectBtn);
     baseGrid.appendChild(row);
   });
   container.appendChild(baseGrid);
 
   const shadeGrid = document.createElement('div');
   shadeGrid.className = 'palette-grid';
-  BUCKET_DEFS.filter((meta)=> meta.type === 'shade').forEach((meta)=>{
+  PALETTE_BUCKETS.filter((meta)=> meta.type === 'shade').forEach((meta)=>{
     const row = document.createElement('div');
     row.className = 'palette-row palette-row--shade';
     const label = document.createElement('span');
@@ -1122,67 +989,112 @@ function renderPaletteEditor(container, slot, cosmetic, partKey){
     amountInput.step = '0.05';
     amountInput.min = '-1';
     amountInput.max = '1';
-    amountInput.value = palette.shading?.[meta.colorKey] != null ? palette.shading[meta.colorKey] : '';
+    amountInput.value = palette.shading?.[meta.key] != null ? palette.shading[meta.key] : '';
     amountInput.placeholder = '-0.35';
     amountInput.addEventListener('change', (event)=>{
-      setPaletteShadeAmount(slot, partKey, meta.colorKey, event.target.value);
+      setPaletteShadeAmount(slot, partKey, meta.key, event.target.value);
     });
     const hexInput = document.createElement('input');
     hexInput.type = 'text';
-    hexInput.value = palette.shaded?.[meta.colorKey] || '';
-    const derivedShade = getBucketDisplayHex(palette, meta);
+    hexInput.value = palette.shaded?.[meta.key] || '';
+    const derivedShade = getTintHex(palette, meta.key);
     hexInput.placeholder = derivedShade || '#1f1f1f';
     hexInput.spellcheck = false;
     hexInput.addEventListener('change', (event)=>{
-      setPaletteShadeHex(slot, partKey, meta.colorKey, event.target.value);
-    });
-    const selectBtn = document.createElement('button');
-    selectBtn.type = 'button';
-    selectBtn.className = 'palette-select';
-    selectBtn.textContent = '🎯 Use bucket';
-    if (!derivedShade){
-      selectBtn.dataset.empty = 'true';
-    }
-    selectBtn.title = `Select ${meta.label} bucket`;
-    selectBtn.addEventListener('click', ()=>{
-      setActiveBucket(meta.bucketKey, { focusInput: true });
+      setPaletteShadeHex(slot, partKey, meta.key, event.target.value);
     });
     row.appendChild(label);
     row.appendChild(amountInput);
     row.appendChild(hexInput);
-    row.appendChild(selectBtn);
     shadeGrid.appendChild(row);
   });
   container.appendChild(shadeGrid);
 
   const hint = document.createElement('p');
   hint.className = 'palette-hint';
-  hint.textContent = 'Use the bucket buttons to paint preview regions with these colours.';
+  hint.textContent = 'Adjust base colours and shade amounts to match your fighter config.';
   container.appendChild(hint);
 
-  updateBucketTargets(palette);
+  renderTintPreview();
 }
 
-function handleBucketColorChange(){
-  if (!bucketColorInput) return;
-  const slot = editorState.activeSlot;
-  const partKey = editorState.activePartKey;
-  if (!slot || !partKey){
+function renderTintPreview(){
+  if (!tintPreview) return;
+  const palette = editorState.currentPalette;
+  const source = editorState.currentPaletteSource || {};
+  tintPreview.innerHTML = '';
+
+  if (!palette || !source.slot || !source.partKey){
+    const message = document.createElement('p');
+    message.className = 'panel-hint';
+    message.textContent = 'Pick a slot and part to preview tint results.';
+    tintPreview.appendChild(message);
     return;
   }
-  const activeMeta = BUCKET_DEFS.find((entry)=> entry.bucketKey === editorState.activeBucketKey)
-    || BUCKET_DEFS[0];
-  if (!activeMeta) return;
-  const value = bucketColorInput.value;
-  let success = false;
-  if (activeMeta.type === 'color'){
-    success = setPaletteColor(slot, partKey, activeMeta.colorKey, value);
-  } else {
-    success = setPaletteShadeHex(slot, partKey, activeMeta.colorKey, value);
+
+  const context = document.createElement('p');
+  context.className = 'tint-preview__context';
+  const cosmeticId = source.cosmeticId ? ` · ${source.cosmeticId}` : '';
+  context.textContent = `Slot ${source.slot} · Part ${source.partKey}${cosmeticId}`;
+  tintPreview.appendChild(context);
+
+  const table = document.createElement('div');
+  table.className = 'tint-table';
+
+  const colorBuckets = PALETTE_BUCKETS.filter((meta)=> meta.type === 'color');
+  for (const meta of colorBuckets){
+    const row = document.createElement('div');
+    row.className = 'tint-row';
+
+    const label = document.createElement('span');
+    label.className = 'tint-row__label';
+    label.textContent = meta.label;
+
+    const baseHexRaw = palette.colors?.[meta.key] || '';
+    const baseHex = baseHexRaw ? normalizeHexInputString(baseHexRaw) || baseHexRaw : '—';
+    const baseValue = document.createElement('span');
+    baseValue.className = 'tint-row__value';
+    baseValue.textContent = baseHex;
+
+    const shadeAmount = palette.shading?.[meta.key];
+    const shadeValue = document.createElement('span');
+    shadeValue.className = 'tint-row__value';
+    shadeValue.textContent = shadeAmount != null ? Number(shadeAmount).toFixed(2) : '—';
+
+    const tintedHexRaw = getTintHex(palette, meta.key);
+    const tintedHex = tintedHexRaw ? normalizeHexInputString(tintedHexRaw) || tintedHexRaw : '—';
+    const tintedValue = document.createElement('span');
+    tintedValue.className = 'tint-row__value';
+    tintedValue.textContent = tintedHex;
+
+    const swatch = document.createElement('span');
+    swatch.className = 'tint-row__swatch';
+    if (tintedHex && tintedHex !== '—'){
+      swatch.style.background = tintedHex;
+    } else {
+      swatch.style.background = 'transparent';
+    }
+
+    row.appendChild(label);
+    row.appendChild(baseValue);
+    row.appendChild(shadeValue);
+    row.appendChild(tintedValue);
+    row.appendChild(swatch);
+    table.appendChild(row);
   }
-  if (success){
-    syncActiveBucketColor();
+
+  const mapEntries = Object.entries(palette.bucketMap || {});
+  if (mapEntries.length){
+    const noteRow = document.createElement('div');
+    noteRow.className = 'tint-row';
+    const note = document.createElement('div');
+    note.className = 'tint-row__note';
+    note.textContent = `Body colour map: ${mapEntries.map(([key, value])=> `${key} → ${value}`).join(', ')}`;
+    noteRow.appendChild(note);
+    table.appendChild(noteRow);
   }
+
+  tintPreview.appendChild(table);
 }
 
 function normalizeSlotEntry(entry){
@@ -1196,12 +1108,92 @@ function normalizeSlotEntry(entry){
   return null;
 }
 
+function isAppearanceSlotName(slot, appearanceKeys){
+  if (!slot) return false;
+  if (slot.startsWith('appearance:')) return true;
+  if (MODE_DEFINITIONS.appearance.slots.has(slot)) return true;
+  return appearanceKeys?.has(slot) || false;
+}
+
+function slotMatchesMode(slot, mode, appearanceKeys){
+  const resolved = resolveModeKey(mode);
+  if (slot.startsWith('appearance:')){
+    return resolved === 'appearance';
+  }
+  const appearanceSlot = isAppearanceSlotName(slot, appearanceKeys);
+  if (resolved === 'appearance'){
+    return appearanceSlot;
+  }
+  if (resolved === 'fighterSprites'){
+    return MODE_DEFINITIONS.fighterSprites.slots.has(slot);
+  }
+  // clothing/default mode
+  if (MODE_DEFINITIONS.fighterSprites.slots.has(slot)) return false;
+  if (appearanceSlot) return false;
+  return true;
+}
+
 function getActiveSlotKeys(){
+  const mode = resolveModeKey(editorState.activeMode);
   const appearanceKeys = Array.isArray(editorState.appearanceSlotKeys)
-    ? editorState.appearanceSlotKeys
-    : [];
-  const merged = new Set([...COSMETIC_SLOTS, ...appearanceKeys]);
-  return Array.from(merged);
+    ? new Set(editorState.appearanceSlotKeys)
+    : new Set();
+  const slots = [];
+  const seen = new Set();
+
+  const addIfMatches = (slot)=>{
+    if (!slotMatchesMode(slot, mode, appearanceKeys)) return;
+    if (seen.has(slot)) return;
+    seen.add(slot);
+    slots.push(slot);
+  };
+
+  COSMETIC_SLOTS.forEach(addIfMatches);
+  appearanceKeys.forEach((slot)=> addIfMatches(slot));
+
+  return slots;
+}
+
+function updateModeVisibility(){
+  const mode = resolveModeKey(editorState.activeMode);
+  modeButtons.forEach((button)=>{
+    const isActive = button?.dataset?.mode === mode;
+    button?.classList.toggle('is-active', isActive);
+    if (button){
+      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    }
+  });
+  if (typeof document !== 'undefined' && document.body){
+    document.body.dataset.editorMode = mode;
+  }
+  const creatorEnabled = !!getModeConfig(mode)?.enableCreator;
+  if (clothingCreatorPanel){
+    clothingCreatorPanel.hidden = !creatorEnabled;
+  }
+  if (creatorAddBtn) creatorAddBtn.disabled = !creatorEnabled;
+  if (creatorEquipBtn) creatorEquipBtn.disabled = !creatorEnabled;
+  if (creatorApplyBtn) creatorApplyBtn.disabled = !creatorEnabled;
+  if (styleInspector){
+    styleInspector.dataset.spriteEnabled = getModeConfig(mode)?.enableSpriteEditing ? 'true' : 'false';
+  }
+}
+
+function setActiveMode(mode){
+  const resolved = resolveModeKey(mode);
+  if (editorState.activeMode !== resolved){
+    editorState.activeMode = resolved;
+  }
+  updateModeVisibility();
+  populateCreatorSlotOptions();
+  const availableSlots = new Set(getActiveSlotKeys());
+  buildSlotRows();
+  updateSlotSelectsFromState();
+  if (!availableSlots.has(editorState.activeSlot)){
+    editorState.activeSlot = null;
+    editorState.activePartKey = null;
+  }
+  showStyleInspector(editorState.activeSlot);
+  updateOverrideOutputs();
 }
 
 function setSelectedCosmetics(slots){
@@ -1456,7 +1448,7 @@ function getBaseSpriteStyle(cosmetic, partKey, styleKey){
   return {};
 }
 
-function buildStyleFields(slot, cosmetic, partKey){
+function buildStyleFields(slot, cosmeticId, cosmetic, partKey){
   styleFields.innerHTML = '';
   const paletteContainer = document.createElement('div');
   paletteContainer.className = 'palette-editor';
@@ -1464,60 +1456,69 @@ function buildStyleFields(slot, cosmetic, partKey){
 
   if (!slot || !cosmetic || !partKey){
     const p = document.createElement('p');
-    p.textContent = 'Select a cosmetic part to edit sprite style.';
+    p.textContent = 'Select a cosmetic part to view palette details.';
     styleFields.appendChild(p);
-    paletteContainer.innerHTML = '<p class="palette-hint">Select a cosmetic part to configure palette buckets.</p>';
+    paletteContainer.innerHTML = '<p class="palette-hint">Select a cosmetic part to configure palette colours.</p>';
     styleFields.appendChild(paletteContainer);
     editorState.currentPalette = null;
     editorState.currentPaletteSource = { slot: null, partKey: null, cosmeticId: null };
-    updateBucketTargets(null);
+    renderTintPreview();
     return;
   }
-  const styleKey = resolvePartStyleKey(cosmetic, slot, partKey);
-  const baseXform = getBaseSpriteStyle(cosmetic, partKey, styleKey);
-  const current = getPartOverride(slot, partKey)?.spriteStyle?.xform?.[styleKey] || {};
-  editorState.activeStyleKey = styleKey;
-  const fields = [
-    { key: 'ax', label: 'Offset X (ax)', step: 0.01 },
-    { key: 'ay', label: 'Offset Y (ay)', step: 0.01 },
-    { key: 'scaleX', label: 'Scale X', step: 0.01 },
-    { key: 'scaleY', label: 'Scale Y', step: 0.01 },
-    { key: 'rotDeg', label: 'Rotation (deg)', step: 0.1 }
-  ];
-  for (const field of fields){
-    const wrapper = document.createElement('label');
-    wrapper.className = 'style-field';
-    const span = document.createElement('span');
-    span.textContent = field.label;
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.step = String(field.step);
-    input.value = current[field.key] != null ? current[field.key] : '';
-    if (baseXform[field.key] != null){
-      input.placeholder = String(baseXform[field.key]);
+  const spriteEnabled = isSpriteEditingEnabled();
+  if (spriteEnabled){
+    const styleKey = resolvePartStyleKey(cosmetic, slot, partKey);
+    const baseXform = getBaseSpriteStyle(cosmetic, partKey, styleKey);
+    const current = getPartOverride(slot, partKey)?.spriteStyle?.xform?.[styleKey] || {};
+    editorState.activeStyleKey = styleKey;
+    const fields = [
+      { key: 'ax', label: 'Offset X (ax)', step: 0.01 },
+      { key: 'ay', label: 'Offset Y (ay)', step: 0.01 },
+      { key: 'scaleX', label: 'Scale X', step: 0.01 },
+      { key: 'scaleY', label: 'Scale Y', step: 0.01 },
+      { key: 'rotDeg', label: 'Rotation (deg)', step: 0.1 }
+    ];
+    for (const field of fields){
+      const wrapper = document.createElement('label');
+      wrapper.className = 'style-field';
+      const span = document.createElement('span');
+      span.textContent = field.label;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.step = String(field.step);
+      input.value = current[field.key] != null ? current[field.key] : '';
+      if (baseXform[field.key] != null){
+        input.placeholder = String(baseXform[field.key]);
+      }
+      input.addEventListener('input', (event)=>{
+        applyStyleValue(slot, partKey, styleKey, field.key, event.target.value);
+      });
+      wrapper.appendChild(span);
+      wrapper.appendChild(input);
+      if (baseXform[field.key] != null){
+        const hint = document.createElement('span');
+        hint.className = 'style-field__hint';
+        hint.textContent = `Base: ${baseXform[field.key]}`;
+        wrapper.appendChild(hint);
+      }
+      styleFields.appendChild(wrapper);
     }
-    input.addEventListener('input', (event)=>{
-      applyStyleValue(slot, partKey, styleKey, field.key, event.target.value);
-    });
-    wrapper.appendChild(span);
-    wrapper.appendChild(input);
-    if (baseXform[field.key] != null){
-      const hint = document.createElement('span');
-      hint.className = 'style-field__hint';
-      hint.textContent = `Base: ${baseXform[field.key]}`;
-      wrapper.appendChild(hint);
+    const currentImageUrl = getEffectivePartImage(slot, cosmetic, partKey);
+    if (currentImageUrl){
+      const info = document.createElement('p');
+      info.className = 'style-asset-info';
+      info.innerHTML = `Current image: <code>${currentImageUrl}</code>`;
+      styleFields.appendChild(info);
     }
-    styleFields.appendChild(wrapper);
-  }
-  const currentImageUrl = getEffectivePartImage(slot, cosmetic, partKey);
-  if (currentImageUrl){
+  } else {
+    editorState.activeStyleKey = null;
     const info = document.createElement('p');
     info.className = 'style-asset-info';
-    info.innerHTML = `Current image: <code>${currentImageUrl}</code>`;
+    info.textContent = 'Sprite transforms are unavailable in appearance mode. Use tint tools below to preview colours.';
     styleFields.appendChild(info);
   }
   styleFields.appendChild(paletteContainer);
-  renderPaletteEditor(paletteContainer, slot, cosmetic, partKey);
+  renderPaletteEditor(paletteContainer, slot, cosmeticId, cosmetic, partKey);
 }
 
 function showStyleInspector(slot){
@@ -1534,7 +1535,7 @@ function showStyleInspector(slot){
     editorState.activePartKey = null;
     editorState.currentPalette = null;
     editorState.currentPaletteSource = { slot: null, partKey: null, cosmeticId: null };
-    updateBucketTargets(null);
+    renderTintPreview();
     return;
   }
   const library = getRegisteredCosmeticLibrary();
@@ -1549,7 +1550,7 @@ function showStyleInspector(slot){
     editorState.activePartKey = null;
     editorState.currentPalette = null;
     editorState.currentPaletteSource = { slot, partKey: null, cosmeticId: null };
-    updateBucketTargets(null);
+    renderTintPreview();
     return;
   }
   const cosmetic = library[cosmeticId];
@@ -1561,7 +1562,7 @@ function showStyleInspector(slot){
     editorState.activePartKey = null;
     editorState.currentPalette = null;
     editorState.currentPaletteSource = { slot, partKey: null, cosmeticId };
-    updateBucketTargets(null);
+    renderTintPreview();
     return;
   }
   const parts = Object.keys(cosmetic.parts || {});
@@ -1581,7 +1582,7 @@ function showStyleInspector(slot){
     editorState.activePartKey = null;
     editorState.currentPalette = null;
     editorState.currentPaletteSource = { slot, partKey: null, cosmeticId };
-    updateBucketTargets(null);
+    renderTintPreview();
     return;
   }
   for (const partKey of parts){
@@ -1595,7 +1596,7 @@ function showStyleInspector(slot){
     : parts[0];
   stylePartSelect.value = preferred;
   editorState.activePartKey = preferred;
-  buildStyleFields(slot, cosmetic, preferred);
+  buildStyleFields(slot, cosmeticId, cosmetic, preferred);
   highlightActivePartAsset(slot, preferred, cosmetic);
 }
 
@@ -1608,7 +1609,7 @@ function handlePartChange(){
   const cosmetic = library[cosmeticId];
   const partKey = stylePartSelect.value;
   editorState.activePartKey = partKey;
-  buildStyleFields(slot, cosmetic, partKey);
+  buildStyleFields(slot, cosmeticId, cosmetic, partKey);
   highlightActivePartAsset(slot, partKey, cosmetic);
 }
 
@@ -1723,16 +1724,10 @@ function draw(){
 }
 
 function attachEventListeners(){
-  canvas.addEventListener('click', handleCanvasClick);
-  bucketToggle.addEventListener('click', ()=>{
-    updateBucketMode(!editorState.bucketActive);
-  });
-  bucketColorInput?.addEventListener('change', handleBucketColorChange);
-  bucketUndoBtn.addEventListener('click', ()=>{
-    undoOverlay();
-  });
-  bucketClearBtn.addEventListener('click', ()=>{
-    clearOverlay();
+  modeButtons.forEach((button)=>{
+    button?.addEventListener('click', ()=>{
+      setActiveMode(button.dataset.mode);
+    });
   });
   stylePartSelect.addEventListener('change', handlePartChange);
   styleResetBtn.addEventListener('click', ()=>{
@@ -1778,6 +1773,7 @@ function attachEventListeners(){
 
 (async function bootstrap(){
   setSelectedAsset(null);
+  updateModeVisibility();
   await initSprites();
   initFighters(canvas, ctx);
   GAME.CAMERA = GAME.CAMERA || { x: 0, worldWidth: canvas.width };
@@ -1790,8 +1786,7 @@ function attachEventListeners(){
   populateFighterSelect();
   attachEventListeners();
   updateSlotSelectsFromState();
-  updateBucketTargets(null);
-  updateBucketMode(false);
+  renderTintPreview();
   requestAnimationFrame(draw);
 })();
 
