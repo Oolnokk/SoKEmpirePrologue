@@ -9,6 +9,69 @@ let lastViewportWidth = DEFAULT_VIEWPORT_WIDTH;
 let lastLoggedPlayerX = null;
 let lastLoggedAreaId = null;
 
+function measureViewportWidth(canvas) {
+  if (!canvas) return null;
+
+  try {
+    if (typeof canvas.getBoundingClientRect === 'function') {
+      const rect = canvas.getBoundingClientRect();
+      if (rect && Number.isFinite(rect.width) && rect.width > 0) {
+        return rect.width;
+      }
+    }
+  } catch (_error) {
+    // Ignore DOM measurement failures (e.g., detached canvas)
+  }
+
+  const clientWidth = Number.isFinite(canvas.clientWidth) ? canvas.clientWidth : null;
+  if (clientWidth && clientWidth > 0) {
+    return clientWidth;
+  }
+
+  const attrWidth = Number.isFinite(canvas.width) ? canvas.width : null;
+  if (attrWidth && attrWidth > 0) {
+    return attrWidth;
+  }
+
+  return null;
+}
+
+function resolveViewportWidth(canvas) {
+  const configWidth = Number.isFinite(window?.CONFIG?.canvas?.w)
+    ? window.CONFIG.canvas.w
+    : null;
+  const intrinsicWidth = Number.isFinite(canvas?.width) && canvas.width > 0
+    ? canvas.width
+    : null;
+  const previousWidth = Number.isFinite(lastViewportWidth) && lastViewportWidth > 0
+    ? lastViewportWidth
+    : null;
+  const fallback = previousWidth || intrinsicWidth || configWidth || DEFAULT_VIEWPORT_WIDTH;
+
+  const measuredCssWidth = measureViewportWidth(canvas);
+  if (!Number.isFinite(measuredCssWidth) || measuredCssWidth <= 0) {
+    return fallback;
+  }
+
+  const clientWidth = Number.isFinite(canvas?.clientWidth) && canvas.clientWidth > 0
+    ? canvas.clientWidth
+    : null;
+  const cssBasis = clientWidth || measuredCssWidth;
+  const referenceWidth = intrinsicWidth || previousWidth || configWidth;
+
+  if (Number.isFinite(referenceWidth) && referenceWidth > 0 && Number.isFinite(cssBasis) && cssBasis > 0) {
+    const scale = referenceWidth / cssBasis;
+    if (Number.isFinite(scale) && scale > 0) {
+      const scaledWidth = measuredCssWidth * scale;
+      if (Number.isFinite(scaledWidth) && scaledWidth > 0) {
+        return scaledWidth;
+      }
+    }
+  }
+
+  return fallback;
+}
+
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) return min;
   if (!Number.isFinite(min) && !Number.isFinite(max)) return value;
@@ -114,9 +177,9 @@ function attachToRegistry(registry) {
 
 export function initCamera({ canvas, mapRegistry } = {}) {
   const camera = ensureGameCamera();
-  const config = window.CONFIG || {};
-  lastViewportWidth = canvas?.width || config.canvas?.w || lastViewportWidth || DEFAULT_VIEWPORT_WIDTH;
+  lastViewportWidth = resolveViewportWidth(canvas);
   camera.bounds = camera.bounds || { min: 0, max: camera.worldWidth || DEFAULT_WORLD_WIDTH };
+  camera.viewportWidth = lastViewportWidth;
 
   const registry = mapRegistry || window.GAME?.mapRegistry || window.__MAP_REGISTRY__;
   if (registry) {
@@ -148,7 +211,7 @@ export function updateCamera(canvas) {
     ? attachedRegistry.getActiveAreaId()
     : (window.GAME?.currentAreaId || null);
 
-  const viewportWidth = canvas?.width || C.canvas?.w || lastViewportWidth || DEFAULT_VIEWPORT_WIDTH;
+  const viewportWidth = resolveViewportWidth(canvas);
   lastViewportWidth = viewportWidth;
   camera.viewportWidth = viewportWidth;
 
