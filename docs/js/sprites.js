@@ -285,7 +285,26 @@ function mergeSpriteStyles(base = {}, overrides = {}){
     out.xformUnits = overrides.xformUnits;
   }
   if (overrides.xform){
-    out.xform = { ...(base.xform || {}), ...overrides.xform };
+    const baseXform = base.xform || {};
+    const overrideXform = overrides.xform || {};
+    const merged = { ...(baseXform || {}) };
+    for (const key of Object.keys(overrideXform)){
+      const overrideVal = overrideXform[key];
+      if (overrideVal === null){
+        merged[key] = null;
+        continue;
+      }
+      const baseVal = baseXform[key];
+      if (overrideVal && typeof overrideVal === 'object' && !Array.isArray(overrideVal)){
+        merged[key] = {
+          ...(baseVal && typeof baseVal === 'object' ? baseVal : {}),
+          ...overrideVal
+        };
+      } else {
+        merged[key] = overrideVal;
+      }
+    }
+    out.xform = merged;
   }
   return out;
 }
@@ -428,6 +447,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   }
 
   // Offset config for fine-tuning sprite placement
+  const baseStyleXformSrc = style?.xform || {};
   const xform = (effectiveStyle.xform || {})[normalizedKey] || (effectiveStyle.xform || {})[styleKey] || {};
   const xformUnits = (effectiveStyle.xformUnits || 'px').toLowerCase();
 
@@ -470,9 +490,21 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   }
 
   // Rotation (fixed): bone.ang + alignRad + extraRotRad + Math.PI
-  const alignRad = (options.alignRad != null)
-    ? options.alignRad
-    : (options.alignDeg != null ? degToRad(options.alignDeg) : (asset.alignRad ?? 0));
+  const baseStyleXform = baseStyleXformSrc[normalizedKey] || baseStyleXformSrc[styleKey] || {};
+  let alignRad;
+  if (options.alignRad != null){
+    alignRad = options.alignRad;
+  } else if (options.alignDeg != null){
+    alignRad = degToRad(options.alignDeg);
+  } else if (Number.isFinite(asset.alignRad)){
+    alignRad = asset.alignRad;
+  } else if (Number.isFinite(baseStyleXform.rotRad)){
+    alignRad = baseStyleXform.rotRad;
+  } else if (Number.isFinite(baseStyleXform.rotDeg)){
+    alignRad = degToRad(baseStyleXform.rotDeg);
+  } else {
+    alignRad = 0;
+  }
   const theta = bone.ang + alignRad + extraRotRad + Math.PI;
 
   const originalFilter = ctx.filter;
