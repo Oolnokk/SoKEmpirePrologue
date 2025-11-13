@@ -153,6 +153,83 @@ function applyArea(area) {
   console.info(`[map-bootstrap] Loaded area "${area.id}" (${area.source || 'unknown source'})`);
 }
 
+function applyPreviewLayout(descriptor, { previewToken = null, createdAt = null, prefabResolver }) {
+  if (!descriptor) return false;
+  try {
+    const areaId = descriptor?.areaId || descriptor?.id || `editor_preview_${previewToken || 'area'}`;
+    const areaName = descriptor?.areaName || descriptor?.name || 'Editor Preview';
+    const area = convertLayoutToArea(descriptor, { areaId, areaName, prefabResolver });
+    area.source = descriptor?.source || 'map-editor-preview';
+    area.meta = {
+      ...area.meta,
+      editorPreview: true,
+      previewToken: previewToken || null,
+      previewCreatedAt: createdAt ?? null,
+    };
+    applyArea(area);
+    applyEditorPreviewSettings(area, {
+      token: previewToken || null,
+      createdAt: createdAt ?? null,
+    });
+    console.info('[map-bootstrap] Loaded editor preview area');
+    return true;
+  } catch (error) {
+    console.error('[map-bootstrap] Failed to apply editor preview layout', error);
+    return false;
+  }
+}
+
+function waitForPreviewMessage(previewToken, { timeoutMs = 3000 } = {}) {
+  if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') {
+    return Promise.resolve(null);
+  }
+
+  const expectedOrigin = window.location.origin;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let timeoutId = null;
+
+    const cleanup = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      window.removeEventListener('message', handleMessage);
+    };
+
+    const handleMessage = (event) => {
+      const origin = event?.origin ?? '';
+      if (expectedOrigin && expectedOrigin !== 'null' && origin && origin !== expectedOrigin) {
+        return;
+      }
+
+      const data = event?.data;
+      if (!data || data.type !== 'map-editor-preview') return;
+      if (previewToken && data.token && data.token !== previewToken) return;
+
+      settled = true;
+      cleanup();
+      const payload = data.payload || {};
+      resolve({
+        layout: payload.layout || null,
+        createdAt: payload.createdAt ?? data.createdAt ?? null,
+      });
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+      timeoutId = setTimeout(() => {
+        if (!settled) {
+          cleanup();
+          resolve(null);
+        }
+      }, timeoutMs);
+    }
+  });
+}
+
 async function loadStartingArea() {
   const params = new URLSearchParams(window.location.search);
   const previewToken = params.get('preview');
@@ -161,29 +238,27 @@ async function loadStartingArea() {
   const prefabResolver = createPrefabResolver(prefabMap);
 
   if (previewPayload?.layout) {
-    try {
-      const descriptor = previewPayload.layout;
-      const areaId = descriptor?.areaId || descriptor?.id || `editor_preview_${previewToken || 'area'}`;
-      const areaName = descriptor?.areaName || descriptor?.name || 'Editor Preview';
-      const area = convertLayoutToArea(descriptor, { areaId, areaName, prefabResolver });
-      area.source = descriptor?.source || 'map-editor-preview';
-      area.meta = {
-        ...area.meta,
-        editorPreview: true,
-        previewToken: previewToken || null,
-        previewCreatedAt: previewPayload.createdAt ?? null,
-      };
-      applyArea(area);
-      applyEditorPreviewSettings(area, {
-        token: previewToken || null,
-        createdAt: previewPayload.createdAt ?? null,
-      });
-      console.info('[map-bootstrap] Loaded editor preview area');
+    const applied = applyPreviewLayout(previewPayload.layout, {
+      previewToken,
+      createdAt: previewPayload.createdAt ?? null,
+      prefabResolver,
+    });
+    if (applied) {
       return;
-    } catch (error) {
-      console.error('[map-bootstrap] Failed to apply editor preview layout', error);
     }
   } else if (previewToken) {
+    console.warn('[map-bootstrap] Preview token requested but no payload was available in storage; waiting for direct preview message.');
+    const messagePayload = await waitForPreviewMessage(previewToken);
+    if (messagePayload?.layout) {
+      const applied = applyPreviewLayout(messagePayload.layout, {
+        previewToken,
+        createdAt: messagePayload.createdAt ?? null,
+        prefabResolver,
+      });
+      if (applied) {
+        return;
+      }
+    }
     console.warn('[map-bootstrap] Preview token requested but no payload was available');
   }
 
