@@ -223,6 +223,7 @@ function initCharacterDropdown() {
       window.GAME.selectedWeapon = null;
       delete window.GAME.selectedAppearance;
       delete window.GAME.selectedBodyColors;
+      delete window.GAME.selectedBodyColorsFighter;
       delete window.GAME.selectedCosmetics;
 
       if (typeof hideFighterSettings === 'function') {
@@ -261,8 +262,10 @@ function initCharacterDropdown() {
       } catch (_err) {
         window.GAME.selectedBodyColors = { ...charData.bodyColors };
       }
+      window.GAME.selectedBodyColorsFighter = charData.fighter;
     } else {
       delete window.GAME.selectedBodyColors;
+      delete window.GAME.selectedBodyColorsFighter;
     }
 
     if (charData.cosmetics) {
@@ -698,12 +701,25 @@ function initFighterDropdown() {
       const selectedFighter = e.target.value;
       currentSelectedFighter = selectedFighter;
       window.GAME ||= {};
+      const previousPaletteFighter = window.GAME.selectedBodyColorsFighter;
       window.GAME.selectedFighter = selectedFighter;
-      if (selectedFighter) {
-        showFighterSettings(selectedFighter);
-      } else {
+      if (!selectedFighter) {
+        delete window.GAME.selectedBodyColors;
+        delete window.GAME.selectedBodyColorsFighter;
+        delete window.GAME.selectedCosmetics;
+        delete window.GAME.selectedAppearance;
         hideFighterSettings();
+        return;
       }
+
+      if (previousPaletteFighter && previousPaletteFighter !== selectedFighter) {
+        delete window.GAME.selectedBodyColors;
+        delete window.GAME.selectedBodyColorsFighter;
+      }
+      delete window.GAME.selectedCosmetics;
+      delete window.GAME.selectedAppearance;
+
+      showFighterSettings(selectedFighter);
     });
     fighterSelect.dataset.initialized = 'true';
   }

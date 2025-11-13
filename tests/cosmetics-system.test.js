@@ -1,6 +1,6 @@
 import { strictEqual, deepStrictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import { COSMETIC_SLOTS, cosmeticTagFor, ensureCosmeticLayers, clearCosmeticCache } from '../docs/js/cosmetics.js';
+import { COSMETIC_SLOTS, cosmeticTagFor, ensureCosmeticLayers, clearCosmeticCache, resolveFighterBodyColors } from '../docs/js/cosmetics.js';
 import { registerPaletteForImage, clearPaletteCache, applyShade } from '../docs/js/cosmetic-palettes.js';
 import { readFileSync } from 'node:fs';
 
@@ -178,6 +178,71 @@ test('appearance cosmetics inherit character body colors', () => {
   deepStrictEqual(layers[0].hsl, { h: 15, s: 0.3, l: 0.1 });
   deepStrictEqual(layers[0].extra?.appearance?.bodyColors, ['A']);
   strictEqual(layers[0].styleKey, 'torso');
+});
+
+test('resolveFighterBodyColors ignores stale palette when fighter changes', () => {
+  const previousWindow = globalThis.window;
+  try {
+    globalThis.window = {
+      GAME: {
+        selectedFighter: 'hero',
+        selectedCharacter: 'rivalChar',
+        selectedBodyColors: { A: { h: 0, s: 0, v: 0 } },
+        selectedBodyColorsFighter: 'rival'
+      }
+    };
+
+    const config = {
+      fighters: {
+        hero: {
+          bodyColors: {
+            A: { h: 68, s: 0.9, v: -0.5 }
+          }
+        },
+        rival: {
+          bodyColors: {
+            A: { h: 0, s: 0, v: 0 }
+          }
+        }
+      },
+      characters: {
+        rivalChar: { fighter: 'rival', bodyColors: { A: { h: 0, s: 0, v: 0 } } }
+      }
+    };
+
+    const colors = resolveFighterBodyColors(config, 'hero');
+    deepStrictEqual(colors, { A: { h: 68, s: 0.9, l: -0.5 } });
+  } finally {
+    globalThis.window = previousWindow;
+  }
+});
+
+test('resolveFighterBodyColors reuses runtime palette when fighter matches metadata', () => {
+  const previousWindow = globalThis.window;
+  try {
+    globalThis.window = {
+      GAME: {
+        selectedFighter: 'hero',
+        selectedBodyColors: { A: { h: 12, s: 0.25, v: 0.1 } },
+        selectedBodyColorsFighter: 'hero'
+      }
+    };
+
+    const config = {
+      fighters: {
+        hero: {
+          bodyColors: {
+            A: { h: 68, s: 0.9, v: -0.5 }
+          }
+        }
+      }
+    };
+
+    const colors = resolveFighterBodyColors(config, 'hero');
+    deepStrictEqual(colors, { A: { h: 12, s: 0.25, l: 0.1 } });
+  } finally {
+    globalThis.window = previousWindow;
+  }
 });
 
 test('default character pants tint to blue for player and red for enemy', () => {
