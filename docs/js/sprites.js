@@ -757,7 +757,7 @@ function resolveSpriteAssets(spriteMap){
   }
 }
 
-function resolveUntintedOverlayMap(fighterConfig = {}){
+function resolveUntintedOverlayMap(fighterConfig = {}, spriteMap = {}){
   const source = fighterConfig.untintedOverlays
     || fighterConfig.sprites?.untintedOverlays
     || fighterConfig.sprites?.untinted_regions;
@@ -807,10 +807,17 @@ function resolveUntintedOverlayMap(fighterConfig = {}){
       const partKey = String(rawPart || '').trim();
       if (!partKey) continue;
       const list = map[partKey] || (map[partKey] = []);
+      const options = { ...baseOptions };
+      if (!Number.isFinite(options.alignRad)){
+        const baseAsset = spriteMap?.[partKey];
+        if (Number.isFinite(baseAsset?.alignRad)){
+          options.alignRad = baseAsset.alignRad;
+        }
+      }
       list.push({
         asset,
         styleKey: entry.styleKey,
-        options: { ...baseOptions }
+        options
       });
     }
   }
@@ -848,7 +855,7 @@ export function ensureFighterSprites(C, fname){
   
   const cosmetics = ensureCosmeticLayers(C, fname, style);
   const bodyColors = resolveFighterBodyColors(C, fname);
-  const untintedOverlays = resolveUntintedOverlayMap(f);
+  const untintedOverlays = resolveUntintedOverlayMap(f, S);
 
   const result = { assets: S, style, offsets, cosmetics, bodyColors, untintedOverlays };
   ensureFighterSprites.__lastResult = result;

@@ -88,17 +88,13 @@ function refreshAwarenessConfig(camera) {
   const fighterConfig = pickFighterConfig(config, fighterName);
   const globalScale = Number.isFinite(config.actor?.scale) ? config.actor.scale : 1;
   const fighterScale = Number.isFinite(fighterConfig?.actor?.scale) ? fighterConfig.actor.scale : 1;
-  let combinedScale = globalScale * fighterScale;
-  if (!Number.isFinite(combinedScale) || combinedScale < EPSILON) {
-    combinedScale = 1;
-  }
+  const combinedScale = globalScale * fighterScale;
   const spec = config.camera?.awareness || {};
 
   const offset = Number.isFinite(spec.scaleOffset) ? spec.scaleOffset : 0;
   const minZoom = Number.isFinite(spec.minZoom) ? Math.max(MIN_EFFECTIVE_ZOOM, spec.minZoom) : MIN_EFFECTIVE_ZOOM;
   const maxZoom = Number.isFinite(spec.maxZoom) ? Math.max(minZoom, spec.maxZoom) : Math.max(minZoom, 3);
-  const inverseScaleZoom = 1 / combinedScale;
-  const defaultZoom = clamp(inverseScaleZoom + offset, minZoom, maxZoom);
+  const defaultZoom = clamp(combinedScale + offset, minZoom, maxZoom);
   const awareZoom = clamp(Number.isFinite(spec.normalZoom) ? spec.normalZoom : 1, minZoom, maxZoom);
   const inactivitySeconds = Number.isFinite(spec.inactivitySeconds)
     ? Math.max(0, spec.inactivitySeconds)

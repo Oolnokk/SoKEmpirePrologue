@@ -533,7 +533,7 @@ window.CONFIG = {
       },
       untintedOverlays: [
         {
-          url: "./assets/fightersprites/mao-ao-m/untinted_overlays/ur-head.png",
+          url: "./assets/fightersprites/tletingan/untinted_regions/ur-head.png",
           parts: ['head']
         }
       ],
