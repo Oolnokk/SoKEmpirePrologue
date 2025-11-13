@@ -481,8 +481,12 @@ const DEFAULT_LAYOUT_META = {
 };
 const GRID_UNIT = (Number.isFinite(MAP_CONFIG.gridUnit) && MAP_CONFIG.gridUnit > 0) ? MAP_CONFIG.gridUnit : 10;
 const SPAWN_LAYER_ID = MAP_CONFIG.spawnLayerId || 'gameplay';
+const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
+  ? MAP_CONFIG.prefabManifests.filter((entry) => typeof entry === 'string' && entry.trim())
+  : [];
 const PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
 let runtimeModulePromise = null;
+let prefabBootstrapPromise = null;
 
 function getRuntimeModule(){
   if (!runtimeModulePromise){
@@ -954,6 +958,10 @@ async function convertDataToArea(data, context = {}){
   return runtime.convertLayoutToArea(data || {}, {
     areaId: context.areaId || context.meta?.areaId || DEFAULT_LAYOUT_META.areaId,
     areaName: context.areaName || context.meta?.areaName || DEFAULT_LAYOUT_META.areaName,
+    prefabResolver: (prefabId) => {
+      const prefab = prefabs[prefabId];
+      return prefab ? JSON.parse(JSON.stringify(prefab)) : null;
+    },
   });
 }
 
@@ -969,6 +977,8 @@ async function loadRepositoryMapById(mapId){
     sourcePath: entry?.path || null,
     repositoryId: entry?.id || null,
   };
+
+  await ensureConfiguredPrefabsLoaded();
 
   try {
     const areaData = entry?.path
@@ -1151,22 +1161,74 @@ function loadImage(url){
 }
 
 /*** Prefabs ***/
-async function registerPrefab(obj){
-  if(!obj || !obj.structureId || !Array.isArray(obj.parts)){
-    alert('Invalid structure JSON'); return;
+async function registerPrefab(obj, options = {}){
+  const { select = true, autoPopulate = true, silent = false, deferRefresh = false } = options;
+  const prefab = obj && typeof obj === 'object' ? JSON.parse(JSON.stringify(obj)) : null;
+  if(!prefab || !prefab.structureId || !Array.isArray(prefab.parts)){
+    const message = 'Invalid structure JSON';
+    if(!silent) alert(message);
+    throw new Error(message);
   }
-  prefabs[obj.structureId]=obj;
-  if(!selectedPrefabId) selectedPrefabId=obj.structureId;
-  for(const part of obj.parts){
+
+  prefabs[prefab.structureId]=prefab;
+  if(select && !selectedPrefabId) selectedPrefabId=prefab.structureId;
+
+  for(const part of prefab.parts){
     const t=part.propTemplate||{};
     if(t.url) await loadImage(t.url);
   }
-  rebuildPrefabSelect();
-  if(!instances.length && activeLayerId){
+
+  if(!deferRefresh){
+    rebuildPrefabSelect();
+  }
+
+  if(autoPopulate && !instances.length && activeLayerId){
     pushHistory();
-    addRowOnLayer(activeLayerId,8,obj.structureId);
+    addRowOnLayer(activeLayerId,8,prefab.structureId);
     refreshInstanceList();
   }
+
+  return prefab.structureId;
+}
+
+async function ensureConfiguredPrefabsLoaded(){
+  if(prefabBootstrapPromise) return prefabBootstrapPromise;
+  prefabBootstrapPromise = (async () => {
+    if(!PREFAB_MANIFESTS.length) return { loaded: 0, registered: 0, errors: [] };
+    try{
+      const module = await import('./js/prefab-catalog.js');
+      const loader = module.loadPrefabsFromManifests;
+      if(typeof loader !== 'function'){
+        throw new Error('Prefab catalog loader unavailable');
+      }
+      const { prefabs: prefabMap, errors } = await loader(PREFAB_MANIFESTS);
+      let registered = 0;
+      for(const [id, prefab] of prefabMap.entries()){
+        const already = !!prefabs[id];
+        await registerPrefab(prefab, {
+          select: !selectedPrefabId && !already,
+          autoPopulate: false,
+          silent: true,
+          deferRefresh: true,
+        });
+        if(!already) registered++;
+      }
+      rebuildPrefabSelect();
+      if(errors?.length){
+        const summarize = typeof module.summarizeLoadErrors === 'function'
+          ? module.summarizeLoadErrors(errors)
+          : null;
+        if(summarize){
+          console.warn('[map-editor] Some prefabs failed to load\n' + summarize);
+        }
+      }
+      return { loaded: prefabMap.size, registered, errors: errors || [] };
+    }catch(error){
+      console.error('[map-editor] Failed to load configured prefabs', error);
+      return { loaded: 0, registered: 0, errors: [{ type: 'bootstrap', error }] };
+    }
+  })();
+  return prefabBootstrapPromise;
 }
 function registerImagePrefab(file){
   const url=URL.createObjectURL(file);
@@ -2076,8 +2138,15 @@ $('#btnLoadPrefab').addEventListener('click',()=>{
     if(!f) return;
     const r=new FileReader();
     r.onload=()=>{
-      try{ registerPrefab(JSON.parse(r.result)); }
-      catch(err){ alert('Invalid JSON: '+err.message); }
+      try{
+        const parsed = JSON.parse(r.result);
+        registerPrefab(parsed).catch(err=>{
+          console.error('[map-editor] Failed to register prefab', err);
+          alert('Invalid JSON: '+(err?.message||err));
+        });
+      }catch(err){
+        alert('Invalid JSON: '+err.message);
+      }
     };
     r.readAsText(f);
   };
@@ -2104,12 +2173,12 @@ rebuildActiveLayerSelect();
 rebuildLayerStack();
 syncActiveLayerFields();
 ensurePlayerSpawn();
-rebuildPrefabSelect();
 refreshInstanceList();
 requestAnimationFrame(render);
 
 (async () => {
   try {
+    await ensureConfiguredPrefabsLoaded();
     const initialId = layoutMeta.repositoryId || layoutMeta.areaId || DEFAULT_LAYOUT_META.areaId;
     await loadRepositoryMapById(initialId);
   } catch (error) {

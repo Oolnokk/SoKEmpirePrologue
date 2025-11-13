@@ -1,0 +1,11 @@
+{
+  "id": "structures",
+  "label": "Structures",
+  "entries": [
+    {
+      "id": "tower_v1",
+      "label": "Tower v1",
+      "path": "./tower_v1.prefab.json"
+    }
+  ]
+}

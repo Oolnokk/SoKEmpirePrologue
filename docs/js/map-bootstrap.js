@@ -1,8 +1,32 @@
 import { MapRegistry, convertLayoutToArea } from './vendor/map-runtime.js';
+import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 
 const layoutUrl = new URL('../config/maps/examplestreet.layout.json', import.meta.url);
 const DEFAULT_AREA_ID = 'examplestreet';
 const PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
+const MAP_CONFIG = window.CONFIG?.map || {};
+const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
+  ? MAP_CONFIG.prefabManifests.filter((entry) => typeof entry === 'string' && entry.trim())
+  : [];
+
+const prefabLibraryPromise = (async () => {
+  if (!PREFAB_MANIFESTS.length) {
+    return { prefabs: new Map(), errors: [] };
+  }
+  try {
+    const result = await loadPrefabsFromManifests(PREFAB_MANIFESTS);
+    if (result.errors?.length) {
+      const summary = summarizeLoadErrors(result.errors);
+      if (summary) {
+        console.warn('[map-bootstrap] Some prefabs failed to load\n' + summary);
+      }
+    }
+    return { prefabs: result.prefabs, errors: result.errors || [] };
+  } catch (error) {
+    console.error('[map-bootstrap] Failed to load prefab manifests', error);
+    return { prefabs: new Map(), errors: [{ type: 'bootstrap', error }] };
+  }
+})();
 
 function consumeEditorPreviewLayout(token) {
   if (!token) return null;
@@ -133,13 +157,15 @@ async function loadStartingArea() {
   const params = new URLSearchParams(window.location.search);
   const previewToken = params.get('preview');
   const previewPayload = consumeEditorPreviewLayout(previewToken);
+  const { prefabs: prefabMap } = await prefabLibraryPromise;
+  const prefabResolver = createPrefabResolver(prefabMap);
 
   if (previewPayload?.layout) {
     try {
       const descriptor = previewPayload.layout;
       const areaId = descriptor?.areaId || descriptor?.id || `editor_preview_${previewToken || 'area'}`;
       const areaName = descriptor?.areaName || descriptor?.name || 'Editor Preview';
-      const area = convertLayoutToArea(descriptor, { areaId, areaName });
+      const area = convertLayoutToArea(descriptor, { areaId, areaName, prefabResolver });
       area.source = descriptor?.source || 'map-editor-preview';
       area.meta = {
         ...area.meta,
@@ -182,6 +208,7 @@ async function loadStartingArea() {
     const area = convertLayoutToArea(layout, {
       areaId: layout.areaId || layout.id || DEFAULT_AREA_ID,
       areaName: layout.areaName || layout.name || 'Example Street',
+      prefabResolver,
     });
     applyArea(area);
   } catch (error) {
@@ -189,6 +216,7 @@ async function loadStartingArea() {
     const fallbackArea = convertLayoutToArea({}, {
       areaId: DEFAULT_AREA_ID,
       areaName: 'Empty Area',
+      prefabResolver,
     });
     fallbackArea.source = 'fallback-empty';
     fallbackArea.warnings = [...(fallbackArea.warnings || []), 'Fallback area generated due to load failure'];
