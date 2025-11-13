@@ -357,7 +357,7 @@ test('palette sidecars provide bucket colors and per-fighter variants', () => {
 test('sprites.js integrates cosmetic layers and z-order expansion', () => {
   const spritesContent = readFileSync(new URL('../docs/js/sprites.js', import.meta.url), 'utf8');
   strictEqual(/expanded\.push\(cosmeticTagFor\(tag, slot\)\);/.test(spritesContent), true, 'buildZMap should add cosmetic tags');
-  strictEqual(/const \{ assets, style, offsets, cosmetics(?:, bodyColors)? } = ensureFighterSprites/.test(spritesContent), true, 'renderSprites should read cosmetics');
+  strictEqual(/const \{ assets, style, offsets, cosmetics(?:, bodyColors)?(?:, untintedOverlays: [^}]+)? } = ensureFighterSprites/.test(spritesContent), true, 'renderSprites should read cosmetics');
   strictEqual(/withBranchMirror\(ctx,\s*originX,\s*mirror,\s*\(\)\s*=>\s*\{\s*drawBoneSprite\(ctx, layer\.asset, bone, styleKey/.test(spritesContent), true, 'cosmetic layers should mirror with their limbs');
 });
 

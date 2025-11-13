@@ -392,6 +392,24 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
 
   // Get anchor config: anchors at bone midpoint by default
   const effectiveStyle = mergeSpriteStyles(style, options.styleOverride);
+  if (options.anchorOverride && typeof options.anchorOverride === 'object'){
+    const anchorSrc = options.anchorOverride;
+    const normalizedAnchor = {};
+    for (const [key, value] of Object.entries(anchorSrc)){
+      if (value == null) continue;
+      normalizedAnchor[key] = value;
+      const normalizedKey = normalizeStyleKey(key);
+      if (normalizedKey && normalizedKey !== key){
+        normalizedAnchor[normalizedKey] = value;
+      }
+    }
+    if (Object.keys(normalizedAnchor).length){
+      effectiveStyle.anchor = {
+        ...(effectiveStyle.anchor || {}),
+        ...normalizedAnchor
+      };
+    }
+  }
   const anchorCfg = effectiveStyle.anchor || {};
   const anchorMode = anchorCfg[styleKey] || 'mid';
   const resolvedAnchorMode = (options.anchorMode != null)
