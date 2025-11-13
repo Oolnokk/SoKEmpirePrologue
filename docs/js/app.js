@@ -320,12 +320,17 @@ function initCharacterDropdown() {
 
   console.log('[initCharacterDropdown] Character dropdown initialized with', characterKeys.length, 'characters');
 }
-// Initialize dropdowns on page load
-window.addEventListener('DOMContentLoaded', () => {
+
+function initSelectionDropdowns() {
   initWeaponDropdown();
   initAbilitySlotDropdowns();
   initCharacterDropdown();
   initFighterDropdown();
+}
+
+// Initialize dropdowns on page load
+window.addEventListener('DOMContentLoaded', () => {
+  initSelectionDropdowns();
 });
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=6';
@@ -458,14 +463,18 @@ if (reloadBtn){
   reloadBtn.addEventListener('click', async ()=>{
     try {
       if (statusInfo) statusInfo.textContent = 'Reloading config…';
+      const previousFighter = window.GAME?.selectedFighter || currentSelectedFighter || null;
       await window.reloadConfig?.();
       initPresets();
       ensureAltSequenceUsesKickAlt();
       applyRenderOrder();
-      initWeaponDropdown();
-      initAbilitySlotDropdowns();
-      initCharacterDropdown();
-      initFighterDropdown();
+      await initSprites();
+      initFighters(cv, cx);
+      initSelectionDropdowns();
+      if (previousFighter) {
+        scheduleFighterPreview(previousFighter);
+      }
+      scheduleConfigUpdatedEvent();
       if (statusInfo) statusInfo.textContent = 'Config reloaded';
     } catch (e){
       if (statusInfo) statusInfo.textContent = 'Config reload failed';
@@ -1446,7 +1455,7 @@ function boot(){
     initHitDetect();
     initDebugPanel();
     initTouchControls();
-    initFighterDropdown();
+    initSelectionDropdowns();
     requestAnimationFrame(loop);
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);
   } catch (e){
