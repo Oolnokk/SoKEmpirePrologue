@@ -543,9 +543,11 @@ export function renderSprites(ctx){
   const flipLeft = G.FLIP_STATE?.[entity] || false;
   const centerX = rig.center?.x ?? 0;
   const camX = window.GAME?.CAMERA?.x || 0;
+  const zoom = Number.isFinite(window.GAME?.CAMERA?.zoom) ? window.GAME.CAMERA.zoom : 1;
+  const canvasHeight = ctx.canvas?.height || 0;
 
   ctx.save();
-  ctx.translate(-camX, 0);
+  ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, canvasHeight * (1 - zoom));
 
   ctx.save();
   // Mirror around character center when facing left (matching reference HTML exactly)
@@ -731,7 +733,7 @@ export function renderSprites(ctx){
   }
 
   ctx.restore(); // Restore canvas state (undo flip if applied)
-  ctx.restore(); // Restore camera translation offset
+  ctx.restore(); // Restore camera/world transform
 }
 
 export function initSprites(){

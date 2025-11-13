@@ -354,6 +354,16 @@ window.CONFIG = {
   actor: { scale: 0.70 },
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },
+  camera: {
+    awareness: {
+      normalZoom: 1,
+      scaleOffset: 0.25,
+      minZoom: 0.6,
+      maxZoom: 1.3,
+      inactivitySeconds: 15,
+      smoothing: 0.08
+    }
+  },
   map: {
     gridUnit: 30,
     spawnLayerId: 'gameplay',
