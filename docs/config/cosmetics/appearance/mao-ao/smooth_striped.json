@@ -4,12 +4,12 @@
   "appearance": {
     "inheritSprite": "head",
     "bodyColors": ["B"],
-    "originalId": "mao-ao_smooth_stripedold2"
+    "originalId": "mao-ao_smooth_striped"
   },
   "parts": {
     "head": {
       "image": {
-        "url": "./assets/cosmetics/appearance/mao-ao/headhair/smooth_stripedold2.png"
+        "url": "./assets/cosmetics/appearance/mao-ao/headhair/smooth_striped.png"
       }
     }
   }

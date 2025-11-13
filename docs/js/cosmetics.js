@@ -703,10 +703,6 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
       const asset = ensureAsset(cosmetic.id, partKey, resolved.image);
       if (!asset) continue;
       let styleOverride = resolved.spriteStyle;
-      // If appearance cosmetic, merge parent fighter's style (baseStyle) into styleOverride
-      if (isAppearance && baseStyle && typeof baseStyle === 'object') {
-        styleOverride = mergeConfig(baseStyle, styleOverride);
-      }
       let warpOverride = resolved.warp;
       let anchorOverride = resolved.anchor;
       if (typeof resolved.anchor === 'string'){

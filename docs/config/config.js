@@ -508,16 +508,16 @@ window.CONFIG = {
         head:{ origin:{ax:0, ay:0} }
       },
       sprites: {
-        torso: { url: "./assets/fightersprites/mao-ao-m/torsoold2.png", bodyColor: 'A' },
-        head:  { url: "./assets/fightersprites/mao-ao-m/headold2.png", bodyColor: 'A' },
-        arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upperold2.png", bodyColor: 'A' },
-        arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lowerold2.png", bodyColor: 'A' },
-        arm_R_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upperold2.png", bodyColor: 'A' },
-        arm_R_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lowerold2.png", bodyColor: 'A' },
-        leg_L_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upperold2.png", bodyColor: 'A' },
-        leg_L_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lowerold2.png", bodyColor: 'A' },
-        leg_R_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upperold2.png", bodyColor: 'A' },
-        leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lowerold2.png", bodyColor: 'A' },
+        torso: { url: "./assets/fightersprites/mao-ao-m/torso.png", bodyColor: 'A' },
+        head:  { url: "./assets/fightersprites/mao-ao-m/head.png", bodyColor: 'A' },
+        arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'A' },
+        arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'A' },
+        arm_R_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'A' },
+        arm_R_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'A' },
+        leg_L_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'A' },
+        leg_L_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'A' },
+        leg_R_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'A' },
+        leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'A' }
       },
       spriteStyle: {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
