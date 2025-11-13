@@ -8,6 +8,19 @@ const STATE = (ROOT.COSMETIC_PALETTE_STATE ||= {
 const COLOR_KEYS = ['primary', 'secondary', 'tertiary'];
 const SHADE_KEYS = ['primary', 'secondary', 'tertiary'];
 
+function isSameOrigin(url){
+  if (!url && url !== '') return true;
+  const location = ROOT?.location;
+  if (!location || !location.origin) return true;
+  try {
+    const parsed = new URL(url, location.href);
+    if (parsed.origin === 'null') return true;
+    return parsed.origin === location.origin;
+  } catch (_err){
+    return false;
+  }
+}
+
 function clamp01(value){
   if (!Number.isFinite(value)) return 0;
   if (value < 0) return 0;
@@ -338,17 +351,27 @@ function getPaletteForImage(imageUrl){
     STATE.cache.set(paletteUrl, normalized);
     return normalized;
   }
+  if (!isSameOrigin(paletteUrl)){
+    STATE.cache.set(paletteUrl, null);
+    return null;
+  }
   if (typeof fetch === 'function'){
     try {
       fetch(paletteUrl, { credentials: 'same-origin' })
         .then((resp)=> resp.ok ? resp.json() : null)
         .then((json)=> {
-          if (!json) return null;
+          if (!json){
+            STATE.cache.set(paletteUrl, null);
+            return null;
+          }
           const normalized = normalizePaletteData(json, { url: paletteUrl });
           STATE.cache.set(paletteUrl, normalized);
           return normalized;
         })
-        .catch(()=> null);
+        .catch(()=> {
+          STATE.cache.set(paletteUrl, null);
+          return null;
+        });
     } catch (_err){
       // ignore fetch errors in non-browser environments
     }

@@ -2,7 +2,9 @@
   "./assets/cosmetics/clothes/legs/pants1LR(old).png",
   "./assets/cosmetics/clothes/legs/pants1LR.png",
   "./assets/cosmetics/clothes/legs/pants1_leg_LR.png",
+  "./assets/cosmetics/clothes/legs/pants1_leg_LR.palette.json",
   "./assets/cosmetics/clothes/legs/pants1_seat.png",
+  "./assets/cosmetics/clothes/legs/pants1_seat.palette.json",
   "./assets/fightersprites/Untitled293_20251027165607.png",
   "./assets/fightersprites/mao-ao-m/arm-lower.png",
   "./assets/fightersprites/mao-ao-m/arm-upper.png",
@@ -20,6 +22,5 @@
   "./assets/fightersprites/tletingan/torso.png",
   "./assets/fightersprites/tletingan/untinted_regions/ur-head.png",
   "./assets/fightersprites/tletingan/untinted_regions/ur-arm-lower.png",
-  "./assets/fightersprites/tletingan/untinted_regions/ur-leg-lower.png",
-  "./assets/fightersprites/mao-ao-m/untinted_overlays/ur-head.png"
+  "./assets/fightersprites/tletingan/untinted_regions/ur-leg-lower.png"
 ]
