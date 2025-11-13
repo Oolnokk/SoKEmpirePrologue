@@ -4,12 +4,12 @@
   "appearance": {
     "inheritSprite": "head",
     "bodyColors": ["B"],
-    "originalId": "mao-ao_circled_eye_L"
+    "originalId": "mao-ao_circled_eye_Lold2"
   },
   "parts": {
     "head": {
       "image": {
-        "url": "./assets/cosmetics/appearance/mao-ao/eyes/circled_left.png"
+        "url": "./assets/cosmetics/appearance/mao-ao/eyes/circled_leftold2.png"
       }
     }
   }
