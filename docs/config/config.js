@@ -434,7 +434,7 @@ window.CONFIG = {
         leg: { upper:{ origin:{ax:0, ay:0}, knee:{ax:0, ay:0}  }, lower:{ origin:{ax:0, ay:0} } },
         head:{ origin:{ax:-1, ay:6} }
       },
-        sprites: {
+      sprites: {
         torso: { url: "./assets/fightersprites/tletingan/torso.png", bodyColor: 'A' },
         head:  { url: "./assets/fightersprites/tletingan/head.png", bodyColor: 'A' },
         arm_L_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", bodyColor: 'A' },
@@ -458,6 +458,20 @@ window.CONFIG = {
             legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
           }
       },
+      untintedOverlays: [
+        {
+          url: "./assets/fightersprites/tletingan/untinted_regions/ur-head.png",
+          parts: ['head']
+        },
+        {
+          url: "./assets/fightersprites/tletingan/untinted_regions/ur-arm-lower.png",
+          parts: ['arm_L_lower', 'arm_R_lower']
+        },
+        {
+          url: "./assets/fightersprites/tletingan/untinted_regions/ur-leg-lower.png",
+          parts: ['leg_L_lower', 'leg_R_lower']
+        }
+      ],
       bodyColors: {
         A: { h: 68, s: 0.9, v: -0.5 },
         B: { h: -24, s: 0.18, v: 0.05 },
@@ -504,6 +518,12 @@ window.CONFIG = {
             legLower: { ax:-0.0,  ay:0.2,  scaleX:1.7, scaleY:2.1, rotDeg:-4 }
           }
       },
+      untintedOverlays: [
+        {
+          url: "./assets/fightersprites/mao-ao-m/untinted_overlays/ur-head.png",
+          parts: ['head']
+        }
+      ],
       bodyColors: {
         A: { h: 18, s: 1, v: 0.9 },
         B: { h: -24, s: 0.18, v: 0.05 },

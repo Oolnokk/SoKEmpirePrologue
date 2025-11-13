@@ -21,6 +21,11 @@ const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
 RENDER.MIRROR = RENDER.MIRROR || {}; // Initialize per-limb mirror flags
 
+function ensureArray(value){
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
 function hasHslAdjustments(hsl){
   if (!hsl) return false;
   return (Number.isFinite(hsl.h) && hsl.h !== 0)
@@ -557,6 +562,17 @@ export function renderSprites(ctx){
     return undefined;
   }
 
+  const untintedOverlays = ensureFighterSprites.__lastResult?.untintedOverlays || {};
+  const overlayMap = untintedOverlays || {};
+  function drawUntintedOverlays(partKey, bone, styleKey){
+    const overlays = overlayMap[partKey];
+    if (!overlays || overlays.length === 0) return;
+    for (const overlay of overlays){
+      const key = overlay?.styleKey || styleKey;
+      drawBoneSprite(ctx, overlay?.asset, bone, key, style, offsets, overlay?.options || undefined);
+    }
+  }
+
   // Hitbox (if desired)
   // enqueue('HITBOX', ()=> { /* draw hitbox if needed */ });
 
@@ -564,11 +580,13 @@ export function renderSprites(ctx){
   enqueue('TORSO', ()=>{
     if (assets.torso && rig.torso){
       drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, offsets, makeTintOptions(assets.torso));
+      drawUntintedOverlays('torso', rig.torso, 'torso');
     }
   });
   enqueue('HEAD', ()=>{
     if (assets.head && rig.head){
       drawBoneSprite(ctx, assets.head, rig.head, 'head', style, offsets, makeTintOptions(assets.head));
+      drawUntintedOverlays('head', rig.head, 'head');
     }
   });
 
@@ -581,6 +599,7 @@ export function renderSprites(ctx){
       const originX = lArmUpper.x;
       withBranchMirror(ctx, originX, lArmMirror, ()=> {
         drawBoneSprite(ctx, assets.arm_L_upper, lArmUpper, 'arm_L_upper', style, offsets, makeTintOptions(assets.arm_L_upper));
+        drawUntintedOverlays('arm_L_upper', lArmUpper, 'arm_L_upper');
       });
     });
   }
@@ -589,6 +608,7 @@ export function renderSprites(ctx){
       const originX = lArmUpper?.x ?? lArmLower.x;
       withBranchMirror(ctx, originX, lArmMirror, ()=> {
         drawBoneSprite(ctx, assets.arm_L_lower, lArmLower, 'arm_L_lower', style, offsets, makeTintOptions(assets.arm_L_lower));
+        drawUntintedOverlays('arm_L_lower', lArmLower, 'arm_L_lower');
       });
     });
   }
@@ -602,6 +622,7 @@ export function renderSprites(ctx){
       const originX = rArmUpper.x;
       withBranchMirror(ctx, originX, rArmMirror, ()=> {
         drawBoneSprite(ctx, assets.arm_R_upper, rArmUpper, 'arm_R_upper', style, offsets, makeTintOptions(assets.arm_R_upper));
+        drawUntintedOverlays('arm_R_upper', rArmUpper, 'arm_R_upper');
       });
     });
   }
@@ -610,6 +631,7 @@ export function renderSprites(ctx){
       const originX = rArmUpper?.x ?? rArmLower.x;
       withBranchMirror(ctx, originX, rArmMirror, ()=> {
         drawBoneSprite(ctx, assets.arm_R_lower, rArmLower, 'arm_R_lower', style, offsets, makeTintOptions(assets.arm_R_lower));
+        drawUntintedOverlays('arm_R_lower', rArmLower, 'arm_R_lower');
       });
     });
   }
@@ -623,6 +645,7 @@ export function renderSprites(ctx){
       const originX = lLegUpper.x;
       withBranchMirror(ctx, originX, lLegMirror, ()=> {
         drawBoneSprite(ctx, assets.leg_L_upper, lLegUpper, 'leg_L_upper', style, offsets, makeTintOptions(assets.leg_L_upper));
+        drawUntintedOverlays('leg_L_upper', lLegUpper, 'leg_L_upper');
       });
     });
   }
@@ -631,6 +654,7 @@ export function renderSprites(ctx){
       const originX = lLegUpper?.x ?? lLegLower.x;
       withBranchMirror(ctx, originX, lLegMirror, ()=> {
         drawBoneSprite(ctx, assets.leg_L_lower, lLegLower, 'leg_L_lower', style, offsets, makeTintOptions(assets.leg_L_lower));
+        drawUntintedOverlays('leg_L_lower', lLegLower, 'leg_L_lower');
       });
     });
   }
@@ -644,6 +668,7 @@ export function renderSprites(ctx){
       const originX = rLegUpper.x;
       withBranchMirror(ctx, originX, rLegMirror, ()=> {
         drawBoneSprite(ctx, assets.leg_R_upper, rLegUpper, 'leg_R_upper', style, offsets, makeTintOptions(assets.leg_R_upper));
+        drawUntintedOverlays('leg_R_upper', rLegUpper, 'leg_R_upper');
       });
     });
   }
@@ -652,6 +677,7 @@ export function renderSprites(ctx){
       const originX = rLegUpper?.x ?? rLegLower.x;
       withBranchMirror(ctx, originX, rLegMirror, ()=> {
         drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, offsets, makeTintOptions(assets.leg_R_lower));
+        drawUntintedOverlays('leg_R_lower', rLegLower, 'leg_R_lower');
       });
     });
   }
@@ -712,6 +738,67 @@ function resolveSpriteAssets(spriteMap){
   }
 }
 
+function resolveUntintedOverlayMap(fighterConfig = {}){
+  const source = fighterConfig.untintedOverlays
+    || fighterConfig.sprites?.untintedOverlays
+    || fighterConfig.sprites?.untinted_regions;
+  if (!source) return {};
+
+  const entries = Array.isArray(source)
+    ? source
+    : Object.values(source);
+
+  const map = {};
+
+  for (const entry of entries){
+    if (!entry || typeof entry !== 'object') continue;
+
+    const parts = ensureArray(entry.parts || entry.part || entry.targets || entry.target);
+    if (!parts.length) continue;
+
+    const url = entry.url || entry.href;
+    if (!url || typeof url !== 'string') continue;
+
+    const asset = entry.asset && typeof entry.asset === 'object'
+      ? entry.asset
+      : { url };
+    if (!asset.img || asset.img.src !== url){
+      asset.img = load(url);
+    }
+
+    const alignRad = Number.isFinite(entry.alignRad)
+      ? entry.alignRad
+      : (Number.isFinite(entry.alignDeg) ? degToRad(entry.alignDeg) : undefined);
+
+    const baseOptions = {};
+    if (Number.isFinite(alignRad)){
+      baseOptions.alignRad = alignRad;
+    }
+    if (entry.anchorMode != null){
+      baseOptions.anchorMode = entry.anchorMode;
+    }
+    if (entry.styleOverride){
+      baseOptions.styleOverride = entry.styleOverride;
+    }
+    if (entry.warp){
+      baseOptions.warp = entry.warp;
+    }
+
+    for (const rawPart of parts){
+      const partKey = String(rawPart || '').trim();
+      if (!partKey) continue;
+      const list = map[partKey] || (map[partKey] = []);
+      list.push({
+        asset,
+        styleKey: entry.styleKey,
+        options: { ...baseOptions }
+      });
+    }
+  }
+
+  return map;
+}
+
 // Interface for external logic
 export function ensureFighterSprites(C, fname){
   const f = C.fighters?.[fname] || {};
@@ -742,6 +829,9 @@ export function ensureFighterSprites(C, fname){
   
   const cosmetics = ensureCosmeticLayers(C, fname, style);
   const bodyColors = resolveFighterBodyColors(C, fname);
+  const untintedOverlays = resolveUntintedOverlayMap(f);
 
-  return { assets: S, style, offsets, cosmetics, bodyColors };
+  const result = { assets: S, style, offsets, cosmetics, bodyColors, untintedOverlays };
+  ensureFighterSprites.__lastResult = result;
+  return result;
 }

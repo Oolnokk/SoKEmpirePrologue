@@ -17,5 +17,9 @@
   "./assets/fightersprites/tletingan/head.png",
   "./assets/fightersprites/tletingan/leg-lower.png",
   "./assets/fightersprites/tletingan/leg-upper.png",
-  "./assets/fightersprites/tletingan/torso.png"
+  "./assets/fightersprites/tletingan/torso.png",
+  "./assets/fightersprites/tletingan/untinted_regions/ur-head.png",
+  "./assets/fightersprites/tletingan/untinted_regions/ur-arm-lower.png",
+  "./assets/fightersprites/tletingan/untinted_regions/ur-leg-lower.png",
+  "./assets/fightersprites/mao-ao-m/untinted_overlays/ur-head.png"
 ]
