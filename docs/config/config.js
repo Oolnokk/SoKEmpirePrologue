@@ -357,6 +357,9 @@ window.CONFIG = {
   map: {
     gridUnit: 30,
     spawnLayerId: 'gameplay',
+    prefabManifests: [
+      './config/prefabs/structures/index.json',
+    ],
     layouts: [
       {
         id: 'examplestreet',
