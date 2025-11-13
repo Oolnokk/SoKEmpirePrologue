@@ -538,7 +538,7 @@ export function renderSprites(ctx){
 
   // RENDER.MIRROR flags control per-limb mirroring (e.g., for attack animations)
   
-  const { assets, style, offsets, cosmetics, bodyColors } = ensureFighterSprites(C, fname);
+  const { assets, style, offsets, cosmetics, bodyColors, untintedOverlays: activeUntintedOverlays } = ensureFighterSprites(C, fname);
 
   const zOf = buildZMap(C);
   const queue = [];
@@ -562,8 +562,7 @@ export function renderSprites(ctx){
     return undefined;
   }
 
-  const untintedOverlays = ensureFighterSprites.__lastResult?.untintedOverlays || {};
-  const overlayMap = untintedOverlays || {};
+  const overlayMap = activeUntintedOverlays || {};
   function drawUntintedOverlays(partKey, bone, styleKey){
     const overlays = overlayMap[partKey];
     if (!overlays || overlays.length === 0) return;
@@ -694,7 +693,7 @@ export function renderSprites(ctx){
           withBranchMirror(ctx, originX, mirror, ()=>{
             drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, {
               styleOverride: layer.styleOverride,
-              hsv: layer.hsv,
+              hsl: layer.hsl ?? layer.hsv,
               warp: layer.warp,
               alignRad: layer.alignRad,
               alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
