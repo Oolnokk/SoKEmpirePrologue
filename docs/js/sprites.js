@@ -373,6 +373,15 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   if (!img.complete) return false;
   if (!(img.naturalWidth > 0 && img.naturalHeight > 0)) return false;
 
+  // Debug: log image dimensions for cosmetics and parent sprites
+  if (asset && asset.isCosmetic) {
+    const parentSprite = (window.CONFIG?.fighters?.[window.GAME?.selectedFighter]?.sprites?.[styleKey] || {});
+    const parentImg = parentSprite.img;
+    const cosmeticDims = `${img.naturalWidth}x${img.naturalHeight}`;
+    const parentDims = parentImg ? `${parentImg.naturalWidth}x${parentImg.naturalHeight}` : 'N/A';
+    console.log(`[cosmetic debug] Cosmetic '${styleKey}' image: ${cosmeticDims}, Parent sprite: ${parentDims}`);
+  }
+
   const { image: renderImage, applyFilter } = prepareImageForHSL(img, options.hsl);
   const sourceImage = renderImage || img;
 
