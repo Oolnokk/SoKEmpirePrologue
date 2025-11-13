@@ -14,7 +14,7 @@ export function initControls(){
   function setButton(btn, down){
     const state = I[btn];
     if (!state) return;
-    
+
     const wasDown = state.down;
     state.down = down;
     
@@ -41,7 +41,15 @@ export function initControls(){
     }
   }
   
+  const blockSelector = '[data-block-game-input]';
+
+  function isBlockedTarget(target){
+    if (!target || typeof target.closest !== 'function') return false;
+    return !!target.closest(blockSelector);
+  }
+
   function onMouse(e, down){
+    if (down && isBlockedTarget(e.target)) return;
     if (e.button===0) setButton('buttonA', down);
     else if (e.button===2) setButton('buttonB', down);
   }
@@ -50,7 +58,10 @@ export function initControls(){
   window.addEventListener('keyup',   e=>onKey(e,false));
   window.addEventListener('mousedown', e=>onMouse(e,true));
   window.addEventListener('mouseup',   e=>onMouse(e,false));
-  window.addEventListener('contextmenu', e=>e.preventDefault()); // Prevent right-click menu
+  window.addEventListener('contextmenu', e=>{
+    if (isBlockedTarget(e.target)) return;
+    e.preventDefault();
+  }); // Prevent right-click menu over game viewport
   window.addEventListener('blur', ()=>{ 
     Object.assign(I,{left:false,right:false,jump:false,dash:false});
     I.buttonA.down = false;
