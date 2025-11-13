@@ -12,10 +12,15 @@ let lastLoggedAreaId = null;
 function measureViewportWidth(canvas) {
   if (!canvas) return null;
 
+  const attrWidth = Number.isFinite(canvas.width) ? canvas.width : null;
+
   try {
     if (typeof canvas.getBoundingClientRect === 'function') {
       const rect = canvas.getBoundingClientRect();
       if (rect && Number.isFinite(rect.width) && rect.width > 0) {
+        if (attrWidth && attrWidth > 0) {
+          return attrWidth;
+        }
         return rect.width;
       }
     }
@@ -23,17 +28,23 @@ function measureViewportWidth(canvas) {
     // Ignore DOM measurement failures (e.g., detached canvas)
   }
 
+  if (attrWidth && attrWidth > 0) {
+    return attrWidth;
+  }
+
   const clientWidth = Number.isFinite(canvas.clientWidth) ? canvas.clientWidth : null;
   if (clientWidth && clientWidth > 0) {
     return clientWidth;
   }
 
-  const attrWidth = Number.isFinite(canvas.width) ? canvas.width : null;
-  if (attrWidth && attrWidth > 0) {
-    return attrWidth;
-  }
-
   return null;
+}
+
+function getManualCameraOffset() {
+  const config = (typeof window !== 'undefined' && window.CONFIG) ? window.CONFIG : null;
+  if (!config || !config.camera) return 0;
+  const manual = config.camera.manualOffsetX;
+  return Number.isFinite(manual) ? manual : 0;
 }
 
 function clamp(value, min, max) {
@@ -99,6 +110,7 @@ function syncCameraToArea(area) {
   const span = Math.max(bounds.max - bounds.min, viewportWidth, 1);
   const maxTarget = bounds.min + span - viewportWidth;
   const clampedStart = clamp(area?.camera?.startX, bounds.min, maxTarget);
+  const manualOffset = getManualCameraOffset();
 
   camera.bounds = { min: bounds.min, max: bounds.min + span };
   camera.worldWidth = span;
@@ -107,7 +119,7 @@ function syncCameraToArea(area) {
     : camera.zoom;
 
   if (Number.isFinite(clampedStart)) {
-    camera.x = clampedStart;
+    camera.x = clamp(clampedStart + manualOffset, bounds.min, maxTarget);
   } else {
     camera.x = clamp(camera.x, bounds.min, maxTarget);
   }
@@ -214,7 +226,8 @@ export function updateCamera(canvas) {
       });
     }
   }
-  const desiredX = playerX - viewportWidth * 0.5;
+  const manualOffset = getManualCameraOffset();
+  const desiredX = playerX - viewportWidth * 0.5 + manualOffset;
   const target = clamp(desiredX, minBound, maxCameraX);
 
   const smoothing = Number.isFinite(camera.smoothing) ? camera.smoothing : DEFAULT_SMOOTHING;

@@ -216,6 +216,7 @@ function createPoseEditorInputs(container, fighter, config) {
   const configInputs = [
     { key: 'actorScale', path: 'actor.scale', label: 'Actor Scale', min: 0.5, max: 1.5, step: 0.05 },
     { key: 'groundRatio', path: 'groundRatio', label: 'Ground Ratio', min: 0.5, max: 0.95, step: 0.01 },
+    { key: 'cameraOffsetX', path: 'camera.manualOffsetX', label: 'Camera Offset X', min: -400, max: 400, step: 1 },
     { key: 'authoredWeight', path: 'movement.authoredWeight', label: 'Authored Weight', min: 0, max: 1, step: 0.05 },
     { key: 'physicsWeight', path: 'movement.physicsWeight', label: 'Physics Weight', min: 0, max: 1, step: 0.05 }
   ];
