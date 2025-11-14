@@ -1857,6 +1857,67 @@ class CosmeticEditorApp {
       return overrides;
     };
 
+    const refreshPreviewFighter = (fighterName, { characterKey = null, fighterConfig = {}, characterData = null } = {})=>{
+      const fighters = GAME.FIGHTERS || {};
+      const playerEntry = fighters.player;
+      if (!playerEntry) return;
+
+      for (const key of Object.keys(fighters)){
+        if (key === 'player') continue;
+        delete fighters[key];
+        if (GAME.CHARACTER_STATE){
+          delete GAME.CHARACTER_STATE[key];
+        }
+      }
+
+      const renderProfile = (playerEntry.renderProfile ||= {});
+      renderProfile.fighterName = fighterName;
+      renderProfile.characterKey = characterKey || null;
+      renderProfile.character = characterData ? this.deepClone(characterData) : null;
+
+      const baseBodyColors = characterData?.bodyColors || fighterConfig.bodyColors;
+      if (baseBodyColors){
+        renderProfile.bodyColors = this.deepClone(baseBodyColors);
+      } else {
+        delete renderProfile.bodyColors;
+      }
+
+      const baseCosmetics = characterData?.cosmetics || fighterConfig.cosmetics;
+      if (baseCosmetics){
+        renderProfile.cosmetics = this.deepClone(baseCosmetics);
+      } else {
+        delete renderProfile.cosmetics;
+      }
+
+      const baseAppearance = characterData?.appearance || null;
+      if (baseAppearance){
+        renderProfile.appearance = this.deepClone(baseAppearance);
+      } else {
+        delete renderProfile.appearance;
+      }
+
+      renderProfile.weapon = characterData?.weapon ?? fighterConfig.weapon ?? null;
+      if (Array.isArray(characterData?.slottedAbilities)){
+        renderProfile.slottedAbilities = characterData.slottedAbilities.slice();
+      } else if (Array.isArray(fighterConfig.slottedAbilities)){
+        renderProfile.slottedAbilities = fighterConfig.slottedAbilities.slice();
+      } else {
+        delete renderProfile.slottedAbilities;
+      }
+
+      if (characterData?.stats){
+        renderProfile.stats = this.deepClone(characterData.stats);
+      } else if (fighterConfig.stats){
+        renderProfile.stats = this.deepClone(fighterConfig.stats);
+      } else {
+        delete renderProfile.stats;
+      }
+
+      if (GAME.CHARACTER_STATE){
+        GAME.CHARACTER_STATE.player = this.deepClone(renderProfile);
+      }
+    };
+
     const populateFighterSelect = ()=>{
       const select = this.dom.fighterSelect;
       if (!select) return;
@@ -1889,7 +1950,8 @@ class CosmeticEditorApp {
       GAME.selectedFighter = fighterName;
       this.state.activeFighter = fighterName;
       const fighter = CONFIG.fighters?.[fighterName] || {};
-      const { appearance: characterAppearance } = resolveCharacterAppearance(CONFIG, fighterName);
+      const { appearance: characterAppearance, characterKey } = resolveCharacterAppearance(CONFIG, fighterName);
+      const characterData = characterKey ? CONFIG.characters?.[characterKey] || null : null;
       const appearance = registerFighterAppearance(
         fighterName,
         fighter.appearance || {},
@@ -1918,6 +1980,8 @@ class CosmeticEditorApp {
       this.state.profileBaseSnapshot = this.deepClone(profile || { cosmetics: {} });
       this.state.loadedProfile = this.deepClone(profile?.cosmetics || {});
       this.state.slotOverrides = mapProfileToSlotOverrides(slotMap, profile);
+      GAME.selectedCharacter = characterKey || null;
+      refreshPreviewFighter(fighterName, { characterKey, fighterConfig: fighter, characterData });
       this.state.activeSlot = null;
       this.state.activePartKey = null;
       this.slotGrid.rebuild();
