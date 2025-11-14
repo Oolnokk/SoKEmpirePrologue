@@ -331,12 +331,13 @@ export function initFighters(cv, cx){
     if (!characterKey || !characters[characterKey]) {
       characterKey = resolveCharacterKey(id);
     }
-    let characterData = prevProfile?.character ? clone(prevProfile.character) : null;
+    let characterData = null;
     if (id === 'npc' && hasNpcCharacter) {
       characterData = clone(characters.npc);
-    }
-    if (!characterData && characterKey && characters[characterKey]) {
+    } else if (characterKey && characters[characterKey]) {
       characterData = clone(characters[characterKey]);
+    } else if (prevProfile?.character) {
+      characterData = clone(prevProfile.character);
     }
 
     const fighterName = resolveFighterName(id, characterData, prevProfile);
