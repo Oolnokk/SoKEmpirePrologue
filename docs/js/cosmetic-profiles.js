@@ -24,5 +24,9 @@ const loadEntries = Object.entries(sources)
 if (typeof fetch !== 'function'){
   console.warn('[cosmetics] Skipping fighter profile loading: fetch is unavailable in this environment');
 } else if (loadEntries.length){
-  await Promise.all(loadEntries.map(([fighterName, url]) => loadProfile(fighterName, url)));
+  for (const [fighterName, url] of loadEntries){
+    // Sequential load mirrors the cosmetic library to keep fetch pressure low.
+    // eslint-disable-next-line no-await-in-loop
+    await loadProfile(fighterName, url);
+  }
 }

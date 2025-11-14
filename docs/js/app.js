@@ -422,7 +422,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 import { initNpcSystems, updateNpcSystems } from './npc.js?v=2';
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
-import { initFighters } from './fighter.js?v=9';
+import { initFighters } from './fighter.js?v=8';
 import { initControls } from './controls.js?v=7';
 import { initCombat } from './combat.js?v=19';
 import { updatePoses } from './animator.js?v=4';

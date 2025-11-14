@@ -1,4 +1,4 @@
-import { spawnAdditionalNpc, removeNpcFighter, reviveFighter, applyNpcTemplate } from './fighter.js?v=9';
+import { spawnAdditionalNpc, removeNpcFighter, reviveFighter } from './fighter.js?v=8';
 import { getActiveNpcFighters, registerNpcFighter, unregisterNpcFighter } from './npc.js?v=2';
 
 const DEFAULT_BOUNTY_CONFIG = {
@@ -149,7 +149,7 @@ function spawnWave(state, config) {
       y: spawn.y ?? 0,
       facingSign: -1,
       waveId: state.wave + 1,
-      templateId,
+      templateId: getBountyNpcTemplateId(),
     });
     if (!npc) continue;
     registerNpcFighter(npc, { immediateAggro: true });
