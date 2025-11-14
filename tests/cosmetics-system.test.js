@@ -26,6 +26,7 @@ test('COSMETIC_SLOTS includes all required slots', () => {
 
 test('cosmeticTagFor uppercases base tag and slot', () => {
   strictEqual(cosmeticTagFor('torso', 'hat'), 'TORSO__COS__HAT');
+  strictEqual(cosmeticTagFor('torso', 'hat', 'back'), 'TORSO__COS__HAT__BACK');
 });
 
 test('ensureCosmeticLayers resolves equipment with HSL limits applied', () => {
@@ -69,6 +70,7 @@ test('ensureCosmeticLayers resolves equipment with HSL limits applied', () => {
   strictEqual(layers.length, 1);
   strictEqual(layers[0].slot, 'hat');
   strictEqual(layers[0].partKey, 'head');
+  strictEqual(layers[0].position, 'front');
   deepStrictEqual(layers[0].hsl, { h: 30, s: 0.25, l: 0.5 });
   strictEqual(typeof layers[0].styleOverride, 'object');
 });
@@ -103,6 +105,7 @@ test('ensureCosmeticLayers normalizes hsl arrays and string values', () => {
   };
   const layers = ensureCosmeticLayers(config, 'hero', {});
   strictEqual(layers.length, 1);
+  strictEqual(layers[0].position, 'front');
   deepStrictEqual(layers[0].hsl, { h: 30, s: 0.4, l: -0.2 });
 });
 
@@ -138,8 +141,45 @@ test('ensureCosmeticLayers interprets percentage-style saturation and lightness'
   strictEqual(layers.length, 2);
   layers.forEach((layer) => {
     strictEqual(layer.slot, 'legs');
+    strictEqual(layer.position, 'front');
     deepStrictEqual(layer.hsl, { h: 10, s: 0.5, l: -0.5 });
   });
+});
+
+test('ensureCosmeticLayers expands layered part definitions', () => {
+  clearCosmeticCache();
+  clearPaletteCache();
+  const config = {
+    cosmeticLibrary: {
+      layered_hat: {
+        slot: 'hat',
+        parts: {
+          head: {
+            layers: {
+              back: { image: { url: 'https://example.com/hair-back.png' } },
+              front: { image: { url: 'https://example.com/hair-front.png' } }
+            }
+          }
+        }
+      }
+    },
+    fighters: {
+      hero: {
+        cosmetics: {
+          slots: {
+            hat: 'layered_hat'
+          }
+        }
+      }
+    }
+  };
+
+  const layers = ensureCosmeticLayers(config, 'hero', {});
+  strictEqual(layers.length, 2);
+  const back = layers.find((layer) => layer.position === 'back');
+  const front = layers.find((layer) => layer.position !== 'back');
+  strictEqual(back?.asset?.url, 'https://example.com/hair-back.png');
+  strictEqual(front?.asset?.url, 'https://example.com/hair-front.png');
 });
 
 test('appearance cosmetics inherit character body colors', () => {

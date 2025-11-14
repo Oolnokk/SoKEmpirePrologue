@@ -14,13 +14,15 @@
   "./assets/fightersprites/mao-ao-m/leg-upper_mint.png",
   "./assets/fightersprites/mao-ao-m/tail_mint.png",
   "./assets/fightersprites/mao-ao-m/torso.png",
-  "./assets/fightersprites/tletingan/arm-lower.png",
-  "./assets/fightersprites/tletingan/arm-upper.png",
-  "./assets/fightersprites/tletingan/head.png",
-  "./assets/fightersprites/tletingan/leg-lower.png",
-  "./assets/fightersprites/tletingan/leg-upper.png",
-  "./assets/fightersprites/tletingan/torso.png",
+  "./assets/fightersprites/tletingan/arm-lower_mint.png",
+  "./assets/fightersprites/tletingan/arm-upper_mint.png",
+  "./assets/fightersprites/tletingan/head_mint.png",
+  "./assets/fightersprites/tletingan/leg-lower_mint.png",
+  "./assets/fightersprites/tletingan/leg-upper_mint.png",
+  "./assets/fightersprites/tletingan/torso_mint.png",
   "./assets/fightersprites/tletingan/untinted_regions/ur-head.png",
   "./assets/fightersprites/tletingan/untinted_regions/ur-arm-lower.png",
-  "./assets/fightersprites/tletingan/untinted_regions/ur-leg-lower.png"
+  "./assets/fightersprites/tletingan/untinted_regions/ur-leg-lower.png",
+  "./assets/prefabs/structures/towers/tower_commercial_near.png",
+  "./assets/prefabs/structures/towers/tower_general_far.png"
 ]

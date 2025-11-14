@@ -601,14 +601,34 @@ function clampHSL(input = {}, cosmetic){
   };
 }
 
+function normalizeLayerPosition(value, fallback = 'front'){
+  if (!value) return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (normalized === 'back' || normalized === 'behind' || normalized === 'rear'){
+    return 'back';
+  }
+  if (normalized === 'front' || normalized === 'ahead' || normalized === 'fore'){
+    return 'front';
+  }
+  return fallback;
+}
+
 function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
-  let imageCfg = pickPerFighter(partConfig.image || partConfig.images, fighterName);
-  let styleCfg = pickPerFighter(partConfig.spriteStyle, fighterName);
-  let warpCfg = pickPerFighter(partConfig.warp, fighterName);
-  let anchorCfg = pickPerFighter(partConfig.anchor, fighterName);
-  let alignCfg = pickPerFighter(partConfig.align, fighterName);
-  let extra = (partConfig.extra && typeof partConfig.extra === 'object') ? deepMerge({}, partConfig.extra) : (partConfig.extra || {});
-  let styleKey = partConfig.styleKey || partConfig.style || partConfig.styleName;
+  const {
+    layers: _ignoredLayers,
+    layerPosition: _ignoredLayerPosition,
+    position: _ignoredPosition,
+    ...cleanConfig
+  } = partConfig || {};
+
+  let imageCfg = pickPerFighter(cleanConfig.image || cleanConfig.images, fighterName);
+  let styleCfg = pickPerFighter(cleanConfig.spriteStyle, fighterName);
+  let warpCfg = pickPerFighter(cleanConfig.warp, fighterName);
+  let anchorCfg = pickPerFighter(cleanConfig.anchor, fighterName);
+  let alignCfg = pickPerFighter(cleanConfig.align, fighterName);
+  let extra = (cleanConfig.extra && typeof cleanConfig.extra === 'object') ? deepMerge({}, cleanConfig.extra) : (cleanConfig.extra || {});
+  let styleKey = cleanConfig.styleKey || cleanConfig.style || cleanConfig.styleName;
   const profileOverrides = getProfilePartOverrides(fighterName, cosmeticId, partKey);
   if (profileOverrides){
     imageCfg = mergeConfig(imageCfg, profileOverrides.image);
@@ -633,9 +653,47 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
   };
 }
 
-function ensureAsset(cosmeticId, partKey, imageCfg){
+function mergePartLayerBase(baseConfig = {}, override = {}){
+  const {
+    layers: _ignoredLayers,
+    layerPosition: _ignoredLayerPosition,
+    position: _ignoredPosition,
+    ...cleanOverride
+  } = override || {};
+  return deepMerge(baseConfig, cleanOverride || {});
+}
+
+function resolvePartLayers(partKey, partConfig = {}, fighterName, cosmeticId){
+  const basePosition = normalizeLayerPosition(partConfig.position || partConfig.layerPosition, 'front');
+  const {
+    layers: rawLayers,
+    layerPosition: _ignoredLayerPosition,
+    position: _ignoredPosition,
+    ...baseConfig
+  } = partConfig || {};
+  const layers = [];
+  const layerEntries = (rawLayers && typeof rawLayers === 'object' && !Array.isArray(rawLayers))
+    ? Object.entries(rawLayers)
+    : [];
+  if (layerEntries.length === 0){
+    const resolved = resolvePartConfig(baseConfig, fighterName, cosmeticId, partKey);
+    layers.push({ position: basePosition, config: resolved });
+    return layers;
+  }
+  for (const [key, layerOverride] of layerEntries){
+    if (!layerOverride || typeof layerOverride !== 'object') continue;
+    const position = normalizeLayerPosition(layerOverride.position || key, basePosition);
+    const mergedRaw = mergePartLayerBase(deepMerge({}, baseConfig), layerOverride);
+    const resolved = resolvePartConfig(mergedRaw, fighterName, cosmeticId, partKey);
+    layers.push({ position, config: resolved });
+  }
+  return layers;
+}
+
+function ensureAsset(cosmeticId, partKey, imageCfg, layerPosition){
   if (!imageCfg || !imageCfg.url) return null;
-  const key = `${cosmeticId}::${partKey}::${imageCfg.url}`;
+  const suffix = layerPosition ? `::${layerPosition}` : '';
+  const key = `${cosmeticId}::${partKey}${suffix}::${imageCfg.url}`;
   let asset = STATE.assets?.get(key);
   if (!STATE.assets){
     STATE.assets = new Map();
@@ -657,8 +715,13 @@ function ensureAsset(cosmeticId, partKey, imageCfg){
   return asset;
 }
 
-export function cosmeticTagFor(baseTag, slot){
-  return `${String(baseTag || '').toUpperCase()}__COS__${String(slot || '').toUpperCase()}`;
+export function cosmeticTagFor(baseTag, slot, position){
+  const base = `${String(baseTag || '').toUpperCase()}__COS__${String(slot || '').toUpperCase()}`;
+  const pos = position == null ? null : String(position).trim().toUpperCase();
+  if (!pos || pos === 'FRONT'){
+    return base;
+  }
+  return `${base}__${pos}`;
 }
 
 function normalizeEquipment(slotEntry){
@@ -775,88 +838,126 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
       slotHSL = clampHSL({ ...slotHSL, ...slotOverride.hsl }, cosmetic);
     }
     for (const [partKey, partConfig] of Object.entries(cosmetic.parts || {})){
-      const resolved = resolvePartConfig(partConfig, fighterName, cosmetic.id, partKey);
+      const partLayers = resolvePartLayers(partKey, partConfig, fighterName, cosmetic.id);
+      if (!Array.isArray(partLayers) || partLayers.length === 0) continue;
       const partOverride = slotOverride?.parts?.[partKey];
-      if (slotOverride?.image){
-        resolved.image = mergeConfig(resolved.image, slotOverride.image);
-      }
-      if (partOverride?.image){
-        resolved.image = mergeConfig(resolved.image, partOverride.image);
-      }
-      if (!resolved?.image?.url) continue;
-      const asset = ensureAsset(cosmetic.id, partKey, resolved.image);
-      if (!asset) continue;
-      let styleOverride = resolved.spriteStyle;
-      let warpOverride = resolved.warp;
-      let anchorOverride = resolved.anchor;
-      if (typeof resolved.anchor === 'string'){
-        styleOverride = {
-          ...(styleOverride || {}),
-          anchor: { ...(styleOverride?.anchor || {}), [partKey]: resolved.anchor }
+      for (const { position, config: baseLayerConfig } of partLayers){
+        if (!baseLayerConfig) continue;
+        const layerPosition = position || 'front';
+        const resolved = {
+          ...baseLayerConfig,
+          image: baseLayerConfig.image ? deepMerge({}, baseLayerConfig.image) : baseLayerConfig.image,
+          spriteStyle: baseLayerConfig.spriteStyle ? deepMerge({}, baseLayerConfig.spriteStyle) : baseLayerConfig.spriteStyle,
+          warp: baseLayerConfig.warp ? deepMerge({}, baseLayerConfig.warp) : baseLayerConfig.warp,
+          anchor: baseLayerConfig.anchor ? deepMerge({}, baseLayerConfig.anchor) : baseLayerConfig.anchor,
+          align: baseLayerConfig.align ? deepMerge({}, baseLayerConfig.align) : baseLayerConfig.align,
+          extra: baseLayerConfig.extra ? deepMerge({}, baseLayerConfig.extra) : {}
         };
-      } else if (resolved.anchor && typeof resolved.anchor === 'object' && !Array.isArray(resolved.anchor)){
-        styleOverride = {
-          ...(styleOverride || {}),
-          anchor: { ...(styleOverride?.anchor || {}), ...resolved.anchor }
+        const slotLayerOverride = slotOverride?.layers?.[layerPosition];
+        const partLayerOverride = partOverride?.layers?.[layerPosition];
+
+        let styleOverride = resolved.spriteStyle;
+        let warpOverride = resolved.warp;
+        let anchorOverride = resolved.anchor;
+        let alignOverride = resolved.align;
+        let styleKey = resolved.styleKey;
+        let layerExtra = resolved.extra ? deepMerge({}, resolved.extra) : {};
+        let paletteOverride = resolved.palette ? deepMerge({}, resolved.palette) : resolved.palette;
+        let hsl = isAppearance ? { ...slotHSL } : { ...slotHSL };
+
+        const applyOverrides = (override, { applyTint = true } = {})=>{
+          if (!override || typeof override !== 'object') return;
+          if (override.image){
+            resolved.image = mergeConfig(resolved.image, override.image);
+          }
+          if (override.spriteStyle){
+            styleOverride = mergeConfig(styleOverride, override.spriteStyle);
+          }
+          if (override.warp){
+            warpOverride = mergeConfig(warpOverride, override.warp);
+          }
+          if (override.anchor){
+            anchorOverride = mergeConfig(anchorOverride, override.anchor);
+          }
+          if (override.align){
+            alignOverride = mergeConfig(alignOverride, override.align);
+          }
+          if (override.styleKey != null){
+            styleKey = override.styleKey;
+          }
+          if (applyTint && override.hsl){
+            if (isAppearance){
+              hsl = addHSL(hsl, clampHSL(override.hsl, cosmetic));
+            } else {
+              hsl = clampHSL({ ...hsl, ...override.hsl }, cosmetic);
+            }
+          }
+          if (override.extra){
+            layerExtra = mergeConfig(layerExtra, override.extra);
+          }
+          if (override.palette){
+            paletteOverride = mergeConfig(paletteOverride, override.palette);
+          }
         };
-      }
-      if (slotOverride?.spriteStyle){
-        styleOverride = mergeConfig(styleOverride, slotOverride.spriteStyle);
-      }
-      let hsl = isAppearance ? { ...slotHSL } : { ...slotHSL };
-      if (partOverride?.hsl){
-        if (isAppearance){
-          hsl = addHSL(hsl, clampHSL(partOverride.hsl, cosmetic));
-        } else {
-          hsl = clampHSL({ ...hsl, ...partOverride.hsl }, cosmetic);
+
+        applyOverrides(slotOverride, { applyTint: false });
+        applyOverrides(slotLayerOverride, { applyTint: false });
+        applyOverrides(partOverride, { applyTint: true });
+        applyOverrides(partLayerOverride, { applyTint: true });
+
+        if (!resolved?.image?.url) continue;
+        const asset = ensureAsset(cosmetic.id, partKey, resolved.image, layerPosition);
+        if (!asset) continue;
+
+        if (typeof anchorOverride === 'string'){
+          styleOverride = {
+            ...(styleOverride || {}),
+            anchor: { ...(styleOverride?.anchor || {}), [partKey]: anchorOverride }
+          };
+        } else if (anchorOverride && typeof anchorOverride === 'object' && !Array.isArray(anchorOverride)){
+          styleOverride = {
+            ...(styleOverride || {}),
+            anchor: { ...(styleOverride?.anchor || {}), ...anchorOverride }
+          };
         }
+
+        if (isAppearance && !styleKey && cosmetic.appearance?.inheritSprite){
+          styleKey = cosmetic.appearance.inheritSprite;
+        }
+
+        const alignDeg = alignOverride?.deg;
+        const alignRad = alignOverride?.rad ?? (Number.isFinite(alignDeg) ? degToRad(alignDeg) : undefined);
+        if (isAppearance){
+          hsl = clampBodyHSL(hsl);
+        }
+        if (isAppearance){
+          layerExtra = mergeConfig(layerExtra, {
+            appearance: {
+              slot: slot.replace(APPEARANCE_SLOT_PREFIX, ''),
+              fighter: cosmetic.appearance?.fighter || fighterName,
+              originalId: cosmetic.appearance?.originalId || cosmetic.id,
+              bodyColors: ensureArray(equipped.colors || cosmetic.appearance?.bodyColors)
+            }
+          });
+        }
+
+        layers.push({
+          slot,
+          partKey,
+          position: layerPosition,
+          cosmeticId: cosmetic.id,
+          asset,
+          hsl,
+          styleOverride,
+          warp: warpOverride,
+          anchorOverride,
+          alignDeg,
+          alignRad,
+          styleKey,
+          palette: paletteOverride,
+          extra: layerExtra
+        });
       }
-      if (partOverride?.spriteStyle){
-        styleOverride = mergeConfig(styleOverride, partOverride.spriteStyle);
-      }
-      if (slotOverride?.warp){
-        warpOverride = mergeConfig(warpOverride, slotOverride.warp);
-      }
-      if (partOverride?.warp){
-        warpOverride = mergeConfig(warpOverride, partOverride.warp);
-      }
-      if (slotOverride?.anchor){
-        anchorOverride = mergeConfig(anchorOverride, slotOverride.anchor);
-      }
-      if (partOverride?.anchor){
-        anchorOverride = mergeConfig(anchorOverride, { [partKey]: partOverride.anchor });
-      }
-      if (isAppearance && !resolved.styleKey && cosmetic.appearance?.inheritSprite){
-        resolved.styleKey = cosmetic.appearance.inheritSprite;
-      }
-      const alignDeg = resolved.align?.deg;
-      const alignRad = resolved.align?.rad ?? (Number.isFinite(alignDeg) ? degToRad(alignDeg) : undefined);
-      if (isAppearance){
-        hsl = clampBodyHSL(hsl);
-      }
-      const layerExtra = resolved.extra ? deepMerge({}, resolved.extra) : {};
-      if (isAppearance){
-        layerExtra.appearance = {
-          slot: slot.replace(APPEARANCE_SLOT_PREFIX, ''),
-          fighter: cosmetic.appearance?.fighter || fighterName,
-          originalId: cosmetic.appearance?.originalId || cosmetic.id,
-          bodyColors: ensureArray(equipped.colors || cosmetic.appearance?.bodyColors)
-        };
-      }
-      layers.push({
-        slot,
-        partKey,
-        cosmeticId: cosmetic.id,
-        asset,
-        hsl,
-        styleOverride,
-        warp: warpOverride,
-        anchorOverride,
-        alignDeg,
-        alignRad,
-        styleKey: resolved.styleKey,
-        extra: layerExtra
-      });
     }
   }
   return layers;

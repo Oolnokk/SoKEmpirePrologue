@@ -453,16 +453,16 @@ window.CONFIG = {
         head:{ origin:{ax:-1, ay:6} }
       },
       sprites: {
-        torso: { url: "./assets/fightersprites/tletingan/torso.png", bodyColor: 'A' },
-        head:  { url: "./assets/fightersprites/tletingan/head.png", bodyColor: 'A' },
-        arm_L_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", bodyColor: 'A' },
-        arm_L_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", bodyColor: 'A' },
-        arm_R_upper: { url: "./assets/fightersprites/tletingan/arm-upper.png", bodyColor: 'A' },
-        arm_R_lower: { url: "./assets/fightersprites/tletingan/arm-lower.png", bodyColor: 'A' },
-        leg_L_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", bodyColor: 'A' },
-        leg_L_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", bodyColor: 'A' },
-        leg_R_upper: { url: "./assets/fightersprites/tletingan/leg-upper.png", bodyColor: 'A' },
-        leg_R_lower: { url: "./assets/fightersprites/tletingan/leg-lower.png", bodyColor: 'A' }
+        torso: { url: "./assets/fightersprites/tletingan/torso_mint.png", bodyColor: 'A' },
+        head:  { url: "./assets/fightersprites/tletingan/head_mint.png", bodyColor: 'A' },
+        arm_L_upper: { url: "./assets/fightersprites/tletingan/arm-upper_mint.png", bodyColor: 'A' },
+        arm_L_lower: { url: "./assets/fightersprites/tletingan/arm-lower_mint.png", bodyColor: 'A' },
+        arm_R_upper: { url: "./assets/fightersprites/tletingan/arm-upper_mint.png", bodyColor: 'A' },
+        arm_R_lower: { url: "./assets/fightersprites/tletingan/arm-lower_mint.png", bodyColor: 'A' },
+        leg_L_upper: { url: "./assets/fightersprites/tletingan/leg-upper_mint.png", bodyColor: 'A' },
+        leg_L_lower: { url: "./assets/fightersprites/tletingan/leg-lower_mint.png", bodyColor: 'A' },
+        leg_R_upper: { url: "./assets/fightersprites/tletingan/leg-upper_mint.png", bodyColor: 'A' },
+        leg_R_lower: { url: "./assets/fightersprites/tletingan/leg-lower_mint.png", bodyColor: 'A' }
       },
       spriteStyle: {
           widthFactor: { torso:0.9, armUpper:0.9, armLower:0.9, legUpper:0.9, legLower:0.9, head:0.9 },
@@ -513,7 +513,7 @@ window.CONFIG = {
         head:{ origin:{ax:0, ay:0} }
       },
       sprites: {
-        torso: { url: "./assets/fightersprites/mao-ao-m/torso.png", bodyColor: 'A' },
+        torso: { url: "./assets/fightersprites/mao-ao-m/torso_mint.png", bodyColor: 'A' },
         head:  { url: "./assets/fightersprites/mao-ao-m/head_mint.png", bodyColor: 'A' },
         arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper_mint.png", bodyColor: 'A' },
         arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower_mint.png", bodyColor: 'A' },
@@ -795,8 +795,8 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
       bodyColors: {
-        A: { h: -100, s: -0.3, v: -0.5 },
-        B: { h: -60, s: -0.1, v: 0 },
+        A: { h: -40, s: -0.3, v: -0.5 },
+        B: { h: -35, s: 0.2, v: 0 },
         C: { h: 32, s: 0.25, v: -0.05 }
       },
       appearance: {

@@ -232,6 +232,9 @@ function buildZMap(C){
   const baseOrder = (C.render && Array.isArray(C.render.order) && C.render.order.length) ? C.render.order.map(s=>String(s).toUpperCase()) : def;
   const expanded = [];
   for (const tag of baseOrder){
+    for (const slot of COSMETIC_SLOTS){
+      expanded.push(cosmeticTagFor(tag, slot, 'back'));
+    }
     expanded.push(tag);
     for (const slot of COSMETIC_SLOTS){
       expanded.push(cosmeticTagFor(tag, slot));
@@ -824,7 +827,7 @@ export function renderSprites(ctx){
         const bone = rig[layer.partKey];
         if (!bone) continue;
         const baseTag = tagOf(layer.partKey);
-        const slotTag = cosmeticTagFor(baseTag, layer.slot);
+        const slotTag = cosmeticTagFor(baseTag, layer.slot, layer.position);
         const styleKey = layer.styleKey || layer.partKey;
         const { mirror, originX } = resolveCosmeticMirror(rig, layer.partKey, bone);
         enqueue(slotTag, ()=>{
