@@ -603,7 +603,8 @@ window.CONFIG = {
     weaponTypes: {
       unarmed: { type: 'blunt', multiplier: 1.0 },
       blunt: { multiplier: 2.4 },
-      sharp: { multiplier: 1.6 }
+      sharp: { multiplier: 1.6 },
+      sarrarru: { type: 'sharp', multiplier: 1.6 }
     },
     currentWeapon: 'unarmed'
   },
@@ -752,6 +753,19 @@ window.CONFIG = {
         rightA: { shape:'rect', width:18, height:120, offset:{x:50,y:0}, activatesOn:['THRUST'] },
         rightB: { shape:'rect', width:26, height:140, offset:{x:35,y:0}, activatesOn:['SWEEP'] },
         leftA:  { shape:'rect', width:16, height:40,  offset:{x:-10,y:0}, activatesOn:['SWEEP'] }
+      },
+      sprite: {
+        url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
+        anchorBone: 'weapon_0',
+        anchorMode: 'start',
+        alignDeg: 90,
+        styleOverride: {
+          xformUnits: 'percent',
+          widthFactor: { weapon_0: 0.42 },
+          xform: {
+            weapon_0: { ax: 0.48, ay: -0.04, scaleX: 1.08, scaleY: 1.02 }
+          }
+        }
       }
     },
 
@@ -860,6 +874,37 @@ window.CONFIG = {
           hat: { id: 'basic_headband', hsv: { h: 12, s: 0.1, v: 0.05 } },
           overwear: { id: 'layered_travel_cloak', hsv: { h: -10, s: -0.15, v: 100 } },
           legs: { id: 'basic_pants', hsv: { h: -120, s: 1, v: 0 } }
+        }
+      }
+    },
+    citywatch_sarrarru: {
+      fighter: 'Mao-ao_M',
+      weapon: 'sarrarru',
+      slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold', 'quick_punch', 'evade_defensive'],
+      stats: {
+        strength: 8,
+        agility: 6,
+        endurance: 8,
+        maxHealth: 140,
+        maxStamina: 135
+      },
+      bodyColors: {
+        A: { h: -82, s: -0.28, v: -0.28 },
+        B: { h: -36, s: 0.22, v: 0.32 },
+        C: { h: 64, s: 0.18, v: 0.08 }
+      },
+      appearance: {
+        slots: {
+          head_hair: { id: 'mao-ao_smooth_striped', colors: ['B'] },
+          facial_hair: {},
+          eyes: { id: 'mao-ao_circled_eye_L', colors: ['B'] }
+        }
+      },
+      cosmetics: {
+        slots: {
+          hat: { id: 'citywatch_helmet', hsv: { h: -12, s: 0.05, v: 0.08 } },
+          overwear: { id: 'layered_travel_cloak', hsv: { h: -18, s: -0.12, v: 0.04 } },
+          legs: { id: 'basic_pants', hsv: { h: -110, s: 0.8, v: -0.1 } }
         }
       }
     }

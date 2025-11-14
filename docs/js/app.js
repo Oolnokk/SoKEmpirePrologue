@@ -55,6 +55,12 @@ function ensureGameSelectionState() {
   }
 }
 
+function setConfigCurrentWeapon(value) {
+  window.CONFIG ||= {};
+  window.CONFIG.knockback ||= {};
+  window.CONFIG.knockback.currentWeapon = value || 'unarmed';
+}
+
 function normalizeAbilityValue(value) {
   if (value === undefined || value === null || value === '') return null;
   return String(value);
@@ -255,11 +261,13 @@ function initWeaponDropdown() {
 
   window.GAME ||= {};
   window.GAME.selectedWeapon = weaponSelect.value || null;
+  setConfigCurrentWeapon(window.GAME.selectedWeapon);
 
   if (!weaponSelect.dataset.initialized) {
     weaponSelect.addEventListener('change', (event) => {
       const value = event.target.value;
       window.GAME.selectedWeapon = value || null;
+      setConfigCurrentWeapon(window.GAME.selectedWeapon);
     });
     weaponSelect.dataset.initialized = 'true';
   }
@@ -294,6 +302,7 @@ function initCharacterDropdown() {
       window.GAME.selectedCharacter = null;
       window.GAME.selectedFighter = null;
       window.GAME.selectedWeapon = null;
+      setConfigCurrentWeapon(null);
       delete window.GAME.selectedAppearance;
       delete window.GAME.selectedBodyColors;
       delete window.GAME.selectedBodyColorsFighter;
@@ -311,6 +320,7 @@ function initCharacterDropdown() {
       const weaponSelect = document.getElementById('weaponSelect');
       if (weaponSelect) {
         weaponSelect.value = '';
+        setConfigCurrentWeapon(null);
       }
 
       const defaults = getDefaultAbilityAssignments();
@@ -322,6 +332,7 @@ function initCharacterDropdown() {
     window.GAME.selectedCharacter = selectedChar;
     window.GAME.selectedFighter = charData.fighter;
     window.GAME.selectedWeapon = charData.weapon || null;
+    setConfigCurrentWeapon(window.GAME.selectedWeapon);
     window.GAME.selectedAppearance = {
       clothes: charData.clothes,
       hairstyle: charData.hairstyle,
@@ -369,6 +380,7 @@ function initCharacterDropdown() {
         weaponSelect.appendChild(option);
       }
       weaponSelect.value = charData.weapon || '';
+      setConfigCurrentWeapon(charData.weapon || null);
     }
 
     const abilityAssignments = mapSlottedAbilitiesArray(charData.slottedAbilities || []);
