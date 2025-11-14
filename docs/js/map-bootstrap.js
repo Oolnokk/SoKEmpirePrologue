@@ -45,9 +45,6 @@ const PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
 const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
   ? MAP_CONFIG.prefabManifests.filter((entry) => typeof entry === 'string' && entry.trim())
   : [];
-const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
-  ? MAP_CONFIG.prefabManifests.filter((entry) => typeof entry === 'string' && entry.trim())
-  : [];
 
 const prefabLibraryPromise = (async () => {
   if (!PREFAB_MANIFESTS.length) {
