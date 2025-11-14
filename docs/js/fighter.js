@@ -1,5 +1,22 @@
 // fighter.js — initialize fighters in STANCE; set facingSign (player right, npc left)
 import { degToRad } from './math-utils.js?v=1';
+import { pickFighterName } from './fighter-utils.js?v=1';
+
+function clone(value) {
+  if (value == null) return value;
+  try {
+    if (typeof structuredClone === 'function') {
+      return structuredClone(value);
+    }
+  } catch (_err) {
+    // Ignore and fallback to JSON clone below
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (_err) {
+    return value;
+  }
+}
 
 const SPAWN_PREFAB_SETS = {
   player: new Set([
@@ -172,9 +189,71 @@ export function initFighters(cv, cx){
   const playerSpawnY = gy - 1 + playerSpawnYOffset;
   const npcSpawnY = gy - 1 + resolvedNpcYOffset;
 
+  const fallbackFighterName = pickFighterName(C);
+  const characters = C.characters || {};
+  const characterKeys = Object.keys(characters);
+  const npcDefaultCharacterKey = characterKeys.find(key => key !== 'player') || characterKeys[0] || null;
+  const previousCharacterState = clone(G.CHARACTER_STATE || {});
+
+  function resolveCharacterKey(id) {
+    const prevKey = previousCharacterState?.[id]?.characterKey;
+    if (prevKey && characters[prevKey]) return prevKey;
+    if (characters[id]) return id;
+    if (id === 'player' && characters.player) return 'player';
+    if (id !== 'player' && npcDefaultCharacterKey && characters[npcDefaultCharacterKey]) {
+      return npcDefaultCharacterKey;
+    }
+    return null;
+  }
+
+  function resolveFighterName(characterData, prevProfile) {
+    const prevFighter = prevProfile?.fighterName;
+    if (prevFighter && C.fighters?.[prevFighter]) return prevFighter;
+    const charFighter = characterData?.fighter;
+    if (charFighter && C.fighters?.[charFighter]) return charFighter;
+    return fallbackFighterName;
+  }
+
   function makeF(id, x, faceSign, y){
     const spawnY = Number.isFinite(y) ? y : gy - 1;
     const isPlayer = id === 'player';
+
+    const prevProfile = previousCharacterState && previousCharacterState[id]
+      ? clone(previousCharacterState[id])
+      : null;
+    let characterKey = prevProfile?.characterKey;
+    if (!characterKey || !characters[characterKey]) {
+      characterKey = resolveCharacterKey(id);
+    }
+    let characterData = prevProfile?.character ? clone(prevProfile.character) : null;
+    if (!characterData && characterKey && characters[characterKey]) {
+      characterData = clone(characters[characterKey]);
+    }
+
+    const fighterName = resolveFighterName(characterData, prevProfile);
+    const bodyColorsBase = prevProfile?.bodyColors
+      ?? (characterData?.bodyColors ? clone(characterData.bodyColors) : null);
+    const cosmeticsBase = prevProfile?.cosmetics
+      ?? (characterData?.cosmetics ? clone(characterData.cosmetics) : null);
+    const appearanceBase = prevProfile?.appearance
+      ?? (characterData?.appearance ? clone(characterData.appearance) : null);
+    const weaponBase = prevProfile?.weapon ?? characterData?.weapon ?? null;
+    const abilityBase = Array.isArray(prevProfile?.slottedAbilities)
+      ? prevProfile.slottedAbilities.slice()
+      : (Array.isArray(characterData?.slottedAbilities)
+        ? characterData.slottedAbilities.slice()
+        : []);
+
+    const renderProfile = {
+      fighterName,
+      characterKey: characterKey ?? null,
+      character: characterData || null,
+      bodyColors: bodyColorsBase ? clone(bodyColorsBase) : null,
+      cosmetics: cosmeticsBase ? clone(cosmeticsBase) : null,
+      appearance: appearanceBase ? clone(appearanceBase) : null,
+      weapon: weaponBase,
+      slottedAbilities: abilityBase,
+    };
 
     return {
       id,
@@ -198,6 +277,7 @@ export function initFighters(cv, cx){
       recoveryTargetY: spawnY,
       jointAngles: { ...stanceRad },
       walk: { phase: 0, amp: 0 },
+      renderProfile,
       stamina: {
         current: 100,
         max: 100,
@@ -275,6 +355,12 @@ export function initFighters(cv, cx){
       source: npcSpawn ?? null,
     },
   };
+  const characterState = {};
+  for (const [fighterId, fighter] of Object.entries(G.FIGHTERS)) {
+    if (!fighter) continue;
+    characterState[fighterId] = fighter.renderProfile ? clone(fighter.renderProfile) : null;
+  }
+  G.CHARACTER_STATE = characterState;
   if (G.editorPreview) {
     G.editorPreview.spawn = {
       player: {

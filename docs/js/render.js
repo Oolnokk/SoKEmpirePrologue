@@ -79,7 +79,10 @@ function withAX(x, y, ang, off, len, units) {
   return withAXUtil(x, y, ang, ax, ay, len || 1, unitStr);
 }
 
-function computeAnchorsForFighter(F, C, fighterName) {
+function computeAnchorsForFighter(F, C, fallbackFighterName) {
+  const profile = F?.renderProfile || {};
+  const requestedName = profile.fighterName;
+  const fighterName = (requestedName && C.fighters?.[requestedName]) ? requestedName : fallbackFighterName;
   const fcfg = pickFighterConfig(C, fighterName); const L = lengths(C, fcfg); const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
   const centerX = F.pos?.x ?? 0; const centerY = F.pos?.y ?? ((C.groundRatio||0.7) * (C.canvas?.h||460));
   const torsoAngRaw = F.jointAngles?.torso ?? 0; // already in radians from animator
@@ -183,7 +186,7 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
   const flipLeft = Math.cos(facingRad) < 0;
 
-  return { B, L, hitbox, flipLeft };
+  return { B, L, hitbox, flipLeft, fighterName, profile };
 }
 
 export const LIMB_COLORS = {
@@ -312,21 +315,71 @@ function drawCompass(ctx, x, y, r, label){
 }
 
 
-export function renderAll(ctx){ 
-  const G=(window.GAME ||= {}); 
-  const C=(window.CONFIG || {}); 
-  if(!ctx||!G.FIGHTERS) return; 
-  const fName=(G.selectedFighter && C.fighters?.[G.selectedFighter])? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default'); 
-  const player=computeAnchorsForFighter(G.FIGHTERS.player,C,fName); 
-  const npc=computeAnchorsForFighter(G.FIGHTERS.npc,C,fName); 
-  (G.ANCHORS_OBJ ||= {}); 
-  G.ANCHORS_OBJ.player=player.B; 
-  G.ANCHORS_OBJ.npc=npc.B;
-  // Store flip state so sprites.js can flip sprite images when facing left
-  (G.FLIP_STATE ||= {});
-  G.FLIP_STATE.player = player.flipLeft;
-  G.FLIP_STATE.npc = npc.flipLeft;
-  
+function drawFallbackSilhouette(ctx, entity, config){
+  if (!ctx || !entity) return;
+  try {
+    const lengths = entity.lengths || {};
+    const configHitbox = config?.parts?.hitbox || {};
+    const globalScale = config?.actor?.scale || 1;
+    const hbW = Number.isFinite(lengths.hbW)
+      ? lengths.hbW
+      : (configHitbox.w || 40) * globalScale;
+    const hbH = Number.isFinite(lengths.hbH)
+      ? lengths.hbH
+      : (configHitbox.h || 80) * globalScale;
+    const originX = entity.hitbox?.x ?? entity.fighter?.pos?.x ?? 0;
+    const originY = entity.hitbox?.y ?? entity.fighter?.pos?.y ?? 0;
+    const px = originX - hbW / 2;
+    const py = originY - hbH / 2;
+    const palette = entity.id === 'player'
+      ? { fill: '#4b9ce2', stroke: '#1f4d7a' }
+      : { fill: '#fca5a5', stroke: '#b91c1c' };
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = palette.fill;
+    ctx.fillRect(px, py, hbW, hbH);
+    ctx.strokeStyle = palette.stroke;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px, py, hbW, hbH);
+    ctx.restore();
+  } catch (_err) {
+    // ignore fallback drawing errors so rendering never fails
+  }
+}
+
+
+export function renderAll(ctx){
+  const G=(window.GAME ||= {});
+  const C=(window.CONFIG || {});
+  if(!ctx||!G.FIGHTERS) return;
+  const fallbackName=(G.selectedFighter && C.fighters?.[G.selectedFighter])? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default');
+
+  const anchorsById = {};
+  const flipState = {};
+  const renderEntities = [];
+
+  for (const [fighterId, fighter] of Object.entries(G.FIGHTERS)) {
+    if (!fighter) continue;
+    const result = computeAnchorsForFighter(fighter, C, fallbackName);
+    anchorsById[fighterId] = result.B;
+    flipState[fighterId] = result.flipLeft;
+    renderEntities.push({
+      id: fighterId,
+      fighter,
+      fighterName: result.fighterName,
+      profile: result.profile || fighter.renderProfile || null,
+      bones: result.B,
+      hitbox: result.hitbox,
+      flipLeft: result.flipLeft,
+      lengths: result.L,
+      centerX: Number.isFinite(result.hitbox?.x) ? result.hitbox.x : (fighter.pos?.x ?? 0)
+    });
+  }
+
+  G.ANCHORS_OBJ = anchorsById;
+  G.FLIP_STATE = flipState;
+  G.RENDER_STATE = { entities: renderEntities };
+
   // Fallback background so the viewport is never visually blank
   try{
     ctx.fillStyle = '#eaeaea';
@@ -353,33 +406,20 @@ export function renderAll(ctx){
   const canvasHeight = ctx.canvas?.height || 0;
   ctx.save();
   ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, canvasHeight * (1 - zoom));
-  
-  // Apply character flip for debug bones, same as sprites
-  if (player.flipLeft) {
-    const centerX = player.hitbox?.x ?? 0;
-    ctx.translate(centerX * 2, 0);
-    ctx.scale(-1, 1);
-  }
-  
-  drawHitbox(ctx, player.hitbox); 
-  drawStick(ctx, player.B); 
-  
-  // Fallback player marker: draw a simple hitbox rect at player's position
-  try{
-    const hb = (C && C.parts && C.parts.hitbox) ? C.parts.hitbox : {w:40, h:80};
-    const hbW = hb.w * (C.actor && C.actor.scale || 1);
-    const hbH = hb.h * (C.actor && C.actor.scale || 1);
-    const px = (player.hitbox?.x ?? (G.FIGHTERS.player.pos?.x ?? 100)) - hbW/2;
-    const py = (player.hitbox?.y ?? (G.FIGHTERS.player.pos?.y ?? 100)) - hbH/2;
+
+  for (const entity of renderEntities) {
+    if (!entity) continue;
     ctx.save();
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = '#4b9ce2';
-    ctx.fillRect(px, py, hbW, hbH);
-    ctx.strokeStyle = '#1f4d7a';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(px, py, hbW, hbH);
+    if (entity.flipLeft) {
+      const centerX = Number.isFinite(entity.centerX) ? entity.centerX : 0;
+      ctx.translate(centerX * 2, 0);
+      ctx.scale(-1, 1);
+    }
+    drawHitbox(ctx, entity.hitbox);
+    drawStick(ctx, entity.bones);
+    drawFallbackSilhouette(ctx, entity, C);
     ctx.restore();
-  }catch(_e){ /* ignore */ }
+  }
 
   const npcDashTrail = getNpcDashTrail();
   if (npcDashTrail?.positions?.length) {
