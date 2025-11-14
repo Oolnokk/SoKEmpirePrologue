@@ -89,6 +89,28 @@ function computeAnchorsForFighter(F, C, fighterName) {
   const torsoTopArr     = segPos(hipBaseArr[0], hipBaseArr[1], L.torso, torsoAng);
   const neckBaseArr     = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.neck);
   const shoulderBaseArr = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.shoulder);
+  let lShoulderBaseArr = [...shoulderBaseArr];
+  let rShoulderBaseArr = [...shoulderBaseArr];
+  const breathOffsets = F.anim?.breath?.shoulderOffsets;
+  if (breathOffsets){
+    const torsoBasis = basis(torsoAngRaw);
+    const applyOffset = (baseArr, spec) => {
+      if (!spec) return baseArr;
+      const ax = Number(spec.ax) || 0;
+      const ay = Number(spec.ay) || 0;
+      if (!ax && !ay) return baseArr;
+      return [
+        baseArr[0] + ax * torsoBasis.fx + ay * torsoBasis.rx,
+        baseArr[1] + ax * torsoBasis.fy + ay * torsoBasis.ry
+      ];
+    };
+    if (breathOffsets.left){
+      lShoulderBaseArr = applyOffset(lShoulderBaseArr, breathOffsets.left);
+    }
+    if (breathOffsets.right){
+      rShoulderBaseArr = applyOffset(rShoulderBaseArr, breathOffsets.right);
+    }
+  }
 
   const hitbox = {
     x: centerX,
@@ -111,8 +133,8 @@ function computeAnchorsForFighter(F, C, fighterName) {
   let lLowerAng = lUpperAng + lElbowRel;
   let rLowerAng = rUpperAng + rElbowRel;
 
-  const lElbowPosArr = withAX(...segPos(shoulderBaseArr[0], shoulderBaseArr[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
-  const rElbowPosArr = withAX(...segPos(shoulderBaseArr[0], shoulderBaseArr[1], L.armU, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
+  const lElbowPosArr = withAX(...segPos(lShoulderBaseArr[0], lShoulderBaseArr[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
+  const rElbowPosArr = withAX(...segPos(rShoulderBaseArr[0], rShoulderBaseArr[1], L.armU, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
   const lWristPosArr = withAX(...segPos(lElbowPosArr[0], lElbowPosArr[1], L.armL, lLowerAng), lLowerAng, OFF.arm?.lower?.origin);
   const rWristPosArr = withAX(...segPos(rElbowPosArr[0], rElbowPosArr[1], L.armL, rLowerAng), rLowerAng, OFF.arm?.lower?.origin);
 
@@ -145,9 +167,9 @@ function computeAnchorsForFighter(F, C, fighterName) {
     neckBase:{x:neckBaseArr[0],y:neckBaseArr[1]},
     torsoTop:{x:torsoTopArr[0],y:torsoTopArr[1]},
 
-    arm_L_upper:{x:shoulderBaseArr[0],y:shoulderBaseArr[1],len:L.armU,ang:lUpperAng,endX:lElbowPosArr[0],endY:lElbowPosArr[1]},
+    arm_L_upper:{x:lShoulderBaseArr[0],y:lShoulderBaseArr[1],len:L.armU,ang:lUpperAng,endX:lElbowPosArr[0],endY:lElbowPosArr[1]},
     arm_L_lower:{x:lElbowPosArr[0],y:lElbowPosArr[1],len:L.armL,ang:lLowerAng,endX:lWristPosArr[0],endY:lWristPosArr[1]},
-    arm_R_upper:{x:shoulderBaseArr[0],y:shoulderBaseArr[1],len:L.armU,ang:rUpperAng,endX:rElbowPosArr[0],endY:rElbowPosArr[1]},
+    arm_R_upper:{x:rShoulderBaseArr[0],y:rShoulderBaseArr[1],len:L.armU,ang:rUpperAng,endX:rElbowPosArr[0],endY:rElbowPosArr[1]},
     arm_R_lower:{x:rElbowPosArr[0],y:rElbowPosArr[1],len:L.armL,ang:rLowerAng,endX:rWristPosArr[0],endY:rWristPosArr[1]},
 
     leg_L_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.legU,ang:lHipAng,endX:lKneePosArr[0],endY:lKneePosArr[1]},
