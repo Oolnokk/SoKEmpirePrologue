@@ -2,6 +2,7 @@
 
 import { initCombatForFighter } from './combat.js?v=19';
 import { ensureFighterPhysics, updateFighterPhysics } from './physics.js?v=1';
+import { applyHealthRegenFromStats, applyStaminaTick, getStatProfile } from './stat-hooks.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -624,17 +625,10 @@ function updateDashTrail(npcSystems, state, dt) {
 }
 
 function regenerateStamina(state, dt) {
-  const stamina = state.stamina;
-  if (!stamina) return;
-  if (stamina.isDashing && stamina.current > 0) {
-    stamina.current = Math.max(0, stamina.current - stamina.drainRate * dt);
-    if (stamina.current <= 0) {
-      stamina.isDashing = false;
-    }
-  } else {
-    stamina.isDashing = false;
-    stamina.current = Math.min(stamina.max, stamina.current + stamina.regenRate * dt);
-  }
+  if (!state) return;
+  applyStaminaTick(state, dt);
+  const profile = getStatProfile(state);
+  applyHealthRegenFromStats(state, dt, profile);
 }
 
 function resolveBodyRadius(config) {
