@@ -1,6 +1,7 @@
 // combat.js — Full attack system matching reference HTML (tap/hold, charge, combo, queue)
 import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=3';
 import { resetMirror, setMirrorForPart } from './sprites.js?v=8';
+import { ensureFighterPhysics, updateFighterPhysics } from './physics.js?v=1';
 
 export function initCombat(){
   const G = (window.GAME ||= {});
@@ -1368,116 +1369,16 @@ export function makeCombat(G, C, options = {}){
     const p = P();
     if (!p) return;
 
-    const M = C.movement || {};
-    const I = resolveInput();
-
-    p.vel ||= {x:0, y:0};
-    p.pos ||= {x:0, y:0};
-
-    const prevOnGround = !!p.onGround;
-    const groundY = (C.canvas?.h || 460) * (C.groundRatio || 0.7) - 1;
-    const platformColliders = Array.isArray(C.platformingColliders)
-      ? C.platformingColliders
-      : [];
-    const restitution = Number.isFinite(M.restitution) ? Math.max(0, M.restitution) : 0;
-    const gravityBase = Number.isFinite(M.gravity) ? M.gravity : 0;
-
-    if (!Number.isFinite(p.vel.y)) p.vel.y = 0;
-
-    if (p.gravityOverride?.expiresAt){
-      const nowSec = performance.now() / 1000;
-      if (p.gravityOverride.expiresAt <= nowSec){
-        delete p.gravityOverride;
-      }
+    ensureFighterPhysics(p, C);
+    const input = resolveInput();
+    if (input && !p.input) {
+      p.input = input;
     }
 
-    const gravityScale = Number.isFinite(p.gravityOverride?.value) ? p.gravityOverride.value : 1;
-    const effectiveGravity = gravityBase * gravityScale;
-
-    const ax = M.accelX || 1200;
-    const max = M.maxSpeedX || 420;
-    const fr = M.friction || 8;
-
-    // Don't move during attacks
-    if (ATTACK.active){
-      p.vel.x *= Math.max(0, 1 - fr*dt);
-    } else {
-      if (I.left && !I.right){
-        p.vel.x -= ax*dt;
-        p.facingRad = Math.PI;
-        p.facingSign = -1;
-      } else if (I.right && !I.left){
-        p.vel.x += ax*dt;
-        p.facingRad = 0;
-        p.facingSign = 1;
-      } else {
-        p.vel.x *= Math.max(0, 1 - fr*dt);
-      }
-    }
-
-    p.vel.x = Math.max(-max, Math.min(max, p.vel.x));
-    p.pos.x += p.vel.x * dt;
-
-    const prevY = Number.isFinite(p.pos.y) ? p.pos.y : groundY;
-
-    if (!p.onGround || p.vel.y < 0){
-      p.vel.y += effectiveGravity * dt;
-    } else if (p.onGround) {
-      p.vel.y = 0;
-    }
-
-    p.pos.y += p.vel.y * dt;
-
-    if (!Number.isFinite(p.pos.y)) p.pos.y = groundY;
-
-    let onGround = false;
-
-    if (platformColliders.length){
-      for (const raw of platformColliders){
-        const left = Number(raw.left);
-        const width = Number(raw.width);
-        const topOffset = Number(raw.topOffset);
-        const height = Number(raw.height);
-        if (!Number.isFinite(left) || !Number.isFinite(width) || width <= 0) continue;
-        if (!Number.isFinite(height) || height <= 0) continue;
-        const right = left + width;
-        const top = groundY + (Number.isFinite(topOffset) ? topOffset : 0);
-        const bottom = top + height;
-        const px = Number.isFinite(p.pos.x) ? p.pos.x : 0;
-        if (px < left || px > right) continue;
-
-        if (prevY <= top && p.pos.y >= top){
-          p.pos.y = top;
-          if (p.vel.y > 0){
-            p.vel.y = -p.vel.y * restitution;
-            if (Math.abs(p.vel.y) < 1) p.vel.y = 0;
-          }
-          onGround = true;
-        } else if (prevY >= bottom && p.pos.y <= bottom){
-          p.pos.y = bottom;
-          if (p.vel.y < 0){
-            p.vel.y = 0;
-          }
-        }
-      }
-    }
-
-    if (p.pos.y >= groundY){
-      p.pos.y = groundY;
-      if (p.vel.y > 0){
-        p.vel.y = -p.vel.y * restitution;
-        if (Math.abs(p.vel.y) < 1) p.vel.y = 0;
-      }
-      onGround = true;
-    }
-
-    p.onGround = onGround;
-
-    if (p.onGround && Math.abs(p.vel.y) < 1){
-      p.vel.y = 0;
-    }
-
-    p.prevOnGround = prevOnGround;
+    updateFighterPhysics(p, C, dt, {
+      input,
+      attackActive: ATTACK.active,
+    });
   }
 
   function isFighterAttacking(){

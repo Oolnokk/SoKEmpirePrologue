@@ -3,6 +3,7 @@ import { degToRad, radToDegNum, angleFromDelta } from './math-utils.js?v=1';
 import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
 import { pickFighterConfig, pickFighterName } from './fighter-utils.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
+import { updatePhysicsPoseTarget, getPhysicsRagdollBlend, getPhysicsRagdollAngles } from './physics.js?v=1';
 
 const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee'];
 // Convert pose object from degrees to radians using centralized utility
@@ -935,8 +936,20 @@ export function updatePoses(){
       F.__debugLogged = true;
     }
     
-    const target = degToRadPose(finalDeg); const lambda = 10;
-    for(const k of ANG_KEYS){ const cur = F.jointAngles[k] ?? 0; const tar = target[k] ?? cur; F.jointAngles[k] = damp(cur, tar, lambda, F.anim.dt); }
+    const target = degToRadPose(finalDeg);
+    updatePhysicsPoseTarget(F, target);
+    const ragBlend = getPhysicsRagdollBlend(F);
+    const ragAngles = getPhysicsRagdollAngles(F);
+    const lambda = 10;
+    for (const k of ANG_KEYS) {
+      const cur = F.jointAngles[k] ?? 0;
+      const animTarget = target[k] ?? cur;
+      let blended = animTarget;
+      if (ragBlend > 0 && ragAngles && Number.isFinite(ragAngles[k])) {
+        blended = animTarget + (ragAngles[k] - animTarget) * ragBlend;
+      }
+      F.jointAngles[k] = damp(cur, blended, lambda, F.anim.dt);
+    }
     updateBreathing(F, id, breathingSpec);
   }
 }
