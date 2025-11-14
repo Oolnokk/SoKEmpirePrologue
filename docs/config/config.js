@@ -513,7 +513,7 @@ window.CONFIG = {
         head:{ origin:{ax:0, ay:0} }
       },
       sprites: {
-        torso: { url: "./assets/fightersprites/mao-ao-m/torso.png", bodyColor: 'A' },
+        torso: { url: "./assets/fightersprites/mao-ao-m/torso_mint.png", bodyColor: 'A' },
         head:  { url: "./assets/fightersprites/mao-ao-m/head_mint.png", bodyColor: 'A' },
         arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper_mint.png", bodyColor: 'A' },
         arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower_mint.png", bodyColor: 'A' },
