@@ -1,4 +1,9 @@
-import { getFootingRecovery, getMovementMultipliers, getStatProfile } from './stat-hooks.js?v=1';
+import {
+  computeRagdollBlendController,
+  getFootingRecovery,
+  getMovementMultipliers,
+  getStatProfile,
+} from './stat-hooks.js?v=1';
 
 const JOINT_LIMITS = {
   torso: [-0.8, 0.8],
@@ -61,6 +66,7 @@ function ensurePhysicsState(fighter) {
   state.partialBlendTimer ||= 0;
   state.partialBlendDuration ||= 0.45;
   state.airBlend ||= 0;
+  state.controllerBlend ||= 0;
   state.lastFootingOnFall = Number.isFinite(state.lastFootingOnFall)
     ? state.lastFootingOnFall
     : fighter.footing ?? 0;
@@ -140,7 +146,13 @@ function updateRagdollTargets(fighter, state, dt) {
 
 function updateJointPhysics(fighter, config, dt) {
   const state = ensurePhysicsState(fighter);
-  const blendSources = [fighter.ragdoll ? 1 : 0, state.partialBlend || 0, state.airBlend || 0, state.recoveryBlend || 0];
+  const blendSources = [
+    fighter.ragdoll ? 1 : 0,
+    state.partialBlend || 0,
+    state.airBlend || 0,
+    state.recoveryBlend || 0,
+    state.controllerBlend || 0,
+  ];
   const totalBlend = Math.max(...blendSources);
   state.totalBlend = clamp(totalBlend, 0, 1);
 
@@ -417,6 +429,14 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
     }
   }
 
+  const controller = computeRagdollBlendController(fighter, config);
+  const controllerBlend = Number.isFinite(controller?.ratio) ? controller.ratio : 0;
+  state.controllerBlend = clamp(controllerBlend, 0, 1);
+  fighter.ragdollBlend ||= {};
+  fighter.ragdollBlend.ratio = state.controllerBlend;
+  fighter.ragdollBlend.base = controller?.base ?? 0;
+  fighter.ragdollBlend.contributions = controller?.contributions || {};
+
   decayPartialBlend(state, dt);
   updateAirBlend(fighter, state, dt);
   applyRecoveryBlend(fighter, state, dt);
@@ -478,6 +498,14 @@ export function applyHitReactionRagdoll(fighter, config, {
   state.partialBlendStart = state.partialBlend;
   state.partialBlendTimer = 0;
   state.partialBlendDuration = 0.3 + instability * 0.7;
+
+  if (!fighter.ragdoll && fighter.attack?.active) {
+    const forceFactor = Number.isFinite(force) ? Math.min(Math.abs(force) / 900, 0.25) : 0;
+    const pause = clamp(0.08 + blend * 0.35 + forceFactor, 0.08, 0.5);
+    fighter.attack.hitPause = Math.max(fighter.attack.hitPause || 0, pause);
+    fighter.anim = fighter.anim || {};
+    fighter.anim.hitPause = Math.max(fighter.anim.hitPause || 0, pause);
+  }
 
   perturbJoints(state, blend);
   const impulseMag = force * (0.12 + 0.35 * instability);

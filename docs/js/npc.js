@@ -163,6 +163,7 @@ function ensureAttackState(state) {
   attack.isHoldRelease = !!attack.isHoldRelease;
   attack.chargeStage = Number.isFinite(attack.chargeStage) ? attack.chargeStage : 0;
   attack.context = attack.context || null;
+  attack.hitPause = Number.isFinite(attack.hitPause) ? Math.max(0, attack.hitPause) : 0;
   return attack;
 }
 
@@ -404,6 +405,7 @@ function resetAttackState(state) {
   attack.lunge.active = false;
   attack.lastAppliedPhase = null;
   attack.lastPhaseIndex = -1;
+  attack.hitPause = 0;
   if (wasActive) {
     const stance = resolvePoseForPhase(null, 'Stance');
     if (stance) {
@@ -489,6 +491,7 @@ function startNpcHoldReleaseAttack(state, presetName, windupMs) {
   attack.currentPhase = null;
   attack.lastAppliedPhase = null;
   attack.lastPhaseIndex = -1;
+  attack.hitPause = 0;
   applyNpcPoseForCurrentPhase(state, { force: true });
 }
 
@@ -524,7 +527,19 @@ function updateNpcAttack(G, state, dt) {
     return;
   }
 
-  attack.timer += dt;
+  let frameDt = dt;
+  if (attack.hitPause > 0 && Number.isFinite(dt) && dt > 0) {
+    const pauseApplied = Math.min(attack.hitPause, dt);
+    attack.hitPause = Math.max(0, attack.hitPause - pauseApplied);
+    frameDt = dt - pauseApplied;
+  }
+
+  if (frameDt <= 0) {
+    applyNpcPoseForCurrentPhase(state);
+    return;
+  }
+
+  attack.timer += frameDt;
   while (attack.phaseIndex < attack.durations.length && attack.timer >= attack.durations[attack.phaseIndex]) {
     attack.timer -= attack.durations[attack.phaseIndex];
     const oldPhase = attack.sequence[attack.phaseIndex];

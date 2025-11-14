@@ -39,6 +39,9 @@ function ensureAnimState(F){
       F.anim.pendingLayerTimers = {};
     }
   }
+  if (!Number.isFinite(F.anim.hitPause)) {
+    F.anim.hitPause = 0;
+  }
   if (!F.anim.breath || typeof F.anim.breath !== 'object'){
     F.anim.breath = { phase: 0, direction: 1, styleOverride: null, shoulderOffsets: null, active: false };
   } else {
@@ -891,6 +894,25 @@ export function updatePoses(){
     ensureAnimState(F);
     F.anim.dt = Math.max(0, now - F.anim.last);
     F.anim.last = now;
+
+    const rawDt = F.anim.dt;
+    let pauseApplied = 0;
+    const hitPause = Number.isFinite(F.anim.hitPause) ? F.anim.hitPause : 0;
+    if (hitPause > 0 && rawDt > 0) {
+      pauseApplied = Math.min(hitPause, rawDt);
+      F.anim.hitPause = Math.max(0, hitPause - pauseApplied);
+      const layers = Array.isArray(F.anim.layers) ? F.anim.layers : [];
+      if (pauseApplied > 0 && layers.length) {
+        for (const layer of layers) {
+          if (!layer) continue;
+          if (Number.isFinite(layer.__start)) layer.__start += pauseApplied;
+          if (Number.isFinite(layer.until)) layer.until += pauseApplied;
+        }
+      }
+    } else {
+      F.anim.hitPause = Math.max(0, hitPause);
+    }
+    F.anim.dt = Math.max(0, rawDt - pauseApplied);
 
     const walkPose = computeWalkPose(F,C);
     const basePoseConfig = pickBase(C);
