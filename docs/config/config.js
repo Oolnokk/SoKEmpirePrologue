@@ -803,7 +803,7 @@ window.CONFIG = {
   // Each character has fighter, weapon, slotted attacks, and appearance options
   characters: {
     player: {
-      fighter: 'Tletingan',
+      fighter: 'Mao-ao_M',
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
       stats: {
