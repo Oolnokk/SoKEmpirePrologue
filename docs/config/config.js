@@ -470,7 +470,7 @@ window.CONFIG = {
           xformUnits: "percent",
           xform: {
             torso:    { ax:-0.5,  ay:-0.2, scaleX:3.5, scaleY:4.50, rotDeg:180 },
-            head:     { ax:-1.20, ay:-0.60, scaleX:5, scaleY:4, rotDeg:180 },
+            head:     { ax:-1.20, ay:-0.60, scaleX:6, scaleY:6, rotDeg:180 },
             armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
             armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
             legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
