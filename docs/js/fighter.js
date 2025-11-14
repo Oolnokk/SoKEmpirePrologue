@@ -206,11 +206,22 @@ export function initFighters(cv, cx){
     return null;
   }
 
-  function resolveFighterName(characterData, prevProfile) {
+  function resolveFighterName(id, characterData, prevProfile) {
+    const selectedFighter = G.selectedFighter;
+    if (
+      selectedFighter &&
+      C.fighters?.[selectedFighter] &&
+      (id === 'player' || prevProfile?.characterKey === 'player')
+    ) {
+      return selectedFighter;
+    }
+
     const prevFighter = prevProfile?.fighterName;
     if (prevFighter && C.fighters?.[prevFighter]) return prevFighter;
+
     const charFighter = characterData?.fighter;
     if (charFighter && C.fighters?.[charFighter]) return charFighter;
+
     return fallbackFighterName;
   }
 
@@ -230,7 +241,7 @@ export function initFighters(cv, cx){
       characterData = clone(characters[characterKey]);
     }
 
-    const fighterName = resolveFighterName(characterData, prevProfile);
+    const fighterName = resolveFighterName(id, characterData, prevProfile);
     const bodyColorsBase = prevProfile?.bodyColors
       ?? (characterData?.bodyColors ? clone(characterData.bodyColors) : null);
     const cosmeticsBase = prevProfile?.cosmetics
