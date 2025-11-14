@@ -391,7 +391,8 @@ window.GAME.MOUSE = {
   y: 0,              // Canvas-space Y
   worldX: 0,         // World-space X (accounting for camera)
   worldY: 0,         // World-space Y
-  isInCanvas: false  // Whether mouse is over canvas
+  isInCanvas: false, // Whether mouse is over canvas
+  hasPosition: false // Whether a real pointer position has been recorded
 };
 
 // Joystick state for touch controls
@@ -1450,6 +1451,7 @@ function updateMousePosition(e) {
   const verticalOffset = cv.height * (1 - zoom);
   window.GAME.MOUSE.worldX = pixelX / zoom + camX;
   window.GAME.MOUSE.worldY = (pixelY - verticalOffset) / zoom;
+  window.GAME.MOUSE.hasPosition = true;
 }
 
 if (cv) {
