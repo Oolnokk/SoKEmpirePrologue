@@ -885,7 +885,13 @@ export function updatePoses(){
   const fcfg = pickFighterConfig(C, fighterName);
   const breathingConfig = pickBreathingConfig(C, fighterName);
   const breathingSpec = resolveBreathingSpec(breathingConfig);
-  for (const id of ['player','npc']){
+  const fighterIds = Object.keys(G.FIGHTERS)
+    .sort((a, b) => {
+      if (a === 'player') return -1;
+      if (b === 'player') return 1;
+      return a.localeCompare(b);
+    });
+  for (const id of fighterIds){
     const F = G.FIGHTERS[id];
     if(!F) continue;
     ensureAnimState(F);
