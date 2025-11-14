@@ -63,11 +63,12 @@ class CosmeticEditorApp {
       profileBaseSnapshot: { cosmetics: {} },
       activeSlot: null,
       activeStyleKey: null,
+      activeLayerPosition: null,
       appearanceSlotKeys: [],
       fighterSpriteSlots: [],
       fighterSpriteIndex: {},
       currentPalette: null,
-      currentPaletteSource: { slot: null, partKey: null, cosmeticId: null },
+      currentPaletteSource: { slot: null, partKey: null, layerPosition: null, cosmeticId: null },
       activeMode: 'clothing'
     };
   }
@@ -885,17 +886,15 @@ class CosmeticEditorApp {
       return false;
     };
 
-    const mutatePartPalette = (slot, partKey, mutate)=>{
+    const mutatePartPalette = (slot, partKey, layerPosition, mutate)=>{
       if (!slot || !partKey || typeof mutate !== 'function') return;
-      this.state.slotOverrides ||= {};
-      const slotOverride = (this.state.slotOverrides[slot] ||= {});
-      slotOverride.parts ||= {};
-      const partOverride = (slotOverride.parts[partKey] ||= {});
-      partOverride.palette = partOverride.palette || {};
-      mutate(partOverride.palette);
-      cleanupPaletteObject(partOverride.palette);
-      if (!hasPaletteContent(partOverride.palette)){
-        delete partOverride.palette;
+      const normalizedLayer = this.normalizeLayerPosition(layerPosition);
+      const layerOverride = this.getLayerOverride(slot, partKey, normalizedLayer, { create: true });
+      layerOverride.palette = layerOverride.palette || {};
+      mutate(layerOverride.palette);
+      cleanupPaletteObject(layerOverride.palette);
+      if (!hasPaletteContent(layerOverride.palette)){
+        delete layerOverride.palette;
       }
       this.cleanupEmptyOverrides(slot);
       this.overrideManager.refreshOutputs();
@@ -916,16 +915,14 @@ class CosmeticEditorApp {
       renderTintPreview();
     };
 
-    const mutatePartHsl = (slot, partKey, mutate)=>{
+    const mutatePartHsl = (slot, partKey, layerPosition, mutate)=>{
       if (!slot || !partKey || typeof mutate !== 'function') return;
-      this.state.slotOverrides ||= {};
-      const slotOverride = (this.state.slotOverrides[slot] ||= {});
-      slotOverride.parts ||= {};
-      const partOverride = (slotOverride.parts[partKey] ||= {});
-      partOverride.hsl = partOverride.hsl || {};
-      mutate(partOverride.hsl);
-      if (!Object.keys(partOverride.hsl).length){
-        delete partOverride.hsl;
+      const normalizedLayer = this.normalizeLayerPosition(layerPosition);
+      const layerOverride = this.getLayerOverride(slot, partKey, normalizedLayer, { create: true });
+      layerOverride.hsl = layerOverride.hsl || {};
+      mutate(layerOverride.hsl);
+      if (!Object.keys(layerOverride.hsl).length){
+        delete layerOverride.hsl;
       }
       this.cleanupEmptyOverrides(slot);
       this.overrideManager.refreshOutputs();
@@ -1003,7 +1000,7 @@ class CosmeticEditorApp {
       return true;
     };
 
-    const setPartHslValue = (slot, partKey, channel, rawValue, cosmetic)=>{
+    const setPartHslValue = (slot, partKey, layerPosition, channel, rawValue, cosmetic)=>{
       if (!slot || !partKey) return false;
       const result = normalizeHslInput(channel, rawValue, cosmetic);
       if (result.error){
@@ -1012,7 +1009,7 @@ class CosmeticEditorApp {
         renderTintPreview();
         return false;
       }
-      mutatePartHsl(slot, partKey, (hsl)=>{
+      mutatePartHsl(slot, partKey, layerPosition, (hsl)=>{
         if (result.remove){
           delete hsl[channel];
         } else {
@@ -1022,7 +1019,7 @@ class CosmeticEditorApp {
       return true;
     };
 
-    const setPaletteColor = (slot, partKey, colorKey, rawValue)=>{
+    const setPaletteColor = (slot, partKey, layerPosition, colorKey, rawValue)=>{
       const trimmed = typeof rawValue === 'string' ? rawValue.trim() : '';
       const hex = trimmed ? normalizeHexInputString(trimmed) : null;
       if (trimmed && !hex){
@@ -1030,7 +1027,7 @@ class CosmeticEditorApp {
         renderPaletteEditor();
         return false;
       }
-      mutatePartPalette(slot, partKey, (palette)=>{
+      mutatePartPalette(slot, partKey, layerPosition, (palette)=>{
         if (hex){
           palette.colors = palette.colors || {};
           palette.colors[colorKey] = hex;
@@ -1041,7 +1038,7 @@ class CosmeticEditorApp {
       return true;
     };
 
-    const setPaletteShadeAmount = (slot, partKey, colorKey, rawValue)=>{
+    const setPaletteShadeAmount = (slot, partKey, layerPosition, colorKey, rawValue)=>{
       const hasValue = !(rawValue == null || rawValue === '');
       const normalized = hasValue ? normalizeShadeInput(rawValue) : null;
       if (hasValue && normalized == null){
@@ -1049,7 +1046,7 @@ class CosmeticEditorApp {
         renderPaletteEditor();
         return false;
       }
-      mutatePartPalette(slot, partKey, (palette)=>{
+      mutatePartPalette(slot, partKey, layerPosition, (palette)=>{
         if (!hasValue){
           if (palette.shading){
             delete palette.shading[colorKey];
@@ -1062,7 +1059,7 @@ class CosmeticEditorApp {
       return true;
     };
 
-    const setPaletteShadeHex = (slot, partKey, colorKey, rawValue)=>{
+    const setPaletteShadeHex = (slot, partKey, layerPosition, colorKey, rawValue)=>{
       const trimmed = typeof rawValue === 'string' ? rawValue.trim() : '';
       const hex = trimmed ? normalizeHexInputString(trimmed) : null;
       if (trimmed && !hex){
@@ -1070,7 +1067,7 @@ class CosmeticEditorApp {
         renderPaletteEditor();
         return false;
       }
-      mutatePartPalette(slot, partKey, (palette)=>{
+      mutatePartPalette(slot, partKey, layerPosition, (palette)=>{
         if (hex){
           palette.shaded = palette.shaded || {};
           palette.shaded[colorKey] = hex;
@@ -1128,17 +1125,22 @@ class CosmeticEditorApp {
       }
     };
 
-    const computeEffectivePalette = (slot, partKey, cosmetic)=>{
+    const computeEffectivePalette = (slot, partKey, layerPosition, cosmetic)=>{
       const palette = {
         colors: {},
         shaded: {},
         shading: {},
         bucketMap: {}
       };
+      const normalizedLayer = this.normalizeLayerPosition(layerPosition);
+      const partLayer = this.getCosmeticPartLayerConfig(cosmetic, partKey, normalizedLayer);
       mergePaletteSection(palette, cosmetic?.parts?.[partKey]?.palette);
+      mergePaletteSection(palette, partLayer?.palette);
       const slotOverride = this.state.slotOverrides?.[slot];
       mergePaletteSection(palette, slotOverride?.palette);
+      mergePaletteSection(palette, slotOverride?.layers?.[normalizedLayer]?.palette);
       mergePaletteSection(palette, slotOverride?.parts?.[partKey]?.palette);
+      mergePaletteSection(palette, slotOverride?.parts?.[partKey]?.layers?.[normalizedLayer]?.palette);
       return palette;
     };
 
@@ -1218,7 +1220,7 @@ class CosmeticEditorApp {
       list.appendChild(dd);
     };
 
-    const computeEffectiveHsl = (slot, partKey, cosmetic)=>{
+    const computeEffectiveHsl = (slot, partKey, layerPosition, cosmetic)=>{
       if (!slot || !partKey || !cosmetic || !this.state.activeFighter){
         return null;
       }
@@ -1233,7 +1235,8 @@ class CosmeticEditorApp {
       };
       try {
         const layers = ensureCosmeticLayers(CONFIG, fighterName, baseStyle) || [];
-        const match = layers.find((layer)=> layer.slot === slot && layer.partKey === partKey && layer.cosmeticId === cosmetic.id);
+        const normalizedLayer = this.normalizeLayerPosition(layerPosition);
+        const match = layers.find((layer)=> layer.slot === slot && layer.partKey === partKey && layer.cosmeticId === cosmetic.id && this.normalizeLayerPosition(layer.position) === normalizedLayer);
         return match?.hsl || { h: 0, s: 0, l: 0 };
       } catch (err){
         console.warn('[cosmetic-editor] Unable to resolve tint preview HSL', err);
@@ -1251,11 +1254,12 @@ class CosmeticEditorApp {
       if (!container) return;
       const slot = this.state.activeSlot;
       const partKey = this.state.activePartKey;
+      const layerPosition = this.state.activeLayerPosition;
       const library = getRegisteredCosmeticLibrary();
       const row = slot ? this.slotRows.get(slot) : null;
       const cosmeticId = row?.select?.value || '';
       const cosmetic = cosmeticId ? library[cosmeticId] : null;
-      const palette = slot && partKey ? computeEffectivePalette(slot, partKey, cosmetic) : null;
+      const palette = slot && partKey ? computeEffectivePalette(slot, partKey, layerPosition, cosmetic) : null;
       container.innerHTML = '';
       if (!slot || !partKey || !palette){
         const hint = document.createElement('p');
@@ -1277,7 +1281,7 @@ class CosmeticEditorApp {
         baseInput.placeholder = '#ffffff';
         baseInput.value = palette.colors?.[bucket.key] || '';
         baseInput.addEventListener('change', (event)=>{
-          setPaletteColor(slot, partKey, bucket.key, event.target.value);
+          setPaletteColor(slot, partKey, layerPosition, bucket.key, event.target.value);
         });
         const shadeInput = document.createElement('input');
         shadeInput.type = 'text';
@@ -1285,12 +1289,12 @@ class CosmeticEditorApp {
         if (bucket.type === 'shade'){
           shadeInput.value = palette.shading?.[bucket.key] != null ? palette.shading[bucket.key] : '';
           shadeInput.addEventListener('change', (event)=>{
-            setPaletteShadeAmount(slot, partKey, bucket.key, event.target.value);
+            setPaletteShadeAmount(slot, partKey, layerPosition, bucket.key, event.target.value);
           });
         } else {
           shadeInput.value = palette.shaded?.[bucket.key] || '';
           shadeInput.addEventListener('change', (event)=>{
-            setPaletteShadeHex(slot, partKey, bucket.key, event.target.value);
+            setPaletteShadeHex(slot, partKey, layerPosition, bucket.key, event.target.value);
           });
         }
         const tinted = document.createElement('div');
@@ -1315,7 +1319,7 @@ class CosmeticEditorApp {
       const container = this.dom.tintPreview;
       if (!container) return;
       container.innerHTML = '';
-      const { slot, partKey, cosmeticId } = this.state.currentPaletteSource;
+      const { slot, partKey, layerPosition, cosmeticId } = this.state.currentPaletteSource;
       if (!slot || !partKey || !cosmeticId){
         const note = document.createElement('p');
         note.className = 'tint-preview__context';
@@ -1332,17 +1336,19 @@ class CosmeticEditorApp {
         container.appendChild(note);
         return;
       }
-      const palette = computeEffectivePalette(slot, partKey, cosmetic) || { colors: {}, shaded: {}, shading: {}, bucketMap: {} };
+      const palette = computeEffectivePalette(slot, partKey, layerPosition, cosmetic) || { colors: {}, shaded: {}, shading: {}, bucketMap: {} };
       this.state.currentPalette = palette;
-      const assetUrl = this.getEffectivePartImage(slot, cosmetic, partKey);
-      const hsl = computeEffectiveHsl(slot, partKey, cosmetic);
+      const assetUrl = this.getEffectivePartImage(slot, cosmetic, partKey, layerPosition);
+      const hsl = computeEffectiveHsl(slot, partKey, layerPosition, cosmetic);
       const slotOverride = this.state.slotOverrides?.[slot] || {};
       const partOverride = slotOverride?.parts?.[partKey] || {};
       const slotHslOverride = slotOverride?.hsl || {};
-      const partHslOverride = partOverride?.hsl || {};
+      const partLayerOverride = partOverride?.layers?.[this.normalizeLayerPosition(layerPosition)] || {};
+      const partHslOverride = partLayerOverride?.hsl || {};
 
       const header = document.createElement('h3');
-      header.textContent = `Tint preview – ${partKey}`;
+      const layerLabel = this.normalizeLayerPosition(layerPosition) === 'back' ? 'back' : 'front';
+      header.textContent = `Tint preview – ${partKey} (${layerLabel})`;
       container.appendChild(header);
 
       const context = document.createElement('p');
@@ -1422,7 +1428,7 @@ class CosmeticEditorApp {
         setSlotHslValue(slot, channel, value, cosmetic);
       }));
       controls.appendChild(createHslFieldset('Part tint overrides', partHslOverride, (channel, value)=>{
-        setPartHslValue(slot, partKey, channel, value, cosmetic);
+        setPartHslValue(slot, partKey, layerPosition, channel, value, cosmetic);
       }));
       const hint = document.createElement('p');
       hint.className = 'tint-preview__context';
@@ -1481,22 +1487,37 @@ class CosmeticEditorApp {
       }
     };
 
-    const highlightActivePartAsset = (slot, partKey, cosmetic)=>{
+    const listPartLayerOptions = (cosmetic)=>{
+      const options = [];
+      for (const [partKey, part] of Object.entries(cosmetic?.parts || {})){
+        const layerMap = part?.layers && typeof part.layers === 'object' ? part.layers : null;
+        if (layerMap && Object.keys(layerMap).length){
+          for (const [layerKey, layerDef] of Object.entries(layerMap)){
+            const position = this.normalizeLayerPosition(layerDef?.position || layerKey);
+            const label = position === 'back' ? 'back' : 'front';
+            options.push({ partKey, position, value: `${partKey}::${position}`, label: `${partKey} (${label})` });
+          }
+        } else {
+          options.push({ partKey, position: 'front', value: `${partKey}::front`, label: `${partKey} (front)` });
+        }
+      }
+      return options;
+    };
+
+    const highlightActivePartAsset = (slot, partKey, layerPosition, cosmetic)=>{
       if (!slot || !partKey){
         if (!this.state.assetPinned){
           this.assetLibrary.setSelectedAsset(null);
         }
         return;
       }
-      const part = cosmetic?.parts?.[partKey];
-      const override = this.state.slotOverrides?.[slot]?.parts?.[partKey];
-      const assetUrl = override?.image?.url || part?.image?.url;
+      const assetUrl = this.getEffectivePartImage(slot, cosmetic, partKey, layerPosition);
       if (assetUrl && !this.state.assetPinned){
         this.assetLibrary.setSelectedAsset(assetUrl);
       }
     };
 
-    const renderStyleFields = (slot, cosmeticId, cosmetic, partKey)=>{
+    const renderStyleFields = (slot, cosmeticId, cosmetic, partKey, layerPosition)=>{
       this.dom.styleFields.innerHTML = '';
       const isSpriteMode = !!this.modeManager.getModeConfig(this.state.activeMode)?.enableSpriteEditing;
       const paletteContainer = document.createElement('div');
@@ -1509,21 +1530,27 @@ class CosmeticEditorApp {
         span.textContent = 'Sprite style key';
         const input = document.createElement('input');
         input.type = 'text';
-        const baseStyleKey = cosmetic?.parts?.[partKey]?.styleKey || '';
-        const currentStyleKey = this.state.slotOverrides?.[slot]?.parts?.[partKey]?.styleKey || baseStyleKey;
+        const basePartConfig = cosmetic?.parts?.[partKey] || {};
+        const partLayerConfig = this.getCosmeticPartLayerConfig(cosmetic, partKey, layerPosition) || {};
+        const partOverride = this.state.slotOverrides?.[slot]?.parts?.[partKey] || {};
+        const baseStyleKey = basePartConfig.styleKey || partLayerConfig.styleKey || '';
+        const currentStyleKey = partOverride.styleKey || baseStyleKey;
         input.placeholder = baseStyleKey;
         input.value = currentStyleKey;
         input.addEventListener('change', (event)=>{
-          this.applyStyleValue(slot, partKey, null, 'styleKey', event.target.value);
+          this.applyStyleValue(slot, partKey, layerPosition, null, 'styleKey', event.target.value);
         });
         styleKeyWrapper.appendChild(span);
         styleKeyWrapper.appendChild(input);
         this.dom.styleFields.appendChild(styleKeyWrapper);
         const styleKey = currentStyleKey || baseStyleKey;
         this.state.activeStyleKey = styleKey || null;
-        const spriteStyle = cosmetic?.parts?.[partKey]?.spriteStyle;
-        const baseXform = spriteStyle?.xform?.[styleKey] || {};
-        const currentXform = this.state.slotOverrides?.[slot]?.parts?.[partKey]?.spriteStyle?.xform?.[styleKey] || {};
+        const baseSpriteStyle = partLayerConfig?.spriteStyle || basePartConfig.spriteStyle || {};
+        const baseXform = baseSpriteStyle?.xform?.[styleKey] || {};
+        const overrideLayer = partOverride?.layers?.[this.normalizeLayerPosition(layerPosition)] || {};
+        const currentXform = overrideLayer?.spriteStyle?.xform?.[styleKey]
+          || partOverride?.spriteStyle?.xform?.[styleKey]
+          || {};
         const fields = [
           { key: 'x', label: 'Offset X', step: 1 },
           { key: 'y', label: 'Offset Y', step: 1 },
@@ -1544,7 +1571,7 @@ class CosmeticEditorApp {
             inputEl.placeholder = String(baseXform[field.key]);
           }
           inputEl.addEventListener('input', (event)=>{
-            this.applyStyleValue(slot, partKey, styleKey, field.key, event.target.value);
+            this.applyStyleValue(slot, partKey, layerPosition, styleKey, field.key, event.target.value);
           });
           wrapper.appendChild(label);
           wrapper.appendChild(inputEl);
@@ -1556,7 +1583,7 @@ class CosmeticEditorApp {
           }
           this.dom.styleFields.appendChild(wrapper);
         }
-        const currentImageUrl = this.getEffectivePartImage(slot, cosmetic, partKey);
+        const currentImageUrl = this.getEffectivePartImage(slot, cosmetic, partKey, layerPosition);
         if (currentImageUrl){
           const info = document.createElement('p');
           info.className = 'style-asset-info';
@@ -1587,7 +1614,7 @@ class CosmeticEditorApp {
         this.dom.styleHeader.textContent = 'No slot selected';
         this.state.activePartKey = null;
         this.state.currentPalette = null;
-        this.state.currentPaletteSource = { slot: null, partKey: null, cosmeticId: null };
+        this.state.currentPaletteSource = { slot: null, partKey: null, layerPosition: null, cosmeticId: null };
         renderTintPreview();
         return;
       }
@@ -1601,8 +1628,9 @@ class CosmeticEditorApp {
         this.dom.styleFields.innerHTML = '<p>Select a cosmetic for this slot to enable style editing.</p>';
         this.state.activeStyleKey = null;
         this.state.activePartKey = null;
+        this.state.activeLayerPosition = null;
         this.state.currentPalette = null;
-        this.state.currentPaletteSource = { slot, partKey: null, cosmeticId: null };
+        this.state.currentPaletteSource = { slot, partKey: null, layerPosition: null, cosmeticId: null };
         renderTintPreview();
         return;
       }
@@ -1613,15 +1641,16 @@ class CosmeticEditorApp {
         this.dom.styleFields.innerHTML = `<p>Cosmetic "${cosmeticId}" is not available in the library.</p>`;
         this.state.activeStyleKey = null;
         this.state.activePartKey = null;
+        this.state.activeLayerPosition = null;
         this.state.currentPalette = null;
-        this.state.currentPaletteSource = { slot, partKey: null, cosmeticId };
+        this.state.currentPaletteSource = { slot, partKey: null, layerPosition: null, cosmeticId };
         renderTintPreview();
         return;
       }
-      const parts = Object.keys(cosmetic.parts || {});
+      const partOptions = listPartLayerOptions(cosmetic);
       this.dom.styleInspector.dataset.active = 'true';
       this.dom.stylePartSelect.innerHTML = '';
-      if (!parts.length){
+      if (!partOptions.length){
         this.dom.styleFields.innerHTML = '';
         const message = document.createElement('p');
         message.textContent = 'This cosmetic has no editable sprite parts.';
@@ -1633,25 +1662,28 @@ class CosmeticEditorApp {
         this.dom.styleFields.appendChild(paletteContainer);
         this.state.activeStyleKey = null;
         this.state.activePartKey = null;
+        this.state.activeLayerPosition = null;
         this.state.currentPalette = null;
-        this.state.currentPaletteSource = { slot, partKey: null, cosmeticId };
+        this.state.currentPaletteSource = { slot, partKey: null, layerPosition: null, cosmeticId };
         renderTintPreview();
         return;
       }
-      for (const partKey of parts){
-        const option = document.createElement('option');
-        option.value = partKey;
-        option.textContent = partKey;
-        this.dom.stylePartSelect.appendChild(option);
+      for (const entry of partOptions){
+        const optionEl = document.createElement('option');
+        optionEl.value = `${entry.partKey}::${entry.position}`;
+        optionEl.textContent = entry.label;
+        this.dom.stylePartSelect.appendChild(optionEl);
       }
-      const preferred = this.state.activePartKey && parts.includes(this.state.activePartKey)
-        ? this.state.activePartKey
-        : parts[0];
-      this.dom.stylePartSelect.value = preferred;
-      this.state.activePartKey = preferred;
-      renderStyleFields(slot, cosmeticId, cosmetic, preferred);
-      highlightActivePartAsset(slot, preferred, cosmetic);
-      this.state.currentPaletteSource = { slot, partKey: preferred, cosmeticId };
+      const preferredOption = partOptions.find((entry)=>
+        entry.partKey === this.state.activePartKey
+        && entry.position === this.normalizeLayerPosition(this.state.activeLayerPosition)
+      ) || partOptions[0];
+      this.dom.stylePartSelect.value = preferredOption.value;
+      this.state.activePartKey = preferredOption.partKey;
+      this.state.activeLayerPosition = preferredOption.position;
+      renderStyleFields(slot, cosmeticId, cosmetic, preferredOption.partKey, preferredOption.position);
+      highlightActivePartAsset(slot, preferredOption.partKey, preferredOption.position, cosmetic);
+      this.state.currentPaletteSource = { slot, partKey: preferredOption.partKey, layerPosition: preferredOption.position, cosmeticId };
       renderTintPreview();
     };
 
@@ -1662,11 +1694,14 @@ class CosmeticEditorApp {
       if (!slot || !row) return;
       const cosmeticId = row.select.value;
       const cosmetic = library[cosmeticId];
-      const partKey = this.dom.stylePartSelect.value;
+      const selected = this.dom.stylePartSelect.value;
+      const [partKey, rawPosition] = selected.split('::');
+      const layerPosition = this.normalizeLayerPosition(rawPosition);
       this.state.activePartKey = partKey;
-      renderStyleFields(slot, cosmeticId, cosmetic, partKey);
-      highlightActivePartAsset(slot, partKey, cosmetic);
-      this.state.currentPaletteSource = { slot, partKey, cosmeticId };
+      this.state.activeLayerPosition = layerPosition;
+      renderStyleFields(slot, cosmeticId, cosmetic, partKey, layerPosition);
+      highlightActivePartAsset(slot, partKey, layerPosition, cosmetic);
+      this.state.currentPaletteSource = { slot, partKey, layerPosition, cosmeticId };
       renderTintPreview();
     };
 
@@ -1965,6 +2000,85 @@ class CosmeticEditorApp {
     }
   }
 
+  normalizeLayerPosition(position){
+    if (!position) return 'front';
+    const normalized = String(position).trim().toLowerCase();
+    if (!normalized) return 'front';
+    if (normalized === 'back' || normalized === 'behind' || normalized === 'rear'){
+      return 'back';
+    }
+    return 'front';
+  }
+
+  mergeLayerConfig(base = {}, override = {}){
+    const result = Array.isArray(base) ? base.slice() : { ...base };
+    for (const [key, value] of Object.entries(override || {})){
+      if (value && typeof value === 'object' && !Array.isArray(value)){
+        result[key] = this.mergeLayerConfig(base?.[key] || {}, value);
+      } else if (Array.isArray(value)){
+        result[key] = value.slice();
+      } else {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+
+  getCosmeticPartLayerConfig(cosmetic, partKey, layerPosition){
+    if (!cosmetic || !partKey) return null;
+    const part = cosmetic.parts?.[partKey];
+    if (!part) return null;
+    const normalized = this.normalizeLayerPosition(layerPosition);
+    const base = this.deepClone({ ...part });
+    delete base.layers;
+    const layerMap = part.layers && typeof part.layers === 'object' ? part.layers : null;
+    if (!layerMap || Object.keys(layerMap).length === 0){
+      return base;
+    }
+    for (const [key, layerDef] of Object.entries(layerMap)){
+      const candidate = this.normalizeLayerPosition(layerDef?.position || key);
+      if (candidate === normalized){
+        return this.mergeLayerConfig(base, layerDef || {});
+      }
+    }
+    const fallbackKey = Object.keys(layerMap)[0];
+    if (fallbackKey){
+      return this.mergeLayerConfig(base, layerMap[fallbackKey] || {});
+    }
+    return base;
+  }
+
+  getLayerOverride(slot, partKey, layerPosition, { create = false } = {}){
+    if (!slot || !partKey) return null;
+    this.state.slotOverrides ||= {};
+    let slotOverride = this.state.slotOverrides[slot];
+    if (!slotOverride){
+      if (!create) return null;
+      slotOverride = this.state.slotOverrides[slot] = {};
+    }
+    if (create){
+      slotOverride.parts ||= {};
+    }
+    const partOverride = slotOverride.parts?.[partKey];
+    if (!partOverride){
+      if (!create) return null;
+      slotOverride.parts[partKey] = {};
+    }
+    const resolvedPartOverride = slotOverride.parts?.[partKey];
+    if (!layerPosition){
+      return resolvedPartOverride || null;
+    }
+    if (!resolvedPartOverride){
+      return null;
+    }
+    if (create){
+      resolvedPartOverride.layers ||= {};
+      resolvedPartOverride.layers[layerPosition] ||= {};
+      return resolvedPartOverride.layers[layerPosition];
+    }
+    return resolvedPartOverride.layers?.[layerPosition] || null;
+  }
+
   cleanupEmptyOverrides(slot){
     const slotOverride = this.state.slotOverrides?.[slot];
     if (!slotOverride) return;
@@ -1978,6 +2092,42 @@ class CosmeticEditorApp {
       for (const [partKey, partOverride] of Object.entries(slotOverride.parts)){
         if (partOverride?.image && !partOverride.image.url){
           delete partOverride.image;
+        }
+        if (partOverride?.layers){
+          for (const [layerKey, layerOverride] of Object.entries(partOverride.layers)){
+            if (layerOverride?.image && !layerOverride.image.url){
+              delete layerOverride.image;
+            }
+            const layerSpriteStyle = layerOverride?.spriteStyle;
+            if (layerSpriteStyle?.xform){
+              for (const [styleKey, values] of Object.entries(layerSpriteStyle.xform)){
+                if (!values || Object.keys(values).length === 0){
+                  delete layerSpriteStyle.xform[styleKey];
+                }
+              }
+              if (Object.keys(layerSpriteStyle.xform).length === 0){
+                delete layerSpriteStyle.xform;
+              }
+            }
+            if (layerSpriteStyle && Object.keys(layerSpriteStyle).length === 0){
+              delete layerOverride.spriteStyle;
+            }
+            if (layerOverride?.palette){
+              this.styleInspector.cleanupPaletteObject(layerOverride.palette);
+              if (!this.hasPaletteContent(layerOverride.palette)){
+                delete layerOverride.palette;
+              }
+            }
+            if (layerOverride?.hsl && Object.keys(layerOverride.hsl).length === 0){
+              delete layerOverride.hsl;
+            }
+            if (layerOverride && Object.keys(layerOverride).length === 0){
+              delete partOverride.layers[layerKey];
+            }
+          }
+          if (Object.keys(partOverride.layers).length === 0){
+            delete partOverride.layers;
+          }
         }
         const spriteStyle = partOverride?.spriteStyle;
         if (spriteStyle?.xform){
@@ -2070,12 +2220,10 @@ class CosmeticEditorApp {
     }
   }
 
-  applyStyleValue(slot, partKey, styleKey, fieldKey, rawValue){
+  applyStyleValue(slot, partKey, layerPosition, styleKey, fieldKey, rawValue){
     if (!slot || !partKey) return;
-    this.state.slotOverrides ||= {};
-    const slotOverride = (this.state.slotOverrides[slot] ||= {});
-    slotOverride.parts ||= {};
-    const partOverride = (slotOverride.parts[partKey] ||= {});
+    const normalizedLayer = layerPosition ? this.normalizeLayerPosition(layerPosition) : null;
+    const partOverride = this.getLayerOverride(slot, partKey, null, { create: true });
     if (fieldKey === 'styleKey'){
       if (!rawValue){
         delete partOverride.styleKey;
@@ -2089,9 +2237,10 @@ class CosmeticEditorApp {
     if (!styleKey){
       return;
     }
-    partOverride.spriteStyle ||= {};
-    partOverride.spriteStyle.xform ||= {};
-    const xform = (partOverride.spriteStyle.xform[styleKey] ||= {});
+    const layerOverride = this.getLayerOverride(slot, partKey, normalizedLayer || null, { create: true });
+    layerOverride.spriteStyle ||= {};
+    layerOverride.spriteStyle.xform ||= {};
+    const xform = (layerOverride.spriteStyle.xform[styleKey] ||= {});
     const numeric = Number(rawValue);
     if (rawValue === '' || Number.isNaN(numeric)){
       delete xform[fieldKey];
@@ -2099,22 +2248,31 @@ class CosmeticEditorApp {
       xform[fieldKey] = numeric;
     }
     if (Object.keys(xform).length === 0){
-      delete partOverride.spriteStyle.xform[styleKey];
+      delete layerOverride.spriteStyle.xform[styleKey];
     }
-    if (Object.keys(partOverride.spriteStyle.xform).length === 0){
-      delete partOverride.spriteStyle.xform;
+    if (Object.keys(layerOverride.spriteStyle.xform).length === 0){
+      delete layerOverride.spriteStyle.xform;
     }
-    if (partOverride.spriteStyle && Object.keys(partOverride.spriteStyle).length === 0){
-      delete partOverride.spriteStyle;
+    if (layerOverride.spriteStyle && Object.keys(layerOverride.spriteStyle).length === 0){
+      delete layerOverride.spriteStyle;
     }
     this.cleanupEmptyOverrides(slot);
     this.overrideManager.refreshOutputs();
   }
 
-  getEffectivePartImage(slot, cosmetic, partKey){
+  getEffectivePartImage(slot, cosmetic, partKey, layerPosition){
+    const normalizedLayer = this.normalizeLayerPosition(layerPosition);
     const override = this.state.slotOverrides?.[slot]?.parts?.[partKey];
+    const layerOverride = override?.layers?.[normalizedLayer];
+    if (layerOverride?.image?.url){
+      return layerOverride.image.url;
+    }
     if (override?.image?.url){
       return override.image.url;
+    }
+    const partLayer = this.getCosmeticPartLayerConfig(cosmetic, partKey, normalizedLayer);
+    if (partLayer?.image?.url){
+      return partLayer.image.url;
     }
     return cosmetic?.parts?.[partKey]?.image?.url || '';
   }
