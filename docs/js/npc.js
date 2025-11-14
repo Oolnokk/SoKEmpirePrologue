@@ -1,6 +1,6 @@
 // npc.js — Reimplements the NPC systems from the monolith build in a modular form
 
-import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=3';
+import { initCombatForFighter } from './combat.js?v=19';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -56,52 +56,102 @@ function ensureNpcContainers(G) {
   return npcSystems;
 }
 
+function ensureNpcInputState(state) {
+  if (!state) return {};
+  const input = state.aiInput || {
+    buttonA: { down: false },
+    buttonB: { down: false },
+    left: false,
+    right: false,
+  };
+  if (!state.aiInput) state.aiInput = input;
+  input.buttonA ||= { down: false };
+  input.buttonB ||= { down: false };
+  return input;
+}
+
+function ensureNpcPressRegistry(state) {
+  if (!state) return {};
+  state.aiButtonPresses ||= {};
+  return state.aiButtonPresses;
+}
+
+function releaseNpcButton(state, combat, slotKey) {
+  if (!state || !combat) return;
+  const presses = state.aiButtonPresses;
+  if (!presses) return;
+  const press = presses[slotKey];
+  if (!press || !press.down) return;
+  press.down = false;
+  press.timer = 0;
+  const input = ensureNpcInputState(state);
+  if (slotKey === 'A') {
+    input.buttonA.down = false;
+  } else if (slotKey === 'B') {
+    input.buttonB.down = false;
+  }
+  combat.slotUp(slotKey);
+}
+
+function pressNpcButton(state, combat, slotKey, holdSeconds = 0.12) {
+  if (!state || !combat) return false;
+  const presses = ensureNpcPressRegistry(state);
+  const press = presses[slotKey] || (presses[slotKey] = { down: false, timer: 0 });
+  if (press.down) return false;
+  press.down = true;
+  press.timer = Math.max(0, holdSeconds);
+  const input = ensureNpcInputState(state);
+  if (slotKey === 'A') {
+    input.buttonA.down = true;
+  } else if (slotKey === 'B') {
+    input.buttonB.down = true;
+  }
+  combat.slotDown(slotKey);
+  return true;
+}
+
+function updateNpcAutomatedInput(state, combat, dt) {
+  if (!state || !combat) return;
+  const presses = state.aiButtonPresses;
+  if (!presses) return;
+  for (const [slotKey, press] of Object.entries(presses)) {
+    if (!press?.down) continue;
+    press.timer -= dt;
+    if (press.timer <= 0) {
+      releaseNpcButton(state, combat, slotKey);
+    }
+  }
+}
+
+function ensureNpcCombat(G) {
+  if (G.npcCombat) return G.npcCombat;
+  const combat = initCombatForFighter('npc', {
+    fighterLabel: 'npc',
+    poseTarget: 'npc',
+    autoProcessInput: false,
+    neutralizeInputMovement: false,
+    storeKey: 'npcCombat',
+    inputSource: () => {
+      const npc = G.FIGHTERS?.npc;
+      return npc ? ensureNpcInputState(npc) : {};
+    },
+  });
+  return combat;
+}
+
 function ensureAttackState(state) {
   const attack = (state.attack ||= {});
   attack.active = !!attack.active;
   attack.preset = attack.preset || null;
   attack.slot = attack.slot || null;
-  attack.facingRadAtPress = Number.isFinite(attack.facingRadAtPress)
-    ? attack.facingRadAtPress
-    : state.facingRad || 0;
-  attack.dirSign = Number.isFinite(attack.dirSign) ? attack.dirSign : state.facingSign || 1;
-  attack.downTime = attack.downTime || 0;
-  attack.holdStartTime = attack.holdStartTime || 0;
-  attack.holdWindupDuration = attack.holdWindupDuration || 0;
-  attack.isHoldRelease = !!attack.isHoldRelease;
-  attack.strikeLanded = !!attack.strikeLanded;
   attack.currentPhase = attack.currentPhase || null;
   attack.currentActiveKeys = Array.isArray(attack.currentActiveKeys)
     ? attack.currentActiveKeys
     : [];
-  attack.sequence = Array.isArray(attack.sequence) ? attack.sequence : [];
-  attack.durations = Array.isArray(attack.durations) ? attack.durations : [];
-  attack.phaseIndex = Number.isFinite(attack.phaseIndex) ? attack.phaseIndex : 0;
-  attack.timer = Number.isFinite(attack.timer) ? attack.timer : 0;
-  attack.lastAppliedPhase = attack.lastAppliedPhase || null;
-  attack.lastPhaseIndex = Number.isFinite(attack.lastPhaseIndex) ? attack.lastPhaseIndex : -1;
-  attack.layerHandles = Array.isArray(attack.layerHandles)
-    ? attack.layerHandles.filter((handle) => handle && typeof handle.cancel === 'function')
-    : [];
-  if (!attack.lunge) {
-    attack.lunge = {
-      active: false,
-      paused: false,
-      distance: 0,
-      targetDistance: 60,
-      speed: 400,
-      lungeVel: { x: 0, y: 0 },
-    };
-  } else {
-    attack.lunge.active = !!attack.lunge.active;
-    attack.lunge.paused = !!attack.lunge.paused;
-    attack.lunge.distance = Number.isFinite(attack.lunge.distance) ? attack.lunge.distance : 0;
-    attack.lunge.targetDistance = Number.isFinite(attack.lunge.targetDistance)
-      ? attack.lunge.targetDistance
-      : 60;
-    attack.lunge.speed = Number.isFinite(attack.lunge.speed) ? attack.lunge.speed : 400;
-    attack.lunge.lungeVel = attack.lunge.lungeVel || { x: 0, y: 0 };
-  }
+  attack.strikeLanded = !!attack.strikeLanded;
+  attack.isHoldRelease = !!attack.isHoldRelease;
+  attack.chargeStage = Number.isFinite(attack.chargeStage) ? attack.chargeStage : 0;
+  attack.context = attack.context || null;
   return attack;
 }
 
@@ -134,15 +184,6 @@ function getWorldWidth(config) {
   return config.world?.width || config.camera?.worldWidth || DEFAULT_WORLD_WIDTH;
 }
 
-function getPresetDurations(presetName) {
-  const C = window.CONFIG || {};
-  const presets = C.presets || {};
-  const durations = presets?.[presetName]?.durations;
-  if (durations) return durations;
-  const moves = C.moves || {};
-  return moves?.[presetName]?.durations || C.durations || {};
-}
-
 function getPresetActiveColliders(preset) {
   if (!preset) return [];
   const name = preset.toUpperCase();
@@ -150,333 +191,6 @@ function getPresetActiveColliders(preset) {
   if (name.startsWith('PUNCH')) return ['handL', 'handR'];
   if (name.startsWith('SLAM')) return ['handL', 'handR', 'footL', 'footR'];
   return [];
-}
-
-const PRIMARY_DURATION_KEYS = {
-  Windup: ['toWindup'],
-  Strike: ['toStrike'],
-  Recoil: ['toRecoil'],
-  Stance: ['toStance'],
-  Slam: ['toStrike', 'toSlam'],
-};
-
-function deriveDurationKeyCandidates(poseName) {
-  if (!poseName || typeof poseName !== 'string') return [];
-  const trimmed = poseName.trim();
-  if (!trimmed) return [];
-  const candidates = [];
-  const canonical = trimmed.replace(/\s+/g, '');
-  const base = PRIMARY_DURATION_KEYS[canonical];
-  if (Array.isArray(base)) candidates.push(...base);
-
-  const match = canonical.match(/^(Windup|Strike|Recoil|Stance)(.+)$/i);
-  if (match) {
-    const [, prefix, suffix] = match;
-    const cap = prefix[0].toUpperCase() + prefix.slice(1).toLowerCase();
-    candidates.push(`to${cap}${suffix}`);
-    candidates.push(`to${cap}`);
-  }
-
-  if (!PRIMARY_DURATION_KEYS[canonical]) {
-    const cap = canonical[0].toUpperCase() + canonical.slice(1);
-    candidates.push(`to${cap}`);
-  }
-
-  return [...new Set(candidates)];
-}
-
-function resolveDurationMsForPose(poseName, presetDurations, fallbackDurations) {
-  const sources = [];
-  if (presetDurations) sources.push(presetDurations);
-  if (fallbackDurations) sources.push(fallbackDurations);
-  const globalDurations = window.CONFIG?.durations;
-  if (globalDurations) sources.push(globalDurations);
-  const keys = deriveDurationKeyCandidates(poseName);
-  for (const key of keys) {
-    if (!key) continue;
-    for (const source of sources) {
-      const value = source?.[key];
-      if (Number.isFinite(value) && value > 0) return value;
-    }
-  }
-  return 0;
-}
-
-function cancelNpcLayerHandles(attack) {
-  if (!attack?.layerHandles) return;
-  while (attack.layerHandles.length) {
-    const handle = attack.layerHandles.pop();
-    try {
-      if (handle && typeof handle.cancel === 'function') handle.cancel();
-    } catch (err) {
-      console.warn('[npc] Failed to cancel NPC layer override', err);
-    }
-  }
-}
-
-function resolvePreset(presetName) {
-  if (!presetName) return null;
-  const C = window.CONFIG || {};
-  return (
-    C.presets?.[presetName]
-    || C.moves?.[presetName]
-    || C.attacks?.presets?.[presetName]
-    || null
-  );
-}
-
-function resolvePoseForPhase(preset, phaseName) {
-  if (!phaseName) return null;
-  if (preset?.poses?.[phaseName]) return clone(preset.poses[phaseName]);
-  const C = window.CONFIG || {};
-  if (C.poses?.[phaseName]) return clone(C.poses[phaseName]);
-  if (phaseName === 'Stance' && C.poses?.Stance) return clone(C.poses.Stance);
-  return null;
-}
-
-function applyNpcLayerOverrides(attack, overrides, stageDurMs) {
-  if (!Array.isArray(overrides) || overrides.length === 0) return;
-  overrides.forEach((layer, index) => {
-    if (!layer || layer.enabled === false) return;
-    const pose = layer.pose ? clone(layer.pose) : {};
-    const opts = {
-      mask: layer.mask || layer.joints,
-      priority: layer.priority,
-      suppressWalk: layer.suppressWalk,
-      useAsBase: layer.useAsBase,
-      durMs: Number.isFinite(layer.durMs)
-        ? layer.durMs
-        : Number.isFinite(layer.durationMs)
-          ? layer.durationMs
-          : Number.isFinite(layer.dur)
-            ? layer.dur
-            : stageDurMs,
-      delayMs: Number.isFinite(layer.delayMs)
-        ? layer.delayMs
-        : Number.isFinite(layer.offsetMs)
-          ? layer.offsetMs
-          : 0,
-    };
-    const layerId = layer.id || `npc-layer-${index}`;
-    const handle = pushPoseLayerOverride('npc', layerId, pose, opts);
-    if (handle && typeof handle.cancel === 'function') {
-      attack.layerHandles.push(handle);
-    }
-  });
-}
-
-function applyNpcPoseForCurrentPhase(state, { force = false } = {}) {
-  const attack = ensureAttackState(state);
-  if (!force && !attack.active) return;
-
-  const sequence = Array.isArray(attack.sequence) ? attack.sequence : [];
-  if (!sequence.length) return;
-
-  const idx = Math.max(0, Math.min(attack.phaseIndex, sequence.length - 1));
-  const phaseName = sequence[idx] || 'Stance';
-  if (!force && attack.lastAppliedPhase === phaseName && attack.lastPhaseIndex === idx) return;
-
-  const preset = resolvePreset(attack.preset);
-  const poseDef = resolvePoseForPhase(preset, phaseName);
-  const durSec = Array.isArray(attack.durations) ? attack.durations[idx] : null;
-  const durMs = Number.isFinite(durSec) ? Math.max(1, durSec * 1000) : 300;
-
-  cancelNpcLayerHandles(attack);
-
-  if (poseDef) {
-    const { layerOverrides, ...primaryPose } = poseDef;
-    pushPoseOverride('npc', primaryPose, durMs, { suppressWalk: true });
-    applyNpcLayerOverrides(attack, layerOverrides, durMs);
-  } else if (phaseName === 'Stance') {
-    const stance = resolvePoseForPhase(null, 'Stance');
-    if (stance) {
-      pushPoseOverride('npc', stance, durMs, { suppressWalk: false });
-    }
-  }
-
-  attack.lastAppliedPhase = phaseName;
-  attack.lastPhaseIndex = idx;
-}
-
-function resetAttackState(state) {
-  const attack = ensureAttackState(state);
-  const wasActive = attack.active;
-  cancelNpcLayerHandles(attack);
-  attack.active = false;
-  attack.preset = null;
-  attack.sequence = [];
-  attack.durations = [];
-  attack.phaseIndex = 0;
-  attack.timer = 0;
-  attack.currentPhase = null;
-  attack.currentActiveKeys = [];
-  attack.strikeLanded = false;
-  attack.isHoldRelease = false;
-  attack.holdWindupDuration = 0;
-  attack.lunge.active = false;
-  attack.lastAppliedPhase = null;
-  attack.lastPhaseIndex = -1;
-  if (wasActive) {
-    const stance = resolvePoseForPhase(null, 'Stance');
-    if (stance) {
-      pushPoseOverride('npc', stance, 180, { suppressWalk: false });
-    }
-  }
-}
-
-function startNpcQuickAttack(state, presetName) {
-  const C = window.CONFIG || {};
-  const attack = ensureAttackState(state);
-  const combo = ensureComboState(state);
-  const preset = C.presets?.[presetName];
-
-  attack.active = true;
-  attack.preset = presetName;
-  attack.phaseIndex = 0;
-  attack.timer = 0;
-  attack.currentActiveKeys = [];
-  attack.strikeLanded = false;
-  attack.currentPhase = null;
-  attack.isHoldRelease = false;
-  attack.holdWindupDuration = 0;
-
-  if (preset?.sequence) {
-    attack.sequence = [];
-    attack.durations = [];
-    const fallbackDurations = getPresetDurations(presetName) || {};
-    for (const step of preset.sequence) {
-      const pose = typeof step === 'string'
-        ? step
-        : step?.pose || step?.poseKey || 'Stance';
-      attack.sequence.push(pose);
-      let durMs = 0;
-      if (step && typeof step === 'object') {
-        if (Number.isFinite(step.durMs)) {
-          durMs = step.durMs;
-        } else if (Number.isFinite(step.durationMs)) {
-          durMs = step.durationMs;
-        } else if (Number.isFinite(step.dur)) {
-          durMs = step.dur;
-        }
-        if (!durMs && step.durKey) {
-          const durs = preset.durations || fallbackDurations || C.durations || {};
-          durMs = durs[step.durKey] || 0;
-        }
-      }
-      if (!durMs) {
-        durMs = resolveDurationMsForPose(pose, preset.durations, fallbackDurations);
-      }
-      attack.durations.push((durMs || 0) / 1000);
-    }
-  } else {
-    const durs = getPresetDurations(presetName) || {};
-    const w = durs.toWindup || 0;
-    const s = durs.toStrike || 0;
-    const r = durs.toRecoil || 0;
-    const st = durs.toStance || 0;
-    attack.sequence = ['Windup', 'Strike', 'Recoil', 'Stance'];
-    attack.durations = [w, s, r, st].map((ms) => (ms || 0) / 1000);
-  }
-
-  combo.attackDelay = 0;
-  attack.lastAppliedPhase = null;
-  attack.lastPhaseIndex = -1;
-  applyNpcPoseForCurrentPhase(state, { force: true });
-}
-
-function startNpcHoldReleaseAttack(state, presetName, windupMs) {
-  const attack = ensureAttackState(state);
-  const durs = getPresetDurations(presetName) || {};
-  const windup = Number(windupMs) || 1000;
-  attack.active = true;
-  attack.preset = presetName;
-  attack.sequence = ['Windup', 'Strike', 'Recoil', 'Stance'];
-  attack.durations = [windup / 1000, (durs.toStrike || 0) / 1000, (durs.toRecoil || 0) / 1000, (durs.toStance || 0) / 1000];
-  attack.phaseIndex = 0;
-  attack.timer = 0;
-  attack.currentActiveKeys = [];
-  attack.isHoldRelease = true;
-  attack.holdWindupDuration = windup;
-  attack.strikeLanded = false;
-  attack.currentPhase = null;
-  attack.lastAppliedPhase = null;
-  attack.lastPhaseIndex = -1;
-  applyNpcPoseForCurrentPhase(state, { force: true });
-}
-
-function updateNpcAttack(G, state, dt) {
-  const combo = ensureComboState(state);
-  const attack = ensureAttackState(state);
-  const MOVE = G.FIGHTERS?.player;
-  const C = window.CONFIG || {};
-
-  if (combo.active && !attack.active) {
-    combo.attackDelay -= dt;
-    if (combo.attackDelay <= 0) {
-      combo.sequenceIndex += 1;
-      if (combo.sequenceIndex < 4) {
-        const preset = C.combo?.sequence?.[combo.sequenceIndex];
-        startNpcQuickAttack(state, preset || 'KICK');
-        combo.attackDelay = 0.15;
-      } else if (combo.sequenceIndex === 4) {
-        const idx = 0;
-        const preset = C.combo?.altSequence?.[idx] || C.combo?.sequence?.[idx] || 'KICK';
-        startNpcQuickAttack(state, preset);
-        combo.attackDelay = 0.15;
-        combo.sequenceIndex += 1;
-      } else {
-        combo.active = false;
-        combo.sequenceIndex = 0;
-      }
-    }
-  }
-
-  if (!attack.active) {
-    applyNpcPoseForCurrentPhase(state);
-    return;
-  }
-
-  attack.timer += dt;
-  while (attack.phaseIndex < attack.durations.length && attack.timer >= attack.durations[attack.phaseIndex]) {
-    attack.timer -= attack.durations[attack.phaseIndex];
-    const oldPhase = attack.sequence[attack.phaseIndex];
-    attack.phaseIndex += 1;
-    if (attack.phaseIndex >= attack.durations.length) {
-      resetAttackState(state);
-      if (combo.active) combo.attackDelay = 0.15;
-      return;
-    }
-    const newPhase = attack.sequence[attack.phaseIndex];
-    if (newPhase === 'Strike' && oldPhase !== 'Strike') {
-      attack.strikeLanded = false;
-      attack.currentPhase = 'Strike';
-      attack.currentActiveKeys = getPresetActiveColliders(attack.preset);
-      attack.lunge.active = true;
-      attack.lunge.paused = false;
-      attack.lunge.distance = 0;
-      const dx = (MOVE?.pos?.x ?? state.pos.x) - state.pos.x;
-      const dy = (MOVE?.pos?.y ?? state.pos.y) - state.pos.y;
-      const aimAngle = Math.atan2(dy, dx);
-      const lungeSpeed = attack.lunge.speed;
-      attack.lunge.lungeVel.x = Math.cos(aimAngle) * lungeSpeed;
-      attack.lunge.lungeVel.y = Math.sin(aimAngle) * lungeSpeed * 0.3;
-    } else if (newPhase === 'Recoil' && oldPhase === 'Strike') {
-      if (!attack.strikeLanded) {
-        combo.hits = 0;
-      }
-      attack.currentPhase = 'Recoil';
-    }
-  }
-
-  const phaseName = attack.sequence[attack.phaseIndex];
-  if (phaseName === 'Strike') {
-    attack.currentPhase = 'Strike';
-    attack.currentActiveKeys = getPresetActiveColliders(attack.preset);
-  } else {
-    attack.currentActiveKeys = [];
-    attack.currentPhase = phaseName || null;
-  }
-  applyNpcPoseForCurrentPhase(state);
 }
 
 function updateNpcAiming(state, player) {
@@ -510,21 +224,6 @@ function updateNpcAiming(state, player) {
   aim.torsoOffset = clamp(aimDeg * 0.5, -aimingCfg.maxTorsoAngle || 45, aimingCfg.maxTorsoAngle || 45);
   aim.shoulderOffset = clamp(aimDeg * 0.7, -aimingCfg.maxShoulderAngle || 65, aimingCfg.maxShoulderAngle || 65);
   aim.hipOffset = 0;
-}
-
-function applyLungeMovement(state, dt) {
-  const attack = ensureAttackState(state);
-  if (!attack.lunge?.active || attack.lunge.paused) return;
-  state.pos.x += attack.lunge.lungeVel.x * dt;
-  state.pos.y += attack.lunge.lungeVel.y * dt;
-  attack.lunge.distance += Math.abs(attack.lunge.lungeVel.x) * dt;
-  if (
-    attack.lunge.distance >= attack.lunge.targetDistance ||
-    attack.currentPhase !== 'Strike'
-  ) {
-    attack.lunge.active = false;
-    attack.lunge.distance = 0;
-  }
 }
 
 function updateDashTrail(npcSystems, state, dt) {
@@ -616,6 +315,12 @@ function updateNpcMovement(G, npcSystems, state, dt) {
   const player = G.FIGHTERS?.player;
   if (!player) return;
 
+  const combat = ensureNpcCombat(G);
+  const attack = ensureAttackState(state);
+  ensureComboState(state);
+  ensureNpcInputState(state);
+  updateNpcAutomatedInput(state, combat, dt);
+
   if (state.ragdoll) {
     updateNpcRagdoll(state, C, dt);
     updateNpcRecovery(state, C, dt);
@@ -626,44 +331,43 @@ function updateNpcMovement(G, npcSystems, state, dt) {
   }
 
   updateNpcRecovery(state, C, dt);
-  applyLungeMovement(state, dt);
-  updateNpcAttack(G, state, dt);
 
+  const attackActive = typeof combat?.isFighterAttacking === 'function'
+    ? combat.isFighterAttacking()
+    : !!attack?.active;
   state.cooldown = Math.max(0, (state.cooldown || 0) - dt);
+
   const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
   const absDx = Math.abs(dx);
   const maxSpeed = (C.movement?.maxSpeedX || 420) * 0.8;
   const nearDist = 70;
+  const isPressing = !!state.aiButtonPresses?.A?.down || !!state.aiButtonPresses?.B?.down;
 
-  if (state.attack?.active) {
+  if (attackActive) {
     state.vel.x = 0;
     state.facingRad = dx >= 0 ? 0 : Math.PI;
   } else {
-    if (state.mode === 'attack' && !state.combo?.active) {
+    if (state.mode === 'attack') {
       state.mode = 'evade';
       state.timer = 0.3;
+      state.cooldown = Math.max(state.cooldown, 0.35);
       state.vel.x = -(dx > 0 ? 1 : -1) * maxSpeed;
-      state.cooldown = 0.4;
+    } else if (absDx <= nearDist && state.cooldown <= 0 && !isPressing) {
+      if (pressNpcButton(state, combat, 'A', 0.12)) {
+        state.mode = 'attack';
+        state.vel.x = 0;
+        state.facingRad = dx >= 0 ? 0 : Math.PI;
+        state.cooldown = 0.45;
+      }
     }
 
-    if (absDx <= nearDist && state.cooldown <= 0 && !state.combo?.active) {
-      const combo = ensureComboState(state);
-      combo.active = true;
-      combo.sequenceIndex = 0;
-      combo.attackDelay = 0;
-      const preset = window.CONFIG?.combo?.sequence?.[0] || 'KICK';
-      startNpcQuickAttack(state, preset);
-      state.mode = 'attack';
-      state.vel.x = 0;
-      state.facingRad = dx >= 0 ? 0 : Math.PI;
-    } else if (state.mode === 'approach') {
+    if (state.mode === 'approach') {
       if (absDx > nearDist) {
         state.vel.x = (dx > 0 ? 1 : -1) * maxSpeed;
-        state.stamina.isDashing = false;
       } else {
         state.vel.x = (dx > 0 ? 1 : -1) * maxSpeed * 0.3;
-        state.stamina.isDashing = false;
       }
+      state.stamina.isDashing = false;
     } else if (state.mode === 'evade') {
       const dashMult = state.stamina.current >= state.stamina.minToDash
         ? C.movement?.dashSpeedMultiplier || 1.8
@@ -676,6 +380,10 @@ function updateNpcMovement(G, npcSystems, state, dt) {
         state.stamina.isDashing = false;
       }
     }
+  }
+
+  if (state.mode === 'attack' && !attackActive && !isPressing) {
+    state.mode = 'approach';
   }
 
   regenerateStamina(state, dt);
@@ -722,9 +430,11 @@ export function initNpcSystems() {
   const npc = G.FIGHTERS?.npc;
   if (!npc) return;
   ensureNpcContainers(G);
+  ensureNpcCombat(G);
   ensureAttackState(npc);
   ensureComboState(npc);
   ensureAimState(npc);
+  ensureNpcInputState(npc);
   npc.mode = npc.mode || npc.ai?.mode || 'approach';
   npc.cooldown = Number.isFinite(npc.cooldown) ? npc.cooldown : npc.ai?.cooldown || 0;
 }
@@ -734,7 +444,10 @@ export function updateNpcSystems(dt) {
   const G = ensureGameState();
   const npc = G.FIGHTERS?.npc;
   if (!npc) return;
+  const combat = ensureNpcCombat(G);
+  if (combat?.tick) combat.tick(dt);
   const npcSystems = ensureNpcContainers(G);
+  ensureNpcInputState(npc);
   updateNpcMovement(G, npcSystems, npc, dt);
   updateNpcHud(G);
 }
@@ -755,11 +468,15 @@ export function recordNpcAttackTrailSample(colliders, dt) {
   const npcSystems = ensureNpcContainers(ensureGameState());
   const attackTrail = npcSystems.attackTrail;
   const attack = npc?.attack;
-  if (!attackTrail?.enabled || !attack?.active || attack?.currentActiveKeys?.length === 0) return;
+  if (!attackTrail?.enabled || !attack?.active) return;
   attackTrail.timer += dt;
   if (attackTrail.timer < attackTrail.interval) return;
   attackTrail.timer = 0;
-  const keys = attack.currentActiveKeys || [];
+  let keys = attack.currentActiveKeys || [];
+  if ((!keys || keys.length === 0) && attack.currentPhase?.toLowerCase().includes('strike')) {
+    keys = getPresetActiveColliders(attack.context?.preset || attack.preset);
+  }
+  if (!Array.isArray(keys) || keys.length === 0) return;
   for (const key of keys) {
     const pos = colliders?.[key];
     if (!pos) continue;

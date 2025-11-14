@@ -7,13 +7,73 @@ export function initCombat(){
   const C = (window.CONFIG || {});
   console.log('[combat] CONFIG.presets:', C.presets);
   console.log('[combat] CONFIG keys:', Object.keys(C));
-  G.combat = makeCombat(G, C);
+  G.combat = makeCombat(G, C, { fighterKey: 'player', poseTarget: 'player' });
   console.log('[combat] ready');
 }
 
-function makeCombat(G, C){
+export function initCombatForFighter(fighterKey, options = {}){
+  const G = (window.GAME ||= {});
+  const C = window.CONFIG || {};
+  const combat = makeCombat(G, C, {
+    fighterKey,
+    poseTarget: options.poseTarget || fighterKey,
+    ...options,
+  });
+  const storeKey = options.storeKey || `${fighterKey}Combat`;
+  G[storeKey] = combat;
+  return combat;
+}
+
+export function makeCombat(G, C, options = {}){
+  const {
+    fighterKey = 'player',
+    poseTarget = fighterKey,
+    fighterLabel = fighterKey,
+    getFighter,
+    inputSource,
+    inputKey,
+    inputObject,
+    autoProcessInput = true,
+    neutralizeInputMovement = fighterKey === 'player',
+    selectedAbilitiesKey = 'selectedAbilities',
+    selectedAbilities,
+  } = options || {};
+
+  const resolveFighter = () => {
+    if (typeof getFighter === 'function') {
+      try {
+        const value = getFighter(G, C);
+        if (value) return value;
+      } catch (err) {
+        console.warn('[combat] getFighter error', err);
+      }
+    } else if (getFighter && typeof getFighter === 'object') {
+      return getFighter;
+    }
+    return G.FIGHTERS?.[fighterKey];
+  };
+
+  let cachedInput = null;
+  const resolveInput = () => {
+    if (typeof inputSource === 'function') {
+      const result = inputSource(G, C);
+      if (result) return result;
+      return {};
+    }
+    if (inputObject) {
+      cachedInput = inputObject;
+      return cachedInput;
+    }
+    if (cachedInput) return cachedInput;
+    const key = inputKey || (fighterKey === 'player' ? 'input' : `${fighterKey}Input`);
+    const source = (G[key] ||= {});
+    cachedInput = source;
+    return source;
+  };
+
   const now = ()=> performance.now();
-  const P = ()=> G.FIGHTERS?.player;
+  const P = resolveFighter;
+  const logPrefix = `[combat:${fighterLabel}]`;
   
   const abilitySystem = normalizeAbilitySystem(C.abilitySystem || {});
   const ABILITY_THRESHOLDS = abilitySystem.thresholds;
@@ -23,7 +83,7 @@ function makeCombat(G, C){
   const ABILITY_SLOTS = abilitySystem.slots;
 
   const applySelectedAbilitiesFromGame = () => {
-    const selections = G.selectedAbilities || {};
+    const selections = selectedAbilities || G[selectedAbilitiesKey] || {};
     Object.entries(selections).forEach(([slotKey, slotValues]) => {
       const slot = ABILITY_SLOTS[slotKey];
       if (!slot || !slotValues) return;
@@ -105,10 +165,19 @@ function makeCombat(G, C){
 
   const debugLog = (...args) => {
     if (console?.debug) {
-      console.debug(...args);
+      console.debug(logPrefix, ...args);
     } else {
-      console.log(...args);
+      console.log(logPrefix, ...args);
     }
+  };
+
+  const inferActiveCollidersForPreset = (presetName) => {
+    if (!presetName) return [];
+    const upper = String(presetName).toUpperCase();
+    if (upper.startsWith('KICK')) return ['footL', 'footR'];
+    if (upper.startsWith('PUNCH')) return ['handL', 'handR'];
+    if (upper.startsWith('SLAM')) return ['handL', 'handR', 'footL', 'footR'];
+    return [];
   };
 
   function cancelQueuedLayerOverrides(){
@@ -216,8 +285,10 @@ function makeCombat(G, C){
   }
 
   function neutralizeMovement(){
-    const I = G.input || {};
+    if (!neutralizeInputMovement) return;
+    const I = resolveInput();
     const p = P();
+    if (!I) return;
     if (I.left || I.right){
       I.left = false;
       I.right = false;
@@ -376,7 +447,7 @@ function makeCombat(G, C){
           : Number.isFinite(layerDef.durationMs) ? layerDef.durationMs
           : Number.isFinite(layerDef.dur) ? layerDef.dur
           : strikeDur;
-        const handle = pushPoseLayerOverride('player', layerId, pose, {
+        const handle = pushPoseLayerOverride(poseTarget, layerId, pose, {
           mask,
           priority: basePriority ?? layerDef.priority,
           suppressWalk: layerDef.suppressWalk,
@@ -390,7 +461,7 @@ function makeCombat(G, C){
     } else {
       const layerId = `${presetName}-seq-${sequenceLayerCounter++}`;
       const mask = step.mask || step.joints || strikePose.mask || strikePose.joints;
-      const handle = pushPoseLayerOverride('player', layerId, strikePose, {
+      const handle = pushPoseLayerOverride(poseTarget, layerId, strikePose, {
         mask,
         priority: basePriority,
         durMs: Number.isFinite(step.durMs) ? step.durMs
@@ -404,7 +475,10 @@ function makeCombat(G, C){
   }
 
   function getEquippedWeaponKey(){
-    return G.selectedWeapon || C.characters?.player?.weapon || C.knockback?.currentWeapon || 'unarmed';
+    return G.selectedWeapon
+      || C.characters?.[fighterKey]?.weapon
+      || C.knockback?.currentWeapon
+      || 'unarmed';
   }
 
   function resolveComboAbilityForWeapon(baseAbility){
@@ -472,13 +546,13 @@ function makeCombat(G, C){
 
     if (label){
       logStageTransition(label);
-      updatePlayerAttackState(label, { active: label !== 'Stance' || !!ATTACK.active, context: ATTACK.context });
+      updateFighterAttackState(label, { active: label !== 'Stance' || !!ATTACK.active, context: ATTACK.context });
       if (ATTACK.context?.onPhase){
         try { ATTACK.context.onPhase(label); } catch(err){ console.warn('[combat] onPhase handler error', err); }
       }
     }
 
-    pushPoseOverride('player', targetPose, durMs);
+    pushPoseOverride(poseTarget, targetPose, durMs);
     queuePoseLayerOverrides(targetPose, label, durMs, stageToken);
   }
 
@@ -505,7 +579,7 @@ function makeCombat(G, C){
       const guard = ()=>{
         return TRANSITION.active && TRANSITION.activeToken === stageToken && TRANSITION.target === label;
       };
-      const handle = pushPoseLayerOverride('player', layerId, pose, {
+      const handle = pushPoseLayerOverride(poseTarget, layerId, pose, {
         mask,
         priority,
         suppressWalk,
@@ -692,7 +766,7 @@ function makeCombat(G, C){
   }
 
   function buildAttackContext({ abilityId, ability, attackId, attack, slotKey, type, variant, chargeStage=0, comboHits }){
-    const player = P();
+    const fighter = P();
     const preset = resolveAttackPreset(attack, variant, ability, attackId);
     let multipliers = combineMultiplierSources(attack, ability, variant);
     const context = {
@@ -706,8 +780,8 @@ function makeCombat(G, C){
       variant,
       variantId: variant?.id || null,
       preset,
-      character: player,
-      player,
+      character: fighter,
+      fighter,
       comboHits: comboHits ?? COMBO.hits,
       comboActive: COMBO.timer > 0,
       chargeStage,
@@ -736,14 +810,23 @@ function makeCombat(G, C){
     return context;
   }
 
-  function updatePlayerAttackState(label, { active = true, context = ATTACK.context } = {}){
-    const p = P();
-    if (!p) return;
-    p.attack ||= {};
-    p.attack.currentPhase = label || 'Stance';
-    p.attack.active = !!active;
-    p.attack.context = context || null;
-    p.attack.handleHit = context?.onHit || null;
+  function updateFighterAttackState(label, { active = true, context = ATTACK.context } = {}){
+    const fighter = P();
+    if (!fighter) return;
+    const attackState = (fighter.attack ||= {});
+    attackState.currentPhase = label || 'Stance';
+    attackState.active = !!active;
+    attackState.context = context || null;
+    attackState.handleHit = context?.onHit || null;
+    attackState.preset = ATTACK.preset || context?.preset || attackState.preset || null;
+    attackState.slot = ATTACK.slot || attackState.slot || null;
+    attackState.isHoldRelease = !!ATTACK.isHoldRelease;
+    attackState.chargeStage = ATTACK.chargeStage || 0;
+    if (attackState.currentPhase && attackState.currentPhase.toLowerCase().includes('strike')) {
+      attackState.currentActiveKeys = inferActiveCollidersForPreset(attackState.preset || context?.preset);
+    } else if (!attackState.currentPhase || attackState.currentPhase === 'Stance') {
+      attackState.currentActiveKeys = [];
+    }
   }
 
   // Play quick attack
@@ -792,7 +875,7 @@ function makeCombat(G, C){
               ATTACK.active = false;
               ATTACK.preset = null;
               ATTACK.context = null;
-              updatePlayerAttackState('Stance', { active: false, context: null });
+              updateFighterAttackState('Stance', { active: false, context: null });
             });
           });
         });
@@ -820,7 +903,7 @@ function makeCombat(G, C){
               ATTACK.active = false;
               ATTACK.preset = null;
               ATTACK.context = null;
-              updatePlayerAttackState('Stance', { active: false, context: null });
+              updateFighterAttackState('Stance', { active: false, context: null });
             });
           });
         });
@@ -878,7 +961,7 @@ function makeCombat(G, C){
           ATTACK.preset = null;
           ATTACK.isHoldRelease = false;
           ATTACK.context = null;
-          updatePlayerAttackState('Stance', { active: false, context: null });
+          updateFighterAttackState('Stance', { active: false, context: null });
         });
       });
     });
@@ -897,7 +980,7 @@ function makeCombat(G, C){
 
     if (!canAttackNow()){
       if (!skipQueue){
-        console.log('Combo blocked - queueing');
+        console.log(logPrefix, 'Combo blocked - queueing');
       }
       QUEUE.pending = true;
       QUEUE.type = 'combo';
@@ -950,7 +1033,7 @@ function makeCombat(G, C){
 
     if (!canAttackNow()){
       if (!skipQueue){
-        console.log('Quick attack blocked - queueing');
+        console.log(logPrefix, 'Quick attack blocked - queueing');
       }
       QUEUE.pending = true;
       QUEUE.type = 'quick';
@@ -1021,7 +1104,7 @@ function makeCombat(G, C){
     neutralizeMovement();
 
     if (ATTACK.active || !canAttackNow()){
-      console.log(`Button ${slotKey} queued`);
+    console.log(logPrefix, `Button ${slotKey} queued`);
       if (!QUEUE.pending){
         QUEUE.pending = true;
         QUEUE.button = slotKey;
@@ -1032,7 +1115,7 @@ function makeCombat(G, C){
       return;
     }
 
-    console.log(`Button ${slotKey} pressed`);
+    console.log(logPrefix, `Button ${slotKey} pressed`);
 
     ATTACK.slot = slotKey;
     ATTACK.context = null;
@@ -1055,7 +1138,7 @@ function makeCombat(G, C){
     if (press && !press.active && (press.tapHandled || press.holdHandled)){
       if (press.lastTap !== null){
         const prevTap = press.lastTap ? 'tap' : 'hold';
-        console.log(`[combat] ignoring duplicate ${prevTap} release for button ${slotKey}`);
+        console.log(logPrefix, `[combat] ignoring duplicate ${prevTap} release for button ${slotKey}`);
       }
       return;
     }
@@ -1064,7 +1147,7 @@ function makeCombat(G, C){
     const heldMs = tUp - pressDownTime;
     const tap = heldMs <= ABILITY_THRESHOLDS.tapMaxMs;
 
-    console.log(`Button ${slotKey} released: held=${heldMs}ms, tap=${tap}`);
+    console.log(logPrefix, `Button ${slotKey} released: held=${heldMs}ms, tap=${tap}`);
 
     if (press){
       press.lastTap = tap;
@@ -1117,13 +1200,13 @@ function makeCombat(G, C){
           if (rawStage >= minStage){
             executeHeavyAbility(slotKey, ability.id, clampedStage);
           } else {
-            console.log('Charge too short, canceled');
+            console.log(logPrefix, 'Charge too short, canceled');
             ATTACK.active = false;
             ATTACK.preset = null;
             ATTACK.context = null;
             cancelQueuedLayerOverrides();
-            pushPoseOverride('player', buildPoseFromKey('Stance'), 200);
-            updatePlayerAttackState('Stance', { active: false, context: null });
+            pushPoseOverride(poseTarget, buildPoseFromKey('Stance'), 200);
+            updateFighterAttackState('Stance', { active: false, context: null });
           }
         }
       }
@@ -1137,7 +1220,7 @@ function makeCombat(G, C){
     if (!QUEUE.pending) return;
     if (!canAttackNow()) return;
 
-    console.log('Processing queued attack');
+    console.log(logPrefix, 'Processing queued attack');
 
     const { type, button, abilityId, chargeStage } = QUEUE;
 
@@ -1186,8 +1269,8 @@ function makeCombat(G, C){
 
   // Handle button state changes
   function handleButtons(){
-    const I = G.input || {};
-    
+    const I = resolveInput();
+
     // Button A
     if (I.buttonA?.down && ATTACK.slot !== 'A'){
       slotDown('A');
@@ -1224,9 +1307,9 @@ function makeCombat(G, C){
         ATTACK.preset = attackDef.preset || ability.preset || attackId;
         ATTACK.pendingAbilityId = ability.id;
         cancelQueuedLayerOverrides();
-        pushPoseOverride('player', windupPose, ability.charge?.windupHoldMs || 10000);
-        updatePlayerAttackState('Windup', { active: true, context: null });
-        console.log('Charge mode started (hold detected)', ability.id);
+        pushPoseOverride(poseTarget, windupPose, ability.charge?.windupHoldMs || 10000);
+        updateFighterAttackState('Windup', { active: true, context: null });
+        console.log(logPrefix, 'Charge mode started (hold detected)', ability.id);
       }
     }
 
@@ -1237,7 +1320,7 @@ function makeCombat(G, C){
 
     if (newStage !== CHARGE.stage){
       CHARGE.stage = newStage;
-      console.log(`Charge stage: ${CHARGE.stage}`);
+      console.log(logPrefix, `Charge stage: ${CHARGE.stage}`);
     }
   }
 
@@ -1251,7 +1334,7 @@ function makeCombat(G, C){
     if (TRANSITION.flipAt !== null && !TRANSITION.flipApplied && TRANSITION.flipParts){
       const progress = TRANSITION.elapsed / TRANSITION.duration;
       if (progress >= TRANSITION.flipAt){
-        console.log(`Applying flip at progress ${progress.toFixed(2)} (flipAt=${TRANSITION.flipAt})`);
+        console.log(logPrefix, `Applying flip at progress ${progress.toFixed(2)} (flipAt=${TRANSITION.flipAt})`);
         for (const part of TRANSITION.flipParts){
           setMirrorForPart(part, true);
         }
@@ -1272,7 +1355,7 @@ function makeCombat(G, C){
     if (COMBO.timer > 0){
       COMBO.timer -= dt * 1000;
       if (COMBO.timer <= 0){
-        console.log('Combo reset');
+        console.log(logPrefix, 'Combo reset');
         COMBO.hits = 0;
         COMBO.sequenceIndex = 0;
         COMBO.lastAbilityId = null;
@@ -1286,7 +1369,7 @@ function makeCombat(G, C){
     if (!p) return;
 
     const M = C.movement || {};
-    const I = G.input || {};
+    const I = resolveInput();
 
     p.vel ||= {x:0, y:0};
     p.pos ||= {x:0, y:0};
@@ -1397,20 +1480,20 @@ function makeCombat(G, C){
     p.prevOnGround = prevOnGround;
   }
 
-  function isPlayerAttacking(){
+  function isFighterAttacking(){
     return !!ATTACK.active;
   }
 
-  function isPlayerCharging(){
+  function isFighterCharging(){
     return !!CHARGE.active;
   }
 
-  function isPlayerBusy(){
+  function isFighterBusy(){
     return ATTACK.active || CHARGE.active;
   }
 
   function tick(dt){
-    handleButtons();
+    if (autoProcessInput) handleButtons();
     updateCharge(dt);
     updateTransitions(dt);
     updateCombo(dt);
@@ -1423,8 +1506,11 @@ function makeCombat(G, C){
     slotDown,
     slotUp,
     updateSlotAssignments,
-    isPlayerAttacking,
-    isPlayerCharging,
-    isPlayerBusy
+    isPlayerAttacking: isFighterAttacking,
+    isPlayerCharging: isFighterCharging,
+    isPlayerBusy: isFighterBusy,
+    isFighterAttacking,
+    isFighterCharging,
+    isFighterBusy
   };
 }
