@@ -11,7 +11,8 @@
 // - Mirroring per part via RENDER.MIRROR flags
 
 import { angleZero as angleZeroUtil, basis as basisFn, dist, angle as angleUtil, degToRad } from './math-utils.js?v=1';
-import { pickFighterName as pickFighterNameUtil } from './fighter-utils.js?v=1';
+import { pickFighterTypeName as pickFighterTypeNameUtil } from './fighter-utils.js?v=1';
+import { listFighterIds } from './fighter-roster.js?v=1';
 import { COSMETIC_SLOTS, ensureCosmeticLayers, cosmeticTagFor, resolveFighterBodyColors } from './cosmetics.js?v=1';
 
 const ASSETS = (window.ASSETS ||= {});
@@ -81,8 +82,8 @@ function angle(a, b){
   return Math.atan2(dx, -dy);
 }
 
-function pickFighterName(C){
-  return pickFighterNameUtil(C);
+function pickFighterTypeName(C){
+  return pickFighterTypeNameUtil(C);
 }
 
 function load(url){
@@ -558,19 +559,12 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, options){
 export function renderSprites(ctx){
   const C = (window.CONFIG || {});
   const G = (window.GAME || {});
-  const fname = pickFighterName(C);
-  const rig = getBones(C, GLOB, fname);
-  if (!rig) return;
+  const fighterIds = listFighterIds(G);
+  if (!fighterIds.length) return;
 
   const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
   if (DEBUG.showSprites === false) return; // Skip sprite rendering if disabled
-  
-  // Get flip state and center from render.js computed data
-  // rig is G.ANCHORS_OBJ.player (just the B bones object)
-  // flipLeft is stored separately in G.FLIP_STATE by render.js
-  const entity = (fname === 'player' || fname === 'npc') ? fname : 'player';
-  const flipLeft = G.FLIP_STATE?.[entity] || false;
-  const centerX = rig.center?.x ?? 0;
+
   const camX = window.GAME?.CAMERA?.x || 0;
   const zoom = Number.isFinite(window.GAME?.CAMERA?.zoom) ? window.GAME.CAMERA.zoom : 1;
   const canvasHeight = ctx.canvas?.height || 0;
@@ -603,38 +597,14 @@ export function renderSprites(ctx){
   ctx.save();
   ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, canvasHeight * (1 - zoom));
 
-  ctx.save();
-  // Mirror around character center when facing left (matching reference HTML exactly)
-  if (flipLeft) {
-    ctx.translate(centerX * 2, 0);
-    ctx.scale(-1, 1);
-  }
+    const entity = (fighterId === 'player' || fighterId === 'npc')
+      ? fighterId
+      : (fname === 'player' || fname === 'npc') ? fname : fighterId;
+    const flipLeft = G.FLIP_STATE?.[fighterId] ?? G.FLIP_STATE?.[entity] ?? false;
+    const centerX = rig.center?.x ?? 0;
 
-  // RENDER.MIRROR flags control per-limb mirroring (e.g., for attack animations)
-  
-  const { assets, style, offsets, cosmetics, bodyColors, untintedOverlays: activeUntintedOverlays } = ensureFighterSprites(C, fname);
-
-  const zOf = buildZMap(C);
-  const queue = [];
-  function enqueue(tag, drawFn){ queue.push({ z: zOf(tag), tag, drawFn }); }
-
-  // Helper to get mirror flag for a specific part
-  const getMirror = getMirrorFlag;
-
-  function makeTintOptions(asset){
-    if (!asset || !bodyColors) return undefined;
-    const spec = asset.bodyColor || asset.bodyColors;
-    const letters = Array.isArray(spec) ? spec : (spec != null ? [spec] : []);
-    for (const entry of letters){
-      const key = String(entry || '').trim().toUpperCase();
-      if (!key) continue;
-      const tint = bodyColors[key];
-      if (tint){
-        return { hsl: { ...tint } };
-      }
-    }
-    return undefined;
-  }
+    ctx.save();
+    ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, canvasHeight * (1 - zoom));
 
   const overlayMap = activeUntintedOverlays || {};
   function drawUntintedOverlays(partKey, bone, styleKey){
@@ -645,10 +615,8 @@ export function renderSprites(ctx){
       const overlayOptions = applyAnimOptions(key, overlay?.options || undefined);
       drawBoneSprite(ctx, overlay?.asset, bone, key, style, offsets, overlayOptions);
     }
-  }
 
-  // Hitbox (if desired)
-  // enqueue('HITBOX', ()=> { /* draw hitbox if needed */ });
+    // RENDER.MIRROR flags control per-limb mirroring (e.g., for attack animations)
 
   // Torso & head
   enqueue('TORSO', ()=>{
@@ -664,7 +632,6 @@ export function renderSprites(ctx){
       drawBoneSprite(ctx, assets.head, rig.head, 'head', style, offsets, headOptions);
       drawUntintedOverlays('head', rig.head, 'head');
     }
-  });
 
   // Left arm - enqueue upper and lower separately (matching reference)
   const lArmUpper = rig.arm_L_upper;
@@ -689,7 +656,6 @@ export function renderSprites(ctx){
         drawUntintedOverlays('arm_L_lower', lArmLower, 'arm_L_lower');
       });
     });
-  }
 
   // Right arm
   const rArmUpper = rig.arm_R_upper;
@@ -713,8 +679,7 @@ export function renderSprites(ctx){
         drawBoneSprite(ctx, assets.arm_R_lower, rArmLower, 'arm_R_lower', style, offsets, armLowerOptions);
         drawUntintedOverlays('arm_R_lower', rArmLower, 'arm_R_lower');
       });
-    });
-  }
+    }
 
   // Left leg
   const lLegUpper = rig.leg_L_upper;
@@ -738,8 +703,7 @@ export function renderSprites(ctx){
         drawBoneSprite(ctx, assets.leg_L_lower, lLegLower, 'leg_L_lower', style, offsets, legLowerOptions);
         drawUntintedOverlays('leg_L_lower', lLegLower, 'leg_L_lower');
       });
-    });
-  }
+    }
 
   // Right leg
   const rLegUpper = rig.leg_R_upper;
@@ -763,17 +727,38 @@ export function renderSprites(ctx){
         drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, offsets, legLowerOptions);
         drawUntintedOverlays('leg_R_lower', rLegLower, 'leg_R_lower');
       });
-    });
-  }
+    }
 
-  if (Array.isArray(cosmetics)){
-    for (const layer of cosmetics){
-      const bone = rig[layer.partKey];
-      if (!bone) continue;
-      const baseTag = tagOf(layer.partKey);
-      const slotTag = cosmeticTagFor(baseTag, layer.slot);
-      const styleKey = layer.styleKey || layer.partKey;
-      const { mirror, originX } = resolveCosmeticMirror(rig, layer.partKey, bone);
+    const rLegUpper = rig.leg_R_upper;
+    const rLegLower = rig.leg_R_lower;
+    const rLegMirror = getMirror('LEG_R_UPPER') || getMirror('LEG_R_LOWER');
+    if (rLegUpper) {
+      enqueue('LEG_R_UPPER', ()=> {
+        const originX = rLegUpper.x;
+        withBranchMirror(ctx, originX, rLegMirror, ()=> {
+          drawBoneSprite(ctx, assets.leg_R_upper, rLegUpper, 'leg_R_upper', style, offsets, makeTintOptions(assets.leg_R_upper));
+          drawUntintedOverlays('leg_R_upper', rLegUpper, 'leg_R_upper');
+        });
+      });
+    }
+    if (rLegLower) {
+      enqueue('LEG_R_LOWER', ()=> {
+        const originX = rLegUpper?.x ?? rLegLower.x;
+        withBranchMirror(ctx, originX, rLegMirror, ()=> {
+          drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, offsets, makeTintOptions(assets.leg_R_lower));
+          drawUntintedOverlays('leg_R_lower', rLegLower, 'leg_R_lower');
+        });
+      });
+    }
+
+    if (Array.isArray(cosmetics)){
+      for (const layer of cosmetics){
+        const bone = rig[layer.partKey];
+        if (!bone) continue;
+        const baseTag = tagOf(layer.partKey);
+        const slotTag = cosmeticTagFor(baseTag, layer.slot);
+        const styleKey = layer.styleKey || layer.partKey;
+        const { mirror, originX } = resolveCosmeticMirror(rig, layer.partKey, bone);
         enqueue(slotTag, ()=>{
           withBranchMirror(ctx, originX, mirror, ()=>{
             const baseOptions = {
@@ -788,24 +773,25 @@ export function renderSprites(ctx){
             drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, cosmeticOptions);
           });
         });
+      }
     }
-  }
 
-  queue.sort((a, b) => a.z - b.z);
-  
-  for (const entry of queue){
-    if (typeof entry?.drawFn === 'function'){
-      entry.drawFn();
+    queue.sort((a, b) => a.z - b.z);
+
+    for (const entry of queue){
+      if (typeof entry?.drawFn === 'function'){
+        entry.drawFn();
+      }
     }
-  }
 
-  ctx.restore(); // Restore canvas state (undo flip if applied)
-  ctx.restore(); // Restore camera/world transform
+    ctx.restore();
+    ctx.restore();
+  }
 }
 
 export function initSprites(){
   const C = (window.CONFIG || {});
-  const fname = pickFighterName(C);
+  const fname = pickFighterTypeName(C);
   const f = C.fighters?.[fname];
   const S = (f?.sprites)||{};
   resolveSpriteAssets(S);

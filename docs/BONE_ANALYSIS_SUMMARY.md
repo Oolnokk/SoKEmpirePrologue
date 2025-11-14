@@ -18,7 +18,7 @@ This analysis provides a **rigorous and comprehensive mapping** of every functio
 
 These functions create or directly modify bone objects:
 
-1. **`computeAnchorsForFighter(F, C, fighterName)`**
+1. **`computeAnchorsForFighter(F, C, fighterTypeName)`**
    - **Location:** `docs/js/render.js:81-173`
    - **Primary bone computation function** - called every frame
    - Creates all 10 bone objects from joint angles
