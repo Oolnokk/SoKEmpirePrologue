@@ -26,6 +26,52 @@ function ensureArray(value){
   return Array.isArray(value) ? value : [value];
 }
 
+function clampNumber(value, min, max){
+  if (!Number.isFinite(value)) return Number.isFinite(min) ? min : 0;
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
+
+function normalizeBodyColorOverride(source){
+  if (!source || typeof source !== 'object') return null;
+  const map = {};
+  for (const [key, raw] of Object.entries(source)){
+    const letter = String(key || '').trim().toUpperCase();
+    if (!letter) continue;
+    if (!raw || typeof raw !== 'object') continue;
+    const h = Number(raw.h);
+    const s = Number(raw.s);
+    const lInput = raw.l ?? raw.v;
+    map[letter] = {
+      h: Number.isFinite(h) ? clampNumber(h, -360, 360) : 0,
+      s: Number.isFinite(s) ? clampNumber(s, -1, 1) : 0,
+      l: Number.isFinite(lInput) ? clampNumber(lInput, -1, 1) : 0,
+    };
+  }
+  return Object.keys(map).length ? map : null;
+}
+
+function buildSpriteOverrides(profile){
+  if (!profile || typeof profile !== 'object') return {};
+  const overrides = {};
+  const colorSource = profile.bodyColorsOverride
+    ?? profile.bodyColors
+    ?? profile.character?.bodyColors;
+  const normalizedColors = normalizeBodyColorOverride(colorSource);
+  if (normalizedColors) {
+    overrides.bodyColors = normalizedColors;
+  }
+  const cosmeticLayers = profile.cosmeticLayers ?? profile.cosmeticsLayers;
+  if (Array.isArray(cosmeticLayers)) {
+    overrides.cosmeticLayers = cosmeticLayers.map(layer => ({ ...layer }));
+  }
+  if (profile.untintedOverlays || profile.untintedOverlayLayers) {
+    overrides.untintedOverlays = profile.untintedOverlays ?? profile.untintedOverlayLayers;
+  }
+  return overrides;
+}
+
 function hasHslAdjustments(hsl){
   if (!hsl) return false;
   return (Number.isFinite(hsl.h) && hsl.h !== 0)
@@ -394,7 +440,8 @@ function drawWarpedImage(ctx, img, destPoints, w, h){
   }
 }
 
-function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, options){
+function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
+  const options = arguments[6] || {};
   const opts = options || {};
   const img = asset?.img;
   if (!img || img.__broken) return false;
@@ -475,7 +522,8 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, options){
   w *= scaleX;
   h *= scaleY;
 
-  const overrideXformSrc = opts.styleOverride?.xform || {};
+  const overrideXformCandidate = options && options.styleOverride?.xform;
+  const overrideXformSrc = overrideXformCandidate || options?.styleOverride?.xform || {};
   const overrideXform = overrideXformSrc[normalizedKey] || overrideXformSrc[styleKey] || null;
   let extraRotRad = 0;
   if (overrideXform){
@@ -489,9 +537,9 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, options){
   // Rotation (fixed): bone.ang + alignRad + extraRotRad + Math.PI
   const baseStyleXform = baseStyleXformSrc[normalizedKey] || baseStyleXformSrc[styleKey] || {};
   let alignRad;
-  if (options.alignRad != null){
+  if (options?.alignRad != null){
     alignRad = options.alignRad;
-  } else if (options.alignDeg != null){
+  } else if (options?.alignDeg != null){
     alignRad = degToRad(options.alignDeg);
   } else if (Number.isFinite(asset.alignRad)){
     alignRad = asset.alignRad;
@@ -558,249 +606,248 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets, options){
 export function renderSprites(ctx){
   const C = (window.CONFIG || {});
   const G = (window.GAME || {});
-  const fname = pickFighterName(C);
-  const rig = getBones(C, GLOB, fname);
-  if (!rig) return;
+  const renderState = G.RENDER_STATE;
+  const entities = Array.isArray(renderState?.entities) ? renderState.entities : [];
+  if (!ctx || !entities.length) return;
 
   const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
   if (DEBUG.showSprites === false) return; // Skip sprite rendering if disabled
-  
-  // Get flip state and center from render.js computed data
-  // rig is G.ANCHORS_OBJ.player (just the B bones object)
-  // flipLeft is stored separately in G.FLIP_STATE by render.js
-  const entity = (fname === 'player' || fname === 'npc') ? fname : 'player';
-  const flipLeft = G.FLIP_STATE?.[entity] || false;
-  const centerX = rig.center?.x ?? 0;
-  const camX = window.GAME?.CAMERA?.x || 0;
-  const zoom = Number.isFinite(window.GAME?.CAMERA?.zoom) ? window.GAME.CAMERA.zoom : 1;
+
+  const camX = G.CAMERA?.x || 0;
+  const zoom = Number.isFinite(G.CAMERA?.zoom) ? G.CAMERA.zoom : 1;
   const canvasHeight = ctx.canvas?.height || 0;
-
-  const animStyle = window.GAME?.ANIM_STYLE_OVERRIDES?.[entity] || null;
-  const animXform = animStyle?.xform || null;
-
-  function applyAnimOptions(styleKey, baseOptions){
-    if (!animXform) return baseOptions;
-    const normalizedKey = normalizeStyleKey(styleKey);
-    const entries = [];
-    if (animXform[styleKey]) entries.push([styleKey, animXform[styleKey]]);
-    if (normalizedKey && normalizedKey !== styleKey && animXform[normalizedKey]) {
-      entries.push([normalizedKey, animXform[normalizedKey]]);
-    }
-    if (!entries.length) return baseOptions;
-    const nextOptions = baseOptions ? { ...baseOptions } : {};
-    const baseStyleOverride = (baseOptions && baseOptions.styleOverride)
-      ? { ...baseOptions.styleOverride }
-      : {};
-    const xform = baseStyleOverride.xform ? { ...baseStyleOverride.xform } : {};
-    for (const [key, spec] of entries){
-      xform[key] = { ...(xform[key] || {}), ...spec };
-    }
-    baseStyleOverride.xform = xform;
-    nextOptions.styleOverride = baseStyleOverride;
-    return nextOptions;
-  }
+  const zOf = buildZMap(C);
 
   ctx.save();
   ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, canvasHeight * (1 - zoom));
 
-  ctx.save();
-  // Mirror around character center when facing left (matching reference HTML exactly)
-  if (flipLeft) {
-    ctx.translate(centerX * 2, 0);
-    ctx.scale(-1, 1);
-  }
+  for (const entity of entities) {
+    if (!entity) continue;
+    const fighterName = entity.fighterName || pickFighterName(C);
+    const rig = entity.bones || G.ANCHORS_OBJ?.[entity.id];
+    if (!rig) continue;
 
-  // RENDER.MIRROR flags control per-limb mirroring (e.g., for attack animations)
-  
-  const { assets, style, offsets, cosmetics, bodyColors, untintedOverlays: activeUntintedOverlays } = ensureFighterSprites(C, fname);
+    const flipLeft = entity.flipLeft != null
+      ? !!entity.flipLeft
+      : !!(G.FLIP_STATE && entity.id && G.FLIP_STATE[entity.id]);
+    const centerX = Number.isFinite(entity.centerX) ? entity.centerX : (rig.center?.x ?? 0);
+    const animStyle = G.ANIM_STYLE_OVERRIDES?.[entity.id] || null;
+    const animXform = animStyle?.xform || null;
 
-  const zOf = buildZMap(C);
-  const queue = [];
-  function enqueue(tag, drawFn){ queue.push({ z: zOf(tag), tag, drawFn }); }
+    function applyAnimOptions(styleKey, baseOptions){
+      if (!animXform) return baseOptions;
+      const normalizedKey = normalizeStyleKey(styleKey);
+      const entries = [];
+      if (animXform[styleKey]) entries.push([styleKey, animXform[styleKey]]);
+      if (normalizedKey && normalizedKey !== styleKey && animXform[normalizedKey]) {
+        entries.push([normalizedKey, animXform[normalizedKey]]);
+      }
+      if (!entries.length) return baseOptions;
+      const nextOptions = baseOptions ? { ...baseOptions } : {};
+      const baseStyleOverride = (baseOptions && baseOptions.styleOverride)
+        ? { ...baseOptions.styleOverride }
+        : {};
+      const xform = baseStyleOverride.xform ? { ...baseStyleOverride.xform } : {};
+      for (const [key, spec] of entries){
+        xform[key] = { ...(xform[key] || {}), ...spec };
+      }
+      baseStyleOverride.xform = xform;
+      nextOptions.styleOverride = baseStyleOverride;
+      return nextOptions;
+    }
 
-  // Helper to get mirror flag for a specific part
-  const getMirror = getMirrorFlag;
+    const overrides = buildSpriteOverrides(entity.profile || {});
+    const { assets, style, offsets, cosmetics, bodyColors, untintedOverlays: activeUntintedOverlays } = ensureFighterSprites(C, fighterName, overrides);
+    const overlayMap = activeUntintedOverlays || {};
 
-  function makeTintOptions(asset){
-    if (!asset || !bodyColors) return undefined;
-    const spec = asset.bodyColor || asset.bodyColors;
-    const letters = Array.isArray(spec) ? spec : (spec != null ? [spec] : []);
-    for (const entry of letters){
-      const key = String(entry || '').trim().toUpperCase();
-      if (!key) continue;
-      const tint = bodyColors[key];
-      if (tint){
-        return { hsl: { ...tint } };
+    ctx.save();
+    if (flipLeft) {
+      ctx.translate(centerX * 2, 0);
+      ctx.scale(-1, 1);
+    }
+
+    const queue = [];
+    function enqueue(tag, drawFn){ queue.push({ z: zOf(tag), tag, drawFn }); }
+
+    // RENDER.MIRROR flags control per-limb mirroring (e.g., for attack animations)
+    const getMirror = getMirrorFlag;
+
+    function makeTintOptions(asset){
+      if (!asset || !bodyColors) return undefined;
+      const spec = asset.bodyColor || asset.bodyColors;
+      const letters = Array.isArray(spec) ? spec : (spec != null ? [spec] : []);
+      for (const entry of letters){
+        const key = String(entry || '').trim().toUpperCase();
+        if (!key) continue;
+        const tint = bodyColors[key];
+        if (tint){
+          return { hsl: { ...tint } };
+        }
+      }
+      return undefined;
+    }
+
+    function drawUntintedOverlays(partKey, bone, styleKey){
+      const overlays = overlayMap[partKey];
+      if (!overlays || overlays.length === 0) return;
+      for (const overlay of overlays){
+        const key = overlay?.styleKey || styleKey;
+        const overlayOptions = applyAnimOptions(key, overlay?.options || undefined);
+        drawBoneSprite(ctx, overlay?.asset, bone, key, style, offsets, overlayOptions);
       }
     }
-    return undefined;
-  }
 
-  const overlayMap = activeUntintedOverlays || {};
-  function drawUntintedOverlays(partKey, bone, styleKey){
-    const overlays = overlayMap[partKey];
-    if (!overlays || overlays.length === 0) return;
-    for (const overlay of overlays){
-      const key = overlay?.styleKey || styleKey;
-      const overlayOptions = applyAnimOptions(key, overlay?.options || undefined);
-      drawBoneSprite(ctx, overlay?.asset, bone, key, style, offsets, overlayOptions);
+    // Torso & head
+    enqueue('TORSO', ()=>{
+      if (assets.torso && rig.torso){
+        const torsoOptions = applyAnimOptions('torso', makeTintOptions(assets.torso));
+        drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, offsets, torsoOptions);
+        drawUntintedOverlays('torso', rig.torso, 'torso');
+      }
+    });
+    enqueue('HEAD', ()=>{
+      if (assets.head && rig.head){
+        const headOptions = applyAnimOptions('head', makeTintOptions(assets.head));
+        drawBoneSprite(ctx, assets.head, rig.head, 'head', style, offsets, headOptions);
+        drawUntintedOverlays('head', rig.head, 'head');
+      }
+    });
+
+    // Left arm
+    const lArmUpper = rig.arm_L_upper;
+    const lArmLower = rig.arm_L_lower;
+    const lArmMirror = getMirror('ARM_L_UPPER') || getMirror('ARM_L_LOWER');
+    if (lArmUpper) {
+      enqueue('ARM_L_UPPER', ()=> {
+        const originX = lArmUpper.x;
+        const armUpperOptions = applyAnimOptions('arm_L_upper', makeTintOptions(assets.arm_L_upper));
+        withBranchMirror(ctx, originX, lArmMirror, ()=> {
+          drawBoneSprite(ctx, assets.arm_L_upper, lArmUpper, 'arm_L_upper', style, offsets, armUpperOptions);
+          drawUntintedOverlays('arm_L_upper', lArmUpper, 'arm_L_upper');
+        });
+      });
     }
-  }
-
-  // Hitbox (if desired)
-  // enqueue('HITBOX', ()=> { /* draw hitbox if needed */ });
-
-  // Torso & head
-  enqueue('TORSO', ()=>{
-    if (assets.torso && rig.torso){
-      const torsoOptions = applyAnimOptions('torso', makeTintOptions(assets.torso));
-      drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, offsets, torsoOptions);
-      drawUntintedOverlays('torso', rig.torso, 'torso');
+    if (lArmLower) {
+      enqueue('ARM_L_LOWER', ()=> {
+        const originX = lArmUpper?.x ?? lArmLower.x;
+        const armLowerOptions = applyAnimOptions('arm_L_lower', makeTintOptions(assets.arm_L_lower));
+        withBranchMirror(ctx, originX, lArmMirror, ()=> {
+          drawBoneSprite(ctx, assets.arm_L_lower, lArmLower, 'arm_L_lower', style, offsets, armLowerOptions);
+          drawUntintedOverlays('arm_L_lower', lArmLower, 'arm_L_lower');
+        });
+      });
     }
-  });
-  enqueue('HEAD', ()=>{
-    if (assets.head && rig.head){
-      const headOptions = applyAnimOptions('head', makeTintOptions(assets.head));
-      drawBoneSprite(ctx, assets.head, rig.head, 'head', style, offsets, headOptions);
-      drawUntintedOverlays('head', rig.head, 'head');
+
+    // Right arm
+    const rArmUpper = rig.arm_R_upper;
+    const rArmLower = rig.arm_R_lower;
+    const rArmMirror = getMirror('ARM_R_UPPER') || getMirror('ARM_R_LOWER');
+    if (rArmUpper) {
+      enqueue('ARM_R_UPPER', ()=> {
+        const originX = rArmUpper.x;
+        const armUpperOptions = applyAnimOptions('arm_R_upper', makeTintOptions(assets.arm_R_upper));
+        withBranchMirror(ctx, originX, rArmMirror, ()=> {
+          drawBoneSprite(ctx, assets.arm_R_upper, rArmUpper, 'arm_R_upper', style, offsets, armUpperOptions);
+          drawUntintedOverlays('arm_R_upper', rArmUpper, 'arm_R_upper');
+        });
+      });
     }
-  });
+    if (rArmLower) {
+      enqueue('ARM_R_LOWER', ()=> {
+        const originX = rArmUpper?.x ?? rArmLower.x;
+        const armLowerOptions = applyAnimOptions('arm_R_lower', makeTintOptions(assets.arm_R_lower));
+        withBranchMirror(ctx, originX, rArmMirror, ()=> {
+          drawBoneSprite(ctx, assets.arm_R_lower, rArmLower, 'arm_R_lower', style, offsets, armLowerOptions);
+          drawUntintedOverlays('arm_R_lower', rArmLower, 'arm_R_lower');
+        });
+      });
+    }
 
-  // Left arm - enqueue upper and lower separately (matching reference)
-  const lArmUpper = rig.arm_L_upper;
-  const lArmLower = rig.arm_L_lower;
-  const lArmMirror = getMirror('ARM_L_UPPER') || getMirror('ARM_L_LOWER');
-  if (lArmUpper) {
-    enqueue('ARM_L_UPPER', ()=> {
-      const originX = lArmUpper.x;
-      const armUpperOptions = applyAnimOptions('arm_L_upper', makeTintOptions(assets.arm_L_upper));
-      withBranchMirror(ctx, originX, lArmMirror, ()=> {
-        drawBoneSprite(ctx, assets.arm_L_upper, lArmUpper, 'arm_L_upper', style, offsets, armUpperOptions);
-        drawUntintedOverlays('arm_L_upper', lArmUpper, 'arm_L_upper');
+    // Left leg
+    const lLegUpper = rig.leg_L_upper;
+    const lLegLower = rig.leg_L_lower;
+    const lLegMirror = getMirror('LEG_L_UPPER') || getMirror('LEG_L_LOWER');
+    if (lLegUpper) {
+      enqueue('LEG_L_UPPER', ()=> {
+        const originX = lLegUpper.x;
+        withBranchMirror(ctx, originX, lLegMirror, ()=> {
+          const legUpperOptions = applyAnimOptions('leg_L_upper', makeTintOptions(assets.leg_L_upper));
+          drawBoneSprite(ctx, assets.leg_L_upper, lLegUpper, 'leg_L_upper', style, offsets, legUpperOptions);
+          drawUntintedOverlays('leg_L_upper', lLegUpper, 'leg_L_upper');
+        });
       });
-    });
-  }
-  if (lArmLower) {
-    enqueue('ARM_L_LOWER', ()=> {
-      const originX = lArmUpper?.x ?? lArmLower.x;
-      const armLowerOptions = applyAnimOptions('arm_L_lower', makeTintOptions(assets.arm_L_lower));
-      withBranchMirror(ctx, originX, lArmMirror, ()=> {
-        drawBoneSprite(ctx, assets.arm_L_lower, lArmLower, 'arm_L_lower', style, offsets, armLowerOptions);
-        drawUntintedOverlays('arm_L_lower', lArmLower, 'arm_L_lower');
+    }
+    if (lLegLower) {
+      enqueue('LEG_L_LOWER', ()=> {
+        const originX = lLegUpper?.x ?? lLegLower.x;
+        withBranchMirror(ctx, originX, lLegMirror, ()=> {
+          const legLowerOptions = applyAnimOptions('leg_L_lower', makeTintOptions(assets.leg_L_lower));
+          drawBoneSprite(ctx, assets.leg_L_lower, lLegLower, 'leg_L_lower', style, offsets, legLowerOptions);
+          drawUntintedOverlays('leg_L_lower', lLegLower, 'leg_L_lower');
+        });
       });
-    });
-  }
+    }
 
-  // Right arm
-  const rArmUpper = rig.arm_R_upper;
-  const rArmLower = rig.arm_R_lower;
-  const rArmMirror = getMirror('ARM_R_UPPER') || getMirror('ARM_R_LOWER');
-  if (rArmUpper) {
-    enqueue('ARM_R_UPPER', ()=> {
-      const originX = rArmUpper.x;
-      const armUpperOptions = applyAnimOptions('arm_R_upper', makeTintOptions(assets.arm_R_upper));
-      withBranchMirror(ctx, originX, rArmMirror, ()=> {
-        drawBoneSprite(ctx, assets.arm_R_upper, rArmUpper, 'arm_R_upper', style, offsets, armUpperOptions);
-        drawUntintedOverlays('arm_R_upper', rArmUpper, 'arm_R_upper');
+    // Right leg
+    const rLegUpper = rig.leg_R_upper;
+    const rLegLower = rig.leg_R_lower;
+    const rLegMirror = getMirror('LEG_R_UPPER') || getMirror('LEG_R_LOWER');
+    if (rLegUpper) {
+      enqueue('LEG_R_UPPER', ()=> {
+        const originX = rLegUpper.x;
+        withBranchMirror(ctx, originX, rLegMirror, ()=> {
+          const legUpperOptions = applyAnimOptions('leg_R_upper', makeTintOptions(assets.leg_R_upper));
+          drawBoneSprite(ctx, assets.leg_R_upper, rLegUpper, 'leg_R_upper', style, offsets, legUpperOptions);
+          drawUntintedOverlays('leg_R_upper', rLegUpper, 'leg_R_upper');
+        });
       });
-    });
-  }
-  if (rArmLower) {
-    enqueue('ARM_R_LOWER', ()=> {
-      const originX = rArmUpper?.x ?? rArmLower.x;
-      const armLowerOptions = applyAnimOptions('arm_R_lower', makeTintOptions(assets.arm_R_lower));
-      withBranchMirror(ctx, originX, rArmMirror, ()=> {
-        drawBoneSprite(ctx, assets.arm_R_lower, rArmLower, 'arm_R_lower', style, offsets, armLowerOptions);
-        drawUntintedOverlays('arm_R_lower', rArmLower, 'arm_R_lower');
+    }
+    if (rLegLower) {
+      enqueue('LEG_R_LOWER', ()=> {
+        const originX = rLegUpper?.x ?? rLegLower.x;
+        withBranchMirror(ctx, originX, rLegMirror, ()=> {
+          const legLowerOptions = applyAnimOptions('leg_R_lower', makeTintOptions(assets.leg_R_lower));
+          drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, offsets, legLowerOptions);
+          drawUntintedOverlays('leg_R_lower', rLegLower, 'leg_R_lower');
+        });
       });
-    });
-  }
+    }
 
-  // Left leg
-  const lLegUpper = rig.leg_L_upper;
-  const lLegLower = rig.leg_L_lower;
-  const lLegMirror = getMirror('LEG_L_UPPER') || getMirror('LEG_L_LOWER');
-  if (lLegUpper) {
-    enqueue('LEG_L_UPPER', ()=> {
-      const originX = lLegUpper.x;
-      withBranchMirror(ctx, originX, lLegMirror, ()=> {
-        const legUpperOptions = applyAnimOptions('leg_L_upper', makeTintOptions(assets.leg_L_upper));
-        drawBoneSprite(ctx, assets.leg_L_upper, lLegUpper, 'leg_L_upper', style, offsets, legUpperOptions);
-        drawUntintedOverlays('leg_L_upper', lLegUpper, 'leg_L_upper');
-      });
-    });
-  }
-  if (lLegLower) {
-    enqueue('LEG_L_LOWER', ()=> {
-      const originX = lLegUpper?.x ?? lLegLower.x;
-      withBranchMirror(ctx, originX, lLegMirror, ()=> {
-        const legLowerOptions = applyAnimOptions('leg_L_lower', makeTintOptions(assets.leg_L_lower));
-        drawBoneSprite(ctx, assets.leg_L_lower, lLegLower, 'leg_L_lower', style, offsets, legLowerOptions);
-        drawUntintedOverlays('leg_L_lower', lLegLower, 'leg_L_lower');
-      });
-    });
-  }
-
-  // Right leg
-  const rLegUpper = rig.leg_R_upper;
-  const rLegLower = rig.leg_R_lower;
-  const rLegMirror = getMirror('LEG_R_UPPER') || getMirror('LEG_R_LOWER');
-  if (rLegUpper) {
-    enqueue('LEG_R_UPPER', ()=> {
-      const originX = rLegUpper.x;
-      withBranchMirror(ctx, originX, rLegMirror, ()=> {
-        const legUpperOptions = applyAnimOptions('leg_R_upper', makeTintOptions(assets.leg_R_upper));
-        drawBoneSprite(ctx, assets.leg_R_upper, rLegUpper, 'leg_R_upper', style, offsets, legUpperOptions);
-        drawUntintedOverlays('leg_R_upper', rLegUpper, 'leg_R_upper');
-      });
-    });
-  }
-  if (rLegLower) {
-    enqueue('LEG_R_LOWER', ()=> {
-      const originX = rLegUpper?.x ?? rLegLower.x;
-      withBranchMirror(ctx, originX, rLegMirror, ()=> {
-        const legLowerOptions = applyAnimOptions('leg_R_lower', makeTintOptions(assets.leg_R_lower));
-        drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, offsets, legLowerOptions);
-        drawUntintedOverlays('leg_R_lower', rLegLower, 'leg_R_lower');
-      });
-    });
-  }
-
-  if (Array.isArray(cosmetics)){
-    for (const layer of cosmetics){
-      const bone = rig[layer.partKey];
-      if (!bone) continue;
-      const baseTag = tagOf(layer.partKey);
-      const slotTag = cosmeticTagFor(baseTag, layer.slot);
-      const styleKey = layer.styleKey || layer.partKey;
-      const { mirror, originX } = resolveCosmeticMirror(rig, layer.partKey, bone);
+    if (Array.isArray(cosmetics)){
+      for (const layer of cosmetics){
+        const bone = rig[layer.partKey];
+        if (!bone) continue;
+        const baseTag = tagOf(layer.partKey);
+        const slotTag = cosmeticTagFor(baseTag, layer.slot);
+        const styleKey = layer.styleKey || layer.partKey;
+        const { mirror, originX } = resolveCosmeticMirror(rig, layer.partKey, bone);
         enqueue(slotTag, ()=>{
           withBranchMirror(ctx, originX, mirror, ()=>{
-            const baseOptions = {
+            drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, applyAnimOptions(styleKey, {
               styleOverride: layer.styleOverride,
               hsl: layer.hsl ?? layer.hsv,
               warp: layer.warp,
               alignRad: layer.alignRad,
               alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
               palette: layer.palette
-            };
-            const cosmeticOptions = applyAnimOptions(styleKey, baseOptions);
-            drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, cosmeticOptions);
+            }));
           });
         });
+      }
     }
+
+    queue.sort((a, b) => a.z - b.z);
+
+    for (const entry of queue){
+      if (typeof entry?.drawFn === 'function'){
+        entry.drawFn();
+      }
+    }
+
+    ctx.restore();
   }
 
-  queue.sort((a, b) => a.z - b.z);
-  
-  for (const entry of queue){
-    if (typeof entry?.drawFn === 'function'){
-      entry.drawFn();
-    }
-  }
-
-  ctx.restore(); // Restore canvas state (undo flip if applied)
-  ctx.restore(); // Restore camera/world transform
+  ctx.restore();
 }
 
 export function initSprites(){
@@ -893,7 +940,7 @@ function resolveUntintedOverlayMap(fighterConfig = {}, spriteMap = {}){
 }
 
 // Interface for external logic
-export function ensureFighterSprites(C, fname){
+export function ensureFighterSprites(C, fname, overrides = {}){
   const f = C.fighters?.[fname] || {};
   const S = f.sprites || {};
   for (const k in S){
@@ -919,12 +966,17 @@ export function ensureFighterSprites(C, fname){
       }
     }
   }
-  
-  const cosmetics = ensureCosmeticLayers(C, fname, style);
-  const bodyColors = resolveFighterBodyColors(C, fname);
-  const untintedOverlays = resolveUntintedOverlayMap(f, S);
 
-  const result = { assets: S, style, offsets, cosmetics, bodyColors, untintedOverlays };
+  const overrideBodyColors = normalizeBodyColorOverride(overrides.bodyColors);
+  const cosmeticsOverride = Array.isArray(overrides.cosmeticLayers) ? overrides.cosmeticLayers : null;
+  const untintedOverride = overrides.untintedOverlays || null;
+
+  const cosmetics = cosmeticsOverride ?? ensureCosmeticLayers(C, fname, style);
+  const bodyColors = overrideBodyColors ?? resolveFighterBodyColors(C, fname);
+  const untintedOverlays = resolveUntintedOverlayMap(f, S);
+  const appliedUntintedOverlays = untintedOverride || untintedOverlays;
+
+  const result = { assets: S, style, offsets, cosmetics, bodyColors, untintedOverlays: appliedUntintedOverlays };
   ensureFighterSprites.__lastResult = result;
   return result;
 }
