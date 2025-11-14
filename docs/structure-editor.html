@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Structure Editor</title>
+  <style>
+    :root{--bg:#0b0d10;--panel:#12161b;--card:#151b22;--muted:#8aa0b8;--text:#e6edf3;--line:#2a3442;--btn:#1d2633;--btnHi:#263142}
+    *{box-sizing:border-box}html,body{height:100%;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Noto Sans;margin:0;
+      padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);}
+    #app{display:grid;grid-template-columns:minmax(280px, 480px) 1fr;grid-template-rows:60px auto 1fr;grid-template-areas:"top top" "bar bar" "left right";height:100%}
+    header{grid-area:top;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+    header h1{font-size:16px;margin:0;color:var(--muted);letter-spacing:0.02em}
+    button,select,input,textarea{background:var(--btn);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px}
+    button:hover{background:var(--btnHi)}
+    #left{grid-area:left;overflow:auto;border-right:1px solid var(--line);background:var(--panel)}
+    #right{grid-area:right;display:grid;grid-template-rows:auto 1fr;gap:8px;padding:8px;min-width:240px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin:8px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+    .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+    .row4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px}
+    .bar{display:flex;align-items:center;gap:8px;justify-content:space-between;margin:6px 0 2px}
+    label{font-size:11px;color:#8aa0b8;display:block;margin-bottom:4px}
+    #cvWrap{width:100%; position:relative; overflow:hidden; border:1px solid var(--line); border-radius:14px; background:var(--card)}
+    canvas{display:block; width:100%; height:100%}
+    .muted{color:#8aa0b8}
+    .corner{display:flex;flex-direction:column;gap:4px}
+    .corner label{font-size:11px;color:#8aa0b8}
+    .corner .mini-row{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}
+    .corner input{width:100%;padding:6px 8px;font-size:11px}
+    .input-note{font-size:11px;color:#6b7280;margin-top:4px}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .toolbar select{min-width:160px}
+    .toolbar button{white-space:nowrap}
+    .tag-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:rgba(59,130,246,.18);border:1px solid rgba(96,165,250,.35);font-size:11px;color:#bfdbfe}
+    .tag-badge button{background:none;border:none;padding:0;color:#bfdbfe;font-size:11px;cursor:pointer}
+    .tag-badge button:hover{color:#e0f2fe}
+    .tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+    .grid-divider{margin-top:12px;padding-top:12px;border-top:1px solid rgba(42,52,66,.8)}
+    .pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:rgba(30,64,175,.35);font-size:11px;color:#cbd5f5;border:1px solid rgba(59,130,246,.45)}
+    .preview-caption{display:flex;align-items:center;gap:8px;color:#94a3b8;font-size:11px;margin-top:6px}
+    .preview-caption span{display:inline-flex;align-items:center;gap:6px}
+    .preview-caption strong{color:#f8fafc}
+    .layer-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;font-size:11px;background:rgba(34,197,94,.15);color:#bbf7d0;border:1px solid rgba(34,197,94,.35)}
+    .layer-chip--far{background:rgba(14,165,233,.18);color:#bae6fd;border-color:rgba(14,165,233,.35)}
+    .warning{background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.45);border-radius:10px;padding:8px 10px;color:#fcd34d;font-size:11px;margin-top:8px}
+    .warning strong{color:#facc15}
+    @media (max-width:1100px){#app{grid-template-columns:1fr;grid-template-rows:60px auto auto auto;grid-template-areas:"top" "bar" "right" "left"}
+      #right{height:50vh} }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Structure Editor</h1>
+    <div class="toolbar">
+      <select id="repoPrefabSelect">
+        <option value="">Browse repository…</option>
+      </select>
+      <button id="btnLoadFromRepo" type="button">Load Selected</button>
+      <button id="btnRefreshRepo" type="button" title="Reload repository prefabs">↻</button>
+      <button id="btnNew" type="button">New Prefab</button>
+      <button id="btnLoadPrefab" type="button">Import JSON</button>
+      <button id="btnSavePrefab" type="button">Download JSON</button>
+    </div>
+  </header>
+
+  <div style="grid-area:bar;padding:10px 16px;background:#151b22;border-bottom:1px solid #2a3442;color:#9fb4ce;font-size:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+    <span class="pill">Repository aware</span>
+    <span class="pill">Obstruction prefabs</span>
+    <span class="pill">Far-plane quad deforms</span>
+    <span class="pill">Zoom 25%–200%</span>
+  </div>
+
+  <aside id="left">
+    <div class="card" id="prefabCard">
+      <div class="bar">
+        <strong>Prefab Details</strong>
+        <div id="prefabTypeChip" class="layer-chip">Structure</div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Structure ID</label>
+          <input id="prefabId" type="text" value="Commercial Tower">
+        </div>
+        <div>
+          <label>Prefab Type</label>
+          <select id="prefabType">
+            <option value="structure">Structure</option>
+            <option value="obstruction">Obstruction</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="grid-template-columns:1fr">
+        <div>
+          <label>Tags <span class="muted">(comma separated)</span></label>
+          <input id="prefabTags" type="text" placeholder="e.g. skyline, neon, interactable">
+          <div class="tag-list" id="prefabTagList"></div>
+        </div>
+      </div>
+      <div class="grid-divider" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <button id="btnCopyFactory" type="button">Copy Factory Stub</button>
+        <div class="preview-caption">
+          <span><strong>Auto-save:</strong> Uses Apply / Auto-apply controls</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="obstructionCard" hidden>
+      <div class="bar">
+        <strong>Obstruction Settings</strong>
+        <span class="layer-chip layer-chip--far">Near &amp; Far planes</span>
+      </div>
+      <div class="row">
+        <label style="display:flex;gap:8px;align-items:center;margin:0"><input id="obsCollisionEnabled" type="checkbox"> Collision enabled</label>
+        <label style="display:flex;gap:8px;align-items:center;margin:0"><input id="obsPhysicsEnabled" type="checkbox"> Physics enabled</label>
+      </div>
+      <div class="row4">
+        <div><label>Collision width</label><input id="obsCollisionWidth" type="number" value="140"></div>
+        <div><label>Collision height</label><input id="obsCollisionHeight" type="number" value="110"></div>
+        <div><label>Offset X</label><input id="obsCollisionOffsetX" type="number" value="0"></div>
+        <div><label>Offset Y</label><input id="obsCollisionOffsetY" type="number" value="-60"></div>
+      </div>
+      <div class="row">
+        <label style="display:flex;gap:8px;align-items:center;margin:0"><input id="obsPhysicsDynamic" type="checkbox"> Dynamic body</label>
+        <div class="input-note">Dynamic enables mass &amp; drag.</div>
+      </div>
+      <div class="row">
+        <div><label>Mass</label><input id="obsPhysicsMass" type="number" step="0.1" value="2.5"></div>
+        <div><label>Drag</label><input id="obsPhysicsDrag" type="number" step="0.1" value="0.2"></div>
+      </div>
+    </div>
+
+    <div class="card" id="partsCard">
+      <div class="bar">
+        <strong>Selected Part</strong>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="display:flex;gap:6px;align-items:center;margin:0"><input id="autoApply" type="checkbox" checked> Auto-apply</label>
+          <button id="btnApply">Apply</button>
+        </div>
+      </div>
+
+      <div class="row3">
+        <div><label>Part</label><select id="partIndex"></select></div>
+        <div><label>Layer</label><select id="p_layer"><option value="near">near</option><option value="far">far</option></select></div>
+        <div><label>Rel Z (front+)</label><input id="p_z" type="number" step="1" value="0"></div>
+      </div>
+
+      <div class="row"><div><label>Image URL</label><input id="p_url"></div><div><label>Part ID</label><input id="p_id" value="part01"></div></div>
+
+      <div class="row4">
+        <div><label>W</label><input id="p_w" type="number" value="360"></div>
+        <div><label>H</label><input id="p_h" type="number" value="480"></div>
+        <div><label>relX</label><input id="p_relx" type="number" value="0"></div>
+        <div><label>relY</label><input id="p_rely" type="number" value="0"></div>
+      </div>
+
+      <div class="row3">
+        <div><label>Pivot (rotation center)</label>
+          <select id="p_pivot">
+            <option value="bottom" selected>bottom</option>
+            <option value="center">center</option>
+            <option value="top">top</option>
+            <option value="custom">custom</option>
+          </select>
+        </div>
+        <div><label>Anchor X % <span class="muted">(custom)</span></label><input id="p_anchorX" type="number" step="0.1" value="50"></div>
+        <div><label>Anchor Y % <span class="muted">(custom)</span></label><input id="p_anchorY" type="number" step="0.1" value="100"></div>
+      </div>
+
+      <div class="row3">
+        <div><label>Transform order</label>
+          <select id="p_order">
+            <option value="scaleThenRotate" selected>scale → rotate</option>
+            <option value="rotateThenScale">rotate → scale</option>
+          </select>
+        </div>
+        <div><label>Translate Space</label><select id="p_space"><option value="screen" selected>screen</option><option value="local">local</option></select></div>
+        <div><label>Radius</label><input id="p_radius" type="number" value="800"></div>
+      </div>
+
+      <div class="row3">
+        <div><label>Ease</label><select id="p_ease"><option value="smoothstep">smoothstep</option><option value="linear">linear</option><option value="quadInOut">quadInOut</option></select></div>
+        <div><label>parallaxX</label><input id="p_prx" type="number" step="0.01" value="0.85"></div>
+        <div><label>clampPx</label><input id="p_clamp" type="number" value="64"></div>
+      </div>
+
+      <div class="row4">
+        <div><label>L dx</label><input id="Ldx" type="number" value="-24"><label>L sx</label><input id="Lsx" type="number" step="0.01" value="0.92"><label>L rz</label><input id="Lrz" type="number" value="-6"></div>
+        <div><label>C dx</label><input id="Cdx" type="number" value="0"><label>C sx</label><input id="Csx" type="number" step="0.01" value="1"><label>C rz</label><input id="Crz" type="number" value="0"></div>
+        <div><label>R dx</label><input id="Rdx" type="number" value="22"><label>R sx</label><input id="Rsx" type="number" step="0.01" value="0.92"><label>R rz</label><input id="Rrz" type="number" value="6"></div>
+        <div style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end"><button id="btnAddPart">Add Part</button><button id="btnDelPart">Delete</button></div>
+      </div>
+
+      <div class="grid-divider" id="deformSection">
+        <div class="bar" style="margin-top:0">
+          <strong>Far-plane Quad Deform</strong>
+          <label style="display:flex;gap:6px;align-items:center;margin:0"><input id="deformEnabled" type="checkbox"> Enable</label>
+        </div>
+        <div id="deformWarning" class="warning" hidden><strong>Heads up:</strong> Deform editing is only available for far-layer parts.</div>
+        <div class="muted" style="font-size:11px;margin-top:4px">Coordinates offset image corners relative to the anchor. Values blend from T=-1 to T=+1.</div>
+        <div class="muted" style="font-size:11px;margin-top:6px;font-weight:600">T = -1</div>
+        <div class="row4">
+          <div class="corner"><label>Top left</label><div class="mini-row"><input id="defLeftTlX" type="number" step="0.1" value="0"><input id="defLeftTlY" type="number" step="0.1" value="0"></div></div>
+          <div class="corner"><label>Top right</label><div class="mini-row"><input id="defLeftTrX" type="number" step="0.1" value="0"><input id="defLeftTrY" type="number" step="0.1" value="0"></div></div>
+          <div class="corner"><label>Bottom right</label><div class="mini-row"><input id="defLeftBrX" type="number" step="0.1" value="0"><input id="defLeftBrY" type="number" step="0.1" value="0"></div></div>
+          <div class="corner"><label>Bottom left</label><div class="mini-row"><input id="defLeftBlX" type="number" step="0.1" value="0"><input id="defLeftBlY" type="number" step="0.1" value="0"></div></div>
+        </div>
+        <div class="muted" style="font-size:11px;margin-top:10px;font-weight:600">T = +1</div>
+        <div class="row4">
+          <div class="corner"><label>Top left</label><div class="mini-row"><input id="defRightTlX" type="number" step="0.1" value="0"><input id="defRightTlY" type="number" step="0.1" value="0"></div></div>
+          <div class="corner"><label>Top right</label><div class="mini-row"><input id="defRightTrX" type="number" step="0.1" value="0"><input id="defRightTrY" type="number" step="0.1" value="0"></div></div>
+          <div class="corner"><label>Bottom right</label><div class="mini-row"><input id="defRightBrX" type="number" step="0.1" value="0"><input id="defRightBrY" type="number" step="0.1" value="0"></div></div>
+          <div class="corner"><label>Bottom left</label><div class="mini-row"><input id="defRightBlX" type="number" step="0.1" value="0"><input id="defRightBlY" type="number" step="0.1" value="0"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong>Ordering &amp; Debug</strong>
+      <div class="row">
+        <div><label>Z sort mode</label>
+          <select id="z_mode">
+            <option value="nearTop" selected>near above far</option>
+            <option value="layerOnly">layer only (near over far)</option>
+            <option value="zOnly">z only (ignore layer)</option>
+          </select>
+        </div>
+        <div><label>Show draw order</label>
+          <select id="z_debug">
+            <option value="none" selected>none</option>
+            <option value="canvas">draw labels</option>
+            <option value="console">debug panel</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <section id="right">
+    <div class="card" style="margin:0 8px 8px 8px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div>Preview</div><div style="flex:1"></div>
+        <div>t</div><input id="tSlider" type="range" min="-1" max="1" step="0.001" value="0" style="width:220px">
+        <input id="tNum" type="number" step="0.001" value="0" style="width:80px">
+        <span class="muted">Size</span>
+        <select id="previewSize">
+          <option value="lock160" selected>Lock 160px</option>
+          <option value="lock180">Lock 180px</option>
+          <option value="lock200">Lock 200px</option>
+          <option value="lock220">Lock 220px</option>
+          <option value="lock260">Lock 260px</option>
+          <option value="lock300">Lock 300px</option>
+          <option value="fit40">Fit (40vh)</option>
+          <option value="fit50">Fit (50vh)</option>
+        </select>
+        <span class="muted">Zoom</span>
+        <input id="previewZoom" type="range" min="0.25" max="2" step="0.01" value="1" style="width:140px">
+        <input id="previewZoomNum" type="number" min="0.25" max="2" step="0.01" value="1" style="width:70px">
+        <div id="ctm" class="muted" style="font:11px ui-monospace,Menlo,Consolas"></div>
+      </div>
+    </div>
+    <div style="padding:0 8px 8px 8px">
+      <div id="cvWrap"><canvas id="cv"></canvas></div>
+    </div>
+  </section>
+</div>
+
+<script type="module" src="./js/structure-editor.js"></script>
+
+</body>
+</html>
