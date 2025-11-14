@@ -216,8 +216,20 @@ export function initFighters(cv, cx){
     console.log('[initFighters] Generated npc character from enemy1 with pants hue', randomHue);
   }
   const characterKeys = Object.keys(characters);
-  const npcDefaultCharacterKey = characterKeys.find(key => key !== 'player') || characterKeys[0] || null;
-  const previousCharacterState = clone(G.CHARACTER_STATE || {});
+  const npcDefaultCharacterKey = characters.npc
+    ? 'npc'
+    : characterKeys.find(key => key !== 'player') || characterKeys[0] || null;
+  const previousCharacterStateRaw = G.CHARACTER_STATE || {};
+  const previousCharacterState = {};
+  for (const [id, profile] of Object.entries(previousCharacterStateRaw)) {
+    if (id === 'npc' && characters.npc) {
+      const prevKey = profile?.characterKey;
+      if (prevKey && prevKey !== 'npc') {
+        continue;
+      }
+    }
+    previousCharacterState[id] = clone(profile);
+  }
 
   function resolveCharacterKey(id) {
     const prevKey = previousCharacterState?.[id]?.characterKey;
@@ -257,10 +269,17 @@ export function initFighters(cv, cx){
       ? clone(previousCharacterState[id])
       : null;
     let characterKey = prevProfile?.characterKey;
+    const hasNpcCharacter = Boolean(characters.npc);
+    if (id === 'npc' && hasNpcCharacter) {
+      characterKey = 'npc';
+    }
     if (!characterKey || !characters[characterKey]) {
       characterKey = resolveCharacterKey(id);
     }
     let characterData = prevProfile?.character ? clone(prevProfile.character) : null;
+    if (id === 'npc' && hasNpcCharacter) {
+      characterData = clone(characters.npc);
+    }
     if (!characterData && characterKey && characters[characterKey]) {
       characterData = clone(characters[characterKey]);
     }
