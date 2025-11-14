@@ -368,6 +368,7 @@ window.CONFIG = {
   map: {
     gridUnit: 30,
     spawnLayerId: 'gameplay',
+    defaultLayoutId: 'examplestreet',
     prefabManifests: [
       './config/prefabs/structures/index.json',
     ],
@@ -379,6 +380,9 @@ window.CONFIG = {
         areaName: 'Example Street',
       },
     ],
+  },
+  ground: {
+    offset: 140,
   },
   groundY: 0,
   // Debug options are surfaced in the debug panel; freezeAngles lets animators hold joints for edits

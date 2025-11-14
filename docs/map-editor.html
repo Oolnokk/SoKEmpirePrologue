@@ -450,7 +450,23 @@
 
 <script>
 const $ = s => document.querySelector(s);
-const MAP_CONFIG = window.CONFIG?.map || {};
+const ROOT_CONFIG = window.CONFIG || {};
+const MAP_CONFIG = ROOT_CONFIG.map || {};
+const DEFAULT_CANVAS_HEIGHT = Number.isFinite(ROOT_CONFIG.canvas?.h) && ROOT_CONFIG.canvas.h > 0
+  ? ROOT_CONFIG.canvas.h
+  : 460;
+const DEFAULT_GROUND_OFFSET = (() => {
+  const configGround = ROOT_CONFIG.ground;
+  const configuredOffset = configGround && typeof configGround === 'object' ? Number(configGround.offset) : NaN;
+  if (Number.isFinite(configuredOffset)) {
+    return Math.max(0, configuredOffset);
+  }
+  const ratio = Number(ROOT_CONFIG.groundRatio);
+  if (Number.isFinite(ratio) && ratio > 0 && ratio < 1 && DEFAULT_CANVAS_HEIGHT > 0) {
+    return Math.max(0, Math.round(DEFAULT_CANVAS_HEIGHT * (1 - ratio)));
+  }
+  return 140;
+})();
 const DEFAULT_CUSTOM_ENTRY = { id: 'custom_area', label: 'Empty Layout', path: null, areaName: 'Custom Area' };
 const REPOSITORY_LAYOUTS = (() => {
   const normalized = Array.isArray(MAP_CONFIG.layouts) && MAP_CONFIG.layouts.length
@@ -473,12 +489,29 @@ const REPOSITORY_LAYOUTS = (() => {
   normalized.forEach(add);
   return result;
 })();
-const DEFAULT_LAYOUT_META = {
-  areaId: REPOSITORY_LAYOUTS[0]?.id || 'custom_area',
-  areaName: REPOSITORY_LAYOUTS[0]?.areaName || REPOSITORY_LAYOUTS[0]?.label || 'Custom Area',
-  sourcePath: REPOSITORY_LAYOUTS[0]?.path || null,
-  repositoryId: REPOSITORY_LAYOUTS[0]?.id || null,
-};
+const DEFAULT_LAYOUT_META = (() => {
+  const fallback = {
+    areaId: DEFAULT_CUSTOM_ENTRY.id,
+    areaName: DEFAULT_CUSTOM_ENTRY.areaName || DEFAULT_CUSTOM_ENTRY.label || 'Custom Area',
+    sourcePath: DEFAULT_CUSTOM_ENTRY.path,
+    repositoryId: DEFAULT_CUSTOM_ENTRY.id,
+  };
+  const preferredId = typeof MAP_CONFIG.defaultLayoutId === 'string' && MAP_CONFIG.defaultLayoutId.trim()
+    ? MAP_CONFIG.defaultLayoutId.trim()
+    : null;
+  const findEntryById = (id) => REPOSITORY_LAYOUTS.find((entry) => entry.id === id) || null;
+  const preferred = preferredId ? findEntryById(preferredId) : null;
+  const examplestreet = findEntryById('examplestreet');
+  const firstRepository = REPOSITORY_LAYOUTS.find((entry) => entry.id && entry.id !== DEFAULT_CUSTOM_ENTRY.id) || null;
+  const chosen = preferred || examplestreet || firstRepository;
+  if (!chosen) return fallback;
+  return {
+    areaId: chosen.id || fallback.areaId,
+    areaName: chosen.areaName || chosen.label || chosen.id || fallback.areaName,
+    sourcePath: chosen.path || fallback.sourcePath,
+    repositoryId: chosen.id || fallback.repositoryId,
+  };
+})();
 const GRID_UNIT = (Number.isFinite(MAP_CONFIG.gridUnit) && MAP_CONFIG.gridUnit > 0) ? MAP_CONFIG.gridUnit : 10;
 const SPAWN_LAYER_ID = MAP_CONFIG.spawnLayerId || 'gameplay';
 const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
@@ -487,6 +520,8 @@ const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
 const PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
 let runtimeModulePromise = null;
 let prefabBootstrapPromise = null;
+
+$('#groundOffset').value = DEFAULT_GROUND_OFFSET;
 
 function getRuntimeModule(){
   if (!runtimeModulePromise){
@@ -546,7 +581,7 @@ function restoreState(state){
   activeLayerId = adopted.activeLayerId || layoutMeta.activeLayerId || getDefaultSpawnLayerId();
   cameraX = toNumber(adopted.camera?.startX, 0);
   zoom = toNumber(adopted.camera?.startZoom, 1);
-  $('#groundOffset').value = toNumber(adopted.ground?.offset, 140);
+  $('#groundOffset').value = toNumber(adopted.ground?.offset, DEFAULT_GROUND_OFFSET);
   selectedInstId = getPlayerSpawnInstance()?.id || (instances[0]?.id ?? null);
 
   rebuildActiveLayerSelect();
@@ -856,7 +891,7 @@ function adoptAreaState(area, context = {}){
     startZoom: toNumber(raw.camera?.startZoom ?? raw.zoomStart, 1),
   };
   const ground = {
-    offset: toNumber(raw.ground?.offset ?? raw.groundOffset, 140),
+    offset: toNumber(raw.ground?.offset ?? raw.groundOffset, DEFAULT_GROUND_OFFSET),
   };
   const layersList = Array.isArray(raw.layers) && raw.layers.length
     ? raw.layers.map((layer, index) => normalizeLayer(layer, index))
@@ -1021,7 +1056,7 @@ let zoom = 1;
 let debugOverlay = false;
 
 function getGroundOffset(){
-  return parseFloat($('#groundOffset').value) || 140;
+  return parseFloat($('#groundOffset').value) || DEFAULT_GROUND_OFFSET;
 }
 
 /*** Layer UI & stack ***/
