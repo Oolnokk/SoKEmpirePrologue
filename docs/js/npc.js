@@ -144,6 +144,7 @@ function ensureNpcCombat(G) {
       return npc ? ensureNpcInputState(npc) : {};
     },
   });
+  G.npcCombat = combat;
   return combat;
 }
 
@@ -180,6 +181,20 @@ function ensureAimState(state) {
   aim.hipOffset = Number.isFinite(aim.hipOffset) ? aim.hipOffset : 0;
   aim.active = !!aim.active;
   return aim;
+}
+
+function ensureNpcAggressionState(state) {
+  if (!state) return {};
+  const aggression = (state.aggression ||= {});
+  aggression.triggered = !!aggression.triggered;
+  aggression.active = !!aggression.active;
+  aggression.wakeDelay = Number.isFinite(aggression.wakeDelay)
+    ? aggression.wakeDelay
+    : 0.4;
+  if (!Number.isFinite(aggression.wakeTimer)) {
+    aggression.wakeTimer = aggression.triggered ? aggression.wakeDelay : 0;
+  }
+  return aggression;
 }
 
 function computeGroundY(config) {
@@ -674,13 +689,21 @@ function updateNpcMovement(G, npcSystems, state, dt) {
 
   const combat = ensureNpcCombat(G);
   const attack = ensureAttackState(state);
-  ensureComboState(state);
+  const combo = ensureComboState(state);
   ensureNpcInputState(state);
+  const aggression = ensureNpcAggressionState(state);
   updateNpcAutomatedInput(state, combat, dt);
 
   if (state.ragdoll) {
     updateNpcRagdoll(state, C, dt);
     updateNpcRecovery(state, C, dt);
+    if (aggression.triggered && !aggression.active) {
+      aggression.wakeTimer = Math.max(0, (aggression.wakeTimer || 0) - dt);
+      if (aggression.wakeTimer <= 0) {
+        aggression.active = true;
+        aggression.wakeTimer = 0;
+      }
+    }
     updateNpcAiming(state, player);
     updateDashTrail(npcSystems, state, dt);
     regenerateStamina(state, dt);
@@ -689,10 +712,50 @@ function updateNpcMovement(G, npcSystems, state, dt) {
 
   updateNpcRecovery(state, C, dt);
 
-  const attackActive = typeof combat?.isFighterAttacking === 'function'
+  if (aggression.triggered && !aggression.active) {
+    aggression.wakeTimer = Math.max(0, (aggression.wakeTimer || 0) - dt);
+    if (aggression.wakeTimer <= 0) {
+      aggression.active = true;
+      aggression.wakeTimer = 0;
+      state.mode = 'approach';
+      state.cooldown = 0;
+    }
+  }
+
+  if (!aggression.active) {
+    if (combo) {
+      combo.active = false;
+      combo.sequenceIndex = 0;
+      combo.attackDelay = 0;
+    }
+    if (attack?.active) {
+      resetAttackState(state);
+    }
+    const presses = state.aiButtonPresses;
+    if (presses) {
+      for (const key of Object.keys(presses)) {
+        if (presses[key]?.down) {
+          releaseNpcButton(state, combat, key);
+        }
+      }
+    }
+    const input = ensureNpcInputState(state);
+    input.buttonA.down = false;
+    input.buttonB.down = false;
+    state.mode = aggression.triggered ? 'alert' : 'idle';
+    state.vel.x = 0;
+    if (state.stamina) {
+      state.stamina.isDashing = false;
+    }
+    state.cooldown = 0;
+  }
+
+  const attackActive = aggression.active && (typeof combat?.isFighterAttacking === 'function'
     ? combat.isFighterAttacking()
-    : !!attack?.active;
-  state.cooldown = Math.max(0, (state.cooldown || 0) - dt);
+    : !!attack?.active);
+  if (aggression.active) {
+    state.cooldown = Math.max(0, (state.cooldown || 0) - dt);
+  }
 
   const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
   const absDx = Math.abs(dx);
@@ -700,47 +763,52 @@ function updateNpcMovement(G, npcSystems, state, dt) {
   const nearDist = 70;
   const isPressing = !!state.aiButtonPresses?.A?.down || !!state.aiButtonPresses?.B?.down;
 
-  if (attackActive) {
+  if (aggression.active) {
+    if (attackActive) {
+      state.vel.x = 0;
+      state.facingRad = dx >= 0 ? 0 : Math.PI;
+    } else {
+      if (state.mode === 'attack') {
+        state.mode = 'evade';
+        state.timer = 0.3;
+        state.cooldown = Math.max(state.cooldown, 0.35);
+        state.vel.x = -(dx > 0 ? 1 : -1) * maxSpeed;
+      } else if (absDx <= nearDist && state.cooldown <= 0 && !isPressing) {
+        if (pressNpcButton(state, combat, 'A', 0.12)) {
+          state.mode = 'attack';
+          state.vel.x = 0;
+          state.facingRad = dx >= 0 ? 0 : Math.PI;
+          state.cooldown = 0.45;
+        }
+      }
+
+      if (state.mode === 'approach') {
+        if (absDx > nearDist) {
+          state.vel.x = (dx > 0 ? 1 : -1) * maxSpeed;
+        } else {
+          state.vel.x = (dx > 0 ? 1 : -1) * maxSpeed * 0.3;
+        }
+        state.stamina.isDashing = false;
+      } else if (state.mode === 'evade') {
+        const dashMult = state.stamina.current >= state.stamina.minToDash
+          ? C.movement?.dashSpeedMultiplier || 1.8
+          : 1;
+        state.vel.x = -(dx > 0 ? 1 : -1) * maxSpeed * dashMult;
+        state.stamina.isDashing = dashMult > 1;
+        state.timer = (state.timer || 0) - dt;
+        if (state.timer <= 0) {
+          state.mode = 'approach';
+          state.stamina.isDashing = false;
+        }
+      }
+    }
+
+    if (state.mode === 'attack' && !attackActive && !isPressing) {
+      state.mode = 'approach';
+    }
+  } else {
     state.vel.x = 0;
     state.facingRad = dx >= 0 ? 0 : Math.PI;
-  } else {
-    if (state.mode === 'attack') {
-      state.mode = 'evade';
-      state.timer = 0.3;
-      state.cooldown = Math.max(state.cooldown, 0.35);
-      state.vel.x = -(dx > 0 ? 1 : -1) * maxSpeed;
-    } else if (absDx <= nearDist && state.cooldown <= 0 && !isPressing) {
-      if (pressNpcButton(state, combat, 'A', 0.12)) {
-        state.mode = 'attack';
-        state.vel.x = 0;
-        state.facingRad = dx >= 0 ? 0 : Math.PI;
-        state.cooldown = 0.45;
-      }
-    }
-
-    if (state.mode === 'approach') {
-      if (absDx > nearDist) {
-        state.vel.x = (dx > 0 ? 1 : -1) * maxSpeed;
-      } else {
-        state.vel.x = (dx > 0 ? 1 : -1) * maxSpeed * 0.3;
-      }
-      state.stamina.isDashing = false;
-    } else if (state.mode === 'evade') {
-      const dashMult = state.stamina.current >= state.stamina.minToDash
-        ? C.movement?.dashSpeedMultiplier || 1.8
-        : 1;
-      state.vel.x = -(dx > 0 ? 1 : -1) * maxSpeed * dashMult;
-      state.stamina.isDashing = dashMult > 1;
-      state.timer = (state.timer || 0) - dt;
-      if (state.timer <= 0) {
-        state.mode = 'approach';
-        state.stamina.isDashing = false;
-      }
-    }
-  }
-
-  if (state.mode === 'attack' && !attackActive && !isPressing) {
-    state.mode = 'approach';
   }
 
   regenerateStamina(state, dt);
@@ -792,8 +860,15 @@ export function initNpcSystems() {
   ensureComboState(npc);
   ensureAimState(npc);
   ensureNpcInputState(npc);
-  npc.mode = npc.mode || npc.ai?.mode || 'approach';
-  npc.cooldown = Number.isFinite(npc.cooldown) ? npc.cooldown : npc.ai?.cooldown || 0;
+  const aggression = ensureNpcAggressionState(npc);
+  if (!aggression.active && !aggression.triggered) {
+    npc.mode = 'idle';
+  } else {
+    npc.mode = npc.mode || npc.ai?.mode || 'approach';
+  }
+  npc.cooldown = aggression.active
+    ? (Number.isFinite(npc.cooldown) ? npc.cooldown : npc.ai?.cooldown || 0)
+    : 0;
 }
 
 export function updateNpcSystems(dt) {

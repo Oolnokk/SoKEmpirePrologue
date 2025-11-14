@@ -112,6 +112,15 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
     enterRagdoll(npc, angle, force, 0.3);
   }
   npc.stamina && (npc.stamina.isDashing = false);
+  const aggression = npc.aggression || (npc.aggression = {});
+  if (!aggression.triggered) {
+    aggression.triggered = true;
+    const delay = Number.isFinite(aggression.wakeDelay) ? aggression.wakeDelay : 0.4;
+    aggression.wakeTimer = Math.max(aggression.wakeTimer || 0, delay);
+  }
+  if (!aggression.active) {
+    npc.mode = 'alert';
+  }
   if (!attack.strikeLanded) {
     attack.strikeLanded = true;
   }
