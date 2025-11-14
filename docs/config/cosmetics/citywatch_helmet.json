@@ -14,7 +14,7 @@
           "spriteStyle": {
             "base": {
               "xform": {
-                "head": { "ax": -0.05, "ay": -0.12, "scaleX": 1.15, "scaleY": 1.12 }
+                "head": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
           }
@@ -28,14 +28,6 @@
               "xform": {
                 "head": { "ax": -0.05, "ay": -0.12, "scaleX": 1.15, "scaleY": 1.12 }
               }
-            }
-          },
-          "warp": {
-            "base": {
-              "units": "percent",
-              "tl": { "y": -0.05 },
-              "tr": { "y": -0.05 },
-              "center": { "y": -0.02 }
             }
           }
         }
