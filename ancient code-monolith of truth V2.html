@@ -1651,7 +1651,7 @@ cx.restore();;
       stamina: 100,
       trailColor: 'cyan'
     }),
-
+    
     npc: createFighter({
       id: 'npc',
       isPlayer: false,
@@ -1661,21 +1661,8 @@ cx.restore();;
       stamina: 100,
       trailColor: 'red',
       ai: true
-    }),
-
-    npc2: createFighter({
-      id: 'npc2',
-      isPlayer: false,
-      pos: {x: CONFIG.canvas.w * 0.35, y: CONFIG.groundY - (CONFIG.parts.hitbox.h * CONFIG.actor.scale) / 2},
-      facingRad: 0,
-      footing: 100,
-      stamina: 100,
-      trailColor: 'orange',
-      ai: true
     })
   };
-
-  const NPCS = [FIGHTERS.npc, FIGHTERS.npc2];
   
   // Legacy aliases for backward compatibility during migration
   const MOVE = FIGHTERS.player;
@@ -1765,93 +1752,13 @@ cx.restore();;
   
   // Legacy alias for NPC (for backward compatibility during migration)
   const NPC_STATE = FIGHTERS.npc;
-  const NPC2_STATE = FIGHTERS.npc2;
   // --- AI field sync to top-level (compat with older code that reads NPC_STATE.mode/cooldown) ---
-  if (!('mode' in NPC_STATE)) NPC_STATE.mode = 'wander';
-  if (!Number.isFinite(NPC_STATE.cooldown)) NPC_STATE.cooldown = 0;
-  if (!('mode' in NPC2_STATE)) NPC2_STATE.mode = 'wander';
-  if (!Number.isFinite(NPC2_STATE.cooldown)) NPC2_STATE.cooldown = 0;
+  if (!('mode' in NPC_STATE)) NPC_STATE.mode = (NPC_STATE.ai && NPC_STATE.ai.mode) || 'approach'; // used in updateNpc()
+  if (!Number.isFinite(NPC_STATE.cooldown)) NPC_STATE.cooldown = (NPC_STATE.ai && Number.isFinite(NPC_STATE.ai.cooldown) ? NPC_STATE.ai.cooldown : 0); // used in attack gating
 
-
-  // NPC walk cycle (legacy alias retained for compatibility)
+  
+  // NPC walk cycle (now an alias to npc.walk)
   const NPC_WALK = FIGHTERS.npc.walk;
-
-  function randomRange(min, max) {
-    return min + Math.random() * (max - min);
-  }
-
-  function ensureWandererState(npc, index) {
-    if (!npc) return;
-    const defaultDir = index % 2 === 0 ? -1 : 1;
-    if (!npc.wander) {
-      npc.wander = {
-        direction: defaultDir,
-        lastDirection: defaultDir,
-        timer: randomRange(1.5, 3.5),
-        speed: CONFIG.movement.maxSpeedX * 0.3,
-        boundsRatio: {
-          min: 0.25 + index * 0.1,
-          max: 0.85 - index * 0.1
-        }
-      };
-    } else {
-      npc.wander.speed = CONFIG.movement.maxSpeedX * 0.3;
-      npc.wander.boundsRatio = npc.wander.boundsRatio || { min: 0.25 + index * 0.1, max: 0.85 - index * 0.1 };
-      npc.wander.boundsRatio.min = 0.25 + index * 0.1;
-      npc.wander.boundsRatio.max = 0.85 - index * 0.1;
-      if (!Number.isFinite(npc.wander.timer)) {
-        npc.wander.timer = randomRange(1.5, 3.5);
-      }
-      if (typeof npc.wander.lastDirection !== 'number') {
-        npc.wander.lastDirection = defaultDir;
-      }
-      if (typeof npc.wander.direction !== 'number') {
-        npc.wander.direction = defaultDir;
-      }
-    }
-
-    npc.mode = 'wander';
-    npc.cooldown = 0;
-    npc.onGround = true;
-    npc.ragdoll = false;
-    npc.recovering = false;
-    if (npc.ai) {
-      npc.ai.mode = 'wander';
-      npc.ai.timer = npc.wander.timer;
-      npc.ai.cooldown = 0;
-    }
-    if (npc.attack) {
-      npc.attack.active = false;
-      npc.attack.currentActiveKeys = [];
-      npc.attack.currentPhase = null;
-    }
-    if (npc.combo) {
-      npc.combo.active = false;
-      npc.combo.sequenceIndex = 0;
-      npc.combo.attackDelay = 0;
-    }
-  }
-
-  function pickNextWanderState(npc) {
-    if (!npc || !npc.wander) return;
-    const choices = [-1, 0, 1];
-    const choice = choices[Math.floor(Math.random() * choices.length)];
-    npc.wander.direction = choice;
-    npc.wander.timer = randomRange(1.5, 3.5);
-    if (choice !== 0) {
-      npc.wander.lastDirection = choice;
-    }
-  }
-
-  function getWanderBounds(npc) {
-    if (!npc || !npc.wander || !npc.wander.boundsRatio) {
-      return { min: WORLD_WIDTH * 0.2, max: WORLD_WIDTH * 0.8 };
-    }
-    return {
-      min: WORLD_WIDTH * npc.wander.boundsRatio.min,
-      max: WORLD_WIDTH * npc.wander.boundsRatio.max
-    };
-  }
 
   // Positions of attack colliders for the current frame. These are populated
   // during skeleton drawing so that the render function can draw simple
@@ -4151,199 +4058,23 @@ const scale = CONFIG.actor.scale; const {upper,lower} = CONFIG.parts.leg;
     const stage = document.getElementById('gameStage');
     const rect = stage.getBoundingClientRect();
     // Canvas matches display size (for proper scaling)
-    cv.width = Math.floor(rect.width);
+    cv.width = Math.floor(rect.width); 
     cv.height = Math.floor(rect.height);
     CONFIG.canvas.w = cv.width; 
     CONFIG.canvas.h = cv.height;
     CONFIG.groundY = Math.round(cv.height * CONFIG.groundRatio);
     
     const hb = CONFIG.parts.hitbox;
-    const baseY = CONFIG.groundY - (hb.h * CONFIG.actor.scale) / 2;
-
     // Position player in WORLD coordinates (center of 1600px world)
-    MOVE.pos.x = WORLD_WIDTH / 2;
-    MOVE.pos.y = baseY;
+    MOVE.pos.x = WORLD_WIDTH / 2; 
+    MOVE.pos.y = CONFIG.groundY - (hb.h*CONFIG.actor.scale)/2;
 
-    // Position wanderer NPCs in WORLD coordinates
-    const defaultRatios = [0.65, 0.45];
-    NPCS.forEach((npc, index) => {
-      ensureWandererState(npc, index);
-      const ratio = (defaultRatios[index] !== undefined) ? defaultRatios[index] : 0.55;
-      npc.pos.x = WORLD_WIDTH * ratio;
-      npc.pos.y = baseY;
-    });
-
+    // Position NPC in WORLD coordinates
+    NPC_STATE.pos.x = WORLD_WIDTH * 0.65;
+    NPC_STATE.pos.y = CONFIG.groundY - (CONFIG.parts.hitbox.h * CONFIG.actor.scale) / 2;
+    
     // Initialize camera to center on player
     CAMERA.x = MOVE.pos.x - cv.width / 2;
-  }
-
-  function computeWandererPhysicsOffsets(npc) {
-    const o = {};
-    o.torso = clamp((npc && npc.vel ? npc.vel.x : 0) * 0.04, -25, 25);
-    o.lKnee = 0;
-    o.rKnee = 0;
-    o.lHip = 0;
-    o.rHip = 0;
-    return o;
-  }
-
-  function computeWandererWalkOffsets(npc, dt) {
-    const W = CONFIG.walk;
-    const out = {};
-    if (!npc || !npc.walk || !W || !W.enabled) return out;
-
-    const pureStance = true;
-    const speed = Math.abs(npc.vel.x || 0);
-    const hasWalk = speed > 0.1;
-    const active = pureStance && npc.onGround && speed > W.minSpeed && hasWalk;
-
-    const k = 1 - Math.exp(-8 * dt);
-    const targetAmp = active ? 1 : 0;
-    npc.walk.amp += (targetAmp - npc.walk.amp) * k;
-    if (npc.walk.amp < 1e-3) return out;
-
-    const speedNorm = clamp(speed / CONFIG.movement.maxSpeedX, 0, 1);
-    const hz = W.baseHz * (0.6 + 0.8 * speedNorm) * W.speedScale;
-    npc.walk.phase = (npc.walk.phase + hz * dt * TAU) % TAU;
-    const t = (Math.sin(npc.walk.phase) + 1) / 2;
-
-    const A = W.poses.A || {};
-    const B = W.poses.B || {};
-    const S = CONFIG.poses.Stance || {};
-    const walkPose = {
-      torso: lerp(A.torso || 0, B.torso || 0, t),
-      lHip:  lerp(A.lHip  || 0, B.lHip  || 0, t),
-      lKnee: lerp(A.lKnee || 0, B.lKnee || 0, t),
-      rHip:  lerp(A.rHip  || 0, B.rHip  || 0, t),
-      rKnee: lerp(A.rKnee || 0, B.rKnee || 0, t)
-    };
-
-    out.torso = lerp(S.torso || 0, walkPose.torso, npc.walk.amp);
-    out.lHip  = lerp(S.lHip  || 0, walkPose.lHip , npc.walk.amp);
-    out.lKnee = lerp(S.lKnee || 0, walkPose.lKnee, npc.walk.amp);
-    out.rHip  = lerp(S.rHip  || 0, walkPose.rHip , npc.walk.amp);
-    out.rKnee = lerp(S.rKnee || 0, walkPose.rKnee, npc.walk.amp);
-    out.__overwrite = pureStance;
-    return out;
-  }
-
-  function computeWandererOffsets(npc, dt) {
-    let final = clone(CONFIG.poses.Stance || {});
-    const phys = computeWandererPhysicsOffsets(npc);
-    final = addOffsets(final, scaleOffsets(phys, CONFIG.movement.physicsWeight));
-    const walk = computeWandererWalkOffsets(npc, dt);
-    if (walk.__overwrite) {
-      for (const key of ['torso', 'lHip', 'lKnee', 'rHip', 'rKnee']) {
-        if (Object.prototype.hasOwnProperty.call(walk, key)) {
-          final[key] = walk[key];
-        }
-      }
-    } else {
-      final = addOffsets(final, walk);
-    }
-    return final;
-  }
-
-  function drawWanderers(dt, playerCollidersSnapshot) {
-    if (!NPC_ENABLED) return;
-
-    const savedMirror = {};
-    for (const key in MIRROR) {
-      savedMirror[key] = MIRROR[key];
-    }
-    const savedFlip = {};
-    for (const key in FLIP_STATE) {
-      savedFlip[key] = FLIP_STATE[key];
-    }
-    const savedMove = { x: MOVE.pos.x, y: MOVE.pos.y, facing: MOVE.facingRad };
-
-    NPCS.forEach((npc, index) => {
-      ensureWandererState(npc, index);
-      const hitCenter = { x: npc.pos.x, y: npc.pos.y };
-      const offsets = computeWandererOffsets(npc, dt);
-
-      MOVE.pos.x = npc.pos.x;
-      MOVE.pos.y = npc.pos.y;
-      MOVE.facingRad = npc.facingRad;
-
-      for (const key in MIRROR) { delete MIRROR[key]; }
-      initFlipStateFromMirror();
-      drawSkeleton(offsets, hitCenter, npc);
-    });
-
-    for (const key in MIRROR) { delete MIRROR[key]; }
-    for (const key in savedMirror) { MIRROR[key] = savedMirror[key]; }
-    for (const key in FLIP_STATE) { delete FLIP_STATE[key]; }
-    for (const key in savedFlip) { FLIP_STATE[key] = savedFlip[key]; }
-
-    MOVE.pos.x = savedMove.x;
-    MOVE.pos.y = savedMove.y;
-    MOVE.facingRad = savedMove.facing;
-
-    if (playerCollidersSnapshot) {
-      COLLIDERS_POS.hitCenter.x = playerCollidersSnapshot.hitCenter.x;
-      COLLIDERS_POS.hitCenter.y = playerCollidersSnapshot.hitCenter.y;
-      COLLIDERS_POS.handL = playerCollidersSnapshot.handL;
-      COLLIDERS_POS.handR = playerCollidersSnapshot.handR;
-      COLLIDERS_POS.footL = playerCollidersSnapshot.footL;
-      COLLIDERS_POS.footR = playerCollidersSnapshot.footR;
-    }
-  }
-
-  function updateWanderers(dt) {
-    NPCS.forEach((npc, index) => {
-      ensureWandererState(npc, index);
-      if (!npc || !npc.wander) return;
-
-      npc.wander.timer -= dt;
-      if (npc.wander.timer <= 0) {
-        pickNextWanderState(npc);
-      }
-
-      const bounds = getWanderBounds(npc);
-      const baseY = CONFIG.groundY - (CONFIG.parts.hitbox.h * CONFIG.actor.scale) / 2;
-      const speed = npc.wander.speed;
-      let direction = npc.wander.direction;
-      let desiredVel = direction === 0 ? 0 : direction * speed;
-
-      npc.pos.x += desiredVel * dt;
-
-      if (npc.pos.x <= bounds.min) {
-        npc.pos.x = bounds.min;
-        npc.wander.direction = 1;
-        npc.wander.lastDirection = 1;
-        npc.wander.timer = randomRange(1.5, 3.5);
-      } else if (npc.pos.x >= bounds.max) {
-        npc.pos.x = bounds.max;
-        npc.wander.direction = -1;
-        npc.wander.lastDirection = -1;
-        npc.wander.timer = randomRange(1.5, 3.5);
-      }
-
-      direction = npc.wander.direction;
-      desiredVel = direction === 0 ? 0 : direction * speed;
-
-      npc.vel.x = desiredVel;
-      npc.vel.y = 0;
-      npc.pos.y = baseY;
-      npc.onGround = true;
-      npc.ragdoll = false;
-      npc.recovering = false;
-      npc.landedImpulse = 0;
-      if (npc.stamina) {
-        npc.stamina.isDashing = false;
-        npc.stamina.current = npc.stamina.max;
-      }
-
-      const maxFooting = CONFIG.knockback && CONFIG.knockback.maxFooting ? CONFIG.knockback.maxFooting : 100;
-      npc.footing = Math.min(maxFooting, npc.footing || maxFooting);
-
-      if (direction !== 0) {
-        npc.wander.lastDirection = direction;
-      }
-      const facingDir = npc.wander.lastDirection || 1;
-      npc.facingRad = facingDir >= 0 ? 0 : Math.PI;
-    });
   }
 
   // ====== NPC AI ======
@@ -4940,16 +4671,15 @@ const scale = CONFIG.actor.scale; const {upper,lower} = CONFIG.parts.leg;
     const hud = document.getElementById('aiHud');
     if (!hud || hud.style.display==='none') return;
     try{
-      const lines = [`NPC_ENABLED: ${typeof NPC_ENABLED!=='undefined' ? NPC_ENABLED : 'n/a'}`];
-      NPCS.forEach((npc, index) => {
-        ensureWandererState(npc, index);
-        const dx = (MOVE && MOVE.pos && npc && npc.pos) ? (MOVE.pos.x - npc.pos.x) : 0;
-        const wander = npc && npc.wander ? npc.wander : { direction: 0, timer: 0 };
-        const dirLabel = wander.direction > 0 ? 'right' : (wander.direction < 0 ? 'left' : 'idle');
-        lines.push(
-          `NPC${index + 1}: x=${npc.pos.x.toFixed(1)} dir=${dirLabel} timer=${wander.timer.toFixed(1)} dx=${dx.toFixed(1)}`
-        );
-      });
+      const dx = (typeof MOVE!=='undefined' && MOVE.pos && NPC_STATE && NPC_STATE.pos) ? (MOVE.pos.x - NPC_STATE.pos.x) : 0;
+      const lines = [
+        `NPC_ENABLED: ${typeof NPC_ENABLED!=='undefined' ? NPC_ENABLED : 'n/a'}`,
+        `mode: ${NPC_STATE && NPC_STATE.mode || 'n/a'}`,
+        `attack.active: ${NPC_STATE && NPC_STATE.attack && NPC_STATE.attack.active || false}`,
+        `combo.active: ${NPC_STATE && NPC_STATE.combo && NPC_STATE.combo.active || false}  idx: ${NPC_STATE && NPC_STATE.combo && NPC_STATE.combo.sequenceIndex || 0}`,
+        `cooldown: ${(NPC_STATE && NPC_STATE.cooldown || 0).toFixed ? (NPC_STATE.cooldown).toFixed(2) : '0.00'}`,
+        `dx to player: ${dx.toFixed ? dx.toFixed(1) : dx}`,
+      ];
       hud.textContent = lines.join('\n');
     }catch(e){ hud.textContent = 'HUD error: '+e.message; }
   }
@@ -5069,7 +4799,7 @@ const scale = CONFIG.actor.scale; const {upper,lower} = CONFIG.parts.leg;
     
     // Update the NPC's AI before orchestrating animations (only if NPC is enabled)
     if (NPC_ENABLED) {
-      updateWanderers(dt);
+      updateNpc(dt);
     }
     const final = orchestrate(poseOffsets, dt);
     
@@ -5272,12 +5002,345 @@ const scale = CONFIG.actor.scale; const {upper,lower} = CONFIG.parts.leg;
       }
     }
     
+    // Draw the NPC skeleton (only if NPC is enabled)
+    let npcColliders = null;
     if (NPC_ENABLED) {
-      drawWanderers(LAST_DT, savedColliders);
+      const origPosX = MOVE.pos.x;
+      const origPosY = MOVE.pos.y;
+      const origFacing = MOVE.facingRad;
+      // Set MOVE to NPC state for drawing
+      MOVE.pos.x = NPC_STATE.pos.x;
+      MOVE.pos.y = NPC_STATE.pos.y;
+      MOVE.facingRad = NPC_STATE.facingRad;
+      // The NPC's hit center uses the NPC's x position and the same y
+      // component as the player's hit center (both share ground height).
+      const npcHitCenter = { x: NPC_STATE.pos.x, y: NPC_STATE.pos.y };
+      // Compute the NPC's animation offsets based on its own movement. This
+      // uses a small physics lean and an independent walk cycle so the NPC
+      // animates while moving. The stance pose is blended with these
+      // offsets. LAST_DT is used as the delta time since the last frame.
+      const npcPoseOffsets = computeNpcOffsets(LAST_DT);
+      // Save current MIRROR and FLIP_STATE so we can draw the NPC without
+      // inheriting any limb flips triggered by the player's attacks. We
+      // clear MIRROR, sync FLIP_STATE, draw the NPC, then restore both.
+      const savedMirror = {};
+      for (const key in MIRROR){ savedMirror[key] = MIRROR[key]; }
+      const savedFlip = {};
+      for (const key in FLIP_STATE){ savedFlip[key] = FLIP_STATE[key]; }
+      // Clear existing mirror state
+      for (const key in MIRROR){ delete MIRROR[key]; }
+      initFlipStateFromMirror();
+      // Draw the NPC skeleton without any part-specific flips
+      drawSkeleton(npcPoseOffsets, npcHitCenter, NPC_STATE);
+      
+      // Restore MIRROR and FLIP_STATE
+      for (const key in MIRROR){ delete MIRROR[key]; }
+      for (const key in savedMirror){ MIRROR[key] = savedMirror[key]; }
+      for (const key in FLIP_STATE){ delete FLIP_STATE[key]; }
+      for (const key in savedFlip){ FLIP_STATE[key] = savedFlip[key]; }
+      // Copy the colliders computed for the NPC
+      npcColliders = {
+        hitCenter: { x: COLLIDERS_POS.hitCenter.x, y: COLLIDERS_POS.hitCenter.y },
+        handL: COLLIDERS_POS.handL ? { x: COLLIDERS_POS.handL.x, y: COLLIDERS_POS.handL.y } : null,
+        handR: COLLIDERS_POS.handR ? { x: COLLIDERS_POS.handR.x, y: COLLIDERS_POS.handR.y } : null,
+        footL: COLLIDERS_POS.footL ? { x: COLLIDERS_POS.footL.x, y: COLLIDERS_POS.footL.y } : null,
+        footR: COLLIDERS_POS.footR ? { x: COLLIDERS_POS.footR.x, y: COLLIDERS_POS.footR.y } : null
+      };
+      
+      // Capture NPC attack trail positions
+      if (NPC_ATTACK_TRAIL.enabled && NPC_STATE.attack.active) {
+        NPC_ATTACK_TRAIL.timer += LAST_DT;
+        if (NPC_ATTACK_TRAIL.timer >= NPC_ATTACK_TRAIL.interval) {
+          NPC_ATTACK_TRAIL.timer = 0;
+          
+          const npcActiveKeys = NPC_STATE.attack.currentActiveKeys || [];
+          const baseRad = 8 * CONFIG.actor.scale;
+          for (const key of ['handL', 'handR', 'footL', 'footR']) {
+            if (npcActiveKeys.includes(key) && npcColliders[key]) {
+              // Calculate radius inline
+              let radius = baseRad;
+              if (key === 'handL' || key === 'handR') {
+                radius *= CONFIG.colliders.handMultiplier;
+              } else if (key === 'footL' || key === 'footR') {
+                radius *= CONFIG.colliders.footMultiplier;
+              }
+              
+              // Capture the NPC collider position
+              NPC_ATTACK_TRAIL.colliders[key].unshift({
+                x: npcColliders[key].x,
+                y: npcColliders[key].y,
+                alpha: 1.0,
+                radius: radius
+              });
+              
+              if (NPC_ATTACK_TRAIL.colliders[key].length > NPC_ATTACK_TRAIL.maxLength) {
+                NPC_ATTACK_TRAIL.colliders[key].length = NPC_ATTACK_TRAIL.maxLength;
+              }
+            }
+          }
+        }
+      }
+      
+      // Restore player state
+      MOVE.pos.x = origPosX;
+      MOVE.pos.y = origPosY;
+      MOVE.facingRad = origFacing;
+      // Restore player's colliders
+      COLLIDERS_POS.hitCenter.x = savedColliders.hitCenter.x;
+      COLLIDERS_POS.hitCenter.y = savedColliders.hitCenter.y;
+      COLLIDERS_POS.handL = savedColliders.handL;
+      COLLIDERS_POS.handR = savedColliders.handR;
+      COLLIDERS_POS.footL = savedColliders.footL;
+      COLLIDERS_POS.footR = savedColliders.footR;
     }
+    // At this point we have both the player's colliders (savedColliders) and the
+    // NPC's colliders (npcColliders). Determine which colliders are active for
+    // each fighter and detect any collisions between them (only if NPC is enabled).
     const playerActiveKeys2 = getActiveColliders();
+    const npcActiveKeys2 = NPC_ENABLED && (NPC_STATE.attack && NPC_STATE.attack.active) ? NPC_STATE.attack.currentActiveKeys : [];
     const playerCollisionKeys2 = [];
-
+    const npcCollisionKeys2 = [];
+    const baseRad = 8 * CONFIG.actor.scale;
+    
+    // Helper function to get collision radius for a collider key
+    function getColliderRadius(key) {
+      if (key === 'handL' || key === 'handR') {
+        return baseRad * CONFIG.colliders.handMultiplier;
+      } else if (key === 'footL' || key === 'footR') {
+        return baseRad * CONFIG.colliders.footMultiplier;
+      }
+      return baseRad;
+    }
+    // Radius for detecting hits against the NPC's body (hitbox). Use half
+    // of the hitbox width scaled by the actor scale as an approximate body
+    // radius. This allows attack colliders to register hits even when the
+    // opponent has no active colliders.
+    // Body radius for hit detection should be larger than just half the hitbox
+    // width. Use the pre‑authored circular radius on the hitbox (r) scaled by
+    // the actor scale so that hits register when the hand/foot passes near
+    // the opponent’s torso. This avoids missing hits when colliders graze the
+    // edges of the body. See CONFIG.parts.hitbox.r in the fighter config.
+    // Approximate the opponent's torso as a circle whose radius is half
+    // the diagonal of the hitbox rectangle. Using the diagonal ensures
+    // the circle fully contains the rectangular body, making it easier
+    // to register hits when the hand/foot grazes the edges. Both width
+    // and height are scaled by the actor's scale.
+    let bodyRad;
+    {
+      const wHalf = (CONFIG.parts.hitbox.w * CONFIG.actor.scale) * 0.5;
+      const hHalf = (CONFIG.parts.hitbox.h * CONFIG.actor.scale) * 0.5;
+      bodyRad = Math.sqrt(wHalf * wHalf + hHalf * hHalf);
+    }
+    // All collision detection only happens if NPC is enabled
+    if (NPC_ENABLED) {
+      if (playerActiveKeys2.length && npcActiveKeys2.length){
+        for (const pk of playerActiveKeys2){
+          const pPos = savedColliders[pk];
+          if (!pPos) continue;
+          const pRad = getColliderRadius(pk);
+          for (const nk of npcActiveKeys2){
+            const nPos = npcColliders[nk];
+            if (!nPos) continue;
+            const nRad = getColliderRadius(nk);
+            const thresh = pRad + nRad;
+            const dx = pPos.x - nPos.x;
+            const dy = pPos.y - nPos.y;
+            if (Math.hypot(dx, dy) <= thresh){
+              if (!playerCollisionKeys2.includes(pk)) playerCollisionKeys2.push(pk);
+              if (!npcCollisionKeys2.includes(nk)) npcCollisionKeys2.push(nk);
+              HIT_COUNTS.player[pk] = (HIT_COUNTS.player[pk] || 0) + 1;
+              HIT_COUNTS.npc[nk] = (HIT_COUNTS.npc[nk] || 0) + 1;
+            }
+          }
+        }
+      }
+    }
+    // Detect collisions between the player's active colliders and the NPC's
+    // body (hitbox) - only if NPC is enabled
+    let npcBodyHit = false;
+    let knockbackApplied = false;
+    if (NPC_ENABLED && playerActiveKeys2.length){
+      const bodyCenter = npcColliders.hitCenter;
+      for (const pk of playerActiveKeys2){
+        const pPos = savedColliders[pk];
+        if (!pPos || !bodyCenter) continue;
+        const pRad = getColliderRadius(pk);
+        const dx = pPos.x - bodyCenter.x;
+        const dy = pPos.y - bodyCenter.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= (bodyRad + pRad)){
+          if (!playerCollisionKeys2.includes(pk)) playerCollisionKeys2.push(pk);
+          HIT_COUNTS.player[pk] = (HIT_COUNTS.player[pk] || 0) + 1;
+          npcBodyHit = true;
+          // Increment NPC body hit counter. Create the key if it does not
+          // exist so that each hit registers.
+          HIT_COUNTS.npc.body = (HIT_COUNTS.npc.body || 0) + 1;
+          
+          // Apply knockback only once per frame when NPC body is hit
+          if (!knockbackApplied && ATTACK.preset) {
+            // Increment combo hits only once per strike
+            if (!ATTACK.strikeLanded) {
+              COMBO.hits++;
+              ATTACK.strikeLanded = true;
+            }
+            
+            const knockbackForce = calculateKnockback(
+              ATTACK.preset,
+              ATTACK.isHoldRelease,
+              ATTACK.holdStartTime,
+              ATTACK.holdWindupDuration,
+              NPC_STATE.footing
+            );
+            
+            // Calculate knockback direction: away from player
+            const knockbackAngle = Math.atan2(
+              npcColliders.hitCenter.y - savedColliders.hitCenter.y,
+              npcColliders.hitCenter.x - savedColliders.hitCenter.x
+            );
+            
+            // Apply knockback velocity to NPC
+            NPC_STATE.vel.x += Math.cos(knockbackAngle) * knockbackForce;
+            NPC_STATE.vel.y += Math.sin(knockbackAngle) * knockbackForce * 0.2; // Minimal vertical component (was 0.5)
+            
+            // Reduce NPC footing on hit (reduced from 10 to 5, then to 2.5)
+            NPC_STATE.footing = Math.max(0, NPC_STATE.footing - 2.5);
+            
+            // ACTIVATE RAGDOLL for NPC when footing reaches 0
+            if (NPC_STATE.footing <= 0 && !NPC_STATE.ragdoll) {
+              NPC_STATE.ragdoll = true;
+              NPC_STATE.ragdollTime = 0;
+              
+              // Store the knockback velocity for continuous ragdoll force
+              NPC_STATE.ragdollVel.x = Math.cos(knockbackAngle) * knockbackForce * 2.0;
+              NPC_STATE.ragdollVel.y = Math.sin(knockbackAngle) * knockbackForce * 0.3; // Reduced vertical
+              
+              // Initialize NPC's actual velocity for ragdoll (important!)
+              NPC_STATE.vel.x = NPC_STATE.ragdollVel.x;
+              NPC_STATE.vel.y = Math.abs(Math.sin(knockbackAngle) * knockbackForce * 0.2); // Small upward pop, ensure positive (downward in canvas)
+              
+              // Get current NPC pose for initialization
+              const npcCurrentPose = current; // Use same pose structure
+              
+              // Add rotational spin based on knockback direction and force
+              const spinDirection = Math.sign(Math.cos(knockbackAngle)); // Left or right
+              const spinMagnitude = knockbackForce * 0.8; // Scale with knockback
+              
+              // Initialize joint angles and velocities for full collapse WITH SPIN
+              NPC_STATE.jointAngles = {
+                torso: npcCurrentPose.torso || 0,
+                torsoVel: (Math.random() - 0.5) * 400 + spinDirection * spinMagnitude * 0.3,
+                lShoulder: npcCurrentPose.lShoulder || 0,
+                lShoulderVel: (Math.random() - 0.5) * 600 + spinDirection * spinMagnitude * 0.5,
+                rShoulder: npcCurrentPose.rShoulder || 0,
+                rShoulderVel: (Math.random() - 0.5) * 600 + spinDirection * spinMagnitude * 0.5,
+                lElbow: npcCurrentPose.lElbow || 0,
+                lElbowVel: (Math.random() - 0.5) * 500 + spinDirection * spinMagnitude * 0.4,
+                rElbow: npcCurrentPose.rElbow || 0,
+                rElbowVel: (Math.random() - 0.5) * 500 + spinDirection * spinMagnitude * 0.4,
+                lHip: npcCurrentPose.lHip || 0,
+                lHipVel: (Math.random() - 0.5) * 400 + spinDirection * spinMagnitude * 0.3,
+                rHip: npcCurrentPose.rHip || 0,
+                rHipVel: (Math.random() - 0.5) * 400 + spinDirection * spinMagnitude * 0.3,
+                lKnee: npcCurrentPose.lKnee || 0,
+                lKneeVel: (Math.random() - 0.5) * 350 + spinDirection * spinMagnitude * 0.2,
+                rKnee: npcCurrentPose.rKnee || 0,
+                rKneeVel: (Math.random() - 0.5) * 350 + spinDirection * spinMagnitude * 0.2
+              };
+            }
+            
+            knockbackApplied = true;
+          }
+        }
+      }
+    }
+    
+    // Detect collisions between the NPC's active colliders and the PLAYER's
+    // body (hitbox) - only if NPC is enabled
+    let playerBodyHit = false;
+    let playerKnockbackApplied = false;
+    if (NPC_ENABLED && npcActiveKeys2.length){
+      const playerBodyCenter = savedColliders.hitCenter;
+      for (const nk of npcActiveKeys2){
+        const nPos = npcColliders[nk];
+        if (!nPos || !playerBodyCenter) continue;
+        const nRad = getColliderRadius(nk);
+        const dx = nPos.x - playerBodyCenter.x;
+        const dy = nPos.y - playerBodyCenter.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= (bodyRad + nRad)){
+          if (!npcCollisionKeys2.includes(nk)) npcCollisionKeys2.push(nk);
+          HIT_COUNTS.npc[nk] = (HIT_COUNTS.npc[nk] || 0) + 1;
+          playerBodyHit = true;
+          
+          // Apply knockback to PLAYER only once per frame
+          if (!playerKnockbackApplied && NPC_STATE.attack.preset) {
+            // Mark that NPC landed this strike (no combo tracking for NPC)
+            if (!NPC_STATE.attack.strikeLanded) {
+              NPC_STATE.attack.strikeLanded = true;
+            }
+            
+            const knockbackForce = calculateKnockback(
+              NPC_STATE.attack.preset,
+              false, // NPC attacks are never hold-release
+              0,
+              0,
+              MOVE.footing
+            );
+            
+            // Calculate knockback direction: away from NPC
+            const knockbackAngle = Math.atan2(
+              savedColliders.hitCenter.y - npcColliders.hitCenter.y,
+              savedColliders.hitCenter.x - npcColliders.hitCenter.x
+            );
+            
+            // Apply knockback velocity to PLAYER
+            MOVE.vel.x += Math.cos(knockbackAngle) * knockbackForce;
+            MOVE.vel.y += Math.sin(knockbackAngle) * knockbackForce * 0.2;
+            
+            // Reduce PLAYER footing on hit (reduced from 10 to 5, then to 2.5)
+            MOVE.footing = Math.max(0, MOVE.footing - 2.5);
+            
+            // ACTIVATE RAGDOLL when footing reaches 0
+            if (MOVE.footing <= 0 && !MOVE.ragdoll) {
+              MOVE.ragdoll = true;
+              MOVE.ragdollTime = 0;
+              // Store the knockback velocity for continuous ragdoll force
+              MOVE.ragdollVel.x = Math.cos(knockbackAngle) * knockbackForce * 2.0;
+              MOVE.ragdollVel.y = Math.sin(knockbackAngle) * knockbackForce * 0.8;
+              
+              // Add rotational spin based on knockback direction and force
+              const spinDirection = Math.sign(Math.cos(knockbackAngle)); // Left or right
+              const spinMagnitude = knockbackForce * 0.8; // Scale with knockback
+              
+              // Initialize joint angles and velocities for full collapse WITH SPIN
+              MOVE.jointAngles = {
+                torso: current.torso || 0,
+                torsoVel: (Math.random() - 0.5) * 400 + spinDirection * spinMagnitude * 0.3,
+                lShoulder: current.lShoulder || 0,
+                lShoulderVel: (Math.random() - 0.5) * 600 + spinDirection * spinMagnitude * 0.5,
+                rShoulder: current.rShoulder || 0,
+                rShoulderVel: (Math.random() - 0.5) * 600 + spinDirection * spinMagnitude * 0.5,
+                lElbow: current.lElbow || 0,
+                lElbowVel: (Math.random() - 0.5) * 500 + spinDirection * spinMagnitude * 0.4,
+                rElbow: current.rElbow || 0,
+                rElbowVel: (Math.random() - 0.5) * 500 + spinDirection * spinMagnitude * 0.4,
+                lHip: current.lHip || 0,
+                lHipVel: (Math.random() - 0.5) * 400 + spinDirection * spinMagnitude * 0.3,
+                rHip: current.rHip || 0,
+                rHipVel: (Math.random() - 0.5) * 400 + spinDirection * spinMagnitude * 0.3,
+                lKnee: current.lKnee || 0,
+                lKneeVel: (Math.random() - 0.5) * 350 + spinDirection * spinMagnitude * 0.2,
+                rKnee: current.rKnee || 0,
+                rKneeVel: (Math.random() - 0.5) * 350 + spinDirection * spinMagnitude * 0.2
+              };
+            }
+            
+            playerKnockbackApplied = true;
+          }
+        }
+      }
+    }
+    
     // Draw player attack collider trails (afterimages)
     if (ATTACK_TRAIL.enabled) {
       for (const key of ['handL', 'handR', 'footL', 'footR']) {
@@ -5303,9 +5366,66 @@ const scale = CONFIG.actor.scale; const {upper,lower} = CONFIG.parts.leg;
       }
     }
     
+    // Draw NPC attack collider trails (red/orange tint for enemy)
+    if (NPC_ENABLED && NPC_ATTACK_TRAIL.enabled) {
+      for (const key of ['handL', 'handR', 'footL', 'footR']) {
+        const trail = NPC_ATTACK_TRAIL.colliders[key];
+        for (let i = trail.length - 1; i >= 0; i--) {
+          const pos = trail[i];
+          const alpha = pos.alpha * 0.5;
+          
+          cx.save();
+          cx.globalAlpha = alpha;
+          
+          // Red/orange tint for NPC
+          cx.beginPath();
+          cx.arc(pos.x, pos.y, pos.radius, 0, TAU);
+          cx.fillStyle = `rgba(255, 100, 80, ${alpha * 0.8})`;
+          cx.strokeStyle = `rgba(255, 150, 100, ${alpha})`;
+          cx.lineWidth = 2;
+          cx.fill();
+          cx.stroke();
+          
+          cx.restore();
+        }
+      }
+    }
+    
     // Draw the player's colliders with active/highlight information and counts
     drawAttackColliders(savedColliders, playerActiveKeys2, playerCollisionKeys2, HIT_COUNTS.player, MOVE.facingRad);
-    // NPC wanderers are non-aggressive, so no additional collider overlays are drawn.
+    // Draw the NPC's attack colliders (only if NPC is enabled)
+    if (NPC_ENABLED) {
+      drawAttackColliders(npcColliders, npcActiveKeys2, npcCollisionKeys2, HIT_COUNTS.npc, NPC_STATE.facingRad);
+    }
+
+    // If the NPC's body was struck, draw visual feedback (only if NPC is enabled)
+    if (NPC_ENABLED && npcBodyHit){
+      cx.save();
+      // Draw semi-transparent red circle over the NPC's body
+      cx.beginPath();
+      cx.arc(npcColliders.hitCenter.x, npcColliders.hitCenter.y, bodyRad, 0, TAU);
+      cx.fillStyle = 'rgba(255, 60, 60, 0.25)';
+      cx.fill();
+      // Draw the body hit count in the centre
+      const cnt = HIT_COUNTS.npc.body || 0;
+      cx.fillStyle = '#ffffff';
+      cx.font = `${Math.round(10 * CONFIG.actor.scale)}px system-ui, sans-serif`;
+      cx.textAlign = 'center';
+      cx.textBaseline = 'middle';
+      cx.fillText(String(cnt), npcColliders.hitCenter.x, npcColliders.hitCenter.y);
+      cx.restore();
+    }
+    
+    // If the PLAYER's body was struck by an active NPC collider, draw visual feedback
+    if (playerBodyHit){
+      cx.save();
+      // Draw semi-transparent red circle over the PLAYER's body
+      cx.beginPath();
+      cx.arc(savedColliders.hitCenter.x, savedColliders.hitCenter.y, bodyRad, 0, TAU);
+      cx.fillStyle = 'rgba(255, 60, 60, 0.25)';
+      cx.fill();
+      cx.restore();
+    }
     
     // HUD - Debug display commented out for clean gameplay
     /* 
