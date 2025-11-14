@@ -1937,6 +1937,16 @@ export function makeCombat(G, C, options = {}){
     return ATTACK.active || CHARGE.active;
   }
 
+  function getComboState(){
+    return {
+      hits: COMBO.hits,
+      sequenceIndex: COMBO.sequenceIndex,
+      active: COMBO.timer > 0,
+      timerMs: COMBO.timer,
+      lastAbilityId: COMBO.lastAbilityId,
+    };
+  }
+
   function tick(dt){
     const fighter = P();
     if (!fighter) return;
@@ -1960,6 +1970,8 @@ export function makeCombat(G, C, options = {}){
     slotDown,
     slotUp,
     updateSlotAssignments,
+    getAbilityForSlot,
+    getComboState,
     isPlayerAttacking: isFighterAttacking,
     isPlayerCharging: isFighterCharging,
     isPlayerBusy: isFighterBusy,
