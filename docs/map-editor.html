@@ -2498,10 +2498,59 @@ async function exportLayout(){
     };
     const json=JSON.stringify(area,null,2);
     textEl.value=json;
-    const dataUrl='data:application/json;charset=utf-8,'+encodeURIComponent(json);
-    window.open(dataUrl,'_blank');
-    statusEl.style.color='#22c55e';
-    statusEl.textContent='Opened area JSON in new tab. If blocked, copy JSON below.';
+    const areaId = area.id || area.meta?.areaId || 'map-export';
+    const areaName = area.meta?.areaName || areaId;
+
+    let popup=null;
+    try {
+      popup=window.open('', '_blank');
+    } catch (_err) {
+      popup=null;
+    }
+
+    if(popup){
+      const doc=popup.document;
+      doc.open();
+      doc.write('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Map export</title><style>body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:24px;background:#0f172a;color:#e2e8f0;} h1{font-size:20px;margin-bottom:16px;} pre{padding:16px;background:#020617;border-radius:8px;border:1px solid #1e293b;max-width:calc(100vw - 48px);overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:"JetBrains Mono","Fira Code",monospace;font-size:13px;line-height:1.6;} button{margin-top:16px;padding:8px 16px;background:#334155;color:#f8fafc;border:1px solid #475569;border-radius:6px;cursor:pointer;} button:hover{background:#1e293b;}</style></head><body></body></html>');
+      doc.close();
+      doc.title=`${areaName} export`;
+
+      const heading=doc.createElement('h1');
+      heading.textContent=`${areaName} JSON export`;
+
+      const pre=doc.createElement('pre');
+      pre.textContent=json;
+
+      const copyBtn=doc.createElement('button');
+      copyBtn.textContent='Copy JSON to clipboard';
+      copyBtn.addEventListener('click',async()=>{
+        try {
+          await navigator.clipboard.writeText(json);
+          copyBtn.textContent='Copied!';
+          setTimeout(()=>{ copyBtn.textContent='Copy JSON to clipboard'; }, 2000);
+        } catch(_clipboardErr){
+          copyBtn.textContent='Copy failed';
+          setTimeout(()=>{ copyBtn.textContent='Copy JSON to clipboard'; }, 2000);
+        }
+      });
+
+      doc.body.append(heading, pre, copyBtn);
+      statusEl.style.color='#22c55e';
+      statusEl.textContent='Opened area JSON in new tab.';
+    }else{
+      const blob=new Blob([json],{type:'application/json'});
+      const blobUrl=URL.createObjectURL(blob);
+      const anchor=document.createElement('a');
+      anchor.href=blobUrl;
+      anchor.download=`${areaId}.json`;
+      anchor.rel='noopener';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      setTimeout(()=>URL.revokeObjectURL(blobUrl),0);
+      statusEl.style.color='#22c55e';
+      statusEl.textContent='Download started. If blocked, copy JSON below.';
+    }
   }catch(err){
     statusEl.style.color='#f97316';
     statusEl.textContent='Export error: '+err.message+' (JSON mirrored below)';
