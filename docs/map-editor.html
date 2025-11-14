@@ -137,7 +137,8 @@
       display:block;
       touch-action:none;
     }
-    #sceneCanvas.spawn-mode {
+    #sceneCanvas.spawn-mode,
+    #sceneCanvas.collider-mode {
       cursor:crosshair;
     }
 
@@ -148,6 +149,15 @@
       border:1px solid var(--line);
       padding:4px;
       font-size:10px;
+    }
+    #colliderList {
+      max-height:140px;
+      overflow:auto;
+      border-radius:8px;
+      border:1px solid var(--line);
+      padding:4px;
+      font-size:10px;
+      margin-top:4px;
     }
     .inst {
       padding:2px 4px;
@@ -164,6 +174,22 @@
     }
     .inst.active {
       background:rgba(120,150,255,0.16);
+    }
+    .collider {
+      padding:2px 4px;
+      border-radius:6px;
+      display:flex;
+      justify-content:space-between;
+      gap:4px;
+      align-items:center;
+    }
+    .collider span {
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .collider.active {
+      background:rgba(239, 68, 68, 0.16);
     }
 
     .pill {
@@ -316,6 +342,32 @@
       </small>
       <small style="color:var(--muted);display:block;margin-top:4px">
         Only instances on the active layer can be picked, dragged or jittered. Use the button above and then click the preview to set the spawn (snaps to the grid unit).
+      </small>
+    </div>
+
+    <!-- Colliders -->
+    <div class="card">
+      <strong>Platform Colliders</strong>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <button id="btnAddCollider">Add collider</button>
+        <button id="btnDeleteCollider">Remove selected</button>
+        <span class="pill">Add then drag on the preview to place a collider (click again to cancel).</span>
+      </div>
+      <div id="colliderList"></div>
+      <div class="row" style="margin-top:6px">
+        <label><span>ID</span><input id="colliderId" readonly></label>
+        <label><span>Label</span><input id="colliderLabel" type="text" placeholder="Ground segment"></label>
+      </div>
+      <div class="row">
+        <label><span>Left (px)</span><input id="colliderLeft" type="number" step="1"></label>
+        <label><span>Width (px)</span><input id="colliderWidth" type="number" step="1" min="1"></label>
+      </div>
+      <div class="row">
+        <label><span>Top offset (px)</span><input id="colliderTopOffset" type="number" step="1"></label>
+        <label><span>Height (px)</span><input id="colliderHeight" type="number" step="1" min="1"></label>
+      </div>
+      <small style="color:var(--muted);display:block;margin-top:4px">
+        Offsets are relative to the ground line. Negative values lift the collider above the ground.
       </small>
     </div>
 
@@ -553,6 +605,7 @@ function restoreState(state){
   if(!state) return;
   isRestoring = true;
   exitSpawnPlacement();
+  exitColliderPlacement();
 
   const adopted = adoptAreaState(state, state.meta || {});
   layoutMeta = { ...DEFAULT_LAYOUT_META, ...(adopted.meta || {}) };
@@ -578,6 +631,21 @@ function restoreState(state){
     nextInstId = spawn.id + 1;
   }
 
+  colliders.length = 0;
+  nextColliderId = 1;
+  if (Array.isArray(adopted.colliders)){
+    for (const col of adopted.colliders){
+      const normalized = normalizeCollider(col, nextColliderId);
+      if (normalized.id == null){
+        normalized.id = nextColliderId++;
+      } else {
+        nextColliderId = Math.max(nextColliderId, normalized.id + 1);
+      }
+      colliders.push(normalized);
+    }
+  }
+  selectedColliderId = colliders[0]?.id ?? null;
+
   activeLayerId = adopted.activeLayerId || layoutMeta.activeLayerId || getDefaultSpawnLayerId();
   cameraX = toNumber(adopted.camera?.startX, 0);
   zoom = toNumber(adopted.camera?.startZoom, 1);
@@ -588,6 +656,8 @@ function restoreState(state){
   rebuildLayerStack();
   syncActiveLayerFields();
   refreshInstanceList();
+  refreshColliderList();
+  syncColliderFields();
   setCameraX(cameraX);
   setZoom(zoom);
 
@@ -742,6 +812,11 @@ const instances = [];
 let selectedInstId = null;
 let playerSpawnInstId = null;
 let spawnPlacementMode = false;
+const colliders = [];
+let nextColliderId = 1;
+let selectedColliderId = null;
+let colliderPlacementMode = false;
+let activeColliderDrag = null;
 
 function isPlayerSpawn(inst){
   return Array.isArray(inst?.tags) && inst.tags.includes('spawn:player');
@@ -882,6 +957,50 @@ function normalizeInstance(inst, fallbackId = 0){
   return { id, prefabId, layerId, position, scale, rotationDeg, locked, tags, meta };
 }
 
+function normalizeCollider(raw, fallbackId = 1){
+  const safe = raw && typeof raw === 'object' ? JSON.parse(JSON.stringify(raw)) : {};
+  const id = safe.id ?? safe.meta?.original?.id ?? fallbackId;
+  const labelRaw = typeof safe.label === 'string' ? safe.label.trim() : '';
+  const type = (safe.type === 'box' || safe.shape === 'box') ? 'box' : 'box';
+
+  let left = toNumber(safe.left ?? safe.x ?? safe.position?.x, 0);
+  const rightRaw = safe.right ?? safe.meta?.original?.right;
+  let width = toNumber(safe.width ?? safe.w, null);
+  if (!Number.isFinite(width) && Number.isFinite(rightRaw)){
+    width = toNumber(rightRaw, left) - left;
+  }
+  if (!Number.isFinite(width)) width = 120;
+  if (width < 0){
+    left += width;
+    width = Math.abs(width);
+  }
+
+  let topOffset = toNumber(safe.topOffset ?? safe.top ?? safe.y ?? safe.offsetY, 0);
+  const bottomRaw = safe.bottomOffset ?? safe.bottom ?? safe.meta?.bottomOffset;
+  let height = toNumber(safe.height ?? safe.h, null);
+  if (!Number.isFinite(height) && Number.isFinite(bottomRaw)){
+    height = toNumber(bottomRaw, 0) - topOffset;
+  }
+  if (!Number.isFinite(height)) height = 40;
+  if (height < 0){
+    topOffset += height;
+    height = Math.abs(height);
+  }
+
+  const meta = safe.meta && typeof safe.meta === 'object' ? safe.meta : {};
+
+  return {
+    id,
+    label: labelRaw || `Collider ${id ?? fallbackId}`,
+    type,
+    left,
+    width: Math.max(1, width),
+    topOffset,
+    height: Math.max(1, height),
+    meta,
+  };
+}
+
 function adoptAreaState(area, context = {}){
   const raw = area && typeof area === 'object' ? JSON.parse(JSON.stringify(area)) : {};
   const id = raw.id || raw.areaId || context.areaId || DEFAULT_LAYOUT_META.areaId;
@@ -908,6 +1027,18 @@ function adoptAreaState(area, context = {}){
     normalizedInstances.push(normalized);
   }
 
+  const collidersList = Array.isArray(raw.colliders) ? raw.colliders : [];
+  const normalizedColliders = [];
+  let fallbackColliderId = 1;
+  for (const collider of collidersList){
+    const normalized = normalizeCollider(collider, fallbackColliderId);
+    if (normalized.id == null){
+      normalized.id = fallbackColliderId;
+    }
+    fallbackColliderId = Math.max(fallbackColliderId + 1, normalized.id + 1);
+    normalizedColliders.push(normalized);
+  }
+
   const meta = raw.meta && typeof raw.meta === 'object' ? { ...raw.meta } : {};
   const activeLayerId = raw.activeLayerId
     || meta.activeLayerId
@@ -921,6 +1052,7 @@ function adoptAreaState(area, context = {}){
     ground,
     layers: layersList,
     instances: normalizedInstances,
+    colliders: normalizedColliders,
     meta: {
       ...meta,
       areaId: id,
@@ -966,6 +1098,23 @@ function buildAreaDescriptor(){
     };
   });
 
+  const clonedColliders = colliders.map((col, index) => {
+    const normalized = normalizeCollider(col, col.id ?? index + 1);
+    return {
+      id: normalized.id ?? index + 1,
+      label: typeof normalized.label === 'string' && normalized.label.trim()
+        ? normalized.label.trim()
+        : `Collider ${index + 1}`,
+      type: normalized.type || 'box',
+      shape: normalized.type || 'box',
+      left: toNumber(normalized.left, 0) || 0,
+      width: Math.max(1, toNumber(normalized.width, 120) || 120),
+      topOffset: toNumber(normalized.topOffset, 0) || 0,
+      height: Math.max(1, toNumber(normalized.height, 40) || 40),
+      meta: normalized.meta ? JSON.parse(JSON.stringify(normalized.meta)) : {},
+    };
+  });
+
   const meta = {
     ...layoutMeta,
     activeLayerId,
@@ -984,6 +1133,7 @@ function buildAreaDescriptor(){
     },
     layers: clonedLayers,
     instances: clonedInstances,
+    colliders: clonedColliders,
     meta,
   };
 }
@@ -1449,6 +1599,157 @@ function fillInstEditor(){
   $('#instRot').value=Number.isFinite(inst.rotationDeg) ? inst.rotationDeg : 0;
 }
 
+function getSelectedCollider(){
+  if (selectedColliderId == null) return null;
+  return colliders.find((c) => c.id === selectedColliderId) || null;
+}
+
+function formatColliderNumber(value){
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '—';
+  const fixed = Math.abs(num) >= 100 ? num.toFixed(0) : num.toFixed(1);
+  return fixed.replace(/\.0$/, '');
+}
+
+function refreshColliderList(){
+  const list = $('#colliderList');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const col of colliders){
+    const div = document.createElement('div');
+    div.className = 'collider' + (col.id === selectedColliderId ? ' active' : '');
+    const label = typeof col.label === 'string' && col.label.trim()
+      ? col.label.trim()
+      : `Collider ${col.id}`;
+    const title = document.createElement('span');
+    title.textContent = `${col.id} · ${label}`;
+    const left = toNumber(col.left, 0);
+    const width = Math.max(0, toNumber(col.width, 0));
+    const topOffset = toNumber(col.topOffset, 0);
+    const height = Math.max(0, toNumber(col.height, 0));
+    const meta = document.createElement('span');
+    meta.textContent = `x:${formatColliderNumber(left)} w:${formatColliderNumber(width)} y:${formatColliderNumber(topOffset)} h:${formatColliderNumber(height)}`;
+    div.appendChild(title);
+    div.appendChild(meta);
+    div.onclick = () => {
+      selectedColliderId = col.id;
+      syncColliderFields();
+      refreshColliderList();
+    };
+    list.appendChild(div);
+  }
+  syncColliderFields();
+}
+
+function syncColliderFields(){
+  const collider = getSelectedCollider();
+  const idField = $('#colliderId');
+  if (idField) idField.value = collider?.id ?? '';
+  const labelField = $('#colliderLabel');
+  if (labelField) labelField.value = collider?.label ?? '';
+  const leftField = $('#colliderLeft');
+  if (leftField) leftField.value = collider ? String(toNumber(collider.left, 0)) : '';
+  const widthField = $('#colliderWidth');
+  if (widthField) widthField.value = collider ? String(Math.max(1, toNumber(collider.width, 0))) : '';
+  const topField = $('#colliderTopOffset');
+  if (topField) topField.value = collider ? String(toNumber(collider.topOffset, 0)) : '';
+  const heightField = $('#colliderHeight');
+  if (heightField) heightField.value = collider ? String(Math.max(1, toNumber(collider.height, 0))) : '';
+  const removeBtn = $('#btnDeleteCollider');
+  if (removeBtn) removeBtn.disabled = !collider;
+}
+
+function updateSelectedColliderFromFields(){
+  const collider = getSelectedCollider();
+  if (!collider) return;
+  let changed = false;
+
+  const labelField = $('#colliderLabel');
+  if (labelField){
+    const newLabel = labelField.value.trim();
+    if (newLabel !== (collider.label ?? '')){
+      if (!changed) pushHistory();
+      changed = true;
+      collider.label = newLabel;
+    }
+  }
+
+  const leftField = $('#colliderLeft');
+  if (leftField){
+    const value = parseFloat(leftField.value);
+    if (Number.isFinite(value) && value !== collider.left){
+      if (!changed) pushHistory();
+      changed = true;
+      collider.left = value;
+    }
+  }
+
+  const widthField = $('#colliderWidth');
+  if (widthField){
+    const value = parseFloat(widthField.value);
+    if (Number.isFinite(value) && value > 0 && value !== collider.width){
+      if (!changed) pushHistory();
+      changed = true;
+      collider.width = Math.max(1, value);
+    }
+  }
+
+  const topField = $('#colliderTopOffset');
+  if (topField){
+    const value = parseFloat(topField.value);
+    if (Number.isFinite(value) && value !== collider.topOffset){
+      if (!changed) pushHistory();
+      changed = true;
+      collider.topOffset = value;
+    }
+  }
+
+  const heightField = $('#colliderHeight');
+  if (heightField){
+    const value = parseFloat(heightField.value);
+    if (Number.isFinite(value) && value > 0 && value !== collider.height){
+      if (!changed) pushHistory();
+      changed = true;
+      collider.height = Math.max(1, value);
+    }
+  }
+
+  if (changed){
+    refreshColliderList();
+  }
+}
+
+function removeSelectedCollider(){
+  const collider = getSelectedCollider();
+  if (!collider) return;
+  const idx = colliders.findIndex((c) => c.id === collider.id);
+  if (idx === -1) return;
+  pushHistory();
+  colliders.splice(idx, 1);
+  const fallback = colliders[idx] || colliders[idx - 1] || null;
+  selectedColliderId = fallback?.id ?? null;
+  refreshColliderList();
+}
+
+function enterColliderPlacement(){
+  if (colliderPlacementMode){
+    exitColliderPlacement();
+    return;
+  }
+  exitSpawnPlacement();
+  colliderPlacementMode = true;
+  activeColliderDrag = null;
+  const canvasEl = document.getElementById('sceneCanvas');
+  canvasEl?.classList.add('collider-mode');
+}
+
+function exitColliderPlacement(){
+  colliderPlacementMode = false;
+  activeColliderDrag = null;
+  const canvasEl = document.getElementById('sceneCanvas');
+  canvasEl?.classList.remove('collider-mode');
+}
+
 /*** Instance editor bindings ***/
 function updateSelectedInstanceFromFields(){
   const inst = getSelectedInstance();
@@ -1536,6 +1837,26 @@ function updateSelectedInstanceFromFields(){
   el.addEventListener('change', updateSelectedInstanceFromFields);
   el.addEventListener('blur', updateSelectedInstanceFromFields);
 });
+
+['colliderLabel','colliderLeft','colliderWidth','colliderTopOffset','colliderHeight'].forEach(id => {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('change', updateSelectedColliderFromFields);
+  el.addEventListener('blur', updateSelectedColliderFromFields);
+});
+
+const addColliderButton = document.getElementById('btnAddCollider');
+if (addColliderButton){
+  addColliderButton.addEventListener('click', () => {
+    enterColliderPlacement();
+  });
+}
+const removeColliderButton = document.getElementById('btnDeleteCollider');
+if (removeColliderButton){
+  removeColliderButton.addEventListener('click', () => {
+    removeSelectedCollider();
+  });
+}
 
 /*** Camera & Zoom ***/
 function setCameraX(v){
@@ -1798,6 +2119,39 @@ function render(){
     }
   }
 
+  if(colliders.length){
+    ctx.save();
+    ctx.lineWidth = 1.5;
+    for(const collider of colliders){
+      const leftWorld = toNumber(collider.left, 0);
+      const widthWorld = Math.max(0, toNumber(collider.width, 0));
+      const topOffset = toNumber(collider.topOffset, 0);
+      const heightWorld = Math.max(0, toNumber(collider.height, 0));
+      if(widthWorld <= 0 || heightWorld <= 0) continue;
+      const screenLeft = W/2 + (leftWorld - cameraX) * zoom;
+      const screenTop = groundY + topOffset * zoom;
+      const screenWidth = widthWorld * zoom;
+      const screenHeight = heightWorld * zoom;
+      if(screenWidth <= 0 || screenHeight <= 0) continue;
+      const isSelected = collider.id === selectedColliderId;
+      ctx.fillStyle = isSelected ? 'rgba(239,68,68,0.18)' : 'rgba(148,163,184,0.12)';
+      ctx.strokeStyle = isSelected ? 'rgba(239,68,68,0.65)' : 'rgba(148,163,184,0.55)';
+      ctx.fillRect(screenLeft, screenTop, screenWidth, screenHeight);
+      ctx.strokeRect(screenLeft, screenTop, screenWidth, screenHeight);
+      const label = typeof collider.label === 'string' ? collider.label.trim() : '';
+      if(label){
+        ctx.save();
+        ctx.fillStyle = isSelected ? '#fecaca' : '#cbd5f5';
+        const fontSize = Math.max(7, 9 * zoom);
+        ctx.font = `${fontSize}px ui-monospace,Menlo,Consolas`;
+        ctx.textBaseline = 'top';
+        ctx.fillText(label, screenLeft + 4, screenTop + 2);
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+  }
+
   // ground line
   ctx.save();
   ctx.strokeStyle="rgba(250,204,21,0.35)";
@@ -1910,6 +2264,35 @@ function pointerClientToWorldX(clientX, layer){
   return baseOffset + cameraX*par;
 }
 
+function pointerClientToGroundOffset(clientY){
+  const rect = canvas.getBoundingClientRect();
+  const py = clientY - rect.top;
+  const dpr = window.devicePixelRatio || 1;
+  const H = canvas.height / dpr;
+  const groundY = H - getGroundOffset();
+  const scale = zoom || 1;
+  return (py - groundY) / scale;
+}
+
+function pickColliderAt(clientX, clientY){
+  if (!colliders.length) return null;
+  const worldX = pointerClientToWorldX(clientX, { parallax: 1 });
+  const offsetY = pointerClientToGroundOffset(clientY);
+  for (let i = colliders.length - 1; i >= 0; i--){
+    const col = colliders[i];
+    const left = toNumber(col.left, 0);
+    const width = Math.max(0, toNumber(col.width, 0));
+    const topOffset = toNumber(col.topOffset, 0);
+    const height = Math.max(0, toNumber(col.height, 0));
+    const right = left + width;
+    const bottomOffset = topOffset + height;
+    if (worldX >= left && worldX <= right && offsetY >= topOffset && offsetY <= bottomOffset){
+      return col;
+    }
+  }
+  return null;
+}
+
 function pointerDown(ev){
   const t=ev.touches?ev.touches[0]:ev;
   lastX=t.clientX;
@@ -1925,9 +2308,37 @@ function pointerDown(ev){
       spawn.position.x = snapped;
       spawn.locked = true;
       selectedInstId = spawn.id;
-      refreshInstanceList();
-    }
+    refreshInstanceList();
+  }
     exitSpawnPlacement();
+    return;
+  }
+  if(colliderPlacementMode){
+    const worldX = pointerClientToWorldX(t.clientX, { parallax: 1 });
+    const offsetY = pointerClientToGroundOffset(t.clientY);
+    pushHistory();
+    const id = nextColliderId++;
+    const collider = {
+      id,
+      label: `Collider ${id}`,
+      type: 'box',
+      left: worldX,
+      width: 8,
+      topOffset: offsetY,
+      height: 8,
+      meta: {},
+    };
+    colliders.push(collider);
+    selectedColliderId = collider.id;
+    activeColliderDrag = { collider, startX: worldX, startOffset: offsetY, mode: 'new' };
+    refreshColliderList();
+    return;
+  }
+  const colliderHit = pickColliderAt(t.clientX, t.clientY);
+  if (colliderHit){
+    selectedColliderId = colliderHit.id;
+    refreshColliderList();
+    syncColliderFields();
     return;
   }
   const hit=pickInstanceAt(t.clientX,t.clientY);
@@ -1952,8 +2363,25 @@ function pointerDown(ev){
   }
 }
 function pointerMove(ev){
-  if(!draggingCamera && !draggingInst) return;
+  if(!draggingCamera && !draggingInst && !activeColliderDrag) return;
   const t=ev.touches?ev.touches[0]:ev;
+  if(activeColliderDrag){
+    const collider = activeColliderDrag.collider;
+    if(!collider) { activeColliderDrag = null; return; }
+    const worldX = pointerClientToWorldX(t.clientX, { parallax: 1 });
+    const offsetY = pointerClientToGroundOffset(t.clientY);
+    const minSize = 8;
+    const left = Math.min(worldX, activeColliderDrag.startX);
+    const width = Math.max(minSize, Math.abs(worldX - activeColliderDrag.startX));
+    const topOffset = Math.min(offsetY, activeColliderDrag.startOffset);
+    const height = Math.max(minSize, Math.abs(offsetY - activeColliderDrag.startOffset));
+    collider.left = left;
+    collider.width = width;
+    collider.topOffset = topOffset;
+    collider.height = height;
+    refreshColliderList();
+    return;
+  }
   const dx=t.clientX-lastX;
   lastX=t.clientX;
   if(draggingInst){
@@ -1976,6 +2404,13 @@ function pointerUp(){
   draggingCamera=false;
   draggingInst=null;
   draggingInstOffset=0;
+  if(activeColliderDrag){
+    activeColliderDrag = null;
+    refreshColliderList();
+  }
+  if(colliderPlacementMode){
+    exitColliderPlacement();
+  }
 }
 canvas.addEventListener('mousedown',pointerDown);
 canvas.addEventListener('mousemove',pointerMove);
@@ -2234,6 +2669,7 @@ rebuildActiveLayerSelect();
 rebuildLayerStack();
 syncActiveLayerFields();
 ensurePlayerSpawn();
+refreshColliderList();
 refreshInstanceList();
 requestAnimationFrame(render);
 

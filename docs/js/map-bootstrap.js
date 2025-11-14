@@ -89,6 +89,75 @@ function consumeEditorPreviewLayout(token) {
   }
 }
 
+function normalizeAreaCollider(input, index) {
+  const fallbackId = index + 1;
+  const safe = input && typeof input === 'object' ? input : {};
+  const rawId = Number(safe.id);
+  const id = Number.isFinite(rawId) ? rawId : fallbackId;
+  const label = typeof safe.label === 'string' && safe.label.trim() ? safe.label.trim() : `Collider ${id}`;
+
+  let left = Number(safe.left);
+  if (!Number.isFinite(left)) {
+    left = Number(safe.x);
+  }
+  if (!Number.isFinite(left)) {
+    left = 0;
+  }
+
+  let width = Number(safe.width);
+  const right = Number(safe.right);
+  if (!Number.isFinite(width) && Number.isFinite(right)) {
+    width = right - left;
+  }
+  if (!Number.isFinite(width)) {
+    width = 120;
+  }
+  if (width < 0) {
+    left += width;
+    width = Math.abs(width);
+  }
+
+  let topOffset = Number(safe.topOffset);
+  if (!Number.isFinite(topOffset)) {
+    topOffset = Number(safe.top);
+  }
+  if (!Number.isFinite(topOffset)) {
+    topOffset = Number(safe.y);
+  }
+  if (!Number.isFinite(topOffset)) {
+    topOffset = 0;
+  }
+
+  let height = Number(safe.height);
+  const bottomOffset = Number(safe.bottomOffset);
+  const bottom = Number(safe.bottom);
+  if (!Number.isFinite(height) && Number.isFinite(bottomOffset)) {
+    height = bottomOffset - topOffset;
+  } else if (!Number.isFinite(height) && Number.isFinite(bottom)) {
+    height = bottom - topOffset;
+  }
+  if (!Number.isFinite(height)) {
+    height = 40;
+  }
+  if (height < 0) {
+    topOffset += height;
+    height = Math.abs(height);
+  }
+
+  const meta = safe.meta && typeof safe.meta === 'object' ? { ...safe.meta } : undefined;
+
+  return {
+    id,
+    label,
+    type: 'box',
+    left,
+    width: Math.max(1, width),
+    topOffset,
+    height: Math.max(1, height),
+    meta: meta ?? undefined,
+  };
+}
+
 function applyEditorPreviewSettings(area, { token = null, createdAt = null } = {}) {
   const GAME = (window.GAME = window.GAME || {});
   const CONFIG = (window.CONFIG = window.CONFIG || {});
@@ -109,6 +178,10 @@ function applyEditorPreviewSettings(area, { token = null, createdAt = null } = {
   const canvasHeight = Number.isFinite(canvasConfig.h) ? canvasConfig.h : 460;
   const canvasWidth = Number.isFinite(canvasConfig.w) ? canvasConfig.w : 720;
   const groundOffset = Number(area?.ground?.offset);
+  const normalizedColliders = Array.isArray(area?.colliders)
+    ? area.colliders.map((col, index) => normalizeAreaCollider(col, index))
+    : [];
+  preview.platformColliders = normalizedColliders;
 
   if (Number.isFinite(groundOffset) && canvasHeight > 0) {
     const ratioRaw = 1 - groundOffset / canvasHeight;
@@ -166,6 +239,14 @@ function syncConfigGround(area) {
   };
 }
 
+function syncConfigPlatforming(area) {
+  const CONFIG = (window.CONFIG = window.CONFIG || {});
+  const normalized = Array.isArray(area?.colliders)
+    ? area.colliders.map((col, index) => normalizeAreaCollider(col, index))
+    : [];
+  CONFIG.platformingColliders = normalized;
+}
+
 function adaptAreaToParallax(area) {
   return {
     id: area.id,
@@ -208,6 +289,7 @@ function applyArea(area) {
   window.CONFIG.areas[area.id] = parallax.areas[area.id];
 
   syncConfigGround(area);
+  syncConfigPlatforming(area);
 
   window.GAME = window.GAME || {};
   window.GAME.mapRegistry = registry;

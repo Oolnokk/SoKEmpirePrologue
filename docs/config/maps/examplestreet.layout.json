@@ -1502,6 +1502,28 @@
       "meta": {}
     }
   ],
+  "colliders": [
+    {
+      "id": 1,
+      "label": "Main Street",
+      "type": "box",
+      "left": -960,
+      "width": 1920,
+      "topOffset": -6,
+      "height": 18,
+      "meta": {}
+    },
+    {
+      "id": 2,
+      "label": "Rooftop",
+      "type": "box",
+      "left": -220,
+      "width": 440,
+      "topOffset": -220,
+      "height": 20,
+      "meta": {}
+    }
+  ],
   "warnings": [],
   "meta": {}
 }
