@@ -265,7 +265,15 @@ export function initFighters(cv, cx){
     if (
       selectedFighter &&
       C.fighters?.[selectedFighter] &&
-      (id === 'player' || prevProfile?.characterKey === 'player')
+      id === 'player'
+    ) {
+      return selectedFighter;
+    }
+
+    selectedFighter = resolveFighterKey(selectedFighter);
+    if (
+      selectedFighter &&
+      id === 'player'
     ) {
       return selectedFighter;
     }
@@ -311,6 +319,13 @@ export function initFighters(cv, cx){
     }
 
     const fighterName = resolveFighterName(id, characterData, prevProfile);
+    if (
+      fighterName &&
+      characterData &&
+      resolveFighterKey(characterData.fighter) !== fighterName
+    ) {
+      characterData = { ...characterData, fighter: fighterName };
+    }
     const bodyColorsBase = prevProfile?.bodyColors
       ?? (characterData?.bodyColors ? clone(characterData.bodyColors) : null);
     const cosmeticsBase = prevProfile?.cosmetics
