@@ -368,16 +368,16 @@ window.CONFIG = {
   map: {
     gridUnit: 30,
     spawnLayerId: 'gameplay',
-    defaultLayoutId: 'examplestreet',
+    defaultLayoutId: 'defaultdistrict',
     prefabManifests: [
       './config/prefabs/structures/index.json',
     ],
     layouts: [
       {
-        id: 'examplestreet',
-        label: 'Example Street',
-        path: './config/maps/examplestreet.layout.json',
-        areaName: 'Example Street',
+        id: 'defaultdistrict',
+        label: 'DefaultDistrict',
+        path: './config/maps/defaultdistrict.layout.json',
+        areaName: 'DefaultDistrict',
       },
     ],
   },

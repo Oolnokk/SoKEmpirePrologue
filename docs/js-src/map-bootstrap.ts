@@ -28,6 +28,74 @@ type MapLayoutConfig = {
   areaName: string | null;
 };
 
+const AREA_NAME_ELEMENT_ID = 'areaName';
+const AREA_OVERLAY_UNSUB_KEY = '__sokAreaNameOverlayUnsub__' as const;
+
+function getAreaNameElement(): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+  const element = document.getElementById(AREA_NAME_ELEMENT_ID);
+  if (!element) return null;
+  if (typeof HTMLElement !== 'undefined' && element instanceof HTMLElement) {
+    return element;
+  }
+  return (element as Element)?.nodeType === 1 ? (element as HTMLElement) : null;
+}
+
+function updateAreaNameOverlay(area: MapArea | null): void {
+  const element = getAreaNameElement();
+  if (!element) return;
+
+  if (!area) {
+    element.textContent = '';
+    element.setAttribute('aria-hidden', 'true');
+    if (element.style) {
+      element.style.display = 'none';
+    }
+    if ('dataset' in element) {
+      element.dataset.areaId = '';
+      element.dataset.areaName = '';
+    }
+    return;
+  }
+
+  const resolvedName = typeof area.meta?.areaName === 'string' && area.meta.areaName.trim()
+    ? area.meta.areaName.trim()
+    : (area.name || area.id);
+  element.textContent = resolvedName;
+  element.setAttribute('aria-hidden', 'false');
+  if (element.style) {
+    element.style.display = '';
+  }
+  if ('dataset' in element) {
+    element.dataset.areaId = area.id;
+    element.dataset.areaName = resolvedName;
+  }
+}
+
+function bindAreaNameOverlay(registry: MapRegistry): void {
+  if (typeof window === 'undefined') {
+    updateAreaNameOverlay((registry as MapRegistry | undefined)?.getActiveArea?.() ?? null);
+    return;
+  }
+  const globalWindow = window as typeof window & { __sokAreaNameOverlayUnsub__?: () => void };
+  const previous = globalWindow[AREA_OVERLAY_UNSUB_KEY];
+  if (typeof previous === 'function') {
+    try {
+      previous();
+    } catch (error) {
+      console.warn('[map-bootstrap] Failed to remove previous area overlay listener', error);
+    }
+    globalWindow[AREA_OVERLAY_UNSUB_KEY] = undefined;
+  }
+  if (typeof registry?.on === 'function') {
+    const unsubscribe = registry.on('active-area-changed', (activeArea: MapArea | null) => {
+      updateAreaNameOverlay(activeArea);
+    });
+    globalWindow[AREA_OVERLAY_UNSUB_KEY] = unsubscribe;
+  }
+  updateAreaNameOverlay(registry?.getActiveArea?.() ?? null);
+}
+
 function normalizeLayoutEntry(entry: unknown): MapLayoutConfig | null {
   if (!entry || typeof entry !== 'object') return null;
   const record = entry as Record<string, unknown>;
@@ -54,7 +122,7 @@ function resolveLayoutUrl(path: string | null | undefined): URL {
       console.warn('[map-bootstrap] Failed to resolve configured layout path', error);
     }
   }
-  return new URL('../config/maps/examplestreet.layout.json', import.meta.url);
+  return new URL('../config/maps/defaultdistrict.layout.json', import.meta.url);
 }
 
 const MAP_CONFIG = window.CONFIG?.map || {};
@@ -63,13 +131,13 @@ const CONFIG_LAYOUTS = Array.isArray(MAP_CONFIG.layouts)
   : [];
 const PREFERRED_LAYOUT_ID = typeof MAP_CONFIG.defaultLayoutId === 'string' && MAP_CONFIG.defaultLayoutId.trim()
   ? MAP_CONFIG.defaultLayoutId.trim()
-  : 'examplestreet';
+  : 'defaultdistrict';
 const DEFAULT_LAYOUT_ENTRY = CONFIG_LAYOUTS.find((entry) => entry.id === PREFERRED_LAYOUT_ID)
-  || CONFIG_LAYOUTS.find((entry) => entry.id === 'examplestreet')
+  || CONFIG_LAYOUTS.find((entry) => entry.id === 'defaultdistrict')
   || CONFIG_LAYOUTS[0]
   || null;
-const DEFAULT_AREA_ID = DEFAULT_LAYOUT_ENTRY?.id || 'examplestreet';
-const DEFAULT_AREA_NAME = DEFAULT_LAYOUT_ENTRY?.areaName || 'Example Street';
+const DEFAULT_AREA_ID = DEFAULT_LAYOUT_ENTRY?.id || 'defaultdistrict';
+const DEFAULT_AREA_NAME = DEFAULT_LAYOUT_ENTRY?.areaName || 'DefaultDistrict';
 const layoutUrl = resolveLayoutUrl(DEFAULT_LAYOUT_ENTRY?.path);
 const PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
 const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
@@ -342,6 +410,8 @@ function applyArea(area: MapArea): void {
   window.GAME.mapRegistry = registry;
   window.GAME.currentAreaId = area.id;
   window.GAME.__onMapRegistryReadyForCamera?.(registry);
+
+  bindAreaNameOverlay(registry);
 
   console.info(`[map-bootstrap] Loaded area "${area.id}" (${area.source || 'unknown source'})`);
 }
