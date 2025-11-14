@@ -8,7 +8,8 @@ import {
   registerFighterCosmeticProfile,
   getFighterCosmeticProfile,
   registerFighterAppearance,
-  resolveCharacterAppearance
+  resolveCharacterAppearance,
+  ensureCosmeticLayers
 } from './cosmetics.js?v=1';
 import { applyShade } from './cosmetic-palettes.js?v=1';
 
@@ -1034,6 +1035,98 @@ class CosmeticEditorApp {
       return baseHex || '';
     };
 
+    const buildTintFilter = (hsl)=>{
+      if (!hsl) return 'none';
+      const filters = [];
+      if (Number.isFinite(hsl.h) && hsl.h !== 0){
+        filters.push(`hue-rotate(${hsl.h}deg)`);
+      }
+      if (Number.isFinite(hsl.s) && hsl.s !== 0){
+        const sat = Math.max(0, 1 + hsl.s);
+        filters.push(`saturate(${sat})`);
+      }
+      if (Number.isFinite(hsl.l) && hsl.l !== 0){
+        const light = Math.max(0, 1 + hsl.l);
+        filters.push(`brightness(${light})`);
+      }
+      return filters.length ? filters.join(' ') : 'none';
+    };
+
+    const formatHueDelta = (value)=>{
+      if (!Number.isFinite(value) || value === 0){
+        return '0°';
+      }
+      const rounded = Math.round(value);
+      const sign = rounded > 0 ? '+' : '';
+      return `${sign}${rounded}°`;
+    };
+
+    const formatPercentDelta = (value)=>{
+      if (!Number.isFinite(value) || value === 0){
+        return '0%';
+      }
+      const pct = Math.round(value * 100);
+      const sign = pct > 0 ? '+' : '';
+      return `${sign}${pct}%`;
+    };
+
+    const createFigure = (label, url, filter)=>{
+      const figure = document.createElement('figure');
+      figure.className = 'tint-preview__figure';
+      const img = document.createElement('img');
+      img.className = 'tint-preview__image';
+      img.src = url;
+      img.alt = label;
+      img.decoding = 'async';
+      if (filter && filter !== 'none'){
+        img.style.filter = filter;
+      }
+      const caption = document.createElement('figcaption');
+      caption.className = 'tint-preview__caption';
+      caption.textContent = label;
+      figure.appendChild(img);
+      figure.appendChild(caption);
+      return figure;
+    };
+
+    const appendDetail = (list, label, value)=>{
+      const dt = document.createElement('dt');
+      dt.textContent = label;
+      const dd = document.createElement('dd');
+      dd.textContent = value;
+      list.appendChild(dt);
+      list.appendChild(dd);
+    };
+
+    const computeEffectiveHsl = (slot, partKey, cosmetic)=>{
+      if (!slot || !partKey || !cosmetic || !this.state.activeFighter){
+        return null;
+      }
+      const fighterName = this.state.activeFighter;
+      const fighterConfig = CONFIG.fighters?.[fighterName] || {};
+      const baseStyle = fighterConfig.spriteStyle || fighterConfig.sprites?.style || {};
+      const previousEditorState = GAME.editorState;
+      const overridesClone = this.deepClone(this.state.slotOverrides || {});
+      GAME.editorState = {
+        ...(previousEditorState && typeof previousEditorState === 'object' ? previousEditorState : {}),
+        slotOverrides: overridesClone
+      };
+      try {
+        const layers = ensureCosmeticLayers(CONFIG, fighterName, baseStyle) || [];
+        const match = layers.find((layer)=> layer.slot === slot && layer.partKey === partKey && layer.cosmeticId === cosmetic.id);
+        return match?.hsl || { h: 0, s: 0, l: 0 };
+      } catch (err){
+        console.warn('[cosmetic-editor] Unable to resolve tint preview HSL', err);
+        return null;
+      } finally {
+        if (previousEditorState !== undefined){
+          GAME.editorState = previousEditorState;
+        } else {
+          delete GAME.editorState;
+        }
+      }
+    };
+
     const renderPaletteEditor = (container = document.getElementById('paletteEditor'))=>{
       if (!container) return;
       const slot = this.state.activeSlot;
@@ -1102,63 +1195,103 @@ class CosmeticEditorApp {
       const container = this.dom.tintPreview;
       if (!container) return;
       container.innerHTML = '';
-      const slot = this.state.currentPaletteSource.slot;
-      const partKey = this.state.currentPaletteSource.partKey;
-      const cosmeticId = this.state.currentPaletteSource.cosmeticId;
+      const { slot, partKey, cosmeticId } = this.state.currentPaletteSource;
       if (!slot || !partKey || !cosmeticId){
         const note = document.createElement('p');
         note.className = 'tint-preview__context';
-        note.textContent = 'Pick a slot and part to preview palette colours.';
+        note.textContent = 'Pick a slot and part to preview tint results.';
         container.appendChild(note);
         return;
       }
       const library = getRegisteredCosmeticLibrary();
       const cosmetic = library[cosmeticId];
-      const palette = computeEffectivePalette(slot, partKey, cosmetic);
-      this.state.currentPalette = palette;
-      const header = document.createElement('h3');
-      header.textContent = `Palette preview – ${partKey}`;
-      container.appendChild(header);
-      const table = document.createElement('div');
-      table.className = 'tint-table';
-      for (const bucket of this.assetLibrary.PALETTE_BUCKETS){
-        const rowEl = document.createElement('div');
-        rowEl.className = 'tint-row';
-        const label = document.createElement('div');
-        label.className = 'tint-row__label';
-        label.textContent = bucket.label;
-        const baseValue = document.createElement('div');
-        baseValue.className = 'tint-row__value';
-        baseValue.textContent = palette.colors?.[bucket.key] || '—';
-        const shadeValue = document.createElement('div');
-        shadeValue.className = 'tint-row__value';
-        shadeValue.textContent = palette.shading?.[bucket.key] != null ? palette.shading[bucket.key] : palette.shaded?.[bucket.key] || '—';
-        const tintedValue = document.createElement('div');
-        tintedValue.className = 'tint-row__value';
-        const tintedHex = getTintHex(palette, bucket.key);
-        tintedValue.textContent = tintedHex || '—';
-        const swatch = document.createElement('span');
-        swatch.className = 'tint-row__swatch';
-        swatch.style.background = tintedHex || 'transparent';
-        swatch.title = tintedHex || 'No tint applied';
-        rowEl.appendChild(label);
-        rowEl.appendChild(baseValue);
-        rowEl.appendChild(shadeValue);
-        rowEl.appendChild(tintedValue);
-        rowEl.appendChild(swatch);
-        table.appendChild(rowEl);
+      if (!cosmetic){
+        const note = document.createElement('p');
+        note.className = 'tint-preview__context';
+        note.textContent = `Cosmetic "${cosmeticId}" is unavailable in the current library.`;
+        container.appendChild(note);
+        return;
       }
+      const palette = computeEffectivePalette(slot, partKey, cosmetic) || { colors: {}, shaded: {}, shading: {}, bucketMap: {} };
+      this.state.currentPalette = palette;
+      const assetUrl = this.getEffectivePartImage(slot, cosmetic, partKey);
+      const hsl = computeEffectiveHsl(slot, partKey, cosmetic);
+
+      const header = document.createElement('h3');
+      header.textContent = `Tint preview – ${partKey}`;
+      container.appendChild(header);
+
+      const context = document.createElement('p');
+      context.className = 'tint-preview__context';
+      context.textContent = assetUrl
+        ? 'Preview applies the current HSL offsets to the source sprite colours.'
+        : 'No sprite image available for this part. Current HSL settings are listed below.';
+      container.appendChild(context);
+
+      if (assetUrl){
+        const figures = document.createElement('div');
+        figures.className = 'tint-preview__images';
+        figures.appendChild(createFigure('Original sprite', assetUrl, 'none'));
+        figures.appendChild(createFigure('Tinted preview', assetUrl, buildTintFilter(hsl)));
+        container.appendChild(figures);
+      }
+
+      const details = document.createElement('dl');
+      details.className = 'tint-preview__details';
+      appendDetail(details, 'Hue Δ', formatHueDelta(hsl?.h));
+      appendDetail(details, 'Saturation Δ', formatPercentDelta(hsl?.s));
+      appendDetail(details, 'Lightness Δ', formatPercentDelta(hsl?.l ?? hsl?.v));
+      container.appendChild(details);
+
+      const paletteRows = [];
+      for (const bucket of this.assetLibrary.PALETTE_BUCKETS){
+        const isShade = bucket.type === 'shade';
+        const hex = isShade ? (palette.shaded?.[bucket.key] || '') : (palette.colors?.[bucket.key] || '');
+        const shadeAmount = palette.shading?.[bucket.key];
+        const hasValue = (hex && hex.trim().length > 0) || (isShade && shadeAmount != null);
+        if (!hasValue) continue;
+        const rowEl = document.createElement('div');
+        rowEl.className = 'tint-preview__palette-row';
+        const labelEl = document.createElement('span');
+        labelEl.className = 'tint-preview__palette-label';
+        labelEl.textContent = bucket.label;
+        rowEl.appendChild(labelEl);
+        if (!isShade){
+          const swatch = document.createElement('span');
+          swatch.className = 'tint-preview__palette-swatch';
+          swatch.style.background = hex;
+          rowEl.appendChild(swatch);
+          const valueEl = document.createElement('code');
+          valueEl.className = 'tint-preview__palette-value';
+          valueEl.textContent = hex;
+          rowEl.appendChild(valueEl);
+        } else {
+          const valueEl = document.createElement('code');
+          valueEl.className = 'tint-preview__palette-value';
+          if (hex){
+            valueEl.textContent = hex;
+          } else {
+            const amt = Number(shadeAmount);
+            valueEl.textContent = Number.isFinite(amt) ? amt.toString() : '—';
+          }
+          rowEl.appendChild(valueEl);
+        }
+        paletteRows.push(rowEl);
+      }
+      if (paletteRows.length){
+        const paletteSection = document.createElement('div');
+        paletteSection.className = 'tint-preview__palette';
+        paletteRows.forEach((row)=> paletteSection.appendChild(row));
+        container.appendChild(paletteSection);
+      }
+
       const mapEntries = Object.entries(palette.bucketMap || {});
       if (mapEntries.length){
-        const noteRow = document.createElement('div');
-        noteRow.className = 'tint-row';
-        const note = document.createElement('div');
-        note.className = 'tint-row__note';
+        const note = document.createElement('p');
+        note.className = 'tint-preview__context';
         note.textContent = `Body colour map: ${mapEntries.map(([key, value])=> `${key} → ${value}`).join(', ')}`;
-        noteRow.appendChild(note);
-        table.appendChild(noteRow);
+        container.appendChild(note);
       }
-      container.appendChild(table);
     };
 
     const highlightActivePartAsset = (slot, partKey, cosmetic)=>{

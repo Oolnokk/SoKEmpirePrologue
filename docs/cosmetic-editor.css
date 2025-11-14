@@ -168,6 +168,98 @@ button.is-active {
   color: rgba(148,163,184,0.85);
 }
 
+.tint-preview__images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.tint-preview__figure {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  background: rgba(15,23,42,0.45);
+  border: 1px solid rgba(148,163,184,0.2);
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(15,23,42,0.35);
+}
+
+.tint-preview__image {
+  max-width: 140px;
+  height: auto;
+  image-rendering: pixelated;
+  border-radius: 8px;
+  border: 1px solid rgba(148,163,184,0.35);
+  background: rgba(15,23,42,0.6);
+  box-shadow: 0 8px 16px rgba(2,6,23,0.45);
+}
+
+.tint-preview__caption {
+  font-size: 12px;
+  color: rgba(226,232,240,0.9);
+}
+
+.tint-preview__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.tint-preview__details dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(148,163,184,0.85);
+}
+
+.tint-preview__details dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  color: rgba(226,232,240,0.95);
+}
+
+.tint-preview__palette {
+  display: grid;
+  gap: 8px;
+}
+
+.tint-preview__palette-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15,23,42,0.35);
+  border: 1px solid rgba(148,163,184,0.18);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.tint-preview__palette-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(203,213,225,0.85);
+  min-width: 80px;
+}
+
+.tint-preview__palette-swatch {
+  width: 32px;
+  height: 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(148,163,184,0.35);
+  box-shadow: inset 0 0 0 1px rgba(15,23,42,0.35);
+}
+
+.tint-preview__palette-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  color: rgba(226,232,240,0.95);
+}
+
 .tint-table {
   display: grid;
   gap: 10px;
