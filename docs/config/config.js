@@ -491,7 +491,7 @@ window.CONFIG = {
         }
       ],
       bodyColors: {
-        A: { h: -135, s: -0.39, v: 0.09 },
+        A: { h: -90, s: 0.5, v: -0.2 },
         B: { h: -24, s: 0.18, v: 0.05 },
         C: { h: 96, s: 0.26, v: -0.06 }
       },
@@ -543,7 +543,7 @@ window.CONFIG = {
         }
       ],
       bodyColors: {
-        A: { h: 18, s: 1, v: 0.9 },
+        A: { h: -90, s: 0.5, v: -0.2 },
         B: { h: -24, s: 0.58, v: 0.05 },
         C: { h: 96, s: 0.26, v: -0.06 }
       },
@@ -795,8 +795,8 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
       bodyColors: {
-        A: { h: -180, s: 0.23, v: 0.3 },
-        B: { h: -20, s: 0.15, v: 0.1 },
+        A: { h: 20, s: 0.5, v: -0.5 },
+        B: { h: 20, s: 0.5, v: -0.2 },
         C: { h: 32, s: 0.25, v: -0.05 }
       },
       appearance: {
@@ -818,8 +818,8 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_punch', 'heavy_hold'],
       bodyColors: {
-        A: { h: -11, s: -0.39, v: -0.11 },
-        B: { h: 24, s: 0.18, v: -0.02 },
+        A: { h: 20, s: 0.5, v: -0.7 },
+        B: { h: 20, s: 0.2, v: 0.25 },
         C: { h: 72, s: 0.28, v: 0.12 }
       },
       appearance: {
