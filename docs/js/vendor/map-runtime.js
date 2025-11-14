@@ -4,12 +4,193 @@
  * files when hosted statically (e.g. GitHub Pages).
  */
 
+const FALLBACK_BOX_MIN_WIDTH = 18;
+
 const clone = (value) => {
   if (typeof globalThis.structuredClone === 'function') {
     return globalThis.structuredClone(value);
   }
   return JSON.parse(JSON.stringify(value));
 };
+
+function normalizeErrorInfo(raw) {
+  if (!raw) {
+    return { code: null, message: null };
+  }
+
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    return { code: text || null, message: text || null };
+  }
+
+  if (raw instanceof Error) {
+    const code = typeof raw.code === 'string' && raw.code.trim()
+      ? raw.code.trim()
+      : typeof raw.name === 'string' && raw.name.trim()
+        ? raw.name.trim()
+        : null;
+    return {
+      code,
+      message: typeof raw.message === 'string' && raw.message.trim() ? raw.message.trim() : null,
+    };
+  }
+
+  const record = typeof raw === 'object' ? raw : {};
+  const innerError = record && typeof record.error === 'object' ? record.error : null;
+
+  const codeCandidates = [
+    record.code,
+    record.errorCode,
+    record.statusCode,
+    record.status,
+    record.type,
+    innerError?.code,
+    innerError?.status,
+    innerError?.name,
+  ];
+  let code = null;
+  for (const candidate of codeCandidates) {
+    if (candidate == null) continue;
+    const text = String(candidate).trim();
+    if (text) {
+      code = text.slice(0, 32);
+      break;
+    }
+  }
+
+  const messageCandidates = [
+    record.message,
+    record.errorMessage,
+    record.reason,
+    record.detail,
+    record.details,
+    innerError?.message,
+  ];
+  let message = null;
+  for (const candidate of messageCandidates) {
+    if (candidate == null) continue;
+    const value = typeof candidate === 'string'
+      ? candidate
+      : candidate instanceof Error && typeof candidate.message === 'string'
+        ? candidate.message
+        : String(candidate);
+    const text = value.trim();
+    if (text) {
+      message = text.slice(0, 140);
+      break;
+    }
+  }
+
+  return { code, message };
+}
+
+function sanitizeBoxLine(text) {
+  if (text == null) return '';
+  return String(text)
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[^\x20-\x7e]+/g, '?')
+    .trim();
+}
+
+function createAsciiBox(lines) {
+  const sanitized = lines.map((line) => sanitizeBoxLine(line));
+  const innerWidth = Math.max(
+    FALLBACK_BOX_MIN_WIDTH,
+    ...sanitized.map((line) => line.length),
+  );
+  const horizontal = `+${'-'.repeat(innerWidth + 2)}+`;
+  const body = sanitized.map((line) => {
+    const padded = line.padEnd(innerWidth, ' ');
+    return `| ${padded} |`;
+  });
+  return [horizontal, ...body, horizontal];
+}
+
+function createPrefabFallback(prefabId, errorInfo = {}) {
+  const { code, message } = normalizeErrorInfo(errorInfo);
+  const label = prefabId ? `Prefab ${prefabId}` : 'Prefab (unknown)';
+  const headline = 'Prefab Missing';
+  const codeLine = code ? `Code: ${code}` : 'Code: unavailable';
+  const messageLine = message ? `Msg: ${message.slice(0, 70)}` : 'Msg: no details';
+  const box = createAsciiBox([headline, codeLine, label, messageLine]);
+  const asciiArt = box.join('\n');
+
+  return {
+    id: prefabId ?? 'missing_prefab',
+    type: 'fallback-prefab',
+    name: 'Missing Prefab',
+    asciiArt,
+    boxLines: box,
+    isFallback: true,
+    meta: {
+      fallback: {
+        reason: 'prefab-missing',
+        prefabId: prefabId ?? null,
+        errorCode: code,
+        message: message ?? null,
+      },
+    },
+  };
+}
+
+function lookupPrefabError(prefabId, lookup) {
+  if (!prefabId || !lookup) return null;
+
+  if (typeof lookup === 'function') {
+    try {
+      return lookup(prefabId) ?? null;
+    } catch (error) {
+      return { code: 'lookup-failed', error };
+    }
+  }
+
+  if (lookup instanceof Map) {
+    return lookup.get(prefabId) ?? null;
+  }
+
+  if (Array.isArray(lookup)) {
+    for (const entry of lookup) {
+      if (!entry || typeof entry !== 'object') continue;
+      const id = entry.prefabId ?? entry.id ?? entry.slug ?? null;
+      if (id === prefabId) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  if (typeof lookup === 'object') {
+    const direct = lookup[prefabId];
+    if (direct != null) return direct;
+  }
+
+  return null;
+}
+
+function resolvePrefab(prefabId, providedPrefab, prefabResolver, prefabErrorLookup, warnings) {
+  if (providedPrefab) {
+    return { prefab: providedPrefab, fallback: null };
+  }
+
+  const resolved = prefabResolver(prefabId ?? null);
+  if (resolved) {
+    return { prefab: resolved, fallback: null };
+  }
+
+  const errorInfo = lookupPrefabError(prefabId, prefabErrorLookup);
+  const fallbackPrefab = createPrefabFallback(prefabId, errorInfo);
+  const codeNote = fallbackPrefab.meta?.fallback?.errorCode ? ` (code ${fallbackPrefab.meta.fallback.errorCode})` : '';
+  if (Array.isArray(warnings)) {
+    warnings.push(`Prefab "${prefabId ?? 'unknown'}" missing; generated ASCII fallback${codeNote}`);
+  }
+  return {
+    prefab: fallbackPrefab,
+    fallback: fallbackPrefab.meta?.fallback ?? {
+      reason: 'prefab-missing',
+      prefabId: prefabId ?? null,
+    },
+  };
+}
 
 export class MapRegistryError extends Error {
   constructor(message, details = undefined) {
@@ -190,6 +371,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     areaName = area.name || area.areaName || areaId,
     layerImageResolver = () => null,
     prefabResolver = () => null,
+    prefabErrorLookup = null,
   } = options;
 
   const rawLayers = Array.isArray(area.layers) ? area.layers : [];
@@ -199,7 +381,7 @@ function normalizeAreaDescriptor(area, options = {}) {
       ? area.props
       : [];
 
-  const warnings = [];
+  const warnings = Array.isArray(area.warnings) ? [...area.warnings] : [];
   if (!Array.isArray(area.layers)) {
     warnings.push('area.layers missing – produced area has zero parallax layers');
   }
@@ -222,6 +404,19 @@ function normalizeAreaDescriptor(area, options = {}) {
   const convertedInstances = rawInstances.map((inst) => {
     const tags = Array.isArray(inst.tags) ? inst.tags.map((tag) => String(tag)) : [];
     const meta = inst.meta ? safeClone(inst.meta) : {};
+    const { prefab: resolvedPrefab, fallback } = resolvePrefab(
+      inst.prefabId ?? null,
+      inst.prefab ?? null,
+      prefabResolver,
+      prefabErrorLookup,
+      warnings,
+    );
+    if (fallback) {
+      meta.fallback = {
+        ...(meta.fallback || {}),
+        ...fallback,
+      };
+    }
     return {
       id: inst.id,
       prefabId: inst.prefabId ?? null,
@@ -236,7 +431,7 @@ function normalizeAreaDescriptor(area, options = {}) {
       },
       rotationDeg: toNumber(inst.rotationDeg ?? inst.rot ?? 0, 0),
       locked: !!inst.locked,
-      prefab: inst.prefab ?? prefabResolver(inst.prefabId ?? null),
+      prefab: resolvedPrefab,
       tags,
       meta,
     };
@@ -273,6 +468,7 @@ export function convertLayoutToArea(layout, options = {}) {
   const resolvedAreaName = options.areaName ?? layout.areaName ?? layout.name ?? resolvedAreaId;
   const layerImageResolver = options.layerImageResolver ?? (() => null);
   const prefabResolver = options.prefabResolver ?? (() => null);
+  const prefabErrorLookup = options.prefabErrorLookup ?? null;
   const includeRaw = options.includeRaw ?? false;
 
   const layers = Array.isArray(layout.layers) ? layout.layers : [];
@@ -280,6 +476,7 @@ export function convertLayoutToArea(layout, options = {}) {
 
   const layerMap = new Map(layers.map((layer) => [layer.id, layer]));
   const slotCenters = computeLayerSlotCenters(instances);
+  const warnings = [];
 
   const convertedLayers = layers.map((layer, index) => ({
     id: layer.id || `layer_${index}`,
@@ -304,12 +501,28 @@ export function convertLayoutToArea(layout, options = {}) {
       ? inst.x
       : (toNumber(inst.slot, 0) - center) * separation + nudge;
 
-    const prefab = prefabResolver(inst.prefabId);
+    const { prefab, fallback } = resolvePrefab(
+      inst.prefabId ?? null,
+      inst.prefab ?? null,
+      prefabResolver,
+      prefabErrorLookup,
+      warnings,
+    );
     const tags = Array.isArray(inst.tags) ? inst.tags.map((tag) => String(tag)) : [];
 
     const original = safeClone(inst);
     if (tags.length && !Array.isArray(original.tags)) {
       original.tags = [...tags];
+    }
+
+    const meta = {
+      original,
+    };
+    if (fallback) {
+      meta.fallback = {
+        ...(meta.fallback || {}),
+        ...fallback,
+      };
     }
 
     return {
@@ -328,13 +541,10 @@ export function convertLayoutToArea(layout, options = {}) {
       locked: !!inst.locked,
       prefab,
       tags,
-      meta: {
-        original,
-      },
+      meta,
     };
   });
 
-  const warnings = [];
   if (!Array.isArray(layout.layers)) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
   }

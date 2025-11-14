@@ -57,6 +57,7 @@ test('convertLayoutToArea normalizes area descriptors', () => {
         id: 10,
         prefabId: 'spawn_player',
         layerId: 'layerA',
+        prefab: { id: 'spawn_player', parts: [] },
         position: { x: 120, y: -10 },
         scale: { x: 1, y: 1 },
         rotationDeg: 5,
@@ -75,4 +76,37 @@ test('convertLayoutToArea normalizes area descriptors', () => {
   assert.deepEqual(area.instances[0].tags, ['spawn:player']);
   assert.deepEqual(area.meta, { revision: 2 });
   assert.equal(area.warnings.length, 0);
+});
+
+test('convertLayoutToArea generates fallback prefab art when prefab is missing', () => {
+  const layout = {
+    areaId: 'prefab_fallback',
+    layers: [
+      { id: 'layerA', name: 'Layer A', parallax: 1, yOffset: 0, sep: 160, scale: 1 },
+    ],
+    instances: [
+      { id: 42, prefabId: 'missing_prefab', layerId: 'layerA', slot: 0, nudgeX: 0 },
+    ],
+  };
+
+  const prefabResolver = () => null;
+  const prefabErrorLookup = new Map([
+    ['missing_prefab', { code: 'E404', message: 'Prefab file missing' }],
+  ]);
+
+  const area = convertLayoutToArea(layout, { prefabResolver, prefabErrorLookup });
+
+  assert.equal(area.instances.length, 1);
+  const inst = area.instances[0];
+  assert.equal(inst.prefabId, 'missing_prefab');
+  assert.ok(inst.prefab);
+  assert.equal(inst.prefab.id, 'missing_prefab');
+  assert.equal(inst.prefab.isFallback, true);
+  assert.ok(typeof inst.prefab.asciiArt === 'string');
+  assert.match(inst.prefab.asciiArt, /Code: E404/);
+  assert.ok(inst.meta?.fallback);
+  assert.equal(inst.meta.fallback.prefabId, 'missing_prefab');
+  assert.equal(inst.meta.fallback.errorCode, 'E404');
+  assert.ok(Array.isArray(area.warnings));
+  assert.ok(area.warnings.some((line) => line.includes('generated ASCII fallback')));
 });
