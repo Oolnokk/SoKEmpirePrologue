@@ -1,4 +1,5 @@
 // hitdetect.js — basic hit detection between player and NPC bodies
+import { applyHitReactionRagdoll } from './physics.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -68,18 +69,6 @@ function calculateKnockback(config, presetName, defenderFooting, multiplier = 1)
   return base * weaponMult * footingModifier;
 }
 
-function enterRagdoll(target, knockbackAngle, force, verticalScale = 0.2) {
-  if (target.ragdoll) return;
-  target.ragdoll = true;
-  target.ragdollTime = 0;
-  target.ragdollVel = target.ragdollVel || { x: 0, y: 0 };
-  target.vel = target.vel || { x: 0, y: 0 };
-  target.vel.x += Math.cos(knockbackAngle) * force * 1.2;
-  target.vel.y = Math.abs(Math.sin(knockbackAngle) * force * verticalScale);
-  target.ragdollVel.x = target.vel.x;
-  target.ragdollVel.y = target.vel.y;
-}
-
 function applyKnockback(target, angle, force, { verticalScale = 0.2 } = {}) {
   target.vel = target.vel || { x: 0, y: 0 };
   target.vel.x += Math.cos(angle) * force;
@@ -106,11 +95,10 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
   const multiplier = attack.context?.multipliers?.knockback || 1;
   const force = calculateKnockback(config, presetName, npc.footing ?? 100, multiplier);
   const angle = Math.atan2(npc.pos.y - player.pos.y, npc.pos.x - player.pos.x);
+  const footingBefore = npc.footing ?? (config.knockback?.maxFooting ?? 100);
   applyKnockback(npc, angle, force, { verticalScale: 0.2 });
-  npc.footing = Math.max(0, (npc.footing ?? 100) - 2.5);
-  if (npc.footing <= 0) {
-    enterRagdoll(npc, angle, force, 0.3);
-  }
+  npc.footing = Math.max(0, footingBefore - 2.5);
+  applyHitReactionRagdoll(npc, config, { angle, force, footingBefore });
   npc.stamina && (npc.stamina.isDashing = false);
   const aggression = npc.aggression || (npc.aggression = {});
   if (!aggression.triggered) {
@@ -154,11 +142,10 @@ function handleNpcHitsPlayer(G, config, player, npc, debug, distance, bodyRadius
   debug.npcCollidedThisPhase = true;
   const force = calculateKnockback(config, presetName, player.footing ?? 50, 1);
   const angle = Math.atan2(player.pos.y - npc.pos.y, player.pos.x - npc.pos.x);
+  const footingBefore = player.footing ?? (config.knockback?.maxFooting ?? 50);
   applyKnockback(player, angle, force, { verticalScale: 0.25 });
-  player.footing = Math.max(0, (player.footing ?? 50) - 2.5);
-  if (player.footing <= 0) {
-    enterRagdoll(player, angle, force, 0.35);
-  }
+  player.footing = Math.max(0, footingBefore - 2.5);
+  applyHitReactionRagdoll(player, config, { angle, force, footingBefore });
   player.stamina && (player.stamina.isDashing = false);
   if (!attack.strikeLanded) {
     attack.strikeLanded = true;
