@@ -21,6 +21,76 @@ async function fetchJson(url, fetchImpl) {
   return response.json();
 }
 
+const ABSOLUTE_URL_PATTERN = /^(?:[a-z][a-z\d+\-.]*:|\/\/)/i;
+
+function resolveAssetUrl(url, prefabUrl) {
+  if (typeof url !== 'string') return url;
+  const trimmed = url.trim();
+  if (!trimmed || ABSOLUTE_URL_PATTERN.test(trimmed) || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+
+  const docBase = (typeof document !== 'undefined' && typeof document.baseURI === 'string' && document.baseURI)
+    ? document.baseURI
+    : null;
+
+  if (docBase) {
+    try {
+      return new URL(trimmed, docBase).href;
+    } catch (_err) {
+      // fall through to prefab-relative resolution
+    }
+  }
+
+  if (prefabUrl) {
+    try {
+      const baseUrl = new URL(prefabUrl);
+      const path = baseUrl.pathname || '';
+      const configIndex = path.indexOf('/config/');
+      if (configIndex !== -1) {
+        const rootPath = path.slice(0, configIndex + 1) || '/';
+        const rootBase = new URL(rootPath, baseUrl.origin);
+        return new URL(trimmed.replace(/^\.\//, ''), rootBase).href;
+      }
+    } catch (_err) {
+      // fall through to direct prefab-relative resolution
+    }
+
+    try {
+      return new URL(trimmed, prefabUrl).href;
+    } catch (_err) {
+      // ignore – we'll fall back to the raw trimmed string
+    }
+  }
+
+  return trimmed;
+}
+
+function normalizePrefabAssetUrls(prefab, prefabUrl) {
+  if (!prefab || typeof prefab !== 'object') return prefab;
+
+  const normalizePart = (part) => {
+    if (!part || typeof part !== 'object') return;
+    const template = part.propTemplate && typeof part.propTemplate === 'object'
+      ? part.propTemplate
+      : null;
+    if (!template) return;
+    if (typeof template.url === 'string') {
+      const resolved = resolveAssetUrl(template.url, prefabUrl);
+      if (resolved) {
+        template.url = resolved;
+      }
+    }
+  };
+
+  normalizePart(prefab.base);
+  if (Array.isArray(prefab.parts)) {
+    prefab.parts.forEach(normalizePart);
+  }
+
+  return prefab;
+}
+
 function normalizeManifest(manifest, manifestUrl) {
   const entries = Array.isArray(manifest?.entries) ? manifest.entries : [];
   const catalog = {
@@ -73,6 +143,7 @@ async function loadPrefab(url, fetchImpl) {
     throw new Error('Prefab missing structureId');
   }
   const sanitized = clone({ ...json, structureId: String(structureId) });
+  normalizePrefabAssetUrls(sanitized, absoluteUrl);
   prefabCache.set(absoluteUrl, sanitized);
   return clone(sanitized);
 }

@@ -348,14 +348,60 @@ function draw(){
 }
 
 // Image cache
+const ABS_URL_RE = /^(?:[a-z][a-z\d+\-.]*:|\/\/)/i;
+
+function resolveAssetCandidates(url){
+  if (typeof url !== 'string') return [];
+  const trimmed = url.trim();
+  if (!trimmed) return [];
+  if (ABS_URL_RE.test(trimmed) || trimmed.startsWith('data:')) {
+    return [trimmed];
+  }
+
+  const base = (typeof document !== 'undefined' && document.baseURI)
+    ? document.baseURI
+    : window.location.href;
+
+  const candidates = [];
+  try {
+    candidates.push(new URL(trimmed, base).href);
+  } catch (_err) {
+    // ignore – continue to other fallbacks
+  }
+
+  try {
+    const docsBase = new URL('../docs/', base);
+    const normalized = trimmed.startsWith('./') ? trimmed.slice(2) : trimmed;
+    candidates.push(new URL(normalized, docsBase).href);
+  } catch (_err) {
+    // ignore – repo structure may differ
+  }
+
+  candidates.push(trimmed);
+  return candidates.filter((value, index, self) => value && self.indexOf(value) === index);
+}
+
 function loadImage(url){
   return new Promise(res=>{
     if (!url) return res({ok:false,img:null});
     if (state.images.has(url)) return res({ok:true,img:state.images.get(url)});
+
+    const candidates = resolveAssetCandidates(url);
+    if (!candidates.length) return res({ok:false,img:null});
+
+    let index = 0;
     const i = new Image(); i.crossOrigin = 'anonymous';
     i.onload = ()=>{ state.images.set(url,i); res({ok:true,img:i}); };
-    i.onerror = ()=>{ __DBG('Image load failed: '+url); res({ok:false,img:null}); };
-    i.src = url;
+    i.onerror = ()=>{
+      index += 1;
+      if (index >= candidates.length){
+        __DBG('Image load failed: '+url);
+        res({ok:false,img:null});
+        return;
+      }
+      i.src = candidates[index];
+    };
+    i.src = candidates[index];
   });
 }
 async function ensureImages(){ for (const p of state.prefab.parts){ if (p.propTemplate.url) await loadImage(p.propTemplate.url); } }
