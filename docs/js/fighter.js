@@ -19,6 +19,103 @@ function clone(value) {
   }
 }
 
+function resetRuntimeState(fighter, template, {
+  id,
+  x,
+  y,
+  facingSign,
+  spawnY,
+} = {}) {
+  if (!fighter) return fighter;
+  const base = template || fighter;
+  const resolvedFacing = Number.isFinite(facingSign)
+    ? (facingSign < 0 ? -1 : 1)
+    : (fighter.facingSign ?? (fighter.isPlayer ? 1 : -1));
+  const spawnX = Number.isFinite(x) ? x : fighter.pos?.x ?? 0;
+  const spawnYVal = Number.isFinite(y) ? y : fighter.pos?.y ?? 0;
+
+  if (id) fighter.id = id;
+  fighter.pos = { x: spawnX, y: spawnYVal };
+  fighter.vel = { x: 0, y: 0 };
+  fighter.onGround = true;
+  fighter.prevOnGround = true;
+  fighter.landedImpulse = 0;
+  fighter.facingSign = resolvedFacing;
+  fighter.facingRad = resolvedFacing < 0 ? Math.PI : 0;
+  fighter.footing = fighter.isPlayer ? 50 : 100;
+  fighter.ragdoll = false;
+  fighter.ragdollTime = 0;
+  fighter.ragdollVel = { x: 0, y: 0 };
+  fighter.recovering = false;
+  fighter.recoveryTime = 0;
+  fighter.recoveryDuration = base.recoveryDuration ?? fighter.recoveryDuration ?? 0.8;
+  fighter.recoveryStartAngles = {};
+  const groundY = Number.isFinite(spawnY) ? spawnY : fighter.recoveryTargetY ?? spawnYVal;
+  fighter.recoveryStartY = groundY;
+  fighter.recoveryTargetY = groundY;
+  fighter.walk = { phase: 0, amp: 0 };
+
+  fighter.health = base.health ? clone(base.health) : fighter.health || null;
+  if (fighter.health) {
+    const maxHealth = Number.isFinite(fighter.health.max) ? fighter.health.max : fighter.health.current ?? 100;
+    fighter.health.max = maxHealth;
+    fighter.health.current = maxHealth;
+  }
+
+  fighter.stamina = base.stamina ? clone(base.stamina) : fighter.stamina || null;
+  if (fighter.stamina) {
+    const maxStamina = Number.isFinite(fighter.stamina.max) ? fighter.stamina.max : fighter.stamina.current ?? 100;
+    fighter.stamina.max = maxStamina;
+    fighter.stamina.current = maxStamina;
+    fighter.stamina.isDashing = false;
+    fighter.stamina.recovering = false;
+    fighter.stamina.exhaustionCount = 0;
+    fighter.stamina.prev = maxStamina;
+  }
+
+  fighter.attack = base.attack ? clone(base.attack) : fighter.attack || { active: false, sequence: [] };
+  fighter.attack.active = false;
+  fighter.attack.currentActiveKeys = [];
+  fighter.attack.timer = 0;
+  fighter.attack.phaseIndex = 0;
+  fighter.attack.lastAppliedPhase = null;
+  fighter.attack.lastPhaseIndex = -1;
+  fighter.attack.dirSign = resolvedFacing;
+  if (fighter.attack.lunge) {
+    fighter.attack.lunge.active = false;
+    fighter.attack.lunge.paused = false;
+    fighter.attack.lunge.distance = 0;
+    fighter.attack.lunge.lungeVel = { x: 0, y: 0 };
+  }
+
+  fighter.combo = base.combo ? clone(base.combo) : fighter.combo || { active: false, sequenceIndex: 0, attackDelay: 0 };
+  fighter.combo.active = false;
+  fighter.combo.sequenceIndex = 0;
+  fighter.combo.attackDelay = 0;
+
+  fighter.aim = base.aim ? clone(base.aim) : fighter.aim || { active: false, targetAngle: 0, currentAngle: 0 };
+  fighter.aim.active = false;
+  fighter.aim.targetAngle = 0;
+  fighter.aim.currentAngle = 0;
+  fighter.aim.torsoOffset = 0;
+  fighter.aim.shoulderOffset = 0;
+  fighter.aim.hipOffset = 0;
+
+  fighter.knockback = { timer: 0, magnitude: 0, direction: 0 };
+  fighter.physics = null;
+
+  fighter.aiInput = fighter.isPlayer ? fighter.aiInput : null;
+  fighter.aiButtonPresses = fighter.isPlayer ? fighter.aiButtonPresses : null;
+
+  fighter.isDead = false;
+  fighter.deadTime = 0;
+  fighter.deathCause = null;
+  fighter.killedBy = null;
+  fighter.markedForRemoval = false;
+
+  return fighter;
+}
+
 function randomHueDegrees() {
   const hue = Math.floor(Math.random() * 360);
   return hue > 180 ? hue - 360 : hue;
@@ -495,9 +592,12 @@ export function initFighters(cv, cx){
     };
   }
 
+  const playerFighter = makeF('player', playerSpawnX, 1, playerSpawnY);
+  const npcFighter = makeF('npc', npcSpawnX, -1, npcSpawnY);
+
   G.FIGHTERS = {
-    player: makeF('player', playerSpawnX, 1, playerSpawnY),
-    npc:    makeF('npc',    npcSpawnX, -1, npcSpawnY)
+    player: playerFighter,
+    npc: npcFighter,
   };
   G.spawnPoints = {
     player: {
@@ -513,6 +613,25 @@ export function initFighters(cv, cx){
       source: npcSpawn ?? null,
     },
   };
+  G.FIGHTER_TEMPLATES = {
+    player: clone(playerFighter),
+    npc: clone(npcFighter),
+  };
+  G.FIGHTER_SPAWNS = {
+    player: {
+      x: playerSpawnX,
+      y: playerSpawnY,
+      yOffset: playerSpawnYOffset,
+      facingSign: 1,
+    },
+    npc: {
+      x: npcSpawnX,
+      y: npcSpawnY,
+      yOffset: resolvedNpcYOffset,
+      facingSign: -1,
+    },
+  };
+  G.npcInstanceCounter = 1;
   const characterState = {};
   for (const [fighterId, fighter] of Object.entries(G.FIGHTERS)) {
     if (!fighter) continue;
@@ -534,4 +653,130 @@ export function initFighters(cv, cx){
     };
   }
   console.log('[initFighters] Fighters initialized', G.FIGHTERS);
+}
+
+function reserveNpcId(G, preferredId) {
+  if (preferredId && !G.FIGHTERS?.[preferredId]) {
+    return preferredId;
+  }
+  let counter = Number.isFinite(G.npcInstanceCounter) ? G.npcInstanceCounter : 1;
+  while (true) {
+    counter += 1;
+    const id = counter === 1 ? 'npc' : `npc_${counter}`;
+    if (!G.FIGHTERS || !G.FIGHTERS[id]) {
+      G.npcInstanceCounter = counter;
+      return id;
+    }
+  }
+}
+
+export function spawnAdditionalNpc(options = {}) {
+  const G = (window.GAME ||= {});
+  const templates = G.FIGHTER_TEMPLATES || {};
+  const baseTemplate = templates.npc ? clone(templates.npc) : null;
+  if (!baseTemplate) return null;
+  const spawnMeta = G.FIGHTER_SPAWNS?.npc || {};
+  const id = reserveNpcId(G, options.id);
+  const spawnX = Number.isFinite(options.x) ? options.x : (spawnMeta.x ?? baseTemplate.pos?.x ?? 0);
+  const spawnY = Number.isFinite(options.y) ? options.y : (spawnMeta.y ?? baseTemplate.pos?.y ?? 0);
+  const facing = Number.isFinite(options.facingSign)
+    ? options.facingSign
+    : (spawnMeta.facingSign ?? -1);
+
+  const npc = clone(baseTemplate);
+  resetRuntimeState(npc, baseTemplate, {
+    id,
+    x: spawnX,
+    y: spawnY,
+    facingSign: facing,
+    spawnY: spawnMeta.y,
+  });
+  npc.spawnMetadata = {
+    waveId: options.waveId ?? null,
+    spawnedAt: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+  };
+  if (!G.FIGHTERS) G.FIGHTERS = {};
+  G.FIGHTERS[id] = npc;
+  if (G.CHARACTER_STATE) {
+    G.CHARACTER_STATE[id] = npc.renderProfile ? clone(npc.renderProfile) : null;
+  }
+  return npc;
+}
+
+export function removeNpcFighter(id) {
+  if (!id || id === 'player') return false;
+  const G = window.GAME || {};
+  const fighters = G.FIGHTERS || {};
+  if (!fighters[id]) return false;
+  delete fighters[id];
+  if (G.CHARACTER_STATE) {
+    delete G.CHARACTER_STATE[id];
+  }
+  return true;
+}
+
+export function markFighterDead(fighter, { killerId = null, cause = null } = {}) {
+  if (!fighter || fighter.isDead) return fighter;
+  fighter.isDead = true;
+  fighter.deadTime = 0;
+  fighter.deathCause = cause || null;
+  fighter.killedBy = killerId || null;
+  if (fighter.health) {
+    const current = Number.isFinite(fighter.health.current) ? fighter.health.current : fighter.health.max ?? 0;
+    fighter.health.current = Math.max(0, current);
+  }
+  if (fighter.stamina) {
+    fighter.stamina.isDashing = false;
+    fighter.stamina.recovering = false;
+  }
+  if (fighter.attack) {
+    fighter.attack.active = false;
+    fighter.attack.currentActiveKeys = [];
+    if (fighter.attack.lunge) {
+      fighter.attack.lunge.active = false;
+      fighter.attack.lunge.paused = false;
+    }
+  }
+  if (fighter.combo) {
+    fighter.combo.active = false;
+    fighter.combo.sequenceIndex = 0;
+    fighter.combo.attackDelay = 0;
+  }
+  if (fighter.aiInput) {
+    fighter.aiInput.left = false;
+    fighter.aiInput.right = false;
+    fighter.aiInput.jump = false;
+    if (fighter.aiInput.buttonA) fighter.aiInput.buttonA.down = false;
+    if (fighter.aiInput.buttonB) fighter.aiInput.buttonB.down = false;
+  }
+  return fighter;
+}
+
+export function reviveFighter(fighter, options = {}) {
+  if (!fighter) return null;
+  const G = window.GAME || {};
+  const templates = G.FIGHTER_TEMPLATES || {};
+  const template = fighter.isPlayer ? templates.player : templates.npc;
+  const spawnKey = fighter.isPlayer ? 'player' : 'npc';
+  const spawnMeta = G.FIGHTER_SPAWNS?.[spawnKey] || {};
+  const spawnX = Number.isFinite(options.x) ? options.x : (spawnMeta.x ?? fighter.pos?.x ?? 0);
+  const spawnY = Number.isFinite(options.y) ? options.y : (spawnMeta.y ?? fighter.pos?.y ?? 0);
+  const facing = Number.isFinite(options.facingSign)
+    ? options.facingSign
+    : (spawnMeta.facingSign ?? (fighter.isPlayer ? 1 : -1));
+  resetRuntimeState(fighter, template, {
+    x: spawnX,
+    y: spawnY,
+    facingSign: facing,
+    spawnY: spawnMeta.y,
+  });
+  return fighter;
+}
+
+export function resetFighterStateForTesting(fighter, overrides = {}) {
+  if (!fighter) return null;
+  const G = window.GAME || {};
+  const templates = G.FIGHTER_TEMPLATES || {};
+  const template = fighter.isPlayer ? templates.player : templates.npc;
+  return resetRuntimeState(fighter, template, overrides);
 }

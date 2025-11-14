@@ -1,6 +1,9 @@
 // hitdetect.js — basic hit detection between player and NPC bodies
-import { applyHitReactionRagdoll } from './physics.js?v=1';
+import { applyHitReactionRagdoll, triggerFullRagdoll } from './physics.js?v=1';
 import { getFootingMitigation, getStatProfile } from './stat-hooks.js?v=1';
+import { getActiveNpcFighters } from './npc.js?v=2';
+import { markFighterDead } from './fighter.js?v=7';
+import { reportPlayerAggression, reportNpcDefeated, reportPlayerDeath } from './bounty.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -18,14 +21,25 @@ function getBalanceScalar(key, fallback = 1) {
 function ensureDebugState() {
   const G = (window.GAME ||= {});
   const state = (G.HITDEBUG ||= {
-    lastPhase: null,
-    collidedThisPhase: false,
-    npcLastPhase: null,
-    npcCollidedThisPhase: false,
+    player: { lastPhase: null, collidedThisPhase: false },
+    perNpc: {},
     lastColliders: [],
   });
+  state.player ||= { lastPhase: null, collidedThisPhase: false };
+  state.perNpc ||= {};
   state.lastColliders ||= [];
   return state;
+}
+
+function getNpcDebugState(debug, npcId) {
+  const map = debug.perNpc || (debug.perNpc = {});
+  const entry = map[npcId] || (map[npcId] = {
+    playerPhase: null,
+    playerCollided: false,
+    npcPhase: null,
+    npcCollided: false,
+  });
+  return entry;
 }
 
 export function initHitDetect() {
@@ -112,11 +126,18 @@ function applyKnockback(target, angle, force, { verticalScale = 0.2 } = {}) {
 }
 
 function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius) {
+  if (!npc || npc.isDead) return;
   const attack = player.attack || {};
   const phase = attack.currentPhase || 'Stance';
-  if (debug.lastPhase !== phase) {
-    debug.lastPhase = phase;
-    debug.collidedThisPhase = false;
+  const playerDebug = debug.player || (debug.player = { lastPhase: null, collidedThisPhase: false });
+  const npcDebug = getNpcDebugState(debug, npc.id || 'npc');
+  if (playerDebug.lastPhase !== phase) {
+    playerDebug.lastPhase = phase;
+    playerDebug.collidedThisPhase = false;
+  }
+  if (npcDebug.playerPhase !== phase) {
+    npcDebug.playerPhase = phase;
+    npcDebug.playerCollided = false;
   }
   if (!attack.active || !phase.toLowerCase().includes('strike')) {
     return;
@@ -124,10 +145,11 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
 
   const presetName = getPresetNameFromAttack(attack);
   const reach = getAttackReach(presetName) + bodyRadius;
-  if (distance > reach || debug.collidedThisPhase) return;
+  if (distance > reach || npcDebug.playerCollided) return;
 
-  debug.collidedThisPhase = true;
-  debug.lastColliders = ['npc-body'];
+  npcDebug.playerCollided = true;
+  debug.lastColliders = [`${npc.id || 'npc'}-body`];
+
   const multiplier = attack.context?.multipliers?.knockback || 1;
   const force = calculateKnockback(config, presetName, npc.footing ?? 100, multiplier);
   const angle = Math.atan2(npc.pos.y - player.pos.y, npc.pos.x - player.pos.x);
@@ -153,6 +175,9 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
   if (counts) {
     counts.body = (counts.body || 0) + 1;
   }
+  reportPlayerAggression(npc);
+
+  const healthBefore = Number.isFinite(npc.health?.current) ? npc.health.current : null;
   const onHit = attack.context?.onHit;
   if (typeof onHit === 'function') {
     try {
@@ -161,22 +186,31 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
       console.warn('[hitdetect] player onHit handler error', error);
     }
   }
+
+  const healthAfter = Number.isFinite(npc.health?.current) ? npc.health.current : healthBefore;
+  if (!npc.isDead && Number.isFinite(healthAfter) && healthAfter <= 0) {
+    markFighterDead(npc, { killerId: player.id, cause: 'combat' });
+    triggerFullRagdoll(npc, config, { angle, force });
+    reportNpcDefeated(npc);
+  }
 }
 
 function handleNpcHitsPlayer(G, config, player, npc, debug, distance, bodyRadius) {
+  if (!player || player.isDead) return;
   const attack = npc.attack || {};
   const phase = attack.currentPhase || 'Stance';
-  if (debug.npcLastPhase !== phase) {
-    debug.npcLastPhase = phase;
-    debug.npcCollidedThisPhase = false;
+  const npcDebug = getNpcDebugState(debug, npc.id || 'npc');
+  if (npcDebug.npcPhase !== phase) {
+    npcDebug.npcPhase = phase;
+    npcDebug.npcCollided = false;
   }
   if (!attack.active || !phase || !phase.toLowerCase().includes('strike')) return;
 
   const presetName = getPresetNameFromAttack(attack);
   const reach = getAttackReach(presetName) + bodyRadius;
-  if (distance > reach || debug.npcCollidedThisPhase) return;
+  if (distance > reach || npcDebug.npcCollided) return;
 
-  debug.npcCollidedThisPhase = true;
+  npcDebug.npcCollided = true;
   const force = calculateKnockback(config, presetName, player.footing ?? 50, 1);
   const angle = Math.atan2(player.pos.y - npc.pos.y, player.pos.x - npc.pos.x);
   const footingBefore = player.footing ?? (config.knockback?.maxFooting ?? 50);
@@ -192,6 +226,8 @@ function handleNpcHitsPlayer(G, config, player, npc, debug, distance, bodyRadius
   if (counts) {
     counts.body = (counts.body || 0) + 1;
   }
+
+  const healthBefore = Number.isFinite(player.health?.current) ? player.health.current : null;
   const onHit = attack.onHit;
   if (typeof onHit === 'function') {
     try {
@@ -200,21 +236,31 @@ function handleNpcHitsPlayer(G, config, player, npc, debug, distance, bodyRadius
       console.warn('[hitdetect] npc onHit handler error', error);
     }
   }
+
+  const healthAfter = Number.isFinite(player.health?.current) ? player.health.current : healthBefore;
+  if (!player.isDead && Number.isFinite(healthAfter) && healthAfter <= 0) {
+    markFighterDead(player, { killerId: npc.id, cause: 'combat' });
+    triggerFullRagdoll(player, config, { angle, force });
+    reportPlayerDeath();
+  }
 }
 
 export function runHitDetect() {
   const G = window.GAME || {};
   const C = window.CONFIG || {};
   const P = G.FIGHTERS?.player;
-  const N = G.FIGHTERS?.npc;
-  if (!P || !N) return;
+  const npcs = getActiveNpcFighters();
+  if (!P || !npcs.length) return;
 
   const debug = ensureDebugState();
   const bodyRadius = getBodyRadius(C);
-  const dx = (P.pos?.x ?? 0) - (N.pos?.x ?? 0);
-  const dy = (P.pos?.y ?? 0) - (N.pos?.y ?? 0);
-  const distance = Math.hypot(dx, dy);
-
-  handlePlayerHitsNpc(G, C, P, N, debug, distance, bodyRadius);
-  handleNpcHitsPlayer(G, C, P, N, debug, distance, bodyRadius);
+  for (const npc of npcs) {
+    const dx = (P.pos?.x ?? 0) - (npc.pos?.x ?? 0);
+    const dy = (P.pos?.y ?? 0) - (npc.pos?.y ?? 0);
+    const distance = Math.hypot(dx, dy);
+    handlePlayerHitsNpc(G, C, P, npc, debug, distance, bodyRadius);
+    if (!npc.isDead) {
+      handleNpcHitsPlayer(G, C, P, npc, debug, distance, bodyRadius);
+    }
+  }
 }

@@ -335,9 +335,9 @@ function initSelectionDropdowns() {
 window.addEventListener('DOMContentLoaded', () => {
   initSelectionDropdowns();
 });
-import { initNpcSystems, updateNpcSystems } from './npc.js?v=1';
+import { initNpcSystems, updateNpcSystems } from './npc.js?v=2';
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
-import { initFighters } from './fighter.js?v=6';
+import { initFighters } from './fighter.js?v=7';
 import { initControls } from './controls.js?v=7';
 import { initCombat } from './combat.js?v=19';
 import { updatePoses } from './animator.js?v=4';
@@ -349,6 +349,7 @@ import { initSprites, renderSprites } from './sprites.js?v=8';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
 import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
+import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 
 // Setup canvas
 const cv = $$('#game');
@@ -430,6 +431,8 @@ const healthFill = $$('#healthFill');
 const staminaLabel = $$('#staminaLabel');
 const footingLabel = $$('#footingLabel');
 const healthLabel = $$('#healthLabel');
+const bountyHud = $$('#bountyHud');
+const bountyStars = $$('#bountyStars');
 const statusInfo = $$('#statusInfo');
 const reloadBtn = $$('#btnReloadCfg');
 const fullscreenBtn = $$('#btnFullscreen');
@@ -1234,6 +1237,28 @@ function updateHUD(){
     const spawnText = `Spawn: (${fmt(spawn.x)}, ${fmt(spawn.y)})`;
     coordHud.textContent = `${playerText} | ${spawnText}`;
   }
+
+  if (bountyHud) {
+    const bounty = getBountyState();
+    const maxStarsConfig = Number.isFinite(window.CONFIG?.bounty?.maxStars)
+      ? window.CONFIG.bounty.maxStars
+      : 5;
+    const maxStars = Math.max(1, maxStarsConfig);
+    const activeStars = Math.max(0, Math.min(maxStars, Math.round(bounty?.stars || 0)));
+    if (bounty && (bounty.active || activeStars > 0)) {
+      const filled = '★'.repeat(activeStars);
+      const empty = '☆'.repeat(Math.max(0, maxStars - activeStars));
+      if (bountyStars) {
+        bountyStars.textContent = `${filled}${empty}`;
+      }
+      bountyHud.classList.add('active');
+      bountyHud.classList.toggle('cooldown', !bounty.active && activeStars > 0);
+    } else {
+      bountyHud.classList.remove('active');
+      bountyHud.classList.remove('cooldown');
+      if (bountyStars) bountyStars.textContent = '';
+    }
+  }
 }
 
 function resolveActiveParallaxArea() {
@@ -1423,6 +1448,7 @@ function loop(t){
   const dt = (t - last) / 1000; last = t;
   if (window.GAME?.combat) window.GAME.combat.tick(dt);
   updateNpcSystems(dt);
+  updateBountySystem(dt);
   updatePoses();
   updateCamera(cv);
   drawStage();
@@ -1527,6 +1553,7 @@ function boot(){
     ensureAltSequenceUsesKickAlt();
     initFighters(cv, cx);
     initNpcSystems();
+    initBountySystem();
     initControls();
     initCombat();
     initHitDetect();
