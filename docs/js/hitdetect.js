@@ -8,6 +8,13 @@ function clamp(value, min, max) {
   return value;
 }
 
+function getBalanceScalar(key, fallback = 1) {
+  if (typeof window === 'undefined') return fallback;
+  const balance = window.CONFIG?.balance;
+  const value = balance?.[key];
+  return Number.isFinite(value) ? Number(value) : fallback;
+}
+
 function ensureDebugState() {
   const G = (window.GAME ||= {});
   const state = (G.HITDEBUG ||= {
@@ -81,7 +88,8 @@ function computeFootingDamage(config, footingBefore, force, defender) {
   const normalizedForce = Math.max(0, force) / (config.knockback?.referenceForce || 220);
   const baseLoss = 4 + normalizedForce * 4.5;
   const instabilityBonus = 1 + (1 - stabilityRatio) * 0.75;
-  let totalLoss = baseLoss * instabilityBonus;
+  const footingDamageMultiplier = getBalanceScalar('footingDamage', 1);
+  let totalLoss = baseLoss * instabilityBonus * footingDamageMultiplier;
   if (defender) {
     const statProfile = getStatProfile(defender);
     const mitigation = getFootingMitigation(statProfile);

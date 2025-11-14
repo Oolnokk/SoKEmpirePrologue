@@ -44,6 +44,13 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+function getBalanceScalar(key, fallback = 1) {
+  if (typeof window === 'undefined') return fallback;
+  const balance = window.CONFIG?.balance;
+  const value = balance?.[key];
+  return Number.isFinite(value) ? Number(value) : fallback;
+}
+
 function dampingForFrame(base, dt) {
   if (!Number.isFinite(dt) || dt <= 0) return base;
   const frame = 1 / 60;
@@ -202,7 +209,8 @@ export function ensureFighterPhysics(fighter, config) {
     randomizeRagdollTargets(state);
   }
   if (!Number.isFinite(fighter.recoveryDuration)) {
-    fighter.recoveryDuration = RECOVERY_BASE_DURATION;
+    const recoveryMultiplier = getBalanceScalar('baseRecoveryRate', 1);
+    fighter.recoveryDuration = RECOVERY_BASE_DURATION / Math.max(recoveryMultiplier, 0.0001);
   }
 }
 
@@ -217,7 +225,9 @@ function applyRecoveryBlend(fighter, state, dt) {
     state.recoveryBlend = 0;
     return;
   }
-  const duration = Math.max(RECOVERY_BASE_DURATION * 0.5, fighter.recoveryDuration || RECOVERY_BASE_DURATION);
+  const recoveryMultiplier = getBalanceScalar('baseRecoveryRate', 1);
+  const baseDuration = RECOVERY_BASE_DURATION / Math.max(recoveryMultiplier, 0.0001);
+  const duration = Math.max(baseDuration * 0.5, fighter.recoveryDuration || baseDuration);
   const t = clamp(fighter.recoveryTime / duration, 0, 1);
   state.recoveryBlend = Math.max(0, 0.75 * (1 - t));
 }
@@ -231,8 +241,10 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   const groundY = computeGroundY(config);
   const statProfile = fighter.statProfile || getStatProfile(fighter);
   const movementMultipliers = getMovementMultipliers(statProfile);
-  const baseAccelX = Number.isFinite(M.accelX) ? M.accelX : 1500;
-  const baseMaxSpeed = Number.isFinite(M.maxSpeedX) ? M.maxSpeedX : 420;
+  const movementBaseMultiplier = getBalanceScalar('baseMovementSpeed', 1);
+  const baseRecoveryMultiplier = getBalanceScalar('baseRecoveryRate', 1);
+  const baseAccelX = (Number.isFinite(M.accelX) ? M.accelX : 1500) * movementBaseMultiplier;
+  const baseMaxSpeed = (Number.isFinite(M.maxSpeedX) ? M.maxSpeedX : 420) * movementBaseMultiplier;
   const accelX = baseAccelX * (movementMultipliers.accel || 1);
   const maxSpeed = baseMaxSpeed * (movementMultipliers.maxSpeed || 1);
   const friction = Number.isFinite(M.friction) ? Math.max(0, M.friction) : 8;
@@ -264,7 +276,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   }
   fighter._jumpHeld = jumpPressed;
 
-  const baseDashSpeed = Number.isFinite(M.dashSpeedMultiplier) ? M.dashSpeedMultiplier : 1.8;
+  const baseDashSpeed = (Number.isFinite(M.dashSpeedMultiplier) ? M.dashSpeedMultiplier : 1.8) * movementBaseMultiplier;
   const dashMult = fighter.stamina?.isDashing
     ? baseDashSpeed * (movementMultipliers.dashSpeed || 1)
     : 1;
@@ -379,7 +391,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   }
 
   if (!fighter.ragdoll && fighter.onGround) {
-    const baseRecoveryRate = 20 * getFootingRecovery(statProfile);
+    const baseRecoveryRate = 20 * getFootingRecovery(statProfile) * baseRecoveryMultiplier;
     const recoveryRate = underKnockback ? Math.max(4, baseRecoveryRate * 0.35) : baseRecoveryRate;
     const maxFoot = config?.knockback?.maxFooting ?? 100;
     fighter.footing = Math.min(maxFoot, (fighter.footing ?? maxFoot) + recoveryRate * dt);
@@ -398,7 +410,9 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
       fighter.recoveryTime = 0;
       fighter.recoveryStartY = fighter.pos.y;
       fighter.recoveryTargetY = groundY;
-      fighter.recoveryDuration = RECOVERY_BASE_DURATION + RECOVERY_DURATION_BONUS * instability;
+      const baseDuration = RECOVERY_BASE_DURATION / Math.max(baseRecoveryMultiplier, 0.0001);
+      const bonusDuration = RECOVERY_DURATION_BONUS / Math.max(baseRecoveryMultiplier, 0.0001);
+      fighter.recoveryDuration = baseDuration + bonusDuration * instability;
       fighter.recoveryStartAngles = { ...state.ragdollAngles };
       state.partialBlend = Math.max(state.partialBlend, 0.55);
       state.partialBlendStart = state.partialBlend;
@@ -407,7 +421,8 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
     }
   } else if (fighter.recovering) {
     fighter.recoveryTime = (fighter.recoveryTime || 0) + dt;
-    const duration = Math.max(RECOVERY_BASE_DURATION * 0.5, fighter.recoveryDuration || RECOVERY_BASE_DURATION);
+    const baseDuration = RECOVERY_BASE_DURATION / Math.max(baseRecoveryMultiplier, 0.0001);
+    const duration = Math.max(baseDuration * 0.5, fighter.recoveryDuration || baseDuration);
     const t = clamp(fighter.recoveryTime / duration, 0, 1);
     fighter.pos.y = lerp(fighter.recoveryStartY ?? groundY, fighter.recoveryTargetY ?? groundY, 1 - Math.pow(1 - t, 2));
     if (t >= 1) {
