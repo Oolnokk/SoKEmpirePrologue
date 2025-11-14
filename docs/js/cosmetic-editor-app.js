@@ -15,6 +15,15 @@ import { applyShade } from './cosmetic-palettes.js?v=1';
 const CONFIG = window.CONFIG || {};
 const GAME = (window.GAME ||= {});
 
+const FIGHTER_SPRITE_SLOT_PREFIX = 'fighterSprite:';
+const FIGHTER_SPRITE_ID_PREFIX = 'fighterSprite::';
+const DEFAULT_APPEARANCE_SLOTS = [
+  'appearance:head_hair',
+  'appearance:facial_hair',
+  'appearance:eyes',
+  'appearance:other'
+];
+
 class CosmeticEditorApp {
   constructor(){
     this.canvas = document.getElementById('cosmeticCanvas');
@@ -54,6 +63,8 @@ class CosmeticEditorApp {
       activeSlot: null,
       activeStyleKey: null,
       appearanceSlotKeys: [],
+      fighterSpriteSlots: [],
+      fighterSpriteIndex: {},
       currentPalette: null,
       currentPaletteSource: { slot: null, partKey: null, cosmeticId: null },
       activeMode: 'clothing'
@@ -96,17 +107,14 @@ class CosmeticEditorApp {
   buildModeManagerApi(){
     const MODE_DEFINITIONS = {
       appearance: {
-        slots: new Set(['head_hair', 'facial_hair', 'eyes']),
         enableSpriteEditing: false,
         enableCreator: false
       },
       clothing: {
-        slots: new Set(['hat', 'hood', 'overwear', 'upper-face', 'lower-face', 'beard', 'hair']),
         enableSpriteEditing: true,
         enableCreator: true
       },
       fighterSprites: {
-        slots: new Set(['torso', 'legs', 'arms', 'hands', 'feet', 'shoulders']),
         enableSpriteEditing: true,
         enableCreator: false
       }
@@ -115,11 +123,35 @@ class CosmeticEditorApp {
     const resolveModeKey = (mode)=> MODE_DEFINITIONS[mode] ? mode : 'clothing';
     const getModeConfig = (mode)=> MODE_DEFINITIONS[resolveModeKey(mode)];
 
+    const normalizeAppearanceSlotKey = (slot)=>{
+      if (!slot) return null;
+      const trimmed = String(slot).trim();
+      if (!trimmed) return null;
+      if (trimmed.startsWith('appearance:')){
+        return trimmed;
+      }
+      const lower = trimmed.toLowerCase();
+      if (DEFAULT_APPEARANCE_SLOT_SET.has(`appearance:${lower}`)){
+        return `appearance:${lower}`;
+      }
+      if (lower === 'default'){
+        return 'appearance:other';
+      }
+      return null;
+    };
+
+    const DEFAULT_APPEARANCE_SLOT_SET = new Set(DEFAULT_APPEARANCE_SLOTS);
+
     const isAppearanceSlotName = (slot, appearanceKeys)=>{
       if (!slot) return false;
-      if (slot.startsWith('appearance:')) return true;
-      if (MODE_DEFINITIONS.appearance.slots.has(slot)) return true;
-      return appearanceKeys?.has(slot) || false;
+      const normalized = normalizeAppearanceSlotKey(slot);
+      if (!normalized) return false;
+      if (DEFAULT_APPEARANCE_SLOT_SET.has(normalized)) return true;
+      return appearanceKeys?.has(normalized) || false;
+    };
+
+    const isFighterSpriteSlot = (slot)=>{
+      return typeof slot === 'string' && slot.startsWith(FIGHTER_SPRITE_SLOT_PREFIX);
     };
 
     const slotMatchesMode = (slot, mode, appearanceKeys)=>{
@@ -127,14 +159,16 @@ class CosmeticEditorApp {
       if (slot.startsWith('appearance:')){
         return resolved === 'appearance';
       }
+      if (isFighterSpriteSlot(slot)){
+        return resolved === 'fighterSprites';
+      }
       const appearanceSlot = isAppearanceSlotName(slot, appearanceKeys);
       if (resolved === 'appearance'){
         return appearanceSlot;
       }
       if (resolved === 'fighterSprites'){
-        return MODE_DEFINITIONS.fighterSprites.slots.has(slot);
+        return false;
       }
-      if (MODE_DEFINITIONS.fighterSprites.slots.has(slot)) return false;
       if (appearanceSlot) return false;
       return true;
     };
@@ -144,6 +178,10 @@ class CosmeticEditorApp {
       const appearanceKeys = Array.isArray(this.state.appearanceSlotKeys)
         ? new Set(this.state.appearanceSlotKeys)
         : new Set();
+      if (mode === 'fighterSprites'){
+        const fighterSlots = this.fighterManager.getFighterSpriteSlotKeys();
+        return Array.isArray(fighterSlots) ? fighterSlots.slice() : [];
+      }
       const slots = [];
       const seen = new Set();
       const addIfMatches = (slot)=>{
@@ -154,6 +192,9 @@ class CosmeticEditorApp {
       };
       COSMETIC_SLOTS.forEach(addIfMatches);
       appearanceKeys.forEach((slot)=> addIfMatches(slot));
+      if (mode === 'appearance'){
+        DEFAULT_APPEARANCE_SLOTS.forEach((slot)=> addIfMatches(slot));
+      }
       return slots;
     };
 
@@ -233,13 +274,15 @@ class CosmeticEditorApp {
       updateModeVisibility,
       populateCreatorSlotOptions,
       setActiveMode,
-      bootstrap
+      bootstrap,
+      normalizeAppearanceSlotKey
     };
   }
 
   buildSlotGridApi(){
     const buildSlotRows = ()=>{
       const library = getRegisteredCosmeticLibrary();
+      const mode = this.modeManager.resolveModeKey(this.state.activeMode);
       this.dom.slotContainer.innerHTML = '';
       this.slotRows.clear();
       for (const slot of this.modeManager.getActiveSlotKeys()){
@@ -248,17 +291,36 @@ class CosmeticEditorApp {
         row.dataset.slot = slot;
         const label = document.createElement('span');
         label.className = 'slot-row__label';
-        label.textContent = slot.startsWith('appearance:')
-          ? slot.replace('appearance:', 'appearance/')
-          : slot;
+        if (slot.startsWith('appearance:')){
+          label.textContent = slot.replace('appearance:', 'appearance/');
+        } else if (slot.startsWith(FIGHTER_SPRITE_SLOT_PREFIX)){
+          const parsed = this.fighterManager.parseFighterSpriteSlot(slot);
+          label.textContent = parsed?.partKey ? `fighter/${parsed.partKey}` : slot;
+        } else {
+          label.textContent = slot;
+        }
         const select = document.createElement('select');
         const noneOption = document.createElement('option');
         noneOption.value = '';
         noneOption.textContent = 'None';
+        if (slot.startsWith(FIGHTER_SPRITE_SLOT_PREFIX)){
+          noneOption.disabled = true;
+        }
         select.appendChild(noneOption);
         const options = Object.entries(library)
-          .filter(([_, cosmetic]) => Array.isArray(cosmetic?.slots) ? cosmetic.slots.includes(slot) : true)
-          .sort(([a], [b]) => a.localeCompare(b));
+          .filter(([_, cosmetic]) => {
+            if (Array.isArray(cosmetic?.slots)){
+              return cosmetic.slots.includes(slot);
+            }
+            return mode !== 'fighterSprites';
+          })
+          .sort(([a, cosmeticA], [b, cosmeticB])=>{
+            const aIsBase = cosmeticA?.type === 'fighterSprite';
+            const bIsBase = cosmeticB?.type === 'fighterSprite';
+            if (aIsBase && !bIsBase) return -1;
+            if (!aIsBase && bIsBase) return 1;
+            return a.localeCompare(b);
+          });
         for (const [id, cosmetic] of options){
           const option = document.createElement('option');
           option.value = id;
@@ -279,7 +341,7 @@ class CosmeticEditorApp {
         row.appendChild(select);
         row.appendChild(editButton);
         this.dom.slotContainer.appendChild(row);
-        this.slotRows.set(slot, { element: row, select, editButton });
+        this.slotRows.set(slot, { element: row, select, editButton, mode });
       }
     };
 
@@ -566,12 +628,13 @@ class CosmeticEditorApp {
       if (fighter == null || fighter === ''){
         return null;
       }
-      const slots = this.modeManager.MODE_DEFINITIONS.fighterSprites.slots;
       const exportSlots = {};
-      for (const slot of slots){
+      for (const slot of this.fighterManager.getFighterSpriteSlotKeys()){
+        const parsed = this.fighterManager.parseFighterSpriteSlot(slot);
+        if (!parsed || parsed.fighter !== fighter) continue;
         const overrides = this.state.slotOverrides?.[slot];
         if (overrides && Object.keys(overrides).length > 0){
-          exportSlots[slot] = this.deepClone(overrides);
+          exportSlots[parsed.partKey] = this.deepClone(overrides);
         }
       }
       if (Object.keys(exportSlots).length === 0){
@@ -1319,17 +1382,109 @@ class CosmeticEditorApp {
       return null;
     };
 
-    const setSelectedCosmetics = (slots)=>{
-      const slotMap = {};
-      for (const slot of this.modeManager.getActiveSlotKeys()){
-        const value = normalizeSlotEntry(slots?.[slot]);
-        if (value){
-          slotMap[slot] = this.deepClone(value);
+    const resolveSlotKey = (slot)=>{
+      if (!slot) return slot;
+      if (slot.startsWith('appearance:')) return slot;
+      if (slot.startsWith(FIGHTER_SPRITE_SLOT_PREFIX)) return slot;
+      const potentialAppearance = `appearance:${slot}`;
+      if (Array.isArray(this.state.appearanceSlotKeys) && this.state.appearanceSlotKeys.includes(potentialAppearance)){
+        return potentialAppearance;
+      }
+      return slot;
+    };
+
+    const setSelectedCosmetics = (slots, { merge = false } = {})=>{
+      const base = merge && GAME.selectedCosmetics?.slots
+        ? this.deepClone(GAME.selectedCosmetics.slots)
+        : {};
+      for (const [rawSlot, rawEntry] of Object.entries(slots || {})){
+        const slot = resolveSlotKey(rawSlot);
+        const value = normalizeSlotEntry(rawEntry);
+        if (slot){
+          base[slot] = value ? this.deepClone(value) : null;
         }
       }
-      GAME.selectedCosmetics = { slots: slotMap };
-      this.state.slotSelection = this.deepClone(slotMap);
+      GAME.selectedCosmetics = { slots: base };
+      this.state.slotSelection = this.deepClone(base);
+      return base;
+    };
+
+    const styleKeyFromPart = (partKey)=>{
+      switch (partKey){
+        case 'arm_L_upper':
+        case 'arm_R_upper':
+          return 'armUpper';
+        case 'arm_L_lower':
+        case 'arm_R_lower':
+          return 'armLower';
+        case 'leg_L_upper':
+        case 'leg_R_upper':
+          return 'legUpper';
+        case 'leg_L_lower':
+        case 'leg_R_lower':
+          return 'legLower';
+        case 'head':
+          return 'head';
+        case 'torso':
+          return 'torso';
+        default:
+          return partKey;
+      }
+    };
+
+    const buildFighterSpriteLibrary = (fighterName, fighter = {})=>{
+      const sprites = fighter?.sprites || {};
+      const spriteStyle = fighter?.spriteStyle || fighter?.sprites?.style || {};
+      const xform = spriteStyle?.xform || {};
+      const libraryPayload = {};
+      const slotMap = {};
+      const slotKeys = [];
+      for (const [partKey, spriteDef] of Object.entries(sprites)){
+        const slot = `${FIGHTER_SPRITE_SLOT_PREFIX}${fighterName}:${partKey}`;
+        const id = `${FIGHTER_SPRITE_ID_PREFIX}${fighterName}::${partKey}`;
+        const styleKey = styleKeyFromPart(partKey);
+        const partConfig = {
+          image: this.deepClone(spriteDef || {}),
+          styleKey
+        };
+        const baseXform = xform?.[styleKey];
+        if (baseXform && typeof baseXform === 'object'){
+          partConfig.spriteStyle = { xform: { [styleKey]: this.deepClone(baseXform) } };
+        }
+        libraryPayload[id] = {
+          type: 'fighterSprite',
+          slots: [slot],
+          meta: { name: `Base ${partKey}` },
+          parts: { [partKey]: partConfig }
+        };
+        slotMap[slot] = { id, fighter: fighterName, partKey };
+        slotKeys.push(slot);
+      }
+      if (Object.keys(libraryPayload).length){
+        registerCosmeticLibrary(libraryPayload);
+      }
+      this.state.fighterSpriteSlots = slotKeys;
+      this.state.fighterSpriteIndex = slotMap;
       return slotMap;
+    };
+
+    const getFighterSpriteSlotKeys = ()=>{
+      return Array.isArray(this.state.fighterSpriteSlots)
+        ? this.state.fighterSpriteSlots.slice()
+        : [];
+    };
+
+    const parseFighterSpriteSlot = (slot)=>{
+      if (typeof slot !== 'string' || !slot.startsWith(FIGHTER_SPRITE_SLOT_PREFIX)){
+        return null;
+      }
+      const remainder = slot.slice(FIGHTER_SPRITE_SLOT_PREFIX.length);
+      const [fighter, ...rest] = remainder.split(':');
+      if (!fighter || rest.length === 0){
+        return this.state.fighterSpriteIndex?.[slot] || null;
+      }
+      const partKey = rest.join(':');
+      return { fighter, partKey };
     };
 
     const mapProfileToSlotOverrides = (slotMap, profile)=>{
@@ -1383,11 +1538,23 @@ class CosmeticEditorApp {
         fighter.appearance || {},
         characterAppearance
       );
-      this.state.appearanceSlotKeys = Object.keys(appearance.slots || {});
+      const appearanceSlots = Object.keys(appearance.slots || {});
+      const normalizedAppearance = new Set(
+        appearanceSlots
+          .map((slot)=> this.modeManager.normalizeAppearanceSlotKey(slot) || slot)
+      );
+      DEFAULT_APPEARANCE_SLOTS.forEach((slot)=> normalizedAppearance.add(slot));
+      this.state.appearanceSlotKeys = Array.from(normalizedAppearance);
       this.modeManager.populateCreatorSlotOptions();
       const slots = fighter.cosmetics?.slots || fighter.cosmetics || {};
       const combinedSlots = { ...(appearance.slots || {}), ...(slots || {}) };
-      const slotMap = setSelectedCosmetics(combinedSlots);
+      this.state.fighterSpriteSlots = [];
+      this.state.fighterSpriteIndex = {};
+      let slotMap = setSelectedCosmetics(combinedSlots);
+      const fighterSpriteSlots = buildFighterSpriteLibrary(fighterName, fighter);
+      if (Object.keys(fighterSpriteSlots).length){
+        slotMap = setSelectedCosmetics(fighterSpriteSlots, { merge: true });
+      }
       this.state.assetPinned = false;
       this.assetLibrary.setSelectedAsset(null);
       const profile = getFighterCosmeticProfile(fighterName) || null;
@@ -1408,7 +1575,9 @@ class CosmeticEditorApp {
       loadFighter,
       setSelectedCosmetics,
       mapProfileToSlotOverrides,
-      normalizeSlotEntry
+      normalizeSlotEntry,
+      getFighterSpriteSlotKeys,
+      parseFighterSpriteSlot
     };
   }
 

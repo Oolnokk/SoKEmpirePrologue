@@ -129,6 +129,75 @@ function normalizeAppearanceSlotEntry(entry){
   return null;
 }
 
+function canonicalAppearanceSlotName(value){
+  if (!value) return null;
+  const lower = String(value).trim().toLowerCase();
+  if (!lower) return null;
+  const cleaned = lower.startsWith(APPEARANCE_SLOT_PREFIX)
+    ? lower.slice(APPEARANCE_SLOT_PREFIX.length)
+    : lower;
+  if (cleaned.includes('facial') || cleaned.includes('beard') || cleaned.includes('moustache') || cleaned.includes('mustache')){
+    return 'facial_hair';
+  }
+  if (cleaned.includes('hair')){
+    return 'head_hair';
+  }
+  if (cleaned.includes('eye')){
+    return 'eyes';
+  }
+  if (cleaned === 'other'){
+    return 'other';
+  }
+  return null;
+}
+
+function guessAppearanceSlot(raw = {}, id){
+  const candidates = [];
+  if (typeof raw?.appearance?.slot === 'string') candidates.push(raw.appearance.slot);
+  if (typeof raw?.appearance?.slotName === 'string') candidates.push(raw.appearance.slotName);
+  if (typeof raw?.slot === 'string') candidates.push(raw.slot);
+  if (Array.isArray(raw?.slots)) candidates.push(...raw.slots);
+  if (typeof raw?.meta?.slot === 'string') candidates.push(raw.meta.slot);
+  if (typeof raw?.meta?.category === 'string') candidates.push(raw.meta.category);
+
+  let fallback = null;
+  for (const candidate of candidates){
+    const normalized = canonicalAppearanceSlotName(candidate);
+    if (!normalized) continue;
+    if (normalized === 'other' && !fallback){
+      fallback = normalized;
+      continue;
+    }
+    if (normalized) return normalized;
+  }
+
+  const textFragments = [
+    raw?.appearance?.originalId,
+    raw?.appearance?.inheritSprite,
+    raw?.meta?.name,
+    id
+  ];
+  for (const part of Object.values(raw?.parts || {})){
+    if (typeof part?.image?.url === 'string'){
+      textFragments.push(part.image.url);
+    }
+  }
+  const combined = textFragments
+    .filter((fragment)=> typeof fragment === 'string' && fragment.trim().length)
+    .join(' ')
+    .toLowerCase();
+  if (combined.includes('facial') || combined.includes('beard') || combined.includes('moustache') || combined.includes('mustache')){
+    return 'facial_hair';
+  }
+  if (combined.includes('hair')){
+    return 'head_hair';
+  }
+  if (combined.includes('eye')){
+    return 'eyes';
+  }
+  return fallback || 'other';
+}
+
 function buildBodyColorMap(source = {}){
   const map = {};
   for (const [key, value] of Object.entries(source || {})){
@@ -409,7 +478,7 @@ function normalizeCosmetic(id, raw = {}){
   const tintLimits = tintConfig.limits || {};
   const norm = {
     id,
-    slots: slots.length ? slots : COSMETIC_SLOTS,
+    slots: slots.length ? slots.slice() : [],
     parts: raw.parts || {},
     hsl: {
       defaults: {
@@ -433,6 +502,27 @@ function normalizeCosmetic(id, raw = {}){
     }
   } else if (raw.bodyColors || raw.colors){
     norm.appearance = { bodyColors: ensureArray(raw.bodyColors || raw.colors) };
+  }
+  const isAppearance = norm.type === 'appearance'
+    || norm.appearance != null
+    || (typeof id === 'string' && id.startsWith(APPEARANCE_ID_PREFIX));
+  if (isAppearance && !norm.type){
+    norm.type = 'appearance';
+  }
+  if (isAppearance){
+    const slotName = guessAppearanceSlot(raw, id);
+    const slotKey = appearanceSlotKey(slotName);
+    const normalizedSlots = norm.slots.length
+      ? norm.slots.map((entry)=> appearanceSlotKey(String(entry).replace(APPEARANCE_SLOT_PREFIX, '')))
+      : [slotKey];
+    if (!normalizedSlots.includes(slotKey)){
+      normalizedSlots.unshift(slotKey);
+    }
+    norm.slots = normalizedSlots;
+    norm.appearance = norm.appearance || {};
+    norm.appearance.slot = slotKey.replace(APPEARANCE_SLOT_PREFIX, '');
+  } else if (!norm.slots.length){
+    norm.slots = COSMETIC_SLOTS;
   }
   return norm;
 }
