@@ -208,97 +208,18 @@ export function applyStaminaTick(fighter, dt) {
   if (!fighter || !Number.isFinite(dt) || dt <= 0) return;
   const stamina = fighter.stamina;
   if (!stamina) return;
-  const max = Number.isFinite(stamina.max) ? stamina.max : 100;
-  if (!Number.isFinite(stamina.min)) {
-    stamina.min = -max;
-  }
-  const min = Number.isFinite(stamina.min) ? stamina.min : -max;
-  const current = Number.isFinite(stamina.current) ? stamina.current : max;
-  if (stamina.isDashing && current > min) {
+  const current = Number.isFinite(stamina.current) ? stamina.current : 0;
+  if (stamina.isDashing && current > 0) {
     const drainRate = Number.isFinite(stamina.drainRate) ? stamina.drainRate : 40;
-    const next = Math.max(min, current - drainRate * dt);
+    const next = Math.max(0, current - drainRate * dt);
     stamina.current = next;
     if (next <= 0) {
       stamina.isDashing = false;
     }
   } else {
     const regenRate = Number.isFinite(stamina.regenRate) ? stamina.regenRate : 20;
+    const max = Number.isFinite(stamina.max) ? stamina.max : 100;
     stamina.isDashing = false;
-    if (current < 0) {
-      const next = Math.min(0, current + regenRate * dt);
-      stamina.current = next;
-    } else {
-      const next = Math.min(max, current + regenRate * dt);
-      stamina.current = next;
-    }
+    stamina.current = Math.min(max, current + regenRate * dt);
   }
-  const exhausted = stamina.current < 0;
-  stamina.exhausted = exhausted;
-  const denom = Math.max(1, Math.abs(min));
-  stamina.exhaustionRatio = exhausted ? Math.min(1, Math.abs(stamina.current) / denom) : 0;
-}
-
-function combineContributions(values = []) {
-  let combined = 0;
-  for (const raw of values) {
-    if (!Number.isFinite(raw) || raw <= 0) continue;
-    const value = clamp(raw, 0, 1);
-    combined = combined + value - combined * value;
-  }
-  return clamp(combined, 0, 1);
-}
-
-function resolveStaminaBase(stamina) {
-  if (!stamina) {
-    return { base: 0, min: -100 };
-  }
-  const max = Number.isFinite(stamina.max) ? Math.max(1, stamina.max) : 100;
-  const min = Number.isFinite(stamina.min) ? stamina.min : -max;
-  const current = Number.isFinite(stamina.current) ? stamina.current : max;
-  const exhaustedRatio = current < 0 ? Math.min(1, Math.abs(current) / Math.max(1, Math.abs(min))) : 0;
-  return { base: clamp(exhaustedRatio, 0, 1), min };
-}
-
-export function computeRagdollBlendController(fighter, config) {
-  if (!fighter) {
-    return { ratio: 0, base: 0, contributions: {} };
-  }
-
-  const { base: exhaustionBase } = resolveStaminaBase(fighter.stamina);
-
-  const contributions = {};
-
-  const movementCfg = config?.movement || {};
-  const maxSpeedX = Number.isFinite(movementCfg.maxSpeedX) ? Math.max(60, movementCfg.maxSpeedX) : 420;
-  const velX = Number.isFinite(fighter.vel?.x) ? Math.abs(fighter.vel.x) : 0;
-  const velRatio = maxSpeedX > 0 ? clamp(velX / (maxSpeedX * 1.2), 0, 1) : 0;
-  const airBonus = fighter.onGround === false ? 0.2 : 0;
-  contributions.movement = clamp(velRatio * 0.35 + airBonus, 0, 0.45);
-
-  const attack = fighter.attack || null;
-  if (attack?.active) {
-    const phase = String(attack.currentPhase || '').toLowerCase();
-    let weight = 0.25;
-    if (phase.includes('strike')) {
-      weight = 0.5;
-    } else if (phase.includes('windup')) {
-      weight = 0.35;
-    } else if (phase.includes('recoil')) {
-      weight = 0.32;
-    }
-    const pauseInfluence = Number.isFinite(attack.hitPause) ? clamp(attack.hitPause / 0.5, 0, 1) * 0.25 : 0;
-    contributions.attack = clamp(weight + pauseInfluence, 0, 0.6);
-  }
-
-  const maxFooting = Number.isFinite(config?.knockback?.maxFooting) ? config.knockback.maxFooting : 100;
-  if (maxFooting > 0) {
-    const footing = Number.isFinite(fighter.footing) ? clamp(fighter.footing, 0, maxFooting) : maxFooting;
-    const instability = 1 - footing / maxFooting;
-    contributions.footing = clamp(instability * 0.5, 0, 0.5);
-  }
-
-  const combined = combineContributions(Object.values(contributions));
-  const ratio = clamp(exhaustionBase + (1 - exhaustionBase) * combined, 0, 1);
-
-  return { ratio, base: exhaustionBase, contributions };
 }
