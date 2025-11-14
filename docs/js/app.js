@@ -1208,9 +1208,21 @@ function updateHUD(){
   }
 
   if (healthFill){
-    healthFill.style.width = '100%';
-    if (healthLabel){
-      healthLabel.textContent = 'HP: 100';
+    const health = P.health;
+    if (health){
+      const max = Number.isFinite(health.max) ? health.max : 100;
+      const current = Number.isFinite(health.current) ? Math.max(0, Math.min(health.current, max)) : max;
+      const ratio = max > 0 ? current / max : 0;
+      const pct = Math.round(ratio * 100);
+      healthFill.style.width = `${pct}%`;
+      if (healthLabel){
+        healthLabel.textContent = `HP: ${current}/${max}`;
+      }
+    } else {
+      healthFill.style.width = '100%';
+      if (healthLabel){
+        healthLabel.textContent = 'HP: 100';
+      }
     }
   }
 

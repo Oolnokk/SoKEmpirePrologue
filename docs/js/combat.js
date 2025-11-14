@@ -426,6 +426,14 @@ export function makeCombat(G, C, options = {}){
     if (!presetName) return;
     const preset = C.presets?.[presetName];
     if (!preset) return;
+    if (step.attack && context){
+      const attackDef = getAttackDef(step.attack) || { id: step.attack, preset: step.preset || step.move };
+      const profile = computeAttackProfile(context.ability, attackDef, step.variant, context.fighter);
+      if (profile?.colliders?.length){
+        context.activeColliderKeys = profile.colliders.slice();
+        updateFighterAttackState('Strike', { active: true, context });
+      }
+    }
     const strikePose = preset.poses?.Strike || buildPoseFromKey('Strike');
     const overrides = Array.isArray(strikePose.layerOverrides) ? strikePose.layerOverrides : [];
     const durations = computePresetDurationsWithContext(presetName, context);
@@ -657,6 +665,183 @@ export function makeCombat(G, C, options = {}){
     return result;
   }
 
+  function normalizeColliderKeys(keys){
+    if (!Array.isArray(keys)) return [];
+    const mapped = [];
+    const pushKey = (value) => {
+      if (!value) return;
+      if (mapped.includes(value)) return;
+      mapped.push(value);
+    };
+    const aliases = {
+      rightarm: ['handR'],
+      righthand: ['handR'],
+      rightfist: ['handR'],
+      handr: ['handR'],
+      leftarm: ['handL'],
+      lefthand: ['handL'],
+      leftfist: ['handL'],
+      handl: ['handL'],
+      rightleg: ['footR'],
+      footr: ['footR'],
+      leftleg: ['footL'],
+      footl: ['footL'],
+      botharms: ['handL', 'handR'],
+      bothhands: ['handL', 'handR'],
+      bothfeet: ['footL', 'footR'],
+    };
+    keys.forEach((entry) => {
+      if (typeof entry !== 'string') return;
+      const trimmed = entry.trim();
+      if (!trimmed) return;
+      const lower = trimmed.toLowerCase();
+      if (aliases[lower]) {
+        aliases[lower].forEach(pushKey);
+      } else {
+        const normalized = trimmed
+          .replace(/[^a-z0-9]/gi, '')
+          .replace(/^([a-z])/, (m) => m.toLowerCase());
+        if (normalized === 'rightarm' || normalized === 'rhand') {
+          pushKey('handR');
+        } else if (normalized === 'leftarm' || normalized === 'lhand') {
+          pushKey('handL');
+        } else if (normalized === 'rightleg' || normalized === 'rfoot') {
+          pushKey('footR');
+        } else if (normalized === 'leftleg' || normalized === 'lfoot') {
+          pushKey('footL');
+        } else if (normalized) {
+          pushKey(trimmed);
+        }
+      }
+    });
+    return mapped;
+  }
+
+  function applyAttackData(target, source){
+    if (!source) return target;
+    const data = typeof source === 'function' ? source(target) : source;
+    if (!data) return target;
+    if (data.damage && typeof data.damage === 'object'){
+      target.damage = { ...(target.damage || {}) };
+      Object.entries(data.damage).forEach(([key, value]) => {
+        if (Number.isFinite(value)){
+          target.damage[key] = value;
+        }
+      });
+    }
+    if (Number.isFinite(data.staminaCost)){
+      target.staminaCost = data.staminaCost;
+    } else if (data.staminaCost === 0){
+      target.staminaCost = 0;
+    }
+    const colliderSources = [];
+    if (data.colliders) colliderSources.push(data.colliders);
+    if (data.limbMask) colliderSources.push(data.limbMask);
+    if (data.colliderKeys) colliderSources.push(data.colliderKeys);
+    if (colliderSources.length){
+      const normalized = normalizeColliderKeys(colliderSources.flat());
+      if (normalized.length) target.colliders = normalized;
+    }
+    return target;
+  }
+
+  function collectAttackData(ability, attack, variant){
+    let data = {};
+    const apply = (value) => {
+      data = applyAttackData(data, value);
+    };
+    const abilityAttackData = ability?.attackData;
+    if (abilityAttackData){
+      const hasDirect = ['damage', 'staminaCost', 'colliders', 'limbMask', 'colliderKeys']
+        .some((key) => abilityAttackData[key] != null);
+      if (hasDirect) apply(abilityAttackData);
+      if (abilityAttackData.default) apply(abilityAttackData.default);
+      if (attack?.id && abilityAttackData.perAttack?.[attack.id]){
+        apply(abilityAttackData.perAttack[attack.id]);
+      }
+      if (attack?.id && abilityAttackData[attack.id]){
+        apply(abilityAttackData[attack.id]);
+      }
+    }
+    if (attack?.attackData){
+      apply(attack.attackData);
+    }
+    if (variant?.attackData){
+      apply(variant.attackData);
+    }
+    return data;
+  }
+
+  function computeAttackProfile(ability, attack, variant, fighter){
+    const mergedData = collectAttackData(ability, attack, variant);
+    const stats = fighter?.stats || ability?.stats || {};
+    const baseline = Number.isFinite(stats.baseline) ? stats.baseline : 10;
+    const strength = Number.isFinite(stats.strength) ? stats.strength : baseline;
+    const agility = Number.isFinite(stats.agility) ? stats.agility : baseline;
+    const strengthMultiplier = 1 + (strength - baseline) * 0.05;
+    const staminaMultiplierRaw = 1 - (agility - baseline) * 0.04;
+    const staminaMultiplier = Math.min(1.75, Math.max(0.3, staminaMultiplierRaw));
+    const damage = {};
+    if (mergedData.damage){
+      Object.entries(mergedData.damage).forEach(([type, baseValue]) => {
+        if (Number.isFinite(baseValue)){
+          damage[type] = Math.max(0, Math.round(baseValue * strengthMultiplier));
+        }
+      });
+    }
+    const baseStaminaCost = Number.isFinite(mergedData.staminaCost) ? mergedData.staminaCost : 0;
+    const staminaCost = Math.max(0, Math.round(baseStaminaCost * staminaMultiplier));
+    const colliders = Array.isArray(mergedData.colliders) ? mergedData.colliders.slice() : [];
+    return {
+      base: mergedData,
+      damage,
+      staminaCost,
+      colliders,
+      strengthMultiplier,
+      staminaMultiplier,
+    };
+  }
+
+  function instantiateAbility(baseAbility, fighter){
+    if (!baseAbility) return null;
+    const cloned = clone(baseAbility);
+    if (!cloned) return null;
+    if (fighter?.stats) cloned.stats = fighter.stats;
+    cloned.__base = baseAbility;
+    cloned.__fighter = fighter || null;
+    return cloned;
+  }
+
+  function canPayAbilityCosts(context){
+    if (!context) return false;
+    const staminaCost = Number.isFinite(context.costs?.stamina) ? context.costs.stamina : 0;
+    if (staminaCost > 0){
+      const stamina = context.fighter?.stamina;
+      if (!stamina) return false;
+      const current = Number.isFinite(stamina.current) ? stamina.current : 0;
+      return current >= staminaCost;
+    }
+    return true;
+  }
+
+  function applyAbilityCosts(context){
+    if (!context) return;
+    const staminaCost = Number.isFinite(context.costs?.stamina) ? context.costs.stamina : 0;
+    if (staminaCost > 0){
+      const stamina = context.fighter?.stamina;
+      if (stamina){
+        const current = Number.isFinite(stamina.current) ? stamina.current : 0;
+        stamina.current = Math.max(0, current - staminaCost);
+      }
+    }
+  }
+
+  function ensureAbilityCosts(context){
+    if (!canPayAbilityCosts(context)) return false;
+    applyAbilityCosts(context);
+    return true;
+  }
+
   function updateSlotAssignments(assignments = {}) {
     if (!assignments) return;
     G.selectedAbilities ||= {};
@@ -766,13 +951,27 @@ export function makeCombat(G, C, options = {}){
     call(context.variant);
   }
 
+  function applyContextDamage(target, context, _collisions){
+    if (!target || !context) return;
+    const attackProfile = context.attackProfile || {};
+    const damage = context.damage || attackProfile.damage;
+    if (!damage) return;
+    const healthDamage = Number.isFinite(damage?.health) ? damage.health : null;
+    if (healthDamage && target.health){
+      const max = Number.isFinite(target.health.max) ? target.health.max : (Number.isFinite(target.health.current) ? target.health.current : 100);
+      const current = Number.isFinite(target.health.current) ? target.health.current : max;
+      target.health.current = Math.max(0, Math.round(current - healthDamage));
+    }
+  }
+
   function buildAttackContext({ abilityId, ability, attackId, attack, slotKey, type, variant, chargeStage=0, comboHits }){
     const fighter = P();
-    const preset = resolveAttackPreset(attack, variant, ability, attackId);
-    let multipliers = combineMultiplierSources(attack, ability, variant);
+    const abilityInstance = ability && ability.__base ? ability : instantiateAbility(ability, fighter);
+    const preset = resolveAttackPreset(attack, variant, abilityInstance, attackId);
+    let multipliers = combineMultiplierSources(attack, abilityInstance, variant);
     const context = {
       abilityId,
-      ability,
+      ability: abilityInstance,
       attackId,
       attack,
       slotKey,
@@ -788,11 +987,11 @@ export function makeCombat(G, C, options = {}){
       chargeStage,
       startTime: now(),
       multipliers,
-      tags: [...new Set([...(ability?.tags || []), ...(attack?.tags || []), ...(variant?.tags || [])])]
+      tags: [...new Set([...(abilityInstance?.tags || []), ...(attack?.tags || []), ...(variant?.tags || [])])]
     };
-    if (Number.isFinite(chargeStage) && ability?.charge?.stageMultipliers){
+    if (Number.isFinite(chargeStage) && abilityInstance?.charge?.stageMultipliers){
       try {
-        const stageMultipliers = ability.charge.stageMultipliers(chargeStage, context);
+        const stageMultipliers = abilityInstance.charge.stageMultipliers(chargeStage, context);
         multipliers = combineMultiplierSources(multipliers, stageMultipliers);
         context.multipliers = multipliers;
       } catch(err){
@@ -802,9 +1001,21 @@ export function makeCombat(G, C, options = {}){
     } else {
       context.multipliers = multipliers;
     }
+    const attackProfile = computeAttackProfile(context.ability, attack, variant, fighter);
+    context.attackProfile = attackProfile;
+    context.damage = attackProfile.damage;
+    context.staminaCost = attackProfile.staminaCost;
+    context.costs = { stamina: attackProfile.staminaCost };
+    const explicitColliders = Array.isArray(attackProfile.colliders) && attackProfile.colliders.length
+      ? attackProfile.colliders.slice()
+      : inferActiveCollidersForPreset(preset);
+    context.activeColliderKeys = explicitColliders;
     context.invoke = (hook, ...args) => invokeHook(context, hook, ...args);
     context.onExecute = (...args) => invokeHook(context, 'onExecute', ...args);
-    context.onHit = (opponent, collisions) => invokeHook(context, 'onHit', opponent, collisions);
+    context.onHit = (opponent, collisions) => {
+      applyContextDamage(opponent, context, collisions);
+      invokeHook(context, 'onHit', opponent, collisions);
+    };
     context.onPhase = (label) => invokeHook(context, 'onPhase', label);
     context.onComplete = (...args) => invokeHook(context, 'onComplete', ...args);
     context.applyDuration = (value, phase) => applyDurationMultiplier(value, context, phase);
@@ -824,7 +1035,10 @@ export function makeCombat(G, C, options = {}){
     attackState.isHoldRelease = !!ATTACK.isHoldRelease;
     attackState.chargeStage = ATTACK.chargeStage || 0;
     if (attackState.currentPhase && attackState.currentPhase.toLowerCase().includes('strike')) {
-      attackState.currentActiveKeys = inferActiveCollidersForPreset(attackState.preset || context?.preset);
+      const explicitKeys = Array.isArray(context?.activeColliderKeys) && context.activeColliderKeys.length
+        ? context.activeColliderKeys.slice()
+        : inferActiveCollidersForPreset(attackState.preset || context?.preset);
+      attackState.currentActiveKeys = explicitKeys;
     } else if (!attackState.currentPhase || attackState.currentPhase === 'Stance') {
       attackState.currentActiveKeys = [];
     }
@@ -913,9 +1127,12 @@ export function makeCombat(G, C, options = {}){
   }
 
   function executeHeavyAbility(slotKey, abilityId, chargeStage){
-    const ability = getAbility(abilityId);
-    if (!ability) return;
+    const abilityTemplate = getAbility(abilityId);
+    if (!abilityTemplate) return;
 
+    const fighter = P();
+    const ability = instantiateAbility(abilityTemplate, fighter);
+    if (!ability) return;
     const attackId = ability.attack || ability.defaultAttack || abilityId;
     const attackDef = getAttackDef(attackId) || { id: attackId, preset: attackId };
     const context = buildAttackContext({
@@ -928,6 +1145,12 @@ export function makeCombat(G, C, options = {}){
       chargeStage,
       comboHits: COMBO.hits
     });
+
+    if (!ensureAbilityCosts(context)){
+      console.log(logPrefix, `Heavy ability ${abilityId} blocked - not enough stamina`);
+      ATTACK.pendingAbilityId = null;
+      return;
+    }
 
     ATTACK.active = true;
     ATTACK.preset = context.preset;
@@ -972,7 +1195,10 @@ export function makeCombat(G, C, options = {}){
     const abilityTemplate = getAbility(abilityId);
     if (!abilityTemplate) return;
 
-    const ability = resolveComboAbilityForWeapon(abilityTemplate);
+    const fighter = P();
+    const abilityBase = resolveComboAbilityForWeapon(abilityTemplate);
+    const ability = instantiateAbility(abilityBase, fighter);
+    if (!ability) return;
     const sequence = ability.sequence || [];
     if (sequence.length === 0){
       console.warn(`[combat] combo ability "${abilityId}" has no sequence`);
@@ -1018,6 +1244,11 @@ export function makeCombat(G, C, options = {}){
       comboHits: COMBO.hits
     });
 
+    if (!ensureAbilityCosts(context)){
+      console.log(logPrefix, `Combo ability ${abilityId} blocked - not enough stamina`);
+      return;
+    }
+
     logAbilityExecution(context, 'combo');
 
     playQuickAttack(context.preset, windupOverride, context);
@@ -1029,7 +1260,11 @@ export function makeCombat(G, C, options = {}){
   }
 
   function triggerQuickAbility(slotKey, abilityId, { skipQueue = false } = {}){
-    const ability = getAbility(abilityId);
+    const abilityTemplate = getAbility(abilityId);
+    if (!abilityTemplate) return;
+
+    const fighter = P();
+    const ability = instantiateAbility(abilityTemplate, fighter);
     if (!ability) return;
 
     if (!canAttackNow()){
@@ -1079,6 +1314,11 @@ export function makeCombat(G, C, options = {}){
       variant,
       comboHits: COMBO.hits
     });
+
+    if (!ensureAbilityCosts(context)){
+      console.log(logPrefix, `Quick ability ${abilityId} blocked - not enough stamina`);
+      return;
+    }
 
     logAbilityExecution(context, 'quick');
 

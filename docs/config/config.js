@@ -795,6 +795,13 @@ window.CONFIG = {
       fighter: 'Mao-ao_M',
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
+      stats: {
+        strength: 12,
+        agility: 11,
+        endurance: 10,
+        maxHealth: 110,
+        maxStamina: 115
+      },
       bodyColors: {
         A: { h: -40, s: -0.3, v: -0.5 },
         B: { h: -35, s: 0.2, v: 0 },
@@ -818,6 +825,13 @@ window.CONFIG = {
       fighter: 'Mao-ao_M',
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_punch', 'heavy_hold'],
+      stats: {
+        strength: 10,
+        agility: 9,
+        endurance: 12,
+        maxHealth: 120,
+        maxStamina: 120
+      },
       bodyColors: {
         A: { h: -90, s: -0.3, v: -0.3 },
         B: { h: -50, s: 0.2, v: 0.55 },
@@ -895,50 +909,95 @@ window.CONFIG = {
       ComboKICK_S: {
         preset: 'ComboKICK_S',
         tags: ['combo', 'light'],
-        sequence: ['ComboKICK_S']
+        sequence: ['ComboKICK_S'],
+        attackData: {
+          damage: { health: 7 },
+          staminaCost: 7,
+          colliders: ['footR']
+        }
       },
       ComboKICK_F: {
         preset: 'ComboKICK_F',
         tags: ['combo', 'light'],
-        sequence: ['ComboKICK_F']
+        sequence: ['ComboKICK_F'],
+        attackData: {
+          damage: { health: 8 },
+          staminaCost: 8,
+          colliders: ['footL']
+        }
       },
       ComboPUNCH_R: {
         preset: 'ComboPUNCH_R',
         tags: ['combo', 'light'],
-        sequence: ['ComboPUNCH_R']
+        sequence: ['ComboPUNCH_R'],
+        attackData: {
+          damage: { health: 6 },
+          staminaCost: 6,
+          colliders: ['handR']
+        }
       },
       ComboPUNCH_L: {
         preset: 'ComboPUNCH_L',
         tags: ['combo', 'light'],
-        sequence: ['ComboPUNCH_L']
+        sequence: ['ComboPUNCH_L'],
+        attackData: {
+          damage: { health: 6 },
+          staminaCost: 6,
+          colliders: ['handL']
+        }
       },
       QuickKick: {
         preset: 'KICK',
         tags: ['quick', 'light'],
-        sequence: ['KICK']
+        sequence: ['KICK'],
+        attackData: {
+          damage: { health: 10 },
+          staminaCost: 12,
+          colliders: ['footR']
+        }
       },
       QuickKickCombo: {
         preset: 'KICK',
         tags: ['quick', 'light', 'comboVariant'],
         sequence: ['KICK'],
-        multipliers: { durations: 0.85, knockback: 1.35 }
+        multipliers: { durations: 0.85, knockback: 1.35 },
+        attackData: {
+          damage: { health: 12 },
+          staminaCost: 13,
+          colliders: ['footR']
+        }
       },
       QuickPunch: {
         preset: 'PUNCH',
         tags: ['quick', 'light'],
-        sequence: ['PUNCH']
+        sequence: ['PUNCH'],
+        attackData: {
+          damage: { health: 9 },
+          staminaCost: 10,
+          colliders: ['handR']
+        }
       },
       QuickPunchCombo: {
         preset: 'PUNCH',
         tags: ['quick', 'light', 'comboVariant'],
         sequence: ['PUNCH'],
-        multipliers: { durations: 0.85, knockback: 1.35 }
+        multipliers: { durations: 0.85, knockback: 1.35 },
+        attackData: {
+          damage: { health: 11 },
+          staminaCost: 11,
+          colliders: ['handR']
+        }
       },
       Slam: {
         preset: 'SLAM',
         tags: ['heavy'],
         sequence: ['SLAM'],
-        multipliers: { durations: 1.1, knockback: 1.2 }
+        multipliers: { durations: 1.1, knockback: 1.2 },
+        attackData: {
+          damage: { health: 22 },
+          staminaCost: 28,
+          colliders: ['handL', 'handR']
+        }
       },
       UnArCA1: {
         preset: 'ComboPUNCH_R',
@@ -946,7 +1005,12 @@ window.CONFIG = {
         tags: ['combo', 'light', 'unarmed'],
         sequence: [
           { move: 'ComboPUNCH_R', startMs: 0 }
-        ]
+        ],
+        attackData: {
+          damage: { health: 6 },
+          staminaCost: 6,
+          colliders: ['handR']
+        }
       },
       UnArCA2: {
         preset: 'ComboKICK_S',
@@ -954,7 +1018,12 @@ window.CONFIG = {
         tags: ['combo', 'light', 'unarmed'],
         sequence: [
           { move: 'ComboKICK_S', startMs: 0 }
-        ]
+        ],
+        attackData: {
+          damage: { health: 7 },
+          staminaCost: 7,
+          colliders: ['footR']
+        }
       },
       UnArCA3: {
         preset: 'ComboPUNCH_L',
@@ -963,7 +1032,12 @@ window.CONFIG = {
         sequence: [
           { move: 'ComboPUNCH_L', startMs: 0 },
           { move: 'ComboPUNCH_R', startMs: 160 }
-        ]
+        ],
+        attackData: {
+          damage: { health: 9 },
+          staminaCost: 8,
+          colliders: ['handL', 'handR']
+        }
       },
       UnArCA4: {
         preset: 'ComboKICK_F',
@@ -971,7 +1045,12 @@ window.CONFIG = {
         tags: ['combo', 'light', 'unarmed'],
         sequence: [
           { move: 'ComboKICK_F', startMs: 0 }
-        ]
+        ],
+        attackData: {
+          damage: { health: 10 },
+          staminaCost: 8,
+          colliders: ['footL']
+        }
       }
     },
     abilities: {
