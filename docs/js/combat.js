@@ -117,7 +117,8 @@ export function makeCombat(G, C, options = {}){
     chargeStage: 0,
     context: null,
     pendingAbilityId: null,
-    sequenceTimers: []
+    sequenceTimers: [],
+    hitPause: 0,
   };
 
   const CHARGE = {
@@ -846,7 +847,15 @@ export function makeCombat(G, C, options = {}){
       const stamina = context.fighter?.stamina;
       if (stamina){
         const current = Number.isFinite(stamina.current) ? stamina.current : 0;
-        stamina.current = Math.max(0, current - staminaCost);
+        const min = Number.isFinite(stamina.min)
+          ? stamina.min
+          : -(Number.isFinite(stamina.max) ? stamina.max : 100);
+        const next = current - staminaCost;
+        stamina.current = Math.max(min, next);
+        const exhausted = stamina.current < 0;
+        stamina.exhausted = exhausted;
+        const denom = Math.max(1, Math.abs(min));
+        stamina.exhaustionRatio = exhausted ? Math.min(1, Math.abs(stamina.current) / denom) : 0;
       }
     }
   }
@@ -1058,6 +1067,11 @@ export function makeCombat(G, C, options = {}){
     attackState.slot = ATTACK.slot || attackState.slot || null;
     attackState.isHoldRelease = !!ATTACK.isHoldRelease;
     attackState.chargeStage = ATTACK.chargeStage || 0;
+    attackState.hitPause = Number.isFinite(attackState.hitPause) ? attackState.hitPause : 0;
+    if (Number.isFinite(ATTACK.hitPause) && ATTACK.hitPause > attackState.hitPause) {
+      attackState.hitPause = ATTACK.hitPause;
+    }
+    ATTACK.hitPause = attackState.hitPause;
     if (attackState.currentPhase && attackState.currentPhase.toLowerCase().includes('strike')) {
       const explicitKeys = Array.isArray(context?.activeColliderKeys) && context.activeColliderKeys.length
         ? context.activeColliderKeys.slice()
@@ -1115,6 +1129,7 @@ export function makeCombat(G, C, options = {}){
               ATTACK.preset = null;
               ATTACK.context = null;
               updateFighterAttackState('Stance', { active: false, context: null });
+              ATTACK.hitPause = 0;
             });
           });
         });
@@ -1143,6 +1158,7 @@ export function makeCombat(G, C, options = {}){
               ATTACK.preset = null;
               ATTACK.context = null;
               updateFighterAttackState('Stance', { active: false, context: null });
+              ATTACK.hitPause = 0;
             });
           });
         });
@@ -1205,12 +1221,13 @@ export function makeCombat(G, C, options = {}){
           if (finishedContext?.onComplete){
             try { finishedContext.onComplete(); } catch(err){ console.warn('[combat] heavy onComplete error', err); }
           }
-          ATTACK.active = false;
-          ATTACK.preset = null;
-          ATTACK.isHoldRelease = false;
-          ATTACK.context = null;
-          updateFighterAttackState('Stance', { active: false, context: null });
-        });
+        ATTACK.active = false;
+        ATTACK.preset = null;
+        ATTACK.isHoldRelease = false;
+        ATTACK.context = null;
+        updateFighterAttackState('Stance', { active: false, context: null });
+        ATTACK.hitPause = 0;
+      });
       });
     });
   }
@@ -1442,6 +1459,7 @@ export function makeCombat(G, C, options = {}){
         ATTACK.active = false;
         ATTACK.isCharging = false;
         ATTACK.context = null;
+        ATTACK.hitPause = 0;
       }
       const ability = getAbilityForSlot(slotKey, 'light');
       if (ability){
@@ -1472,6 +1490,7 @@ export function makeCombat(G, C, options = {}){
             cancelQueuedLayerOverrides();
             pushPoseOverride(poseTarget, buildPoseFromKey('Stance'), 200);
             updateFighterAttackState('Stance', { active: false, context: null });
+            ATTACK.hitPause = 0;
           }
         }
       }
@@ -1591,9 +1610,29 @@ export function makeCombat(G, C, options = {}){
 
   // Update transitions
   function updateTransitions(dt){
+    const fighter = P();
+    let pauseApplied = 0;
+    if (fighter?.attack) {
+      const pauseRemaining = Number.isFinite(fighter.attack.hitPause) ? fighter.attack.hitPause : 0;
+      if (pauseRemaining > 0 && Number.isFinite(dt) && dt > 0) {
+        pauseApplied = Math.min(pauseRemaining, dt);
+        fighter.attack.hitPause = Math.max(0, pauseRemaining - pauseApplied);
+        ATTACK.hitPause = fighter.attack.hitPause;
+      } else {
+        ATTACK.hitPause = 0;
+      }
+    } else {
+      ATTACK.hitPause = 0;
+    }
+
     if (!TRANSITION.active) return;
-    
-    TRANSITION.elapsed += dt * 1000;
+
+    const progressDt = dt - pauseApplied;
+    if (progressDt <= 0) {
+      return;
+    }
+
+    TRANSITION.elapsed += progressDt * 1000;
     
     // Apply flips at the specified progress point
     if (TRANSITION.flipAt !== null && !TRANSITION.flipApplied && TRANSITION.flipParts){

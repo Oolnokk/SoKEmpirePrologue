@@ -435,10 +435,13 @@ export function initFighters(cv, cx){
       stamina: {
         current: maxStamina,
         max: maxStamina,
+        min: -maxStamina,
         drainRate: staminaDrainRate,
         regenRate: staminaRegenRate,
         minToDash: staminaMinToDash,
         isDashing: false,
+        exhausted: false,
+        exhaustionRatio: 0,
       },
       attack: {
         active: false,
