@@ -627,10 +627,14 @@ export function makeCombat(G, C, options = {}){
   }
 
   function getEquippedWeaponKey(){
-    return G.selectedWeapon
+    const key = G.selectedWeapon
       || C.characters?.[fighterKey]?.weapon
       || C.knockback?.currentWeapon
       || 'unarmed';
+    if (C.knockback) {
+      C.knockback.currentWeapon = key;
+    }
+    return key;
   }
 
   function resolveComboAbilityForWeapon(baseAbility){

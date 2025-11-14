@@ -17,7 +17,7 @@
 // (or 0 if null). It does NOT convert degrees to radians - that conversion happens
 // in animator.js via degToRadPose() before values reach this module.
 
-import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withAXUtil, rad, angleFromDelta as angleFromDeltaUtil } from './math-utils.js?v=1';
+import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withAXUtil, rad, angleFromDelta as angleFromDeltaUtil, degToRad } from './math-utils.js?v=1';
 import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=2';
 import { pickFighterConfig, lengths, pickOffsets } from './fighter-utils.js?v=1';
 
@@ -182,6 +182,61 @@ function computeAnchorsForFighter(F, C, fallbackFighterName) {
     leg_R_lower:{x:rKneePosArr[0],y:rKneePosArr[1],len:L.legL,ang:rKneeAng,endX:rAnklePosArr[0],endY:rAnklePosArr[1]}
   };
 
+  const resolveWeaponAttachment = (attachKey) => {
+    switch ((attachKey || '').toLowerCase()) {
+      case 'rwrist':
+        return { pos: rWristPosArr, ang: rLowerAng };
+      case 'lwrist':
+        return { pos: lWristPosArr, ang: lLowerAng };
+      case 'relbow':
+        return { pos: rElbowPosArr, ang: rUpperAng };
+      case 'lelbow':
+        return { pos: lElbowPosArr, ang: lUpperAng };
+      case 'rshoulder':
+        return { pos: rShoulderBaseArr, ang: rUpperAng };
+      case 'lshoulder':
+        return { pos: lShoulderBaseArr, ang: lUpperAng };
+      case 'torso':
+        return { pos: hipBaseArr, ang: torsoAng };
+      default:
+        return null;
+    }
+  };
+
+  const weaponKey = profile.weapon
+    || profile.character?.weapon
+    || (typeof F.weapon === 'string' ? F.weapon : null);
+  const weaponDef = weaponKey && C.weapons ? C.weapons[weaponKey] : null;
+  if (weaponDef && Array.isArray(weaponDef.boneOffsets) && weaponDef.boneOffsets.length) {
+    weaponDef.boneOffsets.forEach((spec, index) => {
+      if (!spec) return;
+      const attachment = resolveWeaponAttachment(spec.attach || '');
+      if (!attachment || !attachment.pos) return;
+      const basePos = attachment.pos;
+      const baseAng = attachment.ang ?? torsoAng;
+      const offsetX = Number(spec.x) || 0;
+      const offsetY = Number(spec.y) || 0;
+      const startArr = withAX(basePos[0], basePos[1], baseAng, offsetX, offsetY);
+      const length = Math.max(0, Number(spec.length) || 0);
+      const angOffset = Number.isFinite(spec.angleRad)
+        ? spec.angleRad
+        : (Number.isFinite(spec.angleDeg) ? degToRad(spec.angleDeg) : 0);
+      const boneAng = baseAng + angOffset;
+      const [endX, endY] = segPos(startArr[0], startArr[1], length, boneAng);
+      const boneKey = `weapon_${index}`;
+      B[boneKey] = {
+        x: startArr[0],
+        y: startArr[1],
+        len: length,
+        ang: boneAng,
+        endX,
+        endY,
+        attach: spec.attach || null,
+        weapon: weaponKey
+      };
+    });
+  }
+
   // Determine if character is facing left for sprite rendering
   const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
   const flipLeft = Math.cos(facingRad) < 0;
@@ -199,7 +254,9 @@ export const LIMB_COLORS = {
   leg_L_upper: '#34d399',
   leg_L_lower: '#10b981',
   leg_R_upper: '#fde68a',
-  leg_R_lower: '#f59e0b'
+  leg_R_lower: '#f59e0b',
+  weapon_0: '#fb923c',
+  weapon_1: '#f97316'
 };
 
 function drawJoint(ctx, x, y, color){
@@ -244,6 +301,12 @@ function drawStick(ctx, B) {
   ctx.lineWidth = 4;
   const order = ['torso','head','arm_L_upper','arm_L_lower','arm_R_upper','arm_R_lower','leg_L_upper','leg_L_lower','leg_R_upper','leg_R_lower'];
   for (const key of order) {
+    drawSegment(ctx, key, B);
+  }
+  const weaponKeys = Object.keys(B)
+    .filter((key) => key.startsWith('weapon_'))
+    .sort();
+  for (const key of weaponKeys) {
     drawSegment(ctx, key, B);
   }
 }
