@@ -316,7 +316,6 @@ canvas#game{
 .stamina-fill{background:linear-gradient(90deg,#22c55e 0%,#86efac 55%,#22c55e 100%);box-shadow:0 0 12px rgba(34,197,94,0.45);}
 .stamina-fill.low{background:linear-gradient(90deg,#ef4444 0%,#fca5a5 55%,#ef4444 100%);box-shadow:0 0 12px rgba(239,68,68,0.45);}
 .stamina-fill.dashing{background:linear-gradient(90deg,#3b82f6 0%,#60a5fa 55%,#3b82f6 100%);box-shadow:0 0 16px rgba(59,130,246,0.55);animation:pulse 0.32s ease-in-out infinite alternate;}
-.stamina-fill.exhausted{background:linear-gradient(90deg,#7f1d1d 0%,#b91c1c 55%,#7f1d1d 100%);box-shadow:0 0 18px rgba(185,28,28,0.55);animation:none;}
 @keyframes pulse{from{opacity:0.8;}to{opacity:1;}}
 .footing-fill{background:linear-gradient(90deg,#d4d4d8 0%,#f4f4f5 60%,#d4d4d8 100%);box-shadow:0 0 10px rgba(212,212,216,0.4);}
 
