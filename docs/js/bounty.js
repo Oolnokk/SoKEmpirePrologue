@@ -121,6 +121,12 @@ function updateStars(state, config) {
 }
 
 function spawnWave(state, config) {
+  const templateId = getBountyNpcTemplateId();
+  const baseNpc = window.GAME?.FIGHTERS?.npc;
+  if (baseNpc && (baseNpc.templateId !== templateId || baseNpc.spawnMetadata?.templateId !== templateId)) {
+    applyNpcTemplate(templateId);
+  }
+
   const npcs = getActiveNpcFighters();
   const aliveCount = npcs.filter((npc) => npc && !npc.isDead).length;
   const maxActive = Math.max(1, Number.isFinite(config.maxActive) ? config.maxActive : DEFAULT_BOUNTY_CONFIG.maxActive);

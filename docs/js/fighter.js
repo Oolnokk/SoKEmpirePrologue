@@ -275,6 +275,16 @@ const SPAWN_PREFAB_SETS = {
 
 function degPoseToRad(p){ if(!p) return {}; const o={}; for (const k of ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee']){ if (p[k]!=null) o[k]=degToRad(p[k]); } return o; }
 
+const DEFAULT_NPC_TEMPLATE_ID = 'citywatch_watchman';
+
+function resolveInitialNpcTemplateId() {
+  const raw = window.CONFIG?.bounty?.npcTemplateId;
+  if (typeof raw === 'string' && raw.trim().length) {
+    return raw.trim();
+  }
+  return DEFAULT_NPC_TEMPLATE_ID;
+}
+
 export function initFighters(cv, cx){
   const G = (window.GAME ||= {});
   const C = (window.CONFIG || {});
@@ -740,6 +750,11 @@ export function initFighters(cv, cx){
     characterState[fighterId] = fighter.renderProfile ? clone(fighter.renderProfile) : null;
   }
   G.CHARACTER_STATE = characterState;
+
+  const npcTemplateId = resolveInitialNpcTemplateId();
+  if (npcTemplateId) {
+    applyNpcTemplate(npcTemplateId);
+  }
   if (G.editorPreview) {
     G.editorPreview.spawn = {
       player: {
@@ -819,6 +834,60 @@ export function spawnAdditionalNpc(options = {}) {
   if (G.CHARACTER_STATE) {
     G.CHARACTER_STATE[id] = npc.renderProfile ? clone(npc.renderProfile) : null;
   }
+  return npc;
+}
+
+export function applyNpcTemplate(templateId, options = {}) {
+  if (!templateId) return null;
+  const G = (window.GAME ||= {});
+  const fighters = G.FIGHTERS || {};
+  const npc = fighters.npc;
+  if (!npc) return null;
+  const templates = G.FIGHTER_TEMPLATES || {};
+  const baseTemplate = templates.npc ? clone(templates.npc) : clone(npc);
+  const templateResult = instantiateCharacterTemplate(templateId, {
+    player: fighters.player || null,
+    random: typeof options.random === 'function' ? options.random : undefined,
+  });
+  if (!templateResult?.character) return null;
+
+  applyCharacterTemplateToFighter(npc, templateResult, baseTemplate);
+  const resolvedTemplateId = templateResult.templateId || templateId;
+  npc.templateId = resolvedTemplateId;
+
+  const spawnMeta = G.FIGHTER_SPAWNS?.npc || {};
+  const spawnY = Number.isFinite(spawnMeta.y) ? spawnMeta.y : npc.pos?.y;
+  const spawnX = Number.isFinite(npc.pos?.x)
+    ? npc.pos.x
+    : (Number.isFinite(spawnMeta.x) ? spawnMeta.x : 0);
+  const facingSign = Number.isFinite(npc.facingSign)
+    ? npc.facingSign
+    : (Number.isFinite(spawnMeta.facingSign) ? spawnMeta.facingSign : -1);
+
+  resetRuntimeState(npc, npc, {
+    id: npc.id || 'npc',
+    x: spawnX,
+    y: npc.pos?.y ?? spawnMeta.y ?? 0,
+    facingSign,
+    spawnY,
+  });
+
+  npc.spawnMetadata = {
+    ...(npc.spawnMetadata || {}),
+    templateId: resolvedTemplateId,
+  };
+  if (npc.renderProfile) {
+    npc.renderProfile.templateId = resolvedTemplateId;
+    npc.renderProfile.characterKey = npc.renderProfile.characterKey
+      || templateResult.characterKey
+      || resolvedTemplateId;
+  }
+
+  templates.npc = clone(npc);
+  if (G.CHARACTER_STATE) {
+    G.CHARACTER_STATE[npc.id || 'npc'] = npc.renderProfile ? clone(npc.renderProfile) : null;
+  }
+
   return npc;
 }
 
