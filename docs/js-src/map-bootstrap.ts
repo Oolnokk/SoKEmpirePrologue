@@ -514,6 +514,9 @@ async function loadStartingArea(): Promise<void> {
   const configPreviewToken = typeof MAP_CONFIG.previewToken === 'string' ? MAP_CONFIG.previewToken : null;
   const previewToken = configPreviewToken || params.get('preview');
   const previewPayload = consumeEditorPreviewLayout(previewToken);
+  const previewMessagePromise: Promise<PreviewPayload | null> = (!previewPayload?.layout && previewToken)
+    ? waitForPreviewMessage(previewToken)
+    : Promise.resolve(null);
   const { prefabs: prefabMap } = await prefabLibraryPromise;
   const prefabResolver = createPrefabResolver(prefabMap);
 
@@ -528,7 +531,7 @@ async function loadStartingArea(): Promise<void> {
     }
   } else if (previewToken) {
     console.warn('[map-bootstrap] Preview token requested but no payload was available in storage; waiting for direct preview message.');
-    const messagePayload = await waitForPreviewMessage(previewToken);
+    const messagePayload = await previewMessagePromise;
     if (messagePayload?.layout) {
       const applied = applyPreviewLayout(messagePayload.layout, {
         previewToken,
