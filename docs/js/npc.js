@@ -199,6 +199,39 @@ function ensureNpcAggressionState(state) {
   return aggression;
 }
 
+function ensureNpcStaminaAwareness(state) {
+  if (!state?.stamina) return null;
+  const stamina = state.stamina;
+  // Implementation note: we considered wiring this stamina caution either
+  // through combat cost guards or the global stamina tick, but keeping it on
+  // the NPC state keeps the behavior modular and avoids side-effects for the
+  // player controller.
+  stamina.prev = Number.isFinite(stamina.prev)
+    ? stamina.prev
+    : Number.isFinite(stamina.current)
+      ? stamina.current
+      : 0;
+  stamina.exhaustionCount = Number.isFinite(stamina.exhaustionCount)
+    ? stamina.exhaustionCount
+    : 0;
+  stamina.recovering = !!stamina.recovering;
+  stamina.reengageRatio = Number.isFinite(stamina.reengageRatio)
+    ? clamp(stamina.reengageRatio, 0.1, 0.95)
+    : 0.6;
+  return stamina;
+}
+
+function clearNpcPresses(state, combat) {
+  if (!state) return;
+  const presses = state.aiButtonPresses;
+  if (!presses) return;
+  for (const key of Object.keys(presses)) {
+    if (presses[key]?.down) {
+      releaseNpcButton(state, combat, key);
+    }
+  }
+}
+
 function computeGroundY(config) {
   const canvasH = config.canvas?.h || 460;
   const groundRatio = config.groundRatio ?? 0.7;
@@ -689,6 +722,56 @@ function updateNpcMovement(G, npcSystems, state, dt) {
   const combo = ensureComboState(state);
   const input = ensureNpcInputState(state);
   const aggression = ensureNpcAggressionState(state);
+  const stamina = ensureNpcStaminaAwareness(state);
+  const ai = state.ai || (state.ai = {});
+  const panicThreshold = Number.isFinite(ai.panicThreshold)
+    ? clamp(ai.panicThreshold, 0, 1)
+    : 0.3;
+  if (stamina && Number.isFinite(ai.staminaReengageRatio)) {
+    stamina.reengageRatio = clamp(ai.staminaReengageRatio, 0.1, 0.95);
+  }
+  const health = state.health;
+  const healthMax = Number.isFinite(health?.max) ? health.max : Number.isFinite(health?.current) ? Math.max(health.current, 0) : 0;
+  const healthCurrent = Number.isFinite(health?.current) ? Math.max(0, health.current) : healthMax;
+  const healthRatio = healthMax > 0 ? healthCurrent / healthMax : 1;
+  const isPanicking = healthRatio <= panicThreshold;
+  ai.isPanicking = isPanicking;
+  let enteredRecovery = false;
+  let exitedRecovery = false;
+
+  if (stamina) {
+    const currentStamina = Number.isFinite(stamina.current) ? stamina.current : 0;
+    const previousStamina = Number.isFinite(stamina.prev) ? stamina.prev : currentStamina;
+    if (isPanicking) {
+      if (stamina.recovering || stamina.exhaustionCount) {
+        stamina.recovering = false;
+        stamina.exhaustionCount = 0;
+        exitedRecovery = true;
+      }
+    } else if (!stamina.recovering && currentStamina <= 0 && previousStamina > 0) {
+      stamina.recovering = true;
+      stamina.exhaustionCount += 1;
+      enteredRecovery = true;
+    }
+  }
+
+  if (enteredRecovery) {
+    clearNpcPresses(state, combat);
+    if (attack?.active) {
+      resetAttackState(state);
+    }
+    if (combo) {
+      combo.active = false;
+      combo.sequenceIndex = 0;
+      combo.attackDelay = 0;
+    }
+    state.mode = 'recover';
+    state.cooldown = Math.max(state.cooldown || 0, 0.5);
+    if (state.stamina) {
+      state.stamina.isDashing = false;
+    }
+  }
+
   updateNpcAutomatedInput(state, combat, dt);
 
   const attackActive = aggression.active && (typeof combat?.isFighterAttacking === 'function'
@@ -746,6 +829,11 @@ function updateNpcMovement(G, npcSystems, state, dt) {
     state.mode = aggression.triggered ? 'alert' : 'idle';
     state.cooldown = 0;
     state.stamina.isDashing = false;
+    if (stamina) {
+      stamina.recovering = false;
+      stamina.exhaustionCount = 0;
+      stamina.prev = Number.isFinite(stamina.current) ? stamina.current : stamina.prev;
+    }
   }
 
   const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
@@ -760,7 +848,14 @@ function updateNpcMovement(G, npcSystems, state, dt) {
       input.left = false;
       input.right = false;
     } else {
-      if (state.mode === 'attack') {
+      const recovering = stamina?.recovering && !isPanicking;
+      if (recovering) {
+        state.mode = 'recover';
+        input.right = dx < 0;
+        input.left = dx > 0;
+        state.stamina.isDashing = false;
+        state.cooldown = Math.max(state.cooldown, 0.4);
+      } else if (state.mode === 'attack') {
         state.mode = 'evade';
         state.timer = 0.3;
         state.cooldown = Math.max(state.cooldown, 0.35);
@@ -785,16 +880,39 @@ function updateNpcMovement(G, npcSystems, state, dt) {
           state.mode = 'approach';
           state.stamina.isDashing = false;
         }
+      } else if (state.mode === 'recover') {
+        state.stamina.isDashing = false;
+        input.right = dx < 0;
+        input.left = dx > 0;
       } else {
         state.stamina.isDashing = false;
       }
     }
 
-    if (state.mode === 'attack' && !attackActive && !isPressing) {
+    const recovering = stamina?.recovering && !isPanicking;
+    if (state.mode === 'attack' && !attackActive && !isPressing && !recovering) {
       state.mode = 'approach';
     }
   } else {
     state.stamina.isDashing = false;
+  }
+
+  if (stamina) {
+    const max = Number.isFinite(stamina.max) ? stamina.max : 100;
+    const minToDash = Number.isFinite(stamina.minToDash) ? stamina.minToDash : 0;
+    const recoveryThreshold = Math.max(minToDash, max * stamina.reengageRatio);
+    const current = Number.isFinite(stamina.current) ? stamina.current : 0;
+    if (!isPanicking && stamina.recovering && current >= recoveryThreshold) {
+      stamina.recovering = false;
+      stamina.exhaustionCount = 0;
+      exitedRecovery = true;
+    }
+    stamina.prev = Number.isFinite(stamina.current) ? stamina.current : stamina.prev;
+  }
+
+  if (exitedRecovery && state.mode === 'recover') {
+    state.mode = 'approach';
+    state.cooldown = Math.max(state.cooldown, 0.25);
   }
 
   updateFighterPhysics(state, C, dt, { input, attackActive });

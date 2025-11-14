@@ -439,6 +439,7 @@ export function initFighters(cv, cx){
         regenRate: staminaRegenRate,
         minToDash: staminaMinToDash,
         isDashing: false,
+        reengageRatio: 0.6,
       },
       attack: {
         active: false,
@@ -486,6 +487,8 @@ export function initFighters(cv, cx){
             mode: 'approach',
             timer: 0,
             cooldown: 0,
+            panicThreshold: 0.3,
+            staminaReengageRatio: 0.6,
           }
         : null,
     };
