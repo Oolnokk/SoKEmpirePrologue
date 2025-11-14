@@ -761,9 +761,9 @@ window.CONFIG = {
         alignDeg: 90,
         styleOverride: {
           xformUnits: 'percent',
-          widthFactor: { weapon_0: 0.42 },
+          widthFactor: { weapon_0: 1 },
           xform: {
-            weapon_0: { ax: 0.48, ay: -0.04, scaleX: 1.08, scaleY: 1.02 }
+            weapon_0: { ax: 0, ay: -0, scaleX: 0.5, scaleY: 0.5 }
           }
         }
       }
