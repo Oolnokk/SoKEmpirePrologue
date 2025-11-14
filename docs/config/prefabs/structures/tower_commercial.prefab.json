@@ -1,5 +1,5 @@
 {
-  "structureId": "tower_v1",
+  "structureId": "Commercial Tower",
   "base": {},
   "parts": [
     {
@@ -10,7 +10,7 @@
       "z": 10,
       "propTemplate": {
         "id": "tower_near",
-        "url": "https://i.imgur.com/T32ZEPl.png",
+        "url": "https://i.imgur.com/tower_commercial_near.png",
         "w": 360,
         "h": 480,
         "pivot": "bottom",
@@ -52,7 +52,7 @@
       "z": 0,
       "propTemplate": {
         "id": "tower_farleft",
-        "url": "https://i.imgur.com/rwNudcI.png",
+        "url": "https://i.imgur.com/tower_general_far.png",
         "w": 360,
         "h": 480,
         "pivot": "bottom",
@@ -87,14 +87,14 @@
       }
     },
     {
-      "name": "part_3",
+      "name": "tower_farRight",
       "layer": "far",
       "relX": 0,
       "relY": 0,
       "z": 0,
       "propTemplate": {
-        "id": "part_3",
-        "url": "https://i.imgur.com/rwNudcI.png",
+        "id": "tower_farRight",
+        "url": "https://i.imgur.com/tower_general_far.png",
         "w": 360,
         "h": 480,
         "pivot": "bottom",

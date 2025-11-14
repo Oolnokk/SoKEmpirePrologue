@@ -38,6 +38,319 @@ function ensureAnimState(F){
       F.anim.pendingLayerTimers = {};
     }
   }
+  if (!F.anim.breath || typeof F.anim.breath !== 'object'){
+    F.anim.breath = { phase: 0, direction: 1, styleOverride: null, shoulderOffsets: null, active: false };
+  } else {
+    if (!Number.isFinite(F.anim.breath.phase)) F.anim.breath.phase = 0;
+    if (F.anim.breath.direction !== 1 && F.anim.breath.direction !== -1) F.anim.breath.direction = 1;
+  }
+}
+
+const DEFAULT_BREATHING_FRAMES = [
+  {
+    torso: { scaleX: 1.0, scaleY: 1.0 },
+    arms: {
+      left: { ax: 0, ay: 0 },
+      right: { ax: 0, ay: 0 }
+    }
+  },
+  {
+    torso: { scaleX: 1.035, scaleY: 1.02 },
+    arms: {
+      left: { ay: -2 },
+      right: { ay: 2 }
+    }
+  }
+];
+
+const DEFAULT_BREATHING_CYCLE = 3.5;
+const DEFAULT_BREATHING_SPEED_RANGE = { min: 0.75, max: 1.6 };
+
+function toNumber(value, fallback){
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function normalizeArmOffset(spec){
+  if (spec == null) return { ax: 0, ay: 0, __mirror__: false };
+  if (typeof spec === 'number') return { ax: 0, ay: toNumber(spec, 0), __mirror__: false };
+  if (typeof spec === 'string'){
+    const trimmed = spec.trim().toLowerCase();
+    if (trimmed === 'mirror' || trimmed === 'mirrored'){
+      return { ax: 0, ay: 0, __mirror__: true };
+    }
+    const parsed = Number(trimmed);
+    if (Number.isFinite(parsed)){
+      return { ax: 0, ay: parsed, __mirror__: false };
+    }
+  }
+  if (Array.isArray(spec)){
+    return {
+      ax: toNumber(spec[0], 0),
+      ay: toNumber(spec[1], 0),
+      __mirror__: false
+    };
+  }
+  if (typeof spec === 'object'){
+    if (spec.__mirror__ === true || spec.mirror === true) return { ax: 0, ay: 0, __mirror__: true };
+    const source = spec.offset || spec.translate || spec.position || {};
+    const ax = toNumber(
+      spec.ax ?? spec.x ?? spec.offsetX ?? spec.dx ?? source.ax ?? source.x ?? source.dx,
+      0
+    );
+    const ay = toNumber(
+      spec.ay ?? spec.y ?? spec.offsetY ?? spec.dy ?? source.ay ?? source.y ?? source.dy,
+      0
+    );
+    return { ax, ay, __mirror__: false };
+  }
+  return { ax: 0, ay: 0, __mirror__: false };
+}
+
+function normalizeBreathingFrame(frame){
+  if (!frame || typeof frame !== 'object') return null;
+
+  const torsoSrc = frame.torso || frame.chest || frame.body || {};
+  const scaleBase = frame.torsoScale ?? frame.scale ?? frame.scaleAll ?? frame.scaleXY ?? frame.amount;
+  let scaleX = toNumber(frame.torsoScaleX ?? torsoSrc.scaleX ?? torsoSrc.x ?? scaleBase, NaN);
+  let scaleY = toNumber(frame.torsoScaleY ?? torsoSrc.scaleY ?? torsoSrc.y ?? scaleBase, NaN);
+  if (!Number.isFinite(scaleX)) scaleX = Number.isFinite(scaleBase) ? scaleBase : 1;
+  if (!Number.isFinite(scaleY)) scaleY = Number.isFinite(scaleBase) ? scaleBase : scaleX;
+  scaleX = clamp(scaleX, 0.5, 2.5);
+  scaleY = clamp(scaleY, 0.5, 2.5);
+
+  const armsSrc = frame.arms || frame.shoulders || {};
+  const leftSpec = frame.leftArm ?? frame.armLeft ?? frame.left ?? armsSrc.left ?? armsSrc.L ?? armsSrc.l;
+  const rightSpec = frame.rightArm ?? frame.armRight ?? frame.right ?? armsSrc.right ?? armsSrc.R ?? armsSrc.r;
+
+  const leftRaw = normalizeArmOffset(leftSpec);
+  const left = {
+    ax: toNumber(leftRaw.ax, 0),
+    ay: toNumber(leftRaw.ay, 0)
+  };
+
+  let right;
+  if (rightSpec == null){
+    if (frame.mirrorArms === false || frame.mirror === false){
+      right = { ax: left.ax, ay: left.ay };
+    } else {
+      right = { ax: left.ax, ay: -left.ay };
+    }
+  } else {
+    const rightRaw = normalizeArmOffset(rightSpec);
+    if (rightRaw.__mirror__){
+      right = { ax: left.ax, ay: -left.ay };
+    } else {
+      right = {
+        ax: toNumber(rightRaw.ax, 0),
+        ay: toNumber(rightRaw.ay, 0)
+      };
+    }
+  }
+
+  return {
+    torsoScaleX: scaleX,
+    torsoScaleY: scaleY,
+    left,
+    right
+  };
+}
+
+function resolveBreathingFrames(config){
+  const raw = config?.keyframes ?? config?.frames ?? config?.poses ?? config?.frame;
+  let list = null;
+  if (Array.isArray(raw)){
+    list = raw;
+  } else if (raw && typeof raw === 'object'){
+    const inhale = raw.inhale ?? raw.start ?? raw.a ?? null;
+    const exhale = raw.exhale ?? raw.end ?? raw.b ?? null;
+    if (inhale || exhale){
+      list = [inhale, exhale].filter(Boolean);
+    } else {
+      list = Object.values(raw);
+    }
+  }
+
+  const normalized = [];
+  if (Array.isArray(list)){
+    for (const frame of list){
+      const norm = normalizeBreathingFrame(frame);
+      if (norm) normalized.push(norm);
+      if (normalized.length >= 2) break;
+    }
+  }
+
+  if (normalized.length < 2){
+    const defaults = DEFAULT_BREATHING_FRAMES.map(f => normalizeBreathingFrame(f)).filter(Boolean);
+    return defaults.slice(0, 2);
+  }
+
+  return normalized.slice(0, 2);
+}
+
+function resolveSpeedRange(config){
+  const def = DEFAULT_BREATHING_SPEED_RANGE;
+  const direct = config?.speedMultiplier ?? config?.speedRange ?? config?.staminaSpeed ?? config?.speed ?? config?.rate;
+  let min = def.min;
+  let max = def.max;
+
+  if (Array.isArray(direct) && direct.length >= 2){
+    min = toNumber(direct[0], def.min);
+    max = toNumber(direct[1], def.max);
+  } else if (typeof direct === 'number'){
+    const val = Math.max(0.01, direct);
+    min = val;
+    max = val;
+  } else if (direct && typeof direct === 'object'){
+    min = toNumber(direct.min ?? direct.slow ?? direct.low ?? direct.start ?? direct.base, def.min);
+    max = toNumber(direct.max ?? direct.fast ?? direct.high ?? direct.end ?? direct.peak, def.max);
+  } else {
+    min = toNumber(config?.minSpeedMultiplier ?? config?.speedMultiplierMin, def.min);
+    max = toNumber(config?.maxSpeedMultiplier ?? config?.speedMultiplierMax, def.max);
+  }
+
+  if (!Number.isFinite(min)) min = def.min;
+  if (!Number.isFinite(max)) max = def.max;
+  min = Math.max(0.01, min);
+  max = Math.max(0.01, max);
+  if (max < min){
+    const tmp = min;
+    min = max;
+    max = tmp;
+  }
+  return { min, max };
+}
+
+function resolveBreathingSpec(config){
+  const source = config || {};
+  if (source.enabled === false) return null;
+  const frames = resolveBreathingFrames(source);
+  if (!frames || frames.length < 2) return null;
+  const cycleSrc = source.cycleDuration ?? source.duration ?? source.cycle ?? source.period ?? source.cycleSeconds ?? source.seconds;
+  const cycle = Math.max(0.1, toNumber(cycleSrc, DEFAULT_BREATHING_CYCLE));
+  const speedMultiplier = resolveSpeedRange(source);
+  return { frames, cycle, speedMultiplier };
+}
+
+function pickBreathingConfig(C, fighterName){
+  const globalCfg = C.breathing;
+  const fighterCfg = C.fighters?.[fighterName]?.breathing;
+  if (!globalCfg && !fighterCfg) return null;
+  if (!globalCfg) return fighterCfg;
+  if (!fighterCfg) return globalCfg;
+  const merged = { ...globalCfg, ...fighterCfg };
+  if (fighterCfg && typeof fighterCfg === 'object'){
+    if (fighterCfg.keyframes != null || fighterCfg.frames != null || fighterCfg.poses != null){
+      merged.keyframes = fighterCfg.keyframes ?? fighterCfg.frames ?? fighterCfg.poses;
+    }
+    if (fighterCfg.speedMultiplier != null) merged.speedMultiplier = fighterCfg.speedMultiplier;
+    if (fighterCfg.speedRange != null) merged.speedRange = fighterCfg.speedRange;
+    if (fighterCfg.speed != null) merged.speed = fighterCfg.speed;
+    if (fighterCfg.rate != null) merged.rate = fighterCfg.rate;
+    if (fighterCfg.staminaSpeed != null) merged.staminaSpeed = fighterCfg.staminaSpeed;
+    if (fighterCfg.cycleDuration != null) merged.cycleDuration = fighterCfg.cycleDuration;
+    if (fighterCfg.duration != null) merged.duration = fighterCfg.duration;
+    if (fighterCfg.cycleSeconds != null) merged.cycleSeconds = fighterCfg.cycleSeconds;
+  }
+  return merged;
+}
+
+function isFighterMarkedDead(F){
+  if (!F) return false;
+  if (F.dead || F.isDead || F.deceased) return true;
+  if (F.status?.dead || F.status?.isDead) return true;
+  const state = F.status?.state ?? F.state;
+  if (typeof state === 'string' && state.toLowerCase() === 'dead') return true;
+  const tags = [];
+  if (Array.isArray(F.tags)) tags.push(...F.tags);
+  if (Array.isArray(F.status?.tags)) tags.push(...F.status.tags);
+  return tags.some(tag => typeof tag === 'string' && tag.toLowerCase() === 'dead');
+}
+
+function updateBreathing(F, fighterId, spec){
+  const breathState = F?.anim?.breath;
+  const G = window.GAME || {};
+  const store = (G.ANIM_STYLE_OVERRIDES ||= {});
+  if (!breathState){
+    if (store[fighterId]) delete store[fighterId];
+    return;
+  }
+
+  if (!spec || isFighterMarkedDead(F)){
+    breathState.active = false;
+    breathState.styleOverride = null;
+    breathState.shoulderOffsets = null;
+    if (store[fighterId]) delete store[fighterId];
+    return;
+  }
+
+  const frames = spec.frames;
+  if (!frames || frames.length < 2){
+    breathState.active = false;
+    breathState.styleOverride = null;
+    breathState.shoulderOffsets = null;
+    if (store[fighterId]) delete store[fighterId];
+    return;
+  }
+
+  const halfCycle = spec.cycle * 0.5;
+  const baseSpeed = halfCycle > 0 ? (1 / halfCycle) : 0;
+  const dt = F.anim?.dt || 0;
+
+  let ratio = 1;
+  const stamina = F.stamina;
+  if (stamina){
+    const current = Number.isFinite(stamina.current) ? stamina.current : (Number.isFinite(stamina.max) ? stamina.max : 0);
+    const max = Number.isFinite(stamina.max) && stamina.max > 0 ? stamina.max : Math.max(current, 1);
+    ratio = max > 0 ? clamp(current / max, 0, 1) : 0;
+  }
+
+  const speedRange = spec.speedMultiplier || DEFAULT_BREATHING_SPEED_RANGE;
+  const speedMult = lerp(speedRange.min, speedRange.max, 1 - ratio);
+  const delta = dt * baseSpeed * speedMult;
+
+  let phase = Number.isFinite(breathState.phase) ? breathState.phase : 0;
+  let direction = breathState.direction === -1 ? -1 : 1;
+  phase += delta * direction;
+  if (phase >= 1){
+    phase = 1;
+    direction = -1;
+  } else if (phase <= 0){
+    phase = 0;
+    direction = 1;
+  }
+  breathState.phase = phase;
+  breathState.direction = direction;
+
+  const eased = easeInOutCubic(clamp(phase, 0, 1));
+  const startFrame = frames[0];
+  const endFrame = frames[1];
+
+  const torsoScaleX = lerp(startFrame.torsoScaleX, endFrame.torsoScaleX, eased);
+  const torsoScaleY = lerp(startFrame.torsoScaleY, endFrame.torsoScaleY, eased);
+  const leftAx = lerp(startFrame.left.ax, endFrame.left.ax, eased);
+  const leftAy = lerp(startFrame.left.ay, endFrame.left.ay, eased);
+  const rightAx = lerp(startFrame.right.ax, endFrame.right.ax, eased);
+  const rightAy = lerp(startFrame.right.ay, endFrame.right.ay, eased);
+
+  const styleOverride = {
+    xform: {
+      torso: {
+        scaleX: torsoScaleX,
+        scaleY: torsoScaleY
+      }
+    }
+  };
+
+  const offsetActive = Math.abs(leftAx) > 1e-3 || Math.abs(leftAy) > 1e-3 || Math.abs(rightAx) > 1e-3 || Math.abs(rightAy) > 1e-3;
+
+  breathState.active = true;
+  breathState.styleOverride = styleOverride;
+  breathState.shoulderOffsets = offsetActive
+    ? { left: { ax: leftAx, ay: leftAy }, right: { ax: rightAx, ay: rightAy } }
+    : null;
+
+  store[fighterId] = styleOverride;
 }
 
 function trackPendingLayerTimer(F, layerId, handle){
@@ -566,8 +879,10 @@ export function updatePoses(){
   const G = window.GAME || {}; const C = window.CONFIG || {}; const now = performance.now()/1000; if (!G.FIGHTERS) return;
   // Check if joint angles are frozen (for debugging/manual pose editing)
   if (C.debug?.freezeAngles) return;
-  const fighterTypeName = pickFighterTypeName(C);
-  const fcfg = pickFighterTypeConfig(C, fighterTypeName);
+  const fighterName = pickFighterName(C);
+  const fcfg = pickFighterConfig(C, fighterName);
+  const breathingConfig = pickBreathingConfig(C, fighterName);
+  const breathingSpec = resolveBreathingSpec(breathingConfig);
   for (const id of ['player','npc']){
     const F = G.FIGHTERS[id];
     if(!F) continue;
@@ -621,6 +936,7 @@ export function updatePoses(){
     
     const target = degToRadPose(finalDeg); const lambda = 10;
     for(const k of ANG_KEYS){ const cur = F.jointAngles[k] ?? 0; const tar = target[k] ?? cur; F.jointAngles[k] = damp(cur, tar, lambda, F.anim.dt); }
+    updateBreathing(F, id, breathingSpec);
   }
 }
 

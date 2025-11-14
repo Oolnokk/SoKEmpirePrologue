@@ -3,9 +3,9 @@
   "label": "Structures",
   "entries": [
     {
-      "id": "tower_v1",
-      "label": "Tower v1",
-      "path": "./tower_v1.prefab.json"
+      "id": "tower_commercial",
+      "label": "Commercial Tower",
+      "path": "./tower_commercial.prefab.json"
     }
   ]
 }
