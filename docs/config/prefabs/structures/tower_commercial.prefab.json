@@ -10,7 +10,7 @@
       "z": 10,
       "propTemplate": {
         "id": "tower_near",
-        "url": "https://i.imgur.com/tower_commercial_near.png",
+        "url": "./assets/prefabs/structures/towers/tower_commercial_near.png",
         "w": 360,
         "h": 480,
         "pivot": "bottom",
@@ -52,7 +52,7 @@
       "z": 0,
       "propTemplate": {
         "id": "tower_farleft",
-        "url": "https://i.imgur.com/tower_general_far.png",
+        "url": "./assets/prefabs/structures/towers/tower_general_far.png",
         "w": 360,
         "h": 480,
         "pivot": "bottom",
@@ -94,7 +94,7 @@
       "z": 0,
       "propTemplate": {
         "id": "tower_farRight",
-        "url": "https://i.imgur.com/tower_general_far.png",
+        "url": "./assets/prefabs/structures/towers/tower_general_far.png",
         "w": 360,
         "h": 480,
         "pivot": "bottom",
