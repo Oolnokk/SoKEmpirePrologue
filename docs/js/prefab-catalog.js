@@ -3,8 +3,156 @@ const prefabCache = new Map();
 
 const NO_FETCH_ERROR = new Error('fetch is unavailable in this environment');
 
+const PREFAB_TYPES = new Set(['structure', 'obstruction']);
+const OBSTRUCTION_NEAR_PLANE = Object.freeze({
+  id: 'obstruction:near',
+  label: 'Obstruction Near Plane',
+  priority: 10_000,
+  locked: true,
+});
+const OBSTRUCTION_FAR_PLANE = Object.freeze({
+  id: 'obstruction:far',
+  label: 'Obstruction Far Plane',
+  priority: -10_000,
+  locked: true,
+});
+
 function clone(value) {
   return value == null ? null : JSON.parse(JSON.stringify(value));
+}
+
+function toFiniteNumber(value, fallback) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function normalizePrefabTags(rawTags, ensureObstructionTag = false) {
+  const result = [];
+  const seen = new Set();
+  const source = Array.isArray(rawTags) ? rawTags : [];
+  for (const entry of source) {
+    const normalized = typeof entry === 'string' ? entry.trim() : String(entry ?? '').trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  if (ensureObstructionTag && !seen.has('obstruction')) {
+    result.push('obstruction');
+  }
+  return result;
+}
+
+function normalizeCollisionBox(raw = {}) {
+  const box = typeof raw === 'object' && raw ? raw : {};
+  let width = toFiniteNumber(box.width ?? box.w, 0);
+  let height = toFiniteNumber(box.height ?? box.h, 0);
+  let offsetX = toFiniteNumber(box.offsetX ?? box.x ?? box.left, 0);
+  let offsetY = toFiniteNumber(box.offsetY ?? box.y ?? box.top, 0);
+
+  if (!Number.isFinite(width)) width = 0;
+  if (!Number.isFinite(height)) height = 0;
+  if (!Number.isFinite(offsetX)) offsetX = 0;
+  if (!Number.isFinite(offsetY)) offsetY = 0;
+
+  if (width < 0) {
+    width = Math.abs(width);
+  }
+  if (height < 0) {
+    height = Math.abs(height);
+  }
+
+  return {
+    width,
+    height,
+    offsetX,
+    offsetY,
+  };
+}
+
+function normalizeCollisionConfig(raw = {}) {
+  const cfg = typeof raw === 'object' && raw ? raw : {};
+  const enabled = !!(cfg.enabled ?? cfg.active ?? cfg.collides);
+  const boxSource = typeof cfg.box === 'object' && cfg.box ? cfg.box : cfg;
+  const box = normalizeCollisionBox(boxSource);
+  return {
+    enabled,
+    box,
+  };
+}
+
+function normalizePhysicsConfig(raw = {}) {
+  const cfg = typeof raw === 'object' && raw ? raw : {};
+  const enabled = !!(cfg.enabled ?? cfg.dynamic ?? cfg.movable);
+  const dynamic = enabled ? !!(cfg.dynamic ?? cfg.mode === 'dynamic' ?? cfg.movable) : false;
+  const mass = dynamic ? Math.max(0, toFiniteNumber(cfg.mass, 1)) : null;
+  const drag = dynamic ? Math.max(0, toFiniteNumber(cfg.drag ?? cfg.damping, 0)) : null;
+  return {
+    enabled,
+    dynamic,
+    mass,
+    drag,
+  };
+}
+
+function clonePlane(plane) {
+  return {
+    id: plane.id,
+    label: plane.label,
+    priority: plane.priority,
+    locked: plane.locked,
+  };
+}
+
+function normalizeObstructionDetails(raw = {}) {
+  const cfg = typeof raw === 'object' && raw ? raw : {};
+  return {
+    planes: {
+      near: clonePlane(OBSTRUCTION_NEAR_PLANE),
+      far: clonePlane(OBSTRUCTION_FAR_PLANE),
+    },
+    collision: normalizeCollisionConfig(cfg.collision),
+    physics: normalizePhysicsConfig(cfg.physics),
+  };
+}
+
+function lockObstructionParts(parts) {
+  if (!Array.isArray(parts)) return;
+  parts.forEach((part) => {
+    if (!part || typeof part !== 'object') return;
+    const plane = part.layer === 'far' ? 'far' : 'near';
+    part.layer = plane;
+    if (!part.meta || typeof part.meta !== 'object') {
+      part.meta = {};
+    }
+    const obstructionMeta = typeof part.meta.obstruction === 'object' && part.meta.obstruction
+      ? { ...part.meta.obstruction }
+      : {};
+    obstructionMeta.plane = plane;
+    obstructionMeta.renderLayer = plane === 'near' ? OBSTRUCTION_NEAR_PLANE.id : OBSTRUCTION_FAR_PLANE.id;
+    obstructionMeta.priority = plane === 'near' ? OBSTRUCTION_NEAR_PLANE.priority : OBSTRUCTION_FAR_PLANE.priority;
+    obstructionMeta.locked = true;
+    part.meta.obstruction = obstructionMeta;
+  });
+}
+
+export function normalizePrefabDefinition(prefab) {
+  if (!prefab || typeof prefab !== 'object') {
+    return prefab;
+  }
+
+  const rawType = typeof prefab.type === 'string' ? prefab.type.trim().toLowerCase() : '';
+  const type = PREFAB_TYPES.has(rawType) ? rawType : 'structure';
+  prefab.type = type;
+
+  if (type === 'obstruction') {
+    prefab.tags = normalizePrefabTags(prefab.tags, true);
+    prefab.obstruction = normalizeObstructionDetails(prefab.obstruction);
+    lockObstructionParts(prefab.parts);
+  } else {
+    prefab.tags = normalizePrefabTags(prefab.tags, false);
+  }
+
+  return prefab;
 }
 
 function getFetchImplementation(customFetch) {
@@ -143,6 +291,7 @@ async function loadPrefab(url, fetchImpl) {
     throw new Error('Prefab missing structureId');
   }
   const sanitized = clone({ ...json, structureId: String(structureId) });
+  normalizePrefabDefinition(sanitized);
   normalizePrefabAssetUrls(sanitized, absoluteUrl);
   prefabCache.set(absoluteUrl, sanitized);
   return clone(sanitized);
