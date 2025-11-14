@@ -152,6 +152,56 @@ function getPresetActiveColliders(preset) {
   return [];
 }
 
+const PRIMARY_DURATION_KEYS = {
+  Windup: ['toWindup'],
+  Strike: ['toStrike'],
+  Recoil: ['toRecoil'],
+  Stance: ['toStance'],
+  Slam: ['toStrike', 'toSlam'],
+};
+
+function deriveDurationKeyCandidates(poseName) {
+  if (!poseName || typeof poseName !== 'string') return [];
+  const trimmed = poseName.trim();
+  if (!trimmed) return [];
+  const candidates = [];
+  const canonical = trimmed.replace(/\s+/g, '');
+  const base = PRIMARY_DURATION_KEYS[canonical];
+  if (Array.isArray(base)) candidates.push(...base);
+
+  const match = canonical.match(/^(Windup|Strike|Recoil|Stance)(.+)$/i);
+  if (match) {
+    const [, prefix, suffix] = match;
+    const cap = prefix[0].toUpperCase() + prefix.slice(1).toLowerCase();
+    candidates.push(`to${cap}${suffix}`);
+    candidates.push(`to${cap}`);
+  }
+
+  if (!PRIMARY_DURATION_KEYS[canonical]) {
+    const cap = canonical[0].toUpperCase() + canonical.slice(1);
+    candidates.push(`to${cap}`);
+  }
+
+  return [...new Set(candidates)];
+}
+
+function resolveDurationMsForPose(poseName, presetDurations, fallbackDurations) {
+  const sources = [];
+  if (presetDurations) sources.push(presetDurations);
+  if (fallbackDurations) sources.push(fallbackDurations);
+  const globalDurations = window.CONFIG?.durations;
+  if (globalDurations) sources.push(globalDurations);
+  const keys = deriveDurationKeyCandidates(poseName);
+  for (const key of keys) {
+    if (!key) continue;
+    for (const source of sources) {
+      const value = source?.[key];
+      if (Number.isFinite(value) && value > 0) return value;
+    }
+  }
+  return 0;
+}
+
 function cancelNpcLayerHandles(attack) {
   if (!attack?.layerHandles) return;
   while (attack.layerHandles.length) {
@@ -293,21 +343,28 @@ function startNpcQuickAttack(state, presetName) {
   if (preset?.sequence) {
     attack.sequence = [];
     attack.durations = [];
+    const fallbackDurations = getPresetDurations(presetName) || {};
     for (const step of preset.sequence) {
-      const pose = step?.pose || step?.poseKey || 'Stance';
+      const pose = typeof step === 'string'
+        ? step
+        : step?.pose || step?.poseKey || 'Stance';
       attack.sequence.push(pose);
       let durMs = 0;
-      if (typeof step?.durMs === 'number') {
-        durMs = step.durMs;
-      } else if (step?.durKey) {
-        const durs = preset.durations || C.durations || {};
-        durMs = durs[step.durKey] || 0;
-      } else {
-        const durs = getPresetDurations(presetName) || {};
-        if (pose === 'Windup') durMs = durs.toWindup || 0;
-        else if (pose?.startsWith('Strike')) durMs = durs.toStrike || 0;
-        else if (pose === 'Recoil') durMs = durs.toRecoil || 0;
-        else durMs = durs.toStance || 0;
+      if (step && typeof step === 'object') {
+        if (Number.isFinite(step.durMs)) {
+          durMs = step.durMs;
+        } else if (Number.isFinite(step.durationMs)) {
+          durMs = step.durationMs;
+        } else if (Number.isFinite(step.dur)) {
+          durMs = step.dur;
+        }
+        if (!durMs && step.durKey) {
+          const durs = preset.durations || fallbackDurations || C.durations || {};
+          durMs = durs[step.durKey] || 0;
+        }
+      }
+      if (!durMs) {
+        durMs = resolveDurationMsForPose(pose, preset.durations, fallbackDurations);
       }
       attack.durations.push((durMs || 0) / 1000);
     }
