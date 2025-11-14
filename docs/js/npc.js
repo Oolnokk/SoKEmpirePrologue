@@ -383,8 +383,15 @@ function resolvePoseForPhase(preset, phaseName) {
   return null;
 }
 
-function applyNpcLayerOverrides(attack, overrides, stageDurMs) {
+function resolveNpcPoseTarget(state) {
+  if (!state || typeof state !== 'object') return 'npc';
+  const target = state.poseTarget || state.id;
+  return target || 'npc';
+}
+
+function applyNpcLayerOverrides(state, attack, overrides, stageDurMs) {
   if (!Array.isArray(overrides) || overrides.length === 0) return;
+  const poseTarget = resolveNpcPoseTarget(state);
   overrides.forEach((layer, index) => {
     if (!layer || layer.enabled === false) return;
     const pose = layer.pose ? clone(layer.pose) : {};
@@ -407,7 +414,7 @@ function applyNpcLayerOverrides(attack, overrides, stageDurMs) {
           : 0,
     };
     const layerId = layer.id || `npc-layer-${index}`;
-    const handle = pushPoseLayerOverride('npc', layerId, pose, opts);
+    const handle = pushPoseLayerOverride(poseTarget, layerId, pose, opts);
     if (handle && typeof handle.cancel === 'function') {
       attack.layerHandles.push(handle);
     }
@@ -432,14 +439,16 @@ function applyNpcPoseForCurrentPhase(state, { force = false } = {}) {
 
   cancelNpcLayerHandles(attack);
 
+  const poseTarget = resolveNpcPoseTarget(state);
+
   if (poseDef) {
     const { layerOverrides, ...primaryPose } = poseDef;
-    pushPoseOverride('npc', primaryPose, durMs, { suppressWalk: true });
-    applyNpcLayerOverrides(attack, layerOverrides, durMs);
+    pushPoseOverride(poseTarget, primaryPose, durMs, { suppressWalk: true });
+    applyNpcLayerOverrides(state, attack, layerOverrides, durMs);
   } else if (phaseName === 'Stance') {
     const stance = resolvePoseForPhase(null, 'Stance');
     if (stance) {
-      pushPoseOverride('npc', stance, durMs, { suppressWalk: false });
+      pushPoseOverride(poseTarget, stance, durMs, { suppressWalk: false });
     }
   }
 
@@ -468,7 +477,8 @@ function resetAttackState(state) {
   if (wasActive) {
     const stance = resolvePoseForPhase(null, 'Stance');
     if (stance) {
-      pushPoseOverride('npc', stance, 180, { suppressWalk: false });
+      const poseTarget = resolveNpcPoseTarget(state);
+      pushPoseOverride(poseTarget, stance, 180, { suppressWalk: false });
     }
   }
 }
