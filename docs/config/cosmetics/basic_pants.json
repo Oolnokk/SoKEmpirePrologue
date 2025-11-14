@@ -9,41 +9,53 @@
   },
   "parts": {
     "leg_L_upper": {
-      "image": {
-        "url": "./assets/cosmetics/clothes/legs/pants1_leg_LR.png"
-      },
-      "spriteStyle": {
-        "base": {
-          "xform": {
-            "legUpper": { "ax": 0, "ay": 0.25, "scaleX": 0.92, "scaleY": 1.2 }
+      "layers": {
+        "front": {
+          "image": {
+            "url": "./assets/cosmetics/clothes/legs/pants1_leg_LR.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "legUpper": { "ax": 0, "ay": 0.25, "scaleX": 0.92, "scaleY": 1.2 }
+              }
+            }
           }
         }
       }
     },
     "leg_R_upper": {
-      "image": {
-        "url": "./assets/cosmetics/clothes/legs/pants1_leg_LR.png"
-      },
-      "spriteStyle": {
-        "base": {
-          "xform": {
-            "legUpper": { "ax": 0, "ay": 0.25, "scaleX": 0.92, "scaleY": 1.2 }
+      "layers": {
+        "front": {
+          "image": {
+            "url": "./assets/cosmetics/clothes/legs/pants1_leg_LR.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "legUpper": { "ax": 0, "ay": 0.25, "scaleX": 0.92, "scaleY": 1.2 }
+              }
+            }
           }
         }
       }
     },
     "torso": {
-      "image": {
-        "url": "./assets/cosmetics/clothes/legs/pants1_seat.png"
-      },
-      "spriteStyle": {
-        "base": {
-          "xform": {
-            "torso": { "ax": -0.4, "scaleX": 0.5, "scaleY": 0.5, "rotDeg": -180 }
+      "styleKey": "torso",
+      "layers": {
+        "front": {
+          "image": {
+            "url": "./assets/cosmetics/clothes/legs/pants1_seat.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "torso": { "ax": -0.4, "scaleX": 0.5, "scaleY": 0.5, "rotDeg": -180 }
+              }
+            }
           }
         }
-      },
-      "styleKey": "torso"
+      }
     }
   }
 }

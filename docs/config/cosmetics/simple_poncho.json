@@ -6,37 +6,61 @@
   },
   "parts": {
     "torso": {
-      "image": {
-        "url": "https://i.imgur.com/YatjSyo.png"
-      },
-      "spriteStyle": {
-        "base": {
-          "xform": {
-            "torso": { "ax": -0.5, "ay": -0.15, "scaleX": 3.8, "scaleY": 4.7 }
+      "layers": {
+        "back": {
+          "image": {
+            "url": "https://i.imgur.com/YatjSyo.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "torso": { "ax": -0.5, "ay": -0.2, "scaleX": 3.9, "scaleY": 4.8 }
+              }
+            }
+          }
+        },
+        "front": {
+          "image": {
+            "url": "https://i.imgur.com/YatjSyo.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "torso": { "ax": -0.5, "ay": -0.15, "scaleX": 3.8, "scaleY": 4.7 }
+              }
+            }
           }
         }
       }
     },
     "arm_L_upper": {
-      "image": {
-        "url": "https://i.imgur.com/CAmWLbf.png"
-      },
-      "spriteStyle": {
-        "base": {
-          "xform": {
-            "armUpper": { "ax": -0.1, "ay": 0.1, "scaleX": 2.2, "scaleY": 2.1 }
+      "layers": {
+        "front": {
+          "image": {
+            "url": "https://i.imgur.com/CAmWLbf.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "armUpper": { "ax": -0.1, "ay": 0.1, "scaleX": 2.2, "scaleY": 2.1 }
+              }
+            }
           }
         }
       }
     },
     "arm_R_upper": {
-      "image": {
-        "url": "https://i.imgur.com/CAmWLbf.png"
-      },
-      "spriteStyle": {
-        "base": {
-          "xform": {
-            "armUpper": { "ax": -0.1, "ay": 0.1, "scaleX": 2.2, "scaleY": 2.1 }
+      "layers": {
+        "front": {
+          "image": {
+            "url": "https://i.imgur.com/CAmWLbf.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "armUpper": { "ax": -0.1, "ay": 0.1, "scaleX": 2.2, "scaleY": 2.1 }
+              }
+            }
           }
         }
       }
