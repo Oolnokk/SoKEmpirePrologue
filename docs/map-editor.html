@@ -553,9 +553,9 @@ const DEFAULT_LAYOUT_META = (() => {
     : null;
   const findEntryById = (id) => REPOSITORY_LAYOUTS.find((entry) => entry.id === id) || null;
   const preferred = preferredId ? findEntryById(preferredId) : null;
-  const examplestreet = findEntryById('examplestreet');
+  const defaultdistrict = findEntryById('defaultdistrict');
   const firstRepository = REPOSITORY_LAYOUTS.find((entry) => entry.id && entry.id !== DEFAULT_CUSTOM_ENTRY.id) || null;
-  const chosen = preferred || examplestreet || firstRepository;
+  const chosen = preferred || defaultdistrict || firstRepository;
   if (!chosen) return fallback;
   return {
     areaId: chosen.id || fallback.areaId,

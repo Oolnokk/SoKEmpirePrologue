@@ -1,9 +1,9 @@
 {
-  "id": "examplestreet",
-  "name": "Example Street",
-  "source": "map-builder-layered-v15f",
+  "id": "defaultdistrict",
+  "name": "DefaultDistrict",
+  "source": "map-editor",
   "camera": {
-    "startX": 105.75390625,
+    "startX": 585,
     "startZoom": 1
   },
   "ground": {
@@ -15,9 +15,9 @@
       "name": "Parallax 1",
       "type": "parallax",
       "parallaxSpeed": 1,
-      "scale": 0.6,
       "offsetY": -120,
       "separation": 220,
+      "scale": 0.6,
       "source": null,
       "meta": {}
     },
@@ -26,9 +26,9 @@
       "name": "Parallax 1 copy",
       "type": "parallax",
       "parallaxSpeed": 0.95,
-      "scale": 0.5,
       "offsetY": -140,
       "separation": 220,
+      "scale": 0.5,
       "source": null,
       "meta": {}
     },
@@ -37,9 +37,9 @@
       "name": "Parallax 2",
       "type": "parallax",
       "parallaxSpeed": 0.7,
-      "scale": 0.8,
       "offsetY": -90,
       "separation": 220,
+      "scale": 0.8,
       "source": null,
       "meta": {}
     },
@@ -48,9 +48,9 @@
       "name": "Parallax 3",
       "type": "parallax",
       "parallaxSpeed": 0.8,
-      "scale": 0.15,
       "offsetY": -25,
       "separation": 70,
+      "scale": 0.15,
       "source": null,
       "meta": {}
     },
@@ -59,9 +59,9 @@
       "name": "Parallax 4",
       "type": "parallax",
       "parallaxSpeed": 0.9,
-      "scale": 0.2,
       "offsetY": -7,
       "separation": 80,
+      "scale": 0.2,
       "source": null,
       "meta": {}
     },
@@ -70,9 +70,9 @@
       "name": "Parallax 6",
       "type": "parallax",
       "parallaxSpeed": 0.65,
-      "scale": 0.85,
       "offsetY": -40,
       "separation": 220,
+      "scale": 0.85,
       "source": null,
       "meta": {}
     },
@@ -81,9 +81,9 @@
       "name": "Gameplay",
       "type": "gameplay",
       "parallaxSpeed": 1,
-      "scale": 0.3,
       "offsetY": 7,
       "separation": 90,
+      "scale": 0.3,
       "source": null,
       "meta": {}
     },
@@ -92,9 +92,9 @@
       "name": "Foreground 1",
       "type": "foreground",
       "parallaxSpeed": 1.1,
-      "scale": 1.05,
       "offsetY": -10,
       "separation": 180,
+      "scale": 1.05,
       "source": null,
       "meta": {}
     },
@@ -103,9 +103,9 @@
       "name": "Foreground 2",
       "type": "foreground",
       "parallaxSpeed": 1.2,
-      "scale": 1.1,
       "offsetY": 0,
       "separation": 180,
+      "scale": 1.1,
       "source": null,
       "meta": {}
     }
@@ -1502,6 +1502,25 @@
       "meta": {}
     }
   ],
-  "warnings": [],
-  "meta": {}
+  "colliders": [
+    {
+      "id": 1,
+      "label": "Collider 1",
+      "type": "box",
+      "shape": "box",
+      "left": -1000,
+      "width": 2500,
+      "topOffset": 0,
+      "height": 200,
+      "meta": {}
+    }
+  ],
+  "meta": {
+    "areaId": "defaultdistrict",
+    "areaName": "DefaultDistrict",
+    "sourcePath": null,
+    "repositoryId": null,
+    "activeLayerId": "bg1",
+    "exportedAt": "2025-11-14T04:00:54.964Z"
+  }
 }

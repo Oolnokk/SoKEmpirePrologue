@@ -6,9 +6,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const projectRoot = resolve(__dirname, '..');
-const source = resolve(projectRoot, 'src/config/maps/examplestreet.layout.json');
+const source = resolve(projectRoot, 'src/config/maps/defaultdistrict.layout.json');
 const destinationDir = resolve(projectRoot, 'docs/config/maps');
-const destination = resolve(destinationDir, 'examplestreet.layout.json');
+const destination = resolve(destinationDir, 'defaultdistrict.layout.json');
 
 await mkdir(destinationDir, { recursive: true });
 await copyFile(source, destination);
