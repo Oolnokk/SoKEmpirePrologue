@@ -3,6 +3,7 @@
 import { initCombatForFighter } from './combat.js?v=19';
 import { ensureFighterPhysics, updateFighterPhysics } from './physics.js?v=1';
 import { applyHealthRegenFromStats, applyStaminaTick, getStatProfile } from './stat-hooks.js?v=1';
+import { ensureNpcAbilityDirector, updateNpcAbilityDirector } from './npcAbilityDirector.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -757,7 +758,7 @@ function updateNpcRecovery(state, config, dt) {
   }
 }
 
-function updateNpcMovement(G, state, dt) {
+function updateNpcMovement(G, state, dt, abilityIntent = null) {
   const C = window.CONFIG || {};
   const player = G.FIGHTERS?.player;
   if (!player || !state) return;
@@ -895,7 +896,11 @@ function updateNpcMovement(G, state, dt) {
   const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
   const absDx = Math.abs(dx);
   const nearDist = 70;
-  const isPressing = !!state.aiButtonPresses?.A?.down || !!state.aiButtonPresses?.B?.down;
+  const isPressing = ['A', 'B', 'C'].some((key) => !!state.aiButtonPresses?.[key]?.down);
+  const intent = abilityIntent || state.aiAbilityIntent || null;
+  const heavyIntent = intent?.heavy || null;
+  const defensiveActive = !!intent?.defensiveActive;
+  const suppressBasicAttacks = !!intent?.suppressBasicAttacks;
 
   if (aggression.active) {
     state.cooldown = Math.max(0, (state.cooldown || 0) - dt);
@@ -905,24 +910,66 @@ function updateNpcMovement(G, state, dt) {
       input.right = false;
     } else {
       const recovering = stamina?.recovering && !isPanicking;
+      let handledByAbility = false;
+
+      if (!recovering && heavyIntent && heavyIntent.mode) {
+        if (heavyIntent.mode === 'retreat') {
+          state.mode = 'evade';
+          input.left = heavyIntent.retreatDir < 0;
+          input.right = heavyIntent.retreatDir > 0;
+          state.stamina.isDashing = true;
+          state.cooldown = Math.max(state.cooldown, 0.35);
+          handledByAbility = true;
+        } else if (heavyIntent.mode === 'hold') {
+          state.mode = 'attack';
+          input.left = false;
+          input.right = false;
+          state.stamina.isDashing = false;
+          handledByAbility = true;
+        } else if (heavyIntent.mode === 'approach') {
+          state.mode = 'approach';
+          input.right = dx > 0;
+          input.left = dx < 0;
+          const targetRange = heavyIntent.targetRange || nearDist;
+          state.stamina.isDashing = absDx > targetRange * 1.1;
+          handledByAbility = true;
+        } else if (heavyIntent.mode === 'recover') {
+          state.mode = 'evade';
+          input.left = heavyIntent.retreatDir < 0;
+          input.right = heavyIntent.retreatDir > 0;
+          state.stamina.isDashing = true;
+          handledByAbility = true;
+        }
+      }
+
+      if (!recovering && !handledByAbility && defensiveActive) {
+        state.mode = 'defend';
+        input.left = false;
+        input.right = false;
+        state.stamina.isDashing = false;
+        handledByAbility = true;
+      }
+
       if (recovering) {
         state.mode = 'recover';
         input.right = dx < 0;
         input.left = dx > 0;
         state.stamina.isDashing = false;
         state.cooldown = Math.max(state.cooldown, 0.4);
-      } else if (state.mode === 'attack') {
+      } else if (state.mode === 'attack' && !handledByAbility) {
         state.mode = 'evade';
         state.timer = 0.3;
         state.cooldown = Math.max(state.cooldown, 0.35);
-      } else if (absDx <= nearDist && state.cooldown <= 0 && !isPressing) {
+      } else if (!handledByAbility && !suppressBasicAttacks && absDx <= nearDist && state.cooldown <= 0 && !isPressing) {
         if (pressNpcButton(state, combat, 'A', 0.12)) {
           state.mode = 'attack';
           state.cooldown = 0.45;
         }
       }
 
-      if (state.mode === 'approach') {
+      if (handledByAbility) {
+        // Ability directive already applied movement
+      } else if (state.mode === 'approach') {
         input.right = dx > 0;
         input.left = dx < 0;
         state.stamina.isDashing = absDx > nearDist * 1.2;
@@ -1029,7 +1076,29 @@ export function updateNpcSystems(dt) {
     const combat = ensureNpcCombat(G, npc);
     if (combat?.tick && !npc.isDead) combat.tick(dt);
     ensureNpcInputState(npc);
-    updateNpcMovement(G, npc, dt);
+    let abilityIntent = null;
+    if (!npc.isDead) {
+      ensureNpcAbilityDirector(npc, combat);
+      const player = G.FIGHTERS?.player;
+      const dx = (player?.pos?.x ?? npc.pos?.x ?? 0) - (npc.pos?.x ?? 0);
+      const absDx = Math.abs(dx);
+      const pressButton = (slotKey, hold) => pressNpcButton(npc, combat, slotKey, hold);
+      const releaseButton = (slotKey) => releaseNpcButton(npc, combat, slotKey);
+      abilityIntent = updateNpcAbilityDirector({
+        state: npc,
+        combat,
+        dt,
+        player,
+        pressButton,
+        releaseButton,
+        absDx,
+        dx,
+        aggressionActive: !!npc.aggression?.active,
+        attackActive: !!npc.attack?.active,
+        isBusy: typeof combat?.isFighterBusy === 'function' ? combat.isFighterBusy() : !!npc.attack?.active,
+      });
+    }
+    updateNpcMovement(G, npc, dt, abilityIntent);
   }
   updateNpcHud(G);
 }
@@ -1112,13 +1181,14 @@ export function registerNpcFighter(state, { immediateAggro = false } = {}) {
   if (!state) return;
   const G = ensureGameState();
   ensureNpcVisualState(state);
-  ensureNpcCombat(G, state);
+  const combat = ensureNpcCombat(G, state);
   ensureAttackState(state);
   ensureComboState(state);
   ensureAimState(state);
   ensureNpcInputState(state);
   ensureNpcPressRegistry(state);
   ensureNpcStaminaAwareness(state);
+  ensureNpcAbilityDirector(state, combat);
   const aggression = ensureNpcAggressionState(state);
   if (immediateAggro) {
     aggression.triggered = true;
