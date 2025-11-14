@@ -18,7 +18,7 @@
 // in animator.js via degToRadPose() before values reach this module.
 
 import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withAXUtil, rad, angleFromDelta as angleFromDeltaUtil } from './math-utils.js?v=1';
-import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=1';
+import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=2';
 import { pickFighterConfig, lengths, pickOffsets } from './fighter-utils.js?v=1';
 
 // === RENDER DEBUG CONFIGURATION ===
@@ -421,10 +421,15 @@ export function renderAll(ctx){
     ctx.restore();
   }
 
-  const npcDashTrail = getNpcDashTrail();
-  if (npcDashTrail?.positions?.length) {
-    for (let i = npcDashTrail.positions.length - 1; i >= 0; i -= 1) {
-      const pos = npcDashTrail.positions[i];
+  const npcDashTrailEntries = getNpcDashTrail();
+  const dashList = Array.isArray(npcDashTrailEntries)
+    ? npcDashTrailEntries
+    : (npcDashTrailEntries ? [{ id: 'npc', trail: npcDashTrailEntries }] : []);
+  for (const entry of dashList) {
+    const dashTrail = entry?.trail;
+    if (!dashTrail?.positions?.length) continue;
+    for (let i = dashTrail.positions.length - 1; i >= 0; i -= 1) {
+      const pos = dashTrail.positions[i];
       const alpha = Math.max(0, pos.alpha ?? 0);
       if (alpha <= 0) continue;
       ctx.save();
@@ -438,8 +443,13 @@ export function renderAll(ctx){
     }
   }
 
-  const npcAttackTrail = getNpcAttackTrail();
-  if (npcAttackTrail?.enabled) {
+  const npcAttackTrailEntries = getNpcAttackTrail();
+  const attackList = Array.isArray(npcAttackTrailEntries)
+    ? npcAttackTrailEntries
+    : (npcAttackTrailEntries ? [{ id: 'npc', trail: npcAttackTrailEntries }] : []);
+  for (const entry of attackList) {
+    const npcAttackTrail = entry?.trail;
+    if (!npcAttackTrail?.enabled) continue;
     for (const key of ['handL', 'handR', 'footL', 'footR']) {
       const trail = npcAttackTrail.colliders?.[key];
       if (!trail || !trail.length) continue;

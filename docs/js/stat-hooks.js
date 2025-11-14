@@ -185,7 +185,7 @@ export function getFootingRecovery(profile) {
 }
 
 export function applyHealthRegenFromStats(fighter, dt, profile) {
-  if (!fighter || !Number.isFinite(dt) || dt <= 0) return;
+  if (!fighter || fighter.isDead || !Number.isFinite(dt) || dt <= 0) return;
   const health = fighter.health;
   if (!health) return;
   const regenRate = Number.isFinite(health.regenRate)
@@ -205,7 +205,7 @@ export function applyHealthRegenFromStats(fighter, dt, profile) {
 }
 
 export function applyStaminaTick(fighter, dt) {
-  if (!fighter || !Number.isFinite(dt) || dt <= 0) return;
+  if (!fighter || fighter.isDead || !Number.isFinite(dt) || dt <= 0) return;
   const stamina = fighter.stamina;
   if (!stamina) return;
   const current = Number.isFinite(stamina.current) ? stamina.current : 0;
