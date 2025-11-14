@@ -178,6 +178,7 @@ test('appearance cosmetics inherit character body colors', () => {
   deepStrictEqual(layers[0].hsl, { h: 15, s: 0.3, l: 0.1 });
   deepStrictEqual(layers[0].extra?.appearance?.bodyColors, ['A']);
   strictEqual(layers[0].styleKey, 'torso');
+  strictEqual(layers[0].asset.alignRad, undefined);
 });
 
 test('resolveFighterBodyColors ignores stale palette when fighter changes', () => {

@@ -552,12 +552,18 @@ function ensureAsset(cosmeticId, partKey, imageCfg){
   }
   if (!asset){
     const img = loadImage(imageCfg.url);
-    asset = { url: imageCfg.url, img, alignRad: imageCfg.alignRad ?? 0 };
+    asset = { url: imageCfg.url, img };
     STATE.assets.set(key, asset);
   }
-  if (imageCfg.alignRad != null){
+
+  if (imageCfg.alignDeg != null && Number.isFinite(imageCfg.alignDeg)){
+    asset.alignRad = degToRad(imageCfg.alignDeg);
+  } else if (imageCfg.alignRad != null && Number.isFinite(imageCfg.alignRad)){
     asset.alignRad = imageCfg.alignRad;
+  } else if (imageCfg.alignRad == null && imageCfg.alignDeg == null){
+    delete asset.alignRad;
   }
+
   return asset;
 }
 
