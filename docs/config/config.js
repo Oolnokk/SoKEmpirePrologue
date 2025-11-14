@@ -195,7 +195,7 @@ const KICK_MOVE_POSES = {
     ]
   },
   Strike: {
-    torso: 90,
+    torso: 120,
     lShoulder: -27,
     lElbow: 0,
     rShoulder: 90,
@@ -220,7 +220,7 @@ const KICK_MOVE_POSES = {
   },
   Recoil: // Kick recoil pose definition
   {
-    torso: 50,
+    torso: 80,
     lShoulder: -27,
     lElbow: 0,
     rShoulder: 90,
@@ -426,7 +426,7 @@ window.CONFIG = {
 
   fighters: {
     TLETINGAN: {
-        actor: { scale: 0.7 },
+        actor: { scale: 0.85 },
         parts: {
           hitbox: { w:80, h:110, r:60, torsoAttach: { nx:0.4, ny:0.6 } },
           torso: { len:40 },
