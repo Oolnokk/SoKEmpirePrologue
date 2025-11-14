@@ -2,6 +2,8 @@
 // Palette sidecar support was removed; these helpers remain for editors that
 // still need deterministic shade derivation from base colours.
 
+const ROOT = typeof window !== 'undefined' ? window : globalThis;
+
 const COLOR_KEYS = ['primary', 'secondary', 'tertiary'];
 const SHADE_KEYS = ['primary', 'secondary', 'tertiary'];
 
@@ -18,7 +20,7 @@ function isSameOrigin(url){
   }
 }
 
-function clamp01(value){
+function clampChannel(value){
   if (!Number.isFinite(value)) return 0;
   if (value < 0) return 0;
   if (value > 255) return 255;
