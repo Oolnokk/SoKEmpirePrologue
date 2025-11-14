@@ -553,9 +553,9 @@ window.CONFIG = {
   },
 
   movement: {
-    authoredWeight:0.6, physicsWeight:0.4,
-    gravity:2400, jumpImpulse:-650, accelX:1500, maxSpeedX:420, friction:8.0, restitution:0.0,
-    dashSpeedMultiplier: 2.2,
+    authoredWeight:1, physicsWeight:0,
+    gravity:1600, jumpImpulse:-650, accelX:1000, maxSpeedX:420, friction:12.0, restitution:0.0,
+    dashSpeedMultiplier: 1.8,
     facingSmooth:10.0, attackPhases:['Windup','Strike'], lockFacingDuringAttack:true, rootVelRelative:true
   },
   
