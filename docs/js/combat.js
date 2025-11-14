@@ -2,6 +2,12 @@
 import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=3';
 import { resetMirror, setMirrorForPart } from './sprites.js?v=8';
 import { ensureFighterPhysics, updateFighterPhysics } from './physics.js?v=1';
+import {
+  applyHealthRegenFromStats,
+  applyStaminaTick,
+  buildStatContextMultipliers,
+  getStatProfile,
+} from './stat-hooks.js?v=1';
 
 export function initCombat(){
   const G = (window.GAME ||= {});
@@ -775,12 +781,20 @@ export function makeCombat(G, C, options = {}){
   function computeAttackProfile(ability, attack, variant, fighter){
     const mergedData = collectAttackData(ability, attack, variant);
     const stats = fighter?.stats || ability?.stats || {};
-    const baseline = Number.isFinite(stats.baseline) ? stats.baseline : 10;
+    const statProfile = fighter ? getStatProfile(fighter) : getStatProfile(stats);
+    const baseline = Number.isFinite(stats.baseline)
+      ? stats.baseline
+      : Number.isFinite(statProfile?.baseline)
+        ? statProfile.baseline
+        : 10;
     const strength = Number.isFinite(stats.strength) ? stats.strength : baseline;
     const agility = Number.isFinite(stats.agility) ? stats.agility : baseline;
-    const strengthMultiplier = 1 + (strength - baseline) * 0.05;
-    const staminaMultiplierRaw = 1 - (agility - baseline) * 0.04;
-    const staminaMultiplier = Math.min(1.75, Math.max(0.3, staminaMultiplierRaw));
+    const strengthMultiplier = Number.isFinite(statProfile?.strengthMultiplier)
+      ? statProfile.strengthMultiplier
+      : 1 + (strength - baseline) * 0.05;
+    const staminaMultiplier = Number.isFinite(statProfile?.staminaCostMultiplier)
+      ? statProfile.staminaCostMultiplier
+      : Math.min(1.75, Math.max(0.3, 1 - (agility - baseline) * 0.04));
     const damage = {};
     if (mergedData.damage){
       Object.entries(mergedData.damage).forEach(([type, baseValue]) => {
@@ -799,6 +813,7 @@ export function makeCombat(G, C, options = {}){
       colliders,
       strengthMultiplier,
       staminaMultiplier,
+      statProfile,
     };
   }
 
@@ -1002,6 +1017,15 @@ export function makeCombat(G, C, options = {}){
       context.multipliers = multipliers;
     }
     const attackProfile = computeAttackProfile(context.ability, attack, variant, fighter);
+    const statProfile = attackProfile?.statProfile || (fighter ? getStatProfile(fighter) : null);
+    if (statProfile) {
+      const statMultipliers = buildStatContextMultipliers(statProfile);
+      if (statMultipliers) {
+        multipliers = combineMultiplierSources(multipliers, statMultipliers);
+        context.multipliers = multipliers;
+      }
+      context.statProfile = statProfile;
+    }
     context.attackProfile = attackProfile;
     context.damage = attackProfile.damage;
     context.staminaCost = attackProfile.staminaCost;
@@ -1604,6 +1628,14 @@ export function makeCombat(G, C, options = {}){
     }
   }
 
+  function updateResources(dt){
+    const fighter = P();
+    if (!fighter) return;
+    const profile = getStatProfile(fighter);
+    applyStaminaTick(fighter, dt);
+    applyHealthRegenFromStats(fighter, dt, profile);
+  }
+
   // Movement
   function updateMovement(dt){
     const p = P();
@@ -1638,6 +1670,7 @@ export function makeCombat(G, C, options = {}){
     updateCharge(dt);
     updateTransitions(dt);
     updateCombo(dt);
+    updateResources(dt);
     updateMovement(dt);
     processQueue();
   }

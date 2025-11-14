@@ -1,3 +1,5 @@
+import { getFootingRecovery, getMovementMultipliers, getStatProfile } from './stat-hooks.js?v=1';
+
 const JOINT_LIMITS = {
   torso: [-0.8, 0.8],
   head: [-0.6, 0.9],
@@ -227,8 +229,12 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   const M = config?.movement || {};
   const platformColliders = Array.isArray(config?.platformingColliders) ? config.platformingColliders : [];
   const groundY = computeGroundY(config);
-  const accelX = Number.isFinite(M.accelX) ? M.accelX : 1500;
-  const maxSpeed = Number.isFinite(M.maxSpeedX) ? M.maxSpeedX : 420;
+  const statProfile = fighter.statProfile || getStatProfile(fighter);
+  const movementMultipliers = getMovementMultipliers(statProfile);
+  const baseAccelX = Number.isFinite(M.accelX) ? M.accelX : 1500;
+  const baseMaxSpeed = Number.isFinite(M.maxSpeedX) ? M.maxSpeedX : 420;
+  const accelX = baseAccelX * (movementMultipliers.accel || 1);
+  const maxSpeed = baseMaxSpeed * (movementMultipliers.maxSpeed || 1);
   const friction = Number.isFinite(M.friction) ? Math.max(0, M.friction) : 8;
   const restitution = Number.isFinite(M.restitution) ? Math.max(0, M.restitution) : 0;
   const gravity = Number.isFinite(M.gravity) ? M.gravity : 0;
@@ -258,7 +264,10 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   }
   fighter._jumpHeld = jumpPressed;
 
-  const dashMult = fighter.stamina?.isDashing ? (Number.isFinite(M.dashSpeedMultiplier) ? M.dashSpeedMultiplier : 1.8) : 1;
+  const baseDashSpeed = Number.isFinite(M.dashSpeedMultiplier) ? M.dashSpeedMultiplier : 1.8;
+  const dashMult = fighter.stamina?.isDashing
+    ? baseDashSpeed * (movementMultipliers.dashSpeed || 1)
+    : 1;
 
   fighter.vel ||= { x: 0, y: 0 };
   fighter.pos ||= { x: 0, y: computeGroundY(config) };
@@ -370,7 +379,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   }
 
   if (!fighter.ragdoll && fighter.onGround) {
-    const baseRecoveryRate = 20;
+    const baseRecoveryRate = 20 * getFootingRecovery(statProfile);
     const recoveryRate = underKnockback ? Math.max(4, baseRecoveryRate * 0.35) : baseRecoveryRate;
     const maxFoot = config?.knockback?.maxFooting ?? 100;
     fighter.footing = Math.min(maxFoot, (fighter.footing ?? maxFoot) + recoveryRate * dt);

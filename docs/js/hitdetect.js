@@ -1,5 +1,6 @@
 // hitdetect.js — basic hit detection between player and NPC bodies
 import { applyHitReactionRagdoll } from './physics.js?v=1';
+import { getFootingMitigation, getStatProfile } from './stat-hooks.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -69,7 +70,7 @@ function calculateKnockback(config, presetName, defenderFooting, multiplier = 1)
   return base * weaponMult * footingModifier;
 }
 
-function computeFootingDamage(config, footingBefore, force) {
+function computeFootingDamage(config, footingBefore, force, defender) {
   const maxFooting = config.knockback?.maxFooting || 100;
   const clampedFooting = clamp(
     Number.isFinite(footingBefore) ? footingBefore : maxFooting,
@@ -80,7 +81,12 @@ function computeFootingDamage(config, footingBefore, force) {
   const normalizedForce = Math.max(0, force) / (config.knockback?.referenceForce || 220);
   const baseLoss = 4 + normalizedForce * 4.5;
   const instabilityBonus = 1 + (1 - stabilityRatio) * 0.75;
-  const totalLoss = baseLoss * instabilityBonus;
+  let totalLoss = baseLoss * instabilityBonus;
+  if (defender) {
+    const statProfile = getStatProfile(defender);
+    const mitigation = getFootingMitigation(statProfile);
+    totalLoss *= mitigation;
+  }
   return clamp(totalLoss, 0, maxFooting);
 }
 
@@ -119,7 +125,7 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
   const angle = Math.atan2(npc.pos.y - player.pos.y, npc.pos.x - player.pos.x);
   const footingBefore = npc.footing ?? (config.knockback?.maxFooting ?? 100);
   applyKnockback(npc, angle, force, { verticalScale: 0.2 });
-  const footingLoss = computeFootingDamage(config, footingBefore, force);
+  const footingLoss = computeFootingDamage(config, footingBefore, force, npc);
   npc.footing = Math.max(0, footingBefore - footingLoss);
   applyHitReactionRagdoll(npc, config, { angle, force, footingBefore });
   npc.stamina && (npc.stamina.isDashing = false);
@@ -167,7 +173,7 @@ function handleNpcHitsPlayer(G, config, player, npc, debug, distance, bodyRadius
   const angle = Math.atan2(player.pos.y - npc.pos.y, player.pos.x - npc.pos.x);
   const footingBefore = player.footing ?? (config.knockback?.maxFooting ?? 50);
   applyKnockback(player, angle, force, { verticalScale: 0.25 });
-  const footingLoss = computeFootingDamage(config, footingBefore, force);
+  const footingLoss = computeFootingDamage(config, footingBefore, force, player);
   player.footing = Math.max(0, footingBefore - footingLoss);
   applyHitReactionRagdoll(player, config, { angle, force, footingBefore });
   player.stamina && (player.stamina.isDashing = false);

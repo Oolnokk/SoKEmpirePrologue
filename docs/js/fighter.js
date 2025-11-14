@@ -1,6 +1,7 @@
 // fighter.js — initialize fighters in STANCE; set facingSign (player right, npc left)
 import { degToRad } from './math-utils.js?v=1';
 import { pickFighterName } from './fighter-utils.js?v=1';
+import { getStatProfile } from './stat-hooks.js?v=1';
 
 function clone(value) {
   if (value == null) return value;
@@ -360,6 +361,7 @@ export function initFighters(cv, cx){
         : []);
 
     const stats = normalizeStats(characterData?.stats);
+    const statProfile = getStatProfile(stats);
 
     const renderProfile = {
       fighterName,
@@ -371,22 +373,34 @@ export function initFighters(cv, cx){
       weapon: weaponBase,
       slottedAbilities: abilityBase,
       stats,
+      statProfile,
     };
 
     const baselineStat = stats.baseline ?? 10;
     const enduranceStat = stats.endurance ?? baselineStat;
     const agilityStat = stats.agility ?? baselineStat;
-    const enduranceMultiplier = 1 + (enduranceStat - baselineStat) * 0.05;
-    const agilityMultiplier = 1 + (agilityStat - baselineStat) * 0.03;
+    const staminaDrainRateMultiplier = Number.isFinite(statProfile?.staminaDrainRateMultiplier)
+      ? statProfile.staminaDrainRateMultiplier
+      : 1;
+    const staminaRegenRateMultiplier = Number.isFinite(statProfile?.staminaRegenRateMultiplier)
+      ? statProfile.staminaRegenRateMultiplier
+      : 1;
+    const dashThresholdMultiplier = Number.isFinite(statProfile?.dashStaminaThresholdMultiplier)
+      ? statProfile.dashStaminaThresholdMultiplier
+      : 1;
+
     const maxHealth = Number.isFinite(stats.maxHealth)
       ? stats.maxHealth
       : Math.round(100 + (enduranceStat - baselineStat) * 6);
     const maxStamina = Number.isFinite(stats.maxStamina)
       ? stats.maxStamina
       : Math.round(100 + (enduranceStat - baselineStat) * 5);
-    const staminaDrainRate = Math.max(15, Math.round(40 / Math.max(0.6, enduranceMultiplier)));
-    const staminaRegenRate = Math.max(12, Math.round(25 * enduranceMultiplier));
-    const staminaMinToDash = Math.max(6, Math.round(10 / Math.max(0.6, agilityMultiplier)));
+    const staminaDrainRate = Math.max(15, Math.round(40 * staminaDrainRateMultiplier));
+    const staminaRegenRate = Math.max(12, Math.round(25 * staminaRegenRateMultiplier));
+    const staminaMinToDash = Math.max(6, Math.round(10 * dashThresholdMultiplier));
+    const healthRegenRate = Number.isFinite(statProfile?.healthRegenPerSecond)
+      ? statProfile.healthRegenPerSecond
+      : 0;
 
     return {
       id,
@@ -412,9 +426,11 @@ export function initFighters(cv, cx){
       walk: { phase: 0, amp: 0 },
       renderProfile,
       stats,
+      statProfile,
       health: {
         current: maxHealth,
         max: maxHealth,
+        regenRate: healthRegenRate,
       },
       stamina: {
         current: maxStamina,
