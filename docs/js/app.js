@@ -622,6 +622,13 @@ function scheduleConfigUpdatedEvent() {
 
 function scheduleFighterPreview(fighterName) {
   if (!fighterName) return;
+  window.GAME ||= {};
+  if (window.GAME.selectedFighter !== fighterName) {
+    window.GAME.selectedFighter = fighterName;
+  }
+  if (currentSelectedFighter !== fighterName) {
+    currentSelectedFighter = fighterName;
+  }
   previewQueuedFighter = fighterName;
 
   if (previewTimeoutId) {
@@ -725,6 +732,7 @@ function initFighterDropdown() {
       delete window.GAME.selectedAppearance;
 
       showFighterSettings(selectedFighter);
+      scheduleFighterPreview(selectedFighter);
     });
     fighterSelect.dataset.initialized = 'true';
   }
@@ -852,11 +860,15 @@ async function loadFighterSettings(fighterName) {
  */
 async function reinitializeFighter(fighterName) {
   console.log('[reinitializeFighter] Reinitializing fighter while preserving settings:', fighterName);
-  
+
   try {
+    window.GAME ||= {};
+    if (fighterName && window.GAME.selectedFighter !== fighterName) {
+      window.GAME.selectedFighter = fighterName;
+    }
     const G = window.GAME || {};
     const C = window.CONFIG || {};
-    
+
     if (statusInfo) statusInfo.textContent = 'Reinitializing fighter...';
     
     // === Step 1: Capture current state from all sources ===
