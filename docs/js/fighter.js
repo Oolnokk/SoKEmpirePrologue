@@ -278,6 +278,14 @@ export function initFighters(cv, cx){
       return selectedFighter;
     }
 
+    selectedFighter = resolveFighterKey(selectedFighter);
+    if (
+      selectedFighter &&
+      (id === 'player' || prevProfile?.characterKey === 'player')
+    ) {
+      return selectedFighter;
+    }
+
     const configFighter = resolveFighterKey(characterData?.fighter);
     if (configFighter) return configFighter;
 
