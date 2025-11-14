@@ -1,15 +1,17 @@
 // controls.js — keyboard/mouse input with tap/hold detection (matching reference HTML)
-// A/D move, E = button A, F = button B, with proper timing for tap vs hold
+// A/D move, E = button A, F = button B, R = button C (with proper timing for tap vs hold)
 
 export function initControls(){
   const G = (window.GAME ||= {});
-  G.input ||= { 
+  G.input ||= {
     left:false, right:false, jump:false, dash:false,
     buttonA: { down:false, downTime:0, upTime:0 },
-    buttonB: { down:false, downTime:0, upTime:0 }
+    buttonB: { down:false, downTime:0, upTime:0 },
+    buttonC: { down:false, downTime:0, upTime:0 }
   };
   const I = G.input;
   const now = ()=> performance.now();
+  const mouseBindings = { 0: null, 1: null, 2: null };
 
   function setButton(btn, down){
     const state = I[btn];
@@ -34,9 +36,9 @@ export function initControls(){
       case 'KeyA': case 'ArrowLeft': I.left = down; break;
       case 'KeyD': case 'ArrowRight': I.right = down; break;
       case 'KeyW': case 'ArrowUp': case 'Space': I.jump = down; if(down) e.preventDefault(); break;
-      case 'ShiftLeft': case 'ShiftRight': I.dash = down; break;
       case 'KeyE': case 'KeyJ': setButton('buttonA', down); break;
       case 'KeyF': case 'KeyK': setButton('buttonB', down); break;
+      case 'KeyR': case 'KeyL': setButton('buttonC', down); break;
       default: return;
     }
   }
@@ -50,8 +52,28 @@ export function initControls(){
 
   function onMouse(e, down){
     if (down && isBlockedTarget(e.target)) return;
-    if (e.button===0) setButton('buttonA', down);
-    else if (e.button===2) setButton('buttonB', down);
+    if (down){
+      if (e.button === 0){
+        const binding = e.shiftKey ? 'buttonB' : 'buttonA';
+        mouseBindings[0] = binding;
+        setButton(binding, true);
+      } else if (e.button === 2){
+        mouseBindings[2] = 'buttonC';
+        setButton('buttonC', true);
+      }
+    } else {
+      const binding = mouseBindings[e.button];
+      if (binding){
+        setButton(binding, false);
+        mouseBindings[e.button] = null;
+      } else if (e.button === 0){
+        // Ensure primary buttons are released if binding context was lost
+        setButton('buttonA', false);
+        setButton('buttonB', false);
+      } else if (e.button === 2){
+        setButton('buttonC', false);
+      }
+    }
   }
 
   window.addEventListener('keydown', e=>onKey(e,true));
@@ -66,6 +88,8 @@ export function initControls(){
     Object.assign(I,{left:false,right:false,jump:false,dash:false});
     I.buttonA.down = false;
     I.buttonB.down = false;
+    I.buttonC.down = false;
+    mouseBindings[0] = mouseBindings[1] = mouseBindings[2] = null;
   });
 
   console.log('[controls] wired');

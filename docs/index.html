@@ -178,8 +178,11 @@
             <div><span class="key">Green</span> - Jump</div>
             <div><span class="key">Red</span> - Attack A (Combo)</div>
             <div><span class="key">Orange</span> - Attack B (Quick)</div>
+            <div><span class="key">Gold</span> - Attack C (Utility)</div>
             <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #444;">
-              <span class="key">Keyboard:</span> WASD move, E/F attack
+              <span class="key">Keyboard:</span> WASD move, E/F/R (or J/K/L) attack
+              <br>
+              <span class="key">Mouse:</span> Left click = Attack A, Shift + Left = Attack B, Right click = Attack C
             </div>
           </div>
 
@@ -192,8 +195,9 @@
           <!-- Action Buttons -->
           <div class="action-buttons">
             <button type="button" id="btnJump" class="action-btn jump">↑</button>
-            <button type="button" id="btnAttackA" class="action-btn attack-a">A</button>
-            <button type="button" id="btnAttackB" class="action-btn attack-b">B</button>
+            <button type="button" id="btnAttackA" class="action-btn attack-a ability-small">A</button>
+            <button type="button" id="btnAttackB" class="action-btn attack-b ability-small">B</button>
+            <button type="button" id="btnAttackC" class="action-btn attack-c">C</button>
           </div>
 
           <!-- Interact Button -->
@@ -229,6 +233,11 @@
               <div class="ability-slot-title">Slot B</div>
               <label>Light <select id="slotBLight"></select></label>
               <label>Heavy <select id="slotBHeavy"></select></label>
+            </div>
+            <div class="ability-slot-group" data-slot="C">
+              <div class="ability-slot-title">Slot C</div>
+              <label>Light <select id="slotCLight"></select></label>
+              <label>Heavy <select id="slotCHeavy"></select></label>
             </div>
             <label>Character scale <input id="actorScale" type="range" min="0.50" max="1.10" step="0.02" value="0.70"></label>
             <label>Ground height <input id="groundRatio" type="range" min="0.60" max="0.92" step="0.01" value="0.70"></label>
