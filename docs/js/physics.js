@@ -70,6 +70,16 @@ function ensurePhysicsState(fighter) {
   return state;
 }
 
+function ensureKnockbackState(fighter) {
+  if (!fighter) return null;
+  fighter.knockback ||= { timer: 0, magnitude: 0, direction: 0 };
+  const state = fighter.knockback;
+  if (!Number.isFinite(state.timer)) state.timer = 0;
+  if (!Number.isFinite(state.magnitude)) state.magnitude = 0;
+  if (!Number.isFinite(state.direction)) state.direction = 0;
+  return state;
+}
+
 function computeGroundY(config) {
   const canvasH = config?.canvas?.h || 460;
   const groundRatio = config?.groundRatio || 0.7;
@@ -184,6 +194,7 @@ function updateAirBlend(fighter, state, dt) {
 
 export function ensureFighterPhysics(fighter, config) {
   ensurePhysicsState(fighter);
+  ensureKnockbackState(fighter);
   const state = fighter.physics;
   if (!fighter.ragdollTargets || !state.ragdollTargets || Object.keys(state.ragdollTargets).length === 0) {
     randomizeRagdollTargets(state);
@@ -212,6 +223,7 @@ function applyRecoveryBlend(fighter, state, dt) {
 export function updateFighterPhysics(fighter, config, dt, options = {}) {
   if (!fighter || !Number.isFinite(dt) || dt <= 0) return;
   const state = ensurePhysicsState(fighter);
+  const knockback = ensureKnockbackState(fighter);
   const M = config?.movement || {};
   const platformColliders = Array.isArray(config?.platformingColliders) ? config.platformingColliders : [];
   const groundY = computeGroundY(config);
@@ -255,10 +267,30 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
 
   fighter.vel.y += gravity * gravityScale * dt;
 
+  if (knockback.timer > 0) {
+    knockback.timer = Math.max(0, knockback.timer - dt);
+    if (knockback.timer <= 0) {
+      knockback.magnitude = 0;
+    }
+  }
+  const underKnockback = knockback.timer > 0 && !fighter.ragdoll;
+
   if (fighter.ragdoll) {
     fighter.vel.x *= 0.96;
   } else if (fighter.recovering) {
     fighter.vel.x *= Math.exp(-friction * dt);
+  } else if (underKnockback) {
+    const damping = Math.exp(-Math.max(2, friction * 0.35) * dt);
+    fighter.vel.x *= damping;
+    if (input && !attackActive) {
+      const inputDir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+      if (inputDir !== 0) {
+        fighter.vel.x += accelX * 0.55 * inputDir * dt;
+        if (Math.sign(fighter.vel.x) === inputDir) {
+          knockback.timer = Math.max(0, knockback.timer - dt * 1.6);
+        }
+      }
+    }
   } else if (input) {
     const left = !!input.left;
     const right = !!input.right;
@@ -338,7 +370,8 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   }
 
   if (!fighter.ragdoll && fighter.onGround) {
-    const recoveryRate = 20;
+    const baseRecoveryRate = 20;
+    const recoveryRate = underKnockback ? Math.max(4, baseRecoveryRate * 0.35) : baseRecoveryRate;
     const maxFoot = config?.knockback?.maxFooting ?? 100;
     fighter.footing = Math.min(maxFoot, (fighter.footing ?? maxFoot) + recoveryRate * dt);
   }
@@ -388,6 +421,7 @@ export function triggerFullRagdoll(fighter, config, { angle = 0, force = 0 } = {
   if (!fighter) return;
   ensureFighterPhysics(fighter, config);
   const state = ensurePhysicsState(fighter);
+  const knockback = ensureKnockbackState(fighter);
   fighter.ragdoll = true;
   fighter.ragdollTime = 0;
   fighter.recovering = false;
@@ -402,6 +436,8 @@ export function triggerFullRagdoll(fighter, config, { angle = 0, force = 0 } = {
   const impulseMag = force * 0.35 + 160;
   fighter.vel.x += Math.cos(backAngle) * impulseMag;
   fighter.vel.y += Math.sin(backAngle) * impulseMag * 0.45;
+  knockback.timer = 0;
+  knockback.magnitude = 0;
 }
 
 export function applyHitReactionRagdoll(fighter, config, {
@@ -441,6 +477,11 @@ export function applyHitReactionRagdoll(fighter, config, {
     fighter.vel.x += Math.cos(backAngle) * impulseMag;
     fighter.vel.y += Math.sin(backAngle) * impulseMag * 0.28;
   }
+  const knockback = ensureKnockbackState(fighter);
+  const baseDuration = 0.22 + Math.abs(force) / 320;
+  knockback.timer = Math.max(knockback.timer || 0, Math.min(0.9, baseDuration));
+  knockback.magnitude = Math.max(knockback.magnitude || 0, Math.abs(force));
+  knockback.direction = angle;
   return false;
 }
 
