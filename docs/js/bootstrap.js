@@ -32,7 +32,7 @@
   function loadAppModule() {
     var script = document.createElement('script');
     script.type = 'module';
-    script.src = './js/app.js?v=19';
+    script.src = './js/app.js?v=20';
     document.head.appendChild(script);
   }
 
