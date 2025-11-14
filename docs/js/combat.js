@@ -95,10 +95,10 @@ export function makeCombat(G, C, options = {}){
       const slot = ABILITY_SLOTS[slotKey];
       if (!slot || !slotValues) return;
       if (slotValues.light !== undefined) {
-        slot.lightAbilityId = slotValues.light || null;
+        slot.lightAbilityId = resolveAllowedAbilityId(slotKey, 'light', slotValues.light) || null;
       }
       if (slotValues.heavy !== undefined) {
-        slot.heavyAbilityId = slotValues.heavy || null;
+        slot.heavyAbilityId = resolveAllowedAbilityId(slotKey, 'heavy', slotValues.heavy) || null;
       }
     });
   };
@@ -127,6 +127,18 @@ export function makeCombat(G, C, options = {}){
   };
 
   const PRESS = {};
+  const DEFENSE = {
+    active: false,
+    slot: null,
+    abilityId: null,
+    context: null,
+    poseKey: null,
+    poseHoldMs: 220,
+    nextRefresh: 0,
+    prevDrainRate: null
+  };
+
+  const SLOT_TO_BUTTON = { A: 'buttonA', B: 'buttonB', C: 'buttonC' };
 
   function getPressState(slotKey){
     if (!slotKey) return null;
@@ -281,6 +293,131 @@ export function makeCombat(G, C, options = {}){
     debugLog(`[combat:stage] ${label} – ${moveName} (Ability: ${abilityName} | Attack: ${attackName})`);
   };
 
+  function resetDefensiveState(){
+    DEFENSE.active = false;
+    DEFENSE.slot = null;
+    DEFENSE.abilityId = null;
+    DEFENSE.context = null;
+    DEFENSE.poseKey = null;
+    DEFENSE.poseHoldMs = 220;
+    DEFENSE.nextRefresh = 0;
+    DEFENSE.prevDrainRate = null;
+  }
+
+  function stopDefensiveAbility(reason = 'manual'){
+    if (!DEFENSE.active) return;
+    const fighter = P();
+    const stamina = fighter?.stamina || null;
+    if (stamina){
+      if (DEFENSE.prevDrainRate != null) stamina.drainRate = DEFENSE.prevDrainRate;
+      stamina.isDashing = false;
+    }
+    const context = DEFENSE.context;
+    if (context?.onComplete){
+      try { context.onComplete({ reason }); } catch(err){ console.warn('[combat] defensive onComplete error', err); }
+    }
+    ATTACK.active = false;
+    ATTACK.preset = null;
+    ATTACK.context = null;
+    ATTACK.slot = null;
+    ATTACK.isHoldRelease = false;
+    ATTACK.isCharging = false;
+    ATTACK.pendingAbilityId = null;
+    updateFighterAttackState('Stance', { active: false, context: null });
+    cancelQueuedLayerOverrides();
+    pushPoseOverride(poseTarget, buildPoseFromKey('Stance'), 220);
+    resetDefensiveState();
+  }
+
+  function startDefensiveAbility(slotKey, ability){
+    if (!ability || ability.trigger !== 'defensive') return false;
+    const fighter = P();
+    if (!fighter) return false;
+    const stamina = fighter.stamina;
+    if (!stamina) return false;
+
+    const current = Number.isFinite(stamina.current) ? stamina.current : 0;
+    const max = Number.isFinite(stamina.max) ? stamina.max : 0;
+    const minToDash = Number.isFinite(stamina.minToDash) ? stamina.minToDash : 0;
+    const minRatio = Number.isFinite(ability.defensive?.minStaminaRatio)
+      ? Math.max(0, ability.defensive.minStaminaRatio)
+      : null;
+    const ratioRequirement = minRatio != null ? max * minRatio : 0;
+    const required = Math.max(minToDash, ratioRequirement);
+    if (required > 0 && current < required){
+      console.log(logPrefix, `Defensive ability ${ability.id} blocked - stamina below threshold`);
+      return false;
+    }
+
+    const abilityInstance = ability.__base ? ability : instantiateAbility(ability, fighter);
+    if (!abilityInstance) return false;
+
+    const attackId = abilityInstance.attack
+      || abilityInstance.defaultAttack
+      || abilityInstance.defensive?.attackId
+      || abilityInstance.id;
+    const fallbackPreset = abilityInstance.defensive?.poseKey
+      || abilityInstance.preset
+      || abilityInstance.stancePoseKey
+      || 'Stance';
+    const attackDef = getAttackDef(attackId) || { id: attackId, preset: fallbackPreset };
+
+    const context = buildAttackContext({
+      abilityId: abilityInstance.id,
+      ability: abilityInstance,
+      attackId,
+      attack: attackDef,
+      slotKey,
+      type: 'defensive',
+      comboHits: COMBO.hits
+    });
+    context.defensive = abilityInstance.defensive ? { ...abilityInstance.defensive } : null;
+
+    if (context.onExecute){
+      try { context.onExecute(); } catch(err){ console.warn('[combat] defensive onExecute error', err); }
+    }
+
+    logAbilityExecution(context, 'defensive');
+
+    cancelQueuedLayerOverrides();
+
+    ATTACK.active = true;
+    ATTACK.preset = context.preset;
+    ATTACK.context = context;
+    ATTACK.slot = slotKey;
+    ATTACK.isCharging = false;
+    ATTACK.isHoldRelease = false;
+    ATTACK.pendingAbilityId = null;
+    ATTACK.chargeStage = 0;
+
+    DEFENSE.active = true;
+    DEFENSE.slot = slotKey;
+    DEFENSE.abilityId = abilityInstance.id;
+    DEFENSE.context = context;
+    DEFENSE.poseKey = abilityInstance.defensive?.poseKey
+      || attackDef.stancePoseKey
+      || abilityInstance.stancePoseKey
+      || fallbackPreset;
+    const refreshMs = Number.isFinite(abilityInstance.defensive?.poseRefreshMs)
+      ? abilityInstance.defensive.poseRefreshMs
+      : 220;
+    DEFENSE.poseHoldMs = Math.max(120, refreshMs);
+    DEFENSE.nextRefresh = 0;
+    DEFENSE.prevDrainRate = Number.isFinite(stamina.drainRate) ? stamina.drainRate : null;
+    if (Number.isFinite(abilityInstance.defensive?.staminaDrainPerSecond)){
+      stamina.drainRate = abilityInstance.defensive.staminaDrainPerSecond;
+    }
+    stamina.isDashing = true;
+
+    CHARGE.active = false;
+    CHARGE.stage = 0;
+    CHARGE.startTime = now();
+
+    updateFighterAttackState('Stance', { active: true, context });
+
+    return true;
+  }
+
   function canAttackNow(){
     return !ATTACK.active && !TRANSITION.active;
   }
@@ -291,16 +428,17 @@ export function makeCombat(G, C, options = {}){
            ((p?.facingSign||1) < 0 ? Math.PI : 0);
   }
 
-  function neutralizeMovement(){
+  function neutralizeMovement(options = {}){
     if (!neutralizeInputMovement) return;
+    const { preserveDirectional = false } = options || {};
     const I = resolveInput();
     const p = P();
     if (!I) return;
-    if (I.left || I.right){
+    if (!preserveDirectional && (I.left || I.right)){
       I.left = false;
       I.right = false;
-      if (p?.vel) p.vel.x = 0;
     }
+    if (p?.vel) p.vel.x = 0;
   }
 
   // Get preset durations
@@ -624,12 +762,31 @@ export function makeCombat(G, C, options = {}){
       abilities[id] = Object.assign({ id }, def);
     });
     const slots = {};
+    const normalizeAllowance = (spec)=>{
+      if (!spec) return null;
+      const out = {};
+      if (Array.isArray(spec.triggers)) out.triggers = spec.triggers.slice();
+      if (Array.isArray(spec.types)) out.types = spec.types.slice();
+      if (Array.isArray(spec.tags)) out.tags = spec.tags.slice();
+      if (spec.classification != null){
+        out.classification = Array.isArray(spec.classification)
+          ? spec.classification.slice()
+          : [spec.classification];
+      }
+      if (spec.allowNull != null) out.allowNull = !!spec.allowNull;
+      return Object.keys(out).length ? out : null;
+    };
+
     Object.entries(raw.slots || {}).forEach(([slotKey, slotDef])=>{
       slots[slotKey] = {
         key: slotKey,
         label: slotDef.label || slotKey,
         lightAbilityId: slotDef.light || null,
-        heavyAbilityId: slotDef.heavy || null
+        heavyAbilityId: slotDef.heavy || null,
+        allowed: {
+          light: normalizeAllowance(slotDef.allowed?.light),
+          heavy: normalizeAllowance(slotDef.allowed?.heavy)
+        }
       };
     });
     return { thresholds, defaults, attacks, abilities, slots };
@@ -638,11 +795,50 @@ export function makeCombat(G, C, options = {}){
   function getSlot(slotKey){ return ABILITY_SLOTS[slotKey] || null; }
   function getAbility(id){ return id ? (ABILITY_ABILITIES[id] || null) : null; }
   function getAttackDef(id){ return id ? (ABILITY_ATTACKS[id] || null) : null; }
+
+  function abilityMatchesAllowance(allowance, ability){
+    if (!allowance || !ability) return true;
+    if (allowance.triggers && allowance.triggers.length){
+      if (!ability.trigger || !allowance.triggers.includes(ability.trigger)) return false;
+    }
+    if (allowance.types && allowance.types.length){
+      if (!ability.type || !allowance.types.includes(ability.type)) return false;
+    }
+    if (allowance.classification && allowance.classification.length){
+      const cls = ability.classification || null;
+      if (!cls || !allowance.classification.includes(cls)) return false;
+    }
+    if (allowance.tags && allowance.tags.length){
+      const tags = Array.isArray(ability.tags) ? ability.tags : [];
+      for (const tag of allowance.tags){
+        if (!tags.includes(tag)) return false;
+      }
+    }
+    return true;
+  }
+
+  function isAbilityAllowedForSlot(slotKey, weight, ability){
+    const slot = getSlot(slotKey);
+    if (!slot) return !!ability;
+    const allowance = slot.allowed?.[weight] || null;
+    return abilityMatchesAllowance(allowance, ability);
+  }
+
+  function resolveAllowedAbilityId(slotKey, weight, abilityId){
+    if (!abilityId) return null;
+    const ability = getAbility(abilityId);
+    if (!ability) return null;
+    return isAbilityAllowedForSlot(slotKey, weight, ability) ? abilityId : null;
+  }
+
   function getAbilityForSlot(slotKey, type){
     const slot = getSlot(slotKey);
     if (!slot) return null;
     const id = type === 'heavy' ? slot.heavyAbilityId : slot.lightAbilityId;
-    return id ? getAbility(id) : null;
+    if (!id) return null;
+    const ability = getAbility(id);
+    if (!abilityMatchesAllowance(slot.allowed?.[type], ability)) return null;
+    return ability;
   }
 
   function mergeMultipliers(target, source){
@@ -866,14 +1062,17 @@ export function makeCombat(G, C, options = {}){
       if (!slot) return;
       const state = (G.selectedAbilities[slotKey] ||= { light: null, heavy: null });
       if ('light' in slotValues) {
-        const value = slotValues.light || null;
+        const value = resolveAllowedAbilityId(slotKey, 'light', slotValues.light) || null;
         slot.lightAbilityId = value;
         state.light = value;
       }
       if ('heavy' in slotValues) {
-        const value = slotValues.heavy || null;
+        const value = resolveAllowedAbilityId(slotKey, 'heavy', slotValues.heavy) || null;
         slot.heavyAbilityId = value;
         state.heavy = value;
+        if (DEFENSE.active && DEFENSE.slot === slotKey && DEFENSE.abilityId !== value) {
+          stopDefensiveAbility('reassigned');
+        }
       }
     });
   }
@@ -1366,7 +1565,9 @@ export function makeCombat(G, C, options = {}){
       press.lastTap = null;
     }
 
-    neutralizeMovement();
+    const heavyAbility = getAbilityForSlot(slotKey, 'heavy');
+    const preserveDirectional = heavyAbility?.trigger === 'defensive';
+    neutralizeMovement({ preserveDirectional });
 
     if (ATTACK.active || !canAttackNow()){
     console.log(logPrefix, `Button ${slotKey} queued`);
@@ -1452,6 +1653,10 @@ export function makeCombat(G, C, options = {}){
         }
       }
     } else {
+      if (DEFENSE.active && DEFENSE.slot === slotKey){
+        stopDefensiveAbility('released');
+        return;
+      }
       if (ATTACK.isCharging){
         const ability = getAbilityForSlot(slotKey, 'heavy');
         if (ability){
@@ -1551,6 +1756,14 @@ export function makeCombat(G, C, options = {}){
       slotUp('B');
       ATTACK.slot = null;
     }
+
+    // Button C
+    if (I.buttonC?.down && ATTACK.slot !== 'C'){
+      slotDown('C');
+    } else if (!I.buttonC?.down && ATTACK.slot === 'C'){
+      slotUp('C');
+      ATTACK.slot = null;
+    }
   }
 
   function updateCharge(dt){
@@ -1562,7 +1775,11 @@ export function makeCombat(G, C, options = {}){
 
     if (heldMs > ABILITY_THRESHOLDS.tapMaxMs && !ATTACK.isCharging){
       const ability = getAbilityForSlot(slotKey, 'heavy');
-      if (ability?.trigger === 'hold-release'){
+      if (ability?.trigger === 'defensive'){
+        if (!DEFENSE.active){
+          startDefensiveAbility(slotKey, ability);
+        }
+      } else if (ability?.trigger === 'hold-release'){
         const attackId = ability.attack || ability.defaultAttack || ability.id;
         const attackDef = getAttackDef(attackId) || { id: attackId, preset: attackId };
         const windupPoseKey = ability.charge?.windupPoseKey || attackDef.windupPoseKey || 'Windup';
@@ -1580,12 +1797,61 @@ export function makeCombat(G, C, options = {}){
 
     const ability = getAbilityForSlot(slotKey, 'heavy');
     if (!ability) return;
+    if (ability.trigger === 'defensive') return;
     const stageMs = ability.charge?.stageDurationMs ?? ABILITY_THRESHOLDS.chargeStageMs;
     const newStage = Math.floor(heldMs / stageMs);
 
     if (newStage !== CHARGE.stage){
       CHARGE.stage = newStage;
       console.log(logPrefix, `Charge stage: ${CHARGE.stage}`);
+    }
+  }
+
+  function updateDefensive(dt){
+    if (!DEFENSE.active) return;
+    const slotKey = DEFENSE.slot;
+    if (!slotKey){
+      stopDefensiveAbility('no-slot');
+      return;
+    }
+    const buttonKey = SLOT_TO_BUTTON[slotKey];
+    const input = resolveInput();
+    const button = buttonKey ? input?.[buttonKey] : null;
+    if (!button?.down){
+      stopDefensiveAbility('released');
+      return;
+    }
+    const fighter = P();
+    const stamina = fighter?.stamina;
+    if (!fighter || !stamina || !DEFENSE.context){
+      stopDefensiveAbility('no-fighter');
+      return;
+    }
+    const current = Number.isFinite(stamina.current) ? stamina.current : 0;
+    if (current <= 0){
+      stopDefensiveAbility('stamina');
+      return;
+    }
+    const ability = DEFENSE.context?.ability;
+    const max = Number.isFinite(stamina.max) ? stamina.max : 0;
+    const minToDash = Number.isFinite(stamina.minToDash) ? stamina.minToDash : 0;
+    const ratio = Number.isFinite(ability?.defensive?.minStaminaRatio)
+      ? Math.max(0, ability.defensive.minStaminaRatio)
+      : null;
+    const ratioRequirement = ratio != null ? max * ratio : 0;
+    const required = Math.max(minToDash, ratioRequirement, 0);
+    if (required > 0 && current < required){
+      stopDefensiveAbility('stamina');
+      return;
+    }
+
+    stamina.isDashing = true;
+
+    const nowMs = now();
+    if (nowMs >= DEFENSE.nextRefresh){
+      const pose = buildPoseFromKey(DEFENSE.poseKey || 'Stance');
+      pushPoseOverride(poseTarget, pose, DEFENSE.poseHoldMs);
+      DEFENSE.nextRefresh = nowMs + DEFENSE.poseHoldMs;
     }
   }
 
@@ -1648,9 +1914,10 @@ export function makeCombat(G, C, options = {}){
     }
 
     const effectiveInput = p.isDead ? null : input;
+    const attackBlocksMovement = !p.isDead && ATTACK.active && ATTACK.context?.type !== 'defensive';
     updateFighterPhysics(p, C, dt, {
       input: effectiveInput,
-      attackActive: !p.isDead && ATTACK.active,
+      attackActive: attackBlocksMovement,
     });
   }
 
@@ -1673,6 +1940,7 @@ export function makeCombat(G, C, options = {}){
     if (autoProcessInput && !isDead) handleButtons();
     if (!isDead) {
       updateCharge(dt);
+      updateDefensive(dt);
       updateTransitions(dt);
       updateCombo(dt);
       updateResources(dt);

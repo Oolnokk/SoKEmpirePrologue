@@ -3,10 +3,46 @@ const ABILITY_SLOT_CONFIG = [
   { slot: 'A', type: 'light', elementId: 'slotALight' },
   { slot: 'A', type: 'heavy', elementId: 'slotAHeavy' },
   { slot: 'B', type: 'light', elementId: 'slotBLight' },
-  { slot: 'B', type: 'heavy', elementId: 'slotBHeavy' }
+  { slot: 'B', type: 'heavy', elementId: 'slotBHeavy' },
+  { slot: 'C', type: 'light', elementId: 'slotCLight' },
+  { slot: 'C', type: 'heavy', elementId: 'slotCHeavy' }
 ];
 
 const abilitySelectRefs = {};
+
+function getSlotConfig(slotKey) {
+  return window.CONFIG?.abilitySystem?.slots?.[slotKey] || null;
+}
+
+function getSlotAllowance(slotKey, type) {
+  const slot = getSlotConfig(slotKey);
+  return slot?.allowed?.[type] || null;
+}
+
+function abilityMatchesSlot(def = {}, type, allowance) {
+  if (!def || typeof def !== 'object' || Object.keys(def).length === 0) return false;
+  if (allowance) {
+    if (Array.isArray(allowance.triggers) && allowance.triggers.length) {
+      if (!allowance.triggers.includes(def.trigger)) return false;
+    }
+    if (Array.isArray(allowance.types) && allowance.types.length) {
+      if (!def.type || !allowance.types.includes(def.type)) return false;
+    }
+    if (Array.isArray(allowance.classification) && allowance.classification.length) {
+      if (!def.type || !allowance.classification.includes(def.type)) return false;
+    }
+    if (Array.isArray(allowance.tags) && allowance.tags.length) {
+      const tags = Array.isArray(def.tags) ? def.tags : [];
+      for (const tag of allowance.tags) {
+        if (!tags.includes(tag)) return false;
+      }
+    }
+  } else {
+    if (type === 'light' && def.type && def.type !== 'light') return false;
+    if (type === 'heavy' && def.type && def.type !== 'heavy' && def.type !== 'defensive') return false;
+  }
+  return true;
+}
 
 function ensureGameSelectionState() {
   window.GAME ||= {};
@@ -27,6 +63,7 @@ function normalizeAbilityValue(value) {
 function setAbilitySelection(assignments = {}, { syncDropdowns = false } = {}) {
   ensureGameSelectionState();
   const updatesForCombat = {};
+  const abilityDefs = window.CONFIG?.abilitySystem?.abilities || {};
 
   Object.entries(assignments).forEach(([slotKey, slotValues]) => {
     if (!slotValues) return;
@@ -35,21 +72,29 @@ function setAbilitySelection(assignments = {}, { syncDropdowns = false } = {}) {
 
     if ('light' in slotValues) {
       const normalized = normalizeAbilityValue(slotValues.light);
-      slotState.light = normalized;
-      combatSlot.light = normalized;
+      const allowance = getSlotAllowance(slotKey, 'light');
+      const allowed = normalized && abilityMatchesSlot(abilityDefs[normalized], 'light', allowance)
+        ? normalized
+        : null;
+      slotState.light = allowed;
+      combatSlot.light = allowed;
       const select = abilitySelectRefs?.[slotKey]?.light;
       if (syncDropdowns && select) {
-        select.value = normalized ?? '';
+        select.value = allowed ?? '';
       }
     }
 
     if ('heavy' in slotValues) {
       const normalized = normalizeAbilityValue(slotValues.heavy);
-      slotState.heavy = normalized;
-      combatSlot.heavy = normalized;
+      const allowance = getSlotAllowance(slotKey, 'heavy');
+      const allowed = normalized && abilityMatchesSlot(abilityDefs[normalized], 'heavy', allowance)
+        ? normalized
+        : null;
+      slotState.heavy = allowed;
+      combatSlot.heavy = allowed;
       const select = abilitySelectRefs?.[slotKey]?.heavy;
       if (syncDropdowns && select) {
-        select.value = normalized ?? '';
+        select.value = allowed ?? '';
       }
     }
 
@@ -66,39 +111,67 @@ function setAbilitySelection(assignments = {}, { syncDropdowns = false } = {}) {
 function mapSlottedAbilitiesArray(values = []) {
   const defaults = getDefaultAbilityAssignments();
   const assignments = {};
+  const abilityDefs = window.CONFIG?.abilitySystem?.abilities || {};
   ABILITY_SLOT_CONFIG.forEach(({ slot, type }, index) => {
     const fallback = defaults?.[slot]?.[type] ?? null;
     const chosen = values[index] !== undefined ? values[index] : fallback;
+    const normalized = normalizeAbilityValue(chosen);
+    const allowance = getSlotAllowance(slot, type);
+    let allowed = normalized && abilityMatchesSlot(abilityDefs[normalized], type, allowance)
+      ? normalized
+      : null;
+    if (!allowed && fallback) {
+      const fallbackNormalized = normalizeAbilityValue(fallback);
+      if (fallbackNormalized && abilityMatchesSlot(abilityDefs[fallbackNormalized], type, allowance)) {
+        allowed = fallbackNormalized;
+      }
+    }
     assignments[slot] ||= {};
-    assignments[slot][type] = normalizeAbilityValue(chosen);
+    assignments[slot][type] = allowed;
   });
   return assignments;
 }
 
 function getDefaultAbilityAssignments() {
   const slots = window.CONFIG?.abilitySystem?.slots || {};
+  const abilityDefs = window.CONFIG?.abilitySystem?.abilities || {};
   const assignments = {};
   Object.entries(slots).forEach(([slotKey, slotDef]) => {
+    const lightDefault = normalizeAbilityValue(slotDef?.light);
+    const heavyDefault = normalizeAbilityValue(slotDef?.heavy);
+    const lightAllowance = slotDef?.allowed?.light || null;
+    const heavyAllowance = slotDef?.allowed?.heavy || null;
     assignments[slotKey] = {
-      light: normalizeAbilityValue(slotDef?.light),
-      heavy: normalizeAbilityValue(slotDef?.heavy)
+      light: lightDefault && abilityMatchesSlot(abilityDefs[lightDefault], 'light', lightAllowance)
+        ? lightDefault
+        : null,
+      heavy: heavyDefault && abilityMatchesSlot(abilityDefs[heavyDefault], 'heavy', heavyAllowance)
+        ? heavyDefault
+        : null
     };
   });
   return assignments;
 }
 
-function populateAbilityOptions(select, type, abilityDefs) {
+function populateAbilityOptions(select, slotKey, type, abilityDefs) {
   if (!select) return;
   const prevValue = select.value;
   select.innerHTML = '';
 
+  const allowance = getSlotAllowance(slotKey, type);
   const placeholder = document.createElement('option');
   placeholder.value = '';
-  placeholder.textContent = type === 'heavy' ? '-- Select Heavy Ability --' : '-- Select Light Ability --';
+  if (allowance?.triggers && allowance.triggers.includes('defensive')) {
+    placeholder.textContent = '-- Select Defensive Ability --';
+  } else if (type === 'heavy') {
+    placeholder.textContent = '-- Select Heavy Ability --';
+  } else {
+    placeholder.textContent = '-- Select Light Ability --';
+  }
   select.appendChild(placeholder);
 
   const entries = Object.entries(abilityDefs || {})
-    .filter(([_, def]) => !def?.type || def.type === type)
+    .filter(([_, def]) => abilityMatchesSlot(def, type, allowance))
     .sort((a, b) => {
       const aName = a[1]?.name || a[0];
       const bName = b[1]?.name || b[0];
@@ -129,7 +202,7 @@ function initAbilitySlotDropdowns() {
     abilitySelectRefs[slot] ||= {};
     abilitySelectRefs[slot][type] = select;
 
-    populateAbilityOptions(select, type, abilityDefs);
+    populateAbilityOptions(select, slot, type, abilityDefs);
 
     if (!select.dataset.initialized) {
       select.addEventListener('change', (event) => {
