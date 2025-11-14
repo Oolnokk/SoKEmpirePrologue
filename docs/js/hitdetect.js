@@ -2,7 +2,7 @@
 import { applyHitReactionRagdoll, triggerFullRagdoll } from './physics.js?v=1';
 import { getFootingMitigation, getStatProfile } from './stat-hooks.js?v=1';
 import { getActiveNpcFighters } from './npc.js?v=2';
-import { markFighterDead } from './fighter.js?v=7';
+import { markFighterDead } from './fighter.js?v=9';
 import { reportPlayerAggression, reportNpcDefeated, reportPlayerDeath } from './bounty.js?v=1';
 
 function clamp(value, min, max) {
