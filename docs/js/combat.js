@@ -428,16 +428,17 @@ export function makeCombat(G, C, options = {}){
            ((p?.facingSign||1) < 0 ? Math.PI : 0);
   }
 
-  function neutralizeMovement(){
+  function neutralizeMovement(options = {}){
     if (!neutralizeInputMovement) return;
+    const { preserveDirectional = false } = options || {};
     const I = resolveInput();
     const p = P();
     if (!I) return;
-    if (I.left || I.right){
+    if (!preserveDirectional && (I.left || I.right)){
       I.left = false;
       I.right = false;
-      if (p?.vel) p.vel.x = 0;
     }
+    if (p?.vel) p.vel.x = 0;
   }
 
   // Get preset durations
@@ -1564,7 +1565,9 @@ export function makeCombat(G, C, options = {}){
       press.lastTap = null;
     }
 
-    neutralizeMovement();
+    const heavyAbility = getAbilityForSlot(slotKey, 'heavy');
+    const preserveDirectional = heavyAbility?.trigger === 'defensive';
+    neutralizeMovement({ preserveDirectional });
 
     if (ATTACK.active || !canAttackNow()){
     console.log(logPrefix, `Button ${slotKey} queued`);
@@ -1911,9 +1914,10 @@ export function makeCombat(G, C, options = {}){
     }
 
     const effectiveInput = p.isDead ? null : input;
+    const attackBlocksMovement = !p.isDead && ATTACK.active && ATTACK.context?.type !== 'defensive';
     updateFighterPhysics(p, C, dt, {
       input: effectiveInput,
-      attackActive: !p.isDead && ATTACK.active,
+      attackActive: attackBlocksMovement,
     });
   }
 
