@@ -11,6 +11,14 @@ function clamp(value, min, max) {
 const DEFAULT_WORLD_WIDTH = 1600;
 const TWO_PI = Math.PI * 2;
 
+const DEFAULT_DURATION_KEY_FALLBACKS = {
+  toWindup: 320,
+  toStrike: 160,
+  toRecoil: 180,
+  toStance: 120,
+  toSlam: 160,
+};
+
 const DASH_TRAIL_TEMPLATE = {
   enabled: true,
   positions: [],
@@ -188,18 +196,40 @@ function deriveDurationKeyCandidates(poseName) {
 function resolveDurationMsForPose(poseName, presetDurations, fallbackDurations) {
   const sources = [];
   if (presetDurations) sources.push(presetDurations);
-  if (fallbackDurations) sources.push(fallbackDurations);
-  const globalDurations = window.CONFIG?.durations;
+  if (fallbackDurations && fallbackDurations !== presetDurations) {
+    sources.push(fallbackDurations);
+  }
+  const config = window.CONFIG || {};
+  const globalDurations = config.durations;
   if (globalDurations) sources.push(globalDurations);
+  const attackDefaultDurations = config.attacks?.defaults?.durations;
+  if (attackDefaultDurations) sources.push(attackDefaultDurations);
+
   const keys = deriveDurationKeyCandidates(poseName);
+  let zeroDurationDetected = false;
+
   for (const key of keys) {
     if (!key) continue;
     for (const source of sources) {
+      if (!source) continue;
       const value = source?.[key];
-      if (Number.isFinite(value) && value > 0) return value;
+      if (!Number.isFinite(value)) continue;
+      if (value > 0) return value;
+      if (value === 0) zeroDurationDetected = true;
     }
   }
-  return 0;
+
+  for (const key of keys) {
+    if (!key) continue;
+    const normalizedKey = key.replace(/\d+$/, '');
+    const fallback = DEFAULT_DURATION_KEY_FALLBACKS[key]
+      ?? DEFAULT_DURATION_KEY_FALLBACKS[normalizedKey];
+    if (Number.isFinite(fallback) && fallback > 0) {
+      return fallback;
+    }
+  }
+
+  return zeroDurationDetected ? 1 : 0;
 }
 
 function cancelNpcLayerHandles(attack) {
