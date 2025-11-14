@@ -11,11 +11,11 @@ function ensureDebugState() {
   const state = (G.HITDEBUG ||= {
     lastPhase: null,
     collidedThisPhase: false,
-    npcLastPhase: null,
-    npcCollidedThisPhase: false,
+    npcStates: {},
     lastColliders: [],
   });
   state.lastColliders ||= [];
+  state.npcStates ||= {};
   return state;
 }
 
@@ -86,7 +86,7 @@ function applyKnockback(target, angle, force, { verticalScale = 0.2 } = {}) {
   target.vel.y += Math.sin(angle) * force * verticalScale;
 }
 
-function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius) {
+function handlePlayerHitsNpc(G, config, player, npc, npcId, debug, distance, bodyRadius) {
   const attack = player.attack || {};
   const phase = attack.currentPhase || 'Stance';
   if (debug.lastPhase !== phase) {
@@ -102,7 +102,7 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
   if (distance > reach || debug.collidedThisPhase) return;
 
   debug.collidedThisPhase = true;
-  debug.lastColliders = ['npc-body'];
+  debug.lastColliders = [`${npcId}-body`];
   const multiplier = attack.context?.multipliers?.knockback || 1;
   const force = calculateKnockback(config, presetName, npc.footing ?? 100, multiplier);
   const angle = Math.atan2(npc.pos.y - player.pos.y, npc.pos.x - player.pos.x);
@@ -119,6 +119,11 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
   if (counts) {
     counts.body = (counts.body || 0) + 1;
   }
+  const perNpcCounts = G.HIT_COUNTS?.npcs;
+  if (perNpcCounts) {
+    const entry = perNpcCounts[npcId] || (perNpcCounts[npcId] = {});
+    entry.body = (entry.body || 0) + 1;
+  }
   const onHit = attack.context?.onHit;
   if (typeof onHit === 'function') {
     try {
@@ -129,20 +134,20 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
   }
 }
 
-function handleNpcHitsPlayer(G, config, player, npc, debug, distance, bodyRadius) {
+function handleNpcHitsPlayer(G, config, player, npc, debug, npcDebug, distance, bodyRadius) {
   const attack = npc.attack || {};
   const phase = attack.currentPhase || 'Stance';
-  if (debug.npcLastPhase !== phase) {
-    debug.npcLastPhase = phase;
-    debug.npcCollidedThisPhase = false;
+  if (npcDebug.lastPhase !== phase) {
+    npcDebug.lastPhase = phase;
+    npcDebug.collidedThisPhase = false;
   }
   if (!attack.active || !phase || !phase.toLowerCase().includes('strike')) return;
 
   const presetName = getPresetNameFromAttack(attack);
   const reach = getAttackReach(presetName) + bodyRadius;
-  if (distance > reach || debug.npcCollidedThisPhase) return;
+  if (distance > reach || npcDebug.collidedThisPhase) return;
 
-  debug.npcCollidedThisPhase = true;
+  npcDebug.collidedThisPhase = true;
   const force = calculateKnockback(config, presetName, player.footing ?? 50, 1);
   const angle = Math.atan2(player.pos.y - npc.pos.y, player.pos.x - npc.pos.x);
   applyKnockback(player, angle, force, { verticalScale: 0.25 });
@@ -171,16 +176,26 @@ function handleNpcHitsPlayer(G, config, player, npc, debug, distance, bodyRadius
 export function runHitDetect() {
   const G = window.GAME || {};
   const C = window.CONFIG || {};
-  const P = G.FIGHTERS?.player;
-  const N = G.FIGHTERS?.npc;
-  if (!P || !N) return;
+  const fighters = G.FIGHTERS || {};
+  const player = fighters.player;
+  if (!player) return;
+
+  const npcs = [];
+  for (const [id, fighter] of Object.entries(fighters)) {
+    if (!fighter || !id.toLowerCase().startsWith('npc')) continue;
+    npcs.push({ id, fighter });
+  }
+  if (!npcs.length) return;
 
   const debug = ensureDebugState();
   const bodyRadius = getBodyRadius(C);
-  const dx = (P.pos?.x ?? 0) - (N.pos?.x ?? 0);
-  const dy = (P.pos?.y ?? 0) - (N.pos?.y ?? 0);
-  const distance = Math.hypot(dx, dy);
+  for (const { id, fighter: npc } of npcs) {
+    const npcDebug = (debug.npcStates[id] ||= { lastPhase: null, collidedThisPhase: false });
+    const dx = (player.pos?.x ?? 0) - (npc.pos?.x ?? 0);
+    const dy = (player.pos?.y ?? 0) - (npc.pos?.y ?? 0);
+    const distance = Math.hypot(dx, dy);
 
-  handlePlayerHitsNpc(G, C, P, N, debug, distance, bodyRadius);
-  handleNpcHitsPlayer(G, C, P, N, debug, distance, bodyRadius);
+    handlePlayerHitsNpc(G, C, player, npc, id, debug, distance, bodyRadius);
+    handleNpcHitsPlayer(G, C, player, npc, debug, npcDebug, distance, bodyRadius);
+  }
 }

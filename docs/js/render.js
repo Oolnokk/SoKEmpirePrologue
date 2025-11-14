@@ -421,15 +421,24 @@ export function renderAll(ctx){
     ctx.restore();
   }
 
-  const npcDashTrail = getNpcDashTrail();
-  if (npcDashTrail?.positions?.length) {
-    for (let i = npcDashTrail.positions.length - 1; i >= 0; i -= 1) {
-      const pos = npcDashTrail.positions[i];
+  const npcDashTrails = getNpcDashTrail();
+  const dashEntries = Array.isArray(npcDashTrails)
+    ? npcDashTrails
+    : npcDashTrails
+      ? [{ id: npcDashTrails.id || 'npc', dashTrail: npcDashTrails.dashTrail || npcDashTrails }]
+      : [];
+  for (const entry of dashEntries) {
+    const dashTrail = entry?.dashTrail;
+    if (!dashTrail?.positions?.length) continue;
+    for (let i = dashTrail.positions.length - 1; i >= 0; i -= 1) {
+      const pos = dashTrail.positions[i];
       const alpha = Math.max(0, pos.alpha ?? 0);
       if (alpha <= 0) continue;
       ctx.save();
       ctx.globalAlpha = alpha * 0.5;
-      ctx.fillStyle = 'rgba(248, 113, 113, 0.35)';
+      ctx.fillStyle = entry?.id === 'npc2'
+        ? 'rgba(96, 165, 250, 0.35)'
+        : 'rgba(248, 113, 113, 0.35)';
       const radius = (C.parts?.hitbox?.w || 40) * (C.actor?.scale || 1) * 0.3;
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
@@ -438,10 +447,17 @@ export function renderAll(ctx){
     }
   }
 
-  const npcAttackTrail = getNpcAttackTrail();
-  if (npcAttackTrail?.enabled) {
+  const npcAttackTrails = getNpcAttackTrail();
+  const attackEntries = Array.isArray(npcAttackTrails)
+    ? npcAttackTrails
+    : npcAttackTrails
+      ? [{ id: npcAttackTrails.id || 'npc', attackTrail: npcAttackTrails.attackTrail || npcAttackTrails }]
+      : [];
+  for (const entry of attackEntries) {
+    const attackTrail = entry?.attackTrail;
+    if (!attackTrail?.enabled) continue;
     for (const key of ['handL', 'handR', 'footL', 'footR']) {
-      const trail = npcAttackTrail.colliders?.[key];
+      const trail = attackTrail.colliders?.[key];
       if (!trail || !trail.length) continue;
       for (let i = trail.length - 1; i >= 0; i -= 1) {
         const sample = trail[i];
@@ -451,8 +467,14 @@ export function renderAll(ctx){
         ctx.globalAlpha = alpha * 0.6;
         ctx.beginPath();
         ctx.arc(sample.x, sample.y, sample.radius ?? 14, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(239, 68, 68, ${alpha * 0.65})`;
-        ctx.strokeStyle = `rgba(248, 113, 22, ${alpha * 0.85})`;
+        const fillColor = entry?.id === 'npc2'
+          ? `rgba(37, 99, 235, ${alpha * 0.65})`
+          : `rgba(239, 68, 68, ${alpha * 0.65})`;
+        const strokeColor = entry?.id === 'npc2'
+          ? `rgba(59, 130, 246, ${alpha * 0.85})`
+          : `rgba(248, 113, 22, ${alpha * 0.85})`;
+        ctx.fillStyle = fillColor;
+        ctx.strokeStyle = strokeColor;
         ctx.lineWidth = 2;
         ctx.fill();
         ctx.stroke();

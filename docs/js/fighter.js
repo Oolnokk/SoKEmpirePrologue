@@ -69,6 +69,7 @@ export function initFighters(cv, cx){
   const DEFAULT_FIGHTER_SPACING = 120;
   const defaultPlayerX = (C.canvas?.w||720) * 0.5 - DEFAULT_FIGHTER_SPACING * 0.5;
   const defaultNpcX = defaultPlayerX + DEFAULT_FIGHTER_SPACING;
+  const secondNpcOffset = DEFAULT_FIGHTER_SPACING * 1.1;
 
   function normalizeSpawnValue(value) {
     return Number.isFinite(value) ? value : null;
@@ -193,6 +194,9 @@ export function initFighters(cv, cx){
   const resolvedNpcYOffset = npcSpawnYOffset ?? playerSpawnYOffset ?? 0;
   const playerSpawnY = gy - 1 + playerSpawnYOffset;
   const npcSpawnY = gy - 1 + resolvedNpcYOffset;
+  const worldWidth = C.world?.width || C.camera?.worldWidth || (C.canvas?.w || 720);
+  const npc2SpawnX = Math.max(0, Math.min(npcSpawnX + secondNpcOffset, worldWidth - DEFAULT_FIGHTER_SPACING * 0.5));
+  const npc2SpawnY = npcSpawnY;
 
   const fallbackFighterName = pickFighterName(C);
   const characters = C.characters || {};
@@ -393,7 +397,8 @@ export function initFighters(cv, cx){
 
   G.FIGHTERS = {
     player: makeF('player', playerSpawnX, 1, playerSpawnY),
-    npc:    makeF('npc',    npcSpawnX, -1, npcSpawnY)
+    npc:    makeF('npc',    npcSpawnX, -1, npcSpawnY),
+    npc2:   makeF('npc2',   npc2SpawnX, -1, npc2SpawnY),
   };
   G.spawnPoints = {
     player: {
@@ -407,6 +412,12 @@ export function initFighters(cv, cx){
       y: npcSpawnY,
       yOffset: resolvedNpcYOffset,
       source: npcSpawn ?? null,
+    },
+    npc2: {
+      x: npc2SpawnX,
+      y: npc2SpawnY,
+      yOffset: resolvedNpcYOffset,
+      source: null,
     },
   };
   const characterState = {};
@@ -426,6 +437,11 @@ export function initFighters(cv, cx){
         x: npcSpawnX,
         yOffset: resolvedNpcYOffset,
         worldY: npcSpawnY,
+      },
+      npc2: {
+        x: npc2SpawnX,
+        yOffset: resolvedNpcYOffset,
+        worldY: npc2SpawnY,
       },
     };
   }
