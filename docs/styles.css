@@ -337,6 +337,31 @@ canvas#game{
 
 .footing-label{color:#27272a;text-shadow:0 1px 1px rgba(255,255,255,0.55);}
 
+.bounty-indicator{
+  position:absolute;
+  top:24px;
+  right:18px;
+  display:none;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:14px;
+  border:1px solid rgba(250,204,21,0.32);
+  background:rgba(15,23,42,0.78);
+  box-shadow:0 16px 32px rgba(2,6,23,0.55);
+  font:600 13px/1.2 ui-monospace,Menlo,Consolas;
+  letter-spacing:0.18em;
+  text-transform:uppercase;
+  color:#e2e8f0;
+  pointer-events:none;
+}
+
+.bounty-indicator.active{display:inline-flex;}
+.bounty-indicator.cooldown{border-color:rgba(96,165,250,0.4);color:#cbd5f5;}
+.bounty-indicator .label{font-weight:700;letter-spacing:0.22em;color:#cbd5f5;}
+.bounty-indicator .stars{font-size:16px;letter-spacing:0.25em;color:#facc15;text-shadow:0 0 8px rgba(250,204,21,0.45);}
+
+
 .interact-prompt{
   position:absolute;
   bottom:clamp(20px,4vh,38px);

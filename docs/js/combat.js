@@ -1630,7 +1630,7 @@ export function makeCombat(G, C, options = {}){
 
   function updateResources(dt){
     const fighter = P();
-    if (!fighter) return;
+    if (!fighter || fighter.isDead) return;
     const profile = getStatProfile(fighter);
     applyStaminaTick(fighter, dt);
     applyHealthRegenFromStats(fighter, dt, profile);
@@ -1647,9 +1647,10 @@ export function makeCombat(G, C, options = {}){
       p.input = input;
     }
 
+    const effectiveInput = p.isDead ? null : input;
     updateFighterPhysics(p, C, dt, {
-      input,
-      attackActive: ATTACK.active,
+      input: effectiveInput,
+      attackActive: !p.isDead && ATTACK.active,
     });
   }
 
@@ -1666,13 +1667,20 @@ export function makeCombat(G, C, options = {}){
   }
 
   function tick(dt){
-    if (autoProcessInput) handleButtons();
-    updateCharge(dt);
-    updateTransitions(dt);
-    updateCombo(dt);
-    updateResources(dt);
-    updateMovement(dt);
-    processQueue();
+    const fighter = P();
+    if (!fighter) return;
+    const isDead = !!fighter.isDead;
+    if (autoProcessInput && !isDead) handleButtons();
+    if (!isDead) {
+      updateCharge(dt);
+      updateTransitions(dt);
+      updateCombo(dt);
+      updateResources(dt);
+      updateMovement(dt);
+      processQueue();
+    } else {
+      updateMovement(dt);
+    }
   }
 
   return {

@@ -1,4 +1,4 @@
-import { initFighters } from './fighter.js?v=6';
+import { initFighters } from './fighter.js?v=7';
 import { renderAll } from './render.js?v=4';
 import { initSprites, renderSprites } from './sprites.js?v=8';
 import {
