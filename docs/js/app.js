@@ -341,7 +341,8 @@ import { initControls } from './controls.js?v=7';
 import { initCombat } from './combat.js?v=19';
 import { updatePoses } from './animator.js?v=4';
 import { renderAll, LIMB_COLORS } from './render.js?v=4';
-import { initCamera, updateCamera } from './camera.js?v=4';
+import { initCamera, updateCamera } from './camera.js?v=5';
+import { initManualZoom } from './manual-zoom.js?v=1';
 import { initHitDetect, runHitDetect } from './hitdetect.js?v=1';
 import { initSprites, renderSprites } from './sprites.js?v=8';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
@@ -350,9 +351,11 @@ import { initTouchControls } from './touch-controls.js?v=1';
 
 // Setup canvas
 const cv = $$('#game');
+const stage = $$('#gameStage');
 const cx = cv?.getContext('2d');
 window.GAME ||= {};
 initCamera({ canvas: cv });
+initManualZoom({ canvas: cv, stage });
 
 // Detect touch devices early so we can surface on-screen controls reliably
 const rootElement = document.documentElement;

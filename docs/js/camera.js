@@ -431,3 +431,67 @@ export function updateCamera(canvas) {
   viewportWorldWidth = viewportWidth / updatedZoom;
   camera.viewportWorldWidth = viewportWorldWidth;
 }
+
+export function applyManualZoom({
+  scale,
+  delta,
+  focusX,
+  viewportWidth,
+} = {}) {
+  const camera = ensureGameCamera();
+  const awareness = ensureCameraAwareness(camera);
+  refreshAwarenessConfig(camera);
+  const now = getNowSeconds();
+  setAwarenessState(camera, 'aware', { now });
+  awareness.lastInputTime = now;
+
+  const minZoom = awareness.minZoom ?? MIN_EFFECTIVE_ZOOM;
+  const maxZoom = awareness.maxZoom ?? Math.max(minZoom, 3);
+
+  const currentZoom = Number.isFinite(camera.zoom) ? camera.zoom : awareness.defaultZoom;
+  const currentTarget = Number.isFinite(camera.targetZoom) ? camera.targetZoom : currentZoom;
+  let nextZoom = currentTarget;
+
+  if (Number.isFinite(scale) && scale > 0) {
+    nextZoom *= scale;
+  }
+  if (Number.isFinite(delta)) {
+    nextZoom += delta;
+  }
+
+  nextZoom = clamp(nextZoom, minZoom, maxZoom);
+
+  const viewportPxWidth = Number.isFinite(viewportWidth)
+    ? viewportWidth
+    : Number.isFinite(camera.viewportWidth)
+      ? camera.viewportWidth
+      : lastViewportWidth || DEFAULT_VIEWPORT_WIDTH;
+  lastViewportWidth = viewportPxWidth;
+
+  const effectiveCurrentZoom = Math.max(currentZoom, MIN_EFFECTIVE_ZOOM);
+  const beforeWorldWidth = viewportPxWidth / effectiveCurrentZoom;
+  const focusRatioX = Number.isFinite(focusX) && viewportPxWidth > 0
+    ? clamp(focusX / viewportPxWidth, 0, 1)
+    : 0.5;
+
+  const bounds = camera.bounds || { min: 0, max: camera.worldWidth || DEFAULT_WORLD_WIDTH };
+  const minBound = Number.isFinite(bounds.min) ? bounds.min : 0;
+  const maxBound = Number.isFinite(bounds.max) ? bounds.max : minBound + (camera.worldWidth || DEFAULT_WORLD_WIDTH);
+  const maxCameraXBefore = Math.max(minBound, maxBound - beforeWorldWidth);
+  const currentX = Number.isFinite(camera.x) ? clamp(camera.x, minBound, maxCameraXBefore) : minBound;
+  const focusWorld = currentX + beforeWorldWidth * focusRatioX;
+
+  const effectiveNextZoom = Math.max(nextZoom, MIN_EFFECTIVE_ZOOM);
+  const afterWorldWidth = viewportPxWidth / effectiveNextZoom;
+  const maxCameraXAfter = Math.max(minBound, maxBound - afterWorldWidth);
+  let nextX = focusWorld - afterWorldWidth * focusRatioX;
+  nextX = clamp(nextX, minBound, maxCameraXAfter);
+
+  camera.viewportWidth = viewportPxWidth;
+  camera.viewportWorldWidth = afterWorldWidth;
+  camera.targetZoom = nextZoom;
+  camera.targetX = nextX;
+  camera.x = nextX;
+
+  return nextZoom;
+}
