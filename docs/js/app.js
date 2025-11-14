@@ -1185,19 +1185,13 @@ function updateHUD(){
   if (!P) return;
   const S = P.stamina;
   if (S && staminaFill){
-    const normalized = S.max ? Math.max(-1, Math.min(1, S.current / S.max)) : 0;
-    const positiveRatio = Math.max(0, normalized);
-    const pct = Math.round(positiveRatio * 100);
-    const pctDisplay = Math.round(normalized * 100);
-    const exhausted = normalized < 0 || !!S.exhausted;
+    const ratio = S.max ? Math.max(0, Math.min(1, S.current / S.max)) : 0;
+    const pct = Math.round(ratio * 100);
     staminaFill.style.width = `${pct}%`;
-    staminaFill.classList.toggle('low', positiveRatio <= 0.25);
-    staminaFill.classList.toggle('dashing', positiveRatio > 0 && !!S.isDashing);
-    staminaFill.classList.toggle('exhausted', exhausted);
+    staminaFill.classList.toggle('low', ratio <= 0.25);
+    staminaFill.classList.toggle('dashing', !!S.isDashing);
     if (staminaLabel){
-      staminaLabel.textContent = exhausted
-        ? `Stamina ${pctDisplay}% (Exhausted)`
-        : `Stamina ${pctDisplay}%`;
+      staminaLabel.textContent = `Stamina ${pct}%`;
     }
   } else if (staminaLabel){
     staminaLabel.textContent = 'Stamina';
