@@ -242,8 +242,26 @@ export function initFighters(cv, cx){
     return null;
   }
 
+  function resolveFighterKey(name) {
+    if (!name) return null;
+    const trimmed = String(name).trim();
+    if (!trimmed) return null;
+    if (C.fighters?.[trimmed]) return trimmed;
+    const lower = trimmed.toLowerCase();
+    if (!lower) return null;
+    const fighters = Object.keys(C.fighters || {});
+    for (const key of fighters) {
+      if (key.toLowerCase() === lower) {
+        return key;
+      }
+    }
+    return null;
+  }
+
   function resolveFighterName(id, characterData, prevProfile) {
-    const selectedFighter = G.selectedFighter;
+    let selectedFighter = typeof G.selectedFighter === 'string'
+      ? G.selectedFighter.trim()
+      : '';
     if (
       selectedFighter &&
       C.fighters?.[selectedFighter] &&
@@ -252,11 +270,19 @@ export function initFighters(cv, cx){
       return selectedFighter;
     }
 
-    const prevFighter = prevProfile?.fighterName;
-    if (prevFighter && C.fighters?.[prevFighter]) return prevFighter;
+    selectedFighter = resolveFighterKey(selectedFighter);
+    if (
+      selectedFighter &&
+      (id === 'player' || prevProfile?.characterKey === 'player')
+    ) {
+      return selectedFighter;
+    }
 
-    const charFighter = characterData?.fighter;
-    if (charFighter && C.fighters?.[charFighter]) return charFighter;
+    const configFighter = resolveFighterKey(characterData?.fighter);
+    if (configFighter) return configFighter;
+
+    const prevFighter = resolveFighterKey(prevProfile?.fighterName);
+    if (prevFighter) return prevFighter;
 
     return fallbackFighterName;
   }
