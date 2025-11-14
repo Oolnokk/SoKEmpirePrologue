@@ -795,8 +795,8 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
       bodyColors: {
-        A: { h: 20, s: 0, v: -0.1 },
-        B: { h: 20, s: 0.5, v: -0.2 },
+        A: { h: -100, s: -0.3, v: -0.5 },
+        B: { h: =60, s: =0.1, v: 0 },
         C: { h: 32, s: 0.25, v: -0.05 }
       },
       appearance: {
@@ -818,8 +818,8 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_punch', 'heavy_hold'],
       bodyColors: {
-        A: { h: 20, s: 0.8, v: -0.4 },
-        B: { h: 20, s: 0.2, v: 0.25 },
+        A: { h: -90, s: -0.3, v: -0.3 },
+        B: { h: -50, s: 0.2, v: 0.55 },
         C: { h: 72, s: 0.28, v: 0.12 }
       },
       appearance: {
