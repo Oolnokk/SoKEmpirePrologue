@@ -59,10 +59,10 @@ const DEFAULT_BREATHING_FRAMES = [
     }
   },
   {
-    torso: { scaleX: 1.035, scaleY: 1.02 },
+    torso: { scaleX: 1.1, scaleY: 1.1 },
     arms: {
-      left: { ay: -2 },
-      right: { ay: 2 }
+      left: { ax: -2 },
+      right: { ax: -2 }
     }
   }
 ];
