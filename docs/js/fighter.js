@@ -93,6 +93,26 @@ export function initFighters(cv, cx){
     return { x, y };
   }
 
+  function normalizeStats(rawStats) {
+    const baseline = Number.isFinite(rawStats?.baseline) ? rawStats.baseline : 10;
+    const strength = Number.isFinite(rawStats?.strength) ? rawStats.strength : baseline;
+    const agility = Number.isFinite(rawStats?.agility) ? rawStats.agility : baseline;
+    const endurance = Number.isFinite(rawStats?.endurance) ? rawStats.endurance : baseline;
+    const stats = {
+      baseline,
+      strength,
+      agility,
+      endurance,
+    };
+    if (Number.isFinite(rawStats?.maxHealth)) {
+      stats.maxHealth = rawStats.maxHealth;
+    }
+    if (Number.isFinite(rawStats?.maxStamina)) {
+      stats.maxStamina = rawStats.maxStamina;
+    }
+    return stats;
+  }
+
   function resolveActiveArea() {
     const registry = G.mapRegistry;
     if (!registry || typeof registry.getActiveArea !== 'function') return null;
@@ -339,6 +359,8 @@ export function initFighters(cv, cx){
         ? characterData.slottedAbilities.slice()
         : []);
 
+    const stats = normalizeStats(characterData?.stats);
+
     const renderProfile = {
       fighterName,
       characterKey: characterKey ?? null,
@@ -348,7 +370,23 @@ export function initFighters(cv, cx){
       appearance: appearanceBase ? clone(appearanceBase) : null,
       weapon: weaponBase,
       slottedAbilities: abilityBase,
+      stats,
     };
+
+    const baselineStat = stats.baseline ?? 10;
+    const enduranceStat = stats.endurance ?? baselineStat;
+    const agilityStat = stats.agility ?? baselineStat;
+    const enduranceMultiplier = 1 + (enduranceStat - baselineStat) * 0.05;
+    const agilityMultiplier = 1 + (agilityStat - baselineStat) * 0.03;
+    const maxHealth = Number.isFinite(stats.maxHealth)
+      ? stats.maxHealth
+      : Math.round(100 + (enduranceStat - baselineStat) * 6);
+    const maxStamina = Number.isFinite(stats.maxStamina)
+      ? stats.maxStamina
+      : Math.round(100 + (enduranceStat - baselineStat) * 5);
+    const staminaDrainRate = Math.max(15, Math.round(40 / Math.max(0.6, enduranceMultiplier)));
+    const staminaRegenRate = Math.max(12, Math.round(25 * enduranceMultiplier));
+    const staminaMinToDash = Math.max(6, Math.round(10 / Math.max(0.6, agilityMultiplier)));
 
     return {
       id,
@@ -373,12 +411,17 @@ export function initFighters(cv, cx){
       jointAngles: { ...stanceRad },
       walk: { phase: 0, amp: 0 },
       renderProfile,
+      stats,
+      health: {
+        current: maxHealth,
+        max: maxHealth,
+      },
       stamina: {
-        current: 100,
-        max: 100,
-        drainRate: 40,
-        regenRate: 25,
-        minToDash: 10,
+        current: maxStamina,
+        max: maxStamina,
+        drainRate: staminaDrainRate,
+        regenRate: staminaRegenRate,
+        minToDash: staminaMinToDash,
         isDashing: false,
       },
       attack: {
