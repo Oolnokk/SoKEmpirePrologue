@@ -586,7 +586,18 @@ window.CONFIG = {
     handMultiplier: 2.0,
     footMultiplier: 1.0
   },
-  
+
+  balance: {
+    footingDamage: 1.0,
+    baseMovementSpeed: 1.0,
+    baseRecoveryRate: 1.0,
+    statPointEffects: {
+      strength: 1.0,
+      agility: 1.0,
+      endurance: 1.0
+    }
+  },
+
   knockback: {
     maxFooting: 100,
     weaponTypes: {

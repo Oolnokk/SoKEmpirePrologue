@@ -6,6 +6,23 @@ function clamp(value, min, max) {
   return value;
 }
 
+function getStatEffectMultiplier(statKey) {
+  if (typeof window === 'undefined') return 1;
+  const statEffects = window.CONFIG?.balance?.statPointEffects;
+  const value = statEffects?.[statKey];
+  return Number.isFinite(value) ? Number(value) : 1;
+}
+
+function getStatEffectSignature() {
+  if (typeof window === 'undefined') return 'default';
+  const statEffects = window.CONFIG?.balance?.statPointEffects;
+  if (!statEffects) return 'default';
+  const strength = Number.isFinite(statEffects.strength) ? Number(statEffects.strength) : 1;
+  const agility = Number.isFinite(statEffects.agility) ? Number(statEffects.agility) : 1;
+  const endurance = Number.isFinite(statEffects.endurance) ? Number(statEffects.endurance) : 1;
+  return `str:${strength}|agi:${agility}|end:${endurance}`;
+}
+
 function toNumber(value, fallback) {
   return Number.isFinite(value) ? Number(value) : fallback;
 }
@@ -20,6 +37,7 @@ function cacheProfile(stats, profile) {
         agility: toNumber(stats.agility, toNumber(stats.baseline, 10)),
         endurance: toNumber(stats.endurance, toNumber(stats.baseline, 10)),
         profile,
+        signature: getStatEffectSignature(),
       },
       configurable: true,
       enumerable: false,
@@ -39,11 +57,13 @@ function reuseCachedProfile(stats) {
   const strength = toNumber(stats.strength, baseline);
   const agility = toNumber(stats.agility, baseline);
   const endurance = toNumber(stats.endurance, baseline);
+  const signature = getStatEffectSignature();
   if (
     cached.baseline === baseline &&
     cached.strength === strength &&
     cached.agility === agility &&
-    cached.endurance === endurance
+    cached.endurance === endurance &&
+    cached.signature === signature
   ) {
     return cached.profile;
   }
@@ -56,9 +76,9 @@ export function computeStatProfile(rawStats = {}) {
   const agility = toNumber(rawStats.agility, baseline);
   const endurance = toNumber(rawStats.endurance, baseline);
 
-  const strengthDelta = strength - baseline;
-  const agilityDelta = agility - baseline;
-  const enduranceDelta = endurance - baseline;
+  const strengthDelta = (strength - baseline) * getStatEffectMultiplier('strength');
+  const agilityDelta = (agility - baseline) * getStatEffectMultiplier('agility');
+  const enduranceDelta = (endurance - baseline) * getStatEffectMultiplier('endurance');
 
   const strengthMultiplier = 1 + strengthDelta * 0.05;
   const staminaCostMultiplier = clamp(1 - agilityDelta * 0.04, 0.3, 1.75);
