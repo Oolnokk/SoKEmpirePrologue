@@ -1,0 +1,61 @@
+{
+  "structureId": "Blocking Crate",
+  "type": "obstruction",
+  "tags": ["grippable"],
+  "base": {},
+  "obstruction": {
+    "collision": {
+      "enabled": true,
+      "box": {
+        "width": 140,
+        "height": 110,
+        "offsetX": 0,
+        "offsetY": -60
+      }
+    },
+    "physics": {
+      "enabled": true,
+      "dynamic": true,
+      "mass": 2.5,
+      "drag": 0.2
+    }
+  },
+  "parts": [
+    {
+      "name": "crate_near",
+      "layer": "near",
+      "relX": 0,
+      "relY": 0,
+      "z": 20,
+      "propTemplate": {
+        "id": "crate_near",
+        "url": "./assets/prefabs/structures/towers/tower_commercial_near.png",
+        "w": 220,
+        "h": 180,
+        "pivot": "bottom",
+        "anchorXPct": 50,
+        "anchorYPct": 100,
+        "parallaxX": 1,
+        "parallaxClampPx": 0
+      }
+    },
+    {
+      "name": "crate_far",
+      "layer": "far",
+      "relX": 0,
+      "relY": 0,
+      "z": -10,
+      "propTemplate": {
+        "id": "crate_far",
+        "url": "./assets/prefabs/structures/towers/tower_general_far.png",
+        "w": 220,
+        "h": 180,
+        "pivot": "bottom",
+        "anchorXPct": 50,
+        "anchorYPct": 100,
+        "parallaxX": 0.85,
+        "parallaxClampPx": 64
+      }
+    }
+  ]
+}

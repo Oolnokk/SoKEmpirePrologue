@@ -1,0 +1,11 @@
+{
+  "id": "obstructions",
+  "label": "Obstructions",
+  "entries": [
+    {
+      "id": "blocking_crate",
+      "label": "Blocking Crate",
+      "path": "./blocking_crate.prefab.json"
+    }
+  ]
+}
