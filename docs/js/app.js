@@ -725,6 +725,7 @@ function initFighterDropdown() {
       delete window.GAME.selectedAppearance;
 
       showFighterSettings(selectedFighter);
+      scheduleFighterPreview(selectedFighter);
     });
     fighterSelect.dataset.initialized = 'true';
   }
