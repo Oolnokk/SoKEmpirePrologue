@@ -795,7 +795,7 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
       bodyColors: {
-        A: { h: -100, s: -0.3, v: -0.5 },
+        A: { h: -40, s: -0.3, v: -0.5 },
         B: { h: -60, s: -0.1, v: 0 },
         C: { h: 32, s: 0.25, v: -0.05 }
       },
