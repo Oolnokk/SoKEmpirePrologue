@@ -826,9 +826,9 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_punch', 'heavy_hold'],
       stats: {
-        strength: 10,
-        agility: 9,
-        endurance: 12,
+        strength: 5,
+        agility: 4,
+        endurance: 6,
         maxHealth: 120,
         maxStamina: 120
       },
