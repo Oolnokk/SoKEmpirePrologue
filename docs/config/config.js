@@ -590,11 +590,11 @@ window.CONFIG = {
   balance: {
     footingDamage: 1.0,
     baseMovementSpeed: 1.0,
-    baseRecoveryRate: 1.0,
+    baseRecoveryRate: 0.3,
     statPointEffects: {
       strength: 1.0,
       agility: 1.0,
-      endurance: 1.0
+      endurance: 1
     }
   },
 
@@ -602,8 +602,8 @@ window.CONFIG = {
     maxFooting: 100,
     weaponTypes: {
       unarmed: { type: 'blunt', multiplier: 1.0 },
-      blunt: { multiplier: 1.2 },
-      sharp: { multiplier: 0.8 }
+      blunt: { multiplier: 2.4 },
+      sharp: { multiplier: 1.6 }
     },
     currentWeapon: 'unarmed'
   },
