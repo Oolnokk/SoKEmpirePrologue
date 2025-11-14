@@ -69,6 +69,12 @@ function buildSpriteOverrides(profile){
   if (profile.untintedOverlays || profile.untintedOverlayLayers) {
     overrides.untintedOverlays = profile.untintedOverlays ?? profile.untintedOverlayLayers;
   }
+  if (profile.characterKey) {
+    overrides.characterKey = profile.characterKey;
+  }
+  if (profile.character && typeof profile.character === 'object') {
+    overrides.characterData = profile.character;
+  }
   return overrides;
 }
 
@@ -973,8 +979,15 @@ export function ensureFighterSprites(C, fname, overrides = {}){
   const overrideBodyColors = normalizeBodyColorOverride(overrides.bodyColors);
   const cosmeticsOverride = Array.isArray(overrides.cosmeticLayers) ? overrides.cosmeticLayers : null;
   const untintedOverride = overrides.untintedOverlays || null;
+  const overrideCharacterKey = overrides.characterKey || null;
+  const overrideCharacterData = overrides.characterData && typeof overrides.characterData === 'object'
+    ? overrides.characterData
+    : null;
 
-  const cosmetics = cosmeticsOverride ?? ensureCosmeticLayers(C, fname, style);
+  const cosmetics = cosmeticsOverride ?? ensureCosmeticLayers(C, fname, style, {
+    characterKey: overrideCharacterKey,
+    characterData: overrideCharacterData,
+  });
   const bodyColors = overrideBodyColors ?? resolveFighterBodyColors(C, fname);
   const untintedOverlays = resolveUntintedOverlayMap(f, S);
   const appliedUntintedOverlays = untintedOverride || untintedOverlays;

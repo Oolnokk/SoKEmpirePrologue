@@ -760,23 +760,47 @@ function mergeSlotConfigs(baseSlots = {}, overrideDef = {}){
   return merged;
 }
 
-export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}){
+export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, options = {}){
   const layers = [];
   const library = registerCosmeticLibrary(config.cosmeticLibrary || config.cosmetics?.library || {});
   const fighter = config.fighters?.[fighterName] || {};
   let slotConfig = deepMerge({}, fighter.cosmetics?.slots || fighter.cosmetics || {});
-  const { appearance: characterAppearance } = resolveCharacterAppearance(config, fighterName);
+  const characters = config.characters || {};
+  const characterKeyOverride = typeof options.characterKey === 'string' && options.characterKey
+    ? options.characterKey
+    : null;
+  const characterDataOverride = options.characterData && typeof options.characterData === 'object'
+    ? options.characterData
+    : null;
+
+  if (characterDataOverride?.cosmetics) {
+    slotConfig = mergeSlotConfigs(slotConfig, characterDataOverride.cosmetics);
+  } else if (characterKeyOverride && characters[characterKeyOverride]?.cosmetics) {
+    slotConfig = mergeSlotConfigs(slotConfig, characters[characterKeyOverride].cosmetics);
+  }
+
+  const resolvedAppearanceInfo = resolveCharacterAppearance(config, fighterName);
+  const resolvedCharacterKey = resolvedAppearanceInfo.characterKey || null;
+  const appearanceSource = characterDataOverride?.appearance
+    || (characterKeyOverride ? characters[characterKeyOverride]?.appearance : null)
+    || resolvedAppearanceInfo.appearance;
   const appearanceData = registerFighterAppearance(
     fighterName,
     fighter.appearance || {},
-    characterAppearance
+    appearanceSource
   );
   if (appearanceData?.slots && Object.keys(appearanceData.slots).length){
     slotConfig = mergeSlotConfigs(slotConfig, appearanceData.slots);
   }
   if (typeof window !== 'undefined'){
     const G = window.GAME || {};
-    if (G.selectedFighter === fighterName && G.selectedCosmetics){
+    const activeCharacterKey = characterKeyOverride || resolvedCharacterKey || null;
+    const selectedMatchesCharacter = !activeCharacterKey || G.selectedCharacter === activeCharacterKey;
+    if (
+      G.selectedFighter === fighterName
+      && G.selectedCosmetics
+      && selectedMatchesCharacter
+    ){
       slotConfig = mergeSlotConfigs(slotConfig, G.selectedCosmetics);
     }
   }
