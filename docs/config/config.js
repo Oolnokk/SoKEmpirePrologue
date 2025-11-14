@@ -758,12 +758,12 @@ window.CONFIG = {
         url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
         anchorBone: 'weapon_0',
         anchorMode: 'start',
-        alignDeg: 90,
+        alignDeg: 270,
         styleOverride: {
           xformUnits: 'percent',
           widthFactor: { weapon_0: 1 },
           xform: {
-            weapon_0: { ax: 0, ay: -0, scaleX: 0.5, scaleY: 0.5 }
+            weapon_0: { ax: 0, ay: -0, scaleX: 0.1, scaleY: 0.1 }
           }
         }
       }
