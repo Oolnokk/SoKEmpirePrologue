@@ -1,11 +1,5 @@
-// fighter.js — initialize fighters in STANCE; supports modular multi-instance roster
+// fighter.js — initialize fighters in STANCE; set facingSign (player right, npc left)
 import { degToRad } from './math-utils.js?v=1';
-import { pickFighterTypeName } from './fighter-utils.js?v=1';
-import {
-  resetFighterRoster,
-  registerFighterInstance,
-  ensureFighterRoster,
-} from './fighter-roster.js?v=1';
 
 const SPAWN_PREFAB_SETS = {
   player: new Set([
@@ -117,211 +111,75 @@ export function initFighters(cv, cx){
     return null;
   }
 
-  function makeSpawnEntry(inst, coords, index, role) {
-    if (!coords) return null;
-    return {
-      x: coords.x,
-      y: coords.y,
-      source: inst || null,
-      index,
-      role,
-    };
-  }
-
   function computeSpawnPositions() {
     const area = resolveActiveArea();
     if (!area || !Array.isArray(area.instances)) {
-      return { player: null, npcs: [], generic: [] };
+      return { player: null, npc: null };
     }
 
     const generic = [];
     let player = null;
-    const npcList = [];
+    let npc = null;
 
-    area.instances.forEach((inst, index) => {
+    for (const inst of area.instances) {
       const role = deriveSpawnRole(inst);
       if (!role) continue;
       const coords = extractSpawnCoords(inst);
       if (coords.x == null) continue;
 
       if (role === 'player' && player == null) {
-        player = makeSpawnEntry(inst, coords, index, 'player');
-      } else if (role === 'npc') {
-        npcList.push(makeSpawnEntry(inst, coords, index, 'npc'));
+        player = { x: coords.x, y: coords.y };
+      } else if (role === 'npc' && npc == null) {
+        npc = { x: coords.x, y: coords.y };
       } else if (role === 'generic') {
-        generic.push(makeSpawnEntry(inst, coords, index, 'generic'));
+        generic.push({ x: coords.x, y: coords.y });
       }
-    });
-
-    generic.sort((a, b) => (a?.x ?? 0) - (b?.x ?? 0));
-
-    if (player == null && generic.length) {
-      player = { ...generic[0], role: 'player' };
     }
 
-    return { player, npcs: npcList, generic };
+    generic.sort((a, b) => (a.x ?? 0) - (b.x ?? 0));
+
+    if (player == null && generic.length) {
+      player = { ...generic[0] };
+    }
+
+    if (npc == null) {
+      if (generic.length > 1) {
+        npc = { ...generic[1] };
+      } else if (generic.length === 1 && player != null) {
+        npc = {
+          x: player.x != null ? player.x + DEFAULT_FIGHTER_SPACING : null,
+          y: player.y,
+        };
+      }
+    }
+
+    return { player, npc };
   }
 
   const areaSpawns = computeSpawnPositions();
   const playerSpawn = areaSpawns.player;
-  const npcSpawnCandidates = Array.isArray(areaSpawns.npcs) ? areaSpawns.npcs : [];
+  const npcSpawn = areaSpawns.npc;
   const normalizedPlayerSpawnX = normalizeSpawnValue(playerSpawn?.x);
+  const normalizedNpcSpawnX = normalizeSpawnValue(npcSpawn?.x);
   const playerSpawnX = normalizedPlayerSpawnX ?? defaultPlayerX;
+  const npcSpawnX = normalizedNpcSpawnX
+    ?? (normalizedPlayerSpawnX != null
+      ? normalizedPlayerSpawnX + DEFAULT_FIGHTER_SPACING
+      : defaultNpcX);
   const playerSpawnYOffset = normalizeSpawnValue(playerSpawn?.y) ?? 0;
+  const npcSpawnYOffset = normalizeSpawnValue(npcSpawn?.y);
+  const resolvedNpcYOffset = npcSpawnYOffset ?? playerSpawnYOffset ?? 0;
   const playerSpawnY = gy - 1 + playerSpawnYOffset;
-  const defaultNpcYOffset = playerSpawnYOffset;
+  const npcSpawnY = gy - 1 + resolvedNpcYOffset;
 
-  function resolveFighterKey(name) {
-    if (!name || typeof name !== 'string') return null;
-    const fighters = (window.CONFIG || {}).fighters || {};
-    if (Object.prototype.hasOwnProperty.call(fighters, name)) return name;
-    const lower = name.toLowerCase();
-    return Object.keys(fighters).find((key) => key.toLowerCase() === lower) || null;
-  }
-
-  function resolveNpcRosterSpecs() {
-    const C = window.CONFIG || {};
-    const combat = C.combat || {};
-    const rosterConfig = Array.isArray(combat.npcRoster) ? combat.npcRoster : null;
-    const specs = [];
-
-    function normalizeNpcEntry(entry, index) {
-      const raw = (entry && typeof entry === 'object') ? { ...entry } : {};
-      const id = raw.id || raw.instanceId || (index === 0 ? 'npc' : `npc:${index}`);
-      const spawnIndex = Number.isFinite(raw.spawnIndex) ? raw.spawnIndex : index;
-      const controller = typeof raw.controller === 'string'
-        ? { type: raw.controller }
-        : (raw.controller || {});
-      controller.type = controller.type || 'ai';
-
-      const fighterTypeCandidates = [
-        raw.fighter,
-        raw.fighterId,
-        raw.fighterName,
-        raw.template,
-        raw.templateId,
-        combat.defaultNpcFighter,
-        combat.enemyFighter,
-      ];
-      let fighterTypeName = null;
-      for (const candidate of fighterTypeCandidates) {
-        fighterTypeName = resolveFighterKey(candidate);
-        if (fighterTypeName) break;
-      }
-      if (!fighterTypeName) {
-        fighterTypeName = pickFighterTypeName(C);
-      }
-
-      return {
-        id,
-        rosterIndex: index,
-        spawnIndex,
-        fighterType: fighterTypeName,
-        controller,
-        ai: raw.ai || null,
-        cosmetics: raw.cosmetics || null,
-        weapon: raw.weapon || null,
-        abilities: raw.abilities || null,
-        metadata: raw.metadata || {},
-      };
-    }
-
-    if (rosterConfig && rosterConfig.length) {
-      rosterConfig.forEach((entry, index) => {
-        specs.push(normalizeNpcEntry(entry, index));
-      });
-    }
-
-    if (!specs.length) {
-      const defaultCount = Number.isFinite(combat.npcCount)
-        ? Math.max(0, combat.npcCount)
-        : null;
-      const fallbackCount = defaultCount != null
-        ? defaultCount
-        : Math.max(1, npcSpawnCandidates.length || 0);
-      for (let i = 0; i < fallbackCount; i += 1) {
-        specs.push(normalizeNpcEntry({ id: i === 0 ? 'npc' : `npc:${i}` }, i));
-      }
-    }
-
-    return specs;
-  }
-
-  function computeNpcSpawnEntries(npcSpecs, { defaultYOffset }) {
-    const npcCandidates = npcSpawnCandidates.map((entry, index) => ({ ...entry, used: false, index }));
-    const genericCandidates = areaSpawns.generic.map((entry, index) => ({ ...entry, used: false, index }));
-
-    function takeCandidate(candidates, preferredIndex) {
-      if (!Array.isArray(candidates) || !candidates.length) return null;
-      if (Number.isFinite(preferredIndex)) {
-        const match = candidates.find((candidate) => !candidate.used && candidate.index === preferredIndex);
-        if (match) {
-          match.used = true;
-          return match;
-        }
-      }
-      const first = candidates.find((candidate) => !candidate.used);
-      if (first) {
-        first.used = true;
-        return first;
-      }
-      return null;
-    }
-
-    return npcSpecs.map((spec, index) => {
-      const desiredIndex = Number.isFinite(spec.spawnIndex) ? spec.spawnIndex : index;
-      let spawn = takeCandidate(npcCandidates, desiredIndex);
-      if (!spawn) {
-        spawn = takeCandidate(genericCandidates, desiredIndex);
-      }
-      if (!spawn) {
-        const xBase = Number.isFinite(playerSpawnX)
-          ? playerSpawnX + DEFAULT_FIGHTER_SPACING * (index + 1)
-          : defaultNpcX + DEFAULT_FIGHTER_SPACING * index;
-        spawn = {
-          x: xBase,
-          y: Number.isFinite(defaultYOffset) ? defaultYOffset : (defaultNpcYOffset ?? 0),
-          source: null,
-          index: desiredIndex,
-          role: 'npc',
-          synthetic: true,
-        };
-      }
-      return { ...spawn, rosterIndex: index, preferredSpawnIndex: desiredIndex };
-    });
-  }
-
-  function createFighterState(spec) {
-    const spawnY = Number.isFinite(spec.spawnY) ? spec.spawnY : gy - 1;
-    const faceSign = spec.facingSign ?? (spec.role === 'player' ? 1 : -1);
-    const controller = spec.controller || { type: spec.role === 'player' ? 'player' : 'ai' };
-    const isPlayer = spec.role === 'player' || controller.type === 'player';
-    const aiState = !isPlayer
-      ? {
-          mode: 'approach',
-          timer: 0,
-          cooldown: 0,
-          ...(spec.ai || {}),
-        }
-      : null;
+  function makeF(id, x, faceSign, y){
+    const spawnY = Number.isFinite(y) ? y : gy - 1;
+    const isPlayer = id === 'player';
 
     return {
-      id: spec.instanceId,
-      instanceId: spec.instanceId,
-      rosterId: spec.instanceId,
-      role: spec.role,
-      fighterType: spec.fighterType,
-      templateId: spec.templateId || spec.fighterType || spec.instanceId,
-      spawnIndex: spec.spawnIndex ?? null,
+      id,
       isPlayer,
-      controller,
-      loadout: {
-        fighterType: spec.fighterType,
-        cosmetics: spec.cosmetics || null,
-        weapon: spec.weapon || null,
-        abilities: spec.abilities || null,
-      },
-      pos: { x: spec.spawnX, y: spawnY },
+      pos: { x, y: spawnY },
       vel: { x: 0, y: 0 },
       onGround: true,
       prevOnGround: true,
@@ -389,98 +247,20 @@ export function initFighters(cv, cx){
       },
       trailColor: isPlayer ? 'cyan' : 'red',
       input: isPlayer ? { left: false, right: false, jump: false, dash: false } : null,
-      ai: aiState,
+      ai: !isPlayer
+        ? {
+            mode: 'approach',
+            timer: 0,
+            cooldown: 0,
+          }
+        : null,
     };
   }
 
-  resetFighterRoster(G);
-  ensureFighterRoster(G);
-
-  const playerFighterTypeName = resolveFighterKey(window.GAME?.selectedFighter)
-    || resolveFighterKey(window.CONFIG?.combat?.playerFighter)
-    || pickFighterTypeName(window.CONFIG || {});
-
-  const playerState = createFighterState({
-    instanceId: 'player',
-    role: 'player',
-    fighterType: playerFighterTypeName,
-    templateId: playerFighterTypeName,
-    spawnIndex: playerSpawn?.index ?? null,
-    spawnX: playerSpawnX,
-    spawnY: playerSpawnY,
-    facingSign: 1,
-    controller: { type: 'player' },
-    cosmetics: window.GAME?.selectedCosmetics || null,
-    weapon: window.GAME?.selectedWeapon || null,
-    abilities: window.GAME?.selectedAbilities || null,
-  });
-
-  registerFighterInstance(playerState, {
-    group: 'player',
-    metadata: {
-      role: 'player',
-      spawnIndex: playerSpawn?.index ?? null,
-      spawnSource: playerSpawn?.source || null,
-      fighterType: playerFighterTypeName,
-    },
-  }, G);
-
-  const npcSpecs = resolveNpcRosterSpecs();
-  const npcSpawnEntries = computeNpcSpawnEntries(npcSpecs, {
-    defaultYOffset: Number.isFinite(playerSpawn?.y)
-      ? normalizeSpawnValue(playerSpawn?.y) ?? defaultNpcYOffset ?? 0
-      : defaultNpcYOffset ?? 0,
-  });
-
-  npcSpecs.forEach((spec, index) => {
-    const spawn = npcSpawnEntries[index] || {};
-    const instanceId = spec.id || (index === 0 ? 'npc' : `npc:${index}`);
-    const state = createFighterState({
-      instanceId,
-      role: 'npc',
-      fighterType: spec.fighterType,
-      templateId: spec.fighterType,
-      spawnIndex: spawn.index ?? spec.spawnIndex ?? null,
-      spawnX: Number.isFinite(spawn.x) ? spawn.x : (playerSpawnX + DEFAULT_FIGHTER_SPACING * (index + 1)),
-      spawnY: Number.isFinite(spawn.y)
-        ? gy - 1 + (normalizeSpawnValue(spawn.y) ?? (defaultNpcYOffset ?? 0))
-        : (gy - 1 + (defaultNpcYOffset ?? 0)),
-      facingSign: -1,
-      controller: spec.controller,
-      cosmetics: spec.cosmetics,
-      weapon: spec.weapon,
-      abilities: spec.abilities,
-      ai: spec.ai,
-    });
-
-    registerFighterInstance(state, {
-      group: 'npc',
-      metadata: {
-        role: 'npc',
-        rosterIndex: spec.rosterIndex,
-        spawnIndex: spawn.index ?? spec.spawnIndex ?? null,
-        spawnSource: spawn.source || null,
-        fighterType: spec.fighterType,
-        preferredSpawnIndex: spawn.preferredSpawnIndex ?? spec.spawnIndex ?? null,
-      },
-    }, G);
-  });
-
-  const roster = ensureFighterRoster(G);
-  const npcSpawnInfo = npcSpecs.map((spec, index) => {
-    const spawn = npcSpawnEntries[index] || {};
-    return {
-      id: spec.id || (index === 0 ? 'npc' : `npc:${index}`),
-      x: Number.isFinite(spawn.x) ? spawn.x : null,
-      y: Number.isFinite(spawn.y)
-        ? gy - 1 + (normalizeSpawnValue(spawn.y) ?? (defaultNpcYOffset ?? 0))
-        : null,
-      source: spawn.source || null,
-      rosterIndex: spec.rosterIndex,
-      preferredSpawnIndex: spawn.preferredSpawnIndex ?? spec.spawnIndex ?? null,
-    };
-  });
-
+  G.FIGHTERS = {
+    player: makeF('player', playerSpawnX, 1, playerSpawnY),
+    npc:    makeF('npc',    npcSpawnX, -1, npcSpawnY)
+  };
   G.spawnPoints = {
     player: {
       x: playerSpawnX,
@@ -488,13 +268,13 @@ export function initFighters(cv, cx){
       yOffset: playerSpawnYOffset,
       source: playerSpawn ?? null,
     },
-    npcs: npcSpawnInfo,
+    npc: {
+      x: npcSpawnX,
+      y: npcSpawnY,
+      yOffset: resolvedNpcYOffset,
+      source: npcSpawn ?? null,
+    },
   };
-  if (npcSpawnInfo.length) {
-    const primary = npcSpawnInfo[0];
-    G.spawnPoints.npc = primary;
-  }
-
   if (G.editorPreview) {
     G.editorPreview.spawn = {
       player: {
@@ -502,22 +282,12 @@ export function initFighters(cv, cx){
         yOffset: playerSpawnYOffset,
         worldY: playerSpawnY,
       },
-      npcs: npcSpawnInfo.map((info) => ({
-        id: info.id,
-        x: info.x,
-        worldY: info.y,
-        source: info.source,
-      })),
+      npc: {
+        x: npcSpawnX,
+        yOffset: resolvedNpcYOffset,
+        worldY: npcSpawnY,
+      },
     };
-    if (npcSpawnInfo.length) {
-      const primary = npcSpawnInfo[0];
-      G.editorPreview.spawn.npc = {
-        x: primary.x,
-        worldY: primary.y,
-        source: primary.source,
-      };
-    }
   }
-
-  console.log('[initFighters] Fighters initialized', roster.instances);
+  console.log('[initFighters] Fighters initialized', G.FIGHTERS);
 }
