@@ -902,6 +902,126 @@ class CosmeticEditorApp {
       renderTintPreview();
     };
 
+    const mutateSlotHsl = (slot, mutate)=>{
+      if (!slot || typeof mutate !== 'function') return;
+      this.state.slotOverrides ||= {};
+      const slotOverride = (this.state.slotOverrides[slot] ||= {});
+      slotOverride.hsl = slotOverride.hsl || {};
+      mutate(slotOverride.hsl);
+      if (!Object.keys(slotOverride.hsl).length){
+        delete slotOverride.hsl;
+      }
+      this.cleanupEmptyOverrides(slot);
+      this.overrideManager.refreshOutputs();
+      renderTintPreview();
+    };
+
+    const mutatePartHsl = (slot, partKey, mutate)=>{
+      if (!slot || !partKey || typeof mutate !== 'function') return;
+      this.state.slotOverrides ||= {};
+      const slotOverride = (this.state.slotOverrides[slot] ||= {});
+      slotOverride.parts ||= {};
+      const partOverride = (slotOverride.parts[partKey] ||= {});
+      partOverride.hsl = partOverride.hsl || {};
+      mutate(partOverride.hsl);
+      if (!Object.keys(partOverride.hsl).length){
+        delete partOverride.hsl;
+      }
+      this.cleanupEmptyOverrides(slot);
+      this.overrideManager.refreshOutputs();
+      renderTintPreview();
+    };
+
+    const resolveHslBounds = (cosmetic, channel)=>{
+      const fallback = channel === 'h' ? [-180, 180] : [-1, 1];
+      if (!cosmetic || typeof cosmetic !== 'object'){ return fallback; }
+      const limits = cosmetic?.hsl?.limits || {};
+      const pair = channel === 'l'
+        ? (Array.isArray(limits?.l) ? limits.l : limits?.v)
+        : limits?.[channel];
+      const min = Number.isFinite(pair?.[0]) ? pair[0] : fallback[0];
+      const max = Number.isFinite(pair?.[1]) ? pair[1] : fallback[1];
+      return [min, max];
+    };
+
+    const normalizeHslInput = (channel, rawValue, cosmetic)=>{
+      const [min, max] = resolveHslBounds(cosmetic, channel);
+      if (rawValue == null || rawValue === ''){
+        return { remove: true, min, max };
+      }
+      const trimmed = typeof rawValue === 'string' ? rawValue.trim() : String(rawValue);
+      if (!trimmed){
+        return { remove: true, min, max };
+      }
+      let value;
+      if (channel === 's' || channel === 'l'){
+        if (/^-?\d+(?:\.\d+)?%$/.test(trimmed)){
+          value = Number(trimmed.slice(0, -1)) / 100;
+        } else {
+          const parsed = Number(trimmed);
+          if (!Number.isFinite(parsed)){
+            return { error: true, min, max };
+          }
+          value = Math.abs(parsed) > 2 ? parsed / 100 : parsed;
+        }
+      } else {
+        const parsed = Number(trimmed);
+        if (!Number.isFinite(parsed)){
+          return { error: true, min, max };
+        }
+        value = parsed;
+      }
+      const clamped = this.clampNumber(value, min, max);
+      return { value: clamped, remove: false, min, max };
+    };
+
+    const formatHslRange = (channel, min, max)=>{
+      if (channel === 'h'){
+        return `${Math.round(min)}° to ${Math.round(max)}°`;
+      }
+      const low = Math.round(min * 100);
+      const high = Math.round(max * 100);
+      return `${low}% to ${high}%`;
+    };
+
+    const setSlotHslValue = (slot, channel, rawValue, cosmetic)=>{
+      if (!slot) return false;
+      const result = normalizeHslInput(channel, rawValue, cosmetic);
+      if (result.error){
+        const label = channel === 'h' ? 'Hue' : channel === 's' ? 'Saturation' : 'Lightness';
+        this.showStatus(`Enter a ${label.toLowerCase()} between ${formatHslRange(channel, result.min, result.max)}.`, { tone: 'warn' });
+        renderTintPreview();
+        return false;
+      }
+      mutateSlotHsl(slot, (hsl)=>{
+        if (result.remove){
+          delete hsl[channel];
+        } else {
+          hsl[channel] = result.value;
+        }
+      });
+      return true;
+    };
+
+    const setPartHslValue = (slot, partKey, channel, rawValue, cosmetic)=>{
+      if (!slot || !partKey) return false;
+      const result = normalizeHslInput(channel, rawValue, cosmetic);
+      if (result.error){
+        const label = channel === 'h' ? 'Hue' : channel === 's' ? 'Saturation' : 'Lightness';
+        this.showStatus(`Enter a ${label.toLowerCase()} between ${formatHslRange(channel, result.min, result.max)}.`, { tone: 'warn' });
+        renderTintPreview();
+        return false;
+      }
+      mutatePartHsl(slot, partKey, (hsl)=>{
+        if (result.remove){
+          delete hsl[channel];
+        } else {
+          hsl[channel] = result.value;
+        }
+      });
+      return true;
+    };
+
     const setPaletteColor = (slot, partKey, colorKey, rawValue)=>{
       const trimmed = typeof rawValue === 'string' ? rawValue.trim() : '';
       const hex = trimmed ? normalizeHexInputString(trimmed) : null;
@@ -1216,6 +1336,10 @@ class CosmeticEditorApp {
       this.state.currentPalette = palette;
       const assetUrl = this.getEffectivePartImage(slot, cosmetic, partKey);
       const hsl = computeEffectiveHsl(slot, partKey, cosmetic);
+      const slotOverride = this.state.slotOverrides?.[slot] || {};
+      const partOverride = slotOverride?.parts?.[partKey] || {};
+      const slotHslOverride = slotOverride?.hsl || {};
+      const partHslOverride = partOverride?.hsl || {};
 
       const header = document.createElement('h3');
       header.textContent = `Tint preview – ${partKey}`;
@@ -1242,6 +1366,69 @@ class CosmeticEditorApp {
       appendDetail(details, 'Saturation Δ', formatPercentDelta(hsl?.s));
       appendDetail(details, 'Lightness Δ', formatPercentDelta(hsl?.l ?? hsl?.v));
       container.appendChild(details);
+
+      const controls = document.createElement('div');
+      controls.className = 'tint-preview__controls';
+      const defaults = cosmetic?.hsl?.defaults || {};
+      const fields = [
+        { key: 'h', label: 'Hue (°)', placeholder: Number.isFinite(defaults.h) ? defaults.h : 0 },
+        { key: 's', label: 'Saturation', placeholder: Number.isFinite(defaults.s) ? defaults.s : 0 },
+        { key: 'l', label: 'Lightness', placeholder: Number.isFinite(defaults.l ?? defaults.v) ? (defaults.l ?? defaults.v) : 0 }
+      ];
+
+      const createHslFieldset = (title, overrides, onCommit)=>{
+        const fieldset = document.createElement('fieldset');
+        fieldset.className = 'tint-preview__fieldset';
+        const legend = document.createElement('legend');
+        legend.textContent = title;
+        fieldset.appendChild(legend);
+        for (const field of fields){
+          const [min, max] = resolveHslBounds(cosmetic, field.key);
+          const wrapper = document.createElement('label');
+          wrapper.className = 'tint-preview__hsl-field';
+          const span = document.createElement('span');
+          span.className = 'tint-preview__hsl-label';
+          span.textContent = field.label;
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.inputMode = 'decimal';
+          input.placeholder = String(field.placeholder ?? 0);
+          if (Number.isFinite(overrides?.[field.key])){
+            const value = overrides[field.key];
+            input.value = field.key === 'h'
+              ? String(value)
+              : String(Math.round(value * 1000) / 1000);
+          }
+          input.title = field.key === 'h'
+            ? `Range ${Math.round(min)}° to ${Math.round(max)}°`
+            : `Range ${Math.round(min * 100)}% to ${Math.round(max * 100)}%`;
+          input.addEventListener('change', (event)=>{
+            onCommit(field.key, event.target.value);
+          });
+          const hint = document.createElement('span');
+          hint.className = 'tint-preview__hsl-hint';
+          hint.textContent = field.key === 'h'
+            ? `Range: ${Math.round(min)}° – ${Math.round(max)}°`
+            : `Range: ${Math.round(min * 100)}% – ${Math.round(max * 100)}%`;
+          wrapper.appendChild(span);
+          wrapper.appendChild(input);
+          wrapper.appendChild(hint);
+          fieldset.appendChild(wrapper);
+        }
+        return fieldset;
+      };
+
+      controls.appendChild(createHslFieldset('Slot tint overrides', slotHslOverride, (channel, value)=>{
+        setSlotHslValue(slot, channel, value, cosmetic);
+      }));
+      controls.appendChild(createHslFieldset('Part tint overrides', partHslOverride, (channel, value)=>{
+        setPartHslValue(slot, partKey, channel, value, cosmetic);
+      }));
+      const hint = document.createElement('p');
+      hint.className = 'tint-preview__context';
+      hint.textContent = 'Leave a field blank to remove an override. Use percentages for saturation and lightness if preferred (e.g., 20%).';
+      controls.appendChild(hint);
+      container.appendChild(controls);
 
       const paletteRows = [];
       for (const bucket of this.assetLibrary.PALETTE_BUCKETS){
@@ -1498,6 +1685,8 @@ class CosmeticEditorApp {
       setPaletteColor,
       setPaletteShadeAmount,
       setPaletteShadeHex,
+      setSlotHslValue,
+      setPartHslValue,
       mutatePartPalette,
       cleanupPaletteObject
     };
