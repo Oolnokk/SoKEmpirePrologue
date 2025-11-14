@@ -510,15 +510,15 @@ window.CONFIG = {
       },
       sprites: {
         torso: { url: "./assets/fightersprites/mao-ao-m/torso.png", bodyColor: 'A' },
-        head:  { url: "./assets/fightersprites/mao-ao-m/head.png", bodyColor: 'A' },
-        arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'A' },
-        arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'A' },
-        arm_R_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'A' },
-        arm_R_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'A' },
-        leg_L_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'A' },
-        leg_L_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'A' },
-        leg_R_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'A' },
-        leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'A' }
+        head:  { url: "./assets/fightersprites/mao-ao-m/head_mint.png", bodyColor: 'A' },
+        arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper_mint.png", bodyColor: 'A' },
+        arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower_mint.png", bodyColor: 'A' },
+        arm_R_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper_mint.png", bodyColor: 'A' },
+        arm_R_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower_mint.png", bodyColor: 'A' },
+        leg_L_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper_mint.png", bodyColor: 'A' },
+        leg_L_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower_mint.png", bodyColor: 'A' },
+        leg_R_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper_mint.png", bodyColor: 'A' },
+        leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower_mint.png", bodyColor: 'A' }
       },
       spriteStyle: {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
