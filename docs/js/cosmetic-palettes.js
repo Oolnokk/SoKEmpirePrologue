@@ -1,77 +1,30 @@
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-const STATE = (ROOT.COSMETIC_PALETTE_STATE ||= {
-  cache: new Map(),
-  preloaded: new Map(),
-  imageToPalette: new Map()
-});
+// cosmetic-palettes.js — legacy helper retained for shade math utilities
+// Palette sidecar support was removed; these helpers remain for editors that
+// still need deterministic shade derivation from base colours.
+
+const ROOT = typeof window !== 'undefined' ? window : globalThis;
 
 const COLOR_KEYS = ['primary', 'secondary', 'tertiary'];
 const SHADE_KEYS = ['primary', 'secondary', 'tertiary'];
 
-function clamp01(value){
+function isSameOrigin(url){
+  if (!url && url !== '') return true;
+  const location = ROOT?.location;
+  if (!location || !location.origin) return true;
+  try {
+    const parsed = new URL(url, location.href);
+    if (parsed.origin === 'null') return true;
+    return parsed.origin === location.origin;
+  } catch (_err){
+    return false;
+  }
+}
+
+function clampChannel(value){
   if (!Number.isFinite(value)) return 0;
   if (value < 0) return 0;
-  if (value > 1) return 1;
-  return value;
-}
-
-function normalizeShadeAmount(amount){
-  if (amount == null) return null;
-  if (typeof amount === 'string' && amount.trim().length){
-    const parsed = Number.parseFloat(amount.trim());
-    amount = Number.isNaN(parsed) ? null : parsed;
-  }
-  if (!Number.isFinite(amount)) return null;
-  if (Math.abs(amount) > 1) {
-    amount = amount / 100;
-  }
-  if (amount < -1) amount = -1;
-  if (amount > 1) amount = 1;
-  return amount;
-}
-
-function normalizeShadeConfig(input){
-  if (input == null) return {};
-  if (typeof input === 'number' || typeof input === 'string'){
-    const amount = normalizeShadeAmount(input);
-    if (amount == null) return {};
-    return { primary: amount, secondary: amount, tertiary: amount };
-  }
-  if (Array.isArray(input)){
-    const out = {};
-    input.forEach((value, index)=>{
-      const amount = normalizeShadeAmount(value);
-      if (amount == null) return;
-      const key = COLOR_KEYS[index] || `bucket${index + 1}`;
-      out[key] = amount;
-    });
-    return out;
-  }
-  if (typeof input === 'object'){
-    const out = {};
-    for (const [key, value] of Object.entries(input)){
-      const amount = normalizeShadeAmount(value);
-      if (amount == null) continue;
-      const normalizedKey = String(key).toLowerCase();
-      if (COLOR_KEYS.includes(normalizedKey)){
-        out[normalizedKey] = amount;
-        continue;
-      }
-      if (normalizedKey === 'all' || normalizedKey === 'default' || normalizedKey === 'amount'){
-        COLOR_KEYS.forEach((colorKey)=>{
-          if (out[colorKey] == null){
-            out[colorKey] = amount;
-          }
-        });
-        continue;
-      }
-      if (/^bucket\d+$/.test(normalizedKey)){
-        out[normalizedKey] = amount;
-      }
-    }
-    return out;
-  }
-  return {};
+  if (value > 255) return 255;
+  return Math.round(value);
 }
 
 function parseHexColor(value){
@@ -95,27 +48,30 @@ function parseHexColor(value){
   const r = Number.parseInt(str.slice(0, 2), 16);
   const g = Number.parseInt(str.slice(2, 4), 16);
   const b = Number.parseInt(str.slice(4, 6), 16);
-  if ([r,g,b].some((n)=> Number.isNaN(n))) return null;
-  return { r, g, b, a: 255 };
+  if ([r, g, b].some((n)=> Number.isNaN(n))) return null;
+  return { r, g, b };
 }
 
 function rgbToHex(r, g, b){
-  const clampChannel = (value)=>{
-    if (!Number.isFinite(value)) return 0;
-    if (value < 0) return 0;
-    if (value > 255) return 255;
-    return Math.round(value);
-  };
   const rr = clampChannel(r).toString(16).padStart(2, '0');
   const gg = clampChannel(g).toString(16).padStart(2, '0');
   const bb = clampChannel(b).toString(16).padStart(2, '0');
   return `#${(rr + gg + bb).toUpperCase()}`;
 }
 
-function normalizeHex(value){
-  const parsed = parseHexColor(value);
-  if (!parsed) return null;
-  return rgbToHex(parsed.r, parsed.g, parsed.b);
+function normalizeShadeAmount(amount){
+  if (amount == null) return null;
+  if (typeof amount === 'string' && amount.trim().length){
+    const parsed = Number.parseFloat(amount.trim());
+    amount = Number.isNaN(parsed) ? null : parsed;
+  }
+  if (!Number.isFinite(amount)) return null;
+  if (Math.abs(amount) > 1){
+    amount = amount / 100;
+  }
+  if (amount < -1) amount = -1;
+  if (amount > 1) amount = 1;
+  return amount;
 }
 
 function applyShade(hex, amount){
@@ -132,6 +88,13 @@ function applyShade(hex, amount){
   const g = base.g + (255 - base.g) * factor;
   const b = base.b + (255 - base.b) * factor;
   return rgbToHex(r, g, b);
+}
+
+function clamp01(value){
+  if (!Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
 }
 
 function hsvToRgb(h, s, v){
@@ -338,17 +301,27 @@ function getPaletteForImage(imageUrl){
     STATE.cache.set(paletteUrl, normalized);
     return normalized;
   }
+  if (!isSameOrigin(paletteUrl)){
+    STATE.cache.set(paletteUrl, null);
+    return null;
+  }
   if (typeof fetch === 'function'){
     try {
       fetch(paletteUrl, { credentials: 'same-origin' })
         .then((resp)=> resp.ok ? resp.json() : null)
         .then((json)=> {
-          if (!json) return null;
+          if (!json){
+            STATE.cache.set(paletteUrl, null);
+            return null;
+          }
           const normalized = normalizePaletteData(json, { url: paletteUrl });
           STATE.cache.set(paletteUrl, normalized);
           return normalized;
         })
-        .catch(()=> null);
+        .catch(()=> {
+          STATE.cache.set(paletteUrl, null);
+          return null;
+        });
     } catch (_err){
       // ignore fetch errors in non-browser environments
     }
@@ -679,23 +652,11 @@ function resolvePaletteAssignment({
 }
 
 function clearPaletteCache(){
-  STATE.cache.clear();
-  STATE.preloaded.clear();
-  STATE.imageToPalette.clear();
+  // Cache removed with palette sidecar support. Retained for API stability.
 }
 
 export {
   applyShade,
-  createInlinePaletteData,
-  derivePaletteUrl,
-  getPaletteForImage,
-  mergePaletteConfigs,
-  normalizePaletteData,
-  paletteFromBodyColors,
-  registerPaletteForImage,
-  registerPaletteSidecar,
-  preloadPaletteData,
-  resolvePaletteAssignment,
-  clearPaletteCache,
-  hsvToHex
+  hsvToHex,
+  clearPaletteCache
 };

@@ -354,13 +354,13 @@ window.CONFIG = {
   actor: { scale: 0.70 },
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },
+  camera: { manualOffsetX: 0 },
   camera: {
     awareness: {
       normalZoom: 1,
-      scaleMultiplier: 2,
       scaleOffset: 0.25,
       minZoom: 0.6,
-      maxZoom: 3,
+      maxZoom: 1.3,
       inactivitySeconds: 15,
       smoothing: 0.08
     }
@@ -368,6 +368,7 @@ window.CONFIG = {
   map: {
     gridUnit: 30,
     spawnLayerId: 'gameplay',
+    defaultLayoutId: 'examplestreet',
     prefabManifests: [
       './config/prefabs/structures/index.json',
     ],
@@ -379,6 +380,9 @@ window.CONFIG = {
         areaName: 'Example Street',
       },
     ],
+  },
+  ground: {
+    offset: 140,
   },
   groundY: 0,
   // Debug options are surfaced in the debug panel; freezeAngles lets animators hold joints for edits
@@ -465,7 +469,7 @@ window.CONFIG = {
           xformUnits: "percent",
           xform: {
             torso:    { ax:-0.5,  ay:-0.2, scaleX:3.5, scaleY:4.50, rotDeg:180 },
-            head:     { ax:-1.20, ay:-0.60, scaleX:4, scaleY:4, rotDeg:180 },
+            head:     { ax:-1.20, ay:-0.60, scaleX:4, scaleY:3, rotDeg:180 },
             armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
             armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
             legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
@@ -487,7 +491,7 @@ window.CONFIG = {
         }
       ],
       bodyColors: {
-        A: { h: 68, s: 0.9, v: -0.5 },
+        A: { h: -90, s: 0.5, v: -0.2 },
         B: { h: -24, s: 0.18, v: 0.05 },
         C: { h: 96, s: 0.26, v: -0.06 }
       },
@@ -510,15 +514,15 @@ window.CONFIG = {
       },
       sprites: {
         torso: { url: "./assets/fightersprites/mao-ao-m/torso.png", bodyColor: 'A' },
-        head:  { url: "./assets/fightersprites/mao-ao-m/head.png", bodyColor: 'A' },
-        arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'A' },
-        arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'A' },
-        arm_R_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper.png", bodyColor: 'A' },
-        arm_R_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower.png", bodyColor: 'A' },
-        leg_L_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'A' },
-        leg_L_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'A' },
-        leg_R_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper.png", bodyColor: 'A' },
-        leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower.png", bodyColor: 'A' }
+        head:  { url: "./assets/fightersprites/mao-ao-m/head_mint.png", bodyColor: 'A' },
+        arm_L_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper_mint.png", bodyColor: 'A' },
+        arm_L_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower_mint.png", bodyColor: 'A' },
+        arm_R_upper: { url: "./assets/fightersprites/mao-ao-m/arm-upper_mint.png", bodyColor: 'A' },
+        arm_R_lower: { url: "./assets/fightersprites/mao-ao-m/arm-lower_mint.png", bodyColor: 'A' },
+        leg_L_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper_mint.png", bodyColor: 'A' },
+        leg_L_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower_mint.png", bodyColor: 'A' },
+        leg_R_upper: { url: "./assets/fightersprites/mao-ao-m/leg-upper_mint.png", bodyColor: 'A' },
+        leg_R_lower: { url: "./assets/fightersprites/mao-ao-m/leg-lower_mint.png", bodyColor: 'A' }
       },
       spriteStyle: {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
@@ -534,13 +538,13 @@ window.CONFIG = {
       },
       untintedOverlays: [
         {
-          url: "./assets/fightersprites/mao-ao-m/untinted_overlays/ur-head.png",
+          url: "./assets/fightersprites/mao-ao-m/untinted_regions/ur-head.png",
           parts: ['head']
         }
       ],
       bodyColors: {
-        A: { h: 18, s: 1, v: 0.9 },
-        B: { h: -24, s: 0.18, v: 0.05 },
+        A: { h: -90, s: 0.5, v: -0.2 },
+        B: { h: -24, s: 0.58, v: 0.05 },
         C: { h: 96, s: 0.26, v: -0.06 }
       },
       cosmetics: {}
@@ -791,8 +795,8 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
       bodyColors: {
-        A: { h: 0, s: 0, v: 0 },
-        B: { h: -20, s: 0.15, v: 0.1 },
+        A: { h: 20, s: 0.5, v: -0.5 },
+        B: { h: 20, s: 0.5, v: -0.2 },
         C: { h: 32, s: 0.25, v: -0.05 }
       },
       appearance: {
@@ -814,8 +818,8 @@ window.CONFIG = {
       weapon: 'unarmed',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_punch', 'heavy_hold'],
       bodyColors: {
-        A: { h: -8, s: 0.05, v: 0.08 },
-        B: { h: 24, s: 0.18, v: -0.02 },
+        A: { h: 20, s: 0.5, v: -0.7 },
+        B: { h: 20, s: 0.2, v: 0.25 },
         C: { h: 72, s: 0.28, v: 0.12 }
       },
       appearance: {

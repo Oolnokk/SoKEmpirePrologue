@@ -1,10 +1,47 @@
 import { MapRegistry, convertLayoutToArea } from './vendor/map-runtime.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 
-const layoutUrl = new URL('../config/maps/examplestreet.layout.json', import.meta.url);
-const DEFAULT_AREA_ID = 'examplestreet';
-const PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
+function normalizeLayoutEntry(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+  const path = typeof entry.path === 'string' && entry.path.trim() ? entry.path.trim() : null;
+  if (!path) return null;
+  const label = typeof entry.label === 'string' && entry.label.trim() ? entry.label.trim() : null;
+  const areaName = typeof entry.areaName === 'string' && entry.areaName.trim() ? entry.areaName.trim() : label;
+  const id = typeof entry.id === 'string' && entry.id.trim()
+    ? entry.id.trim()
+    : typeof entry.areaId === 'string' && entry.areaId.trim()
+      ? entry.areaId.trim()
+      : label || path.replace(/\.json$/i, '');
+  return { id, path, areaName };
+}
+
+function resolveLayoutUrl(path) {
+  if (typeof path === 'string' && path.trim()) {
+    try {
+      const base = typeof window !== 'undefined' && window.location ? window.location.href : import.meta.url;
+      return new URL(path, base);
+    } catch (error) {
+      console.warn('[map-bootstrap] Failed to resolve configured layout path', error);
+    }
+  }
+  return new URL('../config/maps/examplestreet.layout.json', import.meta.url);
+}
+
 const MAP_CONFIG = window.CONFIG?.map || {};
+const CONFIG_LAYOUTS = Array.isArray(MAP_CONFIG.layouts)
+  ? MAP_CONFIG.layouts.map((entry) => normalizeLayoutEntry(entry)).filter((entry) => !!entry)
+  : [];
+const PREFERRED_LAYOUT_ID = typeof MAP_CONFIG.defaultLayoutId === 'string' && MAP_CONFIG.defaultLayoutId.trim()
+  ? MAP_CONFIG.defaultLayoutId.trim()
+  : 'examplestreet';
+const DEFAULT_LAYOUT_ENTRY = CONFIG_LAYOUTS.find((entry) => entry.id === PREFERRED_LAYOUT_ID)
+  || CONFIG_LAYOUTS.find((entry) => entry.id === 'examplestreet')
+  || CONFIG_LAYOUTS[0]
+  || null;
+const DEFAULT_AREA_ID = DEFAULT_LAYOUT_ENTRY?.id || 'examplestreet';
+const DEFAULT_AREA_NAME = DEFAULT_LAYOUT_ENTRY?.areaName || 'Example Street';
+const layoutUrl = resolveLayoutUrl(DEFAULT_LAYOUT_ENTRY?.path);
+const PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
 const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
   ? MAP_CONFIG.prefabManifests.filter((entry) => typeof entry === 'string' && entry.trim())
   : [];
@@ -104,6 +141,31 @@ function ensureParallaxContainer() {
   return parallax;
 }
 
+function syncConfigGround(area) {
+  const CONFIG = (window.CONFIG = window.CONFIG || {});
+  const canvasConfig = CONFIG.canvas || {};
+  const canvasHeight = Number.isFinite(canvasConfig.h) ? canvasConfig.h : 460;
+  const rawOffset = Number(area?.ground?.offset);
+
+  if (!Number.isFinite(rawOffset)) {
+    return;
+  }
+
+  const offset = Math.max(0, rawOffset);
+
+  if (canvasHeight > 0) {
+    const ratioRaw = 1 - offset / canvasHeight;
+    const ratio = Math.max(0.1, Math.min(0.95, ratioRaw));
+    CONFIG.groundRatio = ratio;
+    CONFIG.groundY = Math.round(canvasHeight * ratio);
+  }
+
+  CONFIG.ground = {
+    ...(typeof CONFIG.ground === 'object' && CONFIG.ground ? CONFIG.ground : {}),
+    offset,
+  };
+}
+
 function adaptAreaToParallax(area) {
   return {
     id: area.id,
@@ -144,6 +206,8 @@ function applyArea(area) {
   window.CONFIG = window.CONFIG || {};
   window.CONFIG.areas = window.CONFIG.areas || {};
   window.CONFIG.areas[area.id] = parallax.areas[area.id];
+
+  syncConfigGround(area);
 
   window.GAME = window.GAME || {};
   window.GAME.mapRegistry = registry;
@@ -277,13 +341,13 @@ async function loadStartingArea() {
     const layout = await response.json();
     console.debug('[map-bootstrap] Loaded raw layout descriptor', {
       id: layout?.areaId || layout?.id || DEFAULT_AREA_ID,
-      name: layout?.areaName || layout?.name || null,
+      name: layout?.areaName || layout?.name || DEFAULT_AREA_NAME,
       source: layoutUrl.href,
       layout,
     });
     const area = convertLayoutToArea(layout, {
       areaId: layout.areaId || layout.id || DEFAULT_AREA_ID,
-      areaName: layout.areaName || layout.name || 'Example Street',
+      areaName: layout.areaName || layout.name || DEFAULT_AREA_NAME,
       prefabResolver,
     });
     applyArea(area);

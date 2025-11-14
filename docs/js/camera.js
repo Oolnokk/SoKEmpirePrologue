@@ -20,10 +20,15 @@ let makeAwareListenerAttached = false;
 function measureViewportWidth(canvas) {
   if (!canvas) return null;
 
+  const attrWidth = Number.isFinite(canvas.width) ? canvas.width : null;
+
   try {
     if (typeof canvas.getBoundingClientRect === 'function') {
       const rect = canvas.getBoundingClientRect();
       if (rect && Number.isFinite(rect.width) && rect.width > 0) {
+        if (attrWidth && attrWidth > 0) {
+          return attrWidth;
+        }
         return rect.width;
       }
     }
@@ -31,17 +36,23 @@ function measureViewportWidth(canvas) {
     // Ignore DOM measurement failures (e.g., detached canvas)
   }
 
+  if (attrWidth && attrWidth > 0) {
+    return attrWidth;
+  }
+
   const clientWidth = Number.isFinite(canvas.clientWidth) ? canvas.clientWidth : null;
   if (clientWidth && clientWidth > 0) {
     return clientWidth;
   }
 
-  const attrWidth = Number.isFinite(canvas.width) ? canvas.width : null;
-  if (attrWidth && attrWidth > 0) {
-    return attrWidth;
-  }
-
   return null;
+}
+
+function getManualCameraOffset() {
+  const config = (typeof window !== 'undefined' && window.CONFIG) ? window.CONFIG : null;
+  if (!config || !config.camera) return 0;
+  const manual = config.camera.manualOffsetX;
+  return Number.isFinite(manual) ? manual : 0;
 }
 
 function clamp(value, min, max) {
@@ -88,19 +99,13 @@ function refreshAwarenessConfig(camera) {
   const fighterConfig = pickFighterConfig(config, fighterName);
   const globalScale = Number.isFinite(config.actor?.scale) ? config.actor.scale : 1;
   const fighterScale = Number.isFinite(fighterConfig?.actor?.scale) ? fighterConfig.actor.scale : 1;
-  let combinedScale = globalScale * fighterScale;
-  if (!Number.isFinite(combinedScale) || combinedScale < EPSILON) {
-    combinedScale = 1;
-  }
+  const combinedScale = globalScale * fighterScale;
   const spec = config.camera?.awareness || {};
 
   const offset = Number.isFinite(spec.scaleOffset) ? spec.scaleOffset : 0;
   const minZoom = Number.isFinite(spec.minZoom) ? Math.max(MIN_EFFECTIVE_ZOOM, spec.minZoom) : MIN_EFFECTIVE_ZOOM;
   const maxZoom = Number.isFinite(spec.maxZoom) ? Math.max(minZoom, spec.maxZoom) : Math.max(minZoom, 3);
-  const multiplier = Number.isFinite(spec.scaleMultiplier) && spec.scaleMultiplier > 0 ? spec.scaleMultiplier : 1;
-  const inverseScaleZoom = 1 / combinedScale;
-  const baselineZoom = inverseScaleZoom + offset;
-  const defaultZoom = clamp(baselineZoom * multiplier, minZoom, maxZoom);
+  const defaultZoom = clamp(combinedScale + offset, minZoom, maxZoom);
   const awareZoom = clamp(Number.isFinite(spec.normalZoom) ? spec.normalZoom : 1, minZoom, maxZoom);
   const inactivitySeconds = Number.isFinite(spec.inactivitySeconds)
     ? Math.max(0, spec.inactivitySeconds)
@@ -260,6 +265,7 @@ function syncCameraToArea(area) {
   const span = Math.max(bounds.max - bounds.min, viewportWorldWidth, 1);
   const maxTarget = bounds.min + span - viewportWorldWidth;
   const clampedStart = clamp(area?.camera?.startX, bounds.min, maxTarget);
+  const manualOffset = getManualCameraOffset();
 
   camera.bounds = { min: bounds.min, max: bounds.min + span };
   camera.worldWidth = span;
@@ -270,7 +276,7 @@ function syncCameraToArea(area) {
   camera.viewportWorldWidth = viewportWorldWidth;
 
   if (Number.isFinite(clampedStart)) {
-    camera.x = clampedStart;
+    camera.x = clamp(clampedStart + manualOffset, bounds.min, maxTarget);
   } else {
     camera.x = clamp(camera.x, bounds.min, maxTarget);
   }
@@ -424,4 +430,68 @@ export function updateCamera(canvas) {
   const updatedZoom = Math.max(camera.zoom, MIN_EFFECTIVE_ZOOM);
   viewportWorldWidth = viewportWidth / updatedZoom;
   camera.viewportWorldWidth = viewportWorldWidth;
+}
+
+export function applyManualZoom({
+  scale,
+  delta,
+  focusX,
+  viewportWidth,
+} = {}) {
+  const camera = ensureGameCamera();
+  const awareness = ensureCameraAwareness(camera);
+  refreshAwarenessConfig(camera);
+  const now = getNowSeconds();
+  setAwarenessState(camera, 'aware', { now });
+  awareness.lastInputTime = now;
+
+  const minZoom = awareness.minZoom ?? MIN_EFFECTIVE_ZOOM;
+  const maxZoom = awareness.maxZoom ?? Math.max(minZoom, 3);
+
+  const currentZoom = Number.isFinite(camera.zoom) ? camera.zoom : awareness.defaultZoom;
+  const currentTarget = Number.isFinite(camera.targetZoom) ? camera.targetZoom : currentZoom;
+  let nextZoom = currentTarget;
+
+  if (Number.isFinite(scale) && scale > 0) {
+    nextZoom *= scale;
+  }
+  if (Number.isFinite(delta)) {
+    nextZoom += delta;
+  }
+
+  nextZoom = clamp(nextZoom, minZoom, maxZoom);
+
+  const viewportPxWidth = Number.isFinite(viewportWidth)
+    ? viewportWidth
+    : Number.isFinite(camera.viewportWidth)
+      ? camera.viewportWidth
+      : lastViewportWidth || DEFAULT_VIEWPORT_WIDTH;
+  lastViewportWidth = viewportPxWidth;
+
+  const effectiveCurrentZoom = Math.max(currentZoom, MIN_EFFECTIVE_ZOOM);
+  const beforeWorldWidth = viewportPxWidth / effectiveCurrentZoom;
+  const focusRatioX = Number.isFinite(focusX) && viewportPxWidth > 0
+    ? clamp(focusX / viewportPxWidth, 0, 1)
+    : 0.5;
+
+  const bounds = camera.bounds || { min: 0, max: camera.worldWidth || DEFAULT_WORLD_WIDTH };
+  const minBound = Number.isFinite(bounds.min) ? bounds.min : 0;
+  const maxBound = Number.isFinite(bounds.max) ? bounds.max : minBound + (camera.worldWidth || DEFAULT_WORLD_WIDTH);
+  const maxCameraXBefore = Math.max(minBound, maxBound - beforeWorldWidth);
+  const currentX = Number.isFinite(camera.x) ? clamp(camera.x, minBound, maxCameraXBefore) : minBound;
+  const focusWorld = currentX + beforeWorldWidth * focusRatioX;
+
+  const effectiveNextZoom = Math.max(nextZoom, MIN_EFFECTIVE_ZOOM);
+  const afterWorldWidth = viewportPxWidth / effectiveNextZoom;
+  const maxCameraXAfter = Math.max(minBound, maxBound - afterWorldWidth);
+  let nextX = focusWorld - afterWorldWidth * focusRatioX;
+  nextX = clamp(nextX, minBound, maxCameraXAfter);
+
+  camera.viewportWidth = viewportPxWidth;
+  camera.viewportWorldWidth = afterWorldWidth;
+  camera.targetZoom = nextZoom;
+  camera.targetX = nextX;
+  camera.x = nextX;
+
+  return nextZoom;
 }

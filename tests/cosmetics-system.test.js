@@ -1,7 +1,7 @@
 import { strictEqual, deepStrictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import { COSMETIC_SLOTS, cosmeticTagFor, ensureCosmeticLayers, clearCosmeticCache, resolveFighterBodyColors } from '../docs/js/cosmetics.js';
-import { registerPaletteForImage, clearPaletteCache, applyShade } from '../docs/js/cosmetic-palettes.js';
+import { clearPaletteCache } from '../docs/js/cosmetic-palettes.js';
 import { readFileSync } from 'node:fs';
 
 const EXPECTED_SLOTS = [
@@ -178,6 +178,7 @@ test('appearance cosmetics inherit character body colors', () => {
   deepStrictEqual(layers[0].hsl, { h: 15, s: 0.3, l: 0.1 });
   deepStrictEqual(layers[0].extra?.appearance?.bodyColors, ['A']);
   strictEqual(layers[0].styleKey, 'torso');
+  strictEqual(layers[0].asset.alignRad, undefined);
 });
 
 test('resolveFighterBodyColors ignores stale palette when fighter changes', () => {
@@ -285,73 +286,6 @@ test('default character pants tint to blue for player and red for enemy', () => 
     .forEach((layer) => {
       deepStrictEqual(layer.hsl, { h: 0, s: 0.85, l: 0.05 });
     });
-});
-
-test('palette sidecars provide bucket colors and per-fighter variants', () => {
-  clearCosmeticCache();
-  clearPaletteCache();
-  registerPaletteForImage('https://example.com/hat.png', {
-    defaultRow: 'default',
-    rows: {
-      default: {
-        colors: {
-          primary: '#ccaa88',
-          secondary: '#334455',
-          tertiary: '#8899aa'
-        },
-        shading: { primary: -0.2, secondary: -0.3, tertiary: -0.4 }
-      },
-      hero: {
-        extends: 'default',
-        colors: {
-          primary: '#336699'
-        },
-        shading: { primary: -0.35 }
-      }
-    },
-    fighters: {
-      hero: 'hero'
-    }
-  });
-
-  const config = {
-    cosmeticLibrary: {
-      palette_hat: {
-        slot: 'hat',
-        parts: {
-          brim: {
-            image: { url: 'https://example.com/hat.png' },
-            palette: {
-              bucketMap: {
-                highlight: 'primary',
-                shadow: { of: 'primary', shade: -0.4 },
-                trim: 'secondaryShade'
-              }
-            }
-          }
-        }
-      }
-    },
-    fighters: {
-      hero: {
-        cosmetics: {
-          slots: {
-            hat: { id: 'palette_hat' }
-          }
-        }
-      }
-    }
-  };
-
-  const layers = ensureCosmeticLayers(config, 'hero', {});
-  strictEqual(layers.length, 1);
-  const palette = layers[0].palette;
-  strictEqual(palette?.rowId, 'hero');
-  strictEqual(palette?.buckets.primary, '#336699');
-  strictEqual(palette?.buckets.primaryShade, applyShade('#336699', -0.35));
-  strictEqual(palette?.buckets.shadow, applyShade('#336699', -0.4));
-  strictEqual(palette?.buckets.trim, applyShade('#334455', -0.3));
-  strictEqual(palette?.buckets.secondaryShade, applyShade('#334455', -0.3));
 });
 
 test('sprites.js integrates cosmetic layers and z-order expansion', () => {

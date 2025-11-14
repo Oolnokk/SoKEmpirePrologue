@@ -18,34 +18,25 @@
         <select id="fighterSelect" aria-label="Select fighter"></select>
         <p style="margin-top:8px;">Loads cosmetics from config.js so you can preview a fighter's wardrobe quickly.</p>
       </div>
+      <div class="panel" id="modePanel">
+        <h2>Editor Mode</h2>
+        <div class="mode-toggle" role="group" aria-label="Select editor mode">
+          <button type="button" class="mode-toggle__btn" data-mode="appearance">Appearance</button>
+          <button type="button" class="mode-toggle__btn" data-mode="clothing">Clothing</button>
+          <button type="button" class="mode-toggle__btn" data-mode="fighterSprites">Fighter Sprites</button>
+        </div>
+        <p class="panel-hint">Switch modes to focus on appearance overlays, clothing items, or fighter sprite data.</p>
+      </div>
       <div class="panel">
         <h2>Cosmetic Slots</h2>
         <div id="cosmeticSlotRows"></div>
         <p style="margin-top:12px;">Use "Edit" to tweak sprite style overrides live.</p>
       </div>
-      <div class="panel">
-        <h2>Bucket Tool</h2>
-        <label style="display:flex;flex-direction:column;gap:6px;">
-          <span>Hex colour</span>
-          <input id="bucketColor" type="text" placeholder="#ff3366" value="#ff3366" spellcheck="false" aria-label="Bucket fill hex colour">
-        </label>
-        <div id="bucketTargets" class="bucket-targets" role="group" aria-label="Palette buckets"></div>
-        <div class="bucket-settings">
-          <label>
-            <span>Colour tolerance</span>
-            <input id="bucketTolerance" type="number" min="0" max="255" step="1" value="24" aria-label="Bucket fill colour tolerance (0-255)">
-          </label>
-          <label>
-            <span>Edge expand (px)</span>
-            <input id="bucketExpand" type="number" min="0" max="24" step="1" value="1" aria-label="Expand bucket fill region by this many pixels">
-          </label>
+      <div class="panel" id="tintPanel">
+        <h2>Tint Preview</h2>
+        <div id="tintPreview" class="tint-preview" aria-live="polite">
+          <p class="panel-hint">Pick a slot and part to preview palette colours and shaded results.</p>
         </div>
-        <div class="bucket-actions" style="margin-top:12px;">
-          <button type="button" id="bucketToggle">🎨 Bucket Mode</button>
-          <button type="button" id="bucketUndo" disabled>↩ Undo</button>
-          <button type="button" id="bucketClear">🧹 Clear Paint</button>
-        </div>
-        <p style="margin-top:10px;">Bucket fill paints directly on the preview layer. Undo is limited to the last 20 fills.</p>
       </div>
       <div class="panel style-inspector" id="styleInspector" data-active="false">
         <div class="style-header">
