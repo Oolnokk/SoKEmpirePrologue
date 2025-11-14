@@ -2,7 +2,7 @@
 
 ## Critical Functions (Directly Modify Bones)
 
-### `computeAnchorsForFighter(F, C, fighterName)`
+### `computeAnchorsForFighter(F, C, fighterTypeName)`
 📍 **Location:** `docs/js/render.js:81-173`  
 ⚡ **Called:** Every frame in `renderAll()`  
 🎯 **Purpose:** Main bone computation pipeline  

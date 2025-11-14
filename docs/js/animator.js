@@ -1,7 +1,7 @@
 // animator.js — restore basic idle/walk posing; robust speed detection; override TTL required
 import { degToRad, radToDegNum, angleFromDelta } from './math-utils.js?v=1';
 import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
-import { pickFighterConfig, pickFighterName } from './fighter-utils.js?v=1';
+import { pickFighterTypeConfig, pickFighterTypeName } from './fighter-utils.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
 
 const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee'];
@@ -566,8 +566,8 @@ export function updatePoses(){
   const G = window.GAME || {}; const C = window.CONFIG || {}; const now = performance.now()/1000; if (!G.FIGHTERS) return;
   // Check if joint angles are frozen (for debugging/manual pose editing)
   if (C.debug?.freezeAngles) return;
-  const fighterName = pickFighterName(C);
-  const fcfg = pickFighterConfig(C, fighterName);
+  const fighterTypeName = pickFighterTypeName(C);
+  const fcfg = pickFighterTypeConfig(C, fighterTypeName);
   for (const id of ['player','npc']){
     const F = G.FIGHTERS[id];
     if(!F) continue;
