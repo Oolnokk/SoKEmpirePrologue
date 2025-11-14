@@ -18,6 +18,7 @@
 // in animator.js via degToRadPose() before values reach this module.
 
 import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withAXUtil, rad, angleFromDelta as angleFromDeltaUtil } from './math-utils.js?v=1';
+import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=1';
 import { pickFighterConfig, lengths, pickOffsets } from './fighter-utils.js?v=1';
 
 // === RENDER DEBUG CONFIGURATION ===
@@ -357,7 +358,47 @@ export function renderAll(ctx){
     ctx.strokeRect(px, py, hbW, hbH);
     ctx.restore();
   }catch(_e){ /* ignore */ }
-  
-  ctx.restore(); 
-  drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`); 
+
+  const npcDashTrail = getNpcDashTrail();
+  if (npcDashTrail?.positions?.length) {
+    for (let i = npcDashTrail.positions.length - 1; i >= 0; i -= 1) {
+      const pos = npcDashTrail.positions[i];
+      const alpha = Math.max(0, pos.alpha ?? 0);
+      if (alpha <= 0) continue;
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.fillStyle = 'rgba(248, 113, 113, 0.35)';
+      const radius = (C.parts?.hitbox?.w || 40) * (C.actor?.scale || 1) * 0.3;
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  const npcAttackTrail = getNpcAttackTrail();
+  if (npcAttackTrail?.enabled) {
+    for (const key of ['handL', 'handR', 'footL', 'footR']) {
+      const trail = npcAttackTrail.colliders?.[key];
+      if (!trail || !trail.length) continue;
+      for (let i = trail.length - 1; i >= 0; i -= 1) {
+        const sample = trail[i];
+        const alpha = Math.max(0, sample.alpha ?? 0);
+        if (alpha <= 0) continue;
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.6;
+        ctx.beginPath();
+        ctx.arc(sample.x, sample.y, sample.radius ?? 14, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(239, 68, 68, ${alpha * 0.65})`;
+        ctx.strokeStyle = `rgba(248, 113, 22, ${alpha * 0.85})`;
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  ctx.restore();
+  drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`);
 }

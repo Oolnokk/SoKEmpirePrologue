@@ -335,6 +335,7 @@ function initSelectionDropdowns() {
 window.addEventListener('DOMContentLoaded', () => {
   initSelectionDropdowns();
 });
+import { initNpcSystems, updateNpcSystems } from './npc.js?v=1';
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=6';
 import { initControls } from './controls.js?v=7';
@@ -825,6 +826,7 @@ async function loadFighterSettings(fighterName) {
     
     // Reinit fighters
     initFighters(cv, cx);
+    initNpcSystems();
     
     // Reinit presets
     initPresets();
@@ -901,6 +903,7 @@ async function reinitializeFighter(fighterName) {
     
     // Reinit fighters (this resets them to default STANCE)
     initFighters(cv, cx);
+    initNpcSystems();
     
     // Reinit presets
     initPresets();
@@ -1406,6 +1409,7 @@ let frames = 0;
 function loop(t){
   const dt = (t - last) / 1000; last = t;
   if (window.GAME?.combat) window.GAME.combat.tick(dt);
+  updateNpcSystems(dt);
   updatePoses();
   updateCamera(cv);
   drawStage();
@@ -1508,6 +1512,7 @@ function boot(){
     initPresets();
     ensureAltSequenceUsesKickAlt();
     initFighters(cv, cx);
+    initNpcSystems();
     initControls();
     initCombat();
     initHitDetect();
