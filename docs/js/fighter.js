@@ -18,6 +18,11 @@ function clone(value) {
   }
 }
 
+function randomHueDegrees() {
+  const hue = Math.floor(Math.random() * 360);
+  return hue > 180 ? hue - 360 : hue;
+}
+
 const SPAWN_PREFAB_SETS = {
   player: new Set([
     'player_spawn',
@@ -191,6 +196,25 @@ export function initFighters(cv, cx){
 
   const fallbackFighterName = pickFighterName(C);
   const characters = C.characters || {};
+
+  if (characters.enemy1) {
+    const npcCharacter = clone(characters.enemy1);
+    const cosmetics = npcCharacter.cosmetics || (npcCharacter.cosmetics = {});
+    const slots = cosmetics.slots || (cosmetics.slots = {});
+    const pantsSlot = { ...(slots.legs || {}) };
+    const baseHsv = pantsSlot.hsv ? { ...pantsSlot.hsv } : {};
+    const randomHue = randomHueDegrees();
+    const randomizedHsv = {
+      ...baseHsv,
+      h: randomHue,
+    };
+    if (randomizedHsv.s == null) randomizedHsv.s = baseHsv.s ?? 0.6;
+    if (randomizedHsv.v == null) randomizedHsv.v = baseHsv.v ?? 0;
+    pantsSlot.hsv = randomizedHsv;
+    slots.legs = pantsSlot;
+    characters.npc = npcCharacter;
+    console.log('[initFighters] Generated npc character from enemy1 with pants hue', randomHue);
+  }
   const characterKeys = Object.keys(characters);
   const npcDefaultCharacterKey = characterKeys.find(key => key !== 'player') || characterKeys[0] || null;
   const previousCharacterState = clone(G.CHARACTER_STATE || {});
