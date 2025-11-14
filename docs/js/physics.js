@@ -228,9 +228,10 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
       delete fighter.gravityOverride;
     }
   }
+  const defaultGravityScale = fighter.ragdoll ? 1.8 : 1;
   const gravityScale = Number.isFinite(fighter.gravityOverride?.value)
     ? fighter.gravityOverride.value
-    : 1;
+    : defaultGravityScale;
 
   const input = options.input || fighter.input || null;
   const attackActive = !!options.attackActive;
@@ -252,7 +253,6 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   if (!Number.isFinite(fighter.vel.x)) fighter.vel.x = 0;
   if (!Number.isFinite(fighter.vel.y)) fighter.vel.y = 0;
 
-  const gravityScale = fighter.ragdoll ? 1.8 : 1;
   fighter.vel.y += gravity * gravityScale * dt;
 
   if (fighter.ragdoll) {
