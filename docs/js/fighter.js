@@ -174,15 +174,86 @@ export function initFighters(cv, cx){
 
   function makeF(id, x, faceSign, y){
     const spawnY = Number.isFinite(y) ? y : gy - 1;
+    const isPlayer = id === 'player';
+
     return {
-      id, isPlayer: id==='player',
-      pos:{ x, y: spawnY }, vel:{ x:0, y:0 },
-      onGround:true, prevOnGround:true, facingRad: 0, facingSign: faceSign,
-      footing: 50, ragdoll:false, stamina:{ current:100, max:100, drainRate:40, regenRate:25, minToDash:10 },
+      id,
+      isPlayer,
+      pos: { x, y: spawnY },
+      vel: { x: 0, y: 0 },
+      onGround: true,
+      prevOnGround: true,
+      landedImpulse: 0,
+      facingRad: faceSign < 0 ? Math.PI : 0,
+      facingSign: faceSign,
+      footing: isPlayer ? 50 : 100,
+      ragdoll: false,
+      ragdollTime: 0,
+      ragdollVel: { x: 0, y: 0 },
+      recovering: false,
+      recoveryTime: 0,
+      recoveryDuration: 0.8,
+      recoveryStartAngles: {},
+      recoveryStartY: 0,
+      recoveryTargetY: spawnY,
       jointAngles: { ...stanceRad },
-      walk:{ phase:0, amp:0 },
-      attack:{ active:false, preset:null, slot:null },
-      combo:{ active:false, sequenceIndex:0, attackDelay:0 }
+      walk: { phase: 0, amp: 0 },
+      stamina: {
+        current: 100,
+        max: 100,
+        drainRate: 40,
+        regenRate: 25,
+        minToDash: 10,
+        isDashing: false,
+      },
+      attack: {
+        active: false,
+        preset: null,
+        slot: null,
+        facingRadAtPress: 0,
+        dirSign: faceSign,
+        downTime: 0,
+        holdStartTime: 0,
+        holdWindupDuration: 0,
+        isHoldRelease: false,
+        strikeLanded: false,
+        currentPhase: null,
+        currentActiveKeys: [],
+        sequence: [],
+        durations: [],
+        phaseIndex: 0,
+        timer: 0,
+        lunge: {
+          active: false,
+          paused: false,
+          distance: 0,
+          targetDistance: 60,
+          speed: 400,
+          lungeVel: { x: 0, y: 0 },
+        },
+      },
+      aim: {
+        targetAngle: 0,
+        currentAngle: 0,
+        torsoOffset: 0,
+        shoulderOffset: 0,
+        hipOffset: 0,
+        active: false,
+      },
+      combo: {
+        active: false,
+        sequenceIndex: 0,
+        attackDelay: 0,
+      },
+      trailColor: isPlayer ? 'cyan' : 'red',
+      input: isPlayer ? { left: false, right: false, jump: false, dash: false } : null,
+      ai: !isPlayer
+        ? {
+            mode: 'approach',
+            timer: 0,
+            cooldown: 0,
+          }
+        : null,
     };
   }
 
