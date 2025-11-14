@@ -24,5 +24,9 @@ const loadEntries = Object.entries(sources)
 if (typeof fetch !== 'function'){
   console.warn('[cosmetics] Skipping cosmetic library loading: fetch is unavailable in this environment');
 } else if (loadEntries.length){
-  await Promise.all(loadEntries.map(([id, url]) => loadCosmetic(id, url)));
+  for (const [id, url] of loadEntries){
+    // Sequentialize loads to avoid exhausting limited browser fetch slots.
+    // eslint-disable-next-line no-await-in-loop
+    await loadCosmetic(id, url);
+  }
 }
