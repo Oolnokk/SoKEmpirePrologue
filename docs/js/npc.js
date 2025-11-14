@@ -1,6 +1,6 @@
 // npc.js — Reimplements the NPC systems from the monolith build in a modular form
 
-import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=3';
+import { initCombatForFighter } from './combat.js?v=19';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -64,52 +64,102 @@ function ensureNpcContainers(G) {
   return npcSystems;
 }
 
+function ensureNpcInputState(state) {
+  if (!state) return {};
+  const input = state.aiInput || {
+    buttonA: { down: false },
+    buttonB: { down: false },
+    left: false,
+    right: false,
+  };
+  if (!state.aiInput) state.aiInput = input;
+  input.buttonA ||= { down: false };
+  input.buttonB ||= { down: false };
+  return input;
+}
+
+function ensureNpcPressRegistry(state) {
+  if (!state) return {};
+  state.aiButtonPresses ||= {};
+  return state.aiButtonPresses;
+}
+
+function releaseNpcButton(state, combat, slotKey) {
+  if (!state || !combat) return;
+  const presses = state.aiButtonPresses;
+  if (!presses) return;
+  const press = presses[slotKey];
+  if (!press || !press.down) return;
+  press.down = false;
+  press.timer = 0;
+  const input = ensureNpcInputState(state);
+  if (slotKey === 'A') {
+    input.buttonA.down = false;
+  } else if (slotKey === 'B') {
+    input.buttonB.down = false;
+  }
+  combat.slotUp(slotKey);
+}
+
+function pressNpcButton(state, combat, slotKey, holdSeconds = 0.12) {
+  if (!state || !combat) return false;
+  const presses = ensureNpcPressRegistry(state);
+  const press = presses[slotKey] || (presses[slotKey] = { down: false, timer: 0 });
+  if (press.down) return false;
+  press.down = true;
+  press.timer = Math.max(0, holdSeconds);
+  const input = ensureNpcInputState(state);
+  if (slotKey === 'A') {
+    input.buttonA.down = true;
+  } else if (slotKey === 'B') {
+    input.buttonB.down = true;
+  }
+  combat.slotDown(slotKey);
+  return true;
+}
+
+function updateNpcAutomatedInput(state, combat, dt) {
+  if (!state || !combat) return;
+  const presses = state.aiButtonPresses;
+  if (!presses) return;
+  for (const [slotKey, press] of Object.entries(presses)) {
+    if (!press?.down) continue;
+    press.timer -= dt;
+    if (press.timer <= 0) {
+      releaseNpcButton(state, combat, slotKey);
+    }
+  }
+}
+
+function ensureNpcCombat(G) {
+  if (G.npcCombat) return G.npcCombat;
+  const combat = initCombatForFighter('npc', {
+    fighterLabel: 'npc',
+    poseTarget: 'npc',
+    autoProcessInput: false,
+    neutralizeInputMovement: false,
+    storeKey: 'npcCombat',
+    inputSource: () => {
+      const npc = G.FIGHTERS?.npc;
+      return npc ? ensureNpcInputState(npc) : {};
+    },
+  });
+  return combat;
+}
+
 function ensureAttackState(state) {
   const attack = (state.attack ||= {});
   attack.active = !!attack.active;
   attack.preset = attack.preset || null;
   attack.slot = attack.slot || null;
-  attack.facingRadAtPress = Number.isFinite(attack.facingRadAtPress)
-    ? attack.facingRadAtPress
-    : state.facingRad || 0;
-  attack.dirSign = Number.isFinite(attack.dirSign) ? attack.dirSign : state.facingSign || 1;
-  attack.downTime = attack.downTime || 0;
-  attack.holdStartTime = attack.holdStartTime || 0;
-  attack.holdWindupDuration = attack.holdWindupDuration || 0;
-  attack.isHoldRelease = !!attack.isHoldRelease;
-  attack.strikeLanded = !!attack.strikeLanded;
   attack.currentPhase = attack.currentPhase || null;
   attack.currentActiveKeys = Array.isArray(attack.currentActiveKeys)
     ? attack.currentActiveKeys
     : [];
-  attack.sequence = Array.isArray(attack.sequence) ? attack.sequence : [];
-  attack.durations = Array.isArray(attack.durations) ? attack.durations : [];
-  attack.phaseIndex = Number.isFinite(attack.phaseIndex) ? attack.phaseIndex : 0;
-  attack.timer = Number.isFinite(attack.timer) ? attack.timer : 0;
-  attack.lastAppliedPhase = attack.lastAppliedPhase || null;
-  attack.lastPhaseIndex = Number.isFinite(attack.lastPhaseIndex) ? attack.lastPhaseIndex : -1;
-  attack.layerHandles = Array.isArray(attack.layerHandles)
-    ? attack.layerHandles.filter((handle) => handle && typeof handle.cancel === 'function')
-    : [];
-  if (!attack.lunge) {
-    attack.lunge = {
-      active: false,
-      paused: false,
-      distance: 0,
-      targetDistance: 60,
-      speed: 400,
-      lungeVel: { x: 0, y: 0 },
-    };
-  } else {
-    attack.lunge.active = !!attack.lunge.active;
-    attack.lunge.paused = !!attack.lunge.paused;
-    attack.lunge.distance = Number.isFinite(attack.lunge.distance) ? attack.lunge.distance : 0;
-    attack.lunge.targetDistance = Number.isFinite(attack.lunge.targetDistance)
-      ? attack.lunge.targetDistance
-      : 60;
-    attack.lunge.speed = Number.isFinite(attack.lunge.speed) ? attack.lunge.speed : 400;
-    attack.lunge.lungeVel = attack.lunge.lungeVel || { x: 0, y: 0 };
-  }
+  attack.strikeLanded = !!attack.strikeLanded;
+  attack.isHoldRelease = !!attack.isHoldRelease;
+  attack.chargeStage = Number.isFinite(attack.chargeStage) ? attack.chargeStage : 0;
+  attack.context = attack.context || null;
   return attack;
 }
 
@@ -140,15 +190,6 @@ function computeGroundY(config) {
 
 function getWorldWidth(config) {
   return config.world?.width || config.camera?.worldWidth || DEFAULT_WORLD_WIDTH;
-}
-
-function getPresetDurations(presetName) {
-  const C = window.CONFIG || {};
-  const presets = C.presets || {};
-  const durations = presets?.[presetName]?.durations;
-  if (durations) return durations;
-  const moves = C.moves || {};
-  return moves?.[presetName]?.durations || C.durations || {};
 }
 
 function getPresetActiveColliders(preset) {
@@ -542,21 +583,6 @@ function updateNpcAiming(state, player) {
   aim.hipOffset = 0;
 }
 
-function applyLungeMovement(state, dt) {
-  const attack = ensureAttackState(state);
-  if (!attack.lunge?.active || attack.lunge.paused) return;
-  state.pos.x += attack.lunge.lungeVel.x * dt;
-  state.pos.y += attack.lunge.lungeVel.y * dt;
-  attack.lunge.distance += Math.abs(attack.lunge.lungeVel.x) * dt;
-  if (
-    attack.lunge.distance >= attack.lunge.targetDistance ||
-    attack.currentPhase !== 'Strike'
-  ) {
-    attack.lunge.active = false;
-    attack.lunge.distance = 0;
-  }
-}
-
 function updateDashTrail(npcSystems, state, dt) {
   const dashTrail = npcSystems.dashTrail;
   if (!dashTrail || !dashTrail.enabled) return;
@@ -646,6 +672,12 @@ function updateNpcMovement(G, npcSystems, state, dt) {
   const player = G.FIGHTERS?.player;
   if (!player) return;
 
+  const combat = ensureNpcCombat(G);
+  const attack = ensureAttackState(state);
+  ensureComboState(state);
+  ensureNpcInputState(state);
+  updateNpcAutomatedInput(state, combat, dt);
+
   if (state.ragdoll) {
     updateNpcRagdoll(state, C, dt);
     updateNpcRecovery(state, C, dt);
@@ -656,44 +688,43 @@ function updateNpcMovement(G, npcSystems, state, dt) {
   }
 
   updateNpcRecovery(state, C, dt);
-  applyLungeMovement(state, dt);
-  updateNpcAttack(G, state, dt);
 
+  const attackActive = typeof combat?.isFighterAttacking === 'function'
+    ? combat.isFighterAttacking()
+    : !!attack?.active;
   state.cooldown = Math.max(0, (state.cooldown || 0) - dt);
+
   const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
   const absDx = Math.abs(dx);
   const maxSpeed = (C.movement?.maxSpeedX || 420) * 0.8;
   const nearDist = 70;
+  const isPressing = !!state.aiButtonPresses?.A?.down || !!state.aiButtonPresses?.B?.down;
 
-  if (state.attack?.active) {
+  if (attackActive) {
     state.vel.x = 0;
     state.facingRad = dx >= 0 ? 0 : Math.PI;
   } else {
-    if (state.mode === 'attack' && !state.combo?.active) {
+    if (state.mode === 'attack') {
       state.mode = 'evade';
       state.timer = 0.3;
+      state.cooldown = Math.max(state.cooldown, 0.35);
       state.vel.x = -(dx > 0 ? 1 : -1) * maxSpeed;
-      state.cooldown = 0.4;
+    } else if (absDx <= nearDist && state.cooldown <= 0 && !isPressing) {
+      if (pressNpcButton(state, combat, 'A', 0.12)) {
+        state.mode = 'attack';
+        state.vel.x = 0;
+        state.facingRad = dx >= 0 ? 0 : Math.PI;
+        state.cooldown = 0.45;
+      }
     }
 
-    if (absDx <= nearDist && state.cooldown <= 0 && !state.combo?.active) {
-      const combo = ensureComboState(state);
-      combo.active = true;
-      combo.sequenceIndex = 0;
-      combo.attackDelay = 0;
-      const preset = window.CONFIG?.combo?.sequence?.[0] || 'KICK';
-      startNpcQuickAttack(state, preset);
-      state.mode = 'attack';
-      state.vel.x = 0;
-      state.facingRad = dx >= 0 ? 0 : Math.PI;
-    } else if (state.mode === 'approach') {
+    if (state.mode === 'approach') {
       if (absDx > nearDist) {
         state.vel.x = (dx > 0 ? 1 : -1) * maxSpeed;
-        state.stamina.isDashing = false;
       } else {
         state.vel.x = (dx > 0 ? 1 : -1) * maxSpeed * 0.3;
-        state.stamina.isDashing = false;
       }
+      state.stamina.isDashing = false;
     } else if (state.mode === 'evade') {
       const dashMult = state.stamina.current >= state.stamina.minToDash
         ? C.movement?.dashSpeedMultiplier || 1.8
@@ -706,6 +737,10 @@ function updateNpcMovement(G, npcSystems, state, dt) {
         state.stamina.isDashing = false;
       }
     }
+  }
+
+  if (state.mode === 'attack' && !attackActive && !isPressing) {
+    state.mode = 'approach';
   }
 
   regenerateStamina(state, dt);
@@ -752,9 +787,11 @@ export function initNpcSystems() {
   const npc = G.FIGHTERS?.npc;
   if (!npc) return;
   ensureNpcContainers(G);
+  ensureNpcCombat(G);
   ensureAttackState(npc);
   ensureComboState(npc);
   ensureAimState(npc);
+  ensureNpcInputState(npc);
   npc.mode = npc.mode || npc.ai?.mode || 'approach';
   npc.cooldown = Number.isFinite(npc.cooldown) ? npc.cooldown : npc.ai?.cooldown || 0;
 }
@@ -764,7 +801,10 @@ export function updateNpcSystems(dt) {
   const G = ensureGameState();
   const npc = G.FIGHTERS?.npc;
   if (!npc) return;
+  const combat = ensureNpcCombat(G);
+  if (combat?.tick) combat.tick(dt);
   const npcSystems = ensureNpcContainers(G);
+  ensureNpcInputState(npc);
   updateNpcMovement(G, npcSystems, npc, dt);
   updateNpcHud(G);
 }
@@ -785,11 +825,15 @@ export function recordNpcAttackTrailSample(colliders, dt) {
   const npcSystems = ensureNpcContainers(ensureGameState());
   const attackTrail = npcSystems.attackTrail;
   const attack = npc?.attack;
-  if (!attackTrail?.enabled || !attack?.active || attack?.currentActiveKeys?.length === 0) return;
+  if (!attackTrail?.enabled || !attack?.active) return;
   attackTrail.timer += dt;
   if (attackTrail.timer < attackTrail.interval) return;
   attackTrail.timer = 0;
-  const keys = attack.currentActiveKeys || [];
+  let keys = attack.currentActiveKeys || [];
+  if ((!keys || keys.length === 0) && attack.currentPhase?.toLowerCase().includes('strike')) {
+    keys = getPresetActiveColliders(attack.context?.preset || attack.preset);
+  }
+  if (!Array.isArray(keys) || keys.length === 0) return;
   for (const key of keys) {
     const pos = colliders?.[key];
     if (!pos) continue;
