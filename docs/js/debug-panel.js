@@ -4,7 +4,6 @@
 import { $$, fmt } from './dom-utils.js?v=1';
 import { radToDeg, radToDegNum, degToRad } from './math-utils.js?v=1';
 import { pushPoseOverride as runtimePushPoseOverride, pushPoseLayerOverride as runtimePushPoseLayerOverride } from './animator.js?v=3';
-import { getPlayerFighter } from './fighter-roster.js?v=1';
 
 // Initialize the debug panel
 export function initDebugPanel() {
@@ -54,12 +53,12 @@ export function updateDebugPanel() {
   const G = window.GAME || {};
   const C = window.CONFIG || {};
   
-  if (!G.ANCHORS_OBJ) return;
+  if (!G.FIGHTERS || !G.ANCHORS_OBJ) return;
 
-  const player = getPlayerFighter(G);
-  const playerBones = player ? (G.ANCHORS_OBJ[player.id] || G.ANCHORS_OBJ.player) : null;
-  if (!player || !playerBones) return;
+  const player = G.FIGHTERS.player;
+  const playerBones = G.ANCHORS_OBJ.player;
 
+  // Update transforms display
   updateTransformsDisplay(player, playerBones);
 
   // Update pose editor
@@ -308,11 +307,12 @@ function copyPoseConfigToClipboard() {
   const G = window.GAME || {};
   const C = window.CONFIG || {};
   
-  const player = getPlayerFighter(G);
-  if (!player) {
+  if (!G.FIGHTERS?.player) {
     console.warn('[debug-panel] No player fighter found');
     return;
   }
+
+  const player = G.FIGHTERS.player;
 
   // Build pose object from current joint angles
   const currentPose = {};

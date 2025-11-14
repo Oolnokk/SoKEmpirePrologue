@@ -19,8 +19,7 @@
 
 import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withAXUtil, rad, angleFromDelta as angleFromDeltaUtil } from './math-utils.js?v=1';
 import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=1';
-import { listFighterIds, listNpcIds } from './fighter-roster.js?v=1';
-import { pickFighterTypeConfig, lengths, pickOffsets } from './fighter-utils.js?v=1';
+import { pickFighterConfig, lengths, pickOffsets } from './fighter-utils.js?v=1';
 
 // === RENDER DEBUG CONFIGURATION ===
 // Global config object for controlling what is rendered for debugging purposes
@@ -80,8 +79,8 @@ function withAX(x, y, ang, off, len, units) {
   return withAXUtil(x, y, ang, ax, ay, len || 1, unitStr);
 }
 
-function computeAnchorsForFighter(F, C, fighterTypeName) {
-  const fcfg = pickFighterTypeConfig(C, fighterTypeName); const L = lengths(C, fcfg); const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
+function computeAnchorsForFighter(F, C, fighterName) {
+  const fcfg = pickFighterConfig(C, fighterName); const L = lengths(C, fcfg); const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
   const centerX = F.pos?.x ?? 0; const centerY = F.pos?.y ?? ((C.groundRatio||0.7) * (C.canvas?.h||460));
   const torsoAngRaw = F.jointAngles?.torso ?? 0; // already in radians from animator
   const torsoAng = torsoAngRaw; // with 'up' as zero, torso angle is used directly
@@ -313,42 +312,21 @@ function drawCompass(ctx, x, y, r, label){
 }
 
 
-export function renderAll(ctx){
-  const G=(window.GAME ||= {});
-  const C=(window.CONFIG || {});
-  if(!ctx||!G.FIGHTERS) return;
-
-  const fighterIds = listFighterIds(G);
-  if (!fighterIds.length) return;
-
-  const computed = [];
-  let primaryNpcAssigned = false;
-  (G.ANCHORS_OBJ ||= {});
+export function renderAll(ctx){ 
+  const G=(window.GAME ||= {}); 
+  const C=(window.CONFIG || {}); 
+  if(!ctx||!G.FIGHTERS) return; 
+  const fName=(G.selectedFighter && C.fighters?.[G.selectedFighter])? G.selectedFighter : (C.fighters?.TLETINGAN? 'TLETINGAN' : Object.keys(C.fighters||{})[0] || 'default'); 
+  const player=computeAnchorsForFighter(G.FIGHTERS.player,C,fName); 
+  const npc=computeAnchorsForFighter(G.FIGHTERS.npc,C,fName); 
+  (G.ANCHORS_OBJ ||= {}); 
+  G.ANCHORS_OBJ.player=player.B; 
+  G.ANCHORS_OBJ.npc=npc.B;
+  // Store flip state so sprites.js can flip sprite images when facing left
   (G.FLIP_STATE ||= {});
-
-  fighterIds.forEach((fighterId) => {
-    const fighter = G.FIGHTERS[fighterId];
-    if (!fighter) return;
-    const fighterTypeName = fighter.fighterType || fighter.templateId || fighterId;
-    const anchors = computeAnchorsForFighter(fighter, C, fighterTypeName);
-    computed.push({ id: fighterId, fighter, anchors });
-    G.ANCHORS_OBJ[fighterId] = anchors.B;
-    G.FLIP_STATE[fighterId] = anchors.flipLeft;
-    if (fighter.role === 'player' || fighter.controller?.type === 'player' || fighterId === 'player') {
-      G.ANCHORS_OBJ.player = anchors.B;
-      G.FLIP_STATE.player = anchors.flipLeft;
-    }
-    if ((fighter.role === 'npc' || fighterId.startsWith('npc')) && !primaryNpcAssigned) {
-      G.ANCHORS_OBJ.npc = anchors.B;
-      G.FLIP_STATE.npc = anchors.flipLeft;
-      primaryNpcAssigned = true;
-    }
-  });
-
-  if (!computed.length) return;
-
-  const playerEntry = computed.find((entry) => entry.fighter.role === 'player' || entry.fighter.controller?.type === 'player' || entry.id === 'player');
-
+  G.FLIP_STATE.player = player.flipLeft;
+  G.FLIP_STATE.npc = npc.flipLeft;
+  
   // Fallback background so the viewport is never visually blank
   try{
     ctx.fillStyle = '#eaeaea';
@@ -376,80 +354,72 @@ export function renderAll(ctx){
   ctx.save();
   ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, canvasHeight * (1 - zoom));
   
-  if (playerEntry) {
-    const playerAnchors = playerEntry.anchors;
-    if (playerAnchors.flipLeft) {
-      const centerX = playerAnchors.hitbox?.x ?? (playerEntry.fighter.pos?.x ?? 0);
-      ctx.save();
-      ctx.translate(centerX * 2, 0);
-      ctx.scale(-1, 1);
-      drawHitbox(ctx, playerAnchors.hitbox);
-      drawStick(ctx, playerAnchors.B);
-      ctx.restore();
-    } else {
-      drawHitbox(ctx, playerAnchors.hitbox);
-      drawStick(ctx, playerAnchors.B);
-    }
+  // Apply character flip for debug bones, same as sprites
+  if (player.flipLeft) {
+    const centerX = player.hitbox?.x ?? 0;
+    ctx.translate(centerX * 2, 0);
+    ctx.scale(-1, 1);
+  }
+  
+  drawHitbox(ctx, player.hitbox); 
+  drawStick(ctx, player.B); 
+  
+  // Fallback player marker: draw a simple hitbox rect at player's position
+  try{
+    const hb = (C && C.parts && C.parts.hitbox) ? C.parts.hitbox : {w:40, h:80};
+    const hbW = hb.w * (C.actor && C.actor.scale || 1);
+    const hbH = hb.h * (C.actor && C.actor.scale || 1);
+    const px = (player.hitbox?.x ?? (G.FIGHTERS.player.pos?.x ?? 100)) - hbW/2;
+    const py = (player.hitbox?.y ?? (G.FIGHTERS.player.pos?.y ?? 100)) - hbH/2;
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#4b9ce2';
+    ctx.fillRect(px, py, hbW, hbH);
+    ctx.strokeStyle = '#1f4d7a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px, py, hbW, hbH);
+    ctx.restore();
+  }catch(_e){ /* ignore */ }
 
-    try{
-      const hb = (C && C.parts && C.parts.hitbox) ? C.parts.hitbox : {w:40, h:80};
-      const hbW = hb.w * (C.actor && C.actor.scale || 1);
-      const hbH = hb.h * (C.actor && C.actor.scale || 1);
-      const px = (playerAnchors.hitbox?.x ?? (playerEntry.fighter.pos?.x ?? 100)) - hbW/2;
-      const py = (playerAnchors.hitbox?.y ?? (playerEntry.fighter.pos?.y ?? 100)) - hbH/2;
+  const npcDashTrail = getNpcDashTrail();
+  if (npcDashTrail?.positions?.length) {
+    for (let i = npcDashTrail.positions.length - 1; i >= 0; i -= 1) {
+      const pos = npcDashTrail.positions[i];
+      const alpha = Math.max(0, pos.alpha ?? 0);
+      if (alpha <= 0) continue;
       ctx.save();
-      ctx.globalAlpha = 0.4;
-      ctx.fillStyle = '#4b9ce2';
-      ctx.fillRect(px, py, hbW, hbH);
-      ctx.strokeStyle = '#1f4d7a';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(px, py, hbW, hbH);
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.fillStyle = 'rgba(248, 113, 113, 0.35)';
+      const radius = (C.parts?.hitbox?.w || 40) * (C.actor?.scale || 1) * 0.3;
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
-    }catch(_e){ /* ignore */ }
+    }
   }
 
-  const npcIds = listNpcIds(G);
-  npcIds.forEach((npcId) => {
-    const dashTrail = getNpcDashTrail(npcId);
-    if (dashTrail?.positions?.length) {
-      for (let i = dashTrail.positions.length - 1; i >= 0; i -= 1) {
-        const pos = dashTrail.positions[i];
-        const alpha = Math.max(0, pos.alpha ?? 0);
+  const npcAttackTrail = getNpcAttackTrail();
+  if (npcAttackTrail?.enabled) {
+    for (const key of ['handL', 'handR', 'footL', 'footR']) {
+      const trail = npcAttackTrail.colliders?.[key];
+      if (!trail || !trail.length) continue;
+      for (let i = trail.length - 1; i >= 0; i -= 1) {
+        const sample = trail[i];
+        const alpha = Math.max(0, sample.alpha ?? 0);
         if (alpha <= 0) continue;
         ctx.save();
-        ctx.globalAlpha = alpha * 0.5;
-        ctx.fillStyle = 'rgba(248, 113, 113, 0.35)';
-        const radius = (C.parts?.hitbox?.w || 40) * (C.actor?.scale || 1) * 0.3;
+        ctx.globalAlpha = alpha * 0.6;
         ctx.beginPath();
-        ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+        ctx.arc(sample.x, sample.y, sample.radius ?? 14, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(239, 68, 68, ${alpha * 0.65})`;
+        ctx.strokeStyle = `rgba(248, 113, 22, ${alpha * 0.85})`;
+        ctx.lineWidth = 2;
         ctx.fill();
+        ctx.stroke();
         ctx.restore();
       }
     }
-
-    const attackTrail = getNpcAttackTrail(npcId);
-    if (attackTrail?.enabled) {
-      for (const key of ['handL', 'handR', 'footL', 'footR']) {
-        const trail = attackTrail.colliders?.[key];
-        if (!trail || !trail.length) continue;
-        for (let i = trail.length - 1; i >= 0; i -= 1) {
-          const sample = trail[i];
-          const alpha = Math.max(0, sample.alpha ?? 0);
-          if (alpha <= 0) continue;
-          ctx.save();
-          ctx.globalAlpha = alpha * 0.6;
-          ctx.beginPath();
-          ctx.arc(sample.x, sample.y, sample.radius ?? 14, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(239, 68, 68, ${alpha * 0.65})`;
-          ctx.strokeStyle = `rgba(248, 113, 22, ${alpha * 0.85})`;
-          ctx.lineWidth = 2;
-          ctx.fill();
-          ctx.stroke();
-          ctx.restore();
-        }
-      }
-    }
-  });
+  }
 
   ctx.restore();
   drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`);

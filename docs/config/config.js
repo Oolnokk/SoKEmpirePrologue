@@ -137,12 +137,12 @@ const POSE_ANGLE_SUMMARY = {
   Recoil: { lHip:110, rHip:100 }
 };
 
-const FIGHTER_TYPE_TLETINGAN = 'TLETINGAN';
-const FIGHTER_TYPE_MAOAO_M = 'Mao-ao_M';
+const FIGHTER_TLETINGAN = 'TLETINGAN';
+const FIGHTER_MAOAO_M = 'Mao-ao_M';
 
 const COSMETIC_PROFILE_SOURCES = {
-  [FIGHTER_TYPE_TLETINGAN]: './config/fighter-offsets/TLETINGAN.json',
-  [FIGHTER_TYPE_MAOAO_M]: './config/fighter-offsets/Mao-ao_M.json'
+  [FIGHTER_TLETINGAN]: './config/fighter-offsets/TLETINGAN.json',
+  [FIGHTER_MAOAO_M]: './config/fighter-offsets/Mao-ao_M.json'
 };
 
 const COSMETIC_LIBRARY_SOURCES = {

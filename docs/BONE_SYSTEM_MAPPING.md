@@ -72,10 +72,10 @@ The system uses the following bone identifiers:
 
 ---
 
-### 2. `computeAnchorsForFighter(F, C, fighterTypeName)`
+### 2. `computeAnchorsForFighter(F, C, fighterName)`
 **Location:** `docs/js/render.js:81-173`
 
-**Purpose:** Primary function that computes all bone positions and orientations for a fighter type based on joint angles.
+**Purpose:** Primary function that computes all bone positions and orientations for a fighter based on joint angles.
 
 **Data Sources:**
 - `F.pos.x, F.pos.y` - Fighter position in world space
@@ -89,7 +89,7 @@ The system uses the following bone identifiers:
 - `C.parts.hitbox.torsoAttach` - Torso attachment point config
 - `C.groundRatio` - Ground level ratio
 - `C.hierarchy.legsFollowTorsoRotation` - Whether legs rotate with torso
-- Fighter type-specific configs from `pickFighterTypeConfig(C, fighterTypeName)`
+- Fighter-specific configs from `pickFighterConfig(C, fighterName)`
 - Limb lengths from `lengths(C, fcfg)` function
 - Offsets from `pickOffsets(C, fcfg)` function
 

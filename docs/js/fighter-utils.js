@@ -1,28 +1,28 @@
-// fighter-utils.js — Shared fighter type/config selection utilities
-// Provides common functions for selecting and working with fighter type configurations
+// fighter-utils.js — Shared fighter/config selection utilities
+// Provides common functions for selecting and working with fighter configurations
 
 /**
- * Pick a fighter type configuration by name from CONFIG
- * Falls back to first available fighter type if name not found
+ * Pick a fighter configuration by name from CONFIG
+ * Falls back to first available fighter if name not found
  * @param {Object} C - CONFIG object
- * @param {string} name - Fighter type name
- * @returns {Object} Fighter type configuration object
+ * @param {string} name - Fighter name
+ * @returns {Object} Fighter configuration object
  */
-export function pickFighterTypeConfig(C, name) {
+export function pickFighterConfig(C, name) {
   const fighters = C.fighters || {};
   const fighter = fighters[name] || fighters[Object.keys(fighters)[0] || ''];
   return fighter || {};
 }
 
 /**
- * Pick the current fighter type name from GAME state or CONFIG
- * Priority: GAME.selectedFighter > TLETINGAN > first fighter type > 'default'
+ * Pick the current fighter name from GAME state or CONFIG
+ * Priority: GAME.selectedFighter > TLETINGAN > first fighter > 'default'
  * @param {Object} C - CONFIG object
- * @returns {string} Fighter type name
+ * @returns {string} Fighter name
  */
-export function pickFighterTypeName(C) {
+export function pickFighterName(C) {
   const G = window.GAME || {};
-
+  
   // If selectedFighter is set and exists in config, use it
   if (G.selectedFighter && C.fighters?.[G.selectedFighter]) {
     return G.selectedFighter;
@@ -32,16 +32,16 @@ export function pickFighterTypeName(C) {
   if (C.fighters?.TLETINGAN) {
     return 'TLETINGAN';
   }
-
-  // Fallback to first available fighter type
+  
+  // Fallback to first available fighter
   const keys = Object.keys(C.fighters || {});
   return keys.length ? keys[0] : 'default';
 }
 
 /**
- * Get part lengths for a fighter type, applying scale factors
+ * Get part lengths for a fighter, applying scale factors
  * @param {Object} C - CONFIG object
- * @param {Object} fcfg - Fighter type-specific configuration
+ * @param {Object} fcfg - Fighter-specific configuration
  * @returns {Object} Object with scaled part lengths
  */
 export function lengths(C, fcfg) {

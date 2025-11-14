@@ -1,5 +1,4 @@
 // npc.js — Reimplements the NPC systems from the monolith build in a modular form
-import { listNpcIds, getFighterById, getPlayerFighter } from './fighter-roster.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -37,33 +36,22 @@ function clone(value) {
 
 function ensureGameState() {
   const G = (window.GAME ||= {});
-  G.NPC ||= { systems: {}, dashTrail: null, attackTrail: null };
-  G.HIT_COUNTS ||= {};
-  G.HIT_COUNTS.player ||= { handL: 0, handR: 0, footL: 0, footR: 0, body: 0 };
+  G.HIT_COUNTS ||= {
+    player: { handL: 0, handR: 0, footL: 0, footR: 0 },
+    npc: { handL: 0, handR: 0, footL: 0, footR: 0, body: 0 },
+  };
   return G;
 }
 
-function ensureNpcSystemStore(G) {
-  const store = (G.NPC ||= {});
-  store.systems ||= {};
-  return store;
-}
-
-function ensureNpcContainers(G, fighterId) {
-  const store = ensureNpcSystemStore(G);
-  const id = fighterId || store.primaryId || null;
-  if (!id) return null;
-  store.primaryId = store.primaryId || id;
-  const container = (store.systems[id] ||= {});
-  if (!container.dashTrail) {
-    container.dashTrail = clone(DASH_TRAIL_TEMPLATE);
+function ensureNpcContainers(G) {
+  const npcSystems = (G.NPC ||= {});
+  if (!npcSystems.dashTrail) {
+    npcSystems.dashTrail = clone(DASH_TRAIL_TEMPLATE);
   }
-  if (!container.attackTrail) {
-    container.attackTrail = clone(ATTACK_TRAIL_TEMPLATE);
+  if (!npcSystems.attackTrail) {
+    npcSystems.attackTrail = clone(ATTACK_TRAIL_TEMPLATE);
   }
-  if (!store.dashTrail) store.dashTrail = container.dashTrail;
-  if (!store.attackTrail) store.attackTrail = container.attackTrail;
-  return container;
+  return npcSystems;
 }
 
 function ensureAttackState(state) {
@@ -445,7 +433,7 @@ function updateNpcRecovery(state, config, dt) {
 
 function updateNpcMovement(G, npcSystems, state, dt) {
   const C = window.CONFIG || {};
-  const player = getPlayerFighter(G);
+  const player = G.FIGHTERS?.player;
   if (!player) return;
 
   if (state.ragdoll) {
@@ -532,92 +520,59 @@ function updateNpcMovement(G, npcSystems, state, dt) {
 function updateNpcHud(G) {
   const hud = document.getElementById('aiHud');
   if (!hud || hud.style.display === 'none') return;
-  const player = getPlayerFighter(G);
-  const npcIds = listNpcIds(G);
-  if (!player || npcIds.length === 0) {
+  const npc = G.FIGHTERS?.npc;
+  const player = G.FIGHTERS?.player;
+  if (!npc || !player) {
     hud.textContent = 'NPC unavailable';
     return;
   }
-  const sections = [];
-  npcIds.forEach((id, index) => {
-    const npc = getFighterById(id, G);
-    if (!npc) return;
-    const dx = (player.pos?.x ?? 0) - (npc.pos?.x ?? 0);
-    sections.push([
-      `NPC[${index}] id: ${id}`,
-      `mode: ${npc.mode || npc.ai?.mode || 'approach'}`,
-      `attack.active: ${!!npc.attack?.active}`,
-      `combo.active: ${!!npc.combo?.active} idx: ${npc.combo?.sequenceIndex ?? 0}`,
-      `cooldown: ${(npc.cooldown || npc.ai?.cooldown || 0).toFixed(2)}`,
-      `dx to player: ${dx.toFixed(1)}`,
-    ].join('\n'));
-  });
-  hud.textContent = sections.join('\n\n');
+  const dx = (player.pos?.x ?? 0) - (npc.pos?.x ?? 0);
+  hud.textContent = [
+    `NPC_ENABLED: true`,
+    `mode: ${npc.mode || 'n/a'}`,
+    `attack.active: ${!!npc.attack?.active}`,
+    `combo.active: ${!!npc.combo?.active} idx: ${npc.combo?.sequenceIndex ?? 0}`,
+    `cooldown: ${(npc.cooldown || 0).toFixed(2)}`,
+    `dx to player: ${dx.toFixed(1)}`,
+  ].join('\n');
 }
 
 export function initNpcSystems() {
   const G = ensureGameState();
-  const npcIds = listNpcIds(G);
-  npcIds.forEach((id) => {
-    const npc = getFighterById(id, G);
-    if (!npc) return;
-    const systems = ensureNpcContainers(G, id);
-    if (!systems) return;
-    ensureAttackState(npc);
-    ensureComboState(npc);
-    ensureAimState(npc);
-    npc.mode = npc.mode || npc.ai?.mode || 'approach';
-    npc.cooldown = Number.isFinite(npc.cooldown) ? npc.cooldown : npc.ai?.cooldown || 0;
-  });
+  const npc = G.FIGHTERS?.npc;
+  if (!npc) return;
+  ensureNpcContainers(G);
+  ensureAttackState(npc);
+  ensureComboState(npc);
+  ensureAimState(npc);
+  npc.mode = npc.mode || npc.ai?.mode || 'approach';
+  npc.cooldown = Number.isFinite(npc.cooldown) ? npc.cooldown : npc.ai?.cooldown || 0;
 }
 
 export function updateNpcSystems(dt) {
   if (!Number.isFinite(dt) || dt <= 0) return;
   const G = ensureGameState();
-  const npcIds = listNpcIds(G);
-  if (!npcIds.length) return;
-  npcIds.forEach((id) => {
-    const npc = getFighterById(id, G);
-    if (!npc) return;
-    const npcSystems = ensureNpcContainers(G, id);
-    if (!npcSystems) return;
-    updateNpcMovement(G, npcSystems, npc, dt);
-  });
+  const npc = G.FIGHTERS?.npc;
+  if (!npc) return;
+  const npcSystems = ensureNpcContainers(G);
+  updateNpcMovement(G, npcSystems, npc, dt);
   updateNpcHud(G);
 }
 
-export function getNpcDashTrail(fighterId) {
+export function getNpcDashTrail() {
   const G = window.GAME || {};
-  if (fighterId) {
-    return G.NPC?.systems?.[fighterId]?.dashTrail || null;
-  }
-  const primary = G.NPC?.primaryId;
-  if (primary && G.NPC?.systems?.[primary]?.dashTrail) {
-    return G.NPC.systems[primary].dashTrail;
-  }
   return G.NPC?.dashTrail || null;
 }
 
-export function getNpcAttackTrail(fighterId) {
+export function getNpcAttackTrail() {
   const G = window.GAME || {};
-  if (fighterId) {
-    return G.NPC?.systems?.[fighterId]?.attackTrail || null;
-  }
-  const primary = G.NPC?.primaryId;
-  if (primary && G.NPC?.systems?.[primary]?.attackTrail) {
-    return G.NPC.systems[primary].attackTrail;
-  }
   return G.NPC?.attackTrail || null;
 }
 
-export function recordNpcAttackTrailSample(colliders, dt, fighterId = null) {
-  const G = ensureGameState();
-  const id = fighterId || G.NPC?.primaryId || null;
-  if (!id) return;
-  const npc = getFighterById(id, G);
-  if (!npc) return;
-  const npcSystems = ensureNpcContainers(G, id);
-  if (!npcSystems) return;
+export function recordNpcAttackTrailSample(colliders, dt) {
+  const G = window.GAME || {};
+  const npc = G.FIGHTERS?.npc;
+  const npcSystems = ensureNpcContainers(ensureGameState());
   const attackTrail = npcSystems.attackTrail;
   const attack = npc?.attack;
   if (!attackTrail?.enabled || !attack?.active || attack?.currentActiveKeys?.length === 0) return;
@@ -643,20 +598,16 @@ export function recordNpcAttackTrailSample(colliders, dt, fighterId = null) {
 }
 
 export function fadeNpcAttackTrail(dt) {
-  const G = ensureGameState();
-  const npcIds = listNpcIds(G);
-  npcIds.forEach((id) => {
-    const systems = ensureNpcContainers(G, id);
-    const attackTrail = systems?.attackTrail;
-    if (!attackTrail) return;
-    for (const key of Object.keys(attackTrail.colliders)) {
-      const list = attackTrail.colliders[key];
-      for (const sample of list) {
-        sample.alpha -= dt * 4;
-      }
-      attackTrail.colliders[key] = list.filter((sample) => sample.alpha > 0);
+  const npcSystems = ensureNpcContainers(ensureGameState());
+  const attackTrail = npcSystems.attackTrail;
+  if (!attackTrail) return;
+  for (const key of Object.keys(attackTrail.colliders)) {
+    const list = attackTrail.colliders[key];
+    for (const sample of list) {
+      sample.alpha -= dt * 4;
     }
-  });
+    attackTrail.colliders[key] = list.filter((sample) => sample.alpha > 0);
+  }
 }
 
 export function updateNpcDebugHud() {

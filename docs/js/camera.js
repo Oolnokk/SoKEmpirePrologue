@@ -1,5 +1,5 @@
 // camera.js — simple x-follow camera with smoothing integrated with map registry
-import { pickFighterTypeConfig, pickFighterTypeName } from './fighter-utils.js?v=1';
+import { pickFighterConfig, pickFighterName } from './fighter-utils.js?v=1';
 
 const DEFAULT_WORLD_WIDTH = 1600;
 const DEFAULT_VIEWPORT_WIDTH = 720;
@@ -95,8 +95,8 @@ function ensureCameraAwareness(camera) {
 function refreshAwarenessConfig(camera) {
   const awareness = ensureCameraAwareness(camera);
   const config = window.CONFIG || {};
-  const fighterTypeName = pickFighterTypeName(config);
-  const fighterConfig = pickFighterTypeConfig(config, fighterTypeName);
+  const fighterName = pickFighterName(config);
+  const fighterConfig = pickFighterConfig(config, fighterName);
   const globalScale = Number.isFinite(config.actor?.scale) ? config.actor.scale : 1;
   const fighterScale = Number.isFinite(fighterConfig?.actor?.scale) ? fighterConfig.actor.scale : 1;
   const combinedScale = globalScale * fighterScale;
@@ -116,9 +116,9 @@ function refreshAwarenessConfig(camera) {
 
   let targetChanged = false;
 
-  if (Math.abs(defaultZoom - awareness.defaultZoom) > EPSILON || awareness.fighterTypeName !== fighterTypeName) {
+  if (Math.abs(defaultZoom - awareness.defaultZoom) > EPSILON || awareness.fighterName !== fighterName) {
     awareness.defaultZoom = defaultZoom;
-    awareness.fighterTypeName = fighterTypeName;
+    awareness.fighterName = fighterName;
     if (awareness.state !== 'aware') {
       awareness.targetZoom = defaultZoom;
       targetChanged = true;
