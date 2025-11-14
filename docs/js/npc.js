@@ -1,5 +1,7 @@
 // npc.js — Reimplements the NPC systems from the monolith build in a modular form
 
+import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=3';
+
 function clamp(value, min, max) {
   if (value < min) return min;
   if (value > max) return max;
@@ -76,6 +78,11 @@ function ensureAttackState(state) {
   attack.durations = Array.isArray(attack.durations) ? attack.durations : [];
   attack.phaseIndex = Number.isFinite(attack.phaseIndex) ? attack.phaseIndex : 0;
   attack.timer = Number.isFinite(attack.timer) ? attack.timer : 0;
+  attack.lastAppliedPhase = attack.lastAppliedPhase || null;
+  attack.lastPhaseIndex = Number.isFinite(attack.lastPhaseIndex) ? attack.lastPhaseIndex : -1;
+  attack.layerHandles = Array.isArray(attack.layerHandles)
+    ? attack.layerHandles.filter((handle) => handle && typeof handle.cancel === 'function')
+    : [];
   if (!attack.lunge) {
     attack.lunge = {
       active: false,
@@ -145,8 +152,106 @@ function getPresetActiveColliders(preset) {
   return [];
 }
 
+function cancelNpcLayerHandles(attack) {
+  if (!attack?.layerHandles) return;
+  while (attack.layerHandles.length) {
+    const handle = attack.layerHandles.pop();
+    try {
+      if (handle && typeof handle.cancel === 'function') handle.cancel();
+    } catch (err) {
+      console.warn('[npc] Failed to cancel NPC layer override', err);
+    }
+  }
+}
+
+function resolvePreset(presetName) {
+  if (!presetName) return null;
+  const C = window.CONFIG || {};
+  return (
+    C.presets?.[presetName]
+    || C.moves?.[presetName]
+    || C.attacks?.presets?.[presetName]
+    || null
+  );
+}
+
+function resolvePoseForPhase(preset, phaseName) {
+  if (!phaseName) return null;
+  if (preset?.poses?.[phaseName]) return clone(preset.poses[phaseName]);
+  const C = window.CONFIG || {};
+  if (C.poses?.[phaseName]) return clone(C.poses[phaseName]);
+  if (phaseName === 'Stance' && C.poses?.Stance) return clone(C.poses.Stance);
+  return null;
+}
+
+function applyNpcLayerOverrides(attack, overrides, stageDurMs) {
+  if (!Array.isArray(overrides) || overrides.length === 0) return;
+  overrides.forEach((layer, index) => {
+    if (!layer || layer.enabled === false) return;
+    const pose = layer.pose ? clone(layer.pose) : {};
+    const opts = {
+      mask: layer.mask || layer.joints,
+      priority: layer.priority,
+      suppressWalk: layer.suppressWalk,
+      useAsBase: layer.useAsBase,
+      durMs: Number.isFinite(layer.durMs)
+        ? layer.durMs
+        : Number.isFinite(layer.durationMs)
+          ? layer.durationMs
+          : Number.isFinite(layer.dur)
+            ? layer.dur
+            : stageDurMs,
+      delayMs: Number.isFinite(layer.delayMs)
+        ? layer.delayMs
+        : Number.isFinite(layer.offsetMs)
+          ? layer.offsetMs
+          : 0,
+    };
+    const layerId = layer.id || `npc-layer-${index}`;
+    const handle = pushPoseLayerOverride('npc', layerId, pose, opts);
+    if (handle && typeof handle.cancel === 'function') {
+      attack.layerHandles.push(handle);
+    }
+  });
+}
+
+function applyNpcPoseForCurrentPhase(state, { force = false } = {}) {
+  const attack = ensureAttackState(state);
+  if (!force && !attack.active) return;
+
+  const sequence = Array.isArray(attack.sequence) ? attack.sequence : [];
+  if (!sequence.length) return;
+
+  const idx = Math.max(0, Math.min(attack.phaseIndex, sequence.length - 1));
+  const phaseName = sequence[idx] || 'Stance';
+  if (!force && attack.lastAppliedPhase === phaseName && attack.lastPhaseIndex === idx) return;
+
+  const preset = resolvePreset(attack.preset);
+  const poseDef = resolvePoseForPhase(preset, phaseName);
+  const durSec = Array.isArray(attack.durations) ? attack.durations[idx] : null;
+  const durMs = Number.isFinite(durSec) ? Math.max(1, durSec * 1000) : 300;
+
+  cancelNpcLayerHandles(attack);
+
+  if (poseDef) {
+    const { layerOverrides, ...primaryPose } = poseDef;
+    pushPoseOverride('npc', primaryPose, durMs, { suppressWalk: true });
+    applyNpcLayerOverrides(attack, layerOverrides, durMs);
+  } else if (phaseName === 'Stance') {
+    const stance = resolvePoseForPhase(null, 'Stance');
+    if (stance) {
+      pushPoseOverride('npc', stance, durMs, { suppressWalk: false });
+    }
+  }
+
+  attack.lastAppliedPhase = phaseName;
+  attack.lastPhaseIndex = idx;
+}
+
 function resetAttackState(state) {
   const attack = ensureAttackState(state);
+  const wasActive = attack.active;
+  cancelNpcLayerHandles(attack);
   attack.active = false;
   attack.preset = null;
   attack.sequence = [];
@@ -159,6 +264,14 @@ function resetAttackState(state) {
   attack.isHoldRelease = false;
   attack.holdWindupDuration = 0;
   attack.lunge.active = false;
+  attack.lastAppliedPhase = null;
+  attack.lastPhaseIndex = -1;
+  if (wasActive) {
+    const stance = resolvePoseForPhase(null, 'Stance');
+    if (stance) {
+      pushPoseOverride('npc', stance, 180, { suppressWalk: false });
+    }
+  }
 }
 
 function startNpcQuickAttack(state, presetName) {
@@ -181,7 +294,7 @@ function startNpcQuickAttack(state, presetName) {
     attack.sequence = [];
     attack.durations = [];
     for (const step of preset.sequence) {
-      const pose = step?.pose || 'Stance';
+      const pose = step?.pose || step?.poseKey || 'Stance';
       attack.sequence.push(pose);
       let durMs = 0;
       if (typeof step?.durMs === 'number') {
@@ -209,6 +322,9 @@ function startNpcQuickAttack(state, presetName) {
   }
 
   combo.attackDelay = 0;
+  attack.lastAppliedPhase = null;
+  attack.lastPhaseIndex = -1;
+  applyNpcPoseForCurrentPhase(state, { force: true });
 }
 
 function startNpcHoldReleaseAttack(state, presetName, windupMs) {
@@ -226,6 +342,9 @@ function startNpcHoldReleaseAttack(state, presetName, windupMs) {
   attack.holdWindupDuration = windup;
   attack.strikeLanded = false;
   attack.currentPhase = null;
+  attack.lastAppliedPhase = null;
+  attack.lastPhaseIndex = -1;
+  applyNpcPoseForCurrentPhase(state, { force: true });
 }
 
 function updateNpcAttack(G, state, dt) {
@@ -255,7 +374,10 @@ function updateNpcAttack(G, state, dt) {
     }
   }
 
-  if (!attack.active) return;
+  if (!attack.active) {
+    applyNpcPoseForCurrentPhase(state);
+    return;
+  }
 
   attack.timer += dt;
   while (attack.phaseIndex < attack.durations.length && attack.timer >= attack.durations[attack.phaseIndex]) {
@@ -297,6 +419,7 @@ function updateNpcAttack(G, state, dt) {
     attack.currentActiveKeys = [];
     attack.currentPhase = phaseName || null;
   }
+  applyNpcPoseForCurrentPhase(state);
 }
 
 function updateNpcAiming(state, player) {
