@@ -590,7 +590,7 @@ window.CONFIG = {
   balance: {
     footingDamage: 1.0,
     baseMovementSpeed: 1.0,
-    baseRecoveryRate: 0.3,
+    baseRecoveryRate: 0.5,
     statPointEffects: {
       strength: 1.0,
       agility: 1.0,
@@ -613,7 +613,7 @@ window.CONFIG = {
       name: 'Quick Kick',
       tags: ['light', 'quick'],
       durations: { toWindup: 480, toStrike: 210, toRecoil: 680, toStance: 200 },
-      knockbackBase: 180,
+      knockbackBase: 360,
       cancelWindow: 0.6,
       poses: deepClone(KICK_MOVE_POSES)
     },
@@ -626,20 +626,20 @@ window.CONFIG = {
       poses: deepClone(PUNCH_MOVE_POSES)
     },
     ComboKICK_S: {
-      name: 'Combo Kick - Setup',
+      name: 'Combo Kick - Side',
       tags: ['light', 'combo'],
       inherits: 'KICK',
       durations: { toWindup: 380, toStrike: 110, toRecoil: 680, toStance: 0 },
-      knockbackBase: 180,
+      knockbackBase: 360,
       cancelWindow: 0.6,
       poses: deepClone(KICK_MOVE_POSES)
     },
     ComboKICK_F: {
-      name: 'Combo Kick - Finisher',
+      name: 'Combo Kick - Front',
       tags: ['light', 'combo'],
       inherits: 'KICK',
       durations: { toWindup: 380, toStrike: 110, toRecoil: 680, toStance: 0 },
-      knockbackBase: 180,
+      knockbackBase: 420,
       cancelWindow: 0.6,
       poses: deepClone(KICK_MOVE_POSES)
     },
@@ -1019,7 +1019,7 @@ window.CONFIG = {
         ],
         attackData: {
           damage: { health: 6 },
-          staminaCost: 6,
+          staminaCost: 12,
           colliders: ['handR']
         }
       },
@@ -1032,7 +1032,7 @@ window.CONFIG = {
         ],
         attackData: {
           damage: { health: 7 },
-          staminaCost: 7,
+          staminaCost: 14,
           colliders: ['footR']
         }
       },
@@ -1046,7 +1046,7 @@ window.CONFIG = {
         ],
         attackData: {
           damage: { health: 9 },
-          staminaCost: 8,
+          staminaCost: 16,
           colliders: ['handL', 'handR']
         }
       },
@@ -1059,7 +1059,7 @@ window.CONFIG = {
         ],
         attackData: {
           damage: { health: 10 },
-          staminaCost: 8,
+          staminaCost: 18,
           colliders: ['footL']
         }
       }
