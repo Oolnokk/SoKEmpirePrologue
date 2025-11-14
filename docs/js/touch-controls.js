@@ -19,6 +19,7 @@ export function initTouchControls(){
   const btnJump = document.getElementById('btnJump');
   const btnAttackA = document.getElementById('btnAttackA');
   const btnAttackB = document.getElementById('btnAttackB');
+  const btnAttackC = document.getElementById('btnAttackC');
   const btnInteract = document.getElementById('btnInteract');
 
   if (!joystickArea || !joystickStick) {
@@ -211,6 +212,7 @@ export function initTouchControls(){
 
   bindHold(btnAttackA, () => setButtonState('buttonA', true), () => setButtonState('buttonA', false));
   bindHold(btnAttackB, () => setButtonState('buttonB', true), () => setButtonState('buttonB', false));
+  bindHold(btnAttackC, () => setButtonState('buttonC', true), () => setButtonState('buttonC', false));
 
   if (btnJump){
     bindHold(btnJump, () => { input.jump = true; }, () => { input.jump = false; });
