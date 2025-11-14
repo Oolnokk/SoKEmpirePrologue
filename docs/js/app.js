@@ -1362,6 +1362,38 @@ function drawStage(){
       cx.restore();
     }
   }
+  const previewColliders = Array.isArray(preview?.platformColliders)
+    ? preview.platformColliders
+    : [];
+  if (previewColliders.length) {
+    cx.save();
+    cx.lineWidth = 1.5;
+    for (const col of previewColliders) {
+      const left = Number(col.left);
+      const width = Number(col.width);
+      const topOffset = Number(col.topOffset);
+      const height = Number(col.height);
+      if (!Number.isFinite(left) || !Number.isFinite(width) || width <= 0) continue;
+      if (!Number.isFinite(height) || height <= 0) continue;
+      const top = gy + (Number.isFinite(topOffset) ? topOffset : 0);
+      const fill = 'rgba(96, 165, 250, 0.18)';
+      const stroke = 'rgba(96, 165, 250, 0.55)';
+      cx.fillStyle = fill;
+      cx.strokeStyle = stroke;
+      cx.fillRect(left, top, width, height);
+      cx.strokeRect(left, top, width, height);
+      if (col.label && typeof col.label === 'string' && col.label.trim()) {
+        cx.save();
+        cx.fillStyle = '#bfdbfe';
+        const fontSize = Math.max(9, 12 / Math.max(zoom, 0.5));
+        cx.font = `${fontSize}px ui-monospace,Menlo,Consolas`;
+        cx.textBaseline = 'top';
+        cx.fillText(col.label.trim(), left + 6, top + 4);
+        cx.restore();
+      }
+    }
+    cx.restore();
+  }
   cx.restore();
 
   cx.fillStyle = '#93c5fd';

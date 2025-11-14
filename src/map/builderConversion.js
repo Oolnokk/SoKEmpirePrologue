@@ -26,6 +26,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     : Array.isArray(area.props)
       ? area.props
       : [];
+  const rawColliders = Array.isArray(area.colliders) ? area.colliders : [];
 
   const warnings = [];
   if (!Array.isArray(area.layers)) {
@@ -70,6 +71,8 @@ function normalizeAreaDescriptor(area, options = {}) {
     };
   });
 
+  const convertedColliders = rawColliders.map((col, index) => normalizeCollider(col, index));
+
   return {
     id: areaId,
     name: areaName,
@@ -83,6 +86,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     },
     layers: convertedLayers,
     instances: convertedInstances,
+    colliders: convertedColliders,
     warnings,
     meta: area.meta ? safeClone(area.meta) : {},
   };
@@ -110,6 +114,7 @@ export function convertLayoutToArea(layout, options = {}) {
 
   const layers = Array.isArray(layout.layers) ? layout.layers : [];
   const instances = Array.isArray(layout.instances) ? layout.instances : [];
+  const colliders = Array.isArray(layout.colliders) ? layout.colliders : [];
 
   const layerMap = new Map(layers.map((layer) => [layer.id, layer]));
   const slotCenters = computeLayerSlotCenters(instances);
@@ -167,6 +172,8 @@ export function convertLayoutToArea(layout, options = {}) {
     };
   });
 
+  const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
+
   const warnings = [];
   if (!Array.isArray(layout.layers)) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
@@ -188,6 +195,7 @@ export function convertLayoutToArea(layout, options = {}) {
     },
     layers: convertedLayers,
     instances: convertedInstances,
+    colliders: convertedColliders,
     warnings,
     meta: {
       exportedAt: layout.meta?.exportedAt || null,
@@ -228,6 +236,46 @@ function computeLayerSlotCenters(instances) {
 function toNumber(value, fallback) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function normalizeCollider(raw, fallbackIndex = 0) {
+  const safe = raw && typeof raw === 'object' ? safeClone(raw) : {};
+  const id = safe.id ?? safe.meta?.original?.id ?? fallbackIndex;
+  const labelRaw = typeof safe.label === 'string' ? safe.label.trim() : '';
+  let left = toNumber(safe.left ?? safe.x ?? safe.position?.x, 0);
+  const rightRaw = safe.right ?? safe.meta?.original?.right;
+  let width = toNumber(safe.width ?? safe.w, null);
+  if (!Number.isFinite(width) && Number.isFinite(rightRaw)) {
+    width = toNumber(rightRaw, left) - left;
+  }
+  if (!Number.isFinite(width)) width = 120;
+  if (width < 0) {
+    left += width;
+    width = Math.abs(width);
+  }
+
+  let topOffset = toNumber(safe.topOffset ?? safe.top ?? safe.y ?? safe.offsetY, 0);
+  const bottomRaw = safe.bottomOffset ?? safe.bottom ?? safe.meta?.bottomOffset;
+  let height = toNumber(safe.height ?? safe.h, null);
+  if (!Number.isFinite(height) && Number.isFinite(bottomRaw)) {
+    height = toNumber(bottomRaw, 0) - topOffset;
+  }
+  if (!Number.isFinite(height)) height = 40;
+  if (height < 0) {
+    topOffset += height;
+    height = Math.abs(height);
+  }
+
+  return {
+    id,
+    label: labelRaw || `Collider ${id ?? fallbackIndex}`,
+    type: safe.type === 'box' || safe.shape === 'box' ? 'box' : 'box',
+    left,
+    width: Math.max(1, width),
+    topOffset,
+    height: Math.max(1, height),
+    meta: safe.meta ? safeClone(safe.meta) : {},
+  };
 }
 
 function safeClone(value) {

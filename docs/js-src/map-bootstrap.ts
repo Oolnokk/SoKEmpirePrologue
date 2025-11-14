@@ -119,6 +119,89 @@ function consumeEditorPreviewLayout(token: string | null): (PreviewPayload & { t
   }
 }
 
+type EditorCollider = {
+  id: number;
+  label: string;
+  type: string;
+  left: number;
+  width: number;
+  topOffset: number;
+  height: number;
+  meta?: Record<string, unknown> | null;
+};
+
+function normalizeAreaCollider(input: unknown, index: number): EditorCollider {
+  const fallbackId = index + 1;
+  const safe = (input && typeof input === 'object') ? (input as Record<string, unknown>) : {};
+  const idRaw = safe.id;
+  const id = typeof idRaw === 'number' && Number.isFinite(idRaw) ? idRaw : fallbackId;
+  const labelRaw = safe.label;
+  const label = typeof labelRaw === 'string' && labelRaw.trim() ? labelRaw.trim() : `Collider ${id}`;
+
+  let left = Number(safe.left);
+  if (!Number.isFinite(left)) {
+    left = Number(safe.x);
+  }
+  if (!Number.isFinite(left)) {
+    left = 0;
+  }
+
+  let width = Number(safe.width);
+  const right = Number(safe.right);
+  if (!Number.isFinite(width) && Number.isFinite(right)) {
+    width = right - left;
+  }
+  if (!Number.isFinite(width)) {
+    width = 120;
+  }
+  if (width < 0) {
+    left += width;
+    width = Math.abs(width);
+  }
+
+  let topOffset = Number((safe as Record<string, unknown>).topOffset);
+  if (!Number.isFinite(topOffset)) {
+    topOffset = Number(safe.top);
+  }
+  if (!Number.isFinite(topOffset)) {
+    topOffset = Number(safe.y);
+  }
+  if (!Number.isFinite(topOffset)) {
+    topOffset = 0;
+  }
+
+  let height = Number(safe.height);
+  const bottomOffset = Number((safe as Record<string, unknown>).bottomOffset);
+  const bottom = Number(safe.bottom);
+  if (!Number.isFinite(height) && Number.isFinite(bottomOffset)) {
+    height = bottomOffset - topOffset;
+  } else if (!Number.isFinite(height) && Number.isFinite(bottom)) {
+    height = bottom - topOffset;
+  }
+  if (!Number.isFinite(height)) {
+    height = 40;
+  }
+  if (height < 0) {
+    topOffset += height;
+    height = Math.abs(height);
+  }
+
+  const meta = typeof safe.meta === 'object' && safe.meta
+    ? { ...(safe.meta as Record<string, unknown>) }
+    : undefined;
+
+  return {
+    id,
+    label,
+    type: 'box',
+    left,
+    width: Math.max(1, width),
+    topOffset,
+    height: Math.max(1, height),
+    meta: meta ?? undefined,
+  };
+}
+
 function applyEditorPreviewSettings(
   area: MapArea,
   { token = null, createdAt = null }: { token?: string | null; createdAt?: number | string | null } = {}
@@ -142,6 +225,10 @@ function applyEditorPreviewSettings(
   const canvasHeight = Number.isFinite(canvasConfig.h) ? canvasConfig.h : 460;
   const canvasWidth = Number.isFinite(canvasConfig.w) ? canvasConfig.w : 720;
   const groundOffset = Number(area?.ground?.offset);
+  const normalizedColliders = Array.isArray(area?.colliders)
+    ? area.colliders.map((col, index) => normalizeAreaCollider(col, index))
+    : [];
+  preview.platformColliders = normalizedColliders;
 
   if (Number.isFinite(groundOffset) && canvasHeight > 0) {
     const ratioRaw = 1 - groundOffset / canvasHeight;
@@ -199,6 +286,14 @@ function syncConfigGround(area: MapArea): void {
   };
 }
 
+function syncConfigPlatforming(area: MapArea): void {
+  const CONFIG = (window.CONFIG = window.CONFIG || {});
+  const normalized = Array.isArray(area?.colliders)
+    ? area.colliders.map((col, index) => normalizeAreaCollider(col, index))
+    : [];
+  CONFIG.platformingColliders = normalized;
+}
+
 function adaptAreaToParallax(area: MapArea) {
   return {
     id: area.id,
@@ -241,6 +336,7 @@ function applyArea(area: MapArea): void {
   window.CONFIG.areas[area.id] = parallax.areas[area.id];
 
   syncConfigGround(area);
+  syncConfigPlatforming(area);
 
   window.GAME = window.GAME || {};
   window.GAME.mapRegistry = registry;
