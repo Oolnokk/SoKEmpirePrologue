@@ -758,14 +758,15 @@ function updateAiming(F, currentPose, fighterId){
     // Joystick aiming - use joystick angle directly
     targetAngle = G.AIMING.targetAngle;
     aimSource = 'joystick';
-  } else if (G.MOUSE) {
+  } else if (G.MOUSE?.hasPosition) {
     // Mouse aiming - calculate angle from fighter to mouse position
-    const dx = G.MOUSE.worldX - (F.pos?.x || 0);
-    const dy = G.MOUSE.worldY - (F.pos?.y || 0);
+    const mouse = G.MOUSE;
+    const dx = mouse.worldX - (F.pos?.x || 0);
+    const dy = mouse.worldY - (F.pos?.y || 0);
     targetAngle = Math.atan2(dy, dx);
     aimSource = 'mouse';
     mouseDX = dx;
-    
+
   } else {
     // Fallback to facingRad
     targetAngle = F.facingRad || 0;

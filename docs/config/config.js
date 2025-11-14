@@ -371,6 +371,7 @@ window.CONFIG = {
     defaultLayoutId: 'defaultdistrict',
     prefabManifests: [
       './config/prefabs/structures/index.json',
+      './config/prefabs/obstructions/index.json',
     ],
     layouts: [
       {
