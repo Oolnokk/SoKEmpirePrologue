@@ -199,6 +199,19 @@ export function makeCombat(G, C, options = {}){
     return [];
   };
 
+  const collectWeaponColliderKeys = (fighter) => {
+    const state = fighter?.anim?.weapon?.state;
+    if (!state?.bones) return [];
+    const keys = [];
+    for (const bone of state.bones) {
+      for (const collider of bone?.colliders || []) {
+        if (!collider || !collider.id) continue;
+        keys.push(`weapon:${collider.id}`);
+      }
+    }
+    return keys;
+  };
+
   function cancelQueuedLayerOverrides(){
     if (!Array.isArray(TRANSITION.layerHandles) || TRANSITION.layerHandles.length === 0) return;
     const handles = TRANSITION.layerHandles.splice(0, TRANSITION.layerHandles.length);
@@ -1265,7 +1278,14 @@ export function makeCombat(G, C, options = {}){
       const explicitKeys = Array.isArray(context?.activeColliderKeys) && context.activeColliderKeys.length
         ? context.activeColliderKeys.slice()
         : inferActiveCollidersForPreset(attackState.preset || context?.preset);
-      attackState.currentActiveKeys = explicitKeys;
+      const weaponKeys = collectWeaponColliderKeys(fighter);
+      if (weaponKeys.length) {
+        const merged = new Set(Array.isArray(explicitKeys) ? explicitKeys : []);
+        for (const key of weaponKeys) merged.add(key);
+        attackState.currentActiveKeys = Array.from(merged);
+      } else {
+        attackState.currentActiveKeys = Array.isArray(explicitKeys) ? explicitKeys : [];
+      }
     } else if (!attackState.currentPhase || attackState.currentPhase === 'Stance') {
       attackState.currentActiveKeys = [];
     }

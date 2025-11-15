@@ -27,6 +27,8 @@ const BASE_POSES = {
     lKnee: 40,
     rHip: 30,
     rKnee: 40,
+    weapon: -20,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -44,6 +46,8 @@ const BASE_POSES = {
     lKnee: 90,
     rHip: 100,
     rKnee: 90,
+    weapon: -60,
+    weaponGripPercents: { primary: 0.18, secondary: 0.52 },
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -51,6 +55,8 @@ const BASE_POSES = {
     aimLegs: false,
     anim_events: [
       { time: 0.00, velocityX: -15, velocityY: 0 },
+      { time: 0.10, grip: { action: 'attach', limb: 'right', gripId: 'primary' } },
+      { time: 0.18, grip: { action: 'attach', limb: 'left', gripId: 'secondary' } },
       { time: 0.65, impulse: 320, impulse_angle: -90 }
     ]
   },
@@ -64,6 +70,8 @@ const BASE_POSES = {
     lKnee: 0,
     rHip: 110,
     rKnee: 20,
+    weapon: 10,
+    weaponGripPercents: { primary: 0.42, secondary: 0.86 },
     rootMoveVel: { x: 0, y: 0, flip: false },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -86,6 +94,8 @@ const BASE_POSES = {
     lKnee: 70,
     rHip: 100,
     rKnee: 40,
+    weapon: -40,
+    weaponGripPercents: { primary: 0.25, secondary: 0.68 },
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -93,7 +103,9 @@ const BASE_POSES = {
     aimLegs: false,
     anim_events: [
       { time: 0.00, velocityX: 80, velocityY: -40 },
-      { time: 0.30, impulse: 120, impulse_angle: 160 }
+      { time: 0.25, grip: { action: 'detach', limb: 'left' } },
+      { time: 0.30, impulse: 120, impulse_angle: 160 },
+      { time: 0.45, grip: { action: 'detach', limb: 'right' } }
     ]
   },
   Jump: {
@@ -106,6 +118,8 @@ const BASE_POSES = {
     lKnee: 60,
     rHip: 120,
     rKnee: 60,
+    weapon: -15,
+    weaponGripPercents: { primary: 0.3, secondary: 0.7 },
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -118,6 +132,8 @@ const BASE_POSES = {
     lElbow: -100,
     rShoulder: -100,
     rElbow: -100,
+    weapon: -10,
+    weaponGripPercents: { primary: 0.3, secondary: 0.7 },
     lHip: 90,
     lKnee: 20,
     rHip: 90,
@@ -740,34 +756,69 @@ window.CONFIG = {
   // === NEW: weapon definitions (bones + selective colliders) ===
   // Used by drawSkeleton() and getActiveColliders()/drawAttackColliders()
   weapons: {
-    // fallback
-    unarmed: { bones: 0, boneOffsets: [], colliders: {} },
+    unarmed: { rig: null, colliders: {} },
 
-    // Dual short blades
     'dagger-swords': {
-      bones: 2,
-      boneOffsets: [
-        { attach: 'rWrist', length: 40, x: 10, y: 0 }, // right blade length; used for weaponBone0
-        { attach: 'lWrist', length: 40, x: 10, y: 0 }  // left blade length; used for weaponBone1
-      ],
+      rig: {
+        base: { anchor: 'torsoTop', offset: { ax: 6, ay: -4 } },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 42,
+            angleOffsetDeg: -18,
+            grips: [
+              { id: 'primary', percent: 0.2, limb: 'right', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'rightA', kind: 'box', width: 20, height: 60, from: 0.08, to: 1.0, activatesOn: ['SLASH', 'STRIKE'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
+              { id: 'rightB', kind: 'box', width: 16, height: 44, from: 0.04, to: 0.75, activatesOn: ['STAB'], offset: { ax: 0.25, ay: -0.18, units: 'percent' } }
+            ]
+          },
+          {
+            id: 'weapon_1',
+            length: 42,
+            angleOffsetDeg: 18,
+            grips: [
+              { id: 'secondary', percent: 0.2, limb: 'left', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'leftA', kind: 'box', width: 20, height: 60, from: 0.08, to: 1.0, activatesOn: ['SLASH', 'STRIKE'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
+              { id: 'leftB', kind: 'box', width: 16, height: 44, from: 0.04, to: 0.75, activatesOn: ['STAB'], offset: { ax: 0.25, ay: 0.18, units: 'percent' } }
+            ]
+          }
+        ]
+      },
       colliders: {
-        rightA: { shape:'rect', width:20, height:60, offset:{x:20,y:0},  activatesOn:['SLASH','STRIKE'] },
-        rightB: { shape:'rect', width:16, height:44, offset:{x:10,y:-8}, activatesOn:['STAB'] },
-        leftA:  { shape:'rect', width:20, height:60, offset:{x:20,y:0},  activatesOn:['SLASH','STRIKE'] },
-        leftB:  { shape:'rect', width:16, height:44, offset:{x:10,y: 8}, activatesOn:['STAB'] }
+        rightA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['SLASH', 'STRIKE'] },
+        rightB: { shape: 'rect', width: 16, height: 44, offset: { x: 10, y: -8 }, activatesOn: ['STAB'] },
+        leftA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['SLASH', 'STRIKE'] },
+        leftB: { shape: 'rect', width: 16, height: 44, offset: { x: 10, y: 8 }, activatesOn: ['STAB'] }
       }
     },
 
-    // Polearm (two-handed baseline)
     sarrarru: {
-      bones: 1,
-      boneOffsets: [
-        { attach: 'rWrist', length: 60, x: 15, y: 0 } // spear forward
-      ],
+      rig: {
+        base: { anchor: 'torsoTop', offset: { ax: 12, ay: -6 } },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 96,
+            angleOffsetDeg: 0,
+            grips: [
+              { id: 'primary', percent: 0.32, limb: 'right', offset: { ax: 0, ay: 0 } },
+              { id: 'secondary', percent: 0.76, limb: 'left', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'thrust', kind: 'box', width: 18, height: 120, from: 0.05, to: 1.05, activatesOn: ['THRUST'], offset: { ax: 0.55, ay: 0, units: 'percent' } },
+              { id: 'sweep', kind: 'box', width: 26, height: 140, from: 0.08, to: 1.1, activatesOn: ['SWEEP'], offset: { ax: 0.42, ay: 0, units: 'percent' } }
+            ]
+          }
+        ]
+      },
       colliders: {
-        rightA: { shape:'rect', width:18, height:120, offset:{x:50,y:0}, activatesOn:['THRUST'] },
-        rightB: { shape:'rect', width:26, height:140, offset:{x:35,y:0}, activatesOn:['SWEEP'] },
-        leftA:  { shape:'rect', width:16, height:40,  offset:{x:-10,y:0}, activatesOn:['SWEEP'] }
+        rightA: { shape: 'rect', width: 18, height: 120, offset: { x: 50, y: 0 }, activatesOn: ['THRUST'] },
+        rightB: { shape: 'rect', width: 26, height: 140, offset: { x: 35, y: 0 }, activatesOn: ['SWEEP'] },
+        leftA: { shape: 'rect', width: 16, height: 40, offset: { x: -10, y: 0 }, activatesOn: ['SWEEP'] }
       },
       sprite: {
         url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
@@ -784,44 +835,91 @@ window.CONFIG = {
       }
     },
 
-    // Large sword, quick handling
     'light-greatblade': {
-      bones: 2,
-      boneOffsets: [
-        { attach: 'rWrist', length: 80, x: 12, y: 0 },
-        { attach: 'lWrist', length: 20, x:  6, y: 0 }
-      ],
+      rig: {
+        base: { anchor: 'torsoTop', offset: { ax: 10, ay: -2 } },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 88,
+            angleOffsetDeg: 0,
+            grips: [
+              { id: 'primary', percent: 0.25, limb: 'right', offset: { ax: 0, ay: 0 } },
+              { id: 'secondary', percent: 0.62, limb: 'left', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'blade', kind: 'box', width: 22, height: 110, from: 0.05, to: 1.0, activatesOn: ['SLASH', 'CHOP'], offset: { ax: 0.5, ay: 0, units: 'percent' } },
+              { id: 'tip', kind: 'box', width: 18, height: 36, from: 0.8, to: 1.05, activatesOn: ['STAB'], offset: { ax: 0.9, ay: 0, units: 'percent' } }
+            ]
+          }
+        ]
+      },
       colliders: {
-        rightA: { shape:'rect',   width:22, height:110, offset:{x:45,y:0}, activatesOn:['SLASH','CHOP'] },
-        rightB: { shape:'circle', radius:16,             offset:{x:60,y:0}, activatesOn:['STAB'] }
+        rightA: { shape: 'rect', width: 22, height: 110, offset: { x: 45, y: 0 }, activatesOn: ['SLASH', 'CHOP'] },
+        rightB: { shape: 'circle', radius: 16, offset: { x: 60, y: 0 }, activatesOn: ['STAB'] }
       }
     },
 
-    // Big club
     greatclub: {
-      bones: 2,
-      boneOffsets: [
-        { attach: 'rWrist', length: 70, x: 12, y: 0 },
-        { attach: 'lWrist', length: 20, x:  6, y: 0 }
-      ],
+      rig: {
+        base: { anchor: 'torsoTop', offset: { ax: 10, ay: -2 } },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 82,
+            angleOffsetDeg: 0,
+            grips: [
+              { id: 'primary', percent: 0.28, limb: 'right', offset: { ax: 0, ay: 0 } },
+              { id: 'secondary', percent: 0.58, limb: 'left', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'clubA', kind: 'box', width: 28, height: 90, from: 0.2, to: 0.9, activatesOn: ['SMASH'], offset: { ax: 0.5, ay: 0, units: 'percent' } },
+              { id: 'clubB', kind: 'box', width: 28, height: 110, from: 0.25, to: 1.0, activatesOn: ['SWING'], offset: { ax: 0.55, ay: 0, units: 'percent' } }
+            ]
+          }
+        ]
+      },
       colliders: {
-        rightA: { shape:'rect', width:28, height:90,  offset:{x:40,y:0}, activatesOn:['SMASH'] },
-        rightB: { shape:'rect', width:28, height:110, offset:{x:30,y:0}, activatesOn:['SWING'] }
+        rightA: { shape: 'rect', width: 28, height: 90, offset: { x: 40, y: 0 }, activatesOn: ['SMASH'] },
+        rightB: { shape: 'rect', width: 28, height: 110, offset: { x: 30, y: 0 }, activatesOn: ['SWING'] }
       }
     },
 
-    // Dual hatchets
     hatchets: {
-      bones: 2,
-      boneOffsets: [
-        { attach: 'rWrist', length: 45, x: 10, y: 0 },
-        { attach: 'lWrist', length: 45, x: 10, y: 0 }
-      ],
+      rig: {
+        base: { anchor: 'torsoTop', offset: { ax: 6, ay: -4 } },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 46,
+            angleOffsetDeg: -14,
+            grips: [
+              { id: 'primary', percent: 0.2, limb: 'right', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'rightA', kind: 'box', width: 18, height: 50, from: 0.1, to: 0.9, activatesOn: ['HACK'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
+              { id: 'rightB', kind: 'box', width: 20, height: 52, from: 0.55, to: 1.05, activatesOn: ['TOSS'], offset: { ax: 0.65, ay: -0.1, units: 'percent' } }
+            ]
+          },
+          {
+            id: 'weapon_1',
+            length: 46,
+            angleOffsetDeg: 14,
+            grips: [
+              { id: 'secondary', percent: 0.2, limb: 'left', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'leftA', kind: 'box', width: 18, height: 50, from: 0.1, to: 0.9, activatesOn: ['HACK'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
+              { id: 'leftB', kind: 'box', width: 20, height: 52, from: 0.55, to: 1.05, activatesOn: ['TOSS'], offset: { ax: 0.65, ay: 0.1, units: 'percent' } }
+            ]
+          }
+        ]
+      },
       colliders: {
-        rightA: { shape:'rect',   width:18, height:50, offset:{x:20,y:0},  activatesOn:['HACK'] },
-        rightB: { shape:'circle', radius:18,           offset:{x:25,y:-5}, activatesOn:['TOSS'] },
-        leftA:  { shape:'rect',   width:18, height:50, offset:{x:20,y:0},  activatesOn:['HACK'] },
-        leftB:  { shape:'circle', radius:18,           offset:{x:25,y: 5}, activatesOn:['TOSS'] }
+        rightA: { shape: 'rect', width: 18, height: 50, offset: { x: 20, y: 0 }, activatesOn: ['HACK'] },
+        rightB: { shape: 'circle', radius: 18, offset: { x: 25, y: -5 }, activatesOn: ['TOSS'] },
+        leftA: { shape: 'rect', width: 18, height: 50, offset: { x: 20, y: 0 }, activatesOn: ['HACK'] },
+        leftB: { shape: 'circle', radius: 18, offset: { x: 25, y: 5 }, activatesOn: ['TOSS'] }
       }
     }
   },
