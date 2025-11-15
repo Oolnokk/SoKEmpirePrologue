@@ -61,6 +61,100 @@ function setConfigCurrentWeapon(value) {
   window.CONFIG.knockback.currentWeapon = value || 'unarmed';
 }
 
+function resetWeaponAnimState(fighter) {
+  if (!fighter || typeof fighter !== 'object') return;
+  fighter.anim ||= {};
+  if (!fighter.anim.weapon || typeof fighter.anim.weapon !== 'object') {
+    fighter.anim.weapon = { attachments: {}, gripPercents: {}, state: null };
+    return;
+  }
+  fighter.anim.weapon.state = null;
+  fighter.anim.weapon.attachments = {};
+  fighter.anim.weapon.gripPercents = {};
+}
+
+function applyWeaponToRenderProfile(target, weaponKey, { resetAnim = true } = {}) {
+  if (!target || typeof target !== 'object') return;
+  target.renderProfile ||= {};
+  target.renderProfile.weapon = weaponKey;
+  if (target.renderProfile.character && typeof target.renderProfile.character === 'object') {
+    target.renderProfile.character.weapon = weaponKey;
+  }
+  target.weapon = weaponKey;
+  if (resetAnim) {
+    resetWeaponAnimState(target);
+  }
+}
+
+function syncWeaponRuntimeForCharacter(characterKey, weaponKey, { fighterKey = null } = {}) {
+  const G = window.GAME || {};
+  const normalizedCharacterKey = characterKey || 'player';
+  const fighters = G.FIGHTERS || {};
+  Object.entries(fighters).forEach(([id, fighter]) => {
+    if (!fighter) return;
+    const profile = fighter.renderProfile || {};
+    const matchesCharacter = profile.characterKey === normalizedCharacterKey
+      || (normalizedCharacterKey === 'player' && (fighter.isPlayer || id === 'player'));
+    if (matchesCharacter || (fighterKey && id === fighterKey)) {
+      applyWeaponToRenderProfile(fighter, weaponKey, { resetAnim: true });
+    }
+  });
+
+  const templates = G.FIGHTER_TEMPLATES || {};
+  Object.entries(templates).forEach(([id, template]) => {
+    if (!template) return;
+    const profile = template.renderProfile || {};
+    const matchesCharacter = profile.characterKey === normalizedCharacterKey
+      || (normalizedCharacterKey === 'player' && (template.isPlayer || id === 'player'));
+    if (matchesCharacter || (fighterKey && id === fighterKey)) {
+      applyWeaponToRenderProfile(template, weaponKey, { resetAnim: false });
+    }
+  });
+
+  const stateMap = G.CHARACTER_STATE;
+  if (stateMap && typeof stateMap === 'object') {
+    Object.entries(stateMap).forEach(([id, profile]) => {
+      const source = fighters[id]?.renderProfile || null;
+      if (!profile || typeof profile !== 'object') {
+        if ((fighterKey && id === fighterKey) || (source && (source.characterKey === normalizedCharacterKey || (normalizedCharacterKey === 'player' && id === 'player')))) {
+          if (source) {
+            try {
+              stateMap[id] = JSON.parse(JSON.stringify(source));
+            } catch (_err) {
+              stateMap[id] = { ...source };
+            }
+          }
+        }
+        return;
+      }
+      const cachedKey = profile.characterKey || (id === normalizedCharacterKey ? normalizedCharacterKey : null);
+      if (cachedKey === normalizedCharacterKey || (fighterKey && id === fighterKey)) {
+        if (source) {
+          try {
+            stateMap[id] = JSON.parse(JSON.stringify(source));
+          } catch (_err) {
+            stateMap[id] = { ...source };
+          }
+        } else {
+          const clone = { ...profile, weapon: weaponKey };
+          if (clone.character && typeof clone.character === 'object') {
+            clone.character = { ...clone.character, weapon: weaponKey };
+          }
+          stateMap[id] = clone;
+        }
+      }
+    });
+  }
+
+  const selectedFighterKey = fighterKey || G.selectedFighter || null;
+  if (selectedFighterKey) {
+    window.CONFIG ||= {};
+    window.CONFIG.fighters ||= {};
+    const fighterConfig = window.CONFIG.fighters[selectedFighterKey] ||= {};
+    fighterConfig.weapon = weaponKey;
+  }
+}
+
 function normalizeAbilityValue(value) {
   if (value === undefined || value === null || value === '') return null;
   return String(value);
