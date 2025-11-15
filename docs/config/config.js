@@ -481,7 +481,7 @@ window.CONFIG = {
       },
       spriteOffsets: {
         torso:    { ax:-0.5,  ay:-0.2, units: 'percent' },
-        head:     { ax:-1.20, ay:-0.60, units: 'percent' },
+        head:     { ax:0, ay:0, units: 'percent' },
         armUpper: { ax:0,     ay:0,     units: 'percent' },
         armLower: { ax:0,     ay:0,     units: 'percent' },
         legUpper: { ax:-0.10, ay:0.10,  units: 'percent' },
