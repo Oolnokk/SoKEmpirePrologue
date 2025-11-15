@@ -117,7 +117,7 @@ test('sprites.js does not apply per-sprite facing flip', async () => {
   // Check that drawBoneSprite does not have facingFlip parameter
   assert.match(
     source,
-    /function drawBoneSprite\(ctx,\s*asset,\s*bone,\s*styleKey,\s*style,\s*offsets\)\s*{/,
+    /function drawBoneSprite\(ctx,\s*asset,\s*bone,\s*styleKey,\s*style\)\s*{/,
     'drawBoneSprite() should not have facingFlip parameter'
   );
   
@@ -156,7 +156,7 @@ test('sprites.js drawArmBranch does not have facingFlip parameter', async () => 
   
   assert.match(
     source,
-    /function drawArmBranch\(ctx,\s*rig,\s*side,\s*assets,\s*style,\s*offsets,\s*segment\s*=\s*['"]both['"]\)\s*{/,
+    /function drawArmBranch\(ctx,\s*rig,\s*side,\s*assets,\s*style,\s*segment\s*=\s*['"]both['"]\)\s*{/,
     'drawArmBranch() should not have facingFlip parameter'
   );
 });
@@ -166,7 +166,7 @@ test('sprites.js drawLegBranch does not have facingFlip parameter', async () => 
   
   assert.match(
     source,
-    /function drawLegBranch\(ctx,\s*rig,\s*side,\s*assets,\s*style,\s*offsets,\s*segment\s*=\s*['"]both['"]\)\s*{/,
+    /function drawLegBranch\(ctx,\s*rig,\s*side,\s*assets,\s*style,\s*segment\s*=\s*['"]both['"]\)\s*{/,
     'drawLegBranch() should not have facingFlip parameter'
   );
 });

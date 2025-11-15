@@ -279,7 +279,7 @@ function getMirrorFlag(tag){
 }
 
 // Leg drawing uses branch mirroring, standard math
-function drawLegBranch(ctx, rig, side, assets, style, offsets, segment='both'){
+function drawLegBranch(ctx, rig, side, assets, style, segment='both'){
   const upKey = side==='L' ? 'leg_L_upper':'leg_R_upper';
   const loKey = side==='L' ? 'leg_L_lower':'leg_R_lower';
   const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
@@ -288,16 +288,16 @@ function drawLegBranch(ctx, rig, side, assets, style, offsets, segment='both'){
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
     if (segment !== 'lower'){
-      drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets);
+      drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style);
     }
     if (segment !== 'upper' && lo){
-      drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets);
+      drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style);
     }
   });
 }
 
 // Draws arms with branch-level mirroring
-function drawArmBranch(ctx, rig, side, assets, style, offsets, segment='both'){
+function drawArmBranch(ctx, rig, side, assets, style, segment='both'){
   const upKey = side==='L' ? 'arm_L_upper':'arm_R_upper';
   const loKey = side==='L' ? 'arm_L_lower':'arm_R_lower';
   const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
@@ -305,8 +305,8 @@ function drawArmBranch(ctx, rig, side, assets, style, offsets, segment='both'){
   const mirror = RENDER.MIRROR[tagU] || RENDER.MIRROR[tagL];
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
-    if (segment !== 'lower') drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, offsets);
-    if (segment !== 'upper' && lo) drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, offsets);
+    if (segment !== 'lower') drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style);
+    if (segment !== 'upper' && lo) drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style);
   });
 }
 
@@ -469,67 +469,8 @@ function drawWarpedImage(ctx, img, destPoints, w, h){
   }
 }
 
-function normalizeSpriteOffsetSpec(raw){
-  if (!raw) return null;
-  let spec = raw;
-  if (typeof raw === 'object' && raw !== null && raw.origin){
-    spec = raw.origin;
-  }
-  if (Array.isArray(spec)){
-    const [ax = 0, ay = 0, units] = spec;
-    return {
-      ax: Number(ax) || 0,
-      ay: Number(ay) || 0,
-      units: typeof units === 'string' ? units : undefined
-    };
-  }
-  if (typeof spec === 'number'){
-    return { ax: spec, ay: 0 };
-  }
-  if (!spec || typeof spec !== 'object') return null;
-  return {
-    ax: Number(spec.ax ?? spec.x ?? 0) || 0,
-    ay: Number(spec.ay ?? spec.y ?? 0) || 0,
-    units: typeof spec.units === 'string'
-      ? spec.units
-      : (typeof spec.unit === 'string' ? spec.unit : undefined)
-  };
-}
-
-function lookupSpriteOffset(offsets, styleKey){
-  if (!offsets || typeof offsets !== 'object') return null;
-  const normalizedKey = normalizeStyleKey(styleKey);
-  const tryCandidates = (...candidates)=>{
-    for (const candidate of candidates){
-      const spec = normalizeSpriteOffsetSpec(candidate);
-      if (spec) return spec;
-    }
-    return null;
-  };
-
-  const direct = tryCandidates(offsets[styleKey], offsets[normalizedKey]);
-  if (direct) return direct;
-
-  switch (normalizedKey){
-    case 'torso':
-      return tryCandidates(offsets.torso, offsets.torso?.sprite, offsets.torso?.origin, offsets.torso?.spriteOffset);
-    case 'head':
-      return tryCandidates(offsets.head, offsets.head?.sprite, offsets.head?.origin, offsets.head?.spriteOffset);
-    case 'armUpper':
-      return tryCandidates(offsets.armUpper, offsets.arm?.upper, offsets.arm?.upper?.sprite, offsets.arm?.upper?.spriteOffset);
-    case 'armLower':
-      return tryCandidates(offsets.armLower, offsets.arm?.lower, offsets.arm?.lower?.sprite, offsets.arm?.lower?.spriteOffset);
-    case 'legUpper':
-      return tryCandidates(offsets.legUpper, offsets.leg?.upper, offsets.leg?.upper?.sprite, offsets.leg?.upper?.spriteOffset);
-    case 'legLower':
-      return tryCandidates(offsets.legLower, offsets.leg?.lower, offsets.leg?.lower?.sprite, offsets.leg?.lower?.spriteOffset);
-    default:
-      return null;
-  }
-}
-
-function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
-  const options = arguments[6] || {};
+function drawBoneSprite(ctx, asset, bone, styleKey, style){
+  const options = arguments[5] || {};
   const opts = options || {};
   const img = asset?.img;
   if (!img || img.__broken) return false;
@@ -612,29 +553,6 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   const scaleY = xform.scaleY ?? 1;
   w *= scaleX;
   h *= scaleY;
-
-  const spriteOffset = lookupSpriteOffset(offsets, styleKey);
-  if (spriteOffset){
-    const units = (spriteOffset.units || '').toLowerCase();
-    let ox = Number.isFinite(spriteOffset.ax) ? spriteOffset.ax : 0;
-    let oy = Number.isFinite(spriteOffset.ay) ? spriteOffset.ay : 0;
-    const unitMode = units
-      || (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct' ? 'percent' : 'px');
-    if (unitMode === 'percent' || unitMode === '%' || unitMode === 'pct'){
-      const heightBasis = Math.abs(h) > 1e-6 ? Math.abs(h) : Math.abs(baseH);
-      const widthBasis = Math.abs(w) > 1e-6 ? Math.abs(w) : Math.abs(baseH);
-      ox *= heightBasis;
-      oy *= widthBasis;
-    }
-    if (!hasXformAx) {
-      posX += ox * bAxis.fx;
-      posY += ox * bAxis.fy;
-    }
-    if (!hasXformAy) {
-      posX += oy * bAxis.rx;
-      posY += oy * bAxis.ry;
-    }
-  }
 
   const overrideXformCandidate = options && options.styleOverride?.xform;
   const overrideXformSrc = overrideXformCandidate || options?.styleOverride?.xform || {};
@@ -771,7 +689,7 @@ export function renderSprites(ctx){
     }
 
     const overrides = buildSpriteOverrides(entity.profile || {});
-    const { assets, style, offsets, cosmetics, bodyColors, untintedOverlays: activeUntintedOverlays } = ensureFighterSprites(C, fighterName, overrides);
+    const { assets, style, cosmetics, bodyColors, untintedOverlays: activeUntintedOverlays } = ensureFighterSprites(C, fighterName, overrides);
     const overlayMap = activeUntintedOverlays || {};
 
     ctx.save();
@@ -807,7 +725,7 @@ export function renderSprites(ctx){
       for (const overlay of overlays){
         const key = overlay?.styleKey || styleKey;
         const overlayOptions = applyAnimOptions(key, overlay?.options || undefined);
-        drawBoneSprite(ctx, overlay?.asset, bone, key, style, offsets, overlayOptions);
+        drawBoneSprite(ctx, overlay?.asset, bone, key, style, overlayOptions);
       }
     }
 
@@ -815,14 +733,14 @@ export function renderSprites(ctx){
     enqueue('TORSO', ()=>{
       if (assets.torso && rig.torso){
         const torsoOptions = applyAnimOptions('torso', makeTintOptions(assets.torso));
-        drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, offsets, torsoOptions);
+        drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, torsoOptions);
         drawUntintedOverlays('torso', rig.torso, 'torso');
       }
     });
     enqueue('HEAD', ()=>{
       if (assets.head && rig.head){
         const headOptions = applyAnimOptions('head', makeTintOptions(assets.head));
-        drawBoneSprite(ctx, assets.head, rig.head, 'head', style, offsets, headOptions);
+        drawBoneSprite(ctx, assets.head, rig.head, 'head', style, headOptions);
         drawUntintedOverlays('head', rig.head, 'head');
       }
     });
@@ -836,7 +754,7 @@ export function renderSprites(ctx){
         const originX = lArmUpper.x;
         const armUpperOptions = applyAnimOptions('arm_L_upper', makeTintOptions(assets.arm_L_upper));
         withBranchMirror(ctx, originX, lArmMirror, ()=> {
-          drawBoneSprite(ctx, assets.arm_L_upper, lArmUpper, 'arm_L_upper', style, offsets, armUpperOptions);
+          drawBoneSprite(ctx, assets.arm_L_upper, lArmUpper, 'arm_L_upper', style, armUpperOptions);
           drawUntintedOverlays('arm_L_upper', lArmUpper, 'arm_L_upper');
         });
       });
@@ -846,7 +764,7 @@ export function renderSprites(ctx){
         const originX = lArmUpper?.x ?? lArmLower.x;
         const armLowerOptions = applyAnimOptions('arm_L_lower', makeTintOptions(assets.arm_L_lower));
         withBranchMirror(ctx, originX, lArmMirror, ()=> {
-          drawBoneSprite(ctx, assets.arm_L_lower, lArmLower, 'arm_L_lower', style, offsets, armLowerOptions);
+          drawBoneSprite(ctx, assets.arm_L_lower, lArmLower, 'arm_L_lower', style, armLowerOptions);
           drawUntintedOverlays('arm_L_lower', lArmLower, 'arm_L_lower');
         });
       });
@@ -861,7 +779,7 @@ export function renderSprites(ctx){
         const originX = rArmUpper.x;
         const armUpperOptions = applyAnimOptions('arm_R_upper', makeTintOptions(assets.arm_R_upper));
         withBranchMirror(ctx, originX, rArmMirror, ()=> {
-          drawBoneSprite(ctx, assets.arm_R_upper, rArmUpper, 'arm_R_upper', style, offsets, armUpperOptions);
+          drawBoneSprite(ctx, assets.arm_R_upper, rArmUpper, 'arm_R_upper', style, armUpperOptions);
           drawUntintedOverlays('arm_R_upper', rArmUpper, 'arm_R_upper');
         });
       });
@@ -871,7 +789,7 @@ export function renderSprites(ctx){
         const originX = rArmUpper?.x ?? rArmLower.x;
         const armLowerOptions = applyAnimOptions('arm_R_lower', makeTintOptions(assets.arm_R_lower));
         withBranchMirror(ctx, originX, rArmMirror, ()=> {
-          drawBoneSprite(ctx, assets.arm_R_lower, rArmLower, 'arm_R_lower', style, offsets, armLowerOptions);
+          drawBoneSprite(ctx, assets.arm_R_lower, rArmLower, 'arm_R_lower', style, armLowerOptions);
           drawUntintedOverlays('arm_R_lower', rArmLower, 'arm_R_lower');
         });
       });
@@ -886,7 +804,7 @@ export function renderSprites(ctx){
         const originX = lLegUpper.x;
         withBranchMirror(ctx, originX, lLegMirror, ()=> {
           const legUpperOptions = applyAnimOptions('leg_L_upper', makeTintOptions(assets.leg_L_upper));
-          drawBoneSprite(ctx, assets.leg_L_upper, lLegUpper, 'leg_L_upper', style, offsets, legUpperOptions);
+          drawBoneSprite(ctx, assets.leg_L_upper, lLegUpper, 'leg_L_upper', style, legUpperOptions);
           drawUntintedOverlays('leg_L_upper', lLegUpper, 'leg_L_upper');
         });
       });
@@ -896,7 +814,7 @@ export function renderSprites(ctx){
         const originX = lLegUpper?.x ?? lLegLower.x;
         withBranchMirror(ctx, originX, lLegMirror, ()=> {
           const legLowerOptions = applyAnimOptions('leg_L_lower', makeTintOptions(assets.leg_L_lower));
-          drawBoneSprite(ctx, assets.leg_L_lower, lLegLower, 'leg_L_lower', style, offsets, legLowerOptions);
+          drawBoneSprite(ctx, assets.leg_L_lower, lLegLower, 'leg_L_lower', style, legLowerOptions);
           drawUntintedOverlays('leg_L_lower', lLegLower, 'leg_L_lower');
         });
       });
@@ -911,7 +829,7 @@ export function renderSprites(ctx){
         const originX = rLegUpper.x;
         withBranchMirror(ctx, originX, rLegMirror, ()=> {
           const legUpperOptions = applyAnimOptions('leg_R_upper', makeTintOptions(assets.leg_R_upper));
-          drawBoneSprite(ctx, assets.leg_R_upper, rLegUpper, 'leg_R_upper', style, offsets, legUpperOptions);
+          drawBoneSprite(ctx, assets.leg_R_upper, rLegUpper, 'leg_R_upper', style, legUpperOptions);
           drawUntintedOverlays('leg_R_upper', rLegUpper, 'leg_R_upper');
         });
       });
@@ -921,7 +839,7 @@ export function renderSprites(ctx){
         const originX = rLegUpper?.x ?? rLegLower.x;
         withBranchMirror(ctx, originX, rLegMirror, ()=> {
           const legLowerOptions = applyAnimOptions('leg_R_lower', makeTintOptions(assets.leg_R_lower));
-          drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, offsets, legLowerOptions);
+          drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, legLowerOptions);
           drawUntintedOverlays('leg_R_lower', rLegLower, 'leg_R_lower');
         });
       });
@@ -961,7 +879,7 @@ export function renderSprites(ctx){
         }
 
         enqueue(layerTag, ()=>{
-          drawBoneSprite(ctx, asset, bone, styleKey, weaponStyle, offsets, options);
+          drawBoneSprite(ctx, asset, bone, styleKey, weaponStyle, options);
         });
       });
     }
@@ -976,7 +894,7 @@ export function renderSprites(ctx){
         const { mirror, originX } = resolveCosmeticMirror(rig, layer.partKey, bone);
         enqueue(slotTag, ()=>{
           withBranchMirror(ctx, originX, mirror, ()=>{
-            drawBoneSprite(ctx, layer.asset, bone, styleKey, style, offsets, applyAnimOptions(styleKey, {
+            drawBoneSprite(ctx, layer.asset, bone, styleKey, style, applyAnimOptions(styleKey, {
               styleOverride: layer.styleOverride,
               hsl: layer.hsl ?? layer.hsv,
               warp: layer.warp,
@@ -1101,7 +1019,6 @@ export function ensureFighterSprites(C, fname, overrides = {}){
   }
   // Look for style in fighter config first (both f.spriteStyle and f.sprites.style), then fallback to global
   const style = f.spriteStyle || f.sprites?.style || C.spriteStyle || {};
-  const offsets = f.spriteOffsets || C.spriteOffsets || {};
   
   // Convert rotDeg from xform config to alignRad on each sprite asset
   const xform = style.xform || {};
@@ -1136,7 +1053,7 @@ export function ensureFighterSprites(C, fname, overrides = {}){
   const untintedOverlays = resolveUntintedOverlayMap(f, S);
   const appliedUntintedOverlays = untintedOverride || untintedOverlays;
 
-  const result = { assets: S, style, offsets, cosmetics, bodyColors, untintedOverlays: appliedUntintedOverlays };
+  const result = { assets: S, style, cosmetics, bodyColors, untintedOverlays: appliedUntintedOverlays };
   ensureFighterSprites.__lastResult = result;
   return result;
 }
