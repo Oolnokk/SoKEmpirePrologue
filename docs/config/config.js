@@ -503,8 +503,8 @@ window.CONFIG = {
           widthFactor: { torso:0.9, armUpper:0.9, armLower:0.9, legUpper:0.9, legLower:0.9, head:0.9 },
           xformUnits: "percent",
           xform: {
-            torso:    { scaleX:1, scaleY:1, rotDeg:180 },
-            head:     { scaleX:1,   scaleY:1,    rotDeg:180 },
+            torso:    { scaleX:2, scaleY:2, rotDeg:180 },
+            head:     { scaleX:2,   scaleY:2,    rotDeg:180 },
             armUpper: { scaleX:3.00, scaleY:3.00, rotDeg:0 },
             armLower: { scaleX:2.00, scaleY:2.00, rotDeg:0 },
             legUpper: { scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
