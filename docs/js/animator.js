@@ -895,11 +895,12 @@ function buildWeaponBones({
       anchorPos = withAX(anchorPos[0], anchorPos[1], anchor.ang, boneSpec.anchorOffset, null, length);
     }
 
-    const weaponBaseAngle = Number.isFinite(target?.weapon) ? target.weapon : anchor.ang;
+    const anchorAngle = Number.isFinite(anchor?.ang) ? anchor.ang : 0;
+    const weaponAngleOffset = Number.isFinite(target?.weapon) ? target.weapon : 0;
     const boneAngleOffset = Number.isFinite(boneSpec.angleOffsetRad)
       ? boneSpec.angleOffsetRad
       : (Number.isFinite(boneSpec.angleOffsetDeg) ? degToRad(boneSpec.angleOffsetDeg) : 0);
-    const boneAng = weaponBaseAngle + baseAngleOffset + boneAngleOffset;
+    const boneAng = anchorAngle + weaponAngleOffset + baseAngleOffset + boneAngleOffset;
 
     const jointDefault = jointDefaults?.[boneId]
       ?? clamp(Number(boneSpec.joint?.percent ?? boneSpec.jointPercent ?? 0.5), 0, 1);
