@@ -20,6 +20,18 @@ function addAngles(base, delta){
       ...(delta?.weaponGripPercents || {})
     };
   }
+  if (base?.weaponJointPercents || delta?.weaponJointPercents) {
+    out.weaponJointPercents = {
+      ...(base?.weaponJointPercents || {}),
+      ...(delta?.weaponJointPercents || {})
+    };
+  }
+  if (base?.weaponJointPercent != null || delta?.weaponJointPercent != null) {
+    const next = delta?.weaponJointPercent;
+    out.weaponJointPercent = Number.isFinite(next)
+      ? next
+      : (Number.isFinite(base?.weaponJointPercent) ? base.weaponJointPercent : next);
+  }
   return out;
 }
 // Common easing helpers (restored from reference)
@@ -52,13 +64,16 @@ function ensureAnimState(F){
     if (F.anim.breath.direction !== 1 && F.anim.breath.direction !== -1) F.anim.breath.direction = 1;
   }
   if (!F.anim.weapon || typeof F.anim.weapon !== 'object') {
-    F.anim.weapon = { attachments: {}, gripPercents: {}, state: null };
+    F.anim.weapon = { attachments: {}, gripPercents: {}, jointPercents: {}, state: null };
   } else {
     if (typeof F.anim.weapon.attachments !== 'object' || !F.anim.weapon.attachments) {
       F.anim.weapon.attachments = {};
     }
     if (typeof F.anim.weapon.gripPercents !== 'object' || !F.anim.weapon.gripPercents) {
       F.anim.weapon.gripPercents = {};
+    }
+    if (typeof F.anim.weapon.jointPercents !== 'object' || !F.anim.weapon.jointPercents) {
+      F.anim.weapon.jointPercents = {};
     }
   }
 }
@@ -488,6 +503,21 @@ function collectDefaultGripPercents(rig) {
   return map;
 }
 
+function collectDefaultJointPercents(rig) {
+  const map = {};
+  if (!rig?.bones) return map;
+  rig.bones.forEach((bone, index) => {
+    if (!bone) return;
+    const boneId = bone.id || `weapon_${index}`;
+    const joint = bone.joint || {};
+    const pct = joint.percent ?? joint.pct ?? joint.value ?? bone.jointPercent;
+    if (pct == null) return;
+    const num = Number(pct);
+    if (Number.isFinite(num)) map[boneId] = clamp(num, 0, 1);
+  });
+  return map;
+}
+
 function computePoseBasis(F, target, C, fcfg) {
   const L = lengths(C, fcfg);
   const OFF = pickOffsets(C, fcfg);
@@ -529,6 +559,8 @@ function computePoseBasis(F, target, C, fcfg) {
   const rLowerAng = rUpperAng + (target?.rElbow ?? 0);
   const lElbowPosArr = withAX(...segPos(lShoulderBaseArr[0], lShoulderBaseArr[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
   const rElbowPosArr = withAX(...segPos(rShoulderBaseArr[0], rShoulderBaseArr[1], L.armU, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
+  const lWristPosArr = withAX(...segPos(lElbowPosArr[0], lElbowPosArr[1], L.armL, lLowerAng), lLowerAng, OFF.arm?.lower?.origin);
+  const rWristPosArr = withAX(...segPos(rElbowPosArr[0], rElbowPosArr[1], L.armL, rLowerAng), rLowerAng, OFF.arm?.lower?.origin);
 
   return {
     centerX,
@@ -546,25 +578,55 @@ function computePoseBasis(F, target, C, fcfg) {
     rLowerAng,
     lElbowPos: lElbowPosArr,
     rElbowPos: rElbowPosArr,
+    lWristPos: lWristPosArr,
+    rWristPos: rWristPosArr,
     L,
     OFF
   };
 }
 
-function resolveWeaponAnchor(anchorKey, basisInfo) {
+function resolveWeaponAnchor(anchorKey, basisInfo, limbHint) {
   const key = (anchorKey || '').toString().toLowerCase();
+  const limb = (limbHint || '').toString().toLowerCase();
+  if (!key || key === 'auto') {
+    if (limb === 'left') {
+      return { pos: basisInfo.lWristPos || basisInfo.lElbowPos, ang: basisInfo.lLowerAng };
+    }
+    return { pos: basisInfo.rWristPos || basisInfo.rElbowPos, ang: basisInfo.rLowerAng };
+  }
   switch (key) {
     case 'torso':
     case 'hip':
       return { pos: basisInfo.hipBase, ang: basisInfo.torsoAng };
     case 'neck':
       return { pos: basisInfo.neckBase, ang: basisInfo.torsoAng };
+    case 'lforearm':
+    case 'llower':
+    case 'leftlower':
+    case 'leftforearm':
+    case 'arm_l_lower':
+      return { pos: basisInfo.lElbowPos, ang: basisInfo.lLowerAng };
     case 'lshoulder':
     case 'leftshoulder':
       return { pos: basisInfo.lShoulderBase, ang: basisInfo.lUpperAng };
+    case 'lwrist':
+    case 'leftwrist':
+    case 'lefthand':
+      return { pos: basisInfo.lWristPos || basisInfo.lElbowPos, ang: basisInfo.lLowerAng };
+    case 'rforearm':
+    case 'rlower':
+    case 'rightlower':
+    case 'rightforearm':
+    case 'arm_r_lower':
+      return { pos: basisInfo.rElbowPos, ang: basisInfo.rLowerAng };
     case 'rshoulder':
     case 'rightshoulder':
       return { pos: basisInfo.rShoulderBase, ang: basisInfo.rUpperAng };
+    case 'rwrist':
+    case 'rightwrist':
+    case 'rhand':
+    case 'righthand':
+      return { pos: basisInfo.rWristPos || basisInfo.rElbowPos, ang: basisInfo.rLowerAng };
     case 'torsotop':
     case 'shoulderbase':
     default:
@@ -629,7 +691,6 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
   }
 
   const basisInfo = computePoseBasis(F, target, C, fcfg);
-  const weaponAngle = target?.weapon ?? basisInfo.torsoAng;
   const gripPercents = F.anim.weapon.gripPercents || (F.anim.weapon.gripPercents = {});
   const defaults = collectDefaultGripPercents(rig);
   const posePercents = finalDeg?.weaponGripPercents || {};
@@ -645,6 +706,18 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     gripPercents[id] = damp(current, pct, 16, dt);
   }
 
+  const jointPercents = F.anim.weapon.jointPercents || (F.anim.weapon.jointPercents = {});
+  const jointDefaults = collectDefaultJointPercents(rig);
+  const poseJointMap = (finalDeg?.weaponJointPercents && typeof finalDeg.weaponJointPercents === 'object')
+    ? finalDeg.weaponJointPercents
+    : {};
+  const poseJointValueRaw = finalDeg?.weaponJointPercent;
+  const poseJointValueGlobal = Number(poseJointValueRaw);
+  const hasPoseJointValue = Number.isFinite(poseJointValueGlobal);
+  const baseAngleOffset = Number.isFinite(rig.base?.angleOffsetRad)
+    ? rig.base.angleOffsetRad
+    : (Number.isFinite(rig.base?.angleOffsetDeg) ? degToRad(rig.base.angleOffsetDeg) : 0);
+
   const bones = [];
   const gripLookup = {};
   const attachments = F.anim.weapon.attachments || {};
@@ -653,16 +726,43 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
   rig.bones.forEach((boneSpec, index) => {
     if (!boneSpec) return;
     const boneId = boneSpec.id || `weapon_${index}`;
-    const anchor = resolveWeaponAnchor(boneSpec.anchor || rig.base?.anchor, basisInfo);
-    const baseOffset = rig.base?.offset;
+    const limb = (boneSpec.limb || rig.base?.limb || '').toString().toLowerCase();
+    const anchorKey = boneSpec.anchor || rig.base?.anchor || 'auto';
+    const anchor = resolveWeaponAnchor(anchorKey, basisInfo, limb);
     const length = Number.isFinite(boneSpec.length) ? boneSpec.length : 0;
-    let startArr = anchor.pos;
+    const baseOffset = boneSpec.baseOffset || rig.base?.offset || null;
+    let anchorPos = anchor.pos;
     if (baseOffset) {
-      startArr = withAX(startArr[0], startArr[1], anchor.ang, baseOffset, null, length);
+      anchorPos = withAX(anchorPos[0], anchorPos[1], anchor.ang, baseOffset, null, length);
     }
-    let boneAng = weaponAngle + (Number.isFinite(boneSpec.angleOffsetRad)
+    if (boneSpec.anchorOffset) {
+      anchorPos = withAX(anchorPos[0], anchorPos[1], anchor.ang, boneSpec.anchorOffset, null, length);
+    }
+    const weaponBaseAngle = Number.isFinite(target?.weapon) ? target.weapon : anchor.ang;
+    let boneAng = weaponBaseAngle + baseAngleOffset + (Number.isFinite(boneSpec.angleOffsetRad)
       ? boneSpec.angleOffsetRad
       : (Number.isFinite(boneSpec.angleOffsetDeg) ? degToRad(boneSpec.angleOffsetDeg) : 0));
+    const jointDefault = jointDefaults[boneId] ?? clamp(Number(boneSpec.joint?.percent ?? boneSpec.jointPercent ?? 0.5), 0, 1);
+    const poseJointValue = Number(poseJointMap ? poseJointMap[boneId] : null);
+    const targetJoint = clamp(
+      Number.isFinite(poseJointValue)
+        ? poseJointValue
+        : (hasPoseJointValue ? poseJointValueGlobal : jointDefault),
+      0,
+      1
+    );
+    const currentJoint = Number.isFinite(jointPercents[boneId]) ? jointPercents[boneId] : targetJoint;
+    const nextJoint = clamp(damp(currentJoint, targetJoint, 16, dt), 0, 1);
+    jointPercents[boneId] = nextJoint;
+
+    const haftSpec = boneSpec.haft || {};
+    const haftStart = clamp(Number(haftSpec.start ?? haftSpec.from ?? 0), 0, 1);
+    const haftEndRaw = Number(haftSpec.end ?? haftSpec.to ?? 1);
+    const haftEnd = clamp(haftEndRaw, haftStart, 1);
+    const haftRange = Math.max(1e-5, haftEnd - haftStart);
+    const jointAbsolute = clamp(haftStart + nextJoint * haftRange, 0, 1);
+
+    let startArr = segPos(anchorPos[0], anchorPos[1], -jointAbsolute * length, boneAng);
     if (boneSpec.offset) {
       startArr = withAX(startArr[0], startArr[1], boneAng, boneSpec.offset, null, length);
     }
@@ -673,6 +773,15 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
       end: { x: endArr[0], y: endArr[1] },
       length,
       angle: boneAng,
+      limb: limb || 'right',
+      anchor: anchorKey,
+      joint: {
+        percent: nextJoint,
+        absolute: jointAbsolute,
+        haftStart,
+        haftEnd
+      },
+      haft: { start: haftStart, end: haftEnd },
       grips: {},
       colliders: []
     };
@@ -769,6 +878,7 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     weaponKey,
     bones,
     gripPercents: { ...gripPercents },
+    jointPercents: { ...jointPercents },
     attachments: validAttachments
   };
 }
@@ -1023,12 +1133,24 @@ function applyLayerPose(targetPose, layer){
       if (pose.weaponGripPercents) {
         targetPose.weaponGripPercents = { ...pose.weaponGripPercents };
       }
+      if (pose.weaponJointPercents) {
+        targetPose.weaponJointPercents = { ...pose.weaponJointPercents };
+      }
+      if (pose.weaponJointPercent != null) {
+        targetPose.weaponJointPercent = pose.weaponJointPercent;
+      }
       continue;
     }
     if (pose[key] != null) targetPose[key] = pose[key];
   }
   if (mask.includes('weapon') && pose.weaponGripPercents) {
     targetPose.weaponGripPercents = { ...pose.weaponGripPercents };
+  }
+  if (mask.includes('weapon') && pose.weaponJointPercents) {
+    targetPose.weaponJointPercents = { ...pose.weaponJointPercents };
+  }
+  if (mask.includes('weapon') && pose.weaponJointPercent != null) {
+    targetPose.weaponJointPercent = pose.weaponJointPercent;
   }
 }
 
