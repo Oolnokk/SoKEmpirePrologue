@@ -10,7 +10,11 @@
 <body>
   <main class="editor-layout">
     <section class="editor-preview">
-      <canvas id="cosmeticCanvas" width="720" height="460" aria-label="Cosmetic preview"></canvas>
+      <div class="editor-preview__intro">
+        <h2>Part Preview</h2>
+        <p>Inspect each body part with every equipped cosmetic layer stacked and scaled for clarity.</p>
+      </div>
+      <div id="partPreviewGrid" class="part-preview__grid" data-state="empty" aria-live="polite"></div>
     </section>
     <section class="editor-controls">
       <div class="panel">

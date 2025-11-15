@@ -1,6 +1,3 @@
-import { initFighters, resetFighterStateForTesting } from './fighter.js?v=8';
-import { renderAll } from './render.js?v=4';
-import { initSprites, renderSprites } from './sprites.js?v=8';
 import {
   COSMETIC_SLOTS,
   getRegisteredCosmeticLibrary,
@@ -27,15 +24,10 @@ const DEFAULT_APPEARANCE_SLOTS = [
 
 class CosmeticEditorApp {
   constructor(){
-    this.canvas = document.getElementById('cosmeticCanvas');
-    this.ctx = this.canvas?.getContext('2d') || null;
-    if (!this.canvas || !this.ctx){
-      throw new Error('Cosmetic editor preview canvas is unavailable');
-    }
-
     this.state = this.createInitialState();
     this.dom = this.queryDom();
     this.slotRows = new Map();
+    this.previewRenderScheduled = false;
 
     this.modeButtons = Array.from(document.querySelectorAll('#modePanel [data-mode]'));
 
@@ -47,6 +39,8 @@ class CosmeticEditorApp {
     this.styleInspector = this.buildStyleInspectorApi();
     this.modeManager = this.buildModeManagerApi();
     this.fighterManager = this.buildFighterManagerApi();
+
+    this.renderPartPreview();
   }
 
   createInitialState(){
@@ -69,12 +63,15 @@ class CosmeticEditorApp {
       fighterSpriteIndex: {},
       currentPalette: null,
       currentPaletteSource: { slot: null, partKey: null, layerPosition: null, cosmeticId: null },
-      activeMode: 'clothing'
+      activeMode: 'clothing',
+      activePreviewPart: null,
+      previewPartKeys: []
     };
   }
 
   queryDom(){
     return {
+      previewGrid: document.getElementById('partPreviewGrid'),
       fighterSelect: document.getElementById('fighterSelect'),
       slotContainer: document.getElementById('cosmeticSlotRows'),
       styleInspector: document.getElementById('styleInspector'),
@@ -676,6 +673,7 @@ class CosmeticEditorApp {
       if (this.dom.overrideApplyBtn) this.dom.overrideApplyBtn.disabled = canApply ? false : true;
       if (this.dom.overrideCopyBtn) this.dom.overrideCopyBtn.disabled = hasAny ? false : true;
       if (this.dom.overrideDownloadBtn) this.dom.overrideDownloadBtn.disabled = hasAny ? false : true;
+      this.queuePreviewRender();
     };
 
     const applyOverridesToProfile = ()=>{
@@ -1157,23 +1155,6 @@ class CosmeticEditorApp {
       return baseHex || '';
     };
 
-    const buildTintFilter = (hsl)=>{
-      if (!hsl) return 'none';
-      const filters = [];
-      if (Number.isFinite(hsl.h) && hsl.h !== 0){
-        filters.push(`hue-rotate(${hsl.h}deg)`);
-      }
-      if (Number.isFinite(hsl.s) && hsl.s !== 0){
-        const sat = Math.max(0, 1 + hsl.s);
-        filters.push(`saturate(${sat})`);
-      }
-      if (Number.isFinite(hsl.l) && hsl.l !== 0){
-        const light = Math.max(0, 1 + hsl.l);
-        filters.push(`brightness(${light})`);
-      }
-      return filters.length ? filters.join(' ') : 'none';
-    };
-
     const formatHueDelta = (value)=>{
       if (!Number.isFinite(value) || value === 0){
         return '0°';
@@ -1362,7 +1343,7 @@ class CosmeticEditorApp {
         const figures = document.createElement('div');
         figures.className = 'tint-preview__images';
         figures.appendChild(createFigure('Original sprite', assetUrl, 'none'));
-        figures.appendChild(createFigure('Tinted preview', assetUrl, buildTintFilter(hsl)));
+        figures.appendChild(createFigure('Tinted preview', assetUrl, this.buildTintFilter(hsl)));
         container.appendChild(figures);
       }
 
@@ -1857,82 +1838,6 @@ class CosmeticEditorApp {
       return overrides;
     };
 
-    const refreshPreviewFighter = (fighterName, { characterKey = null, fighterConfig = {}, characterData = null } = {})=>{
-      const fighters = GAME.FIGHTERS || {};
-      const playerEntry = fighters.player;
-      if (!playerEntry) return;
-
-      for (const key of Object.keys(fighters)){
-        if (key === 'player') continue;
-        delete fighters[key];
-        if (GAME.CHARACTER_STATE){
-          delete GAME.CHARACTER_STATE[key];
-        }
-      }
-
-      const spawnMeta = GAME.FIGHTER_SPAWNS?.player || {};
-      resetFighterStateForTesting(playerEntry, {
-        x: Number.isFinite(playerEntry?.pos?.x) ? playerEntry.pos.x : spawnMeta.x,
-        y: Number.isFinite(playerEntry?.pos?.y) ? playerEntry.pos.y : spawnMeta.y,
-        spawnY: spawnMeta.y,
-        facingSign: 1,
-      });
-      if (playerEntry.walk){
-        playerEntry.walk.phase = 0;
-        playerEntry.walk.amp = 0;
-      }
-      if (playerEntry.anim?.breath){
-        playerEntry.anim.breath.active = false;
-      }
-
-      const renderProfile = (playerEntry.renderProfile ||= {});
-      renderProfile.fighterName = fighterName;
-      renderProfile.characterKey = characterKey || null;
-      renderProfile.character = characterData ? this.deepClone(characterData) : null;
-
-      const baseBodyColors = characterData?.bodyColors || fighterConfig.bodyColors;
-      if (baseBodyColors){
-        renderProfile.bodyColors = this.deepClone(baseBodyColors);
-      } else {
-        delete renderProfile.bodyColors;
-      }
-
-      const baseCosmetics = characterData?.cosmetics || fighterConfig.cosmetics;
-      if (baseCosmetics){
-        renderProfile.cosmetics = this.deepClone(baseCosmetics);
-      } else {
-        delete renderProfile.cosmetics;
-      }
-
-      const baseAppearance = characterData?.appearance || null;
-      if (baseAppearance){
-        renderProfile.appearance = this.deepClone(baseAppearance);
-      } else {
-        delete renderProfile.appearance;
-      }
-
-      renderProfile.weapon = characterData?.weapon ?? fighterConfig.weapon ?? null;
-      if (Array.isArray(characterData?.slottedAbilities)){
-        renderProfile.slottedAbilities = characterData.slottedAbilities.slice();
-      } else if (Array.isArray(fighterConfig.slottedAbilities)){
-        renderProfile.slottedAbilities = fighterConfig.slottedAbilities.slice();
-      } else {
-        delete renderProfile.slottedAbilities;
-      }
-
-      if (characterData?.stats){
-        renderProfile.stats = this.deepClone(characterData.stats);
-      } else if (fighterConfig.stats){
-        renderProfile.stats = this.deepClone(fighterConfig.stats);
-      } else {
-        delete renderProfile.stats;
-      }
-
-      if (GAME.CHARACTER_STATE){
-        GAME.CHARACTER_STATE.player = this.deepClone(renderProfile);
-      }
-    };
-
     const populateFighterSelect = ()=>{
       const select = this.dom.fighterSelect;
       if (!select) return;
@@ -1996,7 +1901,6 @@ class CosmeticEditorApp {
       this.state.loadedProfile = this.deepClone(profile?.cosmetics || {});
       this.state.slotOverrides = mapProfileToSlotOverrides(slotMap, profile);
       GAME.selectedCharacter = characterKey || null;
-      refreshPreviewFighter(fighterName, { characterKey, fighterConfig: fighter, characterData });
       this.state.activeSlot = null;
       this.state.activePartKey = null;
       this.slotGrid.rebuild();
@@ -2087,6 +1991,324 @@ class CosmeticEditorApp {
       return 'back';
     }
     return 'front';
+  }
+
+  buildTintFilter(hsl){
+    if (!hsl) return 'none';
+    const filters = [];
+    if (Number.isFinite(hsl.h) && hsl.h !== 0){
+      filters.push(`hue-rotate(${hsl.h}deg)`);
+    }
+    if (Number.isFinite(hsl.s) && hsl.s !== 0){
+      const saturation = Math.max(0, 1 + hsl.s);
+      filters.push(`saturate(${saturation})`);
+    }
+    const lightness = Number.isFinite(hsl.l) ? hsl.l : null;
+    if (lightness != null && lightness !== 0){
+      const brightness = Math.max(0, 1 + lightness);
+      filters.push(`brightness(${brightness})`);
+    }
+    return filters.length ? filters.join(' ') : 'none';
+  }
+
+  queuePreviewRender(){
+    if (this.previewRenderScheduled){
+      return;
+    }
+    this.previewRenderScheduled = true;
+    requestAnimationFrame(()=>{
+      this.previewRenderScheduled = false;
+      this.renderPartPreview();
+    });
+  }
+
+  setActivePreviewPart(partKey){
+    const keys = Array.isArray(this.state.previewPartKeys) ? this.state.previewPartKeys : [];
+    if (!keys.length) return;
+    if (!keys.includes(partKey)) return;
+    if (this.state.activePreviewPart === partKey) return;
+    this.state.activePreviewPart = partKey;
+    this.queuePreviewRender();
+  }
+
+  cyclePreviewPart(offset){
+    const keys = Array.isArray(this.state.previewPartKeys) ? this.state.previewPartKeys : [];
+    if (!keys.length || !Number.isInteger(offset)) return;
+    const currentIndex = keys.indexOf(this.state.activePreviewPart);
+    const baseIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextIndex = (baseIndex + offset + keys.length) % keys.length;
+    const nextPart = keys[nextIndex];
+    if (!nextPart) return;
+    if (nextPart !== this.state.activePreviewPart){
+      this.state.activePreviewPart = nextPart;
+    }
+    this.queuePreviewRender();
+  }
+
+  renderPartPreview(){
+    const container = this.dom.previewGrid;
+    if (!container){
+      return;
+    }
+    container.classList.remove('is-empty');
+    container.innerHTML = '';
+
+    const renderMessage = (message)=>{
+      container.innerHTML = '';
+      container.classList.add('is-empty');
+      const note = document.createElement('p');
+      note.className = 'part-preview__empty-note';
+      note.textContent = message;
+      container.appendChild(note);
+    };
+
+    const fighterName = this.state.activeFighter;
+    if (!fighterName){
+      renderMessage('Load a fighter to preview individual parts and their equipped cosmetics.');
+      return;
+    }
+
+    const fighterConfig = CONFIG.fighters?.[fighterName] || {};
+    const baseStyle = fighterConfig.spriteStyle || fighterConfig.sprites?.style || {};
+    const previousEditorState = GAME.editorState;
+    const overridesClone = this.deepClone(this.state.slotOverrides || {});
+    GAME.editorState = {
+      ...(previousEditorState && typeof previousEditorState === 'object' ? previousEditorState : {}),
+      slotOverrides: overridesClone
+    };
+
+    let layers = [];
+    try {
+      layers = ensureCosmeticLayers(CONFIG, fighterName, baseStyle) || [];
+    } catch (err){
+      console.warn('[cosmetic-editor] Failed to render part preview', err);
+      renderMessage('Unable to render part preview for this fighter. Check the console for details.');
+      return;
+    } finally {
+      if (previousEditorState !== undefined){
+        GAME.editorState = previousEditorState;
+      } else {
+        delete GAME.editorState;
+      }
+    }
+
+    const entries = layers.filter((layer)=> layer?.asset?.url);
+    if (!entries.length){
+      renderMessage('No sprite layers available for the current fighter and cosmetic selection.');
+      return;
+    }
+
+    const library = getRegisteredCosmeticLibrary();
+    const partMap = new Map();
+    for (const layer of entries){
+      const partKey = layer.partKey || 'unknown';
+      if (!partMap.has(partKey)){
+        partMap.set(partKey, { partKey, front: [], back: [] });
+      }
+      const entry = partMap.get(partKey);
+      const position = this.normalizeLayerPosition(layer.position);
+      if (position === 'back'){
+        entry.back.push(layer);
+      } else {
+        entry.front.push(layer);
+      }
+    }
+
+    const sortedParts = Array.from(partMap.values()).sort((a, b)=> a.partKey.localeCompare(b.partKey));
+    const partKeys = sortedParts.map((entry)=> entry.partKey);
+    this.state.previewPartKeys = partKeys;
+
+    if (!partKeys.length){
+      renderMessage('No sprite layers available for the current fighter and cosmetic selection.');
+      return;
+    }
+
+    let activePart = this.state.activePreviewPart;
+    if (!activePart || !partMap.has(activePart)){
+      activePart = partKeys[0];
+      this.state.activePreviewPart = activePart;
+    }
+
+    const activeEntry = partMap.get(activePart);
+    if (!activeEntry){
+      renderMessage('No sprite data available for the selected part.');
+      return;
+    }
+
+    const card = document.createElement('article');
+    card.className = 'part-preview__card';
+
+    const header = document.createElement('header');
+    header.className = 'part-preview__card-header part-preview__card-header--single';
+    const partLabel = document.createElement('span');
+    partLabel.className = 'part-preview__part';
+    partLabel.textContent = activeEntry.partKey;
+    header.appendChild(partLabel);
+
+    const progress = document.createElement('span');
+    progress.className = 'part-preview__progress';
+    const activeIndex = partKeys.indexOf(activeEntry.partKey);
+    progress.textContent = `Part ${activeIndex + 1} of ${partKeys.length}`;
+    header.appendChild(progress);
+
+    const controls = document.createElement('div');
+    controls.className = 'part-preview__nav-controls';
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'part-preview__nav-btn';
+    prevBtn.setAttribute('aria-label', 'Show previous part');
+    prevBtn.textContent = '◀';
+    prevBtn.addEventListener('click', ()=> this.cyclePreviewPart(-1));
+    controls.appendChild(prevBtn);
+
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'part-preview__nav-btn';
+    nextBtn.setAttribute('aria-label', 'Show next part');
+    nextBtn.textContent = '▶';
+    nextBtn.addEventListener('click', ()=> this.cyclePreviewPart(1));
+    controls.appendChild(nextBtn);
+
+    header.appendChild(controls);
+    card.appendChild(header);
+
+    const selector = document.createElement('select');
+    selector.className = 'part-preview__selector';
+    selector.setAttribute('aria-label', 'Select part to preview');
+    partKeys.forEach((partKey)=>{
+      const option = document.createElement('option');
+      option.value = partKey;
+      option.textContent = partKey;
+      if (partKey === activeEntry.partKey){
+        option.selected = true;
+      }
+      selector.appendChild(option);
+    });
+    selector.addEventListener('change', (event)=>{
+      const nextPart = event?.target?.value;
+      if (nextPart){
+        this.setActivePreviewPart(nextPart);
+      }
+    });
+    card.appendChild(selector);
+
+    const stageGroup = document.createElement('div');
+    stageGroup.className = 'part-preview__stage-group';
+    stageGroup.appendChild(this.buildPartPose('front', activeEntry.front, library, activeEntry.partKey));
+    stageGroup.appendChild(this.buildPartPose('back', activeEntry.back, library, activeEntry.partKey));
+    card.appendChild(stageGroup);
+
+    container.appendChild(card);
+  }
+
+  buildPartPose(position, layers = [], library, partKey){
+    const section = document.createElement('section');
+    section.className = 'part-preview__pose';
+    section.dataset.position = position;
+
+    const resolvedLayers = Array.isArray(layers) ? layers : [];
+    if (!resolvedLayers.length){
+      section.dataset.empty = 'true';
+    }
+
+    const header = document.createElement('div');
+    header.className = 'part-preview__pose-header';
+    const title = document.createElement('span');
+    title.textContent = position === 'back' ? 'Back' : 'Front';
+    header.appendChild(title);
+
+    const countBadge = document.createElement('span');
+    countBadge.className = 'part-preview__pose-badge';
+    countBadge.textContent = `${resolvedLayers.length} layer${resolvedLayers.length === 1 ? '' : 's'}`;
+    header.appendChild(countBadge);
+
+    section.appendChild(header);
+
+    const stage = document.createElement('div');
+    stage.className = 'part-preview__stage';
+    const stack = document.createElement('div');
+    stack.className = 'part-preview__stack';
+    stage.appendChild(stack);
+
+    let hasImage = false;
+    resolvedLayers.forEach((layer, index)=>{
+      const url = layer?.asset?.url;
+      if (!url) return;
+      hasImage = true;
+      const img = document.createElement('img');
+      img.className = 'part-preview__layer';
+      if (index === 0){
+        img.classList.add('part-preview__layer--base');
+      }
+      img.src = url;
+      const slot = layer.slot || '';
+      const cosmeticId = layer.cosmeticId || '';
+      const displayName = library?.[cosmeticId]?.name
+        || library?.[cosmeticId]?.displayName
+        || library?.[cosmeticId]?.label
+        || cosmeticId;
+      img.alt = cosmeticId
+        ? `${displayName} applied to ${partKey}`
+        : `${partKey} sprite`;
+      const filter = this.buildTintFilter(layer.hsl);
+      if (filter && filter !== 'none'){
+        img.style.filter = filter;
+      }
+      stack.appendChild(img);
+    });
+
+    if (!hasImage){
+      section.dataset.empty = 'true';
+    }
+
+    section.appendChild(stage);
+
+    if (resolvedLayers.length){
+      const list = document.createElement('ul');
+      list.className = 'part-preview__layers';
+      resolvedLayers.forEach((layer, index)=>{
+        const item = document.createElement('li');
+        item.className = 'part-preview__layer-meta';
+        const slotLabel = document.createElement('span');
+        slotLabel.className = 'part-preview__layer-slot';
+        slotLabel.textContent = layer.slot || '—';
+        const id = document.createElement('code');
+        id.className = 'part-preview__layer-id';
+        id.textContent = layer.cosmeticId || '—';
+        item.appendChild(slotLabel);
+        item.appendChild(id);
+
+        const badges = document.createElement('span');
+        badges.className = 'part-preview__layer-badges';
+
+        const positionBadge = document.createElement('span');
+        positionBadge.className = 'part-preview__layer-badge part-preview__layer-badge--position';
+        positionBadge.textContent = position === 'back' ? 'back' : 'front';
+        badges.appendChild(positionBadge);
+
+        const appearance = (layer.slot || '').startsWith('appearance:');
+        if (index === 0){
+          const badge = document.createElement('span');
+          badge.className = 'part-preview__layer-badge';
+          badge.textContent = 'base';
+          if (appearance){
+            badge.classList.add('part-preview__layer-badge--appearance');
+          }
+          badges.appendChild(badge);
+        } else if (appearance){
+          const badge = document.createElement('span');
+          badge.className = 'part-preview__layer-badge part-preview__layer-badge--appearance';
+          badge.textContent = 'appearance';
+          badges.appendChild(badge);
+        }
+
+        item.appendChild(badges);
+        list.appendChild(item);
+      });
+      section.appendChild(list);
+    }
+
+    return section;
   }
 
   mergeLayerConfig(base = {}, override = {}){
@@ -2447,26 +2669,16 @@ class CosmeticEditorApp {
     }
   }
 
-  draw(){
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    renderAll(this.ctx);
-    renderSprites(this.ctx);
-    requestAnimationFrame(()=> this.draw());
-  }
-
   async bootstrap(){
     this.assetLibrary.setSelectedAsset(null);
     this.modeManager.bootstrap();
-    await initSprites();
-    initFighters(this.canvas, this.ctx, { spawnNpc: false, poseKey: 'Stance' });
-    GAME.CAMERA = GAME.CAMERA || { x: 0, worldWidth: this.canvas.width };
     await this.loadAssetManifest();
     this.slotGrid.rebuild();
     this.fighterManager.populateFighterSelect();
     this.attachEventListeners();
     this.slotGrid.refreshFromSelection();
     this.styleInspector.renderTintPreview();
-    this.draw();
+    this.queuePreviewRender();
   }
 }
 
