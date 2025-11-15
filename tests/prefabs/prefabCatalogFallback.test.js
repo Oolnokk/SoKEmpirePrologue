@@ -3,6 +3,18 @@ import assert from 'node:assert/strict';
 
 import { loadPrefabsFromManifests, __setJsonImportLoader } from '../../docs/js/prefab-catalog.js';
 
+class MockResponse {
+  constructor(body, { status = 200 } = {}) {
+    this._body = body;
+    this.status = status;
+    this.ok = status >= 200 && status < 300;
+  }
+
+  async json() {
+    return JSON.parse(this._body);
+  }
+}
+
 const MANIFEST_URL = 'file:///config/prefabs/obstructions/index.json';
 const PREFAB_URL = 'file:///config/prefabs/obstructions/blocking_crate.prefab.json';
 
@@ -183,5 +195,58 @@ test('loadPrefabsFromManifests falls back to XMLHttpRequest when JSON import is 
       global.XMLHttpRequest = originalXHR;
     }
     console.warn = originalWarn;
+  }
+});
+
+test('loadPrefabsFromManifests retries manifest downloads after failure', async () => {
+  const manifestUrl = 'https://cdn.example.test/prefabs/index.json';
+  const prefabUrl = 'https://cdn.example.test/prefabs/tower.prefab.json';
+  const originalDocument = global.document;
+  let manifestAttempts = 0;
+
+  const fetchImpl = async (url) => {
+    if (url === manifestUrl) {
+      manifestAttempts += 1;
+      if (manifestAttempts === 1) {
+        throw new Error('network unavailable');
+      }
+      return new MockResponse(JSON.stringify({
+        id: 'structures',
+        entries: [
+          { id: 'tower', path: './tower.prefab.json' },
+        ],
+      }));
+    }
+    if (url === prefabUrl) {
+      return new MockResponse(JSON.stringify({
+        structureId: 'Tower',
+        type: 'structure',
+        parts: [],
+      }));
+    }
+    throw new Error(`Unexpected URL ${url}`);
+  };
+
+  global.document = { baseURI: 'https://game.example.test/index.html' };
+
+  try {
+    const first = await loadPrefabsFromManifests([manifestUrl], { fetch: fetchImpl });
+    assert.equal(first.prefabs.size, 0);
+    assert.equal(first.errors.length, 1);
+    assert.equal(manifestAttempts, 1);
+
+    const second = await loadPrefabsFromManifests([manifestUrl], { fetch: fetchImpl });
+    assert.equal(manifestAttempts, 2);
+    assert.equal(second.prefabs.size, 1);
+    assert.equal(second.errors.length, 0);
+    const prefab = second.prefabs.get('tower');
+    assert.ok(prefab);
+    assert.equal(prefab.structureId, 'Tower');
+  } finally {
+    if (originalDocument === undefined) {
+      delete global.document;
+    } else {
+      global.document = originalDocument;
+    }
   }
 });
