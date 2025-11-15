@@ -21,6 +21,7 @@ const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
 RENDER.MIRROR = RENDER.MIRROR || {}; // Initialize per-limb mirror flags
 const WEAPON_SPRITE_CACHE = new Map();
+const COSMETIC_INFLUENCE_WEIGHT_LIMIT = 4;
 
 function ensureArray(value){
   if (value == null) return [];
@@ -32,6 +33,60 @@ function clampNumber(value, min, max){
   if (value < min) return min;
   if (value > max) return max;
   return value;
+}
+
+function clamp01(value){
+  if (!Number.isFinite(value)) return 0;
+  if (value <= 0) return 0;
+  if (value >= 1) return 1;
+  return value;
+}
+
+function lerp(a, b, t){
+  return a + (b - a) * t;
+}
+
+function pointToSegmentDistance(point, start, end){
+  if (!point || !start || !end) return 0;
+  const vx = end.x - start.x;
+  const vy = end.y - start.y;
+  const wx = point.x - start.x;
+  const wy = point.y - start.y;
+  const lenSq = vx * vx + vy * vy;
+  if (lenSq <= 1e-6){
+    return Math.hypot(wx, wy);
+  }
+  let t = (wx * vx + wy * vy) / lenSq;
+  t = clamp01(t);
+  const projX = start.x + vx * t;
+  const projY = start.y + vy * t;
+  return Math.hypot(point.x - projX, point.y - projY);
+}
+
+function resolveBoneEnd(bone){
+  if (!bone) return { x: 0, y: 0 };
+  if (Number.isFinite(bone.endX) && Number.isFinite(bone.endY)){
+    return { x: bone.endX, y: bone.endY };
+  }
+  const axis = basisFor(bone.ang);
+  return {
+    x: bone.x + axis.fx * (bone.len || 0),
+    y: bone.y + axis.fy * (bone.len || 0)
+  };
+}
+
+function resolveOffsetForBone(bone, axis, rawAx, rawAy, usePercentUnits){
+  let ax = rawAx;
+  let ay = rawAy;
+  if (usePercentUnits){
+    const len = Number.isFinite(bone.len) ? bone.len : 0;
+    ax *= len;
+    ay *= len;
+  }
+  return {
+    offsetX: ax * axis.fx + ay * axis.rx,
+    offsetY: ax * axis.fy + ay * axis.ry
+  };
 }
 
 function normalizeBodyColorOverride(source){
@@ -355,6 +410,64 @@ function resolveCosmeticMirror(rig, partKey, bone){
   }
 }
 
+function normalizeInfluenceSpec(spec){
+  if (!spec) return null;
+  if (typeof spec === 'string'){ return { bone: spec }; }
+  if (Array.isArray(spec) && spec.length){
+    const [bone, radius, inner, outer] = spec;
+    const obj = { bone };
+    if (radius != null) obj.radius = radius;
+    if (inner != null) obj.innerWeight = inner;
+    if (outer != null) obj.outerWeight = outer;
+    return obj;
+  }
+  if (spec && typeof spec === 'object'){
+    return spec;
+  }
+  return null;
+}
+
+function resolveCosmeticBoneInfluences(specList, rig, fallbackBoneKey){
+  if (!rig) return [];
+  const list = Array.isArray(specList) ? specList : (specList != null ? [specList] : []);
+  const resolved = [];
+  for (const rawSpec of list){
+    const spec = normalizeInfluenceSpec(rawSpec);
+    if (!spec) continue;
+    const boneKey = spec.bone || spec.boneKey || spec.id || spec.partKey || fallbackBoneKey;
+    if (!boneKey) continue;
+    const bone = rig[boneKey];
+    if (!bone) continue;
+    const boneLen = Number.isFinite(bone.len) ? Math.max(0, bone.len) : 0;
+    let radius = Number(spec.radius ?? spec.radiusPx);
+    if (!Number.isFinite(radius) || radius <= 0){
+      const scale = Number(spec.radiusScale ?? spec.radiusMultiplier ?? spec.radiusFactor);
+      if (Number.isFinite(scale)){
+        radius = Math.max(0, scale) * boneLen;
+      }
+    }
+    if (!Number.isFinite(radius) || radius <= 0){
+      const expand = Number(spec.expandRadius ?? spec.radiusAdd ?? spec.radiusOffset);
+      if (Number.isFinite(expand)){
+        radius = boneLen + expand;
+      }
+    }
+    if (!Number.isFinite(radius) || radius <= 0){
+      radius = boneLen > 0 ? boneLen * 0.75 : 24;
+    }
+    const innerRaw = Number(spec.innerWeight ?? spec.inner ?? spec.weightAtBone ?? spec.boneWeight ?? spec.startWeight ?? spec.nearWeight);
+    const outerRaw = Number(spec.outerWeight ?? spec.outer ?? spec.weightAtRadius ?? spec.radiusWeight ?? spec.endWeight ?? spec.farWeight);
+    const innerWeight = Number.isFinite(innerRaw)
+      ? clampNumber(innerRaw, -COSMETIC_INFLUENCE_WEIGHT_LIMIT, COSMETIC_INFLUENCE_WEIGHT_LIMIT)
+      : 1;
+    const outerWeight = Number.isFinite(outerRaw)
+      ? clampNumber(outerRaw, -COSMETIC_INFLUENCE_WEIGHT_LIMIT, COSMETIC_INFLUENCE_WEIGHT_LIMIT)
+      : 0;
+    resolved.push({ boneKey, bone, radius, innerWeight, outerWeight });
+  }
+  return resolved;
+}
+
 function normalizeAppearancePosition(position){
   if (position == null) return 'front';
   const normalized = String(position).trim().toLowerCase();
@@ -570,18 +683,10 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   const xform = (effectiveStyle.xform || {})[normalizedKey] || (effectiveStyle.xform || {})[styleKey] || {};
   const xformUnits = (effectiveStyle.xformUnits || 'px').toLowerCase();
 
-  const hasXformAx = xform.ax != null;
-  const hasXformAy = xform.ay != null;
-
-  let ax = xform.ax ?? 0;
-  let ay = xform.ay ?? 0;
-  if (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct') {
-    ax *= bone.len;
-    ay *= bone.len;
-  }
-  // Offsets in bone-local space
-  const offsetX = ax * bAxis.fx + ay * bAxis.rx;
-  const offsetY = ax * bAxis.fy + ay * bAxis.ry;
+  const rawAx = xform.ax ?? 0;
+  const rawAy = xform.ay ?? 0;
+  const usePercentUnits = (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct');
+  const { offsetX, offsetY } = resolveOffsetForBone(bone, bAxis, rawAx, rawAy, usePercentUnits);
   posX += offsetX;
   posY += offsetY;
 
@@ -635,18 +740,26 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
     ? buildFilterString(originalFilter, opts.hsl)
     : (originalFilter && originalFilter !== '' ? originalFilter : 'none');
   const warp = opts.warp;
+  const hasWarpSpec = warp && typeof warp === 'object';
+  const influences = Array.isArray(opts.boneInfluences)
+    ? opts.boneInfluences.filter((inf) => inf && inf.bone && Number.isFinite(inf.radius) && inf.radius > 0)
+    : [];
+  const shouldWarp = hasWarpSpec || influences.length > 0;
+
   ctx.save();
   ctx.filter = filter;
-  if (warp && typeof warp === 'object'){
+
+  const keys = ['tl', 'tr', 'br', 'bl', 'center'];
+  const pts = {
+    tl: { x: -w / 2, y: -h / 2 },
+    tr: { x:  w / 2, y: -h / 2 },
+    br: { x:  w / 2, y:  h / 2 },
+    bl: { x: -w / 2, y:  h / 2 },
+    center: { x: 0, y: 0 }
+  };
+
+  if (hasWarpSpec){
     const units = (warp.units || 'percent').toLowerCase();
-    const pts = {
-      tl: { x: -w / 2, y: -h / 2 },
-      tr: { x:  w / 2, y: -h / 2 },
-      br: { x:  w / 2, y:  h / 2 },
-      bl: { x: -w / 2, y:  h / 2 },
-      center: { x: 0, y: 0 }
-    };
-    const keys = ['tl','tr','br','bl','center'];
     const convert = (val, size) => {
       if (!Number.isFinite(val)) return 0;
       if (units === 'percent' || units === '%' || units === 'pct'){
@@ -662,20 +775,77 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
       pts[key].x += dx;
       pts[key].y += dy;
     }
-    const cosT = Math.cos(theta);
-    const sinT = Math.sin(theta);
-    const dest = {};
+  }
+
+  const localPoints = {};
+  for (const key of keys){
+    localPoints[key] = { x: pts[key].x, y: pts[key].y };
+  }
+
+  const cosT = Math.cos(theta);
+  const sinT = Math.sin(theta);
+  const baseDest = {};
+  for (const key of keys){
+    const local = pts[key];
+    const rx = local.x * cosT - local.y * sinT;
+    const ry = local.x * sinT + local.y * cosT;
+    baseDest[key] = { x: posX + rx, y: posY + ry };
+  }
+
+  let finalDest = baseDest;
+  if (influences.length){
+    finalDest = {};
     for (const key of keys){
-      const local = pts[key];
-      const rx = local.x * cosT - local.y * sinT;
-      const ry = local.x * sinT + local.y * cosT;
-      dest[key] = { x: posX + rx, y: posY + ry };
+      finalDest[key] = { x: baseDest[key].x, y: baseDest[key].y };
     }
-    drawWarpedImage(ctx, sourceImage, dest, w, h);
+    const referenceDest = baseDest;
+    for (const influence of influences){
+      const targetBone = influence.bone;
+      const radius = influence.radius;
+      if (!targetBone || !(radius > 0)) continue;
+      const axis = basisFor(targetBone.ang);
+      let infPosX;
+      let infPosY;
+      if (resolvedAnchorMode === 'start'){
+        infPosX = targetBone.x;
+        infPosY = targetBone.y;
+      } else {
+        infPosX = targetBone.x + (targetBone.len || 0) * 0.5 * axis.fx;
+        infPosY = targetBone.y + (targetBone.len || 0) * 0.5 * axis.fy;
+      }
+      const { offsetX: infOffsetX, offsetY: infOffsetY } = resolveOffsetForBone(targetBone, axis, rawAx, rawAy, usePercentUnits);
+      infPosX += infOffsetX;
+      infPosY += infOffsetY;
+      const thetaInf = targetBone.ang + alignRad + extraRotRad + Math.PI;
+      const cosInf = Math.cos(thetaInf);
+      const sinInf = Math.sin(thetaInf);
+      const segStart = { x: targetBone.x, y: targetBone.y };
+      const segEnd = resolveBoneEnd(targetBone);
+      for (const key of keys){
+        const local = localPoints[key];
+        const refPoint = referenceDest[key];
+        const dist = pointToSegmentDistance(refPoint, segStart, segEnd);
+        if (!(dist <= radius)) continue;
+        const t = radius > 0 ? clamp01(dist / radius) : 0;
+        const weight = lerp(influence.innerWeight, influence.outerWeight, t);
+        if (!Number.isFinite(weight) || weight === 0) continue;
+        const clampedWeight = clampNumber(weight, -COSMETIC_INFLUENCE_WEIGHT_LIMIT, COSMETIC_INFLUENCE_WEIGHT_LIMIT);
+        const rxInf = local.x * cosInf - local.y * sinInf;
+        const ryInf = local.x * sinInf + local.y * cosInf;
+        const targetX = infPosX + rxInf;
+        const targetY = infPosY + ryInf;
+        finalDest[key].x += (targetX - refPoint.x) * clampedWeight;
+        finalDest[key].y += (targetY - refPoint.y) * clampedWeight;
+      }
+    }
+  }
+
+  if (shouldWarp){
+    drawWarpedImage(ctx, sourceImage, finalDest, w, h);
   } else {
     ctx.translate(posX, posY);
     ctx.rotate(theta);
-    ctx.drawImage(sourceImage, -w/2, -h/2, w, h);
+    ctx.drawImage(sourceImage, -w / 2, -h / 2, w, h);
   }
   ctx.restore();
   return true;
@@ -800,14 +970,19 @@ export function renderSprites(ctx){
           const styleKey = layer.styleKey || fallbackStyleKey || layer.partKey;
           const baseTint = makeTintOptions(layer.asset);
           const mergedTint = mergeTintOptions(baseTint?.hsl, layer.hsl ?? layer.hsv);
-          const options = applyAnimOptions(styleKey, {
+          const influences = resolveCosmeticBoneInfluences(layer.extra?.boneInfluences, rig, layer.partKey);
+          const baseOptions = {
             styleOverride: layer.styleOverride,
             hsl: mergedTint,
             warp: layer.warp,
             alignRad: layer.alignRad,
             alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
             palette: layer.palette
-          });
+          };
+          if (influences.length){
+            baseOptions.boneInfluences = influences;
+          }
+          const options = applyAnimOptions(styleKey, baseOptions);
           drawBoneSprite(ctx, layer.asset, bone, styleKey, style, options);
         }
       });
@@ -996,16 +1171,22 @@ export function renderSprites(ctx){
         const slotTag = cosmeticTagFor(baseTag, layer.slot, layer.position);
         const styleKey = layer.styleKey || layer.partKey;
         const { mirror, originX } = resolveCosmeticMirror(rig, layer.partKey, bone);
+        const influences = resolveCosmeticBoneInfluences(layer.extra?.boneInfluences, rig, layer.partKey);
+        const baseOptions = {
+          styleOverride: layer.styleOverride,
+          hsl: layer.hsl ?? layer.hsv,
+          warp: layer.warp,
+          alignRad: layer.alignRad,
+          alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
+          palette: layer.palette
+        };
+        if (influences.length){
+          baseOptions.boneInfluences = influences;
+        }
         enqueue(slotTag, ()=>{
           withBranchMirror(ctx, originX, mirror, ()=>{
-            drawBoneSprite(ctx, layer.asset, bone, styleKey, style, applyAnimOptions(styleKey, {
-              styleOverride: layer.styleOverride,
-              hsl: layer.hsl ?? layer.hsv,
-              warp: layer.warp,
-              alignRad: layer.alignRad,
-              alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
-              palette: layer.palette
-            }));
+            const drawOptions = applyAnimOptions(styleKey, baseOptions);
+            drawBoneSprite(ctx, layer.asset, bone, styleKey, style, drawOptions);
           });
         });
       }
