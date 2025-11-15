@@ -22,6 +22,25 @@ const DEFAULT_APPEARANCE_SLOTS = [
   'appearance:other'
 ];
 
+const DRAPE_DEFAULT_BONE_LENGTHS = {
+  torso: 64,
+  arm_L_upper: 46,
+  arm_R_upper: 46,
+  arm_L_lower: 42,
+  arm_R_lower: 42,
+  arm_L: 44,
+  arm_R: 44,
+  leg_L_upper: 58,
+  leg_R_upper: 58,
+  leg_L_lower: 54,
+  leg_R_lower: 54,
+  head: 36,
+  shoulder_L: 40,
+  shoulder_R: 40
+};
+
+const DRAPE_WEIGHT_CLAMP = { min: -1.5, max: 1.5 };
+
 class CosmeticEditorApp {
   constructor(){
     this.state = this.createInitialState();
@@ -104,20 +123,25 @@ class CosmeticEditorApp {
   }
 
   buildModeManagerApi(){
-    const MODE_DEFINITIONS = {
-      appearance: {
-        enableSpriteEditing: false,
-        enableCreator: false
-      },
-      clothing: {
-        enableSpriteEditing: true,
-        enableCreator: true
-      },
-      fighterSprites: {
-        enableSpriteEditing: true,
-        enableCreator: false
-      }
-    };
+      const MODE_DEFINITIONS = {
+        appearance: {
+          enableSpriteEditing: false,
+          enableCreator: false
+        },
+        clothing: {
+          enableSpriteEditing: true,
+          enableCreator: true
+        },
+        draping: {
+          enableSpriteEditing: true,
+          enableCreator: false,
+          enableDrapeEditor: true
+        },
+        fighterSprites: {
+          enableSpriteEditing: true,
+          enableCreator: false
+        }
+      };
 
     const resolveModeKey = (mode)=> MODE_DEFINITIONS[mode] ? mode : 'clothing';
     const getModeConfig = (mode)=> MODE_DEFINITIONS[resolveModeKey(mode)];
@@ -153,24 +177,28 @@ class CosmeticEditorApp {
       return typeof slot === 'string' && slot.startsWith(FIGHTER_SPRITE_SLOT_PREFIX);
     };
 
-    const slotMatchesMode = (slot, mode, appearanceKeys)=>{
-      const resolved = resolveModeKey(mode);
-      if (slot.startsWith('appearance:')){
-        return resolved === 'appearance';
-      }
-      if (isFighterSpriteSlot(slot)){
-        return resolved === 'fighterSprites';
-      }
-      const appearanceSlot = isAppearanceSlotName(slot, appearanceKeys);
-      if (resolved === 'appearance'){
-        return appearanceSlot;
-      }
-      if (resolved === 'fighterSprites'){
-        return false;
-      }
-      if (appearanceSlot) return false;
-      return true;
-    };
+      const slotMatchesMode = (slot, mode, appearanceKeys)=>{
+        const resolved = resolveModeKey(mode);
+        if (slot.startsWith('appearance:')){
+          return resolved === 'appearance';
+        }
+        if (isFighterSpriteSlot(slot)){
+          return resolved === 'fighterSprites';
+        }
+        const appearanceSlot = isAppearanceSlotName(slot, appearanceKeys);
+        if (resolved === 'draping'){
+          if (appearanceSlot) return false;
+          return true;
+        }
+        if (resolved === 'appearance'){
+          return appearanceSlot;
+        }
+        if (resolved === 'fighterSprites'){
+          return false;
+        }
+        if (appearanceSlot) return false;
+        return true;
+      };
 
     const getActiveSlotKeys = ()=>{
       const mode = resolveModeKey(this.state.activeMode);
@@ -216,10 +244,11 @@ class CosmeticEditorApp {
       this.dom.creatorAddBtn && (this.dom.creatorAddBtn.disabled = !creatorEnabled);
       this.dom.creatorEquipBtn && (this.dom.creatorEquipBtn.disabled = !creatorEnabled);
       this.dom.creatorApplyBtn && (this.dom.creatorApplyBtn.disabled = !creatorEnabled);
-      if (this.dom.styleInspector){
-        this.dom.styleInspector.dataset.spriteEnabled = getModeConfig(mode)?.enableSpriteEditing ? 'true' : 'false';
-      }
-    };
+        if (this.dom.styleInspector){
+          this.dom.styleInspector.dataset.spriteEnabled = getModeConfig(mode)?.enableSpriteEditing ? 'true' : 'false';
+          this.dom.styleInspector.dataset.drapeEnabled = getModeConfig(mode)?.enableDrapeEditor ? 'true' : 'false';
+        }
+      };
 
     const populateCreatorSlotOptions = ()=>{
       const select = this.dom.creatorSlotSelect;
@@ -1498,6 +1527,110 @@ class CosmeticEditorApp {
       }
     };
 
+    const buildDrapeEditorRow = (slot, partKey, layerPosition, index, entry, baseEntry, baseList)=>{
+      const row = document.createElement('div');
+      row.className = 'drape-row';
+
+      const makeInput = (labelText, value, placeholder, { step = '0.01', type = 'number', key })=>{
+        const wrapper = document.createElement('label');
+        const label = document.createElement('span');
+        label.textContent = labelText;
+        const input = document.createElement('input');
+        input.type = type;
+        if (type === 'number'){
+          input.step = step;
+        }
+        input.value = value != null ? value : '';
+        if (placeholder != null && placeholder !== value){
+          input.placeholder = placeholder;
+        }
+        input.addEventListener('change', (event)=>{
+          this.updateBoneInfluenceValue(slot, partKey, layerPosition, index, key, event.target.value, baseList);
+        });
+        wrapper.appendChild(label);
+        wrapper.appendChild(input);
+        row.appendChild(wrapper);
+        return input;
+      };
+
+      makeInput('Bone', entry?.bone ?? '', baseEntry?.bone ?? '', { type: 'text', key: 'bone', step: '1' });
+      makeInput('Radius scale', entry?.radiusScale ?? null, baseEntry?.radiusScale ?? null, { step: '0.05', key: 'radiusScale' });
+      makeInput('Radius px', (entry?.radius ?? entry?.radiusPx) ?? null, (baseEntry?.radius ?? baseEntry?.radiusPx) ?? null, { step: '1', key: 'radius' });
+      makeInput('Inner weight', entry?.innerWeight ?? null, baseEntry?.innerWeight ?? null, { step: '0.05', key: 'innerWeight' });
+      makeInput('Outer weight', entry?.outerWeight ?? null, baseEntry?.outerWeight ?? null, { step: '0.05', key: 'outerWeight' });
+
+      const swatch = document.createElement('div');
+      swatch.className = 'drape-row__heat-swatch';
+      swatch.style.background = this.buildInfluenceGradient(entry?.innerWeight, entry?.outerWeight);
+      row.appendChild(swatch);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'drape-row__remove';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', ()=>{
+        this.removeBoneInfluence(slot, partKey, layerPosition, index, baseList);
+      });
+      row.appendChild(removeBtn);
+
+      return row;
+    };
+
+    const renderDrapeEditor = (slot, cosmetic, partKey, layerPosition)=>{
+      const section = document.createElement('section');
+      section.className = 'drape-editor';
+      section.dataset.source = 'base';
+
+      const header = document.createElement('div');
+      header.className = 'drape-editor__header';
+      const title = document.createElement('h3');
+      title.textContent = 'Bone influence map';
+      header.appendChild(title);
+
+      const context = document.createElement('span');
+      context.className = 'panel-hint';
+      const config = this.getBoneInfluenceConfig(slot, cosmetic, partKey, layerPosition);
+      const baseList = Array.isArray(config?.baseList) ? config.baseList : [];
+      const effectiveList = Array.isArray(config?.list) ? config.list : [];
+      const source = config?.source || 'base';
+      context.textContent = source === 'override'
+        ? 'Editing override values for this layer.'
+        : 'Editing will create override values for this layer.';
+      header.appendChild(context);
+      section.appendChild(header);
+      section.dataset.source = source;
+
+      const rows = document.createElement('div');
+      rows.className = 'drape-editor__rows';
+
+      if (!effectiveList.length){
+        const empty = document.createElement('p');
+        empty.className = 'drape-editor__empty';
+        empty.textContent = 'No bone influences configured for this layer.';
+        section.appendChild(empty);
+      } else {
+        effectiveList.forEach((entry, index)=>{
+          const baseEntry = baseList[index] || null;
+          rows.appendChild(buildDrapeEditorRow(slot, partKey, layerPosition, index, entry || {}, baseEntry || {}, baseList));
+        });
+        section.appendChild(rows);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'drape-editor__actions';
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'drape-editor__add';
+      addBtn.textContent = 'Add Influence';
+      addBtn.addEventListener('click', ()=>{
+        this.addBoneInfluence(slot, partKey, layerPosition, baseList);
+      });
+      actions.appendChild(addBtn);
+      section.appendChild(actions);
+
+      this.dom.styleFields.appendChild(section);
+    };
+
     const renderStyleFields = (slot, cosmeticId, cosmetic, partKey, layerPosition)=>{
       this.dom.styleFields.innerHTML = '';
       const isSpriteMode = !!this.modeManager.getModeConfig(this.state.activeMode)?.enableSpriteEditing;
@@ -1580,6 +1713,9 @@ class CosmeticEditorApp {
       }
       this.dom.styleFields.appendChild(paletteContainer);
       renderPaletteEditor(paletteContainer);
+      if (this.modeManager.getModeConfig(this.state.activeMode)?.enableDrapeEditor){
+        renderDrapeEditor(slot, cosmetic, partKey, layerPosition);
+      }
     };
 
     const show = (slot)=>{
@@ -2419,6 +2555,20 @@ class CosmeticEditorApp {
                 delete layerOverride.palette;
               }
             }
+            if (layerOverride?.extra){
+              const extra = layerOverride.extra;
+              if (Array.isArray(extra.boneInfluences)){
+                extra.boneInfluences = extra.boneInfluences
+                  .map((entry)=> this.sanitizeBoneInfluenceEntry(entry))
+                  .filter((entry)=> this.hasBoneInfluenceContent(entry));
+                if (!extra.boneInfluences.length){
+                  delete extra.boneInfluences;
+                }
+              }
+              if (extra && Object.keys(extra).length === 0){
+                delete layerOverride.extra;
+              }
+            }
             if (layerOverride?.hsl && Object.keys(layerOverride.hsl).length === 0){
               delete layerOverride.hsl;
             }
@@ -2443,6 +2593,20 @@ class CosmeticEditorApp {
         }
         if (spriteStyle && Object.keys(spriteStyle).length === 0){
           delete partOverride.spriteStyle;
+        }
+        if (partOverride?.extra){
+          const extra = partOverride.extra;
+          if (Array.isArray(extra.boneInfluences)){
+            extra.boneInfluences = extra.boneInfluences
+              .map((entry)=> this.sanitizeBoneInfluenceEntry(entry))
+              .filter((entry)=> this.hasBoneInfluenceContent(entry));
+            if (!extra.boneInfluences.length){
+              delete extra.boneInfluences;
+            }
+          }
+          if (extra && Object.keys(extra).length === 0){
+            delete partOverride.extra;
+          }
         }
         if (partOverride?.styleKey && !partOverride?.spriteStyle?.xform?.[partOverride.styleKey]){
           delete partOverride.styleKey;
@@ -2576,6 +2740,283 @@ class CosmeticEditorApp {
       return partLayer.image.url;
     }
     return cosmetic?.parts?.[partKey]?.image?.url || '';
+  }
+
+  getBoneInfluenceConfig(slot, cosmetic, partKey, layerPosition){
+    const normalizedLayer = this.normalizeLayerPosition(layerPosition);
+    const partLayer = this.getCosmeticPartLayerConfig(cosmetic, partKey, normalizedLayer) || {};
+    const baseList = Array.isArray(partLayer?.extra?.boneInfluences)
+      ? partLayer.extra.boneInfluences
+      : [];
+    const overrideLayer = this.getLayerOverride(slot, partKey, normalizedLayer) || null;
+    const overrideList = overrideLayer?.extra?.boneInfluences;
+    if (Array.isArray(overrideList)){
+      return { list: overrideList, source: 'override', baseList };
+    }
+    return { list: baseList, source: 'base', baseList };
+  }
+
+  sanitizeBoneInfluenceEntry(entry = {}){
+    if (!entry || typeof entry !== 'object') return {};
+    const result = {};
+    const boneKey = entry.bone ?? entry.boneKey ?? entry.id ?? entry.partKey;
+    if (boneKey != null){
+      const trimmed = String(boneKey).trim();
+      if (trimmed){
+        result.bone = trimmed;
+      }
+    }
+    const numericKeys = ['radius', 'radiusPx', 'radiusScale', 'innerWeight', 'outerWeight'];
+    for (const key of numericKeys){
+      const value = Number(entry[key]);
+      if (Number.isFinite(value)){
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+
+  hasBoneInfluenceContent(entry){
+    if (!entry || typeof entry !== 'object') return false;
+    if (entry.bone && String(entry.bone).trim()) return true;
+    return ['radius', 'radiusPx', 'radiusScale', 'innerWeight', 'outerWeight']
+      .some((key)=> Number.isFinite(entry[key]));
+  }
+
+  mutateBoneInfluences(slot, partKey, layerPosition, baseList, mutator){
+    if (!slot || !partKey || typeof mutator !== 'function') return;
+    const normalizedLayer = this.normalizeLayerPosition(layerPosition);
+    const layerOverride = this.getLayerOverride(slot, partKey, normalizedLayer, { create: true });
+    layerOverride.extra ||= {};
+    let list = layerOverride.extra.boneInfluences;
+    if (!Array.isArray(list)){
+      list = Array.isArray(baseList)
+        ? baseList.map((entry)=> this.deepClone(entry))
+        : [];
+      layerOverride.extra.boneInfluences = list;
+    }
+    mutator(layerOverride.extra.boneInfluences);
+    const sanitized = [];
+    for (const entry of layerOverride.extra.boneInfluences){
+      const clean = this.sanitizeBoneInfluenceEntry(entry);
+      if (this.hasBoneInfluenceContent(clean)){
+        sanitized.push(clean);
+      }
+    }
+    if (sanitized.length){
+      layerOverride.extra.boneInfluences = sanitized;
+    } else {
+      delete layerOverride.extra.boneInfluences;
+    }
+    if (layerOverride.extra && Object.keys(layerOverride.extra).length === 0){
+      delete layerOverride.extra;
+    }
+    this.cleanupEmptyOverrides(slot);
+    this.overrideManager.refreshOutputs();
+    this.queuePreviewRender();
+    if (this.state.activeSlot === slot){
+      this.styleInspector.show(slot);
+    }
+  }
+
+  updateBoneInfluenceValue(slot, partKey, layerPosition, index, key, rawValue, baseList){
+    if (!Number.isInteger(index) || index < 0) return;
+    this.mutateBoneInfluences(slot, partKey, layerPosition, baseList, (list)=>{
+      while (list.length <= index){
+        list.push({});
+      }
+      const current = list[index] || {};
+      const next = { ...current };
+      if (key === 'bone'){
+        const value = String(rawValue || '').trim();
+        if (value){
+          next.bone = value;
+        } else {
+          delete next.bone;
+        }
+      } else {
+        const numeric = Number(rawValue);
+        if (rawValue === '' || Number.isNaN(numeric)){
+          delete next[key];
+        } else {
+          next[key] = numeric;
+        }
+      }
+      list[index] = next;
+    });
+  }
+
+  removeBoneInfluence(slot, partKey, layerPosition, index, baseList){
+    if (!Number.isInteger(index) || index < 0) return;
+    this.mutateBoneInfluences(slot, partKey, layerPosition, baseList, (list)=>{
+      if (index >= list.length) return;
+      list.splice(index, 1);
+    });
+  }
+
+  addBoneInfluence(slot, partKey, layerPosition, baseList){
+    this.mutateBoneInfluences(slot, partKey, layerPosition, baseList, (list)=>{
+      list.push({ bone: '', radiusScale: 1, innerWeight: 1, outerWeight: 0 });
+    });
+  }
+
+  resolveInfluenceRadiusPx(influence){
+    if (!influence || typeof influence !== 'object'){
+      return 64;
+    }
+    const radius = Number(influence.radius ?? influence.radiusPx);
+    if (Number.isFinite(radius) && radius > 0){
+      return radius;
+    }
+    const scale = Number(influence.radiusScale);
+    if (Number.isFinite(scale) && scale > 0){
+      const base = DRAPE_DEFAULT_BONE_LENGTHS[influence.bone] || DRAPE_DEFAULT_BONE_LENGTHS[influence.boneKey] || 48;
+      return Math.max(12, base * scale);
+    }
+    const fallback = DRAPE_DEFAULT_BONE_LENGTHS[influence.bone] || DRAPE_DEFAULT_BONE_LENGTHS[influence.boneKey];
+    return fallback || 64;
+  }
+
+  weightToHeatColor(weight){
+    if (!Number.isFinite(weight)){
+      return 'rgba(148,163,184,0.55)';
+    }
+    const min = DRAPE_WEIGHT_CLAMP.min;
+    const max = DRAPE_WEIGHT_CLAMP.max;
+    const clamped = Math.max(min, Math.min(max, weight));
+    const normalized = (clamped - min) / (max - min);
+    const hue = 210 - normalized * 180;
+    const saturation = 80;
+    const lightness = 60 - Math.abs(clamped) * 12;
+    return `hsl(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.max(18, Math.round(lightness))}%)`;
+  }
+
+  buildInfluenceGradient(innerWeight, outerWeight){
+    const innerColor = this.weightToHeatColor(innerWeight);
+    const midColor = this.weightToHeatColor(
+      Number.isFinite(innerWeight) && Number.isFinite(outerWeight)
+        ? (innerWeight + outerWeight) / 2
+        : innerWeight ?? outerWeight
+    );
+    const outerColor = this.weightToHeatColor(outerWeight);
+    return `radial-gradient(circle at 50% 45%, ${innerColor} 0%, ${midColor} 55%, ${outerColor} 100%)`;
+  }
+
+  formatInfluenceValue(value, digits = 2){
+    if (!Number.isFinite(value)) return '—';
+    return Number.parseFloat(value).toFixed(digits);
+  }
+
+  buildDrapeBox(influence, { slot, cosmeticId, label, isActive, source, index } = {}){
+    if (!influence || typeof influence !== 'object') return null;
+    const box = document.createElement('div');
+    box.className = 'drape-overlay__box';
+    if (isActive){
+      box.dataset.active = 'true';
+    }
+    if (source){
+      box.dataset.source = source;
+    }
+    const gradient = this.buildInfluenceGradient(influence.innerWeight, influence.outerWeight);
+    const heat = document.createElement('div');
+    heat.className = 'drape-overlay__heat';
+    heat.style.background = gradient;
+    box.appendChild(heat);
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'drape-overlay__box-label';
+    const title = document.createElement('div');
+    const boneName = influence.bone || influence.boneKey || influence.id || 'Bone';
+    title.textContent = boneName;
+    labelEl.appendChild(title);
+
+    const innerMetric = document.createElement('span');
+    innerMetric.className = 'drape-overlay__metric';
+    innerMetric.textContent = `inner ${this.formatInfluenceValue(influence.innerWeight)}`;
+    labelEl.appendChild(innerMetric);
+
+    const outerMetric = document.createElement('span');
+    outerMetric.className = 'drape-overlay__metric';
+    outerMetric.textContent = `outer ${this.formatInfluenceValue(influence.outerWeight)}`;
+    labelEl.appendChild(outerMetric);
+
+    const radiusMetric = document.createElement('span');
+    radiusMetric.className = 'drape-overlay__metric';
+    radiusMetric.textContent = `radius ${this.formatInfluenceValue(this.resolveInfluenceRadiusPx(influence), 1)}`;
+    labelEl.appendChild(radiusMetric);
+
+    box.appendChild(labelEl);
+
+    const minHeight = Math.max(72, Math.min(220, this.resolveInfluenceRadiusPx(influence) * 1.5));
+    box.style.minHeight = `${Math.round(minHeight)}px`;
+    box.title = [
+      label ? `${label}` : '',
+      slot ? `Slot: ${slot}` : '',
+      cosmeticId ? `Cosmetic: ${cosmeticId}` : '',
+      Number.isInteger(index) ? `Index: ${index}` : ''
+    ].filter(Boolean).join('\n');
+
+    return box;
+  }
+
+  buildDrapeOverlay(layers = [], library, partKey){
+    const overlay = document.createElement('div');
+    overlay.className = 'drape-overlay';
+    const groups = [];
+    const seen = new Set();
+    for (const layer of Array.isArray(layers) ? layers : []){
+      if (!layer || typeof layer !== 'object') continue;
+      const slot = layer.slot;
+      const cosmeticId = layer.cosmeticId;
+      if (!slot || !cosmeticId) continue;
+      const position = this.normalizeLayerPosition(layer.position);
+      const key = `${slot}::${cosmeticId}::${position}`;
+      if (seen.has(key)) continue;
+      const cosmetic = library?.[cosmeticId];
+      const { list, source, baseList } = this.getBoneInfluenceConfig(slot, cosmetic, partKey, position);
+      const values = Array.isArray(list) && list.length
+        ? list
+        : (Array.isArray(baseList) ? baseList : []);
+      if (!values.length) continue;
+      seen.add(key);
+      groups.push({
+        slot,
+        cosmeticId,
+        position,
+        source,
+        label: cosmetic?.name || cosmetic?.displayName || cosmetic?.label || cosmeticId,
+        isActive: this.state.activeSlot === slot,
+        influences: this.deepClone(values)
+      });
+    }
+    if (!groups.length){
+      overlay.dataset.empty = 'true';
+      const note = document.createElement('span');
+      note.textContent = 'No bone influences configured for this layer.';
+      overlay.appendChild(note);
+      return overlay;
+    }
+    groups.sort((a, b)=>{
+      if (a.slot !== b.slot) return a.slot.localeCompare(b.slot);
+      if (a.cosmeticId !== b.cosmeticId) return a.cosmeticId.localeCompare(b.cosmeticId);
+      return a.position.localeCompare(b.position);
+    });
+    for (const group of groups){
+      group.influences.forEach((influence, index)=>{
+        const box = this.buildDrapeBox(influence, {
+          slot: group.slot,
+          cosmeticId: group.cosmeticId,
+          label: group.label,
+          isActive: group.isActive,
+          source: group.source,
+          index
+        });
+        if (box){
+          overlay.appendChild(box);
+        }
+      });
+    }
+    return overlay;
   }
 
   attachEventListeners(){
