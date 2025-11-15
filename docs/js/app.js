@@ -532,6 +532,7 @@ const coordHud = $$('#coordHud');
 const boneKeyList = $$('#boneKeyList');
 const helpBtn = $$('#btnHelp');
 const helpPanel = $$('#helpPanel');
+const teleportBtn = $$('#btnTeleportSpawn');
 
 if (helpBtn && helpPanel) {
   const setHelpVisible = (visible) => {
@@ -582,6 +583,15 @@ if (reloadBtn){
     } catch (e){
       if (statusInfo) statusInfo.textContent = 'Config reload failed';
       console.error(e);
+    }
+  });
+}
+
+if (teleportBtn) {
+  teleportBtn.addEventListener('click', () => {
+    const success = teleportPlayerAboveSpawn(100);
+    if (!success) {
+      console.warn('[teleport] Unable to teleport player – fighter not initialized yet');
     }
   });
 }
@@ -1406,20 +1416,280 @@ function resolveActiveParallaxArea() {
   return null;
 }
 
-const LAYER_DEBUG_COLORS = {
-  parallax: '#1f2937',
-  background: '#0f172a',
-  gameplay: '#1f3b4d',
-  foreground: '#334155',
-};
+function teleportPlayerAboveSpawn(offset = 100) {
+  const game = window.GAME || {};
+  const player = game.FIGHTERS?.player;
+  if (!player) {
+    return false;
+  }
 
-function pickLayerDebugColor(layer, index) {
-  const type = (layer?.type || '').toString().toLowerCase();
-  const base = LAYER_DEBUG_COLORS[type] || '#1f2937';
-  if (!base.startsWith('#') || base.length !== 7) return base;
-  const shade = Math.max(0, Math.min(0xff, 0x20 + index * 16));
-  const component = shade.toString(16).padStart(2, '0');
-  return `#${component}${base.slice(3, 5)}${base.slice(5)}`;
+  const spawnMeta = game.FIGHTER_SPAWNS?.player || {};
+  const spawnPoint = game.spawnPoints?.player || {};
+  const currentPos = player.pos || { x: 0, y: 0 };
+
+  const spawnX = Number.isFinite(spawnMeta.x)
+    ? spawnMeta.x
+    : (Number.isFinite(spawnPoint.x) ? spawnPoint.x : (Number.isFinite(currentPos.x) ? currentPos.x : 0));
+  const baseY = Number.isFinite(spawnMeta.y)
+    ? spawnMeta.y
+    : (Number.isFinite(spawnPoint.y) ? spawnPoint.y : (Number.isFinite(currentPos.y) ? currentPos.y : 0));
+
+  const offsetMagnitude = Math.abs(Number(offset) || 0);
+  const targetY = baseY - offsetMagnitude;
+
+  player.pos = { x: spawnX, y: targetY };
+  if (player.vel) {
+    player.vel.x = 0;
+    player.vel.y = 0;
+  }
+  player.onGround = false;
+  player.prevOnGround = false;
+  player.recovering = false;
+  player.recoveryTime = 0;
+  if (Number.isFinite(baseY)) {
+    player.recoveryTargetY = baseY;
+  }
+
+  if (player.attack) {
+    player.attack.active = false;
+    player.attack.currentActiveKeys = [];
+    if (player.attack.lunge) {
+      player.attack.lunge.active = false;
+      player.attack.lunge.paused = false;
+      player.attack.lunge.distance = 0;
+    }
+  }
+  if (player.combo) {
+    player.combo.active = false;
+    player.combo.sequenceIndex = 0;
+    player.combo.attackDelay = 0;
+  }
+  if (player.aiInput) {
+    player.aiInput.left = false;
+    player.aiInput.right = false;
+    player.aiInput.jump = false;
+  }
+
+  game.CAMERA?.makeAware?.({ reason: 'teleport', duration: 0.4 });
+  return true;
+}
+
+const PREFAB_IMAGE_CACHE = new Map();
+const PREFAB_FALLBACK_LOG = new Set();
+
+function loadPrefabImage(url) {
+  if (!url || typeof url !== 'string') return null;
+  const existing = PREFAB_IMAGE_CACHE.get(url);
+  if (existing?.img) {
+    return existing.img;
+  }
+  if (existing?.failed) {
+    return null;
+  }
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.referrerPolicy = 'no-referrer';
+  img.decoding = 'async';
+  img.addEventListener('error', () => {
+    PREFAB_IMAGE_CACHE.set(url, { img: null, failed: true });
+  });
+  img.src = url;
+
+  PREFAB_IMAGE_CACHE.set(url, { img });
+  return img;
+}
+
+function prefabParts(prefab) {
+  const parts = [];
+  if (!prefab || typeof prefab !== 'object') {
+    return parts;
+  }
+
+  const addPart = (part, source) => {
+    if (!part || typeof part !== 'object') return;
+    parts.push({ part, source });
+  };
+
+  if (prefab.base) {
+    addPart(prefab.base, 'base');
+  }
+
+  if (Array.isArray(prefab.parts)) {
+    prefab.parts.forEach((part, index) => addPart(part, `part_${index}`));
+  }
+
+  return parts;
+}
+
+function prefabPartSortKey(entry) {
+  const layer = (entry?.part?.layer || '').toString().toLowerCase();
+  const z = Number(entry?.part?.z);
+  const rotationBias = Number(entry?.part?.drawOrder ?? entry?.part?.order ?? 0);
+  const layerPriority =
+    layer === 'near'
+      ? 3
+      : layer === 'foreground'
+        ? 2
+        : layer === 'mid'
+          ? 1
+          : 0;
+  return layerPriority * 10_000 + (Number.isFinite(z) ? z : 0) * 100 + rotationBias;
+}
+
+function drawPrefabPlaceholder(cx, left, top, width, height, { label, tint } = {}) {
+  const fill = tint || 'rgba(148, 163, 184, 0.28)';
+  const stroke = 'rgba(100, 116, 139, 0.6)';
+  cx.save();
+  cx.fillStyle = fill;
+  cx.strokeStyle = stroke;
+  cx.lineWidth = 1.5;
+  cx.fillRect(left, top, width, height);
+  cx.strokeRect(left, top, width, height);
+  if (label) {
+    cx.fillStyle = '#e2e8f0';
+    cx.font = '12px ui-monospace,Menlo,Consolas';
+    cx.textBaseline = 'top';
+    cx.fillText(label, left + 6, top + 6);
+  }
+  cx.restore();
+}
+
+function drawPrefabAsciiFallback(cx, left, top, lineHeight, lines) {
+  if (!Array.isArray(lines) || !lines.length) return;
+  const fontSize = Math.max(10, Math.min(14, lineHeight * 0.8));
+  cx.save();
+  cx.fillStyle = '#facc15';
+  cx.font = `${fontSize}px ui-monospace,Menlo,Consolas`;
+  cx.textBaseline = 'top';
+  lines.forEach((line, index) => {
+    cx.fillText(line, left + 6, top + 6 + index * lineHeight);
+  });
+  cx.restore();
+}
+
+function drawPrefabInstance(cx, inst, layer, groundY) {
+  if (!inst) return;
+  const prefab = inst.prefab;
+  const pos = inst.position || {};
+  const baseX = Number(pos.x) || 0;
+  const baseY = Number(pos.y) || 0;
+  const instanceScaleX = Number.isFinite(inst?.scale?.x)
+    ? inst.scale.x
+    : (Number.isFinite(inst?.scale?.y) ? inst.scale.y : 1);
+  const instanceScaleY = Number.isFinite(inst?.scale?.y)
+    ? inst.scale.y
+    : instanceScaleX;
+  const layerScale = Number.isFinite(layer?.scale) ? layer.scale : 1;
+  const scaleX = instanceScaleX * layerScale;
+  const scaleY = instanceScaleY * layerScale;
+  const instRotationDeg = Number(inst?.rotationDeg) || 0;
+  const instRotationRad = (instRotationDeg * Math.PI) / 180;
+
+  const parts = prefabParts(prefab);
+  const hasRenderableParts = parts.some((entry) => {
+    const tpl = entry?.part?.propTemplate;
+    return tpl && typeof tpl === 'object' && Number.isFinite(tpl.w) && Number.isFinite(tpl.h);
+  });
+
+  const drawFallbackBlock = (reason = 'missing') => {
+    const baseWidth = Number(inst?.meta?.original?.w || inst?.meta?.original?.width) || 140;
+    const baseHeight = Number(inst?.meta?.original?.h || inst?.meta?.original?.height) || 100;
+    const width = Math.max(24, baseWidth * scaleX);
+    const height = Math.max(24, baseHeight * scaleY);
+    cx.save();
+    cx.translate(baseX, groundY + baseY);
+    if (instRotationRad) cx.rotate(instRotationRad);
+    const left = -width / 2;
+    const top = -height;
+    const tint = reason === 'asset'
+      ? 'rgba(148, 163, 184, 0.22)'
+      : 'rgba(252, 211, 77, 0.28)';
+    drawPrefabPlaceholder(cx, left, top, width, height, { label: inst.prefabId || prefab?.id || 'prefab', tint });
+    if (prefab?.isFallback && Array.isArray(prefab.boxLines)) {
+      drawPrefabAsciiFallback(cx, left, top, 14, prefab.boxLines);
+    }
+    cx.restore();
+
+    const fallbackKey = prefab?.meta?.fallback?.prefabId || inst.prefabId || null;
+    if (prefab?.isFallback && fallbackKey && !PREFAB_FALLBACK_LOG.has(fallbackKey)) {
+      PREFAB_FALLBACK_LOG.add(fallbackKey);
+      window.bootDiagnostics?.fallback?.(
+        `Prefab ${fallbackKey} missing – displaying ASCII placeholder.`
+      );
+    }
+  };
+
+  if (!prefab || !hasRenderableParts) {
+    drawFallbackBlock('asset');
+    return;
+  }
+
+  const sortedParts = parts.sort((a, b) => prefabPartSortKey(a) - prefabPartSortKey(b));
+
+  cx.save();
+  cx.translate(baseX, groundY + baseY);
+  if (instRotationRad) cx.rotate(instRotationRad);
+
+  let drewAny = false;
+  for (const entry of sortedParts) {
+    const part = entry?.part;
+    if (!part || typeof part !== 'object') continue;
+    const template = part.propTemplate && typeof part.propTemplate === 'object' ? part.propTemplate : null;
+    const relX = Number(part.relX) || 0;
+    const relY = Number(part.relY) || 0;
+    const partScaleX = scaleX * (Number.isFinite(part.scaleX) ? part.scaleX : 1);
+    const partScaleY = scaleY * (Number.isFinite(part.scaleY) ? part.scaleY : (Number.isFinite(part.scaleX) ? part.scaleX : 1));
+    const partRotationDeg = Number(part.rotationDeg) || 0;
+    const partRotationRad = (partRotationDeg * Math.PI) / 180;
+
+    if (!template) {
+      cx.save();
+      cx.translate(relX * scaleX, relY * scaleY);
+      if (partRotationRad) cx.rotate(partRotationRad);
+      drawPrefabPlaceholder(cx, -60, -120, 120 * partScaleX, 120 * partScaleY, {
+        label: inst.prefabId || 'prefab',
+      });
+      cx.restore();
+      continue;
+    }
+
+    const width = Math.max(1, Number(template.w) || 0) * partScaleX;
+    const height = Math.max(1, Number(template.h) || 0) * partScaleY;
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      continue;
+    }
+
+    const anchorXPct = Number.isFinite(template.anchorXPct) ? template.anchorXPct : 50;
+    const anchorYPct = Number.isFinite(template.anchorYPct) ? template.anchorYPct : 100;
+    const anchorX = width * anchorXPct / 100;
+    const anchorY = height * anchorYPct / 100;
+    const url = typeof template.url === 'string' ? template.url : null;
+    const img = loadPrefabImage(url);
+    const ready = img && img.complete && !img.__broken && img.naturalWidth > 0 && img.naturalHeight > 0;
+
+    cx.save();
+    cx.translate(relX * scaleX, relY * scaleY);
+    if (partRotationRad) cx.rotate(partRotationRad);
+
+    if (ready) {
+      cx.drawImage(img, -anchorX, -anchorY, width, height);
+      drewAny = true;
+    } else {
+      drawPrefabPlaceholder(cx, -anchorX, -anchorY, width, height, {
+        label: template.id || inst.prefabId || prefab.structureId || 'prefab',
+        tint: 'rgba(148, 163, 184, 0.18)',
+      });
+    }
+
+    cx.restore();
+  }
+
+  cx.restore();
+
+  if (!drewAny) {
+    drawFallbackBlock('asset');
+  }
 }
 
 function drawEditorPreviewMap(cx, { camX, groundY }) {
@@ -1442,7 +1712,7 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
 
   layers.sort((a, b) => (a?.z ?? 0) - (b?.z ?? 0));
 
-  layers.forEach((layer, index) => {
+  layers.forEach((layer) => {
     const layerId = layer?.id;
     if (!layerId) return;
     const instances = instancesByLayer.get(layerId);
@@ -1450,33 +1720,12 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
 
     const parallax = Number.isFinite(layer?.parallax) ? layer.parallax : 1;
     const yOffset = Number(layer?.yOffset) || 0;
-    const scale = Number.isFinite(layer?.scale) ? layer.scale : 1;
-    const tint = pickLayerDebugColor(layer, index);
-
     cx.save();
     cx.translate((1 - parallax) * camX, yOffset);
-    cx.globalAlpha = layer?.type === 'foreground' ? 0.55 : 0.42;
-    cx.fillStyle = tint;
-    cx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
-    cx.lineWidth = 1.5;
+    cx.globalAlpha = 1;
 
     for (const inst of instances) {
-      const pos = inst?.position || {};
-      const x = Number(pos.x) || 0;
-      const y = Number(pos.y) || 0;
-      const scaleX = Number.isFinite(inst?.scale?.x) ? inst.scale.x : (Number.isFinite(inst?.scale?.y) ? inst.scale.y : 1);
-      const scaleY = Number.isFinite(inst?.scale?.y) ? inst.scale.y : scaleX;
-
-      const baseWidth = Number(inst?.meta?.original?.w || inst?.meta?.original?.width) || 120;
-      const baseHeight = Number(inst?.meta?.original?.h || inst?.meta?.original?.height) || 80;
-      const width = Math.max(24, baseWidth * scale * scaleX);
-      const height = Math.max(12, baseHeight * scale * scaleY);
-
-      const left = x - width / 2;
-      const top = groundY + y - height;
-
-      cx.fillRect(left, top, width, height);
-      cx.strokeRect(left, top, width, height);
+      drawPrefabInstance(cx, inst, layer, groundY);
     }
 
     cx.restore();
