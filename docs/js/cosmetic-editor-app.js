@@ -1,4 +1,4 @@
-import { initFighters } from './fighter.js?v=8';
+import { initFighters, resetFighterStateForTesting } from './fighter.js?v=8';
 import { renderAll } from './render.js?v=4';
 import { initSprites, renderSprites } from './sprites.js?v=8';
 import {
@@ -1870,6 +1870,21 @@ class CosmeticEditorApp {
         }
       }
 
+      const spawnMeta = GAME.FIGHTER_SPAWNS?.player || {};
+      resetFighterStateForTesting(playerEntry, {
+        x: Number.isFinite(playerEntry?.pos?.x) ? playerEntry.pos.x : spawnMeta.x,
+        y: Number.isFinite(playerEntry?.pos?.y) ? playerEntry.pos.y : spawnMeta.y,
+        spawnY: spawnMeta.y,
+        facingSign: 1,
+      });
+      if (playerEntry.walk){
+        playerEntry.walk.phase = 0;
+        playerEntry.walk.amp = 0;
+      }
+      if (playerEntry.anim?.breath){
+        playerEntry.anim.breath.active = false;
+      }
+
       const renderProfile = (playerEntry.renderProfile ||= {});
       renderProfile.fighterName = fighterName;
       renderProfile.characterKey = characterKey || null;
@@ -2426,7 +2441,7 @@ class CosmeticEditorApp {
     this.assetLibrary.setSelectedAsset(null);
     this.modeManager.bootstrap();
     await initSprites();
-    initFighters(this.canvas, this.ctx);
+    initFighters(this.canvas, this.ctx, { spawnNpc: false, poseKey: 'Stance' });
     GAME.CAMERA = GAME.CAMERA || { x: 0, worldWidth: this.canvas.width };
     await this.loadAssetManifest();
     this.slotGrid.rebuild();

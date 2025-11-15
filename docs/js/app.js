@@ -88,86 +88,70 @@ function applyWeaponToRenderProfile(target, weaponKey, { resetAnim = true } = {}
 
 function syncWeaponRuntimeForCharacter(characterKey, weaponKey, { fighterKey = null } = {}) {
   const G = window.GAME || {};
-  const normalizedCharacterKey = (typeof characterKey === 'string' && characterKey.trim())
-    ? characterKey.trim()
-    : 'player';
-  const normalizedFighterName = (typeof fighterKey === 'string' && fighterKey.trim())
-    ? fighterKey.trim()
-    : null;
-
+  const normalizedCharacterKey = characterKey || 'player';
   const fighters = G.FIGHTERS || {};
-  const targetedFighterIds = new Set();
-  const targetedCharacterKeys = new Set();
-  const targetedFighterNames = new Set();
-
   Object.entries(fighters).forEach(([id, fighter]) => {
     if (!fighter) return;
     const profile = fighter.renderProfile || {};
-    const fighterName = profile.fighterName || profile.fighter || null;
     const matchesCharacter = profile.characterKey === normalizedCharacterKey
       || (normalizedCharacterKey === 'player' && (fighter.isPlayer || id === 'player'));
-    const matchesFighterName = normalizedFighterName && fighterName === normalizedFighterName;
-    if (matchesCharacter || matchesFighterName) {
+    if (matchesCharacter || (fighterKey && id === fighterKey)) {
       applyWeaponToRenderProfile(fighter, weaponKey, { resetAnim: true });
-      targetedFighterIds.add(id);
-      if (profile.characterKey) targetedCharacterKeys.add(profile.characterKey);
-      if (fighterName) targetedFighterNames.add(fighterName);
     }
   });
 
   const templates = G.FIGHTER_TEMPLATES || {};
-  Object.values(templates).forEach((template) => {
+  Object.entries(templates).forEach(([id, template]) => {
     if (!template) return;
     const profile = template.renderProfile || {};
     const matchesCharacter = profile.characterKey === normalizedCharacterKey
-      || (normalizedCharacterKey === 'player' && (template.isPlayer || profile.characterKey === 'player'));
-    if (matchesCharacter) {
+      || (normalizedCharacterKey === 'player' && (template.isPlayer || id === 'player'));
+    if (matchesCharacter || (fighterKey && id === fighterKey)) {
       applyWeaponToRenderProfile(template, weaponKey, { resetAnim: false });
-      if (profile.characterKey) targetedCharacterKeys.add(profile.characterKey);
-      const fighterName = profile.fighterName || profile.fighter || null;
-      if (fighterName) targetedFighterNames.add(fighterName);
     }
   });
 
   const stateMap = G.CHARACTER_STATE;
   if (stateMap && typeof stateMap === 'object') {
     Object.entries(stateMap).forEach(([id, profile]) => {
-      const cachedCharacterKey = profile?.characterKey || (id === 'player' ? 'player' : null);
-      const cachedFighterName = profile?.fighterName || null;
-      const shouldUpdate = targetedFighterIds.has(id)
-        || (cachedCharacterKey && targetedCharacterKeys.has(cachedCharacterKey))
-        || (cachedFighterName && targetedFighterNames.has(cachedFighterName))
-        || (targetedCharacterKeys.has(id));
-      if (!shouldUpdate) return;
-
-      const sourceProfile = fighters[id]?.renderProfile || null;
-      if (sourceProfile) {
-        try {
-          stateMap[id] = JSON.parse(JSON.stringify(sourceProfile));
-        } catch (_err) {
-          stateMap[id] = { ...sourceProfile };
+      const source = fighters[id]?.renderProfile || null;
+      if (!profile || typeof profile !== 'object') {
+        if ((fighterKey && id === fighterKey) || (source && (source.characterKey === normalizedCharacterKey || (normalizedCharacterKey === 'player' && id === 'player')))) {
+          if (source) {
+            try {
+              stateMap[id] = JSON.parse(JSON.stringify(source));
+            } catch (_err) {
+              stateMap[id] = { ...source };
+            }
+          }
         }
         return;
       }
-
-      if (!profile || typeof profile !== 'object') return;
-      const clone = { ...profile, weapon: weaponKey };
-      if (clone.character && typeof clone.character === 'object') {
-        clone.character = { ...clone.character, weapon: weaponKey };
-      }
-      stateMap[id] = clone;
-    });
-
-    targetedFighterIds.forEach((id) => {
-      if (Object.prototype.hasOwnProperty.call(stateMap, id)) return;
-      const sourceProfile = fighters[id]?.renderProfile || null;
-      if (!sourceProfile) return;
-      try {
-        stateMap[id] = JSON.parse(JSON.stringify(sourceProfile));
-      } catch (_err) {
-        stateMap[id] = { ...sourceProfile };
+      const cachedKey = profile.characterKey || (id === normalizedCharacterKey ? normalizedCharacterKey : null);
+      if (cachedKey === normalizedCharacterKey || (fighterKey && id === fighterKey)) {
+        if (source) {
+          try {
+            stateMap[id] = JSON.parse(JSON.stringify(source));
+          } catch (_err) {
+            stateMap[id] = { ...source };
+          }
+        } else {
+          const clone = { ...profile, weapon: weaponKey };
+          if (clone.character && typeof clone.character === 'object') {
+            clone.character = { ...clone.character, weapon: weaponKey };
+          }
+          stateMap[id] = clone;
+        }
       }
     });
+  }
+
+  const selectedFighterKey = fighterKey || G.selectedFighter || null;
+  if (selectedFighterKey) {
+    window.CONFIG ||= {};
+    window.CONFIG.fighters ||= {};
+    const fighterConfig = window.CONFIG.fighters[selectedFighterKey] ||= {};
+    fighterConfig.weapon = weaponKey;
   }
 }
 
@@ -362,9 +346,6 @@ function applySelectedWeaponSelection(rawValue, { triggerPreview = true } = {}) 
   if (selectedCharacter && characters && characters[selectedCharacter]) {
     characters[selectedCharacter].weapon = normalizedConfigValue;
   }
-
-  const runtimeFighterKey = window.GAME?.selectedFighter || null;
-  syncWeaponRuntimeForCharacter(selectedCharacter, normalizedConfigValue, { fighterKey: runtimeFighterKey });
 
   const previousNormalized = (typeof previousWeapon === 'string' && previousWeapon.trim().length)
     ? previousWeapon.trim()

@@ -4,6 +4,7 @@ import { initCombatForFighter } from './combat.js?v=19';
 import { ensureFighterPhysics, updateFighterPhysics } from './physics.js?v=1';
 import { applyHealthRegenFromStats, applyStaminaTick, getStatProfile } from './stat-hooks.js?v=1';
 import { ensureNpcAbilityDirector, updateNpcAbilityDirector } from './npcAbilityDirector.js?v=1';
+import { removeNpcFighter } from './fighter.js?v=8';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -60,6 +61,26 @@ function ensureNpcContainers(G) {
   const npcSystems = (G.NPC ||= {});
   npcSystems.perNpc ||= {};
   return npcSystems;
+}
+
+function resolveNpcDeathDestroyDelay(state) {
+  if (state && Number.isFinite(state.deathDestroyDelay)) {
+    return Math.max(0, state.deathDestroyDelay);
+  }
+  const configDelay = window.CONFIG?.npc?.deathDestroyDelay;
+  if (Number.isFinite(configDelay)) {
+    return Math.max(0, configDelay);
+  }
+  return 0;
+}
+
+function destroyNpcInstance(state) {
+  if (!state || state.destroyed) return false;
+  const id = state.id || 'npc';
+  state.destroyed = true;
+  unregisterNpcFighter(id);
+  removeNpcFighter(id);
+  return true;
 }
 
 function ensureNpcVisualState(state) {
@@ -766,9 +787,15 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   const visuals = ensureNpcVisualState(state);
 
   if (state.isDead) {
+    const previousDeadTime = Number.isFinite(state.deadTime) ? state.deadTime : 0;
+    state.deadTime = previousDeadTime + dt;
     updateFighterPhysics(state, C, dt, { input: null, attackActive: false });
     fadeNpcDashTrail(visuals, dt);
     fadeNpcAttackTrailEntry(visuals, dt);
+    const destroyDelay = resolveNpcDeathDestroyDelay(state);
+    if (!state.destroyed && state.deadTime >= destroyDelay) {
+      destroyNpcInstance(state);
+    }
     return;
   }
 

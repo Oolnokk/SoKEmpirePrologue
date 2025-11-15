@@ -285,7 +285,7 @@ function resolveInitialNpcTemplateId() {
   return DEFAULT_NPC_TEMPLATE_ID;
 }
 
-export function initFighters(cv, cx){
+export function initFighters(cv, cx, options = {}){
   const G = (window.GAME ||= {});
   const C = (window.CONFIG || {});
   const W = C.canvas || { w: 720, h: 460, scale: 1 };
@@ -293,6 +293,21 @@ export function initFighters(cv, cx){
   const stance = C.poses?.Stance || { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:110, lKnee:40, rHip:30, rKnee:40 };
   const stanceRad = degPoseToRad(stance);
   if (stanceRad.head == null) stanceRad.head = stanceRad.torso ?? 0;
+
+  const opts = options && typeof options === 'object' ? options : {};
+  const spawnNpc = opts.spawnNpc !== false;
+  const requestedPoseKey = typeof opts.poseKey === 'string' && opts.poseKey.trim()
+    ? opts.poseKey.trim()
+    : null;
+
+  let overridePoseRad = null;
+  if (requestedPoseKey && C.poses && C.poses[requestedPoseKey]) {
+    overridePoseRad = degPoseToRad(C.poses[requestedPoseKey]);
+    if (overridePoseRad.head == null) {
+      overridePoseRad.head = overridePoseRad.torso ?? 0;
+    }
+  }
+  const defaultJointAngles = overridePoseRad || stanceRad;
 
   const DEFAULT_FIGHTER_SPACING = 120;
   const defaultPlayerX = (C.canvas?.w||720) * 0.5 - DEFAULT_FIGHTER_SPACING * 0.5;
@@ -632,7 +647,7 @@ export function initFighters(cv, cx){
       recoveryStartAngles: {},
       recoveryStartY: 0,
       recoveryTargetY: spawnY,
-      jointAngles: { ...stanceRad },
+      jointAngles: { ...defaultJointAngles },
       walk: { phase: 0, amp: 0 },
       renderProfile,
       stats,
@@ -705,12 +720,13 @@ export function initFighters(cv, cx){
   }
 
   const playerFighter = makeF('player', playerSpawnX, 1, playerSpawnY);
-  const npcFighter = makeF('npc', npcSpawnX, -1, npcSpawnY);
+  const npcFighter = spawnNpc ? makeF('npc', npcSpawnX, -1, npcSpawnY) : null;
 
-  G.FIGHTERS = {
-    player: playerFighter,
-    npc: npcFighter,
-  };
+  const fighters = { player: playerFighter };
+  if (npcFighter) {
+    fighters.npc = npcFighter;
+  }
+  G.FIGHTERS = fighters;
   G.spawnPoints = {
     player: {
       x: playerSpawnX,
@@ -718,31 +734,37 @@ export function initFighters(cv, cx){
       yOffset: playerSpawnYOffset,
       source: playerSpawn ?? null,
     },
-    npc: {
+  };
+  if (npcFighter) {
+    G.spawnPoints.npc = {
       x: npcSpawnX,
       y: npcSpawnY,
       yOffset: resolvedNpcYOffset,
       source: npcSpawn ?? null,
-    },
-  };
-  G.FIGHTER_TEMPLATES = {
-    player: clone(playerFighter),
-    npc: clone(npcFighter),
-  };
-  G.FIGHTER_SPAWNS = {
+    };
+  }
+  const fighterTemplates = { player: clone(playerFighter) };
+  if (npcFighter) {
+    fighterTemplates.npc = clone(npcFighter);
+  }
+  G.FIGHTER_TEMPLATES = fighterTemplates;
+  const fighterSpawns = {
     player: {
       x: playerSpawnX,
       y: playerSpawnY,
       yOffset: playerSpawnYOffset,
       facingSign: 1,
     },
-    npc: {
+  };
+  if (npcFighter) {
+    fighterSpawns.npc = {
       x: npcSpawnX,
       y: npcSpawnY,
       yOffset: resolvedNpcYOffset,
       facingSign: -1,
-    },
-  };
+    };
+  }
+  G.FIGHTER_SPAWNS = fighterSpawns;
   G.npcInstanceCounter = 1;
   const characterState = {};
   for (const [fighterId, fighter] of Object.entries(G.FIGHTERS)) {
@@ -751,7 +773,7 @@ export function initFighters(cv, cx){
   }
   G.CHARACTER_STATE = characterState;
 
-  const npcTemplateId = resolveInitialNpcTemplateId();
+  const npcTemplateId = npcFighter ? resolveInitialNpcTemplateId() : null;
   if (npcTemplateId) {
     applyNpcTemplate(npcTemplateId);
   }
@@ -762,12 +784,14 @@ export function initFighters(cv, cx){
         yOffset: playerSpawnYOffset,
         worldY: playerSpawnY,
       },
-      npc: {
+    };
+    if (npcFighter) {
+      G.editorPreview.spawn.npc = {
         x: npcSpawnX,
         yOffset: resolvedNpcYOffset,
         worldY: npcSpawnY,
-      },
-    };
+      };
+    }
   }
   console.log('[initFighters] Fighters initialized', G.FIGHTERS);
 }
