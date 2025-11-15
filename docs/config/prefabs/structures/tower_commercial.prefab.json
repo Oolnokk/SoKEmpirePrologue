@@ -10,7 +10,7 @@
       "z": 10,
       "propTemplate": {
         "id": "tower_near",
-        "url": "./assets/prefabs/structures/towers/tower_commercial_near.png",
+        "url": "https://i.imgur.com/T32ZEPl.png",
         "w": 360,
         "h": 480,
         "pivot": "bottom",
