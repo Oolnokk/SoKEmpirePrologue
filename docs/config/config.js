@@ -959,7 +959,7 @@ window.CONFIG = {
             id: 'weapon_0',
             length: 96,
             angleOffsetDeg: 0,
-            joint: { percent: 0.25 },
+            joint: { percent: 0.22 },
             haft: { start: 0.0, end: 0.5 },
             grips: [
               { id: 'primary', percent: 0.75, limb: 'right', offset: { ax: 0, ay: 0 } },
