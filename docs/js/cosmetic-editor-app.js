@@ -2399,6 +2399,13 @@ class CosmeticEditorApp {
       stack.appendChild(img);
     });
 
+    if (this.modeManager.resolveModeKey(this.state.activeMode) === 'draping'){
+      const overlay = this.buildDrapeOverlay(resolvedLayers, library, partKey);
+      if (overlay){
+        stage.appendChild(overlay);
+      }
+    }
+
     if (!hasImage){
       section.dataset.empty = 'true';
     }
