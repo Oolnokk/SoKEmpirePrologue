@@ -16,14 +16,11 @@ function ensureStore() {
   return store;
 }
 
-function isFinitePoint(point) {
-  if (!point || typeof point !== 'object') return false;
-  return Number.isFinite(point.x) && Number.isFinite(point.y);
-}
-
 function clonePoint(point) {
-  if (!isFinitePoint(point)) return null;
-  return { x: point.x, y: point.y };
+  if (!point || typeof point !== 'object') return null;
+  const x = Number.isFinite(point.x) ? point.x : 0;
+  const y = Number.isFinite(point.y) ? point.y : 0;
+  return { x, y };
 }
 
 function resolveBoneEnd(bone) {
@@ -62,9 +59,9 @@ function resolveRadius(key, config = {}) {
 }
 
 function writeCollider(entry, key, point, radius) {
-  if (isFinitePoint(point)) {
+  if (point) {
     entry[key] = { x: point.x, y: point.y };
-    entry[`${key}Radius`] = Number.isFinite(radius) ? radius : null;
+    entry[`${key}Radius`] = radius;
   } else {
     entry[key] = null;
     entry[`${key}Radius`] = null;
