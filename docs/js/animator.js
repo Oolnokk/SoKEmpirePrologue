@@ -1127,42 +1127,6 @@ function buildWeaponBones({
   return { bones, gripLookup };
 }
 
-function createSyntheticWeaponBone(bones, { anchorBoneId } = {}) {
-  if (!Array.isArray(bones) || bones.length === 0) return null;
-  let source = null;
-  if (anchorBoneId) {
-    source = bones.find((bone) => bone && bone.id === anchorBoneId) || null;
-  }
-  if (!source) {
-    source = bones.find((bone) => bone && bone.id) || bones[0] || null;
-  }
-  if (!source) return null;
-  const startRaw = source.start || { x: 0, y: 0 };
-  const endRaw = source.end || startRaw;
-  const start = { x: Number(startRaw.x) || 0, y: Number(startRaw.y) || 0 };
-  const end = { x: Number(endRaw.x) || 0, y: Number(endRaw.y) || 0 };
-  const length = Number.isFinite(source.length)
-    ? source.length
-    : Math.hypot(end.x - start.x, end.y - start.y);
-  const angle = Number.isFinite(source.angle)
-    ? source.angle
-    : angleFromDelta(end.x - start.x, end.y - start.y);
-  const joint = source.joint ? { ...source.joint } : null;
-  const haft = source.haft ? { ...source.haft } : null;
-  return {
-    id: 'weapon',
-    start,
-    end,
-    length,
-    angle,
-    limb: source.limb || null,
-    anchor: source.anchor || null,
-    joint,
-    haft,
-    sourceId: source.id || null
-  };
-}
-
 function updateWeaponRig(F, target, finalDeg, C, fcfg) {
   if (!F?.anim?.weapon) return;
   const weaponKey = getActiveWeaponKey(F, C);
@@ -1303,23 +1267,14 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     wristTransforms,
     lengthOverrides: F.anim?.length?.overrides
   });
-  const decoratedBones = Array.isArray(finalBuild.bones) ? [...finalBuild.bones] : [];
-  const syntheticWeaponBone = createSyntheticWeaponBone(
-    finalBuild.bones,
-    { anchorBoneId: weaponDef?.sprite?.anchorBone }
-  );
-  if (syntheticWeaponBone) {
-    decoratedBones.push(syntheticWeaponBone);
-  }
 
   F.anim.weapon.attachments = validAttachments;
   F.anim.weapon.state = {
     weaponKey,
-    bones: decoratedBones,
+    bones: finalBuild.bones,
     gripPercents: { ...gripPercents },
     jointPercents: { ...jointPercents },
-    attachments: validAttachments,
-    weaponBone: syntheticWeaponBone
+    attachments: validAttachments
   };
 }
 
