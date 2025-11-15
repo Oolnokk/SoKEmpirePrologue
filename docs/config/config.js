@@ -411,6 +411,8 @@ window.CONFIG = {
   },
   ground: {
     offset: 140,
+    // Set to true to keep the configured groundRatio instead of letting map layouts override it.
+    lockRatio: false,
   },
   groundY: 0,
   // Debug options are surfaced in the debug panel; freezeAngles lets animators hold joints for edits
