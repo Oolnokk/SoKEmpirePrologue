@@ -592,28 +592,11 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
     ax *= bone.len;
     ay *= bone.len;
   }
-  const hasXformAx = Math.abs(ax) > 1e-6;
-  const hasXformAy = Math.abs(ay) > 1e-6;
   // Offsets in bone-local space
   const offsetX = ax * bAxis.fx + ay * bAxis.rx;
   const offsetY = ax * bAxis.fy + ay * bAxis.ry;
   posX += offsetX;
   posY += offsetY;
-
-  const spriteOffset = lookupSpriteOffset(offsets, styleKey);
-  if (spriteOffset){
-    const units = (spriteOffset.units || '').toLowerCase();
-    let ox = spriteOffset.ax;
-    let oy = spriteOffset.ay;
-    const unitMode = units
-      || (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct' ? 'percent' : 'px');
-    if (unitMode === 'percent' || unitMode === '%' || unitMode === 'pct'){
-      ox *= bone.len;
-      oy *= bone.len;
-    }
-    posX += ox * bAxis.fx + oy * bAxis.rx;
-    posY += ox * bAxis.fy + oy * bAxis.ry;
-  }
 
   // Sizing
   const nh = sourceImage.naturalHeight || sourceImage.height || 1;
