@@ -1104,6 +1104,23 @@ function buildWeaponBones({
       boneEntry.colliders.push(collider);
     });
 
+    if (
+      typeof window !== 'undefined'
+        ? window.__SOK_BREAK_ON_WEAPON_COLLIDER_ORIGIN !== false
+        : true
+    ) {
+      const originThreshold = 1e-3;
+      const hasOriginCollider = boneEntry.colliders.some((col) => {
+        const { x, y } = col?.center || {};
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+        return Math.hypot(x, y) <= originThreshold;
+      });
+      if (hasOriginCollider) {
+        // eslint-disable-next-line no-debugger
+        debugger;
+      }
+    }
+
     bones.push(boneEntry);
   });
 
