@@ -57,6 +57,21 @@
         <div class="status-banner" id="statusBanner" role="status" aria-live="polite"></div>
       </div>
 
+      <div class="panel" id="weaponPanel">
+        <h2>Weapons &amp; Combos</h2>
+        <label class="field">
+          <span>Equip Weapon</span>
+          <select id="weaponSelect" aria-label="Equip weapon"></select>
+        </label>
+        <label class="field">
+          <span>Combo</span>
+          <select id="comboSelect" aria-label="Select combo"></select>
+        </label>
+        <div class="inline-controls">
+          <button type="button" id="resetCombo">Reset Combo</button>
+        </div>
+      </div>
+
       <div class="panel" id="moveDetails">
         <h2>Move Details</h2>
         <label class="field">
@@ -181,6 +196,40 @@
         </label>
       </div>
 
+      <div class="panel" id="comboDetails">
+        <div class="sequence-actions">
+          <h2 style="margin:0;">Combo Sequence</h2>
+          <button type="button" id="addComboStep">Add Step</button>
+        </div>
+        <label class="field">
+          <span>Name</span>
+          <input id="comboName" type="text" aria-label="Combo name">
+        </label>
+        <div class="inline-controls">
+          <label class="field" style="flex:1;">
+            <span>Weapon</span>
+            <select id="comboWeapon" aria-label="Combo weapon"></select>
+          </label>
+          <label class="field" style="flex:1;">
+            <span>Combo Window (ms)</span>
+            <input id="comboWindow" type="number" step="10" min="0" aria-label="Combo window">
+          </label>
+        </div>
+        <label class="field">
+          <span>Type</span>
+          <input id="comboType" type="text" aria-label="Combo type">
+        </label>
+        <table class="sequence-table" aria-label="Combo sequence">
+          <thead>
+            <tr>
+              <th scope="col">Attack</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
+          <tbody id="comboSequence"></tbody>
+        </table>
+      </div>
+
       <div class="panel">
         <h2>Export</h2>
         <p class="status-banner">Copy updated JSON back into <code>docs/config/config.js</code> when you're ready.</p>
@@ -192,10 +241,15 @@
           <span>Attack JSON</span>
           <textarea id="attackJson" class="json-output" spellcheck="false" aria-label="Attack JSON"></textarea>
         </label>
+        <label class="field">
+          <span>Combo JSON</span>
+          <textarea id="comboJson" class="json-output" spellcheck="false" aria-label="Combo JSON"></textarea>
+        </label>
         <div class="inline-controls">
           <button type="button" id="copyMoveJson">Copy Move JSON</button>
           <button type="button" id="copyAttackJson">Copy Attack JSON</button>
-          <button type="button" id="downloadJson">Download Both</button>
+          <button type="button" id="copyComboJson">Copy Combo JSON</button>
+          <button type="button" id="downloadJson">Download All</button>
         </div>
       </div>
     </section>
