@@ -173,6 +173,7 @@ const COSMETIC_PROFILE_SOURCES = {
 
 const COSMETIC_LIBRARY_SOURCES = {
   basic_headband: './config/cosmetics/basic_headband.json',
+  citywatch_helmet: './config/cosmetics/citywatch_helmet.json',
   layered_travel_cloak: './config/cosmetics/layered_travel_cloak.json',
   simple_poncho: './config/cosmetics/simple_poncho.json',
   basic_pants: './config/cosmetics/basic_pants.json',
