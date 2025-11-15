@@ -2077,5 +2077,12 @@ function boot(){
   try { if (window.reloadConfig) await window.reloadConfig(); } catch(_){ }
   applyRenderOrder();
   await initSprites();
+  try {
+    if (typeof window !== 'undefined' && typeof window.__waitForLoadoutReady === 'function') {
+      await window.__waitForLoadoutReady();
+    }
+  } catch (error) {
+    console.warn('[app] Loadout stage failed to resolve', error);
+  }
   boot();
 })();
