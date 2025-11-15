@@ -682,24 +682,46 @@ function solveArmIKChain(base, target, upperLen, lowerLen, elbowSign, torsoAng, 
   return { shoulderAng, elbowAng };
 }
 
-function samplePoseForWeaponDisplay(F, target, dt, lambda = JOINT_DAMP_LAMBDA) {
-  const result = {};
-  const current = (F?.jointAngles) || {};
-  for (const key of ARM_JOINT_KEYS) {
-    const curVal = current[key];
-    const targetVal = target?.[key];
-    if (Number.isFinite(curVal) && Number.isFinite(targetVal)) {
-      result[key] = damp(curVal, targetVal, lambda, dt);
-    } else if (Number.isFinite(targetVal)) {
-      result[key] = targetVal;
-    } else if (Number.isFinite(curVal)) {
-      result[key] = curVal;
-    }
+function updateWeaponRig(F, target, finalDeg, C, fcfg) {
+  if (!F?.anim?.weapon) return;
+  const weaponKey = getActiveWeaponKey(F, C);
+  const weaponDef = weaponKey && C.weapons ? C.weapons[weaponKey] : null;
+  const rig = weaponDef?.rig;
+  if (!rig || !Array.isArray(rig.bones) || !rig.bones.length) {
+    F.anim.weapon.state = null;
+    return;
+  }
+
+  const basisInfo = computePoseBasis(F, target, C, fcfg);
+  const gripPercents = F.anim.weapon.gripPercents || (F.anim.weapon.gripPercents = {});
+  const defaults = collectDefaultGripPercents(rig);
+  const posePercents = finalDeg?.weaponGripPercents || {};
+  const targetPercents = { ...defaults };
+  for (const [id, value] of Object.entries(posePercents)) {
+    if (!id) continue;
+    const pct = Number(value);
+    targetPercents[id] = Number.isFinite(pct) ? pct : (targetPercents[id] ?? defaults[id] ?? 0.5);
+  }
+  const dt = Math.max(1e-5, F.anim.dt || 0.016);
+  for (const [id, pct] of Object.entries(targetPercents)) {
+    const current = Number.isFinite(gripPercents[id]) ? gripPercents[id] : pct;
+    gripPercents[id] = damp(current, pct, 16, dt);
   }
   return result;
 }
 
-function buildWeaponBones({ rig, basisInfo, target, baseAngleOffset, gripPercents, gripDefaults, jointPercents, jointDefaults }) {
+  const jointPercents = F.anim.weapon.jointPercents || (F.anim.weapon.jointPercents = {});
+  const jointDefaults = collectDefaultJointPercents(rig);
+  const poseJointMap = (finalDeg?.weaponJointPercents && typeof finalDeg.weaponJointPercents === 'object')
+    ? finalDeg.weaponJointPercents
+    : {};
+  const poseJointValueRaw = finalDeg?.weaponJointPercent;
+  const poseJointValueGlobal = Number(poseJointValueRaw);
+  const hasPoseJointValue = Number.isFinite(poseJointValueGlobal);
+  const baseAngleOffset = Number.isFinite(rig.base?.angleOffsetRad)
+    ? rig.base.angleOffsetRad
+    : (Number.isFinite(rig.base?.angleOffsetDeg) ? degToRad(rig.base.angleOffsetDeg) : 0);
+
   const bones = [];
   const gripLookup = {};
   if (!rig || !basisInfo) return { bones, gripLookup };
@@ -719,23 +741,29 @@ function buildWeaponBones({ rig, basisInfo, target, baseAngleOffset, gripPercent
     if (boneSpec.anchorOffset) {
       anchorPos = withAX(anchorPos[0], anchorPos[1], anchor.ang, boneSpec.anchorOffset, null, length);
     }
-
     const weaponBaseAngle = Number.isFinite(target?.weapon) ? target.weapon : anchor.ang;
     let boneAng = weaponBaseAngle + baseAngleOffset + (Number.isFinite(boneSpec.angleOffsetRad)
       ? boneSpec.angleOffsetRad
       : (Number.isFinite(boneSpec.angleOffsetDeg) ? degToRad(boneSpec.angleOffsetDeg) : 0));
+    const jointDefault = jointDefaults[boneId] ?? clamp(Number(boneSpec.joint?.percent ?? boneSpec.jointPercent ?? 0.5), 0, 1);
+    const poseJointValue = Number(poseJointMap ? poseJointMap[boneId] : null);
+    const targetJoint = clamp(
+      Number.isFinite(poseJointValue)
+        ? poseJointValue
+        : (hasPoseJointValue ? poseJointValueGlobal : jointDefault),
+      0,
+      1
+    );
+    const currentJoint = Number.isFinite(jointPercents[boneId]) ? jointPercents[boneId] : targetJoint;
+    const nextJoint = clamp(damp(currentJoint, targetJoint, 16, dt), 0, 1);
+    jointPercents[boneId] = nextJoint;
 
-    const jointDefault = jointDefaults?.[boneId]
-      ?? clamp(Number(boneSpec.joint?.percent ?? boneSpec.jointPercent ?? 0.5), 0, 1);
     const haftSpec = boneSpec.haft || {};
     const haftStart = clamp(Number(haftSpec.start ?? haftSpec.from ?? 0), 0, 1);
     const haftEndRaw = Number(haftSpec.end ?? haftSpec.to ?? 1);
     const haftEnd = clamp(haftEndRaw, haftStart, 1);
     const haftRange = Math.max(1e-5, haftEnd - haftStart);
-
-    const storedJoint = jointPercents?.[boneId];
-    const jointPercent = clamp(Number.isFinite(storedJoint) ? storedJoint : jointDefault, 0, 1);
-    const jointAbsolute = clamp(haftStart + jointPercent * haftRange, 0, 1);
+    const jointAbsolute = clamp(haftStart + nextJoint * haftRange, 0, 1);
 
     let startArr = segPos(anchorPos[0], anchorPos[1], -jointAbsolute * length, boneAng);
     if (boneSpec.offset) {
@@ -752,7 +780,7 @@ function buildWeaponBones({ rig, basisInfo, target, baseAngleOffset, gripPercent
       limb: limb || 'right',
       anchor: anchorKey,
       joint: {
-        percent: jointPercent,
+        percent: nextJoint,
         absolute: jointAbsolute,
         haftStart,
         haftEnd
