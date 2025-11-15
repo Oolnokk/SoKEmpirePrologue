@@ -221,6 +221,163 @@ function processObstructionJumpPost(state) {
   delete tracker.pendingSettings;
 }
 
+function randomRange(min, max) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return min || 0;
+  if (max <= min) return min;
+  return min + Math.random() * (max - min);
+}
+
+function resolveNpcPatienceDuration(state) {
+  const ai = state?.ai || {};
+  const value = Number.isFinite(ai.patience) ? ai.patience : null;
+  const fallback = 6;
+  if (value == null) return fallback;
+  return Math.max(0, value);
+}
+
+function resolveNpcRetreatDuration(state) {
+  const ai = state?.ai || {};
+  const value = Number.isFinite(ai.retreatDuration) ? ai.retreatDuration : null;
+  const fallback = 0.75;
+  if (value == null) return fallback;
+  return Math.max(0, value);
+}
+
+function resolveNpcSafeShuffleDistance(state, nearDist) {
+  const ai = state?.ai || {};
+  if (Number.isFinite(ai.safeShuffleDistance)) {
+    return Math.max(nearDist, ai.safeShuffleDistance);
+  }
+  return nearDist * 1.35;
+}
+
+function ensureNpcShuffleState(state) {
+  const shuffle = (state.shuffle ||= {});
+  if (!Number.isFinite(shuffle.timer)) shuffle.timer = 0;
+  if (!Number.isFinite(shuffle.interval)) shuffle.interval = 0.6;
+  if (!Number.isFinite(shuffle.direction) || shuffle.direction === 0) {
+    shuffle.direction = Math.random() < 0.5 ? -1 : 1;
+  }
+  if (!Number.isFinite(shuffle.speedScale)) shuffle.speedScale = 0.35;
+  shuffle.originDistance = Number.isFinite(shuffle.originDistance)
+    ? shuffle.originDistance
+    : null;
+  shuffle.pendingFlip = !!shuffle.pendingFlip;
+  return shuffle;
+}
+
+function resetNpcShuffle(state, hintDirection = 0) {
+  const shuffle = ensureNpcShuffleState(state);
+  shuffle.interval = randomRange(0.45, 0.9);
+  const preferred = hintDirection !== 0 ? Math.sign(hintDirection) : (Math.random() < 0.5 ? -1 : 1);
+  shuffle.direction = preferred === 0 ? 1 : preferred;
+  shuffle.timer = shuffle.interval;
+  shuffle.pendingFlip = false;
+  shuffle.originDistance = null;
+  return shuffle;
+}
+
+function ensureNpcDefenseState(state) {
+  const defense = (state.aiDefense ||= {});
+  if (!Number.isFinite(defense.timer)) defense.timer = 0;
+  if (!Number.isFinite(defense.cooldown)) defense.cooldown = 0;
+  defense.pending = !!defense.pending;
+  defense.requested = !!defense.requested;
+  defense.active = !!defense.active;
+  defense.threat = !!defense.threat;
+  defense.retreatDir = Number.isFinite(defense.retreatDir) ? defense.retreatDir : 0;
+  return defense;
+}
+
+function resolveNpcReactionWindow(state) {
+  const ai = state?.ai || {};
+  const reaction = ai.reactionWindow;
+  let min = 0.08;
+  let max = 0.28;
+  if (Array.isArray(reaction) && reaction.length) {
+    min = Number.isFinite(reaction[0]) ? Math.max(0, reaction[0]) : min;
+    max = Number.isFinite(reaction[1]) ? Math.max(min, reaction[1]) : Math.max(min, max);
+  } else if (reaction && typeof reaction === 'object') {
+    if (Number.isFinite(reaction.min)) min = Math.max(0, reaction.min);
+    if (Number.isFinite(reaction.max)) max = Math.max(min, reaction.max);
+  } else if (Number.isFinite(reaction)) {
+    min = 0;
+    max = Math.max(0, reaction);
+  }
+  if (max < min) max = min;
+  return { min, max };
+}
+
+function resolveNpcDefendRange(state, nearDist) {
+  const ai = state?.ai || {};
+  if (Number.isFinite(ai.defendRange)) {
+    return Math.max(0, ai.defendRange);
+  }
+  return nearDist * 1.05;
+}
+
+function updateNpcDefenseScheduling(state, player, dt, { dx, absDx, nearDist }) {
+  if (!state || !player) {
+    return { activate: false, threat: false, retreatDir: 0 };
+  }
+  const defense = ensureNpcDefenseState(state);
+  const reaction = resolveNpcReactionWindow(state);
+  const range = resolveNpcDefendRange(state, nearDist);
+  const attack = player.attack || {};
+  const playerPhase = attack.currentPhase || null;
+  const playerWindingUp = playerPhase === 'Windup' || playerPhase === 'Charge';
+  const playerStriking = playerPhase === 'Strike' || playerPhase === 'Impact';
+  const playerRecovering = playerPhase === 'Recoil';
+  const comboActive = !!player.combo?.active;
+  const threat = (attack.active || playerWindingUp || playerStriking || comboActive) && !playerRecovering;
+  const inRange = absDx <= range;
+  const shouldReact = threat && inRange;
+
+  defense.cooldown = Math.max(0, (defense.cooldown || 0) - dt);
+  defense.threat = shouldReact;
+
+  if (!shouldReact) {
+    defense.pending = false;
+    defense.timer = 0;
+    if (!defense.active) {
+      defense.requested = false;
+      defense.retreatDir = 0;
+    }
+  } else if (!defense.pending && !defense.active && !defense.requested && defense.cooldown <= 0) {
+    defense.timer = randomRange(reaction.min, reaction.max);
+    defense.pending = true;
+    defense.retreatDir = dx >= 0 ? -1 : 1;
+  }
+
+  if (defense.pending) {
+    defense.timer = Math.max(0, defense.timer - dt);
+    if (defense.timer <= 0) {
+      defense.pending = false;
+      defense.requested = true;
+    }
+  }
+
+  return {
+    activate: defense.requested,
+    threat: shouldReact,
+    retreatDir: defense.retreatDir || (dx >= 0 ? -1 : 1),
+    range,
+  };
+}
+
+function triggerNpcPatienceWindow(state, { hintDir = 0 } = {}) {
+  if (!state) return;
+  const patience = resolveNpcPatienceDuration(state);
+  if (patience <= 0) return;
+  const retreat = resolveNpcRetreatDuration(state);
+  const currentPatience = Number.isFinite(state.patienceTimer) ? state.patienceTimer : 0;
+  const currentRetreat = Number.isFinite(state.retreatTimer) ? state.retreatTimer : 0;
+  state.patienceTimer = Math.max(currentPatience, patience);
+  state.retreatTimer = Math.max(currentRetreat, retreat);
+  resetNpcShuffle(state, hintDir);
+  state.mode = 'retreat';
+}
+
 function getNpcFighterList(G) {
   const fighters = G.FIGHTERS || {};
   const list = [];
@@ -705,6 +862,7 @@ function updateNpcAttack(G, state, dt) {
       } else {
         combo.active = false;
         combo.sequenceIndex = 0;
+        state.comboPatienceQueued = true;
       }
     }
   }
@@ -969,7 +1127,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       }
     }
     updateNpcAiming(state, player);
-    updateDashTrail(npcSystems, state, dt);
+    updateDashTrail(visuals, state, dt);
     regenerateStamina(state, dt);
     return;
   }
@@ -1019,58 +1177,123 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
 
   const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
   const absDx = Math.abs(dx);
-  const nearDist = 70;
+  const nearDist = Number.isFinite(ai.attackRange) ? Math.max(30, ai.attackRange) : 70;
+  const safeShuffleDist = resolveNpcSafeShuffleDistance(state, nearDist);
   const isPressing = ['A', 'B', 'C'].some((key) => !!state.aiButtonPresses?.[key]?.down);
   const intent = abilityIntent || state.aiAbilityIntent || null;
   const heavyIntent = intent?.heavy || null;
+  const heavyState = intent?.heavyState || null;
   const defensiveActive = !!intent?.defensiveActive;
+  const defensiveRequested = !!intent?.defensiveRequested;
+  const defensiveType = intent?.defensiveType || null;
+  const defensiveRetreatDir = Number.isFinite(intent?.defensiveRetreatDir)
+    ? intent.defensiveRetreatDir
+    : dx >= 0 ? -1 : 1;
   const suppressBasicAttacks = !!intent?.suppressBasicAttacks;
+
+  const defenseState = ensureNpcDefenseState(state);
+  const shuffleState = ensureNpcShuffleState(state);
+  const wasDefending = defenseState.active;
+
+  state.comboPatienceQueued = !!state.comboPatienceQueued;
+  state.heavyPatienceQueued = !!state.heavyPatienceQueued;
+  state.heavyAttemptActive = !!state.heavyAttemptActive;
+  state.patienceTimer = Math.max(0, Number.isFinite(state.patienceTimer) ? state.patienceTimer - dt : 0);
+  state.retreatTimer = Math.max(0, Number.isFinite(state.retreatTimer) ? state.retreatTimer - dt : 0);
+  shuffleState.timer = Math.max(0, Number.isFinite(shuffleState.timer) ? shuffleState.timer - dt : 0);
+
+  if (defensiveActive) {
+    defenseState.active = true;
+    defenseState.requested = false;
+    defenseState.retreatDir = defensiveRetreatDir;
+  } else if (!defenseState.threat && defenseState.active) {
+    defenseState.active = false;
+    defenseState.cooldown = Math.max(defenseState.cooldown, resolveNpcRetreatDuration(state) * 0.8);
+  } else if (!defenseState.threat) {
+    defenseState.active = false;
+  }
+  if (defensiveRequested) {
+    defenseState.requested = true;
+    if (!defenseState.pending) {
+      defenseState.retreatDir = defensiveRetreatDir;
+    }
+  } else if (!defenseState.threat && !defenseState.active) {
+    defenseState.requested = false;
+    if (wasDefending) {
+      defenseState.cooldown = Math.max(defenseState.cooldown, resolveNpcRetreatDuration(state));
+    }
+  }
+
+  const previousHeavyState = state.aiLastHeavyState || null;
+  if (heavyState !== previousHeavyState) {
+    if (heavyState && ['retreat', 'charge', 'approach'].includes(heavyState)) {
+      state.heavyAttemptActive = true;
+    }
+    if (heavyState === 'recover' && previousHeavyState !== 'recover') {
+      state.heavyPatienceQueued = true;
+      state.heavyAttemptActive = false;
+    } else if ((!heavyState || heavyState === 'idle') && state.heavyAttemptActive) {
+      state.heavyPatienceQueued = true;
+      state.heavyAttemptActive = false;
+    }
+    state.aiLastHeavyState = heavyState || null;
+  }
+
+  if (state.comboPatienceQueued && !combo.active && !attack.active) {
+    triggerNpcPatienceWindow(state, { hintDir: dx >= 0 ? -1 : 1 });
+    state.comboPatienceQueued = false;
+  }
+  if (state.heavyPatienceQueued) {
+    triggerNpcPatienceWindow(state, { hintDir: dx >= 0 ? -1 : 1 });
+    state.heavyPatienceQueued = false;
+  }
+
+  if (state.retreatTimer <= 0 && state.mode === 'retreat' && state.patienceTimer <= 0 && !defenseState.active) {
+    state.mode = 'approach';
+  }
+  if (state.patienceTimer <= 0 && state.mode === 'shuffle' && !defenseState.threat && !(state.obstructionJump?.blockedRecently)) {
+    state.mode = 'approach';
+  }
 
   if (aggression.active) {
     state.cooldown = Math.max(0, (state.cooldown || 0) - dt);
     if (attackActive) {
-      state.stamina.isDashing = false;
+      if (state.stamina) state.stamina.isDashing = false;
       input.left = false;
       input.right = false;
     } else {
       const recovering = stamina?.recovering && !isPanicking;
+      input.left = false;
+      input.right = false;
+      if (state.stamina) state.stamina.isDashing = false;
       let handledByAbility = false;
 
       if (!recovering && heavyIntent && heavyIntent.mode) {
         if (heavyIntent.mode === 'retreat') {
-          state.mode = 'evade';
-          input.left = heavyIntent.retreatDir < 0;
-          input.right = heavyIntent.retreatDir > 0;
-          state.stamina.isDashing = true;
+          state.mode = 'retreat';
+          state.retreatTimer = Math.max(state.retreatTimer, resolveNpcRetreatDuration(state) * 0.6);
           state.cooldown = Math.max(state.cooldown, 0.35);
           handledByAbility = true;
         } else if (heavyIntent.mode === 'hold') {
           state.mode = 'attack';
-          input.left = false;
-          input.right = false;
-          state.stamina.isDashing = false;
           handledByAbility = true;
         } else if (heavyIntent.mode === 'approach') {
           state.mode = 'approach';
-          input.right = dx > 0;
-          input.left = dx < 0;
           const targetRange = heavyIntent.targetRange || nearDist;
-          state.stamina.isDashing = absDx > targetRange * 1.1;
+          if (state.stamina) {
+            state.stamina.isDashing = absDx > targetRange * 1.1;
+          }
           handledByAbility = true;
         } else if (heavyIntent.mode === 'recover') {
-          state.mode = 'evade';
-          input.left = heavyIntent.retreatDir < 0;
-          input.right = heavyIntent.retreatDir > 0;
-          state.stamina.isDashing = true;
+          state.mode = 'retreat';
+          state.retreatTimer = Math.max(state.retreatTimer, resolveNpcRetreatDuration(state));
+          state.cooldown = Math.max(state.cooldown, 0.45);
           handledByAbility = true;
         }
       }
 
-      if (!recovering && !handledByAbility && defensiveActive) {
+      if (!recovering && (defenseState.active || defenseState.requested || defensiveActive)) {
         state.mode = 'defend';
-        input.left = false;
-        input.right = false;
-        state.stamina.isDashing = false;
         handledByAbility = true;
       }
 
@@ -1078,50 +1301,91 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
         state.mode = 'recover';
         input.right = dx < 0;
         input.left = dx > 0;
-        state.stamina.isDashing = false;
         state.cooldown = Math.max(state.cooldown, 0.4);
       } else if (state.mode === 'attack' && !handledByAbility) {
-        state.mode = 'evade';
-        state.timer = 0.3;
-        state.cooldown = Math.max(state.cooldown, 0.35);
+        triggerNpcPatienceWindow(state, { hintDir: dx >= 0 ? -1 : 1 });
       } else if (!handledByAbility && !suppressBasicAttacks && absDx <= nearDist && state.cooldown <= 0 && !isPressing) {
         if (pressNpcButton(state, combat, 'A', 0.12)) {
           state.mode = 'attack';
           state.cooldown = 0.45;
+          state.comboPatienceQueued = true;
         }
       }
 
-      if (handledByAbility) {
-        // Ability directive already applied movement
-      } else if (state.mode === 'approach') {
+      const obstruction = !!state.obstructionJump?.blockedRecently;
+      const inComfortZone = absDx <= safeShuffleDist && absDx >= nearDist * 0.7;
+      const shouldShuffle = !recovering
+        && state.mode !== 'attack'
+        && state.mode !== 'defend'
+        && state.mode !== 'retreat'
+        && (state.patienceTimer > 0 || obstruction || (inComfortZone && state.cooldown > 0));
+
+      if (state.retreatTimer > 0 && state.mode !== 'defend') {
+        state.mode = 'retreat';
+      } else if (shouldShuffle) {
+        if (state.mode !== 'shuffle') {
+          resetNpcShuffle(state, dx >= 0 ? -1 : 1);
+        }
+        state.mode = 'shuffle';
+      } else if (!recovering && state.mode !== 'attack' && state.mode !== 'defend' && state.mode !== 'retreat') {
+        state.mode = 'approach';
+      }
+
+      if (state.mode === 'approach') {
         input.right = dx > 0;
         input.left = dx < 0;
-        state.stamina.isDashing = absDx > nearDist * 1.2;
-      } else if (state.mode === 'evade') {
-        const dashReady = state.stamina.current >= state.stamina.minToDash;
-        state.stamina.isDashing = dashReady;
+        if (state.stamina) {
+          state.stamina.isDashing = absDx > nearDist * 1.2;
+        }
+      } else if (state.mode === 'retreat') {
         input.right = dx < 0;
         input.left = dx > 0;
-        state.timer = (state.timer || 0) - dt;
-        if (state.timer <= 0) {
-          state.mode = 'approach';
+        if (state.stamina) {
           state.stamina.isDashing = false;
         }
+      } else if (state.mode === 'defend') {
+        const retreatDir = defenseState.retreatDir || defensiveRetreatDir || (dx >= 0 ? -1 : 1);
+        if (defensiveType === 'evade') {
+          input.left = retreatDir < 0;
+          input.right = retreatDir > 0;
+        } else {
+          input.left = false;
+          input.right = false;
+        }
+        if (state.stamina) state.stamina.isDashing = false;
+      } else if (state.mode === 'shuffle') {
+        if (!Number.isFinite(shuffleState.originDistance)) {
+          shuffleState.originDistance = absDx;
+        }
+        const deviation = Math.abs(absDx - (shuffleState.originDistance || absDx));
+        const maxDeviation = nearDist * 0.5;
+        if (deviation >= maxDeviation) {
+          shuffleState.pendingFlip = true;
+        }
+        if (shuffleState.timer <= 0 || shuffleState.pendingFlip) {
+          const hint = deviation >= maxDeviation
+            ? (absDx - (shuffleState.originDistance || absDx))
+            : dx >= 0 ? -1 : 1;
+          resetNpcShuffle(state, hint);
+        }
+        input.left = shuffleState.direction < 0;
+        input.right = shuffleState.direction > 0;
+        if (state.stamina) state.stamina.isDashing = false;
       } else if (state.mode === 'recover') {
-        state.stamina.isDashing = false;
         input.right = dx < 0;
         input.left = dx > 0;
+        if (state.stamina) state.stamina.isDashing = false;
       } else {
-        state.stamina.isDashing = false;
+        if (state.stamina) state.stamina.isDashing = false;
       }
     }
 
     const recovering = stamina?.recovering && !isPanicking;
     if (state.mode === 'attack' && !attackActive && !isPressing && !recovering) {
-      state.mode = 'approach';
+      state.mode = state.patienceTimer > 0 ? 'shuffle' : 'approach';
     }
   } else {
-    state.stamina.isDashing = false;
+    if (state.stamina) state.stamina.isDashing = false;
   }
 
   if (stamina) {
@@ -1151,6 +1415,10 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   });
 
   updateFighterPhysics(state, C, dt, { input, attackActive });
+  if (state.mode === 'shuffle') {
+    const maxShuffleSpeed = (C.movement?.maxSpeedX || 140) * (shuffleState.speedScale || 0.35);
+    state.vel.x = clamp(state.vel.x, -maxShuffleSpeed, maxShuffleSpeed);
+  }
   processObstructionJumpPost(state);
 
   state.facingRad = dx >= 0 ? 0 : Math.PI;
@@ -1215,6 +1483,10 @@ export function updateNpcSystems(dt) {
       ensureNpcAbilityDirector(npc, combat);
       const dx = (player?.pos?.x ?? npc.pos?.x ?? 0) - (npc.pos?.x ?? 0);
       const absDx = Math.abs(dx);
+      const nearDist = Number.isFinite(npc.ai?.attackRange)
+        ? Math.max(30, npc.ai.attackRange)
+        : 70;
+      const defenseRequest = updateNpcDefenseScheduling(npc, player, dt, { dx, absDx, nearDist });
       const pressButton = (slotKey, hold) => pressNpcButton(npc, combat, slotKey, hold);
       const releaseButton = (slotKey) => releaseNpcButton(npc, combat, slotKey);
       abilityIntent = updateNpcAbilityDirector({
@@ -1229,6 +1501,7 @@ export function updateNpcSystems(dt) {
         aggressionActive: !!npc.aggression?.active,
         attackActive: !!npc.attack?.active,
         isBusy: typeof combat?.isFighterBusy === 'function' ? combat.isFighterBusy() : !!npc.attack?.active,
+        defenseRequest,
       });
     }
     updateNpcMovement(G, npc, dt, abilityIntent);
