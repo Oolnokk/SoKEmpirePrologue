@@ -4,14 +4,19 @@
  * files when hosted statically (e.g. GitHub Pages).
  */
 
-const FALLBACK_BOX_MIN_WIDTH = 18;
-
 const clone = (value) => {
   if (typeof globalThis.structuredClone === 'function') {
     return globalThis.structuredClone(value);
   }
   return JSON.parse(JSON.stringify(value));
 };
+
+const FALLBACK_BOX_MIN_WIDTH = 18;
+
+const TAG_INSTANCE_ID_MAPPING = new Map([
+  ['spawn:player', 'player_spawn'],
+  ['spawn:npc', 'npc_spawn'],
+]);
 
 function normalizeErrorInfo(raw) {
   if (!raw) {
@@ -104,6 +109,95 @@ function createAsciiBox(lines) {
     return `| ${padded} |`;
   });
   return [horizontal, ...body, horizontal];
+}
+
+function sanitizeInstanceId(value) {
+  if (value == null) return '';
+  const text = String(value).trim();
+  if (!text) return '';
+  const normalized = text
+    .replace(/[^A-Za-z0-9:_-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return normalized || '';
+}
+
+function resolveInstanceIdFromTags(tags) {
+  if (!Array.isArray(tags) || tags.length === 0) {
+    return { id: '', source: null };
+  }
+  for (const tag of tags) {
+    const normalized = typeof tag === 'string' ? tag.trim() : '';
+    if (!normalized) continue;
+    if (TAG_INSTANCE_ID_MAPPING.has(normalized)) {
+      return { id: TAG_INSTANCE_ID_MAPPING.get(normalized), source: `tag:${normalized}` };
+    }
+    if (normalized.toLowerCase().startsWith('instance:')) {
+      const direct = sanitizeInstanceId(normalized.slice('instance:'.length));
+      if (direct) {
+        return { id: direct, source: `tag:${normalized}` };
+      }
+    }
+  }
+  return { id: '', source: null };
+}
+
+function resolveInstanceId(rawInstance, context) {
+  const {
+    areaId = 'area',
+    index = 0,
+    tags = [],
+    usedIds = new Set(),
+  } = context || {};
+
+  const attempts = [];
+
+  attempts.push({ id: sanitizeInstanceId(rawInstance?.instanceId), source: 'instance.instanceId' });
+
+  const tagResult = resolveInstanceIdFromTags(tags);
+  if (tagResult.id) {
+    attempts.push(tagResult);
+  }
+
+  attempts.push({ id: sanitizeInstanceId(rawInstance?.id), source: 'instance.id' });
+
+  if (rawInstance?.prefabId) {
+    attempts.push({ id: sanitizeInstanceId(rawInstance.prefabId), source: 'prefabId' });
+  }
+
+  const autoIdBase = sanitizeInstanceId(`${areaId || 'area'}_${index}`) || `instance_${index}`;
+  attempts.push({ id: autoIdBase, source: 'auto.index' });
+
+  let resolved = attempts.find((candidate) => candidate.id);
+  if (!resolved) {
+    resolved = { id: `instance_${index}`, source: 'auto.fallback' };
+  }
+
+  let { id: instanceId, source } = resolved;
+  if (usedIds.has(instanceId)) {
+    let suffix = 2;
+    while (usedIds.has(`${instanceId}_${suffix}`)) {
+      suffix += 1;
+    }
+    instanceId = `${instanceId}_${suffix}`;
+    source = `${source}+dedupe`;
+  }
+
+  usedIds.add(instanceId);
+
+  return { instanceId, source };
+}
+
+function buildInstanceIndex(instances) {
+  const index = {};
+  for (const inst of instances) {
+    if (!inst || typeof inst !== 'object') continue;
+    const key = typeof inst.instanceId === 'string' ? inst.instanceId : null;
+    if (key && !(key in index)) {
+      index[key] = inst;
+    }
+  }
+  return index;
 }
 
 function createPrefabFallback(prefabId, errorInfo = {}) {
@@ -210,6 +304,9 @@ export class MapRegistry {
     this._listeners = new Map();
   }
 
+  /**
+   * Subscribe to registry events. Returns an unsubscribe function.
+   */
   on(event, handler) {
     if (typeof handler !== 'function') {
       throw new MapRegistryError('Event handler must be a function');
@@ -232,6 +329,9 @@ export class MapRegistry {
     }
   }
 
+  /**
+   * Register a single area descriptor.
+   */
   registerArea(areaId, descriptor) {
     if (!areaId || typeof areaId !== 'string') {
       throw new MapRegistryError('Area id must be a non-empty string');
@@ -259,6 +359,9 @@ export class MapRegistry {
     return frozen;
   }
 
+  /**
+   * Register multiple areas from an object map (compatible with CONFIG.areas).
+   */
   registerAreas(areaMap) {
     if (!areaMap || typeof areaMap !== 'object') {
       throw new MapRegistryError('Area map must be an object');
@@ -270,6 +373,9 @@ export class MapRegistry {
     return results;
   }
 
+  /**
+   * Remove a single area by id.
+   */
   removeArea(areaId) {
     if (!this._areas.has(areaId)) return false;
     this._areas.delete(areaId);
@@ -287,6 +393,22 @@ export class MapRegistry {
 
   getArea(areaId) {
     return this._areas.get(areaId) || null;
+  }
+
+  getInstance(areaId, instanceId) {
+    if (!areaId || !instanceId) return null;
+    const area = this.getArea(areaId);
+    if (!area || typeof area !== 'object') return null;
+    const lookup = area.instancesById || null;
+    if (!lookup || typeof lookup !== 'object') return null;
+    return lookup[instanceId] ?? null;
+  }
+
+  getActiveInstance(instanceId) {
+    if (!instanceId) return null;
+    const activeAreaId = this.getActiveAreaId();
+    if (!activeAreaId) return null;
+    return this.getInstance(activeAreaId, instanceId);
   }
 
   getActiveAreaId() {
@@ -337,6 +459,45 @@ function validateAreaDescriptor(descriptor) {
     warnings.push('Area declares neither "instances" nor "props" – runtime may need one');
   }
 
+  let seenInstanceIds = null;
+  if (Array.isArray(descriptor.instances)) {
+    seenInstanceIds = new Set();
+    descriptor.instances.forEach((inst, index) => {
+      if (!inst || typeof inst !== 'object') {
+        warnings.push(`Instance at index ${index} is not an object`);
+        return;
+      }
+      const rawId = typeof inst.instanceId === 'string' ? inst.instanceId.trim() : '';
+      if (!rawId) {
+        errors.push(`Instance at index ${index} missing "instanceId"`);
+        return;
+      }
+      if (seenInstanceIds.has(rawId)) {
+        errors.push(`Duplicate instanceId "${rawId}"`);
+      } else {
+        seenInstanceIds.add(rawId);
+      }
+    });
+  }
+
+  if (descriptor.instancesById && typeof descriptor.instancesById === 'object') {
+    const indexKeys = new Set(Object.keys(descriptor.instancesById));
+    if (seenInstanceIds) {
+      for (const id of seenInstanceIds) {
+        if (!indexKeys.has(id)) {
+          errors.push(`instancesById missing mapping for "${id}"`);
+        }
+      }
+      for (const key of indexKeys) {
+        if (!seenInstanceIds.has(key)) {
+          warnings.push(`instancesById entry "${key}" has no matching instance`);
+        }
+      }
+    } else {
+      warnings.push('instancesById provided without instances array');
+    }
+  }
+
   return { warnings, errors };
 }
 
@@ -380,6 +541,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     : Array.isArray(area.props)
       ? area.props
       : [];
+  const rawColliders = Array.isArray(area.colliders) ? area.colliders : [];
 
   const warnings = Array.isArray(area.warnings) ? [...area.warnings] : [];
   if (!Array.isArray(area.layers)) {
@@ -401,9 +563,16 @@ function normalizeAreaDescriptor(area, options = {}) {
     meta: layer.meta ? safeClone(layer.meta) : {},
   }));
 
-  const convertedInstances = rawInstances.map((inst) => {
+  const usedInstanceIds = new Set();
+  const convertedInstances = rawInstances.map((inst, index) => {
     const tags = Array.isArray(inst.tags) ? inst.tags.map((tag) => String(tag)) : [];
     const meta = inst.meta ? safeClone(inst.meta) : {};
+    const { instanceId, source: instanceIdSource } = resolveInstanceId(inst, {
+      areaId,
+      index,
+      tags,
+      usedIds: usedInstanceIds,
+    });
     const { prefab: resolvedPrefab, fallback } = resolvePrefab(
       inst.prefabId ?? null,
       inst.prefab ?? null,
@@ -417,7 +586,13 @@ function normalizeAreaDescriptor(area, options = {}) {
         ...fallback,
       };
     }
+    meta.identity = {
+      ...(meta.identity || {}),
+      instanceId,
+      source: meta.identity?.source || instanceIdSource,
+    };
     return {
+      instanceId,
       id: inst.id,
       prefabId: inst.prefabId ?? null,
       layerId: inst.layerId ?? null,
@@ -437,6 +612,8 @@ function normalizeAreaDescriptor(area, options = {}) {
     };
   });
 
+  const convertedColliders = rawColliders.map((col, index) => normalizeCollider(col, index));
+
   return {
     id: areaId,
     name: areaName,
@@ -450,11 +627,18 @@ function normalizeAreaDescriptor(area, options = {}) {
     },
     layers: convertedLayers,
     instances: convertedInstances,
+    instancesById: buildInstanceIndex(convertedInstances),
+    colliders: convertedColliders,
     warnings,
     meta: area.meta ? safeClone(area.meta) : {},
   };
 }
 
+/**
+ * Convert a builder layout export into a runtime-friendly area descriptor.
+ * The descriptor remains independent from the rest of the runtime so failures
+ * in the map pipeline do not prevent other systems from functioning.
+ */
 export function convertLayoutToArea(layout, options = {}) {
   if (!layout || typeof layout !== 'object') {
     throw new TypeError('layout must be an object');
@@ -473,6 +657,7 @@ export function convertLayoutToArea(layout, options = {}) {
 
   const layers = Array.isArray(layout.layers) ? layout.layers : [];
   const instances = Array.isArray(layout.instances) ? layout.instances : [];
+  const colliders = Array.isArray(layout.colliders) ? layout.colliders : [];
 
   const layerMap = new Map(layers.map((layer) => [layer.id, layer]));
   const slotCenters = computeLayerSlotCenters(instances);
@@ -492,7 +677,8 @@ export function convertLayoutToArea(layout, options = {}) {
     },
   }));
 
-  const convertedInstances = instances.map((inst) => {
+  const usedInstanceIds = new Set();
+  const convertedInstances = instances.map((inst, index) => {
     const layer = layerMap.get(inst.layerId) || null;
     const separation = layer ? toNumber(layer.sep, 0) : 0;
     const center = slotCenters.get(inst.layerId) ?? (inst.slot ?? 0);
@@ -510,6 +696,13 @@ export function convertLayoutToArea(layout, options = {}) {
     );
     const tags = Array.isArray(inst.tags) ? inst.tags.map((tag) => String(tag)) : [];
 
+    const { instanceId, source: instanceIdSource } = resolveInstanceId(inst, {
+      areaId: resolvedAreaId,
+      index,
+      tags,
+      usedIds: usedInstanceIds,
+    });
+
     const original = safeClone(inst);
     if (tags.length && !Array.isArray(original.tags)) {
       original.tags = [...tags];
@@ -524,8 +717,14 @@ export function convertLayoutToArea(layout, options = {}) {
         ...fallback,
       };
     }
+    meta.identity = {
+      ...(meta.identity || {}),
+      instanceId,
+      source: meta.identity?.source || instanceIdSource,
+    };
 
     return {
+      instanceId,
       id: inst.id,
       prefabId: inst.prefabId,
       layerId: inst.layerId,
@@ -544,6 +743,8 @@ export function convertLayoutToArea(layout, options = {}) {
       meta,
     };
   });
+
+  const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
 
   if (!Array.isArray(layout.layers)) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
@@ -565,6 +766,8 @@ export function convertLayoutToArea(layout, options = {}) {
     },
     layers: convertedLayers,
     instances: convertedInstances,
+    instancesById: buildInstanceIndex(convertedInstances),
+    colliders: convertedColliders,
     warnings,
     meta: {
       exportedAt: layout.meta?.exportedAt || null,
@@ -607,6 +810,46 @@ function toNumber(value, fallback) {
   return Number.isFinite(num) ? num : fallback;
 }
 
+function normalizeCollider(raw, fallbackIndex = 0) {
+  const safe = raw && typeof raw === 'object' ? safeClone(raw) : {};
+  const id = safe.id ?? safe.meta?.original?.id ?? fallbackIndex;
+  const labelRaw = typeof safe.label === 'string' ? safe.label.trim() : '';
+  let left = toNumber(safe.left ?? safe.x ?? safe.position?.x, 0);
+  const rightRaw = safe.right ?? safe.meta?.original?.right;
+  let width = toNumber(safe.width ?? safe.w, null);
+  if (!Number.isFinite(width) && Number.isFinite(rightRaw)) {
+    width = toNumber(rightRaw, left) - left;
+  }
+  if (!Number.isFinite(width)) width = 120;
+  if (width < 0) {
+    left += width;
+    width = Math.abs(width);
+  }
+
+  let topOffset = toNumber(safe.topOffset ?? safe.top ?? safe.y ?? safe.offsetY, 0);
+  const bottomRaw = safe.bottomOffset ?? safe.bottom ?? safe.meta?.bottomOffset;
+  let height = toNumber(safe.height ?? safe.h, null);
+  if (!Number.isFinite(height) && Number.isFinite(bottomRaw)) {
+    height = toNumber(bottomRaw, 0) - topOffset;
+  }
+  if (!Number.isFinite(height)) height = 40;
+  if (height < 0) {
+    topOffset += height;
+    height = Math.abs(height);
+  }
+
+  return {
+    id,
+    label: labelRaw || `Collider ${id ?? fallbackIndex}`,
+    type: safe.type === 'box' || safe.shape === 'box' ? 'box' : 'box',
+    left,
+    width: Math.max(1, width),
+    topOffset,
+    height: Math.max(1, height),
+    meta: safe.meta ? safeClone(safe.meta) : {},
+  };
+}
+
 function safeClone(value) {
   if (!value || typeof value !== 'object') return value ?? null;
   try {
@@ -615,3 +858,5 @@ function safeClone(value) {
     return JSON.parse(JSON.stringify(value));
   }
 }
+
+export default convertLayoutToArea;

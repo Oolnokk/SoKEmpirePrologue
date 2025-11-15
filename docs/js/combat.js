@@ -1,5 +1,5 @@
 // combat.js — Full attack system matching reference HTML (tap/hold, charge, combo, queue)
-import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=6';
+import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=5';
 import { resetMirror, setMirrorForPart } from './sprites.js?v=8';
 import { ensureFighterPhysics, updateFighterPhysics } from './physics.js?v=1';
 import {
