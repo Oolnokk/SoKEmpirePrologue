@@ -592,6 +592,8 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
     ax *= bone.len;
     ay *= bone.len;
   }
+  const hasXformAx = Math.abs(ax) > 1e-6;
+  const hasXformAy = Math.abs(ay) > 1e-6;
   // Offsets in bone-local space
   const offsetX = ax * bAxis.fx + ay * bAxis.rx;
   const offsetY = ax * bAxis.fy + ay * bAxis.ry;
@@ -627,6 +629,29 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   const scaleY = xform.scaleY ?? 1;
   w *= scaleX;
   h *= scaleY;
+
+  const spriteOffset = lookupSpriteOffset(offsets, styleKey);
+  if (spriteOffset){
+    const units = (spriteOffset.units || '').toLowerCase();
+    let ox = Number.isFinite(spriteOffset.ax) ? spriteOffset.ax : 0;
+    let oy = Number.isFinite(spriteOffset.ay) ? spriteOffset.ay : 0;
+    const unitMode = units
+      || (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct' ? 'percent' : 'px');
+    if (unitMode === 'percent' || unitMode === '%' || unitMode === 'pct'){
+      const heightBasis = Math.abs(h) > 1e-6 ? Math.abs(h) : Math.abs(baseH);
+      const widthBasis = Math.abs(w) > 1e-6 ? Math.abs(w) : Math.abs(baseH);
+      ox *= heightBasis;
+      oy *= widthBasis;
+    }
+    if (!hasXformAx) {
+      posX += ox * bAxis.fx;
+      posY += ox * bAxis.fy;
+    }
+    if (!hasXformAy) {
+      posX += oy * bAxis.rx;
+      posY += oy * bAxis.ry;
+    }
+  }
 
   const overrideXformCandidate = options && options.styleOverride?.xform;
   const overrideXformSrc = overrideXformCandidate || options?.styleOverride?.xform || {};
