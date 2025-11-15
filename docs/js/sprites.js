@@ -601,22 +601,16 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   const spriteOffset = lookupSpriteOffset(offsets, styleKey);
   if (spriteOffset){
     const units = (spriteOffset.units || '').toLowerCase();
-    let ox = Number.isFinite(spriteOffset.ax) ? spriteOffset.ax : 0;
-    let oy = Number.isFinite(spriteOffset.ay) ? spriteOffset.ay : 0;
+    let ox = spriteOffset.ax;
+    let oy = spriteOffset.ay;
     const unitMode = units
       || (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct' ? 'percent' : 'px');
     if (unitMode === 'percent' || unitMode === '%' || unitMode === 'pct'){
       ox *= bone.len;
       oy *= bone.len;
     }
-    if (!hasXformAx) {
-      posX += ox * bAxis.fx;
-      posY += ox * bAxis.fy;
-    }
-    if (!hasXformAy) {
-      posX += oy * bAxis.rx;
-      posY += oy * bAxis.ry;
-    }
+    posX += ox * bAxis.fx + oy * bAxis.rx;
+    posY += ox * bAxis.fy + oy * bAxis.ry;
   }
 
   // Sizing
