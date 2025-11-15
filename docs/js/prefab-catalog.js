@@ -383,8 +383,13 @@ async function loadManifest(url, fetchImpl) {
   }
 
   const promise = (async () => {
-    const json = await fetchJson(absoluteUrl, fetchImpl);
-    return normalizeManifest(json, absoluteUrl);
+    try {
+      const json = await fetchJson(absoluteUrl, fetchImpl);
+      return normalizeManifest(json, absoluteUrl);
+    } catch (error) {
+      manifestCache.delete(absoluteUrl);
+      throw error;
+    }
   })();
 
   manifestCache.set(absoluteUrl, promise);
