@@ -744,10 +744,9 @@ window.CONFIG = {
 
     // Polearm (two-handed baseline)
     sarrarru: {
-      bones: 2,
+      bones: 1,
       boneOffsets: [
-        { attach: 'rWrist', length: 90, x: 15, y: 0 }, // spear forward
-        { attach: 'lWrist', length: 40, x: -8, y: 0 }  // rear hand butt
+        { attach: 'rWrist', length: 60, x: 15, y: 0 } // spear forward
       ],
       colliders: {
         rightA: { shape:'rect', width:18, height:120, offset:{x:50,y:0}, activatesOn:['THRUST'] },
@@ -763,7 +762,7 @@ window.CONFIG = {
           xformUnits: 'percent',
           widthFactor: { weapon_0: 1 },
           xform: {
-            weapon_0: { ax: 0, ay: -0, scaleX: 0.1, scaleY: 0.1 }
+            weapon_0: { ax: 0, ay: -0, scaleX: 0.5, scaleY: 0.5 }
           }
         }
       }
