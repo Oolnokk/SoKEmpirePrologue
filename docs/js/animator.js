@@ -1,11 +1,11 @@
 // animator.js — restore basic idle/walk posing; robust speed detection; override TTL required
-import { degToRad, radToDegNum, angleFromDelta } from './math-utils.js?v=1';
+import { degToRad, radToDegNum, angleFromDelta, segPos, withAX, basis } from './math-utils.js?v=1';
 import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
-import { pickFighterConfig, pickFighterName } from './fighter-utils.js?v=1';
+import { pickFighterConfig, pickFighterName, lengths, pickOffsets } from './fighter-utils.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
 import { updatePhysicsPoseTarget, getPhysicsRagdollBlend, getPhysicsRagdollAngles } from './physics.js?v=1';
 
-const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee'];
+const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee','weapon'];
 // Convert pose object from degrees to radians using centralized utility
 function degToRadPose(p){ const o={}; for(const k of ANG_KEYS){ if (p&&p[k]!=null) o[k]=degToRad(p[k]); } return o; }
 // Add basePose to pose (matching reference HTML addAngles function)
@@ -13,6 +13,12 @@ function addAngles(base, delta){
   const out = {};
   for (const k of ANG_KEYS){
     out[k] = (base?.[k] ?? 0) + (delta?.[k] ?? 0);
+  }
+  if (base?.weaponGripPercents || delta?.weaponGripPercents) {
+    out.weaponGripPercents = {
+      ...(base?.weaponGripPercents || {}),
+      ...(delta?.weaponGripPercents || {})
+    };
   }
   return out;
 }
@@ -44,6 +50,16 @@ function ensureAnimState(F){
   } else {
     if (!Number.isFinite(F.anim.breath.phase)) F.anim.breath.phase = 0;
     if (F.anim.breath.direction !== 1 && F.anim.breath.direction !== -1) F.anim.breath.direction = 1;
+  }
+  if (!F.anim.weapon || typeof F.anim.weapon !== 'object') {
+    F.anim.weapon = { attachments: {}, gripPercents: {}, state: null };
+  } else {
+    if (typeof F.anim.weapon.attachments !== 'object' || !F.anim.weapon.attachments) {
+      F.anim.weapon.attachments = {};
+    }
+    if (typeof F.anim.weapon.gripPercents !== 'object' || !F.anim.weapon.gripPercents) {
+      F.anim.weapon.gripPercents = {};
+    }
   }
 }
 
@@ -415,6 +431,348 @@ function normalizeLayerMask(mask, pose){
   return null;
 }
 
+function canonicalLimbName(name) {
+  const value = (name ?? '').toString().toLowerCase();
+  if (!value) return null;
+  if (value.startsWith('l')) return 'left';
+  if (value.startsWith('r')) return 'right';
+  return null;
+}
+
+function handleGripEvent(F, spec) {
+  if (!F?.anim?.weapon || !spec) return;
+  const attachments = F.anim.weapon.attachments || (F.anim.weapon.attachments = {});
+  const actionRaw = (spec.action || spec.mode || '').toString().toLowerCase();
+  const derivedAction = spec.detachAll ? 'detachall' : (spec.detach ? 'detach' : 'attach');
+  const action = actionRaw || derivedAction;
+  if (action === 'detachall') {
+    for (const key of Object.keys(attachments)) {
+      delete attachments[key];
+    }
+    return;
+  }
+  const limb = canonicalLimbName(spec.limb || spec.hand || spec.arm);
+  if (!limb) return;
+  if (action === 'detach') {
+    delete attachments[limb];
+    return;
+  }
+  if (action !== 'attach') return;
+  const fallbackGrip = limb === 'left' ? 'secondary' : 'primary';
+  const gripId = spec.gripId || spec.grip || fallbackGrip;
+  if (!gripId) return;
+  attachments[limb] = {
+    gripId: String(gripId),
+    boneId: spec.boneId || spec.bone || null
+  };
+}
+
+function getActiveWeaponKey(F, C) {
+  const profile = F?.renderProfile || {};
+  return profile.weapon
+    || profile.character?.weapon
+    || (typeof F.weapon === 'string' ? F.weapon : null)
+    || (C?.characters?.player?.weapon ?? null);
+}
+
+function collectDefaultGripPercents(rig) {
+  const map = {};
+  if (!rig?.bones) return map;
+  for (const bone of rig.bones) {
+    for (const grip of bone?.grips || []) {
+      if (!grip || !grip.id) continue;
+      const pct = Number(grip.percent);
+      map[grip.id] = Number.isFinite(pct) ? pct : 0.5;
+    }
+  }
+  return map;
+}
+
+function computePoseBasis(F, target, C, fcfg) {
+  const L = lengths(C, fcfg);
+  const OFF = pickOffsets(C, fcfg);
+  const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx: 0.5, ny: 0.7 });
+  const centerX = F.pos?.x ?? 0;
+  const centerY = F.pos?.y ?? ((C.groundRatio || 0.7) * (C.canvas?.h || 460));
+  const torsoAng = target?.torso ?? 0;
+  const torsoAttach = {
+    x: centerX + (hbAttach.nx - 0.5) * L.hbW,
+    y: centerY + (hbAttach.ny - 0.5) * L.hbH
+  };
+  const originBaseArr = withAX(torsoAttach.x, torsoAttach.y, torsoAng, OFF.torso?.origin);
+  const hipBaseArr = withAX(originBaseArr[0], originBaseArr[1], torsoAng, OFF.torso?.hip);
+  const torsoTopArr = segPos(hipBaseArr[0], hipBaseArr[1], L.torso, torsoAng);
+  const neckBaseArr = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.neck);
+  const shoulderBaseArr = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.shoulder);
+  let lShoulderBaseArr = [...shoulderBaseArr];
+  let rShoulderBaseArr = [...shoulderBaseArr];
+  const breathOffsets = F.anim?.breath?.shoulderOffsets;
+  if (breathOffsets) {
+    const torsoBasis = basis(torsoAng);
+    const applyOffset = (baseArr, spec) => {
+      if (!spec) return baseArr;
+      const ax = Number(spec.ax) || Number(spec.x) || 0;
+      const ay = Number(spec.ay) || Number(spec.y) || 0;
+      if (!ax && !ay) return baseArr;
+      return [
+        baseArr[0] + ax * torsoBasis.fx + ay * torsoBasis.rx,
+        baseArr[1] + ax * torsoBasis.fy + ay * torsoBasis.ry
+      ];
+    };
+    lShoulderBaseArr = applyOffset(lShoulderBaseArr, breathOffsets.left);
+    rShoulderBaseArr = applyOffset(rShoulderBaseArr, breathOffsets.right);
+  }
+
+  const lUpperAng = target?.lShoulder ?? torsoAng;
+  const rUpperAng = target?.rShoulder ?? torsoAng;
+  const lLowerAng = lUpperAng + (target?.lElbow ?? 0);
+  const rLowerAng = rUpperAng + (target?.rElbow ?? 0);
+  const lElbowPosArr = withAX(...segPos(lShoulderBaseArr[0], lShoulderBaseArr[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
+  const rElbowPosArr = withAX(...segPos(rShoulderBaseArr[0], rShoulderBaseArr[1], L.armU, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
+
+  return {
+    centerX,
+    centerY,
+    torsoAttach,
+    torsoAng,
+    hipBase: hipBaseArr,
+    torsoTop: torsoTopArr,
+    neckBase: neckBaseArr,
+    lShoulderBase: lShoulderBaseArr,
+    rShoulderBase: rShoulderBaseArr,
+    lUpperAng,
+    rUpperAng,
+    lLowerAng,
+    rLowerAng,
+    lElbowPos: lElbowPosArr,
+    rElbowPos: rElbowPosArr,
+    L,
+    OFF
+  };
+}
+
+function resolveWeaponAnchor(anchorKey, basisInfo) {
+  const key = (anchorKey || '').toString().toLowerCase();
+  switch (key) {
+    case 'torso':
+    case 'hip':
+      return { pos: basisInfo.hipBase, ang: basisInfo.torsoAng };
+    case 'neck':
+      return { pos: basisInfo.neckBase, ang: basisInfo.torsoAng };
+    case 'lshoulder':
+    case 'leftshoulder':
+      return { pos: basisInfo.lShoulderBase, ang: basisInfo.lUpperAng };
+    case 'rshoulder':
+    case 'rightshoulder':
+      return { pos: basisInfo.rShoulderBase, ang: basisInfo.rUpperAng };
+    case 'torsotop':
+    case 'shoulderbase':
+    default:
+      return { pos: basisInfo.torsoTop, ang: basisInfo.torsoAng };
+  }
+}
+
+function limitRelativeAngle(value, reference, limits) {
+  if (!limits) return value;
+  const relMin = Number.isFinite(limits.relMin) ? degToRad(limits.relMin) : null;
+  const relMax = Number.isFinite(limits.relMax) ? degToRad(limits.relMax) : null;
+  if (!Number.isFinite(relMin) && !Number.isFinite(relMax)) return value;
+  const rel = normalizeRad(value - reference);
+  let clamped = rel;
+  if (Number.isFinite(relMin)) clamped = Math.max(clamped, relMin);
+  if (Number.isFinite(relMax)) clamped = Math.min(clamped, relMax);
+  return reference + clamped;
+}
+
+function limitElbowAngle(value, limits) {
+  if (!limits) return value;
+  const relMin = Number.isFinite(limits.relMin) ? degToRad(limits.relMin) : null;
+  const relMax = Number.isFinite(limits.relMax) ? degToRad(limits.relMax) : null;
+  if (!Number.isFinite(relMin) && !Number.isFinite(relMax)) return value;
+  let rel = normalizeRad(value);
+  if (Number.isFinite(relMin)) rel = Math.max(rel, relMin);
+  if (Number.isFinite(relMax)) rel = Math.min(rel, relMax);
+  return rel;
+}
+
+function solveArmIKChain(base, target, upperLen, lowerLen, elbowSign, torsoAng, shoulderLimits, elbowLimits) {
+  const dx = target[0] - base[0];
+  const dy = target[1] - base[1];
+  const dxStd = dx;
+  const dyStd = -dy;
+  const dist = Math.hypot(dxStd, dyStd);
+  const maxReach = Math.max(1e-4, upperLen + lowerLen - 1e-4);
+  const minReach = Math.max(1e-4, Math.abs(upperLen - lowerLen));
+  const distForCalc = Math.min(Math.max(dist, minReach), maxReach);
+  const baseStd = Math.atan2(dyStd, dxStd);
+  const cosElbow = ((distForCalc * distForCalc) - (upperLen * upperLen) - (lowerLen * lowerLen)) / (2 * upperLen * lowerLen);
+  const elbowStd = Math.acos(Math.max(-1, Math.min(1, cosElbow)));
+  const cosShoulder = ((distForCalc * distForCalc) + (upperLen * upperLen) - (lowerLen * lowerLen)) / (2 * distForCalc * upperLen);
+  const shoulderOffset = Math.acos(Math.max(-1, Math.min(1, cosShoulder)));
+  const shoulderStd = baseStd - elbowSign * shoulderOffset;
+  const elbowStdSigned = elbowSign * elbowStd;
+  let shoulderAng = normalizeRad((Math.PI / 2) - shoulderStd);
+  let elbowAng = -elbowStdSigned;
+  shoulderAng = limitRelativeAngle(shoulderAng, torsoAng, shoulderLimits);
+  elbowAng = limitElbowAngle(elbowAng, elbowLimits);
+  return { shoulderAng, elbowAng };
+}
+
+function updateWeaponRig(F, target, finalDeg, C, fcfg) {
+  if (!F?.anim?.weapon) return;
+  const weaponKey = getActiveWeaponKey(F, C);
+  const weaponDef = weaponKey && C.weapons ? C.weapons[weaponKey] : null;
+  const rig = weaponDef?.rig;
+  if (!rig || !Array.isArray(rig.bones) || !rig.bones.length) {
+    F.anim.weapon.state = null;
+    return;
+  }
+
+  const basisInfo = computePoseBasis(F, target, C, fcfg);
+  const weaponAngle = target?.weapon ?? basisInfo.torsoAng;
+  const gripPercents = F.anim.weapon.gripPercents || (F.anim.weapon.gripPercents = {});
+  const defaults = collectDefaultGripPercents(rig);
+  const posePercents = finalDeg?.weaponGripPercents || {};
+  const targetPercents = { ...defaults };
+  for (const [id, value] of Object.entries(posePercents)) {
+    if (!id) continue;
+    const pct = Number(value);
+    targetPercents[id] = Number.isFinite(pct) ? pct : (targetPercents[id] ?? defaults[id] ?? 0.5);
+  }
+  const dt = Math.max(1e-5, F.anim.dt || 0.016);
+  for (const [id, pct] of Object.entries(targetPercents)) {
+    const current = Number.isFinite(gripPercents[id]) ? gripPercents[id] : pct;
+    gripPercents[id] = damp(current, pct, 16, dt);
+  }
+
+  const bones = [];
+  const gripLookup = {};
+  const attachments = F.anim.weapon.attachments || {};
+  const validAttachments = {};
+
+  rig.bones.forEach((boneSpec, index) => {
+    if (!boneSpec) return;
+    const boneId = boneSpec.id || `weapon_${index}`;
+    const anchor = resolveWeaponAnchor(boneSpec.anchor || rig.base?.anchor, basisInfo);
+    const baseOffset = rig.base?.offset;
+    const length = Number.isFinite(boneSpec.length) ? boneSpec.length : 0;
+    let startArr = anchor.pos;
+    if (baseOffset) {
+      startArr = withAX(startArr[0], startArr[1], anchor.ang, baseOffset, null, length);
+    }
+    let boneAng = weaponAngle + (Number.isFinite(boneSpec.angleOffsetRad)
+      ? boneSpec.angleOffsetRad
+      : (Number.isFinite(boneSpec.angleOffsetDeg) ? degToRad(boneSpec.angleOffsetDeg) : 0));
+    if (boneSpec.offset) {
+      startArr = withAX(startArr[0], startArr[1], boneAng, boneSpec.offset, null, length);
+    }
+    const endArr = segPos(startArr[0], startArr[1], length, boneAng);
+    const boneEntry = {
+      id: boneId,
+      start: { x: startArr[0], y: startArr[1] },
+      end: { x: endArr[0], y: endArr[1] },
+      length,
+      angle: boneAng,
+      grips: {},
+      colliders: []
+    };
+
+    (boneSpec.grips || []).forEach((grip) => {
+      if (!grip || !grip.id) return;
+      const pct = Number.isFinite(gripPercents[grip.id]) ? gripPercents[grip.id] : (defaults[grip.id] ?? 0.5);
+      const along = Math.max(0, Math.min(1, pct)) * length;
+      let gripPos = segPos(startArr[0], startArr[1], along, boneAng);
+      if (grip.offset) {
+        gripPos = withAX(gripPos[0], gripPos[1], boneAng, grip.offset, null, length);
+      }
+      const gripEntry = { x: gripPos[0], y: gripPos[1], percent: pct, limb: grip.limb || null, boneId };
+      boneEntry.grips[grip.id] = gripEntry;
+      gripLookup[`${boneId}:${grip.id}`] = gripEntry;
+    });
+
+    (boneSpec.colliders || []).forEach((colSpec, idx) => {
+      if (!colSpec) return;
+      const from = Number.isFinite(colSpec.from) ? colSpec.from : 0;
+      const to = Number.isFinite(colSpec.to) ? colSpec.to : from;
+      const startPos = segPos(startArr[0], startArr[1], length * from, boneAng);
+      const endPos = segPos(startArr[0], startArr[1], length * to, boneAng);
+      let centerX = (startPos[0] + endPos[0]) / 2;
+      let centerY = (startPos[1] + endPos[1]) / 2;
+      if (colSpec.offset) {
+        const adjusted = withAX(centerX, centerY, boneAng, colSpec.offset, null, length);
+        centerX = adjusted[0];
+        centerY = adjusted[1];
+      }
+      const collider = {
+        id: colSpec.id || `${boneId}_collider_${idx}`,
+        kind: colSpec.kind || 'box',
+        width: Number(colSpec.width) || 0,
+        height: Number(colSpec.height) || Math.abs((to - from) * length),
+        angle: boneAng,
+        center: { x: centerX, y: centerY },
+        lengthPercent: { from, to },
+        activatesOn: Array.isArray(colSpec.activatesOn) ? colSpec.activatesOn.slice() : []
+      };
+      boneEntry.colliders.push(collider);
+    });
+
+    bones.push(boneEntry);
+  });
+
+  const limits = fcfg?.limits || C.limits || {};
+  const shoulderLimits = limits.shoulder || {};
+  const elbowLimits = limits.elbow || {};
+
+  const upperLen = basisInfo.L.armU;
+  const lowerLen = basisInfo.L.armL;
+
+  for (const [limb, attachment] of Object.entries(attachments)) {
+    if (!attachment || !attachment.gripId) continue;
+    const boneId = attachment.boneId || null;
+    const keyCandidates = boneId ? [`${boneId}:${attachment.gripId}`] : Object.keys(gripLookup).filter((key) => key.endsWith(`:${attachment.gripId}`));
+    let gripEntry = null;
+    let resolvedBoneId = boneId || null;
+    for (const key of keyCandidates) {
+      if (gripLookup[key]) {
+        gripEntry = gripLookup[key];
+        resolvedBoneId = gripEntry.boneId || key.split(':')[0];
+        break;
+      }
+    }
+    if (!gripEntry) continue;
+
+    const isLeft = limb === 'left';
+    const baseArr = isLeft ? basisInfo.lShoulderBase : basisInfo.rShoulderBase;
+    if (!baseArr) continue;
+    const result = solveArmIKChain(
+      baseArr,
+      [gripEntry.x, gripEntry.y],
+      upperLen,
+      lowerLen,
+      isLeft ? 1 : -1,
+      basisInfo.torsoAng,
+      shoulderLimits,
+      elbowLimits
+    );
+    if (isLeft) {
+      target.lShoulder = result.shoulderAng;
+      target.lElbow = result.elbowAng;
+    } else {
+      target.rShoulder = result.shoulderAng;
+      target.rElbow = result.elbowAng;
+    }
+    validAttachments[limb] = { gripId: attachment.gripId, boneId: resolvedBoneId };
+  }
+
+  F.anim.weapon.attachments = validAttachments;
+  F.anim.weapon.state = {
+    weaponKey,
+    bones,
+    gripPercents: { ...gripPercents },
+    attachments: validAttachments
+  };
+}
+
 function setOverrideLayer(F, layerId, poseDeg, { durMs=300, mask, priority, suppressWalk, useAsBase } = {}){
   if (!F) return null;
   ensureAnimState(F);
@@ -583,6 +941,9 @@ function processAnimEventsForOverride(F, over){
           : (Number.isFinite(ev.gravityDurationMs) ? ev.gravityDurationMs : null);
         applyGravityScaleEvent(F, ev.gravityScale, { durationMs: duration });
       }
+      if (ev.grip) {
+        handleGripEvent(F, ev.grip);
+      }
     }
   }
 
@@ -659,9 +1020,15 @@ function applyLayerPose(targetPose, layer){
       for (const k of ANG_KEYS){
         if (pose[k] != null) targetPose[k] = pose[k];
       }
+      if (pose.weaponGripPercents) {
+        targetPose.weaponGripPercents = { ...pose.weaponGripPercents };
+      }
       continue;
     }
     if (pose[key] != null) targetPose[key] = pose[key];
+  }
+  if (mask.includes('weapon') && pose.weaponGripPercents) {
+    targetPose.weaponGripPercents = { ...pose.weaponGripPercents };
   }
 }
 
@@ -943,6 +1310,7 @@ export function updatePoses(){
     }
     
     const target = degToRadPose(finalDeg);
+    updateWeaponRig(F, target, finalDeg, C, fcfg);
     updatePhysicsPoseTarget(F, target);
     const ragBlend = getPhysicsRagdollBlend(F);
     const ragAngles = getPhysicsRagdollAngles(F);
