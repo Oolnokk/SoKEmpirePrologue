@@ -3,6 +3,64 @@ const prefabCache = new Map();
 
 const NO_FETCH_ERROR = new Error('fetch is unavailable in this environment');
 
+let customJsonImportLoader = null;
+let nativeJsonImportAvailable = undefined;
+let jsonImportWarningLogged = false;
+
+export function __setJsonImportLoader(loader) {
+  if (typeof loader === 'function') {
+    customJsonImportLoader = loader;
+  } else {
+    customJsonImportLoader = null;
+  }
+}
+
+function shouldUseJsonFallback(url) {
+  if (typeof url !== 'string') return false;
+  const normalized = url.trim().toLowerCase();
+  if (!normalized) return false;
+  if (normalized.startsWith('file:')) {
+    return true;
+  }
+  if (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') {
+    return true;
+  }
+  return false;
+}
+
+async function importJsonWithFallback(url) {
+  if (!shouldUseJsonFallback(url)) {
+    return null;
+  }
+
+  const loader = customJsonImportLoader
+    || (nativeJsonImportAvailable === false
+      ? null
+      : ((target) => import(/* webpackIgnore: true */ target, { assert: { type: 'json' } })));
+
+  if (!loader) {
+    return null;
+  }
+
+  try {
+    const module = await loader(url);
+    if (!customJsonImportLoader) {
+      nativeJsonImportAvailable = true;
+    }
+    const data = module && typeof module === 'object' && 'default' in module ? module.default : module;
+    return data ?? null;
+  } catch (error) {
+    if (!customJsonImportLoader) {
+      nativeJsonImportAvailable = false;
+      if (!jsonImportWarningLogged && typeof console?.warn === 'function') {
+        jsonImportWarningLogged = true;
+        console.warn('[prefab-catalog] JSON module import fallback failed', { url, error });
+      }
+    }
+    return null;
+  }
+}
+
 const PREFAB_TYPES = new Set(['structure', 'obstruction']);
 const OBSTRUCTION_NEAR_PLANE = Object.freeze({
   id: 'obstruction:near',
@@ -162,11 +220,19 @@ function getFetchImplementation(customFetch) {
 }
 
 async function fetchJson(url, fetchImpl) {
-  const response = await fetchImpl(url, { cache: 'no-cache' });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+  try {
+    const response = await fetchImpl(url, { cache: 'no-cache' });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return response.json();
+  } catch (error) {
+    const fallback = await importJsonWithFallback(url);
+    if (fallback != null) {
+      return fallback;
+    }
+    throw error;
   }
-  return response.json();
 }
 
 const ABSOLUTE_URL_PATTERN = /^(?:[a-z][a-z\d+\-.]*:|\/\/)/i;
@@ -298,7 +364,14 @@ async function loadPrefab(url, fetchImpl) {
 }
 
 export async function loadPrefabsFromManifests(manifestUrls, options = {}) {
-  const fetchImpl = getFetchImplementation(options.fetch);
+  let fetchImpl;
+  try {
+    fetchImpl = getFetchImplementation(options.fetch);
+  } catch (error) {
+    fetchImpl = async () => {
+      throw error;
+    };
+  }
   const prefabs = new Map();
   const catalogs = [];
   const errors = [];
