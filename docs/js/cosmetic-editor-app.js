@@ -2411,6 +2411,13 @@ class CosmeticEditorApp {
       this.showStatus('Asset manifest unavailable in this environment.', { tone: 'warn' });
       return;
     }
+
+    const isFallbackAsset = (path) => {
+      if (!path || typeof path !== 'string') return false;
+      const lower = path.toLowerCase();
+      return /(\(old[0-9]*\)|\(delete\))/i.test(lower);
+    };
+
     try {
       const response = await fetch('./assets/asset-manifest.json', { cache: 'no-cache' });
       if (!response.ok){
@@ -2418,8 +2425,18 @@ class CosmeticEditorApp {
       }
       const data = await response.json();
       if (Array.isArray(data)){
-        this.state.assetManifest = data;
-        this.state.filteredAssets = data.slice();
+        const sanitized = data.filter((entry) => {
+          if (typeof entry !== 'string') return false;
+          const normalized = entry.trim();
+          if (!normalized) return false;
+          return !isFallbackAsset(normalized);
+        });
+        const removed = data.filter((entry) => isFallbackAsset(entry));
+        if (removed.length){
+          console.warn('[cosmetic-editor] Ignoring fallback-tagged assets from manifest', removed);
+        }
+        this.state.assetManifest = sanitized;
+        this.state.filteredAssets = sanitized.slice();
         this.assetLibrary.renderAssetList();
         this.assetLibrary.setSelectedAsset(this.state.selectedAsset);
       }
