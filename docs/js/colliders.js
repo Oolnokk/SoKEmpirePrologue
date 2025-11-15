@@ -16,11 +16,16 @@ function ensureStore() {
   return store;
 }
 
+function isValidPoint(point) {
+  return !!point
+    && typeof point === 'object'
+    && Number.isFinite(point.x)
+    && Number.isFinite(point.y);
+}
+
 function clonePoint(point) {
-  if (!point || typeof point !== 'object') return null;
-  const x = Number.isFinite(point.x) ? point.x : 0;
-  const y = Number.isFinite(point.y) ? point.y : 0;
-  return { x, y };
+  if (!isValidPoint(point)) return null;
+  return { x: point.x, y: point.y };
 }
 
 function resolveBoneEnd(bone) {
@@ -31,8 +36,11 @@ function resolveBoneEnd(bone) {
   if (!Number.isFinite(bone.x) || !Number.isFinite(bone.y)) {
     return null;
   }
-  const len = Number.isFinite(bone.len) ? bone.len : 0;
-  const ang = Number.isFinite(bone.ang) ? bone.ang : 0;
+  if (!Number.isFinite(bone.len) || !Number.isFinite(bone.ang)) {
+    return null;
+  }
+  const len = bone.len;
+  const ang = bone.ang;
   const axis = basisFor(ang);
   return {
     x: bone.x + axis.fx * len,
@@ -59,13 +67,14 @@ function resolveRadius(key, config = {}) {
 }
 
 function writeCollider(entry, key, point, radius) {
-  if (point) {
+  if (isValidPoint(point)) {
     entry[key] = { x: point.x, y: point.y };
-    entry[`${key}Radius`] = radius;
-  } else {
-    entry[key] = null;
-    entry[`${key}Radius`] = null;
+    entry[`${key}Radius`] = Number.isFinite(radius) ? radius : null;
+    return;
   }
+
+  entry[key] = null;
+  entry[`${key}Radius`] = null;
 }
 
 export function updateFighterColliders(fighterId, bones, options = {}) {
@@ -91,9 +100,9 @@ export function getFighterColliders(fighterId) {
   const clone = { hitCenter: entry.hitCenter ? clonePoint(entry.hitCenter) : null };
   for (const spec of LIMB_SPECS) {
     clone[spec.key] = entry[spec.key] ? clonePoint(entry[spec.key]) : null;
-    if (Number.isFinite(entry[`${spec.key}Radius`])) {
-      clone[`${spec.key}Radius`] = entry[`${spec.key}Radius`];
-    }
+    clone[`${spec.key}Radius`] = Number.isFinite(entry[`${spec.key}Radius`])
+      ? entry[`${spec.key}Radius`]
+      : null;
   }
   return clone;
 }
