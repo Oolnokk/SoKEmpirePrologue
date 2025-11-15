@@ -583,6 +583,9 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   const xform = (effectiveStyle.xform || {})[normalizedKey] || (effectiveStyle.xform || {})[styleKey] || {};
   const xformUnits = (effectiveStyle.xformUnits || 'px').toLowerCase();
 
+  const hasXformAx = xform.ax != null;
+  const hasXformAy = xform.ay != null;
+
   let ax = xform.ax ?? 0;
   let ay = xform.ay ?? 0;
   if (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct') {

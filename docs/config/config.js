@@ -146,6 +146,16 @@ const BASE_POSES = {
   }
 };
 
+const makeSarrarruComboPoses = ({ windup = {}, strike = {}, recoil = {} } = {}) => {
+  const poses = {
+    Stance: deepClone(BASE_POSES.Stance),
+    Windup: { ...deepClone(BASE_POSES.Windup), ...windup },
+    Strike: { ...deepClone(BASE_POSES.Strike), ...strike },
+    Recoil: { ...deepClone(BASE_POSES.Recoil), ...recoil }
+  };
+  return poses;
+};
+
 // Pose angle summary used by tooling/tests to verify baseline corrections.
 const POSE_ANGLE_SUMMARY = {
   Windup: { lHip:130, rHip:100 },
@@ -750,6 +760,134 @@ window.CONFIG = {
         { poseKey: 'Slam', durMs: 160, strike: {} },
         { poseKey: 'Recoil', durMs: 200 }
       ]
+    },
+    SRCA1: {
+      name: 'Sarrarru Combo A1',
+      tags: ['light', 'combo', 'sarrarru'],
+      durations: { toWindup: 420, toStrike: 140, toRecoil: 220, toStance: 160 },
+      knockbackBase: 260,
+      cancelWindow: 0.65,
+      poses: makeSarrarruComboPoses({
+        windup: {
+          weapon: -40,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.05, grip: { action: 'attach', limb: 'right', gripId: 'primary' } },
+            { time: 0.12, grip: { action: 'attach', limb: 'left', gripId: 'secondary' } }
+          ]
+        },
+        strike: {
+          weapon: -25,
+          weaponGripPercents: { primary: 0.12, secondary: 0.42 },
+          anim_events: [
+            { time: 0.0, impulse: 520, impulse_angle: -20 }
+          ]
+        },
+        recoil: {
+          weapon: -12,
+          weaponGripPercents: { primary: 0.1, secondary: 0.36 },
+          anim_events: [
+            { time: 0.4, grip: { action: 'detach', limb: 'left' } },
+            { time: 0.55, grip: { action: 'detach', limb: 'right' } }
+          ]
+        }
+      })
+    },
+    SRCA2: {
+      name: 'Sarrarru Combo A2',
+      tags: ['light', 'combo', 'sarrarru'],
+      durations: { toWindup: 360, toStrike: 120, toRecoil: 200, toStance: 140 },
+      knockbackBase: 280,
+      cancelWindow: 0.68,
+      poses: makeSarrarruComboPoses({
+        windup: {
+          weapon: -35,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.04, grip: { action: 'attach', limb: 'right', gripId: 'primary' } },
+            { time: 0.1, grip: { action: 'attach', limb: 'left', gripId: 'secondary' } }
+          ]
+        },
+        strike: {
+          weapon: -18,
+          weaponGripPercents: { primary: 0.14, secondary: 0.44 },
+          anim_events: [
+            { time: 0.0, impulse: 540, impulse_angle: -15 }
+          ]
+        },
+        recoil: {
+          weapon: -8,
+          weaponGripPercents: { primary: 0.1, secondary: 0.38 },
+          anim_events: [
+            { time: 0.35, grip: { action: 'detach', limb: 'left' } },
+            { time: 0.5, grip: { action: 'detach', limb: 'right' } }
+          ]
+        }
+      })
+    },
+    SRCA3: {
+      name: 'Sarrarru Combo A3',
+      tags: ['light', 'combo', 'sarrarru'],
+      durations: { toWindup: 340, toStrike: 260, toRecoil: 220, toStance: 160 },
+      knockbackBase: 300,
+      cancelWindow: 0.7,
+      poses: makeSarrarruComboPoses({
+        windup: {
+          weapon: -12,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.05, grip: { action: 'detach', limb: 'left' } },
+            { time: 0.08, grip: { action: 'attach', limb: 'right', gripId: 'secondary' } }
+          ]
+        },
+        strike: {
+          weapon: 0,
+          weaponGripPercents: { secondary: 0.4 },
+          anim_events: [
+            { time: 0.0, grip: { action: 'detach', limb: 'left' } }
+          ]
+        },
+        recoil: {
+          weapon: -6,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.25, grip: { action: 'attach', limb: 'left', gripId: 'primary' } },
+            { time: 0.4, grip: { action: 'attach', limb: 'right', gripId: 'primary' } }
+          ]
+        }
+      })
+    },
+    SRCA4: {
+      name: 'Sarrarru Combo A4',
+      tags: ['light', 'combo', 'sarrarru'],
+      durations: { toWindup: 400, toStrike: 180, toRecoil: 240, toStance: 180 },
+      knockbackBase: 320,
+      cancelWindow: 0.72,
+      poses: makeSarrarruComboPoses({
+        windup: {
+          weapon: 20,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.05, grip: { action: 'attach', limb: 'right', gripId: 'primary' } },
+            { time: 0.11, grip: { action: 'attach', limb: 'left', gripId: 'secondary' } }
+          ]
+        },
+        strike: {
+          weapon: 40,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.0, impulse: 560, impulse_angle: 35 }
+          ]
+        },
+        recoil: {
+          weapon: 10,
+          weaponGripPercents: { primary: 0.1, secondary: 0.34 },
+          anim_events: [
+            { time: 0.4, grip: { action: 'detach', limb: 'left' } },
+            { time: 0.55, grip: { action: 'detach', limb: 'right' } }
+          ]
+        }
+      })
     }
   },
 
@@ -1150,7 +1288,7 @@ window.CONFIG = {
     sarrarru: {
       weapon: 'sarrarru',
       name: 'Spear Rhythm',
-      sequence: ['THRUST', 'SWEEP', 'THRUST', 'SWEEP'],
+      sequence: ['SRCA1', 'SRCA2', 'SRCA3', 'SRCA4'],
       comboWindowMs: 3500,
       type: 'sharp'
     },
@@ -1325,6 +1463,58 @@ window.CONFIG = {
           damage: { health: 10 },
           staminaCost: 18,
           colliders: ['footL']
+        }
+      },
+      SRCA1: {
+        preset: 'SRCA1',
+        name: 'Sarrarru Combo A1',
+        tags: ['combo', 'light', 'sarrarru'],
+        sequence: [
+          { move: 'SRCA1', startMs: 0 }
+        ],
+        attackData: {
+          damage: { health: 18 },
+          staminaCost: 16,
+          useWeaponColliders: true
+        }
+      },
+      SRCA2: {
+        preset: 'SRCA2',
+        name: 'Sarrarru Combo A2',
+        tags: ['combo', 'light', 'sarrarru'],
+        sequence: [
+          { move: 'SRCA2', startMs: 0 }
+        ],
+        attackData: {
+          damage: { health: 20 },
+          staminaCost: 18,
+          useWeaponColliders: true
+        }
+      },
+      SRCA3: {
+        preset: 'SRCA3',
+        name: 'Sarrarru Combo A3',
+        tags: ['combo', 'light', 'sarrarru'],
+        sequence: [
+          { move: 'SRCA3', startMs: 0 }
+        ],
+        attackData: {
+          damage: { health: 22 },
+          staminaCost: 20,
+          useWeaponColliders: true
+        }
+      },
+      SRCA4: {
+        preset: 'SRCA4',
+        name: 'Sarrarru Combo A4',
+        tags: ['combo', 'light', 'sarrarru'],
+        sequence: [
+          { move: 'SRCA4', startMs: 0 }
+        ],
+        attackData: {
+          damage: { health: 24 },
+          staminaCost: 22,
+          useWeaponColliders: true
         }
       }
     },
@@ -1855,7 +2045,7 @@ const buildPresets = () => {
     if (!CONFIG.presets[name]) CONFIG.presets[name] = clone(CONFIG.presets[base] || {});
     CONFIG.presets[name].useWeaponColliders = true;
   };
-  ['SLASH','STAB','THRUST','SWEEP','CHOP','SMASH','SWING','HACK','TOSS'].forEach(n => ensurePreset(n));
+  ['SLASH','STAB','THRUST','SWEEP','CHOP','SMASH','SWING','HACK','TOSS','SRCA1','SRCA2','SRCA3','SRCA4'].forEach(n => ensurePreset(n));
 
   try { document.dispatchEvent(new Event('config:ready')); } catch(_){}
 };

@@ -347,9 +347,6 @@ function applySelectedWeaponSelection(rawValue, { triggerPreview = true } = {}) 
     characters[selectedCharacter].weapon = normalizedConfigValue;
   }
 
-  const runtimeFighterKey = window.GAME?.selectedFighter || null;
-  syncWeaponRuntimeForCharacter(selectedCharacter, normalizedConfigValue, { fighterKey: runtimeFighterKey });
-
   const previousNormalized = (typeof previousWeapon === 'string' && previousWeapon.trim().length)
     ? previousWeapon.trim()
     : 'unarmed';
