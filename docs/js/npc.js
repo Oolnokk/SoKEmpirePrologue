@@ -5,6 +5,7 @@ import { ensureFighterPhysics, updateFighterPhysics, resolveFighterBodyCollision
 import { applyHealthRegenFromStats, applyStaminaTick, getStatProfile } from './stat-hooks.js?v=1';
 import { ensureNpcAbilityDirector, updateNpcAbilityDirector } from './npcAbilityDirector.js?v=1';
 import { removeNpcFighter } from './fighter.js?v=8';
+import { getFighterColliders } from './colliders.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -1561,6 +1562,7 @@ export function recordNpcAttackTrailSample(colliders, dt, fighterId) {
   attackTrail.timer += dt;
   if (attackTrail.timer < attackTrail.interval) return;
   attackTrail.timer = 0;
+  const sourceColliders = colliders || getFighterColliders(fighterId);
   let keys = attack.currentActiveKeys || [];
   if ((!keys || keys.length === 0) && attack.currentPhase?.toLowerCase().includes('strike')) {
     keys = getPresetActiveColliders(attack.context?.preset || attack.preset);
@@ -1568,8 +1570,8 @@ export function recordNpcAttackTrailSample(colliders, dt, fighterId) {
   if (!Array.isArray(keys) || keys.length === 0) return;
   attackTrail.colliders ||= {};
   for (const key of keys) {
-    let pos = colliders?.[key];
-    let radius = colliders?.[`${key}Radius`];
+    let pos = sourceColliders?.[key];
+    let radius = sourceColliders?.[`${key}Radius`];
     if ((!pos || !Number.isFinite(radius)) && key.startsWith('weapon:')) {
       const resolved = resolveWeaponColliderPoint(fighter, key);
       if (resolved) {
