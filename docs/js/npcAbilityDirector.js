@@ -224,10 +224,14 @@ function updateHeavyBehavior(director, context) {
 function updateDefensiveMeter(director, context) {
   const defensive = director.defensive;
   defensive.cooldown = Math.max(0, defensive.cooldown - context.dt);
-  const { player, absDx, dt } = context;
+  const { player, absDx, dt, request } = context;
   const playerAggressive = !!player?.attack?.active;
-  const closeEnough = absDx <= 90;
-  if (playerAggressive && closeEnough) {
+  const consideredThreat = request && typeof request.threat === 'boolean'
+    ? request.threat
+    : playerAggressive;
+  const range = Number.isFinite(request?.range) ? request.range : 90;
+  const closeEnough = absDx <= range;
+  if (consideredThreat && closeEnough) {
     defensive.meter += DEFENSIVE_METER_GAIN * dt;
   } else {
     defensive.meter -= DEFENSIVE_METER_DECAY * dt;
@@ -240,13 +244,20 @@ function updateDefensiveBehavior(director, context) {
   const defensive = director.defensive;
   const intent = { active: false, slotKey: defensive.slotKey };
   const targetSlot = director.slots.defensive[0] || null;
-  const { pressButton, releaseButton, stamina } = context;
+  const { pressButton, releaseButton, stamina, request, dx = 0 } = context;
   const staminaCurrent = Number.isFinite(stamina?.current) ? stamina.current : 0;
   const staminaMin = Number.isFinite(stamina?.minToDash) ? stamina.minToDash : 0;
   const staminaOk = staminaCurrent >= staminaMin;
+  const requestedActivation = !!request?.activate;
+  const requestThreat = !!request?.threat;
+  intent.type = targetSlot?.type || null;
+  intent.requested = requestedActivation;
+  intent.retreatDir = Number.isFinite(request?.retreatDir)
+    ? request.retreatDir
+    : dx >= 0 ? -1 : 1;
   if (defensive.active) {
     intent.active = true;
-    if (!staminaOk || defensive.meter < DEFENSIVE_RELEASE_THRESHOLD) {
+    if (!staminaOk || !requestThreat || defensive.meter < DEFENSIVE_RELEASE_THRESHOLD) {
       if (releaseButton && defensive.slotKey) {
         releaseButton(defensive.slotKey);
       }
@@ -257,7 +268,9 @@ function updateDefensiveBehavior(director, context) {
     return intent;
   }
   defensive.slotKey = defensive.slotKey || (targetSlot ? targetSlot.slotKey : null);
-  const canActivate = targetSlot && defensive.cooldown <= 0 && staminaOk && defensive.meter >= DEFENSIVE_TRIGGER_THRESHOLD;
+  const hasMeter = defensive.meter >= DEFENSIVE_TRIGGER_THRESHOLD;
+  const wantsActivation = requestedActivation || (requestThreat && hasMeter);
+  const canActivate = targetSlot && defensive.cooldown <= 0 && staminaOk && wantsActivation;
   if (canActivate && pressButton) {
     const pressed = pressButton(targetSlot.slotKey, DEFENSIVE_HOLD_DURATION);
     if (pressed) {
@@ -287,6 +300,7 @@ export function updateNpcAbilityDirector({
   aggressionActive = false,
   attackActive = false,
   isBusy = false,
+  defenseRequest = null,
 }) {
   if (!state) return null;
   const director = ensureDirectorState(state);
@@ -319,6 +333,8 @@ export function updateNpcAbilityDirector({
     pressButton,
     releaseButton,
     stamina,
+    request: defenseRequest,
+    dx,
   });
 
   const suppressBasicAttacks = Boolean(
@@ -330,6 +346,10 @@ export function updateNpcAbilityDirector({
     suppressBasicAttacks,
     heavy: heavyIntent,
     defensiveActive: defensiveIntent.active,
+    defensiveType: defensiveIntent.type || null,
+    defensiveRequested: defensiveIntent.requested || false,
+    defensiveRetreatDir: Number.isFinite(defensiveIntent.retreatDir) ? defensiveIntent.retreatDir : 0,
+    heavyState: director.heavy?.state || null,
   };
   state.aiAbilityIntent = intent;
   return intent;
