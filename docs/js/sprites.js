@@ -592,8 +592,6 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
     ax *= bone.len;
     ay *= bone.len;
   }
-  const hasXformAx = Math.abs(ax) > 1e-6;
-  const hasXformAy = Math.abs(ay) > 1e-6;
   // Offsets in bone-local space
   const offsetX = ax * bAxis.fx + ay * bAxis.rx;
   const offsetY = ax * bAxis.fy + ay * bAxis.ry;
