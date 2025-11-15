@@ -469,6 +469,65 @@ function drawWarpedImage(ctx, img, destPoints, w, h){
   }
 }
 
+function normalizeSpriteOffsetSpec(raw){
+  if (!raw) return null;
+  let spec = raw;
+  if (typeof raw === 'object' && raw !== null && raw.origin){
+    spec = raw.origin;
+  }
+  if (Array.isArray(spec)){
+    const [ax = 0, ay = 0, units] = spec;
+    return {
+      ax: Number(ax) || 0,
+      ay: Number(ay) || 0,
+      units: typeof units === 'string' ? units : undefined
+    };
+  }
+  if (typeof spec === 'number'){
+    return { ax: spec, ay: 0 };
+  }
+  if (!spec || typeof spec !== 'object') return null;
+  return {
+    ax: Number(spec.ax ?? spec.x ?? 0) || 0,
+    ay: Number(spec.ay ?? spec.y ?? 0) || 0,
+    units: typeof spec.units === 'string'
+      ? spec.units
+      : (typeof spec.unit === 'string' ? spec.unit : undefined)
+  };
+}
+
+function lookupSpriteOffset(offsets, styleKey){
+  if (!offsets || typeof offsets !== 'object') return null;
+  const normalizedKey = normalizeStyleKey(styleKey);
+  const tryCandidates = (...candidates)=>{
+    for (const candidate of candidates){
+      const spec = normalizeSpriteOffsetSpec(candidate);
+      if (spec) return spec;
+    }
+    return null;
+  };
+
+  const direct = tryCandidates(offsets[styleKey], offsets[normalizedKey]);
+  if (direct) return direct;
+
+  switch (normalizedKey){
+    case 'torso':
+      return tryCandidates(offsets.torso, offsets.torso?.sprite, offsets.torso?.origin, offsets.torso?.spriteOffset);
+    case 'head':
+      return tryCandidates(offsets.head, offsets.head?.sprite, offsets.head?.origin, offsets.head?.spriteOffset);
+    case 'armUpper':
+      return tryCandidates(offsets.armUpper, offsets.arm?.upper, offsets.arm?.upper?.sprite, offsets.arm?.upper?.spriteOffset);
+    case 'armLower':
+      return tryCandidates(offsets.armLower, offsets.arm?.lower, offsets.arm?.lower?.sprite, offsets.arm?.lower?.spriteOffset);
+    case 'legUpper':
+      return tryCandidates(offsets.legUpper, offsets.leg?.upper, offsets.leg?.upper?.sprite, offsets.leg?.upper?.spriteOffset);
+    case 'legLower':
+      return tryCandidates(offsets.legLower, offsets.leg?.lower, offsets.leg?.lower?.sprite, offsets.leg?.lower?.spriteOffset);
+    default:
+      return null;
+  }
+}
+
 function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   const options = arguments[6] || {};
   const opts = options || {};
@@ -524,12 +583,14 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   const xform = (effectiveStyle.xform || {})[normalizedKey] || (effectiveStyle.xform || {})[styleKey] || {};
   const xformUnits = (effectiveStyle.xformUnits || 'px').toLowerCase();
 
-  let ax = xform.ax ?? 0;
-  let ay = xform.ay ?? 0;
+  let ax = Number.isFinite(xform.ax) ? xform.ax : (xform.ax == null ? 0 : Number(xform.ax) || 0);
+  let ay = Number.isFinite(xform.ay) ? xform.ay : (xform.ay == null ? 0 : Number(xform.ay) || 0);
   if (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct') {
     ax *= bone.len;
     ay *= bone.len;
   }
+  const hasXformAx = Math.abs(ax) > 1e-6;
+  const hasXformAy = Math.abs(ay) > 1e-6;
   // Offsets in bone-local space
   const offsetX = ax * bAxis.fx + ay * bAxis.rx;
   const offsetY = ax * bAxis.fy + ay * bAxis.ry;
@@ -550,6 +611,29 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   const scaleY = xform.scaleY ?? 1;
   w *= scaleX;
   h *= scaleY;
+
+  const spriteOffset = lookupSpriteOffset(offsets, styleKey);
+  if (spriteOffset){
+    const units = (spriteOffset.units || '').toLowerCase();
+    let ox = Number.isFinite(spriteOffset.ax) ? spriteOffset.ax : 0;
+    let oy = Number.isFinite(spriteOffset.ay) ? spriteOffset.ay : 0;
+    const unitMode = units
+      || (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct' ? 'percent' : 'px');
+    if (unitMode === 'percent' || unitMode === '%' || unitMode === 'pct'){
+      const heightBasis = Math.abs(h) > 1e-6 ? Math.abs(h) : Math.abs(baseH);
+      const widthBasis = Math.abs(w) > 1e-6 ? Math.abs(w) : Math.abs(baseH);
+      ox *= heightBasis;
+      oy *= widthBasis;
+    }
+    if (!hasXformAx) {
+      posX += ox * bAxis.fx;
+      posY += ox * bAxis.fy;
+    }
+    if (!hasXformAy) {
+      posX += oy * bAxis.rx;
+      posY += oy * bAxis.ry;
+    }
+  }
 
   const overrideXformCandidate = options && options.styleOverride?.xform;
   const overrideXformSrc = overrideXformCandidate || options?.styleOverride?.xform || {};
