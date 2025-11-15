@@ -699,45 +699,16 @@ function samplePoseForWeaponDisplay(F, target, dt, lambda = JOINT_DAMP_LAMBDA) {
   return result;
 }
 
-function updateWeaponRig(F, target, finalDeg, C, fcfg) {
-  if (!F?.anim?.weapon) return;
-  const weaponKey = getActiveWeaponKey(F, C);
-  const weaponDef = weaponKey && C.weapons ? C.weapons[weaponKey] : null;
-  const rig = weaponDef?.rig;
-  if (!rig || !Array.isArray(rig.bones) || !rig.bones.length) {
-    F.anim.weapon.state = null;
-    return;
-  }
-
-  const basisInfo = computePoseBasis(F, target, C, fcfg);
-  const gripPercents = F.anim.weapon.gripPercents || (F.anim.weapon.gripPercents = {});
-  const gripDefaults = collectDefaultGripPercents(rig);
-  const posePercents = finalDeg?.weaponGripPercents || {};
-  const targetPercents = { ...gripDefaults };
-  for (const [id, value] of Object.entries(posePercents)) {
-    if (!id) continue;
-    const pct = Number(value);
-    targetPercents[id] = Number.isFinite(pct) ? pct : (targetPercents[id] ?? gripDefaults[id] ?? 0.5);
-  }
-  for (const [id, pct] of Object.entries(targetPercents)) {
-    const current = Number.isFinite(gripPercents[id]) ? gripPercents[id] : pct;
-    gripPercents[id] = damp(current, pct, 16, dt);
-  }
-  return result;
-}
-
-  const jointPercents = F.anim.weapon.jointPercents || (F.anim.weapon.jointPercents = {});
-  const jointDefaults = collectDefaultJointPercents(rig);
-  const poseJointMap = (finalDeg?.weaponJointPercents && typeof finalDeg.weaponJointPercents === 'object')
-    ? finalDeg.weaponJointPercents
-    : {};
-  const poseJointValueRaw = finalDeg?.weaponJointPercent;
-  const poseJointValueGlobal = Number(poseJointValueRaw);
-  const hasPoseJointValue = Number.isFinite(poseJointValueGlobal);
-  const baseAngleOffset = Number.isFinite(rig.base?.angleOffsetRad)
-    ? rig.base.angleOffsetRad
-    : (Number.isFinite(rig.base?.angleOffsetDeg) ? degToRad(rig.base.angleOffsetDeg) : 0);
-
+function buildWeaponBones({
+  rig,
+  basisInfo,
+  target,
+  baseAngleOffset,
+  gripPercents,
+  gripDefaults,
+  jointPercents,
+  jointDefaults
+} = {}) {
   const bones = [];
   const gripLookup = {};
   if (!rig || !basisInfo) return { bones, gripLookup };
@@ -757,29 +728,24 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     if (boneSpec.anchorOffset) {
       anchorPos = withAX(anchorPos[0], anchorPos[1], anchor.ang, boneSpec.anchorOffset, null, length);
     }
+
     const weaponBaseAngle = Number.isFinite(target?.weapon) ? target.weapon : anchor.ang;
-    let boneAng = weaponBaseAngle + baseAngleOffset + (Number.isFinite(boneSpec.angleOffsetRad)
+    const boneAngleOffset = Number.isFinite(boneSpec.angleOffsetRad)
       ? boneSpec.angleOffsetRad
-      : (Number.isFinite(boneSpec.angleOffsetDeg) ? degToRad(boneSpec.angleOffsetDeg) : 0));
-    const jointDefault = jointDefaults[boneId] ?? clamp(Number(boneSpec.joint?.percent ?? boneSpec.jointPercent ?? 0.5), 0, 1);
-    const poseJointValue = Number(poseJointMap ? poseJointMap[boneId] : null);
-    const targetJoint = clamp(
-      Number.isFinite(poseJointValue)
-        ? poseJointValue
-        : (hasPoseJointValue ? poseJointValueGlobal : jointDefault),
-      0,
-      1
-    );
-    const currentJoint = Number.isFinite(jointPercents[boneId]) ? jointPercents[boneId] : targetJoint;
-    const nextJoint = clamp(damp(currentJoint, targetJoint, 16, dt), 0, 1);
-    jointPercents[boneId] = nextJoint;
+      : (Number.isFinite(boneSpec.angleOffsetDeg) ? degToRad(boneSpec.angleOffsetDeg) : 0);
+    const boneAng = weaponBaseAngle + baseAngleOffset + boneAngleOffset;
+
+    const jointDefault = jointDefaults?.[boneId]
+      ?? clamp(Number(boneSpec.joint?.percent ?? boneSpec.jointPercent ?? 0.5), 0, 1);
+    const storedJoint = jointPercents?.[boneId];
+    const jointPercent = clamp(Number.isFinite(storedJoint) ? storedJoint : jointDefault, 0, 1);
 
     const haftSpec = boneSpec.haft || {};
     const haftStart = clamp(Number(haftSpec.start ?? haftSpec.from ?? 0), 0, 1);
     const haftEndRaw = Number(haftSpec.end ?? haftSpec.to ?? 1);
     const haftEnd = clamp(haftEndRaw, haftStart, 1);
     const haftRange = Math.max(1e-5, haftEnd - haftStart);
-    const jointAbsolute = clamp(haftStart + nextJoint * haftRange, 0, 1);
+    const jointAbsolute = clamp(haftStart + jointPercent * haftRange, 0, 1);
 
     let startArr = segPos(anchorPos[0], anchorPos[1], -jointAbsolute * length, boneAng);
     if (boneSpec.offset) {
@@ -796,7 +762,7 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
       limb: limb || 'right',
       anchor: anchorKey,
       joint: {
-        percent: nextJoint,
+        percent: jointPercent,
         absolute: jointAbsolute,
         haftStart,
         haftEnd
@@ -808,106 +774,48 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
 
     (boneSpec.grips || []).forEach((grip) => {
       if (!grip || !grip.id) return;
-      const pct = Number.isFinite(gripPercents?.[grip.id]) ? gripPercents[grip.id] : (gripDefaults?.[grip.id] ?? 0.5);
+      const pctRaw = Number.isFinite(gripPercents?.[grip.id])
+        ? gripPercents[grip.id]
+        : gripDefaults?.[grip.id];
+      const pct = Number.isFinite(pctRaw) ? pctRaw : 0.5;
       const along = Math.max(0, Math.min(1, pct)) * length;
       let gripPos = segPos(startArr[0], startArr[1], along, boneAng);
       if (grip.offset) {
         gripPos = withAX(gripPos[0], gripPos[1], boneAng, grip.offset, null, length);
       }
-
-      const weaponBaseAngle = Number.isFinite(target?.weapon) ? target.weapon : anchor.ang;
-      let boneAng = weaponBaseAngle + baseAngleOffset + (Number.isFinite(boneSpec.angleOffsetRad)
-        ? boneSpec.angleOffsetRad
-        : (Number.isFinite(boneSpec.angleOffsetDeg) ? degToRad(boneSpec.angleOffsetDeg) : 0));
-
-      const jointDefault = jointDefaults?.[boneId]
-        ?? clamp(Number(boneSpec.joint?.percent ?? boneSpec.jointPercent ?? 0.5), 0, 1);
-      const haftSpec = boneSpec.haft || {};
-      const haftStart = clamp(Number(haftSpec.start ?? haftSpec.from ?? 0), 0, 1);
-      const haftEndRaw = Number(haftSpec.end ?? haftSpec.to ?? 1);
-      const haftEnd = clamp(haftEndRaw, haftStart, 1);
-      const haftRange = Math.max(1e-5, haftEnd - haftStart);
-
-      const storedJoint = jointPercentValues?.[boneId];
-      const jointPercent = clamp(Number.isFinite(storedJoint) ? storedJoint : jointDefault, 0, 1);
-      const jointAbsolute = clamp(haftStart + jointPercent * haftRange, 0, 1);
-
-      let startArr = segPos(anchorPos[0], anchorPos[1], -jointAbsolute * length, boneAng);
-      if (boneSpec.offset) {
-        startArr = withAX(startArr[0], startArr[1], boneAng, boneSpec.offset, null, length);
-      }
-      const endArr = segPos(startArr[0], startArr[1], length, boneAng);
-
-      const boneEntry = {
-        id: boneId,
-        start: { x: startArr[0], y: startArr[1] },
-        end: { x: endArr[0], y: endArr[1] },
-        length,
-        angle: boneAng,
-        limb: limb || 'right',
-        anchor: anchorKey,
-        joint: {
-          percent: jointPercent,
-          absolute: jointAbsolute,
-          haftStart,
-          haftEnd
-        },
-        haft: { start: haftStart, end: haftEnd },
-        grips: {},
-        colliders: []
-      };
-
-      (boneSpec.grips || []).forEach((grip) => {
-        if (!grip || !grip.id) return;
-        const pct = Number.isFinite(gripPercents?.[grip.id]) ? gripPercents[grip.id] : (gripDefaults?.[grip.id] ?? 0.5);
-        const along = Math.max(0, Math.min(1, pct)) * length;
-        let gripPos = segPos(startArr[0], startArr[1], along, boneAng);
-        if (grip.offset) {
-          gripPos = withAX(gripPos[0], gripPos[1], boneAng, grip.offset, null, length);
-        }
-        const gripEntry = { x: gripPos[0], y: gripPos[1], percent: pct, limb: grip.limb || null, boneId };
-        boneEntry.grips[grip.id] = gripEntry;
-        gripLookup[`${boneId}:${grip.id}`] = gripEntry;
-      });
-
-      (boneSpec.colliders || []).forEach((colSpec, idx) => {
-        if (!colSpec) return;
-        const from = Number.isFinite(colSpec.from) ? colSpec.from : 0;
-        const to = Number.isFinite(colSpec.to) ? colSpec.to : from;
-        const startPos = segPos(startArr[0], startArr[1], length * from, boneAng);
-        const endPos = segPos(startArr[0], startArr[1], length * to, boneAng);
-        let centerX = (startPos[0] + endPos[0]) / 2;
-        let centerY = (startPos[1] + endPos[1]) / 2;
-        if (colSpec.offset) {
-          const adjusted = withAX(centerX, centerY, boneAng, colSpec.offset, null, length);
-          centerX = adjusted[0];
-          centerY = adjusted[1];
-        }
-        const collider = {
-          id: colSpec.id || `${boneId}_collider_${idx}`,
-          kind: colSpec.kind || 'box',
-          width: Number(colSpec.width) || 0,
-          height: Number(colSpec.height) || Math.abs((to - from) * length),
-          angle: boneAng,
-          center: { x: centerX, y: centerY },
-          lengthPercent: { from, to },
-          activatesOn: Array.isArray(colSpec.activatesOn) ? colSpec.activatesOn.slice() : []
-        };
-        boneEntry.colliders.push(collider);
-      });
-
-      bones.push(boneEntry);
+      const gripEntry = { x: gripPos[0], y: gripPos[1], percent: pct, limb: grip.limb || null, boneId };
+      boneEntry.grips[grip.id] = gripEntry;
+      gripLookup[`${boneId}:${grip.id}`] = gripEntry;
     });
 
-    return { bones, gripLookup };
-  };
+    (boneSpec.colliders || []).forEach((colSpec, idx) => {
+      if (!colSpec) return;
+      const from = Number.isFinite(colSpec.from) ? colSpec.from : 0;
+      const to = Number.isFinite(colSpec.to) ? colSpec.to : from;
+      const startPos = segPos(startArr[0], startArr[1], length * from, boneAng);
+      const endPos = segPos(startArr[0], startArr[1], length * to, boneAng);
+      let centerX = (startPos[0] + endPos[0]) / 2;
+      let centerY = (startPos[1] + endPos[1]) / 2;
+      if (colSpec.offset) {
+        const adjusted = withAX(centerX, centerY, boneAng, colSpec.offset, null, length);
+        centerX = adjusted[0];
+        centerY = adjusted[1];
+      }
+      const collider = {
+        id: colSpec.id || `${boneId}_collider_${idx}`,
+        kind: colSpec.kind || 'box',
+        width: Number(colSpec.width) || 0,
+        height: Number(colSpec.height) || Math.abs((to - from) * length),
+        angle: boneAng,
+        center: { x: centerX, y: centerY },
+        lengthPercent: { from, to },
+        activatesOn: Array.isArray(colSpec.activatesOn) ? colSpec.activatesOn.slice() : []
+      };
+      boneEntry.colliders.push(collider);
+    });
 
-  const preIkDisplayPose = samplePoseForWeaponDisplay(F, target, dt);
-  const preIkBasis = computePoseBasis(F, preIkDisplayPose, C, fcfg);
-  const initialBuild = buildWeaponBones(preIkBasis);
-  const gripLookup = initialBuild.gripLookup;
-  const attachments = F.anim.weapon.attachments || {};
-  const validAttachments = {};
+    bones.push(boneEntry);
+  });
 
   return { bones, gripLookup };
 }
