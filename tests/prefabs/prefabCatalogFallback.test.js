@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 import { loadPrefabsFromManifests, __setJsonImportLoader } from '../../docs/js/prefab-catalog.js';
 
@@ -195,6 +197,36 @@ test('loadPrefabsFromManifests falls back to XMLHttpRequest when JSON import is 
       global.XMLHttpRequest = originalXHR;
     }
     console.warn = originalWarn;
+  }
+});
+
+test('loadPrefabsFromManifests resolves local file manifests without document base', async () => {
+  const originalDocument = global.document;
+  delete global.document;
+
+  const manifestUrl = new URL('../../docs/config/prefabs/structures/index.json', import.meta.url).href;
+
+  const fileFetch = async (url) => {
+    const path = fileURLToPath(url);
+    const body = await readFile(path, 'utf8');
+    return new MockResponse(body);
+  };
+
+  try {
+    const { prefabs, errors } = await loadPrefabsFromManifests([manifestUrl], { fetch: fileFetch });
+    assert.equal(errors.length, 0);
+    assert.equal(prefabs.size, 1);
+    const prefab = prefabs.get('tower_commercial');
+    assert.ok(prefab);
+    assert.equal(prefab.structureId, 'Commercial Tower');
+    assert.ok(Array.isArray(prefab.parts));
+    assert.ok(prefab.parts.length > 0);
+  } finally {
+    if (originalDocument === undefined) {
+      delete global.document;
+    } else {
+      global.document = originalDocument;
+    }
   }
 });
 
