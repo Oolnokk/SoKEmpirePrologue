@@ -20,6 +20,7 @@
 import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withAXUtil, rad, angleFromDelta as angleFromDeltaUtil, degToRad } from './math-utils.js?v=1';
 import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=2';
 import { pickFighterConfig, lengths, pickOffsets, resolveBoneLengthScale } from './fighter-utils.js?v=1';
+import { updateFighterColliders, pruneFighterColliders } from './colliders.js?v=1';
 
 // === RENDER DEBUG CONFIGURATION ===
 // Global config object for controlling what is rendered for debugging purposes
@@ -498,13 +499,14 @@ export function renderAll(ctx){
   const anchorsById = {};
   const flipState = {};
   const renderEntities = [];
+  const activeColliderIds = [];
 
   for (const [fighterId, fighter] of Object.entries(G.FIGHTERS)) {
     if (!fighter) continue;
     const result = computeAnchorsForFighter(fighter, C, fallbackName);
     anchorsById[fighterId] = result.B;
     flipState[fighterId] = result.flipLeft;
-    renderEntities.push({
+    const entity = {
       id: fighterId,
       fighter,
       fighterName: result.fighterName,
@@ -514,12 +516,22 @@ export function renderAll(ctx){
       flipLeft: result.flipLeft,
       lengths: result.L,
       centerX: Number.isFinite(result.hitbox?.x) ? result.hitbox.x : (fighter.pos?.x ?? 0)
-    });
+    };
+    renderEntities.push(entity);
+    activeColliderIds.push(fighterId);
+    const hitCenter = result.hitbox
+      ? {
+          x: Number.isFinite(result.hitbox.x) ? result.hitbox.x : (fighter.pos?.x ?? 0),
+          y: Number.isFinite(result.hitbox.y) ? result.hitbox.y : (fighter.pos?.y ?? 0),
+        }
+      : (fighter.pos ? { x: fighter.pos.x || 0, y: fighter.pos.y || 0 } : null);
+    updateFighterColliders(fighterId, result.B, { config: C, hitCenter });
   }
 
   G.ANCHORS_OBJ = anchorsById;
   G.FLIP_STATE = flipState;
   G.RENDER_STATE = { entities: renderEntities };
+  pruneFighterColliders(activeColliderIds);
 
   if (typeof window !== 'undefined' && window.RENDER_DEBUG) {
     const playerBones = anchorsById.player;
