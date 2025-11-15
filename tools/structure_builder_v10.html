@@ -308,32 +308,55 @@ function draw(){
   const camX = +(els.tNum && els.tNum.value || 0) * (+(els.p_radius && els.p_radius.value || 800));
 
   const mode = els.z_mode && els.z_mode.value || 'nearTop';
-  const drawList = state.prefab.parts.slice().map(p=>{
+  const parts = Array.isArray(state.prefab.parts) ? state.prefab.parts : [];
+  const drawList = parts.slice().map(p=>{
+    const part = p && typeof p === 'object' ? p : {};
+    const layer = typeof part.layer === 'string' ? part.layer : 'far';
     let base = 0;
-    if (mode==='nearTop') base = (p.layer==='far'?0:100000) + (+p.z||0);
-    else if (mode==='layerOnly') base = (p.layer==='far'?0:100000);
-    else base = (+p.z||0);
-    return {p, weight:base};
+    if (mode==='nearTop') base = (layer==='far'?0:100000) + (+part.z||0);
+    else if (mode==='layerOnly') base = (layer==='far'?0:100000);
+    else base = (+part.z||0);
+    return {p:{...part, layer}, weight:base};
   }).sort((a,b)=>a.weight-b.weight).map(x=>x.p);
 
   cx.strokeStyle='rgba(255,255,255,.12)'; cx.beginPath(); cx.moveTo(0,groundY); cx.lineTo(Wz,groundY); cx.stroke();
 
   for (let di=0; di<drawList.length; di++){
-    const part = drawList[di], t = part.propTemplate;
-    const img = state.images.get(t.url);
-    const kfb = blendKf(t.kf||{radius:800,ease:'smoothstep',translateSpace:'screen',transformOrder:'scaleThenRotate',left:{},center:{},right:{}}, camX, 0);
-    const {ax, ay} = computeAnchor(t);
+    const part = drawList[di] || {};
+    const t = part && typeof part === 'object' && typeof part.propTemplate === 'object' ? part.propTemplate : {};
+    const url = typeof t.url === 'string' ? t.url : '';
+    const img = url ? state.images.get(url) : null;
+    const templateKf = t && typeof t.kf === 'object' ? t.kf : {};
+    const kfb = blendKf({
+      radius: templateKf.radius ?? 800,
+      ease: templateKf.ease || 'smoothstep',
+      translateSpace: templateKf.translateSpace || 'screen',
+      transformOrder: templateKf.transformOrder || 'scaleThenRotate',
+      left: templateKf.left || {},
+      center: templateKf.center || {},
+      right: templateKf.right || {},
+    }, camX, 0);
+    const drawW = toNumber(t.w, 100);
+    const drawH = toNumber(t.h, 100);
+    const safeTemplate = {
+      w: drawW,
+      h: drawH,
+      pivot: t.pivot,
+      anchorXPct: t.anchorXPct,
+      anchorYPct: t.anchorYPct,
+    };
+    const {ax, ay} = computeAnchor(safeTemplate);
 
     cx.save();
-    const baseX = Wz/2 + (part.relX||0), baseY = groundY - (part.relY||0);
+    const baseX = Wz/2 + toNumber(part.relX, 0), baseY = groundY - toNumber(part.relY, 0);
     cx.translate(baseX, baseY);
     if (kfb.translateSpace==='screen') cx.translate(kfb.dx||0, kfb.dy||0);
     if (kfb.order==='scaleThenRotate'){ if (typeof kfb.scaleX==='number') cx.scale(kfb.scaleX, 1); if (kfb.rotZdeg) cx.rotate(rad(kfb.rotZdeg)); }
     else { if (kfb.rotZdeg) cx.rotate(rad(kfb.rotZdeg)); if (typeof kfb.scaleX==='number') cx.scale(kfb.scaleX, 1); }
     if (kfb.translateSpace==='local') cx.translate(kfb.dx||0, kfb.dy||0);
 
-    if (img) cx.drawImage(img, -ax, -ay, t.w||100, t.h||100);
-    else { cx.fillStyle='rgba(94,234,212,.12)'; cx.fillRect(-ax,-ay,t.w||100,t.h||100); cx.strokeStyle=part.layer==='near'?'#a78bfa':'#60a5fa'; cx.strokeRect(-ax,-ay,t.w||100,t.h||100); }
+    if (img) cx.drawImage(img, -ax, -ay, drawW, drawH);
+    else { cx.fillStyle='rgba(94,234,212,.12)'; cx.fillRect(-ax,-ay,drawW,drawH); cx.strokeStyle=part.layer==='near'?'#a78bfa':'#60a5fa'; cx.strokeRect(-ax,-ay,drawW,drawH); }
 
     if (els.z_debug && els.z_debug.value==='canvas'){
       cx.fillStyle='#cbd5e1'; cx.font='11px ui-monospace,Menlo,Consolas'; cx.fillText(`${di}: ${part.name} (${part.layer}) z=${part.z??0}`, -ax, -ay-4);
@@ -404,42 +427,58 @@ function loadImage(url){
     i.src = candidates[index];
   });
 }
-async function ensureImages(){ for (const p of state.prefab.parts){ if (p.propTemplate.url) await loadImage(p.propTemplate.url); } }
+async function ensureImages(){
+  const parts = Array.isArray(state.prefab.parts) ? state.prefab.parts : [];
+  for (const p of parts){
+    if (!p || typeof p !== 'object') continue;
+    const tpl = p.propTemplate && typeof p.propTemplate === 'object' ? p.propTemplate : null;
+    if (tpl && typeof tpl.url === 'string' && tpl.url.trim()){
+      await loadImage(tpl.url);
+    }
+  }
+}
 
 // Part IO
 function refreshPartList(){
   if (!els.partIndex) return;
   els.partIndex.innerHTML='';
-  state.prefab.parts.forEach((p,i)=>{
-    const o=document.createElement('option'); o.value=String(i); o.textContent=`${i}: ${p.name} (${p.layer})`; els.partIndex.appendChild(o);
+  const parts = Array.isArray(state.prefab.parts) ? state.prefab.parts : [];
+  parts.forEach((p,i)=>{
+    const name = p && typeof p === 'object' && typeof p.name === 'string' && p.name.trim() ? p.name : `part_${i+1}`;
+    const layer = p && typeof p === 'object' && typeof p.layer === 'string' && p.layer.trim() ? p.layer : 'far';
+    const o=document.createElement('option'); o.value=String(i); o.textContent=`${i}: ${name} (${layer})`; els.partIndex.appendChild(o);
   });
-  if (state.prefab.parts.length===0) return;
+  if (parts.length===0) return;
   els.partIndex.value='0'; loadPartFields(0);
 }
 function loadPartFields(i){
-  const part = state.prefab.parts[i]; if (!part) return;
-  const t = part.propTemplate;
-  if (els.p_layer) els.p_layer.value = part.layer;
-  if (els.p_z) els.p_z.value = part.z||0;
-  if (els.p_url) els.p_url.value = t.url||'';
-  if (els.p_id) els.p_id.value = t.id||'part';
-  if (els.p_w) els.p_w.value = t.w||100;
-  if (els.p_h) els.p_h.value = t.h||100;
-  if (els.p_relx) els.p_relx.value = part.relX||0;
-  if (els.p_rely) els.p_rely.value = part.relY||0;
-  if (els.p_prx) els.p_prx.value = t.parallaxX??1;
-  if (els.p_clamp) els.p_clamp.value = t.parallaxClampPx??0;
-  if (els.p_space) els.p_space.value = t.kf?.translateSpace || 'screen';
-  if (els.p_radius) els.p_radius.value = t.kf?.radius || 800;
-  if (els.p_ease) els.p_ease.value = t.kf?.ease || 'smoothstep';
+  const parts = Array.isArray(state.prefab.parts) ? state.prefab.parts : [];
+  const part = parts[i]; if (!part) return;
+  const t = part.propTemplate && typeof part.propTemplate === 'object' ? part.propTemplate : {};
+  const layer = typeof part.layer === 'string' && part.layer.trim() ? part.layer : 'far';
+  if (els.p_layer) els.p_layer.value = layer;
+  if (els.p_z) els.p_z.value = toNumber(part.z, 0);
+  if (els.p_url) els.p_url.value = typeof t.url === 'string' ? t.url : '';
+  if (els.p_id) els.p_id.value = typeof t.id === 'string' && t.id.trim() ? t.id : 'part';
+  if (els.p_w) els.p_w.value = toNumber(t.w, 100);
+  if (els.p_h) els.p_h.value = toNumber(t.h, 100);
+  if (els.p_relx) els.p_relx.value = toNumber(part.relX, 0);
+  if (els.p_rely) els.p_rely.value = toNumber(part.relY, 0);
+  if (els.p_prx) els.p_prx.value = Number.isFinite(t.parallaxX) ? t.parallaxX : (layer === 'near' ? 1 : 0.85);
+  if (els.p_clamp) els.p_clamp.value = Number.isFinite(t.parallaxClampPx) ? t.parallaxClampPx : (layer === 'near' ? 0 : 64);
+  const kf = t.kf && typeof t.kf === 'object' ? t.kf : {};
+  if (els.p_space) els.p_space.value = kf.translateSpace || 'screen';
+  if (els.p_radius) els.p_radius.value = toNumber(kf.radius, 800);
+  if (els.p_ease) els.p_ease.value = kf.ease || 'smoothstep';
   if (els.p_pivot) els.p_pivot.value = t.pivot || 'bottom';
   if (els.p_anchorX) els.p_anchorX.value = Number.isFinite(t.anchorXPct) ? t.anchorXPct : 50;
   if (els.p_anchorY) els.p_anchorY.value = Number.isFinite(t.anchorYPct) ? t.anchorYPct : 100;
-  if (els.p_order) els.p_order.value = t.kf?.transformOrder || 'scaleThenRotate';
+  if (els.p_order) els.p_order.value = kf.transformOrder || 'scaleThenRotate';
 }
 function applyPartFields(i){
-  const part = state.prefab.parts[i]; if (!part) return;
-  const t = part.propTemplate;
+  const parts = Array.isArray(state.prefab.parts) ? state.prefab.parts : [];
+  const part = parts[i]; if (!part) return;
+  const t = part.propTemplate && typeof part.propTemplate === 'object' ? part.propTemplate : (part.propTemplate = {});
   const oldUrl = t.url || '';
   if (els.p_layer) part.layer = els.p_layer.value;
   if (els.p_z) part.z = +els.p_z.value||0;
@@ -524,7 +563,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
   applyPreviewSize();
   ensureResizeObserver();
   setZoom(1);
-  Promise.all(state.prefab.parts.map(p=>p.propTemplate.url&&loadImage(p.propTemplate.url))).then(draw);
+  const initialParts = Array.isArray(state.prefab.parts) ? state.prefab.parts : [];
+  Promise.all(initialParts.map(p=>{
+    if (!p || typeof p !== 'object') return null;
+    const tpl = p.propTemplate && typeof p.propTemplate === 'object' ? p.propTemplate : null;
+    return tpl && typeof tpl.url === 'string' && tpl.url.trim() ? loadImage(tpl.url) : null;
+  })).then(draw);
 });
 </script>
 </body>
