@@ -61,6 +61,116 @@ function setConfigCurrentWeapon(value) {
   window.CONFIG.knockback.currentWeapon = value || 'unarmed';
 }
 
+function resetWeaponAnimState(fighter) {
+  if (!fighter || typeof fighter !== 'object') return;
+  fighter.anim ||= {};
+  if (!fighter.anim.weapon || typeof fighter.anim.weapon !== 'object') {
+    fighter.anim.weapon = { attachments: {}, gripPercents: {}, state: null };
+    return;
+  }
+  fighter.anim.weapon.state = null;
+  fighter.anim.weapon.attachments = {};
+  fighter.anim.weapon.gripPercents = {};
+}
+
+function applyWeaponToRenderProfile(target, weaponKey, { resetAnim = true } = {}) {
+  if (!target || typeof target !== 'object') return;
+  target.renderProfile ||= {};
+  target.renderProfile.weapon = weaponKey;
+  if (target.renderProfile.character && typeof target.renderProfile.character === 'object') {
+    target.renderProfile.character.weapon = weaponKey;
+  }
+  target.weapon = weaponKey;
+  if (resetAnim) {
+    resetWeaponAnimState(target);
+  }
+}
+
+function syncWeaponRuntimeForCharacter(characterKey, weaponKey, { fighterKey = null } = {}) {
+  const G = window.GAME || {};
+  const normalizedCharacterKey = (typeof characterKey === 'string' && characterKey.trim())
+    ? characterKey.trim()
+    : 'player';
+  const normalizedFighterName = (typeof fighterKey === 'string' && fighterKey.trim())
+    ? fighterKey.trim()
+    : null;
+
+  const fighters = G.FIGHTERS || {};
+  const targetedFighterIds = new Set();
+  const targetedCharacterKeys = new Set();
+  const targetedFighterNames = new Set();
+
+  Object.entries(fighters).forEach(([id, fighter]) => {
+    if (!fighter) return;
+    const profile = fighter.renderProfile || {};
+    const fighterName = profile.fighterName || profile.fighter || null;
+    const matchesCharacter = profile.characterKey === normalizedCharacterKey
+      || (normalizedCharacterKey === 'player' && (fighter.isPlayer || id === 'player'));
+    const matchesFighterName = normalizedFighterName && fighterName === normalizedFighterName;
+    if (matchesCharacter || matchesFighterName) {
+      applyWeaponToRenderProfile(fighter, weaponKey, { resetAnim: true });
+      targetedFighterIds.add(id);
+      if (profile.characterKey) targetedCharacterKeys.add(profile.characterKey);
+      if (fighterName) targetedFighterNames.add(fighterName);
+    }
+  });
+
+  const templates = G.FIGHTER_TEMPLATES || {};
+  Object.values(templates).forEach((template) => {
+    if (!template) return;
+    const profile = template.renderProfile || {};
+    const matchesCharacter = profile.characterKey === normalizedCharacterKey
+      || (normalizedCharacterKey === 'player' && (template.isPlayer || profile.characterKey === 'player'));
+    if (matchesCharacter) {
+      applyWeaponToRenderProfile(template, weaponKey, { resetAnim: false });
+      if (profile.characterKey) targetedCharacterKeys.add(profile.characterKey);
+      const fighterName = profile.fighterName || profile.fighter || null;
+      if (fighterName) targetedFighterNames.add(fighterName);
+    }
+  });
+
+  const stateMap = G.CHARACTER_STATE;
+  if (stateMap && typeof stateMap === 'object') {
+    Object.entries(stateMap).forEach(([id, profile]) => {
+      const cachedCharacterKey = profile?.characterKey || (id === 'player' ? 'player' : null);
+      const cachedFighterName = profile?.fighterName || null;
+      const shouldUpdate = targetedFighterIds.has(id)
+        || (cachedCharacterKey && targetedCharacterKeys.has(cachedCharacterKey))
+        || (cachedFighterName && targetedFighterNames.has(cachedFighterName))
+        || (targetedCharacterKeys.has(id));
+      if (!shouldUpdate) return;
+
+      const sourceProfile = fighters[id]?.renderProfile || null;
+      if (sourceProfile) {
+        try {
+          stateMap[id] = JSON.parse(JSON.stringify(sourceProfile));
+        } catch (_err) {
+          stateMap[id] = { ...sourceProfile };
+        }
+        return;
+      }
+
+      if (!profile || typeof profile !== 'object') return;
+      const clone = { ...profile, weapon: weaponKey };
+      if (clone.character && typeof clone.character === 'object') {
+        clone.character = { ...clone.character, weapon: weaponKey };
+      }
+      stateMap[id] = clone;
+    });
+
+    targetedFighterIds.forEach((id) => {
+      if (Object.prototype.hasOwnProperty.call(stateMap, id)) return;
+      const sourceProfile = fighters[id]?.renderProfile || null;
+      if (!sourceProfile) return;
+      try {
+        stateMap[id] = JSON.parse(JSON.stringify(sourceProfile));
+      } catch (_err) {
+        stateMap[id] = { ...sourceProfile };
+      }
+    });
+  }
+}
+
 function normalizeAbilityValue(value) {
   if (value === undefined || value === null || value === '') return null;
   return String(value);
@@ -234,6 +344,47 @@ function initAbilitySlotDropdowns() {
   setAbilitySelection(merged, { syncDropdowns: true });
 }
 
+function applySelectedWeaponSelection(rawValue, { triggerPreview = true } = {}) {
+  const trimmed = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
+  const normalizedGameValue = trimmed && trimmed.length ? trimmed : null;
+  const normalizedConfigValue = normalizedGameValue || 'unarmed';
+
+  window.GAME ||= {};
+  window.GAME.selectedWeapon = normalizedGameValue;
+  setConfigCurrentWeapon(window.GAME.selectedWeapon);
+
+  const characters = window.CONFIG?.characters;
+  const selectedCharacter = window.GAME.selectedCharacter || 'player';
+  const previousWeapon = (selectedCharacter && characters && characters[selectedCharacter])
+    ? characters[selectedCharacter].weapon
+    : null;
+
+  if (selectedCharacter && characters && characters[selectedCharacter]) {
+    characters[selectedCharacter].weapon = normalizedConfigValue;
+  }
+
+  const runtimeFighterKey = window.GAME?.selectedFighter || null;
+  syncWeaponRuntimeForCharacter(selectedCharacter, normalizedConfigValue, { fighterKey: runtimeFighterKey });
+
+  const previousNormalized = (typeof previousWeapon === 'string' && previousWeapon.trim().length)
+    ? previousWeapon.trim()
+    : 'unarmed';
+  const hasChanged = previousNormalized !== normalizedConfigValue;
+
+  if (hasChanged) {
+    scheduleConfigUpdatedEvent();
+  }
+
+  if (triggerPreview && hasChanged) {
+    const fighterName = window.GAME?.selectedFighter || currentSelectedFighter || null;
+    if (fighterName) {
+      requestFighterPreview(fighterName);
+    } else {
+      requestFighterPreview(null);
+    }
+  }
+}
+
 function initWeaponDropdown() {
   const weaponSelect = document.getElementById('weaponSelect');
   if (!weaponSelect) return;
@@ -259,15 +410,11 @@ function initWeaponDropdown() {
   const fallback = Object.prototype.hasOwnProperty.call(weapons, 'unarmed') ? 'unarmed' : '';
   weaponSelect.value = hasPrevious ? previous : fallback;
 
-  window.GAME ||= {};
-  window.GAME.selectedWeapon = weaponSelect.value || null;
-  setConfigCurrentWeapon(window.GAME.selectedWeapon);
+  applySelectedWeaponSelection(weaponSelect.value, { triggerPreview: false });
 
   if (!weaponSelect.dataset.initialized) {
     weaponSelect.addEventListener('change', (event) => {
-      const value = event.target.value;
-      window.GAME.selectedWeapon = value || null;
-      setConfigCurrentWeapon(window.GAME.selectedWeapon);
+      applySelectedWeaponSelection(event.target.value);
     });
     weaponSelect.dataset.initialized = 'true';
   }
@@ -334,8 +481,7 @@ function initCharacterDropdown() {
     window.GAME.selectedCharacter = selectedChar;
     window.GAME.selectedFighter = charData.fighter;
     currentSelectedFighter = charData.fighter || null;
-    window.GAME.selectedWeapon = charData.weapon || null;
-    setConfigCurrentWeapon(window.GAME.selectedWeapon);
+    applySelectedWeaponSelection(charData.weapon || '', { triggerPreview: false });
     window.GAME.selectedAppearance = {
       clothes: charData.clothes,
       hairstyle: charData.hairstyle,
@@ -385,7 +531,6 @@ function initCharacterDropdown() {
         weaponSelect.appendChild(option);
       }
       weaponSelect.value = charData.weapon || '';
-      setConfigCurrentWeapon(charData.weapon || null);
     }
 
     const abilityAssignments = mapSlottedAbilitiesArray(charData.slottedAbilities || []);
