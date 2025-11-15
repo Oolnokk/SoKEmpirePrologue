@@ -73,13 +73,8 @@ describe('Sprite style configuration location', () => {
       'Should check f.spriteStyle before C.spriteStyle');
   });
 
-  it('ensureFighterSprites looks for offsets in fighter config first', () => {
-    // Check that ensureFighterSprites function looks for f.spriteOffsets
-    const hasFighterOffsetsLookup = /f\.spriteOffsets/.test(spritesContent);
-    strictEqual(hasFighterOffsetsLookup, true, 'ensureFighterSprites should check f.spriteOffsets');
-    
-    // Should fallback to C.spriteOffsets
-    const hasGlobalOffsetsFallback = /C\.spriteOffsets/.test(spritesContent);
-    strictEqual(hasGlobalOffsetsFallback, true, 'ensureFighterSprites should fallback to C.spriteOffsets');
+  it('ensureFighterSprites does not rely on legacy spriteOffsets config', () => {
+    const referencesSpriteOffsets = /spriteOffsets/.test(spritesContent);
+    strictEqual(referencesSpriteOffsets, false, 'ensureFighterSprites should not read spriteOffsets');
   });
 });
