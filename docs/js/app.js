@@ -2011,29 +2011,51 @@ if (cv) {
     window.GAME.MOUSE.isInCanvas = false;
   });
 
+  // Mirror the global controls.js bindings: left click = Slot A, Shift+left = Slot B, right click = Slot C
+  const canvasMouseBindings = { 0: null, 1: null, 2: null };
+
   cv.addEventListener('mousedown', (e) => {
     e.preventDefault();
     window.GAME.MOUSE.isDown = true;
-    // Left click = Button A (combo attacks)
-    if (e.button === 0 && window.GAME.combat) {
-      window.GAME.combat.slotDown('A');
+
+    if (!window.GAME.combat) {
+      canvasMouseBindings[e.button] = null;
+      return;
     }
-    // Right click = Button B (single attacks)
-    else if (e.button === 2 && window.GAME.combat) {
-      window.GAME.combat.slotDown('B');
+
+    let slotKey = null;
+    if (e.button === 0) {
+      slotKey = e.shiftKey ? 'B' : 'A';
+    } else if (e.button === 2) {
+      slotKey = 'C';
+    }
+
+    canvasMouseBindings[e.button] = slotKey;
+    if (slotKey) {
+      window.GAME.combat.slotDown(slotKey);
     }
   });
 
   cv.addEventListener('mouseup', (e) => {
     e.preventDefault();
     window.GAME.MOUSE.isDown = false;
-    // Left click = Button A
-    if (e.button === 0 && window.GAME.combat) {
-      window.GAME.combat.slotUp('A');
+
+    if (!window.GAME.combat) {
+      canvasMouseBindings[e.button] = null;
+      return;
     }
-    // Right click = Button B
-    else if (e.button === 2 && window.GAME.combat) {
+
+    const slotKey = canvasMouseBindings[e.button];
+    canvasMouseBindings[e.button] = null;
+
+    if (slotKey) {
+      window.GAME.combat.slotUp(slotKey);
+    } else if (e.button === 0) {
+      // Fallback: ensure left-click slots are released if binding context was lost
+      window.GAME.combat.slotUp('A');
       window.GAME.combat.slotUp('B');
+    } else if (e.button === 2) {
+      window.GAME.combat.slotUp('C');
     }
   });
 
