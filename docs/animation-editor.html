@@ -17,6 +17,13 @@
           <p style="margin:8px 0 0 0;font-size:12px;">Real-time animation playback will arrive in a later update—the editor focuses on timing, sequence, and event data.</p>
         </div>
       </div>
+      <div class="preview-stage pose-stage">
+        <canvas id="poseCanvas" width="720" height="460" aria-label="Pose preview"></canvas>
+        <div class="preview-placeholder" id="posePlaceholder">
+          <p style="margin:0;">Select a move and pose to preview it with a fighter rig.</p>
+          <p style="margin:8px 0 0 0;font-size:12px;">Choose a fighter on the right to inspect how offsets and angles look against real sprites.</p>
+        </div>
+      </div>
       <div class="timeline-panel">
         <div>
           <h2>Move Timeline</h2>
@@ -31,6 +38,10 @@
     <section class="editor-side">
       <div class="panel">
         <h2>Selection</h2>
+        <label class="field">
+          <span>Ability</span>
+          <select id="abilitySelect" aria-label="Select ability"></select>
+        </label>
         <label class="field">
           <span>Move</span>
           <select id="moveSelect" aria-label="Select move"></select>
@@ -77,6 +88,27 @@
           <span>Cancel Window</span>
           <input id="cancelWindow" type="number" step="0.01" min="0" max="1" aria-label="Cancel window">
         </label>
+      </div>
+
+      <div class="panel" id="poseEditor">
+        <h2>Pose Preview &amp; Editor</h2>
+        <label class="field">
+          <span>Fighter</span>
+          <select id="poseFighterSelect" aria-label="Select fighter for pose preview"></select>
+        </label>
+        <label class="field">
+          <span>Pose</span>
+          <select id="poseKeySelect" aria-label="Select pose to preview"></select>
+        </label>
+        <div class="inline-controls">
+          <button type="button" id="applyPoseChanges">Apply To Move</button>
+          <button type="button" id="resetPoseChanges">Reset Pose</button>
+        </div>
+        <label class="field">
+          <span>Pose JSON</span>
+          <textarea id="poseJson" class="json-output" spellcheck="false" aria-label="Pose JSON"></textarea>
+        </label>
+        <p class="panel-hint">Changes apply to the active move draft. Copy updated JSON from the export panel when you're satisfied.</p>
       </div>
 
       <div class="panel" id="moveSequencePanel">
