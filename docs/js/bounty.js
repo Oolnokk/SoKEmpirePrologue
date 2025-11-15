@@ -2,7 +2,7 @@ import { spawnAdditionalNpc, removeNpcFighter, reviveFighter } from './fighter.j
 import { getActiveNpcFighters, registerNpcFighter, unregisterNpcFighter } from './npc.js?v=2';
 
 const DEFAULT_BOUNTY_CONFIG = {
-  spawnIntervalSeconds: 8,
+  spawnIntervalSeconds: 20,
   baseWaveSize: 1,
   extraPerStar: 1,
   killWaveMultiplier: 0.4,
@@ -12,7 +12,7 @@ const DEFAULT_BOUNTY_CONFIG = {
   loseSightDuration: 5,
   deathCleanupDelay: 3,
   playerRespawnDelay: 4,
-  idleRespawnDelay: 6,
+  idleRespawnDelay: 15,
   starKillThresholds: [0, 3, 7, 12, 18],
   maxStars: 5,
 };

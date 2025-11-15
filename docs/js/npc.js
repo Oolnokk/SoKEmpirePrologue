@@ -1,7 +1,7 @@
 // npc.js — Reimplements the NPC systems from the monolith build in a modular form
 
 import { initCombatForFighter } from './combat.js?v=19';
-import { ensureFighterPhysics, updateFighterPhysics } from './physics.js?v=1';
+import { ensureFighterPhysics, updateFighterPhysics, resolveFighterBodyCollisions } from './physics.js?v=1';
 import { applyHealthRegenFromStats, applyStaminaTick, getStatProfile } from './stat-hooks.js?v=1';
 import { ensureNpcAbilityDirector, updateNpcAbilityDirector } from './npcAbilityDirector.js?v=1';
 import { removeNpcFighter } from './fighter.js?v=8';
@@ -1099,6 +1099,7 @@ export function updateNpcSystems(dt) {
     updateNpcHud(G);
     return;
   }
+  const player = G.FIGHTERS?.player;
   for (const npc of npcs) {
     const combat = ensureNpcCombat(G, npc);
     if (combat?.tick && !npc.isDead) combat.tick(dt);
@@ -1106,7 +1107,6 @@ export function updateNpcSystems(dt) {
     let abilityIntent = null;
     if (!npc.isDead) {
       ensureNpcAbilityDirector(npc, combat);
-      const player = G.FIGHTERS?.player;
       const dx = (player?.pos?.x ?? npc.pos?.x ?? 0) - (npc.pos?.x ?? 0);
       const absDx = Math.abs(dx);
       const pressButton = (slotKey, hold) => pressNpcButton(npc, combat, slotKey, hold);
@@ -1126,6 +1126,10 @@ export function updateNpcSystems(dt) {
       });
     }
     updateNpcMovement(G, npc, dt, abilityIntent);
+  }
+  if ((player && !player.destroyed) || npcs.length > 1) {
+    const fighters = player ? [player, ...npcs] : [...npcs];
+    resolveFighterBodyCollisions(fighters, window.CONFIG || {}, { iterations: 2 });
   }
   updateNpcHud(G);
 }
