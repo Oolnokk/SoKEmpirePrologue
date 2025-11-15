@@ -529,8 +529,6 @@ function computePoseBasis(F, target, C, fcfg) {
   const rLowerAng = rUpperAng + (target?.rElbow ?? 0);
   const lElbowPosArr = withAX(...segPos(lShoulderBaseArr[0], lShoulderBaseArr[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
   const rElbowPosArr = withAX(...segPos(rShoulderBaseArr[0], rShoulderBaseArr[1], L.armU, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
-  const lHandBaseArr = withAX(...segPos(lElbowPosArr[0], lElbowPosArr[1], L.armL, lLowerAng), lLowerAng, OFF.arm?.lower?.hand || OFF.arm?.lower?.wrist || OFF.arm?.lower?.end);
-  const rHandBaseArr = withAX(...segPos(rElbowPosArr[0], rElbowPosArr[1], L.armL, rLowerAng), rLowerAng, OFF.arm?.lower?.hand || OFF.arm?.lower?.wrist || OFF.arm?.lower?.end);
 
   return {
     centerX,
@@ -548,8 +546,6 @@ function computePoseBasis(F, target, C, fcfg) {
     rLowerAng,
     lElbowPos: lElbowPosArr,
     rElbowPos: rElbowPosArr,
-    lHandPos: lHandBaseArr,
-    rHandPos: rHandBaseArr,
     L,
     OFF
   };
@@ -563,14 +559,6 @@ function resolveWeaponAnchor(anchorKey, basisInfo) {
       return { pos: basisInfo.hipBase, ang: basisInfo.torsoAng };
     case 'neck':
       return { pos: basisInfo.neckBase, ang: basisInfo.torsoAng };
-    case 'rhand':
-    case 'righthand':
-    case 'handr':
-      return { pos: basisInfo.rHandPos || basisInfo.rElbowPos, ang: basisInfo.rLowerAng };
-    case 'lhand':
-    case 'lefthand':
-    case 'handl':
-      return { pos: basisInfo.lHandPos || basisInfo.lElbowPos, ang: basisInfo.lLowerAng };
     case 'lshoulder':
     case 'leftshoulder':
       return { pos: basisInfo.lShoulderBase, ang: basisInfo.lUpperAng };
@@ -1106,6 +1094,7 @@ function updateAiming(F, currentPose, fighterId){
   const C = window.CONFIG || {};
   const G = window.GAME || {};
   const poseFlags = currentPose || {};
+  const isPlayer = fighterId === 'player' || F.isPlayer === true;
 
   if (!C.aiming?.enabled) {
     F.aim.active = false;
@@ -1126,8 +1115,50 @@ function updateAiming(F, currentPose, fighterId){
     return;
   }
 
+  if (!isPlayer) {
+    if (!F.aim.active) {
+      F.aim.torsoOffset = 0;
+      F.aim.shoulderOffset = 0;
+      F.aim.hipOffset = 0;
+      F.aim.headWorldTarget = null;
+      return;
+    }
+
+    const facingRad = (typeof F.facingRad === 'number')
+      ? F.facingRad
+      : ((F.facingSign || 1) < 0 ? Math.PI : 0);
+    const currentAngle = Number.isFinite(F.aim.currentAngle)
+      ? F.aim.currentAngle
+      : 0;
+    F.aim.currentAngle = currentAngle;
+
+    const facingCos = Math.cos(facingRad);
+    let orientationSign = 1;
+    let aimDeg = radToDegNum(currentAngle);
+    if (Number.isFinite(facingCos)) {
+      orientationSign = Math.abs(facingCos) > 1e-4
+        ? (facingCos >= 0 ? 1 : -1)
+        : ((F.facingSign || 1) >= 0 ? 1 : -1);
+      aimDeg *= orientationSign;
+    }
+    F.aim.orientationSign = orientationSign;
+    F.aim.torsoOffset = clamp(aimDeg * 0.5, -(C.aiming.maxTorsoAngle || 45), (C.aiming.maxTorsoAngle || 45));
+    F.aim.shoulderOffset = clamp(aimDeg * 0.7, -(C.aiming.maxShoulderAngle || 60), (C.aiming.maxShoulderAngle || 60));
+    F.aim.hipOffset = poseFlags.aimLegs
+      ? clamp(aimDeg * (poseFlags.aimRightLegOnly ? 0.6 : 0.4), poseFlags.aimRightLegOnly ? -50 : -40, poseFlags.aimRightLegOnly ? 50 : 40)
+      : 0;
+
+    const worldAimStandard = currentAngle + facingRad;
+    if (Number.isFinite(worldAimStandard)) {
+      F.aim.headWorldTarget = convertAimToHeadRad(worldAimStandard, orientationSign);
+    } else {
+      F.aim.headWorldTarget = null;
+    }
+    return;
+  }
+
   F.aim.active = true;
-  
+
   let targetAngle;
   let aimSource = 'fallback';
   let mouseDX = 0;
