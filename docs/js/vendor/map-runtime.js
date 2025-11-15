@@ -861,4 +861,3 @@ function safeClone(value) {
   }
 }
 
-export default convertLayoutToArea;
