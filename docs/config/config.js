@@ -945,11 +945,11 @@ window.CONFIG = {
             id: 'weapon_0',
             length: 96,
             angleOffsetDeg: 0,
-            joint: { percent: 0.22 },
-            haft: { start: 0.18, end: 0.85 },
+            joint: { percent: 0.75 },
+            haft: { start: 0.0, end: 0.5 },
             grips: [
-              { id: 'primary', percent: 0.32, limb: 'right', offset: { ax: 0, ay: 0 } },
-              { id: 'secondary', percent: 0.76, limb: 'left', offset: { ax: 0, ay: 0 } }
+              { id: 'primary', percent: 0.75, limb: 'right', offset: { ax: 0, ay: 0 } },
+              { id: 'secondary', percent: 0.35, limb: 'left', offset: { ax: 0, ay: 0 } }
             ],
             colliders: [
               { id: 'thrust', kind: 'box', width: 18, height: 120, from: 0.05, to: 1.05, activatesOn: ['THRUST'], offset: { ax: 0.55, ay: 0, units: 'percent' } },
