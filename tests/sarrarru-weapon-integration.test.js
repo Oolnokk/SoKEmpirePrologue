@@ -7,6 +7,7 @@ const renderSrc = readFileSync('docs/js/render.js', 'utf8');
 const spritesSrc = readFileSync('docs/js/sprites.js', 'utf8');
 const appSrc = readFileSync('docs/js/app.js', 'utf8');
 const manifestSrc = readFileSync('docs/assets/asset-manifest.json', 'utf8');
+const combatSrc = readFileSync('docs/js/combat.js', 'utf8');
 
 describe('Sarrarru weapon integration', () => {
   it('registers the citywatch sarrarru sprite asset', () => {
@@ -46,6 +47,17 @@ describe('Sarrarru weapon integration', () => {
     assert.ok(
       /layerTag\s*\|\|\s*'WEAPON'/.test(spritesSrc) || spritesSrc.includes("'WEAPON'"),
       'sprite renderer should enqueue weapon layers with the WEAPON tag'
+    );
+  });
+
+  it('gates weapon collider activation on preset opt-in', () => {
+    assert.ok(
+      /useWeaponColliders/.test(combatSrc),
+      'combat.js should reference useWeaponColliders when merging weapon colliders'
+    );
+    assert.ok(
+      /activatesOn/.test(combatSrc),
+      'combat.js should respect collider activation tags before enabling them'
     );
   });
 

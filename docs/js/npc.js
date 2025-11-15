@@ -1125,6 +1125,21 @@ function fadeNpcAttackTrailEntry(visualEntry, dt) {
   }
 }
 
+function resolveWeaponColliderPoint(fighter, key) {
+  if (!fighter?.anim?.weapon?.state) return null;
+  const id = key.slice('weapon:'.length);
+  if (!id) return null;
+  for (const bone of fighter.anim.weapon.state.bones || []) {
+    for (const collider of bone?.colliders || []) {
+      if (!collider || collider.id !== id) continue;
+      const center = collider.center || { x: 0, y: 0 };
+      const radius = Math.max(8, Math.max(Number(collider.width) || 0, Number(collider.height) || 0) * 0.5);
+      return { x: center.x, y: center.y, radius };
+    }
+  }
+  return null;
+}
+
 export function recordNpcAttackTrailSample(colliders, dt, fighterId) {
   const G = ensureGameState();
   const fighter = fighterId ? G.FIGHTERS?.[fighterId] : null;
@@ -1143,9 +1158,19 @@ export function recordNpcAttackTrailSample(colliders, dt, fighterId) {
   if (!Array.isArray(keys) || keys.length === 0) return;
   attackTrail.colliders ||= {};
   for (const key of keys) {
-    const pos = colliders?.[key];
+    let pos = colliders?.[key];
+    let radius = colliders?.[`${key}Radius`];
+    if ((!pos || !Number.isFinite(radius)) && key.startsWith('weapon:')) {
+      const resolved = resolveWeaponColliderPoint(fighter, key);
+      if (resolved) {
+        pos = { x: resolved.x, y: resolved.y };
+        radius = resolved.radius;
+      }
+    }
     if (!pos) continue;
-    const radius = colliders?.[`${key}Radius`] ?? 12;
+    if (!Number.isFinite(radius)) {
+      radius = 12;
+    }
     const list = attackTrail.colliders[key] || (attackTrail.colliders[key] = []);
     list.unshift({ x: pos.x, y: pos.y, radius, alpha: 1 });
     if (list.length > attackTrail.maxLength) list.length = attackTrail.maxLength;

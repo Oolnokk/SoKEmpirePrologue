@@ -182,56 +182,24 @@ function computeAnchorsForFighter(F, C, fallbackFighterName) {
     leg_R_lower:{x:rKneePosArr[0],y:rKneePosArr[1],len:L.legL,ang:rKneeAng,endX:rAnklePosArr[0],endY:rAnklePosArr[1]}
   };
 
-  const resolveWeaponAttachment = (attachKey) => {
-    switch ((attachKey || '').toLowerCase()) {
-      case 'rwrist':
-        return { pos: rWristPosArr, ang: rLowerAng };
-      case 'lwrist':
-        return { pos: lWristPosArr, ang: lLowerAng };
-      case 'relbow':
-        return { pos: rElbowPosArr, ang: rUpperAng };
-      case 'lelbow':
-        return { pos: lElbowPosArr, ang: lUpperAng };
-      case 'rshoulder':
-        return { pos: rShoulderBaseArr, ang: rUpperAng };
-      case 'lshoulder':
-        return { pos: lShoulderBaseArr, ang: lUpperAng };
-      case 'torso':
-        return { pos: hipBaseArr, ang: torsoAng };
-      default:
-        return null;
-    }
-  };
-
   const weaponKey = profile.weapon
     || profile.character?.weapon
     || (typeof F.weapon === 'string' ? F.weapon : null);
   const weaponDef = weaponKey && C.weapons ? C.weapons[weaponKey] : null;
-  if (weaponDef && Array.isArray(weaponDef.boneOffsets) && weaponDef.boneOffsets.length) {
-    weaponDef.boneOffsets.forEach((spec, index) => {
-      if (!spec) return;
-      const attachment = resolveWeaponAttachment(spec.attach || '');
-      if (!attachment || !attachment.pos) return;
-      const basePos = attachment.pos;
-      const baseAng = attachment.ang ?? torsoAng;
-      const offsetX = Number(spec.x) || 0;
-      const offsetY = Number(spec.y) || 0;
-      const startArr = withAX(basePos[0], basePos[1], baseAng, offsetX, offsetY);
-      const length = Math.max(0, Number(spec.length) || 0);
-      const angOffset = Number.isFinite(spec.angleRad)
-        ? spec.angleRad
-        : (Number.isFinite(spec.angleDeg) ? degToRad(spec.angleDeg) : 0);
-      const boneAng = baseAng + angOffset;
-      const [endX, endY] = segPos(startArr[0], startArr[1], length, boneAng);
-      const boneKey = `weapon_${index}`;
+  const weaponState = F.anim?.weapon?.state;
+  if (weaponState && weaponState.weaponKey === weaponKey && Array.isArray(weaponState.bones)) {
+    weaponState.bones.forEach((bone, index) => {
+      if (!bone) return;
+      const boneKey = bone.id || `weapon_${index}`;
+      const start = bone.start || { x: 0, y: 0 };
+      const end = bone.end || { x: start.x, y: start.y };
       B[boneKey] = {
-        x: startArr[0],
-        y: startArr[1],
-        len: length,
-        ang: boneAng,
-        endX,
-        endY,
-        attach: spec.attach || null,
+        x: start.x,
+        y: start.y,
+        len: Number.isFinite(bone.length) ? bone.length : Math.hypot(end.x - start.x, end.y - start.y),
+        ang: bone.angle ?? angleFromDelta(end.x - start.x, end.y - start.y),
+        endX: end.x,
+        endY: end.y,
         weapon: weaponKey
       };
     });
@@ -513,7 +481,9 @@ export function renderAll(ctx){
   for (const entry of attackList) {
     const npcAttackTrail = entry?.trail;
     if (!npcAttackTrail?.enabled) continue;
-    for (const key of ['handL', 'handR', 'footL', 'footR']) {
+    const baseKeys = ['handL', 'handR', 'footL', 'footR'];
+    const weaponKeys = Object.keys(npcAttackTrail.colliders || {}).filter((key) => key.startsWith('weapon:'));
+    for (const key of [...baseKeys, ...weaponKeys]) {
       const trail = npcAttackTrail.colliders?.[key];
       if (!trail || !trail.length) continue;
       for (let i = trail.length - 1; i >= 0; i -= 1) {
