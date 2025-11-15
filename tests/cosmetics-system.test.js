@@ -1,6 +1,6 @@
 import { strictEqual, deepStrictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import { COSMETIC_SLOTS, cosmeticTagFor, ensureCosmeticLayers, clearCosmeticCache, resolveFighterBodyColors } from '../docs/js/cosmetics.js';
+import { COSMETIC_SLOTS, cosmeticTagFor, ensureCosmeticLayers, clearCosmeticCache, resolveFighterBodyColors, registerFighterCosmeticProfile } from '../docs/js/cosmetics.js';
 import { clearPaletteCache } from '../docs/js/cosmetic-palettes.js';
 import { readFileSync } from 'node:fs';
 
@@ -285,7 +285,7 @@ test('runtime slot overrides cannot mutate cosmetic transforms', () => {
   }
 });
 
-test('fighter-specific overrides may adjust non-appearance transforms', () => {
+test('fighter-specific overrides no longer adjust sprite transforms directly', () => {
   clearCosmeticCache();
   clearPaletteCache();
   const config = {
@@ -331,9 +331,57 @@ test('fighter-specific overrides may adjust non-appearance transforms', () => {
   const layers = ensureCosmeticLayers(config, 'hero', {});
   strictEqual(layers.length, 1);
   const layer = layers[0];
-  strictEqual(readXform(layer, 'head', 'ax'), 7);
-  strictEqual(readXform(layer, 'head', 'ay'), 5);
+  strictEqual(readXform(layer, 'head', 'ax'), 2);
+  strictEqual(readXform(layer, 'head', 'ay'), undefined);
   deepStrictEqual(layer.hsl, { h: -30, s: 0, l: 0 });
+});
+
+test('fighter profile offsets replace item spriteStyle transforms', () => {
+  clearCosmeticCache();
+  clearPaletteCache();
+  registerFighterCosmeticProfile('hero', {
+    cosmetics: {
+      fitted_cap: {
+        parts: {
+          head: {
+            spriteStyle: { xform: { head: { ax: 5, ay: -1 } } },
+            styleKey: 'head'
+          }
+        }
+      }
+    }
+  });
+
+  const config = {
+    cosmeticLibrary: {
+      fitted_cap: {
+        slot: 'hat',
+        parts: {
+          head: {
+            image: { url: 'https://example.com/fitted-cap.png' },
+            spriteStyle: { base: { xform: { head: { ax: 1, scaleX: 1.3, scaleY: 1.1 } } } }
+          }
+        }
+      }
+    },
+    fighters: {
+      hero: {
+        cosmetics: {
+          slots: {
+            hat: { id: 'fitted_cap' }
+          }
+        }
+      }
+    }
+  };
+
+  const layers = ensureCosmeticLayers(config, 'hero', {});
+  strictEqual(layers.length, 1);
+  const layer = layers[0];
+  strictEqual(readXform(layer, 'head', 'ax'), 5);
+  strictEqual(readXform(layer, 'head', 'ay'), -1);
+  strictEqual(readXform(layer, 'head', 'scaleX'), undefined);
+  strictEqual(readXform(layer, 'head', 'scaleY'), undefined);
 });
 
 test('appearance cosmetics ignore fighter transform overrides', () => {

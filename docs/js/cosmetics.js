@@ -476,6 +476,52 @@ function deepMerge(base = {}, extra = {}){
   return out;
 }
 
+function isPlainObject(value){
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function cloneSpriteStyleConfig(style){
+  if (!isPlainObject(style)) return null;
+  return deepMerge({}, style);
+}
+
+function mergeSpriteStyleConfig(baseStyle, overrideStyle){
+  const base = cloneSpriteStyleConfig(baseStyle) || {};
+  if (!isPlainObject(overrideStyle)){
+    return Object.keys(base).length ? base : null;
+  }
+  const merged = Object.keys(base).length ? base : {};
+  if (isPlainObject(overrideStyle.widthFactor)){
+    merged.widthFactor = deepMerge(merged.widthFactor || {}, overrideStyle.widthFactor);
+  }
+  if (isPlainObject(overrideStyle.anchor)){
+    merged.anchor = deepMerge(merged.anchor || {}, overrideStyle.anchor);
+  }
+  if (overrideStyle.xformUnits != null){
+    merged.xformUnits = overrideStyle.xformUnits;
+  }
+  if (overrideStyle.filter != null){
+    merged.filter = overrideStyle.filter;
+  }
+  if (overrideStyle.palette != null){
+    merged.palette = deepMerge(merged.palette || {}, overrideStyle.palette);
+  }
+  if (overrideStyle.xform != null){
+    merged.xform = merged.xform ? { ...merged.xform } : {};
+    for (const [key, value] of Object.entries(overrideStyle.xform)){
+      if (value == null){
+        delete merged.xform[key];
+        continue;
+      }
+      merged.xform[key] = isPlainObject(value) ? deepMerge({}, value) : value;
+    }
+    if (Object.keys(merged.xform).length === 0){
+      delete merged.xform;
+    }
+  }
+  return Object.keys(merged).length ? merged : null;
+}
+
 function pickPerFighter(def, fighterName){
   if (def == null) return null;
   if (typeof def === 'function'){
@@ -666,7 +712,7 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
   } = partConfig || {};
 
   let imageCfg = pickPerFighter(cleanConfig.image || cleanConfig.images, fighterName);
-  let styleCfg = pickPerFighter(cleanConfig.spriteStyle, fighterName);
+  let styleCfg = cloneSpriteStyleConfig(pickPerFighter(cleanConfig.spriteStyle, fighterName));
   let warpCfg = pickPerFighter(cleanConfig.warp, fighterName);
   let anchorCfg = pickPerFighter(cleanConfig.anchor, fighterName);
   let alignCfg = pickPerFighter(cleanConfig.align, fighterName);
@@ -675,7 +721,9 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
   const profileOverrides = getProfilePartOverrides(fighterName, cosmeticId, partKey);
   if (profileOverrides){
     imageCfg = mergeConfig(imageCfg, profileOverrides.image);
-    styleCfg = mergeConfig(styleCfg, profileOverrides.spriteStyle);
+    if (profileOverrides.spriteStyle != null){
+      styleCfg = mergeSpriteStyleConfig(styleCfg, profileOverrides.spriteStyle);
+    }
     warpCfg = mergeConfig(warpCfg, profileOverrides.warp);
     anchorCfg = mergeConfig(anchorCfg, profileOverrides.anchor);
     alignCfg = mergeConfig(alignCfg, profileOverrides.align);
@@ -703,7 +751,11 @@ function mergePartLayerBase(baseConfig = {}, override = {}){
     position: _ignoredPosition,
     ...cleanOverride
   } = override || {};
-  return deepMerge(baseConfig, cleanOverride || {});
+  const merged = deepMerge(baseConfig, cleanOverride || {});
+  if (cleanOverride?.spriteStyle != null || baseConfig?.spriteStyle){
+    merged.spriteStyle = mergeSpriteStyleConfig(baseConfig?.spriteStyle, cleanOverride?.spriteStyle);
+  }
+  return merged;
 }
 
 function resolvePartLayers(partKey, partConfig = {}, fighterName, cosmeticId){
@@ -875,7 +927,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
       : null;
     const slotLayerOverrides = sanitizedSlotOverride?.layers || {};
     const slotPartOverrides = sanitizedSlotOverride?.parts || {};
-    const sanitizedFighterOverride = sanitizeOverrideObject(equipped.fighterOverrides, { allowTransforms: !isAppearance });
+    const sanitizedFighterOverride = sanitizeOverrideObject(equipped.fighterOverrides, { allowTransforms: false });
     const fighterBaseOverride = sanitizedFighterOverride
       ? (() => {
         const { layers: _ignoredLayers, parts: _ignoredParts, ...base } = sanitizedFighterOverride;
@@ -909,7 +961,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
         const resolved = {
           ...baseLayerConfig,
           image: baseLayerConfig.image ? deepMerge({}, baseLayerConfig.image) : baseLayerConfig.image,
-          spriteStyle: baseLayerConfig.spriteStyle ? deepMerge({}, baseLayerConfig.spriteStyle) : baseLayerConfig.spriteStyle,
+          spriteStyle: cloneSpriteStyleConfig(baseLayerConfig.spriteStyle),
           warp: baseLayerConfig.warp ? deepMerge({}, baseLayerConfig.warp) : baseLayerConfig.warp,
           anchor: baseLayerConfig.anchor ? deepMerge({}, baseLayerConfig.anchor) : baseLayerConfig.anchor,
           align: baseLayerConfig.align ? deepMerge({}, baseLayerConfig.align) : baseLayerConfig.align,
@@ -933,9 +985,6 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           if (!override || typeof override !== 'object') return;
           if (override.image){
             resolved.image = mergeConfig(resolved.image, override.image);
-          }
-          if (override.spriteStyle){
-            styleOverride = mergeConfig(styleOverride, override.spriteStyle);
           }
           if (override.warp){
             warpOverride = mergeConfig(warpOverride, override.warp);
