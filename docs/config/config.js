@@ -480,12 +480,12 @@ window.CONFIG = {
         head:{ origin:{ax:-1, ay:6} }
       },
       spriteOffsets: {
-        torso:    { ax:-0.5,  ay:-0.2, units: 'percent' },
+        torso:    { ax:0,  ay:0, units: 'percent' },
         head:     { ax:0, ay:0, units: 'percent' },
         armUpper: { ax:0,     ay:0,     units: 'percent' },
         armLower: { ax:0,     ay:0,     units: 'percent' },
-        legUpper: { ax:-0.10, ay:0.10,  units: 'percent' },
-        legLower: { ax:-0.2,  ay:0.02,  units: 'percent' }
+        legUpper: { ax:0, ay:0,  units: 'percent' },
+        legLower: { ax:0,  ay:0,  units: 'percent' }
       },
       sprites: {
         torso: { url: "./assets/fightersprites/tletingan/torso_mint.png", bodyColor: 'A' },
@@ -548,12 +548,12 @@ window.CONFIG = {
         head:{ origin:{ax:0, ay:0} }
       },
       spriteOffsets: {
-        torso:    { ax:0,     ay:-0.2, units: 'percent' },
-        head:     { ax:-0.1, ay:-0.0, units: 'percent' },
-        armUpper: { ax:-0.2, ay:0.1,  units: 'percent' },
-        armLower: { ax:0.35, ay:0,    units: 'percent' },
-        legUpper: { ax:-0.10, ay:0,   units: 'percent' },
-        legLower: { ax:0,     ay:0.2, units: 'percent' }
+        torso:    { ax:0,     ay:0, units: 'percent' },
+        head:     { ax:0, ay:0.0, units: 'percent' },
+        armUpper: { ax:0, ay:0,  units: 'percent' },
+        armLower: { ax:0, ay:0,    units: 'percent' },
+        legUpper: { ax:-0, ay:0,   units: 'percent' },
+        legLower: { ax:0,     ay:0, units: 'percent' }
       },
       sprites: {
         torso: { url: "./assets/fightersprites/mao-ao-m/torso_mint.png", bodyColor: 'A' },
