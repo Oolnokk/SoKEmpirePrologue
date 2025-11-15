@@ -907,8 +907,16 @@ window.CONFIG = {
               { id: 'primary', percent: 0.2, limb: 'right', offset: { ax: 0, ay: 0 } }
             ],
             colliders: [
-              { id: 'rightA', kind: 'box', width: 20, height: 60, from: 0.08, to: 1.0, activatesOn: ['SLASH', 'STRIKE'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
-              { id: 'rightB', kind: 'box', width: 16, height: 44, from: 0.04, to: 0.75, activatesOn: ['STAB'], offset: { ax: 0.25, ay: -0.18, units: 'percent' } }
+              {
+                id: 'colliderA',
+                kind: 'box',
+                width: 20,
+                height: 60,
+                from: 0.08,
+                to: 1.0,
+                activatesOn: ['STRIKE'],
+                offset: { ax: 0.45, ay: 0, units: 'percent' }
+              }
             ]
           },
           {
@@ -923,17 +931,23 @@ window.CONFIG = {
               { id: 'secondary', percent: 0.2, limb: 'left', offset: { ax: 0, ay: 0 } }
             ],
             colliders: [
-              { id: 'leftA', kind: 'box', width: 20, height: 60, from: 0.08, to: 1.0, activatesOn: ['SLASH', 'STRIKE'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
-              { id: 'leftB', kind: 'box', width: 16, height: 44, from: 0.04, to: 0.75, activatesOn: ['STAB'], offset: { ax: 0.25, ay: 0.18, units: 'percent' } }
+              {
+                id: 'colliderB',
+                kind: 'box',
+                width: 20,
+                height: 60,
+                from: 0.08,
+                to: 1.0,
+                activatesOn: ['STRIKE'],
+                offset: { ax: 0.45, ay: 0, units: 'percent' }
+              }
             ]
           }
         ]
       },
       colliders: {
-        rightA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['SLASH', 'STRIKE'] },
-        rightB: { shape: 'rect', width: 16, height: 44, offset: { x: 10, y: -8 }, activatesOn: ['STAB'] },
-        leftA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['SLASH', 'STRIKE'] },
-        leftB: { shape: 'rect', width: 16, height: 44, offset: { x: 10, y: 8 }, activatesOn: ['STAB'] }
+        colliderA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['STRIKE'] },
+        colliderB: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['STRIKE'] }
       }
     },
 
@@ -952,16 +966,22 @@ window.CONFIG = {
               { id: 'secondary', percent: 0.35, limb: 'left', offset: { ax: 0, ay: 0 } }
             ],
             colliders: [
-              { id: 'thrust', kind: 'box', width: 18, height: 120, from: 0.05, to: 1.05, activatesOn: ['THRUST'], offset: { ax: 0.55, ay: 0, units: 'percent' } },
-              { id: 'sweep', kind: 'box', width: 26, height: 140, from: 0.08, to: 1.1, activatesOn: ['SWEEP'], offset: { ax: 0.42, ay: 0, units: 'percent' } }
+              {
+                id: 'colliderA',
+                kind: 'box',
+                width: 26,
+                height: 140,
+                from: 0.08,
+                to: 1.1,
+                activatesOn: ['STRIKE'],
+                offset: { ax: 0.42, ay: 0, units: 'percent' }
+              }
             ]
           }
         ]
       },
       colliders: {
-        rightA: { shape: 'rect', width: 18, height: 120, offset: { x: 50, y: 0 }, activatesOn: ['THRUST'] },
-        rightB: { shape: 'rect', width: 26, height: 140, offset: { x: 35, y: 0 }, activatesOn: ['SWEEP'] },
-        leftA: { shape: 'rect', width: 16, height: 40, offset: { x: -10, y: 0 }, activatesOn: ['SWEEP'] }
+        colliderA: { shape: 'rect', width: 26, height: 140, offset: { x: 35, y: 0 }, activatesOn: ['STRIKE'] }
       },
       sprite: {
         url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
