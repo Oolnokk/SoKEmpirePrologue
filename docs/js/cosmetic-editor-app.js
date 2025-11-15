@@ -2366,6 +2366,12 @@ class CosmeticEditorApp {
     stack.className = 'part-preview__stack';
     stage.appendChild(stack);
 
+    const drapeModeEnabled = !!this.modeManager?.getModeConfig(this.state.activeMode)?.enableDrapeEditor;
+    if (drapeModeEnabled){
+      const overlay = this.buildDrapeOverlay(resolvedLayers, library, partKey);
+      stage.appendChild(overlay);
+    }
+
     let hasImage = false;
     resolvedLayers.forEach((layer, index)=>{
       const url = layer?.asset?.url;
