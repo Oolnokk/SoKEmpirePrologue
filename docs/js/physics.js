@@ -33,6 +33,7 @@ const FULL_RAGDOLL_SETTLE_MIN = 1.35;
 const FULL_RAGDOLL_SETTLE_MAX = 2.4;
 const RECOVERY_BASE_DURATION = 0.8;
 const RECOVERY_DURATION_BONUS = 1.1;
+const AIRBORNE_SPIN_JOINTS = ['torso', 'head', 'lShoulder', 'rShoulder', 'lHip', 'rHip', 'lKnee', 'rKnee'];
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -659,6 +660,30 @@ export function applyHitReactionRagdoll(fighter, config, {
   knockback.magnitude = Math.max(knockback.magnitude || 0, Math.abs(force));
   knockback.direction = angle;
   return false;
+}
+
+export function applyAirborneSpinImpulse(fighter, config, {
+  force = 0,
+  direction = 0,
+} = {}) {
+  if (!fighter) return;
+  if (fighter.onGround) return;
+  ensureFighterPhysics(fighter, config);
+  const state = ensurePhysicsState(fighter);
+  const magnitude = clamp(Math.abs(force) / 320, 0, 2.2);
+  if (magnitude <= 0) return;
+  const spinDir = direction !== 0 ? Math.sign(direction) : (Math.random() < 0.5 ? -1 : 1);
+  const baseTorque = 0.22 * magnitude;
+  for (const joint of AIRBORNE_SPIN_JOINTS) {
+    const bias = joint === 'torso' || joint === 'head' ? 1 : 0.7;
+    state.jointVel[joint] = (state.jointVel[joint] || 0) + spinDir * baseTorque * bias;
+  }
+  perturbJoints(state, clamp(0.3 + magnitude * 0.4, 0, 1));
+  const addedBlend = clamp(0.18 + magnitude * 0.28, 0, 0.75);
+  state.partialBlend = Math.max(state.partialBlend || 0, addedBlend);
+  state.partialBlendStart = state.partialBlend;
+  state.partialBlendTimer = 0;
+  state.partialBlendDuration = Math.max(state.partialBlendDuration || 0.45, 0.32 + magnitude * 0.45);
 }
 
 export function getPhysicsRagdollBlend(fighter) {
