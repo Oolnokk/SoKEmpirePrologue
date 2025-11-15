@@ -85,6 +85,8 @@ class AnimationEditorApp {
   queryDom() {
     const q = (id) => document.getElementById(id);
     return {
+      previewCanvas: q('animationCanvas'),
+      previewPlaceholder: q('previewPlaceholder'),
       moveSelect: q('moveSelect'),
       attackSelect: q('attackSelect'),
       resetMove: q('resetMove'),
@@ -149,6 +151,7 @@ class AnimationEditorApp {
       if (!this.state.moveDraft) return;
       this.state.moveDraft.name = event.target.value;
       this.updateJsonOutputs();
+      this.renderPreview();
     });
 
     moveTags?.addEventListener('change', (event) => {
@@ -176,12 +179,14 @@ class AnimationEditorApp {
       if (!this.state.attackDraft) return;
       this.state.attackDraft.name = event.target.value;
       this.updateJsonOutputs();
+      this.renderPreview();
     });
 
     attackTags?.addEventListener('change', (event) => {
       if (!this.state.attackDraft) return;
       this.state.attackDraft.tags = normalizeTagsInput(event.target.value);
       this.updateJsonOutputs();
+      this.renderPreview();
     });
 
     attackDamageHealth?.addEventListener('change', (event) => {
@@ -455,8 +460,13 @@ class AnimationEditorApp {
   normalizeMoveDurations() {
     const draft = this.state.moveDraft;
     if (!draft) return;
+    if (draft.durations) {
+      Object.entries(draft.durations).forEach(([key, value]) => {
+        draft.durations[key] = Math.max(0, toNumber(value, 0));
+      });
+    }
     draft.sequence = normalizeMoveSequence(draft.sequence);
-    this.renderMoveSequence(draft.sequence);
+    this.renderMove();
     this.updateMoveTimeline();
     this.updateJsonOutputs();
     this.setStatus('Move phases normalized');
@@ -592,6 +602,7 @@ class AnimationEditorApp {
     this.dom.attackTags.value = formatTags(this.state.attackDraft.tags);
     this.updateJsonOutputs();
     this.setStatus(`Added tag "${tag}"`);
+    this.renderPreview();
   }
 
   updateMoveTimeline() {
@@ -599,15 +610,13 @@ class AnimationEditorApp {
     const container = this.dom.moveTimeline;
     if (!container) return;
     container.innerHTML = '';
-    if (!draft) return;
-    const durations = draft.durations || {};
-    const phases = formatDurationTimeline([
-      { label: 'Windup', value: durations.toWindup },
-      { label: 'Strike', value: durations.toStrike, kind: 'strike' },
-      { label: 'Recoil', value: durations.toRecoil },
-      { label: 'Return', value: durations.toStance }
-    ]);
+    if (!draft) {
+      this.renderPreview();
+      return;
+    }
+    const phases = this.getMoveTimelinePhases();
     phases.forEach((phase) => container.appendChild(this.buildTimelineRow(phase)));
+    this.renderPreview();
   }
 
   updateAttackTimeline() {
@@ -615,13 +624,14 @@ class AnimationEditorApp {
     const container = this.dom.attackTimeline;
     if (!container) return;
     container.innerHTML = '';
-    if (!draft || !Array.isArray(draft.sequence)) return;
-    const steps = draft.sequence
-      .slice()
-      .sort((a, b) => (a.startMs || 0) - (b.startMs || 0));
+    if (!draft || !Array.isArray(draft.sequence)) {
+      this.renderPreview();
+      return;
+    }
+    const steps = this.getAttackTimelineSteps();
     const maxStart = steps.reduce((max, step) => Math.max(max, step.startMs || 0), 0);
     steps.forEach((step) => {
-      const startMs = Math.max(0, step.startMs || 0);
+      const startMs = step.startMs;
       const widthPct = maxStart > 0
         ? Math.min(100, Math.max(6, (startMs / maxStart) * 100))
         : 100;
@@ -644,6 +654,7 @@ class AnimationEditorApp {
       row.appendChild(bar);
       container.appendChild(row);
     });
+    this.renderPreview();
   }
 
   buildTimelineRow(phase) {
@@ -665,6 +676,263 @@ class AnimationEditorApp {
     bar.appendChild(text);
     row.appendChild(bar);
     return row;
+  }
+
+  getMoveTimelinePhases() {
+    const draft = this.state.moveDraft;
+    if (!draft) return [];
+    const durations = draft.durations || {};
+    return formatDurationTimeline([
+      { label: 'Windup', value: durations.toWindup, kind: 'windup' },
+      { label: 'Strike', value: durations.toStrike, kind: 'strike' },
+      { label: 'Recoil', value: durations.toRecoil, kind: 'recoil' },
+      { label: 'Return', value: durations.toStance, kind: 'return' }
+    ]);
+  }
+
+  getAttackTimelineSteps() {
+    const draft = this.state.attackDraft;
+    if (!draft || !Array.isArray(draft.sequence)) return [];
+    return draft.sequence
+      .map((step, index) => ({
+        move: step.move || `Step ${index + 1}`,
+        startMs: Math.max(0, toNumber(step.startMs, 0)),
+        tags: Array.isArray(step.tags) ? step.tags : [],
+        index
+      }))
+      .sort((a, b) => a.startMs - b.startMs);
+  }
+
+  renderPreview() {
+    const { previewCanvas, previewPlaceholder } = this.dom;
+    if (!previewCanvas) return;
+    const phases = this.getMoveTimelinePhases();
+    const steps = this.getAttackTimelineSteps();
+    const hasMove = phases.length > 0;
+    const hasAttack = steps.length > 0;
+    const hasData = hasMove || hasAttack;
+
+    if (!hasData) {
+      previewCanvas.classList.remove('is-visible');
+      previewPlaceholder?.classList.remove('is-hidden');
+      const ctx = previewCanvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      return;
+    }
+
+    previewCanvas.classList.add('is-visible');
+    previewPlaceholder?.classList.add('is-hidden');
+
+    const { ctx, width, height, dpr } = this.configurePreviewCanvas(previewCanvas);
+    if (!ctx) return;
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    ctx.restore();
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#10141a';
+    ctx.fillRect(0, 0, width, height);
+
+    const margin = 24;
+    const availableHeight = Math.max(0, height - margin * 2);
+    const rows = (hasMove ? 1 : 0) + (hasAttack ? 1 : 0);
+    const rowGap = rows > 1 ? 40 : 0;
+    const rowHeight = rows ? (availableHeight - rowGap * (rows - 1)) / rows : 0;
+    let currentY = margin;
+
+    if (hasMove) {
+      this.drawMovePreview(ctx, phases, width, currentY, rowHeight);
+      currentY += rowHeight + rowGap;
+    }
+
+    if (hasAttack) {
+      const attackY = hasMove ? currentY - rowGap : currentY;
+      this.drawAttackPreview(ctx, steps, width, attackY, rowHeight || availableHeight);
+    }
+
+    ctx.restore();
+  }
+
+  configurePreviewCanvas(canvas) {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    let logicalWidth = rect.width || canvas.__logicalWidth || canvas.width || 720;
+    let logicalHeight = rect.height || canvas.__logicalHeight || canvas.height || 460;
+    if (!logicalWidth) logicalWidth = 720;
+    if (!logicalHeight) logicalHeight = 460;
+    const scaledWidth = Math.round(logicalWidth * dpr);
+    const scaledHeight = Math.round(logicalHeight * dpr);
+    if (canvas.__width !== scaledWidth || canvas.__height !== scaledHeight) {
+      canvas.__width = scaledWidth;
+      canvas.__height = scaledHeight;
+      canvas.__logicalWidth = logicalWidth;
+      canvas.__logicalHeight = logicalHeight;
+      canvas.__dpr = dpr;
+      canvas.width = scaledWidth;
+      canvas.height = scaledHeight;
+    }
+    return { ctx: canvas.getContext('2d'), width: logicalWidth, height: logicalHeight, dpr };
+  }
+
+  drawMovePreview(ctx, phases, width, top, height) {
+    const margin = 24;
+    const title = this.state.moveDraft?.name || this.state.moveKey || 'Move Timeline';
+    ctx.fillStyle = '#7f8ea3';
+    ctx.font = '600 16px "Segoe UI", system-ui, sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Move Timeline • ${title}`, margin, top);
+
+    const barTop = top + 28;
+    const barHeight = Math.max(28, height - 54);
+    const totalWidth = width - margin * 2;
+    const totalValue = phases.reduce((sum, item) => sum + Math.max(0, item.value || 0), 0) || 1;
+    let offsetX = margin;
+
+    phases.forEach((phase, index) => {
+      const rawWidth = totalWidth * Math.max(0, phase.value || 0) / totalValue;
+      const blockWidth = Math.max(16, rawWidth);
+      const color = this.getMovePhaseColor(phase, index);
+      this.drawRoundedRect(ctx, offsetX, barTop, blockWidth, barHeight, 10, color);
+
+      const centerX = offsetX + blockWidth / 2;
+      const label = `${phase.label}`;
+      const durationLabel = `${Math.round(phase.value || 0)}ms`;
+      ctx.textAlign = 'center';
+      if (blockWidth >= 68) {
+        ctx.fillStyle = '#e6edf3';
+        ctx.font = '12px "Segoe UI", system-ui, sans-serif';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, centerX, barTop + barHeight / 2 - 8);
+        ctx.fillStyle = 'rgba(230, 237, 243, 0.75)';
+        ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(durationLabel, centerX, barTop + barHeight / 2 + 10);
+      } else {
+        ctx.fillStyle = '#e6edf3';
+        ctx.font = '12px "Segoe UI", system-ui, sans-serif';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(label, centerX, barTop - 6);
+        ctx.fillStyle = 'rgba(230, 237, 243, 0.75)';
+        ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+        ctx.textBaseline = 'top';
+        ctx.fillText(durationLabel, centerX, barTop + barHeight + 6);
+      }
+      offsetX += blockWidth;
+    });
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  drawAttackPreview(ctx, steps, width, top, height) {
+    const margin = 24;
+    const title = this.state.attackDraft?.name || this.state.attackKey || 'Attack Sequence';
+    ctx.fillStyle = '#7f8ea3';
+    ctx.font = '600 16px "Segoe UI", system-ui, sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Attack Sequence • ${title}`, margin, top);
+
+    const baselineY = top + Math.max(36, height * 0.45);
+    const markerHeight = Math.max(28, height * 0.4);
+    const trackWidth = width - margin * 2;
+
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(margin, baselineY);
+    ctx.lineTo(width - margin, baselineY);
+    ctx.stroke();
+
+    const maxStart = steps.reduce((max, step) => Math.max(max, step.startMs || 0), 0);
+    const denominator = maxStart > 0
+      ? maxStart
+      : (steps.length > 1 ? steps.length - 1 : 1);
+
+    if (maxStart > 0) {
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
+      ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'left';
+      ctx.fillText('0ms', margin, baselineY + 8);
+      ctx.textAlign = 'right';
+      ctx.fillText(`${Math.round(maxStart)}ms`, width - margin, baselineY + 8);
+      ctx.textAlign = 'left';
+    }
+
+    steps.forEach((step, index) => {
+      const ratio = denominator > 0
+        ? (maxStart > 0 ? step.startMs / denominator : index / denominator)
+        : 0;
+      const xPos = margin + ratio * trackWidth;
+      const color = this.getAttackStepColor(index);
+      const markerTop = baselineY - markerHeight + 16;
+
+      this.drawRoundedRect(ctx, xPos - 5, markerTop, 10, markerHeight - 16, 4, color);
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(xPos, baselineY);
+      ctx.lineTo(xPos, baselineY + 18);
+      ctx.stroke();
+
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = '12px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(step.move, xPos, markerTop - 6);
+
+      if (step.tags.length) {
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
+        ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+        ctx.textBaseline = 'top';
+        ctx.fillText(step.tags.join(', '), xPos, markerTop - 2);
+      }
+
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+      ctx.textBaseline = 'top';
+      ctx.fillText(`${Math.round(step.startMs)}ms`, xPos, baselineY + 24);
+    });
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  drawRoundedRect(ctx, x, y, width, height, radius, color) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  getMovePhaseColor(phase, index) {
+    const label = String(phase.label || '').toLowerCase();
+    if (phase.kind === 'strike' || label.includes('strike')) return '#f87171';
+    if (label.includes('wind')) return '#38bdf8';
+    if (label.includes('recoil')) return '#22d3ee';
+    if (label.includes('return') || label.includes('stance')) return '#0ea5e9';
+    const fallback = ['#38bdf8', '#0ea5e9', '#22d3ee', '#38bdf8'];
+    return fallback[index % fallback.length];
+  }
+
+  getAttackStepColor(index) {
+    const palette = ['#fbbf24', '#c084fc', '#38bdf8', '#f472b6', '#22d3ee'];
+    return palette[index % palette.length];
   }
 
   updateJsonOutputs() {
@@ -749,6 +1017,7 @@ class AnimationEditorApp {
       }
       this.updateJsonOutputs();
       this.setStatus('Applied JSON edits');
+      this.renderPreview();
     } catch (error) {
       this.setStatus(`JSON parse failed: ${error.message}`);
     }
