@@ -34,6 +34,13 @@ test('convertLayoutToArea produces modular descriptor', () => {
   assert.equal(area.instances[0].position.y, -15);
   assert.equal(area.instances[1].scale.x, 0.9);
   assert.deepEqual(area.instances[1].tags, ['spawn:player']);
+  assert.equal(area.instances[0].instanceId, '1');
+  assert.equal(area.instances[1].instanceId, 'player_spawn');
+  assert.equal(area.instances[1].meta.identity.instanceId, 'player_spawn');
+  assert.equal(area.instances[1].meta.identity.source, 'tag:spawn:player');
+  assert.ok(area.instancesById);
+  assert.strictEqual(area.instancesById['1'], area.instances[0]);
+  assert.strictEqual(area.instancesById.player_spawn, area.instances[1]);
 });
 
 test('convertLayoutToArea tolerates missing arrays', () => {
@@ -74,6 +81,10 @@ test('convertLayoutToArea normalizes area descriptors', () => {
   assert.equal(area.layers[0].parallaxSpeed, 0.5);
   assert.equal(area.instances[0].position.x, 120);
   assert.deepEqual(area.instances[0].tags, ['spawn:player']);
+  assert.equal(area.instances[0].instanceId, 'player_spawn');
+  assert.equal(area.instances[0].meta.identity.instanceId, 'player_spawn');
+  assert.equal(area.instances[0].meta.identity.source, 'tag:spawn:player');
+  assert.strictEqual(area.instancesById.player_spawn, area.instances[0]);
   assert.deepEqual(area.meta, { revision: 2 });
   assert.equal(area.warnings.length, 0);
 });
@@ -98,6 +109,9 @@ test('convertLayoutToArea generates fallback prefab art when prefab is missing',
 
   assert.equal(area.instances.length, 1);
   const inst = area.instances[0];
+  assert.equal(inst.instanceId, '42');
+  assert.strictEqual(area.instancesById['42'], inst);
+  assert.equal(inst.meta.identity.instanceId, '42');
   assert.equal(inst.prefabId, 'missing_prefab');
   assert.ok(inst.prefab);
   assert.equal(inst.prefab.id, 'missing_prefab');

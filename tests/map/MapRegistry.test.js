@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { MapRegistry, MapRegistryError } from '../../src/map/MapRegistry.js';
+import { convertLayoutToArea } from '../../src/map/builderConversion.js';
 
 const SAMPLE_AREA = {
   name: 'Sample',
@@ -47,4 +48,43 @@ test('toJSON returns cloned descriptors', () => {
   const json = registry.toJSON();
   json.sample.name = 'Changed';
   assert.equal(registry.getArea('sample').name, 'Sample');
+});
+
+
+test('rejects duplicate instance identifiers', () => {
+  const registry = new MapRegistry();
+  const descriptor = {
+    name: 'Duplicates',
+    layers: [],
+    instances: [
+      { instanceId: 'player_spawn' },
+      { instanceId: 'player_spawn' },
+    ],
+  };
+  assert.throws(() => registry.registerArea('dup', descriptor), MapRegistryError);
+});
+
+test('getInstance resolves descriptors by instanceId', () => {
+  const layout = {
+    areaId: 'id_test',
+    areaName: 'Id Test',
+    layers: [
+      { id: 'game', name: 'Gameplay', type: 'gameplay', parallax: 1, yOffset: 0, sep: 120, scale: 1 },
+    ],
+    instances: [
+      { id: 'alpha', prefabId: 'spawn_player', layerId: 'game', slot: 0, tags: ['spawn:player'] },
+      { id: 'beta', prefabId: 'spawn_npc', layerId: 'game', slot: 2, tags: ['spawn:npc'] },
+    ],
+  };
+  const prefabResolver = (prefabId) => ({ id: prefabId, parts: [] });
+  const descriptor = convertLayoutToArea(layout, { prefabResolver });
+  const registry = new MapRegistry();
+  registry.registerArea('id_test', descriptor);
+  const player = registry.getInstance('id_test', 'player_spawn');
+  assert.ok(player, 'player instance should exist');
+  assert.equal(player.instanceId, 'player_spawn');
+  assert.strictEqual(registry.getActiveInstance('player_spawn'), player);
+  assert.equal(registry.getInstance('id_test', 'npc_spawn').instanceId, 'npc_spawn');
+  assert.equal(registry.getInstance('missing', 'player_spawn'), null);
+  assert.equal(registry.getInstance('id_test', 'unknown'), null);
 });
