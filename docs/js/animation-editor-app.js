@@ -1,3 +1,8 @@
+import { initFighters, resetFighterStateForTesting } from './fighter.js?v=8';
+import { renderAll } from './render.js?v=4';
+import { initSprites, renderSprites } from './sprites.js?v=8';
+import { pushPoseOverride, updatePoses } from './animator.js?v=5';
+
 function clone(value) {
   if (typeof structuredClone === 'function') {
     try { return structuredClone(value); } catch (_err) { /* ignore */ }
@@ -64,20 +69,167 @@ function formatDurationTimeline(phases = []) {
   });
 }
 
+class PosePreviewManager {
+  constructor(canvas, placeholder, setStatus) {
+    this.canvas = canvas;
+    this.placeholder = placeholder;
+    this.ctx = canvas?.getContext('2d') || null;
+    this.setStatus = typeof setStatus === 'function' ? setStatus : null;
+    this.ready = false;
+    this.initPromise = null;
+    this.frameHandle = null;
+    this.currentPose = null;
+    this.pendingPose = null;
+    this.pendingFighter = null;
+  }
+
+  async initialize() {
+    if (!this.canvas || !this.ctx) return null;
+    if (this.initPromise) return this.initPromise;
+    this.initPromise = (async () => {
+      try {
+        await initSprites();
+        initFighters(this.canvas, this.ctx, { spawnNpc: false, poseKey: 'Stance' });
+        const GAME = (window.GAME ||= {});
+        GAME.CAMERA = GAME.CAMERA || { x: 0, worldWidth: this.canvas.width };
+        this.ready = true;
+        this.toggleVisibility(true);
+        this.startLoop();
+        if (this.pendingFighter !== null) {
+          const fighterKey = this.pendingFighter;
+          this.pendingFighter = null;
+          this.setFighter(fighterKey);
+        }
+        if (this.pendingPose) {
+          const pose = this.pendingPose;
+          this.pendingPose = null;
+          this.applyPose(pose);
+        } else {
+          const fallback = window.CONFIG?.poses?.Stance;
+          if (fallback) {
+            this.applyPose(fallback);
+          }
+        }
+      } catch (error) {
+        console.error('[animation-editor] Failed to initialize pose preview', error);
+        this.setStatus?.('Pose preview failed to initialize');
+      }
+    })();
+    return this.initPromise;
+  }
+
+  toggleVisibility(visible) {
+    if (!this.canvas) return;
+    if (visible) {
+      this.canvas.classList.add('is-visible');
+      this.placeholder?.classList.add('is-hidden');
+    } else {
+      this.canvas.classList.remove('is-visible');
+      this.placeholder?.classList.remove('is-hidden');
+    }
+  }
+
+  startLoop() {
+    if (this.frameHandle) return;
+    const draw = () => {
+      this.configureCanvas();
+      const ctx = this.ctx;
+      if (ctx) {
+        updatePoses();
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.restore();
+        const dpr = this.canvas.__dpr || 1;
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        renderAll(ctx);
+        renderSprites(ctx);
+        ctx.restore();
+      }
+      this.frameHandle = requestAnimationFrame(draw);
+    };
+    this.frameHandle = requestAnimationFrame(draw);
+  }
+
+  configureCanvas() {
+    if (!this.canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = this.canvas.getBoundingClientRect();
+    const logicalWidth = rect.width || this.canvas.__logicalWidth || this.canvas.width || 720;
+    const logicalHeight = rect.height || this.canvas.__logicalHeight || this.canvas.height || 460;
+    const scaledWidth = Math.round(logicalWidth * dpr);
+    const scaledHeight = Math.round(logicalHeight * dpr);
+    if (this.canvas.width !== scaledWidth || this.canvas.height !== scaledHeight) {
+      this.canvas.width = scaledWidth;
+      this.canvas.height = scaledHeight;
+      this.canvas.__logicalWidth = logicalWidth;
+      this.canvas.__logicalHeight = logicalHeight;
+    }
+    this.canvas.__dpr = dpr;
+  }
+
+  setFighter(fighterKey) {
+    const normalized = fighterKey || null;
+    if (!this.ready) {
+      this.pendingFighter = normalized;
+      return;
+    }
+    const GAME = (window.GAME ||= {});
+    GAME.selectedFighter = normalized;
+    const fighters = GAME.FIGHTERS || {};
+    const player = fighters.player;
+    if (player) {
+      resetFighterStateForTesting(player, { id: 'player', facingSign: 1 });
+      if (this.currentPose) {
+        pushPoseOverride('player', this.currentPose, { durMs: 60000, suppressWalk: true, useAsBase: true });
+      }
+    }
+  }
+
+  applyPose(pose) {
+    const copy = pose ? clone(pose) : null;
+    this.currentPose = copy;
+    if (!this.ready) {
+      this.pendingPose = copy;
+      return;
+    }
+    const payload = copy && Object.keys(copy).length
+      ? copy
+      : (window.CONFIG?.poses?.Stance || {});
+    pushPoseOverride('player', payload, { durMs: 60000, suppressWalk: true, useAsBase: true });
+  }
+}
+
 class AnimationEditorApp {
   constructor(config) {
     this.config = config || {};
     this.state = {
+      abilityKey: null,
       moveKey: null,
       attackKey: null,
       moveOriginal: null,
       attackOriginal: null,
       moveDraft: null,
       attackDraft: null,
+      poseKey: null,
+      poseSource: null,
+      poseDraft: null,
+      poseOriginal: null,
+      poseDirty: false,
+      poseFighter: null,
     };
     this.dom = this.queryDom();
+    this.hierarchy = this.buildHierarchy();
+    this.posePreview = new PosePreviewManager(
+      this.dom.poseCanvas,
+      this.dom.posePlaceholder,
+      (message) => this.setStatus(message)
+    );
     this.bindStaticListeners();
     this.populateSelects();
+    this.populatePoseFighterSelect();
+    this.posePreview.initialize();
     this.selectInitialEntries();
     this.statusTimer = null;
   }
@@ -87,6 +239,9 @@ class AnimationEditorApp {
     return {
       previewCanvas: q('animationCanvas'),
       previewPlaceholder: q('previewPlaceholder'),
+      poseCanvas: q('poseCanvas'),
+      posePlaceholder: q('posePlaceholder'),
+      abilitySelect: q('abilitySelect'),
       moveSelect: q('moveSelect'),
       attackSelect: q('attackSelect'),
       resetMove: q('resetMove'),
@@ -114,6 +269,12 @@ class AnimationEditorApp {
       attackStamina: q('attackStamina'),
       attackColliders: q('attackColliders'),
       attackUseWeaponColliders: q('attackUseWeaponColliders'),
+      poseEditor: q('poseEditor'),
+      poseFighterSelect: q('poseFighterSelect'),
+      poseKeySelect: q('poseKeySelect'),
+      poseJson: q('poseJson'),
+      applyPoseChanges: q('applyPoseChanges'),
+      resetPoseChanges: q('resetPoseChanges'),
       moveJson: q('moveJson'),
       attackJson: q('attackJson'),
       copyMoveJson: q('copyMoveJson'),
@@ -123,10 +284,14 @@ class AnimationEditorApp {
   }
 
   bindStaticListeners() {
-    const { moveSelect, attackSelect, resetMove, resetAttack, normalizeDurations, addMovePhase, addAttackStep,
+    const { abilitySelect, moveSelect, attackSelect, resetMove, resetAttack, normalizeDurations, addMovePhase, addAttackStep,
       addAttackTag, copyMoveJson, copyAttackJson, downloadJson, moveJson, attackJson, moveName, moveTags,
       knockbackBase, cancelWindow, attackName, attackTags, attackDamageHealth, attackStamina, attackColliders,
-      attackUseWeaponColliders } = this.dom;
+      attackUseWeaponColliders, poseFighterSelect, poseKeySelect, poseJson, applyPoseChanges, resetPoseChanges } = this.dom;
+
+    abilitySelect?.addEventListener('change', (event) => {
+      this.selectAbility(event.target.value || null);
+    });
 
     moveSelect?.addEventListener('change', (event) => {
       this.selectMove(event.target.value || null);
@@ -232,38 +397,531 @@ class AnimationEditorApp {
       }
       this.updateJsonOutputs();
     });
+
+    poseFighterSelect?.addEventListener('change', (event) => {
+      this.changePoseFighter(event.target.value || null);
+    });
+
+    poseKeySelect?.addEventListener('change', (event) => {
+      const [source, key] = this.parsePoseOptionValue(event.target.value);
+      this.loadPoseSelection(source, key);
+    });
+
+    poseJson?.addEventListener('change', () => this.handlePoseJsonChange());
+    applyPoseChanges?.addEventListener('click', () => this.applyPoseChanges());
+    resetPoseChanges?.addEventListener('click', () => this.resetPoseChanges());
   }
 
   populateSelects() {
-    this.populateSelect(this.dom.moveSelect, Object.keys(this.config.moves || {}).sort());
-    this.populateSelect(this.dom.attackSelect, Object.keys(this.config.abilitySystem?.attacks || {}).sort());
+    this.populateAbilitySelect();
+    this.updateAttackOptions();
   }
 
-  populateSelect(select, keys) {
-    if (!select) return;
+  populateSelect(select, entries, options = {}) {
+    if (!select) return [];
+    const { placeholderText = 'Select…', includePlaceholder = true } = options;
+    const normalized = Array.isArray(entries)
+      ? entries
+          .map((entry) => (typeof entry === 'string' ? { value: entry, label: entry } : entry))
+          .filter((entry) => entry && entry.value)
+      : [];
     select.innerHTML = '';
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = 'Select…';
-    select.appendChild(placeholder);
-    keys.forEach((key) => {
+    if (includePlaceholder) {
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = placeholderText;
+      select.appendChild(placeholder);
+    }
+    normalized.forEach((entry) => {
+      const option = document.createElement('option');
+      option.value = entry.value;
+      option.textContent = entry.label ?? entry.value;
+      if (entry.dataset) {
+        Object.entries(entry.dataset).forEach(([key, value]) => {
+          option.dataset[key] = value;
+        });
+      }
+      select.appendChild(option);
+    });
+    select.disabled = normalized.length === 0;
+    return normalized;
+  }
+
+  buildHierarchy() {
+    const abilityDefs = this.config.abilitySystem?.abilities || {};
+    const attackDefs = this.config.abilitySystem?.attacks || {};
+    const abilities = {};
+    const abilityOrder = [];
+    const attackMoves = {};
+
+    const collectAttackMoves = (attackId, def) => {
+      if (!attackId || !def) return;
+      if (attackMoves[attackId]) return;
+      const rawSequence = def.sequence ?? def.sequenceSteps ?? def.sequencePhases ?? null;
+      const normalizedSequence = normalizeAttackSequence(
+        Array.isArray(rawSequence) ? rawSequence : rawSequence ? [rawSequence] : []
+      );
+      const moveSet = new Set();
+      normalizedSequence.forEach((step) => {
+        if (step?.move) moveSet.add(String(step.move));
+      });
+      if (!moveSet.size && def.preset) {
+        moveSet.add(String(def.preset));
+      }
+      attackMoves[attackId] = Array.from(moveSet).sort((a, b) => a.localeCompare(b));
+    };
+
+    Object.entries(attackDefs).forEach(([attackId, attackDef]) => {
+      collectAttackMoves(attackId, attackDef);
+    });
+
+    Object.entries(abilityDefs).forEach(([abilityId, abilityDef]) => {
+      const attackSet = new Set();
+      const pushAttack = (attackId) => {
+        if (!attackId) return;
+        const normalized = String(attackId);
+        if (attackDefs[normalized]) {
+          attackSet.add(normalized);
+        }
+      };
+
+      if (Array.isArray(abilityDef.sequence)) {
+        abilityDef.sequence.forEach((attackId) => pushAttack(attackId));
+      }
+      if (abilityDef.attack) pushAttack(abilityDef.attack);
+      if (abilityDef.defaultAttack) pushAttack(abilityDef.defaultAttack);
+      if (Array.isArray(abilityDef.variants)) {
+        abilityDef.variants.forEach((variant) => pushAttack(variant?.attack));
+      }
+
+      const attacks = Array.from(attackSet).sort((a, b) => a.localeCompare(b));
+      const preferred = abilityDef.defaultAttack || abilityDef.attack || attacks[0] || null;
+      const defaultAttack = preferred && attacks.includes(preferred) ? preferred : attacks[0] || null;
+      abilities[abilityId] = {
+        id: abilityId,
+        label: abilityDef.name || abilityId,
+        attacks,
+        defaultAttack,
+      };
+      abilityOrder.push(abilityId);
+    });
+
+    abilityOrder.sort((a, b) => {
+      const labelA = abilities[a]?.label || a;
+      const labelB = abilities[b]?.label || b;
+      return labelA.localeCompare(labelB);
+    });
+
+    return { abilities, abilityOrder, attackMoves };
+  }
+
+  populateAbilitySelect() {
+    const select = this.dom.abilitySelect;
+    if (!select) return [];
+    const abilityMap = this.hierarchy?.abilities || {};
+    const order = this.hierarchy?.abilityOrder || Object.keys(abilityMap);
+    const entries = order
+      .map((abilityId) => {
+        const ability = abilityMap[abilityId];
+        if (!ability) return null;
+        const label = ability.label && ability.label !== abilityId
+          ? `${ability.label} (${abilityId})`
+          : abilityId;
+        return { value: abilityId, label };
+      })
+      .filter(Boolean);
+    const normalized = this.populateSelect(select, entries, { placeholderText: 'Select ability…' });
+    if (!normalized.length) {
+      select.value = '';
+      this.state.abilityKey = null;
+      return normalized;
+    }
+    const current = this.state.abilityKey;
+    const initial = current && normalized.some((entry) => entry.value === current)
+      ? current
+      : normalized[0].value;
+    this.state.abilityKey = initial;
+    select.value = initial;
+    return normalized;
+  }
+
+  selectAbility(abilityKey) {
+    const normalized = abilityKey || null;
+    if (this.dom.abilitySelect) {
+      this.dom.abilitySelect.value = normalized || '';
+    }
+    if (this.state.abilityKey === normalized) {
+      this.updateAttackOptions({ preserveSelection: true });
+      return;
+    }
+    this.state.abilityKey = normalized;
+    this.updateAttackOptions({ preserveSelection: false });
+  }
+
+  updateAttackOptions(options = {}) {
+    const select = this.dom.attackSelect;
+    if (!select) return;
+    const { preserveSelection = false } = options;
+    const abilityKey = this.state.abilityKey;
+    const ability = abilityKey ? this.hierarchy?.abilities?.[abilityKey] : null;
+    const entries = ability
+      ? ability.attacks.map((attackId) => ({ value: attackId, label: attackId }))
+      : [];
+    const normalized = this.populateSelect(select, entries, { placeholderText: ability ? 'Select attack…' : 'No attacks available' });
+    if (!normalized.length) {
+      select.value = '';
+      this.selectAttack(null);
+      return;
+    }
+
+    let target = null;
+    if (preserveSelection && this.state.attackKey && normalized.some((entry) => entry.value === this.state.attackKey)) {
+      target = this.state.attackKey;
+    } else if (ability?.defaultAttack && normalized.some((entry) => entry.value === ability.defaultAttack)) {
+      target = ability.defaultAttack;
+    } else {
+      target = normalized[0].value;
+    }
+
+    if (target) {
+      select.value = target;
+      this.selectAttack(target);
+    } else {
+      select.value = '';
+      this.selectAttack(null);
+    }
+  }
+
+  getMovesForAttack(attackKey) {
+    if (!attackKey) return [];
+    const attackMoves = this.hierarchy?.attackMoves?.[attackKey];
+    if (Array.isArray(attackMoves)) return attackMoves;
+    return [];
+  }
+
+  updateMoveOptionsForAttack(options = {}) {
+    const select = this.dom.moveSelect;
+    if (!select) return;
+    const { preserveSelection = false } = options;
+    const attackKey = this.state.attackKey;
+    const entries = this.getMovesForAttack(attackKey).map((moveId) => ({ value: moveId, label: moveId }));
+    const normalized = this.populateSelect(select, entries, { placeholderText: attackKey ? 'Select move…' : 'No moves available' });
+    if (!normalized.length) {
+      select.value = '';
+      if (this.state.moveKey) {
+        this.selectMove(null);
+      } else {
+        this.updateMoveState(null, null);
+      }
+      return;
+    }
+
+    let target = null;
+    if (preserveSelection && this.state.moveKey && normalized.some((entry) => entry.value === this.state.moveKey)) {
+      target = this.state.moveKey;
+    } else {
+      target = normalized[0].value;
+    }
+
+    if (target) {
+      select.value = target;
+      if (target !== this.state.moveKey) {
+        this.selectMove(target);
+      }
+    } else {
+      select.value = '';
+      this.selectMove(null);
+    }
+  }
+
+  populatePoseFighterSelect() {
+    const select = this.dom.poseFighterSelect;
+    if (!select) return;
+    const fighters = Object.keys(this.config.fighters || {}).sort();
+    select.innerHTML = '';
+    if (!fighters.length) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'No fighters available';
+      select.appendChild(option);
+      select.value = '';
+      select.disabled = true;
+      this.state.poseFighter = null;
+      return;
+    }
+    fighters.forEach((key) => {
       const option = document.createElement('option');
       option.value = key;
       option.textContent = key;
       select.appendChild(option);
     });
+    const defaultKey = (this.state.poseFighter && fighters.includes(this.state.poseFighter))
+      ? this.state.poseFighter
+      : fighters[0];
+    select.value = defaultKey;
+    this.state.poseFighter = defaultKey;
+    this.posePreview.setFighter(defaultKey);
+  }
+
+  changePoseFighter(fighterKey) {
+    const normalized = fighterKey || null;
+    this.state.poseFighter = normalized;
+    this.posePreview.setFighter(normalized);
+  }
+
+  parsePoseOptionValue(value) {
+    if (!value) return [null, null];
+    const parts = String(value).split('::');
+    if (parts.length === 2) return parts;
+    return [parts[0] || null, parts[1] || null];
+  }
+
+  updatePoseOptions(options = {}) {
+    const select = this.dom.poseKeySelect;
+    if (!select) return;
+    const {
+      preserveSelection = false,
+      preferredPoseKey = null,
+      preferredSource = null,
+      preserveJson = false,
+    } = options;
+    const draft = this.state.moveDraft;
+    if (!draft) {
+      select.innerHTML = '';
+      select.disabled = true;
+      this.clearPoseEditor(true);
+      return;
+    }
+
+    const keys = new Set();
+    if (draft.poses && typeof draft.poses === 'object') {
+      Object.keys(draft.poses).forEach((key) => keys.add(key));
+    }
+    if (Array.isArray(draft.sequence)) {
+      draft.sequence.forEach((phase) => {
+        if (phase?.poseKey) keys.add(String(phase.poseKey));
+      });
+    }
+    if (!keys.size) {
+      Object.keys(this.config.poses || {}).forEach((key) => keys.add(key));
+    }
+
+    const sortedKeys = Array.from(keys).filter(Boolean).sort((a, b) => a.localeCompare(b));
+    select.innerHTML = '';
+    sortedKeys.forEach((poseKey) => {
+      const source = this.defaultPoseSourceForKey(poseKey);
+      const option = document.createElement('option');
+      option.value = `${source}::${poseKey}`;
+      option.dataset.source = source;
+      option.dataset.poseKey = poseKey;
+      option.textContent = this.formatPoseOptionLabel(poseKey, source);
+      select.appendChild(option);
+    });
+    select.disabled = !sortedKeys.length;
+
+    if (!sortedKeys.length) {
+      this.clearPoseEditor(true);
+      return;
+    }
+
+    let targetKey = preferredPoseKey;
+    if (!targetKey) {
+      if (preserveSelection && this.state.poseKey && sortedKeys.includes(this.state.poseKey)) {
+        targetKey = this.state.poseKey;
+      } else {
+        targetKey = sortedKeys[0];
+      }
+    }
+
+    const targetSource = preferredSource || this.defaultPoseSourceForKey(targetKey);
+    const desiredValue = `${targetSource}::${targetKey}`;
+    const match = Array.from(select.options).find((opt) => opt.value === desiredValue)
+      || Array.from(select.options).find((opt) => opt.dataset.poseKey === targetKey);
+    if (match) {
+      select.value = match.value;
+    } else if (select.options.length) {
+      select.selectedIndex = 0;
+    }
+
+    const [selectedSource, selectedKey] = this.parsePoseOptionValue(select.value);
+    this.loadPoseSelection(selectedSource, selectedKey, { preserveJson });
+  }
+
+  formatPoseOptionLabel(poseKey, source) {
+    if (source === 'move') return `${poseKey} (Move)`;
+    if (source === 'base') return `${poseKey} (Base)`;
+    return `${poseKey} (New)`;
+  }
+
+  defaultPoseSourceForKey(poseKey) {
+    if (this.state.moveDraft?.poses?.[poseKey]) return 'move';
+    if (this.config.poses?.[poseKey]) return 'base';
+    return 'empty';
+  }
+
+  normalizePoseSource(source, poseKey) {
+    if (source === 'move' && this.state.moveDraft?.poses?.[poseKey]) return 'move';
+    if (source === 'base' && this.config.poses?.[poseKey]) return 'base';
+    if (this.state.moveDraft?.poses?.[poseKey]) return 'move';
+    if (this.config.poses?.[poseKey]) return 'base';
+    return 'empty';
+  }
+
+  clonePoseData(source, poseKey) {
+    if (source === 'move') {
+      return clone(this.state.moveDraft?.poses?.[poseKey]) || {};
+    }
+    if (source === 'base') {
+      return clone(this.config.poses?.[poseKey]) || {};
+    }
+    return {};
+  }
+
+  resolvePoseOriginal(source, poseKey) {
+    if (source === 'move') {
+      return this.state.moveOriginal?.poses?.[poseKey]
+        ? clone(this.state.moveOriginal.poses[poseKey])
+        : null;
+    }
+    if (source === 'base') {
+      return this.config.poses?.[poseKey]
+        ? clone(this.config.poses[poseKey])
+        : null;
+    }
+    return null;
+  }
+
+  loadPoseSelection(source, poseKey, options = {}) {
+    if (!poseKey) {
+      this.clearPoseEditor(true);
+      return;
+    }
+    const normalizedSource = this.normalizePoseSource(source, poseKey);
+    const poseData = this.clonePoseData(normalizedSource, poseKey);
+    this.state.poseKey = poseKey;
+    this.state.poseSource = normalizedSource;
+    this.state.poseDraft = clone(poseData);
+    this.state.poseOriginal = this.resolvePoseOriginal(normalizedSource, poseKey);
+    this.state.poseDirty = false;
+    if (!options.preserveJson && this.dom.poseJson) {
+      this.dom.poseJson.value = JSON.stringify(this.state.poseDraft || {}, null, 2);
+    }
+    this.posePreview.initialize();
+    this.posePreview.applyPose(this.state.poseDraft);
+  }
+
+  clearPoseEditor(resetPreview = false) {
+    this.state.poseKey = null;
+    this.state.poseSource = null;
+    this.state.poseDraft = null;
+    this.state.poseOriginal = null;
+    this.state.poseDirty = false;
+    if (this.dom.poseJson) {
+      this.dom.poseJson.value = '';
+    }
+    if (resetPreview) {
+      const fallback = this.config.poses?.Stance || {};
+      this.posePreview.initialize();
+      this.posePreview.applyPose(fallback);
+    }
+  }
+
+  handlePoseJsonChange() {
+    if (!this.state.poseKey || !this.dom.poseJson) return;
+    const raw = this.dom.poseJson.value.trim();
+    if (!raw) {
+      this.state.poseDraft = {};
+      this.state.poseDirty = true;
+      this.posePreview.applyPose({});
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        this.state.poseDraft = parsed;
+        this.state.poseDirty = true;
+        this.posePreview.applyPose(parsed);
+      } else {
+        throw new Error('Pose must be an object');
+      }
+    } catch (error) {
+      this.setStatus(`Pose JSON parse failed: ${error.message}`);
+    }
+  }
+
+  applyPoseChanges() {
+    if (!this.state.moveDraft) {
+      this.setStatus('Select a move first');
+      return;
+    }
+    const poseKey = this.state.poseKey;
+    if (!poseKey) {
+      this.setStatus('Select a pose to apply');
+      return;
+    }
+    const poseDraft = this.state.poseDraft || {};
+    const container = this.ensureMovePoseContainer();
+    if (!container) return;
+    container[poseKey] = clone(poseDraft);
+    this.state.poseSource = 'move';
+    this.state.poseDirty = false;
+    this.updateJsonOutputs();
+    this.updatePoseOptions({
+      preserveSelection: true,
+      preferredPoseKey: poseKey,
+      preferredSource: 'move',
+      preserveJson: true,
+    });
+    this.setStatus(`Pose ${poseKey} applied to move`);
+  }
+
+  resetPoseChanges() {
+    if (!this.state.moveDraft) return;
+    const poseKey = this.state.poseKey;
+    if (!poseKey) return;
+    const movePoses = this.state.moveDraft.poses || {};
+    const original = this.state.moveOriginal?.poses?.[poseKey] || null;
+    if (original) {
+      const container = this.ensureMovePoseContainer();
+      if (container) {
+        container[poseKey] = clone(original);
+      }
+      this.setStatus(`Pose ${poseKey} reset to config`);
+    } else if (movePoses[poseKey]) {
+      delete movePoses[poseKey];
+      if (Object.keys(movePoses).length === 0) {
+        delete this.state.moveDraft.poses;
+      }
+      this.setStatus(`Pose ${poseKey} removed from move`);
+    } else {
+      this.setStatus('No move override to reset');
+    }
+    this.state.poseDirty = false;
+    this.updateJsonOutputs();
+    const nextSource = this.state.moveDraft?.poses?.[poseKey] ? 'move'
+      : (this.config.poses?.[poseKey] ? 'base' : 'empty');
+    this.updatePoseOptions({
+      preserveSelection: false,
+      preferredPoseKey: poseKey,
+      preferredSource: nextSource,
+    });
+  }
+
+  ensureMovePoseContainer() {
+    if (!this.state.moveDraft) return null;
+    if (!this.state.moveDraft.poses || typeof this.state.moveDraft.poses !== 'object') {
+      this.state.moveDraft.poses = {};
+    }
+    return this.state.moveDraft.poses;
   }
 
   selectInitialEntries() {
-    const firstMove = this.getFirstOptionValue(this.dom.moveSelect);
-    const firstAttack = this.getFirstOptionValue(this.dom.attackSelect);
-    if (firstMove) {
-      this.dom.moveSelect.value = firstMove;
-      this.selectMove(firstMove);
-    }
-    if (firstAttack) {
-      this.dom.attackSelect.value = firstAttack;
-      this.selectAttack(firstAttack);
+    const firstAbility = this.getFirstOptionValue(this.dom.abilitySelect);
+    if (firstAbility) {
+      this.dom.abilitySelect.value = firstAbility;
+      this.selectAbility(firstAbility);
+    } else {
+      this.selectAbility(null);
     }
   }
 
@@ -289,6 +947,7 @@ class AnimationEditorApp {
     const attacks = this.config.abilitySystem?.attacks || {};
     if (!attackKey || !attacks[attackKey]) {
       this.updateAttackState(attackKey, null);
+      this.updateMoveOptionsForAttack({ preserveSelection: false });
       return;
     }
     const original = attacks[attackKey];
@@ -297,12 +956,21 @@ class AnimationEditorApp {
     draft.tags = Array.isArray(draft.tags) ? uniqueKeyedList(draft.tags) : [];
     if (!draft.attackData) draft.attackData = {};
     this.updateAttackState(attackKey, draft, original);
+    this.updateMoveOptionsForAttack({ preserveSelection: false });
   }
 
   updateMoveState(moveKey, draft, original) {
+    const previousKey = this.state.moveKey;
     this.state.moveKey = moveKey;
     this.state.moveDraft = draft ? draft : null;
     this.state.moveOriginal = original ? clone(original) : null;
+    if (moveKey !== previousKey) {
+      this.state.poseKey = null;
+      this.state.poseSource = null;
+      this.state.poseDraft = null;
+      this.state.poseOriginal = null;
+      this.state.poseDirty = false;
+    }
     this.renderMove();
     this.updateMoveTimeline();
     this.updateJsonOutputs();
@@ -319,10 +987,11 @@ class AnimationEditorApp {
 
   renderMove() {
     const draft = this.state.moveDraft;
-    const { moveDetails, moveSequencePanel } = this.dom;
+    const { moveDetails, moveSequencePanel, poseEditor } = this.dom;
     const disabled = !draft;
     moveDetails?.setAttribute('aria-disabled', disabled);
     moveSequencePanel?.setAttribute('aria-disabled', disabled);
+    poseEditor?.setAttribute('aria-disabled', disabled);
     if (!draft) {
       this.renderDurationRows([]);
       this.renderMoveSequence([]);
@@ -330,6 +999,7 @@ class AnimationEditorApp {
       this.dom.moveTags.value = '';
       this.dom.knockbackBase.value = '';
       this.dom.cancelWindow.value = '';
+      this.updatePoseOptions({ preserveSelection: false });
       return;
     }
     this.dom.moveName.value = draft.name ?? '';
@@ -343,6 +1013,7 @@ class AnimationEditorApp {
     this.dom.knockbackBase.value = draft.knockbackBase ?? '';
     this.dom.cancelWindow.value = draft.cancelWindow ?? '';
     this.renderMoveSequence(draft.sequence || []);
+    this.updatePoseOptions({ preserveSelection: true, preserveJson: this.state.poseDirty });
   }
 
   renderDurationRows(rows) {
@@ -436,6 +1107,9 @@ class AnimationEditorApp {
     Object.assign(draft.sequence[index], changes);
     this.updateMoveTimeline();
     this.updateJsonOutputs();
+    if (Object.prototype.hasOwnProperty.call(changes, 'poseKey')) {
+      this.updatePoseOptions({ preserveSelection: true });
+    }
   }
 
   addMovePhase() {
@@ -446,6 +1120,7 @@ class AnimationEditorApp {
     this.renderMoveSequence(draft.sequence);
     this.updateMoveTimeline();
     this.updateJsonOutputs();
+    this.updatePoseOptions({ preserveSelection: true, preferredPoseKey: 'NewPose', preferredSource: 'empty' });
   }
 
   removeMovePhase(index) {
@@ -455,6 +1130,7 @@ class AnimationEditorApp {
     this.renderMoveSequence(draft.sequence);
     this.updateMoveTimeline();
     this.updateJsonOutputs();
+    this.updatePoseOptions({ preserveSelection: true });
   }
 
   normalizeMoveDurations() {
