@@ -55,6 +55,12 @@ function ensureGameSelectionState() {
   }
 }
 
+function setConfigCurrentWeapon(value) {
+  window.CONFIG ||= {};
+  window.CONFIG.knockback ||= {};
+  window.CONFIG.knockback.currentWeapon = value || 'unarmed';
+}
+
 function normalizeAbilityValue(value) {
   if (value === undefined || value === null || value === '') return null;
   return String(value);
@@ -255,11 +261,13 @@ function initWeaponDropdown() {
 
   window.GAME ||= {};
   window.GAME.selectedWeapon = weaponSelect.value || null;
+  setConfigCurrentWeapon(window.GAME.selectedWeapon);
 
   if (!weaponSelect.dataset.initialized) {
     weaponSelect.addEventListener('change', (event) => {
       const value = event.target.value;
       window.GAME.selectedWeapon = value || null;
+      setConfigCurrentWeapon(window.GAME.selectedWeapon);
     });
     weaponSelect.dataset.initialized = 'true';
   }
@@ -291,9 +299,11 @@ function initCharacterDropdown() {
     window.GAME ||= {};
     if (!selectedChar || !map[selectedChar]) {
       characterSelect.value = '';
+      currentSelectedFighter = null;
       window.GAME.selectedCharacter = null;
       window.GAME.selectedFighter = null;
       window.GAME.selectedWeapon = null;
+      setConfigCurrentWeapon(null);
       delete window.GAME.selectedAppearance;
       delete window.GAME.selectedBodyColors;
       delete window.GAME.selectedBodyColorsFighter;
@@ -311,17 +321,21 @@ function initCharacterDropdown() {
       const weaponSelect = document.getElementById('weaponSelect');
       if (weaponSelect) {
         weaponSelect.value = '';
+        setConfigCurrentWeapon(null);
       }
 
       const defaults = getDefaultAbilityAssignments();
       setAbilitySelection(defaults, { syncDropdowns: true });
+      requestFighterPreview(null);
       return;
     }
     const charData = map[selectedChar];
     // Sync fighter, weapon, cosmetics, and appearance
     window.GAME.selectedCharacter = selectedChar;
     window.GAME.selectedFighter = charData.fighter;
+    currentSelectedFighter = charData.fighter || null;
     window.GAME.selectedWeapon = charData.weapon || null;
+    setConfigCurrentWeapon(window.GAME.selectedWeapon);
     window.GAME.selectedAppearance = {
       clothes: charData.clothes,
       hairstyle: charData.hairstyle,
@@ -359,6 +373,8 @@ function initCharacterDropdown() {
     const fighterSelect = document.getElementById('fighterSelect');
     if (fighterSelect) fighterSelect.value = charData.fighter;
 
+    requestFighterPreview(charData.fighter);
+
     const weaponSelect = document.getElementById('weaponSelect');
     if (weaponSelect) {
       const hasOption = Array.from(weaponSelect.options).some(opt => opt.value === charData.weapon);
@@ -369,6 +385,7 @@ function initCharacterDropdown() {
         weaponSelect.appendChild(option);
       }
       weaponSelect.value = charData.weapon || '';
+      setConfigCurrentWeapon(charData.weapon || null);
     }
 
     const abilityAssignments = mapSlottedAbilitiesArray(charData.slottedAbilities || []);
@@ -410,7 +427,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 import { initNpcSystems, updateNpcSystems } from './npc.js?v=2';
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
-import { initFighters } from './fighter.js?v=7';
+import { initFighters } from './fighter.js?v=8';
 import { initControls } from './controls.js?v=7';
 import { initCombat } from './combat.js?v=19';
 import { updatePoses } from './animator.js?v=4';
@@ -556,7 +573,9 @@ if (reloadBtn){
       initFighters(cv, cx);
       initSelectionDropdowns();
       if (previousFighter) {
-        scheduleFighterPreview(previousFighter);
+        requestFighterPreview(previousFighter);
+      } else {
+        requestFighterPreview(null);
       }
       scheduleConfigUpdatedEvent();
       if (statusInfo) statusInfo.textContent = 'Config reloaded';
@@ -677,6 +696,39 @@ document.addEventListener('config:updated', ()=>{
 // Fighter selection and settings management
 let currentSelectedFighter = null;
 
+function determinePreviewFighter(preferredName) {
+  const C = window.CONFIG || {};
+  const fighters = C.fighters || {};
+
+  if (preferredName && fighters[preferredName]) {
+    return preferredName;
+  }
+
+  const selected = window.GAME?.selectedFighter;
+  if (selected && fighters[selected]) {
+    return selected;
+  }
+
+  const playerCharacterFighter = C.characters?.player?.fighter;
+  if (playerCharacterFighter && fighters[playerCharacterFighter]) {
+    return playerCharacterFighter;
+  }
+
+  if (fighters.TLETINGAN) {
+    return 'TLETINGAN';
+  }
+
+  const fighterKeys = Object.keys(fighters);
+  return fighterKeys.length ? fighterKeys[0] : null;
+}
+
+function requestFighterPreview(preferredName) {
+  const fighterName = determinePreviewFighter(preferredName);
+  if (fighterName) {
+    scheduleFighterPreview(fighterName);
+  }
+}
+
 // Debounced preview management so fighter settings immediately refresh the viewport
 let previewTimeoutId = null;
 let previewQueuedFighter = null;
@@ -769,18 +821,20 @@ function initFighterDropdown() {
     window.GAME ||= {};
     window.GAME.selectedFighter = previousSelection;
     showFighterSettings(previousSelection);
+    requestFighterPreview(previousSelection);
   } else {
     fighterSelect.value = '';
     if (!previousSelection) {
       hideFighterSettings();
     }
+    requestFighterPreview(null);
   }
 
   // Handle selection change
   if (!fighterSelect.dataset.initialized) {
     fighterSelect.addEventListener('change', (e) => {
       const selectedFighter = e.target.value;
-      currentSelectedFighter = selectedFighter;
+      currentSelectedFighter = selectedFighter || null;
       window.GAME ||= {};
       const previousPaletteFighter = window.GAME.selectedBodyColorsFighter;
       window.GAME.selectedFighter = selectedFighter;
@@ -790,6 +844,7 @@ function initFighterDropdown() {
         delete window.GAME.selectedCosmetics;
         delete window.GAME.selectedAppearance;
         hideFighterSettings();
+        requestFighterPreview(null);
         return;
       }
 
@@ -801,6 +856,7 @@ function initFighterDropdown() {
       delete window.GAME.selectedAppearance;
 
       showFighterSettings(selectedFighter);
+      requestFighterPreview(selectedFighter);
     });
     fighterSelect.dataset.initialized = 'true';
   }
@@ -1204,7 +1260,7 @@ function populateFighterSettings(fighterName, fighter, container) {
         setNestedValue(fighter, field.path, newValue);
         console.log(`[fighterSettings] Updated ${fighterName}.${field.path} = ${newValue}`);
         scheduleConfigUpdatedEvent();
-        scheduleFighterPreview(fighterName);
+        requestFighterPreview(fighterName);
       }
     });
 

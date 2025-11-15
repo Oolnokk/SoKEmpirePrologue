@@ -304,25 +304,25 @@ export async function loadPrefabsFromManifests(manifestUrls, options = {}) {
   const errors = [];
 
   const uniqueManifests = Array.from(new Set((manifestUrls || []).filter((url) => typeof url === 'string' && url.trim())));
-  await Promise.all(uniqueManifests.map(async (manifestUrl) => {
+  for (const manifestUrl of uniqueManifests) {
     try {
       const { catalog, normalizedEntries } = await loadManifest(manifestUrl, fetchImpl);
       catalogs.push(catalog);
-      await Promise.all(normalizedEntries.map(async ({ id, url }) => {
+      for (const { id, url } of normalizedEntries) {
+        if (prefabs.has(id)) {
+          continue;
+        }
         try {
-          if (prefabs.has(id)) {
-            return;
-          }
           const prefab = await loadPrefab(url, fetchImpl);
           prefabs.set(id, prefab);
         } catch (error) {
           errors.push({ type: 'prefab', id, url, error });
         }
-      }));
+      }
     } catch (error) {
       errors.push({ type: 'manifest', url: manifestUrl, error });
     }
-  }));
+  }
 
   return { prefabs, catalogs, errors };
 }

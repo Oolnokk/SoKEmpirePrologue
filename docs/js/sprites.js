@@ -20,6 +20,7 @@ const FAILED = (ASSETS.failedSprites ||= new Set());
 const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
 RENDER.MIRROR = RENDER.MIRROR || {}; // Initialize per-limb mirror flags
+const WEAPON_SPRITE_CACHE = new Map();
 
 function ensureArray(value){
   if (value == null) return [];
@@ -150,6 +151,25 @@ function load(url){
   return img;
 }
 
+function ensureWeaponSpriteAsset(cacheKey, spriteDef){
+  if (!spriteDef || typeof spriteDef !== 'object' || !spriteDef.url) return null;
+  const key = `${cacheKey || ''}:${spriteDef.url}`;
+  let asset = WEAPON_SPRITE_CACHE.get(key);
+  if (!asset) {
+    asset = { url: spriteDef.url };
+    WEAPON_SPRITE_CACHE.set(key, asset);
+  }
+  if (!asset.img || asset.img.src !== spriteDef.url) {
+    asset.img = load(spriteDef.url);
+  }
+  if (spriteDef.alignRad != null) {
+    asset.alignRad = spriteDef.alignRad;
+  } else if (Number.isFinite(spriteDef.alignDeg)) {
+    asset.alignRad = degToRad(spriteDef.alignDeg);
+  }
+  return asset;
+}
+
 // Returns bone objects keyed by body part
 // This is a simple accessor that returns pre-computed bones from G.ANCHORS_OBJ
 // Bone creation happens in computeAnchorsForFighter() in render.js
@@ -228,7 +248,7 @@ function normalizeStyleKey(k){
 
 // Render order: use CONFIG.render.order if available; else fallback
 function buildZMap(C){
-  const def = ['HITBOX','ARM_L_UPPER','ARM_L_LOWER','LEG_L_LOWER','LEG_L_UPPER','TORSO','HEAD','LEG_R_LOWER','LEG_R_UPPER','ARM_R_UPPER','ARM_R_LOWER'];
+  const def = ['HITBOX','ARM_L_UPPER','ARM_L_LOWER','LEG_L_LOWER','LEG_L_UPPER','TORSO','HEAD','LEG_R_LOWER','LEG_R_UPPER','ARM_R_UPPER','ARM_R_LOWER','WEAPON'];
   const baseOrder = (C.render && Array.isArray(C.render.order) && C.render.order.length) ? C.render.order.map(s=>String(s).toUpperCase()) : def;
   const expanded = [];
   for (const tag of baseOrder){
@@ -818,6 +838,45 @@ export function renderSprites(ctx){
           const legLowerOptions = applyAnimOptions('leg_R_lower', makeTintOptions(assets.leg_R_lower));
           drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, offsets, legLowerOptions);
           drawUntintedOverlays('leg_R_lower', rLegLower, 'leg_R_lower');
+        });
+      });
+    }
+
+    const activeWeaponKey = entity.profile?.weapon
+      || entity.profile?.character?.weapon
+      || (entity.profile?.characterKey && C.characters?.[entity.profile.characterKey]?.weapon)
+      || null;
+    const weaponConfig = activeWeaponKey && C.weapons ? C.weapons[activeWeaponKey] : null;
+    if (weaponConfig && weaponConfig.sprite) {
+      const spriteLayers = Array.isArray(weaponConfig.sprite.layers)
+        ? weaponConfig.sprite.layers
+        : [weaponConfig.sprite];
+      spriteLayers.forEach((layerSpec = {}, layerIndex) => {
+        if (!layerSpec || typeof layerSpec !== 'object') return;
+        const anchorKey = layerSpec.anchorBone || layerSpec.bone || `weapon_${layerIndex}`;
+        const bone = rig[anchorKey];
+        if (!bone) return;
+        const asset = ensureWeaponSpriteAsset(activeWeaponKey || anchorKey, layerSpec);
+        if (!asset) return;
+        const layerTag = String(layerSpec.layerTag || 'WEAPON').toUpperCase();
+        const styleKey = layerSpec.styleKey || anchorKey;
+        const weaponStyle = layerSpec.style ? mergeSpriteStyles(style, layerSpec.style) : style;
+        const options = {};
+        if (layerSpec.alignRad != null) {
+          options.alignRad = layerSpec.alignRad;
+        } else if (Number.isFinite(layerSpec.alignDeg)) {
+          options.alignDeg = layerSpec.alignDeg;
+        }
+        if (layerSpec.anchorMode) options.anchorMode = layerSpec.anchorMode;
+        if (layerSpec.anchorOverride) options.anchorOverride = layerSpec.anchorOverride;
+        if (layerSpec.warp) options.warp = layerSpec.warp;
+        if (layerSpec.hsl) options.hsl = layerSpec.hsl;
+        if (layerSpec.styleOverride) {
+          options.styleOverride = { ...layerSpec.styleOverride };
+        }
+
+        enqueue(layerTag, ()=>{
+          drawBoneSprite(ctx, asset, bone, styleKey, weaponStyle, offsets, options);
         });
       });
     }

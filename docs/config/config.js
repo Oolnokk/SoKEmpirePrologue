@@ -603,7 +603,8 @@ window.CONFIG = {
     weaponTypes: {
       unarmed: { type: 'blunt', multiplier: 1.0 },
       blunt: { multiplier: 2.4 },
-      sharp: { multiplier: 1.6 }
+      sharp: { multiplier: 1.6 },
+      sarrarru: { type: 'sharp', multiplier: 1.6 }
     },
     currentWeapon: 'unarmed'
   },
@@ -752,6 +753,19 @@ window.CONFIG = {
         rightA: { shape:'rect', width:18, height:120, offset:{x:50,y:0}, activatesOn:['THRUST'] },
         rightB: { shape:'rect', width:26, height:140, offset:{x:35,y:0}, activatesOn:['SWEEP'] },
         leftA:  { shape:'rect', width:16, height:40,  offset:{x:-10,y:0}, activatesOn:['SWEEP'] }
+      },
+      sprite: {
+        url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
+        anchorBone: 'weapon_0',
+        anchorMode: 'start',
+        alignDeg: 270,
+        styleOverride: {
+          xformUnits: 'percent',
+          widthFactor: { weapon_0: 1 },
+          xform: {
+            weapon_0: { ax: 0, ay: -0, scaleX: 0.1, scaleY: 0.1 }
+          }
+        }
       }
     },
 
@@ -862,8 +876,145 @@ window.CONFIG = {
           legs: { id: 'basic_pants', hsv: { h: -120, s: 1, v: 0 } }
         }
       }
+    },
+    citywatch_sarrarru: {
+      fighter: 'Mao-ao_M',
+      weapon: 'sarrarru',
+      slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold', 'quick_punch', 'evade_defensive'],
+      stats: {
+        strength: 8,
+        agility: 6,
+        endurance: 8,
+        maxHealth: 140,
+        maxStamina: 135
+      },
+      bodyColors: {
+        A: { h: -82, s: -0.28, v: -0.28 },
+        B: { h: -36, s: 0.22, v: 0.32 },
+        C: { h: 64, s: 0.18, v: 0.08 }
+      },
+      appearance: {
+        slots: {
+          head_hair: { id: 'mao-ao_smooth_striped', colors: ['B'] },
+          facial_hair: {},
+          eyes: { id: 'mao-ao_circled_eye_L', colors: ['B'] }
+        }
+      },
+      cosmetics: {
+        slots: {
+          hat: { id: 'citywatch_helmet', hsv: { h: -12, s: 0.05, v: 0.08 } },
+          overwear: { id: 'layered_travel_cloak', hsv: { h: -18, s: -0.12, v: 0.04 } },
+          legs: { id: 'basic_pants', hsv: { h: -110, s: 0.8, v: -0.1 } }
+        }
+      }
     }
   },
+
+  characterTemplates: {
+    citywatch_watchman: {
+      label: 'City Watch Watchman',
+      description: 'Standardized city watch guard template used for bounty spawns.',
+      baseCharacter: 'citywatch_sarrarru',
+      overrides: {
+        fighter: { $kind: 'pool', items: ['Mao-ao_M'] },
+        weapon: {
+          $kind: 'pool',
+          items: [
+            { value: 'sarrarru', weight: 3 },
+            { value: 'hatchets', weight: 1 },
+            { value: 'greatclub', weight: 1 }
+          ]
+        },
+        slottedAbilities: {
+          $kind: 'pool',
+          items: [
+            ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold', 'quick_punch', 'evade_defensive'],
+            ['combo_light', 'heavy_hold', 'quick_punch', 'heavy_hold', 'quick_light', 'evade_defensive'],
+            ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold', 'quick_light', 'evade_defensive']
+          ]
+        },
+        stats: {
+          baseline: {
+            $kind: 'rangePool',
+            ranges: [
+              { min: 9, max: 11, weight: 2, round: true },
+              { min: 11, max: 12, weight: 1, round: true }
+            ]
+          },
+          strength: {
+            $kind: 'rangePool',
+            ranges: [
+              { min: 8, max: 11, weight: 2, round: true },
+              { min: 11, max: 13, weight: 1, round: true }
+            ]
+          },
+          agility: {
+            $kind: 'rangePool',
+            ranges: [
+              { min: 6, max: 9, weight: 2, round: true },
+              { min: 9, max: 11, weight: 1, round: true }
+            ]
+          },
+          endurance: {
+            $kind: 'rangePool',
+            ranges: [
+              { min: 7, max: 10, weight: 2, round: true },
+              { min: 10, max: 12, weight: 1, round: true }
+            ]
+          }
+        },
+        bodyColors: {
+          A: {
+            $kind: 'playerBodyColor',
+            channel: 'A',
+            adjustments: {
+              v: {
+                $kind: 'rangePool',
+                ranges: [
+                  { min: -0.45, max: -0.25, weight: 2 },
+                  { min: -0.25, max: -0.1, weight: 1 }
+                ]
+              }
+            }
+          },
+          B: {
+            $kind: 'playerBodyColor',
+            channel: 'B',
+            adjustments: {
+              v: {
+                $kind: 'rangePool',
+                ranges: [
+                  { min: -0.05, max: 0.2, weight: 2 },
+                  { min: 0.2, max: 0.35, weight: 1 }
+                ]
+              }
+            }
+          }
+        },
+        cosmetics: {
+          slots: {
+            hat: { id: 'citywatch_helmet', hsv: { h: -12, s: 0.05, v: 0.08 } },
+            legs: {
+              id: 'basic_pants',
+              hsv: {
+                h: { $kind: 'range', min: -140, max: -80 },
+                s: { $kind: 'rangePool', ranges: [{ min: 0.6, max: 0.8, weight: 2 }, { min: 0.8, max: 1, weight: 1 }] },
+                v: { $kind: 'rangePool', ranges: [{ min: -0.05, max: 0.1, weight: 1 }, { min: 0.1, max: 0.3, weight: 2 }] }
+              }
+            },
+            overwear: {
+              $kind: 'pool',
+              items: [
+                { value: { id: 'layered_travel_cloak', hsv: { h: -18, s: -0.12, v: 0.04 } }, weight: 2 },
+                { value: { id: 'layered_travel_cloak', hsv: { h: -6, s: -0.05, v: 0.12 } }, weight: 1 }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+
   // Add more characters or pools for randomization as needed
 
   weaponCombos: {

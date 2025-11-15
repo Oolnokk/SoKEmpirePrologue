@@ -430,7 +430,7 @@ export function makeCombat(G, C, options = {}){
 
   function neutralizeMovement(options = {}){
     if (!neutralizeInputMovement) return;
-    const { preserveDirectional = false, keepVelocity = false } = options || {};
+    const { preserveDirectional = false } = options || {};
     const I = resolveInput();
     const p = P();
     if (!I) return;
@@ -438,7 +438,7 @@ export function makeCombat(G, C, options = {}){
       I.left = false;
       I.right = false;
     }
-    if (!keepVelocity && p?.vel) p.vel.x = 0;
+    if (p?.vel) p.vel.x = 0;
   }
 
   // Get preset durations
@@ -628,10 +628,14 @@ export function makeCombat(G, C, options = {}){
   }
 
   function getEquippedWeaponKey(){
-    return G.selectedWeapon
+    const key = G.selectedWeapon
       || C.characters?.[fighterKey]?.weapon
       || C.knockback?.currentWeapon
       || 'unarmed';
+    if (C.knockback) {
+      C.knockback.currentWeapon = key;
+    }
+    return key;
   }
 
   function resolveComboAbilityForWeapon(baseAbility){
@@ -1566,10 +1570,8 @@ export function makeCombat(G, C, options = {}){
     }
 
     const heavyAbility = getAbilityForSlot(slotKey, 'heavy');
-    const isDefensive = heavyAbility?.trigger === 'defensive';
-    const preserveDirectional = isDefensive;
-    const keepVelocity = isDefensive;
-    neutralizeMovement({ preserveDirectional, keepVelocity });
+    const preserveDirectional = heavyAbility?.trigger === 'defensive';
+    neutralizeMovement({ preserveDirectional });
 
     if (ATTACK.active || !canAttackNow()){
     console.log(logPrefix, `Button ${slotKey} queued`);
@@ -1937,6 +1939,16 @@ export function makeCombat(G, C, options = {}){
     return ATTACK.active || CHARGE.active;
   }
 
+  function getComboState(){
+    return {
+      hits: COMBO.hits,
+      sequenceIndex: COMBO.sequenceIndex,
+      active: COMBO.timer > 0,
+      timerMs: COMBO.timer,
+      lastAbilityId: COMBO.lastAbilityId,
+    };
+  }
+
   function tick(dt){
     const fighter = P();
     if (!fighter) return;
@@ -1960,6 +1972,8 @@ export function makeCombat(G, C, options = {}){
     slotDown,
     slotUp,
     updateSlotAssignments,
+    getAbilityForSlot,
+    getComboState,
     isPlayerAttacking: isFighterAttacking,
     isPlayerCharging: isFighterCharging,
     isPlayerBusy: isFighterBusy,

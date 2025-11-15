@@ -3,6 +3,8 @@ import { degToRad } from './math-utils.js?v=1';
 import { pickFighterName } from './fighter-utils.js?v=1';
 import { getStatProfile } from './stat-hooks.js?v=1';
 
+import { instantiateCharacterTemplate } from './character-templates.js?v=1';
+
 function clone(value) {
   if (value == null) return value;
   try {
@@ -17,6 +19,29 @@ function clone(value) {
   } catch (_err) {
     return value;
   }
+}
+
+function normalizeStats(rawStats = {}) {
+  const baseline = Number.isFinite(rawStats.baseline) ? rawStats.baseline : 10;
+  const strength = Number.isFinite(rawStats.strength) ? rawStats.strength : baseline;
+  const agility = Number.isFinite(rawStats.agility) ? rawStats.agility : baseline;
+  const endurance = Number.isFinite(rawStats.endurance) ? rawStats.endurance : baseline;
+  const stats = {
+    baseline,
+    strength,
+    agility,
+    endurance,
+  };
+  if (Number.isFinite(rawStats.maxHealth)) {
+    stats.maxHealth = rawStats.maxHealth;
+  }
+  if (Number.isFinite(rawStats.maxStamina)) {
+    stats.maxStamina = rawStats.maxStamina;
+  }
+  if (Number.isFinite(rawStats.dashThreshold)) {
+    stats.dashThreshold = rawStats.dashThreshold;
+  }
+  return stats;
 }
 
 function resetRuntimeState(fighter, template, {
@@ -116,6 +141,101 @@ function resetRuntimeState(fighter, template, {
   return fighter;
 }
 
+function applyCharacterTemplateToFighter(fighter, templateResult, baseTemplate) {
+  if (!fighter || !templateResult) return fighter;
+  const fallbackProfile = baseTemplate?.renderProfile || fighter.renderProfile || {};
+  const fallbackCharacter = fallbackProfile.character || null;
+  const resolvedCharacter = templateResult.character
+    ? clone(templateResult.character)
+    : (fallbackCharacter ? clone(fallbackCharacter) : null);
+  const characterKey = templateResult.characterKey
+    || templateResult.templateId
+    || fallbackProfile.characterKey
+    || null;
+  const fighterName = resolvedCharacter?.fighter
+    || fallbackProfile.fighterName
+    || fighter.renderProfile?.fighterName
+    || null;
+  const bodyColors = resolvedCharacter?.bodyColors
+    ? clone(resolvedCharacter.bodyColors)
+    : (fallbackProfile.bodyColors ? clone(fallbackProfile.bodyColors) : null);
+  const cosmetics = resolvedCharacter?.cosmetics
+    ? clone(resolvedCharacter.cosmetics)
+    : (fallbackProfile.cosmetics ? clone(fallbackProfile.cosmetics) : null);
+  const appearance = resolvedCharacter?.appearance
+    ? clone(resolvedCharacter.appearance)
+    : (fallbackProfile.appearance ? clone(fallbackProfile.appearance) : null);
+  const slottedAbilities = Array.isArray(resolvedCharacter?.slottedAbilities)
+    ? resolvedCharacter.slottedAbilities.slice()
+    : (Array.isArray(fallbackProfile.slottedAbilities) ? fallbackProfile.slottedAbilities.slice() : []);
+  const stats = normalizeStats(resolvedCharacter?.stats || fallbackProfile.stats || {});
+  const statProfile = getStatProfile(stats);
+
+  fighter.renderProfile = {
+    ...fighter.renderProfile,
+    fighterName,
+    characterKey,
+    character: resolvedCharacter,
+    bodyColors,
+    cosmetics,
+    appearance,
+    weapon: resolvedCharacter?.weapon ?? fallbackProfile.weapon ?? null,
+    slottedAbilities,
+    stats,
+    statProfile,
+    templateId: templateResult.templateId || fighter.renderProfile?.templateId || null,
+  };
+
+  fighter.stats = stats;
+  fighter.statProfile = statProfile;
+
+  const baselineStat = stats.baseline ?? 10;
+  const enduranceStat = stats.endurance ?? baselineStat;
+  const staminaDrainRateMultiplier = Number.isFinite(statProfile?.staminaDrainRateMultiplier)
+    ? statProfile.staminaDrainRateMultiplier
+    : 1;
+  const staminaRegenRateMultiplier = Number.isFinite(statProfile?.staminaRegenRateMultiplier)
+    ? statProfile.staminaRegenRateMultiplier
+    : 1;
+  const dashThresholdMultiplier = Number.isFinite(statProfile?.dashStaminaThresholdMultiplier)
+    ? statProfile.dashStaminaThresholdMultiplier
+    : 1;
+  const healthRegenRate = Number.isFinite(statProfile?.healthRegenPerSecond)
+    ? statProfile.healthRegenPerSecond
+    : 0;
+  const maxHealth = Number.isFinite(stats.maxHealth)
+    ? stats.maxHealth
+    : Math.round(100 + (enduranceStat - baselineStat) * 6);
+  const maxStamina = Number.isFinite(stats.maxStamina)
+    ? stats.maxStamina
+    : Math.round(100 + (enduranceStat - baselineStat) * 5);
+  const staminaDrainRate = Math.max(15, Math.round(40 * staminaDrainRateMultiplier));
+  const staminaRegenRate = Math.max(12, Math.round(25 * staminaRegenRateMultiplier));
+  const staminaMinToDash = Number.isFinite(stats.dashThreshold)
+    ? stats.dashThreshold
+    : Math.max(6, Math.round(10 * dashThresholdMultiplier));
+
+  fighter.health = {
+    current: maxHealth,
+    max: maxHealth,
+    regenRate: healthRegenRate,
+  };
+
+  fighter.stamina = {
+    current: maxStamina,
+    max: maxStamina,
+    drainRate: staminaDrainRate,
+    regenRate: staminaRegenRate,
+    minToDash: staminaMinToDash,
+    isDashing: false,
+    reengageRatio: baseTemplate?.stamina?.reengageRatio ?? fighter.stamina?.reengageRatio ?? 0.6,
+  };
+
+  fighter.templateId = templateResult.templateId || fighter.templateId || null;
+
+  return fighter;
+}
+
 function randomHueDegrees() {
   const hue = Math.floor(Math.random() * 360);
   return hue > 180 ? hue - 360 : hue;
@@ -155,6 +275,16 @@ const SPAWN_PREFAB_SETS = {
 
 function degPoseToRad(p){ if(!p) return {}; const o={}; for (const k of ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee']){ if (p[k]!=null) o[k]=degToRad(p[k]); } return o; }
 
+const DEFAULT_NPC_TEMPLATE_ID = 'citywatch_watchman';
+
+function resolveInitialNpcTemplateId() {
+  const raw = window.CONFIG?.bounty?.npcTemplateId;
+  if (typeof raw === 'string' && raw.trim().length) {
+    return raw.trim();
+  }
+  return DEFAULT_NPC_TEMPLATE_ID;
+}
+
 export function initFighters(cv, cx){
   const G = (window.GAME ||= {});
   const C = (window.CONFIG || {});
@@ -191,25 +321,7 @@ export function initFighters(cv, cx){
     return { x, y };
   }
 
-  function normalizeStats(rawStats) {
-    const baseline = Number.isFinite(rawStats?.baseline) ? rawStats.baseline : 10;
-    const strength = Number.isFinite(rawStats?.strength) ? rawStats.strength : baseline;
-    const agility = Number.isFinite(rawStats?.agility) ? rawStats.agility : baseline;
-    const endurance = Number.isFinite(rawStats?.endurance) ? rawStats.endurance : baseline;
-    const stats = {
-      baseline,
-      strength,
-      agility,
-      endurance,
-    };
-    if (Number.isFinite(rawStats?.maxHealth)) {
-      stats.maxHealth = rawStats.maxHealth;
-    }
-    if (Number.isFinite(rawStats?.maxStamina)) {
-      stats.maxStamina = rawStats.maxStamina;
-    }
-    return stats;
-  }
+
 
   function resolveActiveArea() {
     const registry = G.mapRegistry;
@@ -638,6 +750,11 @@ export function initFighters(cv, cx){
     characterState[fighterId] = fighter.renderProfile ? clone(fighter.renderProfile) : null;
   }
   G.CHARACTER_STATE = characterState;
+
+  const npcTemplateId = resolveInitialNpcTemplateId();
+  if (npcTemplateId) {
+    applyNpcTemplate(npcTemplateId);
+  }
   if (G.editorPreview) {
     G.editorPreview.spawn = {
       player: {
@@ -684,7 +801,19 @@ export function spawnAdditionalNpc(options = {}) {
     : (spawnMeta.facingSign ?? -1);
 
   const npc = clone(baseTemplate);
-  resetRuntimeState(npc, baseTemplate, {
+  const templateId = options.templateId || window.CONFIG?.bounty?.npcTemplateId || null;
+  let templateResult = null;
+  if (templateId) {
+    templateResult = instantiateCharacterTemplate(templateId, {
+      player: G.FIGHTERS?.player || null,
+      random: typeof options.random === 'function' ? options.random : undefined,
+    });
+    if (templateResult?.character) {
+      applyCharacterTemplateToFighter(npc, templateResult, baseTemplate);
+    }
+  }
+  const runtimeTemplate = templateResult ? npc : baseTemplate;
+  resetRuntimeState(npc, runtimeTemplate, {
     id,
     x: spawnX,
     y: spawnY,
@@ -694,12 +823,71 @@ export function spawnAdditionalNpc(options = {}) {
   npc.spawnMetadata = {
     waveId: options.waveId ?? null,
     spawnedAt: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+    templateId: templateResult ? templateId : null,
   };
+  if (templateResult && npc.renderProfile) {
+    npc.renderProfile.templateId = templateResult.templateId || templateId;
+    npc.renderProfile.characterKey = npc.renderProfile.characterKey || templateResult.characterKey || templateId;
+  }
   if (!G.FIGHTERS) G.FIGHTERS = {};
   G.FIGHTERS[id] = npc;
   if (G.CHARACTER_STATE) {
     G.CHARACTER_STATE[id] = npc.renderProfile ? clone(npc.renderProfile) : null;
   }
+  return npc;
+}
+
+export function applyNpcTemplate(templateId, options = {}) {
+  if (!templateId) return null;
+  const G = (window.GAME ||= {});
+  const fighters = G.FIGHTERS || {};
+  const npc = fighters.npc;
+  if (!npc) return null;
+  const templates = G.FIGHTER_TEMPLATES || {};
+  const baseTemplate = templates.npc ? clone(templates.npc) : clone(npc);
+  const templateResult = instantiateCharacterTemplate(templateId, {
+    player: fighters.player || null,
+    random: typeof options.random === 'function' ? options.random : undefined,
+  });
+  if (!templateResult?.character) return null;
+
+  applyCharacterTemplateToFighter(npc, templateResult, baseTemplate);
+  const resolvedTemplateId = templateResult.templateId || templateId;
+  npc.templateId = resolvedTemplateId;
+
+  const spawnMeta = G.FIGHTER_SPAWNS?.npc || {};
+  const spawnY = Number.isFinite(spawnMeta.y) ? spawnMeta.y : npc.pos?.y;
+  const spawnX = Number.isFinite(npc.pos?.x)
+    ? npc.pos.x
+    : (Number.isFinite(spawnMeta.x) ? spawnMeta.x : 0);
+  const facingSign = Number.isFinite(npc.facingSign)
+    ? npc.facingSign
+    : (Number.isFinite(spawnMeta.facingSign) ? spawnMeta.facingSign : -1);
+
+  resetRuntimeState(npc, npc, {
+    id: npc.id || 'npc',
+    x: spawnX,
+    y: npc.pos?.y ?? spawnMeta.y ?? 0,
+    facingSign,
+    spawnY,
+  });
+
+  npc.spawnMetadata = {
+    ...(npc.spawnMetadata || {}),
+    templateId: resolvedTemplateId,
+  };
+  if (npc.renderProfile) {
+    npc.renderProfile.templateId = resolvedTemplateId;
+    npc.renderProfile.characterKey = npc.renderProfile.characterKey
+      || templateResult.characterKey
+      || resolvedTemplateId;
+  }
+
+  templates.npc = clone(npc);
+  if (G.CHARACTER_STATE) {
+    G.CHARACTER_STATE[npc.id || 'npc'] = npc.renderProfile ? clone(npc.renderProfile) : null;
+  }
+
   return npc;
 }
 

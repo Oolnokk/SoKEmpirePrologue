@@ -1,4 +1,4 @@
-import { spawnAdditionalNpc, removeNpcFighter, reviveFighter } from './fighter.js?v=7';
+import { spawnAdditionalNpc, removeNpcFighter, reviveFighter } from './fighter.js?v=8';
 import { getActiveNpcFighters, registerNpcFighter, unregisterNpcFighter } from './npc.js?v=2';
 
 const DEFAULT_BOUNTY_CONFIG = {
@@ -16,6 +16,16 @@ const DEFAULT_BOUNTY_CONFIG = {
   starKillThresholds: [0, 3, 7, 12, 18],
   maxStars: 5,
 };
+
+const DEFAULT_BOUNTY_TEMPLATE_ID = 'citywatch_watchman';
+
+function getBountyNpcTemplateId() {
+  const raw = window.CONFIG?.bounty?.npcTemplateId;
+  if (typeof raw === 'string' && raw.trim().length) {
+    return raw.trim();
+  }
+  return DEFAULT_BOUNTY_TEMPLATE_ID;
+}
 
 function getBountyConfig() {
   const raw = window.CONFIG?.bounty || {};
@@ -111,6 +121,12 @@ function updateStars(state, config) {
 }
 
 function spawnWave(state, config) {
+  const templateId = getBountyNpcTemplateId();
+  const baseNpc = window.GAME?.FIGHTERS?.npc;
+  if (baseNpc && (baseNpc.templateId !== templateId || baseNpc.spawnMetadata?.templateId !== templateId)) {
+    applyNpcTemplate(templateId);
+  }
+
   const npcs = getActiveNpcFighters();
   const aliveCount = npcs.filter((npc) => npc && !npc.isDead).length;
   const maxActive = Math.max(1, Number.isFinite(config.maxActive) ? config.maxActive : DEFAULT_BOUNTY_CONFIG.maxActive);
@@ -133,6 +149,7 @@ function spawnWave(state, config) {
       y: spawn.y ?? 0,
       facingSign: -1,
       waveId: state.wave + 1,
+      templateId: getBountyNpcTemplateId(),
     });
     if (!npc) continue;
     registerNpcFighter(npc, { immediateAggro: true });
@@ -236,7 +253,7 @@ export function updateBountySystem(dt) {
       state.idleRespawnTimer += dt;
       if (state.idleRespawnTimer >= (config.idleRespawnDelay || DEFAULT_BOUNTY_CONFIG.idleRespawnDelay)) {
         const spawn = window.GAME?.spawnPoints?.npc || { x: 0, y: 0 };
-        const npc = spawnAdditionalNpc({ x: spawn.x ?? 0, y: spawn.y ?? 0, facingSign: -1 });
+        const npc = spawnAdditionalNpc({ x: spawn.x ?? 0, y: spawn.y ?? 0, facingSign: -1, templateId: getBountyNpcTemplateId() });
         if (npc) {
           registerNpcFighter(npc, { immediateAggro: false });
           state.idleRespawnTimer = 0;
