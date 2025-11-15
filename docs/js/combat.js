@@ -117,7 +117,8 @@ export function makeCombat(G, C, options = {}){
     chargeStage: 0,
     context: null,
     pendingAbilityId: null,
-    sequenceTimers: []
+    sequenceTimers: [],
+    sequenceSteps: []
   };
 
   const CHARGE = {
@@ -509,6 +510,174 @@ export function makeCombat(G, C, options = {}){
 
   function clone(o){ return JSON.parse(JSON.stringify(o||{})); }
 
+  function deepMergePose(basePose, extraPose){
+    const base = (basePose && typeof basePose === 'object') ? clone(basePose) : {};
+    const extra = (extraPose && typeof extraPose === 'object') ? extraPose : null;
+    if (!extra) return base;
+    Object.keys(extra).forEach((key)=>{
+      const value = extra[key];
+      if (value && typeof value === 'object' && !Array.isArray(value)){
+        base[key] = deepMergePose(base[key], value);
+      } else {
+        base[key] = clone(value);
+      }
+    });
+    return base;
+  }
+
+  function resolvePhaseBasePose(preset, phaseKey){
+    const poseDef = preset?.poses?.[phaseKey];
+    if (poseDef){
+      const copy = clone(poseDef);
+      if (Array.isArray(copy.segments)) delete copy.segments;
+      return copy;
+    }
+    return buildPoseFromKey(phaseKey);
+  }
+
+  function collectTimelineSpecs(preset, phaseKey){
+    const specs = [];
+    if (Array.isArray(preset?.poseTimeline)){
+      preset.poseTimeline.forEach((entry)=>{
+        if (!entry || typeof entry !== 'object') return;
+        const phase = keyToPhase(entry.phase || entry.stage || entry.key);
+        if (phase && phase === phaseKey){
+          specs.push(clone(entry));
+        }
+      });
+    }
+    const phasePose = preset?.poses?.[phaseKey];
+    if (phasePose && Array.isArray(phasePose.segments) && phasePose.segments.length){
+      phasePose.segments.forEach((entry)=>{
+        if (!entry) return;
+        specs.push(clone(entry));
+      });
+    }
+    return specs;
+  }
+
+  function buildPoseForSegment(basePose, spec){
+    const segment = spec && typeof spec === 'object' ? spec : {};
+    let pose;
+    if (segment.inheritBase === false){
+      pose = {};
+    } else {
+      pose = deepMergePose({}, basePose || {});
+    }
+    if (segment.poseKey){
+      pose = deepMergePose({}, buildPoseFromKey(segment.poseKey));
+    }
+    if (segment.pose && typeof segment.pose === 'object'){
+      pose = deepMergePose(pose, segment.pose);
+    }
+    if (segment.overrides && typeof segment.overrides === 'object'){
+      pose = deepMergePose(pose, segment.overrides);
+    }
+    if (segment.boneLengthScales && typeof segment.boneLengthScales === 'object'){
+      pose.boneLengthScales = { ...(pose.boneLengthScales || {}), ...clone(segment.boneLengthScales) };
+    }
+    if (segment.lengthScales && typeof segment.lengthScales === 'object'){
+      pose.boneLengthScales = { ...(pose.boneLengthScales || {}), ...clone(segment.lengthScales) };
+    }
+    if (segment.layerOverrides && Array.isArray(segment.layerOverrides)){
+      pose.layerOverrides = clone(segment.layerOverrides);
+    }
+    if (segment.mask) pose.mask = clone(segment.mask);
+    if (segment.joints) pose.joints = clone(segment.joints);
+    return pose;
+  }
+
+  function buildAttackTimeline(presetName, stageDurations, context){
+    const preset = C.presets?.[presetName];
+    const phases = ['Windup', 'Strike', 'Recoil', 'Stance'];
+    const segments = [];
+    let currentTime = 0;
+    phases.forEach((phaseKey)=>{
+      const basePose = resolvePhaseBasePose(preset, phaseKey) || {};
+      const specs = collectTimelineSpecs(preset, phaseKey);
+      const segmentSpecs = specs.length ? specs : [null];
+      const weights = segmentSpecs.map((spec)=>{
+        if (!spec || typeof spec !== 'object') return 1;
+        const weight = Number(spec.weight ?? spec.duration ?? spec.durationWeight);
+        return Number.isFinite(weight) && weight > 0 ? weight : 1;
+      });
+      const totalWeight = weights.reduce((sum, value)=> sum + value, 0) || segmentSpecs.length || 1;
+      const phaseDuration = Math.max(0, stageDurations?.[phaseKey] ?? 0);
+      let remaining = phaseDuration;
+      segmentSpecs.forEach((spec, index)=>{
+        const weight = weights[index] || 1;
+        let segmentDuration = phaseDuration ? Math.round((phaseDuration * weight) / totalWeight) : 0;
+        if (segmentDuration > remaining) segmentDuration = remaining;
+        const isLast = index === segmentSpecs.length - 1;
+        if (isLast) segmentDuration = remaining;
+        const pose = buildPoseForSegment(basePose, spec);
+        const startTime = currentTime;
+        const endTime = startTime + segmentDuration;
+        segments.push({
+          phase: phaseKey,
+          pose,
+          duration: segmentDuration,
+          startTime,
+          endTime,
+          index,
+          count: segmentSpecs.length,
+          basePose,
+          spec: spec ? clone(spec) : null
+        });
+        currentTime = endTime;
+        remaining = Math.max(0, remaining - segmentDuration);
+      });
+    });
+    return segments;
+  }
+
+  function runAttackTimeline({ segments, context, onComplete, resetMirrorBeforeStance=false, sequenceSteps=[] }){
+    const ordered = Array.isArray(segments) ? segments.slice() : [];
+    if (!ordered.length){
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+    const steps = Array.isArray(sequenceSteps) ? sequenceSteps.slice() : [];
+    steps.sort((a,b)=> (a.startMs || 0) - (b.startMs || 0));
+    let nextStepIndex = 0;
+    let stanceReset = false;
+
+    const triggerStepsThrough = (timeMs) => {
+      if (!steps.length) return;
+      while (nextStepIndex < steps.length){
+        const step = steps[nextStepIndex];
+        if (!step || !Number.isFinite(step.startMs)) {
+          nextStepIndex += 1;
+          continue;
+        }
+        if (step.startMs > timeMs + 1e-3) break;
+        nextStepIndex += 1;
+        playAttackSequenceStep(step, context);
+      }
+    };
+
+    triggerStepsThrough(0);
+
+    const runSegmentAt = (idx) => {
+      if (idx >= ordered.length){
+        if (typeof onComplete === 'function') onComplete();
+        return;
+      }
+      const segment = ordered[idx];
+      if (resetMirrorBeforeStance && !stanceReset && segment.phase === 'Stance'){
+        resetMirror();
+        stanceReset = true;
+      }
+      triggerStepsThrough(segment.startTime);
+      startTransition(segment.pose, segment.phase, segment.duration, ()=>{
+        triggerStepsThrough(segment.endTime);
+        runSegmentAt(idx + 1);
+      });
+    };
+
+    runSegmentAt(0);
+  }
+
   function cloneAbilityForMerge(def){
     if (!def) return null;
     const copy = { ...def };
@@ -548,6 +717,7 @@ export function makeCombat(G, C, options = {}){
         }
       }
     }
+    ATTACK.sequenceSteps = [];
     sequenceLayerCounter = 0;
   }
 
@@ -585,24 +755,26 @@ export function makeCombat(G, C, options = {}){
 
   function scheduleAttackSequence(context){
     clearAttackSequenceTimers();
-    if (!context) return;
+    if (!context) {
+      ATTACK.sequenceSteps = [];
+      return [];
+    }
     const normalized = normalizeAttackSequence(context.attack?.sequence);
-    if (normalized.length === 0) return;
-    const timers = ATTACK.sequenceTimers;
+    if (!normalized.length){
+      ATTACK.sequenceSteps = [];
+      return [];
+    }
     const basePreset = context.preset;
+    const prepared = [];
     normalized.forEach((step, index) => {
       const presetName = resolveSequenceStepPreset(step);
       if (!presetName) return;
       const startMs = Number.isFinite(step.startMs) ? step.startMs : 0;
       if (index === 0 && (!startMs || startMs <= 0) && presetName === basePreset) return;
-      const delayMs = Math.max(0, startMs);
-      const scaledDelay = context?.applyDuration ? context.applyDuration(delayMs, 'Strike') : delayMs;
-      const timer = setTimeout(() => {
-        if (ATTACK.context !== context) return;
-        playAttackSequenceStep({ ...step, preset: presetName }, context);
-      }, scaledDelay);
-      timers.push(timer);
+      prepared.push({ ...step, preset: presetName, startMs });
     });
+    ATTACK.sequenceSteps = prepared;
+    return prepared;
   }
 
   function playAttackSequenceStep(step, context){
@@ -1369,71 +1541,47 @@ export function makeCombat(G, C, options = {}){
 
     const durs = computePresetDurationsWithContext(presetName, ctx);
 
-    if (ctx?.attack?.sequence) {
-      scheduleAttackSequence(ctx);
-    }
+    const usePresetDurations = !!(preset && preset.poses);
+    const baseWindup = windupMs ?? (usePresetDurations ? (durs.toWindup ?? 160) : (durs.toWindup ?? 0));
+    const baseStrike = usePresetDurations ? (durs.toStrike ?? 110) : (durs.toStrike ?? 0);
+    const baseRecoil = usePresetDurations ? (durs.toRecoil ?? 200) : (durs.toRecoil ?? 0);
+    const baseStance = usePresetDurations ? (durs.toStance ?? 120) : (durs.toStance ?? 0);
 
-    if (preset && preset.poses){
-      const windupPose = preset.poses.Windup || buildPoseFromKey('Windup');
-      const strikePose = preset.poses.Strike || buildPoseFromKey('Strike');
-      const recoilPose = preset.poses.Recoil || buildPoseFromKey('Recoil');
-      const stancePose = preset.poses.Stance || buildPoseFromKey('Stance');
+    const actualWindup = applyDurationMultiplier(baseWindup, ctx, 'Windup');
+    const strikeTime = applyDurationMultiplier(baseStrike, ctx, 'Strike');
+    const recoilTime = applyDurationMultiplier(baseRecoil, ctx, 'Recoil');
+    const stanceTime = applyDurationMultiplier(baseStance, ctx, 'Stance');
 
-      const actualWindup = applyDurationMultiplier(windupMs ?? durs.toWindup ?? 160, ctx, 'Windup');
-      const strikeTime = applyDurationMultiplier(durs.toStrike ?? 110, ctx, 'Strike');
-      const recoilTime = applyDurationMultiplier(durs.toRecoil ?? 200, ctx, 'Recoil');
-      const stanceTime = applyDurationMultiplier(durs.toStance ?? 120, ctx, 'Stance');
+    const stageDurations = {
+      Windup: actualWindup,
+      Strike: strikeTime,
+      Recoil: recoilTime,
+      Stance: stanceTime
+    };
 
-      startTransition(windupPose, 'Windup', actualWindup, ()=>{
-        startTransition(strikePose, 'Strike', strikeTime, ()=>{
-          startTransition(recoilPose, 'Recoil', recoilTime, ()=>{
-            if (stancePose.resetFlipsBefore) {
-              resetMirror();
-            }
+    const sequenceSteps = scheduleAttackSequence(ctx);
+    const stanceBasePose = resolvePhaseBasePose(preset, 'Stance') || {};
+    const timeline = buildAttackTimeline(presetName, stageDurations, ctx);
 
-            startTransition(stancePose, 'Stance', stanceTime, ()=>{
-              const finishedContext = ATTACK.context;
-              clearAttackSequenceTimers();
-              if (finishedContext?.onComplete){
-                try { finishedContext.onComplete(); } catch(err){ console.warn('[combat] onComplete error', err); }
-              }
-              ATTACK.active = false;
-              ATTACK.preset = null;
-              ATTACK.context = null;
-              updateFighterAttackState('Stance', { active: false, context: null });
-            });
-          });
-        });
-      });
-    } else {
-      const windupPose = buildPoseFromKey('Windup');
-      const strikePose = buildPoseFromKey('Strike');
-      const recoilPose = buildPoseFromKey('Recoil');
-      const stancePose = buildPoseFromKey('Stance');
+    const handleComplete = () => {
+      const finishedContext = ATTACK.context;
+      clearAttackSequenceTimers();
+      if (finishedContext?.onComplete){
+        try { finishedContext.onComplete(); } catch(err){ console.warn('[combat] onComplete error', err); }
+      }
+      ATTACK.active = false;
+      ATTACK.preset = null;
+      ATTACK.context = null;
+      updateFighterAttackState('Stance', { active: false, context: null });
+    };
 
-      const actualWindup = applyDurationMultiplier(windupMs ?? durs.toWindup, ctx, 'Windup');
-      const strikeTime = applyDurationMultiplier(durs.toStrike, ctx, 'Strike');
-      const recoilTime = applyDurationMultiplier(durs.toRecoil, ctx, 'Recoil');
-      const stanceTime = applyDurationMultiplier(durs.toStance, ctx, 'Stance');
-
-      startTransition(windupPose, 'Windup', actualWindup, ()=>{
-        startTransition(strikePose, 'Strike', strikeTime, ()=>{
-          startTransition(recoilPose, 'Recoil', recoilTime, ()=>{
-            startTransition(stancePose, 'Stance', stanceTime, ()=>{
-              const finishedContext = ATTACK.context;
-              clearAttackSequenceTimers();
-              if (finishedContext?.onComplete){
-                try { finishedContext.onComplete(); } catch(err){ console.warn('[combat] onComplete error', err); }
-              }
-              ATTACK.active = false;
-              ATTACK.preset = null;
-              ATTACK.context = null;
-              updateFighterAttackState('Stance', { active: false, context: null });
-            });
-          });
-        });
-      });
-    }
+    runAttackTimeline({
+      segments: timeline,
+      context: ctx,
+      resetMirrorBeforeStance: !!stanceBasePose.resetFlipsBefore,
+      sequenceSteps,
+      onComplete: handleComplete
+    });
   }
 
   function executeHeavyAbility(slotKey, abilityId, chargeStage){

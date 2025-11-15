@@ -19,7 +19,7 @@
 
 import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withAXUtil, rad, angleFromDelta as angleFromDeltaUtil, degToRad } from './math-utils.js?v=1';
 import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=2';
-import { pickFighterConfig, lengths, pickOffsets } from './fighter-utils.js?v=1';
+import { pickFighterConfig, lengths, pickOffsets, resolveBoneLengthScale } from './fighter-utils.js?v=1';
 
 // === RENDER DEBUG CONFIGURATION ===
 // Global config object for controlling what is rendered for debugging purposes
@@ -83,14 +83,43 @@ function computeAnchorsForFighter(F, C, fallbackFighterName) {
   const profile = F?.renderProfile || {};
   const requestedName = profile.fighterName;
   const fighterName = (requestedName && C.fighters?.[requestedName]) ? requestedName : fallbackFighterName;
-  const fcfg = pickFighterConfig(C, fighterName); const L = lengths(C, fcfg); const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
+  const fcfg = pickFighterConfig(C, fighterName); const L = lengths(C, fcfg);
+  const lengthOverrides = (F?.anim?.length?.overrides && typeof F.anim.length.overrides === 'object')
+    ? F.anim.length.overrides
+    : {};
+  const torsoLen = L.torso * resolveBoneLengthScale(lengthOverrides, 'torso', L.torso, ['body']);
+  const armUpperLeftLen = L.armU * resolveBoneLengthScale(lengthOverrides, 'arm_L_upper', L.armU, ['arm_upper', 'upper_arm', 'arm']);
+  const armUpperRightLen = L.armU * resolveBoneLengthScale(lengthOverrides, 'arm_R_upper', L.armU, ['arm_upper', 'upper_arm', 'arm']);
+  const armLowerLeftLen = L.armL * resolveBoneLengthScale(lengthOverrides, 'arm_L_lower', L.armL, ['arm_lower', 'lower_arm', 'arm']);
+  const armLowerRightLen = L.armL * resolveBoneLengthScale(lengthOverrides, 'arm_R_lower', L.armL, ['arm_lower', 'lower_arm', 'arm']);
+  const legUpperLeftLen = L.legU * resolveBoneLengthScale(lengthOverrides, 'leg_L_upper', L.legU, ['leg_upper', 'upper_leg', 'leg']);
+  const legUpperRightLen = L.legU * resolveBoneLengthScale(lengthOverrides, 'leg_R_upper', L.legU, ['leg_upper', 'upper_leg', 'leg']);
+  const legLowerLeftLen = L.legL * resolveBoneLengthScale(lengthOverrides, 'leg_L_lower', L.legL, ['leg_lower', 'lower_leg', 'leg']);
+  const legLowerRightLen = L.legL * resolveBoneLengthScale(lengthOverrides, 'leg_R_lower', L.legL, ['leg_lower', 'lower_leg', 'leg']);
+  const scaledLengths = {
+    ...L,
+    torso: torsoLen,
+    armU: (armUpperLeftLen + armUpperRightLen) * 0.5,
+    armULeft: armUpperLeftLen,
+    armURight: armUpperRightLen,
+    armL: (armLowerLeftLen + armLowerRightLen) * 0.5,
+    armLowerLeft: armLowerLeftLen,
+    armLowerRight: armLowerRightLen,
+    legU: (legUpperLeftLen + legUpperRightLen) * 0.5,
+    legUpperLeft: legUpperLeftLen,
+    legUpperRight: legUpperRightLen,
+    legL: (legLowerLeftLen + legLowerRightLen) * 0.5,
+    legLowerLeft: legLowerLeftLen,
+    legLowerRight: legLowerRightLen
+  };
+  const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
   const centerX = F.pos?.x ?? 0; const centerY = F.pos?.y ?? ((C.groundRatio||0.7) * (C.canvas?.h||460));
   const torsoAngRaw = F.jointAngles?.torso ?? 0; // already in radians from animator
   const torsoAng = torsoAngRaw; // with 'up' as zero, torso angle is used directly
   const torsoAttach = { x: centerX + (hbAttach.nx - 0.5) * L.hbW, y: centerY + (hbAttach.ny - 0.5) * L.hbH };
   const originBaseArr   = withAX(torsoAttach.x, torsoAttach.y, torsoAngRaw, OFF.torso?.origin);
   const hipBaseArr      = withAX(originBaseArr[0], originBaseArr[1], torsoAngRaw, OFF.torso?.hip);
-  const torsoTopArr     = segPos(hipBaseArr[0], hipBaseArr[1], L.torso, torsoAng);
+  const torsoTopArr     = segPos(hipBaseArr[0], hipBaseArr[1], torsoLen, torsoAng);
   const neckBaseArr     = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.neck);
   const shoulderBaseArr = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.shoulder);
   let lShoulderBaseArr = [...shoulderBaseArr];
@@ -137,10 +166,10 @@ function computeAnchorsForFighter(F, C, fallbackFighterName) {
   let lLowerAng = lUpperAng + lElbowRel;
   let rLowerAng = rUpperAng + rElbowRel;
 
-  const lElbowPosArr = withAX(...segPos(lShoulderBaseArr[0], lShoulderBaseArr[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
-  const rElbowPosArr = withAX(...segPos(rShoulderBaseArr[0], rShoulderBaseArr[1], L.armU, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
-  const lWristPosArr = withAX(...segPos(lElbowPosArr[0], lElbowPosArr[1], L.armL, lLowerAng), lLowerAng, OFF.arm?.lower?.origin);
-  const rWristPosArr = withAX(...segPos(rElbowPosArr[0], rElbowPosArr[1], L.armL, rLowerAng), rLowerAng, OFF.arm?.lower?.origin);
+  const lElbowPosArr = withAX(...segPos(lShoulderBaseArr[0], lShoulderBaseArr[1], armUpperLeftLen, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
+  const rElbowPosArr = withAX(...segPos(rShoulderBaseArr[0], rShoulderBaseArr[1], armUpperRightLen, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
+  const lWristPosArr = withAX(...segPos(lElbowPosArr[0], lElbowPosArr[1], armLowerLeftLen, lLowerAng), lLowerAng, OFF.arm?.lower?.origin);
+  const rWristPosArr = withAX(...segPos(rElbowPosArr[0], rElbowPosArr[1], armLowerRightLen, rLowerAng), rLowerAng, OFF.arm?.lower?.origin);
 
   const legsFollow = !!C.hierarchy?.legsFollowTorsoRotation;
   let lHipAng = (F.jointAngles?.lHip ?? 0) + (legsFollow ? torsoAngRaw : 0);
@@ -150,13 +179,15 @@ function computeAnchorsForFighter(F, C, fallbackFighterName) {
   // Knee angles accumulate consistently with addition (child angle relative to parent)
   const lKneeAng = lHipAng + lKneeRel;
   const rKneeAng = rHipAng + rKneeRel;
-  const lKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], L.legU, lHipAng), lHipAng, OFF.leg?.upper?.knee);
-  const rKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], L.legU, rHipAng), rHipAng, OFF.leg?.upper?.knee);
-  const lAnklePosArr = withAX(...segPos(lKneePosArr[0], lKneePosArr[1], L.legL, lKneeAng), lKneeAng, OFF.leg?.lower?.origin);
-  const rAnklePosArr = withAX(...segPos(rKneePosArr[0], rKneePosArr[1], L.legL, rKneeAng), rKneeAng, OFF.leg?.lower?.origin);
+  const lKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], legUpperLeftLen, lHipAng), lHipAng, OFF.leg?.upper?.knee);
+  const rKneePosArr = withAX(...segPos(hipBaseArr[0], hipBaseArr[1], legUpperRightLen, rHipAng), rHipAng, OFF.leg?.upper?.knee);
+  const lAnklePosArr = withAX(...segPos(lKneePosArr[0], lKneePosArr[1], legLowerLeftLen, lKneeAng), lKneeAng, OFF.leg?.lower?.origin);
+  const rAnklePosArr = withAX(...segPos(rKneePosArr[0], rKneePosArr[1], legLowerRightLen, rKneeAng), rKneeAng, OFF.leg?.lower?.origin);
 
   // Build bone objects (include base points)
-  const headLen = ((fcfg.parts?.head?.neck ?? C.parts?.head?.neck ?? 14) + 2*(fcfg.parts?.head?.radius ?? C.parts?.head?.radius ?? 16)) * (L.scale/(C.actor?.scale||1)) * (C.actor?.scale||1);
+  const baseHeadLen = ((fcfg.parts?.head?.neck ?? C.parts?.head?.neck ?? 14) + 2*(fcfg.parts?.head?.radius ?? C.parts?.head?.radius ?? 16)) * (L.scale/(C.actor?.scale||1)) * (C.actor?.scale||1);
+  const headScale = resolveBoneLengthScale(lengthOverrides, 'head', baseHeadLen, ['neck', 'head']);
+  const headLen = baseHeadLen * headScale;
   const headAngRaw = F.jointAngles?.head;
   const headAng = Number.isFinite(headAngRaw) ? headAngRaw : torsoAng;
   const headBaseArr = withAX(neckBaseArr[0], neckBaseArr[1], headAng, OFF.head?.origin);
@@ -164,22 +195,22 @@ function computeAnchorsForFighter(F, C, fallbackFighterName) {
 
   const B = {
     center:{x:centerX,y:centerY},
-    torso:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.torso,ang:torsoAng,endX:torsoTopArr[0],endY:torsoTopArr[1]},
+    torso:{x:hipBaseArr[0],y:hipBaseArr[1],len:torsoLen,ang:torsoAng,endX:torsoTopArr[0],endY:torsoTopArr[1]},
     head:{x:headBaseArr[0],y:headBaseArr[1],len:headLen,ang:headAng,endX:headEndArr[0],endY:headEndArr[1]},
     shoulderBase:{x:shoulderBaseArr[0],y:shoulderBaseArr[1]},
     hipBase:{x:hipBaseArr[0],y:hipBaseArr[1]},
     neckBase:{x:neckBaseArr[0],y:neckBaseArr[1]},
     torsoTop:{x:torsoTopArr[0],y:torsoTopArr[1]},
 
-    arm_L_upper:{x:lShoulderBaseArr[0],y:lShoulderBaseArr[1],len:L.armU,ang:lUpperAng,endX:lElbowPosArr[0],endY:lElbowPosArr[1]},
-    arm_L_lower:{x:lElbowPosArr[0],y:lElbowPosArr[1],len:L.armL,ang:lLowerAng,endX:lWristPosArr[0],endY:lWristPosArr[1]},
-    arm_R_upper:{x:rShoulderBaseArr[0],y:rShoulderBaseArr[1],len:L.armU,ang:rUpperAng,endX:rElbowPosArr[0],endY:rElbowPosArr[1]},
-    arm_R_lower:{x:rElbowPosArr[0],y:rElbowPosArr[1],len:L.armL,ang:rLowerAng,endX:rWristPosArr[0],endY:rWristPosArr[1]},
+    arm_L_upper:{x:lShoulderBaseArr[0],y:lShoulderBaseArr[1],len:armUpperLeftLen,ang:lUpperAng,endX:lElbowPosArr[0],endY:lElbowPosArr[1]},
+    arm_L_lower:{x:lElbowPosArr[0],y:lElbowPosArr[1],len:armLowerLeftLen,ang:lLowerAng,endX:lWristPosArr[0],endY:lWristPosArr[1]},
+    arm_R_upper:{x:rShoulderBaseArr[0],y:rShoulderBaseArr[1],len:armUpperRightLen,ang:rUpperAng,endX:rElbowPosArr[0],endY:rElbowPosArr[1]},
+    arm_R_lower:{x:rElbowPosArr[0],y:rElbowPosArr[1],len:armLowerRightLen,ang:rLowerAng,endX:rWristPosArr[0],endY:rWristPosArr[1]},
 
-    leg_L_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.legU,ang:lHipAng,endX:lKneePosArr[0],endY:lKneePosArr[1]},
-    leg_L_lower:{x:lKneePosArr[0],y:lKneePosArr[1],len:L.legL,ang:lKneeAng,endX:lAnklePosArr[0],endY:lAnklePosArr[1]},
-    leg_R_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:L.legU,ang:rHipAng,endX:rKneePosArr[0],endY:rKneePosArr[1]},
-    leg_R_lower:{x:rKneePosArr[0],y:rKneePosArr[1],len:L.legL,ang:rKneeAng,endX:rAnklePosArr[0],endY:rAnklePosArr[1]}
+    leg_L_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:legUpperLeftLen,ang:lHipAng,endX:lKneePosArr[0],endY:lKneePosArr[1]},
+    leg_L_lower:{x:lKneePosArr[0],y:lKneePosArr[1],len:legLowerLeftLen,ang:lKneeAng,endX:lAnklePosArr[0],endY:lAnklePosArr[1]},
+    leg_R_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:legUpperRightLen,ang:rHipAng,endX:rKneePosArr[0],endY:rKneePosArr[1]},
+    leg_R_lower:{x:rKneePosArr[0],y:rKneePosArr[1],len:legLowerRightLen,ang:rKneeAng,endX:rAnklePosArr[0],endY:rAnklePosArr[1]}
   };
 
   const weaponKey = profile.weapon
@@ -209,7 +240,7 @@ function computeAnchorsForFighter(F, C, fallbackFighterName) {
   const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
   const flipLeft = Math.cos(facingRad) < 0;
 
-  return { B, L, hitbox, flipLeft, fighterName, profile };
+  return { B, L: scaledLengths, hitbox, flipLeft, fighterName, profile };
 }
 
 export const LIMB_COLORS = {
