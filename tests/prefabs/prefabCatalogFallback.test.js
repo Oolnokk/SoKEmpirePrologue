@@ -92,3 +92,92 @@ test('loadPrefabsFromManifests falls back to JSON import when fetch fails for fi
     }
   }
 });
+
+test('loadPrefabsFromManifests falls back to XMLHttpRequest when JSON import is unavailable', async () => {
+  const originalDocument = global.document;
+  const originalXHR = global.XMLHttpRequest;
+  const originalWarn = console.warn;
+  const requests = [];
+
+  global.document = { baseURI: 'file:///config/index.html' };
+  console.warn = () => {};
+
+  const manifestUrl = 'file:///config/prefabs/structures/index.json';
+  const prefabUrl = 'file:///config/prefabs/structures/tower_commercial.prefab.json';
+
+  class FakeXHR {
+    constructor() {
+      this.responseType = '';
+    }
+
+    open(method, url) {
+      this.method = method;
+      this.url = url;
+    }
+
+    send() {
+      requests.push(this.url);
+      setTimeout(() => {
+        let payload = null;
+        if (this.url === manifestUrl) {
+          payload = {
+            id: 'structures',
+            label: 'Structures',
+            entries: [
+              { id: 'tower_commercial', path: './tower_commercial.prefab.json' },
+            ],
+          };
+        } else if (this.url === prefabUrl) {
+          payload = {
+            structureId: 'Commercial Tower',
+            parts: [
+              { name: 'near', layer: 'near', relX: 0, relY: 0, z: 0, propTemplate: { id: 'near', url: './assets/prefabs/near.png', w: 100, h: 120 } },
+            ],
+          };
+        }
+
+        if (!payload) {
+          this.status = 404;
+          this.onerror?.(new Error('Not found'));
+          return;
+        }
+
+        this.status = 200;
+        this.response = this.responseType === 'json' ? payload : undefined;
+        this.responseText = JSON.stringify(payload);
+        this.onload?.();
+      }, 0);
+    }
+  }
+
+  global.XMLHttpRequest = FakeXHR;
+  __setJsonImportLoader(null);
+
+  const fakeFetch = async () => {
+    throw new TypeError('Failed to fetch');
+  };
+
+  try {
+    const { prefabs, errors } = await loadPrefabsFromManifests([manifestUrl], { fetch: fakeFetch });
+
+    assert.equal(errors.length, 0);
+    assert.deepEqual(requests, [manifestUrl, prefabUrl]);
+    assert.equal(prefabs.size, 1);
+    const prefab = prefabs.get('tower_commercial');
+    assert.ok(prefab);
+    assert.equal(prefab.structureId, 'Commercial Tower');
+    assert.equal(prefab.parts.length, 1);
+  } finally {
+    if (originalDocument === undefined) {
+      delete global.document;
+    } else {
+      global.document = originalDocument;
+    }
+    if (originalXHR === undefined) {
+      delete global.XMLHttpRequest;
+    } else {
+      global.XMLHttpRequest = originalXHR;
+    }
+    console.warn = originalWarn;
+  }
+});
