@@ -1,6 +1,39 @@
 const manifestCache = new Map();
 const prefabCache = new Map();
 
+function getDocumentBase() {
+  if (typeof document !== 'undefined' && typeof document.baseURI === 'string') {
+    return document.baseURI;
+  }
+  if (typeof location !== 'undefined' && typeof location.href === 'string') {
+    return location.href;
+  }
+  return null;
+}
+
+function resolveAbsoluteUrl(rawUrl, baseHint = null) {
+  const normalized = typeof rawUrl === 'string' ? rawUrl.trim() : '';
+  if (!normalized) {
+    throw new TypeError('URL must be a non-empty string');
+  }
+  const candidates = [];
+  if (baseHint) {
+    candidates.push(baseHint);
+  }
+  const docBase = getDocumentBase();
+  if (docBase) {
+    candidates.push(docBase);
+  }
+  for (const base of candidates) {
+    try {
+      return new URL(normalized, base).href;
+    } catch (_err) {
+      // try next base option
+    }
+  }
+  return new URL(normalized).href;
+}
+
 const NO_FETCH_ERROR = new Error('fetch is unavailable in this environment');
 
 let customJsonImportLoader = null;
@@ -290,9 +323,7 @@ function resolveAssetUrl(url, prefabUrl) {
     return trimmed;
   }
 
-  const docBase = (typeof document !== 'undefined' && typeof document.baseURI === 'string' && document.baseURI)
-    ? document.baseURI
-    : null;
+  const docBase = getDocumentBase();
 
   if (docBase) {
     try {
@@ -377,7 +408,7 @@ function normalizeManifest(manifest, manifestUrl) {
 }
 
 async function loadManifest(url, fetchImpl) {
-  const absoluteUrl = new URL(url, document.baseURI).href;
+  const absoluteUrl = resolveAbsoluteUrl(url);
   if (manifestCache.has(absoluteUrl)) {
     return manifestCache.get(absoluteUrl);
   }
@@ -397,7 +428,7 @@ async function loadManifest(url, fetchImpl) {
 }
 
 async function loadPrefab(url, fetchImpl) {
-  const absoluteUrl = new URL(url, document.baseURI).href;
+  const absoluteUrl = resolveAbsoluteUrl(url);
   if (prefabCache.has(absoluteUrl)) {
     return clone(prefabCache.get(absoluteUrl));
   }
