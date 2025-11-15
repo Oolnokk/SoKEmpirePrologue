@@ -38,6 +38,64 @@ export function pickFighterName(C) {
   return keys.length ? keys[0] : 'default';
 }
 
+export function normalizeBoneLengthKey(name) {
+  if (name == null) return null;
+  const raw = String(name).trim();
+  if (!raw) return null;
+  const colonIndex = raw.indexOf(':');
+  if (colonIndex >= 0) {
+    const prefix = raw.slice(0, colonIndex).replace(/[^a-z0-9]+/gi, '').toLowerCase();
+    const suffix = raw.slice(colonIndex + 1).replace(/[^a-z0-9]+/gi, '').toLowerCase();
+    if (!prefix && !suffix) return null;
+    if (!prefix) return suffix ? `:${suffix}` : null;
+    if (!suffix) return prefix;
+    return `${prefix}:${suffix}`;
+  }
+  return raw
+    .replace(/[^a-z0-9]+/gi, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .toLowerCase();
+}
+
+export function resolveBoneLengthScale(overrides, key, baseLength, fallbackKeys = []) {
+  if (!overrides || typeof overrides !== 'object') return 1;
+  const candidates = [key, ...fallbackKeys]
+    .map(normalizeBoneLengthKey)
+    .filter(Boolean);
+  let entry = null;
+  for (const candidate of candidates) {
+    if (candidate && Object.prototype.hasOwnProperty.call(overrides, candidate)) {
+      entry = overrides[candidate];
+    }
+    if (entry != null) break;
+  }
+  if (entry == null) return 1;
+
+  if (typeof entry === 'number') {
+    return Number.isFinite(entry) ? entry : 1;
+  }
+  if (!entry || typeof entry !== 'object') {
+    return 1;
+  }
+
+  if (Number.isFinite(entry.scale)) {
+    return entry.scale;
+  }
+  if (Number.isFinite(entry.multiplier)) {
+    return entry.multiplier;
+  }
+  if (Number.isFinite(entry.value)) {
+    return entry.value;
+  }
+  if (Number.isFinite(entry.length) || Number.isFinite(entry.len)) {
+    const absolute = Number.isFinite(entry.length) ? entry.length : entry.len;
+    if (!Number.isFinite(baseLength) || Math.abs(baseLength) < 1e-6) return 1;
+    return absolute / baseLength;
+  }
+  return 1;
+}
+
 /**
  * Get part lengths for a fighter, applying scale factors
  * @param {Object} C - CONFIG object

@@ -1,7 +1,7 @@
 // animator.js — restore basic idle/walk posing; robust speed detection; override TTL required
 import { degToRad, radToDegNum, angleFromDelta, segPos, withAX, basis } from './math-utils.js?v=1';
 import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
-import { pickFighterConfig, pickFighterName, lengths, pickOffsets } from './fighter-utils.js?v=1';
+import { pickFighterConfig, pickFighterName, lengths, pickOffsets, resolveBoneLengthScale, normalizeBoneLengthKey } from './fighter-utils.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
 import { updatePhysicsPoseTarget, getPhysicsRagdollBlend, getPhysicsRagdollAngles } from './physics.js?v=1';
 
@@ -78,6 +78,98 @@ function ensureAnimState(F){
       F.anim.weapon.jointPercents = {};
     }
   }
+  if (!F.anim.length || typeof F.anim.length !== 'object') {
+    F.anim.length = { overrides: {}, active: false };
+  } else {
+    if (typeof F.anim.length.overrides !== 'object' || !F.anim.length.overrides) {
+      F.anim.length.overrides = {};
+    }
+    if (typeof F.anim.length.active !== 'boolean') {
+      F.anim.length.active = Object.keys(F.anim.length.overrides).length > 0;
+    }
+  }
+}
+
+function parseLengthOverrideValue(value, defaultMode = 'scale') {
+  const mode = (defaultMode === 'absolute') ? 'absolute' : 'scale';
+  if (Number.isFinite(value)) {
+    return { mode, value: Number(value) };
+  }
+  if (!value || typeof value !== 'object') return null;
+  if (Number.isFinite(value.scale)) {
+    return { mode: 'scale', value: Number(value.scale) };
+  }
+  if (Number.isFinite(value.multiplier)) {
+    return { mode: 'scale', value: Number(value.multiplier) };
+  }
+  if (Number.isFinite(value.value)) {
+    return { mode: 'scale', value: Number(value.value) };
+  }
+  if (Number.isFinite(value.amount)) {
+    return { mode: defaultMode === 'absolute' ? 'absolute' : 'scale', value: Number(value.amount) };
+  }
+  if (Number.isFinite(value.length)) {
+    return { mode: 'absolute', value: Number(value.length) };
+  }
+  if (Number.isFinite(value.len)) {
+    return { mode: 'absolute', value: Number(value.len) };
+  }
+  return null;
+}
+
+function extractPoseLengthOverrides(pose){
+  if (!pose || typeof pose !== 'object') return null;
+  const sources = [];
+  const pushSource = (map, defaultMode = 'scale') => {
+    if (map && typeof map === 'object' && !Array.isArray(map)) {
+      sources.push({ map, defaultMode });
+    }
+  };
+  pushSource(pose.boneLengthScales, 'scale');
+  pushSource(pose.lengthScales, 'scale');
+  pushSource(pose.lengthScale, 'scale');
+  pushSource(pose.lengthOverrides, 'scale');
+  pushSource(pose.lengthOverride, 'scale');
+  pushSource(pose.boneLengthOverrides, 'scale');
+  pushSource(pose.boneLengths, 'absolute');
+  pushSource(pose.lengths, 'absolute');
+  if (!sources.length) return null;
+
+  const result = {};
+  for (const { map, defaultMode } of sources){
+    for (const [rawKey, rawValue] of Object.entries(map)){
+      const normKey = normalizeBoneLengthKey(rawKey);
+      if (!normKey) continue;
+      const parsed = parseLengthOverrideValue(rawValue, defaultMode);
+      if (!parsed) continue;
+      result[normKey] = { mode: parsed.mode, value: parsed.value };
+    }
+  }
+  return Object.keys(result).length ? result : null;
+}
+
+function collectLengthOverridesFromLayers(layers){
+  if (!Array.isArray(layers) || !layers.length) return {};
+  const merged = {};
+  for (const layer of layers){
+    if (!layer || !layer.__lengthOverrides) continue;
+    const overrides = layer.__lengthOverrides;
+    for (const [key, entry] of Object.entries(overrides)){
+      merged[key] = { mode: entry.mode, value: entry.value };
+    }
+  }
+  return merged;
+}
+
+function applyLengthOverridesToFighter(F, overrides){
+  if (!F) return;
+  ensureAnimState(F);
+  const target = {};
+  for (const [key, entry] of Object.entries(overrides || {})){
+    target[key] = { mode: entry.mode, value: entry.value };
+  }
+  F.anim.length.overrides = target;
+  F.anim.length.active = Object.keys(target).length > 0;
 }
 
 const DEFAULT_BREATHING_FRAMES = [
@@ -522,6 +614,34 @@ function collectDefaultJointPercents(rig) {
 
 function computePoseBasis(F, target, C, fcfg) {
   const L = lengths(C, fcfg);
+  const lengthOverrides = (F?.anim?.length?.overrides && typeof F.anim.length.overrides === 'object')
+    ? F.anim.length.overrides
+    : {};
+  const torsoLen = L.torso * resolveBoneLengthScale(lengthOverrides, 'torso', L.torso, ['body']);
+  const armUpperLeftLen = L.armU * resolveBoneLengthScale(lengthOverrides, 'arm_L_upper', L.armU, ['arm_upper', 'upper_arm', 'arm']);
+  const armUpperRightLen = L.armU * resolveBoneLengthScale(lengthOverrides, 'arm_R_upper', L.armU, ['arm_upper', 'upper_arm', 'arm']);
+  const armLowerLeftLen = L.armL * resolveBoneLengthScale(lengthOverrides, 'arm_L_lower', L.armL, ['arm_lower', 'lower_arm', 'arm']);
+  const armLowerRightLen = L.armL * resolveBoneLengthScale(lengthOverrides, 'arm_R_lower', L.armL, ['arm_lower', 'lower_arm', 'arm']);
+  const legUpperLeftLen = L.legU * resolveBoneLengthScale(lengthOverrides, 'leg_L_upper', L.legU, ['leg_upper', 'upper_leg', 'leg']);
+  const legUpperRightLen = L.legU * resolveBoneLengthScale(lengthOverrides, 'leg_R_upper', L.legU, ['leg_upper', 'upper_leg', 'leg']);
+  const legLowerLeftLen = L.legL * resolveBoneLengthScale(lengthOverrides, 'leg_L_lower', L.legL, ['leg_lower', 'lower_leg', 'leg']);
+  const legLowerRightLen = L.legL * resolveBoneLengthScale(lengthOverrides, 'leg_R_lower', L.legL, ['leg_lower', 'lower_leg', 'leg']);
+  const scaledLengths = {
+    ...L,
+    torso: torsoLen,
+    armU: (armUpperLeftLen + armUpperRightLen) * 0.5,
+    armULeft: armUpperLeftLen,
+    armURight: armUpperRightLen,
+    armL: (armLowerLeftLen + armLowerRightLen) * 0.5,
+    armLowerLeft: armLowerLeftLen,
+    armLowerRight: armLowerRightLen,
+    legU: (legUpperLeftLen + legUpperRightLen) * 0.5,
+    legUpperLeft: legUpperLeftLen,
+    legUpperRight: legUpperRightLen,
+    legL: (legLowerLeftLen + legLowerRightLen) * 0.5,
+    legLowerLeft: legLowerLeftLen,
+    legLowerRight: legLowerRightLen
+  };
   const OFF = pickOffsets(C, fcfg);
   const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx: 0.5, ny: 0.7 });
   const centerX = F.pos?.x ?? 0;
@@ -533,7 +653,7 @@ function computePoseBasis(F, target, C, fcfg) {
   };
   const originBaseArr = withAX(torsoAttach.x, torsoAttach.y, torsoAng, OFF.torso?.origin);
   const hipBaseArr = withAX(originBaseArr[0], originBaseArr[1], torsoAng, OFF.torso?.hip);
-  const torsoTopArr = segPos(hipBaseArr[0], hipBaseArr[1], L.torso, torsoAng);
+  const torsoTopArr = segPos(hipBaseArr[0], hipBaseArr[1], torsoLen, torsoAng);
   const neckBaseArr = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.neck);
   const shoulderBaseArr = withAX(torsoTopArr[0], torsoTopArr[1], torsoAng, OFF.torso?.shoulder);
   let lShoulderBaseArr = [...shoulderBaseArr];
@@ -559,10 +679,10 @@ function computePoseBasis(F, target, C, fcfg) {
   const rUpperAng = target?.rShoulder ?? torsoAng;
   const lLowerAng = lUpperAng + (target?.lElbow ?? 0);
   const rLowerAng = rUpperAng + (target?.rElbow ?? 0);
-  const lElbowPosArr = withAX(...segPos(lShoulderBaseArr[0], lShoulderBaseArr[1], L.armU, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
-  const rElbowPosArr = withAX(...segPos(rShoulderBaseArr[0], rShoulderBaseArr[1], L.armU, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
-  const lWristPosArr = withAX(...segPos(lElbowPosArr[0], lElbowPosArr[1], L.armL, lLowerAng), lLowerAng, OFF.arm?.lower?.origin);
-  const rWristPosArr = withAX(...segPos(rElbowPosArr[0], rElbowPosArr[1], L.armL, rLowerAng), rLowerAng, OFF.arm?.lower?.origin);
+  const lElbowPosArr = withAX(...segPos(lShoulderBaseArr[0], lShoulderBaseArr[1], armUpperLeftLen, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
+  const rElbowPosArr = withAX(...segPos(rShoulderBaseArr[0], rShoulderBaseArr[1], armUpperRightLen, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
+  const lWristPosArr = withAX(...segPos(lElbowPosArr[0], lElbowPosArr[1], armLowerLeftLen, lLowerAng), lLowerAng, OFF.arm?.lower?.origin);
+  const rWristPosArr = withAX(...segPos(rElbowPosArr[0], rElbowPosArr[1], armLowerRightLen, rLowerAng), rLowerAng, OFF.arm?.lower?.origin);
 
   return {
     centerX,
@@ -582,7 +702,7 @@ function computePoseBasis(F, target, C, fcfg) {
     rElbowPos: rElbowPosArr,
     lWristPos: lWristPosArr,
     rWristPos: rWristPosArr,
-    L,
+    L: scaledLengths,
     OFF
   };
 }
@@ -873,7 +993,8 @@ function buildWeaponBones({
   gripDefaults,
   jointPercents,
   jointDefaults,
-  wristTransforms
+  wristTransforms,
+  lengthOverrides
 } = {}) {
   const bones = [];
   const gripLookup = {};
@@ -885,7 +1006,9 @@ function buildWeaponBones({
     const limb = (boneSpec.limb || rig.base?.limb || '').toString().toLowerCase();
     const anchorKey = boneSpec.anchor || rig.base?.anchor || 'auto';
     const anchor = resolveWeaponAnchor(anchorKey, basisInfo, limb, wristTransforms);
-    const length = Number.isFinite(boneSpec.length) ? boneSpec.length : 0;
+    const baseLength = Number.isFinite(boneSpec.length) ? boneSpec.length : 0;
+    const lengthScale = resolveBoneLengthScale(lengthOverrides, `weapon:${boneId}`, baseLength, [`weapon_${boneId}`, 'weapon']);
+    const length = baseLength * lengthScale;
     const baseOffset = boneSpec.baseOffset || rig.base?.offset || null;
     let anchorPos = anchor.pos;
     if (baseOffset) {
@@ -1057,7 +1180,8 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     gripDefaults,
     jointPercents: jointPercentValues,
     jointDefaults,
-    wristTransforms
+    wristTransforms,
+    lengthOverrides: F.anim?.length?.overrides
   });
   const gripLookup = initialBuild.gripLookup;
   const attachments = F.anim.weapon.attachments || {};
@@ -1066,9 +1190,6 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
   const limits = fcfg?.limits || C.limits || {};
   const shoulderLimits = limits.shoulder || {};
   const elbowLimits = limits.elbow || {};
-  const upperLen = preIkBasis.L.armU;
-  const lowerLen = preIkBasis.L.armL;
-
   for (const [limb, attachment] of Object.entries(attachments)) {
     if (!attachment || !attachment.gripId) continue;
     const boneId = attachment.boneId || null;
@@ -1089,6 +1210,12 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     const isLeft = limb === 'left';
     const baseArr = isLeft ? preIkBasis.lShoulderBase : preIkBasis.rShoulderBase;
     if (!baseArr) continue;
+    const upperLen = isLeft
+      ? (preIkBasis.L.armULeft ?? preIkBasis.L.armU)
+      : (preIkBasis.L.armURight ?? preIkBasis.L.armU);
+    const lowerLen = isLeft
+      ? (preIkBasis.L.armLowerLeft ?? preIkBasis.L.armL)
+      : (preIkBasis.L.armLowerRight ?? preIkBasis.L.armL);
     const result = solveArmIKChain(
       baseArr,
       [gripEntry.x, gripEntry.y],
@@ -1120,7 +1247,8 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     gripDefaults,
     jointPercents: jointPercentValues,
     jointDefaults,
-    wristTransforms
+    wristTransforms,
+    lengthOverrides: F.anim?.length?.overrides
   });
 
   F.anim.weapon.attachments = validAttachments;
@@ -1156,6 +1284,10 @@ function setOverrideLayer(F, layerId, poseDeg, { durMs=300, mask, priority, supp
     __fullFlipApplied: false,
     __k: 0
   };
+  const poseLengthOverrides = extractPoseLengthOverrides(poseDeg);
+  if (poseLengthOverrides) {
+    layer.__lengthOverrides = poseLengthOverrides;
+  }
   removeOverrideLayer(F, layerId);
   F.anim.layers.push(layer);
   F.anim.layers.sort((a,b)=> (a.priority||0) - (b.priority||0));
@@ -1685,6 +1817,8 @@ export function updatePoses(){
     let targetDeg = walkPose._active ? { ...walkPose } : { ...basePoseConfig };
 
     const activeLayers = getActiveLayers(F, now);
+    const activeLengthOverrides = collectLengthOverridesFromLayers(activeLayers);
+    applyLengthOverridesToFighter(F, activeLengthOverrides);
     const walkSuppressed = activeLayers.some(layer => layer.suppressWalk);
     if (activeLayers.length){
       if (walkSuppressed){
