@@ -45,22 +45,6 @@ function normalizeAttackSequence(seq) {
   });
 }
 
-function normalizeComboSequence(seq) {
-  if (!Array.isArray(seq)) return [];
-  return seq
-    .map((step) => {
-      if (typeof step === 'string') {
-        return step.trim();
-      }
-      if (typeof step === 'object' && step) {
-        const attackId = step.attack ?? step.move ?? step.id ?? '';
-        return String(attackId || '').trim();
-      }
-      return '';
-    })
-    .filter((attackId) => attackId.length > 0);
-}
-
 function normalizeMoveSequence(seq) {
   if (!Array.isArray(seq)) return [];
   return seq.map((phase) => {
@@ -97,8 +81,6 @@ class PosePreviewManager {
     this.currentPose = null;
     this.pendingPose = null;
     this.pendingFighter = null;
-    this.currentWeapon = null;
-    this.pendingWeapon = null;
   }
 
   async initialize() {
@@ -117,16 +99,6 @@ class PosePreviewManager {
           const fighterKey = this.pendingFighter;
           this.pendingFighter = null;
           this.setFighter(fighterKey);
-        }
-        if (this.pendingWeapon !== null) {
-          const pendingWeapon = this.pendingWeapon;
-          this.pendingWeapon = null;
-          this.setWeapon(pendingWeapon);
-        } else {
-          const fallbackWeapon = window.CONFIG?.characters?.player?.weapon
-            || window.CONFIG?.knockback?.currentWeapon
-            || 'unarmed';
-          this.setWeapon(fallbackWeapon);
         }
         if (this.pendingPose) {
           const pose = this.pendingPose;
@@ -209,9 +181,6 @@ class PosePreviewManager {
     const player = fighters.player;
     if (player) {
       resetFighterStateForTesting(player, { id: 'player', facingSign: 1 });
-      if (this.currentWeapon) {
-        this.applyWeaponToFighter(player, this.currentWeapon);
-      }
       if (this.currentPose) {
         pushPoseOverride('player', this.currentPose, { durMs: 60000, suppressWalk: true, useAsBase: true });
       }
@@ -230,51 +199,6 @@ class PosePreviewManager {
       : (window.CONFIG?.poses?.Stance || {});
     pushPoseOverride('player', payload, { durMs: 60000, suppressWalk: true, useAsBase: true });
   }
-
-  resetWeaponAnimState(fighter) {
-    if (!fighter) return;
-    fighter.anim ||= {};
-    if (!fighter.anim.weapon || typeof fighter.anim.weapon !== 'object') {
-      fighter.anim.weapon = { attachments: {}, gripPercents: {}, state: null };
-      return;
-    }
-    fighter.anim.weapon.state = null;
-    fighter.anim.weapon.attachments = {};
-    fighter.anim.weapon.gripPercents = {};
-  }
-
-  applyWeaponToFighter(fighter, weaponKey) {
-    if (!fighter) return;
-    const normalized = weaponKey || 'unarmed';
-    fighter.renderProfile ||= {};
-    fighter.renderProfile.weapon = normalized;
-    if (fighter.renderProfile.character && typeof fighter.renderProfile.character === 'object') {
-      fighter.renderProfile.character.weapon = normalized;
-    }
-    fighter.weapon = normalized;
-    this.resetWeaponAnimState(fighter);
-  }
-
-  setWeapon(weaponKey) {
-    const normalized = weaponKey || 'unarmed';
-    if (!this.ready) {
-      this.pendingWeapon = normalized;
-      return;
-    }
-    if (this.currentWeapon === normalized) return;
-    this.currentWeapon = normalized;
-    const GAME = (window.GAME ||= {});
-    GAME.selectedWeapon = normalized;
-    const fighters = GAME.FIGHTERS || {};
-    const player = fighters.player;
-    if (player) {
-      this.applyWeaponToFighter(player, normalized);
-    }
-    if (window.CONFIG) {
-      window.CONFIG.knockback ||= {};
-      window.CONFIG.knockback.currentWeapon = normalized;
-    }
-  }
 }
 
 class AnimationEditorApp {
@@ -284,14 +208,10 @@ class AnimationEditorApp {
       abilityKey: null,
       moveKey: null,
       attackKey: null,
-      weaponKey: null,
-      comboKey: null,
       moveOriginal: null,
       attackOriginal: null,
-      comboOriginal: null,
       moveDraft: null,
       attackDraft: null,
-      comboDraft: null,
       poseKey: null,
       poseSource: null,
       poseDraft: null,
@@ -324,11 +244,8 @@ class AnimationEditorApp {
       abilitySelect: q('abilitySelect'),
       moveSelect: q('moveSelect'),
       attackSelect: q('attackSelect'),
-      weaponSelect: q('weaponSelect'),
-      comboSelect: q('comboSelect'),
       resetMove: q('resetMove'),
       resetAttack: q('resetAttack'),
-      resetCombo: q('resetCombo'),
       statusBanner: q('statusBanner'),
       moveName: q('moveName'),
       moveTags: q('moveTags'),
@@ -343,7 +260,6 @@ class AnimationEditorApp {
       moveSequencePanel: q('moveSequencePanel'),
       moveDetails: q('moveDetails'),
       attackDetails: q('attackDetails'),
-      comboDetails: q('comboDetails'),
       attackName: q('attackName'),
       attackTags: q('attackTags'),
       attackSequence: q('attackSequence'),
@@ -353,12 +269,6 @@ class AnimationEditorApp {
       attackStamina: q('attackStamina'),
       attackColliders: q('attackColliders'),
       attackUseWeaponColliders: q('attackUseWeaponColliders'),
-      comboName: q('comboName'),
-      comboWeapon: q('comboWeapon'),
-      comboWindow: q('comboWindow'),
-      comboType: q('comboType'),
-      comboSequence: q('comboSequence'),
-      addComboStep: q('addComboStep'),
       poseEditor: q('poseEditor'),
       poseFighterSelect: q('poseFighterSelect'),
       poseKeySelect: q('poseKeySelect'),
@@ -367,20 +277,17 @@ class AnimationEditorApp {
       resetPoseChanges: q('resetPoseChanges'),
       moveJson: q('moveJson'),
       attackJson: q('attackJson'),
-      comboJson: q('comboJson'),
       copyMoveJson: q('copyMoveJson'),
       copyAttackJson: q('copyAttackJson'),
-      copyComboJson: q('copyComboJson'),
       downloadJson: q('downloadJson'),
     };
   }
 
   bindStaticListeners() {
     const { abilitySelect, moveSelect, attackSelect, resetMove, resetAttack, normalizeDurations, addMovePhase, addAttackStep,
-      addAttackTag, copyMoveJson, copyAttackJson, copyComboJson, downloadJson, moveJson, attackJson, comboJson, moveName, moveTags,
+      addAttackTag, copyMoveJson, copyAttackJson, downloadJson, moveJson, attackJson, moveName, moveTags,
       knockbackBase, cancelWindow, attackName, attackTags, attackDamageHealth, attackStamina, attackColliders,
-      attackUseWeaponColliders, poseFighterSelect, poseKeySelect, poseJson, applyPoseChanges, resetPoseChanges,
-      weaponSelect, comboSelect, resetCombo, comboName, comboWeapon, comboWindow, comboType, addComboStep } = this.dom;
+      attackUseWeaponColliders, poseFighterSelect, poseKeySelect, poseJson, applyPoseChanges, resetPoseChanges } = this.dom;
 
     abilitySelect?.addEventListener('change', (event) => {
       this.selectAbility(event.target.value || null);
@@ -392,60 +299,24 @@ class AnimationEditorApp {
     attackSelect?.addEventListener('change', (event) => {
       this.selectAttack(event.target.value || null);
     });
-    weaponSelect?.addEventListener('change', (event) => {
-      this.selectWeapon(event.target.value || null);
-    });
-    comboSelect?.addEventListener('change', (event) => {
-      this.selectCombo(event.target.value || null);
-    });
     resetMove?.addEventListener('click', () => this.resetMove());
     resetAttack?.addEventListener('click', () => this.resetAttack());
-    resetCombo?.addEventListener('click', () => this.resetCombo());
     normalizeDurations?.addEventListener('click', () => this.normalizeMoveDurations());
     addMovePhase?.addEventListener('click', () => this.addMovePhase());
     addAttackStep?.addEventListener('click', () => this.addAttackStep());
-    addComboStep?.addEventListener('click', () => this.addComboStep());
     addAttackTag?.addEventListener('click', () => this.addAttackTag());
-    copyMoveJson?.addEventListener('click', () => this.copyJson(this.dom.moveJson?.value, 'Move JSON copied'));
+    copyMoveJson?.addEventListener('click', () => this.copyJson(this.dom.moveJson?.value, 'Move JSON copied')); 
     copyAttackJson?.addEventListener('click', () => this.copyJson(this.dom.attackJson?.value, 'Attack JSON copied'));
-    copyComboJson?.addEventListener('click', () => this.copyJson(this.dom.comboJson?.value, 'Combo JSON copied'));
     downloadJson?.addEventListener('click', () => this.downloadJson());
 
     moveJson?.addEventListener('change', () => this.applyJsonEdits('move'));
     attackJson?.addEventListener('change', () => this.applyJsonEdits('attack'));
-    comboJson?.addEventListener('change', () => this.applyJsonEdits('combo'));
 
     moveName?.addEventListener('change', (event) => {
       if (!this.state.moveDraft) return;
       this.state.moveDraft.name = event.target.value;
       this.updateJsonOutputs();
       this.renderPreview();
-    });
-
-    comboName?.addEventListener('change', (event) => {
-      if (!this.state.comboDraft) return;
-      this.state.comboDraft.name = event.target.value;
-      this.updateJsonOutputs();
-    });
-
-    comboWeapon?.addEventListener('change', (event) => {
-      if (!this.state.comboDraft) return;
-      const value = event.target.value || 'unarmed';
-      this.state.comboDraft.weapon = value;
-      this.updateJsonOutputs();
-      this.selectWeapon(value);
-    });
-
-    comboWindow?.addEventListener('change', (event) => {
-      if (!this.state.comboDraft) return;
-      this.state.comboDraft.comboWindowMs = Math.max(0, toNumber(event.target.value, 0));
-      this.updateJsonOutputs();
-    });
-
-    comboType?.addEventListener('change', (event) => {
-      if (!this.state.comboDraft) return;
-      this.state.comboDraft.type = event.target.value || '';
-      this.updateJsonOutputs();
     });
 
     moveTags?.addEventListener('change', (event) => {
@@ -544,8 +415,6 @@ class AnimationEditorApp {
   populateSelects() {
     this.populateAbilitySelect();
     this.updateAttackOptions();
-    this.populateWeaponSelect();
-    this.populateComboSelect();
   }
 
   populateSelect(select, entries, options = {}) {
@@ -763,112 +632,6 @@ class AnimationEditorApp {
       select.value = '';
       this.selectMove(null);
     }
-  }
-
-  getWeaponEntries() {
-    const weapons = this.config.weapons || {};
-    const comboDefs = this.config.weaponCombos || {};
-    const keys = new Set(Object.keys(weapons));
-    Object.values(comboDefs).forEach((combo) => {
-      if (combo?.weapon) keys.add(String(combo.weapon));
-    });
-    keys.add('unarmed');
-    return Array.from(keys)
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b))
-      .map((key) => {
-        const def = weapons[key];
-        const label = def?.name ? `${def.name} (${key})` : key;
-        return { value: key, label };
-      });
-  }
-
-  populateWeaponSelect() {
-    const select = this.dom.weaponSelect;
-    if (!select) return [];
-    const entries = this.getWeaponEntries();
-    const normalized = this.populateSelect(select, entries, { placeholderText: 'Equip weapon…' });
-    if (!normalized.length) {
-      select.value = '';
-      select.disabled = true;
-      this.state.weaponKey = null;
-      return normalized;
-    }
-    let target = this.state.weaponKey;
-    if (!target || !normalized.some((entry) => entry.value === target)) {
-      const preferred = this.config.characters?.player?.weapon || 'unarmed';
-      target = normalized.some((entry) => entry.value === preferred)
-        ? preferred
-        : normalized[0].value;
-    }
-    select.value = target;
-    this.selectWeapon(target);
-    return normalized;
-  }
-
-  selectWeapon(weaponKey) {
-    const normalized = weaponKey || 'unarmed';
-    if (this.dom.weaponSelect) {
-      const match = Array.from(this.dom.weaponSelect.options).some((option) => option.value === normalized);
-      this.dom.weaponSelect.value = match ? normalized : '';
-    }
-    this.state.weaponKey = normalized;
-    this.posePreview.setWeapon(normalized);
-  }
-
-  populateComboSelect() {
-    const select = this.dom.comboSelect;
-    if (!select) return [];
-    const combos = this.config.weaponCombos || {};
-    const entries = Object.entries(combos)
-      .map(([key, combo]) => {
-        if (!combo) return null;
-        const parts = [];
-        if (combo.name && combo.name !== key) parts.push(combo.name);
-        const weaponLabel = combo.weapon || key;
-        parts.push(`(${weaponLabel})`);
-        const label = parts.length ? `${key} ${parts.join(' ')}` : key;
-        return { value: key, label };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.value.localeCompare(b.value));
-    const normalized = this.populateSelect(select, entries, { placeholderText: 'Select combo…' });
-    if (!normalized.length) {
-      select.value = '';
-      this.updateComboState(null, null);
-      return normalized;
-    }
-    let target = this.state.comboKey;
-    if (!target || !normalized.some((entry) => entry.value === target)) {
-      target = normalized[0].value;
-    }
-    select.value = target;
-    this.selectCombo(target);
-    return normalized;
-  }
-
-  selectCombo(comboKey) {
-    const combos = this.config.weaponCombos || {};
-    if (!comboKey || !combos[comboKey]) {
-      this.updateComboState(comboKey, null);
-      return;
-    }
-    const original = combos[comboKey];
-    const draft = clone(original);
-    draft.sequence = normalizeComboSequence(draft.sequence);
-    this.updateComboState(comboKey, draft, original);
-    const weapon = draft.weapon || this.state.weaponKey;
-    if (weapon) {
-      this.selectWeapon(weapon);
-    }
-  }
-
-  updateComboState(comboKey, draft, original) {
-    this.state.comboKey = comboKey;
-    this.state.comboDraft = draft ? draft : null;
-    this.state.comboOriginal = original ? clone(original) : null;
-    this.renderCombo();
-    this.updateJsonOutputs();
   }
 
   populatePoseFighterSelect() {
@@ -1415,101 +1178,6 @@ class AnimationEditorApp {
           : 'auto';
   }
 
-  populateComboWeaponOptions(selectedValue) {
-    const select = this.dom.comboWeapon;
-    if (!select) return;
-    const entries = this.getWeaponEntries();
-    const normalized = this.populateSelect(select, entries, { includePlaceholder: false });
-    if (!normalized.length) {
-      select.value = '';
-      select.disabled = true;
-      return;
-    }
-    const target = normalized.some((entry) => entry.value === selectedValue)
-      ? selectedValue
-      : (normalized[0]?.value || 'unarmed');
-    select.value = target;
-    select.disabled = false;
-  }
-
-  renderCombo() {
-    const draft = this.state.comboDraft;
-    const { comboDetails } = this.dom;
-    const disabled = !draft;
-    comboDetails?.setAttribute('aria-disabled', disabled);
-    if (!draft) {
-      if (this.dom.comboName) this.dom.comboName.value = '';
-      if (this.dom.comboWindow) this.dom.comboWindow.value = '';
-      if (this.dom.comboType) this.dom.comboType.value = '';
-      if (this.dom.comboWeapon) this.dom.comboWeapon.value = '';
-      this.renderComboSequence([]);
-      return;
-    }
-    this.populateComboWeaponOptions(draft.weapon || 'unarmed');
-    if (this.dom.comboName) this.dom.comboName.value = draft.name ?? '';
-    if (this.dom.comboWindow) this.dom.comboWindow.value = draft.comboWindowMs ?? '';
-    if (this.dom.comboType) this.dom.comboType.value = draft.type ?? '';
-    if (this.dom.comboWeapon) this.dom.comboWeapon.value = draft.weapon || 'unarmed';
-    this.renderComboSequence(draft.sequence || []);
-  }
-
-  renderComboSequence(sequence) {
-    const container = this.dom.comboSequence;
-    if (!container) return;
-    container.innerHTML = '';
-    (sequence || []).forEach((attackId, index) => {
-      const tr = document.createElement('tr');
-      const attackCell = document.createElement('td');
-      const attackInput = document.createElement('input');
-      attackInput.type = 'text';
-      attackInput.value = attackId || '';
-      attackInput.addEventListener('change', (event) => {
-        this.updateComboSequenceEntry(index, event.target.value);
-      });
-      attackCell.appendChild(attackInput);
-
-      const removeCell = document.createElement('td');
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'danger';
-      removeBtn.textContent = 'Remove';
-      removeBtn.addEventListener('click', () => this.removeComboStep(index));
-      removeCell.appendChild(removeBtn);
-
-      tr.appendChild(attackCell);
-      tr.appendChild(removeCell);
-      container.appendChild(tr);
-    });
-  }
-
-  updateComboSequenceEntry(index, value) {
-    const draft = this.state.comboDraft;
-    if (!draft || !Array.isArray(draft.sequence) || !draft.sequence[index]) return;
-    draft.sequence[index] = String(value || '').trim();
-    if (!draft.sequence[index]) {
-      draft.sequence.splice(index, 1);
-    }
-    this.renderComboSequence(draft.sequence);
-    this.updateJsonOutputs();
-  }
-
-  addComboStep() {
-    const draft = this.state.comboDraft;
-    if (!draft) return;
-    draft.sequence ||= [];
-    draft.sequence.push('NewAttack');
-    this.renderComboSequence(draft.sequence);
-    this.updateJsonOutputs();
-  }
-
-  removeComboStep(index) {
-    const draft = this.state.comboDraft;
-    if (!draft || !Array.isArray(draft.sequence)) return;
-    draft.sequence.splice(index, 1);
-    this.renderComboSequence(draft.sequence);
-    this.updateJsonOutputs();
-  }
-
   renderAttackSequence(sequence) {
     const container = this.dom.attackSequence;
     if (!container) return;
@@ -1954,11 +1622,6 @@ class AnimationEditorApp {
         ? JSON.stringify(this.exportAttackDraft(), null, 2)
         : '';
     }
-    if (this.dom.comboJson) {
-      this.dom.comboJson.value = this.state.comboDraft
-        ? JSON.stringify(this.state.comboDraft, null, 2)
-        : '';
-    }
   }
 
   exportAttackDraft() {
@@ -1996,8 +1659,6 @@ class AnimationEditorApp {
       move: this.state.moveDraft ? clone(this.state.moveDraft) : null,
       attackKey: this.state.attackKey,
       attack: this.exportAttackDraft(),
-      comboKey: this.state.comboKey,
-      combo: this.state.comboDraft ? clone(this.state.comboDraft) : null,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -2012,11 +1673,7 @@ class AnimationEditorApp {
   }
 
   applyJsonEdits(kind) {
-    const textArea = kind === 'move'
-      ? this.dom.moveJson
-      : kind === 'attack'
-        ? this.dom.attackJson
-        : this.dom.comboJson;
+    const textArea = kind === 'move' ? this.dom.moveJson : this.dom.attackJson;
     if (!textArea) return;
     const raw = textArea.value;
     if (!raw) return;
@@ -2027,16 +1684,12 @@ class AnimationEditorApp {
         this.state.moveDraft = parsed;
         this.renderMove();
         this.updateMoveTimeline();
-      } else if (kind === 'attack') {
+      } else {
         parsed.sequence = normalizeAttackSequence(parsed.sequence);
         parsed.tags = Array.isArray(parsed.tags) ? parsed.tags : [];
         this.state.attackDraft = parsed;
         this.renderAttack();
         this.updateAttackTimeline();
-      } else {
-        parsed.sequence = normalizeComboSequence(parsed.sequence);
-        this.state.comboDraft = parsed;
-        this.renderCombo();
       }
       this.updateJsonOutputs();
       this.setStatus('Applied JSON edits');
@@ -2067,16 +1720,6 @@ class AnimationEditorApp {
     this.updateAttackTimeline();
     this.updateJsonOutputs();
     this.setStatus('Attack reset to config value');
-  }
-
-  resetCombo() {
-    if (!this.state.comboKey || !this.state.comboOriginal) return;
-    const draft = clone(this.state.comboOriginal);
-    draft.sequence = normalizeComboSequence(draft.sequence);
-    this.state.comboDraft = draft;
-    this.renderCombo();
-    this.updateJsonOutputs();
-    this.setStatus('Combo reset to config value');
   }
 
   setStatus(message) {
