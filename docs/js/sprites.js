@@ -355,6 +355,52 @@ function resolveCosmeticMirror(rig, partKey, bone){
   }
 }
 
+function normalizeAppearancePosition(position){
+  if (position == null) return 'front';
+  const normalized = String(position).trim().toLowerCase();
+  if (!normalized) return 'front';
+  const compact = normalized.replace(/[^a-z]/g, '');
+  if (['both', 'wrap', 'around', 'between', 'mid', 'middle'].includes(compact)){
+    return 'both';
+  }
+  if (['back', 'behind', 'rear', 'under', 'underlay', 'underneath', 'below'].includes(compact)){
+    return 'back';
+  }
+  return 'front';
+}
+
+function partitionCosmeticLayers(layers){
+  const appearanceLayers = Object.create(null);
+  const clothingLayers = [];
+  const source = Array.isArray(layers) ? layers : [];
+  for (const layer of source){
+    if (!layer || typeof layer !== 'object'){ 
+      continue;
+    }
+    const isAppearance = !!(layer.extra?.appearance)
+      || (typeof layer.slot === 'string' && layer.slot.trim().toLowerCase().startsWith('appearance:'));
+    if (!isAppearance){
+      clothingLayers.push(layer);
+      continue;
+    }
+    const partKey = layer.partKey;
+    if (!partKey){
+      continue;
+    }
+    const bucket = appearanceLayers[partKey] || (appearanceLayers[partKey] = { front: [], back: [] });
+    const placement = normalizeAppearancePosition(layer.position);
+    if (placement === 'both'){
+      bucket.back.push(layer);
+      bucket.front.push(layer);
+    } else if (placement === 'back'){
+      bucket.back.push(layer);
+    } else {
+      bucket.front.push(layer);
+    }
+  }
+  return { appearanceLayers, clothingLayers };
+}
+
 // Sprite rendering for bones, fixed math
 function mergeSpriteStyles(base = {}, overrides = {}){
   if (!overrides) return base;
@@ -690,6 +736,7 @@ export function renderSprites(ctx){
 
     const overrides = buildSpriteOverrides(entity.profile || {});
     const { assets, style, cosmetics, bodyColors, untintedOverlays: activeUntintedOverlays } = ensureFighterSprites(C, fighterName, overrides);
+    const { appearanceLayers, clothingLayers } = partitionCosmeticLayers(cosmetics);
     const overlayMap = activeUntintedOverlays || {};
 
     ctx.save();
@@ -729,19 +776,60 @@ export function renderSprites(ctx){
       }
     }
 
+    function mergeTintOptions(baseTint, extraTint){
+      if (!baseTint && !extraTint) return undefined;
+      if (!baseTint) return extraTint ? { ...extraTint } : undefined;
+      if (!extraTint) return baseTint ? { ...baseTint } : undefined;
+      return {
+        h: extraTint.h ?? baseTint.h,
+        s: extraTint.s ?? baseTint.s,
+        l: extraTint.l ?? baseTint.l
+      };
+    }
+
+    function drawAppearanceLayers(partKey, bone, fallbackStyleKey, phase){
+      const branch = appearanceLayers?.[partKey];
+      if (!branch) return;
+      const list = phase === 'back' ? branch.back : branch.front;
+      if (!Array.isArray(list) || list.length === 0) return;
+      if (!bone) return;
+      const { mirror, originX } = resolveCosmeticMirror(rig, partKey, bone);
+      withBranchMirror(ctx, originX, mirror, ()=>{
+        for (const layer of list){
+          if (!layer?.asset) continue;
+          const styleKey = layer.styleKey || fallbackStyleKey || layer.partKey;
+          const baseTint = makeTintOptions(layer.asset);
+          const mergedTint = mergeTintOptions(baseTint?.hsl, layer.hsl ?? layer.hsv);
+          const options = applyAnimOptions(styleKey, {
+            styleOverride: layer.styleOverride,
+            hsl: mergedTint,
+            warp: layer.warp,
+            alignRad: layer.alignRad,
+            alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
+            palette: layer.palette
+          });
+          drawBoneSprite(ctx, layer.asset, bone, styleKey, style, options);
+        }
+      });
+    }
+
     // Torso & head
     enqueue('TORSO', ()=>{
       if (assets.torso && rig.torso){
         const torsoOptions = applyAnimOptions('torso', makeTintOptions(assets.torso));
+        drawAppearanceLayers('torso', rig.torso, 'torso', 'back');
         drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, torsoOptions);
         drawUntintedOverlays('torso', rig.torso, 'torso');
+        drawAppearanceLayers('torso', rig.torso, 'torso', 'front');
       }
     });
     enqueue('HEAD', ()=>{
       if (assets.head && rig.head){
         const headOptions = applyAnimOptions('head', makeTintOptions(assets.head));
+        drawAppearanceLayers('head', rig.head, 'head', 'back');
         drawBoneSprite(ctx, assets.head, rig.head, 'head', style, headOptions);
         drawUntintedOverlays('head', rig.head, 'head');
+        drawAppearanceLayers('head', rig.head, 'head', 'front');
       }
     });
 
@@ -751,22 +839,26 @@ export function renderSprites(ctx){
     const lArmMirror = getMirror('ARM_L_UPPER') || getMirror('ARM_L_LOWER');
     if (lArmUpper) {
       enqueue('ARM_L_UPPER', ()=> {
+        drawAppearanceLayers('arm_L_upper', lArmUpper, 'arm_L_upper', 'back');
         const originX = lArmUpper.x;
         const armUpperOptions = applyAnimOptions('arm_L_upper', makeTintOptions(assets.arm_L_upper));
         withBranchMirror(ctx, originX, lArmMirror, ()=> {
           drawBoneSprite(ctx, assets.arm_L_upper, lArmUpper, 'arm_L_upper', style, armUpperOptions);
           drawUntintedOverlays('arm_L_upper', lArmUpper, 'arm_L_upper');
         });
+        drawAppearanceLayers('arm_L_upper', lArmUpper, 'arm_L_upper', 'front');
       });
     }
     if (lArmLower) {
       enqueue('ARM_L_LOWER', ()=> {
+        drawAppearanceLayers('arm_L_lower', lArmLower, 'arm_L_lower', 'back');
         const originX = lArmUpper?.x ?? lArmLower.x;
         const armLowerOptions = applyAnimOptions('arm_L_lower', makeTintOptions(assets.arm_L_lower));
         withBranchMirror(ctx, originX, lArmMirror, ()=> {
           drawBoneSprite(ctx, assets.arm_L_lower, lArmLower, 'arm_L_lower', style, armLowerOptions);
           drawUntintedOverlays('arm_L_lower', lArmLower, 'arm_L_lower');
         });
+        drawAppearanceLayers('arm_L_lower', lArmLower, 'arm_L_lower', 'front');
       });
     }
 
@@ -776,22 +868,26 @@ export function renderSprites(ctx){
     const rArmMirror = getMirror('ARM_R_UPPER') || getMirror('ARM_R_LOWER');
     if (rArmUpper) {
       enqueue('ARM_R_UPPER', ()=> {
+        drawAppearanceLayers('arm_R_upper', rArmUpper, 'arm_R_upper', 'back');
         const originX = rArmUpper.x;
         const armUpperOptions = applyAnimOptions('arm_R_upper', makeTintOptions(assets.arm_R_upper));
         withBranchMirror(ctx, originX, rArmMirror, ()=> {
           drawBoneSprite(ctx, assets.arm_R_upper, rArmUpper, 'arm_R_upper', style, armUpperOptions);
           drawUntintedOverlays('arm_R_upper', rArmUpper, 'arm_R_upper');
         });
+        drawAppearanceLayers('arm_R_upper', rArmUpper, 'arm_R_upper', 'front');
       });
     }
     if (rArmLower) {
       enqueue('ARM_R_LOWER', ()=> {
+        drawAppearanceLayers('arm_R_lower', rArmLower, 'arm_R_lower', 'back');
         const originX = rArmUpper?.x ?? rArmLower.x;
         const armLowerOptions = applyAnimOptions('arm_R_lower', makeTintOptions(assets.arm_R_lower));
         withBranchMirror(ctx, originX, rArmMirror, ()=> {
           drawBoneSprite(ctx, assets.arm_R_lower, rArmLower, 'arm_R_lower', style, armLowerOptions);
           drawUntintedOverlays('arm_R_lower', rArmLower, 'arm_R_lower');
         });
+        drawAppearanceLayers('arm_R_lower', rArmLower, 'arm_R_lower', 'front');
       });
     }
 
@@ -801,22 +897,26 @@ export function renderSprites(ctx){
     const lLegMirror = getMirror('LEG_L_UPPER') || getMirror('LEG_L_LOWER');
     if (lLegUpper) {
       enqueue('LEG_L_UPPER', ()=> {
+        drawAppearanceLayers('leg_L_upper', lLegUpper, 'leg_L_upper', 'back');
         const originX = lLegUpper.x;
         withBranchMirror(ctx, originX, lLegMirror, ()=> {
           const legUpperOptions = applyAnimOptions('leg_L_upper', makeTintOptions(assets.leg_L_upper));
           drawBoneSprite(ctx, assets.leg_L_upper, lLegUpper, 'leg_L_upper', style, legUpperOptions);
           drawUntintedOverlays('leg_L_upper', lLegUpper, 'leg_L_upper');
         });
+        drawAppearanceLayers('leg_L_upper', lLegUpper, 'leg_L_upper', 'front');
       });
     }
     if (lLegLower) {
       enqueue('LEG_L_LOWER', ()=> {
+        drawAppearanceLayers('leg_L_lower', lLegLower, 'leg_L_lower', 'back');
         const originX = lLegUpper?.x ?? lLegLower.x;
         withBranchMirror(ctx, originX, lLegMirror, ()=> {
           const legLowerOptions = applyAnimOptions('leg_L_lower', makeTintOptions(assets.leg_L_lower));
           drawBoneSprite(ctx, assets.leg_L_lower, lLegLower, 'leg_L_lower', style, legLowerOptions);
           drawUntintedOverlays('leg_L_lower', lLegLower, 'leg_L_lower');
         });
+        drawAppearanceLayers('leg_L_lower', lLegLower, 'leg_L_lower', 'front');
       });
     }
 
@@ -826,22 +926,26 @@ export function renderSprites(ctx){
     const rLegMirror = getMirror('LEG_R_UPPER') || getMirror('LEG_R_LOWER');
     if (rLegUpper) {
       enqueue('LEG_R_UPPER', ()=> {
+        drawAppearanceLayers('leg_R_upper', rLegUpper, 'leg_R_upper', 'back');
         const originX = rLegUpper.x;
         withBranchMirror(ctx, originX, rLegMirror, ()=> {
           const legUpperOptions = applyAnimOptions('leg_R_upper', makeTintOptions(assets.leg_R_upper));
           drawBoneSprite(ctx, assets.leg_R_upper, rLegUpper, 'leg_R_upper', style, legUpperOptions);
           drawUntintedOverlays('leg_R_upper', rLegUpper, 'leg_R_upper');
         });
+        drawAppearanceLayers('leg_R_upper', rLegUpper, 'leg_R_upper', 'front');
       });
     }
     if (rLegLower) {
       enqueue('LEG_R_LOWER', ()=> {
+        drawAppearanceLayers('leg_R_lower', rLegLower, 'leg_R_lower', 'back');
         const originX = rLegUpper?.x ?? rLegLower.x;
         withBranchMirror(ctx, originX, rLegMirror, ()=> {
           const legLowerOptions = applyAnimOptions('leg_R_lower', makeTintOptions(assets.leg_R_lower));
           drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, legLowerOptions);
           drawUntintedOverlays('leg_R_lower', rLegLower, 'leg_R_lower');
         });
+        drawAppearanceLayers('leg_R_lower', rLegLower, 'leg_R_lower', 'front');
       });
     }
 
@@ -884,8 +988,8 @@ export function renderSprites(ctx){
       });
     }
 
-    if (Array.isArray(cosmetics)){
-      for (const layer of cosmetics){
+    if (Array.isArray(clothingLayers)){
+      for (const layer of clothingLayers){
         const bone = rig[layer.partKey];
         if (!bone) continue;
         const baseTag = tagOf(layer.partKey);
