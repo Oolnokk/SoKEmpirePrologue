@@ -1,5 +1,5 @@
 // hitdetect.js — basic hit detection between player and NPC bodies
-import { applyHitReactionRagdoll, triggerFullRagdoll } from './physics.js?v=1';
+import { applyAirborneSpinImpulse, applyHitReactionRagdoll, triggerFullRagdoll } from './physics.js?v=1';
 import { getFootingMitigation, getStatProfile } from './stat-hooks.js?v=1';
 import { getActiveNpcFighters } from './npc.js?v=2';
 import { markFighterDead } from './fighter.js?v=8';
@@ -112,17 +112,35 @@ function computeFootingDamage(config, footingBefore, force, defender) {
   return clamp(totalLoss, 0, maxFooting);
 }
 
-function applyKnockback(target, angle, force, { verticalScale = 0.2 } = {}) {
-  if (!target || !Number.isFinite(force) || force === 0) return;
-  target.vel = target.vel || { x: 0, y: 0 };
-  target.vel.x += Math.cos(angle) * force;
-  target.vel.y += Math.sin(angle) * force * verticalScale;
+function resolveAirborneMultiplier(config) {
+  const raw = config?.knockback?.airborneMultiplier;
+  if (!Number.isFinite(raw)) return 5;
+  return Math.max(0, raw);
+}
 
-  const duration = Math.max(0.18, Math.min(0.9, 0.18 + Math.abs(force) / 240));
+function applyKnockback(target, angle, force, { verticalScale = 0.2, config } = {}) {
+  if (!target || !Number.isFinite(force) || force === 0) return;
+  const effectiveConfig = config || window.CONFIG || {};
+  const airborne = target.onGround === false;
+  const multiplier = airborne ? resolveAirborneMultiplier(effectiveConfig) : 1;
+  const finalForce = force * multiplier;
+  target.vel = target.vel || { x: 0, y: 0 };
+  target.vel.x += Math.cos(angle) * finalForce;
+  target.vel.y += Math.sin(angle) * finalForce * verticalScale;
+
+  const duration = Math.max(0.18, Math.min(0.9, 0.18 + Math.abs(finalForce) / 240));
   target.knockback ||= { timer: 0, magnitude: 0, direction: angle };
   target.knockback.timer = Math.max(target.knockback.timer || 0, duration);
-  target.knockback.magnitude = Math.max(target.knockback.magnitude || 0, Math.abs(force));
+  target.knockback.magnitude = Math.max(target.knockback.magnitude || 0, Math.abs(finalForce));
   target.knockback.direction = angle;
+
+  if (airborne && Math.abs(finalForce) > 0) {
+    const horizontalComponent = Math.cos(angle);
+    applyAirborneSpinImpulse(target, effectiveConfig, {
+      force: finalForce,
+      direction: horizontalComponent,
+    });
+  }
 }
 
 function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius) {
@@ -154,7 +172,7 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
   const force = calculateKnockback(config, presetName, npc.footing ?? 100, multiplier);
   const angle = Math.atan2(npc.pos.y - player.pos.y, npc.pos.x - player.pos.x);
   const footingBefore = npc.footing ?? (config.knockback?.maxFooting ?? 100);
-  applyKnockback(npc, angle, force, { verticalScale: 0.2 });
+  applyKnockback(npc, angle, force, { verticalScale: 0.2, config });
   const footingLoss = computeFootingDamage(config, footingBefore, force, npc);
   npc.footing = Math.max(0, footingBefore - footingLoss);
   applyHitReactionRagdoll(npc, config, { angle, force, footingBefore });
@@ -214,7 +232,7 @@ function handleNpcHitsPlayer(G, config, player, npc, debug, distance, bodyRadius
   const force = calculateKnockback(config, presetName, player.footing ?? 50, 1);
   const angle = Math.atan2(player.pos.y - npc.pos.y, player.pos.x - npc.pos.x);
   const footingBefore = player.footing ?? (config.knockback?.maxFooting ?? 50);
-  applyKnockback(player, angle, force, { verticalScale: 0.25 });
+  applyKnockback(player, angle, force, { verticalScale: 0.25, config });
   const footingLoss = computeFootingDamage(config, footingBefore, force, player);
   player.footing = Math.max(0, footingBefore - footingLoss);
   applyHitReactionRagdoll(player, config, { angle, force, footingBefore });

@@ -124,6 +124,103 @@ function ensureNpcPressRegistry(state) {
   return state.aiButtonPresses;
 }
 
+function resolveObstructionJumpSettings(config) {
+  const settings = config?.npc?.obstructionJump || {};
+  const clampNumber = (value, fallback, min = 0) => {
+    if (!Number.isFinite(value)) return fallback;
+    return Math.max(min, value);
+  };
+  return {
+    initialDelay: clampNumber(settings.initialDelay, 10, 0),
+    blockedDuration: clampNumber(settings.blockedDuration, 0.9, 0.1),
+    cooldown: clampNumber(settings.cooldown, 3.2, 0),
+    minVelocity: clampNumber(settings.minVelocity, 45, 0),
+    minProgress: clampNumber(settings.minProgress, 4, 0),
+    minDistance: clampNumber(settings.minDistance, 36, 0),
+  };
+}
+
+function ensureObstructionJumpState(state, config) {
+  if (!state) return null;
+  const tracker = state.obstructionJump || (state.obstructionJump = {});
+  if (!Number.isFinite(tracker.blockedTimer)) tracker.blockedTimer = 0;
+  if (!Number.isFinite(tracker.cooldown)) tracker.cooldown = 0;
+  if (!Number.isFinite(tracker.initialDelay)) {
+    const settings = resolveObstructionJumpSettings(config);
+    tracker.initialDelay = settings.initialDelay;
+  }
+  if (!Number.isFinite(tracker.prevPosX) && Number.isFinite(state.pos?.x)) {
+    tracker.prevPosX = state.pos.x;
+  }
+  tracker.blockedRecently = !!tracker.blockedRecently;
+  return tracker;
+}
+
+function processObstructionJumpPre(state, input, dt, context) {
+  if (!state || !input) return null;
+  const { config, dx, attackActive, desiredDir } = context;
+  const settings = resolveObstructionJumpSettings(config);
+  const tracker = ensureObstructionJumpState(state, config);
+  if (!tracker) return null;
+
+  tracker.initialDelay = Math.max(0, (tracker.initialDelay ?? settings.initialDelay) - dt);
+  tracker.cooldown = Math.max(0, (tracker.cooldown || 0) - dt);
+
+  const hasDistance = Math.abs(dx) > settings.minDistance;
+  const wantsAdvance = desiredDir !== 0 && !attackActive && !state.ragdoll && !state.recovering;
+  if (tracker.blockedRecently && wantsAdvance && hasDistance && state.onGround) {
+    tracker.blockedTimer += dt;
+  } else if (tracker.blockedTimer > 0) {
+    tracker.blockedTimer = Math.max(0, tracker.blockedTimer - dt * 1.5);
+  }
+
+  let triggered = false;
+  if (
+    wantsAdvance
+    && hasDistance
+    && tracker.blockedTimer >= settings.blockedDuration
+    && tracker.cooldown <= 0
+    && tracker.initialDelay <= 0
+  ) {
+    input.jump = true;
+    tracker.cooldown = settings.cooldown;
+    tracker.blockedTimer = 0;
+    tracker.lastAttemptDir = desiredDir;
+    triggered = true;
+  }
+
+  tracker.pendingDesiredDir = desiredDir;
+  tracker.pendingDistance = Math.abs(dx);
+  tracker.pendingSettings = settings;
+
+  return { triggered, settings };
+}
+
+function processObstructionJumpPost(state) {
+  if (!state?.obstructionJump) return;
+  const tracker = state.obstructionJump;
+  const settings = tracker.pendingSettings || resolveObstructionJumpSettings(window.CONFIG || {});
+  const desiredDir = Number.isFinite(tracker.pendingDesiredDir) ? tracker.pendingDesiredDir : 0;
+  const distance = Number.isFinite(tracker.pendingDistance) ? tracker.pendingDistance : 0;
+  const hasDistance = distance > settings.minDistance;
+  const prevPosX = Number.isFinite(tracker.prevPosX) ? tracker.prevPosX : state.pos?.x ?? 0;
+  const currentPosX = Number.isFinite(state.pos?.x) ? state.pos.x : prevPosX;
+  const displacement = Math.abs(currentPosX - prevPosX);
+  const horizontalSpeed = Math.abs(state.vel?.x || 0);
+  const blockedNow = desiredDir !== 0
+    && hasDistance
+    && state.onGround
+    && !state.ragdoll
+    && !state.recovering
+    && horizontalSpeed < settings.minVelocity
+    && displacement < settings.minProgress;
+  tracker.blockedRecently = blockedNow;
+  tracker.prevPosX = currentPosX;
+  delete tracker.pendingDesiredDir;
+  delete tracker.pendingDistance;
+  delete tracker.pendingSettings;
+}
+
 function getNpcFighterList(G) {
   const fighters = G.FIGHTERS || {};
   const list = [];
@@ -1045,7 +1142,16 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.cooldown = Math.max(state.cooldown, 0.25);
   }
 
+  const desiredDir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+  processObstructionJumpPre(state, input, dt, {
+    config: C,
+    dx,
+    attackActive,
+    desiredDir,
+  });
+
   updateFighterPhysics(state, C, dt, { input, attackActive });
+  processObstructionJumpPost(state);
 
   state.facingRad = dx >= 0 ? 0 : Math.PI;
 

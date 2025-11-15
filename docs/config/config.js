@@ -625,8 +625,20 @@ window.CONFIG = {
     }
   },
 
+  npc: {
+    obstructionJump: {
+      initialDelay: 10,
+      blockedDuration: 0.9,
+      cooldown: 3.2,
+      minVelocity: 45,
+      minProgress: 4,
+      minDistance: 36
+    }
+  },
+
   knockback: {
     maxFooting: 100,
+    airborneMultiplier: 5,
     weaponTypes: {
       unarmed: { type: 'blunt', multiplier: 1.0 },
       blunt: { multiplier: 2.4 },
