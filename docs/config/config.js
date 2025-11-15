@@ -27,6 +27,8 @@ const BASE_POSES = {
     lKnee: 40,
     rHip: 30,
     rKnee: 40,
+    weapon: -20,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -44,6 +46,8 @@ const BASE_POSES = {
     lKnee: 90,
     rHip: 100,
     rKnee: 90,
+    weapon: -60,
+    weaponGripPercents: { primary: 0.18, secondary: 0.52 },
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -51,6 +55,8 @@ const BASE_POSES = {
     aimLegs: false,
     anim_events: [
       { time: 0.00, velocityX: -15, velocityY: 0 },
+      { time: 0.10, grip: { action: 'attach', limb: 'right', gripId: 'primary' } },
+      { time: 0.18, grip: { action: 'attach', limb: 'left', gripId: 'secondary' } },
       { time: 0.65, impulse: 320, impulse_angle: -90 }
     ]
   },
@@ -64,6 +70,8 @@ const BASE_POSES = {
     lKnee: 0,
     rHip: 110,
     rKnee: 20,
+    weapon: 10,
+    weaponGripPercents: { primary: 0.42, secondary: 0.86 },
     rootMoveVel: { x: 0, y: 0, flip: false },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -86,6 +94,8 @@ const BASE_POSES = {
     lKnee: 70,
     rHip: 100,
     rKnee: 40,
+    weapon: -40,
+    weaponGripPercents: { primary: 0.25, secondary: 0.68 },
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -93,7 +103,9 @@ const BASE_POSES = {
     aimLegs: false,
     anim_events: [
       { time: 0.00, velocityX: 80, velocityY: -40 },
-      { time: 0.30, impulse: 120, impulse_angle: 160 }
+      { time: 0.25, grip: { action: 'detach', limb: 'left' } },
+      { time: 0.30, impulse: 120, impulse_angle: 160 },
+      { time: 0.45, grip: { action: 'detach', limb: 'right' } }
     ]
   },
   Jump: {
@@ -106,6 +118,8 @@ const BASE_POSES = {
     lKnee: 60,
     rHip: 120,
     rKnee: 60,
+    weapon: -15,
+    weaponGripPercents: { primary: 0.3, secondary: 0.7 },
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
@@ -118,6 +132,8 @@ const BASE_POSES = {
     lElbow: -100,
     rShoulder: -100,
     rElbow: -100,
+    weapon: -10,
+    weaponGripPercents: { primary: 0.3, secondary: 0.7 },
     lHip: 90,
     lKnee: 20,
     rHip: 90,
@@ -128,6 +144,16 @@ const BASE_POSES = {
     allowAiming: true,
     aimLegs: false
   }
+};
+
+const makeSarrarruComboPoses = ({ windup = {}, strike = {}, recoil = {} } = {}) => {
+  const poses = {
+    Stance: deepClone(BASE_POSES.Stance),
+    Windup: { ...deepClone(BASE_POSES.Windup), ...windup },
+    Strike: { ...deepClone(BASE_POSES.Strike), ...strike },
+    Recoil: { ...deepClone(BASE_POSES.Recoil), ...recoil }
+  };
+  return poses;
 };
 
 // Pose angle summary used by tooling/tests to verify baseline corrections.
@@ -718,40 +744,208 @@ window.CONFIG = {
         { poseKey: 'Slam', durMs: 160, strike: {} },
         { poseKey: 'Recoil', durMs: 200 }
       ]
+    },
+    SRCA1: {
+      name: 'Sarrarru Combo A1',
+      tags: ['light', 'combo', 'sarrarru'],
+      durations: { toWindup: 420, toStrike: 140, toRecoil: 220, toStance: 160 },
+      knockbackBase: 260,
+      cancelWindow: 0.65,
+      poses: makeSarrarruComboPoses({
+        windup: {
+          weapon: -40,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.05, grip: { action: 'attach', limb: 'right', gripId: 'primary' } },
+            { time: 0.12, grip: { action: 'attach', limb: 'left', gripId: 'secondary' } }
+          ]
+        },
+        strike: {
+          weapon: -25,
+          weaponGripPercents: { primary: 0.12, secondary: 0.42 },
+          anim_events: [
+            { time: 0.0, impulse: 520, impulse_angle: -20 }
+          ]
+        },
+        recoil: {
+          weapon: -12,
+          weaponGripPercents: { primary: 0.1, secondary: 0.36 },
+          anim_events: [
+            { time: 0.4, grip: { action: 'detach', limb: 'left' } },
+            { time: 0.55, grip: { action: 'detach', limb: 'right' } }
+          ]
+        }
+      })
+    },
+    SRCA2: {
+      name: 'Sarrarru Combo A2',
+      tags: ['light', 'combo', 'sarrarru'],
+      durations: { toWindup: 360, toStrike: 120, toRecoil: 200, toStance: 140 },
+      knockbackBase: 280,
+      cancelWindow: 0.68,
+      poses: makeSarrarruComboPoses({
+        windup: {
+          weapon: -35,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.04, grip: { action: 'attach', limb: 'right', gripId: 'primary' } },
+            { time: 0.1, grip: { action: 'attach', limb: 'left', gripId: 'secondary' } }
+          ]
+        },
+        strike: {
+          weapon: -18,
+          weaponGripPercents: { primary: 0.14, secondary: 0.44 },
+          anim_events: [
+            { time: 0.0, impulse: 540, impulse_angle: -15 }
+          ]
+        },
+        recoil: {
+          weapon: -8,
+          weaponGripPercents: { primary: 0.1, secondary: 0.38 },
+          anim_events: [
+            { time: 0.35, grip: { action: 'detach', limb: 'left' } },
+            { time: 0.5, grip: { action: 'detach', limb: 'right' } }
+          ]
+        }
+      })
+    },
+    SRCA3: {
+      name: 'Sarrarru Combo A3',
+      tags: ['light', 'combo', 'sarrarru'],
+      durations: { toWindup: 340, toStrike: 260, toRecoil: 220, toStance: 160 },
+      knockbackBase: 300,
+      cancelWindow: 0.7,
+      poses: makeSarrarruComboPoses({
+        windup: {
+          weapon: -12,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.05, grip: { action: 'detach', limb: 'left' } },
+            { time: 0.08, grip: { action: 'attach', limb: 'right', gripId: 'secondary' } }
+          ]
+        },
+        strike: {
+          weapon: 0,
+          weaponGripPercents: { secondary: 0.4 },
+          anim_events: [
+            { time: 0.0, grip: { action: 'detach', limb: 'left' } }
+          ]
+        },
+        recoil: {
+          weapon: -6,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.25, grip: { action: 'attach', limb: 'left', gripId: 'primary' } },
+            { time: 0.4, grip: { action: 'attach', limb: 'right', gripId: 'primary' } }
+          ]
+        }
+      })
+    },
+    SRCA4: {
+      name: 'Sarrarru Combo A4',
+      tags: ['light', 'combo', 'sarrarru'],
+      durations: { toWindup: 400, toStrike: 180, toRecoil: 240, toStance: 180 },
+      knockbackBase: 320,
+      cancelWindow: 0.72,
+      poses: makeSarrarruComboPoses({
+        windup: {
+          weapon: 20,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.05, grip: { action: 'attach', limb: 'right', gripId: 'primary' } },
+            { time: 0.11, grip: { action: 'attach', limb: 'left', gripId: 'secondary' } }
+          ]
+        },
+        strike: {
+          weapon: 40,
+          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
+          anim_events: [
+            { time: 0.0, impulse: 560, impulse_angle: 35 }
+          ]
+        },
+        recoil: {
+          weapon: 10,
+          weaponGripPercents: { primary: 0.1, secondary: 0.34 },
+          anim_events: [
+            { time: 0.4, grip: { action: 'detach', limb: 'left' } },
+            { time: 0.55, grip: { action: 'detach', limb: 'right' } }
+          ]
+        }
+      })
     }
   },
 
   // === NEW: weapon definitions (bones + selective colliders) ===
   // Used by drawSkeleton() and getActiveColliders()/drawAttackColliders()
   weapons: {
-    // fallback
-    unarmed: { bones: 0, boneOffsets: [], colliders: {} },
+    unarmed: { rig: null, colliders: {} },
 
-    // Dual short blades
     'dagger-swords': {
-      bones: 2,
-      boneOffsets: [
-        { attach: 'rWrist', length: 40, x: 10, y: 0 }, // right blade length; used for weaponBone0
-        { attach: 'lWrist', length: 40, x: 10, y: 0 }  // left blade length; used for weaponBone1
-      ],
+      rig: {
+        base: { anchor: 'torsoTop', offset: { ax: 6, ay: -4 } },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 42,
+            angleOffsetDeg: -18,
+            grips: [
+              { id: 'primary', percent: 0.2, limb: 'right', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'rightA', kind: 'box', width: 20, height: 60, from: 0.08, to: 1.0, activatesOn: ['SLASH', 'STRIKE'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
+              { id: 'rightB', kind: 'box', width: 16, height: 44, from: 0.04, to: 0.75, activatesOn: ['STAB'], offset: { ax: 0.25, ay: -0.18, units: 'percent' } }
+            ]
+          },
+          {
+            id: 'weapon_1',
+            length: 42,
+            angleOffsetDeg: 18,
+            grips: [
+              { id: 'secondary', percent: 0.2, limb: 'left', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'leftA', kind: 'box', width: 20, height: 60, from: 0.08, to: 1.0, activatesOn: ['SLASH', 'STRIKE'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
+              { id: 'leftB', kind: 'box', width: 16, height: 44, from: 0.04, to: 0.75, activatesOn: ['STAB'], offset: { ax: 0.25, ay: 0.18, units: 'percent' } }
+            ]
+          }
+        ]
+      },
       colliders: {
-        rightA: { shape:'rect', width:20, height:60, offset:{x:20,y:0},  activatesOn:['SLASH','STRIKE'] },
-        rightB: { shape:'rect', width:16, height:44, offset:{x:10,y:-8}, activatesOn:['STAB'] },
-        leftA:  { shape:'rect', width:20, height:60, offset:{x:20,y:0},  activatesOn:['SLASH','STRIKE'] },
-        leftB:  { shape:'rect', width:16, height:44, offset:{x:10,y: 8}, activatesOn:['STAB'] }
+        rightA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['SLASH', 'STRIKE'] },
+        rightB: { shape: 'rect', width: 16, height: 44, offset: { x: 10, y: -8 }, activatesOn: ['STAB'] },
+        leftA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['SLASH', 'STRIKE'] },
+        leftB: { shape: 'rect', width: 16, height: 44, offset: { x: 10, y: 8 }, activatesOn: ['STAB'] }
       }
     },
 
-    // Polearm (two-handed baseline)
     sarrarru: {
-      bones: 1,
-      boneOffsets: [
-        { attach: 'rWrist', length: 60, x: 15, y: 0 } // spear forward
-      ],
+      rig: {
+        base: { anchor: 'rHand' },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 96,
+            angleOffsetDeg: 0,
+            grips: [
+              { id: 'primary', percent: 0.1, limb: 'right' },
+              { id: 'secondary', percent: 0.4, limb: 'left' }
+            ],
+            colliders: [
+              {
+                id: 'blade',
+                kind: 'box',
+                width: 18,
+                height: 96,
+                from: 0.5,
+                to: 1.0,
+                activatesOn: ['SRCA1', 'SRCA2', 'SRCA3', 'SRCA4']
+              }
+            ]
+          }
+        ]
+      },
       colliders: {
-        rightA: { shape:'rect', width:18, height:120, offset:{x:50,y:0}, activatesOn:['THRUST'] },
-        rightB: { shape:'rect', width:26, height:140, offset:{x:35,y:0}, activatesOn:['SWEEP'] },
-        leftA:  { shape:'rect', width:16, height:40,  offset:{x:-10,y:0}, activatesOn:['SWEEP'] }
+        blade: { shape: 'rect', width: 18, height: 96, activatesOn: ['SRCA1', 'SRCA2', 'SRCA3', 'SRCA4'] }
       },
       sprite: {
         url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
@@ -768,44 +962,91 @@ window.CONFIG = {
       }
     },
 
-    // Large sword, quick handling
     'light-greatblade': {
-      bones: 2,
-      boneOffsets: [
-        { attach: 'rWrist', length: 80, x: 12, y: 0 },
-        { attach: 'lWrist', length: 20, x:  6, y: 0 }
-      ],
+      rig: {
+        base: { anchor: 'torsoTop', offset: { ax: 10, ay: -2 } },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 88,
+            angleOffsetDeg: 0,
+            grips: [
+              { id: 'primary', percent: 0.25, limb: 'right', offset: { ax: 0, ay: 0 } },
+              { id: 'secondary', percent: 0.62, limb: 'left', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'blade', kind: 'box', width: 22, height: 110, from: 0.05, to: 1.0, activatesOn: ['SLASH', 'CHOP'], offset: { ax: 0.5, ay: 0, units: 'percent' } },
+              { id: 'tip', kind: 'box', width: 18, height: 36, from: 0.8, to: 1.05, activatesOn: ['STAB'], offset: { ax: 0.9, ay: 0, units: 'percent' } }
+            ]
+          }
+        ]
+      },
       colliders: {
-        rightA: { shape:'rect',   width:22, height:110, offset:{x:45,y:0}, activatesOn:['SLASH','CHOP'] },
-        rightB: { shape:'circle', radius:16,             offset:{x:60,y:0}, activatesOn:['STAB'] }
+        rightA: { shape: 'rect', width: 22, height: 110, offset: { x: 45, y: 0 }, activatesOn: ['SLASH', 'CHOP'] },
+        rightB: { shape: 'circle', radius: 16, offset: { x: 60, y: 0 }, activatesOn: ['STAB'] }
       }
     },
 
-    // Big club
     greatclub: {
-      bones: 2,
-      boneOffsets: [
-        { attach: 'rWrist', length: 70, x: 12, y: 0 },
-        { attach: 'lWrist', length: 20, x:  6, y: 0 }
-      ],
+      rig: {
+        base: { anchor: 'torsoTop', offset: { ax: 10, ay: -2 } },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 82,
+            angleOffsetDeg: 0,
+            grips: [
+              { id: 'primary', percent: 0.28, limb: 'right', offset: { ax: 0, ay: 0 } },
+              { id: 'secondary', percent: 0.58, limb: 'left', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'clubA', kind: 'box', width: 28, height: 90, from: 0.2, to: 0.9, activatesOn: ['SMASH'], offset: { ax: 0.5, ay: 0, units: 'percent' } },
+              { id: 'clubB', kind: 'box', width: 28, height: 110, from: 0.25, to: 1.0, activatesOn: ['SWING'], offset: { ax: 0.55, ay: 0, units: 'percent' } }
+            ]
+          }
+        ]
+      },
       colliders: {
-        rightA: { shape:'rect', width:28, height:90,  offset:{x:40,y:0}, activatesOn:['SMASH'] },
-        rightB: { shape:'rect', width:28, height:110, offset:{x:30,y:0}, activatesOn:['SWING'] }
+        rightA: { shape: 'rect', width: 28, height: 90, offset: { x: 40, y: 0 }, activatesOn: ['SMASH'] },
+        rightB: { shape: 'rect', width: 28, height: 110, offset: { x: 30, y: 0 }, activatesOn: ['SWING'] }
       }
     },
 
-    // Dual hatchets
     hatchets: {
-      bones: 2,
-      boneOffsets: [
-        { attach: 'rWrist', length: 45, x: 10, y: 0 },
-        { attach: 'lWrist', length: 45, x: 10, y: 0 }
-      ],
+      rig: {
+        base: { anchor: 'torsoTop', offset: { ax: 6, ay: -4 } },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 46,
+            angleOffsetDeg: -14,
+            grips: [
+              { id: 'primary', percent: 0.2, limb: 'right', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'rightA', kind: 'box', width: 18, height: 50, from: 0.1, to: 0.9, activatesOn: ['HACK'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
+              { id: 'rightB', kind: 'box', width: 20, height: 52, from: 0.55, to: 1.05, activatesOn: ['TOSS'], offset: { ax: 0.65, ay: -0.1, units: 'percent' } }
+            ]
+          },
+          {
+            id: 'weapon_1',
+            length: 46,
+            angleOffsetDeg: 14,
+            grips: [
+              { id: 'secondary', percent: 0.2, limb: 'left', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              { id: 'leftA', kind: 'box', width: 18, height: 50, from: 0.1, to: 0.9, activatesOn: ['HACK'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
+              { id: 'leftB', kind: 'box', width: 20, height: 52, from: 0.55, to: 1.05, activatesOn: ['TOSS'], offset: { ax: 0.65, ay: 0.1, units: 'percent' } }
+            ]
+          }
+        ]
+      },
       colliders: {
-        rightA: { shape:'rect',   width:18, height:50, offset:{x:20,y:0},  activatesOn:['HACK'] },
-        rightB: { shape:'circle', radius:18,           offset:{x:25,y:-5}, activatesOn:['TOSS'] },
-        leftA:  { shape:'rect',   width:18, height:50, offset:{x:20,y:0},  activatesOn:['HACK'] },
-        leftB:  { shape:'circle', radius:18,           offset:{x:25,y: 5}, activatesOn:['TOSS'] }
+        rightA: { shape: 'rect', width: 18, height: 50, offset: { x: 20, y: 0 }, activatesOn: ['HACK'] },
+        rightB: { shape: 'circle', radius: 18, offset: { x: 25, y: -5 }, activatesOn: ['TOSS'] },
+        leftA: { shape: 'rect', width: 18, height: 50, offset: { x: 20, y: 0 }, activatesOn: ['HACK'] },
+        leftB: { shape: 'circle', radius: 18, offset: { x: 25, y: 5 }, activatesOn: ['TOSS'] }
       }
     }
   },
@@ -1036,7 +1277,7 @@ window.CONFIG = {
     sarrarru: {
       weapon: 'sarrarru',
       name: 'Spear Rhythm',
-      sequence: ['THRUST', 'SWEEP', 'THRUST', 'SWEEP'],
+      sequence: ['SRCA1', 'SRCA2', 'SRCA3', 'SRCA4'],
       comboWindowMs: 3500,
       type: 'sharp'
     },
@@ -1211,6 +1452,58 @@ window.CONFIG = {
           damage: { health: 10 },
           staminaCost: 18,
           colliders: ['footL']
+        }
+      },
+      SRCA1: {
+        preset: 'SRCA1',
+        name: 'Sarrarru Combo A1',
+        tags: ['combo', 'light', 'sarrarru'],
+        sequence: [
+          { move: 'SRCA1', startMs: 0 }
+        ],
+        attackData: {
+          damage: { health: 18 },
+          staminaCost: 16,
+          useWeaponColliders: true
+        }
+      },
+      SRCA2: {
+        preset: 'SRCA2',
+        name: 'Sarrarru Combo A2',
+        tags: ['combo', 'light', 'sarrarru'],
+        sequence: [
+          { move: 'SRCA2', startMs: 0 }
+        ],
+        attackData: {
+          damage: { health: 20 },
+          staminaCost: 18,
+          useWeaponColliders: true
+        }
+      },
+      SRCA3: {
+        preset: 'SRCA3',
+        name: 'Sarrarru Combo A3',
+        tags: ['combo', 'light', 'sarrarru'],
+        sequence: [
+          { move: 'SRCA3', startMs: 0 }
+        ],
+        attackData: {
+          damage: { health: 22 },
+          staminaCost: 20,
+          useWeaponColliders: true
+        }
+      },
+      SRCA4: {
+        preset: 'SRCA4',
+        name: 'Sarrarru Combo A4',
+        tags: ['combo', 'light', 'sarrarru'],
+        sequence: [
+          { move: 'SRCA4', startMs: 0 }
+        ],
+        attackData: {
+          damage: { health: 24 },
+          staminaCost: 22,
+          useWeaponColliders: true
         }
       }
     },
@@ -1741,7 +2034,7 @@ const buildPresets = () => {
     if (!CONFIG.presets[name]) CONFIG.presets[name] = clone(CONFIG.presets[base] || {});
     CONFIG.presets[name].useWeaponColliders = true;
   };
-  ['SLASH','STAB','THRUST','SWEEP','CHOP','SMASH','SWING','HACK','TOSS'].forEach(n => ensurePreset(n));
+  ['SLASH','STAB','THRUST','SWEEP','CHOP','SMASH','SWING','HACK','TOSS','SRCA1','SRCA2','SRCA3','SRCA4'].forEach(n => ensurePreset(n));
 
   try { document.dispatchEvent(new Event('config:ready')); } catch(_){}
 };
