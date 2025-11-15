@@ -1,5 +1,5 @@
 // combat.js — Full attack system matching reference HTML (tap/hold, charge, combo, queue)
-import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=3';
+import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=5';
 import { resetMirror, setMirrorForPart } from './sprites.js?v=8';
 import { ensureFighterPhysics, updateFighterPhysics } from './physics.js?v=1';
 import {
@@ -199,13 +199,40 @@ export function makeCombat(G, C, options = {}){
     return [];
   };
 
-  const collectWeaponColliderKeys = (fighter) => {
+  const collectWeaponColliderKeys = (fighter, options = {}) => {
     const state = fighter?.anim?.weapon?.state;
     if (!state?.bones) return [];
+    const tagSet = new Set();
+    const addTag = (value) => {
+      if (value == null) return;
+      const str = String(value).trim();
+      if (str) tagSet.add(str.toUpperCase());
+    };
+    if (options.preset) addTag(options.preset);
+    const allowedTags = options.allowedTags;
+    if (allowedTags instanceof Set) {
+      allowedTags.forEach(addTag);
+    } else if (Array.isArray(allowedTags)) {
+      allowedTags.forEach(addTag);
+    } else if (allowedTags && typeof allowedTags === 'object') {
+      Object.values(allowedTags).forEach(addTag);
+    }
     const keys = [];
     for (const bone of state.bones) {
       for (const collider of bone?.colliders || []) {
         if (!collider || !collider.id) continue;
+        const activations = Array.isArray(collider.activatesOn) ? collider.activatesOn : [];
+        if (activations.length) {
+          if (!tagSet.size) {
+            continue;
+          }
+          const matches = activations.some((tag) => {
+            if (tag == null) return false;
+            const str = String(tag).trim();
+            return str && tagSet.has(str.toUpperCase());
+          });
+          if (!matches) continue;
+        }
         keys.push(`weapon:${collider.id}`);
       }
     }
@@ -961,6 +988,11 @@ export function makeCombat(G, C, options = {}){
       const normalized = normalizeColliderKeys(colliderSources.flat());
       if (normalized.length) target.colliders = normalized;
     }
+    if (data.useWeaponColliders === true) {
+      target.useWeaponColliders = true;
+    } else if (data.useWeaponColliders === false) {
+      target.useWeaponColliders = false;
+    }
     return target;
   }
 
@@ -1019,11 +1051,13 @@ export function makeCombat(G, C, options = {}){
     const baseStaminaCost = Number.isFinite(mergedData.staminaCost) ? mergedData.staminaCost : 0;
     const staminaCost = Math.max(0, Math.round(baseStaminaCost * staminaMultiplier));
     const colliders = Array.isArray(mergedData.colliders) ? mergedData.colliders.slice() : [];
+    const useWeaponColliders = mergedData.useWeaponColliders === true;
     return {
       base: mergedData,
       damage,
       staminaCost,
       colliders,
+      useWeaponColliders,
       strengthMultiplier,
       staminaMultiplier,
       statProfile,
@@ -1278,8 +1312,37 @@ export function makeCombat(G, C, options = {}){
       const explicitKeys = Array.isArray(context?.activeColliderKeys) && context.activeColliderKeys.length
         ? context.activeColliderKeys.slice()
         : inferActiveCollidersForPreset(attackState.preset || context?.preset);
-      const weaponKeys = collectWeaponColliderKeys(fighter);
-      if (weaponKeys.length) {
+      const allowWeaponColliders =
+        context?.attackProfile?.useWeaponColliders === true
+        || context?.attackProfile?.base?.useWeaponColliders === true
+        || context?.attack?.useWeaponColliders === true
+        || context?.attack?.attackData?.useWeaponColliders === true
+        || context?.variant?.attackData?.useWeaponColliders === true
+        || context?.ability?.attackData?.useWeaponColliders === true
+        || CONFIG.presets?.[attackState.preset]?.useWeaponColliders === true;
+      const allowedTags = new Set();
+      const addAllowed = (value) => {
+        if (value == null) return;
+        const str = String(value).trim();
+        if (str) allowedTags.add(str.toUpperCase());
+      };
+      addAllowed(attackState.preset || context?.preset);
+      addAllowed(context?.attackId);
+      addAllowed(context?.attack?.id);
+      if (Array.isArray(context?.attack?.sequence)) {
+        context.attack.sequence.forEach((entry) => {
+          if (!entry) return;
+          if (typeof entry === 'string') {
+            addAllowed(entry);
+          } else {
+            addAllowed(entry.move || entry.id || entry.preset);
+          }
+        });
+      }
+      const weaponKeys = allowWeaponColliders
+        ? collectWeaponColliderKeys(fighter, { allowedTags, preset: attackState.preset || context?.preset })
+        : [];
+      if (allowWeaponColliders && weaponKeys.length) {
         const merged = new Set(Array.isArray(explicitKeys) ? explicitKeys : []);
         for (const key of weaponKeys) merged.add(key);
         attackState.currentActiveKeys = Array.from(merged);

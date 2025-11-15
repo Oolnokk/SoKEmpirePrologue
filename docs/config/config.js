@@ -898,12 +898,14 @@ window.CONFIG = {
 
     'dagger-swords': {
       rig: {
-        base: { anchor: 'torsoTop', offset: { ax: 6, ay: -4 } },
+        base: { anchor: 'rightWrist' },
         bones: [
           {
             id: 'weapon_0',
             length: 42,
             angleOffsetDeg: -18,
+            joint: { percent: 0.38 },
+            haft: { start: 0.05, end: 0.45 },
             grips: [
               { id: 'primary', percent: 0.2, limb: 'right', offset: { ax: 0, ay: 0 } }
             ],
@@ -916,6 +918,10 @@ window.CONFIG = {
             id: 'weapon_1',
             length: 42,
             angleOffsetDeg: 18,
+            joint: { percent: 0.38 },
+            haft: { start: 0.05, end: 0.45 },
+            anchor: 'leftWrist',
+            limb: 'left',
             grips: [
               { id: 'secondary', percent: 0.2, limb: 'left', offset: { ax: 0, ay: 0 } }
             ],
@@ -936,12 +942,14 @@ window.CONFIG = {
 
     sarrarru: {
       rig: {
-        base: { anchor: 'torsoTop', offset: { ax: 12, ay: -6 } },
+        base: { anchor: 'rightWrist' },
         bones: [
           {
             id: 'weapon_0',
             length: 96,
             angleOffsetDeg: 0,
+            joint: { percent: 0.22 },
+            haft: { start: 0.18, end: 0.85 },
             grips: [
               { id: 'primary', percent: 0.32, limb: 'right', offset: { ax: 0, ay: 0 } },
               { id: 'secondary', percent: 0.76, limb: 'left', offset: { ax: 0, ay: 0 } }
@@ -975,12 +983,14 @@ window.CONFIG = {
 
     'light-greatblade': {
       rig: {
-        base: { anchor: 'torsoTop', offset: { ax: 10, ay: -2 } },
+        base: { anchor: 'rightWrist' },
         bones: [
           {
             id: 'weapon_0',
             length: 88,
             angleOffsetDeg: 0,
+            joint: { percent: 0.17 },
+            haft: { start: 0.15, end: 0.75 },
             grips: [
               { id: 'primary', percent: 0.25, limb: 'right', offset: { ax: 0, ay: 0 } },
               { id: 'secondary', percent: 0.62, limb: 'left', offset: { ax: 0, ay: 0 } }
@@ -1000,12 +1010,14 @@ window.CONFIG = {
 
     greatclub: {
       rig: {
-        base: { anchor: 'torsoTop', offset: { ax: 10, ay: -2 } },
+        base: { anchor: 'rightWrist' },
         bones: [
           {
             id: 'weapon_0',
             length: 82,
             angleOffsetDeg: 0,
+            joint: { percent: 0.14 },
+            haft: { start: 0.2, end: 0.78 },
             grips: [
               { id: 'primary', percent: 0.28, limb: 'right', offset: { ax: 0, ay: 0 } },
               { id: 'secondary', percent: 0.58, limb: 'left', offset: { ax: 0, ay: 0 } }
@@ -1025,12 +1037,14 @@ window.CONFIG = {
 
     hatchets: {
       rig: {
-        base: { anchor: 'torsoTop', offset: { ax: 6, ay: -4 } },
+        base: { anchor: 'rightWrist' },
         bones: [
           {
             id: 'weapon_0',
             length: 46,
             angleOffsetDeg: -14,
+            joint: { percent: 0.38 },
+            haft: { start: 0.05, end: 0.45 },
             grips: [
               { id: 'primary', percent: 0.2, limb: 'right', offset: { ax: 0, ay: 0 } }
             ],
@@ -1043,6 +1057,10 @@ window.CONFIG = {
             id: 'weapon_1',
             length: 46,
             angleOffsetDeg: 14,
+            joint: { percent: 0.38 },
+            haft: { start: 0.05, end: 0.45 },
+            anchor: 'leftWrist',
+            limb: 'left',
             grips: [
               { id: 'secondary', percent: 0.2, limb: 'left', offset: { ax: 0, ay: 0 } }
             ],
