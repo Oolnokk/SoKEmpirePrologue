@@ -4,6 +4,7 @@ import { initCombatForFighter } from './combat.js?v=19';
 import { ensureFighterPhysics, updateFighterPhysics } from './physics.js?v=1';
 import { applyHealthRegenFromStats, applyStaminaTick, getStatProfile } from './stat-hooks.js?v=1';
 import { ensureNpcAbilityDirector, updateNpcAbilityDirector } from './npcAbilityDirector.js?v=1';
+import { removeNpcFighter } from './fighter.js?v=8';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -60,6 +61,26 @@ function ensureNpcContainers(G) {
   const npcSystems = (G.NPC ||= {});
   npcSystems.perNpc ||= {};
   return npcSystems;
+}
+
+function resolveNpcDeathDestroyDelay(state) {
+  if (state && Number.isFinite(state.deathDestroyDelay)) {
+    return Math.max(0, state.deathDestroyDelay);
+  }
+  const configDelay = window.CONFIG?.npc?.deathDestroyDelay;
+  if (Number.isFinite(configDelay)) {
+    return Math.max(0, configDelay);
+  }
+  return 0;
+}
+
+function destroyNpcInstance(state) {
+  if (!state || state.destroyed) return false;
+  const id = state.id || 'npc';
+  state.destroyed = true;
+  unregisterNpcFighter(id);
+  removeNpcFighter(id);
+  return true;
 }
 
 function ensureNpcVisualState(state) {
@@ -766,9 +787,15 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   const visuals = ensureNpcVisualState(state);
 
   if (state.isDead) {
+    const previousDeadTime = Number.isFinite(state.deadTime) ? state.deadTime : 0;
+    state.deadTime = previousDeadTime + dt;
     updateFighterPhysics(state, C, dt, { input: null, attackActive: false });
     fadeNpcDashTrail(visuals, dt);
     fadeNpcAttackTrailEntry(visuals, dt);
+    const destroyDelay = resolveNpcDeathDestroyDelay(state);
+    if (!state.destroyed && state.deadTime >= destroyDelay) {
+      destroyNpcInstance(state);
+    }
     return;
   }
 
@@ -1125,6 +1152,21 @@ function fadeNpcAttackTrailEntry(visualEntry, dt) {
   }
 }
 
+function resolveWeaponColliderPoint(fighter, key) {
+  if (!fighter?.anim?.weapon?.state) return null;
+  const id = key.slice('weapon:'.length);
+  if (!id) return null;
+  for (const bone of fighter.anim.weapon.state.bones || []) {
+    for (const collider of bone?.colliders || []) {
+      if (!collider || collider.id !== id) continue;
+      const center = collider.center || { x: 0, y: 0 };
+      const radius = Math.max(8, Math.max(Number(collider.width) || 0, Number(collider.height) || 0) * 0.5);
+      return { x: center.x, y: center.y, radius };
+    }
+  }
+  return null;
+}
+
 export function recordNpcAttackTrailSample(colliders, dt, fighterId) {
   const G = ensureGameState();
   const fighter = fighterId ? G.FIGHTERS?.[fighterId] : null;
@@ -1143,9 +1185,19 @@ export function recordNpcAttackTrailSample(colliders, dt, fighterId) {
   if (!Array.isArray(keys) || keys.length === 0) return;
   attackTrail.colliders ||= {};
   for (const key of keys) {
-    const pos = colliders?.[key];
+    let pos = colliders?.[key];
+    let radius = colliders?.[`${key}Radius`];
+    if ((!pos || !Number.isFinite(radius)) && key.startsWith('weapon:')) {
+      const resolved = resolveWeaponColliderPoint(fighter, key);
+      if (resolved) {
+        pos = { x: resolved.x, y: resolved.y };
+        radius = resolved.radius;
+      }
+    }
     if (!pos) continue;
-    const radius = colliders?.[`${key}Radius`] ?? 12;
+    if (!Number.isFinite(radius)) {
+      radius = 12;
+    }
     const list = attackTrail.colliders[key] || (attackTrail.colliders[key] = []);
     list.unshift({ x: pos.x, y: pos.y, radius, alpha: 1 });
     if (list.length > attackTrail.maxLength) list.length = attackTrail.maxLength;

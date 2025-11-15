@@ -583,8 +583,11 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   const xform = (effectiveStyle.xform || {})[normalizedKey] || (effectiveStyle.xform || {})[styleKey] || {};
   const xformUnits = (effectiveStyle.xformUnits || 'px').toLowerCase();
 
-  let ax = Number.isFinite(xform.ax) ? xform.ax : (xform.ax == null ? 0 : Number(xform.ax) || 0);
-  let ay = Number.isFinite(xform.ay) ? xform.ay : (xform.ay == null ? 0 : Number(xform.ay) || 0);
+  const hasXformAx = xform.ax != null;
+  const hasXformAy = xform.ay != null;
+
+  let ax = xform.ax ?? 0;
+  let ay = xform.ay ?? 0;
   if (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct') {
     ax *= bone.len;
     ay *= bone.len;
@@ -596,6 +599,21 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style, offsets){
   const offsetY = ax * bAxis.fy + ay * bAxis.ry;
   posX += offsetX;
   posY += offsetY;
+
+  const spriteOffset = lookupSpriteOffset(offsets, styleKey);
+  if (spriteOffset){
+    const units = (spriteOffset.units || '').toLowerCase();
+    let ox = spriteOffset.ax;
+    let oy = spriteOffset.ay;
+    const unitMode = units
+      || (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct' ? 'percent' : 'px');
+    if (unitMode === 'percent' || unitMode === '%' || unitMode === 'pct'){
+      ox *= bone.len;
+      oy *= bone.len;
+    }
+    posX += ox * bAxis.fx + oy * bAxis.rx;
+    posY += ox * bAxis.fy + oy * bAxis.ry;
+  }
 
   // Sizing
   const nh = sourceImage.naturalHeight || sourceImage.height || 1;
