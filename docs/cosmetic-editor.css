@@ -232,11 +232,13 @@ body[data-editor-mode="draping"] .part-preview__stage {
   border: 1px solid rgba(125, 211, 252, 0.35);
   box-shadow: 0 0 12px rgba(14, 165, 233, 0.25);
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
   min-height: 96px;
   overflow: hidden;
   backdrop-filter: blur(2px);
+  gap: 6px;
 }
 
 .drape-overlay__box::before {
@@ -252,11 +254,34 @@ body[data-editor-mode="draping"] .part-preview__stage {
   box-shadow: 0 0 18px rgba(56, 189, 248, 0.55);
 }
 
+.drape-overlay__radius-visual {
+  position: relative;
+  border-radius: 999px;
+  border: 1px dashed rgba(125, 211, 252, 0.7);
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.18) 0%, rgba(14, 165, 233, 0.05) 70%, transparent 100%);
+  mix-blend-mode: screen;
+  margin-top: 6px;
+}
+
+.drape-overlay__radius {
+  position: relative;
+  z-index: 1;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #bae6fd;
+  background: rgba(2, 6, 23, 0.6);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 14px rgba(14, 165, 233, 0.35);
+}
+
 .drape-overlay__box-label {
   position: relative;
   z-index: 1;
   width: 100%;
-  padding: 10px 8px;
+  padding: 12px 8px 10px;
   background: rgba(2,6,23,0.72);
   text-align: center;
   font-size: 11px;
@@ -264,12 +289,30 @@ body[data-editor-mode="draping"] .part-preview__stage {
   text-transform: uppercase;
   color: #e0f2fe;
   line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drape-overlay__style-key {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: rgba(94, 234, 212, 0.85);
 }
 
 .drape-overlay__metric {
   display: block;
   font-size: 10px;
   color: rgba(224, 242, 254, 0.82);
+}
+
+.drape-overlay__transform {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 10px;
+  color: rgba(191, 219, 254, 0.9);
 }
 
 .drape-overlay__heat {
