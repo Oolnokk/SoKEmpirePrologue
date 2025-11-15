@@ -805,7 +805,7 @@ window.CONFIG = {
     player: {
       fighter: 'Mao-ao_M',
       weapon: 'unarmed',
-      slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold'],
+      slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold', 'quick_punch', 'evade_defensive'],
       stats: {
         strength: 12,
         agility: 11,
@@ -835,7 +835,7 @@ window.CONFIG = {
     enemy1: {
       fighter: 'Mao-ao_M',
       weapon: 'unarmed',
-      slottedAbilities: ['combo_light', 'heavy_hold', 'quick_punch', 'heavy_hold'],
+      slottedAbilities: ['combo_light', 'heavy_hold', 'quick_punch', 'heavy_hold', 'quick_light', 'evade_defensive'],
       stats: {
         strength: 5,
         agility: 4,
@@ -1125,11 +1125,48 @@ window.CONFIG = {
           })
         },
         onHit: abilityKnockback(14)
+      },
+      evade_defensive: {
+        name: 'Evade',
+        type: 'defensive',
+        trigger: 'defensive',
+        tags: ['defensive', 'mobility'],
+        defensive: {
+          poseKey: 'Stance',
+          poseRefreshMs: 220,
+          staminaDrainPerSecond: 40,
+          minStaminaRatio: 0.6
+        }
       }
     },
     slots: {
-      A: { label: 'Primary Attack', light: 'combo_light', heavy: 'heavy_hold' },
-      B: { label: 'Secondary Attack', light: 'quick_light', heavy: 'heavy_hold' }
+      A: {
+        label: 'Primary Attack',
+        light: 'combo_light',
+        heavy: 'heavy_hold',
+        allowed: {
+          light: { triggers: ['combo', 'single'] },
+          heavy: { triggers: ['hold-release', 'flurry'] }
+        }
+      },
+      B: {
+        label: 'Secondary Attack',
+        light: 'quick_light',
+        heavy: 'heavy_hold',
+        allowed: {
+          light: { triggers: ['single'] },
+          heavy: { triggers: ['hold-release', 'flurry'] }
+        }
+      },
+      C: {
+        label: 'Utility',
+        light: 'quick_punch',
+        heavy: 'evade_defensive',
+        allowed: {
+          light: { triggers: ['single'] },
+          heavy: { triggers: ['defensive'] }
+        }
+      }
     }
   }
 }
@@ -1340,7 +1377,8 @@ const TRIGGER_TO_TYPE = {
   combo: 'combo',
   single: 'quick',
   'hold-release': 'hold-release',
-  flurry: 'flurry'
+  flurry: 'flurry',
+  defensive: 'defensive'
 };
 
 const buildAbilityHierarchyV2 = (abilitySystem = {}, attackHierarchy = {}) => {
@@ -1375,6 +1413,7 @@ const buildAbilityHierarchyV2 = (abilitySystem = {}, attackHierarchy = {}) => {
     if (def.comboFromWeapon) ability.comboFromWeapon = true;
     if (def.fallbackWeapon) ability.fallbackWeapon = def.fallbackWeapon;
     if (def.charge) ability.charge = deepClone(def.charge);
+    if (def.defensive) ability.defensive = deepClone(def.defensive);
     abilities[abilityId] = ability;
   });
   return abilities;
@@ -1389,7 +1428,8 @@ const buildInputSlotHierarchyV2 = (slots = {}) => {
       assignments: {
         light: slotDef.light || null,
         heavy: slotDef.heavy || null
-      }
+      },
+      allowed: slotDef.allowed ? deepClone(slotDef.allowed) : null
     };
   });
   return slotMap;
