@@ -121,6 +121,22 @@ export class MapRegistry {
     return this._areas.get(areaId) || null;
   }
 
+  getInstance(areaId, instanceId) {
+    if (!areaId || !instanceId) return null;
+    const area = this.getArea(areaId);
+    if (!area || typeof area !== 'object') return null;
+    const lookup = area.instancesById || null;
+    if (!lookup || typeof lookup !== 'object') return null;
+    return lookup[instanceId] ?? null;
+  }
+
+  getActiveInstance(instanceId) {
+    if (!instanceId) return null;
+    const activeAreaId = this.getActiveAreaId();
+    if (!activeAreaId) return null;
+    return this.getInstance(activeAreaId, instanceId);
+  }
+
   getActiveAreaId() {
     return this._activeAreaId;
   }
@@ -167,6 +183,45 @@ function validateAreaDescriptor(descriptor) {
   }
   if (!Array.isArray(descriptor.instances) && !Array.isArray(descriptor.props)) {
     warnings.push('Area declares neither "instances" nor "props" – runtime may need one');
+  }
+
+  let seenInstanceIds = null;
+  if (Array.isArray(descriptor.instances)) {
+    seenInstanceIds = new Set();
+    descriptor.instances.forEach((inst, index) => {
+      if (!inst || typeof inst !== 'object') {
+        warnings.push(`Instance at index ${index} is not an object`);
+        return;
+      }
+      const rawId = typeof inst.instanceId === 'string' ? inst.instanceId.trim() : '';
+      if (!rawId) {
+        errors.push(`Instance at index ${index} missing "instanceId"`);
+        return;
+      }
+      if (seenInstanceIds.has(rawId)) {
+        errors.push(`Duplicate instanceId "${rawId}"`);
+      } else {
+        seenInstanceIds.add(rawId);
+      }
+    });
+  }
+
+  if (descriptor.instancesById && typeof descriptor.instancesById === 'object') {
+    const indexKeys = new Set(Object.keys(descriptor.instancesById));
+    if (seenInstanceIds) {
+      for (const id of seenInstanceIds) {
+        if (!indexKeys.has(id)) {
+          errors.push(`instancesById missing mapping for "${id}"`);
+        }
+      }
+      for (const key of indexKeys) {
+        if (!seenInstanceIds.has(key)) {
+          warnings.push(`instancesById entry "${key}" has no matching instance`);
+        }
+      }
+    } else {
+      warnings.push('instancesById provided without instances array');
+    }
   }
 
   return { warnings, errors };

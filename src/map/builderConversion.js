@@ -2,6 +2,11 @@ const SOURCE_ID = 'map-builder-layered-v15f';
 
 const FALLBACK_BOX_MIN_WIDTH = 18;
 
+const TAG_INSTANCE_ID_MAPPING = new Map([
+  ['spawn:player', 'player_spawn'],
+  ['spawn:npc', 'npc_spawn'],
+]);
+
 function normalizeErrorInfo(raw) {
   if (!raw) {
     return { code: null, message: null };
@@ -93,6 +98,95 @@ function createAsciiBox(lines) {
     return `| ${padded} |`;
   });
   return [horizontal, ...body, horizontal];
+}
+
+function sanitizeInstanceId(value) {
+  if (value == null) return '';
+  const text = String(value).trim();
+  if (!text) return '';
+  const normalized = text
+    .replace(/[^A-Za-z0-9:_-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return normalized || '';
+}
+
+function resolveInstanceIdFromTags(tags) {
+  if (!Array.isArray(tags) || tags.length === 0) {
+    return { id: '', source: null };
+  }
+  for (const tag of tags) {
+    const normalized = typeof tag === 'string' ? tag.trim() : '';
+    if (!normalized) continue;
+    if (TAG_INSTANCE_ID_MAPPING.has(normalized)) {
+      return { id: TAG_INSTANCE_ID_MAPPING.get(normalized), source: `tag:${normalized}` };
+    }
+    if (normalized.toLowerCase().startsWith('instance:')) {
+      const direct = sanitizeInstanceId(normalized.slice('instance:'.length));
+      if (direct) {
+        return { id: direct, source: `tag:${normalized}` };
+      }
+    }
+  }
+  return { id: '', source: null };
+}
+
+function resolveInstanceId(rawInstance, context) {
+  const {
+    areaId = 'area',
+    index = 0,
+    tags = [],
+    usedIds = new Set(),
+  } = context || {};
+
+  const attempts = [];
+
+  attempts.push({ id: sanitizeInstanceId(rawInstance?.instanceId), source: 'instance.instanceId' });
+
+  const tagResult = resolveInstanceIdFromTags(tags);
+  if (tagResult.id) {
+    attempts.push(tagResult);
+  }
+
+  attempts.push({ id: sanitizeInstanceId(rawInstance?.id), source: 'instance.id' });
+
+  if (rawInstance?.prefabId) {
+    attempts.push({ id: sanitizeInstanceId(rawInstance.prefabId), source: 'prefabId' });
+  }
+
+  const autoIdBase = sanitizeInstanceId(`${areaId || 'area'}_${index}`) || `instance_${index}`;
+  attempts.push({ id: autoIdBase, source: 'auto.index' });
+
+  let resolved = attempts.find((candidate) => candidate.id);
+  if (!resolved) {
+    resolved = { id: `instance_${index}`, source: 'auto.fallback' };
+  }
+
+  let { id: instanceId, source } = resolved;
+  if (usedIds.has(instanceId)) {
+    let suffix = 2;
+    while (usedIds.has(`${instanceId}_${suffix}`)) {
+      suffix += 1;
+    }
+    instanceId = `${instanceId}_${suffix}`;
+    source = `${source}+dedupe`;
+  }
+
+  usedIds.add(instanceId);
+
+  return { instanceId, source };
+}
+
+function buildInstanceIndex(instances) {
+  const index = {};
+  for (const inst of instances) {
+    if (!inst || typeof inst !== 'object') continue;
+    const key = typeof inst.instanceId === 'string' ? inst.instanceId : null;
+    if (key && !(key in index)) {
+      index[key] = inst;
+    }
+  }
+  return index;
 }
 
 function createPrefabFallback(prefabId, errorInfo = {}) {
@@ -230,9 +324,16 @@ function normalizeAreaDescriptor(area, options = {}) {
     meta: layer.meta ? safeClone(layer.meta) : {},
   }));
 
-  const convertedInstances = rawInstances.map((inst) => {
+  const usedInstanceIds = new Set();
+  const convertedInstances = rawInstances.map((inst, index) => {
     const tags = Array.isArray(inst.tags) ? inst.tags.map((tag) => String(tag)) : [];
     const meta = inst.meta ? safeClone(inst.meta) : {};
+    const { instanceId, source: instanceIdSource } = resolveInstanceId(inst, {
+      areaId,
+      index,
+      tags,
+      usedIds: usedInstanceIds,
+    });
     const { prefab: resolvedPrefab, fallback } = resolvePrefab(
       inst.prefabId ?? null,
       inst.prefab ?? null,
@@ -246,7 +347,13 @@ function normalizeAreaDescriptor(area, options = {}) {
         ...fallback,
       };
     }
+    meta.identity = {
+      ...(meta.identity || {}),
+      instanceId,
+      source: meta.identity?.source || instanceIdSource,
+    };
     return {
+      instanceId,
       id: inst.id,
       prefabId: inst.prefabId ?? null,
       layerId: inst.layerId ?? null,
@@ -281,6 +388,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     },
     layers: convertedLayers,
     instances: convertedInstances,
+    instancesById: buildInstanceIndex(convertedInstances),
     colliders: convertedColliders,
     warnings,
     meta: area.meta ? safeClone(area.meta) : {},
@@ -330,7 +438,8 @@ export function convertLayoutToArea(layout, options = {}) {
     },
   }));
 
-  const convertedInstances = instances.map((inst) => {
+  const usedInstanceIds = new Set();
+  const convertedInstances = instances.map((inst, index) => {
     const layer = layerMap.get(inst.layerId) || null;
     const separation = layer ? toNumber(layer.sep, 0) : 0;
     const center = slotCenters.get(inst.layerId) ?? (inst.slot ?? 0);
@@ -348,6 +457,13 @@ export function convertLayoutToArea(layout, options = {}) {
     );
     const tags = Array.isArray(inst.tags) ? inst.tags.map((tag) => String(tag)) : [];
 
+    const { instanceId, source: instanceIdSource } = resolveInstanceId(inst, {
+      areaId: resolvedAreaId,
+      index,
+      tags,
+      usedIds: usedInstanceIds,
+    });
+
     const original = safeClone(inst);
     if (tags.length && !Array.isArray(original.tags)) {
       original.tags = [...tags];
@@ -362,8 +478,14 @@ export function convertLayoutToArea(layout, options = {}) {
         ...fallback,
       };
     }
+    meta.identity = {
+      ...(meta.identity || {}),
+      instanceId,
+      source: meta.identity?.source || instanceIdSource,
+    };
 
     return {
+      instanceId,
       id: inst.id,
       prefabId: inst.prefabId,
       layerId: inst.layerId,
@@ -405,6 +527,7 @@ export function convertLayoutToArea(layout, options = {}) {
     },
     layers: convertedLayers,
     instances: convertedInstances,
+    instancesById: buildInstanceIndex(convertedInstances),
     colliders: convertedColliders,
     warnings,
     meta: {
