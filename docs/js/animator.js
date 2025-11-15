@@ -587,14 +587,179 @@ function computePoseBasis(F, target, C, fcfg) {
   };
 }
 
-function resolveWeaponAnchor(anchorKey, basisInfo, limbHint) {
+const LEFT_WRIST_KEY_ALIASES = [
+  'lwrist', 'leftwrist', 'lefthand', 'leftHand', 'handl', 'hand_left', 'handleft', 'left-hand',
+  'wristl', 'wrist_left', 'wristleft', 'lhand', 'arm_l_lower', 'armllower', 'leftlower',
+  'leftforearm', 'forearmleft', 'armleftlower', 'leftgrip', 'gripleft'
+];
+const RIGHT_WRIST_KEY_ALIASES = [
+  'rwrist', 'rightwrist', 'righthand', 'rightHand', 'handr', 'hand_right', 'handright', 'right-hand',
+  'wristr', 'wrist_right', 'wristright', 'rhand', 'arm_r_lower', 'armrlower', 'rightlower',
+  'rightforearm', 'forearmright', 'armrightlower', 'rightgrip', 'gripright'
+];
+const WRIST_GROUP_KEY_ALIASES = ['wrists', 'hands', 'forearms', 'arms', 'limbs'];
+
+function normalizeKeyName(name) {
+  if (!name && name !== 0) return '';
+  return String(name).replace(/[\s_-]+/g, '').toLowerCase();
+}
+
+function pickNormalized(source, key) {
+  if (!source || typeof source !== 'object') return undefined;
+  const normalized = normalizeKeyName(key);
+  for (const candidate of Object.keys(source)) {
+    if (normalizeKeyName(candidate) === normalized) {
+      return source[candidate];
+    }
+  }
+  return undefined;
+}
+
+function toRadiansMaybeDeg(value) {
+  if (!Number.isFinite(value)) return null;
+  const abs = Math.abs(value);
+  if (abs <= (Math.PI * 2 + 1e-3)) return value;
+  return degToRad(value);
+}
+
+function parseRotationSpec(spec) {
+  if (spec == null) return null;
+  if (typeof spec === 'number') {
+    return toRadiansMaybeDeg(spec);
+  }
+  if (typeof spec !== 'object') return null;
+
+  const radKeys = ['rotRad', 'rotateRad', 'angleRad', 'rotationRad', 'rad', 'theta', 'radians'];
+  for (const key of radKeys) {
+    const value = Number(spec[key]);
+    if (Number.isFinite(value)) return value;
+  }
+
+  const degKeys = ['rotDeg', 'rotateDeg', 'angleDeg', 'rotationDeg', 'deg', 'degrees'];
+  for (const key of degKeys) {
+    const value = Number(spec[key]);
+    const converted = toRadiansMaybeDeg(value);
+    if (converted != null) return converted;
+  }
+
+  const directAngle = toRadiansMaybeDeg(Number(spec.angle));
+  if (directAngle != null) return directAngle;
+  const directRotation = toRadiansMaybeDeg(Number(spec.rotation));
+  if (directRotation != null) return directRotation;
+
+  if (typeof spec.rotate === 'object') {
+    const nested = parseRotationSpec(spec.rotate);
+    if (nested != null) return nested;
+  }
+  if (typeof spec.rotation === 'object') {
+    const nested = parseRotationSpec(spec.rotation);
+    if (nested != null) return nested;
+  }
+  if (typeof spec.angle === 'object') {
+    const nested = parseRotationSpec(spec.angle);
+    if (nested != null) return nested;
+  }
+
+  return null;
+}
+
+function extractRotationForDirection(source, direction, keyAliases, visited = new WeakSet()) {
+  if (source == null) return null;
+
+  if (typeof source !== 'object') {
+    return parseRotationSpec(source);
+  }
+
+  if (visited.has(source)) return null;
+  visited.add(source);
+
+  const direct = parseRotationSpec(source);
+  if (direct != null) return direct;
+
+  const aliases = direction === 'left' ? LEFT_WRIST_KEY_ALIASES : RIGHT_WRIST_KEY_ALIASES;
+  for (const key of [...aliases, ...(keyAliases || [])]) {
+    const value = pickNormalized(source, key);
+    if (value != null) {
+      const nested = extractRotationForDirection(value, direction, keyAliases, visited);
+      if (nested != null) return nested;
+    }
+  }
+
+  const containerKeys = direction === 'left'
+    ? ['left', 'l', 'leftHand', 'handLeft', 'handL', 'leftSide', 'leftArm', 'leftForearm', 'leftWrist']
+    : ['right', 'r', 'rightHand', 'handRight', 'handR', 'rightSide', 'rightArm', 'rightForearm', 'rightWrist'];
+  for (const key of containerKeys) {
+    const value = pickNormalized(source, key);
+    if (value != null) {
+      const nested = extractRotationForDirection(value, direction, keyAliases, visited);
+      if (nested != null) return nested;
+    }
+  }
+
+  for (const groupKey of WRIST_GROUP_KEY_ALIASES) {
+    const value = pickNormalized(source, groupKey);
+    if (value != null) {
+      const nested = extractRotationForDirection(value, direction, keyAliases, visited);
+      if (nested != null) return nested;
+    }
+  }
+
+  return null;
+}
+
+function collectWristRotationOverrides(F, finalDeg) {
+  const sources = [];
+  const addSource = (spec) => {
+    if (spec && typeof spec === 'object') sources.push(spec);
+  };
+
+  addSource(F?.transforms);
+  addSource(F?.poseTransforms);
+  addSource(F?.anim?.poseTransforms);
+  addSource(F?.anim?.transforms);
+  addSource(F?.anim?.weapon?.transforms);
+  addSource(F?.anim?.weapon?.wristTransforms);
+  addSource(F?.anim?.styleOverride?.xform);
+  addSource(F?.anim?.breath?.styleOverride?.xform);
+  addSource(finalDeg?.transforms);
+  addSource(finalDeg?.wristTransforms);
+  addSource(finalDeg?.styleOverride?.xform);
+  addSource(finalDeg?.spriteTransforms);
+
+  let leftRotation = null;
+  let rightRotation = null;
+  for (const source of sources) {
+    const left = extractRotationForDirection(source, 'left');
+    if (left != null) leftRotation = left;
+    const right = extractRotationForDirection(source, 'right');
+    if (right != null) rightRotation = right;
+  }
+
+  const result = {};
+  if (leftRotation != null) result.left = { rotation: leftRotation };
+  if (rightRotation != null) result.right = { rotation: rightRotation };
+  return result;
+}
+
+function applyWristRotation(anchor, rotation) {
+  if (!anchor) return anchor;
+  if (Number.isFinite(rotation) && rotation !== 0) {
+    anchor.ang += rotation;
+  }
+  return anchor;
+}
+
+function resolveWeaponAnchor(anchorKey, basisInfo, limbHint, wristTransforms) {
   const key = (anchorKey || '').toString().toLowerCase();
   const limb = (limbHint || '').toString().toLowerCase();
+  const leftRotation = wristTransforms?.left?.rotation;
+  const rightRotation = wristTransforms?.right?.rotation;
+
   if (!key || key === 'auto') {
     if (limb === 'left') {
-      return { pos: basisInfo.lWristPos || basisInfo.lElbowPos, ang: basisInfo.lLowerAng };
+      return applyWristRotation({ pos: basisInfo.lWristPos || basisInfo.lElbowPos, ang: basisInfo.lLowerAng }, leftRotation);
     }
-    return { pos: basisInfo.rWristPos || basisInfo.rElbowPos, ang: basisInfo.rLowerAng };
+    return applyWristRotation({ pos: basisInfo.rWristPos || basisInfo.rElbowPos, ang: basisInfo.rLowerAng }, rightRotation);
   }
   switch (key) {
     case 'torso':
@@ -614,7 +779,7 @@ function resolveWeaponAnchor(anchorKey, basisInfo, limbHint) {
     case 'lwrist':
     case 'leftwrist':
     case 'lefthand':
-      return { pos: basisInfo.lWristPos || basisInfo.lElbowPos, ang: basisInfo.lLowerAng };
+      return applyWristRotation({ pos: basisInfo.lWristPos || basisInfo.lElbowPos, ang: basisInfo.lLowerAng }, leftRotation);
     case 'rforearm':
     case 'rlower':
     case 'rightlower':
@@ -628,7 +793,7 @@ function resolveWeaponAnchor(anchorKey, basisInfo, limbHint) {
     case 'rightwrist':
     case 'rhand':
     case 'righthand':
-      return { pos: basisInfo.rWristPos || basisInfo.rElbowPos, ang: basisInfo.rLowerAng };
+      return applyWristRotation({ pos: basisInfo.rWristPos || basisInfo.rElbowPos, ang: basisInfo.rLowerAng }, rightRotation);
     case 'torsotop':
     case 'shoulderbase':
     default:
@@ -707,7 +872,8 @@ function buildWeaponBones({
   gripPercents,
   gripDefaults,
   jointPercents,
-  jointDefaults
+  jointDefaults,
+  wristTransforms
 } = {}) {
   const bones = [];
   const gripLookup = {};
@@ -718,7 +884,7 @@ function buildWeaponBones({
     const boneId = boneSpec.id || `weapon_${index}`;
     const limb = (boneSpec.limb || rig.base?.limb || '').toString().toLowerCase();
     const anchorKey = boneSpec.anchor || rig.base?.anchor || 'auto';
-    const anchor = resolveWeaponAnchor(anchorKey, basisInfo, limb);
+    const anchor = resolveWeaponAnchor(anchorKey, basisInfo, limb, wristTransforms);
     const length = Number.isFinite(boneSpec.length) ? boneSpec.length : 0;
     const baseOffset = boneSpec.baseOffset || rig.base?.offset || null;
     let anchorPos = anchor.pos;
@@ -857,6 +1023,8 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     ? rig.base.angleOffsetRad
     : (Number.isFinite(rig.base?.angleOffsetDeg) ? degToRad(rig.base.angleOffsetDeg) : 0);
 
+  const wristTransforms = collectWristRotationOverrides(F, finalDeg);
+
   const jointPercentValues = {};
   (rig.bones || []).forEach((boneSpec, index) => {
     if (!boneSpec) return;
@@ -887,7 +1055,8 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     gripPercents,
     gripDefaults,
     jointPercents: jointPercentValues,
-    jointDefaults
+    jointDefaults,
+    wristTransforms
   });
   const gripLookup = initialBuild.gripLookup;
   const attachments = F.anim.weapon.attachments || {};
@@ -949,7 +1118,8 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     gripPercents,
     gripDefaults,
     jointPercents: jointPercentValues,
-    jointDefaults
+    jointDefaults,
+    wristTransforms
   });
 
   F.anim.weapon.attachments = validAttachments;
