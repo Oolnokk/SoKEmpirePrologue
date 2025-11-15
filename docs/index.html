@@ -131,6 +131,110 @@
     </div>
   </div>
 
+  <div class="loadout-overlay" id="loadoutOverlay" role="dialog" aria-modal="true" aria-labelledby="loadoutTitle" hidden>
+    <div class="loadout-card">
+      <header class="loadout-header">
+        <h2 id="loadoutTitle">Player Loadout Setup</h2>
+        <p class="loadout-subtitle">Configure your fighter before entering the demo.</p>
+      </header>
+      <form id="loadoutForm" class="loadout-form" novalidate>
+        <section class="loadout-section" aria-labelledby="loadoutGeneralHeading">
+          <h3 id="loadoutGeneralHeading">General</h3>
+          <div class="loadout-grid">
+            <label class="loadout-field">
+              <span class="loadout-label">Fighter</span>
+              <select id="loadoutFighter" class="loadout-select"></select>
+            </label>
+            <label class="loadout-field">
+              <span class="loadout-label">Weapon</span>
+              <select id="loadoutWeapon" class="loadout-select"></select>
+            </label>
+          </div>
+        </section>
+
+        <section class="loadout-section" aria-labelledby="loadoutBodyColorsHeading">
+          <h3 id="loadoutBodyColorsHeading">Body Colors (HSV Adjustments)</h3>
+          <div class="loadout-bodycolors">
+            <div class="loadout-bodycolor" data-channel="A">
+              <header>A</header>
+              <label>Hue<input type="number" step="1" id="bodyColorA_h" class="loadout-number"></label>
+              <label>Saturation<input type="number" step="0.01" id="bodyColorA_s" class="loadout-number"></label>
+              <label>Value<input type="number" step="0.01" id="bodyColorA_v" class="loadout-number"></label>
+            </div>
+            <div class="loadout-bodycolor" data-channel="B">
+              <header>B</header>
+              <label>Hue<input type="number" step="1" id="bodyColorB_h" class="loadout-number"></label>
+              <label>Saturation<input type="number" step="0.01" id="bodyColorB_s" class="loadout-number"></label>
+              <label>Value<input type="number" step="0.01" id="bodyColorB_v" class="loadout-number"></label>
+            </div>
+            <div class="loadout-bodycolor" data-channel="C">
+              <header>C</header>
+              <label>Hue<input type="number" step="1" id="bodyColorC_h" class="loadout-number"></label>
+              <label>Saturation<input type="number" step="0.01" id="bodyColorC_s" class="loadout-number"></label>
+              <label>Value<input type="number" step="0.01" id="bodyColorC_v" class="loadout-number"></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="loadout-section" aria-labelledby="loadoutClothesHeading">
+          <h3 id="loadoutClothesHeading">Clothing</h3>
+          <div class="loadout-clothing">
+            <div class="loadout-slot" data-slot="hat">
+              <header>Hat</header>
+              <label>Cosmetic ID<input type="text" class="loadout-text" data-slot-input="id"></label>
+              <label>Hue<input type="number" step="1" class="loadout-number" data-slot-input="h"></label>
+              <label>Saturation<input type="number" step="0.01" class="loadout-number" data-slot-input="s"></label>
+              <label>Value<input type="number" step="0.01" class="loadout-number" data-slot-input="v"></label>
+              <button type="button" class="loadout-clear" data-slot-action="clear">Clear</button>
+            </div>
+            <div class="loadout-slot" data-slot="overwear">
+              <header>Overwear</header>
+              <label>Cosmetic ID<input type="text" class="loadout-text" data-slot-input="id"></label>
+              <label>Hue<input type="number" step="1" class="loadout-number" data-slot-input="h"></label>
+              <label>Saturation<input type="number" step="0.01" class="loadout-number" data-slot-input="s"></label>
+              <label>Value<input type="number" step="0.01" class="loadout-number" data-slot-input="v"></label>
+              <button type="button" class="loadout-clear" data-slot-action="clear">Clear</button>
+            </div>
+            <div class="loadout-slot" data-slot="torso">
+              <header>Torso</header>
+              <label>Cosmetic ID<input type="text" class="loadout-text" data-slot-input="id"></label>
+              <label>Hue<input type="number" step="1" class="loadout-number" data-slot-input="h"></label>
+              <label>Saturation<input type="number" step="0.01" class="loadout-number" data-slot-input="s"></label>
+              <label>Value<input type="number" step="0.01" class="loadout-number" data-slot-input="v"></label>
+              <button type="button" class="loadout-clear" data-slot-action="clear">Clear</button>
+            </div>
+            <div class="loadout-slot" data-slot="legs">
+              <header>Legs</header>
+              <label>Cosmetic ID<input type="text" class="loadout-text" data-slot-input="id"></label>
+              <label>Hue<input type="number" step="1" class="loadout-number" data-slot-input="h"></label>
+              <label>Saturation<input type="number" step="0.01" class="loadout-number" data-slot-input="s"></label>
+              <label>Value<input type="number" step="0.01" class="loadout-number" data-slot-input="v"></label>
+              <button type="button" class="loadout-clear" data-slot-action="clear">Clear</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="loadout-section" aria-labelledby="loadoutEntryHeading">
+          <h3 id="loadoutEntryHeading">Character Entry</h3>
+          <p class="loadout-entry-hint">Copy this entry to save your loadout or paste an entry to load it.</p>
+          <textarea id="loadoutEntry" class="loadout-entry" rows="10"></textarea>
+          <div class="loadout-entry-actions">
+            <button type="button" class="loadout-secondary" data-action="copy-entry">Copy Entry</button>
+            <button type="button" class="loadout-secondary" data-action="apply-entry">Apply From Entry</button>
+          </div>
+        </section>
+
+        <div class="loadout-status" id="loadoutStatus" role="status" aria-live="polite"></div>
+
+        <footer class="loadout-footer">
+          <button type="button" class="loadout-secondary" data-action="reset-defaults">Reset to Defaults</button>
+          <span class="loadout-spacer" aria-hidden="true"></span>
+          <button type="button" class="loadout-primary" data-action="launch">Start Demo with Loadout</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
   <button type="button" id="editorReturnBtn" class="editor-preview-return" hidden>← Return to Editor</button>
 
   <main class="stack">
@@ -358,8 +462,11 @@
       }
 
       const hideOverlay = () => {
+        if (!overlay) return;
         overlay.classList.add('entry-overlay--hidden');
-        setTimeout(() => overlay.remove(), 400);
+        setTimeout(() => {
+          if (overlay) overlay.hidden = true;
+        }, 400);
       };
 
       if (previewToken) {
@@ -374,27 +481,38 @@
             }
           });
         }
+        window.__skipLoadoutStage = true;
         hideOverlay();
         return;
       }
 
       if (defaultMode === 'game') {
+        window.__skipLoadoutStage = true;
         hideOverlay();
         return;
       }
 
       if (defaultMode === 'editor') {
+        window.__skipLoadoutStage = true;
         window.location.href = './cosmetic-editor.html';
         return;
       }
 
       if (defaultMode === 'map-editor') {
+        window.__skipLoadoutStage = true;
         window.location.href = './map-editor.html';
         return;
       }
 
       const launchBtn = document.getElementById('entryLaunchGame');
-      launchBtn?.addEventListener('click', hideOverlay);
+      launchBtn?.addEventListener('click', () => {
+        hideOverlay();
+        if (typeof window.__showLoadoutOverlay === 'function') {
+          window.__showLoadoutOverlay();
+        } else if (typeof window.__resolveLoadoutStage === 'function') {
+          window.__resolveLoadoutStage();
+        }
+      });
 
       // No additional handling for the editor link is needed now that the remember option is removed.
     })();
@@ -402,6 +520,7 @@
 
   <!-- In-repo config served same-origin under /docs -->
   <script src="./config/config.js"></script>
+  <script type="module" src="./js/loadout-stage.js?v=1"></script>
   <script type="module" src="./js/map-bootstrap.js?v=1"></script>
   <script type="module" src="./js/cosmetic-library.js?v=1"></script>
   <script type="module" src="./js/cosmetic-profiles.js?v=1"></script>
