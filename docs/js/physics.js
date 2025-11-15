@@ -99,6 +99,51 @@ function randomRange(min, max) {
   return min + Math.random() * (max - min);
 }
 
+function resolveBodyRadiusFromConfig(config) {
+  const actorRadius = Number.isFinite(config?.actor?.bodyRadius)
+    ? Math.max(0, config.actor.bodyRadius)
+    : null;
+  const movementRadius = Number.isFinite(config?.movement?.bodyRadius)
+    ? Math.max(0, config.movement.bodyRadius)
+    : null;
+  if (actorRadius != null) return actorRadius;
+  if (movementRadius != null) return movementRadius;
+  const scale = Number.isFinite(config?.actor?.scale) ? config.actor.scale : 1;
+  const wHalf = (config?.parts?.hitbox?.w || 40) * scale * 0.5;
+  const hHalf = (config?.parts?.hitbox?.h || 80) * scale * 0.5;
+  return Math.sqrt(wHalf * wHalf + hHalf * hHalf);
+}
+
+function resolveFighterBodyRadius(fighter, config) {
+  if (!fighter) return 0;
+  if (Number.isFinite(fighter.bodyRadius)) {
+    return Math.max(0, fighter.bodyRadius);
+  }
+  const physicsRadius = Number.isFinite(fighter.physics?.bodyRadius)
+    ? Math.max(0, fighter.physics.bodyRadius)
+    : null;
+  if (physicsRadius != null) return physicsRadius;
+  return resolveBodyRadiusFromConfig(config);
+}
+
+function resolveCollisionShare(fighter) {
+  if (!fighter || fighter.isDead) return 0.5;
+  if (fighter.ragdoll) return 0.25;
+  if (fighter.recovering) return 0.4;
+  return fighter.isPlayer ? 0.55 : 0.5;
+}
+
+function clampFighterToBounds(fighter, config) {
+  if (!fighter?.pos) return;
+  const margin = 40;
+  const worldWidth = config?.canvas?.w || 720;
+  fighter.pos.x = clamp(fighter.pos.x, margin, worldWidth - margin);
+  const groundY = computeGroundY(config);
+  if (!fighter.ragdoll && fighter.pos.y > groundY) {
+    fighter.pos.y = groundY;
+  }
+}
+
 function randomizeRagdollTargets(state) {
   for (const key of Object.keys(JOINT_LIMITS)) {
     const [min, max] = JOINT_LIMITS[key];
@@ -212,6 +257,7 @@ export function ensureFighterPhysics(fighter, config) {
     const recoveryMultiplier = getBalanceScalar('baseRecoveryRate', 1);
     fighter.recoveryDuration = RECOVERY_BASE_DURATION / Math.max(recoveryMultiplier, 0.0001);
   }
+  state.bodyRadius = resolveFighterBodyRadius(fighter, config);
 }
 
 export function updatePhysicsPoseTarget(fighter, poseRad) {
@@ -439,6 +485,112 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
 
   fighter.landedImpulse = (fighter.landedImpulse || 0) * Math.exp(-10 * dt);
   fighter.prevOnGround = prevOnGround;
+}
+
+export function resolveFighterBodyCollisions(fighters, config, { iterations = 2 } = {}) {
+  if (!Array.isArray(fighters) || fighters.length < 2) return;
+  const worldConfig = config || {};
+  const entries = [];
+  const seen = new Set();
+  for (const fighter of fighters) {
+    if (!fighter || seen.has(fighter)) continue;
+    seen.add(fighter);
+    if (fighter.destroyed) continue;
+    if (!fighter.pos || !Number.isFinite(fighter.pos.x) || !Number.isFinite(fighter.pos.y)) continue;
+    if (!fighter.vel || !Number.isFinite(fighter.vel.x) || !Number.isFinite(fighter.vel.y)) {
+      fighter.vel = { x: Number(fighter.vel?.x) || 0, y: Number(fighter.vel?.y) || 0 };
+    }
+    ensureFighterPhysics(fighter, worldConfig);
+    const radius = Math.max(0, resolveFighterBodyRadius(fighter, worldConfig));
+    if (radius <= 0) continue;
+    entries.push({ fighter, radius });
+  }
+  if (entries.length < 2) return;
+
+  const passes = Math.max(1, Math.floor(iterations));
+  for (let pass = 0; pass < passes; pass += 1) {
+    for (let i = 0; i < entries.length; i += 1) {
+      const a = entries[i];
+      const fighterA = a.fighter;
+      if (!fighterA || fighterA.ragdoll) continue;
+      for (let j = i + 1; j < entries.length; j += 1) {
+        const b = entries[j];
+        const fighterB = b.fighter;
+        if (!fighterB || fighterB.ragdoll) continue;
+        const ax = fighterA.pos.x;
+        const ay = fighterA.pos.y;
+        const bx = fighterB.pos.x;
+        const by = fighterB.pos.y;
+        let dx = ax - bx;
+        let dy = ay - by;
+        const minDist = a.radius + b.radius;
+        if (!(minDist > 0)) continue;
+        const biasHorizontal = Math.abs(dy) < minDist * 0.6 && (fighterA.onGround || fighterB.onGround);
+        if (biasHorizontal) {
+          const gap = minDist - Math.abs(dx);
+          if (!(gap > 0)) continue;
+          const dir = dx >= 0 ? 1 : -1;
+          const push = gap * 0.5 + 0.5;
+          const shareA = resolveCollisionShare(fighterA);
+          const shareB = resolveCollisionShare(fighterB);
+          const totalShare = shareA + shareB || 1;
+          const weightA = shareB / totalShare;
+          const weightB = shareA / totalShare;
+          fighterA.pos.x += dir * push * weightA;
+          fighterB.pos.x -= dir * push * weightB;
+          const relVel = (fighterA.vel?.x || 0) - (fighterB.vel?.x || 0);
+          if (relVel * dir < 0) {
+            const correction = relVel * 0.5;
+            if (fighterA.vel) fighterA.vel.x -= correction * weightA;
+            if (fighterB.vel) fighterB.vel.x += correction * weightB;
+          }
+          continue;
+        }
+        const distSq = dx * dx + dy * dy;
+        if (distSq >= minDist * minDist) continue;
+        let dist = Math.sqrt(distSq);
+        if (!(dist > 1e-6)) {
+          const angle = (i + j) % 2 === 0 ? Math.PI / 4 : -Math.PI / 4;
+          dx = Math.cos(angle);
+          dy = Math.sin(angle);
+          dist = 1;
+        } else {
+          dx /= dist;
+          dy /= dist;
+        }
+        const overlap = minDist - dist;
+        if (!(overlap > 0)) continue;
+        const shareA = resolveCollisionShare(fighterA);
+        const shareB = resolveCollisionShare(fighterB);
+        const totalShare = shareA + shareB || 1;
+        const weightA = shareB / totalShare;
+        const weightB = shareA / totalShare;
+        const push = overlap * 0.5 + 0.25;
+        fighterA.pos.x += dx * push * weightA;
+        fighterA.pos.y += dy * push * weightA;
+        fighterB.pos.x -= dx * push * weightB;
+        fighterB.pos.y -= dy * push * weightB;
+        const relVelX = (fighterA.vel?.x || 0) - (fighterB.vel?.x || 0);
+        const relVelY = (fighterA.vel?.y || 0) - (fighterB.vel?.y || 0);
+        const relNormal = relVelX * dx + relVelY * dy;
+        if (relNormal < 0) {
+          const correction = relNormal * 0.5;
+          if (fighterA.vel) {
+            fighterA.vel.x -= dx * correction * weightA;
+            fighterA.vel.y -= dy * correction * weightA;
+          }
+          if (fighterB.vel) {
+            fighterB.vel.x += dx * correction * weightB;
+            fighterB.vel.y += dy * correction * weightB;
+          }
+        }
+      }
+    }
+  }
+
+  for (const entry of entries) {
+    clampFighterToBounds(entry.fighter, worldConfig);
+  }
 }
 
 export function triggerFullRagdoll(fighter, config, { angle = 0, force = 0 } = {}) {
