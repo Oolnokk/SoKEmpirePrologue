@@ -39,7 +39,8 @@ async function importJsonWithFallback(url) {
       : ((target) => import(/* webpackIgnore: true */ target, { assert: { type: 'json' } })));
 
   if (!loader) {
-    return null;
+    const xhrResult = await loadJsonWithXhr(url);
+    return xhrResult;
   }
 
   try {
@@ -57,8 +58,53 @@ async function importJsonWithFallback(url) {
         console.warn('[prefab-catalog] JSON module import fallback failed', { url, error });
       }
     }
+    const xhrResult = await loadJsonWithXhr(url);
+    if (xhrResult != null) {
+      return xhrResult;
+    }
     return null;
   }
+}
+
+async function loadJsonWithXhr(url) {
+  if (typeof XMLHttpRequest !== 'function') {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      try {
+        xhr.responseType = 'json';
+      } catch (_err) {
+        // Some environments do not allow setting responseType for local files.
+      }
+      if (typeof xhr.overrideMimeType === 'function') {
+        xhr.overrideMimeType('application/json');
+      }
+      xhr.onload = () => {
+        if (xhr.status && xhr.status !== 200) {
+          resolve(null);
+          return;
+        }
+        if (xhr.responseType === 'json' && xhr.response != null) {
+          resolve(xhr.response);
+          return;
+        }
+        try {
+          const text = xhr.responseText ?? '';
+          resolve(text ? JSON.parse(text) : null);
+        } catch (_parseError) {
+          resolve(null);
+        }
+      };
+      xhr.onerror = () => resolve(null);
+      xhr.send();
+    } catch (_error) {
+      resolve(null);
+    }
+  });
 }
 
 const PREFAB_TYPES = new Set(['structure', 'obstruction']);
