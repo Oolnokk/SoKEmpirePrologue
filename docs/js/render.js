@@ -222,16 +222,19 @@ function computeAnchorsForFighter(F, C, fallbackFighterName) {
     weaponState.bones.forEach((bone, index) => {
       if (!bone) return;
       const boneKey = bone.id || `weapon_${index}`;
+      const collidesWithBaseRig = boneKey && !String(boneKey).startsWith('weapon_') && Object.prototype.hasOwnProperty.call(B, boneKey);
+      const safeKey = collidesWithBaseRig ? `weapon_${boneKey}` : boneKey;
       const start = bone.start || { x: 0, y: 0 };
       const end = bone.end || { x: start.x, y: start.y };
-      B[boneKey] = {
+      B[safeKey] = {
         x: start.x,
         y: start.y,
         len: Number.isFinite(bone.length) ? bone.length : Math.hypot(end.x - start.x, end.y - start.y),
         ang: bone.angle ?? angleFromDelta(end.x - start.x, end.y - start.y),
         endX: end.x,
         endY: end.y,
-        weapon: weaponKey
+        weapon: weaponKey,
+        sourceId: bone.id || null
       };
     });
   }
