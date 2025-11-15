@@ -1707,29 +1707,31 @@ export function makeCombat(G, C, options = {}){
 
     if (!button) return;
 
-    neutralizeMovement();
-
     if (type === 'combo'){
+      neutralizeMovement();
       triggerComboAbility(button, abilityId, { skipQueue: true });
       return;
     }
 
     if (type === 'quick'){
+      neutralizeMovement();
       triggerQuickAbility(button, abilityId, { skipQueue: true });
       return;
     }
 
     if (type === 'heavy'){
+      const ability = abilityId ? getAbility(abilityId) : getAbilityForSlot(button, 'heavy');
+      const isDefensive = ability?.trigger === 'defensive';
+      neutralizeMovement({ preserveDirectional: isDefensive, keepVelocity: isDefensive });
       if (abilityId){
         executeHeavyAbility(button, abilityId, chargeStage);
-      } else {
-        const ability = getAbilityForSlot(button, 'heavy');
-        if (ability){
-          executeHeavyAbility(button, ability.id, chargeStage);
-        }
+      } else if (ability){
+        executeHeavyAbility(button, ability.id, chargeStage);
       }
       return;
     }
+
+    neutralizeMovement();
 
     const lightAbility = getAbilityForSlot(button, 'light');
     if (!lightAbility) return;
