@@ -503,12 +503,12 @@ window.CONFIG = {
           widthFactor: { torso:0.9, armUpper:0.9, armLower:0.9, legUpper:0.9, legLower:0.9, head:0.9 },
           xformUnits: "percent",
           xform: {
-            torso:    { scaleX:2, scaleY:2, rotDeg:180 },
-            head:     { scaleX:1.5,   scaleY:1.5,    rotDeg:180 },
-            armUpper: { scaleX:3.00, scaleY:3.00, rotDeg:0 },
-            armLower: { scaleX:2.00, scaleY:2.00, rotDeg:0 },
-            legUpper: { scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
-            legLower: { scaleX:2,    scaleY:2.00, rotDeg:-10 }
+            torso:    { ax:-0.5,  ay:-0.2, scaleX:3.5, scaleY:4.50, rotDeg:180 },
+            head:     { ax:-1.20, ay:-0.60, scaleX:4, scaleY:3, rotDeg:180 },
+            armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
+            armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
+            legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
+            legLower: { ax:-0.2,  ay:0.02,  scaleX:2,    scaleY:2.00, rotDeg:-10 }
           }
       },
       untintedOverlays: [
@@ -571,12 +571,12 @@ window.CONFIG = {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
           xformUnits: "percent",
           xform: {
-            torso:    { scaleX:1.4, scaleY:1.6, rotDeg:180 },
-            head:     { scaleX:1,   scaleY:1.2, rotDeg:180 },
-            armUpper: { scaleX:1.6, scaleY:2.8, rotDeg:-10 },
-            armLower: { scaleX:1.7, scaleY:2.1, rotDeg:-3 },
-            legUpper: { scaleX:1.7, scaleY:2.75, rotDeg:-15 },
-            legLower: { scaleX:1.7, scaleY:2.1, rotDeg:-4 }
+            torso:    { ax:0,  ay:-0.2, scaleX:1.4, scaleY:1.6, rotDeg:180 },
+            head:     { ax:-0.1, ay:-0.0, scaleX:1, scaleY:1.2, rotDeg:180 },
+            armUpper: { ax:-0.2,  ay:0.1,  scaleX:1.6, scaleY:2.8, rotDeg:-10 },
+            armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-3 },
+            legUpper: { ax:-0.10, ay:0,  scaleX:1.7, scaleY:2.75,  rotDeg:-15 },
+            legLower: { ax:-0.0,  ay:0.2,  scaleX:1.7, scaleY:2.1, rotDeg:-4 }
           }
       },
       untintedOverlays: [
