@@ -495,11 +495,39 @@ test('default character pants tint to blue for player and red for enemy', () => 
     });
 });
 
+test('ensureCosmeticLayers exposes layer extra bone influence metadata', () => {
+  clearCosmeticCache();
+  clearPaletteCache();
+  const poncho = JSON.parse(readFileSync(new URL('../docs/config/cosmetics/simple_poncho.json', import.meta.url), 'utf8'));
+  const config = {
+    cosmeticLibrary: {
+      simple_poncho: poncho
+    },
+    fighters: {
+      drifter: {
+        cosmetics: {
+          slots: {
+            overwear: { id: 'simple_poncho' }
+          }
+        }
+      }
+    }
+  };
+
+  const layers = ensureCosmeticLayers(config, 'drifter', {});
+  const torsoFront = layers.find((layer) =>
+    layer.cosmeticId === 'simple_poncho' && layer.partKey === 'torso' && layer.position === 'front'
+  );
+  strictEqual(Array.isArray(torsoFront?.extra?.boneInfluences), true, 'torso layer should retain bone influence metadata');
+  strictEqual(torsoFront.extra.boneInfluences.length >= 3, true, 'torso layer should expose all configured influences');
+  strictEqual(torsoFront.extra.boneInfluences[0].bone, 'torso');
+});
+
 test('sprites.js integrates cosmetic layers and z-order expansion', () => {
   const spritesContent = readFileSync(new URL('../docs/js/sprites.js', import.meta.url), 'utf8');
   strictEqual(/expanded\.push\(cosmeticTagFor\(tag, slot\)\);/.test(spritesContent), true, 'buildZMap should add cosmetic tags');
   strictEqual(/const \{ assets, style, cosmetics(?:, bodyColors)?(?:, untintedOverlays: [^}]+)? } = ensureFighterSprites/.test(spritesContent), true, 'renderSprites should read cosmetics');
-  strictEqual(/withBranchMirror\(ctx,\s*originX,\s*mirror,\s*\(\)\s*=>\s*\{\s*drawBoneSprite\(ctx, layer\.asset, bone, styleKey/.test(spritesContent), true, 'cosmetic layers should mirror with their limbs');
+  strictEqual(/withBranchMirror\(ctx,\s*originX,\s*mirror,\s*\(\)\s*=>\s*\{[\s\S]*?drawBoneSprite\(ctx,\s*layer\.asset,\s*bone,\s*styleKey,\s*style,/.test(spritesContent), true, 'cosmetic layers should mirror with their limbs');
 });
 
 test('config references cosmetic library sources and fighter slot data', () => {
