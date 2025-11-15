@@ -428,12 +428,33 @@ export async function loadPrefabsFromManifests(manifestUrls, options = {}) {
       const { catalog, normalizedEntries } = await loadManifest(manifestUrl, fetchImpl);
       catalogs.push(catalog);
       for (const { id, url } of normalizedEntries) {
-        if (prefabs.has(id)) {
+        const resolvedId = typeof id === 'string' ? id.trim() : '';
+        const prefabKey = resolvedId || id;
+        if (prefabs.has(prefabKey)) {
           continue;
         }
         try {
           const prefab = await loadPrefab(url, fetchImpl);
-          prefabs.set(id, prefab);
+          if (resolvedId) {
+            if (typeof prefab.id !== 'string' || !prefab.id.trim()) {
+              prefab.id = resolvedId;
+            }
+            if (typeof prefab.slug !== 'string' || !prefab.slug.trim()) {
+              prefab.slug = resolvedId;
+            }
+            if (!prefab.meta || typeof prefab.meta !== 'object') {
+              prefab.meta = {};
+            }
+            const catalogMeta = typeof prefab.meta.catalog === 'object' && prefab.meta.catalog
+              ? { ...prefab.meta.catalog }
+              : {};
+            if (!catalogMeta.id) {
+              catalogMeta.id = resolvedId;
+            }
+            catalogMeta.sourceUrl = catalogMeta.sourceUrl || url;
+            prefab.meta.catalog = catalogMeta;
+          }
+          prefabs.set(prefabKey, prefab);
         } catch (error) {
           errors.push({ type: 'prefab', id, url, error });
         }

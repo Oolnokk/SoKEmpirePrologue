@@ -78,6 +78,8 @@ test('loadPrefabsFromManifests falls back to JSON import when fetch fails for fi
     assert.equal(prefabs.size, 1);
     const prefab = prefabs.get('blocking_crate');
     assert.ok(prefab);
+    assert.equal(prefab.id, 'blocking_crate');
+    assert.equal(prefab.slug, 'blocking_crate');
     assert.equal(prefab.type, 'obstruction');
     assert.deepEqual(prefab.tags, ['grippable', 'obstruction']);
 
@@ -165,6 +167,8 @@ test('loadPrefabsFromManifests falls back to XMLHttpRequest when JSON import is 
     assert.equal(prefabs.size, 1);
     const prefab = prefabs.get('tower_commercial');
     assert.ok(prefab);
+    assert.equal(prefab.id, 'tower_commercial');
+    assert.equal(prefab.slug, 'tower_commercial');
     assert.equal(prefab.structureId, 'Commercial Tower');
     assert.equal(prefab.parts.length, 1);
   } finally {

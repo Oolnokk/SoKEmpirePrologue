@@ -1347,7 +1347,13 @@ function loadImage(url){
 
 /*** Prefabs ***/
 async function registerPrefab(obj, options = {}){
-  const { select = true, autoPopulate = true, silent = false, deferRefresh = false } = options;
+  const {
+    select = true,
+    autoPopulate = true,
+    silent = false,
+    deferRefresh = false,
+    prefabId: explicitPrefabId = null,
+  } = options;
   const prefab = obj && typeof obj === 'object' ? JSON.parse(JSON.stringify(obj)) : null;
   if(!prefab || !prefab.structureId || !Array.isArray(prefab.parts)){
     const message = 'Invalid structure JSON';
@@ -1355,8 +1361,25 @@ async function registerPrefab(obj, options = {}){
     throw new Error(message);
   }
 
-  prefabs[prefab.structureId]=prefab;
-  if(select && !selectedPrefabId) selectedPrefabId=prefab.structureId;
+  const candidateIds = [
+    explicitPrefabId,
+    prefab.id,
+    prefab.prefabId,
+    prefab.slug,
+    prefab.structureId,
+  ];
+  const resolvedId = candidateIds
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .find((value) => !!value);
+  if(!resolvedId){
+    const message = 'Prefab missing identifier';
+    if(!silent) alert(message);
+    throw new Error(message);
+  }
+
+  prefab.id = resolvedId;
+  prefabs[resolvedId]=prefab;
+  if(select && !selectedPrefabId) selectedPrefabId=resolvedId;
 
   for(const part of prefab.parts){
     const t=part.propTemplate||{};
@@ -1369,11 +1392,11 @@ async function registerPrefab(obj, options = {}){
 
   if(autoPopulate && !instances.length && activeLayerId){
     pushHistory();
-    addRowOnLayer(activeLayerId,8,prefab.structureId);
+    addRowOnLayer(activeLayerId,8,resolvedId);
     refreshInstanceList();
   }
 
-  return prefab.structureId;
+  return resolvedId;
 }
 
 async function ensureConfiguredPrefabsLoaded(){
@@ -1391,6 +1414,7 @@ async function ensureConfiguredPrefabsLoaded(){
       for(const [id, prefab] of prefabMap.entries()){
         const already = !!prefabs[id];
         await registerPrefab(prefab, {
+          prefabId: id,
           select: !selectedPrefabId && !already,
           autoPopulate: false,
           silent: true,
@@ -1423,6 +1447,7 @@ function registerImagePrefab(file){
     let id=`img_${base}`, c=1;
     while(prefabs[id]) id=`img_${base}_${c++}`;
     prefabs[id]={
+      id,
       structureId:id,
       isImage:true,
       parts:[{
