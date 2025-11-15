@@ -2366,12 +2366,6 @@ class CosmeticEditorApp {
     stack.className = 'part-preview__stack';
     stage.appendChild(stack);
 
-    const drapeModeEnabled = !!this.modeManager?.getModeConfig(this.state.activeMode)?.enableDrapeEditor;
-    if (drapeModeEnabled){
-      const overlay = this.buildDrapeOverlay(resolvedLayers, library, partKey);
-      stage.appendChild(overlay);
-    }
-
     let hasImage = false;
     resolvedLayers.forEach((layer, index)=>{
       const url = layer?.asset?.url;
@@ -2395,6 +2389,13 @@ class CosmeticEditorApp {
       const filter = this.buildTintFilter(layer.hsl);
       if (filter && filter !== 'none'){
         img.style.filter = filter;
+      }
+      const transform = this.buildLayerTransformDescriptor(layer);
+      if (transform?.css){
+        img.style.transformOrigin = 'center center';
+        img.style.transform = transform.css;
+      } else {
+        img.style.removeProperty('transform');
       }
       stack.appendChild(img);
     });
@@ -2920,7 +2921,7 @@ class CosmeticEditorApp {
     return Number.parseFloat(value).toFixed(digits);
   }
 
-  buildDrapeBox(influence, { slot, cosmeticId, label, isActive, source, index } = {}){
+  buildDrapeBox(influence, { slot, cosmeticId, label, isActive, source, index, styleKey, transform } = {}){
     if (!influence || typeof influence !== 'object') return null;
     const box = document.createElement('div');
     box.className = 'drape-overlay__box';
@@ -2936,8 +2937,27 @@ class CosmeticEditorApp {
     heat.style.background = gradient;
     box.appendChild(heat);
 
+    const radiusValue = this.resolveInfluenceRadiusPx(influence);
+    const radiusRing = document.createElement('div');
+    radiusRing.className = 'drape-overlay__radius-visual';
+    const ringSize = Math.max(32, Math.min(160, radiusValue));
+    radiusRing.style.width = `${Math.round(ringSize)}px`;
+    radiusRing.style.height = `${Math.round(ringSize)}px`;
+    box.appendChild(radiusRing);
+
+    const radiusBadge = document.createElement('div');
+    radiusBadge.className = 'drape-overlay__radius';
+    radiusBadge.textContent = `${Math.round(radiusValue)}px radius`;
+    box.appendChild(radiusBadge);
+
     const labelEl = document.createElement('div');
     labelEl.className = 'drape-overlay__box-label';
+    if (styleKey){
+      const styleBadge = document.createElement('span');
+      styleBadge.className = 'drape-overlay__style-key';
+      styleBadge.textContent = styleKey;
+      labelEl.appendChild(styleBadge);
+    }
     const title = document.createElement('div');
     const boneName = influence.bone || influence.boneKey || influence.id || 'Bone';
     title.textContent = boneName;
@@ -2953,14 +2973,27 @@ class CosmeticEditorApp {
     outerMetric.textContent = `outer ${this.formatInfluenceValue(influence.outerWeight)}`;
     labelEl.appendChild(outerMetric);
 
-    const radiusMetric = document.createElement('span');
-    radiusMetric.className = 'drape-overlay__metric';
-    radiusMetric.textContent = `radius ${this.formatInfluenceValue(this.resolveInfluenceRadiusPx(influence), 1)}`;
-    labelEl.appendChild(radiusMetric);
+    if (transform){
+      const transformMetrics = document.createElement('div');
+      transformMetrics.className = 'drape-overlay__transform';
+      const translate = document.createElement('span');
+      translate.textContent = `${transform.x >= 0 ? '+' : ''}${Math.round(transform.x)}px, ${transform.y >= 0 ? '+' : ''}${Math.round(transform.y)}px`;
+      translate.setAttribute('aria-label', 'X/Y offset');
+      transformMetrics.appendChild(translate);
+      const scale = document.createElement('span');
+      scale.textContent = `${this.formatInfluenceValue(transform.scaleX, 2)}× / ${this.formatInfluenceValue(transform.scaleY, 2)}×`;
+      scale.setAttribute('aria-label', 'Scale X/Y');
+      transformMetrics.appendChild(scale);
+      const rotate = document.createElement('span');
+      rotate.textContent = `${this.formatInfluenceValue(transform.rotDeg, 1)}°`;
+      rotate.setAttribute('aria-label', 'Rotation');
+      transformMetrics.appendChild(rotate);
+      labelEl.appendChild(transformMetrics);
+    }
 
     box.appendChild(labelEl);
 
-    const minHeight = Math.max(72, Math.min(220, this.resolveInfluenceRadiusPx(influence) * 1.5));
+    const minHeight = Math.max(92, Math.min(240, radiusValue * 1.3));
     box.style.minHeight = `${Math.round(minHeight)}px`;
     box.title = [
       label ? `${label}` : '',
@@ -2983,7 +3016,8 @@ class CosmeticEditorApp {
       const cosmeticId = layer.cosmeticId;
       if (!slot || !cosmeticId) continue;
       const position = this.normalizeLayerPosition(layer.position);
-      const key = `${slot}::${cosmeticId}::${position}`;
+      const styleKey = layer.styleKey || layer.partKey || 'default';
+      const key = `${slot}::${cosmeticId}::${position}::${styleKey}`;
       if (seen.has(key)) continue;
       const cosmetic = library?.[cosmeticId];
       const { list, source, baseList } = this.getBoneInfluenceConfig(slot, cosmetic, partKey, position);
@@ -2992,6 +3026,7 @@ class CosmeticEditorApp {
         : (Array.isArray(baseList) ? baseList : []);
       if (!values.length) continue;
       seen.add(key);
+      const transform = this.buildLayerTransformDescriptor(layer);
       groups.push({
         slot,
         cosmeticId,
@@ -2999,7 +3034,9 @@ class CosmeticEditorApp {
         source,
         label: cosmetic?.name || cosmetic?.displayName || cosmetic?.label || cosmeticId,
         isActive: this.state.activeSlot === slot,
-        influences: this.deepClone(values)
+        influences: this.deepClone(values),
+        styleKey,
+        transform
       });
     }
     if (!groups.length){
@@ -3022,7 +3059,9 @@ class CosmeticEditorApp {
           label: group.label,
           isActive: group.isActive,
           source: group.source,
-          index
+          index,
+          styleKey: group.styleKey,
+          transform: group.transform
         });
         if (box){
           overlay.appendChild(box);
@@ -3030,6 +3069,52 @@ class CosmeticEditorApp {
       });
     }
     return overlay;
+  }
+
+  getSpriteStyleOverride(slot, partKey, layerPosition, styleKey){
+    if (!slot || !partKey || !styleKey) return null;
+    const normalized = this.normalizeLayerPosition(layerPosition);
+    const slotOverride = this.state.slotOverrides?.[slot];
+    if (!slotOverride) return null;
+    const partOverride = slotOverride.parts?.[partKey];
+    const layerOverride = partOverride?.layers?.[normalized];
+    return layerOverride?.spriteStyle?.xform?.[styleKey]
+      || partOverride?.spriteStyle?.xform?.[styleKey]
+      || slotOverride?.spriteStyle?.xform?.[styleKey]
+      || null;
+  }
+
+  buildLayerTransformDescriptor(layer){
+    if (!layer || typeof layer !== 'object') return null;
+    const styleKey = layer.styleKey || layer.partKey;
+    if (!styleKey) return null;
+    const baseXform = layer?.styleOverride?.xform?.[styleKey] || {};
+    const override = this.getSpriteStyleOverride(layer.slot, layer.partKey, layer.position, styleKey) || {};
+    const merged = { ...baseXform };
+    for (const [key, value] of Object.entries(override)){
+      if (value != null){
+        merged[key] = value;
+      }
+    }
+    const normalized = {
+      x: Number.isFinite(Number(merged.x)) ? Number(merged.x) : 0,
+      y: Number.isFinite(Number(merged.y)) ? Number(merged.y) : 0,
+      scaleX: Number.isFinite(Number(merged.scaleX)) ? Number(merged.scaleX) : 1,
+      scaleY: Number.isFinite(Number(merged.scaleY)) ? Number(merged.scaleY) : 1,
+      rotDeg: Number.isFinite(Number(merged.rotDeg)) ? Number(merged.rotDeg) : 0
+    };
+    const transformParts = [];
+    if (normalized.x !== 0 || normalized.y !== 0){
+      transformParts.push(`translate(${normalized.x}px, ${normalized.y}px)`);
+    }
+    if (normalized.scaleX !== 1 || normalized.scaleY !== 1){
+      transformParts.push(`scale(${normalized.scaleX}, ${normalized.scaleY})`);
+    }
+    if (normalized.rotDeg !== 0){
+      transformParts.push(`rotate(${normalized.rotDeg}deg)`);
+    }
+    const css = transformParts.length ? transformParts.join(' ') : '';
+    return { ...normalized, css, styleKey };
   }
 
   attachEventListeners(){
