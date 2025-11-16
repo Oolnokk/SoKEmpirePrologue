@@ -240,6 +240,11 @@
       display:none;
     }
 
+    #instStretchLayer {
+      display:inline-block;
+      min-width:120px;
+    }
+
     .layer-stack {
       display:flex;
       flex-direction:column-reverse; /* top tile = frontmost visually */
@@ -840,6 +845,12 @@ let activeLayerId = SPAWN_LAYER_ID && layers.some((l) => l.id === SPAWN_LAYER_ID
 let layoutMeta = { ...DEFAULT_LAYOUT_META };
 function getParallaxLayerCount(){ return layers.filter(l=>l.type==="parallax").length; }
 function findLayer(id){ return layers.find(l=>l.id===id) || null; }
+function getLayerGroundY(layerId){
+  const layer = findLayer(layerId);
+  const offsetY = toNumber(layer?.offsetY ?? layer?.yOffset, 0);
+  const separation = toNumber(layer?.separation ?? layer?.sep, 0);
+  return getGroundOffset() + offsetY + separation;
+}
 
 /*** Prefabs & Instances ***/
 const imageCache = new Map();
