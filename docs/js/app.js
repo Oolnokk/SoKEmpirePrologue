@@ -1562,18 +1562,28 @@ function resolveActiveParallaxArea() {
   return null;
 }
 
+function coerceFiniteNumber(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const normalized = typeof value === 'string' ? value.trim() : value;
+  if (normalized === '') {
+    return null;
+  }
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
 function resolveLayerParallaxFactor(layer) {
   if (!layer || typeof layer !== 'object') {
     return 1;
   }
-  if (Number.isFinite(layer.parallax)) {
-    return layer.parallax;
-  }
-  if (Number.isFinite(layer.parallaxSpeed)) {
-    return layer.parallaxSpeed;
-  }
-  if (Number.isFinite(layer.meta?.parallax)) {
-    return layer.meta.parallax;
+  const candidates = [layer.parallax, layer.parallaxSpeed, layer.meta?.parallax];
+  for (const value of candidates) {
+    const numeric = coerceFiniteNumber(value);
+    if (numeric !== null) {
+      return numeric;
+    }
   }
   return 1;
 }
@@ -1582,14 +1592,12 @@ function resolveLayerOffsetY(layer) {
   if (!layer || typeof layer !== 'object') {
     return 0;
   }
-  if (Number.isFinite(layer.yOffset)) {
-    return layer.yOffset;
-  }
-  if (Number.isFinite(layer.offsetY)) {
-    return layer.offsetY;
-  }
-  if (Number.isFinite(layer.meta?.offsetY)) {
-    return layer.meta.offsetY;
+  const candidates = [layer.yOffset, layer.offsetY, layer.meta?.offsetY];
+  for (const value of candidates) {
+    const numeric = coerceFiniteNumber(value);
+    if (numeric !== null) {
+      return numeric;
+    }
   }
   return 0;
 }
@@ -1891,9 +1899,11 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
   const orderedLayers = rawLayers
     .map((layer, index) => ({ layer, index }))
     .sort((a, b) => {
-      const aZ = Number.isFinite(a.layer?.z) ? a.layer.z : a.index;
-      const bZ = Number.isFinite(b.layer?.z) ? b.layer.z : b.index;
-      return aZ - bZ;
+      const aZ = coerceFiniteNumber(a.layer?.z);
+      const bZ = coerceFiniteNumber(b.layer?.z);
+      const aOrder = aZ !== null ? aZ : a.index;
+      const bOrder = bZ !== null ? bZ : b.index;
+      return aOrder - bOrder;
     });
 
   orderedLayers.forEach(({ layer }) => {
