@@ -193,3 +193,102 @@ test('convertLayouts rejects duplicate area ids', () => {
 
   assert.throws(() => convertLayouts([layoutA, layoutB]), /Duplicate area id/);
 });
+
+test('convertLayoutToArea exposes tilers from layout data and collider metadata', () => {
+  const layout = {
+    areaId: 'tiler_area',
+    layers: [
+      { id: 'game', name: 'Gameplay', type: 'gameplay', parallax: 1, yOffset: 0, sep: 100, scale: 1 },
+    ],
+    instances: [],
+    tilers: [
+      {
+        id: 'explicit_tiler',
+        layerId: 'game',
+        left: 0,
+        top: -10,
+        width: 128,
+        height: 32,
+        textureId: 'brick_wall',
+        tileWidth: 32,
+        tileHeight: 16,
+        offsetX: 4,
+      },
+    ],
+    colliders: [
+      {
+        id: 'ground_strip',
+        left: -64,
+        width: 256,
+        topOffset: 0,
+        height: 48,
+        meta: {
+          tiler: {
+            textureId: 'asphalt',
+            tileWidth: 64,
+            tileHeight: 32,
+            offsetY: -2,
+          },
+        },
+      },
+      {
+        id: 'plain',
+        left: 0,
+        width: 10,
+        topOffset: 0,
+        height: 10,
+      },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout);
+
+  assert.ok(Array.isArray(area.tilers));
+  assert.equal(area.tilers.length, 2);
+  const explicit = area.tilers.find((t) => t.id === 'explicit_tiler');
+  assert.ok(explicit);
+  assert.equal(explicit.textureId, 'brick_wall');
+  assert.equal(explicit.layerId, 'game');
+  assert.deepEqual(explicit.area, { left: 0, top: -10, width: 128, height: 32 });
+  assert.deepEqual(explicit.tileSize, { width: 32, height: 16 });
+  assert.deepEqual(explicit.offset, { x: 4, y: 0 });
+  const derived = area.tilers.find((t) => t.sourceColliderId === 'ground_strip');
+  assert.ok(derived, 'derived tiler should reference collider id');
+  assert.equal(derived.textureId, 'asphalt');
+  assert.deepEqual(derived.area, { left: -64, top: 0, width: 256, height: 48 });
+  assert.deepEqual(derived.tileSize, { width: 64, height: 32 });
+  assert.equal(derived.offset.y, -2);
+  assert.equal(area.colliders.length, 2);
+});
+
+test('normalizeAreaDescriptor keeps pre-normalized tilers intact', () => {
+  const descriptor = {
+    id: 'tiler_descriptor',
+    name: 'Tiler Descriptor',
+    layers: [
+      { id: 'game', name: 'Gameplay', parallaxSpeed: 1, offsetY: 0, separation: 100, scale: 1 },
+    ],
+    instances: [],
+    tilers: [
+      {
+        id: 'kept',
+        label: 'Keep Me',
+        textureId: 'mural',
+        layerId: 'game',
+        area: { left: 10, top: 5, width: 40, height: 20 },
+        tileSize: { width: 20, height: 20 },
+        offset: { x: 2, y: 3 },
+        spacing: { x: 0, y: 0 },
+      },
+    ],
+  };
+
+  const area = convertLayoutToArea(descriptor);
+
+  assert.equal(area.tilers.length, 1);
+  assert.equal(area.tilers[0].id, 'kept');
+  assert.equal(area.tilers[0].label, 'Keep Me');
+  assert.equal(area.tilers[0].textureId, 'mural');
+  assert.deepEqual(area.tilers[0].area, { left: 10, top: 5, width: 40, height: 20 });
+  assert.deepEqual(area.tilers[0].tileSize, { width: 20, height: 20 });
+});

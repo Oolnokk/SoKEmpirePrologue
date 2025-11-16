@@ -201,6 +201,9 @@ function validateAreaDescriptor(descriptor) {
   if (!Array.isArray(descriptor.instances) && !Array.isArray(descriptor.props)) {
     warnings.push('Area declares neither "instances" nor "props" – runtime may need one');
   }
+  if (descriptor.tilers && !Array.isArray(descriptor.tilers)) {
+    warnings.push('"tilers" should be an array when provided');
+  }
 
   let seenInstanceIds = null;
   if (Array.isArray(descriptor.instances)) {
