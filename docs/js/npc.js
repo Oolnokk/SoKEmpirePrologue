@@ -982,6 +982,20 @@ function fadeNpcDashTrail(visualEntry, dt) {
   dashTrail.positions = (dashTrail.positions || []).filter((pos) => pos.alpha > 0);
 }
 
+function updateNpcAttackTrail(visualEntry, state, dt) {
+  if (!visualEntry) return;
+  if (!state) {
+    fadeNpcAttackTrailEntry(visualEntry, dt);
+    return;
+  }
+  if (state.attack?.active) {
+    const fighterId = state.id || 'npc';
+    recordNpcAttackTrailSample(null, dt, fighterId);
+    return;
+  }
+  fadeNpcAttackTrailEntry(visualEntry, dt);
+}
+
 function regenerateStamina(state, dt) {
   if (!state || state.isDead) return;
   applyStaminaTick(state, dt);
@@ -1129,6 +1143,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     }
     updateNpcAiming(state, player);
     updateDashTrail(visuals, state, dt);
+    updateNpcAttackTrail(visuals, state, dt);
     regenerateStamina(state, dt);
     return;
   }
@@ -1426,6 +1441,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
 
   regenerateStamina(state, dt);
   updateDashTrail(visuals, state, dt);
+  updateNpcAttackTrail(visuals, state, dt);
   updateNpcAiming(state, player);
 }
 
