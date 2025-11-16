@@ -835,13 +835,21 @@ export function makeCombat(G, C, options = {}){
       return [];
     }
     const basePreset = context.preset;
+    const applySequenceDuration = typeof context.applyDuration === 'function'
+      ? (value) => context.applyDuration(value)
+      : (value) => value;
     const prepared = [];
     normalized.forEach((step, index) => {
       const presetName = resolveSequenceStepPreset(step);
       if (!presetName) return;
-      const startMs = Number.isFinite(step.startMs) ? step.startMs : 0;
+      const rawStartMs = Number.isFinite(step.startMs) ? step.startMs : 0;
+      const startMs = applySequenceDuration(rawStartMs);
       if (index === 0 && (!startMs || startMs <= 0) && presetName === basePreset) return;
-      prepared.push({ ...step, preset: presetName, startMs });
+      const preparedStep = { ...step, preset: presetName, startMs };
+      if (rawStartMs !== startMs && !Number.isFinite(step.rawStartMs)) {
+        preparedStep.rawStartMs = rawStartMs;
+      }
+      prepared.push(preparedStep);
     });
     ATTACK.sequenceSteps = prepared;
     return prepared;
