@@ -2,6 +2,7 @@
 
 import { initCombatForFighter } from './combat.js?v=19';
 import { ensureFighterPhysics, updateFighterPhysics, resolveFighterBodyCollisions } from './physics.js?v=1';
+import { updateFighterFootsteps } from './footstep-audio.js?v=1';
 import { applyHealthRegenFromStats, applyStaminaTick, getStatProfile } from './stat-hooks.js?v=1';
 import { ensureNpcAbilityDirector, updateNpcAbilityDirector } from './npcAbilityDirector.js?v=1';
 import { removeNpcFighter } from './fighter.js?v=8';
@@ -1060,6 +1061,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     const previousDeadTime = Number.isFinite(state.deadTime) ? state.deadTime : 0;
     state.deadTime = previousDeadTime + dt;
     updateFighterPhysics(state, C, dt, { input: null, attackActive: false });
+    updateFighterFootsteps(state, C, dt);
     fadeNpcDashTrail(visuals, dt);
     fadeNpcAttackTrailEntry(visuals, dt);
     const destroyDelay = resolveNpcDeathDestroyDelay(state);
@@ -1134,6 +1136,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
 
   if (state.ragdoll || state.recovering) {
     updateFighterPhysics(state, C, dt, { input: null, attackActive: false });
+    updateFighterFootsteps(state, C, dt);
     if (state.ragdoll && aggression.triggered && !aggression.active) {
       aggression.wakeTimer = Math.max(0, (aggression.wakeTimer || 0) - dt);
       if (aggression.wakeTimer <= 0) {
@@ -1431,6 +1434,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   });
 
   updateFighterPhysics(state, C, dt, { input, attackActive });
+  updateFighterFootsteps(state, C, dt);
   if (state.mode === 'shuffle') {
     const maxShuffleSpeed = (C.movement?.maxSpeedX || 140) * (shuffleState.speedScale || 0.35);
     state.vel.x = clamp(state.vel.x, -maxShuffleSpeed, maxShuffleSpeed);

@@ -2,6 +2,7 @@
 import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=5';
 import { resetMirror, setMirrorForPart } from './sprites.js?v=8';
 import { ensureFighterPhysics, updateFighterPhysics } from './physics.js?v=1';
+import { updateFighterFootsteps } from './footstep-audio.js?v=1';
 import {
   applyHealthRegenFromStats,
   applyStaminaTick,
@@ -2256,6 +2257,7 @@ export function makeCombat(G, C, options = {}){
       input: effectiveInput,
       attackActive: attackBlocksMovement,
     });
+    updateFighterFootsteps(p, C, dt);
   }
 
   function isFighterAttacking(){
