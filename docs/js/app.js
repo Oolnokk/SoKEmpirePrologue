@@ -2083,6 +2083,145 @@ function resolveLayerOffsetY(layer) {
   return 0;
 }
 
+function clampValue(value, min, max) {
+  if (!Number.isFinite(value)) return Number.isFinite(min) ? min : 0;
+  const clampedMin = Number.isFinite(min) ? min : value;
+  const clampedMax = Number.isFinite(max) ? max : value;
+  if (clampedMin > clampedMax) return clampedMin;
+  return Math.min(Math.max(value, clampedMin), clampedMax);
+}
+
+function resolveLayerGroundSeesaw(layer) {
+  const spec = layer?.meta?.groundSeesaw ?? layer?.groundSeesaw;
+  if (!spec) {
+    return { enabled: false, amplitudeDeg: 0, cameraInfluence: 1, pivotYOffset: 0 };
+  }
+
+  const enabled = spec.enabled !== false;
+  const amplitudeDeg = clampValue(
+    coerceFiniteNumber(spec.amplitudeDeg ?? spec.amplitude) ?? 0,
+    0,
+    45,
+  );
+  const cameraInfluence = clampValue(
+    coerceFiniteNumber(spec.cameraInfluence ?? spec.cameraFactor ?? spec.intensity ?? 1) ?? 1,
+    0,
+    5,
+  );
+  const pivotYOffset = coerceFiniteNumber(
+    spec.pivotYOffset ?? spec.pivotY ?? spec.pivotFromGround ?? 0,
+  ) || 0;
+
+  return { enabled, amplitudeDeg, cameraInfluence, pivotYOffset };
+}
+
+function computeGroundSeesawAngle(seesaw, camX, worldWidth) {
+  if (!seesaw?.enabled) return 0;
+  const usableWidth = Number.isFinite(worldWidth) && worldWidth > 0 ? worldWidth : null;
+  if (!usableWidth) return 0;
+
+  const centerX = usableWidth * 0.5;
+  const normalized = clampValue(
+    ((coerceFiniteNumber(camX) ?? 0) - centerX) / Math.max(1, usableWidth * 0.5),
+    -1,
+    1,
+  );
+  if (!seesaw.amplitudeDeg || Math.abs(normalized) < 1e-4) {
+    return 0;
+  }
+
+  const amplitudeRad = (seesaw.amplitudeDeg * Math.PI) / 180;
+  return normalized * seesaw.cameraInfluence * amplitudeRad;
+}
+
+function resolveStretchQuadSpec(inst) {
+  const spec = inst?.meta?.drumSkin || inst?.meta?.groundSpan || inst?.meta?.stretchQuad;
+  if (!spec) return null;
+
+  const targetLayerId = typeof spec.targetLayerId === 'string' && spec.targetLayerId.trim()
+    ? spec.targetLayerId.trim()
+    : null;
+  const height = coerceFiniteNumber(
+    spec.height ?? spec.span ?? spec.topHeight ?? spec.topAboveGround,
+  );
+  if (!targetLayerId || !Number.isFinite(height) || height <= 0) {
+    return null;
+  }
+
+  const topOffset = coerceFiniteNumber(spec.topOffset ?? spec.topYOffset ?? spec.yOffset ?? 0) || 0;
+  const slices = clampValue(
+    Math.round(coerceFiniteNumber(spec.slices ?? spec.strips ?? spec.steps ?? 24) || 24),
+    4,
+    80,
+  );
+  return { targetLayerId, height, topOffset, slices };
+}
+
+function resolveQuadTemplate(prefab) {
+  const parts = prefabParts(prefab);
+  for (const entry of parts) {
+    const tpl = entry?.part?.propTemplate;
+    if (tpl && typeof tpl === 'object') {
+      const width = Number(tpl.w);
+      const height = Number(tpl.h);
+      if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+        return {
+          width,
+          height,
+          url: typeof tpl.url === 'string' ? tpl.url : null,
+          anchorXPct: Number.isFinite(tpl.anchorXPct) ? tpl.anchorXPct : 50,
+          anchorYPct: Number.isFinite(tpl.anchorYPct) ? tpl.anchorYPct : 100,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function drawImageTrapezoid(cx, img, {
+  baseCenterX,
+  baseY,
+  topCenterX,
+  topY,
+  baseWidth,
+  topWidth,
+  slices = 24,
+}) {
+  if (!cx) return false;
+  if (!img || !img.complete || img.__broken || img.naturalWidth <= 0 || img.naturalHeight <= 0) {
+    return false;
+  }
+
+  const clampedSlices = Math.max(4, Math.min(80, Math.round(slices)));
+  const leftBottom = baseCenterX - baseWidth / 2;
+  const rightBottom = baseCenterX + baseWidth / 2;
+  const leftTop = topCenterX - topWidth / 2;
+  const rightTop = topCenterX + topWidth / 2;
+
+  for (let i = 0; i < clampedSlices; i++) {
+    const t0 = i / clampedSlices;
+    const t1 = (i + 1) / clampedSlices;
+    const y0 = lerpValue(baseY, topY, t0);
+    const y1 = lerpValue(baseY, topY, t1);
+    const left0 = lerpValue(leftBottom, leftTop, t0);
+    const left1 = lerpValue(leftBottom, leftTop, t1);
+    const right0 = lerpValue(rightBottom, rightTop, t0);
+    const right1 = lerpValue(rightBottom, rightTop, t1);
+
+    const destY = Math.min(y0, y1);
+    const destH = Math.max(1, Math.abs(y1 - y0));
+    const destLeft = Math.min(left0, left1);
+    const destRight = Math.max(right0, right1);
+    const destW = Math.max(1, destRight - destLeft);
+
+    const srcY = img.naturalHeight * t0;
+    const srcH = img.naturalHeight * (t1 - t0);
+
+    cx.drawImage(img, 0, srcY, img.naturalWidth, srcH, destLeft, destY, destW, destH);
+  }
+  return true;
+}
+
 function teleportPlayerAboveSpawn(offset = 100) {
   const game = window.GAME || {};
   const player = game.FIGHTERS?.player;
@@ -2698,7 +2837,7 @@ function createEditorPreviewSandbox() {
     ctx.restore();
   };
 
-  const renderScene = ({ width, height, camX = 0, zoom = 1, groundY, camOrigin = 'left' }) => {
+  const renderScene = ({ width, height, camX = 0, zoom = 1, groundY, camOrigin = 'left', worldWidth }) => {
     if (!state.ready || !ctx) {
       return false;
     }
@@ -2707,6 +2846,7 @@ function createEditorPreviewSandbox() {
     const viewHeight = Math.max(1, Number(height) || state.canvas?.height || 1);
     const cameraInputX = Number.isFinite(camX) ? camX : 0;
     const camWorldWidth = viewWidth / effectiveZoom;
+    const usableWorldWidth = Number.isFinite(worldWidth) ? worldWidth : camWorldWidth;
     const camOriginMode = camOrigin === 'center' ? 'center' : 'left';
     const cameraLeftX =
       camOriginMode === 'center' ? cameraInputX - camWorldWidth * 0.5 : cameraInputX;
@@ -2770,10 +2910,75 @@ function createEditorPreviewSandbox() {
       const rootScreenX = baseOffset;
       const rootScreenY = groundLine + (layer.offsetY || 0) * effectiveZoom + pos.y * effectiveZoom;
       const dxScreen = baseOffset;
+      const seesaw = resolveLayerGroundSeesaw(layer);
+      const tiltRad = computeGroundSeesawAngle(seesaw, cameraInputX, usableWorldWidth);
+      const pivotY = groundLine + seesaw.pivotYOffset;
+
+      ctx.save();
+      if (tiltRad) {
+        ctx.translate(0, pivotY);
+        ctx.rotate(tiltRad);
+        ctx.translate(0, -pivotY);
+      }
 
       if (!prefab || !prefab.parts || !prefab.parts.length) {
         drawPlaceholder(inst, layerScale, effectiveZoom, rootScreenX, rootScreenY, instRotRad);
+        ctx.restore();
         continue;
+      }
+
+      const spanSpec = resolveStretchQuadSpec(inst);
+      const targetLayerEntry = spanSpec ? state.layerLookup.get(spanSpec.targetLayerId) : null;
+      if (spanSpec && targetLayerEntry) {
+        const targetLayer = targetLayerEntry.layer;
+        const template = resolveQuadTemplate(prefab);
+        if (template) {
+          const targetParallax = Number.isFinite(targetLayer?.parallaxSpeed) ? targetLayer.parallaxSpeed : 1;
+          const instScaleX = Number.isFinite(inst?.scale?.x)
+            ? inst.scale.x
+            : (Number.isFinite(inst?.scale?.y) ? inst.scale.y : 1);
+          const instScaleY = Number.isFinite(inst?.scale?.y)
+            ? inst.scale.y
+            : (Number.isFinite(inst?.scale?.x) ? inst.scale.x : 1);
+          const baseScaleX = instScaleX * layerScale * effectiveZoom;
+          const baseScaleY = instScaleY * layerScale * effectiveZoom;
+          const topScaleX = instScaleX * (Number.isFinite(targetLayer?.scale) ? targetLayer.scale : 1) * effectiveZoom;
+          const topScaleY = instScaleY * (Number.isFinite(targetLayer?.scale) ? targetLayer.scale : 1) * effectiveZoom;
+
+          const baseWidth = template.width * baseScaleX;
+          const baseHeight = template.height * baseScaleY;
+          const topWidth = template.width * topScaleX;
+          const topHeight = template.height * topScaleY;
+          const anchorXPct = template.anchorXPct ?? 50;
+          const anchorYPct = template.anchorYPct ?? 100;
+          const baseAnchorX = baseWidth * anchorXPct / 100;
+          const baseAnchorY = baseHeight * anchorYPct / 100;
+          const topAnchorX = topWidth * anchorXPct / 100;
+          const topAnchorY = topHeight * anchorYPct / 100;
+
+          const baseCenterX = rootScreenX - baseAnchorX + baseWidth / 2;
+          const baseY = rootScreenY - baseAnchorY + baseHeight;
+          const topCenterX = (pos.x - cameraLeftX * targetParallax) * effectiveZoom - topAnchorX + topWidth / 2;
+          const topGroundY = groundLine
+            + (targetLayer?.offsetY || 0) * effectiveZoom
+            + (pos.y + spanSpec.topOffset) * effectiveZoom;
+          const topY = topGroundY - spanSpec.height * effectiveZoom - topAnchorY + topHeight;
+
+          const img = loadPrefabImage(template.url);
+          const drawn = drawImageTrapezoid(ctx, img, {
+            baseCenterX,
+            baseY,
+            topCenterX,
+            topY,
+            baseWidth,
+            topWidth,
+            slices: spanSpec.slices,
+          });
+          if (drawn) {
+            ctx.restore();
+            continue;
+          }
+        }
       }
 
       if (prefab.isImage) {
@@ -2797,6 +3002,7 @@ function createEditorPreviewSandbox() {
           });
         }
         ctx.restore();
+        ctx.restore();
         continue;
       }
 
@@ -2811,6 +3017,7 @@ function createEditorPreviewSandbox() {
       const rootTemplate = rootPart?.propTemplate || null;
       if (!rootTemplate) {
         drawPlaceholder(inst, layerScale, effectiveZoom, rootScreenX, rootScreenY, instRotRad);
+        ctx.restore();
         continue;
       }
       const rootRelY = Number(rootPart?.relY) || 0;
@@ -2844,6 +3051,8 @@ function createEditorPreviewSandbox() {
         }
         ctx.restore();
       }
+
+      ctx.restore();
     }
 
     ctx.save();
@@ -2927,7 +3136,7 @@ function installPreviewSandboxRegistryBridge() {
 
 installPreviewSandboxRegistryBridge();
 
-function drawEditorPreviewMap(cx, { camX, groundY }) {
+function drawEditorPreviewMap(cx, { camX, groundY, worldWidth }) {
   const area = resolveActiveParallaxArea();
   if (!area) return;
 
@@ -2955,6 +3164,13 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
       return aOrder - bOrder;
     });
 
+  const layerById = new Map();
+  orderedLayers.forEach(({ layer }) => {
+    if (layer?.id) {
+      layerById.set(layer.id, layer);
+    }
+  });
+
   orderedLayers.forEach(({ layer }) => {
     const layerId = layer?.id;
     if (!layerId) return;
@@ -2963,11 +3179,69 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
 
     const parallax = resolveLayerParallaxFactor(layer);
     const yOffset = resolveLayerOffsetY(layer);
+    const seesaw = resolveLayerGroundSeesaw(layer);
+    const tiltRad = computeGroundSeesawAngle(seesaw, camX, worldWidth);
+    const pivotY = groundY + seesaw.pivotYOffset;
     cx.save();
     cx.translate((1 - parallax) * camX, yOffset);
+    if (tiltRad) {
+      cx.translate(0, pivotY);
+      cx.rotate(tiltRad);
+      cx.translate(0, -pivotY);
+    }
     cx.globalAlpha = 1;
 
     for (const inst of instances) {
+      const spanSpec = resolveStretchQuadSpec(inst);
+      const targetLayer = spanSpec ? layerById.get(spanSpec.targetLayerId) : null;
+      if (spanSpec && targetLayer) {
+        const template = resolveQuadTemplate(inst.prefab);
+        if (template) {
+          const instScaleX = Number.isFinite(inst?.scale?.x)
+            ? inst.scale.x
+            : (Number.isFinite(inst?.scale?.y) ? inst.scale.y : 1);
+          const instScaleY = Number.isFinite(inst?.scale?.y)
+            ? inst.scale.y
+            : (Number.isFinite(inst?.scale?.x) ? inst.scale.x : 1);
+          const baseScaleX = instScaleX * layer.scale;
+          const baseScaleY = instScaleY * layer.scale;
+          const topScaleX = instScaleX * (Number.isFinite(targetLayer?.scale) ? targetLayer.scale : 1);
+          const topScaleY = instScaleY * (Number.isFinite(targetLayer?.scale) ? targetLayer.scale : 1);
+
+          const baseWidth = template.width * baseScaleX;
+          const baseHeight = template.height * baseScaleY;
+          const topWidth = template.width * topScaleX;
+          const topHeight = template.height * topScaleY;
+          const anchorXPct = template.anchorXPct ?? 50;
+          const anchorYPct = template.anchorYPct ?? 100;
+          const baseAnchorX = baseWidth * anchorXPct / 100;
+          const baseAnchorY = baseHeight * anchorYPct / 100;
+          const topAnchorX = topWidth * anchorXPct / 100;
+          const topAnchorY = topHeight * anchorYPct / 100;
+
+          const baseCenterX = inst.position.x - baseAnchorX + baseWidth / 2;
+          const baseY = groundY + inst.position.y - baseAnchorY + baseHeight;
+          const parallaxDelta = (parallax - resolveLayerParallaxFactor(targetLayer)) * camX;
+          const offsetDeltaY = (resolveLayerOffsetY(targetLayer) - yOffset) + spanSpec.topOffset;
+          const topCenterX = inst.position.x + parallaxDelta - topAnchorX + topWidth / 2;
+          const topY = baseY + offsetDeltaY - spanSpec.height - topAnchorY + topHeight;
+
+          const img = loadPrefabImage(template.url);
+          const drawn = drawImageTrapezoid(cx, img, {
+            baseCenterX,
+            baseY,
+            topCenterX,
+            topY,
+            baseWidth,
+            topWidth,
+            slices: spanSpec.slices,
+          });
+          if (drawn) {
+            continue;
+          }
+        }
+      }
+
       drawPrefabInstance(cx, inst, layer, groundY);
     }
 
@@ -3064,13 +3338,14 @@ function drawStage(){
     camX,
     zoom,
     groundY: gy,
+    worldWidth: worldW,
   });
 
   cx.save();
   cx.setTransform(zoom, 0, 0, zoom, -zoom * camX, cv.height * (1 - zoom));
 
   if (!previewRendered) {
-    drawEditorPreviewMap(cx, { camX, groundY: gy });
+    drawEditorPreviewMap(cx, { camX, groundY: gy, worldWidth: worldW });
   }
 
   drawEditorPreviewOverlays(cx, { groundY: gy, worldWidth: worldW, zoom });
