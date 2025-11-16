@@ -59,6 +59,45 @@ export class MapRegistry {
    * Register a single area descriptor.
    */
   registerArea(areaId, descriptor) {
+    const { area, warnings } = this._prepareArea(areaId, descriptor);
+    warnings.forEach((w) => this._logger.warn?.(`[MapRegistry] ${w}`));
+
+    this._areas.set(areaId, area);
+    this._emit('area-registered', area);
+    if (!this._activeAreaId) {
+      this._activeAreaId = areaId;
+      this._emit('active-area-changed', area);
+    }
+    return area;
+  }
+
+  /**
+   * Register multiple areas from an object map (compatible with CONFIG.areas).
+   */
+  registerAreas(areaMap) {
+    if (!areaMap || typeof areaMap !== 'object') {
+      throw new MapRegistryError('Area map must be an object');
+    }
+    const staged = [];
+    for (const [areaId, descriptor] of Object.entries(areaMap)) {
+      const record = this._prepareArea(areaId, descriptor);
+      staged.push({ ...record, areaId });
+    }
+    const results = {};
+    for (const { areaId, area, warnings } of staged) {
+      warnings.forEach((w) => this._logger.warn?.(`[MapRegistry] ${w}`));
+      this._areas.set(areaId, area);
+      this._emit('area-registered', area);
+      results[areaId] = area;
+      if (!this._activeAreaId) {
+        this._activeAreaId = areaId;
+        this._emit('active-area-changed', area);
+      }
+    }
+    return results;
+  }
+
+  _prepareArea(areaId, descriptor) {
     if (!areaId || typeof areaId !== 'string') {
       throw new MapRegistryError('Area id must be a non-empty string');
     }
@@ -73,30 +112,8 @@ export class MapRegistry {
       });
     }
 
-    warnings.forEach((w) => this._logger.warn?.(`[MapRegistry] ${w}`));
-
-    const frozen = deepFreeze(clone({ ...descriptor, id: areaId }));
-    this._areas.set(areaId, frozen);
-    this._emit('area-registered', frozen);
-    if (!this._activeAreaId) {
-      this._activeAreaId = areaId;
-      this._emit('active-area-changed', frozen);
-    }
-    return frozen;
-  }
-
-  /**
-   * Register multiple areas from an object map (compatible with CONFIG.areas).
-   */
-  registerAreas(areaMap) {
-    if (!areaMap || typeof areaMap !== 'object') {
-      throw new MapRegistryError('Area map must be an object');
-    }
-    const results = {};
-    for (const [areaId, descriptor] of Object.entries(areaMap)) {
-      results[areaId] = this.registerArea(areaId, descriptor);
-    }
-    return results;
+    const area = deepFreeze(clone({ ...descriptor, id: areaId }));
+    return { area, warnings };
   }
 
   /**
