@@ -32,6 +32,25 @@ const FOOT_PROFILE_ALIASES = {
 
 const DEFAULT_FOOT_TYPE = 'cat-foot';
 
+const SAMPLE_LIBRARY = {
+  tile: {
+    default: {
+      left: './assets/audio/sfx/steps/tile/cat_step_tile_L.wav',
+      right: './assets/audio/sfx/steps/tile/cat_step_tile_R.wav',
+    },
+    'cat-foot': {
+      left: './assets/audio/sfx/steps/tile/cat_step_tile_L.wav',
+      right: './assets/audio/sfx/steps/tile/cat_step_tile_R.wav',
+    },
+    'sloth-foot': {
+      left: './assets/audio/sfx/steps/tile/sloth_step_tile_L.wav',
+      right: './assets/audio/sfx/steps/tile/sloth_step_tile_R.wav',
+    },
+  },
+};
+
+const SAMPLE_CACHE = new Map();
+
 const MIN_STEP_SPEED = 65;
 const BASE_STRIDE_LENGTH = 52;
 const LANDING_IMPULSE_REF = 900;
@@ -89,14 +108,16 @@ function resolveFootProfile(fighter, config) {
   const fighterConfig = fighterName && fighters[fighterName] ? fighters[fighterName] : null;
   const configProfile = fighterConfig?.footsteps || {};
   const rawType = (configProfile.type || configProfile.footType || '').toLowerCase();
-  const type = FOOT_PROFILE_ALIASES[rawType] || rawType;
+  const type = FOOT_PROFILE_ALIASES[rawType] || rawType || DEFAULT_FOOT_TYPE;
   const base = FOOT_PROFILES[type] || FOOT_PROFILES[DEFAULT_FOOT_TYPE];
   const overrides = config?.audio?.footsteps?.fighters?.[fighterName] || {};
-  return {
+  const profile = {
     ...base,
     ...overrides,
     ...configProfile,
   };
+  profile.resolvedType = type;
+  return profile;
 }
 
 function ensureFootstepState(fighter) {
@@ -104,6 +125,7 @@ function ensureFootstepState(fighter) {
     prevOnGround: !!fighter.onGround,
     strideProgress: 0,
     lastMaterial: null,
+    nextFoot: 'left',
   };
   return fighter._footstepState;
 }
@@ -152,6 +174,78 @@ function playFootstepSample(materialProfile, footProfile, intensity) {
   osc.stop(now + duration);
 }
 
+function resolveSamplePath(material, footType, foot) {
+  if (!material) return null;
+  const materialKey = material.toLowerCase();
+  const library = SAMPLE_LIBRARY[materialKey];
+  if (!library) return null;
+  const variant = (footType && library[footType]) || library.default;
+  if (!variant) return null;
+  return variant[foot] || null;
+}
+
+function fetchSampleBuffer(path) {
+  if (!path || typeof fetch !== 'function') return null;
+  const ctx = resolveAudioContext();
+  if (!ctx) return null;
+  const cached = SAMPLE_CACHE.get(path);
+  if (cached?.buffer) {
+    return cached.buffer;
+  }
+  if (!cached) {
+    const pending = fetch(path)
+      .then((response) => (response.ok ? response.arrayBuffer() : Promise.reject(new Error(response.statusText))))
+      .then((arrayBuffer) => new Promise((resolve) => {
+        ctx.decodeAudioData(arrayBuffer, resolve, () => resolve(null));
+      }))
+      .then((buffer) => {
+        if (buffer) {
+          SAMPLE_CACHE.set(path, { buffer });
+        } else {
+          SAMPLE_CACHE.delete(path);
+        }
+        return buffer;
+      })
+      .catch((error) => {
+        console.warn('[footstep-audio] Failed to load sample', path, error);
+        SAMPLE_CACHE.set(path, { failed: true });
+        return null;
+      });
+    SAMPLE_CACHE.set(path, { promise: pending });
+  }
+  return null;
+}
+
+function tryPlaySampledFootstep(material, footProfile, materialProfile, intensity, foot) {
+  const footType = footProfile?.resolvedType || DEFAULT_FOOT_TYPE;
+  const path = resolveSamplePath(material, footType, foot);
+  if (!path) return false;
+  const buffer = fetchSampleBuffer(path);
+  if (!buffer) return false;
+  const ctx = resolveAudioContext();
+  if (!ctx) return false;
+  const now = ctx.currentTime;
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  const playbackRate = clamp(footProfile?.pitch ?? 1, 0.6, 1.8);
+  source.playbackRate.setValueAtTime(playbackRate, now);
+  const gainNode = ctx.createGain();
+  const baseGain = (materialProfile.gain ?? 0.2) * (footProfile?.gain ?? 0.2) * clamp(intensity, 0.3, 1.6);
+  gainNode.gain.setValueAtTime(baseGain, now);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, now + buffer.duration);
+  source.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  source.start(now);
+  return true;
+}
+
+function playFootstepSample(material, materialProfile, footProfile, intensity, foot) {
+  const played = tryPlaySampledFootstep(material, footProfile, materialProfile, intensity, foot);
+  if (!played) {
+    playSyntheticFootstep(materialProfile, footProfile, intensity);
+  }
+}
+
 function resolveSurfaceMaterial(fighter, config) {
   const raw = typeof fighter?.surfaceMaterial === 'string' ? fighter.surfaceMaterial : '';
   if (raw) return raw;
@@ -172,10 +266,16 @@ export function updateFighterFootsteps(fighter, config, dt) {
   const strideLength = computeStrideLength(config, profile);
   const events = [];
 
+  function enqueueFootstep(intensity) {
+    const foot = state.nextFoot === 'right' ? 'right' : 'left';
+    state.nextFoot = foot === 'left' ? 'right' : 'left';
+    events.push({ intensity, foot });
+  }
+
   if (onGround && !state.prevOnGround) {
     const impulse = Math.abs(Number(fighter.landedImpulse) || 0);
     const normalized = clamp(impulse / LANDING_IMPULSE_REF, 0.25, 1.4);
-    events.push(normalized);
+    enqueueFootstep(normalized);
     state.strideProgress = 0;
   } else if (onGround && speed >= MIN_STEP_SPEED && !fighter.recovering) {
     state.strideProgress += speed * dt;
@@ -183,7 +283,7 @@ export function updateFighterFootsteps(fighter, config, dt) {
     if (state.strideProgress >= stride) {
       state.strideProgress -= stride;
       const normalized = clamp(speed / 420, 0.2, 1);
-      events.push(normalized);
+      enqueueFootstep(normalized);
     }
   } else {
     state.strideProgress = 0;
@@ -193,7 +293,7 @@ export function updateFighterFootsteps(fighter, config, dt) {
   state.lastMaterial = material;
 
   if (!events.length) return;
-  for (const intensity of events) {
-    playFootstepSample(materialProfile, profile, intensity);
+  for (const event of events) {
+    playFootstepSample(material, materialProfile, profile, event.intensity, event.foot);
   }
 }
