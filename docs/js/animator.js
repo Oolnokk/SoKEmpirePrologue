@@ -381,6 +381,16 @@ function pickBreathingConfig(C, fighterName){
   return merged;
 }
 
+function resolveRuntimeFighterName(F, fallbackName){
+  if (F?.renderProfile?.fighterName && typeof F.renderProfile.fighterName === 'string') {
+    return F.renderProfile.fighterName;
+  }
+  if (typeof F?.fighterName === 'string' && F.fighterName) {
+    return F.fighterName;
+  }
+  return fallbackName;
+}
+
 function isFighterMarkedDead(F){
   if (!F) return false;
   if (F.dead || F.isDead || F.deceased) return true;
@@ -1812,10 +1822,18 @@ export function updatePoses(){
   const G = window.GAME || {}; const C = window.CONFIG || {}; const now = performance.now()/1000; if (!G.FIGHTERS) return;
   // Check if joint angles are frozen (for debugging/manual pose editing)
   if (C.debug?.freezeAngles) return;
-  const fighterName = pickFighterName(C);
-  const fcfg = pickFighterConfig(C, fighterName);
-  const breathingConfig = pickBreathingConfig(C, fighterName);
-  const breathingSpec = resolveBreathingSpec(breathingConfig);
+  const fallbackFighterName = pickFighterName(C);
+  const fighterConfigCache = new Map();
+  const getConfigBundle = (fighterName)=>{
+    const key = fighterName || fallbackFighterName;
+    if (fighterConfigCache.has(key)) return fighterConfigCache.get(key);
+    const fighterConfig = pickFighterConfig(C, key);
+    const breathingConfig = pickBreathingConfig(C, key);
+    const spec = resolveBreathingSpec(breathingConfig);
+    const bundle = { fighterConfig, breathingSpec: spec };
+    fighterConfigCache.set(key, bundle);
+    return bundle;
+  };
   const fighterIds = Object.keys(G.FIGHTERS)
     .sort((a, b) => {
       if (a === 'player') return -1;
@@ -1825,6 +1843,8 @@ export function updatePoses(){
   for (const id of fighterIds){
     const F = G.FIGHTERS[id];
     if(!F) continue;
+    const runtimeFighterName = resolveRuntimeFighterName(F, fallbackFighterName);
+    const { fighterConfig: fcfg, breathingSpec } = getConfigBundle(runtimeFighterName);
     ensureAnimState(F);
     F.anim.dt = Math.max(0, now - F.anim.last);
     F.anim.last = now;
