@@ -649,7 +649,19 @@ export function makeCombat(G, C, options = {}){
         if (typeof onComplete === 'function') onComplete();
         return;
       }
-      const steps = Array.isArray(sequenceSteps) ? sequenceSteps.slice() : [];
+      const applySequenceDuration = typeof context?.applyDuration === 'function'
+        ? (value) => context.applyDuration(value)
+        : (value) => value;
+      const steps = Array.isArray(sequenceSteps)
+        ? sequenceSteps.map((step)=>{
+            if (!step || typeof step !== 'object') return step;
+            const baseStart = Number.isFinite(step.rawStartMs) ? step.rawStartMs : step.startMs;
+            if (!Number.isFinite(baseStart)) return step;
+            const scaledStart = applySequenceDuration(baseStart);
+            if (scaledStart === step.startMs) return step;
+            return { ...step, startMs: scaledStart };
+          })
+        : [];
       steps.sort((a,b)=> (a.startMs || 0) - (b.startMs || 0));
       const timelineState = {
         ordered,
@@ -706,7 +718,19 @@ export function makeCombat(G, C, options = {}){
       if (typeof onComplete === 'function') onComplete();
       return;
     }
-    const steps = Array.isArray(sequenceSteps) ? sequenceSteps.slice() : [];
+    const applySequenceDuration = typeof context?.applyDuration === 'function'
+      ? (value) => context.applyDuration(value)
+      : (value) => value;
+    const steps = Array.isArray(sequenceSteps)
+      ? sequenceSteps.map((step)=>{
+          if (!step || typeof step !== 'object') return step;
+          const baseStart = Number.isFinite(step.rawStartMs) ? step.rawStartMs : step.startMs;
+          if (!Number.isFinite(baseStart)) return step;
+          const scaledStart = applySequenceDuration(baseStart);
+          if (scaledStart === step.startMs) return step;
+          return { ...step, startMs: scaledStart };
+        })
+      : [];
     steps.sort((a,b)=> (a.startMs || 0) - (b.startMs || 0));
     let nextStepIndex = 0;
     let stanceReset = false;
