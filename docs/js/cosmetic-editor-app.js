@@ -3115,6 +3115,7 @@ class CosmeticEditorApp {
     }
     this.cleanupEmptyOverrides(slot);
     this.overrideManager.refreshOutputs();
+    this.queuePreviewRender();
   }
 
   getEffectivePartImage(slot, cosmetic, partKey, layerPosition){
