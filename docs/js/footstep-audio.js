@@ -136,7 +136,7 @@ function computeStrideLength(config, profile) {
   return BASE_STRIDE_LENGTH * scale * strideScale;
 }
 
-function playSyntheticFootstep(materialProfile, footProfile, intensity) {
+function playFootstepSample(materialProfile, footProfile, intensity) {
   const ctx = resolveAudioContext();
   if (!ctx) return;
   const now = ctx.currentTime;

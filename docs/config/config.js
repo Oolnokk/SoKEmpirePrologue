@@ -394,18 +394,18 @@ window.CONFIG = {
   },
   hud: {
     bottomButtons: {
-      width: 360,
-      height: 200,
-      edgeHeight: 90,
-      apexHeight: 140,
+      width: 180,
+      height: 100,
+      edgeHeight: 47,
+      apexHeight: 70,
       offsetY: 0,
       scale: 1,
       scaleWithActor: true,
       buttons: {
-        jump: { left: 15, top: 72, rotateDeg: -12 },
-        attackA: { left: 40, top: 44, rotateDeg: -6 },
-        attackB: { left: 58, top: 38, rotateDeg: 6 },
-        attackC: { left: 82, top: 68, rotateDeg: 12 },
+        jump: { left: 15, top: 45, rotateDeg: 0 },
+        attackA: { left: 30, top: 50, rotateDeg: 0 },
+        attackB: { left: 35, top: 55, rotateDeg: 0 },
+        attackC: { left: 30, top: 60, rotateDeg: 0 },
       }
     },
     enemyIndicators: {

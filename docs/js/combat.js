@@ -643,92 +643,46 @@ export function makeCombat(G, C, options = {}){
     return segments;
   }
 
-    function runAttackTimeline({ segments, context, onComplete, resetMirrorBeforeStance=false, sequenceSteps=[] }){
-      const ordered = Array.isArray(segments) ? segments.slice() : [];
-      if (!ordered.length){
-        if (typeof onComplete === 'function') onComplete();
-        return;
-      }
-      const steps = Array.isArray(sequenceSteps) ? sequenceSteps.slice() : [];
-      steps.sort((a,b)=> (a.startMs || 0) - (b.startMs || 0));
-      const timelineState = {
-        ordered,
-        steps,
-        nextStepIndex: 0,
-        elapsed: 0,
-        totalDuration: ordered.length ? ordered[ordered.length - 1].endTime : 0,
-        active: true
-      };
-      let stanceReset = false;
-
-      const triggerStepsThrough = (timeMs) => {
-        if (!timelineState.steps.length) return;
-        while (timelineState.nextStepIndex < timelineState.steps.length){
-          const step = timelineState.steps[timelineState.nextStepIndex];
-          if (!step || !Number.isFinite(step.startMs)) {
-            timelineState.nextStepIndex += 1;
-            continue;
-          }
-          if (step.startMs > timeMs + 1e-3) break;
-          timelineState.nextStepIndex += 1;
-          playAttackSequenceStep(step, context);
-        }
-      };
-
-      timelineState.triggerStepsThrough = triggerStepsThrough;
-      ATTACK.timelineState = timelineState;
-      triggerStepsThrough(0);
-
-      const runSegmentAt = (idx) => {
-        if (idx >= ordered.length){
-          timelineState.active = false;
-          ATTACK.timelineState = null;
-          if (typeof onComplete === 'function') onComplete();
-          return;
-        }
-        const segment = ordered[idx];
-        if (resetMirrorBeforeStance && !stanceReset && segment.phase === 'Stance'){
-          resetMirror();
-          stanceReset = true;
-        }
-        triggerStepsThrough(segment.startTime);
-        startTransition(segment.pose, segment.phase, segment.duration, ()=>{
-          triggerStepsThrough(segment.endTime);
-          runSegmentAt(idx + 1);
-        });
-      };
-
-      runSegmentAt(0);
-    }
   function runAttackTimeline({ segments, context, onComplete, resetMirrorBeforeStance=false, sequenceSteps=[] }){
     const ordered = Array.isArray(segments) ? segments.slice() : [];
     if (!ordered.length){
       if (typeof onComplete === 'function') onComplete();
       return;
     }
-    const steps = Array.isArray(sequenceSteps) ? sequenceSteps.slice() : [];
+    const steps = normalizeSequenceStepTimings(sequenceSteps, context);
     steps.sort((a,b)=> (a.startMs || 0) - (b.startMs || 0));
-    let nextStepIndex = 0;
+    const timelineState = {
+      ordered,
+      steps,
+      nextStepIndex: 0,
+      elapsed: 0,
+      totalDuration: ordered.length ? ordered[ordered.length - 1].endTime : 0,
+      active: true
+    };
     let stanceReset = false;
 
     const triggerStepsThrough = (timeMs) => {
-      if (!steps.length) return;
-      while (nextStepIndex < steps.length){
-        const step = steps[nextStepIndex];
+      if (!timelineState.steps.length) return;
+      while (timelineState.nextStepIndex < timelineState.steps.length){
+        const step = timelineState.steps[timelineState.nextStepIndex];
         if (!step || !Number.isFinite(step.startMs)) {
-          nextStepIndex += 1;
+          timelineState.nextStepIndex += 1;
           continue;
         }
         if (step.startMs > timeMs + 1e-3) break;
-        nextStepIndex += 1;
+        timelineState.nextStepIndex += 1;
         playAttackSequenceStep(step, context);
       }
     };
 
+    timelineState.triggerStepsThrough = triggerStepsThrough;
+    ATTACK.timelineState = timelineState;
     triggerStepsThrough(0);
 
     const runSegmentAt = (idx) => {
       if (idx >= ordered.length){
+        timelineState.active = false;
+        ATTACK.timelineState = null;
         if (typeof onComplete === 'function') onComplete();
         return;
       }
@@ -842,17 +796,43 @@ export function makeCombat(G, C, options = {}){
     normalized.forEach((step, index) => {
       const presetName = resolveSequenceStepPreset(step);
       if (!presetName) return;
-      const rawStartMs = Number.isFinite(step.startMs) ? step.startMs : 0;
+      const rawStartMs = Number.isFinite(step.rawStartMs)
+        ? step.rawStartMs
+        : Number.isFinite(step.startMs) ? step.startMs : 0;
       const startMs = applySequenceDuration(rawStartMs);
       if (index === 0 && (!startMs || startMs <= 0) && presetName === basePreset) return;
-      const preparedStep = { ...step, preset: presetName, startMs };
-      if (rawStartMs !== startMs && !Number.isFinite(step.rawStartMs)) {
-        preparedStep.rawStartMs = rawStartMs;
-      }
+      const preparedStep = {
+        ...step,
+        preset: presetName,
+        startMs,
+        rawStartMs
+      };
       prepared.push(preparedStep);
     });
     ATTACK.sequenceSteps = prepared;
     return prepared;
+  }
+
+  function normalizeSequenceStepTimings(sequenceSteps, context){
+    if (!Array.isArray(sequenceSteps) || !sequenceSteps.length) return [];
+    const applyStepDuration = typeof context?.applyDuration === 'function'
+      ? (value) => context.applyDuration(value)
+      : (value) => value;
+    return sequenceSteps
+      .map((step) => {
+        if (!step) return null;
+        const rawStart = Number.isFinite(step.rawStartMs)
+          ? step.rawStartMs
+          : Number.isFinite(step.startMs) ? step.startMs : 0;
+        const scaledStart = applyStepDuration(rawStart);
+        const hasRaw = Number.isFinite(step.rawStartMs);
+        if (hasRaw && scaledStart === step.startMs) return step;
+        const next = { ...step };
+        if (!hasRaw) next.rawStartMs = rawStart;
+        next.startMs = scaledStart;
+        return next;
+      })
+      .filter(Boolean);
   }
 
   function playAttackSequenceStep(step, context){
