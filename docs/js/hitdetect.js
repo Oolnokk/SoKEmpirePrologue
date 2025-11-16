@@ -4,6 +4,7 @@ import { getFootingMitigation, getStatProfile } from './stat-hooks.js?v=1';
 import { getActiveNpcFighters } from './npc.js?v=2';
 import { markFighterDead } from './fighter.js?v=8';
 import { reportPlayerAggression, reportNpcDefeated, reportPlayerDeath } from './bounty.js?v=1';
+import { playAttackHitSound } from './hit-audio.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -16,6 +17,55 @@ function getBalanceScalar(key, fallback = 1) {
   const balance = window.CONFIG?.balance;
   const value = balance?.[key];
   return Number.isFinite(value) ? Number(value) : fallback;
+}
+
+function resolveAttackDamage(attack) {
+  const candidates = [
+    attack?.context?.damage?.health,
+    attack?.context?.attackProfile?.damage?.health,
+    attack?.damage?.health,
+    attack?.damage,
+  ];
+  for (const value of candidates) {
+    if (Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+function resolveWeaponType(config, attack, attacker) {
+  const candidates = [
+    attack?.context?.attack?.type,
+    attack?.context?.ability?.type,
+    attack?.context?.variant?.type,
+    attack?.type,
+    attacker?.weaponType,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate;
+  }
+
+  const weaponKey = attacker?.weapon
+    || attack?.context?.weapon
+    || config?.knockback?.currentWeapon
+    || null;
+  const weaponTypes = config?.knockback?.weaponTypes || {};
+  const weaponCombos = config?.weaponCombos || {};
+  const fromKnockback = weaponKey ? weaponTypes[weaponKey]?.type : null;
+  const fromCombo = weaponKey ? weaponCombos[weaponKey]?.type : null;
+  if (typeof fromKnockback === 'string' && fromKnockback) return fromKnockback;
+  if (typeof fromCombo === 'string' && fromCombo) return fromCombo;
+  if (weaponKey === 'unarmed') return 'blunt';
+  return null;
+}
+
+function triggerAttackHitSound(config, attacker, attack) {
+  const weaponType = resolveWeaponType(config, attack, attacker);
+  const damage = resolveAttackDamage(attack);
+  try {
+    void playAttackHitSound({ weaponType, damage });
+  } catch (error) {
+    console.warn('[hitdetect] Failed to play hit sound', error);
+  }
 }
 
 function ensureDebugState() {
@@ -204,6 +254,7 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
       console.warn('[hitdetect] player onHit handler error', error);
     }
   }
+  triggerAttackHitSound(config, player, attack);
 
   const healthAfter = Number.isFinite(npc.health?.current) ? npc.health.current : healthBefore;
   if (!npc.isDead && Number.isFinite(healthAfter) && healthAfter <= 0) {
@@ -254,6 +305,7 @@ function handleNpcHitsPlayer(G, config, player, npc, debug, distance, bodyRadius
       console.warn('[hitdetect] npc onHit handler error', error);
     }
   }
+  triggerAttackHitSound(config, npc, attack);
 
   const healthAfter = Number.isFinite(player.health?.current) ? player.health.current : healthBefore;
   if (!player.isDead && Number.isFinite(healthAfter) && healthAfter <= 0) {
