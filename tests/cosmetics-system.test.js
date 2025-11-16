@@ -2,7 +2,19 @@ import { strictEqual, deepStrictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import { COSMETIC_SLOTS, cosmeticTagFor, ensureCosmeticLayers, clearCosmeticCache, resolveFighterBodyColors } from '../docs/js/cosmetics.js';
 import { clearPaletteCache } from '../docs/js/cosmetic-palettes.js';
+import { composeStyleXformEntry } from '../docs/js/style-xform.js';
 import { readFileSync } from 'node:fs';
+
+const previousWindowForAnimator = typeof global.window === 'undefined' ? undefined : global.window;
+if (previousWindowForAnimator === undefined){
+  global.window = globalThis;
+}
+const { updateBreathing } = await import('../docs/js/animator.js');
+if (previousWindowForAnimator === undefined){
+  delete global.window;
+} else {
+  global.window = previousWindowForAnimator;
+}
 
 const EXPECTED_SLOTS = [
   'hat',
@@ -73,6 +85,45 @@ test('ensureCosmeticLayers resolves equipment with HSL limits applied', () => {
   strictEqual(layers[0].position, 'front');
   deepStrictEqual(layers[0].hsl, { h: 30, s: 0.25, l: 0.5 });
   strictEqual(typeof layers[0].styleOverride, 'object');
+});
+
+test('breathing overrides preserve cosmetic spriteStyle transforms', () => {
+  const previousWindow = global.window;
+  global.window = { GAME: {} };
+  const fighter = {
+    anim: {
+      dt: 0.5,
+      breath: { phase: 0, direction: 1, styleOverride: null, shoulderOffsets: null, active: false }
+    },
+    stamina: { current: 100, max: 100 }
+  };
+  const spec = {
+    frames: [
+      { torsoScaleX: 1, torsoScaleY: 1, left: { ax: 0, ay: 0 }, right: { ax: 0, ay: 0 } },
+      { torsoScaleX: 1.2, torsoScaleY: 1.05, left: { ax: 0, ay: 0 }, right: { ax: 0, ay: 0 } }
+    ],
+    cycle: 4,
+    speedMultiplier: { min: 1, max: 1 }
+  };
+  updateBreathing(fighter, 'fighter_1', spec);
+  const override = global.window.GAME.ANIM_STYLE_OVERRIDES?.fighter_1;
+  strictEqual(typeof override, 'object');
+  const torsoAnimXform = override?.xform?.torso;
+  strictEqual(torsoAnimXform?.scaleMulX > 1, true);
+  strictEqual(torsoAnimXform?.scaleMulX <= 1.2, true);
+  strictEqual(torsoAnimXform?.scaleMulY > 1, true);
+  strictEqual(torsoAnimXform?.scaleMulY <= 1.05, true);
+  const cosmeticXform = { scaleX: 0.8, scaleY: 0.9, ax: 6 };
+  const composed = composeStyleXformEntry(cosmeticXform, torsoAnimXform);
+  strictEqual(Math.abs(composed.scaleX - cosmeticXform.scaleX * torsoAnimXform.scaleMulX) < 1e-9, true);
+  strictEqual(Math.abs(composed.scaleY - cosmeticXform.scaleY * torsoAnimXform.scaleMulY) < 1e-9, true);
+  strictEqual(composed.ax, 6);
+  strictEqual(cosmeticXform.scaleX, 0.8, 'composeStyleXformEntry should not mutate source');
+  if (previousWindow === undefined){
+    delete global.window;
+  } else {
+    global.window = previousWindow;
+  }
 });
 
 test('ensureCosmeticLayers normalizes hsl arrays and string values', () => {

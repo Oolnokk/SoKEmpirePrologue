@@ -18,6 +18,15 @@ test('registers and retrieves areas', () => {
   assert.equal(registry.getArea('sample').name, 'Sample');
 });
 
+test('registerAreas validates entire batch before mutating registry', () => {
+  const registry = new MapRegistry();
+  assert.throws(() => registry.registerAreas({
+    good: SAMPLE_AREA,
+    bad: { name: 'Missing layers' },
+  }), MapRegistryError);
+  assert.equal(registry.hasArea('good'), false);
+});
+
 test('prevents invalid registrations', () => {
   const registry = new MapRegistry();
   assert.throws(() => registry.registerArea('', SAMPLE_AREA), MapRegistryError);

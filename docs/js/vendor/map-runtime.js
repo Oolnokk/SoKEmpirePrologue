@@ -59,6 +59,45 @@ export class MapRegistry {
    * Register a single area descriptor.
    */
   registerArea(areaId, descriptor) {
+    const { area, warnings } = this._prepareArea(areaId, descriptor);
+    warnings.forEach((w) => this._logger.warn?.(`[MapRegistry] ${w}`));
+
+    this._areas.set(areaId, area);
+    this._emit('area-registered', area);
+    if (!this._activeAreaId) {
+      this._activeAreaId = areaId;
+      this._emit('active-area-changed', area);
+    }
+    return area;
+  }
+
+  /**
+   * Register multiple areas from an object map (compatible with CONFIG.areas).
+   */
+  registerAreas(areaMap) {
+    if (!areaMap || typeof areaMap !== 'object') {
+      throw new MapRegistryError('Area map must be an object');
+    }
+    const staged = [];
+    for (const [areaId, descriptor] of Object.entries(areaMap)) {
+      const record = this._prepareArea(areaId, descriptor);
+      staged.push({ ...record, areaId });
+    }
+    const results = {};
+    for (const { areaId, area, warnings } of staged) {
+      warnings.forEach((w) => this._logger.warn?.(`[MapRegistry] ${w}`));
+      this._areas.set(areaId, area);
+      this._emit('area-registered', area);
+      results[areaId] = area;
+      if (!this._activeAreaId) {
+        this._activeAreaId = areaId;
+        this._emit('active-area-changed', area);
+      }
+    }
+    return results;
+  }
+
+  _prepareArea(areaId, descriptor) {
     if (!areaId || typeof areaId !== 'string') {
       throw new MapRegistryError('Area id must be a non-empty string');
     }
@@ -73,30 +112,8 @@ export class MapRegistry {
       });
     }
 
-    warnings.forEach((w) => this._logger.warn?.(`[MapRegistry] ${w}`));
-
-    const frozen = deepFreeze(clone({ ...descriptor, id: areaId }));
-    this._areas.set(areaId, frozen);
-    this._emit('area-registered', frozen);
-    if (!this._activeAreaId) {
-      this._activeAreaId = areaId;
-      this._emit('active-area-changed', frozen);
-    }
-    return frozen;
-  }
-
-  /**
-   * Register multiple areas from an object map (compatible with CONFIG.areas).
-   */
-  registerAreas(areaMap) {
-    if (!areaMap || typeof areaMap !== 'object') {
-      throw new MapRegistryError('Area map must be an object');
-    }
-    const results = {};
-    for (const [areaId, descriptor] of Object.entries(areaMap)) {
-      results[areaId] = this.registerArea(areaId, descriptor);
-    }
-    return results;
+    const area = deepFreeze(clone({ ...descriptor, id: areaId }));
+    return { area, warnings };
   }
 
   /**
@@ -496,7 +513,12 @@ function resolvePrefab(prefabId, providedPrefab, prefabResolver, prefabErrorLook
     return { prefab: providedPrefab, fallback: null };
   }
 
-  const resolved = prefabResolver(prefabId ?? null);
+  const safeResolver = typeof prefabResolver === 'function' ? prefabResolver : () => null;
+  if (safeResolver !== prefabResolver && Array.isArray(warnings)) {
+    warnings.push('prefabResolver must be a function – falling back to noop resolver');
+  }
+
+  const resolved = safeResolver(prefabId ?? null);
   if (resolved) {
     return { prefab: resolved, fallback: null };
   }
@@ -658,7 +680,11 @@ export function convertLayoutToArea(layout, options = {}) {
   const includeRaw = options.includeRaw ?? false;
 
   const layers = Array.isArray(layout.layers) ? layout.layers : [];
-  const instances = Array.isArray(layout.instances) ? layout.instances : [];
+  const instances = Array.isArray(layout.instances)
+    ? layout.instances
+    : Array.isArray(layout.props)
+      ? layout.props
+      : [];
   const colliders = Array.isArray(layout.colliders) ? layout.colliders : [];
 
   const layerMap = new Map(layers.map((layer) => [layer.id, layer]));
@@ -752,7 +778,11 @@ export function convertLayoutToArea(layout, options = {}) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
   }
   if (!Array.isArray(layout.instances)) {
-    warnings.push('layout.instances missing – produced area has zero instances');
+    if (Array.isArray(layout.props)) {
+      warnings.push('layout.instances missing – using layout.props as instance fallback');
+    } else {
+      warnings.push('layout.instances missing – produced area has zero instances');
+    }
   }
 
   return {
@@ -783,8 +813,11 @@ export function convertLayouts(layouts, options = {}) {
     throw new TypeError('layouts must be an array');
   }
   const areas = {};
-  layouts.forEach((layout) => {
+  layouts.forEach((layout, index) => {
     const area = convertLayoutToArea(layout, options);
+    if (Object.prototype.hasOwnProperty.call(areas, area.id)) {
+      throw new Error(`Duplicate area id "${area.id}" at layout index ${index}`);
+    }
     areas[area.id] = area;
   });
   return areas;
@@ -840,10 +873,13 @@ function normalizeCollider(raw, fallbackIndex = 0) {
     height = Math.abs(height);
   }
 
+  const typeCandidate = typeof safe.type === 'string' ? safe.type : typeof safe.shape === 'string' ? safe.shape : 'box';
+  const normalizedType = typeCandidate ? typeCandidate.trim().toLowerCase() : '';
+
   return {
     id,
     label: labelRaw || `Collider ${id ?? fallbackIndex}`,
-    type: safe.type === 'box' || safe.shape === 'box' ? 'box' : 'box',
+    type: normalizedType || 'box',
     left,
     width: Math.max(1, width),
     topOffset,

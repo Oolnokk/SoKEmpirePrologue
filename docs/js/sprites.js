@@ -13,6 +13,7 @@
 import { angleZero as angleZeroUtil, basis as basisFn, dist, angle as angleUtil, degToRad } from './math-utils.js?v=1';
 import { pickFighterName as pickFighterNameUtil } from './fighter-utils.js?v=1';
 import { COSMETIC_SLOTS, ensureCosmeticLayers, cosmeticTagFor, resolveFighterBodyColors } from './cosmetics.js?v=1';
+import { composeStyleXformEntry } from './style-xform.js?v=1';
 
 const ASSETS = (window.ASSETS ||= {});
 const CACHE = (ASSETS.sprites ||= {});
@@ -897,7 +898,8 @@ export function renderSprites(ctx){
         : {};
       const xform = baseStyleOverride.xform ? { ...baseStyleOverride.xform } : {};
       for (const [key, spec] of entries){
-        xform[key] = { ...(xform[key] || {}), ...spec };
+        const prev = xform[key] ? { ...xform[key] } : {};
+        xform[key] = composeStyleXformEntry(prev, spec);
       }
       baseStyleOverride.xform = xform;
       nextOptions.styleOverride = baseStyleOverride;
@@ -1124,10 +1126,25 @@ export function renderSprites(ctx){
       });
     }
 
+    const runtimeWeaponKey = (() => {
+      const fromFighter = entity.fighter?.weapon
+        || entity.fighter?.renderProfile?.weapon
+        || null;
+      if (typeof fromFighter === 'string' && fromFighter.trim()) {
+        return fromFighter.trim();
+      }
+      const fromGame = typeof G.selectedWeapon === 'string' ? G.selectedWeapon.trim() : '';
+      if (fromGame) return fromGame;
+      const fromConfig = typeof C.knockback?.currentWeapon === 'string'
+        ? C.knockback.currentWeapon.trim()
+        : '';
+      return fromConfig || null;
+    })();
+
     const activeWeaponKey = entity.profile?.weapon
       || entity.profile?.character?.weapon
       || (entity.profile?.characterKey && C.characters?.[entity.profile.characterKey]?.weapon)
-      || null;
+      || runtimeWeaponKey;
     const weaponConfig = activeWeaponKey && C.weapons ? C.weapons[activeWeaponKey] : null;
     if (weaponConfig && weaponConfig.sprite) {
       const spriteLayers = Array.isArray(weaponConfig.sprite.layers)
