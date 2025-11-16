@@ -11,8 +11,8 @@
   <main class="editor-layout">
     <section class="editor-preview">
       <div class="editor-preview__intro">
-        <h2>Part Preview</h2>
-        <p>Inspect each body part with every equipped cosmetic layer stacked and scaled for clarity.</p>
+        <h2>Part & Stance Preview</h2>
+        <p>Inspect the full body stance alongside each body part with every equipped cosmetic layer stacked and scaled for clarity.</p>
       </div>
       <div id="partPreviewGrid" class="part-preview__grid" data-state="empty" aria-live="polite"></div>
     </section>
@@ -107,8 +107,9 @@
       </div>
       <div class="panel" id="overridePanel">
         <h2>Per-Fighter Overrides</h2>
-        <textarea id="overrideOutput" class="override-output" readonly spellcheck="false" aria-label="Generated override JSON"></textarea>
+        <textarea id="overrideOutput" class="override-output" spellcheck="false" aria-label="Generated override JSON"></textarea>
         <div class="override-actions">
+          <button type="button" id="loadOverrides">📥 Load JSON</button>
           <button type="button" id="applyOverrides">✅ Apply To Preview</button>
           <button type="button" id="copyOverrides">📋 Copy JSON</button>
           <button type="button" id="downloadOverrides">⬇ Download JSON</button>

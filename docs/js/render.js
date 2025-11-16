@@ -80,7 +80,7 @@ function withAX(x, y, ang, off, len, units) {
   return withAXUtil(x, y, ang, ax, ay, len || 1, unitStr);
 }
 
-function computeAnchorsForFighter(F, C, fallbackFighterName) {
+export function computeAnchorsForFighter(F, C, fallbackFighterName) {
   const profile = F?.renderProfile || {};
   const requestedName = profile.fighterName;
   const fighterName = (requestedName && C.fighters?.[requestedName]) ? requestedName : fallbackFighterName;

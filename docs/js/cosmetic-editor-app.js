@@ -9,6 +9,9 @@ import {
   ensureCosmeticLayers
 } from './cosmetics.js?v=1';
 import { applyShade } from './cosmetic-palettes.js?v=1';
+import { renderSprites } from './sprites.js?v=8';
+import { computeAnchorsForFighter } from './render.js?v=4';
+import { degToRad } from './math-utils.js?v=1';
 
 const CONFIG = window.CONFIG || {};
 const GAME = (window.GAME ||= {});
@@ -58,6 +61,7 @@ class CosmeticEditorApp {
     this.styleInspector = this.buildStyleInspectorApi();
     this.modeManager = this.buildModeManagerApi();
     this.fighterManager = this.buildFighterManagerApi();
+    this.fullBodyPreview = this.buildFullBodyPreviewApi();
 
     this.renderPartPreview();
   }
@@ -116,6 +120,7 @@ class CosmeticEditorApp {
       creatorApplyBtn: document.getElementById('creatorApplyPart'),
       clothingCreatorPanel: document.getElementById('clothingCreator'),
       overrideOutput: document.getElementById('overrideOutput'),
+      overrideLoadBtn: document.getElementById('loadOverrides'),
       overrideApplyBtn: document.getElementById('applyOverrides'),
       overrideCopyBtn: document.getElementById('copyOverrides'),
       overrideDownloadBtn: document.getElementById('downloadOverrides')
@@ -304,6 +309,214 @@ class CosmeticEditorApp {
       setActiveMode,
       bootstrap,
       normalizeAppearanceSlotKey
+    };
+  }
+
+  buildFullBodyPreviewApi(){
+    const app = this;
+    const STATE = {
+      initPromise: null
+    };
+
+    const ensureReady = ()=>{
+      if (!STATE.initPromise){
+        STATE.initPromise = Promise.resolve();
+      }
+      return STATE.initPromise;
+    };
+
+    const getPoseAngles = ()=>{
+      const pose = (window.CONFIG?.poses?.Stance) || {};
+      const keys = ['torso', 'head', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
+      const result = {};
+      keys.forEach((key)=>{
+        if (pose[key] != null){
+          result[key] = degToRad(pose[key]);
+        }
+      });
+      if (result.head == null && result.torso != null){
+        result.head = result.torso;
+      }
+      return result;
+    };
+
+    const translateBones = (bones, offsetX, offsetY)=>{
+      const adjusted = {};
+      for (const [key, bone] of Object.entries(bones || {})){
+        if (!bone) continue;
+        adjusted[key] = {
+          ...bone,
+          x: Number.isFinite(bone.x) ? bone.x + offsetX : bone.x,
+          y: Number.isFinite(bone.y) ? bone.y + offsetY : bone.y,
+          endX: Number.isFinite(bone.endX) ? bone.endX + offsetX : bone.endX,
+          endY: Number.isFinite(bone.endY) ? bone.endY + offsetY : bone.endY
+        };
+      }
+      return adjusted;
+    };
+
+    const translateHitbox = (hitbox, offsetX, offsetY)=>{
+      if (!hitbox) return hitbox;
+      return {
+        ...hitbox,
+        x: Number.isFinite(hitbox.x) ? hitbox.x + offsetX : hitbox.x,
+        y: Number.isFinite(hitbox.y) ? hitbox.y + offsetY : hitbox.y,
+        attachX: Number.isFinite(hitbox.attachX) ? hitbox.attachX + offsetX : hitbox.attachX,
+        attachY: Number.isFinite(hitbox.attachY) ? hitbox.attachY + offsetY : hitbox.attachY
+      };
+    };
+
+    const collectBounds = (bones, hitbox)=>{
+      const bounds = {
+        minX: Infinity,
+        maxX: -Infinity,
+        minY: Infinity,
+        maxY: -Infinity
+      };
+      Object.values(bones || {}).forEach((bone)=>{
+        if (!bone) return;
+        const points = [
+          [bone.x, bone.y],
+          [bone.endX, bone.endY]
+        ];
+        points.forEach(([x, y])=>{
+          if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+          bounds.minX = Math.min(bounds.minX, x);
+          bounds.maxX = Math.max(bounds.maxX, x);
+          bounds.minY = Math.min(bounds.minY, y);
+          bounds.maxY = Math.max(bounds.maxY, y);
+        });
+      });
+      if (hitbox){
+        const corners = [
+          [hitbox.x - hitbox.w / 2, hitbox.y - hitbox.h / 2],
+          [hitbox.x + hitbox.w / 2, hitbox.y + hitbox.h / 2]
+        ];
+        corners.forEach(([x, y])=>{
+          if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+          bounds.minX = Math.min(bounds.minX, x);
+          bounds.maxX = Math.max(bounds.maxX, x);
+          bounds.minY = Math.min(bounds.minY, y);
+          bounds.maxY = Math.max(bounds.maxY, y);
+        });
+      }
+      return bounds;
+    };
+
+    const buildEntity = (fighterName, width, height)=>{
+      if (!fighterName) return null;
+      const C = window.CONFIG || {};
+      const jointAngles = getPoseAngles();
+      const fighter = {
+        id: 'previewFighter',
+        renderProfile: { fighterName },
+        pos: { x: 0, y: 0 },
+        jointAngles,
+        facingSign: 1,
+        facingRad: 0
+      };
+      let result;
+      try {
+        result = computeAnchorsForFighter(fighter, C, fighterName);
+      } catch (err){
+        console.warn('[cosmetic-editor] Failed to compute stance rig', err);
+        return null;
+      }
+      if (!result?.B) return null;
+      const bounds = collectBounds(result.B, result.hitbox);
+      if (!Number.isFinite(bounds.minX) || !Number.isFinite(bounds.maxX)){
+        return null;
+      }
+      const centerX = (bounds.minX + bounds.maxX) / 2;
+      const bottomY = Number.isFinite(bounds.maxY) ? bounds.maxY : 0;
+      const targetX = width / 2;
+      const targetBottom = height * 0.9;
+      const offsetX = targetX - centerX;
+      const offsetY = targetBottom - bottomY;
+      const adjustedBones = translateBones(result.B, offsetX, offsetY);
+      const adjustedHitbox = translateHitbox(result.hitbox, offsetX, offsetY);
+      return {
+        id: 'previewEntity',
+        fighterName: result.fighterName || fighterName,
+        bones: adjustedBones,
+        flipLeft: !!result.flipLeft,
+        hitbox: adjustedHitbox,
+        centerX: adjustedHitbox?.x ?? targetX,
+        profile: { fighterName }
+      };
+    };
+
+    const configureCanvas = (canvas)=>{
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(120, Math.round(rect.width || 260));
+      const height = Math.max(220, Math.round(rect.height || 320));
+      const dpr = window.devicePixelRatio || 1;
+      const scaledWidth = Math.max(1, Math.round(width * dpr));
+      const scaledHeight = Math.max(1, Math.round(height * dpr));
+      if (canvas.width !== scaledWidth){
+        canvas.width = scaledWidth;
+      }
+      if (canvas.height !== scaledHeight){
+        canvas.height = scaledHeight;
+      }
+      return { width, height, dpr };
+    };
+
+    const draw = async (canvas, fighterName, overrides)=>{
+      await ensureReady();
+      const ctx = canvas.getContext('2d');
+      if (!ctx){
+        return;
+      }
+      const { width, height, dpr } = configureCanvas(canvas);
+      const entity = buildEntity(fighterName, width, height);
+      const GAME = (window.GAME ||= {});
+      if (!entity){
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(148,163,184,0.65)';
+        ctx.font = '12px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Unable to render fighter preview', canvas.width / 2, canvas.height / 2);
+        ctx.restore();
+        return;
+      }
+      GAME.CAMERA = { x: 0, zoom: 1, worldWidth: width };
+      GAME.RENDER_STATE = { entities: [entity] };
+      GAME.ANCHORS_OBJ = { [entity.id]: entity.bones };
+      GAME.FLIP_STATE = { [entity.id]: entity.flipLeft };
+      GAME.selectedFighter = fighterName;
+      const overridesClone = app.deepClone(overrides || {});
+      GAME.editorState = { slotOverrides: overridesClone };
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      renderSprites(ctx);
+      ctx.restore();
+    };
+
+    return {
+      renderInto(container, fighterName, overrides){
+        if (!container){
+          return;
+        }
+        container.innerHTML = '';
+        const canvas = document.createElement('canvas');
+        canvas.className = 'full-body-preview__canvas';
+        container.appendChild(canvas);
+        draw(canvas, fighterName, overrides).catch((err)=>{
+          console.warn('[cosmetic-editor] Failed to render stance preview', err);
+          container.innerHTML = '';
+          const note = document.createElement('p');
+          note.className = 'part-preview__empty-note';
+          note.textContent = 'Full body preview unavailable.';
+          container.appendChild(note);
+        });
+      }
     };
   }
 
@@ -649,9 +862,6 @@ class CosmeticEditorApp {
     };
 
     const buildFighterSpriteExport = ()=>{
-      if (this.modeManager.resolveModeKey(this.state.activeMode) !== 'fighterSprites'){
-        return null;
-      }
       const fighter = this.state.activeFighter;
       if (fighter == null || fighter === ''){
         return null;
@@ -685,20 +895,37 @@ class CosmeticEditorApp {
       return { overridePayload, mergedProfile, hasOverrides };
     };
 
+    const buildExportBundle = (prepared = prepareDownloadPayload())=>{
+      const fighterEntry = buildFighterSpriteExport();
+      const result = {};
+      const fighterName = this.state.activeFighter || null;
+      if (fighterName){
+        result.fighter = fighterName;
+      }
+      if (prepared.hasOverrides && prepared.mergedProfile){
+        result.profile = prepared.mergedProfile;
+      }
+      if (fighterEntry){
+        result.fighterSprites = fighterEntry.fighters;
+      }
+      if (!result.profile && !result.fighterSprites){
+        return null;
+      }
+      if (!result.profile){ delete result.profile; }
+      if (!result.fighterSprites){ delete result.fighterSprites; }
+      if (!result.fighter){ delete result.fighter; }
+      return result;
+    };
+
     const refreshOutputs = ()=>{
       if (this.dom.overrideOutput == null) return;
-      const { mergedProfile, hasOverrides } = prepareDownloadPayload();
-      const fighterEntry = buildFighterSpriteExport();
-      const sections = [];
-      if (fighterEntry){
-        sections.push('// Fighter sprite entry', JSON.stringify(fighterEntry, null, 2));
-      }
-      if (hasOverrides && mergedProfile){
-        sections.push(fighterEntry ? '// Cosmetic overrides' : '', JSON.stringify(mergedProfile, null, 2));
-      }
-      const hasAny = sections.length > 0;
-      this.dom.overrideOutput.value = hasAny ? sections.filter((section)=> section !== '').join('\n\n') : '// No overrides defined for this fighter.';
-      const canApply = hasOverrides && mergedProfile;
+      const prepared = prepareDownloadPayload();
+      const bundle = buildExportBundle(prepared);
+      const hasAny = !!bundle;
+      this.dom.overrideOutput.value = hasAny
+        ? JSON.stringify(bundle, null, 2)
+        : '// No overrides defined for this fighter.';
+      const canApply = prepared.hasOverrides && prepared.mergedProfile;
       if (this.dom.overrideApplyBtn) this.dom.overrideApplyBtn.disabled = canApply ? false : true;
       if (this.dom.overrideCopyBtn) this.dom.overrideCopyBtn.disabled = hasAny ? false : true;
       if (this.dom.overrideDownloadBtn) this.dom.overrideDownloadBtn.disabled = hasAny ? false : true;
@@ -738,27 +965,125 @@ class CosmeticEditorApp {
       }
     };
 
+    const parseEditorJsonInput = ()=>{
+      if (!this.dom.overrideOutput) return null;
+      const text = (this.dom.overrideOutput.value || '').trim();
+      if (!text || text.startsWith('// ')){
+        return null;
+      }
+      try {
+        return JSON.parse(text);
+      } catch (err){
+        const sanitized = text
+          .split('\n')
+          .filter((line)=> !line.trim().startsWith('//'))
+          .join('\n')
+          .trim();
+        if (!sanitized){
+          throw err;
+        }
+        return JSON.parse(sanitized);
+      }
+    };
+
+    const applyImportedOverrides = (bundle)=>{
+      if (!bundle || typeof bundle !== 'object') return false;
+      const targetFighter = typeof bundle.fighter === 'string' && CONFIG.fighters?.[bundle.fighter]
+        ? bundle.fighter
+        : this.state.activeFighter;
+      if (targetFighter && targetFighter !== this.state.activeFighter){
+        if (this.dom.fighterSelect){
+          this.dom.fighterSelect.value = targetFighter;
+        }
+        this.fighterManager.loadFighter(targetFighter);
+      }
+      let applied = false;
+      const profile = this.isPlainObject(bundle.profile) ? bundle.profile : null;
+      if (profile){
+        applied = true;
+        this.state.profileBaseSnapshot = this.deepClone(profile || { cosmetics: {} });
+        this.state.loadedProfile = this.deepClone(profile?.cosmetics || {});
+        const slots = profile?.cosmetics?.slots || {};
+        const selection = this.fighterManager.setSelectedCosmetics(slots || {});
+        this.state.slotOverrides = this.fighterManager.mapProfileToSlotOverrides(selection, profile);
+      } else {
+        this.state.slotOverrides = this.deepClone(this.state.slotOverrides || {});
+      }
+      for (const slotKey of Object.keys(this.state.slotOverrides || {})){
+        if (slotKey.startsWith(FIGHTER_SPRITE_SLOT_PREFIX)){
+          delete this.state.slotOverrides[slotKey];
+        }
+      }
+      const fighterSprites = this.isPlainObject(bundle.fighterSprites) ? bundle.fighterSprites : null;
+      if (fighterSprites && targetFighter){
+        const spritesRoot = fighterSprites.fighters || fighterSprites;
+        const spriteEntry = spritesRoot?.[targetFighter];
+        const spriteSlots = spriteEntry?.sprites?.slots || spriteEntry?.slots || null;
+        if (spriteSlots && Object.keys(spriteSlots).length){
+          applied = true;
+          this.state.slotOverrides ||= {};
+          this.state.slotSelection ||= {};
+          GAME.selectedCosmetics ||= { slots: {} };
+          GAME.selectedCosmetics.slots ||= {};
+          for (const [partKey, overrides] of Object.entries(spriteSlots)){
+            if (!partKey) continue;
+            const slotKey = `${FIGHTER_SPRITE_SLOT_PREFIX}${targetFighter}:${partKey}`;
+            if (overrides){
+              this.state.slotOverrides[slotKey] = this.deepClone(overrides);
+            }
+            const id = `${FIGHTER_SPRITE_ID_PREFIX}${targetFighter}::${partKey}`;
+            const next = { id };
+            GAME.selectedCosmetics.slots[slotKey] = this.deepClone(next);
+            this.state.slotSelection[slotKey] = this.deepClone(next);
+          }
+        }
+      }
+      if (applied){
+        this.slotGrid.refreshFromSelection();
+        this.styleInspector.show(null);
+      }
+      return applied;
+    };
+
+    const loadOverridesFromInput = ()=>{
+      let parsed;
+      try {
+        parsed = parseEditorJsonInput();
+      } catch (err){
+        console.warn('[cosmetic-editor] Failed to parse override input', err);
+        this.showStatus('Invalid JSON payload. Check the console for details.', { tone: 'error' });
+        return;
+      }
+      if (!parsed){
+        this.showStatus('Paste a JSON payload before loading.', { tone: 'warn' });
+        return;
+      }
+      const applied = applyImportedOverrides(parsed);
+      if (applied){
+        refreshOutputs();
+        this.showStatus('Loaded override JSON into the editor.', { tone: 'info' });
+      } else {
+        this.showStatus('JSON parsed but no profile or fighter sprite data was applied.', { tone: 'warn' });
+      }
+    };
+
     const downloadOverridesJson = ()=>{
-      const { mergedProfile, hasOverrides } = prepareDownloadPayload();
-      const fighterEntry = buildFighterSpriteExport();
-      const hasCosmetics = hasOverrides && mergedProfile;
-      if (!fighterEntry && !hasCosmetics){
+      const prepared = prepareDownloadPayload();
+      const bundle = buildExportBundle(prepared);
+      if (!bundle){
         this.showStatus('No override JSON to download.', { tone: 'warn' });
         return;
       }
-      const fighter = this.state.activeFighter || 'fighter';
-      let text;
-      let filename;
-      if (fighterEntry && hasCosmetics){
-        text = JSON.stringify({ fighterSprites: fighterEntry.fighters, profile: mergedProfile }, null, 2);
+      const fighter = bundle.fighter || this.state.activeFighter || 'fighter';
+      const hasProfile = !!bundle.profile;
+      const hasSprites = !!bundle.fighterSprites;
+      let filename = `${fighter}-cosmetics.json`;
+      if (hasProfile && hasSprites){
         filename = `${fighter}-sprites-and-cosmetics.json`;
-      } else if (fighterEntry){
-        text = JSON.stringify(fighterEntry, null, 2);
+      } else if (hasSprites){
         filename = `${fighter}-fighter-sprites.json`;
-      } else {
-        text = JSON.stringify(mergedProfile, null, 2);
-        filename = `${fighter}-cosmetics.json`;
       }
+      const text = JSON.stringify(bundle, null, 2);
       if (this.dom.overrideOutput){
         this.dom.overrideOutput.value = text;
       }
@@ -781,7 +1106,9 @@ class CosmeticEditorApp {
       copyOverridesToClipboard,
       downloadOverridesJson,
       prepareDownloadPayload,
-      buildMergedProfilePayload
+      buildMergedProfilePayload,
+      loadOverridesFromInput,
+      buildExportBundle
     };
   }
 
@@ -2235,6 +2562,10 @@ class CosmeticEditorApp {
     }
 
     const library = getRegisteredCosmeticLibrary();
+    const stanceCard = this.buildFullBodyPreview(entries, library, fighterName);
+    if (stanceCard){
+      container.appendChild(stanceCard);
+    }
     const partMap = new Map();
     for (const layer of entries){
       const partKey = layer.partKey || 'unknown';
@@ -2337,7 +2668,7 @@ class CosmeticEditorApp {
     container.appendChild(card);
   }
 
-  buildPartPose(position, layers = [], library, partKey){
+  buildPartPose(position, layers = [], library, partKey, options = {}){
     const section = document.createElement('section');
     section.className = 'part-preview__pose';
     section.dataset.position = position;
@@ -2413,7 +2744,8 @@ class CosmeticEditorApp {
 
     section.appendChild(stage);
 
-    if (resolvedLayers.length){
+    const showLayerList = options.showLayerList !== false;
+    if (showLayerList && resolvedLayers.length){
       const list = document.createElement('ul');
       list.className = 'part-preview__layers';
       resolvedLayers.forEach((layer, index)=>{
@@ -2459,6 +2791,52 @@ class CosmeticEditorApp {
     }
 
     return section;
+  }
+
+  buildFullBodyPreview(layers = [], library, fighterName){
+    if (!Array.isArray(layers) || layers.length === 0){
+      return null;
+    }
+    const grouped = { front: [], back: [] };
+    layers.forEach((layer)=>{
+      if (!layer || !layer.asset?.url) return;
+      const position = this.normalizeLayerPosition(layer.position);
+      if (position === 'back'){
+        grouped.back.push(layer);
+      } else {
+        grouped.front.push(layer);
+      }
+    });
+    const totalLayers = grouped.front.length + grouped.back.length;
+    if (totalLayers === 0){
+      return null;
+    }
+    const card = document.createElement('article');
+    card.className = 'part-preview__card part-preview__card--full-body';
+
+    const header = document.createElement('header');
+    header.className = 'part-preview__card-header';
+    const title = document.createElement('span');
+    title.className = 'part-preview__part';
+    title.textContent = 'Full Body Stance';
+    header.appendChild(title);
+    const badge = document.createElement('span');
+    badge.className = 'part-preview__progress';
+    badge.textContent = `${totalLayers} layered sprite${totalLayers === 1 ? '' : 's'}`;
+    header.appendChild(badge);
+    card.appendChild(header);
+
+    const stage = document.createElement('div');
+    stage.className = 'part-preview__stage part-preview__stage--full-body';
+    card.appendChild(stage);
+    this.fullBodyPreview.renderInto(stage, fighterName, this.state.slotOverrides);
+
+    const meta = document.createElement('p');
+    meta.className = 'part-preview__full-body-meta';
+    meta.textContent = `Front layers: ${grouped.front.length} • Back layers: ${grouped.back.length}`;
+    card.appendChild(meta);
+
+    return card;
   }
 
   mergeLayerConfig(base = {}, override = {}){
@@ -3162,6 +3540,7 @@ class CosmeticEditorApp {
     this.dom.creatorAddBtn?.addEventListener('click', ()=> this.assetLibrary.createCustomCosmetic());
     this.dom.creatorEquipBtn?.addEventListener('click', ()=> this.assetLibrary.equipCustomCosmetic());
     this.dom.creatorApplyBtn?.addEventListener('click', ()=> this.assetLibrary.applyAssetToActivePart());
+    this.dom.overrideLoadBtn?.addEventListener('click', ()=> this.overrideManager.loadOverridesFromInput());
     this.dom.overrideApplyBtn?.addEventListener('click', ()=> this.overrideManager.applyOverridesToProfile());
     this.dom.overrideCopyBtn?.addEventListener('click', ()=> this.overrideManager.copyOverridesToClipboard());
     this.dom.overrideDownloadBtn?.addEventListener('click', ()=> this.overrideManager.downloadOverridesJson());
