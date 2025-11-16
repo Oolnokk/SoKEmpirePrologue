@@ -120,6 +120,7 @@ export function makeCombat(G, C, options = {}){
     sequenceTimers: [],
     sequenceSteps: [],
     timelineState: null
+    sequenceSteps: []
   };
 
   const CHARGE = {
@@ -210,6 +211,10 @@ export function makeCombat(G, C, options = {}){
       const str = String(value).trim();
       if (str) tagSet.add(str.toUpperCase());
     };
+    const defaultActivationTag = typeof options.defaultActivationTag === 'string'
+      ? options.defaultActivationTag.trim().toUpperCase()
+      : 'STRIKE';
+    if (defaultActivationTag) addTag(defaultActivationTag);
     if (options.preset) addTag(options.preset);
     const allowedTags = options.allowedTags;
     if (allowedTags instanceof Set) {
@@ -220,22 +225,28 @@ export function makeCombat(G, C, options = {}){
       Object.values(allowedTags).forEach(addTag);
     }
     const keys = [];
+    const seenKeys = new Set();
     for (const bone of state.bones) {
       for (const collider of bone?.colliders || []) {
         if (!collider || !collider.id) continue;
+        const id = String(collider.id).trim();
+        if (!id) continue;
         const activations = Array.isArray(collider.activatesOn) ? collider.activatesOn : [];
-        if (activations.length) {
-          if (!tagSet.size) {
-            continue;
+        const normalizedActivations = activations
+          .map((tag) => (typeof tag === 'string' ? tag.trim().toUpperCase() : ''))
+          .filter(Boolean);
+        if (normalizedActivations.length) {
+          const matches = normalizedActivations.some((tag) => tagSet.has(tag));
+          if (!matches) {
+            if (!defaultActivationTag || !tagSet.has(defaultActivationTag)) {
+              continue;
+            }
           }
-          const matches = activations.some((tag) => {
-            if (tag == null) return false;
-            const str = String(tag).trim();
-            return str && tagSet.has(str.toUpperCase());
-          });
-          if (!matches) continue;
         }
-        keys.push(`weapon:${collider.id}`);
+        const key = `weapon:${id}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        keys.push(key);
       }
     }
     return keys;
@@ -689,6 +700,52 @@ export function makeCombat(G, C, options = {}){
 
       runSegmentAt(0);
     }
+  function runAttackTimeline({ segments, context, onComplete, resetMirrorBeforeStance=false, sequenceSteps=[] }){
+    const ordered = Array.isArray(segments) ? segments.slice() : [];
+    if (!ordered.length){
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+    const steps = Array.isArray(sequenceSteps) ? sequenceSteps.slice() : [];
+    steps.sort((a,b)=> (a.startMs || 0) - (b.startMs || 0));
+    let nextStepIndex = 0;
+    let stanceReset = false;
+
+    const triggerStepsThrough = (timeMs) => {
+      if (!steps.length) return;
+      while (nextStepIndex < steps.length){
+        const step = steps[nextStepIndex];
+        if (!step || !Number.isFinite(step.startMs)) {
+          nextStepIndex += 1;
+          continue;
+        }
+        if (step.startMs > timeMs + 1e-3) break;
+        nextStepIndex += 1;
+        playAttackSequenceStep(step, context);
+      }
+    };
+
+    triggerStepsThrough(0);
+
+    const runSegmentAt = (idx) => {
+      if (idx >= ordered.length){
+        if (typeof onComplete === 'function') onComplete();
+        return;
+      }
+      const segment = ordered[idx];
+      if (resetMirrorBeforeStance && !stanceReset && segment.phase === 'Stance'){
+        resetMirror();
+        stanceReset = true;
+      }
+      triggerStepsThrough(segment.startTime);
+      startTransition(segment.pose, segment.phase, segment.duration, ()=>{
+        triggerStepsThrough(segment.endTime);
+        runSegmentAt(idx + 1);
+      });
+    };
+
+    runSegmentAt(0);
+  }
 
   function cloneAbilityForMerge(def){
     if (!def) return null;
@@ -1525,7 +1582,11 @@ export function makeCombat(G, C, options = {}){
         });
       }
       const weaponKeys = allowWeaponColliders
-        ? collectWeaponColliderKeys(fighter, { allowedTags, preset: attackState.preset || context?.preset })
+        ? collectWeaponColliderKeys(fighter, {
+            allowedTags,
+            preset: attackState.preset || context?.preset,
+            defaultActivationTag: 'STRIKE'
+          })
         : [];
       if (allowWeaponColliders && weaponKeys.length) {
         const merged = new Set(Array.isArray(explicitKeys) ? explicitKeys : []);

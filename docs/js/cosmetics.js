@@ -10,8 +10,6 @@ const STATE = (ROOT.COSMETIC_SYSTEM ||= {
   profiles: new Map()
 });
 
-const TRANSFORM_OVERRIDE_KEYS = new Set(['spriteStyle', 'warp', 'anchor', 'align', 'styleKey']);
-
 export function getRegisteredCosmeticLibrary(){
   const entries = Object.entries(STATE.library || {});
   const out = {};
@@ -54,47 +52,6 @@ function mergeConfig(baseValue, override){
     return deepMerge(baseValue, override);
   }
   return override;
-}
-
-function sanitizeOverrideObject(override, { allowTransforms = false } = {}){
-  if (!override || typeof override !== 'object'){
-    return null;
-  }
-  const cloned = deepMerge({}, override);
-  if (!allowTransforms){
-    for (const key of TRANSFORM_OVERRIDE_KEYS){
-      if (key in cloned){
-        delete cloned[key];
-      }
-    }
-  }
-  if (cloned.layers && typeof cloned.layers === 'object' && !Array.isArray(cloned.layers)){
-    for (const [layerKey, layerOverride] of Object.entries(cloned.layers)){
-      const sanitizedLayer = sanitizeOverrideObject(layerOverride, { allowTransforms });
-      if (sanitizedLayer){
-        cloned.layers[layerKey] = sanitizedLayer;
-      } else {
-        delete cloned.layers[layerKey];
-      }
-    }
-    if (!Object.keys(cloned.layers).length){
-      delete cloned.layers;
-    }
-  }
-  if (cloned.parts && typeof cloned.parts === 'object' && !Array.isArray(cloned.parts)){
-    for (const [partKey, partOverride] of Object.entries(cloned.parts)){
-      const sanitizedPart = sanitizeOverrideObject(partOverride, { allowTransforms });
-      if (sanitizedPart){
-        cloned.parts[partKey] = sanitizedPart;
-      } else {
-        delete cloned.parts[partKey];
-      }
-    }
-    if (!Object.keys(cloned.parts).length){
-      delete cloned.parts;
-    }
-  }
-  return Object.keys(cloned).length ? cloned : null;
 }
 
 export function registerFighterCosmeticProfile(fighterName, profile = {}){
@@ -866,24 +823,6 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
     if (!cosmetic) continue;
     const slotOverride = editorState?.slotOverrides?.[slot];
     const isAppearance = slot.startsWith(APPEARANCE_SLOT_PREFIX) || cosmetic?.type === 'appearance' || !!cosmetic?.appearance;
-    const sanitizedSlotOverride = sanitizeOverrideObject(slotOverride, { allowTransforms: false });
-    const slotBaseOverride = sanitizedSlotOverride
-      ? (() => {
-        const { layers: _ignoredLayers, parts: _ignoredParts, ...base } = sanitizedSlotOverride;
-        return Object.keys(base).length ? base : null;
-      })()
-      : null;
-    const slotLayerOverrides = sanitizedSlotOverride?.layers || {};
-    const slotPartOverrides = sanitizedSlotOverride?.parts || {};
-    const sanitizedFighterOverride = sanitizeOverrideObject(equipped.fighterOverrides, { allowTransforms: !isAppearance });
-    const fighterBaseOverride = sanitizedFighterOverride
-      ? (() => {
-        const { layers: _ignoredLayers, parts: _ignoredParts, ...base } = sanitizedFighterOverride;
-        return Object.keys(base).length ? base : null;
-      })()
-      : null;
-    const fighterLayerOverrides = sanitizedFighterOverride?.layers || {};
-    const fighterPartOverrides = sanitizedFighterOverride?.parts || {};
     const equippedTint = equipped.hsl ?? equipped.hsv;
     let slotHSL = isAppearance
       ? resolveAppearanceBaseHSL(equipped, cosmetic, bodyColors)
@@ -901,8 +840,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
     for (const [partKey, partConfig] of Object.entries(cosmetic.parts || {})){
       const partLayers = resolvePartLayers(partKey, partConfig, fighterName, cosmetic.id);
       if (!Array.isArray(partLayers) || partLayers.length === 0) continue;
-      const fighterPartOverride = fighterPartOverrides?.[partKey];
-      const slotPartOverride = slotPartOverrides?.[partKey];
+      const partOverride = slotOverride?.parts?.[partKey];
       for (const { position, config: baseLayerConfig } of partLayers){
         if (!baseLayerConfig) continue;
         const layerPosition = position || 'front';
@@ -915,10 +853,8 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           align: baseLayerConfig.align ? deepMerge({}, baseLayerConfig.align) : baseLayerConfig.align,
           extra: baseLayerConfig.extra ? deepMerge({}, baseLayerConfig.extra) : {}
         };
-        const fighterLayerOverride = fighterLayerOverrides?.[layerPosition];
-        const slotLayerOverride = slotLayerOverrides?.[layerPosition];
-        const fighterPartLayerOverride = fighterPartOverride?.layers?.[layerPosition];
-        const slotPartLayerOverride = slotPartOverride?.layers?.[layerPosition];
+        const slotLayerOverride = slotOverride?.layers?.[layerPosition];
+        const partLayerOverride = partOverride?.layers?.[layerPosition];
 
         let styleOverride = resolved.spriteStyle;
         let warpOverride = resolved.warp;
@@ -964,14 +900,10 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           }
         };
 
-        applyOverrides(fighterBaseOverride, { applyTint: true });
-        applyOverrides(fighterLayerOverride, { applyTint: true });
-        applyOverrides(fighterPartOverride, { applyTint: true });
-        applyOverrides(fighterPartLayerOverride, { applyTint: true });
-        applyOverrides(slotBaseOverride, { applyTint: false });
+        applyOverrides(slotOverride, { applyTint: false });
         applyOverrides(slotLayerOverride, { applyTint: false });
-        applyOverrides(slotPartOverride, { applyTint: true });
-        applyOverrides(slotPartLayerOverride, { applyTint: true });
+        applyOverrides(partOverride, { applyTint: true });
+        applyOverrides(partLayerOverride, { applyTint: true });
 
         if (!resolved?.image?.url) continue;
         const asset = ensureAsset(cosmetic.id, partKey, resolved.image, layerPosition);

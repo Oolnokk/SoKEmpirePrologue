@@ -1018,11 +1018,12 @@ function buildWeaponBones({
       anchorPos = withAX(anchorPos[0], anchorPos[1], anchor.ang, boneSpec.anchorOffset, null, length);
     }
 
-    const weaponBaseAngle = Number.isFinite(target?.weapon) ? target.weapon : anchor.ang;
+    const anchorAngle = Number.isFinite(anchor?.ang) ? anchor.ang : 0;
+    const weaponAngleOffset = Number.isFinite(target?.weapon) ? target.weapon : 0;
     const boneAngleOffset = Number.isFinite(boneSpec.angleOffsetRad)
       ? boneSpec.angleOffsetRad
       : (Number.isFinite(boneSpec.angleOffsetDeg) ? degToRad(boneSpec.angleOffsetDeg) : 0);
-    const boneAng = weaponBaseAngle + baseAngleOffset + boneAngleOffset;
+    const boneAng = anchorAngle + weaponAngleOffset + baseAngleOffset + boneAngleOffset;
 
     const jointDefault = jointDefaults?.[boneId]
       ?? clamp(Number(boneSpec.joint?.percent ?? boneSpec.jointPercent ?? 0.5), 0, 1);
@@ -1102,6 +1103,23 @@ function buildWeaponBones({
       };
       boneEntry.colliders.push(collider);
     });
+
+    if (
+      typeof window !== 'undefined'
+        ? window.__SOK_BREAK_ON_WEAPON_COLLIDER_ORIGIN !== false
+        : true
+    ) {
+      const originThreshold = 1e-3;
+      const hasOriginCollider = boneEntry.colliders.some((col) => {
+        const { x, y } = col?.center || {};
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+        return Math.hypot(x, y) <= originThreshold;
+      });
+      if (hasOriginCollider) {
+        // eslint-disable-next-line no-debugger
+        debugger;
+      }
+    }
 
     bones.push(boneEntry);
   });

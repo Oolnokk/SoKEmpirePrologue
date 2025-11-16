@@ -4,11 +4,6 @@ import { COSMETIC_SLOTS, cosmeticTagFor, ensureCosmeticLayers, clearCosmeticCach
 import { clearPaletteCache } from '../docs/js/cosmetic-palettes.js';
 import { readFileSync } from 'node:fs';
 
-function readXform(layer, partKey, axis){
-  return layer?.styleOverride?.base?.xform?.[partKey]?.[axis]
-    ?? layer?.styleOverride?.xform?.[partKey]?.[axis];
-}
-
 const EXPECTED_SLOTS = [
   'hat',
   'hood',
@@ -226,168 +221,6 @@ test('appearance cosmetics inherit character body colors', () => {
   strictEqual(layers[0].asset.alignRad, undefined);
 });
 
-test('runtime slot overrides cannot mutate cosmetic transforms', () => {
-  clearCosmeticCache();
-  clearPaletteCache();
-  const previousWindow = globalThis.window;
-  try {
-    globalThis.window = {
-      GAME: {
-        editorState: {
-          slotOverrides: {
-            hat: {
-              spriteStyle: { base: { xform: { head: { ax: 90 } } } },
-              layers: {
-                front: { spriteStyle: { base: { xform: { head: { ay: -12 } } } } }
-              },
-              hsl: { h: 45, s: 0.1, l: 0.2 }
-            }
-          }
-        }
-      }
-    };
-
-    const config = {
-      cosmeticLibrary: {
-        rigid_hat: {
-          slot: 'hat',
-          hsl: {
-            defaults: { h: 0, s: 0, l: 0 },
-            limits: { h: [-180, 180], s: [-1, 1], l: [-1, 1] }
-          },
-          parts: {
-            head: {
-              image: { url: 'https://example.com/hat.png' },
-              spriteStyle: { base: { xform: { head: { ax: 3 } } } }
-            }
-          }
-        }
-      },
-      fighters: {
-        hero: {
-          cosmetics: {
-            slots: {
-              hat: { id: 'rigid_hat', hsl: { h: 0, s: 0, l: 0 } }
-            }
-          }
-        }
-      }
-    };
-
-    const layers = ensureCosmeticLayers(config, 'hero', {});
-    strictEqual(layers.length, 1);
-    const layer = layers[0];
-    deepStrictEqual(layer.hsl, { h: 45, s: 0.1, l: 0.2 });
-    strictEqual(readXform(layer, 'head', 'ax'), 3);
-    strictEqual(readXform(layer, 'head', 'ay'), undefined);
-  } finally {
-    globalThis.window = previousWindow;
-  }
-});
-
-test('fighter-specific overrides may adjust non-appearance transforms', () => {
-  clearCosmeticCache();
-  clearPaletteCache();
-  const config = {
-    cosmeticLibrary: {
-      tilted_hat: {
-        slot: 'hat',
-        hsl: {
-          defaults: { h: 0, s: 0, l: 0 },
-          limits: { h: [-180, 180], s: [-1, 1], l: [-1, 1] }
-        },
-        parts: {
-          head: {
-            image: { url: 'https://example.com/tilted-hat.png' },
-            spriteStyle: { base: { xform: { head: { ax: 2 } } } }
-          }
-        }
-      }
-    },
-    fighters: {
-      hero: {
-        cosmetics: {
-          slots: {
-            hat: {
-              id: 'tilted_hat',
-              fighterOverrides: {
-                spriteStyle: { base: { xform: { head: { ax: 7 } } } },
-                parts: {
-                  head: {
-                    layers: {
-                      front: { spriteStyle: { base: { xform: { head: { ay: 5 } } } } }
-                    }
-                  }
-                },
-                hsl: { h: -30 }
-              }
-            }
-          }
-        }
-      }
-    }
-  };
-
-  const layers = ensureCosmeticLayers(config, 'hero', {});
-  strictEqual(layers.length, 1);
-  const layer = layers[0];
-  strictEqual(readXform(layer, 'head', 'ax'), 7);
-  strictEqual(readXform(layer, 'head', 'ay'), 5);
-  deepStrictEqual(layer.hsl, { h: -30, s: 0, l: 0 });
-});
-
-test('appearance cosmetics ignore fighter transform overrides', () => {
-  clearCosmeticCache();
-  clearPaletteCache();
-  const config = {
-    cosmeticLibrary: {
-      marking: {
-        slot: 'appearance:torso',
-        appearance: { inheritSprite: 'torso' },
-        parts: {
-          torso: {
-            image: { url: 'https://example.com/marking.png' },
-            spriteStyle: { base: { xform: { torso: { ax: 2 } } } }
-          }
-        }
-      }
-    },
-    fighters: {
-      hero: {
-        bodyColors: {
-          A: { h: 10, s: 0.05, v: 0.1 }
-        },
-        cosmetics: {
-          slots: {
-            'appearance:torso': {
-              id: 'marking',
-              colors: ['A'],
-              fighterOverrides: {
-                spriteStyle: { base: { xform: { torso: { ax: 40 } } } },
-                parts: {
-                  torso: {
-                    layers: {
-                      front: { spriteStyle: { base: { xform: { torso: { ay: -6 } } } } }
-                    }
-                  }
-                },
-                hsl: { s: 0.2 }
-              }
-            }
-          }
-        }
-      }
-    }
-  };
-
-  const layers = ensureCosmeticLayers(config, 'hero', {});
-  strictEqual(layers.length, 1);
-  const layer = layers[0];
-  strictEqual(readXform(layer, 'torso', 'ax'), 2);
-  strictEqual(readXform(layer, 'torso', 'ay'), undefined);
-  deepStrictEqual(layer.hsl, { h: 10, s: 0.25, l: 0.1 });
-});
-
 test('resolveFighterBodyColors ignores stale palette when fighter changes', () => {
   const previousWindow = globalThis.window;
   try {
@@ -495,11 +328,39 @@ test('default character pants tint to blue for player and red for enemy', () => 
     });
 });
 
+test('ensureCosmeticLayers exposes layer extra bone influence metadata', () => {
+  clearCosmeticCache();
+  clearPaletteCache();
+  const poncho = JSON.parse(readFileSync(new URL('../docs/config/cosmetics/simple_poncho.json', import.meta.url), 'utf8'));
+  const config = {
+    cosmeticLibrary: {
+      simple_poncho: poncho
+    },
+    fighters: {
+      drifter: {
+        cosmetics: {
+          slots: {
+            overwear: { id: 'simple_poncho' }
+          }
+        }
+      }
+    }
+  };
+
+  const layers = ensureCosmeticLayers(config, 'drifter', {});
+  const torsoFront = layers.find((layer) =>
+    layer.cosmeticId === 'simple_poncho' && layer.partKey === 'torso' && layer.position === 'front'
+  );
+  strictEqual(Array.isArray(torsoFront?.extra?.boneInfluences), true, 'torso layer should retain bone influence metadata');
+  strictEqual(torsoFront.extra.boneInfluences.length >= 3, true, 'torso layer should expose all configured influences');
+  strictEqual(torsoFront.extra.boneInfluences[0].bone, 'torso');
+});
+
 test('sprites.js integrates cosmetic layers and z-order expansion', () => {
   const spritesContent = readFileSync(new URL('../docs/js/sprites.js', import.meta.url), 'utf8');
   strictEqual(/expanded\.push\(cosmeticTagFor\(tag, slot\)\);/.test(spritesContent), true, 'buildZMap should add cosmetic tags');
   strictEqual(/const \{ assets, style, cosmetics(?:, bodyColors)?(?:, untintedOverlays: [^}]+)? } = ensureFighterSprites/.test(spritesContent), true, 'renderSprites should read cosmetics');
-  strictEqual(/withBranchMirror\(ctx,\s*originX,\s*mirror,\s*\(\)\s*=>\s*\{\s*drawBoneSprite\(ctx, layer\.asset, bone, styleKey/.test(spritesContent), true, 'cosmetic layers should mirror with their limbs');
+  strictEqual(/withBranchMirror\(ctx,\s*originX,\s*mirror,\s*\(\)\s*=>\s*\{[\s\S]*?drawBoneSprite\(ctx,\s*layer\.asset,\s*bone,\s*styleKey,\s*style,/.test(spritesContent), true, 'cosmetic layers should mirror with their limbs');
 });
 
 test('config references cosmetic library sources and fighter slot data', () => {

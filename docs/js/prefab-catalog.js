@@ -1,7 +1,144 @@
 const manifestCache = new Map();
 const prefabCache = new Map();
 
+function getDocumentBase() {
+  if (typeof document !== 'undefined' && typeof document.baseURI === 'string') {
+    return document.baseURI;
+  }
+  if (typeof location !== 'undefined' && typeof location.href === 'string') {
+    return location.href;
+  }
+  return null;
+}
+
+function resolveAbsoluteUrl(rawUrl, baseHint = null) {
+  const normalized = typeof rawUrl === 'string' ? rawUrl.trim() : '';
+  if (!normalized) {
+    throw new TypeError('URL must be a non-empty string');
+  }
+  const candidates = [];
+  if (baseHint) {
+    candidates.push(baseHint);
+  }
+  const docBase = getDocumentBase();
+  if (docBase) {
+    candidates.push(docBase);
+  }
+  for (const base of candidates) {
+    try {
+      return new URL(normalized, base).href;
+    } catch (_err) {
+      // try next base option
+    }
+  }
+  return new URL(normalized).href;
+}
+
 const NO_FETCH_ERROR = new Error('fetch is unavailable in this environment');
+
+let customJsonImportLoader = null;
+let nativeJsonImportAvailable = undefined;
+let jsonImportWarningLogged = false;
+
+export function __setJsonImportLoader(loader) {
+  if (typeof loader === 'function') {
+    customJsonImportLoader = loader;
+  } else {
+    customJsonImportLoader = null;
+  }
+}
+
+function shouldUseJsonFallback(url) {
+  if (typeof url !== 'string') return false;
+  const normalized = url.trim().toLowerCase();
+  if (!normalized) return false;
+  if (normalized.startsWith('file:')) {
+    return true;
+  }
+  if (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') {
+    return true;
+  }
+  return false;
+}
+
+async function importJsonWithFallback(url) {
+  if (!shouldUseJsonFallback(url)) {
+    return null;
+  }
+
+  const loader = customJsonImportLoader
+    || (nativeJsonImportAvailable === false
+      ? null
+      : ((target) => import(/* webpackIgnore: true */ target, { assert: { type: 'json' } })));
+
+  if (!loader) {
+    const xhrResult = await loadJsonWithXhr(url);
+    return xhrResult;
+  }
+
+  try {
+    const module = await loader(url);
+    if (!customJsonImportLoader) {
+      nativeJsonImportAvailable = true;
+    }
+    const data = module && typeof module === 'object' && 'default' in module ? module.default : module;
+    return data ?? null;
+  } catch (error) {
+    if (!customJsonImportLoader) {
+      nativeJsonImportAvailable = false;
+      if (!jsonImportWarningLogged && typeof console?.warn === 'function') {
+        jsonImportWarningLogged = true;
+        console.warn('[prefab-catalog] JSON module import fallback failed', { url, error });
+      }
+    }
+    const xhrResult = await loadJsonWithXhr(url);
+    if (xhrResult != null) {
+      return xhrResult;
+    }
+    return null;
+  }
+}
+
+async function loadJsonWithXhr(url) {
+  if (typeof XMLHttpRequest !== 'function') {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      try {
+        xhr.responseType = 'json';
+      } catch (_err) {
+        // Some environments do not allow setting responseType for local files.
+      }
+      if (typeof xhr.overrideMimeType === 'function') {
+        xhr.overrideMimeType('application/json');
+      }
+      xhr.onload = () => {
+        if (xhr.status && xhr.status !== 200) {
+          resolve(null);
+          return;
+        }
+        if (xhr.responseType === 'json' && xhr.response != null) {
+          resolve(xhr.response);
+          return;
+        }
+        try {
+          const text = xhr.responseText ?? '';
+          resolve(text ? JSON.parse(text) : null);
+        } catch (_parseError) {
+          resolve(null);
+        }
+      };
+      xhr.onerror = () => resolve(null);
+      xhr.send();
+    } catch (_error) {
+      resolve(null);
+    }
+  });
+}
 
 const PREFAB_TYPES = new Set(['structure', 'obstruction']);
 const OBSTRUCTION_NEAR_PLANE = Object.freeze({
@@ -162,11 +299,19 @@ function getFetchImplementation(customFetch) {
 }
 
 async function fetchJson(url, fetchImpl) {
-  const response = await fetchImpl(url, { cache: 'no-cache' });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+  try {
+    const response = await fetchImpl(url, { cache: 'no-cache' });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return response.json();
+  } catch (error) {
+    const fallback = await importJsonWithFallback(url);
+    if (fallback != null) {
+      return fallback;
+    }
+    throw error;
   }
-  return response.json();
 }
 
 const ABSOLUTE_URL_PATTERN = /^(?:[a-z][a-z\d+\-.]*:|\/\/)/i;
@@ -178,9 +323,7 @@ function resolveAssetUrl(url, prefabUrl) {
     return trimmed;
   }
 
-  const docBase = (typeof document !== 'undefined' && typeof document.baseURI === 'string' && document.baseURI)
-    ? document.baseURI
-    : null;
+  const docBase = getDocumentBase();
 
   if (docBase) {
     try {
@@ -265,14 +408,19 @@ function normalizeManifest(manifest, manifestUrl) {
 }
 
 async function loadManifest(url, fetchImpl) {
-  const absoluteUrl = new URL(url, document.baseURI).href;
+  const absoluteUrl = resolveAbsoluteUrl(url);
   if (manifestCache.has(absoluteUrl)) {
     return manifestCache.get(absoluteUrl);
   }
 
   const promise = (async () => {
-    const json = await fetchJson(absoluteUrl, fetchImpl);
-    return normalizeManifest(json, absoluteUrl);
+    try {
+      const json = await fetchJson(absoluteUrl, fetchImpl);
+      return normalizeManifest(json, absoluteUrl);
+    } catch (error) {
+      manifestCache.delete(absoluteUrl);
+      throw error;
+    }
   })();
 
   manifestCache.set(absoluteUrl, promise);
@@ -280,7 +428,7 @@ async function loadManifest(url, fetchImpl) {
 }
 
 async function loadPrefab(url, fetchImpl) {
-  const absoluteUrl = new URL(url, document.baseURI).href;
+  const absoluteUrl = resolveAbsoluteUrl(url);
   if (prefabCache.has(absoluteUrl)) {
     return clone(prefabCache.get(absoluteUrl));
   }
@@ -298,7 +446,14 @@ async function loadPrefab(url, fetchImpl) {
 }
 
 export async function loadPrefabsFromManifests(manifestUrls, options = {}) {
-  const fetchImpl = getFetchImplementation(options.fetch);
+  let fetchImpl;
+  try {
+    fetchImpl = getFetchImplementation(options.fetch);
+  } catch (error) {
+    fetchImpl = async () => {
+      throw error;
+    };
+  }
   const prefabs = new Map();
   const catalogs = [];
   const errors = [];
@@ -309,12 +464,33 @@ export async function loadPrefabsFromManifests(manifestUrls, options = {}) {
       const { catalog, normalizedEntries } = await loadManifest(manifestUrl, fetchImpl);
       catalogs.push(catalog);
       for (const { id, url } of normalizedEntries) {
-        if (prefabs.has(id)) {
+        const resolvedId = typeof id === 'string' ? id.trim() : '';
+        const prefabKey = resolvedId || id;
+        if (prefabs.has(prefabKey)) {
           continue;
         }
         try {
           const prefab = await loadPrefab(url, fetchImpl);
-          prefabs.set(id, prefab);
+          if (resolvedId) {
+            if (typeof prefab.id !== 'string' || !prefab.id.trim()) {
+              prefab.id = resolvedId;
+            }
+            if (typeof prefab.slug !== 'string' || !prefab.slug.trim()) {
+              prefab.slug = resolvedId;
+            }
+            if (!prefab.meta || typeof prefab.meta !== 'object') {
+              prefab.meta = {};
+            }
+            const catalogMeta = typeof prefab.meta.catalog === 'object' && prefab.meta.catalog
+              ? { ...prefab.meta.catalog }
+              : {};
+            if (!catalogMeta.id) {
+              catalogMeta.id = resolvedId;
+            }
+            catalogMeta.sourceUrl = catalogMeta.sourceUrl || url;
+            prefab.meta.catalog = catalogMeta;
+          }
+          prefabs.set(prefabKey, prefab);
         } catch (error) {
           errors.push({ type: 'prefab', id, url, error });
         }

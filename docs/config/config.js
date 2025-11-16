@@ -411,6 +411,8 @@ window.CONFIG = {
   },
   ground: {
     offset: 140,
+    // Set to true to keep the configured groundRatio instead of letting map layouts override it.
+    lockRatio: false,
   },
   groundY: 0,
   // Debug options are surfaced in the debug panel; freezeAngles lets animators hold joints for edits
@@ -497,7 +499,7 @@ window.CONFIG = {
           xformUnits: "percent",
           xform: {
             torso:    { ax:-0.5,  ay:-0.2, scaleX:3.5, scaleY:4.50, rotDeg:180 },
-            head:     { ax:-1.20, ay:-0.60, scaleX:4, scaleY:3, rotDeg:180 },
+            head:     { ax:-1.20, ay:-0.60, scaleX:1.5, scaleY:1.5, rotDeg:180 },
             armUpper: { ax:0.00,  ay:0.00,  scaleX:3.00, scaleY:3.00, rotDeg:0 },
             armLower: { ax:0.00,  ay:0.00,  scaleX:2.00, scaleY:2.00, rotDeg:0 },
             legUpper: { ax:-0.10, ay:0.10,  scaleX:2.0,  scaleY:2.0,  rotDeg:0 },
@@ -556,8 +558,8 @@ window.CONFIG = {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
           xformUnits: "percent",
           xform: {
-            torso:    { ax:0,  ay:-0.2, scaleX:1.4, scaleY:1.6, rotDeg:180 },
-            head:     { ax:-0.1, ay:-0.0, scaleX:1, scaleY:1.2, rotDeg:180 },
+            torso:    { ax:0,  ay:-0.2, scaleX:1.5, scaleY:1.7, rotDeg:180 },
+            head:     { ax:-0.15, ay:-0.1, scaleX:1, scaleY:1.2, rotDeg:180 },
             armUpper: { ax:-0.2,  ay:0.1,  scaleX:1.6, scaleY:2.8, rotDeg:-10 },
             armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-3 },
             legUpper: { ax:-0.10, ay:0,  scaleX:1.7, scaleY:2.75,  rotDeg:-15 },
@@ -907,8 +909,16 @@ window.CONFIG = {
               { id: 'primary', percent: 0.2, limb: 'right', offset: { ax: 0, ay: 0 } }
             ],
             colliders: [
-              { id: 'rightA', kind: 'box', width: 20, height: 60, from: 0.08, to: 1.0, activatesOn: ['SLASH', 'STRIKE'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
-              { id: 'rightB', kind: 'box', width: 16, height: 44, from: 0.04, to: 0.75, activatesOn: ['STAB'], offset: { ax: 0.25, ay: -0.18, units: 'percent' } }
+              {
+                id: 'colliderA',
+                kind: 'box',
+                width: 20,
+                height: 60,
+                from: 0.08,
+                to: 1.0,
+                activatesOn: ['STRIKE'],
+                offset: { ax: 0.45, ay: 0, units: 'percent' }
+              }
             ]
           },
           {
@@ -923,17 +933,23 @@ window.CONFIG = {
               { id: 'secondary', percent: 0.2, limb: 'left', offset: { ax: 0, ay: 0 } }
             ],
             colliders: [
-              { id: 'leftA', kind: 'box', width: 20, height: 60, from: 0.08, to: 1.0, activatesOn: ['SLASH', 'STRIKE'], offset: { ax: 0.45, ay: 0, units: 'percent' } },
-              { id: 'leftB', kind: 'box', width: 16, height: 44, from: 0.04, to: 0.75, activatesOn: ['STAB'], offset: { ax: 0.25, ay: 0.18, units: 'percent' } }
+              {
+                id: 'colliderB',
+                kind: 'box',
+                width: 20,
+                height: 60,
+                from: 0.08,
+                to: 1.0,
+                activatesOn: ['STRIKE'],
+                offset: { ax: 0.45, ay: 0, units: 'percent' }
+              }
             ]
           }
         ]
       },
       colliders: {
-        rightA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['SLASH', 'STRIKE'] },
-        rightB: { shape: 'rect', width: 16, height: 44, offset: { x: 10, y: -8 }, activatesOn: ['STAB'] },
-        leftA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['SLASH', 'STRIKE'] },
-        leftB: { shape: 'rect', width: 16, height: 44, offset: { x: 10, y: 8 }, activatesOn: ['STAB'] }
+        colliderA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['STRIKE'] },
+        colliderB: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['STRIKE'] }
       }
     },
 
@@ -946,22 +962,28 @@ window.CONFIG = {
             length: 96,
             angleOffsetDeg: 0,
             joint: { percent: 0.22 },
-            haft: { start: 0.18, end: 0.85 },
+            haft: { start: 0.0, end: 0.5 },
             grips: [
-              { id: 'primary', percent: 0.32, limb: 'right', offset: { ax: 0, ay: 0 } },
-              { id: 'secondary', percent: 0.76, limb: 'left', offset: { ax: 0, ay: 0 } }
+              { id: 'primary', percent: 0.75, limb: 'right', offset: { ax: 0, ay: 0 } },
+              { id: 'secondary', percent: 0.35, limb: 'left', offset: { ax: 0, ay: 0 } }
             ],
             colliders: [
-              { id: 'thrust', kind: 'box', width: 18, height: 120, from: 0.05, to: 1.05, activatesOn: ['THRUST'], offset: { ax: 0.55, ay: 0, units: 'percent' } },
-              { id: 'sweep', kind: 'box', width: 26, height: 140, from: 0.08, to: 1.1, activatesOn: ['SWEEP'], offset: { ax: 0.42, ay: 0, units: 'percent' } }
+              {
+                id: 'colliderA',
+                kind: 'box',
+                width: 26,
+                height: 140,
+                from: 0.08,
+                to: 1.1,
+                activatesOn: ['STRIKE'],
+                offset: { ax: 0.42, ay: 0, units: 'percent' }
+              }
             ]
           }
         ]
       },
       colliders: {
-        rightA: { shape: 'rect', width: 18, height: 120, offset: { x: 50, y: 0 }, activatesOn: ['THRUST'] },
-        rightB: { shape: 'rect', width: 26, height: 140, offset: { x: 35, y: 0 }, activatesOn: ['SWEEP'] },
-        leftA: { shape: 'rect', width: 16, height: 40, offset: { x: -10, y: 0 }, activatesOn: ['SWEEP'] }
+        colliderA: { shape: 'rect', width: 26, height: 140, offset: { x: 35, y: 0 }, activatesOn: ['STRIKE'] }
       },
       sprite: {
         url: './assets/weapons/sarrarru/citywatch_sarrarru.png',

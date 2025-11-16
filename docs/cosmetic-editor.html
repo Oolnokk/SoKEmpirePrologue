@@ -10,7 +10,11 @@
 <body>
   <main class="editor-layout">
     <section class="editor-preview">
-      <canvas id="cosmeticCanvas" width="720" height="460" aria-label="Cosmetic preview"></canvas>
+      <div class="editor-preview__intro">
+        <h2>Part & Stance Preview</h2>
+        <p>Inspect the full body stance alongside each body part with every equipped cosmetic layer stacked and scaled for clarity.</p>
+      </div>
+      <div id="partPreviewGrid" class="part-preview__grid" data-state="empty" aria-live="polite"></div>
     </section>
     <section class="editor-controls">
       <div class="panel">
@@ -23,9 +27,10 @@
         <div class="mode-toggle" role="group" aria-label="Select editor mode">
           <button type="button" class="mode-toggle__btn" data-mode="appearance">Appearance</button>
           <button type="button" class="mode-toggle__btn" data-mode="clothing">Clothing</button>
+          <button type="button" class="mode-toggle__btn" data-mode="draping">Draping</button>
           <button type="button" class="mode-toggle__btn" data-mode="fighterSprites">Fighter Sprites</button>
         </div>
-        <p class="panel-hint">Switch modes to focus on appearance overlays, clothing items, or fighter sprite data.</p>
+        <p class="panel-hint">Switch modes to focus on appearance overlays, clothing items, draping influences, or fighter sprite data.</p>
       </div>
       <div class="panel">
         <h2>Cosmetic Slots</h2>
@@ -102,8 +107,9 @@
       </div>
       <div class="panel" id="overridePanel">
         <h2>Per-Fighter Overrides</h2>
-        <textarea id="overrideOutput" class="override-output" readonly spellcheck="false" aria-label="Generated override JSON"></textarea>
+        <textarea id="overrideOutput" class="override-output" spellcheck="false" aria-label="Generated override JSON"></textarea>
         <div class="override-actions">
+          <button type="button" id="loadOverrides">📥 Load JSON</button>
           <button type="button" id="applyOverrides">✅ Apply To Preview</button>
           <button type="button" id="copyOverrides">📋 Copy JSON</button>
           <button type="button" id="downloadOverrides">⬇ Download JSON</button>

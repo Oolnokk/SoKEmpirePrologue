@@ -20,6 +20,7 @@
 import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withAXUtil, rad, angleFromDelta as angleFromDeltaUtil, degToRad } from './math-utils.js?v=1';
 import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=2';
 import { pickFighterConfig, lengths, pickOffsets, resolveBoneLengthScale } from './fighter-utils.js?v=1';
+import { updateFighterColliders, pruneFighterColliders } from './colliders.js?v=1';
 
 // === RENDER DEBUG CONFIGURATION ===
 // Global config object for controlling what is rendered for debugging purposes
@@ -79,7 +80,7 @@ function withAX(x, y, ang, off, len, units) {
   return withAXUtil(x, y, ang, ax, ay, len || 1, unitStr);
 }
 
-function computeAnchorsForFighter(F, C, fallbackFighterName) {
+export function computeAnchorsForFighter(F, C, fallbackFighterName) {
   const profile = F?.renderProfile || {};
   const requestedName = profile.fighterName;
   const fighterName = (requestedName && C.fighters?.[requestedName]) ? requestedName : fallbackFighterName;
@@ -222,16 +223,19 @@ function computeAnchorsForFighter(F, C, fallbackFighterName) {
     weaponState.bones.forEach((bone, index) => {
       if (!bone) return;
       const boneKey = bone.id || `weapon_${index}`;
+      const collidesWithBaseRig = boneKey && !String(boneKey).startsWith('weapon_') && Object.prototype.hasOwnProperty.call(B, boneKey);
+      const safeKey = collidesWithBaseRig ? `weapon_${boneKey}` : boneKey;
       const start = bone.start || { x: 0, y: 0 };
       const end = bone.end || { x: start.x, y: start.y };
-      B[boneKey] = {
+      B[safeKey] = {
         x: start.x,
         y: start.y,
         len: Number.isFinite(bone.length) ? bone.length : Math.hypot(end.x - start.x, end.y - start.y),
         ang: bone.angle ?? angleFromDelta(end.x - start.x, end.y - start.y),
         endX: end.x,
         endY: end.y,
-        weapon: weaponKey
+        weapon: weaponKey,
+        sourceId: bone.id || null
       };
     });
   }
@@ -312,7 +316,7 @@ function drawStick(ctx, B) {
 
 function drawHitbox(ctx, hb) {
   if (!ctx || !hb) return;
-  
+
   // Check if hitbox should be rendered
   const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
   if (DEBUG.showHitbox === false) {
@@ -410,6 +414,82 @@ function drawFallbackSilhouette(ctx, entity, config){
 }
 
 
+function extractBoneDebugInfo(bone) {
+  if (!bone) {
+    return { present: false, start: null, end: null };
+  }
+
+  const hasStart = Number.isFinite(bone.x) && Number.isFinite(bone.y);
+  const start = hasStart ? { x: bone.x, y: bone.y } : null;
+  let end = (Number.isFinite(bone.endX) && Number.isFinite(bone.endY))
+    ? { x: bone.endX, y: bone.endY }
+    : null;
+
+  if (!end && start && Number.isFinite(bone.len) && Number.isFinite(bone.ang)) {
+    const [ex, ey] = segPos(start.x, start.y, bone.len, bone.ang);
+    end = { x: ex, y: ey };
+  }
+
+  return {
+    present: true,
+    start,
+    end
+  };
+}
+
+function collectPlayerBoneDebug(bones) {
+  const timestamp = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+    ? performance.now()
+    : Date.now();
+
+  if (!bones) {
+    return {
+      timestamp,
+      torso: { present: false, start: null, end: null },
+      arm_L_lower: { present: false, start: null, end: null },
+      arm_R_lower: { present: false, start: null, end: null }
+    };
+  }
+
+  return {
+    timestamp,
+    torso: extractBoneDebugInfo(bones.torso),
+    arm_L_lower: extractBoneDebugInfo(bones.arm_L_lower),
+    arm_R_lower: extractBoneDebugInfo(bones.arm_R_lower)
+  };
+}
+
+function maybeLogPlayerBoneDebug(debugObj, report) {
+  if (!debugObj || !report) return;
+
+  debugObj.playerBoneStatus = report;
+
+  if (debugObj.logPlayerBoneStatus === false) {
+    return;
+  }
+
+  const now = report.timestamp;
+  const lastLog = Number(debugObj._playerBoneStatusLogTime) || 0;
+  const minInterval = Number.isFinite(debugObj.playerBoneStatusIntervalMs)
+    ? Math.max(16, debugObj.playerBoneStatusIntervalMs)
+    : 500;
+  if (now - lastLog < minInterval) {
+    return;
+  }
+
+  const formatNumber = (value) => (Number.isFinite(value) ? value.toFixed(1) : 'n/a');
+  const formatPoint = (pt) => (pt ? `(${formatNumber(pt.x)}, ${formatNumber(pt.y)})` : 'n/a');
+  const describe = (info) => (info?.present
+    ? `${formatPoint(info.start)} → ${formatPoint(info.end)}`
+    : 'missing');
+
+  const message = `[render] Player bones | torso: ${describe(report.torso)} | arm_L_lower: ${describe(report.arm_L_lower)} | arm_R_lower: ${describe(report.arm_R_lower)}`;
+
+  console.debug(message);
+  debugObj._playerBoneStatusLogTime = now;
+  debugObj._playerBoneStatusMessage = message;
+}
+
 export function renderAll(ctx){
   const G=(window.GAME ||= {});
   const C=(window.CONFIG || {});
@@ -419,13 +499,14 @@ export function renderAll(ctx){
   const anchorsById = {};
   const flipState = {};
   const renderEntities = [];
+  const activeColliderIds = [];
 
   for (const [fighterId, fighter] of Object.entries(G.FIGHTERS)) {
     if (!fighter) continue;
     const result = computeAnchorsForFighter(fighter, C, fallbackName);
     anchorsById[fighterId] = result.B;
     flipState[fighterId] = result.flipLeft;
-    renderEntities.push({
+    const entity = {
       id: fighterId,
       fighter,
       fighterName: result.fighterName,
@@ -435,12 +516,28 @@ export function renderAll(ctx){
       flipLeft: result.flipLeft,
       lengths: result.L,
       centerX: Number.isFinite(result.hitbox?.x) ? result.hitbox.x : (fighter.pos?.x ?? 0)
-    });
+    };
+    renderEntities.push(entity);
+    activeColliderIds.push(fighterId);
+    const hitCenter = result.hitbox
+      ? {
+          x: Number.isFinite(result.hitbox.x) ? result.hitbox.x : (fighter.pos?.x ?? 0),
+          y: Number.isFinite(result.hitbox.y) ? result.hitbox.y : (fighter.pos?.y ?? 0),
+        }
+      : (fighter.pos ? { x: fighter.pos.x || 0, y: fighter.pos.y || 0 } : null);
+    updateFighterColliders(fighterId, result.B, { config: C, hitCenter });
   }
 
   G.ANCHORS_OBJ = anchorsById;
   G.FLIP_STATE = flipState;
   G.RENDER_STATE = { entities: renderEntities };
+  pruneFighterColliders(activeColliderIds);
+
+  if (typeof window !== 'undefined' && window.RENDER_DEBUG) {
+    const playerBones = anchorsById.player;
+    const report = collectPlayerBoneDebug(playerBones);
+    maybeLogPlayerBoneDebug(window.RENDER_DEBUG, report);
+  }
 
   // Fallback background so the viewport is never visually blank
   try{

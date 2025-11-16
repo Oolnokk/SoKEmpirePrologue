@@ -223,6 +223,13 @@ function normalizeAreaCollider(input, index) {
   };
 }
 
+function isGroundRatioLocked(config) {
+  if (!config || typeof config !== 'object') return false;
+  const ground = config.ground;
+  if (!ground || typeof ground !== 'object') return false;
+  return ground.lockRatio === true;
+}
+
 function applyEditorPreviewSettings(area, { token = null, createdAt = null } = {}) {
   const GAME = (window.GAME = window.GAME || {});
   const CONFIG = (window.CONFIG = window.CONFIG || {});
@@ -248,14 +255,21 @@ function applyEditorPreviewSettings(area, { token = null, createdAt = null } = {
     : [];
   preview.platformColliders = normalizedColliders;
 
+  const ratioLocked = isGroundRatioLocked(CONFIG);
+
   if (Number.isFinite(groundOffset) && canvasHeight > 0) {
     const ratioRaw = 1 - groundOffset / canvasHeight;
     const ratio = Math.max(0.1, Math.min(0.95, ratioRaw));
-    preview.previousGroundRatio = CONFIG.groundRatio;
-    CONFIG.groundRatio = ratio;
+    const appliedRatio = ratioLocked
+      ? (Number.isFinite(CONFIG.groundRatio) ? CONFIG.groundRatio : ratio)
+      : ratio;
+    if (!ratioLocked) {
+      preview.previousGroundRatio = CONFIG.groundRatio;
+      CONFIG.groundRatio = ratio;
+    }
     preview.groundOffset = groundOffset;
 
-    const groundY = canvasHeight * ratio;
+    const groundY = canvasHeight * appliedRatio;
     const worldWidth = GAME?.CAMERA?.worldWidth || canvasWidth * 2;
     const colliderWidth = Math.max(worldWidth, canvasWidth * 2.5);
     const colliderHeight = Math.max(48, groundOffset + 32);
@@ -290,12 +304,18 @@ function syncConfigGround(area) {
   }
 
   const offset = Math.max(0, rawOffset);
+  const ratioLocked = isGroundRatioLocked(CONFIG);
 
   if (canvasHeight > 0) {
     const ratioRaw = 1 - offset / canvasHeight;
     const ratio = Math.max(0.1, Math.min(0.95, ratioRaw));
-    CONFIG.groundRatio = ratio;
-    CONFIG.groundY = Math.round(canvasHeight * ratio);
+    const appliedRatio = ratioLocked
+      ? (Number.isFinite(CONFIG.groundRatio) ? CONFIG.groundRatio : ratio)
+      : ratio;
+    if (!ratioLocked) {
+      CONFIG.groundRatio = ratio;
+    }
+    CONFIG.groundY = Math.round(canvasHeight * appliedRatio);
   }
 
   CONFIG.ground = {

@@ -1,6 +1,3 @@
-import { initFighters, resetFighterStateForTesting } from './fighter.js?v=8';
-import { renderAll } from './render.js?v=4';
-import { initSprites, renderSprites } from './sprites.js?v=8';
 import {
   COSMETIC_SLOTS,
   getRegisteredCosmeticLibrary,
@@ -12,6 +9,9 @@ import {
   ensureCosmeticLayers
 } from './cosmetics.js?v=1';
 import { applyShade } from './cosmetic-palettes.js?v=1';
+import { renderSprites } from './sprites.js?v=8';
+import { computeAnchorsForFighter } from './render.js?v=4';
+import { degToRad } from './math-utils.js?v=1';
 
 const CONFIG = window.CONFIG || {};
 const GAME = (window.GAME ||= {});
@@ -25,17 +25,31 @@ const DEFAULT_APPEARANCE_SLOTS = [
   'appearance:other'
 ];
 
+const DRAPE_DEFAULT_BONE_LENGTHS = {
+  torso: 64,
+  arm_L_upper: 46,
+  arm_R_upper: 46,
+  arm_L_lower: 42,
+  arm_R_lower: 42,
+  arm_L: 44,
+  arm_R: 44,
+  leg_L_upper: 58,
+  leg_R_upper: 58,
+  leg_L_lower: 54,
+  leg_R_lower: 54,
+  head: 36,
+  shoulder_L: 40,
+  shoulder_R: 40
+};
+
+const DRAPE_WEIGHT_CLAMP = { min: -1.5, max: 1.5 };
+
 class CosmeticEditorApp {
   constructor(){
-    this.canvas = document.getElementById('cosmeticCanvas');
-    this.ctx = this.canvas?.getContext('2d') || null;
-    if (!this.canvas || !this.ctx){
-      throw new Error('Cosmetic editor preview canvas is unavailable');
-    }
-
     this.state = this.createInitialState();
     this.dom = this.queryDom();
     this.slotRows = new Map();
+    this.previewRenderScheduled = false;
 
     this.modeButtons = Array.from(document.querySelectorAll('#modePanel [data-mode]'));
 
@@ -47,6 +61,9 @@ class CosmeticEditorApp {
     this.styleInspector = this.buildStyleInspectorApi();
     this.modeManager = this.buildModeManagerApi();
     this.fighterManager = this.buildFighterManagerApi();
+    this.fullBodyPreview = this.buildFullBodyPreviewApi();
+
+    this.renderPartPreview();
   }
 
   createInitialState(){
@@ -69,12 +86,15 @@ class CosmeticEditorApp {
       fighterSpriteIndex: {},
       currentPalette: null,
       currentPaletteSource: { slot: null, partKey: null, layerPosition: null, cosmeticId: null },
-      activeMode: 'clothing'
+      activeMode: 'clothing',
+      activePreviewPart: null,
+      previewPartKeys: []
     };
   }
 
   queryDom(){
     return {
+      previewGrid: document.getElementById('partPreviewGrid'),
       fighterSelect: document.getElementById('fighterSelect'),
       slotContainer: document.getElementById('cosmeticSlotRows'),
       styleInspector: document.getElementById('styleInspector'),
@@ -100,6 +120,7 @@ class CosmeticEditorApp {
       creatorApplyBtn: document.getElementById('creatorApplyPart'),
       clothingCreatorPanel: document.getElementById('clothingCreator'),
       overrideOutput: document.getElementById('overrideOutput'),
+      overrideLoadBtn: document.getElementById('loadOverrides'),
       overrideApplyBtn: document.getElementById('applyOverrides'),
       overrideCopyBtn: document.getElementById('copyOverrides'),
       overrideDownloadBtn: document.getElementById('downloadOverrides')
@@ -107,20 +128,25 @@ class CosmeticEditorApp {
   }
 
   buildModeManagerApi(){
-    const MODE_DEFINITIONS = {
-      appearance: {
-        enableSpriteEditing: false,
-        enableCreator: false
-      },
-      clothing: {
-        enableSpriteEditing: true,
-        enableCreator: true
-      },
-      fighterSprites: {
-        enableSpriteEditing: true,
-        enableCreator: false
-      }
-    };
+      const MODE_DEFINITIONS = {
+        appearance: {
+          enableSpriteEditing: false,
+          enableCreator: false
+        },
+        clothing: {
+          enableSpriteEditing: true,
+          enableCreator: true
+        },
+        draping: {
+          enableSpriteEditing: true,
+          enableCreator: false,
+          enableDrapeEditor: true
+        },
+        fighterSprites: {
+          enableSpriteEditing: true,
+          enableCreator: false
+        }
+      };
 
     const resolveModeKey = (mode)=> MODE_DEFINITIONS[mode] ? mode : 'clothing';
     const getModeConfig = (mode)=> MODE_DEFINITIONS[resolveModeKey(mode)];
@@ -156,24 +182,28 @@ class CosmeticEditorApp {
       return typeof slot === 'string' && slot.startsWith(FIGHTER_SPRITE_SLOT_PREFIX);
     };
 
-    const slotMatchesMode = (slot, mode, appearanceKeys)=>{
-      const resolved = resolveModeKey(mode);
-      if (slot.startsWith('appearance:')){
-        return resolved === 'appearance';
-      }
-      if (isFighterSpriteSlot(slot)){
-        return resolved === 'fighterSprites';
-      }
-      const appearanceSlot = isAppearanceSlotName(slot, appearanceKeys);
-      if (resolved === 'appearance'){
-        return appearanceSlot;
-      }
-      if (resolved === 'fighterSprites'){
-        return false;
-      }
-      if (appearanceSlot) return false;
-      return true;
-    };
+      const slotMatchesMode = (slot, mode, appearanceKeys)=>{
+        const resolved = resolveModeKey(mode);
+        if (slot.startsWith('appearance:')){
+          return resolved === 'appearance';
+        }
+        if (isFighterSpriteSlot(slot)){
+          return resolved === 'fighterSprites';
+        }
+        const appearanceSlot = isAppearanceSlotName(slot, appearanceKeys);
+        if (resolved === 'draping'){
+          if (appearanceSlot) return false;
+          return true;
+        }
+        if (resolved === 'appearance'){
+          return appearanceSlot;
+        }
+        if (resolved === 'fighterSprites'){
+          return false;
+        }
+        if (appearanceSlot) return false;
+        return true;
+      };
 
     const getActiveSlotKeys = ()=>{
       const mode = resolveModeKey(this.state.activeMode);
@@ -219,10 +249,11 @@ class CosmeticEditorApp {
       this.dom.creatorAddBtn && (this.dom.creatorAddBtn.disabled = !creatorEnabled);
       this.dom.creatorEquipBtn && (this.dom.creatorEquipBtn.disabled = !creatorEnabled);
       this.dom.creatorApplyBtn && (this.dom.creatorApplyBtn.disabled = !creatorEnabled);
-      if (this.dom.styleInspector){
-        this.dom.styleInspector.dataset.spriteEnabled = getModeConfig(mode)?.enableSpriteEditing ? 'true' : 'false';
-      }
-    };
+        if (this.dom.styleInspector){
+          this.dom.styleInspector.dataset.spriteEnabled = getModeConfig(mode)?.enableSpriteEditing ? 'true' : 'false';
+          this.dom.styleInspector.dataset.drapeEnabled = getModeConfig(mode)?.enableDrapeEditor ? 'true' : 'false';
+        }
+      };
 
     const populateCreatorSlotOptions = ()=>{
       const select = this.dom.creatorSlotSelect;
@@ -278,6 +309,214 @@ class CosmeticEditorApp {
       setActiveMode,
       bootstrap,
       normalizeAppearanceSlotKey
+    };
+  }
+
+  buildFullBodyPreviewApi(){
+    const app = this;
+    const STATE = {
+      initPromise: null
+    };
+
+    const ensureReady = ()=>{
+      if (!STATE.initPromise){
+        STATE.initPromise = Promise.resolve();
+      }
+      return STATE.initPromise;
+    };
+
+    const getPoseAngles = ()=>{
+      const pose = (window.CONFIG?.poses?.Stance) || {};
+      const keys = ['torso', 'head', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
+      const result = {};
+      keys.forEach((key)=>{
+        if (pose[key] != null){
+          result[key] = degToRad(pose[key]);
+        }
+      });
+      if (result.head == null && result.torso != null){
+        result.head = result.torso;
+      }
+      return result;
+    };
+
+    const translateBones = (bones, offsetX, offsetY)=>{
+      const adjusted = {};
+      for (const [key, bone] of Object.entries(bones || {})){
+        if (!bone) continue;
+        adjusted[key] = {
+          ...bone,
+          x: Number.isFinite(bone.x) ? bone.x + offsetX : bone.x,
+          y: Number.isFinite(bone.y) ? bone.y + offsetY : bone.y,
+          endX: Number.isFinite(bone.endX) ? bone.endX + offsetX : bone.endX,
+          endY: Number.isFinite(bone.endY) ? bone.endY + offsetY : bone.endY
+        };
+      }
+      return adjusted;
+    };
+
+    const translateHitbox = (hitbox, offsetX, offsetY)=>{
+      if (!hitbox) return hitbox;
+      return {
+        ...hitbox,
+        x: Number.isFinite(hitbox.x) ? hitbox.x + offsetX : hitbox.x,
+        y: Number.isFinite(hitbox.y) ? hitbox.y + offsetY : hitbox.y,
+        attachX: Number.isFinite(hitbox.attachX) ? hitbox.attachX + offsetX : hitbox.attachX,
+        attachY: Number.isFinite(hitbox.attachY) ? hitbox.attachY + offsetY : hitbox.attachY
+      };
+    };
+
+    const collectBounds = (bones, hitbox)=>{
+      const bounds = {
+        minX: Infinity,
+        maxX: -Infinity,
+        minY: Infinity,
+        maxY: -Infinity
+      };
+      Object.values(bones || {}).forEach((bone)=>{
+        if (!bone) return;
+        const points = [
+          [bone.x, bone.y],
+          [bone.endX, bone.endY]
+        ];
+        points.forEach(([x, y])=>{
+          if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+          bounds.minX = Math.min(bounds.minX, x);
+          bounds.maxX = Math.max(bounds.maxX, x);
+          bounds.minY = Math.min(bounds.minY, y);
+          bounds.maxY = Math.max(bounds.maxY, y);
+        });
+      });
+      if (hitbox){
+        const corners = [
+          [hitbox.x - hitbox.w / 2, hitbox.y - hitbox.h / 2],
+          [hitbox.x + hitbox.w / 2, hitbox.y + hitbox.h / 2]
+        ];
+        corners.forEach(([x, y])=>{
+          if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+          bounds.minX = Math.min(bounds.minX, x);
+          bounds.maxX = Math.max(bounds.maxX, x);
+          bounds.minY = Math.min(bounds.minY, y);
+          bounds.maxY = Math.max(bounds.maxY, y);
+        });
+      }
+      return bounds;
+    };
+
+    const buildEntity = (fighterName, width, height)=>{
+      if (!fighterName) return null;
+      const C = window.CONFIG || {};
+      const jointAngles = getPoseAngles();
+      const fighter = {
+        id: 'previewFighter',
+        renderProfile: { fighterName },
+        pos: { x: 0, y: 0 },
+        jointAngles,
+        facingSign: 1,
+        facingRad: 0
+      };
+      let result;
+      try {
+        result = computeAnchorsForFighter(fighter, C, fighterName);
+      } catch (err){
+        console.warn('[cosmetic-editor] Failed to compute stance rig', err);
+        return null;
+      }
+      if (!result?.B) return null;
+      const bounds = collectBounds(result.B, result.hitbox);
+      if (!Number.isFinite(bounds.minX) || !Number.isFinite(bounds.maxX)){
+        return null;
+      }
+      const centerX = (bounds.minX + bounds.maxX) / 2;
+      const bottomY = Number.isFinite(bounds.maxY) ? bounds.maxY : 0;
+      const targetX = width / 2;
+      const targetBottom = height * 0.9;
+      const offsetX = targetX - centerX;
+      const offsetY = targetBottom - bottomY;
+      const adjustedBones = translateBones(result.B, offsetX, offsetY);
+      const adjustedHitbox = translateHitbox(result.hitbox, offsetX, offsetY);
+      return {
+        id: 'previewEntity',
+        fighterName: result.fighterName || fighterName,
+        bones: adjustedBones,
+        flipLeft: !!result.flipLeft,
+        hitbox: adjustedHitbox,
+        centerX: adjustedHitbox?.x ?? targetX,
+        profile: { fighterName }
+      };
+    };
+
+    const configureCanvas = (canvas)=>{
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(120, Math.round(rect.width || 260));
+      const height = Math.max(220, Math.round(rect.height || 320));
+      const dpr = window.devicePixelRatio || 1;
+      const scaledWidth = Math.max(1, Math.round(width * dpr));
+      const scaledHeight = Math.max(1, Math.round(height * dpr));
+      if (canvas.width !== scaledWidth){
+        canvas.width = scaledWidth;
+      }
+      if (canvas.height !== scaledHeight){
+        canvas.height = scaledHeight;
+      }
+      return { width, height, dpr };
+    };
+
+    const draw = async (canvas, fighterName, overrides)=>{
+      await ensureReady();
+      const ctx = canvas.getContext('2d');
+      if (!ctx){
+        return;
+      }
+      const { width, height, dpr } = configureCanvas(canvas);
+      const entity = buildEntity(fighterName, width, height);
+      const GAME = (window.GAME ||= {});
+      if (!entity){
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(148,163,184,0.65)';
+        ctx.font = '12px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Unable to render fighter preview', canvas.width / 2, canvas.height / 2);
+        ctx.restore();
+        return;
+      }
+      GAME.CAMERA = { x: 0, zoom: 1, worldWidth: width };
+      GAME.RENDER_STATE = { entities: [entity] };
+      GAME.ANCHORS_OBJ = { [entity.id]: entity.bones };
+      GAME.FLIP_STATE = { [entity.id]: entity.flipLeft };
+      GAME.selectedFighter = fighterName;
+      const overridesClone = app.deepClone(overrides || {});
+      GAME.editorState = { slotOverrides: overridesClone };
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      renderSprites(ctx);
+      ctx.restore();
+    };
+
+    return {
+      renderInto(container, fighterName, overrides){
+        if (!container){
+          return;
+        }
+        container.innerHTML = '';
+        const canvas = document.createElement('canvas');
+        canvas.className = 'full-body-preview__canvas';
+        container.appendChild(canvas);
+        draw(canvas, fighterName, overrides).catch((err)=>{
+          console.warn('[cosmetic-editor] Failed to render stance preview', err);
+          container.innerHTML = '';
+          const note = document.createElement('p');
+          note.className = 'part-preview__empty-note';
+          note.textContent = 'Full body preview unavailable.';
+          container.appendChild(note);
+        });
+      }
     };
   }
 
@@ -623,9 +862,6 @@ class CosmeticEditorApp {
     };
 
     const buildFighterSpriteExport = ()=>{
-      if (this.modeManager.resolveModeKey(this.state.activeMode) !== 'fighterSprites'){
-        return null;
-      }
       const fighter = this.state.activeFighter;
       if (fighter == null || fighter === ''){
         return null;
@@ -659,23 +895,41 @@ class CosmeticEditorApp {
       return { overridePayload, mergedProfile, hasOverrides };
     };
 
+    const buildExportBundle = (prepared = prepareDownloadPayload())=>{
+      const fighterEntry = buildFighterSpriteExport();
+      const result = {};
+      const fighterName = this.state.activeFighter || null;
+      if (fighterName){
+        result.fighter = fighterName;
+      }
+      if (prepared.hasOverrides && prepared.mergedProfile){
+        result.profile = prepared.mergedProfile;
+      }
+      if (fighterEntry){
+        result.fighterSprites = fighterEntry.fighters;
+      }
+      if (!result.profile && !result.fighterSprites){
+        return null;
+      }
+      if (!result.profile){ delete result.profile; }
+      if (!result.fighterSprites){ delete result.fighterSprites; }
+      if (!result.fighter){ delete result.fighter; }
+      return result;
+    };
+
     const refreshOutputs = ()=>{
       if (this.dom.overrideOutput == null) return;
-      const { mergedProfile, hasOverrides } = prepareDownloadPayload();
-      const fighterEntry = buildFighterSpriteExport();
-      const sections = [];
-      if (fighterEntry){
-        sections.push('// Fighter sprite entry', JSON.stringify(fighterEntry, null, 2));
-      }
-      if (hasOverrides && mergedProfile){
-        sections.push(fighterEntry ? '// Cosmetic overrides' : '', JSON.stringify(mergedProfile, null, 2));
-      }
-      const hasAny = sections.length > 0;
-      this.dom.overrideOutput.value = hasAny ? sections.filter((section)=> section !== '').join('\n\n') : '// No overrides defined for this fighter.';
-      const canApply = hasOverrides && mergedProfile;
+      const prepared = prepareDownloadPayload();
+      const bundle = buildExportBundle(prepared);
+      const hasAny = !!bundle;
+      this.dom.overrideOutput.value = hasAny
+        ? JSON.stringify(bundle, null, 2)
+        : '// No overrides defined for this fighter.';
+      const canApply = prepared.hasOverrides && prepared.mergedProfile;
       if (this.dom.overrideApplyBtn) this.dom.overrideApplyBtn.disabled = canApply ? false : true;
       if (this.dom.overrideCopyBtn) this.dom.overrideCopyBtn.disabled = hasAny ? false : true;
       if (this.dom.overrideDownloadBtn) this.dom.overrideDownloadBtn.disabled = hasAny ? false : true;
+      this.queuePreviewRender();
     };
 
     const applyOverridesToProfile = ()=>{
@@ -711,27 +965,125 @@ class CosmeticEditorApp {
       }
     };
 
+    const parseEditorJsonInput = ()=>{
+      if (!this.dom.overrideOutput) return null;
+      const text = (this.dom.overrideOutput.value || '').trim();
+      if (!text || text.startsWith('// ')){
+        return null;
+      }
+      try {
+        return JSON.parse(text);
+      } catch (err){
+        const sanitized = text
+          .split('\n')
+          .filter((line)=> !line.trim().startsWith('//'))
+          .join('\n')
+          .trim();
+        if (!sanitized){
+          throw err;
+        }
+        return JSON.parse(sanitized);
+      }
+    };
+
+    const applyImportedOverrides = (bundle)=>{
+      if (!bundle || typeof bundle !== 'object') return false;
+      const targetFighter = typeof bundle.fighter === 'string' && CONFIG.fighters?.[bundle.fighter]
+        ? bundle.fighter
+        : this.state.activeFighter;
+      if (targetFighter && targetFighter !== this.state.activeFighter){
+        if (this.dom.fighterSelect){
+          this.dom.fighterSelect.value = targetFighter;
+        }
+        this.fighterManager.loadFighter(targetFighter);
+      }
+      let applied = false;
+      const profile = this.isPlainObject(bundle.profile) ? bundle.profile : null;
+      if (profile){
+        applied = true;
+        this.state.profileBaseSnapshot = this.deepClone(profile || { cosmetics: {} });
+        this.state.loadedProfile = this.deepClone(profile?.cosmetics || {});
+        const slots = profile?.cosmetics?.slots || {};
+        const selection = this.fighterManager.setSelectedCosmetics(slots || {});
+        this.state.slotOverrides = this.fighterManager.mapProfileToSlotOverrides(selection, profile);
+      } else {
+        this.state.slotOverrides = this.deepClone(this.state.slotOverrides || {});
+      }
+      for (const slotKey of Object.keys(this.state.slotOverrides || {})){
+        if (slotKey.startsWith(FIGHTER_SPRITE_SLOT_PREFIX)){
+          delete this.state.slotOverrides[slotKey];
+        }
+      }
+      const fighterSprites = this.isPlainObject(bundle.fighterSprites) ? bundle.fighterSprites : null;
+      if (fighterSprites && targetFighter){
+        const spritesRoot = fighterSprites.fighters || fighterSprites;
+        const spriteEntry = spritesRoot?.[targetFighter];
+        const spriteSlots = spriteEntry?.sprites?.slots || spriteEntry?.slots || null;
+        if (spriteSlots && Object.keys(spriteSlots).length){
+          applied = true;
+          this.state.slotOverrides ||= {};
+          this.state.slotSelection ||= {};
+          GAME.selectedCosmetics ||= { slots: {} };
+          GAME.selectedCosmetics.slots ||= {};
+          for (const [partKey, overrides] of Object.entries(spriteSlots)){
+            if (!partKey) continue;
+            const slotKey = `${FIGHTER_SPRITE_SLOT_PREFIX}${targetFighter}:${partKey}`;
+            if (overrides){
+              this.state.slotOverrides[slotKey] = this.deepClone(overrides);
+            }
+            const id = `${FIGHTER_SPRITE_ID_PREFIX}${targetFighter}::${partKey}`;
+            const next = { id };
+            GAME.selectedCosmetics.slots[slotKey] = this.deepClone(next);
+            this.state.slotSelection[slotKey] = this.deepClone(next);
+          }
+        }
+      }
+      if (applied){
+        this.slotGrid.refreshFromSelection();
+        this.styleInspector.show(null);
+      }
+      return applied;
+    };
+
+    const loadOverridesFromInput = ()=>{
+      let parsed;
+      try {
+        parsed = parseEditorJsonInput();
+      } catch (err){
+        console.warn('[cosmetic-editor] Failed to parse override input', err);
+        this.showStatus('Invalid JSON payload. Check the console for details.', { tone: 'error' });
+        return;
+      }
+      if (!parsed){
+        this.showStatus('Paste a JSON payload before loading.', { tone: 'warn' });
+        return;
+      }
+      const applied = applyImportedOverrides(parsed);
+      if (applied){
+        refreshOutputs();
+        this.showStatus('Loaded override JSON into the editor.', { tone: 'info' });
+      } else {
+        this.showStatus('JSON parsed but no profile or fighter sprite data was applied.', { tone: 'warn' });
+      }
+    };
+
     const downloadOverridesJson = ()=>{
-      const { mergedProfile, hasOverrides } = prepareDownloadPayload();
-      const fighterEntry = buildFighterSpriteExport();
-      const hasCosmetics = hasOverrides && mergedProfile;
-      if (!fighterEntry && !hasCosmetics){
+      const prepared = prepareDownloadPayload();
+      const bundle = buildExportBundle(prepared);
+      if (!bundle){
         this.showStatus('No override JSON to download.', { tone: 'warn' });
         return;
       }
-      const fighter = this.state.activeFighter || 'fighter';
-      let text;
-      let filename;
-      if (fighterEntry && hasCosmetics){
-        text = JSON.stringify({ fighterSprites: fighterEntry.fighters, profile: mergedProfile }, null, 2);
+      const fighter = bundle.fighter || this.state.activeFighter || 'fighter';
+      const hasProfile = !!bundle.profile;
+      const hasSprites = !!bundle.fighterSprites;
+      let filename = `${fighter}-cosmetics.json`;
+      if (hasProfile && hasSprites){
         filename = `${fighter}-sprites-and-cosmetics.json`;
-      } else if (fighterEntry){
-        text = JSON.stringify(fighterEntry, null, 2);
+      } else if (hasSprites){
         filename = `${fighter}-fighter-sprites.json`;
-      } else {
-        text = JSON.stringify(mergedProfile, null, 2);
-        filename = `${fighter}-cosmetics.json`;
       }
+      const text = JSON.stringify(bundle, null, 2);
       if (this.dom.overrideOutput){
         this.dom.overrideOutput.value = text;
       }
@@ -754,7 +1106,9 @@ class CosmeticEditorApp {
       copyOverridesToClipboard,
       downloadOverridesJson,
       prepareDownloadPayload,
-      buildMergedProfilePayload
+      buildMergedProfilePayload,
+      loadOverridesFromInput,
+      buildExportBundle
     };
   }
 
@@ -1157,23 +1511,6 @@ class CosmeticEditorApp {
       return baseHex || '';
     };
 
-    const buildTintFilter = (hsl)=>{
-      if (!hsl) return 'none';
-      const filters = [];
-      if (Number.isFinite(hsl.h) && hsl.h !== 0){
-        filters.push(`hue-rotate(${hsl.h}deg)`);
-      }
-      if (Number.isFinite(hsl.s) && hsl.s !== 0){
-        const sat = Math.max(0, 1 + hsl.s);
-        filters.push(`saturate(${sat})`);
-      }
-      if (Number.isFinite(hsl.l) && hsl.l !== 0){
-        const light = Math.max(0, 1 + hsl.l);
-        filters.push(`brightness(${light})`);
-      }
-      return filters.length ? filters.join(' ') : 'none';
-    };
-
     const formatHueDelta = (value)=>{
       if (!Number.isFinite(value) || value === 0){
         return '0°';
@@ -1362,7 +1699,7 @@ class CosmeticEditorApp {
         const figures = document.createElement('div');
         figures.className = 'tint-preview__images';
         figures.appendChild(createFigure('Original sprite', assetUrl, 'none'));
-        figures.appendChild(createFigure('Tinted preview', assetUrl, buildTintFilter(hsl)));
+        figures.appendChild(createFigure('Tinted preview', assetUrl, this.buildTintFilter(hsl)));
         container.appendChild(figures);
       }
 
@@ -1517,6 +1854,110 @@ class CosmeticEditorApp {
       }
     };
 
+    const buildDrapeEditorRow = (slot, partKey, layerPosition, index, entry, baseEntry, baseList)=>{
+      const row = document.createElement('div');
+      row.className = 'drape-row';
+
+      const makeInput = (labelText, value, placeholder, { step = '0.01', type = 'number', key })=>{
+        const wrapper = document.createElement('label');
+        const label = document.createElement('span');
+        label.textContent = labelText;
+        const input = document.createElement('input');
+        input.type = type;
+        if (type === 'number'){
+          input.step = step;
+        }
+        input.value = value != null ? value : '';
+        if (placeholder != null && placeholder !== value){
+          input.placeholder = placeholder;
+        }
+        input.addEventListener('change', (event)=>{
+          this.updateBoneInfluenceValue(slot, partKey, layerPosition, index, key, event.target.value, baseList);
+        });
+        wrapper.appendChild(label);
+        wrapper.appendChild(input);
+        row.appendChild(wrapper);
+        return input;
+      };
+
+      makeInput('Bone', entry?.bone ?? '', baseEntry?.bone ?? '', { type: 'text', key: 'bone', step: '1' });
+      makeInput('Radius scale', entry?.radiusScale ?? null, baseEntry?.radiusScale ?? null, { step: '0.05', key: 'radiusScale' });
+      makeInput('Radius px', (entry?.radius ?? entry?.radiusPx) ?? null, (baseEntry?.radius ?? baseEntry?.radiusPx) ?? null, { step: '1', key: 'radius' });
+      makeInput('Inner weight', entry?.innerWeight ?? null, baseEntry?.innerWeight ?? null, { step: '0.05', key: 'innerWeight' });
+      makeInput('Outer weight', entry?.outerWeight ?? null, baseEntry?.outerWeight ?? null, { step: '0.05', key: 'outerWeight' });
+
+      const swatch = document.createElement('div');
+      swatch.className = 'drape-row__heat-swatch';
+      swatch.style.background = this.buildInfluenceGradient(entry?.innerWeight, entry?.outerWeight);
+      row.appendChild(swatch);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'drape-row__remove';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', ()=>{
+        this.removeBoneInfluence(slot, partKey, layerPosition, index, baseList);
+      });
+      row.appendChild(removeBtn);
+
+      return row;
+    };
+
+    const renderDrapeEditor = (slot, cosmetic, partKey, layerPosition)=>{
+      const section = document.createElement('section');
+      section.className = 'drape-editor';
+      section.dataset.source = 'base';
+
+      const header = document.createElement('div');
+      header.className = 'drape-editor__header';
+      const title = document.createElement('h3');
+      title.textContent = 'Bone influence map';
+      header.appendChild(title);
+
+      const context = document.createElement('span');
+      context.className = 'panel-hint';
+      const config = this.getBoneInfluenceConfig(slot, cosmetic, partKey, layerPosition);
+      const baseList = Array.isArray(config?.baseList) ? config.baseList : [];
+      const effectiveList = Array.isArray(config?.list) ? config.list : [];
+      const source = config?.source || 'base';
+      context.textContent = source === 'override'
+        ? 'Editing override values for this layer.'
+        : 'Editing will create override values for this layer.';
+      header.appendChild(context);
+      section.appendChild(header);
+      section.dataset.source = source;
+
+      const rows = document.createElement('div');
+      rows.className = 'drape-editor__rows';
+
+      if (!effectiveList.length){
+        const empty = document.createElement('p');
+        empty.className = 'drape-editor__empty';
+        empty.textContent = 'No bone influences configured for this layer.';
+        section.appendChild(empty);
+      } else {
+        effectiveList.forEach((entry, index)=>{
+          const baseEntry = baseList[index] || null;
+          rows.appendChild(buildDrapeEditorRow(slot, partKey, layerPosition, index, entry || {}, baseEntry || {}, baseList));
+        });
+        section.appendChild(rows);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'drape-editor__actions';
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'drape-editor__add';
+      addBtn.textContent = 'Add Influence';
+      addBtn.addEventListener('click', ()=>{
+        this.addBoneInfluence(slot, partKey, layerPosition, baseList);
+      });
+      actions.appendChild(addBtn);
+      section.appendChild(actions);
+
+      this.dom.styleFields.appendChild(section);
+    };
+
     const renderStyleFields = (slot, cosmeticId, cosmetic, partKey, layerPosition)=>{
       this.dom.styleFields.innerHTML = '';
       const isSpriteMode = !!this.modeManager.getModeConfig(this.state.activeMode)?.enableSpriteEditing;
@@ -1599,6 +2040,9 @@ class CosmeticEditorApp {
       }
       this.dom.styleFields.appendChild(paletteContainer);
       renderPaletteEditor(paletteContainer);
+      if (this.modeManager.getModeConfig(this.state.activeMode)?.enableDrapeEditor){
+        renderDrapeEditor(slot, cosmetic, partKey, layerPosition);
+      }
     };
 
     const show = (slot)=>{
@@ -1857,82 +2301,6 @@ class CosmeticEditorApp {
       return overrides;
     };
 
-    const refreshPreviewFighter = (fighterName, { characterKey = null, fighterConfig = {}, characterData = null } = {})=>{
-      const fighters = GAME.FIGHTERS || {};
-      const playerEntry = fighters.player;
-      if (!playerEntry) return;
-
-      for (const key of Object.keys(fighters)){
-        if (key === 'player') continue;
-        delete fighters[key];
-        if (GAME.CHARACTER_STATE){
-          delete GAME.CHARACTER_STATE[key];
-        }
-      }
-
-      const spawnMeta = GAME.FIGHTER_SPAWNS?.player || {};
-      resetFighterStateForTesting(playerEntry, {
-        x: Number.isFinite(playerEntry?.pos?.x) ? playerEntry.pos.x : spawnMeta.x,
-        y: Number.isFinite(playerEntry?.pos?.y) ? playerEntry.pos.y : spawnMeta.y,
-        spawnY: spawnMeta.y,
-        facingSign: 1,
-      });
-      if (playerEntry.walk){
-        playerEntry.walk.phase = 0;
-        playerEntry.walk.amp = 0;
-      }
-      if (playerEntry.anim?.breath){
-        playerEntry.anim.breath.active = false;
-      }
-
-      const renderProfile = (playerEntry.renderProfile ||= {});
-      renderProfile.fighterName = fighterName;
-      renderProfile.characterKey = characterKey || null;
-      renderProfile.character = characterData ? this.deepClone(characterData) : null;
-
-      const baseBodyColors = characterData?.bodyColors || fighterConfig.bodyColors;
-      if (baseBodyColors){
-        renderProfile.bodyColors = this.deepClone(baseBodyColors);
-      } else {
-        delete renderProfile.bodyColors;
-      }
-
-      const baseCosmetics = characterData?.cosmetics || fighterConfig.cosmetics;
-      if (baseCosmetics){
-        renderProfile.cosmetics = this.deepClone(baseCosmetics);
-      } else {
-        delete renderProfile.cosmetics;
-      }
-
-      const baseAppearance = characterData?.appearance || null;
-      if (baseAppearance){
-        renderProfile.appearance = this.deepClone(baseAppearance);
-      } else {
-        delete renderProfile.appearance;
-      }
-
-      renderProfile.weapon = characterData?.weapon ?? fighterConfig.weapon ?? null;
-      if (Array.isArray(characterData?.slottedAbilities)){
-        renderProfile.slottedAbilities = characterData.slottedAbilities.slice();
-      } else if (Array.isArray(fighterConfig.slottedAbilities)){
-        renderProfile.slottedAbilities = fighterConfig.slottedAbilities.slice();
-      } else {
-        delete renderProfile.slottedAbilities;
-      }
-
-      if (characterData?.stats){
-        renderProfile.stats = this.deepClone(characterData.stats);
-      } else if (fighterConfig.stats){
-        renderProfile.stats = this.deepClone(fighterConfig.stats);
-      } else {
-        delete renderProfile.stats;
-      }
-
-      if (GAME.CHARACTER_STATE){
-        GAME.CHARACTER_STATE.player = this.deepClone(renderProfile);
-      }
-    };
-
     const populateFighterSelect = ()=>{
       const select = this.dom.fighterSelect;
       if (!select) return;
@@ -1996,7 +2364,6 @@ class CosmeticEditorApp {
       this.state.loadedProfile = this.deepClone(profile?.cosmetics || {});
       this.state.slotOverrides = mapProfileToSlotOverrides(slotMap, profile);
       GAME.selectedCharacter = characterKey || null;
-      refreshPreviewFighter(fighterName, { characterKey, fighterConfig: fighter, characterData });
       this.state.activeSlot = null;
       this.state.activePartKey = null;
       this.slotGrid.rebuild();
@@ -2087,6 +2454,389 @@ class CosmeticEditorApp {
       return 'back';
     }
     return 'front';
+  }
+
+  buildTintFilter(hsl){
+    if (!hsl) return 'none';
+    const filters = [];
+    if (Number.isFinite(hsl.h) && hsl.h !== 0){
+      filters.push(`hue-rotate(${hsl.h}deg)`);
+    }
+    if (Number.isFinite(hsl.s) && hsl.s !== 0){
+      const saturation = Math.max(0, 1 + hsl.s);
+      filters.push(`saturate(${saturation})`);
+    }
+    const lightness = Number.isFinite(hsl.l) ? hsl.l : null;
+    if (lightness != null && lightness !== 0){
+      const brightness = Math.max(0, 1 + lightness);
+      filters.push(`brightness(${brightness})`);
+    }
+    return filters.length ? filters.join(' ') : 'none';
+  }
+
+  queuePreviewRender(){
+    if (this.previewRenderScheduled){
+      return;
+    }
+    this.previewRenderScheduled = true;
+    requestAnimationFrame(()=>{
+      this.previewRenderScheduled = false;
+      this.renderPartPreview();
+    });
+  }
+
+  setActivePreviewPart(partKey){
+    const keys = Array.isArray(this.state.previewPartKeys) ? this.state.previewPartKeys : [];
+    if (!keys.length) return;
+    if (!keys.includes(partKey)) return;
+    if (this.state.activePreviewPart === partKey) return;
+    this.state.activePreviewPart = partKey;
+    this.queuePreviewRender();
+  }
+
+  cyclePreviewPart(offset){
+    const keys = Array.isArray(this.state.previewPartKeys) ? this.state.previewPartKeys : [];
+    if (!keys.length || !Number.isInteger(offset)) return;
+    const currentIndex = keys.indexOf(this.state.activePreviewPart);
+    const baseIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextIndex = (baseIndex + offset + keys.length) % keys.length;
+    const nextPart = keys[nextIndex];
+    if (!nextPart) return;
+    if (nextPart !== this.state.activePreviewPart){
+      this.state.activePreviewPart = nextPart;
+    }
+    this.queuePreviewRender();
+  }
+
+  renderPartPreview(){
+    const container = this.dom.previewGrid;
+    if (!container){
+      return;
+    }
+    container.classList.remove('is-empty');
+    container.innerHTML = '';
+
+    const renderMessage = (message)=>{
+      container.innerHTML = '';
+      container.classList.add('is-empty');
+      const note = document.createElement('p');
+      note.className = 'part-preview__empty-note';
+      note.textContent = message;
+      container.appendChild(note);
+    };
+
+    const fighterName = this.state.activeFighter;
+    if (!fighterName){
+      renderMessage('Load a fighter to preview individual parts and their equipped cosmetics.');
+      return;
+    }
+
+    const fighterConfig = CONFIG.fighters?.[fighterName] || {};
+    const baseStyle = fighterConfig.spriteStyle || fighterConfig.sprites?.style || {};
+    const previousEditorState = GAME.editorState;
+    const overridesClone = this.deepClone(this.state.slotOverrides || {});
+    GAME.editorState = {
+      ...(previousEditorState && typeof previousEditorState === 'object' ? previousEditorState : {}),
+      slotOverrides: overridesClone
+    };
+
+    let layers = [];
+    try {
+      layers = ensureCosmeticLayers(CONFIG, fighterName, baseStyle) || [];
+    } catch (err){
+      console.warn('[cosmetic-editor] Failed to render part preview', err);
+      renderMessage('Unable to render part preview for this fighter. Check the console for details.');
+      return;
+    } finally {
+      if (previousEditorState !== undefined){
+        GAME.editorState = previousEditorState;
+      } else {
+        delete GAME.editorState;
+      }
+    }
+
+    const entries = layers.filter((layer)=> layer?.asset?.url);
+    if (!entries.length){
+      renderMessage('No sprite layers available for the current fighter and cosmetic selection.');
+      return;
+    }
+
+    const library = getRegisteredCosmeticLibrary();
+    const stanceCard = this.buildFullBodyPreview(entries, library, fighterName);
+    if (stanceCard){
+      container.appendChild(stanceCard);
+    }
+    const partMap = new Map();
+    for (const layer of entries){
+      const partKey = layer.partKey || 'unknown';
+      if (!partMap.has(partKey)){
+        partMap.set(partKey, { partKey, front: [], back: [] });
+      }
+      const entry = partMap.get(partKey);
+      const position = this.normalizeLayerPosition(layer.position);
+      if (position === 'back'){
+        entry.back.push(layer);
+      } else {
+        entry.front.push(layer);
+      }
+    }
+
+    const sortedParts = Array.from(partMap.values()).sort((a, b)=> a.partKey.localeCompare(b.partKey));
+    const partKeys = sortedParts.map((entry)=> entry.partKey);
+    this.state.previewPartKeys = partKeys;
+
+    if (!partKeys.length){
+      renderMessage('No sprite layers available for the current fighter and cosmetic selection.');
+      return;
+    }
+
+    let activePart = this.state.activePreviewPart;
+    if (!activePart || !partMap.has(activePart)){
+      activePart = partKeys[0];
+      this.state.activePreviewPart = activePart;
+    }
+
+    const activeEntry = partMap.get(activePart);
+    if (!activeEntry){
+      renderMessage('No sprite data available for the selected part.');
+      return;
+    }
+
+    const card = document.createElement('article');
+    card.className = 'part-preview__card';
+
+    const header = document.createElement('header');
+    header.className = 'part-preview__card-header part-preview__card-header--single';
+    const partLabel = document.createElement('span');
+    partLabel.className = 'part-preview__part';
+    partLabel.textContent = activeEntry.partKey;
+    header.appendChild(partLabel);
+
+    const progress = document.createElement('span');
+    progress.className = 'part-preview__progress';
+    const activeIndex = partKeys.indexOf(activeEntry.partKey);
+    progress.textContent = `Part ${activeIndex + 1} of ${partKeys.length}`;
+    header.appendChild(progress);
+
+    const controls = document.createElement('div');
+    controls.className = 'part-preview__nav-controls';
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'part-preview__nav-btn';
+    prevBtn.setAttribute('aria-label', 'Show previous part');
+    prevBtn.textContent = '◀';
+    prevBtn.addEventListener('click', ()=> this.cyclePreviewPart(-1));
+    controls.appendChild(prevBtn);
+
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'part-preview__nav-btn';
+    nextBtn.setAttribute('aria-label', 'Show next part');
+    nextBtn.textContent = '▶';
+    nextBtn.addEventListener('click', ()=> this.cyclePreviewPart(1));
+    controls.appendChild(nextBtn);
+
+    header.appendChild(controls);
+    card.appendChild(header);
+
+    const selector = document.createElement('select');
+    selector.className = 'part-preview__selector';
+    selector.setAttribute('aria-label', 'Select part to preview');
+    partKeys.forEach((partKey)=>{
+      const option = document.createElement('option');
+      option.value = partKey;
+      option.textContent = partKey;
+      if (partKey === activeEntry.partKey){
+        option.selected = true;
+      }
+      selector.appendChild(option);
+    });
+    selector.addEventListener('change', (event)=>{
+      const nextPart = event?.target?.value;
+      if (nextPart){
+        this.setActivePreviewPart(nextPart);
+      }
+    });
+    card.appendChild(selector);
+
+    const stageGroup = document.createElement('div');
+    stageGroup.className = 'part-preview__stage-group';
+    stageGroup.appendChild(this.buildPartPose('front', activeEntry.front, library, activeEntry.partKey));
+    stageGroup.appendChild(this.buildPartPose('back', activeEntry.back, library, activeEntry.partKey));
+    card.appendChild(stageGroup);
+
+    container.appendChild(card);
+  }
+
+  buildPartPose(position, layers = [], library, partKey, options = {}){
+    const section = document.createElement('section');
+    section.className = 'part-preview__pose';
+    section.dataset.position = position;
+
+    const resolvedLayers = Array.isArray(layers) ? layers : [];
+    if (!resolvedLayers.length){
+      section.dataset.empty = 'true';
+    }
+
+    const header = document.createElement('div');
+    header.className = 'part-preview__pose-header';
+    const title = document.createElement('span');
+    title.textContent = position === 'back' ? 'Back' : 'Front';
+    header.appendChild(title);
+
+    const countBadge = document.createElement('span');
+    countBadge.className = 'part-preview__pose-badge';
+    countBadge.textContent = `${resolvedLayers.length} layer${resolvedLayers.length === 1 ? '' : 's'}`;
+    header.appendChild(countBadge);
+
+    section.appendChild(header);
+
+    const stage = document.createElement('div');
+    stage.className = 'part-preview__stage';
+    const stack = document.createElement('div');
+    stack.className = 'part-preview__stack';
+    stage.appendChild(stack);
+
+    let hasImage = false;
+    resolvedLayers.forEach((layer, index)=>{
+      const url = layer?.asset?.url;
+      if (!url) return;
+      hasImage = true;
+      const img = document.createElement('img');
+      img.className = 'part-preview__layer';
+      if (index === 0){
+        img.classList.add('part-preview__layer--base');
+      }
+      img.src = url;
+      const slot = layer.slot || '';
+      const cosmeticId = layer.cosmeticId || '';
+      const displayName = library?.[cosmeticId]?.name
+        || library?.[cosmeticId]?.displayName
+        || library?.[cosmeticId]?.label
+        || cosmeticId;
+      img.alt = cosmeticId
+        ? `${displayName} applied to ${partKey}`
+        : `${partKey} sprite`;
+      const filter = this.buildTintFilter(layer.hsl);
+      if (filter && filter !== 'none'){
+        img.style.filter = filter;
+      }
+      const transform = this.buildLayerTransformDescriptor(layer);
+      if (transform?.css){
+        img.style.transformOrigin = 'center center';
+        img.style.transform = transform.css;
+      } else {
+        img.style.removeProperty('transform');
+      }
+      stack.appendChild(img);
+    });
+
+    if (this.modeManager.resolveModeKey(this.state.activeMode) === 'draping'){
+      const overlay = this.buildDrapeOverlay(resolvedLayers, library, partKey);
+      if (overlay){
+        stage.appendChild(overlay);
+      }
+    }
+
+    if (!hasImage){
+      section.dataset.empty = 'true';
+    }
+
+    section.appendChild(stage);
+
+    const showLayerList = options.showLayerList !== false;
+    if (showLayerList && resolvedLayers.length){
+      const list = document.createElement('ul');
+      list.className = 'part-preview__layers';
+      resolvedLayers.forEach((layer, index)=>{
+        const item = document.createElement('li');
+        item.className = 'part-preview__layer-meta';
+        const slotLabel = document.createElement('span');
+        slotLabel.className = 'part-preview__layer-slot';
+        slotLabel.textContent = layer.slot || '—';
+        const id = document.createElement('code');
+        id.className = 'part-preview__layer-id';
+        id.textContent = layer.cosmeticId || '—';
+        item.appendChild(slotLabel);
+        item.appendChild(id);
+
+        const badges = document.createElement('span');
+        badges.className = 'part-preview__layer-badges';
+
+        const positionBadge = document.createElement('span');
+        positionBadge.className = 'part-preview__layer-badge part-preview__layer-badge--position';
+        positionBadge.textContent = position === 'back' ? 'back' : 'front';
+        badges.appendChild(positionBadge);
+
+        const appearance = (layer.slot || '').startsWith('appearance:');
+        if (index === 0){
+          const badge = document.createElement('span');
+          badge.className = 'part-preview__layer-badge';
+          badge.textContent = 'base';
+          if (appearance){
+            badge.classList.add('part-preview__layer-badge--appearance');
+          }
+          badges.appendChild(badge);
+        } else if (appearance){
+          const badge = document.createElement('span');
+          badge.className = 'part-preview__layer-badge part-preview__layer-badge--appearance';
+          badge.textContent = 'appearance';
+          badges.appendChild(badge);
+        }
+
+        item.appendChild(badges);
+        list.appendChild(item);
+      });
+      section.appendChild(list);
+    }
+
+    return section;
+  }
+
+  buildFullBodyPreview(layers = [], library, fighterName){
+    if (!Array.isArray(layers) || layers.length === 0){
+      return null;
+    }
+    const grouped = { front: [], back: [] };
+    layers.forEach((layer)=>{
+      if (!layer || !layer.asset?.url) return;
+      const position = this.normalizeLayerPosition(layer.position);
+      if (position === 'back'){
+        grouped.back.push(layer);
+      } else {
+        grouped.front.push(layer);
+      }
+    });
+    const totalLayers = grouped.front.length + grouped.back.length;
+    if (totalLayers === 0){
+      return null;
+    }
+    const card = document.createElement('article');
+    card.className = 'part-preview__card part-preview__card--full-body';
+
+    const header = document.createElement('header');
+    header.className = 'part-preview__card-header';
+    const title = document.createElement('span');
+    title.className = 'part-preview__part';
+    title.textContent = 'Full Body Stance';
+    header.appendChild(title);
+    const badge = document.createElement('span');
+    badge.className = 'part-preview__progress';
+    badge.textContent = `${totalLayers} layered sprite${totalLayers === 1 ? '' : 's'}`;
+    header.appendChild(badge);
+    card.appendChild(header);
+
+    const stage = document.createElement('div');
+    stage.className = 'part-preview__stage part-preview__stage--full-body';
+    card.appendChild(stage);
+    this.fullBodyPreview.renderInto(stage, fighterName, this.state.slotOverrides);
+
+    const meta = document.createElement('p');
+    meta.className = 'part-preview__full-body-meta';
+    meta.textContent = `Front layers: ${grouped.front.length} • Back layers: ${grouped.back.length}`;
+    card.appendChild(meta);
+
+    return card;
   }
 
   mergeLayerConfig(base = {}, override = {}){
@@ -2197,6 +2947,20 @@ class CosmeticEditorApp {
                 delete layerOverride.palette;
               }
             }
+            if (layerOverride?.extra){
+              const extra = layerOverride.extra;
+              if (Array.isArray(extra.boneInfluences)){
+                extra.boneInfluences = extra.boneInfluences
+                  .map((entry)=> this.sanitizeBoneInfluenceEntry(entry))
+                  .filter((entry)=> this.hasBoneInfluenceContent(entry));
+                if (!extra.boneInfluences.length){
+                  delete extra.boneInfluences;
+                }
+              }
+              if (extra && Object.keys(extra).length === 0){
+                delete layerOverride.extra;
+              }
+            }
             if (layerOverride?.hsl && Object.keys(layerOverride.hsl).length === 0){
               delete layerOverride.hsl;
             }
@@ -2221,6 +2985,20 @@ class CosmeticEditorApp {
         }
         if (spriteStyle && Object.keys(spriteStyle).length === 0){
           delete partOverride.spriteStyle;
+        }
+        if (partOverride?.extra){
+          const extra = partOverride.extra;
+          if (Array.isArray(extra.boneInfluences)){
+            extra.boneInfluences = extra.boneInfluences
+              .map((entry)=> this.sanitizeBoneInfluenceEntry(entry))
+              .filter((entry)=> this.hasBoneInfluenceContent(entry));
+            if (!extra.boneInfluences.length){
+              delete extra.boneInfluences;
+            }
+          }
+          if (extra && Object.keys(extra).length === 0){
+            delete partOverride.extra;
+          }
         }
         if (partOverride?.styleKey && !partOverride?.spriteStyle?.xform?.[partOverride.styleKey]){
           delete partOverride.styleKey;
@@ -2356,6 +3134,367 @@ class CosmeticEditorApp {
     return cosmetic?.parts?.[partKey]?.image?.url || '';
   }
 
+  getBoneInfluenceConfig(slot, cosmetic, partKey, layerPosition){
+    const normalizedLayer = this.normalizeLayerPosition(layerPosition);
+    const partLayer = this.getCosmeticPartLayerConfig(cosmetic, partKey, normalizedLayer) || {};
+    const baseList = Array.isArray(partLayer?.extra?.boneInfluences)
+      ? partLayer.extra.boneInfluences
+      : [];
+    const overrideLayer = this.getLayerOverride(slot, partKey, normalizedLayer) || null;
+    const overrideList = overrideLayer?.extra?.boneInfluences;
+    if (Array.isArray(overrideList)){
+      return { list: overrideList, source: 'override', baseList };
+    }
+    return { list: baseList, source: 'base', baseList };
+  }
+
+  sanitizeBoneInfluenceEntry(entry = {}){
+    if (!entry || typeof entry !== 'object') return {};
+    const result = {};
+    const boneKey = entry.bone ?? entry.boneKey ?? entry.id ?? entry.partKey;
+    if (boneKey != null){
+      const trimmed = String(boneKey).trim();
+      if (trimmed){
+        result.bone = trimmed;
+      }
+    }
+    const numericKeys = ['radius', 'radiusPx', 'radiusScale', 'innerWeight', 'outerWeight'];
+    for (const key of numericKeys){
+      const value = Number(entry[key]);
+      if (Number.isFinite(value)){
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+
+  hasBoneInfluenceContent(entry){
+    if (!entry || typeof entry !== 'object') return false;
+    if (entry.bone && String(entry.bone).trim()) return true;
+    return ['radius', 'radiusPx', 'radiusScale', 'innerWeight', 'outerWeight']
+      .some((key)=> Number.isFinite(entry[key]));
+  }
+
+  mutateBoneInfluences(slot, partKey, layerPosition, baseList, mutator){
+    if (!slot || !partKey || typeof mutator !== 'function') return;
+    const normalizedLayer = this.normalizeLayerPosition(layerPosition);
+    const layerOverride = this.getLayerOverride(slot, partKey, normalizedLayer, { create: true });
+    layerOverride.extra ||= {};
+    let list = layerOverride.extra.boneInfluences;
+    if (!Array.isArray(list)){
+      list = Array.isArray(baseList)
+        ? baseList.map((entry)=> this.deepClone(entry))
+        : [];
+      layerOverride.extra.boneInfluences = list;
+    }
+    mutator(layerOverride.extra.boneInfluences);
+    const sanitized = [];
+    for (const entry of layerOverride.extra.boneInfluences){
+      const clean = this.sanitizeBoneInfluenceEntry(entry);
+      if (this.hasBoneInfluenceContent(clean)){
+        sanitized.push(clean);
+      }
+    }
+    if (sanitized.length){
+      layerOverride.extra.boneInfluences = sanitized;
+    } else {
+      delete layerOverride.extra.boneInfluences;
+    }
+    if (layerOverride.extra && Object.keys(layerOverride.extra).length === 0){
+      delete layerOverride.extra;
+    }
+    this.cleanupEmptyOverrides(slot);
+    this.overrideManager.refreshOutputs();
+    this.queuePreviewRender();
+    if (this.state.activeSlot === slot){
+      this.styleInspector.show(slot);
+    }
+  }
+
+  updateBoneInfluenceValue(slot, partKey, layerPosition, index, key, rawValue, baseList){
+    if (!Number.isInteger(index) || index < 0) return;
+    this.mutateBoneInfluences(slot, partKey, layerPosition, baseList, (list)=>{
+      while (list.length <= index){
+        list.push({});
+      }
+      const current = list[index] || {};
+      const next = { ...current };
+      if (key === 'bone'){
+        const value = String(rawValue || '').trim();
+        if (value){
+          next.bone = value;
+        } else {
+          delete next.bone;
+        }
+      } else {
+        const numeric = Number(rawValue);
+        if (rawValue === '' || Number.isNaN(numeric)){
+          delete next[key];
+        } else {
+          next[key] = numeric;
+        }
+      }
+      list[index] = next;
+    });
+  }
+
+  removeBoneInfluence(slot, partKey, layerPosition, index, baseList){
+    if (!Number.isInteger(index) || index < 0) return;
+    this.mutateBoneInfluences(slot, partKey, layerPosition, baseList, (list)=>{
+      if (index >= list.length) return;
+      list.splice(index, 1);
+    });
+  }
+
+  addBoneInfluence(slot, partKey, layerPosition, baseList){
+    this.mutateBoneInfluences(slot, partKey, layerPosition, baseList, (list)=>{
+      list.push({ bone: '', radiusScale: 1, innerWeight: 1, outerWeight: 0 });
+    });
+  }
+
+  resolveInfluenceRadiusPx(influence){
+    if (!influence || typeof influence !== 'object'){
+      return 64;
+    }
+    const radius = Number(influence.radius ?? influence.radiusPx);
+    if (Number.isFinite(radius) && radius > 0){
+      return radius;
+    }
+    const scale = Number(influence.radiusScale);
+    if (Number.isFinite(scale) && scale > 0){
+      const base = DRAPE_DEFAULT_BONE_LENGTHS[influence.bone] || DRAPE_DEFAULT_BONE_LENGTHS[influence.boneKey] || 48;
+      return Math.max(12, base * scale);
+    }
+    const fallback = DRAPE_DEFAULT_BONE_LENGTHS[influence.bone] || DRAPE_DEFAULT_BONE_LENGTHS[influence.boneKey];
+    return fallback || 64;
+  }
+
+  weightToHeatColor(weight){
+    if (!Number.isFinite(weight)){
+      return 'rgba(148,163,184,0.55)';
+    }
+    const min = DRAPE_WEIGHT_CLAMP.min;
+    const max = DRAPE_WEIGHT_CLAMP.max;
+    const clamped = Math.max(min, Math.min(max, weight));
+    const normalized = (clamped - min) / (max - min);
+    const hue = 210 - normalized * 180;
+    const saturation = 80;
+    const lightness = 60 - Math.abs(clamped) * 12;
+    return `hsl(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.max(18, Math.round(lightness))}%)`;
+  }
+
+  buildInfluenceGradient(innerWeight, outerWeight){
+    const innerColor = this.weightToHeatColor(innerWeight);
+    const midColor = this.weightToHeatColor(
+      Number.isFinite(innerWeight) && Number.isFinite(outerWeight)
+        ? (innerWeight + outerWeight) / 2
+        : innerWeight ?? outerWeight
+    );
+    const outerColor = this.weightToHeatColor(outerWeight);
+    return `radial-gradient(circle at 50% 45%, ${innerColor} 0%, ${midColor} 55%, ${outerColor} 100%)`;
+  }
+
+  formatInfluenceValue(value, digits = 2){
+    if (!Number.isFinite(value)) return '—';
+    return Number.parseFloat(value).toFixed(digits);
+  }
+
+  buildDrapeBox(influence, { slot, cosmeticId, label, isActive, source, index, styleKey, transform } = {}){
+    if (!influence || typeof influence !== 'object') return null;
+    const box = document.createElement('div');
+    box.className = 'drape-overlay__box';
+    if (isActive){
+      box.dataset.active = 'true';
+    }
+    if (source){
+      box.dataset.source = source;
+    }
+    const gradient = this.buildInfluenceGradient(influence.innerWeight, influence.outerWeight);
+    const heat = document.createElement('div');
+    heat.className = 'drape-overlay__heat';
+    heat.style.background = gradient;
+    box.appendChild(heat);
+
+    const radiusValue = this.resolveInfluenceRadiusPx(influence);
+    const radiusRing = document.createElement('div');
+    radiusRing.className = 'drape-overlay__radius-visual';
+    const ringSize = Math.max(32, Math.min(160, radiusValue));
+    radiusRing.style.width = `${Math.round(ringSize)}px`;
+    radiusRing.style.height = `${Math.round(ringSize)}px`;
+    box.appendChild(radiusRing);
+
+    const radiusBadge = document.createElement('div');
+    radiusBadge.className = 'drape-overlay__radius';
+    radiusBadge.textContent = `${Math.round(radiusValue)}px radius`;
+    box.appendChild(radiusBadge);
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'drape-overlay__box-label';
+    if (styleKey){
+      const styleBadge = document.createElement('span');
+      styleBadge.className = 'drape-overlay__style-key';
+      styleBadge.textContent = styleKey;
+      labelEl.appendChild(styleBadge);
+    }
+    const title = document.createElement('div');
+    const boneName = influence.bone || influence.boneKey || influence.id || 'Bone';
+    title.textContent = boneName;
+    labelEl.appendChild(title);
+
+    const innerMetric = document.createElement('span');
+    innerMetric.className = 'drape-overlay__metric';
+    innerMetric.textContent = `inner ${this.formatInfluenceValue(influence.innerWeight)}`;
+    labelEl.appendChild(innerMetric);
+
+    const outerMetric = document.createElement('span');
+    outerMetric.className = 'drape-overlay__metric';
+    outerMetric.textContent = `outer ${this.formatInfluenceValue(influence.outerWeight)}`;
+    labelEl.appendChild(outerMetric);
+
+    if (transform){
+      const transformMetrics = document.createElement('div');
+      transformMetrics.className = 'drape-overlay__transform';
+      const translate = document.createElement('span');
+      translate.textContent = `${transform.x >= 0 ? '+' : ''}${Math.round(transform.x)}px, ${transform.y >= 0 ? '+' : ''}${Math.round(transform.y)}px`;
+      translate.setAttribute('aria-label', 'X/Y offset');
+      transformMetrics.appendChild(translate);
+      const scale = document.createElement('span');
+      scale.textContent = `${this.formatInfluenceValue(transform.scaleX, 2)}× / ${this.formatInfluenceValue(transform.scaleY, 2)}×`;
+      scale.setAttribute('aria-label', 'Scale X/Y');
+      transformMetrics.appendChild(scale);
+      const rotate = document.createElement('span');
+      rotate.textContent = `${this.formatInfluenceValue(transform.rotDeg, 1)}°`;
+      rotate.setAttribute('aria-label', 'Rotation');
+      transformMetrics.appendChild(rotate);
+      labelEl.appendChild(transformMetrics);
+    }
+
+    box.appendChild(labelEl);
+
+    const minHeight = Math.max(92, Math.min(240, radiusValue * 1.3));
+    box.style.minHeight = `${Math.round(minHeight)}px`;
+    box.title = [
+      label ? `${label}` : '',
+      slot ? `Slot: ${slot}` : '',
+      cosmeticId ? `Cosmetic: ${cosmeticId}` : '',
+      Number.isInteger(index) ? `Index: ${index}` : ''
+    ].filter(Boolean).join('\n');
+
+    return box;
+  }
+
+  buildDrapeOverlay(layers = [], library, partKey){
+    const overlay = document.createElement('div');
+    overlay.className = 'drape-overlay';
+    const groups = [];
+    const seen = new Set();
+    for (const layer of Array.isArray(layers) ? layers : []){
+      if (!layer || typeof layer !== 'object') continue;
+      const slot = layer.slot;
+      const cosmeticId = layer.cosmeticId;
+      if (!slot || !cosmeticId) continue;
+      const position = this.normalizeLayerPosition(layer.position);
+      const styleKey = layer.styleKey || layer.partKey || 'default';
+      const key = `${slot}::${cosmeticId}::${position}::${styleKey}`;
+      if (seen.has(key)) continue;
+      const cosmetic = library?.[cosmeticId];
+      const { list, source, baseList } = this.getBoneInfluenceConfig(slot, cosmetic, partKey, position);
+      const values = Array.isArray(list) && list.length
+        ? list
+        : (Array.isArray(baseList) ? baseList : []);
+      if (!values.length) continue;
+      seen.add(key);
+      const transform = this.buildLayerTransformDescriptor(layer);
+      groups.push({
+        slot,
+        cosmeticId,
+        position,
+        source,
+        label: cosmetic?.name || cosmetic?.displayName || cosmetic?.label || cosmeticId,
+        isActive: this.state.activeSlot === slot,
+        influences: this.deepClone(values),
+        styleKey,
+        transform
+      });
+    }
+    if (!groups.length){
+      overlay.dataset.empty = 'true';
+      const note = document.createElement('span');
+      note.textContent = 'No bone influences configured for this layer.';
+      overlay.appendChild(note);
+      return overlay;
+    }
+    groups.sort((a, b)=>{
+      if (a.slot !== b.slot) return a.slot.localeCompare(b.slot);
+      if (a.cosmeticId !== b.cosmeticId) return a.cosmeticId.localeCompare(b.cosmeticId);
+      return a.position.localeCompare(b.position);
+    });
+    for (const group of groups){
+      group.influences.forEach((influence, index)=>{
+        const box = this.buildDrapeBox(influence, {
+          slot: group.slot,
+          cosmeticId: group.cosmeticId,
+          label: group.label,
+          isActive: group.isActive,
+          source: group.source,
+          index,
+          styleKey: group.styleKey,
+          transform: group.transform
+        });
+        if (box){
+          overlay.appendChild(box);
+        }
+      });
+    }
+    return overlay;
+  }
+
+  getSpriteStyleOverride(slot, partKey, layerPosition, styleKey){
+    if (!slot || !partKey || !styleKey) return null;
+    const normalized = this.normalizeLayerPosition(layerPosition);
+    const slotOverride = this.state.slotOverrides?.[slot];
+    if (!slotOverride) return null;
+    const partOverride = slotOverride.parts?.[partKey];
+    const layerOverride = partOverride?.layers?.[normalized];
+    return layerOverride?.spriteStyle?.xform?.[styleKey]
+      || partOverride?.spriteStyle?.xform?.[styleKey]
+      || slotOverride?.spriteStyle?.xform?.[styleKey]
+      || null;
+  }
+
+  buildLayerTransformDescriptor(layer){
+    if (!layer || typeof layer !== 'object') return null;
+    const styleKey = layer.styleKey || layer.partKey;
+    if (!styleKey) return null;
+    const baseXform = layer?.styleOverride?.xform?.[styleKey] || {};
+    const override = this.getSpriteStyleOverride(layer.slot, layer.partKey, layer.position, styleKey) || {};
+    const merged = { ...baseXform };
+    for (const [key, value] of Object.entries(override)){
+      if (value != null){
+        merged[key] = value;
+      }
+    }
+    const normalized = {
+      x: Number.isFinite(Number(merged.x)) ? Number(merged.x) : 0,
+      y: Number.isFinite(Number(merged.y)) ? Number(merged.y) : 0,
+      scaleX: Number.isFinite(Number(merged.scaleX)) ? Number(merged.scaleX) : 1,
+      scaleY: Number.isFinite(Number(merged.scaleY)) ? Number(merged.scaleY) : 1,
+      rotDeg: Number.isFinite(Number(merged.rotDeg)) ? Number(merged.rotDeg) : 0
+    };
+    const transformParts = [];
+    if (normalized.x !== 0 || normalized.y !== 0){
+      transformParts.push(`translate(${normalized.x}px, ${normalized.y}px)`);
+    }
+    if (normalized.scaleX !== 1 || normalized.scaleY !== 1){
+      transformParts.push(`scale(${normalized.scaleX}, ${normalized.scaleY})`);
+    }
+    if (normalized.rotDeg !== 0){
+      transformParts.push(`rotate(${normalized.rotDeg}deg)`);
+    }
+    const css = transformParts.length ? transformParts.join(' ') : '';
+    return { ...normalized, css, styleKey };
+  }
+
   attachEventListeners(){
     this.modeButtons.forEach((button)=>{
       button?.addEventListener('click', ()=>{
@@ -2401,6 +3540,7 @@ class CosmeticEditorApp {
     this.dom.creatorAddBtn?.addEventListener('click', ()=> this.assetLibrary.createCustomCosmetic());
     this.dom.creatorEquipBtn?.addEventListener('click', ()=> this.assetLibrary.equipCustomCosmetic());
     this.dom.creatorApplyBtn?.addEventListener('click', ()=> this.assetLibrary.applyAssetToActivePart());
+    this.dom.overrideLoadBtn?.addEventListener('click', ()=> this.overrideManager.loadOverridesFromInput());
     this.dom.overrideApplyBtn?.addEventListener('click', ()=> this.overrideManager.applyOverridesToProfile());
     this.dom.overrideCopyBtn?.addEventListener('click', ()=> this.overrideManager.copyOverridesToClipboard());
     this.dom.overrideDownloadBtn?.addEventListener('click', ()=> this.overrideManager.downloadOverridesJson());
@@ -2447,26 +3587,16 @@ class CosmeticEditorApp {
     }
   }
 
-  draw(){
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    renderAll(this.ctx);
-    renderSprites(this.ctx);
-    requestAnimationFrame(()=> this.draw());
-  }
-
   async bootstrap(){
     this.assetLibrary.setSelectedAsset(null);
     this.modeManager.bootstrap();
-    await initSprites();
-    initFighters(this.canvas, this.ctx, { spawnNpc: false, poseKey: 'Stance' });
-    GAME.CAMERA = GAME.CAMERA || { x: 0, worldWidth: this.canvas.width };
     await this.loadAssetManifest();
     this.slotGrid.rebuild();
     this.fighterManager.populateFighterSelect();
     this.attachEventListeners();
     this.slotGrid.refreshFromSelection();
     this.styleInspector.renderTintPreview();
-    this.draw();
+    this.queuePreviewRender();
   }
 }
 

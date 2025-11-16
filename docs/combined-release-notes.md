@@ -12,7 +12,9 @@ This document summarises the features folded together for the consolidated merge
 - `docs/js/cosmetics.js` provides the normalized library/profile registry, HSV clamping, asset caching, and tag helpers used both in-game and inside the editor.
 - `docs/js/cosmetic-library.js` and `docs/js/cosmetic-profiles.js` fetch cosmetics and profile data and register them with the runtime.
 - `docs/js/sprites.js` integrates cosmetic layers into sprite assembly, including branch mirroring to keep limb cosmetics aligned.
-- `tests/cosmetics-system.test.js` locks behaviour for tag generation, layer expansion, and config wiring so the merge stays verifiable.
+- `docs/js/sprites.js` now blends cosmetic quad warps from multiple bones using per-layer falloff metadata so draped clothing can follow both torso and arms.
+- `docs/config/cosmetics/simple_poncho.json` showcases multi-bone deformation settings for torso and shoulder coverage, illustrating radius and weight tuning.
+- `tests/cosmetics-system.test.js` locks behaviour for tag generation, layer expansion, config wiring, and now guards cosmetic layer bone influence metadata.
 
 ## Combat, animation, and configuration updates
 - `docs/js/combat.js` merges weapon combo definitions with base abilities, adds queue management, and honours weapon-specific overrides.

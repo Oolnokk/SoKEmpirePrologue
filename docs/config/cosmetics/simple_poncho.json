@@ -9,26 +9,40 @@
       "layers": {
         "back": {
           "image": {
-            "url": "https://i.imgur.com/YatjSyo.png"
+            "url": "./assets/cosmetics/clothes/overwear/simple_poncho-front.png"
           },
           "spriteStyle": {
             "base": {
               "xform": {
-                "torso": { "ax": -0.5, "ay": -0.2, "scaleX": 3.9, "scaleY": 4.8 }
+                "torso": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
+          },
+          "extra": {
+            "boneInfluences": [
+              { "bone": "torso", "radiusScale": 1.1, "innerWeight": 1, "outerWeight": 0.25 },
+              { "bone": "arm_L_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 },
+              { "bone": "arm_R_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 }
+            ]
           }
         },
         "front": {
           "image": {
-            "url": "https://i.imgur.com/YatjSyo.png"
+            "url": "./assets/cosmetics/clothes/overwear/simple_poncho-front.png"
           },
           "spriteStyle": {
             "base": {
               "xform": {
-                "torso": { "ax": -0.5, "ay": -0.15, "scaleX": 3.8, "scaleY": 4.7 }
+                "torso": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
+          },
+          "extra": {
+            "boneInfluences": [
+              { "bone": "torso", "radiusScale": 1.1, "innerWeight": 1, "outerWeight": 0.25 },
+              { "bone": "arm_L_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 },
+              { "bone": "arm_R_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 }
+            ]
           }
         }
       }
@@ -37,14 +51,20 @@
       "layers": {
         "front": {
           "image": {
-            "url": "https://i.imgur.com/CAmWLbf.png"
+            "url": "./assets/cosmetics/clothes/overwear/simple_poncho-front.png"
           },
           "spriteStyle": {
             "base": {
               "xform": {
-                "armUpper": { "ax": -0.1, "ay": 0.1, "scaleX": 2.2, "scaleY": 2.1 }
+                "armUpper": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
+          },
+          "extra": {
+            "boneInfluences": [
+              { "bone": "arm_L_upper", "radiusScale": 0.6, "innerWeight": 1, "outerWeight": 0.45 },
+              { "bone": "torso", "radiusScale": 0.8, "innerWeight": 0.7, "outerWeight": 0.25 }
+            ]
           }
         }
       }
@@ -53,14 +73,20 @@
       "layers": {
         "front": {
           "image": {
-            "url": "https://i.imgur.com/CAmWLbf.png"
+            "url": "./assets/cosmetics/clothes/overwear/simple_poncho-front.png"
           },
           "spriteStyle": {
             "base": {
               "xform": {
-                "armUpper": { "ax": -0.1, "ay": 0.1, "scaleX": 2.2, "scaleY": 2.1 }
+                "armUpper": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
+          },
+          "extra": {
+            "boneInfluences": [
+              { "bone": "arm_R_upper", "radiusScale": 0.6, "innerWeight": 1, "outerWeight": 0.45 },
+              { "bone": "torso", "radiusScale": 0.8, "innerWeight": 0.7, "outerWeight": 0.25 }
+            ]
           }
         }
       }
