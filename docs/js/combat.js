@@ -118,6 +118,8 @@ export function makeCombat(G, C, options = {}){
     context: null,
     pendingAbilityId: null,
     sequenceTimers: [],
+    sequenceSteps: [],
+    timelineState: null
     sequenceSteps: []
   };
 
@@ -641,6 +643,63 @@ export function makeCombat(G, C, options = {}){
     return segments;
   }
 
+    function runAttackTimeline({ segments, context, onComplete, resetMirrorBeforeStance=false, sequenceSteps=[] }){
+      const ordered = Array.isArray(segments) ? segments.slice() : [];
+      if (!ordered.length){
+        if (typeof onComplete === 'function') onComplete();
+        return;
+      }
+      const steps = Array.isArray(sequenceSteps) ? sequenceSteps.slice() : [];
+      steps.sort((a,b)=> (a.startMs || 0) - (b.startMs || 0));
+      const timelineState = {
+        ordered,
+        steps,
+        nextStepIndex: 0,
+        elapsed: 0,
+        totalDuration: ordered.length ? ordered[ordered.length - 1].endTime : 0,
+        active: true
+      };
+      let stanceReset = false;
+
+      const triggerStepsThrough = (timeMs) => {
+        if (!timelineState.steps.length) return;
+        while (timelineState.nextStepIndex < timelineState.steps.length){
+          const step = timelineState.steps[timelineState.nextStepIndex];
+          if (!step || !Number.isFinite(step.startMs)) {
+            timelineState.nextStepIndex += 1;
+            continue;
+          }
+          if (step.startMs > timeMs + 1e-3) break;
+          timelineState.nextStepIndex += 1;
+          playAttackSequenceStep(step, context);
+        }
+      };
+
+      timelineState.triggerStepsThrough = triggerStepsThrough;
+      ATTACK.timelineState = timelineState;
+      triggerStepsThrough(0);
+
+      const runSegmentAt = (idx) => {
+        if (idx >= ordered.length){
+          timelineState.active = false;
+          ATTACK.timelineState = null;
+          if (typeof onComplete === 'function') onComplete();
+          return;
+        }
+        const segment = ordered[idx];
+        if (resetMirrorBeforeStance && !stanceReset && segment.phase === 'Stance'){
+          resetMirror();
+          stanceReset = true;
+        }
+        triggerStepsThrough(segment.startTime);
+        startTransition(segment.pose, segment.phase, segment.duration, ()=>{
+          triggerStepsThrough(segment.endTime);
+          runSegmentAt(idx + 1);
+        });
+      };
+
+      runSegmentAt(0);
+    }
   function runAttackTimeline({ segments, context, onComplete, resetMirrorBeforeStance=false, sequenceSteps=[] }){
     const ordered = Array.isArray(segments) ? segments.slice() : [];
     if (!ordered.length){
@@ -728,6 +787,7 @@ export function makeCombat(G, C, options = {}){
       }
     }
     ATTACK.sequenceSteps = [];
+    ATTACK.timelineState = null;
     sequenceLayerCounter = 0;
   }
 
@@ -2109,9 +2169,9 @@ export function makeCombat(G, C, options = {}){
   // Update transitions
   function updateTransitions(dt){
     if (!TRANSITION.active) return;
-    
+
     TRANSITION.elapsed += dt * 1000;
-    
+
     // Apply flips at the specified progress point
     if (TRANSITION.flipAt !== null && !TRANSITION.flipApplied && TRANSITION.flipParts){
       const progress = TRANSITION.elapsed / TRANSITION.duration;
@@ -2123,12 +2183,31 @@ export function makeCombat(G, C, options = {}){
         TRANSITION.flipApplied = true;
       }
     }
-    
+
     if (TRANSITION.elapsed >= TRANSITION.duration){
       TRANSITION.active = false;
       if (TRANSITION.callback){
         TRANSITION.callback();
       }
+    }
+  }
+
+  function updateAttackTimeline(dt){
+    const state = ATTACK.timelineState;
+    if (!state || !state.active) return;
+    const deltaMs = Number.isFinite(dt) ? Math.max(0, dt * 1000) : 0;
+    const nextElapsed = Math.min(
+      Number.isFinite(state.totalDuration) ? state.totalDuration : Number.POSITIVE_INFINITY,
+      state.elapsed + deltaMs
+    );
+    state.elapsed = nextElapsed;
+    if (typeof state.triggerStepsThrough === 'function'){
+      state.triggerStepsThrough(nextElapsed);
+    }
+    if (!Number.isFinite(state.totalDuration) || nextElapsed < state.totalDuration) return;
+    if (!state.steps?.length || state.nextStepIndex >= state.steps.length){
+      state.active = false;
+      ATTACK.timelineState = null;
     }
   }
 
@@ -2203,6 +2282,7 @@ export function makeCombat(G, C, options = {}){
       updateCharge(dt);
       updateDefensive(dt);
       updateTransitions(dt);
+      updateAttackTimeline(dt);
       updateCombo(dt);
       updateResources(dt);
       updateMovement(dt);
