@@ -119,8 +119,7 @@ export function makeCombat(G, C, options = {}){
     pendingAbilityId: null,
     sequenceTimers: [],
     sequenceSteps: [],
-    timelineState: null
-    sequenceSteps: []
+    timelineState: null,
   };
 
   const CHARGE = {
