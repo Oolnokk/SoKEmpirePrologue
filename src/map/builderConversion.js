@@ -308,6 +308,7 @@ function normalizeAreaDescriptor(area, options = {}) {
       ? area.props
       : [];
   const rawColliders = Array.isArray(area.colliders) ? area.colliders : [];
+  const rawTilers = Array.isArray(area.tilers) ? area.tilers : [];
 
   const warnings = Array.isArray(area.warnings) ? [...area.warnings] : [];
   if (!Array.isArray(area.layers)) {
@@ -379,6 +380,9 @@ function normalizeAreaDescriptor(area, options = {}) {
   });
 
   const convertedColliders = rawColliders.map((col, index) => normalizeCollider(col, index));
+  const explicitTilers = rawTilers.map((tiler, index) => normalizeTiler(tiler, index));
+  const colliderTilers = collectColliderTilers(convertedColliders, warnings, explicitTilers.length);
+  const convertedTilers = [...explicitTilers, ...colliderTilers];
 
   return {
     id: areaId,
@@ -395,6 +399,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     colliders: convertedColliders,
+    tilers: convertedTilers,
     warnings,
     meta: area.meta ? safeClone(area.meta) : {},
   };
@@ -428,6 +433,7 @@ export function convertLayoutToArea(layout, options = {}) {
       ? layout.props
       : [];
   const colliders = Array.isArray(layout.colliders) ? layout.colliders : [];
+  const rawTilers = Array.isArray(layout.tilers) ? layout.tilers : [];
 
   const layerMap = new Map(layers.map((layer) => [layer.id, layer]));
   const slotCenters = computeLayerSlotCenters(instances);
@@ -515,6 +521,9 @@ export function convertLayoutToArea(layout, options = {}) {
   });
 
   const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
+  const explicitTilers = rawTilers.map((tiler, index) => normalizeTiler(tiler, index));
+  const colliderTilers = collectColliderTilers(convertedColliders, warnings, explicitTilers.length);
+  const convertedTilers = [...explicitTilers, ...colliderTilers];
 
   if (!Array.isArray(layout.layers)) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
@@ -542,6 +551,7 @@ export function convertLayoutToArea(layout, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     colliders: convertedColliders,
+    tilers: convertedTilers,
     warnings,
     meta: {
       exportedAt: layout.meta?.exportedAt || null,
@@ -585,6 +595,55 @@ function computeLayerSlotCenters(instances) {
 function toNumber(value, fallback) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function collectColliderTilers(colliders, warnings = null, startIndex = 0) {
+  if (!Array.isArray(colliders) || colliders.length === 0) {
+    return [];
+  }
+  const tilers = [];
+  colliders.forEach((collider, index) => {
+    const tiler = createTilerFromCollider(collider, startIndex + index, warnings);
+    if (tiler) {
+      tilers.push(tiler);
+    }
+  });
+  return tilers;
+}
+
+function createTilerFromCollider(collider, fallbackIndex = 0, warnings = null) {
+  if (!collider || typeof collider !== 'object') {
+    return null;
+  }
+  const source = collider.meta?.tiler ?? collider.meta?.visualTiler ?? collider.tiler ?? null;
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+  if (source.enabled === false) {
+    return null;
+  }
+  const config = safeClone(source);
+  config.left = config.left ?? config.x ?? collider.left ?? 0;
+  config.width = config.width ?? config.w ?? collider.width ?? 0;
+  const topCandidate = config.top ?? config.topOffset ?? config.y;
+  config.top = topCandidate ?? collider.topOffset ?? 0;
+  config.height = config.height ?? config.h ?? collider.height ?? 0;
+  config.layerId = config.layerId ?? config.layer ?? collider.meta?.layerId ?? null;
+  const colliderId = collider.id ?? collider.label ?? fallbackIndex;
+  if (config.sourceColliderId == null && config.colliderId == null && colliderId != null) {
+    config.sourceColliderId = String(colliderId);
+  }
+  const tiler = normalizeTiler(config, fallbackIndex);
+  if (!tiler.textureId) {
+    if (Array.isArray(warnings)) {
+      warnings.push(`Collider "${colliderId}" tiler missing textureId – skipping visual tiler`);
+    }
+    return null;
+  }
+  if (!tiler.sourceColliderId && colliderId != null) {
+    tiler.sourceColliderId = String(colliderId);
+  }
+  return tiler;
 }
 
 function normalizeCollider(raw, fallbackIndex = 0) {
@@ -638,6 +697,107 @@ function normalizeCollider(raw, fallbackIndex = 0) {
     materialType: normalizedMaterialType || null,
     meta: safe.meta ? safeClone(safe.meta) : {},
   };
+}
+
+function normalizeTiler(raw, fallbackIndex = 0) {
+  const safe = raw && typeof raw === 'object' ? safeClone(raw) : {};
+  let idCandidate = safe.id ?? safe.name ?? safe.label ?? fallbackIndex;
+  if (typeof idCandidate === 'number') {
+    idCandidate = String(idCandidate);
+  }
+  if (typeof idCandidate !== 'string') {
+    idCandidate = String(idCandidate ?? fallbackIndex);
+  }
+  const normalizedId = idCandidate.trim() || `tiler_${fallbackIndex}`;
+  const labelRaw = typeof safe.label === 'string' ? safe.label.trim() : '';
+  const nameRaw = typeof safe.name === 'string' ? safe.name.trim() : '';
+  const label = labelRaw || nameRaw || `Tiler ${normalizedId}`;
+  const textureId = resolveTextureIdCandidate(safe);
+  const layerId = typeof safe.layerId === 'string' ? safe.layerId.trim() : null;
+  const left = toNumber(safe.left ?? safe.x ?? safe.area?.left ?? 0, 0);
+  const top = toNumber(safe.top ?? safe.y ?? safe.topOffset ?? safe.area?.top ?? 0, 0);
+  let width = toNumber(safe.width ?? safe.w ?? safe.area?.width ?? safe.size?.width, NaN);
+  if (!Number.isFinite(width)) width = 1;
+  width = Math.max(1, width);
+  let height = toNumber(safe.height ?? safe.h ?? safe.area?.height ?? safe.size?.height, NaN);
+  if (!Number.isFinite(height)) height = 1;
+  height = Math.max(1, height);
+  let tileWidth = toNumber(safe.tileWidth ?? safe.tileSize?.width ?? safe.tile ?? safe.tileSize, NaN);
+  if (!Number.isFinite(tileWidth)) tileWidth = width;
+  tileWidth = Math.max(1, tileWidth);
+  let tileHeight = toNumber(safe.tileHeight ?? safe.tileSize?.height ?? safe.tile ?? safe.tileSize, NaN);
+  if (!Number.isFinite(tileHeight)) tileHeight = height;
+  tileHeight = Math.max(1, tileHeight);
+  const offsetX = toNumber(safe.offset?.x ?? safe.offsetX ?? 0, 0);
+  const offsetY = toNumber(safe.offset?.y ?? safe.offsetY ?? 0, 0);
+  const spacingX = toNumber(safe.spacing?.x ?? safe.spacingX ?? 0, 0);
+  const spacingY = toNumber(safe.spacing?.y ?? safe.spacingY ?? 0, 0);
+  const rotationDeg = toNumber(safe.rotationDeg ?? safe.rotation ?? 0, 0);
+  const mode = typeof safe.mode === 'string' ? safe.mode.trim().toLowerCase() : 'repeat';
+  const flipX = typeof safe.flip === 'object' ? !!safe.flip.x : !!safe.flipX;
+  const flipY = typeof safe.flip === 'object' ? !!safe.flip.y : !!safe.flipY;
+  let opacity = toNumber(safe.opacity, 1);
+  if (!Number.isFinite(opacity)) opacity = 1;
+  opacity = Math.min(1, Math.max(0, opacity));
+  const colliderRef = safe.sourceColliderId ?? safe.colliderId ?? null;
+  const sourceColliderId = colliderRef == null ? null : String(colliderRef);
+  const meta = safe.meta ? safeClone(safe.meta) : {};
+
+  return {
+    id: normalizedId,
+    label,
+    textureId: textureId || null,
+    layerId,
+    mode: mode || 'repeat',
+    area: {
+      left,
+      top,
+      width,
+      height,
+    },
+    tileSize: {
+      width: tileWidth,
+      height: tileHeight,
+    },
+    offset: {
+      x: offsetX,
+      y: offsetY,
+    },
+    spacing: {
+      x: spacingX,
+      y: spacingY,
+    },
+    rotationDeg,
+    flip: {
+      x: !!flipX,
+      y: !!flipY,
+    },
+    opacity,
+    sourceColliderId,
+    meta,
+  };
+}
+
+function resolveTextureIdCandidate(record) {
+  const candidates = [
+    record.textureId,
+    record.texture,
+    record.spriteId,
+    record.sprite,
+    record.imageId,
+    record.image,
+    record.sourceId,
+    record.source,
+    record.tilesetId,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue;
+    const text = candidate.trim();
+    if (text) {
+      return text;
+    }
+  }
+  return null;
 }
 
 function safeClone(value) {

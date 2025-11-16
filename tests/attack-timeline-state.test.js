@@ -42,6 +42,7 @@ test('attack timeline retains a single definition and exposes timeline state', a
 
   const runTimelineSrc = extractFunction(source, 'runAttackTimeline');
   const updateTimelineSrc = extractFunction(source, 'updateAttackTimeline');
+  const normalizeStepsSrc = extractFunction(source, 'normalizeSequenceStepTimings');
 
   const script = [
     'const ATTACK = { timelineState: null };',
@@ -52,6 +53,7 @@ test('attack timeline retains a single definition and exposes timeline state', a
     'function startTransition(pose, phase, duration, callback) {',
     '  lastTransitionCallback = callback;',
     '}',
+    normalizeStepsSrc,
     runTimelineSrc,
     '',
     updateTimelineSrc,
