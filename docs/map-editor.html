@@ -1912,7 +1912,7 @@ function updateSelectedInstanceFromFields(){
   el.addEventListener('blur', updateSelectedInstanceFromFields);
 });
 
-['colliderLabel','colliderLeft','colliderWidth','colliderTopOffset','colliderHeight','colliderStepSound'].forEach(id => {
+['colliderLabel','colliderLeft','colliderWidth','colliderTopOffset','colliderHeight','colliderMaterialType'].forEach(id => {
   const el = document.getElementById(id);
   if(!el) return;
   el.addEventListener('change', updateSelectedColliderFromFields);
