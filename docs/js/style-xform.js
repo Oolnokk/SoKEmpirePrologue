@@ -18,8 +18,12 @@ export function composeStyleXformEntry(baseEntry, overrideSpec){
 
   const hasBaseScaleX = Number.isFinite(base.scaleX);
   const hasBaseScaleY = Number.isFinite(base.scaleY);
-  let nextScaleX = hasBaseScaleX ? base.scaleX : 1;
-  let nextScaleY = hasBaseScaleY ? base.scaleY : 1;
+  const baseScaleX = hasBaseScaleX ? base.scaleX : null;
+  const baseScaleY = hasBaseScaleY ? base.scaleY : null;
+  const overrideScaleX = toFiniteNumber(overrideSpec.scaleX);
+  const overrideScaleY = toFiniteNumber(overrideSpec.scaleY);
+  let nextScaleX = overrideScaleX ?? baseScaleX ?? 1;
+  let nextScaleY = overrideScaleY ?? baseScaleY ?? 1;
   let scaleChangedX = false;
   let scaleChangedY = false;
 
@@ -40,12 +44,10 @@ export function composeStyleXformEntry(baseEntry, overrideSpec){
   applyMultiplier(overrideSpec.scaleMulX ?? overrideSpec.scaleXMul ?? overrideSpec.scaleXMultiplier, 'x');
   applyMultiplier(overrideSpec.scaleMulY ?? overrideSpec.scaleYMul ?? overrideSpec.scaleYMultiplier, 'y');
 
-  const overrideScaleX = toFiniteNumber(overrideSpec.scaleX);
   if (overrideScaleX != null){
     nextScaleX = overrideScaleX;
     scaleChangedX = true;
   }
-  const overrideScaleY = toFiniteNumber(overrideSpec.scaleY);
   if (overrideScaleY != null){
     nextScaleY = overrideScaleY;
     scaleChangedY = true;

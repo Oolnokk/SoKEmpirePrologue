@@ -126,6 +126,16 @@ test('breathing overrides preserve cosmetic spriteStyle transforms', () => {
   }
 });
 
+test('composeStyleXformEntry treats scale overrides as absolute values', () => {
+  const cosmeticXform = { scaleX: 0.75, scaleY: 0.6 };
+  const override = { scaleX: 1.2, scaleY: 1.05 };
+  const composed = composeStyleXformEntry(cosmeticXform, override);
+  strictEqual(composed.scaleX, 1.2);
+  strictEqual(composed.scaleY, 1.05);
+  strictEqual(cosmeticXform.scaleX, 0.75);
+  strictEqual(cosmeticXform.scaleY, 0.6);
+});
+
 test('ensureCosmeticLayers normalizes hsl arrays and string values', () => {
   clearCosmeticCache();
   clearPaletteCache();
