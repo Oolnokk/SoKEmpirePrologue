@@ -2065,24 +2065,6 @@ function resolveLayerParallaxFactor(layer) {
     if (numeric !== null) {
       return numeric;
     }
-    try {
-      const activeId = typeof registry.getActiveAreaId === 'function'
-        ? registry.getActiveAreaId()
-        : window.GAME?.currentAreaId;
-      if (activeId && typeof registry.getArea === 'function') {
-        const fallback = registry.getArea(activeId);
-        if (fallback) {
-          return fallback;
-        }
-      }
-    } catch (error) {
-      console.warn?.('[map] Failed to resolve registry area by id', error);
-    }
-  }
-
-  const parallax = window.PARALLAX;
-  if (parallax?.currentAreaId && parallax?.areas) {
-    return parallax.areas[parallax.currentAreaId] || null;
   }
   return 1;
 }
@@ -2097,38 +2079,6 @@ function resolveLayerOffsetY(layer) {
     if (numeric !== null) {
       return numeric;
     }
-  }
-  return 0;
-}
-
-function resolveLayerParallaxFactor(layer) {
-  if (!layer || typeof layer !== 'object') {
-    return 1;
-  }
-  if (Number.isFinite(layer.parallax)) {
-    return layer.parallax;
-  }
-  if (Number.isFinite(layer.parallaxSpeed)) {
-    return layer.parallaxSpeed;
-  }
-  if (Number.isFinite(layer.meta?.parallax)) {
-    return layer.meta.parallax;
-  }
-  return 1;
-}
-
-function resolveLayerOffsetY(layer) {
-  if (!layer || typeof layer !== 'object') {
-    return 0;
-  }
-  if (Number.isFinite(layer.yOffset)) {
-    return layer.yOffset;
-  }
-  if (Number.isFinite(layer.offsetY)) {
-    return layer.offsetY;
-  }
-  if (Number.isFinite(layer.meta?.offsetY)) {
-    return layer.meta.offsetY;
   }
   return 0;
 }
