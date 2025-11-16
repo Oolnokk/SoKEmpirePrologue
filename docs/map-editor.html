@@ -240,6 +240,11 @@
       display:none;
     }
 
+    #instStretchLayer {
+      display:inline-block;
+      min-width:120px;
+    }
+
     .layer-stack {
       display:flex;
       flex-direction:column-reverse; /* top tile = frontmost visually */
@@ -422,6 +427,26 @@
         <label><span>Position Y (from ground)</span><input id="instOffY" type="number" step="1"></label>
         <label><span>Rot (deg)</span><input id="instRot" type="number" step="1"></label>
       </div>
+      <div class="row">
+        <label style="flex:none;display:flex;align-items:center;gap:4px">
+          <input id="instStretchEnabled" type="checkbox">
+          <span>Stretch quad</span>
+        </label>
+        <label>
+          <span>Target layer</span>
+          <select id="instStretchLayer" class="hidden-select"></select>
+        </label>
+      </div>
+      <div class="row">
+        <label><span>Top height (px)</span><input id="instStretchHeight" type="number" step="1" min="1"></label>
+        <label><span>Top offset (px)</span><input id="instStretchTopOffset" type="number" step="1"></label>
+      </div>
+      <div class="row">
+        <label><span>Slices</span><input id="instStretchSlices" type="number" step="1" min="4" max="80"></label>
+      </div>
+      <small style="color:var(--muted);display:block;margin-top:4px">
+        Stretch quads span the selected prefab toward another layer. Leave disabled to render normally.
+      </small>
       <div class="row">
         <label><span>&nbsp;</span><button id="btnDuplicateInst">Duplicate</button></label>
       </div>
@@ -820,6 +845,12 @@ let activeLayerId = SPAWN_LAYER_ID && layers.some((l) => l.id === SPAWN_LAYER_ID
 let layoutMeta = { ...DEFAULT_LAYOUT_META };
 function getParallaxLayerCount(){ return layers.filter(l=>l.type==="parallax").length; }
 function findLayer(id){ return layers.find(l=>l.id===id) || null; }
+function getLayerGroundY(layerId){
+  const layer = findLayer(layerId);
+  const offsetY = toNumber(layer?.offsetY ?? layer?.yOffset, 0);
+  const separation = toNumber(layer?.separation ?? layer?.sep, 0);
+  return getGroundOffset() + offsetY + separation;
+}
 
 /*** Prefabs & Instances ***/
 const imageCache = new Map();
@@ -941,6 +972,28 @@ function normalizeScale(scale){
   const x = toNumber(scale.x, 1) || 1;
   const y = toNumber(scale.y, scale.x ?? 1) || 1;
   return { x, y };
+}
+
+function normalizeStretchQuadSpec(raw){
+  if (!raw || typeof raw !== 'object') return null;
+  const targetLayerId = typeof raw.targetLayerId === 'string' ? raw.targetLayerId.trim() : '';
+  const height = toNumber(raw.height ?? raw.span ?? raw.topHeight ?? raw.topAboveGround, null);
+  if (!targetLayerId || !Number.isFinite(height) || height <= 0) return null;
+
+  const topOffset = toNumber(raw.topOffset ?? raw.topYOffset ?? raw.yOffset, 0) || 0;
+  const slicesRaw = Math.round(toNumber(raw.slices ?? raw.strips ?? raw.steps, 24) || 24);
+  const slices = clamp(slicesRaw, 4, 80);
+
+  return { targetLayerId, height, topOffset, slices };
+}
+
+function getStretchQuadMeta(inst){
+  const meta = inst?.meta && typeof inst.meta === 'object' ? inst.meta : null;
+  if (!meta) return { spec: null, key: null };
+  if (meta.stretchQuad) return { spec: normalizeStretchQuadSpec(meta.stretchQuad), key: 'stretchQuad' };
+  if (meta.groundSpan) return { spec: normalizeStretchQuadSpec(meta.groundSpan), key: 'groundSpan' };
+  if (meta.drumSkin) return { spec: normalizeStretchQuadSpec(meta.drumSkin), key: 'drumSkin' };
+  return { spec: null, key: null };
 }
 
 function normalizeLayer(layer, index = 0){
@@ -1246,8 +1299,16 @@ function getGroundOffset(){
 function rebuildActiveLayerSelect(){
   const sel = $('#activeLayerSelect');
   const instLayerSel = $('#instLayer');
+  const stretchLayerSel = $('#instStretchLayer');
   sel.innerHTML = '';
   instLayerSel.innerHTML = '';
+  if (stretchLayerSel){
+    stretchLayerSel.innerHTML = '';
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = '—';
+    stretchLayerSel.appendChild(noneOpt);
+  }
   layers.forEach(layer=>{
     const o = document.createElement('option');
     o.value = layer.id; o.textContent = layer.name;
@@ -1255,6 +1316,11 @@ function rebuildActiveLayerSelect(){
     const o2 = document.createElement('option');
     o2.value = layer.id; o2.textContent = layer.name;
     instLayerSel.appendChild(o2);
+    if (stretchLayerSel){
+      const o3 = document.createElement('option');
+      o3.value = layer.id; o3.textContent = layer.name;
+      stretchLayerSel.appendChild(o3);
+    }
   });
   if(!findLayer(activeLayerId) && layers.length){
     activeLayerId = layers[0].id;
@@ -1642,6 +1708,11 @@ function fillInstEditor(){
     $('#instScaleY').value='';
     $('#instOffY').value='';
     $('#instRot').value='';
+    $('#instStretchEnabled').checked = false;
+    $('#instStretchLayer').value = '';
+    $('#instStretchHeight').value = '';
+    $('#instStretchTopOffset').value = '';
+    $('#instStretchSlices').value = 24;
     return;
   }
   $('#instId').value=inst.id;
@@ -1655,6 +1726,12 @@ function fillInstEditor(){
   $('#instScaleY').value=scale.y;
   $('#instOffY').value=pos.y;
   $('#instRot').value=Number.isFinite(inst.rotationDeg) ? inst.rotationDeg : 0;
+  const stretch = getStretchQuadMeta(inst).spec;
+  $('#instStretchEnabled').checked = !!stretch;
+  $('#instStretchLayer').value = stretch?.targetLayerId || '';
+  $('#instStretchHeight').value = stretch?.height ?? '';
+  $('#instStretchTopOffset').value = stretch?.topOffset ?? '';
+  $('#instStretchSlices').value = stretch?.slices ?? 24;
 }
 
 function getSelectedCollider(){
@@ -1898,13 +1975,70 @@ function updateSelectedInstanceFromFields(){
     }
   }
 
+  const stretchEnabled = $('#instStretchEnabled').checked;
+  const stretchTarget = ($('#instStretchLayer').value || '').trim();
+  const stretchHeightRaw = parseFloat($('#instStretchHeight').value);
+  const stretchTopOffsetRaw = parseFloat($('#instStretchTopOffset').value);
+  const stretchSlicesRaw = parseInt($('#instStretchSlices').value, 10);
+
+  const currentStretch = getStretchQuadMeta(inst);
+  const nextStretch = (() => {
+    if (!stretchEnabled) return null;
+    const normalizedTopOffset = Number.isFinite(stretchTopOffsetRaw) ? stretchTopOffsetRaw : 0;
+    const autoStretchHeight = (() => {
+      const targetLayer = findLayer(stretchTarget);
+      if (!targetLayer) return null;
+      const baseGround = getLayerGroundY(inst.layerId);
+      const targetGround = getLayerGroundY(targetLayer.id);
+      const instYOffset = toNumber(inst.position?.y, 0);
+      const delta = targetGround - baseGround - instYOffset + normalizedTopOffset;
+      const rounded = Math.round(delta);
+      if (Number.isFinite(rounded) && rounded > 0) return rounded;
+      if (Number.isFinite(delta) && delta > 0) return Math.max(1, delta);
+      return null;
+    })();
+    const normalizedHeight = Number.isFinite(stretchHeightRaw) ? stretchHeightRaw : autoStretchHeight;
+
+    if (!stretchTarget || normalizedHeight === null || normalizedHeight <= 0){
+      return null;
+    }
+    if (!Number.isFinite(stretchHeightRaw) && Number.isFinite(autoStretchHeight)){
+      $('#instStretchHeight').value = autoStretchHeight;
+    }
+    return {
+      targetLayerId: stretchTarget,
+      height: normalizedHeight,
+      topOffset: normalizedTopOffset,
+      slices: Number.isFinite(stretchSlicesRaw) ? clamp(Math.round(stretchSlicesRaw), 4, 80) : 24,
+    };
+  })();
+
+  const serializeSpec = (spec) => (spec ? JSON.stringify(spec) : null);
+  if (serializeSpec(currentStretch.spec) !== serializeSpec(nextStretch)){
+    if(!changed) pushHistory();
+    changed = true;
+    if(!inst.meta || typeof inst.meta !== 'object') inst.meta = {};
+    if(nextStretch){
+      inst.meta.stretchQuad = nextStretch;
+      if (currentStretch.key && currentStretch.key !== 'stretchQuad'){
+        delete inst.meta[currentStretch.key];
+      }
+    } else {
+      delete inst.meta.stretchQuad;
+      if (currentStretch.key){
+        delete inst.meta[currentStretch.key];
+      }
+    }
+  }
+
   if(changed){
     refreshInstanceList();
   }
 }
 
 ['instPrefab','instLayer','instLocked',
- 'instScaleX','instScaleY','instOffY','instRot','instX'
+ 'instScaleX','instScaleY','instOffY','instRot','instX',
+ 'instStretchEnabled','instStretchLayer','instStretchHeight','instStretchTopOffset','instStretchSlices'
 ].forEach(id=>{
   const el = document.getElementById(id);
   if(!el) return;
