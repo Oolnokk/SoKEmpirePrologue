@@ -32,21 +32,43 @@ const FOOT_PROFILE_ALIASES = {
 
 const DEFAULT_FOOT_TYPE = 'cat-foot';
 
+const TILE_CAT_SAMPLE = Object.freeze({
+  left: './assets/audio/sfx/steps/tile/cat_step_tile_L.wav',
+  right: './assets/audio/sfx/steps/tile/cat_step_tile_R.wav',
+});
+
+const TILE_SLOTH_SAMPLE = Object.freeze({
+  left: './assets/audio/sfx/steps/tile/sloth_step_tile_L.wav',
+  right: './assets/audio/sfx/steps/tile/sloth_step_tile_R.wav',
+});
+
+const TILE_SAMPLE_SET = Object.freeze({
+  default: TILE_CAT_SAMPLE,
+  'cat-foot': TILE_CAT_SAMPLE,
+  'bird-foot': TILE_CAT_SAMPLE,
+  'sloth-foot': TILE_SLOTH_SAMPLE,
+});
+
 const SAMPLE_LIBRARY = {
-  tile: {
-    default: {
-      left: './assets/audio/sfx/steps/tile/cat_step_tile_L.wav',
-      right: './assets/audio/sfx/steps/tile/cat_step_tile_R.wav',
-    },
-    'cat-foot': {
-      left: './assets/audio/sfx/steps/tile/cat_step_tile_L.wav',
-      right: './assets/audio/sfx/steps/tile/cat_step_tile_R.wav',
-    },
-    'sloth-foot': {
-      left: './assets/audio/sfx/steps/tile/sloth_step_tile_L.wav',
-      right: './assets/audio/sfx/steps/tile/sloth_step_tile_R.wav',
-    },
-  },
+  tile: TILE_SAMPLE_SET,
+};
+
+const FALLBACK_SAMPLE_MATERIAL = 'tile';
+
+const SAMPLE_MATERIAL_ALIASES = {
+  default: FALLBACK_SAMPLE_MATERIAL,
+  stone: FALLBACK_SAMPLE_MATERIAL,
+  concrete: FALLBACK_SAMPLE_MATERIAL,
+  wood: FALLBACK_SAMPLE_MATERIAL,
+  metal: FALLBACK_SAMPLE_MATERIAL,
+  glass: FALLBACK_SAMPLE_MATERIAL,
+  ceramic: FALLBACK_SAMPLE_MATERIAL,
+  dirt: FALLBACK_SAMPLE_MATERIAL,
+  grass: FALLBACK_SAMPLE_MATERIAL,
+  sand: FALLBACK_SAMPLE_MATERIAL,
+  snow: FALLBACK_SAMPLE_MATERIAL,
+  ice: FALLBACK_SAMPLE_MATERIAL,
+  water: FALLBACK_SAMPLE_MATERIAL,
 };
 
 const SAMPLE_CACHE = new Map();
@@ -136,7 +158,7 @@ function computeStrideLength(config, profile) {
   return BASE_STRIDE_LENGTH * scale * strideScale;
 }
 
-function playFootstepSample(materialProfile, footProfile, intensity) {
+function playSyntheticFootstep(materialProfile, footProfile, intensity) {
   const ctx = resolveAudioContext();
   if (!ctx) return;
   const now = ctx.currentTime;
@@ -175,13 +197,17 @@ function playFootstepSample(materialProfile, footProfile, intensity) {
 }
 
 function resolveSamplePath(material, footType, foot) {
-  if (!material) return null;
-  const materialKey = material.toLowerCase();
+  const normalizedMaterial = typeof material === 'string' && material
+    ? material.toLowerCase()
+    : 'default';
+  const materialKey = SAMPLE_LIBRARY[normalizedMaterial]
+    ? normalizedMaterial
+    : SAMPLE_MATERIAL_ALIASES[normalizedMaterial] || FALLBACK_SAMPLE_MATERIAL;
   const library = SAMPLE_LIBRARY[materialKey];
   if (!library) return null;
   const variant = (footType && library[footType]) || library.default;
   if (!variant) return null;
-  return variant[foot] || null;
+  return variant[foot] || library.default?.[foot] || null;
 }
 
 function fetchSampleBuffer(path) {
