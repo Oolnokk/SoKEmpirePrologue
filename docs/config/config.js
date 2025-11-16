@@ -498,7 +498,7 @@ window.CONFIG = {
         },
         hierarchy: { legsFollowTorsoRotation: false },
         footsteps: {
-          type: 'cat-foot',
+          type: 'sloth-foot',
           strideScale: 1,
         },
         ik: { calvesOnly: true },
@@ -569,7 +569,7 @@ window.CONFIG = {
       parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:55 }, arm:{ upper:35, lower:50 }, leg:{ upper:40, lower:40 }, head:{ neck:10, radius:12 } },
       hierarchy: { legsFollowTorsoRotation: false },
       footsteps: {
-        type: 'bird-foot',
+        type: 'cat-foot',
         strideScale: 1.1,
       },
       ik: { calvesOnly: true },
