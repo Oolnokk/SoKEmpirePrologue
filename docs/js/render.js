@@ -541,8 +541,6 @@ export function renderAll(ctx){
 
   // Fallback background so the viewport is never visually blank
   try{
-    ctx.fillStyle = '#eaeaea';
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     // If parallax isn't configured, draw a minimal horizon + ground
     if (!window.PARALLAX || !window.PARALLAX.areas || !window.PARALLAX.areas[window.PARALLAX.currentAreaId]){
       const groundY = Math.floor(ctx.canvas.height * 0.8);
