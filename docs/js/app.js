@@ -2256,8 +2256,6 @@ function createEditorPreviewSandbox() {
     }
     renderList.sort((a, b) => a.order - b.order);
 
-    const retX = viewWidth / 2;
-
     for (const { inst, layer } of renderList) {
       if (!layer) continue;
       if (isPlayerSpawnInstance(inst)) {
@@ -2269,9 +2267,9 @@ function createEditorPreviewSandbox() {
       const layerScale = Number.isFinite(layer.scale) ? layer.scale : 1;
       const instRotRad = degToRad(inst.rotationDeg || 0);
       const baseOffset = (pos.x - camX * parallax) * effectiveZoom;
-      const rootScreenX = viewWidth / 2 + baseOffset;
+      const rootScreenX = baseOffset;
       const rootScreenY = groundLine + (layer.offsetY || 0) * effectiveZoom + pos.y * effectiveZoom;
-      const dxScreen = rootScreenX - retX;
+      const dxScreen = baseOffset;
 
       if (!prefab || !prefab.parts || !prefab.parts.length) {
         drawPlaceholder(inst, layerScale, effectiveZoom, rootScreenX, rootScreenY, instRotRad);
