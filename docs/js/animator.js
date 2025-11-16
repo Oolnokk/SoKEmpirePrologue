@@ -403,7 +403,7 @@ function isFighterMarkedDead(F){
   return tags.some(tag => typeof tag === 'string' && tag.toLowerCase() === 'dead');
 }
 
-function updateBreathing(F, fighterId, spec){
+export function updateBreathing(F, fighterId, spec){
   const breathState = F?.anim?.breath;
   const G = window.GAME || {};
   const store = (G.ANIM_STYLE_OVERRIDES ||= {});
@@ -469,12 +469,17 @@ function updateBreathing(F, fighterId, spec){
   const rightAx = lerp(startFrame.right.ax, endFrame.right.ax, eased);
   const rightAy = lerp(startFrame.right.ay, endFrame.right.ay, eased);
 
+  const torsoXform = {};
+  if (Number.isFinite(torsoScaleX)){
+    torsoXform.scaleMulX = torsoScaleX;
+  }
+  if (Number.isFinite(torsoScaleY)){
+    torsoXform.scaleMulY = torsoScaleY;
+  }
+
   const styleOverride = {
     xform: {
-      torso: {
-        scaleX: torsoScaleX,
-        scaleY: torsoScaleY
-      }
+      torso: torsoXform
     }
   };
 
