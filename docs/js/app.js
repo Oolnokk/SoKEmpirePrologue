@@ -551,7 +551,7 @@ function initSelectionDropdowns() {
 window.addEventListener('DOMContentLoaded', () => {
   initSelectionDropdowns();
 });
-import { initNpcSystems, updateNpcSystems } from './npc.js?v=2';
+import { initNpcSystems, updateNpcSystems, getActiveNpcFighters } from './npc.js?v=2';
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=8';
 import { initControls } from './controls.js?v=7';
@@ -653,12 +653,73 @@ const statusInfo = $$('#statusInfo');
 const reloadBtn = $$('#btnReloadCfg');
 const fullscreenBtn = $$('#btnFullscreen');
 const stageEl = document.getElementById('gameStage');
+const actionButtonsContainer = document.querySelector('.controls-overlay .action-buttons');
+const actionHudSvg = actionButtonsContainer?.querySelector('.action-hud-bg');
+const actionHudPath = actionButtonsContainer?.querySelector('.action-hud-path');
+const actionButtonRefs = {
+  jump: document.getElementById('btnJump'),
+  attackA: document.getElementById('btnAttackA'),
+  attackB: document.getElementById('btnAttackB'),
+  attackC: document.getElementById('btnAttackC'),
+};
 const fpsHud = $$('#fpsHud');
 const coordHud = $$('#coordHud');
 const boneKeyList = $$('#boneKeyList');
 const helpBtn = $$('#btnHelp');
 const helpPanel = $$('#helpPanel');
 const teleportBtn = $$('#btnTeleportSpawn');
+
+const enemyIndicatorLayer = stageEl ? document.createElement('div') : null;
+const enemyIndicatorMap = new Map();
+if (enemyIndicatorLayer && stageEl) {
+  enemyIndicatorLayer.className = 'enemy-indicators-layer';
+  enemyIndicatorLayer.setAttribute('aria-hidden', 'true');
+  stageEl.appendChild(enemyIndicatorLayer);
+}
+
+const DEFAULT_BUTTON_LAYOUT = {
+  jump: { left: '15%', top: '72%', rotate: '-12deg' },
+  attackA: { left: '40%', top: '44%', rotate: '-6deg' },
+  attackB: { left: '58%', top: '38%', rotate: '6deg' },
+  attackC: { left: '82%', top: '68%', rotate: '12deg' },
+};
+
+const DEFAULT_BOTTOM_HUD_CONFIG = {
+  width: 360,
+  height: 200,
+  edgeHeight: 90,
+  apexHeight: 140,
+  offsetY: 0,
+  scale: 1,
+  scaleWithActor: true,
+  buttons: DEFAULT_BUTTON_LAYOUT,
+};
+
+const DEFAULT_ENEMY_INDICATOR_CONFIG = {
+  width: 96,
+  depth: 28,
+  depthStep: 6,
+  spacing: 8,
+  topPadding: 4,
+  offsetY: 6,
+  strokeWidth: 2,
+  colors: {
+    health: '#f87171',
+    stamina: '#38bdf8',
+    footing: '#facc15',
+  },
+  showFooting: true,
+  scaleWithActor: true,
+};
+
+let bottomHudConfigCache = null;
+let enemyIndicatorConfigCache = null;
+let enemyIndicatorConfigVersion = 0;
+let hudScaleSignature = null;
+
+refreshBottomHudConfig();
+refreshEnemyIndicatorConfig();
+syncHudScaleFactors({ force: true });
 
 if (helpBtn && helpPanel) {
   const setHelpVisible = (visible) => {
@@ -827,6 +888,9 @@ document.addEventListener('config:updated', ()=>{
   initPresets();
   ensureAltSequenceUsesKickAlt();
   applyRenderOrder();
+  refreshBottomHudConfig();
+  refreshEnemyIndicatorConfig();
+  syncHudScaleFactors({ force: true });
 });
 
 // Fighter selection and settings management
@@ -1436,18 +1500,435 @@ function extractNumericFields(obj, prefix = '', fields = []) {
 function setNestedValue(obj, path, value) {
   const keys = path.split('.');
   let current = obj;
-  
+
   for (let i = 0; i < keys.length - 1; i++) {
     if (!current[keys[i]]) {
       current[keys[i]] = {};
     }
     current = current[keys[i]];
   }
-  
+
   current[keys[keys.length - 1]] = value;
 }
 
+function coerceNumber(value, fallback) {
+  if (value === null || value === undefined || value === '') return fallback;
+  const numeric = typeof value === 'string' ? Number(value.trim()) : Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function clampNumber(value, min, max) {
+  if (!Number.isFinite(value)) {
+    if (Number.isFinite(min)) return min;
+    if (Number.isFinite(max)) return max;
+    return value;
+  }
+  let result = value;
+  if (Number.isFinite(min)) result = Math.max(min, result);
+  if (Number.isFinite(max)) result = Math.min(max, result);
+  return result;
+}
+
+function formatPercentValue(value, fallback) {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  if (Number.isFinite(value)) {
+    const normalized = Math.abs(value) <= 1 ? value * 100 : value;
+    return `${normalized}%`;
+  }
+  return fallback;
+}
+
+function formatDegreesValue(value, fallback) {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  if (Number.isFinite(value)) {
+    return `${value}deg`;
+  }
+  return fallback;
+}
+
+function normalizeButtonLayout(rawLayout = {}) {
+  const layout = {};
+  for (const key of Object.keys(DEFAULT_BUTTON_LAYOUT)) {
+    const base = DEFAULT_BUTTON_LAYOUT[key];
+    const spec = rawLayout[key] || {};
+    layout[key] = {
+      left: formatPercentValue(spec.left ?? spec.x ?? spec.xPercent, base.left),
+      top: formatPercentValue(spec.top ?? spec.y ?? spec.yPercent, base.top),
+      rotate: formatDegreesValue(spec.rotate ?? spec.rotateDeg ?? spec.rotation, base.rotate),
+    };
+  }
+  return layout;
+}
+
+function computeBottomHudConfig() {
+  const raw = window.CONFIG?.hud?.bottomButtons || {};
+  const defaults = DEFAULT_BOTTOM_HUD_CONFIG;
+  const width = clampNumber(coerceNumber(raw.width, defaults.width), 220, 720);
+  const height = clampNumber(coerceNumber(raw.height, defaults.height), 140, 320);
+  const edgeHeight = clampNumber(coerceNumber(raw.edgeHeight, defaults.edgeHeight), 24, height);
+  const apexHeight = clampNumber(coerceNumber(raw.apexHeight, defaults.apexHeight), edgeHeight + 8, height + 220);
+  const offsetY = coerceNumber(raw.offsetY, defaults.offsetY) || 0;
+  const scale = Number.isFinite(raw.scale) ? Math.max(0.3, raw.scale) : defaults.scale;
+  const scaleWithActor = raw.scaleWithActor !== false;
+  const buttons = normalizeButtonLayout(raw.buttons || raw.buttonLayout || {});
+  return { width, height, edgeHeight, apexHeight, offsetY, scale, scaleWithActor, buttons };
+}
+
+function getBottomHudConfig() {
+  if (!bottomHudConfigCache) {
+    bottomHudConfigCache = computeBottomHudConfig();
+  }
+  return bottomHudConfigCache;
+}
+
+function refreshBottomHudConfig() {
+  bottomHudConfigCache = computeBottomHudConfig();
+  applyBottomHudCss(bottomHudConfigCache);
+  applyButtonLayout(bottomHudConfigCache.buttons);
+  updateHudBackgroundPath(bottomHudConfigCache);
+}
+
+function applyBottomHudCss(config) {
+  if (!config || !document?.documentElement?.style) return;
+  const root = document.documentElement.style;
+  root.setProperty('--hud-panel-width', `${config.width}px`);
+  root.setProperty('--hud-panel-height', `${config.height}px`);
+  root.setProperty('--hud-panel-offset-y', `${config.offsetY}px`);
+  const buttonSize = Math.max(54, config.height * 0.45);
+  root.setProperty('--hud-button-diameter', `${buttonSize}px`);
+  root.setProperty('--action-size', `${config.height}px`);
+}
+
+function applyButtonLayout(layout) {
+  if (!layout) return;
+  for (const [key, el] of Object.entries(actionButtonRefs)) {
+    if (!el) continue;
+    const spec = layout[key];
+    applyButtonVar(el, '--btn-left', spec?.left);
+    applyButtonVar(el, '--btn-top', spec?.top);
+    applyButtonVar(el, '--btn-rotate', spec?.rotate);
+  }
+}
+
+function applyButtonVar(el, varName, value) {
+  if (!el || !varName) return;
+  if (typeof value === 'string' && value.trim()) {
+    el.style.setProperty(varName, value.trim());
+  } else {
+    el.style.removeProperty(varName);
+  }
+}
+
+function updateHudBackgroundPath(config) {
+  if (!actionHudPath || !actionHudSvg || !config) return;
+  const startY = Math.max(0, config.height - config.edgeHeight);
+  const apexY = Math.max(0, config.height - config.apexHeight);
+  const path = `M 0 ${startY} Q ${config.width / 2} ${apexY} ${config.width} ${startY} L ${config.width} ${config.height} L 0 ${config.height} Z`;
+  actionHudPath.setAttribute('d', path);
+  actionHudSvg.setAttribute('viewBox', `0 0 ${config.width} ${config.height}`);
+}
+
+function resolveGlobalActorScale() {
+  return Number.isFinite(window.CONFIG?.actor?.scale) ? window.CONFIG.actor.scale : 1;
+}
+
+function resolveSelectedFighterScale() {
+  const selected = window.GAME?.selectedFighter;
+  if (!selected) return 1;
+  const fighterConfig = window.CONFIG?.fighters?.[selected];
+  return Number.isFinite(fighterConfig?.actor?.scale) ? fighterConfig.actor.scale : 1;
+}
+
+function syncHudScaleFactors({ force } = {}) {
+  const config = getBottomHudConfig();
+  const actorScale = config.scaleWithActor === false
+    ? 1
+    : resolveGlobalActorScale() * resolveSelectedFighterScale();
+  const hudScale = Number.isFinite(config.scale) ? config.scale : 1;
+  const signature = `${actorScale.toFixed(4)}|${hudScale.toFixed(4)}`;
+  if (!force && hudScaleSignature === signature) return;
+  hudScaleSignature = signature;
+  if (!document?.documentElement?.style) return;
+  const root = document.documentElement.style;
+  root.setProperty('--actor-scale', actorScale.toFixed(4));
+  root.setProperty('--hud-panel-scale', hudScale.toFixed(4));
+}
+
+function computeEnemyIndicatorConfig() {
+  const raw = window.CONFIG?.hud?.enemyIndicators || {};
+  const defaults = DEFAULT_ENEMY_INDICATOR_CONFIG;
+  const width = clampNumber(coerceNumber(raw.width, defaults.width), 30, 220);
+  const depth = clampNumber(coerceNumber(raw.depth, defaults.depth), 4, 160);
+  const depthStep = clampNumber(coerceNumber(raw.depthStep, defaults.depthStep), 0, depth);
+  const spacing = clampNumber(coerceNumber(raw.spacing, defaults.spacing), 2, 60);
+  const topPadding = clampNumber(coerceNumber(raw.topPadding, defaults.topPadding), 0, 60);
+  const offsetY = coerceNumber(raw.offsetY, defaults.offsetY);
+  const strokeWidth = clampNumber(coerceNumber(raw.strokeWidth, defaults.strokeWidth), 1, 6);
+  const scaleWithActor = raw.scaleWithActor !== false;
+  const colors = {
+    health: typeof raw.colors?.health === 'string' ? raw.colors.health : defaults.colors.health,
+    stamina: typeof raw.colors?.stamina === 'string' ? raw.colors.stamina : defaults.colors.stamina,
+    footing: typeof raw.colors?.footing === 'string' ? raw.colors.footing : defaults.colors.footing,
+  };
+  const allowedStats = ['health', 'stamina', 'footing'];
+  let stats = Array.isArray(raw.stats) && raw.stats.length
+    ? raw.stats.filter((stat) => allowedStats.includes(stat))
+    : (raw.showFooting === false ? ['health', 'stamina'] : allowedStats.slice());
+  if (!stats.length) {
+    stats = ['health', 'stamina'];
+  }
+  return { width, depth, depthStep, spacing, topPadding, offsetY, strokeWidth, colors, stats, scaleWithActor };
+}
+
+function getEnemyIndicatorConfig() {
+  if (!enemyIndicatorConfigCache) {
+    enemyIndicatorConfigCache = computeEnemyIndicatorConfig();
+  }
+  return enemyIndicatorConfigCache;
+}
+
+function refreshEnemyIndicatorConfig() {
+  enemyIndicatorConfigCache = computeEnemyIndicatorConfig();
+  enemyIndicatorConfigVersion++;
+  if (document?.documentElement?.style && Number.isFinite(enemyIndicatorConfigCache.strokeWidth)) {
+    document.documentElement.style.setProperty('--enemy-indicator-stroke', `${enemyIndicatorConfigCache.strokeWidth}px`);
+  }
+  enemyIndicatorMap.forEach((entry) => {
+    entry.needsPathRefresh = true;
+  });
+}
+
+function ensureEnemyIndicatorEntry(id) {
+  if (!id || !enemyIndicatorLayer) return null;
+  let entry = enemyIndicatorMap.get(id);
+  if (!entry) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('enemy-indicator');
+    svg.setAttribute('aria-hidden', 'true');
+    enemyIndicatorLayer.appendChild(svg);
+    entry = { el: svg, paths: {}, lengths: {}, lastScale: null, version: -1, needsPathRefresh: true };
+    enemyIndicatorMap.set(id, entry);
+  }
+  return entry;
+}
+
+function rebuildEnemyIndicatorPaths(entry, scale) {
+  const config = getEnemyIndicatorConfig();
+  const stats = config.stats || [];
+  if (!entry || !entry.el || !stats.length) return;
+  const effectiveScale = Math.max(0.25, Number.isFinite(scale) ? scale : 1);
+  const width = Math.max(24, config.width) * effectiveScale;
+  const spacing = Math.max(2, config.spacing) * effectiveScale;
+  const topPadding = Math.max(0, config.topPadding) * effectiveScale;
+  const depth = Math.max(2, config.depth) * effectiveScale;
+  const depthStep = Math.max(0, config.depthStep) * effectiveScale;
+  let maxY = topPadding;
+  entry.paths ||= {};
+  entry.lengths ||= {};
+  for (let i = 0; i < stats.length; i++) {
+    const stat = stats[i];
+    const startY = topPadding + i * spacing;
+    const arcDepth = Math.max(2, depth - (i * depthStep));
+    const controlY = startY + arcDepth;
+    const pathData = `M 0 ${startY} Q ${width / 2} ${controlY} ${width} ${startY}`;
+    let path = entry.paths[stat];
+    if (!path) {
+      path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.classList.add(`arc-${stat}`);
+      entry.el.appendChild(path);
+      entry.paths[stat] = path;
+    }
+    path.setAttribute('d', pathData);
+    path.setAttribute('stroke-width', config.strokeWidth);
+    path.setAttribute('stroke', config.colors[stat] || '#fff');
+    path.style.display = 'none';
+    try {
+      entry.lengths[stat] = path.getTotalLength();
+    } catch (_err) {
+      entry.lengths[stat] = width;
+    }
+    maxY = Math.max(maxY, controlY);
+  }
+  for (const stat of Object.keys(entry.paths)) {
+    if (!stats.includes(stat)) {
+      entry.paths[stat].remove();
+      delete entry.paths[stat];
+      delete entry.lengths[stat];
+    }
+  }
+  const height = maxY + (config.strokeWidth * 2);
+  entry.el.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  entry.el.setAttribute('width', width);
+  entry.el.setAttribute('height', height);
+  entry.width = width;
+  entry.height = height;
+  entry.lastScale = effectiveScale;
+  entry.version = enemyIndicatorConfigVersion;
+  entry.needsPathRefresh = false;
+}
+
+function resolveNpcScale(npc) {
+  if (!npc) return resolveGlobalActorScale();
+  const fighterName = npc.renderProfile?.fighterName;
+  const fighterConfig = fighterName ? window.CONFIG?.fighters?.[fighterName] : null;
+  const fighterScale = Number.isFinite(fighterConfig?.actor?.scale) ? fighterConfig.actor.scale : 1;
+  return resolveGlobalActorScale() * fighterScale;
+}
+
+function resolveNpcHalfHeight(npc) {
+  if (Number.isFinite(npc?.hitbox?.h)) {
+    return npc.hitbox.h / 2;
+  }
+  const fighterName = npc?.renderProfile?.fighterName;
+  const fighterConfig = fighterName ? window.CONFIG?.fighters?.[fighterName] : null;
+  const fallbackHeight = Number.isFinite(fighterConfig?.parts?.hitbox?.h)
+    ? fighterConfig.parts.hitbox.h
+    : Number.isFinite(window.CONFIG?.parts?.hitbox?.h)
+      ? window.CONFIG.parts.hitbox.h
+      : 80;
+  return (fallbackHeight * resolveNpcScale(npc)) / 2;
+}
+
+function resolveNpcFootPosition(npc) {
+  const x = Number.isFinite(npc?.hitbox?.x) ? npc.hitbox.x : (npc?.pos?.x ?? 0);
+  const centerY = Number.isFinite(npc?.hitbox?.y) ? npc.hitbox.y : (npc?.pos?.y ?? 0);
+  const y = centerY + resolveNpcHalfHeight(npc);
+  return { x, y };
+}
+
+function resolveHealthRatio(entity) {
+  const health = entity?.health;
+  if (!health) return 1;
+  const max = Number.isFinite(health.max) ? Math.max(1, health.max) : (Number.isFinite(health.current) ? Math.max(1, health.current) : 100);
+  const current = Number.isFinite(health.current) ? clampNumber(health.current, 0, max) : max;
+  return max > 0 ? current / max : 1;
+}
+
+function resolveStaminaRatio(entity) {
+  const stamina = entity?.stamina;
+  if (!stamina) return 1;
+  const max = Number.isFinite(stamina.max) ? Math.max(1, stamina.max) : (Number.isFinite(stamina.current) ? Math.max(1, stamina.current) : 100);
+  const current = Number.isFinite(stamina.current) ? clampNumber(stamina.current, 0, max) : max;
+  return max > 0 ? current / max : 1;
+}
+
+function resolveFootingRatio(entity) {
+  const footing = Number.isFinite(entity?.footing) ? entity.footing : 100;
+  return clampNumber(footing, 0, 100) / 100;
+}
+
+function updateIndicatorPath(entry, statKey, ratio) {
+  const path = entry?.paths?.[statKey];
+  const length = entry?.lengths?.[statKey];
+  if (!path || !Number.isFinite(length)) {
+    return 0;
+  }
+  if (ratio >= 0.999) {
+    path.style.display = 'none';
+    return 0;
+  }
+  const clamped = Math.max(0, Math.min(1, ratio));
+  const drawn = length * clamped;
+  path.style.display = '';
+  path.setAttribute('stroke-dasharray', `${drawn} ${length}`);
+  return 1;
+}
+
+function getCanvasMetrics() {
+  if (!cv) return null;
+  const canvasConfig = window.CONFIG?.canvas || {};
+  const width = Number.isFinite(cv.width) ? cv.width : (Number.isFinite(canvasConfig.w) ? canvasConfig.w : 720);
+  const height = Number.isFinite(cv.height) ? cv.height : (Number.isFinite(canvasConfig.h) ? canvasConfig.h : 460);
+  let cssWidth = width;
+  let cssHeight = height;
+  try {
+    const rect = cv.getBoundingClientRect();
+    if (rect?.width) cssWidth = rect.width;
+    if (rect?.height) cssHeight = rect.height;
+  } catch (_err) {
+    // Ignore measurement errors
+  }
+  return { width, height, cssWidth, cssHeight };
+}
+
+function updateEnemyIndicators() {
+  if (!enemyIndicatorLayer) return;
+  const npcs = getActiveNpcFighters();
+  if (!npcs || !npcs.length) {
+    enemyIndicatorMap.forEach((entry) => {
+      entry.el.classList.remove('enemy-indicator--visible');
+      entry.el.style.display = 'none';
+    });
+    return;
+  }
+  const metrics = getCanvasMetrics();
+  if (!metrics) return;
+  const camera = window.GAME?.CAMERA || {};
+  const zoom = Math.max(Number.isFinite(camera.zoom) ? camera.zoom : 1, 0.05);
+  const camX = Number.isFinite(camera.x) ? camera.x : 0;
+  const verticalOffset = metrics.height * (1 - zoom);
+  const scaleX = metrics.cssWidth / metrics.width;
+  const scaleY = metrics.cssHeight / metrics.height;
+  const config = getEnemyIndicatorConfig();
+  const offsetY = Number.isFinite(config.offsetY) ? config.offsetY : 6;
+  const activeIds = new Set();
+  for (const npc of npcs) {
+    if (!npc || npc.isDead) continue;
+    let id = npc.id || npc.renderProfile?.characterKey;
+    if (!id) {
+      if (!npc.__hudIndicatorId) {
+        npc.__hudIndicatorId = `npc-${Math.random().toString(36).slice(2)}`;
+      }
+      id = npc.__hudIndicatorId;
+    }
+    const entry = ensureEnemyIndicatorEntry(id);
+    if (!entry) continue;
+    activeIds.add(id);
+    const npcScale = config.scaleWithActor === false ? 1 : resolveNpcScale(npc);
+    if (entry.needsPathRefresh || entry.version !== enemyIndicatorConfigVersion || Math.abs((entry.lastScale || 1) - npcScale) > 0.05) {
+      rebuildEnemyIndicatorPaths(entry, npcScale);
+    }
+    if (!entry.width || !entry.height) continue;
+    const foot = resolveNpcFootPosition(npc);
+    const screenX = (foot.x - camX) * zoom;
+    const screenY = (foot.y * zoom) + verticalOffset;
+    const cssX = screenX * scaleX;
+    const cssY = screenY * scaleY;
+    const translateX = cssX - (entry.width / 2);
+    const translateY = cssY + (offsetY * scaleY);
+    entry.el.style.transform = `translate(${translateX.toFixed(2)}px, ${translateY.toFixed(2)}px)`;
+    let visiblePaths = 0;
+    visiblePaths += updateIndicatorPath(entry, 'health', resolveHealthRatio(npc));
+    visiblePaths += updateIndicatorPath(entry, 'stamina', resolveStaminaRatio(npc));
+    if (config.stats.includes('footing')) {
+      visiblePaths += updateIndicatorPath(entry, 'footing', resolveFootingRatio(npc));
+    } else if (entry.paths.footing) {
+      entry.paths.footing.style.display = 'none';
+    }
+    if (visiblePaths > 0) {
+      entry.el.style.display = 'block';
+      entry.el.classList.add('enemy-indicator--visible');
+    } else {
+      entry.el.classList.remove('enemy-indicator--visible');
+      entry.el.style.display = 'none';
+    }
+  }
+  enemyIndicatorMap.forEach((entry, id) => {
+    if (!activeIds.has(id)) {
+      entry.el.classList.remove('enemy-indicator--visible');
+      entry.el.style.display = 'none';
+      entry.needsPathRefresh = true;
+    }
+  });
+}
+
 function updateHUD(){
+  syncHudScaleFactors();
+  updateEnemyIndicators();
   const G = window.GAME;
   const P = G.FIGHTERS?.player;
   if (!P) return;

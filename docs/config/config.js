@@ -392,6 +392,39 @@ window.CONFIG = {
       smoothing: 0.08
     }
   },
+  hud: {
+    bottomButtons: {
+      width: 360,
+      height: 200,
+      edgeHeight: 90,
+      apexHeight: 140,
+      offsetY: 0,
+      scale: 1,
+      scaleWithActor: true,
+      buttons: {
+        jump: { left: 15, top: 72, rotateDeg: -12 },
+        attackA: { left: 40, top: 44, rotateDeg: -6 },
+        attackB: { left: 58, top: 38, rotateDeg: 6 },
+        attackC: { left: 82, top: 68, rotateDeg: 12 },
+      }
+    },
+    enemyIndicators: {
+      width: 96,
+      depth: 28,
+      depthStep: 6,
+      spacing: 8,
+      topPadding: 4,
+      offsetY: 6,
+      strokeWidth: 2,
+      scaleWithActor: true,
+      showFooting: true,
+      colors: {
+        health: '#f87171',
+        stamina: '#38bdf8',
+        footing: '#facc15',
+      }
+    }
+  },
   map: {
     gridUnit: 30,
     spawnLayerId: 'gameplay',
