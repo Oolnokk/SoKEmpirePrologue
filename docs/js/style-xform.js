@@ -42,12 +42,12 @@ export function composeStyleXformEntry(baseEntry, overrideSpec){
 
   const overrideScaleX = toFiniteNumber(overrideSpec.scaleX);
   if (overrideScaleX != null){
-    nextScaleX = (hasBaseScaleX ? nextScaleX : 1) * overrideScaleX;
+    nextScaleX = overrideScaleX;
     scaleChangedX = true;
   }
   const overrideScaleY = toFiniteNumber(overrideSpec.scaleY);
   if (overrideScaleY != null){
-    nextScaleY = (hasBaseScaleY ? nextScaleY : 1) * overrideScaleY;
+    nextScaleY = overrideScaleY;
     scaleChangedY = true;
   }
 
