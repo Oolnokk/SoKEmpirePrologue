@@ -648,7 +648,7 @@ export function makeCombat(G, C, options = {}){
         if (typeof onComplete === 'function') onComplete();
         return;
       }
-      const steps = Array.isArray(sequenceSteps) ? sequenceSteps.slice() : [];
+      const steps = normalizeSequenceStepTimings(sequenceSteps, context);
       steps.sort((a,b)=> (a.startMs || 0) - (b.startMs || 0));
       const timelineState = {
         ordered,
@@ -705,7 +705,7 @@ export function makeCombat(G, C, options = {}){
       if (typeof onComplete === 'function') onComplete();
       return;
     }
-    const steps = Array.isArray(sequenceSteps) ? sequenceSteps.slice() : [];
+    const steps = normalizeSequenceStepTimings(sequenceSteps, context);
     steps.sort((a,b)=> (a.startMs || 0) - (b.startMs || 0));
     let nextStepIndex = 0;
     let stanceReset = false;
@@ -841,17 +841,43 @@ export function makeCombat(G, C, options = {}){
     normalized.forEach((step, index) => {
       const presetName = resolveSequenceStepPreset(step);
       if (!presetName) return;
-      const rawStartMs = Number.isFinite(step.startMs) ? step.startMs : 0;
+      const rawStartMs = Number.isFinite(step.rawStartMs)
+        ? step.rawStartMs
+        : Number.isFinite(step.startMs) ? step.startMs : 0;
       const startMs = applySequenceDuration(rawStartMs);
       if (index === 0 && (!startMs || startMs <= 0) && presetName === basePreset) return;
-      const preparedStep = { ...step, preset: presetName, startMs };
-      if (rawStartMs !== startMs && !Number.isFinite(step.rawStartMs)) {
-        preparedStep.rawStartMs = rawStartMs;
-      }
+      const preparedStep = {
+        ...step,
+        preset: presetName,
+        startMs,
+        rawStartMs
+      };
       prepared.push(preparedStep);
     });
     ATTACK.sequenceSteps = prepared;
     return prepared;
+  }
+
+  function normalizeSequenceStepTimings(sequenceSteps, context){
+    if (!Array.isArray(sequenceSteps) || !sequenceSteps.length) return [];
+    const applyStepDuration = typeof context?.applyDuration === 'function'
+      ? (value) => context.applyDuration(value)
+      : (value) => value;
+    return sequenceSteps
+      .map((step) => {
+        if (!step) return null;
+        const rawStart = Number.isFinite(step.rawStartMs)
+          ? step.rawStartMs
+          : Number.isFinite(step.startMs) ? step.startMs : 0;
+        const scaledStart = applyStepDuration(rawStart);
+        const hasRaw = Number.isFinite(step.rawStartMs);
+        if (hasRaw && scaledStart === step.startMs) return step;
+        const next = { ...step };
+        if (!hasRaw) next.rawStartMs = rawStart;
+        next.startMs = scaledStart;
+        return next;
+      })
+      .filter(Boolean);
   }
 
   function playAttackSequenceStep(step, context){
