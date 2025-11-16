@@ -286,6 +286,10 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   const M = config?.movement || {};
   const platformColliders = Array.isArray(config?.platformingColliders) ? config.platformingColliders : [];
   const groundY = computeGroundY(config);
+  const defaultSurfaceMaterial = typeof config?.ground?.materialType === 'string'
+    ? config.ground.materialType.trim()
+    : '';
+  let newSurfaceMaterial = null;
   const statProfile = fighter.statProfile || getStatProfile(fighter);
   const movementMultipliers = getMovementMultipliers(statProfile);
   const movementBaseMultiplier = getBalanceScalar('baseMovementSpeed', 1);
@@ -403,6 +407,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
       if (px < left || px > right) continue;
       const top = groundY + (Number.isFinite(topOffset) ? topOffset : 0);
       const bottom = top + height;
+      const colliderMaterial = typeof raw.materialType === 'string' ? raw.materialType.trim() : '';
       if (prevY <= top && fighter.pos.y >= top) {
         fighter.pos.y = top;
         if (fighter.vel.y > 0) {
@@ -410,6 +415,9 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
           fighter.vel.y = -fighter.vel.y * restitution;
         }
         onGround = true;
+        if (colliderMaterial) {
+          newSurfaceMaterial = colliderMaterial;
+        }
       } else if (prevY >= bottom && fighter.pos.y <= bottom) {
         fighter.pos.y = bottom;
         if (fighter.vel.y < 0) fighter.vel.y = 0;
@@ -430,11 +438,25 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
       if (Math.abs(fighter.vel.y) < 1) fighter.vel.y = 0;
     }
     onGround = true;
+    if (!newSurfaceMaterial && defaultSurfaceMaterial) {
+      newSurfaceMaterial = defaultSurfaceMaterial;
+    }
   }
 
   fighter.onGround = onGround;
   if (fighter.onGround && Math.abs(fighter.vel.y) < 1) {
     fighter.vel.y = 0;
+  }
+
+  if (fighter.onGround) {
+    const resolvedMaterial = (newSurfaceMaterial && newSurfaceMaterial.trim())
+      ? newSurfaceMaterial
+      : (fighter.surfaceMaterial && fighter.surfaceMaterial.trim())
+        ? fighter.surfaceMaterial
+        : defaultSurfaceMaterial || null;
+    fighter.surfaceMaterial = resolvedMaterial || null;
+  } else if (fighter.surfaceMaterial) {
+    fighter.surfaceMaterial = null;
   }
 
   if (!fighter.ragdoll && fighter.onGround) {

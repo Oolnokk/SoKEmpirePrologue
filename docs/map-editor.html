@@ -366,6 +366,24 @@
         <label><span>Top offset (px)</span><input id="colliderTopOffset" type="number" step="1"></label>
         <label><span>Height (px)</span><input id="colliderHeight" type="number" step="1" min="1"></label>
       </div>
+      <div class="row">
+        <label><span>Material type</span><input id="colliderMaterialType" type="text" list="materialTypePresets" placeholder="default"></label>
+      </div>
+      <datalist id="materialTypePresets">
+        <option value="stone"></option>
+        <option value="concrete"></option>
+        <option value="wood"></option>
+        <option value="metal"></option>
+        <option value="ceramic"></option>
+        <option value="glass"></option>
+        <option value="dirt"></option>
+        <option value="grass"></option>
+        <option value="gravel"></option>
+        <option value="sand"></option>
+        <option value="snow"></option>
+        <option value="ice"></option>
+        <option value="water"></option>
+      </datalist>
       <small style="color:var(--muted);display:block;margin-top:4px">
         Offsets are relative to the ground line. Negative values lift the collider above the ground.
       </small>
@@ -962,6 +980,15 @@ function normalizeCollider(raw, fallbackId = 1){
   const id = safe.id ?? safe.meta?.original?.id ?? fallbackId;
   const labelRaw = typeof safe.label === 'string' ? safe.label.trim() : '';
   const type = (safe.type === 'box' || safe.shape === 'box') ? 'box' : 'box';
+  const materialTypeRaw = typeof safe.materialType === 'string' ? safe.materialType.trim() : '';
+  const metaMaterialType = typeof safe.meta?.materialType === 'string' ? safe.meta.materialType.trim() : '';
+  const legacyStepSoundRaw = typeof safe.stepSound === 'string' ? safe.stepSound.trim() : '';
+  const legacyMetaStepSound = typeof safe.meta?.stepSound === 'string' ? safe.meta.stepSound.trim() : '';
+  const normalizedMaterialType = materialTypeRaw
+    || metaMaterialType
+    || legacyStepSoundRaw
+    || legacyMetaStepSound
+    || '';
 
   let left = toNumber(safe.left ?? safe.x ?? safe.position?.x, 0);
   const rightRaw = safe.right ?? safe.meta?.original?.right;
@@ -997,6 +1024,7 @@ function normalizeCollider(raw, fallbackId = 1){
     width: Math.max(1, width),
     topOffset,
     height: Math.max(1, height),
+    materialType: normalizedMaterialType || null,
     meta,
   };
 }
@@ -1100,7 +1128,8 @@ function buildAreaDescriptor(){
 
   const clonedColliders = colliders.map((col, index) => {
     const normalized = normalizeCollider(col, col.id ?? index + 1);
-    return {
+    const materialType = typeof normalized.materialType === 'string' ? normalized.materialType.trim() : '';
+    const descriptor = {
       id: normalized.id ?? index + 1,
       label: typeof normalized.label === 'string' && normalized.label.trim()
         ? normalized.label.trim()
@@ -1113,6 +1142,10 @@ function buildAreaDescriptor(){
       height: Math.max(1, toNumber(normalized.height, 40) || 40),
       meta: normalized.meta ? JSON.parse(JSON.stringify(normalized.meta)) : {},
     };
+    if (materialType) {
+      descriptor.materialType = materialType;
+    }
+    return descriptor;
   });
 
   const meta = {
@@ -1653,7 +1686,9 @@ function refreshColliderList(){
     const topOffset = toNumber(col.topOffset, 0);
     const height = Math.max(0, toNumber(col.height, 0));
     const meta = document.createElement('span');
-    meta.textContent = `x:${formatColliderNumber(left)} w:${formatColliderNumber(width)} y:${formatColliderNumber(topOffset)} h:${formatColliderNumber(height)}`;
+    const materialType = typeof col.materialType === 'string' && col.materialType.trim() ? col.materialType.trim() : '';
+    const stats = `x:${formatColliderNumber(left)} w:${formatColliderNumber(width)} y:${formatColliderNumber(topOffset)} h:${formatColliderNumber(height)}`;
+    meta.textContent = materialType ? `${stats} · material:${materialType}` : stats;
     div.appendChild(title);
     div.appendChild(meta);
     div.onclick = () => {
@@ -1680,6 +1715,8 @@ function syncColliderFields(){
   if (topField) topField.value = collider ? String(toNumber(collider.topOffset, 0)) : '';
   const heightField = $('#colliderHeight');
   if (heightField) heightField.value = collider ? String(Math.max(1, toNumber(collider.height, 0))) : '';
+  const materialField = $('#colliderMaterialType');
+  if (materialField) materialField.value = collider && typeof collider.materialType === 'string' ? collider.materialType : '';
   const removeBtn = $('#btnDeleteCollider');
   if (removeBtn) removeBtn.disabled = !collider;
 }
@@ -1736,6 +1773,18 @@ function updateSelectedColliderFromFields(){
       if (!changed) pushHistory();
       changed = true;
       collider.height = Math.max(1, value);
+    }
+  }
+
+  const materialField = $('#colliderMaterialType');
+  if (materialField){
+    const raw = materialField.value.trim();
+    const normalized = raw || null;
+    const previous = typeof collider.materialType === 'string' ? collider.materialType : null;
+    if (normalized !== previous){
+      if (!changed) pushHistory();
+      changed = true;
+      collider.materialType = normalized;
     }
   }
 
@@ -1863,7 +1912,7 @@ function updateSelectedInstanceFromFields(){
   el.addEventListener('blur', updateSelectedInstanceFromFields);
 });
 
-['colliderLabel','colliderLeft','colliderWidth','colliderTopOffset','colliderHeight'].forEach(id => {
+['colliderLabel','colliderLeft','colliderWidth','colliderTopOffset','colliderHeight','colliderStepSound'].forEach(id => {
   const el = document.getElementById(id);
   if(!el) return;
   el.addEventListener('change', updateSelectedColliderFromFields);
@@ -2351,6 +2400,7 @@ function pointerDown(ev){
       width: 8,
       topOffset: offsetY,
       height: 8,
+      materialType: null,
       meta: {},
     };
     colliders.push(collider);

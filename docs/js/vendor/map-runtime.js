@@ -849,6 +849,15 @@ function normalizeCollider(raw, fallbackIndex = 0) {
   const safe = raw && typeof raw === 'object' ? safeClone(raw) : {};
   const id = safe.id ?? safe.meta?.original?.id ?? fallbackIndex;
   const labelRaw = typeof safe.label === 'string' ? safe.label.trim() : '';
+  const materialTypeRaw = typeof safe.materialType === 'string' ? safe.materialType.trim() : '';
+  const metaMaterialType = typeof safe.meta?.materialType === 'string' ? safe.meta.materialType.trim() : '';
+  const legacyStepSoundRaw = typeof safe.stepSound === 'string' ? safe.stepSound.trim() : '';
+  const legacyMetaStepSound = typeof safe.meta?.stepSound === 'string' ? safe.meta.stepSound.trim() : '';
+  const normalizedMaterialType = materialTypeRaw
+    || metaMaterialType
+    || legacyStepSoundRaw
+    || legacyMetaStepSound
+    || '';
   let left = toNumber(safe.left ?? safe.x ?? safe.position?.x, 0);
   const rightRaw = safe.right ?? safe.meta?.original?.right;
   let width = toNumber(safe.width ?? safe.w, null);
@@ -884,6 +893,7 @@ function normalizeCollider(raw, fallbackIndex = 0) {
     width: Math.max(1, width),
     topOffset,
     height: Math.max(1, height),
+    materialType: normalizedMaterialType || null,
     meta: safe.meta ? safeClone(safe.meta) : {},
   };
 }

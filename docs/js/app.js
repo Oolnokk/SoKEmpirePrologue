@@ -2589,6 +2589,11 @@ function createEditorPreviewSandbox() {
     if (!Number.isFinite(left) || !Number.isFinite(width) || width <= 0) return null;
     if (!Number.isFinite(height) || height <= 0) return null;
     const topOffset = Number(collider.topOffset);
+    const materialTypeRaw = typeof collider.materialType === 'string' ? collider.materialType.trim() : '';
+    const metaMaterialType = typeof collider.meta?.materialType === 'string' ? collider.meta.materialType.trim() : '';
+    const legacyStepSoundRaw = typeof collider.stepSound === 'string' ? collider.stepSound.trim() : '';
+    const legacyMetaStepSound = typeof collider.meta?.stepSound === 'string' ? collider.meta.stepSound.trim() : '';
+    const materialType = materialTypeRaw || metaMaterialType || legacyStepSoundRaw || legacyMetaStepSound || '';
     return {
       id: typeof collider.id === 'string' && collider.id.trim() ? collider.id.trim() : `col_${index}`,
       left,
@@ -2596,6 +2601,7 @@ function createEditorPreviewSandbox() {
       height,
       topOffset: Number.isFinite(topOffset) ? topOffset : 0,
       label: typeof collider.label === 'string' ? collider.label : '',
+      materialType: materialType || null,
     };
   };
 
