@@ -1124,10 +1124,25 @@ export function renderSprites(ctx){
       });
     }
 
+    const runtimeWeaponKey = (() => {
+      const fromFighter = entity.fighter?.weapon
+        || entity.fighter?.renderProfile?.weapon
+        || null;
+      if (typeof fromFighter === 'string' && fromFighter.trim()) {
+        return fromFighter.trim();
+      }
+      const fromGame = typeof G.selectedWeapon === 'string' ? G.selectedWeapon.trim() : '';
+      if (fromGame) return fromGame;
+      const fromConfig = typeof C.knockback?.currentWeapon === 'string'
+        ? C.knockback.currentWeapon.trim()
+        : '';
+      return fromConfig || null;
+    })();
+
     const activeWeaponKey = entity.profile?.weapon
       || entity.profile?.character?.weapon
       || (entity.profile?.characterKey && C.characters?.[entity.profile.characterKey]?.weapon)
-      || null;
+      || runtimeWeaponKey;
     const weaponConfig = activeWeaponKey && C.weapons ? C.weapons[activeWeaponKey] : null;
     if (weaponConfig && weaponConfig.sprite) {
       const spriteLayers = Array.isArray(weaponConfig.sprite.layers)
