@@ -1527,19 +1527,71 @@ function updateHUD(){
 }
 
 function resolveActiveParallaxArea() {
+  const registry = window.GAME?.mapRegistry;
+  if (registry && (typeof registry.getActiveArea === 'function' || typeof registry.getArea === 'function')) {
+    try {
+      const direct = typeof registry.getActiveArea === 'function'
+        ? registry.getActiveArea()
+        : null;
+      if (direct) {
+        return direct;
+      }
+    } catch (error) {
+      console.warn?.('[map] Failed to read active area from registry', error);
+    }
+    try {
+      const activeId = typeof registry.getActiveAreaId === 'function'
+        ? registry.getActiveAreaId()
+        : window.GAME?.currentAreaId;
+      if (activeId && typeof registry.getArea === 'function') {
+        const fallback = registry.getArea(activeId);
+        if (fallback) {
+          return fallback;
+        }
+      }
+    } catch (error) {
+      console.warn?.('[map] Failed to resolve registry area by id', error);
+    }
+  }
+
   const parallax = window.PARALLAX;
   if (parallax?.currentAreaId && parallax?.areas) {
     return parallax.areas[parallax.currentAreaId] || null;
   }
-  const registry = window.GAME?.mapRegistry;
-  if (registry?.getActiveArea) {
-    try {
-      return registry.getActiveArea();
-    } catch (_err) {
-      return null;
-    }
-  }
+
   return null;
+}
+
+function resolveLayerParallaxFactor(layer) {
+  if (!layer || typeof layer !== 'object') {
+    return 1;
+  }
+  if (Number.isFinite(layer.parallax)) {
+    return layer.parallax;
+  }
+  if (Number.isFinite(layer.parallaxSpeed)) {
+    return layer.parallaxSpeed;
+  }
+  if (Number.isFinite(layer.meta?.parallax)) {
+    return layer.meta.parallax;
+  }
+  return 1;
+}
+
+function resolveLayerOffsetY(layer) {
+  if (!layer || typeof layer !== 'object') {
+    return 0;
+  }
+  if (Number.isFinite(layer.yOffset)) {
+    return layer.yOffset;
+  }
+  if (Number.isFinite(layer.offsetY)) {
+    return layer.offsetY;
+  }
+  if (Number.isFinite(layer.meta?.offsetY)) {
+    return layer.meta.offsetY;
+  }
+  return 0;
 }
 
 function teleportPlayerAboveSpawn(offset = 100) {
@@ -1822,8 +1874,8 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
   const area = resolveActiveParallaxArea();
   if (!area) return;
 
-  const layers = Array.isArray(area.layers) ? [...area.layers] : [];
-  if (!layers.length) return;
+  const rawLayers = Array.isArray(area.layers) ? area.layers : [];
+  if (!rawLayers.length) return;
 
   const instancesByLayer = new Map();
   if (Array.isArray(area.instances)) {
@@ -1836,16 +1888,22 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
     }
   }
 
-  layers.sort((a, b) => (a?.z ?? 0) - (b?.z ?? 0));
+  const orderedLayers = rawLayers
+    .map((layer, index) => ({ layer, index }))
+    .sort((a, b) => {
+      const aZ = Number.isFinite(a.layer?.z) ? a.layer.z : a.index;
+      const bZ = Number.isFinite(b.layer?.z) ? b.layer.z : b.index;
+      return aZ - bZ;
+    });
 
-  layers.forEach((layer) => {
+  orderedLayers.forEach(({ layer }) => {
     const layerId = layer?.id;
     if (!layerId) return;
     const instances = instancesByLayer.get(layerId);
     if (!instances?.length) return;
 
-    const parallax = Number.isFinite(layer?.parallax) ? layer.parallax : 1;
-    const yOffset = Number(layer?.yOffset) || 0;
+    const parallax = resolveLayerParallaxFactor(layer);
+    const yOffset = resolveLayerOffsetY(layer);
     cx.save();
     cx.translate((1 - parallax) * camX, yOffset);
     cx.globalAlpha = 1;
