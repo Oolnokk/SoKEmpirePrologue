@@ -566,20 +566,6 @@ export function renderAll(ctx){
   ctx.save();
   ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, canvasHeight * (1 - zoom));
 
-  for (const entity of renderEntities) {
-    if (!entity) continue;
-    ctx.save();
-    if (entity.flipLeft) {
-      const centerX = Number.isFinite(entity.centerX) ? entity.centerX : 0;
-      ctx.translate(centerX * 2, 0);
-      ctx.scale(-1, 1);
-    }
-    drawHitbox(ctx, entity.hitbox);
-    drawStick(ctx, entity.bones);
-    drawFallbackSilhouette(ctx, entity, C);
-    ctx.restore();
-  }
-
   const npcDashTrailEntries = getNpcDashTrail();
   const dashList = Array.isArray(npcDashTrailEntries)
     ? npcDashTrailEntries
@@ -630,6 +616,20 @@ export function renderAll(ctx){
         ctx.restore();
       }
     }
+  }
+
+  for (const entity of renderEntities) {
+    if (!entity) continue;
+    ctx.save();
+    if (entity.flipLeft) {
+      const centerX = Number.isFinite(entity.centerX) ? entity.centerX : 0;
+      ctx.translate(centerX * 2, 0);
+      ctx.scale(-1, 1);
+    }
+    drawHitbox(ctx, entity.hitbox);
+    drawStick(ctx, entity.bones);
+    drawFallbackSilhouette(ctx, entity, C);
+    ctx.restore();
   }
 
   ctx.restore();

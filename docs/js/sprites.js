@@ -14,6 +14,7 @@ import { angleZero as angleZeroUtil, basis as basisFn, dist, angle as angleUtil,
 import { pickFighterName as pickFighterNameUtil } from './fighter-utils.js?v=1';
 import { COSMETIC_SLOTS, ensureCosmeticLayers, cosmeticTagFor, resolveFighterBodyColors } from './cosmetics.js?v=1';
 import { composeStyleXformEntry } from './style-xform.js?v=1';
+import { resolveMirrorTags } from './mirror-utils.js?v=1';
 
 const ASSETS = (window.ASSETS ||= {});
 const CACHE = (ASSETS.sprites ||= {});
@@ -323,7 +324,20 @@ function buildZMap(C){
 
 // === MIRROR API ===
 export function resetMirror(){ RENDER.MIRROR = {}; }
-export function setMirrorForPart(part, val){ RENDER.MIRROR[part] = !!val; }
+export function setMirrorForPart(part, val){
+  const tags = resolveMirrorTags(part);
+  if (!tags.length){
+    const key = typeof part === 'string' ? part.trim().toUpperCase() : '';
+    if (key) {
+      RENDER.MIRROR[key] = !!val;
+    }
+    return;
+  }
+  const flag = !!val;
+  for (const tag of tags){
+    RENDER.MIRROR[tag] = flag;
+  }
+}
 
 function legMirrorFlag(side, tagU, tagL){
   // Modify as needed if you want per-leg mirroring based on animation or sprites
