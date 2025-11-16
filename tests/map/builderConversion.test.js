@@ -171,8 +171,9 @@ test('convertLayoutToArea preserves collider types', () => {
     ],
     instances: [],
     colliders: [
-      { id: 'circle_one', type: 'circle', left: 0, width: 20, topOffset: 10, height: 20 },
-      { id: 'polygon_one', shape: 'polygon', left: 5, width: 40, topOffset: 5, height: 40 },
+      { id: 'circle_one', type: 'circle', left: 0, width: 20, topOffset: 10, height: 20, materialType: 'metal' },
+      { id: 'polygon_one', shape: 'polygon', left: 5, width: 40, topOffset: 5, height: 40, meta: { materialType: 'glass' } },
+      { id: 'legacy_box', type: 'box', left: 10, width: 30, topOffset: 0, height: 30, stepSound: 'ceramic' },
     ],
   };
 
@@ -180,6 +181,10 @@ test('convertLayoutToArea preserves collider types', () => {
 
   assert.equal(area.colliders[0].type, 'circle');
   assert.equal(area.colliders[1].type, 'polygon');
+  assert.equal(area.colliders[2].type, 'box');
+  assert.equal(area.colliders[0].materialType, 'metal');
+  assert.equal(area.colliders[1].materialType, 'glass');
+  assert.equal(area.colliders[2].materialType, 'ceramic');
 });
 
 test('convertLayouts rejects duplicate area ids', () => {
