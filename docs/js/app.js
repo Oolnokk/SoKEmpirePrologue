@@ -2343,13 +2343,6 @@ function prefabPartSortKey(entry) {
   return layerPriority * 10_000 + (Number.isFinite(z) ? z : 0) * 100 + rotationBias;
 }
 
-function clampValue(v, min, max) {
-  if (!Number.isFinite(v)) return min;
-  if (v < min) return min;
-  if (v > max) return max;
-  return v;
-}
-
 function lerpValue(a, b, t) {
   if (!Number.isFinite(a)) a = 0;
   if (!Number.isFinite(b)) b = 0;
