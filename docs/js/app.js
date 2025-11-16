@@ -2742,13 +2742,18 @@ function createEditorPreviewSandbox() {
     ctx.restore();
   };
 
-  const renderScene = ({ width, height, camX = 0, zoom = 1, groundY }) => {
+  const renderScene = ({ width, height, camX = 0, zoom = 1, groundY, camOrigin = 'left' }) => {
     if (!state.ready || !ctx) {
       return false;
     }
     const effectiveZoom = Math.max(Number.isFinite(zoom) ? zoom : 1, 0.05);
     const viewWidth = Math.max(1, Number(width) || state.canvas?.width || 1);
     const viewHeight = Math.max(1, Number(height) || state.canvas?.height || 1);
+    const cameraInputX = Number.isFinite(camX) ? camX : 0;
+    const camWorldWidth = viewWidth / effectiveZoom;
+    const camOriginMode = camOrigin === 'center' ? 'center' : 'left';
+    const cameraLeftX =
+      camOriginMode === 'center' ? cameraInputX - camWorldWidth * 0.5 : cameraInputX;
     const dpr = window.devicePixelRatio || 1;
     const pixelWidth = Math.round(viewWidth);
     const pixelHeight = Math.round(viewHeight);
@@ -2805,7 +2810,7 @@ function createEditorPreviewSandbox() {
       const parallax = Number.isFinite(layer.parallaxSpeed) ? layer.parallaxSpeed : 1;
       const layerScale = Number.isFinite(layer.scale) ? layer.scale : 1;
       const instRotRad = degToRad(inst.rotationDeg || 0);
-      const baseOffset = (pos.x - camX * parallax) * effectiveZoom;
+      const baseOffset = (pos.x - cameraLeftX * parallax) * effectiveZoom;
       const rootScreenX = baseOffset;
       const rootScreenY = groundLine + (layer.offsetY || 0) * effectiveZoom + pos.y * effectiveZoom;
       const dxScreen = baseOffset;
