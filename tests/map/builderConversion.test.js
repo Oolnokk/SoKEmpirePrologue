@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { convertLayoutToArea } from '../../src/map/builderConversion.js';
+import { convertLayoutToArea, convertLayouts } from '../../src/map/builderConversion.js';
 
 test('convertLayoutToArea produces modular descriptor', () => {
   const layout = {
@@ -123,4 +123,68 @@ test('convertLayoutToArea generates fallback prefab art when prefab is missing',
   assert.equal(inst.meta.fallback.errorCode, 'E404');
   assert.ok(Array.isArray(area.warnings));
   assert.ok(area.warnings.some((line) => line.includes('generated ASCII fallback')));
+});
+
+test('convertLayoutToArea falls back to layout.props when instances are missing', () => {
+  const layout = {
+    areaId: 'props_area',
+    layers: [
+      { id: 'bg', name: 'Background', parallax: 1, yOffset: 0, sep: 100, scale: 1 },
+    ],
+    props: [
+      { id: 'only', prefabId: 'tree', layerId: 'bg', slot: 0, tags: ['spawn:player'] },
+    ],
+  };
+  const prefabResolver = (prefabId) => ({ id: prefabId, kind: 'decor' });
+
+  const area = convertLayoutToArea(layout, { prefabResolver });
+
+  assert.equal(area.instances.length, 1);
+  assert.equal(area.instances[0].prefab.id, 'tree');
+  assert.equal(area.instances[0].instanceId, 'player_spawn');
+  assert.ok(area.warnings.some((line) => line.includes('using layout.props')));
+});
+
+test('convertLayoutToArea warns when prefabResolver option is invalid', () => {
+  const layout = {
+    areaId: 'invalid_resolver',
+    layers: [
+      { id: 'game', name: 'Game', parallax: 1, yOffset: 0, sep: 150, scale: 1 },
+    ],
+    instances: [
+      { id: 'missing', prefabId: 'unknown', layerId: 'game', slot: 0 },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout, { prefabResolver: { bad: true } });
+
+  assert.equal(area.instances[0].prefab.id, 'unknown');
+  assert.equal(area.instances[0].prefab.isFallback, true);
+  assert.ok(area.warnings.some((line) => line.includes('prefabResolver must be a function')));
+});
+
+test('convertLayoutToArea preserves collider types', () => {
+  const layout = {
+    areaId: 'collider_area',
+    layers: [
+      { id: 'game', name: 'Game', parallax: 1, yOffset: 0, sep: 150, scale: 1 },
+    ],
+    instances: [],
+    colliders: [
+      { id: 'circle_one', type: 'circle', left: 0, width: 20, topOffset: 10, height: 20 },
+      { id: 'polygon_one', shape: 'polygon', left: 5, width: 40, topOffset: 5, height: 40 },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout);
+
+  assert.equal(area.colliders[0].type, 'circle');
+  assert.equal(area.colliders[1].type, 'polygon');
+});
+
+test('convertLayouts rejects duplicate area ids', () => {
+  const layoutA = { areaId: 'dup', layers: [], instances: [] };
+  const layoutB = { areaId: 'dup', layers: [], instances: [] };
+
+  assert.throws(() => convertLayouts([layoutA, layoutB]), /Duplicate area id/);
 });
