@@ -1527,19 +1527,71 @@ function updateHUD(){
 }
 
 function resolveActiveParallaxArea() {
+  const registry = window.GAME?.mapRegistry;
+  if (registry && (typeof registry.getActiveArea === 'function' || typeof registry.getArea === 'function')) {
+    try {
+      const direct = typeof registry.getActiveArea === 'function'
+        ? registry.getActiveArea()
+        : null;
+      if (direct) {
+        return direct;
+      }
+    } catch (error) {
+      console.warn?.('[map] Failed to read active area from registry', error);
+    }
+    try {
+      const activeId = typeof registry.getActiveAreaId === 'function'
+        ? registry.getActiveAreaId()
+        : window.GAME?.currentAreaId;
+      if (activeId && typeof registry.getArea === 'function') {
+        const fallback = registry.getArea(activeId);
+        if (fallback) {
+          return fallback;
+        }
+      }
+    } catch (error) {
+      console.warn?.('[map] Failed to resolve registry area by id', error);
+    }
+  }
+
   const parallax = window.PARALLAX;
   if (parallax?.currentAreaId && parallax?.areas) {
     return parallax.areas[parallax.currentAreaId] || null;
   }
-  const registry = window.GAME?.mapRegistry;
-  if (registry?.getActiveArea) {
-    try {
-      return registry.getActiveArea();
-    } catch (_err) {
-      return null;
-    }
-  }
+
   return null;
+}
+
+function resolveLayerParallaxFactor(layer) {
+  if (!layer || typeof layer !== 'object') {
+    return 1;
+  }
+  if (Number.isFinite(layer.parallax)) {
+    return layer.parallax;
+  }
+  if (Number.isFinite(layer.parallaxSpeed)) {
+    return layer.parallaxSpeed;
+  }
+  if (Number.isFinite(layer.meta?.parallax)) {
+    return layer.meta.parallax;
+  }
+  return 1;
+}
+
+function resolveLayerOffsetY(layer) {
+  if (!layer || typeof layer !== 'object') {
+    return 0;
+  }
+  if (Number.isFinite(layer.yOffset)) {
+    return layer.yOffset;
+  }
+  if (Number.isFinite(layer.offsetY)) {
+    return layer.offsetY;
+  }
+  if (Number.isFinite(layer.meta?.offsetY)) {
+    return layer.meta.offsetY;
+  }
+  return 0;
 }
 
 function teleportPlayerAboveSpawn(offset = 100) {
@@ -1661,6 +1713,164 @@ function prefabPartSortKey(entry) {
           ? 1
           : 0;
   return layerPriority * 10_000 + (Number.isFinite(z) ? z : 0) * 100 + rotationBias;
+}
+
+function clampValue(v, min, max) {
+  if (!Number.isFinite(v)) return min;
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+}
+
+function lerpValue(a, b, t) {
+  if (!Number.isFinite(a)) a = 0;
+  if (!Number.isFinite(b)) b = 0;
+  return a + (b - a) * t;
+}
+
+function degToRad(deg) {
+  if (!Number.isFinite(deg)) return 0;
+  return (deg * Math.PI) / 180;
+}
+
+function normalizeSandboxPosition(position) {
+  if (!position || typeof position !== 'object') {
+    return { x: 0, y: 0 };
+  }
+  const x = Number(position.x);
+  const y = Number(position.y);
+  return {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+}
+
+function normalizeSandboxScale(scale) {
+  if (!scale || typeof scale !== 'object') {
+    return { x: 1, y: 1 };
+  }
+  const x = Number(scale.x);
+  const y = Number(scale.y);
+  const resolvedX = Number.isFinite(x) && x !== 0 ? x : 1;
+  const resolvedY = Number.isFinite(y) && y !== 0 ? y : (Number.isFinite(x) && x !== 0 ? x : 1);
+  return { x: resolvedX, y: resolvedY };
+}
+
+function computePoseAnchor(template) {
+  const width = Number.isFinite(template?.w) ? template.w : 100;
+  const height = Number.isFinite(template?.h) ? template.h : 100;
+  if (template?.pivot === 'bottom') {
+    return { ax: width * 0.5, ay: height };
+  }
+  if (template?.pivot === 'top') {
+    return { ax: width * 0.5, ay: 0 };
+  }
+  if (template?.pivot === 'center') {
+    return { ax: width * 0.5, ay: height * 0.5 };
+  }
+  const anchorXPct = Number.isFinite(template?.anchorXPct) ? template.anchorXPct : 50;
+  const anchorYPct = Number.isFinite(template?.anchorYPct) ? template.anchorYPct : 100;
+  return {
+    ax: width * anchorXPct * 0.01,
+    ay: height * anchorYPct * 0.01,
+  };
+}
+
+function easeNormalizedValue(mode, t) {
+  const value = clampValue(Number(t), 0, 1);
+  if (mode === 'smoothstep') {
+    return value * value * (3 - 2 * value);
+  }
+  if (mode === 'quadInOut') {
+    if (value < 0.5) {
+      return 2 * value * value;
+    }
+    return 1 - Math.pow(-2 * value + 2, 2) / 2;
+  }
+  return value;
+}
+
+function computeTFromDx(kfMeta, dxScreen) {
+  const rawRadius = Number.isFinite(kfMeta?.radiusPx)
+    ? kfMeta.radiusPx
+    : (Number.isFinite(kfMeta?.radius) ? kfMeta.radius : 600);
+  const radiusPx = Math.max(1, rawRadius);
+  const rawT = -Number(dxScreen || 0) / radiusPx;
+  return {
+    t: clampValue(rawT, -1, 1),
+    radiusPx,
+  };
+}
+
+function evalKfPose(kf, t) {
+  if (!kf || typeof kf !== 'object') {
+    return {
+      t,
+      dx: 0,
+      dy: 0,
+      scaleX: 1,
+      rotZdeg: 0,
+      translateSpace: 'screen',
+      order: 'scaleThenRotate',
+    };
+  }
+
+  const easeMode = kf.ease || 'smoothstep';
+  const left = kf.left || {};
+  const center = kf.center || {};
+  const right = kf.right || {};
+  let from;
+  let to;
+  let progress;
+  if (t <= 0) {
+    progress = easeNormalizedValue(easeMode, (t || 0) + 1);
+    from = left;
+    to = center;
+  } else {
+    progress = easeNormalizedValue(easeMode, t || 0);
+    from = center;
+    to = right;
+  }
+
+  return {
+    t,
+    dx: lerpValue(from.dx || 0, to.dx || 0, progress),
+    dy: lerpValue(from.dy || 0, to.dy || 0, progress),
+    scaleX: lerpValue(from.scaleX ?? 1, to.scaleX ?? 1, progress),
+    rotZdeg: lerpValue(from.rotZdeg || 0, to.rotZdeg || 0, progress),
+    translateSpace: kf.translateSpace || 'screen',
+    order: kf.transformOrder || 'scaleThenRotate',
+  };
+}
+
+function applyPoseToContext(ctx, pose) {
+  if (!pose || !ctx) return;
+  const dx = Number(pose.dx) || 0;
+  const dy = Number(pose.dy) || 0;
+  const sx = Number.isFinite(pose.scaleX) ? pose.scaleX : 1;
+  const rotation = degToRad(pose.rotZdeg || 0);
+  const space = pose.translateSpace || 'screen';
+  const order = pose.order || 'scaleThenRotate';
+
+  if (space === 'screen') {
+    ctx.translate(dx, dy);
+  }
+
+  if (order === 'scaleThenRotate') {
+    if (sx !== 1) ctx.scale(sx, 1);
+    if (rotation) ctx.rotate(rotation);
+  } else {
+    if (rotation) ctx.rotate(rotation);
+    if (sx !== 1) ctx.scale(sx, 1);
+  }
+
+  if (space === 'local') {
+    ctx.translate(dx, dy);
+  }
+}
+
+function isPlayerSpawnInstance(inst) {
+  return Array.isArray(inst?.tags) && inst.tags.includes('spawn:player');
 }
 
 function drawPrefabPlaceholder(cx, left, top, width, height, { label, tint } = {}) {
@@ -1818,12 +2028,413 @@ function drawPrefabInstance(cx, inst, layer, groundY) {
   }
 }
 
+function createEditorPreviewSandbox() {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+
+  const state = {
+    canvas,
+    ctx,
+    layers: [],
+    layerLookup: new Map(),
+    instances: [],
+    colliders: [],
+    groundOffset: 140,
+    ready: false,
+    registry: null,
+    detachRegistry: null,
+  };
+
+  const sandboxPartOrder = (part) => {
+    const layer = (part?.layer || '').toString().toLowerCase();
+    if (layer === 'far') return 0;
+    if (layer === 'near') return 2;
+    return 1;
+  };
+
+  const normalizeLayer = (layer, index) => {
+    const safe = layer && typeof layer === 'object' ? layer : {};
+    const id = typeof safe.id === 'string' && safe.id.trim() ? safe.id : `layer_${index}`;
+    const name = typeof safe.name === 'string' && safe.name.trim() ? safe.name : `Layer ${index + 1}`;
+    const parallaxSpeed = Number.isFinite(safe.parallaxSpeed)
+      ? safe.parallaxSpeed
+      : (Number.isFinite(safe.parallax) ? safe.parallax : 1);
+    const offsetY = Number(safe.offsetY ?? safe.yOffset) || 0;
+    const separation = Number(safe.separation ?? safe.sep) || 0;
+    const scale = Number.isFinite(safe.scale) ? safe.scale : 1;
+    const type = typeof safe.type === 'string' ? safe.type : 'gameplay';
+    return { id, name, parallaxSpeed, offsetY, separation, scale, type, order: index };
+  };
+
+  const normalizeInstance = (inst, index, layerLookup) => {
+    if (!inst || typeof inst !== 'object') return null;
+    const rawLayerId = typeof inst.layerId === 'string' && inst.layerId.trim() ? inst.layerId : null;
+    if (!rawLayerId || !layerLookup.has(rawLayerId)) return null;
+    const prefab = inst.prefab && typeof inst.prefab === 'object' ? inst.prefab : null;
+    const prefabId = typeof inst.prefabId === 'string' && inst.prefabId.trim()
+      ? inst.prefabId
+      : (prefab?.id && typeof prefab.id === 'string' ? prefab.id : `prefab_${index}`);
+    const instanceId = typeof inst.instanceId === 'string' && inst.instanceId.trim()
+      ? inst.instanceId.trim()
+      : (inst.id != null ? String(inst.id) : `inst_${index}`);
+    const tags = Array.isArray(inst.tags) ? inst.tags.slice() : [];
+    const meta = inst.meta && typeof inst.meta === 'object' ? inst.meta : undefined;
+    return {
+      id: instanceId,
+      prefabId,
+      layerId: rawLayerId,
+      position: normalizeSandboxPosition(inst.position),
+      scale: normalizeSandboxScale(inst.scale),
+      rotationDeg: Number(inst.rotationDeg) || 0,
+      tags,
+      prefab,
+      meta,
+    };
+  };
+
+  const normalizeCollider = (collider, index) => {
+    if (!collider || typeof collider !== 'object') return null;
+    const left = Number(collider.left);
+    const width = Number(collider.width);
+    const height = Number(collider.height);
+    if (!Number.isFinite(left) || !Number.isFinite(width) || width <= 0) return null;
+    if (!Number.isFinite(height) || height <= 0) return null;
+    const topOffset = Number(collider.topOffset);
+    return {
+      id: typeof collider.id === 'string' && collider.id.trim() ? collider.id.trim() : `col_${index}`,
+      left,
+      width,
+      height,
+      topOffset: Number.isFinite(topOffset) ? topOffset : 0,
+      label: typeof collider.label === 'string' ? collider.label : '',
+    };
+  };
+
+  const resetState = () => {
+    state.layers = [];
+    state.layerLookup = new Map();
+    state.instances = [];
+    state.colliders = [];
+    state.ready = false;
+    state.groundOffset = 140;
+  };
+
+  const setArea = (area) => {
+    if (!area || typeof area !== 'object') {
+      resetState();
+      return;
+    }
+
+    const normalizedLayers = Array.isArray(area.layers)
+      ? area.layers.map((layer, index) => normalizeLayer(layer, index))
+      : [];
+    const layerLookup = new Map();
+    normalizedLayers.forEach((layer, index) => {
+      layerLookup.set(layer.id, { layer, order: index });
+    });
+    const normalizedInstances = Array.isArray(area.instances)
+      ? area.instances.map((inst, index) => normalizeInstance(inst, index, layerLookup)).filter(Boolean)
+      : [];
+    const normalizedColliders = Array.isArray(area.colliders)
+      ? area.colliders.map((col, index) => normalizeCollider(col, index)).filter(Boolean)
+      : [];
+
+    state.layers = normalizedLayers;
+    state.layerLookup = layerLookup;
+    state.instances = normalizedInstances;
+    state.colliders = normalizedColliders;
+    const offset = Number(area?.ground?.offset);
+    state.groundOffset = Number.isFinite(offset) ? offset : 140;
+    state.ready = state.layers.length > 0;
+  };
+
+  const detachRegistry = () => {
+    if (typeof state.detachRegistry === 'function') {
+      try {
+        state.detachRegistry();
+      } catch (_err) {
+        // ignore
+      }
+    }
+    state.detachRegistry = null;
+  };
+
+  const attachToRegistry = (registry) => {
+    if (!registry || typeof registry.on !== 'function') {
+      if (state.registry) {
+        detachRegistry();
+        state.registry = null;
+        resetState();
+      }
+      return;
+    }
+    if (registry === state.registry) {
+      return;
+    }
+    detachRegistry();
+    state.registry = registry;
+    state.detachRegistry = registry.on('active-area-changed', (area) => {
+      setArea(area || null);
+    });
+    if (typeof registry.getActiveArea === 'function') {
+      const active = registry.getActiveArea();
+      setArea(active || null);
+    }
+  };
+
+  const drawPlaceholder = (inst, layerScale, zoom, rootScreenX, rootScreenY, instRotRad) => {
+    const prefab = inst.prefab;
+    const baseWidth = Number(inst?.meta?.original?.w || inst?.meta?.original?.width) || 140;
+    const baseHeight = Number(inst?.meta?.original?.h || inst?.meta?.original?.height) || 100;
+    const scaleX = layerScale * zoom * (inst.scale?.x || 1);
+    const scaleY = layerScale * zoom * (inst.scale?.y || inst.scale?.x || 1);
+    const width = Math.max(24, baseWidth * scaleX);
+    const height = Math.max(24, baseHeight * scaleY);
+    ctx.save();
+    ctx.translate(rootScreenX, rootScreenY);
+    if (instRotRad) ctx.rotate(instRotRad);
+    const left = -width / 2;
+    const top = -height;
+    const tint = prefab?.isFallback ? 'rgba(252, 211, 77, 0.28)' : 'rgba(148, 163, 184, 0.22)';
+    drawPrefabPlaceholder(ctx, left, top, width, height, { label: inst.prefabId || prefab?.id || 'prefab', tint });
+    if (prefab?.isFallback && Array.isArray(prefab.boxLines)) {
+      drawPrefabAsciiFallback(ctx, left, top, 14, prefab.boxLines);
+    }
+    ctx.restore();
+  };
+
+  const renderScene = ({ width, height, camX = 0, zoom = 1, groundY }) => {
+    if (!state.ready || !ctx) {
+      return false;
+    }
+    const effectiveZoom = Math.max(Number.isFinite(zoom) ? zoom : 1, 0.05);
+    const viewWidth = Math.max(1, Number(width) || state.canvas?.width || 1);
+    const viewHeight = Math.max(1, Number(height) || state.canvas?.height || 1);
+    const dpr = window.devicePixelRatio || 1;
+    const pixelWidth = Math.round(viewWidth);
+    const pixelHeight = Math.round(viewHeight);
+    const targetWidth = Math.max(1, Math.round(pixelWidth));
+    const targetHeight = Math.max(1, Math.round(pixelHeight));
+    const deviceWidth = targetWidth * dpr;
+    const deviceHeight = targetHeight * dpr;
+    if (canvas.width !== deviceWidth || canvas.height !== deviceHeight) {
+      canvas.width = deviceWidth;
+      canvas.height = deviceHeight;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, viewWidth, viewHeight);
+    const groundLine = Number.isFinite(groundY) ? groundY : (viewHeight - state.groundOffset);
+
+    const sky = ctx.createLinearGradient(0, 0, 0, viewHeight);
+    sky.addColorStop(0, 'rgba(59,63,69,0.9)');
+    sky.addColorStop(0.5, 'rgba(80,89,96,0.5)');
+    sky.addColorStop(1, 'rgba(32,38,50,0.0)');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, viewWidth, viewHeight);
+
+    ctx.save();
+    ctx.translate(0, viewHeight * 0.46);
+    ctx.beginPath();
+    ctx.moveTo(0, 20);
+    const steps = 24;
+    const step = viewWidth / steps;
+    for (let i = 0; i <= steps; i++) {
+      const h = i % 2 === 0 ? -28 : -46;
+      ctx.lineTo(i * step, h);
+    }
+    ctx.lineTo(viewWidth, 20);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(22,51,33,0.9)';
+    ctx.fill();
+    ctx.restore();
+
+    const renderList = [];
+    for (const inst of state.instances) {
+      const lookup = state.layerLookup.get(inst.layerId);
+      if (!lookup) continue;
+      renderList.push({ inst, layer: lookup.layer, order: lookup.order });
+    }
+    renderList.sort((a, b) => a.order - b.order);
+
+    const retX = viewWidth / 2;
+
+    for (const { inst, layer } of renderList) {
+      if (!layer) continue;
+      if (isPlayerSpawnInstance(inst)) {
+        continue;
+      }
+      const prefab = inst.prefab;
+      const pos = inst.position || { x: 0, y: 0 };
+      const parallax = Number.isFinite(layer.parallaxSpeed) ? layer.parallaxSpeed : 1;
+      const layerScale = Number.isFinite(layer.scale) ? layer.scale : 1;
+      const instRotRad = degToRad(inst.rotationDeg || 0);
+      const baseOffset = (pos.x - camX * parallax) * effectiveZoom;
+      const rootScreenX = viewWidth / 2 + baseOffset;
+      const rootScreenY = groundLine + (layer.offsetY || 0) * effectiveZoom + pos.y * effectiveZoom;
+      const dxScreen = rootScreenX - retX;
+
+      if (!prefab || !prefab.parts || !prefab.parts.length) {
+        drawPlaceholder(inst, layerScale, effectiveZoom, rootScreenX, rootScreenY, instRotRad);
+        continue;
+      }
+
+      if (prefab.isImage) {
+        const part = prefab.parts[0];
+        const template = part?.propTemplate || {};
+        const img = loadPrefabImage(template.url);
+        const ready = img && img.complete && !img.__broken && img.naturalWidth > 0 && img.naturalHeight > 0;
+        const width = Number.isFinite(template.w) ? template.w : (img?.naturalWidth || 100);
+        const height = Number.isFinite(template.h) ? template.h : (img?.naturalHeight || 100);
+        const { ax, ay } = computePoseAnchor(template);
+        ctx.save();
+        ctx.translate(rootScreenX, rootScreenY);
+        ctx.scale(layerScale * effectiveZoom * (inst.scale?.x || 1), layerScale * effectiveZoom * (inst.scale?.y || inst.scale?.x || 1));
+        if (instRotRad) ctx.rotate(instRotRad);
+        if (ready) {
+          ctx.drawImage(img, -ax, -ay, width, height);
+        } else {
+          drawPrefabPlaceholder(ctx, -ax, -ay, width, height, {
+            label: inst.prefabId || prefab?.id || 'prefab',
+            tint: 'rgba(148, 163, 184, 0.18)',
+          });
+        }
+        ctx.restore();
+        continue;
+      }
+
+      const parts = [...prefab.parts].sort((a, b) => {
+        const layerDelta = sandboxPartOrder(a) - sandboxPartOrder(b);
+        if (layerDelta) return layerDelta;
+        const aZ = Number(a?.z) || 0;
+        const bZ = Number(b?.z) || 0;
+        return aZ - bZ;
+      });
+      const rootPart = parts.find((part) => part?.layer === 'near') || parts[0];
+      const rootTemplate = rootPart?.propTemplate || null;
+      if (!rootTemplate) {
+        drawPlaceholder(inst, layerScale, effectiveZoom, rootScreenX, rootScreenY, instRotRad);
+        continue;
+      }
+      const rootRelY = Number(rootPart?.relY) || 0;
+      const { t: sharedT } = computeTFromDx(rootTemplate.kf || {}, dxScreen);
+      const rootPose = evalKfPose(rootTemplate.kf || {}, sharedT);
+
+      for (const part of parts) {
+        const template = part?.propTemplate || null;
+        const relX = Number(part?.relX) || 0;
+        const relY = Number(part?.relY) || 0;
+        const partPose = evalKfPose(template?.kf || {}, sharedT);
+        const width = Number.isFinite(template?.w) ? template.w : 100;
+        const height = Number.isFinite(template?.h) ? template.h : 100;
+        const { ax, ay } = computePoseAnchor(template || {});
+        ctx.save();
+        ctx.translate(rootScreenX, rootScreenY - rootRelY * layerScale * effectiveZoom);
+        ctx.scale(layerScale * effectiveZoom * (inst.scale?.x || 1), layerScale * effectiveZoom * (inst.scale?.y || inst.scale?.x || 1));
+        if (instRotRad) ctx.rotate(instRotRad);
+        applyPoseToContext(ctx, rootPose);
+        ctx.translate(relX, -relY);
+        applyPoseToContext(ctx, partPose);
+        const img = template?.url ? loadPrefabImage(template.url) : null;
+        const ready = img && img.complete && !img.__broken && img.naturalWidth > 0 && img.naturalHeight > 0;
+        if (ready) {
+          ctx.drawImage(img, -ax, -ay, width, height);
+        } else {
+          drawPrefabPlaceholder(ctx, -ax, -ay, width, height, {
+            label: part?.name || inst.prefabId || prefab?.id || 'prefab',
+            tint: 'rgba(148, 163, 184, 0.18)',
+          });
+        }
+        ctx.restore();
+      }
+    }
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(250,204,21,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, groundLine + 0.5);
+    ctx.lineTo(viewWidth, groundLine + 0.5);
+    ctx.stroke();
+    ctx.restore();
+
+    return true;
+  };
+
+  const renderAndBlit = (targetCtx, options) => {
+    const rendered = renderScene(options || {});
+    if (!rendered || !targetCtx) {
+      return false;
+    }
+    targetCtx.save();
+    targetCtx.setTransform(1, 0, 0, 1, 0, 0);
+    targetCtx.drawImage(canvas, 0, 0, options.width, options.height);
+    targetCtx.restore();
+    return true;
+  };
+
+  return {
+    attachToRegistry,
+    setArea,
+    renderAndBlit,
+    isReady: () => state.ready,
+  };
+}
+
+const EDITOR_PREVIEW_SANDBOX = createEditorPreviewSandbox();
+
+function installPreviewSandboxRegistryBridge() {
+  const GAME = (window.GAME = window.GAME || {});
+
+  const attach = (registry) => {
+    try {
+      EDITOR_PREVIEW_SANDBOX.attachToRegistry(registry);
+    } catch (error) {
+      console.error('[preview-sandbox] Failed to attach to registry', error);
+    }
+  };
+
+  let registryValue = GAME.mapRegistry || null;
+  if (registryValue) {
+    attach(registryValue);
+  }
+
+  try {
+    Object.defineProperty(GAME, 'mapRegistry', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return registryValue;
+      },
+      set(value) {
+        registryValue = value;
+        if (value) {
+          attach(value);
+        }
+      },
+    });
+  } catch (_err) {
+    const existing = GAME.__onMapRegistryReadyForCamera;
+    GAME.__onMapRegistryReadyForCamera = (registry) => {
+      attach(registry);
+      if (typeof existing === 'function' && existing !== GAME.__onMapRegistryReadyForCamera) {
+        try {
+          existing(registry);
+        } catch (callbackError) {
+          console.warn('[preview-sandbox] Registry callback failed', callbackError);
+        }
+      }
+    };
+  }
+}
+
+installPreviewSandboxRegistryBridge();
+
 function drawEditorPreviewMap(cx, { camX, groundY }) {
   const area = resolveActiveParallaxArea();
   if (!area) return;
 
-  const layers = Array.isArray(area.layers) ? [...area.layers] : [];
-  if (!layers.length) return;
+  const rawLayers = Array.isArray(area.layers) ? area.layers : [];
+  if (!rawLayers.length) return;
 
   const instancesByLayer = new Map();
   if (Array.isArray(area.instances)) {
@@ -1836,16 +2447,22 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
     }
   }
 
-  layers.sort((a, b) => (a?.z ?? 0) - (b?.z ?? 0));
+  const orderedLayers = rawLayers
+    .map((layer, index) => ({ layer, index }))
+    .sort((a, b) => {
+      const aZ = Number.isFinite(a.layer?.z) ? a.layer.z : a.index;
+      const bZ = Number.isFinite(b.layer?.z) ? b.layer.z : b.index;
+      return aZ - bZ;
+    });
 
-  layers.forEach((layer) => {
+  orderedLayers.forEach(({ layer }) => {
     const layerId = layer?.id;
     if (!layerId) return;
     const instances = instancesByLayer.get(layerId);
     if (!instances?.length) return;
 
-    const parallax = Number.isFinite(layer?.parallax) ? layer.parallax : 1;
-    const yOffset = Number(layer?.yOffset) || 0;
+    const parallax = resolveLayerParallaxFactor(layer);
+    const yOffset = resolveLayerOffsetY(layer);
     cx.save();
     cx.translate((1 - parallax) * camX, yOffset);
     cx.globalAlpha = 1;
@@ -1858,25 +2475,12 @@ function drawEditorPreviewMap(cx, { camX, groundY }) {
   });
 }
 
-function drawStage(){
-  if (!cx) return;
-  const C = window.CONFIG || {};
-  const camera = window.GAME?.CAMERA || {};
-  const camX = camera.x || 0;
-  const worldW = camera.worldWidth || 1600;
-  const zoom = Number.isFinite(camera.zoom) ? camera.zoom : 1;
-  cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle = '#0b1220';
-  cx.fillRect(0,0,cv.width,cv.height);
-  // ground (with camera offset)
-  const gy = (C.canvas?.h||460) * (C.groundRatio||0.7);
-  cx.save();
-  cx.setTransform(zoom, 0, 0, zoom, -zoom * camX, cv.height * (1 - zoom));
-
-  drawEditorPreviewMap(cx, { camX, groundY: gy });
-
+function drawEditorPreviewOverlays(cx, { groundY, worldWidth, zoom = 1 }) {
   cx.strokeStyle = 'rgba(255,255,255,.15)';
-  cx.beginPath(); cx.moveTo(0, gy); cx.lineTo(worldW, gy); cx.stroke();
+  cx.beginPath();
+  cx.moveTo(0, groundY);
+  cx.lineTo(worldWidth, groundY);
+  cx.stroke();
 
   const preview = window.GAME?.editorPreview;
   const collider = preview?.groundCollider;
@@ -1885,7 +2489,7 @@ function drawStage(){
     const width = Number.isFinite(collider.width)
       ? collider.width
       : (Number.isFinite(collider.right) ? collider.right - left : null);
-    const top = Number.isFinite(collider.top) ? collider.top : gy;
+    const top = Number.isFinite(collider.top) ? collider.top : groundY;
     const height = Number.isFinite(collider.height)
       ? collider.height
       : Math.max(48, (preview?.groundOffset ?? 140) + 24);
@@ -1907,6 +2511,7 @@ function drawStage(){
       cx.restore();
     }
   }
+
   const previewColliders = Array.isArray(preview?.platformColliders)
     ? preview.platformColliders
     : [];
@@ -1920,7 +2525,7 @@ function drawStage(){
       const height = Number(col.height);
       if (!Number.isFinite(left) || !Number.isFinite(width) || width <= 0) continue;
       if (!Number.isFinite(height) || height <= 0) continue;
-      const top = gy + (Number.isFinite(topOffset) ? topOffset : 0);
+      const top = groundY + (Number.isFinite(topOffset) ? topOffset : 0);
       const fill = 'rgba(96, 165, 250, 0.18)';
       const stroke = 'rgba(96, 165, 250, 0.55)';
       cx.fillStyle = fill;
@@ -1939,6 +2544,36 @@ function drawStage(){
     }
     cx.restore();
   }
+}
+
+function drawStage(){
+  if (!cx) return;
+  const C = window.CONFIG || {};
+  const camera = window.GAME?.CAMERA || {};
+  const camX = camera.x || 0;
+  const worldW = camera.worldWidth || 1600;
+  const zoom = Number.isFinite(camera.zoom) ? camera.zoom : 1;
+  cx.clearRect(0,0,cv.width,cv.height);
+  cx.fillStyle = '#0b1220';
+  cx.fillRect(0,0,cv.width,cv.height);
+  // ground (with camera offset)
+  const gy = (C.canvas?.h||460) * (C.groundRatio||0.7);
+  const previewRendered = EDITOR_PREVIEW_SANDBOX.renderAndBlit(cx, {
+    width: cv.width,
+    height: cv.height,
+    camX,
+    zoom,
+    groundY: gy,
+  });
+
+  cx.save();
+  cx.setTransform(zoom, 0, 0, zoom, -zoom * camX, cv.height * (1 - zoom));
+
+  if (!previewRendered) {
+    drawEditorPreviewMap(cx, { camX, groundY: gy });
+  }
+
+  drawEditorPreviewOverlays(cx, { groundY: gy, worldWidth: worldW, zoom });
   cx.restore();
 
   cx.fillStyle = '#93c5fd';
