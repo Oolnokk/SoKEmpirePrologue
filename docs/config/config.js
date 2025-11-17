@@ -402,10 +402,10 @@ window.CONFIG = {
       scale: 1,
       scaleWithActor: true,
       buttons: {
-        jump: { left: 15, top: 45, rotateDeg: 0 },
-        attackA: { left: 30, top: 50, rotateDeg: 0 },
-        attackB: { left: 35, top: 55, rotateDeg: 0 },
-        attackC: { left: 30, top: 60, rotateDeg: 0 },
+        jump: { left: 65, top: 45, rotateDeg: 0 },
+        attackA: { left: 70, top: 50, rotateDeg: 0 },
+        attackB: { left: 85, top: 65, rotateDeg: 0 },
+        attackC: { left: 90, top: 70, rotateDeg: 0 },
       }
     },
     enemyIndicators: {
