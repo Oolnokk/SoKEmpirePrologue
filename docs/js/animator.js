@@ -1201,11 +1201,12 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     jointPercentValues[boneId] = nextJoint;
   });
 
-  const preIkDisplayPose = samplePoseForWeaponDisplay(F, target, dt);
-  const preIkBasis = computePoseBasis(F, preIkDisplayPose, C, fcfg);
-  const initialBuild = buildWeaponBones({
+  // Remove all IK calculations for weapons. Use pose-based animation only.
+  const displayPose = samplePoseForWeaponDisplay(F, target, dt);
+  const poseBasis = computePoseBasis(F, displayPose, C, fcfg);
+  const build = buildWeaponBones({
     rig,
-    basisInfo: preIkBasis,
+    basisInfo: poseBasis,
     target,
     baseAngleOffset,
     gripPercents,
@@ -1215,81 +1216,13 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     wristTransforms,
     lengthOverrides: F.anim?.length?.overrides
   });
-  const gripLookup = initialBuild.gripLookup;
-  const attachments = F.anim.weapon.attachments || {};
-  const validAttachments = {};
-
-  const limits = fcfg?.limits || C.limits || {};
-  const shoulderLimits = limits.shoulder || {};
-  const elbowLimits = limits.elbow || {};
-  for (const [limb, attachment] of Object.entries(attachments)) {
-    if (!attachment || !attachment.gripId) continue;
-    const boneId = attachment.boneId || null;
-    const keyCandidates = boneId
-      ? [`${boneId}:${attachment.gripId}`]
-      : Object.keys(gripLookup).filter((key) => key.endsWith(`:${attachment.gripId}`));
-    let gripEntry = null;
-    let resolvedBoneId = boneId || null;
-    for (const key of keyCandidates) {
-      if (gripLookup[key]) {
-        gripEntry = gripLookup[key];
-        resolvedBoneId = gripEntry.boneId || key.split(':')[0];
-        break;
-      }
-    }
-    if (!gripEntry) continue;
-
-    const isLeft = limb === 'left';
-    const baseArr = isLeft ? preIkBasis.lShoulderBase : preIkBasis.rShoulderBase;
-    if (!baseArr) continue;
-    const upperLen = isLeft
-      ? (preIkBasis.L.armULeft ?? preIkBasis.L.armU)
-      : (preIkBasis.L.armURight ?? preIkBasis.L.armU);
-    const lowerLen = isLeft
-      ? (preIkBasis.L.armLowerLeft ?? preIkBasis.L.armL)
-      : (preIkBasis.L.armLowerRight ?? preIkBasis.L.armL);
-    const result = solveArmIKChain(
-      baseArr,
-      [gripEntry.x, gripEntry.y],
-      upperLen,
-      lowerLen,
-      isLeft ? 1 : -1,
-      preIkBasis.torsoAng,
-      shoulderLimits,
-      elbowLimits
-    );
-    if (isLeft) {
-      target.lShoulder = result.shoulderAng;
-      target.lElbow = result.elbowAng;
-    } else {
-      target.rShoulder = result.shoulderAng;
-      target.rElbow = result.elbowAng;
-    }
-    validAttachments[limb] = { gripId: attachment.gripId, boneId: resolvedBoneId };
-  }
-
-  const postIkDisplayPose = samplePoseForWeaponDisplay(F, target, dt);
-  const postIkBasis = computePoseBasis(F, postIkDisplayPose, C, fcfg);
-  const finalBuild = buildWeaponBones({
-    rig,
-    basisInfo: postIkBasis,
-    target,
-    baseAngleOffset,
-    gripPercents,
-    gripDefaults,
-    jointPercents: jointPercentValues,
-    jointDefaults,
-    wristTransforms,
-    lengthOverrides: F.anim?.length?.overrides
-  });
-
-  F.anim.weapon.attachments = validAttachments;
+  F.anim.weapon.attachments = {};
   F.anim.weapon.state = {
     weaponKey,
-    bones: finalBuild.bones,
+    bones: build.bones,
     gripPercents: { ...gripPercents },
     jointPercents: { ...jointPercents },
-    attachments: validAttachments
+    attachments: {}
   };
 }
 
@@ -1907,13 +1840,13 @@ export function updatePoses(){
     const ragAngles = getPhysicsRagdollAngles(F);
     const lambda = 10;
     for (const k of ANG_KEYS) {
-      const cur = F.jointAngles[k] ?? 0;
-      const animTarget = target[k] ?? cur;
+      const cur = Number.isFinite(F.jointAngles[k]) ? F.jointAngles[k] : 0;
+      const animTarget = Number.isFinite(target[k]) ? target[k] : cur;
       let blended = animTarget;
       if (ragBlend > 0 && ragAngles && Number.isFinite(ragAngles[k])) {
         blended = animTarget + (ragAngles[k] - animTarget) * ragBlend;
       }
-      F.jointAngles[k] = damp(cur, blended, lambda, F.anim.dt);
+      F.jointAngles[k] = Number.isFinite(damp(cur, blended, lambda, F.anim.dt)) ? damp(cur, blended, lambda, F.anim.dt) : 0;
     }
     updateBreathing(F, id, breathingSpec);
   }
