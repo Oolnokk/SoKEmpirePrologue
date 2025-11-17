@@ -1,22 +1,29 @@
 {
-  "slot": "overwear",
+  "slots": ["overwear", "torso"],
   "hsv": {
     "defaults": { "h": 0, "s": 0, "v": 0 },
-    "limits": { "h": [-90, 90], "s": [-0.5, 0.5], "v": [-0.35, 0.35] }
+    "limits": { "h": [-45, 45], "s": [-0.4, 0.4], "v": [-0.3, 0.5] }
   },
   "parts": {
     "torso": {
       "layers": {
         "back": {
           "image": {
-            "url": "./assets/cosmetics/clothes/overwear/simple_poncho-back.png"
+            "url": "./assets/cosmetics/clothes/overwear/simple_poncho-front.png"
           },
           "spriteStyle": {
             "base": {
               "xform": {
-                "torso": { "ax": 0.1, "ay": -0.15, "scaleX": 3, "scaleY": 3 }
+                "torso": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
+          },
+          "extra": {
+            "boneInfluences": [
+              { "bone": "torso", "radiusScale": 1.1, "innerWeight": 1, "outerWeight": 0.25 },
+              { "bone": "arm_L_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 },
+              { "bone": "arm_R_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 }
+            ]
           }
         },
         "front": {
@@ -26,9 +33,60 @@
           "spriteStyle": {
             "base": {
               "xform": {
-                "torso": { "ax": 0.1, "ay": -0.15, "scaleX": 3, "scaleY": 3 }
+                "torso": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
+          },
+          "extra": {
+            "boneInfluences": [
+              { "bone": "torso", "radiusScale": 1.1, "innerWeight": 1, "outerWeight": 0.25 },
+              { "bone": "arm_L_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 },
+              { "bone": "arm_R_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 }
+            ]
+          }
+        }
+      }
+    },
+    "arm_L_upper": {
+      "layers": {
+        "front": {
+          "image": {
+            "url": "./assets/cosmetics/clothes/overwear/simple_poncho-front.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "armUpper": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
+              }
+            }
+          },
+          "extra": {
+            "boneInfluences": [
+              { "bone": "arm_L_upper", "radiusScale": 0.6, "innerWeight": 1, "outerWeight": 0.45 },
+              { "bone": "torso", "radiusScale": 0.8, "innerWeight": 0.7, "outerWeight": 0.25 }
+            ]
+          }
+        }
+      }
+    },
+    "arm_R_upper": {
+      "layers": {
+        "front": {
+          "image": {
+            "url": "./assets/cosmetics/clothes/overwear/simple_poncho-front.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "armUpper": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
+              }
+            }
+          },
+          "extra": {
+            "boneInfluences": [
+              { "bone": "arm_R_upper", "radiusScale": 0.6, "innerWeight": 1, "outerWeight": 0.45 },
+              { "bone": "torso", "radiusScale": 0.8, "innerWeight": 0.7, "outerWeight": 0.25 }
+            ]
           }
         }
       }
