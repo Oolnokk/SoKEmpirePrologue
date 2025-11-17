@@ -168,9 +168,18 @@ export function computeAnchorsForFighter(F, C, fallbackFighterName) {
   let rLowerAng = rUpperAng + rElbowRel;
 
   const lElbowPosArr = withAX(...segPos(lShoulderBaseArr[0], lShoulderBaseArr[1], armUpperLeftLen, lUpperAng), lUpperAng, OFF.arm?.upper?.elbow);
-  const rElbowPosArr = withAX(...segPos(rShoulderBaseArr[0], rShoulderBaseArr[1], armUpperRightLen, rUpperAng), rUpperAng, OFF.arm?.upper?.elbow);
-  const lWristPosArr = withAX(...segPos(lElbowPosArr[0], lElbowPosArr[1], armLowerLeftLen, lLowerAng), lLowerAng, OFF.arm?.lower?.origin);
-  const rWristPosArr = withAX(...segPos(rElbowPosArr[0], rElbowPosArr[1], armLowerRightLen, rLowerAng), rLowerAng, OFF.arm?.lower?.origin);
+  const rElbowPosArrRaw = segPos(rShoulderBaseArr[0], rShoulderBaseArr[1], armUpperRightLen, rUpperAng);
+  const rElbowPosArr = (Number.isFinite(rElbowPosArrRaw[0]) && Number.isFinite(rElbowPosArrRaw[1]))
+    ? withAX(rElbowPosArrRaw[0], rElbowPosArrRaw[1], rUpperAng, OFF.arm?.upper?.elbow)
+    : [rShoulderBaseArr[0], rShoulderBaseArr[1]];
+  const lWristPosArrRaw = segPos(lElbowPosArr[0], lElbowPosArr[1], armLowerLeftLen, lLowerAng);
+  const lWristPosArr = (Number.isFinite(lWristPosArrRaw[0]) && Number.isFinite(lWristPosArrRaw[1]))
+    ? withAX(lWristPosArrRaw[0], lWristPosArrRaw[1], lLowerAng, OFF.arm?.lower?.origin)
+    : [lElbowPosArr[0], lElbowPosArr[1]];
+  const rWristPosArrRaw = segPos(rElbowPosArr[0], rElbowPosArr[1], armLowerRightLen, rLowerAng);
+  const rWristPosArr = (Number.isFinite(rWristPosArrRaw[0]) && Number.isFinite(rWristPosArrRaw[1]))
+    ? withAX(rWristPosArrRaw[0], rWristPosArrRaw[1], rLowerAng, OFF.arm?.lower?.origin)
+    : [rElbowPosArr[0], rElbowPosArr[1]];
 
   const legsFollow = !!C.hierarchy?.legsFollowTorsoRotation;
   let lHipAng = (F.jointAngles?.lHip ?? 0) + (legsFollow ? torsoAngRaw : 0);
@@ -205,8 +214,12 @@ export function computeAnchorsForFighter(F, C, fallbackFighterName) {
 
     arm_L_upper:{x:lShoulderBaseArr[0],y:lShoulderBaseArr[1],len:armUpperLeftLen,ang:lUpperAng,endX:lElbowPosArr[0],endY:lElbowPosArr[1]},
     arm_L_lower:{x:lElbowPosArr[0],y:lElbowPosArr[1],len:armLowerLeftLen,ang:lLowerAng,endX:lWristPosArr[0],endY:lWristPosArr[1]},
-    arm_R_upper:{x:rShoulderBaseArr[0],y:rShoulderBaseArr[1],len:armUpperRightLen,ang:rUpperAng,endX:rElbowPosArr[0],endY:rElbowPosArr[1]},
-    arm_R_lower:{x:rElbowPosArr[0],y:rElbowPosArr[1],len:armLowerRightLen,ang:rLowerAng,endX:rWristPosArr[0],endY:rWristPosArr[1]},
+    arm_R_upper:{x:rShoulderBaseArr[0],y:rShoulderBaseArr[1],len:armUpperRightLen,ang:rUpperAng,
+      endX:Number.isFinite(rElbowPosArr[0])?rElbowPosArr[0]:rShoulderBaseArr[0],
+      endY:Number.isFinite(rElbowPosArr[1])?rElbowPosArr[1]:rShoulderBaseArr[1]},
+    arm_R_lower:{x:rElbowPosArr[0],y:rElbowPosArr[1],len:armLowerRightLen,ang:rLowerAng,
+      endX:Number.isFinite(rWristPosArr[0])?rWristPosArr[0]:rElbowPosArr[0],
+      endY:Number.isFinite(rWristPosArr[1])?rWristPosArr[1]:rElbowPosArr[1]},
 
     leg_L_upper:{x:hipBaseArr[0],y:hipBaseArr[1],len:legUpperLeftLen,ang:lHipAng,endX:lKneePosArr[0],endY:lKneePosArr[1]},
     leg_L_lower:{x:lKneePosArr[0],y:lKneePosArr[1],len:legLowerLeftLen,ang:lKneeAng,endX:lAnklePosArr[0],endY:lAnklePosArr[1]},
@@ -216,12 +229,13 @@ export function computeAnchorsForFighter(F, C, fallbackFighterName) {
 
   const weaponKey = profile.weapon
     || profile.character?.weapon
-    || (typeof F.weapon === 'string' ? F.weapon : null);
+    || (typeof F.weapon === 'string' ? F.weapon : 'unarmed');
   const weaponDef = weaponKey && C.weapons ? C.weapons[weaponKey] : null;
   const weaponState = F.anim?.weapon?.state;
+  // Always add a static weapon bone, even when unarmed or weaponState is missing
   if (weaponState && weaponState.weaponKey === weaponKey && Array.isArray(weaponState.bones)) {
     weaponState.bones.forEach((bone, index) => {
-      if (!bone) return;
+      if (!bone || isNaN(bone?.start?.x) || isNaN(bone?.start?.y)) return;
       const boneKey = bone.id || `weapon_${index}`;
       const collidesWithBaseRig = boneKey && !String(boneKey).startsWith('weapon_') && Object.prototype.hasOwnProperty.call(B, boneKey);
       const safeKey = collidesWithBaseRig ? `weapon_${boneKey}` : boneKey;
@@ -235,6 +249,21 @@ export function computeAnchorsForFighter(F, C, fallbackFighterName) {
         endX: end.x,
         endY: end.y,
         weapon: weaponKey,
+        sourceId: bone.id || null
+      };
+    });
+  } else if (weaponDef && weaponDef.rig && Array.isArray(weaponDef.rig.bones)) {
+    // Fallback: add static weapon bone for unarmed
+    weaponDef.rig.bones.forEach((bone, index) => {
+      const boneKey = bone.id || `weapon_${index}`;
+      B[boneKey] = {
+        x: rWristPosArr[0],
+        y: rWristPosArr[1],
+        len: 0,
+        ang: rLowerAng,
+        endX: rWristPosArr[0],
+        endY: rWristPosArr[1],
+        weapon: 'unarmed',
         sourceId: bone.id || null
       };
     });

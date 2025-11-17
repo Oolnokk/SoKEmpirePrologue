@@ -1168,9 +1168,9 @@ export function renderSprites(ctx){
         if (!layerSpec || typeof layerSpec !== 'object') return;
         const anchorKey = layerSpec.anchorBone || layerSpec.bone || `weapon_${layerIndex}`;
         const bone = rig[anchorKey];
-        if (!bone) return;
         const asset = ensureWeaponSpriteAsset(activeWeaponKey || anchorKey, layerSpec);
-        if (!asset) return;
+        // Only draw weapon sprite if asset is present and bone length > 0
+        if (!bone || !asset || bone.len === 0) return;
         const layerTag = String(layerSpec.layerTag || 'WEAPON').toUpperCase();
         const styleKey = layerSpec.styleKey || anchorKey;
         const weaponStyle = layerSpec.style ? mergeSpriteStyles(style, layerSpec.style) : style;

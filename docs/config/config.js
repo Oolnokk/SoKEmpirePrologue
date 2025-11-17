@@ -934,7 +934,32 @@ window.CONFIG = {
   // === NEW: weapon definitions (bones + selective colliders) ===
   // Used by drawSkeleton() and getActiveColliders()/drawAttackColliders()
   weapons: {
-    unarmed: { rig: null, colliders: {} },
+    unarmed: {
+      rig: {
+        base: { anchor: 'rightWrist' },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 0, // zero length for unarmed
+            angleOffsetDeg: 0,
+            joint: { percent: 0.5 },
+            haft: { start: 0.0, end: 0.0 },
+            grips: [
+              { id: 'primary', percent: 0.5, limb: 'right', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: []
+          }
+        ]
+      },
+      colliders: {},
+      sprite: {
+        url: '',
+        anchorBone: 'weapon_0',
+        anchorMode: 'start',
+        alignDeg: 0,
+        styleOverride: {}
+      }
+    },
 
     'dagger-swords': {
       rig: {

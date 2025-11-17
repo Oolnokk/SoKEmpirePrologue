@@ -203,53 +203,15 @@ export function makeCombat(G, C, options = {}){
   };
 
   const collectWeaponColliderKeys = (fighter, options = {}) => {
+    // Remove all IK-based weapon collider usage.
+    // Instead, fallback to limb colliders if weapon data is missing/invalid.
     const state = fighter?.anim?.weapon?.state;
-    if (!state?.bones) return [];
-    const tagSet = new Set();
-    const addTag = (value) => {
-      if (value == null) return;
-      const str = String(value).trim();
-      if (str) tagSet.add(str.toUpperCase());
-    };
-    const defaultActivationTag = typeof options.defaultActivationTag === 'string'
-      ? options.defaultActivationTag.trim().toUpperCase()
-      : 'STRIKE';
-    if (defaultActivationTag) addTag(defaultActivationTag);
-    if (options.preset) addTag(options.preset);
-    const allowedTags = options.allowedTags;
-    if (allowedTags instanceof Set) {
-      allowedTags.forEach(addTag);
-    } else if (Array.isArray(allowedTags)) {
-      allowedTags.forEach(addTag);
-    } else if (allowedTags && typeof allowedTags === 'object') {
-      Object.values(allowedTags).forEach(addTag);
+    if (!state?.bones || !Array.isArray(state.bones) || state.bones.some(bone => isNaN(bone?.x) || isNaN(bone?.y))) {
+      // Weapon bone data missing or invalid, fallback to limb colliders
+      return inferActiveCollidersForPreset(options.preset || 'Strike');
     }
-    const keys = [];
-    const seenKeys = new Set();
-    for (const bone of state.bones) {
-      for (const collider of bone?.colliders || []) {
-        if (!collider || !collider.id) continue;
-        const id = String(collider.id).trim();
-        if (!id) continue;
-        const activations = Array.isArray(collider.activatesOn) ? collider.activatesOn : [];
-        const normalizedActivations = activations
-          .map((tag) => (typeof tag === 'string' ? tag.trim().toUpperCase() : ''))
-          .filter(Boolean);
-        if (normalizedActivations.length) {
-          const matches = normalizedActivations.some((tag) => tagSet.has(tag));
-          if (!matches) {
-            if (!defaultActivationTag || !tagSet.has(defaultActivationTag)) {
-              continue;
-            }
-          }
-        }
-        const key = `weapon:${id}`;
-        if (seenKeys.has(key)) continue;
-        seenKeys.add(key);
-        keys.push(key);
-      }
-    }
-    return keys;
+    // If weapon bone exists and is valid, but we no longer use weapon colliders, fallback to limb colliders
+    return inferActiveCollidersForPreset(options.preset || 'Strike');
   };
 
   function cancelQueuedLayerOverrides(){
@@ -844,6 +806,7 @@ export function makeCombat(G, C, options = {}){
       const attackDef = getAttackDef(step.attack) || { id: step.attack, preset: step.preset || step.move };
       const profile = computeAttackProfile(context.ability, attackDef, step.variant, context.fighter);
       if (profile?.colliders?.length){
+        // Only use limb colliders, not weapon colliders
         context.activeColliderKeys = profile.colliders.slice();
         updateFighterAttackState('Strike', { active: true, context });
       }
