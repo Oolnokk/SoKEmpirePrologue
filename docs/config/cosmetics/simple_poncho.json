@@ -18,14 +18,7 @@
               }
             }
           },
-          "extra": {
-            "boneInfluences": [
-              { "bone": "torso", "radiusScale": 1.1, "innerWeight": 1, "outerWeight": 0.25 },
-              { "bone": "arm_L_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 },
-              { "bone": "arm_R_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 }
-            ]
-          }
-        },
+          
         "front": {
           "image": {
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho-front.png"
@@ -37,16 +30,7 @@
               }
             }
           },
-          "extra": {
-            "boneInfluences": [
-              { "bone": "torso", "radiusScale": 1.1, "innerWeight": 1, "outerWeight": 0.25 },
-              { "bone": "arm_L_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 },
-              { "bone": "arm_R_upper", "radiusScale": 0.65, "innerWeight": 0.85, "outerWeight": 0.35 }
-            ]
-          }
-        }
-      }
-    },
+          
     "arm_L_upper": {
       "layers": {
         "front": {
@@ -60,15 +44,7 @@
               }
             }
           },
-          "extra": {
-            "boneInfluences": [
-              { "bone": "arm_L_upper", "radiusScale": 0.6, "innerWeight": 1, "outerWeight": 0.45 },
-              { "bone": "torso", "radiusScale": 0.8, "innerWeight": 0.7, "outerWeight": 0.25 }
-            ]
-          }
-        }
-      }
-    },
+         
     "arm_R_upper": {
       "layers": {
         "front": {
@@ -81,12 +57,6 @@
                 "armUpper": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
-          },
-          "extra": {
-            "boneInfluences": [
-              { "bone": "arm_R_upper", "radiusScale": 0.6, "innerWeight": 1, "outerWeight": 0.45 },
-              { "bone": "torso", "radiusScale": 0.8, "innerWeight": 0.7, "outerWeight": 0.25 }
-            ]
           }
         }
       }
