@@ -767,4 +767,80 @@ function startTransition(targetPose, label, durMs, callback, segmentDurMs){
   queuePoseLayerOverrides(targetPose, label, durMs, stageToken, segmentDurMs); // PATCH: segmentDurMs passed through
 }
 
-// ...(rest of combat.js remains unchanged)...
+ function updateMovement(dt){
+    const p = P();
+    if (!p) return;
+
+    ensureFighterPhysics(p, C);
+    const input = resolveInput();
+    if (input && !p.input) {
+      p.input = input;
+    }
+
+    const effectiveInput = p.isDead ? null : input;
+    const attackBlocksMovement = !p.isDead && ATTACK.active && ATTACK.context?.type !== 'defensive';
+    updateFighterPhysics(p, C, dt, {
+      input: effectiveInput,
+      attackActive: attackBlocksMovement,
+    });
+    updateFighterFootsteps(p, C, dt);
+  }
+
+  function isFighterAttacking(){
+    return !!ATTACK.active;
+  }
+
+  function isFighterCharging(){
+    return !!CHARGE.active;
+  }
+
+  function isFighterBusy(){
+    return ATTACK.active || CHARGE.active;
+  }
+
+  function getComboState(){
+    return {
+      hits: COMBO.hits,
+      sequenceIndex: COMBO.sequenceIndex,
+      active: COMBO.timer > 0,
+      timerMs: COMBO.timer,
+      lastAbilityId: COMBO.lastAbilityId,
+    };
+  }
+
+  function tick(dt){
+    const fighter = P();
+    if (!fighter) return;
+    const isDead = !!fighter.isDead;
+    if (autoProcessInput && !isDead) handleButtons();
+    if (!isDead) {
+      updateCharge(dt);
+      updateDefensive(dt);
+      updateTransitions(dt);
+      updateAttackTimeline(dt);
+      updateCombo(dt);
+      updateResources(dt);
+      updateMovement(dt);
+      processQueue();
+    } else {
+      updateMovement(dt);
+    }
+  }
+
+  return {
+    tick,
+    slotDown,
+    slotUp,
+    updateSlotAssignments,
+    getAbilityForSlot,
+    getComboState,
+    isPlayerAttacking: isFighterAttacking,
+    isPlayerCharging: isFighterCharging,
+    isPlayerBusy: isFighterBusy,
+    isFighterAttacking,
+    isFighterCharging,
+    isFighterBusy
+  };
+}
+// END makeCombat
+
