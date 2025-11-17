@@ -11,7 +11,7 @@
       "z": 0,
       "propTemplate": {
         "id": "test_image_yellow",
-        "url": "./assets/prefabs/structures/tests/test_image_yellow.png",
+        "url": "./assets/prefabs/images/test_image_yellow.png",
         "w": 128,
         "h": 128,
         "pivot": "bottom",
