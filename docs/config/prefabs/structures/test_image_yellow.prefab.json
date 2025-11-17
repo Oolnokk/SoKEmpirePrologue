@@ -1,0 +1,25 @@
+{
+  "structureId": "Test Image Yellow",
+  "id": "test_image_yellow",
+  "base": {},
+  "parts": [
+    {
+      "name": "yellow_tile",
+      "layer": "near",
+      "relX": 0,
+      "relY": 0,
+      "z": 0,
+      "propTemplate": {
+        "id": "test_image_yellow",
+        "url": "./assets/prefabs/structures/tests/test_image_yellow.png",
+        "w": 128,
+        "h": 128,
+        "pivot": "bottom",
+        "anchorXPct": 50,
+        "anchorYPct": 100,
+        "parallaxX": 1,
+        "parallaxClampPx": 0
+      }
+    }
+  ]
+}
