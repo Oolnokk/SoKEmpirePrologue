@@ -3,6 +3,11 @@
   "label": "Structures",
   "entries": [
     {
+      "id": "test_image_yellow",
+      "label": "Test Image (Yellow)",
+      "path": "./test_image_yellow.prefab.json"
+    },
+    {
       "id": "tower_commercial",
       "label": "Commercial Tower",
       "path": "./tower_commercial.prefab.json"
