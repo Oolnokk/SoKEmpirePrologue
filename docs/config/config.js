@@ -747,7 +747,7 @@ window.CONFIG = {
               rShoulder: PUNCH_MOVE_POSES.Strike.rShoulder,
               rElbow: PUNCH_MOVE_POSES.Strike.rElbow
             },
-            mask: ['rShoulder', 'rElbow'],
+            mask: [],
             durMs: 110,
             delayMs: 0,
             priority: 140
@@ -778,7 +778,7 @@ window.CONFIG = {
               lShoulder: PUNCH_MOVE_POSES.Strike.lShoulder,
               lElbow: PUNCH_MOVE_POSES.Strike.lElbow
             },
-            mask: ['lShoulder', 'lElbow'],
+            mask: [],
             durMs: 220,
             delayMs: 0,
             priority: 150
