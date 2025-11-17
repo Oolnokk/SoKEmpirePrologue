@@ -303,6 +303,25 @@ function ensureParallaxContainer() {
   return parallax;
 }
 
+/** Main sync function: keeps all relevant systems aligned on Y */
+function syncGroundYAcrossGame() {
+  const groundY = window.CONFIG?.groundY;
+  if (!Number.isFinite(groundY)) return;
+
+  // Clamp all fighters (excluding ragdolls)
+  Object.values(window.GAME?.FIGHTERS || {}).forEach(f => {
+    if (!f) return;
+    if (!f.ragdoll) f.pos.y = groundY;
+  });
+
+  // Sync camera Y
+  if (window.GAME?.CAMERA) window.GAME.CAMERA.y = groundY;
+
+  // Optionally: move parallax layers, HUD overlays, etc (if they use groundY for vertical placement)
+  // Example: if (window.PARALLAX) window.PARALLAX.groundY = groundY; 
+}
+
+/** Existing ground Y computation logic... */
 function syncConfigGround(area) {
   const CONFIG = (window.CONFIG = window.CONFIG || {});
   const canvasConfig = CONFIG.canvas || {};
@@ -326,6 +345,7 @@ function syncConfigGround(area) {
       CONFIG.groundRatio = ratio;
     }
     CONFIG.groundY = Math.round(canvasHeight * appliedRatio);
+    syncGroundYAcrossGame();   // << NEW: Sync globally whenever groundY changes
   }
 
   CONFIG.ground = {
