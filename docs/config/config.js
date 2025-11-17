@@ -748,7 +748,7 @@ window.CONFIG = {
               rElbow: PUNCH_MOVE_POSES.Strike.rElbow
             },
             mask: ['rShoulder', 'rElbow'],
-            durMs: 200,
+            durMs: 110,
             delayMs: 0,
             priority: 140
           }
