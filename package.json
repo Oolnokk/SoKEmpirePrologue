@@ -5,7 +5,10 @@
   "type": "module",
   "description": "Toolkit and docs for the SoK Empire prologue demo.",
   "scripts": {
-    "test": "node --test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "npm run lint && npm run test:unit",
+    "test:unit": "node --test",
     "build:map-bootstrap": "node tools/copy-map-layout.mjs"
   },
   "keywords": [
@@ -13,5 +16,10 @@
     "empire",
     "prologue"
   ],
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@eslint/js": "^9.38.0",
+    "eslint": "^9.38.0",
+    "globals": "^14.0.0"
+  }
 }

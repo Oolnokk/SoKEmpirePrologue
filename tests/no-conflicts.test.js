@@ -53,7 +53,7 @@ test('no git conflict markers linger in critical published assets', async () => 
   for (const entry of criticalEntryPoints) {
     try {
       await access(entry);
-    } catch (err) {
+    } catch {
       throw new Error(`Critical entry point missing: ${entry}`);
     }
     files.add(entry);
