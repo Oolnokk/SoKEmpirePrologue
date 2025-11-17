@@ -34,8 +34,8 @@ describe('Sarrarru weapon integration', () => {
       'render.js should resolve weapon definitions when building bones'
     );
     assert.ok(
-      /weapon_\d+/.test(renderSrc),
-      'render.js should emit weapon_\d bones for debugging overlays'
+      /weapon_[0-9]+/.test(renderSrc),
+      'render.js should emit weapon_[0-9] bones for debugging overlays'
     );
   });
 

@@ -804,7 +804,7 @@ function safeClone(value) {
   if (!value || typeof value !== 'object') return value ?? null;
   try {
     return structuredClone(value);
-  } catch (error) {
+  } catch {
     return JSON.parse(JSON.stringify(value));
   }
 }

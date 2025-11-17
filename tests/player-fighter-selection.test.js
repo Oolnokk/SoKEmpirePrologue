@@ -28,7 +28,7 @@ describe('player fighter selection pipeline', () => {
       'resolveFighterName should check for the player id when applying the selected fighter override'
     );
     assert.ok(
-      /selectedFighter\s*&&[\s\S]*C\.fighters\?\.[\[]selectedFighter[\]]/u.test(snippet),
+      /selectedFighter\s*&&[\s\S]*C\.fighters\?\.\[selectedFighter\]/u.test(snippet),
       'resolveFighterName should ensure the selected fighter exists before using it'
     );
   });

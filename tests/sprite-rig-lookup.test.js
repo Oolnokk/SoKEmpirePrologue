@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { strictEqual, notStrictEqual } from 'assert';
+import { strictEqual } from 'assert';
 
 // Read file once at module level for better performance
 const spritesContent = readFileSync('docs/js/sprites.js', 'utf8');
