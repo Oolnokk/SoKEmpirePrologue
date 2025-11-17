@@ -17,8 +17,8 @@
                 "torso": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
-          },
-          
+          }
+        },
         "front": {
           "image": {
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho-front.png"
@@ -29,8 +29,10 @@
                 "torso": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
-          },
-          
+          }
+        }
+      }
+    },
     "arm_L_upper": {
       "layers": {
         "front": {
@@ -43,8 +45,10 @@
                 "armUpper": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
-          },
-         
+          }
+        }
+      }
+    },
     "arm_R_upper": {
       "layers": {
         "front": {
@@ -57,7 +61,7 @@
                 "armUpper": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1 }
               }
             }
-          },
+          }
         }
       }
     }
