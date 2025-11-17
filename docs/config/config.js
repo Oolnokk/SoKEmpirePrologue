@@ -1257,7 +1257,7 @@ window.CONFIG = {
       cosmetics: {
         slots: {
           hat: { id: 'citywatch_helmet', hsv: { h: -12, s: 0.05, v: 0.08 } },
-          overwear: { id: 'layered_travel_cloak', hsv: { h: -18, s: -0.12, v: 0.04 } },
+          overwear: { id: 'simple_poncho', hsv: { h: -110, s: 0.8, v: -0.1 } },
           legs: { id: 'basic_pants', hsv: { h: -110, s: 0.8, v: -0.1 } }
         }
       }
@@ -1359,8 +1359,8 @@ window.CONFIG = {
             overwear: {
               $kind: 'pool',
               items: [
-                { value: { id: 'layered_travel_cloak', hsv: { h: -18, s: -0.12, v: 0.04 } }, weight: 2 },
-                { value: { id: 'layered_travel_cloak', hsv: { h: -6, s: -0.05, v: 0.12 } }, weight: 1 }
+                { value: { id: 'simple_poncho', hsv: {  h: -110, s: 0.8, v: -0.1  } }, weight: 2 },
+                { value: { id: 'simple_poncho', hsv: {  h: -110, s: 0.8, v: -0.1  } }, weight: 1 }
               ]
             }
           }
