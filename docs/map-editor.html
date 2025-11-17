@@ -1977,39 +1977,22 @@ function updateSelectedInstanceFromFields(){
 
   const stretchEnabled = $('#instStretchEnabled').checked;
   const stretchTarget = ($('#instStretchLayer').value || '').trim();
-  const stretchHeightRaw = parseFloat($('#instStretchHeight').value);
-  const stretchTopOffsetRaw = parseFloat($('#instStretchTopOffset').value);
-  const stretchSlicesRaw = parseInt($('#instStretchSlices').value, 10);
+  const stretchHeight = parseFloat($('#instStretchHeight').value);
+  const stretchTopOffset = parseFloat($('#instStretchTopOffset').value);
+  const stretchSlices = parseInt($('#instStretchSlices').value, 10);
 
   const currentStretch = getStretchQuadMeta(inst);
   const nextStretch = (() => {
     if (!stretchEnabled) return null;
-    const normalizedTopOffset = Number.isFinite(stretchTopOffsetRaw) ? stretchTopOffsetRaw : 0;
-    const autoStretchHeight = (() => {
-      const targetLayer = findLayer(stretchTarget);
-      if (!targetLayer) return null;
-      const baseGround = getLayerGroundY(inst.layerId);
-      const targetGround = getLayerGroundY(targetLayer.id);
-      const instYOffset = toNumber(inst.position?.y, 0);
-      const delta = targetGround - baseGround - instYOffset + normalizedTopOffset;
-      const rounded = Math.round(delta);
-      if (Number.isFinite(rounded) && rounded > 0) return rounded;
-      if (Number.isFinite(delta) && delta > 0) return Math.max(1, delta);
-      return null;
-    })();
-    const normalizedHeight = Number.isFinite(stretchHeightRaw) ? stretchHeightRaw : autoStretchHeight;
-
+    const normalizedHeight = Number.isFinite(stretchHeight) ? stretchHeight : null;
     if (!stretchTarget || normalizedHeight === null || normalizedHeight <= 0){
       return null;
-    }
-    if (!Number.isFinite(stretchHeightRaw) && Number.isFinite(autoStretchHeight)){
-      $('#instStretchHeight').value = autoStretchHeight;
     }
     return {
       targetLayerId: stretchTarget,
       height: normalizedHeight,
-      topOffset: normalizedTopOffset,
-      slices: Number.isFinite(stretchSlicesRaw) ? clamp(Math.round(stretchSlicesRaw), 4, 80) : 24,
+      topOffset: Number.isFinite(stretchTopOffset) ? stretchTopOffset : 0,
+      slices: Number.isFinite(stretchSlices) ? clamp(Math.round(stretchSlices), 4, 80) : 24,
     };
   })();
 
