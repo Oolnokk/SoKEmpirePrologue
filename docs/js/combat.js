@@ -644,62 +644,62 @@ export function makeCombat(G, C, options = {}){
   }
 
   function runAttackTimeline({ segments, context, onComplete, resetMirrorBeforeStance=false, sequenceSteps=[] }){
-  const ordered = Array.isArray(segments) ? segments.slice() : [];
-  if (!ordered.length){
-    if (typeof onComplete === 'function') onComplete();
-    return;
-  }
-  const steps = normalizeSequenceStepTimings(sequenceSteps, context);
-  steps.sort((a,b)=> (a.startMs || 0) - (b.startMs || 0));
-  const timelineState = {
-    ordered,
-    steps,
-    nextStepIndex: 0,
-    elapsed: 0,
-    totalDuration: ordered.length ? ordered[ordered.length - 1].endTime : 0,
-    active: true
-  };
-  let stanceReset = false;
-
-  const triggerStepsThrough = (timeMs) => {
-    if (!timelineState.steps.length) return;
-    while (timelineState.nextStepIndex < timelineState.steps.length){
-      const step = timelineState.steps[timelineState.nextStepIndex];
-      if (!step || !Number.isFinite(step.startMs)) {
-        timelineState.nextStepIndex += 1;
-        continue;
-      }
-      if (step.startMs > timeMs + 1e-3) break;
-      timelineState.nextStepIndex += 1;
-      playAttackSequenceStep(step, context);
-    }
-  };
-
-  timelineState.triggerStepsThrough = triggerStepsThrough;
-  ATTACK.timelineState = timelineState;
-  triggerStepsThrough(0);
-
-  const runSegmentAt = (idx) => {
-    if (idx >= ordered.length){
-      timelineState.active = false;
-      ATTACK.timelineState = null;
+    const ordered = Array.isArray(segments) ? segments.slice() : [];
+    if (!ordered.length){
       if (typeof onComplete === 'function') onComplete();
       return;
     }
-    const segment = ordered[idx];
-    if (resetMirrorBeforeStance && !stanceReset && segment.phase === 'Stance'){
-      resetMirror();
-      stanceReset = true;
-    }
-    triggerStepsThrough(segment.startTime);
-    startTransition(segment.pose, segment.phase, segment.duration, ()=>{
-      triggerStepsThrough(segment.endTime);
-      runSegmentAt(idx + 1);
-    }, segment.duration); // PATCH: Pass segment.duration
-  };
+    const steps = normalizeSequenceStepTimings(sequenceSteps, context);
+    steps.sort((a,b)=> (a.startMs || 0) - (b.startMs || 0));
+    const timelineState = {
+      ordered,
+      steps,
+      nextStepIndex: 0,
+      elapsed: 0,
+      totalDuration: ordered.length ? ordered[ordered.length - 1].endTime : 0,
+      active: true
+    };
+    let stanceReset = false;
 
-  runSegmentAt(0);
-}
+    const triggerStepsThrough = (timeMs) => {
+      if (!timelineState.steps.length) return;
+      while (timelineState.nextStepIndex < timelineState.steps.length){
+        const step = timelineState.steps[timelineState.nextStepIndex];
+        if (!step || !Number.isFinite(step.startMs)) {
+          timelineState.nextStepIndex += 1;
+          continue;
+        }
+        if (step.startMs > timeMs + 1e-3) break;
+        timelineState.nextStepIndex += 1;
+        playAttackSequenceStep(step, context);
+      }
+    };
+
+    timelineState.triggerStepsThrough = triggerStepsThrough;
+    ATTACK.timelineState = timelineState;
+    triggerStepsThrough(0);
+
+    const runSegmentAt = (idx) => {
+      if (idx >= ordered.length){
+        timelineState.active = false;
+        ATTACK.timelineState = null;
+        if (typeof onComplete === 'function') onComplete();
+        return;
+      }
+      const segment = ordered[idx];
+      if (resetMirrorBeforeStance && !stanceReset && segment.phase === 'Stance'){
+        resetMirror();
+        stanceReset = true;
+      }
+      triggerStepsThrough(segment.startTime);
+      startTransition(segment.pose, segment.phase, segment.duration, ()=>{
+        triggerStepsThrough(segment.endTime);
+        runSegmentAt(idx + 1);
+      });
+    };
+
+    runSegmentAt(0);
+  }
 
   function cloneAbilityForMerge(def){
     if (!def) return null;
@@ -957,68 +957,114 @@ export function makeCombat(G, C, options = {}){
   }
 
   // Start transition with callback
-  function startTransition(targetPose, label, durMs, callback, segmentDurMs){
-  cancelQueuedLayerOverrides();
-  TRANSITION.tokenCounter = (TRANSITION.tokenCounter + 1) || 1;
-  const stageToken = TRANSITION.tokenCounter;
-  TRANSITION.active = true;
-  TRANSITION.target = label;
-  TRANSITION.elapsed = 0;
-  TRANSITION.duration = durMs;
-  TRANSITION.callback = callback;
-  TRANSITION.activeToken = stageToken;
-  TRANSITION.flipApplied = false;  // Track if flip has been applied
-  TRANSITION.flipAt = targetPose.flipAt;  // Store flip timing
-  TRANSITION.flipParts = targetPose.flipParts;  // Store parts to flip
+  function startTransition(targetPose, label, durMs, callback){
+    cancelQueuedLayerOverrides();
+    TRANSITION.tokenCounter = (TRANSITION.tokenCounter + 1) || 1;
+    const stageToken = TRANSITION.tokenCounter;
+    TRANSITION.active = true;
+    TRANSITION.target = label;
+    TRANSITION.elapsed = 0;
+    TRANSITION.duration = durMs;
+    TRANSITION.callback = callback;
+    TRANSITION.activeToken = stageToken;
+    TRANSITION.flipApplied = false;  // Track if flip has been applied
+    TRANSITION.flipAt = targetPose.flipAt;  // Store flip timing
+    TRANSITION.flipParts = targetPose.flipParts;  // Store parts to flip
 
-  if (label){
-    logStageTransition(label);
-    updateFighterAttackState(label, { active: label !== 'Stance' || !!ATTACK.active, context: ATTACK.context });
-    if (ATTACK.context?.onPhase){
-      try { ATTACK.context.onPhase(label); } catch(err){ console.warn('[combat] onPhase handler error', err); }
+    if (label){
+      logStageTransition(label);
+      updateFighterAttackState(label, { active: label !== 'Stance' || !!ATTACK.active, context: ATTACK.context });
+      if (ATTACK.context?.onPhase){
+        try { ATTACK.context.onPhase(label); } catch(err){ console.warn('[combat] onPhase handler error', err); }
+      }
     }
+
+    pushPoseOverride(poseTarget, targetPose, durMs);
+    queuePoseLayerOverrides(targetPose, label, durMs, stageToken);
   }
 
-  pushPoseOverride(poseTarget, targetPose, durMs);
-  queuePoseLayerOverrides(targetPose, label, durMs, stageToken, segmentDurMs); // PATCH: segmentDurMs passed through
-}
-
-  function queuePoseLayerOverrides(targetPose, label, stageDurMs, stageToken, segmentDurMs) {
-  if (!targetPose) return;
-  const overrides = Array.isArray(targetPose.layerOverrides) ? targetPose.layerOverrides : [];
-  if (!overrides.length) return;
-  // Use segment duration if provided, else fall back to stage duration
-  const segDuration = Number.isFinite(segmentDurMs) ? segmentDurMs : stageDurMs;
-
-  overrides.forEach((layerDef, index) => {
-    if (!layerDef || layerDef.enabled === false) return;
-    const pose = layerDef.pose || targetPose;
-    const layerId = layerDef.layer || layerDef.id || `${label || 'layer'}-${index}`;
-    const mask = layerDef.mask || layerDef.joints || pose.mask || pose.joints;
-    const priority = layerDef.priority;
-    const suppressWalk = layerDef.suppressWalk;
-    const useAsBase = layerDef.useAsBase;
-    const rawDelay = Number.isFinite(layerDef.delayMs) ? layerDef.delayMs : (Number.isFinite(layerDef.offsetMs) ? layerDef.offsetMs : 0);
-    const delayMs = rawDelay > 0 ? rawDelay : 0;
-    // PATCH: Duration is segment duration by default for limb overrides
-    const durMs = Number.isFinite(layerDef.durMs) ? layerDef.durMs
-      : Number.isFinite(layerDef.durationMs) ? layerDef.durationMs
-      : Number.isFinite(layerDef.dur) ? layerDef.dur
-      : segDuration;
-
-    const guard = () => TRANSITION.active && TRANSITION.activeToken === stageToken && TRANSITION.target === label;
-    const handle = pushPoseLayerOverride(poseTarget, layerId, pose, {
-      mask,
-      priority,
-      suppressWalk,
-      useAsBase,
-      durMs,
-      delayMs,
-      guard
+  function queuePoseLayerOverrides(targetPose, label, stageDurMs, stageToken){
+    if (!targetPose) return;
+    const overrides = Array.isArray(targetPose.layerOverrides) ? targetPose.layerOverrides : [];
+    if (!overrides.length) return;
+    overrides.forEach((layerDef, index)=>{
+      if (!layerDef) return;
+      if (layerDef.enabled === false) return;
+      const pose = layerDef.pose || targetPose;
+      const layerId = layerDef.layer || layerDef.id || `${label || 'layer'}-${index}`;
+      const mask = layerDef.mask || layerDef.joints || pose.mask || pose.joints;
+      const priority = layerDef.priority;
+      const suppressWalk = layerDef.suppressWalk;
+      const useAsBase = layerDef.useAsBase;
+      const rawDelay = Number.isFinite(layerDef.delayMs) ? layerDef.delayMs : (Number.isFinite(layerDef.offsetMs) ? layerDef.offsetMs : 0);
+      const delayMs = rawDelay > 0 ? rawDelay : 0;
+      const stageDuration = Number.isFinite(stageDurMs) ? stageDurMs : 300;
+      const durMs = Number.isFinite(layerDef.durMs) ? layerDef.durMs
+        : Number.isFinite(layerDef.durationMs) ? layerDef.durationMs
+        : Number.isFinite(layerDef.dur) ? layerDef.dur
+        : stageDuration;
+      const guard = ()=>{
+        return TRANSITION.active && TRANSITION.activeToken === stageToken && TRANSITION.target === label;
+      };
+      const handle = pushPoseLayerOverride(poseTarget, layerId, pose, {
+        mask,
+        priority,
+        suppressWalk,
+        useAsBase,
+        durMs,
+        delayMs,
+        guard
+      });
+      registerTransitionLayerHandle(handle);
     });
-    registerTransitionLayerHandle(handle);
-  });
-}
+  }
+
+  function normalizeAbilitySystem(raw){
+    const thresholds = {
+      tapMaxMs: raw.thresholds?.tapMaxMs ?? 200,
+      chargeStageMs: raw.thresholds?.chargeStageMs ?? 200
+    };
+    const defaults = {
+      comboWindowMs: raw.defaults?.comboWindowMs ?? raw.comboWindowMs ?? 3000
+    };
+    const attacks = {};
+    Object.entries(raw.attacks || {}).forEach(([id, def])=>{
+      attacks[id] = Object.assign({ id, preset: def.preset || id }, def);
+    });
+    const abilities = {};
+    Object.entries(raw.abilities || {}).forEach(([id, def])=>{
+      abilities[id] = Object.assign({ id }, def);
+    });
+    const slots = {};
+    const normalizeAllowance = (spec)=>{
+      if (!spec) return null;
+      const out = {};
+      if (Array.isArray(spec.triggers)) out.triggers = spec.triggers.slice();
+      if (Array.isArray(spec.types)) out.types = spec.types.slice();
+      if (Array.isArray(spec.tags)) out.tags = spec.tags.slice();
+      if (spec.classification != null){
+        out.classification = Array.isArray(spec.classification)
+          ? spec.classification.slice()
+          : [spec.classification];
+      }
+      if (spec.allowNull != null) out.allowNull = !!spec.allowNull;
+      return Object.keys(out).length ? out : null;
+    };
+
+    Object.entries(raw.slots || {}).forEach(([slotKey, slotDef])=>{
+      slots[slotKey] = {
+        key: slotKey,
+        label: slotDef.label || slotKey,
+        lightAbilityId: slotDef.light || null,
+        heavyAbilityId: slotDef.heavy || null,
+        allowed: {
+          light: normalizeAllowance(slotDef.allowed?.light),
+          heavy: normalizeAllowance(slotDef.allowed?.heavy)
+        }
+      };
+    });
+    return { thresholds, defaults, attacks, abilities, slots };
+  }
 
   function getSlot(slotKey){ return ABILITY_SLOTS[slotKey] || null; }
   function getAbility(id){ return id ? (ABILITY_ABILITIES[id] || null) : null; }
