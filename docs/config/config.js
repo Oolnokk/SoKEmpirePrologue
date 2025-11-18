@@ -425,23 +425,25 @@ window.CONFIG = {
       }
     }
   },
-  map: {
-    gridUnit: 30,
-    spawnLayerId: 'gameplay',
-    defaultLayoutId: 'defaultdistrict',
-    prefabManifests: [
-      './config/prefabs/structures/index.json',
-      './config/prefabs/obstructions/index.json',
-    ],
-    layouts: [
-      {
-        id: 'defaultdistrict',
-        label: 'DefaultDistrict',
-        path: './config/maps/defaultdistrict.layout.json',
-        areaName: 'DefaultDistrict',
-      },
-    ],
-  },
+map: {
+  gridUnit: 30,
+  spawnLayerId: 'gameplay',
+  defaultLayoutId: 'defaultdistrict',
+  prefabManifests: [
+    './config/prefabs/structures/index.json',
+    './config/prefabs/obstructions/index.json',
+  ],
+  layouts: [
+    {
+      id: 'defaultdistrict',
+      label: 'DefaultDistrict',
+      path: './config/maps/defaultdistrict.layout.json',
+      areaName: 'DefaultDistrict',
+    },
+  ],
+  playAreaMinX: -1160,
+  playAreaMaxX: 1160,
+},
   ground: {
     offset: 140,
     // Set to true to keep the configured groundRatio instead of letting map layouts override it.
