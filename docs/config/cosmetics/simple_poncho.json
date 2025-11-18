@@ -9,7 +9,7 @@
       "layers": {
         "back": {
           "image": {
-            "url": "./assets/cosmetics/clothes/overwear/simple_poncho-back.png"
+            "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-back.png"
           },
           "spriteStyle": {
             "base": {
@@ -21,7 +21,7 @@
         },
         "front": {
           "image": {
-            "url": "./assets/cosmetics/clothes/overwear/simple_poncho-front.png"
+            "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-front.png"
           },
           "spriteStyle": {
             "base": {
