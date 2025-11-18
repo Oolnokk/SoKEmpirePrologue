@@ -136,9 +136,10 @@ function resolveCollisionShare(fighter) {
 
 function clampFighterToBounds(fighter, config) {
   if (!fighter?.pos) return;
-  const margin = 40;
-  const worldWidth = config?.canvas?.w || 720;
-  fighter.pos.x = clamp(fighter.pos.x, margin, worldWidth - margin);
+  const minX = config?.map?.playAreaMinX ?? 40;
+  const maxX = config?.map?.playAreaMaxX ?? ((config?.canvas?.w || 720) - 40);
+  fighter.pos.x = clamp(fighter.pos.x, minX, maxX);
+
   const groundY = computeGroundY(config);
   if (!fighter.ragdoll && fighter.pos.y > groundY) {
     fighter.pos.y = groundY;
