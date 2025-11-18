@@ -32,6 +32,22 @@
           }
         }
       }
+    },
+    "shoulders": {
+      "layers": {
+        "over": {
+          "image": {
+            "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-shoulders.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "rightUpperArm": { "ax": 0, "ay": 0, "scaleX": 2, "scaleY": 2 }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
