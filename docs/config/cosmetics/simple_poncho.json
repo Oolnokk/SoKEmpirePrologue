@@ -17,6 +17,13 @@
                 "torso": { "ax": 0, "ay": -0.2, "scaleX": 2, "scaleY": 2 }
               }
             }
+          },
+          "extra": {
+            "boneInfluences": [
+              { "bone": "torso", "radiusScale": 1.0, "innerWeight": 1, "outerWeight": 0.35 },
+              { "bone": "shoulder_L", "radiusScale": 0.6, "innerWeight": 0.7, "outerWeight": 0.2 },
+              { "bone": "shoulder_R", "radiusScale": 0.6, "innerWeight": 0.7, "outerWeight": 0.2 }
+            ]
           }
         },
         "front": {
@@ -29,24 +36,13 @@
                 "torso": { "ax": 0, "ay": -0.2, "scaleX": 2, "scaleY": 2 }
               }
             }
-          }
-        }
-      }
-    },
-    "shoulders": {
-      "layers": {
-        "over": {
-          "image": {
-            "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-shoulders.png"
           },
-          "attachBone": "arm_R_upper",
-          "drawSlot": "arm_R_lower", 
-          "spriteStyle": {
-            "base": {
-              "xform": {
-                "torso": { "ax": 0, "ay": -0.2, "scaleX": 4, "scaleY": 4 }
-              }
-            }
+          "extra": {
+            "boneInfluences": [
+              { "bone": "torso", "radiusScale": 1.0, "innerWeight": 1, "outerWeight": 0.35 },
+              { "bone": "shoulder_L", "radiusScale": 0.6, "innerWeight": 0.7, "outerWeight": 0.2 },
+              { "bone": "shoulder_R", "radiusScale": 0.6, "innerWeight": 0.7, "outerWeight": 0.2 }
+            ]
           }
         }
       }
