@@ -619,6 +619,8 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
     layers: _ignoredLayers,
     layerPosition: _ignoredLayerPosition,
     position: _ignoredPosition,
+    attachBone,
+    drawSlot,
     ...cleanConfig
   } = partConfig || {};
 
@@ -649,7 +651,9 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
     anchor: anchorCfg,
     align: alignCfg,
     styleKey,
-    extra: extra
+    extra: extra,
+    attachBone,
+    drawSlot
   };
 }
 
