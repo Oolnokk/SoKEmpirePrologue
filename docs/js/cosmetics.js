@@ -479,7 +479,7 @@ function normalizeCosmetic(id, raw = {}){
   const norm = {
     id,
     slots: slots.length ? slots.slice() : [],
-    parts: raw.parts || {},
+    parts: {},
     hsl: {
       defaults: {
         h: tintDefaults.h ?? 0,
@@ -493,6 +493,16 @@ function normalizeCosmetic(id, raw = {}){
       }
     }
   };
+  // Propagate attachBone/drawSlot on parts
+  for (const [partKey, partData] of Object.entries(raw.parts || {})){
+    if (partData && typeof partData === 'object'){
+      norm.parts[partKey] = {
+        ...deepMerge({}, partData),
+        attachBone: partData.attachBone,
+        drawSlot: partData.drawSlot
+      };
+    }
+  }
   if (raw.meta) norm.meta = { ...raw.meta };
   if (raw.type) norm.type = raw.type;
   if (raw.appearance){
