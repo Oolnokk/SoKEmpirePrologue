@@ -865,7 +865,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
       const partLayers = resolvePartLayers(partKey, partConfig, fighterName, cosmetic.id);
       if (!Array.isArray(partLayers) || partLayers.length === 0) continue;
       const partOverride = slotOverride?.parts?.[partKey];
-      for (const { position, config: baseLayerConfig } of partLayers){
+      for (const { position, config: baseLayerConfig, attachBone, drawSlot } of partLayers){
         if (!baseLayerConfig) continue;
         const layerPosition = position || 'front';
         const resolved = {
@@ -877,6 +877,10 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           align: baseLayerConfig.align ? deepMerge({}, baseLayerConfig.align) : baseLayerConfig.align,
           extra: baseLayerConfig.extra ? deepMerge({}, baseLayerConfig.extra) : {}
         };
+        // ADD attachBone/drawSlot directly to the layer object
+        if (attachBone) resolved.attachBone = attachBone;
+        if (drawSlot)   resolved.drawSlot = drawSlot;
+
         const slotLayerOverride = slotOverride?.layers?.[layerPosition];
         const partLayerOverride = partOverride?.layers?.[layerPosition];
 
@@ -979,7 +983,9 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           alignRad,
           styleKey,
           palette: paletteOverride,
-          extra: layerExtra
+          extra: layerExtra,
+          attachBone, // <== Pass through
+          drawSlot    // <== Pass through
         });
       }
     }
