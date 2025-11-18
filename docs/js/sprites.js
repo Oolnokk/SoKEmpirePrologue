@@ -1373,6 +1373,12 @@ export function ensureFighterSprites(C, fname, overrides = {}){
   const untintedOverlays = resolveUntintedOverlayMap(f, S);
   const appliedUntintedOverlays = untintedOverride || untintedOverlays;
 
+  // Debug: Uncomment below if you want to verify attachBone/drawSlot propagation
+  // cosmetics.forEach(layer => { 
+  //   if (layer.attachBone || layer.drawSlot) 
+  //     console.log('Cosmetic layer:', layer.partKey, 'attachBone:', layer.attachBone, 'drawSlot:', layer.drawSlot); 
+  // });
+
   const result = { assets: S, style, cosmetics, bodyColors, untintedOverlays: appliedUntintedOverlays };
   ensureFighterSprites.__lastResult = result;
   return result;
