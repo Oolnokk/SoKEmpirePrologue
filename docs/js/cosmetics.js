@@ -677,7 +677,12 @@ function resolvePartLayers(partKey, partConfig = {}, fighterName, cosmeticId){
     : [];
   if (layerEntries.length === 0){
     const resolved = resolvePartConfig(baseConfig, fighterName, cosmeticId, partKey);
-    layers.push({ position: basePosition, config: resolved });
+    layers.push({
+      position: basePosition,
+      config: resolved,
+      attachBone: partConfig.attachBone,
+      drawSlot: partConfig.drawSlot
+    });
     return layers;
   }
   for (const [key, layerOverride] of layerEntries){
@@ -685,7 +690,12 @@ function resolvePartLayers(partKey, partConfig = {}, fighterName, cosmeticId){
     const position = normalizeLayerPosition(layerOverride.position || key, basePosition);
     const mergedRaw = mergePartLayerBase(deepMerge({}, baseConfig), layerOverride);
     const resolved = resolvePartConfig(mergedRaw, fighterName, cosmeticId, partKey);
-    layers.push({ position, config: resolved });
+    layers.push({
+      position,
+      config: resolved,
+      attachBone: layerOverride.attachBone,
+      drawSlot: layerOverride.drawSlot
+    });
   }
   return layers;
 }
