@@ -147,10 +147,6 @@ function clampFighterToBounds(fighter, config) {
   }
 }
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
 function randomizeRagdollTargets(state) {
   for (const key of Object.keys(JOINT_LIMITS)) {
     const [min, max] = JOINT_LIMITS[key];
