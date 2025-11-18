@@ -11,7 +11,6 @@
           "image": {
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho-back.png"
           },
-          "anchor": "torso",
           "spriteStyle": {
             "base": {
               "xform": {
