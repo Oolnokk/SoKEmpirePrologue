@@ -39,8 +39,8 @@
           "image": {
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-shoulders.png"
           },
-          "attachBone": "torso",
-          "drawSlot": "arm_R_upper", 
+          "attachBone": "arm_R_upper",
+          "drawSlot": "arm_R_lower", 
           "spriteStyle": {
             "base": {
               "xform": {
