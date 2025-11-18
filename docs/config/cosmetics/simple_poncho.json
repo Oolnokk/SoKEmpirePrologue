@@ -7,7 +7,7 @@
   "parts": {
     "torso": {
       "layers": {
-        "back": {
+        "front": {
           "image": {
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-back.png"
           },
