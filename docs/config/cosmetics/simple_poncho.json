@@ -28,7 +28,7 @@
         },
         "front": {
           "image": {
-            "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-front.png"
+            "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-front.pg"
           },
           "spriteStyle": {
             "base": {
