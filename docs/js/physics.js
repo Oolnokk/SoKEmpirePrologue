@@ -136,6 +136,7 @@ function resolveCollisionShare(fighter) {
 
 function clampFighterToBounds(fighter, config) {
   if (!fighter?.pos) return;
+  // Use map-defined min and max X if available, or fallback to old margin logic
   const minX = config?.map?.playAreaMinX ?? 40;
   const maxX = config?.map?.playAreaMaxX ?? ((config?.canvas?.w || 720) - 40);
   fighter.pos.x = clamp(fighter.pos.x, minX, maxX);
@@ -144,6 +145,10 @@ function clampFighterToBounds(fighter, config) {
   if (!fighter.ragdoll && fighter.pos.y > groundY) {
     fighter.pos.y = groundY;
   }
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function randomizeRagdollTargets(state) {
