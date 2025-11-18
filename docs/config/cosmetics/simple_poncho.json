@@ -40,8 +40,8 @@
           "extra": {
             "boneInfluences": [
               { "bone": "torso", "radiusScale": 1.0, "innerWeight": 1, "outerWeight": 0.35 },
-              { "bone": "shoulder_L", "radiusScale": 0.6, "innerWeight": 0.7, "outerWeight": 0.2 },
-              { "bone": "shoulder_R", "radiusScale": 0.6, "innerWeight": 0.7, "outerWeight": 0.2 }
+              { "bone": "arm_L-upper", "radiusScale": 0.6, "innerWeight": 0.7, "outerWeight": 0.2 },
+              { "bone": "arm_R-upper", "radiusScale": 0.6, "innerWeight": 0.7, "outerWeight": 0.2 }
             ]
           }
         }
