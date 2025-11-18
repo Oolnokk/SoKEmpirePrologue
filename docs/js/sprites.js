@@ -1195,33 +1195,37 @@ export function renderSprites(ctx){
     }
 
     if (Array.isArray(clothingLayers)){
-      for (const layer of clothingLayers){
-        const bone = rig[layer.partKey];
-        if (!bone) continue;
-        const baseTag = tagOf(layer.partKey);
-        const slotTag = cosmeticTagFor(baseTag, layer.slot, layer.position);
-        const styleKey = layer.styleKey || layer.partKey;
-        const { mirror, originX } = resolveCosmeticMirror(rig, layer.partKey, bone);
-        const influences = resolveCosmeticBoneInfluences(layer.extra?.boneInfluences, rig, layer.partKey);
-        const baseOptions = {
-          styleOverride: layer.styleOverride,
-          hsl: layer.hsl ?? layer.hsv,
-          warp: layer.warp,
-          alignRad: layer.alignRad,
-          alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
-          palette: layer.palette
-        };
-        if (influences.length){
-          baseOptions.boneInfluences = influences;
-        }
-        enqueue(slotTag, ()=>{
-          withBranchMirror(ctx, originX, mirror, ()=>{
-            const drawOptions = applyAnimOptions(styleKey, baseOptions);
-            drawBoneSprite(ctx, layer.asset, bone, styleKey, style, drawOptions);
-          });
-        });
-      }
+  for (const layer of clothingLayers){
+    // Use decoupled movement and draw order
+    const boneKey = layer.attachBone || layer.partKey;
+    const drawSlotKey = layer.drawSlot || layer.partKey;
+    const bone = rig[boneKey];
+    if (!bone) continue;
+    const baseTag = tagOf(drawSlotKey);
+    const slotTag = cosmeticTagFor(baseTag, layer.slot, layer.position);
+    const styleKey = layer.styleKey || boneKey;
+    const { mirror, originX } = resolveCosmeticMirror(rig, drawSlotKey, bone);
+    const influences = resolveCosmeticBoneInfluences(layer.extra?.boneInfluences, rig, boneKey);
+    const baseOptions = {
+      styleOverride: layer.styleOverride,
+      hsl: layer.hsl ?? layer.hsv,
+      warp: layer.warp,
+      alignRad: layer.alignRad,
+      alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
+      palette: layer.palette
+    };
+    if (influences.length){
+      baseOptions.boneInfluences = influences;
     }
+    enqueue(slotTag, ()=>{
+      withBranchMirror(ctx, originX, mirror, ()=>{
+        const drawOptions = applyAnimOptions(styleKey, baseOptions);
+        // Use boneKey (movement) for drawBoneSprite but drawSlotKey/slotTag for visual stack
+        drawBoneSprite(ctx, layer.asset, bone, styleKey, style, drawOptions);
+      });
+    });
+  }
+}
 
     queue.sort((a, b) => a.z - b.z);
 
