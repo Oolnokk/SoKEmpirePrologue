@@ -987,7 +987,40 @@ function normalizeStretchQuadSpec(raw){
   return { targetLayerId, height, topOffset, slices };
 }
 
-function getStretchQuadMeta(inst){
+// Expanded/Refactored: 
+// Now checks area-level drumSkin layer config before instance meta
+function getStretchQuadMeta(inst, areaDrumSkins) {
+  // Prefer area-level drumSkinLayers over legacy instance meta
+  if (Array.isArray(areaDrumSkins)) {
+    // Check if instance sits on a ground span drum skin
+    for (const drum of areaDrumSkins) {
+      // If instance is positioned within the drum skin quad (custom test as needed)
+      // Example: check if inst.layerId is between drum.layerA and drum.layerB
+      if (
+        inst &&
+        drum.visible &&
+        (
+          inst.layerId === drum.layerA ||
+          inst.layerId === drum.layerB || 
+          // Or custom geometric test for inside quad...
+          false
+        )
+      ) {
+        return {
+          spec: {
+            layerA: drum.layerA,
+            layerB: drum.layerB,
+            heightA: drum.heightA,
+            heightB: drum.heightB,
+            imageURL: drum.imageURL,
+            tileScale: drum.tileScale || 1.0
+          },
+          key: "areaDrumSkin"
+        };
+      }
+    }
+  }
+  // --- Legacy support: instance-level meta ---
   const meta = inst?.meta && typeof inst.meta === 'object' ? inst.meta : null;
   if (!meta) return { spec: null, key: null };
   if (meta.stretchQuad) return { spec: normalizeStretchQuadSpec(meta.stretchQuad), key: 'stretchQuad' };
