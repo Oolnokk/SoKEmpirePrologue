@@ -3,7 +3,7 @@
   "name": "DefaultDistrict",
   "source": "map-editor",
   "camera": {
-    "startX": -5085,
+    "startX": 0,
     "startZoom": 1
   },
   "ground": {
