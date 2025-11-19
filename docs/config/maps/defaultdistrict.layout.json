@@ -3,11 +3,11 @@
   "name": "DefaultDistrict",
   "source": "map-editor",
   "camera": {
-    "startX": 1800,
+    "startX": -1800,
     "startZoom": 1
   },
   "ground": {
-    "offset": -300
+    "offset": 300
   },
   "layers": [
     {
