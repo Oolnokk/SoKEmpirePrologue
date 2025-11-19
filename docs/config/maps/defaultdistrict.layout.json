@@ -7,7 +7,7 @@
     "startZoom": 1
   },
   "ground": {
-    "offset": 300
+    "offset": -300
   },
   "layers": [
     {
