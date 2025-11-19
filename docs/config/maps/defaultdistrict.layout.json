@@ -116,7 +116,7 @@
       "prefabId": "spawn_player",
       "layerId": "gameplay",
       "position": {
-        "x": -180,
+        "x": -5000,
         "y": 0
       },
       "scale": {
@@ -408,7 +408,7 @@
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": 626.763104255851,
+        "x": 5026.763104255851,
         "y": 0
       },
       "scale": {
