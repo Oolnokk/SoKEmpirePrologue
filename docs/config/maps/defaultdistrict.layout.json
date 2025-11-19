@@ -3,7 +3,7 @@
   "name": "DefaultDistrict",
   "source": "map-editor",
   "camera": {
-    "startX": 0,
+    "startX": -6000,
     "startZoom": 1
   },
   "ground": {
@@ -116,7 +116,7 @@
       "prefabId": "spawn_player",
       "layerId": "gameplay",
       "position": {
-        "x": -5000,
+        "x": -180,
         "y": 0
       },
       "scale": {
