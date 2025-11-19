@@ -441,8 +441,8 @@ map: {
       areaName: 'DefaultDistrict',
     },
   ],
-  playAreaMinX: -1160,
-  playAreaMaxX: 1160,
+  playAreaMinX: 5160,
+  playAreaMaxX: 5160,
 },
   ground: {
     offset: 140,
