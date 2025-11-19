@@ -15,7 +15,7 @@
       "name": "Parallax 1",
       "type": "parallax",
       "parallaxSpeed": 1,
-      "offsetY": -120,
+      "offsetY": 0,
       "separation": 220,
       "scale": 0.6,
       "source": null,
@@ -116,7 +116,7 @@
       "prefabId": "spawn_player",
       "layerId": "gameplay",
       "position": {
-        "x": -1800,
+        "x": -180,
         "y": 0
       },
       "scale": {
