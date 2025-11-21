@@ -1,3 +1,4 @@
+
 {
   "id": "defaultdistrict",
   "name": "DefaultDistrict",
@@ -15,7 +16,7 @@
       "name": "Parallax 1",
       "type": "parallax",
       "parallaxSpeed": 1,
-      "offsetY": 0,
+      "offsetY": -120,
       "separation": 220,
       "scale": 0.6,
       "source": null,
@@ -83,7 +84,7 @@
       "parallaxSpeed": 1,
       "offsetY": 7,
       "separation": 90,
-      "scale": 0.8,
+      "scale": 0.3,
       "source": null,
       "meta": {}
     },
@@ -408,7 +409,7 @@
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": 5026.763104255851,
+        "x": 626.763104255851,
         "y": 0
       },
       "scale": {
