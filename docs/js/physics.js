@@ -129,9 +129,11 @@ function resolveCollisionShare(fighter) {
   return fighter.isPlayer ? 0.55 : 0.5;
 }
 
-function clampFighterToBounds(fighter, config) {
-  if (!fighter?.pos) return;
+const DEFAULT_HORIZONTAL_MARGIN = 40;
+const DEFAULT_CANVAS_WIDTH = 720;
+const DEFAULT_PLAYABLE_SPAN = DEFAULT_CANVAS_WIDTH - DEFAULT_HORIZONTAL_MARGIN * 2;
 
+function resolveHorizontalBounds(config) {
   const resolvePlayableBounds = () => {
     const registryBounds =
       typeof window !== 'undefined'
@@ -146,24 +148,63 @@ function clampFighterToBounds(fighter, config) {
   const playableBounds = resolvePlayableBounds();
   const mapMinX = Number.isFinite(config?.map?.playAreaMinX) ? config.map.playAreaMinX : null;
   const mapMaxX = Number.isFinite(config?.map?.playAreaMaxX) ? config.map.playAreaMaxX : null;
-  const canvasWidth = Number.isFinite(config?.canvas?.w) ? config.canvas.w : 720;
+  const canvasWidth = Number.isFinite(config?.canvas?.w) ? config.canvas.w : DEFAULT_CANVAS_WIDTH;
 
-  let minX = mapMinX ?? 40;
-  let maxX = mapMaxX ?? (canvasWidth - 40);
+  let minX = mapMinX ?? DEFAULT_HORIZONTAL_MARGIN;
+  let maxX = mapMaxX ?? (canvasWidth - DEFAULT_HORIZONTAL_MARGIN);
 
   if (playableBounds) {
     minX = playableBounds.left;
     maxX = playableBounds.right;
   } else if (mapMinX == null || mapMaxX == null) {
-    minX = 40;
-    maxX = canvasWidth - 40;
+    minX = DEFAULT_HORIZONTAL_MARGIN;
+    maxX = canvasWidth - DEFAULT_HORIZONTAL_MARGIN;
   }
-  fighter.pos.x = clamp(fighter.pos.x, minX, maxX);
+
+  return { minX, maxX, span: Math.max(1, maxX - minX) };
+}
+
+function clampFighterToBounds(fighter, config) {
+  if (!fighter?.pos) return;
+
+  const bounds = typeof resolveHorizontalBounds === 'function'
+    ? resolveHorizontalBounds(config)
+    : (() => {
+        const margin = typeof DEFAULT_HORIZONTAL_MARGIN === 'number' ? DEFAULT_HORIZONTAL_MARGIN : 40;
+        const canvasWidth = Number.isFinite(config?.canvas?.w)
+          ? config.canvas.w
+          : (typeof DEFAULT_CANVAS_WIDTH === 'number' ? DEFAULT_CANVAS_WIDTH : 720);
+        const playableBounds = [
+          config?.map?.activePlayableBounds,
+          config?.map?.playableBounds,
+        ]
+          .find((b) => Number.isFinite(b?.left) && Number.isFinite(b?.right))
+          || null;
+        const mapMinX = Number.isFinite(config?.map?.playAreaMinX) ? config.map.playAreaMinX : null;
+        const mapMaxX = Number.isFinite(config?.map?.playAreaMaxX) ? config.map.playAreaMaxX : null;
+        let minX = mapMinX ?? margin;
+        let maxX = mapMaxX ?? (canvasWidth - margin);
+        if (playableBounds) {
+          minX = playableBounds.left;
+          maxX = playableBounds.right;
+        } else if (mapMinX == null || mapMaxX == null) {
+          minX = margin;
+          maxX = canvasWidth - margin;
+        }
+        return { minX, maxX, span: Math.max(1, maxX - minX) };
+      })();
+  fighter.pos.x = clamp(fighter.pos.x, bounds.minX, bounds.maxX);
 
   const groundY = computeGroundY(config);
   if (!fighter.ragdoll && fighter.pos.y > groundY) {
     fighter.pos.y = groundY;
   }
+}
+
+function computeBoundsSpeedScalar(span) {
+  if (!Number.isFinite(span) || span <= 0) return 1;
+  const normalized = span / DEFAULT_PLAYABLE_SPAN;
+  return clamp(normalized, 0.55, 2.25);
 }
 
 function randomizeRagdollTargets(state) {
@@ -313,12 +354,14 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   let newSurfaceMaterial = null;
   const statProfile = fighter.statProfile || getStatProfile(fighter);
   const movementMultipliers = getMovementMultipliers(statProfile);
+  const bounds = resolveHorizontalBounds(config);
+  const boundsSpeedScalar = computeBoundsSpeedScalar(bounds.span);
   const movementBaseMultiplier = getBalanceScalar('baseMovementSpeed', 1);
   const baseRecoveryMultiplier = getBalanceScalar('baseRecoveryRate', 1);
   const baseAccelX = (Number.isFinite(M.accelX) ? M.accelX : 1500) * movementBaseMultiplier;
   const baseMaxSpeed = (Number.isFinite(M.maxSpeedX) ? M.maxSpeedX : 420) * movementBaseMultiplier;
-  const accelX = baseAccelX * (movementMultipliers.accel || 1);
-  const maxSpeed = baseMaxSpeed * (movementMultipliers.maxSpeed || 1);
+  const accelX = baseAccelX * boundsSpeedScalar * (movementMultipliers.accel || 1);
+  const maxSpeed = baseMaxSpeed * boundsSpeedScalar * (movementMultipliers.maxSpeed || 1);
   const friction = Number.isFinite(M.friction) ? Math.max(0, M.friction) : 8;
   const restitution = Number.isFinite(M.restitution) ? Math.max(0, M.restitution) : 0;
   const gravity = Number.isFinite(M.gravity) ? M.gravity : 0;
@@ -348,7 +391,9 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   }
   fighter._jumpHeld = jumpPressed;
 
-  const baseDashSpeed = (Number.isFinite(M.dashSpeedMultiplier) ? M.dashSpeedMultiplier : 1.8) * movementBaseMultiplier;
+  const baseDashSpeed = (Number.isFinite(M.dashSpeedMultiplier) ? M.dashSpeedMultiplier : 1.8)
+    * movementBaseMultiplier
+    * boundsSpeedScalar;
   const dashMult = fighter.stamina?.isDashing
     ? baseDashSpeed * (movementMultipliers.dashSpeed || 1)
     : 1;
@@ -407,9 +452,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   fighter.pos.x += fighter.vel.x * dt;
   fighter.pos.y += fighter.vel.y * dt;
 
-  const margin = 40;
-  const worldWidth = config?.canvas?.w || 720;
-  fighter.pos.x = clamp(fighter.pos.x, margin, worldWidth - margin);
+  fighter.pos.x = clamp(fighter.pos.x, bounds.minX, bounds.maxX);
 
   let onGround = false;
   const prevY = Number.isFinite(fighter.prevPosY) ? fighter.prevPosY : fighter.pos.y - fighter.vel.y * dt;
