@@ -2222,7 +2222,10 @@ function refreshDrumSkinList() {
     const isActive = drum.id === selectedDrumSkinId;
     card.style.outline = isActive ? '2px solid #22c55e' : '';
     card.style.outlineOffset = '1px';
-    card.onclick = () => {
+    card.onclick = (event) => {
+      const target = event.target;
+      const withinControl = target instanceof HTMLElement && target.closest('button, input, select, option, textarea');
+      if (withinControl) return;
       selectedDrumSkinId = drum.id;
       refreshDrumSkinList();
     };
