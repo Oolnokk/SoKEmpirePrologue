@@ -46,6 +46,19 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+export function resolveWorldWidth(config) {
+  const selectWidth = (...values) => values.find((value) => Number.isFinite(value) && value > 0) || null;
+  const worldWidth = selectWidth(
+    config?.world?.width,
+    config?.camera?.worldWidth,
+    typeof window !== 'undefined' ? window.GAME?.CAMERA?.worldWidth : null,
+    typeof window !== 'undefined' ? window.GAME?.RENDER_STATE?.stage?.width : null,
+    typeof window !== 'undefined' ? window.GAME?.CAMERA?.viewportWidth : null,
+    config?.canvas?.w,
+  );
+  return worldWidth || 720;
+}
+
 function getBalanceScalar(key, fallback = 1) {
   if (typeof window === 'undefined') return fallback;
   const balance = window.CONFIG?.balance;
@@ -146,17 +159,17 @@ function clampFighterToBounds(fighter, config) {
   const playableBounds = resolvePlayableBounds();
   const mapMinX = Number.isFinite(config?.map?.playAreaMinX) ? config.map.playAreaMinX : null;
   const mapMaxX = Number.isFinite(config?.map?.playAreaMaxX) ? config.map.playAreaMaxX : null;
-  const canvasWidth = Number.isFinite(config?.canvas?.w) ? config.canvas.w : 720;
+  const worldWidth = resolveWorldWidth(config);
 
   let minX = mapMinX ?? 40;
-  let maxX = mapMaxX ?? (canvasWidth - 40);
+  let maxX = mapMaxX ?? (worldWidth - 40);
 
   if (playableBounds) {
     minX = playableBounds.left;
     maxX = playableBounds.right;
   } else if (mapMinX == null || mapMaxX == null) {
     minX = 40;
-    maxX = canvasWidth - 40;
+    maxX = worldWidth - 40;
   }
   fighter.pos.x = clamp(fighter.pos.x, minX, maxX);
 
@@ -408,8 +421,13 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   fighter.pos.y += fighter.vel.y * dt;
 
   const margin = 40;
-  const worldWidth = config?.canvas?.w || 720;
+  const worldWidth = resolveWorldWidth(config);
   fighter.pos.x = clamp(fighter.pos.x, margin, worldWidth - margin);
+  if (typeof window !== 'undefined') {
+    const game = (window.GAME ||= {});
+    const physicsDiag = (game.PHYSICS ||= {});
+    physicsDiag.lastWorldWidth = worldWidth;
+  }
 
   let onGround = false;
   const prevY = Number.isFinite(fighter.prevPosY) ? fighter.prevPosY : fighter.pos.y - fighter.vel.y * dt;

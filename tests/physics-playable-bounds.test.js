@@ -27,17 +27,21 @@ async function loadClampFunction() {
   }
 
   const clampSrc = extractFunction('clamp');
+  const resolveWorldWidthSrc = extractFunction('resolveWorldWidth');
   const clampBoundsSrc = extractFunction('clampFighterToBounds');
 
   const script = `
     function computeGroundY(config){ return Number.isFinite(config?.groundY) ? config.groundY : 0; }
+    const window = globalThis.window || {};
     ${clampSrc}
+    ${resolveWorldWidthSrc}
     ${clampBoundsSrc}
     exports.clamp = clamp;
     exports.clampFighterToBounds = clampFighterToBounds;
   `;
 
-  const context = { Math, exports: {} };
+  const context = { Math, exports: {}, globalThis: {}, window: { GAME: { CAMERA: { worldWidth: 720 } } } };
+  context.globalThis = context;
   vm.createContext(context);
   vm.runInContext(script, context);
   return context.exports.clampFighterToBounds;
