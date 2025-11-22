@@ -392,8 +392,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   fighter._jumpHeld = jumpPressed;
 
   const baseDashSpeed = (Number.isFinite(M.dashSpeedMultiplier) ? M.dashSpeedMultiplier : 1.8)
-    * movementBaseMultiplier
-    * boundsSpeedScalar;
+    * movementBaseMultiplier;
   const dashMult = fighter.stamina?.isDashing
     ? baseDashSpeed * (movementMultipliers.dashSpeed || 1)
     : 1;
