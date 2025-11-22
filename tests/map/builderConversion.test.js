@@ -211,6 +211,29 @@ test('convertLayoutToArea normalizes playable bounds and falls back to colliders
   assert.deepEqual(withFallback.playableBounds, { left: -100, right: 500, source: 'colliders' });
 });
 
+test('convertLayoutToArea does not align colliders when playable bounds are derived from them', () => {
+  const layout = {
+    areaId: 'collider_bounds_no_align',
+    layers: [],
+    instances: [],
+    colliders: [
+      { id: 'left_platform', left: -150, width: 80, topOffset: 0, height: 30 },
+      { id: 'right_platform', left: 200, width: 120, topOffset: 0, height: 30 },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout);
+
+  assert.equal(area.playableBounds.source, 'colliders');
+  assert.deepEqual(
+    area.colliders.map(({ id, left, width }) => ({ id, left, width })),
+    [
+      { id: 'left_platform', left: -150, width: 80 },
+      { id: 'right_platform', left: 200, width: 120 },
+    ],
+  );
+});
+
 test('convertLayoutToArea stretches platform colliders to playable bounds width', () => {
   const layout = {
     areaId: 'aligned_colliders',

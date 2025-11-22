@@ -235,6 +235,10 @@ function alignCollidersToPlayableBounds(colliders = [], playableBounds = null) {
     return colliders;
   }
 
+  if (playableBounds?.source === PLAYABLE_BOUNDS_SOURCE.COLLIDERS) {
+    return colliders;
+  }
+
   const left = toNumber(playableBounds?.left, NaN);
   const right = toNumber(playableBounds?.right, NaN);
   if (!Number.isFinite(left) || !Number.isFinite(right) || right <= left) {
