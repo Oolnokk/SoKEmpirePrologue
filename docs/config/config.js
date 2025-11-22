@@ -439,8 +439,8 @@ window.CONFIG = {
       enabled: true,
       arch: {
         radiusPx: 160,
-        start: { x: 0.75, y: 0.10 },
-        end: { x: 0.90, y: 0.25 },
+        start: { x: 0.90, y: 0.25 },
+        end: { x: 0.75, y: 0.10 },
         scale: 1,
         buttonSizePx: 84,
         defaultGapPx: 12,
