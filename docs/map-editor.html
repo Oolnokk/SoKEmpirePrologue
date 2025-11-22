@@ -65,6 +65,25 @@
       font-size:16px; /* avoid mobile zoom */
     }
     button:hover { background:var(--btnHi); cursor:pointer; }
+    .toolbar { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+    .btn-primary { background:#2563eb; border-color:#1d4ed8; color:white; box-shadow:0 6px 20px rgba(37,99,235,0.25); }
+    .btn-primary:hover { background:#1d4ed8; }
+    .btn-secondary { background:transparent; border-color:var(--line); color:var(--text); box-shadow:none; }
+    .split-group { display:flex; align-items:stretch; position:relative; }
+    .split-group > button { border-radius:10px 0 0 10px; }
+    .split-group .split-caret { width:34px; padding:4px; border-left:none; border-radius:0 10px 10px 0; display:grid; place-items:center; }
+    .menu { position:absolute; top:calc(100% + 4px); right:0; background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.35); min-width:200px; padding:6px; display:none; flex-direction:column; gap:4px; z-index:10; }
+    .menu.open { display:flex; }
+    .menu label { font-size:10px; color:var(--muted); display:flex; flex-direction:column; gap:2px; }
+    .menu .menu-row { display:flex; gap:6px; align-items:center; }
+    .menu button { width:100%; text-align:left; border-radius:8px; }
+    .menu .menu-row button { width:auto; white-space:nowrap; }
+    .menu .menu-inline-select { flex:1; }
+    .kebab { width:32px; display:grid; place-items:center; border-radius:10px; }
+    @media (max-width:540px) {
+      header { flex-wrap:wrap; gap:8px; }
+      .toolbar { width:100%; justify-content:flex-start; }
+    }
 
     #bar {
       grid-area:bar;
@@ -299,14 +318,28 @@
 <div id="app">
   <header>
     <h1>Parallax Map Builder <span style="color:var(--muted)">· layered v15f</span></h1>
-    <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
-      <button id="btnLoadPrefab">Load Structure JSON</button>
-      <button id="btnLoadImage">Load Image</button>
-      <select id="mapRepoSelect" aria-label="Repository Map"></select>
-      <button id="btnLoadMap">Load Map</button>
-      <button id="btnUndo">Undo</button>
-      <button id="btnPreviewGameplay">Preview Gameplay</button>
-      <button id="btnExportMap">Download Area JSON</button>
+    <div class="toolbar" aria-label="Editor actions">
+      <div class="split-group" aria-label="Import and load">
+        <button id="btnLoadMap" aria-label="Load selected map">Load Map</button>
+        <button id="importMenuToggle" class="split-caret" aria-haspopup="true" aria-expanded="false" aria-label="Open import menu">▾</button>
+        <div id="importMenu" class="menu" role="menu" aria-label="Import menu">
+          <button id="btnLoadPrefab" role="menuitem">Load Structure JSON</button>
+          <button id="btnLoadImage" role="menuitem">Load Image</button>
+          <div class="menu-row" role="menuitem">
+            <label class="menu-inline-select">
+              <span>Repository Map</span>
+              <select id="mapRepoSelect" aria-label="Repository Map"></select>
+            </label>
+            <button id="btnLoadMapInline" aria-label="Load selected repository map">Load</button>
+          </div>
+        </div>
+      </div>
+      <button id="btnPreviewGameplay" class="btn-primary">Preview</button>
+      <button id="btnExportMap" class="btn-secondary">Export</button>
+      <button id="overflowMenuToggle" class="kebab" aria-label="More actions" aria-haspopup="true" aria-expanded="false">⋮</button>
+      <div id="overflowMenu" class="menu" role="menu" aria-label="More actions">
+        <button id="btnUndo" role="menuitem">Undo</button>
+      </div>
     </div>
   </header>
 
@@ -3374,11 +3407,47 @@ function launchGameplayPreview(){
   }
 }
 
+const menus = [];
+function bindMenu(toggleSelector, menuSelector){
+  const toggle = $(toggleSelector);
+  const menu = $(menuSelector);
+  if (!toggle || !menu) return;
+  const close = () => {
+    menu.classList.remove('open');
+    toggle.setAttribute('aria-expanded','false');
+  };
+  const open = () => {
+    menu.classList.add('open');
+    toggle.setAttribute('aria-expanded','true');
+  };
+  toggle.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const isOpen = menu.classList.contains('open');
+    menus.forEach(item => item.close());
+    if (!isOpen) open();
+  });
+  menu.addEventListener('click', (event) => event.stopPropagation());
+  menus.push({ toggle, menu, close });
+}
+
+bindMenu('#importMenuToggle', '#importMenu');
+bindMenu('#overflowMenuToggle', '#overflowMenu');
+
+document.addEventListener('click', () => menus.forEach(item => item.close()));
+
 $('#btnLoadMap').addEventListener('click', async () => {
   const select = $('#mapRepoSelect');
   const mapId = select?.value || DEFAULT_LAYOUT_META.areaId;
   await loadRepositoryMapById(mapId);
 });
+
+const btnLoadMapInline = $('#btnLoadMapInline');
+if (btnLoadMapInline){
+  btnLoadMapInline.addEventListener('click', () => {
+    $('#btnLoadMap')?.click();
+    menus.forEach(item => item.close());
+  });
+}
 
 $('#btnPreviewGameplay').addEventListener('click', launchGameplayPreview);
 const spawnHeightField = $('#spawnPosY');
