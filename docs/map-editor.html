@@ -1705,6 +1705,90 @@ async function ensureConfiguredPrefabsLoaded(){
   })();
   return prefabBootstrapPromise;
 }
+async function importDrumSkinImagesFromAssetManifest(){
+  let manifest = [];
+  try {
+    const response = await fetch('./assets/asset-manifest.json', { cache: 'no-cache' });
+    manifest = await response.json();
+  } catch (error) {
+    console.warn('[map-editor] Failed to load asset manifest for drum skins', error);
+    return;
+  }
+
+  const drumSkinUrls = Array.isArray(manifest)
+    ? manifest.filter((entry) => typeof entry === 'string' && entry.startsWith('./assets/prefabs/images/'))
+    : [];
+  if (!drumSkinUrls.length) return;
+
+  let registered = 0;
+  for (const url of drumSkinUrls) {
+    const baseName = url.split('/').pop() || '';
+    const stem = baseName.replace(/\.[^/.]+$/, '') || 'drum_skin';
+    let prefabId = stem;
+    let suffix = 1;
+    while (prefabs[prefabId]) {
+      prefabId = `${stem}_${suffix++}`;
+    }
+
+    const img = await loadImage(url);
+    if (!img) {
+      console.warn('[map-editor] Skipping drum skin import; failed to load image', url);
+      continue;
+    }
+
+    const prefab = {
+      id: prefabId,
+      structureId: prefabId,
+      isImage: true,
+      tags: ['drum-skin', 'drum', 'image'],
+      parts: [{
+        name: prefabId,
+        layer: 'near',
+        relX: 0,
+        relY: 0,
+        propTemplate: {
+          id: prefabId,
+          w: img.width || 1,
+          h: img.height || 1,
+          url,
+          pivot: 'bottom',
+          anchorXPct: 50,
+          anchorYPct: 100,
+          parallaxX: 1,
+          parallaxClampPx: 0,
+        },
+      }],
+      meta: {
+        catalog: {
+          id: prefabId,
+          sourceUrl: url,
+        },
+        drumSkin: {
+          imageURL: url,
+        },
+      },
+    };
+
+    try {
+      await registerPrefab(prefab, {
+        select: false,
+        autoPopulate: false,
+        silent: true,
+        deferRefresh: true,
+        prefabId,
+      });
+      registered++;
+    } catch (error) {
+      console.warn('[map-editor] Failed to register drum skin prefab from manifest', { url, error });
+    }
+  }
+
+  if (registered) {
+    rebuildPrefabSelect();
+    refreshLibrarySelect();
+    refreshDrumSkinList();
+  }
+}
 function registerImagePrefab(file){
   const url=URL.createObjectURL(file);
   const img=new Image();
@@ -3357,6 +3441,7 @@ requestAnimationFrame(render);
 (async () => {
   try {
     await ensureConfiguredPrefabsLoaded();
+    await importDrumSkinImagesFromAssetManifest();
     const initialId = layoutMeta.repositoryId || layoutMeta.areaId || DEFAULT_LAYOUT_META.areaId;
     await loadRepositoryMapById(initialId);
   } catch (error) {
