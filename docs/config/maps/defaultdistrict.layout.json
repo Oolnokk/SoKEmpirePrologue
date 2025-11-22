@@ -87,7 +87,7 @@
       "type": "gameplay",
       "parallaxSpeed": 1,
       "offsetY": 0,
-      "separation": 90,
+      "separation": 220,
       "scale": 1,
       "source": null,
       "meta": {}
