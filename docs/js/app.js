@@ -2660,6 +2660,7 @@ function createEditorPreviewSandbox() {
     layerLookup: new Map(),
     instances: [],
     colliders: [],
+    drumSkins: [],
     groundOffset: 140,
     ready: false,
     registry: null,
@@ -2737,11 +2738,30 @@ function createEditorPreviewSandbox() {
     };
   };
 
+  const normalizeDrumSkinLayer = (drum, index, layerLookup) => {
+    if (!drum || typeof drum !== 'object') return null;
+    const layerA = typeof drum.layerA === 'string' && layerLookup.has(drum.layerA)
+      ? drum.layerA
+      : (layerLookup.keys().next().value || null);
+    const layerB = typeof drum.layerB === 'string' && layerLookup.has(drum.layerB)
+      ? drum.layerB
+      : layerA;
+    if (!layerA || !layerB) return null;
+    const heightA = coerceFiniteNumber(drum.heightA) ?? 0;
+    const heightB = coerceFiniteNumber(drum.heightB) ?? 0;
+    const imageURL = typeof drum.imageURL === 'string' ? drum.imageURL.trim() : '';
+    const tileScale = coerceFiniteNumber(drum.tileScale) ?? 1;
+    const visible = drum.visible !== false;
+    const id = drum.id ?? index + 1;
+    return { id, layerA, layerB, heightA, heightB, imageURL, tileScale, visible };
+  };
+
   const resetState = () => {
     state.layers = [];
     state.layerLookup = new Map();
     state.instances = [];
     state.colliders = [];
+    state.drumSkins = [];
     state.ready = false;
     state.groundOffset = 140;
   };
@@ -2765,11 +2785,15 @@ function createEditorPreviewSandbox() {
     const normalizedColliders = Array.isArray(area.colliders)
       ? area.colliders.map((col, index) => normalizeCollider(col, index)).filter(Boolean)
       : [];
+    const normalizedDrumSkins = Array.isArray(area.drumSkins)
+      ? area.drumSkins.map((drum, index) => normalizeDrumSkinLayer(drum, index, layerLookup)).filter(Boolean)
+      : [];
 
     state.layers = normalizedLayers;
     state.layerLookup = layerLookup;
     state.instances = normalizedInstances;
     state.colliders = normalizedColliders;
+    state.drumSkins = normalizedDrumSkins;
     const offset = Number(area?.ground?.offset);
     state.groundOffset = Number.isFinite(offset) ? offset : 140;
     state.ready = state.layers.length > 0;
@@ -2864,6 +2888,60 @@ function createEditorPreviewSandbox() {
     sky.addColorStop(1, 'rgba(32,38,50,0.0)');
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, viewWidth, viewHeight);
+
+    const drawDrumSkinLayer = (drum) => {
+      if (!drum || drum.visible === false) return;
+      const layerAEntry = state.layerLookup.get(drum.layerA);
+      const layerBEntry = state.layerLookup.get(drum.layerB);
+      if (!layerAEntry || !layerBEntry) return;
+      const layerA = layerAEntry.layer;
+      const layerB = layerBEntry.layer;
+      const parallaxA = resolveLayerParallaxFactor(layerA);
+      const parallaxB = resolveLayerParallaxFactor(layerB);
+      const offsetA = (layerA.offsetY || 0) * effectiveZoom;
+      const offsetB = (layerB.offsetY || 0) * effectiveZoom;
+      const heightA = (Number(drum.heightA) || 0) * effectiveZoom;
+      const heightB = (Number(drum.heightB) || 0) * effectiveZoom;
+      const yA = groundLine + offsetA + heightA;
+      const yB = groundLine + offsetB + heightB;
+      const leftA = -cameraLeftX * parallaxA * effectiveZoom;
+      const rightA = leftA + usableWorldWidth * effectiveZoom;
+      const leftB = -cameraLeftX * parallaxB * effectiveZoom;
+      const rightB = leftB + usableWorldWidth * effectiveZoom;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(leftA, yA);
+      ctx.lineTo(rightA, yA);
+      ctx.lineTo(rightB, yB);
+      ctx.lineTo(leftB, yB);
+      ctx.closePath();
+
+      const img = drum.imageURL ? loadPrefabImage(drum.imageURL) : null;
+      const ready = img && img.complete && !img.__broken && img.naturalWidth > 0 && img.naturalHeight > 0;
+      if (ready) {
+        const pattern = ctx.createPattern(img, 'repeat');
+        if (pattern && typeof DOMMatrix !== 'undefined') {
+          const scale = Number.isFinite(drum.tileScale) && drum.tileScale > 0 ? drum.tileScale : 1;
+          const matrix = new DOMMatrix();
+          matrix.a = scale;
+          matrix.d = scale;
+          pattern.setTransform(matrix);
+        }
+        if (pattern) {
+          ctx.fillStyle = pattern;
+          ctx.fill();
+        }
+      } else {
+        ctx.fillStyle = 'rgba(96, 165, 250, 0.18)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(96, 165, 250, 0.45)';
+        ctx.stroke();
+      }
+      ctx.restore();
+    };
+
+    state.drumSkins?.forEach(drawDrumSkinLayer);
 
     ctx.save();
     ctx.translate(0, viewHeight * 0.46);

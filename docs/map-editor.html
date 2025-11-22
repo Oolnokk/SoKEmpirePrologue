@@ -394,6 +394,19 @@
       </small>
     </div>
 
+    <!-- Drum skin layers -->
+    <div class="card">
+      <strong>Drum Skin Layers</strong>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <button id="btnAddDrumSkin">Add drum skin</button>
+        <span class="pill">Bridges between two parallax layers with a tiled image.</span>
+      </div>
+      <div id="drumSkinList" style="margin-top:6px;display:flex;flex-direction:column;gap:6px"></div>
+      <small style="color:var(--muted);display:block;margin-top:4px">
+        Configure geometry before selecting an image. Drum skins render above parallax backgrounds but below props.
+      </small>
+    </div>
+
     <!-- Selected instance -->
     <div class="card">
       <strong>Selected instance</strong>
@@ -689,6 +702,17 @@ function restoreState(state){
   }
   selectedColliderId = colliders[0]?.id ?? null;
 
+  drumSkins.length = 0;
+  nextDrumSkinId = 1;
+  if (Array.isArray(adopted.drumSkins)) {
+    for (const drum of adopted.drumSkins) {
+      const normalized = normalizeDrumSkin(drum, nextDrumSkinId, layers);
+      normalized.id ??= nextDrumSkinId;
+      nextDrumSkinId = Math.max(nextDrumSkinId + 1, (normalized.id || 0) + 1);
+      drumSkins.push(normalized);
+    }
+  }
+
   activeLayerId = adopted.activeLayerId || layoutMeta.activeLayerId || getDefaultSpawnLayerId();
   cameraX = toNumber(adopted.camera?.startX, 0);
   zoom = toNumber(adopted.camera?.startZoom, 1);
@@ -700,6 +724,7 @@ function restoreState(state){
   syncActiveLayerFields();
   refreshInstanceList();
   refreshColliderList();
+  refreshDrumSkinList();
   syncColliderFields();
   setCameraX(cameraX);
   setZoom(zoom);
@@ -843,6 +868,8 @@ function createDefaultLayers(){
 let layers = createDefaultLayers();
 let activeLayerId = SPAWN_LAYER_ID && layers.some((l) => l.id === SPAWN_LAYER_ID) ? SPAWN_LAYER_ID : 'gameplay';
 let layoutMeta = { ...DEFAULT_LAYOUT_META };
+let drumSkins = [];
+let nextDrumSkinId = 1;
 function getParallaxLayerCount(){ return layers.filter(l=>l.type==="parallax").length; }
 function findLayer(id){ return layers.find(l=>l.id===id) || null; }
 function getLayerGroundY(layerId){
@@ -985,6 +1012,24 @@ function normalizeStretchQuadSpec(raw){
   const slices = clamp(slicesRaw, 4, 80);
 
   return { targetLayerId, height, topOffset, slices };
+}
+
+function normalizeDrumSkin(raw, index = 0, layerList = layers){
+  const safe = raw && typeof raw === 'object' ? JSON.parse(JSON.stringify(raw)) : {};
+  const parallaxLayers = Array.isArray(layerList)
+    ? layerList.filter((layer) => layer?.type === 'parallax')
+    : [];
+  const fallbackA = parallaxLayers[0]?.id || 'bg1';
+  const fallbackB = parallaxLayers[1]?.id || parallaxLayers[0]?.id || 'bg1';
+  const layerA = typeof safe.layerA === 'string' && safe.layerA.trim() ? safe.layerA.trim() : fallbackA;
+  const layerB = typeof safe.layerB === 'string' && safe.layerB.trim() ? safe.layerB.trim() : fallbackB;
+  const heightA = toNumber(safe.heightA ?? safe.offsetA ?? safe.yOffsetA, 0) || 0;
+  const heightB = toNumber(safe.heightB ?? safe.offsetB ?? safe.yOffsetB, 0) || 0;
+  const imageURL = typeof safe.imageURL === 'string' ? safe.imageURL.trim() : '';
+  const tileScale = toNumber(safe.tileScale, 1) || 1;
+  const visible = safe.visible !== false;
+  const id = safe.id ?? safe.drumSkinId ?? index + 1;
+  return { id, layerA, layerB, heightA, heightB, imageURL, tileScale, visible };
 }
 
 // Expanded/Refactored: 
@@ -1153,6 +1198,32 @@ function adoptAreaState(area, context = {}){
     normalizedColliders.push(normalized);
   }
 
+  const drumSkinList = Array.isArray(raw.drumSkins) ? raw.drumSkins : [];
+  const normalizedDrumSkins = drumSkinList.map((drum, index) => normalizeDrumSkin(drum, index, layersList));
+  const migratedFromInstances = [];
+  for (const inst of normalizedInstances) {
+    const legacy = inst?.meta?.drumSkin || inst?.meta?.groundSpan || inst?.meta?.stretchQuad || null;
+    const normalizedLegacy = normalizeStretchQuadSpec(legacy);
+    if (normalizedLegacy) {
+      migratedFromInstances.push({
+        layerA: inst.layerId,
+        layerB: normalizedLegacy.targetLayerId,
+        heightA: 0,
+        heightB: -(normalizedLegacy.height || 0),
+        imageURL: inst?.prefab?.imageURL || inst?.prefab?.url || '',
+        tileScale: 1,
+        visible: true,
+      });
+      if (inst.meta) {
+        delete inst.meta.drumSkin;
+        delete inst.meta.groundSpan;
+        delete inst.meta.stretchQuad;
+      }
+    }
+  }
+  const combinedDrumSkins = [...normalizedDrumSkins];
+  migratedFromInstances.forEach((drum) => combinedDrumSkins.push(normalizeDrumSkin(drum, combinedDrumSkins.length, layersList)));
+
   const meta = raw.meta && typeof raw.meta === 'object' ? { ...raw.meta } : {};
   const activeLayerId = raw.activeLayerId
     || meta.activeLayerId
@@ -1167,6 +1238,7 @@ function adoptAreaState(area, context = {}){
     layers: layersList,
     instances: normalizedInstances,
     colliders: normalizedColliders,
+    drumSkins: combinedDrumSkins,
     meta: {
       ...meta,
       areaId: id,
@@ -1234,6 +1306,12 @@ function buildAreaDescriptor(){
     return descriptor;
   });
 
+  const clonedDrumSkins = drumSkins.map((drum, index) => {
+    const normalized = normalizeDrumSkin(drum, drum.id ?? index + 1, layers);
+    return { ...normalized };
+  });
+  nextDrumSkinId = clonedDrumSkins.reduce((maxId, drum) => Math.max(maxId, (drum.id ?? 0) + 1), 1);
+
   const meta = {
     ...layoutMeta,
     activeLayerId,
@@ -1253,6 +1331,7 @@ function buildAreaDescriptor(){
     layers: clonedLayers,
     instances: clonedInstances,
     colliders: clonedColliders,
+    drumSkins: clonedDrumSkins,
     meta,
   };
 }
@@ -1829,6 +1908,194 @@ function syncColliderFields(){
   if (materialField) materialField.value = collider && typeof collider.materialType === 'string' ? collider.materialType : '';
   const removeBtn = $('#btnDeleteCollider');
   if (removeBtn) removeBtn.disabled = !collider;
+}
+
+function refreshDrumSkinList() {
+  const list = $('#drumSkinList');
+  if (!list) return;
+  const parallaxLayers = layers.filter((layer) => layer.type === 'parallax');
+  list.innerHTML = '';
+  if (!drumSkins.length) {
+    const empty = document.createElement('div');
+    empty.style.color = 'var(--muted)';
+    empty.textContent = 'No drum skins yet – add one to span between parallax layers.';
+    list.appendChild(empty);
+    return;
+  }
+
+  for (const drum of drumSkins) {
+    const card = document.createElement('div');
+    card.style.border = '1px solid var(--line)';
+    card.style.borderRadius = '8px';
+    card.style.padding = '6px';
+    card.style.display = 'flex';
+    card.style.flexDirection = 'column';
+    card.style.gap = '4px';
+
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.gap = '6px';
+    const title = document.createElement('strong');
+    title.textContent = `Drum ${drum.id}`;
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = 'Remove';
+    removeBtn.onclick = () => {
+      pushHistory();
+      drumSkins = drumSkins.filter((item) => item.id !== drum.id);
+      refreshDrumSkinList();
+    };
+    header.appendChild(title);
+    header.appendChild(removeBtn);
+    card.appendChild(header);
+
+    const row1 = document.createElement('div');
+    row1.className = 'row';
+    const layerAField = document.createElement('select');
+    layerAField.value = drum.layerA || '';
+    parallaxLayers.forEach((layer) => {
+      const opt = document.createElement('option');
+      opt.value = layer.id;
+      opt.textContent = layer.name || layer.id;
+      layerAField.appendChild(opt);
+    });
+    layerAField.onchange = () => {
+      pushHistory();
+      drum.layerA = layerAField.value;
+      refreshDrumSkinList();
+    };
+    const layerBField = layerAField.cloneNode(true);
+    layerBField.value = drum.layerB || '';
+    layerBField.onchange = () => {
+      pushHistory();
+      drum.layerB = layerBField.value;
+      refreshDrumSkinList();
+    };
+    const labelA = document.createElement('label');
+    labelA.style.flex = '1';
+    labelA.innerHTML = '<span>Layer A</span>';
+    labelA.appendChild(layerAField);
+    const labelB = document.createElement('label');
+    labelB.style.flex = '1';
+    labelB.innerHTML = '<span>Layer B</span>';
+    labelB.appendChild(layerBField);
+    row1.appendChild(labelA);
+    row1.appendChild(labelB);
+    card.appendChild(row1);
+
+    const row2 = document.createElement('div');
+    row2.className = 'row';
+    const heightAField = document.createElement('input');
+    heightAField.type = 'number';
+    heightAField.step = '1';
+    heightAField.value = drum.heightA ?? 0;
+    heightAField.onchange = () => {
+      const val = toNumber(heightAField.value, drum.heightA);
+      if (val === drum.heightA) return;
+      pushHistory();
+      drum.heightA = val;
+      refreshDrumSkinList();
+    };
+    const heightBField = document.createElement('input');
+    heightBField.type = 'number';
+    heightBField.step = '1';
+    heightBField.value = drum.heightB ?? 0;
+    heightBField.onchange = () => {
+      const val = toNumber(heightBField.value, drum.heightB);
+      if (val === drum.heightB) return;
+      pushHistory();
+      drum.heightB = val;
+      refreshDrumSkinList();
+    };
+    const heightALabel = document.createElement('label');
+    heightALabel.style.flex = '1';
+    heightALabel.innerHTML = '<span>Height offset A</span>';
+    heightALabel.appendChild(heightAField);
+    const heightBLabel = document.createElement('label');
+    heightBLabel.style.flex = '1';
+    heightBLabel.innerHTML = '<span>Height offset B</span>';
+    heightBLabel.appendChild(heightBField);
+    row2.appendChild(heightALabel);
+    row2.appendChild(heightBLabel);
+    card.appendChild(row2);
+
+    const row3 = document.createElement('div');
+    row3.className = 'row';
+    const urlField = document.createElement('input');
+    urlField.type = 'text';
+    urlField.value = drum.imageURL || '';
+    urlField.placeholder = 'Image URL (tiled)';
+    urlField.onchange = () => {
+      pushHistory();
+      drum.imageURL = urlField.value.trim();
+    };
+    const scaleField = document.createElement('input');
+    scaleField.type = 'number';
+    scaleField.step = '0.05';
+    scaleField.min = '0.05';
+    scaleField.value = drum.tileScale ?? 1;
+    scaleField.onchange = () => {
+      const val = toNumber(scaleField.value, drum.tileScale) || 1;
+      if (val === drum.tileScale) return;
+      pushHistory();
+      drum.tileScale = val;
+      refreshDrumSkinList();
+    };
+    const urlLabel = document.createElement('label');
+    urlLabel.style.flex = '1';
+    urlLabel.innerHTML = '<span>Image URL</span>';
+    urlLabel.appendChild(urlField);
+    const scaleLabel = document.createElement('label');
+    scaleLabel.style.flex = '0.8';
+    scaleLabel.innerHTML = '<span>Tile scale</span>';
+    scaleLabel.appendChild(scaleField);
+    row3.appendChild(urlLabel);
+    row3.appendChild(scaleLabel);
+    card.appendChild(row3);
+
+    const row4 = document.createElement('div');
+    row4.style.display = 'flex';
+    row4.style.alignItems = 'center';
+    row4.style.gap = '8px';
+    const visibleField = document.createElement('input');
+    visibleField.type = 'checkbox';
+    visibleField.checked = drum.visible !== false;
+    visibleField.onchange = () => {
+      pushHistory();
+      drum.visible = visibleField.checked;
+    };
+    const visibleLabel = document.createElement('label');
+    visibleLabel.style.display = 'flex';
+    visibleLabel.style.alignItems = 'center';
+    visibleLabel.style.gap = '6px';
+    visibleLabel.appendChild(visibleField);
+    const text = document.createElement('span');
+    text.textContent = 'Visible';
+    text.style.color = 'var(--muted)';
+    visibleLabel.appendChild(text);
+    row4.appendChild(visibleLabel);
+    card.appendChild(row4);
+
+    list.appendChild(card);
+  }
+}
+
+function addDrumSkin() {
+  const parallaxLayers = layers.filter((layer) => layer.type === 'parallax');
+  const layerA = parallaxLayers[0]?.id || 'bg1';
+  const layerB = parallaxLayers[1]?.id || layerA;
+  pushHistory();
+  drumSkins.push({
+    id: nextDrumSkinId++,
+    layerA,
+    layerB,
+    heightA: 0,
+    heightB: 0,
+    imageURL: '',
+    tileScale: 1,
+    visible: true,
+  });
+  refreshDrumSkinList();
 }
 
 function updateSelectedColliderFromFields(){
@@ -2683,6 +2950,7 @@ $('#btnDeleteInst').addEventListener('click',deleteSelectedInstance);
 $('#btnDuplicateInst').addEventListener('click',duplicateSelectedInstance);
 $('#btnUndo').addEventListener('click',undo);
 $('#chkDebug').addEventListener('change',e=>{debugOverlay=e.target.checked;});
+$('#btnAddDrumSkin').addEventListener('click', addDrumSkin);
 $('#btnPlaceRow').addEventListener('click',()=>{
   const pid=$('#libPrefab').value;
   const count=parseInt($('#libCount').value,10)||1;
@@ -2945,6 +3213,7 @@ syncActiveLayerFields();
 ensurePlayerSpawn();
 refreshColliderList();
 refreshInstanceList();
+refreshDrumSkinList();
 requestAnimationFrame(render);
 
 (async () => {
