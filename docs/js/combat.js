@@ -232,19 +232,36 @@ export function makeCombat(G, C, options = {}){
         return tags.some((tag) => allowedTags.has(String(tag).toUpperCase()));
       };
 
-      const colliderKeys = Object.entries(configuredColliders)
-        .reduce((keys, [key, collider]) => {
-          const activations = Array.isArray(collider?.activatesOn)
-            ? collider.activatesOn
-            : (collider?.activatesOn ? [collider.activatesOn] : []);
-          if (!activations.length && options.defaultActivationTag) {
-            activations.push(options.defaultActivationTag);
-          }
-          if (matchesActivation(activations)) {
-            keys.push(`weapon:${key}`);
-          }
-          return keys;
-        }, []);
+      const rigColliders = (weaponDef?.rig?.bones || [])
+        .flatMap((bone) => Array.isArray(bone?.colliders) ? bone.colliders : [])
+        .filter(Boolean);
+
+      const colliderKeys = rigColliders.length
+        ? rigColliders.reduce((keys, collider) => {
+            const activations = Array.isArray(collider?.activatesOn)
+              ? collider.activatesOn.slice()
+              : (collider?.activatesOn ? [collider.activatesOn] : []);
+            if (!activations.length && options.defaultActivationTag) {
+              activations.push(options.defaultActivationTag);
+            }
+            if (collider?.id && matchesActivation(activations)) {
+              keys.push(`weapon:${collider.id}`);
+            }
+            return keys;
+          }, [])
+        : Object.entries(configuredColliders)
+          .reduce((keys, [key, collider]) => {
+            const activations = Array.isArray(collider?.activatesOn)
+              ? collider.activatesOn
+              : (collider?.activatesOn ? [collider.activatesOn] : []);
+            if (!activations.length && options.defaultActivationTag) {
+              activations.push(options.defaultActivationTag);
+            }
+            if (matchesActivation(activations)) {
+              keys.push(`weapon:${key}`);
+            }
+            return keys;
+          }, []);
 
       if (colliderKeys.length) {
         return colliderKeys;
