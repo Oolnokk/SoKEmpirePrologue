@@ -65,7 +65,7 @@ function resolveCanvasWidth(config) {
   return 720;
 }
 
-function resolveHorizontalBounds(config) {
+function resolveBaseHorizontalBounds(config) {
   const width = resolveCanvasWidth(config);
   const defaultMargin = 40;
   const margins = config?.canvas?.margins || {};

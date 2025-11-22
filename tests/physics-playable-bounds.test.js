@@ -28,6 +28,7 @@ async function loadClampFunction() {
 
   const clampSrc = extractFunction('clamp');
   const resolveCanvasWidthSrc = extractFunction('resolveCanvasWidth');
+  const resolveBaseHorizontalBoundsSrc = extractFunction('resolveBaseHorizontalBounds');
   const resolveHorizontalBoundsSrc = extractFunction('resolveHorizontalBounds');
   const clampBoundsSrc = extractFunction('clampFighterToBounds');
 
@@ -35,6 +36,7 @@ async function loadClampFunction() {
     function computeGroundY(config){ return Number.isFinite(config?.groundY) ? config.groundY : 0; }
     ${clampSrc}
     ${resolveCanvasWidthSrc}
+    ${resolveBaseHorizontalBoundsSrc}
     ${resolveHorizontalBoundsSrc}
     ${clampBoundsSrc}
     exports.clamp = clamp;
