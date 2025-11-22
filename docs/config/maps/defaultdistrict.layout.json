@@ -8,7 +8,7 @@
     "startZoom": 1
   },
   "ground": {
-    "offset": 300
+    "offset": 240
   },
   "playableBounds": {
     "left": -1000,
