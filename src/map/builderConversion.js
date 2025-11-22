@@ -765,15 +765,57 @@ function resolveDrumSkinTexture(prefab) {
 function normalizeDrumSkinLayer(raw, index = 0, layerMap = new Map(), options = {}) {
   const { prefabResolver = null, warnings = null } = options;
   const safe = raw && typeof raw === 'object' ? raw : {};
-  const layerA = typeof safe.layerA === 'string' && layerMap.has(safe.layerA)
+
+  const parallaxLayers = Array.from(layerMap.values()).filter((layer) => layer?.type === 'parallax');
+  const legacyLayerAId = typeof safe.layerA === 'string' && layerMap.has(safe.layerA)
     ? safe.layerA
-    : null;
-  const layerB = typeof safe.layerB === 'string' && layerMap.has(safe.layerB)
+    : (typeof safe.legacyLayerA === 'string' && layerMap.has(safe.legacyLayerA) ? safe.legacyLayerA : null);
+  const legacyLayerBId = typeof safe.layerB === 'string' && layerMap.has(safe.layerB)
     ? safe.layerB
-    : layerA;
-  if (!layerA || !layerB) return null;
-  const heightA = toNumber(safe.heightA ?? safe.offsetA ?? safe.yOffsetA, 0) || 0;
-  const heightB = toNumber(safe.heightB ?? safe.offsetB ?? safe.yOffsetB, 0) || 0;
+    : (typeof safe.legacyLayerB === 'string' && layerMap.has(safe.legacyLayerB) ? safe.legacyLayerB : legacyLayerAId);
+  const fallbackTopLayer = legacyLayerAId ? layerMap.get(legacyLayerAId) : parallaxLayers[0];
+  const fallbackBottomLayer = legacyLayerBId ? layerMap.get(legacyLayerBId) : (parallaxLayers[1] ?? fallbackTopLayer);
+
+  const legacyHeightA = toNumber(safe.heightA ?? safe.offsetA ?? safe.yOffsetA, null);
+  const legacyHeightB = toNumber(safe.heightB ?? safe.offsetB ?? safe.yOffsetB, null);
+
+  const topParallax = toNumber(
+    safe.topParallax ?? safe.parallaxTop ?? safe.parallaxA,
+    fallbackTopLayer?.parallaxSpeed ?? 1,
+  ) || 1;
+  const bottomParallax = toNumber(
+    safe.bottomParallax ?? safe.parallaxBottom ?? safe.parallaxB,
+    fallbackBottomLayer?.parallaxSpeed ?? topParallax,
+  ) || topParallax;
+
+  const topScale = toNumber(
+    safe.topScale ?? safe.scaleTop ?? safe.scaleA,
+    fallbackTopLayer?.scale ?? 1,
+  ) || 1;
+  const bottomScale = toNumber(
+    safe.bottomScale ?? safe.scaleBottom ?? safe.scaleB,
+    fallbackBottomLayer?.scale ?? topScale,
+  ) || topScale;
+
+  const topYOffset = toNumber(
+    safe.topYOffset
+      ?? safe.topOffset
+      ?? safe.offsetTop
+      ?? (Number.isFinite(legacyHeightA)
+        ? (fallbackTopLayer?.offsetY ?? 0) - legacyHeightA
+        : null),
+    fallbackTopLayer?.offsetY ?? 0,
+  ) || 0;
+  const bottomYOffset = toNumber(
+    safe.bottomYOffset
+      ?? safe.bottomOffset
+      ?? safe.offsetBottom
+      ?? (Number.isFinite(legacyHeightB)
+        ? (fallbackBottomLayer?.offsetY ?? 0) - legacyHeightB
+        : null),
+    fallbackBottomLayer?.offsetY ?? fallbackTopLayer?.offsetY ?? topYOffset,
+  ) || 0;
+
   const prefabId = typeof safe.prefabId === 'string' ? safe.prefabId.trim() : '';
   const textureId = typeof safe.textureId === 'string' ? safe.textureId.trim() : '';
   const prefabRef = prefabId || textureId;
@@ -821,16 +863,24 @@ function normalizeDrumSkinLayer(raw, index = 0, layerMap = new Map(), options = 
 
   const descriptor = {
     id,
-    layerA,
-    layerB,
-    heightA,
-    heightB,
+    topParallax,
+    bottomParallax,
+    topScale,
+    bottomScale,
+    topYOffset,
+    bottomYOffset,
     prefabId: prefabRef || null,
     textureId: prefabRef || null,
     imageURL: finalImageURL,
     tileScale,
     visible,
     meta,
+    legacyLayerA: legacyLayerAId,
+    legacyLayerB: legacyLayerBId,
+    layerA: legacyLayerAId,
+    layerB: legacyLayerBId,
+    heightA: legacyHeightA,
+    heightB: legacyHeightB,
   };
 
   if (resolvedPrefab) {
