@@ -1303,8 +1303,8 @@ window.CONFIG = {
       cosmetics: {
         slots: {
           hat: { id: 'citywatch_helmet', hsv: { h: -12, s: 0.05, v: 0.08 } },
-          overwear: { id: 'simple_poncho', hsv: { h: -110, s: 0.8, v: -0.1 } },
-          legs: { id: 'basic_pants', hsv: { h: -110, s: 0.8, v: -0.1 } }
+          overwear: { id: 'simple_poncho', hsv: { h: 170, s: 0.9, v: -0.5 } },
+          legs: { id: 'basic_pants', hsv: { h: 170, s: 0.9, v: -0.5 } }
         }
       }
     }
