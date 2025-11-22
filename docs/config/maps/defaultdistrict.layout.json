@@ -1,18 +1,14 @@
-
+DefaultDistrict JSON export
 {
   "id": "defaultdistrict",
   "name": "DefaultDistrict",
   "source": "map-editor",
   "camera": {
-    "startX": 585,
-    "startZoom": 1
+    "startX": 689.16943359375,
+    "startZoom": 0.5
   },
   "ground": {
     "offset": 250
-  },
-  "playableBounds": {
-    "left": -1000,
-    "right": 1500
   },
   "layers": [
     {
@@ -88,7 +84,7 @@
       "parallaxSpeed": 1,
       "offsetY": 0,
       "separation": 220,
-      "scale": 1,
+      "scale": 0.5,
       "source": null,
       "meta": {}
     },
@@ -101,6 +97,1421 @@
       "separation": 180,
       "scale": 1.05,
       "source": null,
+      "meta": {}
+    },
+    {
+      "id": "fg2",
+      "name": "Foreground 2",
+      "type": "foreground",
+      "parallaxSpeed": 1.2,
+      "offsetY": 0,
+      "separation": 180,
+      "scale": 1.1,
+      "source": null,
+      "meta": {}
+    }
+  ],
+  "instances": [
+    {
+      "id": 9001,
+      "prefabId": "spawn_player",
+      "layerId": "gameplay",
+      "position": {
+        "x": -180,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "tags": [
+        "spawn:player"
+      ],
+      "meta": {
+        "fallback": {
+          "reason": "prefab-missing",
+          "prefabId": "spawn_player",
+          "errorCode": null,
+          "message": null
+        },
+        "identity": {
+          "instanceId": "player_spawn",
+          "source": "tag:spawn:player"
+        }
+      }
+    },
+    {
+      "id": 9002,
+      "prefabId": "spawn_npc",
+      "layerId": "gameplay",
+      "position": {
+        "x": 120,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": true,
+      "tags": [
+        "spawn:npc"
+      ],
+      "meta": {
+        "fallback": {
+          "reason": "prefab-missing",
+          "prefabId": "spawn_npc",
+          "errorCode": null,
+          "message": null
+        },
+        "identity": {
+          "instanceId": "npc_spawn",
+          "source": "tag:spawn:npc"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": -780,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.0226217609734505,
+        "y": 1.046461629240801
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "8",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": -630,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.0543345923375522,
+        "y": 1.0574532874070361
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "9",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": -480,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9080806554717658,
+        "y": 1.0365857398291691
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "10",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": -359.6055576059955,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9038096948732823,
+        "y": 1.062437946910797
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "11",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": -60,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.072117131185551,
+        "y": 1.0861833712514748
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "12",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": 1290,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9754083821981897,
+        "y": 1.005791631649362
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "13",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": -210,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9802092887050037,
+        "y": 1.0329035828801791
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "14",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": 90,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.0337234420659858,
+        "y": 0.9277483258793808
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "15",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": 1110,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9822829950453533,
+        "y": 1.0921703135279728
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "16",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": 840,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.0579855618813536,
+        "y": 1.0519443402337636
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "17",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 18,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9595319918712899,
+        "y": 0.9627683674259854
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "18",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": 960,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.9470504171614482,
+        "y": 0.99256099772189
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "19",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 20,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": 360,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.000149982994323,
+        "y": 1.0157007780163863
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "20",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 21,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": 539.07754987568,
+        "y": 0
+      },
+      "scale": {
+        "x": 1.000448474356018,
+        "y": 0.9655974305544663
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "21",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "prefabId": "tower_commercial",
+      "layerId": "gameplay",
+      "position": {
+        "x": 720,
+        "y": 0
+      },
+      "scale": {
+        "x": 0.98480878862666,
+        "y": 0.9107784561654805
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "22",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 23,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -1160,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "23",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 24,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -1080,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "24",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 25,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -1000,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "25",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 27,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -840,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "27",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 28,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -760,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "28",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 29,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -680,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "29",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 30,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -600,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "30",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 31,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -520,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "31",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 32,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -440,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "32",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 33,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -360,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "33",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 34,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -280,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "34",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 35,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -200,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "35",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 36,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -120,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "36",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 37,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": -40,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "37",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 38,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 40,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "38",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 39,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 120,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "39",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 40,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "40",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 41,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 280,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "41",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 42,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 360,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "42",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 43,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 440,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "43",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 44,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 520,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "44",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 45,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "45",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 46,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 680,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "46",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 47,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 760,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "47",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 48,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 840,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "48",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 49,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 920,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "49",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 50,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "50",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 51,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 1080,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "51",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 52,
+      "prefabId": "tower_commercial",
+      "layerId": "bg4",
+      "position": {
+        "x": 1160,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "52",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 53,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": -490,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "53",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 54,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": -420,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "54",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 55,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": -350,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "55",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 56,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": -280,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "56",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 57,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": -210,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "57",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 58,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": -140,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "58",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 59,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": -70,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "59",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 60,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "60",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 61,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": 70,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "61",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 62,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": 140,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "62",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 63,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": 210,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "63",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 64,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": 280,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "64",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 65,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": 350,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "65",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 66,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": 420,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "66",
+          "source": "instance.id"
+        }
+      }
+    },
+    {
+      "id": 67,
+      "prefabId": "tower_commercial",
+      "layerId": "bg3",
+      "position": {
+        "x": 490,
+        "y": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "rotationDeg": 0,
+      "locked": false,
+      "tags": [],
+      "meta": {
+        "identity": {
+          "instanceId": "67",
+          "source": "instance.id"
+        }
+      }
+    }
+  ],
+  "colliders": [
+    {
+      "id": 1,
+      "label": "Collider 1",
+      "type": "box",
+      "shape": "box",
+      "left": -1000,
+      "width": 2500,
+      "topOffset": 0,
+      "height": 200,
+      "meta": {}
+    }
+  ],
+  "drumSkins": [
+    {
+      "id": 1,
+      "topParallax": 0.3,
+      "bottomParallax": 1,
+      "topScale": 0.2,
+      "bottomScale": 1.5,
+      "topYOffset": 100,
+      "bottomYOffset": 20,
+      "prefabId": "stone_tiles",
+      "textureId": "stone_tiles",
+      "imageURL": "./assets/prefabs/images/stone_tiles.png",
+      "tileScale": 1,
+      "visible": true,
+      "legacyLayerA": "bg1",
+      "legacyLayerB": "bg1_copy"
+    }
+  ],
+  "meta": {
+    "areaId": "defaultdistrict",
+    "areaName": "DefaultDistrict",
+    "sourcePath": null,
+    "repositoryId": null,
+    "activeLayerId": "gameplay",
+    "exportedAt": "2025-11-22T21:28:33.260Z"
+  }
+}
+Copy JSON to clipboard      "source": null,
       "meta": {}
     },
     {
