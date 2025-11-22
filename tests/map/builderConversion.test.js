@@ -89,6 +89,38 @@ test('convertLayoutToArea normalizes area descriptors', () => {
   assert.equal(area.warnings.length, 0);
 });
 
+test('convertLayoutToArea preserves drum skins from area descriptors', () => {
+  const areaDescriptor = {
+    id: 'drum_area',
+    camera: { startX: 0, startZoom: 1 },
+    ground: { offset: 0 },
+    layers: [
+      { id: 'layerA', name: 'Layer A', parallaxSpeed: 1, offsetY: 0, separation: 100 },
+      { id: 'layerB', name: 'Layer B', parallaxSpeed: 1, offsetY: 0, separation: 100 },
+    ],
+    instances: [],
+    meta: {
+      raw: {
+        drumSkins: [
+          { layerA: 'layerA', layerB: 'layerB', heightA: 12, heightB: -6, tileScale: 1.5, imageURL: 'pattern.png' },
+        ],
+      },
+    },
+  };
+
+  const area = convertLayoutToArea(areaDescriptor);
+
+  assert.equal(area.drumSkins.length, 1);
+  const skin = area.drumSkins[0];
+  assert.equal(skin.layerA, 'layerA');
+  assert.equal(skin.layerB, 'layerB');
+  assert.equal(skin.heightA, 12);
+  assert.equal(skin.heightB, -6);
+  assert.equal(skin.tileScale, 1.5);
+  assert.equal(skin.imageURL, 'pattern.png');
+  assert.equal(skin.visible, true);
+});
+
 test('convertLayoutToArea generates fallback prefab art when prefab is missing', () => {
   const layout = {
     areaId: 'prefab_fallback',

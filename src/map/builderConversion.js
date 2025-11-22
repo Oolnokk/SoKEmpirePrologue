@@ -309,7 +309,11 @@ function normalizeAreaDescriptor(area, options = {}) {
       : [];
   const rawColliders = Array.isArray(area.colliders) ? area.colliders : [];
   const rawTilers = Array.isArray(area.tilers) ? area.tilers : [];
-  const rawDrumSkins = Array.isArray(area.drumSkins) ? area.drumSkins : [];
+  const rawDrumSkins = Array.isArray(area.drumSkins)
+    ? area.drumSkins
+    : Array.isArray(area.meta?.raw?.drumSkins)
+      ? area.meta.raw.drumSkins
+      : [];
 
   const warnings = Array.isArray(area.warnings) ? [...area.warnings] : [];
   if (!Array.isArray(area.layers)) {
