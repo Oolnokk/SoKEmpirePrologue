@@ -136,9 +136,12 @@ function buildButtonArch(config, handlers = {}) {
   container.style.setProperty('--arch-button-size', `${archCfg.buttonSizePx * (archCfg.scale || 1)}px`);
 
   const vp = getViewportRect();
-  const radius = archCfg.radiusPx * (archCfg.scale || 1);
+  const scale = archCfg.scale || 1;
+  const baseRadius = archCfg.radiusPx * scale;
   const startPt = vpPoint(archCfg.start, vp);
   const endPt = vpPoint(archCfg.end, vp);
+  const chordLength = Math.hypot(endPt.x - startPt.x, endPt.y - startPt.y);
+  const radius = Math.max(baseRadius, chordLength / 2 + archCfg.buttonSizePx * scale * 0.1);
   const center = chooseCircleCenter(startPt, endPt, radius, {
     x: vp.offsetLeft + vp.width * 0.5,
     y: vp.offsetTop + vp.height * 0.5,
