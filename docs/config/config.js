@@ -437,6 +437,7 @@ map: {
   gridUnit: 30,
   spawnLayerId: 'gameplay',
   defaultLayoutId: 'defaultdistrict',
+  previewStoragePrefix: 'sok-map-editor-preview:',
   prefabManifests: [
     './config/prefabs/structures/index.json',
     './config/prefabs/obstructions/index.json',

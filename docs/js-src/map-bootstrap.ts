@@ -1,5 +1,10 @@
 import { MapRegistry, convertLayoutToArea } from './vendor/map-runtime.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
+import {
+  pickDefaultLayoutEntry,
+  resolveDefaultLayoutId,
+  resolvePreviewStoragePrefix,
+} from './map-config-defaults.js';
 
 type PrefabLoadError = { type?: string; error?: unknown };
 type PrefabLibrary = { prefabs: Map<string, unknown>; errors: PrefabLoadError[] };
@@ -129,17 +134,12 @@ const MAP_CONFIG = window.CONFIG?.map || {};
 const CONFIG_LAYOUTS = Array.isArray(MAP_CONFIG.layouts)
   ? MAP_CONFIG.layouts.map((entry) => normalizeLayoutEntry(entry)).filter((entry): entry is MapLayoutConfig => !!entry)
   : [];
-const PREFERRED_LAYOUT_ID = typeof MAP_CONFIG.defaultLayoutId === 'string' && MAP_CONFIG.defaultLayoutId.trim()
-  ? MAP_CONFIG.defaultLayoutId.trim()
-  : 'defaultdistrict';
-const DEFAULT_LAYOUT_ENTRY = CONFIG_LAYOUTS.find((entry) => entry.id === PREFERRED_LAYOUT_ID)
-  || CONFIG_LAYOUTS.find((entry) => entry.id === 'defaultdistrict')
-  || CONFIG_LAYOUTS[0]
-  || null;
-const DEFAULT_AREA_ID = DEFAULT_LAYOUT_ENTRY?.id || 'defaultdistrict';
-const DEFAULT_AREA_NAME = DEFAULT_LAYOUT_ENTRY?.areaName || 'DefaultDistrict';
+const PREFERRED_LAYOUT_ID = resolveDefaultLayoutId(MAP_CONFIG);
+const DEFAULT_LAYOUT_ENTRY = pickDefaultLayoutEntry(CONFIG_LAYOUTS, MAP_CONFIG);
+const DEFAULT_AREA_ID = DEFAULT_LAYOUT_ENTRY?.id || PREFERRED_LAYOUT_ID;
+const DEFAULT_AREA_NAME = DEFAULT_LAYOUT_ENTRY?.areaName || DEFAULT_AREA_ID || 'DefaultDistrict';
 const layoutUrl = resolveLayoutUrl(DEFAULT_LAYOUT_ENTRY?.path);
-const PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
+const PREVIEW_STORAGE_PREFIX = resolvePreviewStoragePrefix(MAP_CONFIG);
 const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
   ? MAP_CONFIG.prefabManifests.filter((entry) => typeof entry === 'string' && entry.trim())
   : [];
