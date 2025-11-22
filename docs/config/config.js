@@ -439,8 +439,8 @@ window.CONFIG = {
       enabled: true,
       arch: {
         radiusPx: 160,
-        start: { x: 0.18, y: 0.34 },
-        end: { x: 0.78, y: 0.16 },
+        start: { x: 0.75, y: 0.90 },
+        end: { x: 0.90, y: 0.75 },
         scale: 1,
         buttonSizePx: 84,
         defaultGapPx: 12,
@@ -686,7 +686,7 @@ window.CONFIG = {
   },
   
   walk: { 
-    enabled:true, onlyTorsoLegs:true, baseHz:1.3, speedScale:1.0, minSpeed:80, amp:1.0,
+    enabled:true, onlyTorsoLegs:true, baseHz:1.3, speedScale:0.5, minSpeed:80, amp:1.0,
     poses:{ 
       A:{ torso:30, lHip:0,   lKnee:45, rHip:180, rKnee:90 }, 
       B:{ torso:40, lHip:180, lKnee:90, rHip:0,   rKnee:45 } 
