@@ -204,6 +204,9 @@ function validateAreaDescriptor(descriptor) {
   if (descriptor.tilers && !Array.isArray(descriptor.tilers)) {
     warnings.push('"tilers" should be an array when provided');
   }
+  if (descriptor.drumSkins && !Array.isArray(descriptor.drumSkins)) {
+    warnings.push('"drumSkins" should be an array when provided');
+  }
 
   let seenInstanceIds = null;
   if (Array.isArray(descriptor.instances)) {

@@ -434,6 +434,7 @@ export function convertLayoutToArea(layout, options = {}) {
       : [];
   const colliders = Array.isArray(layout.colliders) ? layout.colliders : [];
   const rawTilers = Array.isArray(layout.tilers) ? layout.tilers : [];
+  const rawDrumSkins = Array.isArray(layout.drumSkins) ? layout.drumSkins : [];
 
   const layerMap = new Map(layers.map((layer) => [layer.id, layer]));
   const slotCenters = computeLayerSlotCenters(instances);
@@ -524,6 +525,9 @@ export function convertLayoutToArea(layout, options = {}) {
   const explicitTilers = rawTilers.map((tiler, index) => normalizeTiler(tiler, index));
   const colliderTilers = collectColliderTilers(convertedColliders, warnings, explicitTilers.length);
   const convertedTilers = [...explicitTilers, ...colliderTilers];
+  const convertedDrumSkins = rawDrumSkins
+    .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap))
+    .filter(Boolean);
 
   if (!Array.isArray(layout.layers)) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
@@ -551,6 +555,7 @@ export function convertLayoutToArea(layout, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     colliders: convertedColliders,
+    drumSkins: convertedDrumSkins,
     tilers: convertedTilers,
     warnings,
     meta: {
@@ -609,6 +614,24 @@ function collectColliderTilers(colliders, warnings = null, startIndex = 0) {
     }
   });
   return tilers;
+}
+
+function normalizeDrumSkinLayer(raw, index = 0, layerMap = new Map()) {
+  const safe = raw && typeof raw === 'object' ? raw : {};
+  const layerA = typeof safe.layerA === 'string' && layerMap.has(safe.layerA)
+    ? safe.layerA
+    : null;
+  const layerB = typeof safe.layerB === 'string' && layerMap.has(safe.layerB)
+    ? safe.layerB
+    : layerA;
+  if (!layerA || !layerB) return null;
+  const heightA = toNumber(safe.heightA ?? safe.offsetA ?? safe.yOffsetA, 0) || 0;
+  const heightB = toNumber(safe.heightB ?? safe.offsetB ?? safe.yOffsetB, 0) || 0;
+  const imageURL = typeof safe.imageURL === 'string' ? safe.imageURL.trim() : '';
+  const tileScale = toNumber(safe.tileScale, 1) || 1;
+  const visible = safe.visible !== false;
+  const id = safe.id ?? safe.drumSkinId ?? index + 1;
+  return { id, layerA, layerB, heightA, heightB, imageURL, tileScale, visible };
 }
 
 function createTilerFromCollider(collider, fallbackIndex = 0, warnings = null) {
