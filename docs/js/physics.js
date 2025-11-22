@@ -59,6 +59,62 @@ function dampingForFrame(base, dt) {
   return Math.pow(base, dt / frame);
 }
 
+function resolveCanvasWidth(config) {
+  const canvasWidth = Number(config?.canvas?.w);
+  if (Number.isFinite(canvasWidth) && canvasWidth > 0) return canvasWidth;
+  return 720;
+}
+
+function resolveHorizontalBounds(config) {
+  const width = resolveCanvasWidth(config);
+  const defaultMargin = 40;
+  const margins = config?.canvas?.margins || {};
+  const marginLeft = Number.isFinite(margins.left) && margins.left >= 0 ? margins.left : defaultMargin;
+  const marginRight = Number.isFinite(margins.right) && margins.right >= 0 ? margins.right : marginLeft;
+
+  const movementBounds = config?.movement?.bounds || {};
+  const movementLeft = Number.isFinite(movementBounds.left)
+    ? movementBounds.left
+    : Number.isFinite(movementBounds.min)
+      ? movementBounds.min
+      : null;
+  const movementRight = Number.isFinite(movementBounds.right)
+    ? movementBounds.right
+    : Number.isFinite(movementBounds.max)
+      ? movementBounds.max
+      : null;
+
+  const candidates = [];
+
+  if (movementLeft != null && movementRight != null) {
+    candidates.push({ minX: movementLeft, maxX: movementRight });
+  }
+
+  candidates.push({
+    minX: marginLeft,
+    maxX: width - marginRight,
+  });
+
+  const defaultBounds = {
+    minX: defaultMargin,
+    maxX: width - defaultMargin,
+  };
+
+  const chosen = candidates.find(
+    (bounds) =>
+      Number.isFinite(bounds.minX) &&
+      Number.isFinite(bounds.maxX) &&
+      bounds.maxX > bounds.minX,
+  );
+
+  if (chosen) return chosen;
+  if (Number.isFinite(defaultBounds.maxX) && defaultBounds.maxX > defaultBounds.minX) {
+    return defaultBounds;
+  }
+
+  return { minX: 0, maxX: Math.max(0, width) };
+}
+
 function ensurePhysicsState(fighter) {
   fighter.physics ||= {};
   const state = fighter.physics;
@@ -146,17 +202,21 @@ function clampFighterToBounds(fighter, config) {
   const playableBounds = resolvePlayableBounds();
   const mapMinX = Number.isFinite(config?.map?.playAreaMinX) ? config.map.playAreaMinX : null;
   const mapMaxX = Number.isFinite(config?.map?.playAreaMaxX) ? config.map.playAreaMaxX : null;
-  const canvasWidth = Number.isFinite(config?.canvas?.w) ? config.canvas.w : 720;
 
-  let minX = mapMinX ?? 40;
-  let maxX = mapMaxX ?? (canvasWidth - 40);
+  const { minX: resolvedMinX, maxX: resolvedMaxX } = resolveHorizontalBounds(config);
+  let minX = resolvedMinX;
+  let maxX = resolvedMaxX;
 
   if (playableBounds) {
     minX = playableBounds.left;
     maxX = playableBounds.right;
-  } else if (mapMinX == null || mapMaxX == null) {
-    minX = 40;
-    maxX = canvasWidth - 40;
+  } else {
+    if (mapMinX != null) minX = mapMinX;
+    if (mapMaxX != null) maxX = mapMaxX;
+    if (!(Number.isFinite(minX) && Number.isFinite(maxX) && maxX > minX)) {
+      minX = resolvedMinX;
+      maxX = resolvedMaxX;
+    }
   }
   fighter.pos.x = clamp(fighter.pos.x, minX, maxX);
 
@@ -407,9 +467,8 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   fighter.pos.x += fighter.vel.x * dt;
   fighter.pos.y += fighter.vel.y * dt;
 
-  const margin = 40;
-  const worldWidth = config?.canvas?.w || 720;
-  fighter.pos.x = clamp(fighter.pos.x, margin, worldWidth - margin);
+  const { minX: movementMinX, maxX: movementMaxX } = resolveHorizontalBounds(config);
+  fighter.pos.x = clamp(fighter.pos.x, movementMinX, movementMaxX);
 
   let onGround = false;
   const prevY = Number.isFinite(fighter.prevPosY) ? fighter.prevPosY : fighter.pos.y - fighter.vel.y * dt;
