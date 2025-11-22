@@ -202,17 +202,56 @@ export function makeCombat(G, C, options = {}){
     return [];
   };
 
-  const collectWeaponColliderKeys = (fighter, options = {}) => {
-    // Remove all IK-based weapon collider usage.
-    // Instead, fallback to limb colliders if weapon data is missing/invalid.
-    const state = fighter?.anim?.weapon?.state;
-    if (!state?.bones || !Array.isArray(state.bones) || state.bones.some(bone => isNaN(bone?.x) || isNaN(bone?.y))) {
-      // Weapon bone data missing or invalid, fallback to limb colliders
-      return inferActiveCollidersForPreset(options.preset || 'Strike');
-    }
-    // If weapon bone exists and is valid, but we no longer use weapon colliders, fallback to limb colliders
-    return inferActiveCollidersForPreset(options.preset || 'Strike');
-  };
+    const collectWeaponColliderKeys = (fighter, options = {}) => {
+      const presetName = options.preset || 'Strike';
+      const allowedTags = (() => {
+        const tags = new Set();
+        const raw = options.allowedTags;
+        if (raw instanceof Set) {
+          raw.forEach((tag) => tags.add(String(tag).toUpperCase()));
+        } else if (Array.isArray(raw)) {
+          raw.forEach((tag) => tags.add(String(tag).toUpperCase()));
+        }
+        if (options.defaultActivationTag) {
+          tags.add(String(options.defaultActivationTag).toUpperCase());
+        }
+        return tags;
+      })();
+
+      const weaponKey = fighter?.weapon || fighter?.renderProfile?.weapon || C.knockback?.currentWeapon || 'unarmed';
+      const weaponDef = C.weapons?.[weaponKey];
+      const configuredColliders = weaponDef?.colliders || null;
+
+      if (!configuredColliders) {
+        return inferActiveCollidersForPreset(presetName);
+      }
+
+      const matchesActivation = (activatesOn = []) => {
+        if (!allowedTags.size) return true;
+        const tags = Array.isArray(activatesOn) ? activatesOn : [activatesOn];
+        return tags.some((tag) => allowedTags.has(String(tag).toUpperCase()));
+      };
+
+      const colliderKeys = Object.entries(configuredColliders)
+        .reduce((keys, [key, collider]) => {
+          const activations = Array.isArray(collider?.activatesOn)
+            ? collider.activatesOn
+            : (collider?.activatesOn ? [collider.activatesOn] : []);
+          if (!activations.length && options.defaultActivationTag) {
+            activations.push(options.defaultActivationTag);
+          }
+          if (matchesActivation(activations)) {
+            keys.push(`weapon:${key}`);
+          }
+          return keys;
+        }, []);
+
+      if (colliderKeys.length) {
+        return colliderKeys;
+      }
+
+      return inferActiveCollidersForPreset(presetName);
+    };
 
   function cancelQueuedLayerOverrides(){
     if (!Array.isArray(TRANSITION.layerHandles) || TRANSITION.layerHandles.length === 0) return;
