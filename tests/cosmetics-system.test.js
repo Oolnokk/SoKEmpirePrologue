@@ -1,6 +1,6 @@
 import { strictEqual, deepStrictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import { COSMETIC_SLOTS, cosmeticTagFor, ensureCosmeticLayers, clearCosmeticCache, resolveFighterBodyColors } from '../docs/js/cosmetics.js';
+import { COSMETIC_SLOTS, cosmeticTagFor, ensureCosmeticLayers, clearCosmeticCache, resolveFighterBodyColors, registerFighterCosmeticProfile } from '../docs/js/cosmetics.js';
 import { clearPaletteCache } from '../docs/js/cosmetic-palettes.js';
 import { composeStyleXformEntry } from '../docs/js/style-xform.js';
 import { readFileSync } from 'node:fs';
@@ -271,6 +271,47 @@ test('appearance cosmetics inherit character body colors', () => {
   deepStrictEqual(layers[0].extra?.appearance?.bodyColors, ['A']);
   strictEqual(layers[0].styleKey, 'torso');
   strictEqual(layers[0].asset.alignRad, undefined);
+});
+
+test('appearance cosmetics apply profile overrides via base cosmetic id', () => {
+  clearCosmeticCache();
+  clearPaletteCache();
+  registerFighterCosmeticProfile('hero', {
+    cosmetics: {
+      hero_markings: {
+        parts: {
+          torso: { spriteStyle: { base: { xform: { torso: { ax: 12 } } } } }
+        }
+      }
+    }
+  });
+
+  const config = {
+    fighters: {
+      hero: {
+        appearance: {
+          slots: {
+            torso: 'hero_markings'
+          },
+          library: {
+            hero_markings: {
+              slot: 'torso',
+              appearance: { inheritSprite: 'torso' },
+              parts: {
+                torso: { image: { url: 'https://example.com/markings.png' } }
+              }
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const layers = ensureCosmeticLayers(config, 'hero', {});
+  strictEqual(layers.length, 1);
+  strictEqual(layers[0].slot, 'appearance:torso');
+  strictEqual(layers[0].partKey, 'torso');
+  strictEqual(layers[0].styleOverride?.base?.xform?.torso?.ax, 12);
 });
 
 test('resolveFighterBodyColors ignores stale palette when fighter changes', () => {
