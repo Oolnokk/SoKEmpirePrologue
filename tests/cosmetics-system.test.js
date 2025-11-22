@@ -9,7 +9,7 @@ const previousWindowForAnimator = typeof global.window === 'undefined' ? undefin
 if (previousWindowForAnimator === undefined){
   global.window = globalThis;
 }
-const { updateBreathing } = await import('../docs/js/animator.js');
+const { updateBreathing, applyStyleTransformComposer } = await import('../docs/js/animator.js');
 if (previousWindowForAnimator === undefined){
   delete global.window;
 } else {
@@ -106,6 +106,7 @@ test('breathing overrides preserve cosmetic spriteStyle transforms', () => {
     speedMultiplier: { min: 1, max: 1 }
   };
   updateBreathing(fighter, 'fighter_1', spec);
+  applyStyleTransformComposer(fighter, 'fighter_1', {});
   const override = global.window.GAME.ANIM_STYLE_OVERRIDES?.fighter_1;
   strictEqual(typeof override, 'object');
   const torsoAnimXform = override?.xform?.torso;
