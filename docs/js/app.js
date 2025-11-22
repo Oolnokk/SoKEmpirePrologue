@@ -2876,7 +2876,7 @@ function createEditorPreviewSandbox() {
 
   const renderScene = ({ width, height, camX = 0, zoom = 1, groundY, camOrigin = 'left', worldWidth }) => {
     if (!state.ready || !ctx) {
-      return false;
+      return { rendered: false, groundLine: null };
     }
     const effectiveZoom = Math.max(Number.isFinite(zoom) ? zoom : 1, 0.05);
     const viewWidth = Math.max(1, Number(width) || state.canvas?.width || 1);
@@ -2900,12 +2900,16 @@ function createEditorPreviewSandbox() {
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, viewWidth, viewHeight);
+    const derivedAreaGround = state.ready && Number.isFinite(state.groundOffset)
+      ? viewHeight - state.groundOffset
+      : null;
     const resolvedGround = Number.isFinite(groundY)
       ? groundY
-      : computeGroundYFromConfig(window.CONFIG, viewHeight);
+      : (Number.isFinite(derivedAreaGround) ? derivedAreaGround : computeGroundYFromConfig(window.CONFIG, viewHeight));
+    const fallbackOffset = Number.isFinite(state.groundOffset) ? state.groundOffset : 140;
     const groundLine = Number.isFinite(resolvedGround)
       ? resolvedGround
-      : (viewHeight - state.groundOffset);
+      : (viewHeight - fallbackOffset);
 
     const sky = ctx.createLinearGradient(0, 0, 0, viewHeight);
     sky.addColorStop(0, 'rgba(59,63,69,0.9)');
@@ -3160,19 +3164,19 @@ function createEditorPreviewSandbox() {
     ctx.stroke();
     ctx.restore();
 
-    return true;
+    return { rendered: true, groundLine };
   };
 
   const renderAndBlit = (targetCtx, options) => {
-    const rendered = renderScene(options || {});
-    if (!rendered || !targetCtx) {
-      return false;
+    const result = renderScene(options || {});
+    if (!result?.rendered || !targetCtx) {
+      return { rendered: false, groundY: result?.groundLine ?? null };
     }
     targetCtx.save();
     targetCtx.setTransform(1, 0, 0, 1, 0, 0);
     targetCtx.drawImage(canvas, 0, 0, options.width, options.height);
     targetCtx.restore();
-    return true;
+    return { rendered: true, groundY: result.groundLine };
   };
 
   return {
@@ -3426,16 +3430,17 @@ function drawStage(){
   cx.clearRect(0,0,cv.width,cv.height);
   cx.fillStyle = '#0b1220';
   cx.fillRect(0,0,cv.width,cv.height);
-  // ground (with camera offset)
-  const gy = computeGroundYFromConfig(C, cv?.height);
-  const previewRendered = EDITOR_PREVIEW_SANDBOX.renderAndBlit(cx, {
+  const previewResult = EDITOR_PREVIEW_SANDBOX.renderAndBlit(cx, {
     width: cv.width,
     height: cv.height,
     camX,
     zoom,
-    groundY: gy,
     worldWidth: worldW,
   });
+
+  const gyFallback = computeGroundYFromConfig(C, cv?.height);
+  const gy = Number.isFinite(previewResult?.groundY) ? previewResult.groundY : gyFallback;
+  const previewRendered = !!previewResult?.rendered;
 
   cx.save();
   const pivotY = Number.isFinite(gy) ? gy : cv.height;
