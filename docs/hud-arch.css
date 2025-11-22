@@ -1,6 +1,6 @@
 /* Fullscreen HUD layer that holds the arch buttons */
 .arch-hud {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 200;
