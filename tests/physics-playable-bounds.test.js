@@ -33,6 +33,7 @@ async function loadClampFunction() {
 
   const script = `
     function computeGroundY(config){ return Number.isFinite(config?.groundY) ? config.groundY : 0; }
+    const window = globalThis.window || {};
     ${clampSrc}
     ${resolveCanvasWidthSrc}
     ${resolveHorizontalBoundsSrc}
@@ -41,7 +42,8 @@ async function loadClampFunction() {
     exports.clampFighterToBounds = clampFighterToBounds;
   `;
 
-  const context = { Math, exports: {} };
+  const context = { Math, exports: {}, globalThis: {}, window: { GAME: { CAMERA: { worldWidth: 720 } } } };
+  context.globalThis = context;
   vm.createContext(context);
   vm.runInContext(script, context);
   return context.exports.clampFighterToBounds;

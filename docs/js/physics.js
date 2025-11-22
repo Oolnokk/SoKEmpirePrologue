@@ -46,6 +46,19 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+export function resolveWorldWidth(config) {
+  const selectWidth = (...values) => values.find((value) => Number.isFinite(value) && value > 0) || null;
+  const worldWidth = selectWidth(
+    config?.world?.width,
+    config?.camera?.worldWidth,
+    typeof window !== 'undefined' ? window.GAME?.CAMERA?.worldWidth : null,
+    typeof window !== 'undefined' ? window.GAME?.RENDER_STATE?.stage?.width : null,
+    typeof window !== 'undefined' ? window.GAME?.CAMERA?.viewportWidth : null,
+    config?.canvas?.w,
+  );
+  return worldWidth || 720;
+}
+
 function getBalanceScalar(key, fallback = 1) {
   if (typeof window === 'undefined') return fallback;
   const balance = window.CONFIG?.balance;
