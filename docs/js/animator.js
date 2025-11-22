@@ -3,6 +3,7 @@ import { degToRad, radToDegNum, angleFromDelta, segPos, withAX, basis } from './
 import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
 import { pickFighterConfig, pickFighterName, lengths, pickOffsets, resolveBoneLengthScale, normalizeBoneLengthKey } from './fighter-utils.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
+import { composeStyleOverrides } from './transform-composer.js?v=1';
 import { updatePhysicsPoseTarget, getPhysicsRagdollBlend, getPhysicsRagdollAngles } from './physics.js?v=1';
 
 const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee','weapon'];
@@ -470,18 +471,18 @@ export function updateBreathing(F, fighterId, spec){
   const rightAy = lerp(startFrame.right.ay, endFrame.right.ay, eased);
 
   const torsoXform = {};
+  let hasTorsoXform = false;
   if (Number.isFinite(torsoScaleX)){
     torsoXform.scaleMulX = torsoScaleX;
+    hasTorsoXform = true;
   }
   if (Number.isFinite(torsoScaleY)){
     torsoXform.scaleMulY = torsoScaleY;
+    hasTorsoXform = true;
   }
 
-  const styleOverride = {
-    xform: {
-      torso: torsoXform
-    }
-  };
+  const breathingDelta = hasTorsoXform ? { xform: { torso: torsoXform } } : null;
+  const styleOverride = composeStyleOverrides(null, breathingDelta);
 
   const offsetActive = Math.abs(leftAx) > 1e-3 || Math.abs(leftAy) > 1e-3 || Math.abs(rightAx) > 1e-3 || Math.abs(rightAy) > 1e-3;
 
@@ -491,7 +492,11 @@ export function updateBreathing(F, fighterId, spec){
     ? { left: { ax: leftAx, ay: leftAy }, right: { ax: rightAx, ay: rightAy } }
     : null;
 
-  store[fighterId] = styleOverride;
+  if (styleOverride){
+    store[fighterId] = styleOverride;
+  } else if (store[fighterId]) {
+    delete store[fighterId];
+  }
 }
 
 function trackPendingLayerTimer(F, layerId, handle){

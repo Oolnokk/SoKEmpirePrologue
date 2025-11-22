@@ -895,7 +895,9 @@ export function renderSprites(ctx){
       : !!(G.FLIP_STATE && entity.id && G.FLIP_STATE[entity.id]);
     const centerX = Number.isFinite(entity.centerX) ? entity.centerX : (rig.center?.x ?? 0);
     const animStyle = G.ANIM_STYLE_OVERRIDES?.[entity.id] || null;
-    const animXform = animStyle?.xform || null;
+    const animXform = animStyle?.xform
+      || animStyle?.styleOverride?.xform
+      || null;
 
     function applyAnimOptions(styleKey, baseOptions){
       if (!animXform) return baseOptions;
