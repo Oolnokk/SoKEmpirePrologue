@@ -7,6 +7,7 @@ import { applyHealthRegenFromStats, applyStaminaTick, getStatProfile } from './s
 import { ensureNpcAbilityDirector, updateNpcAbilityDirector } from './npcAbilityDirector.js?v=1';
 import { removeNpcFighter } from './fighter.js?v=8';
 import { getFighterColliders } from './colliders.js?v=1';
+import { computeGroundY } from './ground-utils.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -536,12 +537,6 @@ function clearNpcPresses(state, combat) {
       releaseNpcButton(state, combat, key);
     }
   }
-}
-
-function computeGroundY(config) {
-  const canvasH = config.canvas?.h || 460;
-  const groundRatio = config.groundRatio ?? 0.7;
-  return Math.round(canvasH * groundRatio) - 1;
 }
 
 function getWorldWidth(config) {

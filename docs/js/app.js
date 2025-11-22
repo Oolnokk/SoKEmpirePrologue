@@ -19,6 +19,23 @@ function getSlotAllowance(slotKey, type) {
   return slot?.allowed?.[type] || null;
 }
 
+function computeGroundYFromConfig(config = {}, canvasHeightOverride) {
+  const explicit = Number.isFinite(config?.groundY) ? config.groundY : null;
+  const canvasHeight = Number.isFinite(canvasHeightOverride)
+    ? canvasHeightOverride
+    : (Number.isFinite(config?.canvas?.h) ? config.canvas.h : 460);
+  if (explicit != null) return explicit;
+  const offset = Number(config?.ground?.offset);
+  if (Number.isFinite(offset)) {
+    return Math.round(canvasHeight - offset);
+  }
+  const ratioRaw = Number(config?.groundRatio);
+  const ratio = Number.isFinite(ratioRaw) && ratioRaw > 0 && ratioRaw < 1
+    ? ratioRaw
+    : 0.7;
+  return Math.round(canvasHeight * ratio);
+}
+
 function abilityMatchesSlot(def = {}, type, allowance) {
   if (!def || typeof def !== 'object' || Object.keys(def).length === 0) return false;
   if (allowance) {
@@ -2880,7 +2897,12 @@ function createEditorPreviewSandbox() {
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, viewWidth, viewHeight);
-    const groundLine = Number.isFinite(groundY) ? groundY : (viewHeight - state.groundOffset);
+    const resolvedGround = Number.isFinite(groundY)
+      ? groundY
+      : computeGroundYFromConfig(window.CONFIG, viewHeight);
+    const groundLine = Number.isFinite(resolvedGround)
+      ? resolvedGround
+      : (viewHeight - state.groundOffset);
 
     const sky = ctx.createLinearGradient(0, 0, 0, viewHeight);
     sky.addColorStop(0, 'rgba(59,63,69,0.9)');
@@ -3402,7 +3424,7 @@ function drawStage(){
   cx.fillStyle = '#0b1220';
   cx.fillRect(0,0,cv.width,cv.height);
   // ground (with camera offset)
-  const gy = (C.canvas?.h||460) * (C.groundRatio||0.7);
+  const gy = computeGroundYFromConfig(C, cv?.height);
   const previewRendered = EDITOR_PREVIEW_SANDBOX.renderAndBlit(cx, {
     width: cv.width,
     height: cv.height,
