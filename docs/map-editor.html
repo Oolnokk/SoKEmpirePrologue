@@ -1179,12 +1179,35 @@ function normalizeDrumSkin(raw, index = 0, layerList = layers){
   const parallaxLayers = Array.isArray(layerList)
     ? layerList.filter((layer) => layer?.type === 'parallax')
     : [];
-  const fallbackA = parallaxLayers[0]?.id || 'bg1';
-  const fallbackB = parallaxLayers[1]?.id || parallaxLayers[0]?.id || 'bg1';
-  const layerA = typeof safe.layerA === 'string' && safe.layerA.trim() ? safe.layerA.trim() : fallbackA;
-  const layerB = typeof safe.layerB === 'string' && safe.layerB.trim() ? safe.layerB.trim() : fallbackB;
-  const heightA = toNumber(safe.heightA ?? safe.offsetA ?? safe.yOffsetA, 0) || 0;
-  const heightB = toNumber(safe.heightB ?? safe.offsetB ?? safe.yOffsetB, 0) || 0;
+  const fallbackTopLayer = parallaxLayers[0];
+  const fallbackBottomLayer = parallaxLayers[1] || parallaxLayers[0];
+  const legacyLayerAId = typeof safe.layerA === 'string' && safe.layerA.trim() ? safe.layerA.trim() : fallbackTopLayer?.id;
+  const legacyLayerBId = typeof safe.layerB === 'string' && safe.layerB.trim() ? safe.layerB.trim() : fallbackBottomLayer?.id;
+  const legacyLayerA = legacyLayerAId ? findLayer(legacyLayerAId) : fallbackTopLayer;
+  const legacyLayerB = legacyLayerBId ? findLayer(legacyLayerBId) : fallbackBottomLayer;
+
+  const defaultTopParallax = toNumber(safe.topParallax ?? safe.parallaxTop ?? safe.parallaxA, legacyLayerA?.parallaxSpeed ?? 1) || 1;
+  const defaultBottomParallax = toNumber(safe.bottomParallax ?? safe.parallaxBottom ?? safe.parallaxB, legacyLayerB?.parallaxSpeed ?? defaultTopParallax) || defaultTopParallax;
+
+  const defaultTopScale = toNumber(safe.topScale ?? safe.scaleTop ?? safe.scaleA, legacyLayerA?.scale ?? 1) || 1;
+  const defaultBottomScale = toNumber(safe.bottomScale ?? safe.scaleBottom ?? safe.scaleB, legacyLayerB?.scale ?? defaultTopScale) || defaultTopScale;
+
+  const legacyHeightA = toNumber(safe.heightA ?? safe.offsetA ?? safe.yOffsetA, null);
+  const legacyHeightB = toNumber(safe.heightB ?? safe.offsetB ?? safe.yOffsetB, null);
+
+  const topYOffset = toNumber(
+    safe.topYOffset ?? safe.topOffset ?? safe.offsetTop ?? (Number.isFinite(legacyHeightA)
+      ? (legacyLayerA?.offsetY ?? fallbackTopLayer?.offsetY ?? 0) - legacyHeightA
+      : null),
+    legacyLayerA?.offsetY ?? fallbackTopLayer?.offsetY ?? 0,
+  ) || 0;
+  const bottomYOffset = toNumber(
+    safe.bottomYOffset ?? safe.bottomOffset ?? safe.offsetBottom ?? (Number.isFinite(legacyHeightB)
+      ? (legacyLayerB?.offsetY ?? fallbackBottomLayer?.offsetY ?? 0) - legacyHeightB
+      : null),
+    legacyLayerB?.offsetY ?? fallbackBottomLayer?.offsetY ?? topYOffset,
+  ) || 0;
+
   const prefabId = typeof safe.prefabId === 'string' ? safe.prefabId.trim() : '';
   const textureId = typeof safe.textureId === 'string' ? safe.textureId.trim() : '';
   const prefabRef = textureId || prefabId;
@@ -1194,15 +1217,19 @@ function normalizeDrumSkin(raw, index = 0, layerList = layers){
   const id = safe.id ?? safe.drumSkinId ?? index + 1;
   return {
     id,
-    layerA,
-    layerB,
-    heightA,
-    heightB,
+    topParallax: defaultTopParallax,
+    bottomParallax: defaultBottomParallax,
+    topScale: defaultTopScale,
+    bottomScale: defaultBottomScale,
+    topYOffset,
+    bottomYOffset,
     prefabId: prefabRef,
     textureId: prefabRef,
     imageURL,
     tileScale,
     visible,
+    legacyLayerA: legacyLayerA?.id ?? null,
+    legacyLayerB: legacyLayerB?.id ?? null,
   };
 }
 
@@ -1213,24 +1240,26 @@ function getStretchQuadMeta(inst, areaDrumSkins) {
   if (Array.isArray(areaDrumSkins)) {
     // Check if instance sits on a ground span drum skin
     for (const drum of areaDrumSkins) {
+      const layerAId = drum.legacyLayerA || drum.layerA || null;
+      const layerBId = drum.legacyLayerB || drum.layerB || null;
       // If instance is positioned within the drum skin quad (custom test as needed)
       // Example: check if inst.layerId is between drum.layerA and drum.layerB
       if (
         inst &&
         drum.visible &&
         (
-          inst.layerId === drum.layerA ||
-          inst.layerId === drum.layerB || 
+          (layerAId && inst.layerId === layerAId) ||
+          (layerBId && inst.layerId === layerBId) ||
           // Or custom geometric test for inside quad...
           false
         )
       ) {
         return {
           spec: {
-            layerA: drum.layerA,
-            layerB: drum.layerB,
-            heightA: drum.heightA,
-            heightB: drum.heightB,
+            topParallax: drum.topParallax,
+            bottomParallax: drum.bottomParallax,
+            topYOffset: drum.topYOffset,
+            bottomYOffset: drum.bottomYOffset,
             imageURL: drum.imageURL,
             tileScale: drum.tileScale || 1.0
           },
@@ -1380,10 +1409,14 @@ function adoptAreaState(area, context = {}){
     const normalizedLegacy = normalizeStretchQuadSpec(legacy);
     if (normalizedLegacy) {
       migratedFromInstances.push({
-        layerA: inst.layerId,
-        layerB: normalizedLegacy.targetLayerId,
-        heightA: 0,
-        heightB: -(normalizedLegacy.height || 0),
+        legacyLayerA: inst.layerId,
+        legacyLayerB: normalizedLegacy.targetLayerId,
+        topParallax: findLayer(inst.layerId)?.parallaxSpeed ?? 1,
+        bottomParallax: findLayer(normalizedLegacy.targetLayerId)?.parallaxSpeed ?? 1,
+        topScale: findLayer(inst.layerId)?.scale ?? 1,
+        bottomScale: findLayer(normalizedLegacy.targetLayerId)?.scale ?? 1,
+        topYOffset: findLayer(inst.layerId)?.offsetY ?? 0,
+        bottomYOffset: (findLayer(normalizedLegacy.targetLayerId)?.offsetY ?? 0) - (normalizedLegacy.height || 0),
         prefabId: inst.prefabId || '',
         imageURL: inst?.prefab?.imageURL || inst?.prefab?.url || '',
         tileScale: 1,
@@ -2188,7 +2221,6 @@ function resolveDrumSkinPrefabTexture(prefab) {
 function refreshDrumSkinList() {
   const list = $('#drumSkinList');
   if (!list) return;
-  const parallaxLayers = layers.filter((layer) => layer.type === 'parallax');
   const drumSkinPrefabs = Object.entries(prefabs)
     .map(([id, prefab]) => ({ id, prefab }))
     .filter(({ prefab }) => {
@@ -2252,76 +2284,113 @@ function refreshDrumSkinList() {
 
     const row1 = document.createElement('div');
     row1.className = 'row';
-    const layerAField = document.createElement('select');
-    layerAField.value = drum.layerA || '';
-    parallaxLayers.forEach((layer) => {
-      const opt = document.createElement('option');
-      opt.value = layer.id;
-      opt.textContent = layer.name || layer.id;
-      layerAField.appendChild(opt);
-    });
-    layerAField.onchange = () => {
+    const topParallaxField = document.createElement('input');
+    topParallaxField.type = 'number';
+    topParallaxField.step = '0.05';
+    topParallaxField.value = drum.topParallax ?? 1;
+    topParallaxField.onchange = () => {
+      const val = toNumber(topParallaxField.value, drum.topParallax) || 1;
+      if (val === drum.topParallax) return;
       pushHistory();
-      drum.layerA = layerAField.value;
+      drum.topParallax = val;
       refreshDrumSkinList();
     };
-    const layerBField = layerAField.cloneNode(true);
-    layerBField.value = drum.layerB || '';
-    layerBField.onchange = () => {
+    const bottomParallaxField = document.createElement('input');
+    bottomParallaxField.type = 'number';
+    bottomParallaxField.step = '0.05';
+    bottomParallaxField.value = drum.bottomParallax ?? drum.topParallax ?? 1;
+    bottomParallaxField.onchange = () => {
+      const val = toNumber(bottomParallaxField.value, drum.bottomParallax) || drum.topParallax || 1;
+      if (val === drum.bottomParallax) return;
       pushHistory();
-      drum.layerB = layerBField.value;
+      drum.bottomParallax = val;
       refreshDrumSkinList();
     };
-    const labelA = document.createElement('label');
-    labelA.style.flex = '1';
-    labelA.innerHTML = '<span>Layer A</span>';
-    labelA.appendChild(layerAField);
-    const labelB = document.createElement('label');
-    labelB.style.flex = '1';
-    labelB.innerHTML = '<span>Layer B</span>';
-    labelB.appendChild(layerBField);
-    row1.appendChild(labelA);
-    row1.appendChild(labelB);
+    const topParallaxLabel = document.createElement('label');
+    topParallaxLabel.style.flex = '1';
+    topParallaxLabel.innerHTML = '<span>Top parallax</span>';
+    topParallaxLabel.appendChild(topParallaxField);
+    const bottomParallaxLabel = document.createElement('label');
+    bottomParallaxLabel.style.flex = '1';
+    bottomParallaxLabel.innerHTML = '<span>Bottom parallax</span>';
+    bottomParallaxLabel.appendChild(bottomParallaxField);
+    row1.appendChild(topParallaxLabel);
+    row1.appendChild(bottomParallaxLabel);
     card.appendChild(row1);
 
     const row2 = document.createElement('div');
     row2.className = 'row';
-    const heightAField = document.createElement('input');
-    heightAField.type = 'number';
-    heightAField.step = '1';
-    heightAField.value = drum.heightA ?? 0;
-    heightAField.onchange = () => {
-      const val = toNumber(heightAField.value, drum.heightA);
-      if (val === drum.heightA) return;
+    const topScaleField = document.createElement('input');
+    topScaleField.type = 'number';
+    topScaleField.step = '0.05';
+    topScaleField.value = drum.topScale ?? 1;
+    topScaleField.onchange = () => {
+      const val = toNumber(topScaleField.value, drum.topScale) || 1;
+      if (val === drum.topScale) return;
       pushHistory();
-      drum.heightA = val;
+      drum.topScale = val;
       refreshDrumSkinList();
     };
-    const heightBField = document.createElement('input');
-    heightBField.type = 'number';
-    heightBField.step = '1';
-    heightBField.value = drum.heightB ?? 0;
-    heightBField.onchange = () => {
-      const val = toNumber(heightBField.value, drum.heightB);
-      if (val === drum.heightB) return;
+    const bottomScaleField = document.createElement('input');
+    bottomScaleField.type = 'number';
+    bottomScaleField.step = '0.05';
+    bottomScaleField.value = drum.bottomScale ?? drum.topScale ?? 1;
+    bottomScaleField.onchange = () => {
+      const val = toNumber(bottomScaleField.value, drum.bottomScale) || drum.topScale || 1;
+      if (val === drum.bottomScale) return;
       pushHistory();
-      drum.heightB = val;
+      drum.bottomScale = val;
       refreshDrumSkinList();
     };
-    const heightALabel = document.createElement('label');
-    heightALabel.style.flex = '1';
-    heightALabel.innerHTML = '<span>Height offset A</span>';
-    heightALabel.appendChild(heightAField);
-    const heightBLabel = document.createElement('label');
-    heightBLabel.style.flex = '1';
-    heightBLabel.innerHTML = '<span>Height offset B</span>';
-    heightBLabel.appendChild(heightBField);
-    row2.appendChild(heightALabel);
-    row2.appendChild(heightBLabel);
+    const topScaleLabel = document.createElement('label');
+    topScaleLabel.style.flex = '1';
+    topScaleLabel.innerHTML = '<span>Top scale</span>';
+    topScaleLabel.appendChild(topScaleField);
+    const bottomScaleLabel = document.createElement('label');
+    bottomScaleLabel.style.flex = '1';
+    bottomScaleLabel.innerHTML = '<span>Bottom scale</span>';
+    bottomScaleLabel.appendChild(bottomScaleField);
+    row2.appendChild(topScaleLabel);
+    row2.appendChild(bottomScaleLabel);
     card.appendChild(row2);
 
     const row3 = document.createElement('div');
     row3.className = 'row';
+    const topOffsetField = document.createElement('input');
+    topOffsetField.type = 'number';
+    topOffsetField.step = '1';
+    topOffsetField.value = drum.topYOffset ?? 0;
+    topOffsetField.onchange = () => {
+      const val = toNumber(topOffsetField.value, drum.topYOffset) || 0;
+      if (val === drum.topYOffset) return;
+      pushHistory();
+      drum.topYOffset = val;
+      refreshDrumSkinList();
+    };
+    const bottomOffsetField = document.createElement('input');
+    bottomOffsetField.type = 'number';
+    bottomOffsetField.step = '1';
+    bottomOffsetField.value = drum.bottomYOffset ?? 0;
+    bottomOffsetField.onchange = () => {
+      const val = toNumber(bottomOffsetField.value, drum.bottomYOffset) || 0;
+      if (val === drum.bottomYOffset) return;
+      pushHistory();
+      drum.bottomYOffset = val;
+      refreshDrumSkinList();
+    };
+    const topOffsetLabel = document.createElement('label');
+    topOffsetLabel.style.flex = '1';
+    topOffsetLabel.innerHTML = '<span>Top Y offset</span>';
+    topOffsetLabel.appendChild(topOffsetField);
+    const bottomOffsetLabel = document.createElement('label');
+    bottomOffsetLabel.style.flex = '1';
+    bottomOffsetLabel.innerHTML = '<span>Bottom Y offset</span>';
+    bottomOffsetLabel.appendChild(bottomOffsetField);
+    row3.appendChild(topOffsetLabel);
+    row3.appendChild(bottomOffsetLabel);
+    card.appendChild(row3);
+    const row4 = document.createElement('div');
+    row4.className = 'row';
     const prefabField = document.createElement('select');
     const blankOpt = document.createElement('option');
     blankOpt.value = '';
@@ -2382,10 +2451,10 @@ function refreshDrumSkinList() {
     scaleLabel.style.flex = '0.8';
     scaleLabel.innerHTML = '<span>Tile scale</span>';
     scaleLabel.appendChild(scaleField);
-    row3.appendChild(prefabLabel);
-    row3.appendChild(urlLabel);
-    row3.appendChild(scaleLabel);
-    card.appendChild(row3);
+    row4.appendChild(prefabLabel);
+    row4.appendChild(urlLabel);
+    row4.appendChild(scaleLabel);
+    card.appendChild(row4);
 
     const missingTexture = !prefabField.value && !urlField.value;
     if (missingTexture) {
@@ -2399,10 +2468,10 @@ function refreshDrumSkinList() {
     prefabField.style.borderColor = missingTexture ? '#eab308' : 'var(--line)';
     urlField.style.borderColor = missingTexture ? '#eab308' : 'var(--line)';
 
-    const row4 = document.createElement('div');
-    row4.style.display = 'flex';
-    row4.style.alignItems = 'center';
-    row4.style.gap = '8px';
+    const row5 = document.createElement('div');
+    row5.style.display = 'flex';
+    row5.style.alignItems = 'center';
+    row5.style.gap = '8px';
     const visibleField = document.createElement('input');
     visibleField.type = 'checkbox';
     visibleField.checked = drum.visible !== false;
@@ -2419,8 +2488,8 @@ function refreshDrumSkinList() {
     text.textContent = 'Visible';
     text.style.color = 'var(--muted)';
     visibleLabel.appendChild(text);
-    row4.appendChild(visibleLabel);
-    card.appendChild(row4);
+    row5.appendChild(visibleLabel);
+    card.appendChild(row5);
 
     list.appendChild(card);
   }
@@ -2428,8 +2497,14 @@ function refreshDrumSkinList() {
 
 function addDrumSkin() {
   const parallaxLayers = layers.filter((layer) => layer.type === 'parallax');
-  const layerA = parallaxLayers[0]?.id || 'bg1';
-  const layerB = parallaxLayers[1]?.id || layerA;
+  const layerA = parallaxLayers[0];
+  const layerB = parallaxLayers[1] || layerA;
+  const defaultTopParallax = toNumber(layerA?.parallaxSpeed, 1) || 1;
+  const defaultBottomParallax = toNumber(layerB?.parallaxSpeed ?? defaultTopParallax, defaultTopParallax) || defaultTopParallax;
+  const defaultTopScale = toNumber(layerA?.scale, 1) || 1;
+  const defaultBottomScale = toNumber(layerB?.scale ?? defaultTopScale, defaultTopScale) || defaultTopScale;
+  const defaultTopYOffset = toNumber(layerA?.offsetY, 0) || 0;
+  const defaultBottomYOffset = toNumber(layerB?.offsetY ?? defaultTopYOffset, defaultTopYOffset) || defaultTopYOffset;
   const drumSkinPrefabs = Object.entries(prefabs)
     .map(([id, prefab]) => ({ id, prefab }))
     .filter(({ prefab }) => {
@@ -2444,10 +2519,12 @@ function addDrumSkin() {
   pushHistory();
   drumSkins.push({
     id: nextDrumSkinId++,
-    layerA,
-    layerB,
-    heightA: 0,
-    heightB: 0,
+    topParallax: defaultTopParallax,
+    bottomParallax: defaultBottomParallax,
+    topScale: defaultTopScale,
+    bottomScale: defaultBottomScale,
+    topYOffset: defaultTopYOffset,
+    bottomYOffset: defaultBottomYOffset,
     prefabId: defaultPrefabId,
     textureId: defaultPrefabId,
     imageURL: defaultPrefabUrl,
@@ -2788,9 +2865,8 @@ function render(){
 
   for (const drum of drumSkins){
     if (drum.visible === false) continue;
-    const layerA = findLayer(drum.layerA);
-    const layerB = findLayer(drum.layerB);
-    if (!layerA || !layerB) continue;
+    const legacyLayerA = drum.legacyLayerA ? findLayer(drum.legacyLayerA) : null;
+    const legacyLayerB = drum.legacyLayerB ? findLayer(drum.legacyLayerB) : null;
     const prefab = prefabs[drum.prefabId] || prefabs[drum.textureId];
     const resolvedUrl = drum.imageURL || resolveDrumSkinPrefabTexture(prefab);
     if (!resolvedUrl) continue;
@@ -2800,14 +2876,17 @@ function render(){
       img = imageCache.get(resolvedUrl);
     }
 
-    const parA = layerA.parallaxSpeed ?? 1;
-    const parB = layerB.parallaxSpeed ?? 1;
-    const centerA = W/2 + (-cameraX * parA) * zoom;
-    const centerB = W/2 + (-cameraX * parB) * zoom;
-    const span = W * 1.4;
+    const topParallax = toNumber(drum.topParallax, legacyLayerA?.parallaxSpeed ?? 1) || 1;
+    const bottomParallax = toNumber(drum.bottomParallax, legacyLayerB?.parallaxSpeed ?? topParallax) || topParallax;
+    const topScale = toNumber(drum.topScale, legacyLayerA?.scale ?? 1) || 1;
+    const bottomScale = toNumber(drum.bottomScale, legacyLayerB?.scale ?? topScale) || topScale;
+    const avgScale = (topScale + bottomScale) * 0.5;
+    const centerA = W/2 + (-cameraX * topParallax) * zoom;
+    const centerB = W/2 + (-cameraX * bottomParallax) * zoom;
+    const span = W * 1.4 * avgScale;
     const halfSpan = span * 0.5;
-    const yA = groundY + (layerA.offsetY || 0) * zoom - (drum.heightA || 0) * zoom;
-    const yB = groundY + (layerB.offsetY || 0) * zoom - (drum.heightB || 0) * zoom;
+    const yA = groundY + (toNumber(drum.topYOffset, legacyLayerA?.offsetY ?? 0) || 0) * zoom;
+    const yB = groundY + (toNumber(drum.bottomYOffset, legacyLayerB?.offsetY ?? 0) || 0) * zoom;
     const points = [
       { x: centerA - halfSpan, y: yA },
       { x: centerA + halfSpan, y: yA },
@@ -2820,25 +2899,37 @@ function render(){
       minY: Math.min(acc.minY, pt.y),
       maxY: Math.max(acc.maxY, pt.y),
     }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
-    drumRenderables.push({ drum, layerA, layerB, points, bounds, img, url: resolvedUrl });
+    drumRenderables.push({
+      drum,
+      topParallax,
+      bottomParallax,
+      topScale,
+      bottomScale,
+      points,
+      bounds,
+      img,
+      url: resolvedUrl,
+    });
   }
 
   for (const renderable of drumRenderables){
-    const { drum, layerA, layerB, points, img } = renderable;
+    const { drum, topParallax, bottomParallax, topScale, bottomScale, points, img } = renderable;
     ctx.save();
     let filled = false;
     if (img && img.complete && img.naturalWidth){
       const pattern = ctx.createPattern(img, 'repeat');
       if (pattern){
-        const scale = Math.max(0.05, (drum.tileScale || 1) * zoom);
+        const patternScale = Math.max(0.05, (drum.tileScale || 1) * zoom * ((topScale + bottomScale) * 0.5));
         if (pattern.setTransform){
-          const avgParallax = ((layerA.parallaxSpeed ?? 1) + (layerB.parallaxSpeed ?? 1)) * 0.5;
+          const avgParallax = (topParallax + bottomParallax) * 0.5;
           const offsetX = (-cameraX * avgParallax) * zoom;
-          const periodX = Math.max(1, img.width * scale);
-          const periodY = Math.max(1, img.height * scale);
+          const periodX = Math.max(1, img.width * patternScale);
+          const periodY = Math.max(1, img.height * patternScale);
+          const avgYOffset = ((toNumber(drum.topYOffset, 0) || 0) + (toNumber(drum.bottomYOffset, 0) || 0)) * 0.5;
+          const baseY = groundY + avgYOffset * zoom;
           const tx = ((offsetX % periodX) + periodX) % periodX;
-          const ty = ((groundY % periodY) + periodY) % periodY;
-          pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, tx, ty]));
+          const ty = ((baseY % periodY) + periodY) % periodY;
+          pattern.setTransform(new DOMMatrix([patternScale, 0, 0, patternScale, tx, ty]));
         }
         ctx.fillStyle = pattern;
         filled = true;
@@ -2863,7 +2954,7 @@ function render(){
     ctx.restore();
     if (debugOverlay){
       const til = drum.tileScale || 1;
-      dbg.push(`drum ${drum.id} ${drum.layerA}->${drum.layerB} hA=${drum.heightA} hB=${drum.heightB} tile=${til.toFixed(2)}`);
+      dbg.push(`drum ${drum.id} par:${topParallax.toFixed(2)}->${bottomParallax.toFixed(2)} y:${(drum.topYOffset || 0).toFixed(1)}->${(drum.bottomYOffset || 0).toFixed(1)} tile=${til.toFixed(2)}`);
     }
   }
 
