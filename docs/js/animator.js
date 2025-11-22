@@ -406,6 +406,8 @@ function isFighterMarkedDead(F){
 }
 
 export function updateBreathing(F, fighterId, spec){
+  const G = window.GAME || {};
+  const store = (G.ANIM_STYLE_OVERRIDES ||= {});
   const breathState = F?.anim?.breath;
   if (!breathState){
     return;
