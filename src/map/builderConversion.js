@@ -730,44 +730,48 @@ function normalizeDrumSkinLayer(raw, index = 0, layerMap = new Map(), options = 
   const heightA = toNumber(safe.heightA ?? safe.offsetA ?? safe.yOffsetA, 0) || 0;
   const heightB = toNumber(safe.heightB ?? safe.offsetB ?? safe.yOffsetB, 0) || 0;
   const prefabId = typeof safe.prefabId === 'string' ? safe.prefabId.trim() : '';
+  const textureId = typeof safe.textureId === 'string' ? safe.textureId.trim() : '';
+  const prefabRef = prefabId || textureId;
   const explicitImageURL = typeof safe.imageURL === 'string' ? safe.imageURL.trim() : '';
   const tileScale = toNumber(safe.tileScale, 1) || 1;
   const visible = safe.visible !== false;
   const id = safe.id ?? safe.drumSkinId ?? index + 1;
 
   let resolvedPrefab = null;
-  let resolvedImageURL = explicitImageURL;
-  let textureSource = null;
+  let resolvedPrefabTexture = { url: null, source: null };
 
-  if (prefabId && typeof prefabResolver === 'function') {
-    const lookedUp = prefabResolver(prefabId);
+  if (prefabRef && typeof prefabResolver === 'function') {
+    const lookedUp = prefabResolver(prefabRef);
     if (lookedUp) {
       resolvedPrefab = safeClone(lookedUp);
-      const texture = resolveDrumSkinTexture(resolvedPrefab);
-      if (texture?.url) {
-        resolvedImageURL = texture.url;
-        textureSource = texture.source;
-      }
+      resolvedPrefabTexture = resolveDrumSkinTexture(resolvedPrefab);
     } else if (Array.isArray(warnings)) {
-      warnings.push(`Drum skin ${id} references missing prefab "${prefabId}"`);
+      warnings.push(`Drum skin ${id} references missing prefab "${prefabRef}"`);
     }
   }
 
-  if (!resolvedImageURL && Array.isArray(warnings)) {
+  const finalImageURL = explicitImageURL || resolvedPrefabTexture.url || '';
+  const textureSource = explicitImageURL
+    ? 'explicit-url'
+    : resolvedPrefabTexture.source || (prefabRef ? 'prefab' : 'explicit-url');
+
+  if (!finalImageURL && Array.isArray(warnings)) {
     warnings.push(`Drum skin ${id} missing prefab/URL for texture`);
   }
 
   const meta = safe.meta && typeof safe.meta === 'object' ? safeClone(safe.meta) : {};
   meta.identity = {
     ...(meta.identity || {}),
-    prefabId: prefabId || null,
+    prefabId: prefabRef || null,
+    textureId: prefabRef || null,
     source: meta.identity?.source || 'drum-skin',
   };
   meta.texture = {
     ...(meta.texture || {}),
-    prefabId: prefabId || null,
-    url: resolvedImageURL || null,
-    source: textureSource || (prefabId ? 'prefab' : 'explicit-url'),
+    prefabId: prefabRef || null,
+    textureId: prefabRef || null,
+    url: finalImageURL,
+    source: textureSource,
   };
 
   const descriptor = {
@@ -776,8 +780,9 @@ function normalizeDrumSkinLayer(raw, index = 0, layerMap = new Map(), options = 
     layerB,
     heightA,
     heightB,
-    prefabId: prefabId || null,
-    imageURL: resolvedImageURL || explicitImageURL || '',
+    prefabId: prefabRef || null,
+    textureId: prefabRef || null,
+    imageURL: finalImageURL,
     tileScale,
     visible,
     meta,
