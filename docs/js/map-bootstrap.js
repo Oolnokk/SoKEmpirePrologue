@@ -81,7 +81,12 @@ function normalizeLayoutEntry(entry) {
   return { id, path, areaName };
 }
 
-function resolveLayoutUrl(path) {
+const FALLBACK_LAYOUT_PATH = '../config/maps/defaultdistrict.layout.json';
+const FALLBACK_AREA_ID = 'defaultdistrict';
+const FALLBACK_AREA_NAME = 'DefaultDistrict';
+const FALLBACK_PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
+
+function resolveLayoutUrl(path, fallbackPath = FALLBACK_LAYOUT_PATH) {
   if (typeof path === 'string' && path.trim()) {
     try {
       const base = typeof window !== 'undefined' && window.location ? window.location.href : import.meta.url;
@@ -90,22 +95,76 @@ function resolveLayoutUrl(path) {
       console.warn('[map-bootstrap] Failed to resolve configured layout path', error);
     }
   }
-  return new URL('../config/maps/defaultdistrict.layout.json', import.meta.url);
+  return new URL(fallbackPath, import.meta.url);
 }
 
-const MAP_CONFIG = window.CONFIG?.map || {};
-const CONFIG_LAYOUTS = Array.isArray(MAP_CONFIG.layouts)
-  ? MAP_CONFIG.layouts.map((entry) => normalizeLayoutEntry(entry)).filter((entry) => !!entry)
-  : [];
-const PREFERRED_LAYOUT_ID = resolveDefaultLayoutId(MAP_CONFIG);
-const DEFAULT_LAYOUT_ENTRY = pickDefaultLayoutEntry(CONFIG_LAYOUTS, MAP_CONFIG);
-const DEFAULT_AREA_ID = DEFAULT_LAYOUT_ENTRY?.id || PREFERRED_LAYOUT_ID;
-const DEFAULT_AREA_NAME = DEFAULT_LAYOUT_ENTRY?.areaName || DEFAULT_AREA_ID || 'DefaultDistrict';
-const layoutUrl = resolveLayoutUrl(DEFAULT_LAYOUT_ENTRY?.path);
-const PREVIEW_STORAGE_PREFIX = resolvePreviewStoragePrefix(MAP_CONFIG);
-const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
-  ? MAP_CONFIG.prefabManifests.filter((entry) => typeof entry === 'string' && entry.trim())
-  : [];
+function resolveMapConfig() {
+  const rawConfig = typeof window !== 'undefined'
+    ? window.CONFIG
+    : undefined;
+  const mapConfig = rawConfig && typeof rawConfig === 'object' && rawConfig
+    ? rawConfig.map
+    : undefined;
+  const mapConfigRecord = mapConfig && typeof mapConfig === 'object'
+    ? mapConfig
+    : {};
+
+  const layouts = Array.isArray(mapConfigRecord.layouts)
+    ? mapConfigRecord.layouts.map((entry) => normalizeLayoutEntry(entry)).filter((entry) => !!entry)
+    : [];
+
+  const preferredLayoutId = typeof mapConfigRecord.defaultLayoutId === 'string' && mapConfigRecord.defaultLayoutId.trim()
+    ? mapConfigRecord.defaultLayoutId.trim()
+    : FALLBACK_AREA_ID;
+
+  const defaultLayoutEntry = layouts.find((entry) => entry.id === preferredLayoutId)
+    || layouts.find((entry) => entry.id === FALLBACK_AREA_ID)
+    || layouts[0]
+    || null;
+
+  const configuredLayoutPath = typeof mapConfigRecord.defaultLayoutPath === 'string' && mapConfigRecord.defaultLayoutPath.trim()
+    ? mapConfigRecord.defaultLayoutPath.trim()
+    : null;
+
+  const defaultAreaId = typeof mapConfigRecord.defaultAreaId === 'string' && mapConfigRecord.defaultAreaId.trim()
+    ? mapConfigRecord.defaultAreaId.trim()
+    : (defaultLayoutEntry?.id || FALLBACK_AREA_ID);
+
+  const defaultAreaName = typeof mapConfigRecord.defaultAreaName === 'string' && mapConfigRecord.defaultAreaName.trim()
+    ? mapConfigRecord.defaultAreaName.trim()
+    : (defaultLayoutEntry?.areaName || FALLBACK_AREA_NAME);
+
+  const layoutUrl = resolveLayoutUrl(defaultLayoutEntry?.path || configuredLayoutPath, FALLBACK_LAYOUT_PATH);
+
+  const previewStoragePrefix = typeof mapConfigRecord.previewStoragePrefix === 'string' && mapConfigRecord.previewStoragePrefix.trim()
+    ? mapConfigRecord.previewStoragePrefix.trim()
+    : FALLBACK_PREVIEW_STORAGE_PREFIX;
+
+  const prefabManifests = Array.isArray(mapConfigRecord.prefabManifests)
+    ? mapConfigRecord.prefabManifests.filter((entry) => typeof entry === 'string' && entry.trim())
+    : [];
+
+  return {
+    mapConfig: mapConfigRecord,
+    layouts,
+    defaultLayoutEntry,
+    defaultAreaId,
+    defaultAreaName,
+    layoutUrl,
+    previewStoragePrefix,
+    prefabManifests,
+  };
+}
+
+const MAP_DEFAULTS = resolveMapConfig();
+const MAP_CONFIG = MAP_DEFAULTS.mapConfig;
+const CONFIG_LAYOUTS = MAP_DEFAULTS.layouts;
+const DEFAULT_LAYOUT_ENTRY = MAP_DEFAULTS.defaultLayoutEntry;
+const DEFAULT_AREA_ID = MAP_DEFAULTS.defaultAreaId;
+const DEFAULT_AREA_NAME = MAP_DEFAULTS.defaultAreaName;
+const layoutUrl = MAP_DEFAULTS.layoutUrl;
+const PREVIEW_STORAGE_PREFIX = MAP_DEFAULTS.previewStoragePrefix;
+const PREFAB_MANIFESTS = MAP_DEFAULTS.prefabManifests;
 
 const prefabLibraryPromise = (async () => {
   if (!PREFAB_MANIFESTS.length) {
