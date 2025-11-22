@@ -433,7 +433,7 @@ window.CONFIG = {
       }
     }
   },
-map: {
+  map: {
   gridUnit: 30,
   spawnLayerId: 'gameplay',
   defaultLayoutId: 'defaultdistrict',
@@ -452,7 +452,20 @@ map: {
   ],
   playAreaMinX: -1160,
   playAreaMaxX: 1160,
-},
+  },
+  mapEditor: {
+    canvas: { height: 460 },
+    ground: {
+      offset: 140,
+      ratio: 0.6956521739,
+    },
+    customArea: {
+      id: 'custom_area',
+      label: 'Empty Layout',
+      path: null,
+      areaName: 'Custom Area',
+    },
+  },
   ground: {
     offset: 140,
     // Set to true to keep the configured groundRatio instead of letting map layouts override it.
