@@ -78,7 +78,7 @@ function resolveCanvasWidth(config) {
   return 720;
 }
 
-function resolveHorizontalBounds(config) {
+function resolveBaseHorizontalBounds(config) {
   const width = resolveCanvasWidth(config);
   const defaultMargin = 40;
   const margins = config?.canvas?.margins || {};
@@ -120,12 +120,41 @@ function resolveHorizontalBounds(config) {
       bounds.maxX > bounds.minX,
   );
 
-  if (chosen) return chosen;
-  if (Number.isFinite(defaultBounds.maxX) && defaultBounds.maxX > defaultBounds.minX) {
-    return defaultBounds;
+  const baseBounds = chosen || (Number.isFinite(defaultBounds.maxX) && defaultBounds.maxX > defaultBounds.minX
+    ? defaultBounds
+    : { minX: 0, maxX: Math.max(0, width) });
+
+  const resolvePlayableBounds = () => {
+    const registryBounds =
+      typeof window !== 'undefined'
+        ? window.GAME?.mapRegistry?.getActiveArea?.()?.playableBounds
+        : null;
+    const mapBounds = config?.map?.activePlayableBounds || config?.map?.playableBounds || null;
+    return [mapBounds, registryBounds]
+      .find((bounds) => Number.isFinite(bounds?.left) && Number.isFinite(bounds?.right))
+      || null;
+  };
+
+  const playableBounds = resolvePlayableBounds();
+  const mapMinX = Number.isFinite(config?.map?.playAreaMinX) ? config.map.playAreaMinX : null;
+  const mapMaxX = Number.isFinite(config?.map?.playAreaMaxX) ? config.map.playAreaMaxX : null;
+
+  let minX = baseBounds.minX;
+  let maxX = baseBounds.maxX;
+
+  if (playableBounds) {
+    minX = playableBounds.left;
+    maxX = playableBounds.right;
+  } else {
+    if (mapMinX != null) minX = mapMinX;
+    if (mapMaxX != null) maxX = mapMaxX;
+    if (!(Number.isFinite(minX) && Number.isFinite(maxX) && maxX > minX)) {
+      minX = baseBounds.minX;
+      maxX = baseBounds.maxX;
+    }
   }
 
-  return { minX: 0, maxX: Math.max(0, width) };
+  return { minX, maxX, span: Math.max(1, maxX - minX) };
 }
 
 function ensurePhysicsState(fighter) {
@@ -218,7 +247,7 @@ function resolveHorizontalBounds(config) {
   const mapMinX = Number.isFinite(config?.map?.playAreaMinX) ? config.map.playAreaMinX : null;
   const mapMaxX = Number.isFinite(config?.map?.playAreaMaxX) ? config.map.playAreaMaxX : null;
 
-  const { minX: resolvedMinX, maxX: resolvedMaxX } = resolveHorizontalBounds(config);
+  const { minX: resolvedMinX, maxX: resolvedMaxX } = resolveBaseHorizontalBounds(config);
   let minX = resolvedMinX;
   let maxX = resolvedMaxX;
 

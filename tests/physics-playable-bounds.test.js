@@ -28,6 +28,7 @@ async function loadClampFunction() {
 
   const clampSrc = extractFunction('clamp');
   const resolveCanvasWidthSrc = extractFunction('resolveCanvasWidth');
+  const resolveBaseHorizontalBoundsSrc = extractFunction('resolveBaseHorizontalBounds');
   const resolveHorizontalBoundsSrc = extractFunction('resolveHorizontalBounds');
   const clampBoundsSrc = extractFunction('clampFighterToBounds');
 
@@ -36,6 +37,7 @@ async function loadClampFunction() {
     const window = globalThis.window || {};
     ${clampSrc}
     ${resolveCanvasWidthSrc}
+    ${resolveBaseHorizontalBoundsSrc}
     ${resolveHorizontalBoundsSrc}
     ${clampBoundsSrc}
     exports.clamp = clamp;
