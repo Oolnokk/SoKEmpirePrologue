@@ -205,17 +205,29 @@ export function initArchTouchInput({ input = null, enabled = true, config: rawCo
   const config = mergeArchConfig(rawConfig || window.CONFIG?.hud?.arch || {});
   let container = null;
   let resizeTimer = null;
+  const activeButtons = new Map();
 
   const handleDown = (btnCfg, btnEl) => {
     btnEl?.classList.add('active');
     setInputState(input, btnCfg.action, true);
+    activeButtons.set(btnCfg.id, { cfg: btnCfg, el: btnEl });
   };
   const handleUp = (btnCfg, btnEl) => {
     btnEl?.classList.remove('active');
     setInputState(input, btnCfg.action, false);
+    activeButtons.delete(btnCfg.id);
+  };
+
+  const releaseActiveButtons = () => {
+    activeButtons.forEach(({ cfg, el }) => {
+      el?.classList.remove('active');
+      setInputState(input, cfg.action, false);
+    });
+    activeButtons.clear();
   };
 
   const rebuild = () => {
+    releaseActiveButtons();
     if (container?.parentNode) {
       container.parentNode.removeChild(container);
     }
@@ -235,6 +247,7 @@ export function initArchTouchInput({ input = null, enabled = true, config: rawCo
   return {
     rebuild,
     destroy() {
+      releaseActiveButtons();
       clearTimeout(resizeTimer);
       window.removeEventListener('resize', onResize);
       if (container?.parentNode) container.parentNode.removeChild(container);
