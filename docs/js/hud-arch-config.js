@@ -3,12 +3,13 @@ window.HUD_ARCH_CONFIG = {
   arch: {
     // circle geometry
     radiusPx: 150, // distance from arch center to button centers
-    startAngleDeg: -150, // where the arch starts (deg, clockwise from +X)
-    endAngleDeg: -30, // where the arch ends
-    anchor: {
-      // where the circle center sits on screen (0–1)
-      x: 0.9, // near bottom-right
-      y: 0.9
+    start: {
+      x: 0.98, // near the far bottom-right edge
+      y: 0.94
+    },
+    end: {
+      x: 0.78, // lower-right edge, pulled inward
+      y: 0.86
     },
 
     scale: 1.0, // global multiplier (can tie to character scale)
