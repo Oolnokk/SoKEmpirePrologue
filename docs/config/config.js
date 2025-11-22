@@ -434,6 +434,26 @@ window.CONFIG = {
         stamina: '#38bdf8',
         footing: '#facc15',
       }
+    },
+    arch: {
+      enabled: true,
+      arch: {
+        radiusPx: 160,
+        startAngleDeg: -150,
+        endAngleDeg: -30,
+        anchor: { x: 0.9, y: 0.88 },
+        scale: 1,
+        buttonSizePx: 84,
+        defaultGapPx: 12,
+        rotateWithArch: true,
+        debug: false,
+      },
+      buttons: [
+        { id: 'attackA', action: 'buttonA', order: 0, lengthPct: 0.22, gapPx: 12, sprite: 'img/ui/btn-light.png' },
+        { id: 'attackB', action: 'buttonB', order: 1, lengthPct: 0.22, gapPx: 12, sprite: 'img/ui/btn-heavy.png' },
+        { id: 'attackC', action: 'buttonC', order: 2, lengthPct: 0.24, gapPx: 12, sprite: 'img/ui/btn-special.png' },
+        { id: 'jump', action: 'jump', order: 3, lengthPct: 0.18, gapPx: 12, sprite: 'img/ui/btn-jump.png' },
+      ]
     }
   },
   map: {

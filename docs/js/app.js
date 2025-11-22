@@ -582,6 +582,7 @@ import { initSprites, renderSprites } from './sprites.js?v=8';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
 import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
+import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 
 // Setup canvas
@@ -617,6 +618,12 @@ if (typeof window.matchMedia === 'function'){
   }
 }
 window.addEventListener('touchstart', () => rootElement.classList.add('is-touch'), { once: true, passive: true });
+
+function shouldEnableArchHud() {
+  const archCfg = window.CONFIG?.hud?.arch;
+  if (archCfg && archCfg.enabled === false) return false;
+  return rootElement.classList.contains('is-touch');
+}
 
 // Mouse tracking state
 window.GAME.MOUSE = {
@@ -733,6 +740,7 @@ let bottomHudConfigCache = null;
 let enemyIndicatorConfigCache = null;
 let enemyIndicatorConfigVersion = 0;
 let hudScaleSignature = null;
+let archTouchHandle = null;
 
 refreshBottomHudConfig();
 refreshEnemyIndicatorConfig();
@@ -3614,6 +3622,14 @@ function boot(){
     initHitDetect();
     initDebugPanel();
     initTouchControls();
+    if (shouldEnableArchHud()) {
+      archTouchHandle?.destroy?.();
+      archTouchHandle = initArchTouchInput({
+        input: window.GAME?.input || null,
+        config: window.CONFIG?.hud?.arch,
+        enabled: true,
+      });
+    }
     initSelectionDropdowns();
     requestAnimationFrame(loop);
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);

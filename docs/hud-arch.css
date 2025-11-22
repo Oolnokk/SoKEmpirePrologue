@@ -53,3 +53,8 @@
   transform-origin: 50% 100%;
   pointer-events: none;
 }
+
+/* Hide legacy button cluster when arch HUD is active */
+.arch-hud-active .controls-overlay .action-buttons {
+  display: none;
+}
