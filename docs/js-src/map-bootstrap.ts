@@ -40,6 +40,7 @@ const FALLBACK_PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
 
 const AREA_NAME_ELEMENT_ID = 'areaName';
 const AREA_OVERLAY_UNSUB_KEY = '__sokAreaNameOverlayUnsub__' as const;
+const PLAYABLE_BOUNDS_UNSUB_KEY = '__sokPlayableBoundsSyncUnsub__' as const;
 
 function getAreaNameElement(): HTMLElement | null {
   if (typeof document === 'undefined') return null;
@@ -104,6 +105,33 @@ function bindAreaNameOverlay(registry: MapRegistry): void {
     globalWindow[AREA_OVERLAY_UNSUB_KEY] = unsubscribe;
   }
   updateAreaNameOverlay(registry?.getActiveArea?.() ?? null);
+}
+
+function bindPlayableBoundsSync(registry: MapRegistry): void {
+  if (typeof window === 'undefined') {
+    syncConfigPlayableBounds((registry as MapRegistry | undefined)?.getActiveArea?.() ?? null);
+    return;
+  }
+
+  const globalWindow = window as typeof window & { __sokPlayableBoundsSyncUnsub__?: () => void };
+  const previous = globalWindow[PLAYABLE_BOUNDS_UNSUB_KEY];
+  if (typeof previous === 'function') {
+    try {
+      previous();
+    } catch (error) {
+      console.warn('[map-bootstrap] Failed to remove previous playable bounds listener', error);
+    }
+    globalWindow[PLAYABLE_BOUNDS_UNSUB_KEY] = undefined;
+  }
+
+  if (typeof registry?.on === 'function') {
+    const unsubscribe = registry.on('active-area-changed', (activeArea: MapArea | null) => {
+      syncConfigPlayableBounds(activeArea);
+    });
+    globalWindow[PLAYABLE_BOUNDS_UNSUB_KEY] = unsubscribe;
+  }
+
+  syncConfigPlayableBounds(registry?.getActiveArea?.() ?? null);
 }
 
 function normalizeLayoutEntry(entry: unknown): MapLayoutConfig | null {
@@ -444,6 +472,38 @@ function syncConfigGround(area: MapArea): void {
   };
 }
 
+function syncConfigPlayableBounds(area: MapArea | null): void {
+  const CONFIG = (window.CONFIG = window.CONFIG || {});
+  const mapConfig = (CONFIG.map = typeof CONFIG.map === 'object' && CONFIG.map ? CONFIG.map : {});
+
+  const initialBounds = (mapConfig.__initialPlayArea = mapConfig.__initialPlayArea || {
+    minX: Number.isFinite(mapConfig.playAreaMinX) ? mapConfig.playAreaMinX : null,
+    maxX: Number.isFinite(mapConfig.playAreaMaxX) ? mapConfig.playAreaMaxX : null,
+  });
+
+  const playable = area?.playableBounds;
+  const left = Number.isFinite(playable?.left) ? (playable as { left: number }).left : null;
+  const right = Number.isFinite(playable?.right) ? (playable as { right: number }).right : null;
+
+  if (left != null && right != null) {
+    mapConfig.playableBounds = { ...playable, left, right };
+    mapConfig.activePlayableBounds = mapConfig.playableBounds;
+    mapConfig.playAreaMinX = left;
+    mapConfig.playAreaMaxX = right;
+    return;
+  }
+
+  mapConfig.playableBounds = null;
+  mapConfig.activePlayableBounds = null;
+
+  if (initialBounds.minX != null) {
+    mapConfig.playAreaMinX = initialBounds.minX;
+  }
+  if (initialBounds.maxX != null) {
+    mapConfig.playAreaMaxX = initialBounds.maxX;
+  }
+}
+
 function syncConfigPlatforming(area: MapArea): void {
   const CONFIG = (window.CONFIG = window.CONFIG || {});
   const normalized = Array.isArray(area?.colliders)
@@ -502,6 +562,7 @@ function applyArea(area: MapArea): void {
   window.GAME.__onMapRegistryReadyForCamera?.(registry);
 
   bindAreaNameOverlay(registry);
+  bindPlayableBoundsSync(registry);
 
   console.info(`[map-bootstrap] Loaded area "${area.id}" (${area.source || 'unknown source'})`);
 }

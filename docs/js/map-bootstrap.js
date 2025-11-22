@@ -4,6 +4,7 @@ import { pickDefaultLayoutEntry, resolveDefaultLayoutId, resolvePreviewStoragePr
 
 const AREA_NAME_ELEMENT_ID = 'areaName';
 const AREA_OVERLAY_UNSUB_KEY = '__sokAreaNameOverlayUnsub__';
+const PLAYABLE_BOUNDS_UNSUB_KEY = '__sokPlayableBoundsSyncUnsub__';
 
 function getAreaNameElement() {
   if (typeof document === 'undefined') return null;
@@ -65,6 +66,31 @@ function bindAreaNameOverlay(registry) {
     window[AREA_OVERLAY_UNSUB_KEY] = unsubscribe;
   }
   updateAreaNameOverlay(registry?.getActiveArea?.() ?? null);
+}
+
+function bindPlayableBoundsSync(registry) {
+  if (typeof window === 'undefined') {
+    syncConfigPlayableBounds(registry?.getActiveArea?.() ?? null);
+    return;
+  }
+  const previous = window[PLAYABLE_BOUNDS_UNSUB_KEY];
+  if (typeof previous === 'function') {
+    try {
+      previous();
+    } catch (error) {
+      console.warn('[map-bootstrap] Failed to remove previous playable bounds listener', error);
+    }
+    window[PLAYABLE_BOUNDS_UNSUB_KEY] = undefined;
+  }
+
+  if (typeof registry?.on === 'function') {
+    const unsubscribe = registry.on('active-area-changed', (activeArea) => {
+      syncConfigPlayableBounds(activeArea);
+    });
+    window[PLAYABLE_BOUNDS_UNSUB_KEY] = unsubscribe;
+  }
+
+  syncConfigPlayableBounds(registry?.getActiveArea?.() ?? null);
 }
 
 function normalizeLayoutEntry(entry) {
@@ -409,6 +435,38 @@ function syncConfigGround(area) {
   };
 }
 
+function syncConfigPlayableBounds(area) {
+  const CONFIG = (window.CONFIG = window.CONFIG || {});
+  const mapConfig = (CONFIG.map = typeof CONFIG.map === 'object' && CONFIG.map ? CONFIG.map : {});
+
+  const initialBounds = (mapConfig.__initialPlayArea = mapConfig.__initialPlayArea || {
+    minX: Number.isFinite(mapConfig.playAreaMinX) ? mapConfig.playAreaMinX : null,
+    maxX: Number.isFinite(mapConfig.playAreaMaxX) ? mapConfig.playAreaMaxX : null,
+  });
+
+  const playable = area?.playableBounds;
+  const left = Number.isFinite(playable?.left) ? playable.left : null;
+  const right = Number.isFinite(playable?.right) ? playable.right : null;
+
+  if (left != null && right != null) {
+    mapConfig.playableBounds = { ...playable, left, right };
+    mapConfig.activePlayableBounds = mapConfig.playableBounds;
+    mapConfig.playAreaMinX = left;
+    mapConfig.playAreaMaxX = right;
+    return;
+  }
+
+  mapConfig.playableBounds = null;
+  mapConfig.activePlayableBounds = null;
+
+  if (initialBounds.minX != null) {
+    mapConfig.playAreaMinX = initialBounds.minX;
+  }
+  if (initialBounds.maxX != null) {
+    mapConfig.playAreaMaxX = initialBounds.maxX;
+  }
+}
+
 function syncConfigPlatforming(area) {
   const CONFIG = (window.CONFIG = window.CONFIG || {});
   const normalized = Array.isArray(area?.colliders)
@@ -467,6 +525,7 @@ function applyArea(area) {
   window.GAME.__onMapRegistryReadyForCamera?.(registry);
 
   bindAreaNameOverlay(registry);
+  bindPlayableBoundsSync(registry);
 
   console.info(`[map-bootstrap] Loaded area "${area.id}" (${area.source || 'unknown source'})`);
 }

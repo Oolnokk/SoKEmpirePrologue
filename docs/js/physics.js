@@ -131,9 +131,33 @@ function resolveCollisionShare(fighter) {
 
 function clampFighterToBounds(fighter, config) {
   if (!fighter?.pos) return;
-  // Use map-defined min and max X if available, or fallback to old margin logic
-  const minX = config?.map?.playAreaMinX ?? 40;
-  const maxX = config?.map?.playAreaMaxX ?? ((config?.canvas?.w || 720) - 40);
+
+  const resolvePlayableBounds = () => {
+    const registryBounds =
+      typeof window !== 'undefined'
+        ? window.GAME?.mapRegistry?.getActiveArea?.()?.playableBounds
+        : null;
+    const mapBounds = config?.map?.activePlayableBounds || config?.map?.playableBounds || null;
+    return [mapBounds, registryBounds]
+      .find((bounds) => Number.isFinite(bounds?.left) && Number.isFinite(bounds?.right))
+      || null;
+  };
+
+  const playableBounds = resolvePlayableBounds();
+  const mapMinX = Number.isFinite(config?.map?.playAreaMinX) ? config.map.playAreaMinX : null;
+  const mapMaxX = Number.isFinite(config?.map?.playAreaMaxX) ? config.map.playAreaMaxX : null;
+  const canvasWidth = Number.isFinite(config?.canvas?.w) ? config.canvas.w : 720;
+
+  let minX = mapMinX ?? 40;
+  let maxX = mapMaxX ?? (canvasWidth - 40);
+
+  if (playableBounds) {
+    minX = playableBounds.left;
+    maxX = playableBounds.right;
+  } else if (mapMinX == null || mapMaxX == null) {
+    minX = 40;
+    maxX = canvasWidth - 40;
+  }
   fighter.pos.x = clamp(fighter.pos.x, minX, maxX);
 
   const groundY = computeGroundY(config);
