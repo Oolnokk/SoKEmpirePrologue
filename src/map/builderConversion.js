@@ -1,11 +1,10 @@
-const SOURCE_ID = 'map-builder-layered-v15f';
+import { mapBuilderConfig } from './mapBuilderConfig.js';
 
-const FALLBACK_BOX_MIN_WIDTH = 18;
-
-const TAG_INSTANCE_ID_MAPPING = new Map([
-  ['spawn:player', 'player_spawn'],
-  ['spawn:npc', 'npc_spawn'],
-]);
+const {
+  sourceId: SOURCE_ID,
+  fallbackBoxMinWidth: FALLBACK_BOX_MIN_WIDTH,
+  tagInstanceIdMapping: TAG_INSTANCE_ID_MAPPING,
+} = mapBuilderConfig;
 
 function normalizeErrorInfo(raw) {
   if (!raw) {
