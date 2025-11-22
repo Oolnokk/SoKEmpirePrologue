@@ -187,6 +187,30 @@ test('convertLayoutToArea preserves collider types', () => {
   assert.equal(area.colliders[2].materialType, 'ceramic');
 });
 
+test('convertLayoutToArea normalizes playable bounds and falls back to colliders', () => {
+  const layout = {
+    areaId: 'playable_bounds_area',
+    layers: [],
+    instances: [],
+    playableBounds: { left: -320, right: 840 },
+  };
+
+  const withExplicitBounds = convertLayoutToArea(layout);
+  assert.deepEqual(withExplicitBounds.playableBounds, { left: -320, right: 840, source: 'layout' });
+
+  const fallbackLayout = {
+    areaId: 'playable_bounds_fallback',
+    layers: [],
+    instances: [],
+    colliders: [
+      { id: 'ground', left: -100, width: 600, topOffset: 0, height: 40 },
+    ],
+  };
+
+  const withFallback = convertLayoutToArea(fallbackLayout);
+  assert.deepEqual(withFallback.playableBounds, { left: -100, right: 500, source: 'colliders' });
+});
+
 test('convertLayouts rejects duplicate area ids', () => {
   const layoutA = { areaId: 'dup', layers: [], instances: [] };
   const layoutB = { areaId: 'dup', layers: [], instances: [] };

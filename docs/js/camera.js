@@ -217,10 +217,43 @@ function ensureGameCamera() {
   return camera;
 }
 
+function deriveBoundsFromColliders(colliders) {
+  if (!Array.isArray(colliders) || !colliders.length) {
+    return null;
+  }
+  let minLeft = Infinity;
+  let maxRight = -Infinity;
+  colliders.forEach((col) => {
+    if (!col || typeof col !== 'object') return;
+    const left = Number(col.left);
+    const width = Number(col.width);
+    if (!Number.isFinite(left) || !Number.isFinite(width)) return;
+    const right = left + width;
+    minLeft = Math.min(minLeft, Math.min(left, right));
+    maxRight = Math.max(maxRight, Math.max(left, right));
+  });
+  if (!Number.isFinite(minLeft) || !Number.isFinite(maxRight) || maxRight <= minLeft) {
+    return null;
+  }
+  return { min: minLeft, max: maxRight };
+}
+
 function computeAreaBounds(area) {
   if (!area) {
     return { min: 0, max: DEFAULT_WORLD_WIDTH };
   }
+  const playable = area.playableBounds || null;
+  const playableLeft = Number(playable?.left ?? playable?.min);
+  const playableRight = Number(playable?.right ?? playable?.max);
+  if (Number.isFinite(playableLeft) && Number.isFinite(playableRight) && playableRight > playableLeft) {
+    return { min: playableLeft, max: playableRight };
+  }
+
+  const colliderBounds = deriveBoundsFromColliders(area.colliders);
+  if (colliderBounds) {
+    return colliderBounds;
+  }
+
   let minX = Infinity;
   let maxX = -Infinity;
   const consider = (inst) => {

@@ -7,6 +7,7 @@ The layered v15f editor exports map layouts with the following shape when `Downl
   cameraStartX: cameraX,
   zoomStart: zoom,
   groundOffset: getGroundOffset(),
+  playableBounds: { left: -900, right: 1500 }, // optional explicit movement clamp per map
   activeLayerId,
   layers,
   instances: instances.map(inst => ({
@@ -71,6 +72,10 @@ Within the editor, instances track slot-based ordering per layer and support per
 - `offsetY`: adjusts vertical placement relative to the area's ground line
 - `rot`: rotation in degrees applied after layer transforms
 - `locked`: prevents drag and jitter adjustments
+
+### Playable bounds (new)
+
+Authors can optionally declare a single `playableBounds` object per layout to clamp movement and camera panning without relying on inferred collider extents. The object accepts numeric `left` and `right` values in layout/world coordinates. When omitted or invalid, the runtime falls back to bounds derived from the widest colliders in the layout, so adding explicit limits is the preferred, deterministic path.
 
 The in-editor coordinate helpers derive an instance's display X value as:
 
