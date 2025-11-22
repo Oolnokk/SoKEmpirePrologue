@@ -378,6 +378,14 @@ const SLAM_MOVE_POSES = {
 };
 
 window.CONFIG = {
+  mapBuilder: {
+    sourceId: 'map-builder-layered-v15f',
+    fallbackBoxMinWidth: 18,
+    tagInstanceIdMapping: {
+      'spawn:player': 'player_spawn',
+      'spawn:npc': 'npc_spawn',
+    },
+  },
   actor: { scale: 0.70 },
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },
