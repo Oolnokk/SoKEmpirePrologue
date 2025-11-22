@@ -752,6 +752,7 @@ function restoreState(state){
       drumSkins.push(normalized);
     }
   }
+  selectedDrumSkinId = drumSkins[0]?.id ?? null;
 
   activeLayerId = adopted.activeLayerId || layoutMeta.activeLayerId || getDefaultSpawnLayerId();
   cameraX = toNumber(adopted.camera?.startX, 0);
@@ -910,6 +911,7 @@ let activeLayerId = SPAWN_LAYER_ID && layers.some((l) => l.id === SPAWN_LAYER_ID
 let layoutMeta = { ...DEFAULT_LAYOUT_META };
 let drumSkins = [];
 let nextDrumSkinId = 1;
+let selectedDrumSkinId = null;
 function getParallaxLayerCount(){ return layers.filter(l=>l.type==="parallax").length; }
 function findLayer(id){ return layers.find(l=>l.id===id) || null; }
 function getLayerGroundY(layerId){
@@ -2078,6 +2080,10 @@ function refreshDrumSkinList() {
       return prefab.isImage || hasDrumTag;
     })
     .sort((a, b) => a.id.localeCompare(b.id));
+  const drumIds = new Set(drumSkins.map((drum) => drum.id));
+  if (selectedDrumSkinId != null && !drumIds.has(selectedDrumSkinId)) {
+    selectedDrumSkinId = null;
+  }
   list.innerHTML = '';
   if (!drumSkins.length) {
     const empty = document.createElement('div');
@@ -2095,6 +2101,13 @@ function refreshDrumSkinList() {
     card.style.display = 'flex';
     card.style.flexDirection = 'column';
     card.style.gap = '4px';
+    const isActive = drum.id === selectedDrumSkinId;
+    card.style.outline = isActive ? '2px solid #22c55e' : '';
+    card.style.outlineOffset = '1px';
+    card.onclick = () => {
+      selectedDrumSkinId = drum.id;
+      refreshDrumSkinList();
+    };
 
     const header = document.createElement('div');
     header.style.display = 'flex';
@@ -2107,6 +2120,9 @@ function refreshDrumSkinList() {
     removeBtn.onclick = () => {
       pushHistory();
       drumSkins = drumSkins.filter((item) => item.id !== drum.id);
+      if (selectedDrumSkinId === drum.id) {
+        selectedDrumSkinId = null;
+      }
       refreshDrumSkinList();
     };
     header.appendChild(title);
@@ -2317,6 +2333,7 @@ function addDrumSkin() {
     tileScale: 1,
     visible: true,
   });
+  selectedDrumSkinId = drumSkins[drumSkins.length - 1]?.id ?? null;
   refreshDrumSkinList();
 }
 
@@ -2590,6 +2607,7 @@ $('#zoomNum').addEventListener('input',e=> setZoom(parseFloat(e.target.value)||1
 /*** Canvas & Render ***/
 const canvas=document.getElementById('sceneCanvas');
 const ctx=canvas.getContext('2d',{alpha:true,desynchronized:true});
+let lastDrumSkinQuads = [];
 
 function resizeCanvas(){
   const rect=canvas.getBoundingClientRect();
@@ -2644,6 +2662,92 @@ function render(){
   ctx.restore();
 
   const dbg=[];
+  const drumRenderables = [];
+  lastDrumSkinQuads = [];
+
+  for (const drum of drumSkins){
+    if (drum.visible === false) continue;
+    const layerA = findLayer(drum.layerA);
+    const layerB = findLayer(drum.layerB);
+    if (!layerA || !layerB) continue;
+    const prefab = prefabs[drum.prefabId] || prefabs[drum.textureId];
+    const resolvedUrl = drum.imageURL || resolveDrumSkinPrefabTexture(prefab);
+    if (!resolvedUrl) continue;
+    let img = imageCache.get(resolvedUrl);
+    if (!img) {
+      loadImage(resolvedUrl);
+      img = imageCache.get(resolvedUrl);
+    }
+
+    const parA = layerA.parallaxSpeed ?? 1;
+    const parB = layerB.parallaxSpeed ?? 1;
+    const centerA = W/2 + (-cameraX * parA) * zoom;
+    const centerB = W/2 + (-cameraX * parB) * zoom;
+    const span = W * 1.4;
+    const halfSpan = span * 0.5;
+    const yA = groundY + (layerA.offsetY || 0) * zoom - (drum.heightA || 0) * zoom;
+    const yB = groundY + (layerB.offsetY || 0) * zoom - (drum.heightB || 0) * zoom;
+    const points = [
+      { x: centerA - halfSpan, y: yA },
+      { x: centerA + halfSpan, y: yA },
+      { x: centerB + halfSpan, y: yB },
+      { x: centerB - halfSpan, y: yB },
+    ];
+    const bounds = points.reduce((acc, pt) => ({
+      minX: Math.min(acc.minX, pt.x),
+      maxX: Math.max(acc.maxX, pt.x),
+      minY: Math.min(acc.minY, pt.y),
+      maxY: Math.max(acc.maxY, pt.y),
+    }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+    drumRenderables.push({ drum, layerA, layerB, points, bounds, img, url: resolvedUrl });
+  }
+
+  for (const renderable of drumRenderables){
+    const { drum, layerA, layerB, points, img } = renderable;
+    ctx.save();
+    let filled = false;
+    if (img && img.complete && img.naturalWidth){
+      const pattern = ctx.createPattern(img, 'repeat');
+      if (pattern){
+        const scale = Math.max(0.05, (drum.tileScale || 1) * zoom);
+        if (pattern.setTransform){
+          const avgParallax = ((layerA.parallaxSpeed ?? 1) + (layerB.parallaxSpeed ?? 1)) * 0.5;
+          const offsetX = (-cameraX * avgParallax) * zoom;
+          const periodX = Math.max(1, img.width * scale);
+          const periodY = Math.max(1, img.height * scale);
+          const tx = ((offsetX % periodX) + periodX) % periodX;
+          const ty = ((groundY % periodY) + periodY) % periodY;
+          pattern.setTransform(new DOMMatrix([scale, 0, 0, scale, tx, ty]));
+        }
+        ctx.fillStyle = pattern;
+        filled = true;
+      }
+    }
+    if (!filled){
+      ctx.fillStyle = 'rgba(148,163,184,0.26)';
+    }
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++){
+      ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    const isSelected = drum.id === selectedDrumSkinId;
+    if (isSelected || debugOverlay){
+      ctx.strokeStyle = isSelected ? '#22c55e' : 'rgba(148,163,184,0.7)';
+      ctx.lineWidth = isSelected ? 2 : 1;
+      ctx.stroke();
+    }
+    ctx.restore();
+    if (debugOverlay){
+      const til = drum.tileScale || 1;
+      dbg.push(`drum ${drum.id} ${drum.layerA}->${drum.layerB} hA=${drum.heightA} hB=${drum.heightB} tile=${til.toFixed(2)}`);
+    }
+  }
+
+  lastDrumSkinQuads = drumRenderables;
+
   const renderList=[];
   for(const inst of instances){
     const layer=findLayer(inst.layerId);
@@ -2902,6 +3006,32 @@ function render(){
 }
 
 /*** Picking & drag ***/
+function pointInPolygon(pt, poly){
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++){
+    const xi = poly[i].x, yi = poly[i].y;
+    const xj = poly[j].x, yj = poly[j].y;
+    const intersect = ((yi > pt.y) !== (yj > pt.y)) &&
+      (pt.x < ((xj - xi) * (pt.y - yi)) / ((yj - yi) || 1e-6) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function pickDrumSkinAt(clientX, clientY){
+  if (!lastDrumSkinQuads.length) return null;
+  const rect = canvas.getBoundingClientRect();
+  const px = clientX - rect.left;
+  const py = clientY - rect.top;
+  for (let i = lastDrumSkinQuads.length - 1; i >= 0; i--){
+    const quad = lastDrumSkinQuads[i];
+    const { minX, maxX, minY, maxY } = quad.bounds;
+    if (px < minX || px > maxX || py < minY || py > maxY) continue;
+    if (pointInPolygon({ x: px, y: py }, quad.points)) return quad.drum;
+  }
+  return null;
+}
+
 function pickInstanceAt(clientX,clientY){
   const rect=canvas.getBoundingClientRect();
   const px=clientX-rect.left;
@@ -3053,6 +3183,12 @@ function pointerDown(ev){
     selectedColliderId = colliderHit.id;
     refreshColliderList();
     syncColliderFields();
+    return;
+  }
+  const drumHit = pickDrumSkinAt(t.clientX, t.clientY);
+  if (drumHit){
+    selectedDrumSkinId = drumHit.id;
+    refreshDrumSkinList();
     return;
   }
   const hit=pickInstanceAt(t.clientX,t.clientY);
