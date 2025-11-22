@@ -1,5 +1,6 @@
 export function computeGroundY(config = {}, options = {}) {
-  const explicit = Number.isFinite(config?.groundY) ? config.groundY : null;
+  const explicitRaw = Number(config?.groundY);
+  const explicit = Number.isFinite(explicitRaw) && explicitRaw > 0 ? explicitRaw : null;
 
   const canvasHeight = Number.isFinite(options.canvasHeight)
     ? options.canvasHeight
