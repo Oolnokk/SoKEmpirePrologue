@@ -9,6 +9,10 @@
   "ground": {
     "offset": 30
   },
+  "playableBounds": {
+    "left": -1000,
+    "right": 1500
+  },
   "layers": [
     {
       "id": "bg1",

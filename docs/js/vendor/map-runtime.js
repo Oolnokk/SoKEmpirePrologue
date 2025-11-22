@@ -265,6 +265,11 @@ const TAG_INSTANCE_ID_MAPPING = new Map([
   ['spawn:npc', 'npc_spawn'],
 ]);
 
+const PLAYABLE_BOUNDS_SOURCE = {
+  LAYOUT: 'layout',
+  COLLIDERS: 'colliders',
+};
+
 function normalizeErrorInfo(raw) {
   if (!raw) {
     return { code: null, message: null };
@@ -433,6 +438,55 @@ function resolveInstanceId(rawInstance, context) {
   usedIds.add(instanceId);
 
   return { instanceId, source };
+}
+
+function computeColliderBounds(colliders) {
+  if (!Array.isArray(colliders) || colliders.length === 0) {
+    return null;
+  }
+  let minLeft = Infinity;
+  let maxRight = -Infinity;
+  for (const col of colliders) {
+    if (!col || typeof col !== 'object') continue;
+    const left = Number(col.left);
+    const width = Number(col.width);
+    if (!Number.isFinite(left) || !Number.isFinite(width)) continue;
+    const right = left + width;
+    minLeft = Math.min(minLeft, Math.min(left, right));
+    maxRight = Math.max(maxRight, Math.max(left, right));
+  }
+  if (!Number.isFinite(minLeft) || !Number.isFinite(maxRight) || maxRight <= minLeft) {
+    return null;
+  }
+  return { left: minLeft, right: maxRight };
+}
+
+function normalizePlayableBounds(rawBounds, colliders = [], warnings = null) {
+  const addWarning = (message) => {
+    if (Array.isArray(warnings)) warnings.push(message);
+  };
+
+  const safe = rawBounds && typeof rawBounds === 'object' ? rawBounds : null;
+  const left = toNumber(safe?.left ?? safe?.min, NaN);
+  const right = toNumber(safe?.right ?? safe?.max, NaN);
+
+  if (Number.isFinite(left) && Number.isFinite(right) && right > left) {
+    return { left, right, source: PLAYABLE_BOUNDS_SOURCE.LAYOUT };
+  }
+
+  if (safe) {
+    addWarning('playableBounds provided but invalid – expected finite left/right');
+  }
+
+  const colliderBounds = computeColliderBounds(colliders);
+  if (colliderBounds) {
+    return { ...colliderBounds, source: PLAYABLE_BOUNDS_SOURCE.COLLIDERS };
+  }
+
+  if (Array.isArray(colliders) && colliders.length) {
+    addWarning('playableBounds unavailable – no usable colliders to derive bounds');
+  }
+  return null;
 }
 
 function buildInstanceIndex(instances) {
@@ -637,6 +691,7 @@ function normalizeAreaDescriptor(area, options = {}) {
   });
 
   const convertedColliders = rawColliders.map((col, index) => normalizeCollider(col, index));
+  const playableBounds = normalizePlayableBounds(area.playableBounds, convertedColliders, warnings);
 
   return {
     id: areaId,
@@ -653,6 +708,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     colliders: convertedColliders,
+    playableBounds,
     warnings,
     meta: area.meta ? safeClone(area.meta) : {},
   };
@@ -773,6 +829,7 @@ export function convertLayoutToArea(layout, options = {}) {
   });
 
   const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
+  const playableBounds = normalizePlayableBounds(layout.playableBounds, convertedColliders, warnings);
 
   if (!Array.isArray(layout.layers)) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
@@ -800,6 +857,7 @@ export function convertLayoutToArea(layout, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     colliders: convertedColliders,
+    playableBounds,
     warnings,
     meta: {
       exportedAt: layout.meta?.exportedAt || null,
