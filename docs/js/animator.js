@@ -2,6 +2,7 @@
 import { degToRad, radToDegNum, angleFromDelta, segPos, withAX, basis } from './math-utils.js?v=1';
 import { setMirrorForPart, resetMirror } from './sprites.js?v=1';
 import { pickFighterConfig, pickFighterName, lengths, pickOffsets, resolveBoneLengthScale, normalizeBoneLengthKey } from './fighter-utils.js?v=1';
+import { composeStyleXformEntry } from './style-xform.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
 import { composeStyleOverrides } from './transform-composer.js?v=1';
 import { updatePhysicsPoseTarget, getPhysicsRagdollBlend, getPhysicsRagdollAngles } from './physics.js?v=1';
@@ -406,10 +407,7 @@ function isFighterMarkedDead(F){
 
 export function updateBreathing(F, fighterId, spec){
   const breathState = F?.anim?.breath;
-  const G = window.GAME || {};
-  const store = (G.ANIM_STYLE_OVERRIDES ||= {});
   if (!breathState){
-    if (store[fighterId]) delete store[fighterId];
     return;
   }
 
@@ -417,7 +415,6 @@ export function updateBreathing(F, fighterId, spec){
     breathState.active = false;
     breathState.styleOverride = null;
     breathState.shoulderOffsets = null;
-    if (store[fighterId]) delete store[fighterId];
     return;
   }
 
@@ -426,7 +423,6 @@ export function updateBreathing(F, fighterId, spec){
     breathState.active = false;
     breathState.styleOverride = null;
     breathState.shoulderOffsets = null;
-    if (store[fighterId]) delete store[fighterId];
     return;
   }
 
@@ -847,7 +843,91 @@ function extractRotationForDirection(source, direction, keyAliases, visited = ne
   return null;
 }
 
-function collectWristRotationOverrides(F, finalDeg) {
+function composeRotationIntent(baseEntry, rotation){
+  if (!Number.isFinite(rotation)) return baseEntry;
+  const base = (baseEntry && typeof baseEntry === 'object') ? { ...baseEntry } : {};
+  const prev = Number.isFinite(base.rotRad) ? base.rotRad : 0;
+  base.rotRad = prev + rotation;
+  return base;
+}
+
+function composeStyleTransformOverrides(F, finalDeg){
+  const xform = {};
+  const wrists = {};
+
+  const toFiniteNumber = (value) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
+
+  const mergeXformEntry = (key, spec) => {
+    if (!key || !spec || typeof spec !== 'object') return;
+    const next = xform[key] ? { ...xform[key] } : {};
+
+    const applyMultiplier = (value, axis) => {
+      const mult = toFiniteNumber(value);
+      if (mult == null) return;
+      if (axis === 'x' || axis === 'both' || axis === 'xy'){
+        const prevX = Number.isFinite(next.scaleMulX) ? next.scaleMulX : 1;
+        next.scaleMulX = prevX * mult;
+      }
+      if (axis === 'y' || axis === 'both' || axis === 'xy'){
+        const prevY = Number.isFinite(next.scaleMulY) ? next.scaleMulY : 1;
+        next.scaleMulY = prevY * mult;
+      }
+    };
+
+    applyMultiplier(spec.scaleMul ?? spec.mul ?? spec.scaleMultiplier, 'both');
+    applyMultiplier(spec.scaleMulX ?? spec.scaleXMul ?? spec.scaleXMultiplier, 'x');
+    applyMultiplier(spec.scaleMulY ?? spec.scaleYMul ?? spec.scaleYMultiplier, 'y');
+
+    const overrideScaleX = toFiniteNumber(spec.scaleX);
+    if (overrideScaleX != null){
+      delete next.scaleMulX;
+      next.scaleX = overrideScaleX;
+    }
+    const overrideScaleY = toFiniteNumber(spec.scaleY);
+    if (overrideScaleY != null){
+      delete next.scaleMulY;
+      next.scaleY = overrideScaleY;
+    }
+
+    const cleanedSpec = { ...spec };
+    delete cleanedSpec.scaleMul;
+    delete cleanedSpec.mul;
+    delete cleanedSpec.scaleMultiplier;
+    delete cleanedSpec.scaleMulX;
+    delete cleanedSpec.scaleXMul;
+    delete cleanedSpec.scaleXMultiplier;
+    delete cleanedSpec.scaleMulY;
+    delete cleanedSpec.scaleYMul;
+    delete cleanedSpec.scaleYMultiplier;
+    delete cleanedSpec.scaleX;
+    delete cleanedSpec.scaleY;
+
+    xform[key] = composeStyleXformEntry(next, cleanedSpec);
+  };
+
+  const addXformEntry = (key, spec) => {
+    if (!key || !spec || typeof spec !== 'object') return;
+    mergeXformEntry(key, spec);
+  };
+
+  const addRotation = (direction, rotation) => {
+    if (!Number.isFinite(rotation)) return;
+    const dir = direction === 'left' ? 'left' : 'right';
+    wrists[dir] = Number.isFinite(wrists[dir]) ? wrists[dir] + rotation : rotation;
+    const canonicalKey = dir === 'left' ? 'leftWrist' : 'rightWrist';
+    xform[canonicalKey] = composeRotationIntent(xform[canonicalKey], rotation);
+  };
+
+  const mergeXformMap = (map) => {
+    if (!map || typeof map !== 'object') return;
+    for (const [key, spec] of Object.entries(map)){
+      addXformEntry(key, spec);
+    }
+  };
+
   const sources = [];
   const addSource = (spec) => {
     if (spec && typeof spec === 'object') sources.push(spec);
@@ -866,19 +946,30 @@ function collectWristRotationOverrides(F, finalDeg) {
   addSource(finalDeg?.styleOverride?.xform);
   addSource(finalDeg?.spriteTransforms);
 
-  let leftRotation = null;
-  let rightRotation = null;
-  for (const source of sources) {
+  for (const source of sources){
+    mergeXformMap(source);
     const left = extractRotationForDirection(source, 'left');
-    if (left != null) leftRotation = left;
+    if (left != null) addRotation('left', left);
     const right = extractRotationForDirection(source, 'right');
-    if (right != null) rightRotation = right;
+    if (right != null) addRotation('right', right);
   }
 
-  const result = {};
-  if (leftRotation != null) result.left = { rotation: leftRotation };
-  if (rightRotation != null) result.right = { rotation: rightRotation };
-  return result;
+  return {
+    xform: Object.keys(xform).length ? xform : null,
+    wrists: Object.keys(wrists).length ? wrists : null
+  };
+}
+
+export function applyStyleTransformComposer(F, fighterId, finalDeg){
+  const G = window.GAME || {};
+  const store = (G.ANIM_STYLE_OVERRIDES ||= {});
+  const composed = composeStyleTransformOverrides(F, finalDeg);
+  if (composed.xform){
+    store[fighterId] = { ...(store[fighterId] || {}), xform: composed.xform };
+  } else if (store[fighterId]) {
+    delete store[fighterId];
+  }
+  return composed;
 }
 
 function applyWristRotation(anchor, rotation) {
@@ -1147,7 +1238,7 @@ function buildWeaponBones({
   return { bones, gripLookup };
 }
 
-function updateWeaponRig(F, target, finalDeg, C, fcfg) {
+function updateWeaponRig(F, target, finalDeg, C, fcfg, styleComposer) {
   if (!F?.anim?.weapon) return;
   const weaponKey = getActiveWeaponKey(F, C);
   const weaponDef = weaponKey && C.weapons ? C.weapons[weaponKey] : null;
@@ -1184,7 +1275,16 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg) {
     ? rig.base.angleOffsetRad
     : (Number.isFinite(rig.base?.angleOffsetDeg) ? degToRad(rig.base.angleOffsetDeg) : 0);
 
-  const wristTransforms = collectWristRotationOverrides(F, finalDeg);
+  const wristTransforms = (() => {
+    if (!styleComposer?.wrists) return null;
+    const leftRotation = Number.isFinite(styleComposer.wrists.left) ? { rotation: styleComposer.wrists.left } : null;
+    const rightRotation = Number.isFinite(styleComposer.wrists.right) ? { rotation: styleComposer.wrists.right } : null;
+    if (!leftRotation && !rightRotation) return null;
+    return {
+      ...(leftRotation ? { left: leftRotation } : {}),
+      ...(rightRotation ? { right: rightRotation } : {})
+    };
+  })();
 
   const jointPercentValues = {};
   (rig.bones || []).forEach((boneSpec, index) => {
@@ -1839,7 +1939,9 @@ export function updatePoses(){
     }
     
     const target = degToRadPose(finalDeg);
-    updateWeaponRig(F, target, finalDeg, C, fcfg);
+    updateBreathing(F, id, breathingSpec);
+    const composedTransforms = applyStyleTransformComposer(F, id, finalDeg);
+    updateWeaponRig(F, target, finalDeg, C, fcfg, composedTransforms);
     updatePhysicsPoseTarget(F, target);
     const ragBlend = getPhysicsRagdollBlend(F);
     const ragAngles = getPhysicsRagdollAngles(F);
@@ -1853,7 +1955,6 @@ export function updatePoses(){
       }
       F.jointAngles[k] = Number.isFinite(damp(cur, blended, lambda, F.anim.dt)) ? damp(cur, blended, lambda, F.anim.dt) : 0;
     }
-    updateBreathing(F, id, breathingSpec);
   }
 }
 
