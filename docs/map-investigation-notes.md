@@ -67,4 +67,4 @@ To comply with the request for an exhaustive investigation, the following list c
 63. Builder conversion not guarding against `area` descriptor being `null`.
 64. Static docs runtime diverging from `src/map` implementations, causing the editor to use outdated plumbing.
 
-After walking through these possibilities, the investigation confirmed **cause #64**: the browser runtime bundled in `docs/js/vendor/map-runtime.js` lacked the newer helper APIs (`getInstance`, identity metadata, collider support, prefab fallbacks, etc.) that exist under `src/map`. Aligning the docs runtime with the source implementation resolves the disconnect.
+After walking through these possibilities, the investigation confirmed **cause #64**: the browser runtime bundled in `docs/js/vendor/map-runtime.js` lacked the newer helper APIs (`getInstance`, identity metadata, collider support, prefab fallbacks, etc.) that exist under `src/map`. Aligning the docs runtime with the source implementation resolves the disconnect, and the vendor module now re-exports the shared `src/map` helpers to prevent future drift.
