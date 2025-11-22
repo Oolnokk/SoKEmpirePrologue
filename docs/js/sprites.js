@@ -696,7 +696,8 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
 
   // Offset config for fine-tuning sprite placement
   const baseStyleXformSrc = style?.xform || {};
-  const xform = (effectiveStyle.xform || {})[normalizedKey] || (effectiveStyle.xform || {})[styleKey] || {};
+  const xformTable = effectiveStyle.xform || {};
+  const xform = xformTable[normalizedKey] || xformTable[styleKey] || xformTable.base || {};
   const xformUnits = (effectiveStyle.xformUnits || 'px').toLowerCase();
 
   const rawAx = xform.ax ?? 0;
@@ -734,7 +735,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   }
 
   // Rotation (fixed): bone.ang + alignRad + extraRotRad + Math.PI
-  const baseStyleXform = baseStyleXformSrc[normalizedKey] || baseStyleXformSrc[styleKey] || {};
+  const baseStyleXform = baseStyleXformSrc[normalizedKey] || baseStyleXformSrc[styleKey] || baseStyleXformSrc.base || {};
   let alignRad;
   if (options?.alignRad != null){
     alignRad = options.alignRad;
