@@ -569,18 +569,20 @@ export function renderAll(ctx){
     maybeLogPlayerBoneDebug(window.RENDER_DEBUG, report);
   }
 
+  const canvasHeight = ctx.canvas?.height || 0;
+  const groundLine = computeGroundY(C, { canvasHeight }) ?? canvasHeight;
+
   // Fallback background so the viewport is never visually blank
   try{
     // If parallax isn't configured, draw a minimal horizon + ground
     if (!window.PARALLAX || !window.PARALLAX.areas || !window.PARALLAX.areas[window.PARALLAX.currentAreaId]){
-      const groundY = computeGroundY(C, { canvasHeight: ctx.canvas?.height });
       // sky gradient
       const g = ctx.createLinearGradient(0,0,0,ctx.canvas.height);
       g.addColorStop(0, '#cfe8ff'); g.addColorStop(1, '#eaeaea');
       ctx.fillStyle = g; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
       // ground
       ctx.fillStyle = '#c8d0c3';
-      ctx.fillRect(0, groundY, ctx.canvas.width, ctx.canvas.height - groundY);
+      ctx.fillRect(0, groundLine, ctx.canvas.width, ctx.canvas.height - groundLine);
       // marker text so it's obvious
       ctx.fillStyle = '#445';
       ctx.font = 'bold 14px system-ui, sans-serif';
@@ -590,9 +592,10 @@ export function renderAll(ctx){
   
   const camX = G.CAMERA?.x || 0;
   const zoom = Number.isFinite(G.CAMERA?.zoom) ? G.CAMERA.zoom : 1;
-  const canvasHeight = ctx.canvas?.height || 0;
   ctx.save();
-  ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, canvasHeight * (1 - zoom));
+  ctx.translate(0, groundLine);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-camX, -groundLine);
 
   const npcDashTrailEntries = getNpcDashTrail();
   const dashList = Array.isArray(npcDashTrailEntries)

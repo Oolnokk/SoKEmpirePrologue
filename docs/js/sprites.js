@@ -15,6 +15,7 @@ import { pickFighterName as pickFighterNameUtil } from './fighter-utils.js?v=1';
 import { COSMETIC_SLOTS, ensureCosmeticLayers, cosmeticTagFor, resolveFighterBodyColors } from './cosmetics.js?v=1';
 import { composeStyleXformEntry } from './style-xform.js?v=1';
 import { resolveMirrorTags } from './mirror-utils.js?v=1';
+import { computeGroundY } from './ground-utils.js?v=1';
 
 const ASSETS = (window.ASSETS ||= {});
 const CACHE = (ASSETS.sprites ||= {});
@@ -879,10 +880,11 @@ export function renderSprites(ctx){
   const camX = G.CAMERA?.x || 0;
   const zoom = Number.isFinite(G.CAMERA?.zoom) ? G.CAMERA.zoom : 1;
   const canvasHeight = ctx.canvas?.height || 0;
+  const groundLine = computeGroundY(C, { canvasHeight }) ?? canvasHeight;
   const zOf = buildZMap(C);
 
   ctx.save();
-  ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, canvasHeight * (1 - zoom));
+  ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, groundLine * (1 - zoom));
 
   for (const entity of entities) {
     if (!entity) continue;

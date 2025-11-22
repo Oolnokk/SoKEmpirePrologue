@@ -1887,7 +1887,9 @@ function updateEnemyIndicators() {
   const camera = window.GAME?.CAMERA || {};
   const zoom = Math.max(Number.isFinite(camera.zoom) ? camera.zoom : 1, 0.05);
   const camX = Number.isFinite(camera.x) ? camera.x : 0;
-  const verticalOffset = metrics.height * (1 - zoom);
+  const groundLine = computeGroundYFromConfig(window.CONFIG, metrics.height);
+  const pivotY = Number.isFinite(groundLine) ? groundLine : metrics.height;
+  const verticalOffset = pivotY * (1 - zoom);
   const scaleX = metrics.cssWidth / metrics.width;
   const scaleY = metrics.cssHeight / metrics.height;
   const config = getEnemyIndicatorConfig();
@@ -3436,7 +3438,10 @@ function drawStage(){
   });
 
   cx.save();
-  cx.setTransform(zoom, 0, 0, zoom, -zoom * camX, cv.height * (1 - zoom));
+  const pivotY = Number.isFinite(gy) ? gy : cv.height;
+  cx.translate(0, pivotY);
+  cx.scale(zoom, zoom);
+  cx.translate(-camX, -pivotY);
 
   if (!previewRendered) {
     drawEditorPreviewMap(cx, { camX, groundY: gy, worldWidth: worldW });
@@ -3494,7 +3499,9 @@ function updateMousePosition(e) {
   const camera = window.GAME?.CAMERA || {};
   const camX = camera.x || 0;
   const zoom = Math.max(Number.isFinite(camera.zoom) ? camera.zoom : 1, 1e-4);
-  const verticalOffset = cv.height * (1 - zoom);
+  const groundLine = computeGroundYFromConfig(window.CONFIG, cv?.height);
+  const pivotY = Number.isFinite(groundLine) ? groundLine : cv.height;
+  const verticalOffset = pivotY * (1 - zoom);
   window.GAME.MOUSE.worldX = pixelX / zoom + camX;
   window.GAME.MOUSE.worldY = (pixelY - verticalOffset) / zoom;
   window.GAME.MOUSE.hasPosition = true;
