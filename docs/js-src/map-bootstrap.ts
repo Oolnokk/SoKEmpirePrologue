@@ -1,10 +1,5 @@
 import { MapRegistry, convertLayoutToArea } from './vendor/map-runtime.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
-import {
-  pickDefaultLayoutEntry,
-  resolveDefaultLayoutId,
-  resolvePreviewStoragePrefix,
-} from './map-config-defaults.js';
 
 type PrefabLoadError = { type?: string; error?: unknown };
 type PrefabLibrary = { prefabs: Map<string, unknown>; errors: PrefabLoadError[] };

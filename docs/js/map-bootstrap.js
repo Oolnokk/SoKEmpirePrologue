@@ -1,6 +1,5 @@
 import { MapRegistry, convertLayoutToArea } from './vendor/map-runtime.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
-import { pickDefaultLayoutEntry, resolveDefaultLayoutId, resolvePreviewStoragePrefix } from './map-config-defaults.js';
 
 const AREA_NAME_ELEMENT_ID = 'areaName';
 const AREA_OVERLAY_UNSUB_KEY = '__sokAreaNameOverlayUnsub__';
