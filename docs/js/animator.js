@@ -1268,7 +1268,16 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg, styleComposer) {
     ? rig.base.angleOffsetRad
     : (Number.isFinite(rig.base?.angleOffsetDeg) ? degToRad(rig.base.angleOffsetDeg) : 0);
 
-  const wristTransforms = styleComposer?.wrists || null;
+  const wristTransforms = (() => {
+    if (!styleComposer?.wrists) return null;
+    const leftRotation = Number.isFinite(styleComposer.wrists.left) ? { rotation: styleComposer.wrists.left } : null;
+    const rightRotation = Number.isFinite(styleComposer.wrists.right) ? { rotation: styleComposer.wrists.right } : null;
+    if (!leftRotation && !rightRotation) return null;
+    return {
+      ...(leftRotation ? { left: leftRotation } : {}),
+      ...(rightRotation ? { right: rightRotation } : {})
+    };
+  })();
 
   const jointPercentValues = {};
   (rig.bones || []).forEach((boneSpec, index) => {
