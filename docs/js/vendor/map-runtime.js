@@ -564,6 +564,47 @@ function normalizePlayableBounds(rawBounds, colliders = [], warnings = null) {
   return null;
 }
 
+function alignCollidersToPlayableBounds(colliders = [], playableBounds = null) {
+  if (!Array.isArray(colliders) || colliders.length === 0) {
+    return colliders;
+  }
+
+  const left = toNumber(playableBounds?.left, NaN);
+  const right = toNumber(playableBounds?.right, NaN);
+  if (!Number.isFinite(left) || !Number.isFinite(right) || right <= left) {
+    return colliders;
+  }
+
+  const width = right - left;
+
+  return colliders.map((collider) => {
+    if (!collider || typeof collider !== 'object') return collider;
+    if (collider.meta?.autoAlignPlayableBounds === false) return collider;
+
+    const currentLeft = toNumber(collider.left, NaN);
+    const currentWidth = toNumber(collider.width, NaN);
+    const currentRight =
+      Number.isFinite(currentLeft) && Number.isFinite(currentWidth)
+        ? currentLeft + currentWidth
+        : NaN;
+
+    const alreadyCovers = Number.isFinite(currentLeft)
+      && Number.isFinite(currentRight)
+      && currentLeft <= left
+      && currentRight >= right;
+
+    if (alreadyCovers && collider.meta?.autoAlignPlayableBounds !== true) {
+      return collider;
+    }
+
+    return {
+      ...collider,
+      left,
+      width,
+    };
+  });
+}
+
 function buildInstanceIndex(instances) {
   const index = {};
   for (const inst of instances) {
@@ -767,6 +808,7 @@ function normalizeAreaDescriptor(area, options = {}) {
 
   const convertedColliders = rawColliders.map((col, index) => normalizeCollider(col, index));
   const playableBounds = normalizePlayableBounds(area.playableBounds, convertedColliders, warnings);
+  const alignedColliders = alignCollidersToPlayableBounds(convertedColliders, playableBounds);
 
   return {
     id: areaId,
@@ -782,7 +824,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     layers: convertedLayers,
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
-    colliders: convertedColliders,
+    colliders: alignedColliders,
     playableBounds,
     warnings,
     meta: area.meta ? safeClone(area.meta) : {},
@@ -905,6 +947,7 @@ export function convertLayoutToArea(layout, options = {}) {
 
   const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
   const playableBounds = normalizePlayableBounds(layout.playableBounds, convertedColliders, warnings);
+  const alignedColliders = alignCollidersToPlayableBounds(convertedColliders, playableBounds);
 
   if (!Array.isArray(layout.layers)) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
@@ -931,7 +974,7 @@ export function convertLayoutToArea(layout, options = {}) {
     layers: convertedLayers,
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
-    colliders: convertedColliders,
+    colliders: alignedColliders,
     playableBounds,
     warnings,
     meta: {

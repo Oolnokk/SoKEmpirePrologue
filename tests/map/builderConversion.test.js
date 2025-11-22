@@ -211,6 +211,26 @@ test('convertLayoutToArea normalizes playable bounds and falls back to colliders
   assert.deepEqual(withFallback.playableBounds, { left: -100, right: 500, source: 'colliders' });
 });
 
+test('convertLayoutToArea stretches platform colliders to playable bounds width', () => {
+  const layout = {
+    areaId: 'aligned_colliders',
+    layers: [],
+    instances: [],
+    playableBounds: { left: -200, right: 300 },
+    colliders: [
+      { id: 'narrow_floor', left: -50, width: 100, topOffset: 0, height: 40 },
+      { id: 'opt_out', left: -30, width: 60, topOffset: 0, height: 30, meta: { autoAlignPlayableBounds: false } },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout);
+
+  assert.equal(area.colliders[0].left, -200);
+  assert.equal(area.colliders[0].width, 500);
+  assert.equal(area.colliders[1].left, -30);
+  assert.equal(area.colliders[1].width, 60);
+});
+
 test('convertLayouts rejects duplicate area ids', () => {
   const layoutA = { areaId: 'dup', layers: [], instances: [] };
   const layoutB = { areaId: 'dup', layers: [], instances: [] };
