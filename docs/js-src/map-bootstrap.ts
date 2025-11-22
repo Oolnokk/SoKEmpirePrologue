@@ -495,8 +495,8 @@ function syncConfigPlayableBounds(area: MapArea | null): void {
 
   mapConfig.playableBounds = null;
   mapConfig.activePlayableBounds = null;
-  mapConfig.playAreaMinX = initialBounds.minX ?? null;
-  mapConfig.playAreaMaxX = initialBounds.maxX ?? null;
+  mapConfig.playAreaMinX = Number.isFinite(initialBounds?.minX) ? initialBounds.minX : null;
+  mapConfig.playAreaMaxX = Number.isFinite(initialBounds?.maxX) ? initialBounds.maxX : null;
 }
 
 function syncConfigPlatforming(area: MapArea): void {
