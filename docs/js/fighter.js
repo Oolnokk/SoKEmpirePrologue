@@ -2,6 +2,7 @@
 import { degToRad } from './math-utils.js?v=1';
 import { pickFighterName } from './fighter-utils.js?v=1';
 import { getStatProfile } from './stat-hooks.js?v=1';
+import { computeGroundY } from './ground-utils.js?v=1';
 
 import { instantiateCharacterTemplate } from './character-templates.js?v=1';
 
@@ -289,7 +290,7 @@ export function initFighters(cv, cx, options = {}){
   const G = (window.GAME ||= {});
   const C = (window.CONFIG || {});
   const W = C.canvas || { w: 720, h: 460, scale: 1 };
-  const gy = Math.round((C.groundRatio||0.7) * (C.canvas?.h || W.h || 460));
+  const gy = computeGroundY(C, { canvasHeight: Number.isFinite(C.canvas?.h) ? C.canvas.h : W.h });
   const stance = C.poses?.Stance || { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:110, lKnee:40, rHip:30, rKnee:40 };
   const stanceRad = degPoseToRad(stance);
   if (stanceRad.head == null) stanceRad.head = stanceRad.torso ?? 0;

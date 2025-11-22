@@ -1,4 +1,5 @@
 import { getFootingRecovery, getMovementMultipliers, getStatProfile } from './stat-hooks.js?v=1';
+import { computeGroundY } from './ground-utils.js?v=1';
 
 const JOINT_LIMITS = {
   torso: [-0.8, 0.8],
@@ -88,12 +89,6 @@ function ensureKnockbackState(fighter) {
   if (!Number.isFinite(state.magnitude)) state.magnitude = 0;
   if (!Number.isFinite(state.direction)) state.direction = 0;
   return state;
-}
-
-function computeGroundY(config) {
-  const canvasH = config?.canvas?.h || 460;
-  const groundRatio = config?.groundRatio || 0.7;
-  return canvasH * groundRatio - 1;
 }
 
 function randomRange(min, max) {

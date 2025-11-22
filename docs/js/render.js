@@ -21,6 +21,7 @@ import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withA
 import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=2';
 import { pickFighterConfig, lengths, pickOffsets, resolveBoneLengthScale } from './fighter-utils.js?v=1';
 import { updateFighterColliders, pruneFighterColliders } from './colliders.js?v=1';
+import { computeGroundY } from './ground-utils.js?v=1';
 
 // === RENDER DEBUG CONFIGURATION ===
 // Global config object for controlling what is rendered for debugging purposes
@@ -572,7 +573,7 @@ export function renderAll(ctx){
   try{
     // If parallax isn't configured, draw a minimal horizon + ground
     if (!window.PARALLAX || !window.PARALLAX.areas || !window.PARALLAX.areas[window.PARALLAX.currentAreaId]){
-      const groundY = Math.floor(ctx.canvas.height * 0.8);
+      const groundY = computeGroundY(C, { canvasHeight: ctx.canvas?.height });
       // sky gradient
       const g = ctx.createLinearGradient(0,0,0,ctx.canvas.height);
       g.addColorStop(0, '#cfe8ff'); g.addColorStop(1, '#eaeaea');
