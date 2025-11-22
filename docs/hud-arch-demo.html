@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HUD Arch Demo</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="hud-arch.css">
+  <style>
+    body {
+      background: radial-gradient(circle at 20% 20%, #111827, #0b1221 40%, #020617 75%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+
+    .page-shell {
+      position: relative;
+      min-height: 100vh;
+    }
+
+    .intro-card {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      max-width: 540px;
+      background: rgba(15, 23, 42, 0.86);
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55);
+      border-radius: 16px;
+      padding: 18px 20px;
+      line-height: 1.6;
+      color: #e5e7eb;
+      backdrop-filter: blur(6px);
+    }
+
+    .intro-card h1 {
+      margin: 0 0 10px;
+      font-size: 20px;
+      letter-spacing: 0.01em;
+    }
+
+    .intro-card code {
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 6px;
+      padding: 2px 5px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: #a5b4fc;
+    }
+
+    .intro-card ul {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div class="intro-card">
+      <h1>HUD Arch Buttons</h1>
+      <p>
+        This page demonstrates the minimal standalone HUD arch layout. Update
+        <code>docs/js/hud-arch-config.js</code> to change button ordering,
+        arc length percentages, gaps, and sprite images. Hook your existing
+        ability logic where noted in <code>docs/js/hud-arch.js</code>.
+      </p>
+      <ul>
+        <li><strong>Resize-aware</strong>: buttons rebuild on window resize.</li>
+        <li><strong>Debug overlay</strong>: enable or disable via config.</li>
+        <li><strong>Sprites optional</strong>: swap in your own assets.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="js/hud-arch-config.js"></script>
+  <script src="js/hud-arch.js"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+/* Fullscreen HUD layer that holds the arch buttons */
+.arch-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 200;
+}
+
+/* Individual buttons */
+.arch-hud__button {
+  position: absolute;
+  width: var(--arch-button-size, 84px);
+  height: var(--arch-button-size, 84px);
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.94);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(148, 163, 184, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+
+.arch-hud__button img {
+  width: 72%;
+  height: 72%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* Optional: you can add hover/pressed styles if needed */
+.arch-hud__button:active {
+  transform: scale(0.96) translateZ(0);
+}
+
+/* Debug markers */
+.arch-hud__debug-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  pointer-events: none;
+}
+
+.arch-hud__debug-line {
+  position: absolute;
+  width: 2px;
+  height: 18px;
+  background: rgba(248, 250, 252, 0.7);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+}
