@@ -561,6 +561,33 @@
 const $ = s => document.querySelector(s);
 const ROOT_CONFIG = window.CONFIG || {};
 const MAP_CONFIG = ROOT_CONFIG.map || {};
+const MAP_EDITOR_DEFAULTS = (() => {
+  if (typeof window.resolveMapEditorDefaults === 'function') {
+    return window.resolveMapEditorDefaults(MAP_CONFIG) || {};
+  }
+  const fallbackCanvasHeight = Number.isFinite(ROOT_CONFIG.canvas?.h) && ROOT_CONFIG.canvas.h > 0
+    ? ROOT_CONFIG.canvas.h
+    : 460;
+  const fallbackGroundOffset = (() => {
+    const configGround = ROOT_CONFIG.ground;
+    const configuredOffset = configGround && typeof configGround === 'object' ? Number(configGround.offset) : NaN;
+    if (Number.isFinite(configuredOffset)) {
+      return Math.max(0, configuredOffset);
+    }
+    const ratio = Number(ROOT_CONFIG.groundRatio);
+    if (Number.isFinite(ratio) && ratio > 0 && ratio < 1 && fallbackCanvasHeight > 0) {
+      return Math.max(0, Math.round(fallbackCanvasHeight * (1 - ratio)));
+    }
+    return 140;
+  })();
+  const fallbackCustomArea = { id: 'custom_area', label: 'Empty Layout', path: null, areaName: 'Custom Area' };
+  return {
+    canvasHeight: fallbackCanvasHeight,
+    groundOffset: fallbackGroundOffset,
+    groundRatio: Number.isFinite(ROOT_CONFIG.groundRatio) ? ROOT_CONFIG.groundRatio : null,
+    customArea: fallbackCustomArea,
+  };
+})();
 const DEFAULT_LAYOUT_ID = typeof window.resolveDefaultLayoutId === 'function'
   ? window.resolveDefaultLayoutId(MAP_CONFIG)
   : ((typeof MAP_CONFIG.defaultLayoutId === 'string' && MAP_CONFIG.defaultLayoutId.trim())
@@ -574,22 +601,23 @@ const PREVIEW_STORAGE_PREFIX = typeof window.resolvePreviewStoragePrefix === 'fu
 const pickDefaultLayoutEntry = typeof window.pickDefaultLayoutEntry === 'function'
   ? window.pickDefaultLayoutEntry
   : null;
-const DEFAULT_CANVAS_HEIGHT = Number.isFinite(ROOT_CONFIG.canvas?.h) && ROOT_CONFIG.canvas.h > 0
-  ? ROOT_CONFIG.canvas.h
+const DEFAULT_CANVAS_HEIGHT = Number.isFinite(MAP_EDITOR_DEFAULTS.canvasHeight)
+  && MAP_EDITOR_DEFAULTS.canvasHeight > 0
+  ? MAP_EDITOR_DEFAULTS.canvasHeight
   : 460;
-const DEFAULT_GROUND_OFFSET = (() => {
-  const configGround = ROOT_CONFIG.ground;
-  const configuredOffset = configGround && typeof configGround === 'object' ? Number(configGround.offset) : NaN;
-  if (Number.isFinite(configuredOffset)) {
-    return Math.max(0, configuredOffset);
-  }
-  const ratio = Number(ROOT_CONFIG.groundRatio);
-  if (Number.isFinite(ratio) && ratio > 0 && ratio < 1 && DEFAULT_CANVAS_HEIGHT > 0) {
-    return Math.max(0, Math.round(DEFAULT_CANVAS_HEIGHT * (1 - ratio)));
-  }
-  return 140;
+const DEFAULT_GROUND_OFFSET = Number.isFinite(MAP_EDITOR_DEFAULTS.groundOffset)
+  ? Math.max(0, MAP_EDITOR_DEFAULTS.groundOffset)
+  : 140;
+const DEFAULT_CUSTOM_ENTRY = (() => {
+  const custom = MAP_EDITOR_DEFAULTS.customArea || {};
+  const id = (typeof custom.id === 'string' && custom.id.trim()) ? custom.id.trim() : 'custom_area';
+  const label = (typeof custom.label === 'string' && custom.label.trim()) ? custom.label.trim() : 'Empty Layout';
+  const areaName = (typeof custom.areaName === 'string' && custom.areaName.trim())
+    ? custom.areaName.trim()
+    : (label || 'Custom Area');
+  const path = (typeof custom.path === 'string' && custom.path.trim()) ? custom.path.trim() : null;
+  return { id, label: label || 'Empty Layout', path, areaName: areaName || 'Custom Area' };
 })();
-const DEFAULT_CUSTOM_ENTRY = { id: 'custom_area', label: 'Empty Layout', path: null, areaName: 'Custom Area' };
 const REPOSITORY_LAYOUTS = (() => {
   const normalized = Array.isArray(MAP_CONFIG.layouts) && MAP_CONFIG.layouts.length
     ? MAP_CONFIG.layouts.map((entry) => ({
