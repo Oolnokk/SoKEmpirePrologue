@@ -439,7 +439,7 @@ window.CONFIG = {
       enabled: true,
       arch: {
         radiusPx: 160,
-        start: { x: 0.98, y: 0.94 },
+        start: { x: 0.18, y: 0.14 },
         end: { x: 0.78, y: 0.86 },
         scale: 1,
         buttonSizePx: 84,
