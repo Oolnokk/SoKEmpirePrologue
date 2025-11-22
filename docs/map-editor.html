@@ -26,75 +26,90 @@
     }
 
     #app {
-      display:grid;
-      grid-template-rows:40px auto 1fr;
-      grid-template-columns:280px 1fr;
-      grid-template-areas:
-        "top top"
-        "left bar"
-        "left right";
-      height:100vh;
-      max-height:100vh;
-      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height:100vh;
+      background:var(--bg);
     }
 
     header {
-      grid-area:top;
       display:flex;
-      align-items:center;
+      align-items:flex-start;
       justify-content:space-between;
-      padding:6px 8px;
+      padding:12px 14px 8px;
       background:var(--panel);
       border-bottom:1px solid var(--line);
-      gap:6px;
+      gap:8px;
+      flex-wrap:wrap;
       font-size:11px;
     }
     header h1 {
       margin:0;
-      font-size:13px;
-      font-weight:500;
-      color:var(--muted);
+      font-size:16px;
+      font-weight:600;
+      color:var(--text);
+      line-height:1.4;
     }
 
-    button, select, input {
+    button, select, input:not([type="range"]) {
       background:var(--btn);
       color:var(--text);
       border:1px solid var(--line);
-      border-radius:10px;
-      padding:4px 8px;
+      border-radius:12px;
+      padding:10px 12px;
       font-size:16px; /* avoid mobile zoom */
+      min-height:44px;
+      line-height:1.2;
+    }
+    input[type="range"] {
+      accent-color:#38bdf8;
+      min-height:30px;
     }
     button:hover { background:var(--btnHi); cursor:pointer; }
 
+    .layout {
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      padding:12px;
+      flex:1;
+    }
+
+    .content-columns {
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      flex:1;
+    }
+
     #bar {
-      grid-area:bar;
-      padding:4px 8px;
+      padding:8px 12px;
       display:flex;
       align-items:center;
-      gap:8px;
+      gap:10px;
       background:#111821;
-      border-bottom:1px solid var(--line);
+      border-block:1px solid var(--line);
       font-size:11px;
       color:var(--muted);
       flex-wrap:wrap;
+      position:sticky;
+      top:0;
+      z-index:5;
     }
 
-    #left {
-      grid-area:left;
-      padding:6px;
-      border-right:1px solid var(--line);
-      background:var(--panel);
-      overflow:auto;
-      font-size:11px;
-    }
-
-    #right {
-      grid-area:right;
-      padding:6px;
+    #controlPane {
       display:flex;
       flex-direction:column;
-      gap:6px;
-      overflow:hidden;
+      gap:10px;
+    }
+
+    #canvasPane {
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      position:sticky;
+      top:0;
+      z-index:2;
     }
 
     .card {
@@ -103,6 +118,14 @@
       border:1px solid var(--line);
       padding:6px;
       margin-bottom:4px;
+    }
+
+    .card-heading {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      justify-content:space-between;
+      flex-wrap:wrap;
     }
 
     .row {
@@ -129,7 +152,8 @@
       background:transparent;
       overflow:hidden;
       position:relative;
-      min-height:0;
+      min-height:clamp(320px, 55vh, 720px);
+      width:100%;
     }
     #sceneCanvas {
       width:100%;
@@ -277,20 +301,61 @@
       color:#9ca3af;
     }
 
-    @media (max-width:900px) {
-      #app {
-        grid-template-rows:40px auto 40% 1fr;
-        grid-template-columns:1fr;
-        grid-template-areas:
-          "top"
-          "bar"
-          "right"
-          "left";
+    .accordion {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:12px;
+      overflow:hidden;
+    }
+    .accordion summary {
+      list-style:none;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:10px 12px;
+      cursor:pointer;
+      font-weight:600;
+      color:var(--text);
+      background:rgba(255,255,255,0.02);
+    }
+    .accordion summary::-webkit-details-marker { display:none; }
+    .accordion .accordion-body {
+      padding:0 12px 12px;
+    }
+
+    #toolbar {
+      position:sticky;
+      bottom:0;
+      padding:10px 12px;
+      background:var(--panel);
+      border-top:1px solid var(--line);
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      box-shadow:0 -10px 30px rgba(0,0,0,0.35);
+      z-index:9;
+    }
+    .toolbar-group {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    @media (min-width:1100px) {
+      .layout { padding:16px; }
+      .content-columns {
+        flex-direction:row;
+        gap:14px;
+        align-items:flex-start;
       }
-      #left {
-        border-right:none;
-        border-top:1px solid var(--line);
-      }
+      #canvasPane { flex:1 1 60%; top:12px; }
+      #controlPane { flex:0 0 420px; }
+      #sceneWrap { min-height:480px; height:60vh; }
+      header { align-items:center; }
     }
   </style>
   <script src="./config/config.js"></script>
@@ -299,29 +364,21 @@
 <div id="app">
   <header>
     <h1>Parallax Map Builder <span style="color:var(--muted)">· layered v15f</span></h1>
-    <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
-      <button id="btnLoadPrefab">Load Structure JSON</button>
-      <button id="btnLoadImage">Load Image</button>
-      <select id="mapRepoSelect" aria-label="Repository Map"></select>
-      <button id="btnLoadMap">Load Map</button>
-      <button id="btnUndo">Undo</button>
-      <button id="btnPreviewGameplay">Preview Gameplay</button>
-      <button id="btnExportMap">Download Area JSON</button>
-    </div>
+    <span style="color:var(--muted);font-size:12px">Tap the toolbar for primary actions.</span>
   </header>
 
   <div id="bar">
     <span>
       Cam:
-      <input id="camSlider" type="range" min="-4000" max="4000" value="0" style="width:120px">
-      <input id="camNum" type="number" value="0" style="width:70px">
+      <input id="camSlider" type="range" min="-4000" max="4000" value="0" style="width:140px">
+      <input id="camNum" type="number" value="0" style="width:80px">
     </span>
     <span>
       Zoom:
-      <input id="zoomSlider" type="range" min="0.5" max="2.0" step="0.05" value="1" style="width:120px">
-      <input id="zoomNum" type="number" min="0.5" max="2.0" step="0.05" value="1" style="width:60px">
+      <input id="zoomSlider" type="range" min="0.5" max="2.0" step="0.05" value="1" style="width:140px">
+      <input id="zoomNum" type="number" min="0.5" max="2.0" step="0.05" value="1" style="width:70px">
     </span>
-    <label style="display:flex;align-items:center;gap:4px">
+    <label style="display:flex;align-items:center;gap:6px">
       <input id="chkDebug" type="checkbox">
       <span>Debug</span>
     </label>
@@ -331,229 +388,248 @@
     </span>
   </div>
 
-  <aside id="left">
-    <!-- Instances -->
-    <div class="card">
-      <strong>Instances (active layer only)</strong>
-      <div id="instList"></div>
-      <div style="display:flex;margin-top:6px">
-        <button id="btnPlacePlayerSpawn" style="flex:1">Place Player Spawn</button>
-      </div>
-      <div class="row">
-        <label><span>Spawn Height (px)</span><input id="spawnPosY" type="number" step="1"></label>
-      </div>
-      <small style="color:var(--muted);display:block;margin-top:4px">
-        Positive values push the spawn below ground; negative lifts it above.
-      </small>
-      <small style="color:var(--muted);display:block;margin-top:4px">
-        Only instances on the active layer can be picked, dragged or jittered. Use the button above and then click the preview to set the spawn (snaps to the grid unit).
-      </small>
-    </div>
+  <main class="layout">
+    <div class="content-columns">
+      <section id="canvasPane">
+        <div class="card">
+          <div class="card-heading">
+            <strong>Preview</strong>
+            <span style="font-size:10px;color:var(--muted);">Screen-space KF · select an instance & toggle Debug to see rays.</span>
+          </div>
+        </div>
+        <div id="sceneWrap"><canvas id="sceneCanvas"></canvas></div>
+        <div id="debugText"></div>
+      </section>
 
-    <!-- Colliders -->
-    <div class="card">
-      <strong>Platform Colliders</strong>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-        <button id="btnAddCollider">Add collider</button>
-        <button id="btnDeleteCollider">Remove selected</button>
-        <span class="pill">Add then drag on the preview to place a collider (click again to cancel).</span>
-      </div>
-      <div id="colliderList"></div>
-      <div class="row" style="margin-top:6px">
-        <label><span>ID</span><input id="colliderId" readonly></label>
-        <label><span>Label</span><input id="colliderLabel" type="text" placeholder="Ground segment"></label>
-      </div>
-      <div class="row">
-        <label><span>Left (px)</span><input id="colliderLeft" type="number" step="1"></label>
-        <label><span>Width (px)</span><input id="colliderWidth" type="number" step="1" min="1"></label>
-      </div>
-      <div class="row">
-        <label><span>Top offset (px)</span><input id="colliderTopOffset" type="number" step="1"></label>
-        <label><span>Height (px)</span><input id="colliderHeight" type="number" step="1" min="1"></label>
-      </div>
-      <div class="row">
-        <label><span>Material type</span><input id="colliderMaterialType" type="text" list="materialTypePresets" placeholder="default"></label>
-      </div>
-      <datalist id="materialTypePresets">
-        <option value="stone"></option>
-        <option value="concrete"></option>
-        <option value="wood"></option>
-        <option value="metal"></option>
-        <option value="ceramic"></option>
-        <option value="glass"></option>
-        <option value="dirt"></option>
-        <option value="grass"></option>
-        <option value="gravel"></option>
-        <option value="sand"></option>
-        <option value="snow"></option>
-        <option value="ice"></option>
-        <option value="water"></option>
-      </datalist>
-      <small style="color:var(--muted);display:block;margin-top:4px">
-        Offsets are relative to the ground line. Negative values lift the collider above the ground.
-      </small>
-    </div>
+      <aside id="controlPane">
+        <details class="accordion" open>
+          <summary>Instances (active layer only)</summary>
+          <div class="accordion-body">
+            <div id="instList"></div>
+            <div style="display:flex;margin-top:6px">
+              <button id="btnPlacePlayerSpawn" style="flex:1">Place Player Spawn</button>
+            </div>
+            <div class="row">
+              <label><span>Spawn Height (px)</span><input id="spawnPosY" type="number" step="1"></label>
+            </div>
+            <small style="color:var(--muted);display:block;margin-top:4px">
+              Positive values push the spawn below ground; negative lifts it above.
+            </small>
+            <small style="color:var(--muted);display:block;margin-top:4px">
+              Only instances on the active layer can be picked, dragged or jittered. Use the button above and then click the preview to set the spawn (snaps to the grid unit).
+            </small>
+          </div>
+        </details>
 
-    <!-- Drum skin layers -->
-    <div class="card">
-      <strong>Drum Skin Layers</strong>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-        <button id="btnAddDrumSkin">Add drum skin</button>
-        <span class="pill">Bridges between two parallax layers with a tiled image.</span>
-      </div>
-      <div id="drumSkinList" style="margin-top:6px;display:flex;flex-direction:column;gap:6px"></div>
-      <small style="color:var(--muted);display:block;margin-top:4px">
-        Configure geometry before selecting an image. Drum skins render above parallax backgrounds but below props.
-      </small>
-    </div>
+        <details class="accordion" open>
+          <summary>Platform Colliders</summary>
+          <div class="accordion-body">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+              <button id="btnAddCollider">Add collider</button>
+              <button id="btnDeleteCollider">Remove selected</button>
+              <span class="pill">Add then drag on the preview to place a collider (click again to cancel).</span>
+            </div>
+            <div id="colliderList"></div>
+            <div class="row" style="margin-top:6px">
+              <label><span>ID</span><input id="colliderId" readonly></label>
+              <label><span>Label</span><input id="colliderLabel" type="text" placeholder="Ground segment"></label>
+            </div>
+            <div class="row">
+              <label><span>Left (px)</span><input id="colliderLeft" type="number" step="1"></label>
+              <label><span>Width (px)</span><input id="colliderWidth" type="number" step="1" min="1"></label>
+            </div>
+            <div class="row">
+              <label><span>Top offset (px)</span><input id="colliderTopOffset" type="number" step="1"></label>
+              <label><span>Height (px)</span><input id="colliderHeight" type="number" step="1" min="1"></label>
+            </div>
+            <div class="row">
+              <label><span>Material type</span><input id="colliderMaterialType" type="text" list="materialTypePresets" placeholder="default"></label>
+            </div>
+            <datalist id="materialTypePresets">
+              <option value="stone"></option>
+              <option value="concrete"></option>
+              <option value="wood"></option>
+              <option value="metal"></option>
+              <option value="ceramic"></option>
+              <option value="glass"></option>
+              <option value="dirt"></option>
+              <option value="grass"></option>
+              <option value="gravel"></option>
+              <option value="sand"></option>
+              <option value="snow"></option>
+              <option value="ice"></option>
+              <option value="water"></option>
+            </datalist>
+            <small style="color:var(--muted);display:block;margin-top:4px">
+              Offsets are relative to the ground line. Negative values lift the collider above the ground.
+            </small>
+          </div>
+        </details>
 
-    <!-- Selected instance -->
-    <div class="card">
-      <strong>Selected instance</strong>
-      <div class="row">
-        <label><span>ID</span><input id="instId" readonly></label>
-        <label><span>Prefab</span><select id="instPrefab"></select></label>
-      </div>
-      <div class="row">
-        <label>
-          <span>Layer</span>
-          <select id="instLayer" class="hidden-select"></select>
-        </label>
-        <label>
-          <span>Display X (world)</span>
-          <input id="instX" type="number">
-        </label>
-      </div>
-      <div class="row">
-        <label style="flex:none;display:flex;align-items:center;gap:4px">
-          <input id="instLocked" type="checkbox">
-          <span>Lock position</span>
-        </label>
-        <label><span>Grid (px)</span><input id="gridSize" type="number" value="10"></label>
-        <label><span>Delete</span><button id="btnDeleteInst">Remove</button></label>
-      </div>
-      <div class="row">
-        <label><span>Scale X</span><input id="instScaleX" type="number" step="0.05"></label>
-        <label><span>Scale Y</span><input id="instScaleY" type="number" step="0.05"></label>
-      </div>
-      <div class="row">
-        <label><span>Position Y (from ground)</span><input id="instOffY" type="number" step="1"></label>
-        <label><span>Rot (deg)</span><input id="instRot" type="number" step="1"></label>
-      </div>
-      <div class="row">
-        <label style="flex:none;display:flex;align-items:center;gap:4px">
-          <input id="instStretchEnabled" type="checkbox">
-          <span>Stretch quad</span>
-        </label>
-        <label>
-          <span>Target layer</span>
-          <select id="instStretchLayer" class="hidden-select"></select>
-        </label>
-      </div>
-      <div class="row">
-        <label><span>Top height (px)</span><input id="instStretchHeight" type="number" step="1" min="1"></label>
-        <label><span>Top offset (px)</span><input id="instStretchTopOffset" type="number" step="1"></label>
-      </div>
-      <div class="row">
-        <label><span>Slices</span><input id="instStretchSlices" type="number" step="1" min="4" max="80"></label>
-      </div>
-      <small style="color:var(--muted);display:block;margin-top:4px">
-        Stretch quads span the selected prefab toward another layer. Leave disabled to render normally.
-      </small>
-      <div class="row">
-        <label><span>&nbsp;</span><button id="btnDuplicateInst">Duplicate</button></label>
-      </div>
-      <small style="color:var(--muted);display:block;margin-top:4px">
-        Duplicate copies all settings; lock blocks drag/jitter, not manual edits.
-      </small>
-    </div>
+        <details class="accordion" open>
+          <summary>Drum Skin Layers</summary>
+          <div class="accordion-body">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+              <button id="btnAddDrumSkin">Add drum skin</button>
+              <span class="pill">Bridges between two parallax layers with a tiled image.</span>
+            </div>
+            <div id="drumSkinList" style="margin-top:6px;display:flex;flex-direction:column;gap:6px"></div>
+            <small style="color:var(--muted);display:block;margin-top:4px">
+              Configure geometry before selecting an image. Drum skins render above parallax backgrounds but below props.
+            </small>
+          </div>
+        </details>
 
-    <!-- Prefab library -->
-    <div class="card">
-      <strong>Prefab Library</strong>
-      <div class="row">
-        <label>
-          <span>Prefab</span>
-          <select id="libPrefab"></select>
-        </label>
-        <label>
-          <span>Count</span>
-          <input id="libCount" type="number" min="1" max="50" value="8">
-        </label>
-      </div>
-      <div class="row">
-        <label><span>&nbsp;</span><button id="btnPlaceRow">Place row on active layer</button></label>
-      </div>
-      <small style="color:var(--muted);display:block;margin-top:4px">
-        Structures & uploads land here; stamp rows onto the active layer.
-      </small>
-    </div>
+        <details class="accordion" open>
+          <summary>Layers</summary>
+          <div class="accordion-body">
+            <select id="activeLayerSelect" class="hidden-select"></select>
+            <div id="layerStack" class="layer-stack"></div>
+            <div class="row">
+              <label><span>parallax</span><input id="layerParallax" type="number" step="0.05"></label>
+              <label><span>y offset (from ground)</span><input id="layerYOffset" type="number"></label>
+            </div>
+            <div class="row">
+              <label><span>separation</span><input id="layerSep" type="number"></label>
+              <label><span>scale</span><input id="layerScale" type="number" step="0.05"></label>
+            </div>
+            <div class="row">
+              <label><span>&nbsp;</span><button id="btnDuplicateLayer">Duplicate active layer</button></label>
+            </div>
+            <small style="color:var(--muted);display:block;margin-top:4px">
+              Drag tiles to change draw order. Top tile renders in front.
+            </small>
+          </div>
+        </details>
 
-    <!-- Layers -->
-    <div class="card">
-      <strong>Layers</strong>
-      <select id="activeLayerSelect" class="hidden-select"></select>
-      <div id="layerStack" class="layer-stack"></div>
-      <div class="row">
-        <label><span>parallax</span><input id="layerParallax" type="number" step="0.05"></label>
-        <label><span>y offset (from ground)</span><input id="layerYOffset" type="number"></label>
-      </div>
-      <div class="row">
-        <label><span>separation</span><input id="layerSep" type="number"></label>
-        <label><span>scale</span><input id="layerScale" type="number" step="0.05"></label>
-      </div>
-      <div class="row">
-        <label><span>&nbsp;</span><button id="btnDuplicateLayer">Duplicate active layer</button></label>
-      </div>
-      <small style="color:var(--muted);display:block;margin-top:4px">
-        Drag tiles to change draw order. Top tile renders in front.
-      </small>
-    </div>
+        <div class="card">
+          <strong>Selected instance</strong>
+          <div class="row">
+            <label><span>ID</span><input id="instId" readonly></label>
+            <label><span>Prefab</span><select id="instPrefab"></select></label>
+          </div>
+          <div class="row">
+            <label>
+              <span>Layer</span>
+              <select id="instLayer" class="hidden-select"></select>
+            </label>
+            <label>
+              <span>Display X (world)</span>
+              <input id="instX" type="number">
+            </label>
+          </div>
+          <div class="row">
+            <label style="flex:none;display:flex;align-items:center;gap:4px">
+              <input id="instLocked" type="checkbox">
+              <span>Lock position</span>
+            </label>
+            <label><span>Grid (px)</span><input id="gridSize" type="number" value="10"></label>
+            <label><span>Delete</span><button id="btnDeleteInst">Remove</button></label>
+          </div>
+          <div class="row">
+            <label><span>Scale X</span><input id="instScaleX" type="number" step="0.05"></label>
+            <label><span>Scale Y</span><input id="instScaleY" type="number" step="0.05"></label>
+          </div>
+          <div class="row">
+            <label><span>Position Y (from ground)</span><input id="instOffY" type="number" step="1"></label>
+            <label><span>Rot (deg)</span><input id="instRot" type="number" step="1"></label>
+          </div>
+          <div class="row">
+            <label style="flex:none;display:flex;align-items:center;gap:4px">
+              <input id="instStretchEnabled" type="checkbox">
+              <span>Stretch quad</span>
+            </label>
+            <label>
+              <span>Target layer</span>
+              <select id="instStretchLayer" class="hidden-select"></select>
+            </label>
+          </div>
+          <div class="row">
+            <label><span>Top height (px)</span><input id="instStretchHeight" type="number" step="1" min="1"></label>
+            <label><span>Top offset (px)</span><input id="instStretchTopOffset" type="number" step="1"></label>
+          </div>
+          <div class="row">
+            <label><span>Slices</span><input id="instStretchSlices" type="number" step="1" min="4" max="80"></label>
+          </div>
+          <small style="color:var(--muted);display:block;margin-top:4px">
+            Stretch quads span the selected prefab toward another layer. Leave disabled to render normally.
+          </small>
+          <div class="row">
+            <label><span>&nbsp;</span><button id="btnDuplicateInst">Duplicate</button></label>
+          </div>
+          <small style="color:var(--muted);display:block;margin-top:4px">
+            Duplicate copies all settings; lock blocks drag/jitter, not manual edits.
+          </small>
+        </div>
 
-    <!-- Jitter -->
-    <div class="card">
-      <strong>Jitter (active layer, unlocked only)</strong>
-      <div class="row">
-        <label><span>Pos range (px)</span><input id="jitterRange" type="number" value="40"></label>
-        <label><span>Scale range (±)</span><input id="jitterScaleRange" type="number" step="0.05" value="0.15"></label>
-      </div>
-      <div class="row">
-        <label><span>&nbsp;</span><button id="btnJitter">Apply jitter</button></label>
-      </div>
-      <small style="color:var(--muted);display:block;margin-top:4px">
-        Randomizes horizontal position (snapped to the grid) and scale for unlocked instances on the active layer.
-      </small>
-    </div>
+        <div class="card">
+          <strong>Prefab Library</strong>
+          <div class="row">
+            <label>
+              <span>Prefab</span>
+              <select id="libPrefab"></select>
+            </label>
+            <label>
+              <span>Count</span>
+              <input id="libCount" type="number" min="1" max="50" value="8">
+            </label>
+          </div>
+          <div class="row">
+            <label><span>&nbsp;</span><button id="btnPlaceRow">Place row on active layer</button></label>
+          </div>
+          <small style="color:var(--muted);display:block;margin-top:4px">
+            Structures & uploads land here; stamp rows onto the active layer.
+          </small>
+        </div>
 
-    <!-- Global / Export -->
-    <div class="card">
-      <strong>Global & Export</strong>
-      <div class="row">
-        <label>
-          <span>Ground from bottom (px)</span>
-          <input id="groundOffset" type="number" value="140">
-        </label>
-      </div>
-      <div id="exportStatus"></div>
-      <textarea id="exportText" readonly
-        placeholder="Layout JSON appears here when you export."></textarea>
-      <small style="color:var(--muted);display:block;margin-top:4px">
-        If the new tab is blocked, long-press here to copy the JSON.
-      </small>
-    </div>
+        <div class="card">
+          <strong>Jitter (active layer, unlocked only)</strong>
+          <div class="row">
+            <label><span>Pos range (px)</span><input id="jitterRange" type="number" value="40"></label>
+            <label><span>Scale range (±)</span><input id="jitterScaleRange" type="number" step="0.05" value="0.15"></label>
+          </div>
+          <div class="row">
+            <label><span>&nbsp;</span><button id="btnJitter">Apply jitter</button></label>
+          </div>
+          <small style="color:var(--muted);display:block;margin-top:4px">
+            Randomizes horizontal position (snapped to the grid) and scale for unlocked instances on the active layer.
+          </small>
+        </div>
 
-    <div id="debugText"></div>
-  </aside>
-
-  <section id="right">
-    <div class="card">
-      <strong>Preview</strong>
-      <span style="font-size:10px;color:var(--muted);margin-left:6px">
-        Screen-space KF · select an instance & toggle Debug to see rays.
-      </span>
+        <div class="card">
+          <strong>Global & Export</strong>
+          <div class="row">
+            <label>
+              <span>Ground from bottom (px)</span>
+              <input id="groundOffset" type="number" value="140">
+            </label>
+          </div>
+          <div id="exportStatus"></div>
+          <textarea id="exportText" readonly
+            placeholder="Layout JSON appears here when you export."></textarea>
+          <small style="color:var(--muted);display:block;margin-top:4px">
+            If the new tab is blocked, long-press here to copy the JSON.
+          </small>
+        </div>
+      </aside>
     </div>
-    <div id="sceneWrap"><canvas id="sceneCanvas"></canvas></div>
-  </section>
+  </main>
+
+  <nav id="toolbar" aria-label="Primary actions">
+    <div class="toolbar-group">
+      <button id="btnLoadPrefab">Load Structure JSON</button>
+      <button id="btnLoadImage">Load Image</button>
+    </div>
+    <div class="toolbar-group">
+      <select id="mapRepoSelect" aria-label="Repository Map"></select>
+      <button id="btnLoadMap">Load Map</button>
+    </div>
+    <div class="toolbar-group">
+      <button id="btnUndo">Undo</button>
+      <button id="btnPreviewGameplay">Preview Gameplay</button>
+      <button id="btnExportMap">Download Area JSON</button>
+    </div>
+  </nav>
 </div>
 
 <script type="module" src="./js/map-config-defaults.js"></script>
