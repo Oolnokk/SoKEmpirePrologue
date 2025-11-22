@@ -9,6 +9,7 @@ const DEFAULT_CONFIG = {
     buttonSizePx: 84,
     defaultGapPx: 10,
     rotateWithArch: true,
+    flipVertical: true,
     debug: false,
   },
   buttons: [
@@ -25,7 +26,22 @@ function clone(value) {
     : JSON.parse(JSON.stringify(value));
 }
 
-function getViewportRect() {
+function getViewportRect(rootEl) {
+  const gameplayRoot =
+    (rootEl && rootEl !== document.body ? rootEl : null) ||
+    document.getElementById('gameStage') ||
+    document.querySelector('.stage');
+
+  if (gameplayRoot && gameplayRoot !== document.body) {
+    const rect = gameplayRoot.getBoundingClientRect();
+    return {
+      width: rect.width,
+      height: rect.height,
+      offsetLeft: 0,
+      offsetTop: 0,
+    };
+  }
+
   const vv = window.visualViewport;
   if (vv) {
     return {
@@ -43,10 +59,11 @@ function getViewportRect() {
   };
 }
 
-function vpPoint(coord, vp) {
+function vpPoint(coord, vp, flipVertical) {
+  const normY = flipVertical ? 1 - coord.y : coord.y;
   return {
     x: vp.offsetLeft + coord.x * vp.width,
-    y: vp.offsetTop + coord.y * vp.height,
+    y: vp.offsetTop + normY * vp.height,
   };
 }
 
@@ -73,6 +90,7 @@ function mergeArchConfig(raw = {}) {
       buttonSizePx: sanitizeNumber(arch.buttonSizePx, DEFAULT_CONFIG.arch.buttonSizePx),
       defaultGapPx: sanitizeNumber(arch.defaultGapPx, DEFAULT_CONFIG.arch.defaultGapPx),
       rotateWithArch: arch.rotateWithArch !== false,
+      flipVertical: arch.flipVertical !== false,
       debug: !!arch.debug,
     },
     buttons: buttons || clone(DEFAULT_CONFIG.buttons),
@@ -127,19 +145,22 @@ function normalizeAngleDelta(delta) {
   return delta;
 }
 
-function buildButtonArch(config, handlers = {}) {
+function buildButtonArch(config, handlers = {}, rootEl = null) {
   const archCfg = config.arch;
   const btnCfgs = [...config.buttons].sort((a, b) => (a.order || 0) - (b.order || 0));
 
   const container = document.createElement('div');
   container.className = 'arch-hud';
+  container.style.position = rootEl === document.body ? 'fixed' : 'absolute';
+  container.style.inset = '0';
   container.style.setProperty('--arch-button-size', `${archCfg.buttonSizePx * (archCfg.scale || 1)}px`);
 
-  const vp = getViewportRect();
+  const vp = getViewportRect(rootEl);
   const scale = archCfg.scale || 1;
   const baseRadius = archCfg.radiusPx * scale;
-  const startPt = vpPoint(archCfg.start, vp);
-  const endPt = vpPoint(archCfg.end, vp);
+  const flipY = archCfg.flipVertical !== false;
+  const startPt = vpPoint(archCfg.start, vp, flipY);
+  const endPt = vpPoint(archCfg.end, vp, flipY);
   const chordLength = Math.hypot(endPt.x - startPt.x, endPt.y - startPt.y);
   const radius = Math.max(baseRadius, chordLength / 2 + archCfg.buttonSizePx * scale * 0.1);
   const center = chooseCircleCenter(startPt, endPt, radius, {
@@ -273,14 +294,19 @@ export function initArchTouchInput({ input = null, enabled = true, config: rawCo
     setInputState(input, btnCfg.action, false);
   };
 
-  const getHudRoot = () => document.fullscreenElement || document.body;
+  const getHudRoot = () => {
+    const stage = document.getElementById('gameStage') || document.querySelector('.stage');
+    if (stage) return stage;
+    return document.fullscreenElement || document.body;
+  };
 
   const rebuild = () => {
     if (container?.parentNode) {
       container.parentNode.removeChild(container);
     }
-    container = buildButtonArch(config, { onDown: handleDown, onUp: handleUp });
-    getHudRoot().appendChild(container);
+    const root = getHudRoot();
+    container = buildButtonArch(config, { onDown: handleDown, onUp: handleUp }, root);
+    root.appendChild(container);
   };
 
   rebuild();

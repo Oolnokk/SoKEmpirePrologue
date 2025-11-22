@@ -1,7 +1,22 @@
 (function () {
   const CFG = window.HUD_ARCH_CONFIG;
 
-  function getViewportRect() {
+  function getViewportRect(rootEl) {
+    const gameplayRoot =
+      (rootEl && rootEl !== document.body ? rootEl : null) ||
+      document.getElementById("gameStage") ||
+      document.querySelector(".stage");
+
+    if (gameplayRoot && gameplayRoot !== document.body) {
+      const rect = gameplayRoot.getBoundingClientRect();
+      return {
+        width: rect.width,
+        height: rect.height,
+        offsetLeft: 0,
+        offsetTop: 0,
+      };
+    }
+
     const vv = window.visualViewport;
     if (vv) {
       return {
@@ -19,10 +34,11 @@
     };
   }
 
-  function vpPoint(coord, vp) {
+  function vpPoint(coord, vp, flipVertical) {
+    const normY = flipVertical ? 1 - coord.y : coord.y;
     return {
       x: vp.offsetLeft + coord.x * vp.width,
-      y: vp.offsetTop + coord.y * vp.height,
+      y: vp.offsetTop + normY * vp.height,
     };
   }
 
@@ -61,6 +77,8 @@
 
     const container = document.createElement("div");
     container.className = "arch-hud";
+    container.style.position = rootEl === document.body ? "fixed" : "absolute";
+    container.style.inset = "0";
     container.style.setProperty(
       "--arch-button-size",
       `${archCfg.buttonSizePx * (archCfg.scale || 1)}px`
@@ -68,10 +86,11 @@
 
     rootEl.appendChild(container);
 
-    const vp = getViewportRect();
+    const vp = getViewportRect(rootEl);
     const radius = archCfg.radiusPx * (archCfg.scale || 1);
-    const startPt = vpPoint(archCfg.start, vp);
-    const endPt = vpPoint(archCfg.end, vp);
+    const flipY = archCfg.flipVertical !== false;
+    const startPt = vpPoint(archCfg.start, vp, flipY);
+    const endPt = vpPoint(archCfg.end, vp, flipY);
     const center = chooseCircleCenter(startPt, endPt, radius, {
       x: vp.offsetLeft + vp.width * 0.5,
       y: vp.offsetTop + vp.height * 0.5,
@@ -197,6 +216,8 @@
   let resizeTimer = null;
 
   function getHudRoot() {
+    const stage = document.getElementById("gameStage") || document.querySelector(".stage");
+    if (stage) return stage;
     return document.fullscreenElement || document.body;
   }
 
