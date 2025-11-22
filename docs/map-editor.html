@@ -1066,11 +1066,24 @@ function normalizeDrumSkin(raw, index = 0, layerList = layers){
   const heightA = toNumber(safe.heightA ?? safe.offsetA ?? safe.yOffsetA, 0) || 0;
   const heightB = toNumber(safe.heightB ?? safe.offsetB ?? safe.yOffsetB, 0) || 0;
   const prefabId = typeof safe.prefabId === 'string' ? safe.prefabId.trim() : '';
+  const textureId = typeof safe.textureId === 'string' ? safe.textureId.trim() : '';
+  const prefabRef = textureId || prefabId;
   const imageURL = typeof safe.imageURL === 'string' ? safe.imageURL.trim() : '';
   const tileScale = toNumber(safe.tileScale, 1) || 1;
   const visible = safe.visible !== false;
   const id = safe.id ?? safe.drumSkinId ?? index + 1;
-  return { id, layerA, layerB, heightA, heightB, prefabId, imageURL, tileScale, visible };
+  return {
+    id,
+    layerA,
+    layerB,
+    heightA,
+    heightB,
+    prefabId: prefabRef,
+    textureId: prefabRef,
+    imageURL,
+    tileScale,
+    visible,
+  };
 }
 
 // Expanded/Refactored: 
@@ -2099,10 +2112,12 @@ function refreshDrumSkinList() {
       opt.textContent = id;
       prefabField.appendChild(opt);
     }
-    prefabField.value = drum.prefabId || '';
+    const selectedPrefabId = drum.prefabId || drum.textureId || '';
+    prefabField.value = selectedPrefabId;
     prefabField.onchange = () => {
       pushHistory();
       drum.prefabId = prefabField.value;
+      drum.textureId = prefabField.value;
       if (!drum.imageURL && drum.prefabId) {
         const chosen = prefabs[drum.prefabId];
         const resolved = resolveDrumSkinPrefabTexture(chosen);
@@ -2151,7 +2166,8 @@ function refreshDrumSkinList() {
     row3.appendChild(scaleLabel);
     card.appendChild(row3);
 
-    if (!drum.prefabId && !drum.imageURL) {
+    const missingTexture = !prefabField.value && !urlField.value;
+    if (missingTexture) {
       const warning = document.createElement('div');
       warning.textContent = 'Select a drum skin prefab or provide an image URL.';
       warning.style.color = '#eab308';
@@ -2159,6 +2175,8 @@ function refreshDrumSkinList() {
       warning.style.marginTop = '2px';
       card.appendChild(warning);
     }
+    prefabField.style.borderColor = missingTexture ? '#eab308' : 'var(--line)';
+    urlField.style.borderColor = missingTexture ? '#eab308' : 'var(--line)';
 
     const row4 = document.createElement('div');
     row4.style.display = 'flex';
@@ -2210,6 +2228,7 @@ function addDrumSkin() {
     heightA: 0,
     heightB: 0,
     prefabId: defaultPrefabId,
+    textureId: defaultPrefabId,
     imageURL: defaultPrefabUrl,
     tileScale: 1,
     visible: true,
