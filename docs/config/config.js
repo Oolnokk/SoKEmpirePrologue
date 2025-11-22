@@ -386,6 +386,9 @@ window.CONFIG = {
       'spawn:npc': 'npc_spawn',
     },
   },
+  entry: {
+    skipKey: 'sok-entry-mode',
+  },
   actor: { scale: 0.70 },
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },

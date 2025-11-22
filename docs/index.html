@@ -116,6 +116,7 @@
       };
     })();
   </script>
+  <script src="./js/entry-config.js"></script>
 
   <div class="entry-overlay" id="entryOverlay" role="dialog" aria-modal="true" aria-labelledby="entryTitle">
     <div class="entry-card">
@@ -446,12 +447,12 @@
   </main>
 
   <script>
-    (() => {
-      const overlay = document.getElementById('entryOverlay');
-      if (!overlay) return;
-
+    const overlay = document.getElementById('entryOverlay');
+    if (overlay) {
       const params = new URLSearchParams(window.location.search);
-      const skipKey = 'sok-entry-mode';
+      const skipKey = typeof window.getEntrySkipKey === 'function'
+        ? window.getEntrySkipKey()
+        : 'sok-entry-mode';
       const requestedMode = params.get('mode');
       const defaultMode = requestedMode || null;
       const previewToken = params.get('preview');
@@ -465,10 +466,9 @@
       }
 
       const hideOverlay = () => {
-        if (!overlay) return;
         overlay.classList.add('entry-overlay--hidden');
         setTimeout(() => {
-          if (overlay) overlay.hidden = true;
+          overlay.hidden = true;
         }, 400);
       };
 
@@ -486,39 +486,29 @@
         }
         window.__skipLoadoutStage = true;
         hideOverlay();
-        return;
-      }
-
-      if (defaultMode === 'game') {
+      } else if (defaultMode === 'game') {
         window.__skipLoadoutStage = true;
         hideOverlay();
-        return;
-      }
-
-      if (defaultMode === 'editor') {
+      } else if (defaultMode === 'editor') {
         window.__skipLoadoutStage = true;
         window.location.href = './cosmetic-editor.html';
-        return;
-      }
-
-      if (defaultMode === 'map-editor') {
+      } else if (defaultMode === 'map-editor') {
         window.__skipLoadoutStage = true;
         window.location.href = './map-editor.html';
-        return;
+      } else {
+        const launchBtn = document.getElementById('entryLaunchGame');
+        launchBtn?.addEventListener('click', () => {
+          hideOverlay();
+          if (typeof window.__showLoadoutOverlay === 'function') {
+            window.__showLoadoutOverlay();
+          } else if (typeof window.__resolveLoadoutStage === 'function') {
+            window.__resolveLoadoutStage();
+          }
+        });
       }
 
-      const launchBtn = document.getElementById('entryLaunchGame');
-      launchBtn?.addEventListener('click', () => {
-        hideOverlay();
-        if (typeof window.__showLoadoutOverlay === 'function') {
-          window.__showLoadoutOverlay();
-        } else if (typeof window.__resolveLoadoutStage === 'function') {
-          window.__resolveLoadoutStage();
-        }
-      });
-
       // No additional handling for the editor link is needed now that the remember option is removed.
-    })();
+    }
   </script>
 
   <!-- In-repo config served same-origin under /docs -->
