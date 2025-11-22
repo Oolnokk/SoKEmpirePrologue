@@ -899,27 +899,55 @@ export function renderSprites(ctx){
       || animStyle?.styleOverride?.xform
       || null;
 
-    function applyAnimOptions(styleKey, baseOptions){
-      if (!animXform) return baseOptions;
+    function composeStyleOverrides(styleKey, baseOptions){
       const normalizedKey = normalizeStyleKey(styleKey);
-      const entries = [];
-      if (animXform[styleKey]) entries.push([styleKey, animXform[styleKey]]);
-      if (normalizedKey && normalizedKey !== styleKey && animXform[normalizedKey]) {
-        entries.push([normalizedKey, animXform[normalizedKey]]);
-      }
-      if (!entries.length) return baseOptions;
       const nextOptions = baseOptions ? { ...baseOptions } : {};
-      const baseStyleOverride = (baseOptions && baseOptions.styleOverride)
+      const baseStyleOverride = (baseOptions && baseOptions.styleOverride && typeof baseOptions.styleOverride === 'object')
         ? { ...baseOptions.styleOverride }
         : {};
-      const xform = baseStyleOverride.xform ? { ...baseStyleOverride.xform } : {};
-      for (const [key, spec] of entries){
-        const prev = xform[key] ? { ...xform[key] } : {};
-        xform[key] = composeStyleXformEntry(prev, spec);
+      const baseXformSrc = (baseStyleOverride.xform && typeof baseStyleOverride.xform === 'object')
+        ? baseStyleOverride.xform
+        : null;
+      const xform = {};
+
+      if (baseXformSrc){
+        for (const [key, entry] of Object.entries(baseXformSrc)){
+          if (!entry || typeof entry !== 'object') continue;
+          xform[key] = composeStyleXformEntry(undefined, entry);
+        }
       }
-      baseStyleOverride.xform = xform;
-      nextOptions.styleOverride = baseStyleOverride;
+
+      const mergeAnimXform = (key, spec) => {
+        if (!spec || typeof spec !== 'object') return;
+        const prev = xform[key] ? { ...xform[key] } : undefined;
+        xform[key] = composeStyleXformEntry(prev, spec);
+      };
+
+      if (animXform){
+        mergeAnimXform(styleKey, animXform[styleKey]);
+        if (normalizedKey && normalizedKey !== styleKey){
+          mergeAnimXform(normalizedKey, animXform[normalizedKey]);
+        }
+      }
+
+      if (Object.keys(xform).length){
+        baseStyleOverride.xform = xform;
+      } else if (baseStyleOverride.xform) {
+        delete baseStyleOverride.xform;
+      }
+
+      if (Object.keys(baseStyleOverride).length){
+        nextOptions.styleOverride = baseStyleOverride;
+      } else if (nextOptions.styleOverride) {
+        delete nextOptions.styleOverride;
+      }
+
       return nextOptions;
+    }
+
+    function applyAnimOptions(styleKey, baseOptions){
+      if (!animXform && !baseOptions?.styleOverride?.xform) return baseOptions;
+      return composeStyleOverrides(styleKey, baseOptions);
     }
 
     const overrides = buildSpriteOverrides(entity.profile || {});
