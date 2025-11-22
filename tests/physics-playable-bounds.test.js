@@ -27,14 +27,16 @@ async function loadClampFunction() {
   }
 
   const clampSrc = extractFunction('clamp');
-  const resolveWorldWidthSrc = extractFunction('resolveWorldWidth');
+  const resolveCanvasWidthSrc = extractFunction('resolveCanvasWidth');
+  const resolveHorizontalBoundsSrc = extractFunction('resolveHorizontalBounds');
   const clampBoundsSrc = extractFunction('clampFighterToBounds');
 
   const script = `
     function computeGroundY(config){ return Number.isFinite(config?.groundY) ? config.groundY : 0; }
     const window = globalThis.window || {};
     ${clampSrc}
-    ${resolveWorldWidthSrc}
+    ${resolveCanvasWidthSrc}
+    ${resolveHorizontalBoundsSrc}
     ${clampBoundsSrc}
     exports.clamp = clamp;
     exports.clampFighterToBounds = clampFighterToBounds;
@@ -62,4 +64,40 @@ test('clampFighterToBounds uses playableBounds when provided', async () => {
 
   clampFighterToBounds(fighter, config);
   assert.equal(fighter.pos.x, 180);
+});
+
+test('clampFighterToBounds uses movement bounds when provided', async () => {
+  const clampFighterToBounds = await loadClampFunction();
+  const fighter = { pos: { x: 300, y: 0 } };
+  const config = {
+    groundY: 0,
+    movement: { bounds: { left: -25, right: 125 } },
+  };
+
+  clampFighterToBounds(fighter, config);
+  assert.equal(fighter.pos.x, 125);
+});
+
+test('clampFighterToBounds falls back to canvas margins', async () => {
+  const clampFighterToBounds = await loadClampFunction();
+  const fighter = { pos: { x: 950, y: 0 } };
+  const config = {
+    groundY: 0,
+    canvas: { w: 900, margins: { left: 10, right: 30 } },
+  };
+
+  clampFighterToBounds(fighter, config);
+  assert.equal(fighter.pos.x, 870);
+});
+
+test('clampFighterToBounds uses sane defaults when numbers are invalid', async () => {
+  const clampFighterToBounds = await loadClampFunction();
+  const fighter = { pos: { x: 1000, y: 0 } };
+  const config = {
+    groundY: 0,
+    canvas: { w: Number.NaN, margins: { left: -5, right: Number.NaN } },
+  };
+
+  clampFighterToBounds(fighter, config);
+  assert.equal(fighter.pos.x, 680);
 });

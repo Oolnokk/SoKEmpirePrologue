@@ -37,7 +37,28 @@ function getProfilePartOverrides(fighterName, cosmeticId, partKey){
   if (!fighterName || !cosmeticId || !partKey) return null;
   const profile = STATE.profiles?.get(fighterName);
   if (!profile) return null;
-  return profile.cosmetics?.[cosmeticId]?.parts?.[partKey] || null;
+  const findOverride = (id)=> profile.cosmetics?.[id]?.parts?.[partKey] || null;
+  const directOverride = findOverride(cosmeticId);
+  if (directOverride) return directOverride;
+
+  if (typeof cosmeticId === 'string' && cosmeticId.startsWith(APPEARANCE_ID_PREFIX)){
+    const cosmetic = STATE.library?.[cosmeticId];
+    const fallbackIds = new Set();
+    if (cosmetic?.appearance?.originalId){
+      fallbackIds.add(cosmetic.appearance.originalId);
+    }
+    const suffixParts = cosmeticId.split('::');
+    if (suffixParts.length > 2){
+      fallbackIds.add(suffixParts.slice(2).join('::'));
+    }
+    for (const id of fallbackIds){
+      if (!id) continue;
+      const override = findOverride(id);
+      if (override) return override;
+    }
+  }
+
+  return null;
 }
 
 function mergeConfig(baseValue, override){
