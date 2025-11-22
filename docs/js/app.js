@@ -2749,11 +2749,12 @@ function createEditorPreviewSandbox() {
     if (!layerA || !layerB) return null;
     const heightA = coerceFiniteNumber(drum.heightA) ?? 0;
     const heightB = coerceFiniteNumber(drum.heightB) ?? 0;
+    const prefabId = typeof drum.prefabId === 'string' ? drum.prefabId.trim() : '';
     const imageURL = typeof drum.imageURL === 'string' ? drum.imageURL.trim() : '';
     const tileScale = coerceFiniteNumber(drum.tileScale) ?? 1;
     const visible = drum.visible !== false;
     const id = drum.id ?? index + 1;
-    return { id, layerA, layerB, heightA, heightB, imageURL, tileScale, visible };
+    return { id, layerA, layerB, heightA, heightB, prefabId, imageURL, tileScale, visible };
   };
 
   const resetState = () => {

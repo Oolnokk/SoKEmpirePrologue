@@ -385,7 +385,10 @@ function normalizeAreaDescriptor(area, options = {}) {
   const convertedTilers = [...explicitTilers, ...colliderTilers];
   const layerMap = new Map(rawLayers.map((layer) => [layer.id, layer]));
   const convertedDrumSkins = rawDrumSkins
-    .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap))
+    .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap, {
+      prefabResolver,
+      warnings,
+    }))
     .filter(Boolean);
 
   return {
@@ -531,7 +534,10 @@ export function convertLayoutToArea(layout, options = {}) {
   const colliderTilers = collectColliderTilers(convertedColliders, warnings, explicitTilers.length);
   const convertedTilers = [...explicitTilers, ...colliderTilers];
   const convertedDrumSkins = rawDrumSkins
-    .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap))
+    .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap, {
+      prefabResolver,
+      warnings,
+    }))
     .filter(Boolean);
 
   if (!Array.isArray(layout.layers)) {
@@ -621,7 +627,38 @@ function collectColliderTilers(colliders, warnings = null, startIndex = 0) {
   return tilers;
 }
 
-function normalizeDrumSkinLayer(raw, index = 0, layerMap = new Map()) {
+function resolveDrumSkinTexture(prefab) {
+  if (!prefab || typeof prefab !== 'object') {
+    return { url: null, source: null };
+  }
+
+  const candidates = [];
+  const meta = typeof prefab.meta === 'object' && prefab.meta ? prefab.meta : {};
+  const drumMeta = typeof meta.drumSkin === 'object' && meta.drumSkin ? meta.drumSkin : {};
+  const addCandidate = (value, source) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) {
+        candidates.push({ url: trimmed, source });
+      }
+    }
+  };
+
+  addCandidate(drumMeta.imageURL ?? drumMeta.url ?? drumMeta.texture, 'meta.drumSkin');
+  addCandidate(prefab.imageURL ?? prefab.url, 'prefab');
+  if (Array.isArray(prefab.parts) && prefab.parts.length) {
+    for (const part of prefab.parts) {
+      const url = part?.propTemplate?.url;
+      addCandidate(url, part?.name ? `part:${part.name}` : 'part');
+      if (prefab.isImage) break;
+    }
+  }
+
+  return candidates[0] || { url: null, source: null };
+}
+
+function normalizeDrumSkinLayer(raw, index = 0, layerMap = new Map(), options = {}) {
+  const { prefabResolver = null, warnings = null } = options;
   const safe = raw && typeof raw === 'object' ? raw : {};
   const layerA = typeof safe.layerA === 'string' && layerMap.has(safe.layerA)
     ? safe.layerA
@@ -632,11 +669,65 @@ function normalizeDrumSkinLayer(raw, index = 0, layerMap = new Map()) {
   if (!layerA || !layerB) return null;
   const heightA = toNumber(safe.heightA ?? safe.offsetA ?? safe.yOffsetA, 0) || 0;
   const heightB = toNumber(safe.heightB ?? safe.offsetB ?? safe.yOffsetB, 0) || 0;
-  const imageURL = typeof safe.imageURL === 'string' ? safe.imageURL.trim() : '';
+  const prefabId = typeof safe.prefabId === 'string' ? safe.prefabId.trim() : '';
+  const explicitImageURL = typeof safe.imageURL === 'string' ? safe.imageURL.trim() : '';
   const tileScale = toNumber(safe.tileScale, 1) || 1;
   const visible = safe.visible !== false;
   const id = safe.id ?? safe.drumSkinId ?? index + 1;
-  return { id, layerA, layerB, heightA, heightB, imageURL, tileScale, visible };
+
+  let resolvedPrefab = null;
+  let resolvedImageURL = explicitImageURL;
+  let textureSource = null;
+
+  if (prefabId && typeof prefabResolver === 'function') {
+    const lookedUp = prefabResolver(prefabId);
+    if (lookedUp) {
+      resolvedPrefab = safeClone(lookedUp);
+      const texture = resolveDrumSkinTexture(resolvedPrefab);
+      if (texture?.url) {
+        resolvedImageURL = texture.url;
+        textureSource = texture.source;
+      }
+    } else if (Array.isArray(warnings)) {
+      warnings.push(`Drum skin ${id} references missing prefab "${prefabId}"`);
+    }
+  }
+
+  if (!resolvedImageURL && Array.isArray(warnings)) {
+    warnings.push(`Drum skin ${id} missing prefab/URL for texture`);
+  }
+
+  const meta = safe.meta && typeof safe.meta === 'object' ? safeClone(safe.meta) : {};
+  meta.identity = {
+    ...(meta.identity || {}),
+    prefabId: prefabId || null,
+    source: meta.identity?.source || 'drum-skin',
+  };
+  meta.texture = {
+    ...(meta.texture || {}),
+    prefabId: prefabId || null,
+    url: resolvedImageURL || null,
+    source: textureSource || (prefabId ? 'prefab' : 'explicit-url'),
+  };
+
+  const descriptor = {
+    id,
+    layerA,
+    layerB,
+    heightA,
+    heightB,
+    prefabId: prefabId || null,
+    imageURL: resolvedImageURL || explicitImageURL || '',
+    tileScale,
+    visible,
+    meta,
+  };
+
+  if (resolvedPrefab) {
+    descriptor.prefab = resolvedPrefab;
+  }
+
+  return descriptor;
 }
 
 function createTilerFromCollider(collider, fallbackIndex = 0, warnings = null) {

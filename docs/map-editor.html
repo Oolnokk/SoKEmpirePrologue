@@ -1037,11 +1037,12 @@ function normalizeDrumSkin(raw, index = 0, layerList = layers){
   const layerB = typeof safe.layerB === 'string' && safe.layerB.trim() ? safe.layerB.trim() : fallbackB;
   const heightA = toNumber(safe.heightA ?? safe.offsetA ?? safe.yOffsetA, 0) || 0;
   const heightB = toNumber(safe.heightB ?? safe.offsetB ?? safe.yOffsetB, 0) || 0;
+  const prefabId = typeof safe.prefabId === 'string' ? safe.prefabId.trim() : '';
   const imageURL = typeof safe.imageURL === 'string' ? safe.imageURL.trim() : '';
   const tileScale = toNumber(safe.tileScale, 1) || 1;
   const visible = safe.visible !== false;
   const id = safe.id ?? safe.drumSkinId ?? index + 1;
-  return { id, layerA, layerB, heightA, heightB, imageURL, tileScale, visible };
+  return { id, layerA, layerB, heightA, heightB, prefabId, imageURL, tileScale, visible };
 }
 
 // Expanded/Refactored: 
@@ -1222,6 +1223,7 @@ function adoptAreaState(area, context = {}){
         layerB: normalizedLegacy.targetLayerId,
         heightA: 0,
         heightB: -(normalizedLegacy.height || 0),
+        prefabId: inst.prefabId || '',
         imageURL: inst?.prefab?.imageURL || inst?.prefab?.url || '',
         tileScale: 1,
         visible: true,
@@ -1922,10 +1924,35 @@ function syncColliderFields(){
   if (removeBtn) removeBtn.disabled = !collider;
 }
 
+function resolveDrumSkinPrefabTexture(prefab) {
+  if (!prefab || typeof prefab !== 'object') return '';
+  const meta = typeof prefab.meta === 'object' && prefab.meta ? prefab.meta : {};
+  const drumMeta = typeof meta.drumSkin === 'object' && meta.drumSkin ? meta.drumSkin : {};
+  const candidates = [drumMeta.imageURL, drumMeta.url, prefab.imageURL, prefab.url];
+  if (Array.isArray(prefab.parts)) {
+    for (const part of prefab.parts) {
+      if (part?.propTemplate?.url) {
+        candidates.push(part.propTemplate.url);
+        if (prefab.isImage) break;
+      }
+    }
+  }
+  return candidates.map((value) => (typeof value === 'string' ? value.trim() : '')).find(Boolean) || '';
+}
+
 function refreshDrumSkinList() {
   const list = $('#drumSkinList');
   if (!list) return;
   const parallaxLayers = layers.filter((layer) => layer.type === 'parallax');
+  const drumSkinPrefabs = Object.entries(prefabs)
+    .map(([id, prefab]) => ({ id, prefab }))
+    .filter(({ prefab }) => {
+      if (!prefab || typeof prefab !== 'object') return false;
+      const tags = Array.isArray(prefab.tags) ? prefab.tags.map((tag) => String(tag).toLowerCase()) : [];
+      const hasDrumTag = tags.includes('drum-skin') || tags.includes('drumskin') || tags.includes('drum');
+      return prefab.isImage || hasDrumTag;
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
   list.innerHTML = '';
   if (!drumSkins.length) {
     const empty = document.createElement('div');
@@ -2033,6 +2060,31 @@ function refreshDrumSkinList() {
 
     const row3 = document.createElement('div');
     row3.className = 'row';
+    const prefabField = document.createElement('select');
+    const blankOpt = document.createElement('option');
+    blankOpt.value = '';
+    blankOpt.textContent = 'Custom URL';
+    prefabField.appendChild(blankOpt);
+    for (const { id } of drumSkinPrefabs) {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = id;
+      prefabField.appendChild(opt);
+    }
+    prefabField.value = drum.prefabId || '';
+    prefabField.onchange = () => {
+      pushHistory();
+      drum.prefabId = prefabField.value;
+      if (!drum.imageURL && drum.prefabId) {
+        const chosen = prefabs[drum.prefabId];
+        const resolved = resolveDrumSkinPrefabTexture(chosen);
+        if (resolved) {
+          drum.imageURL = resolved;
+        }
+      }
+      refreshDrumSkinList();
+    };
+
     const urlField = document.createElement('input');
     urlField.type = 'text';
     urlField.value = drum.imageURL || '';
@@ -2040,6 +2092,7 @@ function refreshDrumSkinList() {
     urlField.onchange = () => {
       pushHistory();
       drum.imageURL = urlField.value.trim();
+      refreshDrumSkinList();
     };
     const scaleField = document.createElement('input');
     scaleField.type = 'number';
@@ -2053,6 +2106,10 @@ function refreshDrumSkinList() {
       drum.tileScale = val;
       refreshDrumSkinList();
     };
+    const prefabLabel = document.createElement('label');
+    prefabLabel.style.flex = '0.9';
+    prefabLabel.innerHTML = '<span>Prefab</span>';
+    prefabLabel.appendChild(prefabField);
     const urlLabel = document.createElement('label');
     urlLabel.style.flex = '1';
     urlLabel.innerHTML = '<span>Image URL</span>';
@@ -2061,9 +2118,19 @@ function refreshDrumSkinList() {
     scaleLabel.style.flex = '0.8';
     scaleLabel.innerHTML = '<span>Tile scale</span>';
     scaleLabel.appendChild(scaleField);
+    row3.appendChild(prefabLabel);
     row3.appendChild(urlLabel);
     row3.appendChild(scaleLabel);
     card.appendChild(row3);
+
+    if (!drum.prefabId && !drum.imageURL) {
+      const warning = document.createElement('div');
+      warning.textContent = 'Select a drum skin prefab or provide an image URL.';
+      warning.style.color = '#eab308';
+      warning.style.fontSize = '10px';
+      warning.style.marginTop = '2px';
+      card.appendChild(warning);
+    }
 
     const row4 = document.createElement('div');
     row4.style.display = 'flex';
@@ -2096,6 +2163,17 @@ function addDrumSkin() {
   const parallaxLayers = layers.filter((layer) => layer.type === 'parallax');
   const layerA = parallaxLayers[0]?.id || 'bg1';
   const layerB = parallaxLayers[1]?.id || layerA;
+  const drumSkinPrefabs = Object.entries(prefabs)
+    .map(([id, prefab]) => ({ id, prefab }))
+    .filter(({ prefab }) => {
+      if (!prefab || typeof prefab !== 'object') return false;
+      const tags = Array.isArray(prefab.tags) ? prefab.tags.map((tag) => String(tag).toLowerCase()) : [];
+      const hasDrumTag = tags.includes('drum-skin') || tags.includes('drumskin') || tags.includes('drum');
+      return prefab.isImage || hasDrumTag;
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const defaultPrefabId = drumSkinPrefabs[0]?.id || '';
+  const defaultPrefabUrl = defaultPrefabId ? resolveDrumSkinPrefabTexture(prefabs[defaultPrefabId]) : '';
   pushHistory();
   drumSkins.push({
     id: nextDrumSkinId++,
@@ -2103,7 +2181,8 @@ function addDrumSkin() {
     layerB,
     heightA: 0,
     heightB: 0,
-    imageURL: '',
+    prefabId: defaultPrefabId,
+    imageURL: defaultPrefabUrl,
     tileScale: 1,
     visible: true,
   });
