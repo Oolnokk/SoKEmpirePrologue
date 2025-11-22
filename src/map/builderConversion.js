@@ -309,6 +309,7 @@ function normalizeAreaDescriptor(area, options = {}) {
       : [];
   const rawColliders = Array.isArray(area.colliders) ? area.colliders : [];
   const rawTilers = Array.isArray(area.tilers) ? area.tilers : [];
+  const rawDrumSkins = Array.isArray(area.drumSkins) ? area.drumSkins : [];
 
   const warnings = Array.isArray(area.warnings) ? [...area.warnings] : [];
   if (!Array.isArray(area.layers)) {
@@ -383,6 +384,10 @@ function normalizeAreaDescriptor(area, options = {}) {
   const explicitTilers = rawTilers.map((tiler, index) => normalizeTiler(tiler, index));
   const colliderTilers = collectColliderTilers(convertedColliders, warnings, explicitTilers.length);
   const convertedTilers = [...explicitTilers, ...colliderTilers];
+  const layerMap = new Map(rawLayers.map((layer) => [layer.id, layer]));
+  const convertedDrumSkins = rawDrumSkins
+    .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap))
+    .filter(Boolean);
 
   return {
     id: areaId,
@@ -399,6 +404,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     colliders: convertedColliders,
+    drumSkins: convertedDrumSkins,
     tilers: convertedTilers,
     warnings,
     meta: area.meta ? safeClone(area.meta) : {},
