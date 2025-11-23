@@ -1011,8 +1011,15 @@ function updateNpcAttack(G, state, dt) {
   applyNpcPoseForCurrentPhase(state);
 }
 
-function updateNpcAiming(state, player) {
+function updateNpcAiming(state, player, { aggressionActive } = {}) {
   const aim = ensureAimState(state);
+  if (!aggressionActive) {
+    aim.active = false;
+    aim.torsoOffset = 0;
+    aim.shoulderOffset = 0;
+    aim.hipOffset = 0;
+    return;
+  }
   if (!player) {
     aim.active = false;
     aim.torsoOffset = 0;
@@ -1241,7 +1248,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
         aggression.wakeTimer = 0;
       }
     }
-    updateNpcAiming(state, player);
+    updateNpcAiming(state, player, { aggressionActive: aggression.active });
     updateDashTrail(visuals, state, dt);
     updateNpcAttackTrail(visuals, state, dt);
     regenerateStamina(state, dt);
@@ -1560,7 +1567,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   regenerateStamina(state, dt);
   updateDashTrail(visuals, state, dt);
   updateNpcAttackTrail(visuals, state, dt);
-  updateNpcAiming(state, player);
+  updateNpcAiming(state, player, { aggressionActive: aggression.active });
 }
 
 function updateNpcHud(G) {
