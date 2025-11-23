@@ -816,7 +816,7 @@ window.CONFIG = {
   // Optional manual pre-ragdoll arm angles (degrees, absolute, before physics noise is added)
   nonCombatRagdoll: {
     manualArmRotation: {
-      lShoulder: 0, // set to override the left shoulder's resting target (e.g., 90 keeps the arm pointing down)
+      lShoulder: 180, // set to override the left shoulder's resting target (e.g., 90 keeps the arm pointing down)
       rShoulder: 180, // set to override the right shoulder's resting target
       lElbow: null,
       rElbow: null,
