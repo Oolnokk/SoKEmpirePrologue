@@ -1735,16 +1735,43 @@ function computeGravityDownDeg(movement){
   return 90;
 }
 
-function buildNonCombatRagdollPose(F, basePose, movement){
+function parseManualArmAngle(value){
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function pickManualNonCombatArms(config){
+  if (!config || typeof config !== 'object') return { lShoulder: null, rShoulder: null, lElbow: null, rElbow: null };
+  const manual = config.manualArmRotation || config.armRotation || {};
+  return {
+    lShoulder: parseManualArmAngle(manual.lShoulder ?? manual.leftShoulder ?? manual.left),
+    rShoulder: parseManualArmAngle(manual.rShoulder ?? manual.rightShoulder ?? manual.right),
+    lElbow: parseManualArmAngle(manual.lElbow ?? manual.leftElbow),
+    rElbow: parseManualArmAngle(manual.rElbow ?? manual.rightElbow),
+  };
+}
+
+function buildNonCombatRagdollPose(F, basePose, movement, config){
   const noise = advanceNonCombatNoise(F);
   const downDeg = computeGravityDownDeg(movement);
   const lBase = Number.isFinite(basePose?.lShoulder) ? basePose.lShoulder : 0;
   const rBase = Number.isFinite(basePose?.rShoulder) ? basePose.rShoulder : 0;
+  const manual = pickManualNonCombatArms(config);
+
+  const lShoulderTarget = Number.isFinite(manual.lShoulder)
+    ? manual.lShoulder - lBase
+    : downDeg - lBase;
+  const rShoulderTarget = Number.isFinite(manual.rShoulder)
+    ? manual.rShoulder - rBase
+    : downDeg - rBase;
+  const lElbowBase = Number.isFinite(manual.lElbow) ? manual.lElbow : (NON_COMBAT_RAGDOLL_POSE.lElbow || 0);
+  const rElbowBase = Number.isFinite(manual.rElbow) ? manual.rElbow : (NON_COMBAT_RAGDOLL_POSE.rElbow || 0);
+
   return {
-    lShoulder: downDeg - lBase + noise.shoulder,
-    lElbow: (NON_COMBAT_RAGDOLL_POSE.lElbow || 0) + noise.elbow,
-    rShoulder: downDeg - rBase - noise.shoulder,
-    rElbow: (NON_COMBAT_RAGDOLL_POSE.rElbow || 0) - noise.elbow,
+    lShoulder: lShoulderTarget + noise.shoulder,
+    lElbow: lElbowBase + noise.elbow,
+    rShoulder: rShoulderTarget - noise.shoulder,
+    rElbow: rElbowBase - noise.elbow,
   };
 }
 
@@ -2095,7 +2122,7 @@ export function updatePoses(){
     }
 
     if (F.nonCombatRagdoll && !armsLockedByLayer) {
-      const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement);
+      const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement, C.nonCombatRagdoll);
       for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
         if (relaxed[key] != null) {
           targetDeg[key] = relaxed[key];
