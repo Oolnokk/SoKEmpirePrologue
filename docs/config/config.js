@@ -699,7 +699,7 @@ window.CONFIG = {
   },
   
   walk: { 
-    enabled:true, onlyTorsoLegs:true, baseHz:1.3, speedScale:0.1, minSpeed:80, amp:1.0,
+    enabled:true, onlyTorsoLegs:true, baseHz:1.3, speedScale:1, minSpeed:80, amp:1.0,
     poses:{ 
       A:{ torso:30, lHip:0,   lKnee:45, rHip:180, rKnee:90 }, 
       B:{ torso:40, lHip:180, lKnee:90, rHip:0,   rKnee:45 } 
