@@ -266,16 +266,17 @@ function setConfigCurrentWeapon(value) {
   window.CONFIG.knockback.currentWeapon = value || 'unarmed';
 }
 
-function resetWeaponAnimState(fighter) {
+function resetWeaponAnimState(fighter, { stow = false } = {}) {
   if (!fighter || typeof fighter !== 'object') return;
   fighter.anim ||= {};
   if (!fighter.anim.weapon || typeof fighter.anim.weapon !== 'object') {
-    fighter.anim.weapon = { attachments: {}, gripPercents: {}, state: null };
+    fighter.anim.weapon = { attachments: {}, gripPercents: {}, state: null, stowed: !!stow };
     return;
   }
   fighter.anim.weapon.state = null;
   fighter.anim.weapon.attachments = {};
   fighter.anim.weapon.gripPercents = {};
+  fighter.anim.weapon.stowed = !!stow;
 }
 
 function applyWeaponToRenderProfile(target, weaponKey, { resetAnim = true } = {}) {

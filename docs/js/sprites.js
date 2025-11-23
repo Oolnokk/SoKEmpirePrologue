@@ -45,6 +45,65 @@ function clamp01(value){
   return value;
 }
 
+function resolveWeaponTypeKey(config, weaponKey) {
+  if (!weaponKey) return 'default';
+  const def = config?.weapons?.[weaponKey];
+  if (def?.type) return def.type;
+  const knockbackType = config?.knockback?.weaponTypes?.[weaponKey]?.type;
+  return knockbackType || weaponKey;
+}
+
+function pickBackSlotOffset(config, weaponTypeKey, slotKey) {
+  if (!config || !slotKey) return null;
+  const map = config.weaponBackOffsets || {};
+  return (map[weaponTypeKey]?.[slotKey]) || (map.default?.[slotKey]) || null;
+}
+
+function weaponBoneLengthFromRig(weaponConfig, anchorKey) {
+  const bones = weaponConfig?.rig?.bones || [];
+  for (let i = 0; i < bones.length; i += 1) {
+    const bone = bones[i];
+    if (!bone) continue;
+    const id = bone.id || `weapon_${i}`;
+    if (id === anchorKey) {
+      const len = Number(bone.length);
+      return Number.isFinite(len) ? len : 0;
+    }
+  }
+  return 0;
+}
+
+function buildBackSlotBone(torsoBone, slot, lenFallback, weaponKey) {
+  if (!torsoBone || !slot) return null;
+  const ax = Number(slot.ax ?? slot.x ?? 0) || 0;
+  const ay = Number(slot.ay ?? slot.y ?? 0) || 0;
+  const unitsStr = (slot.units || '').toString().toLowerCase();
+  const usePercent = unitsStr === 'percent' || unitsStr === '%' || unitsStr === 'pct';
+  const len = Number.isFinite(slot.len) ? slot.len : (Number.isFinite(lenFallback) ? lenFallback : 0);
+  const [x, y] = withAX(torsoBone.x, torsoBone.y, torsoBone.ang, ax, ay, usePercent ? torsoBone.len : 1);
+  const angOffset = Number.isFinite(slot.angRad)
+    ? slot.angRad
+    : (Number.isFinite(slot.angDeg) ? degToRad(slot.angDeg) : 0);
+  const ang = torsoBone.ang + angOffset;
+  const axis = basisFor(ang);
+  return {
+    x,
+    y,
+    len,
+    ang,
+    endX: x + axis.fx * len,
+    endY: y + axis.fy * len,
+    weapon: weaponKey,
+    sourceId: 'weapon_back_slot'
+  };
+}
+
+function isNonCombatRender(entity) {
+  const profile = entity?.profile || entity?.renderProfile || {};
+  const fighterProfile = entity?.fighter?.renderProfile || {};
+  return !!(profile.nonCombat || fighterProfile.nonCombat || entity?.fighter?.nonCombat || entity?.fighter?.anim?.weapon?.stowed);
+}
+
 function lerp(a, b, t){
   return a + (b - a) * t;
 }
@@ -1192,6 +1251,9 @@ export function renderSprites(ctx){
       || entity.profile?.character?.weapon
       || (entity.profile?.characterKey && C.characters?.[entity.profile.characterKey]?.weapon)
       || runtimeWeaponKey;
+    const stowActive = isNonCombatRender(entity);
+    const weaponTypeKey = resolveWeaponTypeKey(C, activeWeaponKey);
+    const torsoBone = rig?.torso;
     const weaponConfig = activeWeaponKey && C.weapons ? C.weapons[activeWeaponKey] : null;
     if (weaponConfig && weaponConfig.sprite) {
       const spriteLayers = Array.isArray(weaponConfig.sprite.layers)
@@ -1200,10 +1262,18 @@ export function renderSprites(ctx){
       spriteLayers.forEach((layerSpec = {}, layerIndex) => {
         if (!layerSpec || typeof layerSpec !== 'object') return;
         const anchorKey = layerSpec.anchorBone || layerSpec.bone || `weapon_${layerIndex}`;
-        const bone = rig[anchorKey];
+        const slotKey = anchorKey.endsWith('_1') ? 'slotB' : 'slotA';
+        const backSlot = stowActive ? pickBackSlotOffset(C, weaponTypeKey, slotKey) : null;
+        const fallbackLen = weaponBoneLengthFromRig(weaponConfig, anchorKey);
+        let bone = rig[anchorKey];
+        if (stowActive && backSlot && torsoBone) {
+          const lenForSlot = (bone && bone.len > 0) ? bone.len : fallbackLen;
+          bone = buildBackSlotBone(torsoBone, backSlot, lenForSlot, activeWeaponKey);
+        }
         const asset = ensureWeaponSpriteAsset(activeWeaponKey || anchorKey, layerSpec);
         // Only draw weapon sprite if asset is present and bone length > 0
-        if (!bone || !asset || bone.len === 0) return;
+        if (!bone || !asset) return;
+        if (!stowActive && bone.len === 0) return;
         const layerTag = String(layerSpec.layerTag || 'WEAPON').toUpperCase();
         const styleKey = layerSpec.styleKey || anchorKey;
         const weaponStyle = layerSpec.style ? mergeSpriteStyles(style, layerSpec.style) : style;

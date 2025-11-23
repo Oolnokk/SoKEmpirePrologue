@@ -30,6 +30,13 @@ const abilityKnockback = (base, { clamp } = {}) => {
 
 const deepClone = (value) => JSON.parse(JSON.stringify(value || {}));
 
+const NON_COMBAT_POSE = {
+  weapon: 0,
+  weaponGripPercents: { primary: 0, secondary: 0 },
+  weaponJointPercent: 0,
+  lengthScales: { weapon: 0 }
+};
+
 const BASE_POSES = {
   Stance: {
     torso: 10,
@@ -539,7 +546,37 @@ window.CONFIG = {
     Strike: deepClone(BASE_POSES.Strike),
     Recoil: deepClone(BASE_POSES.Recoil),
     Jump: deepClone(BASE_POSES.Jump),
-    Walk: deepClone(BASE_POSES.Walk)
+    Walk: deepClone(BASE_POSES.Walk),
+    NonCombat: deepClone(NON_COMBAT_POSE)
+  },
+
+  nonCombatPose: deepClone(NON_COMBAT_POSE),
+
+  weaponBackOffsets: {
+    default: {
+      slotA: { ax: -0.14, ay: -0.9, units: 'percent', angDeg: -12 },
+      slotB: { ax: 0.14, ay: -0.82, units: 'percent', angDeg: 8 }
+    },
+    'dagger-swords': {
+      slotA: { ax: -0.12, ay: -0.72, units: 'percent', angDeg: -20 },
+      slotB: { ax: 0.12, ay: -0.64, units: 'percent', angDeg: 16 }
+    },
+    sarrarru: {
+      slotA: { ax: -0.18, ay: -1.05, units: 'percent', angDeg: -6 },
+      slotB: { ax: 0.08, ay: -0.96, units: 'percent', angDeg: 12 }
+    },
+    greatclub: {
+      slotA: { ax: -0.22, ay: -1.1, units: 'percent', angDeg: -4 },
+      slotB: { ax: 0.18, ay: -1.0, units: 'percent', angDeg: 10 }
+    },
+    hatchets: {
+      slotA: { ax: -0.16, ay: -0.86, units: 'percent', angDeg: -22 },
+      slotB: { ax: 0.16, ay: -0.78, units: 'percent', angDeg: 18 }
+    },
+    'light-greatblade': {
+      slotA: { ax: -0.2, ay: -1.08, units: 'percent', angDeg: -8 },
+      slotB: { ax: 0.16, ay: -0.98, units: 'percent', angDeg: 8 }
+    }
   },
 
   cosmetics: {
