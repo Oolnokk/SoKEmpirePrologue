@@ -37,26 +37,6 @@ const NON_COMBAT_POSE = {
   lengthScales: { weapon: 0 }
 };
 
-const MODE_BASE_POSES = {
-  combat: deepClone(BASE_POSES.Stance),
-  nonCombat: {
-    ...deepClone(BASE_POSES.Stance),
-    torso: 0,
-    lHip: 95,
-    rHip: 85,
-    lKnee: 25,
-    rKnee: 25,
-  },
-  sneak: {
-    ...deepClone(BASE_POSES.Stance),
-    torso: 5,
-    lHip: 140,
-    rHip: 140,
-    lKnee: 70,
-    rKnee: 70,
-  }
-};
-
 const WALK_PROFILES = {
   combat: {
     enabled: true,
@@ -223,6 +203,26 @@ const BASE_POSES = {
     impulseDirDeg: 0,
     allowAiming: true,
     aimLegs: false
+  }
+};
+
+const MODE_BASE_POSES = {
+  combat: deepClone(BASE_POSES.Stance),
+  nonCombat: {
+    ...deepClone(BASE_POSES.Stance),
+    torso: 0,
+    lHip: 95,
+    rHip: 85,
+    lKnee: 25,
+    rKnee: 25,
+  },
+  sneak: {
+    ...deepClone(BASE_POSES.Stance),
+    torso: 5,
+    lHip: 140,
+    rHip: 140,
+    lKnee: 70,
+    rKnee: 70,
   }
 };
 
