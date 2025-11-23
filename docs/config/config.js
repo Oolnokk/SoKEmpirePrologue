@@ -529,16 +529,16 @@ window.CONFIG = {
         start: { x: 0.90, y: 0.25 },
         end: { x: 0.75, y: 0.10 },
         scale: 1,
-        buttonSizePx: 90,
+        buttonSizePx: 45,
         defaultGapPx: 12,
         rotateWithArch: true,
         debug: false,
       },
       buttons: [
-        { id: 'attackA', action: 'buttonA', order: 0, lengthPct: 0.22, gapPx: 12, sprite: 'img/ui/btn-light.png' },
-        { id: 'attackB', action: 'buttonB', order: 1, lengthPct: 0.22, gapPx: 12, sprite: 'img/ui/btn-heavy.png' },
-        { id: 'attackC', action: 'buttonC', order: 2, lengthPct: 0.24, gapPx: 12, sprite: 'img/ui/btn-special.png' },
-        { id: 'jump', action: 'jump', order: 3, lengthPct: 0.18, gapPx: 12, sprite: 'img/ui/btn-jump.png' },
+        { id: 'attackA', action: 'buttonA', order: 2, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-light.png' },
+        { id: 'attackB', action: 'buttonB', order: 3, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-heavy.png' },
+        { id: 'attackC', action: 'buttonC', order: 4, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-special.png' },
+        { id: 'jump', action: 'jump', order: 1, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-jump.png' },
       ]
     }
   },
@@ -846,7 +846,7 @@ window.CONFIG = {
       cooldown: 3.2,
       minVelocity: 45,
       minProgress: 4,
-      minDistance: 36
+      minDistance: 18
     }
   },
 
@@ -1231,7 +1231,7 @@ window.CONFIG = {
           xformUnits: 'percent',
           widthFactor: { weapon_0: 1 },
           xform: {
-            weapon_0: { ax: 0, ay: -0, scaleX: 0.25, scaleY: 0.25 }
+            weapon_0: { ax: 0, ay: -0, scaleX: 0.25, scaleY: 0.15 }
           }
         }
       }
