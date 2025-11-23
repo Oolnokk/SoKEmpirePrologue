@@ -11,6 +11,7 @@ const MATERIALS = {
   mahogany:        { h: 12,  s: 0.54, v: 0.24 },        // Reddish wood
   bronzewood:      { h: 38,  s: 0.28, v: 0.28 }         // dark wood
 };
+window.CONFIG = window.CONFIG || {};
 window.CONFIG.materials = MATERIALS;
 
 const abilityKnockback = (base, { clamp } = {}) => {
@@ -1315,9 +1316,9 @@ window.CONFIG = {
       },
       cosmetics: {
         slots: {
-          hat: { id: 'citywatch_helmet', hsv: { h: -12, s: 0.05, v: 0.08 } },
-          overwear: { id: 'simple_poncho', hsv: { h: 147, s: 0.85, v: -0.5 } },
-          legs: { id: 'basic_pants', hsv: { h: 147, s: 0.85, v: -0.5 } }
+          hat: { id: 'citywatch_helmet', hsv: { ...MATERIALS.white_bronze } },
+          overwear: { id: 'simple_poncho', hsv: { ...MATERIALS.city_heraldry_A } },
+          legs: { id: 'basic_pants', hsv: { ...MATERIALS.city_heraldry_A } }
         }
       }
     }
@@ -1406,20 +1407,16 @@ window.CONFIG = {
         },
         cosmetics: {
           slots: {
-            hat: { id: 'citywatch_helmet', hsv: { h: -12, s: 0.05, v: 0.08 } },
+            hat: { id: 'citywatch_helmet', hsv: { ...MATERIALS.white_bronze } },
             legs: {
               id: 'basic_pants',
-              hsv: {
-                h: 167,
-                s: 0.95,
-                v: -0.75
-              }
+              hsv: { ...MATERIALS.city_heraldry_A }
             },
             overwear: {
               $kind: 'pool',
               items: [
-                { value: { id: 'simple_poncho', hsv: {  h: 167, s: 0.95, v: -0.75  } }, weight: 2 },
-                { value: { id: 'simple_poncho', hsv: {  h: 167, s: 0.95, v: -0.75  } }, weight: 1 }
+                { value: { id: 'simple_poncho', hsv: { ...MATERIALS.city_heraldry_A } }, weight: 2 },
+                { value: { id: 'simple_poncho', hsv: { ...MATERIALS.city_heraldry_A } }, weight: 1 }
               ]
             }
           }
