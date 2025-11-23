@@ -14,7 +14,7 @@
           "drawSlot": "torso",
           "dynamicLayerByBoneRotation": {
             "bone": "arm_R_upper",
-            "initialLayer": "head",
+            "initialLayer": "torso",
             "ranges": [
               { "minDeg": 181, "maxDeg": 360, "layer": "head" },
               { "minDeg": 0, "maxDeg": 180, "layer": "arm_R_upper" }
