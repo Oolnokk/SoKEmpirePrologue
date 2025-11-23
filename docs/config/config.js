@@ -1,5 +1,18 @@
 // khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug
 
+// Heraldry & Material color palette
+const MATERIALS = {
+  city_heraldry_A: { h: 212, s: 0.55, v: 0.16 },        // Deep blue
+  city_heraldry_B: { h: 48,  s: 0.9,  v: 0.55 },        // Gold
+  polished_bronze: { h: 32,  s: 0.42, v: 0.38 },        // Shiny bronze
+  white_bronze:    { h: 34,  s: 0.18, v: 0.95 },        // Pale alloy
+  verdigris_bronze:{ h: 132, s: 0.42, v: 0.24 },        // Blue-green patina
+  leather:         { h: 28,  s: 0.48, v: 0.22 },        // Leather brown
+  mahogany:        { h: 12,  s: 0.54, v: 0.24 },        // Reddish wood
+  bronzewood:      { h: 38,  s: 0.28, v: 0.28 }         // Warm brown/gold wood
+};
+window.CONFIG.materials = MATERIALS;
+
 const abilityKnockback = (base, { clamp } = {}) => {
   return (context, opponent) => {
     if (!opponent?.pos) return;
