@@ -1,4 +1,9 @@
 import { mapBuilderConfig } from './mapBuilderConfig.js';
+import {
+  attachGroupsToSpawners,
+  mergeGroupLibraries,
+  normalizeGroupLibrary,
+} from './groupLibrary.js';
 
 const {
   sourceId: SOURCE_ID,
@@ -304,6 +309,87 @@ function parsePathTargetTag(tags = []) {
   return null;
 }
 
+function normalizePathTargetRecord(raw, warnings = [], context = {}) {
+  const source = typeof context.source === 'string' ? context.source : 'pathTarget';
+  const safe = raw && typeof raw === 'object' ? safeClone(raw) : {};
+  const fallbackName = typeof context.fallbackName === 'string' ? context.fallbackName : null;
+  const rawName = typeof safe.name === 'string'
+    ? safe.name
+    : typeof safe.id === 'string'
+      ? safe.id
+      : null;
+  const name = rawName && rawName.trim() ? rawName.trim() : (fallbackName || null);
+  if (!name) {
+    warnings.push(`Ignored ${source} without name`);
+    return null;
+  }
+
+  const orderCandidate = safe.order ?? safe.meta?.order ?? safe.meta?.pathOrder;
+  const order = Number.isFinite(Number(orderCandidate)) ? Number(orderCandidate) : null;
+  const position = {
+    x: toNumber(safe.position?.x ?? safe.x ?? 0, 0),
+    y: toNumber(safe.position?.y ?? safe.y ?? 0, 0),
+  };
+  const layerId = typeof safe.layerId === 'string' && safe.layerId.trim() ? safe.layerId.trim() : null;
+  const instanceId = typeof safe.instanceId === 'string' && safe.instanceId.trim() ? safe.instanceId.trim() : null;
+  const tags = Array.isArray(safe.tags)
+    ? safe.tags.filter((tag) => typeof tag === 'string' && tag.trim()).map((tag) => tag.trim())
+    : [];
+  const meta = safe.meta && typeof safe.meta === 'object' ? safeClone(safe.meta) : {};
+  meta.identity = {
+    ...(meta.identity || {}),
+    name,
+    source,
+  };
+
+  return {
+    name,
+    order,
+    instanceId,
+    layerId,
+    position,
+    tags,
+    meta,
+    sourceTag: typeof safe.sourceTag === 'string' ? safe.sourceTag : null,
+  };
+}
+
+function normalizePathTargetList(rawList = [], warnings = [], context = {}) {
+  if (!Array.isArray(rawList)) return [];
+  const normalized = [];
+  rawList.forEach((raw, index) => {
+    const target = normalizePathTargetRecord(raw, warnings, {
+      ...context,
+      fallbackName: context.fallbackName || `target_${index}`,
+    });
+    if (target) normalized.push(target);
+  });
+  return normalized;
+}
+
+function mergePathTargetLists(explicit = [], derived = []) {
+  const merged = [];
+  const seen = new Set();
+  const keyForTarget = (target) => {
+    const name = typeof target?.name === 'string' ? target.name.trim() : '';
+    const instanceId = typeof target?.instanceId === 'string' ? target.instanceId.trim() : '';
+    if (name && instanceId) return `${name}::${instanceId}`;
+    return name || instanceId || null;
+  };
+
+  const addTarget = (target) => {
+    const key = keyForTarget(target);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    merged.push(target);
+  };
+
+  explicit.forEach(addTarget);
+  derived.forEach(addTarget);
+
+  return merged;
+}
+
 function resolvePathTargetInfo(inst, layerTypes = new Map(), warnings = null) {
   if (!inst || typeof inst !== 'object') return null;
   if (!Array.isArray(inst.tags) || inst.tags.length === 0) return null;
@@ -458,6 +544,8 @@ function normalizeAreaDescriptor(area, options = {}) {
     prefabResolver = () => null,
     prefabErrorLookup = null,
   } = options;
+  // Preserve the configured proximity scale for runtime zooming metadata, but do
+  // not bake it into instance geometry so exported layouts stay in editor space.
   const proximityScale = clampScale(area.proximityScale ?? area.meta?.proximityScale, 1);
 
   const rawLayers = Array.isArray(area.layers) ? area.layers : [];
@@ -522,18 +610,7 @@ function normalizeAreaDescriptor(area, options = {}) {
       x: toNumber(inst.position?.x ?? inst.x ?? 0, 0),
       y: toNumber(inst.position?.y ?? inst.y ?? 0, 0),
     };
-    const appliesProximityScale = !tags.some((tag) => tag === 'player'
-      || tag === 'npc'
-      || tag.startsWith('spawn:player')
-      || tag.startsWith('spawn:npc')
-      || tag.startsWith('spawner:npc'));
-    const appliedProximityScale = appliesProximityScale ? proximityScale : 1;
-    const position = appliesProximityScale
-      ? {
-          x: rawPosition.x * proximityScale,
-          y: rawPosition.y * proximityScale,
-        }
-      : rawPosition;
+    const position = rawPosition;
     const distanceToCamera = Math.hypot(position.x, position.y);
     const intraLayerDepth = Number.isFinite(distanceToCamera) ? -distanceToCamera : 0;
 
@@ -544,8 +621,8 @@ function normalizeAreaDescriptor(area, options = {}) {
       layerId: inst.layerId ?? null,
       position,
       scale: {
-        x: toNumber(inst.scale?.x ?? inst.scaleX ?? 1, 1) * appliedProximityScale,
-        y: toNumber(inst.scale?.y ?? inst.scaleY ?? inst.scale?.x ?? inst.scaleX ?? 1, 1) * appliedProximityScale,
+        x: toNumber(inst.scale?.x ?? inst.scaleX ?? 1, 1),
+        y: toNumber(inst.scale?.y ?? inst.scaleY ?? inst.scale?.x ?? inst.scaleX ?? 1, 1),
       },
       rotationDeg: toNumber(inst.rotationDeg ?? inst.rot ?? 0, 0),
       locked: !!inst.locked,
@@ -555,8 +632,8 @@ function normalizeAreaDescriptor(area, options = {}) {
       meta: {
         ...meta,
         proximityScale: {
-          applied: appliedProximityScale,
-          inherited: proximityScale,
+          applied: 1,
+          inherited: 1,
           mode: 'zoom',
         },
       },
@@ -579,7 +656,13 @@ function normalizeAreaDescriptor(area, options = {}) {
   const explicitSpawners = normalizeSpawnerList(area.spawners, warnings, { source: 'area' });
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
   const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners);
-  const pathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
+  const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
+  const areaGroupLibrary = normalizeGroupLibrary(area.groupLibrary ?? area.groups, warnings, { source: 'area.groupLibrary' });
+  const groupLibrary = mergeGroupLibraries(optionGroupLibrary, areaGroupLibrary);
+  const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
+  const explicitPathTargets = normalizePathTargetList(area.pathTargets, warnings, { source: 'area' });
+  const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
+  const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets);
 
   return {
     id: areaId,
@@ -597,8 +680,9 @@ function normalizeAreaDescriptor(area, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     pathTargets,
-    spawners,
-    spawnersById: buildSpawnerIndex(spawners),
+    spawners: spawnersWithGroups,
+    spawnersById: buildSpawnerIndex(spawnersWithGroups),
+    groupLibrary,
     colliders: alignedColliders,
     drumSkins: convertedDrumSkins,
     tilers: convertedTilers,
@@ -631,6 +715,8 @@ export function convertLayoutToArea(layout, options = {}) {
   const prefabResolver = options.prefabResolver ?? (() => null);
   const prefabErrorLookup = options.prefabErrorLookup ?? null;
   const includeRaw = options.includeRaw ?? false;
+  // Preserve the configured proximity scale for runtime zooming metadata, but do
+  // not bake it into instance geometry so exported layouts stay in editor space.
   const proximityScale = clampScale(layout.proximityScale ?? layout.meta?.proximityScale, 1);
 
   const layers = Array.isArray(layout.layers) ? layout.layers : [];
@@ -711,18 +797,7 @@ export function convertLayoutToArea(layout, options = {}) {
       x: computedX,
       y: -toNumber(inst.offsetY, 0),
     };
-    const appliesProximityScale = !tags.some((tag) => tag === 'player'
-      || tag === 'npc'
-      || tag.startsWith('spawn:player')
-      || tag.startsWith('spawn:npc')
-      || tag.startsWith('spawner:npc'));
-    const appliedProximityScale = appliesProximityScale ? proximityScale : 1;
-    const position = appliesProximityScale
-      ? {
-          x: rawPosition.x * proximityScale,
-          y: rawPosition.y * proximityScale,
-        }
-      : rawPosition;
+    const position = rawPosition;
     const distanceToCamera = Math.hypot(position.x, position.y);
     const intraLayerDepth = Number.isFinite(distanceToCamera) ? -distanceToCamera : 0;
 
@@ -733,8 +808,8 @@ export function convertLayoutToArea(layout, options = {}) {
       layerId: inst.layerId,
       position,
       scale: {
-        x: toNumber(inst.scaleX, 1) * appliedProximityScale,
-        y: toNumber(inst.scaleY, inst.scaleX ?? 1) * appliedProximityScale,
+        x: toNumber(inst.scaleX, 1),
+        y: toNumber(inst.scaleY, inst.scaleX ?? 1),
       },
       rotationDeg: toNumber(inst.rot, 0),
       locked: !!inst.locked,
@@ -744,8 +819,8 @@ export function convertLayoutToArea(layout, options = {}) {
       meta: {
         ...meta,
         proximityScale: {
-          applied: appliedProximityScale,
-          inherited: proximityScale,
+          applied: 1,
+          inherited: 1,
           mode: 'zoom',
         },
       },
@@ -767,7 +842,13 @@ export function convertLayoutToArea(layout, options = {}) {
   const explicitSpawners = normalizeSpawnerList(layout.spawners, warnings, { source: 'layout' });
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
   const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners);
-  const pathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
+  const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
+  const layoutGroupLibrary = normalizeGroupLibrary(layout.groupLibrary ?? layout.groups, warnings, { source: 'layout.groupLibrary' });
+  const groupLibrary = mergeGroupLibraries(optionGroupLibrary, layoutGroupLibrary);
+  const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
+  const explicitPathTargets = normalizePathTargetList(layout.pathTargets, warnings, { source: 'layout' });
+  const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
+  const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets);
 
   if (!Array.isArray(layout.layers)) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
@@ -796,8 +877,9 @@ export function convertLayoutToArea(layout, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     pathTargets,
-    spawners,
-    spawnersById: buildSpawnerIndex(spawners),
+    spawners: spawnersWithGroups,
+    spawnersById: buildSpawnerIndex(spawnersWithGroups),
+    groupLibrary,
     colliders: alignedColliders,
     drumSkins: convertedDrumSkins,
     tilers: convertedTilers,
@@ -972,6 +1054,8 @@ function normalizeSpawnerRecord(raw, warnings = [], context = {}) {
       ?? safe.spawn?.characterId
       ?? safe.meta?.characterId,
   );
+  const groupId = pickNonEmptyString(safe.groupId, safe.group?.id, safe.meta?.groupId);
+  const group = safe.group && typeof safe.group === 'object' ? safeClone(safe.group) : undefined;
 
   const position = {
     x: toNumber(safe.position?.x ?? safe.x ?? 0, 0),
@@ -996,6 +1080,8 @@ function normalizeSpawnerRecord(raw, warnings = [], context = {}) {
     respawn,
     templateId,
     characterId,
+    groupId,
+    group,
     meta,
   };
 }

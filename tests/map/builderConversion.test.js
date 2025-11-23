@@ -92,6 +92,42 @@ test('convertLayoutToArea normalizes npc spawners from instances and explicit li
   assert.strictEqual(area.spawnersById[manual.spawnerId], manual);
 });
 
+test('convertLayoutToArea attaches reusable group library records', () => {
+  const layout = {
+    areaId: 'group_area',
+    layers: [
+      { id: 'game', name: 'Game', parallax: 1, yOffset: 0, sep: 120, scale: 1, type: 'gameplay' },
+    ],
+    spawners: [
+      {
+        spawnerId: 'party',
+        type: 'npc',
+        position: { x: 0, y: 0 },
+        groupId: 'city_guard_patrol',
+      },
+    ],
+  };
+
+  const groupLibrary = {
+    city_guard_patrol: {
+      name: 'Guard Patrol',
+      interests: ['patrol point'],
+      members: [{ templateId: 'guard', count: 2 }],
+      exitTags: ['map-exit:right'],
+    },
+  };
+
+  const area = convertLayoutToArea(layout, { prefabResolver: (id) => ({ id }), groupLibrary });
+
+  const spawner = area.spawners.find((s) => s.spawnerId === 'party');
+  assert.ok(spawner);
+  assert.equal(spawner.groupId, 'city_guard_patrol');
+  assert.ok(spawner.group);
+  assert.equal(spawner.group.members[0].templateId, 'guard');
+  assert.equal(spawner.group.members[0].count, 2);
+  assert.deepEqual(area.groupLibrary.city_guard_patrol.interests, ['patrol point']);
+});
+
 test('convertLayoutToArea collects gameplay path targets and respects ordering', () => {
   const layout = {
     areaId: 'path_area',
@@ -117,6 +153,36 @@ test('convertLayoutToArea collects gameplay path targets and respects ordering',
   assert.ok(area.instancesById[first.instanceId]);
   assert.ok(area.instancesById[second.instanceId]);
   assert.ok(area.warnings.some((line) => line.includes('Ignoring path target')));
+});
+
+test('convertLayoutToArea merges explicit path targets with derived markers', () => {
+  const layout = {
+    areaId: 'path_merge',
+    layers: [
+      { id: 'game', name: 'Game', parallax: 1, yOffset: 0, sep: 120, scale: 1, type: 'gameplay' },
+    ],
+    instances: [
+      { id: 'alpha_inst', prefabId: 'marker', layerId: 'game', slot: 0, tags: ['path:target:alpha:1'] },
+      { id: 'charlie_inst', prefabId: 'marker', layerId: 'game', slot: 1, tags: ['path:target:charlie:5'] },
+    ],
+    pathTargets: [
+      { name: 'alpha', instanceId: 'alpha_inst', order: 99, position: { x: 5, y: -3 } },
+      { id: 'bravo', order: 2, layerId: 'game', position: { x: 10, y: -2 } },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout, { prefabResolver: (id) => ({ id }) });
+
+  assert.equal(area.pathTargets.length, 3);
+  const alpha = area.pathTargets.find((pt) => pt.name === 'alpha');
+  const bravo = area.pathTargets.find((pt) => pt.name === 'bravo');
+  const charlie = area.pathTargets.find((pt) => pt.name === 'charlie');
+  assert.ok(alpha);
+  assert.ok(bravo);
+  assert.ok(charlie);
+  assert.equal(alpha.order, 99);
+  assert.equal(bravo.order, 2);
+  assert.equal(charlie.order, 5);
 });
 
 test('convertLayoutToArea tolerates missing arrays', () => {
@@ -201,7 +267,7 @@ test('convertLayoutToArea generates fallback prefab art when prefab is missing',
   assert.ok(area.warnings.some((line) => line.includes('generated ASCII fallback')));
 });
 
-test('convertLayoutToArea applies proximity scale and intra-layer depth', () => {
+test('convertLayoutToArea keeps instance transforms in editor space while honoring proximity depth', () => {
   const layout = {
     areaId: 'proximity_area',
     proximityScale: 1.5,
@@ -219,13 +285,51 @@ test('convertLayoutToArea applies proximity scale and intra-layer depth', () => 
   assert.equal(area.proximityScale, 1.5);
   assert.equal(area.meta.proximityScale, 1.5);
   const [closeInst, farInst] = area.instances;
-  assert.equal(closeInst.scale.x, 1.5);
-  assert.equal(closeInst.position.x, 6);
+  assert.equal(closeInst.scale.x, 1);
+  assert.equal(closeInst.position.x, 4);
   assert.equal(closeInst.meta.proximityScale.mode, 'zoom');
-  assert.equal(closeInst.meta.proximityScale.applied, 1.5);
+  assert.equal(closeInst.meta.proximityScale.applied, 1);
+  assert.equal(closeInst.meta.proximityScale.inherited, 1);
   assert.equal(farInst.scale.x, 1); // player spawn tags remain unscaled
   assert.equal(farInst.position.x, 10);
   assert.ok(closeInst.intraLayerDepth > farInst.intraLayerDepth);
+});
+
+test('convertLayoutToArea does not bake proximity scale into transforms when NPC data is present', () => {
+  const layout = {
+    areaId: 'npc_scale_guard',
+    proximityScale: 3.1,
+    layers: [
+      { id: 'gameplay', name: 'Gameplay', parallax: 1, yOffset: 0, sep: 200, scale: 1 },
+    ],
+    instances: [
+      { id: 'tower', prefabId: 'tower_commercial', layerId: 'gameplay', x: -780, offsetY: 0, scaleX: 1.0226, scaleY: 1.0465 },
+      { id: 'spawn-player', prefabId: 'spawn_player', layerId: 'gameplay', x: 0, offsetY: 0, scaleX: 1 },
+      { id: 'spawn-npc', prefabId: 'spawn_npc', layerId: 'gameplay', x: 10, offsetY: 0, scaleX: 1 },
+    ],
+    spawners: [
+      { spawnerId: 'npc_spawner', prefabId: 'spawn_npc', position: { x: 5, y: 5 } },
+    ],
+    pathTargets: [
+      { id: 'npc_target', position: { x: 12, y: -6 } },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout, { prefabResolver: (id) => ({ id, parts: [] }) });
+
+  const tower = area.instances.find((inst) => inst.id === 'tower');
+  assert.ok(tower, 'tower instance should exist');
+  assert.ok(Math.abs(tower.position.x - (-780)) < 0.0001);
+  assert.ok(Math.abs(tower.scale.x - 1.0226) < 0.0001);
+  assert.ok(Math.abs(tower.scale.y - 1.0465) < 0.0001);
+  assert.equal(tower.meta.proximityScale.applied, 1);
+  assert.equal(tower.meta.proximityScale.inherited, 1);
+
+  // Ensure NPC-related exports still exist
+  assert.ok(Array.isArray(area.spawners));
+  assert.ok(area.spawners.some((spawner) => spawner.spawnerId === 'npc_spawner'));
+  assert.ok(Array.isArray(area.pathTargets));
+  assert.ok(area.pathTargets.some((target) => target.name === 'npc_target'));
 });
 
 test('convertLayoutToArea falls back to layout.props when instances are missing', () => {

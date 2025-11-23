@@ -6,6 +6,7 @@ export function initControls(){
   G.input ||= {
     left:false, right:false, jump:false, dash:false,
     nonCombatRagdoll: false,
+    shift: false,
     weaponDrawn: true,
     buttonA: { down:false, downTime:0, upTime:0 },
     buttonB: { down:false, downTime:0, upTime:0 },
@@ -23,21 +24,28 @@ export function initControls(){
     }
   }
 
-  function toggleWeaponDrawn(){
-    I.weaponDrawn = !I.weaponDrawn;
+  function applyWeaponState(weaponDrawn, { broadcast = true } = {}){
+    I.weaponDrawn = weaponDrawn;
+    I.nonCombatRagdoll = !weaponDrawn;
+
     const fighter = window.GAME?.FIGHTERS?.player;
     if (fighter) {
-      fighter.weaponDrawn = I.weaponDrawn;
+      fighter.weaponDrawn = weaponDrawn;
+      fighter.nonCombatRagdoll = !weaponDrawn;
       fighter.renderProfile ||= {};
-      fighter.renderProfile.weaponDrawn = I.weaponDrawn;
-      fighter.renderProfile.weaponStowed = !I.weaponDrawn;
+      fighter.renderProfile.weaponDrawn = weaponDrawn;
+      fighter.renderProfile.weaponStowed = !weaponDrawn;
       if (fighter.anim?.weapon) {
-        fighter.anim.weapon.stowed = !I.weaponDrawn;
+        fighter.anim.weapon.stowed = !weaponDrawn;
       }
-      if (typeof window.syncWeaponDrawnState === 'function') {
-        window.syncWeaponDrawnState({ fighterKey: 'player', weaponDrawn: I.weaponDrawn });
+      if (broadcast && typeof window.syncWeaponDrawnState === 'function') {
+        window.syncWeaponDrawnState({ fighterKey: 'player', weaponDrawn });
       }
     }
+  }
+
+  function toggleWeaponDrawn(){
+    applyWeaponState(!I.weaponDrawn);
   }
 
   function setButton(btn, down){
@@ -66,8 +74,9 @@ export function initControls(){
       case 'KeyE': case 'KeyJ': setButton('buttonA', down); break;
       case 'KeyF': case 'KeyK': setButton('buttonB', down); break;
       case 'KeyR': case 'KeyL': setButton('buttonC', down); break;
+      case 'ShiftLeft': case 'ShiftRight': I.shift = down; break;
       case 'KeyN': if (down) toggleNonCombatRagdoll(); break;
-      case 'KeyT': if (down) toggleWeaponDrawn(); break;
+      case 'KeyT': case 'KeyX': if (down) toggleWeaponDrawn(); break;
       default: return;
     }
   }
@@ -114,26 +123,15 @@ export function initControls(){
     e.preventDefault();
   }); // Prevent right-click menu over game viewport
   window.addEventListener('blur', ()=>{
-    Object.assign(I,{left:false,right:false,jump:false,dash:false,nonCombatRagdoll:false,weaponDrawn:true});
+    Object.assign(I,{left:false,right:false,jump:false,dash:false,nonCombatRagdoll:false,weaponDrawn:true,shift:false});
     I.buttonA.down = false;
     I.buttonB.down = false;
     I.buttonC.down = false;
-    const fighter = window.GAME?.FIGHTERS?.player;
-    if (fighter) {
-      fighter.nonCombatRagdoll = false;
-      fighter.weaponDrawn = true;
-      fighter.renderProfile ||= {};
-      fighter.renderProfile.weaponDrawn = true;
-      fighter.renderProfile.weaponStowed = false;
-      if (fighter.anim?.weapon) {
-        fighter.anim.weapon.stowed = false;
-      }
-      if (typeof window.syncWeaponDrawnState === 'function') {
-        window.syncWeaponDrawnState({ fighterKey: 'player', weaponDrawn: true });
-      }
-    }
+    applyWeaponState(true);
     mouseBindings[0] = mouseBindings[1] = mouseBindings[2] = null;
   });
+
+  applyWeaponState(I.weaponDrawn, { broadcast: false });
 
   console.log('[controls] wired');
 }

@@ -541,7 +541,8 @@ function updateNpcAutomatedInput(state, combat, dt) {
 
 function ensureNpcCombat(G, state) {
   if (!state) return null;
-  const id = state.id || 'npc';
+  const id = state.id || resolveNpcIdFromGame(G, state) || 'npc';
+  state.id = id;
   const map = (G.npcCombatMap ||= {});
   if (map[id]) return map[id];
   const combat = initCombatForFighter(id, {
@@ -757,10 +758,31 @@ function resolvePoseForPhase(preset, phaseName) {
   return null;
 }
 
+function resolveNpcIdFromGame(G, state) {
+  if (!state) return 'npc';
+  if (state.id && state.id !== 'npc') return state.id;
+  const fighters = G?.FIGHTERS || {};
+  for (const [key, fighter] of Object.entries(fighters)) {
+    if (fighter === state) {
+      return key;
+    }
+  }
+  return state.id || 'npc';
+}
+
 function resolveNpcPoseTarget(state) {
   if (!state || typeof state !== 'object') return 'npc';
-  const target = state.poseTarget || state.id;
-  return target || 'npc';
+  const fighters = window.GAME?.FIGHTERS || {};
+  const fallback = resolveNpcIdFromGame(window.GAME || {}, state) || state.id || 'npc';
+  const target = state.poseTarget || state.id || fallback;
+  if (target && !fighters[target] && fallback && fighters[fallback]) {
+    console.warn(`[npc] Pose target '${target}' not found; using '${fallback}' instead.`);
+    return fallback;
+  }
+  if (target && fighters[target]) return target;
+  if (fallback && fighters[fallback]) return fallback;
+  console.warn(`[npc] Pose target '${target || fallback || 'npc'}' not found; defaulting to 'npc'.`);
+  return 'npc';
 }
 
 function applyNpcLayerOverrides(state, attack, overrides, stageDurMs) {
@@ -1067,9 +1089,15 @@ function updateNpcPassiveHeadTracking(state, player) {
   aim.headWorldTarget = withinLimits ? worldAim : null;
 }
 
-function updateNpcAiming(state, player) {
+function updateNpcAiming(state, player, { aggressionActive } = {}) {
   const aim = ensureAimState(state);
-  const aggression = ensureNpcAggressionState(state);
+  if (!aggressionActive || state.nonCombatRagdoll) {
+    aim.active = false;
+    aim.torsoOffset = 0;
+    aim.shoulderOffset = 0;
+    aim.hipOffset = 0;
+    return;
+  }
   if (!player) {
     resetNpcAimingOffsets(aim);
     return;
@@ -1299,7 +1327,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
         aggression.wakeTimer = 0;
       }
     }
-    updateNpcAiming(state, player);
+    updateNpcAiming(state, player, { aggressionActive: aggression.active });
     updateDashTrail(visuals, state, dt);
     updateNpcAttackTrail(visuals, state, dt);
     regenerateStamina(state, dt);
@@ -1618,7 +1646,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   regenerateStamina(state, dt);
   updateDashTrail(visuals, state, dt);
   updateNpcAttackTrail(visuals, state, dt);
-  updateNpcAiming(state, player);
+  updateNpcAiming(state, player, { aggressionActive: aggression.active });
 }
 
 function updateNpcHud(G) {
@@ -1667,6 +1695,16 @@ export function updateNpcSystems(dt) {
     return;
   }
   const player = G.FIGHTERS?.player;
+  const isFighterEngaged = (fighter) => {
+    if (!fighter) return false;
+    if (fighter.aggression?.active) return true;
+    if (fighter.attack?.active) return true;
+    if (fighter.combo?.active) return true;
+    return false;
+  };
+  const aggressiveNpcs = [];
+  const engagedPassiveNpcs = [];
+  const playerEngaged = isFighterEngaged(player);
   for (const npc of npcs) {
     const combat = ensureNpcCombat(G, npc);
     if (combat?.tick && !npc.isDead) combat.tick(dt);
@@ -1699,10 +1737,32 @@ export function updateNpcSystems(dt) {
     }
     updateNpcMovement(G, npc, dt, abilityIntent);
     updateNpcPerceptionColliders(npc);
+
+    if (npc.aggression?.active) {
+      aggressiveNpcs.push(npc);
+    } else if (isFighterEngaged(npc)) {
+      engagedPassiveNpcs.push(npc);
+    }
   }
   if ((player && !player.destroyed) || npcs.length > 1) {
-    const fighters = player ? [player, ...npcs] : [...npcs];
-    resolveFighterBodyCollisions(fighters, window.CONFIG || {}, { iterations: 2 });
+    const aggressiveColliders = [...aggressiveNpcs];
+    const engagedPassiveColliders = engagedPassiveNpcs.filter((npc, index) => {
+      if (playerEngaged && isFighterEngaged(npc)) return true;
+      if (aggressiveNpcs.some((other) => other !== npc && isFighterEngaged(other))) return true;
+      return engagedPassiveNpcs.some((other, otherIndex) => otherIndex !== index && isFighterEngaged(other));
+    });
+    const fighters = [
+      ...(
+        player
+          ? [player]
+          : []
+      ),
+      ...aggressiveColliders,
+      ...engagedPassiveColliders,
+    ];
+    if (fighters.length > 1) {
+      resolveFighterBodyCollisions(fighters, window.CONFIG || {}, { iterations: 2 });
+    }
   }
   updateNpcHud(G);
 }
@@ -1822,6 +1882,11 @@ export function evaluateNpcPerception(npc, target) {
 export function registerNpcFighter(state, { immediateAggro = false } = {}) {
   if (!state) return;
   const G = ensureGameState();
+  const resolvedId = resolveNpcIdFromGame(G, state);
+  state.id = resolvedId;
+  if (!state.poseTarget || state.poseTarget === 'npc') {
+    state.poseTarget = resolvedId;
+  }
   ensureNpcVisualState(state);
   const combat = ensureNpcCombat(G, state);
   ensureAttackState(state);

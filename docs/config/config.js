@@ -53,14 +53,14 @@ const WALK_PROFILES = {
   nonCombat: {
     enabled: true,
     onlyTorsoLegs: true,
-    baseHz: 1.1,
-    speedScale: 0.9,
+    baseHz: 1.3,
+    speedScale: 1,
     minSpeed: 60,
-    amp: 0.9,
+    amp: 1.0,
     poses: {
-      A: { torso: 20, lHip: 15, lKnee: 35, rHip: 175, rKnee: 80 },
-      B: { torso: 25, lHip: 175, lKnee: 80, rHip: 15, rKnee: 35 }
-    }
+      A: { torso: 15, lHip: 0, lKnee: 45, rHip: 150, rKnee: 90 },
+      B: { torso: 25, lHip: 150, lKnee: 90, rHip: 0, rKnee: 45 }
+	}
   },
   sneak: {
     enabled: true,
@@ -74,6 +74,12 @@ const WALK_PROFILES = {
       B: { torso: 22, lHip: 185, lKnee: 100, rHip: 25, rKnee: 65 }
     }
   }
+};
+
+const WALK_SPEED_MULTIPLIERS = {
+  combat: 1,
+  nonCombat: 0.5,
+  sneak: 0.25,
 };
 
 const BASE_POSES = {
@@ -211,8 +217,8 @@ const MODE_BASE_POSES = {
   nonCombat: {
     ...deepClone(BASE_POSES.Stance),
     torso: 0,
-    lHip: 95,
-    rHip: 85,
+    lHip: 100,
+    rHip: 80,
     lKnee: 25,
     rKnee: 25,
   },
@@ -519,11 +525,11 @@ window.CONFIG = {
     arch: {
       enabled: true,
       arch: {
-        radiusPx: 160,
+        radiusPx: 180,
         start: { x: 0.90, y: 0.25 },
         end: { x: 0.75, y: 0.10 },
         scale: 1,
-        buttonSizePx: 84,
+        buttonSizePx: 90,
         defaultGapPx: 12,
         rotateWithArch: true,
         debug: false,
@@ -797,15 +803,26 @@ window.CONFIG = {
     maxShoulderAngle: 60,
     flipThreshold: 0.0
   },
-  
+
   walkProfiles: WALK_PROFILES,
+  walkSpeedMultipliers: WALK_SPEED_MULTIPLIERS,
   walk: WALK_PROFILES.combat,
   ragdoll: {
     killAuthOnActive:true, enabled:true,
     autoCalvesMidAir:false, stiffness:10.0,
     limbs:{ lCalf:false, rCalf:false, lThigh:false, rThigh:false, lUpperArm:false, rUpperArm:false, lForearm:false, rForearm:false, torso:false, head:false }
   },
-  
+
+  // Optional manual pre-ragdoll arm angles (degrees, absolute, before physics noise is added)
+  nonCombatRagdoll: {
+    manualArmRotation: {
+      lShoulder: null, // set to override the left shoulder's resting target (e.g., 90 keeps the arm pointing down)
+      rShoulder: null, // set to override the right shoulder's resting target
+      lElbow: null,
+      rElbow: null,
+    },
+  },
+
   colliders: {
     handMultiplier: 2.0,
     footMultiplier: 1.0

@@ -1459,7 +1459,7 @@ function pickWalkProfile(C, mode = 'combat'){
 
 function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX = (F._prevX==null? F.pos?.x||0 : F._prevX); const curX = F.pos?.x||0; const v = (curX - prevX)/dt; F._prevX = curX; return Math.abs(Number.isFinite(F.vel?.x)? F.vel.x : v); }
 
-function computeWalkPose(F, C, walkProfile, basePoseConfig){
+function computeWalkPose(F, C, walkProfile, basePoseConfig, { poseMode } = {}){
   const W = walkProfile || C.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
   const speed = computeSpeed(F);
   const on = !!W.enabled && speed >= (W.minSpeed||60) && (F.onGround!==false);
@@ -1521,6 +1521,27 @@ function computeWalkPose(F, C, walkProfile, basePoseConfig){
   pose.torso= lerp(A.torso||0,B.torso||0,s) * F.walk.amp;
   const base = basePoseConfig || pickBase(C);
   pose.lShoulder=base.lShoulder; pose.lElbow=base.lElbow; pose.rShoulder=base.rShoulder; pose.rElbow=base.rElbow;
+  const armSwingSpec = W.armSwing || {};
+  const swingEnabledFlag = armSwingSpec.enabled ?? W.armSwingEnabled;
+  const allowArmSwing = !!(swingEnabledFlag || poseMode === 'nonCombat' || F.anim?.weapon?.stowed);
+  if (allowArmSwing && walkActive){
+    const swingAmp = (armSwingSpec.amp ?? 1) * F.walk.amp;
+    const shoulderAmp = (armSwingSpec.shoulderAmpDeg ?? 6) * swingAmp;
+    const elbowAmp = (armSwingSpec.elbowAmpDeg ?? 4) * swingAmp;
+    const shoulderPhase = F.walk.phase + (armSwingSpec.phaseOffset ?? Math.PI / 6);
+    const elbowPhase = shoulderPhase + (armSwingSpec.elbowPhaseOffset ?? Math.PI / 4);
+    const lShoulderSwing = Math.sin(shoulderPhase) * shoulderAmp;
+    const lElbowSwing = Math.sin(elbowPhase) * elbowAmp;
+    pose.__armSwing = {
+      lShoulder: lShoulderSwing,
+      rShoulder: -lShoulderSwing,
+      lElbow: lElbowSwing,
+      rElbow: -lElbowSwing,
+    };
+    pose._armSwingActive = true;
+  } else {
+    pose._armSwingActive = false;
+  }
   pose._active = on && F.walk.amp > 0.001;
   return pose;
 }
@@ -1723,16 +1744,43 @@ function computeGravityDownDeg(movement){
   return 90;
 }
 
-function buildNonCombatRagdollPose(F, basePose, movement){
+function parseManualArmAngle(value){
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function pickManualNonCombatArms(config){
+  if (!config || typeof config !== 'object') return { lShoulder: null, rShoulder: null, lElbow: null, rElbow: null };
+  const manual = config.manualArmRotation || config.armRotation || {};
+  return {
+    lShoulder: parseManualArmAngle(manual.lShoulder ?? manual.leftShoulder ?? manual.left),
+    rShoulder: parseManualArmAngle(manual.rShoulder ?? manual.rightShoulder ?? manual.right),
+    lElbow: parseManualArmAngle(manual.lElbow ?? manual.leftElbow),
+    rElbow: parseManualArmAngle(manual.rElbow ?? manual.rightElbow),
+  };
+}
+
+function buildNonCombatRagdollPose(F, basePose, movement, config){
   const noise = advanceNonCombatNoise(F);
   const downDeg = computeGravityDownDeg(movement);
   const lBase = Number.isFinite(basePose?.lShoulder) ? basePose.lShoulder : 0;
   const rBase = Number.isFinite(basePose?.rShoulder) ? basePose.rShoulder : 0;
+  const manual = pickManualNonCombatArms(config);
+
+  const lShoulderTarget = Number.isFinite(manual.lShoulder)
+    ? manual.lShoulder - lBase
+    : downDeg - lBase;
+  const rShoulderTarget = Number.isFinite(manual.rShoulder)
+    ? manual.rShoulder - rBase
+    : downDeg - rBase;
+  const lElbowBase = Number.isFinite(manual.lElbow) ? manual.lElbow : (NON_COMBAT_RAGDOLL_POSE.lElbow || 0);
+  const rElbowBase = Number.isFinite(manual.rElbow) ? manual.rElbow : (NON_COMBAT_RAGDOLL_POSE.rElbow || 0);
+
   return {
-    lShoulder: downDeg - lBase + noise.shoulder,
-    lElbow: (NON_COMBAT_RAGDOLL_POSE.lElbow || 0) + noise.elbow,
-    rShoulder: downDeg - rBase - noise.shoulder,
-    rElbow: (NON_COMBAT_RAGDOLL_POSE.rElbow || 0) - noise.elbow,
+    lShoulder: lShoulderTarget + noise.shoulder,
+    lElbow: lElbowBase + noise.elbow,
+    rShoulder: rShoulderTarget - noise.shoulder,
+    rElbow: rElbowBase - noise.elbow,
   };
 }
 
@@ -1981,7 +2029,7 @@ function updateAiming(F, currentPose, fighterId){
 
 // Apply aiming offsets to a pose
 function applyAimingOffsets(poseDeg, F, currentPose){
-  if (!F.aim.active) return poseDeg;
+  if (!F.aim.active || F.nonCombatRagdoll) return poseDeg;
 
   const poseFlags = currentPose || {};
   const result = {...poseDeg};
@@ -2048,7 +2096,7 @@ export function updatePoses(){
 
     const basePoseConfig = pickBase(C, poseMode);
     const walkProfile = pickWalkProfile(C, poseMode);
-    const walkPose = computeWalkPose(F, C, walkProfile, basePoseConfig);
+    const walkPose = computeWalkPose(F, C, walkProfile, basePoseConfig, { poseMode });
     const applyModeLayer = walkPose._active && (poseMode === 'nonCombat' || poseMode === 'sneak');
 
     if (applyModeLayer) {
@@ -2086,8 +2134,17 @@ export function updatePoses(){
     }
 
     const armsLockedByLayer = activeLayers.some(layerTouchesArms);
+    const armSwingActive = walkPose._armSwingActive && !walkSuppressed && !F.nonCombatRagdoll;
+    if (armSwingActive && walkPose.__armSwing && !armsLockedByLayer) {
+      for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
+        if (walkPose.__armSwing[key] == null) continue;
+        const baseValue = targetDeg[key] ?? basePoseConfig?.[key] ?? 0;
+        targetDeg[key] = baseValue + walkPose.__armSwing[key];
+      }
+    }
+
     if (F.nonCombatRagdoll && !armsLockedByLayer) {
-      const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement);
+      const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement, C.nonCombatRagdoll);
       for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
         if (relaxed[key] != null) {
           targetDeg[key] = relaxed[key];

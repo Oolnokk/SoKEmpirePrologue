@@ -655,8 +655,8 @@ canvas#game{
 /* Virtual controls */
 .joystick-area{
   position:absolute;
-  width:140px;
-  height:140px;
+  width:170px;
+  height:170px;
   display:none;
   pointer-events:auto;
 }
@@ -672,8 +672,8 @@ canvas#game{
 
 .joystick-stick{
   position:absolute;
-  width:64px;
-  height:64px;
+  width:72px;
+  height:72px;
   background:rgba(255,255,255,0.32);
   border:3px solid rgba(255,255,255,0.55);
   border-radius:50%;

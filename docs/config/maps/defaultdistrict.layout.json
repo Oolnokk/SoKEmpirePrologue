@@ -1827,6 +1827,52 @@
       "legacyLayerB": "bg6"
     }
   ],
+  "spawners": [
+    {
+      "spawnerId": "spawner_1",
+      "layerId": "gameplay",
+      "position": {
+        "x": 3000,
+        "y": 0
+      },
+      "count": 1,
+      "spawnRadius": 0,
+      "respawn": true,
+      "id": "spawner_1",
+      "templateId": "",
+      "characterId": "",
+      "meta": {},
+      "type": "npc"
+    }
+  ],
+  "pathTargets": [
+    {
+      "targetId": "target_1",
+      "name": "target_1",
+      "layerId": "gameplay",
+      "position": {
+        "x": -3000,
+        "y": 0
+      },
+      "id": "target_1",
+      "order": 0,
+      "instanceId": "",
+      "meta": {}
+    },
+    {
+      "targetId": "target_2",
+      "name": "target_2",
+      "layerId": "gameplay",
+      "position": {
+        "x": 3000,
+        "y": 0
+      },
+      "id": "target_2",
+      "order": 1,
+      "instanceId": "",
+      "meta": {}
+    }
+  ],
   "meta": {
     "areaId": "defaultdistrict",
     "areaName": "DefaultDistrict",
@@ -1854,6 +1900,10 @@
         "offsetY": 0,
         "fallbackColor": null
       }
+    },
+    "behavior": {
+      "interactionPoints": [],
+      "arrivalSpawns": []
     }
   }
 }
