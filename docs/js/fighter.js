@@ -296,8 +296,16 @@ export function initFighters(cv, cx, options = {}){
   const stanceRad = degPoseToRad(stance);
   if (stanceRad.head == null) stanceRad.head = stanceRad.torso ?? 0;
 
+  const activeArea = resolveActiveArea();
+  const hasNpcSpawners = Array.isArray(activeArea?.spawners)
+    && activeArea.spawners.some((spawner) => {
+      const kind = spawner?.type || spawner?.kind;
+      return !kind || kind === 'npc';
+    });
+
   const opts = options && typeof options === 'object' ? options : {};
   const spawnNpc = opts.spawnNpc !== false;
+  const enableNpcTemplate = spawnNpc || hasNpcSpawners;
   const requestedPoseKey = typeof opts.poseKey === 'string' && opts.poseKey.trim()
     ? opts.poseKey.trim()
     : null;
@@ -380,8 +388,7 @@ export function initFighters(cv, cx, options = {}){
     return null;
   }
 
-  function computeSpawnPositions() {
-    const area = resolveActiveArea();
+  function computeSpawnPositions(area = resolveActiveArea()) {
     if (!area || !Array.isArray(area.instances)) {
       return { player: null, npc: null };
     }
@@ -425,7 +432,101 @@ export function initFighters(cv, cx, options = {}){
     return { player, npc };
   }
 
-  const areaSpawns = computeSpawnPositions();
+  function normalizeNpcSpawners(area) {
+    if (!area || !Array.isArray(area.spawners)) return [];
+    const entries = [];
+    for (const spawner of area.spawners) {
+      if (!spawner || typeof spawner !== 'object') continue;
+      const spawnerId = typeof spawner.spawnerId === 'string' && spawner.spawnerId.trim()
+        ? spawner.spawnerId.trim()
+        : typeof spawner.id === 'string' && spawner.id.trim()
+          ? spawner.id.trim()
+          : null;
+      if (!spawnerId) continue;
+      const kind = spawner.type || spawner.kind || 'npc';
+      if (kind !== 'npc') continue;
+      const position = spawner.position && typeof spawner.position === 'object'
+        ? spawner.position
+        : { x: spawner.x ?? 0, y: spawner.y ?? 0 };
+      const spawnRadius = Math.max(0, Math.min(Number(spawner.spawnRadius ?? spawner.radius ?? 0) || 0, 5000));
+      const countRaw = Math.round(Number(spawner.count ?? spawner.maxCount ?? 1) || 1);
+      const count = countRaw > 0 ? Math.min(countRaw, 50) : 1;
+      entries.push({
+        spawnerId,
+        position: { x: position.x ?? 0, y: position.y ?? 0 },
+        spawnRadius,
+        count,
+        respawn: spawner.respawn !== false && !!spawner.respawn,
+        templateId: spawner.templateId || spawner.characterId || null,
+        characterId: spawner.characterId || null,
+        activeIds: new Set(),
+      });
+    }
+    return entries;
+  }
+
+  function spawnNpcFromSpawner(spawner) {
+    if (!spawner) return null;
+    const distance = spawner.spawnRadius > 0 ? Math.random() * spawner.spawnRadius : 0;
+    const angle = Math.random() * Math.PI * 2;
+    const offsetX = Math.cos(angle) * distance;
+    const offsetY = Math.sin(angle) * distance;
+    const spawnX = (spawner.position?.x ?? 0) + offsetX;
+    const spawnYOffset = (spawner.position?.y ?? 0) + offsetY;
+    const npc = spawnAdditionalNpc({
+      x: spawnX,
+      y: gy - 1 + spawnYOffset,
+      templateId: spawner.templateId || spawner.characterId || undefined,
+    });
+    if (npc) {
+      npc.spawnMetadata = {
+        ...(npc.spawnMetadata || {}),
+        spawnerId: spawner.spawnerId,
+      };
+      spawner.activeIds.add(npc.id);
+    }
+    return npc;
+  }
+
+  function teardownSpawnerRuntime() {
+    const runtime = G.npcSpawnerRuntime;
+    if (runtime?.intervalId) {
+      clearInterval(runtime.intervalId);
+    }
+    G.npcSpawnerRuntime = null;
+  }
+
+  function bootstrapNpcSpawnerRuntime(area) {
+    teardownSpawnerRuntime();
+    const npcSpawners = normalizeNpcSpawners(area);
+    if (!npcSpawners.length) return;
+    const runtime = { areaId: area?.id || null, spawners: npcSpawners, intervalId: null };
+
+    const cleanupAndRespawn = () => {
+      const fighters = G.FIGHTERS || {};
+      for (const entry of runtime.spawners) {
+        for (const id of Array.from(entry.activeIds)) {
+          const fighter = fighters[id];
+          if (!fighter || fighter.isDead) {
+            entry.activeIds.delete(id);
+            if (fighter?.isDead) {
+              removeNpcFighter(id);
+            }
+          }
+        }
+        while (entry.activeIds.size < entry.count && (entry.respawn || entry.activeIds.size === 0)) {
+          const npc = spawnNpcFromSpawner(entry);
+          if (!npc) break;
+        }
+      }
+    };
+
+    cleanupAndRespawn();
+    runtime.intervalId = setInterval(cleanupAndRespawn, 1000);
+    G.npcSpawnerRuntime = runtime;
+  }
+
+  const areaSpawns = computeSpawnPositions(activeArea);
   const playerSpawn = areaSpawns.player;
   const npcSpawn = areaSpawns.npc;
   const normalizedPlayerSpawnX = normalizeSpawnValue(playerSpawn?.x);
@@ -723,7 +824,8 @@ export function initFighters(cv, cx, options = {}){
   }
 
   const playerFighter = makeF('player', playerSpawnX, 1, playerSpawnY);
-  const npcFighter = spawnNpc ? makeF('npc', npcSpawnX, -1, npcSpawnY) : null;
+  const npcTemplateFighter = enableNpcTemplate ? makeF('npc', npcSpawnX, -1, npcSpawnY) : null;
+  const npcFighter = spawnNpc ? npcTemplateFighter : null;
 
   const fighters = { player: playerFighter };
   if (npcFighter) {
@@ -738,7 +840,7 @@ export function initFighters(cv, cx, options = {}){
       source: playerSpawn ?? null,
     },
   };
-  if (npcFighter) {
+  if (npcTemplateFighter) {
     G.spawnPoints.npc = {
       x: npcSpawnX,
       y: npcSpawnY,
@@ -747,8 +849,8 @@ export function initFighters(cv, cx, options = {}){
     };
   }
   const fighterTemplates = { player: clone(playerFighter) };
-  if (npcFighter) {
-    fighterTemplates.npc = clone(npcFighter);
+  if (npcTemplateFighter) {
+    fighterTemplates.npc = clone(npcTemplateFighter);
   }
   G.FIGHTER_TEMPLATES = fighterTemplates;
   const fighterSpawns = {
@@ -759,7 +861,7 @@ export function initFighters(cv, cx, options = {}){
       facingSign: 1,
     },
   };
-  if (npcFighter) {
+  if (npcTemplateFighter) {
     fighterSpawns.npc = {
       x: npcSpawnX,
       y: npcSpawnY,
@@ -776,10 +878,11 @@ export function initFighters(cv, cx, options = {}){
   }
   G.CHARACTER_STATE = characterState;
 
-  const npcTemplateId = npcFighter ? resolveInitialNpcTemplateId() : null;
+  const npcTemplateId = npcTemplateFighter ? resolveInitialNpcTemplateId() : null;
   if (npcTemplateId) {
     applyNpcTemplate(npcTemplateId);
   }
+  bootstrapNpcSpawnerRuntime(activeArea);
   if (G.editorPreview) {
     G.editorPreview.spawn = {
       player: {

@@ -398,6 +398,7 @@ window.CONFIG = {
     tagInstanceIdMapping: {
       'spawn:player': 'player_spawn',
       'spawn:npc': 'npc_spawn',
+      'spawner:npc': 'npc_spawner',
     },
   },
   entry: {

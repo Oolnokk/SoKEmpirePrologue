@@ -241,6 +241,53 @@ function validateAreaDescriptor(descriptor) {
     }
   }
 
+  let seenSpawnerIds = null;
+  if (descriptor.spawners) {
+    if (!Array.isArray(descriptor.spawners)) {
+      warnings.push('"spawners" should be an array when provided');
+    } else {
+      seenSpawnerIds = new Set();
+      descriptor.spawners.forEach((spawner, index) => {
+        if (!spawner || typeof spawner !== 'object') {
+          warnings.push(`Spawner at index ${index} is not an object`);
+          return;
+        }
+        const rawId = typeof spawner.spawnerId === 'string' && spawner.spawnerId.trim()
+          ? spawner.spawnerId.trim()
+          : typeof spawner.id === 'string' && spawner.id.trim()
+            ? spawner.id.trim()
+            : '';
+        if (!rawId) {
+          warnings.push(`Spawner at index ${index} missing "spawnerId"`);
+          return;
+        }
+        if (seenSpawnerIds.has(rawId)) {
+          errors.push(`Duplicate spawnerId "${rawId}"`);
+        } else {
+          seenSpawnerIds.add(rawId);
+        }
+      });
+    }
+  }
+
+  if (descriptor.spawnersById && typeof descriptor.spawnersById === 'object') {
+    const indexKeys = new Set(Object.keys(descriptor.spawnersById));
+    if (seenSpawnerIds) {
+      for (const id of seenSpawnerIds) {
+        if (!indexKeys.has(id)) {
+          errors.push(`spawnersById missing mapping for "${id}"`);
+        }
+      }
+      for (const key of indexKeys) {
+        if (!seenSpawnerIds.has(key)) {
+          warnings.push(`spawnersById entry "${key}" has no matching spawner`);
+        }
+      }
+    } else if (!descriptor.spawners) {
+      warnings.push('spawnersById provided without spawners array');
+    }
+  }
+
   return { warnings, errors };
 }
 
@@ -261,6 +308,7 @@ const DEFAULT_FALLBACK_BOX_MIN_WIDTH = 18;
 const DEFAULT_TAG_INSTANCE_ID_MAPPING = new Map([
   ['spawn:player', 'player_spawn'],
   ['spawn:npc', 'npc_spawn'],
+  ['spawner:npc', 'npc_spawner'],
 ]);
 
 const cloneDefaultMapping = () => new Map(DEFAULT_TAG_INSTANCE_ID_MAPPING);
@@ -1007,7 +1055,8 @@ function normalizeAreaDescriptor(area, options = {}) {
     const appliesProximityScale = !tags.some((tag) => tag === 'player'
       || tag === 'npc'
       || tag.startsWith('spawn:player')
-      || tag.startsWith('spawn:npc'));
+      || tag.startsWith('spawn:npc')
+      || tag.startsWith('spawner:npc'));
     const appliedProximityScale = appliesProximityScale ? proximityScale : 1;
     const position = appliesProximityScale
       ? {
@@ -1054,6 +1103,9 @@ function normalizeAreaDescriptor(area, options = {}) {
       warnings,
     }))
     .filter(Boolean);
+  const explicitSpawners = normalizeSpawnerList(area.spawners, warnings, { source: 'area' });
+  const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
+  const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners);
   const pathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
 
   return {
@@ -1072,6 +1124,8 @@ function normalizeAreaDescriptor(area, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     pathTargets,
+    spawners,
+    spawnersById: buildSpawnerIndex(spawners),
     colliders: alignedColliders,
     drumSkins: convertedDrumSkins,
     playableBounds,
@@ -1184,7 +1238,8 @@ export function convertLayoutToArea(layout, options = {}) {
     const appliesProximityScale = !tags.some((tag) => tag === 'player'
       || tag === 'npc'
       || tag.startsWith('spawn:player')
-      || tag.startsWith('spawn:npc'));
+      || tag.startsWith('spawn:npc')
+      || tag.startsWith('spawner:npc'));
     const appliedProximityScale = appliesProximityScale ? proximityScale : 1;
     const position = appliesProximityScale
       ? {
@@ -1230,6 +1285,9 @@ export function convertLayoutToArea(layout, options = {}) {
       warnings,
     }))
     .filter(Boolean);
+  const explicitSpawners = normalizeSpawnerList(layout.spawners, warnings, { source: 'layout' });
+  const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
+  const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners);
   const pathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
   const backgroundFromLayout = typeof layout.background === 'object' && layout.background
     ? safeClone(layout.background)
@@ -1266,6 +1324,8 @@ export function convertLayoutToArea(layout, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     pathTargets,
+    spawners,
+    spawnersById: buildSpawnerIndex(spawners),
     colliders: alignedColliders,
     drumSkins: convertedDrumSkins,
     playableBounds,
@@ -1294,6 +1354,201 @@ export function convertLayouts(layouts, options = {}) {
   return areas;
 }
 
+function mergeSpawnerLists(explicit = [], derived = []) {
+  const merged = [];
+  const seen = new Set();
+
+  const addSpawner = (spawner) => {
+    if (!spawner || typeof spawner !== 'object') return;
+    const id = typeof spawner.spawnerId === 'string' ? spawner.spawnerId : spawner.id;
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    merged.push(spawner);
+  };
+
+  explicit.forEach(addSpawner);
+  derived.forEach(addSpawner);
+
+  return merged;
+}
+
+function buildSpawnerIndex(spawners = []) {
+  const index = {};
+  for (const spawner of Array.isArray(spawners) ? spawners : []) {
+    if (!spawner || typeof spawner !== 'object') continue;
+    const id = typeof spawner.spawnerId === 'string'
+      ? spawner.spawnerId
+      : typeof spawner.id === 'string'
+        ? spawner.id
+        : null;
+    if (!id) continue;
+    index[id] = spawner;
+  }
+  return index;
+}
+
+function collectNpcSpawners(instances = [], warnings = []) {
+  const spawners = [];
+  for (const inst of Array.isArray(instances) ? instances : []) {
+    if (!inst || typeof inst !== 'object') continue;
+    const tags = Array.isArray(inst.tags) ? inst.tags : [];
+    const prefabId = typeof inst.prefabId === 'string' ? inst.prefabId.trim().toLowerCase() : '';
+    const metaSpawner = inst.meta?.spawner
+      ?? inst.meta?.original?.spawner
+      ?? inst.meta?.original?.meta?.spawner
+      ?? inst.meta?.spawn
+      ?? inst.meta?.original?.meta?.spawn;
+
+    const hasSpawnerTag = tags.some((tag) => typeof tag === 'string'
+      && tag.trim().toLowerCase().startsWith('spawner:npc'));
+    const hasSpawnerPrefab = prefabId === 'npc_spawner' || prefabId === 'spawner_npc';
+    const hasSpawnerMeta = metaSpawner && typeof metaSpawner === 'object'
+      && ((typeof metaSpawner.type === 'string' && metaSpawner.type.toLowerCase() === 'npc')
+        || (typeof metaSpawner.kind === 'string' && metaSpawner.kind.toLowerCase() === 'npc')
+        || (typeof metaSpawner.role === 'string' && metaSpawner.role.toLowerCase() === 'npc'));
+
+    if (!hasSpawnerTag && !hasSpawnerPrefab && !hasSpawnerMeta) {
+      continue;
+    }
+
+    const baseSettings = normalizeSpawnerSettings(metaSpawner);
+    const spawnerId = inst.instanceId || inst.meta?.identity?.instanceId || inst.id || null;
+    if (!spawnerId) {
+      warnings.push('Encountered NPC spawner instance without a usable id');
+      continue;
+    }
+
+    const spawner = normalizeSpawnerRecord({
+      spawnerId,
+      type: 'npc',
+      prefabId: inst.prefabId ?? null,
+      layerId: inst.layerId ?? null,
+      position: inst.position ?? { x: 0, y: 0 },
+      tags: inst.tags ?? [],
+      respawn: baseSettings.respawn,
+      count: baseSettings.count,
+      spawnRadius: baseSettings.spawnRadius,
+      templateId: baseSettings.templateId,
+      characterId: baseSettings.characterId,
+      meta: {
+        ...(inst.meta ? safeClone(inst.meta) : {}),
+        spawner: baseSettings.meta,
+        sourceInstanceId: spawnerId,
+      },
+    }, warnings, { fallbackId: spawnerId, source: 'instance' });
+
+    if (spawner) {
+      spawners.push(spawner);
+    }
+  }
+  return spawners;
+}
+
+function normalizeSpawnerList(rawList = [], warnings = [], context = {}) {
+  if (!Array.isArray(rawList)) return [];
+  const normalized = [];
+  const seen = new Set();
+  rawList.forEach((raw, index) => {
+    const spawner = normalizeSpawnerRecord(raw, warnings, {
+      fallbackId: `spawner_${index}`,
+      source: 'explicit',
+      ...context,
+    });
+    if (!spawner) return;
+    if (seen.has(spawner.spawnerId)) {
+      warnings.push(`Duplicate spawner id "${spawner.spawnerId}"`);
+      return;
+    }
+    seen.add(spawner.spawnerId);
+    normalized.push(spawner);
+  });
+  return normalized;
+}
+
+function normalizeSpawnerRecord(raw, warnings = [], context = {}) {
+  const source = typeof context.source === 'string' ? context.source : 'spawner';
+  const safe = raw && typeof raw === 'object' ? safeClone(raw) : {};
+  const rawId = typeof safe.spawnerId === 'string'
+    ? safe.spawnerId
+    : typeof safe.id === 'string'
+      ? safe.id
+      : null;
+  const spawnerId = rawId && rawId.trim() ? rawId.trim() : (context.fallbackId || null);
+  if (!spawnerId) {
+    warnings.push(`Ignored ${source} without spawnerId`);
+    return null;
+  }
+
+  const spawnRadius = clampNonNegativeNumber(
+    safe.spawnRadius ?? safe.radius ?? safe.spawn?.radius ?? safe.meta?.spawnRadius,
+    0,
+  );
+  const count = clampPositiveInteger(
+    safe.count ?? safe.maxCount ?? safe.max ?? safe.quantity ?? safe.spawn?.count ?? safe.meta?.spawnCount,
+    1,
+  );
+  const respawn = Boolean(safe.respawn ?? safe.autoRespawn ?? safe.spawn?.respawn ?? false);
+  const templateId = pickNonEmptyString(
+    safe.templateId
+      ?? safe.characterTemplateId
+      ?? safe.spawn?.templateId
+      ?? safe.meta?.templateId,
+  );
+  const characterId = pickNonEmptyString(
+    safe.characterId
+      ?? safe.character
+      ?? safe.spawn?.characterId
+      ?? safe.meta?.characterId,
+  );
+
+  const position = {
+    x: toNumber(safe.position?.x ?? safe.x ?? 0, 0),
+    y: toNumber(safe.position?.y ?? safe.y ?? 0, 0),
+  };
+
+  const meta = safe.meta && typeof safe.meta === 'object' ? safeClone(safe.meta) : {};
+  meta.identity = {
+    ...(meta.identity || {}),
+    spawnerId,
+    source,
+  };
+
+  return {
+    ...safe,
+    spawnerId,
+    id: spawnerId,
+    type: safe.type || safe.kind || 'npc',
+    position,
+    spawnRadius,
+    count,
+    respawn,
+    templateId,
+    characterId,
+    meta,
+  };
+}
+
+function normalizeSpawnerSettings(rawSettings) {
+  const safe = rawSettings && typeof rawSettings === 'object' ? rawSettings : {};
+  const count = clampPositiveInteger(
+    safe.count ?? safe.max ?? safe.quantity ?? safe.instances ?? safe.maxCount,
+    1,
+  );
+  const spawnRadius = clampNonNegativeNumber(safe.spawnRadius ?? safe.radius ?? safe.range ?? safe.spread, 0);
+  const templateId = pickNonEmptyString(safe.templateId ?? safe.characterTemplateId ?? safe.template ?? safe.character);
+  const characterId = pickNonEmptyString(safe.characterId ?? safe.character);
+  const respawn = Boolean(safe.respawn ?? safe.autoRespawn ?? safe.loop ?? safe.repeat);
+
+  return {
+    count,
+    spawnRadius,
+    templateId,
+    characterId,
+    respawn,
+    meta: safeClone(safe),
+  };
+}
+
 function computeLayerSlotCenters(instances) {
   const stats = new Map();
   for (const inst of instances) {
@@ -1320,6 +1575,35 @@ function clampScale(value, fallback = 1) {
   const num = Number(value);
   if (!Number.isFinite(num)) return fallback;
   return Math.max(0.001, num);
+}
+
+function clampPositiveInteger(value, fallback = 1, min = 1, max = 50) {
+  const num = Number(value);
+  if (Number.isFinite(num) && num >= min) {
+    const rounded = Math.round(num);
+    if (Number.isFinite(rounded)) {
+      return Math.min(Math.max(rounded, min), max);
+    }
+  }
+  return fallback;
+}
+
+function clampNonNegativeNumber(value, fallback = 0, max = Infinity) {
+  const num = Number(value);
+  if (Number.isFinite(num) && num >= 0) {
+    const clamped = Math.min(num, max);
+    return Math.round(clamped * 1000) / 1000;
+  }
+  return fallback;
+}
+
+function pickNonEmptyString(...candidates) {
+  for (const candidate of candidates) {
+    if (candidate == null) continue;
+    const text = String(candidate).trim();
+    if (text) return text;
+  }
+  return null;
 }
 
 function normalizeCollider(raw, fallbackIndex = 0) {
