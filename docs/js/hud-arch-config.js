@@ -16,7 +16,7 @@ window.HUD_ARCH_CONFIG = {
     buttonSizePx: 84, // base button square size
     defaultGapPx: 10, // default carving distance per segment
     rotateWithArch: true, // rotate along tangent? (fan out)
-    flipVertical: true, // mirror along the horizontal axis to hug the gameplay viewport
+    flipVertical: false, // mirror along the horizontal axis to hug the gameplay viewport
     debug: true // on-screen debug overlay
   },
 
