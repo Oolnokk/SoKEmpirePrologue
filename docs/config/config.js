@@ -54,12 +54,12 @@ const WALK_PROFILES = {
     enabled: true,
     onlyTorsoLegs: true,
     baseHz: 1.1,
-    speedScale: 0.9,
+    speedScale: 1,
     minSpeed: 60,
     amp: 0.9,
     poses: {
-      A: { torso: 15, lHip: 80, lKnee: 45, rHip: 100, rKnee: 90 },
-      B: { torso: 25, lHip: 100, lKnee: 90, rHip: 80, rKnee: 45 }
+      A: { torso: 15, lHip: 60, lKnee: 45, rHip: 120, rKnee: 90 },
+      B: { torso: 25, lHip: 120, lKnee: 90, rHip: 60, rKnee: 45 }
 	}
   },
   sneak: {
