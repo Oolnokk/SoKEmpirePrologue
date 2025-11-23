@@ -148,6 +148,7 @@ function ensureFootstepState(fighter) {
     strideProgress: 0,
     lastMaterial: null,
     nextFoot: 'left',
+    lastPoseFoot: null,
   };
   return fighter._footstepState;
 }
@@ -291,6 +292,10 @@ export function updateFighterFootsteps(fighter, config, dt) {
   const speed = Math.abs(velX);
   const strideLength = computeStrideLength(config, profile);
   const events = [];
+  const poseContacts = Array.isArray(fighter?.walk?.pendingContacts)
+    ? fighter.walk.pendingContacts.splice(0)
+    : [];
+  const debugFootsteps = !!(fighter.debugFootsteps || config?.audio?.footsteps?.debug);
 
   function enqueueFootstep(intensity) {
     const foot = state.nextFoot === 'right' ? 'right' : 'left';
@@ -298,12 +303,27 @@ export function updateFighterFootsteps(fighter, config, dt) {
     events.push({ intensity, foot });
   }
 
-  if (onGround && !state.prevOnGround) {
+  if (onGround && poseContacts.length) {
+    for (const contact of poseContacts) {
+      const foot = contact.foot === 'right' ? 'right' : 'left';
+      const intensity = Number.isFinite(contact.intensity)
+        ? contact.intensity
+        : clamp(speed / 420, 0.2, 1);
+      if (debugFootsteps && state.lastPoseFoot && state.lastPoseFoot === foot) {
+        console.debug('[footstep-audio] pose foot repeated', { foot, intensity, speed });
+      }
+      state.lastPoseFoot = foot;
+      state.nextFoot = foot === 'left' ? 'right' : 'left';
+      events.push({ intensity, foot, source: 'pose' });
+    }
+  }
+
+  if (!events.length && onGround && !state.prevOnGround) {
     const impulse = Math.abs(Number(fighter.landedImpulse) || 0);
     const normalized = clamp(impulse / LANDING_IMPULSE_REF, 0.25, 1.4);
     enqueueFootstep(normalized);
     state.strideProgress = 0;
-  } else if (onGround && speed >= MIN_STEP_SPEED && !fighter.recovering) {
+  } else if (!events.length && onGround && speed >= MIN_STEP_SPEED && !fighter.recovering) {
     state.strideProgress += speed * dt;
     const stride = Math.max(20, strideLength);
     if (state.strideProgress >= stride) {

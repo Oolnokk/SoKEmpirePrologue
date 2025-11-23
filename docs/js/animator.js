@@ -1417,9 +1417,34 @@ function computeWalkPose(F, C){
 
   // Advance phase when there is amplitude (so we keep continuity even when stopping briefly)
   const dt = Math.max(1e-6, F.anim?.dt || 0);
+  const prevPhase = Number.isFinite(F.walk.phase) ? F.walk.phase : 0;
   F.walk.phase += dt * baseHz * Math.PI * 2;
   // wrap phase to keep numeric stability
   if (F.walk.phase > Math.PI * 2) F.walk.phase %= (Math.PI * 2);
+
+  // detect foot contact markers (phase 0 -> left, phase PI -> right)
+  const contacts = F.walk.pendingContacts ||= [];
+  const phaseWrapped = F.walk.phase < prevPhase;
+  const phaseDelta = F.walk.phase - prevPhase + (phaseWrapped ? Math.PI * 2 : 0);
+  const walkActive = on && F.walk.amp > 0.05;
+  const logFootstep = !!(F.debugFootsteps || C?.debugFootsteps);
+  const now = performance.now() / 1000;
+  if (walkActive && phaseDelta > 0) {
+    const checkPoints = [Math.PI, Math.PI * 2];
+    for (const pt of checkPoints) {
+      const target = pt;
+      const normalizedTarget = target % (Math.PI * 2);
+      const crossed = prevPhase < target && (prevPhase + phaseDelta) >= target;
+      if (!crossed) continue;
+      const foot = normalizedTarget === Math.PI ? 'right' : 'left';
+      const intensity = clamp(speed / (C.movement?.maxSpeedX || 320), 0.2, 1.15) * F.walk.amp;
+      contacts.push({ foot, intensity, phase: normalizedTarget, time: now });
+      if (logFootstep) {
+        console.debug('[animator] walk foot contact', { foot, phase: normalizedTarget, speed, amp: F.walk.amp });
+      }
+    }
+  }
+  F.walk.prevPhase = F.walk.phase;
 
   // phase->s value (apply small smoothing via easeInOut to shape foot travel)
   const rawS = (Math.sin(F.walk.phase) + 1) / 2;
