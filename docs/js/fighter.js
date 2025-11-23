@@ -73,6 +73,11 @@ function resetRuntimeState(fighter, template, {
   fighter.ragdoll = false;
   fighter.ragdollTime = 0;
   fighter.ragdollVel = { x: 0, y: 0 };
+  if (typeof base.weaponDrawn === 'boolean') {
+    fighter.weaponDrawn = base.weaponDrawn;
+  } else if (typeof fighter.weaponDrawn !== 'boolean') {
+    fighter.weaponDrawn = true;
+  }
   fighter.recovering = false;
   fighter.recoveryTime = 0;
   fighter.recoveryDuration = base.recoveryDuration ?? fighter.recoveryDuration ?? 0.8;
@@ -682,6 +687,8 @@ export function initFighters(cv, cx, options = {}){
     const appearanceBase = prevProfile?.appearance
       ?? (characterData?.appearance ? clone(characterData.appearance) : null);
     const weaponBase = prevProfile?.weapon ?? characterData?.weapon ?? null;
+    const weaponDrawnBase = prevProfile?.weaponDrawn
+      ?? (prevProfile?.weaponStowed != null ? !prevProfile.weaponStowed : null);
     const abilityBase = Array.isArray(prevProfile?.slottedAbilities)
       ? prevProfile.slottedAbilities.slice()
       : (Array.isArray(characterData?.slottedAbilities)
@@ -699,6 +706,8 @@ export function initFighters(cv, cx, options = {}){
       cosmetics: cosmeticsBase ? clone(cosmeticsBase) : null,
       appearance: appearanceBase ? clone(appearanceBase) : null,
       weapon: weaponBase,
+      weaponDrawn: weaponDrawnBase != null ? weaponDrawnBase : true,
+      weaponStowed: weaponDrawnBase != null ? !weaponDrawnBase : false,
       slottedAbilities: abilityBase,
       stats,
       statProfile,
@@ -742,6 +751,7 @@ export function initFighters(cv, cx, options = {}){
       facingSign: faceSign,
       footing: isPlayer ? 50 : 100,
       nonCombatRagdoll: false,
+      weaponDrawn: renderProfile.weaponDrawn,
       ragdoll: false,
       ragdollTime: 0,
       ragdollVel: { x: 0, y: 0 },

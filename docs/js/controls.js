@@ -6,6 +6,7 @@ export function initControls(){
   G.input ||= {
     left:false, right:false, jump:false, dash:false,
     nonCombatRagdoll: false,
+    weaponDrawn: true,
     buttonA: { down:false, downTime:0, upTime:0 },
     buttonB: { down:false, downTime:0, upTime:0 },
     buttonC: { down:false, downTime:0, upTime:0 }
@@ -19,6 +20,23 @@ export function initControls(){
     const fighter = window.GAME?.FIGHTERS?.player;
     if (fighter) {
       fighter.nonCombatRagdoll = I.nonCombatRagdoll;
+    }
+  }
+
+  function toggleWeaponDrawn(){
+    I.weaponDrawn = !I.weaponDrawn;
+    const fighter = window.GAME?.FIGHTERS?.player;
+    if (fighter) {
+      fighter.weaponDrawn = I.weaponDrawn;
+      fighter.renderProfile ||= {};
+      fighter.renderProfile.weaponDrawn = I.weaponDrawn;
+      fighter.renderProfile.weaponStowed = !I.weaponDrawn;
+      if (fighter.anim?.weapon) {
+        fighter.anim.weapon.stowed = !I.weaponDrawn;
+      }
+      if (typeof window.syncWeaponDrawnState === 'function') {
+        window.syncWeaponDrawnState({ fighterKey: 'player', weaponDrawn: I.weaponDrawn });
+      }
     }
   }
 
@@ -49,6 +67,7 @@ export function initControls(){
       case 'KeyF': case 'KeyK': setButton('buttonB', down); break;
       case 'KeyR': case 'KeyL': setButton('buttonC', down); break;
       case 'KeyN': if (down) toggleNonCombatRagdoll(); break;
+      case 'KeyT': if (down) toggleWeaponDrawn(); break;
       default: return;
     }
   }
@@ -95,13 +114,23 @@ export function initControls(){
     e.preventDefault();
   }); // Prevent right-click menu over game viewport
   window.addEventListener('blur', ()=>{
-    Object.assign(I,{left:false,right:false,jump:false,dash:false,nonCombatRagdoll:false});
+    Object.assign(I,{left:false,right:false,jump:false,dash:false,nonCombatRagdoll:false,weaponDrawn:true});
     I.buttonA.down = false;
     I.buttonB.down = false;
     I.buttonC.down = false;
     const fighter = window.GAME?.FIGHTERS?.player;
     if (fighter) {
       fighter.nonCombatRagdoll = false;
+      fighter.weaponDrawn = true;
+      fighter.renderProfile ||= {};
+      fighter.renderProfile.weaponDrawn = true;
+      fighter.renderProfile.weaponStowed = false;
+      if (fighter.anim?.weapon) {
+        fighter.anim.weapon.stowed = false;
+      }
+      if (typeof window.syncWeaponDrawnState === 'function') {
+        window.syncWeaponDrawnState({ fighterKey: 'player', weaponDrawn: true });
+      }
     }
     mouseBindings[0] = mouseBindings[1] = mouseBindings[2] = null;
   });
