@@ -60,7 +60,16 @@ function damp(current, target, lambda, dt){ const t = 1 - Math.exp(-lambda*dt); 
 function ensureAnimState(F){
   F.walk ||= { phase:0, amp:1, t:0 };
   F.jointAngles ||= {};
-  F.aim ||= { targetAngle: 0, currentAngle: 0, torsoOffset: 0, shoulderOffset: 0, hipOffset: 0, active: false, headWorldTarget: null };
+  F.aim ||= {
+    targetAngle: 0,
+    currentAngle: 0,
+    torsoOffset: 0,
+    shoulderOffset: 0,
+    hipOffset: 0,
+    active: false,
+    headWorldTarget: null,
+    headTrackingOnly: false,
+  };
   if (!F.anim){ F.anim = { last: performance.now()/1000, override:null, layers: [], pendingLayerTimers: {} }; }
   else {
     if (!Array.isArray(F.anim.layers)){ F.anim.layers = []; }
@@ -1845,6 +1854,7 @@ function updateAiming(F, currentPose, fighterId){
     F.aim.shoulderOffset = 0;
     F.aim.hipOffset = 0;
     F.aim.headWorldTarget = null;
+    F.aim.headTrackingOnly = false;
     return;
   }
 
@@ -1855,6 +1865,7 @@ function updateAiming(F, currentPose, fighterId){
     F.aim.shoulderOffset = 0;
     F.aim.hipOffset = 0;
     F.aim.headWorldTarget = null;
+    F.aim.headTrackingOnly = false;
     return;
   }
 
@@ -1864,6 +1875,17 @@ function updateAiming(F, currentPose, fighterId){
       F.aim.shoulderOffset = 0;
       F.aim.hipOffset = 0;
       F.aim.headWorldTarget = null;
+      F.aim.headTrackingOnly = false;
+      return;
+    }
+
+    if (F.aim.headTrackingOnly) {
+      F.aim.torsoOffset = 0;
+      F.aim.shoulderOffset = 0;
+      F.aim.hipOffset = 0;
+      F.aim.headWorldTarget = typeof F.aim.headWorldTarget === 'number'
+        ? normalizeRad(F.aim.headWorldTarget)
+        : null;
       return;
     }
 
