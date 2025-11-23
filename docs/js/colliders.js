@@ -9,6 +9,13 @@ const LIMB_SPECS = [
   { key: 'footR', boneKey: 'leg_R_lower' },
 ];
 
+const DEFAULT_PERCEPTION = {
+  visionRange: 220,
+  visionSpreadRad: Math.PI * 0.6,
+  hearingRadius: 180,
+  visionOffsetY: -10,
+};
+
 function ensureStore() {
   const G = (typeof window !== 'undefined') ? (window.GAME ||= {}) : {};
   const store = (G.COLLIDERS ||= { perFighter: {} });
@@ -68,6 +75,20 @@ function writeCollider(entry, key, point, radius) {
   }
 }
 
+function resolveActorScale(config = {}) {
+  if (Number.isFinite(config.actor?.scale)) return config.actor.scale;
+  if (Number.isFinite(config.scale)) return config.scale;
+  return 1;
+}
+
+function resolveOrigin(point, offset = null) {
+  const base = clonePoint(point) || { x: 0, y: 0 };
+  if (!offset) return base;
+  const dx = Number.isFinite(offset.x) ? offset.x : 0;
+  const dy = Number.isFinite(offset.y) ? offset.y : 0;
+  return { x: base.x + dx, y: base.y + dy };
+}
+
 export function updateFighterColliders(fighterId, bones, options = {}) {
   if (!fighterId) return;
   const store = ensureStore();
@@ -106,4 +127,82 @@ export function pruneFighterColliders(activeIds = []) {
       delete store.perFighter[id];
     }
   });
+}
+
+export function buildConeCollider({
+  origin,
+  facingRad = 0,
+  range = DEFAULT_PERCEPTION.visionRange,
+  spread = DEFAULT_PERCEPTION.visionSpreadRad,
+  actorScale = 1,
+  originOffset = null,
+}) {
+  const scaledRange = Math.max(0, range) * Math.max(actorScale, 0);
+  const halfSpread = Math.max(0, spread) * 0.5;
+  const pos = resolveOrigin(origin, originOffset);
+  return {
+    type: 'cone',
+    origin: pos,
+    angle: Number.isFinite(facingRad) ? facingRad : 0,
+    range: scaledRange,
+    halfSpread,
+  };
+}
+
+export function buildCircularCollider({
+  center,
+  radius = DEFAULT_PERCEPTION.hearingRadius,
+  actorScale = 1,
+  offset = null,
+}) {
+  const scaledRadius = Math.max(0, radius) * Math.max(actorScale, 0);
+  return {
+    type: 'circle',
+    center: resolveOrigin(center, offset),
+    radius: scaledRadius,
+  };
+}
+
+export function resolveFighterPerceptionColliders(fighter, overrides = {}) {
+  const config = { ...DEFAULT_PERCEPTION, ...overrides };
+  const actorScale = resolveActorScale({ actor: fighter?.actor, scale: overrides.actorScale });
+  const origin = fighter?.pos || fighter?.position || { x: 0, y: 0 };
+  const facingRad = Number.isFinite(fighter?.facingRad) ? fighter.facingRad : 0;
+  const vision = buildConeCollider({
+    origin,
+    facingRad,
+    range: config.visionRange,
+    spread: config.visionSpreadRad,
+    actorScale,
+    originOffset: { x: 0, y: config.visionOffsetY * actorScale },
+  });
+  const hearing = buildCircularCollider({
+    center: origin,
+    radius: config.hearingRadius,
+    actorScale,
+  });
+  return { vision, hearing };
+}
+
+export function isPointInsideConeCollider(point, collider) {
+  if (!point || !collider || collider.type !== 'cone') return false;
+  const dx = point.x - (collider.origin?.x ?? 0);
+  const dy = point.y - (collider.origin?.y ?? 0);
+  const distanceSq = dx * dx + dy * dy;
+  const rangeSq = (collider.range || 0) * (collider.range || 0);
+  if (distanceSq > rangeSq) return false;
+  const forward = basisFor(collider.angle || 0);
+  const dot = (dx * forward.fx) + (dy * forward.fy);
+  const len = Math.sqrt(distanceSq) || 1;
+  const cosTheta = dot / len;
+  const cosHalfSpread = Math.cos(collider.halfSpread || 0);
+  return cosTheta >= cosHalfSpread;
+}
+
+export function isPointInsideCircularCollider(point, collider) {
+  if (!point || !collider || collider.type !== 'circle') return false;
+  const dx = point.x - (collider.center?.x ?? 0);
+  const dy = point.y - (collider.center?.y ?? 0);
+  const radius = Number.isFinite(collider.radius) ? collider.radius : 0;
+  return dx * dx + dy * dy <= radius * radius;
 }

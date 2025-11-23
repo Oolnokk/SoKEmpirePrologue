@@ -6,7 +6,12 @@ import { updateFighterFootsteps } from './footstep-audio.js?v=1';
 import { applyHealthRegenFromStats, applyStaminaTick, getStatProfile } from './stat-hooks.js?v=1';
 import { ensureNpcAbilityDirector, updateNpcAbilityDirector } from './npcAbilityDirector.js?v=1';
 import { removeNpcFighter } from './fighter.js?v=8';
-import { getFighterColliders } from './colliders.js?v=1';
+import {
+  getFighterColliders,
+  isPointInsideCircularCollider,
+  isPointInsideConeCollider,
+  resolveFighterPerceptionColliders,
+} from './colliders.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
 
 function clamp(value, min, max) {
@@ -143,6 +148,21 @@ function ensureNpcContainers(G) {
   const npcSystems = (G.NPC ||= {});
   npcSystems.perNpc ||= {};
   return npcSystems;
+}
+
+function ensureNpcPerceptionState(state) {
+  if (!state) return null;
+  const perception = state.perception || (state.perception = {});
+  perception.colliders ||= {};
+  return perception;
+}
+
+function updateNpcPerceptionColliders(state, config = null) {
+  const perception = ensureNpcPerceptionState(state);
+  if (!perception) return null;
+  const overrides = config ?? window.CONFIG?.npc?.perception ?? {};
+  perception.colliders = resolveFighterPerceptionColliders(state, overrides);
+  return perception.colliders;
 }
 
 function resolveNpcDeathDestroyDelay(state) {
@@ -1620,6 +1640,7 @@ export function updateNpcSystems(dt) {
       });
     }
     updateNpcMovement(G, npc, dt, abilityIntent);
+    updateNpcPerceptionColliders(npc);
   }
   if ((player && !player.destroyed) || npcs.length > 1) {
     const fighters = player ? [player, ...npcs] : [...npcs];
@@ -1728,6 +1749,18 @@ export function getNpcBodyRadius() {
   return resolveBodyRadius(C);
 }
 
+export function evaluateNpcPerception(npc, target) {
+  if (!npc || !target) return { vision: false, hearing: false };
+  const point = target.pos || target.position || target;
+  if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) {
+    return { vision: false, hearing: false };
+  }
+  const colliders = npc?.perception?.colliders || updateNpcPerceptionColliders(npc);
+  const vision = isPointInsideConeCollider(point, colliders?.vision);
+  const hearing = isPointInsideCircularCollider(point, colliders?.hearing);
+  return { vision, hearing };
+}
+
 export function registerNpcFighter(state, { immediateAggro = false } = {}) {
   if (!state) return;
   const G = ensureGameState();
@@ -1740,6 +1773,7 @@ export function registerNpcFighter(state, { immediateAggro = false } = {}) {
   ensureNpcPressRegistry(state);
   ensureNpcStaminaAwareness(state);
   ensureNpcAbilityDirector(state, combat);
+  ensureNpcPerceptionState(state);
   const aggression = ensureNpcAggressionState(state);
   if (immediateAggro) {
     aggression.triggered = true;
