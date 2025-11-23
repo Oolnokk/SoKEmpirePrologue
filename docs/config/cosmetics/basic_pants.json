@@ -6,6 +6,8 @@
   "hsv": { "h": 0, "s": 0, "v": 0 },
   "parts": {
     "leg_L_upper": {
+      "attachBone": "leg_L_upper",
+      "drawSlot": "leg_L_lower",
       "layers": {
         "front": {
           "image": {
@@ -22,6 +24,8 @@
       }
     },
     "leg_R_upper": {
+      "attachBone": "leg_R_upper",
+      "drawSlot": "leg_R_lower",
       "layers": {
         "front": {
           "image": {
