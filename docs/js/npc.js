@@ -1089,24 +1089,27 @@ function updateNpcPassiveHeadTracking(state, player) {
   aim.headWorldTarget = withinLimits ? worldAim : null;
 }
 
-function updateNpcAiming(state, player, { aggressionActive } = {}) {
-  const aim = ensureAimState(state);
-  if (!aggressionActive || state.nonCombatRagdoll) {
-    aim.active = false;
-    aim.torsoOffset = 0;
-    aim.shoulderOffset = 0;
-    aim.hipOffset = 0;
-    return;
+  function updateNpcAiming(state, player, { aggressionActive } = {}) {
+    const aim = ensureAimState(state);
+    const aggression = ensureNpcAggressionState(state);
+    const isAggressive = aggressionActive ?? aggression.active;
+
+    if (!isAggressive || state.nonCombatRagdoll) {
+      aim.active = false;
+      aim.torsoOffset = 0;
+      aim.shoulderOffset = 0;
+      aim.hipOffset = 0;
+      return;
   }
   if (!player) {
     resetNpcAimingOffsets(aim);
     return;
   }
 
-  if (!aggression.active) {
-    updateNpcPassiveHeadTracking(state, player);
-    return;
-  }
+    if (!aggression.active) {
+      updateNpcPassiveHeadTracking(state, player);
+      return;
+    }
 
   aim.headTrackingOnly = false;
   const shouldAim = !state.onGround;
