@@ -1303,8 +1303,8 @@ window.CONFIG = {
       cosmetics: {
         slots: {
           hat: { id: 'citywatch_helmet', hsv: { h: -12, s: 0.05, v: 0.08 } },
-          overwear: { id: 'simple_poncho', hsv: { h: 170, s: 0.9, v: -0.5 } },
-          legs: { id: 'basic_pants', hsv: { h: 170, s: 0.9, v: -0.5 } }
+          overwear: { id: 'simple_poncho', hsv: { h: 147, s: 0.85, v: -0.5 } },
+          legs: { id: 'basic_pants', hsv: { h: 147, s: 0.85, v: -0.5 } }
         }
       }
     }
@@ -1397,16 +1397,16 @@ window.CONFIG = {
             legs: {
               id: 'basic_pants',
               hsv: {
-                h: 180,
-                s: 0.8,
-                v: -0.85
+                h: 147,
+                s: 0.85,
+                v: -0.5
               }
             },
             overwear: {
               $kind: 'pool',
               items: [
-                { value: { id: 'simple_poncho', hsv: {  h: 180, s: 0.8, v: -0.85  } }, weight: 2 },
-                { value: { id: 'simple_poncho', hsv: {  h: 180, s: 0.8, v: -0.85  } }, weight: 1 }
+                { value: { id: 'simple_poncho', hsv: {  h: 147, s: 0.85, v: -0.5  } }, weight: 2 },
+                { value: { id: 'simple_poncho', hsv: {  h: 147, s: 0.85, v: -0.5  } }, weight: 1 }
               ]
             }
           }
