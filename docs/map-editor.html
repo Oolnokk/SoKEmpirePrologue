@@ -3098,6 +3098,12 @@ $('#zoomNum').addEventListener('input',e=> setZoom(parseFloat(e.target.value)||1
 const canvas=document.getElementById('sceneCanvas');
 const ctx=canvas.getContext('2d',{alpha:true,desynchronized:true});
 let lastDrumSkinQuads = [];
+let renderHandle = null;
+
+function ensureRenderLoop(){
+  if (renderHandle != null) return;
+  renderHandle = requestAnimationFrame(render);
+}
 
 function resizeCanvas(){
   const rect=canvas.getBoundingClientRect();
@@ -3118,6 +3124,7 @@ function partOrder(part){
 }
 
 function render(){
+  renderHandle = null;
   resizeCanvas();
   const dpr=window.devicePixelRatio||1;
   ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -3221,7 +3228,21 @@ function render(){
           const baseY = groundY + avgYOffset * zoom;
           const tx = ((offsetX % periodX) + periodX) % periodX;
           const ty = ((baseY % periodY) + periodY) % periodY;
-          pattern.setTransform(new DOMMatrix([patternScale, 0, 0, patternScale, tx, ty]));
+          const leftPoint = points[0];
+          const rightPoint = points[1];
+          const bottomLeft = points[3];
+          const height = Math.max(1, points[2].y - leftPoint.y);
+          const shear = ((bottomLeft.x - leftPoint.x) / height) * patternScale;
+          const alignX = leftPoint.x % periodX;
+          const alignY = leftPoint.y % periodY;
+          pattern.setTransform(new DOMMatrix([
+            patternScale,
+            0,
+            shear,
+            patternScale,
+            tx + alignX,
+            ty + alignY,
+          ]));
         }
         ctx.fillStyle = pattern;
         filled = true;
@@ -3506,7 +3527,7 @@ function render(){
     ? `camX=${cameraX} zoom=${zoom.toFixed(2)} activeLayer=${activeLayerId} · instances=${instances.length}\n` + dbg.join('\n')
     : '';
 
-  requestAnimationFrame(render);
+  renderHandle = requestAnimationFrame(render);
 }
 
 /*** Picking & drag ***/
@@ -4135,7 +4156,7 @@ refreshColliderList();
 refreshInstanceList();
 refreshDrumSkinList();
 syncBackgroundFields();
-requestAnimationFrame(render);
+ensureRenderLoop();
 
 (async () => {
   try {
