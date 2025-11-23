@@ -144,7 +144,7 @@ const BASE_POSES = {
     allowAiming: true,
     aimLegs: false,
     anim_events: [
-      { time: 0.00, impulse: 450, impulse_angle: -45 },
+      { time: 0.00, impulse: 850, impulse_angle: -45 },
       { time: 0.05, velocityX: 280, velocityY: 120, localVel: true }
     ]
   },
@@ -217,16 +217,16 @@ const MODE_BASE_POSES = {
   nonCombat: {
     ...deepClone(BASE_POSES.Stance),
     torso: 0,
-    lHip: 10,
-    rHip: -10,
+    lHip: 90,
+    rHip: 90,
     lKnee: 25,
     rKnee: 25,
   },
   sneak: {
     ...deepClone(BASE_POSES.Stance),
     torso: 5,
-    lHip: 140,
-    rHip: 140,
+    lHip: 90,
+    rHip: 90,
     lKnee: 70,
     rKnee: 70,
   }
