@@ -58,9 +58,9 @@ const WALK_PROFILES = {
     minSpeed: 60,
     amp: 0.9,
     poses: {
-      A: { torso: 30, lHip: 0, lKnee: 15, rHip: 120, rKnee: 45 },
-      B: { torso: 30, lHip: 120, lKnee: 45, rHip: 0, rKnee: 15 }
-    }
+      A: { torso: 30, lHip: 40, lKnee: 45, rHip: 140, rKnee: 90 },
+      B: { torso: 40, lHip: 140, lKnee: 90, rHip: 40, rKnee: 45 }
+	}
   },
   sneak: {
     enabled: true,
@@ -78,8 +78,8 @@ const WALK_PROFILES = {
 
 const WALK_SPEED_MULTIPLIERS = {
   combat: 1,
-  nonCombat: 0.82,
-  sneak: 0.7,
+  nonCombat: 0.5,
+  sneak: 0.25,
 };
 
 const BASE_POSES = {
