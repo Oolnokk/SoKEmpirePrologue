@@ -758,7 +758,7 @@ export function makeCombat(G, C, options = {}){
       }
       const segment = ordered[idx];
       if (resetMirrorBeforeStance && !stanceReset && segment.phase === 'Stance'){
-        resetMirror();
+        resetMirror(poseTarget);
         stanceReset = true;
       }
       triggerStepsThrough(segment.startTime);
@@ -2237,7 +2237,7 @@ export function makeCombat(G, C, options = {}){
       if (progress >= TRANSITION.flipAt){
         console.log(logPrefix, `Applying flip at progress ${progress.toFixed(2)} (flipAt=${TRANSITION.flipAt})`);
         for (const part of TRANSITION.flipParts){
-          setMirrorForPart(part, true);
+          setMirrorForPart(part, true, poseTarget);
         }
         TRANSITION.flipApplied = true;
       }

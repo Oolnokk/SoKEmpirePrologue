@@ -545,11 +545,11 @@ function trackPendingLayerTimer(F, layerId, handle){
   }
 }
 
-function cleanupLayer(F, layer){
+function cleanupLayer(F, layer, fighterId){
   if (!layer) return;
   try{
     if (layer.__flipApplied && layer.pose && Array.isArray(layer.pose.flipParts)){
-      for (const p of layer.pose.flipParts){ setMirrorForPart(p, false); }
+      for (const p of layer.pose.flipParts){ setMirrorForPart(p, false, fighterId); }
     }
   }catch(_e){ /* best-effort cleanup */ }
 }
@@ -565,12 +565,12 @@ function refreshLegacyOverride(F){
   F.anim.override = sorted[sorted.length - 1] || null;
 }
 
-function removeOverrideLayer(F, layerId){
+function removeOverrideLayer(F, layerId, fighterId){
   if (!F?.anim || !Array.isArray(F.anim.layers)) return;
   const idx = F.anim.layers.findIndex(l=> l && l.id === layerId);
   if (idx === -1) return;
   const [layer] = F.anim.layers.splice(idx, 1);
-  cleanupLayer(F, layer);
+  cleanupLayer(F, layer, fighterId);
   refreshLegacyOverride(F);
 }
 
@@ -1382,7 +1382,7 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg, styleComposer, { stowActi
   };
 }
 
-function setOverrideLayer(F, layerId, poseDeg, { durMs=300, mask, priority, suppressWalk, useAsBase } = {}){
+function setOverrideLayer(F, layerId, poseDeg, { durMs=300, mask, priority, suppressWalk, useAsBase, fighterId } = {}){
   if (!F) return null;
   ensureAnimState(F);
   const now = performance.now()/1000;
@@ -1409,7 +1409,7 @@ function setOverrideLayer(F, layerId, poseDeg, { durMs=300, mask, priority, supp
   if (poseLengthOverrides) {
     layer.__lengthOverrides = poseLengthOverrides;
   }
-  removeOverrideLayer(F, layerId);
+  removeOverrideLayer(F, layerId, fighterId);
   F.anim.layers.push(layer);
   F.anim.layers.sort((a,b)=> (a.priority||0) - (b.priority||0));
   refreshLegacyOverride(F);
@@ -1551,9 +1551,9 @@ function getOverride(F){
   refreshLegacyOverride(F);
   return F.anim.override || null;
 }
-function clearOverride(F){
+function clearOverride(F, fighterId){
   if (!F?.anim) return;
-  removeOverrideLayer(F, 'primary');
+  removeOverrideLayer(F, 'primary', fighterId);
 }
 
 function primeAnimEventsFromPose(pose){
@@ -1565,7 +1565,7 @@ function primeAnimEventsFromPose(pose){
   return clone;
 }
 
-function processAnimEventsForOverride(F, over){
+function processAnimEventsForOverride(F, over, fighterId){
   if (!over) return;
   const now = performance.now()/1000;
   const dur = over.__dur || (over.until ? Math.max(1e-6, over.until - (over.__start||now)) : 0);
@@ -1625,7 +1625,7 @@ function processAnimEventsForOverride(F, over){
   if (P.flip && !over.__flipApplied && k >= flipAt){
     over.__flipApplied = true;
     const parts = P.flipParts || ['ALL'];
-    for (const p of parts){ try{ setMirrorForPart(p, true); }catch(_e){} }
+    for (const p of parts){ try{ setMirrorForPart(p, true, fighterId); }catch(_e){} }
   }
   const fullFlipAt = (typeof P.fullFlipAt === 'number') ? Math.max(0, Math.min(1, P.fullFlipAt)) : flipAt;
   if (P.fullFlipFacing && !over.__fullFlipApplied && k >= fullFlipAt){
@@ -1663,7 +1663,7 @@ function processAnimEventsForOverride(F, over){
   }
 }
 
-function getActiveLayers(F, now){
+function getActiveLayers(F, now, fighterId){
   if (!F?.anim || !Array.isArray(F.anim.layers) || F.anim.layers.length === 0) return [];
   const layers = F.anim.layers;
   const active = [];
@@ -1671,11 +1671,11 @@ function getActiveLayers(F, now){
     const layer = layers[i];
     if (!layer) continue;
     if (layer.until != null && now >= layer.until){
-      cleanupLayer(F, layer);
+      cleanupLayer(F, layer, fighterId);
       layers.splice(i, 1);
       continue;
     }
-    processAnimEventsForOverride(F, layer);
+    processAnimEventsForOverride(F, layer, fighterId);
     active.push(layer);
   }
   active.sort((a,b)=> (a.priority||0) - (b.priority||0));
@@ -2083,7 +2083,7 @@ export function updatePoses(){
     F.anim.dt = Math.max(0, now - F.anim.last);
     F.anim.last = now;
 
-    const preActiveLayers = getActiveLayers(F, now);
+    const preActiveLayers = getActiveLayers(F, now, id);
     const attackActive = preActiveLayers.some(layer => layer?.id === 'primary');
     const stowActive = isNonCombatPoseActive(F);
     const sneakActive = isSneakMode(F);
@@ -2113,13 +2113,13 @@ export function updatePoses(){
         existingModeLayer.mask = LOWER_BODY_MASK;
         existingModeLayer.suppressWalk = true;
       } else {
-        setOverrideLayer(F, 'mode-walk', lowerBodyPose, { mask: LOWER_BODY_MASK, suppressWalk: true, durMs: -1, priority: 150 });
+        setOverrideLayer(F, 'mode-walk', lowerBodyPose, { mask: LOWER_BODY_MASK, suppressWalk: true, durMs: -1, priority: 150, fighterId: id });
       }
     } else {
-      removeOverrideLayer(F, 'mode-walk');
+      removeOverrideLayer(F, 'mode-walk', id);
     }
 
-    const activeLayers = getActiveLayers(F, now);
+    const activeLayers = getActiveLayers(F, now, id);
     const activeLengthOverrides = collectLengthOverridesFromLayers(activeLayers);
     applyLengthOverridesToFighter(F, activeLengthOverrides);
     let targetDeg = walkPose._active ? { ...walkPose } : { ...basePoseConfig };
@@ -2240,7 +2240,8 @@ export function pushPoseOverride(fighterId, poseDeg, durMs=300, options={}){
     mask: opts.mask,
     priority: opts.priority,
     suppressWalk: opts.suppressWalk,
-    useAsBase: opts.useAsBase
+    useAsBase: opts.useAsBase,
+    fighterId
   });
 }
 
@@ -2310,7 +2311,8 @@ export function pushPoseLayerOverride(fighterId, layerId, poseDeg, options={}){
       mask: opts.mask,
       priority: opts.priority,
       suppressWalk: opts.suppressWalk,
-      useAsBase: opts.useAsBase
+      useAsBase: opts.useAsBase,
+      fighterId
     });
     runSettle('applied');
   };

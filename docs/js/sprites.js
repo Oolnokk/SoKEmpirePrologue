@@ -22,7 +22,28 @@ const CACHE = (ASSETS.sprites ||= {});
 const FAILED = (ASSETS.failedSprites ||= new Set());
 const GLOB = (window.GAME ||= {});
 const RENDER = (window.RENDER ||= {});
-RENDER.MIRROR = RENDER.MIRROR || {}; // Initialize per-limb mirror flags
+const DEFAULT_MIRROR_SCOPE = '__default__';
+RENDER.MIRROR = (RENDER.MIRROR && typeof RENDER.MIRROR === 'object' && !Array.isArray(RENDER.MIRROR))
+  ? RENDER.MIRROR
+  : {};
+if (!RENDER.MIRROR.__scopedMirror){
+  const legacy = { ...RENDER.MIRROR };
+  RENDER.MIRROR = { __scopedMirror: true, [DEFAULT_MIRROR_SCOPE]: legacy };
+}
+function mirrorScopeKey(fighterId){
+  if (fighterId === null) return DEFAULT_MIRROR_SCOPE;
+  if (fighterId === undefined) return DEFAULT_MIRROR_SCOPE;
+  const key = `${fighterId}`;
+  return key || DEFAULT_MIRROR_SCOPE;
+}
+function mirrorStateFor(fighterId){
+  const key = mirrorScopeKey(fighterId);
+  const store = RENDER.MIRROR;
+  if (!store[key] || typeof store[key] !== 'object' || Array.isArray(store[key])){
+    store[key] = {};
+  }
+  return store[key];
+}
 const WEAPON_SPRITE_CACHE = new Map();
 const COSMETIC_INFLUENCE_WEIGHT_LIMIT = 4;
 const DYNAMIC_LAYER_STATE = new Map();
@@ -262,8 +283,6 @@ if (typeof RENDER.hideSprites === 'boolean') {
   window.RENDER_DEBUG.showSprites = !RENDER.hideSprites;
 }
 
-RENDER.MIRROR ||= {}; // per-part mirror flags like 'ARM_L_UPPER': true
-
 function angleZero(){ return 'up'; }
 function spriteAngleZero(){ return 'up'; }
 
@@ -425,38 +444,43 @@ function buildZMap(C){
 }
 
 // === MIRROR API ===
-export function resetMirror(){ RENDER.MIRROR = {}; }
-export function setMirrorForPart(part, val){
+export function resetMirror(fighterId){
+  const key = mirrorScopeKey(fighterId);
+  const store = RENDER.MIRROR;
+  store[key] = {};
+}
+export function setMirrorForPart(part, val, fighterId){
+  const mirror = mirrorStateFor(fighterId);
   const tags = resolveMirrorTags(part);
   if (!tags.length){
     const key = typeof part === 'string' ? part.trim().toUpperCase() : '';
     if (key) {
-      RENDER.MIRROR[key] = !!val;
+      mirror[key] = !!val;
     }
     return;
   }
   const flag = !!val;
   for (const tag of tags){
-    RENDER.MIRROR[tag] = flag;
+    mirror[tag] = flag;
   }
 }
 
-function legMirrorFlag(side, tagU, tagL){
+function legMirrorFlag(mirrorState, side, tagU, tagL){
   // Modify as needed if you want per-leg mirroring based on animation or sprites
-  return !!RENDER.MIRROR[tagU] || !!RENDER.MIRROR[tagL];
+  return !!mirrorState[tagU] || !!mirrorState[tagL];
 }
 
-function getMirrorFlag(tag){
-  return !!RENDER.MIRROR[tag];
+function getMirrorFlag(mirrorState, tag){
+  return !!mirrorState[tag];
 }
 
 // Leg drawing uses branch mirroring, standard math
-function drawLegBranch(ctx, rig, side, assets, style, segment='both'){
+function drawLegBranch(ctx, rig, side, assets, style, mirrorState, segment='both'){
   const upKey = side==='L' ? 'leg_L_upper':'leg_R_upper';
   const loKey = side==='L' ? 'leg_L_lower':'leg_R_lower';
   const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
   const tagU = tagOf(upKey), tagL = tagOf(loKey);
-  const mirror = legMirrorFlag(side, tagU, tagL);
+  const mirror = legMirrorFlag(mirrorState, side, tagU, tagL);
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
     if (segment !== 'lower'){
@@ -469,12 +493,12 @@ function drawLegBranch(ctx, rig, side, assets, style, segment='both'){
 }
 
 // Draws arms with branch-level mirroring
-function drawArmBranch(ctx, rig, side, assets, style, segment='both'){
+function drawArmBranch(ctx, rig, side, assets, style, mirrorState, segment='both'){
   const upKey = side==='L' ? 'arm_L_upper':'arm_R_upper';
   const loKey = side==='L' ? 'arm_L_lower':'arm_R_lower';
   const up = rig[upKey]; const lo = rig[loKey]; if (!up) return;
   const tagU = tagOf(upKey), tagL = tagOf(loKey);
-  const mirror = RENDER.MIRROR[tagU] || RENDER.MIRROR[tagL];
+  const mirror = mirrorState[tagU] || mirrorState[tagL];
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
     if (segment !== 'lower') drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style);
@@ -494,36 +518,36 @@ function withBranchMirror(ctx, originX, mirror, drawFn){
   ctx.restore();
 }
 
-function resolveCosmeticMirror(rig, partKey, bone){
+function resolveCosmeticMirror(mirrorState, rig, partKey, bone){
   const tag = tagOf(partKey);
   const fallbackOrigin = bone?.x ?? 0;
   switch (tag){
     case 'ARM_L_UPPER':
     case 'ARM_L_LOWER':
       return {
-        mirror: getMirrorFlag('ARM_L_UPPER') || getMirrorFlag('ARM_L_LOWER'),
+        mirror: getMirrorFlag(mirrorState, 'ARM_L_UPPER') || getMirrorFlag(mirrorState, 'ARM_L_LOWER'),
         originX: rig?.arm_L_upper?.x ?? rig?.arm_L_lower?.x ?? fallbackOrigin
       };
     case 'ARM_R_UPPER':
     case 'ARM_R_LOWER':
       return {
-        mirror: getMirrorFlag('ARM_R_UPPER') || getMirrorFlag('ARM_R_LOWER'),
+        mirror: getMirrorFlag(mirrorState, 'ARM_R_UPPER') || getMirrorFlag(mirrorState, 'ARM_R_LOWER'),
         originX: rig?.arm_R_upper?.x ?? rig?.arm_R_lower?.x ?? fallbackOrigin
       };
     case 'LEG_L_UPPER':
     case 'LEG_L_LOWER':
       return {
-        mirror: getMirrorFlag('LEG_L_UPPER') || getMirrorFlag('LEG_L_LOWER'),
+        mirror: getMirrorFlag(mirrorState, 'LEG_L_UPPER') || getMirrorFlag(mirrorState, 'LEG_L_LOWER'),
         originX: rig?.leg_L_upper?.x ?? rig?.leg_L_lower?.x ?? fallbackOrigin
       };
     case 'LEG_R_UPPER':
     case 'LEG_R_LOWER':
       return {
-        mirror: getMirrorFlag('LEG_R_UPPER') || getMirrorFlag('LEG_R_LOWER'),
+        mirror: getMirrorFlag(mirrorState, 'LEG_R_UPPER') || getMirrorFlag(mirrorState, 'LEG_R_LOWER'),
         originX: rig?.leg_R_upper?.x ?? rig?.leg_R_lower?.x ?? fallbackOrigin
       };
     default:
-      return { mirror: getMirrorFlag(tag), originX: fallbackOrigin };
+      return { mirror: getMirrorFlag(mirrorState, tag), originX: fallbackOrigin };
   }
 }
 
@@ -1054,6 +1078,8 @@ export function renderSprites(ctx){
       return composeStyleOverrides(styleKey, baseOptions);
     }
 
+    // Reset mirror access to the current fighter scope before drawing anything
+    const mirrorState = mirrorStateFor(entity.id);
     const overrides = buildSpriteOverrides(entity.profile || {});
     const { assets, style, cosmetics, bodyColors, untintedOverlays: activeUntintedOverlays } = ensureFighterSprites(C, fighterName, overrides);
     const { appearanceLayers, clothingLayers } = partitionCosmeticLayers(cosmetics);
@@ -1069,7 +1095,7 @@ export function renderSprites(ctx){
     function enqueue(tag, drawFn){ queue.push({ z: zOf(tag), tag, drawFn }); }
 
     // RENDER.MIRROR flags control per-limb mirroring (e.g., for attack animations)
-    const getMirror = getMirrorFlag;
+    const getMirror = (tag) => getMirrorFlag(mirrorState, tag);
 
     function makeTintOptions(asset){
       if (!asset || !bodyColors) return undefined;
@@ -1113,7 +1139,7 @@ export function renderSprites(ctx){
       const list = phase === 'back' ? branch.back : branch.front;
       if (!Array.isArray(list) || list.length === 0) return;
       if (!bone) return;
-      const { mirror, originX } = resolveCosmeticMirror(rig, partKey, bone);
+      const { mirror, originX } = resolveCosmeticMirror(mirrorState, rig, partKey, bone);
       withBranchMirror(ctx, originX, mirror, ()=>{
         for (const layer of list){
           if (!layer?.asset) continue;
@@ -1349,7 +1375,7 @@ export function renderSprites(ctx){
         const baseTag = tagOf(drawSlotKey);
         const slotTag = cosmeticTagFor(baseTag, layer.slot, layer.position);
         const styleKey = layer.styleKey || boneKey;
-        const { mirror, originX } = resolveCosmeticMirror(rig, drawSlotKey, bone);
+        const { mirror, originX } = resolveCosmeticMirror(mirrorState, rig, drawSlotKey, bone);
         const influences = resolveCosmeticBoneInfluences(layer.extra?.boneInfluences, rig, boneKey);
         const baseOptions = {
           styleOverride: layer.styleOverride,
