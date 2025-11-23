@@ -591,9 +591,9 @@ window.CONFIG = {
     lElbow: 0,
     rShoulder: -90,
     rElbow: 0,
-    lHip: 0,
+    lHip: 90,
     lKnee: 0,
-    rHip: 0,
+    rHip: 90,
     rKnee: 0
   },
 
