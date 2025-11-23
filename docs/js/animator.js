@@ -1959,7 +1959,7 @@ function updateAiming(F, currentPose, fighterId){
 
 // Apply aiming offsets to a pose
 function applyAimingOffsets(poseDeg, F, currentPose){
-  if (!F.aim.active) return poseDeg;
+  if (!F.aim.active || F.nonCombatRagdoll) return poseDeg;
 
   const poseFlags = currentPose || {};
   const result = {...poseDeg};

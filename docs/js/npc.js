@@ -1013,7 +1013,7 @@ function updateNpcAttack(G, state, dt) {
 
 function updateNpcAiming(state, player, { aggressionActive } = {}) {
   const aim = ensureAimState(state);
-  if (!aggressionActive) {
+  if (!aggressionActive || state.nonCombatRagdoll) {
     aim.active = false;
     aim.torsoOffset = 0;
     aim.shoulderOffset = 0;
