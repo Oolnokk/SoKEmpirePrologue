@@ -526,10 +526,10 @@ window.CONFIG = {
       enabled: true,
       arch: {
         radiusPx: 160,
-        start: { x: 0.90, y: 0.25 },
-        end: { x: 0.75, y: 0.10 },
+        start: { x: 0.75, y: 0.10 },
+        end: { x: 0.90, y: 0.25 },
         scale: 1,
-        buttonSizePx: 84,
+        buttonSizePx: 100,
         defaultGapPx: 12,
         rotateWithArch: true,
         debug: false,
