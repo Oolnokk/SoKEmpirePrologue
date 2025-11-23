@@ -1666,12 +1666,23 @@ function advanceNonCombatNoise(F){
   return { shoulder, elbow };
 }
 
-function buildNonCombatRagdollPose(F){
+function computeGravityDownDeg(movement){
+  const gravity = movement?.gravity;
+  if (Number.isFinite(gravity) && gravity !== 0) {
+    return radToDegNum(Math.atan2(gravity, 0));
+  }
+  return 90;
+}
+
+function buildNonCombatRagdollPose(F, basePose, movement){
   const noise = advanceNonCombatNoise(F);
+  const downDeg = computeGravityDownDeg(movement);
+  const lBase = Number.isFinite(basePose?.lShoulder) ? basePose.lShoulder : 0;
+  const rBase = Number.isFinite(basePose?.rShoulder) ? basePose.rShoulder : 0;
   return {
-    lShoulder: (NON_COMBAT_RAGDOLL_POSE.lShoulder || 0) + noise.shoulder,
+    lShoulder: downDeg - lBase + noise.shoulder,
     lElbow: (NON_COMBAT_RAGDOLL_POSE.lElbow || 0) + noise.elbow,
-    rShoulder: (NON_COMBAT_RAGDOLL_POSE.rShoulder || 0) - noise.shoulder,
+    rShoulder: downDeg - rBase - noise.shoulder,
     rElbow: (NON_COMBAT_RAGDOLL_POSE.rElbow || 0) - noise.elbow,
   };
 }
@@ -1981,7 +1992,7 @@ export function updatePoses(){
 
     const armsLockedByLayer = activeLayers.some(layerTouchesArms);
     if (F.nonCombatRagdoll && !armsLockedByLayer) {
-      const relaxed = buildNonCombatRagdollPose(F);
+      const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement);
       for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
         if (relaxed[key] != null) {
           targetDeg[key] = relaxed[key];
