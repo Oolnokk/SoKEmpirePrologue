@@ -85,7 +85,7 @@ test('convertLayoutToArea normalizes area descriptors', () => {
   assert.equal(area.instances[0].meta.identity.instanceId, 'player_spawn');
   assert.equal(area.instances[0].meta.identity.source, 'tag:spawn:player');
   assert.strictEqual(area.instancesById.player_spawn, area.instances[0]);
-  assert.deepEqual(area.meta, { revision: 2 });
+  assert.deepEqual(area.meta, { revision: 2, proximityScale: 1 });
   assert.equal(area.warnings.length, 0);
 });
 
@@ -123,6 +123,30 @@ test('convertLayoutToArea generates fallback prefab art when prefab is missing',
   assert.equal(inst.meta.fallback.errorCode, 'E404');
   assert.ok(Array.isArray(area.warnings));
   assert.ok(area.warnings.some((line) => line.includes('generated ASCII fallback')));
+});
+
+test('convertLayoutToArea applies proximity scale and intra-layer depth', () => {
+  const layout = {
+    areaId: 'proximity_area',
+    proximityScale: 1.5,
+    layers: [
+      { id: 'game', name: 'Game', parallax: 1, yOffset: 0, sep: 150, scale: 1 },
+    ],
+    instances: [
+      { id: 'close', prefabId: 'tree', layerId: 'game', x: 0, offsetY: 0, scaleX: 1 },
+      { id: 'far', prefabId: 'rock', layerId: 'game', x: 10, offsetY: 0, scaleX: 1, tags: ['spawn:player'] },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout, { prefabResolver: (id) => ({ id, parts: [] }) });
+
+  assert.equal(area.proximityScale, 1.5);
+  assert.equal(area.meta.proximityScale, 1.5);
+  const [closeInst, farInst] = area.instances;
+  assert.equal(closeInst.scale.x, 1.5);
+  assert.equal(closeInst.meta.proximityScale.applied, 1.5);
+  assert.equal(farInst.scale.x, 1); // player spawn tags remain unscaled
+  assert.ok(closeInst.intraLayerDepth > farInst.intraLayerDepth);
 });
 
 test('convertLayoutToArea falls back to layout.props when instances are missing', () => {
