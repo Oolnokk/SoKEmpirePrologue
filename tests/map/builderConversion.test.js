@@ -119,6 +119,36 @@ test('convertLayoutToArea collects gameplay path targets and respects ordering',
   assert.ok(area.warnings.some((line) => line.includes('Ignoring path target')));
 });
 
+test('convertLayoutToArea merges explicit path targets with derived markers', () => {
+  const layout = {
+    areaId: 'path_merge',
+    layers: [
+      { id: 'game', name: 'Game', parallax: 1, yOffset: 0, sep: 120, scale: 1, type: 'gameplay' },
+    ],
+    instances: [
+      { id: 'alpha_inst', prefabId: 'marker', layerId: 'game', slot: 0, tags: ['path:target:alpha:1'] },
+      { id: 'charlie_inst', prefabId: 'marker', layerId: 'game', slot: 1, tags: ['path:target:charlie:5'] },
+    ],
+    pathTargets: [
+      { name: 'alpha', instanceId: 'alpha_inst', order: 99, position: { x: 5, y: -3 } },
+      { id: 'bravo', order: 2, layerId: 'game', position: { x: 10, y: -2 } },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout, { prefabResolver: (id) => ({ id }) });
+
+  assert.equal(area.pathTargets.length, 3);
+  const alpha = area.pathTargets.find((pt) => pt.name === 'alpha');
+  const bravo = area.pathTargets.find((pt) => pt.name === 'bravo');
+  const charlie = area.pathTargets.find((pt) => pt.name === 'charlie');
+  assert.ok(alpha);
+  assert.ok(bravo);
+  assert.ok(charlie);
+  assert.equal(alpha.order, 99);
+  assert.equal(bravo.order, 2);
+  assert.equal(charlie.order, 5);
+});
+
 test('convertLayoutToArea tolerates missing arrays', () => {
   const area = convertLayoutToArea({ id: 'fallback' });
   assert.equal(area.layers.length, 0);
