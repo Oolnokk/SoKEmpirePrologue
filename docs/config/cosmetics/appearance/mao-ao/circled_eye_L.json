@@ -4,7 +4,7 @@
   "appearance": {
     "inheritSprite": "head",
     "bodyColors": ["B"],
-    "originalId": "mao-ao_circled_eye_L"
+    "originalId": "mao-ao_circled_eyes"
   },
   "parts": {
     "head": {
