@@ -525,9 +525,9 @@ window.CONFIG = {
     arch: {
       enabled: true,
       arch: {
-        radiusPx: 200,
-        start: { x: 0.75, y: 0.10 },
-        end: { x: 0.90, y: 0.25 },
+        radiusPx: 180,
+        start: { x: 0.90, y: 0.25 },
+        end: { x: 0.75, y: 0.10 },
         scale: 1,
         buttonSizePx: 90,
         defaultGapPx: 12,
