@@ -1448,19 +1448,22 @@ function applyGravityScaleEvent(F, scale, { durationMs, reset } = {}){
   F.gravityOverride = { value: scale, expiresAt };
 }
 function pickBase(fcfg, C, mode = 'combat'){
-  const cfg = fcfg || C || {};
-  if (!cfg?.poses) return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
-  if (mode === 'nonCombat' && cfg.poses.NonCombatBase) return cfg.poses.NonCombatBase;
-  if (mode === 'sneak' && cfg.poses.SneakBase) return cfg.poses.SneakBase;
-  return cfg.poses.Stance || { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
+  const fighterCfg = fcfg || {};
+  const config = C || {};
+  const poses = fighterCfg.poses || config.poses;
+  if (!poses) return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
+  if (mode === 'nonCombat' && poses.NonCombatBase) return poses.NonCombatBase;
+  if (mode === 'sneak' && poses.SneakBase) return poses.SneakBase;
+  return poses.Stance || { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
 }
 
 function pickWalkProfile(fcfg, C, mode = 'combat'){
-  const cfg = fcfg || C || {};
-  const profiles = cfg?.walkProfiles || {};
+  const fighterCfg = fcfg || {};
+  const config = C || {};
+  const profiles = fighterCfg.walkProfiles || config.walkProfiles || {};
   if (mode === 'nonCombat' && profiles.nonCombat) return profiles.nonCombat;
   if (mode === 'sneak' && profiles.sneak) return profiles.sneak;
-  return profiles.combat || cfg.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
+  return profiles.combat || fighterCfg.walk || config.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
 }
 
 function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX = (F._prevX==null? F.pos?.x||0 : F._prevX); const curX = F.pos?.x||0; const v = (curX - prevX)/dt; F._prevX = curX; return Math.abs(Number.isFinite(F.vel?.x)? F.vel.x : v); }
