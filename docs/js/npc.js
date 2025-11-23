@@ -587,6 +587,8 @@ function ensureAimState(state) {
   aim.torsoOffset = Number.isFinite(aim.torsoOffset) ? aim.torsoOffset : 0;
   aim.shoulderOffset = Number.isFinite(aim.shoulderOffset) ? aim.shoulderOffset : 0;
   aim.hipOffset = Number.isFinite(aim.hipOffset) ? aim.hipOffset : 0;
+  aim.headWorldTarget = Number.isFinite(aim.headWorldTarget) ? aim.headWorldTarget : null;
+  aim.headTrackingOnly = !!aim.headTrackingOnly;
   aim.active = !!aim.active;
   return aim;
 }
@@ -1011,21 +1013,77 @@ function updateNpcAttack(G, state, dt) {
   applyNpcPoseForCurrentPhase(state);
 }
 
-function updateNpcAiming(state, player) {
+function normalizeRad(angle) {
+  const TAU = Math.PI * 2;
+  let out = angle % TAU;
+  if (out <= -Math.PI) out += TAU;
+  if (out > Math.PI) out -= TAU;
+  return out;
+}
+
+function getNpcHeadLimits(state) {
+  const C = window.CONFIG || {};
+  const limits = state?.limits?.head || C.limits?.head || {};
+  const relMin = normalizeRad(((limits.relMin ?? -75) * Math.PI) / 180);
+  const relMax = normalizeRad(((limits.relMax ?? 75) * Math.PI) / 180);
+  const min = Math.min(relMin, relMax);
+  const max = Math.max(relMin, relMax);
+  return { min, max };
+}
+
+function resetNpcAimingOffsets(aim) {
+  aim.active = false;
+  aim.torsoOffset = 0;
+  aim.shoulderOffset = 0;
+  aim.hipOffset = 0;
+  aim.headWorldTarget = null;
+  aim.headTrackingOnly = false;
+  aim.currentAngle = 0;
+}
+
+function updateNpcPassiveHeadTracking(state, player) {
   const aim = ensureAimState(state);
-  if (!player) {
-    aim.active = false;
-    aim.torsoOffset = 0;
-    aim.shoulderOffset = 0;
-    aim.hipOffset = 0;
+  const perception = evaluateNpcPerception(state, player);
+  const canTrack = perception?.vision && perception?.hearing;
+  if (!canTrack) {
+    resetNpcAimingOffsets(aim);
     return;
   }
+
+  const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
+  const dy = (player.pos?.y ?? state.pos.y) - state.pos.y;
+  const worldAim = normalizeRad(Math.atan2(dy, dx));
+  const facingRad = Number.isFinite(state.facingRad) ? state.facingRad : 0;
+  const { min, max } = getNpcHeadLimits(state);
+  const relative = normalizeRad(worldAim - facingRad);
+  const withinLimits = relative >= min && relative <= max;
+
+  aim.active = true;
+  aim.currentAngle = 0;
+  aim.torsoOffset = 0;
+  aim.shoulderOffset = 0;
+  aim.hipOffset = 0;
+  aim.headTrackingOnly = true;
+  aim.headWorldTarget = withinLimits ? worldAim : null;
+}
+
+function updateNpcAiming(state, player) {
+  const aim = ensureAimState(state);
+  const aggression = ensureNpcAggressionState(state);
+  if (!player) {
+    resetNpcAimingOffsets(aim);
+    return;
+  }
+
+  if (!aggression.active) {
+    updateNpcPassiveHeadTracking(state, player);
+    return;
+  }
+
+  aim.headTrackingOnly = false;
   const shouldAim = !state.onGround;
   if (!shouldAim) {
-    aim.active = false;
-    aim.torsoOffset = 0;
-    aim.shoulderOffset = 0;
-    aim.hipOffset = 0;
+    resetNpcAimingOffsets(aim);
     return;
   }
   aim.active = true;
