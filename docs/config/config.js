@@ -1231,7 +1231,7 @@ window.CONFIG = {
           xformUnits: 'percent',
           widthFactor: { weapon_0: 1 },
           xform: {
-            weapon_0: { ax: 0, ay: -0, scaleX: 0.25, scaleY: 0.1 }
+            weapon_0: { ax: 0, ay: -1, scaleX: 0.25, scaleY: 0.1 }
           }
         }
       }
