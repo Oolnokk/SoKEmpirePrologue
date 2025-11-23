@@ -755,9 +755,27 @@ function resolvePoseForPhase(preset, phaseName) {
   return null;
 }
 
+function resolveNpcIdFromGame(G, state) {
+  if (!state) return 'npc';
+  if (state.id && state.id !== 'npc') return state.id;
+  const fighters = G?.FIGHTERS || {};
+  for (const [key, fighter] of Object.entries(fighters)) {
+    if (fighter === state) {
+      return key;
+    }
+  }
+  return state.id || 'npc';
+}
+
 function resolveNpcPoseTarget(state) {
   if (!state || typeof state !== 'object') return 'npc';
   const target = state.poseTarget || state.id;
+  const fighters = window.GAME?.FIGHTERS;
+  const fallback = state.id || 'npc';
+  if (target && fighters && !fighters[target]) {
+    console.warn(`[npc] Pose target '${target}' not found; using '${fallback}' instead.`);
+    return fallback || 'npc';
+  }
   return target || 'npc';
 }
 
@@ -1803,6 +1821,11 @@ export function evaluateNpcPerception(npc, target) {
 export function registerNpcFighter(state, { immediateAggro = false } = {}) {
   if (!state) return;
   const G = ensureGameState();
+  const resolvedId = resolveNpcIdFromGame(G, state);
+  state.id = resolvedId;
+  if (!state.poseTarget) {
+    state.poseTarget = resolvedId;
+  }
   ensureNpcVisualState(state);
   const combat = ensureNpcCombat(G, state);
   ensureAttackState(state);
