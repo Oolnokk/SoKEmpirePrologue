@@ -53,10 +53,10 @@ const WALK_PROFILES = {
   nonCombat: {
     enabled: true,
     onlyTorsoLegs: true,
-    baseHz: 1.1,
+    baseHz: 1.3,
     speedScale: 1,
     minSpeed: 60,
-    amp: 0.9,
+    amp: 1.0,
     poses: {
       A: { torso: 15, lHip: 60, lKnee: 45, rHip: 120, rKnee: 90 },
       B: { torso: 25, lHip: 120, lKnee: 90, rHip: 60, rKnee: 45 }
@@ -217,8 +217,8 @@ const MODE_BASE_POSES = {
   nonCombat: {
     ...deepClone(BASE_POSES.Stance),
     torso: 0,
-    lHip: 95,
-    rHip: 85,
+    lHip: 100,
+    rHip: 80,
     lKnee: 25,
     rKnee: 25,
   },
