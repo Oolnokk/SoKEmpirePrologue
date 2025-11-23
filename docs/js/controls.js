@@ -24,21 +24,28 @@ export function initControls(){
     }
   }
 
-  function toggleWeaponDrawn(){
-    I.weaponDrawn = !I.weaponDrawn;
+  function applyWeaponState(weaponDrawn, { broadcast = true } = {}){
+    I.weaponDrawn = weaponDrawn;
+    I.nonCombatRagdoll = !weaponDrawn;
+
     const fighter = window.GAME?.FIGHTERS?.player;
     if (fighter) {
-      fighter.weaponDrawn = I.weaponDrawn;
+      fighter.weaponDrawn = weaponDrawn;
+      fighter.nonCombatRagdoll = !weaponDrawn;
       fighter.renderProfile ||= {};
-      fighter.renderProfile.weaponDrawn = I.weaponDrawn;
-      fighter.renderProfile.weaponStowed = !I.weaponDrawn;
+      fighter.renderProfile.weaponDrawn = weaponDrawn;
+      fighter.renderProfile.weaponStowed = !weaponDrawn;
       if (fighter.anim?.weapon) {
-        fighter.anim.weapon.stowed = !I.weaponDrawn;
+        fighter.anim.weapon.stowed = !weaponDrawn;
       }
-      if (typeof window.syncWeaponDrawnState === 'function') {
-        window.syncWeaponDrawnState({ fighterKey: 'player', weaponDrawn: I.weaponDrawn });
+      if (broadcast && typeof window.syncWeaponDrawnState === 'function') {
+        window.syncWeaponDrawnState({ fighterKey: 'player', weaponDrawn });
       }
     }
+  }
+
+  function toggleWeaponDrawn(){
+    applyWeaponState(!I.weaponDrawn);
   }
 
   function setButton(btn, down){
@@ -120,22 +127,11 @@ export function initControls(){
     I.buttonA.down = false;
     I.buttonB.down = false;
     I.buttonC.down = false;
-    const fighter = window.GAME?.FIGHTERS?.player;
-    if (fighter) {
-      fighter.nonCombatRagdoll = false;
-      fighter.weaponDrawn = true;
-      fighter.renderProfile ||= {};
-      fighter.renderProfile.weaponDrawn = true;
-      fighter.renderProfile.weaponStowed = false;
-      if (fighter.anim?.weapon) {
-        fighter.anim.weapon.stowed = false;
-      }
-      if (typeof window.syncWeaponDrawnState === 'function') {
-        window.syncWeaponDrawnState({ fighterKey: 'player', weaponDrawn: true });
-      }
-    }
+    applyWeaponState(true);
     mouseBindings[0] = mouseBindings[1] = mouseBindings[2] = null;
   });
+
+  applyWeaponState(I.weaponDrawn, { broadcast: false });
 
   console.log('[controls] wired');
 }
