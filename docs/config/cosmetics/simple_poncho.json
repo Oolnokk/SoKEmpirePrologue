@@ -14,10 +14,10 @@
           "drawSlot": "torso",
           "dynamicLayerByBoneRotation": {
             "bone": "arm_R_upper",
-            "initialLayer": "torso",
+            "initialLayer": "head",
             "ranges": [
-              { "minDeg": -180, "maxDeg": -5, "layer": "torso" },
-              { "minDeg": -5, "maxDeg": 180, "layer": "arm_R_upper" }
+              { "minDeg": -360, "maxDeg": -180, "layer": "head" },
+              { "minDeg": -181, "maxDeg": 0, "layer": "arm_R_upper" }
             ]
           },
           "spriteStyle": {
@@ -38,8 +38,8 @@
             "bone": "arm_R_upper",
             "initialLayer": "torso",
             "ranges": [
-              { "minDeg": -180, "maxDeg": -5, "layer": "arm_R_upper" },
-              { "minDeg": -5, "maxDeg": 180, "layer": "torso" }
+              { "minDeg": -360, "maxDeg": -180, "layer": "arm_R_upper" },
+              { "minDeg": -181, "maxDeg": 0, "layer": "head" }
             ]
           },
           "spriteStyle": {
