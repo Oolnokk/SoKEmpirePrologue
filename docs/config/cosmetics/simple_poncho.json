@@ -38,8 +38,8 @@
             "bone": "arm_R_upper",
             "initialLayer": "torso",
             "ranges": [
-              { "minDeg": 0, "maxDeg": 180, "layer": "arm_R_upper" },
-              { "minDeg": 181, "maxDeg": 360, "layer": "head" }
+              { "minDeg": 181, "maxDeg": 360, "layer": "arm_R_upper" },
+              { "minDeg": 0, "maxDeg": 180, "layer": "head" }
             ]
           },
           "spriteStyle": {
