@@ -613,8 +613,18 @@ export function updateCamera(canvas) {
   const maxCameraX = Math.max(minBound, maxBound - viewportWorldWidth);
   const verticalBounds = camera.verticalBounds || { min: -DEFAULT_WORLD_HEIGHT * 0.5, max: DEFAULT_WORLD_HEIGHT * 0.5 };
   const minBoundY = Number.isFinite(verticalBounds.min) ? verticalBounds.min : -DEFAULT_WORLD_HEIGHT * 0.5;
-  const maxBoundY = Number.isFinite(verticalBounds.max) ? verticalBounds.max : minBoundY + (camera.worldHeight || DEFAULT_WORLD_HEIGHT);
-  const maxCameraY = Math.max(minBoundY, maxBoundY - viewportWorldHeight);
+  const derivedSpanY = Number.isFinite(verticalBounds.max) ? verticalBounds.max - minBoundY : 0;
+  const worldHeight = Number.isFinite(camera.worldHeight) ? camera.worldHeight : DEFAULT_WORLD_HEIGHT;
+  const verticalSpan = Math.max(derivedSpanY, worldHeight, 1);
+  let maxBoundY = Number.isFinite(verticalBounds.max) ? verticalBounds.max : minBoundY + verticalSpan;
+  let minCameraY = minBoundY;
+  let maxCameraY = maxBoundY - viewportWorldHeight;
+  if (!Number.isFinite(maxCameraY) || maxCameraY <= minCameraY) {
+    const centerY = minBoundY + (maxBoundY - minBoundY) * 0.5;
+    const padding = 1;
+    minCameraY = centerY - viewportWorldHeight * 0.5 - padding;
+    maxCameraY = centerY - viewportWorldHeight * 0.5 + padding;
+  }
 
   const playerX = Number.isFinite(P.hitbox?.x)
     ? P.hitbox.x
@@ -644,12 +654,12 @@ export function updateCamera(canvas) {
   const desiredX = playerX - viewportWorldWidth * 0.5 + framing.offsetX + manualOffsetX;
   const target = clamp(desiredX, minBound, maxCameraX);
   const desiredY = playerY - viewportWorldHeight * 0.5 + framing.offsetY + manualOffsetY;
-  const targetY = clamp(desiredY, minBoundY, maxCameraY);
+  const targetY = clamp(desiredY, minCameraY, maxCameraY);
 
   const smoothing = Number.isFinite(camera.smoothing) ? camera.smoothing : DEFAULT_SMOOTHING;
   const smoothingY = Number.isFinite(camera.smoothingY) ? camera.smoothingY : smoothing;
   const currentX = Number.isFinite(camera.x) ? camera.x : minBound;
-  const currentY = Number.isFinite(camera.y) ? camera.y : minBoundY;
+  const currentY = Number.isFinite(camera.y) ? camera.y : minCameraY;
   camera.x = currentX + (target - currentX) * smoothing;
   camera.targetX = target;
   camera.y = currentY + (targetY - currentY) * smoothingY;
