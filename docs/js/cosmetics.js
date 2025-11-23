@@ -693,6 +693,7 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
   let warpCfg = pickPerFighter(cleanConfig.warp, fighterName);
   let anchorCfg = pickPerFighter(cleanConfig.anchor, fighterName);
   let alignCfg = pickPerFighter(cleanConfig.align, fighterName);
+  const dynamicLayerByBoneRotation = cleanConfig.dynamicLayerByBoneRotation;
   let extra = (cleanConfig.extra && typeof cleanConfig.extra === 'object') ? deepMerge({}, cleanConfig.extra) : (cleanConfig.extra || {});
   let styleKey = cleanConfig.styleKey || cleanConfig.style || cleanConfig.styleName;
   const profileOverrides = getProfilePartOverrides(fighterName, cosmeticId, partKey);
@@ -717,7 +718,8 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
     styleKey,
     extra: extra,
     attachBone,
-    drawSlot
+    drawSlot,
+    dynamicLayerByBoneRotation
   };
 }
 
