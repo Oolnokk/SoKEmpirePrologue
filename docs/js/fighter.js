@@ -945,6 +945,7 @@ export function spawnAdditionalNpc(options = {}) {
     : (spawnMeta.facingSign ?? -1);
 
   const npc = clone(baseTemplate);
+  npc.id = id;
   const templateId = options.templateId || window.CONFIG?.bounty?.npcTemplateId || null;
   let templateResult = null;
   if (templateId) {
