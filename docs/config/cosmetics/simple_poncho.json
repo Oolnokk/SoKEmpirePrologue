@@ -11,7 +11,7 @@
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-back.png"
           },
           "attachBone": "torso",
-          "drawSlot": "arm_R_lower", 
+          "drawSlot": "head", 
           "spriteStyle": {
             "base": {
               "xform": {
@@ -25,7 +25,7 @@
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-front.png"
           },
           "attachBone": "torso",
-          "drawSlot": "arm_R_lower", 
+          "drawSlot": "head", 
           "spriteStyle": {
             "base": {
               "xform": {
