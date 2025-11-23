@@ -1231,6 +1231,24 @@
       "meta": {}
     }
   ],
+  "drumSkins": [
+    {
+      "id": 1,
+      "topParallax": 0.3,
+      "bottomParallax": 1,
+      "topScale": 0.2,
+      "bottomScale": 1.5,
+      "topYOffset": 100,
+      "bottomYOffset": 20,
+      "prefabId": "stone_tiles",
+      "textureId": "stone_tiles",
+      "imageURL": "./assets/prefabs/images/stone_tiles.png",
+      "tileScale": 1,
+      "visible": true,
+      "legacyLayerA": "bg1",
+      "legacyLayerB": "bg1_copy"
+    }
+  ],
   "meta": {
     "areaId": "defaultdistrict",
     "areaName": "DefaultDistrict",
