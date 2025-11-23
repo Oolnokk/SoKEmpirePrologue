@@ -681,6 +681,32 @@ function isSneakMode(F) {
 
 const LOWER_BODY_MASK = ['torso', 'lHip', 'lKnee', 'rHip', 'rKnee'];
 
+function extractLowerBodyPose(pose) {
+  const lower = {};
+  if (!pose) return lower;
+  for (const key of LOWER_BODY_MASK) {
+    if (pose[key] != null) lower[key] = pose[key];
+  }
+  return lower;
+}
+
+function mergeLowerBodyPose(basePose, lowerPose) {
+  const merged = { ...(basePose || {}) };
+  if (!lowerPose) return merged;
+  for (const key of LOWER_BODY_MASK) {
+    if (lowerPose[key] != null) merged[key] = lowerPose[key];
+  }
+  return merged;
+}
+
+function pickLegsBase(fcfg, C, mode = 'combat') {
+  const cfg = fcfg || C || {};
+  const poses = cfg?.poses || {};
+  if (mode === 'nonCombat' && poses.LegsNonCombat) return poses.LegsNonCombat;
+  if (mode === 'sneak' && poses.LegsSneak) return poses.LegsSneak;
+  return poses.LegsCombat || poses.Legs || null;
+}
+
 function collectDefaultGripPercents(rig) {
   const map = {};
   if (!rig?.bones) return map;
@@ -1494,17 +1520,25 @@ export function resolveStancePose(C, F) {
 function pickBase(fcfg, C, mode = 'combat', F){
   const cfg = fcfg || C || {};
   if (!cfg?.poses) return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
-  if (mode === 'nonCombat' && cfg.poses.NonCombatBase) return cfg.poses.NonCombatBase;
-  if (mode === 'sneak' && cfg.poses.SneakBase) return cfg.poses.SneakBase;
-  return resolveStancePose(cfg, F);
+  const legs = pickLegsBase(cfg, C, mode);
+  if (mode === 'nonCombat' && cfg.poses.NonCombatBase) {
+    return mergeLowerBodyPose(cfg.poses.NonCombatBase, legs);
+  }
+  if (mode === 'sneak' && cfg.poses.SneakBase) {
+    return mergeLowerBodyPose(cfg.poses.SneakBase, legs);
+  }
+  const base = cfg.poses.Stance || { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
+  return mergeLowerBodyPose(base, legs);
 }
 
 function pickWalkProfile(fcfg, C, mode = 'combat'){
   const cfg = fcfg || C || {};
   const profiles = cfg?.walkProfiles || {};
-  if (mode === 'nonCombat' && profiles.nonCombat) return profiles.nonCombat;
-  if (mode === 'sneak' && profiles.sneak) return profiles.sneak;
-  return profiles.combat || cfg.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
+  const legsPose = pickLegsBase(cfg, C, mode);
+  if (mode === 'nonCombat' && profiles.nonCombat) return { ...profiles.nonCombat, legsPose };
+  if (mode === 'sneak' && profiles.sneak) return { ...profiles.sneak, legsPose };
+  const baseProfile = profiles.combat || cfg.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
+  return { ...baseProfile, legsPose };
 }
 
 function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX = (F._prevX==null? F.pos?.x||0 : F._prevX); const curX = F.pos?.x||0; const v = (curX - prevX)/dt; F._prevX = curX; return Math.abs(Number.isFinite(F.vel?.x)? F.vel.x : v); }
@@ -2150,6 +2184,7 @@ export function updatePoses(){
     const basePoseConfig = pickBase(fcfg, C, poseMode, F);
     const walkProfile = pickWalkProfile(fcfg, C, poseMode);
     const walkPose = computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode });
+    const legsPose = walkProfile?.legsPose || pickLegsBase(fcfg, C, poseMode);
     const applyModeLayer = walkPose._active && (poseMode === 'nonCombat' || poseMode === 'sneak');
 
     if (applyModeLayer) {
@@ -2175,14 +2210,34 @@ export function updatePoses(){
     const activeLayers = getActiveLayers(F, now, id);
     const activeLengthOverrides = collectLengthOverridesFromLayers(activeLayers);
     applyLengthOverridesToFighter(F, activeLengthOverrides);
-    let targetDeg = walkPose._active ? { ...walkPose } : { ...basePoseConfig };
     const walkSuppressed = activeLayers.some(layer => layer.suppressWalk);
+    const lowerBodyBase = extractLowerBodyPose(mergeLowerBodyPose(basePoseConfig, legsPose));
+    const walkLowerBody = (!walkSuppressed && walkPose._active)
+      ? mergeLowerBodyPose(lowerBodyBase, extractLowerBodyPose(walkPose))
+      : lowerBodyBase;
+    let targetDeg = { ...basePoseConfig, ...walkLowerBody };
     if (activeLayers.length){
+      let lowerBodyTarget = { ...walkLowerBody };
       if (walkSuppressed){
-        targetDeg = { ...basePoseConfig };
+        targetDeg = { ...basePoseConfig, ...lowerBodyBase };
+        lowerBodyTarget = { ...lowerBodyBase };
       }
       for (const layer of activeLayers){
         applyLayerPose(targetDeg, layer);
+        const layerMask = Array.isArray(layer.mask) && layer.mask.length ? layer.mask : ANG_KEYS;
+        const touchesLowerBody = layerMask.includes('ALL') || LOWER_BODY_MASK.some(key => layerMask.includes(key));
+        if (touchesLowerBody && layer.pose){
+          for (const key of LOWER_BODY_MASK){
+            if (layer.pose[key] == null) continue;
+            if (!layerMask.includes('ALL') && !layerMask.includes(key)) continue;
+            lowerBodyTarget[key] = layer.pose[key];
+          }
+        }
+      }
+      for (const key of LOWER_BODY_MASK){
+        if (lowerBodyTarget[key] != null) {
+          targetDeg[key] = lowerBodyTarget[key];
+        }
       }
     }
 

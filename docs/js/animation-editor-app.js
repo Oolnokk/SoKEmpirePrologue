@@ -87,11 +87,10 @@ class PosePreviewManager {
     if (!this.canvas || !this.ctx) return null;
     if (this.initPromise) return this.initPromise;
     this.initPromise = (async () => {
-      try {
-        await initSprites();
-        const stanceKey = resolveStanceKey(window.CONFIG);
-        initFighters(this.canvas, this.ctx, { spawnNpc: false, poseKey: stanceKey });
-
+        try {
+          await initSprites();
+          const stanceKey = resolveStanceKey(window.CONFIG);
+          initFighters(this.canvas, this.ctx, { spawnNpc: false, poseKey: stanceKey });
         const GAME = (window.GAME ||= {});
         GAME.CAMERA = GAME.CAMERA || { x: 0, worldWidth: this.canvas.width };
         this.ready = true;
@@ -103,10 +102,16 @@ class PosePreviewManager {
           this.pendingFighter = null;
           this.setFighter(fighterKey);
         }
-
-        const initialPose = this.pendingPose || resolveStancePose(window.CONFIG);
-        this.pendingPose = null;
-        if (initialPose) this.applyPose(initialPose);
+        if (this.pendingPose) {
+          const pose = this.pendingPose;
+          this.pendingPose = null;
+          this.applyPose(pose);
+          } else {
+            const fallback = resolveStancePose(window.CONFIG);
+            if (fallback) {
+              this.applyPose(fallback);
+            }
+          }
       } catch (error) {
         console.error('[animation-editor] Failed to initialize pose preview', error);
         this.setStatus?.('Pose preview failed to initialize');
@@ -185,20 +190,18 @@ class PosePreviewManager {
   }
 
   applyPose(pose) {
-    const copy = pose ? clone(pose) : null;
-    this.currentPose = copy;
-    if (!this.ready) {
-      this.pendingPose = copy;
-      return;
+      const copy = pose ? clone(pose) : null;
+      this.currentPose = copy;
+      if (!this.ready) {
+        this.pendingPose = copy;
+        return;
+      }
+      const payload = copy && Object.keys(copy).length
+        ? copy
+        : resolveStancePose(window.CONFIG);
+      pushPoseOverride('player', payload, { durMs: 60000, suppressWalk: true, useAsBase: true });
     }
-
-    const payload = copy && Object.keys(copy).length
-      ? copy
-      : resolveStancePose(window.CONFIG);
-    pushPoseOverride('player', payload, { durMs: 60000, suppressWalk: true, useAsBase: true });
   }
-
-}
 
 class AnimationEditorApp {
   constructor(config) {
