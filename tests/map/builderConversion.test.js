@@ -133,7 +133,7 @@ test('convertLayoutToArea applies proximity scale and intra-layer depth', () => 
       { id: 'game', name: 'Game', parallax: 1, yOffset: 0, sep: 150, scale: 1 },
     ],
     instances: [
-      { id: 'close', prefabId: 'tree', layerId: 'game', x: 0, offsetY: 0, scaleX: 1 },
+      { id: 'close', prefabId: 'tree', layerId: 'game', x: 4, offsetY: 0, scaleX: 1 },
       { id: 'far', prefabId: 'rock', layerId: 'game', x: 10, offsetY: 0, scaleX: 1, tags: ['spawn:player'] },
     ],
   };
@@ -144,8 +144,11 @@ test('convertLayoutToArea applies proximity scale and intra-layer depth', () => 
   assert.equal(area.meta.proximityScale, 1.5);
   const [closeInst, farInst] = area.instances;
   assert.equal(closeInst.scale.x, 1.5);
+  assert.equal(closeInst.position.x, 6);
+  assert.equal(closeInst.meta.proximityScale.mode, 'zoom');
   assert.equal(closeInst.meta.proximityScale.applied, 1.5);
   assert.equal(farInst.scale.x, 1); // player spawn tags remain unscaled
+  assert.equal(farInst.position.x, 10);
   assert.ok(closeInst.intraLayerDepth > farInst.intraLayerDepth);
 });
 
