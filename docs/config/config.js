@@ -718,7 +718,7 @@ window.CONFIG = {
 
   balance: {
     footingDamage: 1.0,
-    baseMovementSpeed: 1.0,
+    baseMovementSpeed: 0.25,
     baseRecoveryRate: 0.5,
     statPointEffects: {
       strength: 1.0,
