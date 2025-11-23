@@ -1397,16 +1397,16 @@ window.CONFIG = {
             legs: {
               id: 'basic_pants',
               hsv: {
-                h: 147,
-                s: 0.85,
-                v: -0.5
+                h: 167,
+                s: 0.95,
+                v: -0.75
               }
             },
             overwear: {
               $kind: 'pool',
               items: [
-                { value: { id: 'simple_poncho', hsv: {  h: 147, s: 0.85, v: -0.5  } }, weight: 2 },
-                { value: { id: 'simple_poncho', hsv: {  h: 147, s: 0.85, v: -0.5  } }, weight: 1 }
+                { value: { id: 'simple_poncho', hsv: {  h: 167, s: 0.95, v: -0.75  } }, weight: 2 },
+                { value: { id: 'simple_poncho', hsv: {  h: 167, s: 0.95, v: -0.75  } }, weight: 1 }
               ]
             }
           }
