@@ -69,6 +69,7 @@ function resetRuntimeState(fighter, template, {
   fighter.facingSign = resolvedFacing;
   fighter.facingRad = resolvedFacing < 0 ? Math.PI : 0;
   fighter.footing = fighter.isPlayer ? 50 : 100;
+  fighter.nonCombatRagdoll = false;
   fighter.ragdoll = false;
   fighter.ragdollTime = 0;
   fighter.ragdollVel = { x: 0, y: 0 };
@@ -639,6 +640,7 @@ export function initFighters(cv, cx, options = {}){
       facingRad: faceSign < 0 ? Math.PI : 0,
       facingSign: faceSign,
       footing: isPlayer ? 50 : 100,
+      nonCombatRagdoll: false,
       ragdoll: false,
       ragdollTime: 0,
       ragdollVel: { x: 0, y: 0 },

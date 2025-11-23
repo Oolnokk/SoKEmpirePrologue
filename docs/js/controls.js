@@ -5,6 +5,7 @@ export function initControls(){
   const G = (window.GAME ||= {});
   G.input ||= {
     left:false, right:false, jump:false, dash:false,
+    nonCombatRagdoll: false,
     buttonA: { down:false, downTime:0, upTime:0 },
     buttonB: { down:false, downTime:0, upTime:0 },
     buttonC: { down:false, downTime:0, upTime:0 }
@@ -12,6 +13,14 @@ export function initControls(){
   const I = G.input;
   const now = ()=> performance.now();
   const mouseBindings = { 0: null, 1: null, 2: null };
+
+  function toggleNonCombatRagdoll(){
+    I.nonCombatRagdoll = !I.nonCombatRagdoll;
+    const fighter = window.GAME?.FIGHTERS?.player;
+    if (fighter) {
+      fighter.nonCombatRagdoll = I.nonCombatRagdoll;
+    }
+  }
 
   function setButton(btn, down){
     const state = I[btn];
@@ -39,6 +48,7 @@ export function initControls(){
       case 'KeyE': case 'KeyJ': setButton('buttonA', down); break;
       case 'KeyF': case 'KeyK': setButton('buttonB', down); break;
       case 'KeyR': case 'KeyL': setButton('buttonC', down); break;
+      case 'KeyN': if (down) toggleNonCombatRagdoll(); break;
       default: return;
     }
   }
@@ -84,11 +94,15 @@ export function initControls(){
     if (isBlockedTarget(e.target)) return;
     e.preventDefault();
   }); // Prevent right-click menu over game viewport
-  window.addEventListener('blur', ()=>{ 
-    Object.assign(I,{left:false,right:false,jump:false,dash:false});
+  window.addEventListener('blur', ()=>{
+    Object.assign(I,{left:false,right:false,jump:false,dash:false,nonCombatRagdoll:false});
     I.buttonA.down = false;
     I.buttonB.down = false;
     I.buttonC.down = false;
+    const fighter = window.GAME?.FIGHTERS?.player;
+    if (fighter) {
+      fighter.nonCombatRagdoll = false;
+    }
     mouseBindings[0] = mouseBindings[1] = mouseBindings[2] = null;
   });
 

@@ -10,6 +10,13 @@ import { updatePhysicsPoseTarget, getPhysicsRagdollBlend, getPhysicsRagdollAngle
 const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee','weapon'];
 const ARM_JOINT_KEYS = ['torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow'];
 const JOINT_DAMP_LAMBDA = 10;
+const NON_COMBAT_RAGDOLL_POSE = {
+  lShoulder: 165,
+  lElbow: -18,
+  rShoulder: -165,
+  rElbow: 18,
+};
+const NON_COMBAT_RAGDOLL_NOISE = { freqHz: 0.8, shoulderAmpDeg: 6, elbowAmpDeg: 4 };
 // Convert pose object from degrees to radians using centralized utility
 function degToRadPose(p){ const o={}; for(const k of ANG_KEYS){ if (p&&p[k]!=null) o[k]=degToRad(p[k]); } return o; }
 // Add basePose to pose (matching reference HTML addAngles function)
@@ -89,6 +96,12 @@ function ensureAnimState(F){
     if (typeof F.anim.length.active !== 'boolean') {
       F.anim.length.active = Object.keys(F.anim.length.overrides).length > 0;
     }
+  }
+  if (!F.anim.nonCombatRagdoll || typeof F.anim.nonCombatRagdoll !== 'object') {
+    F.anim.nonCombatRagdoll = {
+      phase: Math.random() * Math.PI * 2,
+      offset: Math.random() * Math.PI * 2,
+    };
   }
 }
 
@@ -1633,6 +1646,36 @@ function applyLayerPose(targetPose, layer){
   }
 }
 
+function layerTouchesArms(layer){
+  if (!layer) return false;
+  const mask = Array.isArray(layer.mask) && layer.mask.length ? layer.mask : ANG_KEYS;
+  if (mask.includes('ALL')) return true;
+  return ARM_JOINT_KEYS.some((key) => mask.includes(key));
+}
+
+function advanceNonCombatNoise(F){
+  if (!F?.anim?.nonCombatRagdoll) return { shoulder: 0, elbow: 0 };
+  const state = F.anim.nonCombatRagdoll;
+  state.phase = Number.isFinite(state.phase) ? state.phase : 0;
+  state.offset = Number.isFinite(state.offset) ? state.offset : 0;
+  const dt = Math.max(0, F.anim?.dt || 0);
+  const freq = Math.max(0, NON_COMBAT_RAGDOLL_NOISE.freqHz || 0);
+  state.phase += dt * freq * Math.PI * 2;
+  const shoulder = Math.sin(state.phase + state.offset) * (NON_COMBAT_RAGDOLL_NOISE.shoulderAmpDeg || 0);
+  const elbow = Math.cos(state.phase * 0.8 + state.offset * 1.1) * (NON_COMBAT_RAGDOLL_NOISE.elbowAmpDeg || 0);
+  return { shoulder, elbow };
+}
+
+function buildNonCombatRagdollPose(F){
+  const noise = advanceNonCombatNoise(F);
+  return {
+    lShoulder: (NON_COMBAT_RAGDOLL_POSE.lShoulder || 0) + noise.shoulder,
+    lElbow: (NON_COMBAT_RAGDOLL_POSE.lElbow || 0) + noise.elbow,
+    rShoulder: (NON_COMBAT_RAGDOLL_POSE.rShoulder || 0) - noise.shoulder,
+    rElbow: (NON_COMBAT_RAGDOLL_POSE.rElbow || 0) - noise.elbow,
+  };
+}
+
 // Helper to clamp values
 function clamp(val, min, max){ return Math.min(max, Math.max(min, val)); }
 
@@ -1936,8 +1979,18 @@ export function updatePoses(){
       }
     }
 
+    const armsLockedByLayer = activeLayers.some(layerTouchesArms);
+    if (F.nonCombatRagdoll && !armsLockedByLayer) {
+      const relaxed = buildNonCombatRagdollPose(F);
+      for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
+        if (relaxed[key] != null) {
+          targetDeg[key] = relaxed[key];
+        }
+      }
+    }
+
     const topLayer = activeLayers.length ? activeLayers[activeLayers.length - 1] : null;
-    const aimingPose = topLayer?.pose || (walkPose._active && !walkSuppressed ? walkPose : basePoseConfig);
+    const aimingPose = topLayer?.pose || targetDeg;
 
     // Update aiming system based on current pose
     updateAiming(F, aimingPose || targetDeg, id);

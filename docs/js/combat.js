@@ -2252,6 +2252,11 @@ export function makeCombat(G, C, options = {}){
 
     const effectiveInput = p.isDead ? null : input;
     const attackBlocksMovement = !p.isDead && ATTACK.active && ATTACK.context?.type !== 'defensive';
+    if (!p.isDead) {
+      const wantsNonCombatRagdoll = !!input?.nonCombatRagdoll;
+      const blockedByCombat = attackBlocksMovement || CHARGE.active;
+      p.nonCombatRagdoll = wantsNonCombatRagdoll && !blockedByCombat;
+    }
     updateFighterPhysics(p, C, dt, {
       input: effectiveInput,
       attackActive: attackBlocksMovement,

@@ -1161,6 +1161,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   input.jump = false;
 
   if (!aggression.active) {
+    state.nonCombatRagdoll = !state.ragdoll && !state.recovering;
     if (combo) {
       combo.active = false;
       combo.sequenceIndex = 0;
@@ -1187,6 +1188,8 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       stamina.exhaustionCount = 0;
       stamina.prev = Number.isFinite(stamina.current) ? stamina.current : stamina.prev;
     }
+  } else {
+    state.nonCombatRagdoll = false;
   }
 
   const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
