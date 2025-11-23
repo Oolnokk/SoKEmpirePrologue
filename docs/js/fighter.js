@@ -69,14 +69,16 @@ function resetRuntimeState(fighter, template, {
   fighter.facingSign = resolvedFacing;
   fighter.facingRad = resolvedFacing < 0 ? Math.PI : 0;
   fighter.footing = fighter.isPlayer ? 50 : 100;
-  fighter.nonCombatRagdoll = false;
+  fighter.nonCombatRagdoll = typeof base.nonCombatRagdoll === 'boolean'
+    ? base.nonCombatRagdoll
+    : true;
   fighter.ragdoll = false;
   fighter.ragdollTime = 0;
   fighter.ragdollVel = { x: 0, y: 0 };
   if (typeof base.weaponDrawn === 'boolean') {
     fighter.weaponDrawn = base.weaponDrawn;
   } else if (typeof fighter.weaponDrawn !== 'boolean') {
-    fighter.weaponDrawn = true;
+    fighter.weaponDrawn = false;
   }
   fighter.recovering = false;
   fighter.recoveryTime = 0;
@@ -706,8 +708,8 @@ export function initFighters(cv, cx, options = {}){
       cosmetics: cosmeticsBase ? clone(cosmeticsBase) : null,
       appearance: appearanceBase ? clone(appearanceBase) : null,
       weapon: weaponBase,
-      weaponDrawn: weaponDrawnBase != null ? weaponDrawnBase : true,
-      weaponStowed: weaponDrawnBase != null ? !weaponDrawnBase : false,
+      weaponDrawn: weaponDrawnBase != null ? weaponDrawnBase : false,
+      weaponStowed: weaponDrawnBase != null ? !weaponDrawnBase : true,
       slottedAbilities: abilityBase,
       stats,
       statProfile,
@@ -750,7 +752,9 @@ export function initFighters(cv, cx, options = {}){
       facingRad: faceSign < 0 ? Math.PI : 0,
       facingSign: faceSign,
       footing: isPlayer ? 50 : 100,
-      nonCombatRagdoll: false,
+      nonCombatRagdoll: typeof renderProfile.nonCombatRagdoll === 'boolean'
+        ? renderProfile.nonCombatRagdoll
+        : true,
       weaponDrawn: renderProfile.weaponDrawn,
       ragdoll: false,
       ragdollTime: 0,
