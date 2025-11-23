@@ -200,9 +200,9 @@ const BASE_POSES = {
     rElbow: -100,
     weapon: -10,
     weaponGripPercents: { primary: 0.3, secondary: 0.7 },
-    lHip: 90,
+    lHip: 0,
     lKnee: 20,
-    rHip: 90,
+    rHip: 0,
     rKnee: 20,
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
@@ -1231,7 +1231,7 @@ window.CONFIG = {
           xformUnits: 'percent',
           widthFactor: { weapon_0: 1 },
           xform: {
-            weapon_0: { ax: 0, ay: -0, scaleX: 0.25, scaleY: 0.15 }
+            weapon_0: { ax: 0, ay: -0, scaleX: 0.25, scaleY: 0.1 }
           }
         }
       }
