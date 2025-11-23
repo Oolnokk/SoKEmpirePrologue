@@ -728,6 +728,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     prefabResolver = () => null,
     prefabErrorLookup = null,
   } = options;
+  const proximityScale = clampScale(area.proximityScale ?? area.meta?.proximityScale, 1);
 
   const rawLayers = Array.isArray(area.layers) ? area.layers : [];
   const rawInstances = Array.isArray(area.instances)
@@ -785,24 +786,39 @@ function normalizeAreaDescriptor(area, options = {}) {
       instanceId,
       source: meta.identity?.source || instanceIdSource,
     };
+    const rawPosition = {
+      x: toNumber(inst.position?.x ?? inst.x ?? 0, 0),
+      y: toNumber(inst.position?.y ?? inst.y ?? 0, 0),
+    };
+    const distanceToCamera = Math.hypot(rawPosition.x, rawPosition.y);
+    const intraLayerDepth = Number.isFinite(distanceToCamera) ? -distanceToCamera : 0;
+    const appliesProximityScale = !tags.some((tag) => tag === 'player'
+      || tag === 'npc'
+      || tag.startsWith('spawn:player')
+      || tag.startsWith('spawn:npc'));
+
     return {
       instanceId,
       id: inst.id,
       prefabId: inst.prefabId ?? null,
       layerId: inst.layerId ?? null,
-      position: {
-        x: toNumber(inst.position?.x ?? inst.x ?? 0, 0),
-        y: toNumber(inst.position?.y ?? inst.y ?? 0, 0),
-      },
+      position: rawPosition,
       scale: {
-        x: toNumber(inst.scale?.x ?? inst.scaleX ?? 1, 1),
-        y: toNumber(inst.scale?.y ?? inst.scaleY ?? inst.scale?.x ?? inst.scaleX ?? 1, 1),
+        x: toNumber(inst.scale?.x ?? inst.scaleX ?? 1, 1) * (appliesProximityScale ? proximityScale : 1),
+        y: toNumber(inst.scale?.y ?? inst.scaleY ?? inst.scale?.x ?? inst.scaleX ?? 1, 1) * (appliesProximityScale ? proximityScale : 1),
       },
       rotationDeg: toNumber(inst.rotationDeg ?? inst.rot ?? 0, 0),
       locked: !!inst.locked,
+      intraLayerDepth,
       prefab: resolvedPrefab,
       tags,
-      meta,
+      meta: {
+        ...meta,
+        proximityScale: {
+          applied: appliesProximityScale ? proximityScale : 1,
+          inherited: proximityScale,
+        },
+      },
     };
   });
 
@@ -821,13 +837,17 @@ function normalizeAreaDescriptor(area, options = {}) {
     ground: {
       offset: toNumber(area.ground?.offset ?? area.groundOffset, 0),
     },
+    proximityScale,
     layers: convertedLayers,
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     colliders: alignedColliders,
     playableBounds,
     warnings,
-    meta: area.meta ? safeClone(area.meta) : {},
+    meta: {
+      ...(area.meta ? safeClone(area.meta) : {}),
+      proximityScale,
+    },
   };
 }
 
@@ -924,24 +944,39 @@ export function convertLayoutToArea(layout, options = {}) {
       source: meta.identity?.source || instanceIdSource,
     };
 
+    const rawPosition = {
+      x: computedX,
+      y: -toNumber(inst.offsetY, 0),
+    };
+    const distanceToCamera = Math.hypot(rawPosition.x, rawPosition.y);
+    const intraLayerDepth = Number.isFinite(distanceToCamera) ? -distanceToCamera : 0;
+    const appliesProximityScale = !tags.some((tag) => tag === 'player'
+      || tag === 'npc'
+      || tag.startsWith('spawn:player')
+      || tag.startsWith('spawn:npc'));
+
     return {
       instanceId,
       id: inst.id,
       prefabId: inst.prefabId,
       layerId: inst.layerId,
-      position: {
-        x: computedX,
-        y: -toNumber(inst.offsetY, 0),
-      },
+      position: rawPosition,
       scale: {
-        x: toNumber(inst.scaleX, 1),
-        y: toNumber(inst.scaleY, inst.scaleX ?? 1),
+        x: toNumber(inst.scaleX, 1) * (appliesProximityScale ? proximityScale : 1),
+        y: toNumber(inst.scaleY, inst.scaleX ?? 1) * (appliesProximityScale ? proximityScale : 1),
       },
       rotationDeg: toNumber(inst.rot, 0),
       locked: !!inst.locked,
+      intraLayerDepth,
       prefab,
       tags,
-      meta,
+      meta: {
+        ...meta,
+        proximityScale: {
+          applied: appliesProximityScale ? proximityScale : 1,
+          inherited: proximityScale,
+        },
+      },
     };
   });
 
@@ -978,6 +1013,7 @@ export function convertLayoutToArea(layout, options = {}) {
     ground: {
       offset: toNumber(layout.groundOffset, 0),
     },
+    proximityScale,
     layers: convertedLayers,
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
@@ -987,6 +1023,7 @@ export function convertLayoutToArea(layout, options = {}) {
     background,
     meta: {
       exportedAt: layout.meta?.exportedAt || null,
+      proximityScale,
       raw: includeRaw ? safeClone(layout) : undefined,
     },
   };
@@ -1027,6 +1064,12 @@ function computeLayerSlotCenters(instances) {
 function toNumber(value, fallback) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function clampScale(value, fallback = 1) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.max(0.001, num);
 }
 
 function normalizeCollider(raw, fallbackIndex = 0) {

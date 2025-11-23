@@ -645,6 +645,10 @@
               <span>Ground from bottom (px)</span>
               <input id="groundOffset" type="number" value="140">
             </label>
+            <label>
+              <span>Proximity scale</span>
+              <input id="proximityScale" type="number" step="0.05" min="0.05" value="1">
+            </label>
           </div>
           <div id="exportStatus"></div>
           <textarea id="exportText" readonly
@@ -659,7 +663,8 @@
           <div class="row">
             <label>
               <span>Tile image URL</span>
-              <input id="bgTileUrl" type="text" placeholder="https://.../tile.png">
+              <input id="bgTileUrl" type="text" placeholder="https://.../tile.png" list="bgTileUrlOptions">
+              <datalist id="bgTileUrlOptions"></datalist>
             </label>
             <label>
               <span>Tile scale</span>
@@ -847,6 +852,7 @@ let runtimeModulePromise = null;
 let prefabBootstrapPromise = null;
 
 $('#groundOffset').value = DEFAULT_GROUND_OFFSET;
+$('#proximityScale').value = clampValue(toNumber($('#proximityScale').value, 1) || 1, 0.05, 50);
 
 function getRuntimeModule(){
   if (!runtimeModulePromise){
@@ -1123,6 +1129,7 @@ function restoreState(state){
   cameraX = toNumber(adopted.camera?.startX, 0);
   zoom = toNumber(adopted.camera?.startZoom, 1);
   $('#groundOffset').value = toNumber(adopted.ground?.offset, DEFAULT_GROUND_OFFSET);
+  $('#proximityScale').value = clampValue(adopted.proximityScale ?? layoutMeta.proximityScale ?? 1, 0.05, 50);
   selectedInstId = getPlayerSpawnInstance()?.id || (instances[0]?.id ?? null);
 
   rebuildActiveLayerSelect();
@@ -1622,6 +1629,7 @@ function adoptAreaState(area, context = {}){
   const ground = {
     offset: toNumber(raw.ground?.offset ?? raw.groundOffset, DEFAULT_GROUND_OFFSET),
   };
+  const proximityScale = clampValue(toNumber(raw.proximityScale ?? raw.meta?.proximityScale, 1) || 1, 0.05, 50);
   const layersList = Array.isArray(raw.layers) && raw.layers.length
     ? raw.layers.map((layer, index) => normalizeLayer(layer, index))
     : createDefaultLayers();
@@ -1692,6 +1700,7 @@ function adoptAreaState(area, context = {}){
     name,
     camera,
     ground,
+    proximityScale,
     layers: layersList,
     instances: normalizedInstances,
     colliders: normalizedColliders,
@@ -1702,6 +1711,7 @@ function adoptAreaState(area, context = {}){
       areaName: name,
       sourcePath: context.sourcePath ?? meta.sourcePath ?? null,
       repositoryId: context.repositoryId ?? meta.repositoryId ?? null,
+      proximityScale,
       background,
     },
     background,
@@ -1774,6 +1784,7 @@ function buildAreaDescriptor(){
 
   const meta = {
     ...layoutMeta,
+    proximityScale: getProximityScale(),
     background: normalizedBackground,
     activeLayerId,
   };
@@ -1789,6 +1800,7 @@ function buildAreaDescriptor(){
     ground: {
       offset: getGroundOffset(),
     },
+    proximityScale: getProximityScale(),
     background: normalizedBackground,
     layers: clonedLayers,
     instances: clonedInstances,
@@ -1867,6 +1879,10 @@ let debugOverlay = false;
 
 function getGroundOffset(){
   return parseFloat($('#groundOffset').value) || DEFAULT_GROUND_OFFSET;
+}
+
+function getProximityScale(){
+  return clampValue(toNumber($('#proximityScale').value, 1) || 1, 0.05, 50);
 }
 
 /*** Layer UI & stack ***/
@@ -2112,15 +2128,22 @@ async function ensureConfiguredPrefabsLoaded(){
   })();
   return prefabBootstrapPromise;
 }
-async function importDrumSkinImagesFromAssetManifest(){
-  let manifest = [];
+let cachedAssetManifest = null;
+async function loadAssetManifest(){
+  if (cachedAssetManifest) return cachedAssetManifest;
   try {
     const response = await fetch('./assets/asset-manifest.json', { cache: 'no-cache' });
-    manifest = await response.json();
+    cachedAssetManifest = await response.json();
+    return cachedAssetManifest;
   } catch (error) {
-    console.warn('[map-editor] Failed to load asset manifest for drum skins', error);
-    return;
+    console.warn('[map-editor] Failed to load asset manifest', error);
+    cachedAssetManifest = [];
+    return cachedAssetManifest;
   }
+}
+async function importDrumSkinImagesFromAssetManifest(){
+  const manifest = await loadAssetManifest();
+  if (!Array.isArray(manifest)) return manifest;
 
   const drumSkinUrls = Array.isArray(manifest)
     ? manifest.filter((entry) => typeof entry === 'string' && entry.startsWith('./assets/prefabs/images/'))
@@ -2195,6 +2218,21 @@ async function importDrumSkinImagesFromAssetManifest(){
     refreshLibrarySelect();
     refreshDrumSkinList();
   }
+}
+
+function populateBackgroundTileChoices(manifest){
+  const list = document.getElementById('bgTileUrlOptions');
+  if (!list) return;
+  list.innerHTML = '';
+  const urls = Array.isArray(manifest)
+    ? manifest.filter((entry) => typeof entry === 'string' && entry.startsWith('./assets/prefabs/images/'))
+    : [];
+  urls.forEach((url) => {
+    const option = document.createElement('option');
+    option.value = url;
+    option.label = url.split('/').pop() || url;
+    list.appendChild(option);
+  });
 }
 function registerImagePrefab(file){
   const url=URL.createObjectURL(file);
@@ -4041,6 +4079,12 @@ if (spawnHeightField){
     spawnHeightField.addEventListener(evt, updateSpawnHeightFromField);
   });
 }
+const proximityScaleField = $('#proximityScale');
+if (proximityScaleField){
+  ['change','blur'].forEach((evt) => {
+    proximityScaleField.addEventListener(evt, () => pushHistory());
+  });
+}
 
 /*** Loaders for prefab/image ***/
 $('#btnLoadPrefab').addEventListener('click',()=>{
@@ -4096,6 +4140,8 @@ requestAnimationFrame(render);
 (async () => {
   try {
     await ensureConfiguredPrefabsLoaded();
+    const manifest = await loadAssetManifest();
+    populateBackgroundTileChoices(manifest);
     await importDrumSkinImagesFromAssetManifest();
     const initialId = layoutMeta.repositoryId || layoutMeta.areaId || DEFAULT_LAYOUT_META.areaId;
     await loadRepositoryMapById(initialId);
