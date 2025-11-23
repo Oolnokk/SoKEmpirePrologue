@@ -653,6 +653,65 @@
             If the new tab is blocked, long-press here to copy the JSON.
           </small>
         </div>
+
+        <div class="card">
+          <strong>Far Background</strong>
+          <div class="row">
+            <label>
+              <span>Tile image URL</span>
+              <input id="bgTileUrl" type="text" placeholder="https://.../tile.png">
+            </label>
+            <label>
+              <span>Tile scale</span>
+              <input id="bgTileScale" type="number" step="0.05" value="1">
+            </label>
+          </div>
+          <div class="row">
+            <label>
+              <span>Tile split (%)</span>
+              <input id="bgTilePortion" type="number" min="0" max="100" value="0">
+            </label>
+            <label>
+              <span>Tile offset Y (px)</span>
+              <input id="bgTileOffsetY" type="number" step="1" value="0">
+            </label>
+          </div>
+          <div class="row">
+            <label>
+              <span>Tile fallback color</span>
+              <input id="bgTileFallback" type="text" placeholder="optional CSS color">
+            </label>
+          </div>
+          <div class="row">
+            <label>
+              <span>Sky top</span>
+              <input id="bgSkyTop" type="text" value="rgba(59,63,69,0.9)">
+            </label>
+            <label>
+              <span>Sky mid</span>
+              <input id="bgSkyMid" type="text" value="rgba(80,89,96,0.5)">
+            </label>
+            <label>
+              <span>Sky bottom</span>
+              <input id="bgSkyBottom" type="text" value="rgba(32,38,50,0.0)">
+            </label>
+          </div>
+          <div class="row">
+            <label>
+              <span>Time of day (0-24)</span>
+              <input id="bgTime" type="number" min="0" max="24" step="0.1" value="12">
+            </label>
+          </div>
+          <div class="row">
+            <label style="width:100%">
+              <span>Preview</span>
+              <div id="bgGradientPreview" style="height:60px;border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg, #1f2937, #111827);box-shadow:inset 0 1px 4px rgba(0,0,0,0.25);"></div>
+            </label>
+          </div>
+          <small style="color:var(--muted);display:block;margin-top:4px">
+            Stored with the map and sent to gameplay preview so gradients and tiles match in-engine.
+          </small>
+        </div>
       </aside>
     </div>
   </main>
@@ -800,6 +859,125 @@ function clamp(v,a,b){ return v<a?a:v>b?b:v; }
 function lerp(a,b,t){ return a + (b-a)*t; }
 function rad(d){ return d * Math.PI/180; }
 
+const BACKGROUND_DEFAULTS = {
+  skyColors: [
+    'rgba(59,63,69,0.9)',
+    'rgba(80,89,96,0.5)',
+    'rgba(32,38,50,0.0)',
+  ],
+  tilePortion: 0,
+  tileScale: 1,
+  tileOffsetY: 0,
+  time24h: 12,
+};
+
+function clampValue(num, min, max){
+  if (!Number.isFinite(num)) return Number.isFinite(min) ? min : num;
+  if (Number.isFinite(min) && num < min) return min;
+  if (Number.isFinite(max) && num > max) return max;
+  return num;
+}
+
+function coerceFiniteNumber(value){
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+const colorParserCtx = typeof document !== 'undefined'
+  ? document.createElement('canvas').getContext('2d')
+  : null;
+
+function parseCssColor(color){
+  if (!colorParserCtx || !color) return null;
+  try {
+    colorParserCtx.fillStyle = '#000';
+    colorParserCtx.fillStyle = color;
+    const normalized = colorParserCtx.fillStyle;
+    const match = normalized.match(/^rgba?\((\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)(?:[ ,]+([0-9.]+))?\)$/);
+    if (!match) return null;
+    return {
+      r: Number(match[1]),
+      g: Number(match[2]),
+      b: Number(match[3]),
+      a: match[4] != null ? Number(match[4]) : 1,
+    };
+  } catch (_e) {
+    return null;
+  }
+}
+
+function lerpCssColor(a, b, t){
+  const start = parseCssColor(a);
+  const end = parseCssColor(b);
+  const amt = Number.isFinite(t) ? Math.min(Math.max(t, 0), 1) : 0;
+  if (!start || !end) return a || b;
+  const lerpCh = (x, y) => x + (y - x) * amt;
+  const r = Math.round(lerpCh(start.r, end.r));
+  const g = Math.round(lerpCh(start.g, end.g));
+  const bCh = Math.round(lerpCh(start.b, end.b));
+  const aCh = lerpCh(start.a, end.a);
+  return `rgba(${r}, ${g}, ${bCh}, ${Number(aCh.toFixed(3))})`;
+}
+
+function sampleDayCycleColor(colors, time24h, offset = 0){
+  const palette = Array.isArray(colors) && colors.length >= 3 ? colors : BACKGROUND_DEFAULTS.skyColors;
+  const normalized = ((Number(time24h) + offset) % 24 + 24) % 24;
+  if (normalized < 8) {
+    return lerpCssColor(palette[0], palette[1], normalized / 8);
+  }
+  if (normalized < 16) {
+    return lerpCssColor(palette[1], palette[2], (normalized - 8) / 8);
+  }
+  return lerpCssColor(palette[2], palette[0], (normalized - 16) / 8);
+}
+
+function computeSkyGradientStops(background){
+  const time = Number.isFinite(background?.sky?.time24h)
+    ? background.sky.time24h
+    : BACKGROUND_DEFAULTS.time24h;
+  const colors = background?.sky?.colors;
+  return {
+    top: sampleDayCycleColor(colors, time, -1.5),
+    mid: sampleDayCycleColor(colors, time, 0),
+    bottom: sampleDayCycleColor(colors, time, 1.5),
+  };
+}
+
+function normalizeBackgroundConfig(source = null, existing = null){
+  const target = typeof existing === 'object' && existing ? { ...existing } : {};
+  const layout = (target.layout = typeof source?.layout === 'object' && source.layout ? { ...source.layout } : (target.layout || {}));
+  const sky = (target.sky = typeof source?.sky === 'object' && source.sky ? { ...source.sky } : (target.sky || {}));
+  const tiles = (target.tiles = typeof source?.tiles === 'object' && source.tiles ? { ...source.tiles } : (target.tiles || {}));
+
+  const skyColors = Array.isArray(sky.colors) && sky.colors.length >= 3
+    ? sky.colors.slice(0, 3)
+    : BACKGROUND_DEFAULTS.skyColors;
+  sky.colors = skyColors;
+  sky.time24h = clampValue(
+    coerceFiniteNumber(sky.time24h ?? source?.time24h ?? BACKGROUND_DEFAULTS.time24h) ?? BACKGROUND_DEFAULTS.time24h,
+    0,
+    24,
+  );
+
+  const portionCandidate = layout.tilePortion ?? tiles.heightRatio ?? tiles.portion ?? BACKGROUND_DEFAULTS.tilePortion;
+  layout.tilePortion = clampValue(coerceFiniteNumber(portionCandidate) ?? BACKGROUND_DEFAULTS.tilePortion, 0, 1);
+
+  const tileUrl = typeof tiles.url === 'string'
+    ? tiles.url
+    : (typeof tiles.imageUrl === 'string' ? tiles.imageUrl : null);
+  tiles.url = tileUrl;
+  tiles.imageUrl = tileUrl;
+  tiles.scale = clampValue(coerceFiniteNumber(tiles.scale ?? tiles.tileScale ?? BACKGROUND_DEFAULTS.tileScale) ?? BACKGROUND_DEFAULTS.tileScale, 0.05, 10);
+  tiles.offsetY = coerceFiniteNumber(tiles.offsetY ?? tiles.tileOffsetY ?? BACKGROUND_DEFAULTS.tileOffsetY) || 0;
+  if (typeof tiles.fallbackColor !== 'string') {
+    tiles.fallbackColor = null;
+  }
+
+  return target;
+}
+
+let backgroundConfig = normalizeBackgroundConfig(MAP_CONFIG?.background || ROOT_CONFIG?.background || null);
+
 /*** Undo history ***/
 const historyStack = [];
 const HISTORY_LIMIT = 50;
@@ -814,6 +992,73 @@ function pushHistory(){
   if(isRestoring) return;
   historyStack.push(snapshotState());
   if(historyStack.length > HISTORY_LIMIT) historyStack.shift();
+}
+
+function refreshBackgroundPreview(){
+  const preview = $('#bgGradientPreview');
+  if (!preview) return;
+  const stops = computeSkyGradientStops(backgroundConfig);
+  preview.style.background = `linear-gradient(180deg, ${stops.top}, ${stops.mid} 50%, ${stops.bottom})`;
+}
+
+function syncBackgroundFields(){
+  const layout = backgroundConfig?.layout || {};
+  const tiles = backgroundConfig?.tiles || {};
+  const sky = backgroundConfig?.sky || {};
+  const colors = Array.isArray(sky.colors) && sky.colors.length >= 3 ? sky.colors : BACKGROUND_DEFAULTS.skyColors;
+
+  const portionPercent = Math.round(clampValue((layout.tilePortion ?? BACKGROUND_DEFAULTS.tilePortion) * 100, 0, 100));
+  const tileScale = Number.isFinite(tiles.scale) ? tiles.scale : BACKGROUND_DEFAULTS.tileScale;
+  const tileOffset = Number.isFinite(tiles.offsetY) ? tiles.offsetY : BACKGROUND_DEFAULTS.tileOffsetY;
+
+  $('#bgTileUrl').value = tiles.url || '';
+  $('#bgTileScale').value = tileScale;
+  $('#bgTileOffsetY').value = tileOffset;
+  $('#bgTilePortion').value = portionPercent;
+  $('#bgTileFallback').value = tiles.fallbackColor || '';
+
+  $('#bgSkyTop').value = colors[0] || BACKGROUND_DEFAULTS.skyColors[0];
+  $('#bgSkyMid').value = colors[1] || BACKGROUND_DEFAULTS.skyColors[1];
+  $('#bgSkyBottom').value = colors[2] || BACKGROUND_DEFAULTS.skyColors[2];
+  $('#bgTime').value = Number.isFinite(sky.time24h) ? sky.time24h : BACKGROUND_DEFAULTS.time24h;
+
+  refreshBackgroundPreview();
+}
+
+function commitBackgroundFromFields({ pushToHistory = true } = {}){
+  const portionPercent = clampValue(toNumber($('#bgTilePortion').value, BACKGROUND_DEFAULTS.tilePortion * 100), 0, 100);
+  const next = normalizeBackgroundConfig({
+    layout: {
+      tilePortion: portionPercent / 100,
+    },
+    tiles: {
+      url: ($('#bgTileUrl').value || '').trim() || null,
+      scale: toNumber($('#bgTileScale').value, backgroundConfig?.tiles?.scale ?? BACKGROUND_DEFAULTS.tileScale),
+      offsetY: toNumber($('#bgTileOffsetY').value, backgroundConfig?.tiles?.offsetY ?? BACKGROUND_DEFAULTS.tileOffsetY),
+      fallbackColor: ($('#bgTileFallback').value || '').trim() || null,
+    },
+    sky: {
+      colors: [
+        $('#bgSkyTop').value || BACKGROUND_DEFAULTS.skyColors[0],
+        $('#bgSkyMid').value || BACKGROUND_DEFAULTS.skyColors[1],
+        $('#bgSkyBottom').value || BACKGROUND_DEFAULTS.skyColors[2],
+      ],
+      time24h: toNumber($('#bgTime').value, backgroundConfig?.sky?.time24h ?? BACKGROUND_DEFAULTS.time24h),
+    },
+  }, backgroundConfig);
+
+  const current = JSON.stringify(backgroundConfig || {});
+  const incoming = JSON.stringify(next || {});
+  if (current === incoming) {
+    syncBackgroundFields();
+    return;
+  }
+
+  if (pushToHistory && !isRestoring) {
+    pushHistory();
+  }
+  backgroundConfig = next;
+  syncBackgroundFields();
 }
 function restoreState(state){
   if(!state) return;
@@ -872,6 +1117,8 @@ function restoreState(state){
   }
   selectedDrumSkinId = drumSkins[0]?.id ?? null;
 
+  backgroundConfig = normalizeBackgroundConfig(adopted.background || adopted.meta?.background || backgroundConfig, backgroundConfig);
+
   activeLayerId = adopted.activeLayerId || layoutMeta.activeLayerId || getDefaultSpawnLayerId();
   cameraX = toNumber(adopted.camera?.startX, 0);
   zoom = toNumber(adopted.camera?.startZoom, 1);
@@ -885,6 +1132,7 @@ function restoreState(state){
   refreshColliderList();
   refreshDrumSkinList();
   syncColliderFields();
+  syncBackgroundFields();
   setCameraX(cameraX);
   setZoom(zoom);
 
@@ -1433,6 +1681,7 @@ function adoptAreaState(area, context = {}){
   migratedFromInstances.forEach((drum) => combinedDrumSkins.push(normalizeDrumSkin(drum, combinedDrumSkins.length, layersList)));
 
   const meta = raw.meta && typeof raw.meta === 'object' ? { ...raw.meta } : {};
+  const background = normalizeBackgroundConfig(raw.background || meta.background || null, backgroundConfig);
   const activeLayerId = raw.activeLayerId
     || meta.activeLayerId
     || layersList[0]?.id
@@ -1453,13 +1702,16 @@ function adoptAreaState(area, context = {}){
       areaName: name,
       sourcePath: context.sourcePath ?? meta.sourcePath ?? null,
       repositoryId: context.repositoryId ?? meta.repositoryId ?? null,
+      background,
     },
+    background,
     activeLayerId,
   };
 }
 
 function buildAreaDescriptor(){
   ensurePlayerSpawn();
+  const normalizedBackground = backgroundConfig ? normalizeBackgroundConfig(backgroundConfig, backgroundConfig) : null;
   const clonedLayers = layers.map((layer, index) => {
     const normalized = normalizeLayer(layer, index);
     return {
@@ -1522,6 +1774,7 @@ function buildAreaDescriptor(){
 
   const meta = {
     ...layoutMeta,
+    background: normalizedBackground,
     activeLayerId,
   };
 
@@ -1536,6 +1789,7 @@ function buildAreaDescriptor(){
     ground: {
       offset: getGroundOffset(),
     },
+    background: normalizedBackground,
     layers: clonedLayers,
     instances: clonedInstances,
     colliders: clonedColliders,
@@ -3765,6 +4019,22 @@ if (btnLoadMapInline){
 }
 
 $('#btnPreviewGameplay').addEventListener('click', launchGameplayPreview);
+[
+  'bgTileUrl',
+  'bgTileScale',
+  'bgTileOffsetY',
+  'bgTilePortion',
+  'bgTileFallback',
+  'bgSkyTop',
+  'bgSkyMid',
+  'bgSkyBottom',
+  'bgTime',
+].forEach((id) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('change', () => commitBackgroundFromFields({ pushToHistory: true }));
+  el.addEventListener('input', () => commitBackgroundFromFields({ pushToHistory: false }));
+});
 const spawnHeightField = $('#spawnPosY');
 if (spawnHeightField){
   ['change','blur','input'].forEach(evt => {
@@ -3820,6 +4090,7 @@ ensurePlayerSpawn();
 refreshColliderList();
 refreshInstanceList();
 refreshDrumSkinList();
+syncBackgroundFields();
 requestAnimationFrame(render);
 
 (async () => {

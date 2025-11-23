@@ -36,6 +36,194 @@ function computeGroundYFromConfig(config = {}, canvasHeightOverride) {
   return Math.round(canvasHeight * ratio);
 }
 
+const BACKGROUND_DEFAULTS = {
+  skyColors: [
+    'rgba(59,63,69,0.9)',
+    'rgba(80,89,96,0.5)',
+    'rgba(32,38,50,0.0)',
+  ],
+  tilePortion: 0,
+  tileScale: 1,
+  tileOffsetY: 0,
+  time24h: 12,
+};
+
+const BACKGROUND_STORE_FALLBACK = {};
+const BACKGROUND_GLOBAL_KEY = '__global__';
+
+const colorParserCtx = typeof document !== 'undefined'
+  ? document.createElement('canvas').getContext('2d')
+  : null;
+
+function parseCssColor(color) {
+  if (!colorParserCtx || !color) return null;
+  try {
+    colorParserCtx.fillStyle = '#000';
+    colorParserCtx.fillStyle = color;
+    const normalized = colorParserCtx.fillStyle;
+    const match = normalized.match(
+      /^rgba?\((\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)(?:[ ,]+([0-9.]+))?\)$/
+    );
+    if (!match) return null;
+    return {
+      r: Number(match[1]),
+      g: Number(match[2]),
+      b: Number(match[3]),
+      a: match[4] != null ? Number(match[4]) : 1,
+    };
+  } catch (_e) {
+    return null;
+  }
+}
+
+function lerpCssColor(a, b, t) {
+  const start = parseCssColor(a);
+  const end = parseCssColor(b);
+  const amt = Number.isFinite(t) ? Math.min(Math.max(t, 0), 1) : 0;
+  if (!start || !end) return a || b;
+  const lerp = (x, y) => x + (y - x) * amt;
+  const r = Math.round(lerp(start.r, end.r));
+  const g = Math.round(lerp(start.g, end.g));
+  const bCh = Math.round(lerp(start.b, end.b));
+  const aCh = lerp(start.a, end.a);
+  return `rgba(${r}, ${g}, ${bCh}, ${Number(aCh.toFixed(3))})`;
+}
+
+function sampleDayCycleColor(colors, time24h, offset = 0) {
+  const palette = Array.isArray(colors) && colors.length >= 3
+    ? colors
+    : BACKGROUND_DEFAULTS.skyColors;
+  const normalized = ((Number(time24h) + offset) % 24 + 24) % 24;
+  if (normalized < 8) {
+    return lerpCssColor(palette[0], palette[1], normalized / 8);
+  }
+  if (normalized < 16) {
+    return lerpCssColor(palette[1], palette[2], (normalized - 8) / 8);
+  }
+  return lerpCssColor(palette[2], palette[0], (normalized - 16) / 8);
+}
+
+function computeSkyGradientStops(background) {
+  const time = Number.isFinite(background?.sky?.time24h)
+    ? background.sky.time24h
+    : BACKGROUND_DEFAULTS.time24h;
+  const colors = background?.sky?.colors;
+  return {
+    top: sampleDayCycleColor(colors, time, -1.5),
+    mid: sampleDayCycleColor(colors, time, 0),
+    bottom: sampleDayCycleColor(colors, time, 1.5),
+  };
+}
+
+function getBackgroundStore() {
+  if (typeof window !== 'undefined') {
+    window.__BACKGROUND_BY_AREA__ = window.__BACKGROUND_BY_AREA__ || {};
+    return window.__BACKGROUND_BY_AREA__;
+  }
+  return BACKGROUND_STORE_FALLBACK;
+}
+
+function normalizeBackgroundConfig(source = null, existing = null) {
+  const target = typeof existing === 'object' && existing ? { ...existing } : {};
+  const layout = (target.layout = typeof source?.layout === 'object' && source.layout ? { ...source.layout } : (target.layout || {}));
+  const sky = (target.sky = typeof source?.sky === 'object' && source.sky ? { ...source.sky } : (target.sky || {}));
+  const tiles = (target.tiles = typeof source?.tiles === 'object' && source.tiles ? { ...source.tiles } : (target.tiles || {}));
+
+  const skyColors = Array.isArray(sky.colors) && sky.colors.length >= 3
+    ? sky.colors.slice(0, 3)
+    : BACKGROUND_DEFAULTS.skyColors;
+  sky.colors = skyColors;
+  sky.time24h = clampValue(
+    coerceFiniteNumber(sky.time24h ?? source?.time24h ?? BACKGROUND_DEFAULTS.time24h) ?? BACKGROUND_DEFAULTS.time24h,
+    0,
+    24,
+  );
+
+  const portionCandidate = layout.tilePortion ?? tiles.heightRatio ?? tiles.portion ?? BACKGROUND_DEFAULTS.tilePortion;
+  layout.tilePortion = clampValue(coerceFiniteNumber(portionCandidate) ?? BACKGROUND_DEFAULTS.tilePortion, 0, 1);
+
+  const tileUrl = typeof tiles.url === 'string'
+    ? tiles.url
+    : (typeof tiles.imageUrl === 'string' ? tiles.imageUrl : null);
+  tiles.url = tileUrl;
+  tiles.imageUrl = tileUrl;
+  tiles.scale = clampValue(coerceFiniteNumber(tiles.scale ?? tiles.tileScale ?? BACKGROUND_DEFAULTS.tileScale) ?? BACKGROUND_DEFAULTS.tileScale, 0.05, 10);
+  tiles.offsetY = coerceFiniteNumber(tiles.offsetY ?? tiles.tileOffsetY ?? BACKGROUND_DEFAULTS.tileOffsetY) || 0;
+  if (typeof tiles.fallbackColor !== 'string') {
+    tiles.fallbackColor = null;
+  }
+
+  return target;
+}
+
+function ensureBackgroundConfig(raw = null, areaId = null) {
+  const store = getBackgroundStore();
+  const key = areaId || BACKGROUND_GLOBAL_KEY;
+  const existing = store[key];
+  const normalized = normalizeBackgroundConfig(raw ?? existing ?? (!areaId && typeof window !== 'undefined' ? window.BACKGROUND : null), existing);
+  store[key] = normalized;
+  if (!areaId && typeof window !== 'undefined') {
+    window.BACKGROUND = normalized;
+  }
+  return normalized;
+}
+
+function resolveAreaById(areaId = null) {
+  if (areaId) {
+    const registryArea = (() => {
+      const registry = window.GAME?.mapRegistry;
+      if (registry && typeof registry.getArea === 'function') {
+        try {
+          return registry.getArea(areaId);
+        } catch (error) {
+          console.warn?.('[backgrounds] Failed to resolve area by id via registry', error);
+        }
+      }
+      return null;
+    })();
+    if (registryArea) return registryArea;
+    const parallaxArea = window.PARALLAX?.areas?.[areaId];
+    if (parallaxArea) return parallaxArea;
+  }
+  return resolveActiveParallaxArea();
+}
+
+function resolveBackgroundForArea(areaId = null) {
+  const store = getBackgroundStore();
+  const area = resolveAreaById(areaId);
+  const key = area?.id || areaId || null;
+  const source = (typeof area?.background === 'object' && area.background)
+    || (typeof area?.meta?.background === 'object' && area.meta.background)
+    || (key && typeof window.CONFIG?.areas?.[key]?.background === 'object' && window.CONFIG.areas[key].background)
+    || store[key]
+    || (!key ? window.BACKGROUND : null)
+    || window.BACKGROUND;
+  return ensureBackgroundConfig(source, key || null);
+}
+
+function setBackgroundTime24h(value, areaId = null) {
+  const area = resolveAreaById(areaId);
+  const background = resolveBackgroundForArea(area?.id || areaId || null);
+  const time = clampValue(coerceFiniteNumber(value) ?? background.sky.time24h ?? BACKGROUND_DEFAULTS.time24h, 0, 24);
+  background.sky.time24h = time;
+
+  const targetKey = area?.id || areaId || null;
+  if (area) {
+    area.background = normalizeBackgroundConfig(area.background || background, area.background || {});
+    area.background.sky.time24h = time;
+  }
+  if (targetKey && window.CONFIG?.areas?.[targetKey]) {
+    window.CONFIG.areas[targetKey].background = normalizeBackgroundConfig(window.CONFIG.areas[targetKey].background || background, window.CONFIG.areas[targetKey].background || {});
+    window.CONFIG.areas[targetKey].background.sky.time24h = time;
+  }
+
+  return background.sky.time24h;
+}
+
+if (typeof window !== 'undefined') {
+  window.setBackgroundTime24h = setBackgroundTime24h;
+}
+
 function abilityMatchesSlot(def = {}, type, allowance) {
   if (!def || typeof def !== 'object' || Object.keys(def).length === 0) return false;
   if (allowance) {
@@ -2895,6 +3083,57 @@ function createEditorPreviewSandbox() {
     ctx.restore();
   };
 
+  const drawFarBackground = (viewWidth, viewHeight) => {
+    const background = resolveBackgroundForArea();
+    const stops = computeSkyGradientStops(background);
+    const gradient = ctx.createLinearGradient(0, 0, 0, viewHeight);
+    gradient.addColorStop(0, stops.top);
+    gradient.addColorStop(0.5, stops.mid);
+    gradient.addColorStop(1, stops.bottom);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, viewWidth, viewHeight);
+
+    const tilePortion = Number.isFinite(background?.layout?.tilePortion)
+      ? Math.min(Math.max(background.layout.tilePortion, 0), 1)
+      : 0;
+    if (tilePortion <= 0) return;
+
+    const tileHeight = viewHeight * tilePortion;
+    const startY = viewHeight - tileHeight;
+    const tileUrl = background?.tiles?.url;
+    const tileImg = tileUrl ? loadPrefabImage(tileUrl) : null;
+    const ready = tileImg && tileImg.complete && !tileImg.__broken && tileImg.naturalWidth > 0 && tileImg.naturalHeight > 0;
+    let pattern = null;
+    const scale = Number.isFinite(background?.tiles?.scale) ? background.tiles.scale : BACKGROUND_DEFAULTS.tileScale;
+    const offsetY = Number.isFinite(background?.tiles?.offsetY) ? background.tiles.offsetY : BACKGROUND_DEFAULTS.tileOffsetY;
+
+    if (ready) {
+      pattern = ctx.createPattern(tileImg, 'repeat');
+      if (pattern && typeof DOMMatrix !== 'undefined') {
+        const matrix = new DOMMatrix();
+        matrix.a = scale;
+        matrix.d = scale;
+        matrix.f = offsetY;
+        pattern.setTransform(matrix);
+      }
+    }
+
+    ctx.save();
+    ctx.fillStyle = pattern || background?.tiles?.fallbackColor || stops.bottom;
+    if (pattern) ctx.fillStyle = pattern;
+    ctx.fillRect(0, startY, viewWidth, tileHeight);
+
+    const featherHeight = Math.min(tileHeight * 0.35, 120);
+    if (featherHeight > 0) {
+      const fade = ctx.createLinearGradient(0, startY, 0, startY + featherHeight);
+      fade.addColorStop(0, stops.bottom);
+      fade.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = fade;
+      ctx.fillRect(0, startY, viewWidth, featherHeight);
+    }
+    ctx.restore();
+  };
+
   const renderScene = ({ width, height, camX = 0, zoom = 1, groundY, camOrigin = 'left', worldWidth }) => {
     if (!state.ready || !ctx) {
       return { rendered: false, groundLine: null };
@@ -2931,13 +3170,7 @@ function createEditorPreviewSandbox() {
     const groundLine = Number.isFinite(resolvedGround)
       ? resolvedGround
       : (viewHeight - fallbackOffset);
-
-    const sky = ctx.createLinearGradient(0, 0, 0, viewHeight);
-    sky.addColorStop(0, 'rgba(59,63,69,0.9)');
-    sky.addColorStop(0.5, 'rgba(80,89,96,0.5)');
-    sky.addColorStop(1, 'rgba(32,38,50,0.0)');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, viewWidth, viewHeight);
+    drawFarBackground(viewWidth, viewHeight);
 
     const drawDrumSkinLayer = (drum) => {
       if (!drum || drum.visible === false) return;
