@@ -92,6 +92,42 @@ test('convertLayoutToArea normalizes npc spawners from instances and explicit li
   assert.strictEqual(area.spawnersById[manual.spawnerId], manual);
 });
 
+test('convertLayoutToArea attaches reusable group library records', () => {
+  const layout = {
+    areaId: 'group_area',
+    layers: [
+      { id: 'game', name: 'Game', parallax: 1, yOffset: 0, sep: 120, scale: 1, type: 'gameplay' },
+    ],
+    spawners: [
+      {
+        spawnerId: 'party',
+        type: 'npc',
+        position: { x: 0, y: 0 },
+        groupId: 'city_guard_patrol',
+      },
+    ],
+  };
+
+  const groupLibrary = {
+    city_guard_patrol: {
+      name: 'Guard Patrol',
+      interests: ['patrol point'],
+      members: [{ templateId: 'guard', count: 2 }],
+      exitTags: ['map-exit:right'],
+    },
+  };
+
+  const area = convertLayoutToArea(layout, { prefabResolver: (id) => ({ id }), groupLibrary });
+
+  const spawner = area.spawners.find((s) => s.spawnerId === 'party');
+  assert.ok(spawner);
+  assert.equal(spawner.groupId, 'city_guard_patrol');
+  assert.ok(spawner.group);
+  assert.equal(spawner.group.members[0].templateId, 'guard');
+  assert.equal(spawner.group.members[0].count, 2);
+  assert.deepEqual(area.groupLibrary.city_guard_patrol.interests, ['patrol point']);
+});
+
 test('convertLayoutToArea collects gameplay path targets and respects ordering', () => {
   const layout = {
     areaId: 'path_area',

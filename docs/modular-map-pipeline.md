@@ -49,3 +49,21 @@ registry.registerAreas({ practice_hall: practiceHall });
 
 This pattern keeps the map pipeline modular—if a layout fails to convert, the
 rest of the runtime keeps running with previously registered areas.
+
+## Shared NPC group JSONs
+
+- Author reusable NPC group definitions as plain JSON under
+  `src/config/groups/` (see `npc-groups.json` for a starter set). Each record
+  can declare `members`, `interests`, and fallback `exitTags` without being
+  tied to a specific map.
+- Import the normalized library from `src/config/groups/index.js` and hand it
+  to the converter:
+
+  ```js
+  import { groupLibrary } from '../src/config/groups/index.js';
+  const area = convertLayoutToArea(layout, { groupLibrary });
+  ```
+
+- Spawners with `groupId` (or inline `group` metadata) will automatically pull
+  the matching JSON definition so the same patrol, family, or adventuring party
+  can be reused across maps while sharing path-target interests.

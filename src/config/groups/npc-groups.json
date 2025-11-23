@@ -1,0 +1,24 @@
+{
+  "city_guard_patrol": {
+    "name": "City Guard Patrol",
+    "interests": ["patrol point", "gate", "barracks"],
+    "exitTags": ["map-exit:left", "map-exit:right"],
+    "exitWeights": { "map-exit:left": 2, "map-exit:right": 1 },
+    "members": [
+      { "templateId": "guard_captain", "count": 1 },
+      { "templateId": "guard", "count": 3 }
+    ],
+    "meta": { "role": "patrol" }
+  },
+  "inn_family_guest": {
+    "name": "Inn Family Guest Group",
+    "interests": ["inn", "apartment", "restaurant"],
+    "exitTags": ["map-exit:right"],
+    "members": [
+      { "templateId": "traveler_parent", "count": 1 },
+      { "templateId": "traveler_child", "count": 1 },
+      { "templateId": "traveler_companion", "count": 1 }
+    ],
+    "meta": { "role": "lodging" }
+  }
+}
