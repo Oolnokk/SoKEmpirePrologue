@@ -12,7 +12,7 @@ export function initTouchControls(){
   }
 
   const JOY = G.JOYSTICK;
-  JOY.maxDistance = JOY.maxDistance || 50;
+  JOY.maxDistance = JOY.maxDistance || 64;
 
   const joystickArea = document.getElementById('joystickArea');
   const joystickStick = document.getElementById('joystickStick');
@@ -64,11 +64,14 @@ export function initTouchControls(){
   }
 
   function processJoystickInput(){
-    const maxDistance = JOY.maxDistance || 50;
+    const maxDistance = JOY.maxDistance || 64;
     const normalized = JOY.active ? Math.min(1, JOY.distance / maxDistance) : 0;
     const angle = JOY.angle || 0;
     const horizontalStrength = Math.cos(angle) * normalized;
     const deadzone = 0.15;
+
+    JOY.normalized = normalized;
+    JOY.horizontalStrength = horizontalStrength;
 
     if (!JOY.active){
       clearHorizontalInput();
@@ -153,6 +156,8 @@ export function initTouchControls(){
     JOY.deltaX = 0;
     JOY.deltaY = 0;
     JOY.distance = 0;
+    JOY.normalized = 0;
+    JOY.horizontalStrength = 0;
 
     clearHorizontalInput();
     G.AIMING.manualAim = false;

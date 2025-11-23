@@ -76,6 +76,12 @@ const WALK_PROFILES = {
   }
 };
 
+const WALK_SPEED_MULTIPLIERS = {
+  combat: 1,
+  nonCombat: 0.82,
+  sneak: 0.7,
+};
+
 const BASE_POSES = {
   Stance: {
     torso: 10,
@@ -797,8 +803,9 @@ window.CONFIG = {
     maxShoulderAngle: 60,
     flipThreshold: 0.0
   },
-  
+
   walkProfiles: WALK_PROFILES,
+  walkSpeedMultipliers: WALK_SPEED_MULTIPLIERS,
   walk: WALK_PROFILES.combat,
   ragdoll: {
     killAuthOnActive:true, enabled:true,

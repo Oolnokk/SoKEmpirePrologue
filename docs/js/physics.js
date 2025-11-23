@@ -35,6 +35,7 @@ const FULL_RAGDOLL_SETTLE_MAX = 2.4;
 const RECOVERY_BASE_DURATION = 0.8;
 const RECOVERY_DURATION_BONUS = 1.1;
 const AIRBORNE_SPIN_JOINTS = ['torso', 'head', 'lShoulder', 'rShoulder', 'lHip', 'rHip', 'lKnee', 'rKnee'];
+const DEFAULT_WALK_SPEED_MULTIPLIERS = { combat: 1, nonCombat: 0.82, sneak: 0.7 };
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -64,6 +65,22 @@ function getBalanceScalar(key, fallback = 1) {
   const balance = window.CONFIG?.balance;
   const value = balance?.[key];
   return Number.isFinite(value) ? Number(value) : fallback;
+}
+
+function resolveWalkModeForPhysics(fighter) {
+  if (!fighter) return 'combat';
+  if (fighter.sneak || fighter.renderProfile?.sneak) return 'sneak';
+  if (fighter.nonCombat || fighter.renderProfile?.nonCombat) return 'nonCombat';
+  return fighter.walkMode || 'combat';
+}
+
+function resolveWalkSpeedMultiplier(fighter, config) {
+  const mode = resolveWalkModeForPhysics(fighter);
+  const configSource = config?.walkSpeedMultipliers || (typeof window !== 'undefined' ? window.CONFIG?.walkSpeedMultipliers : null);
+  const configured = configSource && Number.isFinite(configSource[mode]) ? configSource[mode] : null;
+  const fallback = DEFAULT_WALK_SPEED_MULTIPLIERS[mode] ?? 1;
+  const resolved = configured != null ? configured : fallback;
+  return Number.isFinite(resolved) ? resolved : 1;
 }
 
 function dampingForFrame(base, dt) {
@@ -459,11 +476,12 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   const bounds = resolveHorizontalBounds(config);
   const boundsSpeedScalar = computeBoundsSpeedScalar(bounds.span);
   const movementBaseMultiplier = getBalanceScalar('baseMovementSpeed', 1);
+  const walkSpeedMultiplier = resolveWalkSpeedMultiplier(fighter, config);
   const baseRecoveryMultiplier = getBalanceScalar('baseRecoveryRate', 1);
   const baseAccelX = (Number.isFinite(M.accelX) ? M.accelX : 1500) * movementBaseMultiplier;
   const baseMaxSpeed = (Number.isFinite(M.maxSpeedX) ? M.maxSpeedX : 420) * movementBaseMultiplier;
-  const accelX = baseAccelX * boundsSpeedScalar * (movementMultipliers.accel || 1);
-  const maxSpeed = baseMaxSpeed * boundsSpeedScalar * (movementMultipliers.maxSpeed || 1);
+  const accelX = baseAccelX * boundsSpeedScalar * (movementMultipliers.accel || 1) * walkSpeedMultiplier;
+  const maxSpeed = baseMaxSpeed * boundsSpeedScalar * (movementMultipliers.maxSpeed || 1) * walkSpeedMultiplier;
   const friction = Number.isFinite(M.friction) ? Math.max(0, M.friction) : 8;
   const restitution = Number.isFinite(M.restitution) ? Math.max(0, M.restitution) : 0;
   const gravity = Number.isFinite(M.gravity) ? M.gravity : 0;
