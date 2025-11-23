@@ -43,6 +43,55 @@ test('convertLayoutToArea produces modular descriptor', () => {
   assert.strictEqual(area.instancesById.player_spawn, area.instances[1]);
 });
 
+test('convertLayoutToArea normalizes npc spawners from instances and explicit lists', () => {
+  const layout = {
+    areaId: 'spawner_area',
+    layers: [
+      { id: 'game', name: 'Game', parallax: 1, yOffset: 0, sep: 120, scale: 1, type: 'gameplay' },
+    ],
+    instances: [
+      {
+        id: 'npc_source',
+        prefabId: 'npc_spawner',
+        layerId: 'game',
+        slot: 0,
+        tags: ['spawner:npc'],
+        meta: { spawner: { count: 3, respawn: true, spawnRadius: 40, templateId: 'watchman' } },
+      },
+    ],
+    spawners: [
+      {
+        spawnerId: 'manual_spawner',
+        type: 'npc',
+        position: { x: 12, y: -4 },
+        count: 2,
+        respawn: false,
+        spawnRadius: 8,
+        characterId: 'sentinel',
+      },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout, { prefabResolver: (id) => ({ id }) });
+
+  assert.equal(area.spawners.length, 2);
+  const manual = area.spawners.find((s) => s.spawnerId === 'manual_spawner');
+  const derived = area.spawners.find((s) => s.spawnerId !== 'manual_spawner');
+  assert.ok(manual);
+  assert.ok(derived);
+  assert.equal(manual.position.x, 12);
+  assert.equal(manual.spawnRadius, 8);
+  assert.equal(manual.count, 2);
+  assert.equal(manual.respawn, false);
+  assert.equal(manual.characterId, 'sentinel');
+  assert.equal(derived.count, 3);
+  assert.equal(derived.respawn, true);
+  assert.equal(derived.spawnRadius, 40);
+  assert.equal(derived.templateId, 'watchman');
+  assert.ok(area.spawnersById.manual_spawner);
+  assert.strictEqual(area.spawnersById[manual.spawnerId], manual);
+});
+
 test('convertLayoutToArea collects gameplay path targets and respects ordering', () => {
   const layout = {
     areaId: 'path_area',

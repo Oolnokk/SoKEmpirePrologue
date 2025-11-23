@@ -3,6 +3,7 @@ const DEFAULT_FALLBACK_BOX_MIN_WIDTH = 18;
 const DEFAULT_TAG_INSTANCE_ID_MAPPING = new Map([
   ['spawn:player', 'player_spawn'],
   ['spawn:npc', 'npc_spawn'],
+  ['spawner:npc', 'npc_spawner'],
 ]);
 
 const cloneDefaultMapping = () => new Map(DEFAULT_TAG_INSTANCE_ID_MAPPING);

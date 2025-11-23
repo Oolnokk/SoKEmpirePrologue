@@ -247,6 +247,53 @@ function validateAreaDescriptor(descriptor) {
     }
   }
 
+  let seenSpawnerIds = null;
+  if (descriptor.spawners) {
+    if (!Array.isArray(descriptor.spawners)) {
+      warnings.push('"spawners" should be an array when provided');
+    } else {
+      seenSpawnerIds = new Set();
+      descriptor.spawners.forEach((spawner, index) => {
+        if (!spawner || typeof spawner !== 'object') {
+          warnings.push(`Spawner at index ${index} is not an object`);
+          return;
+        }
+        const rawId = typeof spawner.spawnerId === 'string' && spawner.spawnerId.trim()
+          ? spawner.spawnerId.trim()
+          : typeof spawner.id === 'string' && spawner.id.trim()
+            ? spawner.id.trim()
+            : '';
+        if (!rawId) {
+          warnings.push(`Spawner at index ${index} missing "spawnerId"`);
+          return;
+        }
+        if (seenSpawnerIds.has(rawId)) {
+          errors.push(`Duplicate spawnerId "${rawId}"`);
+        } else {
+          seenSpawnerIds.add(rawId);
+        }
+      });
+    }
+  }
+
+  if (descriptor.spawnersById && typeof descriptor.spawnersById === 'object') {
+    const indexKeys = new Set(Object.keys(descriptor.spawnersById));
+    if (seenSpawnerIds) {
+      for (const id of seenSpawnerIds) {
+        if (!indexKeys.has(id)) {
+          errors.push(`spawnersById missing mapping for "${id}"`);
+        }
+      }
+      for (const key of indexKeys) {
+        if (!seenSpawnerIds.has(key)) {
+          warnings.push(`spawnersById entry "${key}" has no matching spawner`);
+        }
+      }
+    } else if (!descriptor.spawners) {
+      warnings.push('spawnersById provided without spawners array');
+    }
+  }
+
   return { warnings, errors };
 }
 
