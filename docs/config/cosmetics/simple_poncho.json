@@ -43,7 +43,8 @@
             "url": ""
           },
           "attachBone": "arm_R_upper",
-          "drawSlot": "arm_R_lower", 
+          "styleKey": "arm_R_upper",
+          "drawSlot": "arm_R_lower",
           "spriteStyle": {
             "base": {
               "xform": {
