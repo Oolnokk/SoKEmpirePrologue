@@ -77,9 +77,9 @@ const WALK_PROFILES = {
 };
 
 const WALK_SPEED_MULTIPLIERS = {
-  combat: 1,
-  nonCombat: 0.5,
-  sneak: 0.25,
+  combat: 1.25,
+  nonCombat: 0.75,
+  sneak: 0.5,
 };
 
 const BASE_POSES = {
