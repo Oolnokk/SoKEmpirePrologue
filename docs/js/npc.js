@@ -15,6 +15,85 @@ function clamp(value, min, max) {
   return value;
 }
 
+function resolveActiveArea() {
+  const registry = window.GAME?.mapRegistry || window.__MAP_REGISTRY__;
+  if (!registry || typeof registry.getActiveArea !== 'function') return null;
+  return registry.getActiveArea();
+}
+
+function clampXToPlayableBounds(x, playableBounds = null) {
+  if (!playableBounds || !Number.isFinite(playableBounds.left) || !Number.isFinite(playableBounds.right)) {
+    return x;
+  }
+  return clamp(x, playableBounds.left, playableBounds.right);
+}
+
+function resolveNpcPathingConfig(state) {
+  const ai = state?.ai || {};
+  const config = ai.pathing ?? ai.path ?? null;
+  if (!config) return null;
+  if (typeof config === 'string') return { name: config };
+  if (typeof config === 'object') return config;
+  return null;
+}
+
+function ensureNpcPathState(state) {
+  const pathState = state.aiPathState || {};
+  state.aiPathState = pathState;
+  if (!Number.isInteger(pathState.sequenceIndex)) {
+    pathState.sequenceIndex = 0;
+  }
+  return pathState;
+}
+
+function resolveNpcPathTarget(state, area) {
+  const config = resolveNpcPathingConfig(state);
+  if (!config || !area) return null;
+  const playableBounds = area.playableBounds || null;
+  const allTargets = Array.isArray(area.pathTargets) ? area.pathTargets : [];
+  let candidates = allTargets;
+  if (config.name) {
+    candidates = candidates.filter((target) => target?.name === config.name);
+  }
+  if (!candidates.length) return null;
+
+  const pathState = ensureNpcPathState(state);
+  const arriveRadius = Number.isFinite(config.arriveRadius)
+    ? Math.max(1, config.arriveRadius)
+    : 6;
+  const ordered = candidates.filter((target) => Number.isFinite(target?.order)).sort((a, b) => a.order - b.order);
+
+  let target = null;
+  if (ordered.length) {
+    const index = ((pathState.sequenceIndex ?? 0) % ordered.length + ordered.length) % ordered.length;
+    target = ordered[index];
+    const goalX = clampXToPlayableBounds(target.position?.x ?? state.pos.x, playableBounds);
+    const arrived = Math.abs(goalX - (state.pos?.x ?? 0)) <= arriveRadius;
+    if (arrived) {
+      pathState.sequenceIndex = (index + 1) % ordered.length;
+      target = ordered[pathState.sequenceIndex];
+    } else {
+      pathState.sequenceIndex = index;
+    }
+  } else {
+    const posX = state.pos?.x ?? 0;
+    target = candidates.reduce((best, candidate) => {
+      const goalX = clampXToPlayableBounds(candidate?.position?.x ?? posX, playableBounds);
+      const distance = Math.abs(goalX - posX);
+      if (!best) return { candidate, distance };
+      return distance < best.distance ? { candidate, distance } : best;
+    }, null)?.candidate || null;
+  }
+
+  if (!target) return null;
+  const goalX = clampXToPlayableBounds(target.position?.x ?? state.pos.x, playableBounds);
+  return {
+    ...target,
+    goalX,
+    arriveRadius,
+  };
+}
+
 const DEFAULT_WORLD_WIDTH = 1600;
 const TWO_PI = Math.PI * 2;
 
@@ -1050,6 +1129,9 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   const player = G.FIGHTERS?.player;
   if (!player || !state) return;
 
+  const activeArea = resolveActiveArea();
+  const playableBounds = activeArea?.playableBounds || null;
+
   const visuals = ensureNpcVisualState(state);
 
   if (state.isDead) {
@@ -1160,6 +1242,8 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   input.right = false;
   input.jump = false;
 
+  const pathTarget = !aggression.active ? resolveNpcPathTarget(state, activeArea) : null;
+
   if (!aggression.active) {
     state.nonCombatRagdoll = !state.ragdoll && !state.recovering;
     if (combo) {
@@ -1183,6 +1267,13 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.mode = aggression.triggered ? 'alert' : 'idle';
     state.cooldown = 0;
     state.stamina.isDashing = false;
+    if (pathTarget) {
+      const arriveRadius = pathTarget.arriveRadius ?? 6;
+      const dxPath = pathTarget.goalX - state.pos.x;
+      input.left = dxPath < -arriveRadius;
+      input.right = dxPath > arriveRadius;
+      state.mode = input.left || input.right ? 'patrol' : 'idle';
+    }
     if (stamina) {
       stamina.recovering = false;
       stamina.exhaustionCount = 0;
@@ -1192,7 +1283,8 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.nonCombatRagdoll = false;
   }
 
-  const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
+  const primaryTargetX = pathTarget?.goalX ?? (player.pos?.x ?? state.pos.x);
+  const dx = primaryTargetX - state.pos.x;
   const absDx = Math.abs(dx);
   const nearDist = Number.isFinite(ai.attackRange) ? Math.max(30, ai.attackRange) : 70;
   const safeShuffleDist = resolveNpcSafeShuffleDistance(state, nearDist);
@@ -1438,6 +1530,10 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.vel.x = clamp(state.vel.x, -maxShuffleSpeed, maxShuffleSpeed);
   }
   processObstructionJumpPost(state);
+
+  if (playableBounds) {
+    state.pos.x = clamp(state.pos.x, playableBounds.left, playableBounds.right);
+  }
 
   state.facingRad = dx >= 0 ? 0 : Math.PI;
 
