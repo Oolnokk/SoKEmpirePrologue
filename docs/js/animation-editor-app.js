@@ -1,7 +1,7 @@
 import { initFighters, resetFighterStateForTesting } from './fighter.js?v=8';
 import { renderAll } from './render.js?v=4';
 import { initSprites, renderSprites } from './sprites.js?v=8';
-import { pushPoseOverride, updatePoses } from './animator.js?v=5';
+import { pushPoseOverride, updatePoses, resolveStancePose, resolveStanceKey } from './animator.js?v=5';
 
 function clone(value) {
   if (typeof structuredClone === 'function') {
@@ -87,9 +87,10 @@ class PosePreviewManager {
     if (!this.canvas || !this.ctx) return null;
     if (this.initPromise) return this.initPromise;
     this.initPromise = (async () => {
-      try {
-        await initSprites();
-        initFighters(this.canvas, this.ctx, { spawnNpc: false, poseKey: 'Stance' });
+        try {
+          await initSprites();
+          const stanceKey = resolveStanceKey(window.CONFIG);
+          initFighters(this.canvas, this.ctx, { spawnNpc: false, poseKey: stanceKey });
         const GAME = (window.GAME ||= {});
         GAME.CAMERA = GAME.CAMERA || { x: 0, worldWidth: this.canvas.width };
         this.ready = true;
@@ -104,12 +105,12 @@ class PosePreviewManager {
           const pose = this.pendingPose;
           this.pendingPose = null;
           this.applyPose(pose);
-        } else {
-          const fallback = window.CONFIG?.poses?.Stance;
-          if (fallback) {
-            this.applyPose(fallback);
+          } else {
+            const fallback = resolveStancePose(window.CONFIG);
+            if (fallback) {
+              this.applyPose(fallback);
+            }
           }
-        }
       } catch (error) {
         console.error('[animation-editor] Failed to initialize pose preview', error);
         this.setStatus?.('Pose preview failed to initialize');
@@ -188,18 +189,18 @@ class PosePreviewManager {
   }
 
   applyPose(pose) {
-    const copy = pose ? clone(pose) : null;
-    this.currentPose = copy;
-    if (!this.ready) {
-      this.pendingPose = copy;
-      return;
+      const copy = pose ? clone(pose) : null;
+      this.currentPose = copy;
+      if (!this.ready) {
+        this.pendingPose = copy;
+        return;
+      }
+      const payload = copy && Object.keys(copy).length
+        ? copy
+        : resolveStancePose(window.CONFIG);
+      pushPoseOverride('player', payload, { durMs: 60000, suppressWalk: true, useAsBase: true });
     }
-    const payload = copy && Object.keys(copy).length
-      ? copy
-      : (window.CONFIG?.poses?.Stance || {});
-    pushPoseOverride('player', payload, { durMs: 60000, suppressWalk: true, useAsBase: true });
   }
-}
 
 class AnimationEditorApp {
   constructor(config) {
@@ -816,15 +817,15 @@ class AnimationEditorApp {
     this.state.poseDraft = null;
     this.state.poseOriginal = null;
     this.state.poseDirty = false;
-    if (this.dom.poseJson) {
-      this.dom.poseJson.value = '';
+      if (this.dom.poseJson) {
+        this.dom.poseJson.value = '';
+      }
+      if (resetPreview) {
+        const fallback = resolveStancePose(this.config);
+        this.posePreview.initialize();
+        this.posePreview.applyPose(fallback);
+      }
     }
-    if (resetPreview) {
-      const fallback = this.config.poses?.Stance || {};
-      this.posePreview.initialize();
-      this.posePreview.applyPose(fallback);
-    }
-  }
 
   handlePoseJsonChange() {
     if (!this.state.poseKey || !this.dom.poseJson) return;

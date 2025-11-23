@@ -57,6 +57,15 @@ function easeWindup(t){
 function lerp(a,b,t){ return a + (b-a)*t; }
 function damp(current, target, lambda, dt){ const t = 1 - Math.exp(-lambda*dt); return current + (target - current)*t; }
 
+function toPascalCase(value) {
+  if (!value) return '';
+  return String(value)
+    .split(/[^a-zA-Z0-9]+/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+}
+
 function ensureAnimState(F){
   F.walk ||= { phase:0, amp:1, t:0 };
   F.jointAngles ||= {};
@@ -636,6 +645,28 @@ function getActiveWeaponKey(F, C) {
     || profile.character?.weapon
     || (typeof F.weapon === 'string' ? F.weapon : null)
     || (C?.characters?.player?.weapon ?? null);
+}
+
+function resolveWeaponTypeKeyForStance(F, C) {
+  const weaponStateType = F?.anim?.weapon?.state?.type || F?.anim?.weapon?.type;
+  if (weaponStateType) return weaponStateType;
+
+  const weaponKey = F
+    ? (F?.anim?.weapon?.state?.weaponKey || getActiveWeaponKey(F, C))
+    : null;
+  if (!weaponKey) return null;
+
+  const weaponDef = C?.weapons?.[weaponKey];
+  if (weaponDef?.type) return weaponDef.type;
+  const knockbackType = C?.knockback?.weaponTypes?.[weaponKey]?.type;
+  return knockbackType || weaponKey;
+}
+
+export function resolveStanceKey(C, F) {
+  const typeKey = resolveWeaponTypeKeyForStance(F, C);
+  if (!typeKey) return 'Stance';
+  const suffix = toPascalCase(typeKey);
+  return suffix ? `Stance${suffix}` : 'Stance';
 }
 
 function isWeaponDrawn(F) {
@@ -1324,6 +1355,7 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg, styleComposer, { stowActi
   if (!F?.anim?.weapon) return;
   const weaponKey = getActiveWeaponKey(F, C);
   const weaponDef = weaponKey && C.weapons ? C.weapons[weaponKey] : null;
+  const weaponTypeKey = resolveWeaponTypeKeyForStance(F, C);
   const rig = weaponDef?.rig;
   if (!rig || !Array.isArray(rig.bones) || !rig.bones.length) {
     F.anim.weapon.state = null;
@@ -1406,6 +1438,7 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg, styleComposer, { stowActi
   F.anim.weapon.attachments = {};
   F.anim.weapon.state = {
     weaponKey,
+    type: weaponTypeKey,
     bones: build.bones,
     gripPercents: { ...gripPercents },
     jointPercents: { ...jointPercents },
@@ -1475,7 +1508,16 @@ function applyGravityScaleEvent(F, scale, { durationMs, reset } = {}){
   const expiresAt = Number.isFinite(durationMs) && durationMs > 0 ? now + (durationMs / 1000) : null;
   F.gravityOverride = { value: scale, expiresAt };
 }
-function pickBase(fcfg, C, mode = 'combat'){
+export function resolveStancePose(C, F) {
+  const cfg = C || {};
+  const poses = cfg?.poses || {};
+  const stanceKey = resolveStanceKey(cfg, F);
+  const stance = poses[stanceKey] || poses.Stance;
+  if (stance) return stance;
+  return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
+}
+
+function pickBase(fcfg, C, mode = 'combat', F){
   const cfg = fcfg || C || {};
   if (!cfg?.poses) return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
   const legs = pickLegsBase(cfg, C, mode);
@@ -1555,14 +1597,14 @@ function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } =
   const s = easeInOutCubic(rawS);
 
   const A = W.poses?.A || {}; const B = W.poses?.B || {};
-  const pose = Object.assign({}, basePoseConfig || pickBase(fcfg, C));
+  const pose = Object.assign({}, basePoseConfig || pickBase(fcfg, C, poseMode, F));
   // interpolate leg/torso angles and scale by smoothed amplitude
   pose.lHip = lerp(A.lHip||0, B.lHip||0, s) * F.walk.amp;
   pose.lKnee= lerp(A.lKnee||0,B.lKnee||0,s) * F.walk.amp;
   pose.rHip = lerp(A.rHip||0, B.rHip||0, s) * F.walk.amp;
   pose.rKnee= lerp(A.rKnee||0,B.rKnee||0,s) * F.walk.amp;
   pose.torso= lerp(A.torso||0,B.torso||0,s) * F.walk.amp;
-  const base = basePoseConfig || pickBase(fcfg, C);
+  const base = basePoseConfig || pickBase(fcfg, C, poseMode, F);
   pose.lShoulder=base.lShoulder; pose.lElbow=base.lElbow; pose.rShoulder=base.rShoulder; pose.rElbow=base.rElbow;
   const armSwingSpec = W.armSwing || {};
   const swingEnabledFlag = armSwingSpec.enabled ?? W.armSwingEnabled;
@@ -2139,7 +2181,7 @@ export function updatePoses(){
       poseMode = 'sneak';
     }
 
-    const basePoseConfig = pickBase(fcfg, C, poseMode);
+    const basePoseConfig = pickBase(fcfg, C, poseMode, F);
     const walkProfile = pickWalkProfile(fcfg, C, poseMode);
     const walkPose = computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode });
     const legsPose = walkProfile?.legsPose || pickLegsBase(fcfg, C, poseMode);
