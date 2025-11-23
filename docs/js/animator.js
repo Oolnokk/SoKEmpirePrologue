@@ -1716,19 +1716,13 @@ function computeGravityDownDeg(movement){
 
 function buildNonCombatRagdollPose(F, basePose, movement){
   const noise = advanceNonCombatNoise(F);
-  const gravity = movement?.gravity;
-  const hasGravity = Number.isFinite(gravity) && gravity !== 0;
   const downDeg = computeGravityDownDeg(movement);
-  const lDown = hasGravity
-    ? downDeg
-    : (Number.isFinite(basePose?.lShoulder) ? basePose.lShoulder : downDeg);
-  const rDown = hasGravity
-    ? -downDeg
-    : (Number.isFinite(basePose?.rShoulder) ? basePose.rShoulder : -downDeg);
+  const lBase = Number.isFinite(basePose?.lShoulder) ? basePose.lShoulder : 0;
+  const rBase = Number.isFinite(basePose?.rShoulder) ? basePose.rShoulder : 0;
   return {
-    lShoulder: lDown + noise.shoulder,
+    lShoulder: downDeg - lBase + noise.shoulder,
     lElbow: (NON_COMBAT_RAGDOLL_POSE.lElbow || 0) + noise.elbow,
-    rShoulder: rDown - noise.shoulder,
+    rShoulder: downDeg - rBase - noise.shoulder,
     rElbow: (NON_COMBAT_RAGDOLL_POSE.rElbow || 0) - noise.elbow,
   };
 }
