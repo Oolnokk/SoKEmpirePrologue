@@ -11,7 +11,7 @@
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho3-back.png"
           },
           "attachBone": "torso",
-          "drawSlot": "arm_R_upper",
+          "drawSlot": "head",
           "dynamicLayerByBoneRotation": {
             "bone": "arm_R_upper",
             "initialLayer": "arm_R_upper",
