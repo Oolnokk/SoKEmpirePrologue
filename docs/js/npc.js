@@ -1609,6 +1609,16 @@ export function updateNpcSystems(dt) {
     return;
   }
   const player = G.FIGHTERS?.player;
+  const isFighterEngaged = (fighter) => {
+    if (!fighter) return false;
+    if (fighter.aggression?.active) return true;
+    if (fighter.attack?.active) return true;
+    if (fighter.combo?.active) return true;
+    return false;
+  };
+  const aggressiveNpcs = [];
+  const engagedPassiveNpcs = [];
+  const playerEngaged = isFighterEngaged(player);
   for (const npc of npcs) {
     const combat = ensureNpcCombat(G, npc);
     if (combat?.tick && !npc.isDead) combat.tick(dt);
@@ -1641,10 +1651,32 @@ export function updateNpcSystems(dt) {
     }
     updateNpcMovement(G, npc, dt, abilityIntent);
     updateNpcPerceptionColliders(npc);
+
+    if (npc.aggression?.active) {
+      aggressiveNpcs.push(npc);
+    } else if (isFighterEngaged(npc)) {
+      engagedPassiveNpcs.push(npc);
+    }
   }
   if ((player && !player.destroyed) || npcs.length > 1) {
-    const fighters = player ? [player, ...npcs] : [...npcs];
-    resolveFighterBodyCollisions(fighters, window.CONFIG || {}, { iterations: 2 });
+    const aggressiveColliders = [...aggressiveNpcs];
+    const engagedPassiveColliders = engagedPassiveNpcs.filter((npc, index) => {
+      if (playerEngaged && isFighterEngaged(npc)) return true;
+      if (aggressiveNpcs.some((other) => other !== npc && isFighterEngaged(other))) return true;
+      return engagedPassiveNpcs.some((other, otherIndex) => otherIndex !== index && isFighterEngaged(other));
+    });
+    const fighters = [
+      ...(
+        player
+          ? [player]
+          : []
+      ),
+      ...aggressiveColliders,
+      ...engagedPassiveColliders,
+    ];
+    if (fighters.length > 1) {
+      resolveFighterBodyCollisions(fighters, window.CONFIG || {}, { iterations: 2 });
+    }
   }
   updateNpcHud(G);
 }
