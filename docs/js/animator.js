@@ -75,7 +75,7 @@ function ensureAnimState(F){
     if (F.anim.breath.direction !== 1 && F.anim.breath.direction !== -1) F.anim.breath.direction = 1;
   }
   if (!F.anim.weapon || typeof F.anim.weapon !== 'object') {
-    F.anim.weapon = { attachments: {}, gripPercents: {}, jointPercents: {}, state: null };
+    F.anim.weapon = { attachments: {}, gripPercents: {}, jointPercents: {}, state: null, stowed: false };
   } else {
     if (typeof F.anim.weapon.attachments !== 'object' || !F.anim.weapon.attachments) {
       F.anim.weapon.attachments = {};
@@ -85,6 +85,9 @@ function ensureAnimState(F){
     }
     if (typeof F.anim.weapon.jointPercents !== 'object' || !F.anim.weapon.jointPercents) {
       F.anim.weapon.jointPercents = {};
+    }
+    if (typeof F.anim.weapon.stowed !== 'boolean') {
+      F.anim.weapon.stowed = false;
     }
   }
   if (!F.anim.length || typeof F.anim.length !== 'object') {
@@ -579,6 +582,17 @@ function canonicalLimbName(name) {
   return null;
 }
 
+function mergePoseOverlay(basePose, overlay) {
+  const merged = { ...basePose };
+  if (!overlay || typeof overlay !== 'object') return merged;
+  for (const [key, value] of Object.entries(overlay)) {
+    merged[key] = (value && typeof value === 'object' && !Array.isArray(value))
+      ? { ...value }
+      : value;
+  }
+  return merged;
+}
+
 function handleGripEvent(F, spec) {
   if (!F?.anim?.weapon || !spec) return;
   const attachments = F.anim.weapon.attachments || (F.anim.weapon.attachments = {});
@@ -615,6 +629,10 @@ function getActiveWeaponKey(F, C) {
     || (C?.characters?.player?.weapon ?? null);
 }
 
+function isNonCombatPoseActive(F) {
+  return !!(F?.renderProfile?.nonCombat || F?.nonCombat);
+}
+
 function collectDefaultGripPercents(rig) {
   const map = {};
   if (!rig?.bones) return map;
@@ -643,11 +661,13 @@ function collectDefaultJointPercents(rig) {
   return map;
 }
 
-function computePoseBasis(F, target, C, fcfg) {
+function computePoseBasis(F, target, C, fcfg, lengthOverridesOverride = null) {
   const L = lengths(C, fcfg);
-  const lengthOverrides = (F?.anim?.length?.overrides && typeof F.anim.length.overrides === 'object')
-    ? F.anim.length.overrides
-    : {};
+  const lengthOverrides = (lengthOverridesOverride && typeof lengthOverridesOverride === 'object')
+    ? lengthOverridesOverride
+    : ((F?.anim?.length?.overrides && typeof F.anim.length.overrides === 'object')
+      ? F.anim.length.overrides
+      : {});
   const torsoLen = L.torso * resolveBoneLengthScale(lengthOverrides, 'torso', L.torso, ['body']);
   const armUpperLeftLen = L.armU * resolveBoneLengthScale(lengthOverrides, 'arm_L_upper', L.armU, ['arm_upper', 'upper_arm', 'arm']);
   const armUpperRightLen = L.armU * resolveBoneLengthScale(lengthOverrides, 'arm_R_upper', L.armU, ['arm_upper', 'upper_arm', 'arm']);
@@ -1253,7 +1273,7 @@ function buildWeaponBones({
   return { bones, gripLookup };
 }
 
-function updateWeaponRig(F, target, finalDeg, C, fcfg, styleComposer) {
+function updateWeaponRig(F, target, finalDeg, C, fcfg, styleComposer, { stowActive = false, lengthOverrides } = {}) {
   if (!F?.anim?.weapon) return;
   const weaponKey = getActiveWeaponKey(F, C);
   const weaponDef = weaponKey && C.weapons ? C.weapons[weaponKey] : null;
@@ -1323,7 +1343,7 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg, styleComposer) {
 
   // Remove all IK calculations for weapons. Use pose-based animation only.
   const displayPose = samplePoseForWeaponDisplay(F, target, dt);
-  const poseBasis = computePoseBasis(F, displayPose, C, fcfg);
+  const poseBasis = computePoseBasis(F, displayPose, C, fcfg, lengthOverrides);
   const build = buildWeaponBones({
     rig,
     basisInfo: poseBasis,
@@ -1334,7 +1354,7 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg, styleComposer) {
     jointPercents: jointPercentValues,
     jointDefaults,
     wristTransforms,
-    lengthOverrides: F.anim?.length?.overrides
+    lengthOverrides: lengthOverrides || F.anim?.length?.overrides
   });
   F.anim.weapon.attachments = {};
   F.anim.weapon.state = {
@@ -1342,7 +1362,8 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg, styleComposer) {
     bones: build.bones,
     gripPercents: { ...gripPercents },
     jointPercents: { ...jointPercents },
-    attachments: {}
+    attachments: {},
+    stowed: !!stowActive
   };
 }
 
@@ -2013,9 +2034,21 @@ export function updatePoses(){
     // Apply aiming offsets to pose
     finalDeg = applyAimingOffsets(finalDeg, F, aimingPose || targetDeg);
 
+    const nonCombatPose = C.nonCombatPose || C.poses?.NonCombat;
+    const stowActive = !!nonCombatPose && isNonCombatPoseActive(F);
+
+    if (stowActive && F.anim?.weapon && !F.anim.weapon.stowed) {
+      F.anim.weapon.attachments = {};
+      F.anim.weapon.gripPercents = {};
+    }
+
     const headDeg = computeHeadTargetDeg(F, finalDeg, fcfg);
     if (typeof headDeg === 'number') {
       finalDeg.head = headDeg;
+    }
+
+    if (stowActive && nonCombatPose) {
+      finalDeg = mergePoseOverlay(finalDeg, nonCombatPose);
     }
 
     // Debug: log once on first frame for player
@@ -2029,10 +2062,21 @@ export function updatePoses(){
       F.__debugLogged = true;
     }
     
+    const poseLengthOverrides = extractPoseLengthOverrides(finalDeg);
+    const lengthOverrides = (F?.anim?.length?.overrides && typeof F.anim.length.overrides === 'object')
+      ? { ...F.anim.length.overrides }
+      : {};
+    if (poseLengthOverrides) {
+      Object.assign(lengthOverrides, poseLengthOverrides);
+    }
+
     const target = degToRadPose(finalDeg);
     updateBreathing(F, id, breathingSpec);
     const composedTransforms = applyStyleTransformComposer(F, id, finalDeg);
-    updateWeaponRig(F, target, finalDeg, C, fcfg, composedTransforms);
+    updateWeaponRig(F, target, finalDeg, C, fcfg, composedTransforms, { stowActive, lengthOverrides });
+    if (F.anim?.weapon) {
+      F.anim.weapon.stowed = stowActive;
+    }
     updatePhysicsPoseTarget(F, target);
     const ragBlend = getPhysicsRagdollBlend(F);
     const ragAngles = getPhysicsRagdollAngles(F);
