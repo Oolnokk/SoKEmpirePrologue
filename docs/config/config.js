@@ -629,8 +629,8 @@ window.CONFIG = {
       slotB: { ax: 0.12, ay: -0.64, units: 'percent', angDeg: 16 }
     },
     sarrarru: {
-      slotA: { ax: 0, ay: 0, units: 'percent', angDeg: -45 },
-      slotB: { ax: 0, ay: 0, units: 'percent', angDeg: 12 }
+      slotA: { ax: 0, ay: 0.25, units: 'percent', angDeg: -45 },
+      slotB: { ax: 0, ay: 0.25, units: 'percent', angDeg: 12 }
     },
     greatclub: {
       slotA: { ax: -0.22, ay: -1.1, units: 'percent', angDeg: -4 },
