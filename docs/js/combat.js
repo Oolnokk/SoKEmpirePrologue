@@ -108,12 +108,15 @@ export function makeCombat(G, C, options = {}){
     const platformIsTouch = isTouchPlatform();
     const joystickNormalized = getJoystickNormalized();
     const joystickRunning = joystickNormalized >= WALK_MODE_RUN_THRESHOLD;
+    const shiftHeld = !!input?.shift;
 
     if (platformIsTouch) {
-      return joystickRunning ? 'combat' : 'nonCombat';
+      if (joystickNormalized > 0) {
+        return joystickRunning ? 'combat' : 'nonCombat';
+      }
+      return shiftHeld ? 'combat' : 'nonCombat';
     }
 
-    const shiftHeld = !!input?.shift;
     return shiftHeld ? 'combat' : 'nonCombat';
   };
 
