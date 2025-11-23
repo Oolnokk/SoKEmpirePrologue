@@ -231,7 +231,7 @@ test('convertLayoutToArea generates fallback prefab art when prefab is missing',
   assert.ok(area.warnings.some((line) => line.includes('generated ASCII fallback')));
 });
 
-test('convertLayoutToArea applies proximity scale and intra-layer depth', () => {
+test('convertLayoutToArea keeps instance transforms in editor space while honoring proximity depth', () => {
   const layout = {
     areaId: 'proximity_area',
     proximityScale: 1.5,
@@ -249,13 +249,51 @@ test('convertLayoutToArea applies proximity scale and intra-layer depth', () => 
   assert.equal(area.proximityScale, 1.5);
   assert.equal(area.meta.proximityScale, 1.5);
   const [closeInst, farInst] = area.instances;
-  assert.equal(closeInst.scale.x, 1.5);
-  assert.equal(closeInst.position.x, 6);
+  assert.equal(closeInst.scale.x, 1);
+  assert.equal(closeInst.position.x, 4);
   assert.equal(closeInst.meta.proximityScale.mode, 'zoom');
-  assert.equal(closeInst.meta.proximityScale.applied, 1.5);
+  assert.equal(closeInst.meta.proximityScale.applied, 1);
+  assert.equal(closeInst.meta.proximityScale.inherited, 1);
   assert.equal(farInst.scale.x, 1); // player spawn tags remain unscaled
   assert.equal(farInst.position.x, 10);
   assert.ok(closeInst.intraLayerDepth > farInst.intraLayerDepth);
+});
+
+test('convertLayoutToArea does not bake proximity scale into transforms when NPC data is present', () => {
+  const layout = {
+    areaId: 'npc_scale_guard',
+    proximityScale: 3.1,
+    layers: [
+      { id: 'gameplay', name: 'Gameplay', parallax: 1, yOffset: 0, sep: 200, scale: 1 },
+    ],
+    instances: [
+      { id: 'tower', prefabId: 'tower_commercial', layerId: 'gameplay', x: -780, offsetY: 0, scaleX: 1.0226, scaleY: 1.0465 },
+      { id: 'spawn-player', prefabId: 'spawn_player', layerId: 'gameplay', x: 0, offsetY: 0, scaleX: 1 },
+      { id: 'spawn-npc', prefabId: 'spawn_npc', layerId: 'gameplay', x: 10, offsetY: 0, scaleX: 1 },
+    ],
+    spawners: [
+      { spawnerId: 'npc_spawner', prefabId: 'spawn_npc', position: { x: 5, y: 5 } },
+    ],
+    pathTargets: [
+      { id: 'npc_target', position: { x: 12, y: -6 } },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout, { prefabResolver: (id) => ({ id, parts: [] }) });
+
+  const tower = area.instances.find((inst) => inst.id === 'tower');
+  assert.ok(tower, 'tower instance should exist');
+  assert.ok(Math.abs(tower.position.x - (-780)) < 0.0001);
+  assert.ok(Math.abs(tower.scale.x - 1.0226) < 0.0001);
+  assert.ok(Math.abs(tower.scale.y - 1.0465) < 0.0001);
+  assert.equal(tower.meta.proximityScale.applied, 1);
+  assert.equal(tower.meta.proximityScale.inherited, 1);
+
+  // Ensure NPC-related exports still exist
+  assert.ok(Array.isArray(area.spawners));
+  assert.ok(area.spawners.some((spawner) => spawner.spawnerId === 'npc_spawner'));
+  assert.ok(Array.isArray(area.pathTargets));
+  assert.ok(area.pathTargets.some((target) => target.name === 'npc_target'));
 });
 
 test('convertLayoutToArea falls back to layout.props when instances are missing', () => {
