@@ -56,7 +56,7 @@
       "layers": {
         "over": {
           "image": {
-            "url": "./assets/cosmetics/clothes/overwear/simple_poncho3-shoulder.png"
+            "url": ""
           },
           "attachBone": "arm_R_upper",
           "drawSlot": "arm_R_lower", 
