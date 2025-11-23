@@ -30,11 +30,52 @@ const abilityKnockback = (base, { clamp } = {}) => {
 
 const deepClone = (value) => JSON.parse(JSON.stringify(value || {}));
 
+const toPascalCase = (value) => {
+  if (!value) return '';
+  return String(value)
+    .split(/[^a-zA-Z0-9]+/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+};
+
 const NON_COMBAT_POSE = {
   weapon: 0,
   weaponGripPercents: { primary: 0, secondary: 0 },
   weaponJointPercent: 0,
   lengthScales: { weapon: 0 }
+};
+
+const WEAPON_STANCE_TYPES = ['unarmed', 'dagger-swords', 'sarrarru', 'light-greatblade', 'greatclub', 'hatchets'];
+
+const buildWeaponStances = (basePose) => {
+  const map = {};
+  for (const type of WEAPON_STANCE_TYPES) {
+    const suffix = toPascalCase(type);
+    if (!suffix) continue;
+    map[`Stance${suffix}`] = deepClone(basePose);
+  }
+  return map;
+};
+
+const ensureWeaponStances = (config) => {
+  if (!config?.poses) return;
+  const base = config.poses.Stance || deepClone(MODE_BASE_POSES.combat);
+  const ensure = (rawKey) => {
+    const suffix = toPascalCase(rawKey);
+    if (!suffix) return;
+    const poseKey = `Stance${suffix}`;
+    if (!config.poses[poseKey]) {
+      config.poses[poseKey] = deepClone(base);
+    }
+  };
+
+  ensure('unarmed');
+  const weapons = config.weapons || {};
+  Object.entries(weapons).forEach(([weaponKey, def]) => {
+    ensure(weaponKey);
+    if (def?.type) ensure(def.type);
+  });
 };
 
 const WALK_PROFILES = {
@@ -607,6 +648,7 @@ window.CONFIG = {
 
   poses: {
     Stance: deepClone(MODE_BASE_POSES.combat),
+    ...buildWeaponStances(MODE_BASE_POSES.combat),
     NonCombatBase: deepClone(MODE_BASE_POSES.nonCombat),
     SneakBase: deepClone(MODE_BASE_POSES.sneak),
     Windup: deepClone(BASE_POSES.Windup),
@@ -2219,6 +2261,7 @@ const attachHierarchy = () => {
   };
 };
 
+ensureWeaponStances(window.CONFIG);
 attachHierarchy();
 
 

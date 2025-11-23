@@ -13,6 +13,7 @@ import {
   resolveFighterPerceptionColliders,
 } from './colliders.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
+import { resolveStancePose } from './animator.js?v=5';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -754,7 +755,7 @@ function resolvePoseForPhase(preset, phaseName) {
   if (preset?.poses?.[phaseName]) return clone(preset.poses[phaseName]);
   const C = window.CONFIG || {};
   if (C.poses?.[phaseName]) return clone(C.poses[phaseName]);
-  if (phaseName === 'Stance' && C.poses?.Stance) return clone(C.poses.Stance);
+  if (phaseName === 'Stance') return clone(resolveStancePose(C));
   return null;
 }
 
