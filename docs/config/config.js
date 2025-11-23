@@ -58,8 +58,8 @@ const WALK_PROFILES = {
     minSpeed: 60,
     amp: 0.9,
     poses: {
-      A: { torso: 30, lHip: 40, lKnee: 45, rHip: 140, rKnee: 90 },
-      B: { torso: 40, lHip: 140, lKnee: 90, rHip: 40, rKnee: 45 }
+      A: { torso: 15, lHip: 80, lKnee: 45, rHip: 100, rKnee: 90 },
+      B: { torso: 25, lHip: 100, lKnee: 90, rHip: 80, rKnee: 45 }
 	}
   },
   sneak: {
