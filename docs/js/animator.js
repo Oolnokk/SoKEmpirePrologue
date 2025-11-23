@@ -676,8 +676,10 @@ function collectDefaultJointPercents(rig) {
   return map;
 }
 
-function computePoseBasis(F, target, C, fcfg, lengthOverridesOverride = null) {
-  const L = lengths(C, fcfg);
+function computePoseBasis(F, target, baseCfg, fcfg, lengthOverridesOverride = null) {
+  const primaryCfg = fcfg || baseCfg || {};
+  const fallbackCfg = baseCfg || {};
+  const L = lengths(fallbackCfg, primaryCfg);
   const lengthOverrides = (lengthOverridesOverride && typeof lengthOverridesOverride === 'object')
     ? lengthOverridesOverride
     : ((F?.anim?.length?.overrides && typeof F.anim.length.overrides === 'object')
@@ -708,10 +710,12 @@ function computePoseBasis(F, target, C, fcfg, lengthOverridesOverride = null) {
     legLowerLeft: legLowerLeftLen,
     legLowerRight: legLowerRightLen
   };
-  const OFF = pickOffsets(C, fcfg);
-  const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx: 0.5, ny: 0.7 });
+  const OFF = pickOffsets(fallbackCfg, primaryCfg);
+  const hbAttach = (primaryCfg.parts?.hitbox?.torsoAttach || fallbackCfg.parts?.hitbox?.torsoAttach || { nx: 0.5, ny: 0.7 });
   const centerX = F.pos?.x ?? 0;
-  const centerY = F.pos?.y ?? ((C.groundRatio || 0.7) * (C.canvas?.h || 460));
+  const canvasConfig = primaryCfg.canvas || fallbackCfg.canvas || {};
+  const groundRatio = primaryCfg.groundRatio ?? fallbackCfg.groundRatio ?? 0.7;
+  const centerY = F.pos?.y ?? (groundRatio * (canvasConfig.h || 460));
   const torsoAng = target?.torso ?? 0;
   const torsoAttach = {
     x: centerX + (hbAttach.nx - 0.5) * L.hbW,
@@ -1443,29 +1447,32 @@ function applyGravityScaleEvent(F, scale, { durationMs, reset } = {}){
   const expiresAt = Number.isFinite(durationMs) && durationMs > 0 ? now + (durationMs / 1000) : null;
   F.gravityOverride = { value: scale, expiresAt };
 }
-function pickBase(C, mode = 'combat'){
-  if (!C?.poses) return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
-  if (mode === 'nonCombat' && C.poses.NonCombatBase) return C.poses.NonCombatBase;
-  if (mode === 'sneak' && C.poses.SneakBase) return C.poses.SneakBase;
-  return C.poses.Stance || { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
+function pickBase(fcfg, C, mode = 'combat'){
+  const cfg = fcfg || C || {};
+  if (!cfg?.poses) return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
+  if (mode === 'nonCombat' && cfg.poses.NonCombatBase) return cfg.poses.NonCombatBase;
+  if (mode === 'sneak' && cfg.poses.SneakBase) return cfg.poses.SneakBase;
+  return cfg.poses.Stance || { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
 }
 
-function pickWalkProfile(C, mode = 'combat'){
-  const profiles = C?.walkProfiles || {};
+function pickWalkProfile(fcfg, C, mode = 'combat'){
+  const cfg = fcfg || C || {};
+  const profiles = cfg?.walkProfiles || {};
   if (mode === 'nonCombat' && profiles.nonCombat) return profiles.nonCombat;
   if (mode === 'sneak' && profiles.sneak) return profiles.sneak;
-  return profiles.combat || C.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
+  return profiles.combat || cfg.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
 }
 
 function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX = (F._prevX==null? F.pos?.x||0 : F._prevX); const curX = F.pos?.x||0; const v = (curX - prevX)/dt; F._prevX = curX; return Math.abs(Number.isFinite(F.vel?.x)? F.vel.x : v); }
 
-function computeWalkPose(F, C, walkProfile, basePoseConfig, { poseMode } = {}){
-  const W = walkProfile || C.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
+function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } = {}){
+  const cfg = fcfg || C || {};
+  const W = walkProfile || cfg.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
   const speed = computeSpeed(F);
   const on = !!W.enabled && speed >= (W.minSpeed||60) && (F.onGround!==false);
   // compute frequency scaled by speed (clamped)
   const baseHzFactor = (W.baseHz||1.2) * (W.speedScale||1.0);
-  const movementScale = (speed > 1) ? Math.min(3, 0.5 + speed / (C.movement?.maxSpeedX||300)) : 1;
+  const movementScale = (speed > 1) ? Math.min(3, 0.5 + speed / (cfg.movement?.maxSpeedX||300)) : 1;
   const baseHz = baseHzFactor * movementScale;
 
   // initialize walk state
@@ -1488,7 +1495,7 @@ function computeWalkPose(F, C, walkProfile, basePoseConfig, { poseMode } = {}){
   const phaseWrapped = F.walk.phase < prevPhase;
   const phaseDelta = F.walk.phase - prevPhase + (phaseWrapped ? Math.PI * 2 : 0);
   const walkActive = on && F.walk.amp > 0.05;
-  const logFootstep = !!(F.debugFootsteps || C?.debugFootsteps);
+  const logFootstep = !!(F.debugFootsteps || cfg?.debugFootsteps);
   const now = performance.now() / 1000;
   if (walkActive && phaseDelta > 0) {
     const checkPoints = [Math.PI, Math.PI * 2];
@@ -1498,7 +1505,7 @@ function computeWalkPose(F, C, walkProfile, basePoseConfig, { poseMode } = {}){
       const crossed = prevPhase < target && (prevPhase + phaseDelta) >= target;
       if (!crossed) continue;
       const foot = normalizedTarget === Math.PI ? 'right' : 'left';
-      const intensity = clamp(speed / (C.movement?.maxSpeedX || 320), 0.2, 1.15) * F.walk.amp;
+      const intensity = clamp(speed / (cfg.movement?.maxSpeedX || 320), 0.2, 1.15) * F.walk.amp;
       contacts.push({ foot, intensity, phase: normalizedTarget, time: now });
       if (logFootstep) {
         console.debug('[animator] walk foot contact', { foot, phase: normalizedTarget, speed, amp: F.walk.amp });
@@ -1512,14 +1519,14 @@ function computeWalkPose(F, C, walkProfile, basePoseConfig, { poseMode } = {}){
   const s = easeInOutCubic(rawS);
 
   const A = W.poses?.A || {}; const B = W.poses?.B || {};
-  const pose = Object.assign({}, basePoseConfig || pickBase(C));
+  const pose = Object.assign({}, basePoseConfig || pickBase(fcfg, C));
   // interpolate leg/torso angles and scale by smoothed amplitude
   pose.lHip = lerp(A.lHip||0, B.lHip||0, s) * F.walk.amp;
   pose.lKnee= lerp(A.lKnee||0,B.lKnee||0,s) * F.walk.amp;
   pose.rHip = lerp(A.rHip||0, B.rHip||0, s) * F.walk.amp;
   pose.rKnee= lerp(A.rKnee||0,B.rKnee||0,s) * F.walk.amp;
   pose.torso= lerp(A.torso||0,B.torso||0,s) * F.walk.amp;
-  const base = basePoseConfig || pickBase(C);
+  const base = basePoseConfig || pickBase(fcfg, C);
   pose.lShoulder=base.lShoulder; pose.lElbow=base.lElbow; pose.rShoulder=base.rShoulder; pose.rElbow=base.rElbow;
   const armSwingSpec = W.armSwing || {};
   const swingEnabledFlag = armSwingSpec.enabled ?? W.armSwingEnabled;
@@ -2094,9 +2101,9 @@ export function updatePoses(){
       poseMode = 'sneak';
     }
 
-    const basePoseConfig = pickBase(C, poseMode);
-    const walkProfile = pickWalkProfile(C, poseMode);
-    const walkPose = computeWalkPose(F, C, walkProfile, basePoseConfig, { poseMode });
+    const basePoseConfig = pickBase(fcfg, C, poseMode);
+    const walkProfile = pickWalkProfile(fcfg, C, poseMode);
+    const walkPose = computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode });
     const applyModeLayer = walkPose._active && (poseMode === 'nonCombat' || poseMode === 'sneak');
 
     if (applyModeLayer) {
