@@ -16,8 +16,8 @@
             "bone": "arm_R_upper",
             "initialLayer": "head",
             "ranges": [
-              { "minDeg": -360, "maxDeg": -180, "layer": "head" },
-              { "minDeg": -181, "maxDeg": 0, "layer": "arm_R_upper" }
+              { "minDeg": 181, "maxDeg": 360, "layer": "head" },
+              { "minDeg": 0, "maxDeg": 180, "layer": "arm_R_upper" }
             ]
           },
           "spriteStyle": {
@@ -38,8 +38,8 @@
             "bone": "arm_R_upper",
             "initialLayer": "torso",
             "ranges": [
-              { "minDeg": -360, "maxDeg": -180, "layer": "arm_R_upper" },
-              { "minDeg": -181, "maxDeg": 0, "layer": "head" }
+              { "minDeg": 0, "maxDeg": 180, "layer": "arm_R_upper" },
+              { "minDeg": 181, "maxDeg": 360, "layer": "head" }
             ]
           },
           "spriteStyle": {
