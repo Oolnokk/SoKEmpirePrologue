@@ -1393,6 +1393,8 @@ export function convertLayoutToArea(layout, options = {}) {
     }
   }
 
+  const metaFromLayout = layout.meta && typeof layout.meta === 'object' ? safeClone(layout.meta) : {};
+
   return {
     id: resolvedAreaId,
     name: resolvedAreaName,
@@ -1417,9 +1419,10 @@ export function convertLayoutToArea(layout, options = {}) {
     warnings,
     background,
     meta: {
-      exportedAt: layout.meta?.exportedAt || null,
+      ...metaFromLayout,
+      exportedAt: metaFromLayout.exportedAt || null,
       proximityScale,
-      raw: includeRaw ? safeClone(layout) : undefined,
+      raw: includeRaw ? safeClone(layout) : metaFromLayout.raw,
     },
   };
 }
