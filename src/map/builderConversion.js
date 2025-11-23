@@ -1,4 +1,9 @@
 import { mapBuilderConfig } from './mapBuilderConfig.js';
+import {
+  attachGroupsToSpawners,
+  mergeGroupLibraries,
+  normalizeGroupLibrary,
+} from './groupLibrary.js';
 
 const {
   sourceId: SOURCE_ID,
@@ -651,6 +656,10 @@ function normalizeAreaDescriptor(area, options = {}) {
   const explicitSpawners = normalizeSpawnerList(area.spawners, warnings, { source: 'area' });
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
   const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners);
+  const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
+  const areaGroupLibrary = normalizeGroupLibrary(area.groupLibrary ?? area.groups, warnings, { source: 'area.groupLibrary' });
+  const groupLibrary = mergeGroupLibraries(optionGroupLibrary, areaGroupLibrary);
+  const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(area.pathTargets, warnings, { source: 'area' });
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
   const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets);
@@ -671,8 +680,9 @@ function normalizeAreaDescriptor(area, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     pathTargets,
-    spawners,
-    spawnersById: buildSpawnerIndex(spawners),
+    spawners: spawnersWithGroups,
+    spawnersById: buildSpawnerIndex(spawnersWithGroups),
+    groupLibrary,
     colliders: alignedColliders,
     drumSkins: convertedDrumSkins,
     tilers: convertedTilers,
@@ -832,6 +842,10 @@ export function convertLayoutToArea(layout, options = {}) {
   const explicitSpawners = normalizeSpawnerList(layout.spawners, warnings, { source: 'layout' });
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
   const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners);
+  const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
+  const layoutGroupLibrary = normalizeGroupLibrary(layout.groupLibrary ?? layout.groups, warnings, { source: 'layout.groupLibrary' });
+  const groupLibrary = mergeGroupLibraries(optionGroupLibrary, layoutGroupLibrary);
+  const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(layout.pathTargets, warnings, { source: 'layout' });
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
   const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets);
@@ -863,8 +877,9 @@ export function convertLayoutToArea(layout, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     pathTargets,
-    spawners,
-    spawnersById: buildSpawnerIndex(spawners),
+    spawners: spawnersWithGroups,
+    spawnersById: buildSpawnerIndex(spawnersWithGroups),
+    groupLibrary,
     colliders: alignedColliders,
     drumSkins: convertedDrumSkins,
     tilers: convertedTilers,
@@ -1039,6 +1054,8 @@ function normalizeSpawnerRecord(raw, warnings = [], context = {}) {
       ?? safe.spawn?.characterId
       ?? safe.meta?.characterId,
   );
+  const groupId = pickNonEmptyString(safe.groupId, safe.group?.id, safe.meta?.groupId);
+  const group = safe.group && typeof safe.group === 'object' ? safeClone(safe.group) : undefined;
 
   const position = {
     x: toNumber(safe.position?.x ?? safe.x ?? 0, 0),
@@ -1063,6 +1080,8 @@ function normalizeSpawnerRecord(raw, warnings = [], context = {}) {
     respawn,
     templateId,
     characterId,
+    groupId,
+    group,
     meta,
   };
 }
