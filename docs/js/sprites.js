@@ -10,7 +10,7 @@
 // - rotation: bone.ang + alignRad + Math.PI
 // - Mirroring per part via RENDER.MIRROR flags
 
-import { angleZero as angleZeroUtil, basis as basisFn, dist, angle as angleUtil, degToRad } from './math-utils.js?v=1';
+import { angleZero as angleZeroUtil, basis as basisFn, dist, angle as angleUtil, degToRad, radToDegNum } from './math-utils.js?v=1';
 import { pickFighterName as pickFighterNameUtil } from './fighter-utils.js?v=1';
 import { COSMETIC_SLOTS, ensureCosmeticLayers, cosmeticTagFor, resolveFighterBodyColors } from './cosmetics.js?v=1';
 import { composeStyleXformEntry } from './style-xform.js?v=1';
@@ -25,6 +25,7 @@ const RENDER = (window.RENDER ||= {});
 RENDER.MIRROR = RENDER.MIRROR || {}; // Initialize per-limb mirror flags
 const WEAPON_SPRITE_CACHE = new Map();
 const COSMETIC_INFLUENCE_WEIGHT_LIMIT = 4;
+const DYNAMIC_LAYER_STATE = new Map();
 
 function ensureArray(value){
   if (value == null) return [];
@@ -43,6 +44,47 @@ function clamp01(value){
   if (value <= 0) return 0;
   if (value >= 1) return 1;
   return value;
+}
+
+function dynamicLayerStateKey(entityId, layer){
+  const entityKey = entityId ?? 'global';
+  const cosmeticKey = layer?.cosmeticId || 'cosmetic';
+  const partKey = layer?.partKey || 'part';
+  const position = layer?.position || 'pos';
+  return `${entityKey}::${cosmeticKey}::${partKey}::${position}`;
+}
+
+function resolveDynamicDrawSlot(entityId, rig, layer){
+  if (!layer) return null;
+  const rule = layer.dynamicLayerByBoneRotation;
+  const baseSlot = layer.drawSlot || layer.partKey;
+  if (!rule || !rule.bone || !Array.isArray(rule.ranges) || !rule.ranges.length){
+    return baseSlot;
+  }
+  const stateKey = dynamicLayerStateKey(entityId, layer);
+  const previous = DYNAMIC_LAYER_STATE.get(stateKey) || rule.initialLayer || baseSlot;
+  const bone = rig?.[rule.bone];
+  if (!bone || typeof bone.ang !== 'number'){
+    return previous;
+  }
+  const deg = radToDegNum(bone.ang);
+  let selectedSlot = null;
+  for (const range of rule.ranges){
+    if (!range || typeof range !== 'object') continue;
+    const candidate = typeof range.layer === 'string' ? range.layer : null;
+    if (!candidate) continue;
+    const minDeg = Number.isFinite(range.minDeg) ? range.minDeg : -Infinity;
+    const maxDeg = Number.isFinite(range.maxDeg) ? range.maxDeg : Infinity;
+    const min = Math.min(minDeg, maxDeg);
+    const max = Math.max(minDeg, maxDeg);
+    if (deg >= min && deg <= max){
+      selectedSlot = candidate;
+      break;
+    }
+  }
+  const resolved = selectedSlot || previous;
+  DYNAMIC_LAYER_STATE.set(stateKey, resolved);
+  return resolved;
 }
 
 function resolveWeaponTypeKey(config, weaponKey) {
@@ -1298,37 +1340,37 @@ export function renderSprites(ctx){
     }
 
     if (Array.isArray(clothingLayers)){
-  for (const layer of clothingLayers){
-    // Use decoupled movement and draw order
-    const boneKey = layer.attachBone || layer.partKey;
-    const drawSlotKey = layer.drawSlot || layer.partKey;
-    const bone = rig[boneKey];
-    if (!bone) continue;
-    const baseTag = tagOf(drawSlotKey);
-    const slotTag = cosmeticTagFor(baseTag, layer.slot, layer.position);
-    const styleKey = layer.styleKey || boneKey;
-    const { mirror, originX } = resolveCosmeticMirror(rig, drawSlotKey, bone);
-    const influences = resolveCosmeticBoneInfluences(layer.extra?.boneInfluences, rig, boneKey);
-    const baseOptions = {
-      styleOverride: layer.styleOverride,
-      hsl: layer.hsl ?? layer.hsv,
-      warp: layer.warp,
-      alignRad: layer.alignRad,
-      alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
-      palette: layer.palette
-    };
-    if (influences.length){
-      baseOptions.boneInfluences = influences;
+      for (const layer of clothingLayers){
+        // Use decoupled movement and draw order
+        const boneKey = layer.attachBone || layer.partKey;
+        const drawSlotKey = resolveDynamicDrawSlot(entity.id, rig, layer) || layer.partKey;
+        const bone = rig[boneKey];
+        if (!bone) continue;
+        const baseTag = tagOf(drawSlotKey);
+        const slotTag = cosmeticTagFor(baseTag, layer.slot, layer.position);
+        const styleKey = layer.styleKey || boneKey;
+        const { mirror, originX } = resolveCosmeticMirror(rig, drawSlotKey, bone);
+        const influences = resolveCosmeticBoneInfluences(layer.extra?.boneInfluences, rig, boneKey);
+        const baseOptions = {
+          styleOverride: layer.styleOverride,
+          hsl: layer.hsl ?? layer.hsv,
+          warp: layer.warp,
+          alignRad: layer.alignRad,
+          alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
+          palette: layer.palette
+        };
+        if (influences.length){
+          baseOptions.boneInfluences = influences;
+        }
+        enqueue(slotTag, ()=>{
+          withBranchMirror(ctx, originX, mirror, ()=>{
+            const drawOptions = applyAnimOptions(styleKey, baseOptions);
+            // Use boneKey (movement) for drawBoneSprite but drawSlotKey/slotTag for visual stack
+            drawBoneSprite(ctx, layer.asset, bone, styleKey, style, drawOptions);
+          });
+        });
+      }
     }
-    enqueue(slotTag, ()=>{
-      withBranchMirror(ctx, originX, mirror, ()=>{
-        const drawOptions = applyAnimOptions(styleKey, baseOptions);
-        // Use boneKey (movement) for drawBoneSprite but drawSlotKey/slotTag for visual stack
-        drawBoneSprite(ctx, layer.asset, bone, styleKey, style, drawOptions);
-      });
-    });
-  }
-}
 
     queue.sort((a, b) => a.z - b.z);
 

@@ -645,6 +645,39 @@ function normalizeLayerPosition(value, fallback = 'front'){
   return fallback;
 }
 
+function normalizeRotationLayerRange(raw = {}){
+  if (!raw || typeof raw !== 'object') return null;
+  const layer = typeof raw.layer === 'string'
+    ? raw.layer.trim()
+    : (typeof raw.slot === 'string' ? raw.slot.trim() : null);
+  if (!layer) return null;
+  const minDegRaw = raw.minDeg ?? raw.min ?? raw.startDeg ?? raw.fromDeg;
+  const maxDegRaw = raw.maxDeg ?? raw.max ?? raw.endDeg ?? raw.toDeg;
+  const hasMin = Number.isFinite(minDegRaw);
+  const hasMax = Number.isFinite(maxDegRaw);
+  if (!hasMin && !hasMax) return null;
+  const range = { layer };
+  if (hasMin) range.minDeg = Number(minDegRaw);
+  if (hasMax) range.maxDeg = Number(maxDegRaw);
+  return range;
+}
+
+function normalizeDynamicLayerByRotation(raw = {}){
+  if (!raw || typeof raw !== 'object') return null;
+  const bone = typeof raw.bone === 'string' ? raw.bone.trim() : null;
+  if (!bone) return null;
+  const ranges = Array.isArray(raw.ranges)
+    ? raw.ranges.map(normalizeRotationLayerRange).filter(Boolean)
+    : [];
+  if (!ranges.length) return null;
+  const initialLayer = typeof raw.initialLayer === 'string'
+    ? raw.initialLayer.trim()
+    : (typeof raw.initialSlot === 'string' ? raw.initialSlot.trim() : null);
+  const spec = { bone, ranges };
+  if (initialLayer) spec.initialLayer = initialLayer;
+  return spec;
+}
+
 function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
   const {
     layers: _ignoredLayers,
@@ -954,6 +987,13 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
         applyOverrides(partOverride, { applyTint: true });
         applyOverrides(partLayerOverride, { applyTint: true });
 
+        const dynamicLayerSpec = partLayerOverride?.dynamicLayerByBoneRotation
+          ?? partOverride?.dynamicLayerByBoneRotation
+          ?? slotLayerOverride?.dynamicLayerByBoneRotation
+          ?? slotOverride?.dynamicLayerByBoneRotation
+          ?? resolved.dynamicLayerByBoneRotation;
+        const dynamicLayerByBoneRotation = normalizeDynamicLayerByRotation(dynamicLayerSpec);
+
         if (!resolved?.image?.url) continue;
         const asset = ensureAsset(cosmetic.id, partKey, resolved.image, layerPosition);
         if (!asset) continue;
@@ -1006,7 +1046,8 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           palette: paletteOverride,
           extra: layerExtra,
           attachBone, // <== Pass through
-          drawSlot    // <== Pass through
+          drawSlot,   // <== Pass through
+          dynamicLayerByBoneRotation
         });
       }
     }
