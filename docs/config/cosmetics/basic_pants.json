@@ -3,9 +3,7 @@
   "meta": {
     "name": "Basic Pants"
   },
-  "hsv": {
-    "defaults": { "h": 0, "s": 0, "v": 0 }
-  },
+  "hsv": { "h": 0, "s": 0, "v": 0 },
   "parts": {
     "leg_L_upper": {
       "layers": {
