@@ -10,6 +10,8 @@
           "image": {
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-back.png"
           },
+          "attachBone": "torso",
+          "drawSlot": "arm_R_lower", 
           "spriteStyle": {
             "base": {
               "xform": {
@@ -22,6 +24,8 @@
           "image": {
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-front.png"
           },
+          "attachBone": "torso",
+          "drawSlot": "arm_R_lower", 
           "spriteStyle": {
             "base": {
               "xform": {
@@ -36,7 +40,7 @@
       "layers": {
         "over": {
           "image": {
-            "url": "./assets/cosmetics/clothes/overwear/simple_poncho2-shoulders.png"
+            "url": ""
           },
           "attachBone": "arm_R_upper",
           "drawSlot": "arm_R_lower", 
