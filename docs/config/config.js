@@ -629,7 +629,7 @@ window.CONFIG = {
       slotB: { ax: 0.12, ay: -0.64, units: 'percent', angDeg: 16 }
     },
     sarrarru: {
-      slotA: { ax: -0.18, ay: -1.05, units: 'percent', angDeg: -6 },
+      slotA: { ax: 0, ay: 0, units: 'percent', angDeg: -45 },
       slotB: { ax: 0.08, ay: -0.96, units: 'percent', angDeg: 12 }
     },
     greatclub: {
@@ -1231,7 +1231,7 @@ window.CONFIG = {
           xformUnits: 'percent',
           widthFactor: { weapon_0: 1 },
           xform: {
-            weapon_0: { ax: 0, ay: -1, scaleX: 0.25, scaleY: 0.1 }
+            weapon_0: { ax: -1, ay: 0, scaleX: 0.25, scaleY: 0.1 }
           }
         }
       }
