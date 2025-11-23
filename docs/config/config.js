@@ -1213,7 +1213,7 @@ window.CONFIG = {
                 from: 0.08,
                 to: 1.1,
                 activatesOn: ['STRIKE'],
-                offset: { ax: 0.42, ay: 0, units: 'percent' }
+                offset: { ax: 0.9, ay: 0, units: 'percent' }
               }
             ]
           }
