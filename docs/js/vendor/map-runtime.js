@@ -871,6 +871,7 @@ export function convertLayoutToArea(layout, options = {}) {
   const prefabResolver = options.prefabResolver ?? (() => null);
   const prefabErrorLookup = options.prefabErrorLookup ?? null;
   const includeRaw = options.includeRaw ?? false;
+  const proximityScale = clampScale(layout.proximityScale ?? layout.meta?.proximityScale, 1);
 
   const layers = Array.isArray(layout.layers) ? layout.layers : [];
   const instances = Array.isArray(layout.instances)
