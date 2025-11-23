@@ -79,6 +79,58 @@ export function makeCombat(G, C, options = {}){
     return source;
   };
 
+  const WALK_MODE_RUN_THRESHOLD = 0.9;
+
+  const isTouchPlatform = () => {
+    const docEl = typeof document !== 'undefined' ? document.documentElement : null;
+    return !!docEl?.classList?.contains('is-touch');
+  };
+
+  const getJoystickNormalized = () => {
+    const joy = G.JOYSTICK || window.GAME?.JOYSTICK;
+    if (!joy) return 0;
+    if (Number.isFinite(joy.normalized)) {
+      return Math.min(Math.max(joy.normalized, 0), 1);
+    }
+    const maxDistance = Number.isFinite(joy.maxDistance) ? joy.maxDistance : 0;
+    if (maxDistance <= 0) return 0;
+    const rawDistance = Number.isFinite(joy.distance) ? joy.distance : 0;
+    return Math.min(Math.max(rawDistance / maxDistance, 0), 1);
+  };
+
+  const resolveWalkMode = (fighter, input) => {
+    const forcedSneak = fighter?.renderProfile?.sneak || fighter?.sneak;
+    if (forcedSneak) return 'sneak';
+
+    const inCombat = isFighterBusy() || !!fighter?.attack?.active;
+    if (inCombat) return 'combat';
+
+    const platformIsTouch = isTouchPlatform();
+    const joystickNormalized = getJoystickNormalized();
+    const joystickRunning = joystickNormalized >= WALK_MODE_RUN_THRESHOLD;
+    const shiftHeld = !!input?.shift;
+
+    if (platformIsTouch) {
+      if (joystickNormalized > 0) {
+        return joystickRunning ? 'combat' : 'nonCombat';
+      }
+      return shiftHeld ? 'combat' : 'nonCombat';
+    }
+
+    return shiftHeld ? 'combat' : 'nonCombat';
+  };
+
+  const applyWalkMode = (fighter, walkMode) => {
+    if (!fighter) return;
+    const resolved = walkMode || 'combat';
+    fighter.walkMode = resolved;
+    fighter.nonCombat = resolved === 'nonCombat';
+    fighter.sneak = resolved === 'sneak';
+    fighter.renderProfile ||= {};
+    fighter.renderProfile.nonCombat = resolved === 'nonCombat';
+    fighter.renderProfile.sneak = resolved === 'sneak';
+  };
+
   const now = ()=> performance.now();
   const P = resolveFighter;
   const logPrefix = `[combat:${fighterLabel}]`;
@@ -2249,6 +2301,9 @@ export function makeCombat(G, C, options = {}){
     if (input && !p.input) {
       p.input = input;
     }
+
+    const walkMode = resolveWalkMode(p, input);
+    applyWalkMode(p, walkMode);
 
     const effectiveInput = p.isDead ? null : input;
     const attackBlocksMovement = !p.isDead && ATTACK.active && ATTACK.context?.type !== 'defensive';
