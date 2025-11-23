@@ -11,10 +11,10 @@
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho3-back.png"
           },
           "attachBone": "torso",
-          "drawSlot": "torso",
+          "drawSlot": "arm_R_upper",
           "dynamicLayerByBoneRotation": {
             "bone": "arm_R_upper",
-            "initialLayer": "torso",
+            "initialLayer": "arm_R_upper",
             "ranges": [
               { "minDeg": 181, "maxDeg": 360, "layer": "head" },
               { "minDeg": 0, "maxDeg": 180, "layer": "arm_R_upper" }
@@ -33,10 +33,10 @@
             "url": "./assets/cosmetics/clothes/overwear/simple_poncho3-front.png"
           },
           "attachBone": "torso",
-          "drawSlot": "torso",
+          "drawSlot": "head",
           "dynamicLayerByBoneRotation": {
-            "bone": "arm_R_upper",
-            "initialLayer": "torso",
+            "bone": "head",
+            "initialLayer": "head",
             "ranges": [
               { "minDeg": 181, "maxDeg": 360, "layer": "arm_R_upper" },
               { "minDeg": 0, "maxDeg": 180, "layer": "head" }
