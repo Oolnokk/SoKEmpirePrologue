@@ -37,6 +37,45 @@ const NON_COMBAT_POSE = {
   lengthScales: { weapon: 0 }
 };
 
+const WALK_PROFILES = {
+  combat: {
+    enabled: true,
+    onlyTorsoLegs: true,
+    baseHz: 1.3,
+    speedScale: 1,
+    minSpeed: 80,
+    amp: 1.0,
+    poses: {
+      A: { torso: 30, lHip: 0, lKnee: 45, rHip: 180, rKnee: 90 },
+      B: { torso: 40, lHip: 180, lKnee: 90, rHip: 0, rKnee: 45 }
+    }
+  },
+  nonCombat: {
+    enabled: true,
+    onlyTorsoLegs: true,
+    baseHz: 1.1,
+    speedScale: 0.9,
+    minSpeed: 60,
+    amp: 0.9,
+    poses: {
+      A: { torso: 20, lHip: 15, lKnee: 35, rHip: 175, rKnee: 80 },
+      B: { torso: 25, lHip: 175, lKnee: 80, rHip: 15, rKnee: 35 }
+    }
+  },
+  sneak: {
+    enabled: true,
+    onlyTorsoLegs: true,
+    baseHz: 1.05,
+    speedScale: 0.8,
+    minSpeed: 40,
+    amp: 0.75,
+    poses: {
+      A: { torso: 18, lHip: 25, lKnee: 65, rHip: 185, rKnee: 100 },
+      B: { torso: 22, lHip: 185, lKnee: 100, rHip: 25, rKnee: 65 }
+    }
+  }
+};
+
 const BASE_POSES = {
   Stance: {
     torso: 10,
@@ -164,6 +203,26 @@ const BASE_POSES = {
     impulseDirDeg: 0,
     allowAiming: true,
     aimLegs: false
+  }
+};
+
+const MODE_BASE_POSES = {
+  combat: deepClone(BASE_POSES.Stance),
+  nonCombat: {
+    ...deepClone(BASE_POSES.Stance),
+    torso: 0,
+    lHip: 95,
+    rHip: 85,
+    lKnee: 25,
+    rKnee: 25,
+  },
+  sneak: {
+    ...deepClone(BASE_POSES.Stance),
+    torso: 5,
+    lHip: 140,
+    rHip: 140,
+    lKnee: 70,
+    rKnee: 70,
   }
 };
 
@@ -541,7 +600,9 @@ window.CONFIG = {
   },
 
   poses: {
-    Stance: deepClone(BASE_POSES.Stance),
+    Stance: deepClone(MODE_BASE_POSES.combat),
+    NonCombatBase: deepClone(MODE_BASE_POSES.nonCombat),
+    SneakBase: deepClone(MODE_BASE_POSES.sneak),
     Windup: deepClone(BASE_POSES.Windup),
     Strike: deepClone(BASE_POSES.Strike),
     Recoil: deepClone(BASE_POSES.Recoil),
@@ -737,13 +798,8 @@ window.CONFIG = {
     flipThreshold: 0.0
   },
   
-  walk: { 
-    enabled:true, onlyTorsoLegs:true, baseHz:1.3, speedScale:1, minSpeed:80, amp:1.0,
-    poses:{ 
-      A:{ torso:30, lHip:0,   lKnee:45, rHip:180, rKnee:90 }, 
-      B:{ torso:40, lHip:180, lKnee:90, rHip:0,   rKnee:45 } 
-    } 
-  },
+  walkProfiles: WALK_PROFILES,
+  walk: WALK_PROFILES.combat,
   ragdoll: {
     killAuthOnActive:true, enabled:true,
     autoCalvesMidAir:false, stiffness:10.0,

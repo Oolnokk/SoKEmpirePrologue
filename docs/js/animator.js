@@ -633,6 +633,12 @@ function isNonCombatPoseActive(F) {
   return !!(F?.renderProfile?.nonCombat || F?.nonCombat);
 }
 
+function isSneakMode(F) {
+  return !!(F?.renderProfile?.sneak || F?.sneak);
+}
+
+const LOWER_BODY_MASK = ['torso', 'lHip', 'lKnee', 'rHip', 'rKnee'];
+
 function collectDefaultGripPercents(rig) {
   const map = {};
   if (!rig?.bones) return map;
@@ -1428,12 +1434,24 @@ function applyGravityScaleEvent(F, scale, { durationMs, reset } = {}){
   const expiresAt = Number.isFinite(durationMs) && durationMs > 0 ? now + (durationMs / 1000) : null;
   F.gravityOverride = { value: scale, expiresAt };
 }
-function pickBase(C){ return (C.poses && C.poses.Stance) ? C.poses.Stance : { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 }; }
+function pickBase(C, mode = 'combat'){
+  if (!C?.poses) return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
+  if (mode === 'nonCombat' && C.poses.NonCombatBase) return C.poses.NonCombatBase;
+  if (mode === 'sneak' && C.poses.SneakBase) return C.poses.SneakBase;
+  return C.poses.Stance || { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
+}
+
+function pickWalkProfile(C, mode = 'combat'){
+  const profiles = C?.walkProfiles || {};
+  if (mode === 'nonCombat' && profiles.nonCombat) return profiles.nonCombat;
+  if (mode === 'sneak' && profiles.sneak) return profiles.sneak;
+  return profiles.combat || C.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
+}
 
 function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX = (F._prevX==null? F.pos?.x||0 : F._prevX); const curX = F.pos?.x||0; const v = (curX - prevX)/dt; F._prevX = curX; return Math.abs(Number.isFinite(F.vel?.x)? F.vel.x : v); }
 
-function computeWalkPose(F, C){
-  const W = C.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
+function computeWalkPose(F, C, walkProfile, basePoseConfig){
+  const W = walkProfile || C.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
   const speed = computeSpeed(F);
   const on = !!W.enabled && speed >= (W.minSpeed||60) && (F.onGround!==false);
   // compute frequency scaled by speed (clamped)
@@ -1485,14 +1503,15 @@ function computeWalkPose(F, C){
   const s = easeInOutCubic(rawS);
 
   const A = W.poses?.A || {}; const B = W.poses?.B || {};
-  const pose = Object.assign({}, pickBase(C));
+  const pose = Object.assign({}, basePoseConfig || pickBase(C));
   // interpolate leg/torso angles and scale by smoothed amplitude
   pose.lHip = lerp(A.lHip||0, B.lHip||0, s) * F.walk.amp;
   pose.lKnee= lerp(A.lKnee||0,B.lKnee||0,s) * F.walk.amp;
   pose.rHip = lerp(A.rHip||0, B.rHip||0, s) * F.walk.amp;
   pose.rKnee= lerp(A.rKnee||0,B.rKnee||0,s) * F.walk.amp;
   pose.torso= lerp(A.torso||0,B.torso||0,s) * F.walk.amp;
-  const base = pickBase(C); pose.lShoulder=base.lShoulder; pose.lElbow=base.lElbow; pose.rShoulder=base.rShoulder; pose.rElbow=base.rElbow;
+  const base = basePoseConfig || pickBase(C);
+  pose.lShoulder=base.lShoulder; pose.lElbow=base.lElbow; pose.rShoulder=base.rShoulder; pose.rElbow=base.rElbow;
   pose._active = on && F.walk.amp > 0.001;
   return pose;
 }
@@ -1994,13 +2013,46 @@ export function updatePoses(){
     F.anim.dt = Math.max(0, now - F.anim.last);
     F.anim.last = now;
 
-    const walkPose = computeWalkPose(F,C);
-    const basePoseConfig = pickBase(C);
-    let targetDeg = walkPose._active ? { ...walkPose } : { ...basePoseConfig };
+    const preActiveLayers = getActiveLayers(F, now);
+    const attackActive = preActiveLayers.some(layer => layer?.id === 'primary');
+    const stowActive = isNonCombatPoseActive(F);
+    const sneakActive = isSneakMode(F);
+    let poseMode = 'combat';
+    if (stowActive) {
+      poseMode = 'nonCombat';
+    } else if (sneakActive && !attackActive) {
+      poseMode = 'sneak';
+    }
+
+    const basePoseConfig = pickBase(C, poseMode);
+    const walkProfile = pickWalkProfile(C, poseMode);
+    const walkPose = computeWalkPose(F, C, walkProfile, basePoseConfig);
+    const applyModeLayer = walkPose._active && (poseMode === 'nonCombat' || poseMode === 'sneak');
+
+    if (applyModeLayer) {
+      const lowerBodyPose = {
+        torso: walkPose.torso,
+        lHip: walkPose.lHip,
+        lKnee: walkPose.lKnee,
+        rHip: walkPose.rHip,
+        rKnee: walkPose.rKnee,
+      };
+      const existingModeLayer = (F.anim?.layers || []).find(l => l && l.id === 'mode-walk');
+      if (existingModeLayer) {
+        existingModeLayer.pose = { ...existingModeLayer.pose, ...lowerBodyPose };
+        existingModeLayer.mask = LOWER_BODY_MASK;
+        existingModeLayer.suppressWalk = true;
+      } else {
+        setOverrideLayer(F, 'mode-walk', lowerBodyPose, { mask: LOWER_BODY_MASK, suppressWalk: true, durMs: -1, priority: 150 });
+      }
+    } else {
+      removeOverrideLayer(F, 'mode-walk');
+    }
 
     const activeLayers = getActiveLayers(F, now);
     const activeLengthOverrides = collectLengthOverridesFromLayers(activeLayers);
     applyLengthOverridesToFighter(F, activeLengthOverrides);
+    let targetDeg = walkPose._active ? { ...walkPose } : { ...basePoseConfig };
     const walkSuppressed = activeLayers.some(layer => layer.suppressWalk);
     if (activeLayers.length){
       if (walkSuppressed){
@@ -2035,9 +2087,9 @@ export function updatePoses(){
     finalDeg = applyAimingOffsets(finalDeg, F, aimingPose || targetDeg);
 
     const nonCombatPose = C.nonCombatPose || C.poses?.NonCombat;
-    const stowActive = !!nonCombatPose && isNonCombatPoseActive(F);
+    const stowPoseActive = !!nonCombatPose && stowActive;
 
-    if (stowActive && F.anim?.weapon && !F.anim.weapon.stowed) {
+    if (stowPoseActive && F.anim?.weapon && !F.anim.weapon.stowed) {
       F.anim.weapon.attachments = {};
       F.anim.weapon.gripPercents = {};
     }
@@ -2047,7 +2099,7 @@ export function updatePoses(){
       finalDeg.head = headDeg;
     }
 
-    if (stowActive && nonCombatPose) {
+    if (stowPoseActive && nonCombatPose) {
       finalDeg = mergePoseOverlay(finalDeg, nonCombatPose);
     }
 
