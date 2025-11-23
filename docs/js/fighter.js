@@ -296,6 +296,13 @@ export function initFighters(cv, cx, options = {}){
   const stanceRad = degPoseToRad(stance);
   if (stanceRad.head == null) stanceRad.head = stanceRad.torso ?? 0;
 
+  const activeArea = resolveActiveArea();
+  const hasNpcSpawners = Array.isArray(activeArea?.spawners)
+    && activeArea.spawners.some((spawner) => {
+      const kind = spawner?.type || spawner?.kind;
+      return !kind || kind === 'npc';
+    });
+
   const opts = options && typeof options === 'object' ? options : {};
   const spawnNpc = opts.spawnNpc !== false;
   const enableNpcTemplate = spawnNpc || hasNpcSpawners;
@@ -311,8 +318,6 @@ export function initFighters(cv, cx, options = {}){
     }
   }
   const defaultJointAngles = overridePoseRad || stanceRad;
-
-  const activeArea = resolveActiveArea();
 
   const DEFAULT_FIGHTER_SPACING = 120;
   const defaultPlayerX = (C.canvas?.w||720) * 0.5 - DEFAULT_FIGHTER_SPACING * 0.5;
@@ -522,11 +527,6 @@ export function initFighters(cv, cx, options = {}){
   }
 
   const areaSpawns = computeSpawnPositions(activeArea);
-  const hasNpcSpawners = Array.isArray(activeArea?.spawners)
-    && activeArea.spawners.some((spawner) => {
-      const kind = spawner?.type || spawner?.kind;
-      return !kind || kind === 'npc';
-    });
   const playerSpawn = areaSpawns.player;
   const npcSpawn = areaSpawns.npc;
   const normalizedPlayerSpawnX = normalizeSpawnValue(playerSpawn?.x);
