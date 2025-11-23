@@ -720,6 +720,159 @@ function isAreaDescriptor(candidate) {
   return false;
 }
 
+function resolveDrumSkinTexture(prefab = null) {
+  const candidates = [];
+  const addCandidate = (url, source) => {
+    if (!url || typeof url !== 'string') return;
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    candidates.push({ url: trimmed, source });
+  };
+
+  const prefabMeta = typeof prefab?.meta === 'object' && prefab.meta ? prefab.meta : {};
+  const drumMeta = typeof prefabMeta.drumSkin === 'object' && prefabMeta.drumSkin ? prefabMeta.drumSkin : {};
+  addCandidate(prefabMeta.imageURL ?? prefabMeta.url ?? prefabMeta.texture, 'meta');
+  addCandidate(drumMeta.imageURL ?? drumMeta.url ?? drumMeta.texture, 'meta.drumSkin');
+
+  if (Array.isArray(prefab?.parts)) {
+    for (const part of prefab.parts) {
+      const url = part?.propTemplate?.url;
+      addCandidate(url, part?.name ? `part:${part.name}` : 'part');
+      if (prefab.isImage) break;
+    }
+  }
+
+  return candidates[0] || { url: null, source: null };
+}
+
+function normalizeDrumSkinLayer(raw, index = 0, layerMap = new Map(), options = {}) {
+  const { prefabResolver = null, warnings = null } = options;
+  const safe = raw && typeof raw === 'object' ? raw : {};
+
+  const parallaxLayers = Array.from(layerMap.values()).filter((layer) => layer?.type === 'parallax');
+  const legacyLayerAId = typeof safe.layerA === 'string' && layerMap.has(safe.layerA)
+    ? safe.layerA
+    : (typeof safe.legacyLayerA === 'string' && layerMap.has(safe.legacyLayerA) ? safe.legacyLayerA : null);
+  const legacyLayerBId = typeof safe.layerB === 'string' && layerMap.has(safe.layerB)
+    ? safe.layerB
+    : (typeof safe.legacyLayerB === 'string' && layerMap.has(safe.legacyLayerB) ? safe.legacyLayerB : legacyLayerAId);
+  const fallbackTopLayer = legacyLayerAId ? layerMap.get(legacyLayerAId) : parallaxLayers[0];
+  const fallbackBottomLayer = legacyLayerBId ? layerMap.get(legacyLayerBId) : (parallaxLayers[1] ?? fallbackTopLayer);
+
+  const legacyHeightA = toNumber(safe.heightA ?? safe.offsetA ?? safe.yOffsetA, null);
+  const legacyHeightB = toNumber(safe.heightB ?? safe.offsetB ?? safe.yOffsetB, null);
+
+  const topParallax = toNumber(
+    safe.topParallax ?? safe.parallaxTop ?? safe.parallaxA,
+    fallbackTopLayer?.parallaxSpeed ?? 1,
+  ) || 1;
+  const bottomParallax = toNumber(
+    safe.bottomParallax ?? safe.parallaxBottom ?? safe.parallaxB,
+    fallbackBottomLayer?.parallaxSpeed ?? topParallax,
+  ) || topParallax;
+
+  const topScale = toNumber(
+    safe.topScale ?? safe.scaleTop ?? safe.scaleA,
+    fallbackTopLayer?.scale ?? 1,
+  ) || 1;
+  const bottomScale = toNumber(
+    safe.bottomScale ?? safe.scaleBottom ?? safe.scaleB,
+    fallbackBottomLayer?.scale ?? topScale,
+  ) || topScale;
+
+  const topYOffset = toNumber(
+    safe.topYOffset
+      ?? safe.topOffset
+      ?? safe.offsetTop
+      ?? (Number.isFinite(legacyHeightA)
+        ? (fallbackTopLayer?.offsetY ?? 0) - legacyHeightA
+        : null),
+    fallbackTopLayer?.offsetY ?? 0,
+  ) || 0;
+  const bottomYOffset = toNumber(
+    safe.bottomYOffset
+      ?? safe.bottomOffset
+      ?? safe.offsetBottom
+      ?? (Number.isFinite(legacyHeightB)
+        ? (fallbackBottomLayer?.offsetY ?? 0) - legacyHeightB
+        : null),
+    fallbackBottomLayer?.offsetY ?? fallbackTopLayer?.offsetY ?? topYOffset,
+  ) || 0;
+
+  const prefabId = typeof safe.prefabId === 'string' ? safe.prefabId.trim() : '';
+  const textureId = typeof safe.textureId === 'string' ? safe.textureId.trim() : '';
+  const prefabRef = prefabId || textureId;
+  const explicitImageURL = typeof safe.imageURL === 'string' ? safe.imageURL.trim() : '';
+  const tileScale = toNumber(safe.tileScale, 1) || 1;
+  const visible = safe.visible !== false;
+  const id = safe.id ?? safe.drumSkinId ?? index + 1;
+
+  let resolvedPrefab = null;
+  let resolvedPrefabTexture = { url: null, source: null };
+
+  if (prefabRef && typeof prefabResolver === 'function') {
+    const lookedUp = prefabResolver(prefabRef);
+    if (lookedUp) {
+      resolvedPrefab = safeClone(lookedUp);
+      resolvedPrefabTexture = resolveDrumSkinTexture(resolvedPrefab);
+    } else if (Array.isArray(warnings)) {
+      warnings.push(`Drum skin ${id} references missing prefab "${prefabRef}"`);
+    }
+  }
+
+  const finalImageURL = explicitImageURL || resolvedPrefabTexture.url || '';
+  const textureSource = explicitImageURL
+    ? 'explicit-url'
+    : resolvedPrefabTexture.source || (prefabRef ? 'prefab' : 'explicit-url');
+
+  if (!finalImageURL && Array.isArray(warnings)) {
+    warnings.push(`Drum skin ${id} missing prefab/URL for texture`);
+  }
+
+  const meta = safe.meta && typeof safe.meta === 'object' ? safeClone(safe.meta) : {};
+  meta.identity = {
+    ...(meta.identity || {}),
+    prefabId: prefabRef || null,
+    textureId: prefabRef || null,
+    source: meta.identity?.source || 'drum-skin',
+  };
+  meta.texture = {
+    ...(meta.texture || {}),
+    prefabId: prefabRef || null,
+    textureId: prefabRef || null,
+    url: finalImageURL,
+    source: textureSource,
+  };
+
+  const descriptor = {
+    id,
+    topParallax,
+    bottomParallax,
+    topScale,
+    bottomScale,
+    topYOffset,
+    bottomYOffset,
+    prefabId: prefabRef || null,
+    textureId: prefabRef || null,
+    imageURL: finalImageURL,
+    tileScale,
+    visible,
+    meta,
+    legacyLayerA: legacyLayerAId,
+    legacyLayerB: legacyLayerBId,
+    layerA: legacyLayerAId,
+    layerB: legacyLayerBId,
+    heightA: legacyHeightA,
+    heightB: legacyHeightB,
+  };
+
+  if (resolvedPrefab) {
+    descriptor.prefab = resolvedPrefab;
+  }
+
+  return descriptor;
+}
+
 function normalizeAreaDescriptor(area, options = {}) {
   const {
     areaId = area.id || area.areaId || 'builder_area',
@@ -737,6 +890,7 @@ function normalizeAreaDescriptor(area, options = {}) {
       ? area.props
       : [];
   const rawColliders = Array.isArray(area.colliders) ? area.colliders : [];
+  const rawDrumSkins = Array.isArray(area.drumSkins) ? area.drumSkins : [];
 
   const warnings = Array.isArray(area.warnings) ? [...area.warnings] : [];
   if (!Array.isArray(area.layers)) {
@@ -825,6 +979,13 @@ function normalizeAreaDescriptor(area, options = {}) {
   const convertedColliders = rawColliders.map((col, index) => normalizeCollider(col, index));
   const playableBounds = normalizePlayableBounds(area.playableBounds, convertedColliders, warnings);
   const alignedColliders = alignCollidersToPlayableBounds(convertedColliders, playableBounds);
+  const layerMap = new Map(rawLayers.map((layer) => [layer.id, layer]));
+  const convertedDrumSkins = rawDrumSkins
+    .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap, {
+      prefabResolver,
+      warnings,
+    }))
+    .filter(Boolean);
 
   return {
     id: areaId,
@@ -842,6 +1003,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     colliders: alignedColliders,
+    drumSkins: convertedDrumSkins,
     playableBounds,
     warnings,
     meta: {
@@ -879,6 +1041,7 @@ export function convertLayoutToArea(layout, options = {}) {
       ? layout.props
       : [];
   const colliders = Array.isArray(layout.colliders) ? layout.colliders : [];
+  const rawDrumSkins = Array.isArray(layout.drumSkins) ? layout.drumSkins : [];
 
   const layerMap = new Map(layers.map((layer) => [layer.id, layer]));
   const slotCenters = computeLayerSlotCenters(instances);
@@ -983,6 +1146,12 @@ export function convertLayoutToArea(layout, options = {}) {
   const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
   const playableBounds = normalizePlayableBounds(layout.playableBounds, convertedColliders, warnings);
   const alignedColliders = alignCollidersToPlayableBounds(convertedColliders, playableBounds);
+  const convertedDrumSkins = rawDrumSkins
+    .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap, {
+      prefabResolver,
+      warnings,
+    }))
+    .filter(Boolean);
   const backgroundFromLayout = typeof layout.background === 'object' && layout.background
     ? safeClone(layout.background)
     : null;
@@ -1018,6 +1187,7 @@ export function convertLayoutToArea(layout, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     colliders: alignedColliders,
+    drumSkins: convertedDrumSkins,
     playableBounds,
     warnings,
     background,
