@@ -48,6 +48,9 @@ const BACKGROUND_DEFAULTS = {
   time24h: 12,
 };
 
+const BACKGROUND_STORE_FALLBACK = {};
+const BACKGROUND_GLOBAL_KEY = '__global__';
+
 const colorParserCtx = typeof document !== 'undefined'
   ? document.createElement('canvas').getContext('2d')
   : null;
@@ -112,19 +115,26 @@ function computeSkyGradientStops(background) {
   };
 }
 
-function ensureBackgroundConfig(raw = null) {
-  const target = (window.BACKGROUND = window.BACKGROUND || {});
-  const source = raw || target;
-  const layout = (target.layout = typeof source.layout === 'object' && source.layout ? { ...source.layout } : (target.layout || {}));
-  const sky = (target.sky = typeof source.sky === 'object' && source.sky ? { ...source.sky } : (target.sky || {}));
-  const tiles = (target.tiles = typeof source.tiles === 'object' && source.tiles ? { ...source.tiles } : (target.tiles || {}));
+function getBackgroundStore() {
+  if (typeof window !== 'undefined') {
+    window.__BACKGROUND_BY_AREA__ = window.__BACKGROUND_BY_AREA__ || {};
+    return window.__BACKGROUND_BY_AREA__;
+  }
+  return BACKGROUND_STORE_FALLBACK;
+}
+
+function normalizeBackgroundConfig(source = null, existing = null) {
+  const target = typeof existing === 'object' && existing ? { ...existing } : {};
+  const layout = (target.layout = typeof source?.layout === 'object' && source.layout ? { ...source.layout } : (target.layout || {}));
+  const sky = (target.sky = typeof source?.sky === 'object' && source.sky ? { ...source.sky } : (target.sky || {}));
+  const tiles = (target.tiles = typeof source?.tiles === 'object' && source.tiles ? { ...source.tiles } : (target.tiles || {}));
 
   const skyColors = Array.isArray(sky.colors) && sky.colors.length >= 3
     ? sky.colors.slice(0, 3)
     : BACKGROUND_DEFAULTS.skyColors;
   sky.colors = skyColors;
   sky.time24h = clampValue(
-    coerceFiniteNumber(sky.time24h ?? source.time24h ?? target.time24h ?? BACKGROUND_DEFAULTS.time24h) ?? BACKGROUND_DEFAULTS.time24h,
+    coerceFiniteNumber(sky.time24h ?? source?.time24h ?? BACKGROUND_DEFAULTS.time24h) ?? BACKGROUND_DEFAULTS.time24h,
     0,
     24,
   );
@@ -146,9 +156,67 @@ function ensureBackgroundConfig(raw = null) {
   return target;
 }
 
-function setBackgroundTime24h(value) {
-  const background = ensureBackgroundConfig();
-  background.sky.time24h = clampValue(coerceFiniteNumber(value) ?? background.sky.time24h ?? BACKGROUND_DEFAULTS.time24h, 0, 24);
+function ensureBackgroundConfig(raw = null, areaId = null) {
+  const store = getBackgroundStore();
+  const key = areaId || BACKGROUND_GLOBAL_KEY;
+  const existing = store[key];
+  const normalized = normalizeBackgroundConfig(raw ?? existing ?? (!areaId && typeof window !== 'undefined' ? window.BACKGROUND : null), existing);
+  store[key] = normalized;
+  if (!areaId && typeof window !== 'undefined') {
+    window.BACKGROUND = normalized;
+  }
+  return normalized;
+}
+
+function resolveAreaById(areaId = null) {
+  if (areaId) {
+    const registryArea = (() => {
+      const registry = window.GAME?.mapRegistry;
+      if (registry && typeof registry.getArea === 'function') {
+        try {
+          return registry.getArea(areaId);
+        } catch (error) {
+          console.warn?.('[backgrounds] Failed to resolve area by id via registry', error);
+        }
+      }
+      return null;
+    })();
+    if (registryArea) return registryArea;
+    const parallaxArea = window.PARALLAX?.areas?.[areaId];
+    if (parallaxArea) return parallaxArea;
+  }
+  return resolveActiveParallaxArea();
+}
+
+function resolveBackgroundForArea(areaId = null) {
+  const store = getBackgroundStore();
+  const area = resolveAreaById(areaId);
+  const key = area?.id || areaId || null;
+  const source = (typeof area?.background === 'object' && area.background)
+    || (typeof area?.meta?.background === 'object' && area.meta.background)
+    || (key && typeof window.CONFIG?.areas?.[key]?.background === 'object' && window.CONFIG.areas[key].background)
+    || store[key]
+    || (!key ? window.BACKGROUND : null)
+    || window.BACKGROUND;
+  return ensureBackgroundConfig(source, key || null);
+}
+
+function setBackgroundTime24h(value, areaId = null) {
+  const area = resolveAreaById(areaId);
+  const background = resolveBackgroundForArea(area?.id || areaId || null);
+  const time = clampValue(coerceFiniteNumber(value) ?? background.sky.time24h ?? BACKGROUND_DEFAULTS.time24h, 0, 24);
+  background.sky.time24h = time;
+
+  const targetKey = area?.id || areaId || null;
+  if (area) {
+    area.background = normalizeBackgroundConfig(area.background || background, area.background || {});
+    area.background.sky.time24h = time;
+  }
+  if (targetKey && window.CONFIG?.areas?.[targetKey]) {
+    window.CONFIG.areas[targetKey].background = normalizeBackgroundConfig(window.CONFIG.areas[targetKey].background || background, window.CONFIG.areas[targetKey].background || {});
+    window.CONFIG.areas[targetKey].background.sky.time24h = time;
+  }
+
   return background.sky.time24h;
 }
 
@@ -3016,7 +3084,7 @@ function createEditorPreviewSandbox() {
   };
 
   const drawFarBackground = (viewWidth, viewHeight) => {
-    const background = ensureBackgroundConfig();
+    const background = resolveBackgroundForArea();
     const stops = computeSkyGradientStops(background);
     const gradient = ctx.createLinearGradient(0, 0, 0, viewHeight);
     gradient.addColorStop(0, stops.top);

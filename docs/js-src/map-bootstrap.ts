@@ -514,6 +514,7 @@ function adaptAreaToParallax(area: MapArea) {
     source: area.source,
     camera: area.camera,
     ground: area.ground,
+    background: area.background || area.meta?.background || null,
     layers: area.layers.map((layer, index) => ({
       id: layer.id,
       name: layer.name,

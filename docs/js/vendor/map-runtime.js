@@ -948,6 +948,13 @@ export function convertLayoutToArea(layout, options = {}) {
   const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
   const playableBounds = normalizePlayableBounds(layout.playableBounds, convertedColliders, warnings);
   const alignedColliders = alignCollidersToPlayableBounds(convertedColliders, playableBounds);
+  const backgroundFromLayout = typeof layout.background === 'object' && layout.background
+    ? safeClone(layout.background)
+    : null;
+  const backgroundFromMeta = typeof layout.meta?.background === 'object' && layout.meta.background
+    ? safeClone(layout.meta.background)
+    : null;
+  const background = backgroundFromLayout || backgroundFromMeta || null;
 
   if (!Array.isArray(layout.layers)) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
@@ -977,6 +984,7 @@ export function convertLayoutToArea(layout, options = {}) {
     colliders: alignedColliders,
     playableBounds,
     warnings,
+    background,
     meta: {
       exportedAt: layout.meta?.exportedAt || null,
       raw: includeRaw ? safeClone(layout) : undefined,
