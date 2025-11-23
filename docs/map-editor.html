@@ -181,7 +181,8 @@
       touch-action:none;
     }
     #sceneCanvas.spawn-mode,
-    #sceneCanvas.collider-mode {
+    #sceneCanvas.collider-mode,
+    #sceneCanvas.behavior-place {
       cursor:crosshair;
     }
 
@@ -281,6 +282,80 @@
 
     .hidden-select {
       display:none;
+    }
+
+    .hidden { display:none !important; }
+
+    .mode-toggle {
+      display:flex;
+      gap:6px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .mode-toggle .mode-btn {
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:var(--btn);
+      color:var(--text);
+      padding:8px 12px;
+      font-size:12px;
+      font-weight:600;
+      min-height:unset;
+    }
+    .mode-toggle .mode-btn.active {
+      background:#22c55e;
+      border-color:#16a34a;
+      color:#041207;
+    }
+
+    .behavior-card {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:8px;
+      margin-bottom:8px;
+    }
+    .behavior-list {
+      max-height:160px;
+      overflow:auto;
+      border-radius:8px;
+      border:1px solid var(--line);
+      padding:4px;
+      font-size:10px;
+      margin-top:4px;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .behavior-list .item {
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      padding:6px 8px;
+      border-radius:8px;
+      background:#0c121b;
+      cursor:pointer;
+      border:1px solid transparent;
+    }
+    .behavior-list .item.active {
+      border-color:#22c55e;
+      background:rgba(34,197,94,0.08);
+    }
+    .behavior-pill {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      background:rgba(255,255,255,0.06);
+      border-radius:999px;
+      padding:4px 8px;
+      font-size:10px;
+      color:var(--muted);
+    }
+    .behavior-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:6px;
+      margin-top:6px;
     }
 
     #instStretchLayer {
@@ -431,6 +506,11 @@
   </div>
 
   <main class="layout">
+    <div class="mode-toggle" role="group" aria-label="Editor mode">
+      <button id="btnModeLayout" class="mode-btn active" aria-pressed="true">Layout</button>
+      <button id="btnModeBehavior" class="mode-btn" aria-pressed="false">Behavior Overlay</button>
+      <span class="pill">Toggle to edit NPC spawners, path targets, interaction points and arrival spawns without leaving the preview.</span>
+    </div>
     <div class="content-columns">
       <section id="canvasPane">
         <div class="card">
@@ -716,6 +796,85 @@
           <small style="color:var(--muted);display:block;margin-top:4px">
             Stored with the map and sent to gameplay preview so gradients and tiles match in-engine.
           </small>
+        </div>
+      </aside>
+
+      <aside id="behaviorPane" class="hidden">
+        <div class="behavior-card">
+          <div class="card-heading" style="margin-bottom:4px;align-items:flex-start;gap:10px;flex-wrap:wrap">
+            <strong>NPC Spawners</strong>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button id="btnAddBehaviorSpawner">+ Spawner</button>
+              <button id="btnPlaceBehaviorSpawner" class="btn-secondary">Place on preview</button>
+            </div>
+          </div>
+          <div id="behaviorSpawnerList" class="behavior-list" aria-label="Spawner list"></div>
+          <div class="behavior-grid">
+            <label><span>Spawner ID</span><input id="behaviorSpawnerId" type="text" placeholder="patrol_a"></label>
+            <label><span>Layer</span><select id="behaviorSpawnerLayer" class="hidden-select"></select></label>
+            <label><span>Position X</span><input id="behaviorSpawnerX" type="number" step="1"></label>
+            <label><span>Position Y (from ground)</span><input id="behaviorSpawnerY" type="number" step="1"></label>
+            <label><span>Spawn radius (px)</span><input id="behaviorSpawnerRadius" type="number" min="0" step="1"></label>
+            <label><span>Count</span><input id="behaviorSpawnerCount" type="number" min="1" step="1"></label>
+            <label><span>Template ID</span><input id="behaviorSpawnerTemplate" type="text" placeholder="watchman"></label>
+            <label><span>Character ID</span><input id="behaviorSpawnerCharacter" type="text" placeholder="npc id (optional)"></label>
+            <label style="display:flex;align-items:center;gap:8px"><input id="behaviorSpawnerRespawn" type="checkbox"><span>Respawn enabled</span></label>
+          </div>
+          <small style="color:var(--muted);display:block;margin-top:6px">Spawners export to layout.spawners and can be previewed without stamping prefabs.</small>
+        </div>
+
+        <div class="behavior-card">
+          <div class="card-heading" style="margin-bottom:4px;align-items:flex-start;gap:10px;flex-wrap:wrap">
+            <strong>Path Targets</strong>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button id="btnAddPathTarget">+ Path Target</button>
+              <button id="btnPlacePathTarget" class="btn-secondary">Place on preview</button>
+            </div>
+          </div>
+          <div id="behaviorPathTargetList" class="behavior-list" aria-label="Path targets"></div>
+          <div class="behavior-grid">
+            <label><span>Target name</span><input id="behaviorPathName" type="text" placeholder="alpha"></label>
+            <label><span>Order</span><input id="behaviorPathOrder" type="number" step="1"></label>
+            <label><span>Layer</span><select id="behaviorPathLayer" class="hidden-select"></select></label>
+            <label><span>Instance link (optional)</span><input id="behaviorPathInstanceId" type="text" placeholder="instance id"></label>
+            <label><span>Position X</span><input id="behaviorPathX" type="number" step="1"></label>
+            <label><span>Position Y (from ground)</span><input id="behaviorPathY" type="number" step="1"></label>
+          </div>
+          <small style="color:var(--muted);display:block;margin-top:6px">Explicit targets merge with markers tagged path:target:* when exporting.</small>
+        </div>
+
+        <div class="behavior-card">
+          <div class="card-heading" style="margin-bottom:4px;align-items:flex-start;gap:10px;flex-wrap:wrap">
+            <strong>Interaction Points</strong>
+            <button id="btnAddInteractionPoint">+ Interaction</button>
+          </div>
+          <div id="behaviorInteractionList" class="behavior-list" aria-label="Interaction points"></div>
+          <div class="behavior-grid">
+            <label><span>Interaction ID</span><input id="behaviorInteractionId" type="text" placeholder="door_east"></label>
+            <label><span>Layer</span><select id="behaviorInteractionLayer" class="hidden-select"></select></label>
+            <label><span>Position X</span><input id="behaviorInteractionX" type="number" step="1"></label>
+            <label><span>Position Y (from ground)</span><input id="behaviorInteractionY" type="number" step="1"></label>
+            <label><span>Action</span><input id="behaviorInteractionAction" type="text" placeholder="transition"></label>
+            <label><span>Target / payload</span><input id="behaviorInteractionTarget" type="text" placeholder="area or script"></label>
+            <label><span>Prompt text</span><input id="behaviorInteractionPrompt" type="text" placeholder="Press interact"></label>
+          </div>
+          <small style="color:var(--muted);display:block;margin-top:6px">Stored in layout meta for scripting; does not require a prefab.</small>
+        </div>
+
+        <div class="behavior-card">
+          <div class="card-heading" style="margin-bottom:4px;align-items:flex-start;gap:10px;flex-wrap:wrap">
+            <strong>Arrival Spawns</strong>
+            <button id="btnAddArrivalSpawn">+ Arrival</button>
+          </div>
+          <div id="behaviorArrivalList" class="behavior-list" aria-label="Arrival spawns"></div>
+          <div class="behavior-grid">
+            <label><span>Arrival ID</span><input id="behaviorArrivalId" type="text" placeholder="from_upper_floor"></label>
+            <label><span>Layer</span><select id="behaviorArrivalLayer" class="hidden-select"></select></label>
+            <label><span>Position X</span><input id="behaviorArrivalX" type="number" step="1"></label>
+            <label><span>Position Y (from ground)</span><input id="behaviorArrivalY" type="number" step="1"></label>
+            <label><span>Source map (optional)</span><input id="behaviorArrivalFrom" type="text" placeholder="area id"></label>
+          </div>
+          <small style="color:var(--muted);display:block;margin-top:6px">Use arrival spawns for cross-map handoffs without replacing the default player spawn.</small>
         </div>
       </aside>
     </div>
@@ -1123,6 +1282,26 @@ function restoreState(state){
   }
   selectedDrumSkinId = drumSkins[0]?.id ?? null;
 
+  behaviorSpawners = Array.isArray(adopted.spawners)
+    ? adopted.spawners.map((spawner, index) => normalizeBehaviorSpawner(spawner, index + 1))
+    : [];
+  selectedBehaviorSpawnerId = behaviorSpawners[0]?.spawnerId ?? null;
+  behaviorPathTargets = Array.isArray(adopted.pathTargets)
+    ? adopted.pathTargets.map((target, index) => normalizeEditorPathTarget(target, index + 1))
+    : [];
+  selectedPathTargetId = behaviorPathTargets[0]?.targetId ?? null;
+  const adoptedBehaviorMeta = adopted.behavior && typeof adopted.behavior === 'object'
+    ? adopted.behavior
+    : (layoutMeta.behavior || {});
+  behaviorInteractionPoints = Array.isArray(adoptedBehaviorMeta.interactionPoints)
+    ? adoptedBehaviorMeta.interactionPoints.map((point, index) => normalizeInteractionPoint(point, index + 1))
+    : [];
+  behaviorArrivalSpawns = Array.isArray(adoptedBehaviorMeta.arrivalSpawns)
+    ? adoptedBehaviorMeta.arrivalSpawns.map((spawn, index) => normalizeArrivalSpawn(spawn, index + 1))
+    : [];
+  selectedInteractionId = behaviorInteractionPoints[0]?.interactionId ?? null;
+  selectedArrivalId = behaviorArrivalSpawns[0]?.arrivalId ?? null;
+
   backgroundConfig = normalizeBackgroundConfig(adopted.background || adopted.meta?.background || backgroundConfig, backgroundConfig);
 
   activeLayerId = adopted.activeLayerId || layoutMeta.activeLayerId || getDefaultSpawnLayerId();
@@ -1138,6 +1317,7 @@ function restoreState(state){
   refreshInstanceList();
   refreshColliderList();
   refreshDrumSkinList();
+  refreshBehaviorPanels();
   syncColliderFields();
   syncBackgroundFields();
   setCameraX(cameraX);
@@ -1303,6 +1483,17 @@ const instances = [];
 let selectedInstId = null;
 let playerSpawnInstId = null;
 let spawnPlacementMode = false;
+let editorMode = 'layout';
+
+let behaviorSpawners = [];
+let selectedBehaviorSpawnerId = null;
+let behaviorPathTargets = [];
+let selectedPathTargetId = null;
+let behaviorInteractionPoints = [];
+let selectedInteractionId = null;
+let behaviorArrivalSpawns = [];
+let selectedArrivalId = null;
+let behaviorPlacement = null;
 const colliders = [];
 let nextColliderId = 1;
 let selectedColliderId = null;
@@ -1414,6 +1605,113 @@ function normalizeScale(scale){
   const x = toNumber(scale.x, 1) || 1;
   const y = toNumber(scale.y, scale.x ?? 1) || 1;
   return { x, y };
+}
+
+function normalizeBehaviorSpawner(spawner, fallbackId = 1){
+  const safe = spawner && typeof spawner === 'object' ? { ...spawner } : {};
+  const spawnerId = typeof safe.spawnerId === 'string' && safe.spawnerId.trim()
+    ? safe.spawnerId.trim()
+    : (typeof safe.id === 'string' && safe.id.trim() ? safe.id.trim() : `spawner_${fallbackId}`);
+  const layerId = typeof safe.layerId === 'string' && safe.layerId.trim()
+    ? safe.layerId.trim()
+    : getDefaultSpawnLayerId();
+  const position = normalizePosition(safe.position);
+  const spawnRadius = toNumber(safe.spawnRadius ?? safe.radius, 0) || 0;
+  const count = Math.max(1, toNumber(safe.count ?? safe.maxCount, 1) || 1);
+  const respawn = !!safe.respawn;
+  const templateId = typeof safe.templateId === 'string' ? safe.templateId.trim() : '';
+  const characterId = typeof safe.characterId === 'string' ? safe.characterId.trim() : '';
+  const meta = safe.meta && typeof safe.meta === 'object' ? { ...safe.meta } : {};
+  return {
+    ...safe,
+    spawnerId,
+    id: spawnerId,
+    layerId,
+    position,
+    spawnRadius,
+    count,
+    respawn,
+    templateId,
+    characterId,
+    meta,
+    type: typeof safe.type === 'string' && safe.type.trim() ? safe.type.trim() : 'npc',
+  };
+}
+
+function normalizeEditorPathTarget(target, fallbackId = 1){
+  const safe = target && typeof target === 'object' ? { ...target } : {};
+  const targetId = typeof safe.targetId === 'string' && safe.targetId.trim()
+    ? safe.targetId.trim()
+    : (typeof safe.id === 'string' && safe.id.trim() ? safe.id.trim() : `target_${fallbackId}`);
+  const name = typeof safe.name === 'string' && safe.name.trim() ? safe.name.trim() : targetId;
+  const layerId = typeof safe.layerId === 'string' && safe.layerId.trim()
+    ? safe.layerId.trim()
+    : getDefaultSpawnLayerId();
+  const position = normalizePosition(safe.position);
+  const order = toNumber(safe.order ?? safe.meta?.order ?? safe.meta?.pathOrder, null);
+  const instanceId = typeof safe.instanceId === 'string' && safe.instanceId.trim() ? safe.instanceId.trim() : '';
+  const meta = safe.meta && typeof safe.meta === 'object' ? { ...safe.meta } : {};
+  return {
+    ...safe,
+    targetId,
+    id: targetId,
+    name,
+    layerId,
+    position,
+    order: Number.isFinite(order) ? order : null,
+    instanceId,
+    meta,
+  };
+}
+
+function normalizeInteractionPoint(point, fallbackId = 1){
+  const safe = point && typeof point === 'object' ? { ...point } : {};
+  const interactionId = typeof safe.interactionId === 'string' && safe.interactionId.trim()
+    ? safe.interactionId.trim()
+    : (typeof safe.id === 'string' && safe.id.trim() ? safe.id.trim() : `interaction_${fallbackId}`);
+  const layerId = typeof safe.layerId === 'string' && safe.layerId.trim()
+    ? safe.layerId.trim()
+    : getDefaultSpawnLayerId();
+  const position = normalizePosition(safe.position);
+  const action = typeof safe.action === 'string' ? safe.action.trim() : '';
+  const target = typeof safe.target === 'string' ? safe.target.trim() : '';
+  const prompt = typeof safe.prompt === 'string' ? safe.prompt.trim() : '';
+  const meta = safe.meta && typeof safe.meta === 'object' ? { ...safe.meta } : {};
+  return {
+    ...safe,
+    interactionId,
+    id: interactionId,
+    layerId,
+    position,
+    action,
+    target,
+    prompt,
+    meta,
+  };
+}
+
+function normalizeArrivalSpawn(spawn, fallbackId = 1){
+  const safe = spawn && typeof spawn === 'object' ? { ...spawn } : {};
+  const arrivalId = typeof safe.arrivalId === 'string' && safe.arrivalId.trim()
+    ? safe.arrivalId.trim()
+    : (typeof safe.id === 'string' && safe.id.trim() ? safe.id.trim() : `arrival_${fallbackId}`);
+  const layerId = typeof safe.layerId === 'string' && safe.layerId.trim()
+    ? safe.layerId.trim()
+    : getDefaultSpawnLayerId();
+  const position = normalizePosition(safe.position);
+  const fromAreaId = typeof safe.fromAreaId === 'string' && safe.fromAreaId.trim()
+    ? safe.fromAreaId.trim()
+    : (typeof safe.from === 'string' && safe.from.trim() ? safe.from.trim() : '');
+  const meta = safe.meta && typeof safe.meta === 'object' ? { ...safe.meta } : {};
+  return {
+    ...safe,
+    arrivalId,
+    id: arrivalId,
+    layerId,
+    position,
+    fromAreaId,
+    meta,
+  };
 }
 
 function normalizeStretchQuadSpec(raw){
@@ -1688,6 +1986,19 @@ function adoptAreaState(area, context = {}){
   const combinedDrumSkins = [...normalizedDrumSkins];
   migratedFromInstances.forEach((drum) => combinedDrumSkins.push(normalizeDrumSkin(drum, combinedDrumSkins.length, layersList)));
 
+  const spawnerList = Array.isArray(raw.spawners) ? raw.spawners : [];
+  const pathTargetList = Array.isArray(raw.pathTargets) ? raw.pathTargets : [];
+  const behaviorMeta = raw.meta?.behavior && typeof raw.meta.behavior === 'object' ? { ...raw.meta.behavior } : {};
+  const normalizedSpawners = spawnerList.map((spawner, index) => normalizeBehaviorSpawner(spawner, index + 1));
+  const normalizedPathTargets = pathTargetList.map((target, index) => normalizeEditorPathTarget(target, index + 1));
+  const normalizedInteractionPoints = Array.isArray(behaviorMeta.interactionPoints)
+    ? behaviorMeta.interactionPoints.map((point, index) => normalizeInteractionPoint(point, index + 1))
+    : [];
+  const normalizedArrivalSpawns = Array.isArray(behaviorMeta.arrivalSpawns || behaviorMeta.playerArrivalSpawns)
+    ? (behaviorMeta.arrivalSpawns || behaviorMeta.playerArrivalSpawns)
+      .map((spawn, index) => normalizeArrivalSpawn(spawn, index + 1))
+    : [];
+
   const meta = raw.meta && typeof raw.meta === 'object' ? { ...raw.meta } : {};
   const background = normalizeBackgroundConfig(raw.background || meta.background || null, backgroundConfig);
   const activeLayerId = raw.activeLayerId
@@ -1705,6 +2016,13 @@ function adoptAreaState(area, context = {}){
     instances: normalizedInstances,
     colliders: normalizedColliders,
     drumSkins: combinedDrumSkins,
+    spawners: normalizedSpawners,
+    pathTargets: normalizedPathTargets,
+    behavior: {
+      ...behaviorMeta,
+      interactionPoints: normalizedInteractionPoints,
+      arrivalSpawns: normalizedArrivalSpawns,
+    },
     meta: {
       ...meta,
       areaId: id,
@@ -1713,6 +2031,11 @@ function adoptAreaState(area, context = {}){
       repositoryId: context.repositoryId ?? meta.repositoryId ?? null,
       proximityScale,
       background,
+      behavior: {
+        ...behaviorMeta,
+        interactionPoints: normalizedInteractionPoints,
+        arrivalSpawns: normalizedArrivalSpawns,
+      },
     },
     background,
     activeLayerId,
@@ -1782,11 +2105,52 @@ function buildAreaDescriptor(){
   });
   nextDrumSkinId = clonedDrumSkins.reduce((maxId, drum) => Math.max(maxId, (drum.id ?? 0) + 1), 1);
 
+  const clonedSpawners = behaviorSpawners.map((spawner, index) => {
+    const normalized = normalizeBehaviorSpawner(spawner, index + 1);
+    normalized.position = normalizePosition(normalized.position);
+    return {
+      ...normalized,
+      meta: normalized.meta ? JSON.parse(JSON.stringify(normalized.meta)) : {},
+    };
+  });
+
+  const clonedPathTargets = behaviorPathTargets.map((target, index) => {
+    const normalized = normalizeEditorPathTarget(target, index + 1);
+    normalized.position = normalizePosition(normalized.position);
+    return {
+      ...normalized,
+      meta: normalized.meta ? JSON.parse(JSON.stringify(normalized.meta)) : {},
+    };
+  });
+
+  const clonedInteractions = behaviorInteractionPoints.map((point, index) => {
+    const normalized = normalizeInteractionPoint(point, index + 1);
+    normalized.position = normalizePosition(normalized.position);
+    return {
+      ...normalized,
+      meta: normalized.meta ? JSON.parse(JSON.stringify(normalized.meta)) : {},
+    };
+  });
+
+  const clonedArrivalSpawns = behaviorArrivalSpawns.map((spawn, index) => {
+    const normalized = normalizeArrivalSpawn(spawn, index + 1);
+    normalized.position = normalizePosition(normalized.position);
+    return {
+      ...normalized,
+      meta: normalized.meta ? JSON.parse(JSON.stringify(normalized.meta)) : {},
+    };
+  });
+
   const meta = {
     ...layoutMeta,
     proximityScale: getProximityScale(),
     background: normalizedBackground,
     activeLayerId,
+    behavior: {
+      ...(layoutMeta.behavior || {}),
+      interactionPoints: clonedInteractions,
+      arrivalSpawns: clonedArrivalSpawns,
+    },
   };
 
   return {
@@ -1806,6 +2170,8 @@ function buildAreaDescriptor(){
     instances: clonedInstances,
     colliders: clonedColliders,
     drumSkins: clonedDrumSkins,
+    spawners: clonedSpawners,
+    pathTargets: clonedPathTargets,
     meta,
   };
 }
@@ -1890,6 +2256,10 @@ function rebuildActiveLayerSelect(){
   const sel = $('#activeLayerSelect');
   const instLayerSel = $('#instLayer');
   const stretchLayerSel = $('#instStretchLayer');
+  const behaviorSpawnerLayerSel = $('#behaviorSpawnerLayer');
+  const behaviorPathLayerSel = $('#behaviorPathLayer');
+  const behaviorInteractionLayerSel = $('#behaviorInteractionLayer');
+  const behaviorArrivalLayerSel = $('#behaviorArrivalLayer');
   sel.innerHTML = '';
   instLayerSel.innerHTML = '';
   if (stretchLayerSel){
@@ -1906,6 +2276,26 @@ function rebuildActiveLayerSelect(){
     const o2 = document.createElement('option');
     o2.value = layer.id; o2.textContent = layer.name;
     instLayerSel.appendChild(o2);
+    if (behaviorSpawnerLayerSel){
+      const option = document.createElement('option');
+      option.value = layer.id; option.textContent = layer.name;
+      behaviorSpawnerLayerSel.appendChild(option);
+    }
+    if (behaviorPathLayerSel){
+      const option = document.createElement('option');
+      option.value = layer.id; option.textContent = layer.name;
+      behaviorPathLayerSel.appendChild(option);
+    }
+    if (behaviorInteractionLayerSel){
+      const option = document.createElement('option');
+      option.value = layer.id; option.textContent = layer.name;
+      behaviorInteractionLayerSel.appendChild(option);
+    }
+    if (behaviorArrivalLayerSel){
+      const option = document.createElement('option');
+      option.value = layer.id; option.textContent = layer.name;
+      behaviorArrivalLayerSel.appendChild(option);
+    }
     if (stretchLayerSel){
       const o3 = document.createElement('option');
       o3.value = layer.id; o3.textContent = layer.name;
@@ -1916,6 +2306,10 @@ function rebuildActiveLayerSelect(){
     activeLayerId = layers[0].id;
   }
   sel.value = activeLayerId;
+  if (behaviorSpawnerLayerSel) behaviorSpawnerLayerSel.value = behaviorSpawnerLayerSel.value || activeLayerId;
+  if (behaviorPathLayerSel) behaviorPathLayerSel.value = behaviorPathLayerSel.value || getDefaultSpawnLayerId();
+  if (behaviorInteractionLayerSel) behaviorInteractionLayerSel.value = behaviorInteractionLayerSel.value || activeLayerId;
+  if (behaviorArrivalLayerSel) behaviorArrivalLayerSel.value = behaviorArrivalLayerSel.value || activeLayerId;
 }
 function rebuildLayerStack(){
   const stack = $('#layerStack');
@@ -2428,6 +2822,379 @@ function fillInstEditor(){
   $('#instStretchHeight').value = stretch?.height ?? '';
   $('#instStretchTopOffset').value = stretch?.topOffset ?? '';
   $('#instStretchSlices').value = stretch?.slices ?? 24;
+}
+
+/**** Behavior overlay ****/
+function setEditorMode(mode){
+  editorMode = mode === 'behavior' ? 'behavior' : 'layout';
+  const layoutBtn = $('#btnModeLayout');
+  const behaviorBtn = $('#btnModeBehavior');
+  const controlPane = $('#controlPane');
+  const behaviorPane = $('#behaviorPane');
+  if (layoutBtn){
+    layoutBtn.classList.toggle('active', editorMode === 'layout');
+    layoutBtn.setAttribute('aria-pressed', editorMode === 'layout');
+  }
+  if (behaviorBtn){
+    behaviorBtn.classList.toggle('active', editorMode === 'behavior');
+    behaviorBtn.setAttribute('aria-pressed', editorMode === 'behavior');
+  }
+  if (controlPane) controlPane.classList.toggle('hidden', editorMode === 'behavior');
+  if (behaviorPane) behaviorPane.classList.toggle('hidden', editorMode !== 'behavior');
+  if (editorMode !== 'behavior') exitBehaviorPlacement();
+  ensureRenderLoop();
+}
+
+function startBehaviorPlacement(kind){
+  const canvasEl = document.getElementById('sceneCanvas');
+  const targetId = kind === 'pathTarget' ? selectedPathTargetId : selectedBehaviorSpawnerId;
+  if (!targetId || editorMode !== 'behavior') return;
+  behaviorPlacement = { kind, id: targetId };
+  canvasEl?.classList.add('behavior-place');
+}
+
+function exitBehaviorPlacement(){
+  const canvasEl = document.getElementById('sceneCanvas');
+  behaviorPlacement = null;
+  canvasEl?.classList.remove('behavior-place');
+}
+
+function refreshBehaviorSpawnerList(){
+  const list = $('#behaviorSpawnerList');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const spawner of behaviorSpawners){
+    const div = document.createElement('div');
+    const isActive = spawner.spawnerId === selectedBehaviorSpawnerId;
+    div.className = 'item' + (isActive ? ' active' : '');
+    const span = document.createElement('span');
+    const pos = normalizePosition(spawner.position);
+    span.textContent = `${spawner.spawnerId || 'spawner'} · x=${pos.x.toFixed(1)} y=${pos.y.toFixed(1)}`;
+    const pill = document.createElement('span');
+    pill.className = 'behavior-pill';
+    pill.textContent = spawner.layerId || getDefaultSpawnLayerId();
+    div.appendChild(span);
+    div.appendChild(pill);
+    const del = document.createElement('button');
+    del.textContent = '✕';
+    del.style.minWidth = '32px';
+    del.onclick = (ev) => { ev.stopPropagation(); deleteBehaviorSpawner(spawner.spawnerId); };
+    div.appendChild(del);
+    div.onclick = () => { selectedBehaviorSpawnerId = spawner.spawnerId; syncBehaviorSpawnerFields(); refreshBehaviorSpawnerList(); };
+    list.appendChild(div);
+  }
+  syncBehaviorSpawnerFields();
+}
+
+function syncBehaviorSpawnerFields(){
+  const spawner = behaviorSpawners.find((s) => s.spawnerId === selectedBehaviorSpawnerId) || null;
+  $('#behaviorSpawnerId').value = spawner?.spawnerId || '';
+  $('#behaviorSpawnerLayer').value = spawner?.layerId || getDefaultSpawnLayerId();
+  $('#behaviorSpawnerX').value = spawner ? toNumber(spawner.position?.x, 0) : '';
+  $('#behaviorSpawnerY').value = spawner ? toNumber(spawner.position?.y, 0) : '';
+  $('#behaviorSpawnerRadius').value = spawner ? toNumber(spawner.spawnRadius, 0) : '';
+  $('#behaviorSpawnerCount').value = spawner ? toNumber(spawner.count, 1) : '';
+  $('#behaviorSpawnerTemplate').value = spawner?.templateId || '';
+  $('#behaviorSpawnerCharacter').value = spawner?.characterId || '';
+  $('#behaviorSpawnerRespawn').checked = !!spawner?.respawn;
+}
+
+function updateBehaviorSpawnerFromFields(){
+  const spawner = behaviorSpawners.find((s) => s.spawnerId === selectedBehaviorSpawnerId) || null;
+  if (!spawner) return;
+  const nextId = ($('#behaviorSpawnerId').value || spawner.spawnerId || '').trim() || spawner.spawnerId;
+  if (!isRestoring) pushHistory();
+  spawner.spawnerId = nextId;
+  spawner.id = nextId;
+  selectedBehaviorSpawnerId = nextId;
+  spawner.layerId = $('#behaviorSpawnerLayer').value || spawner.layerId;
+  spawner.position = normalizePosition({
+    x: toNumber($('#behaviorSpawnerX').value, spawner.position?.x),
+    y: toNumber($('#behaviorSpawnerY').value, spawner.position?.y),
+  });
+  spawner.spawnRadius = Math.max(0, toNumber($('#behaviorSpawnerRadius').value, spawner.spawnRadius) || 0);
+  spawner.count = Math.max(1, toNumber($('#behaviorSpawnerCount').value, spawner.count) || 1);
+  spawner.templateId = ($('#behaviorSpawnerTemplate').value || '').trim();
+  spawner.characterId = ($('#behaviorSpawnerCharacter').value || '').trim();
+  spawner.respawn = $('#behaviorSpawnerRespawn').checked;
+  refreshBehaviorSpawnerList();
+  ensureRenderLoop();
+}
+
+function addBehaviorSpawner(){
+  pushHistory();
+  const next = normalizeBehaviorSpawner({
+    spawnerId: `spawner_${behaviorSpawners.length + 1}`,
+    layerId: activeLayerId,
+    position: { x: 0, y: 0 },
+    count: 1,
+    spawnRadius: 0,
+    respawn: false,
+  }, behaviorSpawners.length + 1);
+  behaviorSpawners.push(next);
+  selectedBehaviorSpawnerId = next.spawnerId;
+  refreshBehaviorSpawnerList();
+  ensureRenderLoop();
+}
+
+function deleteBehaviorSpawner(spawnerId){
+  const idx = behaviorSpawners.findIndex((s) => s.spawnerId === spawnerId);
+  if (idx < 0) return;
+  pushHistory();
+  behaviorSpawners.splice(idx, 1);
+  if (selectedBehaviorSpawnerId === spawnerId){
+    selectedBehaviorSpawnerId = behaviorSpawners[0]?.spawnerId ?? null;
+  }
+  refreshBehaviorSpawnerList();
+  ensureRenderLoop();
+}
+
+function refreshPathTargetList(){
+  const list = $('#behaviorPathTargetList');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const target of behaviorPathTargets){
+    const div = document.createElement('div');
+    const isActive = target.targetId === selectedPathTargetId;
+    div.className = 'item' + (isActive ? ' active' : '');
+    const span = document.createElement('span');
+    const pos = normalizePosition(target.position);
+    span.textContent = `${target.name || target.targetId} · x=${pos.x.toFixed(1)} y=${pos.y.toFixed(1)}`;
+    const pill = document.createElement('span');
+    pill.className = 'behavior-pill';
+    pill.textContent = target.layerId || getDefaultSpawnLayerId();
+    div.appendChild(span);
+    div.appendChild(pill);
+    const del = document.createElement('button');
+    del.textContent = '✕';
+    del.style.minWidth = '32px';
+    del.onclick = (ev) => { ev.stopPropagation(); deletePathTarget(target.targetId); };
+    div.appendChild(del);
+    div.onclick = () => { selectedPathTargetId = target.targetId; syncPathTargetFields(); refreshPathTargetList(); };
+    list.appendChild(div);
+  }
+  syncPathTargetFields();
+}
+
+function syncPathTargetFields(){
+  const target = behaviorPathTargets.find((t) => t.targetId === selectedPathTargetId) || null;
+  $('#behaviorPathName').value = target?.name || '';
+  $('#behaviorPathOrder').value = target && Number.isFinite(target.order) ? target.order : '';
+  $('#behaviorPathLayer').value = target?.layerId || getDefaultSpawnLayerId();
+  $('#behaviorPathInstanceId').value = target?.instanceId || '';
+  $('#behaviorPathX').value = target ? toNumber(target.position?.x, 0) : '';
+  $('#behaviorPathY').value = target ? toNumber(target.position?.y, 0) : '';
+}
+
+function updatePathTargetFromFields(){
+  const target = behaviorPathTargets.find((t) => t.targetId === selectedPathTargetId) || null;
+  if (!target) return;
+  if (!isRestoring) pushHistory();
+  const nextId = ($('#behaviorPathName').value || target.targetId).trim() || target.targetId;
+  target.name = ($('#behaviorPathName').value || target.name || nextId).trim();
+  target.targetId = nextId;
+  target.id = nextId;
+  selectedPathTargetId = nextId;
+  target.order = Number.isFinite(Number($('#behaviorPathOrder').value))
+    ? Number($('#behaviorPathOrder').value)
+    : null;
+  target.layerId = $('#behaviorPathLayer').value || target.layerId;
+  target.instanceId = ($('#behaviorPathInstanceId').value || '').trim();
+  target.position = normalizePosition({
+    x: toNumber($('#behaviorPathX').value, target.position?.x),
+    y: toNumber($('#behaviorPathY').value, target.position?.y),
+  });
+  refreshPathTargetList();
+  ensureRenderLoop();
+}
+
+function addPathTarget(){
+  pushHistory();
+  const next = normalizeEditorPathTarget({
+    targetId: `target_${behaviorPathTargets.length + 1}`,
+    name: `target_${behaviorPathTargets.length + 1}`,
+    layerId: getDefaultSpawnLayerId(),
+    position: { x: 0, y: 0 },
+  }, behaviorPathTargets.length + 1);
+  behaviorPathTargets.push(next);
+  selectedPathTargetId = next.targetId;
+  refreshPathTargetList();
+  ensureRenderLoop();
+}
+
+function deletePathTarget(targetId){
+  const idx = behaviorPathTargets.findIndex((t) => t.targetId === targetId);
+  if (idx < 0) return;
+  pushHistory();
+  behaviorPathTargets.splice(idx, 1);
+  if (selectedPathTargetId === targetId){
+    selectedPathTargetId = behaviorPathTargets[0]?.targetId ?? null;
+  }
+  refreshPathTargetList();
+  ensureRenderLoop();
+}
+
+function refreshInteractionList(){
+  const list = $('#behaviorInteractionList');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const point of behaviorInteractionPoints){
+    const div = document.createElement('div');
+    const isActive = point.interactionId === selectedInteractionId;
+    div.className = 'item' + (isActive ? ' active' : '');
+    const span = document.createElement('span');
+    const pos = normalizePosition(point.position);
+    span.textContent = `${point.interactionId || 'interaction'} · x=${pos.x.toFixed(1)} y=${pos.y.toFixed(1)}`;
+    const pill = document.createElement('span');
+    pill.className = 'behavior-pill';
+    pill.textContent = point.layerId || getDefaultSpawnLayerId();
+    div.appendChild(span);
+    div.appendChild(pill);
+    const del = document.createElement('button');
+    del.textContent = '✕';
+    del.style.minWidth = '32px';
+    del.onclick = (ev) => { ev.stopPropagation(); deleteInteractionPoint(point.interactionId); };
+    div.appendChild(del);
+    div.onclick = () => { selectedInteractionId = point.interactionId; syncInteractionFields(); refreshInteractionList(); };
+    list.appendChild(div);
+  }
+  syncInteractionFields();
+}
+
+function syncInteractionFields(){
+  const point = behaviorInteractionPoints.find((p) => p.interactionId === selectedInteractionId) || null;
+  $('#behaviorInteractionId').value = point?.interactionId || '';
+  $('#behaviorInteractionLayer').value = point?.layerId || getDefaultSpawnLayerId();
+  $('#behaviorInteractionX').value = point ? toNumber(point.position?.x, 0) : '';
+  $('#behaviorInteractionY').value = point ? toNumber(point.position?.y, 0) : '';
+  $('#behaviorInteractionAction').value = point?.action || '';
+  $('#behaviorInteractionTarget').value = point?.target || '';
+  $('#behaviorInteractionPrompt').value = point?.prompt || '';
+}
+
+function updateInteractionFromFields(){
+  const point = behaviorInteractionPoints.find((p) => p.interactionId === selectedInteractionId) || null;
+  if (!point) return;
+  if (!isRestoring) pushHistory();
+  const nextId = ($('#behaviorInteractionId').value || point.interactionId).trim() || point.interactionId;
+  point.interactionId = nextId;
+  point.id = nextId;
+  selectedInteractionId = nextId;
+  point.layerId = $('#behaviorInteractionLayer').value || point.layerId;
+  point.position = normalizePosition({
+    x: toNumber($('#behaviorInteractionX').value, point.position?.x),
+    y: toNumber($('#behaviorInteractionY').value, point.position?.y),
+  });
+  point.action = ($('#behaviorInteractionAction').value || '').trim();
+  point.target = ($('#behaviorInteractionTarget').value || '').trim();
+  point.prompt = ($('#behaviorInteractionPrompt').value || '').trim();
+  refreshInteractionList();
+}
+
+function addInteractionPoint(){
+  pushHistory();
+  const next = normalizeInteractionPoint({
+    interactionId: `interaction_${behaviorInteractionPoints.length + 1}`,
+    layerId: getDefaultSpawnLayerId(),
+    position: { x: 0, y: 0 },
+  }, behaviorInteractionPoints.length + 1);
+  behaviorInteractionPoints.push(next);
+  selectedInteractionId = next.interactionId;
+  refreshInteractionList();
+}
+
+function deleteInteractionPoint(interactionId){
+  const idx = behaviorInteractionPoints.findIndex((p) => p.interactionId === interactionId);
+  if (idx < 0) return;
+  pushHistory();
+  behaviorInteractionPoints.splice(idx, 1);
+  if (selectedInteractionId === interactionId){
+    selectedInteractionId = behaviorInteractionPoints[0]?.interactionId ?? null;
+  }
+  refreshInteractionList();
+}
+
+function refreshArrivalList(){
+  const list = $('#behaviorArrivalList');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const spawn of behaviorArrivalSpawns){
+    const div = document.createElement('div');
+    const isActive = spawn.arrivalId === selectedArrivalId;
+    div.className = 'item' + (isActive ? ' active' : '');
+    const span = document.createElement('span');
+    const pos = normalizePosition(spawn.position);
+    span.textContent = `${spawn.arrivalId || 'arrival'} · x=${pos.x.toFixed(1)} y=${pos.y.toFixed(1)}`;
+    const pill = document.createElement('span');
+    pill.className = 'behavior-pill';
+    pill.textContent = spawn.layerId || getDefaultSpawnLayerId();
+    div.appendChild(span);
+    div.appendChild(pill);
+    const del = document.createElement('button');
+    del.textContent = '✕';
+    del.style.minWidth = '32px';
+    del.onclick = (ev) => { ev.stopPropagation(); deleteArrivalSpawn(spawn.arrivalId); };
+    div.appendChild(del);
+    div.onclick = () => { selectedArrivalId = spawn.arrivalId; syncArrivalFields(); refreshArrivalList(); };
+    list.appendChild(div);
+  }
+  syncArrivalFields();
+}
+
+function syncArrivalFields(){
+  const spawn = behaviorArrivalSpawns.find((s) => s.arrivalId === selectedArrivalId) || null;
+  $('#behaviorArrivalId').value = spawn?.arrivalId || '';
+  $('#behaviorArrivalLayer').value = spawn?.layerId || getDefaultSpawnLayerId();
+  $('#behaviorArrivalX').value = spawn ? toNumber(spawn.position?.x, 0) : '';
+  $('#behaviorArrivalY').value = spawn ? toNumber(spawn.position?.y, 0) : '';
+  $('#behaviorArrivalFrom').value = spawn?.fromAreaId || '';
+}
+
+function updateArrivalFromFields(){
+  const spawn = behaviorArrivalSpawns.find((s) => s.arrivalId === selectedArrivalId) || null;
+  if (!spawn) return;
+  if (!isRestoring) pushHistory();
+  const nextId = ($('#behaviorArrivalId').value || spawn.arrivalId).trim() || spawn.arrivalId;
+  spawn.arrivalId = nextId;
+  spawn.id = nextId;
+  selectedArrivalId = nextId;
+  spawn.layerId = $('#behaviorArrivalLayer').value || spawn.layerId;
+  spawn.position = normalizePosition({
+    x: toNumber($('#behaviorArrivalX').value, spawn.position?.x),
+    y: toNumber($('#behaviorArrivalY').value, spawn.position?.y),
+  });
+  spawn.fromAreaId = ($('#behaviorArrivalFrom').value || '').trim();
+  refreshArrivalList();
+}
+
+function addArrivalSpawn(){
+  pushHistory();
+  const next = normalizeArrivalSpawn({
+    arrivalId: `arrival_${behaviorArrivalSpawns.length + 1}`,
+    layerId: getDefaultSpawnLayerId(),
+    position: { x: 0, y: 0 },
+  }, behaviorArrivalSpawns.length + 1);
+  behaviorArrivalSpawns.push(next);
+  selectedArrivalId = next.arrivalId;
+  refreshArrivalList();
+}
+
+function deleteArrivalSpawn(arrivalId){
+  const idx = behaviorArrivalSpawns.findIndex((s) => s.arrivalId === arrivalId);
+  if (idx < 0) return;
+  pushHistory();
+  behaviorArrivalSpawns.splice(idx, 1);
+  if (selectedArrivalId === arrivalId){
+    selectedArrivalId = behaviorArrivalSpawns[0]?.arrivalId ?? null;
+  }
+  refreshArrivalList();
+}
+
+function refreshBehaviorPanels(){
+  refreshBehaviorSpawnerList();
+  refreshPathTargetList();
+  refreshInteractionList();
+  refreshArrivalList();
 }
 
 function getSelectedCollider(){
@@ -3494,6 +4261,52 @@ function render(){
     ctx.restore();
   }
 
+  if (editorMode === 'behavior'){
+    const toScreen = (position, layerId) => {
+      const layer = findLayer(layerId) || findLayer(getDefaultSpawnLayerId()) || { parallaxSpeed: 1, name: layerId };
+      const parallax = toNumber(layer?.parallaxSpeed ?? layer?.parallax ?? 1, 1) || 1;
+      const pos = normalizePosition(position);
+      return {
+        x: W/2 + (pos.x - cameraX * parallax) * zoom,
+        y: groundY + pos.y * zoom,
+        name: layer?.name || layerId || 'layer',
+      };
+    };
+    const drawMarker = (pos, color, label) => {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      const radius = Math.max(4, 6 * zoom);
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.font = `${Math.max(8, 9 * zoom)}px ui-monospace,Menlo,Consolas`;
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(label, pos.x + radius + 4, pos.y - radius - 2);
+      ctx.restore();
+    };
+
+    for (const spawner of behaviorSpawners){
+      const pos = toScreen(spawner.position, spawner.layerId);
+      drawMarker(pos, '#22c55e', `Spawner:${spawner.spawnerId || 'npc'}`);
+    }
+    for (const target of behaviorPathTargets){
+      const pos = toScreen(target.position, target.layerId);
+      drawMarker(pos, '#38bdf8', `Path:${target.name || target.targetId}`);
+    }
+    for (const point of behaviorInteractionPoints){
+      const pos = toScreen(point.position, point.layerId);
+      drawMarker(pos, '#f59e0b', `Interact:${point.interactionId || 'id'}`);
+    }
+    for (const spawn of behaviorArrivalSpawns){
+      const pos = toScreen(spawn.position, spawn.layerId);
+      drawMarker(pos, '#c084fc', `Arrival:${spawn.arrivalId || 'arrival'}`);
+    }
+  }
+
   // ground line
   ctx.save();
   ctx.strokeStyle="rgba(250,204,21,0.35)";
@@ -3681,6 +4494,30 @@ function pointerDown(ev){
     exitSpawnPlacement();
     return;
   }
+  if (behaviorPlacement && editorMode === 'behavior'){
+    const target = behaviorPlacement.kind === 'pathTarget'
+      ? behaviorPathTargets.find((tgt) => tgt.targetId === behaviorPlacement.id)
+      : behaviorSpawners.find((spawner) => spawner.spawnerId === behaviorPlacement.id);
+    const layer = target ? findLayer(target.layerId) || findLayer(getDefaultSpawnLayerId()) : null;
+    if (target && layer){
+      pushHistory();
+      const worldX = pointerClientToWorldX(t.clientX, layer);
+      const offsetY = pointerClientToGroundOffset(t.clientY);
+      const grid = GRID_UNIT || 0;
+      const snapped = grid > 0 ? Math.round(worldX / grid) * grid : worldX;
+      target.position = normalizePosition(target.position);
+      target.position.x = snapped;
+      target.position.y = offsetY;
+      if (behaviorPlacement.kind === 'pathTarget'){
+        refreshPathTargetList();
+      } else {
+        refreshBehaviorSpawnerList();
+      }
+      ensureRenderLoop();
+    }
+    exitBehaviorPlacement();
+    return;
+  }
   if(colliderPlacementMode){
     const worldX = pointerClientToWorldX(t.clientX, { parallax: 1 });
     const offsetY = pointerClientToGroundOffset(t.clientY);
@@ -3834,6 +4671,46 @@ $('#btnDuplicateInst').addEventListener('click',duplicateSelectedInstance);
 $('#btnUndo').addEventListener('click',undo);
 $('#chkDebug').addEventListener('change',e=>{debugOverlay=e.target.checked;});
 $('#btnAddDrumSkin').addEventListener('click', addDrumSkin);
+const modeLayoutBtn = document.getElementById('btnModeLayout');
+if (modeLayoutBtn) modeLayoutBtn.addEventListener('click', () => setEditorMode('layout'));
+const modeBehaviorBtn = document.getElementById('btnModeBehavior');
+if (modeBehaviorBtn) modeBehaviorBtn.addEventListener('click', () => setEditorMode('behavior'));
+const addBehaviorSpawnerBtn = document.getElementById('btnAddBehaviorSpawner');
+if (addBehaviorSpawnerBtn) addBehaviorSpawnerBtn.addEventListener('click', addBehaviorSpawner);
+const placeBehaviorSpawnerBtn = document.getElementById('btnPlaceBehaviorSpawner');
+if (placeBehaviorSpawnerBtn) placeBehaviorSpawnerBtn.addEventListener('click', () => { setEditorMode('behavior'); startBehaviorPlacement('spawner'); });
+['behaviorSpawnerId','behaviorSpawnerLayer','behaviorSpawnerX','behaviorSpawnerY','behaviorSpawnerRadius','behaviorSpawnerCount','behaviorSpawnerTemplate','behaviorSpawnerCharacter','behaviorSpawnerRespawn'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el){
+    ['change','blur'].forEach((evt) => el.addEventListener(evt, updateBehaviorSpawnerFromFields));
+  }
+});
+const addPathTargetBtn = document.getElementById('btnAddPathTarget');
+if (addPathTargetBtn) addPathTargetBtn.addEventListener('click', addPathTarget);
+const placePathTargetBtn = document.getElementById('btnPlacePathTarget');
+if (placePathTargetBtn) placePathTargetBtn.addEventListener('click', () => { setEditorMode('behavior'); startBehaviorPlacement('pathTarget'); });
+['behaviorPathName','behaviorPathOrder','behaviorPathLayer','behaviorPathInstanceId','behaviorPathX','behaviorPathY'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el){
+    ['change','blur'].forEach((evt) => el.addEventListener(evt, updatePathTargetFromFields));
+  }
+});
+const addInteractionBtn = document.getElementById('btnAddInteractionPoint');
+if (addInteractionBtn) addInteractionBtn.addEventListener('click', addInteractionPoint);
+['behaviorInteractionId','behaviorInteractionLayer','behaviorInteractionX','behaviorInteractionY','behaviorInteractionAction','behaviorInteractionTarget','behaviorInteractionPrompt'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el){
+    ['change','blur'].forEach((evt) => el.addEventListener(evt, updateInteractionFromFields));
+  }
+});
+const addArrivalBtn = document.getElementById('btnAddArrivalSpawn');
+if (addArrivalBtn) addArrivalBtn.addEventListener('click', addArrivalSpawn);
+['behaviorArrivalId','behaviorArrivalLayer','behaviorArrivalX','behaviorArrivalY','behaviorArrivalFrom'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el){
+    ['change','blur'].forEach((evt) => el.addEventListener(evt, updateArrivalFromFields));
+  }
+});
 $('#btnPlaceRow').addEventListener('click',()=>{
   const pid=$('#libPrefab').value;
   const count=parseInt($('#libCount').value,10)||1;
@@ -4155,7 +5032,9 @@ ensurePlayerSpawn();
 refreshColliderList();
 refreshInstanceList();
 refreshDrumSkinList();
+refreshBehaviorPanels();
 syncBackgroundFields();
+setEditorMode('layout');
 ensureRenderLoop();
 
 (async () => {
