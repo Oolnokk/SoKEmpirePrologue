@@ -3,11 +3,15 @@
   "name": "DefaultDistrict",
   "source": "map-editor",
   "camera": {
-    "startX": 689.16943359375,
-    "startZoom": 0.5
+    "startX": 585,
+    "startZoom": 1
   },
   "ground": {
-    "offset": 250
+    "offset": 30
+  },
+  "playableBounds": {
+    "left": -1000,
+    "right": 1500
   },
   "layers": [
     {
@@ -81,9 +85,9 @@
       "name": "Gameplay",
       "type": "gameplay",
       "parallaxSpeed": 1,
-      "offsetY": 0,
-      "separation": 220,
-      "scale": 0.5,
+      "offsetY": 7,
+      "separation": 90,
+      "scale": 0.3,
       "source": null,
       "meta": {}
     },
@@ -128,18 +132,8 @@
       "tags": [
         "spawn:player"
       ],
-      "meta": {
-        "fallback": {
-          "reason": "prefab-missing",
-          "prefabId": "spawn_player",
-          "errorCode": null,
-          "message": null
-        },
-        "identity": {
-          "instanceId": "player_spawn",
-          "source": "tag:spawn:player"
-        }
-      }
+      "meta": {},
+      "instanceId": "player_spawn"
     },
     {
       "id": 9002,
@@ -158,25 +152,15 @@
       "tags": [
         "spawn:npc"
       ],
-      "meta": {
-        "fallback": {
-          "reason": "prefab-missing",
-          "prefabId": "spawn_npc",
-          "errorCode": null,
-          "message": null
-        },
-        "identity": {
-          "instanceId": "npc_spawn",
-          "source": "tag:spawn:npc"
-        }
-      }
+      "meta": {},
+      "instanceId": "npc_spawn"
     },
     {
       "id": 8,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": -780,
+        "x": -622.5948595312665,
         "y": 0
       },
       "scale": {
@@ -186,19 +170,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "8",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "8"
     },
     {
       "id": 9,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": -630,
+        "x": -539.6774920478899,
         "y": 0
       },
       "scale": {
@@ -208,19 +188,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "9",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "9"
     },
     {
       "id": 10,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": -480,
+        "x": -449.791997534357,
         "y": 0
       },
       "scale": {
@@ -230,12 +206,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "10",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "10"
     },
     {
       "id": 11,
@@ -252,19 +224,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "11",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "11"
     },
     {
       "id": 12,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": -60,
+        "x": -267.15509549359047,
         "y": 0
       },
       "scale": {
@@ -274,19 +242,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "12",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "12"
     },
     {
       "id": 13,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": 1290,
+        "x": -184.6375621227893,
         "y": 0
       },
       "scale": {
@@ -296,19 +260,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "13",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "13"
     },
     {
       "id": 14,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": -210,
+        "x": -89.50750736862975,
         "y": 0
       },
       "scale": {
@@ -318,19 +278,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "14",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "14"
     },
     {
       "id": 15,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": 90,
+        "x": 3.4972581309769035,
         "y": 0
       },
       "scale": {
@@ -340,19 +296,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "15",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "15"
     },
     {
       "id": 16,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": 1110,
+        "x": 94.453471169674,
         "y": 0
       },
       "scale": {
@@ -362,19 +314,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "16",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "16"
     },
     {
       "id": 17,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": 840,
+        "x": 180.16113071380744,
         "y": 0
       },
       "scale": {
@@ -384,19 +332,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "17",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "17"
     },
     {
       "id": 18,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": 240,
+        "x": 264.4677119088877,
         "y": 0
       },
       "scale": {
@@ -406,19 +350,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "18",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "18"
     },
     {
       "id": 19,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": 960,
+        "x": 368.36032144170855,
         "y": 0
       },
       "scale": {
@@ -428,19 +368,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "19",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "19"
     },
     {
       "id": 20,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": 360,
+        "x": 445.6569767200548,
         "y": 0
       },
       "scale": {
@@ -450,12 +386,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "20",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "20"
     },
     {
       "id": 21,
@@ -472,19 +404,15 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "21",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "21"
     },
     {
       "id": 22,
       "prefabId": "tower_commercial",
       "layerId": "gameplay",
       "position": {
-        "x": 720,
+        "x": 626.763104255851,
         "y": 0
       },
       "scale": {
@@ -494,12 +422,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "22",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "22"
     },
     {
       "id": 23,
@@ -516,12 +440,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "23",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "23"
     },
     {
       "id": 24,
@@ -538,12 +458,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "24",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "24"
     },
     {
       "id": 25,
@@ -560,12 +476,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "25",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "25"
     },
     {
       "id": 27,
@@ -582,12 +494,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "27",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "27"
     },
     {
       "id": 28,
@@ -604,12 +512,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "28",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "28"
     },
     {
       "id": 29,
@@ -626,12 +530,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "29",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "29"
     },
     {
       "id": 30,
@@ -648,12 +548,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "30",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "30"
     },
     {
       "id": 31,
@@ -670,12 +566,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "31",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "31"
     },
     {
       "id": 32,
@@ -692,12 +584,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "32",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "32"
     },
     {
       "id": 33,
@@ -714,12 +602,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "33",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "33"
     },
     {
       "id": 34,
@@ -736,12 +620,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "34",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "34"
     },
     {
       "id": 35,
@@ -758,12 +638,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "35",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "35"
     },
     {
       "id": 36,
@@ -780,12 +656,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "36",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "36"
     },
     {
       "id": 37,
@@ -802,12 +674,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "37",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "37"
     },
     {
       "id": 38,
@@ -824,12 +692,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "38",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "38"
     },
     {
       "id": 39,
@@ -846,12 +710,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "39",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "39"
     },
     {
       "id": 40,
@@ -868,12 +728,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "40",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "40"
     },
     {
       "id": 41,
@@ -890,12 +746,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "41",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "41"
     },
     {
       "id": 42,
@@ -912,12 +764,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "42",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "42"
     },
     {
       "id": 43,
@@ -934,12 +782,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "43",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "43"
     },
     {
       "id": 44,
@@ -956,12 +800,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "44",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "44"
     },
     {
       "id": 45,
@@ -978,12 +818,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "45",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "45"
     },
     {
       "id": 46,
@@ -1000,12 +836,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "46",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "46"
     },
     {
       "id": 47,
@@ -1022,12 +854,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "47",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "47"
     },
     {
       "id": 48,
@@ -1044,12 +872,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "48",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "48"
     },
     {
       "id": 49,
@@ -1066,12 +890,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "49",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "49"
     },
     {
       "id": 50,
@@ -1088,12 +908,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "50",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "50"
     },
     {
       "id": 51,
@@ -1110,12 +926,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "51",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "51"
     },
     {
       "id": 52,
@@ -1132,12 +944,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "52",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "52"
     },
     {
       "id": 53,
@@ -1154,12 +962,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "53",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "53"
     },
     {
       "id": 54,
@@ -1176,12 +980,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "54",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "54"
     },
     {
       "id": 55,
@@ -1198,12 +998,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "55",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "55"
     },
     {
       "id": 56,
@@ -1220,12 +1016,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "56",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "56"
     },
     {
       "id": 57,
@@ -1242,12 +1034,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "57",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "57"
     },
     {
       "id": 58,
@@ -1264,12 +1052,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "58",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "58"
     },
     {
       "id": 59,
@@ -1286,12 +1070,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "59",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "59"
     },
     {
       "id": 60,
@@ -1308,12 +1088,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "60",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "60"
     },
     {
       "id": 61,
@@ -1330,12 +1106,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "61",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "61"
     },
     {
       "id": 62,
@@ -1352,12 +1124,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "62",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "62"
     },
     {
       "id": 63,
@@ -1374,12 +1142,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "63",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "63"
     },
     {
       "id": 64,
@@ -1396,12 +1160,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "64",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "64"
     },
     {
       "id": 65,
@@ -1418,12 +1178,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "65",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "65"
     },
     {
       "id": 66,
@@ -1440,12 +1196,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "66",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "66"
     },
     {
       "id": 67,
@@ -1462,12 +1214,8 @@
       "rotationDeg": 0,
       "locked": false,
       "tags": [],
-      "meta": {
-        "identity": {
-          "instanceId": "67",
-          "source": "instance.id"
-        }
-      }
+      "meta": {},
+      "instanceId": "67"
     }
   ],
   "colliders": [
@@ -1506,7 +1254,7 @@
     "areaName": "DefaultDistrict",
     "sourcePath": null,
     "repositoryId": null,
-    "activeLayerId": "gameplay",
-    "exportedAt": "2025-11-22T21:28:33.260Z"
+    "activeLayerId": "bg1",
+    "exportedAt": "2025-11-14T04:00:54.964Z"
   }
 }
