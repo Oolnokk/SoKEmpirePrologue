@@ -638,8 +638,10 @@ function getActiveWeaponKey(F, C) {
     || (C?.characters?.player?.weapon ?? null);
 }
 
-function isNonCombatPoseActive(F) {
-  return !!(F?.renderProfile?.nonCombat || F?.nonCombat);
+function isWeaponDrawn(F) {
+  if (typeof F?.renderProfile?.weaponDrawn === 'boolean') return F.renderProfile.weaponDrawn;
+  if (typeof F?.weaponDrawn === 'boolean') return F.weaponDrawn;
+  return true;
 }
 
 function isSneakMode(F) {
@@ -2085,7 +2087,9 @@ export function updatePoses(){
 
     const preActiveLayers = getActiveLayers(F, now);
     const attackActive = preActiveLayers.some(layer => layer?.id === 'primary');
-    const stowActive = isNonCombatPoseActive(F);
+    const weaponDrawn = isWeaponDrawn(F);
+    const combatEngaged = attackActive || F?.attack?.active || F?.charge?.active;
+    const stowActive = !combatEngaged && !weaponDrawn;
     const sneakActive = isSneakMode(F);
     let poseMode = 'combat';
     if (stowActive) {
