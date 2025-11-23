@@ -96,6 +96,7 @@ class PosePreviewManager {
         this.ready = true;
         this.toggleVisibility(true);
         this.startLoop();
+
         if (this.pendingFighter !== null) {
           const fighterKey = this.pendingFighter;
           this.pendingFighter = null;
