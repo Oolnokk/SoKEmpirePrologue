@@ -127,8 +127,27 @@ export function makeCombat(G, C, options = {}){
     fighter.nonCombat = resolved === 'nonCombat';
     fighter.sneak = resolved === 'sneak';
     fighter.renderProfile ||= {};
-    fighter.renderProfile.nonCombat = resolved === 'nonCombat';
+    fighter.renderProfile.walkMode = resolved;
     fighter.renderProfile.sneak = resolved === 'sneak';
+  };
+
+  const applyWeaponDrawnState = (fighter, weaponDrawn) => {
+    if (!fighter || typeof fighter !== 'object') return;
+    const resolved = weaponDrawn != null
+      ? !!weaponDrawn
+      : (typeof fighter.weaponDrawn === 'boolean' ? fighter.weaponDrawn : true);
+    fighter.weaponDrawn = resolved;
+    fighter.nonCombatRagdoll = !resolved;
+    fighter.renderProfile ||= {};
+    fighter.renderProfile.weaponDrawn = resolved;
+    fighter.renderProfile.weaponStowed = !resolved;
+    if (fighter.renderProfile.character && typeof fighter.renderProfile.character === 'object') {
+      fighter.renderProfile.character.weaponDrawn = resolved;
+      fighter.renderProfile.character.weaponStowed = !resolved;
+    }
+    if (fighter.anim?.weapon && typeof fighter.anim.weapon === 'object') {
+      fighter.anim.weapon.stowed = !resolved;
+    }
   };
 
   const now = ()=> performance.now();
@@ -2304,6 +2323,13 @@ export function makeCombat(G, C, options = {}){
 
     const walkMode = resolveWalkMode(p, input);
     applyWalkMode(p, walkMode);
+
+    const weaponDrawnInput = typeof input?.weaponDrawn === 'boolean' ? input.weaponDrawn : null;
+    if (isFighterBusy()) {
+      applyWeaponDrawnState(p, true);
+    } else if (weaponDrawnInput != null) {
+      applyWeaponDrawnState(p, weaponDrawnInput);
+    }
 
     const effectiveInput = p.isDead ? null : input;
     const attackBlocksMovement = !p.isDead && ATTACK.active && ATTACK.context?.type !== 'defensive';
