@@ -10,6 +10,17 @@
     "head": {
       "image": {
         "url": "./assets/cosmetics/appearance/mao-ao/eyes/circled_eyes_mint.png"
+      },
+      "spriteStyle": {
+        "xform": {
+          "head": {
+            "ax": -0.15,
+            "ay": -0.1,
+            "scaleX": 1,
+            "scaleY": 1.2,
+            "rotDeg": 180
+          }
+        }
       }
     }
   }
