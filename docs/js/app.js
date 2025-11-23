@@ -863,7 +863,7 @@ import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
 import { initFighters } from './fighter.js?v=8';
 import { initControls } from './controls.js?v=7';
 import { initCombat } from './combat.js?v=19';
-import { updatePoses } from './animator.js?v=5';
+import { updatePoses, resolveStancePose, resolveStanceKey } from './animator.js?v=5';
 import { renderAll, LIMB_COLORS } from './render.js?v=4';
 import { initCamera, updateCamera } from './camera.js?v=5';
 import { initManualZoom } from './manual-zoom.js?v=1';
@@ -1655,6 +1655,8 @@ function generateConfigJS(config) {
     return statement + ';';
   }
 
+  const stanceAccessor = `CONFIG.poses[${JSON.stringify(resolveStanceKey(config))}]`;
+
   const lines = [];
   lines.push('// khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug');
   const configLiteral = stringifyWithFunctions(config);
@@ -1675,7 +1677,7 @@ function generateConfigJS(config) {
   lines.push('  const clone = (o) => JSON.parse(JSON.stringify(o));');
   lines.push('');
   lines.push('  const SLAM = {');
-  lines.push('    poses: clone(CONFIG.poses),');
+    lines.push('    poses: clone(CONFIG.poses),');
   lines.push('    durations: clone(CONFIG.durations),');
   lines.push('    knockbackBase: (CONFIG.attacks.slots[2]?.knockbackBase ?? 250),');
   lines.push('    cancelWindow: (CONFIG.attacks.slots[2]?.cancelWindowRecoil ?? 0.5)');
@@ -1685,8 +1687,8 @@ function generateConfigJS(config) {
   lines.push('    durations: { toWindup:180, toStrike:110, toRecoil:680, toStance:0 },');
   lines.push('    knockbackBase: (CONFIG.attacks.slots[3]?.knockbackBase ?? 180),');
   lines.push('    cancelWindow: (CONFIG.attacks.slots[3]?.cancelWindowRecoil ?? 0.6),');
-  lines.push('    poses: {');
-  lines.push('      Stance: Object.assign(clone(CONFIG.poses.Stance), { resetFlipsBefore: true }),');
+    lines.push('    poses: {');
+    lines.push(`      Stance: Object.assign(clone(${stanceAccessor}), { resetFlipsBefore: true }),`);
   lines.push('      Windup: clone(CONFIG.attacks.library.KICK_Windup.overrides),');
   lines.push('      Strike: clone(CONFIG.attacks.library.KICK_Strike.overrides),');
   lines.push('      Recoil: clone(CONFIG.attacks.library.KICK_Recoil.overrides)');
@@ -1697,8 +1699,8 @@ function generateConfigJS(config) {
   lines.push('    durations: { toWindup1:180, toWindup2:180, toStrike1:110, toStrike2:110, toRecoil:200, toStance:120 },');
   lines.push('    knockbackBase: 140,');
   lines.push('    cancelWindow: 0.7,');
-  lines.push('    poses: {');
-  lines.push('      Stance: clone(CONFIG.poses.Stance),');
+    lines.push('    poses: {');
+    lines.push(`      Stance: clone(${stanceAccessor}),`);
   lines.push('      Windup: clone(CONFIG.poses.Windup),');
   lines.push('      Strike: clone(CONFIG.poses.Strike),');
   lines.push('      Recoil: clone(CONFIG.poses.Recoil),');
