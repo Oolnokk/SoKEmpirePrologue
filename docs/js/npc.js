@@ -541,7 +541,8 @@ function updateNpcAutomatedInput(state, combat, dt) {
 
 function ensureNpcCombat(G, state) {
   if (!state) return null;
-  const id = state.id || 'npc';
+  const id = state.id || resolveNpcIdFromGame(G, state) || 'npc';
+  state.id = id;
   const map = (G.npcCombatMap ||= {});
   if (map[id]) return map[id];
   const combat = initCombatForFighter(id, {
@@ -769,14 +770,17 @@ function resolveNpcIdFromGame(G, state) {
 
 function resolveNpcPoseTarget(state) {
   if (!state || typeof state !== 'object') return 'npc';
-  const target = state.poseTarget || state.id;
-  const fighters = window.GAME?.FIGHTERS;
-  const fallback = state.id || 'npc';
-  if (target && fighters && !fighters[target]) {
+  const fighters = window.GAME?.FIGHTERS || {};
+  const fallback = resolveNpcIdFromGame(window.GAME || {}, state) || state.id || 'npc';
+  const target = state.poseTarget || state.id || fallback;
+  if (target && !fighters[target] && fallback && fighters[fallback]) {
     console.warn(`[npc] Pose target '${target}' not found; using '${fallback}' instead.`);
-    return fallback || 'npc';
+    return fallback;
   }
-  return target || 'npc';
+  if (target && fighters[target]) return target;
+  if (fallback && fighters[fallback]) return fallback;
+  console.warn(`[npc] Pose target '${target || fallback || 'npc'}' not found; defaulting to 'npc'.`);
+  return 'npc';
 }
 
 function applyNpcLayerOverrides(state, attack, overrides, stageDurMs) {
@@ -1823,7 +1827,7 @@ export function registerNpcFighter(state, { immediateAggro = false } = {}) {
   const G = ensureGameState();
   const resolvedId = resolveNpcIdFromGame(G, state);
   state.id = resolvedId;
-  if (!state.poseTarget) {
+  if (!state.poseTarget || state.poseTarget === 'npc') {
     state.poseTarget = resolvedId;
   }
   ensureNpcVisualState(state);
