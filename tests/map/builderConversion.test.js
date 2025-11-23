@@ -43,6 +43,33 @@ test('convertLayoutToArea produces modular descriptor', () => {
   assert.strictEqual(area.instancesById.player_spawn, area.instances[1]);
 });
 
+test('convertLayoutToArea collects gameplay path targets and respects ordering', () => {
+  const layout = {
+    areaId: 'path_area',
+    layers: [
+      { id: 'bg', name: 'BG', parallax: 0.5, yOffset: 0, sep: 100, scale: 1, type: 'parallax' },
+      { id: 'game', name: 'Game', parallax: 1, yOffset: 0, sep: 120, scale: 1, type: 'gameplay' },
+    ],
+    instances: [
+      { id: 'skip', prefabId: 'tree', layerId: 'bg', slot: 0, tags: ['path:target:ignored'] },
+      { id: 'a1', prefabId: 'marker', layerId: 'game', slot: 0, tags: ['path:target:alpha:2'] },
+      { id: 'a2', prefabId: 'marker', layerId: 'game', slot: 1, tags: ['path:target:alpha:1'], meta: { pathTarget: { order: 10 } } },
+      { id: 'plain', prefabId: 'rock', layerId: 'game', slot: 2 },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout, { prefabResolver: (id) => ({ id }) });
+
+  assert.equal(area.pathTargets.length, 2);
+  const [first, second] = area.pathTargets;
+  assert.equal(first.name, 'alpha');
+  assert.equal(first.instanceId, 'a1');
+  assert.equal(second.order, 10);
+  assert.ok(area.instancesById[first.instanceId]);
+  assert.ok(area.instancesById[second.instanceId]);
+  assert.ok(area.warnings.some((line) => line.includes('Ignoring path target')));
+});
+
 test('convertLayoutToArea tolerates missing arrays', () => {
   const area = convertLayoutToArea({ id: 'fallback' });
   assert.equal(area.layers.length, 0);

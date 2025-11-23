@@ -617,6 +617,66 @@ function buildInstanceIndex(instances) {
   return index;
 }
 
+function parsePathTargetTag(tags = []) {
+  for (const raw of tags) {
+    if (typeof raw !== 'string') continue;
+    const normalized = raw.trim().toLowerCase();
+    if (!normalized.startsWith('path:target:')) continue;
+    const parts = normalized.split(':').slice(2);
+    if (!parts.length) continue;
+    const [namePart, orderPart] = parts;
+    const name = namePart?.trim() || null;
+    const order = Number.isFinite(Number(orderPart)) ? Number(orderPart) : null;
+    if (name) {
+      return { name, order, sourceTag: raw };
+    }
+  }
+  return null;
+}
+
+function resolvePathTargetInfo(inst, layerTypes = new Map(), warnings = null) {
+  if (!inst || typeof inst !== 'object') return null;
+  if (!Array.isArray(inst.tags) || inst.tags.length === 0) return null;
+
+  const tagInfo = parsePathTargetTag(inst.tags);
+  if (!tagInfo) return null;
+
+  const layerType = layerTypes.get(inst.layerId) || null;
+  if (layerType && layerType !== 'gameplay') {
+    if (Array.isArray(warnings)) {
+      warnings.push(`Ignoring path target "${tagInfo.name}" on non-gameplay layer "${inst.layerId}"`);
+    }
+    return null;
+  }
+
+  const pathTargetMeta = inst.meta?.pathTarget
+    || inst.meta?.original?.meta?.pathTarget
+    || inst.meta?.original?.pathTarget;
+  const metaOrder = pathTargetMeta?.order ?? inst.meta?.pathOrder ?? inst.meta?.original?.pathOrder;
+  const parsedOrder = Number.isFinite(metaOrder) ? Number(metaOrder) : tagInfo.order;
+
+  return {
+    name: tagInfo.name,
+    order: Number.isFinite(parsedOrder) ? parsedOrder : null,
+    instanceId: inst.instanceId ?? null,
+    layerId: inst.layerId ?? null,
+    position: inst.position ? { ...inst.position } : null,
+    tags: [...inst.tags],
+    meta: pathTargetMeta ? { ...pathTargetMeta } : {},
+    sourceTag: tagInfo.sourceTag,
+  };
+}
+
+function collectPathTargets(instances = [], layers = [], warnings = null) {
+  if (!Array.isArray(instances) || instances.length === 0) return [];
+  const layerTypes = new Map(layers.map((layer) => [layer.id, layer.type]));
+  const targets = instances
+    .map((inst) => resolvePathTargetInfo(inst, layerTypes, warnings))
+    .filter(Boolean);
+
+  return targets;
+}
+
 function createPrefabFallback(prefabId, errorInfo = {}) {
   const { code, message } = normalizeErrorInfo(errorInfo);
   const label = prefabId ? `Prefab ${prefabId}` : 'Prefab (unknown)';
@@ -994,6 +1054,7 @@ function normalizeAreaDescriptor(area, options = {}) {
       warnings,
     }))
     .filter(Boolean);
+  const pathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
 
   return {
     id: areaId,
@@ -1010,6 +1071,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     layers: convertedLayers,
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
+    pathTargets,
     colliders: alignedColliders,
     drumSkins: convertedDrumSkins,
     playableBounds,
@@ -1168,6 +1230,7 @@ export function convertLayoutToArea(layout, options = {}) {
       warnings,
     }))
     .filter(Boolean);
+  const pathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
   const backgroundFromLayout = typeof layout.background === 'object' && layout.background
     ? safeClone(layout.background)
     : null;
@@ -1202,6 +1265,7 @@ export function convertLayoutToArea(layout, options = {}) {
     layers: convertedLayers,
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
+    pathTargets,
     colliders: alignedColliders,
     drumSkins: convertedDrumSkins,
     playableBounds,
