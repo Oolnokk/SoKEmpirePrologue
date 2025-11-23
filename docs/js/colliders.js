@@ -140,10 +140,11 @@ export function buildConeCollider({
   const scaledRange = Math.max(0, range) * Math.max(actorScale, 0);
   const halfSpread = Math.max(0, spread) * 0.5;
   const pos = resolveOrigin(origin, originOffset);
+  const angle = Number.isFinite(facingRad) ? (facingRad + Math.PI * 0.5) : 0;
   return {
     type: 'cone',
     origin: pos,
-    angle: Number.isFinite(facingRad) ? facingRad : 0,
+    angle,
     range: scaledRange,
     halfSpread,
   };
