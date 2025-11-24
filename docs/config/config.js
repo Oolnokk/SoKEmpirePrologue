@@ -331,8 +331,8 @@ const MODE_BASE_POSES = {
   nonCombat: {
     ...deepClone(BASE_POSES.Stance),
     torso: 0,
-    lHip: 90,
-    rHip: 90,
+    lHip: 0,
+    rHip: 0,
     lKnee: 25,
     rKnee: 25,
   },
