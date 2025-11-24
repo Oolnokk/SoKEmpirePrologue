@@ -763,22 +763,22 @@ window.CONFIG = {
 
     // NEW: legs-only base offsets per mode (added on top of global basePose)
     LegsCombat: {
-      lHip: 0,
+      lHip: -90,
       lKnee: 0,
-      rHip: 0,
+      rHip: -90,
       rKnee: 0
     },
     LegsNonCombat: {
-      lHip: -6,
-      lKnee: 4,
-      rHip: 4,
-      rKnee: -2
+      lHip: -90,
+      lKnee: 0,
+      rHip: -90,
+      rKnee: 0
     },
     LegsSneak: {
-      lHip: 20,
-      lKnee: 25,
-      rHip: 10,
-      rKnee: 20
+      lHip: -90,
+      lKnee: 0,
+      rHip: -90,
+      rKnee: 0
     },
 
     Windup: deepClone(BASE_POSES.Windup),
