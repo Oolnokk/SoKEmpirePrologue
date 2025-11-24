@@ -1518,11 +1518,11 @@ function resolveStanceUpperPose(cfg, fighter) {
   const weaponDrawn = isWeaponDrawn(fighter);
   const activeUpper = weaponDrawn ? (poses[stanceKey] || poses.Stance) : (poses.StanceStowed || poses.StanceSheathed || poses.NonCombat || poses.Stance);
   const fallbackUpper = {
-    torso: 10,
-    lShoulder: -120,
-    lElbow: -120,
-    rShoulder: -65,
-    rElbow: -140,
+    torso: 0,
+    lShoulder: 0,
+    lElbow: 0,
+    rShoulder: 0,
+    rElbow: 0,
   };
   return Object.assign({}, fallbackUpper, clonePose(activeUpper));
 }
@@ -1552,15 +1552,15 @@ function pickBase(fcfg, C, mode = 'combat', F) {
   if (!cfg?.poses) {
     // original fallback pose
     return {
-      torso: 10,
-      lShoulder: -120,
-      lElbow: -120,
-      rShoulder: -65,
-      rElbow: -140,
-      lHip: 100,
-      lKnee: 70,
-      rHip: 30,
-      rKnee: 70,
+      torso: 0,
+      lShoulder: 0,
+      lElbow: 0,
+      rShoulder: 0,
+      rElbow: 0,
+      lHip: 0,
+      lKnee: 0,
+      rHip: 0,
+      rKnee: 0,
     };
   }
 
@@ -1577,15 +1577,15 @@ function pickBase(fcfg, C, mode = 'combat', F) {
   }
 
   const base = cfg.poses.Stance || {
-    torso: 10,
-    lShoulder: -120,
-    lElbow: -120,
-    rShoulder: -65,
-    rElbow: -140,
-    lHip: 100,
-    lKnee: 70,
-    rHip: 30,
-    rKnee: 70,
+    torso: 0,
+    lShoulder: 0,
+    lElbow: 0,
+    rShoulder: 0,
+    rElbow: 0,
+    lHip: 0,
+    lKnee: 0,
+    rHip: 0,
+    rKnee: 0,
   };
 
   console.log('pickBase: using Stance', base);
