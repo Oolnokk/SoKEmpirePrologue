@@ -55,27 +55,55 @@ const WEAPON_STANCE_TYPES = ['unarmed', 'dagger-swords', 'sarrarru', 'light-grea
 
 const WEAPON_STANCE_DEFAULTS = {
   unarmed: {
+	      lShoulder: -80,
+    lElbow: -100,
+    rShoulder: -80,
+    rElbow: -100,
     weapon: -20,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
   'dagger-swords': {
-    weapon: -20,
+ 
+	      lShoulder: -85,
+    lElbow: -95,
+    rShoulder: -85,
+    r		Elbow: -95,weapon: -20,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
   sarrarru: {
-    weapon: -20,
+   
+	          lShoulder: -70,
+        lElbow: -120,
+        rShoulder: -70,
+        rElbow: -120,
+weapon: -20,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
   'light-greatblade': {
-    weapon: -20,
+   
+	          lShoulder: -75,
+        lElbow: -110,
+        rShoulder: -75,
+        rElbow: -110,
+weapon: -20,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
   greatclub: {
     weapon: -20,
-    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+   
+	          lShoulder: -90,
+        lElbow: -100,
+        rShoulder: -90,
+        rElbow: -100,
+weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
   hatchets: {
-    weapon: -20,
+   
+	          lShoulder: -85,
+        lElbow: -105,
+        rShoulder: -85,
+        rElbow: -105,
+weapon: -20,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
 };

@@ -1517,22 +1517,27 @@ export function resolveStancePose(C, F) {
   return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
 }
 
-function pickBase(fcfg, C, mode = 'combat', F){
+ffunction pickBase(fcfg, C, mode = 'combat', F){
   const cfg = fcfg || C || {};
   if (!cfg?.poses) return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
   const legs = pickLegsBase(cfg, C, mode);
   if (mode === 'nonCombat' && cfg.poses.NonCombatBase) {
-    return mergeLowerBodyPose(cfg.poses.NonCombatBase, legs);
+   
+      return mergeLowerBodyPose(cfg.poses.NonCombatBase, legs);
   }
   if (mode === 'sneak' && cfg.poses.SneakBase) {
     return mergeLowerBodyPose(cfg.poses.SneakBase, legs);
   }
   const base = cfg.poses.Stance || { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
+      console.log('pickBase selected base:', base);
+  
   return mergeLowerBodyPose(base, legs);
 }
 
 function pickWalkProfile(fcfg, C, mode = 'combat'){
-  const cfg = fcfg || C || {};
+ 
+
+const cfg = fcfg || C || {};
   const profiles = cfg?.walkProfiles || {};
   const legsPose = pickLegsBase(cfg, C, mode);
   if (mode === 'nonCombat' && profiles.nonCombat) return { ...profiles.nonCombat, legsPose };
@@ -1563,7 +1568,8 @@ function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } =
 
   // Advance phase when there is amplitude (so we keep continuity even when stopping briefly)
   const dt = Math.max(1e-6, F.anim?.dt || 0);
-  const prevPhase = Number.isFinite(F.walk.phase) ? F.walk.phase : 0;
+  const
+      prevPhase = Number.isFinite(F.walk.phase) ? F.walk.phase : 0;
   F.walk.phase += dt * baseHz * Math.PI * 2;
   // wrap phase to keep numeric stability
   if (F.walk.phase > Math.PI * 2) F.walk.phase %= (Math.PI * 2);
