@@ -53,12 +53,44 @@ const NON_COMBAT_POSE = {
 
 const WEAPON_STANCE_TYPES = ['unarmed', 'dagger-swords', 'sarrarru', 'light-greatblade', 'greatclub', 'hatchets'];
 
+const WEAPON_STANCE_DEFAULTS = {
+  unarmed: {
+    weapon: -20,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+  'dagger-swords': {
+    weapon: -20,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+  sarrarru: {
+    weapon: -20,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+  'light-greatblade': {
+    weapon: -20,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+  greatclub: {
+    weapon: -20,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+  hatchets: {
+    weapon: -20,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+};
+
+
 const buildWeaponStances = (basePose) => {
   const map = {};
   for (const type of WEAPON_STANCE_TYPES) {
     const suffix = toPascalCase(type);
     if (!suffix) continue;
     map[`Stance${suffix}`] = deepClone(basePose);
+    const overrides = WEAPON_STANCE_DEFAULTS[type];
+    if (overrides) {
+      Object.assign(map[`Stance${suffix}`], deepClone(overrides));
+    }
   }
   return map;
 };
