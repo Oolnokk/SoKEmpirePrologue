@@ -1577,79 +1577,130 @@ function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX =
 
 function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } = {}){
   const cfg = fcfg || C || {};
-  const W = walkProfile || cfg.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
-  const speed = computeSpeed(F);
-  const on = !!W.enabled && speed >= (W.minSpeed||60) && (F.onGround!==false);
-  // compute frequency scaled by speed (clamped)
-  const baseHzFactor = (W.baseHz||1.2) * (W.speedScale||1.0);
-  const movementScale = (speed > 1) ? Math.min(3, 0.5 + speed / (cfg.movement?.maxSpeedX||300)) : 1;
+  const W = walkProfile || cfg.walk || {
+    enabled:true,
+    baseHz:1.2,
+    speedScale:1.0,
+    minSpeed:60,
+    amp:1.0,
+    poses:{
+      A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90},
+      B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45}
+    }
+  };
+
+  const speed    = computeSpeed(F);
+  const grounded = (F.onGround !== false);
+  const moving   = speed >= (W.minSpeed || 60) && grounded;
+  const enabled  = !!W.enabled;
+
+  // Frequency (same logic as before)
+  const baseHzFactor  = (W.baseHz || 1.2) * (W.speedScale || 1.0);
+  const movementScale = (speed > 1)
+    ? Math.min(3, 0.5 + speed / (cfg.movement?.maxSpeedX || 300))
+    : 1;
   const baseHz = baseHzFactor * movementScale;
 
-  // initialize walk state
+  // Walk state
   F.walk.phase = (F.walk.phase || 0);
-  F.walk.amp = (F.walk.amp == null) ? (W.amp || 1.0) : F.walk.amp;
+  F.walk.amp   = (F.walk.amp == null) ? (W.amp || 1.0) : F.walk.amp;
 
-  // Smoothly approach target amplitude to avoid pops (use damp)
-  const targetAmp = on ? (W.amp || 1.0) : 0;
+  // Walk amplitude only; idle uses its own amp
+  const targetAmp = (enabled && moving) ? (W.amp || 1.0) : 0;
   F.walk.amp = damp(F.walk.amp, targetAmp, 8, F.anim?.dt || 0);
 
-  // Advance phase when there is amplitude (so we keep continuity even when stopping briefly)
-  const dt = Math.max(1e-6, F.anim?.dt || 0);
-  const
-      prevPhase = Number.isFinite(F.walk.phase) ? F.walk.phase : 0;
-  F.walk.phase += dt * baseHz * Math.PI * 2;
-  // wrap phase to keep numeric stability
+  // Advance phase ALWAYS so idle/walk share the same cycle
+  const dt        = Math.max(1e-6, F.anim?.dt || 0);
+  const prevPhase = Number.isFinite(F.walk.phase) ? F.walk.phase : 0;
+  F.walk.phase   += dt * baseHz * Math.PI * 2;
   if (F.walk.phase > Math.PI * 2) F.walk.phase %= (Math.PI * 2);
 
-  // detect foot contact markers (phase 0 -> left, phase PI -> right)
-  const contacts = F.walk.pendingContacts ||= [];
-  const phaseWrapped = F.walk.phase < prevPhase;
-  const phaseDelta = F.walk.phase - prevPhase + (phaseWrapped ? Math.PI * 2 : 0);
-  const walkActive = on && F.walk.amp > 0.05;
-  const logFootstep = !!(F.debugFootsteps || cfg?.debugFootsteps);
-  const now = performance.now() / 1000;
-  if (walkActive && phaseDelta > 0) {
-    const checkPoints = [Math.PI, Math.PI * 2];
-    for (const pt of checkPoints) {
-      const target = pt;
-      const normalizedTarget = target % (Math.PI * 2);
-      const crossed = prevPhase < target && (prevPhase + phaseDelta) >= target;
-      if (!crossed) continue;
-      const foot = normalizedTarget === Math.PI ? 'right' : 'left';
-      const intensity = clamp(speed / (cfg.movement?.maxSpeedX || 320), 0.2, 1.15) * F.walk.amp;
-      contacts.push({ foot, intensity, phase: normalizedTarget, time: now });
-      if (logFootstep) {
-        console.debug('[animator] walk foot contact', { foot, phase: normalizedTarget, speed, amp: F.walk.amp });
+  // Footstep contacts ONLY while actually walking
+  const walkActive = enabled && moving && F.walk.amp > 0.05;
+  if (walkActive) {
+    const contacts     = F.walk.pendingContacts ||= [];
+    const phaseWrapped = F.walk.phase < prevPhase;
+    const phaseDelta   = F.walk.phase - prevPhase + (phaseWrapped ? Math.PI * 2 : 0);
+    const logFootstep  = !!(F.debugFootsteps || cfg?.debugFootsteps);
+    const now          = performance.now() / 1000;
+
+    if (phaseDelta > 0) {
+      const checkPoints = [Math.PI, Math.PI * 2];
+      for (const pt of checkPoints) {
+        const target          = pt;
+        const normalizedTarget = target % (Math.PI * 2);
+        const crossed         = prevPhase < target && (prevPhase + phaseDelta) >= target;
+        if (!crossed) continue;
+        const foot = normalizedTarget === Math.PI ? 'right' : 'left';
+        const intensity = clamp(
+          speed / (cfg.movement?.maxSpeedX || 320),
+          0.2,
+          1.15
+        ) * F.walk.amp;
+        contacts.push({ foot, intensity, phase: normalizedTarget, time: now });
+        if (logFootstep) {
+          console.debug('[animator] walk foot contact', { foot, phase: normalizedTarget, speed, amp: F.walk.amp });
+        }
       }
     }
   }
   F.walk.prevPhase = F.walk.phase;
 
-  // phase->s value (apply small smoothing via easeInOut to shape foot travel)
+  // Phase → blend factor (EXACT same easing as walk)
   const rawS = (Math.sin(F.walk.phase) + 1) / 2;
-  const s = easeInOutCubic(rawS);
+  const s    = easeInOutCubic(rawS);
 
-  const A = W.poses?.A || {}; const B = W.poses?.B || {};
+  // Walk keyframes (existing)
+  const walkA = (W.poses && (W.poses.A || W.poses.a)) || {};
+  const walkB = (W.poses && (W.poses.B || W.poses.b)) || walkA;
+
+  // Idle keyframes – EXACT same schema: { A:{}, B:{} }
+  const idleSrc = W.idlePoses || W.idle || W.idle_poses || null;
+  const idleA   = idleSrc && (idleSrc.A || idleSrc.a) || null;
+  const idleB   = idleSrc && (idleSrc.B || idleSrc.b) || idleA;
+  const hasIdlePair = !!(idleA && idleB);
+
   const pose = Object.assign({}, basePoseConfig || pickBase(fcfg, C, poseMode, F));
-  // interpolate leg/torso angles and scale by smoothed amplitude
-  pose.lHip = lerp(A.lHip||0, B.lHip||0, s) * F.walk.amp;
-  pose.lKnee= lerp(A.lKnee||0,B.lKnee||0,s) * F.walk.amp;
-  pose.rHip = lerp(A.rHip||0, B.rHip||0, s) * F.walk.amp;
-  pose.rKnee= lerp(A.rKnee||0,B.rKnee||0,s) * F.walk.amp;
-  pose.torso= lerp(A.torso||0,B.torso||0,s) * F.walk.amp;
+
+  // Choose which pair we’re lerping between this frame
+  const useWalk = walkActive;
+  const useIdle = !useWalk && hasIdlePair && enabled && grounded;
+
+  // Amp for the selected mode
+  const idleAmp = Number.isFinite(W.idleAmp) ? W.idleAmp : 1.0;
+  const amp     = useWalk ? F.walk.amp : (useIdle ? idleAmp : 0);
+
+  const keyA = useWalk ? walkA : (useIdle ? idleA : {});
+  const keyB = useWalk ? walkB : (useIdle ? idleB : {});
+
+  // Interpolate leg/torso angles and scale by amp
+  pose.lHip   = lerp(keyA.lHip   || 0, keyB.lHip   || 0, s) * amp;
+  pose.lKnee  = lerp(keyA.lKnee  || 0, keyB.lKnee  || 0, s) * amp;
+  pose.rHip   = lerp(keyA.rHip   || 0, keyB.rHip   || 0, s) * amp;
+  pose.rKnee  = lerp(keyA.rKnee  || 0, keyB.rKnee  || 0, s) * amp;
+  pose.torso  = lerp(keyA.torso  || 0, keyB.torso  || 0, s) * amp;
+
+  // Shoulders/elbows: still seeded from base offsets only
   const base = basePoseConfig || pickBase(fcfg, C, poseMode, F);
-  pose.lShoulder=base.lShoulder; pose.lElbow=base.lElbow; pose.rShoulder=base.rShoulder; pose.rElbow=base.rElbow;
-  const armSwingSpec = W.armSwing || {};
+  pose.lShoulder = base.lShoulder;
+  pose.lElbow    = base.lElbow;
+  pose.rShoulder = base.rShoulder;
+  pose.rElbow    = base.rElbow;
+
+  // Arm swing only during actual walk, like before
+  const armSwingSpec     = W.armSwing || {};
   const swingEnabledFlag = armSwingSpec.enabled ?? W.armSwingEnabled;
-  const allowArmSwing = !!(swingEnabledFlag || poseMode === 'nonCombat' || F.anim?.weapon?.stowed);
-  if (allowArmSwing && walkActive){
-    const swingAmp = (armSwingSpec.amp ?? 1) * F.walk.amp;
-    const shoulderAmp = (armSwingSpec.shoulderAmpDeg ?? 6) * swingAmp;
-    const elbowAmp = (armSwingSpec.elbowAmpDeg ?? 4) * swingAmp;
+  const allowArmSwing    = !!(swingEnabledFlag || poseMode === 'nonCombat' || F.anim?.weapon?.stowed);
+
+  if (allowArmSwing && useWalk) {
+    const swingAmp     = (armSwingSpec.amp ?? 1) * F.walk.amp;
+    const shoulderAmp  = (armSwingSpec.shoulderAmpDeg ?? 6) * swingAmp;
+    const elbowAmp     = (armSwingSpec.elbowAmpDeg ?? 4) * swingAmp;
     const shoulderPhase = F.walk.phase + (armSwingSpec.phaseOffset ?? Math.PI / 6);
-    const elbowPhase = shoulderPhase + (armSwingSpec.elbowPhaseOffset ?? Math.PI / 4);
+    const elbowPhase    = shoulderPhase + (armSwingSpec.elbowPhaseOffset ?? Math.PI / 4);
     const lShoulderSwing = Math.sin(shoulderPhase) * shoulderAmp;
-    const lElbowSwing = Math.sin(elbowPhase) * elbowAmp;
+    const lElbowSwing    = Math.sin(elbowPhase) * elbowAmp;
+
     pose.__armSwing = {
       lShoulder: lShoulderSwing,
       rShoulder: -lShoulderSwing,
@@ -1660,7 +1711,12 @@ function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } =
   } else {
     pose._armSwingActive = false;
   }
-  pose._active = on && F.walk.amp > 0.001;
+
+  // State flags
+  pose._walkActive = useWalk;
+  pose._idleActive = useIdle;
+  pose._active     = useWalk || useIdle;   // used by mode-walk and lower-body blending
+
   return pose;
 }
 
