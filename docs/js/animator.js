@@ -1557,9 +1557,9 @@ function pickBase(fcfg, C, mode = 'combat', F) {
       lElbow: -120,
       rShoulder: -65,
       rElbow: -140,
-      lHip: 190,
+      lHip: 100,
       lKnee: 70,
-      rHip: 120,
+      rHip: 30,
       rKnee: 70,
     };
   }
@@ -1582,9 +1582,9 @@ function pickBase(fcfg, C, mode = 'combat', F) {
     lElbow: -120,
     rShoulder: -65,
     rElbow: -140,
-    lHip: 190,
+    lHip: 100,
     lKnee: 70,
-    rHip: 120,
+    rHip: 30,
     rKnee: 70,
   };
 
