@@ -1508,13 +1508,43 @@ function applyGravityScaleEvent(F, scale, { durationMs, reset } = {}){
   const expiresAt = Number.isFinite(durationMs) && durationMs > 0 ? now + (durationMs / 1000) : null;
   F.gravityOverride = { value: scale, expiresAt };
 }
+function clonePose(pose) {
+  return pose ? JSON.parse(JSON.stringify(pose)) : {};
+}
+
+function resolveStanceUpperPose(cfg, fighter) {
+  const poses = cfg?.poses || {};
+  const stanceKey = resolveStanceKey(cfg, fighter);
+  const weaponDrawn = isWeaponDrawn(fighter);
+  const activeUpper = weaponDrawn ? (poses[stanceKey] || poses.Stance) : (poses.StanceStowed || poses.StanceSheathed || poses.NonCombat || poses.Stance);
+  const fallbackUpper = {
+    torso: 10,
+    lShoulder: -120,
+    lElbow: -120,
+    rShoulder: -65,
+    rElbow: -140,
+  };
+  return Object.assign({}, fallbackUpper, clonePose(activeUpper));
+}
+
+function resolveLowerBodyStancePose(cfg, fighter) {
+  const poseMode = isSneakMode(fighter)
+    ? 'sneak'
+    : (isWeaponDrawn(fighter) ? 'combat' : 'nonCombat');
+  const basePose = pickBase(cfg, cfg, poseMode, fighter);
+  const walkProfile = pickWalkProfile(cfg, cfg, poseMode);
+  const walkPose = computeWalkPose(fighter, cfg, cfg, walkProfile, basePose, { poseMode });
+  return extractLowerBodyPose(walkPose || basePose);
+}
+
 export function resolveStancePose(C, F) {
   const cfg = C || {};
-  const poses = cfg?.poses || {};
-  const stanceKey = resolveStanceKey(cfg, F);
-  const stance = poses[stanceKey] || poses.Stance;
-  if (stance) return stance;
-  return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
+  const upper = resolveStanceUpperPose(cfg, F);
+  const lower = resolveLowerBodyStancePose(cfg, F);
+  const merged = mergeLowerBodyPose(upper, lower);
+  merged.joints = clonePose(upper?.joints || merged.joints);
+  merged.lengthScales = clonePose(upper?.lengthScales || upper?.boneLengthScales || merged.lengthScales);
+  return merged;
 }
 
 function pickBase(fcfg, C, mode = 'combat', F) {

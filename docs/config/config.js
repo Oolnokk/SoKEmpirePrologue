@@ -745,6 +745,7 @@ window.CONFIG = {
 
   poses: {
     Stance: deepClone(MODE_BASE_POSES.combat),
+    StanceStowed: deepClone(NON_COMBAT_POSE),
     ...buildWeaponStances(MODE_BASE_POSES.combat),
     NonCombatBase: deepClone(MODE_BASE_POSES.nonCombat),
     SneakBase: deepClone(MODE_BASE_POSES.sneak),
