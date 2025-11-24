@@ -1797,38 +1797,15 @@
     "spawnerId": "watchmen_spawner_1",
     "type": "npc",
     "groupId": "city_guard_patrol",
-    "position": { "x": 10, "y": 20 },
+    "position": { "x": 10, "y": 300 },
     "meta": { "role": "patrol" }
   }
 ],
   "pathTargets": [
-    {
-      "targetId": "target_1",
-      "name": "target_1",
-      "layerId": "gameplay",
-      "position": {
-        "x": -3000,
-        "y": 0
-      },
-      "id": "target_1",
-      "order": 0,
-      "instanceId": "",
-      "meta": {}
-    },
-    {
-      "targetId": "target_2",
-      "name": "target_2",
-      "layerId": "gameplay",
-      "position": {
-        "x": 3000,
-        "y": 0
-      },
-      "id": "target_2",
-      "order": 1,
-      "instanceId": "",
-      "meta": {}
-    }
-  ],
+  { "name": "patrol1", "position": { "x": 1000, "y": 300 } },
+  { "name": "patrol2", "position": { "x": 100, "y": 300 } },
+  { "name": "patrol3", "position": { "x": -1000, "y": 300 } }
+],
   "meta": {
     "areaId": "defaultdistrict",
     "areaName": "DefaultDistrict",
