@@ -30,12 +30,17 @@ const abilityKnockback = (base, { clamp } = {}) => {
 
 const deepClone = (value) => JSON.parse(JSON.stringify(value || {}));
 
-const toPascalCase = (value) => {
+const toPascalCase = (value = '') => {
   if (!value) return '';
   return String(value)
-    .split(/[^a-zA-Z0-9]+/g)
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/([0-9]+)/g, ' $1 ')
+    .trim()
+    .split(/\s+/)
     .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join('');
 };
 
@@ -1936,19 +1941,6 @@ window.CONFIG = {
     }
   }
 }
-
-const toPascalCase = (value = '') => {
-  return value
-    .replace(/[_-]+/g, ' ')
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-    .replace(/([0-9]+)/g, ' $1 ')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join('');
-};
 
 const posePhaseInfo = (poseName) => {
   const normalized = toPascalCase(poseName);
