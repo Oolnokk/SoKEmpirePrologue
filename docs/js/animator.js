@@ -1562,15 +1562,72 @@ function pickBase(fcfg, C, mode = 'combat', F) {
   return mergeLowerBodyPose(base, legs);
 }
 function pickWalkProfile(fcfg, C, mode = 'combat'){
- 
-
-const cfg = fcfg || C || {};
+  const cfg = fcfg || C || {};
   const profiles = cfg?.walkProfiles || {};
+  const idleProfiles = cfg?.idleProfiles || cfg?.idleProfile || null;
   const legsPose = pickLegsBase(cfg, C, mode);
-  if (mode === 'nonCombat' && profiles.nonCombat) return { ...profiles.nonCombat, legsPose };
-  if (mode === 'sneak' && profiles.sneak) return { ...profiles.sneak, legsPose };
-  const baseProfile = profiles.combat || cfg.walk || { enabled:true, baseHz:1.2, speedScale:1.0, minSpeed:60, amp:1.0, poses:{ A:{torso:30,lHip:0,lKnee:45,rHip:180,rKnee:90}, B:{torso:40,lHip:180,lKnee:90,rHip:0,rKnee:45} } };
-  return { ...baseProfile, legsPose };
+
+  const DEFAULT_WALK = {
+    enabled: true,
+    baseHz: 1.2,
+    speedScale: 1.0,
+    minSpeed: 60,
+    amp: 1.0,
+    poses: {
+      A: { torso: 30, lHip: 0,   lKnee: 45,  rHip: 180, rKnee: 90 },
+      B: { torso: 40, lHip: 180, lKnee: 90,  rHip: 0,   rKnee: 45 }
+    }
+  };
+
+  function attachIdle(walkProfile, modeKey){
+    const out = { ...walkProfile, legsPose };
+
+    if (!idleProfiles) return out;
+
+    // try a few naming conventions: combat / Combat / default
+    const key = modeKey || 'combat';
+    const idleCfg =
+      idleProfiles[key] ||
+      idleProfiles[key[0].toUpperCase() + key.slice(1)] ||
+      (key === 'combat' ? (idleProfiles.default || idleProfiles.Default) : null);
+
+    if (!idleCfg || typeof idleCfg !== 'object') return out;
+
+    // Accept a few shapes:
+    //   idleProfiles.combat = { poses:{A,B}, amp:0.8 }
+    //   idleProfiles.combat = { A:{}, B:{} }
+    const idlePoses =
+      idleCfg.poses ||
+      idleCfg.posesDeg ||
+      ((idleCfg.A || idleCfg.a || idleCfg.B || idleCfg.b)
+        ? { A: idleCfg.A || idleCfg.a, B: idleCfg.B || idleCfg.b }
+        : null);
+
+    const idleAmp = (
+      Number.isFinite(idleCfg.idleAmp) ? idleCfg.idleAmp :
+      Number.isFinite(idleCfg.amp)     ? idleCfg.amp     :
+      null
+    );
+
+    if (idlePoses && (idlePoses.A || idlePoses.a) && (idlePoses.B || idlePoses.b)) {
+      out.idlePoses = idlePoses;   // <-- used by computeWalkPose
+    }
+    if (idleAmp != null) {
+      out.idleAmp = idleAmp;       // <-- used by computeWalkPose
+    }
+
+    return out;
+  }
+
+  if (mode === 'nonCombat' && profiles.nonCombat) {
+    return attachIdle(profiles.nonCombat, 'nonCombat');
+  }
+  if (mode === 'sneak' && profiles.sneak) {
+    return attachIdle(profiles.sneak, 'sneak');
+  }
+
+  const baseProfile = profiles.combat || cfg.walk || DEFAULT_WALK;
+  return attachIdle(baseProfile, 'combat');
 }
 
 function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX = (F._prevX==null? F.pos?.x||0 : F._prevX); const curX = F.pos?.x||0; const v = (curX - prevX)/dt; F._prevX = curX; return Math.abs(Number.isFinite(F.vel?.x)? F.vel.x : v); }
