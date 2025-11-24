@@ -409,21 +409,7 @@ const COSMETIC_LIBRARY_SOURCES = {
 
 const KICK_MOVE_POSES = {
   Stance: {
-    torso: 10,
-    lShoulder: -120,
-    lElbow: -120,
-    rShoulder: -65,
-    rElbow: -140,
-    lHip: 20,
-    lKnee: 30,
-    rHip: 80,
-    rKnee: 40,
-    rootMoveVel: { x: 0, y: 0 },
-    impulseMag: 0,
-    impulseDirDeg: 0,
-    resetFlipsBefore: true,
-    allowAiming: true,
-    aimLegs: false
+    ...deepClone(BASE_POSES.Stance),
   },
   Windup: {
     torso: -10,
@@ -497,21 +483,7 @@ const KICK_MOVE_POSES = {
 
 const PUNCH_MOVE_POSES = {
   Stance: {
-        torso: 10,
-        lShoulder: -100,
-        lElbow: -110,
-        rShoulder: -40,
-        rElbow: -110,
-        lHip: 110,
-        lKnee: 40,
-        rHip: 30,
-        rKnee: 40,
-        rootMoveVel: { x: 0, y: 0 },
-        impulseMag: 0,
-        impulseDirDeg: 0,
-        resetFlipsBefore: true,
-        allowAiming: true,
-        aimLegs: false
+        ...deepClone(BASE_POSES.Stance),
     },
   Windup: {
 		torso: 10,
