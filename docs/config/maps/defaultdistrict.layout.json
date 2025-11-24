@@ -1827,24 +1827,15 @@
       "legacyLayerB": "bg6"
     }
   ],
-  "spawners": [
-    {
-      "spawnerId": "spawner_1",
-      "layerId": "gameplay",
-      "position": {
-        "x": 3000,
-        "y": 0
-      },
-      "count": 1,
-      "spawnRadius": 0,
-      "respawn": true,
-      "id": "spawner_1",
-      "templateId": "",
-      "characterId": "",
-      "meta": {},
-      "type": "npc"
-    }
-  ],
+"spawners": [
+  {
+    "spawnerId": "watchmen_spawner_1",
+    "type": "npc",
+    "groupId": "city_guard_patrol",
+    "position": { "x": 10, "y": 20 },
+    "meta": { "role": "patrol" }
+  }
+],
   "pathTargets": [
     {
       "targetId": "target_1",
