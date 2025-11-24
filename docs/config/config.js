@@ -363,6 +363,38 @@ const POSE_ANGLE_SUMMARY = {
   Recoil: { lHip:110, rHip:100 }
 };
 
+const IDLE_PROFILES = {
+  combat: {
+    pose: {
+      torso: 10,
+      lHip: -90,
+      lKnee: 40,
+      rHip: -90,
+      rKnee: 40,
+    },
+  },
+  nonCombat: {
+    pose: {
+      torso: 0,
+      lHip: 0,
+      lKnee: 25,
+      rHip: 0,
+      rKnee: 25,
+    },
+  },
+  sneak: {
+    pose: {
+      torso: 5,
+      lHip: 90,
+      lKnee: 70,
+      rHip: 90,
+      rKnee: 70,
+    },
+  },
+};
+window.CONFIG.idleProfiles = IDLE_PROFILES;
+
+
 const FIGHTER_TLETINGAN = 'TLETINGAN';
 const FIGHTER_MAOAO_M = 'Mao-ao_M';
 
