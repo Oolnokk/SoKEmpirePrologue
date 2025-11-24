@@ -144,6 +144,7 @@ const ensureWeaponStances = (config) => {
   });
 };
 
+// === UPDATED: walk profiles now have idlePoses + idleAmp + optional armSwing ===
 const WALK_PROFILES = {
   combat: {
     enabled: true,
@@ -153,8 +154,21 @@ const WALK_PROFILES = {
     minSpeed: 80,
     amp: 1.0,
     poses: {
-      A: { torso: 30, lHip: 0, lKnee: 45, rHip: 180, rKnee: 90 },
-      B: { torso: 40, lHip: 180, lKnee: 90, rHip: 0, rKnee: 45 }
+      A: { torso: 30, lHip: 0,   lKnee: 45, rHip: 180, rKnee: 90 },
+      B: { torso: 40, lHip: 180, lKnee: 90, rHip: 0,   rKnee: 45 }
+    },
+    idlePoses: {
+      A: { torso: 2,  lHip: -2, lKnee: 1, rHip: 2,  rKnee: -1 },
+      B: { torso: -1, lHip: 1,  lKnee: 0, rHip: -1, rKnee: 1 }
+    },
+    idleAmp: 0.4,
+    armSwing: {
+      enabled: true,
+      amp: 1.0,
+      shoulderAmpDeg: 10,
+      elbowAmpDeg: 6,
+      phaseOffset: Math.PI / 6,
+      elbowPhaseOffset: Math.PI / 4
     }
   },
   nonCombat: {
@@ -165,9 +179,20 @@ const WALK_PROFILES = {
     minSpeed: 60,
     amp: 1.0,
     poses: {
-      A: { torso: 15, lHip: 0, lKnee: 45, rHip: 150, rKnee: 90 },
-      B: { torso: 25, lHip: 150, lKnee: 90, rHip: 0, rKnee: 45 }
-	}
+      A: { torso: 15, lHip: 0,   lKnee: 45, rHip: 150, rKnee: 90 },
+      B: { torso: 25, lHip: 150, lKnee: 90, rHip: 0,   rKnee: 45 }
+    },
+    idlePoses: {
+      A: { torso: 3,  lHip: -3, lKnee: 2, rHip: 3,  rKnee: -1 },
+      B: { torso: -2, lHip: 1,  lKnee: 0, rHip: 0,  rKnee: 1 }
+    },
+    idleAmp: 0.5,
+    armSwing: {
+      enabled: true,
+      amp: 0.7,
+      shoulderAmpDeg: 8,
+      elbowAmpDeg: 4
+    }
   },
   sneak: {
     enabled: true,
@@ -177,8 +202,19 @@ const WALK_PROFILES = {
     minSpeed: 40,
     amp: 0.75,
     poses: {
-      A: { torso: 18, lHip: 25, lKnee: 65, rHip: 185, rKnee: 100 },
+      A: { torso: 18, lHip: 25,  lKnee: 65, rHip: 185, rKnee: 100 },
       B: { torso: 22, lHip: 185, lKnee: 100, rHip: 25, rKnee: 65 }
+    },
+    idlePoses: {
+      A: { torso: 4, lHip: 30, lKnee: 40, rHip: 190, rKnee: 45 },
+      B: { torso: 6, lHip: 34, lKnee: 44, rHip: 186, rKnee: 49 }
+    },
+    idleAmp: 0.35,
+    armSwing: {
+      enabled: true,
+      amp: 0.5,
+      shoulderAmpDeg: 6,
+      elbowAmpDeg: 3
     }
   }
 };
@@ -724,6 +760,27 @@ window.CONFIG = {
     ...buildWeaponStances(MODE_BASE_POSES.combat),
     NonCombatBase: deepClone(MODE_BASE_POSES.nonCombat),
     SneakBase: deepClone(MODE_BASE_POSES.sneak),
+
+    // NEW: legs-only base offsets per mode (added on top of global basePose)
+    LegsCombat: {
+      lHip: 0,
+      lKnee: 0,
+      rHip: 0,
+      rKnee: 0
+    },
+    LegsNonCombat: {
+      lHip: -6,
+      lKnee: 4,
+      rHip: 4,
+      rKnee: -2
+    },
+    LegsSneak: {
+      lHip: 20,
+      lKnee: 25,
+      rHip: 10,
+      rKnee: 20
+    },
+
     Windup: deepClone(BASE_POSES.Windup),
     Strike: deepClone(BASE_POSES.Strike),
     Recoil: deepClone(BASE_POSES.Recoil),
