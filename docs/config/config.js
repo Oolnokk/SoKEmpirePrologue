@@ -259,7 +259,14 @@ const BASE_POSES = {
 };
 
 const MODE_BASE_POSES = {
-  combat: deepClone(BASE_POSES.Stance),
+  // In combat mode, adjust the stance hips to counteract basePose’s 90° rotation.
+  // Without this, basePose’s 90° hips plus the neutral stance (20°, -60°) yield 110° and 30°.
+  // By subtracting 90° from each hip, the final stance returns to 20° and -60°.
+  combat: {
+    ...deepClone(BASE_POSES.Stance),
+    lHip: -70, // 20 - 90
+    rHip: -150 // -60 - 90
+  },
   nonCombat: {
     ...deepClone(BASE_POSES.Stance),
     torso: 0,
