@@ -109,6 +109,24 @@ const WEAPON_STANCE_DEFAULTS = {
   },
 };
 
+const buildWeaponUpperOverrides = (stowedPose = NON_COMBAT_POSE) => {
+  const map = {};
+  const ensureEntry = (key, overrides = {}) => {
+    map[key] = {
+      unstowed: deepClone(overrides),
+      stowed: deepClone(stowedPose),
+    };
+  };
+
+  ensureEntry('unarmed', WEAPON_STANCE_DEFAULTS.unarmed);
+  for (const [key, overrides] of Object.entries(WEAPON_STANCE_DEFAULTS)) {
+    if (key === 'unarmed') continue;
+    ensureEntry(key, overrides);
+  }
+
+  return map;
+};
+
 
 const buildWeaponStances = (basePose) => {
   const map = {};
@@ -574,6 +592,9 @@ const SLAM_MOVE_POSES = {
 };
 
 window.CONFIG = {
+  basePose: deepClone(BASE_POSES.Stance),
+  legsProfiles: WALK_PROFILES,
+  weaponUpperOverrides: buildWeaponUpperOverrides(),
   mapBuilder: {
     sourceId: 'map-builder-layered-v15f',
     fallbackBoxMinWidth: 18,

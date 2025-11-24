@@ -669,6 +669,24 @@ export function resolveStanceKey(C, F) {
   return suffix ? `Stance${suffix}` : 'Stance';
 }
 
+function resolveBasePose(cfg) {
+  return clonePose(cfg?.basePose || cfg?.poses?.Stance || {});
+}
+
+function resolveWeaponUpperOverrides(cfg, fighter) {
+  const weaponKey = resolveWeaponTypeKeyForStance(fighter, cfg) || 'unarmed';
+  const stowed = !isWeaponDrawn(fighter);
+  const map = cfg?.weaponUpperOverrides || {};
+  const entry = map[weaponKey] || map.unarmed || {};
+  const fallback = map.unarmed || {};
+  return clonePose(entry[stowed ? 'stowed' : 'unstowed'] ?? fallback[stowed ? 'stowed' : 'unstowed'] ?? {});
+}
+
+function resolveLegProfile(cfg, mode) {
+  const profiles = cfg?.legsProfiles || cfg?.walkProfiles || {};
+  return profiles?.[mode] || profiles?.combat || null;
+}
+
 function isWeaponDrawn(F) {
   if (typeof F?.renderProfile?.weaponDrawn === 'boolean') return F.renderProfile.weaponDrawn;
   if (typeof F?.weaponDrawn === 'boolean') return F.weaponDrawn;
@@ -1512,28 +1530,45 @@ function clonePose(pose) {
   return pose ? JSON.parse(JSON.stringify(pose)) : {};
 }
 
+function mergePoseWithOverrides(base, overrides) {
+  const merged = clonePose(base);
+  const src = overrides || {};
+  for (const key of ANG_KEYS) {
+    if (src[key] != null) merged[key] = src[key];
+  }
+  if (src.weaponGripPercents) {
+    merged.weaponGripPercents = { ...(merged.weaponGripPercents || {}), ...src.weaponGripPercents };
+  }
+  if (src.weaponJointPercents) {
+    merged.weaponJointPercents = { ...(merged.weaponJointPercents || {}), ...src.weaponJointPercents };
+  }
+  if (src.weaponJointPercent != null) {
+    merged.weaponJointPercent = src.weaponJointPercent;
+  }
+  if (src.lengthScales || src.boneLengthScales) {
+    merged.lengthScales = { ...(merged.lengthScales || {}), ...(src.lengthScales || src.boneLengthScales || {}) };
+  }
+  if (src.joints) {
+    merged.joints = { ...(merged.joints || {}), ...src.joints };
+  }
+  return merged;
+}
+
 function resolveStanceUpperPose(cfg, fighter) {
-  const poses = cfg?.poses || {};
-  const stanceKey = resolveStanceKey(cfg, fighter);
-  const weaponDrawn = isWeaponDrawn(fighter);
-  const activeUpper = weaponDrawn ? (poses[stanceKey] || poses.Stance) : (poses.StanceStowed || poses.StanceSheathed || poses.NonCombat || poses.Stance);
-  const fallbackUpper = {
-    torso: 0,
-    lShoulder: 0,
-    lElbow: 0,
-    rShoulder: 0,
-    rElbow: 0,
-  };
-  return Object.assign({}, fallbackUpper, clonePose(activeUpper));
+  const basePose = resolveBasePose(cfg);
+  const overrides = resolveWeaponUpperOverrides(cfg, fighter);
+  return mergePoseWithOverrides(basePose, overrides);
 }
 
 function resolveLowerBodyStancePose(cfg, fighter) {
   const poseMode = isSneakMode(fighter)
     ? 'sneak'
     : (isWeaponDrawn(fighter) ? 'combat' : 'nonCombat');
-  const basePose = pickBase(cfg, cfg, poseMode, fighter);
-  const walkProfile = pickWalkProfile(cfg, cfg, poseMode);
-  const walkPose = computeWalkPose(fighter, cfg, cfg, walkProfile, basePose, { poseMode });
+  const basePose = resolveBasePose(cfg);
+  const legProfile = resolveLegProfile(cfg, poseMode);
+  const walkPose = legProfile
+    ? computeWalkPose(fighter, cfg, cfg, legProfile, basePose, { poseMode })
+    : null;
   return extractLowerBodyPose(walkPose || basePose);
 }
 
