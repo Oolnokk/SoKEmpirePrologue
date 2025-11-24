@@ -152,48 +152,13 @@
       "meta": {
         "fallback": {
           "reason": "prefab-missing",
-          "prefabId": "spawn_player",
+          "prefabId": "",
           "errorCode": null,
           "message": null
         },
         "identity": {
           "instanceId": "player_spawn",
           "source": "tag:spawn:player"
-        },
-        "proximityScale": {
-          "applied": 1,
-          "inherited": 1,
-          "mode": "zoom"
-        }
-      }
-    },
-    {
-      "id": 9002,
-      "prefabId": "spawn_npc",
-      "layerId": "gameplay",
-      "position": {
-        "x": 120,
-        "y": 0
-      },
-      "scale": {
-        "x": 1,
-        "y": 1
-      },
-      "rotationDeg": 0,
-      "locked": true,
-      "tags": [
-        "spawn:npc"
-      ],
-      "meta": {
-        "fallback": {
-          "reason": "prefab-missing",
-          "prefabId": "spawn_npc",
-          "errorCode": null,
-          "message": null
-        },
-        "identity": {
-          "instanceId": "npc_spawn",
-          "source": "tag:spawn:npc"
         },
         "proximityScale": {
           "applied": 1,
