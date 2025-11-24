@@ -158,8 +158,8 @@ const WALK_PROFILES = {
       B: { torso: 40, lHip: 180, lKnee: 90, rHip: 0,   rKnee: 45 }
     },
     idlePoses: {
-      A: { torso: 2,  lHip: 120, lKnee: 1, rHip: 190,  rKnee: -1 },
-      B: { torso: -1, lHip: 120,  lKnee: 0, rHip: 190, rKnee: 1 }
+      A: { torso: 2,  lHip: 0, lKnee: 1, rHip: 0,  rKnee: -1 },
+      B: { torso: -1, lHip: 0,  lKnee: 0, rHip: 0, rKnee: 1 }
     },
     idleAmp: 0.4,
     armSwing: {
@@ -183,8 +183,8 @@ const WALK_PROFILES = {
       B: { torso: 25, lHip: 150, lKnee: 90, rHip: 0,   rKnee: 45 }
     },
     idlePoses: {
-      A: { torso: 3,  lHip: 120, lKnee: 2, rHip: 190,  rKnee: -1 },
-      B: { torso: -2, lHip: 120,  lKnee: 0, rHip: 190,  rKnee: 1 }
+      A: { torso: 3,  lHip: 0, lKnee: 2, rHip: 0,  rKnee: -1 },
+      B: { torso: -2, lHip: 0,  lKnee: 0, rHip: 0,  rKnee: 1 }
     },
     idleAmp: 0.5,
     armSwing: {
@@ -206,8 +206,8 @@ const WALK_PROFILES = {
       B: { torso: 22, lHip: 185, lKnee: 100, rHip: 25, rKnee: 65 }
     },
     idlePoses: {
-      A: { torso: 4, lHip: 120, lKnee: 40, rHip: 190, rKnee: 45 },
-      B: { torso: 6, lHip: 120, lKnee: 44, rHip: 190, rKnee: 49 }
+      A: { torso: 4, lHip: 0, lKnee: 40, rHip: 0, rKnee: 45 },
+      B: { torso: 6, lHip: 0, lKnee: 44, rHip: 0, rKnee: 49 }
     },
     idleAmp: 0.35,
     armSwing: {
