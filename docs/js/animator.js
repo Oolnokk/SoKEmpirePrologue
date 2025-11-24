@@ -217,7 +217,7 @@ const DEFAULT_BREATHING_FRAMES = [
     }
   },
   {
-    torso: { scaleX: 1.1, scaleY: 1.1 },
+    torso: { scaleX: 1.05, scaleY: 1.05 },
     arms: {
       left: { ax: -2 },
       right: { ax: -2 }
@@ -1517,23 +1517,50 @@ export function resolveStancePose(C, F) {
   return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
 }
 
-ffunction pickBase(fcfg, C, mode = 'combat', F){
+function pickBase(fcfg, C, mode = 'combat', F) {
   const cfg = fcfg || C || {};
-  if (!cfg?.poses) return { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
-  const legs = pickLegsBase(cfg, C, mode);
-  if (mode === 'nonCombat' && cfg.poses.NonCombatBase) {
-   
-      return mergeLowerBodyPose(cfg.poses.NonCombatBase, legs);
+  if (!cfg?.poses) {
+    // original fallback pose
+    return {
+      torso: 10,
+      lShoulder: -120,
+      lElbow: -120,
+      rShoulder: -65,
+      rElbow: -140,
+      lHip: 190,
+      lKnee: 70,
+      rHip: 120,
+      rKnee: 70,
+    };
   }
+
+  const legs = pickLegsBase(cfg, C, mode);
+
+  if (mode === 'nonCombat' && cfg.poses.NonCombatBase) {
+    console.log('pickBase: using NonCombatBase');
+    return mergeLowerBodyPose(cfg.poses.NonCombatBase, legs);
+  }
+
   if (mode === 'sneak' && cfg.poses.SneakBase) {
+    console.log('pickBase: using SneakBase');
     return mergeLowerBodyPose(cfg.poses.SneakBase, legs);
   }
-  const base = cfg.poses.Stance || { torso:10, lShoulder:-120, lElbow:-120, rShoulder:-65, rElbow:-140, lHip:190, lKnee:70, rHip:120, rKnee:40 };
-      console.log('pickBase selected base:', base);
-  
+
+  const base = cfg.poses.Stance || {
+    torso: 10,
+    lShoulder: -120,
+    lElbow: -120,
+    rShoulder: -65,
+    rElbow: -140,
+    lHip: 190,
+    lKnee: 70,
+    rHip: 120,
+    rKnee: 70,
+  };
+
+  console.log('pickBase: using Stance', base);
   return mergeLowerBodyPose(base, legs);
 }
-
 function pickWalkProfile(fcfg, C, mode = 'combat'){
  
 
