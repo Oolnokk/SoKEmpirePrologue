@@ -227,14 +227,14 @@ const WALK_SPEED_MULTIPLIERS = {
 
 const BASE_POSES = {
   Stance: {
-    torso: 10,
+    torso: 100,
     lShoulder: -100,
     lElbow: -110,
     rShoulder: -40,
     rElbow: -110,
     lHip: -70,
     lKnee: 40,
-    rHip: -150,
+    rHip: -0,
     rKnee: 40,
     weapon: -20,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
