@@ -361,24 +361,12 @@ const MODE_BASE_POSES = {
   // By subtracting 90° from each hip, the final stance returns to 20° and -60°.
   combat: {
     ...deepClone(BASE_POSES.Stance),
-    lHip: -90, 
-    rHip: -90 
   },
   nonCombat: {
     ...deepClone(BASE_POSES.Stance),
-    torso: 0,
-    lHip: 0,
-    rHip: 0,
-    lKnee: 25,
-    rKnee: 25,
   },
   sneak: {
     ...deepClone(BASE_POSES.Stance),
-    torso: 5,
-    lHip: 90,
-    rHip: 90,
-    lKnee: 70,
-    rKnee: 70,
   }
 };
 
