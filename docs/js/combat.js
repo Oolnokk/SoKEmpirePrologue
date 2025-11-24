@@ -1,5 +1,5 @@
 // combat.js — Full attack system matching reference HTML (tap/hold, charge, combo, queue)
-import { pushPoseOverride, pushPoseLayerOverride } from './animator.js?v=5';
+import { pushPoseOverride, pushPoseLayerOverride, resolveStancePose } from './animator.js?v=5';
 import { resetMirror, setMirrorForPart } from './sprites.js?v=8';
 import { ensureFighterPhysics, updateFighterPhysics } from './physics.js?v=1';
 import { updateFighterFootsteps } from './footstep-audio.js?v=1';
@@ -80,6 +80,8 @@ export function makeCombat(G, C, options = {}){
   };
 
   const WALK_MODE_RUN_THRESHOLD = 0.9;
+
+  const resolveStanceForFighter = () => resolveStancePose(C, resolveFighter());
 
   const isTouchPlatform = () => {
     const docEl = typeof document !== 'undefined' ? document.documentElement : null;
@@ -467,7 +469,7 @@ export function makeCombat(G, C, options = {}){
     ATTACK.pendingAbilityId = null;
     updateFighterAttackState('Stance', { active: false, context: null });
     cancelQueuedLayerOverrides();
-    pushPoseOverride(poseTarget, buildPoseFromKey('Stance'), 220);
+    pushPoseOverride(poseTarget, resolveStanceForFighter(), 220);
     resetDefensiveState();
   }
 
@@ -598,6 +600,9 @@ export function makeCombat(G, C, options = {}){
   // Build pose from library key
   function buildPoseFromKey(key){
     if (!key) return {};
+    if (key === 'Stance') {
+      return clone(resolveStanceForFighter());
+    }
     const lib = C.attacks?.library || {};
     const baseDef = lib[key];
     if (baseDef){
@@ -627,6 +632,9 @@ export function makeCombat(G, C, options = {}){
   }
 
   function resolvePhaseBasePose(preset, phaseKey){
+    if (phaseKey === 'Stance') {
+      return resolveStanceForFighter();
+    }
     const poseDef = preset?.poses?.[phaseKey];
     if (poseDef){
       const copy = clone(poseDef);
@@ -1778,7 +1786,7 @@ export function makeCombat(G, C, options = {}){
     const durs = computePresetDurationsWithContext(context.preset, context);
     const strikePose = buildPoseFromKey(attackDef.strikePoseKey || ability.strikePoseKey || 'Strike');
     const recoilPose = buildPoseFromKey(attackDef.recoilPoseKey || ability.recoilPoseKey || 'Recoil');
-    const stancePose = buildPoseFromKey(attackDef.stancePoseKey || ability.stancePoseKey || 'Stance');
+    const stancePose = resolveStanceForFighter();
 
     const strikeDur = applyDurationMultiplier(durs.toStrike, context, 'Strike');
     const recoilDur = applyDurationMultiplier(durs.toRecoil, context, 'Recoil');
@@ -2062,7 +2070,7 @@ export function makeCombat(G, C, options = {}){
             ATTACK.preset = null;
             ATTACK.context = null;
             cancelQueuedLayerOverrides();
-            pushPoseOverride(poseTarget, buildPoseFromKey('Stance'), 200);
+            pushPoseOverride(poseTarget, resolveStanceForFighter(), 200);
             updateFighterAttackState('Stance', { active: false, context: null });
           }
         }
