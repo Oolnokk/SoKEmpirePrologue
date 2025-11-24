@@ -1797,7 +1797,7 @@
     "spawnerId": "watchmen_spawner_1",
     "type": "npc",
     "groupId": "city_guard_patrol",
-    "position": { "x": 10, "y": 300 },
+    "position": { "x": 500, "y": 300 },
     "meta": { "role": "patrol" }
   }
 ],
