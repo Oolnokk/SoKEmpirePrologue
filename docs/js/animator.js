@@ -557,8 +557,10 @@ function trackPendingLayerTimer(F, layerId, handle){
 function cleanupLayer(F, layer, fighterId){
   if (!layer) return;
   try{
-    if (layer.__flipApplied && layer.pose && Array.isArray(layer.pose.flipParts)){
-      for (const p of layer.pose.flipParts){ setMirrorForPart(p, false, fighterId); }
+    if (layer.pose && layer.pose.resetFlipsBefore) {
+      resetMirror(fighterId);
+    } else if (layer.__flipApplied && layer.pose && Array.isArray(layer.pose.flipParts)) {
+      for (const p of layer.pose.flipParts) { setMirrorForPart(p, false, fighterId); }
     }
   }catch(_e){ /* best-effort cleanup */ }
 }
@@ -1782,7 +1784,7 @@ function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } =
   const idleB   = idleSrc && (idleSrc.B || idleSrc.b) || idleA;
   const hasIdlePair = !!(idleA && idleB);
 
-  const pose = Object.assign({}, basePoseConfig || pickBase(fcfg, C, poseMode, F));
+  const pose = Object.assign({}, basePoseConfig || resolveStancePose(C, F));
 
   // Choose which pair we’re lerping between this frame
   const useWalk = walkActive;
@@ -1803,7 +1805,7 @@ function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } =
   pose.torso  = lerp(keyA.torso  || 0, keyB.torso  || 0, s) * amp;
 
   // Shoulders/elbows: still seeded from base offsets only
-  const base = basePoseConfig || pickBase(fcfg, C, poseMode, F);
+  const base = basePoseConfig || resolveStancePose(C, F);
   pose.lShoulder = base.lShoulder;
   pose.lElbow    = base.lElbow;
   pose.rShoulder = base.rShoulder;
@@ -2392,7 +2394,7 @@ export function updatePoses(){
       poseMode = 'sneak';
     }
 
-    const basePoseConfig = pickBase(fcfg, C, poseMode, F);
+    const basePoseConfig = resolveStancePose(C, F);
     const walkProfile = pickWalkProfile(fcfg, C, poseMode);
     const walkPose = computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode });
     const legsPose = walkProfile?.legsPose || pickLegsBase(fcfg, C, poseMode);
@@ -2462,14 +2464,16 @@ export function updatePoses(){
       }
     }
 
-    if (F.nonCombatRagdoll && !armsLockedByLayer) {
-      const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement, C.nonCombatRagdoll);
-      for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
-        if (relaxed[key] != null) {
-          targetDeg[key] = relaxed[key];
+      if (F.nonCombatRagdoll && !armsLockedByLayer) {
+        // Always clear limb mirror flags when entering ragdoll
+        resetMirror(id);
+        const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement, C.nonCombatRagdoll);
+        for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
+          if (relaxed[key] != null) {
+            targetDeg[key] = relaxed[key];
+          }
         }
       }
-    }
 
     const topLayer = activeLayers.length ? activeLayers[activeLayers.length - 1] : null;
     const aimingPose = topLayer?.pose || targetDeg;

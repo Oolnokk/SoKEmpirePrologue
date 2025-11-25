@@ -55,12 +55,12 @@ const WEAPON_STANCE_TYPES = ['unarmed', 'dagger-swords', 'sarrarru', 'light-grea
 
 const WEAPON_STANCE_DEFAULTS = {
   unarmed: {
+    lShoulder: -120,
+    lElbow: -120,
+    rShoulder: -65,
+    rElbow: -140,
     weapon: -20,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-    lShoulder: -80,
-    lElbow: -100,
-    rShoulder: -80,
-    rElbow: -100,
   },
 
   'dagger-swords': {
@@ -176,8 +176,8 @@ const WALK_PROFILES = {
       B: { torso: 40, lHip: 180, lKnee: 90, rHip: 0,   rKnee: 45 }
     },
     idlePoses: {
-      A: { torso: 2,  lHip: 0, lKnee: 1, rHip: 0,  rKnee: -1 },
-      B: { torso: -1, lHip: 0,  lKnee: 0, rHip: 0, rKnee: 1 }
+      A: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
+      B: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
     },
     idleAmp: 0.4,
     armSwing: {
@@ -197,12 +197,12 @@ const WALK_PROFILES = {
     minSpeed: 60,
     amp: 1.0,
     poses: {
-      A: { torso: 15, lHip: 0,   lKnee: 45, rHip: 150, rKnee: 90 },
-      B: { torso: 25, lHip: 150, lKnee: 90, rHip: 0,   rKnee: 45 }
+      A: { lHip: 0,   lKnee: 45, rHip: 150, rKnee: 90 },
+      B: { lHip: 150, lKnee: 90, rHip: 0,   rKnee: 45 }
     },
     idlePoses: {
-      A: { torso: 3,  lHip: 0, lKnee: 2, rHip: 0,  rKnee: -1 },
-      B: { torso: -2, lHip: 0,  lKnee: 0, rHip: 0,  rKnee: 1 }
+      A: { lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
+      B: { lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
     },
     idleAmp: 0.5,
     armSwing: {
@@ -220,12 +220,12 @@ const WALK_PROFILES = {
     minSpeed: 40,
     amp: 0.75,
     poses: {
-      A: { torso: 18, lHip: 120,  lKnee: 65, rHip: 190, rKnee: 100 },
-      B: { torso: 22, lHip: 185, lKnee: 100, rHip: 25, rKnee: 65 }
+      A: { lHip: 120,  lKnee: 65, rHip: 190, rKnee: 100 },
+      B: { lHip: 185, lKnee: 100, rHip: 25, rKnee: 65 }
     },
     idlePoses: {
-      A: { torso: 4, lHip: 0, lKnee: 40, rHip: 0, rKnee: 45 },
-      B: { torso: 6, lHip: 0, lKnee: 44, rHip: 0, rKnee: 49 }
+      A: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
+      B: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 }
     },
     idleAmp: 0.35,
     armSwing: {
@@ -373,24 +373,10 @@ const BASE_POSES = {
   }
 };
 
-const MODE_BASE_POSES = {
-  // In combat mode, adjust the stance hips to counteract basePose’s 90° rotation.
-  // Without this, basePose’s 90° hips plus the neutral stance (20°, -60°) yield 110° and 30°.
-  // By subtracting 90° from each hip, the final stance returns to 20° and -60°.
-  combat: {
-    ...deepClone(BASE_POSES.Stance),
-  },
-  nonCombat: {
-    ...deepClone(BASE_POSES.Stance),
-  },
-  sneak: {
-    ...deepClone(BASE_POSES.Stance),
-  }
-};
 
 const makeSarrarruComboPoses = ({ windup = {}, strike = {}, recoil = {} } = {}) => {
   const poses = {
-    Stance: deepClone(BASE_POSES.Stance),
+    Stance: { ...deepClone(BASE_POSES.Stance), resetFlip: true },
     Windup: { ...deepClone(BASE_POSES.Windup), ...windup },
     Strike: { ...deepClone(BASE_POSES.Strike), ...strike },
     Recoil: { ...deepClone(BASE_POSES.Recoil), ...recoil }
@@ -737,11 +723,11 @@ window.CONFIG = {
   },
 
   poses: {
-    Stance: deepClone(MODE_BASE_POSES.combat),
+    Stance: deepClone(BASE_POSES.Stance),
     StanceStowed: deepClone(NON_COMBAT_POSE),
-    ...buildWeaponStances(MODE_BASE_POSES.combat),
-    NonCombatBase: deepClone(MODE_BASE_POSES.nonCombat),
-    SneakBase: deepClone(MODE_BASE_POSES.sneak),
+    ...buildWeaponStances(BASE_POSES.Stance),
+    NonCombatBase: deepClone(BASE_POSES.Stance),
+    SneakBase: deepClone(BASE_POSES.Stance),
 
     // NEW: legs-only base offsets per mode (added on top of global basePose)
     LegsCombat: {
