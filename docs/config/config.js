@@ -191,7 +191,7 @@ const WALK_PROFILES = {
   },
   nonCombat: {
     enabled: true,
-    onlyTorsoLegs: true,
+    onlyTorsoLegs: false,
     baseHz: 1.3,
     speedScale: 1,
     minSpeed: 60,
