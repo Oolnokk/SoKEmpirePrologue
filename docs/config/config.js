@@ -77,8 +77,8 @@ const WEAPON_STANCE_DEFAULTS = {
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
     lShoulder: -70,
     lElbow: -120,
-    rShoulder: -70,
-    rElbow: -120,
+    rShoulder: -15,
+    rElbow: 0,
   },
 
   'light-greatblade': {
@@ -246,10 +246,10 @@ const WALK_SPEED_MULTIPLIERS = {
 const BASE_POSES = {
   Stance: {
         torso: 10,
-    lShoulder: -120,
-    lElbow: -120,
-    rShoulder: -65,
-    rElbow: -140,
+    lShoulder: -90,
+    lElbow: 0,
+    rShoulder: -90,
+    rElbow: 0,
     lHip: 100,
     lKnee: 70,
     rHip: 30,
@@ -958,8 +958,8 @@ window.CONFIG = {
     manualArmRotation: {
       lShoulder: 180, // set to override the left shoulder's resting target (e.g., 90 keeps the arm pointing down)
       rShoulder: 180, // set to override the right shoulder's resting target
-      lElbow: null,
-      rElbow: null,
+      lElbow: -15,
+      rElbow: -15,
     },
   },
 
