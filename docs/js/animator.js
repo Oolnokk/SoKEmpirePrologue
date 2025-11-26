@@ -675,6 +675,22 @@ function resolveBasePose(cfg) {
   return clonePose(cfg?.basePose || cfg?.poses?.Stance || {});
 }
 
+function resolveArmStance(cfg, fighter) {
+  const stowed = !isWeaponDrawn(fighter);
+  const armStances = cfg?.armStances || {};
+
+  // If weapon is stowed, use PassiveArms (relaxed arms)
+  if (stowed) {
+    return clonePose(armStances.PassiveArms || {});
+  }
+
+  // If weapon is drawn, use weapon-specific arm stance
+  const weaponKey = resolveWeaponTypeKeyForStance(fighter, cfg) || 'unarmed';
+  const weaponStance = armStances[weaponKey] || armStances.unarmed || {};
+  return clonePose(weaponStance);
+}
+
+// DEPRECATED: Use resolveArmStance() instead. Kept for backwards compatibility only.
 function resolveWeaponUpperOverrides(cfg, fighter) {
   const weaponKey = resolveWeaponTypeKeyForStance(fighter, cfg) || 'unarmed';
   const stowed = !isWeaponDrawn(fighter);
@@ -685,7 +701,7 @@ function resolveWeaponUpperOverrides(cfg, fighter) {
 }
 
 function resolveLegProfile(cfg, mode) {
-  const profiles = cfg?.legsProfiles || cfg?.walkProfiles || {};
+  const profiles = cfg?.legsProfiles || cfg?.movementProfiles || {};
   return profiles?.[mode] || profiles?.combat || null;
 }
 
@@ -722,9 +738,7 @@ function mergeLowerBodyPose(basePose, lowerPose) {
 function pickLegsBase(fcfg, C, mode = 'combat') {
   const cfg = fcfg || C || {};
   const poses = cfg?.poses || {};
-  if (mode === 'nonCombat' && poses.LegsNonCombat) return poses.LegsNonCombat;
-  if (mode === 'sneak' && poses.LegsSneak) return poses.LegsSneak;
-  return poses.LegsCombat || poses.Legs || null;
+  return poses.Legs || null;
 }
 
 function collectDefaultGripPercents(rig) {
@@ -1467,7 +1481,7 @@ function updateWeaponRig(F, target, finalDeg, C, fcfg, styleComposer, { stowActi
   };
 }
 
-function setOverrideLayer(F, layerId, poseDeg, { durMs=300, mask, priority, suppressWalk, useAsBase, fighterId } = {}){
+function setOverrideLayer(F, layerId, poseDeg, { durMs=300, mask, priority, suppressMovement, useAsBase, fighterId } = {}){
   if (!F) return null;
   ensureAnimState(F);
   const now = performance.now()/1000;
@@ -1480,7 +1494,7 @@ function setOverrideLayer(F, layerId, poseDeg, { durMs=300, mask, priority, supp
     pose: poseDeg,
     mask: layerMask,
     priority: priority ?? defaultPriority,
-    suppressWalk: suppressWalk ?? (layerId === 'primary' && !hasMask),
+    suppressMovement: suppressMovement ?? (layerId === 'primary' && !hasMask),
     useAsBase: useAsBase ?? (!hasMask && layerId === 'primary'),
     until: dur > 0 ? now + dur : (dur === 0 ? now : null),
     __start: now,
@@ -1558,8 +1572,8 @@ function mergePoseWithOverrides(base, overrides) {
 
 function resolveStanceUpperPose(cfg, fighter) {
   const basePose = resolveBasePose(cfg);
-  const overrides = resolveWeaponUpperOverrides(cfg, fighter);
-  return mergePoseWithOverrides(basePose, overrides);
+  const armStance = resolveArmStance(cfg, fighter);
+  return mergePoseWithOverrides(basePose, armStance);
 }
 
 function resolveLowerBodyStancePose(cfg, fighter) {
@@ -1568,10 +1582,10 @@ function resolveLowerBodyStancePose(cfg, fighter) {
     : (isWeaponDrawn(fighter) ? 'combat' : 'nonCombat');
   const basePose = resolveBasePose(cfg);
   const legProfile = resolveLegProfile(cfg, poseMode);
-  const walkPose = legProfile
-    ? computeWalkPose(fighter, cfg, cfg, legProfile, basePose, { poseMode })
+  const movementPose = legProfile
+    ? computeMovementPose(fighter, cfg, cfg, legProfile, basePose, { poseMode })
     : null;
-  return extractLowerBodyPose(walkPose || basePose);
+  return extractLowerBodyPose(movementPose || basePose);
 }
 
 export function resolveStancePose(C, F) {
@@ -1628,13 +1642,13 @@ function pickBase(fcfg, C, mode = 'combat', F) {
   console.log('pickBase: using Stance', base);
   return mergeLowerBodyPose(base, legs);
 }
-function pickWalkProfile(fcfg, C, mode = 'combat'){
+function pickMovementProfile(fcfg, C, mode = 'combat'){
   const cfg = fcfg || C || {};
-  const profiles = cfg?.walkProfiles || {};
+  const profiles = cfg?.movementProfiles || {};
   const idleProfiles = cfg?.idleProfiles || cfg?.idleProfile || null;
   const legsPose = pickLegsBase(cfg, C, mode);
 
-  const DEFAULT_WALK = {
+  const DEFAULT_MOVEMENT = {
     enabled: true,
     baseHz: 1.2,
     speedScale: 1.0,
@@ -1646,8 +1660,8 @@ function pickWalkProfile(fcfg, C, mode = 'combat'){
     }
   };
 
-  function attachIdle(walkProfile, modeKey){
-    const out = { ...walkProfile, legsPose };
+  function attachIdle(movementProfile, modeKey){
+    const out = { ...movementProfile, legsPose };
 
     if (!idleProfiles) return out;
 
@@ -1677,10 +1691,10 @@ function pickWalkProfile(fcfg, C, mode = 'combat'){
     );
 
     if (idlePoses && (idlePoses.A || idlePoses.a) && (idlePoses.B || idlePoses.b)) {
-      out.idlePoses = idlePoses;   // <-- used by computeWalkPose
+      out.idlePoses = idlePoses;   // <-- used by computeMovementPose
     }
     if (idleAmp != null) {
-      out.idleAmp = idleAmp;       // <-- used by computeWalkPose
+      out.idleAmp = idleAmp;       // <-- used by computeMovementPose
     }
 
     return out;
@@ -1693,15 +1707,15 @@ function pickWalkProfile(fcfg, C, mode = 'combat'){
     return attachIdle(profiles.sneak, 'sneak');
   }
 
-  const baseProfile = profiles.combat || cfg.walk || DEFAULT_WALK;
+  const baseProfile = profiles.combat || cfg.movement || DEFAULT_MOVEMENT;
   return attachIdle(baseProfile, 'combat');
 }
 
 function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX = (F._prevX==null? F.pos?.x||0 : F._prevX); const curX = F.pos?.x||0; const v = (curX - prevX)/dt; F._prevX = curX; return Math.abs(Number.isFinite(F.vel?.x)? F.vel.x : v); }
 
-function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } = {}){
+function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { poseMode } = {}){
   const cfg = fcfg || C || {};
-  const W = walkProfile || cfg.walk || {
+  const W = movementProfile || cfg.movement || {
     enabled:true,
     baseHz:1.2,
     speedScale:1.0,
@@ -1739,9 +1753,9 @@ function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } =
   F.walk.phase   += dt * baseHz * Math.PI * 2;
   if (F.walk.phase > Math.PI * 2) F.walk.phase %= (Math.PI * 2);
 
-  // Footstep contacts ONLY while actually walking
-  const walkActive = enabled && moving && F.walk.amp > 0.05;
-  if (walkActive) {
+  // Footstep contacts ONLY while actually moving
+  const movementActive = enabled && moving && F.walk.amp > 0.05;
+  if (movementActive) {
     const contacts     = F.walk.pendingContacts ||= [];
     const phaseWrapped = F.walk.phase < prevPhase;
     const phaseDelta   = F.walk.phase - prevPhase + (phaseWrapped ? Math.PI * 2 : 0);
@@ -1774,9 +1788,9 @@ function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } =
   const rawS = (Math.sin(F.walk.phase) + 1) / 2;
   const s    = easeInOutCubic(rawS);
 
-  // Walk keyframes (existing)
-  const walkA = (W.poses && (W.poses.A || W.poses.a)) || {};
-  const walkB = (W.poses && (W.poses.B || W.poses.b)) || walkA;
+  // Movement keyframes (existing)
+  const movementA = (W.poses && (W.poses.A || W.poses.a)) || {};
+  const movementB = (W.poses && (W.poses.B || W.poses.b)) || movementA;
 
   // Idle keyframes – EXACT same schema: { A:{}, B:{} }
   const idleSrc = W.idlePoses || W.idle || W.idle_poses || null;
@@ -1786,16 +1800,16 @@ function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } =
 
   const pose = Object.assign({}, basePoseConfig || resolveStancePose(C, F));
 
-  // Choose which pair we’re lerping between this frame
-  const useWalk = walkActive;
-  const useIdle = !useWalk && hasIdlePair && enabled && grounded;
+  // Choose which pair we're lerping between this frame
+  const useMovement = movementActive;
+  const useIdle = !useMovement && hasIdlePair && enabled && grounded;
 
   // Amp for the selected mode
   const idleAmp = Number.isFinite(W.idleAmp) ? W.idleAmp : 1.0;
-  const amp     = useWalk ? F.walk.amp : (useIdle ? idleAmp : 0);
+  const amp     = useMovement ? F.walk.amp : (useIdle ? idleAmp : 0);
 
-  const keyA = useWalk ? walkA : (useIdle ? idleA : {});
-  const keyB = useWalk ? walkB : (useIdle ? idleB : {});
+  const keyA = useMovement ? movementA : (useIdle ? idleA : {});
+  const keyB = useMovement ? movementB : (useIdle ? idleB : {});
 
   // Interpolate leg/torso angles and scale by amp
   pose.lHip   = lerp(keyA.lHip   || 0, keyB.lHip   || 0, s) * amp;
@@ -1811,12 +1825,12 @@ function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } =
   pose.rShoulder = base.rShoulder;
   pose.rElbow    = base.rElbow;
 
-  // Arm swing only during actual walk, like before
+  // Arm swing only during actual movement, like before
   const armSwingSpec     = W.armSwing || {};
   const swingEnabledFlag = armSwingSpec.enabled ?? W.armSwingEnabled;
   const allowArmSwing    = !!(swingEnabledFlag || poseMode === 'nonCombat' || F.anim?.weapon?.stowed);
 
-  if (allowArmSwing && useWalk) {
+  if (allowArmSwing && useMovement) {
     const swingAmp     = (armSwingSpec.amp ?? 1) * F.walk.amp;
     const shoulderAmp  = (armSwingSpec.shoulderAmpDeg ?? 6) * swingAmp;
     const elbowAmp     = (armSwingSpec.elbowAmpDeg ?? 4) * swingAmp;
@@ -1837,9 +1851,9 @@ function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } =
   }
 
   // State flags
-  pose._walkActive = useWalk;
+  pose._movementActive = useMovement;
   pose._idleActive = useIdle;
-  pose._active     = useWalk || useIdle;   // used by mode-walk and lower-body blending
+  pose._active     = useMovement || useIdle;   // used by mode-movement and lower-body blending
 
   return pose;
 }
@@ -2395,43 +2409,43 @@ export function updatePoses(){
     }
 
     const basePoseConfig = resolveStancePose(C, F);
-    const walkProfile = pickWalkProfile(fcfg, C, poseMode);
-    const walkPose = computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode });
-    const legsPose = walkProfile?.legsPose || pickLegsBase(fcfg, C, poseMode);
-    const applyModeLayer = walkPose._active && (poseMode === 'nonCombat' || poseMode === 'sneak');
+    const movementProfile = pickMovementProfile(fcfg, C, poseMode);
+    const movementPose = computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { poseMode });
+    const legsPose = movementProfile?.legsPose || pickLegsBase(fcfg, C, poseMode);
+    const applyModeLayer = movementPose._active && (poseMode === 'nonCombat' || poseMode === 'sneak');
 
     if (applyModeLayer) {
       const lowerBodyPose = {
-        torso: walkPose.torso,
-        lHip: walkPose.lHip,
-        lKnee: walkPose.lKnee,
-        rHip: walkPose.rHip,
-        rKnee: walkPose.rKnee,
+        torso: movementPose.torso,
+        lHip: movementPose.lHip,
+        lKnee: movementPose.lKnee,
+        rHip: movementPose.rHip,
+        rKnee: movementPose.rKnee,
       };
-      const existingModeLayer = (F.anim?.layers || []).find(l => l && l.id === 'mode-walk');
+      const existingModeLayer = (F.anim?.layers || []).find(l => l && l.id === 'mode-movement');
       if (existingModeLayer) {
         existingModeLayer.pose = { ...existingModeLayer.pose, ...lowerBodyPose };
         existingModeLayer.mask = LOWER_BODY_MASK;
-        existingModeLayer.suppressWalk = true;
+        existingModeLayer.suppressMovement = true;
       } else {
-        setOverrideLayer(F, 'mode-walk', lowerBodyPose, { mask: LOWER_BODY_MASK, suppressWalk: true, durMs: -1, priority: 150, fighterId: id });
+        setOverrideLayer(F, 'mode-movement', lowerBodyPose, { mask: LOWER_BODY_MASK, suppressMovement: true, durMs: -1, priority: 150, fighterId: id });
       }
     } else {
-      removeOverrideLayer(F, 'mode-walk', id);
+      removeOverrideLayer(F, 'mode-movement', id);
     }
 
     const activeLayers = getActiveLayers(F, now, id);
     const activeLengthOverrides = collectLengthOverridesFromLayers(activeLayers);
     applyLengthOverridesToFighter(F, activeLengthOverrides);
-    const walkSuppressed = activeLayers.some(layer => layer.suppressWalk);
+    const movementSuppressed = activeLayers.some(layer => layer.suppressMovement);
     const lowerBodyBase = extractLowerBodyPose(mergeLowerBodyPose(basePoseConfig, legsPose));
-    const walkLowerBody = (!walkSuppressed && walkPose._active)
-      ? mergeLowerBodyPose(lowerBodyBase, extractLowerBodyPose(walkPose))
+    const movementLowerBody = (!movementSuppressed && movementPose._active)
+      ? mergeLowerBodyPose(lowerBodyBase, extractLowerBodyPose(movementPose))
       : lowerBodyBase;
-    let targetDeg = { ...basePoseConfig, ...walkLowerBody };
+    let targetDeg = { ...basePoseConfig, ...movementLowerBody };
     if (activeLayers.length){
-      let lowerBodyTarget = { ...walkLowerBody };
-      if (walkSuppressed){
+      let lowerBodyTarget = { ...movementLowerBody };
+      if (movementSuppressed){
         targetDeg = { ...basePoseConfig, ...lowerBodyBase };
         lowerBodyTarget = { ...lowerBodyBase };
       }
@@ -2455,12 +2469,12 @@ export function updatePoses(){
     }
 
     const armsLockedByLayer = activeLayers.some(layerTouchesArms);
-    const armSwingActive = walkPose._armSwingActive && !walkSuppressed && !F.nonCombatRagdoll;
-    if (armSwingActive && walkPose.__armSwing && !armsLockedByLayer) {
+    const armSwingActive = movementPose._armSwingActive && !movementSuppressed && !F.nonCombatRagdoll;
+    if (armSwingActive && movementPose.__armSwing && !armsLockedByLayer) {
       for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
-        if (walkPose.__armSwing[key] == null) continue;
+        if (movementPose.__armSwing[key] == null) continue;
         const baseValue = targetDeg[key] ?? basePoseConfig?.[key] ?? 0;
-        targetDeg[key] = baseValue + walkPose.__armSwing[key];
+        targetDeg[key] = baseValue + movementPose.__armSwing[key];
       }
     }
 
@@ -2562,7 +2576,7 @@ export function pushPoseOverride(fighterId, poseDeg, durMs=300, options={}){
     durMs: duration,
     mask: opts.mask,
     priority: opts.priority,
-    suppressWalk: opts.suppressWalk,
+    suppressMovement: opts.suppressMovement,
     useAsBase: opts.useAsBase,
     fighterId
   });
@@ -2633,7 +2647,7 @@ export function pushPoseLayerOverride(fighterId, layerId, poseDeg, options={}){
       durMs: duration,
       mask: opts.mask,
       priority: opts.priority,
-      suppressWalk: opts.suppressWalk,
+      suppressMovement: opts.suppressMovement,
       useAsBase: opts.useAsBase,
       fighterId
     });
