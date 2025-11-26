@@ -243,6 +243,78 @@ const WALK_SPEED_MULTIPLIERS = {
   sneak: 0.3,
 };
 
+// === ARM STANCES: Unified arm position system ===
+// PassiveArms is the default (relaxed arms), weapon stances integrate into this system
+const ARM_STANCES = {
+  PassiveArms: {
+    lShoulder: 165,
+    lElbow: -18,
+    rShoulder: -165,
+    rElbow: 18,
+    weapon: 0,
+    weaponGripPercents: { primary: 0, secondary: 0 },
+  },
+
+  unarmed: {
+    lShoulder: -120,
+    lElbow: -120,
+    rShoulder: -65,
+    rElbow: -140,
+    weapon: -20,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+
+  'dagger-swords': {
+    // TEMP TEST: Arms way out to the sides
+    lShoulder: 180,
+    lElbow: 0,
+    rShoulder: -180,
+    rElbow: 0,
+    weapon: 90,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+
+  sarrarru: {
+    // TEMP TEST: Arms straight up
+    lShoulder: -180,
+    lElbow: 0,
+    rShoulder: -180,
+    rElbow: 0,
+    weapon: -90,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+
+  'light-greatblade': {
+    // TEMP TEST: Left up, right down
+    lShoulder: -180,
+    lElbow: -90,
+    rShoulder: 0,
+    rElbow: 90,
+    weapon: 45,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+
+  greatclub: {
+    // TEMP TEST: Arms crossed in front
+    lShoulder: -45,
+    lElbow: -135,
+    rShoulder: -45,
+    rElbow: -135,
+    weapon: 180,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+
+  hatchets: {
+    // TEMP TEST: Arms bent back
+    lShoulder: -90,
+    lElbow: 90,
+    rShoulder: -90,
+    rElbow: 90,
+    weapon: -45,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+};
+
 const BASE_POSES = {
   Stance: {
         torso: 10,
@@ -944,9 +1016,9 @@ window.CONFIG = {
     flipThreshold: 0.0
   },
 
-  walkProfiles: WALK_PROFILES,
-  walkSpeedMultipliers: WALK_SPEED_MULTIPLIERS,
-  walk: WALK_PROFILES.combat,
+  movementProfiles: MOVEMENT_PROFILES,
+  walkSpeedMultipliers: MOVEMENT_SPEED_MULTIPLIERS,
+  walk: MOVEMENT_PROFILES.combat,
   ragdoll: {
     killAuthOnActive:true, enabled:true,
     autoCalvesMidAir:false, stiffness:10.0,

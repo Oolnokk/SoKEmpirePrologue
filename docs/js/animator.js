@@ -1693,7 +1693,7 @@ function pickWalkProfile(fcfg, C, mode = 'combat'){
     return attachIdle(profiles.sneak, 'sneak');
   }
 
-  const baseProfile = profiles.combat || cfg.walk || DEFAULT_WALK;
+  const baseProfile = profiles.combat || cfg.walk || DEFAULT_MOVEMENT;
   return attachIdle(baseProfile, 'combat');
 }
 
@@ -1701,7 +1701,7 @@ function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX =
 
 function computeWalkPose(F, fcfg, C, walkProfile, basePoseConfig, { poseMode } = {}){
   const cfg = fcfg || C || {};
-  const W = walkProfile || cfg.walk || {
+  const W = movementProfile || cfg.walk || {
     enabled:true,
     baseHz:1.2,
     speedScale:1.0,
@@ -2528,9 +2528,7 @@ export function updatePoses(){
     updateBreathing(F, id, breathingSpec);
     const composedTransforms = applyStyleTransformComposer(F, id, finalDeg);
     updateWeaponRig(F, target, finalDeg, C, fcfg, composedTransforms, { stowActive, lengthOverrides });
-    if (F.anim?.weapon) {
-      F.anim.weapon.stowed = stowActive;
-    }
+    // weapon.stowed is managed by applyWeaponDrawnState in combat.js
     updatePhysicsPoseTarget(F, target);
     const ragBlend = getPhysicsRagdollBlend(F);
     const ragAngles = getPhysicsRagdollAngles(F);
