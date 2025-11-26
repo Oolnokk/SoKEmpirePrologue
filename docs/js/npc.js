@@ -1557,7 +1557,14 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       aggression.wakeTimer = 0;
       state.mode = 'approach';
       state.cooldown = 0;
+      state.weaponDrawn = true;
     }
+  }
+
+  if (aggression.active) {
+    state.weaponDrawn = true;
+  } else if (!aggression.triggered) {
+    state.weaponDrawn = false;
   }
 
   input.left = false;
