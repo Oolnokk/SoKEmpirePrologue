@@ -1005,8 +1005,8 @@ window.CONFIG = {
   },
 
   movementProfiles: MOVEMENT_PROFILES,
-  movementSpeedMultipliers: MOVEMENT_SPEED_MULTIPLIERS,
-  movement: MOVEMENT_PROFILES.combat,
+  walkSpeedMultipliers: MOVEMENT_SPEED_MULTIPLIERS,
+  walk: MOVEMENT_PROFILES.combat,
   ragdoll: {
     killAuthOnActive:true, enabled:true,
     autoCalvesMidAir:false, stiffness:10.0,

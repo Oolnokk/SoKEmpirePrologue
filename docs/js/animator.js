@@ -1707,7 +1707,7 @@ function pickMovementProfile(fcfg, C, mode = 'combat'){
     return attachIdle(profiles.sneak, 'sneak');
   }
 
-  const baseProfile = profiles.combat || cfg.movement || DEFAULT_MOVEMENT;
+  const baseProfile = profiles.combat || cfg.walk || DEFAULT_MOVEMENT;
   return attachIdle(baseProfile, 'combat');
 }
 
@@ -1715,7 +1715,7 @@ function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX =
 
 function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { poseMode } = {}){
   const cfg = fcfg || C || {};
-  const W = movementProfile || cfg.movement || {
+  const W = movementProfile || cfg.walk || {
     enabled:true,
     baseHz:1.2,
     speedScale:1.0,
