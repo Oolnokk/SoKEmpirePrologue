@@ -100,7 +100,7 @@ export function makeCombat(G, C, options = {}){
     return Math.min(Math.max(rawDistance / maxDistance, 0), 1);
   };
 
-  const resolveMovementMode = (fighter, input) => {
+  const resolveWalkMode = (fighter, input) => {
     const forcedSneak = fighter?.renderProfile?.sneak || fighter?.sneak;
     if (forcedSneak) return 'sneak';
 
@@ -122,14 +122,14 @@ export function makeCombat(G, C, options = {}){
     return shiftHeld ? 'combat' : 'nonCombat';
   };
 
-  const applyMovementMode = (fighter, movementMode) => {
+  const applyWalkMode = (fighter, walkMode) => {
     if (!fighter) return;
-    const resolved = movementMode || 'combat';
-    fighter.movementMode = resolved;
+    const resolved = walkMode || 'combat';
+    fighter.walkMode = resolved;
     fighter.nonCombat = resolved === 'nonCombat';
     fighter.sneak = resolved === 'sneak';
     fighter.renderProfile ||= {};
-    fighter.renderProfile.movementMode = resolved;
+    fighter.renderProfile.walkMode = resolved;
     fighter.renderProfile.sneak = resolved === 'sneak';
   };
 
@@ -2329,8 +2329,8 @@ export function makeCombat(G, C, options = {}){
       p.input = input;
     }
 
-    const movementMode = resolveMovementMode(p, input);
-    applyMovementMode(p, movementMode);
+    const walkMode = resolveWalkMode(p, input);
+    applyWalkMode(p, walkMode);
 
     const weaponDrawnInput = typeof input?.weaponDrawn === 'boolean' ? input.weaponDrawn : null;
     if (isFighterBusy()) {
