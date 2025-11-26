@@ -1294,6 +1294,8 @@ function updateNpcPassiveHeadTracking(state, player) {
       aim.torsoOffset = 0;
       aim.shoulderOffset = 0;
       aim.hipOffset = 0;
+      aim.headWorldTarget = null;
+      aim.headTrackingOnly = false;
       return;
   }
   if (!player) {
@@ -1306,25 +1308,41 @@ function updateNpcPassiveHeadTracking(state, player) {
       return;
     }
 
-  aim.headTrackingOnly = false;
-  const shouldAim = !state.onGround;
-  if (!shouldAim) {
-    resetNpcAimingOffsets(aim);
-    return;
-  }
-  aim.active = true;
   const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
   const dy = (player.pos?.y ?? state.pos.y) - state.pos.y;
   const targetAngle = Math.atan2(dy, dx);
   const relative = targetAngle - (state.facingRad || 0);
   const wrapped = ((relative + Math.PI) % TWO_PI) - Math.PI;
+
+  const onGround = state.onGround !== false;
+  const isAttacking = !!(state.attack?.active);
+
+  if (onGround && !isAttacking) {
+    aim.active = false;
+    aim.torsoOffset = 0;
+    aim.shoulderOffset = 0;
+    aim.hipOffset = 0;
+    aim.headTrackingOnly = true;
+    const C = window.CONFIG || {};
+    const facingRad = Number.isFinite(state.facingRad) ? state.facingRad : 0;
+    const worldAim = Math.atan2(dy, dx);
+    const { min, max } = getNpcHeadLimits(state);
+    const headRelative = normalizeRad(worldAim - facingRad);
+    const withinLimits = headRelative >= min && headRelative <= max;
+    aim.headWorldTarget = withinLimits ? worldAim : null;
+    return;
+  }
+
+  aim.active = true;
+  aim.headTrackingOnly = false;
   const smoothing = 0.12;
+  aim.currentAngle = Number.isFinite(aim.currentAngle) ? aim.currentAngle : 0;
   aim.currentAngle += (wrapped - aim.currentAngle) * smoothing;
   const aimDeg = (aim.currentAngle * 180) / Math.PI;
   const C = window.CONFIG || {};
   const aimingCfg = C.aiming || {};
-  aim.torsoOffset = clamp(aimDeg * 0.5, -aimingCfg.maxTorsoAngle || 45, aimingCfg.maxTorsoAngle || 45);
-  aim.shoulderOffset = clamp(aimDeg * 0.7, -aimingCfg.maxShoulderAngle || 65, aimingCfg.maxShoulderAngle || 65);
+  aim.torsoOffset = clamp(aimDeg * 0.5, -(aimingCfg.maxTorsoAngle || 45), aimingCfg.maxTorsoAngle || 45);
+  aim.shoulderOffset = clamp(aimDeg * 0.7, -(aimingCfg.maxShoulderAngle || 65), aimingCfg.maxShoulderAngle || 65);
   aim.hipOffset = 0;
 }
 
