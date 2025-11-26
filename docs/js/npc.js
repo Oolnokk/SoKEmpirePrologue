@@ -158,11 +158,48 @@ function ensureNpcPerceptionState(state) {
   return perception;
 }
 
-function updateNpcPerceptionColliders(state, config = null) {
+function resolveNpcAttackRange(state, combat) {
+  const planned = state?.plannedAbility;
+  if (planned?.active && Number.isFinite(planned.range)) {
+    return planned.range;
+  }
+
+  if (combat && typeof combat.getCurrentAttack === 'function') {
+    const currentAttack = combat.getCurrentAttack();
+    if (currentAttack?.attackData?.range) {
+      return currentAttack.attackData.range;
+    }
+  }
+
+  const ai = state?.ai || {};
+  if (Number.isFinite(ai.attackRange)) {
+    return ai.attackRange;
+  }
+
+  return 70;
+}
+
+function updateNpcPerceptionColliders(state, config = null, combat = null) {
   const perception = ensureNpcPerceptionState(state);
   if (!perception) return null;
+
+  const attackRange = resolveNpcAttackRange(state, combat);
   const overrides = config ?? window.CONFIG?.npc?.perception ?? {};
-  perception.colliders = resolveFighterPerceptionColliders(state, overrides);
+
+  const rangeScaledOverrides = {
+    ...overrides,
+    detection: {
+      ...(overrides.detection || {}),
+      radius: attackRange * 1.5,
+    },
+    vision: {
+      ...(overrides.vision || {}),
+      range: attackRange * 2,
+    }
+  };
+
+  perception.colliders = resolveFighterPerceptionColliders(state, rangeScaledOverrides);
+  perception.attackRange = attackRange;
   return perception.colliders;
 }
 
@@ -219,6 +256,105 @@ function ensureNpcInputState(state) {
   input.buttonA ||= { down: false };
   input.buttonB ||= { down: false };
   return input;
+}
+
+function ensurePlannedAbilityState(state) {
+  if (!state) return null;
+  const planned = state.plannedAbility || (state.plannedAbility = {
+    active: false,
+    slotKey: null,
+    abilityId: null,
+    attackId: null,
+    range: null,
+    minRange: null,
+    maxRange: null,
+    holdDuration: null,
+    isHoldRelease: false,
+    conditions: null,
+    chargeOutsideRange: false,
+    chargingStarted: false,
+    readyToRelease: false,
+  });
+  return planned;
+}
+
+function createPlannedAbility(state, options = {}) {
+  if (!state) return null;
+  const planned = ensurePlannedAbilityState(state);
+  planned.active = true;
+  planned.slotKey = options.slotKey || 'A';
+  planned.abilityId = options.abilityId || null;
+  planned.attackId = options.attackId || null;
+  planned.range = Number.isFinite(options.range) ? options.range : 70;
+  planned.minRange = Number.isFinite(options.minRange) ? options.minRange : 0;
+  planned.maxRange = Number.isFinite(options.maxRange) ? options.maxRange : planned.range;
+  planned.holdDuration = Number.isFinite(options.holdDuration) ? options.holdDuration : null;
+  planned.isHoldRelease = !!options.isHoldRelease;
+  planned.conditions = options.conditions || null;
+  planned.chargeOutsideRange = !!options.chargeOutsideRange;
+  planned.chargingStarted = false;
+  planned.readyToRelease = false;
+  return planned;
+}
+
+function clearPlannedAbility(state) {
+  if (!state?.plannedAbility) return;
+  const planned = state.plannedAbility;
+  planned.active = false;
+  planned.slotKey = null;
+  planned.abilityId = null;
+  planned.attackId = null;
+  planned.range = null;
+  planned.minRange = null;
+  planned.maxRange = null;
+  planned.holdDuration = null;
+  planned.isHoldRelease = false;
+  planned.conditions = null;
+  planned.chargeOutsideRange = false;
+  planned.chargingStarted = false;
+  planned.readyToRelease = false;
+}
+
+function evaluatePlannedAbilityConditions(state, player) {
+  const planned = state?.plannedAbility;
+  if (!planned || !planned.active) return { canStart: false, canRelease: false, inRange: false };
+
+  const dx = (player?.pos?.x ?? state.pos.x) - state.pos.x;
+  const absDx = Math.abs(dx);
+  const inMaxRange = absDx <= planned.maxRange;
+  const inMinRange = absDx >= planned.minRange;
+  const inRange = inMaxRange && inMinRange;
+
+  let canStart = false;
+  let canRelease = false;
+
+  if (planned.isHoldRelease) {
+    if (planned.chargeOutsideRange) {
+      canStart = !planned.chargingStarted;
+      canRelease = planned.chargingStarted && inRange;
+    } else {
+      canStart = inRange && !planned.chargingStarted;
+      canRelease = planned.chargingStarted && inRange;
+    }
+  } else {
+    canStart = inRange;
+    canRelease = false;
+  }
+
+  if (planned.conditions) {
+    if (typeof planned.conditions === 'function') {
+      const result = planned.conditions(state, player, { dx, absDx, inRange });
+      if (result === false) {
+        canStart = false;
+        canRelease = false;
+      } else if (typeof result === 'object') {
+        if (result.canStart !== undefined) canStart = result.canStart;
+        if (result.canRelease !== undefined) canRelease = result.canRelease;
+      }
+    }
+  }
+
+  return { canStart, canRelease, inRange, absDx };
 }
 
 function ensureNpcPressRegistry(state) {
@@ -607,6 +743,64 @@ function ensureNpcAggressionState(state) {
     aggression.wakeTimer = aggression.triggered ? aggression.wakeDelay : 0;
   }
   return aggression;
+}
+
+function ensureNpcGroupState(state) {
+  if (!state) return null;
+  const group = (state.group ||= {});
+  group.id = group.id || null;
+  group.leaderId = group.leaderId || null;
+  group.isLeader = !!group.isLeader;
+  group.members = Array.isArray(group.members) ? group.members : [];
+  group.followDistance = Number.isFinite(group.followDistance) ? group.followDistance : 80;
+  group.formationSpacing = Number.isFinite(group.formationSpacing) ? group.formationSpacing : 60;
+  return group;
+}
+
+function resolveGroupLeader(G, groupId) {
+  if (!groupId) return null;
+  const npcs = getNpcFighterList(G);
+  const groupMembers = npcs.filter(npc => npc.group?.id === groupId && !npc.isDead);
+  if (!groupMembers.length) return null;
+
+  const currentLeader = groupMembers.find(npc => npc.group?.isLeader);
+  if (currentLeader && !currentLeader.isDead) {
+    return currentLeader;
+  }
+
+  const firstAlive = groupMembers.find(npc => !npc.isDead);
+  if (firstAlive) {
+    ensureNpcGroupState(firstAlive);
+    firstAlive.group.isLeader = true;
+    groupMembers.forEach(npc => {
+      if (npc !== firstAlive) {
+        ensureNpcGroupState(npc);
+        npc.group.isLeader = false;
+        npc.group.leaderId = firstAlive.id;
+      }
+    });
+    return firstAlive;
+  }
+
+  return null;
+}
+
+function updateGroupLeadership(G, state) {
+  const group = ensureNpcGroupState(state);
+  if (!group.id) return null;
+
+  const leader = resolveGroupLeader(G, group.id);
+  if (!leader) return null;
+
+  if (leader.id === state.id) {
+    group.isLeader = true;
+    group.leaderId = null;
+  } else {
+    group.isLeader = false;
+    group.leaderId = leader.id;
+  }
+
+  return leader;
 }
 
 function ensureNpcStaminaAwareness(state) {
@@ -1352,7 +1546,10 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   input.right = false;
   input.jump = false;
 
-  const pathTarget = !aggression.active ? resolveNpcPathTarget(state, activeArea) : null;
+  const groupLeader = updateGroupLeadership(G, state);
+  const group = ensureNpcGroupState(state);
+  const isFollower = group.id && !group.isLeader && groupLeader;
+  const pathTarget = !aggression.active && !isFollower ? resolveNpcPathTarget(state, activeArea) : null;
 
   if (!aggression.active) {
     state.nonCombatRagdoll = !state.ragdoll && !state.recovering;
@@ -1377,13 +1574,32 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.mode = aggression.triggered ? 'alert' : 'idle';
     state.cooldown = 0;
     state.stamina.isDashing = false;
-    if (pathTarget) {
+
+    if (isFollower && groupLeader) {
+      const dxLeader = groupLeader.pos.x - state.pos.x;
+      const absDxLeader = Math.abs(dxLeader);
+      const followDist = group.followDistance || 80;
+      const arriveRadius = 20;
+
+      if (absDxLeader > followDist + arriveRadius) {
+        input.left = dxLeader < 0;
+        input.right = dxLeader > 0;
+        state.mode = 'follow';
+      } else if (absDxLeader < followDist - arriveRadius) {
+        input.left = dxLeader > 0;
+        input.right = dxLeader < 0;
+        state.mode = 'follow';
+      } else {
+        state.mode = 'idle';
+      }
+    } else if (pathTarget) {
       const arriveRadius = pathTarget.arriveRadius ?? 6;
       const dxPath = pathTarget.goalX - state.pos.x;
       input.left = dxPath < -arriveRadius;
       input.right = dxPath > arriveRadius;
       state.mode = input.left || input.right ? 'patrol' : 'idle';
     }
+
     if (stamina) {
       stamina.recovering = false;
       stamina.exhaustionCount = 0;
@@ -1740,7 +1956,7 @@ export function updateNpcSystems(dt) {
       });
     }
     updateNpcMovement(G, npc, dt, abilityIntent);
-    updateNpcPerceptionColliders(npc);
+    updateNpcPerceptionColliders(npc, null, combat);
 
     if (npc.aggression?.active) {
       aggressiveNpcs.push(npc);
@@ -1929,4 +2145,16 @@ export function unregisterNpcFighter(id) {
 
 export function getActiveNpcFighters() {
   return getNpcFighterList(ensureGameState());
+}
+
+export function createNpcPlannedAbility(state, options) {
+  return createPlannedAbility(state, options);
+}
+
+export function clearNpcPlannedAbility(state) {
+  return clearPlannedAbility(state);
+}
+
+export function evaluateNpcPlannedAbilityConditions(state, player) {
+  return evaluatePlannedAbilityConditions(state, player);
 }

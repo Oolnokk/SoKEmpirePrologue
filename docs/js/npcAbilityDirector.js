@@ -16,6 +16,7 @@ const HEAVY_MAX_CHARGE_TIME = 1.4;
 const HEAVY_RETREAT_DISTANCE = 105;
 const HEAVY_APPROACH_RANGE = 70;
 const HEAVY_RECOVER_TIME = 0.6;
+const HEAVY_RETREAT_PLAN_CHANCE = 0.35;
 const DEFENSIVE_TRIGGER_THRESHOLD = 1.6;
 const DEFENSIVE_RELEASE_THRESHOLD = 0.8;
 const DEFENSIVE_METER_DECAY = 1.2;
@@ -148,12 +149,26 @@ function updateHeavyBehavior(director, context) {
     heavy.slotKey = null;
     return { mode: null };
   }
-  const { isBusy, attackActive, aggressionActive, absDx, dt, pressButton, releaseButton } = context;
-  const intent = { mode: null };
+  const { isBusy, attackActive, aggressionActive, absDx, dt, pressButton, releaseButton, npcState } = context;
+  const intent = { mode: null, chargeOutsideRange: true };
   const allowStart = !isBusy && !attackActive && aggressionActive && heavy.cooldown <= 0;
-  if (heavy.state === 'idle' && allowStart && absDx <= HEAVY_RETREAT_DISTANCE) {
-    startHeavyRetreat(director, context, targetSlot);
+  const npcMode = npcState?.mode || null;
+  const isRetreating = npcMode === 'retreat';
+
+  if (heavy.state === 'idle' && allowStart) {
+    let shouldStart = false;
+
+    if (isRetreating && Math.random() < HEAVY_RETREAT_PLAN_CHANCE) {
+      shouldStart = true;
+    } else if (absDx <= HEAVY_RETREAT_DISTANCE) {
+      shouldStart = true;
+    }
+
+    if (shouldStart) {
+      startHeavyRetreat(director, context, targetSlot);
+    }
   }
+
   switch (heavy.state) {
     case 'retreat': {
       heavy.retreatTimer += dt;
@@ -161,6 +176,7 @@ function updateHeavyBehavior(director, context) {
       intent.retreatDir = heavy.retreatDir;
       intent.dash = true;
       intent.slotKey = heavy.slotKey;
+      intent.chargeOutsideRange = true;
       if (absDx >= HEAVY_RETREAT_DISTANCE || heavy.retreatTimer >= HEAVY_RETREAT_TIME) {
         heavy.state = 'charge';
       }
@@ -169,6 +185,7 @@ function updateHeavyBehavior(director, context) {
     case 'charge': {
       intent.mode = 'hold';
       intent.slotKey = heavy.slotKey;
+      intent.chargeOutsideRange = true;
       if (!heavy.didPress && pressButton) {
         heavy.didPress = pressButton(heavy.slotKey, HEAVY_MAX_CHARGE_TIME + 0.25);
         heavy.chargeTimer = 0;
@@ -190,6 +207,7 @@ function updateHeavyBehavior(director, context) {
       intent.slotKey = heavy.slotKey;
       intent.targetRange = HEAVY_APPROACH_RANGE;
       intent.retreatDir = heavy.retreatDir;
+      intent.chargeOutsideRange = true;
       heavy.chargeTimer += dt;
       if (absDx <= HEAVY_APPROACH_RANGE || heavy.chargeTimer >= HEAVY_MAX_CHARGE_TIME) {
         if (releaseButton) releaseButton(heavy.slotKey);
@@ -202,6 +220,7 @@ function updateHeavyBehavior(director, context) {
       intent.mode = 'recover';
       intent.slotKey = heavy.slotKey;
       intent.retreatDir = heavy.retreatDir;
+      intent.chargeOutsideRange = true;
       heavy.recoverTimer -= dt;
       if (heavy.recoverTimer <= 0) {
         heavy.state = 'idle';
@@ -325,6 +344,7 @@ export function updateNpcAbilityDirector({
     aggressionActive,
     attackActive,
     isBusy,
+    npcState: state,
   });
   const defensiveIntent = updateDefensiveBehavior(director, {
     dt,
@@ -350,6 +370,7 @@ export function updateNpcAbilityDirector({
     defensiveRequested: defensiveIntent.requested || false,
     defensiveRetreatDir: Number.isFinite(defensiveIntent.retreatDir) ? defensiveIntent.retreatDir : 0,
     heavyState: director.heavy?.state || null,
+    chargeOutsideRange: !!heavyIntent?.chargeOutsideRange,
   };
   state.aiAbilityIntent = intent;
   return intent;
