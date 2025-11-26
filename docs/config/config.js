@@ -58,7 +58,7 @@ const WEAPON_STANCE_TYPES = ['unarmed', 'dagger-swords', 'sarrarru', 'light-grea
 
 const WEAPON_STANCE_DEFAULTS = {
   unarmed: {
-    lShoulder: -120,
+    lShoulder: 120,
     lElbow: -120,
     rShoulder: -65,
     rElbow: -140,
