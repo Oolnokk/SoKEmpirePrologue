@@ -260,7 +260,7 @@ const ARM_STANCES = {
   },
 
   unarmed: {
-    lShoulder: -120,
+    lShoulder: 120,
     lElbow: -120,
     rShoulder: -65,
     rElbow: -140,
