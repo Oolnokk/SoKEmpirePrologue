@@ -2542,9 +2542,7 @@ export function updatePoses(){
     updateBreathing(F, id, breathingSpec);
     const composedTransforms = applyStyleTransformComposer(F, id, finalDeg);
     updateWeaponRig(F, target, finalDeg, C, fcfg, composedTransforms, { stowActive, lengthOverrides });
-    if (F.anim?.weapon) {
-      F.anim.weapon.stowed = stowActive;
-    }
+    // weapon.stowed is managed by applyWeaponDrawnState in combat.js
     updatePhysicsPoseTarget(F, target);
     const ragBlend = getPhysicsRagdollBlend(F);
     const ragAngles = getPhysicsRagdollAngles(F);
