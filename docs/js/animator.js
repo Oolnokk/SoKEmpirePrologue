@@ -1812,11 +1812,15 @@ function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { pose
   const keyB = useMovement ? movementB : (useIdle ? idleB : {});
 
   // Interpolate leg/torso angles and scale by amp
-  pose.lHip   = lerp(keyA.lHip   || 0, keyB.lHip   || 0, s) * amp;
-  pose.lKnee  = lerp(keyA.lKnee  || 0, keyB.lKnee  || 0, s) * amp;
-  pose.rHip   = lerp(keyA.rHip   || 0, keyB.rHip   || 0, s) * amp;
-  pose.rKnee  = lerp(keyA.rKnee  || 0, keyB.rKnee  || 0, s) * amp;
-  pose.torso  = lerp(keyA.torso  || 0, keyB.torso  || 0, s) * amp;
+  // When not moving/idle, preserve the base pose legs instead of setting to 0
+  if (useMovement || useIdle) {
+    pose.lHip   = lerp(keyA.lHip   || 0, keyB.lHip   || 0, s) * amp;
+    pose.lKnee  = lerp(keyA.lKnee  || 0, keyB.lKnee  || 0, s) * amp;
+    pose.rHip   = lerp(keyA.rHip   || 0, keyB.rHip   || 0, s) * amp;
+    pose.rKnee  = lerp(keyA.rKnee  || 0, keyB.rKnee  || 0, s) * amp;
+    pose.torso  = lerp(keyA.torso  || 0, keyB.torso  || 0, s) * amp;
+  }
+  // else: keep the legs/torso from basePoseConfig (already in pose from line 1801)
 
   // Shoulders/elbows: still seeded from base offsets only
   const base = basePoseConfig || resolveStancePose(C, F);
