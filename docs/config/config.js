@@ -1,4 +1,3 @@
-
 // khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug
 
 // Heraldry & Material color palette
@@ -59,7 +58,7 @@ const WEAPON_STANCE_TYPES = ['unarmed', 'dagger-swords', 'sarrarru', 'light-grea
 
 const WEAPON_STANCE_DEFAULTS = {
   unarmed: {
-    lShoulder: 120,
+    lShoulder: -120,
     lElbow: -120,
     rShoulder: -65,
     rElbow: -140,
@@ -261,7 +260,7 @@ const ARM_STANCES = {
   },
 
   unarmed: {
-    lShoulder: 120,
+    lShoulder: -120,
     lElbow: -120,
     rShoulder: -65,
     rElbow: -140,
