@@ -1,3 +1,4 @@
+
 // khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug
 
 // Heraldry & Material color palette
@@ -260,7 +261,7 @@ const ARM_STANCES = {
   },
 
   unarmed: {
-    lShoulder: -120,
+    lShoulder: 120,
     lElbow: -120,
     rShoulder: -65,
     rElbow: -140,
@@ -803,10 +804,10 @@ window.CONFIG = {
 
     // Unified legs pose (used across all movement modes)
     Legs: {
-      lHip: 0,
-      lKnee: 0,
-      rHip: 0,
-      rKnee: 0
+      lHip: 100,
+      lKnee: 70,
+      rHip: 30,
+      rKnee: 70
     },
 
     Windup: deepClone(BASE_POSES.Windup),
