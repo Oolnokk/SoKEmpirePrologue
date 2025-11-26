@@ -162,9 +162,9 @@ function buildBackSlotBone(torsoBone, slot, lenFallback, weaponKey) {
 }
 
 function isNonCombatRender(entity) {
-  const profile = entity?.profile || entity?.renderProfile || {};
-  const fighterProfile = entity?.fighter?.renderProfile || {};
-  return !!(profile.nonCombat || fighterProfile.nonCombat || entity?.fighter?.nonCombat || entity?.fighter?.anim?.weapon?.stowed);
+  // Weapon should go on back only when stowed (WeaponDrawn is false)
+  // Otherwise it should attach to arm bones
+  return !!(entity?.fighter?.anim?.weapon?.stowed);
 }
 
 function lerp(a, b, t){
