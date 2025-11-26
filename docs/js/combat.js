@@ -496,6 +496,8 @@ export function makeCombat(G, C, options = {}){
     const abilityInstance = ability.__base ? ability : instantiateAbility(ability, fighter);
     if (!abilityInstance) return false;
 
+    applyWeaponDrawnState(fighter, true);
+
     const attackId = abilityInstance.attack
       || abilityInstance.defaultAttack
       || abilityInstance.defensive?.attackId
@@ -1749,6 +1751,8 @@ export function makeCombat(G, C, options = {}){
     if (!abilityTemplate) return;
 
     const fighter = P();
+    applyWeaponDrawnState(fighter, true);
+
     const ability = instantiateAbility(abilityTemplate, fighter);
     if (!ability) return;
     const attackId = ability.attack || ability.defaultAttack || abilityId;
@@ -1835,6 +1839,9 @@ export function makeCombat(G, C, options = {}){
       return;
     }
 
+    const fighter = P();
+    applyWeaponDrawnState(fighter, true);
+
     if (COMBO.timer <= 0){
       COMBO.sequenceIndex = 0;
       COMBO.lastAbilityId = null;
@@ -1896,6 +1903,8 @@ export function makeCombat(G, C, options = {}){
       QUEUE.downTime = now();
       return;
     }
+
+    applyWeaponDrawnState(fighter, true);
 
     const base = {
       comboHits: COMBO.hits,
