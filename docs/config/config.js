@@ -269,47 +269,52 @@ const ARM_STANCES = {
   },
 
   'dagger-swords': {
-    lShoulder: -85,
-    lElbow: -95,
-    rShoulder: -85,
-    rElbow: -95,
-    weapon: -20,
+    // TEMP TEST: Arms way out to the sides
+    lShoulder: 180,
+    lElbow: 0,
+    rShoulder: -180,
+    rElbow: 0,
+    weapon: 90,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
 
   sarrarru: {
-    lShoulder: -70,
-    lElbow: -120,
-    rShoulder: -15,
+    // TEMP TEST: Arms straight up
+    lShoulder: -180,
+    lElbow: 0,
+    rShoulder: -180,
     rElbow: 0,
-    weapon: -20,
+    weapon: -90,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
 
   'light-greatblade': {
-    lShoulder: -75,
-    lElbow: -110,
-    rShoulder: -75,
-    rElbow: -110,
-    weapon: -20,
+    // TEMP TEST: Left up, right down
+    lShoulder: -180,
+    lElbow: -90,
+    rShoulder: 0,
+    rElbow: 90,
+    weapon: 45,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
 
   greatclub: {
-    lShoulder: -90,
-    lElbow: -100,
-    rShoulder: -90,
-    rElbow: -100,
-    weapon: -20,
+    // TEMP TEST: Arms crossed in front
+    lShoulder: -45,
+    lElbow: -135,
+    rShoulder: -45,
+    rElbow: -135,
+    weapon: 180,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
 
   hatchets: {
-    lShoulder: -85,
-    lElbow: -105,
-    rShoulder: -85,
-    rElbow: -105,
-    weapon: -20,
+    // TEMP TEST: Arms bent back
+    lShoulder: -90,
+    lElbow: 90,
+    rShoulder: -90,
+    rElbow: 90,
+    weapon: -45,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
 };
