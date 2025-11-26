@@ -448,24 +448,6 @@ export function makeCombat(G, C, options = {}){
     DEFENSE.prevDrainRate = null;
   }
 
-  function ensureWeaponDrawn(){
-    const fighter = P();
-    if (!fighter) return;
-
-    const I = resolveInput();
-    I.weaponDrawn = true;
-    I.nonCombatRagdoll = false;
-
-    fighter.weaponDrawn = true;
-    fighter.nonCombatRagdoll = false;
-    fighter.renderProfile ||= {};
-    fighter.renderProfile.weaponDrawn = true;
-    fighter.renderProfile.weaponStowed = false;
-    if (fighter.anim?.weapon) {
-      fighter.anim.weapon.stowed = false;
-    }
-  }
-
   function stopDefensiveAbility(reason = 'manual'){
     if (!DEFENSE.active) return;
     const fighter = P();
@@ -514,7 +496,7 @@ export function makeCombat(G, C, options = {}){
     const abilityInstance = ability.__base ? ability : instantiateAbility(ability, fighter);
     if (!abilityInstance) return false;
 
-    ensureWeaponDrawn();
+    applyWeaponDrawnState(fighter, true);
 
     const attackId = abilityInstance.attack
       || abilityInstance.defaultAttack
@@ -1768,9 +1750,9 @@ export function makeCombat(G, C, options = {}){
     const abilityTemplate = getAbility(abilityId);
     if (!abilityTemplate) return;
 
-    ensureWeaponDrawn();
-
     const fighter = P();
+    applyWeaponDrawnState(fighter, true);
+
     const ability = instantiateAbility(abilityTemplate, fighter);
     if (!ability) return;
     const attackId = ability.attack || ability.defaultAttack || abilityId;
@@ -1857,7 +1839,8 @@ export function makeCombat(G, C, options = {}){
       return;
     }
 
-    ensureWeaponDrawn();
+    const fighter = P();
+    applyWeaponDrawnState(fighter, true);
 
     if (COMBO.timer <= 0){
       COMBO.sequenceIndex = 0;
@@ -1921,7 +1904,7 @@ export function makeCombat(G, C, options = {}){
       return;
     }
 
-    ensureWeaponDrawn();
+    applyWeaponDrawnState(fighter, true);
 
     const base = {
       comboHits: COMBO.hits,
