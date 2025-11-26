@@ -804,10 +804,10 @@ window.CONFIG = {
 
     // Unified legs pose (used across all movement modes)
     Legs: {
-      lHip: 100,
-      lKnee: 70,
-      rHip: 30,
-      rKnee: 70
+      lHip: -90,
+      lKnee: 0,
+      rHip: -90,
+      rKnee: 0
     },
 
     Windup: deepClone(BASE_POSES.Windup),
