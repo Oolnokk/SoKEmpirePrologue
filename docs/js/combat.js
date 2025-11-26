@@ -2334,10 +2334,15 @@ export function makeCombat(G, C, options = {}){
 
     const weaponDrawnInput = typeof input?.weaponDrawn === 'boolean' ? input.weaponDrawn : null;
     if (isFighterBusy()) {
+      // Attacking always draws the weapon
       applyWeaponDrawnState(p, true);
+      // Update input state so weapon stays drawn after attack
+      if (input) input.weaponDrawn = true;
     } else if (weaponDrawnInput != null) {
+      // Explicit input from player
       applyWeaponDrawnState(p, weaponDrawnInput);
     }
+    // If neither condition, preserve current weaponDrawn state
 
     const effectiveInput = p.isDead ? null : input;
     const attackBlocksMovement = !p.isDead && ATTACK.active && ATTACK.context?.type !== 'defensive';
