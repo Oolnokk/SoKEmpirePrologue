@@ -51,6 +51,9 @@ const NON_COMBAT_POSE = {
   lengthScales: { weapon: 0 }
 };
 
+// === DEPRECATED: Legacy weapon stance system ===
+// These are kept for backwards compatibility with buildWeaponStances()
+// New code should use ARM_STANCES instead
 const WEAPON_STANCE_TYPES = ['unarmed', 'dagger-swords', 'sarrarru', 'light-greatblade', 'greatclub', 'hatchets'];
 
 const WEAPON_STANCE_DEFAULTS = {
@@ -109,6 +112,7 @@ const WEAPON_STANCE_DEFAULTS = {
   },
 };
 
+// DEPRECATED: Use ARM_STANCES instead. Kept for backwards compatibility only.
 const buildWeaponUpperOverrides = (stowedPose = NON_COMBAT_POSE) => {
   const map = {};
   const ensureEntry = (key, overrides = {}) => {
@@ -162,8 +166,8 @@ const ensureWeaponStances = (config) => {
   });
 };
 
-// === UPDATED: walk profiles now have idlePoses + idleAmp + optional armSwing ===
-const WALK_PROFILES = {
+// === UPDATED: movement profiles now have idlePoses + idleAmp + optional armSwing ===
+const MOVEMENT_PROFILES = {
   combat: {
     enabled: true,
     onlyTorsoLegs: true,
@@ -172,8 +176,8 @@ const WALK_PROFILES = {
     minSpeed: 80,
     amp: 1.0,
     poses: {
-      A: { torso: 30, lHip: 0,   lKnee: 45, rHip: 180, rKnee: 90 },
-      B: { torso: 40, lHip: 180, lKnee: 90, rHip: 0,   rKnee: 45 }
+      A: { lHip: 0,   lKnee: 45, rHip: 180, rKnee: 90 },
+      B: { lHip: 180, lKnee: 90, rHip: 0,   rKnee: 45 }
     },
     idlePoses: {
       A: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
@@ -237,7 +241,7 @@ const WALK_PROFILES = {
   }
 };
 
-const WALK_SPEED_MULTIPLIERS = {
+const MOVEMENT_SPEED_MULTIPLIERS = {
   combat: 1.25,
   nonCombat: 0.5,
   sneak: 0.3,
@@ -651,7 +655,8 @@ const SLAM_MOVE_POSES = {
 
 window.CONFIG = {
   basePose: deepClone(BASE_POSES.Stance),
-  legsProfiles: WALK_PROFILES,
+  legsProfiles: MOVEMENT_PROFILES,
+  armStances: ARM_STANCES,
   weaponUpperOverrides: buildWeaponUpperOverrides(),
   mapBuilder: {
     sourceId: 'map-builder-layered-v15f',
@@ -801,20 +806,8 @@ window.CONFIG = {
     NonCombatBase: deepClone(BASE_POSES.Stance),
     SneakBase: deepClone(BASE_POSES.Stance),
 
-    // NEW: legs-only base offsets per mode (added on top of global basePose)
-    LegsCombat: {
-      lHip: -90,
-      lKnee: 0,
-      rHip: -90,
-      rKnee: 0
-    },
-    LegsNonCombat: {
-      lHip: -90,
-      lKnee: 0,
-      rHip: -90,
-      rKnee: 0
-    },
-    LegsSneak: {
+    // Unified legs pose (used across all movement modes)
+    Legs: {
       lHip: -90,
       lKnee: 0,
       rHip: -90,
