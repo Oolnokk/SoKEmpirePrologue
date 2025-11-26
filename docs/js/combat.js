@@ -1839,7 +1839,6 @@ export function makeCombat(G, C, options = {}){
       return;
     }
 
-    const fighter = P();
     applyWeaponDrawnState(fighter, true);
 
     if (COMBO.timer <= 0){
