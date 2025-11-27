@@ -249,12 +249,18 @@ function ensureNpcInputState(state) {
   const input = state.aiInput || {
     buttonA: { down: false },
     buttonB: { down: false },
+    buttonC: { down: false },
     left: false,
     right: false,
+    weaponDrawn: true,
   };
   if (!state.aiInput) state.aiInput = input;
   input.buttonA ||= { down: false };
   input.buttonB ||= { down: false };
+  input.buttonC ||= { down: false };
+  // Sync weaponDrawn with state (check renderProfile first like animator does)
+  const stateWeaponDrawn = state.renderProfile?.weaponDrawn ?? state.weaponDrawn ?? true;
+  input.weaponDrawn = stateWeaponDrawn;
   return input;
 }
 
@@ -1722,6 +1728,8 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   }
 
   if (state.retreatTimer <= 0 && state.mode === 'retreat' && state.patienceTimer <= 0 && !defenseState.active) {
+    // Retreat time limit reached - end retreat unconditionally
+    // Heavy attack director will decide if it wants to start an attack on next frame
     state.mode = 'approach';
   }
   if (state.patienceTimer <= 0 && state.mode === 'shuffle' && !defenseState.threat && !(state.obstructionJump?.blockedRecently)) {

@@ -2364,11 +2364,17 @@ export function makeCombat(G, C, options = {}){
       applyWeaponDrawnState(p, true);
       // Update input state so weapon stays drawn after attack
       if (input) input.weaponDrawn = true;
-    } else if (weaponDrawnInput != null) {
-      // Explicit input from player
-      applyWeaponDrawnState(p, weaponDrawnInput);
+    } else if (weaponDrawnInput === false) {
+      // Only allow explicit stowing (input says false)
+      // But ignore if we just finished an attack (COMBO timer active means recent combat)
+      if (COMBO.timer <= 0) {
+        applyWeaponDrawnState(p, weaponDrawnInput);
+      }
+    } else if (weaponDrawnInput === true) {
+      // Explicit draw request
+      applyWeaponDrawnState(p, true);
     }
-    // If neither condition, preserve current weaponDrawn state
+    // If weaponDrawnInput is null, preserve current weaponDrawn state
 
     const effectiveInput = p.isDead ? null : input;
     const attackBlocksMovement = !p.isDead && ATTACK.active && ATTACK.context?.type !== 'defensive';
