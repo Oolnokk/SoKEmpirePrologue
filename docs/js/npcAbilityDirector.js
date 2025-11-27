@@ -138,6 +138,17 @@ function startHeavyRetreat(director, context, targetSlot) {
   heavy.slotKey = targetSlot?.slotKey || 'A';
   heavy.retreatDir = context.dx >= 0 ? -1 : 1;
   heavy.didPress = false;
+
+  // Get the actual attack range for this ability
+  const combat = context.combat;
+  const ability = combat && typeof combat.getAbilityForSlot === 'function'
+    ? combat.getAbilityForSlot(heavy.slotKey, 'heavy')
+    : null;
+  const attackId = ability?.attack || ability?.defaultAttack || ability?.id;
+  const attackDef = combat && typeof combat.getAttackDef === 'function'
+    ? combat.getAttackDef(attackId)
+    : null;
+  heavy.targetRange = attackDef?.attackData?.range || 35;  // Low default for testing
 }
 
 function updateHeavyBehavior(director, context) {
@@ -210,13 +221,14 @@ function updateHeavyBehavior(director, context) {
       break;
     }
     case 'approach': {
+      const approachRange = heavy.targetRange || HEAVY_APPROACH_RANGE;
       intent.mode = 'approach';
       intent.slotKey = heavy.slotKey;
-      intent.targetRange = HEAVY_APPROACH_RANGE;
+      intent.targetRange = approachRange;
       intent.retreatDir = heavy.retreatDir;
       intent.chargeOutsideRange = true;
       heavy.chargeTimer += dt;
-      if (absDx <= HEAVY_APPROACH_RANGE || heavy.chargeTimer >= HEAVY_MAX_CHARGE_TIME) {
+      if (absDx <= approachRange || heavy.chargeTimer >= HEAVY_MAX_CHARGE_TIME) {
         if (releaseButton) releaseButton(heavy.slotKey);
         heavy.state = 'recover';
         heavy.recoverTimer = HEAVY_RECOVER_TIME;

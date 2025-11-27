@@ -2153,6 +2153,14 @@ export function makeCombat(G, C, options = {}){
   // Handle button state changes
   function handleButtons(){
     const I = resolveInput();
+    const fighter = P();
+
+    // Auto-draw weapon before processing any attack input (trigger X key effect)
+    const hasAttackInput = I.buttonA?.down || I.buttonB?.down || I.buttonC?.down;
+    if (hasAttackInput && fighter && !fighter.weaponDrawn) {
+      applyWeaponDrawnState(fighter, true);
+      if (I) I.weaponDrawn = true;
+    }
 
     // Button A
     if (I.buttonA?.down && ATTACK.slot !== 'A'){
@@ -2161,7 +2169,7 @@ export function makeCombat(G, C, options = {}){
       slotUp('A');
       ATTACK.slot = null;
     }
-    
+
     // Button B
     if (I.buttonB?.down && ATTACK.slot !== 'B'){
       slotDown('B');

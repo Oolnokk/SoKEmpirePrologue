@@ -1567,8 +1567,14 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
 
   if (aggression.active) {
     state.weaponDrawn = true;
+    if (!state.renderProfile) state.renderProfile = {};
+    state.renderProfile.weaponDrawn = true;
+    state.renderProfile.weaponStowed = false;
   } else if (!aggression.triggered) {
     state.weaponDrawn = false;
+    if (!state.renderProfile) state.renderProfile = {};
+    state.renderProfile.weaponDrawn = false;
+    state.renderProfile.weaponStowed = true;
   }
 
   input.left = false;
