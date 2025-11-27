@@ -1562,6 +1562,9 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       state.mode = 'approach';
       state.cooldown = 0;
       state.weaponDrawn = true;
+      if (!state.renderProfile) state.renderProfile = {};
+      state.renderProfile.weaponDrawn = true;
+      state.renderProfile.weaponStowed = false;
     }
   }
 
@@ -1741,7 +1744,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       if (!recovering && heavyIntent && heavyIntent.mode) {
         if (heavyIntent.mode === 'retreat') {
           state.mode = 'retreat';
-          state.retreatTimer = Math.max(state.retreatTimer, resolveNpcRetreatDuration(state) * 0.6);
+          // Removed: Don't refresh retreatTimer - let it count down naturally
           state.cooldown = Math.max(state.cooldown, 0.35);
           handledByAbility = true;
         } else if (heavyIntent.mode === 'hold') {
@@ -1756,7 +1759,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
           handledByAbility = true;
         } else if (heavyIntent.mode === 'recover') {
           state.mode = 'retreat';
-          state.retreatTimer = Math.max(state.retreatTimer, resolveNpcRetreatDuration(state));
+          // Removed: Don't refresh retreatTimer - let it count down naturally
           state.cooldown = Math.max(state.cooldown, 0.45);
           handledByAbility = true;
         }

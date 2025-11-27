@@ -2157,7 +2157,9 @@ export function makeCombat(G, C, options = {}){
 
     // Auto-draw weapon before processing any attack input (trigger X key effect)
     const hasAttackInput = I.buttonA?.down || I.buttonB?.down || I.buttonC?.down;
-    if (hasAttackInput && fighter && !fighter.weaponDrawn) {
+    // Check renderProfile first (same priority as isWeaponDrawn in animator.js)
+    const weaponDrawn = fighter?.renderProfile?.weaponDrawn ?? fighter?.weaponDrawn ?? true;
+    if (hasAttackInput && fighter && !weaponDrawn) {
       applyWeaponDrawnState(fighter, true);
       if (I) I.weaponDrawn = true;
     }
