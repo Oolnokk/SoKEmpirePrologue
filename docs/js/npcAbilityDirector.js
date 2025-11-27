@@ -155,12 +155,19 @@ function updateHeavyBehavior(director, context) {
   const npcMode = npcState?.mode || null;
   const isRetreating = npcMode === 'retreat';
 
+  // Track if we've already attempted during this retreat session
+  if (heavy.lastRetreatMode !== isRetreating) {
+    heavy.lastRetreatMode = isRetreating;
+    heavy.attemptedDuringRetreat = false;
+  }
+
   if (heavy.state === 'idle' && allowStart) {
     let shouldStart = false;
 
-    if (isRetreating && Math.random() < HEAVY_RETREAT_PLAN_CHANCE) {
+    if (isRetreating && !heavy.attemptedDuringRetreat && Math.random() < HEAVY_RETREAT_PLAN_CHANCE) {
       shouldStart = true;
-    } else if (absDx <= HEAVY_RETREAT_DISTANCE) {
+      heavy.attemptedDuringRetreat = true;
+    } else if (!isRetreating && absDx <= HEAVY_RETREAT_DISTANCE) {
       shouldStart = true;
     }
 
