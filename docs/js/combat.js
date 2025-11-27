@@ -477,6 +477,7 @@ export function makeCombat(G, C, options = {}){
     if (!ability || ability.trigger !== 'defensive') return false;
     const fighter = P();
     if (!fighter) return false;
+    const input = resolveInput();
     const stamina = fighter.stamina;
     if (!stamina) return false;
 
@@ -1752,6 +1753,7 @@ export function makeCombat(G, C, options = {}){
     if (!abilityTemplate) return;
 
     const fighter = P();
+    const input = resolveInput();
     applyWeaponDrawnState(fighter, true);
     if (input) input.weaponDrawn = true;
 
@@ -1820,6 +1822,7 @@ export function makeCombat(G, C, options = {}){
     if (!abilityTemplate) return;
 
     const fighter = P();
+    const input = resolveInput();
     const abilityBase = resolveComboAbilityForWeapon(abilityTemplate);
     const ability = instantiateAbility(abilityBase, fighter);
     if (!ability) return;
@@ -1891,6 +1894,7 @@ export function makeCombat(G, C, options = {}){
     if (!abilityTemplate) return;
 
     const fighter = P();
+    const input = resolveInput();
     const ability = instantiateAbility(abilityTemplate, fighter);
     if (!ability) return;
 
