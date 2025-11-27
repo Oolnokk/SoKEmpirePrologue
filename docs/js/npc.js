@@ -642,8 +642,10 @@ function releaseNpcButton(state, combat, slotKey) {
     input.buttonA.down = false;
   } else if (slotKey === 'B') {
     input.buttonB.down = false;
+  } else if (slotKey === 'C') {
+    input.buttonC.down = false;
   }
-  combat.slotUp(slotKey);
+  // Removed: combat.slotUp(slotKey) - let handleButtons() process input naturally
 }
 
 function pressNpcButton(state, combat, slotKey, holdSeconds = 0.12) {
@@ -658,8 +660,10 @@ function pressNpcButton(state, combat, slotKey, holdSeconds = 0.12) {
     input.buttonA.down = true;
   } else if (slotKey === 'B') {
     input.buttonB.down = true;
+  } else if (slotKey === 'C') {
+    input.buttonC.down = true;
   }
-  combat.slotDown(slotKey);
+  // Removed: combat.slotDown(slotKey) - let handleButtons() process input naturally
   return true;
 }
 
@@ -685,7 +689,7 @@ function ensureNpcCombat(G, state) {
   const combat = initCombatForFighter(id, {
     fighterLabel: id,
     poseTarget: id,
-    autoProcessInput: false,
+    autoProcessInput: true,  // Changed: Let combat system process input like player
     neutralizeInputMovement: false,
     storeKey: `npcCombat:${id}`,
     inputSource: () => ensureNpcInputState(state),
