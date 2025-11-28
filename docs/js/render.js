@@ -383,6 +383,49 @@ function drawHitbox(ctx, hb) {
   }
 }
 
+function drawRangeCollider(ctx, fighter, hitbox) {
+  if (!ctx || !fighter) return;
+
+  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+  if (DEBUG.showRangeCollider !== true) {
+    return;
+  }
+
+  let attackRange = null;
+  const perception = fighter.perception;
+  if (perception && Number.isFinite(perception.attackRange)) {
+    attackRange = perception.attackRange;
+  } else if (fighter.plannedAbility?.range) {
+    attackRange = fighter.plannedAbility.range;
+  } else if (fighter.ai?.attackRange) {
+    attackRange = fighter.ai.attackRange;
+  }
+
+  if (!attackRange || attackRange <= 0) return;
+
+  const centerX = hitbox?.x ?? fighter.pos?.x ?? 0;
+  const centerY = hitbox?.y ?? fighter.pos?.y ?? 0;
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(251, 146, 60, 0.8)'; // Orange
+  ctx.fillStyle = 'rgba(251, 146, 60, 0.12)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, attackRange, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Draw range label
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(251, 146, 60, 0.9)';
+  ctx.font = 'bold 11px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${attackRange.toFixed(0)}`, centerX, centerY - attackRange - 5);
+
+  ctx.restore();
+}
 
 
 function drawCompass(ctx, x, y, r, label){
@@ -658,6 +701,7 @@ export function renderAll(ctx){
       ctx.scale(-1, 1);
     }
     drawHitbox(ctx, entity.hitbox);
+    drawRangeCollider(ctx, entity.fighter, entity.hitbox);
     drawStick(ctx, entity.bones);
     drawFallbackSilhouette(ctx, entity, C);
     ctx.restore();

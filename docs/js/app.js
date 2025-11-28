@@ -1198,6 +1198,15 @@ if (toggleShowHitbox) {
   });
 }
 
+const toggleShowRangeCollider = $$('#toggleShowRangeCollider');
+if (toggleShowRangeCollider) {
+  toggleShowRangeCollider.checked = window.RENDER_DEBUG?.showRangeCollider || false;
+  toggleShowRangeCollider.addEventListener('change', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.showRangeCollider = e.target.checked;
+  });
+}
+
 // Re-init presets on external config updates
 document.addEventListener('config:updated', ()=>{
   initPresets();
