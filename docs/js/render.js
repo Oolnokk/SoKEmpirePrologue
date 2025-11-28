@@ -578,7 +578,7 @@ function maybeLogPlayerBoneDebug(debugObj, report) {
 
   const message = `[render] Player bones | torso: ${describe(report.torso)} | arm_L_lower: ${describe(report.arm_L_lower)} | arm_R_lower: ${describe(report.arm_R_lower)}`;
 
-  console.debug(message);
+  // console.debug(message); // Disabled - was spamming console
   debugObj._playerBoneStatusLogTime = now;
   debugObj._playerBoneStatusMessage = message;
 }
