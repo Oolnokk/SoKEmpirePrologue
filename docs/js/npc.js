@@ -621,6 +621,18 @@ function triggerNpcPatienceWindow(state, { hintDir = 0 } = {}) {
   state.retreatTimer = Math.max(currentRetreat, retreat);
   resetNpcShuffle(state, hintDir);
   state.mode = 'retreat';
+
+  // Initialize position tracking for retreat debugging
+  if (!state.retreatDebug) {
+    state.retreatDebug = {};
+  }
+  state.retreatDebug.pos0 = { x: state.pos?.x || 0, y: state.pos?.y || 0, time: 0 };
+  state.retreatDebug.pos3 = null;
+  state.retreatDebug.pos4 = null;
+  state.retreatDebug.tracked3 = false;
+  state.retreatDebug.tracked4 = false;
+  state.retreatDebug.mode = state.mode;
+  console.log(`[NPC Retreat Debug] Started tracking for ${state.id} at position (${state.retreatDebug.pos0.x.toFixed(1)}, ${state.retreatDebug.pos0.y.toFixed(1)})`);
 }
 
 function getNpcFighterList(G) {
@@ -1680,6 +1692,66 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   state.patienceTimer = Math.max(0, Number.isFinite(state.patienceTimer) ? state.patienceTimer - dt : 0);
   state.retreatTimer = Math.max(0, Number.isFinite(state.retreatTimer) ? state.retreatTimer - dt : 0);
   shuffleState.timer = Math.max(0, Number.isFinite(shuffleState.timer) ? shuffleState.timer - dt : 0);
+
+  // Update retreat position tracking for debugging
+  if (state.retreatDebug && state.retreatDebug.pos0) {
+    state.retreatDebug.pos0.time += dt;
+    const elapsed = state.retreatDebug.pos0.time;
+    const currentPos = { x: state.pos?.x || 0, y: state.pos?.y || 0 };
+
+    // Track position at 3 seconds
+    if (elapsed >= 3.0 && !state.retreatDebug.tracked3) {
+      state.retreatDebug.pos3 = { ...currentPos, time: elapsed };
+      state.retreatDebug.tracked3 = true;
+      const dx3 = state.retreatDebug.pos3.x - state.retreatDebug.pos0.x;
+      const dy3 = state.retreatDebug.pos3.y - state.retreatDebug.pos0.y;
+      const dist3 = Math.sqrt(dx3 * dx3 + dy3 * dy3);
+      console.log(`[NPC Retreat Debug] ${state.id} at 3s: pos=(${state.retreatDebug.pos3.x.toFixed(1)}, ${state.retreatDebug.pos3.y.toFixed(1)}), distance from start=${dist3.toFixed(1)}, mode=${state.mode}`);
+    }
+
+    // Track position at 4 seconds
+    if (elapsed >= 4.0 && !state.retreatDebug.tracked4) {
+      state.retreatDebug.pos4 = { ...currentPos, time: elapsed };
+      state.retreatDebug.tracked4 = true;
+
+      // Calculate distances
+      const dx3 = state.retreatDebug.pos3 ? (state.retreatDebug.pos3.x - state.retreatDebug.pos0.x) : 0;
+      const dy3 = state.retreatDebug.pos3 ? (state.retreatDebug.pos3.y - state.retreatDebug.pos0.y) : 0;
+      const dist3 = Math.sqrt(dx3 * dx3 + dy3 * dy3);
+
+      const dx4 = state.retreatDebug.pos4.x - state.retreatDebug.pos0.x;
+      const dy4 = state.retreatDebug.pos4.y - state.retreatDebug.pos0.y;
+      const dist4 = Math.sqrt(dx4 * dx4 + dy4 * dy4);
+
+      console.log(`[NPC Retreat Debug] ${state.id} at 4s: pos=(${state.retreatDebug.pos4.x.toFixed(1)}, ${state.retreatDebug.pos4.y.toFixed(1)}), distance from start=${dist4.toFixed(1)}, mode=${state.mode}`);
+
+      // Check if position at 4s is farther than at 3s (continuing to retreat)
+      if (dist4 > dist3) {
+        console.warn(`[NPC Retreat Debug] ⚠️ BREAKPOINT: ${state.id} is STILL RETREATING at 4s (farther than 3s position)`);
+        console.log(`[NPC Retreat Debug] Verbose Data:`, {
+          npcId: state.id,
+          pos0: state.retreatDebug.pos0,
+          pos3: state.retreatDebug.pos3,
+          pos4: state.retreatDebug.pos4,
+          dist3: dist3.toFixed(1),
+          dist4: dist4.toFixed(1),
+          currentMode: state.mode,
+          retreatTimer: state.retreatTimer?.toFixed(2),
+          patienceTimer: state.patienceTimer?.toFixed(2),
+          cooldown: state.cooldown?.toFixed(2),
+          velocity: { x: state.vel?.x?.toFixed(1), y: state.vel?.y?.toFixed(1) },
+          stamina: state.stamina,
+          aggression: state.aggression,
+          heavyState: state.aiLastHeavyState,
+        });
+      } else {
+        console.log(`[NPC Retreat Debug] ✓ ${state.id} stopped retreating (4s position closer than 3s position)`);
+      }
+
+      // Clear tracking after 4s check
+      state.retreatDebug = null;
+    }
+  }
 
   if (defensiveActive) {
     defenseState.active = true;

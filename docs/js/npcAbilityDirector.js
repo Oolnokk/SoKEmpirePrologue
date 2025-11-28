@@ -7,6 +7,9 @@ function clamp(value, min, max) {
 const SLOT_KEYS = ['A', 'B', 'C'];
 const WEIGHTS = ['light', 'heavy'];
 
+// Feature flag to disable heavy attack behavior logic for debugging
+const ENABLE_HEAVY_ATTACK_LOGIC = false;
+
 const QUICK_TRIGGER_HITS = 4;
 const QUICK_PRESS_DURATION = 0.18;
 const HEAVY_RETREAT_TIME = 0.65;
@@ -152,6 +155,11 @@ function startHeavyRetreat(director, context, targetSlot) {
 }
 
 function updateHeavyBehavior(director, context) {
+  // Heavy attack logic disabled for debugging
+  if (!ENABLE_HEAVY_ATTACK_LOGIC) {
+    return { mode: null };
+  }
+
   const heavy = director.heavy;
   heavy.cooldown = Math.max(0, heavy.cooldown - context.dt);
   const targetSlot = director.slots.holdRelease[0] || null;
