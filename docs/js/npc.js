@@ -610,6 +610,22 @@ function updateNpcDefenseScheduling(state, player, dt, { dx, absDx, nearDist }) 
   };
 }
 
+function initRetreatDebug(state) {
+  // Initialize position tracking for retreat debugging (only if not already tracking)
+  if (!state || state.retreatDebug?.pos0) return; // Already tracking
+
+  if (!state.retreatDebug) {
+    state.retreatDebug = {};
+  }
+  state.retreatDebug.pos0 = { x: state.pos?.x || 0, y: state.pos?.y || 0, time: 0 };
+  state.retreatDebug.pos3 = null;
+  state.retreatDebug.pos4 = null;
+  state.retreatDebug.tracked3 = false;
+  state.retreatDebug.tracked4 = false;
+  state.retreatDebug.mode = state.mode;
+  console.log(`[NPC Retreat Debug] Started tracking for ${state.id} at position (${state.retreatDebug.pos0.x.toFixed(1)}, ${state.retreatDebug.pos0.y.toFixed(1)})`);
+}
+
 function triggerNpcPatienceWindow(state, { hintDir = 0 } = {}) {
   if (!state) return;
   const patience = resolveNpcPatienceDuration(state);
@@ -621,18 +637,7 @@ function triggerNpcPatienceWindow(state, { hintDir = 0 } = {}) {
   state.retreatTimer = Math.max(currentRetreat, retreat);
   resetNpcShuffle(state, hintDir);
   state.mode = 'retreat';
-
-  // Initialize position tracking for retreat debugging
-  if (!state.retreatDebug) {
-    state.retreatDebug = {};
-  }
-  state.retreatDebug.pos0 = { x: state.pos?.x || 0, y: state.pos?.y || 0, time: 0 };
-  state.retreatDebug.pos3 = null;
-  state.retreatDebug.pos4 = null;
-  state.retreatDebug.tracked3 = false;
-  state.retreatDebug.tracked4 = false;
-  state.retreatDebug.mode = state.mode;
-  console.log(`[NPC Retreat Debug] Started tracking for ${state.id} at position (${state.retreatDebug.pos0.x.toFixed(1)}, ${state.retreatDebug.pos0.y.toFixed(1)})`);
+  initRetreatDebug(state);
 }
 
 function getNpcFighterList(G) {
@@ -1800,9 +1805,22 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   }
 
   if (state.retreatTimer <= 0 && state.mode === 'retreat' && state.patienceTimer <= 0 && !defenseState.active) {
-    // Retreat time limit reached - end retreat unconditionally
-    // Heavy attack director will decide if it wants to start an attack on next frame
-    state.mode = 'approach';
+    // Retreat time limit reached - end retreat with cooldown to prevent immediate re-attack
+    const target = state.target;
+    const dx = target?.pos?.x !== undefined ? target.pos.x - state.pos.x : 0;
+    const absDx = Math.abs(dx);
+    const nearDist = state.ai?.attackRange || state.perception?.attackRange || 50;
+    const inCombatZone = absDx <= nearDist * 1.5;
+
+    if (inCombatZone) {
+      // Stay in shuffle mode with cooldown to avoid freeze
+      resetNpcShuffle(state, dx >= 0 ? -1 : 1);
+      state.mode = 'shuffle';
+      state.patienceTimer = resolveNpcPatienceDuration(state) * 0.5; // Half patience for shuffle
+      state.cooldown = Math.max(state.cooldown, 1.0); // Add cooldown to prevent immediate attack
+    } else {
+      state.mode = 'approach';
+    }
   }
   if (state.patienceTimer <= 0 && state.mode === 'shuffle' && !defenseState.threat && !(state.obstructionJump?.blockedRecently)) {
     state.mode = 'approach';
@@ -1824,6 +1842,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       if (!recovering && heavyIntent && heavyIntent.mode) {
         if (heavyIntent.mode === 'retreat') {
           state.mode = 'retreat';
+          initRetreatDebug(state);
           // Removed: Don't refresh retreatTimer - let it count down naturally
           state.cooldown = Math.max(state.cooldown, 0.35);
           handledByAbility = true;
@@ -1839,6 +1858,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
           handledByAbility = true;
         } else if (heavyIntent.mode === 'recover') {
           state.mode = 'retreat';
+          initRetreatDebug(state);
           // Removed: Don't refresh retreatTimer - let it count down naturally
           state.cooldown = Math.max(state.cooldown, 0.45);
           handledByAbility = true;
@@ -1875,6 +1895,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
 
       if (state.retreatTimer > 0 && state.mode !== 'defend') {
         state.mode = 'retreat';
+        initRetreatDebug(state);
       } else if (shouldShuffle) {
         if (state.mode !== 'shuffle') {
           resetNpcShuffle(state, dx >= 0 ? -1 : 1);
