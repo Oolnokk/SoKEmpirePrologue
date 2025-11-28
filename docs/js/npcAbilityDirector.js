@@ -200,7 +200,6 @@ function updateHeavyBehavior(director, context) {
       heavy.retreatTimer += dt;
       intent.mode = 'retreat';
       intent.retreatDir = heavy.retreatDir;
-      intent.dash = true;
       intent.slotKey = heavy.slotKey;
       intent.chargeOutsideRange = true;
       if (absDx >= HEAVY_RETREAT_DISTANCE || heavy.retreatTimer >= HEAVY_RETREAT_TIME) {

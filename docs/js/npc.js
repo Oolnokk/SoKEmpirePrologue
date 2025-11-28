@@ -1376,21 +1376,7 @@ function updateNpcPassiveHeadTracking(state, player) {
 function updateDashTrail(visualEntry, state, dt) {
   const dashTrail = visualEntry?.dashTrail;
   if (!dashTrail || !dashTrail.enabled) return;
-  if (state.stamina?.isDashing && state.stamina.current > 0) {
-    dashTrail.timer += dt;
-    if (dashTrail.timer >= dashTrail.interval) {
-      dashTrail.timer = 0;
-      dashTrail.positions.unshift({
-        x: state.pos.x,
-        y: state.pos.y,
-        facingRad: state.facingRad || 0,
-        alpha: 1,
-      });
-      if (dashTrail.positions.length > dashTrail.maxLength) {
-        dashTrail.positions.length = dashTrail.maxLength;
-      }
-    }
-  }
+  // Dash trail disabled - dashing removed from game
   for (const pos of dashTrail.positions) {
     pos.alpha -= dt * 3;
   }
@@ -1550,7 +1536,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.mode = 'recover';
     state.cooldown = Math.max(state.cooldown || 0, 0.5);
     if (state.stamina) {
-      state.stamina.isDashing = false;
+      
     }
   }
 
@@ -1634,7 +1620,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     input.buttonB.down = false;
     state.mode = aggression.triggered ? 'alert' : 'idle';
     state.cooldown = 0;
-    state.stamina.isDashing = false;
+    
 
     if (isFollower && groupLeader) {
       const dxLeader = groupLeader.pos.x - state.pos.x;
@@ -1829,14 +1815,14 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   if (aggression.active) {
     state.cooldown = Math.max(0, (state.cooldown || 0) - dt);
     if (attackActive) {
-      if (state.stamina) state.stamina.isDashing = false;
+      if (state.stamina) 
       input.left = false;
       input.right = false;
     } else {
       const recovering = stamina?.recovering && !isPanicking;
       input.left = false;
       input.right = false;
-      if (state.stamina) state.stamina.isDashing = false;
+      if (state.stamina) 
       let handledByAbility = false;
 
       if (!recovering && heavyIntent && heavyIntent.mode) {
@@ -1853,7 +1839,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
           state.mode = 'approach';
           const targetRange = heavyIntent.targetRange || nearDist;
           if (state.stamina) {
-            state.stamina.isDashing = absDx > targetRange * 1.1;
+            
           }
           handledByAbility = true;
         } else if (heavyIntent.mode === 'recover') {
@@ -1909,13 +1895,13 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
         input.right = dx > 0;
         input.left = dx < 0;
         if (state.stamina) {
-          state.stamina.isDashing = absDx > nearDist * 1.2;
+          
         }
       } else if (state.mode === 'retreat') {
         input.right = dx < 0;
         input.left = dx > 0;
         if (state.stamina) {
-          state.stamina.isDashing = false;
+          
         }
       } else if (state.mode === 'defend') {
         const retreatDir = defenseState.retreatDir || defensiveRetreatDir || (dx >= 0 ? -1 : 1);
@@ -1926,7 +1912,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
           input.left = false;
           input.right = false;
         }
-        if (state.stamina) state.stamina.isDashing = false;
+        if (state.stamina) 
       } else if (state.mode === 'shuffle') {
         if (!Number.isFinite(shuffleState.originDistance)) {
           shuffleState.originDistance = absDx;
@@ -1944,13 +1930,13 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
         }
         input.left = shuffleState.direction < 0;
         input.right = shuffleState.direction > 0;
-        if (state.stamina) state.stamina.isDashing = false;
+        if (state.stamina) 
       } else if (state.mode === 'recover') {
         input.right = dx < 0;
         input.left = dx > 0;
-        if (state.stamina) state.stamina.isDashing = false;
+        if (state.stamina) 
       } else {
-        if (state.stamina) state.stamina.isDashing = false;
+        if (state.stamina) 
       }
     }
 
@@ -1959,7 +1945,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       state.mode = state.patienceTimer > 0 ? 'shuffle' : 'approach';
     }
   } else {
-    if (state.stamina) state.stamina.isDashing = false;
+    if (state.stamina) 
   }
 
   if (stamina) {

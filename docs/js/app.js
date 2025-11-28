@@ -2266,7 +2266,6 @@ function updateHUD(){
     const pct = Math.round(ratio * 100);
     staminaFill.style.width = `${pct}%`;
     staminaFill.classList.toggle('low', ratio <= 0.25);
-    staminaFill.classList.toggle('dashing', !!S.isDashing);
     if (staminaLabel){
       staminaLabel.textContent = `Stamina ${pct}%`;
     }

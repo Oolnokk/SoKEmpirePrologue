@@ -209,17 +209,16 @@ export function applyStaminaTick(fighter, dt) {
   const stamina = fighter.stamina;
   if (!stamina) return;
   const current = Number.isFinite(stamina.current) ? stamina.current : 0;
-  if (stamina.isDashing && current > 0) {
-    const drainRate = Number.isFinite(stamina.drainRate) ? stamina.drainRate : 40;
+  const drainRate = Number.isFinite(stamina.drainRate) ? stamina.drainRate : 0;
+
+  if (drainRate > 0 && current > 0) {
+    // Active ability draining stamina (e.g., defensive abilities)
     const next = Math.max(0, current - drainRate * dt);
     stamina.current = next;
-    if (next <= 0) {
-      stamina.isDashing = false;
-    }
   } else {
+    // Regenerate stamina
     const regenRate = Number.isFinite(stamina.regenRate) ? stamina.regenRate : 20;
     const max = Number.isFinite(stamina.max) ? stamina.max : 100;
-    stamina.isDashing = false;
     stamina.current = Math.min(max, current + regenRate * dt);
   }
 }

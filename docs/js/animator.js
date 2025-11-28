@@ -2275,11 +2275,10 @@ function updateAiming(F, currentPose, fighterId){
     }
   };
 
-  const isDashing = !!(F?.stamina?.isDashing || G.STAMINA?.isDashing || G.FIGHTERS?.[fighterId]?.stamina?.isDashing);
   const initialFacing = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
 
-  if (!isDashing) {
-    if (aimSource === 'joystick') {
+  // Snap facing based on aim input
+  if (aimSource === 'joystick') {
       const joystickSide = Math.cos(targetAngle) >= 0 ? 0 : Math.PI;
       const currentSide = Math.cos(initialFacing) >= 0 ? 0 : Math.PI;
       if (joystickSide !== currentSide) {
@@ -2292,7 +2291,6 @@ function updateAiming(F, currentPose, fighterId){
         applyFacing(mouseSide);
       }
     }
-  }
 
   const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
   let relativeAngle = targetAngle - facingRad;

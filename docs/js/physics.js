@@ -511,11 +511,8 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   }
   fighter._jumpHeld = jumpPressed;
 
-  const baseDashSpeed = (Number.isFinite(M.dashSpeedMultiplier) ? M.dashSpeedMultiplier : 1.8)
-    * movementBaseMultiplier;
-  const dashMult = fighter.stamina?.isDashing
-    ? baseDashSpeed * (movementMultipliers.dashSpeed || 1)
-    : 1;
+  // Dash removed - speed multiplier always 1
+  const dashMult = 1;
 
   fighter.vel ||= { x: 0, y: 0 };
   fighter.pos ||= { x: 0, y: computeGroundY(config) };

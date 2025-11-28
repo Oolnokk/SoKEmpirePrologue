@@ -454,7 +454,6 @@ export function makeCombat(G, C, options = {}){
     const stamina = fighter?.stamina || null;
     if (stamina){
       if (DEFENSE.prevDrainRate != null) stamina.drainRate = DEFENSE.prevDrainRate;
-      stamina.isDashing = false;
     }
     const context = DEFENSE.context;
     if (context?.onComplete){
@@ -555,7 +554,6 @@ export function makeCombat(G, C, options = {}){
     if (Number.isFinite(abilityInstance.defensive?.staminaDrainPerSecond)){
       stamina.drainRate = abilityInstance.defensive.staminaDrainPerSecond;
     }
-    stamina.isDashing = true;
 
     CHARGE.active = false;
     CHARGE.stage = 0;
@@ -2267,8 +2265,6 @@ export function makeCombat(G, C, options = {}){
       stopDefensiveAbility('stamina');
       return;
     }
-
-    stamina.isDashing = true;
 
     const nowMs = now();
     if (nowMs >= DEFENSE.nextRefresh){
