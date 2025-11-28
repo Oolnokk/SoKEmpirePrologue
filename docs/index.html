@@ -140,6 +140,10 @@
         <p class="loadout-subtitle">Configure your fighter before entering the demo.</p>
       </header>
       <form id="loadoutForm" class="loadout-form" novalidate>
+        <div style="padding: 16px; border-bottom: 1px solid rgba(148, 163, 184, 0.2);">
+          <button type="button" class="loadout-primary" data-action="launch" style="width: 100%;">Start Demo with Loadout</button>
+        </div>
+
         <section class="loadout-section" aria-labelledby="loadoutGeneralHeading">
           <h3 id="loadoutGeneralHeading">General</h3>
           <div class="loadout-grid">
@@ -230,8 +234,6 @@
 
         <footer class="loadout-footer">
           <button type="button" class="loadout-secondary" data-action="reset-defaults">Reset to Defaults</button>
-          <span class="loadout-spacer" aria-hidden="true"></span>
-          <button type="button" class="loadout-primary" data-action="launch">Start Demo with Loadout</button>
         </footer>
       </form>
     </div>
