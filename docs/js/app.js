@@ -1207,6 +1207,15 @@ if (toggleShowRangeCollider) {
   });
 }
 
+const toggleShowAttackColliders = $$('#toggleShowAttackColliders');
+if (toggleShowAttackColliders) {
+  toggleShowAttackColliders.checked = window.RENDER_DEBUG?.showAttackColliders || false;
+  toggleShowAttackColliders.addEventListener('change', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.showAttackColliders = e.target.checked;
+  });
+}
+
 // Re-init presets on external config updates
 document.addEventListener('config:updated', ()=>{
   initPresets();

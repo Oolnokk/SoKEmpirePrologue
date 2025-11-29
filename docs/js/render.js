@@ -20,7 +20,7 @@
 import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withAXUtil, rad, angleFromDelta as angleFromDeltaUtil, degToRad } from './math-utils.js?v=1';
 import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=2';
 import { pickFighterConfig, lengths, pickOffsets, resolveBoneLengthScale } from './fighter-utils.js?v=1';
-import { updateFighterColliders, pruneFighterColliders } from './colliders.js?v=1';
+import { updateFighterColliders, pruneFighterColliders, getFighterColliders } from './colliders.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
 
 // === RENDER DEBUG CONFIGURATION ===
@@ -790,6 +790,70 @@ export function renderAll(ctx){
     drawRangeCollider(ctx, entity.fighter, entity.hitbox);
   }
 
+  // Draw attack colliders debug visualization
+  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+  if (DEBUG.showAttackColliders) {
+    for (const entity of renderEntities) {
+      if (!entity || !entity.fighter) continue;
+      drawAttackColliders(ctx, entity.fighter, entity.id);
+    }
+  }
+
   ctx.restore();
   drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`);
+}
+
+function drawAttackColliders(ctx, fighter, fighterId) {
+  if (!ctx || !fighter) return;
+
+  // Only draw if fighter is actively attacking
+  const attack = fighter.attack;
+  if (!attack || !attack.active) return;
+
+  const currentPhase = attack.currentPhase || '';
+  const isStriking = currentPhase.toLowerCase().includes('strike') || currentPhase.toLowerCase().includes('impact');
+  if (!isStriking) return;
+
+  // Get active collider keys
+  const keys = attack.currentActiveKeys || [];
+  if (!Array.isArray(keys) || keys.length === 0) return;
+
+  // Get collider positions
+  const colliders = getFighterColliders(fighterId);
+  if (!colliders) return;
+
+  // Check if attack recently landed a hit (within last 100ms)
+  const hitRecently = attack.strikeLanded === true;
+
+  // Draw each active collider
+  ctx.save();
+  keys.forEach((key) => {
+    const pos = colliders[key];
+    const radius = colliders[`${key}Radius`] || 12;
+
+    if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
+
+    // Yellow by default, red if hit landed
+    const color = hitRecently ? 'rgba(255, 0, 0, 0.6)' : 'rgba(255, 255, 0, 0.6)';
+    const strokeColor = hitRecently ? 'rgba(200, 0, 0, 0.9)' : 'rgba(200, 200, 0, 0.9)';
+
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw label
+    ctx.fillStyle = 'white';
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 3;
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeText(key, pos.x, pos.y);
+    ctx.fillText(key, pos.x, pos.y);
+  });
+  ctx.restore();
 }
