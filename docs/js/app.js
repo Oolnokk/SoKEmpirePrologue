@@ -1240,6 +1240,42 @@ if (dashRotationOffset && dashRotationValue) {
   });
 }
 
+const dashImpulseMultiplier = $$('#dashImpulseMultiplier');
+const dashImpulseValue = $$('#dashImpulseValue');
+if (dashImpulseMultiplier && dashImpulseValue) {
+  dashImpulseMultiplier.value = window.RENDER_DEBUG?.dashImpulseMultiplier || 3.0;
+  dashImpulseValue.textContent = Number(dashImpulseMultiplier.value).toFixed(1);
+  dashImpulseMultiplier.addEventListener('input', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.dashImpulseMultiplier = Number(e.target.value);
+    dashImpulseValue.textContent = Number(e.target.value).toFixed(1);
+  });
+}
+
+const dashFrictionMultiplier = $$('#dashFrictionMultiplier');
+const dashFrictionValue = $$('#dashFrictionValue');
+if (dashFrictionMultiplier && dashFrictionValue) {
+  dashFrictionMultiplier.value = window.RENDER_DEBUG?.dashFrictionMultiplier || 0.1;
+  dashFrictionValue.textContent = Number(dashFrictionMultiplier.value).toFixed(2);
+  dashFrictionMultiplier.addEventListener('input', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.dashFrictionMultiplier = Number(e.target.value);
+    dashFrictionValue.textContent = Number(e.target.value).toFixed(2);
+  });
+}
+
+const dashWeightDrop = $$('#dashWeightDrop');
+const dashWeightValue = $$('#dashWeightValue');
+if (dashWeightDrop && dashWeightValue) {
+  dashWeightDrop.value = window.RENDER_DEBUG?.dashWeightDrop || 0;
+  dashWeightValue.textContent = Number(dashWeightDrop.value).toFixed(1);
+  dashWeightDrop.addEventListener('input', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.dashWeightDrop = Number(e.target.value);
+    dashWeightValue.textContent = Number(e.target.value).toFixed(1);
+  });
+}
+
 // Re-init presets on external config updates
 document.addEventListener('config:updated', ()=>{
   initPresets();

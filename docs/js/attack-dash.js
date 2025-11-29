@@ -133,35 +133,35 @@ export function updateAttackDash(fighter, dt, game = null) {
 
   // Apply impulse once at start and reduce friction for duration
   if (!dash.appliedImpulse && dash.impulse > 0) {
-    // Get debug rotation offset from window
+    // Get debug settings
     const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
-    const rotationOffsetDeg = Number.isFinite(DEBUG.dashRotationOffset)
-      ? DEBUG.dashRotationOffset
-      : 0;
+    const impulseMult = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 3.0;
+    const frictionMult = Number.isFinite(DEBUG.dashFrictionMultiplier) ? DEBUG.dashFrictionMultiplier : 0.1;
 
-    // Convert degrees to radians
-    const degToRad = (deg) => (deg * Math.PI) / 180;
-    const rotationOffsetRad = degToRad(rotationOffsetDeg);
-
-    // Get head angle from fighter pose, fallback to facingRad
-    let baseAngle = fighter.facingRad || 0;
-    if (fighter.pose?.head != null) {
-      baseAngle = fighter.pose.head;
-    }
-
-    const angle = baseAngle + rotationOffsetRad;
-
-    // Apply impulse in the direction of angle
+    // Apply horizontal impulse only (no Y-axis) in facing direction
+    const facingSign = fighter.facingSign || 1;
     fighter.vel = fighter.vel || { x: 0, y: 0 };
-    fighter.vel.x += dash.impulse * Math.cos(angle);
-    fighter.vel.y += dash.impulse * Math.sin(angle);
+    fighter.vel.x += dash.impulse * impulseMult * facingSign;
+    // NO Y-axis impulse - keep it horizontal only
 
     // Reduce friction for slippery movement
     fighter.frictionOverride = fighter.frictionOverride || {};
-    fighter.frictionOverride.value = 0.5; // Low friction for dash
+    fighter.frictionOverride.value = frictionMult; // Configurable low friction
     fighter.frictionOverride.active = true;
 
     dash.appliedImpulse = true;
+  }
+
+  // Apply weight drop lerp if configured
+  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+  if (Number.isFinite(DEBUG.dashWeightDrop) && DEBUG.dashWeightDrop > 0) {
+    // Lerp gravity from 0 to full over the strike duration
+    const progress = Math.min(1, dash.elapsed / dash.duration);
+    const targetGravity = 1.0 + DEBUG.dashWeightDrop;
+    const lerpedGravity = progress * targetGravity;
+
+    fighter.gravityOverride = fighter.gravityOverride || {};
+    fighter.gravityOverride.value = lerpedGravity;
   }
 }
 
