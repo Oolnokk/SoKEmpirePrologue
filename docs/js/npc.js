@@ -639,6 +639,8 @@ function ensureNpcBehaviorPhase(state) {
   phase.comboProgress = Number.isFinite(phase.comboProgress) ? phase.comboProgress : 0;
   phase.comboMaxHits = Number.isFinite(phase.comboMaxHits) ? phase.comboMaxHits : 4;
   phase.approachTimeout = Number.isFinite(phase.approachTimeout) ? phase.approachTimeout : 5.0;
+  phase.lastHitCount = Number.isFinite(phase.lastHitCount) ? phase.lastHitCount : 0;
+  phase.finisherAttempted = !!phase.finisherAttempted;
   return phase;
 }
 
@@ -650,6 +652,8 @@ function resetBehaviorPhase(state, newPhase = 'decide') {
     phase.plannedAbility = null;
     phase.holdInputActive = false;
     phase.comboProgress = 0;
+    phase.lastHitCount = 0;
+    phase.finisherAttempted = false;
   }
 }
 
@@ -788,9 +792,6 @@ function updateApproachPhase(state, combat, player, dt, absDx) {
 function updateAttackPhase(state, combat, dt) {
   const phase = ensureNpcBehaviorPhase(state);
 
-  // Set mode for attack phase
-  state.mode = 'attack';
-
   if (!phase.plannedAbility) {
     resetBehaviorPhase(state, 'retreat');
     return;
@@ -800,18 +801,26 @@ function updateAttackPhase(state, combat, dt) {
 
   // Handle different ability types
   if (isHoldReleaseHeavy(ability)) {
-    // Hold-release: Turn off hold input
+    // Hold-release: Keep approaching while holding, then release
     if (phase.holdInputActive) {
+      // Still holding - keep approaching to close distance
+      state.mode = 'approach';
+
+      // Release the hold immediately upon entering attack phase
       releaseNpcButton(state, combat, ability.slotKey);
       phase.holdInputActive = false;
+    } else {
+      // Released - now in attack animation, stand still
+      state.mode = 'attack';
     }
-    // Wait a moment for attack to execute, then move to retreat
+
+    // Wait for attack to execute, then move to retreat
     phase.timer += dt;
     if (phase.timer > 0.5) {
       resetBehaviorPhase(state, 'retreat');
     }
   } else if (isComboAbility(ability)) {
-    // Combo: Attempt all 4 combo attacks
+    // Combo: Attempt all 4 attacks, checking if at least one strike lands per attack
     const comboState = combat && typeof combat.getComboState === 'function'
       ? combat.getComboState()
       : null;
@@ -829,7 +838,7 @@ function updateAttackPhase(state, combat, dt) {
       return;
     }
 
-    // Track combo hits
+    // Track total strikes landed (can be multiple per attack)
     const currentHits = Number.isFinite(comboState.hits) ? comboState.hits : 0;
 
     // Attempt next combo attack if we haven't reached max
@@ -840,12 +849,20 @@ function updateAttackPhase(state, combat, dt) {
 
       // Wait for attack to finish before next input
       if (!attackActive && !comboActive) {
-        // Previous attack finished, try next
-        if (phase.comboProgress > 0 && currentHits < phase.comboProgress) {
-          // Missed a hit, skip to retreat
-          resetBehaviorPhase(state, 'retreat');
-          return;
+        // Check if the previous attack landed at least one strike
+        if (phase.comboProgress > 0) {
+          // Get hit count before this attack started
+          const lastHitCount = Number.isFinite(phase.lastHitCount) ? phase.lastHitCount : 0;
+
+          if (currentHits <= lastHitCount) {
+            // No strikes landed from the previous attack, retreat
+            resetBehaviorPhase(state, 'retreat');
+            return;
+          }
         }
+
+        // Save current hit count before pressing next attack
+        phase.lastHitCount = currentHits;
 
         // Press next combo attack
         const pressed = pressNpcButton(state, combat, ability.slotKey, 0.12);
@@ -854,12 +871,18 @@ function updateAttackPhase(state, combat, dt) {
         }
       }
     } else {
-      // All 4 combo attacks attempted
-      if (currentHits >= phase.comboMaxHits) {
-        // All hits connected! Try a random quick attack to trigger finisher
-        const quickSlots = ['A', 'B'];
-        const randomQuick = quickSlots[Math.floor(Math.random() * quickSlots.length)];
-        pressNpcButton(state, combat, randomQuick, 0.12);
+      // All 4 combo attacks attempted, check if last attack landed
+      const initialHits = Number.isFinite(phase.lastHitCount) ? phase.lastHitCount : 0;
+
+      if (currentHits > initialHits) {
+        // Last attack landed, all 4 attacks successful!
+        // Try a random quick attack to trigger finisher
+        if (!phase.finisherAttempted) {
+          const quickSlots = ['A', 'B'];
+          const randomQuick = quickSlots[Math.floor(Math.random() * quickSlots.length)];
+          pressNpcButton(state, combat, randomQuick, 0.12);
+          phase.finisherAttempted = true;
+        }
       }
 
       // Move to retreat after combo sequence
