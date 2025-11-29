@@ -224,7 +224,7 @@ function applyCharacterTemplateToFighter(fighter, templateResult, baseTemplate) 
   fighter.stamina = {
     current: maxStamina,
     max: maxStamina,
-    drainRate: staminaDrainRate,
+    drainRate: 0, // Only set when abilities are actively draining (e.g., defensive abilities)
     regenRate: staminaRegenRate,
     reengageRatio: baseTemplate?.stamina?.reengageRatio ?? fighter.stamina?.reengageRatio ?? 0.6,
   };
@@ -763,7 +763,7 @@ export function initFighters(cv, cx, options = {}){
       stamina: {
         current: maxStamina,
         max: maxStamina,
-        drainRate: staminaDrainRate,
+        drainRate: 0, // Only set when abilities are actively draining (e.g., defensive abilities)
         regenRate: staminaRegenRate,
         reengageRatio: 0.6,
       },
