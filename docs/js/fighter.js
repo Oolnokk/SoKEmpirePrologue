@@ -39,7 +39,6 @@ function normalizeStats(rawStats = {}) {
   if (Number.isFinite(rawStats.maxStamina)) {
     stats.maxStamina = rawStats.maxStamina;
   }
-  }
   return stats;
 }
 
