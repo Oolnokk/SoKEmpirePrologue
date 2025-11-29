@@ -422,23 +422,53 @@ function drawRangeCollider(ctx, fighter, hitbox) {
 
   const colors = phaseColors[currentPhase] || phaseColors.unknown;
 
+  // Get facing angle - use head angle with debug rotation offset
+  const rotationOffset = Number.isFinite(DEBUG.rangeColliderRotationOffset)
+    ? DEBUG.rangeColliderRotationOffset
+    : 0;
+
+  // Try to get head angle from pose state, fallback to facingRad
+  let baseAngle = fighter.facingRad || 0;
+  if (fighter.pose?.head) {
+    baseAngle = fighter.pose.head;
+  }
+
+  const angle = baseAngle + degToRad(rotationOffset);
+
+  // Draw rectangle extending from center in facing direction
+  // Rectangle width = 40px, length = attackRange
+  const rectWidth = 40;
+  const rectLength = attackRange;
+
+  // Calculate the end point of the bone/rectangle
+  const [endX, endY] = segPos(centerX, centerY, rectLength, angle);
+
   ctx.save();
   ctx.strokeStyle = colors.stroke;
   ctx.fillStyle = colors.fill;
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 4]);
 
+  // Draw rectangle aligned with angle
+  ctx.translate(centerX, centerY);
+  ctx.rotate(angle);
+
+  // Draw rectangle from origin extending forward
   ctx.beginPath();
-  ctx.arc(centerX, centerY, attackRange, 0, Math.PI * 2);
+  ctx.rect(0, -rectWidth / 2, rectLength, rectWidth);
   ctx.fill();
   ctx.stroke();
 
-  // Draw phase and range label above collider
+  ctx.restore();
+
+  // Draw phase and range label at end of collider
+  ctx.save();
   ctx.setLineDash([]);
   ctx.fillStyle = colors.stroke;
   ctx.font = 'bold 11px system-ui, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(`${currentPhase.toUpperCase()} (${attackRange.toFixed(0)})`, centerX, centerY - attackRange - 5);
+  ctx.fillText(`${currentPhase.toUpperCase()} (${attackRange.toFixed(0)})`, endX, endY - 15);
+  ctx.restore();
 
   // Draw behavior phase info inside collider
   if (phase) {

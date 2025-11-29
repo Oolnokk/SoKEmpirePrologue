@@ -1207,12 +1207,36 @@ if (toggleShowRangeCollider) {
   });
 }
 
+const rangeColliderRotationOffset = $$('#rangeColliderRotationOffset');
+const rangeRotationValue = $$('#rangeRotationValue');
+if (rangeColliderRotationOffset && rangeRotationValue) {
+  rangeColliderRotationOffset.value = window.RENDER_DEBUG?.rangeColliderRotationOffset || 0;
+  rangeRotationValue.textContent = `${rangeColliderRotationOffset.value}°`;
+  rangeColliderRotationOffset.addEventListener('input', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.rangeColliderRotationOffset = Number(e.target.value);
+    rangeRotationValue.textContent = `${e.target.value}°`;
+  });
+}
+
 const toggleShowAttackColliders = $$('#toggleShowAttackColliders');
 if (toggleShowAttackColliders) {
   toggleShowAttackColliders.checked = window.RENDER_DEBUG?.showAttackColliders || false;
   toggleShowAttackColliders.addEventListener('change', (e) => {
     window.RENDER_DEBUG = window.RENDER_DEBUG || {};
     window.RENDER_DEBUG.showAttackColliders = e.target.checked;
+  });
+}
+
+const dashRotationOffset = $$('#dashRotationOffset');
+const dashRotationValue = $$('#dashRotationValue');
+if (dashRotationOffset && dashRotationValue) {
+  dashRotationOffset.value = window.RENDER_DEBUG?.dashRotationOffset || 0;
+  dashRotationValue.textContent = `${dashRotationOffset.value}°`;
+  dashRotationOffset.addEventListener('input', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.dashRotationOffset = Number(e.target.value);
+    dashRotationValue.textContent = `${e.target.value}°`;
   });
 }
 

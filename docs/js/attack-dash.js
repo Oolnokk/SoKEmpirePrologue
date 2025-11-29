@@ -121,11 +121,30 @@ export function updateAttackDash(fighter, dt, game = null) {
     }
   }
 
-  // Apply dash velocity in facing direction
-  if (dash.velocity > 0 && fighter.facingSign) {
-    const dashVel = dash.velocity * fighter.facingSign;
+  // Apply dash velocity using head angle with debug rotation offset
+  if (dash.velocity > 0) {
+    // Get debug rotation offset from window
+    const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+    const rotationOffsetDeg = Number.isFinite(DEBUG.dashRotationOffset)
+      ? DEBUG.dashRotationOffset
+      : 0;
+
+    // Convert degrees to radians
+    const degToRad = (deg) => (deg * Math.PI) / 180;
+    const rotationOffsetRad = degToRad(rotationOffsetDeg);
+
+    // Get head angle from fighter pose, fallback to facingRad
+    let baseAngle = fighter.facingRad || 0;
+    if (fighter.pose?.head != null) {
+      baseAngle = fighter.pose.head;
+    }
+
+    const angle = baseAngle + rotationOffsetRad;
+
+    // Calculate velocity components from angle
     fighter.vel = fighter.vel || { x: 0, y: 0 };
-    fighter.vel.x = dashVel;
+    fighter.vel.x = dash.velocity * Math.cos(angle);
+    fighter.vel.y = dash.velocity * Math.sin(angle);
   }
 }
 
