@@ -1815,14 +1815,12 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   if (aggression.active) {
     state.cooldown = Math.max(0, (state.cooldown || 0) - dt);
     if (attackActive) {
-      if (state.stamina) 
       input.left = false;
       input.right = false;
     } else {
       const recovering = stamina?.recovering && !isPanicking;
       input.left = false;
       input.right = false;
-      if (state.stamina) 
       let handledByAbility = false;
 
       if (!recovering && heavyIntent && heavyIntent.mode) {
@@ -1838,9 +1836,6 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
         } else if (heavyIntent.mode === 'approach') {
           state.mode = 'approach';
           const targetRange = heavyIntent.targetRange || nearDist;
-          if (state.stamina) {
-            
-          }
           handledByAbility = true;
         } else if (heavyIntent.mode === 'recover') {
           state.mode = 'retreat';
@@ -1894,15 +1889,9 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       if (state.mode === 'approach') {
         input.right = dx > 0;
         input.left = dx < 0;
-        if (state.stamina) {
-          
-        }
       } else if (state.mode === 'retreat') {
         input.right = dx < 0;
         input.left = dx > 0;
-        if (state.stamina) {
-          
-        }
       } else if (state.mode === 'defend') {
         const retreatDir = defenseState.retreatDir || defensiveRetreatDir || (dx >= 0 ? -1 : 1);
         if (defensiveType === 'evade') {
@@ -1912,7 +1901,6 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
           input.left = false;
           input.right = false;
         }
-        if (state.stamina) 
       } else if (state.mode === 'shuffle') {
         if (!Number.isFinite(shuffleState.originDistance)) {
           shuffleState.originDistance = absDx;
@@ -1930,13 +1918,9 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
         }
         input.left = shuffleState.direction < 0;
         input.right = shuffleState.direction > 0;
-        if (state.stamina) 
       } else if (state.mode === 'recover') {
         input.right = dx < 0;
         input.left = dx > 0;
-        if (state.stamina) 
-      } else {
-        if (state.stamina) 
       }
     }
 
@@ -1944,8 +1928,6 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     if (state.mode === 'attack' && !attackActive && !isPressing && !recovering) {
       state.mode = state.patienceTimer > 0 ? 'shuffle' : 'approach';
     }
-  } else {
-    if (state.stamina) 
   }
 
   if (stamina) {
