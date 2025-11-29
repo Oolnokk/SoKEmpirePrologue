@@ -500,6 +500,9 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
 
   const input = options.input || fighter.input || null;
   const attackActive = !!options.attackActive;
+  // Allow movement during Charge phase (hold-release heavies)
+  const attackPhase = fighter.attack?.currentPhase || null;
+  const canMoveWhileAttacking = attackActive && attackPhase === 'Charge';
   const prevOnGround = !!fighter.onGround;
 
   const jumpPressed = input ? !!input.jump : false;
@@ -536,7 +539,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   } else if (underKnockback) {
     const damping = Math.exp(-Math.max(2, friction * 0.35) * dt);
     fighter.vel.x *= damping;
-    if (input && !attackActive) {
+    if (input && (!attackActive || canMoveWhileAttacking)) {
       const inputDir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
       if (inputDir !== 0) {
         fighter.vel.x += accelX * 0.55 * inputDir * dt;
@@ -548,11 +551,11 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   } else if (input) {
     const left = !!input.left;
     const right = !!input.right;
-    if (left && !right && !attackActive) {
+    if (left && !right && (!attackActive || canMoveWhileAttacking)) {
       fighter.vel.x -= accelX * dashMult * dt;
       fighter.facingRad = Math.PI;
       fighter.facingSign = -1;
-    } else if (right && !left && !attackActive) {
+    } else if (right && !left && (!attackActive || canMoveWhileAttacking)) {
       fighter.vel.x += accelX * dashMult * dt;
       fighter.facingRad = 0;
       fighter.facingSign = 1;

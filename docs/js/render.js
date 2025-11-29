@@ -437,12 +437,58 @@ function drawRangeCollider(ctx, fighter, hitbox) {
   ctx.fill();
   ctx.stroke();
 
-  // Draw mode and range label
+  // Draw mode and range label above collider
   ctx.setLineDash([]);
   ctx.fillStyle = colors.stroke;
   ctx.font = 'bold 11px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText(`${mode.toUpperCase()} (${attackRange.toFixed(0)})`, centerX, centerY - attackRange - 5);
+
+  // Draw behavior phase info inside collider
+  const phase = fighter.behaviorPhase;
+  if (phase) {
+    const lines = [];
+
+    // Phase name
+    lines.push(`Phase: ${(phase.current || 'none').toUpperCase()}`);
+
+    // Phase-specific info
+    if (phase.plannedAbility) {
+      const ability = phase.plannedAbility;
+      lines.push(`${ability.slotKey}-${ability.weight} (${ability.id || 'unknown'})`);
+    }
+
+    // Timer info
+    if (Number.isFinite(phase.timer)) {
+      lines.push(`T: ${phase.timer.toFixed(1)}s`);
+    }
+
+    // Additional phase details
+    if (phase.current === 'attack' && phase.comboProgress > 0) {
+      lines.push(`Combo: ${phase.comboProgress}/${phase.comboMaxHits || 4}`);
+    }
+
+    if (phase.current === 'approach' && phase.holdInputActive) {
+      lines.push(`[HOLD ACTIVE]`);
+    }
+
+    // Draw text lines centered inside collider
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.lineWidth = 3;
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const lineHeight = 16;
+    const startY = centerY - ((lines.length - 1) * lineHeight) / 2;
+
+    lines.forEach((line, i) => {
+      const y = startY + i * lineHeight;
+      ctx.strokeText(line, centerX, y);
+      ctx.fillText(line, centerX, y);
+    });
+  }
 
   ctx.restore();
 }

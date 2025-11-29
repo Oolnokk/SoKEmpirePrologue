@@ -711,8 +711,9 @@ function isHoldReleaseHeavy(abilityDescriptor) {
 
 function isComboAbility(abilityDescriptor) {
   if (!abilityDescriptor) return false;
-  // Combo abilities are typically light attacks that chain
-  return abilityDescriptor.type === 'quick' || abilityDescriptor.weight === 'light';
+  // Combo abilities are light-weight attacks that chain into sequences
+  // Quick attacks are single-hit abilities
+  return abilityDescriptor.weight === 'light' && abilityDescriptor.type !== 'quick';
 }
 
 function isQuickAttack(abilityDescriptor) {
@@ -745,8 +746,6 @@ function updateDecidePhase(state, combat, dt) {
     if (state.ai) {
       state.ai.attackRange = range;
     }
-
-    console.log(`[Behavior Phase] ${state.id} DECIDE: Selected ${randomAbility.slotKey}-${randomAbility.weight} (${randomAbility.id}), range=${range}`);
   }
 
   // Move to approach phase
@@ -767,10 +766,7 @@ function updateApproachPhase(state, combat, player, dt, absDx) {
   // Check if hold-release heavy ability - activate hold input at start
   if (!phase.holdInputActive && isHoldReleaseHeavy(phase.plannedAbility)) {
     phase.holdInputActive = true;
-    const pressed = pressNpcButton(state, combat, phase.plannedAbility.slotKey, 999); // Long hold
-    if (pressed) {
-      console.log(`[Behavior Phase] ${state.id} APPROACH: Hold input activated for ${phase.plannedAbility.slotKey}`);
-    }
+    pressNpcButton(state, combat, phase.plannedAbility.slotKey, 999); // Long hold
   }
 
   // Check transition conditions
@@ -779,8 +775,6 @@ function updateApproachPhase(state, combat, player, dt, absDx) {
   const timeout = phase.timer >= phase.approachTimeout;
 
   if (inRange || timeout) {
-    const reason = inRange ? 'player in range' : '5s timeout';
-    console.log(`[Behavior Phase] ${state.id} APPROACH → ATTACK (${reason})`);
     resetBehaviorPhase(state, 'attack');
   }
 }
@@ -801,12 +795,10 @@ function updateAttackPhase(state, combat, dt) {
     if (phase.holdInputActive) {
       releaseNpcButton(state, combat, ability.slotKey);
       phase.holdInputActive = false;
-      console.log(`[Behavior Phase] ${state.id} ATTACK: Released hold input for ${ability.slotKey}`);
     }
     // Wait a moment for attack to execute, then move to retreat
     phase.timer += dt;
     if (phase.timer > 0.5) {
-      console.log(`[Behavior Phase] ${state.id} ATTACK → RETREAT (hold-release complete)`);
       resetBehaviorPhase(state, 'retreat');
     }
   } else if (isComboAbility(ability)) {
@@ -823,7 +815,6 @@ function updateAttackPhase(state, combat, dt) {
       }
       phase.timer += dt;
       if (phase.timer > 0.5) {
-        console.log(`[Behavior Phase] ${state.id} ATTACK → RETREAT (no combo state)`);
         resetBehaviorPhase(state, 'retreat');
       }
       return;
@@ -843,7 +834,6 @@ function updateAttackPhase(state, combat, dt) {
         // Previous attack finished, try next
         if (phase.comboProgress > 0 && currentHits < phase.comboProgress) {
           // Missed a hit, skip to retreat
-          console.log(`[Behavior Phase] ${state.id} ATTACK → RETREAT (combo miss at ${currentHits}/${phase.comboProgress})`);
           resetBehaviorPhase(state, 'retreat');
           return;
         }
@@ -852,7 +842,6 @@ function updateAttackPhase(state, combat, dt) {
         const pressed = pressNpcButton(state, combat, ability.slotKey, 0.12);
         if (pressed) {
           phase.comboProgress++;
-          console.log(`[Behavior Phase] ${state.id} ATTACK: Combo ${phase.comboProgress}/${phase.comboMaxHits}`);
         }
       }
     } else {
@@ -862,13 +851,11 @@ function updateAttackPhase(state, combat, dt) {
         const quickSlots = ['A', 'B'];
         const randomQuick = quickSlots[Math.floor(Math.random() * quickSlots.length)];
         pressNpcButton(state, combat, randomQuick, 0.12);
-        console.log(`[Behavior Phase] ${state.id} ATTACK: Combo complete (${currentHits} hits), attempting finisher with ${randomQuick}`);
       }
 
       // Move to retreat after combo sequence
       phase.timer += dt;
       if (phase.timer > 0.5) {
-        console.log(`[Behavior Phase] ${state.id} ATTACK → RETREAT (combo sequence complete)`);
         resetBehaviorPhase(state, 'retreat');
       }
     }
@@ -876,12 +863,10 @@ function updateAttackPhase(state, combat, dt) {
     // Quick attack: Perform once
     if (phase.timer === 0) {
       pressNpcButton(state, combat, ability.slotKey, 0.12);
-      console.log(`[Behavior Phase] ${state.id} ATTACK: Quick attack ${ability.slotKey}`);
     }
 
     phase.timer += dt;
     if (phase.timer > 0.5) {
-      console.log(`[Behavior Phase] ${state.id} ATTACK → RETREAT (quick attack complete)`);
       resetBehaviorPhase(state, 'retreat');
     }
   }
@@ -902,7 +887,6 @@ function updateRetreatPhase(state, dt, absDx, dx) {
 
   // Check if retreat is complete
   if (state.retreatTimer <= 0 || phase.timer > 2.0) {
-    console.log(`[Behavior Phase] ${state.id} RETREAT → SHUFFLE`);
     resetBehaviorPhase(state, 'shuffle');
     resetNpcShuffle(state, dx >= 0 ? -1 : 1);
   }
@@ -922,7 +906,6 @@ function updateShufflePhase(state, dt) {
 
   // After shuffle period, return to decide phase
   if (state.patienceTimer <= 0 || phase.timer > 3.0) {
-    console.log(`[Behavior Phase] ${state.id} SHUFFLE → DECIDE (new cycle)`);
     resetBehaviorPhase(state, 'decide');
   }
 }
