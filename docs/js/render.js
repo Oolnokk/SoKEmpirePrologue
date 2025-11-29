@@ -406,25 +406,21 @@ function drawRangeCollider(ctx, fighter, hitbox) {
   const centerX = hitbox?.x ?? fighter.pos?.x ?? 0;
   const centerY = hitbox?.y ?? fighter.pos?.y ?? 0;
 
-  // Get NPC mode/state for color coding
-  const mode = fighter.mode || 'unknown';
+  // Get phase for color coding (use phase instead of mode)
+  const phase = fighter.behaviorPhase;
+  const currentPhase = phase?.current || 'unknown';
 
-  // Color mapping based on NPC behavior state
-  const stateColors = {
-    'idle': { stroke: 'rgba(156, 163, 175, 0.8)', fill: 'rgba(156, 163, 175, 0.12)' },      // Gray
-    'alert': { stroke: 'rgba(251, 191, 36, 0.8)', fill: 'rgba(251, 191, 36, 0.12)' },      // Yellow
-    'follow': { stroke: 'rgba(59, 130, 246, 0.8)', fill: 'rgba(59, 130, 246, 0.12)' },     // Blue
-    'patrol': { stroke: 'rgba(96, 165, 250, 0.8)', fill: 'rgba(96, 165, 250, 0.12)' },     // Light blue
+  // Color mapping based on NPC behavior PHASE
+  const phaseColors = {
+    'decide': { stroke: 'rgba(251, 191, 36, 0.8)', fill: 'rgba(251, 191, 36, 0.12)' },      // Yellow
     'approach': { stroke: 'rgba(251, 146, 60, 0.8)', fill: 'rgba(251, 146, 60, 0.12)' },   // Orange
-    'retreat': { stroke: 'rgba(168, 85, 247, 0.8)', fill: 'rgba(168, 85, 247, 0.12)' },    // Purple
     'attack': { stroke: 'rgba(239, 68, 68, 0.8)', fill: 'rgba(239, 68, 68, 0.12)' },       // Red
-    'defend': { stroke: 'rgba(34, 197, 94, 0.8)', fill: 'rgba(34, 197, 94, 0.12)' },       // Green
-    'shuffle': { stroke: 'rgba(168, 162, 158, 0.8)', fill: 'rgba(168, 162, 158, 0.12)' },  // Stone
-    'recover': { stroke: 'rgba(236, 72, 153, 0.8)', fill: 'rgba(236, 72, 153, 0.12)' },    // Pink
+    'retreat': { stroke: 'rgba(168, 85, 247, 0.8)', fill: 'rgba(168, 85, 247, 0.12)' },    // Purple
+    'shuffle': { stroke: 'rgba(168, 162, 158, 0.8)', fill: 'rgba(168, 162, 158, 0.12)' },  // Gray
     'unknown': { stroke: 'rgba(156, 163, 175, 0.8)', fill: 'rgba(156, 163, 175, 0.12)' }   // Gray
   };
 
-  const colors = stateColors[mode] || stateColors.unknown;
+  const colors = phaseColors[currentPhase] || phaseColors.unknown;
 
   ctx.save();
   ctx.strokeStyle = colors.stroke;
@@ -437,56 +433,75 @@ function drawRangeCollider(ctx, fighter, hitbox) {
   ctx.fill();
   ctx.stroke();
 
-  // Draw mode and range label above collider
+  // Draw phase and range label above collider
   ctx.setLineDash([]);
   ctx.fillStyle = colors.stroke;
   ctx.font = 'bold 11px system-ui, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(`${mode.toUpperCase()} (${attackRange.toFixed(0)})`, centerX, centerY - attackRange - 5);
+  ctx.fillText(`${currentPhase.toUpperCase()} (${attackRange.toFixed(0)})`, centerX, centerY - attackRange - 5);
 
   // Draw behavior phase info inside collider
-  const phase = fighter.behaviorPhase;
   if (phase) {
     const lines = [];
 
     // Phase name
-    lines.push(`Phase: ${(phase.current || 'none').toUpperCase()}`);
+    lines.push({ text: `Phase: ${currentPhase.toUpperCase()}`, color: 'rgba(255, 255, 255, 0.95)' });
 
-    // Phase-specific info
+    // Phase-specific info with ability type color coding
     if (phase.plannedAbility) {
       const ability = phase.plannedAbility;
-      lines.push(`${ability.slotKey}-${ability.weight} (${ability.id || 'unknown'})`);
+      let abilityColor = 'rgba(255, 255, 255, 0.95)'; // Default white
+
+      // Color code by ability type
+      if (ability.trigger === 'hold-release' && ability.weight === 'heavy') {
+        abilityColor = 'rgba(139, 0, 0, 1)'; // Deep red for heavy
+      } else if (ability.type === 'quick') {
+        abilityColor = 'rgba(230, 230, 250, 1)'; // Lavender for quick
+      } else if (ability.weight === 'light') {
+        // Combo attacks - color by progress (orange, yellow, green, blue)
+        const comboProgress = phase.comboProgress || 0;
+        if (comboProgress === 1) abilityColor = 'rgba(255, 165, 0, 1)'; // Orange
+        else if (comboProgress === 2) abilityColor = 'rgba(255, 255, 0, 1)'; // Yellow
+        else if (comboProgress === 3) abilityColor = 'rgba(0, 255, 0, 1)'; // Green
+        else if (comboProgress >= 4) abilityColor = 'rgba(0, 191, 255, 1)'; // Blue
+        else abilityColor = 'rgba(255, 165, 0, 1)'; // Orange for initial
+      }
+
+      lines.push({
+        text: `${ability.slotKey}-${ability.weight} (${ability.id || 'unknown'})`,
+        color: abilityColor
+      });
     }
 
     // Timer info
     if (Number.isFinite(phase.timer)) {
-      lines.push(`T: ${phase.timer.toFixed(1)}s`);
+      lines.push({ text: `T: ${phase.timer.toFixed(1)}s`, color: 'rgba(255, 255, 255, 0.95)' });
     }
 
     // Additional phase details
-    if (phase.current === 'attack' && phase.comboProgress > 0) {
-      lines.push(`Combo: ${phase.comboProgress}/${phase.comboMaxHits || 4}`);
+    if (currentPhase === 'attack' && phase.comboProgress > 0) {
+      lines.push({ text: `Combo: ${phase.comboProgress}/${phase.comboMaxHits || 4}`, color: 'rgba(255, 255, 255, 0.95)' });
     }
 
-    if (phase.current === 'approach' && phase.holdInputActive) {
-      lines.push(`[HOLD ACTIVE]`);
+    if (currentPhase === 'approach' && phase.holdInputActive) {
+      lines.push({ text: `[HOLD ACTIVE]`, color: 'rgba(255, 215, 0, 1)' }); // Gold
     }
 
     // Draw text lines centered inside collider
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.lineWidth = 3;
-    ctx.font = 'bold 13px monospace';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+    ctx.lineWidth = 4;
+    ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    const lineHeight = 16;
+    const lineHeight = 18;
     const startY = centerY - ((lines.length - 1) * lineHeight) / 2;
 
     lines.forEach((line, i) => {
       const y = startY + i * lineHeight;
-      ctx.strokeText(line, centerX, y);
-      ctx.fillText(line, centerX, y);
+      ctx.strokeText(line.text, centerX, y);
+      ctx.fillStyle = line.color;
+      ctx.fillText(line.text, centerX, y);
     });
   }
 
@@ -767,10 +782,15 @@ export function renderAll(ctx){
       ctx.scale(-1, 1);
     }
     drawHitbox(ctx, entity.hitbox);
-    drawRangeCollider(ctx, entity.fighter, entity.hitbox);
     drawStick(ctx, entity.bones);
     drawFallbackSilhouette(ctx, entity, C);
     ctx.restore();
+  }
+
+  // Draw range colliders on top of NPCs so text is visible
+  for (const entity of renderEntities) {
+    if (!entity) continue;
+    drawRangeCollider(ctx, entity.fighter, entity.hitbox);
   }
 
   ctx.restore();
