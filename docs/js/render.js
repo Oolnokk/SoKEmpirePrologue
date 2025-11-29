@@ -785,11 +785,8 @@ export function renderAll(ctx){
     drawStick(ctx, entity.bones);
     drawFallbackSilhouette(ctx, entity, C);
     ctx.restore();
-  }
 
-  // Draw range colliders on top of NPCs so text is visible
-  for (const entity of renderEntities) {
-    if (!entity) continue;
+    // Draw range collider AFTER entity is drawn, outside the flip transform
     drawRangeCollider(ctx, entity.fighter, entity.hitbox);
   }
 

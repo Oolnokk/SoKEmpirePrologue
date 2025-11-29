@@ -725,6 +725,9 @@ function isQuickAttack(abilityDescriptor) {
 function updateDecidePhase(state, combat, dt) {
   const phase = ensureNpcBehaviorPhase(state);
 
+  // Set mode for decide phase (stand still while deciding)
+  state.mode = 'approach'; // Approach mode to start moving toward player
+
   if (!phase.plannedAbility) {
     // Pick random ability (excluding defensive heavy)
     const randomAbility = getRandomAbility(combat, true);
@@ -755,6 +758,9 @@ function updateDecidePhase(state, combat, dt) {
 function updateApproachPhase(state, combat, player, dt, absDx) {
   const phase = ensureNpcBehaviorPhase(state);
 
+  // Set mode for approach phase
+  state.mode = 'approach';
+
   if (!phase.plannedAbility) {
     // No ability planned, go back to decide
     resetBehaviorPhase(state, 'decide');
@@ -781,6 +787,9 @@ function updateApproachPhase(state, combat, player, dt, absDx) {
 
 function updateAttackPhase(state, combat, dt) {
   const phase = ensureNpcBehaviorPhase(state);
+
+  // Set mode for attack phase
+  state.mode = 'attack';
 
   if (!phase.plannedAbility) {
     resetBehaviorPhase(state, 'retreat');
