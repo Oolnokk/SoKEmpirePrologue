@@ -636,6 +636,7 @@ function ensureNpcBehaviorPhase(state) {
   phase.timer = Number.isFinite(phase.timer) ? phase.timer : 0;
   phase.plannedAbility = phase.plannedAbility || null;
   phase.holdInputActive = !!phase.holdInputActive;
+  phase.released = !!phase.released;
   phase.comboProgress = Number.isFinite(phase.comboProgress) ? phase.comboProgress : 0;
   phase.comboMaxHits = Number.isFinite(phase.comboMaxHits) ? phase.comboMaxHits : 4;
   phase.approachTimeout = Number.isFinite(phase.approachTimeout) ? phase.approachTimeout : 5.0;
@@ -651,6 +652,7 @@ function resetBehaviorPhase(state, newPhase = 'decide') {
   if (newPhase === 'decide') {
     phase.plannedAbility = null;
     phase.holdInputActive = false;
+    phase.released = false;
     phase.comboProgress = 0;
     phase.lastHitCount = 0;
     phase.finisherAttempted = false;
@@ -695,6 +697,11 @@ function getRandomAbility(combat, excludeDefensive = true) {
 
 function getAbilityRange(combat, abilityDescriptor) {
   if (!combat || !abilityDescriptor) return 70; // Default range
+
+  // Hold-release heavies get crazy long ranges
+  if (isHoldReleaseHeavy(abilityDescriptor)) {
+    return 200; // Long range for hold-release attacks
+  }
 
   const ability = abilityDescriptor.ability;
   if (!ability) return 70;
@@ -773,12 +780,6 @@ function updateApproachPhase(state, combat, player, dt, absDx) {
 
   phase.timer += dt;
 
-  // Check if hold-release heavy ability - activate hold input at start
-  if (!phase.holdInputActive && isHoldReleaseHeavy(phase.plannedAbility)) {
-    phase.holdInputActive = true;
-    pressNpcButton(state, combat, phase.plannedAbility.slotKey, 999); // Long hold
-  }
-
   // Check transition conditions
   const range = getAbilityRange(combat, phase.plannedAbility);
   const inRange = absDx <= range;
@@ -799,25 +800,29 @@ function updateAttackPhase(state, combat, dt) {
 
   const ability = phase.plannedAbility;
 
+  // Stand still during attack
+  state.mode = 'attack';
+
   // Handle different ability types
   if (isHoldReleaseHeavy(ability)) {
-    // Hold-release: Keep approaching while holding, then release
-    if (phase.holdInputActive) {
-      // Still holding - keep approaching to close distance
-      state.mode = 'approach';
-
-      // Release the hold immediately upon entering attack phase
-      releaseNpcButton(state, combat, ability.slotKey);
-      phase.holdInputActive = false;
-    } else {
-      // Released - now in attack animation, stand still
-      state.mode = 'attack';
-    }
-
-    // Wait for attack to execute, then move to retreat
+    // Hold-release: Press, hold briefly, then release
     phase.timer += dt;
-    if (phase.timer > 0.5) {
-      resetBehaviorPhase(state, 'retreat');
+
+    if (!phase.holdInputActive) {
+      // Start the hold
+      pressNpcButton(state, combat, ability.slotKey, 999);
+      phase.holdInputActive = true;
+    } else if (phase.timer >= 0.3) {
+      // Hold for 0.3s to charge power, then release
+      if (!phase.released) {
+        releaseNpcButton(state, combat, ability.slotKey);
+        phase.released = true;
+      }
+
+      // Wait a bit longer for attack to execute
+      if (phase.timer >= 1.0) {
+        resetBehaviorPhase(state, 'retreat');
+      }
     }
   } else if (isComboAbility(ability)) {
     // Combo: Attempt all 4 attacks, checking if at least one strike lands per attack

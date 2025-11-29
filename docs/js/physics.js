@@ -483,7 +483,13 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   const baseMaxSpeed = (Number.isFinite(M.maxSpeedX) ? M.maxSpeedX : 420) * movementBaseMultiplier;
   const accelX = baseAccelX * boundsSpeedScalar * (movementMultipliers.accel || 1) * walkSpeedMultiplier;
   const maxSpeed = baseMaxSpeed * boundsSpeedScalar * (movementMultipliers.maxSpeed || 1) * walkSpeedMultiplier;
-  const friction = Number.isFinite(M.friction) ? Math.max(0, M.friction) : 8;
+
+  // Support friction override (for attack dashes, etc)
+  const defaultFriction = Number.isFinite(M.friction) ? Math.max(0, M.friction) : 8;
+  const friction = fighter.frictionOverride?.active && Number.isFinite(fighter.frictionOverride.value)
+    ? fighter.frictionOverride.value
+    : defaultFriction;
+
   const restitution = Number.isFinite(M.restitution) ? Math.max(0, M.restitution) : 0;
   const gravity = Number.isFinite(M.gravity) ? M.gravity : 0;
   const jumpImpulse = Number.isFinite(M.jumpImpulse) ? M.jumpImpulse : -650;

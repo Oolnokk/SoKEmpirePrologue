@@ -534,8 +534,6 @@ function drawRangeCollider(ctx, fighter, hitbox) {
       ctx.fillText(line.text, centerX, y);
     });
   }
-
-  ctx.restore();
 }
 
 
