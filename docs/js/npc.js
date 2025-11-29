@@ -2074,27 +2074,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.heavyPatienceQueued = false;
   }
 
-  if (state.retreatTimer <= 0 && state.mode === 'retreat' && state.patienceTimer <= 0 && !defenseState.active) {
-    // Retreat time limit reached - end retreat with cooldown to prevent immediate re-attack
-    const target = state.target;
-    const dx = target?.pos?.x !== undefined ? target.pos.x - state.pos.x : 0;
-    const absDx = Math.abs(dx);
-    const nearDist = state.ai?.attackRange || state.perception?.attackRange || 50;
-    const inCombatZone = absDx <= nearDist * 1.5;
-
-    if (inCombatZone) {
-      // Stay in shuffle mode with cooldown to avoid freeze
-      resetNpcShuffle(state, dx >= 0 ? -1 : 1);
-      state.mode = 'shuffle';
-      state.patienceTimer = resolveNpcPatienceDuration(state) * 0.5; // Half patience for shuffle
-      state.cooldown = Math.max(state.cooldown, 1.0); // Add cooldown to prevent immediate attack
-    } else {
-      state.mode = 'approach';
-    }
-  }
-  if (state.patienceTimer <= 0 && state.mode === 'shuffle' && !defenseState.threat && !(state.obstructionJump?.blockedRecently)) {
-    state.mode = 'approach';
-  }
+  // Old retreat/shuffle transition logic removed - now handled by phase system
 
   if (aggression.active) {
     state.cooldown = Math.max(0, (state.cooldown || 0) - dt);
