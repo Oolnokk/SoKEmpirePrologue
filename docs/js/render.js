@@ -383,6 +383,69 @@ function drawHitbox(ctx, hb) {
   }
 }
 
+function drawRangeCollider(ctx, fighter, hitbox) {
+  if (!ctx || !fighter) return;
+
+  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+  if (DEBUG.showRangeCollider !== true) {
+    return;
+  }
+
+  let attackRange = null;
+  const perception = fighter.perception;
+  if (perception && Number.isFinite(perception.attackRange)) {
+    attackRange = perception.attackRange;
+  } else if (fighter.plannedAbility?.range) {
+    attackRange = fighter.plannedAbility.range;
+  } else if (fighter.ai?.attackRange) {
+    attackRange = fighter.ai.attackRange;
+  }
+
+  if (!attackRange || attackRange <= 0) return;
+
+  const centerX = hitbox?.x ?? fighter.pos?.x ?? 0;
+  const centerY = hitbox?.y ?? fighter.pos?.y ?? 0;
+
+  // Get NPC mode/state for color coding
+  const mode = fighter.mode || 'unknown';
+
+  // Color mapping based on NPC behavior state
+  const stateColors = {
+    'idle': { stroke: 'rgba(156, 163, 175, 0.8)', fill: 'rgba(156, 163, 175, 0.12)' },      // Gray
+    'alert': { stroke: 'rgba(251, 191, 36, 0.8)', fill: 'rgba(251, 191, 36, 0.12)' },      // Yellow
+    'follow': { stroke: 'rgba(59, 130, 246, 0.8)', fill: 'rgba(59, 130, 246, 0.12)' },     // Blue
+    'patrol': { stroke: 'rgba(96, 165, 250, 0.8)', fill: 'rgba(96, 165, 250, 0.12)' },     // Light blue
+    'approach': { stroke: 'rgba(251, 146, 60, 0.8)', fill: 'rgba(251, 146, 60, 0.12)' },   // Orange
+    'retreat': { stroke: 'rgba(168, 85, 247, 0.8)', fill: 'rgba(168, 85, 247, 0.12)' },    // Purple
+    'attack': { stroke: 'rgba(239, 68, 68, 0.8)', fill: 'rgba(239, 68, 68, 0.12)' },       // Red
+    'defend': { stroke: 'rgba(34, 197, 94, 0.8)', fill: 'rgba(34, 197, 94, 0.12)' },       // Green
+    'shuffle': { stroke: 'rgba(168, 162, 158, 0.8)', fill: 'rgba(168, 162, 158, 0.12)' },  // Stone
+    'recover': { stroke: 'rgba(236, 72, 153, 0.8)', fill: 'rgba(236, 72, 153, 0.12)' },    // Pink
+    'unknown': { stroke: 'rgba(156, 163, 175, 0.8)', fill: 'rgba(156, 163, 175, 0.12)' }   // Gray
+  };
+
+  const colors = stateColors[mode] || stateColors.unknown;
+
+  ctx.save();
+  ctx.strokeStyle = colors.stroke;
+  ctx.fillStyle = colors.fill;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, attackRange, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Draw mode and range label
+  ctx.setLineDash([]);
+  ctx.fillStyle = colors.stroke;
+  ctx.font = 'bold 11px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${mode.toUpperCase()} (${attackRange.toFixed(0)})`, centerX, centerY - attackRange - 5);
+
+  ctx.restore();
+}
 
 
 function drawCompass(ctx, x, y, r, label){
@@ -515,7 +578,7 @@ function maybeLogPlayerBoneDebug(debugObj, report) {
 
   const message = `[render] Player bones | torso: ${describe(report.torso)} | arm_L_lower: ${describe(report.arm_L_lower)} | arm_R_lower: ${describe(report.arm_R_lower)}`;
 
-  console.debug(message);
+  // console.debug(message); // Disabled - was spamming console
   debugObj._playerBoneStatusLogTime = now;
   debugObj._playerBoneStatusMessage = message;
 }
@@ -658,6 +721,7 @@ export function renderAll(ctx){
       ctx.scale(-1, 1);
     }
     drawHitbox(ctx, entity.hitbox);
+    drawRangeCollider(ctx, entity.fighter, entity.hitbox);
     drawStick(ctx, entity.bones);
     drawFallbackSilhouette(ctx, entity, C);
     ctx.restore();

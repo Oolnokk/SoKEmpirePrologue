@@ -454,7 +454,6 @@ export function makeCombat(G, C, options = {}){
     const stamina = fighter?.stamina || null;
     if (stamina){
       if (DEFENSE.prevDrainRate != null) stamina.drainRate = DEFENSE.prevDrainRate;
-      stamina.isDashing = false;
     }
     const context = DEFENSE.context;
     if (context?.onComplete){
@@ -477,6 +476,7 @@ export function makeCombat(G, C, options = {}){
     if (!ability || ability.trigger !== 'defensive') return false;
     const fighter = P();
     if (!fighter) return false;
+    const input = resolveInput();
     const stamina = fighter.stamina;
     if (!stamina) return false;
 
@@ -497,6 +497,7 @@ export function makeCombat(G, C, options = {}){
     if (!abilityInstance) return false;
 
     applyWeaponDrawnState(fighter, true);
+    if (input) input.weaponDrawn = true;
 
     const attackId = abilityInstance.attack
       || abilityInstance.defaultAttack
@@ -553,7 +554,6 @@ export function makeCombat(G, C, options = {}){
     if (Number.isFinite(abilityInstance.defensive?.staminaDrainPerSecond)){
       stamina.drainRate = abilityInstance.defensive.staminaDrainPerSecond;
     }
-    stamina.isDashing = true;
 
     CHARGE.active = false;
     CHARGE.stage = 0;
@@ -1751,7 +1751,9 @@ export function makeCombat(G, C, options = {}){
     if (!abilityTemplate) return;
 
     const fighter = P();
+    const input = resolveInput();
     applyWeaponDrawnState(fighter, true);
+    if (input) input.weaponDrawn = true;
 
     const ability = instantiateAbility(abilityTemplate, fighter);
     if (!ability) return;
@@ -1818,6 +1820,7 @@ export function makeCombat(G, C, options = {}){
     if (!abilityTemplate) return;
 
     const fighter = P();
+    const input = resolveInput();
     const abilityBase = resolveComboAbilityForWeapon(abilityTemplate);
     const ability = instantiateAbility(abilityBase, fighter);
     if (!ability) return;
@@ -1839,8 +1842,8 @@ export function makeCombat(G, C, options = {}){
       return;
     }
 
-    const fighter = P();
     applyWeaponDrawnState(fighter, true);
+    if (input) input.weaponDrawn = true;
 
     if (COMBO.timer <= 0){
       COMBO.sequenceIndex = 0;
@@ -1889,6 +1892,7 @@ export function makeCombat(G, C, options = {}){
     if (!abilityTemplate) return;
 
     const fighter = P();
+    const input = resolveInput();
     const ability = instantiateAbility(abilityTemplate, fighter);
     if (!ability) return;
 
@@ -1905,6 +1909,7 @@ export function makeCombat(G, C, options = {}){
     }
 
     applyWeaponDrawnState(fighter, true);
+    if (input) input.weaponDrawn = true;
 
     const base = {
       comboHits: COMBO.hits,
@@ -2146,6 +2151,16 @@ export function makeCombat(G, C, options = {}){
   // Handle button state changes
   function handleButtons(){
     const I = resolveInput();
+    const fighter = P();
+
+    // Auto-draw weapon before processing any attack input (trigger X key effect)
+    const hasAttackInput = I.buttonA?.down || I.buttonB?.down || I.buttonC?.down;
+    // Check renderProfile first (same priority as isWeaponDrawn in animator.js)
+    const weaponDrawn = fighter?.renderProfile?.weaponDrawn ?? fighter?.weaponDrawn ?? true;
+    if (hasAttackInput && fighter && !weaponDrawn) {
+      applyWeaponDrawnState(fighter, true);
+      if (I) I.weaponDrawn = true;
+    }
 
     // Button A
     if (I.buttonA?.down && ATTACK.slot !== 'A'){
@@ -2154,7 +2169,7 @@ export function makeCombat(G, C, options = {}){
       slotUp('A');
       ATTACK.slot = null;
     }
-    
+
     // Button B
     if (I.buttonB?.down && ATTACK.slot !== 'B'){
       slotDown('B');
@@ -2251,8 +2266,6 @@ export function makeCombat(G, C, options = {}){
       return;
     }
 
-    stamina.isDashing = true;
-
     const nowMs = now();
     if (nowMs >= DEFENSE.nextRefresh){
       const pose = buildPoseFromKey(DEFENSE.poseKey || 'Stance');
@@ -2347,11 +2360,17 @@ export function makeCombat(G, C, options = {}){
       applyWeaponDrawnState(p, true);
       // Update input state so weapon stays drawn after attack
       if (input) input.weaponDrawn = true;
-    } else if (weaponDrawnInput != null) {
-      // Explicit input from player
-      applyWeaponDrawnState(p, weaponDrawnInput);
+    } else if (weaponDrawnInput === false) {
+      // Only allow explicit stowing (input says false)
+      // But ignore if we just finished an attack (COMBO timer active means recent combat)
+      if (COMBO.timer <= 0) {
+        applyWeaponDrawnState(p, weaponDrawnInput);
+      }
+    } else if (weaponDrawnInput === true) {
+      // Explicit draw request
+      applyWeaponDrawnState(p, true);
     }
-    // If neither condition, preserve current weaponDrawn state
+    // If weaponDrawnInput is null, preserve current weaponDrawn state
 
     const effectiveInput = p.isDead ? null : input;
     const attackBlocksMovement = !p.isDead && ATTACK.active && ATTACK.context?.type !== 'defensive';

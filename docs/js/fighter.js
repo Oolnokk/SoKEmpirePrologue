@@ -39,9 +39,6 @@ function normalizeStats(rawStats = {}) {
   if (Number.isFinite(rawStats.maxStamina)) {
     stats.maxStamina = rawStats.maxStamina;
   }
-  if (Number.isFinite(rawStats.dashThreshold)) {
-    stats.dashThreshold = rawStats.dashThreshold;
-  }
   return stats;
 }
 
@@ -101,7 +98,7 @@ function resetRuntimeState(fighter, template, {
     const maxStamina = Number.isFinite(fighter.stamina.max) ? fighter.stamina.max : fighter.stamina.current ?? 100;
     fighter.stamina.max = maxStamina;
     fighter.stamina.current = maxStamina;
-    fighter.stamina.isDashing = false;
+    
     fighter.stamina.recovering = false;
     fighter.stamina.exhaustionCount = 0;
     fighter.stamina.prev = maxStamina;
@@ -206,9 +203,6 @@ function applyCharacterTemplateToFighter(fighter, templateResult, baseTemplate) 
   const staminaRegenRateMultiplier = Number.isFinite(statProfile?.staminaRegenRateMultiplier)
     ? statProfile.staminaRegenRateMultiplier
     : 1;
-  const dashThresholdMultiplier = Number.isFinite(statProfile?.dashStaminaThresholdMultiplier)
-    ? statProfile.dashStaminaThresholdMultiplier
-    : 1;
   const healthRegenRate = Number.isFinite(statProfile?.healthRegenPerSecond)
     ? statProfile.healthRegenPerSecond
     : 0;
@@ -220,9 +214,6 @@ function applyCharacterTemplateToFighter(fighter, templateResult, baseTemplate) 
     : Math.round(100 + (enduranceStat - baselineStat) * 5);
   const staminaDrainRate = Math.max(15, Math.round(40 * staminaDrainRateMultiplier));
   const staminaRegenRate = Math.max(12, Math.round(25 * staminaRegenRateMultiplier));
-  const staminaMinToDash = Number.isFinite(stats.dashThreshold)
-    ? stats.dashThreshold
-    : Math.max(6, Math.round(10 * dashThresholdMultiplier));
 
   fighter.health = {
     current: maxHealth,
@@ -233,10 +224,8 @@ function applyCharacterTemplateToFighter(fighter, templateResult, baseTemplate) 
   fighter.stamina = {
     current: maxStamina,
     max: maxStamina,
-    drainRate: staminaDrainRate,
+    drainRate: 0, // Only set when abilities are actively draining (e.g., defensive abilities)
     regenRate: staminaRegenRate,
-    minToDash: staminaMinToDash,
-    isDashing: false,
     reengageRatio: baseTemplate?.stamina?.reengageRatio ?? fighter.stamina?.reengageRatio ?? 0.6,
   };
 
@@ -724,9 +713,6 @@ export function initFighters(cv, cx, options = {}){
     const staminaRegenRateMultiplier = Number.isFinite(statProfile?.staminaRegenRateMultiplier)
       ? statProfile.staminaRegenRateMultiplier
       : 1;
-    const dashThresholdMultiplier = Number.isFinite(statProfile?.dashStaminaThresholdMultiplier)
-      ? statProfile.dashStaminaThresholdMultiplier
-      : 1;
 
     const maxHealth = Number.isFinite(stats.maxHealth)
       ? stats.maxHealth
@@ -736,7 +722,6 @@ export function initFighters(cv, cx, options = {}){
       : Math.round(100 + (enduranceStat - baselineStat) * 5);
     const staminaDrainRate = Math.max(15, Math.round(40 * staminaDrainRateMultiplier));
     const staminaRegenRate = Math.max(12, Math.round(25 * staminaRegenRateMultiplier));
-    const staminaMinToDash = Math.max(6, Math.round(10 * dashThresholdMultiplier));
     const healthRegenRate = Number.isFinite(statProfile?.healthRegenPerSecond)
       ? statProfile.healthRegenPerSecond
       : 0;
@@ -778,10 +763,8 @@ export function initFighters(cv, cx, options = {}){
       stamina: {
         current: maxStamina,
         max: maxStamina,
-        drainRate: staminaDrainRate,
+        drainRate: 0, // Only set when abilities are actively draining (e.g., defensive abilities)
         regenRate: staminaRegenRate,
-        minToDash: staminaMinToDash,
-        isDashing: false,
         reengageRatio: 0.6,
       },
       attack: {
@@ -1059,7 +1042,7 @@ export function markFighterDead(fighter, { killerId = null, cause = null } = {})
     fighter.health.current = Math.max(0, current);
   }
   if (fighter.stamina) {
-    fighter.stamina.isDashing = false;
+    
     fighter.stamina.recovering = false;
   }
   if (fighter.attack) {

@@ -218,7 +218,7 @@ function setAwarenessState(camera, nextState, { now } = {}) {
 
 function isInputActive(input) {
   if (!input) return false;
-  if (input.left || input.right || input.jump || input.dash) return true;
+  if (input.left || input.right || input.jump) return true;
   if (input.buttonA?.down || input.buttonB?.down) return true;
   return false;
 }

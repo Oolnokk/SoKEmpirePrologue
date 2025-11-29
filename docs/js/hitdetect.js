@@ -226,7 +226,6 @@ function handlePlayerHitsNpc(G, config, player, npc, debug, distance, bodyRadius
   const footingLoss = computeFootingDamage(config, footingBefore, force, npc);
   npc.footing = Math.max(0, footingBefore - footingLoss);
   applyHitReactionRagdoll(npc, config, { angle, force, footingBefore });
-  npc.stamina && (npc.stamina.isDashing = false);
   const aggression = npc.aggression || (npc.aggression = {});
   if (!aggression.triggered) {
     aggression.triggered = true;
@@ -287,7 +286,6 @@ function handleNpcHitsPlayer(G, config, player, npc, debug, distance, bodyRadius
   const footingLoss = computeFootingDamage(config, footingBefore, force, player);
   player.footing = Math.max(0, footingBefore - footingLoss);
   applyHitReactionRagdoll(player, config, { angle, force, footingBefore });
-  player.stamina && (player.stamina.isDashing = false);
   if (!attack.strikeLanded) {
     attack.strikeLanded = true;
   }

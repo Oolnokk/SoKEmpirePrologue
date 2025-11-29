@@ -1801,7 +1801,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 7 },
           staminaCost: 7,
-          colliders: ['footR']
+          colliders: ['footR'],
+          range: 75
         }
       },
       ComboKICK_F: {
@@ -1811,7 +1812,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 8 },
           staminaCost: 8,
-          colliders: ['footL']
+          colliders: ['footL'],
+          range: 75
         }
       },
       ComboPUNCH_R: {
@@ -1821,7 +1823,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 6 },
           staminaCost: 6,
-          colliders: ['handR']
+          colliders: ['handR'],
+          range: 60
         }
       },
       ComboPUNCH_L: {
@@ -1831,7 +1834,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 6 },
           staminaCost: 6,
-          colliders: ['handL']
+          colliders: ['handL'],
+          range: 60
         }
       },
       QuickKick: {
@@ -1841,7 +1845,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 10 },
           staminaCost: 12,
-          colliders: ['footR']
+          colliders: ['footR'],
+          range: 80
         }
       },
       QuickKickCombo: {
@@ -1852,7 +1857,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 12 },
           staminaCost: 13,
-          colliders: ['footR']
+          colliders: ['footR'],
+          range: 80
         }
       },
       QuickPunch: {
@@ -1862,7 +1868,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 9 },
           staminaCost: 10,
-          colliders: ['handR']
+          colliders: ['handR'],
+          range: 65
         }
       },
       QuickPunchCombo: {
@@ -1873,7 +1880,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 11 },
           staminaCost: 11,
-          colliders: ['handR']
+          colliders: ['handR'],
+          range: 65
         }
       },
       Slam: {
@@ -1884,7 +1892,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 22 },
           staminaCost: 28,
-          colliders: ['handL', 'handR']
+          colliders: ['handL', 'handR'],
+          range: 75
         }
       },
       UnArCA1: {
@@ -1897,7 +1906,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 6 },
           staminaCost: 12,
-          colliders: ['handR']
+          colliders: ['handR'],
+          range: 60
         }
       },
       UnArCA2: {
@@ -1910,7 +1920,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 7 },
           staminaCost: 14,
-          colliders: ['footR']
+          colliders: ['footR'],
+          range: 75
         }
       },
       UnArCA3: {
@@ -1924,7 +1935,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 9 },
           staminaCost: 16,
-          colliders: ['handL', 'handR']
+          colliders: ['handL', 'handR'],
+          range: 60
         }
       },
       UnArCA4: {
@@ -1937,7 +1949,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 10 },
           staminaCost: 18,
-          colliders: ['footL']
+          colliders: ['footL'],
+          range: 75
         }
       },
       SRCA1: {
@@ -1950,7 +1963,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 18 },
           staminaCost: 16,
-          useWeaponColliders: true
+          useWeaponColliders: true,
+          range: 95
         }
       },
       SRCA2: {
@@ -1963,7 +1977,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 20 },
           staminaCost: 18,
-          useWeaponColliders: true
+          useWeaponColliders: true,
+          range: 100
         }
       },
       SRCA3: {
@@ -1976,7 +1991,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 22 },
           staminaCost: 20,
-          useWeaponColliders: true
+          useWeaponColliders: true,
+          range: 105
         }
       },
       SRCA4: {
@@ -1989,7 +2005,8 @@ window.CONFIG = {
         attackData: {
           damage: { health: 24 },
           staminaCost: 22,
-          useWeaponColliders: true
+          useWeaponColliders: true,
+          range: 110
         }
       }
     },

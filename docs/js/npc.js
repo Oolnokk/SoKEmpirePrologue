@@ -158,11 +158,48 @@ function ensureNpcPerceptionState(state) {
   return perception;
 }
 
-function updateNpcPerceptionColliders(state, config = null) {
+function resolveNpcAttackRange(state, combat) {
+  const planned = state?.plannedAbility;
+  if (planned?.active && Number.isFinite(planned.range)) {
+    return planned.range;
+  }
+
+  if (combat && typeof combat.getCurrentAttack === 'function') {
+    const currentAttack = combat.getCurrentAttack();
+    if (currentAttack?.attackData?.range) {
+      return currentAttack.attackData.range;
+    }
+  }
+
+  const ai = state?.ai || {};
+  if (Number.isFinite(ai.attackRange)) {
+    return ai.attackRange;
+  }
+
+  return 70;
+}
+
+function updateNpcPerceptionColliders(state, config = null, combat = null) {
   const perception = ensureNpcPerceptionState(state);
   if (!perception) return null;
+
+  const attackRange = resolveNpcAttackRange(state, combat);
   const overrides = config ?? window.CONFIG?.npc?.perception ?? {};
-  perception.colliders = resolveFighterPerceptionColliders(state, overrides);
+
+  const rangeScaledOverrides = {
+    ...overrides,
+    detection: {
+      ...(overrides.detection || {}),
+      radius: attackRange * 1.5,
+    },
+    vision: {
+      ...(overrides.vision || {}),
+      range: attackRange * 2,
+    }
+  };
+
+  perception.colliders = resolveFighterPerceptionColliders(state, rangeScaledOverrides);
+  perception.attackRange = attackRange;
   return perception.colliders;
 }
 
@@ -212,13 +249,118 @@ function ensureNpcInputState(state) {
   const input = state.aiInput || {
     buttonA: { down: false },
     buttonB: { down: false },
+    buttonC: { down: false },
     left: false,
     right: false,
+    weaponDrawn: true,
   };
   if (!state.aiInput) state.aiInput = input;
   input.buttonA ||= { down: false };
   input.buttonB ||= { down: false };
+  input.buttonC ||= { down: false };
+  // Sync weaponDrawn with state (check renderProfile first like animator does)
+  const stateWeaponDrawn = state.renderProfile?.weaponDrawn ?? state.weaponDrawn ?? true;
+  input.weaponDrawn = stateWeaponDrawn;
   return input;
+}
+
+function ensurePlannedAbilityState(state) {
+  if (!state) return null;
+  const planned = state.plannedAbility || (state.plannedAbility = {
+    active: false,
+    slotKey: null,
+    abilityId: null,
+    attackId: null,
+    range: null,
+    minRange: null,
+    maxRange: null,
+    holdDuration: null,
+    isHoldRelease: false,
+    conditions: null,
+    chargeOutsideRange: false,
+    chargingStarted: false,
+    readyToRelease: false,
+  });
+  return planned;
+}
+
+function createPlannedAbility(state, options = {}) {
+  if (!state) return null;
+  const planned = ensurePlannedAbilityState(state);
+  planned.active = true;
+  planned.slotKey = options.slotKey || 'A';
+  planned.abilityId = options.abilityId || null;
+  planned.attackId = options.attackId || null;
+  planned.range = Number.isFinite(options.range) ? options.range : 70;
+  planned.minRange = Number.isFinite(options.minRange) ? options.minRange : 0;
+  planned.maxRange = Number.isFinite(options.maxRange) ? options.maxRange : planned.range;
+  planned.holdDuration = Number.isFinite(options.holdDuration) ? options.holdDuration : null;
+  planned.isHoldRelease = !!options.isHoldRelease;
+  planned.conditions = options.conditions || null;
+  planned.chargeOutsideRange = !!options.chargeOutsideRange;
+  planned.chargingStarted = false;
+  planned.readyToRelease = false;
+  return planned;
+}
+
+function clearPlannedAbility(state) {
+  if (!state?.plannedAbility) return;
+  const planned = state.plannedAbility;
+  planned.active = false;
+  planned.slotKey = null;
+  planned.abilityId = null;
+  planned.attackId = null;
+  planned.range = null;
+  planned.minRange = null;
+  planned.maxRange = null;
+  planned.holdDuration = null;
+  planned.isHoldRelease = false;
+  planned.conditions = null;
+  planned.chargeOutsideRange = false;
+  planned.chargingStarted = false;
+  planned.readyToRelease = false;
+}
+
+function evaluatePlannedAbilityConditions(state, player) {
+  const planned = state?.plannedAbility;
+  if (!planned || !planned.active) return { canStart: false, canRelease: false, inRange: false };
+
+  const dx = (player?.pos?.x ?? state.pos.x) - state.pos.x;
+  const absDx = Math.abs(dx);
+  const inMaxRange = absDx <= planned.maxRange;
+  const inMinRange = absDx >= planned.minRange;
+  const inRange = inMaxRange && inMinRange;
+
+  let canStart = false;
+  let canRelease = false;
+
+  if (planned.isHoldRelease) {
+    if (planned.chargeOutsideRange) {
+      canStart = !planned.chargingStarted;
+      canRelease = planned.chargingStarted && inRange;
+    } else {
+      canStart = inRange && !planned.chargingStarted;
+      canRelease = planned.chargingStarted && inRange;
+    }
+  } else {
+    canStart = inRange;
+    canRelease = false;
+  }
+
+  if (planned.conditions) {
+    if (typeof planned.conditions === 'function') {
+      const result = planned.conditions(state, player, { dx, absDx, inRange });
+      if (result === false) {
+        canStart = false;
+        canRelease = false;
+      } else if (typeof result === 'object') {
+        if (result.canStart !== undefined) canStart = result.canStart;
+        if (result.canRelease !== undefined) canRelease = result.canRelease;
+      }
+    }
+  }
+
+  return { canStart, canRelease, inRange, absDx };
 }
 
 function ensureNpcPressRegistry(state) {
@@ -468,6 +610,22 @@ function updateNpcDefenseScheduling(state, player, dt, { dx, absDx, nearDist }) 
   };
 }
 
+function initRetreatDebug(state) {
+  // Initialize position tracking for retreat debugging (only if not already tracking)
+  if (!state || state.retreatDebug?.pos0) return; // Already tracking
+
+  if (!state.retreatDebug) {
+    state.retreatDebug = {};
+  }
+  state.retreatDebug.pos0 = { x: state.pos?.x || 0, y: state.pos?.y || 0, time: 0 };
+  state.retreatDebug.pos3 = null;
+  state.retreatDebug.pos4 = null;
+  state.retreatDebug.tracked3 = false;
+  state.retreatDebug.tracked4 = false;
+  state.retreatDebug.mode = state.mode;
+  console.log(`[NPC Retreat Debug] Started tracking for ${state.id} at position (${state.retreatDebug.pos0.x.toFixed(1)}, ${state.retreatDebug.pos0.y.toFixed(1)})`);
+}
+
 function triggerNpcPatienceWindow(state, { hintDir = 0 } = {}) {
   if (!state) return;
   const patience = resolveNpcPatienceDuration(state);
@@ -479,6 +637,7 @@ function triggerNpcPatienceWindow(state, { hintDir = 0 } = {}) {
   state.retreatTimer = Math.max(currentRetreat, retreat);
   resetNpcShuffle(state, hintDir);
   state.mode = 'retreat';
+  initRetreatDebug(state);
 }
 
 function getNpcFighterList(G) {
@@ -506,8 +665,10 @@ function releaseNpcButton(state, combat, slotKey) {
     input.buttonA.down = false;
   } else if (slotKey === 'B') {
     input.buttonB.down = false;
+  } else if (slotKey === 'C') {
+    input.buttonC.down = false;
   }
-  combat.slotUp(slotKey);
+  // Removed: combat.slotUp(slotKey) - let handleButtons() process input naturally
 }
 
 function pressNpcButton(state, combat, slotKey, holdSeconds = 0.12) {
@@ -522,8 +683,10 @@ function pressNpcButton(state, combat, slotKey, holdSeconds = 0.12) {
     input.buttonA.down = true;
   } else if (slotKey === 'B') {
     input.buttonB.down = true;
+  } else if (slotKey === 'C') {
+    input.buttonC.down = true;
   }
-  combat.slotDown(slotKey);
+  // Removed: combat.slotDown(slotKey) - let handleButtons() process input naturally
   return true;
 }
 
@@ -549,7 +712,7 @@ function ensureNpcCombat(G, state) {
   const combat = initCombatForFighter(id, {
     fighterLabel: id,
     poseTarget: id,
-    autoProcessInput: false,
+    autoProcessInput: true,  // Changed: Let combat system process input like player
     neutralizeInputMovement: false,
     storeKey: `npcCombat:${id}`,
     inputSource: () => ensureNpcInputState(state),
@@ -607,6 +770,64 @@ function ensureNpcAggressionState(state) {
     aggression.wakeTimer = aggression.triggered ? aggression.wakeDelay : 0;
   }
   return aggression;
+}
+
+function ensureNpcGroupState(state) {
+  if (!state) return null;
+  const group = (state.group ||= {});
+  group.id = group.id || null;
+  group.leaderId = group.leaderId || null;
+  group.isLeader = !!group.isLeader;
+  group.members = Array.isArray(group.members) ? group.members : [];
+  group.followDistance = Number.isFinite(group.followDistance) ? group.followDistance : 80;
+  group.formationSpacing = Number.isFinite(group.formationSpacing) ? group.formationSpacing : 60;
+  return group;
+}
+
+function resolveGroupLeader(G, groupId) {
+  if (!groupId) return null;
+  const npcs = getNpcFighterList(G);
+  const groupMembers = npcs.filter(npc => npc.group?.id === groupId && !npc.isDead);
+  if (!groupMembers.length) return null;
+
+  const currentLeader = groupMembers.find(npc => npc.group?.isLeader);
+  if (currentLeader && !currentLeader.isDead) {
+    return currentLeader;
+  }
+
+  const firstAlive = groupMembers.find(npc => !npc.isDead);
+  if (firstAlive) {
+    ensureNpcGroupState(firstAlive);
+    firstAlive.group.isLeader = true;
+    groupMembers.forEach(npc => {
+      if (npc !== firstAlive) {
+        ensureNpcGroupState(npc);
+        npc.group.isLeader = false;
+        npc.group.leaderId = firstAlive.id;
+      }
+    });
+    return firstAlive;
+  }
+
+  return null;
+}
+
+function updateGroupLeadership(G, state) {
+  const group = ensureNpcGroupState(state);
+  if (!group.id) return null;
+
+  const leader = resolveGroupLeader(G, group.id);
+  if (!leader) return null;
+
+  if (leader.id === state.id) {
+    group.isLeader = true;
+    group.leaderId = null;
+  } else {
+    group.isLeader = false;
+    group.leaderId = leader.id;
+  }
+
+  return leader;
 }
 
 function ensureNpcStaminaAwareness(state) {
@@ -1100,6 +1321,8 @@ function updateNpcPassiveHeadTracking(state, player) {
       aim.torsoOffset = 0;
       aim.shoulderOffset = 0;
       aim.hipOffset = 0;
+      aim.headWorldTarget = null;
+      aim.headTrackingOnly = false;
       return;
   }
   if (!player) {
@@ -1112,46 +1335,48 @@ function updateNpcPassiveHeadTracking(state, player) {
       return;
     }
 
-  aim.headTrackingOnly = false;
-  const shouldAim = !state.onGround;
-  if (!shouldAim) {
-    resetNpcAimingOffsets(aim);
-    return;
-  }
-  aim.active = true;
   const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
   const dy = (player.pos?.y ?? state.pos.y) - state.pos.y;
   const targetAngle = Math.atan2(dy, dx);
   const relative = targetAngle - (state.facingRad || 0);
   const wrapped = ((relative + Math.PI) % TWO_PI) - Math.PI;
+
+  const onGround = state.onGround !== false;
+  const isAttacking = !!(state.attack?.active);
+
+  if (onGround && !isAttacking) {
+    aim.active = false;
+    aim.torsoOffset = 0;
+    aim.shoulderOffset = 0;
+    aim.hipOffset = 0;
+    aim.headTrackingOnly = true;
+    const C = window.CONFIG || {};
+    const facingRad = Number.isFinite(state.facingRad) ? state.facingRad : 0;
+    const worldAim = Math.atan2(dy, dx);
+    const { min, max } = getNpcHeadLimits(state);
+    const headRelative = normalizeRad(worldAim - facingRad);
+    const withinLimits = headRelative >= min && headRelative <= max;
+    aim.headWorldTarget = withinLimits ? worldAim : null;
+    return;
+  }
+
+  aim.active = true;
+  aim.headTrackingOnly = false;
   const smoothing = 0.12;
+  aim.currentAngle = Number.isFinite(aim.currentAngle) ? aim.currentAngle : 0;
   aim.currentAngle += (wrapped - aim.currentAngle) * smoothing;
   const aimDeg = (aim.currentAngle * 180) / Math.PI;
   const C = window.CONFIG || {};
   const aimingCfg = C.aiming || {};
-  aim.torsoOffset = clamp(aimDeg * 0.5, -aimingCfg.maxTorsoAngle || 45, aimingCfg.maxTorsoAngle || 45);
-  aim.shoulderOffset = clamp(aimDeg * 0.7, -aimingCfg.maxShoulderAngle || 65, aimingCfg.maxShoulderAngle || 65);
+  aim.torsoOffset = clamp(aimDeg * 0.5, -(aimingCfg.maxTorsoAngle || 45), aimingCfg.maxTorsoAngle || 45);
+  aim.shoulderOffset = clamp(aimDeg * 0.7, -(aimingCfg.maxShoulderAngle || 65), aimingCfg.maxShoulderAngle || 65);
   aim.hipOffset = 0;
 }
 
 function updateDashTrail(visualEntry, state, dt) {
   const dashTrail = visualEntry?.dashTrail;
   if (!dashTrail || !dashTrail.enabled) return;
-  if (state.stamina?.isDashing && state.stamina.current > 0) {
-    dashTrail.timer += dt;
-    if (dashTrail.timer >= dashTrail.interval) {
-      dashTrail.timer = 0;
-      dashTrail.positions.unshift({
-        x: state.pos.x,
-        y: state.pos.y,
-        facingRad: state.facingRad || 0,
-        alpha: 1,
-      });
-      if (dashTrail.positions.length > dashTrail.maxLength) {
-        dashTrail.positions.length = dashTrail.maxLength;
-      }
-    }
-  }
+  // Dash trail disabled - dashing removed from game
   for (const pos of dashTrail.positions) {
     pos.alpha -= dt * 3;
   }
@@ -1311,7 +1536,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.mode = 'recover';
     state.cooldown = Math.max(state.cooldown || 0, 0.5);
     if (state.stamina) {
-      state.stamina.isDashing = false;
+      
     }
   }
 
@@ -1345,14 +1570,33 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       aggression.wakeTimer = 0;
       state.mode = 'approach';
       state.cooldown = 0;
+      state.weaponDrawn = true;
+      if (!state.renderProfile) state.renderProfile = {};
+      state.renderProfile.weaponDrawn = true;
+      state.renderProfile.weaponStowed = false;
     }
+  }
+
+  if (aggression.active) {
+    state.weaponDrawn = true;
+    if (!state.renderProfile) state.renderProfile = {};
+    state.renderProfile.weaponDrawn = true;
+    state.renderProfile.weaponStowed = false;
+  } else if (!aggression.triggered) {
+    state.weaponDrawn = false;
+    if (!state.renderProfile) state.renderProfile = {};
+    state.renderProfile.weaponDrawn = false;
+    state.renderProfile.weaponStowed = true;
   }
 
   input.left = false;
   input.right = false;
   input.jump = false;
 
-  const pathTarget = !aggression.active ? resolveNpcPathTarget(state, activeArea) : null;
+  const groupLeader = updateGroupLeadership(G, state);
+  const group = ensureNpcGroupState(state);
+  const isFollower = group.id && !group.isLeader && groupLeader;
+  const pathTarget = !aggression.active && !isFollower ? resolveNpcPathTarget(state, activeArea) : null;
 
   if (!aggression.active) {
     state.nonCombatRagdoll = !state.ragdoll && !state.recovering;
@@ -1376,14 +1620,33 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     input.buttonB.down = false;
     state.mode = aggression.triggered ? 'alert' : 'idle';
     state.cooldown = 0;
-    state.stamina.isDashing = false;
-    if (pathTarget) {
+    
+
+    if (isFollower && groupLeader) {
+      const dxLeader = groupLeader.pos.x - state.pos.x;
+      const absDxLeader = Math.abs(dxLeader);
+      const followDist = group.followDistance || 80;
+      const arriveRadius = 20;
+
+      if (absDxLeader > followDist + arriveRadius) {
+        input.left = dxLeader < 0;
+        input.right = dxLeader > 0;
+        state.mode = 'follow';
+      } else if (absDxLeader < followDist - arriveRadius) {
+        input.left = dxLeader > 0;
+        input.right = dxLeader < 0;
+        state.mode = 'follow';
+      } else {
+        state.mode = 'idle';
+      }
+    } else if (pathTarget) {
       const arriveRadius = pathTarget.arriveRadius ?? 6;
       const dxPath = pathTarget.goalX - state.pos.x;
       input.left = dxPath < -arriveRadius;
       input.right = dxPath > arriveRadius;
       state.mode = input.left || input.right ? 'patrol' : 'idle';
     }
+
     if (stamina) {
       stamina.recovering = false;
       stamina.exhaustionCount = 0;
@@ -1420,6 +1683,66 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   state.patienceTimer = Math.max(0, Number.isFinite(state.patienceTimer) ? state.patienceTimer - dt : 0);
   state.retreatTimer = Math.max(0, Number.isFinite(state.retreatTimer) ? state.retreatTimer - dt : 0);
   shuffleState.timer = Math.max(0, Number.isFinite(shuffleState.timer) ? shuffleState.timer - dt : 0);
+
+  // Update retreat position tracking for debugging
+  if (state.retreatDebug && state.retreatDebug.pos0) {
+    state.retreatDebug.pos0.time += dt;
+    const elapsed = state.retreatDebug.pos0.time;
+    const currentPos = { x: state.pos?.x || 0, y: state.pos?.y || 0 };
+
+    // Track position at 3 seconds
+    if (elapsed >= 3.0 && !state.retreatDebug.tracked3) {
+      state.retreatDebug.pos3 = { ...currentPos, time: elapsed };
+      state.retreatDebug.tracked3 = true;
+      const dx3 = state.retreatDebug.pos3.x - state.retreatDebug.pos0.x;
+      const dy3 = state.retreatDebug.pos3.y - state.retreatDebug.pos0.y;
+      const dist3 = Math.sqrt(dx3 * dx3 + dy3 * dy3);
+      console.log(`[NPC Retreat Debug] ${state.id} at 3s: pos=(${state.retreatDebug.pos3.x.toFixed(1)}, ${state.retreatDebug.pos3.y.toFixed(1)}), distance from start=${dist3.toFixed(1)}, mode=${state.mode}`);
+    }
+
+    // Track position at 4 seconds
+    if (elapsed >= 4.0 && !state.retreatDebug.tracked4) {
+      state.retreatDebug.pos4 = { ...currentPos, time: elapsed };
+      state.retreatDebug.tracked4 = true;
+
+      // Calculate distances
+      const dx3 = state.retreatDebug.pos3 ? (state.retreatDebug.pos3.x - state.retreatDebug.pos0.x) : 0;
+      const dy3 = state.retreatDebug.pos3 ? (state.retreatDebug.pos3.y - state.retreatDebug.pos0.y) : 0;
+      const dist3 = Math.sqrt(dx3 * dx3 + dy3 * dy3);
+
+      const dx4 = state.retreatDebug.pos4.x - state.retreatDebug.pos0.x;
+      const dy4 = state.retreatDebug.pos4.y - state.retreatDebug.pos0.y;
+      const dist4 = Math.sqrt(dx4 * dx4 + dy4 * dy4);
+
+      console.log(`[NPC Retreat Debug] ${state.id} at 4s: pos=(${state.retreatDebug.pos4.x.toFixed(1)}, ${state.retreatDebug.pos4.y.toFixed(1)}), distance from start=${dist4.toFixed(1)}, mode=${state.mode}`);
+
+      // Check if position at 4s is farther than at 3s (continuing to retreat)
+      if (dist4 > dist3) {
+        console.warn(`[NPC Retreat Debug] ⚠️ BREAKPOINT: ${state.id} is STILL RETREATING at 4s (farther than 3s position)`);
+        console.log(`[NPC Retreat Debug] Verbose Data:`, {
+          npcId: state.id,
+          pos0: state.retreatDebug.pos0,
+          pos3: state.retreatDebug.pos3,
+          pos4: state.retreatDebug.pos4,
+          dist3: dist3.toFixed(1),
+          dist4: dist4.toFixed(1),
+          currentMode: state.mode,
+          retreatTimer: state.retreatTimer?.toFixed(2),
+          patienceTimer: state.patienceTimer?.toFixed(2),
+          cooldown: state.cooldown?.toFixed(2),
+          velocity: { x: state.vel?.x?.toFixed(1), y: state.vel?.y?.toFixed(1) },
+          stamina: state.stamina,
+          aggression: state.aggression,
+          heavyState: state.aiLastHeavyState,
+        });
+      } else {
+        console.log(`[NPC Retreat Debug] ✓ ${state.id} stopped retreating (4s position closer than 3s position)`);
+      }
+
+      // Clear tracking after 4s check
+      state.retreatDebug = null;
+    }
+  }
 
   if (defensiveActive) {
     defenseState.active = true;
@@ -1468,7 +1791,22 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   }
 
   if (state.retreatTimer <= 0 && state.mode === 'retreat' && state.patienceTimer <= 0 && !defenseState.active) {
-    state.mode = 'approach';
+    // Retreat time limit reached - end retreat with cooldown to prevent immediate re-attack
+    const target = state.target;
+    const dx = target?.pos?.x !== undefined ? target.pos.x - state.pos.x : 0;
+    const absDx = Math.abs(dx);
+    const nearDist = state.ai?.attackRange || state.perception?.attackRange || 50;
+    const inCombatZone = absDx <= nearDist * 1.5;
+
+    if (inCombatZone) {
+      // Stay in shuffle mode with cooldown to avoid freeze
+      resetNpcShuffle(state, dx >= 0 ? -1 : 1);
+      state.mode = 'shuffle';
+      state.patienceTimer = resolveNpcPatienceDuration(state) * 0.5; // Half patience for shuffle
+      state.cooldown = Math.max(state.cooldown, 1.0); // Add cooldown to prevent immediate attack
+    } else {
+      state.mode = 'approach';
+    }
   }
   if (state.patienceTimer <= 0 && state.mode === 'shuffle' && !defenseState.threat && !(state.obstructionJump?.blockedRecently)) {
     state.mode = 'approach';
@@ -1477,20 +1815,19 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   if (aggression.active) {
     state.cooldown = Math.max(0, (state.cooldown || 0) - dt);
     if (attackActive) {
-      if (state.stamina) state.stamina.isDashing = false;
       input.left = false;
       input.right = false;
     } else {
       const recovering = stamina?.recovering && !isPanicking;
       input.left = false;
       input.right = false;
-      if (state.stamina) state.stamina.isDashing = false;
       let handledByAbility = false;
 
       if (!recovering && heavyIntent && heavyIntent.mode) {
         if (heavyIntent.mode === 'retreat') {
           state.mode = 'retreat';
-          state.retreatTimer = Math.max(state.retreatTimer, resolveNpcRetreatDuration(state) * 0.6);
+          initRetreatDebug(state);
+          // Removed: Don't refresh retreatTimer - let it count down naturally
           state.cooldown = Math.max(state.cooldown, 0.35);
           handledByAbility = true;
         } else if (heavyIntent.mode === 'hold') {
@@ -1499,13 +1836,11 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
         } else if (heavyIntent.mode === 'approach') {
           state.mode = 'approach';
           const targetRange = heavyIntent.targetRange || nearDist;
-          if (state.stamina) {
-            state.stamina.isDashing = absDx > targetRange * 1.1;
-          }
           handledByAbility = true;
         } else if (heavyIntent.mode === 'recover') {
           state.mode = 'retreat';
-          state.retreatTimer = Math.max(state.retreatTimer, resolveNpcRetreatDuration(state));
+          initRetreatDebug(state);
+          // Removed: Don't refresh retreatTimer - let it count down naturally
           state.cooldown = Math.max(state.cooldown, 0.45);
           handledByAbility = true;
         }
@@ -1541,6 +1876,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
 
       if (state.retreatTimer > 0 && state.mode !== 'defend') {
         state.mode = 'retreat';
+        initRetreatDebug(state);
       } else if (shouldShuffle) {
         if (state.mode !== 'shuffle') {
           resetNpcShuffle(state, dx >= 0 ? -1 : 1);
@@ -1553,15 +1889,9 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       if (state.mode === 'approach') {
         input.right = dx > 0;
         input.left = dx < 0;
-        if (state.stamina) {
-          state.stamina.isDashing = absDx > nearDist * 1.2;
-        }
       } else if (state.mode === 'retreat') {
         input.right = dx < 0;
         input.left = dx > 0;
-        if (state.stamina) {
-          state.stamina.isDashing = false;
-        }
       } else if (state.mode === 'defend') {
         const retreatDir = defenseState.retreatDir || defensiveRetreatDir || (dx >= 0 ? -1 : 1);
         if (defensiveType === 'evade') {
@@ -1571,7 +1901,6 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
           input.left = false;
           input.right = false;
         }
-        if (state.stamina) state.stamina.isDashing = false;
       } else if (state.mode === 'shuffle') {
         if (!Number.isFinite(shuffleState.originDistance)) {
           shuffleState.originDistance = absDx;
@@ -1589,13 +1918,9 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
         }
         input.left = shuffleState.direction < 0;
         input.right = shuffleState.direction > 0;
-        if (state.stamina) state.stamina.isDashing = false;
       } else if (state.mode === 'recover') {
         input.right = dx < 0;
         input.left = dx > 0;
-        if (state.stamina) state.stamina.isDashing = false;
-      } else {
-        if (state.stamina) state.stamina.isDashing = false;
       }
     }
 
@@ -1603,14 +1928,11 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     if (state.mode === 'attack' && !attackActive && !isPressing && !recovering) {
       state.mode = state.patienceTimer > 0 ? 'shuffle' : 'approach';
     }
-  } else {
-    if (state.stamina) state.stamina.isDashing = false;
   }
 
   if (stamina) {
     const max = Number.isFinite(stamina.max) ? stamina.max : 100;
-    const minToDash = Number.isFinite(stamina.minToDash) ? stamina.minToDash : 0;
-    const recoveryThreshold = Math.max(minToDash, max * stamina.reengageRatio);
+    const recoveryThreshold = max * (stamina.reengageRatio || 0.6);
     const current = Number.isFinite(stamina.current) ? stamina.current : 0;
     if (!isPanicking && stamina.recovering && current >= recoveryThreshold) {
       stamina.recovering = false;
@@ -1740,7 +2062,7 @@ export function updateNpcSystems(dt) {
       });
     }
     updateNpcMovement(G, npc, dt, abilityIntent);
-    updateNpcPerceptionColliders(npc);
+    updateNpcPerceptionColliders(npc, null, combat);
 
     if (npc.aggression?.active) {
       aggressiveNpcs.push(npc);
@@ -1929,4 +2251,16 @@ export function unregisterNpcFighter(id) {
 
 export function getActiveNpcFighters() {
   return getNpcFighterList(ensureGameState());
+}
+
+export function createNpcPlannedAbility(state, options) {
+  return createPlannedAbility(state, options);
+}
+
+export function clearNpcPlannedAbility(state) {
+  return clearPlannedAbility(state);
+}
+
+export function evaluateNpcPlannedAbilityConditions(state, player) {
+  return evaluatePlannedAbilityConditions(state, player);
 }
