@@ -203,8 +203,6 @@ function applyCharacterTemplateToFighter(fighter, templateResult, baseTemplate) 
   const staminaRegenRateMultiplier = Number.isFinite(statProfile?.staminaRegenRateMultiplier)
     ? statProfile.staminaRegenRateMultiplier
     : 1;
-    ? statProfile.dashStaminaThresholdMultiplier
-    : 1;
   const healthRegenRate = Number.isFinite(statProfile?.healthRegenPerSecond)
     ? statProfile.healthRegenPerSecond
     : 0;
@@ -228,8 +226,6 @@ function applyCharacterTemplateToFighter(fighter, templateResult, baseTemplate) 
     max: maxStamina,
     drainRate: staminaDrainRate,
     regenRate: staminaRegenRate,
-    minToDash: staminaMinToDash,
-    
     reengageRatio: baseTemplate?.stamina?.reengageRatio ?? fighter.stamina?.reengageRatio ?? 0.6,
   };
 
@@ -717,8 +713,6 @@ export function initFighters(cv, cx, options = {}){
     const staminaRegenRateMultiplier = Number.isFinite(statProfile?.staminaRegenRateMultiplier)
       ? statProfile.staminaRegenRateMultiplier
       : 1;
-      ? statProfile.dashStaminaThresholdMultiplier
-      : 1;
 
     const maxHealth = Number.isFinite(stats.maxHealth)
       ? stats.maxHealth
@@ -771,8 +765,6 @@ export function initFighters(cv, cx, options = {}){
         max: maxStamina,
         drainRate: staminaDrainRate,
         regenRate: staminaRegenRate,
-        minToDash: staminaMinToDash,
-        
         reengageRatio: 0.6,
       },
       attack: {

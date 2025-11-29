@@ -1932,8 +1932,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
 
   if (stamina) {
     const max = Number.isFinite(stamina.max) ? stamina.max : 100;
-    const minToDash = Number.isFinite(stamina.minToDash) ? stamina.minToDash : 0;
-    const recoveryThreshold = Math.max(minToDash, max * stamina.reengageRatio);
+    const recoveryThreshold = max * (stamina.reengageRatio || 0.6);
     const current = Number.isFinite(stamina.current) ? stamina.current : 0;
     if (!isPanicking && stamina.recovering && current >= recoveryThreshold) {
       stamina.recovering = false;
