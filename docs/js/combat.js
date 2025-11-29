@@ -9,6 +9,7 @@ import {
   buildStatContextMultipliers,
   getStatProfile,
 } from './stat-hooks.js?v=1';
+import { startAttackDash } from './attack-dash.js?v=1';
 
 export function initCombat(){
   const G = (window.GAME ||= {});
@@ -1639,6 +1640,14 @@ export function makeCombat(G, C, options = {}){
     attackState.isHoldRelease = !!ATTACK.isHoldRelease;
     attackState.chargeStage = ATTACK.chargeStage || 0;
     if (attackState.currentPhase && attackState.currentPhase.toLowerCase().includes('strike')) {
+      // Trigger attack dash if configured
+      const attackData = context?.attack?.attackData || context?.attackProfile?.base || context?.ability?.attackData || null;
+      if (attackData) {
+        // Determine target ID (player attacks NPCs, NPCs attack player)
+        const targetId = fighter?.id === 'player' ? 'npc' : 'player';
+        startAttackDash(fighter, attackData, targetId);
+      }
+
       const explicitKeys = Array.isArray(context?.activeColliderKeys) && context.activeColliderKeys.length
         ? context.activeColliderKeys.slice()
         : inferActiveCollidersForPreset(attackState.preset || context?.preset);

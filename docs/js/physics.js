@@ -1,5 +1,6 @@
 import { getFootingRecovery, getMovementMultipliers, getStatProfile } from './stat-hooks.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
+import { updateAttackDash, isAttackDashing } from './attack-dash.js?v=1';
 
 const JOINT_LIMITS = {
   torso: [-0.8, 0.8],
@@ -500,9 +501,15 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
 
   const input = options.input || fighter.input || null;
   const attackActive = !!options.attackActive;
-  // Allow movement during Charge phase (hold-release heavies)
+
+  // Update attack dash system
+  const G = (typeof window !== 'undefined' && window.GAME) || null;
+  updateAttackDash(fighter, dt, G);
+
+  // Allow movement during Charge phase (hold-release heavies) or attack dash
   const attackPhase = fighter.attack?.currentPhase || null;
-  const canMoveWhileAttacking = attackActive && attackPhase === 'Charge';
+  const attackDashing = isAttackDashing(fighter);
+  const canMoveWhileAttacking = attackActive && (attackPhase === 'Charge' || attackDashing);
   const prevOnGround = !!fighter.onGround;
 
   const jumpPressed = input ? !!input.jump : false;
@@ -548,6 +555,9 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
         }
       }
     }
+  } else if (attackDashing) {
+    // Attack dash controls velocity - don't apply input or friction
+    // Velocity is set by updateAttackDash above
   } else if (input) {
     const left = !!input.left;
     const right = !!input.right;

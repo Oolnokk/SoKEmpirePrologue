@@ -1802,7 +1802,8 @@ window.CONFIG = {
           damage: { health: 7 },
           staminaCost: 7,
           colliders: ['footR'],
-          range: 75
+          range: 75,
+          dash: { velocity: 250, duration: 0.2 }
         }
       },
       ComboKICK_F: {
@@ -1813,7 +1814,8 @@ window.CONFIG = {
           damage: { health: 8 },
           staminaCost: 8,
           colliders: ['footL'],
-          range: 75
+          range: 75,
+          dash: { velocity: 260, duration: 0.2 }
         }
       },
       ComboPUNCH_R: {
@@ -1824,7 +1826,8 @@ window.CONFIG = {
           damage: { health: 6 },
           staminaCost: 6,
           colliders: ['handR'],
-          range: 60
+          range: 60,
+          dash: { velocity: 220, duration: 0.18 }
         }
       },
       ComboPUNCH_L: {
@@ -1835,7 +1838,8 @@ window.CONFIG = {
           damage: { health: 6 },
           staminaCost: 6,
           colliders: ['handL'],
-          range: 60
+          range: 60,
+          dash: { velocity: 220, duration: 0.18 }
         }
       },
       QuickKick: {
@@ -1846,7 +1850,8 @@ window.CONFIG = {
           damage: { health: 10 },
           staminaCost: 12,
           colliders: ['footR'],
-          range: 80
+          range: 80,
+          dash: { velocity: 280, duration: 0.22 }
         }
       },
       QuickKickCombo: {
@@ -1858,7 +1863,8 @@ window.CONFIG = {
           damage: { health: 12 },
           staminaCost: 13,
           colliders: ['footR'],
-          range: 80
+          range: 80,
+          dash: { velocity: 290, duration: 0.2 }
         }
       },
       QuickPunch: {
@@ -1869,7 +1875,8 @@ window.CONFIG = {
           damage: { health: 9 },
           staminaCost: 10,
           colliders: ['handR'],
-          range: 65
+          range: 65,
+          dash: { velocity: 240, duration: 0.18 }
         }
       },
       QuickPunchCombo: {
@@ -1881,7 +1888,8 @@ window.CONFIG = {
           damage: { health: 11 },
           staminaCost: 11,
           colliders: ['handR'],
-          range: 65
+          range: 65,
+          dash: { velocity: 250, duration: 0.16 }
         }
       },
       Slam: {

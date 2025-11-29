@@ -2294,7 +2294,7 @@ export function initNpcSystems() {
   if (!npcs.length) return;
   ensureNpcContainers(G);
   for (const npc of npcs) {
-    registerNpcFighter(npc, { immediateAggro: npc.aggression?.active });
+    registerNpcFighter(npc, { immediateAggro: true });
   }
 }
 
