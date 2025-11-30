@@ -9,7 +9,7 @@ import {
   buildStatContextMultipliers,
   getStatProfile,
 } from './stat-hooks.js?v=1';
-import { startAttackDash } from './attack-dash.js?v=1';
+import { startAttackDash, isAttackDashing } from './attack-dash.js?v=1';
 
 export function initCombat(){
   const G = (window.GAME ||= {});
@@ -585,7 +585,8 @@ export function makeCombat(G, C, options = {}){
       I.left = false;
       I.right = false;
     }
-    if (p?.vel) p.vel.x = 0;
+    // Don't reset velocity if attack dash is active
+    if (p?.vel && !isAttackDashing(p)) p.vel.x = 0;
   }
 
   // Get preset durations
