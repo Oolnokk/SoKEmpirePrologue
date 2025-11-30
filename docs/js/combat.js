@@ -1998,7 +1998,10 @@ export function makeCombat(G, C, options = {}){
 
     const heavyAbility = getAbilityForSlot(slotKey, 'heavy');
     const preserveDirectional = heavyAbility?.trigger === 'defensive';
-    neutralizeMovement({ preserveDirectional });
+    // Don't neutralize movement if continuing a combo chain
+    if (COMBO.timer <= 0 || COMBO.hits === 0) {
+      neutralizeMovement({ preserveDirectional });
+    }
 
     if (ATTACK.active || !canAttackNow()){
     console.log(logPrefix, `Button ${slotKey} queued`);
