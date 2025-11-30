@@ -1243,7 +1243,7 @@ if (dashRotationOffset && dashRotationValue) {
 const dashImpulseMultiplier = $$('#dashImpulseMultiplier');
 const dashImpulseValue = $$('#dashImpulseValue');
 if (dashImpulseMultiplier && dashImpulseValue) {
-  dashImpulseMultiplier.value = window.RENDER_DEBUG?.dashImpulseMultiplier || 3.0;
+  dashImpulseMultiplier.value = window.RENDER_DEBUG?.dashImpulseMultiplier || 10.0;
   dashImpulseValue.textContent = Number(dashImpulseMultiplier.value).toFixed(1);
   dashImpulseMultiplier.addEventListener('input', (e) => {
     window.RENDER_DEBUG = window.RENDER_DEBUG || {};
@@ -1255,7 +1255,7 @@ if (dashImpulseMultiplier && dashImpulseValue) {
 const dashFrictionMultiplier = $$('#dashFrictionMultiplier');
 const dashFrictionValue = $$('#dashFrictionValue');
 if (dashFrictionMultiplier && dashFrictionValue) {
-  dashFrictionMultiplier.value = window.RENDER_DEBUG?.dashFrictionMultiplier || 0.1;
+  dashFrictionMultiplier.value = window.RENDER_DEBUG?.dashFrictionMultiplier || 0.05;
   dashFrictionValue.textContent = Number(dashFrictionMultiplier.value).toFixed(2);
   dashFrictionMultiplier.addEventListener('input', (e) => {
     window.RENDER_DEBUG = window.RENDER_DEBUG || {};

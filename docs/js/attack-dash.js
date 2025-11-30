@@ -135,8 +135,8 @@ export function updateAttackDash(fighter, dt, game = null) {
   if (!dash.appliedImpulse && dash.impulse > 0) {
     // Get debug settings
     const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
-    const impulseMult = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 3.0;
-    const frictionMult = Number.isFinite(DEBUG.dashFrictionMultiplier) ? DEBUG.dashFrictionMultiplier : 0.1;
+    const impulseMult = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 10.0;
+    const frictionMult = Number.isFinite(DEBUG.dashFrictionMultiplier) ? DEBUG.dashFrictionMultiplier : 0.05;
 
     // Get angle from head/torso pose (like aiming)
     let angle = fighter.facingRad || 0; // Default to horizontal facing
