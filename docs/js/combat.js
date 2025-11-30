@@ -1325,6 +1325,12 @@ export function makeCombat(G, C, options = {}){
     } else if (data.useWeaponColliders === false) {
       target.useWeaponColliders = false;
     }
+    if (data.range != null) {
+      target.range = data.range;
+    }
+    if (data.dash) {
+      target.dash = data.dash;
+    }
     return target;
   }
 
