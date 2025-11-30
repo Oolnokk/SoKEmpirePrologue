@@ -135,7 +135,14 @@ export function updateAttackDash(fighter, dt, game = null) {
   if (!dash.appliedImpulse && dash.impulse > 0) {
     // Get debug settings
     const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
-    const impulseMult = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 10.0;
+
+    // Determine if this is a heavy attack (gap closer) or light/combo attack
+    const attackType = fighter.attack?.context?.type || 'light';
+    const isHeavy = attackType === 'heavy';
+
+    // Heavy attacks get 2x the multiplier for gap closer behavior
+    const baseMultiplier = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 10.0;
+    const impulseMult = isHeavy ? baseMultiplier * 2.0 : baseMultiplier;
     const frictionMult = Number.isFinite(DEBUG.dashFrictionMultiplier) ? DEBUG.dashFrictionMultiplier : 0.01;
 
     // Get angle from head/torso pose (like aiming)
