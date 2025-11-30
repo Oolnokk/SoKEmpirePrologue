@@ -1915,7 +1915,8 @@ window.CONFIG = {
           damage: { health: 6 },
           staminaCost: 12,
           colliders: ['handR'],
-          range: 60
+          range: 60,
+          dash: { impulse: 520, duration: 0.18 }
         }
       },
       UnArCA2: {
@@ -1929,7 +1930,8 @@ window.CONFIG = {
           damage: { health: 7 },
           staminaCost: 14,
           colliders: ['footR'],
-          range: 75
+          range: 75,
+          dash: { impulse: 540, duration: 0.2 }
         }
       },
       UnArCA3: {
@@ -1944,7 +1946,8 @@ window.CONFIG = {
           damage: { health: 9 },
           staminaCost: 16,
           colliders: ['handL', 'handR'],
-          range: 60
+          range: 60,
+          dash: { impulse: 560, duration: 0.18 }
         }
       },
       UnArCA4: {
@@ -1958,7 +1961,8 @@ window.CONFIG = {
           damage: { health: 10 },
           staminaCost: 18,
           colliders: ['footL'],
-          range: 75
+          range: 75,
+          dash: { impulse: 580, duration: 0.2 }
         }
       },
       SRCA1: {
@@ -1972,7 +1976,8 @@ window.CONFIG = {
           damage: { health: 18 },
           staminaCost: 16,
           useWeaponColliders: true,
-          range: 95
+          range: 95,
+          dash: { impulse: 520, duration: 0.18 }
         }
       },
       SRCA2: {
@@ -1986,7 +1991,8 @@ window.CONFIG = {
           damage: { health: 20 },
           staminaCost: 18,
           useWeaponColliders: true,
-          range: 100
+          range: 100,
+          dash: { impulse: 540, duration: 0.2 }
         }
       },
       SRCA3: {
@@ -2000,7 +2006,8 @@ window.CONFIG = {
           damage: { health: 22 },
           staminaCost: 20,
           useWeaponColliders: true,
-          range: 105
+          range: 105,
+          dash: { impulse: 560, duration: 0.18 }
         }
       },
       SRCA4: {
@@ -2014,7 +2021,8 @@ window.CONFIG = {
           damage: { health: 24 },
           staminaCost: 22,
           useWeaponColliders: true,
-          range: 110
+          range: 110,
+          dash: { impulse: 580, duration: 0.2 }
         }
       }
     },
