@@ -2123,7 +2123,10 @@ export function makeCombat(G, C, options = {}){
     if (!button) return;
 
     if (type === 'combo'){
-      neutralizeMovement();
+      // Only neutralize on first hit, preserve momentum during combo chains
+      if (COMBO.hits === 0) {
+        neutralizeMovement();
+      }
       triggerComboAbility(button, abilityId, { skipQueue: true });
       return;
     }
@@ -2146,7 +2149,10 @@ export function makeCombat(G, C, options = {}){
       return;
     }
 
-    neutralizeMovement();
+    // Only neutralize on first hit, preserve momentum during combo chains
+    if (COMBO.hits === 0) {
+      neutralizeMovement();
+    }
 
     const lightAbility = getAbilityForSlot(button, 'light');
     if (!lightAbility) return;
