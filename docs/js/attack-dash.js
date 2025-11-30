@@ -196,6 +196,11 @@ export function stopAttackDash(fighter, brake = false) {
     fighter.frictionOverride.value = null;
   }
 
+  // Restore gravity (clear weight drop)
+  if (fighter.gravityOverride) {
+    fighter.gravityOverride.value = null;
+  }
+
   // Reset dash state
   dash.active = false;
   dash.impulse = 0;

@@ -534,6 +534,43 @@ function drawRangeCollider(ctx, fighter, hitbox) {
       ctx.fillText(line.text, centerX, y);
     });
   }
+
+  // Draw impulse direction arrow (using pose angle, not facing angle)
+  let impulseAngle = fighter.facingRad || 0;
+  if (fighter.pose?.head != null) {
+    impulseAngle = fighter.pose.head;
+  } else if (fighter.pose?.torso != null) {
+    impulseAngle = fighter.pose.torso;
+  }
+
+  // Draw arrow from center showing impulse direction
+  const arrowLength = 80;
+  const arrowHeadSize = 15;
+  const [arrowEndX, arrowEndY] = segPos(centerX, centerY, arrowLength, impulseAngle);
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0, 255, 255, 1.0)'; // Cyan for impulse
+  ctx.fillStyle = 'rgba(0, 255, 255, 1.0)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([]);
+
+  // Draw arrow shaft
+  ctx.beginPath();
+  ctx.moveTo(centerX, centerY);
+  ctx.lineTo(arrowEndX, arrowEndY);
+  ctx.stroke();
+
+  // Draw arrow head
+  ctx.translate(arrowEndX, arrowEndY);
+  ctx.rotate(impulseAngle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-arrowHeadSize, -arrowHeadSize / 2);
+  ctx.lineTo(-arrowHeadSize, arrowHeadSize / 2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
 }
 
 
