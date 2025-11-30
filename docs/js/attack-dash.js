@@ -127,7 +127,7 @@ export function updateAttackDash(fighter, dt, game = null) {
   // Update elapsed time - stop if duration exceeded
   dash.elapsed += dt;
   if (dash.elapsed >= dash.duration) {
-    stopAttackDash(fighter, true); // Brake on completion
+    stopAttackDash(fighter, false); // Don't brake - let momentum carry
     return;
   }
 
@@ -136,7 +136,7 @@ export function updateAttackDash(fighter, dt, game = null) {
     // Get debug settings
     const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
     const impulseMult = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 10.0;
-    const frictionMult = Number.isFinite(DEBUG.dashFrictionMultiplier) ? DEBUG.dashFrictionMultiplier : 0.05;
+    const frictionMult = Number.isFinite(DEBUG.dashFrictionMultiplier) ? DEBUG.dashFrictionMultiplier : 0.01;
 
     // Get angle from head/torso pose (like aiming)
     let angle = fighter.facingRad || 0; // Default to horizontal facing

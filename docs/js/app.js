@@ -1255,7 +1255,7 @@ if (dashImpulseMultiplier && dashImpulseValue) {
 const dashFrictionMultiplier = $$('#dashFrictionMultiplier');
 const dashFrictionValue = $$('#dashFrictionValue');
 if (dashFrictionMultiplier && dashFrictionValue) {
-  dashFrictionMultiplier.value = window.RENDER_DEBUG?.dashFrictionMultiplier || 0.05;
+  dashFrictionMultiplier.value = window.RENDER_DEBUG?.dashFrictionMultiplier || 0.01;
   dashFrictionValue.textContent = Number(dashFrictionMultiplier.value).toFixed(2);
   dashFrictionMultiplier.addEventListener('input', (e) => {
     window.RENDER_DEBUG = window.RENDER_DEBUG || {};
