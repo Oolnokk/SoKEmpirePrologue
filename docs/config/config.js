@@ -1901,7 +1901,8 @@ window.CONFIG = {
           damage: { health: 22 },
           staminaCost: 28,
           colliders: ['handL', 'handR'],
-          range: 75
+          range: 75,
+          dash: { impulse: 850, duration: 0.25 }
         }
       },
       UnArCA1: {
