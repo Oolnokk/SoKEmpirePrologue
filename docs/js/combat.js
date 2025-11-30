@@ -1865,6 +1865,12 @@ export function makeCombat(G, C, options = {}){
       COMBO.sequenceIndex = 0;
     }
 
+    // Reset sprite flips when chaining combo hits
+    // (the previous attack's timeline gets interrupted before Stance phase)
+    if (COMBO.hits > 0) {
+      resetMirror(poseTarget);
+    }
+
     const step = sequence[COMBO.sequenceIndex % sequence.length];
     const attackId = typeof step === 'string' ? step : step.attack;
     const attackDef = getAttackDef(attackId) || { id: attackId, preset: attackId };
