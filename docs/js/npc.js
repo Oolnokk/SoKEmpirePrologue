@@ -812,15 +812,15 @@ function updateAttackPhase(state, combat, dt) {
       // Start the hold
       pressNpcButton(state, combat, ability.slotKey, 999);
       phase.holdInputActive = true;
-    } else if (phase.timer >= 0.3) {
-      // Hold for 0.3s to charge power, then release
+    } else if (phase.timer >= 0.5) {
+      // Hold for 0.5s to charge power (200ms tap threshold + 200ms stage + buffer), then release
       if (!phase.released) {
         releaseNpcButton(state, combat, ability.slotKey);
         phase.released = true;
       }
 
       // Wait a bit longer for attack to execute
-      if (phase.timer >= 1.0) {
+      if (phase.timer >= 1.2) {
         resetBehaviorPhase(state, 'retreat');
       }
     }
