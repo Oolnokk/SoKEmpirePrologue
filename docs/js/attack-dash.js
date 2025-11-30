@@ -138,11 +138,21 @@ export function updateAttackDash(fighter, dt, game = null) {
     const impulseMult = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 3.0;
     const frictionMult = Number.isFinite(DEBUG.dashFrictionMultiplier) ? DEBUG.dashFrictionMultiplier : 0.1;
 
-    // Apply horizontal impulse only (no Y-axis) in facing direction
-    const facingSign = fighter.facingSign || 1;
+    // Get angle from head/torso pose (like aiming)
+    let angle = fighter.facingRad || 0; // Default to horizontal facing
+
+    // Try to get more accurate angle from pose
+    if (fighter.pose?.head != null) {
+      angle = fighter.pose.head;
+    } else if (fighter.pose?.torso != null) {
+      angle = fighter.pose.torso;
+    }
+
+    // Apply impulse at angle (like angled jump)
     fighter.vel = fighter.vel || { x: 0, y: 0 };
-    fighter.vel.x += dash.impulse * impulseMult * facingSign;
-    // NO Y-axis impulse - keep it horizontal only
+    const totalImpulse = dash.impulse * impulseMult;
+    fighter.vel.x += totalImpulse * Math.cos(angle);
+    fighter.vel.y += totalImpulse * Math.sin(angle);
 
     // Reduce friction for slippery movement
     fighter.frictionOverride = fighter.frictionOverride || {};
