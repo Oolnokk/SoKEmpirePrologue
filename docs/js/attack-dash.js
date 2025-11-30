@@ -40,20 +40,20 @@ function getAttackDashData(attackData) {
   if (!attackData || typeof attackData !== 'object') return null;
   if (!attackData.dash || typeof attackData.dash !== 'object') return null;
 
-  // Use impulse if specified, otherwise convert old velocity to impulse
-  let impulse = Number.isFinite(attackData.dash.impulse)
-    ? attackData.dash.impulse
-    : Number.isFinite(attackData.dash.velocity)
-      ? attackData.dash.velocity * 0.5  // Convert velocity to impulse
-      : 0;
-
   const duration = Number.isFinite(attackData.dash.duration) ? attackData.dash.duration : 0;
+  if (duration <= 0) return null;
 
-  if (impulse <= 0 || duration <= 0) return null;
+  // Support both velocity-based (instant) and impulse-based (accelerating) dashes
+  const velocity = Number.isFinite(attackData.dash.velocity) ? attackData.dash.velocity : 0;
+  const impulse = Number.isFinite(attackData.dash.impulse) ? attackData.dash.impulse : 0;
+
+  if (velocity <= 0 && impulse <= 0) return null;
 
   return {
+    velocity,
     impulse,
     duration,
+    mode: velocity > 0 ? 'velocity' : 'impulse'
   };
 }
 
@@ -77,6 +77,8 @@ export function startAttackDash(fighter, attackData, targetId = null) {
 
   // Activate dash
   dash.active = true;
+  dash.mode = dashData.mode;
+  dash.velocity = dashData.velocity;
   dash.impulse = dashData.impulse;
   dash.duration = dashData.duration;
   dash.elapsed = 0;
@@ -131,46 +133,56 @@ export function updateAttackDash(fighter, dt, game = null) {
     return;
   }
 
-  // Apply impulse once at start and reduce friction for duration
-  if (!dash.appliedImpulse && dash.impulse > 0) {
-    // Get debug settings
-    const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+  // Get debug settings
+  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
 
-    // Determine if this is a heavy attack (gap closer) or light/combo attack
-    const attackType = fighter.attack?.context?.type || 'light';
-    const isHeavy = attackType === 'heavy';
+  // Determine if this is a heavy attack (gap closer) or light/combo attack
+  const attackType = fighter.attack?.context?.type || 'light';
+  const isHeavy = attackType === 'heavy';
 
-    // Heavy attacks get 2x the multiplier for gap closer behavior
+  // Get angle from head/torso pose (like aiming)
+  let angle = fighter.facingRad || 0; // Default to horizontal facing
+  if (fighter.pose?.head != null) {
+    angle = fighter.pose.head;
+  } else if (fighter.pose?.torso != null) {
+    angle = fighter.pose.torso;
+  }
+
+  fighter.vel = fighter.vel || { x: 0, y: 0 };
+
+  if (dash.mode === 'velocity' && dash.velocity > 0) {
+    // Velocity mode: Set velocity directly every frame (instant superhuman speed)
+    const baseMultiplier = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 10.0;
+    const velocityMult = isHeavy ? baseMultiplier * 2.0 : baseMultiplier;
+    const frictionMult = Number.isFinite(DEBUG.dashFrictionMultiplier) ? DEBUG.dashFrictionMultiplier : 0.0;
+
+    const totalVelocity = dash.velocity * velocityMult;
+    fighter.vel.x = totalVelocity * Math.cos(angle);
+    fighter.vel.y = totalVelocity * Math.sin(angle);
+
+    // Zero friction for maintained velocity
+    fighter.frictionOverride = fighter.frictionOverride || {};
+    fighter.frictionOverride.value = frictionMult;
+    fighter.frictionOverride.active = true;
+  } else if (!dash.appliedImpulse && dash.impulse > 0) {
+    // Impulse mode: Apply force once at start (accelerating dash)
     const baseMultiplier = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 10.0;
     const impulseMult = isHeavy ? baseMultiplier * 2.0 : baseMultiplier;
     const frictionMult = Number.isFinite(DEBUG.dashFrictionMultiplier) ? DEBUG.dashFrictionMultiplier : 0.01;
 
-    // Get angle from head/torso pose (like aiming)
-    let angle = fighter.facingRad || 0; // Default to horizontal facing
-
-    // Try to get more accurate angle from pose
-    if (fighter.pose?.head != null) {
-      angle = fighter.pose.head;
-    } else if (fighter.pose?.torso != null) {
-      angle = fighter.pose.torso;
-    }
-
-    // Apply impulse at angle (like angled jump)
-    fighter.vel = fighter.vel || { x: 0, y: 0 };
     const totalImpulse = dash.impulse * impulseMult;
     fighter.vel.x += totalImpulse * Math.cos(angle);
     fighter.vel.y += totalImpulse * Math.sin(angle);
 
     // Reduce friction for slippery movement
     fighter.frictionOverride = fighter.frictionOverride || {};
-    fighter.frictionOverride.value = frictionMult; // Configurable low friction
+    fighter.frictionOverride.value = frictionMult;
     fighter.frictionOverride.active = true;
 
     dash.appliedImpulse = true;
   }
 
   // Apply weight drop lerp if configured
-  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
   if (Number.isFinite(DEBUG.dashWeightDrop) && DEBUG.dashWeightDrop > 0) {
     // Lerp gravity from 0 to full over the strike duration
     const progress = Math.min(1, dash.elapsed / dash.duration);
