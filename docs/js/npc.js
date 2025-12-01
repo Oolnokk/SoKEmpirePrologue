@@ -711,13 +711,18 @@ function getAttackDefFromConfig(attackId) {
   return attacks[attackId] || null;
 }
 
+// Attack phase timeout constants
+const ATTACK_TIMEOUT = 1.5;
+const HOLD_RELEASE_MAX_TIMEOUT = 3.0;
+const HOLD_RELEASE_PLAYER_WAIT_TIMEOUT = 2.5;
+
 function getAbilityRange(combat, abilityDescriptor) {
   if (!combat || !abilityDescriptor) return 70; // Default range
 
   const ability = abilityDescriptor.ability;
   if (!ability) return 70;
 
-  // Get attack ID from ability - check variants first for the default attack
+  // Get attack ID from ability - check direct attack, then sequence, then variants
   let attackId = ability.attack || ability.defaultAttack;
   
   // For combo abilities, use the first attack in the sequence
@@ -899,12 +904,12 @@ function updateAttackPhase(state, combat, dt) {
         if (!combatBusy && !combatAttacking && phase.timer >= minChargeTime + 0.3) {
           clearPlannedAbility(state);
           resetBehaviorPhase(state, 'retreat');
-        } else if (phase.timer >= 3.0) {
+        } else if (phase.timer >= HOLD_RELEASE_MAX_TIMEOUT) {
           // Timeout safety - don't get stuck
           clearPlannedAbility(state);
           resetBehaviorPhase(state, 'retreat');
         }
-      } else if (phase.timer >= 2.5) {
+      } else if (phase.timer >= HOLD_RELEASE_PLAYER_WAIT_TIMEOUT) {
         // Timeout - player didn't enter range, cancel and retreat
         releaseNpcButton(state, combat, ability.slotKey);
         phase.released = true;
@@ -934,7 +939,7 @@ function updateAttackPhase(state, combat, dt) {
         return;
       }
       phase.timer += dt;
-      if (phase.timer > 1.5) {
+      if (phase.timer > ATTACK_TIMEOUT) {
         // Timeout safety
         resetBehaviorPhase(state, 'retreat');
       }
@@ -1015,7 +1020,7 @@ function updateAttackPhase(state, combat, dt) {
 
     // Timeout safety - don't get stuck forever
     phase.timer += dt;
-    if (phase.timer > 1.5) {
+    if (phase.timer > ATTACK_TIMEOUT) {
       resetBehaviorPhase(state, 'retreat');
     }
   }
