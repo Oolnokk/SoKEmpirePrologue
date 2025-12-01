@@ -62,7 +62,10 @@
     const target = preference || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     const dist1 = (c1.x - target.x) ** 2 + (c1.y - target.y) ** 2;
     const dist2 = (c2.x - target.x) ** 2 + (c2.y - target.y) ** 2;
-    return dist1 <= dist2 ? c1 : c2;
+
+    const primary = dist1 <= dist2 ? c1 : c2;
+    const alternate = primary === c1 ? c2 : c1;
+    return { primary, alternate };
   }
 
   function normalizeAngleDelta(delta) {
@@ -91,15 +94,18 @@
     const flipY = archCfg.flipVertical !== false;
     const startPt = vpPoint(archCfg.start, vp, flipY);
     const endPt = vpPoint(archCfg.end, vp, flipY);
-    const center = chooseCircleCenter(startPt, endPt, radius, {
+    const centerChoice = chooseCircleCenter(startPt, endPt, radius, {
       x: vp.offsetLeft + vp.width * 0.5,
       y: vp.offsetTop + vp.height * 0.5,
     });
-    if (!center) return container;
+    if (!centerChoice) return container;
+
+    const center = archCfg.concave ? centerChoice.alternate : centerChoice.primary;
 
     const startRad = Math.atan2(startPt.y - center.y, startPt.x - center.x);
     const endRad = Math.atan2(endPt.y - center.y, endPt.x - center.x);
-    const totalAngle = normalizeAngleDelta(endRad - startRad);
+    const arcDirection = archCfg.concave ? -1 : 1;
+    const totalAngle = normalizeAngleDelta(endRad - startRad) * arcDirection;
     const totalLength = Math.abs(radius * totalAngle);
     if (!Number.isFinite(totalLength) || totalLength === 0) return container;
 

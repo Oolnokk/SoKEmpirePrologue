@@ -17,6 +17,7 @@ window.HUD_ARCH_CONFIG = {
     defaultGapPx: 10, // default carving distance per segment
     rotateWithArch: true, // rotate along tangent? (fan out)
     flipVertical: false, // mirror along the horizontal axis to hug the gameplay viewport
+    concave: false, // pick the alternate circle center / arc direction
     debug: true // on-screen debug overlay
   },
 
