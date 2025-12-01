@@ -1902,7 +1902,7 @@ window.CONFIG = {
           staminaCost: 28,
           colliders: ['handL', 'handR'],
           range: 75,
-          dash: { velocity: 400, duration: 0.5 }
+          dash: { velocity: 400, duration: 1.2 }
         }
       },
       UnArCA1: {
