@@ -643,6 +643,22 @@ const SLAM_MOVE_POSES = {
       { time: 0.00, gravityScale: 0.35, gravityScaleDurationMs: 1200 }
     ]
   },
+  Charge: {
+    torso: -45,
+    lShoulder: -370,
+    lElbow: -10,
+    rShoulder: -370,
+    rElbow: -10,
+    lHip: 50,
+    lKnee: 110,
+    rHip: -100,
+    rKnee: 110,
+    rootMoveVel: { x: 0, y: 0 },
+    impulseMag: 0,
+    impulseDirDeg: 0,
+    allowAiming: true,
+    aimLegs: false
+  },
   Slam: {
     ...deepClone(PUNCH_MOVE_POSES.Strike),
     anim_events: [
@@ -1167,12 +1183,13 @@ window.CONFIG = {
     SLAM: {
       name: 'Charged Slam',
       tags: ['heavy'],
-      durations: { toWindup: 480, toStrike: 160, toRecoil: 200, toStance: 120 },
+      durations: { toWindup: 400, toCharge: 400, toStrike: 160, toRecoil: 200, toStance: 120 },
       knockbackBase: 250,
       cancelWindow: 0.5,
       poses: deepClone(SLAM_MOVE_POSES),
       sequence: [
-        { poseKey: 'Windup', durMs: 480 },
+        { poseKey: 'Windup', durMs: 400 },
+        { poseKey: 'Charge', durMs: 400 },
         { poseKey: 'Slam', durMs: 160, strike: {} },
         { poseKey: 'Recoil', durMs: 200 }
       ]
