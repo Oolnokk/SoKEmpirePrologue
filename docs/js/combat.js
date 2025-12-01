@@ -622,7 +622,22 @@ export function makeCombat(G, C, options = {}){
     }
   }
 
-  function clone(o){ return JSON.parse(JSON.stringify(o||{})); }
+  function clone(o){
+    if (o === null || o === undefined) return o;
+    if (typeof o !== 'object') return o;
+    // Fast shallow clone for simple objects
+    if (Array.isArray(o)) return o.slice();
+    const result = {};
+    for (const key in o) {
+      const value = o[key];
+      if (value !== null && typeof value === 'object') {
+        result[key] = clone(value);
+      } else {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
 
   function deepMergePose(basePose, extraPose){
     const base = (basePose && typeof basePose === 'object') ? clone(basePose) : {};

@@ -934,6 +934,7 @@ window.GAME.coordinateCapture = {
   countdownActive: false,
   countdownTimer: null,
   pendingValues: null,
+  locked: false,
 };
 
 const coordinateOverlay = document.getElementById('coordinateOverlay');
@@ -948,6 +949,27 @@ const coordinateValueElements = {
   world: document.getElementById('coordValueWorld'),
   ratio: document.getElementById('coordValueRatio'),
 };
+const stageEl = document.getElementById('gameStage');
+const doc = document;
+
+function isStageFullscreen() {
+  if (!stageEl) return false;
+  return doc.fullscreenElement === stageEl || doc.webkitFullscreenElement === stageEl;
+}
+
+async function requestStageFullscreen() {
+  if (!stageEl) return false;
+  const requestFs = stageEl.requestFullscreen || stageEl.webkitRequestFullscreen || stageEl.msRequestFullscreen;
+  if (!requestFs) return false;
+  if (isStageFullscreen()) return true;
+  try {
+    await requestFs.call(stageEl);
+    return true;
+  } catch (err) {
+    console.warn('[coordinate-capture] Fullscreen request failed', err);
+    return false;
+  }
+}
 
 if (coordinateOverlay) {
   coordinateOverlay.tabIndex = -1;
@@ -996,7 +1018,7 @@ function buildCoordinateSnapshot() {
   return {
     canvas: formatCoordPair(x, y),
     world: formatCoordPair(worldX, worldY),
-    ratio: `${ratioX.toFixed(4)}, ${ratioY.toFixed(4)}`,
+  ratio: `${ratioX.toFixed(4)}, ${ratioY.toFixed(4)}`,
   };
 }
 
@@ -1017,6 +1039,7 @@ function setCoordinateCaptureActive(active) {
     window.GAME.coordinateCapture.countdownActive = false;
     window.GAME.coordinateCapture.pendingValues = null;
     window.GAME.coordinateCapture.lastValues = null;
+    window.GAME.coordinateCapture.locked = false;
     clearCoordinateCountdown();
     if (coordinateArmingOverlay) coordinateArmingOverlay.hidden = true;
     updateCoordinateOverlayVisibility();
@@ -1025,6 +1048,7 @@ function setCoordinateCaptureActive(active) {
 
   window.GAME.coordinateCapture.lastValues = null;
   window.GAME.coordinateCapture.pendingValues = null;
+  window.GAME.coordinateCapture.locked = false;
   window.GAME.coordinateCapture.awaitingTap = true;
   window.GAME.coordinateCapture.countdownActive = false;
   clearCoordinateCountdown();
@@ -1042,6 +1066,7 @@ function setCoordinateCaptureActive(active) {
 
 function capturePointerCoordinates(event) {
   if (!cv || !coordinateOverlay || !isCoordinateCaptureActive()) return;
+  if (window.GAME.coordinateCapture.lastValues) return;
   updateMousePosition(event);
 
   const formatted = buildCoordinateSnapshot();
@@ -1064,6 +1089,7 @@ function finishCoordinateCountdown() {
 
   if (window.GAME.coordinateCapture.pendingValues) {
     applyCoordinateValues(window.GAME.coordinateCapture.pendingValues);
+    window.GAME.coordinateCapture.locked = true;
     window.GAME.coordinateCapture.pendingValues = null;
   }
 }
@@ -1126,7 +1152,8 @@ async function copyCoordinateValue(sourceId, triggerBtn) {
 function initCoordinateCaptureOverlay() {
   if (!coordinateOverlay || !coordinateStartBtn || !coordinateDismissBtn) return;
 
-  coordinateStartBtn.addEventListener('click', () => {
+  coordinateStartBtn.addEventListener('click', async () => {
+    await requestStageFullscreen();
     setCoordinateCaptureActive(true);
   });
 
@@ -1200,7 +1227,6 @@ const bountyStars = $$('#bountyStars');
 const statusInfo = $$('#statusInfo');
 const reloadBtn = $$('#btnReloadCfg');
 const fullscreenBtn = $$('#btnFullscreen');
-const stageEl = document.getElementById('gameStage');
 const actionButtonsContainer = document.querySelector('.controls-overlay .action-buttons');
 const actionHudSvg = actionButtonsContainer?.querySelector('.action-hud-bg');
 const actionHudPath = actionButtonsContainer?.querySelector('.action-hud-path');
@@ -1333,12 +1359,11 @@ if (teleportBtn) {
 }
 
 if (fullscreenBtn && stageEl){
-  const doc = document;
   const requestFs = stageEl.requestFullscreen || stageEl.webkitRequestFullscreen || stageEl.msRequestFullscreen;
   const exitFs = doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
 
   const updateFullscreenUi = () => {
-    const isFull = doc.fullscreenElement === stageEl || doc.webkitFullscreenElement === stageEl;
+    const isFull = isStageFullscreen();
     fullscreenBtn.textContent = isFull ? '⤡ Exit' : '⤢ Full';
     fullscreenBtn.setAttribute('aria-pressed', isFull ? 'true' : 'false');
   };
@@ -1350,9 +1375,9 @@ if (fullscreenBtn && stageEl){
       return;
     }
     try {
-      const isFull = doc.fullscreenElement === stageEl || doc.webkitFullscreenElement === stageEl;
+      const isFull = isStageFullscreen();
       if (!isFull){
-        await requestFs.call(stageEl);
+        await requestStageFullscreen();
       } else {
         await exitFs.call(doc);
       }
