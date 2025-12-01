@@ -3,6 +3,7 @@ import { degToRad } from './math-utils.js?v=1';
 import { pickFighterName } from './fighter-utils.js?v=1';
 import { getStatProfile } from './stat-hooks.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
+import { triggerFullRagdoll } from './physics.js?v=1';
 
 import { instantiateCharacterTemplate } from './character-templates.js?v=1';
 
@@ -40,6 +41,22 @@ function normalizeStats(rawStats = {}) {
     stats.maxStamina = rawStats.maxStamina;
   }
   return stats;
+}
+
+function resolveDeathDestroyDelay(fighter) {
+  const configured = fighter?.deathDestroyDelay ?? window.CONFIG?.npc?.deathDestroyDelay;
+  if (Number.isFinite(configured)) {
+    return Math.max(0, configured);
+  }
+  return 3.5;
+}
+
+function resolveDeathFadeDuration(fighter) {
+  const configured = fighter?.deathFadeDuration ?? window.CONFIG?.npc?.deathFadeDuration;
+  if (Number.isFinite(configured)) {
+    return Math.max(0, configured);
+  }
+  return 1.2;
 }
 
 function resetRuntimeState(fighter, template, {
@@ -1046,6 +1063,8 @@ export function markFighterDead(fighter, { killerId = null, cause = null } = {})
   fighter.deadTime = 0;
   fighter.deathCause = cause || null;
   fighter.killedBy = killerId || null;
+  fighter.deathDestroyDelay = resolveDeathDestroyDelay(fighter);
+  fighter.deathFadeDuration = resolveDeathFadeDuration(fighter);
   if (fighter.health) {
     const current = Number.isFinite(fighter.health.current) ? fighter.health.current : fighter.health.max ?? 0;
     fighter.health.current = Math.max(0, current);
@@ -1074,6 +1093,15 @@ export function markFighterDead(fighter, { killerId = null, cause = null } = {})
     if (fighter.aiInput.buttonA) fighter.aiInput.buttonA.down = false;
     if (fighter.aiInput.buttonB) fighter.aiInput.buttonB.down = false;
   }
+
+  const knockback = fighter.knockback || {};
+  const hasDirection = Number.isFinite(knockback.direction);
+  const deathDir = hasDirection ? knockback.direction : (Number.isFinite(fighter.facingRad) ? fighter.facingRad : 0);
+  const deathForce = Math.max(0, Math.abs(knockback.magnitude || 0));
+  triggerFullRagdoll(fighter, window.CONFIG || {}, {
+    angle: deathDir,
+    force: deathForce > 0 ? deathForce : 320,
+  });
   return fighter;
 }
 

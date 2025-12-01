@@ -23,6 +23,8 @@ import { pickFighterConfig, lengths, pickOffsets, resolveBoneLengthScale } from 
 import { updateFighterColliders, pruneFighterColliders, getFighterColliders } from './colliders.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
 
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
 // === RENDER DEBUG CONFIGURATION ===
 // Global config object for controlling what is rendered for debugging purposes
 if (typeof window !== 'undefined') {
@@ -79,6 +81,23 @@ function withAX(x, y, ang, off, len, units) {
   
   const unitStr = units || offsetUnits;
   return withAXUtil(x, y, ang, ax, ay, len || 1, unitStr);
+}
+
+function computeFighterDeathAlpha(fighter) {
+  if (!fighter?.isDead) return 1;
+  const destroyDelay = Number.isFinite(fighter.deathDestroyDelay)
+    ? fighter.deathDestroyDelay
+    : (Number.isFinite(window.CONFIG?.npc?.deathDestroyDelay) ? window.CONFIG.npc.deathDestroyDelay : 3.5);
+  const fadeDuration = Number.isFinite(fighter.deathFadeDuration)
+    ? fighter.deathFadeDuration
+    : (Number.isFinite(window.CONFIG?.npc?.deathFadeDuration) ? window.CONFIG.npc.deathFadeDuration : 1.2);
+  if (destroyDelay <= 0) return 0;
+  if (fadeDuration <= 0) return fighter.deadTime >= destroyDelay ? 0 : 1;
+  const fadeStart = Math.max(0, destroyDelay - fadeDuration);
+  const elapsed = Math.max(0, fighter.deadTime || 0);
+  if (elapsed <= fadeStart) return 1;
+  const remaining = clamp(destroyDelay - elapsed, 0, fadeDuration);
+  return clamp(remaining / fadeDuration, 0, 1);
 }
 
 export function computeAnchorsForFighter(F, C, fallbackFighterName) {
@@ -725,6 +744,7 @@ export function renderAll(ctx){
     const result = computeAnchorsForFighter(fighter, C, fallbackName);
     anchorsById[fighterId] = result.B;
     flipState[fighterId] = result.flipLeft;
+    const deathAlpha = computeFighterDeathAlpha(fighter);
     const entity = {
       id: fighterId,
       fighter,
@@ -733,6 +753,7 @@ export function renderAll(ctx){
       bones: result.B,
       hitbox: result.hitbox,
       flipLeft: result.flipLeft,
+      deathAlpha,
       lengths: result.L,
       centerX: Number.isFinite(result.hitbox?.x) ? result.hitbox.x : (fighter.pos?.x ?? 0)
     };
@@ -840,7 +861,9 @@ export function renderAll(ctx){
 
   for (const entity of renderEntities) {
     if (!entity) continue;
+    const entityAlpha = Number.isFinite(entity.deathAlpha) ? clamp(entity.deathAlpha, 0, 1) : 1;
     ctx.save();
+    ctx.globalAlpha *= entityAlpha;
     if (entity.flipLeft) {
       const centerX = Number.isFinite(entity.centerX) ? entity.centerX : 0;
       ctx.translate(centerX * 2, 0);
@@ -852,7 +875,10 @@ export function renderAll(ctx){
     ctx.restore();
 
     // Draw range collider AFTER entity is drawn, outside the flip transform
+    ctx.save();
+    ctx.globalAlpha *= entityAlpha;
     drawRangeCollider(ctx, entity.fighter, entity.hitbox);
+    ctx.restore();
   }
 
   // Draw attack colliders debug visualization

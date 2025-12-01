@@ -223,7 +223,7 @@ function resolveNpcDeathDestroyDelay(state) {
   if (Number.isFinite(configDelay)) {
     return Math.max(0, configDelay);
   }
-  return 0;
+  return 3.5;
 }
 
 function destroyNpcInstance(state) {
