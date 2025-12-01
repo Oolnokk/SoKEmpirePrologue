@@ -34,6 +34,53 @@
     };
   }
 
+  function clampSize(val, min, max) {
+    let result = val;
+    if (min != null) result = Math.max(result, min);
+    if (max != null) result = Math.min(result, max);
+    return result;
+  }
+
+  function resolveAdaptiveSize(setting, vp, fallbackPct) {
+    const minDim = Math.min(vp.width || 0, vp.height || 0);
+    const hasViewport = Number.isFinite(minDim) && minDim > 0;
+
+    if (typeof setting === "function") {
+      return setting(vp);
+    }
+
+    if (typeof setting === "number") {
+      return setting;
+    }
+
+    if (setting && typeof setting === "object") {
+      const pct =
+        typeof setting.viewportPct === "number" ? setting.viewportPct : null;
+      const base = typeof setting.base === "number" ? setting.base : null;
+
+      let size = null;
+      if (pct != null && hasViewport) {
+        size = minDim * pct;
+      } else if (base != null) {
+        size = base;
+      }
+
+      if (size == null && base != null) size = base;
+      if (size == null && fallbackPct != null && hasViewport) {
+        size = minDim * fallbackPct;
+      }
+
+      size = size != null ? size : 0;
+      return clampSize(size, setting.min, setting.max);
+    }
+
+    if (fallbackPct != null && hasViewport) {
+      return minDim * fallbackPct;
+    }
+
+    return 0;
+  }
+
   function vpPoint(coord, vp, flipVertical) {
     const normY = flipVertical ? 1 - coord.y : coord.y;
     return {
@@ -79,15 +126,17 @@
     container.className = "arch-hud";
     container.style.position = rootEl === document.body ? "fixed" : "absolute";
     container.style.inset = "0";
-    container.style.setProperty(
-      "--arch-button-size",
-      `${archCfg.buttonSizePx * (archCfg.scale || 1)}px`
-    );
 
     rootEl.appendChild(container);
 
     const vp = getViewportRect(rootEl);
-    const radius = archCfg.radiusPx * (archCfg.scale || 1);
+    const scale = archCfg.scale || 1;
+    const baseButtonSize = resolveAdaptiveSize(archCfg.buttonSizePx, vp, 0.1);
+    const baseRadius = resolveAdaptiveSize(archCfg.radiusPx, vp, 0.18);
+    const buttonSize = baseButtonSize * scale;
+    const radius = baseRadius * scale;
+    container.style.setProperty("--arch-button-size", `${buttonSize}px`);
+    if (!Number.isFinite(radius) || radius <= 0) return container;
     const flipY = archCfg.flipVertical !== false;
     const startPt = vpPoint(archCfg.start, vp, flipY);
     const endPt = vpPoint(archCfg.end, vp, flipY);
@@ -108,6 +157,16 @@
     let cursorLen = 0;
     const debug = archCfg.debug;
     const debugInfo = [];
+
+    if (debug) {
+      debugInfo.push({
+        id: "__meta",
+        viewport: { width: vp.width, height: vp.height },
+        radius,
+        buttonSize,
+        scale,
+      });
+    }
 
     btnCfgs.forEach((btnCfg) => {
       const segLength = btnCfg.lengthPct * totalLength;
@@ -131,7 +190,7 @@
       const x = center.x + radius * Math.cos(angleAlong);
       const y = center.y + radius * Math.sin(angleAlong);
 
-      const size = archCfg.buttonSizePx * (archCfg.scale || 1);
+      const size = buttonSize;
       const halfSize = size / 2;
 
       const btnEl = document.createElement("button");
