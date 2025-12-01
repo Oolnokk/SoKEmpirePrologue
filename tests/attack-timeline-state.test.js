@@ -48,6 +48,7 @@ test('attack timeline retains a single definition and exposes timeline state', a
     'const ATTACK = { timelineState: null };',
     'const stepsTriggered = [];',
     'let lastTransitionCallback = null;',
+    'const poseTarget = "fighter";',
     'function playAttackSequenceStep(step, context) { stepsTriggered.push({ step, context }); }',
     'function resetMirror() {}',
     'function startTransition(pose, phase, duration, callback) {',
@@ -94,4 +95,38 @@ test('attack timeline retains a single definition and exposes timeline state', a
   assert.equal(typeof secondCallback, 'function', 'second segment callback should be captured');
   secondCallback();
   assert.equal(ATTACK.timelineState, null, 'timeline state should clear after the segments finish');
+});
+
+test('attack timeline resets limb mirrors when hitting stance or completing', async () => {
+  const source = await readFile('docs/js/combat.js', 'utf8');
+  const runTimelineSrc = extractFunction(source, 'runAttackTimeline');
+
+  const script = [
+    'const ATTACK = { timelineState: null };',
+    'const resetCalls = [];',
+    'const poseTarget = "fighter";',
+    'function playAttackSequenceStep() {}',
+    'function resetMirror(target) { resetCalls.push(target); }',
+    'function startTransition(pose, phase, duration, callback) { if (typeof callback === "function") callback(); }',
+    'function normalizeSequenceStepTimings(){ return []; }',
+    runTimelineSrc,
+    'exports.ATTACK = ATTACK;',
+    'exports.resetCalls = resetCalls;',
+    'exports.runAttackTimeline = runAttackTimeline;',
+  ].join('\n');
+
+  const context = { exports: {}, performance: { now: () => 0 } };
+  vm.createContext(context);
+  vm.runInContext(script, context);
+
+  const { runAttackTimeline, resetCalls } = context.exports;
+  const segments = [
+    { phase: 'Windup', pose: {}, duration: 50, startTime: 0, endTime: 50 },
+    { phase: 'Stance', pose: {}, duration: 80, startTime: 50, endTime: 130 },
+  ];
+
+  runAttackTimeline({ segments, context: {}, resetMirrorBeforeStance: false });
+
+  assert.ok(resetCalls.length >= 1, 'resetMirror should be called for stance cleanup even without pose metadata');
+  assert.equal(resetCalls[0], 'fighter');
 });

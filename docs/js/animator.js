@@ -560,8 +560,9 @@ function cleanupLayer(F, layer, fighterId){
   try{
     if (layer.pose && layer.pose.resetFlipsBefore) {
       resetMirror(fighterId);
-    } else if (layer.__flipApplied && layer.pose && Array.isArray(layer.pose.flipParts)) {
-      for (const p of layer.pose.flipParts) { setMirrorForPart(p, false, fighterId); }
+    } else if (layer.__flipApplied) {
+      const parts = Array.isArray(layer.pose?.flipParts) ? layer.pose.flipParts : ['ALL'];
+      for (const p of parts) { setMirrorForPart(p, false, fighterId); }
     }
   }catch(_e){ /* best-effort cleanup */ }
 }

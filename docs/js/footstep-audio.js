@@ -149,6 +149,8 @@ function ensureFootstepState(fighter) {
     lastMaterial: null,
     nextFoot: 'left',
     lastPoseFoot: null,
+    prevPos: null,
+    lastEvents: [],
   };
   return fighter._footstepState;
 }
@@ -297,6 +299,22 @@ export function updateFighterFootsteps(fighter, config, dt) {
     : [];
   const debugFootsteps = !!(fighter.debugFootsteps || config?.audio?.footsteps?.debug);
 
+  const hasPos = Number.isFinite(fighter?.pos?.x) && Number.isFinite(fighter?.pos?.y);
+  const prevPos = hasPos ? state.prevPos : null;
+  let displacement = 0;
+  if (hasPos) {
+    if (prevPos) {
+      const dx = fighter.pos.x - prevPos.x;
+      const dy = fighter.pos.y - prevPos.y;
+      displacement = Math.hypot(dx, dy);
+    }
+    state.prevPos = { x: fighter.pos.x, y: fighter.pos.y };
+  } else {
+    state.prevPos = null;
+  }
+
+  const effectiveSpeed = Math.max(speed, displacement > 0 && dt > 0 ? displacement / dt : 0);
+
   function enqueueFootstep(intensity) {
     const foot = state.nextFoot === 'right' ? 'right' : 'left';
     state.nextFoot = foot === 'left' ? 'right' : 'left';
@@ -323,13 +341,20 @@ export function updateFighterFootsteps(fighter, config, dt) {
     const normalized = clamp(impulse / LANDING_IMPULSE_REF, 0.25, 1.4);
     enqueueFootstep(normalized);
     state.strideProgress = 0;
-  } else if (!events.length && onGround && speed >= MIN_STEP_SPEED && !fighter.recovering) {
-    state.strideProgress += speed * dt;
+  } else if (!events.length && onGround && !fighter.recovering) {
     const stride = Math.max(20, strideLength);
-    if (state.strideProgress >= stride) {
-      state.strideProgress -= stride;
-      const normalized = clamp(speed / 420, 0.2, 1);
-      enqueueFootstep(normalized);
+    const minCadenceSpeed = Math.max(10, MIN_STEP_SPEED * 0.35);
+    const travel = displacement || 0;
+    if (effectiveSpeed >= minCadenceSpeed || travel >= stride * 0.1) {
+      const progress = travel > 0 ? travel : effectiveSpeed * dt;
+      state.strideProgress += progress;
+      if (state.strideProgress >= stride) {
+        state.strideProgress -= stride;
+        const normalized = clamp((effectiveSpeed || speed) / 420, 0.2, 1);
+        enqueueFootstep(normalized);
+      }
+    } else {
+      state.strideProgress = 0;
     }
   } else {
     state.strideProgress = 0;
@@ -337,6 +362,7 @@ export function updateFighterFootsteps(fighter, config, dt) {
 
   state.prevOnGround = onGround;
   state.lastMaterial = material;
+  state.lastEvents = events.map((ev) => ({ ...ev }));
 
   if (!events.length) return;
   for (const event of events) {

@@ -766,6 +766,12 @@ export function makeCombat(G, C, options = {}){
     };
     let stanceReset = false;
 
+    const ensureMirrorReset = () => {
+      if (stanceReset) return;
+      resetMirror(poseTarget);
+      stanceReset = true;
+    };
+
     const triggerStepsThrough = (timeMs) => {
       if (!timelineState.steps.length) return;
       while (timelineState.nextStepIndex < timelineState.steps.length){
@@ -788,13 +794,17 @@ export function makeCombat(G, C, options = {}){
       if (idx >= ordered.length){
         timelineState.active = false;
         ATTACK.timelineState = null;
+        ensureMirrorReset();
         if (typeof onComplete === 'function') onComplete();
         return;
       }
       const segment = ordered[idx];
-      if (resetMirrorBeforeStance && !stanceReset && segment.phase === 'Stance'){
-        resetMirror(poseTarget);
-        stanceReset = true;
+      if (segment.phase === 'Stance'){
+        if (resetMirrorBeforeStance) {
+          ensureMirrorReset();
+        } else if (!stanceReset) {
+          ensureMirrorReset();
+        }
       }
       triggerStepsThrough(segment.startTime);
       startTransition(segment.pose, segment.phase, segment.duration, ()=>{
