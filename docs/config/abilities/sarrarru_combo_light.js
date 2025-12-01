@@ -12,14 +12,88 @@
   };
 
   const buildContent = () => {
-    const clone = (value) => JSON.parse(JSON.stringify(value || {}));
+    const baseStancePose = () => ({
+      torso: 10,
+      lShoulder: -90,
+      lElbow: 0,
+      rShoulder: -90,
+      rElbow: 0,
+      lHip: 100,
+      lKnee: 70,
+      rHip: 30,
+      rKnee: 70,
+      weapon: -20,
+      weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+      rootMoveVel: { x: 0, y: 0 },
+      impulseMag: 0,
+      impulseDirDeg: 0,
+      resetFlipsBefore: true,
+      allowAiming: true,
+      aimLegs: false
+    });
+
+    const buildPunchPoses = () => ({
+      Stance: baseStancePose(),
+      Windup: {
+        torso: 10,
+        lShoulder: 0,
+        lElbow: 120,
+        rShoulder: 0,
+        rElbow: 120,
+        lHip: 110,
+        lKnee: 40,
+        rHip: 30,
+        rKnee: 40,
+        rootMoveVel: { x: 0, y: 0 },
+        impulseMag: 0,
+        impulseDirDeg: 0,
+        allowAiming: true,
+        aimLegs: false,
+        anim_events: []
+      },
+      Strike: {
+        torso: 10,
+        lShoulder: -230,
+        lElbow: 0,
+        rShoulder: -230,
+        rElbow: 0,
+        lHip: 110,
+        lKnee: 40,
+        rHip: 30,
+        rKnee: 40,
+        rootMoveVel: { x: 0, y: 0, flip: false },
+        impulseMag: 0,
+        impulseDirDeg: 0,
+        allowAiming: true,
+        aimLegs: false,
+        anim_events: []
+      },
+      Recoil: {
+        torso: 60,
+        lShoulder: -100,
+        lElbow: 0,
+        rShoulder: -180,
+        rElbow: 0,
+        lHip: 110,
+        lKnee: 40,
+        rHip: 30,
+        rKnee: 40,
+        rootMoveVel: { x: 0, y: 0 },
+        impulseMag: 0,
+        impulseDirDeg: 0,
+        allowAiming: false,
+        aimLegs: false,
+        anim_events: []
+      }
+    });
+
     const punchDurations = { toWindup: 380, toStrike: 110, toRecoil: 200, toStance: 120 };
 
     const moves = {
-      SaRaCA1: { name: 'Spear Rhythm A1', tags: ['combo', 'light', 'sarrarru'], durations: clone(punchDurations), poses: clone(window.PUNCH_MOVE_POSES || {}) },
-      SaRaCA2: { name: 'Spear Rhythm A2', tags: ['combo', 'light', 'sarrarru'], durations: clone(punchDurations), poses: clone(window.PUNCH_MOVE_POSES || {}) },
-      SaRaCA3: { name: 'Spear Rhythm A3', tags: ['combo', 'light', 'sarrarru'], durations: clone(punchDurations), poses: clone(window.PUNCH_MOVE_POSES || {}) },
-      SaRaCA4: { name: 'Spear Rhythm A4', tags: ['combo', 'light', 'sarrarru'], durations: clone(punchDurations), poses: clone(window.PUNCH_MOVE_POSES || {}) }
+      SaRaCA1: { name: 'Spear Rhythm A1', tags: ['combo', 'light', 'sarrarru'], durations: { ...punchDurations }, poses: buildPunchPoses() },
+      SaRaCA2: { name: 'Spear Rhythm A2', tags: ['combo', 'light', 'sarrarru'], durations: { ...punchDurations }, poses: buildPunchPoses() },
+      SaRaCA3: { name: 'Spear Rhythm A3', tags: ['combo', 'light', 'sarrarru'], durations: { ...punchDurations }, poses: buildPunchPoses() },
+      SaRaCA4: { name: 'Spear Rhythm A4', tags: ['combo', 'light', 'sarrarru'], durations: { ...punchDurations }, poses: buildPunchPoses() }
     };
 
     const attacks = {
