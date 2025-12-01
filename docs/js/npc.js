@@ -14,6 +14,7 @@ import {
 } from './colliders.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
 import { resolveStancePose } from './animator.js?v=5';
+import { getAttackDefFromConfig, getMinChargeTimeFromConfig } from './config-utils.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -291,7 +292,8 @@ function ensurePlannedAbilityState(state) {
     conditions: null,
     chargeOutsideRange: false,
     chargingStarted: false,
-    readyToRelease: false,
+    released: false,
+    originalAbility: null,
   });
   return planned;
 }
@@ -311,7 +313,9 @@ function createPlannedAbility(state, options = {}) {
   planned.conditions = options.conditions || null;
   planned.chargeOutsideRange = !!options.chargeOutsideRange;
   planned.chargingStarted = false;
-  planned.readyToRelease = false;
+  planned.released = false;
+  // Store reference to original ability descriptor for compatibility
+  planned.originalAbility = options.originalAbility || null;
   return planned;
 }
 
@@ -330,7 +334,8 @@ function clearPlannedAbility(state) {
   planned.conditions = null;
   planned.chargeOutsideRange = false;
   planned.chargingStarted = false;
-  planned.readyToRelease = false;
+  planned.released = false;
+  planned.originalAbility = null;
 }
 
 function evaluatePlannedAbilityConditions(state, player) {
@@ -704,37 +709,44 @@ function getRandomAbility(combat, excludeDefensive = true) {
   return abilities[randomIndex];
 }
 
-function getAttackDefFromConfig(attackId) {
-  const C = window.CONFIG || {};
-  const abilitySystem = C.abilitySystem || {};
-  const attacks = abilitySystem.attacks || {};
-  return attacks[attackId] || null;
-}
+// Attack phase timeout constants (in seconds)
+const ATTACK_TIMEOUT = 1.5;                      // General attack timeout
+const HOLD_RELEASE_MAX_TIMEOUT = 3.0;            // Max time for hold-release attack completion
+const HOLD_RELEASE_PLAYER_WAIT_TIMEOUT = 2.5;    // Max time waiting for player to enter range
 
-// Attack phase timeout constants
-const ATTACK_TIMEOUT = 1.5;
-const HOLD_RELEASE_MAX_TIMEOUT = 3.0;
-const HOLD_RELEASE_PLAYER_WAIT_TIMEOUT = 2.5;
-
+/**
+ * Get attack range for an ability descriptor or PlannedAbility
+ * Supports both ability descriptor shape (with .ability) and PlannedAbility shape (with .attackId/.abilityId)
+ */
 function getAbilityRange(combat, abilityDescriptor) {
   if (!combat || !abilityDescriptor) return 70; // Default range
 
-  const ability = abilityDescriptor.ability;
-  if (!ability) return 70;
+  let attackId = null;
 
-  // Get attack ID from ability - check direct attack, then sequence, then variants
-  let attackId = ability.attack || ability.defaultAttack;
-  
-  // For combo abilities, use the first attack in the sequence
-  if (!attackId && Array.isArray(ability.sequence) && ability.sequence.length > 0) {
-    const firstStep = ability.sequence[0];
-    attackId = typeof firstStep === 'string' ? firstStep : (firstStep?.attack || firstStep?.move);
-  }
-  
-  // For abilities with variants, use the default variant's attack
-  if (!attackId && Array.isArray(ability.variants) && ability.variants.length > 0) {
-    const defaultVariant = ability.variants.find(v => v.id === 'default') || ability.variants[0];
-    attackId = defaultVariant?.attack;
+  // Handle ability descriptor shape (from getRandomAbility)
+  if (abilityDescriptor.ability) {
+    const ability = abilityDescriptor.ability;
+    attackId = ability.attack || ability.defaultAttack;
+    
+    // For combo abilities, use the first attack in the sequence
+    if (!attackId && Array.isArray(ability.sequence) && ability.sequence.length > 0) {
+      const firstStep = ability.sequence[0];
+      attackId = typeof firstStep === 'string' ? firstStep : (firstStep?.attack || firstStep?.move);
+    }
+    
+    // For abilities with variants, use the default variant's attack
+    if (!attackId && Array.isArray(ability.variants) && ability.variants.length > 0) {
+      const defaultVariant = ability.variants.find(v => v.id === 'default') || ability.variants[0];
+      attackId = defaultVariant?.attack;
+    }
+  } else {
+    // Handle PlannedAbility shape (from createPlannedAbility)
+    attackId = abilityDescriptor.attackId || abilityDescriptor.abilityId || abilityDescriptor.attack;
+    
+    // If PlannedAbility already has range, use it directly
+    if (Number.isFinite(abilityDescriptor.range)) {
+      return abilityDescriptor.range;
+    }
   }
 
   if (!attackId) return 70;
@@ -804,6 +816,8 @@ function updateDecidePhase(state, combat, dt) {
       isHoldRelease: isHoldRelease,
       // Hold-release abilities can charge outside range and release when in range
       chargeOutsideRange: isHoldRelease,
+      // Store original ability descriptor for compatibility
+      originalAbility: randomAbility,
     });
   }
 
@@ -887,7 +901,7 @@ function updateAttackPhase(state, combat, dt) {
     } else if (phase.attackStarted) {
       // Charging active - check if we should release
       // Use PlannedAbility canRelease which checks if player is in range
-      const minChargeTime = 0.5; // Minimum charge time (tap threshold + stage)
+      const minChargeTime = getMinChargeTimeFromConfig();
       const chargedEnough = phase.timer >= minChargeTime;
       const shouldRelease = chargedEnough && conditions.canRelease;
       
@@ -895,7 +909,7 @@ function updateAttackPhase(state, combat, dt) {
         releaseNpcButton(state, combat, ability.slotKey);
         phase.released = true;
         if (planned) {
-          planned.readyToRelease = false;
+          planned.released = true;
         }
       }
 

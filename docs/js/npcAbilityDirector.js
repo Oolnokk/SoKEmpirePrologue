@@ -1,14 +1,9 @@
+import { getAttackDefFromConfig } from './config-utils.js?v=1';
+
 function clamp(value, min, max) {
   if (value < min) return min;
   if (value > max) return max;
   return value;
-}
-
-function getAttackDefFromConfig(attackId) {
-  const C = window.CONFIG || {};
-  const abilitySystem = C.abilitySystem || {};
-  const attacks = abilitySystem.attacks || {};
-  return attacks[attackId] || null;
 }
 
 const SLOT_KEYS = ['A', 'B', 'C'];
