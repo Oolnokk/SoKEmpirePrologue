@@ -456,6 +456,7 @@ export function initFighters(cv, cx, options = {}){
         templateId: spawner.templateId || spawner.characterId || null,
         characterId: spawner.characterId || null,
         activeIds: new Set(),
+        hasInitialized: false,
       });
     }
     return entries;
@@ -510,9 +511,17 @@ export function initFighters(cv, cx, options = {}){
             }
           }
         }
-        while (entry.activeIds.size < entry.count && (entry.respawn || entry.activeIds.size === 0)) {
-          const npc = spawnNpcFromSpawner(entry);
-          if (!npc) break;
+        const shouldInitialFill = !entry.hasInitialized;
+        const shouldRespawn = entry.respawn && entry.hasInitialized;
+
+        if (shouldInitialFill || shouldRespawn) {
+          while (entry.activeIds.size < entry.count) {
+            const npc = spawnNpcFromSpawner(entry);
+            if (!npc) break;
+          }
+          if (shouldRespawn || entry.activeIds.size > 0) {
+            entry.hasInitialized = true;
+          }
         }
       }
     };

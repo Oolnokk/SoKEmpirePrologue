@@ -367,19 +367,30 @@ function normalizePathTargetList(rawList = [], warnings = [], context = {}) {
   return normalized;
 }
 
-function mergePathTargetLists(explicit = [], derived = []) {
+function mergePathTargetLists(explicit = [], derived = [], warnings = []) {
   const merged = [];
   const seen = new Set();
   const keyForTarget = (target) => {
     const name = typeof target?.name === 'string' ? target.name.trim() : '';
     const instanceId = typeof target?.instanceId === 'string' ? target.instanceId.trim() : '';
-    if (name && instanceId) return `${name}::${instanceId}`;
-    return name || instanceId || null;
+    const layerId = typeof target?.layerId === 'string' ? target.layerId.trim() : '';
+    const order = Number.isFinite(target?.order) ? target.order : 'null';
+    const posX = Number.isFinite(target?.position?.x) ? target.position.x : 'null';
+    const posY = Number.isFinite(target?.position?.y) ? target.position.y : 'null';
+    const keyParts = [name || 'anon', instanceId || 'inst', layerId || 'layer', order, posX, posY];
+    return keyParts.join('::');
   };
 
   const addTarget = (target) => {
     const key = keyForTarget(target);
-    if (!key || seen.has(key)) return;
+    if (!key) return;
+    if (seen.has(key)) {
+      if (Array.isArray(warnings)) {
+        const label = target?.name || target?.instanceId || 'path-target';
+        warnings.push(`Deduplicated path target "${label}" with key ${key}`);
+      }
+      return;
+    }
     seen.add(key);
     merged.push(target);
   };
@@ -409,7 +420,7 @@ function resolvePathTargetInfo(inst, layerTypes = new Map(), warnings = null) {
     || inst.meta?.original?.meta?.pathTarget
     || inst.meta?.original?.pathTarget;
   const metaOrder = pathTargetMeta?.order ?? inst.meta?.pathOrder ?? inst.meta?.original?.pathOrder;
-  const parsedOrder = Number.isFinite(metaOrder) ? Number(metaOrder) : tagInfo.order;
+  const parsedOrder = Number.isFinite(Number(metaOrder)) ? Number(metaOrder) : tagInfo.order;
 
   return {
     name: tagInfo.name,
@@ -655,14 +666,14 @@ function normalizeAreaDescriptor(area, options = {}) {
     .filter(Boolean);
   const explicitSpawners = normalizeSpawnerList(area.spawners, warnings, { source: 'area' });
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
-  const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners);
+  const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners, warnings);
   const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
   const areaGroupLibrary = normalizeGroupLibrary(area.groupLibrary ?? area.groups, warnings, { source: 'area.groupLibrary' });
   const groupLibrary = mergeGroupLibraries(optionGroupLibrary, areaGroupLibrary);
   const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(area.pathTargets, warnings, { source: 'area' });
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
-  const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets);
+  const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets, warnings);
 
   return {
     id: areaId,
@@ -841,14 +852,14 @@ export function convertLayoutToArea(layout, options = {}) {
     .filter(Boolean);
   const explicitSpawners = normalizeSpawnerList(layout.spawners, warnings, { source: 'layout' });
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
-  const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners);
+  const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners, warnings);
   const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
   const layoutGroupLibrary = normalizeGroupLibrary(layout.groupLibrary ?? layout.groups, warnings, { source: 'layout.groupLibrary' });
   const groupLibrary = mergeGroupLibraries(optionGroupLibrary, layoutGroupLibrary);
   const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(layout.pathTargets, warnings, { source: 'layout' });
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
-  const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets);
+  const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets, warnings);
 
   if (!Array.isArray(layout.layers)) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
@@ -908,20 +919,26 @@ export function convertLayouts(layouts, options = {}) {
   return areas;
 }
 
-function mergeSpawnerLists(explicit = [], derived = []) {
+function mergeSpawnerLists(explicit = [], derived = [], warnings = []) {
   const merged = [];
   const seen = new Set();
 
-  const addSpawner = (spawner) => {
+  const addSpawner = (spawner, sourceLabel) => {
     if (!spawner || typeof spawner !== 'object') return;
     const id = typeof spawner.spawnerId === 'string' ? spawner.spawnerId : spawner.id;
-    if (!id || seen.has(id)) return;
+    if (!id) return;
+    if (seen.has(id)) {
+      if (Array.isArray(warnings)) {
+        warnings.push(`Duplicate spawner id "${id}" encountered from ${sourceLabel || 'unknown source'} – skipping`);
+      }
+      return;
+    }
     seen.add(id);
     merged.push(spawner);
   };
 
-  explicit.forEach(addSpawner);
-  derived.forEach(addSpawner);
+  explicit.forEach((spawner) => addSpawner(spawner, 'explicit spawner list'));
+  derived.forEach((spawner) => addSpawner(spawner, 'derived spawner list'));
 
   return merged;
 }
@@ -965,7 +982,7 @@ function collectNpcSpawners(instances = [], warnings = []) {
       continue;
     }
 
-    const baseSettings = normalizeSpawnerSettings(metaSpawner);
+    const baseSettings = normalizeSpawnerSettings(metaSpawner, warnings);
     const spawnerId = inst.instanceId || inst.meta?.identity?.instanceId || inst.id || null;
     if (!spawnerId) {
       warnings.push('Encountered NPC spawner instance without a usable id');
@@ -1086,7 +1103,7 @@ function normalizeSpawnerRecord(raw, warnings = [], context = {}) {
   };
 }
 
-function normalizeSpawnerSettings(rawSettings) {
+function normalizeSpawnerSettings(rawSettings, warnings = []) {
   const safe = rawSettings && typeof rawSettings === 'object' ? rawSettings : {};
   const count = clampPositiveInteger(
     safe.count ?? safe.max ?? safe.quantity ?? safe.instances ?? safe.maxCount,
@@ -1097,13 +1114,35 @@ function normalizeSpawnerSettings(rawSettings) {
   const characterId = pickNonEmptyString(safe.characterId ?? safe.character);
   const respawn = Boolean(safe.respawn ?? safe.autoRespawn ?? safe.loop ?? safe.repeat);
 
+  const allowedMetaKeys = new Set([
+    'count', 'max', 'maxCount', 'quantity', 'instances',
+    'spawnRadius', 'radius', 'range', 'spread',
+    'templateId', 'characterTemplateId', 'template',
+    'characterId', 'character',
+    'respawn', 'autoRespawn', 'loop', 'repeat',
+    'groupId', 'group', 'tags', 'position', 'x', 'y',
+    'type', 'kind', 'role',
+  ]);
+
+  const sanitizedMeta = {};
+  for (const key of Object.keys(safe)) {
+    if (!allowedMetaKeys.has(key)) continue;
+    const value = safe[key];
+    sanitizedMeta[key] = (value && typeof value === 'object') ? safeClone(value) : value;
+  }
+
+  const unknownKeys = Object.keys(safe).filter((key) => !allowedMetaKeys.has(key));
+  if (unknownKeys.length && Array.isArray(warnings)) {
+    warnings.push(`Ignored unsupported spawner meta keys: ${unknownKeys.join(', ')}`);
+  }
+
   return {
     count,
     spawnRadius,
     templateId,
     characterId,
     respawn,
-    meta: safeClone(safe),
+    meta: sanitizedMeta,
   };
 }
 
