@@ -3,8 +3,8 @@ window.HUD_ARCH_CONFIG = {
   arch: {
     // circle geometry
     circleCenter: {
-      x: 0.9, // normalized viewport coordinate
-      y: 0.88
+      x: 1, // normalized viewport coordinate (right edge)
+      y: 1 // bottom edge
     },
     circleRadius: 150, // distance from arch center to button centers
     startDegree: 215, // degrees from +X axis
