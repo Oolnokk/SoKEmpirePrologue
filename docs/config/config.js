@@ -656,7 +656,7 @@ const SLAM_MOVE_POSES = {
     rootMoveVel: { x: 0, y: 0 },
     impulseMag: 0,
     impulseDirDeg: 0,
-    translate: { x: 80, y: 0, local: true },
+    translate: { x: 75, y: 0, local: true },
     allowAiming: true,
     aimLegs: false
   },
