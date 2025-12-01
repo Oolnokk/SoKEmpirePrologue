@@ -15,8 +15,9 @@ const JOINT_LIMITS = {
   rKnee: [-0.3, 2.1],
 };
 
-// Cache joint keys to avoid repeated Object.keys() calls in hot paths
+// Cache joint keys and length to avoid repeated Object.keys() calls in hot paths
 const JOINT_KEYS = Object.keys(JOINT_LIMITS);
+const JOINT_KEYS_LENGTH = JOINT_KEYS.length;
 
 const STIFFNESS = {
   normal: 0.28,
@@ -275,7 +276,7 @@ function computeBoundsSpeedScalar(span) {
 }
 
 function randomizeRagdollTargets(state) {
-  for (let i = 0; i < JOINT_KEYS.length; i++) {
+  for (let i = 0; i < JOINT_KEYS_LENGTH; i++) {
     const key = JOINT_KEYS[i];
     const [min, max] = JOINT_LIMITS[key];
     const center = (min + max) * 0.5;
@@ -288,7 +289,7 @@ function randomizeRagdollTargets(state) {
 function perturbJoints(state, strength) {
   const s = clamp(strength || 0, 0, 1);
   if (s <= 0) return;
-  for (let i = 0; i < JOINT_KEYS.length; i++) {
+  for (let i = 0; i < JOINT_KEYS_LENGTH; i++) {
     const key = JOINT_KEYS[i];
     const noise = (Math.random() - 0.5) * 0.6 * s;
     state.jointVel[key] = (state.jointVel[key] || 0) + noise;
@@ -336,7 +337,7 @@ function updateJointPhysics(fighter, config, dt) {
   state.totalBlend = clamp(totalBlend, 0, 1);
 
   const pose = state.animationPose || fighter.jointAngles || {};
-  for (let i = 0; i < JOINT_KEYS.length; i++) {
+  for (let i = 0; i < JOINT_KEYS_LENGTH; i++) {
     const joint = JOINT_KEYS[i];
     const [min, max] = JOINT_LIMITS[joint];
     let angle = state.ragdollAngles[joint];
