@@ -638,6 +638,8 @@ function ensureNpcBehaviorPhase(state) {
   phase.approachTimeout = Number.isFinite(phase.approachTimeout) ? phase.approachTimeout : 5.0;
   phase.lastHitCount = Number.isFinite(phase.lastHitCount) ? phase.lastHitCount : 0;
   phase.finisherAttempted = !!phase.finisherAttempted;
+  phase.attackStarted = !!phase.attackStarted;
+  phase.attackDetected = !!phase.attackDetected;
   return phase;
 }
 
@@ -652,6 +654,17 @@ function resetBehaviorPhase(state, newPhase = 'decide') {
     phase.comboProgress = 0;
     phase.lastHitCount = 0;
     phase.finisherAttempted = false;
+    phase.attackStarted = false;
+    phase.attackDetected = false;
+    // Clear PlannedAbility when resetting to decide
+    clearPlannedAbility(state);
+  } else if (newPhase === 'attack') {
+    // Reset attack tracking when entering attack phase
+    phase.attackStarted = false;
+    phase.attackDetected = false;
+    phase.holdInputActive = false;
+    phase.released = false;
+    phase.timer = 0;
   }
 }
 
@@ -691,24 +704,41 @@ function getRandomAbility(combat, excludeDefensive = true) {
   return abilities[randomIndex];
 }
 
+function getAttackDefFromConfig(attackId) {
+  const C = window.CONFIG || {};
+  const abilitySystem = C.abilitySystem || {};
+  const attacks = abilitySystem.attacks || {};
+  return attacks[attackId] || null;
+}
+
 function getAbilityRange(combat, abilityDescriptor) {
   if (!combat || !abilityDescriptor) return 70; // Default range
-
-  // Hold-release heavies get crazy long ranges
-  if (isHoldReleaseHeavy(abilityDescriptor)) {
-    return 200; // Long range for hold-release attacks
-  }
 
   const ability = abilityDescriptor.ability;
   if (!ability) return 70;
 
-  // Get attack definition to find range
-  const attackId = ability.attack || ability.defaultAttack || ability.id;
-  const attackDef = typeof combat.getAttackDef === 'function'
-    ? combat.getAttackDef(attackId)
-    : null;
+  // Get attack ID from ability - check variants first for the default attack
+  let attackId = ability.attack || ability.defaultAttack;
+  
+  // For combo abilities, use the first attack in the sequence
+  if (!attackId && Array.isArray(ability.sequence) && ability.sequence.length > 0) {
+    const firstStep = ability.sequence[0];
+    attackId = typeof firstStep === 'string' ? firstStep : (firstStep?.attack || firstStep?.move);
+  }
+  
+  // For abilities with variants, use the default variant's attack
+  if (!attackId && Array.isArray(ability.variants) && ability.variants.length > 0) {
+    const defaultVariant = ability.variants.find(v => v.id === 'default') || ability.variants[0];
+    attackId = defaultVariant?.attack;
+  }
 
-  return attackDef?.attackData?.range || 70;
+  if (!attackId) return 70;
+
+  // Look up attack definition from config
+  const attackDef = getAttackDefFromConfig(attackId);
+  const range = attackDef?.attackData?.range;
+  
+  return Number.isFinite(range) ? range : 70;
 }
 
 function isHoldReleaseHeavy(abilityDescriptor) {
@@ -747,7 +777,7 @@ function updateDecidePhase(state, combat, dt) {
 
     phase.plannedAbility = randomAbility;
 
-    // Set attack range based on ability
+    // Set attack range based on ability - now reads from config
     const range = getAbilityRange(combat, randomAbility);
     const perception = ensureNpcPerceptionState(state);
     if (perception) {
@@ -756,6 +786,20 @@ function updateDecidePhase(state, combat, dt) {
     if (state.ai) {
       state.ai.attackRange = range;
     }
+    
+    // Create formal PlannedAbility for detection collider system
+    const isHoldRelease = isHoldReleaseHeavy(randomAbility);
+    createPlannedAbility(state, {
+      slotKey: randomAbility.slotKey,
+      abilityId: randomAbility.id,
+      attackId: randomAbility.ability?.attack || randomAbility.ability?.defaultAttack,
+      range: range,
+      minRange: 0,
+      maxRange: range,
+      isHoldRelease: isHoldRelease,
+      // Hold-release abilities can charge outside range and release when in range
+      chargeOutsideRange: isHoldRelease,
+    });
   }
 
   // Move to approach phase
@@ -776,18 +820,29 @@ function updateApproachPhase(state, combat, player, dt, absDx) {
 
   phase.timer += dt;
 
-  // Check transition conditions
-  const range = getAbilityRange(combat, phase.plannedAbility);
-  const inRange = absDx <= range;
+  // Use PlannedAbility system to evaluate conditions
+  const conditions = evaluatePlannedAbilityConditions(state, player);
+  const isHoldRelease = isHoldReleaseHeavy(phase.plannedAbility);
+  
+  // For hold-release abilities with chargeOutsideRange:
+  // - canStart is true if we haven't started charging yet
+  // - We should transition to attack phase to start charging
+  // For regular abilities:
+  // - canStart is true when we're in range
+  const shouldAttack = isHoldRelease
+    ? conditions.canStart  // Start charging (even outside range if chargeOutsideRange)
+    : conditions.inRange;  // Regular attacks need to be in range
+    
   const timeout = phase.timer >= phase.approachTimeout;
 
-  if (inRange || timeout) {
+  if (shouldAttack || timeout) {
     resetBehaviorPhase(state, 'attack');
   }
 }
 
 function updateAttackPhase(state, combat, dt) {
   const phase = ensureNpcBehaviorPhase(state);
+  const player = window.GAME?.FIGHTERS?.player;
 
   if (!phase.plannedAbility) {
     resetBehaviorPhase(state, 'retreat');
@@ -796,27 +851,64 @@ function updateAttackPhase(state, combat, dt) {
 
   const ability = phase.plannedAbility;
 
-  // Stand still during attack
+  // Stand still during attack (unless hold-release charging outside range)
   state.mode = 'attack';
+
+  // Check combat system busy state
+  const combatBusy = typeof combat?.isFighterBusy === 'function' ? combat.isFighterBusy() : false;
+  const combatAttacking = typeof combat?.isFighterAttacking === 'function' ? combat.isFighterAttacking() : false;
 
   // Handle different ability types
   if (isHoldReleaseHeavy(ability)) {
-    // Hold-release: Press, hold briefly, then release
+    // Hold-release: Press and hold, wait for player to enter range, then release
     phase.timer += dt;
+    
+    // Get PlannedAbility for condition checking
+    const planned = state.plannedAbility;
+    const conditions = evaluatePlannedAbilityConditions(state, player);
 
     if (!phase.holdInputActive) {
-      // Start the hold
+      // Start the hold - use long timer, we'll release manually
       pressNpcButton(state, combat, ability.slotKey, 999);
       phase.holdInputActive = true;
-    } else if (phase.timer >= 0.5) {
-      // Hold for 0.5s to charge power (200ms tap threshold + 200ms stage + buffer), then release
-      if (!phase.released) {
+      phase.attackStarted = false;
+      // Mark that charging has started in PlannedAbility
+      if (planned) {
+        planned.chargingStarted = true;
+      }
+    } else if (!phase.attackStarted && combatBusy) {
+      // Combat system picked up the input and started charging
+      phase.attackStarted = true;
+    } else if (phase.attackStarted) {
+      // Charging active - check if we should release
+      // Use PlannedAbility canRelease which checks if player is in range
+      const minChargeTime = 0.5; // Minimum charge time (tap threshold + stage)
+      const chargedEnough = phase.timer >= minChargeTime;
+      const shouldRelease = chargedEnough && conditions.canRelease;
+      
+      if (shouldRelease && !phase.released) {
         releaseNpcButton(state, combat, ability.slotKey);
         phase.released = true;
+        if (planned) {
+          planned.readyToRelease = false;
+        }
       }
 
-      // Wait a bit longer for attack to execute
-      if (phase.timer >= 1.2) {
+      // If already released, wait for attack animation to complete
+      if (phase.released) {
+        if (!combatBusy && !combatAttacking && phase.timer >= minChargeTime + 0.3) {
+          clearPlannedAbility(state);
+          resetBehaviorPhase(state, 'retreat');
+        } else if (phase.timer >= 3.0) {
+          // Timeout safety - don't get stuck
+          clearPlannedAbility(state);
+          resetBehaviorPhase(state, 'retreat');
+        }
+      } else if (phase.timer >= 2.5) {
+        // Timeout - player didn't enter range, cancel and retreat
+        releaseNpcButton(state, combat, ability.slotKey);
+        phase.released = true;
+        clearPlannedAbility(state);
         resetBehaviorPhase(state, 'retreat');
       }
     }
@@ -831,9 +923,19 @@ function updateAttackPhase(state, combat, dt) {
       if (phase.comboProgress === 0) {
         pressNpcButton(state, combat, ability.slotKey, 0.12);
         phase.comboProgress = 1;
+        phase.attackStarted = false;
+      }
+      // Wait for attack to complete
+      if (combatBusy || combatAttacking) {
+        phase.attackStarted = true;
+      } else if (phase.attackStarted) {
+        // Attack finished
+        resetBehaviorPhase(state, 'retreat');
+        return;
       }
       phase.timer += dt;
-      if (phase.timer > 0.5) {
+      if (phase.timer > 1.5) {
+        // Timeout safety
         resetBehaviorPhase(state, 'retreat');
       }
       return;
@@ -844,12 +946,10 @@ function updateAttackPhase(state, combat, dt) {
 
     // Attempt next combo attack if we haven't reached max
     if (phase.comboProgress < phase.comboMaxHits) {
-      const attack = state.attack || {};
       const comboActive = !!comboState.active;
-      const attackActive = !!attack.active;
 
       // Wait for attack to finish before next input
-      if (!attackActive && !comboActive) {
+      if (!combatBusy && !combatAttacking) {
         // Check if the previous attack landed at least one strike
         if (phase.comboProgress > 0) {
           // Get hit count before this attack started
@@ -886,20 +986,36 @@ function updateAttackPhase(state, combat, dt) {
         }
       }
 
-      // Move to retreat after combo sequence
-      phase.timer += dt;
-      if (phase.timer > 0.5) {
-        resetBehaviorPhase(state, 'retreat');
+      // Wait for attack to complete before retreating
+      if (!combatBusy && !combatAttacking) {
+        phase.timer += dt;
+        if (phase.timer > 0.3) {
+          resetBehaviorPhase(state, 'retreat');
+        }
       }
     }
   } else {
     // Quick attack: Perform once
-    if (phase.timer === 0) {
+    if (!phase.attackStarted) {
       pressNpcButton(state, combat, ability.slotKey, 0.12);
+      phase.attackStarted = true;
+      phase.attackDetected = false;
     }
 
+    // Wait for combat system to start processing the attack
+    if (!phase.attackDetected && (combatBusy || combatAttacking)) {
+      phase.attackDetected = true;
+    }
+
+    // Wait for attack to complete
+    if (phase.attackDetected && !combatBusy && !combatAttacking) {
+      resetBehaviorPhase(state, 'retreat');
+      return;
+    }
+
+    // Timeout safety - don't get stuck forever
     phase.timer += dt;
-    if (phase.timer > 0.5) {
+    if (phase.timer > 1.5) {
       resetBehaviorPhase(state, 'retreat');
     }
   }
