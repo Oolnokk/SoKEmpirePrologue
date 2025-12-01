@@ -4,6 +4,13 @@ function clamp(value, min, max) {
   return value;
 }
 
+function getAttackDefFromConfig(attackId) {
+  const C = window.CONFIG || {};
+  const abilitySystem = C.abilitySystem || {};
+  const attacks = abilitySystem.attacks || {};
+  return attacks[attackId] || null;
+}
+
 const SLOT_KEYS = ['A', 'B', 'C'];
 const WEIGHTS = ['light', 'heavy'];
 
@@ -142,15 +149,13 @@ function startHeavyRetreat(director, context, targetSlot) {
   heavy.retreatDir = context.dx >= 0 ? -1 : 1;
   heavy.didPress = false;
 
-  // Get the actual attack range for this ability
+  // Get the actual attack range for this ability from config
   const combat = context.combat;
   const ability = combat && typeof combat.getAbilityForSlot === 'function'
     ? combat.getAbilityForSlot(heavy.slotKey, 'heavy')
     : null;
   const attackId = ability?.attack || ability?.defaultAttack || ability?.id;
-  const attackDef = combat && typeof combat.getAttackDef === 'function'
-    ? combat.getAttackDef(attackId)
-    : null;
+  const attackDef = getAttackDefFromConfig(attackId);
   heavy.targetRange = attackDef?.attackData?.range || 35;  // Low default for testing
 }
 
