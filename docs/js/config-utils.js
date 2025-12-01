@@ -26,10 +26,13 @@ export function getAbilityThresholds() {
 }
 
 /**
- * Calculate minimum charge time from config thresholds
+ * Calculate minimum charge time from config thresholds.
+ * This is computed as: (tapMaxMs + chargeStageMs) / 1000
+ * - tapMaxMs: max duration for a tap input (before hold triggers)
+ * - chargeStageMs: duration of one charge stage
  * @returns {number} Minimum charge time in seconds
  */
-export function getMinChargeTimeFromConfig() {
+export function calculateMinChargeTime() {
   const thresholds = getAbilityThresholds();
   // Minimum charge = tap threshold + one stage (in seconds)
   return (thresholds.tapMaxMs + thresholds.chargeStageMs) / 1000;

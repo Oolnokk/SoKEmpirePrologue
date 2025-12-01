@@ -14,7 +14,7 @@ import {
 } from './colliders.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
 import { resolveStancePose } from './animator.js?v=5';
-import { getAttackDefFromConfig, getMinChargeTimeFromConfig } from './config-utils.js?v=1';
+import { getAttackDefFromConfig, calculateMinChargeTime } from './config-utils.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -741,6 +741,9 @@ function getAbilityRange(combat, abilityDescriptor) {
     }
   } else {
     // Handle PlannedAbility shape (from createPlannedAbility)
+    // Precedence: attackId (preferred, directly maps to CONFIG.abilitySystem.attacks),
+    // then abilityId (may work if ability shares ID with attack),
+    // finally .attack (legacy/fallback property name)
     attackId = abilityDescriptor.attackId || abilityDescriptor.abilityId || abilityDescriptor.attack;
     
     // If PlannedAbility already has range, use it directly
@@ -901,7 +904,7 @@ function updateAttackPhase(state, combat, dt) {
     } else if (phase.attackStarted) {
       // Charging active - check if we should release
       // Use PlannedAbility canRelease which checks if player is in range
-      const minChargeTime = getMinChargeTimeFromConfig();
+      const minChargeTime = calculateMinChargeTime();
       const chargedEnough = phase.timer >= minChargeTime;
       const shouldRelease = chargedEnough && conditions.canRelease;
       
