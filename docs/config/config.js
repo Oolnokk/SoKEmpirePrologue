@@ -14,7 +14,7 @@ const MATERIALS = {
 window.CONFIG = window.CONFIG || {};
 window.CONFIG.materials = MATERIALS;
 
-const abilityKnockback = (base, { clamp } = {}) => {
+const abilityKnockback = window.abilityKnockback || ((base, { clamp } = {}) => {
   return (context, opponent) => {
     if (!opponent?.pos) return;
     const facing = context?.character?.facingRad ?? context?.character?.facing ?? 0;
@@ -26,9 +26,132 @@ const abilityKnockback = (base, { clamp } = {}) => {
     }
     opponent.pos.x += delta;
   };
+});
+window.abilityKnockback = abilityKnockback;
+
+const ensureAbilityLibrary = () => {
+  const library = window.ABILITY_LIBRARY || {};
+  if (Object.keys(library).length > 0) {
+    return library;
+  }
+
+  const fallbackAbilities = {
+    combo_light: {
+      name: 'Weapon Combo',
+      type: 'light',
+      trigger: 'combo',
+      tags: ['combo', 'light'],
+      comboFromWeapon: true,
+      fallbackWeapon: 'unarmed',
+      multipliers: { durations: 1 },
+      onHit: abilityKnockback(8)
+    },
+    unarmed_combo_light: {
+      name: 'Unarmed Combo',
+      type: 'light',
+      trigger: 'combo',
+      tags: ['combo', 'light', 'unarmed'],
+      sequence: ['UnArCA1', 'UnArCA2', 'UnArCA3', 'UnArCA4'],
+      defaultAttack: 'UnArCA1',
+      comboWindowMs: 3000,
+      onHit: abilityKnockback(8)
+    },
+    quick_light: {
+      name: 'Quick Kick',
+      type: 'light',
+      trigger: 'single',
+      tags: ['quick', 'light'],
+      variants: [
+        { id: 'postCombo', attack: 'QuickKickCombo', require: { comboHitsGte: 4, comboActive: true } },
+        { id: 'default', attack: 'QuickKick' }
+      ],
+      multipliers: { durations: 1 },
+      onHit: abilityKnockback(10)
+    },
+    quick_punch: {
+      name: 'Quick Punch',
+      type: 'light',
+      trigger: 'single',
+      tags: ['quick', 'light'],
+      variants: [
+        { id: 'postCombo', attack: 'QuickPunchCombo', require: { comboHitsGte: 4, comboActive: true } },
+        { id: 'default', attack: 'QuickPunch' }
+      ],
+      multipliers: { durations: 1 },
+      onHit: abilityKnockback(10)
+    },
+    heavy_hold: {
+      name: 'Charged Slam',
+      type: 'heavy',
+      trigger: 'hold-release',
+      tags: ['heavy', 'hold'],
+      attack: 'Slam',
+      charge: {
+        minStage: 1,
+        maxStage: 5,
+        stageDurationMs: 200,
+        stageMultipliers: (stage) => ({
+          durations: 1 + stage * 0.05,
+          knockback: 1 + stage * 0.25
+        })
+      },
+      onHit: abilityKnockback(14)
+    },
+    evade_defensive: {
+      name: 'Evade',
+      type: 'defensive',
+      trigger: 'defensive',
+      tags: ['defensive', 'mobility'],
+      defensive: {
+        poseKey: 'Stance',
+        poseRefreshMs: 220,
+        staminaDrainPerSecond: 40,
+        minStaminaRatio: 0.6
+      }
+    }
+  };
+
+  window.ABILITY_LIBRARY = fallbackAbilities;
+  return fallbackAbilities;
 };
 
 const deepClone = (value) => JSON.parse(JSON.stringify(value || {}));
+
+const mergeAbilityManifests = (config) => {
+  if (!config) return;
+  const manifests = window.ABILITY_MANIFESTS || [];
+  manifests.forEach((entry) => {
+    const manifest = typeof entry === 'function' ? entry() : entry;
+    if (!manifest) return;
+    const { poses = {}, stages = {}, moves = {}, attacks = {}, weaponCombos = {} } = manifest;
+
+    if (Object.keys(poses).length) {
+      config.poses = config.poses || {};
+      Object.assign(config.poses, deepClone(poses));
+    }
+
+    if (Object.keys(stages).length) {
+      config.stages = config.stages || {};
+      Object.assign(config.stages, deepClone(stages));
+    }
+
+    if (Object.keys(moves).length) {
+      config.moves = config.moves || {};
+      Object.assign(config.moves, deepClone(moves));
+    }
+
+    if (Object.keys(attacks).length) {
+      config.abilitySystem = config.abilitySystem || {};
+      config.abilitySystem.attacks = config.abilitySystem.attacks || {};
+      Object.assign(config.abilitySystem.attacks, deepClone(attacks));
+    }
+
+    if (Object.keys(weaponCombos).length) {
+      config.weaponCombos = config.weaponCombos || {};
+      Object.assign(config.weaponCombos, deepClone(weaponCombos));
+    }
+  });
+};
 
 const toPascalCase = (value = '') => {
   if (!value) return '';
@@ -1101,86 +1224,6 @@ window.CONFIG = {
       cancelWindow: 0.7,
       poses: deepClone(PUNCH_MOVE_POSES)
     },
-    ComboKICK_S: {
-      name: 'Combo Kick - Side',
-      tags: ['light', 'combo'],
-      inherits: 'KICK',
-      durations: { toWindup: 380, toStrike: 110, toRecoil: 680, toStance: 0 },
-      knockbackBase: 360,
-      cancelWindow: 0.6,
-      poses: deepClone(KICK_MOVE_POSES)
-    },
-    ComboKICK_F: {
-      name: 'Combo Kick - Front',
-      tags: ['light', 'combo'],
-      inherits: 'KICK',
-      durations: { toWindup: 380, toStrike: 110, toRecoil: 680, toStance: 0 },
-      knockbackBase: 420,
-      cancelWindow: 0.6,
-      poses: deepClone(KICK_MOVE_POSES)
-    },
-    ComboPUNCH_R: {
-      name: 'Combo Punch - Right',
-      tags: ['light', 'combo'],
-      durations: { toWindup: 380, toStrike: 110, toRecoil: 200, toStance: 120 },
-      knockbackBase: 140,
-      cancelWindow: 0.7,
-      poses: (() => {
-        const base = deepClone(PUNCH_MOVE_POSES);
-        const strikeBase = deepClone(PUNCH_MOVE_POSES.Strike);
-        const stanceArms = deepClone(PUNCH_MOVE_POSES.Stance);
-        strikeBase.lShoulder = stanceArms.lShoulder;
-        strikeBase.lElbow = stanceArms.lElbow;
-        strikeBase.rShoulder = stanceArms.rShoulder;
-        strikeBase.rElbow = stanceArms.rElbow;
-        strikeBase.layerOverrides = [
-          {
-            id: 'combo-right',
-            pose: {
-              rShoulder: PUNCH_MOVE_POSES.Strike.rShoulder,
-              rElbow: PUNCH_MOVE_POSES.Strike.rElbow
-            },
-            mask: [],
-            durMs: 110,
-            delayMs: 0,
-            priority: 140
-          }
-        ];
-        base.Strike = strikeBase;
-        return base;
-      })()
-    },
-    ComboPUNCH_L: {
-      name: 'Combo Punch - Left',
-      tags: ['light', 'combo'],
-      durations: { toWindup: 380, toStrike: 110, toRecoil: 200, toStance: 120 },
-      knockbackBase: 140,
-      cancelWindow: 0.7,
-      poses: (() => {
-        const base = deepClone(PUNCH_MOVE_POSES);
-        const strikeBase = deepClone(PUNCH_MOVE_POSES.Strike);
-        const stanceArms = deepClone(PUNCH_MOVE_POSES.Stance);
-        strikeBase.lShoulder = stanceArms.lShoulder;
-        strikeBase.lElbow = stanceArms.lElbow;
-        strikeBase.rShoulder = stanceArms.rShoulder;
-        strikeBase.rElbow = stanceArms.rElbow;
-        strikeBase.layerOverrides = [
-          {
-            id: 'combo-left',
-            pose: {
-              lShoulder: PUNCH_MOVE_POSES.Strike.lShoulder,
-              lElbow: PUNCH_MOVE_POSES.Strike.lElbow
-            },
-            mask: [],
-            durMs: 220,
-            delayMs: 0,
-            priority: 150
-          }
-        ];
-        base.Strike = strikeBase;
-        return base;
-      })()
-    },
     SLAM: {
       name: 'Charged Slam',
       tags: ['heavy'],
@@ -1195,134 +1238,6 @@ window.CONFIG = {
         { poseKey: 'Recoil', durMs: 200 }
       ]
     },
-    SRCA1: {
-      name: 'Sarrarru Combo A1',
-      tags: ['light', 'combo', 'sarrarru'],
-      durations: { toWindup: 420, toStrike: 140, toRecoil: 220, toStance: 160 },
-      knockbackBase: 260,
-      cancelWindow: 0.65,
-      poses: makeSarrarruComboPoses({
-        windup: {
-          weapon: -40,
-          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
-          anim_events: [
-            { time: 0.05, grip: { action: 'attach', limb: 'right', gripId: 'primary' } },
-            { time: 0.12, grip: { action: 'attach', limb: 'left', gripId: 'secondary' } }
-          ]
-        },
-        strike: {
-          weapon: -25,
-          weaponGripPercents: { primary: 0.12, secondary: 0.42 },
-          anim_events: [
-            { time: 0.0, impulse: 520, impulse_angle: -20 }
-          ]
-        },
-        recoil: {
-          weapon: -12,
-          weaponGripPercents: { primary: 0.1, secondary: 0.36 },
-          anim_events: [
-            { time: 0.4, grip: { action: 'detach', limb: 'left' } },
-            { time: 0.55, grip: { action: 'detach', limb: 'right' } }
-          ]
-        }
-      })
-    },
-    SRCA2: {
-      name: 'Sarrarru Combo A2',
-      tags: ['light', 'combo', 'sarrarru'],
-      durations: { toWindup: 360, toStrike: 120, toRecoil: 200, toStance: 140 },
-      knockbackBase: 280,
-      cancelWindow: 0.68,
-      poses: makeSarrarruComboPoses({
-        windup: {
-          weapon: -35,
-          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
-          anim_events: [
-            { time: 0.04, grip: { action: 'attach', limb: 'right', gripId: 'primary' } },
-            { time: 0.1, grip: { action: 'attach', limb: 'left', gripId: 'secondary' } }
-          ]
-        },
-        strike: {
-          weapon: -18,
-          weaponGripPercents: { primary: 0.14, secondary: 0.44 },
-          anim_events: [
-            { time: 0.0, impulse: 540, impulse_angle: -15 }
-          ]
-        },
-        recoil: {
-          weapon: -8,
-          weaponGripPercents: { primary: 0.1, secondary: 0.38 },
-          anim_events: [
-            { time: 0.35, grip: { action: 'detach', limb: 'left' } },
-            { time: 0.5, grip: { action: 'detach', limb: 'right' } }
-          ]
-        }
-      })
-    },
-    SRCA3: {
-      name: 'Sarrarru Combo A3',
-      tags: ['light', 'combo', 'sarrarru'],
-      durations: { toWindup: 340, toStrike: 260, toRecoil: 220, toStance: 160 },
-      knockbackBase: 300,
-      cancelWindow: 0.7,
-      poses: makeSarrarruComboPoses({
-        windup: {
-          weapon: -12,
-          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
-          anim_events: [
-            { time: 0.05, grip: { action: 'detach', limb: 'left' } },
-            { time: 0.08, grip: { action: 'attach', limb: 'right', gripId: 'secondary' } }
-          ]
-        },
-        strike: {
-          weapon: 0,
-          weaponGripPercents: { secondary: 0.4 },
-          anim_events: [
-            { time: 0.0, grip: { action: 'detach', limb: 'left' } }
-          ]
-        },
-        recoil: {
-          weapon: -6,
-          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
-          anim_events: [
-            { time: 0.25, grip: { action: 'attach', limb: 'left', gripId: 'primary' } },
-            { time: 0.4, grip: { action: 'attach', limb: 'right', gripId: 'primary' } }
-          ]
-        }
-      })
-    },
-    SRCA4: {
-      name: 'Sarrarru Combo A4',
-      tags: ['light', 'combo', 'sarrarru'],
-      durations: { toWindup: 400, toStrike: 180, toRecoil: 240, toStance: 180 },
-      knockbackBase: 320,
-      cancelWindow: 0.72,
-      poses: makeSarrarruComboPoses({
-        windup: {
-          weapon: 20,
-          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
-          anim_events: [
-            { time: 0.05, grip: { action: 'attach', limb: 'right', gripId: 'primary' } },
-            { time: 0.11, grip: { action: 'attach', limb: 'left', gripId: 'secondary' } }
-          ]
-        },
-        strike: {
-          weapon: 40,
-          weaponGripPercents: { primary: 0.1, secondary: 0.4 },
-          anim_events: [
-            { time: 0.0, impulse: 560, impulse_angle: 35 }
-          ]
-        },
-        recoil: {
-          weapon: 10,
-          weaponGripPercents: { primary: 0.1, secondary: 0.34 },
-          anim_events: [
-            { time: 0.4, grip: { action: 'detach', limb: 'left' } },
-            { time: 0.55, grip: { action: 'detach', limb: 'right' } }
-          ]
-        }
-      })
-    }
   },
 
   // === NEW: weapon definitions (bones + selective colliders) ===
@@ -1761,105 +1676,12 @@ window.CONFIG = {
 
   // Add more characters or pools for randomization as needed
 
-  weaponCombos: {
-    unarmed: {
-      weapon: 'unarmed',
-      name: 'Unarmed Combo',
-      sequence: ['UnArCA1', 'UnArCA2', 'UnArCA3', 'UnArCA4'],
-      comboWindowMs: 3000,
-      multipliers: { durations: 1 },
-      onHit: abilityKnockback(8),
-      type: 'blunt'
-    },
-    'dagger-swords': {
-      weapon: 'dagger-swords',
-      name: 'Dual Blade Flow',
-      sequence: ['SLASH', 'STAB', 'SLASH', 'STAB'],
-      comboWindowMs: 2500,
-      type: 'sharp'
-    },
-    sarrarru: {
-      weapon: 'sarrarru',
-      name: 'Spear Rhythm',
-      sequence: ['SRCA1', 'SRCA2', 'SRCA3', 'SRCA4'],
-      comboWindowMs: 3500,
-      type: 'sharp'
-    },
-    'light-greatblade': {
-      weapon: 'light-greatblade',
-      name: 'Greatblade Cascade',
-      sequence: ['CHOP', 'SLASH', 'CHOP', 'SLASH'],
-      comboWindowMs: 4000,
-      type: 'sharp'
-    },
-    greatclub: {
-      weapon: 'greatclub',
-      name: 'Greatclub Crush',
-      sequence: ['SMASH', 'SWING', 'SMASH', 'SWING'],
-      comboWindowMs: 3000,
-      type: 'blunt'
-    },
-    hatchets: {
-      weapon: 'hatchets',
-      name: 'Hatchet Fury',
-      sequence: ['HACK', 'HACK', 'HACK', 'TOSS'],
-      comboWindowMs: 2800,
-      type: 'sharp'
-    }
-  },
+  weaponCombos: {},
 
   abilitySystem: {
     thresholds: { tapMaxMs: 200, chargeStageMs: 200 },
     defaults: { comboWindowMs: 3000 },
     attacks: {
-      ComboKICK_S: {
-        preset: 'ComboKICK_S',
-        tags: ['combo', 'light'],
-        sequence: ['ComboKICK_S'],
-        attackData: {
-          damage: { health: 7 },
-          staminaCost: 7,
-          colliders: ['footR'],
-          range: 75,
-          dash: { velocity: 250, duration: 0.2 }
-        }
-      },
-      ComboKICK_F: {
-        preset: 'ComboKICK_F',
-        tags: ['combo', 'light'],
-        sequence: ['ComboKICK_F'],
-        attackData: {
-          damage: { health: 8 },
-          staminaCost: 8,
-          colliders: ['footL'],
-          range: 75,
-          dash: { velocity: 260, duration: 0.2 }
-        }
-      },
-      ComboPUNCH_R: {
-        preset: 'ComboPUNCH_R',
-        tags: ['combo', 'light'],
-        sequence: ['ComboPUNCH_R'],
-        attackData: {
-          damage: { health: 6 },
-          staminaCost: 6,
-          colliders: ['handR'],
-          range: 60,
-          dash: { velocity: 220, duration: 0.18 }
-        }
-      },
-      ComboPUNCH_L: {
-        preset: 'ComboPUNCH_L',
-        tags: ['combo', 'light'],
-        sequence: ['ComboPUNCH_L'],
-        attackData: {
-          damage: { health: 6 },
-          staminaCost: 6,
-          colliders: ['handL'],
-          range: 60,
-          dash: { velocity: 220, duration: 0.18 }
-        }
-      },
       QuickKick: {
         preset: 'KICK',
         tags: ['quick', 'light'],
@@ -1922,204 +1744,9 @@ window.CONFIG = {
           range: 75,
           dash: { velocity: 400, duration: 1.2 }
         }
-      },
-      UnArCA1: {
-        preset: 'ComboPUNCH_R',
-        name: 'Unarmed Combo A1',
-        tags: ['combo', 'light', 'unarmed'],
-        sequence: [
-          { move: 'ComboPUNCH_R', startMs: 0 }
-        ],
-        attackData: {
-          damage: { health: 6 },
-          staminaCost: 12,
-          colliders: ['handR'],
-          range: 60,
-          dash: { impulse: 520, duration: 0.18 }
-        }
-      },
-      UnArCA2: {
-        preset: 'ComboKICK_S',
-        name: 'Unarmed Combo A2',
-        tags: ['combo', 'light', 'unarmed'],
-        sequence: [
-          { move: 'ComboKICK_S', startMs: 0 }
-        ],
-        attackData: {
-          damage: { health: 7 },
-          staminaCost: 14,
-          colliders: ['footR'],
-          range: 75,
-          dash: { impulse: 540, duration: 0.2 }
-        }
-      },
-      UnArCA3: {
-        preset: 'ComboPUNCH_L',
-        name: 'Unarmed Combo A3',
-        tags: ['combo', 'light', 'unarmed'],
-        sequence: [
-          { move: 'ComboPUNCH_L', startMs: 0 },
-          { move: 'ComboPUNCH_R', startMs: 160 }
-        ],
-        attackData: {
-          damage: { health: 9 },
-          staminaCost: 16,
-          colliders: ['handL', 'handR'],
-          range: 60,
-          dash: { impulse: 560, duration: 0.18 }
-        }
-      },
-      UnArCA4: {
-        preset: 'ComboKICK_F',
-        name: 'Unarmed Combo A4',
-        tags: ['combo', 'light', 'unarmed'],
-        sequence: [
-          { move: 'ComboKICK_F', startMs: 0 }
-        ],
-        attackData: {
-          damage: { health: 10 },
-          staminaCost: 18,
-          colliders: ['footL'],
-          range: 75,
-          dash: { impulse: 580, duration: 0.2 }
-        }
-      },
-      SRCA1: {
-        preset: 'SRCA1',
-        name: 'Sarrarru Combo A1',
-        tags: ['combo', 'light', 'sarrarru'],
-        sequence: [
-          { move: 'SRCA1', startMs: 0 }
-        ],
-        attackData: {
-          damage: { health: 18 },
-          staminaCost: 16,
-          useWeaponColliders: true,
-          range: 95,
-          dash: { impulse: 520, duration: 0.18 }
-        }
-      },
-      SRCA2: {
-        preset: 'SRCA2',
-        name: 'Sarrarru Combo A2',
-        tags: ['combo', 'light', 'sarrarru'],
-        sequence: [
-          { move: 'SRCA2', startMs: 0 }
-        ],
-        attackData: {
-          damage: { health: 20 },
-          staminaCost: 18,
-          useWeaponColliders: true,
-          range: 100,
-          dash: { impulse: 540, duration: 0.2 }
-        }
-      },
-      SRCA3: {
-        preset: 'SRCA3',
-        name: 'Sarrarru Combo A3',
-        tags: ['combo', 'light', 'sarrarru'],
-        sequence: [
-          { move: 'SRCA3', startMs: 0 }
-        ],
-        attackData: {
-          damage: { health: 22 },
-          staminaCost: 20,
-          useWeaponColliders: true,
-          range: 105,
-          dash: { impulse: 560, duration: 0.18 }
-        }
-      },
-      SRCA4: {
-        preset: 'SRCA4',
-        name: 'Sarrarru Combo A4',
-        tags: ['combo', 'light', 'sarrarru'],
-        sequence: [
-          { move: 'SRCA4', startMs: 0 }
-        ],
-        attackData: {
-          damage: { health: 24 },
-          staminaCost: 22,
-          useWeaponColliders: true,
-          range: 110,
-          dash: { impulse: 580, duration: 0.2 }
-        }
       }
     },
-    abilities: {
-      combo_light: {
-        name: 'Weapon Combo',
-        type: 'light',
-        trigger: 'combo',
-        tags: ['combo', 'light'],
-        comboFromWeapon: true,
-        fallbackWeapon: 'unarmed',
-        multipliers: { durations: 1 },
-        onHit: abilityKnockback(8)
-      },
-      unarmed_combo_light: {
-        name: 'Unarmed Combo',
-        type: 'light',
-        trigger: 'combo',
-        tags: ['combo', 'light', 'unarmed'],
-        sequence: ['UnArCA1', 'UnArCA2', 'UnArCA3', 'UnArCA4'],
-        defaultAttack: 'UnArCA1',
-        comboWindowMs: 3000,
-        onHit: abilityKnockback(8)
-      },
-      quick_light: {
-        name: 'Quick Kick',
-        type: 'light',
-        trigger: 'single',
-        tags: ['quick', 'light'],
-        variants: [
-          { id: 'postCombo', attack: 'QuickKickCombo', require: { comboHitsGte: 4, comboActive: true } },
-          { id: 'default', attack: 'QuickKick' }
-        ],
-        multipliers: { durations: 1 },
-        onHit: abilityKnockback(10)
-      },
-	  quick_punch: {
-        name: 'Quick Punch',
-        type: 'light',
-        trigger: 'single',
-        tags: ['quick', 'light'],
-        variants: [
-          { id: 'postCombo', attack: 'QuickPunchCombo', require: { comboHitsGte: 4, comboActive: true } },
-          { id: 'default', attack: 'QuickPunch' }
-        ],
-        multipliers: { durations: 1 },
-        onHit: abilityKnockback(10)
-      },
-      heavy_hold: {
-        name: 'Charged Slam',
-        type: 'heavy',
-        trigger: 'hold-release',
-        tags: ['heavy', 'hold'],
-        attack: 'Slam',
-        charge: {
-          minStage: 1,
-          maxStage: 5,
-          stageDurationMs: 200,
-          stageMultipliers: (stage) => ({
-            durations: 1 + stage * 0.05,
-            knockback: 1 + stage * 0.25
-          })
-        },
-        onHit: abilityKnockback(14)
-      },
-      evade_defensive: {
-        name: 'Evade',
-        type: 'defensive',
-        trigger: 'defensive',
-        tags: ['defensive', 'mobility'],
-        defensive: {
-          poseKey: 'Stance',
-          poseRefreshMs: 220,
-          staminaDrainPerSecond: 40,
-          minStaminaRatio: 0.6
-        }
-      }
-    },
+    abilities: ensureAbilityLibrary(),
     slots: {
       A: {
         label: 'Primary Attack',
@@ -2463,6 +2090,7 @@ const attachHierarchy = () => {
   };
 };
 
+  mergeAbilityManifests(window.CONFIG);
   ensureWeaponStances(window.CONFIG);
   attachHierarchy();
 
@@ -2554,13 +2182,6 @@ const buildPresets = () => {
     CONFIG.attacks.presets = {};
   }
   Object.assign(CONFIG.attacks.presets, derivedPresets);
-
-  // Ensure core weapon presets exist and opt-in to weapon colliders.
-  const ensurePreset = (name, base = 'ComboPUNCH_R') => {
-    if (!CONFIG.presets[name]) CONFIG.presets[name] = clone(CONFIG.presets[base] || {});
-    CONFIG.presets[name].useWeaponColliders = true;
-  };
-  ['SLASH','STAB','THRUST','SWEEP','CHOP','SMASH','SWING','HACK','TOSS','SRCA1','SRCA2','SRCA3','SRCA4'].forEach(n => ensurePreset(n));
 
   try { document.dispatchEvent(new Event('config:ready')); } catch(_){}
 };
