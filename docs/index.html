@@ -239,6 +239,16 @@
     </div>
   </div>
 
+  <div class="coordinate-arming" id="coordinateArming" role="dialog" aria-modal="true" aria-labelledby="coordinateOverlayTitle" hidden>
+    <div class="coordinate-arming__content">
+      <p class="coordinate-arming__prompt">Tap anywhere to start the capture countdown.</p>
+      <div class="coordinate-arming__countdown" id="coordinateCountdown" hidden>
+        <div class="coordinate-arming__number" id="coordinateCountdownNumber">3</div>
+        <div class="coordinate-arming__label">Capture begins</div>
+      </div>
+    </div>
+  </div>
+
   <div class="coordinate-overlay" id="coordinateOverlay" role="dialog" aria-modal="true" aria-labelledby="coordinateOverlayTitle" hidden>
     <div class="coordinate-overlay__panel">
       <header class="coordinate-overlay__header">
@@ -251,7 +261,7 @@
       </header>
 
       <div class="coordinate-overlay__body">
-        <div class="coordinate-overlay__hint">Click or tap anywhere on the canvas. Background input is blocked while capture is active.</div>
+        <div class="coordinate-overlay__hint">First tap starts a 3-2-1 countdown before capturing; tap again on the overlay to sample new coordinates.</div>
         <div class="coordinate-overlay__grid" role="list">
           <div class="coordinate-overlay__item" role="listitem">
             <div class="coordinate-overlay__label">Canvas (px)</div>
@@ -279,10 +289,6 @@
     <section class="widget widget--clear">
       <div class="stage" id="gameStage">
         <canvas id="game" width="720" height="460" aria-label="Stick figure canvas"></canvas>
-
-        <div class="coordinate-control" aria-live="polite">
-          <button type="button" id="btnCoordinateCapture" class="coordinate-control__btn">🎯 Capture Coordinates</button>
-        </div>
 
         <!-- HUD: health / stamina / footing -->
         <div class="health-bar">
@@ -370,6 +376,13 @@
 
     <section class="widget">
       <div class="settings" id="settingsGrid" data-block-game-input>
+        <div class="box coordinate-box">
+          <div class="label">Coordinate Capture</div>
+          <div class="coordinate-control" aria-live="polite">
+            <button type="button" id="btnCoordinateCapture" class="coordinate-control__btn">🎯 Capture Coordinates</button>
+          </div>
+          <p class="coordinate-hint">Arms a 3-2-1 countdown; tap the viewport to reveal coordinates.</p>
+        </div>
         <div class="box" id="renderDebugBox">
           <div class="label">Render Debug Controls</div>
           <div class="fields">
