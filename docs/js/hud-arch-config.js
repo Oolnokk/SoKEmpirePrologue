@@ -2,7 +2,14 @@
 window.HUD_ARCH_CONFIG = {
   arch: {
     // circle geometry
-    radiusPx: 150, // distance from arch center to button centers
+    // Option 1: set an absolute pixel override (number)
+    // Option 2: use adaptive sizing below (preferred default)
+    radiusPx: {
+      base: 150, // fallback for very small viewports
+      viewportPct: 0.18, // portion of the smaller viewport side
+      min: 120,
+      max: 240,
+    },
     start: {
       x: 0.98, // near the far bottom-right edge
       y: 0.94
@@ -13,7 +20,12 @@ window.HUD_ARCH_CONFIG = {
     },
 
     scale: 1.0, // global multiplier (can tie to character scale)
-    buttonSizePx: 84, // base button square size
+    buttonSizePx: {
+      base: 84,
+      viewportPct: 0.1, // portion of the smaller viewport side
+      min: 68,
+      max: 124,
+    }, // base button square size
     defaultGapPx: 10, // default carving distance per segment
     rotateWithArch: true, // rotate along tangent? (fan out)
     flipVertical: false, // mirror along the horizontal axis to hug the gameplay viewport

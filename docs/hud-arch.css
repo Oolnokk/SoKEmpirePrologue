@@ -30,6 +30,21 @@
   pointer-events: none;
 }
 
+@media (max-width: 640px), (max-height: 480px) {
+  .arch-hud__button {
+    border-radius: calc(var(--arch-button-size, 84px) * 0.32);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.55);
+    border-width: 1.5px;
+  }
+}
+
+@media (min-width: 1440px) and (min-height: 900px) {
+  .arch-hud__button {
+    border-radius: calc(var(--arch-button-size, 84px) * 0.28);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.65);
+  }
+}
+
 /* Optional: you can add hover/pressed styles if needed */
 .arch-hud__button:active {
   transform: scale(0.96) translateZ(0);
