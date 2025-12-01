@@ -250,69 +250,13 @@ const DEFAULT_CANVAS_WIDTH = 720;
 const DEFAULT_PLAYABLE_SPAN = DEFAULT_CANVAS_WIDTH - DEFAULT_HORIZONTAL_MARGIN * 2;
 
 function resolveHorizontalBounds(config) {
-  const resolvePlayableBounds = () => {
-    const registryBounds =
-      typeof window !== 'undefined'
-        ? window.GAME?.mapRegistry?.getActiveArea?.()?.playableBounds
-        : null;
-    const mapBounds = config?.map?.activePlayableBounds || config?.map?.playableBounds || null;
-    return [mapBounds, registryBounds]
-      .find((bounds) => Number.isFinite(bounds?.left) && Number.isFinite(bounds?.right))
-      || null;
-  };
-
-  const playableBounds = resolvePlayableBounds();
-  const mapMinX = Number.isFinite(config?.map?.playAreaMinX) ? config.map.playAreaMinX : null;
-  const mapMaxX = Number.isFinite(config?.map?.playAreaMaxX) ? config.map.playAreaMaxX : null;
-
-  const { minX: resolvedMinX, maxX: resolvedMaxX } = resolveBaseHorizontalBounds(config);
-  let minX = resolvedMinX;
-  let maxX = resolvedMaxX;
-
-  if (playableBounds) {
-    minX = playableBounds.left;
-    maxX = playableBounds.right;
-  } else {
-    if (mapMinX != null) minX = mapMinX;
-    if (mapMaxX != null) maxX = mapMaxX;
-    if (!(Number.isFinite(minX) && Number.isFinite(maxX) && maxX > minX)) {
-      minX = resolvedMinX;
-      maxX = resolvedMaxX;
-    }
-  }
-
-  return { minX, maxX, span: Math.max(1, maxX - minX) };
+  return resolveBaseHorizontalBounds(config);
 }
 
 function clampFighterToBounds(fighter, config) {
   if (!fighter?.pos) return;
 
-  const bounds = typeof resolveHorizontalBounds === 'function'
-    ? resolveHorizontalBounds(config)
-    : (() => {
-        const margin = typeof DEFAULT_HORIZONTAL_MARGIN === 'number' ? DEFAULT_HORIZONTAL_MARGIN : 40;
-        const canvasWidth = Number.isFinite(config?.canvas?.w)
-          ? config.canvas.w
-          : (typeof DEFAULT_CANVAS_WIDTH === 'number' ? DEFAULT_CANVAS_WIDTH : 720);
-        const playableBounds = [
-          config?.map?.activePlayableBounds,
-          config?.map?.playableBounds,
-        ]
-          .find((b) => Number.isFinite(b?.left) && Number.isFinite(b?.right))
-          || null;
-        const mapMinX = Number.isFinite(config?.map?.playAreaMinX) ? config.map.playAreaMinX : null;
-        const mapMaxX = Number.isFinite(config?.map?.playAreaMaxX) ? config.map.playAreaMaxX : null;
-        let minX = mapMinX ?? margin;
-        let maxX = mapMaxX ?? (canvasWidth - margin);
-        if (playableBounds) {
-          minX = playableBounds.left;
-          maxX = playableBounds.right;
-        } else if (mapMinX == null || mapMaxX == null) {
-          minX = margin;
-          maxX = canvasWidth - margin;
-        }
-        return { minX, maxX, span: Math.max(1, maxX - minX) };
-      })();
+  const bounds = resolveHorizontalBounds(config);
   fighter.pos.x = clamp(fighter.pos.x, bounds.minX, bounds.maxX);
 
   const groundY = computeGroundY(config);
