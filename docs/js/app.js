@@ -857,6 +857,7 @@ function initSelectionDropdowns() {
 // Initialize dropdowns on page load
 window.addEventListener('DOMContentLoaded', () => {
   initSelectionDropdowns();
+  initAppSettingsBindings();
 });
 import { initNpcSystems, updateNpcSystems, getActiveNpcFighters } from './npc.js?v=2';
 import { initPresets, ensureAltSequenceUsesKickAlt } from './presets.js?v=6';
@@ -1402,6 +1403,76 @@ if (dashWeightDrop && dashWeightValue) {
     window.RENDER_DEBUG = window.RENDER_DEBUG || {};
     window.RENDER_DEBUG.dashWeightDrop = Number(e.target.value);
     dashWeightValue.textContent = Number(e.target.value).toFixed(1);
+  });
+}
+
+function getNestedConfigValue(path, fallback = null) {
+  if (!path || !window.CONFIG) return fallback;
+  const parts = path.split('.');
+  let target = window.CONFIG;
+  for (const part of parts) {
+    if (!target || typeof target !== 'object') return fallback;
+    target = target[part];
+  }
+  return target == null ? fallback : target;
+}
+
+function setNestedConfigValue(path, value) {
+  if (!path) return;
+  const parts = path.split('.');
+  const last = parts.pop();
+  if (!last) return;
+  window.CONFIG ||= {};
+  let target = window.CONFIG;
+  for (const part of parts) {
+    if (!target[part] || typeof target[part] !== 'object') {
+      target[part] = {};
+    }
+    target = target[part];
+  }
+  target[last] = value;
+  scheduleConfigUpdatedEvent();
+}
+
+function initAppSettingsBindings() {
+  const bindings = [
+    { id: 'actorScale', path: 'actor.scale', type: 'range', parser: parseFloat, onChange: () => syncHudScaleFactors({ force: true }) },
+    { id: 'groundRatio', path: 'groundRatio', type: 'range', parser: parseFloat },
+    { id: 'handMultiplier', path: 'colliders.handMultiplier', type: 'range', parser: parseFloat },
+    { id: 'footMultiplier', path: 'colliders.footMultiplier', type: 'range', parser: parseFloat },
+    { id: 'wAuth', path: 'movement.authoredWeight', type: 'range', parser: parseFloat },
+    { id: 'wPhys', path: 'movement.physicsWeight', type: 'range', parser: parseFloat },
+    { id: 'ikCalvesOnly', path: 'ik.calvesOnly', type: 'checkbox', parser: (v) => !!v },
+    { id: 'lockFacing', path: 'movement.lockFacingDuringAttack', type: 'checkbox', parser: (v) => !!v },
+  ];
+
+  bindings.forEach((binding) => {
+    const el = document.getElementById(binding.id);
+    if (!el) return;
+
+    const current = getNestedConfigValue(binding.path, binding.type === 'checkbox' ? el.checked : el.value);
+    if (binding.type === 'checkbox') {
+      el.checked = !!current;
+    } else if (current != null) {
+      const num = Number(current);
+      el.value = Number.isFinite(num) ? num : el.value;
+    }
+
+    const handler = (event) => {
+      const rawValue = binding.type === 'checkbox'
+        ? event.target.checked
+        : binding.parser?.(event.target.value) ?? event.target.value;
+      const coerced = binding.parser ? binding.parser(rawValue) : rawValue;
+      if (binding.type !== 'checkbox' && !Number.isFinite(coerced)) return;
+
+      setNestedConfigValue(binding.path, coerced);
+      if (typeof binding.onChange === 'function') {
+        binding.onChange(coerced, el);
+      }
+    };
+
+    const eventName = binding.type === 'checkbox' ? 'change' : 'input';
+    el.addEventListener(eventName, handler);
   });
 }
 
