@@ -152,7 +152,7 @@ export function updateAttackDash(fighter, dt, game = null) {
 
   if (dash.mode === 'velocity' && dash.velocity > 0) {
     // Velocity mode: Set velocity directly every frame (instant superhuman speed)
-    const baseMultiplier = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 10.0;
+    const baseMultiplier = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 5.0;
     const velocityMult = isHeavy ? baseMultiplier * 2.0 : baseMultiplier;
     const frictionMult = Number.isFinite(DEBUG.dashFrictionMultiplier) ? DEBUG.dashFrictionMultiplier : 0.0;
 
@@ -166,7 +166,7 @@ export function updateAttackDash(fighter, dt, game = null) {
     fighter.frictionOverride.active = true;
   } else if (!dash.appliedImpulse && dash.impulse > 0) {
     // Impulse mode: Apply force once at start (accelerating dash)
-    const baseMultiplier = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 10.0;
+    const baseMultiplier = Number.isFinite(DEBUG.dashImpulseMultiplier) ? DEBUG.dashImpulseMultiplier : 5.0;
     const impulseMult = isHeavy ? baseMultiplier * 2.0 : baseMultiplier;
     const frictionMult = Number.isFinite(DEBUG.dashFrictionMultiplier) ? DEBUG.dashFrictionMultiplier : 0.01;
 

@@ -690,8 +690,8 @@ window.CONFIG = {
   actor: { scale: 0.70 },
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },
-  camera: { manualOffsetX: 0 },
   camera: {
+    manualOffsetX: 0,
     awareness: {
       normalZoom: 1,
       scaleOffset: 0.25,
