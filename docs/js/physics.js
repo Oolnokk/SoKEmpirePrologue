@@ -1,5 +1,6 @@
 import { getFootingRecovery, getMovementMultipliers, getStatProfile } from './stat-hooks.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
+import { updateAttackDash, isAttackDashing } from './attack-dash.js?v=1';
 
 const JOINT_LIMITS = {
   torso: [-0.8, 0.8],
@@ -482,7 +483,13 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   const baseMaxSpeed = (Number.isFinite(M.maxSpeedX) ? M.maxSpeedX : 420) * movementBaseMultiplier;
   const accelX = baseAccelX * boundsSpeedScalar * (movementMultipliers.accel || 1) * walkSpeedMultiplier;
   const maxSpeed = baseMaxSpeed * boundsSpeedScalar * (movementMultipliers.maxSpeed || 1) * walkSpeedMultiplier;
-  const friction = Number.isFinite(M.friction) ? Math.max(0, M.friction) : 8;
+
+  // Support friction override (for attack dashes, etc)
+  const defaultFriction = Number.isFinite(M.friction) ? Math.max(0, M.friction) : 8;
+  const friction = fighter.frictionOverride?.active && Number.isFinite(fighter.frictionOverride.value)
+    ? fighter.frictionOverride.value
+    : defaultFriction;
+
   const restitution = Number.isFinite(M.restitution) ? Math.max(0, M.restitution) : 0;
   const gravity = Number.isFinite(M.gravity) ? M.gravity : 0;
   const jumpImpulse = Number.isFinite(M.jumpImpulse) ? M.jumpImpulse : -650;
@@ -500,6 +507,15 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
 
   const input = options.input || fighter.input || null;
   const attackActive = !!options.attackActive;
+
+  // Update attack dash system
+  const G = (typeof window !== 'undefined' && window.GAME) || null;
+  updateAttackDash(fighter, dt, G);
+
+  // Allow movement during Charge phase (hold-release heavies) or attack dash
+  const attackPhase = fighter.attack?.currentPhase || null;
+  const attackDashing = isAttackDashing(fighter);
+  const canMoveWhileAttacking = attackActive && (attackPhase === 'Charge' || attackDashing);
   const prevOnGround = !!fighter.onGround;
 
   const jumpPressed = input ? !!input.jump : false;
@@ -536,7 +552,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   } else if (underKnockback) {
     const damping = Math.exp(-Math.max(2, friction * 0.35) * dt);
     fighter.vel.x *= damping;
-    if (input && !attackActive) {
+    if (input && (!attackActive || canMoveWhileAttacking)) {
       const inputDir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
       if (inputDir !== 0) {
         fighter.vel.x += accelX * 0.55 * inputDir * dt;
@@ -545,14 +561,17 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
         }
       }
     }
+  } else if (attackDashing) {
+    // Attack dash controls velocity - don't apply input or friction
+    // Velocity is set by updateAttackDash above
   } else if (input) {
     const left = !!input.left;
     const right = !!input.right;
-    if (left && !right && !attackActive) {
+    if (left && !right && (!attackActive || canMoveWhileAttacking)) {
       fighter.vel.x -= accelX * dashMult * dt;
       fighter.facingRad = Math.PI;
       fighter.facingSign = -1;
-    } else if (right && !left && !attackActive) {
+    } else if (right && !left && (!attackActive || canMoveWhileAttacking)) {
       fighter.vel.x += accelX * dashMult * dt;
       fighter.facingRad = 0;
       fighter.facingSign = 1;

@@ -961,6 +961,7 @@ const healthFill = $$('#healthFill');
 const staminaLabel = $$('#staminaLabel');
 const footingLabel = $$('#footingLabel');
 const healthLabel = $$('#healthLabel');
+const combatInfo = $$('#combatInfo');
 const bountyHud = $$('#bountyHud');
 const bountyStars = $$('#bountyStars');
 const statusInfo = $$('#statusInfo');
@@ -1204,6 +1205,84 @@ if (toggleShowRangeCollider) {
   toggleShowRangeCollider.addEventListener('change', (e) => {
     window.RENDER_DEBUG = window.RENDER_DEBUG || {};
     window.RENDER_DEBUG.showRangeCollider = e.target.checked;
+  });
+}
+
+const rangeColliderRotationOffset = $$('#rangeColliderRotationOffset');
+const rangeRotationValue = $$('#rangeRotationValue');
+if (rangeColliderRotationOffset && rangeRotationValue) {
+  rangeColliderRotationOffset.value = window.RENDER_DEBUG?.rangeColliderRotationOffset || 0;
+  rangeRotationValue.textContent = `${rangeColliderRotationOffset.value}°`;
+  rangeColliderRotationOffset.addEventListener('input', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.rangeColliderRotationOffset = Number(e.target.value);
+    rangeRotationValue.textContent = `${e.target.value}°`;
+  });
+}
+
+const toggleShowAttackColliders = $$('#toggleShowAttackColliders');
+if (toggleShowAttackColliders) {
+  toggleShowAttackColliders.checked = window.RENDER_DEBUG?.showAttackColliders || false;
+  toggleShowAttackColliders.addEventListener('change', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.showAttackColliders = e.target.checked;
+  });
+}
+
+const toggleShowVelocityArrow = $$('#toggleShowVelocityArrow');
+if (toggleShowVelocityArrow) {
+  toggleShowVelocityArrow.checked = window.RENDER_DEBUG?.showVelocityArrow || false;
+  toggleShowVelocityArrow.addEventListener('change', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.showVelocityArrow = e.target.checked;
+  });
+}
+
+const dashRotationOffset = $$('#dashRotationOffset');
+const dashRotationValue = $$('#dashRotationValue');
+if (dashRotationOffset && dashRotationValue) {
+  dashRotationOffset.value = window.RENDER_DEBUG?.dashRotationOffset || 0;
+  dashRotationValue.textContent = `${dashRotationOffset.value}°`;
+  dashRotationOffset.addEventListener('input', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.dashRotationOffset = Number(e.target.value);
+    dashRotationValue.textContent = `${e.target.value}°`;
+  });
+}
+
+const dashImpulseMultiplier = $$('#dashImpulseMultiplier');
+const dashImpulseValue = $$('#dashImpulseValue');
+if (dashImpulseMultiplier && dashImpulseValue) {
+  dashImpulseMultiplier.value = window.RENDER_DEBUG?.dashImpulseMultiplier || 5.0;
+  dashImpulseValue.textContent = Number(dashImpulseMultiplier.value).toFixed(1);
+  dashImpulseMultiplier.addEventListener('input', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.dashImpulseMultiplier = Number(e.target.value);
+    dashImpulseValue.textContent = Number(e.target.value).toFixed(1);
+  });
+}
+
+const dashFrictionMultiplier = $$('#dashFrictionMultiplier');
+const dashFrictionValue = $$('#dashFrictionValue');
+if (dashFrictionMultiplier && dashFrictionValue) {
+  dashFrictionMultiplier.value = window.RENDER_DEBUG?.dashFrictionMultiplier || 0.01;
+  dashFrictionValue.textContent = Number(dashFrictionMultiplier.value).toFixed(2);
+  dashFrictionMultiplier.addEventListener('input', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.dashFrictionMultiplier = Number(e.target.value);
+    dashFrictionValue.textContent = Number(e.target.value).toFixed(2);
+  });
+}
+
+const dashWeightDrop = $$('#dashWeightDrop');
+const dashWeightValue = $$('#dashWeightValue');
+if (dashWeightDrop && dashWeightValue) {
+  dashWeightDrop.value = window.RENDER_DEBUG?.dashWeightDrop || 0;
+  dashWeightValue.textContent = Number(dashWeightDrop.value).toFixed(1);
+  dashWeightDrop.addEventListener('input', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.dashWeightDrop = Number(e.target.value);
+    dashWeightValue.textContent = Number(e.target.value).toFixed(1);
   });
 }
 
@@ -2299,6 +2378,24 @@ function updateHUD(){
       if (healthLabel){
         healthLabel.textContent = 'HP: 100';
       }
+    }
+  }
+
+  // Combat info display
+  if (combatInfo) {
+    const combat = G.playerCombat;
+    const attackState = P.attack;
+
+    if (combat && attackState && attackState.active && attackState.context) {
+      const context = attackState.context;
+      const abilityName = context.ability?.name || context.abilityId || 'Unknown';
+      const attackName = context.attack?.name || context.attackId || 'Unknown';
+      const phase = attackState.currentPhase || 'Unknown';
+
+      combatInfo.innerHTML = `<span class="ability">${abilityName}</span> › <span class="attack">${attackName}</span> › <span class="phase">${phase}</span>`;
+      combatInfo.classList.add('active');
+    } else {
+      combatInfo.classList.remove('active');
     }
   }
 

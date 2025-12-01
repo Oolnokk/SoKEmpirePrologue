@@ -643,6 +643,23 @@ const SLAM_MOVE_POSES = {
       { time: 0.00, gravityScale: 0.35, gravityScaleDurationMs: 1200 }
     ]
   },
+  Charge: {
+    torso: -45,
+    lShoulder: -370,
+    lElbow: -10,
+    rShoulder: -370,
+    rElbow: -10,
+    lHip: 50,
+    lKnee: 110,
+    rHip: -100,
+    rKnee: 110,
+    rootMoveVel: { x: 0, y: 0 },
+    impulseMag: 0,
+    impulseDirDeg: 0,
+    translate: { x: 75, y: 0, local: true },
+    allowAiming: true,
+    aimLegs: false
+  },
   Slam: {
     ...deepClone(PUNCH_MOVE_POSES.Strike),
     anim_events: [
@@ -673,8 +690,8 @@ window.CONFIG = {
   actor: { scale: 0.70 },
   groundRatio: 0.70,
   canvas: { w: 720, h: 460, scale: 1 },
-  camera: { manualOffsetX: 0 },
   camera: {
+    manualOffsetX: 0,
     awareness: {
       normalZoom: 1,
       scaleOffset: 0.25,
@@ -1167,12 +1184,13 @@ window.CONFIG = {
     SLAM: {
       name: 'Charged Slam',
       tags: ['heavy'],
-      durations: { toWindup: 480, toStrike: 160, toRecoil: 200, toStance: 120 },
+      durations: { toWindup: 400, toCharge: 400, toStrike: 160, toRecoil: 200, toStance: 120 },
       knockbackBase: 250,
       cancelWindow: 0.5,
       poses: deepClone(SLAM_MOVE_POSES),
       sequence: [
-        { poseKey: 'Windup', durMs: 480 },
+        { poseKey: 'Windup', durMs: 400 },
+        { poseKey: 'Charge', durMs: 400 },
         { poseKey: 'Slam', durMs: 160, strike: {} },
         { poseKey: 'Recoil', durMs: 200 }
       ]
@@ -1802,7 +1820,8 @@ window.CONFIG = {
           damage: { health: 7 },
           staminaCost: 7,
           colliders: ['footR'],
-          range: 75
+          range: 75,
+          dash: { velocity: 250, duration: 0.2 }
         }
       },
       ComboKICK_F: {
@@ -1813,7 +1832,8 @@ window.CONFIG = {
           damage: { health: 8 },
           staminaCost: 8,
           colliders: ['footL'],
-          range: 75
+          range: 75,
+          dash: { velocity: 260, duration: 0.2 }
         }
       },
       ComboPUNCH_R: {
@@ -1824,7 +1844,8 @@ window.CONFIG = {
           damage: { health: 6 },
           staminaCost: 6,
           colliders: ['handR'],
-          range: 60
+          range: 60,
+          dash: { velocity: 220, duration: 0.18 }
         }
       },
       ComboPUNCH_L: {
@@ -1835,7 +1856,8 @@ window.CONFIG = {
           damage: { health: 6 },
           staminaCost: 6,
           colliders: ['handL'],
-          range: 60
+          range: 60,
+          dash: { velocity: 220, duration: 0.18 }
         }
       },
       QuickKick: {
@@ -1846,7 +1868,8 @@ window.CONFIG = {
           damage: { health: 10 },
           staminaCost: 12,
           colliders: ['footR'],
-          range: 80
+          range: 80,
+          dash: { velocity: 280, duration: 0.22 }
         }
       },
       QuickKickCombo: {
@@ -1858,7 +1881,8 @@ window.CONFIG = {
           damage: { health: 12 },
           staminaCost: 13,
           colliders: ['footR'],
-          range: 80
+          range: 80,
+          dash: { velocity: 290, duration: 0.2 }
         }
       },
       QuickPunch: {
@@ -1869,7 +1893,8 @@ window.CONFIG = {
           damage: { health: 9 },
           staminaCost: 10,
           colliders: ['handR'],
-          range: 65
+          range: 65,
+          dash: { velocity: 240, duration: 0.18 }
         }
       },
       QuickPunchCombo: {
@@ -1881,7 +1906,8 @@ window.CONFIG = {
           damage: { health: 11 },
           staminaCost: 11,
           colliders: ['handR'],
-          range: 65
+          range: 65,
+          dash: { velocity: 250, duration: 0.16 }
         }
       },
       Slam: {
@@ -1893,7 +1919,8 @@ window.CONFIG = {
           damage: { health: 22 },
           staminaCost: 28,
           colliders: ['handL', 'handR'],
-          range: 75
+          range: 75,
+          dash: { velocity: 400, duration: 1.2 }
         }
       },
       UnArCA1: {
@@ -1907,7 +1934,8 @@ window.CONFIG = {
           damage: { health: 6 },
           staminaCost: 12,
           colliders: ['handR'],
-          range: 60
+          range: 60,
+          dash: { impulse: 520, duration: 0.18 }
         }
       },
       UnArCA2: {
@@ -1921,7 +1949,8 @@ window.CONFIG = {
           damage: { health: 7 },
           staminaCost: 14,
           colliders: ['footR'],
-          range: 75
+          range: 75,
+          dash: { impulse: 540, duration: 0.2 }
         }
       },
       UnArCA3: {
@@ -1936,7 +1965,8 @@ window.CONFIG = {
           damage: { health: 9 },
           staminaCost: 16,
           colliders: ['handL', 'handR'],
-          range: 60
+          range: 60,
+          dash: { impulse: 560, duration: 0.18 }
         }
       },
       UnArCA4: {
@@ -1950,7 +1980,8 @@ window.CONFIG = {
           damage: { health: 10 },
           staminaCost: 18,
           colliders: ['footL'],
-          range: 75
+          range: 75,
+          dash: { impulse: 580, duration: 0.2 }
         }
       },
       SRCA1: {
@@ -1964,7 +1995,8 @@ window.CONFIG = {
           damage: { health: 18 },
           staminaCost: 16,
           useWeaponColliders: true,
-          range: 95
+          range: 95,
+          dash: { impulse: 520, duration: 0.18 }
         }
       },
       SRCA2: {
@@ -1978,7 +2010,8 @@ window.CONFIG = {
           damage: { health: 20 },
           staminaCost: 18,
           useWeaponColliders: true,
-          range: 100
+          range: 100,
+          dash: { impulse: 540, duration: 0.2 }
         }
       },
       SRCA3: {
@@ -1992,7 +2025,8 @@ window.CONFIG = {
           damage: { health: 22 },
           staminaCost: 20,
           useWeaponColliders: true,
-          range: 105
+          range: 105,
+          dash: { impulse: 560, duration: 0.18 }
         }
       },
       SRCA4: {
@@ -2006,7 +2040,8 @@ window.CONFIG = {
           damage: { health: 24 },
           staminaCost: 22,
           useWeaponColliders: true,
-          range: 110
+          range: 110,
+          dash: { impulse: 580, duration: 0.2 }
         }
       }
     },

@@ -20,7 +20,7 @@
 import { angleZero as angleZeroUtil, basis as basisUtil, segPos, withAX as withAXUtil, rad, angleFromDelta as angleFromDeltaUtil, degToRad } from './math-utils.js?v=1';
 import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=2';
 import { pickFighterConfig, lengths, pickOffsets, resolveBoneLengthScale } from './fighter-utils.js?v=1';
-import { updateFighterColliders, pruneFighterColliders } from './colliders.js?v=1';
+import { updateFighterColliders, pruneFighterColliders, getFighterColliders } from './colliders.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
 
 // === RENDER DEBUG CONFIGURATION ===
@@ -406,25 +406,42 @@ function drawRangeCollider(ctx, fighter, hitbox) {
   const centerX = hitbox?.x ?? fighter.pos?.x ?? 0;
   const centerY = hitbox?.y ?? fighter.pos?.y ?? 0;
 
-  // Get NPC mode/state for color coding
-  const mode = fighter.mode || 'unknown';
+  // Get phase for color coding (use phase instead of mode)
+  const phase = fighter.behaviorPhase;
+  const currentPhase = phase?.current || 'unknown';
 
-  // Color mapping based on NPC behavior state
-  const stateColors = {
-    'idle': { stroke: 'rgba(156, 163, 175, 0.8)', fill: 'rgba(156, 163, 175, 0.12)' },      // Gray
-    'alert': { stroke: 'rgba(251, 191, 36, 0.8)', fill: 'rgba(251, 191, 36, 0.12)' },      // Yellow
-    'follow': { stroke: 'rgba(59, 130, 246, 0.8)', fill: 'rgba(59, 130, 246, 0.12)' },     // Blue
-    'patrol': { stroke: 'rgba(96, 165, 250, 0.8)', fill: 'rgba(96, 165, 250, 0.12)' },     // Light blue
+  // Color mapping based on NPC behavior PHASE
+  const phaseColors = {
+    'decide': { stroke: 'rgba(251, 191, 36, 0.8)', fill: 'rgba(251, 191, 36, 0.12)' },      // Yellow
     'approach': { stroke: 'rgba(251, 146, 60, 0.8)', fill: 'rgba(251, 146, 60, 0.12)' },   // Orange
-    'retreat': { stroke: 'rgba(168, 85, 247, 0.8)', fill: 'rgba(168, 85, 247, 0.12)' },    // Purple
     'attack': { stroke: 'rgba(239, 68, 68, 0.8)', fill: 'rgba(239, 68, 68, 0.12)' },       // Red
-    'defend': { stroke: 'rgba(34, 197, 94, 0.8)', fill: 'rgba(34, 197, 94, 0.12)' },       // Green
-    'shuffle': { stroke: 'rgba(168, 162, 158, 0.8)', fill: 'rgba(168, 162, 158, 0.12)' },  // Stone
-    'recover': { stroke: 'rgba(236, 72, 153, 0.8)', fill: 'rgba(236, 72, 153, 0.12)' },    // Pink
+    'retreat': { stroke: 'rgba(168, 85, 247, 0.8)', fill: 'rgba(168, 85, 247, 0.12)' },    // Purple
+    'shuffle': { stroke: 'rgba(168, 162, 158, 0.8)', fill: 'rgba(168, 162, 158, 0.12)' },  // Gray
     'unknown': { stroke: 'rgba(156, 163, 175, 0.8)', fill: 'rgba(156, 163, 175, 0.12)' }   // Gray
   };
 
-  const colors = stateColors[mode] || stateColors.unknown;
+  const colors = phaseColors[currentPhase] || phaseColors.unknown;
+
+  // Get facing angle - use head angle with debug rotation offset
+  const rotationOffset = Number.isFinite(DEBUG.rangeColliderRotationOffset)
+    ? DEBUG.rangeColliderRotationOffset
+    : 0;
+
+  // Try to get head angle from pose state, fallback to facingRad
+  let baseAngle = fighter.facingRad || 0;
+  if (fighter.pose?.head) {
+    baseAngle = fighter.pose.head;
+  }
+
+  const angle = baseAngle + degToRad(rotationOffset);
+
+  // Draw rectangle extending from center in facing direction
+  // Rectangle width = 40px, length = attackRange
+  const rectWidth = 40;
+  const rectLength = attackRange;
+
+  // Calculate the end point of the bone/rectangle
+  const [endX, endY] = segPos(centerX, centerY, rectLength, angle);
 
   ctx.save();
   ctx.strokeStyle = colors.stroke;
@@ -432,17 +449,126 @@ function drawRangeCollider(ctx, fighter, hitbox) {
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 4]);
 
+  // Draw rectangle aligned with angle
+  ctx.translate(centerX, centerY);
+  ctx.rotate(angle);
+
+  // Draw rectangle from origin extending forward
   ctx.beginPath();
-  ctx.arc(centerX, centerY, attackRange, 0, Math.PI * 2);
+  ctx.rect(0, -rectWidth / 2, rectLength, rectWidth);
   ctx.fill();
   ctx.stroke();
 
-  // Draw mode and range label
+  ctx.restore();
+
+  // Draw phase and range label at end of collider
+  ctx.save();
   ctx.setLineDash([]);
   ctx.fillStyle = colors.stroke;
   ctx.font = 'bold 11px system-ui, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(`${mode.toUpperCase()} (${attackRange.toFixed(0)})`, centerX, centerY - attackRange - 5);
+  ctx.fillText(`${currentPhase.toUpperCase()} (${attackRange.toFixed(0)})`, endX, endY - 15);
+  ctx.restore();
+
+  // Draw behavior phase info inside collider
+  if (phase) {
+    const lines = [];
+
+    // Phase name
+    lines.push({ text: `Phase: ${currentPhase.toUpperCase()}`, color: 'rgba(255, 255, 255, 0.95)' });
+
+    // Phase-specific info with ability type color coding
+    if (phase.plannedAbility) {
+      const ability = phase.plannedAbility;
+      let abilityColor = 'rgba(255, 255, 255, 0.95)'; // Default white
+
+      // Color code by ability type
+      if (ability.trigger === 'hold-release' && ability.weight === 'heavy') {
+        abilityColor = 'rgba(139, 0, 0, 1)'; // Deep red for heavy
+      } else if (ability.type === 'quick') {
+        abilityColor = 'rgba(230, 230, 250, 1)'; // Lavender for quick
+      } else if (ability.weight === 'light') {
+        // Combo attacks - color by progress (orange, yellow, green, blue)
+        const comboProgress = phase.comboProgress || 0;
+        if (comboProgress === 1) abilityColor = 'rgba(255, 165, 0, 1)'; // Orange
+        else if (comboProgress === 2) abilityColor = 'rgba(255, 255, 0, 1)'; // Yellow
+        else if (comboProgress === 3) abilityColor = 'rgba(0, 255, 0, 1)'; // Green
+        else if (comboProgress >= 4) abilityColor = 'rgba(0, 191, 255, 1)'; // Blue
+        else abilityColor = 'rgba(255, 165, 0, 1)'; // Orange for initial
+      }
+
+      lines.push({
+        text: `${ability.slotKey}-${ability.weight} (${ability.id || 'unknown'})`,
+        color: abilityColor
+      });
+    }
+
+    // Timer info
+    if (Number.isFinite(phase.timer)) {
+      lines.push({ text: `T: ${phase.timer.toFixed(1)}s`, color: 'rgba(255, 255, 255, 0.95)' });
+    }
+
+    // Additional phase details
+    if (currentPhase === 'attack' && phase.comboProgress > 0) {
+      lines.push({ text: `Combo: ${phase.comboProgress}/${phase.comboMaxHits || 4}`, color: 'rgba(255, 255, 255, 0.95)' });
+    }
+
+    if (currentPhase === 'approach' && phase.holdInputActive) {
+      lines.push({ text: `[HOLD ACTIVE]`, color: 'rgba(255, 215, 0, 1)' }); // Gold
+    }
+
+    // Draw text lines centered inside collider
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+    ctx.lineWidth = 4;
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const lineHeight = 18;
+    const startY = centerY - ((lines.length - 1) * lineHeight) / 2;
+
+    lines.forEach((line, i) => {
+      const y = startY + i * lineHeight;
+      ctx.strokeText(line.text, centerX, y);
+      ctx.fillStyle = line.color;
+      ctx.fillText(line.text, centerX, y);
+    });
+  }
+
+  // Draw impulse direction arrow (using pose angle, not facing angle)
+  let impulseAngle = fighter.facingRad || 0;
+  if (fighter.pose?.head != null) {
+    impulseAngle = fighter.pose.head;
+  } else if (fighter.pose?.torso != null) {
+    impulseAngle = fighter.pose.torso;
+  }
+
+  // Draw arrow from center showing impulse direction
+  const arrowLength = 80;
+  const arrowHeadSize = 15;
+  const [arrowEndX, arrowEndY] = segPos(centerX, centerY, arrowLength, impulseAngle);
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0, 255, 255, 1.0)'; // Cyan for impulse
+  ctx.fillStyle = 'rgba(0, 255, 255, 1.0)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([]);
+
+  // Draw arrow shaft
+  ctx.beginPath();
+  ctx.moveTo(centerX, centerY);
+  ctx.lineTo(arrowEndX, arrowEndY);
+  ctx.stroke();
+
+  // Draw arrow head
+  ctx.translate(arrowEndX, arrowEndY);
+  ctx.rotate(impulseAngle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-arrowHeadSize, -arrowHeadSize / 2);
+  ctx.lineTo(-arrowHeadSize, arrowHeadSize / 2);
+  ctx.closePath();
+  ctx.fill();
 
   ctx.restore();
 }
@@ -721,12 +847,145 @@ export function renderAll(ctx){
       ctx.scale(-1, 1);
     }
     drawHitbox(ctx, entity.hitbox);
-    drawRangeCollider(ctx, entity.fighter, entity.hitbox);
     drawStick(ctx, entity.bones);
     drawFallbackSilhouette(ctx, entity, C);
     ctx.restore();
+
+    // Draw range collider AFTER entity is drawn, outside the flip transform
+    drawRangeCollider(ctx, entity.fighter, entity.hitbox);
+  }
+
+  // Draw attack colliders debug visualization
+  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+  if (DEBUG.showAttackColliders) {
+    for (const entity of renderEntities) {
+      if (!entity || !entity.fighter) continue;
+      drawAttackColliders(ctx, entity.fighter, entity.id);
+    }
+  }
+
+  if (DEBUG.showVelocityArrow) {
+    for (const entity of renderEntities) {
+      if (!entity || !entity.fighter) continue;
+      drawVelocityArrow(ctx, entity.fighter);
+    }
   }
 
   ctx.restore();
   drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`);
+}
+
+function drawAttackColliders(ctx, fighter, fighterId) {
+  if (!ctx || !fighter) return;
+
+  // Only draw if fighter is actively attacking
+  const attack = fighter.attack;
+  if (!attack || !attack.active) return;
+
+  const currentPhase = attack.currentPhase || '';
+  const isStriking = currentPhase.toLowerCase().includes('strike') || currentPhase.toLowerCase().includes('impact');
+  if (!isStriking) return;
+
+  // Get active collider keys
+  const keys = attack.currentActiveKeys || [];
+  if (!Array.isArray(keys) || keys.length === 0) return;
+
+  // Get collider positions
+  const colliders = getFighterColliders(fighterId);
+  if (!colliders) return;
+
+  // Check if attack recently landed a hit (within last 100ms)
+  const hitRecently = attack.strikeLanded === true;
+
+  // Draw each active collider
+  ctx.save();
+  keys.forEach((key) => {
+    const pos = colliders[key];
+    const radius = colliders[`${key}Radius`] || 12;
+
+    if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
+
+    // Yellow by default, red if hit landed
+    const color = hitRecently ? 'rgba(255, 0, 0, 0.6)' : 'rgba(255, 255, 0, 0.6)';
+    const strokeColor = hitRecently ? 'rgba(200, 0, 0, 0.9)' : 'rgba(200, 200, 0, 0.9)';
+
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw label
+    ctx.fillStyle = 'white';
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 3;
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeText(key, pos.x, pos.y);
+    ctx.fillText(key, pos.x, pos.y);
+  });
+  ctx.restore();
+}
+
+function drawVelocityArrow(ctx, fighter) {
+  if (!ctx || !fighter) return;
+
+  const vel = fighter.vel;
+  if (!vel || (!vel.x && !vel.y)) return; // No velocity
+
+  const pos = fighter.pos;
+  if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
+
+  // Calculate velocity magnitude and angle
+  const magnitude = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+  if (magnitude < 0.1) return; // Too small to visualize
+
+  const angle = Math.atan2(vel.y, vel.x);
+
+  // Scale arrow length based on velocity magnitude
+  const arrowLength = Math.min(150, magnitude * 0.5);
+  const arrowHeadSize = 20;
+
+  // Calculate arrow end point
+  const endX = pos.x + Math.cos(angle) * arrowLength;
+  const endY = pos.y + Math.sin(angle) * arrowLength;
+
+  ctx.save();
+
+  // Draw arrow shaft
+  ctx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(pos.x, pos.y);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+
+  // Draw arrow head
+  ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
+  ctx.translate(endX, endY);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-arrowHeadSize, -arrowHeadSize / 2);
+  ctx.lineTo(-arrowHeadSize, arrowHeadSize / 2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+
+  // Draw arrow length label
+  ctx.save();
+  ctx.fillStyle = 'white';
+  ctx.strokeStyle = 'black';
+  ctx.lineWidth = 3;
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  const labelText = `${arrowLength.toFixed(0)}px`;
+  ctx.strokeText(labelText, pos.x, pos.y - 20);
+  ctx.fillText(labelText, pos.x, pos.y - 20);
+  ctx.restore();
 }

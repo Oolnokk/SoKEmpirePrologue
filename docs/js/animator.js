@@ -1931,8 +1931,31 @@ function processAnimEventsForOverride(F, over, fighterId){
     }
   }
 
-  // flip timing
+  // lerped translate for root position movement
   const P = over.pose || {};
+  if (P.translate && typeof P.translate === 'object') {
+    const tx = Number.isFinite(P.translate.x) ? P.translate.x : 0;
+    const ty = Number.isFinite(P.translate.y) ? P.translate.y : 0;
+
+    if (tx !== 0 || ty !== 0) {
+      // Initialize progress tracker on first frame
+      if (over.__translatePrev === undefined) {
+        over.__translatePrev = 0;
+      }
+
+      // Calculate lerped position based on progress (k)
+      const deltaK = k - over.__translatePrev;
+      if (deltaK > 0) {
+        // Apply incremental translation based on facing direction
+        const facingMult = P.translate.local ? (F.facingSign || 1) : 1;
+        F.pos.x += tx * deltaK * facingMult;
+        F.pos.y += ty * deltaK;
+        over.__translatePrev = k;
+      }
+    }
+  }
+
+  // flip timing
   const flipAt = (typeof P.flipAt === 'number') ? Math.max(0, Math.min(1, P.flipAt)) : 0;
   if (P.flip && !over.__flipApplied && k >= flipAt){
     over.__flipApplied = true;

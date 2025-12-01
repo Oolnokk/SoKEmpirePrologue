@@ -8,7 +8,7 @@ const SLOT_KEYS = ['A', 'B', 'C'];
 const WEIGHTS = ['light', 'heavy'];
 
 // Feature flag to disable heavy attack behavior logic for debugging
-const ENABLE_HEAVY_ATTACK_LOGIC = false;
+const ENABLE_HEAVY_ATTACK_LOGIC = true;
 
 const QUICK_TRIGGER_HITS = 4;
 const QUICK_PRESS_DURATION = 0.18;

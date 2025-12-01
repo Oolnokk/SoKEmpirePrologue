@@ -9,6 +9,7 @@ import {
   buildStatContextMultipliers,
   getStatProfile,
 } from './stat-hooks.js?v=1';
+import { startAttackDash, isAttackDashing } from './attack-dash.js?v=1';
 
 export function initCombat(){
   const G = (window.GAME ||= {});
@@ -584,7 +585,8 @@ export function makeCombat(G, C, options = {}){
       I.left = false;
       I.right = false;
     }
-    if (p?.vel) p.vel.x = 0;
+    // Don't reset velocity if attack dash is active
+    if (p?.vel && !isAttackDashing(p)) p.vel.x = 0;
   }
 
   // Get preset durations
@@ -1323,6 +1325,12 @@ export function makeCombat(G, C, options = {}){
     } else if (data.useWeaponColliders === false) {
       target.useWeaponColliders = false;
     }
+    if (data.range != null) {
+      target.range = data.range;
+    }
+    if (data.dash) {
+      target.dash = data.dash;
+    }
     return target;
   }
 
@@ -1639,6 +1647,14 @@ export function makeCombat(G, C, options = {}){
     attackState.isHoldRelease = !!ATTACK.isHoldRelease;
     attackState.chargeStage = ATTACK.chargeStage || 0;
     if (attackState.currentPhase && attackState.currentPhase.toLowerCase().includes('strike')) {
+      // Trigger attack dash if configured
+      const attackData = context?.attack?.attackData || context?.attackProfile?.base || context?.ability?.attackData || null;
+      if (attackData) {
+        // Determine target ID (player attacks NPCs, NPCs attack player)
+        const targetId = fighter?.id === 'player' ? 'npc' : 'player';
+        startAttackDash(fighter, attackData, targetId);
+      }
+
       const explicitKeys = Array.isArray(context?.activeColliderKeys) && context.activeColliderKeys.length
         ? context.activeColliderKeys.slice()
         : inferActiveCollidersForPreset(attackState.preset || context?.preset);
@@ -1855,6 +1871,12 @@ export function makeCombat(G, C, options = {}){
       COMBO.sequenceIndex = 0;
     }
 
+    // Reset sprite flips when chaining combo hits
+    // (the previous attack's timeline gets interrupted before Stance phase)
+    if (COMBO.hits > 0) {
+      resetMirror(poseTarget);
+    }
+
     const step = sequence[COMBO.sequenceIndex % sequence.length];
     const attackId = typeof step === 'string' ? step : step.attack;
     const attackDef = getAttackDef(attackId) || { id: attackId, preset: attackId };
@@ -1976,7 +1998,10 @@ export function makeCombat(G, C, options = {}){
 
     const heavyAbility = getAbilityForSlot(slotKey, 'heavy');
     const preserveDirectional = heavyAbility?.trigger === 'defensive';
-    neutralizeMovement({ preserveDirectional });
+    // Don't neutralize movement if continuing a combo chain
+    if (COMBO.timer <= 0 || COMBO.hits === 0) {
+      neutralizeMovement({ preserveDirectional });
+    }
 
     if (ATTACK.active || !canAttackNow()){
     console.log(logPrefix, `Button ${slotKey} queued`);
@@ -2113,7 +2138,10 @@ export function makeCombat(G, C, options = {}){
     if (!button) return;
 
     if (type === 'combo'){
-      neutralizeMovement();
+      // Only neutralize on first hit, preserve momentum during combo chains
+      if (COMBO.hits === 0) {
+        neutralizeMovement();
+      }
       triggerComboAbility(button, abilityId, { skipQueue: true });
       return;
     }
@@ -2136,7 +2164,10 @@ export function makeCombat(G, C, options = {}){
       return;
     }
 
-    neutralizeMovement();
+    // Only neutralize on first hit, preserve momentum during combo chains
+    if (COMBO.hits === 0) {
+      neutralizeMovement();
+    }
 
     const lightAbility = getAbilityForSlot(button, 'light');
     if (!lightAbility) return;
