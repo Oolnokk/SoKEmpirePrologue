@@ -6,6 +6,7 @@ import { composeStyleXformEntry } from './style-xform.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
 import { composeStyleOverrides } from './transform-composer.js?v=1';
 import { updatePhysicsPoseTarget, getPhysicsRagdollBlend, getPhysicsRagdollAngles } from './physics.js?v=1';
+import { isAttackDashing } from './attack-dash.js?v=1';
 
 const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee','weapon'];
 const ARM_JOINT_KEYS = ['torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow'];
@@ -1885,6 +1886,7 @@ function processAnimEventsForOverride(F, over, fighterId){
   over.__k = k;
   // process scheduled events
   const events = over.__events || [];
+  const dashActive = isAttackDashing(F);
   for (const ev of events){
     if (ev.__applied) continue;
     const t = Number.isFinite(ev.time) ? ev.time : 0;
@@ -1893,10 +1895,16 @@ function processAnimEventsForOverride(F, over, fighterId){
       // velocity events
       if (Number.isFinite(ev.velocityX)){
         const vx = ev.localVel ? (ev.velocityX * (F.facingSign || 1)) : ev.velocityX;
-        F.vel = F.vel || {x:0,y:0}; F.vel.x = vx;
+        if (!dashActive){
+          F.vel = F.vel || {x:0,y:0};
+          F.vel.x = vx;
+        }
       }
       if (Number.isFinite(ev.velocityY)){
-        F.vel = F.vel || {x:0,y:0}; F.vel.y = ev.velocityY;
+        if (!dashActive){
+          F.vel = F.vel || {x:0,y:0};
+          F.vel.y = ev.velocityY;
+        }
       }
       // impulse -> bump velocity
       if (Number.isFinite(ev.impulse)){
@@ -1946,10 +1954,13 @@ function processAnimEventsForOverride(F, over, fighterId){
       // Calculate lerped position based on progress (k)
       const deltaK = k - over.__translatePrev;
       if (deltaK > 0) {
-        // Apply incremental translation based on facing direction
-        const facingMult = P.translate.local ? (F.facingSign || 1) : 1;
-        F.pos.x += tx * deltaK * facingMult;
-        F.pos.y += ty * deltaK;
+        const pos = (F && typeof F === 'object') ? F.pos : null;
+        if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+          // Apply incremental translation based on facing direction
+          const facingMult = P.translate.local ? (F.facingSign || 1) : 1;
+          pos.x += tx * deltaK * facingMult;
+          pos.y += ty * deltaK;
+        }
         over.__translatePrev = k;
       }
     }

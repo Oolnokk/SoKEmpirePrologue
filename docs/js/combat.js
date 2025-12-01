@@ -198,9 +198,11 @@ export function makeCombat(G, C, options = {}){
   };
 
   const CHARGE = {
+    tracking: false,
     active: false,
     stage: 0,
-    startTime: 0
+    startTime: 0,
+    abilityId: null
   };
 
   const PRESS = {};
@@ -556,9 +558,11 @@ export function makeCombat(G, C, options = {}){
       stamina.drainRate = abilityInstance.defensive.staminaDrainPerSecond;
     }
 
+    CHARGE.tracking = false;
     CHARGE.active = false;
     CHARGE.stage = 0;
     CHARGE.startTime = now();
+    CHARGE.abilityId = null;
 
     updateFighterAttackState('Stance', { active: true, context });
 
@@ -2024,9 +2028,11 @@ export function makeCombat(G, C, options = {}){
     ATTACK.downTime = now();
     ATTACK.pendingAbilityId = null;
 
-    CHARGE.active = true;
+    CHARGE.tracking = true;
+    CHARGE.active = false;
     CHARGE.stage = 0;
     CHARGE.startTime = now();
+    CHARGE.abilityId = null;
   }
 
   function slotUp(slotKey){
@@ -2068,9 +2074,11 @@ export function makeCombat(G, C, options = {}){
       ATTACK.slot = null;
     }
 
+    CHARGE.tracking = false;
     CHARGE.active = false;
     CHARGE.stage = 0;
     CHARGE.startTime = 0;
+    CHARGE.abilityId = null;
 
     if (tap){
       if (ATTACK.isCharging){
@@ -2099,6 +2107,7 @@ export function makeCombat(G, C, options = {}){
           const minStage = ability.charge?.minStage ?? ability.charge?.minChargeStages ?? 1;
           const maxStage = ability.charge?.maxStage ?? ability.charge?.maxChargeStages ?? 5;
           const clampedStage = Math.max(minStage, Math.min(maxStage, rawStage));
+          CHARGE.stage = Math.min(maxStage, Math.max(0, rawStage));
           ATTACK.isCharging = false;
           ATTACK.pendingAbilityId = null;
           if (rawStage >= minStage){
@@ -2219,19 +2228,29 @@ export function makeCombat(G, C, options = {}){
   }
 
   function updateCharge(dt){
-    if (!CHARGE.active) return;
+    if (!CHARGE.tracking) return;
     const slotKey = ATTACK.slot;
     if (!slotKey) return;
 
     const heldMs = now() - CHARGE.startTime;
+    const ability = getAbilityForSlot(slotKey, 'heavy');
+    if (!ability) return;
 
-    if (heldMs > ABILITY_THRESHOLDS.tapMaxMs && !ATTACK.isCharging){
-      const ability = getAbilityForSlot(slotKey, 'heavy');
-      if (ability?.trigger === 'defensive'){
+    const beyondTapThreshold = heldMs > ABILITY_THRESHOLDS.tapMaxMs;
+    if (beyondTapThreshold && !CHARGE.active){
+      CHARGE.active = true;
+      CHARGE.abilityId = ability.id;
+    }
+
+    if (!CHARGE.active) return;
+
+    if (beyondTapThreshold && !ATTACK.isCharging){
+      if (ability.trigger === 'defensive'){
         if (!DEFENSE.active){
           startDefensiveAbility(slotKey, ability);
         }
-      } else if (ability?.trigger === 'hold-release'){
+        return;
+      } else if (ability.trigger === 'hold-release'){
         const attackId = ability.attack || ability.defaultAttack || ability.id;
         const attackDef = getAttackDef(attackId) || { id: attackId, preset: attackId };
         const windupPoseKey = ability.charge?.windupPoseKey || attackDef.windupPoseKey || 'Windup';
@@ -2247,14 +2266,15 @@ export function makeCombat(G, C, options = {}){
       }
     }
 
-    const ability = getAbilityForSlot(slotKey, 'heavy');
-    if (!ability) return;
     if (ability.trigger === 'defensive') return;
     const stageMs = ability.charge?.stageDurationMs ?? ABILITY_THRESHOLDS.chargeStageMs;
-    const newStage = Math.floor(heldMs / stageMs);
+    const rawStage = Math.floor(heldMs / stageMs);
+    const minStage = ability.charge?.minStage ?? ability.charge?.minChargeStages ?? 1;
+    const maxStage = ability.charge?.maxStage ?? ability.charge?.maxChargeStages ?? 5;
+    const clampedStage = Math.min(maxStage, Math.max(0, rawStage));
 
-    if (newStage !== CHARGE.stage){
-      CHARGE.stage = newStage;
+    if (clampedStage !== CHARGE.stage){
+      CHARGE.stage = clampedStage;
       console.log(logPrefix, `Charge stage: ${CHARGE.stage}`);
     }
   }
