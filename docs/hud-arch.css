@@ -9,8 +9,8 @@
 /* Individual buttons */
 .arch-hud__button {
   position: absolute;
-  width: var(--arch-button-size, 84px);
-  height: var(--arch-button-size, 84px);
+  width: var(--arch-button-width, var(--arch-button-size, 84px));
+  height: var(--arch-button-height, var(--arch-button-size, 84px));
   border-radius: 24px;
   background: rgba(15, 23, 42, 0.94);
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.6);
@@ -58,6 +58,21 @@
   border-radius: 50%;
   background: #22c55e;
   pointer-events: none;
+}
+
+.arch-hud__debug-dot--center {
+  width: 8px;
+  height: 8px;
+  background: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
+}
+
+.arch-hud__debug-dot--start {
+  background: #f97316;
+}
+
+.arch-hud__debug-dot--end {
+  background: #a78bfa;
 }
 
 .arch-hud__debug-line {

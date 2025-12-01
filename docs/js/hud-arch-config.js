@@ -18,6 +18,9 @@ window.HUD_ARCH_CONFIG = {
       x: 0.78, // lower-right edge, pulled inward
       y: 0.86
     },
+    circleRadius: 150, // distance from arch center to button centers
+    startDegree: 215, // degrees from +X axis
+    endDegree: 140, // degrees from +X axis
 
     scale: 1.0, // global multiplier (can tie to character scale)
     buttonSizePx: {
@@ -29,6 +32,7 @@ window.HUD_ARCH_CONFIG = {
     defaultGapPx: 10, // default carving distance per segment
     rotateWithArch: true, // rotate along tangent? (fan out)
     flipVertical: false, // mirror along the horizontal axis to hug the gameplay viewport
+    concave: false, // invert the arc direction
     debug: true // on-screen debug overlay
   },
 
@@ -37,29 +41,30 @@ window.HUD_ARCH_CONFIG = {
     {
       id: "attackHeavy",
       order: 0, // first clockwise
-      lengthPct: 0.24, // 24% of full arch length
-      gapPx: 14, // carve 7px off each side AFTER placement math
+      coverageWeight: 1.2, // share of available angle
+      gapDeg: 10, // carve half on each side AFTER placement math
+      widthPx: 108, // extra extrusion
       sprite: "img/ui/btn-heavy.png"
     },
     {
       id: "attackLight",
       order: 1,
-      lengthPct: 0.2,
-      gapPx: 10,
+      coverageWeight: 1,
+      gapDeg: 8,
       sprite: "img/ui/btn-light.png"
     },
     {
       id: "attackSpecial",
       order: 2,
-      lengthPct: 0.22,
-      gapPx: 12,
+      coverageWeight: 1.1,
+      gapDeg: 8,
       sprite: "img/ui/btn-special.png"
     },
     {
       id: "attackUtility",
       order: 3,
-      lengthPct: 0.34,
-      gapPx: 14,
+      coverageWeight: 1.7,
+      gapDeg: 10,
       sprite: "img/ui/btn-utility.png"
     }
   ]
