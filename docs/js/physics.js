@@ -15,6 +15,10 @@ const JOINT_LIMITS = {
   rKnee: [-0.3, 2.1],
 };
 
+// Cache joint keys and length to avoid repeated Object.keys() calls in hot paths
+const JOINT_KEYS = Object.keys(JOINT_LIMITS);
+const JOINT_KEYS_LENGTH = JOINT_KEYS.length;
+
 const STIFFNESS = {
   normal: 0.28,
   ragdoll: 0.06,
@@ -272,7 +276,8 @@ function computeBoundsSpeedScalar(span) {
 }
 
 function randomizeRagdollTargets(state) {
-  for (const key of Object.keys(JOINT_LIMITS)) {
+  for (let i = 0; i < JOINT_KEYS_LENGTH; i++) {
+    const key = JOINT_KEYS[i];
     const [min, max] = JOINT_LIMITS[key];
     const center = (min + max) * 0.5;
     const span = (max - min) * 0.5;
@@ -284,7 +289,8 @@ function randomizeRagdollTargets(state) {
 function perturbJoints(state, strength) {
   const s = clamp(strength || 0, 0, 1);
   if (s <= 0) return;
-  for (const key of Object.keys(JOINT_LIMITS)) {
+  for (let i = 0; i < JOINT_KEYS_LENGTH; i++) {
+    const key = JOINT_KEYS[i];
     const noise = (Math.random() - 0.5) * 0.6 * s;
     state.jointVel[key] = (state.jointVel[key] || 0) + noise;
   }
@@ -319,12 +325,20 @@ function updateRagdollTargets(fighter, state, dt) {
 
 function updateJointPhysics(fighter, config, dt) {
   const state = ensurePhysicsState(fighter);
-  const blendSources = [fighter.ragdoll ? 1 : 0, state.partialBlend || 0, state.airBlend || 0, state.recoveryBlend || 0];
-  const totalBlend = Math.max(...blendSources);
+  // Avoid array allocation in hot path - calculate max inline
+  const ragdollBlend = fighter.ragdoll ? 1 : 0;
+  const partialBlend = state.partialBlend || 0;
+  const airBlend = state.airBlend || 0;
+  const recoveryBlend = state.recoveryBlend || 0;
+  let totalBlend = ragdollBlend;
+  if (partialBlend > totalBlend) totalBlend = partialBlend;
+  if (airBlend > totalBlend) totalBlend = airBlend;
+  if (recoveryBlend > totalBlend) totalBlend = recoveryBlend;
   state.totalBlend = clamp(totalBlend, 0, 1);
 
   const pose = state.animationPose || fighter.jointAngles || {};
-  for (const joint of Object.keys(JOINT_LIMITS)) {
+  for (let i = 0; i < JOINT_KEYS_LENGTH; i++) {
+    const joint = JOINT_KEYS[i];
     const [min, max] = JOINT_LIMITS[joint];
     let angle = state.ragdollAngles[joint];
     if (!Number.isFinite(angle)) {

@@ -60,16 +60,24 @@ export function normalizeBoneLengthKey(name) {
 
 export function resolveBoneLengthScale(overrides, key, baseLength, fallbackKeys = []) {
   if (!overrides || typeof overrides !== 'object') return 1;
-  const candidates = [key, ...fallbackKeys]
-    .map(normalizeBoneLengthKey)
-    .filter(Boolean);
+  
+  // Avoid array allocations by checking key first, then fallbacks
   let entry = null;
-  for (const candidate of candidates) {
-    if (candidate && Object.prototype.hasOwnProperty.call(overrides, candidate)) {
-      entry = overrides[candidate];
-    }
-    if (entry != null) break;
+  const normalizedKey = normalizeBoneLengthKey(key);
+  if (normalizedKey && Object.prototype.hasOwnProperty.call(overrides, normalizedKey)) {
+    entry = overrides[normalizedKey];
   }
+  
+  if (entry == null && fallbackKeys.length > 0) {
+    for (let i = 0; i < fallbackKeys.length; i++) {
+      const candidate = normalizeBoneLengthKey(fallbackKeys[i]);
+      if (candidate && Object.prototype.hasOwnProperty.call(overrides, candidate)) {
+        entry = overrides[candidate];
+        break;
+      }
+    }
+  }
+  
   if (entry == null) return 1;
 
   if (typeof entry === 'number') {

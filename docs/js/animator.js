@@ -1544,7 +1544,19 @@ function applyGravityScaleEvent(F, scale, { durationMs, reset } = {}){
   F.gravityOverride = { value: scale, expiresAt };
 }
 function clonePose(pose) {
-  return pose ? JSON.parse(JSON.stringify(pose)) : {};
+  if (!pose) return {};
+  // Fast shallow clone for simple pose objects (most common case)
+  const clone = {};
+  for (const key in pose) {
+    const value = pose[key];
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      // Shallow clone nested objects (e.g., weaponGripPercents)
+      clone[key] = { ...value };
+    } else {
+      clone[key] = value;
+    }
+  }
+  return clone;
 }
 
 function mergePoseWithOverrides(base, overrides) {
@@ -2586,7 +2598,8 @@ export function updatePoses(){
       if (ragBlend > 0 && ragAngles && Number.isFinite(ragAngles[k])) {
         blended = animTarget + (ragAngles[k] - animTarget) * ragBlend;
       }
-      F.jointAngles[k] = Number.isFinite(damp(cur, blended, lambda, F.anim.dt)) ? damp(cur, blended, lambda, F.anim.dt) : 0;
+      const dampedValue = damp(cur, blended, lambda, F.anim.dt);
+      F.jointAngles[k] = Number.isFinite(dampedValue) ? dampedValue : 0;
     }
   }
 }
