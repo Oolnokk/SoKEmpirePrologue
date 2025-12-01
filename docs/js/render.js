@@ -976,7 +976,7 @@ function drawVelocityArrow(ctx, fighter) {
 
   ctx.restore();
 
-  // Draw velocity magnitude label
+  // Draw arrow length label
   ctx.save();
   ctx.fillStyle = 'white';
   ctx.strokeStyle = 'black';
@@ -984,7 +984,7 @@ function drawVelocityArrow(ctx, fighter) {
   ctx.font = 'bold 12px monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
-  const labelText = `vel: ${magnitude.toFixed(1)}`;
+  const labelText = `${arrowLength.toFixed(0)}px`;
   ctx.strokeText(labelText, pos.x, pos.y - 20);
   ctx.fillText(labelText, pos.x, pos.y - 20);
   ctx.restore();
