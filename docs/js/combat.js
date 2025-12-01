@@ -751,6 +751,7 @@ export function makeCombat(G, C, options = {}){
   function runAttackTimeline({ segments, context, onComplete, resetMirrorBeforeStance=false, sequenceSteps=[] }){
     const ordered = Array.isArray(segments) ? segments.slice() : [];
     if (!ordered.length){
+      resetMirror(poseTarget);
       if (typeof onComplete === 'function') onComplete();
       return;
     }
@@ -765,6 +766,7 @@ export function makeCombat(G, C, options = {}){
       active: true
     };
     let stanceReset = false;
+    let mirrorCleared = false;
 
     const triggerStepsThrough = (timeMs) => {
       if (!timelineState.steps.length) return;
@@ -786,6 +788,10 @@ export function makeCombat(G, C, options = {}){
 
     const runSegmentAt = (idx) => {
       if (idx >= ordered.length){
+        if (!mirrorCleared){
+          resetMirror(poseTarget);
+          mirrorCleared = true;
+        }
         timelineState.active = false;
         ATTACK.timelineState = null;
         if (typeof onComplete === 'function') onComplete();
@@ -795,6 +801,7 @@ export function makeCombat(G, C, options = {}){
       if (resetMirrorBeforeStance && !stanceReset && segment.phase === 'Stance'){
         resetMirror(poseTarget);
         stanceReset = true;
+        mirrorCleared = true;
       }
       triggerStepsThrough(segment.startTime);
       startTransition(segment.pose, segment.phase, segment.duration, ()=>{
