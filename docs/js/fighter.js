@@ -317,8 +317,12 @@ export function initFighters(cv, cx, options = {}){
     });
 
   const opts = options && typeof options === 'object' ? options : {};
-  const spawnNpc = opts.spawnNpc !== false;
-  const enableNpcTemplate = spawnNpc || hasNpcSpawners;
+  const spawnNpcEnabled = opts.spawnNpc !== false;
+  const spawnNpcDelayMs = Number.isFinite(opts.npcSpawnDelayMs)
+    ? Math.max(0, opts.npcSpawnDelayMs)
+    : 10000;
+  const spawnNpcImmediately = spawnNpcEnabled && opts.spawnNpc === true && spawnNpcDelayMs === 0;
+  const enableNpcTemplate = spawnNpcEnabled || hasNpcSpawners;
   const requestedPoseKey = typeof opts.poseKey === 'string' && opts.poseKey.trim()
     ? opts.poseKey.trim()
     : null;
@@ -546,6 +550,39 @@ export function initFighters(cv, cx, options = {}){
     cleanupAndRespawn();
     runtime.intervalId = setInterval(cleanupAndRespawn, 1000);
     G.npcSpawnerRuntime = runtime;
+  }
+
+  function cancelPendingNpcSpawn() {
+    if (G.pendingNpcSpawnTimeout) {
+      clearTimeout(G.pendingNpcSpawnTimeout);
+    }
+    G.pendingNpcSpawnTimeout = null;
+  }
+
+  function spawnNpcAfterDelay({
+    area,
+    templateId,
+    spawnX,
+    spawnY,
+    spawnYOffset,
+    delayMs,
+  }) {
+    cancelPendingNpcSpawn();
+    const delay = Number.isFinite(delayMs) ? Math.max(0, delayMs) : 0;
+    G.pendingNpcSpawnTimeout = setTimeout(() => {
+      const activeArea = resolveActiveArea() || area;
+      const npc = spawnAdditionalNpc({
+        id: 'npc',
+        x: spawnX,
+        y: spawnY,
+        facingSign: -1,
+        templateId: templateId || undefined,
+      });
+      if (npc && spawnYOffset != null && G.FIGHTER_SPAWNS?.npc) {
+        G.FIGHTER_SPAWNS.npc.yOffset = spawnYOffset;
+      }
+      bootstrapNpcSpawnerRuntime(activeArea);
+    }, delay);
   }
 
   const areaSpawns = computeSpawnPositions(activeArea);
@@ -848,7 +885,7 @@ export function initFighters(cv, cx, options = {}){
 
   const playerFighter = makeF('player', playerSpawnX, 1, playerSpawnY);
   const npcTemplateFighter = enableNpcTemplate ? makeF('npc', npcSpawnX, -1, npcSpawnY) : null;
-  const npcFighter = spawnNpc ? npcTemplateFighter : null;
+  const npcFighter = spawnNpcImmediately ? npcTemplateFighter : null;
 
   const fighters = { player: playerFighter };
   if (npcFighter) {
@@ -901,11 +938,28 @@ export function initFighters(cv, cx, options = {}){
   }
   G.CHARACTER_STATE = characterState;
 
-  const npcTemplateId = npcTemplateFighter ? resolveInitialNpcTemplateId() : null;
-  if (npcTemplateId) {
-    applyNpcTemplate(npcTemplateId);
+  cancelPendingNpcSpawn();
+
+  const npcTemplateId = npcTemplateFighter && spawnNpcEnabled
+    ? resolveInitialNpcTemplateId()
+    : null;
+  if (spawnNpcImmediately && npcTemplateFighter) {
+    if (npcTemplateId) {
+      applyNpcTemplate(npcTemplateId);
+    }
+    bootstrapNpcSpawnerRuntime(activeArea);
+  } else if (npcTemplateFighter && spawnNpcEnabled) {
+    spawnNpcAfterDelay({
+      area: activeArea,
+      templateId: npcTemplateId,
+      spawnX: npcSpawnX,
+      spawnY: npcSpawnY,
+      spawnYOffset: resolvedNpcYOffset,
+      delayMs: spawnNpcDelayMs,
+    });
+  } else {
+    bootstrapNpcSpawnerRuntime(activeArea);
   }
-  bootstrapNpcSpawnerRuntime(activeArea);
   if (G.editorPreview) {
     G.editorPreview.spawn = {
       player: {
@@ -914,7 +968,7 @@ export function initFighters(cv, cx, options = {}){
         worldY: playerSpawnY,
       },
     };
-    if (npcFighter) {
+    if (npcTemplateFighter) {
       G.editorPreview.spawn.npc = {
         x: npcSpawnX,
         yOffset: resolvedNpcYOffset,
