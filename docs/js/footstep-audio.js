@@ -149,6 +149,7 @@ function ensureFootstepState(fighter) {
     lastMaterial: null,
     nextFoot: 'left',
     lastPoseFoot: null,
+    prevX: Number.isFinite(fighter?.pos?.x) ? fighter.pos.x : 0,
   };
   return fighter._footstepState;
 }
@@ -290,6 +291,10 @@ export function updateFighterFootsteps(fighter, config, dt) {
   const materialProfile = resolveMaterialProfile(material, config);
   const velX = Number.isFinite(fighter.vel?.x) ? fighter.vel.x : 0;
   const speed = Math.abs(velX);
+  const posX = Number.isFinite(fighter.pos?.x) ? fighter.pos.x : null;
+  const displacement = posX != null && Number.isFinite(state.prevX)
+    ? Math.abs(posX - state.prevX)
+    : 0;
   const strideLength = computeStrideLength(config, profile);
   const events = [];
   const poseContacts = Array.isArray(fighter?.walk?.pendingContacts)
@@ -323,13 +328,18 @@ export function updateFighterFootsteps(fighter, config, dt) {
     const normalized = clamp(impulse / LANDING_IMPULSE_REF, 0.25, 1.4);
     enqueueFootstep(normalized);
     state.strideProgress = 0;
-  } else if (!events.length && onGround && speed >= MIN_STEP_SPEED && !fighter.recovering) {
-    state.strideProgress += speed * dt;
+  } else if (!events.length && onGround && !fighter.recovering) {
     const stride = Math.max(20, strideLength);
-    if (state.strideProgress >= stride) {
-      state.strideProgress -= stride;
-      const normalized = clamp(speed / 420, 0.2, 1);
-      enqueueFootstep(normalized);
+    const distanceDelta = speed >= MIN_STEP_SPEED ? speed * dt : displacement;
+    if (distanceDelta > 0) {
+      state.strideProgress += distanceDelta;
+      if (state.strideProgress >= stride) {
+        state.strideProgress -= stride;
+        const normalized = clamp((speed || distanceDelta / dt) / 420, 0.2, 1);
+        enqueueFootstep(normalized);
+      }
+    } else {
+      state.strideProgress = 0;
     }
   } else {
     state.strideProgress = 0;
@@ -337,6 +347,7 @@ export function updateFighterFootsteps(fighter, config, dt) {
 
   state.prevOnGround = onGround;
   state.lastMaterial = material;
+  if (posX != null) state.prevX = posX;
 
   if (!events.length) return;
   for (const event of events) {
