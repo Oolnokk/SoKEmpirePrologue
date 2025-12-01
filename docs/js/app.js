@@ -926,6 +926,125 @@ window.GAME.MOUSE = {
   hasPosition: false // Whether a real pointer position has been recorded
 };
 
+window.GAME.coordinateCapture = {
+  active: false,
+  lastValues: null,
+};
+
+const coordinateOverlay = document.getElementById('coordinateOverlay');
+const coordinateStartBtn = document.getElementById('btnCoordinateCapture');
+const coordinateDismissBtn = document.getElementById('coordinateOverlayDismiss');
+const coordinateCopyButtons = coordinateOverlay?.querySelectorAll?.('[data-copy-source]');
+const coordinateValueElements = {
+  canvas: document.getElementById('coordValueCanvas'),
+  world: document.getElementById('coordValueWorld'),
+  ratio: document.getElementById('coordValueRatio'),
+};
+
+if (coordinateOverlay) {
+  coordinateOverlay.tabIndex = -1;
+}
+
+function isCoordinateCaptureActive() {
+  return !!window.GAME?.coordinateCapture?.active;
+}
+
+function setCoordinateCaptureActive(active) {
+  const next = !!active;
+  if (window.GAME.coordinateCapture.active === next) return;
+  window.GAME.coordinateCapture.active = next;
+
+  if (next) {
+    window.GAME.coordinateCapture.lastValues = null;
+    Object.values(coordinateValueElements).forEach((el) => {
+      if (el) el.textContent = '—';
+    });
+  }
+
+  if (coordinateOverlay) {
+    coordinateOverlay.hidden = !next;
+    coordinateOverlay.setAttribute('aria-hidden', String(!next));
+    if (next) {
+      coordinateOverlay.focus({ preventScroll: true });
+    }
+  }
+}
+
+function formatCoordPair(x, y, precision = 1) {
+  return `${x.toFixed(precision)}, ${y.toFixed(precision)}`;
+}
+
+function capturePointerCoordinates(event) {
+  if (!cv || !coordinateOverlay || !isCoordinateCaptureActive()) return;
+  updateMousePosition(event);
+
+  const { x, y, worldX, worldY } = window.GAME.MOUSE;
+  const ratioX = cv.width ? x / cv.width : 0;
+  const ratioY = cv.height ? y / cv.height : 0;
+
+  const formatted = {
+    canvas: formatCoordPair(x, y),
+    world: formatCoordPair(worldX, worldY),
+    ratio: `${ratioX.toFixed(4)}, ${ratioY.toFixed(4)}`,
+  };
+
+  window.GAME.coordinateCapture.lastValues = formatted;
+
+  if (coordinateValueElements.canvas) coordinateValueElements.canvas.textContent = formatted.canvas;
+  if (coordinateValueElements.world) coordinateValueElements.world.textContent = formatted.world;
+  if (coordinateValueElements.ratio) coordinateValueElements.ratio.textContent = formatted.ratio;
+}
+
+async function copyCoordinateValue(sourceId, triggerBtn) {
+  const el = document.getElementById(sourceId);
+  const text = el?.textContent?.trim();
+  if (!text || text === '—') return;
+  try {
+    await navigator.clipboard.writeText(text);
+    if (triggerBtn) {
+      const original = triggerBtn.textContent;
+      triggerBtn.textContent = 'Copied!';
+      setTimeout(() => {
+        triggerBtn.textContent = original;
+      }, 800);
+    }
+  } catch (error) {
+    console.warn('[coordinate-capture] Failed to copy', error);
+  }
+}
+
+function initCoordinateCaptureOverlay() {
+  if (!coordinateOverlay || !coordinateStartBtn || !coordinateDismissBtn) return;
+
+  coordinateStartBtn.addEventListener('click', () => {
+    setCoordinateCaptureActive(true);
+  });
+
+  coordinateDismissBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setCoordinateCaptureActive(false);
+  });
+
+  coordinateOverlay.addEventListener('pointerdown', (event) => {
+    if (!isCoordinateCaptureActive()) return;
+    const isInteractive = event.target.closest('.coordinate-overlay__copy, .coordinate-overlay__close');
+    if (isInteractive) return;
+    capturePointerCoordinates(event);
+  });
+
+  coordinateCopyButtons?.forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const source = btn.getAttribute('data-copy-source');
+      if (source) {
+        copyCoordinateValue(source, btn);
+      }
+    });
+  });
+}
+
+initCoordinateCaptureOverlay();
+
 // Joystick state for touch controls
 window.GAME.JOYSTICK = {
   active: false,
@@ -3977,11 +4096,13 @@ function updateMousePosition(e) {
 
 if (cv) {
   cv.addEventListener('mousemove', (e) => {
+    if (isCoordinateCaptureActive()) return;
     updateMousePosition(e);
     window.GAME.MOUSE.isInCanvas = true;
   });
 
   cv.addEventListener('mouseenter', (e) => {
+    if (isCoordinateCaptureActive()) return;
     updateMousePosition(e);
     window.GAME.MOUSE.isInCanvas = true;
   });
@@ -3995,6 +4116,7 @@ if (cv) {
 
   cv.addEventListener('mousedown', (e) => {
     e.preventDefault();
+    if (isCoordinateCaptureActive()) return;
     window.GAME.MOUSE.isDown = true;
 
     if (!window.GAME.combat) {
@@ -4017,6 +4139,7 @@ if (cv) {
 
   cv.addEventListener('mouseup', (e) => {
     e.preventDefault();
+    if (isCoordinateCaptureActive()) return;
     window.GAME.MOUSE.isDown = false;
 
     if (!window.GAME.combat) {

@@ -239,12 +239,50 @@
     </div>
   </div>
 
+  <div class="coordinate-overlay" id="coordinateOverlay" role="dialog" aria-modal="true" aria-labelledby="coordinateOverlayTitle" hidden>
+    <div class="coordinate-overlay__panel">
+      <header class="coordinate-overlay__header">
+        <div>
+          <p class="coordinate-overlay__eyebrow">Capture mode</p>
+          <h2 id="coordinateOverlayTitle">Tap or click the viewport</h2>
+          <p class="coordinate-overlay__subtitle">Position your cursor on the canvas to capture pixel, world, and normalized coordinates.</p>
+        </div>
+        <button type="button" class="coordinate-overlay__close" id="coordinateOverlayDismiss">Return to demo</button>
+      </header>
+
+      <div class="coordinate-overlay__body">
+        <div class="coordinate-overlay__hint">Click or tap anywhere on the canvas. Background input is blocked while capture is active.</div>
+        <div class="coordinate-overlay__grid" role="list">
+          <div class="coordinate-overlay__item" role="listitem">
+            <div class="coordinate-overlay__label">Canvas (px)</div>
+            <div class="coordinate-overlay__value" id="coordValueCanvas">—</div>
+            <button type="button" class="coordinate-overlay__copy" data-copy-source="coordValueCanvas">Copy</button>
+          </div>
+          <div class="coordinate-overlay__item" role="listitem">
+            <div class="coordinate-overlay__label">World</div>
+            <div class="coordinate-overlay__value" id="coordValueWorld">—</div>
+            <button type="button" class="coordinate-overlay__copy" data-copy-source="coordValueWorld">Copy</button>
+          </div>
+          <div class="coordinate-overlay__item" role="listitem">
+            <div class="coordinate-overlay__label">Canvas Ratio</div>
+            <div class="coordinate-overlay__value" id="coordValueRatio">—</div>
+            <button type="button" class="coordinate-overlay__copy" data-copy-source="coordValueRatio">Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <button type="button" id="editorReturnBtn" class="editor-preview-return" hidden>← Return to Editor</button>
 
   <main class="stack">
     <section class="widget widget--clear">
       <div class="stage" id="gameStage">
         <canvas id="game" width="720" height="460" aria-label="Stick figure canvas"></canvas>
+
+        <div class="coordinate-control" aria-live="polite">
+          <button type="button" id="btnCoordinateCapture" class="coordinate-control__btn">🎯 Capture Coordinates</button>
+        </div>
 
         <!-- HUD: health / stamina / footing -->
         <div class="health-bar">

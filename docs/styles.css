@@ -463,6 +463,34 @@ canvas#game{
   touch-action:none;
 }
 
+.coordinate-control{
+  position:absolute;
+  bottom:10px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:7;
+  display:flex;
+  justify-content:center;
+}
+
+.coordinate-control__btn{
+  padding:10px 14px;
+  border-radius:12px;
+  border:1px solid rgba(96,165,250,0.45);
+  background:linear-gradient(90deg, rgba(59,130,246,0.18), rgba(56,189,248,0.18));
+  color:#dbeafe;
+  font-weight:700;
+  letter-spacing:0.2px;
+  cursor:pointer;
+  box-shadow:0 10px 30px rgba(37,99,235,0.18), inset 0 0 0 1px rgba(37,99,235,0.3);
+  backdrop-filter:blur(6px);
+  transition:transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.coordinate-control__btn:hover{transform:translate(-1px,-1px);} 
+.coordinate-control__btn:active{transform:translate(0,0);} 
+.coordinate-control__btn:focus-visible{outline:2px solid rgba(125,211,252,0.7);outline-offset:3px;}
+
 .controls-overlay{
   position:absolute;
   inset:0;
@@ -1192,6 +1220,135 @@ canvas#game{
   font-size: 0.95rem;
   line-height: 1.4;
 }
+
+.coordinate-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 12, 0.82);
+  display: grid;
+  place-items: center;
+  padding: clamp(16px, 3vw, 32px);
+  z-index: 999;
+}
+
+.coordinate-overlay[hidden] {
+  display: none;
+}
+
+.coordinate-overlay__panel {
+  width: min(960px, 100%);
+  background: radial-gradient(circle at 20% 20%, rgba(96, 165, 250, 0.08), transparent 35%),
+              radial-gradient(circle at 80% 10%, rgba(52, 211, 153, 0.08), transparent 35%),
+              linear-gradient(145deg, rgba(11, 15, 25, 0.95), rgba(8, 11, 18, 0.96));
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(59, 130, 246, 0.1);
+  border-radius: 20px;
+  padding: clamp(16px, 3vw, 28px);
+  color: #e2e8f0;
+}
+
+.coordinate-overlay__header {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(12px, 3vw, 24px);
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.coordinate-overlay__eyebrow {
+  margin: 0 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.coordinate-overlay__subtitle {
+  margin: 6px 0 0;
+  color: #cbd5e1;
+  max-width: 60ch;
+}
+
+.coordinate-overlay__close {
+  align-self: center;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: linear-gradient(135deg, rgba(51, 65, 85, 0.7), rgba(30, 41, 59, 0.9));
+  color: #e2e8f0;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+}
+
+.coordinate-overlay__close:hover { filter: brightness(1.05); }
+.coordinate-overlay__close:focus-visible { outline: 2px solid rgba(125, 211, 252, 0.8); outline-offset: 3px; }
+
+.coordinate-overlay__body {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.coordinate-overlay__hint {
+  padding: 12px 14px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px dashed rgba(125, 211, 252, 0.4);
+  border-radius: 12px;
+  color: #bae6fd;
+  font-weight: 600;
+}
+
+.coordinate-overlay__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.coordinate-overlay__item {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.12);
+  display: grid;
+  gap: 6px;
+}
+
+.coordinate-overlay__label {
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #a5b4fc;
+}
+
+.coordinate-overlay__value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  color: #f8fafc;
+  background: rgba(148, 163, 184, 0.08);
+  padding: 10px;
+  border-radius: 10px;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+.coordinate-overlay__copy {
+  justify-self: start;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(34, 197, 235, 0.18));
+  color: #e0f2fe;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coordinate-overlay__copy:hover { filter: brightness(1.06); }
+.coordinate-overlay__copy:focus-visible { outline: 2px solid rgba(52, 211, 153, 0.8); outline-offset: 3px; }
 
 .legacy-browser-notice strong {
   display: block;
