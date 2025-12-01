@@ -45,6 +45,21 @@
   pointer-events: none;
 }
 
+.arch-hud__debug-dot--center {
+  width: 8px;
+  height: 8px;
+  background: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
+}
+
+.arch-hud__debug-dot--start {
+  background: #f97316;
+}
+
+.arch-hud__debug-dot--end {
+  background: #a78bfa;
+}
+
 .arch-hud__debug-line {
   position: absolute;
   width: 2px;

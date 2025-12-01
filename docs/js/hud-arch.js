@@ -114,6 +114,61 @@
     let cursorLen = 0;
     const debug = archCfg.debug;
     const debugInfo = [];
+    const archDebug = !debug
+      ? null
+      : {
+          concave: !!archCfg.concave,
+          centerVariant: archCfg.concave ? "alternate" : "primary",
+          center,
+          radius,
+          start: {
+            x: startPt.x,
+            y: startPt.y,
+            deg: (startRad * 180) / Math.PI,
+          },
+          end: {
+            x: endPt.x,
+            y: endPt.y,
+            deg: (endRad * 180) / Math.PI,
+          },
+          totalAngleDeg: (totalAngle * 180) / Math.PI,
+          arcDirection,
+          arcLengthPx: totalLength,
+        };
+
+    if (debug) {
+      const centerDot = document.createElement("div");
+      centerDot.className = "arch-hud__debug-dot arch-hud__debug-dot--center";
+      centerDot.style.left = `${center.x - 4}px`;
+      centerDot.style.top = `${center.y - 4}px`;
+      container.appendChild(centerDot);
+
+      const startDot = document.createElement("div");
+      startDot.className = "arch-hud__debug-dot arch-hud__debug-dot--start";
+      startDot.style.left = `${startPt.x - 3}px`;
+      startDot.style.top = `${startPt.y - 3}px`;
+      container.appendChild(startDot);
+
+      const endDot = document.createElement("div");
+      endDot.className = "arch-hud__debug-dot arch-hud__debug-dot--end";
+      endDot.style.left = `${endPt.x - 3}px`;
+      endDot.style.top = `${endPt.y - 3}px`;
+      container.appendChild(endDot);
+
+      [
+        { angleRad: startRad, color: "#f97316", height: radius },
+        { angleRad: endRad, color: "#a78bfa", height: radius },
+      ].forEach(({ angleRad, color, height }) => {
+        const ray = document.createElement("div");
+        ray.className = "arch-hud__debug-line";
+        ray.style.height = `${height}px`;
+        ray.style.background = color;
+        ray.style.left = `${center.x - 1}px`;
+        ray.style.top = `${center.y - height}px`;
+        ray.style.transform = `rotate(${(angleRad * 180) / Math.PI}deg)`;
+        container.appendChild(ray);
+      });
+    }
 
     btnCfgs.forEach((btnCfg) => {
       const segLength = btnCfg.lengthPct * totalLength;
@@ -211,7 +266,14 @@
       dbg.style.padding = "6px 8px";
       dbg.style.borderRadius = "6px";
       dbg.style.zIndex = "999";
-      dbg.textContent = JSON.stringify(debugInfo, null, 2);
+      dbg.textContent = JSON.stringify(
+        {
+          arch: archDebug,
+          buttons: debugInfo,
+        },
+        null,
+        2
+      );
       container.appendChild(dbg);
     }
 
