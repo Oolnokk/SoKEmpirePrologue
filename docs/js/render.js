@@ -864,6 +864,13 @@ export function renderAll(ctx){
     }
   }
 
+  if (DEBUG.showVelocityArrow) {
+    for (const entity of renderEntities) {
+      if (!entity || !entity.fighter) continue;
+      drawVelocityArrow(ctx, entity.fighter);
+    }
+  }
+
   ctx.restore();
   drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`);
 }
@@ -920,5 +927,65 @@ function drawAttackColliders(ctx, fighter, fighterId) {
     ctx.strokeText(key, pos.x, pos.y);
     ctx.fillText(key, pos.x, pos.y);
   });
+  ctx.restore();
+}
+
+function drawVelocityArrow(ctx, fighter) {
+  if (!ctx || !fighter) return;
+
+  const vel = fighter.vel;
+  if (!vel || (!vel.x && !vel.y)) return; // No velocity
+
+  const pos = fighter.pos;
+  if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
+
+  // Calculate velocity magnitude and angle
+  const magnitude = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+  if (magnitude < 0.1) return; // Too small to visualize
+
+  const angle = Math.atan2(vel.y, vel.x);
+
+  // Scale arrow length based on velocity magnitude
+  const arrowLength = Math.min(150, magnitude * 0.5);
+  const arrowHeadSize = 20;
+
+  // Calculate arrow end point
+  const endX = pos.x + Math.cos(angle) * arrowLength;
+  const endY = pos.y + Math.sin(angle) * arrowLength;
+
+  ctx.save();
+
+  // Draw arrow shaft
+  ctx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(pos.x, pos.y);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+
+  // Draw arrow head
+  ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
+  ctx.translate(endX, endY);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-arrowHeadSize, -arrowHeadSize / 2);
+  ctx.lineTo(-arrowHeadSize, arrowHeadSize / 2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+
+  // Draw velocity magnitude label
+  ctx.save();
+  ctx.fillStyle = 'white';
+  ctx.strokeStyle = 'black';
+  ctx.lineWidth = 3;
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  const labelText = `vel: ${magnitude.toFixed(1)}`;
+  ctx.strokeText(labelText, pos.x, pos.y - 20);
+  ctx.fillText(labelText, pos.x, pos.y - 20);
   ctx.restore();
 }

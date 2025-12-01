@@ -1228,6 +1228,15 @@ if (toggleShowAttackColliders) {
   });
 }
 
+const toggleShowVelocityArrow = $$('#toggleShowVelocityArrow');
+if (toggleShowVelocityArrow) {
+  toggleShowVelocityArrow.checked = window.RENDER_DEBUG?.showVelocityArrow || false;
+  toggleShowVelocityArrow.addEventListener('change', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.showVelocityArrow = e.target.checked;
+  });
+}
+
 const dashRotationOffset = $$('#dashRotationOffset');
 const dashRotationValue = $$('#dashRotationValue');
 if (dashRotationOffset && dashRotationValue) {
