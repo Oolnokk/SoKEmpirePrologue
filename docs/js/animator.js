@@ -1938,14 +1938,13 @@ function processAnimEventsForOverride(F, over, fighterId){
     const ty = Number.isFinite(P.translate.y) ? P.translate.y : 0;
 
     if (tx !== 0 || ty !== 0) {
-      // Initialize start position on first frame
-      if (!over.__translateStart) {
-        over.__translateStart = { x: F.pos.x, y: F.pos.y };
+      // Initialize progress tracker on first frame
+      if (over.__translatePrev === undefined) {
         over.__translatePrev = 0;
       }
 
       // Calculate lerped position based on progress (k)
-      const deltaK = k - (over.__translatePrev || 0);
+      const deltaK = k - over.__translatePrev;
       if (deltaK > 0) {
         // Apply incremental translation based on facing direction
         const facingMult = P.translate.local ? (F.facingSign || 1) : 1;
