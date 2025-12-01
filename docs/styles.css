@@ -591,6 +591,39 @@ canvas#game{
 
 .footing-label{color:#27272a;text-shadow:0 1px 1px rgba(255,255,255,0.55);}
 
+.combat-info{
+  position:absolute;
+  left:250px;
+  top:26px;
+  padding:6px 12px;
+  border-radius:8px;
+  background:rgba(5,7,11,0.85);
+  border:1px solid rgba(148,163,184,0.25);
+  backdrop-filter:blur(6px);
+  box-shadow:0 8px 20px rgba(0,0,0,0.3);
+  font:600 11px/1.4 ui-monospace,Menlo,Consolas;
+  color:#94a3b8;
+  letter-spacing:0.3px;
+  white-space:nowrap;
+  display:none;
+}
+
+.combat-info.active{
+  display:block;
+}
+
+.combat-info .ability{
+  color:#60a5fa;
+}
+
+.combat-info .attack{
+  color:#86efac;
+}
+
+.combat-info .phase{
+  color:#fbbf24;
+}
+
 .bounty-indicator{
   position:absolute;
   top:24px;

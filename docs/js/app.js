@@ -961,6 +961,7 @@ const healthFill = $$('#healthFill');
 const staminaLabel = $$('#staminaLabel');
 const footingLabel = $$('#footingLabel');
 const healthLabel = $$('#healthLabel');
+const combatInfo = $$('#combatInfo');
 const bountyHud = $$('#bountyHud');
 const bountyStars = $$('#bountyStars');
 const statusInfo = $$('#statusInfo');
@@ -2377,6 +2378,24 @@ function updateHUD(){
       if (healthLabel){
         healthLabel.textContent = 'HP: 100';
       }
+    }
+  }
+
+  // Combat info display
+  if (combatInfo) {
+    const combat = G.playerCombat;
+    const attackState = P.attack;
+
+    if (combat && attackState && attackState.active && attackState.context) {
+      const context = attackState.context;
+      const abilityName = context.ability?.name || context.abilityId || 'Unknown';
+      const attackName = context.attack?.name || context.attackId || 'Unknown';
+      const phase = attackState.currentPhase || 'Unknown';
+
+      combatInfo.innerHTML = `<span class="ability">${abilityName}</span> › <span class="attack">${attackName}</span> › <span class="phase">${phase}</span>`;
+      combatInfo.classList.add('active');
+    } else {
+      combatInfo.classList.remove('active');
     }
   }
 
