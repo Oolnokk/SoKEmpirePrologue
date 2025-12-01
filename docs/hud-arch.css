@@ -9,8 +9,8 @@
 /* Individual buttons */
 .arch-hud__button {
   position: absolute;
-  width: var(--arch-button-size, 84px);
-  height: var(--arch-button-size, 84px);
+  width: var(--arch-button-width, var(--arch-button-size, 84px));
+  height: var(--arch-button-height, var(--arch-button-size, 84px));
   border-radius: 24px;
   background: rgba(15, 23, 42, 0.94);
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.6);

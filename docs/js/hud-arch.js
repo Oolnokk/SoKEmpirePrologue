@@ -42,96 +42,89 @@
     };
   }
 
-  function chooseCircleCenter(p0, p1, radius, preference) {
-    const dx = p1.x - p0.x;
-    const dy = p1.y - p0.y;
-    const dSq = dx * dx + dy * dy;
-    const d = Math.sqrt(dSq);
-    if (!d || d > radius * 2) return null;
-
-    const mx = (p0.x + p1.x) / 2;
-    const my = (p0.y + p1.y) / 2;
-    const h = Math.sqrt(Math.max(radius * radius - (d / 2) * (d / 2), 0));
-
-    const ux = -dy / d;
-    const uy = dx / d;
-
-    const c1 = { x: mx + ux * h, y: my + uy * h };
-    const c2 = { x: mx - ux * h, y: my - uy * h };
-
-    const target = preference || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    const dist1 = (c1.x - target.x) ** 2 + (c1.y - target.y) ** 2;
-    const dist2 = (c2.x - target.x) ** 2 + (c2.y - target.y) ** 2;
-
-    const primary = dist1 <= dist2 ? c1 : c2;
-    const alternate = primary === c1 ? c2 : c1;
-    return { primary, alternate };
-  }
-
   function normalizeAngleDelta(delta) {
     if (delta > Math.PI) return delta - Math.PI * 2;
     if (delta < -Math.PI) return delta + Math.PI * 2;
     return delta;
   }
 
+  function degToRad(deg) {
+    return (deg * Math.PI) / 180;
+  }
+
+  function radToDeg(rad) {
+    return (rad * 180) / Math.PI;
+  }
+
   function buildButtonArch(rootEl) {
     const archCfg = CFG.arch;
     const btnCfgs = [...CFG.buttons];
+    const scale = archCfg.scale || 1;
+    const baseButtonHeight =
+      (archCfg.buttonHeightPx ?? archCfg.buttonSizePx ?? archCfg.buttonWidthPx ?? 0) * scale;
+    const baseButtonWidth =
+      (archCfg.buttonWidthPx ?? archCfg.buttonHeightPx ?? archCfg.buttonSizePx ?? 0) * scale;
 
     const container = document.createElement("div");
     container.className = "arch-hud";
     container.style.position = rootEl === document.body ? "fixed" : "absolute";
     container.style.inset = "0";
     container.style.setProperty(
+      "--arch-button-height",
+      `${baseButtonHeight}px`
+    );
+    container.style.setProperty(
+      "--arch-button-width",
+      `${baseButtonWidth}px`
+    );
+    container.style.setProperty(
       "--arch-button-size",
-      `${archCfg.buttonSizePx * (archCfg.scale || 1)}px`
+      `${baseButtonHeight}px`
     );
 
     rootEl.appendChild(container);
 
     const vp = getViewportRect(rootEl);
-    const radius = archCfg.radiusPx * (archCfg.scale || 1);
+    const radius = archCfg.circleRadius * scale;
     const flipY = archCfg.flipVertical !== false;
-    const startPt = vpPoint(archCfg.start, vp, flipY);
-    const endPt = vpPoint(archCfg.end, vp, flipY);
-    const centerChoice = chooseCircleCenter(startPt, endPt, radius, {
-      x: vp.offsetLeft + vp.width * 0.5,
-      y: vp.offsetTop + vp.height * 0.5,
-    });
-    if (!centerChoice) return container;
+    const center = vpPoint(archCfg.circleCenter, vp, flipY);
 
-    const center = archCfg.concave ? centerChoice.alternate : centerChoice.primary;
-
-    const startRad = Math.atan2(startPt.y - center.y, startPt.x - center.x);
-    const endRad = Math.atan2(endPt.y - center.y, endPt.x - center.x);
+    const startRad = degToRad(archCfg.startDegree);
+    const endRad = degToRad(archCfg.endDegree);
     const arcDirection = archCfg.concave ? -1 : 1;
     const totalAngle = normalizeAngleDelta(endRad - startRad) * arcDirection;
     const totalLength = Math.abs(radius * totalAngle);
     if (!Number.isFinite(totalLength) || totalLength === 0) return container;
 
+    const totalWeight = btnCfgs.reduce(
+      (sum, btn) => sum + (btn.coverageWeight != null ? btn.coverageWeight : 1),
+      0
+    );
+    if (!totalWeight) return container;
+
     btnCfgs.sort((a, b) => a.order - b.order);
 
-    let cursorLen = 0;
+    let cursorAngle = 0;
     const debug = archCfg.debug;
     const debugInfo = [];
     const archDebug = !debug
       ? null
       : {
           concave: !!archCfg.concave,
-          centerVariant: archCfg.concave ? "alternate" : "primary",
           center,
           radius,
           start: {
-            x: startPt.x,
-            y: startPt.y,
-            deg: (startRad * 180) / Math.PI,
+            x: center.x + radius * Math.cos(startRad),
+            y: center.y + radius * Math.sin(startRad),
+            deg: radToDeg(startRad),
           },
           end: {
-            x: endPt.x,
-            y: endPt.y,
-            deg: (endRad * 180) / Math.PI,
+            x: center.x + radius * Math.cos(endRad),
+            y: center.y + radius * Math.sin(endRad),
+            deg: radToDeg(endRad),
           },
-          totalAngleDeg: (totalAngle * 180) / Math.PI,
+          totalAngleDeg: radToDeg(totalAngle),
+          totalWeight,
           arcDirection,
           arcLengthPx: totalLength,
         };
@@ -145,14 +138,14 @@
 
       const startDot = document.createElement("div");
       startDot.className = "arch-hud__debug-dot arch-hud__debug-dot--start";
-      startDot.style.left = `${startPt.x - 3}px`;
-      startDot.style.top = `${startPt.y - 3}px`;
+      startDot.style.left = `${archDebug.start.x - 3}px`;
+      startDot.style.top = `${archDebug.start.y - 3}px`;
       container.appendChild(startDot);
 
       const endDot = document.createElement("div");
       endDot.className = "arch-hud__debug-dot arch-hud__debug-dot--end";
-      endDot.style.left = `${endPt.x - 3}px`;
-      endDot.style.top = `${endPt.y - 3}px`;
+      endDot.style.left = `${archDebug.end.x - 3}px`;
+      endDot.style.top = `${archDebug.end.y - 3}px`;
       container.appendChild(endDot);
 
       [
@@ -171,29 +164,31 @@
     }
 
     btnCfgs.forEach((btnCfg) => {
-      const segLength = btnCfg.lengthPct * totalLength;
-      const gap = btnCfg.gapPx != null ? btnCfg.gapPx : archCfg.defaultGapPx || 0;
+      const weight = btnCfg.coverageWeight != null ? btnCfg.coverageWeight : 1;
+      const spanAngle = Math.abs(totalAngle) * (weight / totalWeight);
+      const sign = Math.sign(totalAngle) || 1;
+      const gapDeg = btnCfg.gapDeg != null ? btnCfg.gapDeg : archCfg.defaultGapDeg || 0;
+      const gapRad = degToRad(gapDeg);
 
-      // Raw segment along arc
-      const rawStart = cursorLen;
-      const rawEnd = cursorLen + segLength;
+      // Raw angles along arc
+      const rawStartAngle = startRad + cursorAngle * sign;
+      const rawEndAngle = rawStartAngle + spanAngle * sign;
 
       // Carve AFTER sizing
-      const carvedStart = rawStart + gap / 2;
-      const carvedEnd = rawEnd - gap / 2;
+      const carvedStartAngle = rawStartAngle + (gapRad / 2) * sign;
+      const carvedEndAngle = rawEndAngle - (gapRad / 2) * sign;
 
-      const startL = Math.min(carvedStart, carvedEnd);
-      const endL = Math.max(carvedStart, carvedEnd);
-      const centerL = (startL + endL) * 0.5;
+      const startA = Math.min(carvedStartAngle, carvedEndAngle);
+      const endA = Math.max(carvedStartAngle, carvedEndAngle);
+      const centerA = (startA + endA) * 0.5;
 
-      const t = centerL / totalLength; // 0..1 along the arch
-      const angleAlong = totalAngle * t + startRad; // radians
+      const x = center.x + radius * Math.cos(centerA);
+      const y = center.y + radius * Math.sin(centerA);
 
-      const x = center.x + radius * Math.cos(angleAlong);
-      const y = center.y + radius * Math.sin(angleAlong);
-
-      const size = archCfg.buttonSizePx * (archCfg.scale || 1);
-      const halfSize = size / 2;
+      const btnWidth = (btnCfg.widthPx != null ? btnCfg.widthPx : archCfg.buttonWidthPx) * scale;
+      const btnHeight = baseButtonHeight;
+      const halfWidth = btnWidth / 2;
+      const halfHeight = btnHeight / 2;
 
       const btnEl = document.createElement("button");
       btnEl.className = "arch-hud__button";
@@ -201,12 +196,14 @@
 
       let rotDeg = 0;
       if (archCfg.rotateWithArch) {
-        rotDeg = (angleAlong * 180) / Math.PI + 90;
+        rotDeg = radToDeg(centerA) + 90;
       }
 
-      btnEl.style.left = `${x - halfSize}px`;
-      btnEl.style.top = `${y - halfSize}px`;
+      btnEl.style.left = `${x - halfWidth}px`;
+      btnEl.style.top = `${y - halfHeight}px`;
       btnEl.style.transform = `rotate(${rotDeg}deg)`;
+      btnEl.style.width = `${btnWidth}px`;
+      btnEl.style.height = `${btnHeight}px`;
 
       if (btnCfg.sprite) {
         const img = document.createElement("img");
@@ -226,13 +223,18 @@
       if (debug) {
         debugInfo.push({
           id: btnCfg.id,
-          rawStart,
-          rawEnd,
-          carvedStart: startL,
-          carvedEnd: endL,
-          angleDeg: (angleAlong * 180) / Math.PI,
+          weight,
+          rawStartDeg: radToDeg(rawStartAngle),
+          rawEndDeg: radToDeg(rawEndAngle),
+          carvedStartDeg: radToDeg(startA),
+          carvedEndDeg: radToDeg(endA),
+          spanDeg: radToDeg(spanAngle),
+          gapDeg,
+          angleDeg: radToDeg(centerA),
           screenX: x,
-          screenY: y
+          screenY: y,
+          widthPx: btnWidth,
+          heightPx: btnHeight,
         });
 
         const dot = document.createElement("div");
@@ -245,11 +247,11 @@
         line.className = "arch-hud__debug-line";
         line.style.left = `${x - 1}px`;
         line.style.top = `${y - radius - 18}px`;
-        line.style.transform = `rotate(${(angleAlong * 180) / Math.PI}deg)`;
+        line.style.transform = `rotate(${radToDeg(centerA)}deg)`;
         container.appendChild(line);
       }
 
-      cursorLen += segLength;
+      cursorAngle += spanAngle;
     });
 
     if (debug) {

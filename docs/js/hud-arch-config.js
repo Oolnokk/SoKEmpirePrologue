@@ -2,22 +2,21 @@
 window.HUD_ARCH_CONFIG = {
   arch: {
     // circle geometry
-    radiusPx: 150, // distance from arch center to button centers
-    start: {
-      x: 0.98, // near the far bottom-right edge
-      y: 0.94
+    circleCenter: {
+      x: 0.9, // normalized viewport coordinate
+      y: 0.88
     },
-    end: {
-      x: 0.78, // lower-right edge, pulled inward
-      y: 0.86
-    },
+    circleRadius: 150, // distance from arch center to button centers
+    startDegree: 215, // degrees from +X axis
+    endDegree: 140, // degrees from +X axis
 
     scale: 1.0, // global multiplier (can tie to character scale)
-    buttonSizePx: 84, // base button square size
-    defaultGapPx: 10, // default carving distance per segment
+    buttonHeightPx: 84, // base button height
+    buttonWidthPx: 96, // base button width (tangential extrusion)
+    defaultGapDeg: 8, // carve-out in degrees per segment
     rotateWithArch: true, // rotate along tangent? (fan out)
     flipVertical: false, // mirror along the horizontal axis to hug the gameplay viewport
-    concave: false, // pick the alternate circle center / arc direction
+    concave: false, // invert the arc direction
     debug: true // on-screen debug overlay
   },
 
@@ -26,29 +25,30 @@ window.HUD_ARCH_CONFIG = {
     {
       id: "attackHeavy",
       order: 0, // first clockwise
-      lengthPct: 0.24, // 24% of full arch length
-      gapPx: 14, // carve 7px off each side AFTER placement math
+      coverageWeight: 1.2, // share of available angle
+      gapDeg: 10, // carve half on each side AFTER placement math
+      widthPx: 108, // extra extrusion
       sprite: "img/ui/btn-heavy.png"
     },
     {
       id: "attackLight",
       order: 1,
-      lengthPct: 0.2,
-      gapPx: 10,
+      coverageWeight: 1,
+      gapDeg: 8,
       sprite: "img/ui/btn-light.png"
     },
     {
       id: "attackSpecial",
       order: 2,
-      lengthPct: 0.22,
-      gapPx: 12,
+      coverageWeight: 1.1,
+      gapDeg: 8,
       sprite: "img/ui/btn-special.png"
     },
     {
       id: "attackUtility",
       order: 3,
-      lengthPct: 0.34,
-      gapPx: 14,
+      coverageWeight: 1.7,
+      gapDeg: 10,
       sprite: "img/ui/btn-utility.png"
     }
   ]
