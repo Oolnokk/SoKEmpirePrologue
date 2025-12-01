@@ -929,11 +929,18 @@ window.GAME.MOUSE = {
 window.GAME.coordinateCapture = {
   active: false,
   lastValues: null,
+  awaitingTap: false,
+  countdownActive: false,
+  countdownTimer: null,
+  pendingValues: null,
 };
 
 const coordinateOverlay = document.getElementById('coordinateOverlay');
 const coordinateStartBtn = document.getElementById('btnCoordinateCapture');
 const coordinateDismissBtn = document.getElementById('coordinateOverlayDismiss');
+const coordinateArmingOverlay = document.getElementById('coordinateArming');
+const coordinateCountdown = document.getElementById('coordinateCountdown');
+const coordinateCountdownNumber = document.getElementById('coordinateCountdownNumber');
 const coordinateCopyButtons = coordinateOverlay?.querySelectorAll?.('[data-copy-source]');
 const coordinateValueElements = {
   canvas: document.getElementById('coordValueCanvas'),
@@ -949,50 +956,152 @@ function isCoordinateCaptureActive() {
   return !!window.GAME?.coordinateCapture?.active;
 }
 
-function setCoordinateCaptureActive(active) {
-  const next = !!active;
-  if (window.GAME.coordinateCapture.active === next) return;
-  window.GAME.coordinateCapture.active = next;
+function formatCoordPair(x, y, precision = 1) {
+  return `${x.toFixed(precision)}, ${y.toFixed(precision)}`;
+}
 
-  if (next) {
-    window.GAME.coordinateCapture.lastValues = null;
-    Object.values(coordinateValueElements).forEach((el) => {
-      if (el) el.textContent = '—';
-    });
+function clearCoordinateCountdown() {
+  if (window.GAME.coordinateCapture.countdownTimer) {
+    clearTimeout(window.GAME.coordinateCapture.countdownTimer);
+    window.GAME.coordinateCapture.countdownTimer = null;
   }
 
-  if (coordinateOverlay) {
-    coordinateOverlay.hidden = !next;
-    coordinateOverlay.setAttribute('aria-hidden', String(!next));
-    if (next) {
-      coordinateOverlay.focus({ preventScroll: true });
-    }
+  if (coordinateCountdownNumber) {
+    coordinateCountdownNumber.textContent = '3';
+  }
+  if (coordinateCountdown) {
+    coordinateCountdown.hidden = true;
   }
 }
 
-function formatCoordPair(x, y, precision = 1) {
-  return `${x.toFixed(precision)}, ${y.toFixed(precision)}`;
+function updateCoordinateOverlayVisibility() {
+  if (!coordinateOverlay) return;
+  const shouldShow = isCoordinateCaptureActive()
+    && !window.GAME.coordinateCapture.awaitingTap
+    && !window.GAME.coordinateCapture.countdownActive;
+
+  coordinateOverlay.hidden = !shouldShow;
+  coordinateOverlay.setAttribute('aria-hidden', String(!shouldShow));
+  if (shouldShow) {
+    coordinateOverlay.focus({ preventScroll: true });
+  }
+}
+
+function buildCoordinateSnapshot() {
+  const { x, y, worldX, worldY } = window.GAME.MOUSE;
+  const ratioX = cv.width ? x / cv.width : 0;
+  const ratioY = cv.height ? y / cv.height : 0;
+
+  return {
+    canvas: formatCoordPair(x, y),
+    world: formatCoordPair(worldX, worldY),
+    ratio: `${ratioX.toFixed(4)}, ${ratioY.toFixed(4)}`,
+  };
+}
+
+function applyCoordinateValues(formatted) {
+  window.GAME.coordinateCapture.lastValues = formatted;
+
+  if (coordinateValueElements.canvas) coordinateValueElements.canvas.textContent = formatted.canvas;
+  if (coordinateValueElements.world) coordinateValueElements.world.textContent = formatted.world;
+  if (coordinateValueElements.ratio) coordinateValueElements.ratio.textContent = formatted.ratio;
+}
+
+function setCoordinateCaptureActive(active) {
+  const next = !!active;
+  window.GAME.coordinateCapture.active = next;
+
+  if (!next) {
+    window.GAME.coordinateCapture.awaitingTap = false;
+    window.GAME.coordinateCapture.countdownActive = false;
+    window.GAME.coordinateCapture.pendingValues = null;
+    window.GAME.coordinateCapture.lastValues = null;
+    clearCoordinateCountdown();
+    if (coordinateArmingOverlay) coordinateArmingOverlay.hidden = true;
+    updateCoordinateOverlayVisibility();
+    return;
+  }
+
+  window.GAME.coordinateCapture.lastValues = null;
+  window.GAME.coordinateCapture.pendingValues = null;
+  window.GAME.coordinateCapture.awaitingTap = true;
+  window.GAME.coordinateCapture.countdownActive = false;
+  clearCoordinateCountdown();
+
+  Object.values(coordinateValueElements).forEach((el) => {
+    if (el) el.textContent = '—';
+  });
+
+  if (coordinateArmingOverlay) {
+    coordinateArmingOverlay.hidden = false;
+  }
+
+  updateCoordinateOverlayVisibility();
 }
 
 function capturePointerCoordinates(event) {
   if (!cv || !coordinateOverlay || !isCoordinateCaptureActive()) return;
   updateMousePosition(event);
 
-  const { x, y, worldX, worldY } = window.GAME.MOUSE;
-  const ratioX = cv.width ? x / cv.width : 0;
-  const ratioY = cv.height ? y / cv.height : 0;
+  const formatted = buildCoordinateSnapshot();
+  applyCoordinateValues(formatted);
+}
 
-  const formatted = {
-    canvas: formatCoordPair(x, y),
-    world: formatCoordPair(worldX, worldY),
-    ratio: `${ratioX.toFixed(4)}, ${ratioY.toFixed(4)}`,
+function finishCoordinateCountdown() {
+  window.GAME.coordinateCapture.countdownActive = false;
+  clearCoordinateCountdown();
+  if (coordinateArmingOverlay) {
+    coordinateArmingOverlay.hidden = true;
+  }
+
+  if (!isCoordinateCaptureActive()) {
+    updateCoordinateOverlayVisibility();
+    return;
+  }
+
+  updateCoordinateOverlayVisibility();
+
+  if (window.GAME.coordinateCapture.pendingValues) {
+    applyCoordinateValues(window.GAME.coordinateCapture.pendingValues);
+    window.GAME.coordinateCapture.pendingValues = null;
+  }
+}
+
+function startCoordinateCountdown(event) {
+  if (!isCoordinateCaptureActive()) return;
+  if (!window.GAME.coordinateCapture.awaitingTap || window.GAME.coordinateCapture.countdownActive) return;
+
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+    updateMousePosition(event);
+  }
+
+  window.GAME.coordinateCapture.pendingValues = buildCoordinateSnapshot();
+  window.GAME.coordinateCapture.awaitingTap = false;
+  window.GAME.coordinateCapture.countdownActive = true;
+
+  if (coordinateCountdownNumber) {
+    coordinateCountdownNumber.textContent = '3';
+  }
+  if (coordinateCountdown) {
+    coordinateCountdown.hidden = false;
+  }
+
+  let remaining = 3;
+  const tick = () => {
+    remaining -= 1;
+    if (remaining > 0 && isCoordinateCaptureActive()) {
+      if (coordinateCountdownNumber) {
+        coordinateCountdownNumber.textContent = String(remaining);
+      }
+      window.GAME.coordinateCapture.countdownTimer = setTimeout(tick, 1000);
+    } else {
+      finishCoordinateCountdown();
+    }
   };
 
-  window.GAME.coordinateCapture.lastValues = formatted;
-
-  if (coordinateValueElements.canvas) coordinateValueElements.canvas.textContent = formatted.canvas;
-  if (coordinateValueElements.world) coordinateValueElements.world.textContent = formatted.world;
-  if (coordinateValueElements.ratio) coordinateValueElements.ratio.textContent = formatted.ratio;
+  window.GAME.coordinateCapture.countdownTimer = setTimeout(tick, 1000);
 }
 
 async function copyCoordinateValue(sourceId, triggerBtn) {
@@ -1023,6 +1132,10 @@ function initCoordinateCaptureOverlay() {
   coordinateDismissBtn.addEventListener('click', (event) => {
     event.stopPropagation();
     setCoordinateCaptureActive(false);
+  });
+
+  coordinateArmingOverlay?.addEventListener('pointerdown', (event) => {
+    startCoordinateCountdown(event);
   });
 
   coordinateOverlay.addEventListener('pointerdown', (event) => {
