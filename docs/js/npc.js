@@ -64,6 +64,11 @@ function resolveNpcPathTarget(state, area) {
   if (!candidates.length) return null;
 
   const pathState = ensureNpcPathState(state);
+  if (pathState.pathName !== (config.name || null) || pathState.areaId !== (area?.id || null)) {
+    pathState.sequenceIndex = 0;
+    pathState.pathName = config.name || null;
+    pathState.areaId = area?.id || null;
+  }
   const arriveRadius = Number.isFinite(config.arriveRadius)
     ? Math.max(1, config.arriveRadius)
     : 6;
@@ -74,7 +79,10 @@ function resolveNpcPathTarget(state, area) {
     const index = ((pathState.sequenceIndex ?? 0) % ordered.length + ordered.length) % ordered.length;
     target = ordered[index];
     const goalX = clampXToPlayableBounds(target.position?.x ?? state.pos.x, playableBounds);
-    const arrived = Math.abs(goalX - (state.pos?.x ?? 0)) <= arriveRadius;
+    const goalY = Number.isFinite(target.position?.y) ? target.position.y : (state.pos?.y ?? 0);
+    const dx = goalX - (state.pos?.x ?? 0);
+    const dy = goalY - (state.pos?.y ?? 0);
+    const arrived = Math.hypot(dx, dy) <= arriveRadius;
     if (arrived) {
       pathState.sequenceIndex = (index + 1) % ordered.length;
       target = ordered[pathState.sequenceIndex];
@@ -83,9 +91,11 @@ function resolveNpcPathTarget(state, area) {
     }
   } else {
     const posX = state.pos?.x ?? 0;
+    const posY = state.pos?.y ?? 0;
     target = candidates.reduce((best, candidate) => {
       const goalX = clampXToPlayableBounds(candidate?.position?.x ?? posX, playableBounds);
-      const distance = Math.abs(goalX - posX);
+      const goalY = Number.isFinite(candidate?.position?.y) ? candidate.position.y : posY;
+      const distance = Math.hypot(goalX - posX, goalY - posY);
       if (!best) return { candidate, distance };
       return distance < best.distance ? { candidate, distance } : best;
     }, null)?.candidate || null;
@@ -93,9 +103,11 @@ function resolveNpcPathTarget(state, area) {
 
   if (!target) return null;
   const goalX = clampXToPlayableBounds(target.position?.x ?? state.pos.x, playableBounds);
+  const goalY = Number.isFinite(target.position?.y) ? target.position.y : (state.pos?.y ?? 0);
   return {
     ...target,
     goalX,
+    goalY,
     arriveRadius,
   };
 }
@@ -1963,9 +1975,11 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     } else if (pathTarget) {
       const arriveRadius = pathTarget.arriveRadius ?? 6;
       const dxPath = pathTarget.goalX - state.pos.x;
-      input.left = dxPath < -arriveRadius;
-      input.right = dxPath > arriveRadius;
-      state.mode = input.left || input.right ? 'patrol' : 'idle';
+      const dyPath = (pathTarget.goalY ?? state.pos.y) - state.pos.y;
+      const distance = Math.hypot(dxPath, dyPath);
+      input.left = distance > arriveRadius && dxPath < -arriveRadius;
+      input.right = distance > arriveRadius && dxPath > arriveRadius;
+      state.mode = distance > arriveRadius ? 'patrol' : 'idle';
     }
 
     if (stamina) {
