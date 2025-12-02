@@ -1133,18 +1133,7 @@ function normalizeAreaDescriptor(area, options = {}) {
       x: toNumber(inst.position?.x ?? inst.x ?? 0, 0),
       y: toNumber(inst.position?.y ?? inst.y ?? 0, 0),
     };
-    const appliesProximityScale = !tags.some((tag) => tag === 'player'
-      || tag === 'npc'
-      || tag.startsWith('spawn:player')
-      || tag.startsWith('spawn:npc')
-      || tag.startsWith('spawner:npc'));
-    const appliedProximityScale = appliesProximityScale ? proximityScale : 1;
-    const position = appliesProximityScale
-      ? {
-          x: rawPosition.x * proximityScale,
-          y: rawPosition.y * proximityScale,
-        }
-      : rawPosition;
+    const position = rawPosition;
     const distanceToCamera = Math.hypot(position.x, position.y);
     const intraLayerDepth = Number.isFinite(distanceToCamera) ? -distanceToCamera : 0;
 
@@ -1155,8 +1144,8 @@ function normalizeAreaDescriptor(area, options = {}) {
       layerId: inst.layerId ?? null,
       position,
       scale: {
-        x: toNumber(inst.scale?.x ?? inst.scaleX ?? 1, 1) * appliedProximityScale,
-        y: toNumber(inst.scale?.y ?? inst.scaleY ?? inst.scale?.x ?? inst.scaleX ?? 1, 1) * appliedProximityScale,
+        x: toNumber(inst.scale?.x ?? inst.scaleX ?? 1, 1),
+        y: toNumber(inst.scale?.y ?? inst.scaleY ?? inst.scale?.x ?? inst.scaleX ?? 1, 1),
       },
       rotationDeg: toNumber(inst.rotationDeg ?? inst.rot ?? 0, 0),
       locked: !!inst.locked,
@@ -1166,8 +1155,8 @@ function normalizeAreaDescriptor(area, options = {}) {
       meta: {
         ...meta,
         proximityScale: {
-          applied: appliedProximityScale,
-          inherited: proximityScale,
+          applied: 1,
+          inherited: 1,
           mode: 'zoom',
         },
       },
@@ -1318,18 +1307,7 @@ export function convertLayoutToArea(layout, options = {}) {
       x: computedX,
       y: -toNumber(inst.offsetY, 0),
     };
-    const appliesProximityScale = !tags.some((tag) => tag === 'player'
-      || tag === 'npc'
-      || tag.startsWith('spawn:player')
-      || tag.startsWith('spawn:npc')
-      || tag.startsWith('spawner:npc'));
-    const appliedProximityScale = appliesProximityScale ? proximityScale : 1;
-    const position = appliesProximityScale
-      ? {
-          x: rawPosition.x * proximityScale,
-          y: rawPosition.y * proximityScale,
-        }
-      : rawPosition;
+    const position = rawPosition;
     const distanceToCamera = Math.hypot(position.x, position.y);
     const intraLayerDepth = Number.isFinite(distanceToCamera) ? -distanceToCamera : 0;
 
@@ -1340,8 +1318,8 @@ export function convertLayoutToArea(layout, options = {}) {
       layerId: inst.layerId,
       position,
       scale: {
-        x: toNumber(inst.scaleX, 1) * appliedProximityScale,
-        y: toNumber(inst.scaleY, inst.scaleX ?? 1) * appliedProximityScale,
+        x: toNumber(inst.scaleX, 1),
+        y: toNumber(inst.scaleY, inst.scaleX ?? 1),
       },
       rotationDeg: toNumber(inst.rot, 0),
       locked: !!inst.locked,
@@ -1351,8 +1329,8 @@ export function convertLayoutToArea(layout, options = {}) {
       meta: {
         ...meta,
         proximityScale: {
-          applied: appliedProximityScale,
-          inherited: proximityScale,
+          applied: 1,
+          inherited: 1,
           mode: 'zoom',
         },
       },
