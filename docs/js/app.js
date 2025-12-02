@@ -4250,14 +4250,10 @@ function drawStage(){
   cx.fillText('KHY Modular Build', 14, 22);
 }
 
-let last = null;
-let fpsLast = null;
+let last = performance.now();
+let fpsLast = performance.now();
 let frames = 0;
 function loop(t){
-  if (last === null) {
-    last = t;
-    fpsLast = t;
-  }
   const dt = (t - last) / 1000; last = t;
   if (window.GAME?.combat) window.GAME.combat.tick(dt);
   updateNpcSystems(dt);
