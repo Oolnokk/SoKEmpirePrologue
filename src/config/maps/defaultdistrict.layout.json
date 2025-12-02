@@ -172,7 +172,7 @@
       "prefabId": "spawn_npc",
       "layerId": "gameplay",
       "position": {
-        "x": 120,
+        "x": 1300,
         "y": 0
       },
       "scale": {
@@ -1807,6 +1807,57 @@
       "topOffset": 0,
       "height": 200,
       "meta": {}
+    },
+    {
+      "id": 2,
+      "label": "Patrol Point Center",
+      "type": "box",
+      "shape": "box",
+      "left": -280,
+      "width": 200,
+      "topOffset": 0,
+      "height": 180,
+      "tags": ["poi:patrol-point"],
+      "meta": {
+        "poi": {
+          "type": "patrol-point",
+          "description": "Central patrol area near player spawn"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "label": "Map Exit Left",
+      "type": "box",
+      "shape": "box",
+      "left": -980,
+      "width": 100,
+      "topOffset": 0,
+      "height": 180,
+      "tags": ["poi:exit", "map-exit:left"],
+      "meta": {
+        "poi": {
+          "type": "exit",
+          "direction": "left"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "label": "Map Exit Right",
+      "type": "box",
+      "shape": "box",
+      "left": 1400,
+      "width": 100,
+      "topOffset": 0,
+      "height": 180,
+      "tags": ["poi:exit", "map-exit:right"],
+      "meta": {
+        "poi": {
+          "type": "exit",
+          "direction": "right"
+        }
+      }
     }
   ],
   "drumSkins": [
