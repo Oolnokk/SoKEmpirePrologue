@@ -1,5 +1,10 @@
 // khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug
 
+// UI Display Settings
+window.CONFIG = window.CONFIG || {};
+window.CONFIG.ui = window.CONFIG.ui || {};
+window.CONFIG.ui.showClock = true; // Display the in-game time clock
+
 // Heraldry & Material color palette
 const MATERIALS = {
   city_heraldry_A: { h: 137, s: 0.85, v: -0.5 },        // Royal Purple

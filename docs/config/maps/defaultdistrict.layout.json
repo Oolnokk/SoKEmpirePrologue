@@ -1775,18 +1775,37 @@
     },
     {
       "id": 2,
-      "label": "Patrol Point Center",
+      "label": "Patrol Point West",
       "type": "box",
       "shape": "box",
-      "left": -280,
-      "width": 200,
+      "left": -480,
+      "width": 180,
       "topOffset": 0,
       "height": 180,
-      "tags": ["poi:patrol-point"],
+      "tags": ["poi:patrol-point", "schedule:morning"],
       "meta": {
         "poi": {
           "type": "patrol-point",
-          "description": "Central patrol area near player spawn"
+          "description": "Western patrol area",
+          "scheduleHours": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "label": "Patrol Point East",
+      "type": "box",
+      "shape": "box",
+      "left": 100,
+      "width": 180,
+      "topOffset": 0,
+      "height": 180,
+      "tags": ["poi:patrol-point", "schedule:afternoon"],
+      "meta": {
+        "poi": {
+          "type": "patrol-point",
+          "description": "Eastern patrol area",
+          "scheduleHours": [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
         }
       }
     },
@@ -1848,7 +1867,7 @@
     "spawnerId": "watchmen_spawner_1",
     "type": "npc",
     "groupId": "city_guard_patrol",
-    "position": { "x": 1300, "y": 300 },
+    "position": { "x": 1300, "y": 0 },
     "meta": { "role": "patrol" }
   }
 ],

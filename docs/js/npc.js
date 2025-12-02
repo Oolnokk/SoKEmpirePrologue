@@ -122,6 +122,12 @@ function resolveNpcPathTarget(state, area) {
   };
 }
 
+function getCurrentGameHour(area) {
+  const time24h = area?.background?.sky?.time24h;
+  if (!Number.isFinite(time24h)) return 12;
+  return Math.floor(time24h) % 24;
+}
+
 function selectNpcTargetPoi(state, area) {
   if (!state || !area) return null;
 
@@ -134,7 +140,19 @@ function selectNpcTargetPoi(state, area) {
   const matchingPois = selectPoisByInterests(poisByName, interests);
   if (!matchingPois.length) return null;
 
-  return selectRandomPoi(matchingPois);
+  const currentHour = getCurrentGameHour(area);
+
+  const scheduledPois = matchingPois.filter(poi => {
+    const scheduleHours = poi.meta?.scheduleHours;
+    if (!Array.isArray(scheduleHours) || scheduleHours.length === 0) {
+      return true;
+    }
+    return scheduleHours.includes(currentHour);
+  });
+
+  const candidatePois = scheduledPois.length > 0 ? scheduledPois : matchingPois;
+
+  return selectRandomPoi(candidatePois);
 }
 
 function selectNpcEscapeTarget(state, area) {
@@ -154,6 +172,19 @@ function selectNpcEscapeTarget(state, area) {
 function updateNpcNavigateMode(state, dt, area) {
   const ooc = state.outOfCombat || {};
   const currentPoi = ooc.currentPoi;
+  const currentHour = getCurrentGameHour(area);
+
+  const lastHour = ooc.lastScheduleHour;
+  if (Number.isFinite(lastHour) && lastHour !== currentHour) {
+    const scheduleHours = currentPoi?.meta?.scheduleHours;
+    if (Array.isArray(scheduleHours) && scheduleHours.length > 0) {
+      if (!scheduleHours.includes(currentHour)) {
+        ooc.currentPoi = null;
+        ooc.targetPoint = null;
+      }
+    }
+  }
+  ooc.lastScheduleHour = currentHour;
 
   if (!currentPoi) {
     const targetPoi = selectNpcTargetPoi(state, area);
