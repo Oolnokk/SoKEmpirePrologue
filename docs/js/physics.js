@@ -573,6 +573,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
     let px = Number.isFinite(fighter.pos.x) ? fighter.pos.x : 0;
     let py = Number.isFinite(fighter.pos.y) ? fighter.pos.y : 0;
     const radius = Math.max(0, Number.isFinite(state.bodyRadius) ? state.bodyRadius : resolveFighterBodyRadius(fighter, config));
+    let platformGrounded = false;
     for (const raw of platformColliders) {
       const left = Number(raw.left);
       const width = Number(raw.width);
