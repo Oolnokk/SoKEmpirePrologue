@@ -787,6 +787,126 @@ function computeDeformedQuad(template, deform, anchor) {
   ];
 }
 
+function mapPoint(matrix, point) {
+  return {
+    x: matrix.a * point.x + matrix.c * point.y + matrix.e,
+    y: matrix.b * point.x + matrix.d * point.y + matrix.f,
+  };
+}
+
+function bilerpQuadPoint(quad, u, v) {
+  const top = { x: lerp(quad[0].x, quad[1].x, u), y: lerp(quad[0].y, quad[1].y, u) };
+  const bottom = { x: lerp(quad[3].x, quad[2].x, u), y: lerp(quad[3].y, quad[2].y, u) };
+  return { x: lerp(top.x, bottom.x, v), y: lerp(top.y, bottom.y, v) };
+}
+
+function drawImageTriangle(ctx, img, srcTri, destTri) {
+  const denom = srcTri[0].x * (srcTri[1].y - srcTri[2].y)
+    + srcTri[1].x * (srcTri[2].y - srcTri[0].y)
+    + srcTri[2].x * (srcTri[0].y - srcTri[1].y);
+  if (!denom) return;
+  const m11 = (destTri[0].x * (srcTri[1].y - srcTri[2].y)
+    + destTri[1].x * (srcTri[2].y - srcTri[0].y)
+    + destTri[2].x * (srcTri[0].y - srcTri[1].y)) / denom;
+  const m12 = (destTri[0].y * (srcTri[1].y - srcTri[2].y)
+    + destTri[1].y * (srcTri[2].y - srcTri[0].y)
+    + destTri[2].y * (srcTri[0].y - srcTri[1].y)) / denom;
+  const m21 = (destTri[0].x * (srcTri[2].x - srcTri[1].x)
+    + destTri[1].x * (srcTri[0].x - srcTri[2].x)
+    + destTri[2].x * (srcTri[1].x - srcTri[0].x)) / denom;
+  const m22 = (destTri[0].y * (srcTri[2].x - srcTri[1].x)
+    + destTri[1].y * (srcTri[0].x - srcTri[2].x)
+    + destTri[2].y * (srcTri[1].x - srcTri[0].x)) / denom;
+  const dx = (destTri[0].x * (srcTri[1].x * srcTri[2].y - srcTri[2].x * srcTri[1].y)
+    + destTri[1].x * (srcTri[2].x * srcTri[0].y - srcTri[0].x * srcTri[2].y)
+    + destTri[2].x * (srcTri[0].x * srcTri[1].y - srcTri[1].x * srcTri[0].y)) / denom;
+  const dy = (destTri[0].y * (srcTri[1].x * srcTri[2].y - srcTri[2].x * srcTri[1].y)
+    + destTri[1].y * (srcTri[2].x * srcTri[0].y - srcTri[0].x * srcTri[2].y)
+    + destTri[2].y * (srcTri[0].x * srcTri[1].y - srcTri[1].x * srcTri[0].y)) / denom;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(destTri[0].x, destTri[0].y);
+  ctx.lineTo(destTri[1].x, destTri[1].y);
+  ctx.lineTo(destTri[2].x, destTri[2].y);
+  ctx.closePath();
+  ctx.clip();
+  ctx.transform(m11, m12, m21, m22, dx, dy);
+  ctx.drawImage(img, 0, 0);
+  ctx.restore();
+}
+
+function drawWarpedImage(ctx, img, quad, sourceW, sourceH) {
+  const baseMatrix = ctx.getTransform();
+  const destQuad = quad.map((point) => mapPoint(baseMatrix, point));
+  const w = Math.max(1, sourceW || img?.width || 1);
+  const h = Math.max(1, sourceH || img?.height || 1);
+  const cols = clamp(Math.ceil(w / 80), 1, 48);
+  const rows = clamp(Math.ceil(h / 80), 1, 48);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (let y = 0; y < rows; y += 1) {
+    const v0 = y / rows;
+    const v1 = (y + 1) / rows;
+    const sy0 = h * v0;
+    const sy1 = h * v1;
+    for (let x = 0; x < cols; x += 1) {
+      const u0 = x / cols;
+      const u1 = (x + 1) / cols;
+      const sx0 = w * u0;
+      const sx1 = w * u1;
+      const tl = bilerpQuadPoint(destQuad, u0, v0);
+      const tr = bilerpQuadPoint(destQuad, u1, v0);
+      const br = bilerpQuadPoint(destQuad, u1, v1);
+      const bl = bilerpQuadPoint(destQuad, u0, v1);
+      drawImageTriangle(
+        ctx,
+        img,
+        [{ x: sx0, y: sy0 }, { x: sx1, y: sy0 }, { x: sx1, y: sy1 }],
+        [tl, tr, br],
+      );
+      drawImageTriangle(
+        ctx,
+        img,
+        [{ x: sx0, y: sy0 }, { x: sx1, y: sy1 }, { x: sx0, y: sy1 }],
+        [tl, br, bl],
+      );
+    }
+  }
+  ctx.restore();
+}
+
+function drawWarpedPlaceholder(ctx, quad, fill, stroke) {
+  const baseMatrix = ctx.getTransform();
+  const destQuad = quad.map((point) => mapPoint(baseMatrix, point));
+  const cols = 6;
+  const rows = 6;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (let y = 0; y < rows; y += 1) {
+    const v0 = y / rows;
+    const v1 = (y + 1) / rows;
+    for (let x = 0; x < cols; x += 1) {
+      const u0 = x / cols;
+      const u1 = (x + 1) / cols;
+      const tl = bilerpQuadPoint(destQuad, u0, v0);
+      const tr = bilerpQuadPoint(destQuad, u1, v0);
+      const br = bilerpQuadPoint(destQuad, u1, v1);
+      const bl = bilerpQuadPoint(destQuad, u0, v1);
+      ctx.beginPath();
+      ctx.moveTo(tl.x, tl.y);
+      ctx.lineTo(tr.x, tr.y);
+      ctx.lineTo(br.x, br.y);
+      ctx.lineTo(bl.x, bl.y);
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = stroke;
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 function drawDeformOverlay(ctx, quad) {
   ctx.save();
   ctx.beginPath();
@@ -905,6 +1025,9 @@ function draw() {
     const imgEntry = state.images.get(template.url);
     const anchor = computeAnchor(template);
     const blend = blendKf(template.kf || {}, part.layer, camX, 0);
+    const quad = blend.deformEnabled && blend.deform
+      ? computeDeformedQuad(template, blend.deform, anchor)
+      : null;
     cx.save();
     const baseX = viewWidth / 2 + (part.relX || 0);
     const baseY = groundY - (part.relY || 0);
@@ -922,7 +1045,15 @@ function draw() {
     if (blend.translateSpace === 'local') {
       cx.translate(blend.dx || 0, blend.dy || 0);
     }
-    if (imgEntry && imgEntry.ok && imgEntry.img) {
+    if (quad) {
+      if (imgEntry && imgEntry.ok && imgEntry.img) {
+        drawWarpedImage(cx, imgEntry.img, quad, template.w || 100, template.h || 100);
+      } else {
+        const fill = part.layer === 'near' ? 'rgba(167,139,250,0.12)' : 'rgba(96,165,250,0.12)';
+        const stroke = part.layer === 'near' ? 'rgba(167,139,250,0.6)' : 'rgba(96,165,250,0.6)';
+        drawWarpedPlaceholder(cx, quad, fill, stroke);
+      }
+    } else if (imgEntry && imgEntry.ok && imgEntry.img) {
       cx.drawImage(imgEntry.img, -anchor.ax, -anchor.ay, template.w || 100, template.h || 100);
     } else {
       cx.fillStyle = part.layer === 'near' ? 'rgba(167,139,250,0.12)' : 'rgba(96,165,250,0.12)';
@@ -930,8 +1061,7 @@ function draw() {
       cx.fillRect(-anchor.ax, -anchor.ay, template.w || 100, template.h || 100);
       cx.strokeRect(-anchor.ax, -anchor.ay, template.w || 100, template.h || 100);
     }
-    if (blend.deformEnabled && blend.deform) {
-      const quad = computeDeformedQuad(template, blend.deform, anchor);
+    if (quad) {
       drawDeformOverlay(cx, quad);
     }
     if (els.z_debug && els.z_debug.value === 'canvas') {
