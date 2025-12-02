@@ -52,6 +52,25 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+function resolveRoundedRectCollision(px, py, radius, rect) {
+  const r = Math.max(0, radius);
+  const nearestX = clamp(px, rect.left, rect.right);
+  const nearestY = clamp(py, rect.top, rect.bottom);
+  const dx = px - nearestX;
+  const dy = py - nearestY;
+  const distSq = dx * dx + dy * dy;
+  const radSq = r * r;
+  if (distSq > radSq) return null;
+  const dist = Math.sqrt(Math.max(distSq, 1e-12));
+  const penetration = r - dist;
+  const nx = dist > 1e-6 ? dx / dist : 0;
+  const ny = dist > 1e-6 ? dy / dist : -1;
+  return {
+    normal: { x: nx, y: ny },
+    penetration,
+  };
+}
+
 export function resolveWorldWidth(config) {
   const selectWidth = (...values) => values.find((value) => Number.isFinite(value) && value > 0) || null;
   const worldWidth = selectWidth(
@@ -562,11 +581,11 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   fighter.pos.x = clamp(fighter.pos.x, movementMinX, movementMaxX);
 
   let onGround = false;
-  const prevY = Number.isFinite(fighter.prevPosY) ? fighter.prevPosY : fighter.pos.y - fighter.vel.y * dt;
-  fighter.prevPosY = fighter.pos.y;
 
-  if (platformColliders.length && !fighter.ragdoll) {
-    const px = Number.isFinite(fighter.pos.x) ? fighter.pos.x : 0;
+  if (platformColliders.length) {
+    let px = Number.isFinite(fighter.pos.x) ? fighter.pos.x : 0;
+    let py = Number.isFinite(fighter.pos.y) ? fighter.pos.y : 0;
+    const radius = Math.max(0, Number.isFinite(state.bodyRadius) ? state.bodyRadius : resolveFighterBodyRadius(fighter, config));
     for (const raw of platformColliders) {
       const left = Number(raw.left);
       const width = Number(raw.width);
@@ -575,23 +594,34 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
       if (!Number.isFinite(left) || !Number.isFinite(width) || width <= 0) continue;
       if (!Number.isFinite(height) || height <= 0) continue;
       const right = left + width;
-      if (px < left || px > right) continue;
       const top = groundY + (Number.isFinite(topOffset) ? topOffset : 0);
       const bottom = top + height;
+      const collider = { left, right, top, bottom };
+      const hit = resolveRoundedRectCollision(px, py, radius, collider);
+      if (!hit) continue;
+      px += hit.normal.x * hit.penetration;
+      py += hit.normal.y * hit.penetration;
+      fighter.pos.x = px;
+      fighter.pos.y = py;
       const colliderMaterial = typeof raw.materialType === 'string' ? raw.materialType.trim() : '';
-      if (prevY <= top && fighter.pos.y >= top) {
-        fighter.pos.y = top;
-        if (fighter.vel.y > 0) {
-          fighter.landedImpulse = Math.max(Math.abs(fighter.vel.y), fighter.landedImpulse || 0);
-          fighter.vel.y = -fighter.vel.y * restitution;
+      const relVel = (fighter.vel.x || 0) * hit.normal.x + (fighter.vel.y || 0) * hit.normal.y;
+      if (relVel < 0) {
+        const bounce = fighter.ragdoll ? Math.max(0, Math.min(0.35, restitution * 0.4)) : restitution;
+        const cancel = -relVel;
+        fighter.vel.x -= hit.normal.x * cancel;
+        fighter.vel.y -= hit.normal.y * cancel;
+        const response = bounce * cancel;
+        fighter.vel.x += hit.normal.x * response;
+        fighter.vel.y += hit.normal.y * response;
+        if (hit.normal.y < -0.2) {
+          fighter.landedImpulse = Math.max(Math.abs(relVel), fighter.landedImpulse || 0);
         }
+      }
+      if (hit.normal.y < -0.2) {
         onGround = true;
         if (colliderMaterial) {
           newSurfaceMaterial = colliderMaterial;
         }
-      } else if (prevY >= bottom && fighter.pos.y <= bottom) {
-        fighter.pos.y = bottom;
-        if (fighter.vel.y < 0) fighter.vel.y = 0;
       }
     }
   }
