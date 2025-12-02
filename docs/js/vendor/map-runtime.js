@@ -1221,6 +1221,113 @@ function normalizeAreaDescriptor(area, options = {}) {
 }
 
 /**
+ * Parse POI tag from collider tags array
+ * @param {string[]} tags - Array of tag strings
+ * @returns {{name: string, sourceTag: string}|null} Parsed POI info or null
+ */
+function parsePoiTag(tags = []) {
+  for (const raw of tags) {
+    if (typeof raw !== 'string') continue;
+    const normalized = raw.trim().toLowerCase();
+    if (!normalized.startsWith('poi:')) continue;
+    const parts = normalized.split(':').slice(1);
+    if (!parts.length) continue;
+    const name = parts.join(':').trim() || null;
+    if (name) {
+      return { name, sourceTag: raw };
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve POI information from a collider
+ * @param {object} collider - Collider object
+ * @param {Array} warnings - Array to collect warnings
+ * @returns {object|null} POI object or null
+ */
+function resolvePoiInfo(collider, warnings = null) {
+  if (!collider || typeof collider !== 'object') return null;
+
+  const tags = Array.isArray(collider.tags) ? collider.tags : [];
+  const poiTag = parsePoiTag(tags);
+  if (!poiTag) return null;
+
+  const id = collider.id || null;
+  const label = collider.label || `POI ${id || 'unknown'}`;
+  const type = collider.type || 'box';
+
+  const left = typeof collider.left === 'number' ? collider.left : 0;
+  const width = typeof collider.width === 'number' ? collider.width : 100;
+  const topOffset = typeof collider.topOffset === 'number' ? collider.topOffset : 0;
+  const height = typeof collider.height === 'number' ? collider.height : 100;
+
+  const bounds = {
+    left,
+    width,
+    right: left + width,
+    top: topOffset,
+    height,
+    bottom: topOffset + height
+  };
+
+  const meta = collider.meta && typeof collider.meta === 'object'
+    ? { ...collider.meta }
+    : {};
+
+  return {
+    id,
+    name: poiTag.name,
+    label,
+    type,
+    bounds,
+    tags,
+    meta
+  };
+}
+
+/**
+ * Collect all POIs from colliders
+ * @param {Array} colliders - Array of collider objects
+ * @param {Array} warnings - Array to collect warnings
+ * @returns {Array} Array of POI objects
+ */
+function collectPois(colliders = [], warnings = null) {
+  if (!Array.isArray(colliders) || colliders.length === 0) return [];
+  const pois = colliders
+    .map((collider) => resolvePoiInfo(collider, warnings))
+    .filter(Boolean);
+  return pois;
+}
+
+/**
+ * Build POI index maps
+ * @param {Array} pois - Array of POI objects
+ * @returns {{byId: Map, byName: Map}} POI index maps
+ */
+function buildPoiIndex(pois = []) {
+  const byId = new Map();
+  const byName = new Map();
+
+  for (const poi of pois) {
+    if (!poi) continue;
+
+    if (poi.id != null) {
+      byId.set(poi.id, poi);
+    }
+
+    if (poi.name) {
+      if (!byName.has(poi.name)) {
+        byName.set(poi.name, []);
+      }
+      byName.get(poi.name).push(poi);
+    }
+  }
+
+  return { byId, byName };
+}
+
+/**
  * Convert a builder layout export into a runtime-friendly area descriptor.
  * The descriptor remains independent from the rest of the runtime so failures
  * in the map pipeline do not prevent other systems from functioning.
@@ -1395,6 +1502,10 @@ export function convertLayoutToArea(layout, options = {}) {
 
   const metaFromLayout = layout.meta && typeof layout.meta === 'object' ? safeClone(layout.meta) : {};
 
+  // Extract POIs from colliders
+  const pois = collectPois(colliders, warnings);
+  const poiIndex = buildPoiIndex(pois);
+
   return {
     id: resolvedAreaId,
     name: resolvedAreaName,
@@ -1414,6 +1525,9 @@ export function convertLayoutToArea(layout, options = {}) {
     spawners,
     spawnersById: buildSpawnerIndex(spawners),
     colliders: alignedColliders,
+    pois,
+    poisById: poiIndex.byId,
+    poisByName: poiIndex.byName,
     drumSkins: convertedDrumSkins,
     playableBounds,
     warnings,
