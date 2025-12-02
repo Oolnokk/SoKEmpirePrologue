@@ -249,19 +249,6 @@ function resolveCollisionShare(fighter) {
   return fighter.isPlayer ? 0.55 : 0.5;
 }
 
-function isRetreatingNpc(fighter) {
-  if (!fighter || fighter.isPlayer) return false;
-  if (fighter.mode !== 'retreat') return false;
-  const aggression = fighter.aggression || {};
-  return !!aggression.active;
-}
-
-function shouldIgnoreAllyCollision(fighterA, fighterB) {
-  if (!fighterA || !fighterB) return false;
-  if (fighterA.isPlayer || fighterB.isPlayer) return false;
-  return isRetreatingNpc(fighterA) || isRetreatingNpc(fighterB);
-}
-
 const DEFAULT_HORIZONTAL_MARGIN = 40;
 const DEFAULT_CANVAS_WIDTH = 720;
 const DEFAULT_PLAYABLE_SPAN = DEFAULT_CANVAS_WIDTH - DEFAULT_HORIZONTAL_MARGIN * 2;
@@ -711,7 +698,6 @@ export function resolveFighterBodyCollisions(fighters, config, { iterations = 2 
         const b = entries[j];
         const fighterB = b.fighter;
         if (!fighterB || fighterB.ragdoll) continue;
-        if (shouldIgnoreAllyCollision(fighterA, fighterB)) continue;
         const ax = fighterA.pos.x;
         const ay = fighterA.pos.y;
         const bx = fighterB.pos.x;
