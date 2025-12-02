@@ -579,6 +579,9 @@
             <div class="row">
               <label><span>Material type</span><input id="colliderMaterialType" type="text" list="materialTypePresets" placeholder="default"></label>
             </div>
+            <div class="row">
+              <label><span>Tags (comma-separated)</span><input id="colliderTags" type="text" placeholder="poi:patrol-point, schedule:morning"></label>
+            </div>
             <datalist id="materialTypePresets">
               <option value="stone"></option>
               <option value="concrete"></option>
@@ -3269,6 +3272,11 @@ function syncColliderFields(){
   if (heightField) heightField.value = collider ? String(Math.max(1, toNumber(collider.height, 0))) : '';
   const materialField = $('#colliderMaterialType');
   if (materialField) materialField.value = collider && typeof collider.materialType === 'string' ? collider.materialType : '';
+  const tagsField = $('#colliderTags');
+  if (tagsField) {
+    const tags = Array.isArray(collider?.tags) ? collider.tags.join(', ') : '';
+    tagsField.value = tags;
+  }
   const removeBtn = $('#btnDeleteCollider');
   if (removeBtn) removeBtn.disabled = !collider;
 }
@@ -3673,6 +3681,20 @@ function updateSelectedColliderFromFields(){
     }
   }
 
+  const tagsField = $('#colliderTags');
+  if (tagsField){
+    const raw = tagsField.value.trim();
+    const newTags = raw ? raw.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const oldTags = Array.isArray(collider.tags) ? collider.tags : [];
+    const tagsChanged = newTags.length !== oldTags.length ||
+                        newTags.some((tag, i) => tag !== oldTags[i]);
+    if (tagsChanged){
+      if (!changed) pushHistory();
+      changed = true;
+      collider.tags = newTags.length > 0 ? newTags : undefined;
+    }
+  }
+
   if (changed){
     refreshColliderList();
   }
@@ -3837,7 +3859,7 @@ function updateSelectedInstanceFromFields(){
   el.addEventListener('blur', updateSelectedInstanceFromFields);
 });
 
-['colliderLabel','colliderLeft','colliderWidth','colliderTopOffset','colliderHeight','colliderMaterialType'].forEach(id => {
+['colliderLabel','colliderLeft','colliderWidth','colliderTopOffset','colliderHeight','colliderMaterialType','colliderTags'].forEach(id => {
   const el = document.getElementById(id);
   if(!el) return;
   el.addEventListener('change', updateSelectedColliderFromFields);
