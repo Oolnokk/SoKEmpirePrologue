@@ -1669,6 +1669,12 @@ window.CONFIG = {
               ]
             }
           }
+        },
+        ai: {
+          pathing: {
+            name: 'patrol1',
+            arriveRadius: 6
+          }
         }
       }
     }
