@@ -592,6 +592,52 @@ function drawRangeCollider(ctx, fighter, hitbox) {
   ctx.restore();
 }
 
+function drawClock(ctx) {
+  if (!ctx) return;
+
+  // Check if clock display is enabled
+  const CONFIG = window.CONFIG || {};
+  if (!CONFIG.ui?.showClock) return;
+
+  // Get the current area and time
+  const registry = window.__MAP_REGISTRY__;
+  const area = registry?.getActiveArea?.();
+  const time24h = area?.background?.sky?.time24h;
+
+  if (!Number.isFinite(time24h)) return;
+
+  // Format time as HH:MM
+  const hours = Math.floor(time24h) % 24;
+  const minutes = Math.floor((time24h % 1) * 60);
+  const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+  // Draw clock in top-right corner
+  const canvasWidth = ctx.canvas?.width || 720;
+  const padding = 20;
+  const x = canvasWidth - padding;
+  const y = 30;
+
+  ctx.save();
+  ctx.font = 'bold 24px system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+
+  // Draw background
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  const metrics = ctx.measureText(timeString);
+  const textWidth = metrics.width;
+  const textHeight = 30;
+  ctx.fillRect(x - textWidth - 10, y - 5, textWidth + 20, textHeight + 10);
+
+  // Draw time text with stroke for visibility
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.lineWidth = 3;
+  ctx.strokeText(timeString, x, y);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(timeString, x, y);
+
+  ctx.restore();
+}
 
 function drawCompass(ctx, x, y, r, label){
   if (!ctx) return;
@@ -898,6 +944,7 @@ export function renderAll(ctx){
   }
 
   ctx.restore();
+  drawClock(ctx);
   drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`);
 }
 
