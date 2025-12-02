@@ -4250,8 +4250,8 @@ function drawStage(){
   cx.fillText('KHY Modular Build', 14, 22);
 }
 
-let last = performance.now();
-let fpsLast = performance.now();
+let last;
+let fpsLast;
 let frames = 0;
 function loop(t){
   const dt = (t - last) / 1000; last = t;
@@ -4405,6 +4405,8 @@ function boot(){
       });
     }
     initSelectionDropdowns();
+    last = performance.now();
+    fpsLast = performance.now();
     requestAnimationFrame(loop);
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);
   } catch (e){
