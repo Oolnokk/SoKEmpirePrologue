@@ -444,6 +444,76 @@ function collectPathTargets(instances = [], layers = [], warnings = null) {
   return targets;
 }
 
+function parsePoiTag(tags = []) {
+  for (const raw of tags) {
+    if (typeof raw !== 'string') continue;
+    const normalized = raw.trim().toLowerCase();
+    if (!normalized.startsWith('poi:')) continue;
+    const parts = normalized.split(':').slice(1);
+    if (!parts.length) continue;
+    const name = parts.join(':').trim() || null;
+    if (name) {
+      return { name, sourceTag: raw };
+    }
+  }
+  return null;
+}
+
+function resolvePoiInfo(collider, warnings = null) {
+  if (!collider || typeof collider !== 'object') return null;
+  if (!Array.isArray(collider.tags) || collider.tags.length === 0) return null;
+
+  const tagInfo = parsePoiTag(collider.tags);
+  if (!tagInfo) return null;
+
+  const poiMeta = collider.meta?.poi || {};
+
+  return {
+    id: collider.id ?? null,
+    name: tagInfo.name,
+    label: collider.label ?? tagInfo.name,
+    type: collider.type ?? 'box',
+    shape: collider.shape ?? collider.type ?? 'box',
+    bounds: {
+      left: Number(collider.left) || 0,
+      width: Number(collider.width) || 0,
+      topOffset: Number(collider.topOffset) || 0,
+      height: Number(collider.height) || 0,
+    },
+    tags: [...collider.tags],
+    meta: { ...poiMeta },
+    sourceTag: tagInfo.sourceTag,
+  };
+}
+
+function collectPois(colliders = [], warnings = null) {
+  if (!Array.isArray(colliders) || colliders.length === 0) return [];
+  const pois = colliders
+    .map((collider) => resolvePoiInfo(collider, warnings))
+    .filter(Boolean);
+
+  return pois;
+}
+
+function buildPoiIndex(pois = []) {
+  const byId = new Map();
+  const byName = new Map();
+
+  for (const poi of pois) {
+    if (poi.id != null) {
+      byId.set(poi.id, poi);
+    }
+    if (poi.name) {
+      if (!byName.has(poi.name)) {
+        byName.set(poi.name, []);
+      }
+      byName.get(poi.name).push(poi);
+    }
+  }
+
+  return { byId, byName };
+}
+
 function createPrefabFallback(prefabId, errorInfo = {}) {
   const { code, message } = normalizeErrorInfo(errorInfo);
   const label = prefabId ? `Prefab ${prefabId}` : 'Prefab (unknown)';
@@ -674,6 +744,8 @@ function normalizeAreaDescriptor(area, options = {}) {
   const explicitPathTargets = normalizePathTargetList(area.pathTargets, warnings, { source: 'area' });
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
   const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets, warnings);
+  const pois = collectPois(alignedColliders, warnings);
+  const poisByIndex = buildPoiIndex(pois);
 
   return {
     id: areaId,
@@ -691,6 +763,9 @@ function normalizeAreaDescriptor(area, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     pathTargets,
+    pois,
+    poisById: poisByIndex.byId,
+    poisByName: poisByIndex.byName,
     spawners: spawnersWithGroups,
     spawnersById: buildSpawnerIndex(spawnersWithGroups),
     groupLibrary,
@@ -860,6 +935,8 @@ export function convertLayoutToArea(layout, options = {}) {
   const explicitPathTargets = normalizePathTargetList(layout.pathTargets, warnings, { source: 'layout' });
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
   const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets, warnings);
+  const pois = collectPois(alignedColliders, warnings);
+  const poisByIndex = buildPoiIndex(pois);
 
   if (!Array.isArray(layout.layers)) {
     warnings.push('layout.layers missing – produced area has zero parallax layers');
@@ -888,6 +965,9 @@ export function convertLayoutToArea(layout, options = {}) {
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
     pathTargets,
+    pois,
+    poisById: poisByIndex.byId,
+    poisByName: poisByIndex.byName,
     spawners: spawnersWithGroups,
     spawnersById: buildSpawnerIndex(spawnersWithGroups),
     groupLibrary,
@@ -1449,16 +1529,21 @@ function normalizeCollider(raw, fallbackIndex = 0) {
 
   const typeCandidate = typeof safe.type === 'string' ? safe.type : typeof safe.shape === 'string' ? safe.shape : 'box';
   const normalizedType = typeCandidate ? typeCandidate.trim().toLowerCase() : '';
+  const tags = Array.isArray(safe.tags)
+    ? safe.tags.filter((tag) => typeof tag === 'string' && tag.trim()).map((tag) => tag.trim())
+    : [];
 
   return {
     id,
     label: labelRaw || `Collider ${id ?? fallbackIndex}`,
     type: normalizedType || 'box',
+    shape: normalizedType || 'box',
     left,
     width: Math.max(1, width),
     topOffset,
     height: Math.max(1, height),
     materialType: normalizedMaterialType || null,
+    tags,
     meta: safe.meta ? safeClone(safe.meta) : {},
   };
 }

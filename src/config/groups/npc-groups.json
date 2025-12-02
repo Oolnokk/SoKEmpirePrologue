@@ -1,7 +1,8 @@
 {
   "city_guard_patrol": {
     "name": "City Watch Patrol",
-    "interests": ["patrol point", "gate", "barracks"],
+    "faction": "citywatch",
+    "interests": ["patrol-point", "gate", "barracks"],
     "exitTags": ["map-exit:left", "map-exit:right"],
     "exitWeights": { "map-exit:left": 2, "map-exit:right": 1 },
     "members": [
