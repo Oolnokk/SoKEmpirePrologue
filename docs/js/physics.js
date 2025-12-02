@@ -282,7 +282,7 @@ function clampFighterToBounds(fighter, config) {
   const bounds = resolveHorizontalBounds(config);
   fighter.pos.x = clamp(fighter.pos.x, bounds.minX, bounds.maxX);
 
-  const groundY = computeGroundY(config);
+  let groundY = computeGroundY(config);
   if (!fighter.ragdoll && fighter.pos.y > groundY) {
     fighter.pos.y = groundY;
   }
@@ -444,7 +444,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   const knockback = ensureKnockbackState(fighter);
   const M = config?.movement || {};
   const platformColliders = Array.isArray(config?.platformingColliders) ? config.platformingColliders : [];
-  const groundY = computeGroundY(config);
+  let groundY = computeGroundY(config);
   const defaultSurfaceMaterial = typeof config?.ground?.materialType === 'string'
     ? config.ground.materialType.trim()
     : '';
@@ -606,10 +606,15 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
       }
       if (hit.normal.y < -0.2) {
         onGround = true;
+        platformGrounded = true;
         if (colliderMaterial) {
           newSurfaceMaterial = colliderMaterial;
         }
       }
+    }
+    if (platformGrounded && fighter.pos.y < groundY) {
+      // Prevent the base ground snap from fighting with platform elevation when the collider is undersized
+      groundY = fighter.pos.y;
     }
   }
 
