@@ -1496,6 +1496,15 @@ if (toggleShowVelocityArrow) {
   });
 }
 
+const toggleShowPOIs = $$('#toggleShowPOIs');
+if (toggleShowPOIs) {
+  toggleShowPOIs.checked = window.RENDER_DEBUG?.showPOIs !== false; // Default to true
+  toggleShowPOIs.addEventListener('change', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.showPOIs = e.target.checked;
+  });
+}
+
 const dashRotationOffset = $$('#dashRotationOffset');
 const dashRotationValue = $$('#dashRotationValue');
 if (dashRotationOffset && dashRotationValue) {
