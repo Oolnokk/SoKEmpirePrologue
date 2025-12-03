@@ -1,0 +1,50 @@
+{
+  "cosmetics": {
+    "basic_pants": {
+      "parts": {
+        "torso": {
+          "spriteStyle": {
+            "xform": {
+              "torso": {
+                "scaleX": 0.5,
+                "scaleY": 0.5,
+                "ay": -0.07,
+                "ax": -0.55,
+                "rotDeg": -10
+              }
+            }
+          },
+          "styleKey": "torso"
+        },
+        "leg_R_upper": {
+          "spriteStyle": {
+            "xform": {
+              "legUpper": {
+                "scaleY": 1.1,
+                "ay": 0.2,
+                "scaleX": 1,
+                "ax": 0.05,
+                "rotDeg": 1
+              }
+            }
+          },
+          "styleKey": "legUpper"
+        },
+        "leg_L_upper": {
+          "spriteStyle": {
+            "xform": {
+              "legUpper": {
+                "scaleX": 1,
+                "scaleY": 1.1,
+                "ax": 0.05,
+                "ay": 0.2,
+                "rotDeg": 1
+              }
+            }
+          },
+          "styleKey": "legUpper"
+        }
+      }
+    }
+  }
+}
