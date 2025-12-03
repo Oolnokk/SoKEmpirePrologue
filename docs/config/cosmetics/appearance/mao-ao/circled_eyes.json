@@ -14,8 +14,8 @@
       "spriteStyle": {
         "xform": {
           "head": {
-            "ax": -0.5, 
-            "ay": 0, 
+            "ax": -0.55, 
+            "ay": 0.05, 
             "scaleX": 3.1, 
             "scaleY": 3.1,
             "rotDeg": 0
