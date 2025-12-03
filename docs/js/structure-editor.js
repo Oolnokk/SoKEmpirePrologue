@@ -836,12 +836,14 @@ function drawImageTriangle(ctx, img, srcTri, destTri) {
 }
 
 function drawWarpedImage(ctx, img, quad, sourceW, sourceH) {
-  const destQuad = quad;
+  const baseMatrix = ctx.getTransform();
+  const destQuad = quad.map((point) => mapPoint(baseMatrix, point));
   const w = Math.max(1, sourceW || img?.width || 1);
   const h = Math.max(1, sourceH || img?.height || 1);
   const cols = clamp(Math.ceil(w / 80), 1, 48);
   const rows = clamp(Math.ceil(h / 80), 1, 48);
   ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   for (let y = 0; y < rows; y += 1) {
     const v0 = y / rows;
     const v1 = (y + 1) / rows;
@@ -874,10 +876,12 @@ function drawWarpedImage(ctx, img, quad, sourceW, sourceH) {
 }
 
 function drawWarpedPlaceholder(ctx, quad, fill, stroke) {
-  const destQuad = quad;
+  const baseMatrix = ctx.getTransform();
+  const destQuad = quad.map((point) => mapPoint(baseMatrix, point));
   const cols = 6;
   const rows = 6;
   ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   for (let y = 0; y < rows; y += 1) {
     const v0 = y / rows;
     const v1 = (y + 1) / rows;
