@@ -39,6 +39,8 @@ test('COSMETIC_SLOTS includes all required slots', () => {
 test('cosmeticTagFor uppercases base tag and slot', () => {
   strictEqual(cosmeticTagFor('torso', 'hat'), 'TORSO__COS__HAT');
   strictEqual(cosmeticTagFor('torso', 'hat', 'back'), 'TORSO__COS__HAT__BACK');
+  strictEqual(cosmeticTagFor('torso', 'hat', 'back', 'layer2'), 'TORSO__COS__HAT__BACK__LAYER2');
+  strictEqual(cosmeticTagFor('torso', 'hat', 'front', 'exposed'), 'TORSO__COS__HAT__EXPOSED');
 });
 
 test('ensureCosmeticLayers resolves equipment with HSL limits applied', () => {
@@ -83,6 +85,7 @@ test('ensureCosmeticLayers resolves equipment with HSL limits applied', () => {
   strictEqual(layers[0].slot, 'hat');
   strictEqual(layers[0].partKey, 'head');
   strictEqual(layers[0].position, 'front');
+  strictEqual(layers[0].layerRole, 'layer1');
   deepStrictEqual(layers[0].hsl, { h: 30, s: 0.25, l: 0.5 });
   strictEqual(typeof layers[0].styleOverride, 'object');
 });
@@ -451,7 +454,8 @@ test('ensureCosmeticLayers exposes layer extra bone influence metadata', () => {
 
 test('sprites.js integrates cosmetic layers and z-order expansion', () => {
   const spritesContent = readFileSync(new URL('../docs/js/sprites.js', import.meta.url), 'utf8');
-  strictEqual(/expanded\.push\(cosmeticTagFor\(tag, slot\)\);/.test(spritesContent), true, 'buildZMap should add cosmetic tags');
+  strictEqual(/cosmeticTagFor\(tag, slot, 'back', role\)/.test(spritesContent), true, 'buildZMap should add back-facing cosmetic tags with layer roles');
+  strictEqual(/cosmeticTagFor\(tag, slot, 'front', role\)/.test(spritesContent), true, 'buildZMap should add front-facing cosmetic tags with layer roles');
   strictEqual(/const \{ assets, style, cosmetics(?:, bodyColors)?(?:, untintedOverlays: [^}]+)? } = ensureFighterSprites/.test(spritesContent), true, 'renderSprites should read cosmetics');
   strictEqual(/withBranchMirror\(ctx,\s*originX,\s*mirror,\s*\(\)\s*=>\s*\{[\s\S]*?drawBoneSprite\(ctx,\s*layer\.asset,\s*bone,\s*styleKey,\s*style,/.test(spritesContent), true, 'cosmetic layers should mirror with their limbs');
 });

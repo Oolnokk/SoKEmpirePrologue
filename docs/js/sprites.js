@@ -12,7 +12,7 @@
 
 import { angleZero as angleZeroUtil, basis as basisFn, dist, angle as angleUtil, degToRad, radToDegNum } from './math-utils.js?v=1';
 import { pickFighterName as pickFighterNameUtil } from './fighter-utils.js?v=1';
-import { COSMETIC_SLOTS, ensureCosmeticLayers, cosmeticTagFor, resolveFighterBodyColors } from './cosmetics.js?v=1';
+import { COSMETIC_LAYER_ROLES, COSMETIC_SLOTS, ensureCosmeticLayers, cosmeticTagFor, resolveFighterBodyColors } from './cosmetics.js?v=1';
 import { composeStyleXformEntry } from './style-xform.js?v=1';
 import { resolveMirrorTags } from './mirror-utils.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
@@ -431,11 +431,15 @@ function buildZMap(C){
   const expanded = [];
   for (const tag of baseOrder){
     for (const slot of COSMETIC_SLOTS){
-      expanded.push(cosmeticTagFor(tag, slot, 'back'));
+      for (const role of COSMETIC_LAYER_ROLES){
+        expanded.push(cosmeticTagFor(tag, slot, 'back', role));
+      }
     }
     expanded.push(tag);
     for (const slot of COSMETIC_SLOTS){
-      expanded.push(cosmeticTagFor(tag, slot));
+      for (const role of COSMETIC_LAYER_ROLES){
+        expanded.push(cosmeticTagFor(tag, slot, 'front', role));
+      }
     }
   }
   const m = new Map();
@@ -1373,7 +1377,7 @@ export function renderSprites(ctx){
         const bone = rig[boneKey];
         if (!bone) continue;
         const baseTag = tagOf(drawSlotKey);
-        const slotTag = cosmeticTagFor(baseTag, layer.slot, layer.position);
+        const slotTag = cosmeticTagFor(baseTag, layer.slot, layer.position, layer.layerRole);
         const styleKey = layer.styleKey || boneKey;
         const { mirror, originX } = resolveCosmeticMirror(mirrorState, rig, drawSlotKey, bone);
         const influences = resolveCosmeticBoneInfluences(layer.extra?.boneInfluences, rig, boneKey);
