@@ -1178,7 +1178,7 @@ window.CONFIG = {
         leg_R_lower: { url: "./assets/fightersprites/mao-ao-f/leg-lower_mint.png", bodyColor: 'A' }
       },
       spriteStyle: {
-          widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
+          widthFactor: { torso:0.8, armUpper:0.8, armLower:0.8, legUpper:0.8, legLower:0.8, head:0.9 },
           xformUnits: "percent",
           xform: {
             torso:    { ax:0,  ay:-0.2, scaleX:2.1, scaleY:2.25, rotDeg:180 },
@@ -1192,7 +1192,9 @@ window.CONFIG = {
       untintedOverlays: [
         {
           url: "./assets/fightersprites/mao-ao-f/untinted_regions/ur-head.png",
-          parts: ['head']
+          parts: ['head'],
+		  url: "./assets/fightersprites/mao-ao-f/untinted_regions/ur-torso.png",
+          parts: ['torso']
         }
       ],
       bodyColors: {
