@@ -2539,7 +2539,7 @@ class CosmeticEditorApp {
       // Render using the game's rendering system
       try {
         const overrides = this.deepClone(this.state.slotOverrides || {});
-        renderPartPreview(canvas, fighterName, partKey, resolvedLayers, overrides, {
+        renderPartPreview(canvas, fighterName, partKey, overrides, {
           position: position
         });
       } catch (err) {

@@ -281,14 +281,15 @@ export function renderFighterPreview(canvas, fighterName, slotOverrides = {}, op
 /**
  * Renders a single bone/part using the game's rendering system.
  * Creates a minimal entity with just the specified bone for isolated part preview.
+ * Note: The rendering system internally calls ensureCosmeticLayers to get cosmetic layers,
+ * so layers don't need to be passed explicitly - they come from the game state.
  * @param {HTMLCanvasElement} canvas - Target canvas
  * @param {string} fighterName - Name of the fighter
  * @param {string} partKey - The bone/part key to render (e.g., 'torso', 'arm_L_upper')
- * @param {Array} layers - Cosmetic layers for this part
  * @param {Object} slotOverrides - Cosmetic slot overrides
  * @param {Object} options - Additional rendering options
  */
-export function renderPartPreview(canvas, fighterName, partKey, layers = [], slotOverrides = {}, options = {}) {
+export function renderPartPreview(canvas, fighterName, partKey, slotOverrides = {}, options = {}) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   
