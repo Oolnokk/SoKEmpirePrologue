@@ -1768,12 +1768,12 @@
       "type": "box",
       "shape": "box",
       "left": -1000,
-      "width": 2500,
-      "topOffset": 0,
-      "height": 200,
-      "meta": {}
-    }
-  ],
+        "width": 2500,
+        "topOffset": 0,
+        "height": 260,
+        "meta": {}
+      }
+    ],
   "drumSkins": [
     {
       "id": 1,
