@@ -3,13 +3,21 @@ const CONFIG = ROOT.CONFIG || {};
 const overlay = typeof document !== 'undefined' ? document.getElementById('loadoutOverlay') : null;
 const statusEl = overlay ? overlay.querySelector('#loadoutStatus') : null;
 const entryTextarea = overlay ? overlay.querySelector('#loadoutEntry') : null;
+const characterSelect = overlay ? overlay.querySelector('#loadoutCharacter') : null;
 const fighterSelect = overlay ? overlay.querySelector('#loadoutFighter') : null;
 const weaponSelect = overlay ? overlay.querySelector('#loadoutWeapon') : null;
 const formEl = overlay ? overlay.querySelector('#loadoutForm') : null;
 const slotContainers = overlay ? Array.from(overlay.querySelectorAll('.loadout-slot')) : [];
 const bodyColorInputs = overlay ? Array.from(overlay.querySelectorAll('.loadout-bodycolor')) : [];
-const DEFAULT_CHARACTER = cloneCharacter(CONFIG.characters?.player || {});
+const CUSTOM_CHARACTER_KEY = '__custom__';
+const DEFAULT_CHARACTER_KEY = (() => {
+  const characterKeys = Object.keys(CONFIG.characters || {});
+  if (characterKeys.includes('player')) return 'player';
+  return characterKeys[0] || CUSTOM_CHARACTER_KEY;
+})();
+const DEFAULT_CHARACTER = cloneCharacter(CONFIG.characters?.[DEFAULT_CHARACTER_KEY] || {});
 
+let selectedCharacterKey = DEFAULT_CHARACTER_KEY;
 let loadout = cloneCharacter(DEFAULT_CHARACTER);
 let resolveReady;
 let isResolved = false;
@@ -105,6 +113,39 @@ function populateFighterSelect() {
   loadout.fighter = fighterSelect.value || selected || null;
 }
 
+function populateCharacterSelect() {
+  if (!characterSelect) return;
+  characterSelect.innerHTML = '';
+  const characters = CONFIG.characters || {};
+  const characterKeys = Object.keys(characters);
+  if (selectedCharacterKey && selectedCharacterKey !== CUSTOM_CHARACTER_KEY && !characterKeys.includes(selectedCharacterKey)) {
+    characterKeys.push(selectedCharacterKey);
+  }
+  characterKeys.sort();
+  const fragment = document.createDocumentFragment();
+  characterKeys.forEach((key) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = key;
+    fragment.appendChild(option);
+  });
+
+  const customOption = document.createElement('option');
+  customOption.value = CUSTOM_CHARACTER_KEY;
+  customOption.textContent = 'Custom entry';
+  fragment.appendChild(customOption);
+
+  characterSelect.appendChild(fragment);
+
+  const preferred = characterKeys.includes(selectedCharacterKey)
+    ? selectedCharacterKey
+    : characterKeys.includes(DEFAULT_CHARACTER_KEY)
+      ? DEFAULT_CHARACTER_KEY
+      : CUSTOM_CHARACTER_KEY;
+  characterSelect.value = preferred;
+  selectedCharacterKey = characterSelect.value || preferred;
+}
+
 function populateWeaponSelect() {
   if (!weaponSelect) return;
   weaponSelect.innerHTML = '';
@@ -164,6 +205,7 @@ function hydrateSlotInputs() {
 }
 
 function hydrateForm() {
+  populateCharacterSelect();
   populateFighterSelect();
   populateWeaponSelect();
   hydrateBodyColorInputs();
@@ -239,6 +281,23 @@ function clearSlot(slotKey) {
 }
 
 function bindEvents() {
+  if (characterSelect) {
+    characterSelect.addEventListener('change', (event) => {
+      const selected = event.target.value || CUSTOM_CHARACTER_KEY;
+      selectedCharacterKey = selected;
+      if (selected === CUSTOM_CHARACTER_KEY) {
+        setStatus('Custom entry selected. Adjust fields or paste a loadout.', { tone: 'info' });
+        updateEntryPreview();
+        return;
+      }
+      const characters = CONFIG.characters || {};
+      const selectedCharacter = characters[selected];
+      loadout = cloneCharacter(selectedCharacter || {});
+      hydrateForm();
+      setStatus(`Loaded character "${selected}" from config.`, { tone: 'success' });
+    });
+  }
+
   if (fighterSelect) {
     fighterSelect.addEventListener('change', (event) => {
       loadout.fighter = event.target.value || null;
@@ -339,6 +398,7 @@ function bindEvents() {
           throw new Error('Entry must be an object');
         }
         loadout = cloneCharacter(parsed);
+        selectedCharacterKey = CUSTOM_CHARACTER_KEY;
         hydrateForm();
         setStatus('Entry applied successfully.', { tone: 'success' });
       } catch (error) {
@@ -348,7 +408,8 @@ function bindEvents() {
     });
 
     overlay.querySelector('[data-action="reset-defaults"]')?.addEventListener('click', () => {
-      loadout = cloneCharacter(DEFAULT_CHARACTER);
+      selectedCharacterKey = DEFAULT_CHARACTER_KEY;
+      loadout = cloneCharacter(CONFIG.characters?.[selectedCharacterKey] || DEFAULT_CHARACTER || {});
       hydrateForm();
       setStatus('Reset to default player configuration.', { tone: 'info' });
     });
@@ -367,7 +428,7 @@ function applyLoadoutToConfig() {
   ROOT.CONFIG.characters ||= {};
   ROOT.CONFIG.characters.player = cloneCharacter(loadout);
   ROOT.GAME ||= {};
-  ROOT.GAME.selectedCharacter = 'player';
+  ROOT.GAME.selectedCharacter = selectedCharacterKey === CUSTOM_CHARACTER_KEY ? 'player' : selectedCharacterKey;
   ROOT.GAME.selectedFighter = loadout.fighter || null;
   if (loadout.bodyColors) {
     try {
@@ -407,10 +468,11 @@ function showOverlay() {
   overlay.hidden = false;
   overlay.classList.add('loadout-overlay--visible');
   setStatus('Configure your fighter and click "Start Demo".', { tone: 'info' });
-  if (fighterSelect) {
+  const initialFocus = characterSelect || fighterSelect;
+  if (initialFocus) {
     requestAnimationFrame(() => {
       try {
-        fighterSelect.focus();
+        initialFocus.focus();
       } catch (_err) {
         // ignore focus errors
       }
