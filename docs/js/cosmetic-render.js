@@ -21,19 +21,25 @@ import { degToRad } from './math-utils.js?v=1';
 export function buildFighterEntity(fighterName, options = {}) {
   if (!fighterName) return null;
   const C = window.CONFIG || {};
-  
+
   const jointAngles = options.jointAngles || getDefaultPoseAngles();
   const pos = options.pos || { x: 0, y: 0 };
-  
+  const anim = options.anim || (options.fighter && options.fighter.anim) || null;
+
   const fighter = {
     id: options.id || 'previewFighter',
     renderProfile: { fighterName, ...(options.profile || {}) },
     pos,
     jointAngles,
     facingSign: options.facingSign ?? 1,
-    facingRad: options.facingRad ?? 0
+    facingRad: options.facingRad ?? 0,
+    ...(options.fighter || {})
   };
-  
+
+  if (anim) {
+    fighter.anim = deepClone(anim);
+  }
+
   let result;
   try {
     result = computeAnchorsForFighter(fighter, C, fighterName);
@@ -177,18 +183,23 @@ export function collectBounds(bones, hitbox) {
 export function buildCenteredFighterEntity(fighterName, width, height, options = {}) {
   const entity = buildFighterEntity(fighterName, options);
   if (!entity) return null;
-  
+
   const bounds = collectBounds(entity.bones, entity.hitbox);
   if (!Number.isFinite(bounds.minX) || !Number.isFinite(bounds.maxX)) {
     return null;
   }
-  
+
+  const clamp01 = (value)=> Math.min(Math.max(value, 0), 1);
+  const targetBottomRatio = Number.isFinite(options.targetBottomRatio)
+    ? clamp01(options.targetBottomRatio)
+    : (options.view === 'portrait' ? 0.78 : 0.9);
+
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const bottomY = Number.isFinite(bounds.maxY) ? bounds.maxY : 0;
-  const targetX = width / 2;
-  const targetBottom = height * 0.9;
+  const targetX = (width / 2) + (Number.isFinite(options.offsetX) ? options.offsetX : 0);
+  const targetBottom = height * targetBottomRatio;
   const offsetX = targetX - centerX;
-  const offsetY = targetBottom - bottomY;
+  const offsetY = (targetBottom - bottomY) + (Number.isFinite(options.offsetY) ? options.offsetY : 0);
   
   const adjustedBones = translateBones(entity.bones, offsetX, offsetY);
   const adjustedHitbox = translateHitbox(entity.hitbox, offsetX, offsetY);
@@ -235,10 +246,12 @@ export function configureCanvas(canvas) {
 export function renderFighterPreview(canvas, fighterName, slotOverrides = {}, options = {}) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  
+
+  const zoom = Number.isFinite(options.zoom) ? Math.max(options.zoom, 0.1) : 1;
+  const cameraX = Number.isFinite(options.cameraX) ? options.cameraX : 0;
   const { width, height, dpr } = configureCanvas(canvas);
   const entity = buildCenteredFighterEntity(fighterName, width, height, options);
-  
+
   // Set up GAME state for rendering
   const GAME = (window.GAME ||= {});
   
@@ -256,7 +269,7 @@ export function renderFighterPreview(canvas, fighterName, slotOverrides = {}, op
   }
   
   // Configure GAME state for the rendering system
-  GAME.CAMERA = { x: 0, zoom: 1, worldWidth: width };
+  GAME.CAMERA = { x: cameraX, zoom, worldWidth: width };
   GAME.RENDER_STATE = { entities: [entity] };
   GAME.ANCHORS_OBJ = { [entity.id]: entity.bones };
   GAME.FLIP_STATE = { [entity.id]: entity.flipLeft };

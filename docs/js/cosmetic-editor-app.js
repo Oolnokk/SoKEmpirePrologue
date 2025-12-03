@@ -63,6 +63,8 @@ class CosmeticEditorApp {
 
     this.statusTimer = null;
 
+    this.runtimePreview = this.buildRuntimePreviewApi();
+
     this.slotGrid = this.buildSlotGridApi();
     this.assetLibrary = this.buildAssetLibraryApi();
     this.overrideManager = this.buildOverrideManagerApi();
@@ -103,6 +105,11 @@ class CosmeticEditorApp {
   queryDom(){
     return {
       previewGrid: document.getElementById('partPreviewGrid'),
+      runtimeViewport: document.getElementById('runtimeViewport'),
+      runtimeStatus: document.getElementById('runtimeStatus'),
+      runtimeDrawBtn: document.getElementById('runtimeDrawBtn'),
+      runtimeStowBtn: document.getElementById('runtimeStowBtn'),
+      runtimeResetBtn: document.getElementById('runtimeResetBtn'),
       fighterSelect: document.getElementById('fighterSelect'),
       slotContainer: document.getElementById('cosmeticSlotRows'),
       styleInspector: document.getElementById('styleInspector'),
@@ -348,6 +355,112 @@ class CosmeticEditorApp {
           container.appendChild(note);
         }
       }
+    };
+  }
+
+  buildRuntimePreviewApi(){
+    const runtimeState = {
+      rafId: null,
+      destroyed: false,
+      weaponStowed: false,
+      rotationDeg: -8
+    };
+
+    const { runtimeViewport: canvas, runtimeStatus: statusEl } = this.dom;
+
+    const setStatus = (message)=>{
+      if (statusEl){
+        statusEl.textContent = message || '';
+      }
+    };
+
+    const clearCanvas = ()=>{
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    };
+
+    const renderFrame = ()=>{
+      if (!canvas){
+        setStatus('Runtime viewport unavailable.');
+        return;
+      }
+      const fighterName = this.state.activeFighter || Object.keys(CONFIG.fighters || {})[0] || null;
+      if (!fighterName){
+        clearCanvas();
+        setStatus('Load a fighter to preview cosmetics.');
+        return;
+      }
+      try {
+        renderFighterPreview(canvas, fighterName, this.state.slotOverrides || {}, {
+          view: 'portrait',
+          targetBottomRatio: 0.8,
+          facingRad: degToRad(runtimeState.rotationDeg || 0),
+          anim: { weapon: { stowed: !!runtimeState.weaponStowed } },
+          zoom: 1.08
+        });
+        setStatus(runtimeState.weaponStowed
+          ? 'Weapon stowed (press H to draw)'
+          : 'Weapon drawn (press H to stow)');
+      } catch (err){
+        console.warn('[cosmetic-editor] Failed to render runtime preview', err);
+        setStatus('Unable to render runtime preview.');
+      }
+    };
+
+    const scheduleRender = ()=>{
+      if (runtimeState.destroyed) return;
+      if (runtimeState.rafId){
+        cancelAnimationFrame(runtimeState.rafId);
+      }
+      runtimeState.rafId = requestAnimationFrame(renderFrame);
+    };
+
+    const setWeaponStowed = (stowed)=>{
+      runtimeState.weaponStowed = !!stowed;
+      scheduleRender();
+    };
+
+    const toggleWeapon = ()=> setWeaponStowed(!runtimeState.weaponStowed);
+
+    const resetView = ()=>{
+      runtimeState.rotationDeg = -8;
+      scheduleRender();
+    };
+
+    const handleHotkey = (event)=>{
+      if (!event || event.defaultPrevented) return;
+      if (event.key === 'h' || event.key === 'H'){
+        event.preventDefault();
+        toggleWeapon();
+      }
+      if (event.key === 'r' || event.key === 'R'){
+        resetView();
+      }
+    };
+
+    const destroy = ()=>{
+      runtimeState.destroyed = true;
+      if (runtimeState.rafId){
+        cancelAnimationFrame(runtimeState.rafId);
+      }
+      window.removeEventListener('keydown', handleHotkey);
+    };
+
+    window.addEventListener('keydown', handleHotkey);
+    scheduleRender();
+
+    return {
+      render: scheduleRender,
+      setActiveFighter: scheduleRender,
+      setWeaponStowed,
+      toggleWeapon,
+      resetView,
+      destroy
     };
   }
 
@@ -2201,6 +2314,8 @@ class CosmeticEditorApp {
       this.slotGrid.refreshFromSelection();
       this.styleInspector.show(null);
       this.overrideManager.refreshOutputs();
+      this.runtimePreview.setActiveFighter();
+      this.runtimePreview.setWeaponStowed(false);
       this.showStatus(`Loaded fighter ${fighterName}`, { tone: 'info' });
     };
 
@@ -2313,6 +2428,7 @@ class CosmeticEditorApp {
     requestAnimationFrame(()=>{
       this.previewRenderScheduled = false;
       this.renderPartPreview();
+      this.runtimePreview?.render?.();
     });
   }
 
@@ -3361,6 +3477,15 @@ class CosmeticEditorApp {
         this.modeManager.setActiveMode(button.dataset.mode);
       });
     });
+    this.dom.runtimeDrawBtn?.addEventListener('click', ()=>{
+      this.runtimePreview.setWeaponStowed(false);
+    });
+    this.dom.runtimeStowBtn?.addEventListener('click', ()=>{
+      this.runtimePreview.setWeaponStowed(true);
+    });
+    this.dom.runtimeResetBtn?.addEventListener('click', ()=>{
+      this.runtimePreview.resetView();
+    });
     this.dom.stylePartSelect.addEventListener('change', ()=>{
       this.styleInspector.handlePartChange();
     });
@@ -3448,6 +3573,9 @@ class CosmeticEditorApp {
   }
 
   async bootstrap(){
+    window.addEventListener('beforeunload', ()=>{
+      this.runtimePreview?.destroy?.();
+    });
     this.assetLibrary.setSelectedAsset(null);
     this.modeManager.bootstrap();
     await this.loadAssetManifest();
