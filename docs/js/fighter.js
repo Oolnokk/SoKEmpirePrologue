@@ -543,6 +543,11 @@ export function initFighters(cv, cx, options = {}){
           if (meta.exitWeights && typeof meta.exitWeights === 'object') {
             group.exitWeights = { ...meta.exitWeights };
           }
+
+          // Mark NPCs with interests as passive patrol NPCs
+          if (group.interests && group.interests.length > 0) {
+            npc.patrolNpc = true;
+          }
         }
       }
 

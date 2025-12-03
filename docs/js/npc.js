@@ -2629,7 +2629,11 @@ export function initNpcSystems() {
   if (!npcs.length) return;
   ensureNpcContainers(G);
   for (const npc of npcs) {
-    registerNpcFighter(npc, { immediateAggro: true });
+    // NPCs with group interests (POI-based patrol) or marked as patrol NPCs should start passive
+    const hasInterests = npc.group?.interests && npc.group.interests.length > 0;
+    const isPatrolNpc = npc.patrolNpc === true;
+    const shouldBePassive = hasInterests || isPatrolNpc;
+    registerNpcFighter(npc, { immediateAggro: !shouldBePassive });
   }
 }
 
