@@ -90,6 +90,43 @@
           }
         }
       }
+    },
+
+    "shoulders": {
+      "layers": {
+        "over": {
+          "layerRole": "layer0",
+          "image": {
+            "url": "",
+            "colors": ["A"]
+          },
+          "attachBone": "arm_R_upper",
+          "drawSlot": "arm_R_lower",
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "armUpper": { "ax": 0, "ay": -0.2, "scaleX": 2, "scaleY": 2 }
+              }
+            }
+          }
+        },
+        "over_trim": {
+          "layerRole": "overlay",
+          "image": {
+            "url": "",
+            "colors": ["B"]
+          },
+          "attachBone": "arm_R_upper",
+          "drawSlot": "arm_R_lower",
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "armUpper": { "ax": 0, "ay": -0.2, "scaleX": 2, "scaleY": 2 }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
