@@ -610,6 +610,8 @@ const COSMETIC_LIBRARY_SOURCES = {
   citywatch_helmet: './config/cosmetics/citywatch_helmet.json',
   layered_travel_cloak: './config/cosmetics/layered_travel_cloak.json',
   simple_poncho: './config/cosmetics/simple_poncho.json',
+  anuri_hood: './config/cosmetics/anuri_hood.json',
+  anuri_poncho: './config/cosmetics/anuri_poncho.json',
   basic_pants: './config/cosmetics/basic_pants.json',
   'appearance::Mao-ao_M::mao-ao_circled_eyes': './config/cosmetics/appearance/mao-ao/circled_eyes.json',
   'appearance::Mao-ao_M::mao-ao_circled_eye_L': './config/cosmetics/appearance/mao-ao/circled_eye_L.json',
@@ -1648,6 +1650,37 @@ window.CONFIG = {
           hat: { id: 'citywatch_helmet', hsv: { ...MATERIALS.white_bronze } },
           overwear: { id: 'simple_poncho', hsv: { ...MATERIALS.city_heraldry_A } },
           legs: { id: 'basic_pants', hsv: { ...MATERIALS.city_heraldry_A } }
+        }
+      }
+    },
+    anuri: {
+      fighter: 'Mao-ao_F',
+      weapon: 'unarmed',
+      slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold', 'quick_punch', 'evade_defensive'],
+      stats: {
+        strength: 11,
+        agility: 11,
+        endurance: 10,
+        maxHealth: 115,
+        maxStamina: 120
+      },
+      bodyColors: {
+        A: { h: 32, s: -0.25, v: 0.35 },
+        B: { h: -18, s: 0.55, v: -0.45 },
+        C: { h: -6, s: 0.12, v: 0.05 }
+      },
+      appearance: {
+        slots: {
+          head_hair: { id: 'mao-ao_shoulder_length_drape', colors: ['B'] },
+          facial_hair: {},
+          eyes: { id: 'mao-ao_circled_eyes', colors: ['B'] }
+        }
+      },
+      cosmetics: {
+        slots: {
+          hood: { id: 'anuri_hood', colors: ['A', 'B'] },
+          overwear: { id: 'anuri_poncho', colors: ['A', 'B'] },
+          legs: { id: 'basic_pants', hsl: { h: 150, s: 0.6, l: 0.28 } }
         }
       }
     }
