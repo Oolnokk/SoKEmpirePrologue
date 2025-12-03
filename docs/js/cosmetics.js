@@ -7,7 +7,8 @@ const ROOT = (typeof window !== 'undefined' ? window : globalThis);
 const STATE = (ROOT.COSMETIC_SYSTEM ||= {
   library: {},
   assetCache: new Map(),
-  profiles: new Map()
+  profiles: new Map(),
+  exposedParts: new Map()
 });
 
 export function getRegisteredCosmeticLibrary(){
@@ -106,8 +107,11 @@ export const COSMETIC_SLOTS = [
   'hair'
 ];
 
-export const COSMETIC_LAYER_ROLES = ['exposed', 'layer0', 'layer1', 'layer2', 'overlay'];
-const CLOTHING_LAYER_ROLES = COSMETIC_LAYER_ROLES.filter((role) => role.startsWith('layer'));
+const EXPOSED_BASE_LAYER_ROLE = 'exposed';
+const EXPOSED_OVERLAY_LAYER_ROLE = 'exposed_overlay';
+
+export const COSMETIC_LAYER_ROLES = ['layer0', 'layer1', 'layer2', EXPOSED_BASE_LAYER_ROLE, EXPOSED_OVERLAY_LAYER_ROLE, 'overlay'];
+const CLOTHING_LAYER_ROLES = COSMETIC_LAYER_ROLES.filter((role) => role.startsWith('layer') || role.startsWith('exposed'));
 const DEFAULT_CLOTHING_LAYER_ROLE = 'layer1';
 
 const APPEARANCE_SLOT_PREFIX = 'appearance:';
@@ -444,6 +448,66 @@ function ensureArray(val){
   return Array.isArray(val) ? val : [val];
 }
 
+function getExposedPartRegistry(){
+  if (!(STATE.exposedParts instanceof Map)){
+    STATE.exposedParts = new Map();
+  }
+  return STATE.exposedParts;
+}
+
+function resolveExposedAssetUrl(fighterName, ref, defaultFile){
+  if (!fighterName) return null;
+  const candidate = ref ?? defaultFile;
+  if (!candidate) return null;
+  const trimmed = String(candidate || '').trim();
+  if (!trimmed) return null;
+  if (/^(\.\/|\/|https?:\/\/)/i.test(trimmed)){
+    return trimmed;
+  }
+  return `./assets/cosmetics/appearance/${fighterName}/exposed_parts/${trimmed}`;
+}
+
+function normalizeExposedPartEntry(fighterName, key, raw = {}){
+  const partKey = String(key || '').trim();
+  if (!fighterName || !partKey) return null;
+  const baseRef = typeof raw === 'string'
+    ? raw
+    : (raw === true ? null : (raw.base || raw.url || raw.href || raw.file || raw.filename));
+  const overlayRef = (raw && typeof raw === 'object')
+    ? (raw.overlay || raw.overlayUrl || raw.overlayHref || raw.overlayFile)
+    : null;
+  const bodyColors = ensureArray((raw && typeof raw === 'object') ? (raw.bodyColors || raw.bodyColor || raw.colors) : null);
+  const baseUrl = resolveExposedAssetUrl(fighterName, baseRef, `exposed_${partKey}.png`);
+  if (!baseUrl) return null;
+  const overlayUrl = resolveExposedAssetUrl(fighterName, overlayRef, null);
+  return { key: partKey, baseUrl, overlayUrl, bodyColors };
+}
+
+export function registerFighterExposedParts(fighterName, entries = {}){
+  if (!fighterName) return new Map();
+  const registry = getExposedPartRegistry();
+  const normalized = new Map(registry.get(fighterName) || []);
+  const pairs = entries && typeof entries === 'object' && !Array.isArray(entries)
+    ? Object.entries(entries)
+    : [];
+  for (const [key, raw] of pairs){
+    const entry = normalizeExposedPartEntry(fighterName, key, raw);
+    if (entry){
+      normalized.set(entry.key, entry);
+    }
+  }
+  registry.set(fighterName, normalized);
+  return normalized;
+}
+
+function getFighterExposedPart(fighterName, key){
+  if (!fighterName || !key) return null;
+  const registry = getExposedPartRegistry();
+  const map = registry.get(fighterName);
+  const normalizedKey = String(key || '').trim();
+  return map?.get(normalizedKey) || null;
+}
+
 function deepMerge(base = {}, extra = {}){
   const out = Array.isArray(base) ? [...base] : { ...base };
   for (const [key, value] of Object.entries(extra || {})){
@@ -655,10 +719,13 @@ function normalizeLayerRole(value, fallback = DEFAULT_CLOTHING_LAYER_ROLE){
   }
   const raw = typeof value === 'string' ? value.trim().toLowerCase() : value;
   if (raw === 'exposed' || raw === 'expose' || raw === 'skin'){
-    return 'exposed';
+    return EXPOSED_BASE_LAYER_ROLE;
   }
   if (raw === 'overlay' || raw === 'fx' || raw === 'effect'){
     return 'overlay';
+  }
+  if (raw === EXPOSED_OVERLAY_LAYER_ROLE){
+    return EXPOSED_OVERLAY_LAYER_ROLE;
   }
   const numeric = Number(raw);
   if (Number.isFinite(numeric)){
@@ -674,7 +741,8 @@ function normalizeLayerRole(value, fallback = DEFAULT_CLOTHING_LAYER_ROLE){
       return 'layer2';
     }
     if (compact === 'overlay') return 'overlay';
-    if (compact === 'exposed' || compact === 'skin') return 'exposed';
+    if (compact === 'exposed' || compact === 'skin') return EXPOSED_BASE_LAYER_ROLE;
+    if (compact === 'exposedoverlay' || compact === 'overlayexposed' || compact === 'exposedlayer' || compact === 'skinoverlay') return EXPOSED_OVERLAY_LAYER_ROLE;
     if (compact === 'mid' || compact === 'middle' || compact === 'layer1'){
       return 'layer1';
     }
@@ -874,6 +942,128 @@ function ensureAsset(cosmeticId, partKey, imageCfg, layerPosition){
   return asset;
 }
 
+function resolveExposedPartSpec(imageCfg){
+  if (!imageCfg || typeof imageCfg !== 'object') return null;
+  const key = typeof imageCfg.exposedPart === 'string'
+    ? imageCfg.exposedPart
+    : (typeof imageCfg.exposed === 'string' ? imageCfg.exposed : (typeof imageCfg.exposedKey === 'string' ? imageCfg.exposedKey : null));
+  if (!key) return null;
+  const bodyColors = ensureArray(imageCfg.bodyColors || imageCfg.bodyColor || imageCfg.colors);
+  return { key: key.trim(), bodyColors };
+}
+
+function ensureExposedAsset(cosmeticId, partKey, layerPosition, imageCfg, url, bodyColorKeys = []){
+  if (!url) return null;
+  const asset = ensureAsset(cosmeticId, `${partKey}::exposed`, { ...imageCfg, url }, layerPosition);
+  if (asset){
+    const letters = bodyColorKeys
+      .map((entry)=> String(entry || '').trim().toUpperCase())
+      .filter(Boolean);
+    if (letters.length){
+      asset.bodyColors = letters;
+    } else if (asset.bodyColors){
+      delete asset.bodyColors;
+    }
+  }
+  return asset;
+}
+
+function buildExposedPartLayers(options){
+  const {
+    fighterName,
+    exposedPartRegistry,
+    exposedSpec,
+    cosmetic,
+    partKey,
+    layerPosition,
+    styleOverride,
+    warpOverride,
+    anchorOverride,
+    alignDeg,
+    alignRad,
+    styleKey,
+    paletteOverride,
+    layerExtra,
+    hsl,
+    drawSlot,
+    attachBone,
+    dynamicLayerByBoneRotation,
+    baseImage
+  } = options || {};
+  if (!exposedSpec || !exposedSpec.key || !exposedPartRegistry?.size) return [];
+  const entry = getFighterExposedPart(fighterName, exposedSpec.key);
+  if (!entry?.baseUrl) return [];
+  const layerExtras = mergeConfig(layerExtra, { exposedPart: { key: entry.key } });
+  const bodyColorLetters = exposedSpec.bodyColors.length
+    ? exposedSpec.bodyColors
+    : entry.bodyColors;
+  const normalizedBodyColors = bodyColorLetters.length ? bodyColorLetters : ['A'];
+  const baseAsset = ensureExposedAsset(
+    cosmetic?.id,
+    partKey,
+    layerPosition,
+    baseImage,
+    entry.baseUrl,
+    normalizedBodyColors
+  );
+  const layers = [];
+  if (baseAsset){
+    layers.push({
+      slot: cosmetic?.slot,
+      partKey,
+      position: layerPosition,
+      layerRole: EXPOSED_BASE_LAYER_ROLE,
+      cosmeticId: cosmetic?.id,
+      asset: baseAsset,
+      hsl,
+      styleOverride,
+      warp: warpOverride,
+      anchorOverride,
+      alignDeg,
+      alignRad,
+      styleKey,
+      palette: paletteOverride,
+      extra: layerExtras,
+      attachBone,
+      drawSlot,
+      dynamicLayerByBoneRotation
+    });
+  }
+  if (entry.overlayUrl){
+    const overlayAsset = ensureExposedAsset(
+      cosmetic?.id,
+      `${partKey}::overlay`,
+      layerPosition,
+      baseImage,
+      entry.overlayUrl,
+      []
+    );
+    if (overlayAsset){
+      layers.push({
+        slot: cosmetic?.slot,
+        partKey,
+        position: layerPosition,
+        layerRole: EXPOSED_OVERLAY_LAYER_ROLE,
+        cosmeticId: cosmetic?.id,
+        asset: overlayAsset,
+        hsl: null,
+        styleOverride,
+        warp: warpOverride,
+        anchorOverride,
+        alignDeg,
+        alignRad,
+        styleKey,
+        palette: paletteOverride,
+        extra: layerExtras,
+        attachBone,
+        drawSlot,
+        dynamicLayerByBoneRotation
+      });
+    }
+  }
+  return layers;
+}
+
 export function cosmeticTagFor(baseTag, slot, position, layerRole){
   const base = `${String(baseTag || '').toUpperCase()}__COS__${String(slot || '').toUpperCase()}`;
   const pos = position == null ? null : String(position).trim().toUpperCase();
@@ -959,6 +1149,14 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
   if (appearanceData?.slots && Object.keys(appearanceData.slots).length){
     slotConfig = mergeSlotConfigs(slotConfig, appearanceData.slots);
   }
+  const exposedPartRegistry = registerFighterExposedParts(
+    fighterName,
+    fighter.exposedParts
+      || fighter.appearance?.exposedParts
+      || characterDataOverride?.exposedParts
+      || appearanceData?.exposedParts
+      || resolvedAppearanceInfo.appearance?.exposedParts
+  );
   if (typeof window !== 'undefined'){
     const G = window.GAME || {};
     const activeCharacterKey = characterKeyOverride || resolvedCharacterKey || null;
@@ -1084,6 +1282,35 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           ?? resolved.dynamicLayerByBoneRotation;
         const dynamicLayerByBoneRotation = normalizeDynamicLayerByRotation(dynamicLayerSpec);
 
+        const exposedSpec = resolveExposedPartSpec(resolved.image);
+        if (exposedSpec){
+          const exposedLayers = buildExposedPartLayers({
+            fighterName,
+            exposedPartRegistry,
+            exposedSpec,
+            cosmetic,
+            partKey,
+            layerPosition,
+            styleOverride,
+            warpOverride,
+            anchorOverride,
+            alignDeg,
+            alignRad,
+            styleKey,
+            paletteOverride,
+            layerExtra,
+            hsl,
+            drawSlot,
+            attachBone,
+            dynamicLayerByBoneRotation,
+            baseImage: resolved.image
+          });
+          if (exposedLayers.length){
+            layers.push(...exposedLayers);
+          }
+          continue;
+        }
+
         if (!resolved?.image?.url) continue;
         const asset = ensureAsset(cosmetic.id, partKey, resolved.image, layerPosition);
         if (!asset) continue;
@@ -1155,5 +1382,8 @@ export function clearCosmeticCache(){
   }
   if (STATE.profiles instanceof Map){
     STATE.profiles.clear();
+  }
+  if (STATE.exposedParts instanceof Map){
+    STATE.exposedParts.clear();
   }
 }
