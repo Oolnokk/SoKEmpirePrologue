@@ -1,4 +1,8 @@
-import { getAttackDefFromConfig } from './config-utils.js?v=1';
+import {
+  calculateMinChargeTime,
+  getAbilityThresholds,
+  getAttackDefFromConfig,
+} from './config-utils.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -154,6 +158,22 @@ function startHeavyRetreat(director, context, targetSlot) {
   heavy.targetRange = attackDef?.attackData?.range || 35;  // Low default for testing
 }
 
+function resolveHeavyChargeTimes() {
+  const thresholds = getAbilityThresholds();
+  const computedMinCharge = calculateMinChargeTime();
+  const minCharge = Number.isFinite(computedMinCharge) && computedMinCharge > 0
+    ? computedMinCharge
+    : HEAVY_MIN_CHARGE_TIME;
+  const stageSeconds = Number.isFinite(thresholds?.chargeStageMs) && thresholds.chargeStageMs > 0
+    ? thresholds.chargeStageMs / 1000
+    : 0.2;
+  const maxChargeFromStages = minCharge + stageSeconds * 2;
+  const maxCharge = Number.isFinite(maxChargeFromStages) && maxChargeFromStages > 0
+    ? Math.max(minCharge, maxChargeFromStages)
+    : Math.max(minCharge, HEAVY_MAX_CHARGE_TIME);
+  return { minCharge, maxCharge };
+}
+
 function updateHeavyBehavior(director, context) {
   // Heavy attack logic disabled for debugging
   if (!ENABLE_HEAVY_ATTACK_LOGIC) {
@@ -161,6 +181,7 @@ function updateHeavyBehavior(director, context) {
   }
 
   const heavy = director.heavy;
+  const { minCharge, maxCharge } = resolveHeavyChargeTimes();
   heavy.cooldown = Math.max(0, heavy.cooldown - context.dt);
   const targetSlot = director.slots.holdRelease[0] || null;
   if (!targetSlot) {
@@ -212,7 +233,7 @@ function updateHeavyBehavior(director, context) {
       intent.slotKey = heavy.slotKey;
       intent.chargeOutsideRange = true;
       if (!heavy.didPress && pressButton) {
-        heavy.didPress = pressButton(heavy.slotKey, HEAVY_MAX_CHARGE_TIME + 0.25);
+        heavy.didPress = pressButton(heavy.slotKey, maxCharge + 0.25);
         heavy.chargeTimer = 0;
         if (!heavy.didPress) {
           heavy.state = 'idle';
@@ -222,7 +243,7 @@ function updateHeavyBehavior(director, context) {
         }
       }
       heavy.chargeTimer += dt;
-      if (heavy.didPress && heavy.chargeTimer >= HEAVY_MIN_CHARGE_TIME) {
+      if (heavy.didPress && heavy.chargeTimer >= minCharge) {
         heavy.state = 'approach';
       }
       break;
@@ -235,7 +256,7 @@ function updateHeavyBehavior(director, context) {
       intent.retreatDir = heavy.retreatDir;
       intent.chargeOutsideRange = true;
       heavy.chargeTimer += dt;
-      if (absDx <= approachRange || heavy.chargeTimer >= HEAVY_MAX_CHARGE_TIME) {
+      if (absDx <= approachRange || heavy.chargeTimer >= maxCharge) {
         if (releaseButton) releaseButton(heavy.slotKey);
         heavy.state = 'recover';
         heavy.recoverTimer = HEAVY_RECOVER_TIME;
