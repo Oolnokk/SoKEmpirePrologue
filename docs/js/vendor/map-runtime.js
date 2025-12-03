@@ -1517,7 +1517,7 @@ export function convertLayoutToArea(layout, options = {}) {
         left: typeof bounds.left === 'number' ? bounds.left : 0,
         width: typeof bounds.width === 'number' ? bounds.width : 100,
         right: typeof bounds.right === 'number' ? bounds.right : ((bounds.left || 0) + (bounds.width || 100)),
-        top: typeof bounds.top === 'number' ? bounds.top : 0,
+        topOffset: typeof bounds.top === 'number' ? bounds.top : 0,
         height: typeof bounds.height === 'number' ? bounds.height : 100,
         bottom: typeof bounds.bottom === 'number' ? bounds.bottom : ((bounds.top || 0) + (bounds.height || 100))
       },
