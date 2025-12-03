@@ -547,6 +547,11 @@ export function initFighters(cv, cx, options = {}){
           // Mark NPCs with interests as passive patrol NPCs
           if (group.interests && group.interests.length > 0) {
             npc.patrolNpc = true;
+            // Explicitly initialize aggression to passive
+            const aggression = (npc.aggression ||= {});
+            aggression.triggered = false;
+            aggression.active = false;
+            aggression.wakeTimer = 0;
           }
         }
       }
