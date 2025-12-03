@@ -9,9 +9,17 @@ import {
   ensureCosmeticLayers
 } from './cosmetics.js?v=1';
 import { applyShade } from './cosmetic-palettes.js?v=1';
-import { renderSprites } from './sprites.js?v=8';
-import { computeAnchorsForFighter } from './render.js?v=4';
 import { degToRad } from './math-utils.js?v=1';
+// Import shared rendering utilities - these delegate to render.js and sprites.js
+// so the cosmetic editor uses the same rendering logic as the game
+import {
+  renderFighterPreview,
+  renderPartPreview,
+  configureCanvas,
+  getDefaultPoseAngles,
+  buildCenteredFighterEntity,
+  getCosmeticLayers
+} from './cosmetic-render.js?v=1';
 
 const CONFIG = window.CONFIG || {};
 const GAME = (window.GAME ||= {});
@@ -313,191 +321,10 @@ class CosmeticEditorApp {
   }
 
   buildFullBodyPreviewApi(){
+    // Simplified implementation that delegates to the shared cosmetic-render module.
+    // This ensures the cosmetic editor uses the exact same rendering logic as the game.
+    // If render.js or sprites.js change, this preview will automatically use the updated logic.
     const app = this;
-    const STATE = {
-      initPromise: null
-    };
-
-    const ensureReady = ()=>{
-      if (!STATE.initPromise){
-        STATE.initPromise = Promise.resolve();
-      }
-      return STATE.initPromise;
-    };
-
-    const getPoseAngles = ()=>{
-      const pose = (window.CONFIG?.poses?.Stance) || {};
-      const keys = ['torso', 'head', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
-      const result = {};
-      keys.forEach((key)=>{
-        if (pose[key] != null){
-          result[key] = degToRad(pose[key]);
-        }
-      });
-      if (result.head == null && result.torso != null){
-        result.head = result.torso;
-      }
-      return result;
-    };
-
-    const translateBones = (bones, offsetX, offsetY)=>{
-      const adjusted = {};
-      for (const [key, bone] of Object.entries(bones || {})){
-        if (!bone) continue;
-        adjusted[key] = {
-          ...bone,
-          x: Number.isFinite(bone.x) ? bone.x + offsetX : bone.x,
-          y: Number.isFinite(bone.y) ? bone.y + offsetY : bone.y,
-          endX: Number.isFinite(bone.endX) ? bone.endX + offsetX : bone.endX,
-          endY: Number.isFinite(bone.endY) ? bone.endY + offsetY : bone.endY
-        };
-      }
-      return adjusted;
-    };
-
-    const translateHitbox = (hitbox, offsetX, offsetY)=>{
-      if (!hitbox) return hitbox;
-      return {
-        ...hitbox,
-        x: Number.isFinite(hitbox.x) ? hitbox.x + offsetX : hitbox.x,
-        y: Number.isFinite(hitbox.y) ? hitbox.y + offsetY : hitbox.y,
-        attachX: Number.isFinite(hitbox.attachX) ? hitbox.attachX + offsetX : hitbox.attachX,
-        attachY: Number.isFinite(hitbox.attachY) ? hitbox.attachY + offsetY : hitbox.attachY
-      };
-    };
-
-    const collectBounds = (bones, hitbox)=>{
-      const bounds = {
-        minX: Infinity,
-        maxX: -Infinity,
-        minY: Infinity,
-        maxY: -Infinity
-      };
-      Object.values(bones || {}).forEach((bone)=>{
-        if (!bone) return;
-        const points = [
-          [bone.x, bone.y],
-          [bone.endX, bone.endY]
-        ];
-        points.forEach(([x, y])=>{
-          if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-          bounds.minX = Math.min(bounds.minX, x);
-          bounds.maxX = Math.max(bounds.maxX, x);
-          bounds.minY = Math.min(bounds.minY, y);
-          bounds.maxY = Math.max(bounds.maxY, y);
-        });
-      });
-      if (hitbox){
-        const corners = [
-          [hitbox.x - hitbox.w / 2, hitbox.y - hitbox.h / 2],
-          [hitbox.x + hitbox.w / 2, hitbox.y + hitbox.h / 2]
-        ];
-        corners.forEach(([x, y])=>{
-          if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-          bounds.minX = Math.min(bounds.minX, x);
-          bounds.maxX = Math.max(bounds.maxX, x);
-          bounds.minY = Math.min(bounds.minY, y);
-          bounds.maxY = Math.max(bounds.maxY, y);
-        });
-      }
-      return bounds;
-    };
-
-    const buildEntity = (fighterName, width, height)=>{
-      if (!fighterName) return null;
-      const C = window.CONFIG || {};
-      const jointAngles = getPoseAngles();
-      const fighter = {
-        id: 'previewFighter',
-        renderProfile: { fighterName },
-        pos: { x: 0, y: 0 },
-        jointAngles,
-        facingSign: 1,
-        facingRad: 0
-      };
-      let result;
-      try {
-        result = computeAnchorsForFighter(fighter, C, fighterName);
-      } catch (err){
-        console.warn('[cosmetic-editor] Failed to compute stance rig', err);
-        return null;
-      }
-      if (!result?.B) return null;
-      const bounds = collectBounds(result.B, result.hitbox);
-      if (!Number.isFinite(bounds.minX) || !Number.isFinite(bounds.maxX)){
-        return null;
-      }
-      const centerX = (bounds.minX + bounds.maxX) / 2;
-      const bottomY = Number.isFinite(bounds.maxY) ? bounds.maxY : 0;
-      const targetX = width / 2;
-      const targetBottom = height * 0.9;
-      const offsetX = targetX - centerX;
-      const offsetY = targetBottom - bottomY;
-      const adjustedBones = translateBones(result.B, offsetX, offsetY);
-      const adjustedHitbox = translateHitbox(result.hitbox, offsetX, offsetY);
-      return {
-        id: 'previewEntity',
-        fighterName: result.fighterName || fighterName,
-        bones: adjustedBones,
-        flipLeft: !!result.flipLeft,
-        hitbox: adjustedHitbox,
-        centerX: adjustedHitbox?.x ?? targetX,
-        profile: { fighterName }
-      };
-    };
-
-    const configureCanvas = (canvas)=>{
-      const rect = canvas.getBoundingClientRect();
-      const width = Math.max(120, Math.round(rect.width || 260));
-      const height = Math.max(220, Math.round(rect.height || 320));
-      const dpr = window.devicePixelRatio || 1;
-      const scaledWidth = Math.max(1, Math.round(width * dpr));
-      const scaledHeight = Math.max(1, Math.round(height * dpr));
-      if (canvas.width !== scaledWidth){
-        canvas.width = scaledWidth;
-      }
-      if (canvas.height !== scaledHeight){
-        canvas.height = scaledHeight;
-      }
-      return { width, height, dpr };
-    };
-
-    const draw = async (canvas, fighterName, overrides)=>{
-      await ensureReady();
-      const ctx = canvas.getContext('2d');
-      if (!ctx){
-        return;
-      }
-      const { width, height, dpr } = configureCanvas(canvas);
-      const entity = buildEntity(fighterName, width, height);
-      const GAME = (window.GAME ||= {});
-      if (!entity){
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'rgba(148,163,184,0.65)';
-        ctx.font = '12px system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Unable to render fighter preview', canvas.width / 2, canvas.height / 2);
-        ctx.restore();
-        return;
-      }
-      GAME.CAMERA = { x: 0, zoom: 1, worldWidth: width };
-      GAME.RENDER_STATE = { entities: [entity] };
-      GAME.ANCHORS_OBJ = { [entity.id]: entity.bones };
-      GAME.FLIP_STATE = { [entity.id]: entity.flipLeft };
-      GAME.selectedFighter = fighterName;
-      const overridesClone = app.deepClone(overrides || {});
-      GAME.editorState = { slotOverrides: overridesClone };
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.restore();
-      ctx.save();
-      ctx.scale(dpr, dpr);
-      renderSprites(ctx);
-      ctx.restore();
-    };
 
     return {
       renderInto(container, fighterName, overrides){
@@ -508,14 +335,18 @@ class CosmeticEditorApp {
         const canvas = document.createElement('canvas');
         canvas.className = 'full-body-preview__canvas';
         container.appendChild(canvas);
-        draw(canvas, fighterName, overrides).catch((err)=>{
+        
+        try {
+          // Use the shared rendering utility that delegates to render.js and sprites.js
+          renderFighterPreview(canvas, fighterName, overrides || {});
+        } catch (err) {
           console.warn('[cosmetic-editor] Failed to render stance preview', err);
           container.innerHTML = '';
           const note = document.createElement('p');
           note.className = 'part-preview__empty-note';
           note.textContent = 'Full body preview unavailable.';
           container.appendChild(note);
-        });
+        }
       }
     };
   }
@@ -2693,53 +2524,43 @@ class CosmeticEditorApp {
 
     const stage = document.createElement('div');
     stage.className = 'part-preview__stage';
-    const stack = document.createElement('div');
-    stack.className = 'part-preview__stack';
-    stage.appendChild(stack);
-
-    let hasImage = false;
-    resolvedLayers.forEach((layer, index)=>{
-      const url = layer?.asset?.url;
-      if (!url) return;
-      hasImage = true;
-      const img = document.createElement('img');
-      img.className = 'part-preview__layer';
-      if (index === 0){
-        img.classList.add('part-preview__layer--base');
+    
+    // Use canvas-based rendering that matches the game's rendering logic
+    // This ensures the preview looks exactly like it would in-game
+    const fighterName = this.state.activeFighter;
+    const hasLayers = resolvedLayers.some(layer => layer?.asset?.url);
+    
+    if (hasLayers && fighterName) {
+      // Create a canvas for game-accurate rendering
+      const canvas = document.createElement('canvas');
+      canvas.className = 'part-preview__canvas';
+      stage.appendChild(canvas);
+      
+      // Render using the game's rendering system
+      try {
+        const overrides = this.deepClone(this.state.slotOverrides || {});
+        renderPartPreview(canvas, fighterName, partKey, resolvedLayers, overrides, {
+          position: position
+        });
+      } catch (err) {
+        console.warn('[cosmetic-editor] Canvas render failed, falling back to img stack', err);
+        // Fall back to img-based rendering if canvas fails
+        this.buildPartPoseImgFallback(stage, resolvedLayers, library, partKey);
       }
-      img.src = url;
-      const slot = layer.slot || '';
-      const cosmeticId = layer.cosmeticId || '';
-      const displayName = library?.[cosmeticId]?.name
-        || library?.[cosmeticId]?.displayName
-        || library?.[cosmeticId]?.label
-        || cosmeticId;
-      img.alt = cosmeticId
-        ? `${displayName} applied to ${partKey}`
-        : `${partKey} sprite`;
-      const filter = this.buildTintFilter(layer.hsl);
-      if (filter && filter !== 'none'){
-        img.style.filter = filter;
-      }
-      const transform = this.buildLayerTransformDescriptor(layer);
-      if (transform?.css){
-        img.style.transformOrigin = 'center center';
-        img.style.transform = transform.css;
-      } else {
-        img.style.removeProperty('transform');
-      }
-      stack.appendChild(img);
-    });
+    } else {
+      // No layers to render
+      const emptyNote = document.createElement('span');
+      emptyNote.className = 'part-preview__empty-note';
+      emptyNote.textContent = 'No layers';
+      stage.appendChild(emptyNote);
+      section.dataset.empty = 'true';
+    }
 
     if (this.modeManager.resolveModeKey(this.state.activeMode) === 'draping'){
       const overlay = this.buildDrapeOverlay(resolvedLayers, library, partKey);
       if (overlay){
         stage.appendChild(overlay);
       }
-    }
-
-    if (!hasImage){
-      section.dataset.empty = 'true';
     }
 
     section.appendChild(stage);
@@ -2791,6 +2612,44 @@ class CosmeticEditorApp {
     }
 
     return section;
+  }
+
+  // Fallback img-based rendering for when canvas rendering fails
+  buildPartPoseImgFallback(stage, resolvedLayers, library, partKey){
+    const stack = document.createElement('div');
+    stack.className = 'part-preview__stack';
+    stage.appendChild(stack);
+
+    resolvedLayers.forEach((layer, index)=>{
+      const url = layer?.asset?.url;
+      if (!url) return;
+      const img = document.createElement('img');
+      img.className = 'part-preview__layer';
+      if (index === 0){
+        img.classList.add('part-preview__layer--base');
+      }
+      img.src = url;
+      const cosmeticId = layer.cosmeticId || '';
+      const displayName = library?.[cosmeticId]?.name
+        || library?.[cosmeticId]?.displayName
+        || library?.[cosmeticId]?.label
+        || cosmeticId;
+      img.alt = cosmeticId
+        ? `${displayName} applied to ${partKey}`
+        : `${partKey} sprite`;
+      const filter = this.buildTintFilter(layer.hsl);
+      if (filter && filter !== 'none'){
+        img.style.filter = filter;
+      }
+      const transform = this.buildLayerTransformDescriptor(layer);
+      if (transform?.css){
+        img.style.transformOrigin = 'center center';
+        img.style.transform = transform.css;
+      } else {
+        img.style.removeProperty('transform');
+      }
+      stack.appendChild(img);
+    });
   }
 
   buildFullBodyPreview(layers = [], library, fighterName){
