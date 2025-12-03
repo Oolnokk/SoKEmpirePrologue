@@ -16,8 +16,8 @@
           "head": {
             "ax": -0.5, 
             "ay": 0, 
-            "scaleX": 3, 
-            "scaleY": 3,
+            "scaleX": 3.1, 
+            "scaleY": 3.1,
             "rotDeg": 0
           }
         }
