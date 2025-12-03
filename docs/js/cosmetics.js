@@ -106,6 +106,10 @@ export const COSMETIC_SLOTS = [
   'hair'
 ];
 
+export const COSMETIC_LAYER_ROLES = ['exposed', 'layer0', 'layer1', 'layer2', 'overlay'];
+const CLOTHING_LAYER_ROLES = COSMETIC_LAYER_ROLES.filter((role) => role.startsWith('layer'));
+const DEFAULT_CLOTHING_LAYER_ROLE = 'layer1';
+
 const APPEARANCE_SLOT_PREFIX = 'appearance:';
 const APPEARANCE_ID_PREFIX = 'appearance::';
 
@@ -645,6 +649,74 @@ function normalizeLayerPosition(value, fallback = 'front'){
   return fallback;
 }
 
+function normalizeLayerRole(value, fallback = DEFAULT_CLOTHING_LAYER_ROLE){
+  if (value === false || value === null || value === undefined){
+    return fallback;
+  }
+  const raw = typeof value === 'string' ? value.trim().toLowerCase() : value;
+  if (raw === 'exposed' || raw === 'expose' || raw === 'skin'){
+    return 'exposed';
+  }
+  if (raw === 'overlay' || raw === 'fx' || raw === 'effect'){
+    return 'overlay';
+  }
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)){
+    const idx = clamp(numeric, 0, CLOTHING_LAYER_ROLES.length - 1);
+    return CLOTHING_LAYER_ROLES[idx];
+  }
+  if (typeof raw === 'string'){
+    const compact = raw.replace(/[^a-z0-9]/g, '');
+    if (compact === 'inner' || compact === 'under' || compact === 'below' || compact === 'bottom' || compact === 'layer0'){
+      return 'layer0';
+    }
+    if (compact === 'outer' || compact === 'over' || compact === 'top' || compact === 'layer2'){
+      return 'layer2';
+    }
+    if (compact === 'overlay') return 'overlay';
+    if (compact === 'exposed' || compact === 'skin') return 'exposed';
+    if (compact === 'mid' || compact === 'middle' || compact === 'layer1'){
+      return 'layer1';
+    }
+  }
+  return fallback;
+}
+
+function isClothingLayerRole(role){
+  return CLOTHING_LAYER_ROLES.includes(role);
+}
+
+function ensureClothingLayerPadding(layers, basePosition, attachBone, drawSlot, baseRole = DEFAULT_CLOTHING_LAYER_ROLE){
+  const positions = new Set();
+  for (const layer of layers){
+    positions.add(layer.position || basePosition);
+  }
+  if (!positions.size){
+    positions.add(basePosition);
+  }
+  for (const position of positions){
+    const existing = new Set(layers
+      .filter((layer)=> (layer.position || basePosition) === position)
+      .map((layer)=> layer.layerRole)
+      .filter(isClothingLayerRole));
+    for (const role of CLOTHING_LAYER_ROLES){
+      if (existing.has(role)) continue;
+      layers.push({
+        position,
+        layerRole: role,
+        config: null,
+        attachBone,
+        drawSlot,
+        placeholder: true
+      });
+    }
+    if (!existing.size && baseRole && !existing.has(baseRole) && CLOTHING_LAYER_ROLES.includes(baseRole)){
+      existing.add(baseRole);
+    }
+  }
+  return layers;
+}
+
 function normalizeRotationLayerRange(raw = {}){
   if (!raw || typeof raw !== 'object') return null;
   const layer = typeof raw.layer === 'string'
@@ -735,6 +807,7 @@ function mergePartLayerBase(baseConfig = {}, override = {}){
 
 function resolvePartLayers(partKey, partConfig = {}, fighterName, cosmeticId){
   const basePosition = normalizeLayerPosition(partConfig.position || partConfig.layerPosition, 'front');
+  const baseLayerRole = normalizeLayerRole(partConfig.layerRole || partConfig.layerSlot || partConfig.layer, DEFAULT_CLOTHING_LAYER_ROLE);
   const {
     layers: rawLayers,
     layerPosition: _ignoredLayerPosition,
@@ -749,25 +822,31 @@ function resolvePartLayers(partKey, partConfig = {}, fighterName, cosmeticId){
     const resolved = resolvePartConfig(baseConfig, fighterName, cosmeticId, partKey);
     layers.push({
       position: basePosition,
+      layerRole: baseLayerRole,
       config: resolved,
       attachBone: partConfig.attachBone,
       drawSlot: partConfig.drawSlot
     });
-    return layers;
+    return ensureClothingLayerPadding(layers, basePosition, partConfig.attachBone, partConfig.drawSlot, baseLayerRole);
   }
   for (const [key, layerOverride] of layerEntries){
     if (!layerOverride || typeof layerOverride !== 'object') continue;
     const position = normalizeLayerPosition(layerOverride.position || key, basePosition);
+    const layerRole = normalizeLayerRole(
+      layerOverride.layerRole || layerOverride.layerSlot || layerOverride.layer,
+      baseLayerRole
+    );
     const mergedRaw = mergePartLayerBase(deepMerge({}, baseConfig), layerOverride);
     const resolved = resolvePartConfig(mergedRaw, fighterName, cosmeticId, partKey);
     layers.push({
       position,
+      layerRole,
       config: resolved,
       attachBone: layerOverride.attachBone,
       drawSlot: layerOverride.drawSlot
     });
   }
-  return layers;
+  return ensureClothingLayerPadding(layers, basePosition, partConfig.attachBone, partConfig.drawSlot, baseLayerRole);
 }
 
 function ensureAsset(cosmeticId, partKey, imageCfg, layerPosition){
@@ -795,13 +874,21 @@ function ensureAsset(cosmeticId, partKey, imageCfg, layerPosition){
   return asset;
 }
 
-export function cosmeticTagFor(baseTag, slot, position){
+export function cosmeticTagFor(baseTag, slot, position, layerRole){
   const base = `${String(baseTag || '').toUpperCase()}__COS__${String(slot || '').toUpperCase()}`;
   const pos = position == null ? null : String(position).trim().toUpperCase();
-  if (!pos || pos === 'FRONT'){
+  const normalizedRole = layerRole ? String(layerRole).trim().toUpperCase() : '';
+  const suffixParts = [];
+  if (pos && pos !== 'FRONT'){
+    suffixParts.push(pos);
+  }
+  if (normalizedRole){
+    suffixParts.push(normalizedRole);
+  }
+  if (!suffixParts.length){
     return base;
   }
-  return `${base}__${pos}`;
+  return `${base}__${suffixParts.join('__')}`;
 }
 
 function normalizeEquipment(slotEntry){
@@ -921,9 +1008,10 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
       const partLayers = resolvePartLayers(partKey, partConfig, fighterName, cosmetic.id);
       if (!Array.isArray(partLayers) || partLayers.length === 0) continue;
       const partOverride = slotOverride?.parts?.[partKey];
-      for (const { position, config: baseLayerConfig, attachBone, drawSlot } of partLayers){
+      for (const { position, config: baseLayerConfig, attachBone, drawSlot, layerRole } of partLayers){
         if (!baseLayerConfig) continue;
         const layerPosition = position || 'front';
+        const resolvedLayerRole = normalizeLayerRole(layerRole, DEFAULT_CLOTHING_LAYER_ROLE);
         const resolved = {
           ...baseLayerConfig,
           image: baseLayerConfig.image ? deepMerge({}, baseLayerConfig.image) : baseLayerConfig.image,
@@ -1036,6 +1124,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           slot,
           partKey,
           position: layerPosition,
+          layerRole: resolvedLayerRole,
           cosmeticId: cosmetic.id,
           asset,
           hsl,
