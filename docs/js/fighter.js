@@ -466,19 +466,47 @@ export function initFighters(cv, cx, options = {}){
         ? spawner.position
         : { x: spawner.x ?? 0, y: spawner.y ?? 0 };
       const spawnRadius = Math.max(0, Math.min(Number(spawner.spawnRadius ?? spawner.radius ?? 0) || 0, 5000));
-      const countRaw = Math.round(Number(spawner.count ?? spawner.maxCount ?? 1) || 1);
-      const count = countRaw > 0 ? Math.min(countRaw, 50) : 1;
-      entries.push({
-        spawnerId,
-        position: { x: position.x ?? 0, y: position.y ?? 0 },
-        spawnRadius,
-        count,
-        respawn: spawner.respawn !== false && !!spawner.respawn,
-        templateId: spawner.templateId || spawner.characterId || null,
-        characterId: spawner.characterId || null,
-        activeIds: new Set(),
-        hasInitialized: false,
-      });
+
+      // Handle group-based spawning
+      const groupId = spawner.groupId;
+      if (groupId && C.npcGroups && C.npcGroups[groupId]) {
+        const group = C.npcGroups[groupId];
+        const members = Array.isArray(group.members) ? group.members : [];
+        members.forEach((member, memberIndex) => {
+          const memberCount = Math.max(1, Math.min(Number(member.count) || 1, 50));
+          const memberTemplateId = member.templateId || member.characterId || null;
+          if (memberTemplateId) {
+            entries.push({
+              spawnerId: `${spawnerId}_member_${memberIndex}`,
+              position: { x: position.x ?? 0, y: position.y ?? 0 },
+              spawnRadius,
+              count: memberCount,
+              respawn: spawner.respawn !== false && !!spawner.respawn,
+              templateId: memberTemplateId,
+              characterId: memberTemplateId,
+              groupId: groupId,
+              groupMeta: group,
+              activeIds: new Set(),
+              hasInitialized: false,
+            });
+          }
+        });
+      } else {
+        // Handle individual template spawning
+        const countRaw = Math.round(Number(spawner.count ?? spawner.maxCount ?? 1) || 1);
+        const count = countRaw > 0 ? Math.min(countRaw, 50) : 1;
+        entries.push({
+          spawnerId,
+          position: { x: position.x ?? 0, y: position.y ?? 0 },
+          spawnRadius,
+          count,
+          respawn: spawner.respawn !== false && !!spawner.respawn,
+          templateId: spawner.templateId || spawner.characterId || null,
+          characterId: spawner.characterId || null,
+          activeIds: new Set(),
+          hasInitialized: false,
+        });
+      }
     }
     return entries;
   }

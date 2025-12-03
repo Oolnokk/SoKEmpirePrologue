@@ -2191,5 +2191,20 @@ const buildPresets = () => {
   try { document.dispatchEvent(new Event('config:ready')); } catch(_){}
 };
 
+// NPC Groups - Define spawn groups with multiple members
+CONFIG.npcGroups = {
+  city_guard_patrol: {
+    name: 'City Watch Patrol',
+    faction: 'citywatch',
+    interests: ['patrol-point', 'gate', 'barracks'],
+    exitTags: ['map-exit:left', 'map-exit:right'],
+    exitWeights: { 'map-exit:left': 2, 'map-exit:right': 1 },
+    members: [
+      { templateId: 'citywatch_watchman', count: 3 }
+    ],
+    meta: { role: 'patrol' }
+  }
+};
+
   buildPresets();
 })();
