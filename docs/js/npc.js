@@ -1990,29 +1990,37 @@ function updateNpcPassiveHeadTracking(state, player) {
   aim.headWorldTarget = withinLimits ? worldAim : null;
 }
 
-  function updateNpcAiming(state, player, { aggressionActive } = {}) {
-    const aim = ensureAimState(state);
-    const aggression = ensureNpcAggressionState(state);
-    const isAggressive = aggressionActive ?? aggression.active;
+function updateNpcAiming(state, player, { aggressionActive, movementActive = false } = {}) {
+  const aim = ensureAimState(state);
+  const aggression = ensureNpcAggressionState(state);
+  const isAggressive = aggressionActive ?? aggression.active;
 
-    if (!isAggressive || state.nonCombatRagdoll) {
-      aim.active = false;
-      aim.torsoOffset = 0;
-      aim.shoulderOffset = 0;
-      aim.hipOffset = 0;
-      aim.headWorldTarget = null;
-      aim.headTrackingOnly = false;
+  if (!isAggressive || state.nonCombatRagdoll) {
+    if (movementActive) {
+      resetNpcAimingOffsets(aim);
       return;
+    }
+    aim.active = false;
+    aim.torsoOffset = 0;
+    aim.shoulderOffset = 0;
+    aim.hipOffset = 0;
+    aim.headWorldTarget = null;
+    aim.headTrackingOnly = false;
+    return;
   }
   if (!player) {
     resetNpcAimingOffsets(aim);
     return;
   }
 
-    if (!aggression.active) {
-      updateNpcPassiveHeadTracking(state, player);
+  if (!aggression.active) {
+    if (movementActive) {
+      resetNpcAimingOffsets(aim);
       return;
     }
+    updateNpcPassiveHeadTracking(state, player);
+    return;
+  }
 
   const dx = (player.pos?.x ?? state.pos.x) - state.pos.x;
   const dy = (player.pos?.y ?? state.pos.y) - state.pos.y;
@@ -2235,7 +2243,10 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
         aggression.wakeTimer = 0;
       }
     }
-    updateNpcAiming(state, player, { aggressionActive: aggression.active });
+    state.nonCombatRagdoll = false;
+    const movementIntent = !!(input.left || input.right);
+    const movementActive = movementIntent || Math.abs(state.vel?.x || 0) > 1 || Math.abs(state.vel?.y || 0) > 1;
+    updateNpcAiming(state, player, { aggressionActive: aggression.active, movementActive });
     updateDashTrail(visuals, state, dt);
     updateNpcAttackTrail(visuals, state, dt);
     regenerateStamina(state, dt);
@@ -2278,7 +2289,6 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   const pathTarget = !aggression.active && !isFollower ? resolveNpcPathTarget(state, activeArea) : null;
 
   if (!aggression.active) {
-    state.nonCombatRagdoll = !state.ragdoll && !state.recovering;
     if (combo) {
       combo.active = false;
       combo.sequenceIndex = 0;
@@ -2363,8 +2373,6 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       stamina.exhaustionCount = 0;
       stamina.prev = Number.isFinite(stamina.current) ? stamina.current : stamina.prev;
     }
-  } else {
-    state.nonCombatRagdoll = false;
   }
 
   const primaryTargetX = pathTarget?.goalX ?? (player.pos?.x ?? state.pos.x);
@@ -2588,12 +2596,16 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.pos.x = clamp(state.pos.x, playableBounds.left, playableBounds.right);
   }
 
+  const movementIntent = !!(input.left || input.right);
+  const movementActive = movementIntent || Math.abs(state.vel?.x || 0) > 1 || Math.abs(state.vel?.y || 0) > 1;
+  state.nonCombatRagdoll = !aggression.active && !state.ragdoll && !state.recovering && !movementActive;
+
   state.facingRad = dx >= 0 ? 0 : Math.PI;
 
   regenerateStamina(state, dt);
   updateDashTrail(visuals, state, dt);
   updateNpcAttackTrail(visuals, state, dt);
-  updateNpcAiming(state, player, { aggressionActive: aggression.active });
+  updateNpcAiming(state, player, { aggressionActive: aggression.active, movementActive });
 }
 
 function updateNpcHud(G) {
