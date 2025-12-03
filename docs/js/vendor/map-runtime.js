@@ -1180,6 +1180,45 @@ function normalizeAreaDescriptor(area, options = {}) {
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
   const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets);
 
+  // Collect POIs from behavior metadata and colliders
+  const behaviorMeta = area.meta && typeof area.meta.behavior === 'object' && area.meta.behavior
+    ? area.meta.behavior
+    : {};
+  const poisFromMeta = Array.isArray(behaviorMeta.pois) ? behaviorMeta.pois : [];
+  const normalizedPoisFromMeta = poisFromMeta.map((poi) => {
+    if (!poi || typeof poi !== 'object') return null;
+    const bounds = poi.bounds && typeof poi.bounds === 'object' ? poi.bounds : {};
+    const left = toNumber(bounds.left, 0);
+    const width = toNumber(bounds.width, 100);
+    const topOffset = toNumber(bounds.top ?? bounds.topOffset, 0);
+    const height = toNumber(bounds.height, 100);
+    const right = toNumber(bounds.right, left + width);
+    const bottom = toNumber(bounds.bottom, topOffset + height);
+    return {
+      id: poi.id || null,
+      name: poi.name || 'poi',
+      label: poi.label || poi.name || 'POI',
+      type: poi.type || 'box',
+      bounds: { left, width, right, topOffset, height, bottom },
+      tags: Array.isArray(poi.tags) ? poi.tags : [],
+      meta: poi.meta && typeof poi.meta === 'object' ? safeClone(poi.meta) : {},
+    };
+  }).filter(Boolean);
+
+  const poisFromColliders = collectPois(alignedColliders, warnings);
+  const mergedPois = [];
+  const mergedById = new Map();
+  const addPoi = (poi) => {
+    if (!poi) return;
+    const id = poi.id || null;
+    if (id && mergedById.has(id)) return;
+    if (id) mergedById.set(id, poi);
+    mergedPois.push(poi);
+  };
+  normalizedPoisFromMeta.forEach(addPoi);
+  poisFromColliders.forEach(addPoi);
+  const poiIndex = buildPoiIndex(mergedPois);
+
   return {
     id: areaId,
     name: areaName,
@@ -1199,6 +1238,9 @@ function normalizeAreaDescriptor(area, options = {}) {
     spawners,
     spawnersById: buildSpawnerIndex(spawners),
     colliders: alignedColliders,
+    pois: mergedPois,
+    poisById: poiIndex.byId,
+    poisByName: poiIndex.byName,
     drumSkins: convertedDrumSkins,
     playableBounds,
     warnings,
