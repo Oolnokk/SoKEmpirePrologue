@@ -1153,7 +1153,7 @@ window.CONFIG = {
     },
     'Mao-ao_F': {
       actor: { scale: 0.9 },
-      parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:55 }, arm:{ upper:35, lower:50 }, leg:{ upper:40, lower:40 }, head:{ neck:10, radius:12 } },
+      parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:50 }, arm:{ upper:30, lower:45 }, leg:{ upper:35, lower:35 }, head:{ neck:10, radius:12 } },
       hierarchy: { legsFollowTorsoRotation: false },
       footsteps: {
         type: 'cat-foot',
