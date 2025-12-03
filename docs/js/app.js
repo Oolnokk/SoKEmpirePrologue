@@ -1333,7 +1333,7 @@ if (reloadBtn){
       ensureAltSequenceUsesKickAlt();
       applyRenderOrder();
       await initSprites();
-      initFighters(cv, cx);
+      initFighters(cv, cx, { spawnNpc: false });
       initSelectionDropdowns();
       if (previousFighter) {
         requestFighterPreview(previousFighter);
@@ -1898,7 +1898,7 @@ async function loadFighterSettings(fighterName) {
     await initSprites();
     
     // Reinit fighters
-    initFighters(cv, cx);
+    initFighters(cv, cx, { spawnNpc: false });
     initNpcSystems();
     
     // Reinit presets
@@ -1975,7 +1975,7 @@ async function reinitializeFighter(fighterName) {
     await initSprites();
     
     // Reinit fighters (this resets them to default STANCE)
-    initFighters(cv, cx);
+    initFighters(cv, cx, { spawnNpc: false });
     initNpcSystems();
     
     // Reinit presets
@@ -4397,7 +4397,7 @@ function boot(){
     if (statusInfo) statusInfo.textContent = 'Booted';
     initPresets();
     ensureAltSequenceUsesKickAlt();
-    initFighters(cv, cx);
+    initFighters(cv, cx, { spawnNpc: false });
     initNpcSystems();
     initBountySystem();
     initControls();
