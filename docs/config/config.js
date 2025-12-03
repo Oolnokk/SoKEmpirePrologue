@@ -1139,6 +1139,9 @@ window.CONFIG = {
           parts: ['head']
         }
       ],
+      exposedParts: {
+        ear: true,
+      },
       bodyColors: {
         A: { h: -90, s: 0.5, v: -0.2 },
         B: { h: -24, s: 0.58, v: 0.05 },
@@ -1193,10 +1196,13 @@ window.CONFIG = {
         {
           url: "./assets/fightersprites/mao-ao-f/untinted_regions/ur-head.png",
           parts: ['head'],
-		  url: "./assets/fightersprites/mao-ao-f/untinted_regions/ur-torso.png",
+                  url: "./assets/fightersprites/mao-ao-f/untinted_regions/ur-torso.png",
           parts: ['torso']
         }
       ],
+      exposedParts: {
+        ear: true,
+      },
       bodyColors: {
         A: { h: -90, s: 0.5, v: -0.2 },
         B: { h: -24, s: 0.58, v: 0.05 },
