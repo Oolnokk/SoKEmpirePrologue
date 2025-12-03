@@ -427,6 +427,32 @@ function resolveAppearanceBaseHSL(equipped = {}, cosmetic = {}, bodyColors = {})
   return fallback ? deepMerge({}, fallback) : { h: 0, s: 0, l: 0 };
 }
 
+function normalizePaletteKey(value){
+  const key = String(value || '').trim().toUpperCase();
+  return key || null;
+}
+
+function buildCosmeticPalette(equipped = {}, bodyColors = {}){
+  const paletteOrder = ['A', 'B', 'C'];
+  const letters = ensureArray(equipped.palette || equipped.colors || []);
+  const resolved = {};
+  for (let i = 0; i < paletteOrder.length; i += 1){
+    const requested = normalizePaletteKey(letters[i]) || paletteOrder[i];
+    const tint = bodyColors[requested];
+    if (tint){
+      resolved[paletteOrder[i]] = deepMerge({}, tint);
+    }
+  }
+  if (!Object.keys(resolved).length){
+    for (const key of paletteOrder){
+      if (bodyColors[key]){
+        resolved[key] = deepMerge({}, bodyColors[key]);
+      }
+    }
+  }
+  return resolved;
+}
+
 function addHSL(base = {}, adjustment = {}){
   return {
     h: (Number(base.h) || 0) + (Number(adjustment.h) || 0),
@@ -825,6 +851,7 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
     position: _ignoredPosition,
     attachBone,
     drawSlot,
+    tintTarget,
     ...cleanConfig
   } = partConfig || {};
 
@@ -836,6 +863,7 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
   const dynamicLayerByBoneRotation = cleanConfig.dynamicLayerByBoneRotation;
   let extra = (cleanConfig.extra && typeof cleanConfig.extra === 'object') ? deepMerge({}, cleanConfig.extra) : (cleanConfig.extra || {});
   let styleKey = cleanConfig.styleKey || cleanConfig.style || cleanConfig.styleName;
+  let resolvedTintTarget = normalizePaletteKey(tintTarget || cleanConfig.tintSlot || cleanConfig.paletteSlot || cleanConfig.tint);
   const profileOverrides = getProfilePartOverrides(fighterName, cosmeticId, partKey);
   if (profileOverrides){
     imageCfg = mergeConfig(imageCfg, profileOverrides.image);
@@ -847,6 +875,9 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
     if (profileOverrides.styleKey != null){
       styleKey = profileOverrides.styleKey;
     }
+    if (profileOverrides.tintTarget != null || profileOverrides.tint != null){
+      resolvedTintTarget = normalizePaletteKey(profileOverrides.tintTarget ?? profileOverrides.tint);
+    }
   }
 
   return {
@@ -857,6 +888,7 @@ function resolvePartConfig(partConfig = {}, fighterName, cosmeticId, partKey){
     align: alignCfg,
     styleKey,
     extra: extra,
+    tintTarget: resolvedTintTarget,
     attachBone,
     drawSlot,
     dynamicLayerByBoneRotation
@@ -1091,11 +1123,13 @@ function normalizeEquipment(slotEntry){
   const hsl = slotEntry.hsl || slotEntry.hsv || slotEntry.tone || {};
   const fighterOverrides = slotEntry.fighterOverrides || {};
   const colors = ensureArray(slotEntry.colors || slotEntry.bodyColors || slotEntry.appearanceColors);
+  const palette = ensureArray(slotEntry.palette || slotEntry.colors).slice(0, 3).map(normalizePaletteKey).filter(Boolean);
   return {
     id,
     hsl,
     fighterOverrides,
-    colors: colors.length ? colors : undefined
+    colors: colors.length ? colors : undefined,
+    palette: palette.length ? palette : undefined
   };
 }
 
@@ -1206,6 +1240,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
       const partLayers = resolvePartLayers(partKey, partConfig, fighterName, cosmetic.id);
       if (!Array.isArray(partLayers) || partLayers.length === 0) continue;
       const partOverride = slotOverride?.parts?.[partKey];
+      const palette = buildCosmeticPalette(equipped, bodyColors);
       for (const { position, config: baseLayerConfig, attachBone, drawSlot, layerRole } of partLayers){
         if (!baseLayerConfig) continue;
         const layerPosition = position || 'front';
@@ -1233,6 +1268,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
         let styleKey = resolved.styleKey;
         let layerExtra = resolved.extra ? deepMerge({}, resolved.extra) : {};
         let paletteOverride = resolved.palette ? deepMerge({}, resolved.palette) : resolved.palette;
+        let tintTarget = resolved.tintTarget;
         let hsl = isAppearance ? { ...slotHSL } : { ...slotHSL };
 
         const applyOverrides = (override, { applyTint = true } = {})=>{
@@ -1254,6 +1290,9 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           }
           if (override.styleKey != null){
             styleKey = override.styleKey;
+          }
+          if (override.tintTarget != null || override.tint != null || override.tintSlot != null || override.paletteSlot != null){
+            tintTarget = normalizePaletteKey(override.tintTarget ?? override.tint ?? override.tintSlot ?? override.paletteSlot);
           }
           if (applyTint && override.hsl){
             if (isAppearance){
@@ -1363,6 +1402,8 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           styleKey,
           palette: paletteOverride,
           extra: layerExtra,
+          tintTarget,
+          cosmeticPalette: palette,
           attachBone, // <== Pass through
           drawSlot,   // <== Pass through
           dynamicLayerByBoneRotation

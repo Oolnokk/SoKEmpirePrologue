@@ -1137,6 +1137,26 @@ export function renderSprites(ctx){
       };
     }
 
+    function normalizePaletteKey(value){
+      const key = String(value || '').trim().toUpperCase();
+      return key || null;
+    }
+
+    function resolveCosmeticPaletteTint(layer){
+      if (!layer?.cosmeticPalette) return null;
+      const palette = layer.cosmeticPalette;
+      const preferred = normalizePaletteKey(layer.tintTarget);
+      if (preferred && palette[preferred]){
+        return { ...palette[preferred] };
+      }
+      const order = ['A', 'B', 'C'];
+      for (const key of order){
+        if (palette[key]) return { ...palette[key] };
+      }
+      const first = Object.values(palette)[0];
+      return first ? { ...first } : null;
+    }
+
     function drawAppearanceLayers(partKey, bone, fallbackStyleKey, phase){
       const branch = appearanceLayers?.[partKey];
       if (!branch) return;
@@ -1149,7 +1169,9 @@ export function renderSprites(ctx){
           if (!layer?.asset) continue;
           const styleKey = layer.styleKey || fallbackStyleKey || layer.partKey;
           const baseTint = makeTintOptions(layer.asset);
-          const mergedTint = mergeTintOptions(baseTint?.hsl, layer.hsl ?? layer.hsv);
+          const paletteTint = resolveCosmeticPaletteTint(layer);
+          const overrideTint = mergeTintOptions(paletteTint, layer.hsl ?? layer.hsv);
+          const mergedTint = mergeTintOptions(baseTint?.hsl, overrideTint);
           const influences = resolveCosmeticBoneInfluences(layer.extra?.boneInfluences, rig, layer.partKey);
           const baseOptions = {
             styleOverride: layer.styleOverride,
@@ -1381,9 +1403,11 @@ export function renderSprites(ctx){
         const styleKey = layer.styleKey || boneKey;
         const { mirror, originX } = resolveCosmeticMirror(mirrorState, rig, drawSlotKey, bone);
         const influences = resolveCosmeticBoneInfluences(layer.extra?.boneInfluences, rig, boneKey);
+        const paletteTint = resolveCosmeticPaletteTint(layer);
+        const mergedLayerTint = mergeTintOptions(paletteTint, layer.hsl ?? layer.hsv);
         const baseOptions = {
           styleOverride: layer.styleOverride,
-          hsl: layer.hsl ?? layer.hsv,
+          hsl: mergedLayerTint,
           warp: layer.warp,
           alignRad: layer.alignRad,
           alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
