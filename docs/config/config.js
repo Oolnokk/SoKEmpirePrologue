@@ -1671,7 +1671,7 @@ window.CONFIG = {
       },
       appearance: {
         slots: {
-          head_hair: { id: 'mao-ao_shoulder_length_drape', colors: ['B'] },
+          head_hair: { id: 'mao-ao_shoulder_length_drape', colors: ['A'] },
           facial_hair: {},
           eyes: { id: 'mao-ao_circled_eyes', colors: ['B'] }
         }
