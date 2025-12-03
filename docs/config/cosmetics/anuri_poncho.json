@@ -24,19 +24,11 @@
             "colors": ["A"]
           },
           "attachBone": "torso",
-          "drawSlot": "head",
-          "dynamicLayerByBoneRotation": {
-            "bone": "arm_R_upper",
-            "initialLayer": "arm_R_upper",
-            "ranges": [
-              { "minDeg": 181, "maxDeg": 360, "layer": "head" },
-              { "minDeg": 0, "maxDeg": 180, "layer": "arm_R_upper" }
-            ]
-          },
+          "drawSlot": "torso",
           "spriteStyle": {
             "base": {
               "xform": {
-                "torso": { "ax": 0, "ay": 0, "scaleX": 2, "scaleY": 2 }
+                "torso": { "ax": 0, "ay": -0.2, "scaleX": 2, "scaleY": 2 }
               }
             }
           }
@@ -49,18 +41,10 @@
           },
           "attachBone": "torso",
           "drawSlot": "head",
-          "dynamicLayerByBoneRotation": {
-            "bone": "arm_R_upper",
-            "initialLayer": "head",
-            "ranges": [
-              { "minDeg": 181, "maxDeg": 360, "layer": "arm_R_upper" },
-              { "minDeg": 0, "maxDeg": 180, "layer": "head" }
-            ]
-          },
           "spriteStyle": {
             "base": {
               "xform": {
-                "torso": { "ax": 0, "ay": 0, "scaleX": 2, "scaleY": 2 }
+                "torso": { "ax": 0, "ay": -0.2, "scaleX": 2, "scaleY": 2 }
               }
             }
           }
@@ -73,55 +57,10 @@
           },
           "attachBone": "torso",
           "drawSlot": "head",
-          "dynamicLayerByBoneRotation": {
-            "bone": "arm_R_upper",
-            "initialLayer": "head",
-            "ranges": [
-              { "minDeg": 181, "maxDeg": 360, "layer": "arm_R_upper" },
-              { "minDeg": 0, "maxDeg": 180, "layer": "head" }
-            ]
-          },
           "spriteStyle": {
             "base": {
               "xform": {
-                "torso": { "ax": 0, "ay": 0, "scaleX": 2, "scaleY": 2 }
-              }
-            }
-          }
-        }
-      }
-    },
-
-    "shoulders": {
-      "layers": {
-        "over": {
-          "layerRole": "layer0",
-          "image": {
-            "url": "",
-            "colors": ["A"]
-          },
-          "attachBone": "arm_R_upper",
-          "drawSlot": "arm_R_lower",
-          "spriteStyle": {
-            "base": {
-              "xform": {
-                "armUpper": { "ax": 0, "ay": 0, "scaleX": 2, "scaleY": 2 }
-              }
-            }
-          }
-        },
-        "over_trim": {
-          "layerRole": "overlay",
-          "image": {
-            "url": "",
-            "colors": ["B"]
-          },
-          "attachBone": "arm_R_upper",
-          "drawSlot": "arm_R_lower",
-          "spriteStyle": {
-            "base": {
-              "xform": {
-                "armUpper": { "ax": 0, "ay": 0, "scaleX": 2, "scaleY": 2 }
+                "torso": { "ax": 0, "ay": -0.2, "scaleX": 2, "scaleY": 2 }
               }
             }
           }
