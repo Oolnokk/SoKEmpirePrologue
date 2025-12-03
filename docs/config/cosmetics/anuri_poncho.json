@@ -44,7 +44,7 @@
           "spriteStyle": {
             "base": {
               "xform": {
-                "torso": { "ax": 0, "ay": -0.2, "scaleX": 1, "scaleY": 1 }
+                "torso": { "ax": 0, "ay": 0, "scaleX": 1.25, "scaleY": 1.25 }
               }
             }
           }
