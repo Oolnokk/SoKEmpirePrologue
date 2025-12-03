@@ -9,6 +9,10 @@
   "ground": {
     "offset": 260
   },
+  "playableBounds": {
+    "left": -1100,
+    "right": 1580
+  },
   "proximityScale": 3.1,
   "background": {
     "layout": {
@@ -1761,19 +1765,7 @@
       }
     }
   ],
-  "colliders": [
-    {
-      "id": 1,
-      "label": "Collider 1",
-      "type": "box",
-      "shape": "box",
-      "left": -1000,
-        "width": 2500,
-        "topOffset": 0,
-        "height": 260,
-        "meta": {}
-      }
-    ],
+  "colliders": [],
   "drumSkins": [
     {
       "id": 1,
