@@ -2177,7 +2177,6 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   const combo = ensureComboState(state);
   const input = ensureNpcInputState(state);
   const aggression = ensureNpcAggressionState(state);
-  state.forceWalkPose = false;
   const stamina = ensureNpcStaminaAwareness(state);
   const ai = state.ai || (state.ai = {});
   const panicThreshold = Number.isFinite(ai.panicThreshold)
@@ -2244,9 +2243,9 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
         aggression.wakeTimer = 0;
       }
     }
-    state.forceWalkPose = false;
     state.nonCombatRagdoll = false;
-    const movementActive = Math.abs(state.vel?.x || 0) > 1 || Math.abs(state.vel?.y || 0) > 1;
+    const movementIntent = !!(input.left || input.right);
+    const movementActive = movementIntent || Math.abs(state.vel?.x || 0) > 1 || Math.abs(state.vel?.y || 0) > 1;
     updateNpcAiming(state, player, { aggressionActive: aggression.active, movementActive });
     updateDashTrail(visuals, state, dt);
     updateNpcAttackTrail(visuals, state, dt);
@@ -2597,8 +2596,8 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.pos.x = clamp(state.pos.x, playableBounds.left, playableBounds.right);
   }
 
-  const movementActive = Math.abs(state.vel?.x || 0) > 1 || Math.abs(state.vel?.y || 0) > 1 || input.left || input.right;
-  state.forceWalkPose = !aggression.active && (input.left || input.right);
+  const movementIntent = !!(input.left || input.right);
+  const movementActive = movementIntent || Math.abs(state.vel?.x || 0) > 1 || Math.abs(state.vel?.y || 0) > 1;
   state.nonCombatRagdoll = !aggression.active && !state.ragdoll && !state.recovering && !movementActive;
 
   state.facingRad = dx >= 0 ? 0 : Math.PI;

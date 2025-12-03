@@ -1742,8 +1742,9 @@ function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { pose
 
   const speed    = computeSpeed(F);
   const grounded = (F.onGround !== false);
-  const forceWalk = !!F.forceWalkPose;
-  const moving   = (forceWalk || speed >= (W.minSpeed || 60)) && grounded;
+  const input    = F.input || F.aiInput || {};
+  const hasMoveInput = !!(input.left || input.right);
+  const moving   = (hasMoveInput || speed >= (W.minSpeed || 60)) && grounded;
   const enabled  = !!W.enabled;
 
   // Frequency (same logic as before)
