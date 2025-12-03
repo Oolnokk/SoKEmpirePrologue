@@ -529,6 +529,23 @@ export function initFighters(cv, cx, options = {}){
         ...(npc.spawnMetadata || {}),
         spawnerId: spawner.spawnerId,
       };
+
+      // Initialize group state from spawner metadata
+      if (spawner.groupId || spawner.groupMeta) {
+        const group = (npc.group ||= {});
+        group.id = spawner.groupId || group.id;
+
+        if (spawner.groupMeta) {
+          const meta = spawner.groupMeta;
+          if (meta.faction) group.faction = meta.faction;
+          if (Array.isArray(meta.interests)) group.interests = [...meta.interests];
+          if (Array.isArray(meta.exitTags)) group.exitTags = [...meta.exitTags];
+          if (meta.exitWeights && typeof meta.exitWeights === 'object') {
+            group.exitWeights = { ...meta.exitWeights };
+          }
+        }
+      }
+
       spawner.activeIds.add(npc.id);
     }
     return npc;
