@@ -14,6 +14,24 @@
         <h2>Part & Stance Preview</h2>
         <p>Inspect the full body stance alongside each body part with every equipped cosmetic layer stacked and scaled for clarity.</p>
       </div>
+      <article class="editor-runtime" aria-label="Live cosmetic viewport">
+        <header class="editor-runtime__header">
+          <div>
+            <p class="editor-runtime__eyebrow">Live Portrait View</p>
+            <h3 class="editor-runtime__title">Runtime Character Preview</h3>
+            <p class="editor-runtime__hint">Uses the in-game renderer so cosmetics, gear, and material changes update instantly.</p>
+          </div>
+          <div class="editor-runtime__actions" role="group" aria-label="Runtime controls">
+            <button type="button" id="runtimeDrawBtn" class="editor-runtime__btn">Draw</button>
+            <button type="button" id="runtimeStowBtn" class="editor-runtime__btn">Stow</button>
+            <button type="button" id="runtimeResetBtn" class="editor-runtime__btn">Reset View</button>
+          </div>
+        </header>
+        <div class="editor-runtime__viewport" role="presentation">
+          <canvas id="runtimeViewport" class="editor-runtime__canvas" aria-label="Cosmetic runtime viewport"></canvas>
+        </div>
+        <p id="runtimeStatus" class="editor-runtime__status" role="status" aria-live="polite">Loading runtime preview…</p>
+      </article>
       <div id="partPreviewGrid" class="part-preview__grid" data-state="empty" aria-live="polite"></div>
     </section>
     <section class="editor-controls">
