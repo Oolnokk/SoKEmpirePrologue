@@ -1147,7 +1147,7 @@ window.CONFIG = {
       cosmetics: {}
     },
     'Mao-ao_F': {
-      actor: { scale: 0.8 },
+      actor: { scale: 0.9 },
       parts: { hitbox:{ w:80, h:110, r:60, torsoAttach:{ nx:0.4, ny:0.6 } }, torso:{ len:55 }, arm:{ upper:35, lower:50 }, leg:{ upper:40, lower:40 }, head:{ neck:10, radius:12 } },
       hierarchy: { legsFollowTorsoRotation: false },
       footsteps: {
@@ -1181,8 +1181,8 @@ window.CONFIG = {
           widthFactor: { torso:0.8, armUpper:0.8, armLower:0.8, legUpper:0.8, legLower:0.8, head:0.9 },
           xformUnits: "percent",
           xform: {
-            torso:    { ax:0,  ay:-0.2, scaleX:3, scaleY:3, rotDeg:180 },
-            head:     { ax:-0.1, ay:-0.1, scaleX:1, scaleY:1.2, rotDeg:180 },
+            torso:    { ax:-0.2,  ay:-0.2, scaleX:3, scaleY:3, rotDeg:180 },
+            head:     { ax:0.1, ay:-0.1, scaleX:1, scaleY:1.2, rotDeg:180 },
             armUpper: { ax:-0.2,  ay:0.1,  scaleX:1.6, scaleY:2.8, rotDeg:-10 },
             armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-3 },
             legUpper: { ax:-0.10, ay:0,  scaleX:1.7, scaleY:2.75,  rotDeg:-15 },
