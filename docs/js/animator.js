@@ -441,8 +441,6 @@ function isFighterMarkedDead(F){
 }
 
 export function updateBreathing(F, fighterId, spec){
-  const G = window.GAME || {};
-  const store = (G.ANIM_STYLE_OVERRIDES ||= {});
   const breathState = F?.anim?.breath;
   if (!breathState){
     return;
@@ -524,12 +522,6 @@ export function updateBreathing(F, fighterId, spec){
   breathState.shoulderOffsets = offsetActive
     ? { left: { ax: leftAx, ay: leftAy }, right: { ax: rightAx, ay: rightAy } }
     : null;
-
-  if (styleOverride){
-    store[fighterId] = styleOverride;
-  } else if (store[fighterId]) {
-    delete store[fighterId];
-  }
 }
 
 function trackPendingLayerTimer(F, layerId, handle){
