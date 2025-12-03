@@ -1178,7 +1178,7 @@ window.CONFIG = {
         leg_R_lower: { url: "./assets/fightersprites/mao-ao-f/leg-lower_mint.png", bodyColor: 'A' }
       },
       spriteStyle: {
-          widthFactor: { torso:0.8, armUpper:0.8, armLower:0.8, legUpper:0.8, legLower:0.8, head:0.9 },
+          widthFactor: { torso:1, armUpper:0.8, armLower:0.8, legUpper:0.8, legLower:0.8, head:0.9 },
           xformUnits: "percent",
           xform: {
             torso:    { ax:-0.2,  ay:-0.2, scaleX:3, scaleY:3, rotDeg:180 },
