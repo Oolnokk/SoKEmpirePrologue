@@ -579,6 +579,9 @@
             <div class="row">
               <label><span>Material type</span><input id="colliderMaterialType" type="text" list="materialTypePresets" placeholder="default"></label>
             </div>
+            <div class="row">
+              <label><span>Tags (comma-separated)</span><input id="colliderTags" type="text" placeholder="poi:patrol-point, schedule:morning"></label>
+            </div>
             <datalist id="materialTypePresets">
               <option value="stone"></option>
               <option value="concrete"></option>
@@ -853,6 +856,29 @@
             <label><span>Position Y (from ground)</span><input id="behaviorPathY" type="number" step="1"></label>
           </div>
           <small style="color:var(--muted);display:block;margin-top:6px">Explicit targets merge with markers tagged path:target:* when exporting.</small>
+        </div>
+
+        <div class="behavior-card">
+          <div class="card-heading" style="margin-bottom:4px;align-items:flex-start;gap:10px;flex-wrap:wrap">
+            <strong>POIs (Points of Interest)</strong>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button id="btnAddPOI">+ POI</button>
+              <button id="btnDeletePOI">Remove selected</button>
+            </div>
+          </div>
+          <div id="behaviorPOIList" class="behavior-list" aria-label="POI list"></div>
+          <div class="behavior-grid">
+            <label><span>POI ID</span><input id="behaviorPOIId" type="text" placeholder="poi_patrol_west"></label>
+            <label><span>POI Name</span><input id="behaviorPOIName" type="text" placeholder="patrol-point"></label>
+            <label><span>Label</span><input id="behaviorPOILabel" type="text" placeholder="Western Patrol Zone"></label>
+            <label><span>Type</span><input id="behaviorPOIType" type="text" placeholder="box" value="box"></label>
+            <label><span>Left (X)</span><input id="behaviorPOILeft" type="number" step="1"></label>
+            <label><span>Width</span><input id="behaviorPOIWidth" type="number" step="1" min="1" value="120"></label>
+            <label><span>Top (Y from ground)</span><input id="behaviorPOITop" type="number" step="1" value="-50"></label>
+            <label><span>Height</span><input id="behaviorPOIHeight" type="number" step="1" min="1" value="100"></label>
+            <label><span>Schedule Hours (comma-separated)</span><input id="behaviorPOISchedule" type="text" placeholder="0,1,2,3,4,5,6,7,8,9,10,11"></label>
+          </div>
+          <small style="color:var(--muted);display:block;margin-top:6px">POIs define navigation targets for NPCs. Render as green zones when "Show POIs" is enabled.</small>
         </div>
 
         <div class="behavior-card">
@@ -1305,6 +1331,10 @@ function restoreState(state){
   const adoptedBehaviorMeta = adopted.behavior && typeof adopted.behavior === 'object'
     ? adopted.behavior
     : (layoutMeta.behavior || {});
+  behaviorPOIs = Array.isArray(adoptedBehaviorMeta.pois)
+    ? adoptedBehaviorMeta.pois.map((poi, index) => normalizePOI(poi, index + 1))
+    : [];
+  selectedPOIId = behaviorPOIs[0]?.id ?? null;
   behaviorInteractionPoints = Array.isArray(adoptedBehaviorMeta.interactionPoints)
     ? adoptedBehaviorMeta.interactionPoints.map((point, index) => normalizeInteractionPoint(point, index + 1))
     : [];
@@ -1501,6 +1531,8 @@ let behaviorSpawners = [];
 let selectedBehaviorSpawnerId = null;
 let behaviorPathTargets = [];
 let selectedPathTargetId = null;
+let behaviorPOIs = [];
+let selectedPOIId = null;
 let behaviorInteractionPoints = [];
 let selectedInteractionId = null;
 let behaviorArrivalSpawns = [];
@@ -1673,6 +1705,36 @@ function normalizeEditorPathTarget(target, fallbackId = 1){
     order: Number.isFinite(order) ? order : null,
     instanceId,
     meta,
+  };
+}
+
+function normalizePOI(poi, fallbackId = 1){
+  const safe = poi && typeof poi === 'object' ? { ...poi } : {};
+  const id = typeof safe.id === 'string' && safe.id.trim()
+    ? safe.id.trim()
+    : `poi_${fallbackId}`;
+  const name = typeof safe.name === 'string' && safe.name.trim() ? safe.name.trim() : 'poi';
+  const label = typeof safe.label === 'string' && safe.label.trim() ? safe.label.trim() : name;
+  const type = typeof safe.type === 'string' && safe.type.trim() ? safe.type.trim() : 'box';
+  const bounds = safe.bounds && typeof safe.bounds === 'object' ? safe.bounds : {};
+  const normalizedBounds = {
+    left: toNumber(bounds.left, 0),
+    width: toNumber(bounds.width, 120),
+    top: toNumber(bounds.top, -50),
+    height: toNumber(bounds.height, 100)
+  };
+  const meta = safe.meta && typeof safe.meta === 'object' ? { ...safe.meta } : {};
+  const scheduleHours = Array.isArray(meta.scheduleHours) ? meta.scheduleHours : [];
+  return {
+    id,
+    name,
+    label,
+    type,
+    bounds: normalizedBounds,
+    meta: {
+      ...meta,
+      scheduleHours: scheduleHours.length > 0 ? scheduleHours : undefined
+    }
   };
 }
 
@@ -2135,6 +2197,14 @@ function buildAreaDescriptor(){
     };
   });
 
+  const clonedPOIs = behaviorPOIs.map((poi, index) => {
+    const normalized = normalizePOI(poi, index + 1);
+    return {
+      ...normalized,
+      meta: normalized.meta ? JSON.parse(JSON.stringify(normalized.meta)) : {},
+    };
+  });
+
   const clonedInteractions = behaviorInteractionPoints.map((point, index) => {
     const normalized = normalizeInteractionPoint(point, index + 1);
     normalized.position = normalizePosition(normalized.position);
@@ -2160,6 +2230,7 @@ function buildAreaDescriptor(){
     activeLayerId,
     behavior: {
       ...(layoutMeta.behavior || {}),
+      pois: clonedPOIs,
       interactionPoints: clonedInteractions,
       arrivalSpawns: clonedArrivalSpawns,
     },
@@ -3205,6 +3276,7 @@ function deleteArrivalSpawn(arrivalId){
 function refreshBehaviorPanels(){
   refreshBehaviorSpawnerList();
   refreshPathTargetList();
+  refreshPOIList();
   refreshInteractionList();
   refreshArrivalList();
 }
@@ -3269,6 +3341,11 @@ function syncColliderFields(){
   if (heightField) heightField.value = collider ? String(Math.max(1, toNumber(collider.height, 0))) : '';
   const materialField = $('#colliderMaterialType');
   if (materialField) materialField.value = collider && typeof collider.materialType === 'string' ? collider.materialType : '';
+  const tagsField = $('#colliderTags');
+  if (tagsField) {
+    const tags = Array.isArray(collider?.tags) ? collider.tags.join(', ') : '';
+    tagsField.value = tags;
+  }
   const removeBtn = $('#btnDeleteCollider');
   if (removeBtn) removeBtn.disabled = !collider;
 }
@@ -3673,6 +3750,20 @@ function updateSelectedColliderFromFields(){
     }
   }
 
+  const tagsField = $('#colliderTags');
+  if (tagsField){
+    const raw = tagsField.value.trim();
+    const newTags = raw ? raw.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const oldTags = Array.isArray(collider.tags) ? collider.tags : [];
+    const tagsChanged = newTags.length !== oldTags.length ||
+                        newTags.some((tag, i) => tag !== oldTags[i]);
+    if (tagsChanged){
+      if (!changed) pushHistory();
+      changed = true;
+      collider.tags = newTags.length > 0 ? newTags : undefined;
+    }
+  }
+
   if (changed){
     refreshColliderList();
   }
@@ -3837,7 +3928,7 @@ function updateSelectedInstanceFromFields(){
   el.addEventListener('blur', updateSelectedInstanceFromFields);
 });
 
-['colliderLabel','colliderLeft','colliderWidth','colliderTopOffset','colliderHeight','colliderMaterialType'].forEach(id => {
+['colliderLabel','colliderLeft','colliderWidth','colliderTopOffset','colliderHeight','colliderMaterialType','colliderTags'].forEach(id => {
   const el = document.getElementById(id);
   if(!el) return;
   el.addEventListener('change', updateSelectedColliderFromFields);
@@ -4678,6 +4769,76 @@ $('#btnJitter').addEventListener('click',()=>{
   }
   refreshInstanceList();
 });
+
+// POI Management Functions
+function refreshPOIList(){
+  const list = $('#behaviorPOIList');
+  if (!list) return;
+  list.innerHTML = '';
+  behaviorPOIs.forEach((poi) => {
+    const div = document.createElement('div');
+    div.className = 'behavior-item' + (poi.id === selectedPOIId ? ' active' : '');
+    div.textContent = `${poi.label || poi.name} (${poi.id})`;
+    div.onclick = () => { selectedPOIId = poi.id; syncPOIFields(); refreshPOIList(); };
+    list.appendChild(div);
+  });
+}
+
+function syncPOIFields(){
+  const poi = behaviorPOIs.find((p) => p.id === selectedPOIId) || null;
+  $('#behaviorPOIId').value = poi?.id || '';
+  $('#behaviorPOIName').value = poi?.name || '';
+  $('#behaviorPOILabel').value = poi?.label || '';
+  $('#behaviorPOIType').value = poi?.type || 'box';
+  $('#behaviorPOILeft').value = poi?.bounds?.left ?? '';
+  $('#behaviorPOIWidth').value = poi?.bounds?.width ?? '';
+  $('#behaviorPOITop').value = poi?.bounds?.top ?? '';
+  $('#behaviorPOIHeight').value = poi?.bounds?.height ?? '';
+  const scheduleHours = Array.isArray(poi?.meta?.scheduleHours) ? poi.meta.scheduleHours.join(',') : '';
+  $('#behaviorPOISchedule').value = scheduleHours;
+  const deleteBtn = $('#btnDeletePOI');
+  if (deleteBtn) deleteBtn.disabled = !poi;
+}
+
+function addPOI(){
+  pushHistory();
+  const newId = `poi_${behaviorPOIs.length + 1}`;
+  const newPOI = normalizePOI({ id: newId, name: 'poi', label: 'New POI' }, behaviorPOIs.length + 1);
+  behaviorPOIs.push(newPOI);
+  selectedPOIId = newPOI.id;
+  refreshPOIList();
+  syncPOIFields();
+}
+
+function deletePOI(){
+  const poi = behaviorPOIs.find((p) => p.id === selectedPOIId);
+  if (!poi) return;
+  pushHistory();
+  const idx = behaviorPOIs.indexOf(poi);
+  if (idx !== -1) behaviorPOIs.splice(idx, 1);
+  selectedPOIId = behaviorPOIs[0]?.id ?? null;
+  refreshPOIList();
+  syncPOIFields();
+}
+
+function updatePOIFromFields(){
+  const poi = behaviorPOIs.find((p) => p.id === selectedPOIId);
+  if (!poi) return;
+  pushHistory();
+  poi.id = $('#behaviorPOIId').value.trim() || poi.id;
+  poi.name = $('#behaviorPOIName').value.trim() || 'poi';
+  poi.label = $('#behaviorPOILabel').value.trim() || poi.name;
+  poi.type = $('#behaviorPOIType').value.trim() || 'box';
+  poi.bounds.left = parseFloat($('#behaviorPOILeft').value) || 0;
+  poi.bounds.width = parseFloat($('#behaviorPOIWidth').value) || 120;
+  poi.bounds.top = parseFloat($('#behaviorPOITop').value) || -50;
+  poi.bounds.height = parseFloat($('#behaviorPOIHeight').value) || 100;
+  const scheduleStr = $('#behaviorPOISchedule').value.trim();
+  const scheduleHours = scheduleStr ? scheduleStr.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n)) : [];
+  poi.meta.scheduleHours = scheduleHours.length > 0 ? scheduleHours : undefined;
+  refreshPOIList();
+}
+
 $('#btnDeleteInst').addEventListener('click',deleteSelectedInstance);
 $('#btnDuplicateInst').addEventListener('click',duplicateSelectedInstance);
 $('#btnUndo').addEventListener('click',undo);
@@ -4705,6 +4866,16 @@ if (placePathTargetBtn) placePathTargetBtn.addEventListener('click', () => { set
   const el = document.getElementById(id);
   if (el){
     ['change','blur'].forEach((evt) => el.addEventListener(evt, updatePathTargetFromFields));
+  }
+});
+const addPOIBtn = document.getElementById('btnAddPOI');
+if (addPOIBtn) addPOIBtn.addEventListener('click', addPOI);
+const deletePOIBtn = document.getElementById('btnDeletePOI');
+if (deletePOIBtn) deletePOIBtn.addEventListener('click', deletePOI);
+['behaviorPOIId','behaviorPOIName','behaviorPOILabel','behaviorPOIType','behaviorPOILeft','behaviorPOIWidth','behaviorPOITop','behaviorPOIHeight','behaviorPOISchedule'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el){
+    ['change','blur'].forEach((evt) => el.addEventListener(evt, updatePOIFromFields));
   }
 });
 const addInteractionBtn = document.getElementById('btnAddInteractionPoint');

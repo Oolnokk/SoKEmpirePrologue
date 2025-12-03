@@ -57,6 +57,7 @@ export function normalizeGroupRecord(raw, warnings = [], context = {}) {
   }
 
   const name = pickNonEmptyString(safe.name, safe.label, groupId);
+  const faction = pickNonEmptyString(safe.faction);
   const interests = Array.isArray(safe.interests)
     ? safe.interests.map((tag) => pickNonEmptyString(tag)).filter(Boolean)
     : [];
@@ -75,6 +76,7 @@ export function normalizeGroupRecord(raw, warnings = [], context = {}) {
     ...safe,
     id: groupId,
     name,
+    faction,
     interests,
     exitTags,
     exitWeights,

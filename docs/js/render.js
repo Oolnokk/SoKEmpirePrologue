@@ -32,6 +32,7 @@ if (typeof window !== 'undefined') {
     showSprites: true,   // Show sprite images
     showBones: true,     // Show skeleton bones
     showHitbox: true,    // Show hitbox overlay
+    showPOIs: true,      // Show POI zones
     showBone: {          // Per-bone visibility (all default to true)
       torso: true,
       head: true,
@@ -592,6 +593,117 @@ function drawRangeCollider(ctx, fighter, hitbox) {
   ctx.restore();
 }
 
+function drawPOIs(ctx) {
+  if (!ctx) return;
+
+  // Get the current area and its POIs
+  const registry = window.__MAP_REGISTRY__;
+  const area = registry?.getActiveArea?.();
+  if (!area) return;
+
+  const pois = area.pois || [];
+  if (!pois.length) return;
+
+  const GAME = window.GAME || {};
+  const currentHour = area?.background?.sky?.time24h;
+  const hour = Number.isFinite(currentHour) ? Math.floor(currentHour) % 24 : null;
+
+  ctx.save();
+
+  for (const poi of pois) {
+    if (!poi || !poi.bounds) continue;
+
+    const bounds = poi.bounds;
+    const left = Number.isFinite(bounds.left) ? bounds.left : 0;
+    const width = Number.isFinite(bounds.width) ? bounds.width : 100;
+    const top = Number.isFinite(bounds.top) ? bounds.top : 0;
+    const height = Number.isFinite(bounds.height) ? bounds.height : 100;
+
+    // Check if POI is scheduled for current hour
+    const scheduleHours = poi.meta?.scheduleHours;
+    const isScheduled = !Array.isArray(scheduleHours) || scheduleHours.length === 0 ||
+                       (hour !== null && scheduleHours.includes(hour));
+
+    // Draw POI box
+    ctx.strokeStyle = isScheduled ? 'rgba(34, 197, 94, 0.8)' : 'rgba(148, 163, 184, 0.5)';
+    ctx.fillStyle = isScheduled ? 'rgba(34, 197, 94, 0.15)' : 'rgba(148, 163, 184, 0.1)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(left, top, width, height);
+    ctx.fillRect(left, top, width, height);
+
+    // Draw POI label
+    const name = poi.name || poi.id || 'POI';
+    const centerX = left + width / 2;
+    const centerY = top + height / 2;
+
+    ctx.font = 'bold 14px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.lineWidth = 3;
+    ctx.strokeText(name, centerX, centerY);
+    ctx.fillStyle = isScheduled ? '#22c55e' : '#94a3b8';
+    ctx.fillText(name, centerX, centerY);
+
+    // Draw schedule info if available
+    if (Array.isArray(scheduleHours) && scheduleHours.length > 0) {
+      const scheduleText = `Hours: ${scheduleHours[0]}-${scheduleHours[scheduleHours.length - 1]}`;
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.strokeText(scheduleText, centerX, centerY + 18);
+      ctx.fillStyle = isScheduled ? '#16a34a' : '#64748b';
+      ctx.fillText(scheduleText, centerX, centerY + 18);
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawClock(ctx) {
+  if (!ctx) return;
+
+  // Check if clock display is enabled
+  const CONFIG = window.CONFIG || {};
+  if (!CONFIG.ui?.showClock) return;
+
+  // Get the current area and time
+  const registry = window.__MAP_REGISTRY__;
+  const area = registry?.getActiveArea?.();
+  const time24h = area?.background?.sky?.time24h;
+
+  if (!Number.isFinite(time24h)) return;
+
+  // Format time as HH:MM
+  const hours = Math.floor(time24h) % 24;
+  const minutes = Math.floor((time24h % 1) * 60);
+  const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+  // Draw clock in top-right corner
+  const canvasWidth = ctx.canvas?.width || 720;
+  const padding = 20;
+  const x = canvasWidth - padding;
+  const y = 30;
+
+  ctx.save();
+  ctx.font = 'bold 24px system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+
+  // Draw background
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  const metrics = ctx.measureText(timeString);
+  const textWidth = metrics.width;
+  const textHeight = 30;
+  ctx.fillRect(x - textWidth - 10, y - 5, textWidth + 20, textHeight + 10);
+
+  // Draw time text with stroke for visibility
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.lineWidth = 3;
+  ctx.strokeText(timeString, x, y);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(timeString, x, y);
+
+  ctx.restore();
+}
 
 function drawCompass(ctx, x, y, r, label){
   if (!ctx) return;
@@ -897,7 +1009,12 @@ export function renderAll(ctx){
     }
   }
 
+  if (DEBUG.showPOIs) {
+    drawPOIs(ctx);
+  }
+
   ctx.restore();
+  drawClock(ctx);
   drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`);
 }
 

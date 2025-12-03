@@ -15,6 +15,15 @@ import {
 import { computeGroundY } from './ground-utils.js?v=1';
 import { resolveStancePose } from './animator.js?v=5';
 import { getAttackDefFromConfig, calculateMinChargeTime } from './config-utils.js?v=1';
+import {
+  isPointInsidePoi,
+  getRandomGroundPointInPoi,
+  selectPoisByInterests,
+  selectRandomPoi,
+  selectMapExits,
+  selectWeightedExit,
+  getPoiCenter,
+} from './poi-utils.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -111,6 +120,186 @@ function resolveNpcPathTarget(state, area) {
     goalY,
     arriveRadius,
   };
+}
+
+function getCurrentGameHour(area) {
+  const time24h = area?.background?.sky?.time24h;
+  if (!Number.isFinite(time24h)) return 12;
+  return Math.floor(time24h) % 24;
+}
+
+function selectNpcTargetPoi(state, area) {
+  if (!state || !area) return null;
+
+  const group = state.group || {};
+  const interests = group.interests || [];
+  const poisByName = area.poisByName;
+
+  if (!poisByName || !interests.length) return null;
+
+  const matchingPois = selectPoisByInterests(poisByName, interests);
+  if (!matchingPois.length) return null;
+
+  const currentHour = getCurrentGameHour(area);
+
+  const scheduledPois = matchingPois.filter(poi => {
+    const scheduleHours = poi.meta?.scheduleHours;
+    if (!Array.isArray(scheduleHours) || scheduleHours.length === 0) {
+      return true;
+    }
+    return scheduleHours.includes(currentHour);
+  });
+
+  const candidatePois = scheduledPois.length > 0 ? scheduledPois : matchingPois;
+
+  return selectRandomPoi(candidatePois);
+}
+
+function selectNpcEscapeTarget(state, area) {
+  if (!state || !area) return null;
+
+  const allPois = area.pois || [];
+  const exits = selectMapExits(allPois);
+
+  if (!exits.length) return null;
+
+  const group = state.group || {};
+  const exitWeights = group.exitWeights || {};
+
+  return selectWeightedExit(exits, exitWeights);
+}
+
+function updateNpcNavigateMode(state, dt, area) {
+  const ooc = state.outOfCombat || {};
+  const currentPoi = ooc.currentPoi;
+  const currentHour = getCurrentGameHour(area);
+
+  const lastHour = ooc.lastScheduleHour;
+  if (Number.isFinite(lastHour) && lastHour !== currentHour) {
+    const scheduleHours = currentPoi?.meta?.scheduleHours;
+    if (Array.isArray(scheduleHours) && scheduleHours.length > 0) {
+      if (!scheduleHours.includes(currentHour)) {
+        ooc.currentPoi = null;
+        ooc.targetPoint = null;
+      }
+    }
+  }
+  ooc.lastScheduleHour = currentHour;
+
+  if (!currentPoi) {
+    const targetPoi = selectNpcTargetPoi(state, area);
+    if (targetPoi) {
+      ooc.currentPoi = targetPoi;
+      ooc.targetPoint = getRandomGroundPointInPoi(targetPoi);
+      ooc.mode = 'navigate';
+    } else {
+      const exit = selectNpcEscapeTarget(state, area);
+      if (exit) {
+        ooc.targetExit = exit;
+        ooc.targetPoint = getRandomGroundPointInPoi(exit);
+        ooc.escaping = true;
+        ooc.mode = 'escape';
+      }
+    }
+    return;
+  }
+
+  const arrived = isPointInsidePoi(state.pos, currentPoi);
+  if (arrived) {
+    ooc.mode = 'reposition';
+    ooc.targetPoint = getRandomGroundPointInPoi(currentPoi);
+  }
+}
+
+function updateNpcRepositionMode(state, dt, area) {
+  const ooc = state.outOfCombat || {};
+  const currentPoi = ooc.currentPoi;
+  const targetPoint = ooc.targetPoint;
+
+  if (!currentPoi || !targetPoint) {
+    ooc.mode = 'navigate';
+    return;
+  }
+
+  const dx = targetPoint.x - state.pos.x;
+  const dy = targetPoint.y - state.pos.y;
+  const distance = Math.hypot(dx, dy);
+
+  if (distance < 10) {
+    ooc.mode = 'wait';
+    const curiosity = state.ai?.curiosity || {};
+    const baseInterval = curiosity.baseRepositionInterval || 5;
+    const variance = baseInterval * 0.5;
+    ooc.waitTimer = baseInterval + (Math.random() - 0.5) * variance;
+    ooc.nextRepositionCheck = ooc.waitTimer;
+  }
+}
+
+function updateNpcWaitMode(state, dt, area) {
+  const ooc = state.outOfCombat || {};
+
+  ooc.waitTimer = Math.max(0, (ooc.waitTimer || 0) - dt);
+  ooc.nextRepositionCheck -= dt;
+
+  if (ooc.nextRepositionCheck <= 0) {
+    const curiosity = state.ai?.curiosity || {};
+    const repositionChance = curiosity.repositionChance || 0.3;
+    const baseInterval = curiosity.baseRepositionInterval || 5;
+
+    if (Math.random() < repositionChance) {
+      ooc.mode = 'reposition';
+      ooc.targetPoint = getRandomGroundPointInPoi(ooc.currentPoi);
+    }
+
+    ooc.nextRepositionCheck = baseInterval;
+  }
+}
+
+function updateNpcEscapeMode(state, dt, area) {
+  const ooc = state.outOfCombat || {};
+  const targetExit = ooc.targetExit;
+  const targetPoint = ooc.targetPoint;
+
+  if (!targetExit || !targetPoint) {
+    const exit = selectNpcEscapeTarget(state, area);
+    if (exit) {
+      ooc.targetExit = exit;
+      ooc.targetPoint = getRandomGroundPointInPoi(exit);
+    } else {
+      ooc.mode = 'navigate';
+    }
+    return;
+  }
+
+  const arrived = isPointInsidePoi(state.pos, targetExit);
+  if (arrived) {
+    state.despawn = true;
+  }
+}
+
+function checkGroupUnderAttack(G, state) {
+  if (!state || !state.group) return false;
+
+  const groupId = state.group.id;
+  if (!groupId) return false;
+
+  const npcs = getNpcFighterList(G);
+  const groupMembers = npcs.filter(npc => npc.group?.id === groupId && npc.id !== state.id);
+
+  for (const member of groupMembers) {
+    if (member.aggression?.active || member.attack?.active || member.combo?.active) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function shouldNpcEscape(G, state) {
+  const loyalty = state.loyalty || {};
+  if (!loyalty.defendGroup) return false;
+
+  return checkGroupUnderAttack(G, state);
 }
 
 const DEFAULT_WORLD_WIDTH = 1600;
@@ -1234,7 +1423,44 @@ function ensureNpcGroupState(state) {
   group.members = Array.isArray(group.members) ? group.members : [];
   group.followDistance = Number.isFinite(group.followDistance) ? group.followDistance : 80;
   group.formationSpacing = Number.isFinite(group.formationSpacing) ? group.formationSpacing : 60;
+  group.faction = group.faction || null;
+  group.interests = Array.isArray(group.interests) ? group.interests : [];
+  group.exitTags = Array.isArray(group.exitTags) ? group.exitTags : [];
+  group.exitWeights = (group.exitWeights && typeof group.exitWeights === 'object') ? group.exitWeights : {};
   return group;
+}
+
+function ensureNpcOutOfCombatState(state) {
+  if (!state) return null;
+  const ooc = (state.outOfCombat ||= {});
+  ooc.mode = ooc.mode || 'navigate';
+  ooc.currentPoi = ooc.currentPoi || null;
+  ooc.targetPoint = ooc.targetPoint || null;
+  ooc.waitTimer = Number.isFinite(ooc.waitTimer) ? ooc.waitTimer : 0;
+  ooc.nextRepositionCheck = Number.isFinite(ooc.nextRepositionCheck) ? ooc.nextRepositionCheck : 5;
+  ooc.escaping = !!ooc.escaping;
+  ooc.targetExit = ooc.targetExit || null;
+  return ooc;
+}
+
+function ensureNpcCuriosityState(state) {
+  if (!state) return null;
+  const ai = state.ai || {};
+  const curiosity = (ai.curiosity ||= {});
+  curiosity.value = Number.isFinite(curiosity.value) ? curiosity.value : 0.5;
+  curiosity.baseRepositionInterval = Number.isFinite(curiosity.baseRepositionInterval)
+    ? curiosity.baseRepositionInterval
+    : 5;
+  curiosity.repositionChance = Number.isFinite(curiosity.repositionChance) ? curiosity.repositionChance : 0.3;
+  return curiosity;
+}
+
+function ensureNpcLoyaltyState(state) {
+  if (!state) return null;
+  const loyalty = (state.loyalty ||= {});
+  loyalty.defendGroup = loyalty.defendGroup !== false;
+  loyalty.faction = loyalty.faction || state.group?.faction || null;
+  return loyalty;
 }
 
 function resolveGroupLeader(G, groupId) {
@@ -2073,9 +2299,39 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     input.buttonB.down = false;
     state.mode = aggression.triggered ? 'alert' : 'idle';
     state.cooldown = 0;
-    
 
-    if (isFollower && groupLeader) {
+    const ooc = ensureNpcOutOfCombatState(state);
+    const usePoiSystem = activeArea && activeArea.pois && group.interests && group.interests.length > 0;
+
+    if (usePoiSystem && !isFollower) {
+      if (shouldNpcEscape(G, state) && !ooc.escaping) {
+        ooc.mode = 'escape';
+        ooc.escaping = true;
+        ooc.currentPoi = null;
+        ooc.targetExit = null;
+        ooc.targetPoint = null;
+      }
+
+      if (ooc.mode === 'navigate') {
+        updateNpcNavigateMode(state, dt, activeArea);
+      } else if (ooc.mode === 'reposition') {
+        updateNpcRepositionMode(state, dt, activeArea);
+      } else if (ooc.mode === 'wait') {
+        updateNpcWaitMode(state, dt, activeArea);
+      } else if (ooc.mode === 'escape') {
+        updateNpcEscapeMode(state, dt, activeArea);
+      }
+
+      const targetPoint = ooc.targetPoint;
+      if (targetPoint) {
+        const arriveRadius = 10;
+        const dxTarget = targetPoint.x - state.pos.x;
+        const distance = Math.abs(dxTarget);
+        input.left = distance > arriveRadius && dxTarget < 0;
+        input.right = distance > arriveRadius && dxTarget > 0;
+        state.mode = ooc.mode;
+      }
+    } else if (isFollower && groupLeader) {
       const dxLeader = groupLeader.pos.x - state.pos.x;
       const absDxLeader = Math.abs(dxLeader);
       const followDist = group.followDistance || 80;
@@ -2373,7 +2629,11 @@ export function initNpcSystems() {
   if (!npcs.length) return;
   ensureNpcContainers(G);
   for (const npc of npcs) {
-    registerNpcFighter(npc, { immediateAggro: true });
+    // NPCs with group interests (POI-based patrol) or marked as patrol NPCs should start passive
+    const hasInterests = npc.group?.interests && npc.group.interests.length > 0;
+    const isPatrolNpc = npc.patrolNpc === true;
+    const shouldBePassive = hasInterests || isPatrolNpc;
+    registerNpcFighter(npc, { immediateAggro: !shouldBePassive });
   }
 }
 
@@ -2588,6 +2848,10 @@ export function registerNpcFighter(state, { immediateAggro = false } = {}) {
   ensureNpcStaminaAwareness(state);
   ensureNpcAbilityDirector(state, combat);
   ensureNpcPerceptionState(state);
+  ensureNpcGroupState(state);
+  ensureNpcOutOfCombatState(state);
+  ensureNpcCuriosityState(state);
+  ensureNpcLoyaltyState(state);
   const aggression = ensureNpcAggressionState(state);
   if (immediateAggro) {
     aggression.triggered = true;
