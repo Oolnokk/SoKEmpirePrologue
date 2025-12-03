@@ -1,0 +1,27 @@
+{
+  "meta": { "name": "Tuft" },
+  "type": "appearance",
+  "appearance": {
+    "inheritSprite": "head",
+    "bodyColors": ["B"],
+    "originalId": "mao-ao_tuft"
+  },
+  "parts": {
+    "headhair": {
+      "image": {
+        "url": "./assets/cosmetics/appearance/mao-ao/headhair/tuft-front.png"
+      },
+      "spriteStyle": {
+        "xform": {
+          "headhair": {
+            "ax": -0.6, 
+            "ay": -0.15, 
+            "scaleX": 3, 
+            "scaleY": 3,
+            "rotDeg": 0
+          }
+        }
+      }
+    }
+  }
+}

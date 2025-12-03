@@ -1,0 +1,51 @@
+{
+  "meta": { "name": "Shoulder-length Drape" },
+  "type": "appearance",
+  "appearance": {
+    "inheritSprite": "head",
+    "bodyColors": ["B"],
+    "originalId": "mao-ao_shoulder_length_drape"
+  },
+  "parts": {
+    "headhair": {
+      "layers": {
+        "back": {
+          "image": {
+            "url": "./assets/cosmetics/appearance/mao-ao/headhair/shoulderlength-front.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "headhair": {
+                  "ax": -0.6, 
+                  "ay": -0.15, 
+                  "scaleX": 3, 
+                  "scaleY": 3,
+                  "rotDeg": 0
+                }
+              }
+            }
+          }
+        },
+        "front": {
+          "image": {
+            "url": "./assets/cosmetics/appearance/mao-ao/headhair/tuft-front.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "headhair": {
+                  "ax": -0.6, 
+                  "ay": -0.15, 
+                  "scaleX": 3, 
+                  "scaleY": 3,
+                  "rotDeg": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
