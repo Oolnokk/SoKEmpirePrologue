@@ -303,7 +303,10 @@ function randomizeRagdollTargets(state, fighter = null) {
     const key = JOINT_KEYS[i];
     const isArmJoint = key === 'lShoulder' || key === 'rShoulder' || key === 'lElbow' || key === 'rElbow';
 
-    // Swap arm joint limits when facing left to match flipped rendering
+    // When facing left, canvas is flipped so we swap arm limits:
+    // - rElbow (visual left) needs negative values → use lElbow limits [-2.6, 0.3]
+    // - lElbow (visual right) needs positive values → use rElbow limits [-0.3, 2.6]
+    // The canvas flip automatically negates angles visually, so no negation needed in data
     let effectiveKey = key;
     if (facingLeft && isArmJoint) {
       if (key === 'lShoulder') effectiveKey = 'rShoulder';
@@ -314,14 +317,7 @@ function randomizeRagdollTargets(state, fighter = null) {
     const [min, max] = JOINT_LIMITS[effectiveKey];
     const center = (min + max) * 0.5;
     const span = (max - min) * 0.5;
-    let target = clamp(center + randomRange(-span, span) * 0.7, min, max);
-
-    // Negate arm angles when facing left to account for canvas flip
-    if (facingLeft && isArmJoint) {
-      target = -target;
-    }
-
-    state.ragdollTargets[key] = target;
+    state.ragdollTargets[key] = clamp(center + randomRange(-span, span) * 0.7, min, max);
   }
   state.ragdollRetargetTimer = randomRange(0.45, 0.85);
 }
