@@ -125,12 +125,13 @@ export function makeCombat(G, C, options = {}){
 
   const applyWalkMode = (fighter, walkMode) => {
     if (!fighter) return;
-    const resolved = walkMode || 'combat';
+    const resolved = walkMode || 'nonCombat';
     fighter.walkMode = resolved;
     fighter.nonCombat = resolved === 'nonCombat';
     fighter.sneak = resolved === 'sneak';
     fighter.renderProfile ||= {};
     fighter.renderProfile.walkMode = resolved;
+    fighter.renderProfile.nonCombat = resolved === 'nonCombat';
     fighter.renderProfile.sneak = resolved === 'sneak';
   };
 

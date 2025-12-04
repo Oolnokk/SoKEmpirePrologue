@@ -2177,6 +2177,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   const combo = ensureComboState(state);
   const input = ensureNpcInputState(state);
   const aggression = ensureNpcAggressionState(state);
+  const ooc = ensureNpcOutOfCombatState(state);
   const stamina = ensureNpcStaminaAwareness(state);
   const ai = state.ai || (state.ai = {});
   const panicThreshold = Number.isFinite(ai.panicThreshold)
@@ -2310,7 +2311,6 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.mode = aggression.triggered ? 'alert' : 'idle';
     state.cooldown = 0;
 
-    const ooc = ensureNpcOutOfCombatState(state);
     const usePoiSystem = activeArea && activeArea.pois && group.interests && group.interests.length > 0;
 
     if (usePoiSystem && !isFollower) {
@@ -2575,6 +2575,17 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.mode = 'approach';
     state.cooldown = Math.max(state.cooldown, 0.25);
   }
+
+  const escapeActive = ooc?.mode === 'escape' && ooc?.escaping;
+  const useCombatWalkMode = aggression.active || attack?.active || escapeActive;
+  const walkMode = useCombatWalkMode ? 'combat' : 'nonCombat';
+  state.walkMode = walkMode;
+  state.nonCombat = walkMode === 'nonCombat';
+  state.sneak = false;
+  state.renderProfile ||= {};
+  state.renderProfile.walkMode = walkMode;
+  state.renderProfile.nonCombat = state.nonCombat;
+  state.renderProfile.sneak = false;
 
   const desiredDir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
   processObstructionJumpPre(state, input, dt, {
