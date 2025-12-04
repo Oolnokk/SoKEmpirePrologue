@@ -699,6 +699,7 @@ function resolveLegProfile(cfg, mode) {
 }
 
 function isWeaponDrawn(F) {
+  if (typeof F?.anim?.weapon?.stowed === 'boolean') return !F.anim.weapon.stowed;
   if (typeof F?.renderProfile?.weaponDrawn === 'boolean') return F.renderProfile.weaponDrawn;
   if (typeof F?.weaponDrawn === 'boolean') return F.weaponDrawn;
   return true;
@@ -1588,7 +1589,7 @@ function resolveLowerBodyStancePose(cfg, fighter) {
   const basePose = resolveBasePose(cfg);
   const legProfile = resolveLegProfile(cfg, poseMode);
   const movementPose = legProfile
-    ? computeMovementPose(fighter, cfg, cfg, legProfile, basePose, { poseMode })
+    ? computeMovementPose(fighter, cfg, cfg, legProfile, basePose, { poseMode, weaponDrawn: isWeaponDrawn(fighter) })
     : null;
   return extractLowerBodyPose(movementPose || basePose);
 }
@@ -1718,7 +1719,7 @@ function pickMovementProfile(fcfg, C, mode = 'combat'){
 
 function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX = (F._prevX==null? F.pos?.x||0 : F._prevX); const curX = F.pos?.x||0; const v = (curX - prevX)/dt; F._prevX = curX; return Math.abs(Number.isFinite(F.vel?.x)? F.vel.x : v); }
 
-function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { poseMode } = {}){
+function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { poseMode, weaponDrawn } = {}){
   const cfg = fcfg || C || {};
   const W = movementProfile || cfg.walk || {
     enabled:true,
@@ -1833,9 +1834,10 @@ function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { pose
   pose.rElbow    = base.rElbow;
 
   // Arm swing only during actual movement, like before
-  const armSwingSpec     = W.armSwing || {};
-  const swingEnabledFlag = armSwingSpec.enabled ?? W.armSwingEnabled;
-  const allowArmSwing    = !!(swingEnabledFlag || poseMode === 'nonCombat' || F.anim?.weapon?.stowed);
+  const armSwingSpec      = W.armSwing || {};
+  const swingEnabledFlag  = armSwingSpec.enabled ?? W.armSwingEnabled;
+  const weaponDrawnFlag   = weaponDrawn ?? true;
+  const allowArmSwing     = !!(weaponDrawnFlag && (swingEnabledFlag ?? true));
 
   if (allowArmSwing && useMovement) {
     const swingAmp     = (armSwingSpec.amp ?? 1) * F.walk.amp;
@@ -2448,7 +2450,7 @@ export function updatePoses(){
 
     const basePoseConfig = resolveStancePose(C, F);
     const movementProfile = pickMovementProfile(fcfg, C, poseMode);
-    const movementPose = computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { poseMode });
+    const movementPose = computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { poseMode, weaponDrawn });
     const legsPose = movementProfile?.legsPose || pickLegsBase(fcfg, C, poseMode);
     const applyModeLayer = movementPose._active && (poseMode === 'nonCombat' || poseMode === 'sneak');
 
