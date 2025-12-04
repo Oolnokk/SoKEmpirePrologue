@@ -1846,11 +1846,15 @@ function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { pose
     const lShoulderSwing = Math.sin(shoulderPhase) * shoulderAmp;
     const lElbowSwing    = Math.sin(elbowPhase) * elbowAmp;
 
+    // When facing left (canvas flipped), negate arm swing to maintain natural alternating pattern
+    const facingSign = F.facingSign ?? 1;
+    const swingMult = facingSign; // 1 for right-facing, -1 for left-facing
+
     pose.__armSwing = {
-      lShoulder: lShoulderSwing,
-      rShoulder: -lShoulderSwing,
-      lElbow: lElbowSwing,
-      rElbow: -lElbowSwing,
+      lShoulder: lShoulderSwing * swingMult,
+      rShoulder: -lShoulderSwing * swingMult,
+      lElbow: lElbowSwing * swingMult,
+      rElbow: -lElbowSwing * swingMult,
     };
     pose._armSwingActive = true;
   } else {
