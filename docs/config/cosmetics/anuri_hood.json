@@ -7,7 +7,7 @@
   "palette": {
     "colors": {
       "A": { "h": 150, "s": 0.6, "l": 0.28 },
-      "B": { "h": -90, "s": -0.12, "l": 0.35 }
+      "B": { "h": 30, "s": 0.4, "l": 0.45 }
     },
     "layers": {
       "layer0": "A",
@@ -42,8 +42,7 @@
         "front_trim": {
           "layerRole": "overlay",
           "image": {
-            "url": "./assets/cosmetics/clothes/hat/anuri_hood-front-trim.png",
-            "colors": ["B"]
+            "url": "./assets/cosmetics/clothes/hat/anuri_hood-front-trim.png"
           }
         }
       }

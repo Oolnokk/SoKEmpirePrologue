@@ -52,8 +52,7 @@
         "front_trim": {
           "layerRole": "overlay",
           "image": {
-            "url": "./assets/cosmetics/clothes/overwear/anuri_poncho-front-trim.png",
-            "colors": ["B"]
+            "url": "./assets/cosmetics/clothes/overwear/anuri_poncho-front-trim.png"
           },
           "attachBone": "torso",
           "drawSlot": "head",
