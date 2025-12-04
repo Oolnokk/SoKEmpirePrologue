@@ -1203,10 +1203,12 @@ export function renderSprites(ctx){
     enqueue('HEAD', ()=>{
       if (assets.head && rig.head){
         const headOptions = applyAnimOptions('head', makeTintOptions(assets.head));
+        drawAppearanceLayers('headhair', rig.head, 'head', 'back');
         drawAppearanceLayers('head', rig.head, 'head', 'back');
         drawBoneSprite(ctx, assets.head, rig.head, 'head', style, headOptions);
         drawUntintedOverlays('head', rig.head, 'head');
         drawAppearanceLayers('head', rig.head, 'head', 'front');
+        drawAppearanceLayers('headhair', rig.head, 'head', 'front');
       }
     });
 
