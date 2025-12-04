@@ -294,10 +294,22 @@ function computeBoundsSpeedScalar(span) {
   return clamp(normalized, 0.55, 2.25);
 }
 
-function randomizeRagdollTargets(state) {
+function randomizeRagdollTargets(state, fighter = null) {
+  // Determine if we need to swap arm limits based on facing direction
+  const facingSign = fighter?.facingSign ?? 1;
+  const facingLeft = facingSign < 0;
+
   for (let i = 0; i < JOINT_KEYS_LENGTH; i++) {
     const key = JOINT_KEYS[i];
-    const [min, max] = JOINT_LIMITS[key];
+    // Swap arm joint limits when facing left to match flipped rendering
+    let effectiveKey = key;
+    if (facingLeft) {
+      if (key === 'lShoulder') effectiveKey = 'rShoulder';
+      else if (key === 'rShoulder') effectiveKey = 'lShoulder';
+      else if (key === 'lElbow') effectiveKey = 'rElbow';
+      else if (key === 'rElbow') effectiveKey = 'lElbow';
+    }
+    const [min, max] = JOINT_LIMITS[effectiveKey];
     const center = (min + max) * 0.5;
     const span = (max - min) * 0.5;
     state.ragdollTargets[key] = clamp(center + randomRange(-span, span) * 0.7, min, max);
@@ -337,7 +349,7 @@ function updateRagdollTargets(fighter, state, dt) {
   if (fighter.ragdoll) {
     state.ragdollRetargetTimer -= dt;
     if (state.ragdollRetargetTimer <= 0) {
-      randomizeRagdollTargets(state);
+      randomizeRagdollTargets(state, fighter);
     }
   }
 }
@@ -355,10 +367,23 @@ function updateJointPhysics(fighter, config, dt) {
   if (recoveryBlend > totalBlend) totalBlend = recoveryBlend;
   state.totalBlend = clamp(totalBlend, 0, 1);
 
+  // Determine if we need to swap arm limits based on facing direction
+  // When facing left (facingSign < 0), the canvas is flipped, so left/right arm data is swapped
+  const facingSign = fighter.facingSign ?? 1;
+  const facingLeft = facingSign < 0;
+
   const pose = state.animationPose || fighter.jointAngles || {};
   for (let i = 0; i < JOINT_KEYS_LENGTH; i++) {
     const joint = JOINT_KEYS[i];
-    const [min, max] = JOINT_LIMITS[joint];
+    // Swap arm joint limits when facing left to match flipped rendering
+    let effectiveJoint = joint;
+    if (facingLeft) {
+      if (joint === 'lShoulder') effectiveJoint = 'rShoulder';
+      else if (joint === 'rShoulder') effectiveJoint = 'lShoulder';
+      else if (joint === 'lElbow') effectiveJoint = 'rElbow';
+      else if (joint === 'rElbow') effectiveJoint = 'lElbow';
+    }
+    const [min, max] = JOINT_LIMITS[effectiveJoint];
     let angle = state.ragdollAngles[joint];
     if (!Number.isFinite(angle)) {
       const base = clamp(pose[joint] ?? 0, min, max);
@@ -411,7 +436,7 @@ export function ensureFighterPhysics(fighter, config) {
   ensureKnockbackState(fighter);
   const state = fighter.physics;
   if (!fighter.ragdollTargets || !state.ragdollTargets || Object.keys(state.ragdollTargets).length === 0) {
-    randomizeRagdollTargets(state);
+    randomizeRagdollTargets(state, fighter);
   }
   if (!Number.isFinite(fighter.recoveryDuration)) {
     const recoveryMultiplier = getBalanceScalar('baseRecoveryRate', 1);
@@ -822,7 +847,7 @@ export function triggerFullRagdoll(fighter, config, { angle = 0, force = 0 } = {
   state.partialBlendStart = 1;
   state.partialBlendTimer = 0;
   state.partialBlendDuration = 0.6;
-  randomizeRagdollTargets(state);
+  randomizeRagdollTargets(state, fighter);
   perturbJoints(state, 1);
 
   const backAngle = angle + Math.PI;
