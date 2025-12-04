@@ -3,7 +3,7 @@
   "type": "appearance",
   "appearance": {
     "inheritSprite": "head",
-    "bodyColors": ["B"],
+    "bodyColors": ["A"],
     "originalId": "mao-ao_shoulder_length_drape"
   },
   "parts": {
