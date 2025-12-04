@@ -1655,7 +1655,7 @@ window.CONFIG = {
     },
     anuri: {
       fighter: 'Mao-ao_F',
-      weapon: 'unarmed',
+      weapon: 'dagger-swords',
       slottedAbilities: ['combo_light', 'heavy_hold', 'quick_light', 'heavy_hold', 'quick_punch', 'evade_defensive'],
       stats: {
         strength: 11,
