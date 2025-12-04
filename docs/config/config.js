@@ -1665,7 +1665,7 @@ window.CONFIG = {
         maxStamina: 120
       },
       bodyColors: {
-        A: { h: -40, s: -0.3, v: 0.25 },
+        A: { h: -50, s: -0.4, v: 0.1 },
         B: { h: -40, s: -0.3, v: -0.5 },
         C: { h: -6, s: 0.12, v: 0.05 }
       },
