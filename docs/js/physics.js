@@ -301,9 +301,11 @@ function randomizeRagdollTargets(state, fighter = null) {
 
   for (let i = 0; i < JOINT_KEYS_LENGTH; i++) {
     const key = JOINT_KEYS[i];
+    const isArmJoint = key === 'lShoulder' || key === 'rShoulder' || key === 'lElbow' || key === 'rElbow';
+
     // Swap arm joint limits when facing left to match flipped rendering
     let effectiveKey = key;
-    if (facingLeft) {
+    if (facingLeft && isArmJoint) {
       if (key === 'lShoulder') effectiveKey = 'rShoulder';
       else if (key === 'rShoulder') effectiveKey = 'lShoulder';
       else if (key === 'lElbow') effectiveKey = 'rElbow';
@@ -312,7 +314,14 @@ function randomizeRagdollTargets(state, fighter = null) {
     const [min, max] = JOINT_LIMITS[effectiveKey];
     const center = (min + max) * 0.5;
     const span = (max - min) * 0.5;
-    state.ragdollTargets[key] = clamp(center + randomRange(-span, span) * 0.7, min, max);
+    let target = clamp(center + randomRange(-span, span) * 0.7, min, max);
+
+    // Negate arm angles when facing left to account for canvas flip
+    if (facingLeft && isArmJoint) {
+      target = -target;
+    }
+
+    state.ragdollTargets[key] = target;
   }
   state.ragdollRetargetTimer = randomRange(0.45, 0.85);
 }
@@ -367,23 +376,11 @@ function updateJointPhysics(fighter, config, dt) {
   if (recoveryBlend > totalBlend) totalBlend = recoveryBlend;
   state.totalBlend = clamp(totalBlend, 0, 1);
 
-  // Determine if we need to swap arm limits based on facing direction
-  // When facing left (facingSign < 0), the canvas is flipped, so left/right arm data is swapped
-  const facingSign = fighter.facingSign ?? 1;
-  const facingLeft = facingSign < 0;
-
   const pose = state.animationPose || fighter.jointAngles || {};
   for (let i = 0; i < JOINT_KEYS_LENGTH; i++) {
     const joint = JOINT_KEYS[i];
-    // Swap arm joint limits when facing left to match flipped rendering
-    let effectiveJoint = joint;
-    if (facingLeft) {
-      if (joint === 'lShoulder') effectiveJoint = 'rShoulder';
-      else if (joint === 'rShoulder') effectiveJoint = 'lShoulder';
-      else if (joint === 'lElbow') effectiveJoint = 'rElbow';
-      else if (joint === 'rElbow') effectiveJoint = 'lElbow';
-    }
-    const [min, max] = JOINT_LIMITS[effectiveJoint];
+    // Use original limits (targets are already adjusted in randomizeRagdollTargets)
+    const [min, max] = JOINT_LIMITS[joint];
     let angle = state.ragdollAngles[joint];
     if (!Number.isFinite(angle)) {
       const base = clamp(pose[joint] ?? 0, min, max);
