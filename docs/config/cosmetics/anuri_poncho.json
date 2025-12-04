@@ -55,9 +55,9 @@
             "url": "./assets/cosmetics/clothes/overwear/anuri_poncho-front-trim.png"
           },
           "hsl": {
-            "h": 60,
-            "s": 0.5,
-            "l": 0.3
+            "h": 110,
+            "s": 0,
+            "l": 0
           },
           "attachBone": "torso",
           "drawSlot": "head",

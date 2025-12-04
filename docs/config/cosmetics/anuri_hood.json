@@ -37,6 +37,13 @@
           "image": {
             "exposedPart": "ear",
             "colors": ["A"]
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "head": { "ax": 0, "ay": 0, "scaleX": 2.5, "scaleY": 2.5 }
+              }
+            }
           }
         },
         "front_trim": {
@@ -45,9 +52,16 @@
             "url": "./assets/cosmetics/clothes/hat/anuri_hood-front-trim.png"
           },
           "hsl": {
-            "h": 60,
-            "s": 0.5,
-            "l": 0.3
+            "h": 110,
+            "s": 0,
+            "l": 0
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "head": { "ax": 0, "ay": 0, "scaleX": 2.5, "scaleY": 2.5 }
+              }
+            }
           }
         }
       }
