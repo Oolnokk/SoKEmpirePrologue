@@ -273,6 +273,10 @@ class CosmeticWorkbench {
     this.renderAll();
   }
 
+  getMergedSlots() {
+    return mergeSlotConfig(this.state.baseSlots, this.state.slotOverrides);
+  }
+
   renderSlotList() {
     const container = this.dom.slotList;
     if (!container) return;
@@ -280,19 +284,21 @@ class CosmeticWorkbench {
     const filter = this.state.slotFilter;
     const slotKeys = new Set([
       ...Object.keys(this.state.baseSlots || {}),
+      ...Object.keys(this.state.slotOverrides || {}),
       ...Array.from(this.state.slotIndex.keys())
     ]);
 
     const sorted = Array.from(slotKeys).sort();
     const fragments = [];
+    const mergedSlots = this.getMergedSlots();
     for (const slot of sorted) {
       if (filter && !slot.toLowerCase().includes(filter)) continue;
-      const active = this.state.slotOverrides[slot] || this.state.baseSlots[slot] || {};
+      const active = mergedSlots[slot] || {};
       const options = this.getSlotOptions(slot);
       const label = slot.startsWith('appearance:') ? slot.replace('appearance:', 'appearance · ') : slot;
       const selectOptions = ['<option value="">Use default</option>'];
       selectOptions.push(...options.map((opt) => `<option value="${opt.id}">${opt.label}</option>`));
-      const currentId = this.state.slotOverrides[slot]?.id || '';
+      const currentId = active.id || '';
 
       fragments.push(`
         <div class="slot-row" data-slot="${slot}">
@@ -318,7 +324,7 @@ class CosmeticWorkbench {
 
     container.querySelectorAll('[data-slot-select]').forEach((select) => {
       const slot = select.getAttribute('data-slot-select');
-      select.value = this.state.slotOverrides[slot]?.id || '';
+      select.value = mergedSlots[slot]?.id || '';
       select.addEventListener('change', (evt) => this.handleSlotChange(slot, evt.target.value));
     });
   }
@@ -339,9 +345,11 @@ class CosmeticWorkbench {
   renderPreview() {
     const fighter = this.state.fighter;
     if (!fighter) return;
-    const overrides = deepClone(this.state.slotOverrides);
+    const mergedSlots = this.getMergedSlots();
+    const overrides = deepClone(mergedSlots);
     const pose = this.getPoseAngles();
-    this.setStatus(`Rendering ${fighter} (${Object.keys(overrides).length} override${Object.keys(overrides).length === 1 ? '' : 's'})`);
+    const overrideCount = Object.keys(this.state.slotOverrides || {}).length;
+    this.setStatus(`Rendering ${fighter} (${overrideCount} override${overrideCount === 1 ? '' : 's'})`);
     renderFighterPreview(this.dom.canvas, fighter, overrides, { jointAngles: pose, view: 'portrait' });
   }
 
@@ -354,7 +362,8 @@ class CosmeticWorkbench {
       return;
     }
 
-    const overrides = deepClone(this.state.slotOverrides);
+    const mergedSlots = this.getMergedSlots();
+    const overrides = deepClone(mergedSlots);
     const pose = this.getPoseAngles();
     const fragments = [];
     for (const part of SNAPSHOT_PARTS) {
