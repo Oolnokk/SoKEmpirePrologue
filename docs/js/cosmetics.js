@@ -11,6 +11,40 @@ const STATE = (ROOT.COSMETIC_SYSTEM ||= {
   exposedParts: new Map()
 });
 
+function getAssetOffsetCache(asset){
+  if (!asset) return null;
+  if (!asset.__cosmeticOffsetCache){
+    asset.__cosmeticOffsetCache = new Map();
+  }
+  return asset.__cosmeticOffsetCache;
+}
+
+export function deriveCosmeticOffset(referenceAsset, cosmeticAsset){
+  if (!referenceAsset || !cosmeticAsset) return null;
+  const refImg = referenceAsset.img;
+  const cosImg = cosmeticAsset.img;
+  if (!refImg || !cosImg) return null;
+  if (!(refImg.complete && cosImg.complete)) return null;
+  if (!(refImg.naturalWidth > 0 && refImg.naturalHeight > 0)) return null;
+  if (!(cosImg.naturalWidth > 0 && cosImg.naturalHeight > 0)) return null;
+
+  const cacheKey = referenceAsset.url || refImg.src || null;
+  const cache = getAssetOffsetCache(cosmeticAsset);
+  if (cacheKey && cache?.has(cacheKey)){
+    return cache.get(cacheKey);
+  }
+
+  const ax = (refImg.naturalWidth - cosImg.naturalWidth) / 2;
+  const ay = (refImg.naturalHeight - cosImg.naturalHeight) / 2;
+  const offset = { ax, ay };
+
+  if (cacheKey && cache){
+    cache.set(cacheKey, offset);
+  }
+
+  return offset;
+}
+
 export function getRegisteredCosmeticLibrary(){
   const entries = Object.entries(STATE.library || {});
   const out = {};
@@ -1265,6 +1299,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
         let warpOverride = resolved.warp;
         let anchorOverride = resolved.anchor;
         let alignOverride = resolved.align;
+        let alignWith = resolved.alignWith || resolved.align?.with || resolved.align?.alignWith;
         let styleKey = resolved.styleKey;
         let layerExtra = resolved.extra ? deepMerge({}, resolved.extra) : {};
         let paletteOverride = resolved.palette ? deepMerge({}, resolved.palette) : resolved.palette;
@@ -1287,6 +1322,9 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           }
           if (override.align){
             alignOverride = mergeConfig(alignOverride, override.align);
+          }
+          if (override.alignWith != null){
+            alignWith = override.alignWith;
           }
           if (override.styleKey != null){
             styleKey = override.styleKey;
@@ -1372,6 +1410,9 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
 
         const alignDeg = alignOverride?.deg;
         const alignRad = alignOverride?.rad ?? (Number.isFinite(alignDeg) ? degToRad(alignDeg) : undefined);
+        if (alignOverride?.alignWith != null || alignOverride?.with != null){
+          alignWith = alignOverride.alignWith ?? alignOverride.with;
+        }
         if (isAppearance){
           hsl = clampBodyHSL(hsl);
         }
@@ -1404,6 +1445,7 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
           extra: layerExtra,
           tintTarget,
           cosmeticPalette: palette,
+          alignWith,
           attachBone, // <== Pass through
           drawSlot,   // <== Pass through
           dynamicLayerByBoneRotation
