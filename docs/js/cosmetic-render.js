@@ -7,6 +7,16 @@ import { computeAnchorsForFighter } from './render.js?v=4';
 import { renderSprites, ensureFighterSprites } from './sprites.js?v=8';
 import { ensureCosmeticLayers } from './cosmetics.js?v=1';
 import { degToRad } from './math-utils.js?v=1';
+import { resolveStancePose } from './animator.js?v=5';
+
+function resolveStancePoseSafe(config, fighterName, options = {}) {
+  try {
+    return resolveStancePose(config, { ...(options.fighter || {}), renderProfile: { fighterName } }) || {};
+  } catch (err) {
+    console.warn('[cosmetic-render] Failed to resolve stance pose', err);
+    return {};
+  }
+}
 
 /**
  * Builds a fighter entity object suitable for rendering.
@@ -22,7 +32,7 @@ export function buildFighterEntity(fighterName, options = {}) {
   if (!fighterName) return null;
   const C = window.CONFIG || {};
 
-  const jointAngles = options.jointAngles || getDefaultPoseAngles();
+  const jointAngles = options.jointAngles || getDefaultPoseAngles(fighterName, options);
   const pos = options.pos || { x: 0, y: 0 };
   const anim = options.anim || (options.fighter && options.fighter.anim) || null;
 
@@ -38,6 +48,17 @@ export function buildFighterEntity(fighterName, options = {}) {
 
   if (anim) {
     fighter.anim = deepClone(anim);
+  }
+
+  const stance = resolveStancePoseSafe(C, fighterName, options);
+  const lengthOverrides = normalizeLengthOverrides(stance);
+  if (lengthOverrides && Object.keys(lengthOverrides).length) {
+    fighter.anim ||= {};
+    fighter.anim.length = fighter.anim.length || {};
+    fighter.anim.length.overrides = {
+      ...(fighter.anim.length.overrides || {}),
+      ...lengthOverrides
+    };
   }
 
   let result;
@@ -67,21 +88,23 @@ export function buildFighterEntity(fighterName, options = {}) {
  * Gets the default pose angles from CONFIG.poses.Stance
  * @returns {Object} Joint angles object with values in radians
  */
-export function getDefaultPoseAngles() {
-  const pose = (window.CONFIG?.poses?.Stance) || {};
+export function getDefaultPoseAngles(fighterName, options = {}) {
+  const pose = resolveStancePoseSafe(window.CONFIG, fighterName, options);
+  const fallback = (window.CONFIG?.poses?.Stance) || {};
+  const source = Object.keys(pose).length ? pose : fallback;
   const keys = ['torso', 'head', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow', 'lHip', 'lKnee', 'rHip', 'rKnee'];
   const result = {};
-  
+
   keys.forEach((key) => {
-    if (pose[key] != null) {
-      result[key] = degToRad(pose[key]);
+    if (source[key] != null) {
+      result[key] = degToRad(source[key]);
     }
   });
-  
+
   if (result.head == null && result.torso != null) {
     result.head = result.torso;
   }
-  
+
   return result;
 }
 
@@ -416,6 +439,18 @@ function getRelatedBoneKeys(partKey) {
   };
   
   return relationships[partKey] || [];
+}
+
+function normalizeLengthOverrides(pose = {}) {
+  const source = pose.lengthScales || pose.boneLengthScales;
+  if (!source || typeof source !== 'object') return null;
+  const normalized = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (Number.isFinite(value)) {
+      normalized[key] = value;
+    }
+  }
+  return normalized;
 }
 
 /**
