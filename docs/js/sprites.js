@@ -214,6 +214,87 @@ function resolveOffsetForBone(bone, axis, rawAx, rawAy, usePercentUnits){
   };
 }
 
+function isPercentUnit(unit){
+  const normalized = (unit || '').toString().toLowerCase();
+  return normalized === 'percent' || normalized === '%' || normalized === 'pct';
+}
+
+function parseUnitlessOffset(value, fallbackUnits){
+  const fallbackIsPercent = isPercentUnit(fallbackUnits);
+  if (typeof value === 'string'){
+    const trimmed = value.trim();
+    const percentMatch = trimmed.match(/^(-?\d+(?:\.\d+)?)\s*%$/);
+    if (percentMatch){
+      const pct = Number(percentMatch[1]);
+      return { value: Number.isFinite(pct) ? pct / 100 : 0, isPercent: true };
+    }
+    const pxMatch = trimmed.match(/^(-?\d+(?:\.\d+)?)\s*px$/i);
+    if (pxMatch){
+      const px = Number(pxMatch[1]);
+      return { value: Number.isFinite(px) ? px : 0, isPercent: false };
+    }
+    const num = Number.parseFloat(trimmed);
+    return { value: Number.isFinite(num) ? num : 0, isPercent: fallbackIsPercent };
+  }
+  if (Number.isFinite(value)){
+    return { value, isPercent: fallbackIsPercent };
+  }
+  return { value: 0, isPercent: fallbackIsPercent };
+}
+
+function normalizeOffsetInput(rawAx, rawAy, unitHint){
+  const units = (unitHint || 'px').toString().toLowerCase();
+  const axParsed = parseUnitlessOffset(rawAx, units);
+  const ayParsed = parseUnitlessOffset(rawAy, units);
+  return {
+    ax: Number.isFinite(axParsed.value) ? axParsed.value : 0,
+    ay: Number.isFinite(ayParsed.value) ? ayParsed.value : 0,
+    axIsPercent: !!axParsed.isPercent,
+    ayIsPercent: !!ayParsed.isPercent,
+    units
+  };
+}
+
+function applyOffsetToBone(bone, axis, offsetSpec){
+  if (!offsetSpec){
+    return { offsetX: 0, offsetY: 0 };
+  }
+  const len = Number.isFinite(bone?.len) ? bone.len : 0;
+  const ax = offsetSpec.axIsPercent ? offsetSpec.ax * len : offsetSpec.ax;
+  const ay = offsetSpec.ayIsPercent ? offsetSpec.ay * len : offsetSpec.ay;
+  return resolveOffsetForBone(bone, axis, ax, ay, false);
+}
+
+function hasOffsetFields(obj){
+  if (!obj || typeof obj !== 'object') return false;
+  return obj.ax != null || obj.ay != null || obj.x != null || obj.y != null;
+}
+
+function resolveMetaValue(metaField, normalizedKey, rawKey){
+  if (metaField == null) return null;
+  if (typeof metaField !== 'object' || Array.isArray(metaField) || hasOffsetFields(metaField)){
+    return metaField;
+  }
+  if (normalizedKey && metaField[normalizedKey] != null){
+    return metaField[normalizedKey];
+  }
+  if (rawKey && metaField[rawKey] != null){
+    return metaField[rawKey];
+  }
+  if (metaField.base != null){
+    return metaField.base;
+  }
+  if (metaField.default != null){
+    return metaField.default;
+  }
+  return null;
+}
+
+function normalizeAnchorMode(mode){
+  const normalized = typeof mode === 'string' ? mode.trim().toLowerCase() : '';
+  return normalized === 'start' ? 'start' : 'mid';
+}
+
 function normalizeBodyColorOverride(source){
   if (!source || typeof source !== 'object') return null;
   const map = {};
@@ -339,6 +420,9 @@ function ensureWeaponSpriteAsset(cacheKey, spriteDef){
   }
   if (!asset.img || asset.img.src !== spriteDef.url) {
     asset.img = load(spriteDef.url);
+  }
+  if (spriteDef.meta) {
+    asset.meta = spriteDef.meta;
   }
   if (spriteDef.alignRad != null) {
     asset.alignRad = spriteDef.alignRad;
@@ -785,6 +869,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   const sourceImage = renderImage || img;
 
   const normalizedKey = normalizeStyleKey(styleKey);
+  const meta = asset?.meta || {};
 
   // Get anchor config: anchors at bone midpoint by default
   const effectiveStyle = mergeSpriteStyles(style, opts.styleOverride);
@@ -808,9 +893,11 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   }
   const anchorCfg = effectiveStyle.anchor || {};
   const anchorMode = anchorCfg[styleKey] || 'mid';
-  const resolvedAnchorMode = (opts.anchorMode != null)
+  const metaAnchor = resolveMetaValue(meta.anchor, normalizedKey, styleKey);
+  const anchorFromMeta = metaAnchor != null ? normalizeAnchorMode(metaAnchor) : null;
+  const resolvedAnchorMode = normalizeAnchorMode((opts.anchorMode != null)
     ? opts.anchorMode
-    : (anchorCfg[normalizedKey] != null ? anchorCfg[normalizedKey] : anchorMode);
+    : (anchorFromMeta != null ? anchorFromMeta : (anchorCfg[normalizedKey] != null ? anchorCfg[normalizedKey] : anchorMode)));
 
   // Basis vectors for local orientation
   const bAxis = basisFor(bone.ang);
@@ -827,12 +914,14 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   const baseStyleXformSrc = style?.xform || {};
   const xformTable = effectiveStyle.xform || {};
   const xform = xformTable[normalizedKey] || xformTable[styleKey] || xformTable.base || {};
-  const xformUnits = (effectiveStyle.xformUnits || 'px').toLowerCase();
+  const xformUnits = (effectiveStyle.xformUnits || 'px');
 
-  const rawAx = xform.ax ?? 0;
-  const rawAy = xform.ay ?? 0;
-  const usePercentUnits = (xformUnits === 'percent' || xformUnits === '%' || xformUnits === 'pct');
-  const { offsetX, offsetY } = resolveOffsetForBone(bone, bAxis, rawAx, rawAy, usePercentUnits);
+  const metaOffset = resolveMetaValue(meta.offset, normalizedKey, styleKey);
+  const offsetUnits = metaOffset?.units ?? metaOffset?.unit ?? meta.offsetUnits ?? xformUnits;
+  const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xform.ax ?? 0;
+  const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.y)) ?? xform.ay ?? 0;
+  const offsetSpec = normalizeOffsetInput(rawAx, rawAy, offsetUnits);
+  const { offsetX, offsetY } = applyOffsetToBone(bone, bAxis, offsetSpec);
   posX += offsetX;
   posY += offsetY;
 
@@ -959,7 +1048,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
         infPosX = targetBone.x + (targetBone.len || 0) * 0.5 * axis.fx;
         infPosY = targetBone.y + (targetBone.len || 0) * 0.5 * axis.fy;
       }
-      const { offsetX: infOffsetX, offsetY: infOffsetY } = resolveOffsetForBone(targetBone, axis, rawAx, rawAy, usePercentUnits);
+      const { offsetX: infOffsetX, offsetY: infOffsetY } = applyOffsetToBone(targetBone, axis, offsetSpec);
       infPosX += infOffsetX;
       infPosY += infOffsetY;
       const thetaInf = targetBone.ang + alignRad + extraRotRad + Math.PI;
@@ -1450,6 +1539,16 @@ export function initSprites(){
 }
 
 // Asset loader
+// Sprite asset configs may ship metadata (e.g., exported JSON next to PNGs) via `meta`:
+//   {
+//     url: 'sprite.png',
+//     meta: {
+//       anchor: 'mid' | 'start' | { base: 'mid', torso: 'start', legLower: 'mid' },
+//       offset: { ax: 0, ay: '-8px', units: 'px' } | { base: { ax: '5%', ay: 0 } },
+//     }
+//   }
+// The metadata stays attached to the cached asset objects so downstream exporters and drawBoneSprite
+// can consume anchor/offset hints without being stripped by ensureFighterSprites.
 function resolveSpriteAssets(spriteMap){
   for (const [k, cfg] of Object.entries(spriteMap)){
     if (cfg && cfg.url){
