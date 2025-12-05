@@ -2170,11 +2170,14 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
 }
 
 // Update aiming offsets based on current pose
-function updateAiming(F, currentPose, fighterId){
+function updateAiming(F, currentPose, fighterId, options = {}){
   const C = window.CONFIG || {};
   const G = window.GAME || {};
   const poseFlags = currentPose || {};
   const isPlayer = fighterId === 'player' || F.isPlayer === true;
+  const headOnly = !!options.headOnly;
+
+  F.aim.headOnly = headOnly;
 
   if (!C.aiming?.enabled) {
     F.aim.active = false;
@@ -2235,11 +2238,17 @@ function updateAiming(F, currentPose, fighterId){
       aimDeg *= orientationSign;
     }
     F.aim.orientationSign = orientationSign;
-    F.aim.torsoOffset = clamp(aimDeg * 0.5, -(C.aiming.maxTorsoAngle || 45), (C.aiming.maxTorsoAngle || 45));
-    F.aim.shoulderOffset = clamp(aimDeg * 0.7, -(C.aiming.maxShoulderAngle || 60), (C.aiming.maxShoulderAngle || 60));
-    F.aim.hipOffset = poseFlags.aimLegs
-      ? clamp(aimDeg * (poseFlags.aimRightLegOnly ? 0.6 : 0.4), poseFlags.aimRightLegOnly ? -50 : -40, poseFlags.aimRightLegOnly ? 50 : 40)
-      : 0;
+    if (headOnly) {
+      F.aim.torsoOffset = 0;
+      F.aim.shoulderOffset = 0;
+      F.aim.hipOffset = 0;
+    } else {
+      F.aim.torsoOffset = clamp(aimDeg * 0.5, -(C.aiming.maxTorsoAngle || 45), (C.aiming.maxTorsoAngle || 45));
+      F.aim.shoulderOffset = clamp(aimDeg * 0.7, -(C.aiming.maxShoulderAngle || 60), (C.aiming.maxShoulderAngle || 60));
+      F.aim.hipOffset = poseFlags.aimLegs
+        ? clamp(aimDeg * (poseFlags.aimRightLegOnly ? 0.6 : 0.4), poseFlags.aimRightLegOnly ? -50 : -40, poseFlags.aimRightLegOnly ? 50 : 40)
+        : 0;
+    }
 
     const worldAimStandard = currentAngle + facingRad;
     if (Number.isFinite(worldAimStandard)) {
@@ -2331,18 +2340,25 @@ function updateAiming(F, currentPose, fighterId){
     aimDeg *= orientationSign;
   }
   F.aim.orientationSign = orientationSign;
-  F.aim.torsoOffset = clamp(aimDeg * 0.5, -(C.aiming.maxTorsoAngle || 45), (C.aiming.maxTorsoAngle || 45));
-  F.aim.shoulderOffset = clamp(aimDeg * 0.7, -(C.aiming.maxShoulderAngle || 60), (C.aiming.maxShoulderAngle || 60));
+  if (headOnly) {
+    F.aim.torsoOffset = 0;
+    F.aim.shoulderOffset = 0;
+  } else {
+    F.aim.torsoOffset = clamp(aimDeg * 0.5, -(C.aiming.maxTorsoAngle || 45), (C.aiming.maxTorsoAngle || 45));
+    F.aim.shoulderOffset = clamp(aimDeg * 0.7, -(C.aiming.maxShoulderAngle || 60), (C.aiming.maxShoulderAngle || 60));
+  }
 
   // Apply leg aiming if pose allows it
-  if (poseFlags.aimLegs) {
-    if (poseFlags.aimRightLegOnly) {
-      F.aim.hipOffset = clamp(aimDeg * 0.6, -50, 50); // Only right leg aims
+  if (!headOnly) {
+    if (poseFlags.aimLegs) {
+      if (poseFlags.aimRightLegOnly) {
+        F.aim.hipOffset = clamp(aimDeg * 0.6, -50, 50); // Only right leg aims
+      } else {
+        F.aim.hipOffset = clamp(aimDeg * 0.4, -40, 40); // Both legs aim
+      }
     } else {
-      F.aim.hipOffset = clamp(aimDeg * 0.4, -40, 40); // Both legs aim
+      F.aim.hipOffset = 0;
     }
-  } else {
-    F.aim.hipOffset = 0;
   }
 
   const worldAimStandard = (F.aim.currentAngle || 0) + facingRad;
@@ -2355,7 +2371,7 @@ function updateAiming(F, currentPose, fighterId){
 
 // Apply aiming offsets to a pose
 function applyAimingOffsets(poseDeg, F, currentPose){
-  if (!F.aim.active || F.nonCombatRagdoll) return poseDeg;
+  if (!F.aim.active || F.nonCombatRagdoll || F.aim.headOnly) return poseDeg;
 
   const poseFlags = currentPose || {};
   const result = {...poseDeg};
@@ -2499,7 +2515,7 @@ export function updatePoses(){
     const aimingPose = topLayer?.pose || targetDeg;
 
     // Update aiming system based on current pose
-    updateAiming(F, aimingPose || targetDeg, id);
+    updateAiming(F, aimingPose || targetDeg, id, { headOnly: stowActive });
 
     // Add basePose to targetDeg (matching reference HTML behavior)
     const basePose = C.basePose || {};

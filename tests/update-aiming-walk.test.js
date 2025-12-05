@@ -87,6 +87,74 @@ test('updateAiming stays active when allowAiming is unspecified', async () => {
   assert.equal(typeof fighter.aim.headWorldTarget, 'number', 'Head target should be computed');
 });
 
+test('head-only aiming keeps body neutral while keeping head target', async () => {
+  const source = await readFile('docs/js/animator.js', 'utf8');
+  const clampSrc = extractFunction(source, 'clamp');
+  const normalizeSrc = extractFunction(source, 'normalizeRad');
+  const convertSrc = extractFunction(source, 'convertAimToHeadRad');
+  const updateAimingSrc = extractFunction(source, 'updateAiming');
+
+  const script = `
+    const degToRad = (deg) => deg * Math.PI / 180;
+    const radToDegNum = (rad) => rad * 180 / Math.PI;
+    ${clampSrc}
+    ${normalizeSrc}
+    ${convertSrc}
+    ${updateAimingSrc}
+    exports.updateAiming = updateAiming;
+    exports.convertAimToHeadRad = convertAimToHeadRad;
+  `;
+
+  const context = {
+    Math,
+    exports: {},
+    window: {
+      CONFIG: {
+        aiming: {
+          enabled: true,
+          smoothing: 8,
+          maxTorsoAngle: 45,
+          maxShoulderAngle: 60
+        }
+      },
+      GAME: {
+        AIMING: { manualAim: false },
+        JOYSTICK: { active: false },
+        MOUSE: { worldX: 100, worldY: -100, hasPosition: true, isDown: true }
+      }
+    },
+    performance: { now: () => 0 }
+  };
+
+  vm.createContext(context);
+  vm.runInContext(script, context);
+
+  const { updateAiming } = context.exports;
+  const fighter = {
+    pos: { x: 0, y: 0 },
+    facingRad: 0,
+    anim: { dt: 0.016 },
+    aim: {
+      active: false,
+      currentAngle: 0,
+      torsoOffset: 10,
+      shoulderOffset: -5,
+      hipOffset: 3,
+      headWorldTarget: null,
+      headOnly: false
+    }
+  };
+
+  const pose = {};
+  updateAiming(fighter, pose, 'player', { headOnly: true });
+
+  assert.equal(fighter.aim.headOnly, true, 'Head-only mode should be marked on aim state');
+  assert.equal(fighter.aim.torsoOffset, 0, 'Torso offset should be neutral in head-only mode');
+  assert.equal(fighter.aim.shoulderOffset, 0, 'Shoulder offset should be neutral in head-only mode');
+  assert.equal(fighter.aim.hipOffset, 0, 'Hip offset should be neutral in head-only mode');
+  assert.equal(typeof fighter.aim.headWorldTarget, 'number', 'Head target should still be computed');
+});
+
 test('npc fighters retain AI-provided aim direction', async () => {
   const source = await readFile('docs/js/animator.js', 'utf8');
   const clampSrc = extractFunction(source, 'clamp');
