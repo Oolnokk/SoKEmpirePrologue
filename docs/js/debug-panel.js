@@ -13,6 +13,39 @@ export function initDebugPanel() {
     return;
   }
 
+  const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  const getFocusableElements = () => Array.from(panel.querySelectorAll(focusableSelector)).filter((el) => {
+    const style = window.getComputedStyle(el);
+    return style.visibility !== 'hidden' && style.display !== 'none';
+  });
+
+  const handlePanelKeydown = (event) => {
+    if (panel.classList.contains('debug-panel--hidden')) return;
+    if (event.key !== 'Tab') return;
+
+    const focusable = getFocusableElements();
+    if (!focusable.length) {
+      event.preventDefault();
+      panel.focus({ preventScroll: true });
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus({ preventScroll: true });
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus({ preventScroll: true });
+    }
+  };
+
+  panel.addEventListener('keydown', handlePanelKeydown);
+
   // Setup copy JSON button
   const copyBtn = $$('#debugCopyJson', panel);
   if (copyBtn) {
@@ -36,9 +69,22 @@ export function initDebugPanel() {
   // Setup panel visibility toggle
   const toggleBtn = $$('#debugToggle');
   if (toggleBtn) {
+    const setPanelOpen = (isOpen) => {
+      panel.classList.toggle('debug-panel--hidden', !isOpen);
+      panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+      toggleBtn.textContent = isOpen ? '✕ Debug' : '🔍 Debug';
+
+      if (isOpen) {
+        const focusTarget = getFocusableElements()[0] || panel;
+        focusTarget.focus({ preventScroll: true });
+      } else {
+        toggleBtn.focus({ preventScroll: true });
+      }
+    };
+
     toggleBtn.addEventListener('click', () => {
-      panel.classList.toggle('debug-panel--hidden');
-      toggleBtn.textContent = panel.classList.contains('debug-panel--hidden') ? '🔍 Debug' : '✕ Debug';
+      const isOpening = panel.classList.contains('debug-panel--hidden');
+      setPanelOpen(isOpening);
     });
   }
 

@@ -958,12 +958,23 @@ canvas#game{
 
 /* Debug Panel Styles */
 .debug-panel {
-  max-height: 600px;
+  position: absolute;
+  top: 80px;
+  right: 16px;
+  max-width: 420px;
+  width: min(420px, calc(100% - 32px));
+  max-height: min(80vh, 640px);
   overflow: auto;
+  z-index: 60;
+  transition: transform 0.28s ease, opacity 0.28s ease;
+  transform: translateX(0);
+  will-change: transform, opacity;
 }
 
 .debug-panel--hidden {
-  display: none;
+  opacity: 0;
+  transform: translateX(120%);
+  pointer-events: none;
 }
 
 .debug-panel-header {
