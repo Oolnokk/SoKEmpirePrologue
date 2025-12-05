@@ -1833,32 +1833,6 @@ function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { pose
   pose.rShoulder = base.rShoulder;
   pose.rElbow    = base.rElbow;
 
-  // Arm swing only during actual movement, like before
-  const armSwingSpec      = W.armSwing || {};
-  const swingEnabledFlag  = armSwingSpec.enabled ?? W.armSwingEnabled;
-  const weaponDrawnFlag   = weaponDrawn ?? true;
-  const allowArmSwing     = !!(weaponDrawnFlag && (swingEnabledFlag ?? true));
-
-  if (allowArmSwing && useMovement) {
-    const swingAmp     = (armSwingSpec.amp ?? 1) * F.walk.amp;
-    const shoulderAmp  = (armSwingSpec.shoulderAmpDeg ?? 6) * swingAmp;
-    const elbowAmp     = (armSwingSpec.elbowAmpDeg ?? 4) * swingAmp;
-    const shoulderPhase = F.walk.phase + (armSwingSpec.phaseOffset ?? Math.PI / 6);
-    const elbowPhase    = shoulderPhase + (armSwingSpec.elbowPhaseOffset ?? Math.PI / 4);
-    const lShoulderSwing = Math.sin(shoulderPhase) * shoulderAmp;
-    const lElbowSwing    = Math.sin(elbowPhase) * elbowAmp;
-
-    pose.__armSwing = {
-      lShoulder: lShoulderSwing,
-      rShoulder: -lShoulderSwing,
-      lElbow: lElbowSwing,
-      rElbow: -lElbowSwing,
-    };
-    pose._armSwingActive = true;
-  } else {
-    pose._armSwingActive = false;
-  }
-
   // State flags
   pose._movementActive = useMovement;
   pose._idleActive = useIdle;
@@ -2509,25 +2483,17 @@ export function updatePoses(){
     }
 
     const armsLockedByLayer = activeLayers.some(layerTouchesArms);
-    const armSwingActive = movementPose._armSwingActive && !movementSuppressed && !F.nonCombatRagdoll;
-    if (armSwingActive && movementPose.__armSwing && !armsLockedByLayer) {
-      for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
-        if (movementPose.__armSwing[key] == null) continue;
-        const baseValue = targetDeg[key] ?? basePoseConfig?.[key] ?? 0;
-        targetDeg[key] = baseValue + movementPose.__armSwing[key];
-      }
-    }
 
-      if (F.nonCombatRagdoll && !armsLockedByLayer) {
-        // Always clear limb mirror flags when entering ragdoll
-        resetMirror(id);
-        const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement, C.nonCombatRagdoll);
-        for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
-          if (relaxed[key] != null) {
-            targetDeg[key] = relaxed[key];
-          }
+    if (F.nonCombatRagdoll && !armsLockedByLayer) {
+      // Always clear limb mirror flags when entering ragdoll
+      resetMirror(id);
+      const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement, C.nonCombatRagdoll);
+      for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
+        if (relaxed[key] != null) {
+          targetDeg[key] = relaxed[key];
         }
       }
+    }
 
     const topLayer = activeLayers.length ? activeLayers[activeLayers.length - 1] : null;
     const aimingPose = topLayer?.pose || targetDeg;
