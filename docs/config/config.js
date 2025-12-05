@@ -294,7 +294,7 @@ const ensureWeaponStances = (config) => {
   });
 };
 
-// === UPDATED: movement profiles now have idlePoses + idleAmp + optional armSwing ===
+// === UPDATED: movement profiles now have idlePoses + idleAmp ===
 const MOVEMENT_PROFILES = {
   combat: {
     enabled: true,
@@ -311,15 +311,7 @@ const MOVEMENT_PROFILES = {
       A: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
       B: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
     },
-    idleAmp: 0.4,
-    armSwing: {
-      enabled: true,
-      amp: 1.0,
-      shoulderAmpDeg: 10,
-      elbowAmpDeg: 6,
-      phaseOffset: Math.PI / 6,
-      elbowPhaseOffset: Math.PI / 4
-    }
+    idleAmp: 0.4
   },
   nonCombat: {
     enabled: true,
@@ -336,13 +328,7 @@ const MOVEMENT_PROFILES = {
       A: { lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
       B: { lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
     },
-    idleAmp: 0.5,
-    armSwing: {
-      enabled: true,
-      amp: 0.7,
-      shoulderAmpDeg: 8,
-      elbowAmpDeg: 4
-    }
+    idleAmp: 0.5
   },
   sneak: {
     enabled: true,
@@ -359,13 +345,7 @@ const MOVEMENT_PROFILES = {
       A: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
       B: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 }
     },
-    idleAmp: 0.35,
-    armSwing: {
-      enabled: true,
-      amp: 0.5,
-      shoulderAmpDeg: 6,
-      elbowAmpDeg: 3
-    }
+    idleAmp: 0.35
   }
 };
 
