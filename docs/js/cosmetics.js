@@ -582,6 +582,15 @@ function deepMerge(base = {}, extra = {}){
   return out;
 }
 
+function dispatchCosmeticEvent(name, detail){
+  if (!ROOT || typeof ROOT.dispatchEvent !== 'function') return;
+  try {
+    ROOT.dispatchEvent(new CustomEvent(name, { detail }));
+  } catch (err) {
+    console.warn(`[cosmetics] Failed to dispatch ${name}`, err);
+  }
+}
+
 function pickPerFighter(def, fighterName){
   if (def == null) return null;
   if (typeof def === 'function'){
@@ -687,8 +696,13 @@ function normalizeCosmetic(id, raw = {}){
 }
 
 export function registerCosmeticLibrary(library = {}){
+  const registeredIds = [];
   for (const [id, cosmetic] of Object.entries(library || {})){
     STATE.library[id] = normalizeCosmetic(id, cosmetic);
+    registeredIds.push(id);
+  }
+  if (registeredIds.length){
+    dispatchCosmeticEvent('cosmetics:library-registered', { ids: registeredIds });
   }
   return STATE.library;
 }

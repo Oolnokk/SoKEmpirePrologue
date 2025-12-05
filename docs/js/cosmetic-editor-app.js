@@ -1,9 +1,9 @@
 import {
   COSMETIC_SLOTS,
   getRegisteredCosmeticLibrary,
-  registerCosmeticLibrary,
   registerFighterAppearance
 } from './cosmetics.js?v=1';
+import { refreshCosmeticLibrary, whenCosmeticLibraryReady } from './cosmetic-library.js?v=1';
 import { renderFighterPreview, renderPartPreview, getDefaultPoseAngles } from './cosmetic-render.js?v=1';
 import { degToRad } from './math-utils.js?v=1';
 
@@ -72,10 +72,11 @@ class CosmeticWorkbench {
     };
 
     this.bindEvents();
-    this.refreshLibrary();
+    this.attachLibraryHooks();
     this.populateFighters();
     this.refreshCharacters();
-    this.selectDefault();
+    this.selectDefault({ render: false });
+    this.initializeLibrary();
   }
 
   bindEvents() {
@@ -109,9 +110,7 @@ class CosmeticWorkbench {
     });
 
     this.dom.reloadLibrary.addEventListener('click', () => {
-      this.refreshLibrary(true);
-      this.renderSlotList();
-      this.renderAll();
+      this.initializeLibrary({ reload: true });
     });
 
     this.dom.resetView.addEventListener('click', () => {
@@ -127,7 +126,7 @@ class CosmeticWorkbench {
     this.dom.poseStow.addEventListener('click', () => this.setPose('stow'));
   }
 
-  selectDefault() {
+  selectDefault({ render = true } = {}) {
     const fighters = Object.keys(CONFIG.fighters || {});
     if (fighters.length) {
       this.state.fighter = fighters[0];
@@ -135,14 +134,35 @@ class CosmeticWorkbench {
     }
     this.refreshCharacters();
     this.loadBaseSlots();
-    this.renderAll();
+    if (render) {
+      this.renderAll();
+    }
   }
 
-  refreshLibrary(force = false) {
-    const library = getRegisteredCosmeticLibrary();
-    if (force && Object.keys(library).length === 0 && CONFIG.cosmetics?.librarySources) {
-      registerCosmeticLibrary(CONFIG.cosmetics.librarySources);
+  attachLibraryHooks() {
+    if (typeof ROOT?.addEventListener !== 'function') return;
+    ROOT.addEventListener('cosmetics:library-ready', () => this.handleLibraryReady());
+    ROOT.addEventListener('cosmetics:library-registered', () => this.handleLibraryReady());
+  }
+
+  async initializeLibrary({ reload = false } = {}) {
+    const status = reload ? 'Reloading cosmetic library…' : 'Loading cosmetic library…';
+    this.setStatus(status);
+    await this.waitForLibrary({ reload });
+    this.handleLibraryReady();
+  }
+
+  async waitForLibrary({ reload = false } = {}) {
+    try {
+      const promise = reload ? refreshCosmeticLibrary() : whenCosmeticLibraryReady();
+      await promise;
+    } catch (err) {
+      console.warn('[cosmetic-workbench] Failed waiting for cosmetic library', err);
     }
+  }
+
+  refreshLibrary() {
+    const library = getRegisteredCosmeticLibrary();
     const slotIndex = new Map();
     const addSlotEntry = (slot, entry) => {
       if (!slot) return;
@@ -231,6 +251,12 @@ class CosmeticWorkbench {
     if (this.dom.status) {
       this.dom.status.textContent = message;
     }
+  }
+
+  handleLibraryReady() {
+    this.refreshLibrary();
+    this.renderAll();
+    this.setStatus('Cosmetic library ready');
   }
 
   getSlotOptions(slot) {
