@@ -54,6 +54,13 @@ export function getRegisteredCosmeticLibrary(){
   return out;
 }
 
+export function clearCosmeticLibrary(){
+  for (const key of Object.keys(STATE.library || {})){
+    delete STATE.library[key];
+  }
+  return STATE.library;
+}
+
 function normalizeProfile(rawProfile = {}){
   const cosmetics = {};
   for (const [cosmeticId, cosmeticData] of Object.entries(rawProfile.cosmetics || {})){

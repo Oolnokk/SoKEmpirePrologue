@@ -1,5 +1,6 @@
 import {
   COSMETIC_SLOTS,
+  clearCosmeticLibrary,
   getRegisteredCosmeticLibrary,
   registerCosmeticLibrary,
   registerFighterAppearance
@@ -139,10 +140,16 @@ class CosmeticWorkbench {
   }
 
   refreshLibrary(force = false) {
-    const library = getRegisteredCosmeticLibrary();
-    if (force && Object.keys(library).length === 0 && CONFIG.cosmetics?.librarySources) {
+    if (force && CONFIG.cosmetics?.librarySources) {
+      clearCosmeticLibrary();
       registerCosmeticLibrary(CONFIG.cosmetics.librarySources);
     }
+
+    const library = getRegisteredCosmeticLibrary();
+    if (!Object.keys(library).length && CONFIG.cosmetics?.librarySources) {
+      registerCosmeticLibrary(CONFIG.cosmetics.librarySources);
+    }
+
     const slotIndex = new Map();
     const addSlotEntry = (slot, entry) => {
       if (!slot) return;
@@ -168,6 +175,7 @@ class CosmeticWorkbench {
     });
 
     this.state.slotIndex = slotIndex;
+    this.renderSlotList();
   }
 
   populateFighters() {
