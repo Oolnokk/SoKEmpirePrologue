@@ -1,142 +1,92 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Cosmetic Toolkit Preview</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Cosmetic Workbench</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./cosmetic-editor.css">
 </head>
 <body>
-  <main class="editor-layout">
-    <section class="editor-preview">
-      <div class="editor-preview__intro">
-        <h2>Part & Stance Preview</h2>
-        <p>Inspect the full body stance alongside each body part with every equipped cosmetic layer stacked and scaled for clarity.</p>
-      </div>
-      <article class="editor-runtime" aria-label="Live cosmetic viewport">
-        <header class="editor-runtime__header">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Cosmetic Toolkit</p>
+      <h1>Cosmetic Workbench</h1>
+      <p class="lede">Rebuilt from the ground up to make testing wardrobes and appearance layers faster. Pick a fighter, tweak slots, and export overrides without fighting the UI.</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" id="resetView" class="ghost">Reset view</button>
+      <button type="button" id="reloadLibrary" class="primary">Reload library</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="column">
+      <div class="card viewport-card">
+        <header class="card__header">
           <div>
-            <p class="editor-runtime__eyebrow">Live Portrait View</p>
-            <h3 class="editor-runtime__title">Runtime Character Preview</h3>
-            <p class="editor-runtime__hint">Uses the in-game renderer so cosmetics, gear, and material changes update instantly.</p>
+            <p class="eyebrow">Live preview</p>
+            <h2>Runtime portrait</h2>
           </div>
-          <div class="editor-runtime__actions" role="group" aria-label="Runtime controls">
-            <button type="button" id="runtimeDrawBtn" class="editor-runtime__btn">Draw</button>
-            <button type="button" id="runtimeStowBtn" class="editor-runtime__btn">Stow</button>
-            <button type="button" id="runtimeResetBtn" class="editor-runtime__btn">Reset View</button>
+          <div class="inline-actions">
+            <button type="button" id="poseStance">Stance</button>
+            <button type="button" id="poseDraw">Draw</button>
+            <button type="button" id="poseStow">Stow</button>
           </div>
         </header>
-        <div class="editor-runtime__viewport" role="presentation">
-          <canvas id="runtimeViewport" class="editor-runtime__canvas" aria-label="Cosmetic runtime viewport"></canvas>
+        <div class="viewport-shell">
+          <canvas id="previewCanvas" aria-label="Cosmetic runtime viewport"></canvas>
         </div>
-        <p id="runtimeStatus" class="editor-runtime__status" role="status" aria-live="polite">Loading runtime preview…</p>
-      </article>
-      <div id="partPreviewGrid" class="part-preview__grid" data-state="empty" aria-live="polite"></div>
-    </section>
-    <section class="editor-controls">
-      <div class="panel">
-        <h2>Fighter</h2>
-        <select id="fighterSelect" aria-label="Select fighter"></select>
-        <p style="margin-top:8px;">Loads cosmetics from config.js so you can preview a fighter's wardrobe quickly.</p>
+        <p class="status" id="previewStatus" role="status" aria-live="polite">Loading fighters and cosmetics…</p>
       </div>
-      <div class="panel" id="modePanel">
-        <h2>Editor Mode</h2>
-        <div class="mode-toggle" role="group" aria-label="Select editor mode">
-          <button type="button" class="mode-toggle__btn" data-mode="appearance">Appearance</button>
-          <button type="button" class="mode-toggle__btn" data-mode="clothing">Clothing</button>
-          <button type="button" class="mode-toggle__btn" data-mode="draping">Draping</button>
-          <button type="button" class="mode-toggle__btn" data-mode="fighterSprites">Fighter Sprites</button>
-        </div>
-        <p class="panel-hint">Switch modes to focus on appearance overlays, clothing items, draping influences, or fighter sprite data.</p>
-      </div>
-      <div class="panel">
-        <h2>Cosmetic Slots</h2>
-        <div id="cosmeticSlotRows"></div>
-        <p style="margin-top:12px;">Use "Edit" to tweak sprite style overrides live.</p>
-      </div>
-      <div class="panel" id="tintPanel">
-        <h2>Tint Preview</h2>
-        <div id="tintPreview" class="tint-preview" aria-live="polite">
-          <p class="panel-hint">Pick a slot and part to preview palette colours and shaded results.</p>
-        </div>
-      </div>
-      <div class="panel style-inspector" id="styleInspector" data-active="false">
-        <div class="style-header">
-          <strong id="styleActiveSlot">No slot selected</strong>
-          <div class="style-actions">
-            <button type="button" id="resetPartOverrides">Reset Part</button>
-            <button type="button" id="resetSlotOverrides">Reset Slot</button>
+
+      <div class="card" id="partPreviewCard">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Part focus</p>
+            <h2>Quick snapshots</h2>
           </div>
-        </div>
-        <label style="display:flex;flex-direction:column;gap:6px;">
-          <span>Part</span>
-          <select id="stylePartSelect" aria-label="Select cosmetic part"></select>
-        </label>
-        <div id="styleFields"></div>
+          <span class="hint">Updates as you edit slots</span>
+        </header>
+        <div class="snapshot-grid" id="partSnapshotGrid" aria-live="polite"></div>
       </div>
-      <div class="panel" id="clothingCreator">
-        <h2>Clothing Creator</h2>
-        <p class="panel-intro">Pick an existing PNG from <code>docs/assets</code> to build or override outfits.</p>
-        <label class="creator-field">
-          <span>Search assets</span>
-          <input id="assetSearch" type="search" placeholder="legs" spellcheck="false" aria-label="Filter available PNG assets">
-        </label>
-        <div id="assetList" class="asset-list" role="listbox" aria-label="Available clothing sprites"></div>
-        <div id="assetPreview" class="asset-preview" aria-live="polite"></div>
-        <div class="creator-grid">
-          <label class="creator-field">
-            <span>New cosmetic ID</span>
-            <input id="creatorId" type="text" placeholder="custom_pants" spellcheck="false" aria-label="New cosmetic identifier">
-          </label>
-          <label class="creator-field">
-            <span>Display name</span>
-            <input id="creatorName" type="text" placeholder="Custom Pants" aria-label="Cosmetic display name">
-          </label>
-          <label class="creator-field">
-            <span>Equip slot</span>
-            <select id="creatorSlot" aria-label="Select slot for new cosmetic"></select>
-          </label>
-          <label class="creator-field creator-field--wide">
-            <span>Part keys (comma-separated)</span>
-            <input id="creatorParts" type="text" placeholder="leg_L_upper, leg_R_upper" spellcheck="false" aria-label="Parts to attach sprite to">
-          </label>
+    </section>
+
+    <section class="column column--narrow">
+      <div class="card">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Setup</p>
+            <h2>Fighter + profile</h2>
+          </div>
+        </header>
+        <div class="field">
+          <label for="fighterSelect">Fighter</label>
+          <select id="fighterSelect" aria-label="Select fighter"></select>
         </div>
-        <div class="creator-grid">
-          <label class="creator-field">
-            <span>Appearance overlay</span>
-            <input id="creatorAppearance" type="checkbox" aria-label="Treat cosmetic as appearance overlay">
-          </label>
-          <label class="creator-field">
-            <span>Body colors (A,B,C)</span>
-            <input id="creatorBodyColors" type="text" placeholder="A" spellcheck="false" aria-label="Body color letters to inherit">
-          </label>
-          <label class="creator-field creator-field--wide">
-            <span>Inherit sprite key</span>
-            <input id="creatorSpriteKey" type="text" placeholder="torso" spellcheck="false" aria-label="Sprite style key to inherit">
-          </label>
+        <div class="field">
+          <label for="characterSelect">Character</label>
+          <select id="characterSelect" aria-label="Select character profile"></select>
+          <p class="hint">Characters pull appearance defaults tied to a fighter.</p>
         </div>
-        <div class="creator-actions">
-          <button type="button" id="creatorAdd">➕ Add Cosmetic To Library</button>
-          <button type="button" id="creatorEquip">🎯 Equip On Selected Fighter</button>
-          <button type="button" id="creatorApplyPart">🖼 Apply To Active Part</button>
+        <div class="field">
+          <label for="slotFilter">Slot filter</label>
+          <input id="slotFilter" type="search" placeholder="hat, torso, appearance" aria-label="Filter slots" />
         </div>
-        <p class="panel-hint">The new cosmetic is stored in-memory for this session. Copy the override JSON below to persist it.</p>
       </div>
-      <div class="panel" id="overridePanel">
-        <h2>Per-Fighter Overrides</h2>
-        <textarea id="overrideOutput" class="override-output" spellcheck="false" aria-label="Generated override JSON"></textarea>
-        <div class="override-actions">
-          <button type="button" id="loadOverrides">📥 Load JSON</button>
-          <button type="button" id="applyOverrides">✅ Apply To Preview</button>
-          <button type="button" id="copyOverrides">📋 Copy JSON</button>
-          <button type="button" id="downloadOverrides">⬇ Download JSON</button>
-        </div>
-        <p class="panel-hint">Overrides merge with the fighter's profile under <code>docs/config/fighter-offsets</code>. Equip the cosmetic and tweak parts to update the generated snippet.</p>
-      </div>
-      <div class="panel">
-        <h2>Status</h2>
-        <div id="editorStatus" role="status" aria-live="polite"></div>
+
+      <div class="card">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Wardrobe</p>
+            <h2>Cosmetic slots</h2>
+          </div>
+          <div class="inline-actions">
+            <button type="button" id="clearOverrides" class="ghost">Clear overrides</button>
+            <button type="button" id="copyOverrides" class="ghost">Copy JSON</button>
+          </div>
+        </header>
+        <div id="slotList" class="slot-list" aria-live="polite"></div>
       </div>
     </section>
   </main>
