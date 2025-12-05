@@ -12,7 +12,7 @@
 
 import { angleZero as angleZeroUtil, basis as basisFn, dist, angle as angleUtil, degToRad, radToDegNum } from './math-utils.js?v=1';
 import { pickFighterName as pickFighterNameUtil } from './fighter-utils.js?v=1';
-import { COSMETIC_LAYER_ROLES, COSMETIC_SLOTS, ensureCosmeticLayers, cosmeticTagFor, resolveFighterBodyColors } from './cosmetics.js?v=1';
+import { COSMETIC_LAYER_ROLES, COSMETIC_SLOTS, ensureCosmeticLayers, cosmeticTagFor, deriveCosmeticOffset, resolveFighterBodyColors } from './cosmetics.js?v=1';
 import { composeStyleXformEntry } from './style-xform.js?v=1';
 import { resolveMirrorTags } from './mirror-utils.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
@@ -1257,13 +1257,41 @@ export function renderSprites(ctx){
         for (const layer of list){
           if (!layer?.asset) continue;
           const styleKey = layer.styleKey || fallbackStyleKey || layer.partKey;
+          const normalizedStyleKey = normalizeStyleKey(styleKey);
           const baseTint = makeTintOptions(layer.asset);
           const paletteTint = resolveCosmeticPaletteTint(layer);
           const overrideTint = mergeTintOptions(paletteTint, layer.hsl ?? layer.hsv);
           const mergedTint = mergeTintOptions(baseTint?.hsl, overrideTint);
           const influences = resolveCosmeticBoneInfluences(layer.extra?.boneInfluences, rig, layer.partKey);
+          let styleOverride = layer.styleOverride ? { ...layer.styleOverride } : undefined;
+          if (layer.alignWith){
+            const referenceAsset = assets?.[layer.alignWith];
+            const derivedOffset = deriveCosmeticOffset(referenceAsset, layer.asset);
+            if (derivedOffset){
+              const nextStyleOverride = styleOverride ? { ...styleOverride } : {};
+              const xformTable = nextStyleOverride.xform && typeof nextStyleOverride.xform === 'object'
+                ? { ...nextStyleOverride.xform }
+                : {};
+              const baseEntry = xformTable[normalizedStyleKey] || xformTable[styleKey] || {};
+              const xformEntry = { ...(baseEntry && typeof baseEntry === 'object' ? baseEntry : {}) };
+              if (xformEntry.ax == null && derivedOffset.ax != null){
+                xformEntry.ax = derivedOffset.ax;
+              }
+              if (xformEntry.ay == null && derivedOffset.ay != null){
+                xformEntry.ay = derivedOffset.ay;
+              }
+              const targetKey = normalizedStyleKey || styleKey || 'base';
+              if (Object.keys(xformEntry).length){
+                xformTable[targetKey] = xformEntry;
+              }
+              if (Object.keys(xformTable).length){
+                nextStyleOverride.xform = xformTable;
+              }
+              styleOverride = Object.keys(nextStyleOverride).length ? nextStyleOverride : styleOverride;
+            }
+          }
           const baseOptions = {
-            styleOverride: layer.styleOverride,
+            styleOverride,
             hsl: mergedTint,
             warp: layer.warp,
             alignRad: layer.alignRad,
