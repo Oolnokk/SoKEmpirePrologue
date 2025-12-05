@@ -1,0 +1,12 @@
+# Prop and Inventory System Code Review
+
+## Prop pipeline (map-runtime)
+- The layout-to-area conversion falls back to `layout.props` when `layout.instances` is missing, but it does not surface which source won. Callers may misinterpret data when both arrays exist or when props are being treated as instances silently. Consider emitting an explicit warning or preference order when both are present to avoid subtle misrouting of content.
+- Instance conversion scales positions based on proximity unless specific tags are present. The exclusion list is hardcoded to `player`/`npc`/`spawn` tags; anything missing that should opt out will be inadvertently scaled. This could drift critical gameplay props (e.g., triggers) without notice. Allowing tag configuration or at least warning on unknown tags would make the behavior safer.
+- When converting layouts, instances reference `layerId` but the converter only creates a `layerMap` to compute slot spacing; there is no validation that the target layer actually exists, so orphaned instances silently proceed with zero separation and no warning. Adding a check would prevent props from being placed on nonexistent layers and ease debugging.
+- Prefab resolution attaches fallback metadata, but the main descriptor still exposes `prefabId` and `prefab` even when resolution fails. Downstream consumers could assume a prefab exists and crash. Consider nulling `prefab`/`prefabId` or marking a failure flag when `fallback` is populated.
+
+## Inventory/loadout flow (loadout-stage)
+- The loadout UI mutates a shared `loadout` object directly from form controls without schema validation. Invalid or malicious inputs (e.g., oversized HSV numbers, missing weapon keys) are only filtered by `parseNumberInput`, which accepts any finite number. Adding bounds checks and validating selections against `CONFIG` would make loadouts resilient before they are serialized.
+- `cloneCharacter` uses JSON serialization, which drops functions and non-JSON types; if future character configs include Dates or Maps, defaults will be silently altered. A structured clone (when available) or a defensive deep-copy helper would preserve richer data.
+- Slot hydration and mutation rely on `dataset.slot` keys but never normalize them, so duplicate or unexpected slot names can be introduced and persisted. Sanitizing slot identifiers and warning on unknown slots would keep inventories predictable.
