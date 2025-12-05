@@ -1,203 +1,207 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Animation & Attack Editor</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./animation-editor.css">
 </head>
 <body>
-  <main class="animation-editor">
-    <section class="editor-preview">
-      <div class="preview-stage">
-        <canvas id="animationCanvas" width="720" height="460" aria-label="Animation preview"></canvas>
-        <div class="preview-placeholder" id="previewPlaceholder">
-          <p style="margin:0;">Timeline preview ready. Configure a move or attack on the right to view its pacing.</p>
-          <p style="margin:8px 0 0 0;font-size:12px;">Real-time animation playback will arrive in a later update—the editor focuses on timing, sequence, and event data.</p>
-        </div>
-      </div>
-      <div class="preview-stage pose-stage">
-        <canvas id="poseCanvas" width="720" height="460" aria-label="Pose preview"></canvas>
-        <div class="preview-placeholder" id="posePlaceholder">
-          <p style="margin:0;">Select a move and pose to preview it with a fighter rig.</p>
-          <p style="margin:8px 0 0 0;font-size:12px;">Choose a fighter on the right to inspect how offsets and angles look against real sprites.</p>
-        </div>
-      </div>
-      <div class="timeline-panel">
-        <div>
-          <h2>Move Timeline</h2>
-          <div id="moveTimeline" class="timeline" aria-live="polite"></div>
-        </div>
-        <div>
-          <h2>Attack Sequence</h2>
-          <div id="attackTimeline" class="timeline" aria-live="polite"></div>
-        </div>
-      </div>
-    </section>
-    <section class="editor-side">
-      <div class="panel">
-        <h2>Selection</h2>
-        <label class="field">
-          <span>Ability</span>
-          <select id="abilitySelect" aria-label="Select ability"></select>
-        </label>
-        <label class="field">
-          <span>Move</span>
-          <select id="moveSelect" aria-label="Select move"></select>
-        </label>
-        <label class="field">
-          <span>Attack</span>
-          <select id="attackSelect" aria-label="Select attack"></select>
-        </label>
-        <div class="inline-controls">
-          <button type="button" id="resetMove">Reset Move</button>
-          <button type="button" id="resetAttack">Reset Attack</button>
-        </div>
-        <div class="status-banner" id="statusBanner" role="status" aria-live="polite"></div>
-      </div>
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">tools / combat authoring</p>
+      <h1>Animation &amp; Attack Editor</h1>
+      <p class="lede">Fresh, timeline-first workspace for curating moves, attacks, and pose sequencing. Pick an ability, tweak its moves, and export clean JSON back into <code>docs/config/config.js</code>.</p>
+    </div>
+    <div class="header-actions">
+      <div class="pill">CONFIG footprint only &mdash; no runtime sandbox</div>
+      <div class="pill">Safe to reload: state is rebuilt from config</div>
+    </div>
+  </header>
 
-      <div class="panel" id="moveDetails">
-        <h2>Move Details</h2>
-        <label class="field">
-          <span>Name</span>
-          <input id="moveName" type="text" aria-label="Move name">
-        </label>
-        <label class="field">
-          <span>Tags (comma separated)</span>
-          <input id="moveTags" type="text" aria-label="Move tags">
-        </label>
-        <div class="sequence-actions">
-          <strong>Durations (ms)</strong>
-          <button type="button" id="normalizeDurations">Normalize</button>
-        </div>
-        <table class="sequence-table" aria-label="Move durations">
-          <thead>
-            <tr>
-              <th scope="col">Phase</th>
-              <th scope="col">Duration</th>
-            </tr>
-          </thead>
-          <tbody id="durationRows"></tbody>
-        </table>
-        <label class="field">
-          <span>Knockback Base</span>
-          <input id="knockbackBase" type="number" step="1" aria-label="Knockback base">
-        </label>
-        <label class="field">
-          <span>Cancel Window</span>
-          <input id="cancelWindow" type="number" step="0.01" min="0" max="1" aria-label="Cancel window">
-        </label>
-      </div>
-
-      <div class="panel" id="poseEditor">
-        <h2>Pose Preview &amp; Editor</h2>
-        <label class="field">
-          <span>Fighter</span>
-          <select id="poseFighterSelect" aria-label="Select fighter for pose preview"></select>
-        </label>
-        <label class="field">
-          <span>Pose</span>
-          <select id="poseKeySelect" aria-label="Select pose to preview"></select>
-        </label>
-        <div class="inline-controls">
-          <button type="button" id="applyPoseChanges">Apply To Move</button>
-          <button type="button" id="resetPoseChanges">Reset Pose</button>
-        </div>
-        <label class="field">
-          <span>Pose JSON</span>
-          <textarea id="poseJson" class="json-output" spellcheck="false" aria-label="Pose JSON"></textarea>
-        </label>
-        <p class="panel-hint">Changes apply to the active move draft. Copy updated JSON from the export panel when you're satisfied.</p>
-      </div>
-
-      <div class="panel" id="moveSequencePanel">
-        <div class="sequence-actions">
-          <h2 style="margin:0;">Move Sequence</h2>
-          <button type="button" id="addMovePhase">Add Phase</button>
-        </div>
-        <table class="sequence-table" aria-label="Move sequence">
-          <thead>
-            <tr>
-              <th scope="col">Pose Key</th>
-              <th scope="col">Duration (ms)</th>
-              <th scope="col">Strike?</th>
-              <th scope="col"></th>
-            </tr>
-          </thead>
-          <tbody id="moveSequence"></tbody>
-        </table>
-      </div>
-
-      <div class="panel" id="attackDetails">
-        <div class="sequence-actions">
-          <h2 style="margin:0;">Attack Sequence</h2>
-          <button type="button" id="addAttackStep">Add Step</button>
-        </div>
-        <table class="sequence-table" aria-label="Attack sequence">
-          <thead>
-            <tr>
-              <th scope="col">Move</th>
-              <th scope="col">Start (ms)</th>
-              <th scope="col">Tags</th>
-              <th scope="col"></th>
-            </tr>
-          </thead>
-          <tbody id="attackSequence"></tbody>
-        </table>
-        <div class="sequence-actions">
-          <strong>Attack Data</strong>
-          <button type="button" id="addAttackTag">Add Tag</button>
-        </div>
-        <label class="field">
-          <span>Name</span>
-          <input id="attackName" type="text" aria-label="Attack name">
-        </label>
-        <label class="field">
-          <span>Tags (comma separated)</span>
-          <input id="attackTags" type="text" aria-label="Attack tags">
-        </label>
-        <div class="inline-controls">
-          <label class="field" style="flex:1;">
-            <span>Damage (Health)</span>
-            <input id="attackDamageHealth" type="number" step="1" aria-label="Attack damage health">
+  <main class="layout">
+    <aside class="sidebar">
+      <section class="card">
+        <div class="stack">
+          <label class="field">
+            <span>Ability</span>
+            <select id="abilitySelect" aria-label="Select ability"></select>
           </label>
-          <label class="field" style="flex:1;">
-            <span>Stamina Cost</span>
-            <input id="attackStamina" type="number" step="1" aria-label="Attack stamina cost">
+          <label class="field">
+            <span>Attack</span>
+            <select id="attackSelect" aria-label="Select attack"></select>
+          </label>
+          <label class="field">
+            <span>Primary Move</span>
+            <select id="moveSelect" aria-label="Select move"></select>
           </label>
         </div>
-        <label class="field">
-          <span>Colliders (comma separated)</span>
-          <input id="attackColliders" type="text" aria-label="Attack colliders">
-        </label>
-        <label class="field">
-          <span>Use Weapon Colliders</span>
-          <select id="attackUseWeaponColliders" aria-label="Use weapon colliders">
-            <option value="auto">Auto</option>
-            <option value="true">True</option>
-            <option value="false">False</option>
-          </select>
-        </label>
-      </div>
+        <div class="quick-stats" id="statusBadge" role="status" aria-live="polite"></div>
+      </section>
 
-      <div class="panel">
-        <h2>Export</h2>
-        <p class="status-banner">Copy updated JSON back into <code>docs/config/config.js</code> when you're ready.</p>
-        <label class="field">
-          <span>Move JSON</span>
-          <textarea id="moveJson" class="json-output" spellcheck="false" aria-label="Move JSON"></textarea>
-        </label>
-        <label class="field">
-          <span>Attack JSON</span>
-          <textarea id="attackJson" class="json-output" spellcheck="false" aria-label="Attack JSON"></textarea>
-        </label>
-        <div class="inline-controls">
-          <button type="button" id="copyMoveJson">Copy Move JSON</button>
-          <button type="button" id="copyAttackJson">Copy Attack JSON</button>
-          <button type="button" id="downloadJson">Download Both</button>
+      <section class="card" id="abilityCard">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Ability overview</p>
+            <h2 id="abilityName">&nbsp;</h2>
+          </div>
+          <div class="pill" id="abilityType">&nbsp;</div>
         </div>
-      </div>
+        <dl class="meta-grid">
+          <div>
+            <dt>Trigger</dt>
+            <dd id="abilityTrigger">&mdash;</dd>
+          </div>
+          <div>
+            <dt>Classification</dt>
+            <dd id="abilityClass">&mdash;</dd>
+          </div>
+          <div>
+            <dt>Tags</dt>
+            <dd id="abilityTags">&mdash;</dd>
+          </div>
+          <div>
+            <dt>Input Slots</dt>
+            <dd id="abilitySlots">&mdash;</dd>
+          </div>
+        </dl>
+        <div class="note" id="abilityVariants"></div>
+      </section>
+    </aside>
+
+    <section class="content">
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Move authoring</p>
+            <h2 id="moveTitle">Move</h2>
+          </div>
+          <div class="button-row">
+            <button type="button" id="addMovePhase">Add Pose</button>
+            <button type="button" id="resetMove">Reset Move</button>
+          </div>
+        </div>
+        <div class="grid two">
+          <label class="field">
+            <span>Name</span>
+            <input type="text" id="moveName" aria-label="Move name">
+          </label>
+          <label class="field">
+            <span>Tags (comma separated)</span>
+            <input type="text" id="moveTags" aria-label="Move tags">
+          </label>
+          <label class="field">
+            <span>Knockback Base</span>
+            <input type="number" id="knockbackBase" aria-label="Knockback base">
+          </label>
+          <label class="field">
+            <span>Cancel Window</span>
+            <input type="number" id="cancelWindow" step="0.01" aria-label="Cancel window">
+          </label>
+        </div>
+
+        <div class="timeline" aria-live="polite">
+          <div class="timeline-header">
+            <h3>Pose Timeline</h3>
+            <span id="moveDuration"></span>
+          </div>
+          <div id="moveTimeline" class="timeline-bar"></div>
+        </div>
+
+        <div class="table-wrapper">
+          <div class="table-header">
+            <h3>Pose Sequence</h3>
+            <span class="helper">Use stages or freeform pose keys; strike marks denote active frames.</span>
+          </div>
+          <table class="data-table" aria-label="Move pose sequence">
+            <thead>
+              <tr>
+                <th scope="col">Pose / Stage</th>
+                <th scope="col">Duration (ms)</th>
+                <th scope="col">Strike?</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="moveSequenceBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Attack authoring</p>
+            <h2 id="attackTitle">Attack</h2>
+          </div>
+          <div class="button-row">
+            <button type="button" id="addAttackStep">Add Step</button>
+            <button type="button" id="resetAttack">Reset Attack</button>
+          </div>
+        </div>
+
+        <div class="grid two">
+          <label class="field">
+            <span>Name</span>
+            <input type="text" id="attackName" aria-label="Attack name">
+          </label>
+          <label class="field">
+            <span>Tags (comma separated)</span>
+            <input type="text" id="attackTags" aria-label="Attack tags">
+          </label>
+        </div>
+
+        <div class="timeline" aria-live="polite">
+          <div class="timeline-header">
+            <h3>Attack Timeline</h3>
+            <span id="attackDuration"></span>
+          </div>
+          <div id="attackTimeline" class="timeline-bar"></div>
+        </div>
+
+        <div class="table-wrapper">
+          <div class="table-header">
+            <h3>Move Sequence</h3>
+            <span class="helper">Start times are relative; leave blank to auto-chain from previous step.</span>
+          </div>
+          <table class="data-table" aria-label="Attack move sequence">
+            <thead>
+              <tr>
+                <th scope="col">Move</th>
+                <th scope="col">Start (ms)</th>
+                <th scope="col">Limb</th>
+                <th scope="col">Tags</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="attackSequenceBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Exports</p>
+            <h2>Copy back into config</h2>
+          </div>
+          <div class="button-row">
+            <button type="button" id="copyMoveJson">Copy Move JSON</button>
+            <button type="button" id="copyAttackJson">Copy Attack JSON</button>
+            <button type="button" id="downloadJson">Download Both</button>
+          </div>
+        </div>
+        <div class="grid two">
+          <label class="field">
+            <span>Move JSON</span>
+            <textarea id="moveJson" class="code" spellcheck="false" aria-label="Move JSON"></textarea>
+          </label>
+          <label class="field">
+            <span>Attack JSON</span>
+            <textarea id="attackJson" class="code" spellcheck="false" aria-label="Attack JSON"></textarea>
+          </label>
+        </div>
+      </section>
     </section>
   </main>
 
@@ -214,6 +218,6 @@
   <script src="./config/abilities/heavy_hold.js"></script>
   <script src="./config/abilities/evade_defensive.js"></script>
   <script src="./config/config.js"></script>
-  <script type="module" src="./js/animation-editor-app.js?v=1"></script>
+  <script type="module" src="./js/animation-editor-app.js?v=2"></script>
 </body>
 </html>
