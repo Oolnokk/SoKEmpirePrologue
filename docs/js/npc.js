@@ -2599,10 +2599,13 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   state.nonCombatRagdoll = !aggression.active && !state.ragdoll && !state.recovering && !movementActive;
 
   const movementDir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  const movementFacing = movementDir !== 0 ? movementDir : Math.sign(state.vel?.x || 0);
+  const velocityFacing = Math.abs(state.vel?.x || 0) > 0.5 ? Math.sign(state.vel.x) : 0;
+  const movementFacing = movementDir !== 0 ? movementDir : velocityFacing;
   const facingTargetX = aggression.active
     ? (pathTarget?.goalX ?? (player.pos?.x ?? state.pos.x))
-    : (pathTarget?.goalX ?? (movementFacing !== 0 ? state.pos.x + movementFacing : state.pos.x));
+    : (movementFacing !== 0
+      ? state.pos.x + movementFacing
+      : (pathTarget?.goalX ?? state.pos.x));
   const facingDx = facingTargetX - state.pos.x;
   if (Math.abs(facingDx) > 0.001) {
     state.facingRad = facingDx >= 0 ? 0 : Math.PI;
