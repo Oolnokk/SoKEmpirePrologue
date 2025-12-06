@@ -28,7 +28,7 @@
           "spriteStyle": {
             "base": {
               "xform": {
-                "torso": { "ax": 0.2, "ay": -0.1, "scaleMulX": 2, "scaleMulY": 2 }
+                "torso": { "ax": 0.2, "ay": -0.1, "scaleMulX": 1.5, "scaleMulY": 2 }
               }
             }
           }
@@ -44,7 +44,7 @@
           "spriteStyle": {
             "base": {
               "xform": {
-                "torso": { "ax": 0.2, "ay": -0.1, "scaleMulX": 2, "scaleMulY": 2 }
+                "torso": { "ax": 0.2, "ay": -0.1, "scaleMulX": 1.5, "scaleMulY": 2 }
               }
             }
           }
@@ -60,7 +60,7 @@
           "spriteStyle": {
             "base": {
               "xform": {
-                "torso": { "ax": 0.2, "ay": -0.1, "scaleMulX": 2, "scaleMulY": 2 }
+                "torso": { "ax": 0.2, "ay": -0.1, "scaleMulX": 1.5, "scaleMulY": 2 }
               }
             }
           }
