@@ -219,7 +219,7 @@ describe('Edge case: meta.offset with only units field', () => {
     
     const offsetUnits = metaOffset?.units ?? metaOffset?.unit ?? meta.offsetUnits ?? defaultUnits;
     const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xformAx ?? 0;
-    const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.x)) ?? xformAy ?? 0;
+    const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.y)) ?? xformAy ?? 0;
 
     // Should use xform values
     strictEqual(rawAx, 100);
