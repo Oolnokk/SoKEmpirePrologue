@@ -860,6 +860,10 @@ function drawWarpedImage(ctx, img, destPoints, w, h){
 function drawBoneSprite(ctx, asset, bone, styleKey, style){
   const options = arguments[5] || {};
   const opts = options || {};
+  const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
+  const showOrigins = !!DEBUG.showSpriteOrigins;
+  const shouldRenderImage = DEBUG.showSprites !== false;
+  if (!shouldRenderImage && !showOrigins) return false;
   const img = asset?.img;
   if (!img || img.__broken) return false;
   if (!img.complete) return false;
@@ -924,6 +928,24 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   const { offsetX, offsetY } = applyOffsetToBone(bone, bAxis, offsetSpec);
   posX += offsetX;
   posY += offsetY;
+
+  if (showOrigins){
+    const zoom = Number.isFinite(window.GAME?.CAMERA?.zoom) && window.GAME.CAMERA.zoom > 0
+      ? window.GAME.CAMERA.zoom
+      : 1;
+    const radius = 4 / zoom;
+    const strokeWidth = 1.5 / zoom;
+    ctx.save();
+    ctx.filter = 'none';
+    ctx.beginPath();
+    ctx.arc(posX, posY, radius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 99, 71, 0.9)';
+    ctx.fill();
+    ctx.lineWidth = strokeWidth;
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // Sizing
   const nh = sourceImage.naturalHeight || sourceImage.height || 1;
@@ -996,7 +1018,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   const shouldWarp = hasWarpSpec || influences.length > 0;
 
   ctx.save();
-  ctx.filter = filter;
+  ctx.filter = shouldRenderImage ? filter : ctx.filter;
 
   const keys = ['tl', 'tr', 'br', 'bl', 'center'];
   const pts = {
@@ -1090,11 +1112,15 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   }
 
   if (shouldWarp){
-    drawWarpedImage(ctx, sourceImage, finalDest, w, h);
+    if (shouldRenderImage) {
+      drawWarpedImage(ctx, sourceImage, finalDest, w, h);
+    }
   } else {
     ctx.translate(posX, posY);
     ctx.rotate(theta);
-    ctx.drawImage(sourceImage, -w / 2, -h / 2, w, h);
+    if (shouldRenderImage) {
+      ctx.drawImage(sourceImage, -w / 2, -h / 2, w, h);
+    }
   }
   ctx.restore();
   return true;
@@ -1108,7 +1134,9 @@ export function renderSprites(ctx){
   if (!ctx || !entities.length) return;
 
   const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
-  if (DEBUG.showSprites === false) return; // Skip sprite rendering if disabled
+  const showOrigins = !!DEBUG.showSpriteOrigins;
+  const showSprites = DEBUG.showSprites !== false;
+  if (!showSprites && !showOrigins) return; // Skip entirely if neither sprites nor origins should render
 
   const camX = G.CAMERA?.x || 0;
   const zoom = Number.isFinite(G.CAMERA?.zoom) ? G.CAMERA.zoom : 1;
