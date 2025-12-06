@@ -121,7 +121,10 @@ export function makeCombat(G, C, options = {}){
     }
 
     const result = shiftHeld ? 'combat' : 'nonCombat';
-    console.log('[WalkMode] shift:', shiftHeld, 'result:', result, 'inCombat:', inCombat);
+    const hasMovementInput = input?.left || input?.right;
+    if (hasMovementInput) {
+      console.log('[WalkMode] shift:', shiftHeld, 'result:', result, 'inCombat:', inCombat);
+    }
     return result;
   };
 

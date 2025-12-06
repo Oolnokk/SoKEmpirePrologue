@@ -1589,9 +1589,14 @@ function resolveStanceUpperPose(cfg, fighter) {
   return mergePoseWithOverrides(basePose, armStance);
 }
 
+let lastLoggedPoseMode = null;
 function resolveLowerBodyStancePose(cfg, fighter) {
   const poseMode = resolveWalkMode(fighter);
-  console.log('[Animator] poseMode:', poseMode, 'nonCombat:', fighter?.nonCombat, 'walkMode:', fighter?.walkMode);
+  const hasMovement = Math.abs(fighter?.vel?.x || 0) > 1;
+  if (hasMovement && poseMode !== lastLoggedPoseMode) {
+    console.log('[Animator] poseMode:', poseMode, 'nonCombat:', fighter?.nonCombat, 'walkMode:', fighter?.walkMode);
+    lastLoggedPoseMode = poseMode;
+  }
   const basePose = resolveBasePose(cfg);
   const legProfile = resolveLegProfile(cfg, poseMode);
   const movementPose = legProfile

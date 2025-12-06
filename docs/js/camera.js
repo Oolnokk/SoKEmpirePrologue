@@ -632,18 +632,12 @@ export function updateCamera(canvas) {
       ? P.pos.x
       : 0;
   if (Number.isFinite(playerX)) {
+    // Debug logging removed
     const shouldLogArea = activeAreaId && activeAreaId !== lastLoggedAreaId;
     const shouldLogPosition = lastLoggedPlayerX == null || Math.abs(playerX - lastLoggedPlayerX) >= 1;
     if (shouldLogArea || shouldLogPosition) {
       lastLoggedPlayerX = playerX;
       lastLoggedAreaId = activeAreaId || lastLoggedAreaId;
-      console.debug('[camera] Player X in layout coordinates', {
-        areaId: activeAreaId || 'unknown',
-        x: Number(playerX.toFixed(2)),
-        viewportWidthPixels: viewportWidth,
-        viewportWidthWorld: Number(viewportWorldWidth.toFixed(2)),
-        cameraBounds: { min: minBound, max: maxBound },
-      });
     }
   }
   const playerY = Number.isFinite(P.hitbox?.y)
