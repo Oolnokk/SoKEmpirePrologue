@@ -8,6 +8,11 @@ This repository now supports attaching optional 3D scene metadata to any map are
 - Helper functions exported from `src/map/scene3d.js` project 2D logic coordinates onto the ground plane and build renderer-friendly settings without enabling realtime lighting.
 - A tiny unlit glTF triangle is checked in at `docs/assets/3D/scene3d-demo.gltf`, plus a matching descriptor at `docs/assets/areas/scene3d-demo-area.json` you can feed into the registry. This is enough to exercise the bridge or host on githack.
 
+### Will this break main?
+- **No—`scene3d` is strictly optional.** Every area still needs a `layers` array (it can be empty), so existing 2D content keeps working unchanged.
+- If an area omits `scene3d`, validation and runtime behavior are identical to before; any 3D renderer you add can simply ignore those areas.
+- Even when `scene3d` is present, validation only emits warnings for non-glTF URLs and fills in defaults—it doesn’t alter the rest of the descriptor. You can treat this branch as an opt-in test path while leaving mainline maps untouched.
+
 > Completeness note: there is still **no 3D renderer bundled in this repo**. The bridge only normalizes metadata; you provide the WebGL/Three.js layer that consumes `scene3d` and projects gameplay coordinates onto the ground plane.
 
 ## Authoring tips
