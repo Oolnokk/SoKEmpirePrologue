@@ -304,12 +304,12 @@ const MOVEMENT_PROFILES = {
     minSpeed: 80,
     amp: 1.0,
     poses: {
-      A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 0,   lKnee: 45, rHip: 180, rKnee: 90 },
-      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 180, lKnee: 90, rHip: 0,   rKnee: 45 }
+      A: { torso: 30, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 0, lKnee: 45,  rHip: 180, rKnee: 90 },
+      B: { torso: 40, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 180, lKnee: 90,  rHip: 0,   rKnee: 45 }
     },
     idlePoses: {
-      A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
-      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
+      A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 100, lKnee: 70, rHip: 30, rKnee: 70, },
+      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 100, lKnee: 70, rHip: 30, rKnee: 70, },
     },
     idleAmp: 0.4
   },
