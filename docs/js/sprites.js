@@ -1145,10 +1145,21 @@ export function renderSprites(ctx){
         : null;
       const xform = {};
 
+      // Start with base style.xform values from config
+      const baseStyleXform = style?.xform || {};
+      const baseConfigEntry = baseStyleXform[normalizedKey] || baseStyleXform[styleKey];
+      if (baseConfigEntry && typeof baseConfigEntry === 'object'){
+        xform[styleKey] = { ...baseConfigEntry };
+        if (normalizedKey && normalizedKey !== styleKey){
+          xform[normalizedKey] = { ...baseConfigEntry };
+        }
+      }
+
       if (baseXformSrc){
         for (const [key, entry] of Object.entries(baseXformSrc)){
           if (!entry || typeof entry !== 'object') continue;
-          xform[key] = composeStyleXformEntry(undefined, entry);
+          const prev = xform[key] || undefined;
+          xform[key] = composeStyleXformEntry(prev, entry);
         }
       }
 
