@@ -349,7 +349,7 @@ const MOVEMENT_PROFILES = {
 
 const MOVEMENT_SPEED_MULTIPLIERS = {
   combat: 1.25,
-  nonCombat: 0.2,
+  nonCombat: 0.5,
   sneak: 0.3,
 };
 
