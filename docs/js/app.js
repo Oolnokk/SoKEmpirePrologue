@@ -875,6 +875,7 @@ import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
+import { initAllObstructionPhysics, updateObstructionPhysics, resolveObstructionFighterCollisions } from './obstruction-physics.js?v=1';
 
 // Setup canvas
 const cv = $$('#game');
@@ -3572,6 +3573,9 @@ function createEditorPreviewSandbox() {
     const offset = Number(area?.ground?.offset);
     state.groundOffset = Number.isFinite(offset) ? offset : 140;
     state.ready = state.layers.length > 0;
+
+    // Initialize physics for dynamic obstructions
+    initAllObstructionPhysics(state.instances, window.CONFIG);
   };
 
   const detachRegistry = () => {
@@ -4267,6 +4271,15 @@ function loop(t){
   if (window.GAME?.combat) window.GAME.combat.tick(dt);
   updateNpcSystems(dt);
   updateBountySystem(dt);
+
+  // Update dynamic obstruction physics
+  const mapArea = window.GAME?.mapRegistry?.getActiveArea?.();
+  if (mapArea?.instances) {
+    updateObstructionPhysics(mapArea.instances, window.CONFIG, dt);
+    const allFighters = [...(window.GAME?.fighters || []), ...getActiveNpcFighters()];
+    resolveObstructionFighterCollisions(mapArea.instances, allFighters, window.CONFIG);
+  }
+
   updatePoses();
   updateCamera(cv);
   drawStage();
