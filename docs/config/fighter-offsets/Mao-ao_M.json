@@ -22,7 +22,7 @@
               "legUpper": {
                 "scaleY": 1.1,
                 "ay": 0.2,
-                "scaleX": 1.5,
+                "scaleX": 1.1,
                 "ax": 0.05,
                 "rotDeg": 1
               }
@@ -34,7 +34,7 @@
           "spriteStyle": {
             "xform": {
               "legUpper": {
-                "scaleX": 1.5,
+                "scaleX": 1.1,
                 "scaleY": 1.1,
                 "ax": 0.05,
                 "ay": 0.2,
