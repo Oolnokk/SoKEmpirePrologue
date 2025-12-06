@@ -1220,15 +1220,7 @@ window.CONFIG = {
     limbs:{ lCalf:false, rCalf:false, lThigh:false, rThigh:false, lUpperArm:false, rUpperArm:false, lForearm:false, rForearm:false, torso:false, head:false }
   },
 
-  // Optional manual pre-ragdoll arm angles (degrees, absolute, before physics noise is added)
-  nonCombatRagdoll: {
-    manualArmRotation: {
-      lShoulder: 90, // set to override the left shoulder's resting target (e.g., 90 keeps the arm pointing down)
-      rShoulder: 90, // set to override the right shoulder's resting target
-      lElbow: 15,
-      rElbow: 15,
-    },
-  },
+ 
 
   colliders: {
     handMultiplier: 2.0,
