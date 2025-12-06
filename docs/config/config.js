@@ -579,7 +579,9 @@ const getWeaponSkinSprite = (weaponKey, skinKey) => {
 };
 
 const getWeaponSkinLibrary = (weaponKey) => {
-  const entry = WEAPON_SPRITE_SKINS[weaponKey];
+  const normalizedKey = normalizeWeaponSkinKey(weaponKey || '');
+  const registry = ensureWeaponSpriteSkins();
+  const entry = registry[weaponKey] || registry[normalizedKey];
   if (!entry?.skins) return null;
   return deepClone(entry.skins);
 };
