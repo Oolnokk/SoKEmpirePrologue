@@ -360,9 +360,9 @@ const MOVEMENT_SPEED_MULTIPLIERS = {
 const ARM_STANCES = {
   PassiveArms: {
         torso: 0,
-    lShoulder: 0,
+    lShoulder: 270,
     lElbow: -18,
-    rShoulder: 0,
+    rShoulder: 270,
     rElbow: 18,
     weapon: 0,
     weaponGripPercents: { primary: 0, secondary: 0 },
