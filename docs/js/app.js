@@ -1430,6 +1430,7 @@ if (boneKeyList) {
 
 // Wire up render debug controls
 const toggleShowSprites = $$('#toggleShowSprites');
+const toggleShowSpriteOrigins = $$('#toggleShowSpriteOrigins');
 const toggleShowBones = $$('#toggleShowBones');
 const toggleShowHitbox = $$('#toggleShowHitbox');
 
@@ -1438,6 +1439,14 @@ if (toggleShowSprites) {
   toggleShowSprites.addEventListener('change', (e) => {
     window.RENDER_DEBUG = window.RENDER_DEBUG || {};
     window.RENDER_DEBUG.showSprites = e.target.checked;
+  });
+}
+
+if (toggleShowSpriteOrigins) {
+  toggleShowSpriteOrigins.checked = window.RENDER_DEBUG?.showSpriteOrigins || false;
+  toggleShowSpriteOrigins.addEventListener('change', (e) => {
+    window.RENDER_DEBUG = window.RENDER_DEBUG || {};
+    window.RENDER_DEBUG.showSpriteOrigins = e.target.checked;
   });
 }
 
