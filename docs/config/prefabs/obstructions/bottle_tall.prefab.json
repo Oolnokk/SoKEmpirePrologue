@@ -1,0 +1,61 @@
+{
+  "structureId": "Bottle Tall",
+  "type": "obstruction",
+  "tags": ["grippable"],
+  "base": {},
+  "obstruction": {
+    "collision": {
+      "enabled": true,
+      "box": {
+        "width": 60,
+        "height": 80,
+        "offsetX": 0,
+        "offsetY": -40
+      }
+    },
+    "physics": {
+      "enabled": true,
+      "dynamic": true,
+      "mass": 0.8,
+      "drag": 0.15
+    }
+  },
+  "parts": [
+    {
+      "name": "bottle_near",
+      "layer": "near",
+      "relX": 0,
+      "relY": 0,
+      "z": 20,
+      "propTemplate": {
+        "id": "bottle_near",
+        "url": "./assets/props/bottle_tall.png",
+        "w": 100,
+        "h": 120,
+        "pivot": "bottom",
+        "anchorXPct": 50,
+        "anchorYPct": 100,
+        "parallaxX": 1,
+        "parallaxClampPx": 0
+      }
+    },
+    {
+      "name": "bottle_far",
+      "layer": "far",
+      "relX": 0,
+      "relY": 0,
+      "z": -10,
+      "propTemplate": {
+        "id": "bottle_far",
+        "url": "./assets/props/bottle_tall.png",
+        "w": 100,
+        "h": 120,
+        "pivot": "bottom",
+        "anchorXPct": 50,
+        "anchorYPct": 100,
+        "parallaxX": 0.85,
+        "parallaxClampPx": 64
+      }
+    }
+  ]
+}
