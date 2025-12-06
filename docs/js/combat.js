@@ -117,10 +117,11 @@ export function makeCombat(G, C, options = {}){
       if (joystickNormalized > 0) {
         return joystickRunning ? 'combat' : 'nonCombat';
       }
-      return shiftHeld ? 'combat' : 'nonCombat';
+      return shiftHeld ? 'nonCombat' : 'combat';
     }
 
-    return shiftHeld ? 'combat' : 'nonCombat';
+    // Default to combat speed (1.25x), shift makes slower (nonCombat 0.5x)
+    return shiftHeld ? 'nonCombat' : 'combat';
   };
 
   const applyWalkMode = (fighter, walkMode) => {
