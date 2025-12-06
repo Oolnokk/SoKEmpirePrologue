@@ -1168,7 +1168,7 @@ window.CONFIG = {
           widthFactor: { torso:1.0, armUpper:1.0, armLower:1.0, legUpper:1.0, legLower:1.0, head:1.0 },
           xformUnits: "percent",
           xform: {
-            torso:    { ax:0,  ay:-0.2, scaleX:1, scaleY:1, rotDeg:90 },
+            torso:    { ax:0.2,  ay:0, scaleX:1, scaleY:1, rotDeg:90 },
             head:     { ax:-0.15, ay:-0.1, scaleX:1, scaleY:1.2, rotDeg:90 },
             armUpper: { ax:-0.2,  ay:0,  scaleX:1.6, scaleY:2.8, rotDeg:-0 },
             armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-0 },
