@@ -572,10 +572,10 @@ function drawLegBranch(ctx, rig, side, assets, style, mirrorState, segment='both
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
     if (segment !== 'lower'){
-      drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style);
+      drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, { originCategory: 'body' });
     }
     if (segment !== 'upper' && lo){
-      drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style);
+      drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, { originCategory: 'body' });
     }
   });
 }
@@ -589,8 +589,8 @@ function drawArmBranch(ctx, rig, side, assets, style, mirrorState, segment='both
   const mirror = mirrorState[tagU] || mirrorState[tagL];
   const originX = up.x;
   withBranchMirror(ctx, originX, mirror, ()=>{
-    if (segment !== 'lower') drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style);
-    if (segment !== 'upper' && lo) drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style);
+    if (segment !== 'lower') drawBoneSprite(ctx, assets[upKey], up, styleKeyOf(upKey), style, { originCategory: 'body' });
+    if (segment !== 'upper' && lo) drawBoneSprite(ctx, assets[loKey], lo, styleKeyOf(loKey), style, { originCategory: 'body' });
   });
 }
 
@@ -741,6 +741,19 @@ function partitionCosmeticLayers(layers){
     }
   }
   return { appearanceLayers, clothingLayers };
+}
+
+const ORIGIN_MARKER_STYLES = {
+  body: { fill: 'rgba(255, 99, 71, 0.9)', stroke: '#ffffff' },
+  appearance: { fill: 'rgba(34, 197, 94, 0.9)', stroke: '#e6ffed' },
+  clothing: { fill: 'rgba(59, 130, 246, 0.9)', stroke: '#e6f0ff' }
+};
+
+function withOriginCategory(options, category){
+  if (!category) return options;
+  if (!options) return { originCategory: category };
+  if (options.originCategory) return options;
+  return { ...options, originCategory: category };
 }
 
 // Sprite rendering for bones, fixed math
@@ -935,14 +948,16 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
       : 1;
     const radius = 4 / zoom;
     const strokeWidth = 1.5 / zoom;
+    const originCategory = opts.originCategory || 'body';
+    const originStyle = ORIGIN_MARKER_STYLES[originCategory] || ORIGIN_MARKER_STYLES.body;
     ctx.save();
     ctx.filter = 'none';
     ctx.beginPath();
     ctx.arc(posX, posY, radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 99, 71, 0.9)';
+    ctx.fillStyle = originStyle.fill;
     ctx.fill();
     ctx.lineWidth = strokeWidth;
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = originStyle.stroke;
     ctx.stroke();
     ctx.restore();
   }
@@ -1263,7 +1278,7 @@ export function renderSprites(ctx){
       if (!overlays || overlays.length === 0) return;
       for (const overlay of overlays){
         const key = overlay?.styleKey || styleKey;
-        const overlayOptions = applyAnimOptions(key, overlay?.options || undefined);
+        const overlayOptions = withOriginCategory(applyAnimOptions(key, overlay?.options || undefined), 'body');
         drawBoneSprite(ctx, overlay?.asset, bone, key, style, overlayOptions);
       }
     }
@@ -1349,7 +1364,8 @@ export function renderSprites(ctx){
             warp: layer.warp,
             alignRad: layer.alignRad,
             alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
-            palette: layer.palette
+            palette: layer.palette,
+            originCategory: 'appearance'
           };
           if (influences.length){
             baseOptions.boneInfluences = influences;
@@ -1363,7 +1379,7 @@ export function renderSprites(ctx){
     // Torso & head
     enqueue('TORSO', ()=>{
       if (assets.torso && rig.torso){
-        const torsoOptions = applyAnimOptions('torso', makeTintOptions(assets.torso));
+        const torsoOptions = withOriginCategory(applyAnimOptions('torso', makeTintOptions(assets.torso)), 'body');
         drawAppearanceLayers('torso', rig.torso, 'torso', 'back');
         drawBoneSprite(ctx, assets.torso, rig.torso, 'torso', style, torsoOptions);
         drawUntintedOverlays('torso', rig.torso, 'torso');
@@ -1372,7 +1388,7 @@ export function renderSprites(ctx){
     });
     enqueue('HEAD', ()=>{
       if (assets.head && rig.head){
-        const headOptions = applyAnimOptions('head', makeTintOptions(assets.head));
+        const headOptions = withOriginCategory(applyAnimOptions('head', makeTintOptions(assets.head)), 'body');
         drawAppearanceLayers('head', rig.head, 'head', 'back');
         drawBoneSprite(ctx, assets.head, rig.head, 'head', style, headOptions);
         drawUntintedOverlays('head', rig.head, 'head');
@@ -1388,7 +1404,7 @@ export function renderSprites(ctx){
       enqueue('ARM_L_UPPER', ()=> {
         drawAppearanceLayers('arm_L_upper', lArmUpper, 'arm_L_upper', 'back');
         const originX = lArmUpper.x;
-        const armUpperOptions = applyAnimOptions('arm_L_upper', makeTintOptions(assets.arm_L_upper));
+        const armUpperOptions = withOriginCategory(applyAnimOptions('arm_L_upper', makeTintOptions(assets.arm_L_upper)), 'body');
         withBranchMirror(ctx, originX, lArmMirror, ()=> {
           drawBoneSprite(ctx, assets.arm_L_upper, lArmUpper, 'arm_L_upper', style, armUpperOptions);
           drawUntintedOverlays('arm_L_upper', lArmUpper, 'arm_L_upper');
@@ -1400,7 +1416,7 @@ export function renderSprites(ctx){
       enqueue('ARM_L_LOWER', ()=> {
         drawAppearanceLayers('arm_L_lower', lArmLower, 'arm_L_lower', 'back');
         const originX = lArmUpper?.x ?? lArmLower.x;
-        const armLowerOptions = applyAnimOptions('arm_L_lower', makeTintOptions(assets.arm_L_lower));
+        const armLowerOptions = withOriginCategory(applyAnimOptions('arm_L_lower', makeTintOptions(assets.arm_L_lower)), 'body');
         withBranchMirror(ctx, originX, lArmMirror, ()=> {
           drawBoneSprite(ctx, assets.arm_L_lower, lArmLower, 'arm_L_lower', style, armLowerOptions);
           drawUntintedOverlays('arm_L_lower', lArmLower, 'arm_L_lower');
@@ -1417,7 +1433,7 @@ export function renderSprites(ctx){
       enqueue('ARM_R_UPPER', ()=> {
         drawAppearanceLayers('arm_R_upper', rArmUpper, 'arm_R_upper', 'back');
         const originX = rArmUpper.x;
-        const armUpperOptions = applyAnimOptions('arm_R_upper', makeTintOptions(assets.arm_R_upper));
+        const armUpperOptions = withOriginCategory(applyAnimOptions('arm_R_upper', makeTintOptions(assets.arm_R_upper)), 'body');
         withBranchMirror(ctx, originX, rArmMirror, ()=> {
           drawBoneSprite(ctx, assets.arm_R_upper, rArmUpper, 'arm_R_upper', style, armUpperOptions);
           drawUntintedOverlays('arm_R_upper', rArmUpper, 'arm_R_upper');
@@ -1429,7 +1445,7 @@ export function renderSprites(ctx){
       enqueue('ARM_R_LOWER', ()=> {
         drawAppearanceLayers('arm_R_lower', rArmLower, 'arm_R_lower', 'back');
         const originX = rArmUpper?.x ?? rArmLower.x;
-        const armLowerOptions = applyAnimOptions('arm_R_lower', makeTintOptions(assets.arm_R_lower));
+        const armLowerOptions = withOriginCategory(applyAnimOptions('arm_R_lower', makeTintOptions(assets.arm_R_lower)), 'body');
         withBranchMirror(ctx, originX, rArmMirror, ()=> {
           drawBoneSprite(ctx, assets.arm_R_lower, rArmLower, 'arm_R_lower', style, armLowerOptions);
           drawUntintedOverlays('arm_R_lower', rArmLower, 'arm_R_lower');
@@ -1447,7 +1463,7 @@ export function renderSprites(ctx){
         drawAppearanceLayers('leg_L_upper', lLegUpper, 'leg_L_upper', 'back');
         const originX = lLegUpper.x;
         withBranchMirror(ctx, originX, lLegMirror, ()=> {
-          const legUpperOptions = applyAnimOptions('leg_L_upper', makeTintOptions(assets.leg_L_upper));
+          const legUpperOptions = withOriginCategory(applyAnimOptions('leg_L_upper', makeTintOptions(assets.leg_L_upper)), 'body');
           drawBoneSprite(ctx, assets.leg_L_upper, lLegUpper, 'leg_L_upper', style, legUpperOptions);
           drawUntintedOverlays('leg_L_upper', lLegUpper, 'leg_L_upper');
         });
@@ -1459,7 +1475,7 @@ export function renderSprites(ctx){
         drawAppearanceLayers('leg_L_lower', lLegLower, 'leg_L_lower', 'back');
         const originX = lLegUpper?.x ?? lLegLower.x;
         withBranchMirror(ctx, originX, lLegMirror, ()=> {
-          const legLowerOptions = applyAnimOptions('leg_L_lower', makeTintOptions(assets.leg_L_lower));
+          const legLowerOptions = withOriginCategory(applyAnimOptions('leg_L_lower', makeTintOptions(assets.leg_L_lower)), 'body');
           drawBoneSprite(ctx, assets.leg_L_lower, lLegLower, 'leg_L_lower', style, legLowerOptions);
           drawUntintedOverlays('leg_L_lower', lLegLower, 'leg_L_lower');
         });
@@ -1476,7 +1492,7 @@ export function renderSprites(ctx){
         drawAppearanceLayers('leg_R_upper', rLegUpper, 'leg_R_upper', 'back');
         const originX = rLegUpper.x;
         withBranchMirror(ctx, originX, rLegMirror, ()=> {
-          const legUpperOptions = applyAnimOptions('leg_R_upper', makeTintOptions(assets.leg_R_upper));
+          const legUpperOptions = withOriginCategory(applyAnimOptions('leg_R_upper', makeTintOptions(assets.leg_R_upper)), 'body');
           drawBoneSprite(ctx, assets.leg_R_upper, rLegUpper, 'leg_R_upper', style, legUpperOptions);
           drawUntintedOverlays('leg_R_upper', rLegUpper, 'leg_R_upper');
         });
@@ -1488,7 +1504,7 @@ export function renderSprites(ctx){
         drawAppearanceLayers('leg_R_lower', rLegLower, 'leg_R_lower', 'back');
         const originX = rLegUpper?.x ?? rLegLower.x;
         withBranchMirror(ctx, originX, rLegMirror, ()=> {
-          const legLowerOptions = applyAnimOptions('leg_R_lower', makeTintOptions(assets.leg_R_lower));
+          const legLowerOptions = withOriginCategory(applyAnimOptions('leg_R_lower', makeTintOptions(assets.leg_R_lower)), 'body');
           drawBoneSprite(ctx, assets.leg_R_lower, rLegLower, 'leg_R_lower', style, legLowerOptions);
           drawUntintedOverlays('leg_R_lower', rLegLower, 'leg_R_lower');
         });
@@ -1581,14 +1597,15 @@ export function renderSprites(ctx){
           warp: layer.warp,
           alignRad: layer.alignRad,
           alignDeg: layer.alignRad == null ? layer.alignDeg : undefined,
-          palette: layer.palette
+          palette: layer.palette,
+          originCategory: 'clothing'
         };
         if (influences.length){
           baseOptions.boneInfluences = influences;
         }
         enqueue(slotTag, ()=>{
           withBranchMirror(ctx, originX, mirror, ()=>{
-            const drawOptions = applyAnimOptions(styleKey, baseOptions);
+            const drawOptions = withOriginCategory(applyAnimOptions(styleKey, baseOptions), 'clothing');
             // Use boneKey (movement) for drawBoneSprite but drawSlotKey/slotTag for visual stack
             drawBoneSprite(ctx, layer.asset, bone, styleKey, style, drawOptions);
           });
