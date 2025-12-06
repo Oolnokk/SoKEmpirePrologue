@@ -1697,11 +1697,19 @@ export function ensureFighterSprites(C, fname, overrides = {}){
     const asset = S[boneKey];
     if (asset && asset.url) {
       const styleKey = styleKeyOf(boneKey);
-      const xformData = xform[styleKey];
-      if (xformData && typeof xformData.rotDeg === 'number') {
-        // Convert degrees to radians and store as alignRad
-        asset.alignRad = degToRad(xformData.rotDeg);
-      } else if (asset.alignRad === undefined) {
+      const normalizedKey = normalizeStyleKey(styleKey);
+      const xformData = xform[styleKey] || xform[normalizedKey] || xform.base;
+      if (xformData) {
+        const rotRad = Number.isFinite(xformData.rotRad)
+          ? xformData.rotRad
+          : (typeof xformData.rotDeg === 'number' ? degToRad(xformData.rotDeg) : null);
+        if (rotRad != null) {
+          // Convert degrees to radians (if necessary) and store as alignRad
+          asset.alignRad = rotRad;
+          continue;
+        }
+      }
+      if (asset.alignRad === undefined) {
         // Default to 0 if not set
         asset.alignRad = 0;
       }
