@@ -668,8 +668,6 @@ function resolveBasePose(cfg) {
   return clonePose(cfg?.basePose || cfg?.poses?.Stance || {});
 }
 
-const normalizeWeaponStanceKey = (weaponKey = '') => weaponKey.replace(/_/g, '-');
-
 function resolveArmStance(cfg, fighter) {
   const stowed = !isWeaponDrawn(fighter);
   const armStances = cfg?.armStances || {};
@@ -680,12 +678,8 @@ function resolveArmStance(cfg, fighter) {
   }
 
   // If weapon is drawn, use weapon-specific arm stance
-  const weaponKeyRaw = resolveWeaponTypeKeyForStance(fighter, cfg) || 'unarmed';
-  const normalizedKey = normalizeWeaponStanceKey(weaponKeyRaw);
-  const weaponStance = armStances[weaponKeyRaw]
-    || armStances[normalizedKey]
-    || armStances.unarmed
-    || {};
+  const weaponKey = resolveWeaponTypeKeyForStance(fighter, cfg) || 'unarmed';
+  const weaponStance = armStances[weaponKey] || armStances.unarmed || {};
   return clonePose(weaponStance);
 }
 
