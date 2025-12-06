@@ -359,9 +359,9 @@ const MOVEMENT_SPEED_MULTIPLIERS = {
 // PassiveArms is the default (relaxed arms), weapon stances integrate into this system
 const ARM_STANCES = {
   PassiveArms: {
-    lShoulder: 90,
+    lShoulder: -90,
     lElbow: -18,
-    rShoulder: 90,
+    rShoulder: -90,
     rElbow: 18,
     weapon: 0,
     weaponGripPercents: { primary: 0, secondary: 0 },
