@@ -2461,7 +2461,8 @@ export function updatePoses(){
 
     if (applyModeLayer) {
       const lowerBodyPose = {
-        torso: movementPose.torso,
+        // torso excluded - use PassiveArms torso setting to keep upright
+        // torso: movementPose.torso,
         lHip: movementPose.lHip,
         lKnee: movementPose.lKnee,
         rHip: movementPose.rHip,
@@ -2515,16 +2516,17 @@ export function updatePoses(){
 
     const armsLockedByLayer = activeLayers.some(layerTouchesArms);
 
-    if (F.nonCombatRagdoll && !armsLockedByLayer) {
-      // Always clear limb mirror flags when entering ragdoll
-      resetMirror(id);
-      const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement, C.nonCombatRagdoll);
-      for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
-        if (relaxed[key] != null) {
-          targetDeg[key] = relaxed[key];
-        }
-      }
-    }
+    // REMOVED: nonCombatRagdoll arm system - now always uses PassiveArms stance
+    // This eliminates the confusing dual-system and ensures consistent arm angles
+    // if (F.nonCombatRagdoll && !armsLockedByLayer) {
+    //   resetMirror(id);
+    //   const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement, C.nonCombatRagdoll);
+    //   for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
+    //     if (relaxed[key] != null) {
+    //       targetDeg[key] = relaxed[key];
+    //     }
+    //   }
+    // }
 
     const topLayer = activeLayers.length ? activeLayers[activeLayers.length - 1] : null;
     const aimingPose = topLayer?.pose || targetDeg;
