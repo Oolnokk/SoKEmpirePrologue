@@ -2065,8 +2065,14 @@ function advanceNonCombatNoise(F){
 }
 
 function computeGravityDownDeg(movement){
-  // Always return 180° (straight down) for passive arms
-  return 180;
+  const gravity = movement?.gravity;
+  if (Number.isFinite(gravity) && gravity !== 0) {
+    // atan2(gravity, 0) gives angle of gravity vector
+    // With gravity=1200 (downward), this returns 90° (down)
+    return radToDegNum(Math.atan2(gravity, 0));
+  }
+  // Fallback to 90° (straight down) if no gravity configured
+  return 90;
 }
 
 function parseManualArmAngle(value){
