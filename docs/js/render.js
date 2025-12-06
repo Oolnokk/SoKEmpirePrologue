@@ -30,6 +30,7 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 if (typeof window !== 'undefined') {
   window.RENDER_DEBUG = window.RENDER_DEBUG || {
     showSprites: true,   // Show sprite images
+    showSpriteOrigins: false, // Show sprite origin markers
     showBones: true,     // Show skeleton bones
     showHitbox: true,    // Show hitbox overlay
     showPOIs: true,      // Show POI zones
