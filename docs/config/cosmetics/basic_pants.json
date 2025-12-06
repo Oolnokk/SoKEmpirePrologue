@@ -7,7 +7,7 @@
   "parts": {
     "leg_L_upper": {
       "attachBone": "leg_L_upper",
-      "drawSlot": "leg_L_lower",
+      "drawSlot": "leg_L_upper",
       "layers": {
         "front": {
           "image": {
@@ -25,7 +25,7 @@
     },
     "leg_R_upper": {
       "attachBone": "leg_R_upper",
-      "drawSlot": "leg_R_lower",
+      "drawSlot": "leg_R_upper",
       "layers": {
         "front": {
           "image": {
