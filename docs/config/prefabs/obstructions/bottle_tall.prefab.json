@@ -1,0 +1,43 @@
+{
+  "structureId": "Bottle Tall",
+  "type": "obstruction",
+  "tags": ["grippable"],
+  "base": {},
+  "obstruction": {
+    "collision": {
+      "enabled": true,
+      "box": {
+        "width": 60,
+        "height": 80,
+        "offsetX": 0,
+        "offsetY": -40
+      }
+    },
+    "physics": {
+      "enabled": true,
+      "dynamic": true,
+      "mass": 0.8,
+      "drag": 0.15
+    }
+  },
+  "parts": [
+    {
+      "name": "bottle",
+      "layer": "gameplay",
+      "relX": 0,
+      "relY": 0,
+      "z": 0,
+      "propTemplate": {
+        "id": "bottle",
+        "url": "./assets/props/bottle_tall.png",
+        "w": 100,
+        "h": 120,
+        "pivot": "bottom",
+        "anchorXPct": 50,
+        "anchorYPct": 100,
+        "parallaxX": 1,
+        "parallaxClampPx": 0
+      }
+    }
+  ]
+}

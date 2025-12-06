@@ -6,6 +6,11 @@
       "id": "blocking_crate",
       "label": "Blocking Crate",
       "path": "./blocking_crate.prefab.json"
+    },
+    {
+      "id": "bottle_tall",
+      "label": "Bottle Tall",
+      "path": "./bottle_tall.prefab.json"
     }
   ]
 }
