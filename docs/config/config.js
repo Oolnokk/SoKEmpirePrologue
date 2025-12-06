@@ -321,11 +321,11 @@ const MOVEMENT_PROFILES = {
     amp: 1.0,
     poses: {
       A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: -18, lHip: 135, lKnee: 45, rHip: 45, rKnee: 0 },
-      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: -18, lHip: 45, lKnee: 0, rHip: 135, rKnee: 45 },
+      B: { torso: 5, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: -18, lHip: 45, lKnee: 0, rHip: 135, rKnee: 45 },
     },
     idlePoses: {
       A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: -18, lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
-      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: -18, lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
+      B: { torso: 5, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: -18, lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
     },
     idleAmp: 0.5
   },
