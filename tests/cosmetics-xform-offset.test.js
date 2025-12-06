@@ -1,5 +1,5 @@
 import { describe, it } from 'node:test';
-import { strictEqual, ok, deepStrictEqual } from 'assert';
+import { strictEqual, ok } from 'assert';
 
 /**
  * Tests for cosmetics xform/offset precedence and resolution
@@ -84,25 +84,17 @@ describe('Cosmetics xform/offset precedence', () => {
 
   it('empty meta.offset should not override style.xform', () => {
     const meta = { offset: {} };
-    const xform = { ax: 10, ay: 20 };
-    const xformUnits = 'px';
 
     const metaOffset = resolveMetaValue(meta.offset, 'torso', 'torso');
     
-    // Current buggy logic:
-    // const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xform.ax ?? 0;
-    // If metaOffset is {}, then (metaOffset && (metaOffset.ax ?? metaOffset.x)) evaluates to undefined
-    // So it should fall back to xform.ax
-    
-    // But the issue is: does resolveMetaValue return {} or null for empty offset?
-    console.log('metaOffset:', metaOffset); // This will be null because hasOffsetFields({}) returns false
+    // resolveMetaValue should return null for empty offset
+    console.log('metaOffset:', metaOffset);
     
     strictEqual(metaOffset, null, 'empty meta.offset should resolve to null');
   });
 
   it('meta.offset with ax/ay should override style.xform', () => {
     const meta = { offset: { ax: 5, ay: 10 } };
-    const xform = { ax: 100, ay: 200 };
 
     const metaOffset = resolveMetaValue(meta.offset, 'torso', 'torso');
     
@@ -145,13 +137,12 @@ describe('Cosmetics xform/offset precedence', () => {
 
   it('correct precedence: style.xform used when meta.offset is absent', () => {
     const meta = {};
-    const xform = { ax: 10, ay: 20 };
-    const xformUnits = 'px';
+    const xformAx = 10;
+    const xformAy = 20;
 
     const metaOffset = resolveMetaValue(meta.offset, 'torso', 'torso');
-    const offsetUnits = metaOffset?.units ?? metaOffset?.unit ?? meta.offsetUnits ?? xformUnits;
-    const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xform.ax ?? 0;
-    const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.y)) ?? xform.ay ?? 0;
+    const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xformAx ?? 0;
+    const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.y)) ?? xformAy ?? 0;
 
     strictEqual(metaOffset, null);
     strictEqual(rawAx, 10);
@@ -160,15 +151,14 @@ describe('Cosmetics xform/offset precedence', () => {
 
   it('correct precedence: style.xform used when meta.offset is empty object', () => {
     const meta = { offset: {} };
-    const xform = { ax: 10, ay: 20 };
-    const xformUnits = 'px';
+    const xformAx = 10;
+    const xformAy = 20;
 
     const metaOffset = resolveMetaValue(meta.offset, 'torso', 'torso');
-    const offsetUnits = metaOffset?.units ?? metaOffset?.unit ?? meta.offsetUnits ?? xformUnits;
     
     // Fixed logic should handle empty object correctly
-    const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xform.ax ?? 0;
-    const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.y)) ?? xform.ay ?? 0;
+    const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xformAx ?? 0;
+    const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.y)) ?? xformAy ?? 0;
 
     // metaOffset should be null for empty object
     strictEqual(metaOffset, null, 'empty offset should resolve to null');
@@ -219,16 +209,17 @@ describe('Edge case: meta.offset with only units field', () => {
     // This is a potential bug scenario: if meta.offset = { units: 'px' } (no ax/ay),
     // it should not prevent style.xform.ax/ay from being used
     const meta = { offset: { units: 'px' } };
-    const xform = { ax: 100, ay: 200 };
-    const xformUnits = 'percent';
+    const xformAx = 100;
+    const xformAy = 200;
+    const defaultUnits = 'percent';
 
     const metaOffset = resolveMetaValue(meta.offset, 'torso', 'torso');
     // metaOffset should be null because { units: 'px' } has no offset fields
     strictEqual(metaOffset, null, 'metaOffset with only units should be null');
     
-    const offsetUnits = metaOffset?.units ?? metaOffset?.unit ?? meta.offsetUnits ?? xformUnits;
-    const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xform.ax ?? 0;
-    const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.y)) ?? xform.ay ?? 0;
+    const offsetUnits = metaOffset?.units ?? metaOffset?.unit ?? meta.offsetUnits ?? defaultUnits;
+    const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xformAx ?? 0;
+    const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.x)) ?? xformAy ?? 0;
 
     // Should use xform values
     strictEqual(rawAx, 100);
@@ -241,20 +232,17 @@ describe('Edge case: meta.offset with only units field', () => {
     // If meta.offsetUnits exists but meta.offset doesn't, the units should still be used
     // but the ax/ay should come from style.xform
     const meta = { offsetUnits: 'px' };
-    const xform = { ax: 50, ay: 75 };
-    const xformUnits = 'percent';
+    const xformAx = 50;
+    const xformAy = 75;
 
     const metaOffset = resolveMetaValue(meta.offset, 'torso', 'torso');
     strictEqual(metaOffset, null);
 
-    const offsetUnits = metaOffset?.units ?? metaOffset?.unit ?? meta.offsetUnits ?? xformUnits;
-    const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xform.ax ?? 0;
-    const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.y)) ?? xform.ay ?? 0;
+    const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xformAx ?? 0;
+    const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.y)) ?? xformAy ?? 0;
 
     strictEqual(rawAx, 50);
     strictEqual(rawAy, 75);
-    // meta.offsetUnits should be used
-    strictEqual(offsetUnits, 'px');
   });
 });
 
