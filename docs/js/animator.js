@@ -10,6 +10,7 @@ import { isAttackDashing } from './attack-dash.js?v=1';
 
 const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee','weapon'];
 const ARM_JOINT_KEYS = ['torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow'];
+const ARM_KEYS = ['lShoulder', 'lElbow', 'rShoulder', 'rElbow'];
 const JOINT_DAMP_LAMBDA = 10;
 // Convert pose object from degrees to radians using centralized utility
 function degToRadPose(p){ const o={}; for(const k of ANG_KEYS){ if (p&&p[k]!=null) o[k]=degToRad(p[k]); } return o; }
@@ -1823,10 +1824,9 @@ function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { pose
 
   // Arms: interpolate from movement profile keyframes
   // These will be overridden by arm_stance when weapon is drawn
-  pose.lShoulder = lerp(keyA.lShoulder || 0, keyB.lShoulder || 0, s) * amp;
-  pose.lElbow    = lerp(keyA.lElbow    || 0, keyB.lElbow    || 0, s) * amp;
-  pose.rShoulder = lerp(keyA.rShoulder || 0, keyB.rShoulder || 0, s) * amp;
-  pose.rElbow    = lerp(keyA.rElbow    || 0, keyB.rElbow    || 0, s) * amp;
+  for (const key of ARM_KEYS) {
+    pose[key] = lerp(keyA[key] || 0, keyB[key] || 0, s) * amp;
+  }
 
   // State flags
   pose._movementActive = useMovement;
@@ -2412,8 +2412,7 @@ export function updatePoses(){
     
     // Apply arm positions from movement profile when weapon is stowed
     if (!weaponDrawn && movementPose._active && !movementSuppressed) {
-      const armKeys = ['lShoulder', 'lElbow', 'rShoulder', 'rElbow'];
-      for (const key of armKeys) {
+      for (const key of ARM_KEYS) {
         if (movementPose[key] != null) {
           targetDeg[key] = movementPose[key];
         }
