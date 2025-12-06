@@ -432,10 +432,10 @@ const ARM_STANCES = {
 // Default skins are surfaced in the weapon definitions below; callers can swap skins later.
 const WEAPON_SPRITE_SKINS = {
   'dagger-swords': {
-    defaultSkin: 'paired-forged',
+    defaultSkin: 'anuri_dagger-swords',
     skins: {
-      'paired-forged': {
-        name: 'Paired Forged Blades',
+      'anuri_dagger-swords': {
+        name: "Anuri's Dagger-Swords",
         layers: [
           {
             url: './assets/weapons/dagger-sword-longblade.png',
