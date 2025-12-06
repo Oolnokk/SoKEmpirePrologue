@@ -120,7 +120,9 @@ export function makeCombat(G, C, options = {}){
       return shiftHeld ? 'combat' : 'nonCombat';
     }
 
-    return shiftHeld ? 'combat' : 'nonCombat';
+    const result = shiftHeld ? 'combat' : 'nonCombat';
+    console.log('[WalkMode] shift:', shiftHeld, 'result:', result, 'inCombat:', inCombat);
+    return result;
   };
 
   const applyWalkMode = (fighter, walkMode) => {

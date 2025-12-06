@@ -1591,6 +1591,7 @@ function resolveStanceUpperPose(cfg, fighter) {
 
 function resolveLowerBodyStancePose(cfg, fighter) {
   const poseMode = resolveWalkMode(fighter);
+  console.log('[Animator] poseMode:', poseMode, 'nonCombat:', fighter?.nonCombat, 'walkMode:', fighter?.walkMode);
   const basePose = resolveBasePose(cfg);
   const legProfile = resolveLegProfile(cfg, poseMode);
   const movementPose = legProfile
