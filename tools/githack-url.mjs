@@ -12,7 +12,7 @@ function getRemoteSlug() {
       return httpsMatch[1].replace(/\.git$/, '');
     }
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -27,12 +27,12 @@ function getRef() {
     if (branch && branch !== 'HEAD') {
       return branch;
     }
-  } catch (error) {
+  } catch {
     // fall through to commit lookup
   }
   try {
     return execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
-  } catch (error) {
+  } catch {
     return null;
   }
 }

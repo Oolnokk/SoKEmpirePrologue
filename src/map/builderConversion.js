@@ -459,7 +459,7 @@ function parsePoiTag(tags = []) {
   return null;
 }
 
-function resolvePoiInfo(collider, warnings = null) {
+function resolvePoiInfo(collider) {
   if (!collider || typeof collider !== 'object') return null;
   if (!Array.isArray(collider.tags) || collider.tags.length === 0) return null;
 
