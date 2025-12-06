@@ -316,7 +316,7 @@ const MOVEMENT_PROFILES = {
   nonCombat: {
     enabled: true,
     onlyTorsoLegs: true,
-    baseHz: 0.8,
+    baseHz: 0.5,
     speedScale: 1,
     minSpeed: 60,
     amp: 1.0,
