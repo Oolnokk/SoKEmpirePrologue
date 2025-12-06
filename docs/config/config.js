@@ -327,7 +327,7 @@ const MOVEMENT_PROFILES = {
       A: { torso: 0, lShoulder: 270, lElbow: 0, rShoulder: 270, rElbow: 0, lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
       B: { torso: 5, lShoulder: 270, lElbow: 0, rShoulder: 270, rElbow: 0, lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
     },
-    idleAmp: 0.5
+    idleAmp: 0.01
   },
   sneak: {
     enabled: false,
