@@ -40,7 +40,7 @@
             "colors": ["A"]
           },
           "attachBone": "torso",
-          "drawSlot": "head",
+          "drawSlot": "torso",
           "spriteStyle": {
             "base": {
               "xform": {
