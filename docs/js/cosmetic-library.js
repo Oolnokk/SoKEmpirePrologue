@@ -1,4 +1,4 @@
-import { registerCosmeticLibrary } from './cosmetics.js?v=1';
+import { clearCosmeticCache, registerCosmeticLibrary } from './cosmetics.js?v=1';
 
 const ROOT = typeof window !== 'undefined' ? window : globalThis;
 const CONFIG = ROOT?.CONFIG || {};
@@ -52,6 +52,9 @@ async function runLibraryLoad({ reload = false } = {}){
 
 function ensureLibraryLoad({ reload = false } = {}){
   if (reload || !libraryLoadPromise){
+    if (reload){
+      clearCosmeticCache();
+    }
     libraryLoadPromise = runLibraryLoad({ reload })
       .catch((err) => console.warn('[cosmetics] Cosmetic library loading failed', err))
       .finally(() => dispatchLibraryEvent('cosmetics:library-ready', { reload }));
