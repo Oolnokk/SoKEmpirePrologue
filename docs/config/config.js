@@ -888,7 +888,7 @@ window.CONFIG = {
     manualOffsetX: 0,
     awareness: {
       normalZoom: 1,
-      scaleOffset: 0.25,
+      scaleOffset: 0.5,
       minZoom: 0.6,
       maxZoom: 1.3,
       inactivitySeconds: 15,
