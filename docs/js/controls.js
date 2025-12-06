@@ -5,6 +5,7 @@ export function initControls(){
   const G = (window.GAME ||= {});
   G.input ||= {
     left:false, right:false, jump:false,
+    shift: false,
     nonCombatRagdoll: false,
     weaponDrawn: true,
     buttonA: { down:false, downTime:0, upTime:0 },
@@ -65,11 +66,12 @@ export function initControls(){
 
   function onKey(e, down){
     if (e.repeat && down) return; // Ignore key repeats
-    
+
     switch(e.code){
       case 'KeyA': case 'ArrowLeft': I.left = down; break;
       case 'KeyD': case 'ArrowRight': I.right = down; break;
       case 'KeyW': case 'ArrowUp': case 'Space': I.jump = down; if(down) e.preventDefault(); break;
+      case 'ShiftLeft': case 'ShiftRight': I.shift = down; break;
       case 'KeyE': case 'KeyJ': setButton('buttonA', down); break;
       case 'KeyF': case 'KeyK': setButton('buttonB', down); break;
       case 'KeyR': case 'KeyL': setButton('buttonC', down); break;
@@ -121,7 +123,7 @@ export function initControls(){
     e.preventDefault();
   }); // Prevent right-click menu over game viewport
   window.addEventListener('blur', ()=>{
-    Object.assign(I,{left:false,right:false,jump:false,nonCombatRagdoll:false,weaponDrawn:true});
+    Object.assign(I,{left:false,right:false,jump:false,shift:false,nonCombatRagdoll:false,weaponDrawn:true});
     I.buttonA.down = false;
     I.buttonB.down = false;
     I.buttonC.down = false;
