@@ -1,0 +1,10 @@
+{
+  "id": "scene3d-demo",
+  "layers": [],
+  "scene3d": {
+    "sceneUrl": "./assets/3D/scene3d-demo.gltf",
+    "ground": { "planeZ": 0, "unitsPerPixel": 1 },
+    "camera": { "projection": "perspective", "fov": 50 },
+    "render": { "lighting": "none", "materials": "unlit" }
+  }
+}
