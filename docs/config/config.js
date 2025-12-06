@@ -197,10 +197,10 @@ const WEAPON_STANCE_DEFAULTS = {
   'dagger-swords': {
     weapon: -20,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-    lShoulder: -85,
-    lElbow: -95,
-    rShoulder: -85,
-    rElbow: -95,
+    lShoulder: 0,
+    lElbow: 0,
+    rShoulder: 0,
+    rElbow: 0,
   },
 
   sarrarru: {
