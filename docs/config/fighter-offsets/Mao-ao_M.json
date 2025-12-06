@@ -2,14 +2,14 @@
   "cosmetics": {
     "basic_pants": {
       "parts": {
-        "torso": {
+      "torso": {
           "spriteStyle": {
             "xform": {
               "torso": {
                 "scaleX": 0.5,
                 "scaleY": 0.5,
                 "ay": -0.07,
-                "ax": 20,
+                "ax": -0.55,
                 "rotDeg": -10
               }
             }
