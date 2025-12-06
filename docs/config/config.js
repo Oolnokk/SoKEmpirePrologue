@@ -308,8 +308,8 @@ const MOVEMENT_PROFILES = {
       B: { torso: 40, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 180, lKnee: 90,  rHip: 0,   rKnee: 45 }
     },
     idlePoses: {
-      A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 100, lKnee: 70, rHip: 30, rKnee: 70, },
-      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 100, lKnee: 70, rHip: 30, rKnee: 70, },
+      A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 190, lKnee: 70, rHip: 110, rKnee: 70, },
+      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 190, lKnee: 70, rHip: 110, rKnee: 70, },
     },
     idleAmp: 0.4
   },
