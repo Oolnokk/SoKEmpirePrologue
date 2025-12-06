@@ -298,7 +298,7 @@ const ensureWeaponStances = (config) => {
 // Arms from movement profiles are overridden by arm_stances when weapon is drawn
 const MOVEMENT_PROFILES = {
   combat: {
-    enabled: false,
+    enabled: true,
     baseHz: 1.3,
     speedScale: 1,
     minSpeed: 80,
