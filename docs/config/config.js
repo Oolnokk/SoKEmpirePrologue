@@ -359,7 +359,7 @@ const MOVEMENT_SPEED_MULTIPLIERS = {
 // PassiveArms is the default (relaxed arms), weapon stances integrate into this system
 const ARM_STANCES = {
   PassiveArms: {
-	torso: 0,
+        torso: 0,
     lShoulder: 270,
     lElbow: -18,
     rShoulder: 270,
@@ -426,6 +426,78 @@ const ARM_STANCES = {
     weapon: -45,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
+};
+
+// Weapon sprite skins centralize art references so multiple looks can ship per weapon type.
+// Default skins are surfaced in the weapon definitions below; callers can swap skins later.
+const WEAPON_SPRITE_SKINS = {
+  'dagger-swords': {
+    defaultSkin: 'paired-forged',
+    skins: {
+      'paired-forged': {
+        name: 'Paired Forged Blades',
+        layers: [
+          {
+            url: './assets/weapons/dagger-sword-longblade.png',
+            anchorBone: 'weapon_0',
+            anchorMode: 'start',
+            alignDeg: 270,
+            styleOverride: {
+              xformUnits: 'percent',
+              widthFactor: { weapon_0: 0.65 },
+              xform: { weapon_0: { ax: 0.06 } },
+            }
+          },
+          {
+            url: './assets/weapons/dagger-sword-shortblade.png',
+            anchorBone: 'weapon_1',
+            anchorMode: 'start',
+            alignDeg: 270,
+            styleOverride: {
+              xformUnits: 'percent',
+              widthFactor: { weapon_1: 0.6 },
+              xform: { weapon_1: { ax: 0.06 } },
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  sarrarru: {
+    defaultSkin: 'citywatch-standard',
+    skins: {
+      'citywatch-standard': {
+        name: 'Citywatch Issue',
+        url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
+        anchorBone: 'weapon_0',
+        anchorMode: 'start',
+        alignDeg: 270,
+        styleOverride: {
+          xformUnits: 'percent',
+          widthFactor: { weapon_0: 1 },
+          xform: {
+            weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
+          }
+        }
+      }
+    }
+  }
+};
+
+const getWeaponSkinSprite = (weaponKey, skinKey) => {
+  const entry = WEAPON_SPRITE_SKINS[weaponKey];
+  if (!entry) return null;
+  const resolvedKey = skinKey || entry.defaultSkin || Object.keys(entry.skins || {})[0];
+  if (!resolvedKey) return null;
+  const sprite = entry.skins?.[resolvedKey];
+  return sprite ? deepClone(sprite) : null;
+};
+
+const getWeaponSkinLibrary = (weaponKey) => {
+  const entry = WEAPON_SPRITE_SKINS[weaponKey];
+  if (!entry?.skins) return null;
+  return deepClone(entry.skins);
 };
 
 const BASE_POSES = {
@@ -1380,7 +1452,9 @@ window.CONFIG = {
       colliders: {
         colliderA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['STRIKE'] },
         colliderB: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['STRIKE'] }
-      }
+      },
+      sprite: getWeaponSkinSprite('dagger-swords'),
+      skins: getWeaponSkinLibrary('dagger-swords')
     },
 
     sarrarru: {
@@ -1415,19 +1489,8 @@ window.CONFIG = {
       colliders: {
         colliderA: { shape: 'rect', width: 26, height: 140, offset: { x: 35, y: 0 }, activatesOn: ['STRIKE'] }
       },
-      sprite: {
-        url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
-        anchorBone: 'weapon_0',
-        anchorMode: 'start',
-        alignDeg: 270,
-        styleOverride: {
-          xformUnits: 'percent',
-          widthFactor: { weapon_0: 1 },
-          xform: {
-            weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
-          }
-        }
-      }
+      sprite: getWeaponSkinSprite('sarrarru'),
+      skins: getWeaponSkinLibrary('sarrarru')
     },
 
     'light-greatblade': {
