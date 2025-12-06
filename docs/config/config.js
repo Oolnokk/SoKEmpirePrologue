@@ -1170,8 +1170,8 @@ window.CONFIG = {
           xform: {
             torso:    { ax:0,  ay:-0.2, scaleX:1, scaleY:1, rotDeg:90 },
             head:     { ax:-0.15, ay:-0.1, scaleX:1, scaleY:1.2, rotDeg:90 },
-            armUpper: { ax:-0.2,  ay:0.1,  scaleX:1.6, scaleY:2.8, rotDeg:-10 },
-            armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-3 },
+            armUpper: { ax:-0.2,  ay:0,  scaleX:1.6, scaleY:2.8, rotDeg:-0 },
+            armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-0 },
             legUpper: { ax:-0.10, ay:0,  scaleX:1.7, scaleY:2.75,  rotDeg:-15 },
             legLower: { ax:-0.0,  ay:0.2,  scaleX:1.7, scaleY:2.1, rotDeg:-4 }
           }
@@ -1229,8 +1229,8 @@ window.CONFIG = {
           xform: {
             torso:    { ax:0,  ay:-0.2, scaleX:1, scaleY:1.5, rotDeg:-90 },
             head:     { ax:-0.15, ay:-0.1, scaleX:1, scaleY:1.2, rotDeg:-90 },
-            armUpper: { ax:-0.2,  ay:0.1,  scaleX:1.6, scaleY:2.8, rotDeg:-10 },
-            armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-3 },
+            armUpper: { ax:-0.2,  ay:0,  scaleX:1.6, scaleY:2.8, rotDeg:0 },
+            armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:0 },
             legUpper: { ax:-0.10, ay:0,  scaleX:1.7, scaleY:2.75,  rotDeg:-15 },
             legLower: { ax:-0.0,  ay:0.2,  scaleX:1.7, scaleY:2.1, rotDeg:-4 }
           }
