@@ -2107,12 +2107,24 @@ function buildNonCombatRagdollPose(F, basePose, movement, config){
   const lElbowBase = Number.isFinite(manual.lElbow) ? manual.lElbow : (NON_COMBAT_RAGDOLL_POSE.lElbow || 0);
   const rElbowBase = Number.isFinite(manual.rElbow) ? manual.rElbow : (NON_COMBAT_RAGDOLL_POSE.rElbow || 0);
 
-  return {
+  const result = {
     lShoulder: lShoulderTarget + noise.shoulder,
     lElbow: lElbowBase + noise.elbow,
     rShoulder: rShoulderTarget - noise.shoulder,
     rElbow: rElbowBase - noise.elbow,
   };
+
+  // Debug logging
+  if (F.debugPassiveArms) {
+    console.log('[buildNonCombatRagdollPose]');
+    console.log('  downDeg (gravity):', downDeg);
+    console.log('  lBase:', lBase, 'rBase:', rBase);
+    console.log('  manual:', manual);
+    console.log('  lShoulderTarget:', lShoulderTarget, '→ result:', result.lShoulder);
+    console.log('  result:', result);
+  }
+
+  return result;
 }
 
 // Helper to clamp values
