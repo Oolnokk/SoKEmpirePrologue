@@ -5,6 +5,8 @@
  * toolchains.
  */
 
+import { normalizeScene3dConfig } from './scene3d.js';
+
 const clone = (value) => {
   if (typeof globalThis.structuredClone === 'function') {
     return globalThis.structuredClone(value);
@@ -105,14 +107,15 @@ export class MapRegistry {
       throw new MapRegistryError('Area descriptor must be an object');
     }
 
-    const { warnings, errors } = validateAreaDescriptor(descriptor);
+    const normalizedDescriptor = normalizeAreaDescriptor(descriptor);
+    const { warnings, errors } = validateAreaDescriptor(normalizedDescriptor);
     if (errors.length) {
       throw new MapRegistryError(`Invalid area descriptor for "${areaId}"`, {
         errors,
       });
     }
 
-    const area = deepFreeze(clone({ ...descriptor, id: areaId }));
+    const area = deepFreeze(clone({ ...normalizedDescriptor, id: areaId }));
     return { area, warnings };
   }
 
@@ -191,6 +194,10 @@ export class MapRegistry {
 function validateAreaDescriptor(descriptor) {
   const warnings = [];
   const errors = [];
+
+  if (descriptor.scene3d !== undefined) {
+    validateScene3d(descriptor.scene3d, warnings, errors);
+  }
 
   if (!Array.isArray(descriptor.layers)) {
     errors.push('"layers" must be an array');
@@ -295,6 +302,46 @@ function validateAreaDescriptor(descriptor) {
   }
 
   return { warnings, errors };
+}
+
+function normalizeAreaDescriptor(descriptor) {
+  const cloned = clone(descriptor);
+  if (cloned.scene3d !== undefined) {
+    cloned.scene3d = normalizeScene3dConfig(cloned.scene3d);
+  }
+  return cloned;
+}
+
+function validateScene3d(scene3d, warnings, errors) {
+  if (!scene3d || typeof scene3d !== 'object') {
+    errors.push('"scene3d" must be an object when provided');
+    return;
+  }
+
+  if (!scene3d.sceneUrl) {
+    warnings.push('scene3d provided without "sceneUrl"; 3D renderer will skip asset loading');
+  } else if (typeof scene3d.sceneUrl !== 'string') {
+    errors.push('scene3d.sceneUrl must be a string when provided');
+  }
+
+  if (scene3d.ground) {
+    if (typeof scene3d.ground.planeZ !== 'number' || Number.isNaN(scene3d.ground.planeZ)) {
+      errors.push('scene3d.ground.planeZ must be a number');
+    }
+    if (typeof scene3d.ground.unitsPerPixel !== 'number' || Number.isNaN(scene3d.ground.unitsPerPixel)) {
+      errors.push('scene3d.ground.unitsPerPixel must be a number');
+    }
+  }
+
+  if (scene3d.render) {
+    const allowed = ['none', 'flat'];
+    if (!allowed.includes(scene3d.render.lighting)) {
+      warnings.push(`scene3d.render.lighting should be one of ${allowed.join(', ')}; falling back to "none"`);
+    }
+    if (scene3d.render.materials && scene3d.render.materials !== 'unlit') {
+      warnings.push('scene3d.render.materials enforces "unlit" only to keep surfaces simple');
+    }
+  }
 }
 
 function deepFreeze(obj) {
