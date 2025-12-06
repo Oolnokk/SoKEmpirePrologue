@@ -315,7 +315,7 @@ const MOVEMENT_PROFILES = {
   },
   nonCombat: {
     enabled: true,
-    baseHz: 0.25,
+    baseHz: 0.1,
     speedScale: 4,
     minSpeed: 60,
     amp: 1.0,
