@@ -2600,15 +2600,16 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
 
   const movementDir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
   const velocityFacing = Math.abs(state.vel?.x || 0) > 0.5 ? Math.sign(state.vel.x) : 0;
-  const movementFacing = movementDir !== 0 ? movementDir : velocityFacing;
-  const facingTargetX = aggression.active
-    ? (pathTarget?.goalX ?? (player.pos?.x ?? state.pos.x))
-    : (movementFacing !== 0
-      ? state.pos.x + movementFacing
-      : (pathTarget?.goalX ?? state.pos.x));
-  const facingDx = facingTargetX - state.pos.x;
-  if (Math.abs(facingDx) > 0.001) {
-    state.facingRad = facingDx >= 0 ? 0 : Math.PI;
+  const cachedFacing = Number.isFinite(state.facingSign) ? state.facingSign : 0;
+  const movementFacing = movementDir !== 0 ? movementDir : (velocityFacing || cachedFacing);
+  const idleFacing = pathTarget ? Math.sign((pathTarget.goalX ?? state.pos.x) - state.pos.x) : 0;
+  const desiredFacing = aggression.active
+    ? Math.sign((pathTarget?.goalX ?? (player.pos?.x ?? state.pos.x)) - state.pos.x)
+    : (movementFacing || idleFacing);
+
+  if (desiredFacing !== 0) {
+    state.facingRad = desiredFacing > 0 ? 0 : Math.PI;
+    state.facingSign = desiredFacing > 0 ? 1 : -1;
   } else if (!Number.isFinite(state.facingRad)) {
     state.facingRad = 0;
   }
