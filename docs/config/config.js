@@ -320,7 +320,7 @@ const MOVEMENT_PROFILES = {
     minSpeed: 60,
     amp: 1.0,
     poses: {
-      A: { torso: 0, lShoulder: 0, lElbow: -18, rShoulder: -180, rElbow: -45, lHip: 110,   lKnee: 45, rHip: 189, rKnee: 90 },
+      A: { torso: 0, lShoulder: 0, lElbow: -18, rShoulder: -180, rElbow: -45, lHip: 220,   lKnee: 45, rHip: 189, rKnee: 90 },
       B: { torso: 0, lShoulder: -180, lElbow: -18, rShoulder: 0, rElbow: -45, lHip: 220, lKnee: 90, rHip: 189,   rKnee: 45 }
     },
     idlePoses: {
@@ -330,7 +330,7 @@ const MOVEMENT_PROFILES = {
     idleAmp: 0.5
   },
   sneak: {
-    enabled: true,
+    enabled: false,
     baseHz: 1.05,
     speedScale: 0.8,
     minSpeed: 40,
