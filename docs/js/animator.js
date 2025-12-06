@@ -1639,7 +1639,7 @@ function pickBase(fcfg, C, mode = 'combat', F) {
   return mergeLowerBodyPose(base, legs);
 }
 function pickMovementProfile(fcfg, C, mode = 'combat'){
-  const cfg = fcfg || C || {};
+  const cfg = { ...(C || {}), ...(fcfg || {}) };
   const profiles = cfg?.movementProfiles || {};
   const idleProfiles = cfg?.idleProfiles || cfg?.idleProfile || null;
   const legsPose = pickLegsBase(cfg, C, mode);
@@ -1710,7 +1710,7 @@ function pickMovementProfile(fcfg, C, mode = 'combat'){
 function computeSpeed(F){ const dt=Math.max(1e-5,(F.anim?.dt||0)); const prevX = (F._prevX==null? F.pos?.x||0 : F._prevX); const curX = F.pos?.x||0; const v = (curX - prevX)/dt; F._prevX = curX; return Math.abs(Number.isFinite(F.vel?.x)? F.vel.x : v); }
 
 function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { poseMode, weaponDrawn } = {}){
-  const cfg = fcfg || C || {};
+  const cfg = { ...(C || {}), ...(fcfg || {}) };
   const W = movementProfile || cfg.walk || {
     enabled:true,
     baseHz:1.2,
