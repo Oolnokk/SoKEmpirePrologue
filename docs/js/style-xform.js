@@ -89,7 +89,7 @@ export function composeStyleXformEntry(baseEntry, overrideSpec){
   ]);
   if (axDelta != null){
     base.ax = baseAx + axDelta;
-  } else if (!Number.isFinite(base.ax)) {
+  } else {
     const absAx = toFiniteNumber(overrideSpec.ax ?? overrideSpec.offset?.ax ?? overrideSpec.offset?.x);
     if (absAx != null){
       base.ax = absAx;
@@ -113,7 +113,7 @@ export function composeStyleXformEntry(baseEntry, overrideSpec){
   ]);
   if (ayDelta != null){
     base.ay = baseAy + ayDelta;
-  } else if (!Number.isFinite(base.ay)) {
+  } else {
     const absAy = toFiniteNumber(overrideSpec.ay ?? overrideSpec.offset?.ay ?? overrideSpec.offset?.y);
     if (absAy != null){
       base.ay = absAy;
