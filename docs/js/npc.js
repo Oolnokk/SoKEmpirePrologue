@@ -1996,16 +1996,7 @@ function updateNpcAiming(state, player, { aggressionActive, movementActive = fal
   const isAggressive = aggressionActive ?? aggression.active;
 
   if (!isAggressive || state.nonCombatRagdoll) {
-    if (movementActive) {
-      resetNpcAimingOffsets(aim);
-      return;
-    }
-    aim.active = false;
-    aim.torsoOffset = 0;
-    aim.shoulderOffset = 0;
-    aim.hipOffset = 0;
-    aim.headWorldTarget = null;
-    aim.headTrackingOnly = false;
+    resetNpcAimingOffsets(aim);
     return;
   }
   if (!player) {
@@ -2014,11 +2005,7 @@ function updateNpcAiming(state, player, { aggressionActive, movementActive = fal
   }
 
   if (!aggression.active) {
-    if (movementActive) {
-      resetNpcAimingOffsets(aim);
-      return;
-    }
-    updateNpcPassiveHeadTracking(state, player);
+    resetNpcAimingOffsets(aim);
     return;
   }
 
@@ -2611,7 +2598,17 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   const movementActive = movementIntent || Math.abs(state.vel?.x || 0) > 1 || Math.abs(state.vel?.y || 0) > 1;
   state.nonCombatRagdoll = !aggression.active && !state.ragdoll && !state.recovering && !movementActive;
 
-  state.facingRad = dx >= 0 ? 0 : Math.PI;
+  const movementDir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+  const movementFacing = movementDir !== 0 ? movementDir : Math.sign(state.vel?.x || 0);
+  const facingTargetX = aggression.active
+    ? (pathTarget?.goalX ?? (player.pos?.x ?? state.pos.x))
+    : (pathTarget?.goalX ?? (movementFacing !== 0 ? state.pos.x + movementFacing : state.pos.x));
+  const facingDx = facingTargetX - state.pos.x;
+  if (Math.abs(facingDx) > 0.001) {
+    state.facingRad = facingDx >= 0 ? 0 : Math.PI;
+  } else if (!Number.isFinite(state.facingRad)) {
+    state.facingRad = 0;
+  }
 
   regenerateStamina(state, dt);
   updateDashTrail(visuals, state, dt);
