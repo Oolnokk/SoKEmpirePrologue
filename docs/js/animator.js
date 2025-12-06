@@ -700,6 +700,8 @@ function resolveLegProfile(cfg, mode) {
 
 function isWeaponDrawn(F) {
   if (typeof F?.anim?.weapon?.stowed === 'boolean') return !F.anim.weapon.stowed;
+  if (typeof F?.renderProfile?.weaponStowed === 'boolean') return !F.renderProfile.weaponStowed;
+  if (typeof F?.weaponStowed === 'boolean') return !F.weaponStowed;
   if (typeof F?.renderProfile?.weaponDrawn === 'boolean') return F.renderProfile.weaponDrawn;
   if (typeof F?.weaponDrawn === 'boolean') return F.weaponDrawn;
   return true;
