@@ -952,11 +952,6 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
     }
   }
 
-  // Debug logging for torso scale
-  if (styleKey === 'torso' && (scaleX > 5 || scaleY > 5)){
-    console.log('[sprites] torso scale:', { styleKey, scaleX, scaleY, baseXform: xform, overrideXform });
-  }
-
   // Apply scales to dimensions
   w *= scaleX;
   h *= scaleY;
