@@ -315,9 +315,9 @@ const MOVEMENT_PROFILES = {
   },
   nonCombat: {
     enabled: true,
-    baseHz: 0.1,
+    baseHz: 0.25,
     speedScale: 4,
-    minSpeed: 60,
+    minSpeed: 5,
     amp: 1.0,
     poses: {
       A: { torso: 0, lShoulder: 180, lElbow: 0, rShoulder: 0, rElbow: -18, lHip: 125, lKnee: 45, rHip: 55, rKnee: 0 },
@@ -349,7 +349,7 @@ const MOVEMENT_PROFILES = {
 
 const MOVEMENT_SPEED_MULTIPLIERS = {
   combat: 1.25,
-  nonCombat: 0.5,
+  nonCombat: 0.2,
   sneak: 0.3,
 };
 
