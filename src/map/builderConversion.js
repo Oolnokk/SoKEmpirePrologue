@@ -486,10 +486,10 @@ function resolvePoiInfo(collider) {
   };
 }
 
-function collectPois(colliders = [], warnings = null) {
+function collectPois(colliders = []) {
   if (!Array.isArray(colliders) || colliders.length === 0) return [];
   const pois = colliders
-    .map((collider) => resolvePoiInfo(collider, warnings))
+    .map((collider) => resolvePoiInfo(collider))
     .filter(Boolean);
 
   return pois;
