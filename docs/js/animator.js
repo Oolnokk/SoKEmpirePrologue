@@ -12,9 +12,9 @@ const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip
 const ARM_JOINT_KEYS = ['torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow'];
 const JOINT_DAMP_LAMBDA = 10;
 const NON_COMBAT_RAGDOLL_POSE = {
-  lShoulder: 165,
+  lShoulder: 75,  // Final angle to match PassiveArms (basePose -90 + delta 165 = 75)
   lElbow: -18,
-  rShoulder: -165,
+  rShoulder: -255,  // Final angle to match PassiveArms (basePose -90 + delta -165 = -255)
   rElbow: 18,
 };
 const NON_COMBAT_RAGDOLL_NOISE = { freqHz: 0.8, shoulderAmpDeg: 6, elbowAmpDeg: 4 };
