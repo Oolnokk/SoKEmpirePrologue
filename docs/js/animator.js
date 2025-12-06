@@ -2069,7 +2069,7 @@ function computeGravityDownDeg(movement){
   if (Number.isFinite(gravity) && gravity !== 0) {
     return radToDegNum(Math.atan2(gravity, 0));
   }
-  return 90;
+  return 180;  // Default to straight down when no gravity data
 }
 
 function parseManualArmAngle(value){
