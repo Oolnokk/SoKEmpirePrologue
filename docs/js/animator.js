@@ -1593,7 +1593,7 @@ let lastLoggedPoseMode = null;
 function resolveLowerBodyStancePose(cfg, fighter) {
   const poseMode = resolveWalkMode(fighter);
   const hasMovement = Math.abs(fighter?.vel?.x || 0) > 1;
-  if (hasMovement && poseMode !== lastLoggedPoseMode) {
+  if (hasMovement && poseMode !== lastLoggedPoseMode && fighter?.isPlayer) {
     console.log('[Animator] poseMode:', poseMode, 'nonCombat:', fighter?.nonCombat, 'walkMode:', fighter?.walkMode);
     lastLoggedPoseMode = poseMode;
   }
