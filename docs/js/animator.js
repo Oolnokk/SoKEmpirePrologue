@@ -2526,7 +2526,8 @@ export function updatePoses(){
     const aimingPose = topLayer?.pose || targetDeg;
 
     // Update aiming system based on current pose
-    updateAiming(F, aimingPose || targetDeg, id, { headOnly: stowActive });
+    // Enable full upper body aiming even when weapon is stowed
+    updateAiming(F, aimingPose || targetDeg, id, { headOnly: false });
 
     // Add basePose to targetDeg (matching reference HTML behavior)
     const basePose = C.basePose || {};
