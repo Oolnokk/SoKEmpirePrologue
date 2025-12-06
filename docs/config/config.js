@@ -197,10 +197,10 @@ const WEAPON_STANCE_DEFAULTS = {
   'dagger-swords': {
     weapon: -20,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-    lShoulder: -85,
-    lElbow: -95,
-    rShoulder: -85,
-    rElbow: -95,
+    lShoulder: 0,
+    lElbow: 0,
+    rShoulder: 0,
+    rElbow: 0,
   },
 
   sarrarru: {
@@ -440,71 +440,137 @@ const ARM_STANCES = {
 // Weapon sprite skins centralize art references so multiple looks can ship per weapon type.
 // Default skins are surfaced in the weapon definitions below; callers can swap skins later.
 const normalizeWeaponSkinKey = (weaponKey = '') => weaponKey.replace(/_/g, '-');
-const ensureWeaponSpriteSkins = () => {
-  if (!window.WEAPON_SPRITE_SKINS) {
-    window.WEAPON_SPRITE_SKINS = {
-      'dagger-swords': {
-        defaultSkin: 'paired-forged',
-        skins: {
-          'paired-forged': {
-            name: 'Paired Forged Blades',
-            layers: [
-              {
-                url: './assets/weapons/dagger-sword-longblade.png',
-                anchorBone: 'weapon_0',
-                anchorMode: 'start',
-                alignDeg: 270,
-                styleOverride: {
-                  xformUnits: 'percent',
-                  widthFactor: { weapon_0: 0.65 },
-                  xform: { weapon_0: { ax: 0.06 } },
-                }
-              },
-              {
-                url: './assets/weapons/dagger-sword-shortblade.png',
-                anchorBone: 'weapon_1',
-                anchorMode: 'start',
-                alignDeg: 270,
-                styleOverride: {
-                  xformUnits: 'percent',
-                  widthFactor: { weapon_1: 0.6 },
-                  xform: { weapon_1: { ax: 0.06 } },
-                }
-              }
-            ]
-          }
-        }
-      },
-
-      sarrarru: {
-        defaultSkin: 'citywatch-standard',
-        skins: {
-          'citywatch-standard': {
-            name: 'Citywatch Issue',
-            url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
+const WEAPON_SPRITE_SKINS = {
+  'dagger-swords': {
+    defaultSkin: 'paired-forged',
+    skins: {
+      'paired-forged': {
+        name: 'Paired Forged Blades',
+        layers: [
+          {
+            url: './assets/weapons/dagger-sword-longblade.png',
             anchorBone: 'weapon_0',
             anchorMode: 'start',
             alignDeg: 270,
             styleOverride: {
               xformUnits: 'percent',
-              widthFactor: { weapon_0: 1 },
-              xform: {
-                weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
-              }
+              widthFactor: { weapon_0: 0.65 },
+              xform: { weapon_0: { ax: 0.06 } },
             }
+          },
+          {
+            url: './assets/weapons/dagger-sword-shortblade.png',
+            anchorBone: 'weapon_1',
+            anchorMode: 'start',
+            alignDeg: 270,
+            styleOverride: {
+              xformUnits: 'percent',
+              widthFactor: { weapon_1: 0.6 },
+              xform: { weapon_1: { ax: 0.06 } },
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  sarrarru: {
+    defaultSkin: 'citywatch-standard',
+    skins: {
+      'citywatch-standard': {
+        name: 'Citywatch Issue',
+        url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
+        anchorBone: 'weapon_0',
+        anchorMode: 'start',
+        alignDeg: 270,
+        styleOverride: {
+          xformUnits: 'percent',
+          widthFactor: { weapon_0: 1 },
+          xform: {
+            weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
           }
         }
       }
-    };
+    }
   }
-
-  return window.WEAPON_SPRITE_SKINS;
 };
 
 const getWeaponSkinSprite = (weaponKey, skinKey) => {
   const normalizedKey = normalizeWeaponSkinKey(weaponKey || '');
-  const registry = ensureWeaponSpriteSkins();
-  const entry = registry[weaponKey] || registry[normalizedKey];
+  const entry = WEAPON_SPRITE_SKINS[weaponKey] || WEAPON_SPRITE_SKINS[normalizedKey];
+  if (!entry) return null;
+  const resolvedKey = skinKey || entry.defaultSkin || Object.keys(entry.skins || {})[0];
+  if (!resolvedKey) return null;
+  const sprite = entry.skins?.[resolvedKey];
+  return sprite ? deepClone(sprite) : null;
+};
+
+const getWeaponSkinLibrary = (weaponKey) => {
+  const normalizedKey = normalizeWeaponSkinKey(weaponKey || '');
+  const entry = WEAPON_SPRITE_SKINS[weaponKey] || WEAPON_SPRITE_SKINS[normalizedKey];
+  if (!entry?.skins) return null;
+  return deepClone(entry.skins);
+};
+
+// Weapon sprite skins centralize art references so multiple looks can ship per weapon type.
+// Default skins are surfaced in the weapon definitions below; callers can swap skins later.
+const WEAPON_SPRITE_SKINS = {
+  'dagger-swords': {
+    defaultSkin: 'anuri_dagger-swords',
+    skins: {
+      'anuri_dagger-swords': {
+        name: "Anuri's Dagger-Swords",
+        layers: [
+          {
+            url: './assets/weapons/dagger-sword-longblade.png',
+            anchorBone: 'weapon_0',
+            anchorMode: 'start',
+            alignDeg: 270,
+            styleOverride: {
+              xformUnits: 'percent',
+              widthFactor: { weapon_0: 0.65 },
+              xform: { weapon_0: { ax: 0.06 } },
+            }
+          },
+          {
+            url: './assets/weapons/dagger-sword-shortblade.png',
+            anchorBone: 'weapon_1',
+            anchorMode: 'start',
+            alignDeg: 270,
+            styleOverride: {
+              xformUnits: 'percent',
+              widthFactor: { weapon_1: 0.6 },
+              xform: { weapon_1: { ax: 0.06 } },
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  sarrarru: {
+    defaultSkin: 'citywatch-standard',
+    skins: {
+      'citywatch-standard': {
+        name: 'Citywatch Issue',
+        url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
+        anchorBone: 'weapon_0',
+        anchorMode: 'start',
+        alignDeg: 270,
+        styleOverride: {
+          xformUnits: 'percent',
+          widthFactor: { weapon_0: 1 },
+          xform: {
+            weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
+          }
+        }
+      }
+    }
+  }
+};
+
+const getWeaponSkinSprite = (weaponKey, skinKey) => {
+  const entry = WEAPON_SPRITE_SKINS[weaponKey];
   if (!entry) return null;
   const resolvedKey = skinKey || entry.defaultSkin || Object.keys(entry.skins || {})[0];
   if (!resolvedKey) return null;
@@ -908,7 +974,7 @@ window.CONFIG = {
     manualOffsetX: 0,
     awareness: {
       normalZoom: 1,
-      scaleOffset: 0.25,
+      scaleOffset: 0.5,
       minZoom: 0.6,
       maxZoom: 1.3,
       inactivitySeconds: 15,
@@ -1263,8 +1329,8 @@ window.CONFIG = {
           widthFactor: { torso:1, armUpper:1, armLower:1, legUpper:1, legLower:1, head:1 },
           xformUnits: "percent",
           xform: {
-            torso:    { ax:0,  ay:-0.2, scaleX:1, scaleY:1, rotDeg:180 },
-            head:     { ax:-0.15, ay:-0.1, scaleX:1, scaleY:1.2, rotDeg:180 },
+            torso:    { ax:0,  ay:-0.2, scaleX:1, scaleY:1.5, rotDeg:-90 },
+            head:     { ax:-0.15, ay:-0.1, scaleX:1, scaleY:1.2, rotDeg:-90 },
             armUpper: { ax:-0.2,  ay:0.1,  scaleX:1.6, scaleY:2.8, rotDeg:-10 },
             armLower: { ax:0.35,  ay:0,  scaleX:1.7, scaleY:2.1, rotDeg:-3 },
             legUpper: { ax:-0.10, ay:0,  scaleX:1.7, scaleY:2.75,  rotDeg:-15 },
