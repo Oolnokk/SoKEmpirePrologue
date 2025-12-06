@@ -6,7 +6,7 @@
           "spriteStyle": {
             "xform": {
               "torso": {
-                "scaleX": 0.5,
+                "scaleX": 4.5,
                 "scaleY": 0.5,
                 "ay": -0.07,
                 "ax": 20,
