@@ -876,6 +876,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   const DEBUG = (typeof window !== 'undefined' && window.RENDER_DEBUG) || {};
   const showOrigins = !!DEBUG.showSpriteOrigins;
   const shouldRenderImage = DEBUG.showSprites !== false;
+  const TRACE = (typeof window !== 'undefined' && window.DEBUG_COSMETICS_TRACE);
   if (!shouldRenderImage && !showOrigins) return false;
   const img = asset?.img;
   if (!img || img.__broken) return false;
@@ -939,6 +940,26 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.y)) ?? xform.ay ?? 0;
   const offsetSpec = normalizeOffsetInput(rawAx, rawAy, offsetUnits);
   const { offsetX, offsetY } = applyOffsetToBone(bone, bAxis, offsetSpec);
+  
+  if (TRACE) {
+    console.log('[COSMETICS_TRACE] drawBoneSprite', {
+      styleKey,
+      normalizedKey,
+      effectiveStyle: { xformUnits: effectiveStyle.xformUnits },
+      xformTable: effectiveStyle.xform,
+      xform,
+      metaOffset,
+      offsetUnits,
+      rawAx,
+      rawAy,
+      offsetSpec,
+      offsetX,
+      offsetY,
+      boneLen: bone.len,
+      finalPos: { x: posX + offsetX, y: posY + offsetY }
+    });
+  }
+  
   posX += offsetX;
   posY += offsetY;
 
