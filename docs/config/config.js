@@ -1222,12 +1222,7 @@ window.CONFIG = {
 
   // Optional manual pre-ragdoll arm angles (degrees, absolute, before physics noise is added)
   nonCombatRagdoll: {
-    manualArmRotation: {
-      lShoulder: 75, // Match PassiveArms final angle: basePose (-90) + PassiveArms delta (165) = 75
-      rShoulder: -255, // Match PassiveArms final angle: basePose (-90) + PassiveArms delta (-165) = -255
-      lElbow: -18,
-      rElbow: 18,
-    },
+    // No manual arm rotation - arms follow gravity direction (computeGravityDownDeg)
   },
 
   colliders: {
