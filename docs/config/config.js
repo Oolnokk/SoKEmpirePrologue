@@ -378,12 +378,11 @@ const ARM_STANCES = {
   },
 
   'dagger-swords': {
-    // TEMP TEST: Arms way out to the sides
-    lShoulder: 180,
-    lElbow: 0,
-    rShoulder: -180,
-    rElbow: 0,
-    weapon: 90,
+    lShoulder: -70,
+    lElbow: -20,
+    rShoulder: -15,
+    rElbow: -10,
+    weapon: -12,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
 
@@ -426,6 +425,91 @@ const ARM_STANCES = {
     weapon: -45,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
+
+  // Allow underscore-based weapon keys to map into the same stance without special-case logic downstream.
+  'dagger_swords': {
+    lShoulder: -70,
+    lElbow: -20,
+    rShoulder: -15,
+    rElbow: -10,
+    weapon: -12,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+  },
+};
+
+// Weapon sprite skins centralize art references so multiple looks can ship per weapon type.
+// Default skins are surfaced in the weapon definitions below; callers can swap skins later.
+const normalizeWeaponSkinKey = (weaponKey = '') => weaponKey.replace(/_/g, '-');
+const WEAPON_SPRITE_SKINS = {
+  'dagger-swords': {
+    defaultSkin: 'paired-forged',
+    skins: {
+      'paired-forged': {
+        name: 'Paired Forged Blades',
+        layers: [
+          {
+            url: './assets/weapons/dagger-sword-longblade.png',
+            anchorBone: 'weapon_0',
+            anchorMode: 'start',
+            alignDeg: 270,
+            styleOverride: {
+              xformUnits: 'percent',
+              widthFactor: { weapon_0: 0.65 },
+              xform: { weapon_0: { ax: 0.06 } },
+            }
+          },
+          {
+            url: './assets/weapons/dagger-sword-shortblade.png',
+            anchorBone: 'weapon_1',
+            anchorMode: 'start',
+            alignDeg: 270,
+            styleOverride: {
+              xformUnits: 'percent',
+              widthFactor: { weapon_1: 0.6 },
+              xform: { weapon_1: { ax: 0.06 } },
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  sarrarru: {
+    defaultSkin: 'citywatch-standard',
+    skins: {
+      'citywatch-standard': {
+        name: 'Citywatch Issue',
+        url: './assets/weapons/sarrarru/citywatch_sarrarru.png',
+        anchorBone: 'weapon_0',
+        anchorMode: 'start',
+        alignDeg: 270,
+        styleOverride: {
+          xformUnits: 'percent',
+          widthFactor: { weapon_0: 1 },
+          xform: {
+            weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
+          }
+        }
+      }
+    }
+  }
+};
+
+const getWeaponSkinSprite = (weaponKey, skinKey) => {
+  const normalizedKey = normalizeWeaponSkinKey(weaponKey || '');
+  const entry = WEAPON_SPRITE_SKINS[weaponKey] || WEAPON_SPRITE_SKINS[normalizedKey];
+  if (!entry) return null;
+  const resolvedKey = skinKey || entry.defaultSkin || Object.keys(entry.skins || {})[0];
+  if (!resolvedKey) return null;
+  const sprite = entry.skins?.[resolvedKey];
+  return sprite ? deepClone(sprite) : null;
+};
+
+const getWeaponSkinLibrary = (weaponKey) => {
+  const normalizedKey = normalizeWeaponSkinKey(weaponKey || '');
+  const entry = WEAPON_SPRITE_SKINS[weaponKey] || WEAPON_SPRITE_SKINS[normalizedKey];
+  if (!entry?.skins) return null;
+  return deepClone(entry.skins);
 };
 
 // Weapon sprite skins centralize art references so multiple looks can ship per weapon type.
@@ -1044,6 +1128,10 @@ window.CONFIG = {
       slotA: { ax: -0.12, ay: -0.72, units: 'percent', angDeg: -20 },
       slotB: { ax: 0.12, ay: -0.64, units: 'percent', angDeg: 16 }
     },
+    'dagger_swords': {
+      slotA: { ax: -0.12, ay: -0.72, units: 'percent', angDeg: -20 },
+      slotB: { ax: 0.12, ay: -0.64, units: 'percent', angDeg: 16 }
+    },
     sarrarru: {
       slotA: { ax: 0, ay: 0.5, units: 'percent', angDeg: -45 },
       slotB: { ax: 0, ay: 0.5, units: 'percent', angDeg: 12 }
@@ -1398,6 +1486,7 @@ window.CONFIG = {
     },
 
     'dagger-swords': {
+      type: 'dagger-swords',
       rig: {
         base: { anchor: 'rightWrist' },
         bones: [
@@ -1458,6 +1547,7 @@ window.CONFIG = {
     },
 
     sarrarru: {
+      type: 'sarrarru',
       rig: {
         base: { anchor: 'rightWrist' },
         bones: [
