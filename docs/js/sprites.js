@@ -1690,21 +1690,13 @@ export function ensureFighterSprites(C, fname, overrides = {}){
   }
   // Look for style in fighter config first (both f.spriteStyle and f.sprites.style), then fallback to global
   const style = f.spriteStyle || f.sprites?.style || C.spriteStyle || {};
-  
-  // Convert rotDeg from xform config to alignRad on each sprite asset
-  const xform = style.xform || {};
+
+  // Preserve asset-provided alignRad/alignDeg; avoid defaulting to 0 so style.xform rotations remain effective
   for (const boneKey in S) {
     const asset = S[boneKey];
-    if (asset && asset.url) {
-      const styleKey = styleKeyOf(boneKey);
-      const xformData = xform[styleKey];
-      if (xformData && typeof xformData.rotDeg === 'number') {
-        // Convert degrees to radians and store as alignRad
-        asset.alignRad = degToRad(xformData.rotDeg);
-      } else if (asset.alignRad === undefined) {
-        // Default to 0 if not set
-        asset.alignRad = 0;
-      }
+    if (!asset || !asset.url) continue;
+    if (!Number.isFinite(asset.alignRad) && Number.isFinite(asset.alignDeg)) {
+      asset.alignRad = degToRad(asset.alignDeg);
     }
   }
 
