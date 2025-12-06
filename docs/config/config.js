@@ -430,7 +430,7 @@ const ARM_STANCES = {
 
 const BASE_POSES = {
   Stance: {
-        torso: 10,
+        torso: 0,
     lShoulder: -90,
     lElbow: 0,
     rShoulder: -90,
