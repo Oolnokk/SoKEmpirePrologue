@@ -8,7 +8,7 @@ This repository now supports attaching optional 3D scene metadata to any map are
 - Helper functions exported from `src/map/scene3d.js` project 2D logic coordinates onto the ground plane and build renderer-friendly settings without enabling realtime lighting.
 
 ## Authoring tips
-- Export your Blender/FBX content as a single glTF URL and set `scene3d.sceneUrl` to it; empty values are allowed but will warn.
+- Export your Blender/FBX content as a single glTF URL (`.glb` is preferred) and set `scene3d.sceneUrl` to it; empty values are allowed but will warn. A typo like `.gib` will now emit a warning from the registry.
 - Keep `scene3d.render.lighting` at `none` (or `flat` if you need a minimal shading hint). Materials are forced to `unlit` to avoid expensive surface setup.
 - Use `projectToGroundPlane({ x, y })` to align gameplay coordinates onto the 3D ground; everything else stays 2D-aware.
 

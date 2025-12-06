@@ -322,6 +322,12 @@ function validateScene3d(scene3d, warnings, errors) {
     warnings.push('scene3d provided without "sceneUrl"; 3D renderer will skip asset loading');
   } else if (typeof scene3d.sceneUrl !== 'string') {
     errors.push('scene3d.sceneUrl must be a string when provided');
+  } else {
+    const lowerUrl = scene3d.sceneUrl.toLowerCase();
+    const usesGlTf = lowerUrl.endsWith('.glb') || lowerUrl.endsWith('.gltf');
+    if (!usesGlTf) {
+      warnings.push('scene3d.sceneUrl should typically point to a glTF binary (.glb); double-check for typos like .gib');
+    }
   }
 
   if (scene3d.ground) {
