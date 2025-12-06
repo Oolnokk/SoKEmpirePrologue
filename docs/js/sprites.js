@@ -7,7 +7,7 @@
 // - Sizing: sprite height is bone.len, width scales by aspect ratio and widthFactor
 // - Offsets: (ax, ay) can be in percent units (multiply by bone.len) or px
 // - Scales: scaleX, scaleY affect width/height
-// - rotation: bone.ang + alignRad + Math.PI
+// - rotation: bone.ang + alignRad + extraRotRad
 // - Mirroring per part via RENDER.MIRROR flags
 
 import { angleZero as angleZeroUtil, basis as basisFn, dist, angle as angleUtil, degToRad, radToDegNum } from './math-utils.js?v=1';
@@ -966,7 +966,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
     }
   }
 
-  // Rotation (fixed): bone.ang + alignRad + extraRotRad + Math.PI
+  // Rotation: bone.ang + alignRad + extraRotRad
   const baseStyleXform = baseStyleXformSrc[normalizedKey] || baseStyleXformSrc[styleKey] || baseStyleXformSrc.base || {};
   let alignRad;
   if (options?.alignRad != null){
@@ -982,7 +982,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   } else {
     alignRad = 0;
   }
-  const theta = bone.ang + alignRad + extraRotRad + Math.PI;
+  const theta = bone.ang + alignRad + extraRotRad;
 
   const originalFilter = ctx.filter;
   const filter = applyFilter
@@ -1065,7 +1065,7 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
       const { offsetX: infOffsetX, offsetY: infOffsetY } = applyOffsetToBone(targetBone, axis, offsetSpec);
       infPosX += infOffsetX;
       infPosY += infOffsetY;
-      const thetaInf = targetBone.ang + alignRad + extraRotRad + Math.PI;
+      const thetaInf = targetBone.ang + alignRad + extraRotRad;
       const cosInf = Math.cos(thetaInf);
       const sinInf = Math.sin(thetaInf);
       const segStart = { x: targetBone.x, y: targetBone.y };
