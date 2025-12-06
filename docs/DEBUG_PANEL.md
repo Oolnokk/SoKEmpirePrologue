@@ -150,6 +150,51 @@ The debug panel is designed to be accessible to AI agents:
 - **Frame-by-frame Updates**: Real-time data for testing and verification
 - **No Visual Inspection Needed**: All data is available as structured numbers
 
+## Debug Flags
+
+### window.DEBUG_COSMETICS_TRACE
+
+Enable detailed logging for cosmetics placement and offset resolution:
+
+```javascript
+// In browser console:
+window.DEBUG_COSMETICS_TRACE = true;
+```
+
+When enabled, logs detailed information for each sprite drawn:
+- Style key and normalized key
+- Effective style (xformUnits)
+- Xform table and resolved xform values
+- Meta offset resolution
+- Offset units (px vs percent)
+- Raw ax/ay values from style.xform or meta.offset
+- Final offsetSpec with isPercent flags
+- Calculated offsetX/offsetY in pixels
+- Bone length
+- Final sprite position
+
+**Use case**: Debugging cosmetic positioning issues, verifying that ax/ay offsets from style.xform are being applied correctly, checking offset precedence between style.xform and asset.meta.offset.
+
+**Example output**:
+```javascript
+[COSMETICS_TRACE] drawBoneSprite {
+  styleKey: "head",
+  normalizedKey: "head",
+  effectiveStyle: { xformUnits: "percent" },
+  xformTable: { head: { ax: -1.2, ay: -0.6, scaleX: 1.5, scaleY: 1.5 } },
+  xform: { ax: -1.2, ay: -0.6, scaleX: 1.5, scaleY: 1.5 },
+  metaOffset: null,
+  offsetUnits: "percent",
+  rawAx: -1.2,
+  rawAy: -0.6,
+  offsetSpec: { ax: -1.2, ay: -0.6, axIsPercent: true, ayIsPercent: true },
+  offsetX: -48,
+  offsetY: -24,
+  boneLen: 40,
+  finalPos: { x: 248, y: 300 }
+}
+```
+
 ## Technical Details
 
 ### Module Location

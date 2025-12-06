@@ -459,7 +459,7 @@ function parsePoiTag(tags = []) {
   return null;
 }
 
-function resolvePoiInfo(collider, warnings = null) {
+function resolvePoiInfo(collider) {
   if (!collider || typeof collider !== 'object') return null;
   if (!Array.isArray(collider.tags) || collider.tags.length === 0) return null;
 
@@ -486,10 +486,10 @@ function resolvePoiInfo(collider, warnings = null) {
   };
 }
 
-function collectPois(colliders = [], warnings = null) {
+function collectPois(colliders = []) {
   if (!Array.isArray(colliders) || colliders.length === 0) return [];
   const pois = colliders
-    .map((collider) => resolvePoiInfo(collider, warnings))
+    .map((collider) => resolvePoiInfo(collider))
     .filter(Boolean);
 
   return pois;
