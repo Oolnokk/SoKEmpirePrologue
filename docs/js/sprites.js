@@ -934,15 +934,29 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   let w = nw * (baseH / nh) * wf;
   let h = baseH;
 
-  // Scales
-  const scaleX = xform.scaleX ?? 1;
-  const scaleY = xform.scaleY ?? 1;
-  w *= scaleX;
-  h *= scaleY;
+  // Scales - read from base xform first
+  let scaleX = xform.scaleX ?? 1;
+  let scaleY = xform.scaleY ?? 1;
 
   const overrideXformCandidate = options && options.styleOverride?.xform;
   const overrideXformSrc = overrideXformCandidate || options?.styleOverride?.xform || {};
   const overrideXform = overrideXformSrc[normalizedKey] || overrideXformSrc[styleKey] || null;
+
+  // Apply override scale if present (includes composed scaleMulX/scaleMulY from animations)
+  if (overrideXform){
+    if (Number.isFinite(overrideXform.scaleX)){
+      scaleX = overrideXform.scaleX;
+    }
+    if (Number.isFinite(overrideXform.scaleY)){
+      scaleY = overrideXform.scaleY;
+    }
+  }
+
+  // Apply scales to dimensions
+  w *= scaleX;
+  h *= scaleY;
+
+  // Apply override rotation if present
   let extraRotRad = 0;
   if (overrideXform){
     if (Number.isFinite(overrideXform.rotRad)){
@@ -1131,10 +1145,21 @@ export function renderSprites(ctx){
         : null;
       const xform = {};
 
+      // Start with base style.xform values from config
+      const baseStyleXform = style?.xform || {};
+      const baseConfigEntry = baseStyleXform[normalizedKey] || baseStyleXform[styleKey];
+      if (baseConfigEntry && typeof baseConfigEntry === 'object'){
+        xform[styleKey] = { ...baseConfigEntry };
+        if (normalizedKey && normalizedKey !== styleKey){
+          xform[normalizedKey] = { ...baseConfigEntry };
+        }
+      }
+
       if (baseXformSrc){
         for (const [key, entry] of Object.entries(baseXformSrc)){
           if (!entry || typeof entry !== 'object') continue;
-          xform[key] = composeStyleXformEntry(undefined, entry);
+          const prev = xform[key] || undefined;
+          xform[key] = composeStyleXformEntry(prev, entry);
         }
       }
 
