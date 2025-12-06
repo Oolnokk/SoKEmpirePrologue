@@ -294,56 +294,54 @@ const ensureWeaponStances = (config) => {
   });
 };
 
-// === UPDATED: movement profiles now have idlePoses + idleAmp ===
+// === UPDATED: movement profiles now include arms, torso, and legs ===
+// Arms from movement profiles are overridden by arm_stances when weapon is drawn
 const MOVEMENT_PROFILES = {
   combat: {
     enabled: true,
-    onlyTorsoLegs: true,
     baseHz: 1.3,
     speedScale: 1,
     minSpeed: 80,
     amp: 1.0,
     poses: {
-      A: { lHip: 0,   lKnee: 45, rHip: 180, rKnee: 90 },
-      B: { lHip: 180, lKnee: 90, rHip: 0,   rKnee: 45 }
+      A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 0,   lKnee: 45, rHip: 180, rKnee: 90 },
+      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 180, lKnee: 90, rHip: 0,   rKnee: 45 }
     },
     idlePoses: {
-      A: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
-      B: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
+      A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
+      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
     },
     idleAmp: 0.4
   },
   nonCombat: {
     enabled: true,
-    onlyTorsoLegs: true,
     baseHz: 0.5,
     speedScale: 1,
     minSpeed: 60,
     amp: 1.0,
     poses: {
-      A: { torso: -20, lHip: 0,   lKnee: 45, rHip: 130, rKnee: 90 },
-      B: { torso: -20, lHip: 130, lKnee: 90, rHip: 0,   rKnee: 45 }
+      A: { torso: -20, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 0,   lKnee: 45, rHip: 130, rKnee: 90 },
+      B: { torso: -20, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 130, lKnee: 90, rHip: 0,   rKnee: 45 }
     },
     idlePoses: {
-      A: { lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
-      B: { lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
+      A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
+      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 200, lKnee: 70, rHip: 130, rKnee: 70 },
     },
     idleAmp: 0.5
   },
   sneak: {
     enabled: true,
-    onlyTorsoLegs: true,
     baseHz: 1.05,
     speedScale: 0.8,
     minSpeed: 40,
     amp: 0.75,
     poses: {
-      A: { lHip: 120,  lKnee: 65, rHip: 190, rKnee: 100 },
-      B: { lHip: 185, lKnee: 100, rHip: 25, rKnee: 65 }
+      A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 120,  lKnee: 65, rHip: 190, rKnee: 100 },
+      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 185, lKnee: 100, rHip: 25, rKnee: 65 }
     },
     idlePoses: {
-      A: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
-      B: { lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 }
+      A: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 },
+      B: { torso: 0, lShoulder: 270, lElbow: -18, rShoulder: 270, rElbow: 18, lHip: 270, lKnee: 70, rHip: 110, rKnee: 70 }
     },
     idleAmp: 0.35
   }
@@ -355,19 +353,9 @@ const MOVEMENT_SPEED_MULTIPLIERS = {
   sneak: 0.3,
 };
 
-// === ARM STANCES: Unified arm position system ===
-// PassiveArms is the default (relaxed arms), weapon stances integrate into this system
+// === ARM STANCES: Weapon-specific arm positions ===
+// These override arm positions from movement profiles when a weapon is drawn
 const ARM_STANCES = {
-  PassiveArms: {
-        torso: 0,
-    lShoulder: 270,
-    lElbow: -18,
-    rShoulder: 270,
-    rElbow: 18,
-    weapon: 0,
-    weaponGripPercents: { primary: 0, secondary: 0 },
-  },
-
   unarmed: {
     lShoulder: -120,
     lElbow: -120,

@@ -10,14 +10,8 @@ import { isAttackDashing } from './attack-dash.js?v=1';
 
 const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee','weapon'];
 const ARM_JOINT_KEYS = ['torso', 'lShoulder', 'lElbow', 'rShoulder', 'rElbow'];
+const ARM_KEYS = ['lShoulder', 'lElbow', 'rShoulder', 'rElbow'];
 const JOINT_DAMP_LAMBDA = 10;
-const NON_COMBAT_RAGDOLL_POSE = {
-  lShoulder: 165,
-  lElbow: -18,
-  rShoulder: -165,
-  rElbow: 18,
-};
-const NON_COMBAT_RAGDOLL_NOISE = { freqHz: 0.8, shoulderAmpDeg: 6, elbowAmpDeg: 4 };
 // Convert pose object from degrees to radians using centralized utility
 function degToRadPose(p){ const o={}; for(const k of ANG_KEYS){ if (p&&p[k]!=null) o[k]=degToRad(p[k]); } return o; }
 // Add basePose to pose (matching reference HTML addAngles function)
@@ -118,12 +112,6 @@ function ensureAnimState(F){
     if (typeof F.anim.length.active !== 'boolean') {
       F.anim.length.active = Object.keys(F.anim.length.overrides).length > 0;
     }
-  }
-  if (!F.anim.nonCombatRagdoll || typeof F.anim.nonCombatRagdoll !== 'object') {
-    F.anim.nonCombatRagdoll = {
-      phase: Math.random() * Math.PI * 2,
-      offset: Math.random() * Math.PI * 2,
-    };
   }
 }
 
@@ -672,9 +660,9 @@ function resolveArmStance(cfg, fighter) {
   const stowed = !isWeaponDrawn(fighter);
   const armStances = cfg?.armStances || {};
 
-  // If weapon is stowed, use PassiveArms (relaxed arms)
+  // If weapon is stowed, return empty object so movement profile arms show through
   if (stowed) {
-    return clonePose(armStances.PassiveArms || {});
+    return {};
   }
 
   // If weapon is drawn, use weapon-specific arm stance
@@ -1821,19 +1809,18 @@ function computeMovementPose(F, fcfg, C, movementProfile, basePoseConfig, { pose
   const keyA = useMovement ? movementA : (useIdle ? idleA : {});
   const keyB = useMovement ? movementB : (useIdle ? idleB : {});
 
-  // Interpolate leg/torso angles and scale by amp
+  // Interpolate leg/torso/arm angles and scale by amp
   pose.lHip   = lerp(keyA.lHip   || 0, keyB.lHip   || 0, s) * amp;
   pose.lKnee  = lerp(keyA.lKnee  || 0, keyB.lKnee  || 0, s) * amp;
   pose.rHip   = lerp(keyA.rHip   || 0, keyB.rHip   || 0, s) * amp;
   pose.rKnee  = lerp(keyA.rKnee  || 0, keyB.rKnee  || 0, s) * amp;
   pose.torso  = lerp(keyA.torso  || 0, keyB.torso  || 0, s) * amp;
 
-  // Shoulders/elbows: still seeded from base offsets only
-  const base = basePoseConfig || resolveStancePose(C, F);
-  pose.lShoulder = base.lShoulder;
-  pose.lElbow    = base.lElbow;
-  pose.rShoulder = base.rShoulder;
-  pose.rElbow    = base.rElbow;
+  // Arms: interpolate from movement profile keyframes
+  // These will be overridden by arm_stance when weapon is drawn
+  for (const key of ARM_KEYS) {
+    pose[key] = lerp(keyA[key] || 0, keyB[key] || 0, s) * amp;
+  }
 
   // State flags
   pose._movementActive = useMovement;
@@ -2053,66 +2040,7 @@ function layerTouchesArms(layer){
   return ARM_JOINT_KEYS.some((key) => mask.includes(key));
 }
 
-function advanceNonCombatNoise(F){
-  if (!F?.anim?.nonCombatRagdoll) return { shoulder: 0, elbow: 0 };
-  const state = F.anim.nonCombatRagdoll;
-  state.phase = Number.isFinite(state.phase) ? state.phase : 0;
-  state.offset = Number.isFinite(state.offset) ? state.offset : 0;
-  const dt = Math.max(0, F.anim?.dt || 0);
-  const freq = Math.max(0, NON_COMBAT_RAGDOLL_NOISE.freqHz || 0);
-  state.phase += dt * freq * Math.PI * 2;
-  const shoulder = Math.sin(state.phase + state.offset) * (NON_COMBAT_RAGDOLL_NOISE.shoulderAmpDeg || 0);
-  const elbow = Math.cos(state.phase * 0.8 + state.offset * 1.1) * (NON_COMBAT_RAGDOLL_NOISE.elbowAmpDeg || 0);
-  return { shoulder, elbow };
-}
 
-function computeGravityDownDeg(movement){
-  const gravity = movement?.gravity;
-  if (Number.isFinite(gravity) && gravity !== 0) {
-    return radToDegNum(Math.atan2(gravity, 0));
-  }
-  return 90;
-}
-
-function parseManualArmAngle(value){
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function pickManualNonCombatArms(config){
-  if (!config || typeof config !== 'object') return { lShoulder: null, rShoulder: null, lElbow: null, rElbow: null };
-  const manual = config.manualArmRotation || config.armRotation || {};
-  return {
-    lShoulder: parseManualArmAngle(manual.lShoulder ?? manual.leftShoulder ?? manual.left),
-    rShoulder: parseManualArmAngle(manual.rShoulder ?? manual.rightShoulder ?? manual.right),
-    lElbow: parseManualArmAngle(manual.lElbow ?? manual.leftElbow),
-    rElbow: parseManualArmAngle(manual.rElbow ?? manual.rightElbow),
-  };
-}
-
-function buildNonCombatRagdollPose(F, basePose, movement, config){
-  const noise = advanceNonCombatNoise(F);
-  const downDeg = computeGravityDownDeg(movement);
-  const lBase = Number.isFinite(basePose?.lShoulder) ? basePose.lShoulder : 0;
-  const rBase = Number.isFinite(basePose?.rShoulder) ? basePose.rShoulder : 0;
-  const manual = pickManualNonCombatArms(config);
-
-  const lShoulderTarget = Number.isFinite(manual.lShoulder)
-    ? manual.lShoulder - lBase
-    : downDeg - lBase;
-  const rShoulderTarget = Number.isFinite(manual.rShoulder)
-    ? manual.rShoulder - rBase
-    : downDeg - rBase;
-  const lElbowBase = Number.isFinite(manual.lElbow) ? manual.lElbow : (NON_COMBAT_RAGDOLL_POSE.lElbow || 0);
-  const rElbowBase = Number.isFinite(manual.rElbow) ? manual.rElbow : (NON_COMBAT_RAGDOLL_POSE.rElbow || 0);
-
-  return {
-    lShoulder: lShoulderTarget + noise.shoulder,
-    lElbow: lElbowBase + noise.elbow,
-    rShoulder: rShoulderTarget - noise.shoulder,
-    rElbow: rElbowBase - noise.elbow,
-  };
-}
 
 // Helper to clamp values
 function clamp(val, min, max){ return Math.min(max, Math.max(min, val)); }
@@ -2373,7 +2301,7 @@ function updateAiming(F, currentPose, fighterId, options = {}){
 
 // Apply aiming offsets to a pose
 function applyAimingOffsets(poseDeg, F, currentPose){
-  if (!F.aim.active || F.nonCombatRagdoll || F.aim.headOnly) return poseDeg;
+  if (!F.aim.active || F.aim.headOnly) return poseDeg;
 
   const poseFlags = currentPose || {};
   const result = {...poseDeg};
@@ -2475,6 +2403,16 @@ export function updatePoses(){
       ? mergeLowerBodyPose(lowerBodyBase, extractLowerBodyPose(movementPose))
       : lowerBodyBase;
     let targetDeg = { ...basePoseConfig, ...movementLowerBody };
+    
+    // Apply arm positions from movement profile when weapon is stowed
+    if (!weaponDrawn && movementPose._active && !movementSuppressed) {
+      for (const key of ARM_KEYS) {
+        if (movementPose[key] != null) {
+          targetDeg[key] = movementPose[key];
+        }
+      }
+    }
+    
     if (activeLayers.length){
       let lowerBodyTarget = { ...movementLowerBody };
       if (movementSuppressed){
@@ -2496,19 +2434,6 @@ export function updatePoses(){
       for (const key of LOWER_BODY_MASK){
         if (lowerBodyTarget[key] != null) {
           targetDeg[key] = lowerBodyTarget[key];
-        }
-      }
-    }
-
-    const armsLockedByLayer = activeLayers.some(layerTouchesArms);
-
-    if (F.nonCombatRagdoll && !armsLockedByLayer) {
-      // Always clear limb mirror flags when entering ragdoll
-      resetMirror(id);
-      const relaxed = buildNonCombatRagdollPose(F, C.basePose, C.movement, C.nonCombatRagdoll);
-      for (const key of ['lShoulder', 'lElbow', 'rShoulder', 'rElbow']) {
-        if (relaxed[key] != null) {
-          targetDeg[key] = relaxed[key];
         }
       }
     }
