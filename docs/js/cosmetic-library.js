@@ -1,4 +1,4 @@
-import { registerCosmeticLibrary } from './cosmetics.js?v=1';
+import { clearCosmeticCache, registerCosmeticLibrary } from './cosmetics.js?v=1';
 
 const ROOT = typeof window !== 'undefined' ? window : globalThis;
 const CONFIG = ROOT?.CONFIG || {};
@@ -13,10 +13,17 @@ function dispatchLibraryEvent(name, detail){
   }
 }
 
-async function loadCosmetic(id, url){
+function withReloadBypass(url, { reload = false } = {}){
+  if (!reload || !url || typeof url !== 'string') return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}reload=${Date.now()}`;
+}
+
+async function loadCosmetic(id, url, { reload = false } = {}){
   if (!id || !url) return;
   try {
-    const response = await fetch(url, { cache: 'no-cache' });
+    const fetchUrl = withReloadBypass(url, { reload });
+    const response = await fetch(fetchUrl, { cache: 'no-cache' });
     if (!response.ok){
       throw new Error(`HTTP ${response.status}`);
     }
@@ -46,12 +53,15 @@ async function runLibraryLoad({ reload = false } = {}){
   for (const [id, url] of loadEntries){
     // Sequentialize loads to avoid exhausting limited browser fetch slots.
     // eslint-disable-next-line no-await-in-loop
-    await loadCosmetic(id, url);
+    await loadCosmetic(id, url, { reload });
   }
 }
 
 function ensureLibraryLoad({ reload = false } = {}){
   if (reload || !libraryLoadPromise){
+    if (reload){
+      clearCosmeticCache();
+    }
     libraryLoadPromise = runLibraryLoad({ reload })
       .catch((err) => console.warn('[cosmetics] Cosmetic library loading failed', err))
       .finally(() => dispatchLibraryEvent('cosmetics:library-ready', { reload }));

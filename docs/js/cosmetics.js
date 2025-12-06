@@ -1471,6 +1471,9 @@ export function ensureCosmeticLayers(config = {}, fighterName, baseStyle = {}, o
 }
 
 export function clearCosmeticCache(){
+  if (STATE.library){
+    STATE.library = {};
+  }
   if (STATE.assets){
     STATE.assets.clear();
   }
