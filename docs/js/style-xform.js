@@ -1,3 +1,14 @@
+// style-xform.js — Style transform composition utilities
+//
+// Provides composeStyleXformEntry for merging base and override xform specifications.
+// Handles scale multipliers, absolute scales, and offset deltas with multiple alias support.
+//
+// Key semantics:
+// - ax/ay values are preserved as-is (numeric or string)
+// - Numeric values are "unitless" and interpreted based on xformUnits context
+// - String values with units (e.g., "10px", "50%") carry explicit unit information
+// - Empty or null overrides do not replace base values
+
 function toFiniteNumber(value){
   const num = Number(value);
   return Number.isFinite(num) ? num : null;

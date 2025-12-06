@@ -242,6 +242,11 @@ function parseUnitlessOffset(value, fallbackUnits){
   return { value: 0, isPercent: fallbackIsPercent };
 }
 
+// Normalize offset input values, preserving numeric semantics:
+// - Plain numeric values (e.g., 0.5, 10) are "unitless" and use unitHint (px or percent)
+// - String values with explicit units (e.g., "10px", "50%") override unitHint
+// - Percent values from strings are converted to decimal (e.g., "50%" -> 0.5)
+// This ensures consistent behavior across style.xform and meta.offset sources.
 function normalizeOffsetInput(rawAx, rawAy, unitHint){
   const units = (unitHint || 'px').toString().toLowerCase();
   const axParsed = parseUnitlessOffset(rawAx, units);
@@ -265,6 +270,9 @@ function applyOffsetToBone(bone, axis, offsetSpec){
   return resolveOffsetForBone(bone, axis, ax, ay, false);
 }
 
+// Check if an object has explicit offset fields (ax, ay, x, or y).
+// Used to determine if meta.offset should override style.xform values.
+// Returns false for empty objects {} or objects with only metadata like {units: 'px'}.
 function hasOffsetFields(obj){
   if (!obj || typeof obj !== 'object') return false;
   return obj.ax != null || obj.ay != null || obj.x != null || obj.y != null;
@@ -929,13 +937,23 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   }
 
   // Offset config for fine-tuning sprite placement
+  // 
+  // Offset resolution policy (explicit precedence rules):
+  // 1. If asset.meta.offset has explicit ax/ay/x/y fields, those values take precedence
+  // 2. Otherwise, use style.xform.ax/ay from effectiveStyle (merged base + overrides)
+  // 3. Empty meta.offset (e.g., {} or {units: 'px'}) does NOT override style.xform
+  // 4. Units resolution: metaOffset.units > meta.offsetUnits > xformUnits (from effectiveStyle)
+  // 5. Plain numeric values are treated as "unitless" and use the resolved units (px or percent)
+  // 6. String values with explicit units ("10px", "50%") override the resolved units
   const baseStyleXformSrc = style?.xform || {};
   const xformTable = effectiveStyle.xform || {};
   const xform = xformTable[normalizedKey] || xformTable[styleKey] || xformTable.base || {};
   const xformUnits = (effectiveStyle.xformUnits || 'px');
 
+  // resolveMetaValue returns null if meta.offset doesn't have ax/ay/x/y fields
   const metaOffset = resolveMetaValue(meta.offset, normalizedKey, styleKey);
   const offsetUnits = metaOffset?.units ?? metaOffset?.unit ?? meta.offsetUnits ?? xformUnits;
+  // metaOffset is truthy only if it has offset fields (ax/ay/x/y), so this correctly falls back
   const rawAx = (metaOffset && (metaOffset.ax ?? metaOffset.x)) ?? xform.ax ?? 0;
   const rawAy = (metaOffset && (metaOffset.ay ?? metaOffset.y)) ?? xform.ay ?? 0;
   const offsetSpec = normalizeOffsetInput(rawAx, rawAy, offsetUnits);
