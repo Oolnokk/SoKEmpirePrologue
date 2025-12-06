@@ -709,6 +709,13 @@ function isSneakMode(F) {
   return !!(F?.renderProfile?.sneak || F?.sneak);
 }
 
+function resolveWalkMode(F) {
+  if (F?.renderProfile?.sneak || F?.sneak) return 'sneak';
+  if (F?.renderProfile?.nonCombat || F?.nonCombat) return 'nonCombat';
+  const walkMode = F?.renderProfile?.walkMode || F?.walkMode;
+  return walkMode || 'combat';
+}
+
 const LOWER_BODY_MASK = ['torso', 'lHip', 'lKnee', 'rHip', 'rKnee'];
 
 function extractLowerBodyPose(pose) {
@@ -1583,9 +1590,7 @@ function resolveStanceUpperPose(cfg, fighter) {
 }
 
 function resolveLowerBodyStancePose(cfg, fighter) {
-  const poseMode = isSneakMode(fighter)
-    ? 'sneak'
-    : (isWeaponDrawn(fighter) ? 'combat' : 'nonCombat');
+  const poseMode = resolveWalkMode(fighter);
   const basePose = resolveBasePose(cfg);
   const legProfile = resolveLegProfile(cfg, poseMode);
   const movementPose = legProfile
