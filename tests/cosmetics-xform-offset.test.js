@@ -88,8 +88,6 @@ describe('Cosmetics xform/offset precedence', () => {
     const metaOffset = resolveMetaValue(meta.offset, 'torso', 'torso');
     
     // resolveMetaValue should return null for empty offset
-    console.log('metaOffset:', metaOffset);
-    
     strictEqual(metaOffset, null, 'empty meta.offset should resolve to null');
   });
 
