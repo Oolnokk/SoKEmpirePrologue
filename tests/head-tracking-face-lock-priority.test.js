@@ -9,9 +9,23 @@ test('computeHeadTargetDeg prioritizes FACE lock over aim-driven tracking', asyn
   const funcStart = source.indexOf('function computeHeadTargetDeg');
   assert.notEqual(funcStart, -1, 'computeHeadTargetDeg should exist');
   
-  // Get a reasonable portion of the function to analyze
-  const funcEnd = source.indexOf('\n}', funcStart + 500);
-  const funcBody = source.slice(funcStart, funcEnd + 2);
+  // Find the end of the function by matching braces
+  let depth = 0;
+  let funcEnd = funcStart;
+  let inFunc = false;
+  for (let i = funcStart; i < source.length; i++) {
+    if (source[i] === '{') {
+      depth++;
+      inFunc = true;
+    } else if (source[i] === '}') {
+      depth--;
+      if (inFunc && depth === 0) {
+        funcEnd = i + 1;
+        break;
+      }
+    }
+  }
+  const funcBody = source.slice(funcStart, funcEnd);
   
   // Check that getFaceLock() is called
   assert.ok(
@@ -53,10 +67,25 @@ test('computeHeadTargetDeg prioritizes FACE lock over aim-driven tracking', asyn
 
 test('FACE lock overrides aim tracking in docs', async () => {
   const source = await readFile('docs/js/animator.js', 'utf8');
-  const funcBody = source.slice(
-    source.indexOf('function computeHeadTargetDeg'),
-    source.indexOf('function computeHeadTargetDeg') + 2000
-  );
+  
+  // Extract function by matching braces
+  const funcStart = source.indexOf('function computeHeadTargetDeg');
+  let depth = 0;
+  let funcEnd = funcStart;
+  let inFunc = false;
+  for (let i = funcStart; i < source.length; i++) {
+    if (source[i] === '{') {
+      depth++;
+      inFunc = true;
+    } else if (source[i] === '}') {
+      depth--;
+      if (inFunc && depth === 0) {
+        funcEnd = i + 1;
+        break;
+      }
+    }
+  }
+  const funcBody = source.slice(funcStart, funcEnd);
   
   // Verify the pattern: if (faceLock) use it, else if (aim) use aim
   const priorityPattern = /if\s*\([^)]*faceLockRad[^)]*\)\s*{[^}]*desiredWorld\s*=\s*faceLockRad[^}]*}\s*else\s+if\s*\([^)]*headWorldTarget/;
@@ -69,10 +98,25 @@ test('FACE lock overrides aim tracking in docs', async () => {
 
 test('FACE lock integration is documented', async () => {
   const source = await readFile('docs/js/animator.js', 'utf8');
-  const funcBody = source.slice(
-    source.indexOf('function computeHeadTargetDeg'),
-    source.indexOf('function computeHeadTargetDeg') + 1000
-  );
+  
+  // Extract function by matching braces
+  const funcStart = source.indexOf('function computeHeadTargetDeg');
+  let depth = 0;
+  let funcEnd = funcStart;
+  let inFunc = false;
+  for (let i = funcStart; i < source.length; i++) {
+    if (source[i] === '{') {
+      depth++;
+      inFunc = true;
+    } else if (source[i] === '}') {
+      depth--;
+      if (inFunc && depth === 0) {
+        funcEnd = i + 1;
+        break;
+      }
+    }
+  }
+  const funcBody = source.slice(funcStart, funcEnd);
   
   // Check for documentation about FACE lock priority
   assert.ok(

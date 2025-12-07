@@ -2165,8 +2165,10 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
     return torsoDeg;
   }
 
-  // Check if aim is behind the character (dot product with body forward < 0)
+  // Calculate facingRad early - needed for both snapBehind check and orientation sign calculation
   const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
+  
+  // Check if aim is behind the character (dot product with body forward < 0)
   if (snapBehind) {
     // Calculate forward vector from facing
     const bodyForwardX = Math.cos(facingRad);
