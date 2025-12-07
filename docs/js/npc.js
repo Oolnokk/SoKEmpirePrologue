@@ -1,7 +1,7 @@
 // npc.js — Reimplements the NPC systems from the monolith build in a modular form
 
 import { initCombatForFighter } from './combat.js?v=19';
-import { ensureFighterPhysics, updateFighterPhysics, resolveFighterBodyCollisions } from './physics.js?v=1';
+import { ensureFighterPhysics, updateFighterPhysics, resolveFighterBodyCollisions } from './physics.js?v=2';
 import { updateFighterFootsteps } from './footstep-audio.js?v=1';
 import { applyHealthRegenFromStats, applyStaminaTick, getStatProfile } from './stat-hooks.js?v=1';
 import { ensureNpcAbilityDirector, updateNpcAbilityDirector } from './npcAbilityDirector.js?v=1';

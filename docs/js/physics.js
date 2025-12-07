@@ -310,7 +310,7 @@ function perturbJoints(state, strength) {
   if (s <= 0) return;
   for (let i = 0; i < JOINT_KEYS_LENGTH; i++) {
     const key = JOINT_KEYS[i];
-    const noise = (Math.random() - 0.5) * 0.6 * s;
+    const noise = (Math.random() - 0.5) * 0.9 * s;
     state.jointVel[key] = (state.jointVel[key] || 0) + noise;
   }
 }
@@ -477,7 +477,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
       delete fighter.gravityOverride;
     }
   }
-  const defaultGravityScale = fighter.ragdoll ? 1.8 : 1;
+  const defaultGravityScale = fighter.ragdoll ? 1.2 : 1;
   const gravityScale = Number.isFinite(fighter.gravityOverride?.value)
     ? fighter.gravityOverride.value
     : defaultGravityScale;
@@ -594,7 +594,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
       const colliderMaterial = typeof raw.materialType === 'string' ? raw.materialType.trim() : '';
       const relVel = (fighter.vel.x || 0) * hit.normal.x + (fighter.vel.y || 0) * hit.normal.y;
       if (relVel < 0) {
-        const bounce = fighter.ragdoll ? Math.max(0, Math.min(0.35, restitution * 0.4)) : restitution;
+        const bounce = fighter.ragdoll ? Math.max(0.2, Math.min(0.45, restitution + 0.25)) : restitution;
         const cancel = -relVel;
         fighter.vel.x -= hit.normal.x * cancel;
         fighter.vel.y -= hit.normal.y * cancel;
@@ -624,8 +624,8 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
     if (fighter.vel.y > 0) {
       fighter.landedImpulse = Math.max(Math.abs(fighter.vel.y), fighter.landedImpulse || 0);
       if (fighter.ragdoll) {
-        fighter.vel.y = -fighter.vel.y * 0.2;
-        perturbJoints(state, 0.35);
+        fighter.vel.y = -fighter.vel.y * 0.35;
+        perturbJoints(state, 0.6);
       } else {
         fighter.vel.y = -fighter.vel.y * restitution;
       }
@@ -828,9 +828,15 @@ export function triggerFullRagdoll(fighter, config, { angle = 0, force = 0 } = {
   const backAngle = angle + Math.PI;
   const impulseMag = force * 0.35 + 160;
   fighter.vel.x += Math.cos(backAngle) * impulseMag;
-  fighter.vel.y += Math.sin(backAngle) * impulseMag * 0.45;
+  fighter.vel.y += Math.sin(backAngle) * impulseMag * 0.8;
   knockback.timer = 0;
   knockback.magnitude = 0;
+
+  // Apply immediate spin for dramatic tumbling
+  applyAirborneSpinImpulse(fighter, config, {
+    force: force * 1.5,
+    direction: Math.cos(backAngle)
+  });
 }
 
 export function applyHitReactionRagdoll(fighter, config, {
@@ -863,12 +869,12 @@ export function applyHitReactionRagdoll(fighter, config, {
   state.partialBlendTimer = 0;
   state.partialBlendDuration = 0.3 + instability * 0.7;
 
-  perturbJoints(state, blend);
+  perturbJoints(state, blend * 1.5);
   const impulseMag = force * (0.12 + 0.35 * instability);
   if (impulseMag > 0) {
     const backAngle = angle + Math.PI;
     fighter.vel.x += Math.cos(backAngle) * impulseMag;
-    fighter.vel.y += Math.sin(backAngle) * impulseMag * 0.28;
+    fighter.vel.y += Math.sin(backAngle) * impulseMag * 0.65;
   }
   const knockback = ensureKnockbackState(fighter);
   const baseDuration = 0.22 + Math.abs(force) / 320;
@@ -889,12 +895,12 @@ export function applyAirborneSpinImpulse(fighter, config, {
   const magnitude = clamp(Math.abs(force) / 320, 0, 2.2);
   if (magnitude <= 0) return;
   const spinDir = direction !== 0 ? Math.sign(direction) : (Math.random() < 0.5 ? -1 : 1);
-  const baseTorque = 0.22 * magnitude;
+  const baseTorque = 0.42 * magnitude;
   for (const joint of AIRBORNE_SPIN_JOINTS) {
-    const bias = joint === 'torso' || joint === 'head' ? 1 : 0.7;
+    const bias = joint === 'torso' || joint === 'head' ? 1.3 : 0.9;
     state.jointVel[joint] = (state.jointVel[joint] || 0) + spinDir * baseTorque * bias;
   }
-  perturbJoints(state, clamp(0.3 + magnitude * 0.4, 0, 1));
+  perturbJoints(state, clamp(0.5 + magnitude * 0.6, 0, 1));
   const addedBlend = clamp(0.18 + magnitude * 0.28, 0, 0.75);
   state.partialBlend = Math.max(state.partialBlend || 0, addedBlend);
   state.partialBlendStart = state.partialBlend;
