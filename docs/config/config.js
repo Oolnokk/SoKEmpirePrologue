@@ -446,7 +446,7 @@ const WEAPON_SPRITE_SKINS = {
               xformUnits: 'percent',
               widthFactor: { weapon_1: 1 },
               xform: {
-                weapon_1: { ax: 0, ay: 0, scaleX: 0.25, scaleY: 0.25 }
+                weapon_1: { ax: 0, ay: 0, scaleX: 0.15, scaleY: 0.15 }
               }
             }
           }
@@ -1043,12 +1043,12 @@ window.CONFIG = {
       slotB: { ax: 0.14, ay: -0.82, units: 'percent', angDeg: 8 }
     },
     'dagger-swords': {
-      slotA: { ax: -0.12, ay: -0.72, units: 'percent', angDeg: -20 },
-      slotB: { ax: 0.12, ay: -0.64, units: 'percent', angDeg: 16 }
+      slotA: { ax: 0, ay: 0, units: 'percent', angDeg: -20 },
+      slotB: { ax: 0, ay: 0, units: 'percent', angDeg: 16 }
     },
     sarrarru: {
-      slotA: { ax: 0, ay: 0.1, units: 'percent', angDeg: -45 },
-      slotB: { ax: 0, ay: 0.1, units: 'percent', angDeg: 12 }
+      slotA: { ax: 0, ay: 0, units: 'percent', angDeg: -45 },
+      slotB: { ax: 0, ay: 0, units: 'percent', angDeg: 12 }
     },
     greatclub: {
       slotA: { ax: -0.22, ay: -1.1, units: 'percent', angDeg: -4 },
