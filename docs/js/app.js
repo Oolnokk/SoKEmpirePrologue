@@ -3803,7 +3803,12 @@ function createEditorPreviewSandbox() {
     ctx.restore();
 
     const renderList = [];
-    for (const inst of state.instances) {
+    // Combine state instances with dynamically spawned instances
+    const allInstances = [
+      ...state.instances,
+      ...(window.GAME?.dynamicInstances || [])
+    ];
+    for (const inst of allInstances) {
       const lookup = state.layerLookup.get(inst.layerId);
       if (!lookup) continue;
       renderList.push({ inst, layer: lookup.layer, order: lookup.order });
