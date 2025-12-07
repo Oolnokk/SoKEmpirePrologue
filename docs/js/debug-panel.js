@@ -470,6 +470,8 @@ async function dropBottleOnPlayer() {
       return;
     }
 
+    console.log('[debug-panel] Player position:', player.pos);
+
     // Get the editor preview sandbox
     const sandbox = game.editorPreview;
     if (!sandbox || typeof sandbox.addDynamicInstance !== 'function') {
@@ -494,9 +496,11 @@ async function dropBottleOnPlayer() {
     // Create a unique instance ID
     const instanceId = `bottle_debug_${Date.now()}`;
 
-    // Calculate spawn position (above player)
+    // Calculate spawn position (WAY above player for visibility)
     const spawnX = player.pos.x;
-    const spawnY = player.pos.y - 300; // 300 pixels above player
+    const spawnY = player.pos.y - 600; // 600 pixels above player
+
+    console.log('[debug-panel] Spawning bottle at:', { x: spawnX, y: spawnY });
 
     // Create the instance
     const bottleInstance = {
@@ -506,7 +510,7 @@ async function dropBottleOnPlayer() {
       prefab: normalizedPrefab,
       layerId: 'gameplay',
       position: { x: spawnX, y: spawnY },
-      scale: { x: 1, y: 1 },
+      scale: { x: 2, y: 2 }, // Make it bigger for visibility
       rotation: 0,
       visible: true,
       tags: normalizedPrefab.tags || [],
@@ -514,7 +518,8 @@ async function dropBottleOnPlayer() {
         identity: {
           prefabId: 'bottle_tall',
           source: 'debug-spawn',
-        }
+        },
+        debug: true, // Mark for debugging
       }
     };
 
@@ -522,7 +527,27 @@ async function dropBottleOnPlayer() {
     const success = sandbox.addDynamicInstance(bottleInstance);
 
     if (success) {
-      console.log('[debug-panel] Bottle spawned successfully at', { x: spawnX, y: spawnY });
+      console.log('[debug-panel] ✅ Bottle spawned successfully!');
+      console.log('[debug-panel] Total dynamic instances:', game.dynamicInstances?.length);
+      console.log('[debug-panel] Bottle instance:', bottleInstance);
+
+      // Log bottle position every 100ms for debugging
+      let logCount = 0;
+      const logInterval = setInterval(() => {
+        const bottle = game.dynamicInstances?.find(inst => inst.id === instanceId);
+        if (bottle) {
+          console.log(`[bottle-track] Position: y=${bottle.position?.y?.toFixed(1)}, vel.y=${bottle.physics?.vel?.y?.toFixed(1)}, onGround=${bottle.physics?.onGround}`);
+          logCount++;
+          if (logCount > 50 || bottle.physics?.onGround) {
+            clearInterval(logInterval);
+            if (bottle.physics?.onGround) {
+              console.log('[bottle-track] 🎯 BOTTLE HIT THE GROUND!');
+            }
+          }
+        } else {
+          clearInterval(logInterval);
+        }
+      }, 100);
     } else {
       console.warn('[debug-panel] Failed to add bottle instance');
     }
