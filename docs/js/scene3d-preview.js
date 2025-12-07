@@ -263,7 +263,9 @@ export function stopPreview() {
           }
           if (node.material) {
             if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
+              node.material.forEach(mat => {
+                if (mat) mat.dispose();
+              });
             } else {
               node.material.dispose();
             }
@@ -282,7 +284,9 @@ export function stopPreview() {
       if (child.geometry) child.geometry.dispose();
       if (child.material) {
         if (Array.isArray(child.material)) {
-          child.material.forEach(mat => mat.dispose());
+          child.material.forEach(mat => {
+            if (mat) mat.dispose();
+          });
         } else {
           child.material.dispose();
         }
