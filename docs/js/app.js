@@ -3844,9 +3844,9 @@ function createEditorPreviewSandbox() {
       }
 
       const instRotRad = degToRad(inst.rotationDeg || 0);
-      const baseOffset = (pos.x - cameraLeftX * parallax) * effectiveZoom;
+      const baseOffset = (pos.x - cameraLeftX * parallax) * effectiveZoom * proximityScale;
       const rootScreenX = baseOffset;
-      const rootScreenY = groundLine + (layer.offsetY || 0) * effectiveZoom + pos.y * effectiveZoom;
+      const rootScreenY = groundLine + (layer.offsetY || 0) * effectiveZoom * proximityScale + pos.y * effectiveZoom * proximityScale;
       const dxScreen = baseOffset;
       const seesaw = resolveLayerGroundSeesaw(layer);
       const tiltRad = computeGroundSeesawAngle(seesaw, cameraInputX, usableWorldWidth);
@@ -3897,11 +3897,11 @@ function createEditorPreviewSandbox() {
 
           const baseCenterX = rootScreenX - baseAnchorX + baseWidth / 2;
           const baseY = rootScreenY - baseAnchorY + baseHeight;
-          const topCenterX = (pos.x - cameraLeftX * targetParallax) * effectiveZoom - topAnchorX + topWidth / 2;
+          const topCenterX = (pos.x - cameraLeftX * targetParallax) * effectiveZoom * proximityScale - topAnchorX + topWidth / 2;
           const topGroundY = groundLine
-            + (targetLayer?.offsetY || 0) * effectiveZoom
-            + (pos.y + spanSpec.topOffset) * effectiveZoom;
-          const topY = topGroundY - spanSpec.height * effectiveZoom - topAnchorY + topHeight;
+            + (targetLayer?.offsetY || 0) * effectiveZoom * proximityScale
+            + (pos.y + spanSpec.topOffset) * effectiveZoom * proximityScale;
+          const topY = topGroundY - spanSpec.height * effectiveZoom * proximityScale - topAnchorY + topHeight;
 
           const img = loadPrefabImage(template.url);
           const drawn = drawImageTrapezoid(ctx, img, {
