@@ -875,7 +875,7 @@ import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
-import { initAllObstructionPhysics, updateObstructionPhysics, resolveObstructionFighterCollisions } from './obstruction-physics.js?v=1';
+import { initAllObstructionPhysics, initObstructionPhysics, updateObstructionPhysics, resolveObstructionFighterCollisions } from './obstruction-physics.js?v=1';
 
 // Setup canvas
 const cv = $$('#game');
