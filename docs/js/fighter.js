@@ -3,7 +3,7 @@ import { degToRad } from './math-utils.js?v=1';
 import { pickFighterName } from './fighter-utils.js?v=1';
 import { getStatProfile } from './stat-hooks.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
-import { triggerFullRagdoll } from './physics.js?v=1';
+import { triggerFullRagdoll } from './physics.js?v=2';
 
 import { instantiateCharacterTemplate } from './character-templates.js?v=1';
 

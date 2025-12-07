@@ -1,5 +1,5 @@
 // hitdetect.js — basic hit detection between player and NPC bodies
-import { applyAirborneSpinImpulse, applyHitReactionRagdoll, triggerFullRagdoll } from './physics.js?v=1';
+import { applyAirborneSpinImpulse, applyHitReactionRagdoll, triggerFullRagdoll } from './physics.js?v=2';
 import { getFootingMitigation, getStatProfile } from './stat-hooks.js?v=1';
 import { getActiveNpcFighters } from './npc.js?v=2';
 import { markFighterDead } from './fighter.js?v=8';

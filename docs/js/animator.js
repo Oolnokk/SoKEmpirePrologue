@@ -5,7 +5,7 @@ import { pickFighterConfig, pickFighterName, lengths, pickOffsets, resolveBoneLe
 import { composeStyleXformEntry } from './style-xform.js?v=1';
 import { getFaceLock } from './face-lock.js?v=1';
 import { composeStyleOverrides } from './transform-composer.js?v=1';
-import { updatePhysicsPoseTarget, getPhysicsRagdollBlend, getPhysicsRagdollAngles } from './physics.js?v=1';
+import { updatePhysicsPoseTarget, getPhysicsRagdollBlend, getPhysicsRagdollAngles } from './physics.js?v=2';
 import { isAttackDashing } from './attack-dash.js?v=1';
 
 const ANG_KEYS = ['torso','head','lShoulder','lElbow','rShoulder','rElbow','lHip','lKnee','rHip','rKnee','weapon'];
