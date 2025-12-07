@@ -2069,6 +2069,68 @@ function convertAimToHeadRad(worldAimStandard, orientationSign){
   return normalizeRad((Math.PI / 2) - mirroredWorld);
 }
 
+/**
+ * Compute aim rotation offset using the same logic as torso aiming.
+ * This helper function is used by both torso aim and headtracking to ensure
+ * consistent rotation behavior across body parts.
+ * 
+ * Conceptual mapping for headtracking:
+ * - baseBone (torso/neck) acts like "hips" (the base reference for rotation)
+ * - targetBone (head) acts like "torso" (the part being aimed)
+ * - This ensures head rotates relative to neck using same math as torso relative to hips
+ * 
+ * @param {number} targetWorldAngleRad - Target angle in world space (radians)
+ * @param {number} baseAngleRad - Base bone angle (e.g., torso for head, hips for torso)
+ * @param {number} currentRelativeAngle - Current smoothed relative angle (for smoothing continuity)
+ * @param {Object} params - Configuration parameters
+ * @param {number} params.dt - Delta time for smoothing
+ * @param {number} params.smoothing - Smoothing factor (default 8)
+ * @param {number} params.scaleFactor - How much of the aim to apply (0.5 for torso, 1.0 for head)
+ * @param {number} params.maxAngleDeg - Maximum angle limit in degrees
+ * @param {number} params.orientationSign - Orientation sign for mirroring (1 or -1)
+ * @returns {Object} { offsetDeg, smoothedRelativeAngle } - Offset in degrees and new smoothed angle
+ */
+function computeAimRotation(targetWorldAngleRad, baseAngleRad, currentRelativeAngle, params){
+  const {
+    dt = 0.016,
+    smoothing = 8,
+    scaleFactor = 0.5,
+    maxAngleDeg = 45,
+    orientationSign = 1
+  } = params || {};
+
+  // Calculate relative angle from base
+  let relativeAngle = targetWorldAngleRad - baseAngleRad;
+  
+  // Normalize to -PI to PI range using existing helper
+  relativeAngle = normalizeRad(relativeAngle);
+
+  // Apply exponential smoothing (same as torso aim)
+  const smoothFactor = 1 - Math.exp(-smoothing * dt);
+  const smoothedAngle = currentRelativeAngle + (relativeAngle - currentRelativeAngle) * smoothFactor;
+
+  // Convert to degrees and apply orientation sign
+  let aimDeg = radToDegNum(smoothedAngle);
+  if (Number.isFinite(orientationSign)) {
+    aimDeg *= orientationSign;
+  }
+
+  // Apply scale factor and clamp to limits
+  const offsetDeg = clamp(aimDeg * scaleFactor, -maxAngleDeg, maxAngleDeg);
+
+  return { offsetDeg, smoothedRelativeAngle: smoothedAngle };
+}
+
+/**
+ * Compute head target angle using the same rotation logic as torso aiming.
+ * 
+ * Conceptual mapping (neck as hips, head as torso):
+ * - Neck acts as the base bone (like hips for torso rotation)
+ * - Head aims relative to neck (like torso aims relative to hips)
+ * - Uses computeAimRotation() helper with same smoothing/clamping as torso
+ * 
+ * This ensures head tracking mirrors torso aim behavior exactly.
+ */
 function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
   const C = window.CONFIG || {};
   const torsoDeg = finalPoseDeg?.torso ?? 0;
@@ -2087,16 +2149,71 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
     return torsoDeg;
   }
 
+  // Initialize head tracking state if needed
+  if (!F.aim.headTrackingState) {
+    F.aim.headTrackingState = { smoothedRelativeAngle: 0 };
+  }
+
+  // Get head limits (these act as maxAngle limits)
   const { min, max } = getHeadLimitsRad(C, fcfg);
-  const relative = normalizeRad(desiredWorld - torsoRad);
-  const clamped = clamp(relative, min, max);
+  const maxAngleDeg = Math.max(Math.abs(radToDegNum(min)), Math.abs(radToDegNum(max)));
+
+  // Get smoothing from config (reuse torso aim smoothing or use default)
+  const smoothing = C.aiming?.smoothing ?? C.headTracking?.smoothing ?? 8;
+  const dt = F.anim?.dt || 0.016;
+
+  // Determine orientation sign (same logic as torso aim)
+  const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
+  const facingCos = Math.cos(facingRad);
+  let orientationSign = 1;
+  if (Number.isFinite(facingCos)) {
+    orientationSign = Math.abs(facingCos) > 1e-4
+      ? (facingCos >= 0 ? 1 : -1)
+      : ((F.facingSign || 1) >= 0 ? 1 : -1);
+  }
+
+  // Compute head rotation using torso aim logic
+  // Key insight: treat torso (neck base) as "hips" and head as "torso"
+  // Use scale factor 1.0 since head should fully track the target (not proportional like torso at 0.5)
+  const result = computeAimRotation(
+    desiredWorld,
+    torsoRad, // torso acts as base (like hips for torso aim)
+    F.aim.headTrackingState.smoothedRelativeAngle,
+    {
+      dt,
+      smoothing,
+      scaleFactor: 1.0, // Head tracks fully (unlike torso which uses 0.5)
+      maxAngleDeg,
+      orientationSign
+    }
+  );
+
+  // Update smoothed state for next frame
+  F.aim.headTrackingState.smoothedRelativeAngle = result.smoothedRelativeAngle;
+
+  // Apply fighter-specific or global head tracking offset
   const fighterOffsetDeg = fcfg?.headTracking?.offsetDeg;
   const globalOffsetDeg = C.headTracking?.offsetDeg;
-  const offsetDeg = Number.isFinite(fighterOffsetDeg)
+  const configOffsetDeg = Number.isFinite(fighterOffsetDeg)
     ? fighterOffsetDeg
     : (Number.isFinite(globalOffsetDeg) ? globalOffsetDeg : 0);
-  const headRad = torsoRad + clamped + degToRad(offsetDeg);
-  return radToDegNum(headRad);
+
+  // Calculate final head angle
+  // result.offsetDeg is already in degrees, relative to torso
+  const headDeg = torsoDeg + result.offsetDeg + configOffsetDeg;
+  
+  // Debug logging (enable via C.headTracking.debug = true)
+  if (C.headTracking?.debug) {
+    if (!F.__headTrackDebugFrame || F.__headTrackDebugFrame !== F.anim?.frame) {
+      F.__headTrackDebugFrame = F.anim?.frame;
+      console.log('[HEAD TRACKING] Using computeAimRotation (mirrors torso aim):');
+      console.log('  torso:', torsoDeg.toFixed(2), '° | target:', radToDegNum(desiredWorld).toFixed(2), '°');
+      console.log('  offset:', result.offsetDeg.toFixed(2), '° | final head:', headDeg.toFixed(2), '°');
+      console.log('  smoothing:', smoothing, '| scaleFactor: 1.0 (full tracking)');
+    }
+  }
+  
+  return headDeg;
 }
 
 // Update aiming offsets based on current pose
@@ -2247,6 +2364,13 @@ function updateAiming(F, currentPose, fighterId, options = {}){
       }
     }
 
+  // ============================================================================
+  // TORSO AIM CALCULATION (Player)
+  // This is the reference implementation for aim rotation calculation.
+  // Head tracking now mirrors this exact logic via computeAimRotation() helper.
+  // When modifying this calculation, ensure computeAimRotation() stays in sync.
+  // ============================================================================
+  
   const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
   let relativeAngle = targetAngle - facingRad;
   // Normalize to -PI to PI range
