@@ -3586,6 +3586,11 @@ function createEditorPreviewSandbox() {
     // Capture proximity scale from area
     const proximityScale = area?.proximityScale ?? area?.meta?.proximityScale ?? 1;
     state.proximityScale = Number.isFinite(proximityScale) && proximityScale > 0 ? proximityScale : 1;
+    console.log('[preview-sandbox] Captured proximityScale:', state.proximityScale, 'from area:', {
+      direct: area?.proximityScale,
+      meta: area?.meta?.proximityScale,
+      final: state.proximityScale
+    });
 
     state.ready = state.layers.length > 0;
 
@@ -3831,6 +3836,13 @@ function createEditorPreviewSandbox() {
       const baseLayerScale = Number.isFinite(layer.scale) ? layer.scale : 1;
       const proximityScale = Number.isFinite(state.proximityScale) && state.proximityScale > 0 ? state.proximityScale : 1;
       const layerScale = baseLayerScale * proximityScale;
+
+      // Debug proximity scale application (log once per layer)
+      if (!layer._loggedProximity) {
+        console.log(`[preview-sandbox] Layer "${layer.id}": baseScale=${baseLayerScale}, proximityScale=${proximityScale}, finalScale=${layerScale}`);
+        layer._loggedProximity = true;
+      }
+
       const instRotRad = degToRad(inst.rotationDeg || 0);
       const baseOffset = (pos.x - cameraLeftX * parallax) * effectiveZoom;
       const rootScreenX = baseOffset;
