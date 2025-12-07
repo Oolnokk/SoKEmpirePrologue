@@ -366,12 +366,12 @@ const ARM_STANCES = {
   },
 
   'dagger-swords': {
-    lShoulder: 200,
-    lElbow: -20,
-    rShoulder: -200,
-    rElbow: -20,
-    weapon: 90,
-    weaponGripPercents: { primary: 0.37, secondary: 0.37 },
+    lShoulder: 250,
+    lElbow: 0,
+    rShoulder: 290,
+    rElbow: 0,
+    weapon: -30,
+    weaponGripPercents: { primary: 0.25, secondary: 0.25 },
   },
 
   sarrarru: {
@@ -433,7 +433,7 @@ const WEAPON_SPRITE_SKINS = {
               xformUnits: 'percent',
               widthFactor: { weapon_0: 1 },
               xform: {
-                weapon_0: { ax: 0, ay: 0, scaleX: 0.1, scaleY: 0.1 }
+                weapon_0: { ax: 0, ay: 0, scaleX: 0.25, scaleY: 0.25 }
               }
             }
           },
@@ -1406,10 +1406,10 @@ window.CONFIG = {
             id: 'weapon_0',
             length: 96,
             angleOffsetDeg: 0,
-            joint: { percent: 0.22 },
+            joint: { percent: 0 },
             haft: { start: 0.25, end: 0.50 },
             grips: [
-              { id: 'primary', percent: 0.37, limb: 'right', offset: { ax: 0, ay: 0 } }
+              { id: 'primary', percent: 0.25, limb: 'right', offset: { ax: 0, ay: 0 } }
             ],
             colliders: [
               {
@@ -1430,7 +1430,7 @@ window.CONFIG = {
                 from: 0.50,
                 to: 1.0,
                 activatesOn: ['STRIKE'],
-                offset: { ax: 0.75, ay: 0, units: 'percent' }
+                offset: { ax: 0, ay: 0, units: 'percent' }
               }
             ]
           },
