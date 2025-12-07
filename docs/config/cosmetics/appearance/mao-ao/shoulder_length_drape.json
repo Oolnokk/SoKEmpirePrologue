@@ -9,7 +9,7 @@
   "parts": {
     "head": {
       "layers": {
-        "front": {
+        "back": {
           "image": {
             "url": "./assets/cosmetics/appearance/mao-ao/headhair/shoulderlength-front.png"
           },
