@@ -433,7 +433,7 @@ const WEAPON_SPRITE_SKINS = {
               xformUnits: 'percent',
               widthFactor: { weapon_0: 1 },
               xform: {
-                weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
+                weapon_0: { ax: 0, ay: 0, scaleX: 0.1, scaleY: 0.1 }
               }
             }
           },
@@ -446,7 +446,7 @@ const WEAPON_SPRITE_SKINS = {
               xformUnits: 'percent',
               widthFactor: { weapon_1: 1 },
               xform: {
-                weapon_1: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
+                weapon_1: { ax: 0, ay: 0, scaleX: 0.1, scaleY: 0.1 }
               }
             }
           }
