@@ -17,10 +17,10 @@
             "base": {
               "xform": {
                 "head": {
-                  "ax": -0.6,
-                  "ay": -0.15,
-                  "scaleX": 3,
-                  "scaleY": 3,
+                  "ax": 0,
+                  "ay": 0,
+                  "scaleX": 1,
+                  "scaleY": 1,
                   "rotDeg": 0
                 }
               }
@@ -35,10 +35,10 @@
             "base": {
               "xform": {
                 "head": {
-                  "ax": -0.6,
-                  "ay": -0.15,
-                  "scaleX": 4,
-                  "scaleY": 4,
+                  "ax": 0,
+                  "ay": 0,
+                  "scaleX": 1,
+                  "scaleY": 1,
                   "rotDeg": 0
                 }
               }
