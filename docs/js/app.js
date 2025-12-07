@@ -1563,6 +1563,86 @@ if (dashWeightDrop && dashWeightValue) {
   });
 }
 
+// Head Tracking Controls
+const toggleHeadTracking = $$('#toggleHeadTracking');
+if (toggleHeadTracking) {
+  toggleHeadTracking.checked = window.CONFIG?.headTracking?.enabled !== false;
+  toggleHeadTracking.addEventListener('change', (e) => {
+    window.CONFIG = window.CONFIG || {};
+    window.CONFIG.headTracking = window.CONFIG.headTracking || {};
+    window.CONFIG.headTracking.enabled = e.target.checked;
+  });
+}
+
+const headTrackingMode = $$('#headTrackingMode');
+if (headTrackingMode) {
+  headTrackingMode.value = window.CONFIG?.headTracking?.mode || 'relative';
+  headTrackingMode.addEventListener('change', (e) => {
+    window.CONFIG = window.CONFIG || {};
+    window.CONFIG.headTracking = window.CONFIG.headTracking || {};
+    window.CONFIG.headTracking.mode = e.target.value;
+  });
+}
+
+const toggleSnapBehind = $$('#toggleSnapBehind');
+if (toggleSnapBehind) {
+  toggleSnapBehind.checked = window.CONFIG?.headTracking?.snapBehind !== false;
+  toggleSnapBehind.addEventListener('change', (e) => {
+    window.CONFIG = window.CONFIG || {};
+    window.CONFIG.headTracking = window.CONFIG.headTracking || {};
+    window.CONFIG.headTracking.snapBehind = e.target.checked;
+  });
+}
+
+const headOffsetDeg = $$('#headOffsetDeg');
+const headOffsetValue = $$('#headOffsetValue');
+if (headOffsetDeg && headOffsetValue) {
+  headOffsetDeg.value = window.CONFIG?.headTracking?.offsetDeg || 90;
+  headOffsetValue.textContent = `${headOffsetDeg.value}°`;
+  headOffsetDeg.addEventListener('input', (e) => {
+    window.CONFIG = window.CONFIG || {};
+    window.CONFIG.headTracking = window.CONFIG.headTracking || {};
+    window.CONFIG.headTracking.offsetDeg = Number(e.target.value);
+    headOffsetValue.textContent = `${e.target.value}°`;
+  });
+}
+
+const maxRelativeDeg = $$('#maxRelativeDeg');
+const maxRelativeValue = $$('#maxRelativeValue');
+if (maxRelativeDeg && maxRelativeValue) {
+  maxRelativeDeg.value = window.CONFIG?.headTracking?.maxRelativeDeg || 90;
+  maxRelativeValue.textContent = `${maxRelativeDeg.value}°`;
+  maxRelativeDeg.addEventListener('input', (e) => {
+    window.CONFIG = window.CONFIG || {};
+    window.CONFIG.headTracking = window.CONFIG.headTracking || {};
+    window.CONFIG.headTracking.maxRelativeDeg = Number(e.target.value);
+    maxRelativeValue.textContent = `${e.target.value}°`;
+  });
+}
+
+const joystickDeadzone = $$('#joystickDeadzone');
+const deadzoneValue = $$('#deadzoneValue');
+if (joystickDeadzone && deadzoneValue) {
+  joystickDeadzone.value = window.CONFIG?.headTracking?.joystickDeadzone || 0.15;
+  deadzoneValue.textContent = Number(joystickDeadzone.value).toFixed(2);
+  joystickDeadzone.addEventListener('input', (e) => {
+    window.CONFIG = window.CONFIG || {};
+    window.CONFIG.headTracking = window.CONFIG.headTracking || {};
+    window.CONFIG.headTracking.joystickDeadzone = Number(e.target.value);
+    deadzoneValue.textContent = Number(e.target.value).toFixed(2);
+  });
+}
+
+const toggleHeadDebug = $$('#toggleHeadDebug');
+if (toggleHeadDebug) {
+  toggleHeadDebug.checked = window.CONFIG?.headTracking?.debug || false;
+  toggleHeadDebug.addEventListener('change', (e) => {
+    window.CONFIG = window.CONFIG || {};
+    window.CONFIG.headTracking = window.CONFIG.headTracking || {};
+    window.CONFIG.headTracking.debug = e.target.checked;
+  });
+}
+
 function getNestedConfigValue(path, fallback = null) {
   if (!path || !window.CONFIG) return fallback;
   const parts = path.split('.');

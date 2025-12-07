@@ -997,9 +997,14 @@ window.CONFIG = {
   },
 
   headTracking: {
-    offsetDeg: 90,
-    // debug: false,  // Enable to log head tracking calculations (uses torso aim logic)
-    // smoothing: 8,  // Optional: override smoothing (defaults to aiming.smoothing if not set)
+    enabled: true,           // Enable/disable head tracking
+    mode: 'relative',        // 'relative' or 'global' - relative rotates from body, global uses world angle
+    offsetDeg: 90,           // Static offset applied to head angle (in degrees)
+    maxRelativeDeg: 90,      // Maximum relative rotation from body facing (relative mode only)
+    snapBehind: true,        // Snap head forward when aim is behind character
+    joystickDeadzone: 0.15,  // Deadzone for joystick input (0-1)
+    // debug: false,         // Enable to log head tracking calculations (uses torso aim logic)
+    // smoothing: 8,         // Optional: override smoothing (defaults to aiming.smoothing if not set)
   },
 
   poses: {

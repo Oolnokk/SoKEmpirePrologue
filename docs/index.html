@@ -438,6 +438,27 @@
           </div>
         </div>
 
+        <div class="box" id="headTrackingBox">
+          <div class="label">Head Tracking Controls</div>
+          <div class="fields">
+            <label class="row">Enable Head Tracking <input id="toggleHeadTracking" type="checkbox" checked style="margin-left:auto;"></label>
+            <label class="row">Mode 
+              <select id="headTrackingMode" style="margin-left:auto;">
+                <option value="relative">Relative</option>
+                <option value="global">Global</option>
+              </select>
+            </label>
+            <label class="row">Snap Behind <input id="toggleSnapBehind" type="checkbox" checked style="margin-left:auto;"></label>
+            <label class="row">Head Offset Deg <input id="headOffsetDeg" type="range" min="0" max="180" value="90" step="5" style="width: 100px;"> <span id="headOffsetValue">90°</span></label>
+            <label class="row">Max Relative Deg <input id="maxRelativeDeg" type="range" min="0" max="180" value="90" step="5" style="width: 100px;"> <span id="maxRelativeValue">90°</span></label>
+            <label class="row">Joystick Deadzone <input id="joystickDeadzone" type="range" min="0" max="1" value="0.15" step="0.05" style="width: 100px;"> <span id="deadzoneValue">0.15</span></label>
+            <label class="row">Debug Logging <input id="toggleHeadDebug" type="checkbox" style="margin-left:auto;"></label>
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(148,163,184,0.2);">
+            Configure head tracking behavior and parameters
+          </div>
+        </div>
+
         <div class="box" id="appSettingsBox">
           <div class="label">App Settings</div>
           <div class="fields">

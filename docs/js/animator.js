@@ -2136,17 +2136,55 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
   const torsoDeg = finalPoseDeg?.torso ?? 0;
   const torsoRad = degToRad(torsoDeg);
 
+  // Priority 1: FACE lock overrides everything (for animations, cutscenes, manual control)
+  // Priority 2: Aim-driven head tracking (mouse/joystick)
+  // Priority 3: Fallback to torso angle (no independent head rotation)
   const faceLockRad = getFaceLock();
   let desiredWorld = null;
 
   if (typeof faceLockRad === 'number') {
+    // FACE lock is active - use it (highest priority)
     desiredWorld = faceLockRad;
   } else if (F.aim?.active && typeof F.aim.headWorldTarget === 'number') {
+    // Use aim-driven head target from mouse/joystick
     desiredWorld = F.aim.headWorldTarget;
   }
 
   if (typeof desiredWorld !== 'number') {
     return torsoDeg;
+  }
+
+  // Get head tracking config (fighter-specific or global)
+  const globalConfig = C.headTracking || {};
+  const fighterConfig = fcfg?.headTracking || {};
+  const headTrackingEnabled = fighterConfig.enabled !== false && globalConfig.enabled !== false;
+  const mode = fighterConfig.mode || globalConfig.mode || 'relative';
+  const snapBehind = fighterConfig.snapBehind !== undefined ? fighterConfig.snapBehind : (globalConfig.snapBehind !== false);
+
+  if (!headTrackingEnabled) {
+    return torsoDeg;
+  }
+
+  // Calculate facingRad early - needed for both snapBehind check and orientation sign calculation
+  const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
+  
+  // Check if aim is behind the character (dot product with body forward < 0)
+  if (snapBehind) {
+    // Calculate forward vector from facing
+    const bodyForwardX = Math.cos(facingRad);
+    const bodyForwardY = Math.sin(facingRad);
+    
+    // Calculate aim vector from desiredWorld
+    const aimX = Math.cos(desiredWorld);
+    const aimY = Math.sin(desiredWorld);
+    
+    // Dot product: if negative, aim is behind
+    const dot = bodyForwardX * aimX + bodyForwardY * aimY;
+    
+    if (dot < 0) {
+      // Snap head to body forward (no offset)
+      return torsoDeg;
+    }
   }
 
   // Initialize head tracking state if needed
@@ -2156,14 +2194,19 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
 
   // Get head limits (these act as maxAngle limits)
   const { min, max } = getHeadLimitsRad(C, fcfg);
-  const maxAngleDeg = Math.max(Math.abs(radToDegNum(min)), Math.abs(radToDegNum(max)));
+  const defaultMaxAngleDeg = Math.max(Math.abs(radToDegNum(min)), Math.abs(radToDegNum(max)));
+  
+  // Use maxRelativeDeg from config if in relative mode
+  const maxRelativeDeg = fighterConfig.maxRelativeDeg || globalConfig.maxRelativeDeg;
+  const maxAngleDeg = (mode === 'relative' && Number.isFinite(maxRelativeDeg)) 
+    ? maxRelativeDeg 
+    : defaultMaxAngleDeg;
 
   // Get smoothing from config (reuse torso aim smoothing or use default)
   const smoothing = C.aiming?.smoothing ?? C.headTracking?.smoothing ?? 8;
   const dt = F.anim?.dt || 0.016;
 
   // Determine orientation sign (same logic as torso aim)
-  const facingRad = (typeof F.facingRad === 'number') ? F.facingRad : ((F.facingSign||1) < 0 ? Math.PI : 0);
   const facingCos = Math.cos(facingRad);
   let orientationSign = 1;
   if (Number.isFinite(facingCos)) {
@@ -2172,24 +2215,45 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
       : ((F.facingSign || 1) >= 0 ? 1 : -1);
   }
 
-  // Compute head rotation using torso aim logic
-  // Key insight: treat torso (neck base) as "hips" and head as "torso"
-  // Use scale factor 1.0 since head should fully track the target (not proportional like torso at 0.5)
-  const result = computeAimRotation(
-    desiredWorld,
-    torsoRad, // torso acts as base (like hips for torso aim)
-    F.aim.headTrackingState.smoothedRelativeAngle,
-    {
-      dt,
-      smoothing,
-      scaleFactor: 1.0, // Head tracks fully (unlike torso which uses 0.5)
-      maxAngleDeg,
-      orientationSign
-    }
-  );
+  let headDeg;
+  
+  if (mode === 'global') {
+    // Global mode: apply desiredWorld rotation directly with optional clamping
+    // Convert world angle to head angle and apply smoothing
+    const targetHeadRad = convertAimToHeadRad(desiredWorld, orientationSign);
+    const targetHeadDeg = radToDegNum(targetHeadRad);
+    
+    // Apply exponential smoothing
+    const smoothFactor = 1 - Math.exp(-smoothing * dt);
+    const currentHeadDeg = F.aim.headTrackingState.lastHeadDeg || torsoDeg;
+    headDeg = currentHeadDeg + (targetHeadDeg - currentHeadDeg) * smoothFactor;
+    
+    // Store for next frame
+    F.aim.headTrackingState.lastHeadDeg = headDeg;
+  } else {
+    // Relative mode: compute rotation relative to body's facing (default behavior)
+    // Compute head rotation using torso aim logic
+    // Key insight: treat torso (neck base) as "hips" and head as "torso"
+    // Use scale factor 1.0 since head should fully track the target (not proportional like torso at 0.5)
+    const result = computeAimRotation(
+      desiredWorld,
+      torsoRad, // torso acts as base (like hips for torso aim)
+      F.aim.headTrackingState.smoothedRelativeAngle,
+      {
+        dt,
+        smoothing,
+        scaleFactor: 1.0, // Head tracks fully (unlike torso which uses 0.5)
+        maxAngleDeg,
+        orientationSign
+      }
+    );
 
-  // Update smoothed state for next frame
-  F.aim.headTrackingState.smoothedRelativeAngle = result.smoothedRelativeAngle;
+    // Update smoothed state for next frame
+    F.aim.headTrackingState.smoothedRelativeAngle = result.smoothedRelativeAngle;
+
+    // Calculate head angle relative to torso
+    headDeg = torsoDeg + result.offsetDeg;
+  }
 
   // Apply fighter-specific or global head tracking offset
   const fighterOffsetDeg = fcfg?.headTracking?.offsetDeg;
@@ -2198,18 +2262,16 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
     ? fighterOffsetDeg
     : (Number.isFinite(globalOffsetDeg) ? globalOffsetDeg : 0);
 
-  // Calculate final head angle
-  // result.offsetDeg is already in degrees, relative to torso
-  const headDeg = torsoDeg + result.offsetDeg + configOffsetDeg;
+  headDeg += configOffsetDeg;
   
   // Debug logging (enable via C.headTracking.debug = true)
   if (C.headTracking?.debug) {
     if (!F.__headTrackDebugFrame || F.__headTrackDebugFrame !== F.anim?.frame) {
       F.__headTrackDebugFrame = F.anim?.frame;
-      console.log('[HEAD TRACKING] Using computeAimRotation (mirrors torso aim):');
+      console.log('[HEAD TRACKING] mode:', mode, '| snapBehind:', snapBehind);
       console.log('  torso:', torsoDeg.toFixed(2), '° | target:', radToDegNum(desiredWorld).toFixed(2), '°');
-      console.log('  offset:', result.offsetDeg.toFixed(2), '° | final head:', headDeg.toFixed(2), '°');
-      console.log('  smoothing:', smoothing, '| scaleFactor: 1.0 (full tracking)');
+      console.log('  final head:', headDeg.toFixed(2), '° | offset:', configOffsetDeg.toFixed(2), '°');
+      console.log('  smoothing:', smoothing, '| maxAngleDeg:', maxAngleDeg);
     }
   }
   
