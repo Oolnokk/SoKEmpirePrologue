@@ -487,6 +487,7 @@
         </div>
       </div>
       <button id="btnPreviewGameplay" class="btn-primary">Preview</button>
+      <button id="btnPreview3DProcedural" class="btn-secondary">Preview 3D Procedural</button>
       <button id="btnExportMap" class="btn-secondary">Export</button>
       <button id="overflowMenuToggle" class="kebab" aria-label="More actions" aria-haspopup="true" aria-expanded="false">⋮</button>
       <div id="overflowMenu" class="menu" role="menu" aria-label="More actions">
@@ -5232,6 +5233,123 @@ ensureRenderLoop();
     console.error('[map-editor] failed to load initial map', error);
   }
 })();
+</script>
+
+<script type="module">
+// 3D Preview Integration
+import * as Scene3DPreview from './js/scene3d-preview.js';
+
+const $ = s => document.querySelector(s);
+let is3DPreviewActive = false;
+let original2DCanvas = null;
+
+function toggle3DPreview() {
+  const sceneWrap = $('#sceneWrap');
+  const sceneCanvas = $('#sceneCanvas');
+  
+  if (!sceneWrap || !sceneCanvas) {
+    console.error('[map-editor] Scene container not found');
+    return;
+  }
+
+  if (is3DPreviewActive) {
+    // Stop 3D preview and restore 2D canvas
+    try {
+      Scene3DPreview.stopPreview();
+      
+      // Restore 2D canvas if it was hidden
+      if (original2DCanvas) {
+        sceneCanvas.style.display = 'block';
+        original2DCanvas = null;
+      }
+      
+      is3DPreviewActive = false;
+      $('#btnPreview3DProcedural').textContent = 'Preview 3D Procedural';
+      $('#btnPreview3DProcedural').classList.remove('btn-primary');
+      $('#btnPreview3DProcedural').classList.add('btn-secondary');
+      
+      console.log('[map-editor] 3D preview stopped');
+    } catch (error) {
+      console.error('[map-editor] Failed to stop 3D preview:', error);
+    }
+  } else {
+    // Start 3D preview
+    try {
+      // Hide 2D canvas
+      original2DCanvas = sceneCanvas;
+      sceneCanvas.style.display = 'none';
+      
+      // Determine scene URL based on available assets
+      const sceneUrl = './assets/3D/tower_commercial3D.glb';
+      const fallbackUrl = './assets/3D/scene3d-demo.gltf';
+      
+      // Get ground config from area descriptor if available
+      const groundOffset = parseFloat($('#groundOffset')?.value) || 140;
+      
+      // Start preview with configuration
+      Scene3DPreview.startPreview({
+        containerElement: sceneWrap,
+        sceneUrl: sceneUrl,
+        fallbackUrl: fallbackUrl,
+        ground: {
+          planeZ: 0,
+          unitsPerPixel: 1,
+        },
+        camera: {
+          projection: 'perspective',
+          fov: 50,
+        },
+        instanceCount: 8,
+        spacing: 220,
+        lighting: 'basic',
+      }).then((result) => {
+        is3DPreviewActive = true;
+        $('#btnPreview3DProcedural').textContent = 'Stop 3D Preview';
+        $('#btnPreview3DProcedural').classList.remove('btn-secondary');
+        $('#btnPreview3DProcedural').classList.add('btn-primary');
+        
+        console.log('[map-editor] 3D preview started with', result.instanceCount, 'instances');
+      }).catch((error) => {
+        console.error('[map-editor] Failed to start 3D preview:', error);
+        
+        // Restore 2D canvas on error
+        if (original2DCanvas) {
+          sceneCanvas.style.display = 'block';
+          original2DCanvas = null;
+        }
+        
+        alert('Failed to load 3D preview. Check console for details.');
+      });
+    } catch (error) {
+      console.error('[map-editor] Failed to initialize 3D preview:', error);
+      
+      // Restore 2D canvas on error
+      if (original2DCanvas) {
+        sceneCanvas.style.display = 'block';
+        original2DCanvas = null;
+      }
+    }
+  }
+}
+
+// Bind button click
+const btn3DPreview = $('#btnPreview3DProcedural');
+if (btn3DPreview) {
+  btn3DPreview.addEventListener('click', toggle3DPreview);
+}
+
+// Optional: Add keyboard shortcuts for camera toggle (when 3D preview is active)
+document.addEventListener('keydown', (e) => {
+  if (!is3DPreviewActive) return;
+  
+  if (e.key === '1') {
+    Scene3DPreview.toggleCameraSide('left');
+  } else if (e.key === '2') {
+    Scene3DPreview.toggleCameraSide('center');
+  } else if (e.key === '3') {
+    Scene3DPreview.toggleCameraSide('right');
+  }
+});
 </script>
 </body>
 </html>
