@@ -501,6 +501,13 @@ async function dropBottleOnPlayer() {
 
     console.log('[debug-panel] Player position:', player.pos);
 
+    // Check ground Y calculation
+    const playerGroundY = player.pos.y;
+    const configGroundY = window.CONFIG?.groundY;
+    console.log('[debug-panel] Player Y:', playerGroundY);
+    console.log('[debug-panel] Config groundY:', configGroundY);
+    console.log('[debug-panel] Canvas height:', window.CONFIG?.canvas?.h);
+
     // Get the editor preview sandbox
     const sandbox = game.editorPreview;
     if (!sandbox || typeof sandbox.addDynamicInstance !== 'function') {
