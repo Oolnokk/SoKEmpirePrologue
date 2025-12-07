@@ -444,7 +444,7 @@ const WEAPON_SPRITE_SKINS = {
             styleOverride: {
               xformUnits: 'percent',
               widthFactor: { weapon_1: 0.6 },
-              : { weapon_1: { ax: 0.06 } },
+              xform: { weapon_1: { ax: 0.06 } },
             }
           }
         ]
