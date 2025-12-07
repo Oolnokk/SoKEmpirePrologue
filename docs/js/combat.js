@@ -106,21 +106,24 @@ export function makeCombat(G, C, options = {}){
     if (forcedSneak) return 'sneak';
 
     const inCombat = isFighterBusy() || !!fighter?.attack?.active;
-    if (inCombat) return 'combat';
+    const weaponDrawn = !!fighter?.weaponDrawn;
+    const shiftHeld = !!input?.shift;
+
+    // Run (combat speed) when: in combat, weapons drawn, or shift held
+    if (inCombat || weaponDrawn || shiftHeld) return 'combat';
 
     const platformIsTouch = isTouchPlatform();
     const joystickNormalized = getJoystickNormalized();
     const joystickRunning = joystickNormalized >= WALK_MODE_RUN_THRESHOLD;
-    const shiftHeld = !!input?.shift;
 
     if (platformIsTouch) {
       if (joystickNormalized > 0) {
         return joystickRunning ? 'combat' : 'nonCombat';
       }
-      return shiftHeld ? 'combat' : 'nonCombat';
     }
 
-    return shiftHeld ? 'combat' : 'nonCombat';
+    // Default: walk (nonCombat speed)
+    return 'nonCombat';
   };
 
   const applyWalkMode = (fighter, walkMode) => {

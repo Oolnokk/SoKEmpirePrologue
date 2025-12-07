@@ -2403,9 +2403,9 @@ export function updatePoses(){
       ? mergeLowerBodyPose(lowerBodyBase, extractLowerBodyPose(movementPose))
       : lowerBodyBase;
     let targetDeg = { ...basePoseConfig, ...movementLowerBody };
-    
-    // Apply arm positions from movement profile when weapon is stowed
-    if (!weaponDrawn && movementPose._active && !movementSuppressed) {
+
+    // Apply arm positions from movement profile during movement
+    if (movementPose._active && !movementSuppressed) {
       for (const key of ARM_KEYS) {
         if (movementPose[key] != null) {
           targetDeg[key] = movementPose[key];
