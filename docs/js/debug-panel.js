@@ -4,6 +4,8 @@
 import { $$, fmt } from './dom-utils.js?v=1';
 import { radToDeg, radToDegNum, degToRad } from './math-utils.js?v=1';
 import { pushPoseOverride as runtimePushPoseOverride, pushPoseLayerOverride as runtimePushPoseLayerOverride } from './animator.js?v=5';
+import { normalizePrefabDefinition } from './prefab-catalog.js';
+import { initObstructionPhysics } from './obstruction-physics.js?v=1';
 
 // Initialize the debug panel
 export function initDebugPanel() {
@@ -58,12 +60,18 @@ export function initDebugPanel() {
     const C = window.CONFIG || {};
     // Initialize checkbox state from config
     freezeCheckbox.checked = C.debug?.freezeAngles || false;
-    
+
     freezeCheckbox.addEventListener('change', (e) => {
       if (!C.debug) C.debug = {};
       C.debug.freezeAngles = e.target.checked;
       console.log('[debug-panel] Freeze angles:', C.debug.freezeAngles);
     });
+  }
+
+  // Setup drop bottle button
+  const dropBottleBtn = $$('#btnDropBottle', panel);
+  if (dropBottleBtn) {
+    dropBottleBtn.addEventListener('click', dropBottleOnPlayer);
   }
 
   // Setup panel visibility toggle
@@ -448,5 +456,84 @@ if (typeof window !== 'undefined') {
     }
     return null;
   };
+}
+
+// Drop a bottle on top of the player
+async function dropBottleOnPlayer() {
+  console.log('[debug-panel] Dropping bottle on player...');
+
+  try {
+    // Get the player position
+    const game = window.GAME || {};
+    const player = game.FIGHTERS?.player;
+    if (!player || !player.pos) {
+      console.warn('[debug-panel] Player not found or has no position');
+      return;
+    }
+
+    // Get the active map area
+    const registry = game.mapRegistry;
+    if (!registry || typeof registry.getActiveArea !== 'function') {
+      console.warn('[debug-panel] Map registry not available');
+      return;
+    }
+
+    const area = registry.getActiveArea();
+    if (!area || !Array.isArray(area.instances)) {
+      console.warn('[debug-panel] Active area or instances not available');
+      return;
+    }
+
+    // Fetch the bottle prefab
+    const bottlePrefabUrl = './config/prefabs/obstructions/bottle_tall.prefab.json';
+    const response = await fetch(bottlePrefabUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch bottle prefab: ${response.status}`);
+    }
+
+    const bottlePrefab = await response.json();
+    const normalizedPrefab = normalizePrefabDefinition(bottlePrefab);
+
+    if (!normalizedPrefab) {
+      throw new Error('Failed to normalize bottle prefab');
+    }
+
+    // Create a unique instance ID
+    const instanceId = `bottle_debug_${Date.now()}`;
+
+    // Calculate spawn position (above player)
+    const spawnX = player.pos.x;
+    const spawnY = player.pos.y - 300; // 300 pixels above player
+
+    // Create the instance
+    const bottleInstance = {
+      id: instanceId,
+      instanceId: instanceId,
+      prefabId: 'bottle_tall',
+      prefab: normalizedPrefab,
+      layerId: 'gameplay',
+      position: { x: spawnX, y: spawnY },
+      scale: { x: 1, y: 1 },
+      rotation: 0,
+      visible: true,
+      tags: normalizedPrefab.tags || [],
+      meta: {
+        identity: {
+          prefabId: 'bottle_tall',
+          source: 'debug-spawn',
+        }
+      }
+    };
+
+    // Initialize physics for the bottle
+    initObstructionPhysics(bottleInstance, window.CONFIG);
+
+    // Add the instance to the area
+    area.instances.push(bottleInstance);
+
+    console.log('[debug-panel] Bottle spawned successfully at', { x: spawnX, y: spawnY });
+  } catch (error) {
+    console.error('[debug-panel] Failed to drop bottle:', error);
+  }
 }
 

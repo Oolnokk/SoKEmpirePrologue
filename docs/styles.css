@@ -1029,6 +1029,28 @@ canvas#game{
   font-weight: 500;
 }
 
+.debug-action-btn {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #374151;
+  background: #1f2937;
+  color: #e5e7eb;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  width: 100%;
+}
+
+.debug-action-btn:hover {
+  background: #374151;
+}
+
+.debug-action-btn:active {
+  background: #4b5563;
+}
+
 .debug-panel-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
