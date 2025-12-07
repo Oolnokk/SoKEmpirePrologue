@@ -5,7 +5,6 @@ import { $$, fmt } from './dom-utils.js?v=1';
 import { radToDeg, radToDegNum, degToRad } from './math-utils.js?v=1';
 import { pushPoseOverride as runtimePushPoseOverride, pushPoseLayerOverride as runtimePushPoseLayerOverride } from './animator.js?v=5';
 import { normalizePrefabDefinition } from './prefab-catalog.js';
-import { initObstructionPhysics } from './obstruction-physics.js?v=1';
 
 // Initialize the debug panel
 export function initDebugPanel() {
@@ -471,16 +470,10 @@ async function dropBottleOnPlayer() {
       return;
     }
 
-    // Get the active map area
-    const registry = game.mapRegistry;
-    if (!registry || typeof registry.getActiveArea !== 'function') {
-      console.warn('[debug-panel] Map registry not available');
-      return;
-    }
-
-    const area = registry.getActiveArea();
-    if (!area || !Array.isArray(area.instances)) {
-      console.warn('[debug-panel] Active area or instances not available');
+    // Get the editor preview sandbox
+    const sandbox = game.editorPreview;
+    if (!sandbox || typeof sandbox.addDynamicInstance !== 'function') {
+      console.warn('[debug-panel] Editor preview sandbox not available');
       return;
     }
 
@@ -525,13 +518,14 @@ async function dropBottleOnPlayer() {
       }
     };
 
-    // Initialize physics for the bottle
-    initObstructionPhysics(bottleInstance, window.CONFIG);
+    // Add the instance using the sandbox method
+    const success = sandbox.addDynamicInstance(bottleInstance);
 
-    // Add the instance to the area
-    area.instances.push(bottleInstance);
-
-    console.log('[debug-panel] Bottle spawned successfully at', { x: spawnX, y: spawnY });
+    if (success) {
+      console.log('[debug-panel] Bottle spawned successfully at', { x: spawnX, y: spawnY });
+    } else {
+      console.warn('[debug-panel] Failed to add bottle instance');
+    }
   } catch (error) {
     console.error('[debug-panel] Failed to drop bottle:', error);
   }

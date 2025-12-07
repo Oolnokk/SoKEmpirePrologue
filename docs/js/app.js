@@ -3992,11 +3992,39 @@ function createEditorPreviewSandbox() {
     return { rendered: true, groundY: result.groundLine };
   };
 
+  const addDynamicInstance = (instance) => {
+    if (!instance || typeof instance !== 'object') {
+      console.warn('[preview-sandbox] Invalid instance provided');
+      return false;
+    }
+    if (!state.instances || !Array.isArray(state.instances)) {
+      console.warn('[preview-sandbox] Instances array not initialized');
+      return false;
+    }
+
+    // Normalize the instance using the current layer lookup
+    const normalized = normalizeInstance(instance, state.instances.length, state.layerLookup);
+    if (!normalized) {
+      console.warn('[preview-sandbox] Failed to normalize instance');
+      return false;
+    }
+
+    // Add to instances array
+    state.instances.push(normalized);
+
+    // Initialize physics if it's a dynamic obstruction
+    initObstructionPhysics(normalized, window.CONFIG);
+
+    console.log('[preview-sandbox] Dynamic instance added:', normalized.id);
+    return true;
+  };
+
   return {
     attachToRegistry,
     setArea,
     renderAndBlit,
     isReady: () => state.ready,
+    addDynamicInstance,
   };
 }
 
@@ -4004,6 +4032,9 @@ const EDITOR_PREVIEW_SANDBOX = createEditorPreviewSandbox();
 
 function installPreviewSandboxRegistryBridge() {
   const GAME = (window.GAME = window.GAME || {});
+
+  // Expose the sandbox for dynamic instance spawning
+  GAME.editorPreview = EDITOR_PREVIEW_SANDBOX;
 
   const attach = (registry) => {
     try {
