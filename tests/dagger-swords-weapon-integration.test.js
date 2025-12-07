@@ -12,22 +12,14 @@ const indexSrc = readFileSync('docs/index.html', 'utf8');
 const abilitySrc = readFileSync('docs/config/abilities/dagger_swords_combo_light.js', 'utf8');
 
 describe('Dagger-Swords weapon integration', () => {
-  it('registers both dagger-sword sprite assets', () => {
+  it('registers the anuris dagger-swords sprite asset', () => {
     assert.ok(
-      configSrc.includes('./assets/weapons/dagger-sword-longblade.png'),
-      'longblade sprite should be referenced from the core config'
+      configSrc.includes('./assets/weapons/dagger-swords/anuris_dagger-swords.png'),
+      'anuris dagger-swords sprite should be referenced from the core config'
     );
     assert.ok(
-      configSrc.includes('./assets/weapons/dagger-sword-shortblade.png'),
-      'shortblade sprite should be referenced from the core config'
-    );
-    assert.ok(
-      manifestSrc.includes('./assets/weapons/dagger-sword-longblade.png'),
-      'longblade sprite should be listed in the asset manifest'
-    );
-    assert.ok(
-      manifestSrc.includes('./assets/weapons/dagger-sword-shortblade.png'),
-      'shortblade sprite should be listed in the asset manifest'
+      manifestSrc.includes('./assets/weapons/dagger-swords/anuris_dagger-swords.png'),
+      'anuris dagger-swords sprite should be listed in the asset manifest'
     );
   });
 
@@ -63,14 +55,10 @@ describe('Dagger-Swords weapon integration', () => {
     );
   });
 
-  it('defines dual weapon bones (weapon_0 and weapon_1) in the rig', () => {
+  it('defines weapon bone (weapon_0) in the rig', () => {
     assert.ok(
       /weapons[\s\S]*['"]?dagger-swords['"]?[\s\S]*weapon_0/.test(configSrc),
       'weapon rig should define weapon_0 bone'
-    );
-    assert.ok(
-      /weapons[\s\S]*['"]?dagger-swords['"]?[\s\S]*weapon_1/.test(configSrc),
-      'weapon rig should define weapon_1 bone for dual wielding'
     );
   });
 
