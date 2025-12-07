@@ -19,8 +19,8 @@
                 "head": {
                   "ax": 0,
                   "ay": 0,
-                  "scaleX": 1,
-                  "scaleY": 1,
+                  "scaleX": 2,
+                  "scaleY": 2,
                   "rotDeg": 0
                 }
               }
@@ -37,8 +37,8 @@
                 "head": {
                   "ax": 0,
                   "ay": 0,
-                  "scaleX": 1,
-                  "scaleY": 1,
+                  "scaleX": 2,
+                  "scaleY": 2,
                   "rotDeg": 0
                 }
               }
