@@ -2062,7 +2062,7 @@ function getHeadLimitsRad(C, fcfg){
   return { min, max };
 }
 
-function convertAimToHeadRad(worldAimStandard, orientationSign){
+export function convertAimToHeadRad(worldAimStandard, orientationSign){
   const mirroredWorld = (orientationSign ?? 1) >= 0
     ? worldAimStandard
     : normalizeRad(Math.PI - worldAimStandard);
