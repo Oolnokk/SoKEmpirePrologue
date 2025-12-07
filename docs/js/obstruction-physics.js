@@ -46,6 +46,13 @@ export function updateObstructionPhysics(instances, config, dt, options = {}) {
   const groundY = computeGroundY(config);
   const friction = 8; // Ground friction
 
+  // Debug ground Y once
+  if (!updateObstructionPhysics._loggedGround) {
+    console.log('[obstruction-physics] Ground Y for bottles:', groundY);
+    console.log('[obstruction-physics] Config:', { groundY: config?.groundY, groundOffset: config?.ground?.offset, canvasH: config?.canvas?.h });
+    updateObstructionPhysics._loggedGround = true;
+  }
+
   for (const instance of instances) {
     const physics = instance.prefab?.obstruction?.physics;
     if (!physics || !physics.enabled || !physics.dynamic) continue;
