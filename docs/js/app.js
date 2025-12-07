@@ -3994,6 +3994,35 @@ function createEditorPreviewSandbox() {
       ctx.restore();
     }
 
+    // Draw bottle origin dots if checkbox is checked
+    const showBottleOrigins = document.getElementById('showBottleOriginsCheckbox')?.checked;
+    if (showBottleOrigins) {
+      const dynamicInstances = window.GAME?.dynamicInstances || [];
+      for (const inst of dynamicInstances) {
+        if (!inst || !inst.position) continue;
+        const lookup = state.layerLookup.get(inst.layerId);
+        if (!lookup) continue;
+
+        const layer = lookup.layer;
+        const pos = inst.position;
+        const parallax = Number.isFinite(layer.parallaxSpeed) ? layer.parallaxSpeed : 1;
+        const proximityScale = Number.isFinite(state.proximityScale) && state.proximityScale > 0 ? state.proximityScale : 1;
+
+        const screenX = (pos.x - cameraLeftX * parallax) * effectiveZoom * proximityScale;
+        const screenY = groundLine + (layer.offsetY || 0) * effectiveZoom * proximityScale + pos.y * effectiveZoom * proximityScale;
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 0, 255, 0.9)';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
     ctx.save();
     ctx.strokeStyle = 'rgba(250,204,21,0.35)';
     ctx.lineWidth = 1;
