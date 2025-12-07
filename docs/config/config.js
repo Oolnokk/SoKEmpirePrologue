@@ -446,7 +446,7 @@ const WEAPON_SPRITE_SKINS = {
               xformUnits: 'percent',
               widthFactor: { weapon_1: 1 },
               xform: {
-                weapon_1: { ax: 0, ay: 0, scaleX: 0.15, scaleY: 0.15 }
+                weapon_1: { ax: 0, ay: 0, scaleX: 0.23, scaleY: 0.23 }
               }
             }
           }
@@ -1759,9 +1759,7 @@ window.CONFIG = {
         weapon: {
           $kind: 'pool',
           items: [
-            { value: 'sarrarru', weight: 3 },
-            { value: 'hatchets', weight: 1 },
-            { value: 'greatclub', weight: 1 }
+            { value: 'sarrarru', weight: 3 }
           ]
         },
         slottedAbilities: {
