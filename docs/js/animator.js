@@ -2136,12 +2136,17 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
   const torsoDeg = finalPoseDeg?.torso ?? 0;
   const torsoRad = degToRad(torsoDeg);
 
+  // Priority 1: FACE lock overrides everything (for animations, cutscenes, manual control)
+  // Priority 2: Aim-driven head tracking (mouse/joystick)
+  // Priority 3: Fallback to torso angle (no independent head rotation)
   const faceLockRad = getFaceLock();
   let desiredWorld = null;
 
   if (typeof faceLockRad === 'number') {
+    // FACE lock is active - use it (highest priority)
     desiredWorld = faceLockRad;
   } else if (F.aim?.active && typeof F.aim.headWorldTarget === 'number') {
+    // Use aim-driven head target from mouse/joystick
     desiredWorld = F.aim.headWorldTarget;
   }
 
