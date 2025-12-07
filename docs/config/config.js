@@ -997,7 +997,7 @@ window.CONFIG = {
   },
 
   headTracking: {
-    offsetDeg: 0,
+    offsetDeg: -90,
     // debug: false,  // Enable to log head tracking calculations (uses torso aim logic)
     // smoothing: 8,  // Optional: override smoothing (defaults to aiming.smoothing if not set)
   },
