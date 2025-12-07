@@ -423,17 +423,34 @@ const WEAPON_SPRITE_SKINS = {
     skins: {
       'anuri_dagger-swords': {
         name: "Anuri's Dagger-Swords",
-        url: './assets/weapons/dagger-swords/anuris_dagger-swords.png',
-        anchorBone: 'weapon_0',
-        anchorMode: 'start',
-        alignDeg: 270,
-        styleOverride: {
-          xformUnits: 'percent',
-          widthFactor: { weapon_0: 1 },
-          xform: {
-            weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
+        layers: [
+          {
+            url: './assets/weapons/dagger-swords/anuris_dagger-swords.png',
+            anchorBone: 'weapon_0',
+            anchorMode: 'start',
+            alignDeg: 270,
+            styleOverride: {
+              xformUnits: 'percent',
+              widthFactor: { weapon_0: 1 },
+              xform: {
+                weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
+              }
+            }
+          },
+          {
+            url: './assets/weapons/dagger-swords/anuris_dagger-swords.png',
+            anchorBone: 'weapon_1',
+            anchorMode: 'start',
+            alignDeg: 270,
+            styleOverride: {
+              xformUnits: 'percent',
+              widthFactor: { weapon_1: 1 },
+              xform: {
+                weapon_1: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
+              }
+            }
           }
-        }
+        ]
       }
     }
   },
