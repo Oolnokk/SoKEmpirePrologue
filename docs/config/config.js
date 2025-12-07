@@ -656,6 +656,8 @@ const COSMETIC_LIBRARY_SOURCES = {
   simple_poncho: './config/cosmetics/simple_poncho.json',
   anuri_hood: './config/cosmetics/anuri_hood.json',
   anuri_poncho: './config/cosmetics/anuri_poncho.json',
+  bronze_armbands: './config/cosmetics/bronze_armbands.json',
+  bronze_footbands: './config/cosmetics/bronze_footbands.json',
   basic_pants: './config/cosmetics/basic_pants.json',
   'appearance::Mao-ao_M::mao-ao_circled_eyes': './config/cosmetics/appearance/mao-ao/circled_eyes.json',
   'appearance::Mao-ao_M::mao-ao_circled_eyes_f': './config/cosmetics/appearance/mao-ao/circled_eyes_f.json',
@@ -1739,6 +1741,8 @@ window.CONFIG = {
         slots: {
           hood: { id: 'anuri_hood', colors: ['A', 'B'] },
           overwear: { id: 'anuri_poncho', colors: ['A', 'B'] },
+          arms: { id: 'bronze_armbands', hsv: { ...MATERIALS.verdigris_bronze } },
+          feet: { id: 'bronze_footbands', hsv: { ...MATERIALS.verdigris_bronze } },
           legs: { id: 'basic_pants', hsl: { h: 150, s: 0.6, l: 0.28 } }
         }
       }
