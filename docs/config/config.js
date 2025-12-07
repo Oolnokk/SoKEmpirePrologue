@@ -196,7 +196,7 @@ const WEAPON_STANCE_DEFAULTS = {
 
   'dagger-swords': {
     weapon: -20,
-    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+    weaponGripPercents: { primary: 0.37, secondary: 0.37 },
     lShoulder: 250,
     lElbow: -90,
     rShoulder: 290,
@@ -366,13 +366,12 @@ const ARM_STANCES = {
   },
 
   'dagger-swords': {
-    // TEMP TEST: Arms way out to the sides
-    lShoulder: 180,
-    lElbow: 0,
-    rShoulder: -180,
-    rElbow: 0,
+    lShoulder: 200,
+    lElbow: -20,
+    rShoulder: -200,
+    rElbow: -20,
     weapon: 90,
-    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
+    weaponGripPercents: { primary: 0.37, secondary: 0.37 },
   },
 
   sarrarru: {
@@ -424,17 +423,34 @@ const WEAPON_SPRITE_SKINS = {
     skins: {
       'anuri_dagger-swords': {
         name: "Anuri's Dagger-Swords",
-        url: './assets/weapons/dagger-swords/anuris_dagger-swords.png',
-        anchorBone: 'weapon_0',
-        anchorMode: 'start',
-        alignDeg: 270,
-        styleOverride: {
-          xformUnits: 'percent',
-          widthFactor: { weapon_0: 1 },
-          xform: {
-            weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
+        layers: [
+          {
+            url: './assets/weapons/dagger-swords/anuris_dagger-swords.png',
+            anchorBone: 'weapon_0',
+            anchorMode: 'start',
+            alignDeg: 270,
+            styleOverride: {
+              xformUnits: 'percent',
+              widthFactor: { weapon_0: 1 },
+              xform: {
+                weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
+              }
+            }
+          },
+          {
+            url: './assets/weapons/dagger-swords/anuris_dagger-swords.png',
+            anchorBone: 'weapon_1',
+            anchorMode: 'start',
+            alignDeg: 270,
+            styleOverride: {
+              xformUnits: 'percent',
+              widthFactor: { weapon_1: 1 },
+              xform: {
+                weapon_1: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
+              }
+            }
           }
-        }
+        ]
       }
     }
   },
@@ -1391,10 +1407,9 @@ window.CONFIG = {
             length: 96,
             angleOffsetDeg: 0,
             joint: { percent: 0.22 },
-            haft: { start: 0.25, end: 0.35 },
+            haft: { start: 0.25, end: 0.50 },
             grips: [
-              { id: 'primary', percent: 0.75, limb: 'right', offset: { ax: 0, ay: 0 } },
-              { id: 'secondary', percent: 0.35, limb: 'left', offset: { ax: 0, ay: 0 } }
+              { id: 'primary', percent: 0.37, limb: 'right', offset: { ax: 0, ay: 0 } }
             ],
             colliders: [
               {
@@ -1412,10 +1427,44 @@ window.CONFIG = {
                 kind: 'box',
                 width: 26,
                 height: 140,
-                from: 0.35,
+                from: 0.50,
                 to: 1.0,
                 activatesOn: ['STRIKE'],
-                offset: { ax: 0.675, ay: 0, units: 'percent' }
+                offset: { ax: 0.75, ay: 0, units: 'percent' }
+              }
+            ]
+          },
+          {
+            id: 'weapon_1',
+            length: 96,
+            angleOffsetDeg: 0,
+            joint: { percent: 0.22 },
+            haft: { start: 0.25, end: 0.50 },
+            anchor: 'leftWrist',
+            limb: 'left',
+            grips: [
+              { id: 'secondary', percent: 0.37, limb: 'left', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: [
+              {
+                id: 'colliderC',
+                kind: 'box',
+                width: 26,
+                height: 60,
+                from: 0.0,
+                to: 0.25,
+                activatesOn: ['STRIKE'],
+                offset: { ax: 0.12, ay: 0, units: 'percent' }
+              },
+              {
+                id: 'colliderD',
+                kind: 'box',
+                width: 26,
+                height: 140,
+                from: 0.50,
+                to: 1.0,
+                activatesOn: ['STRIKE'],
+                offset: { ax: 0.75, ay: 0, units: 'percent' }
               }
             ]
           }
@@ -1423,7 +1472,9 @@ window.CONFIG = {
       },
       colliders: {
         colliderA: { shape: 'rect', width: 26, height: 60, offset: { x: 12, y: 0 }, activatesOn: ['STRIKE'] },
-        colliderB: { shape: 'rect', width: 26, height: 140, offset: { x: 65, y: 0 }, activatesOn: ['STRIKE'] }
+        colliderB: { shape: 'rect', width: 26, height: 140, offset: { x: 72, y: 0 }, activatesOn: ['STRIKE'] },
+        colliderC: { shape: 'rect', width: 26, height: 60, offset: { x: 12, y: 0 }, activatesOn: ['STRIKE'] },
+        colliderD: { shape: 'rect', width: 26, height: 140, offset: { x: 72, y: 0 }, activatesOn: ['STRIKE'] }
       },
       sprite: getWeaponSkinSprite('dagger-swords'),
       skins: getWeaponSkinLibrary('dagger-swords')
