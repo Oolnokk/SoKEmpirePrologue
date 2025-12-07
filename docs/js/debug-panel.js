@@ -98,6 +98,32 @@ export function initDebugPanel() {
   console.log('[debug-panel] Debug panel initialized');
 }
 
+// Update bottle census display
+function updateBottleCensus() {
+  const censusContent = $$('#bottleCensusContent');
+  if (!censusContent) return;
+
+  const game = window.GAME || {};
+  const bottles = (game.dynamicInstances || []).filter(inst =>
+    inst?.prefabId === 'bottle_tall' || inst?.id?.startsWith('bottle_debug_')
+  );
+
+  if (bottles.length === 0) {
+    censusContent.textContent = 'No bottles spawned';
+    return;
+  }
+
+  const lines = bottles.map(bottle => {
+    const x = bottle.position?.x?.toFixed(0) || '?';
+    const y = bottle.position?.y?.toFixed(0) || '?';
+    const vy = bottle.physics?.vel?.y?.toFixed(1) || '?';
+    const onGround = bottle.physics?.onGround ? '🟢' : '🔴';
+    return `${onGround} Bottle @ (${x}, ${y}) vy=${vy}`;
+  });
+
+  censusContent.innerHTML = lines.join('<br>');
+}
+
 // Update the debug panel with current frame data
 export function updateDebugPanel() {
   const panel = $$('#debugPanel');
@@ -105,6 +131,9 @@ export function updateDebugPanel() {
 
   const G = window.GAME || {};
   const C = window.CONFIG || {};
+
+  // Update bottle census
+  updateBottleCensus();
   
   if (!G.FIGHTERS || !G.ANCHORS_OBJ) return;
 
