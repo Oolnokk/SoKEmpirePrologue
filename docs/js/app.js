@@ -3868,8 +3868,9 @@ function createEditorPreviewSandbox() {
             : (Number.isFinite(inst?.scale?.x) ? inst.scale.x : 1);
           const baseScaleX = instScaleX * layerScale * effectiveZoom;
           const baseScaleY = instScaleY * layerScale * effectiveZoom;
-          const topScaleX = instScaleX * (Number.isFinite(targetLayer?.scale) ? targetLayer.scale : 1) * effectiveZoom;
-          const topScaleY = instScaleY * (Number.isFinite(targetLayer?.scale) ? targetLayer.scale : 1) * effectiveZoom;
+          const targetLayerBaseScale = Number.isFinite(targetLayer?.scale) ? targetLayer.scale : 1;
+          const topScaleX = instScaleX * targetLayerBaseScale * proximityScale * effectiveZoom;
+          const topScaleY = instScaleY * targetLayerBaseScale * proximityScale * effectiveZoom;
 
           const baseWidth = template.width * baseScaleX;
           const baseHeight = template.height * baseScaleY;
