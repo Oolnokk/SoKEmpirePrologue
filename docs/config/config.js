@@ -1043,8 +1043,8 @@ window.CONFIG = {
       slotB: { ax: 0.14, ay: -0.82, units: 'percent', angDeg: 8 }
     },
     'dagger-swords': {
-      slotA: { ax: 0, ay: 0, units: 'percent', angDeg: -20 },
-      slotB: { ax: 0, ay: 0, units: 'percent', angDeg: 16 }
+      slotA: { ax: 5, ay: 5, units: 'percent', angDeg: -20 },
+      slotB: { ax: 5, ay: 5, units: 'percent', angDeg: 16 }
     },
     sarrarru: {
       slotA: { ax: 0, ay: 0, units: 'percent', angDeg: -45 },
