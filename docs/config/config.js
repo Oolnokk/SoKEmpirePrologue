@@ -1326,6 +1326,7 @@ window.CONFIG = {
       unarmed: { type: 'blunt', multiplier: 1.0 },
       blunt: { multiplier: 2.4 },
       sharp: { multiplier: 1.6 },
+      'dagger-swords': { type: 'sharp', multiplier: 1.6 },
       sarrarru: { type: 'sharp', multiplier: 1.6 }
     },
     currentWeapon: 'unarmed'

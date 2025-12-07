@@ -36,5 +36,7 @@
   "./assets/prefabs/images/test_image_yellow.png",
   "./assets/prefabs/structures/towers/tower_commercial_near.png",
   "./assets/prefabs/structures/towers/tower_general_far.png",
+  "./assets/weapons/dagger-sword-longblade.png",
+  "./assets/weapons/dagger-sword-shortblade.png",
   "./assets/weapons/sarrarru/citywatch_sarrarru.png"
 ]
