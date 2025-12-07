@@ -11,7 +11,7 @@
       "layers": {
         "back": {
           "image": {
-            "url": "./assets/cosmetics/appearance/mao-ao/headhair/shoulderlength-front.png"
+            "url": "./assets/cosmetics/appearance/mao-ao/headhair/shoulderlength-front_mint.png"
           },
           "spriteStyle": {
             "base": {
@@ -29,7 +29,7 @@
         },
         "front": {
           "image": {
-            "url": "./assets/cosmetics/appearance/mao-ao/headhair/tuft-front.png"
+            "url": "./assets/cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png"
           },
           "spriteStyle": {
             "base": {
