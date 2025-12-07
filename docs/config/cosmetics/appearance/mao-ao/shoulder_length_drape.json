@@ -7,7 +7,7 @@
     "originalId": "mao-ao_shoulder_length_drape"
   },
   "parts": {
-    "headhair": {
+    "head": {
       "layers": {
         "back": {
           "image": {
@@ -16,10 +16,10 @@
           "spriteStyle": {
             "base": {
               "xform": {
-                "headhair": {
-                  "ax": -0.6, 
-                  "ay": -0.15, 
-                  "scaleX": 3, 
+                "head": {
+                  "ax": -0.6,
+                  "ay": -0.15,
+                  "scaleX": 3,
                   "scaleY": 3,
                   "rotDeg": 0
                 }
@@ -34,10 +34,10 @@
           "spriteStyle": {
             "base": {
               "xform": {
-                "headhair": {
-                  "ax": -0.6, 
-                  "ay": -0.15, 
-                  "scaleX": 4, 
+                "head": {
+                  "ax": -0.6,
+                  "ay": -0.15,
+                  "scaleX": 4,
                   "scaleY": 4,
                   "rotDeg": 0
                 }

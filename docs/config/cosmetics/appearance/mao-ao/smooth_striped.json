@@ -7,16 +7,16 @@
     "originalId": "mao-ao_smooth_striped"
   },
   "parts": {
-    "headhair": {
+    "head": {
       "image": {
         "url": "./assets/cosmetics/appearance/mao-ao/headhair/smooth_striped_mint.png"
       },
       "spriteStyle": {
         "xform": {
-          "headhair": {
-            "ax": -0.6, 
-            "ay": -0.15, 
-            "scaleX": 4, 
+          "head": {
+            "ax": -0.6,
+            "ay": -0.15,
+            "scaleX": 4,
             "scaleY": 4,
             "rotDeg": 0
           }

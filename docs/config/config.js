@@ -655,12 +655,14 @@ const COSMETIC_LIBRARY_SOURCES = {
   anuri_poncho: './config/cosmetics/anuri_poncho.json',
   basic_pants: './config/cosmetics/basic_pants.json',
   'appearance::Mao-ao_M::mao-ao_circled_eyes': './config/cosmetics/appearance/mao-ao/circled_eyes.json',
+  'appearance::Mao-ao_M::mao-ao_circled_eyes_f': './config/cosmetics/appearance/mao-ao/circled_eyes_f.json',
   'appearance::Mao-ao_M::mao-ao_circled_eye_L': './config/cosmetics/appearance/mao-ao/circled_eye_L.json',
   'appearance::Mao-ao_M::mao-ao_smooth_striped': './config/cosmetics/appearance/mao-ao/smooth_striped.json',
   'appearance::Mao-ao_M::mao-ao_shoulder_length_drape': './config/cosmetics/appearance/mao-ao/shoulder_length_drape.json',
   'appearance::Mao-ao_M::mao-ao_tuft': './config/cosmetics/appearance/mao-ao/tuft.json',
   'appearance::Mao-ao_M::mao-ao_long_ponytail': './config/cosmetics/appearance/mao-ao/long_ponytail.json',
   'appearance::Mao-ao_F::mao-ao_circled_eyes': './config/cosmetics/appearance/mao-ao/circled_eyes.json',
+  'appearance::Mao-ao_F::mao-ao_circled_eyes_f': './config/cosmetics/appearance/mao-ao/circled_eyes_f.json',
   'appearance::Mao-ao_F::mao-ao_circled_eye_L': './config/cosmetics/appearance/mao-ao/circled_eye_L.json',
   'appearance::Mao-ao_F::mao-ao_smooth_striped': './config/cosmetics/appearance/mao-ao/smooth_striped.json',
   'appearance::Mao-ao_F::mao-ao_shoulder_length_drape': './config/cosmetics/appearance/mao-ao/shoulder_length_drape.json',
@@ -1697,7 +1699,7 @@ window.CONFIG = {
         slots: {
           head_hair: { id: 'mao-ao_shoulder_length_drape', colors: ['A'] },
           facial_hair: {},
-          eyes: { id: 'mao-ao_circled_eyes', colors: ['B'] }
+          eyes: { id: 'mao-ao_circled_eyes_f', colors: ['B'] }
         }
       },
       cosmetics: {
