@@ -55,21 +55,33 @@ describe('Dagger-Swords weapon integration', () => {
     );
   });
 
-  it('defines weapon bone (weapon_0) in the rig', () => {
+  it('defines dual weapon bones (weapon_0 and weapon_1) in the rig', () => {
     assert.ok(
       /weapons[\s\S]*['"]?dagger-swords['"]?[\s\S]*weapon_0/.test(configSrc),
       'weapon rig should define weapon_0 bone'
     );
+    assert.ok(
+      /weapons[\s\S]*['"]?dagger-swords['"]?[\s\S]*weapon_1/.test(configSrc),
+      'weapon rig should define weapon_1 bone for dual wielding'
+    );
   });
 
-  it('defines weapon colliders for both blades', () => {
+  it('defines weapon colliders for both weapons', () => {
     assert.ok(
       /weapons[\s\S]*['"]?dagger-swords['"]?[\s\S]*colliderA/.test(configSrc),
-      'should define colliderA for primary blade'
+      'should define colliderA for weapon_0 short blade'
     );
     assert.ok(
       /weapons[\s\S]*['"]?dagger-swords['"]?[\s\S]*colliderB/.test(configSrc),
-      'should define colliderB for secondary blade'
+      'should define colliderB for weapon_0 long blade'
+    );
+    assert.ok(
+      /weapons[\s\S]*['"]?dagger-swords['"]?[\s\S]*colliderC/.test(configSrc),
+      'should define colliderC for weapon_1 short blade'
+    );
+    assert.ok(
+      /weapons[\s\S]*['"]?dagger-swords['"]?[\s\S]*colliderD/.test(configSrc),
+      'should define colliderD for weapon_1 long blade'
     );
   });
 
