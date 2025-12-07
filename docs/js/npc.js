@@ -13,7 +13,7 @@ import {
   resolveFighterPerceptionColliders,
 } from './colliders.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
-import { resolveStancePose } from './animator.js?v=5';
+import { resolveStancePose, convertAimToHeadRad } from './animator.js?v=5';
 import { getAttackDefFromConfig, calculateMinChargeTime } from './config-utils.js?v=1';
 import {
   isPointInsidePoi,
@@ -1944,6 +1944,17 @@ function normalizeRad(angle) {
   return out;
 }
 
+function resolveOrientationSign(facingRad, facingSign = 1) {
+  const facingCos = Math.cos(facingRad || 0);
+  if (Number.isFinite(facingCos)) {
+    if (Math.abs(facingCos) > 1e-4) {
+      return facingCos >= 0 ? 1 : -1;
+    }
+    return (facingSign ?? 1) >= 0 ? 1 : -1;
+  }
+  return 1;
+}
+
 function getNpcHeadLimits(state) {
   const C = window.CONFIG || {};
   const limits = state?.limits?.head || C.limits?.head || {};
@@ -1977,6 +1988,7 @@ function updateNpcPassiveHeadTracking(state, player) {
   const dy = (player.pos?.y ?? state.pos.y) - state.pos.y;
   const worldAim = normalizeRad(Math.atan2(dy, dx));
   const facingRad = Number.isFinite(state.facingRad) ? state.facingRad : 0;
+  const orientationSign = resolveOrientationSign(facingRad, state.facingSign);
   const { min, max } = getNpcHeadLimits(state);
   const relative = normalizeRad(worldAim - facingRad);
   const withinLimits = relative >= min && relative <= max;
@@ -1987,7 +1999,7 @@ function updateNpcPassiveHeadTracking(state, player) {
   aim.shoulderOffset = 0;
   aim.hipOffset = 0;
   aim.headTrackingOnly = true;
-  aim.headWorldTarget = withinLimits ? worldAim : null;
+  aim.headWorldTarget = withinLimits ? convertAimToHeadRad(worldAim, orientationSign) : null;
 }
 
 function updateNpcAiming(state, player, { aggressionActive, movementActive = false } = {}) {
@@ -2026,11 +2038,12 @@ function updateNpcAiming(state, player, { aggressionActive, movementActive = fal
     aim.headTrackingOnly = true;
     const C = window.CONFIG || {};
     const facingRad = Number.isFinite(state.facingRad) ? state.facingRad : 0;
+    const orientationSign = resolveOrientationSign(facingRad, state.facingSign);
     const worldAim = Math.atan2(dy, dx);
     const { min, max } = getNpcHeadLimits(state);
     const headRelative = normalizeRad(worldAim - facingRad);
     const withinLimits = headRelative >= min && headRelative <= max;
-    aim.headWorldTarget = withinLimits ? worldAim : null;
+    aim.headWorldTarget = withinLimits ? convertAimToHeadRad(worldAim, orientationSign) : null;
     return;
   }
 
