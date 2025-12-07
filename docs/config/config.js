@@ -991,7 +991,7 @@ window.CONFIG = {
   },
 
   limits: {
-    head: { relMin: -75, relMax: 75 }
+    head: { relMin: -75, relMax: 90 }
   },
 
   headTracking: {
