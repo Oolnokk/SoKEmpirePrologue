@@ -11,7 +11,7 @@ const MATERIALS = {
   city_heraldry_B: { h: 48,  s: 0.9,  v: 0.55 },        // TBD
   polished_bronze: { h: 32,  s: 0.42, v: 0.38 },        // Shiny bronze
   white_bronze:    { h: -12, s: 0.05, v: 0.08 },        // Pale alloy
-  verdigris_bronze:{ h: -22, s: 0.1, v: 0.04 },        // Blue-green patina
+  verdigris_bronze:{ h: 42, s: 0, v: 0},        // Blue-green patina
   leather:         { h: 28,  s: 0.48, v: 0.22 },        // Leather brown
   mahogany:        { h: 12,  s: 0.54, v: 0.24 },        // Reddish wood
   bronzewood:      { h: 38,  s: 0.28, v: 0.28 }         // dark wood
