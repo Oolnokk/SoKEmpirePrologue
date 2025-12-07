@@ -68,7 +68,9 @@ export function initTouchControls(){
     const normalized = JOY.active ? Math.min(1, JOY.distance / maxDistance) : 0;
     const angle = JOY.angle || 0;
     const horizontalStrength = Math.cos(angle) * normalized;
-    const deadzone = 0.15;
+    // Use configurable deadzone from headTracking config, fallback to 0.15
+    const C = window.CONFIG || {};
+    const deadzone = C.headTracking?.joystickDeadzone ?? 0.15;
 
     JOY.normalized = normalized;
     JOY.horizontalStrength = horizontalStrength;
