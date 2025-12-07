@@ -28,7 +28,9 @@ test('computeAimRotation helper function exists and computes aim offsets', async
 
   const clampSrc = extractFunction('clamp');
   const normalizeSrc = extractFunction('normalizeRad');
-  const radToDegSrc = 'function radToDegNum(rad){ return rad * 180 / Math.PI; }';
+  // Extract radToDegNum from source for consistency
+  const radToDegMatch = source.match(/function radToDegNum\([^)]*\)\s*{[^}]*}/);
+  const radToDegSrc = radToDegMatch ? radToDegMatch[0] : 'function radToDegNum(rad){ return rad * 180 / Math.PI; }';
   const aimRotationSrc = extractFunction('computeAimRotation');
 
   const script = `
@@ -121,7 +123,9 @@ test('computeAimRotation applies smoothing correctly', async () => {
 
   const clampSrc = extractFunction('clamp');
   const normalizeSrc = extractFunction('normalizeRad');
-  const radToDegSrc = 'function radToDegNum(rad){ return rad * 180 / Math.PI; }';
+  // Extract radToDegNum from source for consistency
+  const radToDegMatch = source.match(/function radToDegNum\([^)]*\)\s*{[^}]*}/);
+  const radToDegSrc = radToDegMatch ? radToDegMatch[0] : 'function radToDegNum(rad){ return rad * 180 / Math.PI; }';
   const aimRotationSrc = extractFunction('computeAimRotation');
 
   const script = `

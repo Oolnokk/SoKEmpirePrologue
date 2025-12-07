@@ -2102,9 +2102,8 @@ function computeAimRotation(targetWorldAngleRad, baseAngleRad, currentRelativeAn
   // Calculate relative angle from base
   let relativeAngle = targetWorldAngleRad - baseAngleRad;
   
-  // Normalize to -PI to PI range
-  while (relativeAngle > Math.PI) relativeAngle -= Math.PI * 2;
-  while (relativeAngle < -Math.PI) relativeAngle += Math.PI * 2;
+  // Normalize to -PI to PI range using existing helper
+  relativeAngle = normalizeRad(relativeAngle);
 
   // Apply exponential smoothing (same as torso aim)
   const smoothFactor = 1 - Math.exp(-smoothing * dt);
