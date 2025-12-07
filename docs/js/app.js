@@ -3998,19 +3998,15 @@ function createEditorPreviewSandbox() {
       return false;
     }
 
-    // Try to add to the map area's instances (for physics)
+    // Get the global dynamic instances array
     const game = window.GAME || {};
-    const registry = game.mapRegistry;
-    const mapArea = registry?.getActiveArea?.();
-
-    if (!mapArea) {
-      console.warn('[preview-sandbox] No active map area available');
-      return false;
+    if (!game.dynamicInstances) {
+      game.dynamicInstances = [];
     }
 
     // Normalize the instance using the current layer lookup
     const normalized = normalizeInstance(instance,
-      (mapArea.instances?.length || 0) + (state.instances?.length || 0),
+      (game.dynamicInstances.length || 0),
       state.layerLookup);
     if (!normalized) {
       console.warn('[preview-sandbox] Failed to normalize instance');
@@ -4020,29 +4016,11 @@ function createEditorPreviewSandbox() {
     // Initialize physics if it's a dynamic obstruction
     initObstructionPhysics(normalized, window.CONFIG);
 
-    // Add to preview sandbox for rendering
-    if (state.instances && Array.isArray(state.instances)) {
-      state.instances.push(normalized);
-    }
-
-    // Try to add to map area for physics (might be frozen, handle gracefully)
-    if (mapArea.instances && Array.isArray(mapArea.instances)) {
-      try {
-        mapArea.instances.push(normalized);
-        console.log('[preview-sandbox] Added to map area instances for physics');
-      } catch (err) {
-        // If frozen, try to create a new array with the instance
-        try {
-          const newInstances = [...mapArea.instances, normalized];
-          mapArea.instances = newInstances;
-          console.log('[preview-sandbox] Replaced frozen instances array');
-        } catch (err2) {
-          console.warn('[preview-sandbox] Could not add to map instances (frozen):', err2.message);
-        }
-      }
-    }
+    // Add to the global dynamic instances array (used by physics and rendering)
+    game.dynamicInstances.push(normalized);
 
     console.log('[preview-sandbox] Dynamic instance added:', normalized.id, normalized);
+    console.log('[preview-sandbox] Total dynamic instances:', game.dynamicInstances.length);
     return true;
   };
 
@@ -4115,14 +4093,17 @@ function drawEditorPreviewMap(cx, { camX, groundY, worldWidth }) {
   if (!rawLayers.length) return;
 
   const instancesByLayer = new Map();
-  if (Array.isArray(area.instances)) {
-    for (const inst of area.instances) {
-      const layerId = inst?.layerId;
-      if (!layerId) continue;
-      const list = instancesByLayer.get(layerId) || [];
-      list.push(inst);
-      instancesByLayer.set(layerId, list);
-    }
+  // Combine static area instances with dynamic instances
+  const allInstances = [
+    ...(Array.isArray(area.instances) ? area.instances : []),
+    ...(window.GAME?.dynamicInstances || [])
+  ];
+  for (const inst of allInstances) {
+    const layerId = inst?.layerId;
+    if (!layerId) continue;
+    const list = instancesByLayer.get(layerId) || [];
+    list.push(inst);
+    instancesByLayer.set(layerId, list);
   }
 
   const orderedLayers = rawLayers
@@ -4342,9 +4323,14 @@ function loop(t){
   // Update dynamic obstruction physics
   const mapArea = window.GAME?.mapRegistry?.getActiveArea?.();
   if (mapArea?.instances) {
-    updateObstructionPhysics(mapArea.instances, window.CONFIG, dt);
+    // Combine static map instances with dynamic spawned instances
+    const allInstances = [
+      ...mapArea.instances,
+      ...(window.GAME.dynamicInstances || [])
+    ];
+    updateObstructionPhysics(allInstances, window.CONFIG, dt);
     const allFighters = [...(window.GAME?.fighters || []), ...getActiveNpcFighters()];
-    resolveObstructionFighterCollisions(mapArea.instances, allFighters, window.CONFIG);
+    resolveObstructionFighterCollisions(allInstances, allFighters, window.CONFIG);
   }
 
   updatePoses();
