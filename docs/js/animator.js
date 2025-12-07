@@ -2203,6 +2203,17 @@ function computeHeadTargetDeg(F, finalPoseDeg, fcfg){
   // result.offsetDeg is already in degrees, relative to torso
   const headDeg = torsoDeg + result.offsetDeg + configOffsetDeg;
   
+  // Debug logging (enable via C.headTracking.debug = true)
+  if (C.headTracking?.debug) {
+    if (!F.__headTrackDebugFrame || F.__headTrackDebugFrame !== F.anim?.frame) {
+      F.__headTrackDebugFrame = F.anim?.frame;
+      console.log('[HEAD TRACKING] Using computeAimRotation (mirrors torso aim):');
+      console.log('  torso:', torsoDeg.toFixed(2), '° | target:', radToDegNum(desiredWorld).toFixed(2), '°');
+      console.log('  offset:', result.offsetDeg.toFixed(2), '° | final head:', headDeg.toFixed(2), '°');
+      console.log('  smoothing:', smoothing, '| scaleFactor: 1.0 (full tracking)');
+    }
+  }
+  
   return headDeg;
 }
 
