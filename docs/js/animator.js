@@ -2412,6 +2412,12 @@ export function updatePoses(){
         }
       }
     }
+
+    // Re-apply weapon-specific arm stance after movement so weapon arms aren't overwritten
+    const armStancePose = resolveArmStance(C, F);
+    if (armStancePose && Object.keys(armStancePose).length) {
+      targetDeg = mergePoseWithOverrides(targetDeg, armStancePose);
+    }
     
     if (activeLayers.length){
       let lowerBodyTarget = { ...movementLowerBody };
