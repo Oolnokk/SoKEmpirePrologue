@@ -424,30 +424,17 @@ const WEAPON_SPRITE_SKINS = {
     skins: {
       'anuri_dagger-swords': {
         name: "Anuri's Dagger-Swords",
-        layers: [
-          {
-            url: './assets/weapons/dagger-sword-longblade.png',
-            anchorBone: 'weapon_0',
-            anchorMode: 'start',
-            alignDeg: 270,
-            styleOverride: {
-              xformUnits: 'percent',
-              widthFactor: { weapon_0: 0.65 },
-              xform: { weapon_0: { ax: 0.06 } },
-            }
-          },
-          {
-            url: './assets/weapons/dagger-sword-shortblade.png',
-            anchorBone: 'weapon_1',
-            anchorMode: 'start',
-            alignDeg: 270,
-            styleOverride: {
-              xformUnits: 'percent',
-              widthFactor: { weapon_1: 0.6 },
-              xform: { weapon_1: { ax: 0.06 } },
-            }
+        url: './assets/weapons/dagger-swords/anuris_dagger-swords.png',
+        anchorBone: 'weapon_0',
+        anchorMode: 'start',
+        alignDeg: 270,
+        styleOverride: {
+          xformUnits: 'percent',
+          widthFactor: { weapon_0: 1 },
+          xform: {
+            weapon_0: { ax: 0.25, ay: 0, scaleX: 0.25, scaleY: 0.15 }
           }
-        ]
+        }
       }
     }
   },
@@ -1401,55 +1388,42 @@ window.CONFIG = {
         bones: [
           {
             id: 'weapon_0',
-            length: 42,
-            angleOffsetDeg: -18,
-            joint: { percent: 0.38 },
-            haft: { start: 0.05, end: 0.45 },
+            length: 96,
+            angleOffsetDeg: 0,
+            joint: { percent: 0.22 },
+            haft: { start: 0.25, end: 0.35 },
             grips: [
-              { id: 'primary', percent: 0.2, limb: 'right', offset: { ax: 0, ay: 0 } }
+              { id: 'primary', percent: 0.75, limb: 'right', offset: { ax: 0, ay: 0 } },
+              { id: 'secondary', percent: 0.35, limb: 'left', offset: { ax: 0, ay: 0 } }
             ],
             colliders: [
               {
                 id: 'colliderA',
                 kind: 'box',
-                width: 20,
+                width: 26,
                 height: 60,
-                from: 0.08,
-                to: 1.0,
+                from: 0.0,
+                to: 0.25,
                 activatesOn: ['STRIKE'],
-                offset: { ax: 0.45, ay: 0, units: 'percent' }
-              }
-            ]
-          },
-          {
-            id: 'weapon_1',
-            length: 42,
-            angleOffsetDeg: 18,
-            joint: { percent: 0.38 },
-            haft: { start: 0.05, end: 0.45 },
-            anchor: 'leftWrist',
-            limb: 'left',
-            grips: [
-              { id: 'secondary', percent: 0.2, limb: 'left', offset: { ax: 0, ay: 0 } }
-            ],
-            colliders: [
+                offset: { ax: 0.12, ay: 0, units: 'percent' }
+              },
               {
                 id: 'colliderB',
                 kind: 'box',
-                width: 20,
-                height: 60,
-                from: 0.08,
+                width: 26,
+                height: 140,
+                from: 0.35,
                 to: 1.0,
                 activatesOn: ['STRIKE'],
-                offset: { ax: 0.45, ay: 0, units: 'percent' }
+                offset: { ax: 0.675, ay: 0, units: 'percent' }
               }
             ]
           }
         ]
       },
       colliders: {
-        colliderA: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['STRIKE'] },
-        colliderB: { shape: 'rect', width: 20, height: 60, offset: { x: 20, y: 0 }, activatesOn: ['STRIKE'] }
+        colliderA: { shape: 'rect', width: 26, height: 60, offset: { x: 12, y: 0 }, activatesOn: ['STRIKE'] },
+        colliderB: { shape: 'rect', width: 26, height: 140, offset: { x: 65, y: 0 }, activatesOn: ['STRIKE'] }
       },
       sprite: getWeaponSkinSprite('dagger-swords'),
       skins: getWeaponSkinLibrary('dagger-swords')
