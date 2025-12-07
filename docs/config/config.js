@@ -997,7 +997,7 @@ window.CONFIG = {
   },
 
   headTracking: {
-    offsetDeg: -90
+    offsetDeg: -180
   },
 
   poses: {
