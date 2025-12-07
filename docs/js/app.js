@@ -3582,6 +3582,11 @@ function createEditorPreviewSandbox() {
     state.drumSkins = normalizedDrumSkins;
     const offset = Number(area?.ground?.offset);
     state.groundOffset = Number.isFinite(offset) ? offset : 140;
+
+    // Capture proximity scale from area
+    const proximityScale = area?.proximityScale ?? area?.meta?.proximityScale ?? 1;
+    state.proximityScale = Number.isFinite(proximityScale) && proximityScale > 0 ? proximityScale : 1;
+
     state.ready = state.layers.length > 0;
 
     // Initialize physics for dynamic obstructions
@@ -3823,7 +3828,9 @@ function createEditorPreviewSandbox() {
       const prefab = inst.prefab;
       const pos = inst.position || { x: 0, y: 0 };
       const parallax = Number.isFinite(layer.parallaxSpeed) ? layer.parallaxSpeed : 1;
-      const layerScale = Number.isFinite(layer.scale) ? layer.scale : 1;
+      const baseLayerScale = Number.isFinite(layer.scale) ? layer.scale : 1;
+      const proximityScale = Number.isFinite(state.proximityScale) && state.proximityScale > 0 ? state.proximityScale : 1;
+      const layerScale = baseLayerScale * proximityScale;
       const instRotRad = degToRad(inst.rotationDeg || 0);
       const baseOffset = (pos.x - cameraLeftX * parallax) * effectiveZoom;
       const rootScreenX = baseOffset;
