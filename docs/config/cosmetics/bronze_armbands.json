@@ -15,7 +15,7 @@
           "spriteStyle": {
             "base": {
               "xform": {
-                "armLower": { "ax": 0.3, "ay": 0, "scaleX": 2, "scaleY": 2 }
+                "armLower": { "ax": 0.2, "ay": 0, "scaleX": 1.75, "scaleY": 2.25 }
               }
             }
           }
@@ -34,7 +34,7 @@
           "spriteStyle": {
             "base": {
               "xform": {
-                "armLower": { "ax": 0.3, "ay": 0, "scaleX": 2, "scaleY": 2 }
+                "armLower": { "ax": 0.2, "ay": 0, "scaleX": 1.75, "scaleY": 2.25 }
               }
             }
           }
