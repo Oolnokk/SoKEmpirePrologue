@@ -997,7 +997,7 @@ window.CONFIG = {
   },
 
   headTracking: {
-    offsetDeg: 0
+    offsetDeg: 90
   },
 
   poses: {
@@ -1079,7 +1079,7 @@ window.CONFIG = {
           elbow: { relMin:-170, relMax:0 },
           hip: { absMin:90, absMax:210 },
           knee: { relMin:0, relMax:170 },
-          head: { relMin:75, relMax:100 }
+          head: { relMin:-90, relMax:90 }
         },
         headTracking: {
           offsetDeg: 0
@@ -1144,7 +1144,7 @@ window.CONFIG = {
         strideScale: 0.1,
       },
       ik: { calvesOnly: true },
-      limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 }, head:{ relMin:75, relMax:100 } },
+      limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 }, head:{ relMin:-90, relMax:90 } },
       headTracking: {
         offsetDeg: 0
       },
@@ -1203,7 +1203,7 @@ window.CONFIG = {
         strideScale: 0.1,
       },
       ik: { calvesOnly: true },
-      limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 }, head:{ relMin:75, relMax:100 } },
+      limits: { torso:{ absMin:-45, absMax:90 }, shoulder:{ relMin:-360, relMax:-90 }, elbow:{ relMin:-170, relMax:0 }, hip:{ absMin:90, absMax:210 }, knee:{ relMin:0, relMax:170 }, head:{ relMin:-90, relMax:90 } },
       headTracking: {
         offsetDeg: 0
       },
