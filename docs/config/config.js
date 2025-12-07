@@ -997,7 +997,7 @@ window.CONFIG = {
   },
 
   headTracking: {
-    enabled: true,           // Enable/disable head tracking
+    enabled: false,           // Enable/disable head tracking
     mode: 'relative',        // 'relative' or 'global' - relative rotates from body, global uses world angle
     offsetDeg: 90,           // Static offset applied to head angle (in degrees)
     maxRelativeDeg: 90,      // Maximum relative rotation from body facing (relative mode only)
