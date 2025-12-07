@@ -882,6 +882,7 @@ const cv = $$('#game');
 const stage = $$('#gameStage');
 const cx = cv?.getContext('2d');
 window.GAME ||= {};
+window.GAME.dynamicInstances = []; // Array for dynamically spawned instances
 initCamera({ canvas: cv });
 initManualZoom({ canvas: cv, stage });
 
