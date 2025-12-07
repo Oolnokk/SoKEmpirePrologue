@@ -3997,25 +3997,52 @@ function createEditorPreviewSandbox() {
       console.warn('[preview-sandbox] Invalid instance provided');
       return false;
     }
-    if (!state.instances || !Array.isArray(state.instances)) {
-      console.warn('[preview-sandbox] Instances array not initialized');
+
+    // Try to add to the map area's instances (for physics)
+    const game = window.GAME || {};
+    const registry = game.mapRegistry;
+    const mapArea = registry?.getActiveArea?.();
+
+    if (!mapArea) {
+      console.warn('[preview-sandbox] No active map area available');
       return false;
     }
 
     // Normalize the instance using the current layer lookup
-    const normalized = normalizeInstance(instance, state.instances.length, state.layerLookup);
+    const normalized = normalizeInstance(instance,
+      (mapArea.instances?.length || 0) + (state.instances?.length || 0),
+      state.layerLookup);
     if (!normalized) {
       console.warn('[preview-sandbox] Failed to normalize instance');
       return false;
     }
 
-    // Add to instances array
-    state.instances.push(normalized);
-
     // Initialize physics if it's a dynamic obstruction
     initObstructionPhysics(normalized, window.CONFIG);
 
-    console.log('[preview-sandbox] Dynamic instance added:', normalized.id);
+    // Add to preview sandbox for rendering
+    if (state.instances && Array.isArray(state.instances)) {
+      state.instances.push(normalized);
+    }
+
+    // Try to add to map area for physics (might be frozen, handle gracefully)
+    if (mapArea.instances && Array.isArray(mapArea.instances)) {
+      try {
+        mapArea.instances.push(normalized);
+        console.log('[preview-sandbox] Added to map area instances for physics');
+      } catch (err) {
+        // If frozen, try to create a new array with the instance
+        try {
+          const newInstances = [...mapArea.instances, normalized];
+          mapArea.instances = newInstances;
+          console.log('[preview-sandbox] Replaced frozen instances array');
+        } catch (err2) {
+          console.warn('[preview-sandbox] Could not add to map instances (frozen):', err2.message);
+        }
+      }
+    }
+
+    console.log('[preview-sandbox] Dynamic instance added:', normalized.id, normalized);
     return true;
   };
 

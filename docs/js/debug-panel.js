@@ -470,16 +470,10 @@ async function dropBottleOnPlayer() {
       return;
     }
 
-    // Get the active map area from the registry (not the preview sandbox)
-    const registry = game.mapRegistry;
-    if (!registry || typeof registry.getActiveArea !== 'function') {
-      console.warn('[debug-panel] Map registry not available');
-      return;
-    }
-
-    const mapArea = registry.getActiveArea();
-    if (!mapArea || !Array.isArray(mapArea.instances)) {
-      console.warn('[debug-panel] Active map area or instances not available');
+    // Get the editor preview sandbox
+    const sandbox = game.editorPreview;
+    if (!sandbox || typeof sandbox.addDynamicInstance !== 'function') {
+      console.warn('[debug-panel] Editor preview sandbox not available');
       return;
     }
 
@@ -504,7 +498,7 @@ async function dropBottleOnPlayer() {
     const spawnX = player.pos.x;
     const spawnY = player.pos.y - 300; // 300 pixels above player
 
-    // Create the instance in the format expected by the map system
+    // Create the instance
     const bottleInstance = {
       id: instanceId,
       instanceId: instanceId,
@@ -521,21 +515,17 @@ async function dropBottleOnPlayer() {
           prefabId: 'bottle_tall',
           source: 'debug-spawn',
         }
-      },
-      // Initialize physics state directly
-      physics: {
-        vel: { x: 0, y: 0 },
-        mass: normalizedPrefab.obstruction?.physics?.mass || 0.8,
-        drag: normalizedPrefab.obstruction?.physics?.drag || 0.15,
-        restitution: 0.3,
-        onGround: false,
       }
     };
 
-    // Add to the map area instances (this is what physics updates)
-    mapArea.instances.push(bottleInstance);
+    // Add using the sandbox method (handles both rendering and physics)
+    const success = sandbox.addDynamicInstance(bottleInstance);
 
-    console.log('[debug-panel] Bottle spawned successfully at', { x: spawnX, y: spawnY }, bottleInstance);
+    if (success) {
+      console.log('[debug-panel] Bottle spawned successfully at', { x: spawnX, y: spawnY });
+    } else {
+      console.warn('[debug-panel] Failed to add bottle instance');
+    }
   } catch (error) {
     console.error('[debug-panel] Failed to drop bottle:', error);
   }
