@@ -2624,10 +2624,18 @@ export function updatePoses(){
       }
     }
 
-    // Re-apply weapon-specific arm stance AFTER layers so weapon arms aren't overwritten by animations
-    const armStancePose = resolveArmStance(C, F);
-    if (armStancePose && Object.keys(armStancePose).length) {
-      targetDeg = mergePoseWithOverrides(targetDeg, armStancePose);
+    // Re-apply weapon-specific arm stance AFTER layers, but ONLY if no active layers touch arms
+    // This ensures arm stance applies during idle/movement but not during attacks
+    const hasLayersTouchingArms = activeLayers.some(layer => {
+      const mask = Array.isArray(layer.mask) && layer.mask.length ? layer.mask : ANG_KEYS;
+      return mask.includes('ALL') || ARM_KEYS.some(key => mask.includes(key));
+    });
+
+    if (!hasLayersTouchingArms) {
+      const armStancePose = resolveArmStance(C, F);
+      if (armStancePose && Object.keys(armStancePose).length) {
+        targetDeg = mergePoseWithOverrides(targetDeg, armStancePose);
+      }
     }
 
     const topLayer = activeLayers.length ? activeLayers[activeLayers.length - 1] : null;
