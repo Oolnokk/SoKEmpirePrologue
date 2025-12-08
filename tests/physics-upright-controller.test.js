@@ -68,14 +68,32 @@ test('upright controller only applies when not in ragdoll', async () => {
   assert.ok(uprightMatch, 'Should have explicit check for !fighter.ragdoll');
 });
 
+// Helper to extract upright controller section from physics.js source
+function extractUprightControllerSection(source) {
+  const startIdx = source.indexOf("joint === 'torso' && !fighter.ragdoll");
+  if (startIdx === -1) return '';
+  
+  // Find the closing brace of the upright controller if block
+  let depth = 0;
+  let blockStart = -1;
+  for (let i = startIdx; i < source.length; i++) {
+    if (source[i] === '{') {
+      if (blockStart === -1) blockStart = i;
+      depth++;
+    } else if (source[i] === '}') {
+      depth--;
+      if (depth === 0 && blockStart !== -1) {
+        return source.substring(startIdx, i + 1);
+      }
+    }
+  }
+  // Fallback: return a reasonable chunk if block end not found
+  return source.substring(startIdx, Math.min(startIdx + 1500, source.length));
+}
+
 test('upright controller uses maxFooting from config', async () => {
   const source = await readFile('docs/js/physics.js', 'utf8');
-  
-  // Verify maxFooting is read from config in upright controller context
-  const uprightSection = source.substring(
-    source.indexOf("joint === 'torso' && !fighter.ragdoll"),
-    source.indexOf("joint === 'torso' && !fighter.ragdoll") + 800
-  );
+  const uprightSection = extractUprightControllerSection(source);
   
   assert.match(uprightSection, /config\?\.knockback\?\.maxFooting/, 
     'Should read maxFooting from config.knockback.maxFooting');
@@ -85,12 +103,7 @@ test('upright controller uses maxFooting from config', async () => {
 
 test('upright controller computes scale with boost formula', async () => {
   const source = await readFile('docs/js/physics.js', 'utf8');
-  
-  // Verify the scale computation formula
-  const uprightSection = source.substring(
-    source.indexOf("joint === 'torso' && !fighter.ragdoll"),
-    source.indexOf("joint === 'torso' && !fighter.ragdoll") + 1000
-  );
+  const uprightSection = extractUprightControllerSection(source);
   
   assert.match(uprightSection, /scale = 1 \+ boost \* \(1 - footingNormalized\)/, 
     'Scale should use formula: 1 + boost * (1 - footingNormalized)');
@@ -98,11 +111,7 @@ test('upright controller computes scale with boost formula', async () => {
 
 test('upright controller clamps correction to maxDelta', async () => {
   const source = await readFile('docs/js/physics.js', 'utf8');
-  
-  const uprightSection = source.substring(
-    source.indexOf("joint === 'torso' && !fighter.ragdoll"),
-    source.indexOf("joint === 'torso' && !fighter.ragdoll") + 1000
-  );
+  const uprightSection = extractUprightControllerSection(source);
   
   assert.match(uprightSection, /clampedCorrection = clamp\(correction, -maxDelta, maxDelta\)/, 
     'Should clamp correction to [-maxDelta, maxDelta]');
