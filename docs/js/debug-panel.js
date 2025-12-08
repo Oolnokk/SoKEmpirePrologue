@@ -538,17 +538,14 @@ async function dropBottleOnPlayer() {
 
     console.log('[debug-panel] Spawning bottle at:', { x: spawnX, y: spawnY });
 
-    // Create the instance
+    // Create the prop instance (props don't have layers - they render in gameplay space)
     const bottleInstance = {
       id: instanceId,
-      instanceId: instanceId,
       prefabId: 'bottle_tall',
       prefab: normalizedPrefab,
-      layerId: 'gameplay',
       position: { x: spawnX, y: spawnY },
-      scale: { x: 2, y: 2 }, // Make it bigger for visibility
-      rotation: 0,
-      visible: true,
+      scale: { x: 1, y: 1 }, // Normal size - no longer affected by proximityScale
+      rotationDeg: 0,
       tags: normalizedPrefab.tags || [],
       meta: {
         identity: {

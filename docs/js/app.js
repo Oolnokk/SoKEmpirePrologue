@@ -3813,12 +3813,8 @@ function createEditorPreviewSandbox() {
     ctx.restore();
 
     const renderList = [];
-    // Combine state instances with dynamically spawned instances
-    const allInstances = [
-      ...state.instances,
-      ...(window.GAME?.dynamicInstances || [])
-    ];
-    for (const inst of allInstances) {
+    // Only render static map instances (not dynamic props like bottles)
+    for (const inst of state.instances) {
       const lookup = state.layerLookup.get(inst.layerId);
       if (!lookup) continue;
       renderList.push({ inst, layer: lookup.layer, order: lookup.order });
@@ -3994,35 +3990,6 @@ function createEditorPreviewSandbox() {
       ctx.restore();
     }
 
-    // Draw bottle origin dots if checkbox is checked
-    const showBottleOrigins = document.getElementById('showBottleOriginsCheckbox')?.checked;
-    if (showBottleOrigins) {
-      const dynamicInstances = window.GAME?.dynamicInstances || [];
-      for (const inst of dynamicInstances) {
-        if (!inst || !inst.position) continue;
-        const lookup = state.layerLookup.get(inst.layerId);
-        if (!lookup) continue;
-
-        const layer = lookup.layer;
-        const pos = inst.position;
-        const parallax = Number.isFinite(layer.parallaxSpeed) ? layer.parallaxSpeed : 1;
-        const proximityScale = Number.isFinite(state.proximityScale) && state.proximityScale > 0 ? state.proximityScale : 1;
-
-        const screenX = (pos.x - cameraLeftX * parallax) * effectiveZoom * proximityScale;
-        const screenY = groundLine + (layer.offsetY || 0) * effectiveZoom * proximityScale + pos.y * effectiveZoom * proximityScale;
-
-        ctx.save();
-        ctx.fillStyle = 'rgba(255, 0, 255, 0.9)';
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
-
     ctx.save();
     ctx.strokeStyle = 'rgba(250,204,21,0.35)';
     ctx.lineWidth = 1;
@@ -4049,33 +4016,37 @@ function createEditorPreviewSandbox() {
 
   const addDynamicInstance = (instance) => {
     if (!instance || typeof instance !== 'object') {
-      console.warn('[preview-sandbox] Invalid instance provided');
+      console.warn('[props] Invalid prop instance provided');
       return false;
     }
 
-    // Get the global dynamic instances array
+    // Get the global props array
     const game = window.GAME || {};
     if (!game.dynamicInstances) {
       game.dynamicInstances = [];
     }
 
-    // Normalize the instance using the current layer lookup
-    const normalized = normalizeInstance(instance,
-      (game.dynamicInstances.length || 0),
-      state.layerLookup);
-    if (!normalized) {
-      console.warn('[preview-sandbox] Failed to normalize instance');
-      return false;
-    }
+    // Props don't need layer normalization - they render in gameplay space
+    // Just ensure basic structure is present
+    const prop = {
+      id: instance.id || `prop_${game.dynamicInstances.length}`,
+      prefabId: instance.prefabId,
+      prefab: instance.prefab,
+      position: instance.position || { x: 0, y: 0 },
+      scale: instance.scale || { x: 1, y: 1 },
+      rotationDeg: instance.rotationDeg || 0,
+      tags: instance.tags || [],
+      meta: instance.meta || {},
+    };
 
-    // Initialize physics if it's a dynamic obstruction
-    initObstructionPhysics(normalized, window.CONFIG);
+    // Initialize physics for the prop
+    initObstructionPhysics(prop, window.CONFIG);
 
-    // Add to the global dynamic instances array (used by physics and rendering)
-    game.dynamicInstances.push(normalized);
+    // Add to the global props array
+    game.dynamicInstances.push(prop);
 
-    console.log('[preview-sandbox] Dynamic instance added:', normalized.id, normalized);
-    console.log('[preview-sandbox] Total dynamic instances:', game.dynamicInstances.length);
+    console.log('[props] Prop added:', prop.id, prop);
+    console.log('[props] Total props:', game.dynamicInstances.length);
     return true;
   };
 
@@ -4148,12 +4119,9 @@ function drawEditorPreviewMap(cx, { camX, groundY, worldWidth }) {
   if (!rawLayers.length) return;
 
   const instancesByLayer = new Map();
-  // Combine static area instances with dynamic instances
-  const allInstances = [
-    ...(Array.isArray(area.instances) ? area.instances : []),
-    ...(window.GAME?.dynamicInstances || [])
-  ];
-  for (const inst of allInstances) {
+  // Only render static map instances (props render separately)
+  const staticInstances = Array.isArray(area.instances) ? area.instances : [];
+  for (const inst of staticInstances) {
     const layerId = inst?.layerId;
     if (!layerId) continue;
     const list = instancesByLayer.get(layerId) || [];
@@ -4366,6 +4334,87 @@ function drawStage(){
   cx.fillText('KHY Modular Build', 14, 22);
 }
 
+function renderBottles(ctx) {
+  if (!ctx || !window.GAME?.dynamicInstances) return;
+
+  const camera = window.GAME?.CAMERA || {};
+  const camX = camera.x || 0;
+  const zoom = Number.isFinite(camera.zoom) ? camera.zoom : 1;
+  const groundY = computeGroundYFromConfig(window.CONFIG || {}, cv?.height);
+
+  // Use the same camera transform as fighters
+  ctx.save();
+  const pivotY = Number.isFinite(groundY) ? groundY : cv.height;
+  ctx.translate(0, pivotY);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-camX, -pivotY);
+
+  // Render each bottle
+  for (const inst of window.GAME.dynamicInstances) {
+    if (!inst || !inst.position) continue;
+
+    const prefab = inst.prefab;
+    if (!prefab || !prefab.parts || !prefab.parts.length) continue;
+
+    const pos = inst.position;
+    const scaleX = inst.scale?.x || 1;
+    const scaleY = inst.scale?.y || scaleX;
+    const rotRad = (inst.rotationDeg || 0) * Math.PI / 180;
+
+    // Render as simple image (bottles are single-image prefabs)
+    if (prefab.isImage) {
+      const part = prefab.parts[0];
+      const template = part?.propTemplate || {};
+      const img = loadPrefabImage(template.url);
+      const ready = img && img.complete && !img.__broken && img.naturalWidth > 0 && img.naturalHeight > 0;
+      const width = Number.isFinite(template.w) ? template.w : (img?.naturalWidth || 100);
+      const height = Number.isFinite(template.h) ? template.h : (img?.naturalHeight || 100);
+
+      // Compute anchor point
+      const ax = width * ((template.anchorXPct ?? 50) / 100);
+      const ay = height * ((template.anchorYPct ?? 100) / 100);
+
+      ctx.save();
+      ctx.translate(pos.x, groundY + pos.y);
+      ctx.scale(scaleX, scaleY);
+      if (rotRad) ctx.rotate(rotRad);
+
+      if (ready) {
+        ctx.drawImage(img, -ax, -ay, width, height);
+      } else {
+        // Placeholder
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.3)';
+        ctx.fillRect(-ax, -ay, width, height);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-ax, -ay, width, height);
+      }
+      ctx.restore();
+    }
+  }
+
+  // Draw origin dots if checkbox is checked
+  const showBottleOrigins = document.getElementById('showBottleOriginsCheckbox')?.checked;
+  if (showBottleOrigins) {
+    for (const inst of window.GAME.dynamicInstances) {
+      if (!inst || !inst.position) continue;
+      const pos = inst.position;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 0, 255, 0.9)';
+      ctx.beginPath();
+      ctx.arc(pos.x, groundY + pos.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  ctx.restore();
+}
+
 let last = performance.now();
 let fpsLast = performance.now();
 let frames = 0;
@@ -4375,22 +4424,18 @@ function loop(t){
   updateNpcSystems(dt);
   updateBountySystem(dt);
 
-  // Update dynamic obstruction physics
-  const mapArea = window.GAME?.mapRegistry?.getActiveArea?.();
-  if (mapArea?.instances) {
-    // Combine static map instances with dynamic spawned instances
-    const allInstances = [
-      ...mapArea.instances,
-      ...(window.GAME.dynamicInstances || [])
-    ];
-    updateObstructionPhysics(allInstances, window.CONFIG, dt);
+  // Update prop physics (bottles, etc.) - separate from map obstructions
+  const props = window.GAME?.dynamicInstances || [];
+  if (props.length > 0) {
+    updateObstructionPhysics(props, window.CONFIG, dt);
     const allFighters = [...(window.GAME?.fighters || []), ...getActiveNpcFighters()];
-    resolveObstructionFighterCollisions(allInstances, allFighters, window.CONFIG);
+    resolveObstructionFighterCollisions(props, allFighters, window.CONFIG);
   }
 
   updatePoses();
   updateCamera(cv);
   drawStage();
+  renderBottles(cx);
   renderAll(cx);
   renderSprites(cx);
   runHitDetect();
