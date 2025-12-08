@@ -4,7 +4,7 @@
 import { $$, fmt } from './dom-utils.js?v=1';
 import { radToDeg, radToDegNum, degToRad } from './math-utils.js?v=1';
 import { pushPoseOverride as runtimePushPoseOverride, pushPoseLayerOverride as runtimePushPoseLayerOverride } from './animator.js?v=5';
-import { normalizePrefabDefinition } from './prefab-catalog.js';
+import { normalizePrefabDefinition } from './prefab-catalog.js?v=1';
 
 // Initialize the debug panel
 export function initDebugPanel() {
@@ -98,7 +98,12 @@ export function initDebugPanel() {
   console.log('[debug-panel] Debug panel initialized');
 }
 
-// Update bottle census display
+/**
+ * Update the bottle census display showing status of all spawned bottles.
+ * Displays position, velocity, and ground state for debugging physics.
+ * Depends on window.GAME.dynamicInstances for bottle data.
+ * Shows bottles with prefabId 'bottle_tall' or id starting with 'bottle_debug_'.
+ */
 function updateBottleCensus() {
   const censusContent = $$('#bottleCensusContent');
   if (!censusContent) return;
@@ -569,6 +574,17 @@ async function dropBottleOnPlayer() {
       const logInterval = setInterval(() => {
         const bottle = game.dynamicInstances?.find(inst => inst.id === instanceId);
         if (bottle) {
+          // Detect if bottle has landed (y >= groundY and vel.y near zero)
+          if (
+            bottle.position?.y !== undefined &&
+            bottle.physics?.vel?.y !== undefined &&
+            !bottle.physics?.onGround
+          ) {
+            const groundY = window.CONFIG?.groundY || 0;
+            if (bottle.position.y >= groundY && Math.abs(bottle.physics.vel.y) < 50) {
+              bottle.physics.onGround = true;
+            }
+          }
           console.log(`[bottle-track] Position: y=${bottle.position?.y?.toFixed(1)}, vel.y=${bottle.physics?.vel?.y?.toFixed(1)}, onGround=${bottle.physics?.onGround}`);
           logCount++;
           if (logCount > 50 || bottle.physics?.onGround) {

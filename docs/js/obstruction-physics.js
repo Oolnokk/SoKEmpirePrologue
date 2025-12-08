@@ -5,6 +5,9 @@ import { computeGroundY } from './ground-utils.js?v=1';
  * Handles dynamic physics simulation for obstruction prefabs with physics.enabled=true
  */
 
+// Module-level variable for logging state
+let groundLogged = false;
+
 /**
  * Initialize physics state for a dynamic obstruction instance
  */
@@ -47,10 +50,10 @@ export function updateObstructionPhysics(instances, config, dt, options = {}) {
   const friction = 8; // Ground friction
 
   // Debug ground Y once
-  if (!updateObstructionPhysics._loggedGround) {
+  if (!groundLogged) {
     console.log('[obstruction-physics] Ground Y for bottles:', groundY);
     console.log('[obstruction-physics] Config:', { groundY: config?.groundY, groundOffset: config?.ground?.offset, canvasH: config?.canvas?.h });
-    updateObstructionPhysics._loggedGround = true;
+    groundLogged = true;
   }
 
   for (const instance of instances) {
