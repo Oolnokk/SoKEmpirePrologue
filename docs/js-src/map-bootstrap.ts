@@ -464,9 +464,10 @@ function applyEditorPreviewSettings(
   const canvasConfig = CONFIG.canvas || {};
   const canvasHeight = Number.isFinite(canvasConfig.h) ? canvasConfig.h : 460;
   const canvasWidth = Number.isFinite(canvasConfig.w) ? canvasConfig.w : 720;
+  const scene = resolveSceneDescriptor(area);
   const groundOffset = Number(area?.ground?.offset);
-  const normalizedColliders = Array.isArray(area?.colliders)
-    ? area.colliders.map((col, index) => normalizeAreaCollider(col, index))
+  const normalizedColliders = Array.isArray(scene?.colliders)
+    ? scene.colliders.map((col: any, index: number) => normalizeAreaCollider(col, index))
     : [];
   preview.platformColliders = normalizedColliders;
 
@@ -548,7 +549,8 @@ function syncConfigPlayableBounds(area: MapArea | null): void {
     maxX: Number.isFinite(mapConfig.playAreaMaxX) ? mapConfig.playAreaMaxX : null,
   });
 
-  const playable = area?.playableBounds;
+  const scene = resolveSceneDescriptor(area);
+  const playable = scene?.playableBounds;
   const left = Number.isFinite(playable?.left) ? (playable as { left: number }).left : null;
   const right = Number.isFinite(playable?.right) ? (playable as { right: number }).right : null;
 
@@ -568,21 +570,23 @@ function syncConfigPlayableBounds(area: MapArea | null): void {
 
 function syncConfigPlatforming(area: MapArea): void {
   const CONFIG = (window.CONFIG = window.CONFIG || {});
-  const normalized = Array.isArray(area?.colliders)
-    ? area.colliders.map((col, index) => normalizeAreaCollider(col, index))
+  const scene = resolveSceneDescriptor(area);
+  const normalized = Array.isArray(scene?.colliders)
+    ? scene.colliders.map((col: any, index: number) => normalizeAreaCollider(col, index))
     : [];
   CONFIG.platformingColliders = normalized;
 }
 
-function adaptAreaToParallax(area: MapArea) {
+function adaptSceneToParallax(area: MapArea) {
+  const scene = resolveSceneDescriptor(area);
   return {
     id: area.id,
     name: area.name,
     source: area.source,
     camera: area.camera,
     ground: area.ground,
-    background: area.background || area.meta?.background || null,
-    layers: area.layers.map((layer, index) => ({
+    background: (area as any).background || (area as any).meta?.background || null,
+    layers: (scene.geometry?.layers || []).map((layer: any, index: number) => ({
       id: layer.id,
       name: layer.name,
       type: layer.type,
@@ -595,7 +599,7 @@ function adaptAreaToParallax(area: MapArea) {
       source: layer.source || null,
       meta: layer.meta || {},
     })),
-    instances: area.instances,
+    instances: scene.geometry?.instances || [],
     meta: area.meta,
   };
 }
@@ -610,7 +614,7 @@ function applyArea(area: MapArea): void {
   registerAreaGeometry(area);
 
   const parallax = ensureParallaxContainer();
-  parallax.areas[area.id] = adaptAreaToParallax(area);
+  parallax.areas[area.id] = adaptSceneToParallax(area);
   parallax.currentAreaId = area.id;
 
   window.CONFIG = window.CONFIG || {};

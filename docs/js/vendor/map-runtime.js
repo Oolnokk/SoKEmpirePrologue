@@ -343,14 +343,17 @@ function validateAreaDescriptor(descriptor) {
   if (descriptor.layers && descriptor.layers.length === 0) {
     warnings.push('Area declares no parallax layers');
   }
-  if (!Array.isArray(descriptor.instances) && !Array.isArray(descriptor.props)) {
+  if (!Array.isArray(instances)) {
     warnings.push('Area declares neither "instances" nor "props" – runtime may need one');
+  }
+  if (colliders && !Array.isArray(colliders)) {
+    warnings.push('"colliders" should be an array when provided');
   }
 
   let seenInstanceIds = null;
-  if (Array.isArray(descriptor.instances)) {
+  if (Array.isArray(instances)) {
     seenInstanceIds = new Set();
-    descriptor.instances.forEach((inst, index) => {
+    instances.forEach((inst, index) => {
       if (!inst || typeof inst !== 'object') {
         warnings.push(`Instance at index ${index} is not an object`);
         return;
@@ -368,8 +371,9 @@ function validateAreaDescriptor(descriptor) {
     });
   }
 
-  if (descriptor.instancesById && typeof descriptor.instancesById === 'object') {
-    const indexKeys = new Set(Object.keys(descriptor.instancesById));
+  const instancesById = geometry.instancesById ?? descriptor.instancesById;
+  if (instancesById && typeof instancesById === 'object') {
+    const indexKeys = new Set(Object.keys(instancesById));
     if (seenInstanceIds) {
       for (const id of seenInstanceIds) {
         if (!indexKeys.has(id)) {
@@ -387,12 +391,12 @@ function validateAreaDescriptor(descriptor) {
   }
 
   let seenSpawnerIds = null;
-  if (descriptor.spawners) {
-    if (!Array.isArray(descriptor.spawners)) {
-      warnings.push('"spawners" should be an array when provided');
+  if (spawners) {
+    if (!Array.isArray(spawners)) {
+      warnings.push('"spawnPoints"/"spawners" should be an array when provided');
     } else {
       seenSpawnerIds = new Set();
-      descriptor.spawners.forEach((spawner, index) => {
+      spawners.forEach((spawner, index) => {
         if (!spawner || typeof spawner !== 'object') {
           warnings.push(`Spawner at index ${index} is not an object`);
           return;
@@ -415,8 +419,8 @@ function validateAreaDescriptor(descriptor) {
     }
   }
 
-  if (descriptor.spawnersById && typeof descriptor.spawnersById === 'object') {
-    const indexKeys = new Set(Object.keys(descriptor.spawnersById));
+  if (spawnersById && typeof spawnersById === 'object') {
+    const indexKeys = new Set(Object.keys(spawnersById));
     if (seenSpawnerIds) {
       for (const id of seenSpawnerIds) {
         if (!indexKeys.has(id)) {
@@ -428,7 +432,7 @@ function validateAreaDescriptor(descriptor) {
           warnings.push(`spawnersById entry "${key}" has no matching spawner`);
         }
       }
-    } else if (!descriptor.spawners) {
+    } else if (!spawners) {
       warnings.push('spawnersById provided without spawners array');
     }
   }
@@ -1381,6 +1385,23 @@ function normalizeAreaDescriptor(area, options = {}) {
   poisFromColliders.forEach(addPoi);
   const poiIndex = buildPoiIndex(mergedPois);
 
+  const geometry = {
+    layers: convertedLayers,
+    instances: convertedInstances,
+    instancesById: buildInstanceIndex(convertedInstances),
+    drumSkins: convertedDrumSkins,
+  };
+
+  const scene = {
+    geometry,
+    colliders: alignedColliders,
+    spawnPoints: spawners,
+    spawnPointsById: buildSpawnerIndex(spawners),
+    playableBounds,
+    pathTargets,
+    pois: mergedPois,
+  };
+
   return {
     id: areaId,
     name: areaName,
@@ -1393,12 +1414,13 @@ function normalizeAreaDescriptor(area, options = {}) {
       offset: toNumber(area.ground?.offset ?? area.groundOffset, 0),
     },
     proximityScale,
+    scene,
     layers: convertedLayers,
     instances: convertedInstances,
-    instancesById: buildInstanceIndex(convertedInstances),
+    instancesById: geometry.instancesById,
     pathTargets,
     spawners,
-    spawnersById: buildSpawnerIndex(spawners),
+    spawnersById: scene.spawnPointsById,
     colliders: alignedColliders,
     pois: mergedPois,
     poisById: poiIndex.byId,
@@ -1714,6 +1736,23 @@ export function convertLayoutToArea(layout, options = {}) {
   }).filter(Boolean);
   const poiIndex = buildPoiIndex(normalizedPois);
 
+  const geometry = {
+    layers: convertedLayers,
+    instances: convertedInstances,
+    instancesById: buildInstanceIndex(convertedInstances),
+    drumSkins: convertedDrumSkins,
+  };
+
+  const scene = {
+    geometry,
+    colliders: alignedColliders,
+    spawnPoints: spawners,
+    spawnPointsById: buildSpawnerIndex(spawners),
+    playableBounds,
+    pathTargets,
+    pois: normalizedPois,
+  };
+
   return {
     id: resolvedAreaId,
     name: resolvedAreaName,
@@ -1726,12 +1765,13 @@ export function convertLayoutToArea(layout, options = {}) {
       offset: toNumber(layout.groundOffset, 0),
     },
     proximityScale,
+    scene,
     layers: convertedLayers,
     instances: convertedInstances,
-    instancesById: buildInstanceIndex(convertedInstances),
+    instancesById: geometry.instancesById,
     pathTargets,
     spawners,
-    spawnersById: buildSpawnerIndex(spawners),
+    spawnersById: scene.spawnPointsById,
     colliders: alignedColliders,
     pois: normalizedPois,
     poisById: poiIndex.byId,
