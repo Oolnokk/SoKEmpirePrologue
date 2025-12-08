@@ -179,12 +179,9 @@ const NON_COMBAT_POSE = {
   lengthScales: { weapon: 0 }
 };
 
-// === DEPRECATED: Legacy weapon stance system ===
-// These are kept for backwards compatibility with buildWeaponStances()
-// New code should use ARM_STANCES instead
-const WEAPON_STANCE_TYPES = ['unarmed', 'dagger-swords', 'sarrarru', 'light-greatblade', 'greatclub', 'hatchets'];
-
-const WEAPON_STANCE_DEFAULTS = {
+// === ARM STANCES: Weapon-specific arm positions ===
+// These override arm positions from movement profiles when a weapon is drawn
+const ARM_STANCES = {
   unarmed: {
     lShoulder: -120,
     lElbow: -120,
@@ -195,70 +192,56 @@ const WEAPON_STANCE_DEFAULTS = {
   },
 
   'dagger-swords': {
-    weapon: -30,
-    weaponGripPercents: { primary: 0.25, secondary: 0.25 },
     lShoulder: 250,
     lElbow: 0,
     rShoulder: 290,
     rElbow: 0,
+    weapon: -30,
+    weaponGripPercents: { primary: 0.25, secondary: 0.25 },
   },
 
   sarrarru: {
-    weapon: -20,
-    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-    lShoulder: -70,
-    lElbow: -120,
-    rShoulder: -15,
+    // TEMP TEST: Arms straight up
+    lShoulder: -180,
+    lElbow: 0,
+    rShoulder: -180,
     rElbow: 0,
+    weapon: -90,
+    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
 
   'light-greatblade': {
-    weapon: -20,
+    // TEMP TEST: Left up, right down
+    lShoulder: -180,
+    lElbow: -90,
+    rShoulder: 0,
+    rElbow: 90,
+    weapon: 45,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-    lShoulder: -75,
-    lElbow: -110,
-    rShoulder: -75,
-    rElbow: -110,
   },
 
   greatclub: {
-    weapon: -20,
+    // TEMP TEST: Arms crossed in front
+    lShoulder: -45,
+    lElbow: -135,
+    rShoulder: -45,
+    rElbow: -135,
+    weapon: 180,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-    lShoulder: -90,
-    lElbow: -100,
-    rShoulder: -90,
-    rElbow: -100,
   },
 
   hatchets: {
-    weapon: -20,
+    // TEMP TEST: Arms bent back
+    lShoulder: -90,
+    lElbow: 90,
+    rShoulder: -90,
+    rElbow: 90,
+    weapon: -45,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-    lShoulder: -85,
-    lElbow: -105,
-    rShoulder: -85,
-    rElbow: -105,
   },
 };
 
-// DEPRECATED: Use ARM_STANCES instead. Kept for backwards compatibility only.
-const buildWeaponUpperOverrides = (stowedPose = NON_COMBAT_POSE) => {
-  const map = {};
-  const ensureEntry = (key, overrides = {}) => {
-    map[key] = {
-      unstowed: deepClone(overrides),
-      stowed: deepClone(stowedPose),
-    };
-  };
-
-  ensureEntry('unarmed', WEAPON_STANCE_DEFAULTS.unarmed);
-  for (const [key, overrides] of Object.entries(WEAPON_STANCE_DEFAULTS)) {
-    if (key === 'unarmed') continue;
-    ensureEntry(key, overrides);
-  }
-
-  return map;
-};
-
+const WEAPON_STANCE_TYPES = ['unarmed', 'dagger-swords', 'sarrarru', 'light-greatblade', 'greatclub', 'hatchets'];
 
 const buildWeaponStances = (basePose) => {
   const map = {};
@@ -266,7 +249,8 @@ const buildWeaponStances = (basePose) => {
     const suffix = toPascalCase(type);
     if (!suffix) continue;
     map[`Stance${suffix}`] = deepClone(basePose);
-    const overrides = WEAPON_STANCE_DEFAULTS[type];
+    // Use ARM_STANCES as the single source of truth for weapon-specific arm positions
+    const overrides = ARM_STANCES[type];
     if (overrides) {
       Object.assign(map[`Stance${suffix}`], deepClone(overrides));
     }
@@ -353,68 +337,6 @@ const MOVEMENT_SPEED_MULTIPLIERS = {
   sneak: 0.3,
 };
 
-// === ARM STANCES: Weapon-specific arm positions ===
-// These override arm positions from movement profiles when a weapon is drawn
-const ARM_STANCES = {
-  unarmed: {
-    lShoulder: -120,
-    lElbow: -120,
-    rShoulder: -65,
-    rElbow: -140,
-    weapon: -20,
-    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-  },
-
-  'dagger-swords': {
-    lShoulder: 250,
-    lElbow: 0,
-    rShoulder: 290,
-    rElbow: 0,
-    weapon: -30,
-    weaponGripPercents: { primary: 0.25, secondary: 0.25 },
-  },
-
-  sarrarru: {
-    // TEMP TEST: Arms straight up
-    lShoulder: -180,
-    lElbow: 0,
-    rShoulder: -180,
-    rElbow: 0,
-    weapon: -90,
-    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-  },
-
-  'light-greatblade': {
-    // TEMP TEST: Left up, right down
-    lShoulder: -180,
-    lElbow: -90,
-    rShoulder: 0,
-    rElbow: 90,
-    weapon: 45,
-    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-  },
-
-  greatclub: {
-    // TEMP TEST: Arms crossed in front
-    lShoulder: -45,
-    lElbow: -135,
-    rShoulder: -45,
-    rElbow: -135,
-    weapon: 180,
-    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-  },
-
-  hatchets: {
-    // TEMP TEST: Arms bent back
-    lShoulder: -90,
-    lElbow: 90,
-    rShoulder: -90,
-    rElbow: 90,
-    weapon: -45,
-    weaponGripPercents: { primary: 0.28, secondary: 0.72 },
-  },
-};
-
 // Weapon sprite skins centralize art references so multiple looks can ship per weapon type.
 // Default skins are surfaced in the weapon definitions below; callers can swap skins later.
 const WEAPON_SPRITE_SKINS = {
@@ -429,6 +351,7 @@ const WEAPON_SPRITE_SKINS = {
             anchorBone: 'weapon_0',
             anchorMode: 'start',
             alignDeg: 270,
+            layerTag: 'WEAPON_0',
             styleOverride: {
               xformUnits: 'percent',
               widthFactor: { weapon_0: 1 },
@@ -442,6 +365,7 @@ const WEAPON_SPRITE_SKINS = {
             anchorBone: 'weapon_1',
             anchorMode: 'start',
             alignDeg: 270,
+            layerTag: 'WEAPON_1',
             styleOverride: {
               xformUnits: 'percent',
               widthFactor: { weapon_1: 1 },
@@ -464,6 +388,7 @@ const WEAPON_SPRITE_SKINS = {
         anchorBone: 'weapon_0',
         anchorMode: 'start',
         alignDeg: 270,
+        layerTag: 'WEAPON_0',
         styleOverride: {
           xformUnits: 'percent',
           widthFactor: { weapon_0: 1 },
@@ -861,7 +786,11 @@ window.CONFIG = {
   basePose: deepClone(BASE_POSES.Stance),
   legsProfiles: MOVEMENT_PROFILES,
   armStances: ARM_STANCES,
-  weaponUpperOverrides: buildWeaponUpperOverrides(),
+  render: {
+    // Draw order: earlier = behind, later = in front
+    // WEAPON_0 (right weapon) behind right arm, WEAPON_1 (left weapon) over left arm
+    order: ['HITBOX', 'ARM_L_UPPER', 'ARM_L_LOWER', 'WEAPON_1', 'LEG_L_LOWER', 'LEG_L_UPPER', 'TORSO', 'HEAD', 'LEG_R_LOWER', 'LEG_R_UPPER', 'WEAPON_0', 'ARM_R_UPPER', 'ARM_R_LOWER']
+  },
   mapBuilder: {
     sourceId: 'map-builder-layered-v15f',
     fallbackBoxMinWidth: 18,
