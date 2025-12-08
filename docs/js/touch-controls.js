@@ -54,12 +54,23 @@ export function initTouchControls(){
     }
   }
 
+  function resolveFacingAngle(){
+    const player = G.FIGHTERS?.player;
+    if (player){
+      if (Number.isFinite(player.facingRad)) return player.facingRad;
+      const sign = Number.isFinite(player.facingSign) ? player.facingSign : 1;
+      return sign < 0 ? Math.PI : 0;
+    }
+    return 0;
+  }
+
   function applyAim(normalized, angle){
     if (normalized > 0.3){
       G.AIMING.manualAim = true;
       G.AIMING.targetAngle = angle;
     } else if (!JOY.active || normalized < 0.3){
       G.AIMING.manualAim = false;
+      G.AIMING.targetAngle = resolveFacingAngle();
     }
   }
 
@@ -163,6 +174,7 @@ export function initTouchControls(){
 
     clearHorizontalInput();
     G.AIMING.manualAim = false;
+    G.AIMING.targetAngle = resolveFacingAngle();
 
     updateJoystickVisual();
     processJoystickInput();
