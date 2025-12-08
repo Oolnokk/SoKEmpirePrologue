@@ -37,6 +37,12 @@ export function deriveCosmeticOffset(referenceAsset, cosmeticAsset){
   const ax = (refImg.naturalWidth - cosImg.naturalWidth) / 2;
   const ay = (refImg.naturalHeight - cosImg.naturalHeight) / 2;
   const offset = { ax, ay };
+  
+  // Compute conservative scale from reference to cosmetic (backward-compatible)
+  const scaleValue = refImg.naturalHeight / cosImg.naturalHeight;
+  if (Number.isFinite(scaleValue) && scaleValue > 0){
+    offset.scale = scaleValue;
+  }
 
   if (cacheKey && cache){
     cache.set(cacheKey, offset);
@@ -1088,6 +1094,7 @@ function buildExposedPartLayers(options){
   );
   const layers = [];
   if (baseAsset){
+    // Exposed layers default to alignWith so deriveCosmeticOffset can auto-compute offset and scale
     layers.push({
       slot: cosmetic?.slot,
       partKey,
@@ -1106,7 +1113,8 @@ function buildExposedPartLayers(options){
       extra: layerExtras,
       attachBone,
       drawSlot,
-      dynamicLayerByBoneRotation
+      dynamicLayerByBoneRotation,
+      alignWith: partKey
     });
   }
   if (entry.overlayUrl){
@@ -1119,6 +1127,7 @@ function buildExposedPartLayers(options){
       []
     );
     if (overlayAsset){
+      // Exposed layers default to alignWith so deriveCosmeticOffset can auto-compute offset and scale
       layers.push({
         slot: cosmetic?.slot,
         partKey,
@@ -1137,7 +1146,8 @@ function buildExposedPartLayers(options){
         extra: layerExtras,
         attachBone,
         drawSlot,
-        dynamicLayerByBoneRotation
+        dynamicLayerByBoneRotation,
+        alignWith: partKey
       });
     }
   }

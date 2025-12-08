@@ -1387,6 +1387,12 @@ export function renderSprites(ctx){
               if (xformEntry.ay == null && derivedOffset.ay != null){
                 xformEntry.ay = derivedOffset.ay;
               }
+              // Apply conservative auto-scale if derived and no explicit scale exists
+              // Cosmetic authors can still override with explicit scaleX/scaleY values
+              if (derivedOffset.scale != null && xformEntry.scaleX == null && xformEntry.scaleY == null){
+                xformEntry.scaleX = derivedOffset.scale;
+                xformEntry.scaleY = derivedOffset.scale;
+              }
               const targetKey = normalizedStyleKey || styleKey || 'base';
               if (Object.keys(xformEntry).length){
                 xformTable[targetKey] = xformEntry;
