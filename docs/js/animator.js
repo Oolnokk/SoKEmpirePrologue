@@ -639,6 +639,10 @@ function resolveWeaponTypeKeyForStance(F, C) {
     : null;
   if (!weaponKey) return null;
 
+  if (C?.armStances && Object.prototype.hasOwnProperty.call(C.armStances, weaponKey)) {
+    return weaponKey;
+  }
+
   const weaponDef = C?.weapons?.[weaponKey];
   if (weaponDef?.type) return weaponDef.type;
   const knockbackType = C?.knockback?.weaponTypes?.[weaponKey]?.type;
