@@ -1831,6 +1831,8 @@ window.CONFIG = {
         cosmetics: {
           slots: {
             hat: { id: 'citywatch_helmet', hsv: { ...MATERIALS.white_bronze } },
+            arms: { id: 'bronze_armbands', hsv: { ...MATERIALS.white_bronze } },
+            feet: { id: 'bronze_footbands', hsv: { ...MATERIALS.white_bronze } },
             legs: {
               id: 'basic_pants',
               hsv: { ...MATERIALS.city_heraldry_A }
