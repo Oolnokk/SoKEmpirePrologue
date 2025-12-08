@@ -310,11 +310,7 @@ export function initFighters(cv, cx, options = {}){
   if (stanceRad.head == null) stanceRad.head = stanceRad.torso ?? 0;
 
   const activeArea = resolveActiveArea();
-  const hasNpcSpawners = Array.isArray(activeArea?.spawners)
-    && activeArea.spawners.some((spawner) => {
-      const kind = spawner?.type || spawner?.kind;
-      return !kind || kind === 'npc';
-    });
+  const hasNpcSpawners = resolveSpawnService()?.hasSpawners(activeArea?.id, { type: 'npc' }) ?? false;
 
   const opts = options && typeof options === 'object' ? options : {};
   const spawnNpcEnabled = opts.spawnNpc !== false;
@@ -373,6 +369,11 @@ export function initFighters(cv, cx, options = {}){
     const activeId = registry.getActiveAreaId?.() ?? G.currentAreaId;
     if (!activeId || typeof registry.getArea !== 'function') return null;
     return registry.getArea(activeId);
+  }
+
+  function resolveSpawnService() {
+    const game = window.GAME || {};
+    return game.spawnService || null;
   }
 
   function deriveSpawnRole(inst) {
@@ -450,9 +451,14 @@ export function initFighters(cv, cx, options = {}){
   }
 
   function normalizeNpcSpawners(area) {
-    if (!area || !Array.isArray(area.spawners)) return [];
+    if (!area || !area.id) return [];
+    const spawnService = resolveSpawnService();
+    if (!spawnService || typeof spawnService.getSpawners !== 'function') return [];
+
     const entries = [];
-    for (const spawner of area.spawners) {
+    const spawners = spawnService.getSpawners(area.id, { type: 'npc' });
+
+    for (const spawner of spawners) {
       if (!spawner || typeof spawner !== 'object') continue;
       const spawnerId = typeof spawner.spawnerId === 'string' && spawner.spawnerId.trim()
         ? spawner.spawnerId.trim()
@@ -460,19 +466,18 @@ export function initFighters(cv, cx, options = {}){
           ? spawner.id.trim()
           : null;
       if (!spawnerId) continue;
-      const kind = spawner.type || spawner.kind || 'npc';
-      if (kind !== 'npc') continue;
+
       const position = spawner.position && typeof spawner.position === 'object'
         ? spawner.position
         : { x: spawner.x ?? 0, y: spawner.y ?? 0 };
       const spawnRadius = Math.max(0, Math.min(Number(spawner.spawnRadius ?? spawner.radius ?? 0) || 0, 5000));
 
-      // Handle group-based spawning
-      const groupId = spawner.groupId;
-      if (groupId && C.npcGroups && C.npcGroups[groupId]) {
-        const group = C.npcGroups[groupId];
-        const members = Array.isArray(group.members) ? group.members : [];
-        members.forEach((member, memberIndex) => {
+      const groupId = spawner.groupId || spawner.groupMeta?.id || null;
+      const groupMeta = spawner.groupMeta
+        || (groupId && C.npcGroups && C.npcGroups[groupId] ? clone(C.npcGroups[groupId]) : null);
+
+      if (groupMeta && Array.isArray(groupMeta.members)) {
+        groupMeta.members.forEach((member, memberIndex) => {
           const memberCount = Math.max(1, Math.min(Number(member.count) || 1, 50));
           const memberTemplateId = member.templateId || member.characterId || null;
           if (memberTemplateId) {
@@ -485,14 +490,13 @@ export function initFighters(cv, cx, options = {}){
               templateId: memberTemplateId,
               characterId: memberTemplateId,
               groupId: groupId,
-              groupMeta: group,
+              groupMeta,
               activeIds: new Set(),
               hasInitialized: false,
             });
           }
         });
       } else {
-        // Handle individual template spawning
         const countRaw = Math.round(Number(spawner.count ?? spawner.maxCount ?? 1) || 1);
         const count = countRaw > 0 ? Math.min(countRaw, 50) : 1;
         entries.push({
@@ -503,6 +507,8 @@ export function initFighters(cv, cx, options = {}){
           respawn: spawner.respawn !== false && !!spawner.respawn,
           templateId: spawner.templateId || spawner.characterId || null,
           characterId: spawner.characterId || null,
+          groupId: groupId,
+          groupMeta,
           activeIds: new Set(),
           hasInitialized: false,
         });

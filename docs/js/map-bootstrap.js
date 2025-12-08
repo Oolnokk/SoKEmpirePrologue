@@ -1,4 +1,5 @@
 import { MapRegistry, convertLayoutToArea } from './vendor/map-runtime.js';
+import { SpawnService, translateAreaToSpawnPayload } from './spawn-service.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 import { pickDefaultLayoutEntry, resolveDefaultLayoutId, resolvePreviewStoragePrefix } from './map-config-defaults.js';
 
@@ -475,6 +476,17 @@ function syncConfigPlatforming(area) {
   CONFIG.platformingColliders = normalized;
 }
 
+function ensureSpawnService() {
+  const existing = (window.__SPAWN_SERVICE__ instanceof SpawnService)
+    ? window.__SPAWN_SERVICE__
+    : null;
+  const spawnService = existing || new SpawnService({ logger: console });
+  window.__SPAWN_SERVICE__ = spawnService;
+  window.GAME = window.GAME || {};
+  window.GAME.spawnService = spawnService;
+  return spawnService;
+}
+
 function adaptAreaToParallax(area) {
   return {
     id: area.id,
@@ -509,6 +521,11 @@ function applyArea(area) {
   registry.setActiveArea(area.id);
   window.__MAP_REGISTRY__ = registry;
 
+  const spawnService = ensureSpawnService();
+  const spawnPayload = translateAreaToSpawnPayload(area);
+  spawnService.registerArea(area.id, spawnPayload.spawnPoints, { groupLibrary: spawnPayload.groupLibrary });
+  spawnService.setActiveArea(area.id);
+
   const parallax = ensureParallaxContainer();
   parallax.areas[area.id] = adaptAreaToParallax(area);
   parallax.currentAreaId = area.id;
@@ -523,6 +540,7 @@ function applyArea(area) {
   window.GAME = window.GAME || {};
   window.GAME.mapRegistry = registry;
   window.GAME.currentAreaId = area.id;
+  window.GAME.spawnService = spawnService;
   window.GAME.__onMapRegistryReadyForCamera?.(registry);
 
   bindAreaNameOverlay(registry);
