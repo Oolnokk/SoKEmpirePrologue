@@ -187,58 +187,9 @@ function resolveInstanceId(rawInstance, context) {
   return { instanceId, source };
 }
 
-function computeColliderBounds(colliders) {
-  if (!Array.isArray(colliders) || colliders.length === 0) {
-    return null;
-  }
-  let minLeft = Infinity;
-  let maxRight = -Infinity;
-  for (const col of colliders) {
-    if (!col || typeof col !== 'object') continue;
-    const left = Number(col.left);
-    const width = Number(col.width);
-    if (!Number.isFinite(left) || !Number.isFinite(width)) continue;
-    const right = left + width;
-    minLeft = Math.min(minLeft, Math.min(left, right));
-    maxRight = Math.max(maxRight, Math.max(left, right));
-  }
-  if (!Number.isFinite(minLeft) || !Number.isFinite(maxRight) || maxRight <= minLeft) {
-    return null;
-  }
-  return { left: minLeft, right: maxRight };
-}
-
-function normalizePlayableBounds(rawBounds, colliders = [], warnings = null) {
-  const addWarning = (message) => {
-    if (Array.isArray(warnings)) warnings.push(message);
-  };
-
-  const safe = rawBounds && typeof rawBounds === 'object' ? rawBounds : null;
-  const left = toNumber(safe?.left ?? safe?.min, NaN);
-  const right = toNumber(safe?.right ?? safe?.max, NaN);
-
-  if (Number.isFinite(left) && Number.isFinite(right) && right > left) {
-    return { left, right, source: PLAYABLE_BOUNDS_SOURCE.LAYOUT };
-  }
-
-  if (safe) {
-    addWarning('playableBounds provided but invalid – expected finite left/right');
-  }
-
-  const colliderBounds = computeColliderBounds(colliders);
-  if (colliderBounds) {
-    return { ...colliderBounds, source: PLAYABLE_BOUNDS_SOURCE.COLLIDERS };
-  }
-
-  if (Array.isArray(colliders) && colliders.length) {
-    addWarning('playableBounds unavailable – no usable colliders to derive bounds');
-  }
-  return null;
-}
-
-function validateExplicitGeometry(playableBounds, colliders, warnings = [], { allowDerivedPlayableBounds = false } = {}) {
-  if (!playableBounds) {
-    warnings.push('Missing playableBounds – provide explicit bounds for geometry service consumption');
+  function validateExplicitGeometry(playableBounds, colliders, warnings = [], { allowDerivedPlayableBounds = false } = {}) {
+    if (!playableBounds) {
+      warnings.push('Missing playableBounds – provide explicit bounds for geometry service consumption');
   } else if (playableBounds.source === PLAYABLE_BOUNDS_SOURCE.COLLIDERS && !allowDerivedPlayableBounds) {
     warnings.push('Playable bounds were derived from colliders; supply explicit playableBounds to avoid legacy fallbacks');
   }
@@ -887,13 +838,13 @@ export function convertLayoutToArea(layout, options = {}) {
   });
 
   const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
-  const geometry = adaptLegacyLayoutGeometry({
+  const legacyGeometry = adaptLegacyLayoutGeometry({
     playableBounds: layout.playableBounds,
     colliders: convertedColliders,
   }, warnings);
-  validateExplicitGeometry(geometry.playableBounds, geometry.colliders, warnings, { allowDerivedPlayableBounds: true });
-  const playableBounds = geometry.playableBounds;
-  const alignedColliders = geometry.colliders;
+  validateExplicitGeometry(legacyGeometry.playableBounds, legacyGeometry.colliders, warnings, { allowDerivedPlayableBounds: true });
+  const playableBounds = legacyGeometry.playableBounds;
+  const alignedColliders = legacyGeometry.colliders;
   const explicitTilers = rawTilers.map((tiler, index) => normalizeTiler(tiler, index));
   const colliderTilers = collectColliderTilers(alignedColliders, warnings, explicitTilers.length);
   const convertedTilers = [...explicitTilers, ...colliderTilers];

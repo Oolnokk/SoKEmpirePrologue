@@ -195,32 +195,50 @@ function validateAreaDescriptor(descriptor) {
   const warnings = [];
   const errors = [];
 
+  const scene = typeof descriptor.scene === 'object' && descriptor.scene ? descriptor.scene : {};
+  const geometry = typeof scene.geometry === 'object' && scene.geometry ? scene.geometry : {};
+
+  const playableBounds = descriptor.playableBounds ?? scene.playableBounds ?? geometry.playableBounds ?? {};
+  const layers = Array.isArray(geometry.layers) ? geometry.layers : descriptor.layers;
+  const instances = Array.isArray(geometry.instances)
+    ? geometry.instances
+    : Array.isArray(descriptor.instances)
+      ? descriptor.instances
+      : Array.isArray(descriptor.props)
+        ? descriptor.props
+        : null;
+  const tilers = geometry.tilers ?? descriptor.tilers ?? null;
+  const drumSkins = geometry.drumSkins ?? descriptor.drumSkins ?? null;
+  const colliders = Array.isArray(scene.colliders) ? scene.colliders : descriptor.colliders;
+  const spawners = scene.spawnPoints ?? descriptor.spawners ?? descriptor.spawnPoints ?? null;
+  const spawnersById = scene.spawnPointsById ?? descriptor.spawnersById ?? descriptor.spawnPointsById ?? null;
+
   if (descriptor.scene3d !== undefined) {
     validateScene3d(descriptor.scene3d, warnings, errors);
   }
 
-  const playableLeft = Number.isFinite(descriptor.playableBounds?.left)
-    ? descriptor.playableBounds.left
-    : Number.isFinite(descriptor.playableBounds?.min)
-      ? descriptor.playableBounds.min
+  const playableLeft = Number.isFinite(playableBounds?.left)
+    ? playableBounds.left
+    : Number.isFinite(playableBounds?.min)
+      ? playableBounds.min
       : null;
-  const playableRight = Number.isFinite(descriptor.playableBounds?.right)
-    ? descriptor.playableBounds.right
-    : Number.isFinite(descriptor.playableBounds?.max)
-      ? descriptor.playableBounds.max
+  const playableRight = Number.isFinite(playableBounds?.right)
+    ? playableBounds.right
+    : Number.isFinite(playableBounds?.max)
+      ? playableBounds.max
       : null;
   if (!(playableLeft != null && playableRight != null && playableRight > playableLeft)) {
     errors.push('"playableBounds" must define finite left/right for geometry service');
   }
 
-  if (!Array.isArray(descriptor.colliders) || descriptor.colliders.length === 0) {
+  if (!Array.isArray(colliders) || colliders.length === 0) {
     errors.push('"colliders" must be a non-empty array for geometry service');
   }
 
-  if (!Array.isArray(descriptor.layers)) {
+  if (!Array.isArray(layers)) {
     errors.push('"layers" must be an array');
   }
-  if (descriptor.layers && descriptor.layers.length === 0) {
+  if (layers && layers.length === 0) {
     warnings.push('Area declares no parallax layers');
   }
 
