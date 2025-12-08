@@ -98,35 +98,52 @@ export function initDebugPanel() {
   console.log('[debug-panel] Debug panel initialized');
 }
 
+// Throttle state for bottle census updates
+let lastBottleCensusUpdate = 0;
+let lastBottleCensusContent = '';
+
 /**
  * Update the bottle census display showing status of all spawned bottles.
  * Displays position, velocity, and ground state for debugging physics.
  * Depends on window.GAME.dynamicInstances for bottle data.
  * Shows bottles with prefabId 'bottle_tall' or id starting with 'bottle_debug_'.
+ * Throttled to update every 100ms to avoid DOM thrashing.
  */
 function updateBottleCensus() {
   const censusContent = $$('#bottleCensusContent');
   if (!censusContent) return;
+
+  // Throttle updates to every 100ms
+  const now = Date.now();
+  if (now - lastBottleCensusUpdate < 100) {
+    return;
+  }
+  lastBottleCensusUpdate = now;
 
   const game = window.GAME || {};
   const bottles = (game.dynamicInstances || []).filter(inst =>
     inst?.prefabId === 'bottle_tall' || inst?.id?.startsWith('bottle_debug_')
   );
 
+  let newContent;
   if (bottles.length === 0) {
-    censusContent.textContent = 'No bottles spawned';
-    return;
+    newContent = 'No bottles spawned';
+  } else {
+    const lines = bottles.map(bottle => {
+      const x = bottle.position?.x?.toFixed(0) || '?';
+      const y = bottle.position?.y?.toFixed(0) || '?';
+      const vy = bottle.physics?.vel?.y?.toFixed(1) || '?';
+      const onGround = bottle.physics?.onGround ? '🟢' : '🔴';
+      return `${onGround} Bottle @ (${x}, ${y}) vy=${vy}`;
+    });
+    newContent = lines.join('<br>');
   }
 
-  const lines = bottles.map(bottle => {
-    const x = bottle.position?.x?.toFixed(0) || '?';
-    const y = bottle.position?.y?.toFixed(0) || '?';
-    const vy = bottle.physics?.vel?.y?.toFixed(1) || '?';
-    const onGround = bottle.physics?.onGround ? '🟢' : '🔴';
-    return `${onGround} Bottle @ (${x}, ${y}) vy=${vy}`;
-  });
-
-  censusContent.innerHTML = lines.join('<br>');
+  // Only update DOM if content has changed
+  if (newContent !== lastBottleCensusContent) {
+    censusContent.innerHTML = newContent;
+    lastBottleCensusContent = newContent;
+  }
 }
 
 // Update the debug panel with current frame data

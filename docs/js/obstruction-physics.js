@@ -41,6 +41,7 @@ export function initObstructionPhysics(instance, config) {
 
 /**
  * Update physics for all dynamic obstruction instances
+ * Also supports simple dynamic props without obstruction.physics config
  */
 export function updateObstructionPhysics(instances, config, dt, options = {}) {
   if (!Array.isArray(instances) || !Number.isFinite(dt) || dt <= 0) return;
@@ -58,12 +59,16 @@ export function updateObstructionPhysics(instances, config, dt, options = {}) {
 
   for (const instance of instances) {
     const physics = instance.prefab?.obstruction?.physics;
-    if (!physics || !physics.enabled || !physics.dynamic) continue;
+    // Skip if obstruction prefab but physics not enabled/dynamic
+    if (instance.prefab?.obstruction && (!physics || !physics.enabled || !physics.dynamic)) {
+      continue;
+    }
     if (!instance.physics) continue;
 
     const state = instance.physics;
-    const mass = state.mass;
-    const drag = state.drag;
+    // Use prefab-defined values if available, otherwise use defaults
+    const drag = state.drag ?? 0.2;
+    const restitution = state.restitution ?? 0.3;
 
     // Apply gravity
     state.vel.y += gravity * dt;
@@ -83,7 +88,7 @@ export function updateObstructionPhysics(instances, config, dt, options = {}) {
 
       // Bounce
       if (state.vel.y > 0) {
-        state.vel.y = -state.vel.y * state.restitution;
+        state.vel.y = -state.vel.y * restitution;
 
         // Stop bouncing if velocity is too low
         if (Math.abs(state.vel.y) < 10) {

@@ -875,7 +875,7 @@ import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
-import { initAllObstructionPhysics } from './obstruction-physics.js?v=1';
+import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 
 // Setup canvas
 const cv = $$('#game');
@@ -4059,6 +4059,8 @@ function createEditorPreviewSandbox() {
     prop.physics = {
       vel: { x: 0, y: 0 },
       onGround: false,
+      drag: 0.2, // Default drag coefficient
+      restitution: 0.3, // Default bounce factor
     };
 
     // Add to the global props array
@@ -4452,53 +4454,10 @@ function loop(t){
   updateNpcSystems(dt);
   updateBountySystem(dt);
 
-  // Update prop physics (bottles, etc.) - use same physics as fighters
+  // Update prop physics (bottles, etc.) using shared physics system
   const props = window.GAME?.dynamicInstances || [];
   if (props.length > 0) {
-    const M = window.CONFIG?.movement || {};
-    const gravity = Number.isFinite(M.gravity) ? M.gravity : 2400;
-    const groundY = computeGroundYFromConfig(window.CONFIG, cv?.height);
-    const restitution = 0.3; // Bounce factor
-    const drag = 0.98; // Air resistance
-
-    for (const prop of props) {
-      if (!prop || !prop.position) continue;
-
-      // Ensure physics state exists
-      if (!prop.physics) {
-        prop.physics = { vel: { x: 0, y: 0 }, onGround: false };
-      }
-      if (!prop.physics.vel) {
-        prop.physics.vel = { x: 0, y: 0 };
-      }
-      if (!Number.isFinite(prop.physics.vel.x)) prop.physics.vel.x = 0;
-      if (!Number.isFinite(prop.physics.vel.y)) prop.physics.vel.y = 0;
-
-      // Apply gravity (same as fighters)
-      prop.physics.vel.y += gravity * dt;
-
-      // Apply drag only to horizontal velocity
-      prop.physics.vel.x *= drag;
-
-      // Update position
-      prop.position.x += prop.physics.vel.x * dt;
-      prop.position.y += prop.physics.vel.y * dt;
-
-      // Ground collision with bounce
-      if (prop.position.y >= groundY) {
-        prop.position.y = groundY;
-        prop.physics.onGround = true;
-        if (prop.physics.vel.y > 0) {
-          prop.physics.vel.y = -prop.physics.vel.y * restitution;
-          // Stop bouncing if velocity is too small
-          if (Math.abs(prop.physics.vel.y) < 50) {
-            prop.physics.vel.y = 0;
-          }
-        }
-      } else {
-        prop.physics.onGround = false;
-      }
-    }
+    updateObstructionPhysics(props, window.CONFIG, dt);
   }
 
   updatePoses();
