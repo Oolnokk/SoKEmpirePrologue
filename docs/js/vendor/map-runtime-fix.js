@@ -4,19 +4,6 @@ import * as _orig from './map-runtime.js';
 // Re-export MapRegistry and any other named exports used by map-bootstrap
 export const MapRegistry = _orig.MapRegistry;
 
-export function validateAreaDescriptor(descriptor) {
-  try {
-    if (typeof _orig.validateAreaDescriptor === 'function') return _orig.validateAreaDescriptor(descriptor);
-  } catch (err) {
-    console.warn('[map-runtime-fix] original validateAreaDescriptor threw, using fallback', err);
-  }
-  if (!descriptor || typeof descriptor !== 'object') return false;
-  descriptor.geometry = descriptor.geometry || { layers: [], instances: [] };
-  descriptor.playableBounds = descriptor.playableBounds || { left: -600, right: 600 };
-  descriptor.proximityScale = Number.isFinite(Number(descriptor.proximityScale)) ? Number(descriptor.proximityScale) : 1;
-  return true;
-}
-
 export function convertLayoutToArea(layout = {}, options = {}) {
   try {
     if (typeof _orig.convertLayoutToArea === 'function') {
@@ -65,8 +52,11 @@ export function convertLayoutToArea(layout = {}, options = {}) {
   }
 
   // Ensure a ground collider exists
+  // Check for colliders marked as ground via meta.ground or label matching "ground"
   const hasGround = baseColliders.some(c => (c.label && /ground/i.test(c.label)) || (c.meta && c.meta.ground));
   if (!hasGround) {
+    // Create a wide ground collider extending well beyond playable bounds
+    // The multiplier of 4 ensures ground extends far enough for parallax layers
     const worldWidth = Math.max(Math.abs(left), Math.abs(right)) * 4;
     baseColliders.push({
       id: 'ground-1',

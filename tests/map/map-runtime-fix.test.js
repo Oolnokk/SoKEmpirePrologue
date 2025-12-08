@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 // Import the shim
-import { MapRegistry, convertLayoutToArea, validateAreaDescriptor } from '../../docs/js/vendor/map-runtime-fix.js';
+import { MapRegistry, convertLayoutToArea } from '../../docs/js/vendor/map-runtime-fix.js';
 
 test('map-runtime-fix re-exports MapRegistry', () => {
   assert.ok(MapRegistry, 'MapRegistry should be exported');
@@ -113,20 +113,4 @@ test('convertLayoutToArea provides default playableBounds', () => {
 
   assert.equal(area.playableBounds.left, -600, 'default left should be -600');
   assert.equal(area.playableBounds.right, 600, 'default right should be 600');
-});
-
-test('validateAreaDescriptor handles missing descriptor', () => {
-  assert.equal(validateAreaDescriptor(null), false);
-  assert.equal(validateAreaDescriptor(undefined), false);
-  assert.equal(validateAreaDescriptor('not an object'), false);
-});
-
-test('validateAreaDescriptor adds defaults', () => {
-  const descriptor = { id: 'test' };
-  const result = validateAreaDescriptor(descriptor);
-  
-  assert.ok(result, 'should return true for valid descriptor');
-  assert.ok(descriptor.geometry, 'should add geometry');
-  assert.ok(descriptor.playableBounds, 'should add playableBounds');
-  assert.ok(Number.isFinite(descriptor.proximityScale), 'should add proximityScale');
 });
