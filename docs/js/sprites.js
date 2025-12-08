@@ -1594,6 +1594,18 @@ export function renderSprites(ctx){
         if (!bone || !asset) return;
         if (!stowActive && bone.len === 0) return;
         const layerTag = String(layerSpec.layerTag || 'WEAPON').toUpperCase();
+
+        // Debug logging
+        if (typeof window !== 'undefined' && window.__DEBUG_WEAPON_RENDER) {
+          console.log('[weapon render]', {
+            weaponKey: activeWeaponKey,
+            anchorKey,
+            layerTag,
+            hasLayerTagInSpec: !!layerSpec.layerTag,
+            layerSpec
+          });
+        }
+
         const styleKey = layerSpec.styleKey || anchorKey;
         const weaponStyle = layerSpec.style ? mergeSpriteStyles(style, layerSpec.style) : style;
         const options = {};

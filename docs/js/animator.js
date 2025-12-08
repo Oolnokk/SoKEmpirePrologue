@@ -668,6 +668,18 @@ function resolveArmStance(cfg, fighter) {
   // If weapon is drawn, use weapon-specific arm stance
   const weaponKey = resolveWeaponTypeKeyForStance(fighter, cfg) || 'unarmed';
   const weaponStance = armStances[weaponKey] || armStances.unarmed || {};
+
+  // Debug logging
+  if (typeof window !== 'undefined' && window.__DEBUG_ARM_STANCE) {
+    console.log('[resolveArmStance]', {
+      weaponKey,
+      stowed,
+      hasStance: !!weaponStance,
+      stance: weaponStance,
+      availableStances: Object.keys(armStances)
+    });
+  }
+
   return clonePose(weaponStance);
 }
 
