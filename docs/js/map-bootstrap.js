@@ -1,4 +1,4 @@
-import { MapRegistry, convertLayoutToArea } from './vendor/map-runtime.js';
+import { GeometryService, MapRegistry, adaptLegacyLayoutGeometry, adaptSceneGeometry, convertLayoutToArea } from './vendor/map-runtime.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 import { pickDefaultLayoutEntry, resolveDefaultLayoutId, resolvePreviewStoragePrefix } from './map-config-defaults.js';
 
@@ -93,64 +93,63 @@ function bindPlayableBoundsSync(registry) {
   syncConfigPlayableBounds(registry?.getActiveArea?.() ?? null);
 }
 
-function resolveSceneDescriptor(area) {
-  const scene = area && typeof area.scene === 'object' && area.scene ? area.scene : {};
-  const geometry = typeof scene.geometry === 'object' && scene.geometry ? scene.geometry : {};
+function resolveGameContainer() {
+  if (typeof window !== 'undefined') {
+    const GAME = window.GAME || {};
+    window.GAME = GAME;
+    return GAME;
+  }
+  globalThis.GAME = globalThis.GAME || {};
+  return globalThis.GAME;
+}
 
-  const layers = Array.isArray(geometry.layers)
-    ? geometry.layers
-    : Array.isArray(area?.layers)
-      ? area.layers
-      : [];
-  const instances = Array.isArray(geometry.instances)
-    ? geometry.instances
-    : Array.isArray(area?.instances)
-      ? area.instances
-      : Array.isArray(area?.props)
-        ? area.props
-        : [];
-  const tilers = Array.isArray(geometry.tilers)
-    ? geometry.tilers
-    : Array.isArray(area?.tilers)
-      ? area.tilers
-      : [];
-  const drumSkins = Array.isArray(geometry.drumSkins)
-    ? geometry.drumSkins
-    : Array.isArray(area?.drumSkins)
-      ? area.drumSkins
-      : [];
-  const colliders = Array.isArray(scene.colliders)
-    ? scene.colliders
-    : Array.isArray(area?.colliders)
-      ? area.colliders
-      : [];
-  const spawnPoints = Array.isArray(scene.spawnPoints)
-    ? scene.spawnPoints
-    : Array.isArray(area?.spawners)
-      ? area.spawners
-      : [];
+function ensureGeometryService() {
+  const GAME = resolveGameContainer();
+  const existing = GAME.geometryService;
+  if (existing instanceof GeometryService) {
+    return existing;
+  }
+  const service = new GeometryService({ logger: console });
+  GAME.geometryService = service;
+  return service;
+}
 
-  const playableBounds = scene.playableBounds ?? area?.playableBounds ?? null;
-  const pathTargets = scene.pathTargets ?? area?.pathTargets ?? [];
-  const pois = scene.pois ?? area?.pois ?? [];
+function registerAreaGeometry(area) {
+  if (!area) return;
+  const service = ensureGeometryService();
+  try {
+    const geometry = area.geometry
+      ? adaptSceneGeometry(area.geometry)
+      : adaptLegacyLayoutGeometry({
+        playableBounds: area.playableBounds,
+        colliders: area.colliders,
+      }, area.warnings);
+    service.registerGeometry(area.id, geometry, { allowDerivedPlayableBounds: true });
+    service.setActiveArea(area.id);
+  } catch (error) {
+    console.warn('[map-bootstrap] Failed to register geometry for area', { id: area?.id, error });
+  }
+}
 
-  return {
-    ...scene,
-    geometry: {
-      ...geometry,
-      layers,
-      instances,
-      instancesById: geometry.instancesById ?? area?.instancesById ?? undefined,
-      tilers,
-      drumSkins,
-    },
-    colliders,
-    spawnPoints,
-    spawnPointsById: scene.spawnPointsById ?? area?.spawnersById ?? undefined,
-    playableBounds,
-    pathTargets,
-    pois,
-  };
+function bindGeometryService(registry) {
+  const service = ensureGeometryService();
+  if (typeof registry?.on === 'function') {
+    registry.on('active-area-changed', (activeArea) => {
+      const activeId = activeArea?.id ?? null;
+      if (activeId && !service.getGeometry(activeId)) {
+        registerAreaGeometry(activeArea);
+      }
+      service.setActiveArea(activeId);
+    });
+  }
+  const activeArea = registry?.getActiveArea?.() ?? null;
+  if (activeArea) {
+    if (!service.getGeometry(activeArea.id)) {
+      registerAreaGeometry(activeArea);
+    } else {
+      service.setActiveArea(activeArea.id);
+    }
+  }
 }
 
 function normalizeLayoutEntry(entry) {
@@ -572,6 +571,7 @@ function applyArea(area) {
   registry.registerArea(area.id, area);
   registry.setActiveArea(area.id);
   window.__MAP_REGISTRY__ = registry;
+  registerAreaGeometry(area);
 
   const parallax = ensureParallaxContainer();
   parallax.areas[area.id] = adaptSceneToParallax(area);
@@ -590,6 +590,7 @@ function applyArea(area) {
   window.GAME.__onMapRegistryReadyForCamera?.(registry);
 
   bindAreaNameOverlay(registry);
+  bindGeometryService(registry);
   bindPlayableBoundsSync(registry);
 
   console.info(`[map-bootstrap] Loaded area "${area.id}" (${area.source || 'unknown source'})`);

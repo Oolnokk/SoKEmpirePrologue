@@ -199,38 +199,28 @@ function validateAreaDescriptor(descriptor) {
     validateScene3d(descriptor.scene3d, warnings, errors);
   }
 
-  const scene = typeof descriptor.scene === 'object' && descriptor.scene ? descriptor.scene : {};
-  const geometry = typeof scene.geometry === 'object' && scene.geometry ? scene.geometry : {};
+  const playableLeft = Number.isFinite(descriptor.playableBounds?.left)
+    ? descriptor.playableBounds.left
+    : Number.isFinite(descriptor.playableBounds?.min)
+      ? descriptor.playableBounds.min
+      : null;
+  const playableRight = Number.isFinite(descriptor.playableBounds?.right)
+    ? descriptor.playableBounds.right
+    : Number.isFinite(descriptor.playableBounds?.max)
+      ? descriptor.playableBounds.max
+      : null;
+  if (!(playableLeft != null && playableRight != null && playableRight > playableLeft)) {
+    errors.push('"playableBounds" must define finite left/right for geometry service');
+  }
 
-  const layers = Array.isArray(geometry.layers)
-    ? geometry.layers
-    : Array.isArray(descriptor.layers)
-      ? descriptor.layers
-      : null;
-  const instances = Array.isArray(geometry.instances)
-    ? geometry.instances
-    : Array.isArray(descriptor.instances)
-      ? descriptor.instances
-      : Array.isArray(descriptor.props)
-        ? descriptor.props
-        : null;
-  const tilers = geometry.tilers ?? descriptor.tilers;
-  const drumSkins = geometry.drumSkins ?? descriptor.drumSkins;
-  const colliders = Array.isArray(scene.colliders)
-    ? scene.colliders
-    : Array.isArray(descriptor.colliders)
-      ? descriptor.colliders
-      : null;
-  const spawners = Array.isArray(scene.spawnPoints)
-    ? scene.spawnPoints
-    : Array.isArray(descriptor.spawners)
-      ? descriptor.spawners
-      : null;
-  const spawnersById = scene.spawnPointsById ?? descriptor.spawnersById;
+  if (!Array.isArray(descriptor.colliders) || descriptor.colliders.length === 0) {
+    errors.push('"colliders" must be a non-empty array for geometry service');
+  }
 
-  if (!Array.isArray(layers)) {
-    warnings.push('Area missing geometry layers; renderer adapters may fall back to defaults');
-  } else if (layers.length === 0) {
+  if (!Array.isArray(descriptor.layers)) {
+    errors.push('"layers" must be an array');
+  }
+  if (descriptor.layers && descriptor.layers.length === 0) {
     warnings.push('Area declares no parallax layers');
   }
 

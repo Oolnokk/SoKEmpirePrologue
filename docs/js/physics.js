@@ -166,12 +166,15 @@ function resolveBaseHorizontalBounds(config) {
     : { minX: 0, maxX: Math.max(0, width) });
 
   const resolvePlayableBounds = () => {
+    const geometryBounds = typeof window !== 'undefined'
+      ? window.GAME?.geometryService?.getActivePlayableBounds?.()
+      : null;
     const registryBounds =
       typeof window !== 'undefined'
         ? window.GAME?.mapRegistry?.getActiveArea?.()?.playableBounds
         : null;
     const mapBounds = config?.map?.activePlayableBounds || config?.map?.playableBounds || null;
-    return [mapBounds, registryBounds]
+    return [geometryBounds, mapBounds, registryBounds]
       .find((bounds) => Number.isFinite(bounds?.left) && Number.isFinite(bounds?.right))
       || null;
   };
@@ -443,7 +446,12 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   const state = ensurePhysicsState(fighter);
   const knockback = ensureKnockbackState(fighter);
   const M = config?.movement || {};
-  const platformColliders = Array.isArray(config?.platformingColliders) ? config.platformingColliders : [];
+  const geometryService = typeof window !== 'undefined' ? window.GAME?.geometryService : null;
+  const platformColliders = Array.isArray(geometryService?.getActiveColliders?.())
+    ? geometryService.getActiveColliders()
+    : Array.isArray(config?.platformingColliders)
+      ? config.platformingColliders
+      : [];
   let groundY = computeGroundY(config);
   const defaultSurfaceMaterial = typeof config?.ground?.materialType === 'string'
     ? config.ground.materialType.trim()
