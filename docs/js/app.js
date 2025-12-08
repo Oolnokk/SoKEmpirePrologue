@@ -4361,36 +4361,40 @@ function renderBottles(ctx) {
     const scaleY = inst.scale?.y || scaleX;
     const rotRad = (inst.rotationDeg || 0) * Math.PI / 180;
 
-    // Render as simple image (bottles are single-image prefabs)
-    if (prefab.isImage) {
-      const part = prefab.parts[0];
-      const template = part?.propTemplate || {};
-      const img = loadPrefabImage(template.url);
-      const ready = img && img.complete && !img.__broken && img.naturalWidth > 0 && img.naturalHeight > 0;
-      const width = Number.isFinite(template.w) ? template.w : (img?.naturalWidth || 100);
-      const height = Number.isFinite(template.h) ? template.h : (img?.naturalHeight || 100);
+    // Get first part with a propTemplate
+    const part = prefab.parts[0];
+    const template = part?.propTemplate;
 
-      // Compute anchor point
-      const ax = width * ((template.anchorXPct ?? 50) / 100);
-      const ay = height * ((template.anchorYPct ?? 100) / 100);
-
-      ctx.save();
-      ctx.translate(pos.x, pos.y);  // pos.y is already relative to ground in world coords
-      ctx.scale(scaleX, scaleY);
-      if (rotRad) ctx.rotate(rotRad);
-
-      if (ready) {
-        ctx.drawImage(img, -ax, -ay, width, height);
-      } else {
-        // Placeholder
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.3)';
-        ctx.fillRect(-ax, -ay, width, height);
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(-ax, -ay, width, height);
-      }
-      ctx.restore();
+    if (!template || !template.url) {
+      console.warn('[renderBottles] No template or URL for bottle:', inst.id);
+      continue;
     }
+
+    const img = loadPrefabImage(template.url);
+    const ready = img && img.complete && !img.__broken && img.naturalWidth > 0 && img.naturalHeight > 0;
+    const width = Number.isFinite(template.w) ? template.w : (img?.naturalWidth || 100);
+    const height = Number.isFinite(template.h) ? template.h : (img?.naturalHeight || 100);
+
+    // Compute anchor point
+    const ax = width * ((template.anchorXPct ?? 50) / 100);
+    const ay = height * ((template.anchorYPct ?? 100) / 100);
+
+    ctx.save();
+    ctx.translate(pos.x, pos.y);  // pos.y is already relative to ground in world coords
+    ctx.scale(scaleX, scaleY);
+    if (rotRad) ctx.rotate(rotRad);
+
+    if (ready) {
+      ctx.drawImage(img, -ax, -ay, width, height);
+    } else {
+      // Placeholder
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.3)';
+      ctx.fillRect(-ax, -ay, width, height);
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-ax, -ay, width, height);
+    }
+    ctx.restore();
   }
 
   // Draw origin dots if checkbox is checked
