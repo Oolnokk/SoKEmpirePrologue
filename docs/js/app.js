@@ -4375,7 +4375,7 @@ function renderBottles(ctx) {
       const ay = height * ((template.anchorYPct ?? 100) / 100);
 
       ctx.save();
-      ctx.translate(pos.x, groundY + pos.y);
+      ctx.translate(pos.x, pos.y);  // pos.y is already relative to ground in world coords
       ctx.scale(scaleX, scaleY);
       if (rotRad) ctx.rotate(rotRad);
 
@@ -4403,7 +4403,7 @@ function renderBottles(ctx) {
       ctx.save();
       ctx.fillStyle = 'rgba(255, 0, 255, 0.9)';
       ctx.beginPath();
-      ctx.arc(pos.x, groundY + pos.y, 6, 0, Math.PI * 2);
+      ctx.arc(pos.x, pos.y, 6, 0, Math.PI * 2);  // pos.y is already in world coords
       ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
       ctx.lineWidth = 2;
