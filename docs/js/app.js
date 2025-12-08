@@ -875,7 +875,7 @@ import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
-import { initAllObstructionPhysics, initObstructionPhysics, updateObstructionPhysics, resolveObstructionFighterCollisions } from './obstruction-physics.js?v=1';
+import { initAllObstructionPhysics } from './obstruction-physics.js?v=1';
 
 // Setup canvas
 const cv = $$('#game');
@@ -4039,8 +4039,8 @@ function createEditorPreviewSandbox() {
       meta: instance.meta || {},
     };
 
-    // Initialize physics for the prop
-    initObstructionPhysics(prop, window.CONFIG);
+    // Initialize velocity for physics (props use fighter-style physics)
+    prop.vel = { x: 0, y: 0 };
 
     // Add to the global props array
     game.dynamicInstances.push(prop);
@@ -4428,12 +4428,46 @@ function loop(t){
   updateNpcSystems(dt);
   updateBountySystem(dt);
 
-  // Update prop physics (bottles, etc.) - separate from map obstructions
+  // Update prop physics (bottles, etc.) - use same physics as fighters
   const props = window.GAME?.dynamicInstances || [];
   if (props.length > 0) {
-    updateObstructionPhysics(props, window.CONFIG, dt);
-    const allFighters = [...(window.GAME?.fighters || []), ...getActiveNpcFighters()];
-    resolveObstructionFighterCollisions(props, allFighters, window.CONFIG);
+    const M = window.CONFIG?.movement || {};
+    const gravity = Number.isFinite(M.gravity) ? M.gravity : 2400;
+    const groundY = computeGroundYFromConfig(window.CONFIG, cv?.height);
+    const restitution = 0.3; // Bounce factor
+    const drag = 0.98; // Air resistance
+
+    for (const prop of props) {
+      if (!prop || !prop.position) continue;
+
+      // Ensure velocity exists
+      prop.vel ||= { x: 0, y: 0 };
+      if (!Number.isFinite(prop.vel.x)) prop.vel.x = 0;
+      if (!Number.isFinite(prop.vel.y)) prop.vel.y = 0;
+
+      // Apply gravity (same as fighters)
+      prop.vel.y += gravity * dt;
+
+      // Apply drag
+      prop.vel.x *= drag;
+      prop.vel.y *= drag;
+
+      // Update position
+      prop.position.x += prop.vel.x * dt;
+      prop.position.y += prop.vel.y * dt;
+
+      // Ground collision with bounce
+      if (prop.position.y >= groundY) {
+        prop.position.y = groundY;
+        if (prop.vel.y > 0) {
+          prop.vel.y = -prop.vel.y * restitution;
+          // Stop bouncing if velocity is too small
+          if (Math.abs(prop.vel.y) < 50) {
+            prop.vel.y = 0;
+          }
+        }
+      }
+    }
   }
 
   updatePoses();
