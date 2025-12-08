@@ -28,7 +28,7 @@ export function convertLayoutToArea(layout = {}, options = {}) {
     left = -600; right = 600;
   }
 
-  const geometry = layout.geometry && typeof layout.geometry === 'object' ? layout.geometry : { layers: [], instances: [] };
+  const geometry = layout.geometry && typeof layout.geometry === 'object' && !Array.isArray(layout.geometry) ? layout.geometry : { layers: [], instances: [] };
   const instances = Array.isArray(geometry.instances) ? geometry.instances : [];
 
   // Colliders: include any provided colliders, and convert patrolPoints -> colliders
@@ -38,6 +38,7 @@ export function convertLayoutToArea(layout = {}, options = {}) {
       const id = pt.id || `patrol-${idx + 1}`;
       const width = Number.isFinite(Number(pt.width)) ? Number(pt.width) : 48;
       const x = Number.isFinite(Number(pt.x)) ? Number(pt.x) : (left + (right - left) * (idx + 1) / (layout.patrolPoints.length + 1));
+      // topOffset is the vertical position of the collider (y coordinate from layout, or fallback to default ground level)
       const topOffset = Number.isFinite(Number(pt.y)) ? Number(pt.y) : (pt.topOffset ?? 420);
       baseColliders.push({
         id,
