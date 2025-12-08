@@ -2599,12 +2599,6 @@ export function updatePoses(){
       }
     }
 
-    // Re-apply weapon-specific arm stance after movement so weapon arms aren't overwritten
-    const armStancePose = resolveArmStance(C, F);
-    if (armStancePose && Object.keys(armStancePose).length) {
-      targetDeg = mergePoseWithOverrides(targetDeg, armStancePose);
-    }
-    
     if (activeLayers.length){
       let lowerBodyTarget = { ...movementLowerBody };
       if (movementSuppressed){
@@ -2628,6 +2622,12 @@ export function updatePoses(){
           targetDeg[key] = lowerBodyTarget[key];
         }
       }
+    }
+
+    // Re-apply weapon-specific arm stance AFTER layers so weapon arms aren't overwritten by animations
+    const armStancePose = resolveArmStance(C, F);
+    if (armStancePose && Object.keys(armStancePose).length) {
+      targetDeg = mergePoseWithOverrides(targetDeg, armStancePose);
     }
 
     const topLayer = activeLayers.length ? activeLayers[activeLayers.length - 1] : null;
