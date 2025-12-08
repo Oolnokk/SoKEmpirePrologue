@@ -875,7 +875,7 @@ import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
-import { initAllObstructionPhysics } from './obstruction-physics.js?v=1';
+import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 
 // Setup canvas
 const cv = $$('#game');
@@ -3425,6 +3425,9 @@ function createEditorPreviewSandbox() {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
 
+  // Module-level variable for tracking logged layers
+  const loggedLayers = new Set();
+
   const state = {
     canvas,
     ctx,
@@ -3834,9 +3837,9 @@ function createEditorPreviewSandbox() {
       const layerScale = baseLayerScale * proximityScale;
 
       // Debug proximity scale application (log once per layer)
-      if (!layer._loggedProximity) {
+      if (!loggedLayers.has(layer.id)) {
         console.log(`[preview-sandbox] Layer "${layer.id}": baseScale=${baseLayerScale}, proximityScale=${proximityScale}, finalScale=${layerScale}`);
-        layer._loggedProximity = true;
+        loggedLayers.add(layer.id);
       }
 
       const instRotRad = degToRad(inst.rotationDeg || 0);
@@ -4014,6 +4017,19 @@ function createEditorPreviewSandbox() {
     return { rendered: true, groundY: result.groundLine };
   };
 
+  /**
+   * Add a dynamic instance (prop) to the game world.
+   * @param {Object} instance - The instance to add, with properties:
+   *   @property {string} id - Unique identifier for the prop.
+   *   @property {string} prefabId - Identifier for the prefab type.
+   *   @property {Object} prefab - Prefab data for the prop.
+   *   @property {Object} position - Position of the prop ({ x: number, y: number }).
+   *   @property {Object} scale - Scale of the prop ({ x: number, y: number }).
+   *   @property {number} rotationDeg - Rotation in degrees.
+   *   @property {Array<string>} tags - Tags for categorization.
+   *   @property {Object} meta - Additional metadata.
+   * @returns {boolean} True if the instance was successfully added, false otherwise.
+   */
   const addDynamicInstance = (instance) => {
     if (!instance || typeof instance !== 'object') {
       console.warn('[props] Invalid prop instance provided');
@@ -4039,8 +4055,13 @@ function createEditorPreviewSandbox() {
       meta: instance.meta || {},
     };
 
-    // Initialize velocity for physics (props use fighter-style physics)
-    prop.vel = { x: 0, y: 0 };
+    // Initialize physics state (props use fighter-style physics)
+    prop.physics = {
+      vel: { x: 0, y: 0 },
+      onGround: false,
+      drag: 0.2, // Default drag coefficient
+      restitution: 0.3, // Default bounce factor
+    };
 
     // Add to the global props array
     game.dynamicInstances.push(prop);
@@ -4334,6 +4355,11 @@ function drawStage(){
   cx.fillText('KHY Modular Build', 14, 22);
 }
 
+/**
+ * Render all dynamically spawned bottles (props) in world space.
+ * Uses the same camera transform as fighters for consistent positioning.
+ * @param {CanvasRenderingContext2D} ctx - The canvas rendering context
+ */
 function renderBottles(ctx) {
   if (!ctx || !window.GAME?.dynamicInstances) return;
 
@@ -4362,7 +4388,7 @@ function renderBottles(ctx) {
     const rotRad = (inst.rotationDeg || 0) * Math.PI / 180;
 
     // Get first part with a propTemplate
-    const part = prefab.parts[0];
+    const part = prefab.parts.find(p => p?.propTemplate);
     const template = part?.propTemplate;
 
     if (!template || !template.url) {
@@ -4428,46 +4454,10 @@ function loop(t){
   updateNpcSystems(dt);
   updateBountySystem(dt);
 
-  // Update prop physics (bottles, etc.) - use same physics as fighters
+  // Update prop physics (bottles, etc.) using shared physics system
   const props = window.GAME?.dynamicInstances || [];
   if (props.length > 0) {
-    const M = window.CONFIG?.movement || {};
-    const gravity = Number.isFinite(M.gravity) ? M.gravity : 2400;
-    const groundY = computeGroundYFromConfig(window.CONFIG, cv?.height);
-    const restitution = 0.3; // Bounce factor
-    const drag = 0.98; // Air resistance
-
-    for (const prop of props) {
-      if (!prop || !prop.position) continue;
-
-      // Ensure velocity exists
-      prop.vel ||= { x: 0, y: 0 };
-      if (!Number.isFinite(prop.vel.x)) prop.vel.x = 0;
-      if (!Number.isFinite(prop.vel.y)) prop.vel.y = 0;
-
-      // Apply gravity (same as fighters)
-      prop.vel.y += gravity * dt;
-
-      // Apply drag
-      prop.vel.x *= drag;
-      prop.vel.y *= drag;
-
-      // Update position
-      prop.position.x += prop.vel.x * dt;
-      prop.position.y += prop.vel.y * dt;
-
-      // Ground collision with bounce
-      if (prop.position.y >= groundY) {
-        prop.position.y = groundY;
-        if (prop.vel.y > 0) {
-          prop.vel.y = -prop.vel.y * restitution;
-          // Stop bouncing if velocity is too small
-          if (Math.abs(prop.vel.y) < 50) {
-            prop.vel.y = 0;
-          }
-        }
-      }
-    }
+    updateObstructionPhysics(props, window.CONFIG, dt);
   }
 
   updatePoses();

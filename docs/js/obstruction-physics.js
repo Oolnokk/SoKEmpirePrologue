@@ -5,6 +5,9 @@ import { computeGroundY } from './ground-utils.js?v=1';
  * Handles dynamic physics simulation for obstruction prefabs with physics.enabled=true
  */
 
+// Module-level variable for logging state
+let groundLogged = false;
+
 /**
  * Initialize physics state for a dynamic obstruction instance
  */
@@ -37,7 +40,20 @@ export function initObstructionPhysics(instance, config) {
 }
 
 /**
+ * Check if an instance should skip physics processing
+ * @param {Object} instance - The instance to check
+ * @returns {boolean} True if physics should be skipped
+ */
+function shouldSkipPhysics(instance) {
+  if (!instance || !instance.physics) return true;
+  const physics = instance.prefab?.obstruction?.physics;
+  // Skip if obstruction prefab but physics not enabled/dynamic
+  return instance.prefab?.obstruction && (!physics || !physics.enabled || !physics.dynamic);
+}
+
+/**
  * Update physics for all dynamic obstruction instances
+ * Also supports simple dynamic props without obstruction.physics config
  */
 export function updateObstructionPhysics(instances, config, dt, options = {}) {
   if (!Array.isArray(instances) || !Number.isFinite(dt) || dt <= 0) return;
@@ -47,20 +63,19 @@ export function updateObstructionPhysics(instances, config, dt, options = {}) {
   const friction = 8; // Ground friction
 
   // Debug ground Y once
-  if (!updateObstructionPhysics._loggedGround) {
+  if (!groundLogged) {
     console.log('[obstruction-physics] Ground Y for bottles:', groundY);
     console.log('[obstruction-physics] Config:', { groundY: config?.groundY, groundOffset: config?.ground?.offset, canvasH: config?.canvas?.h });
-    updateObstructionPhysics._loggedGround = true;
+    groundLogged = true;
   }
 
   for (const instance of instances) {
-    const physics = instance.prefab?.obstruction?.physics;
-    if (!physics || !physics.enabled || !physics.dynamic) continue;
-    if (!instance.physics) continue;
+    if (shouldSkipPhysics(instance)) continue;
 
     const state = instance.physics;
-    const mass = state.mass;
-    const drag = state.drag;
+    // Use prefab-defined values if available, otherwise use defaults
+    const drag = state.drag ?? 0.2;
+    const restitution = state.restitution ?? 0.3;
 
     // Apply gravity
     state.vel.y += gravity * dt;
@@ -80,7 +95,7 @@ export function updateObstructionPhysics(instances, config, dt, options = {}) {
 
       // Bounce
       if (state.vel.y > 0) {
-        state.vel.y = -state.vel.y * state.restitution;
+        state.vel.y = -state.vel.y * restitution;
 
         // Stop bouncing if velocity is too low
         if (Math.abs(state.vel.y) < 10) {
