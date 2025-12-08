@@ -875,13 +875,14 @@ import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
-import { initAllObstructionPhysics, updateObstructionPhysics, resolveObstructionFighterCollisions } from './obstruction-physics.js?v=1';
+import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 
 // Setup canvas
 const cv = $$('#game');
 const stage = $$('#gameStage');
 const cx = cv?.getContext('2d');
 window.GAME ||= {};
+window.GAME.dynamicInstances = []; // Array for dynamically spawned instances
 initCamera({ canvas: cv });
 initManualZoom({ canvas: cv, stage });
 
@@ -3504,6 +3505,9 @@ function createEditorPreviewSandbox() {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
 
+  // Module-level variable for tracking logged layers
+  const loggedLayers = new Set();
+
   const state = {
     canvas,
     ctx,
@@ -3661,6 +3665,16 @@ function createEditorPreviewSandbox() {
     state.drumSkins = normalizedDrumSkins;
     const offset = Number(area?.ground?.offset);
     state.groundOffset = Number.isFinite(offset) ? offset : 140;
+
+    // Capture proximity scale from area
+    const proximityScale = area?.proximityScale ?? area?.meta?.proximityScale ?? 1;
+    state.proximityScale = Number.isFinite(proximityScale) && proximityScale > 0 ? proximityScale : 1;
+    console.log('[preview-sandbox] Captured proximityScale:', state.proximityScale, 'from area:', {
+      direct: area?.proximityScale,
+      meta: area?.meta?.proximityScale,
+      final: state.proximityScale
+    });
+
     state.ready = state.layers.length > 0;
 
     // Initialize physics for dynamic obstructions
@@ -3882,6 +3896,7 @@ function createEditorPreviewSandbox() {
     ctx.restore();
 
     const renderList = [];
+    // Only render static map instances (not dynamic props like bottles)
     for (const inst of state.instances) {
       const lookup = state.layerLookup.get(inst.layerId);
       if (!lookup) continue;
@@ -3897,11 +3912,20 @@ function createEditorPreviewSandbox() {
       const prefab = inst.prefab;
       const pos = inst.position || { x: 0, y: 0 };
       const parallax = Number.isFinite(layer.parallaxSpeed) ? layer.parallaxSpeed : 1;
-      const layerScale = Number.isFinite(layer.scale) ? layer.scale : 1;
+      const baseLayerScale = Number.isFinite(layer.scale) ? layer.scale : 1;
+      const proximityScale = Number.isFinite(state.proximityScale) && state.proximityScale > 0 ? state.proximityScale : 1;
+      const layerScale = baseLayerScale * proximityScale;
+
+      // Debug proximity scale application (log once per layer)
+      if (!loggedLayers.has(layer.id)) {
+        console.log(`[preview-sandbox] Layer "${layer.id}": baseScale=${baseLayerScale}, proximityScale=${proximityScale}, finalScale=${layerScale}`);
+        loggedLayers.add(layer.id);
+      }
+
       const instRotRad = degToRad(inst.rotationDeg || 0);
-      const baseOffset = (pos.x - cameraLeftX * parallax) * effectiveZoom;
+      const baseOffset = (pos.x - cameraLeftX * parallax) * effectiveZoom * proximityScale;
       const rootScreenX = baseOffset;
-      const rootScreenY = groundLine + (layer.offsetY || 0) * effectiveZoom + pos.y * effectiveZoom;
+      const rootScreenY = groundLine + (layer.offsetY || 0) * effectiveZoom * proximityScale + pos.y * effectiveZoom * proximityScale;
       const dxScreen = baseOffset;
       const seesaw = resolveLayerGroundSeesaw(layer);
       const tiltRad = computeGroundSeesawAngle(seesaw, cameraInputX, usableWorldWidth);
@@ -3935,8 +3959,9 @@ function createEditorPreviewSandbox() {
             : (Number.isFinite(inst?.scale?.x) ? inst.scale.x : 1);
           const baseScaleX = instScaleX * layerScale * effectiveZoom;
           const baseScaleY = instScaleY * layerScale * effectiveZoom;
-          const topScaleX = instScaleX * (Number.isFinite(targetLayer?.scale) ? targetLayer.scale : 1) * effectiveZoom;
-          const topScaleY = instScaleY * (Number.isFinite(targetLayer?.scale) ? targetLayer.scale : 1) * effectiveZoom;
+          const targetLayerBaseScale = Number.isFinite(targetLayer?.scale) ? targetLayer.scale : 1;
+          const topScaleX = instScaleX * targetLayerBaseScale * proximityScale * effectiveZoom;
+          const topScaleY = instScaleY * targetLayerBaseScale * proximityScale * effectiveZoom;
 
           const baseWidth = template.width * baseScaleX;
           const baseHeight = template.height * baseScaleY;
@@ -3951,11 +3976,11 @@ function createEditorPreviewSandbox() {
 
           const baseCenterX = rootScreenX - baseAnchorX + baseWidth / 2;
           const baseY = rootScreenY - baseAnchorY + baseHeight;
-          const topCenterX = (pos.x - cameraLeftX * targetParallax) * effectiveZoom - topAnchorX + topWidth / 2;
+          const topCenterX = (pos.x - cameraLeftX * targetParallax) * effectiveZoom * proximityScale - topAnchorX + topWidth / 2;
           const topGroundY = groundLine
-            + (targetLayer?.offsetY || 0) * effectiveZoom
-            + (pos.y + spanSpec.topOffset) * effectiveZoom;
-          const topY = topGroundY - spanSpec.height * effectiveZoom - topAnchorY + topHeight;
+            + (targetLayer?.offsetY || 0) * effectiveZoom * proximityScale
+            + (pos.y + spanSpec.topOffset) * effectiveZoom * proximityScale;
+          const topY = topGroundY - spanSpec.height * effectiveZoom * proximityScale - topAnchorY + topHeight;
 
           const img = loadPrefabImage(template.url);
           const drawn = drawImageTrapezoid(ctx, img, {
@@ -4072,11 +4097,66 @@ function createEditorPreviewSandbox() {
     return { rendered: true, groundY: result.groundLine };
   };
 
+  /**
+   * Add a dynamic instance (prop) to the game world.
+   * @param {Object} instance - The instance to add, with properties:
+   *   @property {string} id - Unique identifier for the prop.
+   *   @property {string} prefabId - Identifier for the prefab type.
+   *   @property {Object} prefab - Prefab data for the prop.
+   *   @property {Object} position - Position of the prop ({ x: number, y: number }).
+   *   @property {Object} scale - Scale of the prop ({ x: number, y: number }).
+   *   @property {number} rotationDeg - Rotation in degrees.
+   *   @property {Array<string>} tags - Tags for categorization.
+   *   @property {Object} meta - Additional metadata.
+   * @returns {boolean} True if the instance was successfully added, false otherwise.
+   */
+  const addDynamicInstance = (instance) => {
+    if (!instance || typeof instance !== 'object') {
+      console.warn('[props] Invalid prop instance provided');
+      return false;
+    }
+
+    // Get the global props array
+    const game = window.GAME || {};
+    if (!game.dynamicInstances) {
+      game.dynamicInstances = [];
+    }
+
+    // Props don't need layer normalization - they render in gameplay space
+    // Just ensure basic structure is present
+    const prop = {
+      id: instance.id || `prop_${game.dynamicInstances.length}`,
+      prefabId: instance.prefabId,
+      prefab: instance.prefab,
+      position: instance.position || { x: 0, y: 0 },
+      scale: instance.scale || { x: 1, y: 1 },
+      rotationDeg: instance.rotationDeg || 0,
+      tags: instance.tags || [],
+      meta: instance.meta || {},
+    };
+
+    // Initialize physics state (props use fighter-style physics)
+    prop.physics = {
+      vel: { x: 0, y: 0 },
+      onGround: false,
+      drag: 0.2, // Default drag coefficient
+      restitution: 0.3, // Default bounce factor
+    };
+
+    // Add to the global props array
+    game.dynamicInstances.push(prop);
+
+    console.log('[props] Prop added:', prop.id, prop);
+    console.log('[props] Total props:', game.dynamicInstances.length);
+    return true;
+  };
+
   return {
     attachToRegistry,
     setArea,
     renderAndBlit,
     isReady: () => state.ready,
+    addDynamicInstance,
   };
 }
 
@@ -4084,6 +4164,9 @@ const EDITOR_PREVIEW_SANDBOX = createEditorPreviewSandbox();
 
 function installPreviewSandboxRegistryBridge() {
   const GAME = (window.GAME = window.GAME || {});
+
+  // Expose the sandbox for dynamic instance spawning
+  GAME.editorPreview = EDITOR_PREVIEW_SANDBOX;
 
   const attach = (registry) => {
     try {
@@ -4137,14 +4220,14 @@ function drawEditorPreviewMap(cx, { camX, groundY, worldWidth }) {
   if (!rawLayers.length) return;
 
   const instancesByLayer = new Map();
-  if (Array.isArray(area.instances)) {
-    for (const inst of area.instances) {
-      const layerId = inst?.layerId;
-      if (!layerId) continue;
-      const list = instancesByLayer.get(layerId) || [];
-      list.push(inst);
-      instancesByLayer.set(layerId, list);
-    }
+  // Only render static map instances (props render separately)
+  const staticInstances = Array.isArray(area.instances) ? area.instances : [];
+  for (const inst of staticInstances) {
+    const layerId = inst?.layerId;
+    if (!layerId) continue;
+    const list = instancesByLayer.get(layerId) || [];
+    list.push(inst);
+    instancesByLayer.set(layerId, list);
   }
 
   const orderedLayers = rawLayers
@@ -4352,6 +4435,96 @@ function drawStage(){
   cx.fillText('KHY Modular Build', 14, 22);
 }
 
+/**
+ * Render all dynamically spawned bottles (props) in world space.
+ * Uses the same camera transform as fighters for consistent positioning.
+ * @param {CanvasRenderingContext2D} ctx - The canvas rendering context
+ */
+function renderBottles(ctx) {
+  if (!ctx || !window.GAME?.dynamicInstances) return;
+
+  const camera = window.GAME?.CAMERA || {};
+  const camX = camera.x || 0;
+  const zoom = Number.isFinite(camera.zoom) ? camera.zoom : 1;
+  const groundY = computeGroundYFromConfig(window.CONFIG || {}, cv?.height);
+
+  // Use the same camera transform as fighters
+  ctx.save();
+  const pivotY = Number.isFinite(groundY) ? groundY : cv.height;
+  ctx.translate(0, pivotY);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-camX, -pivotY);
+
+  // Render each bottle
+  for (const inst of window.GAME.dynamicInstances) {
+    if (!inst || !inst.position) continue;
+
+    const prefab = inst.prefab;
+    if (!prefab || !prefab.parts || !prefab.parts.length) continue;
+
+    const pos = inst.position;
+    const scaleX = inst.scale?.x || 1;
+    const scaleY = inst.scale?.y || scaleX;
+    const rotRad = (inst.rotationDeg || 0) * Math.PI / 180;
+
+    // Get first part with a propTemplate
+    const part = prefab.parts.find(p => p?.propTemplate);
+    const template = part?.propTemplate;
+
+    if (!template || !template.url) {
+      console.warn('[renderBottles] No template or URL for bottle:', inst.id);
+      continue;
+    }
+
+    const img = loadPrefabImage(template.url);
+    const ready = img && img.complete && !img.__broken && img.naturalWidth > 0 && img.naturalHeight > 0;
+    const width = Number.isFinite(template.w) ? template.w : (img?.naturalWidth || 100);
+    const height = Number.isFinite(template.h) ? template.h : (img?.naturalHeight || 100);
+
+    // Compute anchor point
+    const ax = width * ((template.anchorXPct ?? 50) / 100);
+    const ay = height * ((template.anchorYPct ?? 100) / 100);
+
+    ctx.save();
+    ctx.translate(pos.x, pos.y);  // pos.y is already relative to ground in world coords
+    ctx.scale(scaleX, scaleY);
+    if (rotRad) ctx.rotate(rotRad);
+
+    if (ready) {
+      ctx.drawImage(img, -ax, -ay, width, height);
+    } else {
+      // Placeholder
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.3)';
+      ctx.fillRect(-ax, -ay, width, height);
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-ax, -ay, width, height);
+    }
+    ctx.restore();
+  }
+
+  // Draw origin dots if checkbox is checked
+  const showBottleOrigins = document.getElementById('showBottleOriginsCheckbox')?.checked;
+  if (showBottleOrigins) {
+    for (const inst of window.GAME.dynamicInstances) {
+      if (!inst || !inst.position) continue;
+      const pos = inst.position;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 0, 255, 0.9)';
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, 6, 0, Math.PI * 2);  // pos.y is already in world coords
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  ctx.restore();
+}
+
 let last = performance.now();
 let fpsLast = performance.now();
 let frames = 0;
@@ -4361,17 +4534,16 @@ function loop(t){
   updateNpcSystems(dt);
   updateBountySystem(dt);
 
-  // Update dynamic obstruction physics
-  const mapArea = window.GAME?.mapRegistry?.getActiveArea?.();
-  if (mapArea?.instances) {
-    updateObstructionPhysics(mapArea.instances, window.CONFIG, dt);
-    const allFighters = [...(window.GAME?.fighters || []), ...getActiveNpcFighters()];
-    resolveObstructionFighterCollisions(mapArea.instances, allFighters, window.CONFIG);
+  // Update prop physics (bottles, etc.) using shared physics system
+  const props = window.GAME?.dynamicInstances || [];
+  if (props.length > 0) {
+    updateObstructionPhysics(props, window.CONFIG, dt);
   }
 
   updatePoses();
   updateCamera(cv);
   drawStage();
+  renderBottles(cx);
   renderAll(cx);
   renderSprites(cx);
   runHitDetect();

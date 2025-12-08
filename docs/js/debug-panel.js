@@ -4,6 +4,7 @@
 import { $$, fmt } from './dom-utils.js?v=1';
 import { radToDeg, radToDegNum, degToRad } from './math-utils.js?v=1';
 import { pushPoseOverride as runtimePushPoseOverride, pushPoseLayerOverride as runtimePushPoseLayerOverride } from './animator.js?v=5';
+import { normalizePrefabDefinition } from './prefab-catalog.js?v=1';
 
 // Initialize the debug panel
 export function initDebugPanel() {
@@ -58,12 +59,18 @@ export function initDebugPanel() {
     const C = window.CONFIG || {};
     // Initialize checkbox state from config
     freezeCheckbox.checked = C.debug?.freezeAngles || false;
-    
+
     freezeCheckbox.addEventListener('change', (e) => {
       if (!C.debug) C.debug = {};
       C.debug.freezeAngles = e.target.checked;
       console.log('[debug-panel] Freeze angles:', C.debug.freezeAngles);
     });
+  }
+
+  // Setup drop bottle button
+  const dropBottleBtn = $$('#btnDropBottle', panel);
+  if (dropBottleBtn) {
+    dropBottleBtn.addEventListener('click', dropBottleOnPlayer);
   }
 
   // Setup panel visibility toggle
@@ -91,6 +98,54 @@ export function initDebugPanel() {
   console.log('[debug-panel] Debug panel initialized');
 }
 
+// Throttle state for bottle census updates
+let lastBottleCensusUpdate = 0;
+let lastBottleCensusContent = '';
+
+/**
+ * Update the bottle census display showing status of all spawned bottles.
+ * Displays position, velocity, and ground state for debugging physics.
+ * Depends on window.GAME.dynamicInstances for bottle data.
+ * Shows bottles with prefabId 'bottle_tall' or id starting with 'bottle_debug_'.
+ * Throttled to update every 100ms to avoid DOM thrashing.
+ */
+function updateBottleCensus() {
+  const censusContent = $$('#bottleCensusContent');
+  if (!censusContent) return;
+
+  // Throttle updates to every 100ms
+  const now = Date.now();
+  if (now - lastBottleCensusUpdate < 100) {
+    return;
+  }
+  lastBottleCensusUpdate = now;
+
+  const game = window.GAME || {};
+  const bottles = (game.dynamicInstances || []).filter(inst =>
+    inst?.prefabId === 'bottle_tall' || inst?.id?.startsWith('bottle_debug_')
+  );
+
+  let newContent;
+  if (bottles.length === 0) {
+    newContent = 'No bottles spawned';
+  } else {
+    const lines = bottles.map(bottle => {
+      const x = bottle.position?.x?.toFixed(0) || '?';
+      const y = bottle.position?.y?.toFixed(0) || '?';
+      const vy = bottle.physics?.vel?.y?.toFixed(1) || '?';
+      const onGround = bottle.physics?.onGround ? '🟢' : '🔴';
+      return `${onGround} Bottle @ (${x}, ${y}) vy=${vy}`;
+    });
+    newContent = lines.join('<br>');
+  }
+
+  // Only update DOM if content has changed
+  if (newContent !== lastBottleCensusContent) {
+    censusContent.innerHTML = newContent;
+    lastBottleCensusContent = newContent;
+  }
+}
+
 // Update the debug panel with current frame data
 export function updateDebugPanel() {
   const panel = $$('#debugPanel');
@@ -98,6 +153,9 @@ export function updateDebugPanel() {
 
   const G = window.GAME || {};
   const C = window.CONFIG || {};
+
+  // Update bottle census
+  updateBottleCensus();
   
   if (!G.FIGHTERS || !G.ANCHORS_OBJ) return;
 
@@ -448,5 +506,108 @@ if (typeof window !== 'undefined') {
     }
     return null;
   };
+}
+
+// Drop a bottle on top of the player
+async function dropBottleOnPlayer() {
+  console.log('[debug-panel] Dropping bottle on player...');
+
+  try {
+    // Get the player position
+    const game = window.GAME || {};
+    const player = game.FIGHTERS?.player;
+    if (!player || !player.pos) {
+      console.warn('[debug-panel] Player not found or has no position');
+      return;
+    }
+
+    console.log('[debug-panel] Player position:', player.pos);
+
+    // Check ground Y calculation
+    const playerGroundY = player.pos.y;
+    const configGroundY = window.CONFIG?.groundY;
+    console.log('[debug-panel] Player Y:', playerGroundY);
+    console.log('[debug-panel] Config groundY:', configGroundY);
+    console.log('[debug-panel] Canvas height:', window.CONFIG?.canvas?.h);
+
+    // Get the editor preview sandbox
+    const sandbox = game.editorPreview;
+    if (!sandbox || typeof sandbox.addDynamicInstance !== 'function') {
+      console.warn('[debug-panel] Editor preview sandbox not available');
+      return;
+    }
+
+    // Fetch the bottle prefab
+    const bottlePrefabUrl = './config/prefabs/obstructions/bottle_tall.prefab.json';
+    const response = await fetch(bottlePrefabUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch bottle prefab: ${response.status}`);
+    }
+
+    const bottlePrefab = await response.json();
+    const normalizedPrefab = normalizePrefabDefinition(bottlePrefab);
+
+    if (!normalizedPrefab) {
+      throw new Error('Failed to normalize bottle prefab');
+    }
+
+    // Create a unique instance ID
+    const instanceId = `bottle_debug_${Date.now()}`;
+
+    // Calculate spawn position (WAY above player for visibility)
+    const spawnX = player.pos.x;
+    const spawnY = player.pos.y - 600; // 600 pixels above player
+
+    console.log('[debug-panel] Spawning bottle at:', { x: spawnX, y: spawnY });
+
+    // Create the prop instance (props don't have layers - they render in gameplay space)
+    const bottleInstance = {
+      id: instanceId,
+      prefabId: 'bottle_tall',
+      prefab: normalizedPrefab,
+      position: { x: spawnX, y: spawnY },
+      scale: { x: 1, y: 1 }, // Normal size - no longer affected by proximityScale
+      rotationDeg: 0,
+      tags: normalizedPrefab.tags || [],
+      meta: {
+        identity: {
+          prefabId: 'bottle_tall',
+          source: 'debug-spawn',
+        },
+        debug: true, // Mark for debugging
+      }
+    };
+
+    // Add using the sandbox method (handles both rendering and physics)
+    const success = sandbox.addDynamicInstance(bottleInstance);
+
+    if (success) {
+      console.log('[debug-panel] ✅ Bottle spawned successfully!');
+      console.log('[debug-panel] Total dynamic instances:', game.dynamicInstances?.length);
+      console.log('[debug-panel] Bottle instance:', bottleInstance);
+
+      // Log bottle position every 100ms for debugging
+      let logCount = 0;
+      const logInterval = setInterval(() => {
+        const bottle = game.dynamicInstances?.find(inst => inst.id === instanceId);
+        if (bottle) {
+          console.log(`[bottle-track] Position: y=${bottle.position?.y?.toFixed(1)}, vel.y=${bottle.physics?.vel?.y?.toFixed(1)}, onGround=${bottle.physics?.onGround}`);
+          logCount++;
+          if (logCount > 50 || bottle.physics?.onGround) {
+            clearInterval(logInterval);
+            if (bottle.physics?.onGround) {
+              console.log('[bottle-track] 🎯 BOTTLE HIT THE GROUND!');
+            }
+          }
+        } else {
+          clearInterval(logInterval);
+        }
+      }, 100);
+    } else {
+      console.warn('[debug-panel] Failed to add bottle instance');
+    }
+  } catch (error) {
+    console.error('[debug-panel] Failed to drop bottle:', error);
+  }
 }
 
