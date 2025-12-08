@@ -949,6 +949,24 @@ export function convertLayoutToArea(layout, options = {}) {
     }
   }
 
+  const geometry = {
+    layers: convertedLayers,
+    instances: convertedInstances,
+    instancesById: buildInstanceIndex(convertedInstances),
+    tilers: convertedTilers,
+    drumSkins: convertedDrumSkins,
+  };
+
+  const scene = {
+    geometry,
+    colliders: alignedColliders,
+    spawnPoints: spawnersWithGroups,
+    spawnPointsById: buildSpawnerIndex(spawnersWithGroups),
+    playableBounds,
+    pathTargets,
+    pois,
+  };
+
   return {
     id: resolvedAreaId,
     name: resolvedAreaName,
@@ -961,15 +979,16 @@ export function convertLayoutToArea(layout, options = {}) {
       offset: toNumber(layout.groundOffset, 0),
     },
     proximityScale,
+    scene,
     layers: convertedLayers,
     instances: convertedInstances,
-    instancesById: buildInstanceIndex(convertedInstances),
+    instancesById: geometry.instancesById,
     pathTargets,
     pois,
     poisById: poisByIndex.byId,
     poisByName: poisByIndex.byName,
     spawners: spawnersWithGroups,
-    spawnersById: buildSpawnerIndex(spawnersWithGroups),
+    spawnersById: scene.spawnPointsById,
     groupLibrary,
     colliders: alignedColliders,
     drumSkins: convertedDrumSkins,
