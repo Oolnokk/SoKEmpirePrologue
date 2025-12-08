@@ -134,6 +134,66 @@ function bindPlayableBoundsSync(registry: MapRegistry): void {
   syncConfigPlayableBounds(registry?.getActiveArea?.() ?? null);
 }
 
+function resolveSceneDescriptor(area: MapArea | null | undefined) {
+  const scene = area && typeof area.scene === 'object' && area.scene ? area.scene as Record<string, unknown> : {};
+  const geometry = typeof scene.geometry === 'object' && scene.geometry ? scene.geometry as Record<string, unknown> : {};
+
+  const layers = Array.isArray((geometry as any).layers)
+    ? (geometry as any).layers
+    : Array.isArray((area as any)?.layers)
+      ? (area as any).layers
+      : [];
+  const instances = Array.isArray((geometry as any).instances)
+    ? (geometry as any).instances
+    : Array.isArray((area as any)?.instances)
+      ? (area as any).instances
+      : Array.isArray((area as any)?.props)
+        ? (area as any).props
+        : [];
+  const tilers = Array.isArray((geometry as any).tilers)
+    ? (geometry as any).tilers
+    : Array.isArray((area as any)?.tilers)
+      ? (area as any).tilers
+      : [];
+  const drumSkins = Array.isArray((geometry as any).drumSkins)
+    ? (geometry as any).drumSkins
+    : Array.isArray((area as any)?.drumSkins)
+      ? (area as any).drumSkins
+      : [];
+  const colliders = Array.isArray((scene as any).colliders)
+    ? (scene as any).colliders
+    : Array.isArray((area as any)?.colliders)
+      ? (area as any).colliders
+      : [];
+  const spawnPoints = Array.isArray((scene as any).spawnPoints)
+    ? (scene as any).spawnPoints
+    : Array.isArray((area as any)?.spawners)
+      ? (area as any).spawners
+      : [];
+
+  const playableBounds = (scene as any).playableBounds ?? (area as any)?.playableBounds ?? null;
+  const pathTargets = (scene as any).pathTargets ?? (area as any)?.pathTargets ?? [];
+  const pois = (scene as any).pois ?? (area as any)?.pois ?? [];
+
+  return {
+    ...scene,
+    geometry: {
+      ...geometry,
+      layers,
+      instances,
+      instancesById: (geometry as any).instancesById ?? (area as any)?.instancesById ?? undefined,
+      tilers,
+      drumSkins,
+    },
+    colliders,
+    spawnPoints,
+    spawnPointsById: (scene as any).spawnPointsById ?? (area as any)?.spawnersById ?? undefined,
+    playableBounds,
+    pathTargets,
+    pois,
+  };
+}
+
 function normalizeLayoutEntry(entry: unknown): MapLayoutConfig | null {
   if (!entry || typeof entry !== 'object') return null;
   const record = entry as Record<string, unknown>;
@@ -397,9 +457,10 @@ function applyEditorPreviewSettings(
   const canvasConfig = CONFIG.canvas || {};
   const canvasHeight = Number.isFinite(canvasConfig.h) ? canvasConfig.h : 460;
   const canvasWidth = Number.isFinite(canvasConfig.w) ? canvasConfig.w : 720;
+  const scene = resolveSceneDescriptor(area);
   const groundOffset = Number(area?.ground?.offset);
-  const normalizedColliders = Array.isArray(area?.colliders)
-    ? area.colliders.map((col, index) => normalizeAreaCollider(col, index))
+  const normalizedColliders = Array.isArray(scene?.colliders)
+    ? scene.colliders.map((col: any, index: number) => normalizeAreaCollider(col, index))
     : [];
   preview.platformColliders = normalizedColliders;
 
@@ -481,7 +542,8 @@ function syncConfigPlayableBounds(area: MapArea | null): void {
     maxX: Number.isFinite(mapConfig.playAreaMaxX) ? mapConfig.playAreaMaxX : null,
   });
 
-  const playable = area?.playableBounds;
+  const scene = resolveSceneDescriptor(area);
+  const playable = scene?.playableBounds;
   const left = Number.isFinite(playable?.left) ? (playable as { left: number }).left : null;
   const right = Number.isFinite(playable?.right) ? (playable as { right: number }).right : null;
 
@@ -501,21 +563,23 @@ function syncConfigPlayableBounds(area: MapArea | null): void {
 
 function syncConfigPlatforming(area: MapArea): void {
   const CONFIG = (window.CONFIG = window.CONFIG || {});
-  const normalized = Array.isArray(area?.colliders)
-    ? area.colliders.map((col, index) => normalizeAreaCollider(col, index))
+  const scene = resolveSceneDescriptor(area);
+  const normalized = Array.isArray(scene?.colliders)
+    ? scene.colliders.map((col: any, index: number) => normalizeAreaCollider(col, index))
     : [];
   CONFIG.platformingColliders = normalized;
 }
 
-function adaptAreaToParallax(area: MapArea) {
+function adaptSceneToParallax(area: MapArea) {
+  const scene = resolveSceneDescriptor(area);
   return {
     id: area.id,
     name: area.name,
     source: area.source,
     camera: area.camera,
     ground: area.ground,
-    background: area.background || area.meta?.background || null,
-    layers: area.layers.map((layer, index) => ({
+    background: (area as any).background || (area as any).meta?.background || null,
+    layers: (scene.geometry?.layers || []).map((layer: any, index: number) => ({
       id: layer.id,
       name: layer.name,
       type: layer.type,
@@ -528,7 +592,7 @@ function adaptAreaToParallax(area: MapArea) {
       source: layer.source || null,
       meta: layer.meta || {},
     })),
-    instances: area.instances,
+    instances: scene.geometry?.instances || [],
     meta: area.meta,
   };
 }
@@ -542,7 +606,7 @@ function applyArea(area: MapArea): void {
   window.__MAP_REGISTRY__ = registry;
 
   const parallax = ensureParallaxContainer();
-  parallax.areas[area.id] = adaptAreaToParallax(area);
+  parallax.areas[area.id] = adaptSceneToParallax(area);
   parallax.currentAreaId = area.id;
 
   window.CONFIG = window.CONFIG || {};

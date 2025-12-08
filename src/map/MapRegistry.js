@@ -199,26 +199,60 @@ function validateAreaDescriptor(descriptor) {
     validateScene3d(descriptor.scene3d, warnings, errors);
   }
 
-  if (!Array.isArray(descriptor.layers)) {
-    errors.push('"layers" must be an array');
-  }
-  if (descriptor.layers && descriptor.layers.length === 0) {
+  const scene = typeof descriptor.scene === 'object' && descriptor.scene ? descriptor.scene : {};
+  const geometry = typeof scene.geometry === 'object' && scene.geometry ? scene.geometry : {};
+
+  const layers = Array.isArray(geometry.layers)
+    ? geometry.layers
+    : Array.isArray(descriptor.layers)
+      ? descriptor.layers
+      : null;
+  const instances = Array.isArray(geometry.instances)
+    ? geometry.instances
+    : Array.isArray(descriptor.instances)
+      ? descriptor.instances
+      : Array.isArray(descriptor.props)
+        ? descriptor.props
+        : null;
+  const tilers = geometry.tilers ?? descriptor.tilers;
+  const drumSkins = geometry.drumSkins ?? descriptor.drumSkins;
+  const colliders = Array.isArray(scene.colliders)
+    ? scene.colliders
+    : Array.isArray(descriptor.colliders)
+      ? descriptor.colliders
+      : null;
+  const spawners = Array.isArray(scene.spawnPoints)
+    ? scene.spawnPoints
+    : Array.isArray(descriptor.spawners)
+      ? descriptor.spawners
+      : null;
+  const spawnersById = scene.spawnPointsById ?? descriptor.spawnersById;
+
+  if (!Array.isArray(layers)) {
+    warnings.push('Area missing geometry layers; renderer adapters may fall back to defaults');
+  } else if (layers.length === 0) {
     warnings.push('Area declares no parallax layers');
   }
-  if (!Array.isArray(descriptor.instances) && !Array.isArray(descriptor.props)) {
-    warnings.push('Area declares neither "instances" nor "props" – runtime may need one');
+
+  if (!Array.isArray(instances)) {
+    warnings.push('Area declares no geometry instances/props – runtime may need one');
   }
-  if (descriptor.tilers && !Array.isArray(descriptor.tilers)) {
+
+  if (tilers && !Array.isArray(tilers)) {
     warnings.push('"tilers" should be an array when provided');
   }
-  if (descriptor.drumSkins && !Array.isArray(descriptor.drumSkins)) {
+  if (drumSkins && !Array.isArray(drumSkins)) {
     warnings.push('"drumSkins" should be an array when provided');
   }
 
+  if (colliders && !Array.isArray(colliders)) {
+    warnings.push('"colliders" should be an array when provided');
+  }
+
   let seenInstanceIds = null;
-  if (Array.isArray(descriptor.instances)) {
+  if (Array.isArray(instances)) {
     seenInstanceIds = new Set();
-    descriptor.instances.forEach((inst, index) => {
+    instances.forEach((inst, index) => {
       if (!inst || typeof inst !== 'object') {
         warnings.push(`Instance at index ${index} is not an object`);
         return;
@@ -236,8 +270,9 @@ function validateAreaDescriptor(descriptor) {
     });
   }
 
-  if (descriptor.instancesById && typeof descriptor.instancesById === 'object') {
-    const indexKeys = new Set(Object.keys(descriptor.instancesById));
+  const instancesById = geometry.instancesById ?? descriptor.instancesById;
+  if (instancesById && typeof instancesById === 'object') {
+    const indexKeys = new Set(Object.keys(instancesById));
     if (seenInstanceIds) {
       for (const id of seenInstanceIds) {
         if (!indexKeys.has(id)) {
@@ -255,12 +290,12 @@ function validateAreaDescriptor(descriptor) {
   }
 
   let seenSpawnerIds = null;
-  if (descriptor.spawners) {
-    if (!Array.isArray(descriptor.spawners)) {
-      warnings.push('"spawners" should be an array when provided');
+  if (spawners) {
+    if (!Array.isArray(spawners)) {
+      warnings.push('"spawnPoints"/"spawners" should be an array when provided');
     } else {
       seenSpawnerIds = new Set();
-      descriptor.spawners.forEach((spawner, index) => {
+      spawners.forEach((spawner, index) => {
         if (!spawner || typeof spawner !== 'object') {
           warnings.push(`Spawner at index ${index} is not an object`);
           return;
@@ -283,8 +318,8 @@ function validateAreaDescriptor(descriptor) {
     }
   }
 
-  if (descriptor.spawnersById && typeof descriptor.spawnersById === 'object') {
-    const indexKeys = new Set(Object.keys(descriptor.spawnersById));
+  if (spawnersById && typeof spawnersById === 'object') {
+    const indexKeys = new Set(Object.keys(spawnersById));
     if (seenSpawnerIds) {
       for (const id of seenSpawnerIds) {
         if (!indexKeys.has(id)) {
@@ -296,7 +331,7 @@ function validateAreaDescriptor(descriptor) {
           warnings.push(`spawnersById entry "${key}" has no matching spawner`);
         }
       }
-    } else if (!descriptor.spawners) {
+    } else if (!spawners) {
       warnings.push('spawnersById provided without spawners array');
     }
   }
@@ -309,6 +344,54 @@ function normalizeAreaDescriptor(descriptor) {
   if (cloned.scene3d !== undefined) {
     cloned.scene3d = normalizeScene3dConfig(cloned.scene3d);
   }
+
+  const scene = typeof cloned.scene === 'object' && cloned.scene ? cloned.scene : {};
+  const geometry = typeof scene.geometry === 'object' && scene.geometry ? scene.geometry : {};
+
+  const normalizedGeometry = {
+    ...geometry,
+  };
+
+  if (!normalizedGeometry.layers && Array.isArray(cloned.layers)) {
+    normalizedGeometry.layers = cloned.layers;
+  }
+  if (!normalizedGeometry.instances) {
+    if (Array.isArray(cloned.instances)) {
+      normalizedGeometry.instances = cloned.instances;
+    } else if (Array.isArray(cloned.props)) {
+      normalizedGeometry.instances = cloned.props;
+    }
+  }
+  if (!normalizedGeometry.tilers && Array.isArray(cloned.tilers)) {
+    normalizedGeometry.tilers = cloned.tilers;
+  }
+  if (!normalizedGeometry.drumSkins && Array.isArray(cloned.drumSkins)) {
+    normalizedGeometry.drumSkins = cloned.drumSkins;
+  }
+  if (!normalizedGeometry.instancesById && cloned.instancesById) {
+    normalizedGeometry.instancesById = cloned.instancesById;
+  }
+
+  const normalizedScene = {
+    ...scene,
+    geometry: normalizedGeometry,
+  };
+
+  if (!normalizedScene.colliders && Array.isArray(cloned.colliders)) {
+    normalizedScene.colliders = cloned.colliders;
+  }
+  if (!normalizedScene.spawnPoints && Array.isArray(cloned.spawners)) {
+    normalizedScene.spawnPoints = cloned.spawners;
+  }
+  if (!normalizedScene.spawnPointsById && cloned.spawnersById) {
+    normalizedScene.spawnPointsById = cloned.spawnersById;
+  }
+  if (!normalizedScene.playableBounds && cloned.playableBounds) {
+    normalizedScene.playableBounds = cloned.playableBounds;
+  }
+
+  cloned.scene = normalizedScene;
+
   return cloned;
 }
 
