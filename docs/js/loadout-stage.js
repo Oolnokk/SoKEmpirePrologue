@@ -12,6 +12,7 @@ const bodyColorInputs = overlay ? Array.from(overlay.querySelectorAll('.loadout-
 const CUSTOM_CHARACTER_KEY = '__custom__';
 const DEFAULT_CHARACTER_KEY = (() => {
   const characterKeys = Object.keys(CONFIG.characters || {});
+  if (characterKeys.includes('anuri')) return 'anuri';
   if (characterKeys.includes('player')) return 'player';
   return characterKeys[0] || CUSTOM_CHARACTER_KEY;
 })();
