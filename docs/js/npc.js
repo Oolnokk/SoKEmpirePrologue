@@ -38,10 +38,23 @@ function resolveActiveArea() {
 }
 
 function clampXToPlayableBounds(x, playableBounds = null) {
-  if (!playableBounds || !Number.isFinite(playableBounds.left) || !Number.isFinite(playableBounds.right)) {
+  const resolvedBounds = playableBounds || window.GAME?.geometryService?.getActivePlayableBounds?.() || null;
+  if (!resolvedBounds || !Number.isFinite(resolvedBounds.left) || !Number.isFinite(resolvedBounds.right)) {
     return x;
   }
-  return clamp(x, playableBounds.left, playableBounds.right);
+  return clamp(x, resolvedBounds.left, resolvedBounds.right);
+}
+
+function resolveActivePlayableBounds(area = null) {
+  const geometryBounds = window.GAME?.geometryService?.getActivePlayableBounds?.() ?? null;
+  if (geometryBounds && Number.isFinite(geometryBounds.left) && Number.isFinite(geometryBounds.right)) {
+    return geometryBounds;
+  }
+  const areaBounds = area?.playableBounds || resolveActiveArea()?.playableBounds || null;
+  if (areaBounds && Number.isFinite(areaBounds.left) && Number.isFinite(areaBounds.right)) {
+    return areaBounds;
+  }
+  return null;
 }
 
 function resolveNpcPathingConfig(state) {
@@ -65,7 +78,7 @@ function ensureNpcPathState(state) {
 function resolveNpcPathTarget(state, area) {
   const config = resolveNpcPathingConfig(state);
   if (!config || !area) return null;
-  const playableBounds = area.playableBounds || null;
+  const playableBounds = resolveActivePlayableBounds(area);
   const allTargets = Array.isArray(area.pathTargets) ? area.pathTargets : [];
   let candidates = allTargets;
   if (config.name) {
@@ -2152,7 +2165,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
   if (!player || !state) return;
 
   const activeArea = resolveActiveArea();
-  const playableBounds = activeArea?.playableBounds || null;
+  const playableBounds = resolveActivePlayableBounds(activeArea);
 
   const visuals = ensureNpcVisualState(state);
 

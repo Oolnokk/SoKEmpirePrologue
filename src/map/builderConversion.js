@@ -1,4 +1,5 @@
 import { mapBuilderConfig } from './mapBuilderConfig.js';
+import { adaptLegacyLayoutGeometry } from './GeometryService.js';
 import {
   attachGroupsToSpawners,
   mergeGroupLibraries,
@@ -235,49 +236,16 @@ function normalizePlayableBounds(rawBounds, colliders = [], warnings = null) {
   return null;
 }
 
-function alignCollidersToPlayableBounds(colliders = [], playableBounds = null) {
+function validateExplicitGeometry(playableBounds, colliders, warnings = [], { allowDerivedPlayableBounds = false } = {}) {
+  if (!playableBounds) {
+    warnings.push('Missing playableBounds – provide explicit bounds for geometry service consumption');
+  } else if (playableBounds.source === PLAYABLE_BOUNDS_SOURCE.COLLIDERS && !allowDerivedPlayableBounds) {
+    warnings.push('Playable bounds were derived from colliders; supply explicit playableBounds to avoid legacy fallbacks');
+  }
+
   if (!Array.isArray(colliders) || colliders.length === 0) {
-    return colliders;
+    warnings.push('No colliders provided – geometry service expects explicit collider definitions');
   }
-
-  if (playableBounds?.source === PLAYABLE_BOUNDS_SOURCE.COLLIDERS) {
-    return colliders;
-  }
-
-  const left = toNumber(playableBounds?.left, NaN);
-  const right = toNumber(playableBounds?.right, NaN);
-  if (!Number.isFinite(left) || !Number.isFinite(right) || right <= left) {
-    return colliders;
-  }
-
-  const width = right - left;
-
-  return colliders.map((collider) => {
-    if (!collider || typeof collider !== 'object') return collider;
-    if (collider.meta?.autoAlignPlayableBounds === false) return collider;
-
-    const currentLeft = toNumber(collider.left, NaN);
-    const currentWidth = toNumber(collider.width, NaN);
-    const currentRight =
-      Number.isFinite(currentLeft) && Number.isFinite(currentWidth)
-        ? currentLeft + currentWidth
-        : NaN;
-
-    const alreadyCovers = Number.isFinite(currentLeft)
-      && Number.isFinite(currentRight)
-      && currentLeft <= left
-      && currentRight >= right;
-
-    if (alreadyCovers && collider.meta?.autoAlignPlayableBounds !== true) {
-      return collider;
-    }
-
-    return {
-      ...collider,
-      left,
-      width,
-    };
-  });
 }
 
 function buildInstanceIndex(instances) {
@@ -722,8 +690,13 @@ function normalizeAreaDescriptor(area, options = {}) {
   });
 
   const convertedColliders = rawColliders.map((col, index) => normalizeCollider(col, index));
-  const playableBounds = normalizePlayableBounds(area.playableBounds, convertedColliders, warnings);
-  const alignedColliders = alignCollidersToPlayableBounds(convertedColliders, playableBounds);
+  const geometry = adaptLegacyLayoutGeometry({
+    playableBounds: area.playableBounds,
+    colliders: convertedColliders,
+  }, warnings);
+  validateExplicitGeometry(geometry.playableBounds, geometry.colliders, warnings, { allowDerivedPlayableBounds: true });
+  const playableBounds = geometry.playableBounds;
+  const alignedColliders = geometry.colliders;
   const explicitTilers = rawTilers.map((tiler, index) => normalizeTiler(tiler, index));
   const colliderTilers = collectColliderTilers(alignedColliders, warnings, explicitTilers.length);
   const convertedTilers = [...explicitTilers, ...colliderTilers];
@@ -914,8 +887,13 @@ export function convertLayoutToArea(layout, options = {}) {
   });
 
   const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
-  const playableBounds = normalizePlayableBounds(layout.playableBounds, convertedColliders, warnings);
-  const alignedColliders = alignCollidersToPlayableBounds(convertedColliders, playableBounds);
+  const geometry = adaptLegacyLayoutGeometry({
+    playableBounds: layout.playableBounds,
+    colliders: convertedColliders,
+  }, warnings);
+  validateExplicitGeometry(geometry.playableBounds, geometry.colliders, warnings, { allowDerivedPlayableBounds: true });
+  const playableBounds = geometry.playableBounds;
+  const alignedColliders = geometry.colliders;
   const explicitTilers = rawTilers.map((tiler, index) => normalizeTiler(tiler, index));
   const colliderTilers = collectColliderTilers(alignedColliders, warnings, explicitTilers.length);
   const convertedTilers = [...explicitTilers, ...colliderTilers];
@@ -949,6 +927,24 @@ export function convertLayoutToArea(layout, options = {}) {
     }
   }
 
+  const geometry = {
+    layers: convertedLayers,
+    instances: convertedInstances,
+    instancesById: buildInstanceIndex(convertedInstances),
+    tilers: convertedTilers,
+    drumSkins: convertedDrumSkins,
+  };
+
+  const scene = {
+    geometry,
+    colliders: alignedColliders,
+    spawnPoints: spawnersWithGroups,
+    spawnPointsById: buildSpawnerIndex(spawnersWithGroups),
+    playableBounds,
+    pathTargets,
+    pois,
+  };
+
   return {
     id: resolvedAreaId,
     name: resolvedAreaName,
@@ -961,15 +957,16 @@ export function convertLayoutToArea(layout, options = {}) {
       offset: toNumber(layout.groundOffset, 0),
     },
     proximityScale,
+    scene,
     layers: convertedLayers,
     instances: convertedInstances,
-    instancesById: buildInstanceIndex(convertedInstances),
+    instancesById: geometry.instancesById,
     pathTargets,
     pois,
     poisById: poisByIndex.byId,
     poisByName: poisByIndex.byName,
     spawners: spawnersWithGroups,
-    spawnersById: buildSpawnerIndex(spawnersWithGroups),
+    spawnersById: scene.spawnPointsById,
     groupLibrary,
     colliders: alignedColliders,
     drumSkins: convertedDrumSkins,

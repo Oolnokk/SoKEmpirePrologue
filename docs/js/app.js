@@ -1208,7 +1208,22 @@ window.GAME.AIMING = {
 };
 
 // === Apply render layer order (matches reference HTML) ===
-const RENDER_ORDER = ['HITBOX','ARM_L_UPPER','ARM_L_LOWER','LEG_L_UPPER','LEG_L_LOWER','TORSO','HEAD','LEG_R_UPPER','LEG_R_LOWER','ARM_R_UPPER','ARM_R_LOWER'];
+const RENDER_ORDER = [
+  'HITBOX',
+  'LEG_L_UPPER',
+  'LEG_L_LOWER',
+  'WEAPON_L',
+  'ARM_L_UPPER',
+  'ARM_L_LOWER',
+  'TORSO',
+  'HEAD',
+  'LEG_R_UPPER',
+  'LEG_R_LOWER',
+  'WEAPON_R',
+  'ARM_R_UPPER',
+  'ARM_R_LOWER',
+  'WEAPON'
+];
 function applyRenderOrder(){
   window.CONFIG ||= {};
   window.CONFIG.render ||= {};
