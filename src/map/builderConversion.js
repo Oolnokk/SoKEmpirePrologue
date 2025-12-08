@@ -316,6 +316,7 @@ function normalizePathTargetRecord(raw, warnings = [], context = {}) {
     instanceId,
     layerId,
     position,
+    world: { ...position },
     tags,
     meta,
     sourceTag: typeof safe.sourceTag === 'string' ? safe.sourceTag : null,
@@ -369,20 +370,12 @@ function mergePathTargetLists(explicit = [], derived = [], warnings = []) {
   return merged;
 }
 
-function resolvePathTargetInfo(inst, layerTypes = new Map(), warnings = null) {
+function resolvePathTargetInfo(inst) {
   if (!inst || typeof inst !== 'object') return null;
   if (!Array.isArray(inst.tags) || inst.tags.length === 0) return null;
 
   const tagInfo = parsePathTargetTag(inst.tags);
   if (!tagInfo) return null;
-
-  const layerType = layerTypes.get(inst.layerId) || null;
-  if (layerType && layerType !== 'gameplay') {
-    if (Array.isArray(warnings)) {
-      warnings.push(`Ignoring path target "${tagInfo.name}" on non-gameplay layer "${inst.layerId}"`);
-    }
-    return null;
-  }
 
   const pathTargetMeta = inst.meta?.pathTarget
     || inst.meta?.original?.meta?.pathTarget
@@ -396,20 +389,64 @@ function resolvePathTargetInfo(inst, layerTypes = new Map(), warnings = null) {
     instanceId: inst.instanceId ?? null,
     layerId: inst.layerId ?? null,
     position: inst.position ? { ...inst.position } : null,
+    world: inst.position ? { ...inst.position } : null,
     tags: [...inst.tags],
     meta: pathTargetMeta ? { ...pathTargetMeta } : {},
     sourceTag: tagInfo.sourceTag,
   };
 }
 
-function collectPathTargets(instances = [], layers = [], warnings = null) {
+function collectPathTargets(instances = []) {
   if (!Array.isArray(instances) || instances.length === 0) return [];
-  const layerTypes = new Map(layers.map((layer) => [layer.id, layer.type]));
   const targets = instances
-    .map((inst) => resolvePathTargetInfo(inst, layerTypes, warnings))
+    .map((inst) => resolvePathTargetInfo(inst))
     .filter(Boolean);
 
   return targets;
+}
+
+function buildPathTargetRegistry(pathTargets = [], warnings = []) {
+  const records = [];
+  const byId = {};
+  const byCoordinate = {};
+  const suffixCounter = new Map();
+
+  const coordinateKeyFor = (position) => {
+    const x = Number(position?.x) || 0;
+    const y = Number(position?.y) || 0;
+    return `${x},${y}`;
+  };
+
+  for (const [index, target] of (Array.isArray(pathTargets) ? pathTargets : []).entries()) {
+    if (!target || typeof target !== 'object') continue;
+    const baseId = target.instanceId || target.name || `target_${index}`;
+    let registryId = baseId;
+    if (Object.prototype.hasOwnProperty.call(byId, registryId)) {
+      let suffix = suffixCounter.get(baseId) || 1;
+      while (Object.prototype.hasOwnProperty.call(byId, `${baseId}_${suffix}`)) {
+        suffix += 1;
+      }
+      suffixCounter.set(baseId, suffix + 1);
+      registryId = `${baseId}_${suffix}`;
+      if (Array.isArray(warnings)) {
+        warnings.push(`Path target id "${baseId}" duplicated; stored as "${registryId}" in registry`);
+      }
+    }
+    const world = target.world || target.position || { x: 0, y: 0 };
+    const coordinateKey = coordinateKeyFor(world);
+    const record = {
+      ...target,
+      registryId,
+      world: { x: Number(world?.x) || 0, y: Number(world?.y) || 0 },
+      coordinateKey,
+    };
+    records.push(record);
+    byId[registryId] = record;
+    if (!byCoordinate[coordinateKey]) byCoordinate[coordinateKey] = [];
+    byCoordinate[coordinateKey].push(record);
+  }
+
+  return { records, byId, byCoordinate };
 }
 
 function parsePoiTag(tags = []) {
@@ -715,8 +752,9 @@ function normalizeAreaDescriptor(area, options = {}) {
   const groupLibrary = mergeGroupLibraries(optionGroupLibrary, areaGroupLibrary);
   const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(area.pathTargets, warnings, { source: 'area' });
-  const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
+  const derivedPathTargets = collectPathTargets(convertedInstances, warnings);
   const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets, warnings);
+  const pathTargetRegistry = buildPathTargetRegistry(pathTargets, warnings);
   const pois = collectPois(alignedColliders, warnings);
   const poisByIndex = buildPoiIndex(pois);
 
@@ -735,7 +773,10 @@ function normalizeAreaDescriptor(area, options = {}) {
     layers: convertedLayers,
     instances: convertedInstances,
     instancesById: buildInstanceIndex(convertedInstances),
-    pathTargets,
+    pathTargets: pathTargetRegistry.records,
+    pathTargetRegistry,
+    pathTargetsById: pathTargetRegistry.byId,
+    pathTargetsByCoordinate: pathTargetRegistry.byCoordinate,
     pois,
     poisById: poisByIndex.byId,
     poisByName: poisByIndex.byName,
@@ -887,13 +928,13 @@ export function convertLayoutToArea(layout, options = {}) {
   });
 
   const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
-  const geometry = adaptLegacyLayoutGeometry({
+  const derivedGeometry = adaptLegacyLayoutGeometry({
     playableBounds: layout.playableBounds,
     colliders: convertedColliders,
   }, warnings);
-  validateExplicitGeometry(geometry.playableBounds, geometry.colliders, warnings, { allowDerivedPlayableBounds: true });
-  const playableBounds = geometry.playableBounds;
-  const alignedColliders = geometry.colliders;
+  validateExplicitGeometry(derivedGeometry.playableBounds, derivedGeometry.colliders, warnings, { allowDerivedPlayableBounds: true });
+  const playableBounds = derivedGeometry.playableBounds;
+  const alignedColliders = derivedGeometry.colliders;
   const explicitTilers = rawTilers.map((tiler, index) => normalizeTiler(tiler, index));
   const colliderTilers = collectColliderTilers(alignedColliders, warnings, explicitTilers.length);
   const convertedTilers = [...explicitTilers, ...colliderTilers];
@@ -911,8 +952,9 @@ export function convertLayoutToArea(layout, options = {}) {
   const groupLibrary = mergeGroupLibraries(optionGroupLibrary, layoutGroupLibrary);
   const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(layout.pathTargets, warnings, { source: 'layout' });
-  const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
+  const derivedPathTargets = collectPathTargets(convertedInstances, warnings);
   const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets, warnings);
+  const pathTargetRegistry = buildPathTargetRegistry(pathTargets, warnings);
   const pois = collectPois(alignedColliders, warnings);
   const poisByIndex = buildPoiIndex(pois);
 
@@ -941,7 +983,10 @@ export function convertLayoutToArea(layout, options = {}) {
     spawnPoints: spawnersWithGroups,
     spawnPointsById: buildSpawnerIndex(spawnersWithGroups),
     playableBounds,
-    pathTargets,
+    pathTargets: pathTargetRegistry.records,
+    pathTargetRegistry,
+    pathTargetsById: pathTargetRegistry.byId,
+    pathTargetsByCoordinate: pathTargetRegistry.byCoordinate,
     pois,
   };
 
@@ -961,7 +1006,10 @@ export function convertLayoutToArea(layout, options = {}) {
     layers: convertedLayers,
     instances: convertedInstances,
     instancesById: geometry.instancesById,
-    pathTargets,
+    pathTargets: pathTargetRegistry.records,
+    pathTargetRegistry,
+    pathTargetsById: pathTargetRegistry.byId,
+    pathTargetsByCoordinate: pathTargetRegistry.byCoordinate,
     pois,
     poisById: poisByIndex.byId,
     poisByName: poisByIndex.byName,

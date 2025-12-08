@@ -145,14 +145,19 @@ test('convertLayoutToArea collects gameplay path targets and respects ordering',
 
   const area = convertLayoutToArea(layout, { prefabResolver: (id) => ({ id }) });
 
-  assert.equal(area.pathTargets.length, 2);
-  const [first, second] = area.pathTargets;
-  assert.equal(first.name, 'alpha');
-  assert.equal(first.instanceId, 'a1');
-  assert.equal(second.order, 10);
-  assert.ok(area.instancesById[first.instanceId]);
-  assert.ok(area.instancesById[second.instanceId]);
-  assert.ok(area.warnings.some((line) => line.includes('Ignoring path target')));
+  assert.equal(area.pathTargets.length, 3);
+  const ignored = area.pathTargets.find((pt) => pt.name === 'ignored');
+  const alphaTargets = area.pathTargets.filter((pt) => pt.name === 'alpha');
+  assert.ok(ignored);
+  assert.equal(alphaTargets.length, 2);
+  assert.ok(alphaTargets.some((pt) => pt.order === 2));
+  assert.ok(alphaTargets.some((pt) => pt.order === 10));
+  assert.ok(area.instancesById[ignored.instanceId]);
+  assert.ok(area.instancesById[alphaTargets[0].instanceId]);
+  assert.ok(area.pathTargetsById[alphaTargets[0].registryId]);
+  const coordinateKeys = Object.keys(area.pathTargetsByCoordinate);
+  assert.ok(coordinateKeys.length > 0);
+  assert.ok(!area.warnings.some((line) => line.includes('Ignoring path target')));
 });
 
 test('convertLayoutToArea merges explicit path targets with derived markers', () => {
@@ -173,16 +178,22 @@ test('convertLayoutToArea merges explicit path targets with derived markers', ()
 
   const area = convertLayoutToArea(layout, { prefabResolver: (id) => ({ id }) });
 
-  assert.equal(area.pathTargets.length, 3);
-  const alpha = area.pathTargets.find((pt) => pt.name === 'alpha');
+  assert.equal(area.pathTargets.length, 4);
+  const alphaTargets = area.pathTargets.filter((pt) => pt.name === 'alpha');
   const bravo = area.pathTargets.find((pt) => pt.name === 'bravo');
   const charlie = area.pathTargets.find((pt) => pt.name === 'charlie');
-  assert.ok(alpha);
+  assert.equal(alphaTargets.length, 2);
   assert.ok(bravo);
   assert.ok(charlie);
-  assert.equal(alpha.order, 99);
+  assert.ok(alphaTargets.some((pt) => pt.order === 99));
+  assert.ok(alphaTargets.some((pt) => pt.order === 1));
   assert.equal(bravo.order, 2);
   assert.equal(charlie.order, 5);
+  const explicitAlpha = alphaTargets.find((pt) => pt.order === 99);
+  assert.equal(explicitAlpha.world.x, 5);
+  assert.equal(explicitAlpha.world.y, -3);
+  assert.ok(area.pathTargetsById[bravo.registryId]);
+  assert.ok(area.pathTargetsByCoordinate['5,-3'].some((pt) => pt.registryId === explicitAlpha.registryId));
 });
 
 test('convertLayoutToArea tolerates missing arrays', () => {
