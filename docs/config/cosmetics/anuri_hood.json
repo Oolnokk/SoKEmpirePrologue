@@ -44,7 +44,7 @@
           "layerRole": "overlay",
           "image": {
             "url": "./assets/cosmetics/clothes/hat/anuri_hood-front-trim.png",
-            "colors": ["B"]
+            "colors": ["overlay"]
           }
         }
       }
