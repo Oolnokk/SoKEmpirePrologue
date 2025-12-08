@@ -42,6 +42,13 @@ const RECOVERY_DURATION_BONUS = 1.1;
 const AIRBORNE_SPIN_JOINTS = ['torso', 'head', 'lShoulder', 'rShoulder', 'lHip', 'rHip', 'lKnee', 'rKnee'];
 const DEFAULT_WALK_SPEED_MULTIPLIERS = { combat: 1, nonCombat: 0.82, sneak: 0.7 };
 
+// Upright controller defaults (PD-style correction for torso when not in full ragdoll)
+// Can be overridden via window.CONFIG.balance: uprightKp, uprightKd, uprightBoost, uprightMaxDelta
+const UPRIGHT_KP = 0.18;           // Proportional gain (angle error response)
+const UPRIGHT_KD = 0.12;           // Derivative gain (velocity damping)
+const UPRIGHT_BOOST = 0.5;         // Authority increase at zero footing (scale = 1 + boost*(1-footingNorm))
+const UPRIGHT_MAX_DELTA = 0.08;    // Clamp correction to avoid solver spikes
+
 function clamp(value, min, max) {
   if (value < min) return min;
   if (value > max) return max;
@@ -372,6 +379,28 @@ function updateJointPhysics(fighter, config, dt) {
     let target = clamp(pose[joint] ?? 0, min, max);
     let stiffness = STIFFNESS.normal;
     let damping = dampingForFrame(DAMPING_BASE.normal, dt);
+
+    // Apply upright controller for torso joint when not in full ragdoll
+    // Authority scales with footing: higher footing = baseline authority, lower footing = increased authority
+    if (joint === 'torso' && !fighter.ragdoll) {
+      const maxFooting = config?.knockback?.maxFooting ?? 100;
+      const footingNormalized = clamp((fighter.footing ?? 0) / maxFooting, 0, 1);
+      const kp = getBalanceScalar('uprightKp', UPRIGHT_KP);
+      const kd = getBalanceScalar('uprightKd', UPRIGHT_KD);
+      const boost = getBalanceScalar('uprightBoost', UPRIGHT_BOOST);
+      const maxDelta = getBalanceScalar('uprightMaxDelta', UPRIGHT_MAX_DELTA);
+      
+      // Scale increases as footing decreases: scale = 1 + boost*(1 - footingNormalized)
+      const scale = 1 + boost * (1 - footingNormalized);
+      
+      // PD correction: kp * angleError - kd * vel, assuming neutral torso angle is 0
+      const angleError = 0 - angle;
+      const correction = (kp * angleError - kd * vel) * scale;
+      
+      // Clamp to avoid solver spikes, then apply to velocity
+      const clampedCorrection = clamp(correction, -maxDelta, maxDelta);
+      vel += clampedCorrection;
+    }
 
     if (fighter.ragdoll) {
       const ragTarget = state.ragdollTargets[joint];

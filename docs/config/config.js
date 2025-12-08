@@ -1310,7 +1310,13 @@ window.CONFIG = {
       strength: 1.0,
       agility: 1.0,
       endurance: 1
-    }
+    },
+    // Upright controller tuning (PD-style torso correction when not in full ragdoll)
+    // Authority scales with footing: higher footing = baseline, lower footing = increased authority
+    uprightKp: 0.18,         // Proportional gain (angle error response)
+    uprightKd: 0.12,         // Derivative gain (velocity damping)
+    uprightBoost: 0.5,       // Authority increase at zero footing
+    uprightMaxDelta: 0.08    // Max correction per frame to avoid solver spikes
   },
 
   npc: {
