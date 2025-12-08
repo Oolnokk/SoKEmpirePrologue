@@ -7,3 +7,9 @@ export {
   normalizeScene3dConfig,
   projectToGroundPlane,
 } from './scene3d.js';
+export {
+  GeometryService,
+  GeometryServiceError,
+  adaptLegacyLayoutGeometry,
+  adaptSceneGeometry,
+} from './GeometryService.js';

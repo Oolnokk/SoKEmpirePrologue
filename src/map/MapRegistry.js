@@ -199,6 +199,24 @@ function validateAreaDescriptor(descriptor) {
     validateScene3d(descriptor.scene3d, warnings, errors);
   }
 
+  const playableLeft = Number.isFinite(descriptor.playableBounds?.left)
+    ? descriptor.playableBounds.left
+    : Number.isFinite(descriptor.playableBounds?.min)
+      ? descriptor.playableBounds.min
+      : null;
+  const playableRight = Number.isFinite(descriptor.playableBounds?.right)
+    ? descriptor.playableBounds.right
+    : Number.isFinite(descriptor.playableBounds?.max)
+      ? descriptor.playableBounds.max
+      : null;
+  if (!(playableLeft != null && playableRight != null && playableRight > playableLeft)) {
+    errors.push('"playableBounds" must define finite left/right for geometry service');
+  }
+
+  if (!Array.isArray(descriptor.colliders) || descriptor.colliders.length === 0) {
+    errors.push('"colliders" must be a non-empty array for geometry service');
+  }
+
   if (!Array.isArray(descriptor.layers)) {
     errors.push('"layers" must be an array');
   }

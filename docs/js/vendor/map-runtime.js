@@ -188,9 +188,154 @@ export class MapRegistry {
   }
 }
 
+export class GeometryServiceError extends Error {
+  constructor(message, details = undefined) {
+    super(message);
+    this.name = 'GeometryServiceError';
+    if (details) {
+      this.details = details;
+    }
+  }
+}
+
+function normalizeExplicitPlayableBounds(rawBounds) {
+  const safe = rawBounds && typeof rawBounds === 'object' ? rawBounds : null;
+  const left = toNumber(safe?.left ?? (safe == null ? void 0 : safe.min), NaN);
+  const right = toNumber(safe?.right ?? (safe == null ? void 0 : safe.max), NaN);
+  if (!Number.isFinite(left) || !Number.isFinite(right) || right <= left) {
+    return null;
+  }
+  const source = typeof (safe == null ? void 0 : safe.source) === 'string' ? safe.source : 'explicit';
+  return { left, right, source };
+}
+
+function validateGeometry(playableBounds, colliders, { allowDerivedPlayableBounds = false } = {}) {
+  const errors = [];
+  if (!playableBounds) {
+    errors.push('Missing playableBounds – geometry service requires explicit left/right bounds');
+  } else if (playableBounds.source === 'legacy:derived' && !allowDerivedPlayableBounds) {
+    errors.push('Playable bounds were derived from colliders; provide explicit bounds to continue');
+  }
+
+  if (!Array.isArray(colliders) || colliders.length === 0) {
+    errors.push('No colliders provided – geometry service requires at least one collider');
+  }
+
+  if (errors.length) {
+    throw new GeometryServiceError('Invalid geometry payload', { errors });
+  }
+}
+
+export class GeometryService {
+  constructor({ logger = console } = {}) {
+    this._logger = logger;
+    this._geometries = new Map();
+    this._activeAreaId = null;
+  }
+
+  registerGeometry(areaId, geometry, { allowDerivedPlayableBounds = false } = {}) {
+    if (!areaId || typeof areaId !== 'string') {
+      throw new GeometryServiceError('Area id must be a non-empty string');
+    }
+    if (!geometry || typeof geometry !== 'object') {
+      throw new GeometryServiceError('Geometry payload must be an object');
+    }
+    const playableBounds = normalizeExplicitPlayableBounds(geometry.playableBounds);
+    const colliders = Array.isArray(geometry.colliders) ? geometry.colliders.filter(Boolean) : [];
+
+    validateGeometry(playableBounds, colliders, { allowDerivedPlayableBounds });
+
+    const normalized = {
+      playableBounds,
+      colliders,
+      source: geometry.source || 'geometry-service',
+    };
+
+    this._geometries.set(areaId, normalized);
+    if (!this._activeAreaId) {
+      this._activeAreaId = areaId;
+    }
+    return normalized;
+  }
+
+  setActiveArea(areaId) {
+    if (areaId == null) {
+      this._activeAreaId = null;
+      return true;
+    }
+    if (!this._geometries.has(areaId)) {
+      return false;
+    }
+    this._activeAreaId = areaId;
+    return true;
+  }
+
+  getGeometry(areaId) {
+    return this._geometries.get(areaId) || null;
+  }
+
+  getActiveGeometry() {
+    return this._activeAreaId ? this.getGeometry(this._activeAreaId) : null;
+  }
+
+  getActivePlayableBounds() {
+    var _a;
+    return ((_a = this.getActiveGeometry()) == null ? void 0 : _a.playableBounds) ?? null;
+  }
+
+  getActiveColliders() {
+    var _a;
+    return ((_a = this.getActiveGeometry()) == null ? void 0 : _a.colliders) ?? [];
+  }
+}
+
+export function adaptSceneGeometry(sceneGeometry = {}) {
+  const geometry = (sceneGeometry == null ? void 0 : sceneGeometry.geometry) && typeof (sceneGeometry == null ? void 0 : sceneGeometry.geometry) === 'object'
+    ? sceneGeometry.geometry
+    : sceneGeometry;
+  const playableBounds = (geometry == null ? void 0 : geometry.playableBounds) ?? (geometry == null ? void 0 : geometry.bounds) ?? null;
+  const colliders = Array.isArray(geometry == null ? void 0 : geometry.colliders) ? geometry.colliders : [];
+  return { playableBounds, colliders, source: 'scene-geometry' };
+}
+
+export function adaptLegacyLayoutGeometry(layout = {}, warnings = []) {
+  const colliders = Array.isArray(layout == null ? void 0 : layout.colliders) ? layout.colliders.filter(Boolean) : [];
+  let playableBounds = normalizeExplicitPlayableBounds(layout == null ? void 0 : layout.playableBounds);
+  if (!playableBounds) {
+    const derived = computeColliderBounds(colliders);
+    if (derived) {
+      playableBounds = { ...derived, source: 'legacy:derived' };
+      if (Array.isArray(warnings)) {
+        warnings.push('playableBounds missing; derived from colliders for legacy compatibility');
+      }
+    } else if (Array.isArray(warnings)) {
+      warnings.push('playableBounds missing and could not be derived from colliders');
+    }
+  }
+  return { playableBounds, colliders, source: 'legacy-layout' };
+}
+
 function validateAreaDescriptor(descriptor) {
   const warnings = [];
   const errors = [];
+
+  const playableLeft = Number.isFinite(descriptor.playableBounds?.left)
+    ? descriptor.playableBounds.left
+    : Number.isFinite(descriptor.playableBounds?.min)
+      ? descriptor.playableBounds.min
+      : null;
+  const playableRight = Number.isFinite(descriptor.playableBounds?.right)
+    ? descriptor.playableBounds.right
+    : Number.isFinite(descriptor.playableBounds?.max)
+      ? descriptor.playableBounds.max
+      : null;
+  if (!(playableLeft != null && playableRight != null && playableRight > playableLeft)) {
+    errors.push('"playableBounds" must define finite left/right for geometry service');
+  }
+
+  if (!Array.isArray(descriptor.colliders) || descriptor.colliders.length === 0) {
+    errors.push('"colliders" must be a non-empty array for geometry service');
+  }
 
   if (!Array.isArray(descriptor.layers)) {
     errors.push('"layers" must be an array');
@@ -610,6 +755,18 @@ function normalizePlayableBounds(rawBounds, colliders = [], warnings = null) {
     addWarning('playableBounds unavailable – no usable colliders to derive bounds');
   }
   return null;
+}
+
+function validateExplicitGeometry(playableBounds, colliders, warnings = [], { allowDerivedPlayableBounds = false } = {}) {
+  if (!playableBounds) {
+    warnings.push('Missing playableBounds – provide explicit bounds for geometry service consumption');
+  } else if (playableBounds.source === PLAYABLE_BOUNDS_SOURCE.COLLIDERS && !allowDerivedPlayableBounds) {
+    warnings.push('Playable bounds were derived from colliders; supply explicit playableBounds to avoid legacy fallbacks');
+  }
+
+  if (!Array.isArray(colliders) || colliders.length === 0) {
+    warnings.push('No colliders provided – geometry service expects explicit collider definitions');
+  }
 }
 
 function alignCollidersToPlayableBounds(colliders = [], playableBounds = null) {
@@ -1164,8 +1321,13 @@ function normalizeAreaDescriptor(area, options = {}) {
   });
 
   const convertedColliders = rawColliders.map((col, index) => normalizeCollider(col, index));
-  const playableBounds = normalizePlayableBounds(area.playableBounds, convertedColliders, warnings);
-  const alignedColliders = alignCollidersToPlayableBounds(convertedColliders, playableBounds);
+  const geometry = adaptLegacyLayoutGeometry({
+    playableBounds: area.playableBounds,
+    colliders: convertedColliders,
+  }, warnings);
+  validateExplicitGeometry(geometry.playableBounds, geometry.colliders, warnings, { allowDerivedPlayableBounds: true });
+  const playableBounds = geometry.playableBounds;
+  const alignedColliders = geometry.colliders;
   const layerMap = new Map(rawLayers.map((layer) => [layer.id, layer]));
   const convertedDrumSkins = rawDrumSkins
     .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap, {
@@ -1487,8 +1649,13 @@ export function convertLayoutToArea(layout, options = {}) {
   });
 
   const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
-  const playableBounds = normalizePlayableBounds(layout.playableBounds, convertedColliders, warnings);
-  const alignedColliders = alignCollidersToPlayableBounds(convertedColliders, playableBounds);
+  const geometry = adaptLegacyLayoutGeometry({
+    playableBounds: layout.playableBounds,
+    colliders: convertedColliders,
+  }, warnings);
+  validateExplicitGeometry(geometry.playableBounds, geometry.colliders, warnings, { allowDerivedPlayableBounds: true });
+  const playableBounds = geometry.playableBounds;
+  const alignedColliders = geometry.colliders;
   const convertedDrumSkins = rawDrumSkins
     .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap, {
       prefabResolver,

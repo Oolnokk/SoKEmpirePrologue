@@ -1,4 +1,10 @@
-import { MapRegistry, convertLayoutToArea } from './vendor/map-runtime.js';
+import {
+  GeometryService,
+  MapRegistry,
+  adaptLegacyLayoutGeometry,
+  adaptSceneGeometry,
+  convertLayoutToArea,
+} from './vendor/map-runtime.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 import {
   pickDefaultLayoutEntry,
@@ -132,6 +138,67 @@ function bindPlayableBoundsSync(registry: MapRegistry): void {
   }
 
   syncConfigPlayableBounds(registry?.getActiveArea?.() ?? null);
+}
+
+function resolveGameContainer(): Record<string, unknown> {
+  if (typeof window !== 'undefined') {
+    const GAME = (window as typeof window & { GAME?: Record<string, unknown> }).GAME || {};
+    (window as typeof window & { GAME: Record<string, unknown> }).GAME = GAME;
+    return GAME;
+  }
+  const globalRef = globalThis as typeof globalThis & { GAME?: Record<string, unknown> };
+  globalRef.GAME = globalRef.GAME || {};
+  return globalRef.GAME;
+}
+
+function ensureGeometryService(): GeometryService {
+  const GAME = resolveGameContainer();
+  const existing = GAME.geometryService;
+  if (existing instanceof GeometryService) {
+    return existing;
+  }
+  const service = new GeometryService({ logger: console });
+  GAME.geometryService = service;
+  return service;
+}
+
+function registerAreaGeometry(area: MapArea): void {
+  if (!area) return;
+  const service = ensureGeometryService();
+  try {
+    const geometry = (area as Record<string, unknown>).geometry
+      ? adaptSceneGeometry((area as Record<string, unknown>).geometry)
+      : adaptLegacyLayoutGeometry({
+        playableBounds: area.playableBounds,
+        colliders: area.colliders,
+      }, area.warnings);
+    service.registerGeometry(area.id, geometry, { allowDerivedPlayableBounds: true });
+    service.setActiveArea(area.id);
+  } catch (error) {
+    console.warn('[map-bootstrap] Failed to register geometry for area', { id: area?.id, error });
+  }
+}
+
+function bindGeometryService(registry: MapRegistry): void {
+  const service = ensureGeometryService();
+  if (typeof registry?.on === 'function') {
+    registry.on('active-area-changed', (activeArea: MapArea | null) => {
+      const activeId = activeArea?.id ?? null;
+      if (activeId && !service.getGeometry(activeId)) {
+        registerAreaGeometry(activeArea as MapArea);
+      }
+      service.setActiveArea(activeId);
+    });
+  }
+
+  const activeArea = registry?.getActiveArea?.() ?? null;
+  if (activeArea) {
+    if (!service.getGeometry(activeArea.id)) {
+      registerAreaGeometry(activeArea);
+    } else {
+      service.setActiveArea(activeArea.id);
+    }
+  }
 }
 
 function normalizeLayoutEntry(entry: unknown): MapLayoutConfig | null {
@@ -540,6 +607,7 @@ function applyArea(area: MapArea): void {
   registry.registerArea(area.id, area);
   registry.setActiveArea(area.id);
   window.__MAP_REGISTRY__ = registry;
+  registerAreaGeometry(area);
 
   const parallax = ensureParallaxContainer();
   parallax.areas[area.id] = adaptAreaToParallax(area);
@@ -558,6 +626,7 @@ function applyArea(area: MapArea): void {
   window.GAME.__onMapRegistryReadyForCamera?.(registry);
 
   bindAreaNameOverlay(registry);
+  bindGeometryService(registry);
   bindPlayableBoundsSync(registry);
 
   console.info(`[map-bootstrap] Loaded area "${area.id}" (${area.source || 'unknown source'})`);
