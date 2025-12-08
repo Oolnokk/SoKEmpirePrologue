@@ -40,6 +40,18 @@ export function initObstructionPhysics(instance, config) {
 }
 
 /**
+ * Check if an instance should skip physics processing
+ * @param {Object} instance - The instance to check
+ * @returns {boolean} True if physics should be skipped
+ */
+function shouldSkipPhysics(instance) {
+  if (!instance || !instance.physics) return true;
+  const physics = instance.prefab?.obstruction?.physics;
+  // Skip if obstruction prefab but physics not enabled/dynamic
+  return instance.prefab?.obstruction && (!physics || !physics.enabled || !physics.dynamic);
+}
+
+/**
  * Update physics for all dynamic obstruction instances
  * Also supports simple dynamic props without obstruction.physics config
  */
@@ -58,12 +70,7 @@ export function updateObstructionPhysics(instances, config, dt, options = {}) {
   }
 
   for (const instance of instances) {
-    const physics = instance.prefab?.obstruction?.physics;
-    // Skip if obstruction prefab but physics not enabled/dynamic
-    if (instance.prefab?.obstruction && (!physics || !physics.enabled || !physics.dynamic)) {
-      continue;
-    }
-    if (!instance.physics) continue;
+    if (shouldSkipPhysics(instance)) continue;
 
     const state = instance.physics;
     // Use prefab-defined values if available, otherwise use defaults
