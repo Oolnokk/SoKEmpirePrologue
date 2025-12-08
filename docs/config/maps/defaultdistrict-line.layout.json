@@ -1,0 +1,14 @@
+{
+  "id": "defaultdistrict-line",
+  "name": "DefaultDistrict - Line Fallback",
+  "playableBounds": { "left": -1100, "right": 1580 },
+  "proximityScale": 3.1,
+  "spawnPoints": [
+    { "id": "player_spawn", "x": -180, "y": 0, "prefab": "spawn_player" },
+    { "id": "npc_spawn", "x": 1300, "y": 0, "prefab": "spawn_npc" }
+  ],
+  "patrolPoints": [
+    { "id": "patrol_npc_1", "x": 1300, "width": 240, "y": 0, "label": "NPC Patrol 1", "meta": { "npcGroup": "guards" } },
+    { "id": "patrol_player_area", "x": -180, "width": 200, "y": 0, "label": "Player-area Patrol", "meta": { "npcGroup": "guards" } }
+  ]
+}

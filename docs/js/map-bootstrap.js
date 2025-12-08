@@ -1,4 +1,4 @@
-import { MapRegistry, convertLayoutToArea } from './vendor/map-runtime.js';
+import { MapRegistry, convertLayoutToArea } from './vendor/map-runtime-fix.js';
 import { SpawnService, translateAreaToSpawnPayload } from './spawn-service.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 import { pickDefaultLayoutEntry, resolveDefaultLayoutId, resolvePreviewStoragePrefix } from './map-config-defaults.js';
