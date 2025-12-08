@@ -1325,13 +1325,13 @@ function normalizeAreaDescriptor(area, options = {}) {
   });
 
   const convertedColliders = rawColliders.map((col, index) => normalizeCollider(col, index));
-  const geometry = adaptLegacyLayoutGeometry({
+  const legacyGeometry = adaptLegacyLayoutGeometry({
     playableBounds: area.playableBounds,
     colliders: convertedColliders,
   }, warnings);
-  validateExplicitGeometry(geometry.playableBounds, geometry.colliders, warnings, { allowDerivedPlayableBounds: true });
-  const playableBounds = geometry.playableBounds;
-  const alignedColliders = geometry.colliders;
+  validateExplicitGeometry(legacyGeometry.playableBounds, legacyGeometry.colliders, warnings, { allowDerivedPlayableBounds: true });
+  const playableBounds = legacyGeometry.playableBounds;
+  const alignedColliders = legacyGeometry.colliders;
   const layerMap = new Map(rawLayers.map((layer) => [layer.id, layer]));
   const convertedDrumSkins = rawDrumSkins
     .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap, {
@@ -1671,13 +1671,13 @@ export function convertLayoutToArea(layout, options = {}) {
   });
 
   const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
-  const geometry = adaptLegacyLayoutGeometry({
+  const legacyGeometry = adaptLegacyLayoutGeometry({
     playableBounds: layout.playableBounds,
     colliders: convertedColliders,
   }, warnings);
-  validateExplicitGeometry(geometry.playableBounds, geometry.colliders, warnings, { allowDerivedPlayableBounds: true });
-  const playableBounds = geometry.playableBounds;
-  const alignedColliders = geometry.colliders;
+  validateExplicitGeometry(legacyGeometry.playableBounds, legacyGeometry.colliders, warnings, { allowDerivedPlayableBounds: true });
+  const playableBounds = legacyGeometry.playableBounds;
+  const alignedColliders = legacyGeometry.colliders;
   const convertedDrumSkins = rawDrumSkins
     .map((drum, index) => normalizeDrumSkinLayer(drum, index, layerMap, {
       prefabResolver,
