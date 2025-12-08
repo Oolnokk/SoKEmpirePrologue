@@ -116,6 +116,26 @@ function resolveWeaponTypeKey(config, weaponKey) {
   return knockbackType || weaponKey;
 }
 
+function resolveWeaponLimb(weaponConfig, anchorKey) {
+  if (!weaponConfig || !anchorKey) return null;
+  const rigBones = weaponConfig?.rig?.bones || [];
+  const anchorStr = anchorKey.toString();
+  for (let i = 0; i < rigBones.length; i += 1) {
+    const bone = rigBones[i];
+    if (!bone) continue;
+    const id = bone.id || `weapon_${i}`;
+    if (id !== anchorStr) continue;
+    if (bone.limb) return bone.limb;
+    const anchorName = (bone.anchor || '').toString().toLowerCase();
+    if (anchorName.includes('left')) return 'left';
+    if (anchorName.includes('right')) return 'right';
+  }
+  const normalized = anchorStr.toLowerCase();
+  if (normalized.includes('_l_') || normalized.includes('left')) return 'left';
+  if (normalized.includes('_r_') || normalized.includes('right')) return 'right';
+  return null;
+}
+
 function pickBackSlotOffset(config, weaponTypeKey, slotKey) {
   if (!config || !slotKey) return null;
   const map = config.weaponBackOffsets || {};
@@ -518,7 +538,7 @@ function normalizeStyleKey(k){
 
 // Render order: use CONFIG.render.order if available; else fallback
 function buildZMap(C){
-  const def = ['HITBOX','ARM_L_UPPER','ARM_L_LOWER','LEG_L_LOWER','LEG_L_UPPER','TORSO','HEAD','LEG_R_LOWER','LEG_R_UPPER','ARM_R_UPPER','ARM_R_LOWER','WEAPON'];
+  const def = ['HITBOX','ARM_L_UPPER','ARM_L_LOWER','WEAPON_L','LEG_L_LOWER','LEG_L_UPPER','TORSO','HEAD','LEG_R_LOWER','LEG_R_UPPER','WEAPON_R','ARM_R_UPPER','ARM_R_LOWER','WEAPON'];
   const baseOrder = (C.render && Array.isArray(C.render.order) && C.render.order.length) ? C.render.order.map(s=>String(s).toUpperCase()) : def;
   const expanded = [];
   for (const tag of baseOrder){
@@ -1593,7 +1613,12 @@ export function renderSprites(ctx){
         // Only draw weapon sprite if asset is present and bone length > 0
         if (!bone || !asset) return;
         if (!stowActive && bone.len === 0) return;
-        const layerTag = String(layerSpec.layerTag || 'WEAPON').toUpperCase();
+        let layerTag = String(layerSpec.layerTag || 'WEAPON').toUpperCase();
+        if (!stowActive && !layerSpec.layerTag) {
+          const limb = resolveWeaponLimb(weaponConfig, anchorKey);
+          if (limb === 'left') layerTag = 'WEAPON_L';
+          else if (limb === 'right') layerTag = 'WEAPON_R';
+        }
         const styleKey = layerSpec.styleKey || anchorKey;
         const weaponStyle = layerSpec.style ? mergeSpriteStyles(style, layerSpec.style) : style;
         const options = {};
