@@ -1330,6 +1330,32 @@ function normalizeAreaDescriptor(area, options = {}) {
   });
 
   const convertedColliders = rawColliders.map((col, index) => normalizeCollider(col, index));
+  
+  // Ensure at least one ground collider exists
+  const hasGround = convertedColliders.some(c => 
+    (c.label && /ground/i.test(c.label)) || (c.meta && c.meta.ground)
+  );
+  if (!hasGround && convertedColliders.length === 0) {
+    // Create a default ground collider when no colliders exist
+    const groundOffset = toNumber(area.ground?.offset ?? area.groundOffset, 420);
+    const groundHeight = toNumber(area.ground?.height, 64);
+    const pbLeft = toNumber(area.playableBounds?.left, -600);
+    const pbRight = toNumber(area.playableBounds?.right, 600);
+    const worldWidth = Math.max(Math.abs(pbLeft), Math.abs(pbRight)) * 4;
+    
+    convertedColliders.push(normalizeCollider({
+      id: 'ground-1',
+      label: 'Ground',
+      left: pbLeft - worldWidth,
+      width: worldWidth * 2,
+      topOffset: groundOffset,
+      height: groundHeight,
+      meta: { ground: true }
+    }, 0));
+    
+    warnings.push('No colliders defined; added default ground collider');
+  }
+  
   const legacyGeometry = adaptLegacyLayoutGeometry({
     playableBounds: area.playableBounds,
     colliders: convertedColliders,
@@ -1676,6 +1702,32 @@ export function convertLayoutToArea(layout, options = {}) {
   });
 
   const convertedColliders = colliders.map((col, index) => normalizeCollider(col, index));
+  
+  // Ensure at least one ground collider exists
+  const hasGround = convertedColliders.some(c => 
+    (c.label && /ground/i.test(c.label)) || (c.meta && c.meta.ground)
+  );
+  if (!hasGround && convertedColliders.length === 0) {
+    // Create a default ground collider when no colliders exist
+    const groundOffset = toNumber(layout.groundOffset ?? layout.ground?.offset, 420);
+    const groundHeight = toNumber(layout.ground?.height, 64);
+    const pbLeft = toNumber(layout.playableBounds?.left, -600);
+    const pbRight = toNumber(layout.playableBounds?.right, 600);
+    const worldWidth = Math.max(Math.abs(pbLeft), Math.abs(pbRight)) * 4;
+    
+    convertedColliders.push(normalizeCollider({
+      id: 'ground-1',
+      label: 'Ground',
+      left: pbLeft - worldWidth,
+      width: worldWidth * 2,
+      topOffset: groundOffset,
+      height: groundHeight,
+      meta: { ground: true }
+    }, 0));
+    
+    warnings.push('No colliders defined; added default ground collider');
+  }
+  
   const legacyGeometry = adaptLegacyLayoutGeometry({
     playableBounds: layout.playableBounds,
     colliders: convertedColliders,
