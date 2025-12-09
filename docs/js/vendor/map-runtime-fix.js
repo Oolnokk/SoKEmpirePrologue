@@ -3,6 +3,9 @@ import * as _orig from './map-runtime.js';
 
 // Re-export MapRegistry and any other named exports used by map-bootstrap
 export const MapRegistry = _orig.MapRegistry;
+export const GeometryService = _orig.GeometryService;
+export const adaptSceneGeometry = _orig.adaptSceneGeometry;
+export const adaptLegacyLayoutGeometry = _orig.adaptLegacyLayoutGeometry;
 
 export function convertLayoutToArea(layout = {}, options = {}) {
   try {

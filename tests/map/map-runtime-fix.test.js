@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 // Import the shim
-import { MapRegistry, convertLayoutToArea } from '../../docs/js/vendor/map-runtime-fix.js';
+import { MapRegistry, convertLayoutToArea, GeometryService, adaptSceneGeometry, adaptLegacyLayoutGeometry } from '../../docs/js/vendor/map-runtime-fix.js';
 
 test('map-runtime-fix re-exports MapRegistry', () => {
   assert.ok(MapRegistry, 'MapRegistry should be exported');
@@ -113,4 +113,19 @@ test('convertLayoutToArea provides default playableBounds', () => {
 
   assert.equal(area.playableBounds.left, -600, 'default left should be -600');
   assert.equal(area.playableBounds.right, 600, 'default right should be 600');
+});
+
+test('map-runtime-fix re-exports GeometryService', () => {
+  assert.ok(GeometryService, 'GeometryService should be exported');
+  assert.equal(typeof GeometryService, 'function', 'GeometryService should be a function/class');
+});
+
+test('map-runtime-fix re-exports adaptSceneGeometry', () => {
+  assert.ok(adaptSceneGeometry, 'adaptSceneGeometry should be exported');
+  assert.equal(typeof adaptSceneGeometry, 'function', 'adaptSceneGeometry should be a function');
+});
+
+test('map-runtime-fix re-exports adaptLegacyLayoutGeometry', () => {
+  assert.ok(adaptLegacyLayoutGeometry, 'adaptLegacyLayoutGeometry should be exported');
+  assert.equal(typeof adaptLegacyLayoutGeometry, 'function', 'adaptLegacyLayoutGeometry should be a function');
 });
