@@ -1723,7 +1723,8 @@ export function convertLayoutToArea(layout, options = {}) {
       const id = pt.id || `patrol-${idx + 1}`;
       const width = Number.isFinite(Number(pt.width)) ? Number(pt.width) : 48;
       // Calculate default x position evenly spaced within playable bounds
-      const defaultX = pbLeft + boundsWidth * (idx + 1) / (layout.patrolPoints.length + 1);
+      const spacing = boundsWidth / (layout.patrolPoints.length + 1);
+      const defaultX = pbLeft + spacing * (idx + 1);
       const x = Number.isFinite(Number(pt.x)) ? Number(pt.x) : defaultX;
       const topOffset = Number.isFinite(Number(pt.y)) ? Number(pt.y) : (pt.topOffset ?? groundOffset);
       
@@ -2122,6 +2123,8 @@ function computeLayerSlotCenters(instances) {
  * @returns {Object} Normalized ground collider
  */
 function createGroundCollider({ pbLeft, pbRight, groundOffset, groundHeight, index }) {
+  // Extend ground collider 4x beyond playable bounds to support parallax layers
+  // that may render content outside the primary gameplay area
   const worldWidth = Math.max(Math.abs(pbLeft), Math.abs(pbRight)) * 4;
   return normalizeCollider({
     id: 'ground-1',
