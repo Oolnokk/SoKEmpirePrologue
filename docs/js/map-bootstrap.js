@@ -3,46 +3,72 @@ import { SpawnService, translateAreaToSpawnPayload } from './spawn-service.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 import { pickDefaultLayoutEntry, resolveDefaultLayoutId, resolvePreviewStoragePrefix } from './map-config-defaults.js';
 
-const AREA_NAME_ELEMENT_ID = 'areaName';
+const GAMEPLAY_MAP_ELEMENT_ID = 'gameplayMapName';
+const VISUALS_MAP_ELEMENT_ID = 'visualsMapName';
 const AREA_OVERLAY_UNSUB_KEY = '__sokAreaNameOverlayUnsub__';
 const PLAYABLE_BOUNDS_UNSUB_KEY = '__sokPlayableBoundsSyncUnsub__';
 
-function getAreaNameElement() {
-  if (typeof document === 'undefined') return null;
-  const element = document.getElementById(AREA_NAME_ELEMENT_ID);
-  if (!element) return null;
-  if (typeof HTMLElement !== 'undefined' && element instanceof HTMLElement) {
-    return element;
-  }
-  return element?.nodeType === 1 ? element : null;
+function getMapNameElements() {
+  if (typeof document === 'undefined') return { gameplay: null, visuals: null };
+  const gameplay = document.getElementById(GAMEPLAY_MAP_ELEMENT_ID);
+  const visuals = document.getElementById(VISUALS_MAP_ELEMENT_ID);
+  return {
+    gameplay: (typeof HTMLElement !== 'undefined' && gameplay instanceof HTMLElement) || gameplay?.nodeType === 1 ? gameplay : null,
+    visuals: (typeof HTMLElement !== 'undefined' && visuals instanceof HTMLElement) || visuals?.nodeType === 1 ? visuals : null
+  };
 }
 
 function updateAreaNameOverlay(area) {
-  const element = getAreaNameElement();
-  if (!element) return;
+  const elements = getMapNameElements();
+  const { gameplay, visuals } = elements;
+  
   if (!area) {
-    element.textContent = '';
-    element.setAttribute('aria-hidden', 'true');
-    if (element.style) {
-      element.style.display = 'none';
-    }
-    if ('dataset' in element) {
-      element.dataset.areaId = '';
-      element.dataset.areaName = '';
-    }
+    // Clear both elements
+    [gameplay, visuals].forEach(element => {
+      if (!element) return;
+      element.textContent = '';
+      element.setAttribute('aria-hidden', 'true');
+      if (element.style) {
+        element.style.display = 'none';
+      }
+      if ('dataset' in element) {
+        element.dataset.areaId = '';
+        element.dataset.areaName = '';
+      }
+    });
     return;
   }
-  const resolvedName = typeof (area.meta?.areaName) === 'string' && area.meta.areaName.trim()
+  
+  // Get map names with fallback to defaultdistrict
+  const gameplayMapName = area.id || 'defaultdistrict';
+  const visualsMapName = (typeof (area.meta?.areaName) === 'string' && area.meta.areaName.trim()
     ? area.meta.areaName.trim()
-    : (area.name || area.id);
-  element.textContent = resolvedName;
-  element.setAttribute('aria-hidden', 'false');
-  if (element.style) {
-    element.style.display = '';
+    : (area.name || 'DefaultDistrict'));
+  
+  // Update gameplay map element
+  if (gameplay) {
+    gameplay.textContent = `Gameplay: ${gameplayMapName}`;
+    gameplay.setAttribute('aria-hidden', 'false');
+    if (gameplay.style) {
+      gameplay.style.display = '';
+    }
+    if ('dataset' in gameplay) {
+      gameplay.dataset.areaId = area.id;
+      gameplay.dataset.mapType = 'gameplay';
+    }
   }
-  if ('dataset' in element) {
-    element.dataset.areaId = area.id;
-    element.dataset.areaName = resolvedName;
+  
+  // Update visuals map element
+  if (visuals) {
+    visuals.textContent = `Visuals: ${visualsMapName}`;
+    visuals.setAttribute('aria-hidden', 'false');
+    if (visuals.style) {
+      visuals.style.display = '';
+    }
+    if ('dataset' in visuals) {
+      visuals.dataset.areaName = visualsMapName;
+      visuals.dataset.mapType = 'visuals';
+    }
   }
 }
 
