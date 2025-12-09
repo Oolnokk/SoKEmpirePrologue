@@ -572,6 +572,18 @@ function syncConfigPlatforming(area) {
   CONFIG.platformingColliders = normalized;
 }
 
+function resolveSceneDescriptor(area) {
+  if (!area) return null;
+  // Area objects already contain scene-like properties (geometry, colliders, spawnPoints, playableBounds)
+  // This function provides a consistent interface for accessing them
+  return {
+    geometry: area.geometry || { layers: [], instances: [] },
+    colliders: area.colliders || [],
+    spawnPoints: area.spawnPoints || [],
+    playableBounds: area.playableBounds || null,
+  };
+}
+
 function ensureSpawnService() {
   const existing = (window.__SPAWN_SERVICE__ instanceof SpawnService)
     ? window.__SPAWN_SERVICE__
@@ -584,6 +596,7 @@ function ensureSpawnService() {
 }
 
 function adaptAreaToParallax(area) {
+  const scene = resolveSceneDescriptor(area);
   return {
     id: area.id,
     name: area.name,
@@ -624,7 +637,7 @@ function applyArea(area) {
   spawnService.setActiveArea(area.id);
 
   const parallax = ensureParallaxContainer();
-  parallax.areas[area.id] = adaptSceneToParallax(area);
+  parallax.areas[area.id] = adaptAreaToParallax(area);
   parallax.currentAreaId = area.id;
 
   window.CONFIG = window.CONFIG || {};
