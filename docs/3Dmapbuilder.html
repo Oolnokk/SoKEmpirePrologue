@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Map Builder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <style>
+    :root {
+      --bg:#05070a; --panel:#10141a; --card:#151b22;
+      --line:#27303c; --muted:#7f8ea3; --text:#e6edf3;
+      --btn:#1a2330; --btnHi:#222d3c;
+    }
+    * { box-sizing:border-box; }
+
+    html, body {
+      margin:0;
+      padding:0;
+      height:100%;
+      min-height:100vh;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;
+      padding-left:env(safe-area-inset-left);
+      padding-right:env(safe-area-inset-right);
+      padding-bottom:env(safe-area-inset-bottom);
+    }
+
+    #app {
+      display:flex;
+      flex-direction:column;
+      min-height:100vh;
+      background:var(--bg);
+    }
+
+    header {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      padding:12px 14px 8px;
+      background:var(--panel);
+      border-bottom:1px solid var(--line);
+      gap:8px;
+      flex-wrap:wrap;
+      font-size:11px;
+    }
+    
+    header h1 {
+      margin:0;
+      font-size:16px;
+      font-weight:600;
+      color:var(--text);
+    }
+
+    .content {
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:40px 20px;
+    }
+
+    .info-box {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:8px;
+      padding:24px;
+      max-width:600px;
+      text-align:center;
+    }
+
+    .info-box h2 {
+      margin:0 0 16px;
+      color:var(--text);
+    }
+
+    .info-box p {
+      margin:0 0 24px;
+      color:var(--muted);
+      line-height:1.6;
+    }
+
+    .btn-group {
+      display:flex;
+      gap:12px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    .btn {
+      padding:10px 20px;
+      background:var(--btn);
+      color:var(--text);
+      border:1px solid var(--line);
+      border-radius:6px;
+      font-size:14px;
+      font-weight:500;
+      text-decoration:none;
+      cursor:pointer;
+      transition:background 0.2s;
+    }
+
+    .btn:hover {
+      background:var(--btnHi);
+    }
+
+    .btn-primary {
+      background:#1a7f64;
+      border-color:#1a7f64;
+    }
+
+    .btn-primary:hover {
+      background:#2a9f84;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>3D Map Builder</h1>
+    </header>
+    <div class="content">
+      <div class="info-box">
+        <h2>3D Map Builder</h2>
+        <p>
+          This is the 3D map building interface for creating environment and visual maps
+          with 3D geometry, procedural generation, and advanced rendering features.
+        </p>
+        <p>
+          The 3D map builder allows you to design EnvironmentMap data including
+          3D models, lighting, and procedural generation parameters that work
+          alongside the GameplayMap collision and interaction data.
+        </p>
+        <div class="btn-group">
+          <a href="./map-editor.html" class="btn btn-primary">Open 2D Map Editor</a>
+          <a href="./index.html" class="btn">Back to Game</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // 3D Map Builder functionality will be implemented here
+    // This integrates with the EnvironmentMap export format from the map editor
+    
+    console.log('[3D Map Builder] Initialized');
+    
+    // Future: Add Three.js integration for 3D preview and editing
+    // Future: Add support for loading/saving EnvironmentMap format
+    // Future: Add procedural generation tools
+  </script>
+</body>
+</html>
