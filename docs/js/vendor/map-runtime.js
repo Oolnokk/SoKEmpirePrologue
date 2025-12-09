@@ -343,9 +343,12 @@ function validateAreaDescriptor(descriptor) {
   if (descriptor.layers && descriptor.layers.length === 0) {
     warnings.push('Area declares no parallax layers');
   }
+  const geometry = descriptor.geometry || descriptor.scene?.geometry || {};
+  const instances = geometry.instances || descriptor.instances || [];
   if (!Array.isArray(instances)) {
     warnings.push('Area declares neither "instances" nor "props" – runtime may need one');
   }
+  const colliders = descriptor.colliders;
   if (colliders && !Array.isArray(colliders)) {
     warnings.push('"colliders" should be an array when provided');
   }
@@ -390,6 +393,7 @@ function validateAreaDescriptor(descriptor) {
     }
   }
 
+  const spawners = descriptor.spawnPoints || descriptor.spawners || (descriptor.scene?.spawnPoints);
   let seenSpawnerIds = null;
   if (spawners) {
     if (!Array.isArray(spawners)) {
@@ -419,6 +423,7 @@ function validateAreaDescriptor(descriptor) {
     }
   }
 
+  const spawnersById = descriptor.spawnersById || (descriptor.scene?.spawnPointsById);
   if (spawnersById && typeof spawnersById === 'object') {
     const indexKeys = new Set(Object.keys(spawnersById));
     if (seenSpawnerIds) {
@@ -1710,6 +1715,7 @@ export function convertLayoutToArea(layout, options = {}) {
   }
 
   const metaFromLayout = layout.meta && typeof layout.meta === 'object' ? safeClone(layout.meta) : {};
+  const proximityScale = clampScale(layout.proximityScale ?? metaFromLayout.proximityScale, 1);
 
   // Extract POIs from behavior metadata
   const behaviorMeta = metaFromLayout.behavior && typeof metaFromLayout.behavior === 'object' ? metaFromLayout.behavior : {};
