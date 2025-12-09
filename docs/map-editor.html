@@ -491,6 +491,8 @@
       <button id="overflowMenuToggle" class="kebab" aria-label="More actions" aria-haspopup="true" aria-expanded="false">⋮</button>
       <div id="overflowMenu" class="menu" role="menu" aria-label="More actions">
         <button id="btnUndo" role="menuitem">Undo</button>
+        <button id="btnExportGameplayMap" role="menuitem">Download GameplayMap JSON</button>
+        <button id="btnExportEnvironmentMap" role="menuitem">Download EnvironmentMap JSON</button>
       </div>
     </div>
     <span style="color:var(--muted);font-size:12px">Tap the toolbar for primary actions.</span>
@@ -1047,6 +1049,19 @@ const PREFAB_MANIFESTS = Array.isArray(MAP_CONFIG.prefabManifests)
   : [];
 let runtimeModulePromise = null;
 let prefabBootstrapPromise = null;
+
+/**
+ * Get the grid unit world size for 3D scaling and export.
+ * Reads from window.GRID_UNIT_WORLD_SIZE (set by docs/config/config.js) or falls back to GRID_UNIT.
+ * This ensures the editor and runtime use consistent grid-unit scaling.
+ */
+function getGridUnit() {
+  if (typeof window.GRID_UNIT_WORLD_SIZE === 'number' && window.GRID_UNIT_WORLD_SIZE > 0) {
+    return window.GRID_UNIT_WORLD_SIZE;
+  }
+  console.warn('[map-editor] window.GRID_UNIT_WORLD_SIZE not found, falling back to GRID_UNIT:', GRID_UNIT);
+  return GRID_UNIT;
+}
 
 $('#groundOffset').value = DEFAULT_GROUND_OFFSET;
 $('#proximityScale').value = clampValue(toNumber($('#proximityScale').value, 1) || 1, 0.05, 50);
@@ -1992,6 +2007,22 @@ function normalizeCollider(raw, fallbackId = 1){
 
 function adoptAreaState(area, context = {}){
   const raw = area && typeof area === 'object' ? JSON.parse(JSON.stringify(area)) : {};
+  
+  // Detect and log map format for robust import handling
+  if (raw.source === 'map-editor-gameplay') {
+    console.log('[map-editor] Importing GameplayMap format');
+  } else if (raw.source === 'map-editor-environment') {
+    console.log('[map-editor] Importing EnvironmentMap format');
+    if (typeof raw.gridUnitSize === 'number' && raw.gridUnitSize > 0) {
+      console.log(
+        `[map-editor] EnvironmentMap gridUnitSize: ${raw.gridUnitSize}`,
+        '(informational only; editor uses GRID_UNIT_WORLD_SIZE from docs/config/config.js)'
+      );
+    }
+  } else {
+    console.log('[map-editor] Importing legacy/combined map format');
+  }
+  
   const id = raw.id || raw.areaId || context.areaId || DEFAULT_LAYOUT_META.areaId;
   const name = raw.name || raw.areaName || context.areaName || DEFAULT_LAYOUT_META.areaName;
   const camera = {
@@ -2257,6 +2288,106 @@ function buildAreaDescriptor(){
     pathTargets: clonedPathTargets,
     meta,
   };
+}
+
+/**
+ * Build a GameplayMap JSON containing gameplay-facing data only.
+ * Includes: gameplayPath, alignWorldToPath, entities placeholder, gameplay-relevant layers.
+ * This format is consumed by gameplay logic and does not include visual/3D metadata.
+ */
+function buildGameplayMap() {
+  ensurePlayerSpawn();
+  const area = buildAreaDescriptor();
+  
+  // Extract gameplay-relevant data
+  const exportTimestamp = new Date().toISOString();
+  const gameplayMap = {
+    id: area.id,
+    name: area.name,
+    source: 'map-editor-gameplay',
+    exportedAt: exportTimestamp,
+    
+    // Gameplay path and alignment (if present in meta or area)
+    gameplayPath: area.meta?.gameplayPath || null,
+    alignWorldToPath: area.meta?.alignWorldToPath !== false,
+    
+    // Entities placeholder for runtime population
+    entities: area.meta?.entities || [],
+    
+    // Gameplay-relevant layers (e.g., collision, spawns)
+    colliders: area.colliders || [],
+    spawners: area.spawners || [],
+    pathTargets: area.pathTargets || [],
+    
+    // Ground and camera (gameplay-relevant)
+    ground: area.ground,
+    camera: area.camera,
+    proximityScale: area.proximityScale,
+    
+    // Gameplay behavior data
+    behavior: area.meta?.behavior || {},
+    
+    // Preserve meta but strip visual-only keys
+    meta: {
+      areaId: area.meta?.areaId,
+      areaName: area.meta?.areaName,
+      repositoryId: area.meta?.repositoryId,
+      editorVersion: 'v15f-gameplay',
+    },
+  };
+  
+  return gameplayMap;
+}
+
+/**
+ * Build an EnvironmentMap JSON containing visual/3D data and asset metadata.
+ * Includes: visual layers, asset references, gridUnitSize, gameplayPath for alignment.
+ * This format is consumed by 3D renderers and does not include gameplay logic.
+ */
+function buildEnvironmentMap() {
+  ensurePlayerSpawn();
+  const area = buildAreaDescriptor();
+  const gridUnitSize = getGridUnit();
+  
+  // Extract visual/environment data
+  const exportTimestamp = new Date().toISOString();
+  const environmentMap = {
+    id: area.id,
+    name: area.name,
+    source: 'map-editor-environment',
+    exportedAt: exportTimestamp,
+    
+    // Grid unit size for 3D scaling (critical for runtime consumers)
+    gridUnitSize: gridUnitSize,
+    
+    // Gameplay path for visual alignment (visual layers follow this path)
+    gameplayPath: area.meta?.gameplayPath || null,
+    
+    // Visual layers with parallax and asset references
+    layers: area.layers || [],
+    instances: area.instances || [],
+    drumSkins: area.drumSkins || [],
+    
+    // Background visual data
+    background: area.background,
+    
+    // Camera for preview purposes
+    camera: area.camera,
+    
+    // Ground visual offset
+    ground: area.ground,
+    
+    // Meta including visual configuration
+    meta: {
+      areaId: area.meta?.areaId,
+      areaName: area.meta?.areaName,
+      repositoryId: area.meta?.repositoryId,
+      editorVersion: 'v15f-environment',
+      background: area.meta?.background,
+    },
+  };
+  
+  return environmentMap;
 }
 
 async function convertDataToArea(data, context = {}){
@@ -4993,6 +5124,63 @@ async function exportLayout(){
   }
 }
 $('#btnExportMap').addEventListener('click', exportLayout);
+
+/*** Export GameplayMap (gameplay-only data) ***/
+function exportGameplayMap() {
+  try {
+    const gameplayMap = buildGameplayMap();
+    const json = JSON.stringify(gameplayMap, null, 2);
+    const areaId = gameplayMap.id || 'gameplay-map-export';
+    const filename = `${areaId}.gameplay.json`;
+    
+    const blob = new Blob([json], { type: 'application/json' });
+    const blobUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = blobUrl;
+    anchor.download = filename;
+    anchor.rel = 'noopener';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
+    
+    console.log('[map-editor] Exported GameplayMap:', filename);
+    alert(`GameplayMap exported: ${filename}`);
+  } catch (err) {
+    console.error('[map-editor] GameplayMap export error:', err);
+    alert('GameplayMap export failed: ' + err.message);
+  }
+}
+
+/*** Export EnvironmentMap (visual/3D data) ***/
+function exportEnvironmentMap() {
+  try {
+    const environmentMap = buildEnvironmentMap();
+    const json = JSON.stringify(environmentMap, null, 2);
+    const areaId = environmentMap.id || 'environment-map-export';
+    const filename = `${areaId}.environment.json`;
+    
+    const blob = new Blob([json], { type: 'application/json' });
+    const blobUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = blobUrl;
+    anchor.download = filename;
+    anchor.rel = 'noopener';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
+    
+    console.log('[map-editor] Exported EnvironmentMap with gridUnitSize:', environmentMap.gridUnitSize);
+    alert(`EnvironmentMap exported: ${filename}\nGrid unit size: ${environmentMap.gridUnitSize}`);
+  } catch (err) {
+    console.error('[map-editor] EnvironmentMap export error:', err);
+    alert('EnvironmentMap export failed: ' + err.message);
+  }
+}
+
+$('#btnExportGameplayMap').addEventListener('click', exportGameplayMap);
+$('#btnExportEnvironmentMap').addEventListener('click', exportEnvironmentMap);
 
 function pruneOldPreviewPayloads(){
   try {
