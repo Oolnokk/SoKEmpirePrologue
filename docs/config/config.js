@@ -2385,3 +2385,8 @@ CONFIG.npcGroups = {
 
   buildPresets();
 })();
+
+// Global grid-unit world scale configuration for map editor and runtime
+// This defines the world-space size of one grid unit (in pixels/units)
+// Used by the map editor for 3D preview scaling and exported in EnvironmentMap
+window.GRID_UNIT_WORLD_SIZE = window.GRID_UNIT_WORLD_SIZE || window.CONFIG?.map?.gridUnit || 30;
