@@ -472,13 +472,6 @@ function applyEditorPreviewSettings(area, { token = null, createdAt = null } = {
   }
 }
 
-function ensureParallaxContainer() {
-  const parallax = (window.PARALLAX = window.PARALLAX || { layers: [], areas: {}, currentAreaId: null });
-  parallax.areas = parallax.areas || {};
-  parallax.layers = Array.isArray(parallax.layers) ? parallax.layers : [];
-  return parallax;
-}
-
 /** Main sync function: keeps all relevant systems aligned on Y */
 function syncGroundYAcrossGame() {
   const groundY = window.CONFIG?.groundY;
@@ -492,9 +485,6 @@ function syncGroundYAcrossGame() {
 
   // Sync camera Y
   if (window.GAME?.CAMERA) window.GAME.CAMERA.y = groundY;
-
-  // Optionally: move parallax layers, HUD overlays, etc (if they use groundY for vertical placement)
-  // Example: if (window.PARALLAX) window.PARALLAX.groundY = groundY; 
 }
 
 /** Existing ground Y computation logic... */
@@ -595,33 +585,6 @@ function ensureSpawnService() {
   return spawnService;
 }
 
-function adaptAreaToParallax(area) {
-  const scene = resolveSceneDescriptor(area);
-  return {
-    id: area.id,
-    name: area.name,
-    source: area.source,
-    camera: area.camera,
-    ground: area.ground,
-    background: area.background || (area.meta?.background ?? null),
-    layers: (scene.geometry?.layers || []).map((layer, index) => ({
-      id: layer.id,
-      name: layer.name,
-      type: layer.type,
-      parallax: layer.parallaxSpeed,
-      scale: layer.scale,
-      yOffset: layer.offsetY,
-      sep: layer.separation,
-      z: index,
-      repeat: false,
-      source: layer.source || null,
-      meta: layer.meta || {},
-    })),
-    instances: scene.geometry?.instances || [],
-    meta: area.meta,
-  };
-}
-
 function applyArea(area) {
   const registry = (window.__MAP_REGISTRY__ instanceof MapRegistry)
     ? window.__MAP_REGISTRY__
@@ -636,13 +599,7 @@ function applyArea(area) {
   spawnService.registerArea(area.id, spawnPayload.spawnPoints, { groupLibrary: spawnPayload.groupLibrary });
   spawnService.setActiveArea(area.id);
 
-  const parallax = ensureParallaxContainer();
-  parallax.areas[area.id] = adaptAreaToParallax(area);
-  parallax.currentAreaId = area.id;
-
   window.CONFIG = window.CONFIG || {};
-  window.CONFIG.areas = window.CONFIG.areas || {};
-  window.CONFIG.areas[area.id] = parallax.areas[area.id];
 
   syncConfigGround(area);
   syncConfigPlatforming(area);
