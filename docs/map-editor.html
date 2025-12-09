@@ -2014,8 +2014,10 @@ function adoptAreaState(area, context = {}){
   } else if (raw.source === 'map-editor-environment') {
     console.log('[map-editor] Importing EnvironmentMap format');
     if (typeof raw.gridUnitSize === 'number' && raw.gridUnitSize > 0) {
-      console.log(`[map-editor] EnvironmentMap includes gridUnitSize: ${raw.gridUnitSize}`);
-      console.log('[map-editor] Note: gridUnitSize is informational only. The editor reads GRID_UNIT_WORLD_SIZE from docs/config/config.js at load time.');
+      console.log(
+        `[map-editor] EnvironmentMap gridUnitSize: ${raw.gridUnitSize}`,
+        '(informational only; editor uses GRID_UNIT_WORLD_SIZE from docs/config/config.js)'
+      );
     }
   } else {
     console.log('[map-editor] Importing legacy/combined map format');
@@ -2298,11 +2300,12 @@ function buildGameplayMap() {
   const area = buildAreaDescriptor();
   
   // Extract gameplay-relevant data
+  const exportTimestamp = new Date().toISOString();
   const gameplayMap = {
     id: area.id,
     name: area.name,
     source: 'map-editor-gameplay',
-    exportedAt: new Date().toISOString(),
+    exportedAt: exportTimestamp,
     
     // Gameplay path and alignment (if present in meta or area)
     gameplayPath: area.meta?.gameplayPath || null,
@@ -2329,7 +2332,6 @@ function buildGameplayMap() {
       areaId: area.meta?.areaId,
       areaName: area.meta?.areaName,
       repositoryId: area.meta?.repositoryId,
-      exportedAt: new Date().toISOString(),
       editorVersion: 'v15f-gameplay',
     },
   };
@@ -2348,11 +2350,12 @@ function buildEnvironmentMap() {
   const gridUnitSize = getGridUnit();
   
   // Extract visual/environment data
+  const exportTimestamp = new Date().toISOString();
   const environmentMap = {
     id: area.id,
     name: area.name,
     source: 'map-editor-environment',
-    exportedAt: new Date().toISOString(),
+    exportedAt: exportTimestamp,
     
     // Grid unit size for 3D scaling (critical for runtime consumers)
     gridUnitSize: gridUnitSize,
@@ -2379,7 +2382,6 @@ function buildEnvironmentMap() {
       areaId: area.meta?.areaId,
       areaName: area.meta?.areaName,
       repositoryId: area.meta?.repositoryId,
-      exportedAt: new Date().toISOString(),
       editorVersion: 'v15f-environment',
       background: area.meta?.background,
     },
