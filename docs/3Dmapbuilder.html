@@ -140,14 +140,33 @@
   </div>
 
   <script type="module">
-    // 3D Map Builder functionality will be implemented here
-    // This integrates with the EnvironmentMap export format from the map editor
+    /**
+     * 3D Map Builder
+     * 
+     * This module provides 3D map building functionality for creating EnvironmentMap data
+     * that complements the GameplayMap collision and interaction data from the 2D editor.
+     * 
+     * Integration Points:
+     * - EnvironmentMap Format: Exported from map editor with gridUnitSize and 3D geometry data
+     * - Three.js: Used for 3D preview and model manipulation (loaded from CDN)
+     * - Map Runtime: Integrates with docs/js/vendor/map-runtime.js for area loading
+     * 
+     * Features to Implement:
+     * - 3D model placement and manipulation
+     * - Procedural geometry generation
+     * - Lighting and material editing
+     * - Import/Export EnvironmentMap format
+     * - Integration with GRID_UNIT_WORLD_SIZE from docs/config/config.js
+     * 
+     * See also:
+     * - docs/map-editor.html (2D map editor with EnvironmentMap export)
+     * - docs/config/config.js (GRID_UNIT_WORLD_SIZE export)
+     * - Repository memories on "map editor export formats"
+     */
     
     console.log('[3D Map Builder] Initialized');
-    
-    // Future: Add Three.js integration for 3D preview and editing
-    // Future: Add support for loading/saving EnvironmentMap format
-    // Future: Add procedural generation tools
+    console.log('[3D Map Builder] This is a placeholder for 3D map building functionality');
+    console.log('[3D Map Builder] See code comments for integration points and feature roadmap');
   </script>
 </body>
 </html>

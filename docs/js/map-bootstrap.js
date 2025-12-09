@@ -8,13 +8,21 @@ const VISUALS_MAP_ELEMENT_ID = 'visualsMapName';
 const AREA_OVERLAY_UNSUB_KEY = '__sokAreaNameOverlayUnsub__';
 const PLAYABLE_BOUNDS_UNSUB_KEY = '__sokPlayableBoundsSyncUnsub__';
 
+function validateElement(element) {
+  if (!element) return null;
+  if (typeof HTMLElement !== 'undefined' && element instanceof HTMLElement) {
+    return element;
+  }
+  return element?.nodeType === 1 ? element : null;
+}
+
 function getMapNameElements() {
   if (typeof document === 'undefined') return { gameplay: null, visuals: null };
   const gameplay = document.getElementById(GAMEPLAY_MAP_ELEMENT_ID);
   const visuals = document.getElementById(VISUALS_MAP_ELEMENT_ID);
   return {
-    gameplay: (typeof HTMLElement !== 'undefined' && gameplay instanceof HTMLElement) || gameplay?.nodeType === 1 ? gameplay : null,
-    visuals: (typeof HTMLElement !== 'undefined' && visuals instanceof HTMLElement) || visuals?.nodeType === 1 ? visuals : null
+    gameplay: validateElement(gameplay),
+    visuals: validateElement(visuals)
   };
 }
 
