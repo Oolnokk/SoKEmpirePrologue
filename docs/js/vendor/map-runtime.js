@@ -1336,22 +1336,14 @@ function normalizeAreaDescriptor(area, options = {}) {
     (c.label && /ground/i.test(c.label)) || (c.meta && c.meta.ground)
   );
   if (!hasGround) {
-    // Create a default ground collider when no ground exists
-    const groundOffset = toNumber(area.ground?.offset ?? area.groundOffset, 420);
-    const groundHeight = toNumber(area.ground?.height, 64);
-    const pbLeft = toNumber(area.playableBounds?.left, -600);
-    const pbRight = toNumber(area.playableBounds?.right, 600);
-    const worldWidth = Math.max(Math.abs(pbLeft), Math.abs(pbRight)) * 4;
-    
-    convertedColliders.push(normalizeCollider({
-      id: 'ground-1',
-      label: 'Ground',
-      left: pbLeft - worldWidth,
-      width: worldWidth * 2,
-      topOffset: groundOffset,
-      height: groundHeight,
-      meta: { ground: true }
-    }, convertedColliders.length));
+    const groundCollider = createGroundCollider({
+      pbLeft: toNumber(area.playableBounds?.left, -600),
+      pbRight: toNumber(area.playableBounds?.right, 600),
+      groundOffset: toNumber(area.ground?.offset ?? area.groundOffset, 420),
+      groundHeight: toNumber(area.ground?.height, 64),
+      index: convertedColliders.length
+    });
+    convertedColliders.push(groundCollider);
     
     if (convertedColliders.length === 1) {
       warnings.push('No colliders defined; added default ground collider');
@@ -1725,11 +1717,14 @@ export function convertLayoutToArea(layout, options = {}) {
   // Convert patrolPoints to colliders with meta.patrol = true
   if (Array.isArray(layout.patrolPoints)) {
     const groundOffset = toNumber(layout.groundOffset ?? layout.ground?.offset, 420);
+    const boundsWidth = pbRight - pbLeft;
     
     layout.patrolPoints.forEach((pt, idx) => {
       const id = pt.id || `patrol-${idx + 1}`;
       const width = Number.isFinite(Number(pt.width)) ? Number(pt.width) : 48;
-      const x = Number.isFinite(Number(pt.x)) ? Number(pt.x) : (pbLeft + (pbRight - pbLeft) * (idx + 1) / (layout.patrolPoints.length + 1));
+      // Calculate default x position evenly spaced within playable bounds
+      const defaultX = pbLeft + boundsWidth * (idx + 1) / (layout.patrolPoints.length + 1);
+      const x = Number.isFinite(Number(pt.x)) ? Number(pt.x) : defaultX;
       const topOffset = Number.isFinite(Number(pt.y)) ? Number(pt.y) : (pt.topOffset ?? groundOffset);
       
       convertedColliders.push(normalizeCollider({
@@ -1739,7 +1734,7 @@ export function convertLayoutToArea(layout, options = {}) {
         width,
         topOffset,
         height: Number.isFinite(Number(pt.height)) ? Number(pt.height) : 48,
-        meta: Object.assign({}, pt.meta || {}, { patrol: true })
+        meta: { ...pt.meta, patrol: true }
       }, convertedColliders.length));
     });
   }
@@ -1749,20 +1744,14 @@ export function convertLayoutToArea(layout, options = {}) {
     (c.label && /ground/i.test(c.label)) || (c.meta && c.meta.ground)
   );
   if (!hasGround) {
-    // Create a default ground collider when no ground exists
-    const groundOffset = toNumber(layout.groundOffset ?? layout.ground?.offset, 420);
-    const groundHeight = toNumber(layout.ground?.height, 64);
-    const worldWidth = Math.max(Math.abs(pbLeft), Math.abs(pbRight)) * 4;
-    
-    convertedColliders.push(normalizeCollider({
-      id: 'ground-1',
-      label: 'Ground',
-      left: pbLeft - worldWidth,
-      width: worldWidth * 2,
-      topOffset: groundOffset,
-      height: groundHeight,
-      meta: { ground: true }
-    }, convertedColliders.length));
+    const groundCollider = createGroundCollider({
+      pbLeft,
+      pbRight,
+      groundOffset: toNumber(layout.groundOffset ?? layout.ground?.offset, 420),
+      groundHeight: toNumber(layout.ground?.height, 64),
+      index: convertedColliders.length
+    });
+    convertedColliders.push(groundCollider);
     
     if (convertedColliders.length === 1) {
       warnings.push('No colliders defined; added default ground collider');
@@ -2120,6 +2109,29 @@ function computeLayerSlotCenters(instances) {
     centers.set(layerId, (min + max) / 2);
   }
   return centers;
+}
+
+/**
+ * Create a ground collider descriptor with meta.ground = true
+ * @param {Object} params - Parameters for ground collider
+ * @param {number} params.pbLeft - Left edge of playable bounds
+ * @param {number} params.pbRight - Right edge of playable bounds
+ * @param {number} params.groundOffset - Vertical offset for ground
+ * @param {number} params.groundHeight - Height of ground collider
+ * @param {number} params.index - Index for normalizeCollider fallback
+ * @returns {Object} Normalized ground collider
+ */
+function createGroundCollider({ pbLeft, pbRight, groundOffset, groundHeight, index }) {
+  const worldWidth = Math.max(Math.abs(pbLeft), Math.abs(pbRight)) * 4;
+  return normalizeCollider({
+    id: 'ground-1',
+    label: 'Ground',
+    left: pbLeft - worldWidth,
+    width: worldWidth * 2,
+    topOffset: groundOffset,
+    height: groundHeight,
+    meta: { ground: true }
+  }, index);
 }
 
 function toNumber(value, fallback) {
