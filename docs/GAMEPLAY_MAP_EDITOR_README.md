@@ -10,9 +10,16 @@ The Gameplay Map Editor now supports loading 3D visual maps as a background refe
    - Navigate to `docs/gameplay-map-editor.html` in your browser
    - Or access it from the main menu: "Open Gameplay Map Editor"
 
-2. **Load a Visual Map**
-   - Click the "🎨 Load Visual Map" button in the toolbar
-   - Select a visual map JSON file from `docs/config/maps/visualsmaps/`
+2. **Load a Built-in Gameplay Map** (NEW)
+   - Use the dropdown in the toolbar to select a built-in gameplay map (e.g., "Default District 3D")
+   - Click "📂 Load Map" to load the selected map
+   - The editor will automatically load the gameplay entities and ground path
+   - If the map specifies a visual map reference, it will attempt to auto-load the 3D background
+   - **Note**: Built-in map loading requires serving the files via HTTP/HTTPS (won't work with `file://` protocol). Use a local server like `python -m http.server` or similar.
+
+3. **Load a Visual Map**
+   - **Option A - Built-in Visual Maps**: Use the "Built-in Visual Maps" section in the side panel to select and load a visual map from the repository
+   - **Option B - File Upload**: Click the "🎨 Load Visual Map" button in the toolbar and select a visual map JSON file from `docs/config/maps/visualsmaps/`
    - Example: `defaultdistrict3D_visualsmap.json`
 
 3. **Alignment**
@@ -81,6 +88,13 @@ The 3D feature requires:
 - Internet connection to load Three.js from CDN
 
 If Three.js cannot be loaded (e.g., CDN blocked), the editor gracefully degrades to 2D-only mode with a message displayed.
+
+### File Protocol Limitations
+
+When running the editor directly from the file system (`file://` protocol), the built-in map loading feature will not work due to browser CORS restrictions. The editor will detect this and show a helpful message. You have two options:
+
+1. **Use file upload**: The existing file upload functionality continues to work with `file://` protocol
+2. **Serve via HTTP**: Run a local web server (e.g., `python -m http.server 8000` in the `docs/` directory) and access via `http://localhost:8000/`
 
 ## Limitations
 

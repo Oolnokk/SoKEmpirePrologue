@@ -271,6 +271,12 @@
         <button id="btnClearVisualMap" title="Clear 3D visual map" style="display: none;">❌ Clear</button>
         <input type="file" id="fileInputVisualMap" accept=".json" style="display: none;" />
       </div>
+      <div class="toolbar-group">
+        <select id="builtinGameplayMap" title="Select a built-in gameplay map">
+          <option value="">-- Select Gameplay Map --</option>
+        </select>
+        <button id="btnLoadBuiltinMap" title="Load selected built-in gameplay map">📂 Load Map</button>
+      </div>
     </div>
 
     <div class="main">
@@ -315,6 +321,12 @@
           <button class="btn-block" id="btnImportPaste">📋 Import from Clipboard</button>
           <button class="btn-block" id="btnSaveToServer">💾 Save to Server</button>
           <div class="info">Export saves to gameplaymaps/ format. Server save attempts POST to /config/maps/gameplaymaps/</div>
+          
+          <h4 style="margin-top: 16px; margin-bottom: 8px; font-size: 13px;">Built-in Visual Maps</h4>
+          <select id="builtinVisualMap" class="btn-block" style="margin-bottom: 6px;">
+            <option value="">-- Select Visual Map --</option>
+          </select>
+          <button class="btn-block" id="btnLoadBuiltinVisualMap">🎨 Load Built-in Visual</button>
         </div>
 
         <div class="panel-section">
@@ -1111,6 +1123,97 @@
       redraw();
     });
 
+    // ===== Built-in Map Loading =====
+    const builtinGameplayMaps = [
+      { name: 'Default District 3D', file: 'defaultdistrict3d_gameplaymap.json' },
+      { name: 'Example Gameplay Map', file: 'example-gameplay-map.json' }
+    ];
+
+    const builtinVisualMaps = [
+      { name: 'Default District 3D Visual', file: 'defaultdistrict3D_visualsmap.json' }
+    ];
+
+    // Populate dropdowns
+    const gameplaySelect = document.getElementById('builtinGameplayMap');
+    builtinGameplayMaps.forEach(map => {
+      const option = document.createElement('option');
+      option.value = map.file;
+      option.textContent = map.name;
+      gameplaySelect.appendChild(option);
+    });
+
+    const visualSelect = document.getElementById('builtinVisualMap');
+    builtinVisualMaps.forEach(map => {
+      const option = document.createElement('option');
+      option.value = map.file;
+      option.textContent = map.name;
+      visualSelect.appendChild(option);
+    });
+
+    // Check if running from file:// protocol
+    function isFileProtocol() {
+      return location.protocol === 'file:';
+    }
+
+    // Load built-in gameplay map
+    document.getElementById('btnLoadBuiltinMap').addEventListener('click', async () => {
+      const selected = document.getElementById('builtinGameplayMap').value;
+      if (!selected) {
+        alert('Please select a gameplay map first');
+        return;
+      }
+
+      if (isFileProtocol()) {
+        alert('Running from file:// — use the file input to load maps or serve the docs via a local static server (e.g., python -m http.server)');
+        return;
+      }
+
+      try {
+        const response = await fetch(`./config/maps/gameplaymaps/${selected}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        
+        // Validate required fields
+        if (!data.areaId || !data.ground || !data.entities) {
+          throw new Error('Invalid gameplay map: missing required fields (areaId, ground, entities)');
+        }
+
+        importMapData(data);
+
+        // Auto-load visual map if specified
+        if (data.visualsMap && window.loadVisualMapFromPath) {
+          const visualPath = data.visualsMap.replace('../visualsmaps/', '');
+          window.loadVisualMapFromPath(visualPath);
+        }
+      } catch (err) {
+        alert('Error loading built-in map: ' + err.message);
+        console.error('Built-in map load error:', err);
+      }
+    });
+
+    // Load built-in visual map
+    document.getElementById('btnLoadBuiltinVisualMap').addEventListener('click', async () => {
+      const selected = document.getElementById('builtinVisualMap').value;
+      if (!selected) {
+        alert('Please select a visual map first');
+        return;
+      }
+
+      if (isFileProtocol()) {
+        alert('Running from file:// — use the file input to load maps or serve the docs via a local static server (e.g., python -m http.server)');
+        return;
+      }
+
+      if (!window.loadVisualMapFromPath) {
+        alert('3D visual map loading not available (Three.js not loaded)');
+        return;
+      }
+
+      window.loadVisualMapFromPath(selected);
+    });
+
     // ===== Initial Render =====
     updateEntityList();
     updateEntityProps();
@@ -1231,13 +1334,13 @@
     }
 
     // Load and render visual map
-    function loadVisualMap(data) {
+    function loadVisualMap(data, filename = '') {
       visualMapData = data;
       clearGroup(groundGroup);
       clearGroup(structureGroup);
 
       if (!data.gameplayPath || !data.gameplayPath.start || !data.gameplayPath.end) {
-        overlay.textContent = 'Visual map loaded (no gameplayPath)';
+        overlay.textContent = filename ? `Visual map: ${filename} (no gameplayPath)` : 'Visual map loaded (no gameplayPath)';
         return;
       }
 
@@ -1305,7 +1408,8 @@
         }
       });
 
-      overlay.textContent = `Visual map: ${data.rows}×${data.cols} grid, path aligned`;
+      const displayName = filename || 'loaded';
+      overlay.textContent = `Visual map: ${displayName} - ${data.rows}×${data.cols} grid, path aligned`;
     }
 
     function clearVisualMap() {
@@ -1318,6 +1422,30 @@
       overlay.textContent = 'No visual map loaded';
       document.getElementById('btnClearVisualMap').style.display = 'none';
     }
+
+    // Load visual map from path (exposed for built-in map loading)
+    async function loadVisualMapFromPath(filename) {
+      if (!THREE) {
+        overlay.textContent = '3D disabled (Three.js blocked)';
+        return;
+      }
+
+      try {
+        const response = await fetch(`./config/maps/visualsmaps/${filename}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        loadVisualMap(data, filename);
+        document.getElementById('btnClearVisualMap').style.display = 'inline-block';
+      } catch (err) {
+        overlay.textContent = 'Error loading visual map: ' + err.message;
+        console.error('Visual map load error:', err);
+      }
+    }
+
+    // Expose for use by built-in map loader
+    window.loadVisualMapFromPath = loadVisualMapFromPath;
 
     // UI event handlers
     document.getElementById('btnLoadVisualMap').addEventListener('click', () => {
@@ -1332,7 +1460,7 @@
       reader.onload = (evt) => {
         try {
           const data = JSON.parse(evt.target.result);
-          loadVisualMap(data);
+          loadVisualMap(data, file.name);
           document.getElementById('btnClearVisualMap').style.display = 'inline-block';
         } catch (err) {
           // Display error in overlay instead of alert
