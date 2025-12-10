@@ -655,6 +655,7 @@ export function updateCamera(canvas) {
   const desiredY = playerY - viewportWorldHeight * 0.5 + framing.offsetY + manualOffsetY;
 
   // Check for rigid centering mode (opt-in via CONFIG.camera.rigidCenter)
+  // To enable these features, set the flags in docs/config/config.js
   const rigidCenter = C.camera?.rigidCenter === true;
   const ignoreCenterBounds = C.camera?.ignoreCenterBounds === true;
 
