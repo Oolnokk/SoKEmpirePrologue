@@ -945,7 +945,7 @@ window.CONFIG = {
   map: {
   gridUnit: 30,
   spawnLayerId: 'gameplay',
-  defaultLayoutId: 'defaultdistrict',
+  defaultLayoutId: 'defaultdistrict3d',
   previewStoragePrefix: 'sok-map-editor-preview:',
   prefabManifests: [
     './config/prefabs/structures/index.json',
@@ -953,10 +953,10 @@ window.CONFIG = {
   ],
   layouts: [
     {
-      id: 'defaultdistrict',
-      label: 'DefaultDistrict',
-      path: './config/maps/defaultdistrict.layout.json',
-      areaName: 'DefaultDistrict',
+      id: 'defaultdistrict3d',
+      label: 'DefaultDistrict3D',
+      path: './config/maps/gameplaymaps/defaultdistrict3d_gameplaymap.json',
+      areaName: 'DefaultDistrict3D',
     },
   ],
   playAreaMinX: -1160,

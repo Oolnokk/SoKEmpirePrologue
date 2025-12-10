@@ -1,8 +1,8 @@
 import { GeometryService, MapRegistry, adaptLegacyLayoutGeometry, adaptSceneGeometry, convertLayoutToArea, } from './vendor/map-runtime.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
-const FALLBACK_LAYOUT_PATH = '../config/maps/defaultdistrict.layout.json';
-const FALLBACK_AREA_ID = 'defaultdistrict';
-const FALLBACK_AREA_NAME = 'DefaultDistrict';
+const FALLBACK_LAYOUT_PATH = '../config/maps/gameplaymaps/defaultdistrict3d_gameplaymap.json';
+const FALLBACK_AREA_ID = 'defaultdistrict3d';
+const FALLBACK_AREA_NAME = 'DefaultDistrict3D';
 const FALLBACK_PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
 const AREA_NAME_ELEMENT_ID = 'areaName';
 const AREA_OVERLAY_UNSUB_KEY = '__sokAreaNameOverlayUnsub__';
