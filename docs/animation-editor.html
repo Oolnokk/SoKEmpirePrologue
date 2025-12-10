@@ -120,6 +120,7 @@
                 <th scope="col">Pose / Stage</th>
                 <th scope="col">Duration (ms)</th>
                 <th scope="col">Strike?</th>
+                <th scope="col">AnimEvents</th>
                 <th scope="col"></th>
               </tr>
             </thead>
@@ -176,6 +177,29 @@
             </thead>
             <tbody id="attackSequenceBody"></tbody>
           </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Animation Preview</p>
+            <h2>Live Skeleton View</h2>
+          </div>
+          <div class="button-row">
+            <button type="button" id="playAnimation">Play</button>
+            <button type="button" id="pauseAnimation">Pause</button>
+            <button type="button" id="resetAnimation">Reset</button>
+          </div>
+        </div>
+        <div class="preview-container">
+          <canvas id="skeletonCanvas" width="800" height="400"></canvas>
+          <div class="preview-controls">
+            <label class="field">
+              <span>Preview Pose</span>
+              <select id="previewPoseSelect" aria-label="Select pose to preview"></select>
+            </label>
+          </div>
         </div>
       </section>
 

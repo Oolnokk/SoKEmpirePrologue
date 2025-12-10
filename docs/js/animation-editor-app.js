@@ -66,6 +66,11 @@ class AnimationEditor {
       copyMoveJson: q('copyMoveJson'),
       copyAttackJson: q('copyAttackJson'),
       downloadJson: q('downloadJson'),
+      skeletonCanvas: q('skeletonCanvas'),
+      previewPoseSelect: q('previewPoseSelect'),
+      playAnimation: q('playAnimation'),
+      pauseAnimation: q('pauseAnimation'),
+      resetAnimation: q('resetAnimation'),
     };
   }
 
@@ -81,6 +86,12 @@ class AnimationEditor {
     const attackList = Object.keys(attacks).sort();
     const moveList = Object.keys(moves).sort();
     const poseList = Object.keys(poses).sort();
+
+    // Build tag library from all existing tags
+    const tagLibrary = this.buildTagLibrary(abilities, attacks, moves);
+    
+    // Build anim event types library
+    const animEventTypes = ['impulse', 'velocity', 'velocityY', 'sound', 'particle'];
 
     const baseMoveDraft = (id) => {
       const src = moves[id];
@@ -106,7 +117,28 @@ class AnimationEditor {
       return draft;
     };
 
-    return { abilities, attacks, moves, poses, abilityList, attackList, moveList, poseList, baseMoveDraft, baseAttackDraft };
+    return { abilities, attacks, moves, poses, abilityList, attackList, moveList, poseList, tagLibrary, animEventTypes, baseMoveDraft, baseAttackDraft };
+  }
+
+  buildTagLibrary(abilities, attacks, moves) {
+    const tags = new Set();
+    
+    // Extract from abilities
+    Object.values(abilities).forEach(ability => {
+      (ability.tags || []).forEach(tag => tags.add(tag));
+    });
+    
+    // Extract from attacks
+    Object.values(attacks).forEach(attack => {
+      (attack.tags || []).forEach(tag => tags.add(tag));
+    });
+    
+    // Extract from moves
+    Object.values(moves).forEach(move => {
+      (move.tags || []).forEach(tag => tags.add(tag));
+    });
+    
+    return Array.from(tags).sort();
   }
 
   normalizeMoveSequence(move = {}) {
@@ -114,17 +146,19 @@ class AnimationEditor {
       return move.sequence.map((entry) => ({
         poseKey: entry.pose || entry.poseKey || entry.stage || 'Pose',
         durMs: Number(entry.duration || entry.durMs || 0) || 0,
-        strike: Boolean(entry.strike)
+        strike: Boolean(entry.strike),
+        animEvents: entry.animEvents || entry.anim_events || []
       }));
     }
     if (Array.isArray(move.stages) && move.stages.length) {
       return move.stages.map((stage) => ({
         poseKey: stage.stage || stage.pose || 'Pose',
         durMs: Number(stage.duration || 0) || 0,
-        strike: Boolean(stage.strike)
+        strike: Boolean(stage.strike),
+        animEvents: stage.animEvents || stage.anim_events || []
       }));
     }
-    return [{ poseKey: 'PoseA', durMs: 300, strike: false }];
+    return [{ poseKey: 'PoseA', durMs: 300, strike: false, animEvents: [] }];
   }
 
   normalizeAttackMoves(attack = {}) {
@@ -146,13 +180,34 @@ class AnimationEditor {
     this.populateSelect(this.dom.abilitySelect, this.data.abilityList);
     this.populateSelect(this.dom.attackSelect, this.data.attackList);
     this.populateSelect(this.dom.moveSelect, this.data.moveList);
+    this.populateSelect(this.dom.previewPoseSelect, this.data.poseList);
     this.bindEvents();
+    this.initPreview();
     this.selectInitial();
+  }
+
+  initPreview() {
+    if (!this.dom.skeletonCanvas) return;
+    
+    this.preview = {
+      ctx: this.dom.skeletonCanvas.getContext('2d'),
+      playing: false,
+      currentTime: 0,
+      selectedPose: null
+    };
+    
+    // Set canvas size
+    const canvas = this.dom.skeletonCanvas;
+    canvas.width = 800;
+    canvas.height = 400;
+    
+    this.renderPreview();
   }
 
   bindEvents() {
     const { abilitySelect, attackSelect, moveSelect, addMovePhase, resetMove, addAttackStep, resetAttack, moveName, moveTags,
-      knockbackBase, cancelWindow, attackName, attackTags, copyMoveJson, copyAttackJson, downloadJson } = this.dom;
+      knockbackBase, cancelWindow, attackName, attackTags, copyMoveJson, copyAttackJson, downloadJson, 
+      previewPoseSelect, playAnimation, pauseAnimation, resetAnimation } = this.dom;
 
     abilitySelect?.addEventListener('change', (e) => this.selectAbility(e.target.value));
     attackSelect?.addEventListener('change', (e) => this.selectAttack(e.target.value));
@@ -174,6 +229,11 @@ class AnimationEditor {
     copyMoveJson?.addEventListener('click', () => this.copyJson(this.dom.moveJson?.value, 'Move JSON copied'));
     copyAttackJson?.addEventListener('click', () => this.copyJson(this.dom.attackJson?.value, 'Attack JSON copied'));
     downloadJson?.addEventListener('click', () => this.downloadJson());
+
+    previewPoseSelect?.addEventListener('change', (e) => { this.preview.selectedPose = e.target.value; this.renderPreview(); });
+    playAnimation?.addEventListener('click', () => this.playPreview());
+    pauseAnimation?.addEventListener('click', () => this.pausePreview());
+    resetAnimation?.addEventListener('click', () => this.resetPreview());
   }
 
   selectInitial() {
@@ -191,6 +251,7 @@ class AnimationEditor {
     this.dom.abilitySelect.value = abilityId || '';
     const ability = this.data.abilities[abilityId];
     if (ability) {
+      // Auto-fill attack based on ability's default attack
       const suggestedAttack = ability.attack || ability.defaultAttack || ability.sequence?.[0];
       if (suggestedAttack && this.data.attacks[suggestedAttack]) {
         this.selectAttack(suggestedAttack, { silent: true });
@@ -202,9 +263,14 @@ class AnimationEditor {
   selectAttack(attackId, { silent } = {}) {
     this.state.attackId = attackId || null;
     this.dom.attackSelect.value = attackId || '';
+    // Auto-fill with existing values from codebase
     this.state.attackDraft = attackId ? this.data.baseAttackDraft(attackId) : null;
-    if (this.state.attackDraft?.primaryMove) {
-      this.selectMove(this.state.attackDraft.primaryMove, { silent: true });
+    if (this.state.attackDraft) {
+      // Auto-select the primary move if available
+      const primaryMove = this.state.attackDraft.primaryMove || this.state.attackDraft.sequence?.[0]?.move;
+      if (primaryMove) {
+        this.selectMove(primaryMove, { silent: true });
+      }
     }
     if (!silent) this.render();
   }
@@ -212,6 +278,7 @@ class AnimationEditor {
   selectMove(moveId, { silent } = {}) {
     this.state.moveId = moveId || null;
     this.dom.moveSelect.value = moveId || '';
+    // Auto-fill with existing values from codebase
     this.state.moveDraft = moveId ? this.data.baseMoveDraft(moveId) : null;
     if (!silent) this.render();
   }
@@ -219,7 +286,7 @@ class AnimationEditor {
   addMovePhase() {
     if (!this.state.moveDraft) return;
     this.state.moveDraft.sequence = this.state.moveDraft.sequence || [];
-    this.state.moveDraft.sequence.push({ poseKey: 'NewPose', durMs: 250, strike: false });
+    this.state.moveDraft.sequence.push({ poseKey: 'NewPose', durMs: 250, strike: false, animEvents: [] });
     this.render();
   }
 
@@ -296,14 +363,31 @@ class AnimationEditor {
       const row = document.createElement('tr');
 
       const poseCell = document.createElement('td');
-      const poseInput = document.createElement('input');
-      poseInput.type = 'text';
-      poseInput.value = entry.poseKey || '';
-      poseInput.addEventListener('input', (e) => {
+      const poseSelect = document.createElement('select');
+      
+      // Add option for current value if not in list
+      const currentOpt = document.createElement('option');
+      currentOpt.value = entry.poseKey || '';
+      currentOpt.textContent = entry.poseKey || 'Custom';
+      poseSelect.appendChild(currentOpt);
+      
+      // Add all poses from library
+      this.data.poseList.forEach((poseKey) => {
+        const opt = document.createElement('option');
+        opt.value = poseKey;
+        opt.textContent = poseKey;
+        if (poseKey === entry.poseKey) {
+          opt.selected = true;
+          poseSelect.removeChild(currentOpt); // Remove custom if found in list
+        }
+        poseSelect.appendChild(opt);
+      });
+      
+      poseSelect.addEventListener('change', (e) => {
         entry.poseKey = e.target.value;
         this.render();
       });
-      poseCell.appendChild(poseInput);
+      poseCell.appendChild(poseSelect);
 
       const durationCell = document.createElement('td');
       const durInput = document.createElement('input');
@@ -326,6 +410,27 @@ class AnimationEditor {
       });
       strikeCell.appendChild(strikeInput);
 
+      const eventsCell = document.createElement('td');
+      const eventsDiv = document.createElement('div');
+      eventsDiv.className = 'animevents-editor';
+      
+      entry.animEvents = entry.animEvents || [];
+      const eventCount = entry.animEvents.length;
+      const eventSummary = document.createElement('span');
+      eventSummary.textContent = `${eventCount} event${eventCount !== 1 ? 's' : ''}`;
+      eventsDiv.appendChild(eventSummary);
+      
+      const addEventBtn = document.createElement('button');
+      addEventBtn.type = 'button';
+      addEventBtn.textContent = '+ Event';
+      addEventBtn.addEventListener('click', () => {
+        entry.animEvents.push({ type: 'impulse', time: 0.0, value: 0 });
+        this.render();
+      });
+      eventsDiv.appendChild(addEventBtn);
+      
+      eventsCell.appendChild(eventsDiv);
+
       const removeCell = document.createElement('td');
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
@@ -334,13 +439,13 @@ class AnimationEditor {
       removeBtn.addEventListener('click', () => {
         this.state.moveDraft.sequence.splice(idx, 1);
         if (!this.state.moveDraft.sequence.length) {
-          this.state.moveDraft.sequence.push({ poseKey: 'Pose', durMs: 250, strike: false });
+          this.state.moveDraft.sequence.push({ poseKey: 'Pose', durMs: 250, strike: false, animEvents: [] });
         }
         this.render();
       });
       removeCell.appendChild(removeBtn);
 
-      [poseCell, durationCell, strikeCell, removeCell].forEach((cell) => row.appendChild(cell));
+      [poseCell, durationCell, strikeCell, eventsCell, removeCell].forEach((cell) => row.appendChild(cell));
       body.appendChild(row);
     });
   }
@@ -478,7 +583,8 @@ class AnimationEditor {
       sequence: (move.sequence || []).map((step) => ({
         poseKey: step.poseKey,
         durMs: Math.max(0, Number(step.durMs) || 0),
-        strike: step.strike || undefined
+        strike: step.strike || undefined,
+        animEvents: (step.animEvents && step.animEvents.length) ? step.animEvents : undefined
       }))
     };
     const key = move.legacyId || move.id || 'Move';
@@ -530,6 +636,146 @@ class AnimationEditor {
     if (attack) parts.push(`Attack: ${attack.name}`);
     if (move) parts.push(`Move poses: ${(move.sequence || []).length}`);
     this.dom.statusBadge.textContent = parts.join(' • ');
+  }
+
+  renderPreview() {
+    if (!this.preview || !this.preview.ctx) return;
+    
+    const ctx = this.preview.ctx;
+    const canvas = this.dom.skeletonCanvas;
+    
+    // Clear canvas
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw ground line
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height * 0.75);
+    ctx.lineTo(canvas.width, canvas.height * 0.75);
+    ctx.stroke();
+    
+    // Draw simple skeleton placeholder
+    const centerX = canvas.width / 2;
+    const groundY = canvas.height * 0.75;
+    
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 3;
+    
+    // Get current pose
+    const poseKey = this.preview.selectedPose || this.state.moveDraft?.sequence?.[0]?.poseKey;
+    const pose = poseKey ? this.data.poses[poseKey] : null;
+    
+    if (pose) {
+      // Draw a simple stick figure based on pose angles
+      // This is a simplified version - full implementation would use render.js
+      this.drawSimpleSkeleton(ctx, centerX, groundY - 100, pose);
+      
+      // Draw pose name
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '14px Inter, sans-serif';
+      ctx.fillText(`Pose: ${poseKey || 'None'}`, 20, 30);
+    } else {
+      // Draw placeholder text
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '16px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Select a pose to preview', centerX, canvas.height / 2);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  drawSimpleSkeleton(ctx, x, y, pose) {
+    // Simple stick figure representation
+    // In a full implementation, this would use render.js and animator.js
+    
+    const scale = 1.5;
+    const torsoLen = 40 * scale;
+    const armLen = 30 * scale;
+    const legLen = 40 * scale;
+    
+    // Torso
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y - torsoLen);
+    ctx.stroke();
+    
+    // Head
+    ctx.beginPath();
+    ctx.arc(x, y - torsoLen - 15, 12, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Arms (simplified)
+    const shoulderY = y - torsoLen * 0.7;
+    ctx.beginPath();
+    ctx.moveTo(x - 15, shoulderY);
+    ctx.lineTo(x - 15 - armLen * 0.7, shoulderY + armLen * 0.3);
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(x + 15, shoulderY);
+    ctx.lineTo(x + 15 + armLen * 0.7, shoulderY + armLen * 0.3);
+    ctx.stroke();
+    
+    // Legs (simplified)
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - legLen * 0.3, y + legLen);
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + legLen * 0.3, y + legLen);
+    ctx.stroke();
+  }
+
+  playPreview() {
+    if (!this.preview) return;
+    this.preview.playing = true;
+    this.animatePreview();
+  }
+
+  pausePreview() {
+    if (!this.preview) return;
+    this.preview.playing = false;
+  }
+
+  resetPreview() {
+    if (!this.preview) return;
+    this.preview.currentTime = 0;
+    this.preview.playing = false;
+    this.renderPreview();
+  }
+
+  animatePreview() {
+    if (!this.preview || !this.preview.playing) return;
+    
+    // Simple animation loop - would need full implementation with animator.js
+    this.preview.currentTime += 0.016; // ~60fps
+    
+    const sequence = this.state.moveDraft?.sequence || [];
+    if (sequence.length > 0) {
+      // Cycle through poses based on time
+      const totalDuration = sequence.reduce((sum, s) => sum + s.durMs, 0);
+      if (totalDuration > 0) {
+        const t = (this.preview.currentTime * 1000) % totalDuration;
+        let acc = 0;
+        for (const step of sequence) {
+          acc += step.durMs;
+          if (t < acc) {
+            this.preview.selectedPose = step.poseKey;
+            if (this.dom.previewPoseSelect) {
+              this.dom.previewPoseSelect.value = step.poseKey;
+            }
+            break;
+          }
+        }
+      }
+    }
+    
+    this.renderPreview();
+    requestAnimationFrame(() => this.animatePreview());
   }
 }
 
