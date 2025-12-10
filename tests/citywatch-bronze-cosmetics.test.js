@@ -1,5 +1,5 @@
 import { describe, it } from 'node:test';
-import { strictEqual, ok } from 'assert';
+import { ok } from 'assert';
 import { readFileSync } from 'fs';
 
 /**

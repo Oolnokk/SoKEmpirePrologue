@@ -81,3 +81,45 @@ export function buildRenderSettings(scene3d = DEFAULT_SCENE) {
 export function getDefaultScene3d() {
   return DEFAULT_SCENE;
 }
+
+/**
+ * Resolve a scene3d.sceneUrl to a canonical path. If the URL is relative
+ * (starts with './' or has no leading slash), resolve it against the base path.
+ * If the path already starts with '/config/' or is an absolute URL (http(s)://),
+ * leave it unchanged.
+ * 
+ * @param {string} sceneUrl - The scene URL to resolve
+ * @param {object} opts - Options object
+ * @param {string} opts.base - Base path to resolve relative URLs against (default: '/config/maps/visualsmaps/')
+ * @returns {string} - The resolved URL
+ */
+export function resolveScene3dUrl(sceneUrl, opts = {}) {
+  if (!sceneUrl || typeof sceneUrl !== 'string') {
+    return sceneUrl;
+  }
+
+  const base = opts.base || '/config/maps/visualsmaps/';
+
+  // Already absolute URL (http/https)
+  if (sceneUrl.startsWith('http://') || sceneUrl.startsWith('https://')) {
+    return sceneUrl;
+  }
+
+  // Already starts with /config/ - leave unchanged
+  if (sceneUrl.startsWith('/config/')) {
+    return sceneUrl;
+  }
+
+  // Relative path starting with './' - strip and resolve
+  if (sceneUrl.startsWith('./')) {
+    return base + sceneUrl.substring(2);
+  }
+
+  // No leading slash - treat as relative and resolve
+  if (!sceneUrl.startsWith('/')) {
+    return base + sceneUrl;
+  }
+
+  // Absolute path (starts with /) - leave unchanged
+  return sceneUrl;
+}

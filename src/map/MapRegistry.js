@@ -5,7 +5,7 @@
  * toolchains.
  */
 
-import { normalizeScene3dConfig } from './scene3d.js';
+import { normalizeScene3dConfig, resolveScene3dUrl } from './scene3d.js';
 
 const clone = (value) => {
   if (typeof globalThis.structuredClone === 'function') {
@@ -224,6 +224,16 @@ function validateAreaDescriptor(descriptor) {
     warnings.push('Area declares no parallax layers');
   }
 
+  // Extract from descriptor.scene.geometry or descriptor directly
+  const scene = descriptor.scene || {};
+  const geometry = scene.geometry || {};
+  const instances = geometry.instances || descriptor.instances || descriptor.props;
+  const tilers = geometry.tilers || descriptor.tilers;
+  const drumSkins = geometry.drumSkins || descriptor.drumSkins;
+  const colliders = scene.colliders || descriptor.colliders;
+  const spawners = scene.spawnPoints || descriptor.spawners;
+  const spawnersById = scene.spawnPointsById || descriptor.spawnersById;
+
   if (!Array.isArray(instances)) {
     warnings.push('Area declares no geometry instances/props – runtime may need one');
   }
@@ -333,6 +343,10 @@ function normalizeAreaDescriptor(descriptor) {
   const cloned = clone(descriptor);
   if (cloned.scene3d !== undefined) {
     cloned.scene3d = normalizeScene3dConfig(cloned.scene3d);
+    // Resolve scene3d.sceneUrl to canonical path
+    if (cloned.scene3d.sceneUrl) {
+      cloned.scene3d.sceneUrl = resolveScene3dUrl(cloned.scene3d.sceneUrl);
+    }
   }
 
   const scene = typeof cloned.scene === 'object' && cloned.scene ? cloned.scene : {};
