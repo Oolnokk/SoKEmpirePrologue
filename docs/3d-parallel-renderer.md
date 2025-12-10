@@ -1,10 +1,17 @@
-# DEPRECATED: Parallel 3D scene bridge (perspective-only)
+# ⛔ REMOVED FROM RUNTIME: Parallel 3D scene bridge (perspective-only)
 
-> **⚠️ DEPRECATED**: This page documents the legacy 2D parallax pipeline. Use the [3D map editor](map-editor.html) and [3D Map Builder](3Dmapbuilder.html) for current workflows. Visual maps are now stored in `/config/maps/visualsmaps`. See [DEPRECATED_PARALLAX_TO_3D_MIGRATION.md](DEPRECATED_PARALLAX_TO_3D_MIGRATION.md) for migration guidance.
+> **⛔ REMOVED FROM RUNTIME**: The runtime no longer produces or consumes legacy 2D parallax structures. This document is archived for historical reference only.
+>
+> **Use instead:**
+> - [3D Map Builder](3Dmapbuilder.html) for visual map creation
+> - [3D Grid Map Editor](map-editor.html) for gameplay map editing
+> - Visual maps are now stored in `/config/maps/visualsmaps`
+>
+> **Migration:** See [DEPRECATED_PARALLAX_TO_3D_MIGRATION.md](DEPRECATED_PARALLAX_TO_3D_MIGRATION.md) for historical context and [NOTICE_PARALLAX_REMOVAL.md](NOTICE_PARALLAX_REMOVAL.md) for runtime changes.
 
 ---
 
-# Parallel 3D scene bridge (perspective-only)
+# Parallel 3D scene bridge (perspective-only) [ARCHIVED]
 
 This repository now supports attaching optional 3D scene metadata to any map area without changing the 2D gameplay contract. The intent is to let a WebGL/Three.js scene handle perspective while keeping logic on a flat Z=0 plane and avoiding heavy lighting or complex surface work.
 
