@@ -1,3 +1,9 @@
+# DEPRECATED: Map Editor & Area Plumbing Investigation Notes
+
+> **⚠️ DEPRECATED**: This page documents the legacy 2D parallax pipeline. Use the [3D map editor](map-editor.html) and [3D Map Builder](3Dmapbuilder.html) for current workflows. Visual maps are now stored in `/config/maps/visualsmaps`. See [DEPRECATED_PARALLAX_TO_3D_MIGRATION.md](DEPRECATED_PARALLAX_TO_3D_MIGRATION.md) for migration guidance.
+
+---
+
 # Map Editor & Area Plumbing Investigation Notes
 
 To comply with the request for an exhaustive investigation, the following list captures **64 distinct potential causes** that were evaluated while diagnosing the map editor/area plumbing disconnects:

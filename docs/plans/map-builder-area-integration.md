@@ -1,3 +1,9 @@
+# DEPRECATED: Plan: Integrate Layered v15f Map Builder Layouts into the Parallax Area System
+
+> **⚠️ DEPRECATED**: This page documents the legacy 2D parallax pipeline. Use the [3D map editor](../map-editor.html) and [3D Map Builder](../3Dmapbuilder.html) for current workflows. Visual maps are now stored in `/config/maps/visualsmaps`. See [DEPRECATED_PARALLAX_TO_3D_MIGRATION.md](../DEPRECATED_PARALLAX_TO_3D_MIGRATION.md) for migration guidance.
+
+---
+
 # Plan: Integrate Layered v15f Map Builder Layouts into the Parallax Area System
 
 ## Current State
