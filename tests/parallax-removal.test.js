@@ -176,3 +176,34 @@ test('documentation reflects parallax removal', async () => {
     'toc.html should link to NOTICE_PARALLAX_REMOVAL.md'
   );
 });
+
+test('app.js provides read shim with deprecation warnings for PARALLAX', async () => {
+  const source = await readJs('app.js');
+  
+  // Check that app.js still has window.PARALLAX reads (for backwards compat)
+  assert.match(
+    source,
+    /window\.PARALLAX/,
+    'app.js should still have window.PARALLAX reads for backwards compatibility'
+  );
+  
+  // Check that it prefers CONFIG.areas
+  assert.match(
+    source,
+    /window\.CONFIG\?\.areas/,
+    'app.js should prefer CONFIG.areas over PARALLAX'
+  );
+  
+  // Check for deprecation warning
+  assert.match(
+    source,
+    /Reading from window\.PARALLAX is deprecated/i,
+    'app.js should warn when reading from window.PARALLAX'
+  );
+  
+  assert.match(
+    source,
+    /NOTICE_PARALLAX_REMOVAL\.md/,
+    'app.js deprecation warning should reference NOTICE_PARALLAX_REMOVAL.md'
+  );
+});

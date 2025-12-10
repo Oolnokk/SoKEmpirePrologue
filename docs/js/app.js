@@ -182,8 +182,17 @@ function resolveAreaById(areaId = null) {
       return null;
     })();
     if (registryArea) return registryArea;
+    // Fallback to CONFIG.areas (preferred) or legacy PARALLAX (deprecated)
+    const configArea = window.CONFIG?.areas?.[areaId];
+    if (configArea) return configArea;
     const parallaxArea = window.PARALLAX?.areas?.[areaId];
-    if (parallaxArea) return parallaxArea;
+    if (parallaxArea) {
+      if (!window.__PARALLAX_READ_DEPRECATION_LOGGED) {
+        console.warn('[app.js] Reading from window.PARALLAX is deprecated. Use window.CONFIG.areas or MapRegistry instead. See docs/NOTICE_PARALLAX_REMOVAL.md');
+        window.__PARALLAX_READ_DEPRECATION_LOGGED = true;
+      }
+      return parallaxArea;
+    }
   }
   return resolveActiveParallaxArea();
 }
@@ -2902,8 +2911,18 @@ function resolveActiveParallaxArea() {
     }
   }
 
+  // Fallback to CONFIG.areas (preferred) or legacy PARALLAX (deprecated)
+  const currentAreaId = window.GAME?.currentAreaId;
+  if (currentAreaId && window.CONFIG?.areas?.[currentAreaId]) {
+    return window.CONFIG.areas[currentAreaId];
+  }
+  
   const parallax = window.PARALLAX;
   if (parallax?.currentAreaId && parallax?.areas) {
+    if (!window.__PARALLAX_READ_DEPRECATION_LOGGED) {
+      console.warn('[app.js] Reading from window.PARALLAX is deprecated. Use window.CONFIG.areas or MapRegistry instead. See docs/NOTICE_PARALLAX_REMOVAL.md');
+      window.__PARALLAX_READ_DEPRECATION_LOGGED = true;
+    }
     return parallax.areas[parallax.currentAreaId] || null;
   }
 
