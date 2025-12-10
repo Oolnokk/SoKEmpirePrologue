@@ -39,9 +39,9 @@ type MapLayoutConfig = {
   areaName: string | null;
 };
 
-const FALLBACK_LAYOUT_PATH = '../config/maps/defaultdistrict.layout.json';
-const FALLBACK_AREA_ID = 'defaultdistrict';
-const FALLBACK_AREA_NAME = 'DefaultDistrict';
+const FALLBACK_LAYOUT_PATH = '../config/maps/gameplaymaps/defaultdistrict3d_gameplaymap.json';
+const FALLBACK_AREA_ID = 'defaultdistrict3d';
+const FALLBACK_AREA_NAME = 'DefaultDistrict3D';
 const FALLBACK_PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
 
 const AREA_NAME_ELEMENT_ID = 'areaName';

@@ -1,5 +1,6 @@
 {
   "areaId": "defaultdistrict3d",
+  "visualsMap": "../visualsmaps/defaultdistrict3D_visualsmap.json",
   "ground": {
     "path": [
       { "x": -1100, "y": 0 },

@@ -6,11 +6,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const projectRoot = resolve(__dirname, '..');
-const source = resolve(projectRoot, 'src/config/maps/defaultdistrict.layout.json');
-const destinationDir = resolve(projectRoot, 'docs/config/maps');
-const destination = resolve(destinationDir, 'defaultdistrict.layout.json');
 
-await mkdir(destinationDir, { recursive: true });
-await copyFile(source, destination);
+// Note: The 3D gameplay maps are now maintained directly in docs/config/maps/gameplaymaps/
+// This script is retained for compatibility but no longer copies the legacy 2D layout.
+// The default map is now: docs/config/maps/gameplaymaps/defaultdistrict3d_gameplaymap.json
 
-console.log(`Copied ${source} -> ${destination}`);
+console.log('[copy-map-layout] No copy operation performed.');
+console.log('[copy-map-layout] Default 3D gameplay map is maintained in: docs/config/maps/gameplaymaps/defaultdistrict3d_gameplaymap.json');

@@ -1,4 +1,4 @@
-export const HARD_DEFAULT_LAYOUT_ID = 'defaultdistrict';
+export const HARD_DEFAULT_LAYOUT_ID = 'defaultdistrict3d';
 export const HARD_PREVIEW_STORAGE_PREFIX = 'sok-map-editor-preview:';
 export const HARD_DEFAULT_CANVAS_HEIGHT = 460;
 export const HARD_DEFAULT_GROUND_OFFSET = 140;
