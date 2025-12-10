@@ -18,7 +18,7 @@
       "yOffset": 0,
       "forwardOffsetDeg": 0,
       "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
-      "extraConfig": { "rotationX": -90 }
+      "extraConfig": { "rotationX": 90 }
     },
     {
       "id": "sidewalk",
@@ -26,10 +26,10 @@
       "layer": "ground",
       "gltfPath": "assets/3D/ground_segments/blocksegment.gltf",
       "baseScale": { "x": 0.25, "y": 0.25, "z": 0.25 },
-      "yOffset": 0.02,
+      "yOffset": 0,
       "forwardOffsetDeg": 0,
       "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
-      "extraConfig": { "rotationX": -90 }
+      "extraConfig": { "rotationX": 90 }
     }
   ],
   "structures": [
