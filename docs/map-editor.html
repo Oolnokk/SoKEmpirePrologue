@@ -495,11 +495,12 @@ select {
         label: "Road",
         layer: LAYERS.GROUND,
         colorVar: "--road-color",
+        gltfPath: "assets/3D/ground_segments/roadsegment.gltf",
         baseScale: { x: 1, y: 0.12, z: 1 },  // thickness controlled here
         yOffset: 0,
         forwardOffsetDeg: 0,
         gltfTemplate: null,
-        gltfFileName: null,
+        gltfFileName: "roadsegment.gltf",
         instanceDefaults: { orientation: 0, scaleX: 1, scaleY: 1, scaleZ: 1, offsetX: 0, offsetY: 0 },
         extraConfig: {}
       },
@@ -508,11 +509,12 @@ select {
         label: "Sidewalk",
         layer: LAYERS.GROUND,
         colorVar: "--sidewalk-color",
+        gltfPath: "assets/3D/ground_segments/blocksegment.gltf",
         baseScale: { x: 1, y: 0.12, z: 1 },
         yOffset: 0.02,
         forwardOffsetDeg: 0,
         gltfTemplate: null,
-        gltfFileName: null,
+        gltfFileName: "blocksegment.gltf",
         instanceDefaults: { orientation: 0, scaleX: 1, scaleY: 1, scaleZ: 1, offsetX: 0, offsetY: 0 },
         extraConfig: {}
       }
@@ -524,11 +526,12 @@ select {
         label: "Tower",
         layer: LAYERS.STRUCTURE,
         colorVar: "--tower-color",
+        gltfPath: "assets/3D/structures/tower_commercial3D_t.gltf",
         baseScale: { x: 0.6, y: 1.2, z: 0.6 },
         yOffset: 0.12,          // vertical offset above ground segments
         forwardOffsetDeg: 0,    // per-asset yaw offset (deg)
         gltfTemplate: null,
-        gltfFileName: null,
+        gltfFileName: "tower_commercial3D_t.gltf",
         instanceDefaults: { orientation: 0, scaleX: 1, scaleY: 1, scaleZ: 1, offsetX: 0, offsetY: 0 },
         extraConfig: {}
       }
@@ -948,6 +951,41 @@ select {
           logDebug("Model load ERROR for " + asset.label + ": " + (err?.message || String(err)));
         }
       );
+    }
+
+    function loadGltfFromPath(asset, path) {
+      logDebug("Auto-loading model for " + asset.label + ": " + path);
+
+      gltfLoader.load(
+        path,
+        (gltf) => {
+          const root = gltf.scene;
+          normalizeGltfSceneToUnit(root, asset.label);
+          root.traverse(n => {
+            if (n.isMesh) {
+              n.castShadow = true;
+              n.receiveShadow = true;
+            }
+          });
+          asset.gltfTemplate = root;
+          logDebug("Model auto-loaded OK for " + asset.label);
+          rebuildAssetPanel();
+          rebuild3DFromState();
+        },
+        undefined,
+        (err) => {
+          logDebug("Model auto-load ERROR for " + asset.label + ": " + (err?.message || String(err)));
+        }
+      );
+    }
+
+    function autoLoadAssetModels() {
+      logDebug("Auto-loading asset models from paths...");
+      ALL_ASSETS.forEach(asset => {
+        if (asset.gltfPath) {
+          loadGltfFromPath(asset, asset.gltfPath);
+        }
+      });
     }
 
     // Per-asset config JSON
@@ -1738,13 +1776,14 @@ select {
     initUI();
     createGridDom();
     initThree();
+    autoLoadAssetModels(); // Auto-load models from asset paths
     renderAllCells2D();
     rebuild3DFromState();
     updateGameplayPath2D();
     rebuildGameplayPath3D();
     applyWorldAlignmentFromPath();
 
-    overlay.textContent = "3D ready. Upload a model in Layer Assets (GLB recommended).";
+    overlay.textContent = "3D ready. Models loading from assets folder...";
     logDebug("Editor ready.");
   </script>
 </body>

@@ -1,0 +1,21 @@
+{
+  "id": "sidewalk",
+  "label": "Sidewalk",
+  "gltfPath": "../assets/3D/ground_segments/blocksegment.gltf",
+  "baseScale": {
+    "x": 1,
+    "y": 0.12,
+    "z": 1
+  },
+  "yOffset": 0.02,
+  "forwardOffsetDeg": 0,
+  "instanceDefaults": {
+    "orientation": 0,
+    "scaleX": 1,
+    "scaleY": 1,
+    "scaleZ": 1,
+    "offsetX": 0,
+    "offsetY": 0
+  },
+  "extra": {}
+}
