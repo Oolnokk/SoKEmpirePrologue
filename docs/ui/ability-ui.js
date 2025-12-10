@@ -90,6 +90,9 @@
     console.log(`UIAbility.initArchButtons: Initialized ${buttons.length} arch buttons`);
   }
 
+  // Animation delay constant for staggered attack name display
+  const ANIMATION_DELAY_INCREMENT = 0.1; // seconds between each entry
+
   /**
    * Display attack/ability names vertically on the right edge
    * @param {Array} abilities - Array of ability objects with name property
@@ -124,7 +127,6 @@
     `;
 
     let delayIndex = 0;
-    const baseDelay = 0.1; // seconds between each entry
 
     abilities.forEach((ability) => {
       if (!ability || typeof ability !== 'object') {
@@ -167,7 +169,7 @@
     element.textContent = name;
     
     // Set CSS variable for animation delay
-    const delay = delayIndex * 0.1;
+    const delay = delayIndex * ANIMATION_DELAY_INCREMENT;
     element.style.setProperty('--animation-delay', `${delay}s`);
     
     return element;
