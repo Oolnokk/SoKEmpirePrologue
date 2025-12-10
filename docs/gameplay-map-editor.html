@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gameplay Map Editor</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    .app {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      color: #f8fafc;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      background: #1e293b;
+      border-radius: 8px;
+      border: 1px solid #334155;
+    }
+    .toolbar-group {
+      display: flex;
+      gap: 6px;
+      padding-right: 12px;
+      border-right: 1px solid #475569;
+    }
+    .toolbar-group:last-child {
+      border-right: none;
+    }
+    button, input, select, textarea {
+      font: inherit;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #e5e7eb;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button:hover {
+      background: #1e293b;
+      border-color: #64748b;
+    }
+    button.active {
+      background: #3b82f6;
+      border-color: #2563eb;
+      color: white;
+    }
+    input[type="text"], input[type="number"], textarea {
+      cursor: text;
+    }
+    input[type="number"] {
+      width: 80px;
+    }
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 12px;
+    }
+    @media (max-width: 1000px) {
+      .main {
+        grid-template-columns: 1fr;
+      }
+    }
+    .canvas-wrapper {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+    #threeViewport {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #0f172a;
+      z-index: 0;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 600px;
+      background: transparent;
+      border: 1px solid #475569;
+      cursor: crosshair;
+      position: relative;
+      z-index: 1;
+    }
+    .three-overlay {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      font-size: 11px;
+      color: #94a3b8;
+      background: rgba(15, 23, 42, 0.85);
+      padding: 4px 8px;
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .panel-section {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .panel-section h3 {
+      margin: 0 0 12px;
+      font-size: 14px;
+      color: #f8fafc;
+      border-bottom: 1px solid #475569;
+      padding-bottom: 8px;
+    }
+    .form-row {
+      margin-bottom: 12px;
+    }
+    .form-row label {
+      display: block;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .form-row input[type="text"],
+    .form-row input[type="number"],
+    .form-row select,
+    .form-row textarea {
+      width: 100%;
+    }
+    textarea {
+      min-height: 100px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+    }
+    .btn-block {
+      width: 100%;
+      margin-bottom: 8px;
+    }
+    .info {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+    .entity-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      background: #0f172a;
+    }
+    .entity-item {
+      padding: 8px;
+      border-bottom: 1px solid #334155;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .entity-item:hover {
+      background: #1e293b;
+    }
+    .entity-item.selected {
+      background: #3b82f6;
+      color: white;
+    }
+    .entity-item:last-child {
+      border-bottom: none;
+    }
+    .shortcut-hint {
+      font-size: 11px;
+      color: #64748b;
+      margin-left: 4px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+    .badge-spawner { background: #22c55e; color: #052e16; }
+    .badge-patrol { background: #3b82f6; color: #172554; }
+    .badge-collider { background: #f59e0b; color: #451a03; }
+    .badge-prop { background: #8b5cf6; color: #2e1065; }
+    .badge-entrance { background: #06b6d4; color: #083344; }
+    .badge-exit { background: #ef4444; color: #450a0a; }
+    .keyboard-shortcuts {
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .keyboard-shortcuts dt {
+      font-weight: 600;
+      color: #f8fafc;
+      margin-top: 8px;
+    }
+    .keyboard-shortcuts dd {
+      margin-left: 0;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Gameplay Map Editor</h1>
+      <p class="info" style="margin: 0;">Lightweight editor for gameplay-only map data (spawners, patrols, colliders, props, entrances/exits)</p>
+    </header>
+
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <button id="toolSelect" class="active" title="Select and move entities (V)">
+          ✋ Select <span class="shortcut-hint">[V]</span>
+        </button>
+        <button id="toolSpawner" title="Add spawner point (S)">
+          🎯 Spawner <span class="shortcut-hint">[S]</span>
+        </button>
+        <button id="toolPatrol" title="Add patrol/waypoint (P)">
+          📍 Patrol <span class="shortcut-hint">[P]</span>
+        </button>
+        <button id="toolCollider" title="Add collider (C)">
+          ⬜ Collider <span class="shortcut-hint">[C]</span>
+        </button>
+        <button id="toolProp" title="Add prop marker (O)">
+          ⭕ Prop <span class="shortcut-hint">[O]</span>
+        </button>
+        <button id="toolEntrance" title="Add entrance point (E)">
+          🚪 Entrance <span class="shortcut-hint">[E]</span>
+        </button>
+        <button id="toolExit" title="Add exit point (X)">
+          🚪 Exit <span class="shortcut-hint">[X]</span>
+        </button>
+      </div>
+      <div class="toolbar-group">
+        <button id="btnDelete" title="Delete selected entity (Delete)">
+          🗑️ Delete <span class="shortcut-hint">[Del]</span>
+        </button>
+      </div>
+      <div class="toolbar-group">
+        <button id="btnZoomIn" title="Zoom in (+)">+</button>
+        <button id="btnZoomOut" title="Zoom out (-)">−</button>
+        <button id="btnResetView" title="Reset view (0)">Reset View</button>
+      </div>
+      <div class="toolbar-group">
+        <button id="btnLoadVisualMap" title="Load 3D visual map background">🎨 Load Visual Map</button>
+        <button id="btnClearVisualMap" title="Clear 3D visual map" style="display: none;">❌ Clear</button>
+        <input type="file" id="fileInputVisualMap" accept=".json" style="display: none;" />
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="canvas-wrapper">
+        <div id="threeViewport">
+          <div class="three-overlay" id="threeOverlay">No visual map loaded</div>
+        </div>
+        <canvas id="mapCanvas" width="1000" height="600"></canvas>
+      </div>
+
+      <div class="side-panel">
+        <div class="panel-section">
+          <h3>Map Settings</h3>
+          <div class="form-row">
+            <label>Area ID</label>
+            <input type="text" id="areaId" value="new-gameplay-map" />
+          </div>
+          <div class="form-row">
+            <label>Units Per Pixel</label>
+            <input type="number" id="unitsPerPixel" value="1" step="0.1" />
+            <div class="info">Conversion factor for screen to world coordinates</div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>Selected Entity</h3>
+          <div id="entityProps">
+            <p class="info">No entity selected. Click on an entity or use a tool to add one.</p>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>Entities (<span id="entityCount">0</span>)</h3>
+          <div class="entity-list" id="entityList"></div>
+        </div>
+
+        <div class="panel-section">
+          <h3>Import / Export</h3>
+          <button class="btn-block" id="btnExport">📥 Download JSON</button>
+          <button class="btn-block" id="btnImportFile">📤 Import from File</button>
+          <input type="file" id="fileInput" accept=".json" style="display: none;" />
+          <button class="btn-block" id="btnImportPaste">📋 Import from Clipboard</button>
+          <button class="btn-block" id="btnSaveToServer">💾 Save to Server</button>
+          <div class="info">Export saves to gameplaymaps/ format. Server save attempts POST to /config/maps/gameplaymaps/</div>
+        </div>
+
+        <div class="panel-section">
+          <h3>Keyboard Shortcuts</h3>
+          <dl class="keyboard-shortcuts">
+            <dt>V</dt><dd>Select tool</dd>
+            <dt>S</dt><dd>Add spawner</dd>
+            <dt>P</dt><dd>Add patrol point</dd>
+            <dt>C</dt><dd>Add collider</dd>
+            <dt>O</dt><dd>Add prop</dd>
+            <dt>E</dt><dd>Add entrance</dd>
+            <dt>X</dt><dd>Add exit</dd>
+            <dt>Delete</dt><dd>Delete selected</dd>
+            <dt>+/-</dt><dd>Zoom in/out</dd>
+            <dt>0</dt><dd>Reset view</dd>
+            <dt>Space + Drag</dt><dd>Pan view</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Data Model =====
+    let mapData = {
+      areaId: 'new-gameplay-map',
+      ground: {
+        path: [{ x: -1000, y: 0 }, { x: 1000, y: 0 }],
+        unitsPerPixel: 1
+      },
+      entities: []
+    };
+
+    let selectedEntity = null;
+    let currentTool = 'select';
+    let nextEntityId = 1;
+    let dragState = null;
+    let isPanning = false;
+    let panStart = null;
+
+    // View state
+    let viewOffset = { x: 0, y: 0 };
+    let viewZoom = 1.0;
+
+    // ===== Canvas Setup =====
+    const canvas = document.getElementById('mapCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      redraw();
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // ===== Helper Functions =====
+    function worldToScreen(wx, wy) {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      return {
+        x: cx + (wx + viewOffset.x) * viewZoom,
+        y: cy - (wy - viewOffset.y) * viewZoom
+      };
+    }
+
+    function screenToWorld(sx, sy) {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      return {
+        x: (sx - cx) / viewZoom - viewOffset.x,
+        y: -((sy - cy) / viewZoom - viewOffset.y)
+      };
+    }
+
+    function createEntity(type, x, y) {
+      const entity = {
+        id: `${type}_${nextEntityId++}`,
+        type: type,
+        x: x,
+        y: y,
+        meta: {}
+      };
+
+      // Set default metadata based on type
+      if (type === 'collider') {
+        entity.meta.shape = 'rectangle';
+        entity.meta.width = 100;
+        entity.meta.height = 100;
+      } else if (type === 'patrol') {
+        entity.meta.sequence = 0;
+        entity.meta.routeId = '';
+      } else if (type === 'spawner') {
+        entity.meta.prefab = 'spawn_default';
+        entity.meta.patrolRouteId = '';
+      }
+
+      return entity;
+    }
+
+    function getEntityColor(type) {
+      const colors = {
+        spawner: '#22c55e',
+        patrol: '#3b82f6',
+        collider: '#f59e0b',
+        prop: '#8b5cf6',
+        entrance: '#06b6d4',
+        exit: '#ef4444'
+      };
+      return colors[type] || '#ffffff';
+    }
+
+    function isPointInEntity(wx, wy, entity) {
+      if (entity.type === 'collider') {
+        const shape = entity.meta.shape || 'rectangle';
+        if (shape === 'rectangle') {
+          const w = entity.meta.width || 100;
+          const h = entity.meta.height || 100;
+          return wx >= entity.x - w/2 && wx <= entity.x + w/2 &&
+                 wy >= entity.y - h/2 && wy <= entity.y + h/2;
+        } else if (shape === 'circle') {
+          const r = entity.meta.radius || 50;
+          const dx = wx - entity.x;
+          const dy = wy - entity.y;
+          return Math.sqrt(dx*dx + dy*dy) <= r;
+        }
+      } else {
+        // Point entities - check within 20 world units
+        const dx = wx - entity.x;
+        const dy = wy - entity.y;
+        return Math.sqrt(dx*dx + dy*dy) <= 20;
+      }
+      return false;
+    }
+
+    function findEntityAt(wx, wy) {
+      // Search in reverse order (top to bottom)
+      for (let i = mapData.entities.length - 1; i >= 0; i--) {
+        if (isPointInEntity(wx, wy, mapData.entities[i])) {
+          return mapData.entities[i];
+        }
+      }
+      return null;
+    }
+
+    // ===== Drawing Functions =====
+    function redraw() {
+      // Clear canvas
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw ground line
+      drawGroundLine();
+
+      // Draw entities
+      mapData.entities.forEach(entity => {
+        drawEntity(entity, entity === selectedEntity);
+      });
+
+      // Draw drag preview
+      if (dragState && dragState.type === 'creating') {
+        drawCreatingPreview();
+      }
+    }
+
+    function drawGroundLine() {
+      const ground = mapData.ground;
+      if (!ground || !ground.path || ground.path.length < 2) return;
+
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      const start = worldToScreen(ground.path[0].x, ground.path[0].y);
+      ctx.moveTo(start.x, start.y);
+
+      for (let i = 1; i < ground.path.length; i++) {
+        const pt = worldToScreen(ground.path[i].x, ground.path[i].y);
+        ctx.lineTo(pt.x, pt.y);
+      }
+
+      ctx.stroke();
+
+      // Draw ground endpoints
+      ground.path.forEach((pt, idx) => {
+        const scr = worldToScreen(pt.x, pt.y);
+        ctx.fillStyle = '#94a3b8';
+        ctx.beginPath();
+        ctx.arc(scr.x, scr.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function drawEntity(entity, isSelected) {
+      const color = getEntityColor(entity.type);
+      const scr = worldToScreen(entity.x, entity.y);
+
+      if (entity.type === 'collider') {
+        const shape = entity.meta.shape || 'rectangle';
+        
+        ctx.strokeStyle = isSelected ? '#ffffff' : color;
+        ctx.fillStyle = color + '40';
+        ctx.lineWidth = isSelected ? 3 : 2;
+
+        if (shape === 'rectangle') {
+          const w = (entity.meta.width || 100) * viewZoom;
+          const h = (entity.meta.height || 100) * viewZoom;
+          ctx.fillRect(scr.x - w/2, scr.y - h/2, w, h);
+          ctx.strokeRect(scr.x - w/2, scr.y - h/2, w, h);
+        } else if (shape === 'circle') {
+          const r = (entity.meta.radius || 50) * viewZoom;
+          ctx.beginPath();
+          ctx.arc(scr.x, scr.y, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+      } else {
+        // Point entities
+        ctx.fillStyle = isSelected ? '#ffffff' : color;
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(scr.x, scr.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Draw patrol sequence number
+        if (entity.type === 'patrol' && entity.meta.sequence !== undefined) {
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(entity.meta.sequence.toString(), scr.x, scr.y);
+        }
+      }
+
+      // Draw label
+      ctx.fillStyle = '#e5e7eb';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(entity.id, scr.x, scr.y + 12);
+    }
+
+    function drawCreatingPreview() {
+      if (!dragState || !dragState.startWorld || !dragState.currentWorld) return;
+
+      const type = dragState.entityType;
+      const color = getEntityColor(type);
+      const start = worldToScreen(dragState.startWorld.x, dragState.startWorld.y);
+      const current = worldToScreen(dragState.currentWorld.x, dragState.currentWorld.y);
+
+      if (type === 'collider') {
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color + '40';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+
+        const x = Math.min(start.x, current.x);
+        const y = Math.min(start.y, current.y);
+        const w = Math.abs(current.x - start.x);
+        const h = Math.abs(current.y - start.y);
+
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeRect(x, y, w, h);
+        ctx.setLineDash([]);
+      }
+    }
+
+    // ===== UI Functions =====
+    function updateEntityList() {
+      const list = document.getElementById('entityList');
+      const count = document.getElementById('entityCount');
+      
+      count.textContent = mapData.entities.length;
+      list.innerHTML = '';
+
+      mapData.entities.forEach(entity => {
+        const item = document.createElement('div');
+        item.className = 'entity-item';
+        if (entity === selectedEntity) {
+          item.classList.add('selected');
+        }
+
+        const badge = document.createElement('span');
+        badge.className = `badge badge-${entity.type}`;
+        badge.textContent = entity.type.toUpperCase();
+
+        item.appendChild(badge);
+        item.appendChild(document.createTextNode(entity.id));
+
+        item.addEventListener('click', () => {
+          selectEntity(entity);
+        });
+
+        list.appendChild(item);
+      });
+    }
+
+    function selectEntity(entity) {
+      selectedEntity = entity;
+      updateEntityList();
+      updateEntityProps();
+      redraw();
+    }
+
+    function updateEntityProps() {
+      const propsDiv = document.getElementById('entityProps');
+      
+      if (!selectedEntity) {
+        propsDiv.innerHTML = '<p class="info">No entity selected. Click on an entity or use a tool to add one.</p>';
+        return;
+      }
+
+      const entity = selectedEntity;
+      let html = `
+        <div class="form-row">
+          <label>ID</label>
+          <input type="text" id="propId" value="${entity.id}" />
+        </div>
+        <div class="form-row">
+          <label>Type</label>
+          <input type="text" value="${entity.type}" readonly style="background: #1e293b;" />
+        </div>
+        <div class="form-row">
+          <label>X Position</label>
+          <input type="number" id="propX" value="${entity.x.toFixed(2)}" step="10" />
+        </div>
+        <div class="form-row">
+          <label>Y Position</label>
+          <input type="number" id="propY" value="${entity.y.toFixed(2)}" step="10" />
+        </div>
+      `;
+
+      // Type-specific properties
+      if (entity.type === 'collider') {
+        html += `
+          <div class="form-row">
+            <label>Shape</label>
+            <select id="propShape">
+              <option value="rectangle" ${entity.meta.shape === 'rectangle' ? 'selected' : ''}>Rectangle</option>
+              <option value="circle" ${entity.meta.shape === 'circle' ? 'selected' : ''}>Circle</option>
+            </select>
+          </div>
+        `;
+        if (entity.meta.shape === 'rectangle') {
+          html += `
+            <div class="form-row">
+              <label>Width</label>
+              <input type="number" id="propWidth" value="${entity.meta.width || 100}" step="10" />
+            </div>
+            <div class="form-row">
+              <label>Height</label>
+              <input type="number" id="propHeight" value="${entity.meta.height || 100}" step="10" />
+            </div>
+          `;
+        } else if (entity.meta.shape === 'circle') {
+          html += `
+            <div class="form-row">
+              <label>Radius</label>
+              <input type="number" id="propRadius" value="${entity.meta.radius || 50}" step="10" />
+            </div>
+          `;
+        }
+      } else if (entity.type === 'patrol') {
+        html += `
+          <div class="form-row">
+            <label>Sequence</label>
+            <input type="number" id="propSequence" value="${entity.meta.sequence || 0}" min="0" />
+          </div>
+          <div class="form-row">
+            <label>Route ID</label>
+            <input type="text" id="propRouteId" value="${entity.meta.routeId || ''}" />
+          </div>
+        `;
+      } else if (entity.type === 'spawner') {
+        html += `
+          <div class="form-row">
+            <label>Prefab</label>
+            <input type="text" id="propPrefab" value="${entity.meta.prefab || 'spawn_default'}" />
+          </div>
+          <div class="form-row">
+            <label>Patrol Route ID</label>
+            <input type="text" id="propPatrolRouteId" value="${entity.meta.patrolRouteId || ''}" />
+          </div>
+        `;
+      }
+
+      propsDiv.innerHTML = html;
+
+      // Add event listeners for property changes
+      const propId = document.getElementById('propId');
+      const propX = document.getElementById('propX');
+      const propY = document.getElementById('propY');
+
+      if (propId) propId.addEventListener('change', () => {
+        entity.id = propId.value;
+        updateEntityList();
+        redraw();
+      });
+
+      if (propX) propX.addEventListener('change', () => {
+        entity.x = parseFloat(propX.value) || 0;
+        redraw();
+      });
+
+      if (propY) propY.addEventListener('change', () => {
+        entity.y = parseFloat(propY.value) || 0;
+        redraw();
+      });
+
+      // Collider-specific
+      const propShape = document.getElementById('propShape');
+      if (propShape) propShape.addEventListener('change', () => {
+        entity.meta.shape = propShape.value;
+        updateEntityProps();
+        redraw();
+      });
+
+      const propWidth = document.getElementById('propWidth');
+      if (propWidth) propWidth.addEventListener('change', () => {
+        entity.meta.width = parseFloat(propWidth.value) || 100;
+        redraw();
+      });
+
+      const propHeight = document.getElementById('propHeight');
+      if (propHeight) propHeight.addEventListener('change', () => {
+        entity.meta.height = parseFloat(propHeight.value) || 100;
+        redraw();
+      });
+
+      const propRadius = document.getElementById('propRadius');
+      if (propRadius) propRadius.addEventListener('change', () => {
+        entity.meta.radius = parseFloat(propRadius.value) || 50;
+        redraw();
+      });
+
+      // Patrol-specific
+      const propSequence = document.getElementById('propSequence');
+      if (propSequence) propSequence.addEventListener('change', () => {
+        entity.meta.sequence = parseInt(propSequence.value, 10) || 0;
+        redraw();
+      });
+
+      const propRouteId = document.getElementById('propRouteId');
+      if (propRouteId) propRouteId.addEventListener('change', () => {
+        entity.meta.routeId = propRouteId.value;
+      });
+
+      // Spawner-specific
+      const propPrefab = document.getElementById('propPrefab');
+      if (propPrefab) propPrefab.addEventListener('change', () => {
+        entity.meta.prefab = propPrefab.value;
+      });
+
+      const propPatrolRouteId = document.getElementById('propPatrolRouteId');
+      if (propPatrolRouteId) propPatrolRouteId.addEventListener('change', () => {
+        entity.meta.patrolRouteId = propPatrolRouteId.value;
+      });
+    }
+
+    function setTool(tool) {
+      currentTool = tool;
+      document.querySelectorAll('.toolbar button[id^="tool"]').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.getElementById(`tool${tool.charAt(0).toUpperCase() + tool.slice(1)}`).classList.add('active');
+    }
+
+    function updateMapSettings() {
+      mapData.areaId = document.getElementById('areaId').value;
+      mapData.ground.unitsPerPixel = parseFloat(document.getElementById('unitsPerPixel').value) || 1;
+    }
+
+    // ===== Canvas Event Handlers =====
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const world = screenToWorld(sx, sy);
+
+      if (e.button === 0) { // Left click
+        if (e.shiftKey || e.ctrlKey) {
+          // Pan mode
+          isPanning = true;
+          panStart = { x: sx, y: sy };
+          canvas.style.cursor = 'grabbing';
+        } else if (currentTool === 'select') {
+          const entity = findEntityAt(world.x, world.y);
+          if (entity) {
+            selectEntity(entity);
+            dragState = {
+              type: 'moving',
+              entity: entity,
+              offsetX: world.x - entity.x,
+              offsetY: world.y - entity.y
+            };
+          } else {
+            selectedEntity = null;
+            updateEntityList();
+            updateEntityProps();
+            redraw();
+          }
+        } else if (currentTool === 'collider') {
+          // Start creating collider
+          dragState = {
+            type: 'creating',
+            entityType: 'collider',
+            startWorld: { x: world.x, y: world.y },
+            currentWorld: { x: world.x, y: world.y }
+          };
+        } else {
+          // Add point entity
+          const entity = createEntity(currentTool, world.x, world.y);
+          mapData.entities.push(entity);
+          selectEntity(entity);
+          updateEntityList();
+          updateMapSettings();
+          redraw();
+        }
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const world = screenToWorld(sx, sy);
+
+      if (isPanning && panStart) {
+        const dx = sx - panStart.x;
+        const dy = sy - panStart.y;
+        viewOffset.x += dx / viewZoom;
+        viewOffset.y -= dy / viewZoom;
+        panStart = { x: sx, y: sy };
+        redraw();
+      } else if (dragState) {
+        if (dragState.type === 'moving') {
+          dragState.entity.x = world.x - dragState.offsetX;
+          dragState.entity.y = world.y - dragState.offsetY;
+          updateEntityProps();
+          redraw();
+        } else if (dragState.type === 'creating') {
+          dragState.currentWorld = { x: world.x, y: world.y };
+          redraw();
+        }
+      }
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      if (isPanning) {
+        isPanning = false;
+        panStart = null;
+        canvas.style.cursor = 'crosshair';
+      } else if (dragState) {
+        if (dragState.type === 'creating' && currentTool === 'collider') {
+          const rect = canvas.getBoundingClientRect();
+          const sx = e.clientX - rect.left;
+          const sy = e.clientY - rect.top;
+          const world = screenToWorld(sx, sy);
+
+          const entity = createEntity('collider', 
+            (dragState.startWorld.x + world.x) / 2,
+            (dragState.startWorld.y + world.y) / 2
+          );
+          entity.meta.width = Math.abs(world.x - dragState.startWorld.x);
+          entity.meta.height = Math.abs(world.y - dragState.startWorld.y);
+
+          // Minimum size
+          if (entity.meta.width < 20) entity.meta.width = 20;
+          if (entity.meta.height < 20) entity.meta.height = 20;
+
+          mapData.entities.push(entity);
+          selectEntity(entity);
+          updateEntityList();
+          updateMapSettings();
+        }
+        dragState = null;
+        redraw();
+      }
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      viewZoom *= delta;
+      viewZoom = Math.max(0.1, Math.min(5, viewZoom));
+      redraw();
+    });
+
+    // ===== Keyboard Shortcuts =====
+    document.addEventListener('keydown', (e) => {
+      // Ignore if typing in input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      switch(e.key.toLowerCase()) {
+        case 'v': setTool('select'); break;
+        case 's': setTool('spawner'); break;
+        case 'p': setTool('patrol'); break;
+        case 'c': setTool('collider'); break;
+        case 'o': setTool('prop'); break;
+        case 'e': setTool('entrance'); break;
+        case 'x': setTool('exit'); break;
+        case 'delete':
+        case 'backspace':
+          if (selectedEntity) {
+            const idx = mapData.entities.indexOf(selectedEntity);
+            if (idx > -1) {
+              mapData.entities.splice(idx, 1);
+              selectedEntity = null;
+              updateEntityList();
+              updateEntityProps();
+              redraw();
+            }
+          }
+          break;
+        case '+':
+        case '=':
+          viewZoom *= 1.1;
+          viewZoom = Math.min(5, viewZoom);
+          redraw();
+          break;
+        case '-':
+          viewZoom *= 0.9;
+          viewZoom = Math.max(0.1, viewZoom);
+          redraw();
+          break;
+        case '0':
+          viewOffset = { x: 0, y: 0 };
+          viewZoom = 1.0;
+          redraw();
+          break;
+        case ' ':
+          e.preventDefault(); // Prevent page scrolling
+          if (!isPanning) {
+            canvas.style.cursor = 'grab';
+          }
+          break;
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === ' ' && !isPanning) {
+        canvas.style.cursor = 'crosshair';
+      }
+    });
+
+    // ===== Button Event Handlers =====
+    document.getElementById('toolSelect').addEventListener('click', () => setTool('select'));
+    document.getElementById('toolSpawner').addEventListener('click', () => setTool('spawner'));
+    document.getElementById('toolPatrol').addEventListener('click', () => setTool('patrol'));
+    document.getElementById('toolCollider').addEventListener('click', () => setTool('collider'));
+    document.getElementById('toolProp').addEventListener('click', () => setTool('prop'));
+    document.getElementById('toolEntrance').addEventListener('click', () => setTool('entrance'));
+    document.getElementById('toolExit').addEventListener('click', () => setTool('exit'));
+
+    document.getElementById('btnDelete').addEventListener('click', () => {
+      if (selectedEntity) {
+        const idx = mapData.entities.indexOf(selectedEntity);
+        if (idx > -1) {
+          mapData.entities.splice(idx, 1);
+          selectedEntity = null;
+          updateEntityList();
+          updateEntityProps();
+          redraw();
+        }
+      }
+    });
+
+    document.getElementById('btnZoomIn').addEventListener('click', () => {
+      viewZoom *= 1.2;
+      viewZoom = Math.min(5, viewZoom);
+      redraw();
+    });
+
+    document.getElementById('btnZoomOut').addEventListener('click', () => {
+      viewZoom *= 0.8;
+      viewZoom = Math.max(0.1, viewZoom);
+      redraw();
+    });
+
+    document.getElementById('btnResetView').addEventListener('click', () => {
+      viewOffset = { x: 0, y: 0 };
+      viewZoom = 1.0;
+      redraw();
+    });
+
+    // ===== Import/Export =====
+    document.getElementById('btnExport').addEventListener('click', () => {
+      updateMapSettings();
+      const json = JSON.stringify(mapData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${mapData.areaId}.gameplaymap.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('btnImportFile').addEventListener('click', () => {
+      document.getElementById('fileInput').click();
+    });
+
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const data = JSON.parse(evt.target.result);
+          importMapData(data);
+        } catch (err) {
+          alert('Error parsing JSON: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = ''; // Reset input
+    });
+
+    document.getElementById('btnImportPaste').addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        const data = JSON.parse(text);
+        importMapData(data);
+      } catch (err) {
+        alert('Error importing from clipboard: ' + err.message);
+      }
+    });
+
+    document.getElementById('btnSaveToServer').addEventListener('click', async () => {
+      updateMapSettings();
+      try {
+        const response = await fetch('/config/maps/gameplaymaps/' + mapData.areaId + '.json', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(mapData, null, 2)
+        });
+        if (response.ok) {
+          alert('Saved to server successfully!');
+        } else {
+          alert('Server save failed: ' + response.statusText);
+        }
+      } catch (err) {
+        alert('Error saving to server: ' + err.message + '\n\nThis is expected if the server does not support this endpoint.');
+      }
+    });
+
+    function importMapData(data) {
+      // Validate and import
+      if (!data.areaId) {
+        alert('Invalid map data: missing areaId');
+        return;
+      }
+
+      mapData = {
+        areaId: data.areaId,
+        ground: data.ground || {
+          path: [{ x: -1000, y: 0 }, { x: 1000, y: 0 }],
+          unitsPerPixel: 1
+        },
+        entities: data.entities || []
+      };
+
+      // Update UI
+      document.getElementById('areaId').value = mapData.areaId;
+      document.getElementById('unitsPerPixel').value = mapData.ground.unitsPerPixel || 1;
+
+      // Find highest entity ID to avoid conflicts
+      let maxId = 0;
+      mapData.entities.forEach(entity => {
+        const match = entity.id.match(/_(\d+)$/);
+        if (match) {
+          maxId = Math.max(maxId, parseInt(match[1], 10));
+        }
+      });
+      nextEntityId = maxId + 1;
+
+      selectedEntity = null;
+      updateEntityList();
+      updateEntityProps();
+      redraw();
+
+      alert('Map imported successfully!');
+    }
+
+    // ===== Map Settings Change Handlers =====
+    document.getElementById('areaId').addEventListener('change', updateMapSettings);
+    document.getElementById('unitsPerPixel').addEventListener('change', () => {
+      updateMapSettings();
+      redraw();
+    });
+
+    // ===== Initial Render =====
+    updateEntityList();
+    updateEntityProps();
+    redraw();
+  </script>
+
+  <script type="module">
+    // ===== 3D Visual Map Background =====
+    let THREE;
+    try {
+      const threeModule = await import("https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js");
+      THREE = threeModule;
+    } catch (err) {
+      console.warn("Three.js not available:", err);
+      document.getElementById('threeOverlay').textContent = '3D disabled (Three.js blocked)';
+      document.getElementById('btnLoadVisualMap').disabled = true;
+      document.getElementById('btnLoadVisualMap').title = 'Three.js CDN blocked by browser';
+    }
+
+    let scene, camera, renderer, worldRoot;
+    let visualMapData = null;
+    let groundGroup, structureGroup;
+    const CELL_SIZE = 2;
+    
+    const threeContainer = document.getElementById('threeViewport');
+    const overlay = document.getElementById('threeOverlay');
+
+    // Initialize Three.js scene
+    function initThree() {
+      if (!THREE) {
+        console.warn('Three.js not available, skipping 3D initialization');
+        return;
+      }
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0f172a);
+
+      worldRoot = new THREE.Group();
+      scene.add(worldRoot);
+
+      const w = Math.max(threeContainer.clientWidth || 800, 400);
+      const h = Math.max(threeContainer.clientHeight || 600, 300);
+
+      camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500);
+      camera.position.set(0, 30, 50);
+      camera.lookAt(0, 0, 0);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio || 1);
+      renderer.setSize(w, h);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      threeContainer.appendChild(renderer.domElement);
+
+      // Lighting
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x0b1120, 0.6);
+      scene.add(hemi);
+
+      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+      dir.position.set(25, 40, 15);
+      dir.castShadow = true;
+      dir.shadow.mapSize.set(1024, 1024);
+      dir.shadow.camera.near = 5;
+      dir.shadow.camera.far = 150;
+      dir.shadow.camera.left = -50;
+      dir.shadow.camera.right = 50;
+      dir.shadow.camera.top = 50;
+      dir.shadow.camera.bottom = -50;
+      scene.add(dir);
+
+      // Ground plane
+      const groundPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(200, 200),
+        new THREE.MeshStandardMaterial({ 
+          color: 0x1e293b, 
+          roughness: 0.9,
+          metalness: 0.1
+        })
+      );
+      groundPlane.rotation.x = -Math.PI / 2;
+      groundPlane.receiveShadow = true;
+      worldRoot.add(groundPlane);
+
+      groundGroup = new THREE.Group();
+      structureGroup = new THREE.Group();
+      worldRoot.add(groundGroup, structureGroup);
+
+      window.addEventListener('resize', onWindowResize);
+      animate();
+    }
+
+    function onWindowResize() {
+      const w = Math.max(threeContainer.clientWidth || 800, 400);
+      const h = Math.max(threeContainer.clientHeight || 600, 300);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+
+    function clearGroup(group) {
+      while (group.children.length) {
+        const child = group.children[0];
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.dispose());
+          } else {
+            child.material.dispose();
+          }
+        }
+        group.remove(child);
+      }
+    }
+
+    // Load and render visual map
+    function loadVisualMap(data) {
+      visualMapData = data;
+      clearGroup(groundGroup);
+      clearGroup(structureGroup);
+
+      if (!data.gameplayPath || !data.gameplayPath.start || !data.gameplayPath.end) {
+        overlay.textContent = 'Visual map loaded (no gameplayPath)';
+        return;
+      }
+
+      // Calculate gameplay path alignment
+      const startRow = data.gameplayPath.start.row;
+      const startCol = data.gameplayPath.start.col;
+      const endRow = data.gameplayPath.end.row;
+      const endCol = data.gameplayPath.end.col;
+
+      const dx = endCol - startCol;
+      const dy = endRow - startRow;
+      const pathAngle = Math.atan2(dy, dx);
+
+      // Rotate world so gameplayPath aligns with our horizontal ground line
+      if (data.alignWorldToPath !== false) {
+        worldRoot.rotation.y = -pathAngle;
+      }
+
+      // Calculate path center for camera positioning
+      const centerRow = (startRow + endRow) / 2;
+      const centerCol = (startCol + endCol) / 2;
+      const centerX = (centerCol - data.cols / 2) * CELL_SIZE;
+      const centerZ = -(centerRow - data.rows / 2) * CELL_SIZE;
+
+      // Position camera to look at the gameplay path
+      camera.position.set(centerX, 30, centerZ + 40);
+      camera.lookAt(centerX, 0, centerZ);
+
+      // Render ground tiles
+      const layers = ['ground', 'structure', 'decoration'];
+      layers.forEach(layerName => {
+        const layerData = data.layerStates?.[layerName];
+        if (!layerData) return;
+
+        const targetGroup = layerName === 'structure' ? structureGroup : groundGroup;
+        // Create material once per layer (not per mesh) for better performance
+        const mat = new THREE.MeshStandardMaterial({
+          color: layerName === 'ground' ? 0x4b5563 : layerName === 'structure' ? 0x3b82f6 : 0xf97316,
+          roughness: 0.7,
+          metalness: 0.2
+        });
+
+        for (let row = 0; row < data.rows; row++) {
+          for (let col = 0; col < data.cols; col++) {
+            const cell = layerData[row]?.[col];
+            if (!cell || !cell.type) continue;
+
+            const x = (col - data.cols / 2) * CELL_SIZE;
+            const z = -(row - data.rows / 2) * CELL_SIZE;
+            const y = layerName === 'structure' ? CELL_SIZE : 0.1;
+
+            const mesh = new THREE.Mesh(
+              new THREE.BoxGeometry(
+                CELL_SIZE * 0.9,
+                layerName === 'structure' ? CELL_SIZE * 2 : CELL_SIZE * 0.2,
+                CELL_SIZE * 0.9
+              ),
+              mat // Reuse same material for all meshes in this layer
+            );
+            mesh.position.set(x, y, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            targetGroup.add(mesh);
+          }
+        }
+      });
+
+      overlay.textContent = `Visual map: ${data.rows}×${data.cols} grid, path aligned`;
+    }
+
+    function clearVisualMap() {
+      visualMapData = null;
+      clearGroup(groundGroup);
+      clearGroup(structureGroup);
+      worldRoot.rotation.y = 0;
+      camera.position.set(0, 30, 50);
+      camera.lookAt(0, 0, 0);
+      overlay.textContent = 'No visual map loaded';
+      document.getElementById('btnClearVisualMap').style.display = 'none';
+    }
+
+    // UI event handlers
+    document.getElementById('btnLoadVisualMap').addEventListener('click', () => {
+      document.getElementById('fileInputVisualMap').click();
+    });
+
+    document.getElementById('fileInputVisualMap').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const data = JSON.parse(evt.target.result);
+          loadVisualMap(data);
+          document.getElementById('btnClearVisualMap').style.display = 'inline-block';
+        } catch (err) {
+          // Display error in overlay instead of alert
+          overlay.textContent = 'Error: ' + err.message;
+          console.error('Visual map load error:', err);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = ''; // Reset input
+    });
+
+    document.getElementById('btnClearVisualMap').addEventListener('click', () => {
+      clearVisualMap();
+    });
+
+    // Initialize Three.js
+    initThree();
+  </script>
+</body>
+</html>
