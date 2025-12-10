@@ -14,3 +14,5 @@ export {
   adaptLegacyLayoutGeometry,
   adaptSceneGeometry,
 } from './GeometryService.js';
+export { createRenderer, isSupported, Renderer } from '../renderer/index.js';
+export { adaptScene3dToRenderer } from './rendererAdapter.js';

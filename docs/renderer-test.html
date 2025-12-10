@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Renderer Module Test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0a0e14;
+      color: #e5e7eb;
+    }
+    h1 {
+      margin: 0 0 16px;
+      font-size: 24px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    #viewport {
+      width: 100%;
+      height: 600px;
+      background: #1a1f2c;
+      border: 2px solid #2a3f5f;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .info {
+      background: #1e293b;
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+    }
+    .info h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      color: #f8fafc;
+    }
+    .info p {
+      margin: 4px 0;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    .status.success {
+      background: #10b981;
+      color: white;
+    }
+    .status.warning {
+      background: #f59e0b;
+      color: white;
+    }
+    .status.error {
+      background: #ef4444;
+      color: white;
+    }
+    button {
+      padding: 8px 16px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    button:disabled {
+      background: #475569;
+      cursor: not-allowed;
+    }
+    .controls {
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Renderer Module Test</h1>
+    
+    <div id="viewport"></div>
+    
+    <div class="info">
+      <h2>Status</h2>
+      <p>Three.js Support: <span id="threeSupport" class="status">Checking...</span></p>
+      <p>Renderer Status: <span id="rendererStatus" class="status">Not initialized</span></p>
+      <p>Animation: <span id="animStatus">Stopped</span></p>
+      <p id="frameCount">Frames rendered: 0</p>
+      <div class="controls">
+        <button id="btnInit">Initialize Renderer</button>
+        <button id="btnStart" disabled>Start Animation</button>
+        <button id="btnStop" disabled>Stop Animation</button>
+        <button id="btnDispose" disabled>Dispose</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // First, load Three.js globally
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js';
+    globalThis.THREE = THREE;
+
+    // Now import the renderer module
+    import { createRenderer, isSupported } from '../src/renderer/index.js';
+
+    const viewport = document.getElementById('viewport');
+    const threeSupport = document.getElementById('threeSupport');
+    const rendererStatus = document.getElementById('rendererStatus');
+    const animStatus = document.getElementById('animStatus');
+    const frameCountEl = document.getElementById('frameCount');
+    
+    const btnInit = document.getElementById('btnInit');
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const btnDispose = document.getElementById('btnDispose');
+
+    let renderer = null;
+    let frameCount = 0;
+
+    // Check support
+    const supported = isSupported();
+    threeSupport.textContent = supported ? 'Available' : 'Not Available';
+    threeSupport.className = `status ${supported ? 'success' : 'error'}`;
+
+    if (!supported) {
+      rendererStatus.textContent = 'Three.js not available';
+      rendererStatus.className = 'status error';
+    }
+
+    btnInit.addEventListener('click', async () => {
+      try {
+        btnInit.disabled = true;
+        rendererStatus.textContent = 'Initializing...';
+        rendererStatus.className = 'status warning';
+
+        // Create renderer
+        renderer = createRenderer({
+          container: viewport,
+          width: viewport.clientWidth,
+          height: viewport.clientHeight,
+          clearColor: 0x1a1f2c
+        });
+
+        // Listen to events
+        renderer.on('ready', (event) => {
+          console.log('Renderer ready:', event);
+          if (event.supported) {
+            rendererStatus.textContent = 'Initialized';
+            rendererStatus.className = 'status success';
+            btnStart.disabled = false;
+            btnDispose.disabled = false;
+
+            // Add a test cube
+            const geometry = new THREE.BoxGeometry(2, 2, 2);
+            const material = new THREE.MeshStandardMaterial({ color: 0x3b82f6 });
+            const cube = new THREE.Mesh(geometry, material);
+            renderer.add(cube);
+
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            renderer.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            renderer.add(directionalLight);
+
+            // Set camera
+            renderer.setCameraParams({
+              position: { x: 0, y: 3, z: 6 },
+              lookAt: { x: 0, y: 0, z: 0 }
+            });
+
+            // Animate the cube
+            renderer.on('frame', () => {
+              frameCount++;
+              frameCountEl.textContent = `Frames rendered: ${frameCount}`;
+              cube.rotation.x += 0.01;
+              cube.rotation.y += 0.01;
+            });
+          }
+        });
+
+        renderer.on('error', (event) => {
+          console.error('Renderer error:', event);
+          rendererStatus.textContent = `Error: ${event.phase}`;
+          rendererStatus.className = 'status error';
+        });
+
+        // Initialize
+        await renderer.init();
+
+      } catch (error) {
+        console.error('Failed to initialize:', error);
+        rendererStatus.textContent = 'Initialization failed';
+        rendererStatus.className = 'status error';
+      }
+    });
+
+    btnStart.addEventListener('click', () => {
+      if (renderer) {
+        renderer.start();
+        animStatus.textContent = 'Running';
+        btnStart.disabled = true;
+        btnStop.disabled = false;
+      }
+    });
+
+    btnStop.addEventListener('click', () => {
+      if (renderer) {
+        renderer.stop();
+        animStatus.textContent = 'Stopped';
+        btnStart.disabled = false;
+        btnStop.disabled = true;
+      }
+    });
+
+    btnDispose.addEventListener('click', () => {
+      if (renderer) {
+        renderer.dispose();
+        renderer = null;
+        rendererStatus.textContent = 'Disposed';
+        rendererStatus.className = 'status warning';
+        animStatus.textContent = 'Stopped';
+        frameCount = 0;
+        frameCountEl.textContent = 'Frames rendered: 0';
+        
+        btnInit.disabled = false;
+        btnStart.disabled = true;
+        btnStop.disabled = true;
+        btnDispose.disabled = true;
+      }
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      if (renderer) {
+        renderer.resize(viewport.clientWidth, viewport.clientHeight);
+      }
+    });
+  </script>
+</body>
+</html>
