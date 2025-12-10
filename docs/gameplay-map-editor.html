@@ -85,14 +85,41 @@
       border-radius: 8px;
       padding: 12px;
       overflow: hidden;
+      position: relative;
+    }
+    #threeViewport {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #0f172a;
+      z-index: 0;
     }
     canvas {
       display: block;
       width: 100%;
       height: 600px;
-      background: #0f172a;
+      background: transparent;
       border: 1px solid #475569;
       cursor: crosshair;
+      position: relative;
+      z-index: 1;
+    }
+    .three-overlay {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      font-size: 11px;
+      color: #94a3b8;
+      background: rgba(15, 23, 42, 0.85);
+      padding: 4px 8px;
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 2;
     }
     .side-panel {
       display: flex;
@@ -239,10 +266,18 @@
         <button id="btnZoomOut" title="Zoom out (-)">−</button>
         <button id="btnResetView" title="Reset view (0)">Reset View</button>
       </div>
+      <div class="toolbar-group">
+        <button id="btnLoadVisualMap" title="Load 3D visual map background">🎨 Load Visual Map</button>
+        <button id="btnClearVisualMap" title="Clear 3D visual map" style="display: none;">❌ Clear</button>
+        <input type="file" id="fileInputVisualMap" accept=".json" style="display: none;" />
+      </div>
     </div>
 
     <div class="main">
       <div class="canvas-wrapper">
+        <div id="threeViewport">
+          <div class="three-overlay" id="threeOverlay">No visual map loaded</div>
+        </div>
         <canvas id="mapCanvas" width="1000" height="600"></canvas>
       </div>
 
@@ -1080,6 +1115,241 @@
     updateEntityList();
     updateEntityProps();
     redraw();
+  </script>
+
+  <script type="module">
+    // ===== 3D Visual Map Background =====
+    let THREE, GLTFLoader;
+    try {
+      const threeModule = await import("https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js");
+      THREE = threeModule;
+      const gltfModule = await import("https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/loaders/GLTFLoader.js");
+      GLTFLoader = gltfModule.GLTFLoader;
+    } catch (err) {
+      console.warn("Three.js not available:", err);
+      document.getElementById('threeOverlay').textContent = '3D disabled (Three.js blocked)';
+      document.getElementById('btnLoadVisualMap').disabled = true;
+      document.getElementById('btnLoadVisualMap').title = 'Three.js CDN blocked by browser';
+    }
+
+    let scene, camera, renderer, worldRoot;
+    let visualMapData = null;
+    let groundGroup, structureGroup;
+    const CELL_SIZE = 2;
+    
+    const threeContainer = document.getElementById('threeViewport');
+    const overlay = document.getElementById('threeOverlay');
+
+    // Initialize Three.js scene
+    function initThree() {
+      if (!THREE) {
+        console.warn('Three.js not available, skipping 3D initialization');
+        return;
+      }
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0f172a);
+
+      worldRoot = new THREE.Group();
+      scene.add(worldRoot);
+
+      const w = Math.max(threeContainer.clientWidth || 800, 400);
+      const h = Math.max(threeContainer.clientHeight || 600, 300);
+
+      camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500);
+      camera.position.set(0, 30, 50);
+      camera.lookAt(0, 0, 0);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio || 1);
+      renderer.setSize(w, h);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      threeContainer.appendChild(renderer.domElement);
+
+      // Lighting
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x0b1120, 0.6);
+      scene.add(hemi);
+
+      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+      dir.position.set(25, 40, 15);
+      dir.castShadow = true;
+      dir.shadow.mapSize.set(1024, 1024);
+      dir.shadow.camera.near = 5;
+      dir.shadow.camera.far = 150;
+      dir.shadow.camera.left = -50;
+      dir.shadow.camera.right = 50;
+      dir.shadow.camera.top = 50;
+      dir.shadow.camera.bottom = -50;
+      scene.add(dir);
+
+      // Ground plane
+      const groundPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(200, 200),
+        new THREE.MeshStandardMaterial({ 
+          color: 0x1e293b, 
+          roughness: 0.9,
+          metalness: 0.1
+        })
+      );
+      groundPlane.rotation.x = -Math.PI / 2;
+      groundPlane.receiveShadow = true;
+      worldRoot.add(groundPlane);
+
+      groundGroup = new THREE.Group();
+      structureGroup = new THREE.Group();
+      worldRoot.add(groundGroup, structureGroup);
+
+      window.addEventListener('resize', onWindowResize);
+      animate();
+    }
+
+    function onWindowResize() {
+      const w = Math.max(threeContainer.clientWidth || 800, 400);
+      const h = Math.max(threeContainer.clientHeight || 600, 300);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+
+    function clearGroup(group) {
+      while (group.children.length) {
+        const child = group.children[0];
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.dispose());
+          } else {
+            child.material.dispose();
+          }
+        }
+        group.remove(child);
+      }
+    }
+
+    // Load and render visual map
+    function loadVisualMap(data) {
+      visualMapData = data;
+      clearGroup(groundGroup);
+      clearGroup(structureGroup);
+
+      if (!data.gameplayPath || !data.gameplayPath.start || !data.gameplayPath.end) {
+        overlay.textContent = 'Visual map loaded (no gameplayPath)';
+        return;
+      }
+
+      // Calculate gameplay path alignment
+      const startRow = data.gameplayPath.start.row;
+      const startCol = data.gameplayPath.start.col;
+      const endRow = data.gameplayPath.end.row;
+      const endCol = data.gameplayPath.end.col;
+
+      const dx = endCol - startCol;
+      const dy = endRow - startRow;
+      const pathAngle = Math.atan2(dy, dx);
+
+      // Rotate world so gameplayPath aligns with our horizontal ground line
+      if (data.alignWorldToPath !== false) {
+        worldRoot.rotation.y = -pathAngle;
+      }
+
+      // Calculate path center for camera positioning
+      const centerRow = (startRow + endRow) / 2;
+      const centerCol = (startCol + endCol) / 2;
+      const centerX = (centerCol - data.cols / 2) * CELL_SIZE;
+      const centerZ = -(centerRow - data.rows / 2) * CELL_SIZE;
+
+      // Position camera to look at the gameplay path
+      camera.position.set(centerX, 30, centerZ + 40);
+      camera.lookAt(centerX, 0, centerZ);
+
+      // Render ground tiles
+      const layers = ['ground', 'structure', 'decoration'];
+      layers.forEach(layerName => {
+        const layerData = data.layerStates?.[layerName];
+        if (!layerData) return;
+
+        const targetGroup = layerName === 'structure' ? structureGroup : groundGroup;
+        const mat = new THREE.MeshStandardMaterial({
+          color: layerName === 'ground' ? 0x4b5563 : layerName === 'structure' ? 0x3b82f6 : 0xf97316,
+          roughness: 0.7,
+          metalness: 0.2
+        });
+
+        for (let row = 0; row < data.rows; row++) {
+          for (let col = 0; col < data.cols; col++) {
+            const cell = layerData[row]?.[col];
+            if (!cell || !cell.type) continue;
+
+            const x = (col - data.cols / 2) * CELL_SIZE;
+            const z = -(row - data.rows / 2) * CELL_SIZE;
+            const y = layerName === 'structure' ? CELL_SIZE : 0.1;
+
+            const mesh = new THREE.Mesh(
+              new THREE.BoxGeometry(
+                CELL_SIZE * 0.9,
+                layerName === 'structure' ? CELL_SIZE * 2 : CELL_SIZE * 0.2,
+                CELL_SIZE * 0.9
+              ),
+              mat.clone()
+            );
+            mesh.position.set(x, y, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            targetGroup.add(mesh);
+          }
+        }
+      });
+
+      overlay.textContent = `Visual map: ${data.rows}×${data.cols} grid, path aligned`;
+    }
+
+    function clearVisualMap() {
+      visualMapData = null;
+      clearGroup(groundGroup);
+      clearGroup(structureGroup);
+      worldRoot.rotation.y = 0;
+      camera.position.set(0, 30, 50);
+      camera.lookAt(0, 0, 0);
+      overlay.textContent = 'No visual map loaded';
+      document.getElementById('btnClearVisualMap').style.display = 'none';
+    }
+
+    // UI event handlers
+    document.getElementById('btnLoadVisualMap').addEventListener('click', () => {
+      document.getElementById('fileInputVisualMap').click();
+    });
+
+    document.getElementById('fileInputVisualMap').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const data = JSON.parse(evt.target.result);
+          loadVisualMap(data);
+          document.getElementById('btnClearVisualMap').style.display = 'inline-block';
+        } catch (err) {
+          alert('Error loading visual map: ' + err.message);
+          console.error(err);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = ''; // Reset input
+    });
+
+    document.getElementById('btnClearVisualMap').addEventListener('click', () => {
+      clearVisualMap();
+    });
+
+    // Initialize Three.js
+    initThree();
   </script>
 </body>
 </html>
