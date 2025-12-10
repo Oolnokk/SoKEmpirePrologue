@@ -1119,12 +1119,10 @@
 
   <script type="module">
     // ===== 3D Visual Map Background =====
-    let THREE, GLTFLoader;
+    let THREE;
     try {
       const threeModule = await import("https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js");
       THREE = threeModule;
-      const gltfModule = await import("https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/loaders/GLTFLoader.js");
-      GLTFLoader = gltfModule.GLTFLoader;
     } catch (err) {
       console.warn("Three.js not available:", err);
       document.getElementById('threeOverlay').textContent = '3D disabled (Three.js blocked)';
@@ -1275,6 +1273,7 @@
         if (!layerData) return;
 
         const targetGroup = layerName === 'structure' ? structureGroup : groundGroup;
+        // Create material once per layer (not per mesh) for better performance
         const mat = new THREE.MeshStandardMaterial({
           color: layerName === 'ground' ? 0x4b5563 : layerName === 'structure' ? 0x3b82f6 : 0xf97316,
           roughness: 0.7,
@@ -1296,7 +1295,7 @@
                 layerName === 'structure' ? CELL_SIZE * 2 : CELL_SIZE * 0.2,
                 CELL_SIZE * 0.9
               ),
-              mat.clone()
+              mat // Reuse same material for all meshes in this layer
             );
             mesh.position.set(x, y, z);
             mesh.castShadow = true;
@@ -1336,8 +1335,9 @@
           loadVisualMap(data);
           document.getElementById('btnClearVisualMap').style.display = 'inline-block';
         } catch (err) {
-          alert('Error loading visual map: ' + err.message);
-          console.error(err);
+          // Display error in overlay instead of alert
+          overlay.textContent = 'Error: ' + err.message;
+          console.error('Visual map load error:', err);
         }
       };
       reader.readAsText(file);
