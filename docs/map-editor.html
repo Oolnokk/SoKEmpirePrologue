@@ -496,13 +496,13 @@ select {
         layer: LAYERS.GROUND,
         colorVar: "--road-color",
         gltfPath: "assets/3D/ground_segments/roadsegment.gltf",
-        baseScale: { x: 1, y: 0.12, z: 1 },  // thickness controlled here
+        baseScale: { x: 0.2, y: 0.2, z: 0.2 },
         yOffset: 0,
         forwardOffsetDeg: 0,
         gltfTemplate: null,
         gltfFileName: "roadsegment.gltf",
         instanceDefaults: { orientation: 0, scaleX: 1, scaleY: 1, scaleZ: 1, offsetX: 0, offsetY: 0 },
-        extraConfig: {}
+        extraConfig: { rotationX: -90 }
       },
       {
         id: "sidewalk",
@@ -510,13 +510,13 @@ select {
         layer: LAYERS.GROUND,
         colorVar: "--sidewalk-color",
         gltfPath: "assets/3D/ground_segments/blocksegment.gltf",
-        baseScale: { x: 1, y: 0.12, z: 1 },
+        baseScale: { x: 0.2, y: 0.2, z: 0.2 },
         yOffset: 0.02,
         forwardOffsetDeg: 0,
         gltfTemplate: null,
         gltfFileName: "blocksegment.gltf",
         instanceDefaults: { orientation: 0, scaleX: 1, scaleY: 1, scaleZ: 1, offsetX: 0, offsetY: 0 },
-        extraConfig: {}
+        extraConfig: { rotationX: -90 }
       }
     ];
 
@@ -527,13 +527,13 @@ select {
         layer: LAYERS.STRUCTURE,
         colorVar: "--tower-color",
         gltfPath: "assets/3D/structures/tower_commercial3D_t.gltf",
-        baseScale: { x: 0.6, y: 1.2, z: 0.6 },
+        baseScale: { x: 0.2, y: 0.2, z: 0.2 },
         yOffset: 0.12,          // vertical offset above ground segments
         forwardOffsetDeg: 0,    // per-asset yaw offset (deg)
         gltfTemplate: null,
         gltfFileName: "tower_commercial3D_t.gltf",
         instanceDefaults: { orientation: 0, scaleX: 1, scaleY: 1, scaleZ: 1, offsetX: 0, offsetY: 0 },
-        extraConfig: {}
+        extraConfig: { rotationX: -90 }
       }
     ];
 
@@ -961,6 +961,14 @@ select {
         (gltf) => {
           const root = gltf.scene;
           normalizeGltfSceneToUnit(root, asset.label);
+
+          // Apply X-axis rotation if specified in extraConfig
+          if (asset.extraConfig && typeof asset.extraConfig.rotationX === "number") {
+            const rotX = THREE.MathUtils.degToRad(asset.extraConfig.rotationX);
+            root.rotation.x = rotX;
+            logDebug("Applied X-rotation: " + asset.extraConfig.rotationX + "° for " + asset.label);
+          }
+
           root.traverse(n => {
             if (n.isMesh) {
               n.castShadow = true;

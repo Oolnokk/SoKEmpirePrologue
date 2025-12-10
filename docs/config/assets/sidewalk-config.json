@@ -3,9 +3,9 @@
   "label": "Sidewalk",
   "gltfPath": "../assets/3D/ground_segments/blocksegment.gltf",
   "baseScale": {
-    "x": 1,
-    "y": 0.12,
-    "z": 1
+    "x": 0.2,
+    "y": 0.2,
+    "z": 0.2
   },
   "yOffset": 0.02,
   "forwardOffsetDeg": 0,
@@ -17,5 +17,7 @@
     "offsetX": 0,
     "offsetY": 0
   },
-  "extra": {}
+  "extra": {
+    "rotationX": -90
+  }
 }
