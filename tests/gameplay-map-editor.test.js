@@ -15,11 +15,13 @@ test('Gameplay Map Editor - HTML File Structure', () => {
 });
 
 test('Gameplay Map Editor - Entity Types', () => {
-  // Test that entity type constants are correct
+  // Test that all entity type buttons are present in the HTML
   const expectedTypes = ['spawner', 'patrol', 'collider', 'prop', 'entrance', 'exit'];
   
   expectedTypes.forEach(type => {
-    assert.ok(type, `Entity type ${type} should be defined`);
+    const toolName = type.charAt(0).toUpperCase() + type.slice(1);
+    assert.ok(html.includes(`tool${toolName}`) || html.includes(`'${type}'`), 
+      `Entity type ${type} should be referenced in the editor`);
   });
 });
 

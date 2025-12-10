@@ -722,7 +722,7 @@
       // Patrol-specific
       const propSequence = document.getElementById('propSequence');
       if (propSequence) propSequence.addEventListener('change', () => {
-        entity.meta.sequence = parseInt(propSequence.value) || 0;
+        entity.meta.sequence = parseInt(propSequence.value, 10) || 0;
         redraw();
       });
 
