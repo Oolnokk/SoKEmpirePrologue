@@ -568,6 +568,31 @@ function syncConfigPlayableBounds(area: MapArea | null): void {
   mapConfig.playAreaMaxX = initialBounds.maxX ?? null;
 }
 
+function resolveSceneDescriptor(area: MapArea | null): {
+  geometry: { layers: unknown[]; instances: unknown[] };
+  colliders: unknown[];
+  spawnPoints: unknown[];
+  playableBounds: unknown;
+} {
+  if (!area) {
+    return {
+      geometry: { layers: [], instances: [] },
+      colliders: [],
+      spawnPoints: [],
+      playableBounds: null,
+    };
+  }
+  // Area objects already contain scene-like properties (geometry, colliders, spawnPoints, playableBounds)
+  // This function provides a consistent interface for accessing them
+  const areaRecord = area as Record<string, unknown>;
+  return {
+    geometry: (areaRecord.geometry as { layers: unknown[]; instances: unknown[] }) || { layers: [], instances: [] },
+    colliders: (areaRecord.colliders as unknown[]) || [],
+    spawnPoints: (areaRecord.spawnPoints as unknown[]) || [],
+    playableBounds: areaRecord.playableBounds || null,
+  };
+}
+
 function syncConfigPlatforming(area: MapArea): void {
   const CONFIG = (window.CONFIG = window.CONFIG || {});
   const scene = resolveSceneDescriptor(area);
