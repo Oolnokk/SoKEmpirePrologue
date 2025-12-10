@@ -91,7 +91,7 @@ export function getDefaultScene3d() {
  * @param {string} sceneUrl - The scene URL to resolve
  * @param {object} opts - Options object
  * @param {string} opts.base - Base path to resolve relative URLs against (default: '/config/maps/visualsmaps/')
- * @returns {string} - The resolved URL
+ * @returns {string|*} - The resolved URL string, or the original value if not a string
  */
 export function resolveScene3dUrl(sceneUrl, opts = {}) {
   if (!sceneUrl || typeof sceneUrl !== 'string') {
