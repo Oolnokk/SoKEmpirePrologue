@@ -1305,6 +1305,7 @@ select {
           obj.traverse(n => { if (n.isMesh) { n.castShadow = false; n.receiveShadow = true; } });
         } else {
           obj = new THREE.Mesh(boxGeom, mat);
+          logDebug(`Using fallback box for ground segment: ${asset.label} (${cell.type}) - model not loaded`);
         }
 
         obj.position.set(x, asset.baseScale.y * 0.5 + asset.yOffset, z);
@@ -1339,6 +1340,7 @@ select {
         } else {
           obj = new THREE.Mesh(boxGeom, structureFallbackMat);
           obj.castShadow = true;
+          logDebug(`Using fallback box for structure: ${asset.label} (${cell.type}) - model not loaded`);
         }
 
         const baseX = asset.baseScale.x;
@@ -1380,7 +1382,10 @@ select {
       rebuildGameplayPath3D();
       applyWorldAlignmentFromPath();
 
+      // Asset status summary
+      const assetStatus = ALL_ASSETS.map(a => `${a.label}: ${a.gltfTemplate ? '✓ loaded' : '✗ fallback'}`).join(', ');
       logDebug(`3D rebuilt: ground=${groundCount}, structures=${structCount}, decorations=${decoCount}`);
+      logDebug(`Asset models: ${assetStatus}`);
     }
 
     // --- PAINTING / CLICK ---
