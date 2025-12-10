@@ -1,4 +1,4 @@
-// Helper to list and validate "visual maps" from docs/config/maps/visualmaps
+// Helper to list and validate "visual maps" from docs/config/maps/visualsmaps
 // Node.js (ESM) - adjust allowedExt or validation rules for your "correct format"
 import fs from 'fs/promises';
 import path from 'path';
@@ -88,7 +88,11 @@ export async function listVisualMaps(mapsDir = DEFAULT_MAPS_DIR) {
   return results;
 }
 
-/** Example usage (uncomment to run as a script)
+/**
+ * Example usage for local testing (uncomment to run as a script):
+ * 
+ * node scripts/getVisualMaps.js
+ *
 (async () => {
   try {
     const maps = await listVisualMaps();
