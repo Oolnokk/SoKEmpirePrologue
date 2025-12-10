@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ability UI Test</title>
+  <link rel="stylesheet" href="ui/ability-ui.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 20%, #111827, #0b1221 40%, #020617 75%);
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 40px;
+      font-size: 32px;
+    }
+
+    .test-section {
+      margin-bottom: 60px;
+      padding: 30px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 12px;
+    }
+
+    .test-section h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 24px;
+      color: #93c5fd;
+    }
+
+    .arch-demo {
+      position: relative;
+      min-height: 300px;
+      background: rgba(30, 41, 59, 0.4);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .arch-buttons-container {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .vertical-demo {
+      max-width: 800px;
+      padding: 20px;
+      background: rgba(30, 41, 59, 0.4);
+      border-radius: 8px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    button.demo-btn {
+      padding: 10px 20px;
+      background: rgba(59, 130, 246, 0.8);
+      border: 1px solid rgba(147, 197, 253, 0.5);
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    button.demo-btn:hover {
+      background: rgba(59, 130, 246, 1);
+      transform: translateY(-1px);
+    }
+
+    .info {
+      margin-top: 15px;
+      padding: 15px;
+      background: rgba(6, 182, 212, 0.1);
+      border-left: 3px solid rgba(6, 182, 212, 0.5);
+      border-radius: 4px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Ability UI System Test</h1>
+
+    <!-- Test Section 1: Arch Buttons -->
+    <div class="test-section">
+      <h2>1. Arch Buttons with Letter Labels</h2>
+      <p>Testing UIAbility.initArchButtons() functionality</p>
+      
+      <div class="arch-demo" id="archDemo">
+        <div class="arch-buttons-container" id="archContainer">
+          <button class="arch-btn">1</button>
+          <button class="arch-btn">2</button>
+          <button class="arch-btn">3</button>
+          <button class="arch-btn">4</button>
+          <button class="arch-btn">5</button>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="demo-btn" onclick="initializeArchButtons()">Initialize Arch Buttons</button>
+        <button class="demo-btn" onclick="checkArchButtons()">Check Button Attributes</button>
+      </div>
+
+      <div class="info" id="archInfo">
+        Click "Initialize Arch Buttons" to populate with keyboard letters (a, b, c, j, s)
+      </div>
+    </div>
+
+    <!-- Test Section 2: Vertical Columns -->
+    <div class="test-section">
+      <h2>2. Vertical Text Columns (TankanScript Font)</h2>
+      <p>Testing .vertical-columns class with custom font</p>
+      
+      <div class="vertical-demo">
+        <div class="vertical-columns">
+          This is vertical text using the TankanScript font. The text should flow from right to left in vertical columns. The font should load from /docs/config/tankanscript_rotated_flipped_horiz.otf and display properly.
+        </div>
+      </div>
+
+      <div class="info">
+        Text above should display vertically with the TankanScript font if loaded correctly
+      </div>
+    </div>
+
+    <!-- Test Section 3: Attack Names Display -->
+    <div class="test-section">
+      <h2>3. Attack Names Display (Right Edge)</h2>
+      <p>Testing UIAbility.showAttackNames() functionality</p>
+
+      <div class="btn-group">
+        <button class="demo-btn" onclick="showSampleAttacks()">Show Sample Attacks</button>
+        <button class="demo-btn" onclick="showMultiAttacks()">Show Multi-Attack Ability</button>
+        <button class="demo-btn" onclick="clearAttacks()">Clear Attack Names</button>
+      </div>
+
+      <div class="info" id="attackInfo">
+        Click buttons to test attack name display. Names should appear vertically on the right edge with staggered fade-in animation.
+      </div>
+    </div>
+
+    <!-- Test Section 4: Combined Demo -->
+    <div class="test-section">
+      <h2>4. Combined Demo</h2>
+      <p>Initialize everything at once</p>
+
+      <div class="btn-group">
+        <button class="demo-btn" onclick="runFullDemo()">Run Full Demo</button>
+        <button class="demo-btn" onclick="resetAll()">Reset All</button>
+      </div>
+
+      <div class="info">
+        This will initialize arch buttons and show sample attack names together
+      </div>
+    </div>
+  </div>
+
+  <script src="ui/ability-ui.js"></script>
+  <script>
+    // Test functions for arch buttons
+    function initializeArchButtons() {
+      const container = document.getElementById('archContainer');
+      if (window.UIAbility && window.UIAbility.initArchButtons) {
+        window.UIAbility.initArchButtons(container, {
+          showLetters: true
+        });
+        document.getElementById('archInfo').innerHTML = 
+          '✅ Arch buttons initialized! Check the buttons - they should now show letters a, b, c, j, s';
+      } else {
+        document.getElementById('archInfo').innerHTML = 
+          '❌ Error: UIAbility module not found';
+      }
+    }
+
+    function checkArchButtons() {
+      const buttons = document.querySelectorAll('#archContainer .arch-btn');
+      let info = '<strong>Button Attributes:</strong><br>';
+      buttons.forEach((btn, idx) => {
+        const key = btn.getAttribute('data-key');
+        const label = btn.getAttribute('aria-label');
+        const text = btn.textContent;
+        info += `Button ${idx + 1}: key="${key}", aria-label="${label}", text="${text}"<br>`;
+      });
+      document.getElementById('archInfo').innerHTML = info;
+    }
+
+    // Test functions for attack names
+    function showSampleAttacks() {
+      if (window.UIAbility && window.UIAbility.showAttackNames) {
+        const abilities = [
+          { name: 'Quick Strike', attacks: ['attack1'] },
+          { name: 'Heavy Slash', attacks: ['attack1'] },
+          { name: 'Thunder Bolt', attacks: ['attack1'] }
+        ];
+        window.UIAbility.showAttackNames(abilities);
+        document.getElementById('attackInfo').innerHTML = 
+          '✅ Sample attacks displayed on the right edge. Check the right side of the screen!';
+      } else {
+        document.getElementById('attackInfo').innerHTML = 
+          '❌ Error: UIAbility module not found';
+      }
+    }
+
+    function showMultiAttacks() {
+      if (window.UIAbility && window.UIAbility.showAttackNames) {
+        const abilities = [
+          { name: 'Combo Strike', attackCount: 3 },
+          { name: 'Rapid Fire', attackCount: 5 }
+        ];
+        window.UIAbility.showAttackNames(abilities);
+        document.getElementById('attackInfo').innerHTML = 
+          '✅ Multi-attack abilities displayed with numbering (e.g., "Combo Strike 1", "Combo Strike 2")';
+      } else {
+        document.getElementById('attackInfo').innerHTML = 
+          '❌ Error: UIAbility module not found';
+      }
+    }
+
+    function clearAttacks() {
+      if (window.UIAbility && window.UIAbility.clearAttackNames) {
+        window.UIAbility.clearAttackNames();
+        document.getElementById('attackInfo').innerHTML = 
+          '✅ Attack names cleared';
+      } else {
+        document.getElementById('attackInfo').innerHTML = 
+          '❌ Error: UIAbility module not found';
+      }
+    }
+
+    // Combined demo
+    function runFullDemo() {
+      initializeArchButtons();
+      setTimeout(() => {
+        showSampleAttacks();
+      }, 500);
+    }
+
+    function resetAll() {
+      // Reset arch buttons
+      const buttons = document.querySelectorAll('#archContainer .arch-btn');
+      buttons.forEach((btn, idx) => {
+        btn.textContent = (idx + 1).toString();
+        btn.removeAttribute('data-key');
+        btn.removeAttribute('aria-label');
+      });
+      
+      // Clear attack names
+      if (window.UIAbility && window.UIAbility.clearAttackNames) {
+        window.UIAbility.clearAttackNames();
+      }
+      
+      document.getElementById('archInfo').innerHTML = 
+        'Click "Initialize Arch Buttons" to populate with keyboard letters (a, b, c, j, s)';
+      document.getElementById('attackInfo').innerHTML = 
+        'Click buttons to test attack name display. Names should appear vertically on the right edge with staggered fade-in animation.';
+    }
+
+    // Log module status on load
+    window.addEventListener('DOMContentLoaded', () => {
+      console.log('UIAbility module available:', !!window.UIAbility);
+      if (window.UIAbility) {
+        console.log('UIAbility methods:', Object.keys(window.UIAbility));
+      }
+    });
+  </script>
+</body>
+</html>

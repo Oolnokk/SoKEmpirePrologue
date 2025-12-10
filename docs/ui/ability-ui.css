@@ -3,7 +3,7 @@
 /* Load TankanScript font for vertical text */
 @font-face {
   font-family: 'TankanScriptVertical';
-  src: url('/docs/config/tankanscript_rotated_flipped_horiz.otf') format('opentype');
+  src: url('../config/tankanscript_rotated_flipped_horiz.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
