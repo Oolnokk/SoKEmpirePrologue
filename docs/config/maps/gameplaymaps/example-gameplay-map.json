@@ -1,0 +1,94 @@
+{
+  "areaId": "example-gameplay-map",
+  "ground": {
+    "path": [
+      { "x": -1000, "y": 0 },
+      { "x": 1000, "y": 0 }
+    ],
+    "unitsPerPixel": 1
+  },
+  "entities": [
+    {
+      "id": "entrance_1",
+      "type": "entrance",
+      "x": -900,
+      "y": 0,
+      "meta": {}
+    },
+    {
+      "id": "spawner_1",
+      "type": "spawner",
+      "x": -500,
+      "y": 0,
+      "meta": {
+        "prefab": "spawn_player",
+        "patrolRouteId": ""
+      }
+    },
+    {
+      "id": "patrol_1",
+      "type": "patrol",
+      "x": 0,
+      "y": 0,
+      "meta": {
+        "sequence": 0,
+        "routeId": "route_guards"
+      }
+    },
+    {
+      "id": "patrol_2",
+      "type": "patrol",
+      "x": 200,
+      "y": 0,
+      "meta": {
+        "sequence": 1,
+        "routeId": "route_guards"
+      }
+    },
+    {
+      "id": "spawner_2",
+      "type": "spawner",
+      "x": 500,
+      "y": 0,
+      "meta": {
+        "prefab": "spawn_npc",
+        "patrolRouteId": "route_guards"
+      }
+    },
+    {
+      "id": "collider_1",
+      "type": "collider",
+      "x": -200,
+      "y": 0,
+      "meta": {
+        "shape": "rectangle",
+        "width": 150,
+        "height": 200
+      }
+    },
+    {
+      "id": "collider_2",
+      "type": "collider",
+      "x": 300,
+      "y": 100,
+      "meta": {
+        "shape": "circle",
+        "radius": 75
+      }
+    },
+    {
+      "id": "prop_1",
+      "type": "prop",
+      "x": -300,
+      "y": 50,
+      "meta": {}
+    },
+    {
+      "id": "exit_1",
+      "type": "exit",
+      "x": 900,
+      "y": 0,
+      "meta": {}
+    }
+  ]
+}
