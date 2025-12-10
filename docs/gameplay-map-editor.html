@@ -1184,7 +1184,15 @@
 
         // Auto-load visual map if specified
         if (data.visualsMap && window.loadVisualMapFromPath) {
-          const visualPath = data.visualsMap.replace('../visualsmaps/', '');
+          // Extract filename from path - handle both relative and absolute paths
+          let visualPath = data.visualsMap;
+          // Remove '../visualsmaps/' or './visualsmaps/' prefix if present
+          visualPath = visualPath.replace(/^\.\.\/visualsmaps\//, '').replace(/^\.\/visualsmaps\//, '');
+          // If still has path separators, extract just the filename
+          const lastSlash = visualPath.lastIndexOf('/');
+          if (lastSlash !== -1) {
+            visualPath = visualPath.substring(lastSlash + 1);
+          }
           window.loadVisualMapFromPath(visualPath);
         }
       } catch (err) {
