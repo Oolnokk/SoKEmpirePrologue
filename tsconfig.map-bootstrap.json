@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ES2022",
+    "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ES2022", "DOM"],
     "allowJs": false,
@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "rootDir": "docs/js-src",
     "outDir": "docs/js",
-    "noEmitOnError": true,
+    "noEmitOnError": false,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
