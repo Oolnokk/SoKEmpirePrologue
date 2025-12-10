@@ -22,9 +22,7 @@
       "y": 0,
       "meta": {
         "prefab": "spawn_npc",
-        "spawnerId": "watchmen_spawner_1",
-        "groupId": "city_guard_patrol",
-        "role": "patrol"
+        "patrolRouteId": "city_guard_patrol"
       }
     },
     {
@@ -127,22 +125,14 @@
       "type": "exit",
       "x": -1050,
       "y": 90,
-      "meta": {
-        "width": 100,
-        "height": 180,
-        "direction": "left"
-      }
+      "meta": {}
     },
     {
       "id": "exit_right",
       "type": "exit",
       "x": 1450,
       "y": 90,
-      "meta": {
-        "width": 100,
-        "height": 180,
-        "direction": "right"
-      }
+      "meta": {}
     }
   ]
 }
