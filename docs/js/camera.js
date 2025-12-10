@@ -652,17 +652,41 @@ export function updateCamera(canvas) {
       ? P.pos.y
       : 0;
   const desiredX = playerX - viewportWorldWidth * 0.5 + framing.offsetX + manualOffsetX;
-  const target = clamp(desiredX, minBound, maxCameraX);
   const desiredY = playerY - viewportWorldHeight * 0.5 + framing.offsetY + manualOffsetY;
-  const targetY = clamp(desiredY, minCameraY, maxCameraY);
+
+  // Check for rigid centering mode (opt-in via CONFIG.camera.rigidCenter)
+  const rigidCenter = C.camera?.rigidCenter === true;
+  const ignoreCenterBounds = C.camera?.ignoreCenterBounds === true;
+
+  // Apply clamping based on ignoreCenterBounds flag
+  let target, targetY;
+  if (rigidCenter && ignoreCenterBounds) {
+    // When both flags are true, use desired targets without clamping
+    target = desiredX;
+    targetY = desiredY;
+  } else {
+    // Default behavior: clamp to bounds
+    target = clamp(desiredX, minBound, maxCameraX);
+    targetY = clamp(desiredY, minCameraY, maxCameraY);
+  }
 
   const smoothing = Number.isFinite(camera.smoothing) ? camera.smoothing : DEFAULT_SMOOTHING;
   const smoothingY = Number.isFinite(camera.smoothingY) ? camera.smoothingY : smoothing;
   const currentX = Number.isFinite(camera.x) ? camera.x : minBound;
   const currentY = Number.isFinite(camera.y) ? camera.y : minCameraY;
-  camera.x = currentX + (target - currentX) * smoothing;
+
+  // Apply smoothing based on rigidCenter flag
+  if (rigidCenter) {
+    // Snap camera immediately to target positions (no smoothing)
+    camera.x = target;
+    camera.y = targetY;
+  } else {
+    // Default behavior: apply smoothing
+    camera.x = currentX + (target - currentX) * smoothing;
+    camera.y = currentY + (targetY - currentY) * smoothingY;
+  }
+
   camera.targetX = target;
-  camera.y = currentY + (targetY - currentY) * smoothingY;
   camera.targetY = targetY;
 
   const input = G.input;
