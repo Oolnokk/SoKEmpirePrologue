@@ -915,6 +915,7 @@
           redraw();
           break;
         case ' ':
+          e.preventDefault(); // Prevent page scrolling
           if (!isPanning) {
             canvas.style.cursor = 'grab';
           }
@@ -1055,7 +1056,7 @@
       mapData.entities.forEach(entity => {
         const match = entity.id.match(/_(\d+)$/);
         if (match) {
-          maxId = Math.max(maxId, parseInt(match[1]));
+          maxId = Math.max(maxId, parseInt(match[1], 10));
         }
       });
       nextEntityId = maxId + 1;
