@@ -45,7 +45,7 @@
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 1,
-        "description": "Eastern patrol area",
+        "description": "Central patrol area",
         "scheduleHours": [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
       }
     },
