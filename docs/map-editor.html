@@ -214,6 +214,21 @@ select {
 .cell.path-end { outline: 2px solid #ef4444 !important; outline-offset: -2px; }
 .path-hint { font-size: 11px; color: #cbd5f5; margin-left: 4px; }
 
+/* Deprecation banner */
+.deprecation-banner {
+  background: #7f1d1d; border: 2px solid #dc2626; border-radius: 8px;
+  padding: 12px 16px; margin-bottom: 12px; color: #fef2f2;
+}
+.deprecation-banner h2 {
+  margin: 0 0 8px; font-size: 16px; font-weight: 600; color: #fca5a5;
+}
+.deprecation-banner p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; }
+.deprecation-banner p:last-child { margin: 0; }
+.deprecation-banner a {
+  color: #fca5a5; text-decoration: underline;
+}
+.deprecation-banner a:hover { color: #fecaca; }
+
   </style>
 </head>
 <body>
@@ -221,6 +236,21 @@ select {
     <header>
       <h1>Grid Map Editor (Real 3D)</h1>
     </header>
+
+    <div class="deprecation-banner">
+      <h2>⚠️ DEPRECATED: Legacy 2D Parallax Editor</h2>
+      <p>
+        This page documents the legacy 2D parallax pipeline and grid-based map builder.
+        For current 3D map building workflows, please use:
+      </p>
+      <p>
+        <strong>→ <a href="3Dmapbuilder.html">3D Map Builder</a></strong> (Recommended)<br>
+        Visual maps and 3D geometry are now stored in <code>/config/maps/visualsmaps</code>
+      </p>
+      <p>
+        See <a href="DEPRECATED_PARALLAX_TO_3D_MIGRATION.md">Migration Guide</a> for converting legacy exports.
+      </p>
+    </div>
 
 <section class="toolbar">
   <div class="toolbar-group">
@@ -495,8 +525,109 @@ select {
     const LAYERS = { GROUND: "ground", STRUCTURE: "structure", DECORATION: "decoration" };
     const LAYER_ORDER = [LAYERS.GROUND, LAYERS.STRUCTURE, LAYERS.DECORATION];
 
-    // --- ASSET DEFINITIONS (with forwardOffsetDeg + extraConfig) ---
-    const SEGMENT_ASSETS = [
+    // --- DYNAMIC ASSET LOADER ---
+    // Attempts to load asset definitions from canonical locations:
+    // 1. /config/maps/visualsmaps/index.json (preferred)
+    // 2. /docs/config/assets/asset-index.json (fallback)
+    // 3. Hardcoded arrays below (final fallback)
+    let SEGMENT_ASSETS = [];
+    let STRUCTURE_ASSETS = [];
+    let DECORATION_ASSETS = [];
+    let ALL_ASSETS = [];
+
+    function rebuildAllAssets() {
+      ALL_ASSETS = [...SEGMENT_ASSETS, ...STRUCTURE_ASSETS, ...DECORATION_ASSETS];
+    }
+
+    async function loadVisualAssetConfigs() {
+      try {
+        // Try visualsmaps first
+        const response = await fetch('/config/maps/visualsmaps/index.json');
+        if (response.ok) {
+          const data = await response.json();
+          logDebug('Loaded assets from visualsmaps/index.json');
+          
+          SEGMENT_ASSETS = (data.segments || []).map(asset => ({
+            ...asset,
+            layer: LAYERS.GROUND,
+            colorVar: asset.colorVar || '--road-color',
+            gltfTemplate: asset.gltfTemplate || null,
+            gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
+          }));
+          
+          STRUCTURE_ASSETS = (data.structures || []).map(asset => ({
+            ...asset,
+            layer: LAYERS.STRUCTURE,
+            colorVar: asset.colorVar || '--tower-color',
+            gltfTemplate: asset.gltfTemplate || null,
+            gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
+          }));
+          
+          DECORATION_ASSETS = (data.decorations || []).map(asset => ({
+            ...asset,
+            layer: LAYERS.DECORATION,
+            colorVar: asset.colorVar || '--tower-color',
+            gltfTemplate: asset.gltfTemplate || null,
+            gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
+          }));
+          
+          rebuildAllAssets();
+          return true;
+        }
+      } catch (err) {
+        logDebug('Failed to load from visualsmaps: ' + err.message);
+      }
+
+      try {
+        // Try docs/config/assets fallback
+        const indexResponse = await fetch('/docs/config/assets/asset-index.json');
+        if (indexResponse.ok) {
+          const index = await indexResponse.json();
+          logDebug('Loaded asset index from docs/config/assets');
+          
+          const segments = await Promise.all(
+            (index.segments || []).map(file => 
+              fetch(`/docs/config/assets/${file}`).then(r => r.json()).catch(() => null)
+            )
+          );
+          
+          const structures = await Promise.all(
+            (index.structures || []).map(file => 
+              fetch(`/docs/config/assets/${file}`).then(r => r.json()).catch(() => null)
+            )
+          );
+          
+          SEGMENT_ASSETS = segments.filter(Boolean).map(asset => ({
+            ...asset,
+            layer: LAYERS.GROUND,
+            colorVar: '--road-color',
+            gltfTemplate: null,
+            gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null,
+            extraConfig: asset.extra || {}
+          }));
+          
+          STRUCTURE_ASSETS = structures.filter(Boolean).map(asset => ({
+            ...asset,
+            layer: LAYERS.STRUCTURE,
+            colorVar: '--tower-color',
+            gltfTemplate: null,
+            gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null,
+            extraConfig: asset.extra || {}
+          }));
+          
+          rebuildAllAssets();
+          return true;
+        }
+      } catch (err) {
+        logDebug('Failed to load from docs/config/assets: ' + err.message);
+      }
+
+      return false;
+    }
+
+    // --- HARDCODED ASSET DEFINITIONS (FALLBACK) ---
+    // These are used if dynamic loading fails
+    const FALLBACK_SEGMENT_ASSETS = [
       {
         id: "road",
         label: "Road",
@@ -527,7 +658,7 @@ select {
       }
     ];
 
-    const STRUCTURE_ASSETS = [
+    const FALLBACK_STRUCTURE_ASSETS = [
       {
         id: "tower",
         label: "Tower",
@@ -544,7 +675,7 @@ select {
       }
     ];
 
-    const DECORATION_ASSETS = [
+    const FALLBACK_DECORATION_ASSETS = [
       {
         id: "decor_pylon",
         label: "Decor: Pylon",
@@ -560,7 +691,14 @@ select {
       }
     ];
 
-    const ALL_ASSETS = [...SEGMENT_ASSETS, ...STRUCTURE_ASSETS, ...DECORATION_ASSETS];
+    // Initialize with fallbacks, will be replaced by dynamic loader
+    function initializeFallbackAssets() {
+      SEGMENT_ASSETS = FALLBACK_SEGMENT_ASSETS;
+      STRUCTURE_ASSETS = FALLBACK_STRUCTURE_ASSETS;
+      DECORATION_ASSETS = FALLBACK_DECORATION_ASSETS;
+      rebuildAllAssets();
+      logDebug('Using fallback hardcoded assets');
+    }
 
     function getAssetsForLayer(layer) {
       if (layer === LAYERS.GROUND) return SEGMENT_ASSETS;
@@ -1818,18 +1956,26 @@ select {
       logDebug("UI initialized.");
     }
 
-    initUI();
-    createGridDom();
-    initThree();
-    autoLoadAssetModels(); // Auto-load models from asset paths
-    renderAllCells2D();
-    rebuild3DFromState();
-    updateGameplayPath2D();
-    rebuildGameplayPath3D();
-    applyWorldAlignmentFromPath();
+    // Initialize assets (try dynamic loading, fall back to hardcoded)
+    (async () => {
+      const loaded = await loadVisualAssetConfigs();
+      if (!loaded) {
+        initializeFallbackAssets();
+      }
+      
+      initUI();
+      createGridDom();
+      initThree();
+      autoLoadAssetModels(); // Auto-load models from asset paths
+      renderAllCells2D();
+      rebuild3DFromState();
+      updateGameplayPath2D();
+      rebuildGameplayPath3D();
+      applyWorldAlignmentFromPath();
 
-    overlay.textContent = "3D ready. Models loading from assets folder...";
-    logDebug("Editor ready.");
+      overlay.textContent = "3D ready. Models loading from assets folder...";
+      logDebug("Editor ready.");
+    })();
   </script>
 </body>
 </html>

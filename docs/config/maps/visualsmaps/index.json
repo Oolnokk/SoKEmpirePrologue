@@ -1,0 +1,48 @@
+{
+  "version": "1.0.0",
+  "description": "Index of available visual map assets for the 3D map editor",
+  "maps": [
+    {
+      "id": "defaultdistrict3D",
+      "name": "Default District 3D",
+      "file": "defaultdistrict3D_visualsmap.json"
+    }
+  ],
+  "segments": [
+    {
+      "id": "road",
+      "label": "Road",
+      "layer": "ground",
+      "gltfPath": "assets/3D/ground_segments/roadsegment.gltf",
+      "baseScale": { "x": 0.25, "y": 0.25, "z": 0.25 },
+      "yOffset": 0,
+      "forwardOffsetDeg": 0,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
+      "extraConfig": { "rotationX": -90 }
+    },
+    {
+      "id": "sidewalk",
+      "label": "Sidewalk",
+      "layer": "ground",
+      "gltfPath": "assets/3D/ground_segments/blocksegment.gltf",
+      "baseScale": { "x": 0.25, "y": 0.25, "z": 0.25 },
+      "yOffset": 0.02,
+      "forwardOffsetDeg": 0,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
+      "extraConfig": { "rotationX": -90 }
+    }
+  ],
+  "structures": [
+    {
+      "id": "tower",
+      "label": "Tower",
+      "layer": "structure",
+      "gltfPath": "assets/3D/structures/tower_commercial3D_t.gltf",
+      "baseScale": { "x": 0.2, "y": 0.2, "z": 0.2 },
+      "yOffset": 0.12,
+      "forwardOffsetDeg": 0,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
+      "extraConfig": { "rotationX": 90 }
+    }
+  ]
+}

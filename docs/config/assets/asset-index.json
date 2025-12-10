@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "description": "Fallback asset index for legacy 2D map editor",
+  "segments": [
+    "road-config.json",
+    "sidewalk-config.json"
+  ],
+  "structures": [
+    "tower-config.json"
+  ]
+}

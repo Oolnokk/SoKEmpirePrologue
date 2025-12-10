@@ -208,6 +208,7 @@ function computeColliderBounds(colliders) {
   return { left: minLeft, right: maxRight };
 }
 
+// eslint-disable-next-line no-unused-vars
 function normalizePlayableBounds(rawBounds, colliders = [], warnings = null) {
   const addWarning = (message) => {
     if (Array.isArray(warnings)) warnings.push(message);

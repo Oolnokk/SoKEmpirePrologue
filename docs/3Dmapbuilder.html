@@ -75,9 +75,43 @@
     }
 
     .info-box p {
-      margin:0 0 24px;
+      margin:0 0 16px;
       color:var(--muted);
       line-height:1.6;
+    }
+
+    .info-box h3 {
+      margin:24px 0 12px;
+      color:var(--text);
+      font-size:16px;
+    }
+
+    .info-box ul {
+      margin:0 0 16px;
+      padding-left:24px;
+      color:var(--muted);
+    }
+
+    .info-box li {
+      margin:4px 0;
+      line-height:1.5;
+    }
+
+    .info-box code {
+      background:var(--btn);
+      padding:2px 6px;
+      border-radius:3px;
+      font-size:12px;
+      color:var(--text);
+    }
+
+    .info-box a {
+      color:#1a7f64;
+      text-decoration:underline;
+    }
+
+    .info-box a:hover {
+      color:#2a9f84;
     }
 
     .btn-group {
@@ -123,16 +157,60 @@
       <div class="info-box">
         <h2>3D Map Builder</h2>
         <p>
-          This is the 3D map building interface for creating environment and visual maps
-          with 3D geometry, procedural generation, and advanced rendering features.
+          This is the primary interface for creating 3D visual maps using the grid-based 
+          editor with real-time 3D preview. Visual map data is stored in 
+          <code>/config/maps/visualsmaps</code> as structured JSON files.
         </p>
+        
+        <h3>Getting Started</h3>
         <p>
-          The 3D map builder allows you to design EnvironmentMap data including
-          3D models, lighting, and procedural generation parameters that work
-          alongside the GameplayMap collision and interaction data.
+          The 3D map builder uses a grid-based workflow where you place ground segments 
+          (roads, sidewalks) and structures (buildings, props) on a 20x20 grid. The editor 
+          provides a real-time 3D preview using Three.js and exports to a JSON format that 
+          can be consumed by the game runtime.
         </p>
+        
+        <h3>Visual Map Storage</h3>
+        <p>
+          Visual maps are stored in <code>/config/maps/visualsmaps/</code> directory:
+        </p>
+        <ul style="text-align: left; max-width: 500px; margin: 0 auto 16px;">
+          <li><strong>index.json</strong> - Catalog of available assets (segments, structures)</li>
+          <li><strong>*_visualsmap.json</strong> - Individual map files with grid state and asset references</li>
+        </ul>
+        
+        <h3>Importing Ground Segments (glTF)</h3>
+        <p>
+          Ground segments and structures are stored as glTF/GLB files in:
+        </p>
+        <ul style="text-align: left; max-width: 500px; margin: 0 auto 16px;">
+          <li><code>/docs/assets/3D/ground_segments/</code> - Road, sidewalk tiles</li>
+          <li><code>/docs/assets/3D/structures/</code> - Buildings, towers, props</li>
+        </ul>
+        <p>
+          To add new assets, place the glTF file in the appropriate directory and update 
+          <code>/config/maps/visualsmaps/index.json</code> with the asset definition 
+          including id, label, gltfPath, baseScale, and other parameters.
+        </p>
+        
+        <h3>Editor Features</h3>
+        <ul style="text-align: left; max-width: 500px; margin: 0 auto 16px;">
+          <li>Grid-based tile placement with 4-directional rotation</li>
+          <li>Real-time 3D preview with Three.js</li>
+          <li>Layer system (ground, structure, decoration)</li>
+          <li>Per-instance scaling and offsets</li>
+          <li>JSON export/import for version control</li>
+          <li>Gameplay path visualization</li>
+        </ul>
+        
+        <h3>Related Documentation</h3>
+        <ul style="text-align: left; max-width: 500px; margin: 0 auto 16px;">
+          <li><a href="./3d-parallel-renderer.md">3D Scene Bridge</a> - How scene3d metadata works</li>
+          <li><a href="./DEPRECATED_PARALLAX_TO_3D_MIGRATION.md">Migration Guide</a> - Converting from legacy 2D parallax</li>
+        </ul>
+        
         <div class="btn-group">
-          <a href="./map-editor.html" class="btn btn-primary">Open 2D Map Editor</a>
+          <a href="./map-editor.html" class="btn btn-primary">Open 3D Map Editor</a>
           <a href="./index.html" class="btn">Back to Game</a>
         </div>
       </div>
