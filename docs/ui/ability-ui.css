@@ -1,0 +1,156 @@
+/* Ability UI Styles - Vertical text rendering and enhanced arch buttons */
+
+/* Load TankanScript font for vertical text */
+@font-face {
+  font-family: 'TankanScriptVertical';
+  src: url('../config/tankanscript_rotated_flipped_horiz.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Vertical text columns */
+.vertical-columns {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-family: 'TankanScriptVertical', serif;
+  column-count: 3;
+  column-gap: 24px;
+  line-height: 1.5;
+}
+
+/* Enhanced arch button styling */
+.arch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arch-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 96px;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: rgba(15, 23, 42, 0.94);
+  border: 3px solid rgba(148, 163, 184, 0.85);
+  border-radius: 28px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.7);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.arch-btn:hover,
+.arch-btn:focus {
+  transform: scale(1.08) translateZ(0);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.8);
+  background: rgba(30, 41, 59, 0.96);
+  border-color: rgba(203, 213, 225, 0.95);
+  outline: none;
+}
+
+.arch-btn:active {
+  transform: scale(0.98) translateZ(0);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* Responsive sizing for arch buttons */
+@media (max-width: 640px), (max-height: 480px) {
+  .arch-btn {
+    min-width: 72px;
+    min-height: 72px;
+    font-size: 24px;
+    border-width: 2px;
+    border-radius: 20px;
+    letter-spacing: 0.06em;
+  }
+}
+
+@media (min-width: 1440px) and (min-height: 900px) {
+  .arch-btn {
+    min-width: 120px;
+    min-height: 120px;
+    font-size: 40px;
+    letter-spacing: 0.1em;
+    border-radius: 32px;
+  }
+}
+
+/* Attack names container - fixed position on right edge */
+#attack-names {
+  position: fixed;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: flex-end;
+}
+
+/* Individual attack name entry */
+.attack-name {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: 'TankanScriptVertical', serif;
+  font-size: 28px;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.95);
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.6);
+  padding: 16px 8px;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.4));
+  border-left: 3px solid rgba(148, 163, 184, 0.6);
+  border-radius: 8px 0 0 8px;
+  opacity: 0;
+  transform: translateX(40px);
+  animation: fadeSlideIn 0.6s ease forwards;
+  animation-delay: var(--animation-delay, 0s);
+  letter-spacing: 0.05em;
+}
+
+/* Fade and slide in animation */
+@keyframes fadeSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Responsive sizing for attack names */
+@media (max-width: 768px) {
+  #attack-names {
+    right: 8px;
+    gap: 16px;
+  }
+  
+  .attack-name {
+    font-size: 20px;
+    padding: 12px 6px;
+  }
+}
+
+@media (min-width: 1440px) and (min-height: 900px) {
+  #attack-names {
+    right: 24px;
+    gap: 32px;
+  }
+  
+  .attack-name {
+    font-size: 32px;
+    padding: 20px 10px;
+  }
+}
