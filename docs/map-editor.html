@@ -535,6 +535,10 @@ select {
     let DECORATION_ASSETS = [];
     let ALL_ASSETS = [];
 
+    function rebuildAllAssets() {
+      ALL_ASSETS = [...SEGMENT_ASSETS, ...STRUCTURE_ASSETS, ...DECORATION_ASSETS];
+    }
+
     async function loadVisualAssetConfigs() {
       try {
         // Try visualsmaps first
@@ -567,7 +571,7 @@ select {
             gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
           }));
           
-          ALL_ASSETS = [...SEGMENT_ASSETS, ...STRUCTURE_ASSETS, ...DECORATION_ASSETS];
+          rebuildAllAssets();
           return true;
         }
       } catch (err) {
@@ -611,7 +615,7 @@ select {
             extraConfig: asset.extra || {}
           }));
           
-          ALL_ASSETS = [...SEGMENT_ASSETS, ...STRUCTURE_ASSETS, ...DECORATION_ASSETS];
+          rebuildAllAssets();
           return true;
         }
       } catch (err) {
@@ -692,7 +696,7 @@ select {
       SEGMENT_ASSETS = FALLBACK_SEGMENT_ASSETS;
       STRUCTURE_ASSETS = FALLBACK_STRUCTURE_ASSETS;
       DECORATION_ASSETS = FALLBACK_DECORATION_ASSETS;
-      ALL_ASSETS = [...SEGMENT_ASSETS, ...STRUCTURE_ASSETS, ...DECORATION_ASSETS];
+      rebuildAllAssets();
       logDebug('Using fallback hardcoded assets');
     }
 
