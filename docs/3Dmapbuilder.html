@@ -213,6 +213,16 @@
           <a href="./map-editor.html" class="btn btn-primary">Open 3D Map Editor</a>
           <a href="./index.html" class="btn">Back to Game</a>
         </div>
+
+        <h3 style="margin-top: 24px;">Open Built-in Visual Map</h3>
+        <p style="margin-bottom: 12px;">Select a built-in visual map to open in the 3D map editor:</p>
+        <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
+          <select id="builtinVisualIndex" style="min-width: 250px; padding: 8px 12px; background: var(--btn); color: var(--text); border: 1px solid var(--line); border-radius: 6px; font-size: 14px;">
+            <option value="">-- Loading visual maps... --</option>
+          </select>
+          <button id="btnOpenBuiltinVisual" class="btn btn-primary" style="min-width: 250px;" disabled>Open in 3D Map Editor</button>
+          <div id="fetchStatus" style="font-size: 12px; color: var(--muted); text-align: center; max-width: 400px;"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -243,8 +253,73 @@
      */
     
     console.log('[3D Map Builder] Initialized');
-    console.log('[3D Map Builder] This is a placeholder for 3D map building functionality');
-    console.log('[3D Map Builder] See code comments for integration points and feature roadmap');
+
+    // ===== Built-in Visual Map Loading =====
+    const selectElement = document.getElementById('builtinVisualIndex');
+    const btnOpen = document.getElementById('btnOpenBuiltinVisual');
+    const statusElement = document.getElementById('fetchStatus');
+
+    // Check if running from file:// protocol
+    function isFileProtocol() {
+      return location.protocol === 'file:';
+    }
+
+    // Load visual maps index
+    async function loadVisualMapsIndex() {
+      if (isFileProtocol()) {
+        selectElement.innerHTML = '<option value="">-- Not available (file://) --</option>';
+        statusElement.textContent = 'Running from file:// — Please serve the docs via a local static server (e.g., python -m http.server) to use built-in map loading.';
+        statusElement.style.color = '#f59e0b';
+        return;
+      }
+
+      try {
+        const response = await fetch('./config/maps/visualsmaps/index.json');
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+
+        // Populate dropdown with available maps
+        selectElement.innerHTML = '<option value="">-- Select a visual map --</option>';
+        if (data.maps && data.maps.length > 0) {
+          data.maps.forEach(map => {
+            const option = document.createElement('option');
+            option.value = map.file;
+            option.textContent = map.name;
+            selectElement.appendChild(option);
+          });
+          btnOpen.disabled = false;
+          statusElement.textContent = `${data.maps.length} visual map(s) available`;
+          statusElement.style.color = 'var(--muted)';
+        } else {
+          selectElement.innerHTML = '<option value="">-- No maps found --</option>';
+          statusElement.textContent = 'No visual maps found in index.json';
+          statusElement.style.color = '#f59e0b';
+        }
+      } catch (err) {
+        selectElement.innerHTML = '<option value="">-- Error loading --</option>';
+        statusElement.textContent = `Error loading visual maps: ${err.message}. Using file upload may still work.`;
+        statusElement.style.color = '#ef4444';
+        console.error('Error loading visual maps index:', err);
+      }
+    }
+
+    // Open selected map in editor
+    btnOpen.addEventListener('click', () => {
+      const selected = selectElement.value;
+      if (!selected) {
+        statusElement.textContent = 'Please select a visual map first';
+        statusElement.style.color = '#f59e0b';
+        return;
+      }
+
+      // Navigate to map editor with the selected file as a query parameter
+      window.location.href = `./map-editor.html?load=${encodeURIComponent(selected)}`;
+    });
+
+    // Initialize
+    loadVisualMapsIndex();
   </script>
 </body>
 </html>
