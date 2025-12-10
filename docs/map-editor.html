@@ -286,6 +286,12 @@ select {
         <button id="importJsonBtn" class="toolbar-small-button">Import Map JSON</button>
         <input id="importJsonInput" type="file" accept=".json" style="display:none;" />
       </div>
+      <label style="margin-top:8px;">Load Preset Map</label>
+      <select id="presetMapSelect" class="toolbar-small-button" style="width:100%; padding:4px;">
+        <option value="">-- Select a preset --</option>
+        <option value="config/maps/defaultdistrict.layout.json">Default District</option>
+        <option value="config/maps/defaultdistrict-line.layout.json">Default District (Line)</option>
+      </select>
     </div>
   </div>
 
@@ -456,6 +462,7 @@ select {
 
     const importJsonBtn = document.getElementById("importJsonBtn");
     const importJsonInput = document.getElementById("importJsonInput");
+    const presetMapSelect = document.getElementById("presetMapSelect");
 
     const coordValueEl = document.getElementById("coordValue");
     const tileValueEl = document.getElementById("tileValue");
@@ -496,7 +503,7 @@ select {
         layer: LAYERS.GROUND,
         colorVar: "--road-color",
         gltfPath: "assets/3D/ground_segments/roadsegment.gltf",
-        baseScale: { x: 0.2, y: 0.2, z: 0.2 },
+        baseScale: { x: 0.25, y: 0.25, z: 0.25 },
         yOffset: 0,
         forwardOffsetDeg: 0,
         gltfTemplate: null,
@@ -510,7 +517,7 @@ select {
         layer: LAYERS.GROUND,
         colorVar: "--sidewalk-color",
         gltfPath: "assets/3D/ground_segments/blocksegment.gltf",
-        baseScale: { x: 0.2, y: 0.2, z: 0.2 },
+        baseScale: { x: 0.25, y: 0.25, z: 0.25 },
         yOffset: 0.02,
         forwardOffsetDeg: 0,
         gltfTemplate: null,
@@ -533,7 +540,7 @@ select {
         gltfTemplate: null,
         gltfFileName: "tower_commercial3D_t.gltf",
         instanceDefaults: { orientation: 0, scaleX: 1, scaleY: 1, scaleZ: 1, offsetX: 0, offsetY: 0 },
-        extraConfig: { rotationX: -90 }
+        extraConfig: { rotationX: 90 }
       }
     ];
 
@@ -1577,7 +1584,8 @@ select {
     camDistanceInput.addEventListener("input", () => { cameraDistance = Number(camDistanceInput.value) || 40; updateCameraFromState(); });
 
     reload3DBtn.addEventListener("click", () => {
-      logDebug("Manual 3D reload triggered.");
+      logDebug("Manual 3D reload triggered. Reloading models from paths...");
+      autoLoadAssetModels();
       rebuild3DFromState();
     });
 
@@ -1741,7 +1749,10 @@ select {
         rebuildGameplayPath3D();
         applyWorldAlignmentFromPath();
 
-        logDebug("Map JSON import applied. Note: models must be re-uploaded (browser security).");
+        // Auto-reload models from their gltfPath after import
+        autoLoadAssetModels();
+
+        logDebug("Map JSON import applied. Models auto-loading from asset paths...");
       } catch (err) {
         logDebug("Import ERROR: " + (err?.message || String(err)));
       }
@@ -1762,6 +1773,27 @@ select {
         }
       };
       reader.readAsText(file);
+    });
+
+    // Preset map loader
+    presetMapSelect.addEventListener("change", (e) => {
+      const path = e.target.value;
+      if (!path) return;
+
+      logDebug("Loading preset map from: " + path);
+      fetch(path)
+        .then(res => {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(data => {
+          applyImportedState(data);
+          presetMapSelect.value = ""; // Reset dropdown
+        })
+        .catch(err => {
+          logDebug("Preset map load ERROR: " + (err?.message || String(err)));
+          presetMapSelect.value = ""; // Reset dropdown
+        });
     });
 
     function initUI() {
