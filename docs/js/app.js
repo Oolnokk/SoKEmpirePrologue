@@ -4599,6 +4599,7 @@ function loop(t){
   if (elapsed >= 250){ // update every 1/4s for stability
     const fps = Math.round((frames / elapsed) * 1000);
     if (fpsHud) fpsHud.textContent = 'FPS: ' + fps;
+    lastComputedFPS = fps; // Store for debug panel
     fpsLast = t;
     frames = 0;
   }
@@ -4709,6 +4710,523 @@ window.addEventListener('mousemove', (e) => {
   }
 });
 
+// ============================================================================
+// 3D / Runtime Debug Panel
+// TODO: See docs/renderer-README.md for renderer module documentation
+// ============================================================================
+
+// State for debug panel
+let gameDebugPanelInitialized = false;
+let gameDebugPanelElement = null;
+let gameDebugPanelUpdateHandle = null;
+let lastGLTFLoadStatus = { success: null, timestamp: null, error: null };
+let lastComputedFPS = 0;
+
+/**
+ * Initialize the 3D/Runtime debug panel.
+ * Creates a panel below #gameStage showing real-time 3D renderer status.
+ * Panel is collapsible with state persisted in sessionStorage.
+ */
+function initGameDebugPanel() {
+  if (gameDebugPanelInitialized) return;
+  
+  try {
+    // Find gameStage element
+    const gameStage = document.getElementById('gameStage');
+    const insertTarget = gameStage || document.body;
+    
+    // Create panel container
+    const panel = document.createElement('div');
+    panel.id = 'gameDebugPanel';
+    
+    // Apply inline styles for the panel container
+    Object.assign(panel.style, {
+      position: 'relative',
+      width: '100%',
+      maxWidth: '800px',
+      margin: '8px auto',
+      backgroundColor: '#1a1a1a',
+      border: '1px solid #444',
+      borderRadius: '4px',
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#e0e0e0',
+      overflow: 'hidden',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+    });
+    
+    // Create header with toggle button
+    const header = document.createElement('div');
+    Object.assign(header.style, {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '8px 12px',
+      backgroundColor: '#2a2a2a',
+      borderBottom: '1px solid #444',
+      cursor: 'pointer'
+    });
+    
+    const title = document.createElement('div');
+    title.textContent = '3D / Runtime Debug';
+    Object.assign(title.style, {
+      fontWeight: 'bold',
+      fontSize: '13px'
+    });
+    
+    const toggleBtn = document.createElement('button');
+    toggleBtn.textContent = '▼';
+    toggleBtn.setAttribute('aria-label', 'Toggle debug panel');
+    toggleBtn.setAttribute('tabindex', '0');
+    Object.assign(toggleBtn.style, {
+      background: 'none',
+      border: '1px solid #555',
+      color: '#e0e0e0',
+      cursor: 'pointer',
+      padding: '2px 8px',
+      borderRadius: '3px',
+      fontSize: '12px'
+    });
+    
+    header.appendChild(title);
+    header.appendChild(toggleBtn);
+    
+    // Create body with debug info
+    const body = document.createElement('div');
+    body.id = 'gameDebugPanelBody';
+    Object.assign(body.style, {
+      padding: '12px',
+      maxHeight: '400px',
+      overflowY: 'auto',
+      display: 'block'
+    });
+    
+    // Create action buttons container in header
+    const actionsContainer = document.createElement('div');
+    Object.assign(actionsContainer.style, {
+      display: 'flex',
+      gap: '6px',
+      marginLeft: 'auto',
+      marginRight: '8px'
+    });
+    
+    // Reload 3D button
+    const reloadBtn = document.createElement('button');
+    reloadBtn.textContent = 'Reload 3D';
+    reloadBtn.setAttribute('tabindex', '0');
+    Object.assign(reloadBtn.style, {
+      background: '#3a5a7a',
+      border: 'none',
+      color: '#fff',
+      cursor: 'pointer',
+      padding: '4px 10px',
+      borderRadius: '3px',
+      fontSize: '11px'
+    });
+    reloadBtn.addEventListener('click', handleReload3D);
+    
+    // Dispose 3D button
+    const disposeBtn = document.createElement('button');
+    disposeBtn.textContent = 'Dispose 3D';
+    disposeBtn.setAttribute('tabindex', '0');
+    Object.assign(disposeBtn.style, {
+      background: '#7a3a3a',
+      border: 'none',
+      color: '#fff',
+      cursor: 'pointer',
+      padding: '4px 10px',
+      borderRadius: '3px',
+      fontSize: '11px'
+    });
+    disposeBtn.addEventListener('click', handleDispose3D);
+    
+    // Open 3D in new tab button
+    const openBtn = document.createElement('button');
+    openBtn.textContent = 'Open 3D ↗';
+    openBtn.id = 'gameDebugOpen3DBtn';
+    openBtn.setAttribute('tabindex', '0');
+    Object.assign(openBtn.style, {
+      background: '#5a7a3a',
+      border: 'none',
+      color: '#fff',
+      cursor: 'pointer',
+      padding: '4px 10px',
+      borderRadius: '3px',
+      fontSize: '11px'
+    });
+    openBtn.addEventListener('click', handleOpen3D);
+    
+    actionsContainer.appendChild(reloadBtn);
+    actionsContainer.appendChild(disposeBtn);
+    actionsContainer.appendChild(openBtn);
+    header.insertBefore(actionsContainer, toggleBtn);
+    
+    // Status message line for action feedback
+    const statusLine = document.createElement('div');
+    statusLine.id = 'gameDebugStatusLine';
+    Object.assign(statusLine.style, {
+      padding: '6px 12px',
+      backgroundColor: '#2a4a2a',
+      color: '#8f8',
+      fontSize: '11px',
+      borderBottom: '1px solid #444',
+      display: 'none'
+    });
+    
+    panel.appendChild(header);
+    panel.appendChild(statusLine);
+    panel.appendChild(body);
+    
+    // Insert after gameStage or at end of body
+    if (gameStage && gameStage.nextSibling) {
+      insertTarget.parentNode.insertBefore(panel, gameStage.nextSibling);
+    } else if (gameStage) {
+      gameStage.parentNode.appendChild(panel);
+    } else {
+      insertTarget.appendChild(panel);
+    }
+    
+    // Set up toggle functionality
+    const collapsed = sessionStorage.getItem('gameDebugPanelCollapsed') === 'true';
+    if (collapsed) {
+      body.style.display = 'none';
+      statusLine.style.display = 'none';
+      toggleBtn.textContent = '▶';
+    }
+    
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isCollapsed = body.style.display === 'none';
+      body.style.display = isCollapsed ? 'block' : 'none';
+      statusLine.style.display = isCollapsed ? 'block' : 'none';
+      toggleBtn.textContent = isCollapsed ? '▼' : '▶';
+      sessionStorage.setItem('gameDebugPanelCollapsed', isCollapsed ? 'false' : 'true');
+    });
+    
+    header.addEventListener('click', (e) => {
+      if (e.target === header || e.target === title) {
+        toggleBtn.click();
+      }
+    });
+    
+    gameDebugPanelElement = panel;
+    gameDebugPanelInitialized = true;
+    
+    // Start update loop
+    startGameDebugPanelUpdates();
+    
+    console.log('[app] 3D/Runtime debug panel initialized');
+  } catch (error) {
+    console.error('[app] Failed to initialize game debug panel:', error);
+  }
+}
+
+/**
+ * Start the update loop for the debug panel.
+ * Updates display values ~4x per second.
+ */
+function startGameDebugPanelUpdates() {
+  if (gameDebugPanelUpdateHandle) return;
+  
+  let lastUpdate = 0;
+  const UPDATE_INTERVAL = 250; // Update 4x per second
+  
+  const update = () => {
+    const now = performance.now();
+    if (now - lastUpdate >= UPDATE_INTERVAL) {
+      updateGameDebugPanel();
+      lastUpdate = now;
+    }
+    gameDebugPanelUpdateHandle = requestAnimationFrame(update);
+  };
+  
+  gameDebugPanelUpdateHandle = requestAnimationFrame(update);
+}
+
+/**
+ * Update the debug panel with current runtime values.
+ */
+function updateGameDebugPanel() {
+  if (!gameDebugPanelElement) return;
+  
+  try {
+    const body = document.getElementById('gameDebugPanelBody');
+    if (!body || body.style.display === 'none') return;
+    
+    // Gather status information
+    const bootStatus = window.GAME?.bootComplete ? 'booted' : 'booting...';
+    const threeJsStatus = isSupported() ? 'available' : 'missing';
+    
+    let rendererStatus = 'not initialized';
+    if (GAME_RENDERER_3D) {
+      rendererStatus = GAME_RENDERER_3D.initialized ? 'initialized' : 'initializing...';
+    }
+    if (window.GAME?.renderer3d && !GAME_RENDERER_3D) {
+      rendererStatus = 'error';
+    }
+    
+    const registry = window.GAME?.mapRegistry;
+    const activeArea = registry && typeof registry.getActiveArea === 'function' 
+      ? registry.getActiveArea() 
+      : null;
+    const activeAreaId = activeArea?.id || window.GAME?.currentAreaId || '—';
+    const scene3dUrl = activeArea?.scene3d?.sceneUrl || '—';
+    
+    const gltfStatus = lastGLTFLoadStatus.success === true 
+      ? `✓ Success (${new Date(lastGLTFLoadStatus.timestamp).toLocaleTimeString()})`
+      : lastGLTFLoadStatus.success === false
+      ? `✗ Failed (${lastGLTFLoadStatus.error || 'unknown error'})`
+      : '—';
+    
+    let cameraInfo = '—';
+    if (GAME_RENDERER_3D?.camera) {
+      const cam = GAME_RENDERER_3D.camera;
+      const pos = cam.position || {};
+      const fov = cam.fov || '—';
+      cameraInfo = `pos: (${fmt(pos.x, 1)}, ${fmt(pos.y, 1)}, ${fmt(pos.z, 1)}), fov: ${fov}`;
+    }
+    
+    const canvas2D = cv;
+    const canvas2DSize = canvas2D 
+      ? `${canvas2D.width} × ${canvas2D.height}` 
+      : '—';
+    
+    let canvas3DSize = '—';
+    if (GAME_RENDERER_3D?.renderer?.domElement) {
+      const el = GAME_RENDERER_3D.renderer.domElement;
+      canvas3DSize = `${el.width} × ${el.height}`;
+    }
+    
+    const fpsDisplay = lastComputedFPS || 0;
+    
+    // Update "Open 3D" button state
+    const openBtn = document.getElementById('gameDebugOpen3DBtn');
+    if (openBtn) {
+      if (scene3dUrl && scene3dUrl !== '—') {
+        openBtn.disabled = false;
+        openBtn.style.opacity = '1';
+        openBtn.style.cursor = 'pointer';
+      } else {
+        openBtn.disabled = true;
+        openBtn.style.opacity = '0.5';
+        openBtn.style.cursor = 'not-allowed';
+      }
+    }
+    
+    // Build HTML
+    const html = `
+      <div style="display: grid; grid-template-columns: 180px 1fr; gap: 8px 12px; line-height: 1.6;">
+        <div style="color: #999;">App boot status:</div>
+        <div>${bootStatus}</div>
+        
+        <div style="color: #999;">Three.js status:</div>
+        <div>${threeJsStatus}</div>
+        
+        <div style="color: #999;">Renderer status:</div>
+        <div>${rendererStatus}</div>
+        
+        <div style="color: #999;">Active area ID:</div>
+        <div style="word-break: break-all;">${activeAreaId}</div>
+        
+        <div style="color: #999;">Active scene3d URL:</div>
+        <div style="word-break: break-all; font-size: 11px;">${scene3dUrl}</div>
+        
+        <div style="color: #999;">GLTF load status:</div>
+        <div>${gltfStatus}</div>
+        
+        <div style="color: #999;">Camera info:</div>
+        <div style="font-size: 11px;">${cameraInfo}</div>
+        
+        <div style="color: #999;">2D canvas size:</div>
+        <div>${canvas2DSize}</div>
+        
+        <div style="color: #999;">3D canvas size:</div>
+        <div>${canvas3DSize}</div>
+        
+        <div style="color: #999;">FPS:</div>
+        <div>${fpsDisplay}</div>
+      </div>
+    `;
+    
+    body.innerHTML = html;
+  } catch (error) {
+    console.error('[app] Error updating game debug panel:', error);
+  }
+}
+
+/**
+ * Handle "Reload 3D" action.
+ * Re-loads the current area's scene3d into the renderer.
+ */
+function handleReload3D() {
+  console.log('[app] Reload 3D action triggered');
+  
+  try {
+    const registry = window.GAME?.mapRegistry;
+    const activeArea = registry && typeof registry.getActiveArea === 'function'
+      ? registry.getActiveArea()
+      : null;
+    
+    if (!activeArea || !activeArea.scene3d || !activeArea.scene3d.sceneUrl) {
+      showDebugPanelStatus('No active scene3d to reload', 'error');
+      console.warn('[app] No active scene3d to reload');
+      return;
+    }
+    
+    if (!GAME_RENDERER_3D) {
+      showDebugPanelStatus('Renderer not initialized', 'error');
+      console.warn('[app] Cannot reload 3D: renderer not initialized');
+      return;
+    }
+    
+    // Dispose previous adapter
+    if (GAME_RENDER_ADAPTER && typeof GAME_RENDER_ADAPTER.dispose === 'function') {
+      GAME_RENDER_ADAPTER.dispose();
+      GAME_RENDER_ADAPTER = null;
+    }
+    
+    // Reload scene
+    showDebugPanelStatus('Reloading 3D scene...', 'info');
+    
+    adaptScene3dToRenderer(GAME_RENDERER_3D, activeArea.scene3d)
+      .then(adapter => {
+        GAME_RENDER_ADAPTER = adapter;
+        if (adapter && !adapter.error) {
+          lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+          showDebugPanelStatus('✓ 3D scene reloaded successfully', 'success');
+          console.log('[app] 3D scene reloaded successfully');
+        } else {
+          lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: adapter?.error || 'unknown' };
+          showDebugPanelStatus('✗ Failed to reload 3D scene', 'error');
+          console.warn('[app] Failed to reload 3D scene:', adapter?.error);
+        }
+      })
+      .catch(error => {
+        lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
+        showDebugPanelStatus('✗ Error reloading 3D scene', 'error');
+        console.error('[app] Error reloading 3D scene:', error);
+      });
+  } catch (error) {
+    console.error('[app] Error in handleReload3D:', error);
+    showDebugPanelStatus('✗ Error during reload', 'error');
+  }
+}
+
+/**
+ * Handle "Dispose 3D" action.
+ * Disposes the adapter and renderer, cleaning up resources.
+ */
+function handleDispose3D() {
+  console.log('[app] Dispose 3D action triggered');
+  
+  try {
+    let disposed = false;
+    
+    // Dispose adapter
+    if (GAME_RENDER_ADAPTER && typeof GAME_RENDER_ADAPTER.dispose === 'function') {
+      GAME_RENDER_ADAPTER.dispose();
+      GAME_RENDER_ADAPTER = null;
+      disposed = true;
+      console.log('[app] 3D adapter disposed');
+    }
+    
+    // Dispose renderer
+    if (GAME_RENDERER_3D && typeof GAME_RENDERER_3D.dispose === 'function') {
+      GAME_RENDERER_3D.dispose();
+      GAME_RENDERER_3D = null;
+      window.GAME.renderer3d = null;
+      disposed = true;
+      console.log('[app] 3D renderer disposed');
+    }
+    
+    if (disposed) {
+      showDebugPanelStatus('✓ 3D resources disposed', 'success');
+    } else {
+      showDebugPanelStatus('No 3D resources to dispose', 'info');
+      console.log('[app] No 3D resources to dispose');
+    }
+  } catch (error) {
+    console.error('[app] Error disposing 3D:', error);
+    showDebugPanelStatus('✗ Error during dispose', 'error');
+  }
+}
+
+/**
+ * Handle "Open 3D in new tab" action.
+ * Opens the current scene3d URL in a new browser tab.
+ */
+function handleOpen3D() {
+  console.log('[app] Open 3D in new tab action triggered');
+  
+  try {
+    const registry = window.GAME?.mapRegistry;
+    const activeArea = registry && typeof registry.getActiveArea === 'function'
+      ? registry.getActiveArea()
+      : null;
+    
+    const sceneUrl = activeArea?.scene3d?.sceneUrl;
+    
+    if (!sceneUrl || sceneUrl === '—') {
+      showDebugPanelStatus('No scene3d URL available', 'error');
+      console.warn('[app] No scene3d URL to open');
+      return;
+    }
+    
+    window.open(sceneUrl, '_blank', 'noopener,noreferrer');
+    showDebugPanelStatus('✓ Opened in new tab', 'success');
+    console.log('[app] Opened scene3d in new tab:', sceneUrl);
+  } catch (error) {
+    console.error('[app] Error opening 3D in new tab:', error);
+    showDebugPanelStatus('✗ Error opening new tab', 'error');
+  }
+}
+
+/**
+ * Show a status message in the debug panel.
+ * @param {string} message - Message to display
+ * @param {string} type - 'success', 'error', or 'info'
+ */
+function showDebugPanelStatus(message, type = 'info') {
+  const statusLine = document.getElementById('gameDebugStatusLine');
+  if (!statusLine) return;
+  
+  statusLine.textContent = message;
+  statusLine.style.display = 'block';
+  
+  // Color based on type
+  if (type === 'success') {
+    statusLine.style.backgroundColor = '#2a4a2a';
+    statusLine.style.color = '#8f8';
+  } else if (type === 'error') {
+    statusLine.style.backgroundColor = '#4a2a2a';
+    statusLine.style.color = '#f88';
+  } else {
+    statusLine.style.backgroundColor = '#2a3a4a';
+    statusLine.style.color = '#8cf';
+  }
+  
+  // Auto-hide after 3 seconds
+  setTimeout(() => {
+    statusLine.style.display = 'none';
+  }, 3000);
+}
+
+/**
+ * Hook into adapter loading to track GLTF status.
+ * This wraps the original adaptScene3dToRenderer to capture load results.
+ */
+const originalAdaptScene3dToRenderer = adaptScene3dToRenderer;
+if (typeof originalAdaptScene3dToRenderer === 'function') {
+  // We'll update lastGLTFLoadStatus in handleReload3D and the active-area-changed handler
+  // No need to wrap the function, as we can track it at the call sites
+}
+
+// Helper function for formatting numbers (reuse from existing code)
+function fmt(val, decimals = 0) {
+  if (val == null || !Number.isFinite(val)) return '—';
+  return Number(val).toFixed(decimals);
+}
+
 function boot(){
   try {
     if (statusInfo) statusInfo.textContent = 'Booted';
@@ -4731,8 +5249,11 @@ function boot(){
       });
     }
     initSelectionDropdowns();
+    initGameDebugPanel(); // Initialize 3D/Runtime debug panel
     requestAnimationFrame(loop);
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);
+    // Mark boot as complete for debug panel
+    window.GAME.bootComplete = true;
   } catch (e){
     const b=document.getElementById('bootError'), m=document.getElementById('bootErrorMsg');
     if(b&&m){ m.textContent=(e.message||'Unknown error'); b.style.display='block'; }
@@ -4849,12 +5370,15 @@ function boot(){
                 GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, area.scene3d);
                 if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
                   console.log('[app] 3D scene loaded successfully');
+                  lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
                 } else {
                   console.warn('[app] Failed to load 3D scene:', GAME_RENDER_ADAPTER?.error);
+                  lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
                 }
               }
             } catch (error) {
               console.error('[app] Error loading 3D scene:', error);
+              lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
             }
           });
 
@@ -4871,9 +5395,15 @@ function boot(){
             if (areaToLoad && areaToLoad.scene3d && areaToLoad.scene3d.sceneUrl) {
               console.log('[app] Loading initial 3D scene:', areaToLoad.id);
               GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, areaToLoad.scene3d);
+              if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
+                lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+              } else {
+                lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
+              }
             }
           } catch (error) {
             console.warn('[app] Failed to load initial 3D scene:', error);
+            lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
           }
         }
 
