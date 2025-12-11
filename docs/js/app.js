@@ -885,8 +885,54 @@ import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
-import { isSupported, createRenderer } from '../../src/renderer/index.js';
-import { adaptScene3dToRenderer } from '../../src/map/rendererAdapter.js';
+
+// Optional 3D renderer modules (lazy-loaded to avoid breaking boot if assets aren't hosted)
+const rendererModuleState = {
+  promise: null,
+  error: null,
+  exports: null,
+};
+
+function getRendererModuleStatus() {
+  if (rendererModuleState.exports) return 'loaded';
+  if (rendererModuleState.error) return 'failed';
+  if (rendererModuleState.promise) return 'loading';
+  return 'not_loaded';
+}
+
+function rendererSupportsThree() {
+  return typeof rendererModuleState.exports?.isSupported === 'function'
+    ? rendererModuleState.exports.isSupported()
+    : false;
+}
+
+async function ensureRendererModules() {
+  if (rendererModuleState.exports) return rendererModuleState.exports;
+  if (rendererModuleState.error) return null;
+  if (rendererModuleState.promise) return rendererModuleState.promise;
+
+  rendererModuleState.promise = (async () => {
+    try {
+      const [rendererModule, adapterModule] = await Promise.all([
+        import('../../src/renderer/index.js'),
+        import('../../src/map/rendererAdapter.js'),
+      ]);
+
+      rendererModuleState.exports = {
+        isSupported: rendererModule?.isSupported || (() => false),
+        createRenderer: rendererModule?.createRenderer || null,
+        adaptScene3dToRenderer: adapterModule?.adaptScene3dToRenderer || null,
+      };
+      return rendererModuleState.exports;
+    } catch (error) {
+      rendererModuleState.error = error;
+      console.warn('[app] Failed to load 3D renderer modules:', error);
+      return null;
+    }
+  })();
+
+  return rendererModuleState.promise;
+}
 
 // 3D Background Renderer State
 // TODO: Requires global THREE to be loaded (via CDN or bundler). See docs/renderer-README.md
@@ -4955,7 +5001,10 @@ function updateGameDebugPanel() {
     
     // Gather status information
     const bootStatus = window.GAME?.bootComplete ? 'booted' : 'booting...';
-    const threeJsStatus = isSupported() ? 'available' : 'missing';
+    const moduleStatus = getRendererModuleStatus();
+    const threeJsStatus = moduleStatus === 'loaded'
+      ? (rendererSupportsThree() ? 'available' : 'missing')
+      : moduleStatus.replace('_', ' ');
     
     let rendererStatus = 'not initialized';
     if (GAME_RENDERER_3D) {
@@ -5058,10 +5107,18 @@ function updateGameDebugPanel() {
  * Handle "Reload 3D" action.
  * Re-loads the current area's scene3d into the renderer.
  */
-function handleReload3D() {
+async function handleReload3D() {
   console.log('[app] Reload 3D action triggered');
-  
+
   try {
+    const rendererModules = await ensureRendererModules();
+    const adaptScene3dToRenderer = rendererModules?.adaptScene3dToRenderer;
+    if (typeof adaptScene3dToRenderer !== 'function') {
+      showDebugPanelStatus('3D renderer unavailable', 'error');
+      console.warn('[app] Cannot reload 3D: renderer module unavailable');
+      return;
+    }
+
     const registry = window.GAME?.mapRegistry;
     const activeArea = registry && typeof registry.getActiveArea === 'function'
       ? registry.getActiveArea()
@@ -5211,16 +5268,6 @@ function showDebugPanelStatus(message, type = 'info') {
   }, 3000);
 }
 
-/**
- * Hook into adapter loading to track GLTF status.
- * This wraps the original adaptScene3dToRenderer to capture load results.
- */
-const originalAdaptScene3dToRenderer = adaptScene3dToRenderer;
-if (typeof originalAdaptScene3dToRenderer === 'function') {
-  // We'll update lastGLTFLoadStatus in handleReload3D and the active-area-changed handler
-  // No need to wrap the function, as we can track it at the call sites
-}
-
 // Helper function for formatting numbers (reuse from existing code)
 function fmt(val, decimals = 0) {
   if (val == null || !Number.isFinite(val)) return '—';
@@ -5277,7 +5324,11 @@ function boot(){
   // TODO: Ensure THREE is loaded globally before this runs (via CDN or bundler)
   // See docs/renderer-README.md for usage and requirements
   try {
-    if (isSupported()) {
+    const rendererModules = await ensureRendererModules();
+    const createRenderer = rendererModules?.createRenderer;
+    const adaptScene3dToRenderer = rendererModules?.adaptScene3dToRenderer;
+
+    if (rendererSupportsThree() && typeof createRenderer === 'function') {
       console.log('[app] Three.js detected - initializing 3D background renderer');
 
       // Get or create container for 3D canvas
@@ -5365,7 +5416,7 @@ function boot(){
               }
 
               // Load new scene3d if available
-              if (area && area.scene3d && area.scene3d.sceneUrl) {
+              if (area && area.scene3d && area.scene3d.sceneUrl && typeof adaptScene3dToRenderer === 'function') {
                 console.log('[app] Loading 3D scene for area:', area.id, area.scene3d.sceneUrl);
                 GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, area.scene3d);
                 if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
@@ -5384,15 +5435,15 @@ function boot(){
 
           // Try to load initial area
           try {
-            const activeArea = typeof registry.getActiveArea === 'function' 
-              ? registry.getActiveArea() 
+            const activeArea = typeof registry.getActiveArea === 'function'
+              ? registry.getActiveArea()
               : null;
             const fallbackAreaId = window.GAME?.currentAreaId || window.CONFIG?.areas;
-            const areaToLoad = activeArea || (fallbackAreaId && typeof registry.getArea === 'function' 
-              ? registry.getArea(fallbackAreaId) 
+            const areaToLoad = activeArea || (fallbackAreaId && typeof registry.getArea === 'function'
+              ? registry.getArea(fallbackAreaId)
               : null);
 
-            if (areaToLoad && areaToLoad.scene3d && areaToLoad.scene3d.sceneUrl) {
+            if (areaToLoad && areaToLoad.scene3d && areaToLoad.scene3d.sceneUrl && typeof adaptScene3dToRenderer === 'function') {
               console.log('[app] Loading initial 3D scene:', areaToLoad.id);
               GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, areaToLoad.scene3d);
               if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
@@ -5412,7 +5463,11 @@ function boot(){
         console.log('[app] 3D background renderer initialized successfully');
       }
     } else {
-      console.log('[app] Three.js not available - skipping 3D background renderer');
+      if (rendererModuleState.error) {
+        console.warn('[app] 3D renderer modules failed to load - skipping 3D background renderer');
+      } else {
+        console.log('[app] Three.js not available - skipping 3D background renderer');
+      }
     }
   } catch (error) {
     console.error('[app] Failed to initialize 3D background renderer:', error);
