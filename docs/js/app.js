@@ -885,8 +885,8 @@ import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
-import { isSupported, createRenderer } from '../src/renderer/index.js';
-import { adaptScene3dToRenderer } from '../src/map/rendererAdapter.js';
+import { isSupported, createRenderer } from '../../src/renderer/index.js';
+import { adaptScene3dToRenderer } from '../../src/map/rendererAdapter.js';
 
 // 3D Background Renderer State
 // TODO: Requires global THREE to be loaded (via CDN or bundler). See docs/renderer-README.md
