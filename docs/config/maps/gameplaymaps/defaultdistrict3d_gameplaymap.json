@@ -1,6 +1,21 @@
 {
   "areaId": "defaultdistrict3d",
   "visualsMap": "../visualsmaps/defaultdistrict3D_visualsmap.json",
+  "scene3d": {
+    "sceneUrl": "/assets/3D/tower_commercial3D.glb",
+    "ground": {
+      "unitsPerPixel": 1,
+      "planeZ": 0
+    },
+    "camera": {
+      "projection": "perspective",
+      "fov": 50
+    },
+    "render": {
+      "lighting": "none",
+      "materials": "unlit"
+    }
+  },
   "ground": {
     "path": [
       { "x": -1100, "y": 0 },
