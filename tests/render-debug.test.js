@@ -332,3 +332,42 @@ test('app.js wires up render debug controls', async () => {
     'Should update RENDER_DEBUG.showHitbox on change'
   );
 });
+
+test('render.js fallback background uses CONFIG.areas instead of PARALLAX', async () => {
+  const source = await readJs('render.js');
+  
+  // Check that render.js doesn't check window.PARALLAX for fallback
+  assert.doesNotMatch(
+    source,
+    /window\.PARALLAX/,
+    'render.js should not reference window.PARALLAX'
+  );
+  
+  // Check that it checks CONFIG.areas and GAME.currentAreaId
+  assert.match(
+    source,
+    /window\.CONFIG\?\.areas\?\.\[window\.GAME\?\.currentAreaId\]/,
+    'render.js should check CONFIG.areas[GAME.currentAreaId] for active area'
+  );
+  
+  // Verify fallback background still draws when no area is loaded
+  assert.match(
+    source,
+    /NO AREA LOADED.*fallback ground/,
+    'render.js should still have fallback background with message'
+  );
+  
+  // Check that the fallback includes sky gradient
+  assert.match(
+    source,
+    /createLinearGradient[\s\S]{0,200}#cfe8ff/,
+    'Fallback background should include sky gradient'
+  );
+  
+  // Check that the fallback includes ground fill
+  assert.match(
+    source,
+    /#c8d0c3/,
+    'Fallback background should include ground fill color'
+  );
+});

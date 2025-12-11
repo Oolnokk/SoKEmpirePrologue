@@ -897,8 +897,9 @@ export function renderAll(ctx){
 
   // Fallback background so the viewport is never visually blank
   try{
-    // If parallax isn't configured, draw a minimal horizon + ground
-    if (!window.PARALLAX || !window.PARALLAX.areas || !window.PARALLAX.areas[window.PARALLAX.currentAreaId]){
+    // Check if an active area is loaded (using CONFIG.areas instead of legacy PARALLAX)
+    const activeArea = window.CONFIG?.areas?.[window.GAME?.currentAreaId];
+    if (!activeArea){
       // sky gradient
       const g = ctx.createLinearGradient(0,0,0,ctx.canvas.height);
       g.addColorStop(0, '#cfe8ff'); g.addColorStop(1, '#eaeaea');

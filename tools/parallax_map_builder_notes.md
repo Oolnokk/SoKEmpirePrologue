@@ -1,10 +1,17 @@
-# DEPRECATED: Parallax Map Builder (Layered v15f) Notes
+# ⛔ REMOVED FROM RUNTIME: Parallax Map Builder (Layered v15f) Notes
 
-> **⚠️ DEPRECATED**: This page documents the legacy 2D parallax pipeline. Use the [3D map editor](../docs/map-editor.html) and [3D Map Builder](../docs/3Dmapbuilder.html) for current workflows. Visual maps are now stored in `/config/maps/visualsmaps`. See [DEPRECATED_PARALLAX_TO_3D_MIGRATION.md](../docs/DEPRECATED_PARALLAX_TO_3D_MIGRATION.md) for migration guidance.
+> **⛔ REMOVED FROM RUNTIME**: The runtime no longer produces or consumes legacy 2D parallax structures. This document is archived for historical reference only.
+>
+> **Use instead:**
+> - [3D Map Builder](../docs/3Dmapbuilder.html) for visual map creation
+> - [3D Grid Map Editor](../docs/map-editor.html) for gameplay map editing
+> - Visual maps are now stored in `/config/maps/visualsmaps`
+>
+> **Migration:** See [DEPRECATED_PARALLAX_TO_3D_MIGRATION.md](../docs/DEPRECATED_PARALLAX_TO_3D_MIGRATION.md) for historical context and [NOTICE_PARALLAX_REMOVAL.md](../docs/NOTICE_PARALLAX_REMOVAL.md) for runtime changes.
 
 ---
 
-# Parallax Map Builder (Layered v15f) Notes
+# Parallax Map Builder (Layered v15f) Notes [ARCHIVED]
 
 The layered v15f editor exports map layouts with the following shape when `Download Map JSON` is triggered:
 

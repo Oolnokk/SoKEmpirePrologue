@@ -502,11 +502,14 @@ function applyEditorPreviewSettings(
   }
 }
 
+/**
+ * REMOVED: Legacy parallax container no longer used by runtime.
+ * This function is a no-op to prevent errors if called by old code.
+ * @deprecated The runtime no longer produces or consumes legacy 2D parallax structures.
+ */
 function ensureParallaxContainer(): { layers: unknown[]; areas: Record<string, unknown>; currentAreaId: string | null } {
-  const parallax = (window.PARALLAX = window.PARALLAX || { layers: [], areas: {}, currentAreaId: null });
-  parallax.areas = parallax.areas || {};
-  parallax.layers = Array.isArray(parallax.layers) ? parallax.layers : [];
-  return parallax;
+  // No-op: window.PARALLAX is no longer written to by the runtime
+  return { layers: [], areas: {}, currentAreaId: null };
 }
 
 function syncConfigGround(area: MapArea): void {
@@ -602,7 +605,14 @@ function syncConfigPlatforming(area: MapArea): void {
   CONFIG.platformingColliders = normalized;
 }
 
-function adaptSceneToParallax(area: MapArea) {
+/**
+ * REMOVED: Legacy parallax adapter no longer used by runtime.
+ * Renamed from adaptSceneToParallax to adaptSceneForLegacyParallax.
+ * This function exists only for historical reference and is not called.
+ * @deprecated The runtime no longer produces or consumes legacy 2D parallax structures.
+ * @internal
+ */
+function adaptSceneForLegacyParallax(area: MapArea) {
   const scene = resolveSceneDescriptor(area);
   return {
     id: area.id,
@@ -638,13 +648,18 @@ function applyArea(area: MapArea): void {
   window.__MAP_REGISTRY__ = registry;
   registerAreaGeometry(area);
 
-  const parallax = ensureParallaxContainer();
-  parallax.areas[area.id] = adaptSceneToParallax(area);
-  parallax.currentAreaId = area.id;
+  // REMOVED: Legacy PARALLAX writes - the runtime no longer populates window.PARALLAX
+  // Previously: ensureParallaxContainer(), parallax.areas[area.id] = adaptSceneToParallax(area), etc.
+  if (typeof window !== 'undefined' && !(window as any).__PARALLAX_REMOVAL_LOGGED) {
+    console.info('[map-bootstrap] Legacy 2D parallax pipeline removed — window.PARALLAX no longer populated. Areas are registered in MapRegistry and CONFIG.areas.');
+    (window as any).__PARALLAX_REMOVAL_LOGGED = true;
+  }
 
+  // Keep CONFIG.areas registration for backwards compatibility with other modules
   window.CONFIG = window.CONFIG || {};
   window.CONFIG.areas = window.CONFIG.areas || {};
-  window.CONFIG.areas[area.id] = parallax.areas[area.id];
+  // Store the normalized area descriptor directly in CONFIG.areas (not the legacy parallax structure)
+  window.CONFIG.areas[area.id] = area;
 
   syncConfigGround(area);
   syncConfigPlatforming(area);
