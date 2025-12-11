@@ -914,8 +914,8 @@ async function ensureRendererModules() {
   rendererModuleState.promise = (async () => {
     try {
       const [rendererModule, adapterModule] = await Promise.all([
-        import('../../src/renderer/index.js'),
-        import('../../src/map/rendererAdapter.js'),
+        import('../renderer/index.js'),
+        import('../renderer/rendererAdapter.js'),
       ]);
 
       rendererModuleState.exports = {

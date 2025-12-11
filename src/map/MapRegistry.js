@@ -217,10 +217,11 @@ function validateAreaDescriptor(descriptor) {
     errors.push('"colliders" must be a non-empty array for geometry service');
   }
 
+  const hasScene3d = descriptor.scene3d != null;
   if (!Array.isArray(descriptor.layers)) {
     errors.push('"layers" must be an array');
   }
-  if (descriptor.layers && descriptor.layers.length === 0) {
+  if (descriptor.layers && descriptor.layers.length === 0 && !hasScene3d) {
     warnings.push('Area declares no parallax layers');
   }
 
