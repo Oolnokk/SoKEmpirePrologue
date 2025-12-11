@@ -115,6 +115,21 @@ test('convertLayoutToArea provides default playableBounds', () => {
   assert.equal(area.playableBounds.right, 600, 'default right should be 600');
 });
 
+test('convertLayoutToArea forwards scene3d descriptors', () => {
+  const layout = {
+    id: 'scene3d-vendor',
+    playableBounds: { left: -100, right: 100 },
+    scene3d: { sceneUrl: './assets/3D/vendor.glb', ground: { planeZ: 0, unitsPerPixel: 1 } },
+    layers: [],
+    instances: [],
+  };
+
+  const area = convertLayoutToArea(layout);
+
+  assert.deepEqual(area.scene3d, layout.scene3d);
+  assert.notStrictEqual(area.scene3d, layout.scene3d);
+});
+
 test('map-runtime-fix re-exports GeometryService', () => {
   assert.ok(GeometryService, 'GeometryService should be exported');
   assert.equal(typeof GeometryService, 'function', 'GeometryService should be a function/class');

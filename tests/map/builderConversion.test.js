@@ -577,3 +577,34 @@ test('normalizeAreaDescriptor keeps pre-normalized tilers intact', () => {
   assert.deepEqual(area.tilers[0].area, { left: 10, top: 5, width: 40, height: 20 });
   assert.deepEqual(area.tilers[0].tileSize, { width: 20, height: 20 });
 });
+
+test('convertLayoutToArea preserves scene3d descriptors for layouts and area descriptors', () => {
+  const baseScene3d = {
+    sceneUrl: './assets/3D/test.glb',
+    ground: { planeZ: 4, unitsPerPixel: 0.5 },
+    camera: { projection: 'orthographic', fov: 80 },
+    render: { lighting: 'flat', materials: 'unlit' },
+  };
+
+  const descriptorArea = convertLayoutToArea({
+    id: 'scene3d-area-descriptor',
+    ground: { offset: 0 },
+    layers: [],
+    instances: [],
+    scene3d: structuredClone(baseScene3d),
+  });
+
+  assert.deepEqual(descriptorArea.scene3d, baseScene3d);
+  assert.notStrictEqual(descriptorArea.scene3d, baseScene3d);
+
+  const layoutArea = convertLayoutToArea({
+    areaId: 'scene3d-layout',
+    layers: [],
+    instances: [],
+    groundOffset: 0,
+    scene3d: structuredClone(baseScene3d),
+  });
+
+  assert.deepEqual(layoutArea.scene3d, baseScene3d);
+  assert.notStrictEqual(layoutArea.scene3d, baseScene3d);
+});
