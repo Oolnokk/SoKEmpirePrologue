@@ -97,3 +97,22 @@ test('getInstance resolves descriptors by instanceId', () => {
   assert.equal(registry.getInstance('missing', 'player_spawn'), null);
   assert.equal(registry.getInstance('id_test', 'unknown'), null);
 });
+
+test('scene3d areas do not warn when layers are intentionally empty', () => {
+  const warnings = [];
+  const registry = new MapRegistry({ logger: { warn: (msg) => warnings.push(msg) } });
+  registry.registerArea('scene3d-demo', {
+    name: 'Scene 3D',
+    layers: [],
+    colliders: [{ shape: 'box', x: 0, y: 0, w: 10, h: 10 }],
+    playableBounds: { left: 0, right: 100 },
+    instances: [{ instanceId: 'player_spawn' }],
+    scene3d: {
+      sceneUrl: './example.glb',
+      ground: { planeZ: 0, unitsPerPixel: 1 },
+    },
+  });
+
+  const parallaxWarnings = warnings.filter((msg) => msg.includes('parallax'));
+  assert.deepEqual(parallaxWarnings, []);
+});
