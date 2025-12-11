@@ -1247,6 +1247,7 @@ function normalizeAreaDescriptor(area, options = {}) {
       : [];
   const rawColliders = Array.isArray(area.colliders) ? area.colliders : [];
   const rawDrumSkins = Array.isArray(area.drumSkins) ? area.drumSkins : [];
+  const scene3d = area.scene3d !== undefined ? safeClone(area.scene3d) : undefined;
 
   const warnings = Array.isArray(area.warnings) ? [...area.warnings] : [];
   if (!Array.isArray(area.layers)) {
@@ -1441,6 +1442,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     ground: {
       offset: toNumber(area.ground?.offset ?? area.groundOffset, 0),
     },
+    scene3d,
     proximityScale,
     scene,
     layers: convertedLayers,
@@ -1861,6 +1863,7 @@ export function convertLayoutToArea(layout, options = {}) {
     ground: {
       offset: toNumber(layout.groundOffset, 0),
     },
+    scene3d: layout.scene3d !== undefined ? safeClone(layout.scene3d) : undefined,
     proximityScale,
     scene,
     layers: convertedLayers,
