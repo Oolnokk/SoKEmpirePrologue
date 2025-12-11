@@ -885,11 +885,21 @@ import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
+import { isSupported, createRenderer } from '../src/renderer/index.js';
+import { adaptScene3dToRenderer } from '../src/map/rendererAdapter.js';
+
+// 3D Background Renderer State
+// TODO: Requires global THREE to be loaded (via CDN or bundler). See docs/renderer-README.md
+let GAME_RENDERER_3D = null;
+let GAME_RENDER_ADAPTER = null;
+let THREE_BG_CONTAINER = null;
+let THREE_BG_RESIZE_HANDLER = null;
 
 // Setup canvas
 const cv = $$('#game');
 const stage = $$('#gameStage');
-const cx = cv?.getContext('2d');
+const cx = cv?.getContext('2d', { alpha: true });
+if (cv) cv.style.background = 'transparent';
 window.GAME ||= {};
 window.GAME.dynamicInstances = []; // Array for dynamically spawned instances
 initCamera({ canvas: cv });
@@ -4438,8 +4448,7 @@ function drawStage(){
   const worldW = camera.worldWidth || 1600;
   const zoom = Number.isFinite(camera.zoom) ? camera.zoom : 1;
   cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle = '#0b1220';
-  cx.fillRect(0,0,cv.width,cv.height);
+  // Removed opaque background fill to allow 3D canvas to show through
   const previewResult = EDITOR_PREVIEW_SANDBOX.renderAndBlit(cx, {
     width: cv.width,
     height: cv.height,
@@ -4742,5 +4751,143 @@ function boot(){
   } catch (error) {
     console.warn('[app] Loadout stage failed to resolve', error);
   }
+
+  // Initialize 3D background renderer (optional, requires global THREE)
+  // TODO: Ensure THREE is loaded globally before this runs (via CDN or bundler)
+  // See docs/renderer-README.md for usage and requirements
+  try {
+    if (isSupported()) {
+      console.log('[app] Three.js detected - initializing 3D background renderer');
+
+      // Get or create container for 3D canvas
+      const stageEl = document.getElementById('gameStage');
+      if (!stageEl) {
+        console.warn('[app] gameStage element not found - skipping 3D background setup');
+      } else {
+        // Create or reuse #3d-background container
+        THREE_BG_CONTAINER = document.getElementById('3d-background');
+        if (!THREE_BG_CONTAINER) {
+          THREE_BG_CONTAINER = document.createElement('div');
+          THREE_BG_CONTAINER.id = '3d-background';
+          THREE_BG_CONTAINER.style.position = 'absolute';
+          THREE_BG_CONTAINER.style.left = '0';
+          THREE_BG_CONTAINER.style.top = '0';
+          THREE_BG_CONTAINER.style.width = '100%';
+          THREE_BG_CONTAINER.style.height = '100%';
+          THREE_BG_CONTAINER.style.zIndex = '0';
+          THREE_BG_CONTAINER.style.overflow = 'hidden';
+          stageEl.insertBefore(THREE_BG_CONTAINER, stageEl.firstChild);
+        }
+
+        // Ensure stage is above 3D background
+        if (!stageEl.style.zIndex || parseInt(stageEl.style.zIndex) < 1) {
+          stageEl.style.zIndex = '1';
+        }
+
+        // Get dimensions
+        const rect = stageEl.getBoundingClientRect();
+        const width = rect.width || 800;
+        const height = rect.height || 600;
+
+        // Create renderer
+        GAME_RENDERER_3D = createRenderer({
+          container: THREE_BG_CONTAINER,
+          width,
+          height,
+          pixelRatio: window.devicePixelRatio || 1,
+          clearColor: 0x0b1220 // Match default background color
+        });
+
+        // Initialize renderer
+        await GAME_RENDERER_3D.init();
+
+        // Configure renderer canvas to not intercept pointer events
+        if (GAME_RENDERER_3D.renderer?.domElement) {
+          GAME_RENDERER_3D.renderer.domElement.style.position = 'absolute';
+          GAME_RENDERER_3D.renderer.domElement.style.left = '0';
+          GAME_RENDERER_3D.renderer.domElement.style.top = '0';
+          GAME_RENDERER_3D.renderer.domElement.style.width = '100%';
+          GAME_RENDERER_3D.renderer.domElement.style.height = '100%';
+          GAME_RENDERER_3D.renderer.domElement.style.pointerEvents = 'none';
+          GAME_RENDERER_3D.renderer.domElement.style.zIndex = '0';
+        }
+
+        // Start animation loop
+        if (typeof GAME_RENDERER_3D.start === 'function') {
+          GAME_RENDERER_3D.start();
+        }
+
+        // Add resize handler
+        THREE_BG_RESIZE_HANDLER = () => {
+          if (!GAME_RENDERER_3D || !THREE_BG_CONTAINER) return;
+          const rect = stageEl.getBoundingClientRect();
+          const width = rect.width || 800;
+          const height = rect.height || 600;
+          if (typeof GAME_RENDERER_3D.resize === 'function') {
+            GAME_RENDERER_3D.resize(width, height);
+          }
+          if (GAME_RENDERER_3D.renderer) {
+            GAME_RENDERER_3D.renderer.setPixelRatio(window.devicePixelRatio || 1);
+          }
+        };
+        window.addEventListener('resize', THREE_BG_RESIZE_HANDLER);
+
+        // Hook into MapRegistry to load scene3d when active area changes
+        const registry = window.GAME?.mapRegistry;
+        if (registry && typeof registry.on === 'function') {
+          registry.on('active-area-changed', async (area) => {
+            try {
+              // Dispose previous adapter if exists
+              if (GAME_RENDER_ADAPTER && typeof GAME_RENDER_ADAPTER.dispose === 'function') {
+                GAME_RENDER_ADAPTER.dispose();
+                GAME_RENDER_ADAPTER = null;
+              }
+
+              // Load new scene3d if available
+              if (area && area.scene3d && area.scene3d.sceneUrl) {
+                console.log('[app] Loading 3D scene for area:', area.id, area.scene3d.sceneUrl);
+                GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, area.scene3d);
+                if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
+                  console.log('[app] 3D scene loaded successfully');
+                } else {
+                  console.warn('[app] Failed to load 3D scene:', GAME_RENDER_ADAPTER?.error);
+                }
+              }
+            } catch (error) {
+              console.error('[app] Error loading 3D scene:', error);
+            }
+          });
+
+          // Try to load initial area
+          try {
+            const activeArea = typeof registry.getActiveArea === 'function' 
+              ? registry.getActiveArea() 
+              : null;
+            const fallbackAreaId = window.GAME?.currentAreaId || window.CONFIG?.areas;
+            const areaToLoad = activeArea || (fallbackAreaId && typeof registry.getArea === 'function' 
+              ? registry.getArea(fallbackAreaId) 
+              : null);
+
+            if (areaToLoad && areaToLoad.scene3d && areaToLoad.scene3d.sceneUrl) {
+              console.log('[app] Loading initial 3D scene:', areaToLoad.id);
+              GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, areaToLoad.scene3d);
+            }
+          } catch (error) {
+            console.warn('[app] Failed to load initial 3D scene:', error);
+          }
+        }
+
+        // Expose for debugging
+        window.GAME.renderer3d = GAME_RENDERER_3D;
+        console.log('[app] 3D background renderer initialized successfully');
+      }
+    } else {
+      console.log('[app] Three.js not available - skipping 3D background renderer');
+    }
+  } catch (error) {
+    console.error('[app] Failed to initialize 3D background renderer:', error);
+    console.warn('[app] Game will continue without 3D background');
+  }
+
   boot();
 })();
