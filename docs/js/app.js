@@ -992,7 +992,12 @@ const threeGlobalState = {
 };
 
 async function ensureThreeGlobals() {
-  if (globalThis.THREE?.GLTFLoader) return globalThis.THREE;
+  if (globalThis.THREE?.GLTFLoader) {
+    // Version guard: log info if THREE already exists
+    const version = globalThis.THREE.REVISION || 'unknown';
+    console.log(`[app] Three.js r${version} already loaded - reusing existing instance`);
+    return globalThis.THREE;
+  }
   if (threeGlobalState.error) return null;
   if (threeGlobalState.promise) return threeGlobalState.promise;
 
@@ -1000,15 +1005,23 @@ async function ensureThreeGlobals() {
     if (!globalThis.THREE) {
       try {
         await loadScriptFromSources('Three.js', THREE_SCRIPT_SOURCES);
+        if (globalThis.THREE) {
+          console.log(`[app] Three.js r${globalThis.THREE.REVISION || 'unknown'} loaded from local/CDN script`);
+        }
       } catch (scriptError) {
         console.warn('[app] Three.js global script sources failed, trying ES module fallbacks');
         await importModuleFromSources('Three.js ES', THREE_MODULE_SOURCES, (module) => {
           const threeModule = module?.default || module;
           if (threeModule && !globalThis.THREE) {
             globalThis.THREE = threeModule;
+            console.log(`[app] Three.js r${threeModule.REVISION || 'unknown'} loaded from ES module`);
           }
         });
       }
+    } else {
+      // THREE already exists - check version compatibility
+      const existingVersion = globalThis.THREE.REVISION || 'unknown';
+      console.log(`[app] Three.js r${existingVersion} already exists in global scope - reusing`);
     }
 
     if (!globalThis.THREE) {
@@ -1018,19 +1031,32 @@ async function ensureThreeGlobals() {
     if (!globalThis.THREE.GLTFLoader) {
       try {
         await loadScriptFromSources('GLTFLoader', GLTF_LOADER_SCRIPT_SOURCES);
+        if (globalThis.THREE.GLTFLoader) {
+          console.log('[app] GLTFLoader loaded from local/CDN script');
+        }
       } catch (scriptError) {
         console.warn('[app] GLTFLoader script sources failed, trying ES module fallbacks');
         await importModuleFromSources('GLTFLoader ES', GLTF_LOADER_MODULE_SOURCES, (module) => {
           const ctor = module?.GLTFLoader || module?.default;
           if (ctor && globalThis.THREE && !globalThis.THREE.GLTFLoader) {
             globalThis.THREE.GLTFLoader = ctor;
+            console.log('[app] GLTFLoader loaded from ES module');
           }
         });
       }
+    } else {
+      console.log('[app] GLTFLoader already available');
     }
 
     if (!globalThis.THREE.GLTFLoader) {
-      throw new Error('GLTFLoader failed to initialize');
+      throw new Error('GLTFLoader failed to initialize - check BufferGeometryUtils availability');
+    }
+    
+    // Verify BufferGeometryUtils is available (required by GLTFLoader)
+    if (!globalThis.THREE.BufferGeometryUtils) {
+      console.warn('[app] BufferGeometryUtils not found - GLTFLoader may fail on certain geometry types');
+    } else {
+      console.log('[app] BufferGeometryUtils available');
     }
 
     return globalThis.THREE;

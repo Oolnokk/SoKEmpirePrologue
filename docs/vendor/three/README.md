@@ -13,10 +13,8 @@ This directory contains Three.js v0.160.0 to provide local fallbacks when CDNs a
 * `GLTFLoader.module.js` - ES module build with modified imports (106KB) - **WORKING** ✓
 
 ### BufferGeometryUtils (Required by GLTFLoader)
-* `BufferGeometryUtils.js` - UMD/classic wrapper - **STUB** ⚠
-* `BufferGeometryUtils.module.js` - ES module build - **STUB** ⚠
-
-**IMPORTANT:** The BufferGeometryUtils files are currently STUB implementations due to firewall restrictions during automated setup. They provide minimal functionality to prevent import errors but should be replaced with the actual Three.js v0.160.0 files for full functionality.
+* `BufferGeometryUtils.js` - UMD/classic wrapper - **WORKING** ✓
+* `BufferGeometryUtils.module.js` - ES module build (32KB) - **WORKING** ✓
 
 ## Loading Behavior
 
@@ -27,45 +25,26 @@ The loader in `docs/js/app.js` attempts to load Three.js in this order:
 
 For GLTFLoader, the same fallback pattern applies.
 
-## Replacing BufferGeometryUtils Stub Files
+## BufferGeometryUtils Installation
 
-Due to firewall/download restrictions, the BufferGeometryUtils files are STUB implementations. To complete the offline vendor integration:
+The BufferGeometryUtils files have been successfully installed from Three.js v0.160.0 via npm. The imports have been updated to reference the local `three.module.js` file.
 
-### Option 1: Manual Download (Recommended)
-
-1. Download the actual file from Three.js v0.160.0:
-   - URL: `https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js`
-   - Alternative CDN: `https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js`
-
-2. Save as: `docs/vendor/three/BufferGeometryUtils.module.js`
-
-3. Update the import at the top of the file:
-   ```javascript
-   // Change this line:
-   import { ... } from 'three';
-   // To this:
-   import { ... } from './three.module.js';
-   ```
-
-4. The `BufferGeometryUtils.js` wrapper file will automatically use the updated module.
-
-### Option 2: Using Node.js (if npm available)
+### How it was installed
 
 ```bash
 npm install three@0.160.0
 cp node_modules/three/examples/jsm/utils/BufferGeometryUtils.js docs/vendor/three/BufferGeometryUtils.module.js
+# Updated import from 'three' to './three.module.js'
 ```
-
-Then edit the import as described in Option 1, step 3.
 
 ### Verification
 
-After replacing the stub files, test the integration:
+Test the integration:
 
 1. Open `docs/three-offline-test.html` in a web browser
 2. Check the console output and test results
 3. Verify the GLTF model loads and displays correctly
-4. Look for warnings about stub implementations - they should be gone
+4. All tests should show SUCCESS with no stub warnings
 
 ## Updating Three.js to a Newer Version
 
