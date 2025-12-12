@@ -251,8 +251,7 @@
                 
                 // Get GLTFLoader constructor using tolerant pattern
                 const LoaderCtor = (globalThis.THREE && globalThis.THREE.GLTFLoader) || 
-                                   (globalThis.getThreeGLTFLoaderCtor && globalThis.getThreeGLTFLoaderCtor()) ||
-                                   (typeof GLTFLoader !== 'undefined' ? GLTFLoader : null);
+                                   (globalThis.getThreeGLTFLoaderCtor && globalThis.getThreeGLTFLoaderCtor());
                 
                 if (!LoaderCtor) {
                     console.error('[test] GLTFLoader not available - cannot load glTF model');

@@ -998,7 +998,7 @@ const threeGlobalState = {
 
 // Safe global accessor for GLTFLoader constructor
 // Returns the constructor whether it's attached to THREE or stored in fallback
-if (!globalThis.getThreeGLTFLoaderCtor) {
+if (typeof globalThis.getThreeGLTFLoaderCtor !== 'function') {
   globalThis.getThreeGLTFLoaderCtor = function() {
     // Prefer THREE.GLTFLoader if available (normal case)
     if (globalThis.THREE && globalThis.THREE.GLTFLoader) {
@@ -1057,8 +1057,8 @@ async function ensureThreeGlobals() {
               globalThis.THREE.GLTFLoader = ctor;
               console.log('[app] GLTFLoader loaded from ES module and attached to THREE');
             } catch (attachError) {
-              // THREE is non-extensible (frozen/sealed) - store constructor in fallback
-              console.warn('[app] Cannot attach GLTFLoader to THREE (object is non-extensible):', attachError.message);
+              // Cannot attach to THREE (may be frozen/sealed/non-extensible) - store constructor in fallback
+              console.warn('[app] Cannot attach GLTFLoader to THREE object:', attachError.message);
               threeGlobalState.gltfLoaderCtor = ctor;
               console.log('[app] GLTFLoader loaded from ES module and stored in fallback (access via getThreeGLTFLoaderCtor)');
             }
@@ -1076,8 +1076,8 @@ async function ensureThreeGlobals() {
             globalThis.THREE.GLTFLoader = ctor;
             console.log('[app] GLTFLoader loaded from UMD script and attached to THREE');
           } catch (attachError) {
-            // THREE is non-extensible - store constructor in fallback
-            console.warn('[app] Cannot attach GLTFLoader to THREE (object is non-extensible):', attachError.message);
+            // Cannot attach to THREE (may be frozen/sealed/non-extensible) - store constructor in fallback
+            console.warn('[app] Cannot attach GLTFLoader to THREE object:', attachError.message);
             threeGlobalState.gltfLoaderCtor = ctor;
             console.log('[app] GLTFLoader loaded from UMD script and stored in fallback (access via getThreeGLTFLoaderCtor)');
           }
