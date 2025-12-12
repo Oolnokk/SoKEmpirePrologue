@@ -215,13 +215,17 @@ export class Renderer {
     }
 
     try {
-      // Check if GLTFLoader is available
-      if (!this.THREE.GLTFLoader) {
-        console.warn('GLTFLoader not available - ensure Three.js addons are loaded');
+      // Get GLTFLoader constructor using tolerant pattern
+      const LoaderCtor = (this.THREE && this.THREE.GLTFLoader) || 
+                         (globalThis.getThreeGLTFLoaderCtor && globalThis.getThreeGLTFLoaderCtor());
+      
+      if (!LoaderCtor) {
+        console.error('[Renderer] GLTFLoader not available - cannot load glTF model');
+        console.warn('[Renderer] Ensure Three.js addons are loaded via ensureThreeGlobals');
         return null;
       }
 
-      const loader = new this.THREE.GLTFLoader();
+      const loader = new LoaderCtor();
       
       return new Promise((resolve, reject) => {
         loader.load(

@@ -993,7 +993,21 @@ async function importModuleFromSources(label, sources, onLoad) {
 const threeGlobalState = {
   promise: null,
   error: null,
+  gltfLoaderCtor: null, // Fallback storage for GLTFLoader constructor when THREE is non-extensible
 };
+
+// Safe global accessor for GLTFLoader constructor
+// Returns the constructor whether it's attached to THREE or stored in fallback
+if (typeof globalThis.getThreeGLTFLoaderCtor !== 'function') {
+  globalThis.getThreeGLTFLoaderCtor = function() {
+    // Prefer THREE.GLTFLoader if available (normal case)
+    if (globalThis.THREE && globalThis.THREE.GLTFLoader) {
+      return globalThis.THREE.GLTFLoader;
+    }
+    // Fall back to stored constructor if THREE is non-extensible
+    return threeGlobalState.gltfLoaderCtor;
+  };
+}
 
 async function ensureThreeGlobals() {
   if (globalThis.THREE?.GLTFLoader) {
@@ -1039,8 +1053,15 @@ async function ensureThreeGlobals() {
         await importModuleFromSources('GLTFLoader ES', GLTF_LOADER_MODULE_SOURCES, (module) => {
           const ctor = module?.GLTFLoader || module?.default;
           if (ctor && globalThis.THREE && !globalThis.THREE.GLTFLoader) {
-            globalThis.THREE.GLTFLoader = ctor;
-            console.log('[app] GLTFLoader loaded from ES module');
+            try {
+              globalThis.THREE.GLTFLoader = ctor;
+              console.log('[app] GLTFLoader loaded from ES module and attached to THREE');
+            } catch (attachError) {
+              // Cannot attach to THREE (may be frozen/sealed/non-extensible) - store constructor in fallback
+              console.warn('[app] Cannot attach GLTFLoader to THREE object:', attachError.message);
+              threeGlobalState.gltfLoaderCtor = ctor;
+              console.log('[app] GLTFLoader loaded from ES module and stored in fallback (access via getThreeGLTFLoaderCtor)');
+            }
           }
         });
       } catch (moduleError) {
@@ -1048,13 +1069,27 @@ async function ensureThreeGlobals() {
         await loadScriptFromSources('GLTFLoader', GLTF_LOADER_SCRIPT_SOURCES);
         if (globalThis.THREE.GLTFLoader) {
           console.log('[app] GLTFLoader loaded from local/CDN script');
+        } else if (globalThis.GLTFLoader) {
+          // Script loader may have set GLTFLoader globally but not on THREE
+          const ctor = globalThis.GLTFLoader;
+          try {
+            globalThis.THREE.GLTFLoader = ctor;
+            console.log('[app] GLTFLoader loaded from UMD script and attached to THREE');
+          } catch (attachError) {
+            // Cannot attach to THREE (may be frozen/sealed/non-extensible) - store constructor in fallback
+            console.warn('[app] Cannot attach GLTFLoader to THREE object:', attachError.message);
+            threeGlobalState.gltfLoaderCtor = ctor;
+            console.log('[app] GLTFLoader loaded from UMD script and stored in fallback (access via getThreeGLTFLoaderCtor)');
+          }
         }
       }
     } else {
       console.log('[app] GLTFLoader already available');
     }
 
-    if (!globalThis.THREE.GLTFLoader) {
+    // Check if GLTFLoader is available via either method
+    const loaderCtor = globalThis.THREE.GLTFLoader || threeGlobalState.gltfLoaderCtor;
+    if (!loaderCtor) {
       throw new Error('GLTFLoader failed to initialize - check BufferGeometryUtils availability');
     }
     
@@ -1098,9 +1133,12 @@ async function ensureRendererModules() {
   rendererModuleState.promise = (async () => {
     try {
       const three = await ensureThreeGlobals();
-      if (!three || !three.GLTFLoader) {
+      // Check if GLTFLoader is available via either method (attached or fallback)
+      const loaderCtor = three?.GLTFLoader || threeGlobalState.gltfLoaderCtor;
+      if (!three || !loaderCtor) {
         throw new Error('Three.js not available for renderer');
       }
+      console.log('[app] 3D renderer modules ready - GLTFLoader available via', three.GLTFLoader ? 'THREE.GLTFLoader' : 'fallback getter');
       const [rendererModule, adapterModule] = await Promise.all([
         import('../renderer/index.js'),
         import('../renderer/rendererAdapter.js'),
