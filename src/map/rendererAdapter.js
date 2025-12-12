@@ -9,6 +9,95 @@
 import { projectToGroundPlane, buildRenderSettings } from './scene3d.js';
 
 /**
+ * Resolve a scene URL to an absolute URL, handling GitHub Pages deployment paths
+ * 
+ * @param {string} sceneUrl - The URL from scene3d descriptor (may be absolute or relative)
+ * @returns {string} Resolved absolute URL
+ */
+function resolveSceneUrl(sceneUrl) {
+  if (!sceneUrl) return sceneUrl;
+  
+  try {
+    // If it's already a complete URL (http://, https://, etc.), return as-is
+    if (/^[a-z][a-z0-9+.-]*:/i.test(sceneUrl)) {
+      return sceneUrl;
+    }
+    
+    // Use document.baseURI (or location.href as fallback) to resolve relative URLs
+    const baseUrl = (typeof document !== 'undefined' && document.baseURI) || 
+                    (typeof location !== 'undefined' && location.href) || 
+                    '';
+    
+    if (!baseUrl) {
+      console.warn('[rendererAdapter] Cannot resolve URL: no baseURI available, returning original:', sceneUrl);
+      return sceneUrl;
+    }
+    
+    // For absolute paths starting with '/', resolve against the origin + base path
+    // This handles GitHub Pages deployment (e.g., /SoKEmpirePrologue/)
+    if (sceneUrl.startsWith('/')) {
+      // Extract base path from baseURI (e.g., /SoKEmpirePrologue/ from https://oolnokk.github.io/SoKEmpirePrologue/docs/)
+      const baseUrlObj = new URL(baseUrl);
+      const pathParts = baseUrlObj.pathname.split('/').filter(p => p);
+      
+      // If we're in a subdirectory (GitHub Pages repo deployment), prepend the repo name
+      // Heuristic: if path starts with a repo-like segment (not 'docs', 'assets', etc.), include it
+      const repoSegment = pathParts.length > 0 && !['docs', 'assets', 'config', 'js', 'vendor'].includes(pathParts[0]) 
+        ? '/' + pathParts[0] 
+        : '';
+      
+      const resolvedUrl = baseUrlObj.origin + repoSegment + sceneUrl;
+      console.log('[rendererAdapter] Resolved absolute path:', sceneUrl, '→', resolvedUrl);
+      return resolvedUrl;
+    }
+    
+    // For relative paths, use standard URL resolution
+    const resolved = new URL(sceneUrl, baseUrl).href;
+    console.log('[rendererAdapter] Resolved relative path:', sceneUrl, '→', resolved);
+    return resolved;
+  } catch (error) {
+    console.warn('[rendererAdapter] Error resolving URL:', sceneUrl, error);
+    return sceneUrl;
+  }
+}
+
+/**
+ * Generate fallback URL candidates for loading
+ * 
+ * @param {string} originalUrl - The original (potentially failing) URL
+ * @returns {string[]} Array of fallback URLs to try
+ */
+function generateFallbackUrls(originalUrl) {
+  if (!originalUrl) return [];
+  
+  const fallbacks = [];
+  
+  try {
+    // If the original URL is absolute and starts with '/', try relative versions
+    if (originalUrl.startsWith('/')) {
+      // Try removing leading slash (relative to current directory)
+      fallbacks.push('.' + originalUrl);
+      
+      // Try relative to parent directory
+      fallbacks.push('..' + originalUrl);
+    }
+    
+    // If URL contains protocol, try stripping it and making relative
+    const urlMatch = originalUrl.match(/^https?:\/\/[^/]+(\/.*)/);
+    if (urlMatch && urlMatch[1]) {
+      const pathPart = urlMatch[1];
+      if (pathPart.startsWith('/')) {
+        fallbacks.push('.' + pathPart);
+      }
+    }
+  } catch (error) {
+    console.warn('[rendererAdapter] Error generating fallback URLs:', error);
+  }
+  
+  return fallbacks;
+}
+
+/**
  * Adapt a scene3d descriptor to the renderer
  * 
  * @param {Renderer} renderer - The renderer instance
@@ -44,12 +133,41 @@ export async function adaptScene3dToRenderer(renderer, scene3dDescriptor, option
   }
 
   try {
-    // Load the GLTF scene
-    const loadedScene = await renderer.loadGLTF(scene3dDescriptor.sceneUrl);
+    // Resolve the scene URL to handle GitHub Pages deployment paths
+    const resolvedUrl = resolveSceneUrl(scene3dDescriptor.sceneUrl);
+    console.log('[adaptScene3dToRenderer] Loading scene from:', resolvedUrl);
+    
+    // Try to load the GLTF scene with fallback URLs
+    let loadedScene = null;
+    let lastError = null;
+    const urlsToTry = [resolvedUrl, ...generateFallbackUrls(scene3dDescriptor.sceneUrl)];
+    
+    for (let i = 0; i < urlsToTry.length && !loadedScene; i++) {
+      const urlToTry = urlsToTry[i];
+      if (!urlToTry) continue;
+      
+      try {
+        console.log(`[adaptScene3dToRenderer] Attempt ${i + 1}/${urlsToTry.length}: trying ${urlToTry}`);
+        loadedScene = await renderer.loadGLTF(urlToTry);
+        
+        if (loadedScene) {
+          console.log('[adaptScene3dToRenderer] ✓ Scene loaded successfully from:', urlToTry);
+          break;
+        }
+      } catch (error) {
+        lastError = error;
+        console.warn(`[adaptScene3dToRenderer] Failed to load from ${urlToTry}:`, error.message);
+      }
+    }
     
     if (!loadedScene) {
-      console.warn('adaptScene3dToRenderer: failed to load scene from', scene3dDescriptor.sceneUrl);
-      return { root: null, dispose: () => {} };
+      const errorMsg = lastError ? lastError.message : 'Unknown error';
+      console.error('[adaptScene3dToRenderer] Failed to load scene after all attempts. Original URL:', scene3dDescriptor.sceneUrl, 'Last error:', errorMsg);
+      return { 
+        root: null, 
+        dispose: () => {},
+        error: lastError || new Error('Failed to load scene from any URL')
+      };
     }
 
     // Apply position, rotation, scale based on scene3d descriptor and options
