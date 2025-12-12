@@ -7,10 +7,43 @@ export const GeometryService = _orig.GeometryService;
 export const adaptSceneGeometry = _orig.adaptSceneGeometry;
 export const adaptLegacyLayoutGeometry = _orig.adaptLegacyLayoutGeometry;
 
+function normalizeSpawnPoints(rawList = []) {
+  if (!Array.isArray(rawList)) return [];
+  return rawList.map((raw, index) => {
+    const safe = raw && typeof raw === 'object' ? raw : {};
+    const id = typeof safe.id === 'string' && safe.id.trim()
+      ? safe.id.trim()
+      : typeof safe.spawnerId === 'string' && safe.spawnerId.trim()
+        ? safe.spawnerId.trim()
+        : `spawn-${index + 1}`;
+    const prefab = typeof safe.prefab === 'string' && safe.prefab.trim()
+      ? safe.prefab.trim()
+      : typeof safe.prefabId === 'string' && safe.prefabId.trim()
+        ? safe.prefabId.trim()
+        : typeof safe.type === 'string' && safe.type.trim()
+          ? safe.type.trim()
+          : null;
+    const x = Number.isFinite(Number(safe.x)) ? Number(safe.x) : 0;
+    const y = Number.isFinite(Number(safe.y)) ? Number(safe.y) : 0;
+    const meta = safe.meta && typeof safe.meta === 'object' ? safe.meta : {};
+    return { ...safe, id, x, y, prefab, meta };
+  });
+}
+
 export function convertLayoutToArea(layout = {}, options = {}) {
   try {
     if (typeof _orig.convertLayoutToArea === 'function') {
-      return _orig.convertLayoutToArea(layout, options);
+      const area = _orig.convertLayoutToArea(layout, options);
+      if (!Array.isArray(area.spawnPoints) || area.spawnPoints.length === 0) {
+        const spawnPoints = normalizeSpawnPoints(layout?.spawnPoints || []);
+        area.spawnPoints = spawnPoints;
+        area.spawnPointsById = spawnPoints.reduce((acc, spawner) => {
+          const key = spawner?.spawnerId || spawner?.id;
+          if (key) acc[key] = spawner;
+          return acc;
+        }, {});
+      }
+      return area;
     }
   } catch (err) {
     console.warn('[map-runtime-fix] vendor convertLayoutToArea threw, falling back', err);

@@ -14,6 +14,67 @@ const clone = (value) => {
   return JSON.parse(JSON.stringify(value));
 };
 
+function toNumber(value, fallback = NaN) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function computeColliderBounds(colliders) {
+  if (!Array.isArray(colliders) || colliders.length === 0) {
+    return null;
+  }
+  let minLeft = Infinity;
+  let maxRight = -Infinity;
+  for (const col of colliders) {
+    if (!col || typeof col !== 'object') continue;
+    const left = toNumber(col.left, NaN);
+    const width = toNumber(col.width, NaN);
+    if (!Number.isFinite(left) || !Number.isFinite(width)) continue;
+    const right = left + width;
+    minLeft = Math.min(minLeft, Math.min(left, right));
+    maxRight = Math.max(maxRight, Math.max(left, right));
+  }
+  if (!Number.isFinite(minLeft) || !Number.isFinite(maxRight) || maxRight <= minLeft) {
+    return null;
+  }
+  return { left: minLeft, right: maxRight };
+}
+
+function ensureGeometryDefaults(descriptor, warnings = []) {
+  const colliders = Array.isArray(descriptor.colliders) ? descriptor.colliders.filter(Boolean) : [];
+  const rawBounds = descriptor.playableBounds && typeof descriptor.playableBounds === 'object'
+    ? descriptor.playableBounds
+    : null;
+  const left = toNumber(rawBounds?.left ?? rawBounds?.min, NaN);
+  const right = toNumber(rawBounds?.right ?? rawBounds?.max, NaN);
+  const derivedBounds = Number.isFinite(left) && Number.isFinite(right) && right > left
+    ? { left, right, source: rawBounds?.source ?? 'layout' }
+    : computeColliderBounds(colliders);
+  const playableBounds = derivedBounds
+    ? { ...derivedBounds, source: derivedBounds.source ?? 'colliders' }
+    : { left: -600, right: 600, source: 'fallback:registry' };
+  const width = playableBounds.right - playableBounds.left;
+  const resolvedColliders = colliders.length
+    ? colliders
+    : [{
+      id: 'ground-1',
+      label: 'Ground',
+      type: 'box',
+      left: playableBounds.left,
+      width,
+      topOffset: toNumber(descriptor.ground?.offset, 0),
+      height: 64,
+      meta: { ground: true },
+    }];
+  if (!derivedBounds && Array.isArray(warnings)) {
+    warnings.push('playableBounds missing; applied registry fallback bounds');
+  }
+  if (!colliders.length && Array.isArray(warnings)) {
+    warnings.push('colliders missing; applied registry fallback ground collider');
+  }
+  return { ...descriptor, playableBounds, colliders: resolvedColliders };
+}
+
 export class MapRegistryError extends Error {
   constructor(message, details = undefined) {
     super(message);
@@ -107,15 +168,18 @@ export class MapRegistry {
       throw new MapRegistryError('Area descriptor must be an object');
     }
 
+    const warnings = [];
     const normalizedDescriptor = normalizeAreaDescriptor(descriptor);
-    const { warnings, errors } = validateAreaDescriptor(normalizedDescriptor);
+    const descriptorWithDefaults = ensureGeometryDefaults({ ...normalizedDescriptor, id: areaId }, warnings);
+    const { warnings: validationWarnings, errors } = validateAreaDescriptor(descriptorWithDefaults);
+    warnings.push(...validationWarnings);
     if (errors.length) {
       throw new MapRegistryError(`Invalid area descriptor for "${areaId}"`, {
         errors,
       });
     }
 
-    const area = deepFreeze(clone({ ...normalizedDescriptor, id: areaId }));
+    const area = deepFreeze(clone({ ...descriptorWithDefaults, id: areaId }));
     return { area, warnings };
   }
 

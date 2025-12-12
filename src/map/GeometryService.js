@@ -135,10 +135,12 @@ export function adaptSceneGeometry(sceneGeometry = {}) {
 export function adaptLegacyLayoutGeometry(layout = {}, warnings = []) {
   const colliders = Array.isArray(layout?.colliders) ? layout.colliders.filter(Boolean) : [];
   let playableBounds = normalizeExplicitPlayableBounds(layout?.playableBounds);
-  if (!playableBounds) {
+  if (playableBounds) {
+    playableBounds = { ...playableBounds, source: 'layout' };
+  } else {
     const derived = computeColliderBounds(colliders);
     if (derived) {
-      playableBounds = { ...derived, source: 'legacy:derived' };
+      playableBounds = { ...derived, source: 'colliders' };
       if (Array.isArray(warnings)) {
         warnings.push('playableBounds missing; derived from colliders for legacy compatibility');
       }
