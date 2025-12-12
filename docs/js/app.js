@@ -895,8 +895,18 @@ const rendererModuleState = {
 
 // Lazy-loading helpers for external Three.js dependencies
 const externalScriptPromises = new Map();
-const THREE_CDN_URL = 'https://unpkg.com/three@0.160.0/build/three.min.js';
-const GLTF_LOADER_CDN_URL = 'https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js';
+const THREE_SCRIPT_SOURCES = [
+  './vendor/three/three.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
+  'https://unpkg.com/three@0.160.0/build/three.min.js',
+];
+const GLTF_LOADER_SCRIPT_SOURCES = [
+  './vendor/three/GLTFLoader.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/loaders/GLTFLoader.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js',
+  'https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js',
+];
 
 function loadExternalScriptOnce(url) {
   if (externalScriptPromises.has(url)) return externalScriptPromises.get(url);
@@ -915,6 +925,24 @@ function loadExternalScriptOnce(url) {
   return promise;
 }
 
+async function loadScriptFromSources(label, sources) {
+  const errors = [];
+  for (const url of sources) {
+    try {
+      await loadExternalScriptOnce(url);
+      return url;
+    } catch (error) {
+      errors.push({ url, error });
+      console.warn(`[app] ${label} load failed from ${url}:`, error?.message || error);
+    }
+  }
+
+  const message = `${label} failed to load from all sources`;
+  const aggregate = new Error(message);
+  aggregate.causes = errors;
+  throw aggregate;
+}
+
 const threeGlobalState = {
   promise: null,
   error: null,
@@ -927,7 +955,7 @@ async function ensureThreeGlobals() {
 
   threeGlobalState.promise = (async () => {
     if (!globalThis.THREE) {
-      await loadExternalScriptOnce(THREE_CDN_URL);
+      await loadScriptFromSources('Three.js', THREE_SCRIPT_SOURCES);
     }
 
     if (!globalThis.THREE) {
@@ -935,7 +963,7 @@ async function ensureThreeGlobals() {
     }
 
     if (!globalThis.THREE.GLTFLoader) {
-      await loadExternalScriptOnce(GLTF_LOADER_CDN_URL);
+      await loadScriptFromSources('GLTFLoader', GLTF_LOADER_SCRIPT_SOURCES);
     }
 
     if (!globalThis.THREE.GLTFLoader) {
