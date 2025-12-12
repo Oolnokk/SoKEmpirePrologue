@@ -451,6 +451,14 @@ await renderer.init(); // Wait for initialization
 // Canvas should now be in container
 ```
 
+## Additional Resources
+
+- **[Three.js 3D Background Integration Guide](THREEJS_3D_BACKGROUND_INTEGRATION_GUIDE.md)** - Comprehensive guide for integrating 3D scenes as game backgrounds
+- [3D Map Builder](3Dmapbuilder.html) - Visual map creation tool
+- [Gameplay Map Editor](gameplay-map-editor.html) - Grid-based gameplay editing
+- [Migration Guide](DEPRECATED_PARALLAX_TO_3D_MIGRATION.md) - Migrating from 2D parallax
+- [Three.js Offline Test](three-offline-test.html) - Test Three.js integration
+
 ## License
 
 This module is part of the SoK Empire Prologue project and follows the project's license.
