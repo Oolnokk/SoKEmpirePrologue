@@ -6,19 +6,21 @@ This project uses Three.js for 3D rendering in the game demo, map editors, and o
 
 ### Local Installation
 
-Three.js v0.160.0 and GLTFLoader are included in `docs/vendor/three/`:
-- `three.min.js` - Minified classic globals build
-- `three.module.js` - ES module build
-- `GLTFLoader.js` - Classic globals wrapper
-- `GLTFLoader.module.js` - ES module build
+Three.js v0.160.0 is included in `docs/vendor/three/` for offline use:
+- `three.min.js` - Minified classic globals build (**working** ✓)
+- `three.module.js` - ES module build (**working** ✓)
+- `GLTFLoader.js` - Classic globals wrapper (incomplete, missing dependencies)
+- `GLTFLoader.module.js` - ES module build (incomplete, missing dependencies)
 
 ### Loading Behavior
 
 The application automatically attempts to load Three.js from:
-1. Local vendor directory (offline-capable)
-2. Public CDNs (cdnjs, jsdelivr, unpkg) as fallbacks
+1. **Local vendor directory** (offline-capable) - three.js core library loads successfully
+2. **Public CDNs** (cdnjs, jsdelivr, unpkg) as fallbacks for GLTFLoader and full functionality
 
-No build steps or npm install commands are required to use Three.js. The files are ready to use and committed to the repository.
+The three.js core library works from local files. GLTFLoader currently requires CDN access or additional utility files. The application gracefully handles missing 3D assets and continues to function without them.
+
+No build steps or npm install commands are required. The files are committed to the repository and ready to use.
 
 ### Updating Three.js
 

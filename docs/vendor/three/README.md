@@ -2,15 +2,17 @@ Local fallback location for Three.js runtime scripts.
 
 ## Files Included
 
-This directory contains Three.js v0.160.0 and its GLTFLoader addon to provide local fallbacks when CDNs are unavailable or blocked.
+This directory contains Three.js v0.160.0 to provide local fallbacks when CDNs are unavailable or blocked.
 
 ### Three.js Core
-* `three.min.js` - Minified classic globals build (655KB)
-* `three.module.js` - ES module build (1.3MB, unminified for debugging)
+* `three.min.js` - Minified classic globals build (655KB) - **WORKING** ✓
+* `three.module.js` - ES module build (1.3MB, unminified for debugging) - **WORKING** ✓
 
-### GLTFLoader Addon
-* `GLTFLoader.js` - Wrapper script that dynamically imports the ES module and exposes it to `THREE.GLTFLoader`
-* `GLTFLoader.module.js` - ES module build (106KB)
+### GLTFLoader Addon (INCOMPLETE)
+* `GLTFLoader.js` - Wrapper script that dynamically imports the ES module
+* `GLTFLoader.module.js` - ES module build with modified imports (106KB)
+
+**Note:** The GLTFLoader currently has unmet dependencies (BufferGeometryUtils). The application will fall back to CDN sources for GLTF loading, or operate without 3D backgrounds if all sources fail. The core three.js library works correctly from local vendor files.
 
 ## Loading Behavior
 
