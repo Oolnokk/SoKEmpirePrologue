@@ -9,6 +9,8 @@ The renderer module provides a small, well-documented API for 3D rendering that 
 - 3D map builder (docs/3Dmapbuilder.html)
 - Gameplay map editor (docs/gameplay-map-editor.html)
 
+**🎯 For integrating 3D backgrounds into the game demo, see the comprehensive [Three.js 3D Background Integration Guide](THREEJS_3D_BACKGROUND_INTEGRATION_GUIDE.md)** which covers layering, camera synchronization, and common pitfalls.
+
 ## Features
 
 - **Runtime Detection**: Automatically detects `globalThis.THREE` availability
@@ -451,6 +453,34 @@ await renderer.init(); // Wait for initialization
 // Canvas should now be in container
 ```
 
+## Testing Integration
+
+To verify that the 3D background integration is working correctly:
+
+1. **Smoke Test Page**: Open [three-integration-smoke.html](three-integration-smoke.html) to run automated checks:
+   - Three.js detection and version
+   - GLTFLoader availability
+   - Renderer and adapter module loading
+   - Configuration validation
+
+2. **Manual Verification**: Serve the docs locally and test:
+   ```bash
+   # From the repository root
+   python -m http.server 8000
+   # Then open http://localhost:8000/docs/index.html
+   ```
+
+3. **Console Checks**: Look for these messages in the browser console:
+   - `[app] Three.js detected - initializing 3D background renderer`
+   - `[app] 3D background renderer initialized successfully`
+   - `[app] Loading 3D scene for area: <areaId>`
+   - `[app] 3D scene loaded successfully`
+
+4. **Visual Verification**:
+   - 2D game elements should be transparent, showing 3D background underneath
+   - 3D camera should follow game camera movement with parallax effect
+   - Mouse/touch input should work on 2D elements (3D canvas has pointer-events: none)
+
 ## Additional Resources
 
 - **[Three.js 3D Background Integration Guide](THREEJS_3D_BACKGROUND_INTEGRATION_GUIDE.md)** - Comprehensive guide for integrating 3D scenes as game backgrounds
@@ -458,6 +488,7 @@ await renderer.init(); // Wait for initialization
 - [Gameplay Map Editor](gameplay-map-editor.html) - Grid-based gameplay editing
 - [Migration Guide](DEPRECATED_PARALLAX_TO_3D_MIGRATION.md) - Migrating from 2D parallax
 - [Three.js Offline Test](three-offline-test.html) - Test Three.js integration
+- [Three.js Integration Smoke Test](three-integration-smoke.html) - Automated integration verification
 
 ## License
 
