@@ -15,6 +15,9 @@
     * { box-sizing: border-box; }
     body { margin: 0; padding: 16px; background: var(--bg); color: #e5e7eb; }
     h1 { margin: 0 0 8px; font-size: 20px; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .nav-link { color: #60a5fa; text-decoration: none; font-size: 14px; }
+    .nav-link:hover { color: #93c5fd; text-decoration: underline; }
     .app { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
 .toolbar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
@@ -235,6 +238,7 @@ select {
   <div class="app">
     <header>
       <h1>Grid Map Editor (Real 3D)</h1>
+      <a href="index.html" class="nav-link">← Back to Game</a>
     </header>
 
     <div class="deprecation-banner">
@@ -451,8 +455,17 @@ select {
   <script type="module">
     import * as THREE from "https://esm.sh/three@0.149.0";
     import { GLTFLoader } from "https://esm.sh/three@0.149.0/examples/jsm/loaders/GLTFLoader.js";
+    import * as BufferGeometryUtils from "https://esm.sh/three@0.149.0/examples/jsm/utils/BufferGeometryUtils.js";
 
     window.THREE = THREE;
+    // Expose GLTFLoader and BufferGeometryUtils to global scope for compatibility
+    try {
+      window.THREE.GLTFLoader = GLTFLoader;
+      window.THREE.BufferGeometryUtils = BufferGeometryUtils;
+    } catch (e) {
+      // If THREE is frozen/sealed, store in fallback location
+      window.getThreeGLTFLoaderCtor = () => GLTFLoader;
+    }
 
     const debugLines = [];
     function logDebug(msg) {
@@ -471,7 +484,7 @@ select {
       if (overlay) overlay.textContent = "JS ERROR: " + event.message;
     });
 
-    logDebug("Three ESM loaded: " + (THREE ? "YES" : "NO") + " | GLTFLoader: " + (GLTFLoader ? "YES" : "NO"));
+    logDebug("Three ESM loaded: " + (THREE ? "YES" : "NO") + " | GLTFLoader: " + (GLTFLoader ? "YES" : "NO") + " | BufferGeometryUtils: " + (BufferGeometryUtils ? "YES" : "NO"));
 
     const threeContainer = document.getElementById("threeViewport");
     const gridEl = document.getElementById("grid");
@@ -733,7 +746,7 @@ select {
     }
 
     let activeLayer = LAYERS.STRUCTURE;
-    let currentTileType = STRUCTURE_ASSETS[0].id;
+    let currentTileType = null; // Will be set after assets load
     let brushOrientationDeg = 0;
     let showArrows = true;
 

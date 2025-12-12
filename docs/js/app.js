@@ -887,6 +887,15 @@ import { initBountySystem, updateBountySystem, getBountyState } from './bounty.j
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
 
+// Visualsmap loader for 3D grid-based scenes
+let visualsmapLoaderModule = null;
+async function getVisualsmapLoader() {
+  if (!visualsmapLoaderModule) {
+    visualsmapLoaderModule = await import('../renderer/visualsmapLoader.js');
+  }
+  return visualsmapLoaderModule;
+}
+
 // Optional 3D renderer modules (lazy-loaded to avoid breaking boot if assets aren't hosted)
 const rendererModuleState = {
   promise: null,
@@ -909,6 +918,18 @@ const THREE_SCRIPT_SOURCES = [
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
   'https://unpkg.com/three@0.160.0/build/three.min.js',
+];
+// ES module sources for BufferGeometryUtils (required by GLTFLoader for some geometries)
+const BUFFER_GEOMETRY_UTILS_MODULE_SOURCES = [
+  '../vendor/three/BufferGeometryUtils.module.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js',
+  'https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js',
+];
+// Classic/UMD wrapper for BufferGeometryUtils
+const BUFFER_GEOMETRY_UTILS_SCRIPT_SOURCES = [
+  '../vendor/three/BufferGeometryUtils.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/utils/BufferGeometryUtils.js',
+  'https://unpkg.com/three@0.160.0/examples/js/utils/BufferGeometryUtils.js',
 ];
 // ES module sources for GLTFLoader (preferred for compatibility)
 const GLTF_LOADER_MODULE_SOURCES = [
@@ -1048,6 +1069,35 @@ async function ensureThreeGlobals() {
       throw new Error('Three.js failed to initialize');
     }
 
+    // Load BufferGeometryUtils if not already available (required by GLTFLoader for some geometries)
+    if (!globalThis.THREE.BufferGeometryUtils) {
+      try {
+        await importModuleFromSources('BufferGeometryUtils ES', BUFFER_GEOMETRY_UTILS_MODULE_SOURCES, (module) => {
+          const utils = module?.BufferGeometryUtils || module?.default || module;
+          if (utils && globalThis.THREE && !globalThis.THREE.BufferGeometryUtils) {
+            try {
+              globalThis.THREE.BufferGeometryUtils = utils;
+              console.log('[app] BufferGeometryUtils loaded from ES module and attached to THREE');
+            } catch (attachError) {
+              console.warn('[app] Cannot attach BufferGeometryUtils to THREE object:', attachError.message);
+            }
+          }
+        });
+      } catch (moduleError) {
+        console.warn('[app] BufferGeometryUtils ES module sources failed, trying classic/UMD fallbacks');
+        try {
+          await loadScriptFromSources('BufferGeometryUtils', BUFFER_GEOMETRY_UTILS_SCRIPT_SOURCES);
+          if (globalThis.THREE.BufferGeometryUtils) {
+            console.log('[app] BufferGeometryUtils loaded from local/CDN script');
+          }
+        } catch (scriptError) {
+          console.warn('[app] BufferGeometryUtils fallback failed - GLTFLoader may have issues with certain geometries:', scriptError);
+        }
+      }
+    } else {
+      console.log('[app] BufferGeometryUtils already available');
+    }
+
     if (!globalThis.THREE.GLTFLoader) {
       // Try ES module first for better compatibility with BufferGeometryUtils
       try {
@@ -1164,7 +1214,8 @@ async function ensureRendererModules() {
 // 3D Background Renderer State
 // TODO: Requires global THREE to be loaded (via CDN or bundler). See docs/renderer-README.md
 let GAME_RENDERER_3D = null;
-let GAME_RENDER_ADAPTER = null;
+let GAME_RENDER_ADAPTER = null; // For single scene3d.sceneUrl loading (legacy)
+let GAME_VISUALSMAP_ADAPTER = null; // For grid-based visualsmap loading
 let THREE_BG_CONTAINER = null;
 let THREE_BG_RESIZE_HANDLER = null;
 
@@ -5402,16 +5453,23 @@ async function handleReload3D() {
  */
 function handleDispose3D() {
   console.log('[app] Dispose 3D action triggered');
-  
+
   try {
     let disposed = false;
-    
-    // Dispose adapter
+
+    // Dispose adapters
     if (GAME_RENDER_ADAPTER && typeof GAME_RENDER_ADAPTER.dispose === 'function') {
       GAME_RENDER_ADAPTER.dispose();
       GAME_RENDER_ADAPTER = null;
       disposed = true;
       console.log('[app] 3D adapter disposed');
+    }
+
+    if (GAME_VISUALSMAP_ADAPTER && typeof GAME_VISUALSMAP_ADAPTER.dispose === 'function') {
+      GAME_VISUALSMAP_ADAPTER.dispose();
+      GAME_VISUALSMAP_ADAPTER = null;
+      disposed = true;
+      console.log('[app] Visualsmap adapter disposed');
     }
     
     // Dispose renderer
@@ -5662,14 +5720,37 @@ function boot(){
         if (registry && typeof registry.on === 'function') {
           registry.on('active-area-changed', async (area) => {
             try {
-              // Dispose previous adapter if exists
+              // Dispose previous adapters if exist
               if (GAME_RENDER_ADAPTER && typeof GAME_RENDER_ADAPTER.dispose === 'function') {
                 GAME_RENDER_ADAPTER.dispose();
                 GAME_RENDER_ADAPTER = null;
               }
+              if (GAME_VISUALSMAP_ADAPTER && typeof GAME_VISUALSMAP_ADAPTER.dispose === 'function') {
+                GAME_VISUALSMAP_ADAPTER.dispose();
+                GAME_VISUALSMAP_ADAPTER = null;
+              }
 
-              // Load new scene3d if available
-              if (area && area.scene3d && area.scene3d.sceneUrl && typeof adaptScene3dToRenderer === 'function') {
+              // Load visualsmap if available (preferred)
+              if (area && area.visualsMap) {
+                try {
+                  console.log('[app] Loading visualsmap for area:', area.id, area.visualsMap);
+                  const visualsmapLoader = await getVisualsmapLoader();
+                  const gameplayMapUrl = area.source || ''; // URL of the gameplaymap.json
+                  GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, area, gameplayMapUrl);
+                  if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
+                    console.log('[app] Visualsmap loaded successfully:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
+                    lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+                  } else {
+                    console.warn('[app] Visualsmap loaded but no objects found');
+                    lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
+                  }
+                } catch (error) {
+                  console.error('[app] Error loading visualsmap:', error);
+                  lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
+                }
+              }
+              // Fallback: Load single scene3d.sceneUrl if available and no visualsMap
+              else if (area && area.scene3d && area.scene3d.sceneUrl && typeof adaptScene3dToRenderer === 'function') {
                 console.log('[app] Loading 3D scene for area:', area.id, area.scene3d.sceneUrl);
                 GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, area.scene3d);
                 if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
@@ -5696,7 +5777,20 @@ function boot(){
               ? registry.getArea(fallbackAreaId)
               : null);
 
-            if (areaToLoad && areaToLoad.scene3d && areaToLoad.scene3d.sceneUrl && typeof adaptScene3dToRenderer === 'function') {
+            // Load visualsmap if available (preferred)
+            if (areaToLoad && areaToLoad.visualsMap) {
+              console.log('[app] Loading initial visualsmap:', areaToLoad.id);
+              const visualsmapLoader = await getVisualsmapLoader();
+              const gameplayMapUrl = areaToLoad.source || '';
+              GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, areaToLoad, gameplayMapUrl);
+              if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
+                lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+              } else {
+                lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
+              }
+            }
+            // Fallback: Load single scene3d.sceneUrl if available and no visualsMap
+            else if (areaToLoad && areaToLoad.scene3d && areaToLoad.scene3d.sceneUrl && typeof adaptScene3dToRenderer === 'function') {
               console.log('[app] Loading initial 3D scene:', areaToLoad.id);
               GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, areaToLoad.scene3d);
               if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {

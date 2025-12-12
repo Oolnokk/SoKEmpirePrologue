@@ -16,41 +16,36 @@ import { projectToGroundPlane, buildRenderSettings } from './scene3d.js';
  */
 function resolveSceneUrl(sceneUrl) {
   if (!sceneUrl) return sceneUrl;
-  
+
   try {
     // If it's already a complete URL (http://, https://, etc.), return as-is
     if (/^[a-z][a-z0-9+.-]*:/i.test(sceneUrl)) {
       return sceneUrl;
     }
-    
-    // Use document.baseURI (or location.href as fallback) to resolve relative URLs
-    const baseUrl = (typeof document !== 'undefined' && document.baseURI) || 
-                    (typeof location !== 'undefined' && location.href) || 
+
+    // Get the base URL - prefer location.href for more reliable path resolution
+    const baseUrl = (typeof window !== 'undefined' && window.location.href) ||
+                    (typeof document !== 'undefined' && document.baseURI) ||
                     '';
-    
+
     if (!baseUrl) {
       console.warn('[rendererAdapter] Cannot resolve URL: no baseURI available, returning original:', sceneUrl);
       return sceneUrl;
     }
-    
-    // For absolute paths starting with '/', resolve against the origin + base path
-    // This handles GitHub Pages deployment (e.g., /SoKEmpirePrologue/)
+
+    console.log('[rendererAdapter] Base URL detected:', baseUrl);
+
+    // For absolute paths starting with '/', treat them as relative to the current directory
+    // This handles GitHub Pages deployment where files are in a subdirectory (e.g., /SoKEmpirePrologue/docs/)
+    // Instead of treating '/assets/...' as root-relative, we treat it as relative to the current page's directory
     if (sceneUrl.startsWith('/')) {
-      // Extract base path from baseURI (e.g., /SoKEmpirePrologue/ from https://oolnokk.github.io/SoKEmpirePrologue/docs/)
-      const baseUrlObj = new URL(baseUrl);
-      const pathParts = baseUrlObj.pathname.split('/').filter(p => p);
-      
-      // If we're in a subdirectory (GitHub Pages repo deployment), prepend the repo name
-      // Heuristic: if path starts with a repo-like segment (not 'docs', 'assets', etc.), include it
-      const repoSegment = pathParts.length > 0 && !['docs', 'assets', 'config', 'js', 'vendor'].includes(pathParts[0]) 
-        ? '/' + pathParts[0] 
-        : '';
-      
-      const resolvedUrl = baseUrlObj.origin + repoSegment + sceneUrl;
-      console.log('[rendererAdapter] Resolved absolute path:', sceneUrl, '→', resolvedUrl);
-      return resolvedUrl;
+      // Strip the leading '/' and resolve as a relative path
+      const relativeUrl = sceneUrl.substring(1);
+      const resolved = new URL(relativeUrl, baseUrl).href;
+      console.log('[rendererAdapter] Resolved absolute-style path as relative:', sceneUrl, '→', resolved);
+      return resolved;
     }
-    
+
     // For relative paths, use standard URL resolution
     const resolved = new URL(sceneUrl, baseUrl).href;
     console.log('[rendererAdapter] Resolved relative path:', sceneUrl, '→', resolved);
