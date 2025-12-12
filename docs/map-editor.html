@@ -451,8 +451,17 @@ select {
   <script type="module">
     import * as THREE from "https://esm.sh/three@0.149.0";
     import { GLTFLoader } from "https://esm.sh/three@0.149.0/examples/jsm/loaders/GLTFLoader.js";
+    import * as BufferGeometryUtils from "https://esm.sh/three@0.149.0/examples/jsm/utils/BufferGeometryUtils.js";
 
     window.THREE = THREE;
+    // Expose GLTFLoader and BufferGeometryUtils to global scope for compatibility
+    try {
+      window.THREE.GLTFLoader = GLTFLoader;
+      window.THREE.BufferGeometryUtils = BufferGeometryUtils;
+    } catch (e) {
+      // If THREE is frozen/sealed, store in fallback location
+      window.getThreeGLTFLoaderCtor = () => GLTFLoader;
+    }
 
     const debugLines = [];
     function logDebug(msg) {
@@ -471,7 +480,7 @@ select {
       if (overlay) overlay.textContent = "JS ERROR: " + event.message;
     });
 
-    logDebug("Three ESM loaded: " + (THREE ? "YES" : "NO") + " | GLTFLoader: " + (GLTFLoader ? "YES" : "NO"));
+    logDebug("Three ESM loaded: " + (THREE ? "YES" : "NO") + " | GLTFLoader: " + (GLTFLoader ? "YES" : "NO") + " | BufferGeometryUtils: " + (BufferGeometryUtils ? "YES" : "NO"));
 
     const threeContainer = document.getElementById("threeViewport");
     const gridEl = document.getElementById("grid");
