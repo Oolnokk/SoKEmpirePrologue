@@ -732,10 +732,25 @@ function normalizeAreaDescriptor(area, options = {}) {
   const geometry = adaptLegacyLayoutGeometry({
     playableBounds: area.playableBounds,
     colliders: convertedColliders,
-  }, warnings);
-  validateExplicitGeometry(geometry.playableBounds, geometry.colliders, warnings, { allowDerivedPlayableBounds: true });
-  const playableBounds = geometry.playableBounds;
-  const alignedColliders = geometry.colliders;
+  }, null);
+  let playableBounds = geometry.playableBounds;
+  let alignedColliders = geometry.colliders;
+  if (!playableBounds) {
+    playableBounds = { left: -600, right: 600, source: PLAYABLE_BOUNDS_SOURCE.COLLIDERS };
+  }
+  if (!Array.isArray(alignedColliders) || alignedColliders.length === 0) {
+    alignedColliders = [{
+      id: 'ground-1',
+      label: 'Ground',
+      type: 'box',
+      left: playableBounds.left,
+      width: playableBounds.right - playableBounds.left,
+      topOffset: toNumber(area.ground?.offset, 0),
+      height: 64,
+      meta: { ground: true },
+    }];
+  }
+  validateExplicitGeometry(playableBounds, alignedColliders, warnings, { allowDerivedPlayableBounds: true });
   const explicitTilers = rawTilers.map((tiler, index) => normalizeTiler(tiler, index));
   const colliderTilers = collectColliderTilers(alignedColliders, warnings, explicitTilers.length);
   const convertedTilers = [...explicitTilers, ...colliderTilers];
@@ -936,8 +951,21 @@ export function convertLayoutToArea(layout, options = {}) {
     colliders: convertedColliders,
   }, warnings);
   validateExplicitGeometry(derivedGeometry.playableBounds, derivedGeometry.colliders, warnings, { allowDerivedPlayableBounds: true });
-  const playableBounds = derivedGeometry.playableBounds;
-  const alignedColliders = derivedGeometry.colliders;
+  let playableBounds = derivedGeometry.playableBounds;
+  const width = Number.isFinite(playableBounds?.left) && Number.isFinite(playableBounds?.right)
+    ? playableBounds.right - playableBounds.left
+    : null;
+  const shouldAlignColliders = width != null && playableBounds?.source !== PLAYABLE_BOUNDS_SOURCE.COLLIDERS;
+  const alignedColliders = derivedGeometry.colliders.map((col) => {
+    if (!shouldAlignColliders) return col;
+    if (!col || typeof col !== 'object') return col;
+    if (col?.meta?.autoAlignPlayableBounds === false) return col;
+    return {
+      ...col,
+      left: playableBounds.left,
+      width,
+    };
+  });
   const explicitTilers = rawTilers.map((tiler, index) => normalizeTiler(tiler, index));
   const colliderTilers = collectColliderTilers(alignedColliders, warnings, explicitTilers.length);
   const convertedTilers = [...explicitTilers, ...colliderTilers];
@@ -947,7 +975,14 @@ export function convertLayoutToArea(layout, options = {}) {
       warnings,
     }))
     .filter(Boolean);
-  const explicitSpawners = normalizeSpawnerList(layout.spawners, warnings, { source: 'layout' });
+  const explicitSpawners = normalizeSpawnerList(
+    [
+      ...(Array.isArray(layout.spawners) ? layout.spawners : []),
+      ...(Array.isArray(layout.spawnPoints) ? layout.spawnPoints : []),
+    ],
+    warnings,
+    { source: 'layout' },
+  );
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
   const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners, warnings);
   const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
