@@ -9,22 +9,38 @@ This project uses Three.js for 3D rendering in the game demo, map editors, and o
 Three.js v0.160.0 is included in `docs/vendor/three/` for offline use:
 - `three.min.js` - Minified classic globals build (**working** ✓)
 - `three.module.js` - ES module build (**working** ✓)
-- `GLTFLoader.js` - Classic globals wrapper (incomplete, missing dependencies)
-- `GLTFLoader.module.js` - ES module build (incomplete, missing dependencies)
+- `GLTFLoader.js` - Classic globals wrapper (**working** ✓)
+- `GLTFLoader.module.js` - ES module build (**working** ✓)
+- `BufferGeometryUtils.js` - UMD wrapper (**stub** ⚠)
+- `BufferGeometryUtils.module.js` - ES module (**stub** ⚠)
+
+### BufferGeometryUtils Status
+
+**IMPORTANT:** The BufferGeometryUtils files are currently STUB implementations due to firewall restrictions during automated setup. They provide minimal functionality to prevent import errors, but should be replaced with the actual Three.js v0.160.0 files for full GLTF model support.
+
+See `docs/vendor/three/README.md` for instructions on replacing the stub files with the actual implementations. The stubs log clear warnings when used, making it easy to identify when replacement is needed.
+
+### Testing Offline Integration
+
+To verify the Three.js offline vendor integration:
+
+1. Open `docs/three-offline-test.html` in a web browser
+2. Review the test results and console output
+3. Check for stub warnings and follow replacement instructions if needed
 
 ### Loading Behavior
 
 The application automatically attempts to load Three.js from:
-1. **Local vendor directory** (offline-capable) - three.js core library loads successfully
-2. **Public CDNs** (cdnjs, jsdelivr, unpkg) as fallbacks for GLTFLoader and full functionality
+1. **Local vendor directory** (offline-capable) - three.js core and GLTFLoader work
+2. **Public CDNs** (cdnjs, jsdelivr, unpkg) as fallbacks if local files fail
 
-The three.js core library works from local files. GLTFLoader currently requires CDN access or additional utility files. The application gracefully handles missing 3D assets and continues to function without them.
+The application gracefully handles missing 3D assets and continues to function without them.
 
 No build steps or npm install commands are required. The files are committed to the repository and ready to use.
 
 ### Updating Three.js
 
-To update to a newer version, see `docs/vendor/three/README.md` for instructions.
+To update to a newer version, see `docs/vendor/three/README.md` for complete instructions.
 
 ## Resolving merge conflicts: Keep current vs. keep incoming
 

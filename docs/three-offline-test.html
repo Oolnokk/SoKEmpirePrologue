@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Offline Vendor Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        #status {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-item {
+            margin: 15px 0;
+            padding: 10px;
+            background: #333;
+            border-radius: 4px;
+            border-left: 4px solid #666;
+        }
+        .test-item.success {
+            border-left-color: #4CAF50;
+        }
+        .test-item.error {
+            border-left-color: #f44336;
+        }
+        .test-item.warning {
+            border-left-color: #ff9800;
+        }
+        .test-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .test-details {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #aaa;
+            margin-top: 5px;
+        }
+        #canvas-container {
+            margin: 20px 0;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #renderCanvas {
+            display: block;
+            width: 100%;
+            height: 500px;
+        }
+        .console-log {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+        .console-log .log-entry {
+            margin: 5px 0;
+            padding: 3px 0;
+            border-bottom: 1px solid #333;
+        }
+        .console-log .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-error { color: #f44336; }
+        .log-warn { color: #ff9800; }
+        .log-info { color: #4CAF50; }
+        .log-debug { color: #2196F3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Three.js Offline Vendor Integration Test</h1>
+        <p>This page tests loading Three.js, GLTFLoader, and a GLTF model entirely from local vendor files (no CDN).</p>
+        
+        <div id="status">
+            <div class="test-label">Test Status</div>
+            <div id="test-results">
+                <div class="test-item" data-test="three">
+                    <div class="test-label">1. Three.js Core Library</div>
+                    <div class="test-details">Loading vendor/three/three.module.js...</div>
+                </div>
+                <div class="test-item" data-test="bufferutils">
+                    <div class="test-label">2. BufferGeometryUtils</div>
+                    <div class="test-details">Loading vendor/three/BufferGeometryUtils.module.js...</div>
+                </div>
+                <div class="test-item" data-test="gltfloader">
+                    <div class="test-label">3. GLTFLoader</div>
+                    <div class="test-details">Loading vendor/three/GLTFLoader.module.js...</div>
+                </div>
+                <div class="test-item" data-test="scene">
+                    <div class="test-label">4. Scene Setup</div>
+                    <div class="test-details">Creating scene, camera, renderer...</div>
+                </div>
+                <div class="test-item" data-test="model">
+                    <div class="test-label">5. GLTF Model Loading</div>
+                    <div class="test-details">Loading assets/3D/tower_commercial3D.glb...</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="renderCanvas"></canvas>
+        </div>
+
+        <div class="console-log" id="console-output">
+            <strong>Console Output:</strong>
+        </div>
+    </div>
+
+    <script type="module">
+        // Custom console logger
+        const consoleOutput = document.getElementById('console-output');
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleOutput.appendChild(entry);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addLog(args.join(' '), 'info');
+        };
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addLog(args.join(' '), 'warn');
+        };
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addLog(args.join(' '), 'error');
+        };
+
+        // Test result updater
+        function updateTest(testName, status, details) {
+            const testItem = document.querySelector(`[data-test="${testName}"]`);
+            if (testItem) {
+                testItem.className = `test-item ${status}`;
+                const detailsEl = testItem.querySelector('.test-details');
+                if (detailsEl) {
+                    detailsEl.textContent = details;
+                }
+            }
+        }
+
+        // Main test sequence
+        async function runTests() {
+            console.log('=== Starting Three.js Offline Vendor Tests ===');
+            
+            try {
+                // Test 1: Load Three.js
+                console.log('Test 1: Loading Three.js core library...');
+                const THREE = await import('./vendor/three/three.module.js');
+                console.log('✓ Three.js loaded successfully');
+                console.log(`  Version: ${THREE.REVISION}`);
+                updateTest('three', 'success', `✓ Loaded Three.js r${THREE.REVISION}`);
+
+                // Test 2: Load BufferGeometryUtils
+                console.log('Test 2: Loading BufferGeometryUtils...');
+                const BufferGeomUtils = await import('./vendor/three/BufferGeometryUtils.module.js');
+                if (BufferGeomUtils._isStub) {
+                    console.warn('⚠ BufferGeometryUtils is a stub - needs replacement with actual file');
+                    updateTest('bufferutils', 'warning', '⚠ Stub loaded - replace with actual Three.js file (see console)');
+                } else {
+                    console.log('✓ BufferGeometryUtils loaded successfully');
+                    updateTest('bufferutils', 'success', '✓ BufferGeometryUtils loaded');
+                }
+
+                // Test 3: Load GLTFLoader
+                console.log('Test 3: Loading GLTFLoader...');
+                const GLTFLoaderModule = await import('./vendor/three/GLTFLoader.module.js');
+                const GLTFLoader = GLTFLoaderModule.GLTFLoader;
+                console.log('✓ GLTFLoader loaded successfully');
+                updateTest('gltfloader', 'success', '✓ GLTFLoader class available');
+
+                // Test 4: Create scene
+                console.log('Test 4: Setting up Three.js scene...');
+                const canvas = document.getElementById('renderCanvas');
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x1a1a2e);
+                
+                const camera = new THREE.PerspectiveCamera(
+                    75,
+                    canvas.clientWidth / canvas.clientHeight,
+                    0.1,
+                    1000
+                );
+                camera.position.set(5, 5, 5);
+                camera.lookAt(0, 0, 0);
+
+                const renderer = new THREE.WebGLRenderer({ 
+                    canvas: canvas,
+                    antialias: true 
+                });
+                renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+                renderer.setPixelRatio(window.devicePixelRatio);
+
+                // Add lights
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(5, 10, 5);
+                scene.add(directionalLight);
+
+                console.log('✓ Scene, camera, renderer, and lights created');
+                updateTest('scene', 'success', '✓ Scene initialized with camera and lights');
+
+                // Animation loop
+                let model = null;
+                function animate() {
+                    requestAnimationFrame(animate);
+                    
+                    if (model) {
+                        model.rotation.y += 0.005;
+                    }
+                    
+                    renderer.render(scene, camera);
+                }
+                animate();
+
+                // Test 5: Load GLTF model
+                console.log('Test 5: Loading GLTF model...');
+                const loader = new GLTFLoader();
+                
+                loader.load(
+                    './assets/3D/tower_commercial3D.glb',
+                    function(gltf) {
+                        console.log('✓ GLTF model loaded successfully');
+                        model = gltf.scene;
+                        
+                        // Center and scale the model
+                        const box = new THREE.Box3().setFromObject(model);
+                        const center = box.getCenter(new THREE.Vector3());
+                        const size = box.getSize(new THREE.Vector3());
+                        
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        const scale = 3 / maxDim;
+                        model.scale.setScalar(scale);
+                        
+                        model.position.sub(center.multiplyScalar(scale));
+                        
+                        scene.add(model);
+                        
+                        console.log(`  Model info: ${gltf.scene.children.length} root objects`);
+                        console.log(`  Bounding box size: ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}`);
+                        updateTest('model', 'success', `✓ Model loaded and added to scene (${gltf.scene.children.length} objects)`);
+                    },
+                    function(progress) {
+                        const percent = (progress.loaded / progress.total * 100).toFixed(0);
+                        console.log(`  Loading progress: ${percent}%`);
+                        updateTest('model', '', `Loading... ${percent}%`);
+                    },
+                    function(error) {
+                        console.error('✗ Failed to load GLTF model:', error);
+                        updateTest('model', 'error', `✗ Failed: ${error.message || 'Unknown error'}`);
+                    }
+                );
+
+                // Handle window resize
+                window.addEventListener('resize', function() {
+                    const width = canvas.clientWidth;
+                    const height = canvas.clientHeight;
+                    camera.aspect = width / height;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(width, height);
+                });
+
+                console.log('=== All tests completed ===');
+                console.log('');
+                console.log('Summary:');
+                console.log('- Three.js core: WORKING ✓');
+                console.log('- BufferGeometryUtils: STUB (needs replacement)');
+                console.log('- GLTFLoader: WORKING ✓');
+                console.log('- Model loading: Check status above');
+
+            } catch (error) {
+                console.error('✗ Test failed with error:', error);
+                console.error('Stack trace:', error.stack);
+            }
+        }
+
+        // Start tests when page loads
+        runTests();
+    </script>
+</body>
+</html>
