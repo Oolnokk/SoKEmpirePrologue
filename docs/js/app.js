@@ -910,6 +910,18 @@ const THREE_SCRIPT_SOURCES = [
   'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
   'https://unpkg.com/three@0.160.0/build/three.min.js',
 ];
+// ES module sources for BufferGeometryUtils (required by GLTFLoader for some geometries)
+const BUFFER_GEOMETRY_UTILS_MODULE_SOURCES = [
+  '../vendor/three/BufferGeometryUtils.module.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js',
+  'https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js',
+];
+// Classic/UMD wrapper for BufferGeometryUtils
+const BUFFER_GEOMETRY_UTILS_SCRIPT_SOURCES = [
+  '../vendor/three/BufferGeometryUtils.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/utils/BufferGeometryUtils.js',
+  'https://unpkg.com/three@0.160.0/examples/js/utils/BufferGeometryUtils.js',
+];
 // ES module sources for GLTFLoader (preferred for compatibility)
 const GLTF_LOADER_MODULE_SOURCES = [
   '../vendor/three/GLTFLoader.module.js',
@@ -1046,6 +1058,35 @@ async function ensureThreeGlobals() {
 
     if (!globalThis.THREE) {
       throw new Error('Three.js failed to initialize');
+    }
+
+    // Load BufferGeometryUtils if not already available (required by GLTFLoader for some geometries)
+    if (!globalThis.THREE.BufferGeometryUtils) {
+      try {
+        await importModuleFromSources('BufferGeometryUtils ES', BUFFER_GEOMETRY_UTILS_MODULE_SOURCES, (module) => {
+          const utils = module?.BufferGeometryUtils || module?.default || module;
+          if (utils && globalThis.THREE && !globalThis.THREE.BufferGeometryUtils) {
+            try {
+              globalThis.THREE.BufferGeometryUtils = utils;
+              console.log('[app] BufferGeometryUtils loaded from ES module and attached to THREE');
+            } catch (attachError) {
+              console.warn('[app] Cannot attach BufferGeometryUtils to THREE object:', attachError.message);
+            }
+          }
+        });
+      } catch (moduleError) {
+        console.warn('[app] BufferGeometryUtils ES module sources failed, trying classic/UMD fallbacks');
+        try {
+          await loadScriptFromSources('BufferGeometryUtils', BUFFER_GEOMETRY_UTILS_SCRIPT_SOURCES);
+          if (globalThis.THREE.BufferGeometryUtils) {
+            console.log('[app] BufferGeometryUtils loaded from local/CDN script');
+          }
+        } catch (scriptError) {
+          console.warn('[app] BufferGeometryUtils fallback failed - GLTFLoader may have issues with certain geometries:', scriptError);
+        }
+      }
+    } else {
+      console.log('[app] BufferGeometryUtils already available');
     }
 
     if (!globalThis.THREE.GLTFLoader) {
