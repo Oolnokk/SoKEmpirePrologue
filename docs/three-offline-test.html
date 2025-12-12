@@ -183,9 +183,11 @@
                 // Test 2: Load BufferGeometryUtils
                 console.log('Test 2: Loading BufferGeometryUtils...');
                 const BufferGeomUtils = await import('./vendor/three/BufferGeometryUtils.module.js');
+                let isBufferUtilsStub = false;
                 if (BufferGeomUtils._isStub) {
                     console.warn('⚠ BufferGeometryUtils is a stub - needs replacement with actual file');
                     updateTest('bufferutils', 'warning', '⚠ Stub loaded - replace with actual Three.js file (see console)');
+                    isBufferUtilsStub = true;
                 } else {
                     console.log('✓ BufferGeometryUtils loaded successfully');
                     updateTest('bufferutils', 'success', '✓ BufferGeometryUtils loaded');
@@ -295,7 +297,7 @@
                 console.log('');
                 console.log('Summary:');
                 console.log('- Three.js core: WORKING ✓');
-                console.log('- BufferGeometryUtils: STUB (needs replacement)');
+                console.log(`- BufferGeometryUtils: ${isBufferUtilsStub ? 'STUB (needs replacement)' : 'WORKING ✓'}`);
                 console.log('- GLTFLoader: WORKING ✓');
                 console.log('- Model loading: Check status above');
 
