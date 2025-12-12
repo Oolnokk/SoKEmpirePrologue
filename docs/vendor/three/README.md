@@ -1,5 +1,8 @@
 Local fallback location for Three.js runtime scripts.
 
-Drop `three.min.js` and `GLTFLoader.js` (or the `loaders/GLTFLoader.min.js`) from a trusted Three.js distribution here to avoid CDN failures.
+Drop **both** the classic globals and ES-module builds here to avoid CDN failures:
 
-The loader in `docs/js/app.js` will try these local copies first, then fall back to multiple public CDNs.
+* `three.min.js` **and** `three.module.js`
+* `GLTFLoader.js` (or `loaders/GLTFLoader.min.js`) **and** `GLTFLoader.module.js` (or `examples/jsm/loaders/GLTFLoader.js`)
+
+The loader in `docs/js/app.js` will try local classic globals first, then ES modules, then multiple public CDNs.

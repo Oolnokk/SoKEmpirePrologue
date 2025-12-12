@@ -901,11 +901,23 @@ const THREE_SCRIPT_SOURCES = [
   'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
   'https://unpkg.com/three@0.160.0/build/three.min.js',
 ];
+const THREE_MODULE_SOURCES = [
+  './vendor/three/three.module.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
+  'https://unpkg.com/three@0.160.0/build/three.module.js',
+];
 const GLTF_LOADER_SCRIPT_SOURCES = [
   './vendor/three/GLTFLoader.js',
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/loaders/GLTFLoader.min.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js',
   'https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js',
+];
+const GLTF_LOADER_MODULE_SOURCES = [
+  './vendor/three/GLTFLoader.module.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/examples/jsm/loaders/GLTFLoader.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js',
+  'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js',
 ];
 
 function loadExternalScriptOnce(url) {
@@ -943,6 +955,37 @@ async function loadScriptFromSources(label, sources) {
   throw aggregate;
 }
 
+const externalModulePromises = new Map();
+
+async function importModuleFromSources(label, sources, onLoad) {
+  const errors = [];
+  for (const url of sources) {
+    const existing = externalModulePromises.get(url);
+    const promise = existing || import(/* webpackIgnore: true */ url);
+    externalModulePromises.set(url, promise);
+
+    try {
+      const module = await promise;
+      if (typeof onLoad === 'function') {
+        try {
+          onLoad(module, url);
+        } catch (handlerError) {
+          console.warn(`[app] ${label} post-load handler failed for ${url}:`, handlerError);
+        }
+      }
+      return module;
+    } catch (error) {
+      errors.push({ url, error });
+      console.warn(`[app] ${label} module load failed from ${url}:`, error?.message || error);
+    }
+  }
+
+  const message = `${label} module failed to load from all sources`;
+  const aggregate = new Error(message);
+  aggregate.causes = errors;
+  throw aggregate;
+}
+
 const threeGlobalState = {
   promise: null,
   error: null,
@@ -955,7 +998,17 @@ async function ensureThreeGlobals() {
 
   threeGlobalState.promise = (async () => {
     if (!globalThis.THREE) {
-      await loadScriptFromSources('Three.js', THREE_SCRIPT_SOURCES);
+      try {
+        await loadScriptFromSources('Three.js', THREE_SCRIPT_SOURCES);
+      } catch (scriptError) {
+        console.warn('[app] Three.js global script sources failed, trying ES module fallbacks');
+        await importModuleFromSources('Three.js ES', THREE_MODULE_SOURCES, (module) => {
+          const threeModule = module?.default || module;
+          if (threeModule && !globalThis.THREE) {
+            globalThis.THREE = threeModule;
+          }
+        });
+      }
     }
 
     if (!globalThis.THREE) {
@@ -963,7 +1016,17 @@ async function ensureThreeGlobals() {
     }
 
     if (!globalThis.THREE.GLTFLoader) {
-      await loadScriptFromSources('GLTFLoader', GLTF_LOADER_SCRIPT_SOURCES);
+      try {
+        await loadScriptFromSources('GLTFLoader', GLTF_LOADER_SCRIPT_SOURCES);
+      } catch (scriptError) {
+        console.warn('[app] GLTFLoader script sources failed, trying ES module fallbacks');
+        await importModuleFromSources('GLTFLoader ES', GLTF_LOADER_MODULE_SOURCES, (module) => {
+          const ctor = module?.GLTFLoader || module?.default;
+          if (ctor && globalThis.THREE && !globalThis.THREE.GLTFLoader) {
+            globalThis.THREE.GLTFLoader = ctor;
+          }
+        });
+      }
     }
 
     if (!globalThis.THREE.GLTFLoader) {
