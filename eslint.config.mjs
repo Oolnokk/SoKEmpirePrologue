@@ -10,6 +10,7 @@ const baseConfig = {
     sourceType: 'module',
     globals: {
       ...globals.node,
+      ...globals.browser, // Add browser globals for modules that may run in browser
     },
   },
   rules: {
