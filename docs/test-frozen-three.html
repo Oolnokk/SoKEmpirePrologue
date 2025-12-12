@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test: GLTFLoader with Frozen THREE</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .test-result.pass {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .test-result.fail {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .test-result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        #console-output {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test: GLTFLoader with Frozen THREE Object</h1>
+    <p>This test simulates the error condition where THREE object is frozen/sealed/non-extensible.</p>
+    
+    <div id="test-results"></div>
+    <div id="console-output">
+        <h3>Console Output:</h3>
+        <pre id="log"></pre>
+    </div>
+
+    <script type="module">
+        const testResults = document.getElementById('test-results');
+        const logElement = document.getElementById('log');
+        
+        // Capture console output
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        function appendLog(level, ...args) {
+            const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
+            logElement.textContent += `[${level}] ${msg}\n`;
+        }
+        
+        console.log = (...args) => { originalLog(...args); appendLog('LOG', ...args); };
+        console.warn = (...args) => { originalWarn(...args); appendLog('WARN', ...args); };
+        console.error = (...args) => { originalError(...args); appendLog('ERROR', ...args); };
+        
+        function addTestResult(name, passed, message) {
+            const div = document.createElement('div');
+            div.className = `test-result ${passed ? 'pass' : 'fail'}`;
+            div.innerHTML = `<strong>${passed ? '✓' : '✗'} ${name}</strong><br>${message}`;
+            testResults.appendChild(div);
+        }
+        
+        function addInfo(message) {
+            const div = document.createElement('div');
+            div.className = 'test-result info';
+            div.innerHTML = `<strong>ℹ Info:</strong> ${message}`;
+            testResults.appendChild(div);
+        }
+
+        async function runTests() {
+            try {
+                // Step 1: Load Three.js core
+                addInfo('Loading Three.js core library...');
+                const THREEModule = await import('./vendor/three/three.module.js');
+                const THREE = THREEModule.default || THREEModule;
+                globalThis.THREE = THREE;
+                console.log('Three.js loaded:', THREE.REVISION);
+                
+                // Step 2: Make THREE non-extensible to simulate the error condition
+                addInfo('Making THREE non-extensible to simulate the error condition...');
+                Object.preventExtensions(globalThis.THREE);
+                console.log('THREE object non-extensible. Object.isExtensible(THREE):', Object.isExtensible(globalThis.THREE));
+                
+                // Step 3: Test that THREE is actually non-extensible
+                let canAddProperty = true;
+                try {
+                    globalThis.THREE.TestProperty = 'should fail';
+                    canAddProperty = globalThis.THREE.TestProperty === 'should fail';
+                } catch (e) {
+                    canAddProperty = false;
+                }
+                
+                addTestResult(
+                    'THREE is non-extensible', 
+                    !canAddProperty,
+                    !canAddProperty ? 'Cannot add properties to non-extensible THREE object' : 'THREE.TestProperty was set (unexpected)'
+                );
+                
+                // Step 4: Load BufferGeometryUtils (required by GLTFLoader)
+                addInfo('Loading BufferGeometryUtils...');
+                const BufferGeometryUtilsModule = await import('./vendor/three/BufferGeometryUtils.module.js');
+                // Manually attach since THREE is frozen
+                if (!globalThis.THREE.BufferGeometryUtils) {
+                    console.warn('Cannot attach BufferGeometryUtils to frozen THREE - this is expected');
+                }
+                
+                // Step 5: Load GLTFLoader with frozen THREE
+                addInfo('Loading GLTFLoader with frozen THREE...');
+                const GLTFLoaderModule = await import('./vendor/three/GLTFLoader.module.js');
+                const GLTFLoaderCtor = GLTFLoaderModule.GLTFLoader;
+                
+                // Step 6: Simulate what app.js does - try to attach, catch error, store in fallback
+                let attachedToTHREE = false;
+                let storedInFallback = false;
+                
+                try {
+                    globalThis.THREE.GLTFLoader = GLTFLoaderCtor;
+                    attachedToTHREE = true;
+                } catch (attachError) {
+                    console.warn('Cannot attach GLTFLoader to THREE (expected):', attachError.message);
+                    // Store in fallback state (simulating threeGlobalState.gltfLoaderCtor)
+                    globalThis.__testGLTFLoaderFallback = GLTFLoaderCtor;
+                    storedInFallback = true;
+                }
+                
+                addTestResult(
+                    'GLTFLoader fallback storage', 
+                    storedInFallback && !attachedToTHREE,
+                    storedInFallback ? 'GLTFLoader stored in fallback (cannot attach to frozen THREE)' : 'GLTFLoader attached to THREE'
+                );
+                
+                // Step 7: Simulate the getThreeGLTFLoaderCtor() accessor
+                function getThreeGLTFLoaderCtor() {
+                    return globalThis.THREE?.GLTFLoader || globalThis.__testGLTFLoaderFallback;
+                }
+                
+                const LoaderCtor = getThreeGLTFLoaderCtor();
+                addTestResult(
+                    'GLTFLoader accessible via getter',
+                    LoaderCtor !== null && LoaderCtor !== undefined,
+                    LoaderCtor ? 'getThreeGLTFLoaderCtor() returned constructor' : 'No constructor available'
+                );
+                
+                // Step 8: Test instantiation
+                if (LoaderCtor) {
+                    try {
+                        const loader = new LoaderCtor();
+                        addTestResult(
+                            'GLTFLoader instantiation',
+                            loader !== null,
+                            'Successfully created GLTFLoader instance using fallback constructor'
+                        );
+                        
+                        // Verify it's actually a loader
+                        const hasLoadMethod = typeof loader.load === 'function';
+                        addTestResult(
+                            'GLTFLoader has load method',
+                            hasLoadMethod,
+                            hasLoadMethod ? 'Loader instance has load() method' : 'Loader missing load() method'
+                        );
+                    } catch (e) {
+                        addTestResult('GLTFLoader instantiation', false, `Failed to instantiate: ${e.message}`);
+                    }
+                } else {
+                    addTestResult('GLTFLoader instantiation', false, 'No constructor available');
+                }
+                
+                // Summary
+                addInfo('Test complete! The fallback mechanism should allow GLTFLoader to work even with frozen THREE.');
+                
+            } catch (error) {
+                addTestResult('Test execution', false, `Test failed: ${error.message}`);
+                console.error('Test error:', error);
+            }
+        }
+        
+        runTests();
+    </script>
+</body>
+</html>

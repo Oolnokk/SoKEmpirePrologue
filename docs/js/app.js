@@ -1133,9 +1133,12 @@ async function ensureRendererModules() {
   rendererModuleState.promise = (async () => {
     try {
       const three = await ensureThreeGlobals();
-      if (!three || !three.GLTFLoader) {
+      // Check if GLTFLoader is available via either method (attached or fallback)
+      const loaderCtor = three?.GLTFLoader || threeGlobalState.gltfLoaderCtor;
+      if (!three || !loaderCtor) {
         throw new Error('Three.js not available for renderer');
       }
+      console.log('[app] 3D renderer modules ready - GLTFLoader available via', three.GLTFLoader ? 'THREE.GLTFLoader' : 'fallback getter');
       const [rendererModule, adapterModule] = await Promise.all([
         import('../renderer/index.js'),
         import('../renderer/rendererAdapter.js'),
