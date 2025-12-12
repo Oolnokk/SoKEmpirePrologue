@@ -83,6 +83,16 @@ export class Renderer {
       this.scene = new this.THREE.Scene();
       this.scene.background = new this.THREE.Color(this.clearColor);
 
+      // Add basic lighting so models aren't completely black
+      // Ambient light provides base illumination
+      const ambientLight = new this.THREE.AmbientLight(0xffffff, 0.6);
+      this.scene.add(ambientLight);
+
+      // Directional light adds definition and depth
+      const directionalLight = new this.THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(5, 10, 7.5);
+      this.scene.add(directionalLight);
+
       // Create camera (default perspective)
       this.camera = new this.THREE.PerspectiveCamera(
         50, // fov
