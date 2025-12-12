@@ -8,11 +8,15 @@ This directory contains Three.js v0.160.0 to provide local fallbacks when CDNs a
 * `three.min.js` - Minified classic globals build (655KB) - **WORKING** ✓
 * `three.module.js` - ES module build (1.3MB, unminified for debugging) - **WORKING** ✓
 
-### GLTFLoader Addon (INCOMPLETE)
-* `GLTFLoader.js` - Wrapper script that dynamically imports the ES module
-* `GLTFLoader.module.js` - ES module build with modified imports (106KB)
+### GLTFLoader Addon
+* `GLTFLoader.js` - Wrapper script that dynamically imports the ES module - **WORKING** ✓
+* `GLTFLoader.module.js` - ES module build with modified imports (106KB) - **WORKING** ✓
 
-**Note:** The GLTFLoader currently has unmet dependencies (BufferGeometryUtils). The application will fall back to CDN sources for GLTF loading, or operate without 3D backgrounds if all sources fail. The core three.js library works correctly from local vendor files.
+### BufferGeometryUtils (Required by GLTFLoader)
+* `BufferGeometryUtils.js` - UMD/classic wrapper - **STUB** ⚠
+* `BufferGeometryUtils.module.js` - ES module build - **STUB** ⚠
+
+**IMPORTANT:** The BufferGeometryUtils files are currently STUB implementations due to firewall restrictions during automated setup. They provide minimal functionality to prevent import errors but should be replaced with the actual Three.js v0.160.0 files for full functionality.
 
 ## Loading Behavior
 
@@ -23,7 +27,47 @@ The loader in `docs/js/app.js` attempts to load Three.js in this order:
 
 For GLTFLoader, the same fallback pattern applies.
 
-## Updating Three.js
+## Replacing BufferGeometryUtils Stub Files
+
+Due to firewall/download restrictions, the BufferGeometryUtils files are STUB implementations. To complete the offline vendor integration:
+
+### Option 1: Manual Download (Recommended)
+
+1. Download the actual file from Three.js v0.160.0:
+   - URL: `https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js`
+   - Alternative CDN: `https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js`
+
+2. Save as: `docs/vendor/three/BufferGeometryUtils.module.js`
+
+3. Update the import at the top of the file:
+   ```javascript
+   // Change this line:
+   import { ... } from 'three';
+   // To this:
+   import { ... } from './three.module.js';
+   ```
+
+4. The `BufferGeometryUtils.js` wrapper file will automatically use the updated module.
+
+### Option 2: Using Node.js (if npm available)
+
+```bash
+npm install three@0.160.0
+cp node_modules/three/examples/jsm/utils/BufferGeometryUtils.js docs/vendor/three/BufferGeometryUtils.module.js
+```
+
+Then edit the import as described in Option 1, step 3.
+
+### Verification
+
+After replacing the stub files, test the integration:
+
+1. Open `docs/three-offline-test.html` in a web browser
+2. Check the console output and test results
+3. Verify the GLTF model loads and displays correctly
+4. Look for warnings about stub implementations - they should be gone
+
+## Updating Three.js to a Newer Version
 
 To update to a newer version:
 
@@ -37,8 +81,14 @@ To update to a newer version:
    cp node_modules/three/build/three.min.js docs/vendor/three/
    cp node_modules/three/build/three.module.js docs/vendor/three/
    cp node_modules/three/examples/jsm/loaders/GLTFLoader.js docs/vendor/three/GLTFLoader.module.js
+   cp node_modules/three/examples/jsm/utils/BufferGeometryUtils.js docs/vendor/three/BufferGeometryUtils.module.js
    ```
 
-3. Update the version references in `docs/js/app.js` CDN URLs if needed.
+3. Update imports in both loader files:
+   - In `GLTFLoader.module.js`: Change `from 'three'` to `from './three.module.js'`
+   - In `GLTFLoader.module.js`: Change `from '../utils/BufferGeometryUtils.js'` to `from './BufferGeometryUtils.module.js'`
+   - In `BufferGeometryUtils.module.js`: Change `from 'three'` to `from './three.module.js'`
 
-Note: The `GLTFLoader.js` wrapper file in this directory should remain compatible across three.js versions as long as the ES module structure stays the same.
+4. Update the version references in `docs/js/app.js` CDN URLs if needed.
+
+Note: The wrapper files (`GLTFLoader.js` and `BufferGeometryUtils.js`) in this directory should remain compatible across three.js versions as long as the ES module structure stays the same.
