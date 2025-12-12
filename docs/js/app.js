@@ -885,6 +885,7 @@ import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
+import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
 
 // Optional 3D renderer modules (lazy-loaded to avoid breaking boot if assets aren't hosted)
 const rendererModuleState = {
@@ -5613,6 +5614,32 @@ function boot(){
         // Start animation loop
         if (typeof GAME_RENDERER_3D.start === 'function') {
           GAME_RENDERER_3D.start();
+        }
+
+        // Add camera synchronization (Pattern A: move 3D camera with game camera)
+        if (typeof GAME_RENDERER_3D.on === 'function') {
+          GAME_RENDERER_3D.on('frame', () => {
+            try {
+              const gameCamera = window.GAME?.CAMERA;
+              if (gameCamera && GAME_RENDERER_3D) {
+                syncThreeCamera({
+                  renderer: GAME_RENDERER_3D,
+                  gameCamera: gameCamera,
+                  config: {
+                    parallaxFactor: 0.5,   // Half-speed parallax for depth effect
+                    cameraHeight: 30,       // Elevated view angle
+                    cameraDistance: 50,     // Distance from scene
+                    lookAtOffsetY: 0        // Look at ground level
+                  }
+                });
+              }
+            } catch (err) {
+              // Silently handle sync errors to avoid breaking render loop
+              if (window.DEBUG_CAMERA_SYNC) {
+                console.warn('[app] Camera sync error:', err);
+              }
+            }
+          });
         }
 
         // Add resize handler
