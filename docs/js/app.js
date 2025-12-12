@@ -895,28 +895,32 @@ const rendererModuleState = {
 
 // Lazy-loading helpers for external Three.js dependencies
 const externalScriptPromises = new Map();
-const THREE_SCRIPT_SOURCES = [
-  './vendor/three/three.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js',
-  'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
-  'https://unpkg.com/three@0.160.0/build/three.min.js',
-];
+// Try ES module sources first for better compatibility with GLTFLoader
 const THREE_MODULE_SOURCES = [
-  './vendor/three/three.module.js',
+  '../vendor/three/three.module.js',
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
   'https://unpkg.com/three@0.160.0/build/three.module.js',
 ];
-const GLTF_LOADER_SCRIPT_SOURCES = [
-  './vendor/three/GLTFLoader.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/loaders/GLTFLoader.min.js',
-  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js',
-  'https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js',
+// Classic/UMD builds as fallback (note: deprecated in r150+, to be removed in future versions)
+const THREE_SCRIPT_SOURCES = [
+  '../vendor/three/three.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
+  'https://unpkg.com/three@0.160.0/build/three.min.js',
 ];
+// ES module sources for GLTFLoader (preferred for compatibility)
 const GLTF_LOADER_MODULE_SOURCES = [
-  './vendor/three/GLTFLoader.module.js',
+  '../vendor/three/GLTFLoader.module.js',
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/examples/jsm/loaders/GLTFLoader.min.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js',
+  'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js',
+];
+// Classic/UMD wrapper (requires ES module support for dynamic import)
+const GLTF_LOADER_SCRIPT_SOURCES = [
+  '../vendor/three/GLTFLoader.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/loaders/GLTFLoader.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js',
   'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js',
 ];
 
@@ -1003,13 +1007,8 @@ async function ensureThreeGlobals() {
 
   threeGlobalState.promise = (async () => {
     if (!globalThis.THREE) {
+      // Try ES module first for better GLTFLoader compatibility
       try {
-        await loadScriptFromSources('Three.js', THREE_SCRIPT_SOURCES);
-        if (globalThis.THREE) {
-          console.log(`[app] Three.js r${globalThis.THREE.REVISION || 'unknown'} loaded from local/CDN script`);
-        }
-      } catch (scriptError) {
-        console.warn('[app] Three.js global script sources failed, trying ES module fallbacks');
         await importModuleFromSources('Three.js ES', THREE_MODULE_SOURCES, (module) => {
           const threeModule = module?.default || module;
           if (threeModule && !globalThis.THREE) {
@@ -1017,6 +1016,12 @@ async function ensureThreeGlobals() {
             console.log(`[app] Three.js r${threeModule.REVISION || 'unknown'} loaded from ES module`);
           }
         });
+      } catch (moduleError) {
+        console.warn('[app] Three.js ES module sources failed, trying classic/UMD fallbacks');
+        await loadScriptFromSources('Three.js', THREE_SCRIPT_SOURCES);
+        if (globalThis.THREE) {
+          console.log(`[app] Three.js r${globalThis.THREE.REVISION || 'unknown'} loaded from local/CDN script`);
+        }
       }
     } else {
       // THREE already exists - check version compatibility
@@ -1029,13 +1034,8 @@ async function ensureThreeGlobals() {
     }
 
     if (!globalThis.THREE.GLTFLoader) {
+      // Try ES module first for better compatibility with BufferGeometryUtils
       try {
-        await loadScriptFromSources('GLTFLoader', GLTF_LOADER_SCRIPT_SOURCES);
-        if (globalThis.THREE.GLTFLoader) {
-          console.log('[app] GLTFLoader loaded from local/CDN script');
-        }
-      } catch (scriptError) {
-        console.warn('[app] GLTFLoader script sources failed, trying ES module fallbacks');
         await importModuleFromSources('GLTFLoader ES', GLTF_LOADER_MODULE_SOURCES, (module) => {
           const ctor = module?.GLTFLoader || module?.default;
           if (ctor && globalThis.THREE && !globalThis.THREE.GLTFLoader) {
@@ -1043,6 +1043,12 @@ async function ensureThreeGlobals() {
             console.log('[app] GLTFLoader loaded from ES module');
           }
         });
+      } catch (moduleError) {
+        console.warn('[app] GLTFLoader ES module sources failed, trying classic/UMD fallbacks');
+        await loadScriptFromSources('GLTFLoader', GLTF_LOADER_SCRIPT_SOURCES);
+        if (globalThis.THREE.GLTFLoader) {
+          console.log('[app] GLTFLoader loaded from local/CDN script');
+        }
       }
     } else {
       console.log('[app] GLTFLoader already available');
