@@ -1,5 +1,29 @@
 # SoKEmpirePrologue
 
+## Three.js Setup
+
+This project uses Three.js for 3D rendering in the game demo, map editors, and other tools. Three.js is provided via local vendor files with CDN fallbacks.
+
+### Local Installation
+
+Three.js v0.160.0 and GLTFLoader are included in `docs/vendor/three/`:
+- `three.min.js` - Minified classic globals build
+- `three.module.js` - ES module build
+- `GLTFLoader.js` - Classic globals wrapper
+- `GLTFLoader.module.js` - ES module build
+
+### Loading Behavior
+
+The application automatically attempts to load Three.js from:
+1. Local vendor directory (offline-capable)
+2. Public CDNs (cdnjs, jsdelivr, unpkg) as fallbacks
+
+No build steps or npm install commands are required to use Three.js. The files are ready to use and committed to the repository.
+
+### Updating Three.js
+
+To update to a newer version, see `docs/vendor/three/README.md` for instructions.
+
 ## Resolving merge conflicts: Keep current vs. keep incoming
 
 When Git highlights a conflict, your editor may offer **Keep Current Changes** or **Keep Incoming Changes** as quick resolutions. They correspond to the two halves of the conflict markers in the file:
