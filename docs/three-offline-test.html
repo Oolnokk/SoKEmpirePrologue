@@ -248,7 +248,19 @@
 
                 // Test 5: Load GLTF model
                 console.log('Test 5: Loading GLTF model...');
-                const loader = new GLTFLoader();
+                
+                // Get GLTFLoader constructor using tolerant pattern
+                const LoaderCtor = (globalThis.THREE && globalThis.THREE.GLTFLoader) || 
+                                   (globalThis.getThreeGLTFLoaderCtor && globalThis.getThreeGLTFLoaderCtor()) ||
+                                   (typeof GLTFLoader !== 'undefined' ? GLTFLoader : null);
+                
+                if (!LoaderCtor) {
+                    console.error('[test] GLTFLoader not available - cannot load glTF model');
+                    updateStatus('gltf-test', 'error', 'GLTFLoader not available');
+                    return;
+                }
+                
+                const loader = new LoaderCtor();
                 
                 loader.load(
                     './assets/3D/tower_commercial3D.glb',

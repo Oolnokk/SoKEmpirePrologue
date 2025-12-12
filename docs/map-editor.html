@@ -752,7 +752,17 @@ select {
     let cameraRotY = Number(camRotYInput.value) || 35;
     let cameraDistance = Number(camDistanceInput.value) || 40;
 
-    const gltfLoader = new GLTFLoader();
+    // Get GLTFLoader constructor using tolerant pattern
+    const LoaderCtor = (globalThis.THREE && globalThis.THREE.GLTFLoader) || 
+                       (globalThis.getThreeGLTFLoaderCtor && globalThis.getThreeGLTFLoaderCtor()) ||
+                       (typeof GLTFLoader !== 'undefined' ? GLTFLoader : null);
+    
+    if (!LoaderCtor) {
+      console.error('[map-editor] GLTFLoader not available - cannot load glTF models');
+      alert('GLTFLoader not available. Cannot load 3D models.');
+    }
+    
+    const gltfLoader = LoaderCtor ? new LoaderCtor() : null;
 
     function getActiveGridState() { return layerStates[activeLayer]; }
     function getCellState(row, col) { return getActiveGridState()[row][col]; }
@@ -1070,6 +1080,11 @@ select {
     }
 
     function loadGltfForAsset(asset, file) {
+      if (!gltfLoader) {
+        logDebug("ERROR: Cannot load model - GLTFLoader not available");
+        return;
+      }
+      
       const url = URL.createObjectURL(file);
       asset.gltfFileName = file.name;
 
@@ -1099,6 +1114,11 @@ select {
     }
 
     function loadGltfFromPath(asset, path) {
+      if (!gltfLoader) {
+        logDebug("ERROR: Cannot load model - GLTFLoader not available");
+        return;
+      }
+      
       logDebug("Auto-loading model for " + asset.label + ": " + path);
 
       gltfLoader.load(
