@@ -42,9 +42,10 @@ function resolveAssetPath(assetPath, baseContext = null) {
     return assetPath;
   }
 
-  // Use current page location as base
-  const baseUrl = (typeof window !== 'undefined' && window.location.href) ||
-                  (typeof document !== 'undefined' && document.baseURI) || '';
+  // Use provided context or current page location as base
+  const baseUrl = baseContext ||
+    (typeof window !== 'undefined' && window.location.href) ||
+    (typeof document !== 'undefined' && document.baseURI) || '';
 
   if (!baseUrl) {
     console.warn('[visualsmapLoader] Cannot resolve asset path: no baseURI available, returning original:', assetPath);
@@ -109,40 +110,28 @@ async function loadAssetConfig(assetType) {
  * @param {boolean} alignToPath - Whether to align world to gameplay path
  * @returns {Object} World position {x, y, z}
  */
-function gridToWorld(row, col, rows, cols, cellSize, gameplayPath, alignToPath) {
-  // Calculate center of grid
-  const gridCenterRow = rows / 2;
-  const gridCenterCol = cols / 2;
+function gridToWorld(row, col, rows, cols, cellSize, pathYawRad, alignToPath) {
+  // Match editor centering: grid spans from -(N-1)/2 .. +(N-1)/2
+  const halfRows = (rows - 1) / 2;
+  const halfCols = (cols - 1) / 2;
 
-  // Position relative to grid center
-  const relRow = row - gridCenterRow;
-  const relCol = col - gridCenterCol;
+  const relRow = row - halfRows;
+  const relCol = col - halfCols;
 
-  if (alignToPath && gameplayPath?.start && gameplayPath?.end) {
-    // Gameplay path defines the horizontal axis
-    // Calculate path direction
-    const pathRow = (gameplayPath.start.row + gameplayPath.end.row) / 2;
-    const pathStartCol = gameplayPath.start.col;
-    const pathEndCol = gameplayPath.end.col;
+  let x = relCol * cellSize;
+  let z = -relRow * cellSize; // Negative because row 0 is top
 
-    // Offset from path
-    const alongPath = (col - pathStartCol) * cellSize;
-    const awayFromPath = (pathRow - row) * cellSize; // Negative row offset = positive Z (into screen)
-
-    return {
-      x: alongPath,
-      y: 0, // Ground level
-      z: awayFromPath
-    };
+  if (alignToPath && Number.isFinite(pathYawRad)) {
+    // Rotate world so gameplay path aligns to +X (editor behavior rotates the root)
+    const cos = Math.cos(-pathYawRad);
+    const sin = Math.sin(-pathYawRad);
+    const rx = x * cos - z * sin;
+    const rz = x * sin + z * cos;
+    x = rx;
+    z = rz;
   }
 
-  // Default: no path alignment
-  // X increases to the right, Z increases away from camera (up on grid)
-  return {
-    x: relCol * cellSize,
-    y: 0,
-    z: -relRow * cellSize // Negative because row 0 is at top (back) of scene
-  };
+  return { x, y: 0, z };
 }
 
 /**
@@ -179,12 +168,44 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log('[visualsmapLoader] - Layers:', Object.keys(visualsMap.layerStates || {}));
 
     const { rows = 20, cols = 20, layerStates = {}, gameplayPath, alignWorldToPath = false } = visualsMap;
+    const visualsMapBase = visualsMapUrl.substring(0, visualsMapUrl.lastIndexOf('/') + 1);
+
+    // Prefer inline asset definitions from visualsmap JSON when available
+    const inlineAssetMap = new Map();
+    ['segments', 'structures', 'decorations'].forEach(section => {
+      const list = visualsMap.assets?.[section];
+      if (Array.isArray(list)) {
+        list.forEach(asset => {
+          if (asset?.id) inlineAssetMap.set(asset.id, asset);
+        });
+      }
+    });
+    const usingInlineAssets = inlineAssetMap.size > 0;
+    if (usingInlineAssets) {
+      console.log('[visualsmapLoader] Using inline asset definitions from visualsmap JSON');
+    }
+
     // Use the global grid unit world size configuration (default 30)
     const cellSize = (typeof window !== 'undefined' && window.GRID_UNIT_WORLD_SIZE) || 30;
     console.log(`[visualsmapLoader] Using cellSize: ${cellSize} (from GRID_UNIT_WORLD_SIZE)`);
     const loadedObjects = [];
     const assetCache = new Map();
     const gltfCache = new Map();
+
+    // Precompute path yaw to rotate world like the editor (world root rotated)
+    let pathYawRad = null;
+    if (alignWorldToPath && gameplayPath?.start && gameplayPath?.end) {
+      const halfRows = (rows - 1) / 2;
+      const halfCols = (cols - 1) / 2;
+      const startX = (gameplayPath.start.col - halfCols) * cellSize;
+      const startZ = -(gameplayPath.start.row - halfRows) * cellSize;
+      const endX = (gameplayPath.end.col - halfCols) * cellSize;
+      const endZ = -(gameplayPath.end.row - halfRows) * cellSize;
+      const dx = endX - startX;
+      const dz = endZ - startZ;
+      pathYawRad = Math.atan2(dz, dx);
+      console.log(`[visualsmapLoader] Path yaw (deg): ${((pathYawRad * 180) / Math.PI).toFixed(2)}`);
+    }
 
     // Process layers in order: ground, structure, decoration
     const layerOrder = ['ground', 'structure', 'decoration'];
@@ -200,15 +221,21 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           const cell = layer[row]?.[col];
           if (!cell || !cell.type) continue;
 
-          // Load asset config if not cached
+          // Load asset config if not cached; prefer inline asset metadata
           if (!assetCache.has(cell.type)) {
-            const config = await loadAssetConfig(cell.type);
-            assetCache.set(cell.type, config);
-            
-            if (config) {
-              console.log(`[visualsmapLoader] ✓ Loaded config for ${cell.type}:`, config.gltfPath || 'no gltfPath');
+            const inlineConfig = inlineAssetMap.get(cell.type) || null;
+            if (inlineConfig) {
+              assetCache.set(cell.type, inlineConfig);
+              console.log(`[visualsmapLoader] ✓ Using inline asset config for ${cell.type}`);
             } else {
-              console.warn(`[visualsmapLoader] ✗ Failed to load config for ${cell.type}`);
+              const config = await loadAssetConfig(cell.type);
+              assetCache.set(cell.type, config);
+
+              if (config) {
+                console.log(`[visualsmapLoader] ✓ Loaded config for ${cell.type}:`, config.gltfPath || 'no gltfPath');
+              } else {
+                console.warn(`[visualsmapLoader] ✗ Failed to load config for ${cell.type}`);
+              }
             }
           }
 
@@ -217,9 +244,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             console.warn(`[visualsmapLoader] ✗ No config for asset type: ${cell.type} at (${row},${col})`);
             continue;
           }
+          const inlineAsset = inlineAssetMap.has(cell.type);
 
           // Resolve GLTF path
-          const gltfUrl = resolveAssetPath(assetConfig.gltfPath);
+          const gltfCandidate = assetConfig.gltfPath || assetConfig.gltfFileName;
+          const gltfUrl = resolveAssetPath(gltfCandidate, inlineAsset ? visualsMapBase : null);
           if (!gltfUrl) {
             console.warn(`[visualsmapLoader] ✗ No gltfPath for asset: ${cell.type} at (${row},${col})`);
             console.warn(`[visualsmapLoader]   Asset config:`, assetConfig);
@@ -265,7 +294,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             }
 
             // Calculate world position
-            const worldPos = gridToWorld(row, col, rows, cols, cellSize, gameplayPath, alignWorldToPath);
+            const worldPos = gridToWorld(row, col, rows, cols, cellSize, pathYawRad, alignWorldToPath);
 
             // DEBUG: Log first few positions to verify grid placement
             if (loadedObjects.length < 5) {
@@ -273,20 +302,20 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             }
 
             // Apply base scale with GRID_UNIT_WORLD_SIZE factor
-            // Increased to 300/cellSize to fill grid cells (10x for cellSize=30)
-            const gridScaleFactor = 300 / cellSize;
+            // Inline editor exports express baseScale in grid units; legacy configs keep previous scaling
             const baseScale = assetConfig.baseScale || { x: 1, y: 1, z: 1 };
+            const baseScaleFactor = inlineAsset ? cellSize : (300 / cellSize);
             const instanceScale = {
-              x: (cell.scaleX || 1) * baseScale.x * gridScaleFactor,
-              y: (cell.scaleY || 1) * baseScale.y * gridScaleFactor,
-              z: (cell.scaleZ || 1) * baseScale.z * gridScaleFactor
+              x: (cell.scaleX ?? assetConfig.instanceDefaults?.scaleX ?? 1) * baseScale.x * baseScaleFactor,
+              y: (cell.scaleY ?? assetConfig.instanceDefaults?.scaleY ?? 1) * baseScale.y * baseScaleFactor,
+              z: (cell.scaleZ ?? assetConfig.instanceDefaults?.scaleZ ?? 1) * baseScale.z * baseScaleFactor
             };
             object.scale.set(instanceScale.x, instanceScale.y, instanceScale.z);
 
             // Apply position with offsets
-            const yOffset = assetConfig.yOffset || 0;
-            const xOffset = (cell.offsetX || 0) * cellSize;
-            const zOffset = (cell.offsetY || 0) * cellSize;
+            const yOffset = (assetConfig.yOffset || 0) * (inlineAsset ? cellSize : 1);
+            const xOffset = (cell.offsetX ?? assetConfig.instanceDefaults?.offsetX ?? 0) * cellSize;
+            const zOffset = (cell.offsetY ?? assetConfig.instanceDefaults?.offsetY ?? 0) * cellSize;
             object.position.set(
               worldPos.x + xOffset,
               worldPos.y + yOffset,
@@ -294,10 +323,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             );
 
             // Apply rotation
-            // Cell orientation is in degrees (0, 90, 180, 270)
-            const orientationDeg = cell.orientation ?? assetConfig.instanceDefaults?.orientation ?? 0;
-            const orientationRad = (orientationDeg * Math.PI) / 180;
-            const rotationX = assetConfig.extra?.rotationX || 0;
+            // Cell orientation is in degrees; add per-asset forward offset and subtract path yaw when aligned
+            const orientationDeg = (cell.orientation ?? assetConfig.instanceDefaults?.orientation ?? 0) + (assetConfig.forwardOffsetDeg || 0);
+            const orientationRad = ((orientationDeg * Math.PI) / 180) - (alignWorldToPath && Number.isFinite(pathYawRad) ? pathYawRad : 0);
+            const extraConfig = assetConfig.extra || assetConfig.extraConfig || {};
+            const rotationX = extraConfig.rotationX || 0;
             const rotationXRad = (rotationX * Math.PI) / 180;
 
             object.rotation.x += rotationXRad;
@@ -350,24 +380,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log('[visualsmapLoader] ========================================');
 
     // Position camera to view the entire grid
-    const gridCenterX = (cols / 2) * cellSize;
+    const gridCenterX = 0;
+    const gridCenterZ = 0;
 
-    // Calculate actual grid center Z based on how gridToWorld positions cells
-    let gridCenterZ;
-    if (alignWorldToPath && gameplayPath?.start && gameplayPath?.end) {
-      const pathRow = (gameplayPath.start.row + gameplayPath.end.row) / 2;
-      // Grid spans from row 0 to row (rows-1)
-      // Z for row 0: (pathRow - 0) * cellSize
-      // Z for row (rows-1): (pathRow - (rows-1)) * cellSize
-      const minZ = (pathRow - (rows - 1)) * cellSize;
-      const maxZ = (pathRow - 0) * cellSize;
-      gridCenterZ = (minZ + maxZ) / 2;
-    } else {
-      gridCenterZ = 0;
-    }
-
-    const gridWidth = cols * cellSize;
-    const gridDepth = rows * cellSize;
+    const gridWidth = (cols - 1) * cellSize;
+    const gridDepth = (rows - 1) * cellSize;
 
     // Position camera higher and back to see towers and ground
     const cameraDistance = Math.max(gridWidth, gridDepth) * 0.3;
