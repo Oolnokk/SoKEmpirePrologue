@@ -83,16 +83,6 @@ export class Renderer {
       this.scene = new this.THREE.Scene();
       this.scene.background = new this.THREE.Color(this.clearColor);
 
-      // Add basic lighting so models aren't completely black
-      // Ambient light provides base illumination
-      const ambientLight = new this.THREE.AmbientLight(0xffffff, 0.6);
-      this.scene.add(ambientLight);
-
-      // Directional light adds definition and depth
-      const directionalLight = new this.THREE.DirectionalLight(0xffffff, 0.8);
-      directionalLight.position.set(5, 10, 7.5);
-      this.scene.add(directionalLight);
-
       // Create camera (default perspective)
       this.camera = new this.THREE.PerspectiveCamera(
         50, // fov
@@ -241,6 +231,32 @@ export class Renderer {
         loader.load(
           url,
           (gltf) => {
+            // Enhanced diagnostics for loaded GLTF
+            const scene = gltf.scene;
+            console.log(`[Renderer] ✓ GLTF loaded successfully: ${url}`);
+            console.log(`[Renderer]   - Scene children: ${scene.children.length}`);
+            console.log(`[Renderer]   - Scene bounds:`, scene);
+            
+            // Count meshes and geometry types
+            let meshCount = 0;
+            let geometryTypes = new Set();
+            scene.traverse((child) => {
+              if (child.isMesh) {
+                meshCount++;
+                if (child.geometry) {
+                  const geomType = child.geometry.type || 'Unknown';
+                  geometryTypes.add(geomType);
+                }
+              }
+            });
+            
+            console.log(`[Renderer]   - Total meshes: ${meshCount}`);
+            console.log(`[Renderer]   - Geometry types: ${Array.from(geometryTypes).join(', ')}`);
+            
+            if (meshCount === 0) {
+              console.warn(`[Renderer] ⚠ GLTF loaded but contains no meshes: ${url}`);
+            }
+            
             resolve(gltf.scene);
           },
           (progress) => {
@@ -251,14 +267,14 @@ export class Renderer {
             }
           },
           (error) => {
-            console.error('Failed to load GLTF:', error);
+            console.error('[Renderer] ✗ Failed to load GLTF:', url, error);
             this.emit('error', { phase: 'loadGLTF', error, url });
             reject(error);
           }
         );
       });
     } catch (error) {
-      console.error('Failed to load GLTF:', error);
+      console.error('[Renderer] ✗ Exception during GLTF load:', url, error);
       this.emit('error', { phase: 'loadGLTF', error, url });
       return null;
     }

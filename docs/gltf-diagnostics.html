@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLTF Loading Diagnostics</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .panel {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-item {
+            margin: 15px 0;
+            padding: 10px;
+            background: #333;
+            border-radius: 4px;
+            border-left: 4px solid #666;
+        }
+        .test-item.success {
+            border-left-color: #4CAF50;
+        }
+        .test-item.error {
+            border-left-color: #f44336;
+        }
+        .test-item.warning {
+            border-left-color: #ff9800;
+        }
+        .test-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .test-details {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #aaa;
+            margin-top: 5px;
+            white-space: pre-wrap;
+        }
+        #canvas-container {
+            margin: 20px 0;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #renderCanvas {
+            display: block;
+            width: 100%;
+            height: 500px;
+        }
+        .console-log {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+        .console-log .log-entry {
+            margin: 5px 0;
+            padding: 3px 0;
+            border-bottom: 1px solid #333;
+        }
+        .console-log .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-error { color: #f44336; }
+        .log-warn { color: #ff9800; }
+        .log-info { color: #4CAF50; }
+        .log-debug { color: #2196F3; }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GLTF Loading Diagnostics</h1>
+        <p>This page diagnoses Three.js, GLTFLoader, BufferGeometryUtils integration and GLTF model loading.</p>
+        
+        <div class="panel">
+            <h2>Environment Status</h2>
+            <div id="env-status"></div>
+        </div>
+
+        <div class="panel">
+            <h2>Test Models</h2>
+            <button onclick="testModel('./assets/3D/tower_commercial3D.glb')">Load Tower GLB</button>
+            <button onclick="testModel('./assets/3D/ground_segments/blocksegment.gltf')">Load Block Segment GLTF</button>
+            <button onclick="testModel('./assets/3D/ground_segments/roadsegment.gltf')">Load Road Segment GLTF</button>
+            <button onclick="clearScene()">Clear Scene</button>
+        </div>
+
+        <div class="panel">
+            <h2>3D Viewport</h2>
+            <div id="canvas-container">
+                <canvas id="renderCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Diagnostic Log</h2>
+            <div id="console-log" class="console-log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Capture console output
+        const logContainer = document.getElementById('console-log');
+        const originalConsole = {
+            log: console.log,
+            warn: console.warn,
+            error: console.error,
+            info: console.info
+        };
+
+        function addLog(message, type = 'log') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        console.log = (...args) => {
+            originalConsole.log(...args);
+            addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' '), 'info');
+        };
+        console.warn = (...args) => {
+            originalConsole.warn(...args);
+            addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' '), 'warn');
+        };
+        console.error = (...args) => {
+            originalConsole.error(...args);
+            addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' '), 'error');
+        };
+        console.info = (...args) => {
+            originalConsole.info(...args);
+            addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' '), 'debug');
+        };
+
+        // Initialize Three.js
+        let THREE, GLTFLoader, BufferGeometryUtils;
+        let scene, camera, renderer, loadedModels = [];
+
+        async function initThreeJS() {
+            console.log('=== Initializing Three.js ===');
+            
+            // Load Three.js module
+            try {
+                const threeModule = await import('./vendor/three/three.module.js');
+                THREE = threeModule;
+                window.THREE = THREE; // Make available globally
+                console.log('✓ Three.js loaded, version:', THREE.REVISION);
+                
+                // Check extensibility
+                const isExtensible = Object.isExtensible(THREE);
+                const isSealed = Object.isSealed(THREE);
+                const isFrozen = Object.isFrozen(THREE);
+                console.log(`THREE object state: extensible=${isExtensible}, sealed=${isSealed}, frozen=${isFrozen}`);
+                
+                if (!isExtensible) {
+                    console.warn('⚠ THREE object is not extensible - cannot attach properties');
+                }
+            } catch (error) {
+                console.error('✗ Failed to load Three.js:', error);
+                return false;
+            }
+
+            // Load BufferGeometryUtils
+            try {
+                const utilsModule = await import('./vendor/three/BufferGeometryUtils.module.js');
+                BufferGeometryUtils = utilsModule;
+                console.log('✓ BufferGeometryUtils loaded');
+                console.log('  Available functions:', Object.keys(utilsModule).join(', '));
+                
+                // Try to attach to THREE
+                try {
+                    THREE.BufferGeometryUtils = utilsModule;
+                    console.log('✓ BufferGeometryUtils attached to THREE');
+                } catch (attachError) {
+                    console.warn('⚠ Cannot attach BufferGeometryUtils to THREE:', attachError.message);
+                    console.log('  BufferGeometryUtils will be used directly from import');
+                }
+            } catch (error) {
+                console.error('✗ Failed to load BufferGeometryUtils:', error);
+                return false;
+            }
+
+            // Load GLTFLoader
+            try {
+                const loaderModule = await import('./vendor/three/GLTFLoader.module.js');
+                GLTFLoader = loaderModule.GLTFLoader;
+                console.log('✓ GLTFLoader loaded');
+                
+                // Try to attach to THREE
+                try {
+                    THREE.GLTFLoader = GLTFLoader;
+                    console.log('✓ GLTFLoader attached to THREE');
+                } catch (attachError) {
+                    console.warn('⚠ Cannot attach GLTFLoader to THREE:', attachError.message);
+                    console.log('  GLTFLoader will be used directly from import');
+                }
+            } catch (error) {
+                console.error('✗ Failed to load GLTFLoader:', error);
+                return false;
+            }
+
+            // Initialize renderer
+            try {
+                const canvas = document.getElementById('renderCanvas');
+                renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+                renderer.setClearColor(0x87ceeb, 1);
+                console.log('✓ WebGL renderer initialized');
+
+                // Create scene
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x87ceeb);
+                console.log('✓ Scene created');
+
+                // Create camera
+                camera = new THREE.PerspectiveCamera(50, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+                camera.position.set(0, 5, 10);
+                camera.lookAt(0, 0, 0);
+                console.log('✓ Camera created');
+
+                // Add lights
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(5, 10, 7);
+                scene.add(directionalLight);
+                console.log('✓ Lights added');
+
+                // Start render loop
+                function animate() {
+                    requestAnimationFrame(animate);
+                    renderer.render(scene, camera);
+                }
+                animate();
+                console.log('✓ Render loop started');
+
+                return true;
+            } catch (error) {
+                console.error('✗ Failed to initialize renderer:', error);
+                return false;
+            }
+        }
+
+        async function testModel(url) {
+            console.log(`\n=== Testing model: ${url} ===`);
+            
+            if (!GLTFLoader) {
+                console.error('GLTFLoader not initialized');
+                return;
+            }
+
+            const loader = new GLTFLoader();
+            
+            try {
+                console.log('Loading GLTF from:', url);
+                const gltf = await new Promise((resolve, reject) => {
+                    loader.load(
+                        url,
+                        (gltf) => resolve(gltf),
+                        (progress) => {
+                            if (progress.lengthComputable) {
+                                const percent = (progress.loaded / progress.total * 100).toFixed(0);
+                                console.log(`  Loading progress: ${percent}%`);
+                            }
+                        },
+                        (error) => reject(error)
+                    );
+                });
+
+                console.log('✓ GLTF loaded successfully');
+                console.log('  Scene:', gltf.scene);
+                console.log('  Scene children:', gltf.scene.children.length);
+                
+                // Analyze scene contents
+                let meshCount = 0;
+                let geometryTypes = new Set();
+                let materialTypes = new Set();
+                
+                gltf.scene.traverse((child) => {
+                    if (child.isMesh) {
+                        meshCount++;
+                        if (child.geometry) {
+                            geometryTypes.add(child.geometry.type || 'Unknown');
+                            console.log(`    Mesh: ${child.name || 'unnamed'}`);
+                            console.log(`      Geometry: ${child.geometry.type}, vertices: ${child.geometry.attributes.position?.count || 0}`);
+                        }
+                        if (child.material) {
+                            materialTypes.add(child.material.type || 'Unknown');
+                        }
+                    }
+                });
+
+                console.log(`  Total meshes: ${meshCount}`);
+                console.log(`  Geometry types: ${Array.from(geometryTypes).join(', ')}`);
+                console.log(`  Material types: ${Array.from(materialTypes).join(', ')}`);
+
+                if (meshCount === 0) {
+                    console.warn('⚠ No meshes found in loaded GLTF!');
+                }
+
+                // Add to scene
+                scene.add(gltf.scene);
+                loadedModels.push(gltf.scene);
+                
+                // Auto-frame camera
+                const box = new THREE.Box3().setFromObject(gltf.scene);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const distance = maxDim * 2;
+                
+                camera.position.set(center.x, center.y + distance * 0.3, center.z + distance);
+                camera.lookAt(center);
+                
+                console.log(`✓ Model added to scene (total models: ${loadedModels.length})`);
+            } catch (error) {
+                console.error('✗ Failed to load GLTF:', error);
+            }
+        }
+
+        function clearScene() {
+            console.log('\n=== Clearing scene ===');
+            loadedModels.forEach(model => {
+                scene.remove(model);
+            });
+            loadedModels = [];
+            console.log('✓ Scene cleared');
+        }
+
+        window.testModel = testModel;
+        window.clearScene = clearScene;
+
+        // Initialize on load
+        (async () => {
+            const success = await initThreeJS();
+            
+            const envStatus = document.getElementById('env-status');
+            if (success) {
+                envStatus.innerHTML = `
+                    <div class="test-item success">
+                        <div class="test-label">✓ Environment Ready</div>
+                        <div class="test-details">Three.js r${THREE.REVISION}, GLTFLoader and BufferGeometryUtils loaded successfully</div>
+                    </div>
+                `;
+            } else {
+                envStatus.innerHTML = `
+                    <div class="test-item error">
+                        <div class="test-label">✗ Environment Failed</div>
+                        <div class="test-details">Check console for errors</div>
+                    </div>
+                `;
+            }
+        })();
+    </script>
+</body>
+</html>
