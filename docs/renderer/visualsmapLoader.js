@@ -27,9 +27,10 @@ function resolveVisualsMapPath(visualsMapPath, gameplayMapUrl) {
 /**
  * Resolve asset path (handles absolute and relative paths)
  * @param {string} assetPath - Path from asset config
+ * @param {string} [baseContext] - Optional base context (e.g., 'gameplaymap' or 'visualsmap')
  * @returns {string} Resolved path
  */
-function resolveAssetPath(assetPath) {
+function resolveAssetPath(assetPath, baseContext = null) {
   if (!assetPath) return null;
 
   // If already absolute URL, return as-is
@@ -43,13 +44,25 @@ function resolveAssetPath(assetPath) {
 
   if (!baseUrl) return assetPath;
 
-  // Handle paths starting with '/' or '../'
+  // For paths that don't start with '/', '../', or './', assume they are relative to current directory
+  // This handles paths like "config/assets/sidewalk-config.json" from runtime game page
+  let resolvedPath;
+  
   if (assetPath.startsWith('/')) {
+    // Absolute-style path: strip leading '/' and resolve relative to current page directory
     const relativeUrl = assetPath.substring(1);
-    return new URL(relativeUrl, baseUrl).href;
+    resolvedPath = new URL(relativeUrl, baseUrl).href;
+  } else if (assetPath.startsWith('../') || assetPath.startsWith('./')) {
+    // Explicit relative path
+    resolvedPath = new URL(assetPath, baseUrl).href;
+  } else {
+    // Implicit relative path (e.g., "config/assets/sidewalk-config.json")
+    // Resolve relative to current page location
+    resolvedPath = new URL(assetPath, baseUrl).href;
   }
-
-  return new URL(assetPath, baseUrl).href;
+  
+  console.log(`[visualsmapLoader] Resolved asset path: "${assetPath}" → "${resolvedPath}"`);
+  return resolvedPath;
 }
 
 /**
@@ -61,15 +74,19 @@ async function loadAssetConfig(assetType) {
   const configPath = `config/assets/${assetType}-config.json`;
   const resolvedPath = resolveAssetPath(configPath);
 
+  console.log(`[visualsmapLoader] Loading asset config for "${assetType}": ${resolvedPath}`);
+  
   try {
     const response = await fetch(resolvedPath);
     if (!response.ok) {
-      console.warn(`[visualsmapLoader] Failed to load asset config: ${configPath}`);
+      console.warn(`[visualsmapLoader] ✗ Failed to load asset config: ${configPath} (${response.status} ${response.statusText})`);
       return null;
     }
-    return await response.json();
+    const config = await response.json();
+    console.log(`[visualsmapLoader] ✓ Loaded asset config for "${assetType}":`, config);
+    return config;
   } catch (error) {
-    console.warn(`[visualsmapLoader] Error loading asset config ${configPath}:`, error);
+    console.warn(`[visualsmapLoader] ✗ Error loading asset config ${configPath}:`, error);
     return null;
   }
 }
@@ -140,16 +157,22 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
   try {
     // Resolve and load visualsmap
     const visualsMapUrl = resolveVisualsMapPath(area.visualsMap, gameplayMapUrl);
-    console.log('[visualsmapLoader] Loading visualsmap from:', visualsMapUrl);
+    console.log('[visualsmapLoader] ========================================');
+    console.log('[visualsmapLoader] Starting visualsmap load for area:', area.id);
+    console.log('[visualsmapLoader] - Gameplay map URL:', gameplayMapUrl);
+    console.log('[visualsmapLoader] - Visualsmap path:', area.visualsMap);
+    console.log('[visualsmapLoader] - Resolved URL:', visualsMapUrl);
 
     const response = await fetch(visualsMapUrl);
     if (!response.ok) {
-      console.warn('[visualsmapLoader] Failed to load visualsmap:', visualsMapUrl);
+      console.warn(`[visualsmapLoader] ✗ Failed to load visualsmap: ${visualsMapUrl} (${response.status} ${response.statusText})`);
       return { objects: [], dispose: () => {} };
     }
 
     const visualsMap = await response.json();
-    console.log('[visualsmapLoader] Visualsmap loaded:', visualsMap);
+    console.log('[visualsmapLoader] ✓ Visualsmap JSON loaded successfully');
+    console.log('[visualsmapLoader] - Grid size:', visualsMap.rows, 'x', visualsMap.cols);
+    console.log('[visualsmapLoader] - Layers:', Object.keys(visualsMap.layerStates || {}));
 
     const { rows = 20, cols = 20, layerStates = {}, gameplayPath, alignWorldToPath = false } = visualsMap;
     const cellSize = 100; // Default cell size in world units
@@ -271,15 +294,21 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             renderer.add(object);
             loadedObjects.push(object);
 
-            console.log(`[visualsmapLoader] Placed ${cell.type} at (${row},${col}) -> world(${worldPos.x.toFixed(1)}, ${worldPos.y.toFixed(1)}, ${worldPos.z.toFixed(1)})`);
+            // Log only first few placements per layer to avoid spam, then summary
+            const isFirstInLayer = loadedObjects.length % 20 === 1;
+            if (isFirstInLayer || loadedObjects.length <= 5) {
+              console.log(`[visualsmapLoader]   Placed ${cell.type} at grid(${row},${col}) -> world(${worldPos.x.toFixed(1)}, ${worldPos.y.toFixed(1)}, ${worldPos.z.toFixed(1)})`);
+            }
           } catch (error) {
-            console.warn(`[visualsmapLoader] Error loading object at (${row},${col}):`, error);
+            console.warn(`[visualsmapLoader] ✗ Error loading object at (${row},${col}):`, error);
           }
         }
       }
     }
 
-    console.log(`[visualsmapLoader] ✓ Loaded ${loadedObjects.length} objects from visualsmap`);
+    console.log('[visualsmapLoader] ========================================');
+    console.log(`[visualsmapLoader] ✓ VISUALSMAP LOAD COMPLETE`);
+    console.log(`[visualsmapLoader] - Total objects placed: ${loadedObjects.length}`);
     
     // Summary by layer
     const byLayer = {};
@@ -300,9 +329,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       }
     }
     
-    console.log(`[visualsmapLoader] Grid cells by layer:`, byLayer);
-    console.log(`[visualsmapLoader] Unique asset types loaded:`, assetCache.size);
-    console.log(`[visualsmapLoader] Unique GLTF files cached:`, gltfCache.size);
+    console.log(`[visualsmapLoader] - Grid cells by layer:`, byLayer);
+    console.log(`[visualsmapLoader] - Unique asset types loaded:`, assetCache.size);
+    console.log(`[visualsmapLoader] - Unique GLTF files cached:`, gltfCache.size);
+    console.log(`[visualsmapLoader] - Renderer scene.children count:`, renderer.scene?.children?.length || 0);
+    console.log('[visualsmapLoader] ========================================');
 
     return {
       objects: loadedObjects,
