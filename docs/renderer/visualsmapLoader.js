@@ -265,6 +265,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             // Calculate world position
             const worldPos = gridToWorld(row, col, rows, cols, cellSize, gameplayPath, alignWorldToPath);
 
+            // DEBUG: Log first few positions to verify grid placement
+            if (loadedObjects.length < 5) {
+              console.log(`[visualsmapLoader] Position ${loadedObjects.length}: (${row},${col}) → world (${worldPos.x}, ${worldPos.y}, ${worldPos.z})`);
+            }
+
             // Apply base scale
             const baseScale = assetConfig.baseScale || { x: 1, y: 1, z: 1 };
             const instanceScale = {
