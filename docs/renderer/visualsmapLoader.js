@@ -347,7 +347,21 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
     // Position camera to view the entire grid
     const gridCenterX = (cols / 2) * cellSize;
-    const gridCenterZ = alignWorldToPath ? 0 : (-rows / 2) * cellSize;
+
+    // Calculate actual grid center Z based on how gridToWorld positions cells
+    let gridCenterZ;
+    if (alignWorldToPath && gameplayPath?.start && gameplayPath?.end) {
+      const pathRow = (gameplayPath.start.row + gameplayPath.end.row) / 2;
+      // Grid spans from row 0 to row (rows-1)
+      // Z for row 0: (pathRow - 0) * cellSize
+      // Z for row (rows-1): (pathRow - (rows-1)) * cellSize
+      const minZ = (pathRow - (rows - 1)) * cellSize;
+      const maxZ = (pathRow - 0) * cellSize;
+      gridCenterZ = (minZ + maxZ) / 2;
+    } else {
+      gridCenterZ = 0;
+    }
+
     const gridWidth = cols * cellSize;
     const gridDepth = rows * cellSize;
 
