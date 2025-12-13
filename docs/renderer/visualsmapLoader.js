@@ -382,6 +382,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       lookAt: { x: gridCenterX, y: 0, z: gridCenterZ }
     });
 
+    // Verify camera was set correctly
+    if (renderer.camera) {
+      console.log(`[visualsmapLoader] ✓ Camera actual position after set:`, renderer.camera.position);
+      console.log(`[visualsmapLoader] ✓ Camera type:`, renderer.camera.type);
+    }
+
     // Add lighting to the scene
     console.log(`[visualsmapLoader] Adding scene lighting`);
     const ambientLight = new renderer.THREE.AmbientLight(0xffffff, 0.6);
