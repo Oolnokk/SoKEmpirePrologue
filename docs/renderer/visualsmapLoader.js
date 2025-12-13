@@ -175,18 +175,25 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           if (!assetCache.has(cell.type)) {
             const config = await loadAssetConfig(cell.type);
             assetCache.set(cell.type, config);
+            
+            if (config) {
+              console.log(`[visualsmapLoader] ✓ Loaded config for ${cell.type}:`, config.gltfPath || 'no gltfPath');
+            } else {
+              console.warn(`[visualsmapLoader] ✗ Failed to load config for ${cell.type}`);
+            }
           }
 
           const assetConfig = assetCache.get(cell.type);
           if (!assetConfig) {
-            console.warn(`[visualsmapLoader] No config for asset type: ${cell.type}`);
+            console.warn(`[visualsmapLoader] ✗ No config for asset type: ${cell.type} at (${row},${col})`);
             continue;
           }
 
           // Resolve GLTF path
           const gltfUrl = resolveAssetPath(assetConfig.gltfPath);
           if (!gltfUrl) {
-            console.warn(`[visualsmapLoader] No gltfPath for asset: ${cell.type}`);
+            console.warn(`[visualsmapLoader] ✗ No gltfPath for asset: ${cell.type} at (${row},${col})`);
+            console.warn(`[visualsmapLoader]   Asset config:`, assetConfig);
             continue;
           }
 
@@ -202,8 +209,18 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           try {
             const baseObject = await gltfCache.get(gltfUrl);
             if (!baseObject) {
-              console.warn(`[visualsmapLoader] Failed to load GLTF: ${gltfUrl}`);
+              console.warn(`[visualsmapLoader] ✗ Failed to load GLTF: ${gltfUrl}`);
               continue;
+            }
+
+            // Validate that baseObject has geometry
+            let meshCount = 0;
+            baseObject.traverse((child) => {
+              if (child.isMesh) meshCount++;
+            });
+            
+            if (meshCount === 0) {
+              console.warn(`[visualsmapLoader] ⚠ GLTF has no meshes: ${gltfUrl}`);
             }
 
             // Clone the loaded GLTF so every cell keeps its own transform
@@ -214,7 +231,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               }
             });
             if (!object) {
-              console.warn(`[visualsmapLoader] Failed to load GLTF: ${gltfUrl}`);
+              console.warn(`[visualsmapLoader] ✗ Failed to clone GLTF: ${gltfUrl}`);
               continue;
             }
 
@@ -262,7 +279,30 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       }
     }
 
-    console.log(`[visualsmapLoader] Loaded ${loadedObjects.length} objects from visualsmap`);
+    console.log(`[visualsmapLoader] ✓ Loaded ${loadedObjects.length} objects from visualsmap`);
+    
+    // Summary by layer
+    const byLayer = {};
+    for (const layerName of layerOrder) {
+      const layer = layerStates[layerName];
+      if (!layer || !Array.isArray(layer)) continue;
+      
+      let cellCount = 0;
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const cell = layer[row]?.[col];
+          if (cell && cell.type) cellCount++;
+        }
+      }
+      
+      if (cellCount > 0) {
+        byLayer[layerName] = cellCount;
+      }
+    }
+    
+    console.log(`[visualsmapLoader] Grid cells by layer:`, byLayer);
+    console.log(`[visualsmapLoader] Unique asset types loaded:`, assetCache.size);
+    console.log(`[visualsmapLoader] Unique GLTF files cached:`, gltfCache.size);
 
     return {
       objects: loadedObjects,

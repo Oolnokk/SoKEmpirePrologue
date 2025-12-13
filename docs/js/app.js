@@ -1016,6 +1016,7 @@ const threeGlobalState = {
   promise: null,
   error: null,
   gltfLoaderCtor: null, // Fallback storage for GLTFLoader constructor when THREE is non-extensible
+  bufferGeometryUtils: null, // Fallback storage for BufferGeometryUtils when THREE is non-extensible
 };
 
 // Safe global accessor for GLTFLoader constructor
@@ -1028,6 +1029,19 @@ if (typeof globalThis.getThreeGLTFLoaderCtor !== 'function') {
     }
     // Fall back to stored constructor if THREE is non-extensible
     return threeGlobalState.gltfLoaderCtor;
+  };
+}
+
+// Safe global accessor for BufferGeometryUtils
+// Returns the utils whether attached to THREE or stored in fallback
+if (typeof globalThis.getThreeBufferGeometryUtils !== 'function') {
+  globalThis.getThreeBufferGeometryUtils = function() {
+    // Prefer THREE.BufferGeometryUtils if available (normal case)
+    if (globalThis.THREE && globalThis.THREE.BufferGeometryUtils) {
+      return globalThis.THREE.BufferGeometryUtils;
+    }
+    // Fall back to stored utils if THREE is non-extensible
+    return threeGlobalState.bufferGeometryUtils;
   };
 }
 
@@ -1069,8 +1083,18 @@ async function ensureThreeGlobals() {
       throw new Error('Three.js failed to initialize');
     }
 
+    // Check if THREE object is extensible (diagnostic)
+    const isExtensible = Object.isExtensible(globalThis.THREE);
+    const isSealed = Object.isSealed(globalThis.THREE);
+    const isFrozen = Object.isFrozen(globalThis.THREE);
+    console.log(`[app] THREE object state: extensible=${isExtensible}, sealed=${isSealed}, frozen=${isFrozen}`);
+    
+    if (!isExtensible) {
+      console.warn('[app] ⚠ THREE object is not extensible - GLTFLoader and BufferGeometryUtils will use fallback storage');
+    }
+
     // Load BufferGeometryUtils if not already available (required by GLTFLoader for some geometries)
-    if (!globalThis.THREE.BufferGeometryUtils) {
+    if (!globalThis.THREE.BufferGeometryUtils && !threeGlobalState.bufferGeometryUtils) {
       try {
         await importModuleFromSources('BufferGeometryUtils ES', BUFFER_GEOMETRY_UTILS_MODULE_SOURCES, (module) => {
           const utils = module?.BufferGeometryUtils || module?.default || module;
@@ -1080,6 +1104,9 @@ async function ensureThreeGlobals() {
               console.log('[app] BufferGeometryUtils loaded from ES module and attached to THREE');
             } catch (attachError) {
               console.warn('[app] Cannot attach BufferGeometryUtils to THREE object:', attachError.message);
+              // Store in fallback
+              threeGlobalState.bufferGeometryUtils = utils;
+              console.log('[app] BufferGeometryUtils loaded from ES module and stored in fallback (access via getThreeBufferGeometryUtils)');
             }
           }
         });
@@ -1089,6 +1116,17 @@ async function ensureThreeGlobals() {
           await loadScriptFromSources('BufferGeometryUtils', BUFFER_GEOMETRY_UTILS_SCRIPT_SOURCES);
           if (globalThis.THREE.BufferGeometryUtils) {
             console.log('[app] BufferGeometryUtils loaded from local/CDN script');
+          } else if (globalThis.BufferGeometryUtils) {
+            // Script may have set it globally but not on THREE
+            const utils = globalThis.BufferGeometryUtils;
+            try {
+              globalThis.THREE.BufferGeometryUtils = utils;
+              console.log('[app] BufferGeometryUtils loaded from UMD script and attached to THREE');
+            } catch (attachError) {
+              console.warn('[app] Cannot attach BufferGeometryUtils to THREE object:', attachError.message);
+              threeGlobalState.bufferGeometryUtils = utils;
+              console.log('[app] BufferGeometryUtils loaded from UMD script and stored in fallback (access via getThreeBufferGeometryUtils)');
+            }
           }
         } catch (scriptError) {
           console.warn('[app] BufferGeometryUtils fallback failed - GLTFLoader may have issues with certain geometries:', scriptError);
@@ -1145,10 +1183,13 @@ async function ensureThreeGlobals() {
     }
     
     // Verify BufferGeometryUtils is available (required by GLTFLoader)
-    if (!globalThis.THREE.BufferGeometryUtils) {
-      console.warn('[app] BufferGeometryUtils not found - GLTFLoader may fail on certain geometry types');
+    const bufferGeomUtils = globalThis.THREE.BufferGeometryUtils || threeGlobalState.bufferGeometryUtils;
+    if (!bufferGeomUtils) {
+      console.warn('[app] ⚠ BufferGeometryUtils not found - GLTFLoader may fail on certain geometry types');
+      console.warn('[app] Note: ES module GLTFLoader has BufferGeometryUtils bundled, so this may not affect loading');
     } else {
-      console.log('[app] BufferGeometryUtils available');
+      const source = globalThis.THREE.BufferGeometryUtils ? 'THREE.BufferGeometryUtils' : 'fallback getter';
+      console.log(`[app] ✓ BufferGeometryUtils available via ${source}`);
     }
 
     return globalThis.THREE;

@@ -231,6 +231,32 @@ export class Renderer {
         loader.load(
           url,
           (gltf) => {
+            // Enhanced diagnostics for loaded GLTF
+            const scene = gltf.scene;
+            console.log(`[Renderer] ✓ GLTF loaded successfully: ${url}`);
+            console.log(`[Renderer]   - Scene children: ${scene.children.length}`);
+            console.log(`[Renderer]   - Scene bounds:`, scene);
+            
+            // Count meshes and geometry types
+            let meshCount = 0;
+            let geometryTypes = new Set();
+            scene.traverse((child) => {
+              if (child.isMesh) {
+                meshCount++;
+                if (child.geometry) {
+                  const geomType = child.geometry.type || 'Unknown';
+                  geometryTypes.add(geomType);
+                }
+              }
+            });
+            
+            console.log(`[Renderer]   - Total meshes: ${meshCount}`);
+            console.log(`[Renderer]   - Geometry types: ${Array.from(geometryTypes).join(', ')}`);
+            
+            if (meshCount === 0) {
+              console.warn(`[Renderer] ⚠ GLTF loaded but contains no meshes: ${url}`);
+            }
+            
             resolve(gltf.scene);
           },
           (progress) => {
@@ -241,14 +267,14 @@ export class Renderer {
             }
           },
           (error) => {
-            console.error('Failed to load GLTF:', error);
+            console.error('[Renderer] ✗ Failed to load GLTF:', url, error);
             this.emit('error', { phase: 'loadGLTF', error, url });
             reject(error);
           }
         );
       });
     } catch (error) {
-      console.error('Failed to load GLTF:', error);
+      console.error('[Renderer] ✗ Exception during GLTF load:', url, error);
       this.emit('error', { phase: 'loadGLTF', error, url });
       return null;
     }
