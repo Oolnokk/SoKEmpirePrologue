@@ -273,8 +273,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             }
 
             // Apply base scale with GRID_UNIT_WORLD_SIZE factor
-            // Models are authored for 100-unit grid, so scale by cellSize/100
-            const gridScaleFactor = cellSize / 100;
+            // Scale UP to make models visible (100/30 = 3.33x for cellSize=30)
+            const gridScaleFactor = 100 / cellSize;
             const baseScale = assetConfig.baseScale || { x: 1, y: 1, z: 1 };
             const instanceScale = {
               x: (cell.scaleX || 1) * baseScale.x * gridScaleFactor,
