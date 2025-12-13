@@ -220,10 +220,20 @@ export class Renderer {
                          (globalThis.getThreeGLTFLoaderCtor && globalThis.getThreeGLTFLoaderCtor());
       
       if (!LoaderCtor) {
-        console.error('[Renderer] GLTFLoader not available - cannot load glTF model');
+        console.error('[Renderer] ✗ GLTFLoader not available - cannot load glTF model');
         console.warn('[Renderer] Ensure Three.js addons are loaded via ensureThreeGlobals');
+        console.warn('[Renderer] - THREE.GLTFLoader:', this.THREE && this.THREE.GLTFLoader ? 'available' : 'not available');
+        console.warn('[Renderer] - getThreeGLTFLoaderCtor:', globalThis.getThreeGLTFLoaderCtor ? 'available' : 'not available');
         return null;
       }
+
+      console.log(`[Renderer] Loading GLTF from: ${url}`);
+      console.log(`[Renderer] - Using LoaderCtor:`, LoaderCtor.name || 'GLTFLoader');
+      
+      // Check if BufferGeometryUtils is available (optional but helpful for debugging)
+      const bufferGeomUtils = (this.THREE && this.THREE.BufferGeometryUtils) ||
+                              (globalThis.getThreeBufferGeometryUtils && globalThis.getThreeBufferGeometryUtils());
+      console.log(`[Renderer] - BufferGeometryUtils:`, bufferGeomUtils ? 'available' : 'not available (may be needed for some models)');
 
       const loader = new LoaderCtor();
       
@@ -296,7 +306,14 @@ export class Renderer {
 
     try {
       if (object && object.isObject3D) {
+        const childCountBefore = this.scene.children.length;
         this.scene.add(object);
+        
+        // Log only if something changed (useful for debugging)
+        // Check once after adding to avoid redundant property access
+        if (this.scene.children.length !== childCountBefore) {
+          console.log(`[Renderer] Added object to scene: ${childCountBefore} -> ${this.scene.children.length} children`);
+        }
       } else {
         console.warn('Cannot add object: not a THREE.Object3D', object);
       }

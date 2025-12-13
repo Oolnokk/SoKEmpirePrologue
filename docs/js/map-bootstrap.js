@@ -695,6 +695,8 @@ async function loadStartingArea() {
             areaName: layout?.areaName || layout?.name || DEFAULT_AREA_NAME,
             prefabResolver,
         });
+        // Set source URL so visualsmap paths can be resolved relative to this file
+        area.source = layoutUrl.href;
         applyArea(area);
     }
     catch (error) {
