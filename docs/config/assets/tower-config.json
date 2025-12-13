@@ -1,7 +1,7 @@
 {
   "id": "tower",
   "label": "Tower",
-  "gltfPath": "../assets/3D/structures/tower_commercial3D_t.gltf",
+  "gltfPath": "../../assets/3D/structures/tower_commercial3D_t.gltf",
   "baseScale": {
     "x": 0.2,
     "y": 0.2,
