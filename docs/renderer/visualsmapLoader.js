@@ -34,8 +34,11 @@ function resolveVisualsMapPath(visualsMapPath, gameplayMapUrl) {
 function resolveAssetPath(assetPath, baseContext = null) {
   if (!assetPath) return null;
 
+  // Matches URL schemes like http:, https:, file:, data:, etc.
+  const URL_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
+  
   // If already a complete URL (http://, https://, etc.), return as-is
-  if (/^[a-z][a-z0-9+.-]*:/i.test(assetPath)) {
+  if (URL_SCHEME_REGEX.test(assetPath)) {
     return assetPath;
   }
 
@@ -296,7 +299,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             loadedObjects.push(object);
 
             // Log only first few placements per layer to avoid spam, then summary
-            const isFirstInLayer = loadedObjects.length % 20 === 1;
+            const LOG_SAMPLE_INTERVAL = 20; // Log every Nth placement to reduce console spam
+            const isFirstInLayer = loadedObjects.length % LOG_SAMPLE_INTERVAL === 1;
             if (isFirstInLayer || loadedObjects.length <= 5) {
               console.log(`[visualsmapLoader]   Placed ${cell.type} at grid(${row},${col}) -> world(${worldPos.x.toFixed(1)}, ${worldPos.y.toFixed(1)}, ${worldPos.z.toFixed(1)})`);
             }
