@@ -1,5 +1,7 @@
 /**
  * Test for renderer diagnostics and GLTF loading enhancements
+ * 
+ * Note: Requires Node.js v18.0.0+ for built-in test runner (node:test)
  */
 
 import { describe, it } from 'node:test';

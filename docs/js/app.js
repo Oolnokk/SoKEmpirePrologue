@@ -1188,7 +1188,8 @@ async function ensureThreeGlobals() {
       console.warn('[app] ⚠ BufferGeometryUtils not found - GLTFLoader may fail on certain geometry types');
       console.warn('[app] Note: ES module GLTFLoader has BufferGeometryUtils bundled, so this may not affect loading');
     } else {
-      console.log('[app] ✓ BufferGeometryUtils available via', globalThis.THREE.BufferGeometryUtils ? 'THREE.BufferGeometryUtils' : 'fallback getter');
+      const source = globalThis.THREE.BufferGeometryUtils ? 'THREE.BufferGeometryUtils' : 'fallback getter';
+      console.log(`[app] ✓ BufferGeometryUtils available via ${source}`);
     }
 
     return globalThis.THREE;
