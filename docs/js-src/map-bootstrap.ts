@@ -828,6 +828,8 @@ async function loadStartingArea(): Promise<void> {
       areaName: (layout?.areaName as string) || (layout?.name as string) || DEFAULT_AREA_NAME,
       prefabResolver,
     });
+    // Set source URL so visualsmap paths can be resolved relative to this file
+    area.source = layoutUrl.href;
     applyArea(area);
   } catch (error) {
     console.error('[map-bootstrap] Failed to load starting map', error);

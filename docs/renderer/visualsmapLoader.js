@@ -25,16 +25,17 @@ function resolveVisualsMapPath(visualsMapPath, gameplayMapUrl) {
 }
 
 /**
- * Resolve asset path (handles absolute and relative paths)
+ * Resolve asset path (handles absolute and relative paths, GitHub Pages compatible)
+ * Uses the same resolution logic as rendererAdapter.js for consistent behavior
  * @param {string} assetPath - Path from asset config
- * @param {string} [baseContext] - Optional base context (e.g., 'gameplaymap' or 'visualsmap')
+ * @param {string} [baseContext] - Optional base context (unused, kept for API compatibility)
  * @returns {string} Resolved path
  */
 function resolveAssetPath(assetPath, baseContext = null) {
   if (!assetPath) return null;
 
-  // If already absolute URL, return as-is
-  if (/^https?:\/\//.test(assetPath)) {
+  // If already a complete URL (http://, https://, etc.), return as-is
+  if (/^[a-z][a-z0-9+.-]*:/i.test(assetPath)) {
     return assetPath;
   }
 
@@ -42,22 +43,22 @@ function resolveAssetPath(assetPath, baseContext = null) {
   const baseUrl = (typeof window !== 'undefined' && window.location.href) ||
                   (typeof document !== 'undefined' && document.baseURI) || '';
 
-  if (!baseUrl) return assetPath;
+  if (!baseUrl) {
+    console.warn('[visualsmapLoader] Cannot resolve asset path: no baseURI available, returning original:', assetPath);
+    return assetPath;
+  }
 
-  // For paths that don't start with '/', '../', or './', assume they are relative to current directory
-  // This handles paths like "config/assets/sidewalk-config.json" from runtime game page
+  // For absolute paths starting with '/', treat them as relative to the current directory
+  // This handles GitHub Pages deployment where files are in a subdirectory (e.g., /SoKEmpirePrologue/docs/)
+  // Instead of treating '/assets/...' as root-relative, we treat it as relative to the current page's directory
   let resolvedPath;
   
   if (assetPath.startsWith('/')) {
-    // Absolute-style path: strip leading '/' and resolve relative to current page directory
+    // Strip the leading '/' and resolve as a relative path
     const relativeUrl = assetPath.substring(1);
     resolvedPath = new URL(relativeUrl, baseUrl).href;
-  } else if (assetPath.startsWith('../') || assetPath.startsWith('./')) {
-    // Explicit relative path
-    resolvedPath = new URL(assetPath, baseUrl).href;
   } else {
-    // Implicit relative path (e.g., "config/assets/sidewalk-config.json")
-    // Resolve relative to current page location
+    // For relative paths (including those without './' or '../'), use standard URL resolution
     resolvedPath = new URL(assetPath, baseUrl).href;
   }
   
