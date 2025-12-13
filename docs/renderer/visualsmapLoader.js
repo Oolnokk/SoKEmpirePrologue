@@ -19,9 +19,16 @@ function resolveVisualsMapPath(visualsMapPath, gameplayMapUrl) {
     return visualsMapPath;
   }
 
-  // Resolve relative to gameplaymap location
-  const base = gameplayMapUrl.substring(0, gameplayMapUrl.lastIndexOf('/') + 1);
-  return base + visualsMapPath;
+  // Resolve relative to gameplaymap location using URL API so "../" segments
+  // are normalized (the editor exports visualsMap paths relative to the gameplay
+  // map file, and the site is hosted under /main/docs/ in production).
+  try {
+    const base = gameplayMapUrl || (typeof window !== 'undefined' ? window.location.href : '');
+    return new URL(visualsMapPath, base).href;
+  } catch (err) {
+    console.warn('[visualsmapLoader] Could not resolve visualsMapPath, returning original:', visualsMapPath, err);
+    return visualsMapPath;
+  }
 }
 
 /**
@@ -168,7 +175,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log('[visualsmapLoader] - Layers:', Object.keys(visualsMap.layerStates || {}));
 
     const { rows = 20, cols = 20, layerStates = {}, gameplayPath, alignWorldToPath = false } = visualsMap;
-    const visualsMapBase = visualsMapUrl.substring(0, visualsMapUrl.lastIndexOf('/') + 1);
+    const visualsMapBase = visualsMapUrl ? new URL('./', visualsMapUrl).href : '';
 
     // Prefer inline asset definitions from visualsmap JSON when available
     const inlineAssetMap = new Map();
