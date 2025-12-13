@@ -5830,6 +5830,12 @@ function boot(){
               ? registry.getArea(fallbackAreaId)
               : null);
 
+            // DEBUG: Log area properties
+            console.log('[app] Initial area to load:', areaToLoad?.id, 'has visualsMap:', !!areaToLoad?.visualsMap, 'has scene3d:', !!areaToLoad?.scene3d);
+            if (areaToLoad) {
+              console.log('[app] Area properties:', Object.keys(areaToLoad));
+            }
+
             // Load visualsmap if available (preferred)
             if (areaToLoad && areaToLoad.visualsMap) {
               console.log('[app] Loading initial visualsmap:', areaToLoad.id);
