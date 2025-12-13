@@ -3625,6 +3625,13 @@ function degToRad(deg) {
   return (deg * Math.PI) / 180;
 }
 
+function radToDeg(rad) {
+  if (!Number.isFinite(rad)) return 0;
+  const oneDegRad = degToRad(1);
+  if (!oneDegRad) return 0;
+  return rad / oneDegRad;
+}
+
 function normalizeSandboxPosition(position) {
   if (!position || typeof position !== 'object') {
     return { x: 0, y: 0 };
@@ -5096,6 +5103,146 @@ let gameDebugPanelElement = null;
 let gameDebugPanelUpdateHandle = null;
 let lastGLTFLoadStatus = { success: null, timestamp: null, error: null };
 let lastComputedFPS = 0;
+const CAMERA_TRANSLATION_CLAMP = 1000000;
+const CAMERA_ROTATION_CLAMP_DEG = 7200;
+const cameraControlInputs = {
+  position: {},
+  rotation: {}
+};
+let cameraControlStatusEl = null;
+let gameDebugInfoContainer = null;
+
+function getActiveThreeCamera() {
+  return GAME_RENDERER_3D?.camera || null;
+}
+
+function applyCameraTranslation(axis, rawValue) {
+  const cam = getActiveThreeCamera();
+  if (!cam || !cam.position) return;
+
+  const clamped = clampNumber(Number(rawValue), -CAMERA_TRANSLATION_CLAMP, CAMERA_TRANSLATION_CLAMP);
+  cam.position[axis] = clamped;
+  if (typeof cam.updateMatrixWorld === 'function') {
+    cam.updateMatrixWorld();
+  }
+}
+
+function applyCameraRotation(axis, rawDegrees) {
+  const cam = getActiveThreeCamera();
+  if (!cam || !cam.rotation) return;
+
+  const clampedDegrees = clampNumber(Number(rawDegrees), -CAMERA_ROTATION_CLAMP_DEG, CAMERA_ROTATION_CLAMP_DEG);
+  cam.rotation[axis] = degToRad(clampedDegrees);
+  if (typeof cam.updateMatrixWorld === 'function') {
+    cam.updateMatrixWorld();
+  }
+  if (typeof cam.updateProjectionMatrix === 'function') {
+    cam.updateProjectionMatrix();
+  }
+}
+
+function createCameraControlRow(type, axis, label) {
+  const row = document.createElement('div');
+  Object.assign(row.style, {
+    display: 'grid',
+    gridTemplateColumns: '90px 1fr 90px',
+    gap: '8px',
+    alignItems: 'center'
+  });
+
+  const labelEl = document.createElement('div');
+  labelEl.textContent = label;
+  Object.assign(labelEl.style, {
+    color: '#aaa',
+    fontSize: '11px'
+  });
+
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = type === 'rotation' ? -CAMERA_ROTATION_CLAMP_DEG : -CAMERA_TRANSLATION_CLAMP;
+  slider.max = type === 'rotation' ? CAMERA_ROTATION_CLAMP_DEG : CAMERA_TRANSLATION_CLAMP;
+  slider.step = type === 'rotation' ? '0.1' : '0.5';
+
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.min = slider.min;
+  input.max = slider.max;
+  input.step = type === 'rotation' ? '0.1' : '0.01';
+  Object.assign(input.style, {
+    width: '100%',
+    background: '#111',
+    color: '#e0e0e0',
+    border: '1px solid #444',
+    borderRadius: '3px',
+    padding: '2px 6px',
+    fontSize: '11px'
+  });
+
+  slider.addEventListener('input', () => {
+    input.value = slider.value;
+    if (type === 'rotation') {
+      applyCameraRotation(axis, slider.value);
+    } else {
+      applyCameraTranslation(axis, slider.value);
+    }
+  });
+
+  input.addEventListener('input', () => {
+    const numeric = Number(input.value);
+    if (!Number.isFinite(numeric)) return;
+    slider.value = clampNumber(numeric, Number(slider.min), Number(slider.max));
+    if (type === 'rotation') {
+      applyCameraRotation(axis, slider.value);
+    } else {
+      applyCameraTranslation(axis, slider.value);
+    }
+  });
+
+  cameraControlInputs[type][axis] = { slider, input };
+
+  row.appendChild(labelEl);
+  row.appendChild(slider);
+  row.appendChild(input);
+
+  return row;
+}
+
+function syncCameraControlState() {
+  const cam = getActiveThreeCamera();
+  const hasCamera = Boolean(cam);
+  if (cameraControlStatusEl) {
+    cameraControlStatusEl.textContent = hasCamera
+      ? 'Live editing camera position & rotation (deg)' : '3D camera unavailable';
+    cameraControlStatusEl.style.color = hasCamera ? '#9f9' : '#f99';
+  }
+
+  const axes = ['x', 'y', 'z'];
+  axes.forEach((axis) => {
+    const pos = cameraControlInputs.position[axis];
+    const rot = cameraControlInputs.rotation[axis];
+
+    if (pos) {
+      pos.slider.disabled = !hasCamera;
+      pos.input.disabled = !hasCamera;
+      if (hasCamera && document.activeElement !== pos.input) {
+        const value = Number(cam.position?.[axis]) || 0;
+        pos.slider.value = clampNumber(value, Number(pos.slider.min), Number(pos.slider.max));
+        pos.input.value = value.toFixed(3);
+      }
+    }
+
+    if (rot) {
+      rot.slider.disabled = !hasCamera;
+      rot.input.disabled = !hasCamera;
+      if (hasCamera && document.activeElement !== rot.input) {
+        const degrees = radToDeg(Number(cam.rotation?.[axis]) || 0);
+        const clamped = clampNumber(degrees, Number(rot.slider.min), Number(rot.slider.max));
+        rot.slider.value = clamped;
+        rot.input.value = clamped.toFixed(3);
+      }
+    }
+  });
+}
 
 /**
  * Initialize the 3D/Runtime debug panel.
@@ -5175,6 +5322,63 @@ function initGameDebugPanel() {
       overflowY: 'auto',
       display: 'block'
     });
+
+    // Camera manipulation controls
+    const cameraControls = document.createElement('div');
+    cameraControls.id = 'gameDebugCameraControls';
+    Object.assign(cameraControls.style, {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '10px',
+      paddingBottom: '12px',
+      borderBottom: '1px solid #333',
+      marginBottom: '12px'
+    });
+
+    const cameraTitle = document.createElement('div');
+    cameraTitle.textContent = 'Camera translation & rotation (deg)';
+    Object.assign(cameraTitle.style, {
+      fontWeight: 'bold',
+      fontSize: '12px'
+    });
+
+    cameraControlStatusEl = document.createElement('div');
+    Object.assign(cameraControlStatusEl.style, {
+      fontSize: '11px',
+      color: '#999'
+    });
+
+    const cameraGrid = document.createElement('div');
+    Object.assign(cameraGrid.style, {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px'
+    });
+
+    cameraGrid.appendChild(createCameraControlRow('position', 'x', 'Translate X'));
+    cameraGrid.appendChild(createCameraControlRow('position', 'y', 'Translate Y'));
+    cameraGrid.appendChild(createCameraControlRow('position', 'z', 'Translate Z'));
+    cameraGrid.appendChild(createCameraControlRow('rotation', 'x', 'Rotate X (deg)'));
+    cameraGrid.appendChild(createCameraControlRow('rotation', 'y', 'Rotate Y (deg)'));
+    cameraGrid.appendChild(createCameraControlRow('rotation', 'z', 'Rotate Z (deg)'));
+
+    const cameraClampHint = document.createElement('div');
+    cameraClampHint.textContent = `Clamps: ±${CAMERA_TRANSLATION_CLAMP.toLocaleString()} units, ±${CAMERA_ROTATION_CLAMP_DEG}°`;
+    Object.assign(cameraClampHint.style, {
+      fontSize: '10px',
+      color: '#777'
+    });
+
+    cameraControls.appendChild(cameraTitle);
+    cameraControls.appendChild(cameraControlStatusEl);
+    cameraControls.appendChild(cameraGrid);
+    cameraControls.appendChild(cameraClampHint);
+
+    body.appendChild(cameraControls);
+
+    gameDebugInfoContainer = document.createElement('div');
+    gameDebugInfoContainer.id = 'gameDebugInfoGrid';
+    body.appendChild(gameDebugInfoContainer);
     
     // Create action buttons container in header
     const actionsContainer = document.createElement('div');
@@ -5327,7 +5531,12 @@ function updateGameDebugPanel() {
   try {
     const body = document.getElementById('gameDebugPanelBody');
     if (!body || body.style.display === 'none') return;
-    
+
+    const infoContainer = gameDebugInfoContainer || document.getElementById('gameDebugInfoGrid');
+    if (!infoContainer) return;
+
+    syncCameraControlState();
+
     // Gather status information
     const bootStatus = window.GAME?.bootComplete ? 'booted' : 'booting...';
     const moduleStatus = getRendererModuleStatus();
@@ -5425,8 +5634,8 @@ function updateGameDebugPanel() {
         <div>${fpsDisplay}</div>
       </div>
     `;
-    
-    body.innerHTML = html;
+
+    infoContainer.innerHTML = html;
   } catch (error) {
     console.error('[app] Error updating game debug panel:', error);
   }
