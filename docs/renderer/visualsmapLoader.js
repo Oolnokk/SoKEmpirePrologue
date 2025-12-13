@@ -376,7 +376,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log(`[visualsmapLoader] - Grid size: ${gridWidth} x ${gridDepth}`);
     console.log(`[visualsmapLoader] - Camera position: (${cameraX}, ${cameraY}, ${cameraZ})`);
 
-    renderer.setCameraPosition({
+    renderer.setCameraParams({
       position: { x: cameraX, y: cameraY, z: cameraZ },
       lookAt: { x: gridCenterX, y: 0, z: gridCenterZ }
     });
