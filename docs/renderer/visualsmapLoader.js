@@ -179,7 +179,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log('[visualsmapLoader] - Layers:', Object.keys(visualsMap.layerStates || {}));
 
     const { rows = 20, cols = 20, layerStates = {}, gameplayPath, alignWorldToPath = false } = visualsMap;
-    const cellSize = 100; // Default cell size in world units
+    // Use the global grid unit world size configuration (default 30)
+    const cellSize = (typeof window !== 'undefined' && window.GRID_UNIT_WORLD_SIZE) || 30;
+    console.log(`[visualsmapLoader] Using cellSize: ${cellSize} (from GRID_UNIT_WORLD_SIZE)`);
     const loadedObjects = [];
     const assetCache = new Map();
     const gltfCache = new Map();
