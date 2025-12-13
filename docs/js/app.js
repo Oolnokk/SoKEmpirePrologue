@@ -5778,6 +5778,7 @@ function boot(){
                   const visualsmapLoader = await getVisualsmapLoader();
                   const gameplayMapUrl = area.source || ''; // URL of the gameplaymap.json
                   GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, area, gameplayMapUrl);
+                  window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
                   if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
                     console.log('[app] Visualsmap loaded successfully:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
                     lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
@@ -5794,6 +5795,7 @@ function boot(){
               else if (area && area.scene3d && area.scene3d.sceneUrl && typeof adaptScene3dToRenderer === 'function') {
                 console.log('[app] Loading 3D scene for area:', area.id, area.scene3d.sceneUrl);
                 GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, area.scene3d);
+                window.GAME.renderAdapter = GAME_RENDER_ADAPTER; // Expose for debugging
                 if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
                   console.log('[app] 3D scene loaded successfully');
                   lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
@@ -5824,6 +5826,7 @@ function boot(){
               const visualsmapLoader = await getVisualsmapLoader();
               const gameplayMapUrl = areaToLoad.source || '';
               GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, areaToLoad, gameplayMapUrl);
+              window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
               if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
                 lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
               } else {
@@ -5834,6 +5837,7 @@ function boot(){
             else if (areaToLoad && areaToLoad.scene3d && areaToLoad.scene3d.sceneUrl && typeof adaptScene3dToRenderer === 'function') {
               console.log('[app] Loading initial 3D scene:', areaToLoad.id);
               GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, areaToLoad.scene3d);
+              window.GAME.renderAdapter = GAME_RENDER_ADAPTER; // Expose for debugging
               if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
                 lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
               } else {
@@ -5848,6 +5852,8 @@ function boot(){
 
         // Expose for debugging
         window.GAME.renderer3d = GAME_RENDERER_3D;
+        window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER;
+        window.GAME.renderAdapter = GAME_RENDER_ADAPTER;
         console.log('[app] 3D background renderer initialized successfully');
       }
     } else {
