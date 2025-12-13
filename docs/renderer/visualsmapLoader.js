@@ -155,6 +155,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     const cellSize = 100; // Default cell size in world units
     const loadedObjects = [];
     const assetCache = new Map();
+    const gltfCache = new Map();
 
     // Process layers in order: ground, structure, decoration
     const layerOrder = ['ground', 'structure', 'decoration'];
@@ -189,9 +190,29 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             continue;
           }
 
-          // Load GLTF
+          // Load GLTF once per URL, then clone for each placement so we can place
+          // multiple instances without Three.js re-parenting them out of the scene.
+          if (!gltfCache.has(gltfUrl)) {
+            gltfCache.set(gltfUrl, (async () => {
+              const base = await renderer.loadGLTF(gltfUrl);
+              return base;
+            })());
+          }
+
           try {
-            const object = await renderer.loadGLTF(gltfUrl);
+            const baseObject = await gltfCache.get(gltfUrl);
+            if (!baseObject) {
+              console.warn(`[visualsmapLoader] Failed to load GLTF: ${gltfUrl}`);
+              continue;
+            }
+
+            // Clone the loaded GLTF so every cell keeps its own transform
+            const object = baseObject.clone(true);
+            object.traverse((child) => {
+              if (child.isMesh && child.material && typeof child.material.clone === 'function') {
+                child.material = child.material.clone();
+              }
+            });
             if (!object) {
               console.warn(`[visualsmapLoader] Failed to load GLTF: ${gltfUrl}`);
               continue;
@@ -221,11 +242,13 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
             // Apply rotation
             // Cell orientation is in degrees (0, 90, 180, 270)
-            const orientationRad = ((cell.orientation || 0) * Math.PI) / 180;
+            const orientationDeg = cell.orientation ?? assetConfig.instanceDefaults?.orientation ?? 0;
+            const orientationRad = (orientationDeg * Math.PI) / 180;
             const rotationX = assetConfig.extra?.rotationX || 0;
             const rotationXRad = (rotationX * Math.PI) / 180;
 
-            object.rotation.set(rotationXRad, orientationRad, 0);
+            object.rotation.x += rotationXRad;
+            object.rotation.y += orientationRad;
 
             // Add to renderer
             renderer.add(object);
