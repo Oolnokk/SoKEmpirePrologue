@@ -272,12 +272,14 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               console.log(`[visualsmapLoader] Position ${loadedObjects.length}: (${row},${col}) → world (${worldPos.x}, ${worldPos.y}, ${worldPos.z})`);
             }
 
-            // Apply base scale
+            // Apply base scale with GRID_UNIT_WORLD_SIZE factor
+            // Models are authored for 100-unit grid, so scale by cellSize/100
+            const gridScaleFactor = cellSize / 100;
             const baseScale = assetConfig.baseScale || { x: 1, y: 1, z: 1 };
             const instanceScale = {
-              x: (cell.scaleX || 1) * baseScale.x,
-              y: (cell.scaleY || 1) * baseScale.y,
-              z: (cell.scaleZ || 1) * baseScale.z
+              x: (cell.scaleX || 1) * baseScale.x * gridScaleFactor,
+              y: (cell.scaleY || 1) * baseScale.y * gridScaleFactor,
+              z: (cell.scaleZ || 1) * baseScale.z * gridScaleFactor
             };
             object.scale.set(instanceScale.x, instanceScale.y, instanceScale.z);
 
