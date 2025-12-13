@@ -552,10 +552,12 @@ select {
       ALL_ASSETS = [...SEGMENT_ASSETS, ...STRUCTURE_ASSETS, ...DECORATION_ASSETS];
     }
 
+    const docsBase = new URL('.', window.location.href);
+
     async function loadVisualAssetConfigs() {
       try {
         // Try visualsmaps first
-        const response = await fetch('/config/maps/visualsmaps/index.json');
+        const response = await fetch(new URL('config/maps/visualsmaps/index.json', docsBase));
         if (response.ok) {
           const data = await response.json();
           logDebug('Loaded assets from visualsmaps/index.json');
@@ -593,20 +595,20 @@ select {
 
       try {
         // Try docs/config/assets fallback
-        const indexResponse = await fetch('/docs/config/assets/asset-index.json');
+        const indexResponse = await fetch(new URL('config/assets/asset-index.json', docsBase));
         if (indexResponse.ok) {
           const index = await indexResponse.json();
           logDebug('Loaded asset index from docs/config/assets');
-          
+
           const segments = await Promise.all(
-            (index.segments || []).map(file => 
-              fetch(`/docs/config/assets/${file}`).then(r => r.json()).catch(() => null)
+            (index.segments || []).map(file =>
+              fetch(new URL(`config/assets/${file}`, docsBase)).then(r => r.json()).catch(() => null)
             )
           );
-          
+
           const structures = await Promise.all(
-            (index.structures || []).map(file => 
-              fetch(`/docs/config/assets/${file}`).then(r => r.json()).catch(() => null)
+            (index.structures || []).map(file =>
+              fetch(new URL(`config/assets/${file}`, docsBase)).then(r => r.json()).catch(() => null)
             )
           );
           
