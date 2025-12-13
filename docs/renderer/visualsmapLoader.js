@@ -345,6 +345,41 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log(`[visualsmapLoader] - Renderer scene.children count:`, renderer.scene?.children?.length || 0);
     console.log('[visualsmapLoader] ========================================');
 
+    // Position camera to view the entire grid
+    const gridCenterX = (cols / 2) * cellSize;
+    const gridCenterZ = alignWorldToPath ? 0 : (-rows / 2) * cellSize;
+    const gridWidth = cols * cellSize;
+    const gridDepth = rows * cellSize;
+
+    // Position camera elevated and back to see the whole scene
+    const cameraDistance = Math.max(gridWidth, gridDepth) * 1.2;
+    const cameraX = gridCenterX;
+    const cameraY = cameraDistance * 0.6;
+    const cameraZ = gridCenterZ - cameraDistance * 0.8;
+
+    console.log(`[visualsmapLoader] Setting camera position to view grid:`);
+    console.log(`[visualsmapLoader] - Grid center: (${gridCenterX}, 0, ${gridCenterZ})`);
+    console.log(`[visualsmapLoader] - Grid size: ${gridWidth} x ${gridDepth}`);
+    console.log(`[visualsmapLoader] - Camera position: (${cameraX}, ${cameraY}, ${cameraZ})`);
+
+    renderer.setCameraPosition({
+      position: { x: cameraX, y: cameraY, z: cameraZ },
+      lookAt: { x: gridCenterX, y: 0, z: gridCenterZ }
+    });
+
+    // Add lighting to the scene
+    console.log(`[visualsmapLoader] Adding scene lighting`);
+    const ambientLight = new renderer.THREE.AmbientLight(0xffffff, 0.6);
+    renderer.add(ambientLight);
+    loadedObjects.push(ambientLight); // Track for disposal
+
+    const directionalLight = new renderer.THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(gridCenterX + 500, 1000, gridCenterZ - 500);
+    directionalLight.target.position.set(gridCenterX, 0, gridCenterZ);
+    renderer.add(directionalLight);
+    renderer.add(directionalLight.target);
+    loadedObjects.push(directionalLight, directionalLight.target); // Track for disposal
+
     return {
       objects: loadedObjects,
       dispose: () => {
