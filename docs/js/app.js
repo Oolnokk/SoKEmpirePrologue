@@ -1062,8 +1062,15 @@ async function ensureThreeGlobals() {
         await importModuleFromSources('Three.js ES', THREE_MODULE_SOURCES, (module) => {
           const threeModule = module?.default || module;
           if (threeModule && !globalThis.THREE) {
-            globalThis.THREE = threeModule;
-            console.log(`[app] Three.js r${threeModule.REVISION || 'unknown'} loaded from ES module`);
+            // ES module namespaces are frozen by spec, so create an extensible copy
+            // to allow attaching GLTFLoader and BufferGeometryUtils
+            if (!Object.isExtensible(threeModule)) {
+              console.log(`[app] Creating extensible copy of THREE module namespace`);
+              globalThis.THREE = Object.assign({}, threeModule);
+            } else {
+              globalThis.THREE = threeModule;
+            }
+            console.log(`[app] Three.js r${(globalThis.THREE.REVISION || 'unknown')} loaded from ES module`);
           }
         });
       } catch (moduleError) {
@@ -1083,14 +1090,17 @@ async function ensureThreeGlobals() {
       throw new Error('Three.js failed to initialize');
     }
 
-    // Check if THREE object is extensible (diagnostic)
+    // Check if THREE object is extensible and create extensible copy if needed
     const isExtensible = Object.isExtensible(globalThis.THREE);
     const isSealed = Object.isSealed(globalThis.THREE);
     const isFrozen = Object.isFrozen(globalThis.THREE);
     console.log(`[app] THREE object state: extensible=${isExtensible}, sealed=${isSealed}, frozen=${isFrozen}`);
-    
+
     if (!isExtensible) {
-      console.warn('[app] ⚠ THREE object is not extensible - GLTFLoader and BufferGeometryUtils will use fallback storage');
+      console.log('[app] Creating extensible copy of non-extensible THREE object');
+      // Create an extensible copy to allow attaching GLTFLoader and BufferGeometryUtils
+      globalThis.THREE = Object.assign({}, globalThis.THREE);
+      console.log('[app] ✓ THREE object is now extensible');
     }
 
     // Load BufferGeometryUtils if not already available (required by GLTFLoader for some geometries)
@@ -5819,6 +5829,12 @@ function boot(){
             const areaToLoad = activeArea || (fallbackAreaId && typeof registry.getArea === 'function'
               ? registry.getArea(fallbackAreaId)
               : null);
+
+            // DEBUG: Log area properties
+            console.log('[app] Initial area to load:', areaToLoad?.id, 'has visualsMap:', !!areaToLoad?.visualsMap, 'has scene3d:', !!areaToLoad?.scene3d);
+            if (areaToLoad) {
+              console.log('[app] Area properties:', Object.keys(areaToLoad));
+            }
 
             // Load visualsmap if available (preferred)
             if (areaToLoad && areaToLoad.visualsMap) {

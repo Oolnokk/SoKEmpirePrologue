@@ -697,6 +697,10 @@ async function loadStartingArea() {
         });
         // Set source URL so visualsmap paths can be resolved relative to this file
         area.source = layoutUrl.href;
+        console.debug('[map-bootstrap] Area object has visualsMap:', !!area.visualsMap, 'scene3d:', !!area.scene3d);
+        if (area.visualsMap) {
+            console.debug('[map-bootstrap] visualsMap path:', area.visualsMap);
+        }
         applyArea(area);
     }
     catch (error) {

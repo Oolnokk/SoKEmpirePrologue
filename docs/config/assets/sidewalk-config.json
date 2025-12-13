@@ -1,7 +1,7 @@
 {
   "id": "sidewalk",
   "label": "Sidewalk",
-  "gltfPath": "../assets/3D/ground_segments/blocksegment.gltf",
+  "gltfPath": "./assets/3D/ground_segments/blocksegment.gltf",
   "baseScale": {
     "x": 0.25,
     "y": 0.25,

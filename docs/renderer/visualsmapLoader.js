@@ -179,7 +179,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log('[visualsmapLoader] - Layers:', Object.keys(visualsMap.layerStates || {}));
 
     const { rows = 20, cols = 20, layerStates = {}, gameplayPath, alignWorldToPath = false } = visualsMap;
-    const cellSize = 100; // Default cell size in world units
+    // Use the global grid unit world size configuration (default 30)
+    const cellSize = (typeof window !== 'undefined' && window.GRID_UNIT_WORLD_SIZE) || 30;
+    console.log(`[visualsmapLoader] Using cellSize: ${cellSize} (from GRID_UNIT_WORLD_SIZE)`);
     const loadedObjects = [];
     const assetCache = new Map();
     const gltfCache = new Map();
@@ -265,12 +267,19 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             // Calculate world position
             const worldPos = gridToWorld(row, col, rows, cols, cellSize, gameplayPath, alignWorldToPath);
 
-            // Apply base scale
+            // DEBUG: Log first few positions to verify grid placement
+            if (loadedObjects.length < 5) {
+              console.log(`[visualsmapLoader] Position ${loadedObjects.length}: (${row},${col}) → world (${worldPos.x}, ${worldPos.y}, ${worldPos.z})`);
+            }
+
+            // Apply base scale with GRID_UNIT_WORLD_SIZE factor
+            // Increased to 300/cellSize to fill grid cells (10x for cellSize=30)
+            const gridScaleFactor = 300 / cellSize;
             const baseScale = assetConfig.baseScale || { x: 1, y: 1, z: 1 };
             const instanceScale = {
-              x: (cell.scaleX || 1) * baseScale.x,
-              y: (cell.scaleY || 1) * baseScale.y,
-              z: (cell.scaleZ || 1) * baseScale.z
+              x: (cell.scaleX || 1) * baseScale.x * gridScaleFactor,
+              y: (cell.scaleY || 1) * baseScale.y * gridScaleFactor,
+              z: (cell.scaleZ || 1) * baseScale.z * gridScaleFactor
             };
             object.scale.set(instanceScale.x, instanceScale.y, instanceScale.z);
 
@@ -339,6 +348,61 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log(`[visualsmapLoader] - Unique GLTF files cached:`, gltfCache.size);
     console.log(`[visualsmapLoader] - Renderer scene.children count:`, renderer.scene?.children?.length || 0);
     console.log('[visualsmapLoader] ========================================');
+
+    // Position camera to view the entire grid
+    const gridCenterX = (cols / 2) * cellSize;
+
+    // Calculate actual grid center Z based on how gridToWorld positions cells
+    let gridCenterZ;
+    if (alignWorldToPath && gameplayPath?.start && gameplayPath?.end) {
+      const pathRow = (gameplayPath.start.row + gameplayPath.end.row) / 2;
+      // Grid spans from row 0 to row (rows-1)
+      // Z for row 0: (pathRow - 0) * cellSize
+      // Z for row (rows-1): (pathRow - (rows-1)) * cellSize
+      const minZ = (pathRow - (rows - 1)) * cellSize;
+      const maxZ = (pathRow - 0) * cellSize;
+      gridCenterZ = (minZ + maxZ) / 2;
+    } else {
+      gridCenterZ = 0;
+    }
+
+    const gridWidth = cols * cellSize;
+    const gridDepth = rows * cellSize;
+
+    // Position camera higher and back to see towers and ground
+    const cameraDistance = Math.max(gridWidth, gridDepth) * 0.3;
+    const cameraX = gridCenterX;
+    const cameraY = cameraDistance * 1.5; // Higher to see towers
+    const cameraZ = gridCenterZ - cameraDistance;
+
+    console.log(`[visualsmapLoader] Setting camera position to view grid:`);
+    console.log(`[visualsmapLoader] - Grid center: (${gridCenterX}, 0, ${gridCenterZ})`);
+    console.log(`[visualsmapLoader] - Grid size: ${gridWidth} x ${gridDepth}`);
+    console.log(`[visualsmapLoader] - Camera position: (${cameraX}, ${cameraY}, ${cameraZ})`);
+
+    renderer.setCameraParams({
+      position: { x: cameraX, y: cameraY, z: cameraZ },
+      lookAt: { x: gridCenterX, y: 0, z: gridCenterZ }
+    });
+
+    // Verify camera was set correctly
+    if (renderer.camera) {
+      console.log(`[visualsmapLoader] ✓ Camera actual position after set:`, renderer.camera.position);
+      console.log(`[visualsmapLoader] ✓ Camera type:`, renderer.camera.type);
+    }
+
+    // Add lighting to the scene
+    console.log(`[visualsmapLoader] Adding scene lighting`);
+    const ambientLight = new renderer.THREE.AmbientLight(0xffffff, 0.6);
+    renderer.add(ambientLight);
+    loadedObjects.push(ambientLight); // Track for disposal
+
+    const directionalLight = new renderer.THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(gridCenterX + 500, 1000, gridCenterZ - 500);
+    directionalLight.target.position.set(gridCenterX, 0, gridCenterZ);
+    renderer.add(directionalLight);
+    renderer.add(directionalLight.target);
+    loadedObjects.push(directionalLight, directionalLight.target); // Track for disposal
 
     return {
       objects: loadedObjects,

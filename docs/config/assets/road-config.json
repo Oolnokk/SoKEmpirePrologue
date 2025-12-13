@@ -1,7 +1,7 @@
 {
   "id": "road",
   "label": "Road",
-  "gltfPath": "../assets/3D/ground_segments/roadsegment.gltf",
+  "gltfPath": "./assets/3D/ground_segments/roadsegment.gltf",
   "baseScale": {
     "x": 0.25,
     "y": 0.25,
