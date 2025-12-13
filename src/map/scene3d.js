@@ -98,26 +98,41 @@ export function resolveScene3dUrl(sceneUrl, opts = {}) {
     return sceneUrl;
   }
 
-  const base = opts.base || '/config/maps/visualsmaps/';
+  const defaultBase = '/docs/config/maps/visualsmaps/';
+  let locationBase;
+  if (typeof window !== 'undefined' && window.location?.href) {
+    try {
+      locationBase = new URL('./config/maps/visualsmaps/', window.location.href).pathname;
+    } catch (e) {
+      locationBase = null;
+    }
+  }
+
+  const basePath = opts.base || locationBase || defaultBase;
+  const baseUrl = new URL(
+    basePath,
+    typeof window !== 'undefined' && window.location?.href ? window.location.href : 'http://localhost/',
+  );
+  const docsRoot = baseUrl.pathname.replace(/config\/maps\/visualsmaps\/?$/, '');
 
   // Already absolute URL (http/https)
   if (sceneUrl.startsWith('http://') || sceneUrl.startsWith('https://')) {
     return sceneUrl;
   }
 
-  // Already starts with /config/ - leave unchanged
+  // Paths starting at /config/ should be anchored under the docs root when present
   if (sceneUrl.startsWith('/config/')) {
-    return sceneUrl;
+    return docsRoot + sceneUrl.replace(/^\//, '');
   }
 
   // Relative path starting with './' - strip and resolve
   if (sceneUrl.startsWith('./')) {
-    return base + sceneUrl.substring(2);
+    sceneUrl = sceneUrl.substring(2);
   }
 
   // No leading slash - treat as relative and resolve
   if (!sceneUrl.startsWith('/')) {
-    return base + sceneUrl;
+    return new URL(sceneUrl, baseUrl).pathname;
   }
 
   // Absolute path (starts with /) - leave unchanged
