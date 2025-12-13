@@ -273,8 +273,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             }
 
             // Apply base scale with GRID_UNIT_WORLD_SIZE factor
-            // Scale UP to make models visible (100/30 = 3.33x for cellSize=30)
-            const gridScaleFactor = 100 / cellSize;
+            // Increased to 300/cellSize to fill grid cells (10x for cellSize=30)
+            const gridScaleFactor = 300 / cellSize;
             const baseScale = assetConfig.baseScale || { x: 1, y: 1, z: 1 };
             const instanceScale = {
               x: (cell.scaleX || 1) * baseScale.x * gridScaleFactor,
@@ -369,11 +369,10 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     const gridWidth = cols * cellSize;
     const gridDepth = rows * cellSize;
 
-    // Position camera VERY close - models appear extremely small on screen
-    // Using 0.05 instead of 0.25 to get much closer
-    const cameraDistance = Math.max(gridWidth, gridDepth) * 0.05;
+    // Position camera higher and back to see towers and ground
+    const cameraDistance = Math.max(gridWidth, gridDepth) * 0.3;
     const cameraX = gridCenterX;
-    const cameraY = cameraDistance * 0.8;
+    const cameraY = cameraDistance * 1.5; // Higher to see towers
     const cameraZ = gridCenterZ - cameraDistance;
 
     console.log(`[visualsmapLoader] Setting camera position to view grid:`);
