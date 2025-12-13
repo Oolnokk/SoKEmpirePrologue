@@ -365,12 +365,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     const gridWidth = cols * cellSize;
     const gridDepth = rows * cellSize;
 
-    // Position camera elevated and back to see the whole scene
-    // Much closer view to account for small model scales (0.2-0.25)
-    const cameraDistance = Math.max(gridWidth, gridDepth) * 0.25;
+    // Position camera VERY close - models appear extremely small on screen
+    // Using 0.05 instead of 0.25 to get much closer
+    const cameraDistance = Math.max(gridWidth, gridDepth) * 0.05;
     const cameraX = gridCenterX;
-    const cameraY = cameraDistance * 0.6;
-    const cameraZ = gridCenterZ - cameraDistance * 0.8;
+    const cameraY = cameraDistance * 0.8;
+    const cameraZ = gridCenterZ - cameraDistance;
 
     console.log(`[visualsmapLoader] Setting camera position to view grid:`);
     console.log(`[visualsmapLoader] - Grid center: (${gridCenterX}, 0, ${gridCenterZ})`);
