@@ -1063,7 +1063,8 @@
     document.getElementById('btnSaveToServer').addEventListener('click', async () => {
       updateMapSettings();
       try {
-        const response = await fetch('/config/maps/gameplaymaps/' + mapData.areaId + '.json', {
+        const targetUrl = new URL(`./config/maps/gameplaymaps/${mapData.areaId}.json`, window.location.href);
+        const response = await fetch(targetUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(mapData, null, 2)
