@@ -1864,6 +1864,7 @@ export function convertLayoutToArea(layout, options = {}) {
       offset: toNumber(layout.groundOffset, 0),
     },
     scene3d: layout.scene3d !== undefined ? safeClone(layout.scene3d) : undefined,
+    visualsMap: layout.visualsMap !== undefined ? layout.visualsMap : undefined,
     proximityScale,
     scene,
     layers: convertedLayers,
