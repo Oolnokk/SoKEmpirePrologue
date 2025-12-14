@@ -35,7 +35,7 @@ function resolveVisualsMapPath(visualsMapPath, gameplayMapUrl) {
  * Resolve asset path (handles absolute and relative paths, GitHub Pages compatible)
  * Uses the same resolution logic as rendererAdapter.js for consistent behavior
  * @param {string} assetPath - Path from asset config
- * @param {string} [baseContext] - Optional base context (unused, kept for API compatibility)
+ * @param {string} [baseContext] - Optional base context to resolve relative paths against
  * @returns {string} Resolved path
  */
 function resolveAssetPath(assetPath, baseContext = null) {
@@ -78,13 +78,72 @@ function resolveAssetPath(assetPath, baseContext = null) {
 }
 
 /**
+ * Derive the docs root (up to and including the `docs` segment) so that
+ * absolute-looking asset paths like "/config/..." can be resolved inside the
+ * deployed site structure rather than the domain root.
+ *
+ * Example:
+ *   ref: https://host/SoKEmpirePrologue/docs/config/maps/foo.json
+ *   returns: https://host/SoKEmpirePrologue/docs/
+ *
+ * @param {string} refUrl
+ * @returns {string|null}
+ */
+function deriveDocsBase(refUrl) {
+  if (!refUrl) return null;
+  try {
+    const url = new URL(refUrl);
+    const segments = url.pathname.split('/').filter(Boolean);
+    const docsIdx = segments.indexOf('docs');
+    if (docsIdx === -1) return null;
+
+    const docsPath = `/${segments.slice(0, docsIdx + 1).join('/')}/`;
+    url.pathname = docsPath;
+    url.search = '';
+    url.hash = '';
+    return url.href;
+  } catch (err) {
+    console.warn('[visualsmapLoader] Failed to derive docs base from', refUrl, err);
+    return null;
+  }
+}
+
+/**
+ * Derive the /config/ root from a reference URL so asset requests resolve to
+ * the sibling config folder instead of the page location. Example:
+ *   ref: https://host/SoKEmpirePrologue/docs/config/maps/visualsmaps/foo.json
+ *   returns: https://host/SoKEmpirePrologue/docs/config/
+ *
+ * @param {string} refUrl
+ * @returns {string|null}
+ */
+function deriveConfigBase(refUrl) {
+  if (!refUrl) return null;
+  try {
+    const url = new URL(refUrl);
+    const segments = url.pathname.split('/').filter(Boolean);
+    const configIdx = segments.lastIndexOf('config');
+    if (configIdx === -1) return null;
+
+    const configPath = `/${segments.slice(0, configIdx + 1).join('/')}/`;
+    url.pathname = configPath;
+    url.search = '';
+    url.hash = '';
+    return url.href;
+  } catch (err) {
+    console.warn('[visualsmapLoader] Failed to derive config base from', refUrl, err);
+    return null;
+  }
+}
+
+/**
  * Load asset configuration
  * @param {string} assetType - Type of asset (e.g., "tower", "sidewalk")
  * @returns {Promise<Object>} Asset configuration
  */
-async function loadAssetConfig(assetType) {
+async function loadAssetConfig(assetType, baseContext = null) {
   const configPath = `config/assets/${assetType}-config.json`;
-  const resolvedPath = resolveAssetPath(configPath);
+  const resolvedPath = resolveAssetPath(configPath, baseContext);
 
   console.log(`[visualsmapLoader] Loading asset config for "${assetType}": ${resolvedPath}`);
   
@@ -176,6 +235,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
     const { rows = 20, cols = 20, layerStates = {}, gameplayPath, alignWorldToPath = false } = visualsMap;
     const visualsMapBase = visualsMapUrl ? new URL('./', visualsMapUrl).href : '';
+    const docsBase = deriveDocsBase(visualsMapUrl) || deriveDocsBase(gameplayMapUrl) || null;
+    const configBase = deriveConfigBase(visualsMapUrl) || deriveConfigBase(gameplayMapUrl) || visualsMapBase || null;
 
     // Prefer inline asset definitions from visualsmap JSON when available
     const inlineAssetMap = new Map();
@@ -235,7 +296,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               assetCache.set(cell.type, inlineConfig);
               console.log(`[visualsmapLoader] ✓ Using inline asset config for ${cell.type}`);
             } else {
-              const config = await loadAssetConfig(cell.type);
+                const config = await loadAssetConfig(cell.type, configBase);
               assetCache.set(cell.type, config);
 
               if (config) {
@@ -255,7 +316,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
           // Resolve GLTF path
           const gltfCandidate = assetConfig.gltfPath || assetConfig.gltfFileName;
-          const gltfUrl = resolveAssetPath(gltfCandidate, inlineAsset ? visualsMapBase : null);
+          const gltfBase = inlineAsset ? visualsMapBase : (docsBase || configBase || visualsMapBase || null);
+          const gltfUrl = resolveAssetPath(gltfCandidate, gltfBase);
           if (!gltfUrl) {
             console.warn(`[visualsmapLoader] ✗ No gltfPath for asset: ${cell.type} at (${row},${col})`);
             console.warn(`[visualsmapLoader]   Asset config:`, assetConfig);
