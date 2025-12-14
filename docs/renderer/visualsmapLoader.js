@@ -368,17 +368,16 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             const baseRotationY = extraConfig.rotationY || 0;
             const baseRotationZ = extraConfig.rotationZ || 0;
 
-            // Wrap object in a container so we can apply base rotations without affecting cloned object state
-            const container = new renderer.THREE.Group();
-            container.add(object);
-
-            // Apply base rotations to the CONTAINER (not the inner object)
-            // This properly isolates base rotations from GLTF file state
+            // Apply base rotations first (model initialization - sets coordinate system)
+            // These rotations define the model's "zero" orientation in object space
             if (baseRotationX !== 0) {
-              container.rotation.x = (baseRotationX * Math.PI) / 180;
+              object.rotateX((baseRotationX * Math.PI) / 180);
+            }
+            if (baseRotationY !== 0) {
+              object.rotateY((baseRotationY * Math.PI) / 180);
             }
             if (baseRotationZ !== 0) {
-              container.rotation.z = (baseRotationZ * Math.PI) / 180;
+              object.rotateZ((baseRotationZ * Math.PI) / 180);
             }
 
             // Get offsets in grid units (pre-rotation)
@@ -392,12 +391,6 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             const effectiveRow = row + gridOffsetY;
             const worldPos = gridToWorld(effectiveRow, effectiveCol, rows, cols, cellSize, pathYawRad, alignWorldToPath);
 
-            // DEBUG: Log first few positions to verify grid placement
-            if (loadedObjects.length < 5) {
-              console.log(`[visualsmapLoader] Position ${loadedObjects.length}: grid(${row},${col}) offset(${gridOffsetX},${gridOffsetY}) → world (${worldPos.x}, ${worldPos.y}, ${worldPos.z})`);
-              console.log(`[visualsmapLoader]   Base rotations: X=${baseRotationX}° Y=${baseRotationY}° Z=${baseRotationZ}°`);
-            }
-
             // Apply base scale with GRID_UNIT_WORLD_SIZE factor
             // Inline editor exports express baseScale in grid units; legacy configs keep previous scaling
             const baseScale = assetConfig.baseScale || { x: 1, y: 1, z: 1 };
@@ -407,11 +400,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               y: (cell.scaleY ?? assetConfig.instanceDefaults?.scaleY ?? 1) * baseScale.y * baseScaleFactor,
               z: (cell.scaleZ ?? assetConfig.instanceDefaults?.scaleZ ?? 1) * baseScale.z * baseScaleFactor
             };
-            container.scale.set(instanceScale.x, instanceScale.y, instanceScale.z);
+            object.scale.set(instanceScale.x, instanceScale.y, instanceScale.z);
 
             // Apply position with Y offset (vertical offset is not affected by rotation)
             const yOffset = (assetConfig.yOffset || 0) * (inlineAsset ? cellSize : 1);
-            container.position.set(
+            object.position.set(
               worldPos.x,
               worldPos.y + yOffset,
               worldPos.z
@@ -423,14 +416,15 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             // Path yaw adjustment: when world is rotated to align path, counter-rotate objects
             const pathAdjustment = (alignWorldToPath && Number.isFinite(pathYawRad)) ? pathYawRad : 0;
 
-            // Apply orientation and path alignment to container Y rotation
-            // Base rotations (X/Z) are already applied above, now add Y orientation
-            const finalOrientationRad = ((orientationDeg * Math.PI) / 180) - pathAdjustment + ((baseRotationY * Math.PI) / 180);
-            container.rotation.y = finalOrientationRad;
+            // Apply orientation and path alignment (world-space rotation)
+            const finalOrientationRad = ((orientationDeg * Math.PI) / 180) - pathAdjustment;
+            if (finalOrientationRad !== 0) {
+              object.rotateY(finalOrientationRad);
+            }
 
-            // Add container to renderer
-            renderer.add(container);
-            loadedObjects.push(container);
+            // Add object to renderer
+            renderer.add(object);
+            loadedObjects.push(object);
 
             // Log only first few placements per layer to avoid spam, then summary
             const LOG_SAMPLE_INTERVAL = 20; // Log every Nth placement to reduce console spam
