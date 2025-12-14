@@ -412,14 +412,15 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
             // Apply base rotations first (model initialization - sets coordinate system)
             // These rotations define the model's natural upright orientation
+            // NOTE: Using NEGATIVE rotations to properly convert coordinate systems
             if (baseRotationX !== 0) {
-              object.rotateX((baseRotationX * Math.PI) / 180);
+              object.rotateX(-(baseRotationX * Math.PI) / 180);
             }
             if (baseRotationY !== 0) {
-              object.rotateY((baseRotationY * Math.PI) / 180);
+              object.rotateY(-(baseRotationY * Math.PI) / 180);
             }
             if (baseRotationZ !== 0) {
-              object.rotateZ((baseRotationZ * Math.PI) / 180);
+              object.rotateZ(-(baseRotationZ * Math.PI) / 180);
             }
 
             // Then apply orientation and path alignment (gameplay rotations)
