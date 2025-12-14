@@ -5966,14 +5966,17 @@ function boot(){
             try {
               const gameCamera = window.GAME?.CAMERA;
               if (gameCamera && GAME_RENDERER_3D) {
+                // Camera sync config for side-scrolling view aligned with gameplay path
+                // Values match visualsmapLoader camera setup (based on cellSize/GRID_UNIT_WORLD_SIZE=30)
+                const cellSize = window.GRID_UNIT_WORLD_SIZE || 30;
                 syncThreeCamera({
                   renderer: GAME_RENDERER_3D,
                   gameCamera: gameCamera,
                   config: {
-                    parallaxFactor: 0.5,   // Half-speed parallax for depth effect
-                    cameraHeight: 30,       // Elevated view angle
-                    cameraDistance: 50,     // Distance from scene
-                    lookAtOffsetY: 0        // Look at ground level
+                    parallaxFactor: 1.0,              // 3D camera follows 2D camera exactly (side-scrolling)
+                    cameraHeight: cellSize * 0.8,     // Height above ground (24 with cellSize=30)
+                    cameraDistance: -cellSize * 1.2,  // Negative Z = viewer side (-36 with cellSize=30)
+                    lookAtOffsetY: cellSize * 0.3     // Look slightly above ground (9 with cellSize=30)
                   }
                 });
               }

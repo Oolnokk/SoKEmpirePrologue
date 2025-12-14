@@ -448,27 +448,55 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log(`[visualsmapLoader] - Renderer scene.children count:`, renderer.scene?.children?.length || 0);
     console.log('[visualsmapLoader] ========================================');
 
-    // Position camera to view the entire grid
+    // Position camera aligned with gameplay path for side-scrolling view
     const gridCenterX = 0;
     const gridCenterZ = 0;
 
     const gridWidth = (cols - 1) * cellSize;
     const gridDepth = (rows - 1) * cellSize;
 
-    // Position camera higher and back to see towers and ground
-    const cameraDistance = Math.max(gridWidth, gridDepth) * 0.3;
-    const cameraX = gridCenterX;
-    const cameraY = cameraDistance * 1.5; // Higher to see towers
-    const cameraZ = gridCenterZ - cameraDistance;
+    // For side-scrolling gameplay aligned to path:
+    // - When alignWorldToPath is true, the path is rotated to align with +X axis
+    // - Camera should be positioned to the side (negative Z) looking at the path
+    // - This creates a side view where the path runs left-to-right across the screen
+    let cameraX, cameraY, cameraZ, lookAtX, lookAtY, lookAtZ;
 
-    console.log(`[visualsmapLoader] Setting camera position to view grid:`);
+    if (alignWorldToPath && gameplayPath?.start && gameplayPath?.end) {
+      // Side-scrolling camera aligned with gameplay path
+      // Position camera to the side of the path (negative Z = south)
+      cameraX = gridCenterX; // Center on the path horizontally
+      cameraY = cellSize * 0.8; // Height to see the ground plane and structures
+      cameraZ = -cellSize * 1.2; // Distance from path (negative Z = viewer side)
+
+      // Look at the center of the path
+      lookAtX = gridCenterX;
+      lookAtY = cellSize * 0.3; // Look slightly above ground level
+      lookAtZ = gridCenterZ;
+
+      console.log(`[visualsmapLoader] Setting side-scrolling camera aligned with gameplay path:`);
+      console.log(`[visualsmapLoader] - Path aligned to +X axis (left-to-right)`);
+      console.log(`[visualsmapLoader] - Camera viewing from side (negative Z)`);
+    } else {
+      // Fallback: top-down view of entire grid
+      const cameraDistance = Math.max(gridWidth, gridDepth) * 0.3;
+      cameraX = gridCenterX;
+      cameraY = cameraDistance * 1.5;
+      cameraZ = gridCenterZ - cameraDistance;
+      lookAtX = gridCenterX;
+      lookAtY = 0;
+      lookAtZ = gridCenterZ;
+
+      console.log(`[visualsmapLoader] Setting top-down camera to view entire grid:`);
+    }
+
     console.log(`[visualsmapLoader] - Grid center: (${gridCenterX}, 0, ${gridCenterZ})`);
-    console.log(`[visualsmapLoader] - Grid size: ${gridWidth} x ${gridDepth}`);
-    console.log(`[visualsmapLoader] - Camera position: (${cameraX}, ${cameraY}, ${cameraZ})`);
+    console.log(`[visualsmapLoader] - Grid size: ${gridWidth} x ${gridDepth}, cellSize: ${cellSize}`);
+    console.log(`[visualsmapLoader] - Camera position: (${cameraX.toFixed(1)}, ${cameraY.toFixed(1)}, ${cameraZ.toFixed(1)})`);
+    console.log(`[visualsmapLoader] - Camera look-at: (${lookAtX.toFixed(1)}, ${lookAtY.toFixed(1)}, ${lookAtZ.toFixed(1)})`);
 
     renderer.setCameraParams({
       position: { x: cameraX, y: cameraY, z: cameraZ },
-      lookAt: { x: gridCenterX, y: 0, z: gridCenterZ }
+      lookAt: { x: lookAtX, y: lookAtY, z: lookAtZ }
     });
 
     // Verify camera was set correctly
