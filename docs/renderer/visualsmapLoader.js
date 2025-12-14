@@ -374,6 +374,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
             // Apply base rotations to the cloned object BEFORE positioning
             // These rotations fix the model's coordinate system (e.g., Z-up to Y-up conversion)
+
+            // Log object's initial rotation (from GLTF file)
+            if (loadedObjects.length < 5) {
+              console.log(`[visualsmapLoader]   GLTF initial rotation: X=${(object.rotation.x * 180 / Math.PI).toFixed(2)}° Y=${(object.rotation.y * 180 / Math.PI).toFixed(2)}° Z=${(object.rotation.z * 180 / Math.PI).toFixed(2)}°`);
+            }
+
             if (baseRotationX !== 0) {
               object.rotation.x = (baseRotationX * Math.PI) / 180;
             }
@@ -382,6 +388,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             }
             if (baseRotationZ !== 0) {
               object.rotation.z = (baseRotationZ * Math.PI) / 180;
+            }
+
+            // Log object's rotation after applying base rotations
+            if (loadedObjects.length < 5) {
+              console.log(`[visualsmapLoader]   After base rotation: X=${(object.rotation.x * 180 / Math.PI).toFixed(2)}° Y=${(object.rotation.y * 180 / Math.PI).toFixed(2)}° Z=${(object.rotation.z * 180 / Math.PI).toFixed(2)}°`);
             }
 
             // Get offsets in grid units (pre-rotation)
@@ -429,6 +440,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             // Apply orientation and path alignment to container
             const finalOrientationRad = ((orientationDeg * Math.PI) / 180) - pathAdjustment;
             container.rotation.y = finalOrientationRad;
+
+            // Log final container rotation
+            if (loadedObjects.length < 5) {
+              console.log(`[visualsmapLoader]   Container rotation Y: ${(finalOrientationRad * 180 / Math.PI).toFixed(2)}° (orientation=${orientationDeg}° - pathAdj=${(pathAdjustment * 180 / Math.PI).toFixed(2)}°)`);
+            }
 
             // Add container to renderer
             renderer.add(container);
