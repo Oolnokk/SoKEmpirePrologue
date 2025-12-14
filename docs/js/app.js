@@ -5139,6 +5139,8 @@ let cameraControlStatusEl = null;
 let gameDebugInfoContainer = null;
 let manualCameraControlActive = false; // Flag to disable auto camera sync when manually controlling
 let manualControlCheckboxEl = null; // Reference to the manual control checkbox
+let minimapCanvas = null; // Minimap canvas for top-down view
+let minimapCtx = null; // Minimap 2D context
 
 function getActiveThreeCamera() {
   return GAME_RENDERER_3D?.camera || null;
@@ -5237,6 +5239,112 @@ function createCameraControlRow(type, axis, label) {
   return row;
 }
 
+function renderMinimap() {
+  if (!minimapCtx || !minimapCanvas) return;
+
+  const cam = getActiveThreeCamera();
+  const renderer = GAME_RENDERER_3D;
+
+  const w = minimapCanvas.width;
+  const h = minimapCanvas.height;
+  const cellSize = window.GRID_UNIT_WORLD_SIZE || 30;
+  const worldSize = 20 * cellSize; // 20x20 grid
+  const scale = Math.min(w, h) * 0.8 / worldSize;
+  const centerX = w / 2;
+  const centerY = h / 2;
+
+  // Clear canvas
+  minimapCtx.fillStyle = '#0a0a0a';
+  minimapCtx.fillRect(0, 0, w, h);
+
+  // Draw grid
+  minimapCtx.strokeStyle = '#222';
+  minimapCtx.lineWidth = 1;
+  for (let i = -10; i <= 10; i++) {
+    const offset = i * cellSize * scale;
+    // Vertical lines
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(centerX + offset, centerY - 10 * cellSize * scale);
+    minimapCtx.lineTo(centerX + offset, centerY + 10 * cellSize * scale);
+    minimapCtx.stroke();
+    // Horizontal lines
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(centerX - 10 * cellSize * scale, centerY + offset);
+    minimapCtx.lineTo(centerX + 10 * cellSize * scale, centerY + offset);
+    minimapCtx.stroke();
+  }
+
+  // Draw world bounds
+  minimapCtx.strokeStyle = '#444';
+  minimapCtx.lineWidth = 2;
+  const boundsSize = 10 * cellSize * scale;
+  minimapCtx.strokeRect(centerX - boundsSize, centerY - boundsSize, boundsSize * 2, boundsSize * 2);
+
+  // Draw gameplay path (row 10, col 0 to col 19)
+  minimapCtx.strokeStyle = '#4a9eff';
+  minimapCtx.lineWidth = 3;
+  minimapCtx.beginPath();
+  const pathY = centerY; // Row 10 is center
+  const pathStartX = centerX - 9.5 * cellSize * scale; // Col 0
+  const pathEndX = centerX + 9.5 * cellSize * scale; // Col 19
+  minimapCtx.moveTo(pathStartX, pathY);
+  minimapCtx.lineTo(pathEndX, pathY);
+  minimapCtx.stroke();
+
+  // Draw axis labels
+  minimapCtx.fillStyle = '#666';
+  minimapCtx.font = '10px monospace';
+  minimapCtx.fillText('+X', centerX + boundsSize + 5, centerY);
+  minimapCtx.fillText('-X', centerX - boundsSize - 25, centerY);
+  minimapCtx.fillText('+Z', centerX, centerY + boundsSize + 12);
+  minimapCtx.fillText('-Z', centerX, centerY - boundsSize - 5);
+
+  // Draw camera if available
+  if (cam && renderer) {
+    const camX = cam.position.x * scale;
+    const camZ = cam.position.z * scale;
+    const screenX = centerX + camX;
+    const screenY = centerY + camZ; // Z maps to Y in top-down view
+
+    // Draw camera cone showing view direction
+    minimapCtx.fillStyle = '#ff4444';
+    minimapCtx.strokeStyle = '#ff8888';
+    minimapCtx.lineWidth = 2;
+
+    const cameraRotY = cam.rotation.y;
+    const coneLength = 30;
+    const coneAngle = Math.PI / 6; // 30 degrees
+
+    minimapCtx.beginPath();
+    minimapCtx.arc(screenX, screenY, 5, 0, Math.PI * 2);
+    minimapCtx.fill();
+
+    // Draw view cone
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(screenX, screenY);
+    const leftAngle = cameraRotY - coneAngle;
+    const rightAngle = cameraRotY + coneAngle;
+    minimapCtx.lineTo(
+      screenX + Math.sin(leftAngle) * coneLength,
+      screenY + Math.cos(leftAngle) * coneLength
+    );
+    minimapCtx.lineTo(
+      screenX + Math.sin(rightAngle) * coneLength,
+      screenY + Math.cos(rightAngle) * coneLength
+    );
+    minimapCtx.closePath();
+    minimapCtx.stroke();
+
+    // Draw camera position text
+    minimapCtx.fillStyle = '#ff8888';
+    minimapCtx.font = '9px monospace';
+    minimapCtx.fillText(
+      `Camera (${cam.position.x.toFixed(0)}, ${cam.position.y.toFixed(0)}, ${cam.position.z.toFixed(0)})`,
+      5, h - 5
+    );
+  }
+}
+
 function syncCameraControlState() {
   const cam = getActiveThreeCamera();
   const hasCamera = Boolean(cam);
@@ -5255,6 +5363,9 @@ function syncCameraControlState() {
   if (manualControlCheckboxEl && manualControlCheckboxEl.checked !== manualCameraControlActive) {
     manualControlCheckboxEl.checked = manualCameraControlActive;
   }
+
+  // Render minimap
+  renderMinimap();
 
   const axes = ['x', 'y', 'z'];
   axes.forEach((axis) => {
@@ -5439,11 +5550,44 @@ function initGameDebugPanel() {
       color: '#777'
     });
 
+    // Create minimap for top-down visualization
+    const minimapContainer = document.createElement('div');
+    Object.assign(minimapContainer.style, {
+      marginTop: '12px',
+      padding: '8px',
+      background: '#1a1a1a',
+      borderRadius: '4px'
+    });
+
+    const minimapTitle = document.createElement('div');
+    minimapTitle.textContent = 'Top-Down View (Editor Perspective)';
+    Object.assign(minimapTitle.style, {
+      fontSize: '11px',
+      color: '#aaa',
+      marginBottom: '6px'
+    });
+
+    minimapCanvas = document.createElement('canvas');
+    minimapCanvas.width = 300;
+    minimapCanvas.height = 300;
+    Object.assign(minimapCanvas.style, {
+      width: '100%',
+      maxWidth: '300px',
+      border: '1px solid #444',
+      background: '#0a0a0a',
+      display: 'block'
+    });
+    minimapCtx = minimapCanvas.getContext('2d');
+
+    minimapContainer.appendChild(minimapTitle);
+    minimapContainer.appendChild(minimapCanvas);
+
     cameraControls.appendChild(cameraTitle);
     cameraControls.appendChild(cameraControlStatusEl);
     cameraControls.appendChild(manualControlToggle);
     cameraControls.appendChild(cameraGrid);
     cameraControls.appendChild(cameraClampHint);
+    cameraControls.appendChild(minimapContainer);
 
     body.appendChild(cameraControls);
 
