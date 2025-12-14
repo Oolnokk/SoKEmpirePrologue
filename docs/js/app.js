@@ -5129,14 +5129,18 @@ let gameDebugPanelElement = null;
 let gameDebugPanelUpdateHandle = null;
 let lastGLTFLoadStatus = { success: null, timestamp: null, error: null };
 let lastComputedFPS = 0;
-const CAMERA_TRANSLATION_CLAMP = 1000000;
-const CAMERA_ROTATION_CLAMP_DEG = 7200;
+const CAMERA_TRANSLATION_CLAMP = 1000;
+const CAMERA_ROTATION_CLAMP_DEG = 360;
 const cameraControlInputs = {
   position: {},
   rotation: {}
 };
 let cameraControlStatusEl = null;
 let gameDebugInfoContainer = null;
+let manualCameraControlActive = false; // Flag to disable auto camera sync when manually controlling
+let manualControlCheckboxEl = null; // Reference to the manual control checkbox
+let minimapCanvas = null; // Minimap canvas for top-down view
+let minimapCtx = null; // Minimap 2D context
 
 function getActiveThreeCamera() {
   return GAME_RENDERER_3D?.camera || null;
@@ -5205,6 +5209,7 @@ function createCameraControlRow(type, axis, label) {
   });
 
   slider.addEventListener('input', () => {
+    manualCameraControlActive = true; // Enable manual control mode
     input.value = slider.value;
     if (type === 'rotation') {
       applyCameraRotation(axis, slider.value);
@@ -5214,6 +5219,7 @@ function createCameraControlRow(type, axis, label) {
   });
 
   input.addEventListener('input', () => {
+    manualCameraControlActive = true; // Enable manual control mode
     const numeric = Number(input.value);
     if (!Number.isFinite(numeric)) return;
     slider.value = clampNumber(numeric, Number(slider.min), Number(slider.max));
@@ -5233,14 +5239,133 @@ function createCameraControlRow(type, axis, label) {
   return row;
 }
 
+function renderMinimap() {
+  if (!minimapCtx || !minimapCanvas) return;
+
+  const cam = getActiveThreeCamera();
+  const renderer = GAME_RENDERER_3D;
+
+  const w = minimapCanvas.width;
+  const h = minimapCanvas.height;
+  const cellSize = window.GRID_UNIT_WORLD_SIZE || 30;
+  const worldSize = 20 * cellSize; // 20x20 grid
+  const scale = Math.min(w, h) * 0.8 / worldSize;
+  const centerX = w / 2;
+  const centerY = h / 2;
+
+  // Clear canvas
+  minimapCtx.fillStyle = '#0a0a0a';
+  minimapCtx.fillRect(0, 0, w, h);
+
+  // Draw grid
+  minimapCtx.strokeStyle = '#222';
+  minimapCtx.lineWidth = 1;
+  for (let i = -10; i <= 10; i++) {
+    const offset = i * cellSize * scale;
+    // Vertical lines
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(centerX + offset, centerY - 10 * cellSize * scale);
+    minimapCtx.lineTo(centerX + offset, centerY + 10 * cellSize * scale);
+    minimapCtx.stroke();
+    // Horizontal lines
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(centerX - 10 * cellSize * scale, centerY + offset);
+    minimapCtx.lineTo(centerX + 10 * cellSize * scale, centerY + offset);
+    minimapCtx.stroke();
+  }
+
+  // Draw world bounds
+  minimapCtx.strokeStyle = '#444';
+  minimapCtx.lineWidth = 2;
+  const boundsSize = 10 * cellSize * scale;
+  minimapCtx.strokeRect(centerX - boundsSize, centerY - boundsSize, boundsSize * 2, boundsSize * 2);
+
+  // Draw gameplay path (row 10, col 0 to col 19)
+  minimapCtx.strokeStyle = '#4a9eff';
+  minimapCtx.lineWidth = 3;
+  minimapCtx.beginPath();
+  const pathY = centerY; // Row 10 is center
+  const pathStartX = centerX - 9.5 * cellSize * scale; // Col 0
+  const pathEndX = centerX + 9.5 * cellSize * scale; // Col 19
+  minimapCtx.moveTo(pathStartX, pathY);
+  minimapCtx.lineTo(pathEndX, pathY);
+  minimapCtx.stroke();
+
+  // Draw axis labels
+  minimapCtx.fillStyle = '#666';
+  minimapCtx.font = '10px monospace';
+  minimapCtx.fillText('+X', centerX + boundsSize + 5, centerY);
+  minimapCtx.fillText('-X', centerX - boundsSize - 25, centerY);
+  minimapCtx.fillText('+Z', centerX, centerY + boundsSize + 12);
+  minimapCtx.fillText('-Z', centerX, centerY - boundsSize - 5);
+
+  // Draw camera if available
+  if (cam && renderer) {
+    const camX = cam.position.x * scale;
+    const camZ = cam.position.z * scale;
+    const screenX = centerX + camX;
+    const screenY = centerY + camZ; // Z maps to Y in top-down view
+
+    // Draw camera cone showing view direction
+    minimapCtx.fillStyle = '#ff4444';
+    minimapCtx.strokeStyle = '#ff8888';
+    minimapCtx.lineWidth = 2;
+
+    const cameraRotY = cam.rotation.y;
+    const coneLength = 30;
+    const coneAngle = Math.PI / 6; // 30 degrees
+
+    minimapCtx.beginPath();
+    minimapCtx.arc(screenX, screenY, 5, 0, Math.PI * 2);
+    minimapCtx.fill();
+
+    // Draw view cone
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(screenX, screenY);
+    const leftAngle = cameraRotY - coneAngle;
+    const rightAngle = cameraRotY + coneAngle;
+    minimapCtx.lineTo(
+      screenX + Math.sin(leftAngle) * coneLength,
+      screenY + Math.cos(leftAngle) * coneLength
+    );
+    minimapCtx.lineTo(
+      screenX + Math.sin(rightAngle) * coneLength,
+      screenY + Math.cos(rightAngle) * coneLength
+    );
+    minimapCtx.closePath();
+    minimapCtx.stroke();
+
+    // Draw camera position text
+    minimapCtx.fillStyle = '#ff8888';
+    minimapCtx.font = '9px monospace';
+    minimapCtx.fillText(
+      `Camera (${cam.position.x.toFixed(0)}, ${cam.position.y.toFixed(0)}, ${cam.position.z.toFixed(0)})`,
+      5, h - 5
+    );
+  }
+}
+
 function syncCameraControlState() {
   const cam = getActiveThreeCamera();
   const hasCamera = Boolean(cam);
   if (cameraControlStatusEl) {
-    cameraControlStatusEl.textContent = hasCamera
-      ? 'Live editing camera position & rotation (deg)' : '3D camera unavailable';
+    let statusText = '3D camera unavailable';
+    if (hasCamera) {
+      statusText = manualCameraControlActive
+        ? 'Manual control active (auto-sync disabled)'
+        : 'Auto-sync active (following game camera)';
+    }
+    cameraControlStatusEl.textContent = statusText;
     cameraControlStatusEl.style.color = hasCamera ? '#9f9' : '#f99';
   }
+
+  // Sync checkbox state
+  if (manualControlCheckboxEl && manualControlCheckboxEl.checked !== manualCameraControlActive) {
+    manualControlCheckboxEl.checked = manualCameraControlActive;
+  }
+
+  // Render minimap
+  renderMinimap();
 
   const axes = ['x', 'y', 'z'];
   axes.forEach((axis) => {
@@ -5374,6 +5499,36 @@ function initGameDebugPanel() {
       color: '#999'
     });
 
+    // Manual control mode toggle
+    const manualControlToggle = document.createElement('label');
+    Object.assign(manualControlToggle.style, {
+      fontSize: '11px',
+      color: '#aaa',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      marginTop: '4px',
+      cursor: 'pointer'
+    });
+
+    const manualControlCheckbox = document.createElement('input');
+    manualControlCheckbox.type = 'checkbox';
+    manualControlCheckbox.checked = manualCameraControlActive;
+    manualControlCheckboxEl = manualControlCheckbox; // Store reference
+    manualControlCheckbox.addEventListener('change', () => {
+      manualCameraControlActive = manualControlCheckbox.checked;
+      if (!manualCameraControlActive) {
+        // When disabling manual control, sync sliders to current camera state
+        syncCameraControlState();
+      }
+    });
+
+    const manualControlLabel = document.createElement('span');
+    manualControlLabel.textContent = 'Manual control (disable auto-sync)';
+
+    manualControlToggle.appendChild(manualControlCheckbox);
+    manualControlToggle.appendChild(manualControlLabel);
+
     const cameraGrid = document.createElement('div');
     Object.assign(cameraGrid.style, {
       display: 'flex',
@@ -5395,10 +5550,44 @@ function initGameDebugPanel() {
       color: '#777'
     });
 
+    // Create minimap for top-down visualization
+    const minimapContainer = document.createElement('div');
+    Object.assign(minimapContainer.style, {
+      marginTop: '12px',
+      padding: '8px',
+      background: '#1a1a1a',
+      borderRadius: '4px'
+    });
+
+    const minimapTitle = document.createElement('div');
+    minimapTitle.textContent = 'Top-Down View (Editor Perspective)';
+    Object.assign(minimapTitle.style, {
+      fontSize: '11px',
+      color: '#aaa',
+      marginBottom: '6px'
+    });
+
+    minimapCanvas = document.createElement('canvas');
+    minimapCanvas.width = 300;
+    minimapCanvas.height = 300;
+    Object.assign(minimapCanvas.style, {
+      width: '100%',
+      maxWidth: '300px',
+      border: '1px solid #444',
+      background: '#0a0a0a',
+      display: 'block'
+    });
+    minimapCtx = minimapCanvas.getContext('2d');
+
+    minimapContainer.appendChild(minimapTitle);
+    minimapContainer.appendChild(minimapCanvas);
+
     cameraControls.appendChild(cameraTitle);
     cameraControls.appendChild(cameraControlStatusEl);
+    cameraControls.appendChild(manualControlToggle);
     cameraControls.appendChild(cameraGrid);
     cameraControls.appendChild(cameraClampHint);
+    cameraControls.appendChild(minimapContainer);
 
     body.appendChild(cameraControls);
 
@@ -5964,16 +6153,22 @@ function boot(){
         if (typeof GAME_RENDERER_3D.on === 'function') {
           GAME_RENDERER_3D.on('frame', () => {
             try {
+              // Skip auto sync when manual camera control is active
+              if (manualCameraControlActive) return;
+
               const gameCamera = window.GAME?.CAMERA;
               if (gameCamera && GAME_RENDERER_3D) {
+                // Camera sync config for side-scrolling view aligned with gameplay path
+                // Values match visualsmapLoader camera setup (based on cellSize/GRID_UNIT_WORLD_SIZE=30)
+                const cellSize = window.GRID_UNIT_WORLD_SIZE || 30;
                 syncThreeCamera({
                   renderer: GAME_RENDERER_3D,
                   gameCamera: gameCamera,
                   config: {
-                    parallaxFactor: 0.5,   // Half-speed parallax for depth effect
-                    cameraHeight: 30,       // Elevated view angle
-                    cameraDistance: 50,     // Distance from scene
-                    lookAtOffsetY: 0        // Look at ground level
+                    parallaxFactor: 1.0,              // 3D camera follows 2D camera exactly (side-scrolling)
+                    cameraHeight: cellSize * 0.8,     // Height above ground (24 with cellSize=30)
+                    cameraDistance: -cellSize * 1.2,  // Negative Z = viewer side (-36 with cellSize=30)
+                    lookAtOffsetY: cellSize * 0.3     // Look slightly above ground (9 with cellSize=30)
                   }
                 });
               }

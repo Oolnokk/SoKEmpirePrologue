@@ -362,13 +362,34 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               continue;
             }
 
-            // Calculate world position
-            const worldPos = gridToWorld(row, col, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+            // Get base rotations from asset config (these set the model's "zero" orientation)
+            const extraConfig = assetConfig.extra || assetConfig.extraConfig || {};
+            const baseRotationX = extraConfig.rotationX || 0;
+            const baseRotationY = extraConfig.rotationY || 0;
+            const baseRotationZ = extraConfig.rotationZ || 0;
 
-            // DEBUG: Log first few positions to verify grid placement
-            if (loadedObjects.length < 5) {
-              console.log(`[visualsmapLoader] Position ${loadedObjects.length}: (${row},${col}) → world (${worldPos.x}, ${worldPos.y}, ${worldPos.z})`);
+            // Apply base rotations first (model initialization - sets coordinate system)
+            // These rotations define the model's "zero" orientation in object space
+            if (baseRotationX !== 0) {
+              object.rotateX((baseRotationX * Math.PI) / 180);
             }
+            if (baseRotationY !== 0) {
+              object.rotateY((baseRotationY * Math.PI) / 180);
+            }
+            if (baseRotationZ !== 0) {
+              object.rotateZ((baseRotationZ * Math.PI) / 180);
+            }
+
+            // Get offsets in grid units (pre-rotation)
+            const gridOffsetX = cell.offsetX ?? assetConfig.instanceDefaults?.offsetX ?? 0;
+            const gridOffsetY = cell.offsetY ?? assetConfig.instanceDefaults?.offsetY ?? 0;
+
+            // Calculate world position with pre-rotation offsets applied in grid space
+            // offsetX = column offset, offsetY = row offset (in grid coordinates)
+            // These need to be applied BEFORE rotation to maintain editor-defined positions
+            const effectiveCol = col + gridOffsetX;
+            const effectiveRow = row + gridOffsetY;
+            const worldPos = gridToWorld(effectiveRow, effectiveCol, rows, cols, cellSize, pathYawRad, alignWorldToPath);
 
             // Apply base scale with GRID_UNIT_WORLD_SIZE factor
             // Inline editor exports express baseScale in grid units; legacy configs keep previous scaling
@@ -381,28 +402,27 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             };
             object.scale.set(instanceScale.x, instanceScale.y, instanceScale.z);
 
-            // Apply position with offsets
+            // Apply position with Y offset (vertical offset is not affected by rotation)
             const yOffset = (assetConfig.yOffset || 0) * (inlineAsset ? cellSize : 1);
-            const xOffset = (cell.offsetX ?? assetConfig.instanceDefaults?.offsetX ?? 0) * cellSize;
-            const zOffset = (cell.offsetY ?? assetConfig.instanceDefaults?.offsetY ?? 0) * cellSize;
             object.position.set(
-              worldPos.x + xOffset,
+              worldPos.x,
               worldPos.y + yOffset,
-              worldPos.z + zOffset
+              worldPos.z
             );
 
-            // Apply rotation
-            // Cell orientation is in degrees; add per-asset forward offset and subtract path yaw when aligned
+            // Cell orientation is in degrees; add per-asset forward offset
             const orientationDeg = (cell.orientation ?? assetConfig.instanceDefaults?.orientation ?? 0) + (assetConfig.forwardOffsetDeg || 0);
-            const orientationRad = ((orientationDeg * Math.PI) / 180) - (alignWorldToPath && Number.isFinite(pathYawRad) ? pathYawRad : 0);
-            const extraConfig = assetConfig.extra || assetConfig.extraConfig || {};
-            const rotationX = extraConfig.rotationX || 0;
-            const rotationXRad = (rotationX * Math.PI) / 180;
 
-            object.rotation.x += rotationXRad;
-            object.rotation.y += orientationRad;
+            // Path yaw adjustment: when world is rotated to align path, counter-rotate objects
+            const pathAdjustment = (alignWorldToPath && Number.isFinite(pathYawRad)) ? pathYawRad : 0;
 
-            // Add to renderer
+            // Apply orientation and path alignment (world-space rotation)
+            const finalOrientationRad = ((orientationDeg * Math.PI) / 180) - pathAdjustment;
+            if (finalOrientationRad !== 0) {
+              object.rotateY(finalOrientationRad);
+            }
+
+            // Add object to renderer
             renderer.add(object);
             loadedObjects.push(object);
 
@@ -448,27 +468,55 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log(`[visualsmapLoader] - Renderer scene.children count:`, renderer.scene?.children?.length || 0);
     console.log('[visualsmapLoader] ========================================');
 
-    // Position camera to view the entire grid
+    // Position camera aligned with gameplay path for side-scrolling view
     const gridCenterX = 0;
     const gridCenterZ = 0;
 
     const gridWidth = (cols - 1) * cellSize;
     const gridDepth = (rows - 1) * cellSize;
 
-    // Position camera higher and back to see towers and ground
-    const cameraDistance = Math.max(gridWidth, gridDepth) * 0.3;
-    const cameraX = gridCenterX;
-    const cameraY = cameraDistance * 1.5; // Higher to see towers
-    const cameraZ = gridCenterZ - cameraDistance;
+    // For side-scrolling gameplay aligned to path:
+    // - When alignWorldToPath is true, the path is rotated to align with +X axis
+    // - Camera should be positioned to the side (negative Z) looking at the path
+    // - This creates a side view where the path runs left-to-right across the screen
+    let cameraX, cameraY, cameraZ, lookAtX, lookAtY, lookAtZ;
 
-    console.log(`[visualsmapLoader] Setting camera position to view grid:`);
+    if (alignWorldToPath && gameplayPath?.start && gameplayPath?.end) {
+      // Side-scrolling camera aligned with gameplay path
+      // Position camera to the side of the path (negative Z = south)
+      cameraX = gridCenterX; // Center on the path horizontally
+      cameraY = cellSize * 0.8; // Height to see the ground plane and structures
+      cameraZ = -cellSize * 1.2; // Distance from path (negative Z = viewer side)
+
+      // Look at the center of the path
+      lookAtX = gridCenterX;
+      lookAtY = cellSize * 0.3; // Look slightly above ground level
+      lookAtZ = gridCenterZ;
+
+      console.log(`[visualsmapLoader] Setting side-scrolling camera aligned with gameplay path:`);
+      console.log(`[visualsmapLoader] - Path aligned to +X axis (left-to-right)`);
+      console.log(`[visualsmapLoader] - Camera viewing from side (negative Z)`);
+    } else {
+      // Fallback: top-down view of entire grid
+      const cameraDistance = Math.max(gridWidth, gridDepth) * 0.3;
+      cameraX = gridCenterX;
+      cameraY = cameraDistance * 1.5;
+      cameraZ = gridCenterZ - cameraDistance;
+      lookAtX = gridCenterX;
+      lookAtY = 0;
+      lookAtZ = gridCenterZ;
+
+      console.log(`[visualsmapLoader] Setting top-down camera to view entire grid:`);
+    }
+
     console.log(`[visualsmapLoader] - Grid center: (${gridCenterX}, 0, ${gridCenterZ})`);
-    console.log(`[visualsmapLoader] - Grid size: ${gridWidth} x ${gridDepth}`);
-    console.log(`[visualsmapLoader] - Camera position: (${cameraX}, ${cameraY}, ${cameraZ})`);
+    console.log(`[visualsmapLoader] - Grid size: ${gridWidth} x ${gridDepth}, cellSize: ${cellSize}`);
+    console.log(`[visualsmapLoader] - Camera position: (${cameraX.toFixed(1)}, ${cameraY.toFixed(1)}, ${cameraZ.toFixed(1)})`);
+    console.log(`[visualsmapLoader] - Camera look-at: (${lookAtX.toFixed(1)}, ${lookAtY.toFixed(1)}, ${lookAtZ.toFixed(1)})`);
 
     renderer.setCameraParams({
       position: { x: cameraX, y: cameraY, z: cameraZ },
-      lookAt: { x: gridCenterX, y: 0, z: gridCenterZ }
+      lookAt: { x: lookAtX, y: lookAtY, z: lookAtZ }
     });
 
     // Verify camera was set correctly
