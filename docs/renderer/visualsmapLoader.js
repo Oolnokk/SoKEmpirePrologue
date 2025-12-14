@@ -362,6 +362,28 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               continue;
             }
 
+            // Get base rotations from asset config (these set the model's "zero" orientation)
+            const extraConfig = assetConfig.extra || assetConfig.extraConfig || {};
+            const baseRotationX = extraConfig.rotationX || 0;
+            const baseRotationY = extraConfig.rotationY || 0;
+            const baseRotationZ = extraConfig.rotationZ || 0;
+
+            // Wrap object in a container so we can apply base rotations without affecting cloned object state
+            const container = new renderer.THREE.Group();
+            container.add(object);
+
+            // Apply base rotations to the cloned object BEFORE positioning
+            // These rotations fix the model's coordinate system (e.g., Z-up to Y-up conversion)
+            if (baseRotationX !== 0) {
+              object.rotation.x = (baseRotationX * Math.PI) / 180;
+            }
+            if (baseRotationY !== 0) {
+              object.rotation.y = (baseRotationY * Math.PI) / 180;
+            }
+            if (baseRotationZ !== 0) {
+              object.rotation.z = (baseRotationZ * Math.PI) / 180;
+            }
+
             // Get offsets in grid units (pre-rotation)
             const gridOffsetX = cell.offsetX ?? assetConfig.instanceDefaults?.offsetX ?? 0;
             const gridOffsetY = cell.offsetY ?? assetConfig.instanceDefaults?.offsetY ?? 0;
@@ -376,6 +398,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             // DEBUG: Log first few positions to verify grid placement
             if (loadedObjects.length < 5) {
               console.log(`[visualsmapLoader] Position ${loadedObjects.length}: grid(${row},${col}) offset(${gridOffsetX},${gridOffsetY}) → world (${worldPos.x}, ${worldPos.y}, ${worldPos.z})`);
+              console.log(`[visualsmapLoader]   Base rotations: X=${baseRotationX}° Y=${baseRotationY}° Z=${baseRotationZ}°`);
             }
 
             // Apply base scale with GRID_UNIT_WORLD_SIZE factor
@@ -387,22 +410,15 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               y: (cell.scaleY ?? assetConfig.instanceDefaults?.scaleY ?? 1) * baseScale.y * baseScaleFactor,
               z: (cell.scaleZ ?? assetConfig.instanceDefaults?.scaleZ ?? 1) * baseScale.z * baseScaleFactor
             };
-            object.scale.set(instanceScale.x, instanceScale.y, instanceScale.z);
+            container.scale.set(instanceScale.x, instanceScale.y, instanceScale.z);
 
             // Apply position with Y offset (vertical offset is not affected by rotation)
             const yOffset = (assetConfig.yOffset || 0) * (inlineAsset ? cellSize : 1);
-            object.position.set(
+            container.position.set(
               worldPos.x,
               worldPos.y + yOffset,
               worldPos.z
             );
-
-            // Apply rotation
-            // Get base rotations from asset config (these set the model's "zero" orientation)
-            const extraConfig = assetConfig.extra || assetConfig.extraConfig || {};
-            const baseRotationX = extraConfig.rotationX || 0;
-            const baseRotationY = extraConfig.rotationY || 0;
-            const baseRotationZ = extraConfig.rotationZ || 0;
 
             // Cell orientation is in degrees; add per-asset forward offset
             const orientationDeg = (cell.orientation ?? assetConfig.instanceDefaults?.orientation ?? 0) + (assetConfig.forwardOffsetDeg || 0);
@@ -410,28 +426,13 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             // Path yaw adjustment: when world is rotated to align path, counter-rotate objects
             const pathAdjustment = (alignWorldToPath && Number.isFinite(pathYawRad)) ? pathYawRad : 0;
 
-            // Apply base rotations first (model initialization - sets coordinate system)
-            // These rotations define the model's natural upright orientation
-            // NOTE: Using NEGATIVE rotations to properly convert coordinate systems
-            if (baseRotationX !== 0) {
-              object.rotateX(-(baseRotationX * Math.PI) / 180);
-            }
-            if (baseRotationY !== 0) {
-              object.rotateY(-(baseRotationY * Math.PI) / 180);
-            }
-            if (baseRotationZ !== 0) {
-              object.rotateZ(-(baseRotationZ * Math.PI) / 180);
-            }
-
-            // Then apply orientation and path alignment (gameplay rotations)
+            // Apply orientation and path alignment to container
             const finalOrientationRad = ((orientationDeg * Math.PI) / 180) - pathAdjustment;
-            if (finalOrientationRad !== 0) {
-              object.rotateY(finalOrientationRad);
-            }
+            container.rotation.y = finalOrientationRad;
 
-            // Add to renderer
-            renderer.add(object);
-            loadedObjects.push(object);
+            // Add container to renderer
+            renderer.add(container);
+            loadedObjects.push(container);
 
             // Log only first few placements per layer to avoid spam, then summary
             const LOG_SAMPLE_INTERVAL = 20; // Log every Nth placement to reduce console spam
