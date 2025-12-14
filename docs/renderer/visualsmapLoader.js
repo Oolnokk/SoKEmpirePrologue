@@ -362,12 +362,20 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               continue;
             }
 
-            // Calculate world position
-            const worldPos = gridToWorld(row, col, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+            // Get offsets in grid units (pre-rotation)
+            const gridOffsetX = cell.offsetX ?? assetConfig.instanceDefaults?.offsetX ?? 0;
+            const gridOffsetY = cell.offsetY ?? assetConfig.instanceDefaults?.offsetY ?? 0;
+
+            // Calculate world position with pre-rotation offsets applied in grid space
+            // offsetX = column offset, offsetY = row offset (in grid coordinates)
+            // These need to be applied BEFORE rotation to maintain editor-defined positions
+            const effectiveCol = col + gridOffsetX;
+            const effectiveRow = row + gridOffsetY;
+            const worldPos = gridToWorld(effectiveRow, effectiveCol, rows, cols, cellSize, pathYawRad, alignWorldToPath);
 
             // DEBUG: Log first few positions to verify grid placement
             if (loadedObjects.length < 5) {
-              console.log(`[visualsmapLoader] Position ${loadedObjects.length}: (${row},${col}) → world (${worldPos.x}, ${worldPos.y}, ${worldPos.z})`);
+              console.log(`[visualsmapLoader] Position ${loadedObjects.length}: grid(${row},${col}) offset(${gridOffsetX},${gridOffsetY}) → world (${worldPos.x}, ${worldPos.y}, ${worldPos.z})`);
             }
 
             // Apply base scale with GRID_UNIT_WORLD_SIZE factor
@@ -381,14 +389,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             };
             object.scale.set(instanceScale.x, instanceScale.y, instanceScale.z);
 
-            // Apply position with offsets
+            // Apply position with Y offset (vertical offset is not affected by rotation)
             const yOffset = (assetConfig.yOffset || 0) * (inlineAsset ? cellSize : 1);
-            const xOffset = (cell.offsetX ?? assetConfig.instanceDefaults?.offsetX ?? 0) * cellSize;
-            const zOffset = (cell.offsetY ?? assetConfig.instanceDefaults?.offsetY ?? 0) * cellSize;
             object.position.set(
-              worldPos.x + xOffset,
+              worldPos.x,
               worldPos.y + yOffset,
-              worldPos.z + zOffset
+              worldPos.z
             );
 
             // Apply rotation
