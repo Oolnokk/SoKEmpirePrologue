@@ -5137,6 +5137,8 @@ const cameraControlInputs = {
 };
 let cameraControlStatusEl = null;
 let gameDebugInfoContainer = null;
+let manualCameraControlActive = false; // Flag to disable auto camera sync when manually controlling
+let manualControlCheckboxEl = null; // Reference to the manual control checkbox
 
 function getActiveThreeCamera() {
   return GAME_RENDERER_3D?.camera || null;
@@ -5205,6 +5207,7 @@ function createCameraControlRow(type, axis, label) {
   });
 
   slider.addEventListener('input', () => {
+    manualCameraControlActive = true; // Enable manual control mode
     input.value = slider.value;
     if (type === 'rotation') {
       applyCameraRotation(axis, slider.value);
@@ -5214,6 +5217,7 @@ function createCameraControlRow(type, axis, label) {
   });
 
   input.addEventListener('input', () => {
+    manualCameraControlActive = true; // Enable manual control mode
     const numeric = Number(input.value);
     if (!Number.isFinite(numeric)) return;
     slider.value = clampNumber(numeric, Number(slider.min), Number(slider.max));
@@ -5237,9 +5241,19 @@ function syncCameraControlState() {
   const cam = getActiveThreeCamera();
   const hasCamera = Boolean(cam);
   if (cameraControlStatusEl) {
-    cameraControlStatusEl.textContent = hasCamera
-      ? 'Live editing camera position & rotation (deg)' : '3D camera unavailable';
+    let statusText = '3D camera unavailable';
+    if (hasCamera) {
+      statusText = manualCameraControlActive
+        ? 'Manual control active (auto-sync disabled)'
+        : 'Auto-sync active (following game camera)';
+    }
+    cameraControlStatusEl.textContent = statusText;
     cameraControlStatusEl.style.color = hasCamera ? '#9f9' : '#f99';
+  }
+
+  // Sync checkbox state
+  if (manualControlCheckboxEl && manualControlCheckboxEl.checked !== manualCameraControlActive) {
+    manualControlCheckboxEl.checked = manualCameraControlActive;
   }
 
   const axes = ['x', 'y', 'z'];
@@ -5374,6 +5388,36 @@ function initGameDebugPanel() {
       color: '#999'
     });
 
+    // Manual control mode toggle
+    const manualControlToggle = document.createElement('label');
+    Object.assign(manualControlToggle.style, {
+      fontSize: '11px',
+      color: '#aaa',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      marginTop: '4px',
+      cursor: 'pointer'
+    });
+
+    const manualControlCheckbox = document.createElement('input');
+    manualControlCheckbox.type = 'checkbox';
+    manualControlCheckbox.checked = manualCameraControlActive;
+    manualControlCheckboxEl = manualControlCheckbox; // Store reference
+    manualControlCheckbox.addEventListener('change', () => {
+      manualCameraControlActive = manualControlCheckbox.checked;
+      if (!manualCameraControlActive) {
+        // When disabling manual control, sync sliders to current camera state
+        syncCameraControlState();
+      }
+    });
+
+    const manualControlLabel = document.createElement('span');
+    manualControlLabel.textContent = 'Manual control (disable auto-sync)';
+
+    manualControlToggle.appendChild(manualControlCheckbox);
+    manualControlToggle.appendChild(manualControlLabel);
+
     const cameraGrid = document.createElement('div');
     Object.assign(cameraGrid.style, {
       display: 'flex',
@@ -5397,6 +5441,7 @@ function initGameDebugPanel() {
 
     cameraControls.appendChild(cameraTitle);
     cameraControls.appendChild(cameraControlStatusEl);
+    cameraControls.appendChild(manualControlToggle);
     cameraControls.appendChild(cameraGrid);
     cameraControls.appendChild(cameraClampHint);
 
@@ -5964,6 +6009,9 @@ function boot(){
         if (typeof GAME_RENDERER_3D.on === 'function') {
           GAME_RENDERER_3D.on('frame', () => {
             try {
+              // Skip auto sync when manual camera control is active
+              if (manualCameraControlActive) return;
+
               const gameCamera = window.GAME?.CAMERA;
               if (gameCamera && GAME_RENDERER_3D) {
                 // Camera sync config for side-scrolling view aligned with gameplay path
