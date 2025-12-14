@@ -398,15 +398,29 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             );
 
             // Apply rotation
-            // Cell orientation is in degrees; add per-asset forward offset and subtract path yaw when aligned
-            const orientationDeg = (cell.orientation ?? assetConfig.instanceDefaults?.orientation ?? 0) + (assetConfig.forwardOffsetDeg || 0);
-            const orientationRad = ((orientationDeg * Math.PI) / 180) - (alignWorldToPath && Number.isFinite(pathYawRad) ? pathYawRad : 0);
+            // Get base rotations from asset config (pre-normalization)
             const extraConfig = assetConfig.extra || assetConfig.extraConfig || {};
             const rotationX = extraConfig.rotationX || 0;
-            const rotationXRad = (rotationX * Math.PI) / 180;
+            const rotationY = extraConfig.rotationY || 0;
+            const rotationZ = extraConfig.rotationZ || 0;
 
-            object.rotation.x += rotationXRad;
-            object.rotation.y += orientationRad;
+            // Cell orientation is in degrees; add per-asset forward offset
+            const orientationDeg = (cell.orientation ?? assetConfig.instanceDefaults?.orientation ?? 0) + (assetConfig.forwardOffsetDeg || 0);
+
+            // Apply rotations: base rotations first, then orientation, then path alignment
+            // Convert to radians and set explicitly (not +=) to avoid accumulating cloned object rotations
+            const rotationXRad = (rotationX * Math.PI) / 180;
+            const rotationYRad = (rotationY * Math.PI) / 180;
+            const rotationZRad = (rotationZ * Math.PI) / 180;
+            const orientationRad = (orientationDeg * Math.PI) / 180;
+
+            // Path yaw adjustment: when world is rotated to align path, counter-rotate objects
+            const pathAdjustment = (alignWorldToPath && Number.isFinite(pathYawRad)) ? pathYawRad : 0;
+
+            // Set rotations explicitly (base + orientation - path adjustment)
+            object.rotation.x = rotationXRad;
+            object.rotation.y = rotationYRad + orientationRad - pathAdjustment;
+            object.rotation.z = rotationZRad;
 
             // Add to renderer
             renderer.add(object);

@@ -5129,8 +5129,8 @@ let gameDebugPanelElement = null;
 let gameDebugPanelUpdateHandle = null;
 let lastGLTFLoadStatus = { success: null, timestamp: null, error: null };
 let lastComputedFPS = 0;
-const CAMERA_TRANSLATION_CLAMP = 1000000;
-const CAMERA_ROTATION_CLAMP_DEG = 7200;
+const CAMERA_TRANSLATION_CLAMP = 1000;
+const CAMERA_ROTATION_CLAMP_DEG = 360;
 const cameraControlInputs = {
   position: {},
   rotation: {}
