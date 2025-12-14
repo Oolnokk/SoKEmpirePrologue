@@ -103,7 +103,7 @@ export function resolveScene3dUrl(sceneUrl, opts = {}) {
   if (typeof window !== 'undefined' && window.location?.href) {
     try {
       locationBase = new URL('./config/maps/visualsmaps/', window.location.href).pathname;
-    } catch (e) {
+    } catch {
       locationBase = null;
     }
   }

@@ -903,44 +903,68 @@ const rendererModuleState = {
   exports: null,
 };
 
+function resolveDocsRelativeUrl(path) {
+  if (!path || /^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  try {
+    const baseHref = document.baseURI || globalThis.location?.href || 'http://localhost/';
+    const baseUrl = new URL(baseHref);
+    const pathParts = baseUrl.pathname.split('/').filter(Boolean);
+
+    const repoSegment = pathParts.length > 0 && !['docs', 'assets', 'config', 'js', 'vendor'].includes(pathParts[0])
+      ? `/${pathParts[0]}`
+      : '';
+
+    const normalized = path.startsWith('/') ? path.slice(1) : path;
+    const resolved = new URL(normalized, `${baseUrl.origin}${repoSegment}/`).href;
+
+    return resolved;
+  } catch (error) {
+    console.warn('[app] Failed to resolve repo-aware URL for', path, error);
+    return path;
+  }
+}
+
 // Lazy-loading helpers for external Three.js dependencies
 const externalScriptPromises = new Map();
 // Try ES module sources first for better compatibility with GLTFLoader
 const THREE_MODULE_SOURCES = [
-  '../vendor/three/three.module.js',
+  resolveDocsRelativeUrl('vendor/three/three.module.js'),
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
   'https://unpkg.com/three@0.160.0/build/three.module.js',
 ];
 // Classic/UMD builds as fallback (note: deprecated in r150+, to be removed in future versions)
 const THREE_SCRIPT_SOURCES = [
-  '../vendor/three/three.min.js',
+  resolveDocsRelativeUrl('vendor/three/three.min.js'),
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
   'https://unpkg.com/three@0.160.0/build/three.min.js',
 ];
 // ES module sources for BufferGeometryUtils (required by GLTFLoader for some geometries)
 const BUFFER_GEOMETRY_UTILS_MODULE_SOURCES = [
-  '../vendor/three/BufferGeometryUtils.module.js',
+  resolveDocsRelativeUrl('vendor/three/BufferGeometryUtils.module.js'),
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js',
   'https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js',
 ];
 // Classic/UMD wrapper for BufferGeometryUtils
 const BUFFER_GEOMETRY_UTILS_SCRIPT_SOURCES = [
-  '../vendor/three/BufferGeometryUtils.js',
+  resolveDocsRelativeUrl('vendor/three/BufferGeometryUtils.js'),
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/utils/BufferGeometryUtils.js',
   'https://unpkg.com/three@0.160.0/examples/js/utils/BufferGeometryUtils.js',
 ];
 // ES module sources for GLTFLoader (preferred for compatibility)
 const GLTF_LOADER_MODULE_SOURCES = [
-  '../vendor/three/GLTFLoader.module.js',
+  resolveDocsRelativeUrl('vendor/three/GLTFLoader.module.js'),
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/examples/jsm/loaders/GLTFLoader.min.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js',
   'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js',
 ];
 // Classic/UMD wrapper (requires ES module support for dynamic import)
 const GLTF_LOADER_SCRIPT_SOURCES = [
-  '../vendor/three/GLTFLoader.js',
+  resolveDocsRelativeUrl('vendor/three/GLTFLoader.js'),
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/loaders/GLTFLoader.min.js',
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js',
   'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js',
