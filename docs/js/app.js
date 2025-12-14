@@ -904,23 +904,25 @@ const rendererModuleState = {
 };
 
 function resolveDocsRelativeUrl(path) {
-  if (!path || /^https?:\/\//i.test(path)) {
+  // If empty or already an absolute URL (any scheme), return as-is
+  if (!path || /^[a-z][a-z0-9+.-]*:/i.test(path)) {
     return path;
   }
 
   try {
-    const baseHref = document.baseURI || globalThis.location?.href || 'http://localhost/';
-    const baseUrl = new URL(baseHref);
-    const pathParts = baseUrl.pathname.split('/').filter(Boolean);
+    const baseHref = (typeof window !== 'undefined' && window.location.href)
+      || (typeof document !== 'undefined' && document.baseURI)
+      || '';
 
-    const repoSegment = pathParts.length > 0 && !['docs', 'assets', 'config', 'js', 'vendor'].includes(pathParts[0])
-      ? `/${pathParts[0]}`
-      : '';
+    if (!baseHref) {
+      console.warn('[app] Cannot resolve repo-aware URL: no base URI available, returning original:', path);
+      return path;
+    }
 
+    // Treat leading-slash paths as relative to the current page directory rather than the origin root
+    // so that deployments under subpaths (e.g., /SoKEmpirePrologue/docs/ or /docs/) stay intact.
     const normalized = path.startsWith('/') ? path.slice(1) : path;
-    const resolved = new URL(normalized, `${baseUrl.origin}${repoSegment}/`).href;
-
-    return resolved;
+    return new URL(normalized, baseHref).href;
   } catch (error) {
     console.warn('[app] Failed to resolve repo-aware URL for', path, error);
     return path;
