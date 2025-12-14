@@ -372,27 +372,13 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             const container = new renderer.THREE.Group();
             container.add(object);
 
-            // Apply base rotations to the cloned object BEFORE positioning
-            // These rotations fix the model's coordinate system (e.g., Z-up to Y-up conversion)
-
-            // Log object's initial rotation (from GLTF file)
-            if (loadedObjects.length < 5) {
-              console.log(`[visualsmapLoader]   GLTF initial rotation: X=${(object.rotation.x * 180 / Math.PI).toFixed(2)}° Y=${(object.rotation.y * 180 / Math.PI).toFixed(2)}° Z=${(object.rotation.z * 180 / Math.PI).toFixed(2)}°`);
-            }
-
+            // Apply base rotations to the CONTAINER (not the inner object)
+            // This properly isolates base rotations from GLTF file state
             if (baseRotationX !== 0) {
-              object.rotation.x = (baseRotationX * Math.PI) / 180;
-            }
-            if (baseRotationY !== 0) {
-              object.rotation.y = (baseRotationY * Math.PI) / 180;
+              container.rotation.x = (baseRotationX * Math.PI) / 180;
             }
             if (baseRotationZ !== 0) {
-              object.rotation.z = (baseRotationZ * Math.PI) / 180;
-            }
-
-            // Log object's rotation after applying base rotations
-            if (loadedObjects.length < 5) {
-              console.log(`[visualsmapLoader]   After base rotation: X=${(object.rotation.x * 180 / Math.PI).toFixed(2)}° Y=${(object.rotation.y * 180 / Math.PI).toFixed(2)}° Z=${(object.rotation.z * 180 / Math.PI).toFixed(2)}°`);
+              container.rotation.z = (baseRotationZ * Math.PI) / 180;
             }
 
             // Get offsets in grid units (pre-rotation)
@@ -437,14 +423,10 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             // Path yaw adjustment: when world is rotated to align path, counter-rotate objects
             const pathAdjustment = (alignWorldToPath && Number.isFinite(pathYawRad)) ? pathYawRad : 0;
 
-            // Apply orientation and path alignment to container
-            const finalOrientationRad = ((orientationDeg * Math.PI) / 180) - pathAdjustment;
+            // Apply orientation and path alignment to container Y rotation
+            // Base rotations (X/Z) are already applied above, now add Y orientation
+            const finalOrientationRad = ((orientationDeg * Math.PI) / 180) - pathAdjustment + ((baseRotationY * Math.PI) / 180);
             container.rotation.y = finalOrientationRad;
-
-            // Log final container rotation
-            if (loadedObjects.length < 5) {
-              console.log(`[visualsmapLoader]   Container rotation Y: ${(finalOrientationRad * 180 / Math.PI).toFixed(2)}° (orientation=${orientationDeg}° - pathAdj=${(pathAdjustment * 180 / Math.PI).toFixed(2)}°)`);
-            }
 
             // Add container to renderer
             renderer.add(container);
