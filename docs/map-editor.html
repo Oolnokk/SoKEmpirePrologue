@@ -1240,11 +1240,17 @@ select {
         (gltf) => {
           const root = gltf.scene;
 
+          // Debug: Check if applyAssetRotations is defined
+          logDebug(`Loading GLTF for ${asset.label}, applyAssetRotations=${typeof applyAssetRotations}`);
+          logDebug(`Asset extraConfig:`, asset.extraConfig);
+
           // Apply rotations BEFORE normalization using shared utility (ensures consistency with game)
           // This is critical: bounding box must be calculated AFTER rotation for correct dimensions
-          const appliedRotations = applyAssetRotations(root, asset, false);
-          if (appliedRotations.x !== 0 || appliedRotations.y !== 0 || appliedRotations.z !== 0) {
+          try {
+            const appliedRotations = applyAssetRotations(root, asset, false);
             logDebug(`Applied rotations for ${asset.label}: X=${appliedRotations.x}° Y=${appliedRotations.y}° Z=${appliedRotations.z}°`);
+          } catch (err) {
+            logDebug(`ERROR applying rotations for ${asset.label}: ${err.message}`);
           }
 
           // Normalize after rotation so the bounding box accounts for the rotated dimensions
