@@ -4,6 +4,7 @@
  */
 
 import { projectToGroundPlane } from './scene3d.js';
+import { applyAssetRotations } from './gltfTransforms.js';
 
 const VISUALSMAP_INDEX_CACHE = {
   loaded: false,
@@ -484,23 +485,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               position: object.position
             });
 
-            // Get base rotations from asset config (these set the model's "zero" orientation)
-            const extraConfig = assetConfig.extra || assetConfig.extraConfig || {};
-            const baseRotationX = extraConfig.rotationX || 0;
-            const baseRotationY = extraConfig.rotationY || 0;
-            const baseRotationZ = extraConfig.rotationZ || 0;
-
-            console.log(`[visualsmapLoader] Applying rotations to ${cell.type}: X=${baseRotationX}° Y=${baseRotationY}° Z=${baseRotationZ}°`);
-
-            // Apply base rotations using absolute setters (not additive) to avoid compounding
-            // with any rotations baked into the GLTF. Convert degrees to radians.
-            object.rotation.set(
-              (baseRotationX * Math.PI) / 180,
-              (baseRotationY * Math.PI) / 180,
-              (baseRotationZ * Math.PI) / 180,
-              'XYZ' // Rotation order: X, then Y, then Z
-            );
-
+            // Apply base rotations using shared utility (ensures consistency across all tools)
+            const appliedRotations = applyAssetRotations(object, assetConfig, true);
+            console.log(`[visualsmapLoader] Applied rotations to ${cell.type}:`, appliedRotations);
             console.log(`[visualsmapLoader] After rotation - rotation:`, object.rotation, 'scale:', object.scale);
 
             // Get offsets in grid units (pre-rotation)

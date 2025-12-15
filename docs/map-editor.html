@@ -549,6 +549,7 @@ select {
     import * as THREE from "https://esm.sh/three@0.149.0";
     import { GLTFLoader } from "https://esm.sh/three@0.149.0/examples/jsm/loaders/GLTFLoader.js";
     import * as BufferGeometryUtils from "https://esm.sh/three@0.149.0/examples/jsm/utils/BufferGeometryUtils.js";
+    import { applyAssetRotations } from "./renderer/gltfTransforms.js";
 
     window.THREE = THREE;
     // Expose GLTFLoader and BufferGeometryUtils to global scope for compatibility
@@ -1239,11 +1240,11 @@ select {
         (gltf) => {
           const root = gltf.scene;
 
-          // Apply X-axis rotation BEFORE normalization so bounding box is calculated correctly
-          if (asset.extraConfig && typeof asset.extraConfig.rotationX === "number") {
-            const rotX = THREE.MathUtils.degToRad(asset.extraConfig.rotationX);
-            root.rotation.x = rotX;
-            logDebug("Applied X-rotation: " + asset.extraConfig.rotationX + "° for " + asset.label);
+          // Apply rotations BEFORE normalization using shared utility (ensures consistency with game)
+          // This is critical: bounding box must be calculated AFTER rotation for correct dimensions
+          const appliedRotations = applyAssetRotations(root, asset, false);
+          if (appliedRotations.x !== 0 || appliedRotations.y !== 0 || appliedRotations.z !== 0) {
+            logDebug(`Applied rotations for ${asset.label}: X=${appliedRotations.x}° Y=${appliedRotations.y}° Z=${appliedRotations.z}°`);
           }
 
           // Normalize after rotation so the bounding box accounts for the rotated dimensions
