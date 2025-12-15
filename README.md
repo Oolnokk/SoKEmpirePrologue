@@ -1,5 +1,28 @@
 # SoKEmpirePrologue
 
+## Editing Visual Asset Configuration
+
+When editing the visual asset configuration file at `docs/config/maps/visualsmaps/index.json`, your changes may not appear immediately due to browser caching. Here's how to see your changes:
+
+### Development Mode (Automatic)
+If you're running on `localhost` or via `file://` protocol, cache-busting is **automatic**. Simply refresh the page (F5) to see your changes.
+
+### Production/Deployment Mode
+For deployed sites or other domains, perform a **hard refresh**:
+- **Windows/Linux**: `Ctrl + Shift + R` or `Ctrl + F5`
+- **macOS**: `Cmd + Shift + R`
+
+### Manual Cache Clear
+You can manually clear the cache from the browser console:
+```javascript
+import('./renderer/visualsmapLoader.js').then(m => m.clearVisualsmapCache());
+```
+
+For more details, see:
+- `DIAGNOSIS_VISUALMAPS.md` - Complete root cause analysis and troubleshooting
+- `docs/config/maps/visualsmaps/README.md` - Asset configuration documentation
+- `docs/GAMEPLAY_MAP_EDITOR_README.md` - Map editor usage guide
+
 ## Three.js Setup
 
 This project uses Three.js for 3D rendering in the game demo, map editors, and other tools. Three.js is provided via local vendor files with CDN fallbacks.
