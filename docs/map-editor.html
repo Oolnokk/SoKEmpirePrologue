@@ -649,19 +649,22 @@ select {
     const docsBase = new URL('.', window.location.href);
 
     async function loadVisualAssetConfigs() {
+      logDebug('[INIT] loadVisualAssetConfigs starting...');
       try {
         // Add cache-busting parameter in development mode
         const isDev = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-        const indexPath = isDev 
+        const indexPath = isDev
           ? `config/maps/visualsmaps/index.json?t=${Date.now()}`
           : 'config/maps/visualsmaps/index.json';
-        
+
+        logDebug(`[INIT] Attempting to load: ${indexPath}`);
         // Try visualsmaps first
         const response = await fetch(new URL(indexPath, docsBase));
         if (response.ok) {
           const data = await response.json();
-          logDebug('Loaded assets from visualsmaps/index.json');
-          
+          logDebug('[INIT] ✓ Loaded assets from visualsmaps/index.json');
+          logDebug('[INIT] Tower extraConfig from index.json:', data.structures?.find(s => s.id === 'tower')?.extraConfig);
+
           SEGMENT_ASSETS = (data.segments || []).map(asset => ({
             ...asset,
             layer: LAYERS.GROUND,
@@ -669,7 +672,7 @@ select {
             gltfTemplate: asset.gltfTemplate || null,
             gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
           }));
-          
+
           STRUCTURE_ASSETS = (data.structures || []).map(asset => ({
             ...asset,
             layer: LAYERS.STRUCTURE,
@@ -677,7 +680,7 @@ select {
             gltfTemplate: asset.gltfTemplate || null,
             gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
           }));
-          
+
           DECORATION_ASSETS = (data.decorations || []).map(asset => ({
             ...asset,
             layer: LAYERS.DECORATION,
@@ -685,8 +688,9 @@ select {
             gltfTemplate: asset.gltfTemplate || null,
             gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
           }));
-          
+
           rebuildAllAssets();
+          logDebug('[INIT] Tower extraConfig after mapping:', STRUCTURE_ASSETS.find(s => s.id === 'tower')?.extraConfig);
           return true;
         }
       } catch (err) {
