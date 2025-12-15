@@ -232,6 +232,99 @@ select {
 }
 .deprecation-banner a:hover { color: #fecaca; }
 
+/* Config Editor Modal */
+.config-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.config-modal.visible { display: flex; }
+.config-modal-content {
+  background: #0f172a;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.config-modal-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.config-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #e5e7eb;
+}
+.config-modal-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.config-modal-close:hover { color: #e5e7eb; }
+.config-modal-body {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+.config-modal-textarea {
+  width: 100%;
+  min-height: 300px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  background: #020617;
+  color: #e5e7eb;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 8px;
+  resize: vertical;
+}
+.config-modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.config-modal-footer button {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 13px;
+  cursor: pointer;
+}
+.config-modal-footer button:hover { background: #0b1120; }
+.config-modal-footer button.primary {
+  background: #2563eb;
+  color: white;
+  border-color: #1d4ed8;
+}
+.config-modal-footer button.primary:hover { background: #1d4ed8; }
+.config-modal-info {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
+
   </style>
 </head>
 <body>
@@ -1221,6 +1314,101 @@ select {
       logDebug("Asset config applied: " + asset.label);
     }
 
+    // --- CONFIG EDITOR MODAL ---
+    let currentEditingAsset = null;
+
+    function openConfigEditor(asset) {
+      currentEditingAsset = asset;
+      const modal = document.getElementById("configModal");
+      const textarea = document.getElementById("configTextarea");
+      const assetNameEl = document.getElementById("configAssetName");
+      const sourceEl = document.getElementById("configSource");
+
+      assetNameEl.textContent = asset.label || asset.id;
+
+      // Load config from individual config file
+      loadAssetConfigFromFile(asset.id).then(config => {
+        if (config) {
+          textarea.value = JSON.stringify(config, null, 2);
+          sourceEl.textContent = `config/assets/${asset.id}-config.json`;
+        } else {
+          // Fallback to current asset config
+          const currentConfig = {
+            id: asset.id,
+            label: asset.label,
+            gltfPath: asset.gltfPath,
+            baseScale: asset.baseScale,
+            yOffset: asset.yOffset,
+            forwardOffsetDeg: asset.forwardOffsetDeg,
+            instanceDefaults: asset.instanceDefaults,
+            extra: asset.extraConfig || {}
+          };
+          textarea.value = JSON.stringify(currentConfig, null, 2);
+          sourceEl.textContent = "Current in-memory config";
+        }
+        modal.classList.add("visible");
+      });
+    }
+
+    function closeConfigEditor() {
+      const modal = document.getElementById("configModal");
+      modal.classList.remove("visible");
+      currentEditingAsset = null;
+    }
+
+    function applyConfigFromEditor() {
+      const textarea = document.getElementById("configTextarea");
+      try {
+        const cfg = JSON.parse(textarea.value);
+        if (currentEditingAsset) {
+          applyAssetConfigFromJson(currentEditingAsset, cfg);
+          rebuildAssetPanel();
+          rebuild3DFromState();
+          logDebug("Config applied from editor for: " + currentEditingAsset.label);
+        }
+        closeConfigEditor();
+      } catch (err) {
+        alert("Invalid JSON: " + (err?.message || String(err)));
+      }
+    }
+
+    function reloadConfigFromFile() {
+      if (!currentEditingAsset) return;
+      openConfigEditor(currentEditingAsset);
+    }
+
+    async function loadAssetConfigFromFile(assetId) {
+      try {
+        const configPath = `config/assets/${assetId}-config.json`;
+        const response = await fetch(configPath);
+        if (!response.ok) {
+          logDebug(`Could not load ${configPath}: ${response.status}`);
+          return null;
+        }
+        const config = await response.json();
+        logDebug(`Loaded config from ${configPath}`);
+        return config;
+      } catch (err) {
+        logDebug(`Error loading config for ${assetId}: ${err?.message || String(err)}`);
+        return null;
+      }
+    }
+
+    // Initialize modal event listeners
+    function initConfigModal() {
+      document.getElementById("configModalClose").addEventListener("click", closeConfigEditor);
+      document.getElementById("configCancelBtn").addEventListener("click", closeConfigEditor);
+      document.getElementById("configApplyBtn").addEventListener("click", applyConfigFromEditor);
+      document.getElementById("configReloadBtn").addEventListener("click", reloadConfigFromFile);
+
+      // Close modal when clicking outside
+      document.getElementById("configModal").addEventListener("click", (e) => {
+        if (e.target.id === "configModal") {
+          closeConfigEditor();
+        }
+      });
+    }
+
     function rebuildAssetPanel() {
       const assets = getAssetsForLayer(activeLayer);
       assetPanelEl.innerHTML = "";
@@ -1269,36 +1457,14 @@ select {
           loadGltfForAsset(asset, file);
         });
 
-        const configInput = document.createElement("input");
-        configInput.type = "file";
-        configInput.accept = ".json";
-        configInput.style.display = "none";
-
-        configBtn.addEventListener("click", () => configInput.click());
-        configInput.addEventListener("change", (e) => {
-          const file = e.target.files && e.target.files[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            try {
-              const text = String(reader.result || "");
-              const cfg = JSON.parse(text);
-              applyAssetConfigFromJson(asset, cfg);
-              rebuildAssetPanel();
-              rebuild3DFromState();
-            } catch (err) {
-              logDebug("Config JSON ERROR for " + asset.label + ": " + (err?.message || String(err)));
-            }
-          };
-          reader.readAsText(file);
-        });
+        // Open live config editor instead of file upload
+        configBtn.addEventListener("click", () => openConfigEditor(asset));
 
         row.appendChild(nameSpan);
         row.appendChild(uploadBtn);
         row.appendChild(configBtn);
         row.appendChild(status);
         row.appendChild(fileInput);
-        row.appendChild(configInput);
         assetPanelEl.appendChild(row);
       });
     }
@@ -2004,6 +2170,7 @@ select {
       }
       
       initUI();
+      initConfigModal();
       createGridDom();
       initThree();
       autoLoadAssetModels(); // Auto-load models from asset paths
@@ -2017,5 +2184,28 @@ select {
       logDebug("Editor ready.");
     })();
   </script>
+
+  <!-- Config Editor Modal -->
+  <div id="configModal" class="config-modal">
+    <div class="config-modal-content">
+      <div class="config-modal-header">
+        <h3 id="configModalTitle">Edit Asset Config</h3>
+        <button class="config-modal-close" id="configModalClose">&times;</button>
+      </div>
+      <div class="config-modal-body">
+        <div class="config-modal-info">
+          Editing config for: <strong id="configAssetName"></strong><br>
+          Source: <span id="configSource"></span>
+        </div>
+        <textarea id="configTextarea" class="config-modal-textarea" spellcheck="false"></textarea>
+      </div>
+      <div class="config-modal-footer">
+        <button id="configReloadBtn">Reload from File</button>
+        <button id="configCancelBtn">Cancel</button>
+        <button id="configApplyBtn" class="primary">Apply Changes</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
