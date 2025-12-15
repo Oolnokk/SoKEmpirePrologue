@@ -492,8 +492,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               worldPos.z
             );
 
-            // Cell orientation is in degrees; add per-asset forward offset
-            const orientationDeg = (cell.orientation ?? assetConfig.instanceDefaults?.orientation ?? 0) + (assetConfig.forwardOffsetDeg || 0);
+            // Cell orientation is additive relative to the asset's zero (as defined by the
+            // visualsmap index / instanceDefaults). The editor treats 0 as the asset's base
+            // orientation, so runtime must add the cell's stored delta to that base.
+            const baseOrientationDeg = assetConfig.instanceDefaults?.orientation ?? 0;
+            const cellOrientationDeg = cell.orientation ?? 0;
+            const orientationDeg = baseOrientationDeg + cellOrientationDeg + (assetConfig.forwardOffsetDeg || 0);
 
             // Path yaw adjustment: when world is rotated to align path, counter-rotate objects
             const pathAdjustment = (alignWorldToPath && Number.isFinite(pathYawRad)) ? pathYawRad : 0;
