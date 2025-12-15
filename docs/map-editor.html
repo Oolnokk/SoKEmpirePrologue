@@ -1668,7 +1668,15 @@ select {
         }
 
         obj.position.set(x, asset.baseScale.y * 0.5 + asset.yOffset, z);
-        obj.scale.set(asset.baseScale.x, asset.baseScale.y, asset.baseScale.z);
+
+        // For GLTF models: template is already normalized, don't apply baseScale
+        // For fallback boxes: need baseScale since they're created at arbitrary size
+        if (asset.gltfTemplate) {
+          obj.scale.set(1, 1, 1); // Normalized size
+        } else {
+          obj.scale.set(asset.baseScale.x, asset.baseScale.y, asset.baseScale.z);
+        }
+
         obj.receiveShadow = true;
         groundGroup.add(obj);
         groundCount++;
@@ -1706,7 +1714,14 @@ select {
         const baseY = asset.baseScale.y;
         const baseZ = asset.baseScale.z;
 
-        obj.scale.set(baseX * sx, baseY * sy, baseZ * sz);
+        // For GLTF models: template is already normalized to size 1.0, so only apply instance scale
+        // For fallback boxes: need baseScale since they're created at arbitrary size
+        if (asset.gltfTemplate) {
+          obj.scale.set(sx, sy, sz); // Instance scale only
+        } else {
+          obj.scale.set(baseX * sx, baseY * sy, baseZ * sz); // Base + instance scale
+        }
+
         obj.rotation.y = angle;
         obj.position.set(
           x + offX,
