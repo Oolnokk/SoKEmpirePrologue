@@ -803,9 +803,6 @@ function initCharacterDropdown() {
 
     if (charData.cosmetics) {
       window.GAME.selectedCosmetics = deepClone(charData.cosmetics);
-      } catch (_err) {
-        window.GAME.selectedCosmetics = charData.cosmetics;
-      }
     } else {
       delete window.GAME.selectedCosmetics;
     }

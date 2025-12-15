@@ -222,7 +222,7 @@ async function loadVisualsmapIndex(baseContext = null) {
     const baseUrl = new URL('./', resolvedPath).href;
     const assetMap = new Map();
 
-    // Optimized: Use for...of loop instead of nested forEach for better performance
+    // Optimized: Use for loops instead of nested forEach for better performance
     // This avoids creating multiple function contexts and allows early exit if needed
     const sections = ['segments', 'structures', 'decorations'];
     for (let i = 0; i < sections.length; i++) {

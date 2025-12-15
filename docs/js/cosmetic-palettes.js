@@ -140,7 +140,8 @@ function clone(obj){
     try {
       return structuredClone(obj);
     } catch (e) {
-      // Fallback if structuredClone fails
+      // Intentional fallthrough: if structuredClone fails (e.g., functions, symbols),
+      // fall back to JSON method below
     }
   }
   return JSON.parse(JSON.stringify(obj));
