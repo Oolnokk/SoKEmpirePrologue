@@ -475,11 +475,22 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               continue;
             }
 
+            // Log object structure for debugging
+            console.log(`[visualsmapLoader] Object structure for ${cell.type}:`, {
+              type: object.type,
+              children: object.children.length,
+              rotation: object.rotation,
+              scale: object.scale,
+              position: object.position
+            });
+
             // Get base rotations from asset config (these set the model's "zero" orientation)
             const extraConfig = assetConfig.extra || assetConfig.extraConfig || {};
             const baseRotationX = extraConfig.rotationX || 0;
             const baseRotationY = extraConfig.rotationY || 0;
             const baseRotationZ = extraConfig.rotationZ || 0;
+
+            console.log(`[visualsmapLoader] Applying rotations to ${cell.type}: X=${baseRotationX}° Y=${baseRotationY}° Z=${baseRotationZ}°`);
 
             // Apply base rotations using absolute setters (not additive) to avoid compounding
             // with any rotations baked into the GLTF. Convert degrees to radians.
@@ -489,6 +500,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               (baseRotationZ * Math.PI) / 180,
               'XYZ' // Rotation order: X, then Y, then Z
             );
+
+            console.log(`[visualsmapLoader] After rotation - rotation:`, object.rotation, 'scale:', object.scale);
 
             // Get offsets in grid units (pre-rotation)
             const gridOffsetX = cell.offsetX ?? assetConfig.instanceDefaults?.offsetX ?? 0;
