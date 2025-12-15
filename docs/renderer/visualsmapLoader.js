@@ -5,6 +5,12 @@
 
 import { projectToGroundPlane } from './scene3d.js';
 
+const VISUALSMAP_INDEX_CACHE = {
+  loaded: false,
+  assets: null,
+  baseUrl: null,
+};
+
 /**
  * Resolve visualsMap path relative to gameplaymap location
  * @param {string} visualsMapPath - Path from gameplaymap.json
@@ -137,6 +143,65 @@ function deriveConfigBase(refUrl) {
 }
 
 /**
+ * Load the shared visualsmap index so runtime placement can mirror editor
+ * defaults (orientation, base rotations, forward offsets, etc.).
+ *
+ * @param {string|null} baseContext - Base URL used to resolve the index path
+ * @returns {Promise<{ assets: Map<string, any>, baseUrl: string }|null>}
+ */
+async function loadVisualsmapIndex(baseContext = null) {
+  if (VISUALSMAP_INDEX_CACHE.loaded && VISUALSMAP_INDEX_CACHE.assets) {
+    return {
+      assets: VISUALSMAP_INDEX_CACHE.assets,
+      baseUrl: VISUALSMAP_INDEX_CACHE.baseUrl,
+    };
+  }
+
+  const indexPath = 'config/maps/visualsmaps/index.json';
+  const resolvedPath = resolveAssetPath(indexPath, baseContext);
+
+  if (!resolvedPath) {
+    console.warn('[visualsmapLoader] ✗ Could not resolve visualsmap index path');
+    return null;
+  }
+
+  console.log(`[visualsmapLoader] Loading visualsmap index: ${resolvedPath}`);
+
+  try {
+    const response = await fetch(resolvedPath);
+    if (!response.ok) {
+      console.warn(`[visualsmapLoader] ✗ Failed to load visualsmap index (${response.status} ${response.statusText})`);
+      return null;
+    }
+
+    const indexJson = await response.json();
+    const baseUrl = new URL('./', resolvedPath).href;
+    const assetMap = new Map();
+
+    ['segments', 'structures', 'decorations'].forEach((section) => {
+      const list = indexJson?.[section];
+      if (!Array.isArray(list)) return;
+      list.forEach((asset) => {
+        if (!asset?.id) return;
+        // Preserve original object shape while tagging the source base
+        assetMap.set(asset.id, { ...asset, __visualsmapIndexBase: baseUrl });
+      });
+    });
+
+    VISUALSMAP_INDEX_CACHE.loaded = true;
+    VISUALSMAP_INDEX_CACHE.assets = assetMap;
+    VISUALSMAP_INDEX_CACHE.baseUrl = baseUrl;
+
+    console.log(`[visualsmapLoader] ✓ Loaded visualsmap index with ${assetMap.size} assets`);
+
+    return { assets: assetMap, baseUrl };
+  } catch (error) {
+    console.warn('[visualsmapLoader] ✗ Error loading visualsmap index:', error);
+    return null;
+  }
+}
+
+/**
  * Load asset configuration
  * @param {string} assetType - Type of asset (e.g., "tower", "sidewalk")
  * @returns {Promise<Object>} Asset configuration
@@ -253,6 +318,17 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log('[visualsmapLoader] Using inline asset definitions from visualsmap JSON');
     }
 
+    // Load visualsmap index when inline assets are unavailable so runtime
+    // placements match editor defaults (orientation, rotations, scales).
+    let visualsmapIndexAssets = null;
+    if (!usingInlineAssets) {
+      const indexResult = await loadVisualsmapIndex(docsBase || visualsMapBase || null);
+      visualsmapIndexAssets = indexResult?.assets || null;
+      if (visualsmapIndexAssets?.size) {
+        console.log(`[visualsmapLoader] Using visualsmap index assets (count: ${visualsmapIndexAssets.size})`);
+      }
+    }
+
     // Use the global grid unit world size configuration (default 30)
     const cellSize = (typeof window !== 'undefined' && window.GRID_UNIT_WORLD_SIZE) || 30;
     console.log(`[visualsmapLoader] Using cellSize: ${cellSize} (from GRID_UNIT_WORLD_SIZE)`);
@@ -289,12 +365,16 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           const cell = layer[row]?.[col];
           if (!cell || !cell.type) continue;
 
-          // Load asset config if not cached; prefer inline asset metadata
+          // Load asset config if not cached; prefer inline or visualsmap index metadata
           if (!assetCache.has(cell.type)) {
             const inlineConfig = inlineAssetMap.get(cell.type) || null;
+            const indexConfig = !inlineConfig && visualsmapIndexAssets?.get(cell.type) || null;
             if (inlineConfig) {
               assetCache.set(cell.type, inlineConfig);
               console.log(`[visualsmapLoader] ✓ Using inline asset config for ${cell.type}`);
+            } else if (indexConfig) {
+              assetCache.set(cell.type, indexConfig);
+              console.log(`[visualsmapLoader] ✓ Using visualsmap index config for ${cell.type}`);
             } else {
                 const config = await loadAssetConfig(cell.type, configBase);
               assetCache.set(cell.type, config);
@@ -316,7 +396,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
           // Resolve GLTF path
           const gltfCandidate = assetConfig.gltfPath || assetConfig.gltfFileName;
-          const gltfBase = inlineAsset ? visualsMapBase : (docsBase || configBase || visualsMapBase || null);
+          const gltfBase = inlineAsset
+            ? visualsMapBase
+            : (assetConfig.__visualsmapIndexBase || docsBase || visualsMapBase || configBase || null);
           const gltfUrl = resolveAssetPath(gltfCandidate, gltfBase);
           if (!gltfUrl) {
             console.warn(`[visualsmapLoader] ✗ No gltfPath for asset: ${cell.type} at (${row},${col})`);
@@ -410,8 +492,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               worldPos.z
             );
 
-            // Cell orientation is in degrees; add per-asset forward offset
-            const orientationDeg = (cell.orientation ?? assetConfig.instanceDefaults?.orientation ?? 0) + (assetConfig.forwardOffsetDeg || 0);
+            // Cell orientation is additive relative to the asset's zero (as defined by the
+            // visualsmap index / instanceDefaults). The editor treats 0 as the asset's base
+            // orientation, so runtime must add the cell's stored delta to that base.
+            const baseOrientationDeg = assetConfig.instanceDefaults?.orientation ?? 0;
+            const cellOrientationDeg = cell.orientation ?? 0;
+            const orientationDeg = baseOrientationDeg + cellOrientationDeg + (assetConfig.forwardOffsetDeg || 0);
 
             // Path yaw adjustment: when world is rotated to align path, counter-rotate objects
             const pathAdjustment = (alignWorldToPath && Number.isFinite(pathYawRad)) ? pathYawRad : 0;
