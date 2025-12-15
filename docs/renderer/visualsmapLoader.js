@@ -23,6 +23,19 @@ function isDevelopmentMode() {
 }
 
 /**
+ * Performance-optimized logger that only logs in development mode
+ * This prevents console overhead in production
+ */
+const devLog = (() => {
+  const isDev = isDevelopmentMode();
+  return {
+    log: isDev ? console.log.bind(console) : () => {},
+    warn: console.warn.bind(console), // Always show warnings
+    error: console.error.bind(console) // Always show errors
+  };
+})();
+
+/**
  * Clear the visualsmap index cache. Useful for development or when
  * index.json is updated and needs to be reloaded.
  * @public
@@ -31,7 +44,7 @@ export function clearVisualsmapCache() {
   VISUALSMAP_INDEX_CACHE.loaded = false;
   VISUALSMAP_INDEX_CACHE.assets = null;
   VISUALSMAP_INDEX_CACHE.baseUrl = null;
-  console.log('[visualsmapLoader] ✓ Cache cleared');
+  devLog.log('[visualsmapLoader] ✓ Cache cleared');
 }
 
 /**
@@ -55,7 +68,7 @@ function resolveVisualsMapPath(visualsMapPath, gameplayMapUrl) {
     const base = gameplayMapUrl || (typeof window !== 'undefined' ? window.location.href : '');
     return new URL(visualsMapPath, base).href;
   } catch (err) {
-    console.warn('[visualsmapLoader] Could not resolve visualsMapPath, returning original:', visualsMapPath, err);
+    devLog.warn('[visualsmapLoader] Could not resolve visualsMapPath, returning original:', visualsMapPath, err);
     return visualsMapPath;
   }
 }
@@ -84,7 +97,7 @@ function resolveAssetPath(assetPath, baseContext = null) {
     (typeof document !== 'undefined' && document.baseURI) || '';
 
   if (!baseUrl) {
-    console.warn('[visualsmapLoader] Cannot resolve asset path: no baseURI available, returning original:', assetPath);
+    devLog.warn('[visualsmapLoader] Cannot resolve asset path: no baseURI available, returning original:', assetPath);
     return assetPath;
   }
 
@@ -102,7 +115,7 @@ function resolveAssetPath(assetPath, baseContext = null) {
     resolvedPath = new URL(assetPath, baseUrl).href;
   }
   
-  console.log(`[visualsmapLoader] Resolved asset path: "${assetPath}" → "${resolvedPath}"`);
+  devLog.log(`[visualsmapLoader] Resolved asset path: "${assetPath}" → "${resolvedPath}"`);
   return resolvedPath;
 }
 
@@ -132,7 +145,7 @@ function deriveDocsBase(refUrl) {
     url.hash = '';
     return url.href;
   } catch (err) {
-    console.warn('[visualsmapLoader] Failed to derive docs base from', refUrl, err);
+    devLog.warn('[visualsmapLoader] Failed to derive docs base from', refUrl, err);
     return null;
   }
 }
@@ -160,7 +173,7 @@ function deriveConfigBase(refUrl) {
     url.hash = '';
     return url.href;
   } catch (err) {
-    console.warn('[visualsmapLoader] Failed to derive config base from', refUrl, err);
+    devLog.warn('[visualsmapLoader] Failed to derive config base from', refUrl, err);
     return null;
   }
 }
@@ -178,7 +191,7 @@ async function loadVisualsmapIndex(baseContext = null) {
   const isDev = isDevelopmentMode();
   
   if (!isDev && VISUALSMAP_INDEX_CACHE.loaded && VISUALSMAP_INDEX_CACHE.assets) {
-    console.log('[visualsmapLoader] ↻ Using cached visualsmap index');
+    devLog.log('[visualsmapLoader] ↻ Using cached visualsmap index');
     return {
       assets: VISUALSMAP_INDEX_CACHE.assets,
       baseUrl: VISUALSMAP_INDEX_CACHE.baseUrl,
@@ -192,16 +205,16 @@ async function loadVisualsmapIndex(baseContext = null) {
   const resolvedPath = resolveAssetPath(indexPath, baseContext);
 
   if (!resolvedPath) {
-    console.warn('[visualsmapLoader] ✗ Could not resolve visualsmap index path');
+    devLog.warn('[visualsmapLoader] ✗ Could not resolve visualsmap index path');
     return null;
   }
 
-  console.log(`[visualsmapLoader] Loading visualsmap index: ${resolvedPath}`);
+  devLog.log(`[visualsmapLoader] Loading visualsmap index: ${resolvedPath}`);
 
   try {
     const response = await fetch(resolvedPath);
     if (!response.ok) {
-      console.warn(`[visualsmapLoader] ✗ Failed to load visualsmap index (${response.status} ${response.statusText})`);
+      devLog.warn(`[visualsmapLoader] ✗ Failed to load visualsmap index (${response.status} ${response.statusText})`);
       return null;
     }
 
@@ -209,25 +222,31 @@ async function loadVisualsmapIndex(baseContext = null) {
     const baseUrl = new URL('./', resolvedPath).href;
     const assetMap = new Map();
 
-    ['segments', 'structures', 'decorations'].forEach((section) => {
+    // Optimized: Use for...of loop instead of nested forEach for better performance
+    // This avoids creating multiple function contexts and allows early exit if needed
+    const sections = ['segments', 'structures', 'decorations'];
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i];
       const list = indexJson?.[section];
-      if (!Array.isArray(list)) return;
-      list.forEach((asset) => {
-        if (!asset?.id) return;
+      if (!Array.isArray(list)) continue;
+      
+      for (let j = 0; j < list.length; j++) {
+        const asset = list[j];
+        if (!asset?.id) continue;
         // Preserve original object shape while tagging the source base
         assetMap.set(asset.id, { ...asset, __visualsmapIndexBase: baseUrl });
-      });
-    });
+      }
+    }
 
     VISUALSMAP_INDEX_CACHE.loaded = true;
     VISUALSMAP_INDEX_CACHE.assets = assetMap;
     VISUALSMAP_INDEX_CACHE.baseUrl = baseUrl;
 
-    console.log(`[visualsmapLoader] ✓ Loaded visualsmap index with ${assetMap.size} assets`);
+    devLog.log(`[visualsmapLoader] ✓ Loaded visualsmap index with ${assetMap.size} assets`);
 
     return { assets: assetMap, baseUrl };
   } catch (error) {
-    console.warn('[visualsmapLoader] ✗ Error loading visualsmap index:', error);
+    devLog.warn('[visualsmapLoader] ✗ Error loading visualsmap index:', error);
     return null;
   }
 }
@@ -241,19 +260,19 @@ async function loadAssetConfig(assetType, baseContext = null) {
   const configPath = `config/assets/${assetType}-config.json`;
   const resolvedPath = resolveAssetPath(configPath, baseContext);
 
-  console.log(`[visualsmapLoader] Loading asset config for "${assetType}": ${resolvedPath}`);
+  devLog.log(`[visualsmapLoader] Loading asset config for "${assetType}": ${resolvedPath}`);
   
   try {
     const response = await fetch(resolvedPath);
     if (!response.ok) {
-      console.warn(`[visualsmapLoader] ✗ Failed to load asset config: ${configPath} (${response.status} ${response.statusText})`);
+      devLog.warn(`[visualsmapLoader] ✗ Failed to load asset config: ${configPath} (${response.status} ${response.statusText})`);
       return null;
     }
     const config = await response.json();
-    console.log(`[visualsmapLoader] ✓ Loaded asset config for "${assetType}":`, config);
+    devLog.log(`[visualsmapLoader] ✓ Loaded asset config for "${assetType}":`, config);
     return config;
   } catch (error) {
-    console.warn(`[visualsmapLoader] ✗ Error loading asset config ${configPath}:`, error);
+    devLog.warn(`[visualsmapLoader] ✗ Error loading asset config ${configPath}:`, error);
     return null;
   }
 }
@@ -305,29 +324,29 @@ function gridToWorld(row, col, rows, cols, cellSize, pathYawRad, alignToPath) {
  */
 export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
   if (!area?.visualsMap) {
-    console.log('[visualsmapLoader] No visualsMap in area config');
+    devLog.log('[visualsmapLoader] No visualsMap in area config');
     return { objects: [], dispose: () => {} };
   }
 
   try {
     // Resolve and load visualsmap
     const visualsMapUrl = resolveVisualsMapPath(area.visualsMap, gameplayMapUrl);
-    console.log('[visualsmapLoader] ========================================');
-    console.log('[visualsmapLoader] Starting visualsmap load for area:', area.id);
-    console.log('[visualsmapLoader] - Gameplay map URL:', gameplayMapUrl);
-    console.log('[visualsmapLoader] - Visualsmap path:', area.visualsMap);
-    console.log('[visualsmapLoader] - Resolved URL:', visualsMapUrl);
+    devLog.log('[visualsmapLoader] ========================================');
+    devLog.log('[visualsmapLoader] Starting visualsmap load for area:', area.id);
+    devLog.log('[visualsmapLoader] - Gameplay map URL:', gameplayMapUrl);
+    devLog.log('[visualsmapLoader] - Visualsmap path:', area.visualsMap);
+    devLog.log('[visualsmapLoader] - Resolved URL:', visualsMapUrl);
 
     const response = await fetch(visualsMapUrl);
     if (!response.ok) {
-      console.warn(`[visualsmapLoader] ✗ Failed to load visualsmap: ${visualsMapUrl} (${response.status} ${response.statusText})`);
+      devLog.warn(`[visualsmapLoader] ✗ Failed to load visualsmap: ${visualsMapUrl} (${response.status} ${response.statusText})`);
       return { objects: [], dispose: () => {} };
     }
 
     const visualsMap = await response.json();
-    console.log('[visualsmapLoader] ✓ Visualsmap JSON loaded successfully');
-    console.log('[visualsmapLoader] - Grid size:', visualsMap.rows, 'x', visualsMap.cols);
-    console.log('[visualsmapLoader] - Layers:', Object.keys(visualsMap.layerStates || {}));
+    devLog.log('[visualsmapLoader] ✓ Visualsmap JSON loaded successfully');
+    devLog.log('[visualsmapLoader] - Grid size:', visualsMap.rows, 'x', visualsMap.cols);
+    devLog.log('[visualsmapLoader] - Layers:', Object.keys(visualsMap.layerStates || {}));
 
     const { rows = 20, cols = 20, layerStates = {}, gameplayPath, alignWorldToPath = false } = visualsMap;
     const visualsMapBase = visualsMapUrl ? new URL('./', visualsMapUrl).href : '';
@@ -335,18 +354,22 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     const configBase = deriveConfigBase(visualsMapUrl) || deriveConfigBase(gameplayMapUrl) || visualsMapBase || null;
 
     // Prefer inline asset definitions from visualsmap JSON when available
+    // Optimized: Use for loops instead of nested forEach for better performance
     const inlineAssetMap = new Map();
-    ['segments', 'structures', 'decorations'].forEach(section => {
+    const sections = ['segments', 'structures', 'decorations'];
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i];
       const list = visualsMap.assets?.[section];
       if (Array.isArray(list)) {
-        list.forEach(asset => {
+        for (let j = 0; j < list.length; j++) {
+          const asset = list[j];
           if (asset?.id) inlineAssetMap.set(asset.id, asset);
-        });
+        }
       }
-    });
+    }
     const usingInlineAssets = inlineAssetMap.size > 0;
     if (usingInlineAssets) {
-      console.log('[visualsmapLoader] Using inline asset definitions from visualsmap JSON');
+      devLog.log('[visualsmapLoader] Using inline asset definitions from visualsmap JSON');
     }
 
     // Load visualsmap index when inline assets are unavailable so runtime
@@ -356,13 +379,13 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       const indexResult = await loadVisualsmapIndex(docsBase || visualsMapBase || null);
       visualsmapIndexAssets = indexResult?.assets || null;
       if (visualsmapIndexAssets?.size) {
-        console.log(`[visualsmapLoader] Using visualsmap index assets (count: ${visualsmapIndexAssets.size})`);
+        devLog.log(`[visualsmapLoader] Using visualsmap index assets (count: ${visualsmapIndexAssets.size})`);
       }
     }
 
     // Use the global grid unit world size configuration (default 30)
     const cellSize = (typeof window !== 'undefined' && window.GRID_UNIT_WORLD_SIZE) || 30;
-    console.log(`[visualsmapLoader] Using cellSize: ${cellSize} (from GRID_UNIT_WORLD_SIZE)`);
+    devLog.log(`[visualsmapLoader] Using cellSize: ${cellSize} (from GRID_UNIT_WORLD_SIZE)`);
     const loadedObjects = [];
     const assetCache = new Map();
     const gltfCache = new Map();
@@ -379,7 +402,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       const dx = endX - startX;
       const dz = endZ - startZ;
       pathYawRad = Math.atan2(dz, dx);
-      console.log(`[visualsmapLoader] Path yaw (deg): ${((pathYawRad * 180) / Math.PI).toFixed(2)}`);
+      devLog.log(`[visualsmapLoader] Path yaw (deg): ${((pathYawRad * 180) / Math.PI).toFixed(2)}`);
     }
 
     // Process layers in order: ground, structure, decoration
@@ -389,7 +412,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       const layer = layerStates[layerName];
       if (!layer || !Array.isArray(layer)) continue;
 
-      console.log(`[visualsmapLoader] Processing layer: ${layerName}`);
+      devLog.log(`[visualsmapLoader] Processing layer: ${layerName}`);
 
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
@@ -402,25 +425,25 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             const indexConfig = !inlineConfig && visualsmapIndexAssets?.get(cell.type) || null;
             if (inlineConfig) {
               assetCache.set(cell.type, inlineConfig);
-              console.log(`[visualsmapLoader] ✓ Using inline asset config for ${cell.type}`);
+              devLog.log(`[visualsmapLoader] ✓ Using inline asset config for ${cell.type}`);
             } else if (indexConfig) {
               assetCache.set(cell.type, indexConfig);
-              console.log(`[visualsmapLoader] ✓ Using visualsmap index config for ${cell.type}`);
+              devLog.log(`[visualsmapLoader] ✓ Using visualsmap index config for ${cell.type}`);
             } else {
                 const config = await loadAssetConfig(cell.type, configBase);
               assetCache.set(cell.type, config);
 
               if (config) {
-                console.log(`[visualsmapLoader] ✓ Loaded config for ${cell.type}:`, config.gltfPath || 'no gltfPath');
+                devLog.log(`[visualsmapLoader] ✓ Loaded config for ${cell.type}:`, config.gltfPath || 'no gltfPath');
               } else {
-                console.warn(`[visualsmapLoader] ✗ Failed to load config for ${cell.type}`);
+                devLog.warn(`[visualsmapLoader] ✗ Failed to load config for ${cell.type}`);
               }
             }
           }
 
           const assetConfig = assetCache.get(cell.type);
           if (!assetConfig) {
-            console.warn(`[visualsmapLoader] ✗ No config for asset type: ${cell.type} at (${row},${col})`);
+            devLog.warn(`[visualsmapLoader] ✗ No config for asset type: ${cell.type} at (${row},${col})`);
             continue;
           }
           const inlineAsset = inlineAssetMap.has(cell.type);
@@ -432,8 +455,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             : (assetConfig.__visualsmapIndexBase || docsBase || visualsMapBase || configBase || null);
           const gltfUrl = resolveAssetPath(gltfCandidate, gltfBase);
           if (!gltfUrl) {
-            console.warn(`[visualsmapLoader] ✗ No gltfPath for asset: ${cell.type} at (${row},${col})`);
-            console.warn(`[visualsmapLoader]   Asset config:`, assetConfig);
+            devLog.warn(`[visualsmapLoader] ✗ No gltfPath for asset: ${cell.type} at (${row},${col})`);
+            devLog.warn(`[visualsmapLoader]   Asset config:`, assetConfig);
             continue;
           }
 
@@ -449,7 +472,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           try {
             const baseObject = await gltfCache.get(gltfUrl);
             if (!baseObject) {
-              console.warn(`[visualsmapLoader] ✗ Failed to load GLTF: ${gltfUrl}`);
+              devLog.warn(`[visualsmapLoader] ✗ Failed to load GLTF: ${gltfUrl}`);
               continue;
             }
 
@@ -460,7 +483,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             });
             
             if (meshCount === 0) {
-              console.warn(`[visualsmapLoader] ⚠ GLTF has no meshes: ${gltfUrl}`);
+              devLog.warn(`[visualsmapLoader] ⚠ GLTF has no meshes: ${gltfUrl}`);
             }
 
             // Clone the loaded GLTF so every cell keeps its own transform
@@ -471,7 +494,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               }
             });
             if (!object) {
-              console.warn(`[visualsmapLoader] ✗ Failed to clone GLTF: ${gltfUrl}`);
+              devLog.warn(`[visualsmapLoader] ✗ Failed to clone GLTF: ${gltfUrl}`);
               continue;
             }
 
@@ -547,18 +570,18 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             const LOG_SAMPLE_INTERVAL = 20; // Log every Nth placement to reduce console spam
             const isFirstInLayer = loadedObjects.length % LOG_SAMPLE_INTERVAL === 1;
             if (isFirstInLayer || loadedObjects.length <= 5) {
-              console.log(`[visualsmapLoader]   Placed ${cell.type} at grid(${row},${col}) -> world(${worldPos.x.toFixed(1)}, ${worldPos.y.toFixed(1)}, ${worldPos.z.toFixed(1)})`);
+              devLog.log(`[visualsmapLoader]   Placed ${cell.type} at grid(${row},${col}) -> world(${worldPos.x.toFixed(1)}, ${worldPos.y.toFixed(1)}, ${worldPos.z.toFixed(1)})`);
             }
           } catch (error) {
-            console.warn(`[visualsmapLoader] ✗ Error loading object at (${row},${col}):`, error);
+            devLog.warn(`[visualsmapLoader] ✗ Error loading object at (${row},${col}):`, error);
           }
         }
       }
     }
 
-    console.log('[visualsmapLoader] ========================================');
-    console.log(`[visualsmapLoader] ✓ VISUALSMAP LOAD COMPLETE`);
-    console.log(`[visualsmapLoader] - Total objects placed: ${loadedObjects.length}`);
+    devLog.log('[visualsmapLoader] ========================================');
+    devLog.log(`[visualsmapLoader] ✓ VISUALSMAP LOAD COMPLETE`);
+    devLog.log(`[visualsmapLoader] - Total objects placed: ${loadedObjects.length}`);
     
     // Summary by layer
     const byLayer = {};
@@ -579,11 +602,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       }
     }
     
-    console.log(`[visualsmapLoader] - Grid cells by layer:`, byLayer);
-    console.log(`[visualsmapLoader] - Unique asset types loaded:`, assetCache.size);
-    console.log(`[visualsmapLoader] - Unique GLTF files cached:`, gltfCache.size);
-    console.log(`[visualsmapLoader] - Renderer scene.children count:`, renderer.scene?.children?.length || 0);
-    console.log('[visualsmapLoader] ========================================');
+    devLog.log(`[visualsmapLoader] - Grid cells by layer:`, byLayer);
+    devLog.log(`[visualsmapLoader] - Unique asset types loaded:`, assetCache.size);
+    devLog.log(`[visualsmapLoader] - Unique GLTF files cached:`, gltfCache.size);
+    devLog.log(`[visualsmapLoader] - Renderer scene.children count:`, renderer.scene?.children?.length || 0);
+    devLog.log('[visualsmapLoader] ========================================');
 
     // Position camera aligned with gameplay path for side-scrolling view
     const gridCenterX = 0;
@@ -610,9 +633,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       lookAtY = cellSize * 0.3; // Look slightly above ground level
       lookAtZ = gridCenterZ;
 
-      console.log(`[visualsmapLoader] Setting side-scrolling camera aligned with gameplay path:`);
-      console.log(`[visualsmapLoader] - Path aligned to +X axis (left-to-right)`);
-      console.log(`[visualsmapLoader] - Camera viewing from side (negative Z)`);
+      devLog.log(`[visualsmapLoader] Setting side-scrolling camera aligned with gameplay path:`);
+      devLog.log(`[visualsmapLoader] - Path aligned to +X axis (left-to-right)`);
+      devLog.log(`[visualsmapLoader] - Camera viewing from side (negative Z)`);
     } else {
       // Fallback: top-down view of entire grid
       const cameraDistance = Math.max(gridWidth, gridDepth) * 0.3;
@@ -623,13 +646,13 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       lookAtY = 0;
       lookAtZ = gridCenterZ;
 
-      console.log(`[visualsmapLoader] Setting top-down camera to view entire grid:`);
+      devLog.log(`[visualsmapLoader] Setting top-down camera to view entire grid:`);
     }
 
-    console.log(`[visualsmapLoader] - Grid center: (${gridCenterX}, 0, ${gridCenterZ})`);
-    console.log(`[visualsmapLoader] - Grid size: ${gridWidth} x ${gridDepth}, cellSize: ${cellSize}`);
-    console.log(`[visualsmapLoader] - Camera position: (${cameraX.toFixed(1)}, ${cameraY.toFixed(1)}, ${cameraZ.toFixed(1)})`);
-    console.log(`[visualsmapLoader] - Camera look-at: (${lookAtX.toFixed(1)}, ${lookAtY.toFixed(1)}, ${lookAtZ.toFixed(1)})`);
+    devLog.log(`[visualsmapLoader] - Grid center: (${gridCenterX}, 0, ${gridCenterZ})`);
+    devLog.log(`[visualsmapLoader] - Grid size: ${gridWidth} x ${gridDepth}, cellSize: ${cellSize}`);
+    devLog.log(`[visualsmapLoader] - Camera position: (${cameraX.toFixed(1)}, ${cameraY.toFixed(1)}, ${cameraZ.toFixed(1)})`);
+    devLog.log(`[visualsmapLoader] - Camera look-at: (${lookAtX.toFixed(1)}, ${lookAtY.toFixed(1)}, ${lookAtZ.toFixed(1)})`);
 
     renderer.setCameraParams({
       position: { x: cameraX, y: cameraY, z: cameraZ },
@@ -638,12 +661,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
     // Verify camera was set correctly
     if (renderer.camera) {
-      console.log(`[visualsmapLoader] ✓ Camera actual position after set:`, renderer.camera.position);
-      console.log(`[visualsmapLoader] ✓ Camera type:`, renderer.camera.type);
+      devLog.log(`[visualsmapLoader] ✓ Camera actual position after set:`, renderer.camera.position);
+      devLog.log(`[visualsmapLoader] ✓ Camera type:`, renderer.camera.type);
     }
 
     // Add lighting to the scene
-    console.log(`[visualsmapLoader] Adding scene lighting`);
+    devLog.log(`[visualsmapLoader] Adding scene lighting`);
     const ambientLight = new renderer.THREE.AmbientLight(0xffffff, 0.6);
     renderer.add(ambientLight);
     loadedObjects.push(ambientLight); // Track for disposal
@@ -663,7 +686,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       }
     };
   } catch (error) {
-    console.error('[visualsmapLoader] Error loading visualsmap:', error);
+    devLog.error('[visualsmapLoader] Error loading visualsmap:', error);
     return { objects: [], dispose: () => {} };
   }
 }

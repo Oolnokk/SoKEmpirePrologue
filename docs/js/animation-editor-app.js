@@ -1,4 +1,19 @@
-const clone = (value) => (value == null ? null : JSON.parse(JSON.stringify(value)));
+// Optimized clone: Use structuredClone if available (modern browsers), fallback to JSON
+// structuredClone is faster and handles more types (Date, Map, Set, etc.)
+const clone = (value) => {
+  if (value == null) return null;
+  // Use native structuredClone if available (Chrome 98+, Firefox 94+, Safari 15.4+)
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(value);
+    } catch (e) {
+      // Fallback if structuredClone fails (e.g., functions, symbols)
+      console.warn('structuredClone failed, falling back to JSON:', e);
+    }
+  }
+  // Fallback to JSON method for older browsers
+  return JSON.parse(JSON.stringify(value));
+};
 const cleanTags = (value) => Array.from(new Set(String(value || '').split(',').map((t) => t.trim()).filter(Boolean)));
 const numberOrNull = (value) => {
   const num = Number(value);

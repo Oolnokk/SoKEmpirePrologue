@@ -1,4 +1,23 @@
 // Character selection and settings management
+
+// Optimized clone helper: Use structuredClone when available for better performance
+function deepClone(value) {
+  if (value == null) return value;
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(value);
+    } catch (e) {
+      // Fallback on error
+    }
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (e) {
+    // Last resort: shallow copy
+    return { ...value };
+  }
+}
+
 const ABILITY_SLOT_CONFIG = [
   { slot: 'A', type: 'light', elementId: 'slotALight' },
   { slot: 'A', type: 'heavy', elementId: 'slotAHeavy' },
@@ -357,11 +376,7 @@ function syncWeaponRuntimeForCharacter(characterKey, weaponKey, { fighterKey = n
       if (!profile || typeof profile !== 'object') {
         if ((fighterKey && id === fighterKey) || (source && (source.characterKey === normalizedCharacterKey || (normalizedCharacterKey === 'player' && id === 'player')))) {
           if (source) {
-            try {
-              stateMap[id] = JSON.parse(JSON.stringify(source));
-            } catch (_err) {
-              stateMap[id] = { ...source };
-            }
+            stateMap[id] = deepClone(source);
           }
         }
         return;
@@ -369,11 +384,7 @@ function syncWeaponRuntimeForCharacter(characterKey, weaponKey, { fighterKey = n
       const cachedKey = profile.characterKey || (id === normalizedCharacterKey ? normalizedCharacterKey : null);
       if (cachedKey === normalizedCharacterKey || (fighterKey && id === fighterKey)) {
         if (source) {
-          try {
-            stateMap[id] = JSON.parse(JSON.stringify(source));
-          } catch (_err) {
-            stateMap[id] = { ...source };
-          }
+          stateMap[id] = deepClone(source);
           applyWeaponDrawnState(stateMap[id], weaponDrawn != null ? weaponDrawn : source.weaponDrawn);
         } else {
           const clone = { ...profile, weapon: weaponKey };
@@ -442,11 +453,7 @@ function syncWeaponDrawnState({ fighterKey = null, weaponDrawn = null, character
           ? resolvedDrawn
           : (profile?.weaponDrawn != null ? profile.weaponDrawn : source?.weaponDrawn);
         if (source) {
-          try {
-            stateMap[id] = JSON.parse(JSON.stringify(source));
-          } catch (_err) {
-            stateMap[id] = { ...source };
-          }
+          stateMap[id] = deepClone(source);
           applyWeaponDrawnState(stateMap[id], drawState);
         } else if (profile && typeof profile === 'object') {
           const clone = { ...profile };
@@ -787,11 +794,7 @@ function initCharacterDropdown() {
     };
 
     if (charData.bodyColors){
-      try {
-        window.GAME.selectedBodyColors = JSON.parse(JSON.stringify(charData.bodyColors));
-      } catch (_err) {
-        window.GAME.selectedBodyColors = { ...charData.bodyColors };
-      }
+      window.GAME.selectedBodyColors = deepClone(charData.bodyColors);
       window.GAME.selectedBodyColorsFighter = charData.fighter;
     } else {
       delete window.GAME.selectedBodyColors;
@@ -799,8 +802,7 @@ function initCharacterDropdown() {
     }
 
     if (charData.cosmetics) {
-      try {
-        window.GAME.selectedCosmetics = JSON.parse(JSON.stringify(charData.cosmetics));
+      window.GAME.selectedCosmetics = deepClone(charData.cosmetics);
       } catch (_err) {
         window.GAME.selectedCosmetics = charData.cosmetics;
       }

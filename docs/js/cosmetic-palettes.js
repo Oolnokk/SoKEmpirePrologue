@@ -133,8 +133,17 @@ function hsvToHex(hsv){
   return rgbToHex(r, g, b);
 }
 
+// Optimized clone: Use structuredClone if available for better performance
 function clone(obj){
-  return obj ? JSON.parse(JSON.stringify(obj)) : obj;
+  if (!obj) return obj;
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(obj);
+    } catch (e) {
+      // Fallback if structuredClone fails
+    }
+  }
+  return JSON.parse(JSON.stringify(obj));
 }
 
 function normalizeRow(id, rawRow = {}, baseRow = null){
