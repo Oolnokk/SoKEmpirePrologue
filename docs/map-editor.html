@@ -1238,14 +1238,16 @@ select {
         path,
         (gltf) => {
           const root = gltf.scene;
-          normalizeGltfSceneToUnit(root, asset.label);
 
-          // Apply X-axis rotation if specified in extraConfig
+          // Apply X-axis rotation BEFORE normalization so bounding box is calculated correctly
           if (asset.extraConfig && typeof asset.extraConfig.rotationX === "number") {
             const rotX = THREE.MathUtils.degToRad(asset.extraConfig.rotationX);
             root.rotation.x = rotX;
             logDebug("Applied X-rotation: " + asset.extraConfig.rotationX + "° for " + asset.label);
           }
+
+          // Normalize after rotation so the bounding box accounts for the rotated dimensions
+          normalizeGltfSceneToUnit(root, asset.label);
 
           root.traverse(n => {
             if (n.isMesh) {
