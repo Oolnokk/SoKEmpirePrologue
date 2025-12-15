@@ -481,17 +481,14 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             const baseRotationY = extraConfig.rotationY || 0;
             const baseRotationZ = extraConfig.rotationZ || 0;
 
-            // Apply base rotations first (model initialization - sets coordinate system)
-            // These rotations define the model's "zero" orientation in object space
-            if (baseRotationX !== 0) {
-              object.rotateX((baseRotationX * Math.PI) / 180);
-            }
-            if (baseRotationY !== 0) {
-              object.rotateY((baseRotationY * Math.PI) / 180);
-            }
-            if (baseRotationZ !== 0) {
-              object.rotateZ((baseRotationZ * Math.PI) / 180);
-            }
+            // Apply base rotations using absolute setters (not additive) to avoid compounding
+            // with any rotations baked into the GLTF. Convert degrees to radians.
+            object.rotation.set(
+              (baseRotationX * Math.PI) / 180,
+              (baseRotationY * Math.PI) / 180,
+              (baseRotationZ * Math.PI) / 180,
+              'XYZ' // Rotation order: X, then Y, then Z
+            );
 
             // Get offsets in grid units (pre-rotation)
             const gridOffsetX = cell.offsetX ?? assetConfig.instanceDefaults?.offsetX ?? 0;
