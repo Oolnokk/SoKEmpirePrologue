@@ -1281,6 +1281,8 @@ select {
     function applyAssetConfigFromJson(asset, cfg) {
       if (!cfg || typeof cfg !== "object") return;
 
+      let needsModelReload = false;
+
       if (cfg.baseScale && typeof cfg.baseScale === "object") {
         const bs = cfg.baseScale;
         asset.baseScale = {
@@ -1288,6 +1290,7 @@ select {
           y: Number(bs.y ?? asset.baseScale.y),
           z: Number(bs.z ?? asset.baseScale.z)
         };
+        needsModelReload = true;
       }
 
       if (typeof cfg.yOffset === "number") {
@@ -1312,6 +1315,15 @@ select {
 
       if (cfg.extra && typeof cfg.extra === "object") {
         asset.extraConfig = cfg.extra;
+        needsModelReload = true; // Rotations affect GLTF baking, must reload
+      }
+
+      // If rotation or scale changed, clear cached model to force reload with new transforms
+      if (needsModelReload && asset.gltfPath) {
+        asset.gltfTemplate = null;
+        logDebug(`Cleared cached model for ${asset.label} - will reload with new config`);
+        // Auto-reload the model with new config
+        loadGltfFromPath(asset, asset.gltfPath);
       }
 
       logDebug("Asset config applied: " + asset.label);
