@@ -274,7 +274,12 @@
       }
 
       try {
-        const response = await fetch('./config/maps/visualsmaps/index.json');
+        // Add cache-busting parameter to always fetch latest in development
+        const isDev = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        const indexUrl = isDev 
+          ? `./config/maps/visualsmaps/index.json?t=${Date.now()}`
+          : './config/maps/visualsmaps/index.json';
+        const response = await fetch(indexUrl);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }

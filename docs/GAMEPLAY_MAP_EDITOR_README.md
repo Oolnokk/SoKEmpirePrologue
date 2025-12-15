@@ -105,3 +105,39 @@ When running the editor directly from the file system (`file://` protocol), the 
 ## Examples
 
 See `docs/config/maps/visualsmaps/defaultdistrict3D_visualsmap.json` for a complete visual map example that can be loaded as a background reference.
+
+## Editing Visual Asset Definitions
+
+### Asset Index Location
+
+The 3D visual assets (structures, ground segments, decorations) that appear in the map editors and runtime are configured in:
+```
+docs/config/maps/visualsmaps/index.json
+```
+
+This file defines which 3D models (GLTF/GLB files) are available and their default properties (scale, orientation, etc.).
+
+### Seeing Your Changes After Editing
+
+**IMPORTANT:** After editing `visualsmaps/index.json`, you must perform a **hard refresh** to see your changes in the editor or game:
+
+- **Windows/Linux**: Press `Ctrl + Shift + R` or `Ctrl + F5`
+- **macOS**: Press `Cmd + Shift + R`
+
+A regular refresh (F5) will likely show cached data. The hard refresh clears both browser HTTP cache and ES module cache.
+
+### Development Mode (Automatic Cache Bypass)
+
+If you're running on `localhost` or via `file://` protocol, the editors automatically disable caching and always fetch the latest `index.json`. You only need a regular refresh (F5) in development mode.
+
+In production/deployment environments, caching is enabled for performance, so a hard refresh is required.
+
+### Manual Cache Clear
+
+If needed, you can manually clear the visualsmap cache from the browser console:
+```javascript
+// Import and clear visualsmap index cache
+import('./renderer/visualsmapLoader.js').then(m => m.clearVisualsmapCache());
+```
+
+After clearing the cache, reload the map to fetch fresh data.

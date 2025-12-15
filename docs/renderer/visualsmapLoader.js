@@ -12,6 +12,29 @@ const VISUALSMAP_INDEX_CACHE = {
 };
 
 /**
+ * Detect if running in development mode (file protocol or localhost)
+ * @returns {boolean} True if in development mode
+ */
+function isDevelopmentMode() {
+  if (typeof window === 'undefined') return false;
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  return protocol === 'file:' || hostname === 'localhost' || hostname === '127.0.0.1';
+}
+
+/**
+ * Clear the visualsmap index cache. Useful for development or when
+ * index.json is updated and needs to be reloaded.
+ * @public
+ */
+export function clearVisualsmapCache() {
+  VISUALSMAP_INDEX_CACHE.loaded = false;
+  VISUALSMAP_INDEX_CACHE.assets = null;
+  VISUALSMAP_INDEX_CACHE.baseUrl = null;
+  console.log('[visualsmapLoader] ✓ Cache cleared');
+}
+
+/**
  * Resolve visualsMap path relative to gameplaymap location
  * @param {string} visualsMapPath - Path from gameplaymap.json
  * @param {string} gameplayMapUrl - URL of the gameplaymap.json file
@@ -150,14 +173,22 @@ function deriveConfigBase(refUrl) {
  * @returns {Promise<{ assets: Map<string, any>, baseUrl: string }|null>}
  */
 async function loadVisualsmapIndex(baseContext = null) {
-  if (VISUALSMAP_INDEX_CACHE.loaded && VISUALSMAP_INDEX_CACHE.assets) {
+  // In development mode, skip cache to always fetch fresh data
+  // In production, use cache for performance
+  const isDev = isDevelopmentMode();
+  
+  if (!isDev && VISUALSMAP_INDEX_CACHE.loaded && VISUALSMAP_INDEX_CACHE.assets) {
+    console.log('[visualsmapLoader] ↻ Using cached visualsmap index');
     return {
       assets: VISUALSMAP_INDEX_CACHE.assets,
       baseUrl: VISUALSMAP_INDEX_CACHE.baseUrl,
     };
   }
 
-  const indexPath = 'config/maps/visualsmaps/index.json';
+  // Add cache-busting parameter in development mode
+  const indexPath = isDev 
+    ? `config/maps/visualsmaps/index.json?t=${Date.now()}`
+    : 'config/maps/visualsmaps/index.json';
   const resolvedPath = resolveAssetPath(indexPath, baseContext);
 
   if (!resolvedPath) {
