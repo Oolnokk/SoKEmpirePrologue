@@ -6,3 +6,6 @@
  */
 
 export { createRenderer, isSupported, Renderer } from './Renderer.js';
+export { TimeOfDay, TIME_PERIODS } from './TimeOfDay.js';
+export { LightingManager } from './LightingManager.js';
+export { EmissiveManager } from './EmissiveManager.js';

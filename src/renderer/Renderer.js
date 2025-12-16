@@ -49,6 +49,14 @@ export class Renderer {
     this.renderer = null;
     this.animationId = null;
     
+    // Time of day system (optional)
+    this.timeOfDay = null;
+    this.lightingManager = null;
+    this.emissiveManager = null;
+    this.timeOfDayEnabled = options.timeOfDay?.enabled !== undefined ? options.timeOfDay.enabled : false;
+    this.timeOfDayOptions = options.timeOfDay || {};
+    this.lastFrameTime = null;
+    
     // Event handlers
     this.eventHandlers = {
       ready: [],
@@ -106,12 +114,60 @@ export class Renderer {
         this.container.appendChild(this.renderer.domElement);
       }
 
+      // Initialize time of day system if enabled
+      if (this.timeOfDayEnabled) {
+        await this.initTimeOfDay();
+      }
+
       this.initialized = true;
       this.emit('ready', { supported: true, renderer: this.renderer });
     } catch (error) {
       console.error('Failed to initialize renderer:', error);
       this.emit('error', { phase: 'init', error });
       throw error;
+    }
+  }
+
+  /**
+   * Initialize time of day system
+   * @private
+   * @returns {Promise<void>}
+   */
+  async initTimeOfDay() {
+    try {
+      // Dynamically import time of day modules
+      const { TimeOfDay } = await import('./TimeOfDay.js');
+      const { LightingManager } = await import('./LightingManager.js');
+      const { EmissiveManager } = await import('./EmissiveManager.js');
+
+      // Create time of day instance
+      this.timeOfDay = new TimeOfDay({
+        startHour: this.timeOfDayOptions.startHour || 12,
+        speed: this.timeOfDayOptions.speed || 1.0,
+        transitionDuration: this.timeOfDayOptions.transitionDuration || 0.5,
+        enabled: true,
+      });
+
+      // Create lighting manager
+      this.lightingManager = new LightingManager(this, this.timeOfDay, {
+        enabled: true,
+      });
+      this.lightingManager.init();
+
+      // Create emissive manager
+      this.emissiveManager = new EmissiveManager(this, this.timeOfDay, {
+        enabled: true,
+      });
+      this.emissiveManager.init();
+
+      // Load emissive config if URL provided
+      if (this.timeOfDayOptions.emissiveConfigUrl) {
+        await this.emissiveManager.loadConfig(this.timeOfDayOptions.emissiveConfigUrl);
+      }
+
+      console.log('[Renderer] Time of day system initialized');
+    } catch (error) {
+      console.error('[Renderer] Failed to initialize time of day system:', error);
     }
   }
 
@@ -367,9 +423,18 @@ export class Renderer {
     }
 
     try {
-      // Emit frame event (allows custom render callbacks)
+      // Calculate delta time
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      this.emit('frame', { renderer: this, time: now });
+      const deltaTime = this.lastFrameTime ? now - this.lastFrameTime : 0;
+      this.lastFrameTime = now;
+
+      // Update time of day system
+      if (this.timeOfDay && this.timeOfDayEnabled) {
+        this.timeOfDay.update(deltaTime);
+      }
+
+      // Emit frame event (allows custom render callbacks)
+      this.emit('frame', { renderer: this, time: now, deltaTime });
 
       // Render the scene
       if (this.renderer && this.scene && this.camera) {
@@ -415,6 +480,17 @@ export class Renderer {
           this.container.removeChild(this.renderer.domElement);
         }
       }
+
+      // Dispose time of day system
+      if (this.lightingManager) {
+        this.lightingManager.dispose();
+        this.lightingManager = null;
+      }
+      if (this.emissiveManager) {
+        this.emissiveManager.dispose();
+        this.emissiveManager = null;
+      }
+      this.timeOfDay = null;
 
       // Dispose renderer
       if (this.renderer) {
@@ -506,5 +582,58 @@ export class Renderer {
         console.error(`Error in event handler for ${event}:`, error);
       }
     });
+  }
+
+  /**
+   * Get time of day state (if enabled)
+   * @returns {Object|null} Time of day state or null if not enabled
+   */
+  getTimeOfDayState() {
+    if (!this.timeOfDay) {
+      return null;
+    }
+    return this.timeOfDay.getState();
+  }
+
+  /**
+   * Set time of day hour
+   * @param {number} hour - Hour to set (0-24)
+   */
+  setTimeOfDayHour(hour) {
+    if (this.timeOfDay) {
+      this.timeOfDay.setHour(hour);
+    }
+  }
+
+  /**
+   * Set time of day speed
+   * @param {number} speed - Speed multiplier
+   */
+  setTimeOfDaySpeed(speed) {
+    if (this.timeOfDay) {
+      this.timeOfDay.setSpeed(speed);
+    }
+  }
+
+  /**
+   * Enable or disable time of day progression
+   * @param {boolean} enabled - Whether to enable time progression
+   */
+  setTimeOfDayEnabled(enabled) {
+    if (this.timeOfDay) {
+      this.timeOfDay.setEnabled(enabled);
+    }
+  }
+
+  /**
+   * Apply emissive properties to an object
+   * @param {THREE.Object3D} object - Object to apply emissive properties to
+   * @param {string} objectId - Object ID to look up configuration
+   * @param {string} [type='structures'] - Object type ('structures' or 'decorations')
+   */
+  applyEmissiveProperties(object, objectId, type = 'structures') {
+    if (this.emissiveManager) {
+      this.emissiveManager.applyEmissiveProperties(object, objectId, type);
+    }
   }
 }

@@ -1,0 +1,55 @@
+{
+  "structures": {
+    "torch": {
+      "emissive": true,
+      "emissiveColor": "#ffaa00",
+      "emissiveIntensity": 2.0,
+      "emissiveTextures": ["torch_flame", "flame"],
+      "emissiveSprites": [0]
+    },
+    "campfire": {
+      "emissive": true,
+      "emissiveColor": "#ff6600",
+      "emissiveIntensity": 1.5,
+      "emissiveTextures": ["fire", "flame"],
+      "emissiveSprites": []
+    },
+    "brazier": {
+      "emissive": true,
+      "emissiveColor": "#ff8800",
+      "emissiveIntensity": 1.8,
+      "emissiveTextures": ["fire", "flame", "glow"],
+      "emissiveSprites": []
+    }
+  },
+  "decorations": {
+    "lantern": {
+      "emissive": true,
+      "emissiveColor": "#ffffaa",
+      "emissiveIntensity": 1.8,
+      "emissiveTextures": ["light", "glow"],
+      "emissiveSprites": [0]
+    },
+    "candle": {
+      "emissive": true,
+      "emissiveColor": "#ffdd88",
+      "emissiveIntensity": 1.2,
+      "emissiveTextures": ["flame"],
+      "emissiveSprites": [0]
+    },
+    "street_lamp": {
+      "emissive": true,
+      "emissiveColor": "#ffeecc",
+      "emissiveIntensity": 2.2,
+      "emissiveTextures": ["bulb", "light"],
+      "emissiveSprites": []
+    },
+    "window_lit": {
+      "emissive": true,
+      "emissiveColor": "#ffffdd",
+      "emissiveIntensity": 1.5,
+      "emissiveTextures": ["window", "glass"],
+      "emissiveSprites": []
+    }
+  }
+}
