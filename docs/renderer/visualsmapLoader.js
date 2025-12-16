@@ -313,11 +313,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
   try {
     // Resolve and load visualsmap
     const visualsMapUrl = resolveVisualsMapPath(area.visualsMap, gameplayMapUrl);
-    console.log('[visualsmapLoader] ========================================');
-    console.log('[visualsmapLoader] Starting visualsmap load for area:', area.id);
-    console.log('[visualsmapLoader] - Gameplay map URL:', gameplayMapUrl);
-    console.log('[visualsmapLoader] - Visualsmap path:', area.visualsMap);
-    console.log('[visualsmapLoader] - Resolved URL:', visualsMapUrl);
+    console.log(`[visualsmapLoader] Loading visualsmap for area: ${area.id}`);
 
     const response = await fetch(visualsMapUrl);
     if (!response.ok) {
@@ -442,16 +438,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           const gltfUrl = resolveAssetPath(gltfCandidate, gltfBase);
           
           // Enhanced logging for light_sphere debugging
-          if (cell.type === 'light_sphere') {
-            console.log(`[visualsmapLoader] 🔍 Resolving light_sphere GLTF at (${row},${col}):`);
-            console.log(`  - gltfCandidate:`, gltfCandidate);
-            console.log(`  - gltfBase:`, gltfBase);
-            console.log(`  - Resolved gltfUrl:`, gltfUrl);
-            console.log(`  - inlineAsset:`, inlineAsset);
-            console.log(`  - visualsMapBase:`, visualsMapBase);
-            console.log(`  - docsBase:`, docsBase);
-            console.log(`  - configBase:`, configBase);
-          }
+          // Light sphere debug logging removed for performance
           
           if (!gltfUrl) {
             console.warn(`[visualsmapLoader] ✗ No gltfPath for asset: ${cell.type} at (${row},${col})`);
@@ -462,14 +449,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           // Load GLTF once per URL, then clone for each placement so we can place
           // multiple instances without Three.js re-parenting them out of the scene.
           if (!gltfCache.has(gltfUrl)) {
-            if (cell.type === 'light_sphere') {
-              console.log(`[visualsmapLoader] 🔍 Loading light_sphere GLTF for first time: ${gltfUrl}`);
-            }
             gltfCache.set(gltfUrl, (async () => {
               const base = await renderer.loadGLTF(gltfUrl);
-              if (cell.type === 'light_sphere') {
-                console.log(`[visualsmapLoader] 🔍 light_sphere GLTF loaded:`, base ? 'success' : 'failed');
-              }
               return base;
             })());
           }
@@ -477,15 +458,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           try {
             const baseObject = await gltfCache.get(gltfUrl);
             if (!baseObject) {
-              console.warn(`[visualsmapLoader] ✗ Failed to load GLTF: ${gltfUrl}`);
-              if (cell.type === 'light_sphere') {
-                console.error(`[visualsmapLoader] 🔍 light_sphere GLTF failed to load from cache`);
-              }
+              console.warn(`[visualsmapLoader] Failed to load GLTF: ${gltfUrl}`);
               continue;
-            }
-            
-            if (cell.type === 'light_sphere') {
-              console.log(`[visualsmapLoader] 🔍 light_sphere GLTF retrieved from cache successfully`);
             }
 
             // Validate that baseObject has geometry
