@@ -6316,8 +6316,22 @@ function boot(){
 
   // Camera Debug Overlay Update Function
   function updateCameraDebugOverlay() {
+    const debugOverlay = document.getElementById('cameraDebugOverlay');
     const debugContent = document.getElementById('debugContent');
-    if (!debugContent) return;
+    
+    // If overlay or content doesn't exist, stop the interval
+    if (!debugOverlay || !debugContent) {
+      if (window.GAME?.debugInterval) {
+        clearInterval(window.GAME.debugInterval);
+        window.GAME.debugInterval = null;
+      }
+      return;
+    }
+
+    // Skip update if overlay is hidden
+    if (debugOverlay.style.display === 'none') {
+      return;
+    }
 
     // Check if game is initialized before accessing game state
     if (!window.GAME || !window.GAME.bootComplete) {
@@ -6367,9 +6381,12 @@ function boot(){
   }
 
   // Set up interval to update camera debug overlay
-  // Store interval ID for potential cleanup
+  // Only start if the debug overlay element exists
   window.GAME ||= {};
-  window.GAME.debugInterval = setInterval(updateCameraDebugOverlay, 250); // Update 4 times per second
+  if (document.getElementById('cameraDebugOverlay')) {
+    // Store interval ID for cleanup capability
+    window.GAME.debugInterval = setInterval(updateCameraDebugOverlay, 250); // Update 4 times per second
+  }
 
   boot();
 })();
