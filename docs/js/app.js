@@ -6133,6 +6133,14 @@ function boot(){
         // Initialize renderer
         await GAME_RENDERER_3D.init();
 
+        // Initialize uniform scale for consistent 3D/2D rendering
+        const initialUniformScale = typeof window.getUniformScale === 'function'
+          ? window.getUniformScale(height)
+          : height / 600; // fallback to default reference height
+        if (window.GAME && window.GAME.CAMERA) {
+          window.GAME.CAMERA.uniformScale = initialUniformScale;
+        }
+
         // Configure renderer canvas to not intercept pointer events
         if (GAME_RENDERER_3D.renderer?.domElement) {
           GAME_RENDERER_3D.renderer.domElement.style.position = 'absolute';
@@ -6181,12 +6189,24 @@ function boot(){
           });
         }
 
-        // Add resize handler
+        // Add resize handler with unified 3D/2D scaling
         THREE_BG_RESIZE_HANDLER = () => {
           if (!GAME_RENDERER_3D || !THREE_BG_CONTAINER) return;
           const rect = stageEl.getBoundingClientRect();
           const width = rect.width || 800;
           const height = rect.height || 600;
+          
+          // Calculate uniform scale factor for consistent 3D/2D rendering
+          const uniformScale = typeof window.getUniformScale === 'function'
+            ? window.getUniformScale(height)
+            : height / 600; // fallback to default reference height
+          
+          // Store uniform scale in GAME.CAMERA for access by 2D rendering systems
+          if (window.GAME && window.GAME.CAMERA) {
+            window.GAME.CAMERA.uniformScale = uniformScale;
+          }
+          
+          // Resize 3D renderer (which will adjust camera distance based on uniformScale)
           if (typeof GAME_RENDERER_3D.resize === 'function') {
             GAME_RENDERER_3D.resize(width, height);
           }

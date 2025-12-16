@@ -859,6 +859,18 @@ const SLAM_MOVE_POSES = {
   Recoil: deepClone(PUNCH_MOVE_POSES.Recoil)
 };
 
+// Reference dimension for unified 3D/2D scaling
+// Scaling will be calculated relative to this reference height to maintain consistent
+// element sizes across different viewport aspect ratios
+const REFERENCE_HEIGHT = 600;
+
+// Helper function to calculate uniform scale factor based on current viewport height
+// This ensures 3D and 2D elements scale together at the same rate
+window.getUniformScale = function(currentHeight) {
+  const refHeight = window.CONFIG?.camera?.referenceHeight || REFERENCE_HEIGHT;
+  return currentHeight / refHeight;
+};
+
 window.CONFIG = {
   basePose: deepClone(BASE_POSES.Stance),
   legsProfiles: MOVEMENT_PROFILES,
@@ -881,6 +893,8 @@ window.CONFIG = {
   canvas: { w: 1280, h: 720, scale: 1 },
   camera: {
     manualOffsetX: 0,
+    // Reference height for unified 3D/2D scaling system (default: 600px)
+    referenceHeight: REFERENCE_HEIGHT,
     // When true, the camera snaps each frame to keep the player centered (opt-in)
     rigidCenter: false,
     // When true together with rigidCenter, the camera will ignore playable bounds and may show beyond map edges

@@ -42,6 +42,10 @@ export class Renderer {
     this.pixelRatio = options.pixelRatio || (typeof globalThis !== 'undefined' && globalThis.devicePixelRatio) || 1;
     this.clearColor = options.clearColor !== undefined ? options.clearColor : 0x000000;
     
+    // Base camera distance for uniform scaling calculations
+    // This is the camera Z distance at reference viewport size
+    this.baseCameraDistance = 10;
+    
     // Three.js instances (null if not supported)
     this.THREE = isSupported() ? globalThis.THREE : null;
     this.scene = null;
@@ -85,12 +89,14 @@ export class Renderer {
 
       // Create camera (default perspective)
       this.camera = new this.THREE.PerspectiveCamera(
-        50, // fov
+        50, // fov (kept constant for uniform scaling)
         this.width / this.height,
         0.1,
         1000
       );
-      this.camera.position.set(0, 5, 10);
+      // Store the initial camera Z position as the base distance
+      this.baseCameraDistance = 10;
+      this.camera.position.set(0, 5, this.baseCameraDistance);
       this.camera.lookAt(0, 0, 0);
 
       // Create renderer
@@ -116,7 +122,8 @@ export class Renderer {
   }
 
   /**
-   * Resize the renderer and camera
+   * Resize the renderer and camera with uniform scaling
+   * Implements unified 3D/2D scaling by adjusting camera distance based on viewport height
    * @param {number} width - New width
    * @param {number} height - New height
    */
@@ -134,8 +141,30 @@ export class Renderer {
     this.height = height;
 
     try {
+      // Calculate uniform scale factor based on viewport height
+      // This keeps objects at consistent sizes regardless of aspect ratio
+      const uniformScale = typeof globalThis !== 'undefined' && 
+                          typeof globalThis.getUniformScale === 'function'
+        ? globalThis.getUniformScale(height)
+        : height / 600; // fallback to default reference height of 600
+
+      // Update camera aspect ratio (standard for any resize)
       this.camera.aspect = width / height;
+      
+      // Keep FOV constant at 50 degrees (no change needed, already set in init)
+      // Adjust camera distance based on uniform scale to maintain consistent object sizes
+      // Formula: newDistance = baseDistance / uniformScale
+      // This counteracts the perspective scaling effect of aspect ratio changes
+      if (this.camera.isPerspectiveCamera) {
+        const newDistance = this.baseCameraDistance / uniformScale;
+        // Preserve X and Y, only update Z distance
+        this.camera.position.z = newDistance;
+      }
+      
+      // Update projection matrix with new aspect ratio and position
       this.camera.updateProjectionMatrix();
+      
+      // Update renderer size
       this.renderer.setSize(width, height);
     } catch (error) {
       console.error('Failed to resize renderer:', error);
