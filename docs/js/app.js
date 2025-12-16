@@ -6377,6 +6377,14 @@ function boot(){
       lines.push(`<span style="color:#ff0">Camera V-Bounds:</span>`);
       lines.push(`  min: ${camera.verticalBounds.min?.toFixed(1)}`);
       lines.push(`  max: ${camera.verticalBounds.max?.toFixed(1)}`);
+      const span = camera.verticalBounds.max - camera.verticalBounds.min;
+      lines.push(`  span: ${span?.toFixed(1)}`);
+    }
+    
+    // Viewport info
+    const canvas = document.getElementById('game');
+    if (canvas) {
+      lines.push(`<span style="color:#ff0">Viewport:</span> ${canvas.width} x ${canvas.height}`);
     }
     
     // Player position
