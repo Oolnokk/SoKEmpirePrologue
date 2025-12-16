@@ -1004,9 +1004,6 @@ select {
     
     const gltfLoader = LoaderCtor ? new LoaderCtor() : null;
 
-    let scene, camera, renderer, worldRoot;
-    let groundGroup, structureGroup, decorationGroup, pathGroup, cableGroup;
-
     function getActiveGridState() { return layerStates[activeLayer]; }
     function getCellState(row, col) { return getActiveGridState()[row][col]; }
 
@@ -1965,7 +1962,7 @@ select {
 
     // --- THREE SETUP ---
     let scene, camera, renderer;
-    let worldRoot, pathGroup; // where used: rotate whole world to gameplayPath
+    let worldRoot, pathGroup, cableGroup; // where used: rotate whole world to gameplayPath
     let groundGroup, structureGroup, decorationGroup;
     let roadMat, sidewalkMat, segmentFallbackMat, structureFallbackMat, decoFallbackMat;
     let boxGeom, decoGeom;
