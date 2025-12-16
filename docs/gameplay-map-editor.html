@@ -8,32 +8,40 @@
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 16px;
+      padding: 0;
       font-family: system-ui, -apple-system, sans-serif;
       background: #0f172a;
       color: #e5e7eb;
+      overflow-x: hidden;
     }
     .app {
-      max-width: 1400px;
-      margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      height: 100vh;
+    }
+    header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #334155;
+      background: #1e293b;
     }
     h1 {
-      margin: 0 0 8px;
+      margin: 0 0 4px;
       font-size: 20px;
       color: #f8fafc;
+    }
+    header p {
+      margin: 0;
+      font-size: 11px;
+      color: #64748b;
     }
     .toolbar {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 8px;
-      padding: 12px;
+      padding: 12px 16px;
       background: #1e293b;
-      border-radius: 8px;
-      border: 1px solid #334155;
+      border-bottom: 1px solid #334155;
     }
     .toolbar-group {
       display: flex;
@@ -71,8 +79,9 @@
     }
     .main {
       display: grid;
-      grid-template-columns: 1fr 320px;
-      gap: 12px;
+      grid-template-columns: 1fr 340px;
+      flex: 1;
+      overflow: hidden;
     }
     @media (max-width: 1000px) {
       .main {
@@ -80,21 +89,18 @@
       }
     }
     .canvas-wrapper {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 12px;
+      background: #0f172a;
       overflow: hidden;
       position: relative;
+      display: flex;
+      flex-direction: column;
     }
     #threeViewport {
       position: absolute;
-      top: 12px;
-      left: 12px;
-      right: 12px;
-      bottom: 12px;
-      border: 1px solid #475569;
-      border-radius: 4px;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       overflow: hidden;
       background: #0f172a;
       z-index: 0;
@@ -102,7 +108,7 @@
     canvas {
       display: block;
       width: 100%;
-      height: 600px;
+      height: 100%;
       background: transparent;
       border: none;
       cursor: crosshair;
@@ -126,11 +132,15 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      padding: 16px;
+      overflow-y: auto;
+      background: #1e293b;
+      border-left: 1px solid #334155;
     }
     .panel-section {
-      background: #1e293b;
+      background: #0f172a;
       border: 1px solid #334155;
-      border-radius: 8px;
+      border-radius: 6px;
       padding: 12px;
     }
     .panel-section h3 {
@@ -230,7 +240,7 @@
   <div class="app">
     <header>
       <h1>Gameplay Map Editor</h1>
-      <p class="info" style="margin: 0;">Lightweight editor for gameplay-only map data (spawners, patrols, colliders, props, entrances/exits)</p>
+      <p>Lightweight editor for gameplay-only map data (spawners, patrols, colliders, props, entrances/exits)</p>
     </header>
 
     <div class="toolbar">
@@ -391,11 +401,18 @@
     const ctx = canvas.getContext('2d');
 
     function resizeCanvas() {
-      const rect = canvas.getBoundingClientRect();
+      const wrapper = canvas.parentElement;
+      const rect = wrapper.getBoundingClientRect();
       canvas.width = rect.width;
       canvas.height = rect.height;
       redraw();
     }
+
+    // Use ResizeObserver for more responsive sizing
+    const resizeObserver = new ResizeObserver(() => {
+      resizeCanvas();
+    });
+    resizeObserver.observe(canvas.parentElement);
 
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
@@ -1394,10 +1411,12 @@
 
   <script type="module">
     // ===== 3D Visual Map Background =====
-    let THREE;
+    let THREE, GLTFLoader;
     try {
       const threeModule = await import("https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js");
       THREE = threeModule;
+      const gltfModule = await import("https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/loaders/GLTFLoader.js");
+      GLTFLoader = gltfModule.GLTFLoader;
     } catch (err) {
       console.warn("Three.js not available:", err);
       document.getElementById('threeOverlay').textContent = '3D disabled (Three.js blocked)';
@@ -1407,7 +1426,7 @@
 
     let scene, camera, renderer, worldRoot;
     let visualMapData = null;
-    let groundGroup, structureGroup;
+    let sceneModel = null;
     const CELL_SIZE = 2;
 
     // Coordinate mapping between visual map and gameplay map
@@ -1541,61 +1560,34 @@
       worldRoot = new THREE.Group();
       scene.add(worldRoot);
 
-      const w = Math.max(threeContainer.clientWidth || 800, 400);
-      const h = Math.max(threeContainer.clientHeight || 600, 300);
+      const w = threeContainer.clientWidth;
+      const h = threeContainer.clientHeight;
 
-      camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500);
-      camera.position.set(0, 30, 50);
+      camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
+      // Side-scrolling view matching the game - will be adjusted when visual map loads
+      camera.position.set(0, CELL_SIZE * 0.8, -CELL_SIZE * 1.2);
       camera.lookAt(0, 0, 0);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
       renderer.setPixelRatio(window.devicePixelRatio || 1);
       renderer.setSize(w, h);
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      if (THREE.SRGBColorSpace) {
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+      }
       threeContainer.appendChild(renderer.domElement);
 
-      // Lighting
-      const hemi = new THREE.HemisphereLight(0xffffff, 0x0b1120, 0.6);
-      scene.add(hemi);
-
-      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-      dir.position.set(25, 40, 15);
-      dir.castShadow = true;
-      dir.shadow.mapSize.set(1024, 1024);
-      dir.shadow.camera.near = 5;
-      dir.shadow.camera.far = 150;
-      dir.shadow.camera.left = -50;
-      dir.shadow.camera.right = 50;
-      dir.shadow.camera.top = 50;
-      dir.shadow.camera.bottom = -50;
-      scene.add(dir);
-
-      // Ground plane
-      const groundPlane = new THREE.Mesh(
-        new THREE.PlaneGeometry(200, 200),
-        new THREE.MeshStandardMaterial({ 
-          color: 0x1e293b, 
-          roughness: 0.9,
-          metalness: 0.1
-        })
-      );
-      groundPlane.rotation.x = -Math.PI / 2;
-      groundPlane.receiveShadow = true;
-      worldRoot.add(groundPlane);
-
-      groundGroup = new THREE.Group();
-      structureGroup = new THREE.Group();
-      worldRoot.add(groundGroup, structureGroup);
+      // Simple ambient light (unlit rendering for performance)
+      const ambient = new THREE.AmbientLight(0xffffff, 1.0);
+      scene.add(ambient);
 
       window.addEventListener('resize', onWindowResize);
       animate();
     }
 
     function onWindowResize() {
-      const w = Math.max(threeContainer.clientWidth || 800, 400);
-      const h = Math.max(threeContainer.clientHeight || 600, 300);
+      if (!renderer || !camera) return;
+      const w = threeContainer.clientWidth;
+      const h = threeContainer.clientHeight;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
@@ -1606,26 +1598,28 @@
       renderer.render(scene, camera);
     }
 
-    function clearGroup(group) {
-      while (group.children.length) {
-        const child = group.children[0];
-        if (child.geometry) child.geometry.dispose();
-        if (child.material) {
-          if (Array.isArray(child.material)) {
-            child.material.forEach(m => m.dispose());
-          } else {
-            child.material.dispose();
+    function clearScene() {
+      // Remove old 3D model if exists
+      if (sceneModel) {
+        worldRoot.remove(sceneModel);
+        sceneModel.traverse(child => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(m => m.dispose());
+            } else {
+              child.material.dispose();
+            }
           }
-        }
-        group.remove(child);
+        });
+        sceneModel = null;
       }
     }
 
     // Load and render visual map
-    function loadVisualMap(data, filename = '') {
+    async function loadVisualMap(data, filename = '') {
       visualMapData = data;
-      clearGroup(groundGroup);
-      clearGroup(structureGroup);
+      clearScene();
 
       if (!data.gameplayPath || !data.gameplayPath.start || !data.gameplayPath.end) {
         overlay.textContent = filename ? `Visual map: ${filename} (no gameplayPath)` : 'Visual map loaded (no gameplayPath)';
@@ -1655,68 +1649,54 @@
         worldRoot.rotation.y = -pathAngle;
       }
 
-      // Calculate path center for camera positioning
-      const centerRow = (startRow + endRow) / 2;
-      const centerCol = (startCol + endCol) / 2;
-      const centerX = (centerCol - data.cols / 2) * CELL_SIZE;
-      const centerZ = -(centerRow - data.rows / 2) * CELL_SIZE;
+      // Position camera for side-scrolling view (matching game demo)
+      const gridCenterX = 0;
+      const gridCenterZ = 0;
+      camera.position.set(gridCenterX, CELL_SIZE * 0.8, -CELL_SIZE * 1.2);
+      camera.lookAt(gridCenterX, 0, gridCenterZ);
 
-      // Position camera to look at the gameplay path
-      camera.position.set(centerX, 30, centerZ + 40);
-      camera.lookAt(centerX, 0, centerZ);
+      console.log('[Editor] Camera positioned for side-scrolling:', camera.position);
 
-      // Render ground tiles
-      const layers = ['ground', 'structure', 'decoration'];
-      layers.forEach(layerName => {
-        const layerData = data.layerStates?.[layerName];
-        if (!layerData) return;
+      // Load the 3D model if sceneUrl is provided in the gameplay map
+      if (window.mapData?.scene3d?.sceneUrl && GLTFLoader) {
+        overlay.textContent = `Loading 3D model...`;
+        try {
+          const sceneUrl = window.mapData.scene3d.sceneUrl;
+          const loader = new GLTFLoader();
 
-        const targetGroup = layerName === 'structure' ? structureGroup : groundGroup;
-        // Create material once per layer (not per mesh) for better performance
-        const mat = new THREE.MeshStandardMaterial({
-          color: layerName === 'ground' ? 0x4b5563 : layerName === 'structure' ? 0x3b82f6 : 0xf97316,
-          roughness: 0.7,
-          metalness: 0.2
-        });
+          const gltf = await new Promise((resolve, reject) => {
+            loader.load(sceneUrl, resolve, undefined, reject);
+          });
 
-        for (let row = 0; row < data.rows; row++) {
-          for (let col = 0; col < data.cols; col++) {
-            const cell = layerData[row]?.[col];
-            if (!cell || !cell.type) continue;
+          sceneModel = gltf.scene;
+          worldRoot.add(sceneModel);
 
-            const x = (col - data.cols / 2) * CELL_SIZE;
-            const z = -(row - data.rows / 2) * CELL_SIZE;
-            const y = layerName === 'structure' ? CELL_SIZE : 0.1;
+          console.log('[Editor] 3D model loaded:', sceneUrl);
+          console.log('[Editor] Model children:', sceneModel.children.length);
 
-            const mesh = new THREE.Mesh(
-              new THREE.BoxGeometry(
-                CELL_SIZE * 0.9,
-                layerName === 'structure' ? CELL_SIZE * 2 : CELL_SIZE * 0.2,
-                CELL_SIZE * 0.9
-              ),
-              mat // Reuse same material for all meshes in this layer
-            );
-            mesh.position.set(x, y, z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            targetGroup.add(mesh);
-          }
+          const displayName = filename || 'loaded';
+          const mappingStatus = coordinateMapping.enabled ?
+            `(scale: ${coordinateMapping.scale.toFixed(1)}x)` :
+            '(no mapping)';
+          overlay.textContent = `Visual map: ${displayName} - ${data.rows}×${data.cols} grid ${mappingStatus}`;
+        } catch (error) {
+          console.error('[Editor] Failed to load 3D model:', error);
+          overlay.textContent = `3D model load failed: ${error.message}`;
         }
-      });
-
-      const displayName = filename || 'loaded';
-      const mappingStatus = coordinateMapping.enabled ?
-        `(scale: ${coordinateMapping.scale.toFixed(1)}x)` :
-        '(no mapping)';
-      overlay.textContent = `Visual map: ${displayName} - ${data.rows}×${data.cols} grid ${mappingStatus}`;
+      } else {
+        const displayName = filename || 'loaded';
+        const mappingStatus = coordinateMapping.enabled ?
+          `(scale: ${coordinateMapping.scale.toFixed(1)}x)` :
+          '(no mapping)';
+        overlay.textContent = `Visual map: ${displayName} - ${data.rows}×${data.cols} grid ${mappingStatus} (no 3D model)`;
+      }
     }
 
     function clearVisualMap() {
       visualMapData = null;
-      clearGroup(groundGroup);
-      clearGroup(structureGroup);
+      clearScene();
       worldRoot.rotation.y = 0;
-      camera.position.set(0, 30, 50);
+      camera.position.set(0, CELL_SIZE * 0.8, -CELL_SIZE * 1.2);
       camera.lookAt(0, 0, 0);
       overlay.textContent = 'No visual map loaded';
       document.getElementById('btnClearVisualMap').style.display = 'none';
