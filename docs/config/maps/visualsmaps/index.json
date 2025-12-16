@@ -60,7 +60,7 @@
       "label": "Lamp",
       "layer": "decoration",
       "gltfPath": null,
-      "baseScale": { "x": 0.15, "y": 0.15, "z": 0.15 },
+      "baseScale": { "x": 0.02, "y": 0.02, "z": 0.02 },
       "yOffset": 0.1,
       "forwardOffsetDeg": 0,
       "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
