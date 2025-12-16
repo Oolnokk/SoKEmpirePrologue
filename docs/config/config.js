@@ -348,9 +348,9 @@ const MOVEMENT_PROFILES = {
 };
 
 const MOVEMENT_SPEED_MULTIPLIERS = {
-  combat: 1.25,
-  nonCombat: 0.5,
-  sneak: 0.3,
+  combat: 0.5,
+  nonCombat: 0.25,
+  sneak: 0.15,
 };
 
 // === ARM STANCES: Weapon-specific arm positions ===
@@ -877,7 +877,7 @@ window.CONFIG = {
     skipKey: 'sok-entry-mode',
   },
   actor: { scale: 0.70 },
-  groundRatio: 0.70,
+  groundRatio: 0.50,
   canvas: { w: 720, h: 460, scale: 1 },
   camera: {
     manualOffsetX: 0,
@@ -982,7 +982,7 @@ window.CONFIG = {
   ground: {
     offset: 140,
     // Set to true to keep the configured groundRatio instead of letting map layouts override it.
-    lockRatio: false,
+    lockRatio: true,
   },
   groundY: 0,
   // Debug options are surfaced in the debug panel; freezeAngles lets animators hold joints for edits
