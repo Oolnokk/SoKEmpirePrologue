@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Lighting Demo</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0a0a0a;
+      color: #ffffff;
+    }
+    #container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+    #info {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 400px;
+      z-index: 1000;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 20px;
+    }
+    p {
+      margin: 5px 0;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .controls {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    button {
+      background: #4a90e2;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px 5px 5px 0;
+      font-size: 13px;
+    }
+    button:hover {
+      background: #357abd;
+    }
+    .slider-container {
+      margin: 10px 0;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+    }
+    input[type="range"] {
+      width: 100%;
+    }
+    .value {
+      display: inline-block;
+      margin-left: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <div id="info">
+    <h1>3D Lighting Demo</h1>
+    <p>Demonstrates the new lighting system with darkness and light effects.</p>
+    <p><strong>Features:</strong></p>
+    <ul style="margin: 5px 0; padding-left: 20px; font-size: 13px;">
+      <li>Ambient lighting (darkness control)</li>
+      <li>Directional lighting (sunlight)</li>
+      <li>Point lights (light spheres)</li>
+      <li>Shadow rendering</li>
+    </ul>
+    <div class="controls">
+      <button onclick="toggleLighting()">Toggle Lighting</button>
+      <button onclick="addLightSphere()">Add Light Sphere</button>
+      <button onclick="removeLightSphere()">Remove Light</button>
+      
+      <div class="slider-container">
+        <label>Ambient Intensity: <span class="value" id="ambientValue">0.3</span></label>
+        <input type="range" id="ambientSlider" min="0" max="1" step="0.1" value="0.3" 
+               oninput="updateAmbient(this.value)">
+      </div>
+      
+      <div class="slider-container">
+        <label>Directional Intensity: <span class="value" id="directionalValue">0.6</span></label>
+        <input type="range" id="directionalSlider" min="0" max="1" step="0.1" value="0.6" 
+               oninput="updateDirectional(this.value)">
+      </div>
+      
+      <div class="slider-container">
+        <label>Point Light Intensity: <span class="value" id="pointValue">1.0</span></label>
+        <input type="range" id="pointSlider" min="0" max="2" step="0.1" value="1.0" 
+               oninput="updatePointLights(this.value)">
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js library -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js"
+      }
+    }
+  </script>
+  
+  <script type="module">
+    import * as THREE from 'three';
+    import { createRenderer } from './renderer/index.js';
+
+    // Make THREE global for renderer
+    window.THREE = THREE;
+    
+    let renderer;
+    let cubes = [];
+    let pointLights = [];
+    let lightingEnabled = true;
+    let animationId;
+
+    async function init() {
+      // Create renderer
+      renderer = createRenderer({
+        container: document.getElementById('container'),
+        width: window.innerWidth,
+        height: window.innerHeight,
+        clearColor: 0x0a0a0a
+      });
+
+      await renderer.init();
+
+      // Create a ground plane
+      const groundGeometry = new THREE.PlaneGeometry(20, 20);
+      const groundMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x333333,
+        roughness: 0.8,
+        metalness: 0.2
+      });
+      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.y = 0;
+      ground.receiveShadow = true;
+      renderer.add(ground);
+
+      // Create some cubes
+      const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+      
+      for (let i = 0; i < 5; i++) {
+        const material = new THREE.MeshStandardMaterial({ 
+          color: Math.random() * 0xffffff,
+          roughness: 0.7,
+          metalness: 0.3
+        });
+        const cube = new THREE.Mesh(boxGeometry, material);
+        cube.position.set(
+          (i - 2) * 3,
+          0.5,
+          Math.sin(i) * 3
+        );
+        cube.castShadow = true;
+        cube.receiveShadow = true;
+        renderer.add(cube);
+        cubes.push(cube);
+      }
+
+      // Enable lighting
+      renderer.enableLighting({
+        ambientIntensity: 0.3,
+        ambientColor: 0x404060,
+        directionalIntensity: 0.6,
+        directionalColor: 0xfff8e7,
+        directionalPosition: { x: 5, y: 10, z: 7.5 },
+        castShadows: true
+      });
+
+      // Update materials for lighting
+      renderer.updateMaterialsForLighting(ground);
+      cubes.forEach(cube => renderer.updateMaterialsForLighting(cube));
+
+      // Set camera position
+      renderer.setCameraParams({
+        position: { x: 0, y: 8, z: 15 },
+        lookAt: { x: 0, y: 0, z: 0 }
+      });
+
+      // Start animation loop
+      renderer.start();
+      animate();
+
+      // Handle window resize
+      window.addEventListener('resize', () => {
+        renderer.resize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    function animate() {
+      animationId = requestAnimationFrame(animate);
+      
+      // Rotate cubes
+      cubes.forEach((cube, i) => {
+        cube.rotation.y += 0.005 * (i + 1);
+        cube.rotation.x += 0.003 * (i + 1);
+      });
+    }
+
+    // Control functions
+    window.toggleLighting = function() {
+      if (lightingEnabled) {
+        renderer.disableLighting();
+        lightingEnabled = false;
+        console.log('Lighting disabled');
+      } else {
+        renderer.enableLighting({
+          ambientIntensity: parseFloat(document.getElementById('ambientSlider').value),
+          ambientColor: 0x404060,
+          directionalIntensity: parseFloat(document.getElementById('directionalSlider').value),
+          directionalColor: 0xfff8e7,
+          directionalPosition: { x: 5, y: 10, z: 7.5 },
+          castShadows: true
+        });
+        lightingEnabled = true;
+        console.log('Lighting enabled');
+      }
+    };
+
+    window.addLightSphere = function() {
+      // Create emissive sphere
+      const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+      const sphereMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffcc,
+        emissive: 0xffffaa,
+        emissiveIntensity: 1.0,
+        roughness: 0.9,
+        metalness: 0.0
+      });
+      const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      
+      // Random position
+      const x = (Math.random() - 0.5) * 10;
+      const z = (Math.random() - 0.5) * 10;
+      sphere.position.set(x, 2, z);
+      
+      renderer.add(sphere);
+      
+      // Add point light
+      const intensity = parseFloat(document.getElementById('pointSlider').value);
+      const pointLight = renderer.addPointLight({
+        color: 0xffffcc,
+        intensity: intensity,
+        distance: 10,
+        decay: 2,
+        position: { x, y: 2, z }
+      });
+      
+      pointLights.push({ sphere, light: pointLight });
+      console.log(`Added light sphere at (${x.toFixed(1)}, 2, ${z.toFixed(1)})`);
+    };
+
+    window.removeLightSphere = function() {
+      if (pointLights.length > 0) {
+        const { sphere, light } = pointLights.pop();
+        renderer.remove(sphere);
+        renderer.removePointLight(light);
+        console.log('Removed light sphere');
+      }
+    };
+
+    window.updateAmbient = function(value) {
+      document.getElementById('ambientValue').textContent = value;
+      if (lightingEnabled && renderer.lights.ambient) {
+        renderer.lights.ambient.intensity = parseFloat(value);
+      }
+    };
+
+    window.updateDirectional = function(value) {
+      document.getElementById('directionalValue').textContent = value;
+      if (lightingEnabled && renderer.lights.directional) {
+        renderer.lights.directional.intensity = parseFloat(value);
+      }
+    };
+
+    window.updatePointLights = function(value) {
+      document.getElementById('pointValue').textContent = value;
+      const intensity = parseFloat(value);
+      pointLights.forEach(({ light }) => {
+        if (light) {
+          light.intensity = intensity;
+        }
+      });
+    };
+
+    // Start the demo
+    init();
+  </script>
+</body>
+</html>
