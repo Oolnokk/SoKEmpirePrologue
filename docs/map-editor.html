@@ -531,7 +531,7 @@ select {
       </div>
       <div class="camera-slider">
         <label for="camDistance">Distance</label>
-        <input type="range" id="camDistance" min="20" max="80" step="1" value="40" />
+        <input type="range" id="camDistance" min="10" max="80" step="1" value="40" />
       </div>
     </div>
 
@@ -881,6 +881,7 @@ select {
     let cameraRotX = Number(camRotXInput.value) || 55;
     let cameraRotY = Number(camRotYInput.value) || 35;
     let cameraDistance = Number(camDistanceInput.value) || 40;
+    let cameraTarget = new THREE.Vector3(0, 0, 0); // Camera focus target
 
     // Get GLTFLoader constructor using tolerant pattern
     const LoaderCtor = (globalThis.THREE && globalThis.THREE.GLTFLoader) || 
@@ -1073,6 +1074,11 @@ select {
       selectedPrimary = { row, col };
       applySelectionVisuals();
       updateSelectionInfo();
+
+      // Update camera target to focus on selected cell
+      const worldPos = cellToWorld(row, col);
+      cameraTarget.set(worldPos.x, 0, worldPos.z);
+      updateCameraFromState();
     }
     function setRectSelection(sr, sc, er, ec) {
       selectionSet.clear();
@@ -1082,6 +1088,13 @@ select {
       selectedPrimary = { row: minR, col: minC };
       applySelectionVisuals();
       updateSelectionInfo();
+
+      // Update camera target to focus on center of selection
+      const centerRow = (minR + maxR) / 2;
+      const centerCol = (minC + maxC) / 2;
+      const worldPos = cellToWorld(centerRow, centerCol);
+      cameraTarget.set(worldPos.x, 0, worldPos.z);
+      updateCameraFromState();
     }
 
     function renderCell2D(row, col) {
@@ -1602,12 +1615,12 @@ select {
       const phi = THREE.MathUtils.degToRad(cameraRotX);
       const r = cameraDistance;
 
-      const x = r * Math.cos(phi) * Math.sin(theta);
-      const y = r * Math.sin(phi);
-      const z = r * Math.cos(phi) * Math.cos(theta);
+      const x = cameraTarget.x + r * Math.cos(phi) * Math.sin(theta);
+      const y = cameraTarget.y + r * Math.sin(phi);
+      const z = cameraTarget.z + r * Math.cos(phi) * Math.cos(theta);
 
       camera.position.set(x, y, z);
-      camera.lookAt(0, 0, 0);
+      camera.lookAt(cameraTarget);
     }
 
     function animate() {
