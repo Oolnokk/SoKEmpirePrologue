@@ -6356,16 +6356,20 @@ function boot(){
     
     lines.push(`<span style="color:#ff0">Has playableBounds:</span> ${pb ? 'YES' : 'NO'}`);
     
+    // Show source of data
+    if (areaBounds) {
+      lines.push(`<span style="color:#888">  Source: area.playableBounds</span>`);
+    } else if (configBounds) {
+      lines.push(`<span style="color:#888">  Source: CONFIG.${config?.activePlayableBounds ? 'activePlayableBounds' : 'playableBounds'}</span>`);
+    }
+    
     if (pb) {
       lines.push(`  left: ${pb.left ?? 'missing'}, right: ${pb.right ?? 'missing'}`);
       lines.push(`  top: ${pb.top ?? 'missing'}, bottom: ${pb.bottom ?? 'missing'}`);
-    }
-    
-    // Debug: Show source of bounds
-    if (areaBounds) {
-      lines.push(`<span style="color:#888">  (from area: ${JSON.stringify(areaBounds)})</span>`);
-    } else if (configBounds) {
-      lines.push(`<span style="color:#888">  (from config: ${JSON.stringify(configBounds)})</span>`);
+      
+      // Debug: Show all keys in the object
+      const keys = Object.keys(pb);
+      lines.push(`<span style="color:#888">  Keys: [${keys.join(', ')}]</span>`);
     }
     
     // Camera bounds
