@@ -6115,14 +6115,12 @@ function boot(){
           stageEl.style.zIndex = '1';
         }
 
-        // Get dimensions
+        // Get dimensions from stage element (which enforces aspect ratio via CSS)
         const rect = stageEl.getBoundingClientRect();
-        // Enforce standard aspect ratio for 3D background to match 2D canvas (21:9 ultrawide)
-        const aspectRatio = CONFIG.aspectRatio || (21 / 9);
         const width = rect.width || 800;
-        const height = width / aspectRatio; // Calculate height from width to maintain aspect ratio
+        const height = rect.height || (width / (21 / 9)); // Use stage's actual height, fallback to aspect ratio
 
-        // Set container to exact calculated dimensions to prevent stretching/cutoff
+        // Set container to match stage dimensions exactly for perfect overlap
         THREE_BG_CONTAINER.style.width = `${width}px`;
         THREE_BG_CONTAINER.style.height = `${height}px`;
 
@@ -6186,16 +6184,14 @@ function boot(){
           });
         }
 
-        // Add resize handler with aspect ratio enforcement
+        // Add resize handler to match stage dimensions
         THREE_BG_RESIZE_HANDLER = () => {
           if (!GAME_RENDERER_3D || !THREE_BG_CONTAINER) return;
           const rect = stageEl.getBoundingClientRect();
-          // Enforce standard aspect ratio for 3D background to match 2D canvas (21:9 ultrawide)
-          const aspectRatio = CONFIG.aspectRatio || (21 / 9);
           const width = rect.width || 800;
-          const height = width / aspectRatio; // Calculate height from width to maintain aspect ratio
+          const height = rect.height || (width / (21 / 9)); // Use stage's actual height, fallback to aspect ratio
 
-          // Update container dimensions to match calculated size
+          // Update container dimensions to match stage exactly
           THREE_BG_CONTAINER.style.width = `${width}px`;
           THREE_BG_CONTAINER.style.height = `${height}px`;
 
