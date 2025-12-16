@@ -652,7 +652,20 @@ export function updateCamera(canvas) {
       ? P.pos.y
       : 0;
   const desiredX = playerX - viewportWorldWidth * 0.5 + framing.offsetX + manualOffsetX;
-  const desiredY = playerY - viewportWorldHeight * 0.5 + framing.offsetY + manualOffsetY;
+  
+  // Check for ground-based camera mode (simpler positioning)
+  const useGroundBasedCamera = C.camera?.useGroundBasedY === true;
+  let desiredY;
+  
+  if (useGroundBasedCamera) {
+    // Simple mode: camera Y is ground Y plus configurable offset
+    const groundY = Number.isFinite(C.groundY) ? C.groundY : 0;
+    const groundCameraOffset = Number.isFinite(C.camera?.groundYOffset) ? C.camera.groundYOffset : 0;
+    desiredY = groundY + groundCameraOffset;
+  } else {
+    // Default mode: calculate based on player position
+    desiredY = playerY - viewportWorldHeight * 0.5 + framing.offsetY + manualOffsetY;
+  }
 
   // Check for rigid centering mode (opt-in via CONFIG.camera.rigidCenter)
   // To enable these features, set the flags in docs/config/config.js
@@ -668,7 +681,7 @@ export function updateCamera(canvas) {
   } else {
     // Default behavior: clamp to bounds
     target = clamp(desiredX, minBound, maxCameraX);
-    targetY = clamp(desiredY, minCameraY, maxCameraY);
+    targetY = useGroundBasedCamera ? desiredY : clamp(desiredY, minCameraY, maxCameraY);
   }
 
   const smoothing = Number.isFinite(camera.smoothing) ? camera.smoothing : DEFAULT_SMOOTHING;

@@ -885,6 +885,11 @@ window.CONFIG = {
     rigidCenter: false,
     // When true together with rigidCenter, the camera will ignore playable bounds and may show beyond map edges
     ignoreCenterBounds: false,
+    // When true, use simple ground-based camera positioning (camera Y = ground Y + offset)
+    useGroundBasedY: true,
+    // Offset applied to ground Y to position camera (negative moves camera up, positive moves down)
+    // With viewport height 460, offset of -207 centers ground line at 2/3 down screen (322px from top)
+    groundYOffset: -207,
     awareness: {
       normalZoom: 1,
       scaleOffset: 0.5,
