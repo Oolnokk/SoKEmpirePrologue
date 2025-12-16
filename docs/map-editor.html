@@ -132,6 +132,14 @@ select {
 .button-row button.primary { background: #2563eb; color: white; border-color: #1d4ed8; }
 .button-row button.primary:hover:not(:disabled) { background: #1d4ed8; }
 
+.copy-log-btn {
+  padding: 4px 8px; border-radius: 6px; border: 1px solid #334155;
+  background: #020617; font-size: 12px; cursor: pointer; color: #e5e7eb;
+  transition: background 0.15s;
+}
+.copy-log-btn:hover { background: #0b1120; }
+.copy-log-btn:active { background: #16a34a; border-color: #15803d; }
+
 .camera-slider { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .camera-slider label { font-size: 11px; color: #9ca3af; }
 .camera-slider input[type="range"] { width: 100%; }
@@ -528,7 +536,10 @@ select {
     </div>
 
     <div class="card">
-      <h2>Debug Log (inline)</h2>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <h2 style="margin: 0;">Debug Log (inline)</h2>
+        <button id="copyDebugLogBtn" class="copy-log-btn" title="Copy all logs to clipboard">📋 Copy</button>
+      </div>
       <div id="debugLog" class="debug-log"></div>
     </div>
 
@@ -2051,6 +2062,23 @@ select {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       logDebug("JSON downloaded as map.json");
+    });
+
+    // Copy debug log to clipboard
+    document.getElementById("copyDebugLogBtn").addEventListener("click", async () => {
+      const logText = debugLines.slice().reverse().join('\n');
+      try {
+        await navigator.clipboard.writeText(logText);
+        const btn = document.getElementById("copyDebugLogBtn");
+        const originalText = btn.textContent;
+        btn.textContent = "✓ Copied!";
+        setTimeout(() => {
+          btn.textContent = originalText;
+        }, 2000);
+      } catch (err) {
+        console.error("Failed to copy debug log:", err);
+        alert("Failed to copy to clipboard. Check browser console for error.");
+      }
     });
 
     function applyImportedAssetData(importedAssets) {
