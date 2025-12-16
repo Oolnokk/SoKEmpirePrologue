@@ -6348,11 +6348,16 @@ function boot(){
     
     // Area info
     lines.push(`<span style="color:#ff0">Area:</span> ${area?.id || 'none'}`);
-    lines.push(`<span style="color:#ff0">Has playableBounds:</span> ${area?.playableBounds ? 'YES' : 'NO'}`);
     
-    if (area?.playableBounds) {
-      const pb = area.playableBounds;
-      lines.push(`  left: ${pb.left}, right: ${pb.right}`);
+    // Check multiple sources for playableBounds
+    const areaBounds = area?.playableBounds;
+    const configBounds = config?.activePlayableBounds || config?.playableBounds;
+    const pb = areaBounds || configBounds;
+    
+    lines.push(`<span style="color:#ff0">Has playableBounds:</span> ${pb ? 'YES' : 'NO'}`);
+    
+    if (pb) {
+      lines.push(`  left: ${pb.left ?? 'missing'}, right: ${pb.right ?? 'missing'}`);
       lines.push(`  top: ${pb.top ?? 'missing'}, bottom: ${pb.bottom ?? 'missing'}`);
     }
     
