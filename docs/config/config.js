@@ -348,9 +348,9 @@ const MOVEMENT_PROFILES = {
 };
 
 const MOVEMENT_SPEED_MULTIPLIERS = {
-  combat: 0.5,
-  nonCombat: 0.25,
-  sneak: 0.15,
+  combat: -0.25,
+  nonCombat: -0.15,
+  sneak: -0.15,
 };
 
 // === ARM STANCES: Weapon-specific arm positions ===
@@ -878,7 +878,7 @@ window.CONFIG = {
   },
   actor: { scale: 0.70 },
   groundRatio: 0.50,
-  canvas: { w: 720, h: 460, scale: 1 },
+  canvas: { w: 1280, h: 720, scale: 1 },
   camera: {
     manualOffsetX: 0,
     // When true, the camera snaps each frame to keep the player centered (opt-in)
