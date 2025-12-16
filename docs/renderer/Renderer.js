@@ -343,7 +343,7 @@ export class Renderer {
       this.lightingEnabled = true;
       console.log('[Renderer] ✓ Lighting enabled:', {
         ambient: { intensity: ambientIntensity, color: ambientColor },
-        directional: { intensity: directionalIntensity, color: directionalColor, castShadows }
+        directional: { intensity: directionalIntensity, color: directionalColor, castShadows: false }
       });
     } catch (error) {
       console.error('Failed to enable lighting:', error);
