@@ -44,5 +44,32 @@
       "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
       "extraConfig": { "rotationX": 90 }
     }
+  ],
+  "decorations": [
+    {
+      "id": "light_sphere",
+      "label": "Light Sphere",
+      "layer": "decoration",
+      "gltfPath": "./assets/3D/decorations/light_sphere.gltf",
+      "baseScale": { "x": 0.3, "y": 0.3, "z": 0.3 },
+      "yOffset": 1.5,
+      "forwardOffsetDeg": 0,
+      "instanceDefaults": { 
+        "orientation": 0, 
+        "scaleX": 1, 
+        "scaleY": 1, 
+        "scaleZ": 1, 
+        "offsetX": 0, 
+        "offsetY": 0,
+        "lightIntensity": 1.0
+      },
+      "extraConfig": { 
+        "rotationX": 0,
+        "isLight": true,
+        "lightColor": 16776940,
+        "lightDistance": 10,
+        "lightDecay": 2
+      }
+    }
   ]
 }

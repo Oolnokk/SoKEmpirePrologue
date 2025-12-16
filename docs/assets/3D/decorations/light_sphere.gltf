@@ -1,0 +1,107 @@
+{
+  "asset": {
+    "generator": "SoK Empire Prologue - Light Sphere Generator",
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Light Sphere Scene",
+      "nodes": [0]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "LightSphere",
+      "mesh": 0
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Sphere",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "EmissiveLight",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [1.0, 1.0, 0.9, 1.0],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 0.9
+      },
+      "emissiveFactor": [1.0, 0.95, 0.8],
+      "doubleSided": false
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 382,
+      "type": "VEC3",
+      "max": [0.5, 0.5, 0.5],
+      "min": [-0.5, -0.5, -0.5]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 382,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 382,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 2280,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 4584,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 4584,
+      "byteLength": 4584,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 9168,
+      "byteLength": 3056,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 12224,
+      "byteLength": 4560,
+      "target": 34963
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAP83MzD3NzMw9AAAAAAAAAAAAAIA/zcxMPc3MTD0AAAAAAAAAAAAAAAAAAIA/zczMPQAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAACAv83MzD3NzMw9AAAAAAAAAAAAAACAv83MTD3NzEw9AAAAAAAAAAAAAACAv83MzD0AAAAAAAAAAAAAAAAAgL8AAAAAAAAAAAAAAAAAAACAPwAAAD8AAIA/zczMPQAAAD8AAIA/zcxMPQAAAD8AAIA/AAAAPwAAAD8AAIA/AAAAPwAAAD8AAIA/AACAPwAAAD8AAIA/AACAPwAAAD8AAIA/zczMvQAAAD8AAIA/zcxMvQAAAD8AAIA/AAAAvwAAAD8AAIA/AAAAvwAAAD8AAIA/AACAvwAAAD8AAIA/AACAvwAAAD8AAIA/zcxMPc3MTD0AAIA/zcxMPQAAgD8AAAA/zczMPQAAgD8AAAAAAAAAPwAAgD8AAAAAAAAAPwAAgD8AAAAAAACAv83MTD3NzEw9AACAvwAAgD8AAAA/zcxMvQAAgD8AAAAAAAAAvwAAgD8AAAAAAAAAvwAAgD8AAIA/zczMvQAAgD8AAIA/AAAAPwAAgD8AAIA/zczMPQAAgD8AAIA/zcxMvQAAAD8AAAAAAACAv83MTD0AAAAAAACAv83MzD0AAAAAAACAv83MzD0AAAAAAACAv83MTD0AAAAAAAAAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAAAAvwAAAAAAAAAAAAAAvwAAAAAAAAAAAAAAvwAAAAAAAAAAAAAAvwAAAAAzcxMvQAAAAAAAIA/MzMzvQAAAAAAAIA/MzMzvQAAAAAAAIA/MzMzvQAAAAAAAIA/MzMzvQAAAAAAAIA/MzMzPQAAAAAAAIA/MzMzPQAAAAAAAIA/MzMzPQAAAAAAAIA/MzMzPQAAAAAAAIA/MzMzPQAAAAAAAIA/zczMPQAAAAAAAIA/zczMPQAAAAAAAIA/zcxMPQAAAAAAAIA/zczMPQAAAD8AAIA/zcxMPQAAAD8AAIA/zczMPQAAAAAAAIA/zcxMPQAAAAAAAIA/zcxMPQAAAAAAAIA/MzMzPQAAAAAAAIA/MzMzPQAAAAAAAIA/MzMzvQAAAAAAAIA/MzMzvQAAAAAAAIA/MzMzvQAAAAAAAIA/zcxMvQAAAAAAAIA/zcxMvQAAAAAAAIA/zcxMvQAAAAAAAIA/zczMvQAAAAAAAIA/zczMvQAAAD8AAIA/zcxMvQAAAD8AAIA/zczMvQAAAAAAAIA/zcxMvQAAAAAAAIA/zcxMvQAAAAAAAIA/MzMzPQAAAD8AAIA/zcxMPQAAAD8AAIA/zczMPQAAAD8AAIA/AAAAPwAAAD8AAIA/zcxMPQAAAD8AAIA/zczMPQAAAD8AAIA/MzMzPQAAAD8AAIA/MzMzvQAAAD8AAIA/zczMvQAAAD8AAIA/zcxMvQAAAD8AAIA/AAAAvwAAAD8AAIA/zcxMvQAAAD8AAIA/zczMvQAAAD8AAIA/MzMzvQAAAD8AAIA/zcxMPQAAgD8AAAA/zczMPQAAgD8AAAAAAAAAPwAAgD8AAAAAAACAv83MTD0AAAAAAACAv83MzD0AAAAAAACAv83MzD0AAAA/AACAvwAAgD8AAAA/zcxMvQAAgD8AAAAAAAAAvwAAgD8AAAAAAAAAvwAAgD8AAAA/AACAvwAAgD8AAIA/zczMvQAAgD8AAIA/AAAAPwAAgD8AAIA/zczMPQAAgD8AAIA/zczMPQAAgD8AAIA/zcxMPQAAgD8AAIA/MzMzPQAAgD8AAIA/MzMzPQAAgD8AAIA/MzMzvQAAgD8AAIA/MzMzvQAAgD8AAIA/zcxMvQAAgD8AAIA/zczMvQAAgD8AAIA/zczMvQAAgD8AAIA/zcxMvQAAgD8AAIA/MzMzvQAAgD8AAIA/",
+      "byteLength": 16784
+    }
+  ]
+}

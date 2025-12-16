@@ -541,6 +541,35 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             renderer.add(object);
             loadedObjects.push(object);
 
+            // Check if this is a light decoration and add point light
+            const extraConfig = assetConfig.extraConfig || assetConfig.extra || {};
+            if (extraConfig.isLight && renderer.addPointLight) {
+              // Get light intensity from cell or defaults
+              const lightIntensity = cell.lightIntensity ?? assetConfig.instanceDefaults?.lightIntensity ?? 1.0;
+              const lightColor = extraConfig.lightColor !== undefined ? extraConfig.lightColor : 0xffffcc;
+              const lightDistance = extraConfig.lightDistance !== undefined ? extraConfig.lightDistance : 10;
+              const lightDecay = extraConfig.lightDecay !== undefined ? extraConfig.lightDecay : 2;
+              
+              const pointLight = renderer.addPointLight({
+                color: lightColor,
+                intensity: lightIntensity,
+                distance: lightDistance,
+                decay: lightDecay,
+                position: {
+                  x: object.position.x,
+                  y: object.position.y,
+                  z: object.position.z
+                },
+                castShadow: false // Point lights from decorations don't cast shadows by default
+              });
+              
+              if (pointLight) {
+                // Store reference to light on object for potential cleanup
+                object.userData.pointLight = pointLight;
+                console.log(`[visualsmapLoader]   Added point light for ${cell.type} with intensity ${lightIntensity}`);
+              }
+            }
+
             // Log only first few placements per layer to avoid spam, then summary
             const LOG_SAMPLE_INTERVAL = 20; // Log every Nth placement to reduce console spam
             const isFirstInLayer = loadedObjects.length % LOG_SAMPLE_INTERVAL === 1;
@@ -640,18 +669,42 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log(`[visualsmapLoader] ✓ Camera type:`, renderer.camera.type);
     }
 
-    // Add lighting to the scene
-    console.log(`[visualsmapLoader] Adding scene lighting`);
-    const ambientLight = new renderer.THREE.AmbientLight(0xffffff, 0.6);
-    renderer.add(ambientLight);
-    loadedObjects.push(ambientLight); // Track for disposal
+    // Enable lighting in the scene using the renderer's lighting system
+    console.log(`[visualsmapLoader] Enabling scene lighting with darkness and light effects`);
+    if (renderer.enableLighting) {
+      // Enable lighting with ambient (darkness) and directional light for depth
+      renderer.enableLighting({
+        ambientIntensity: 0.3,  // Lower ambient for more dramatic darkness
+        ambientColor: 0x404060,  // Slight blue tint for nighttime feel
+        directionalIntensity: 0.6,  // Moderate sunlight/moonlight
+        directionalColor: 0xfff8e7,  // Warm light color
+        directionalPosition: { x: gridCenterX + 5, y: 10, z: gridCenterZ - 7.5 },
+        castShadows: true
+      });
+      
+      // Update materials on all loaded objects to respond to lighting
+      if (renderer.updateMaterialsForLighting) {
+        loadedObjects.forEach(obj => {
+          if (obj.isObject3D && !obj.isLight) {
+            renderer.updateMaterialsForLighting(obj);
+          }
+        });
+        console.log(`[visualsmapLoader] ✓ Updated ${loadedObjects.length} objects for lighting`);
+      }
+    } else {
+      // Fallback to old lighting system if new methods not available
+      console.warn('[visualsmapLoader] ⚠ New lighting system not available, using fallback');
+      const ambientLight = new renderer.THREE.AmbientLight(0xffffff, 0.6);
+      renderer.add(ambientLight);
+      loadedObjects.push(ambientLight);
 
-    const directionalLight = new renderer.THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(gridCenterX + 500, 1000, gridCenterZ - 500);
-    directionalLight.target.position.set(gridCenterX, 0, gridCenterZ);
-    renderer.add(directionalLight);
-    renderer.add(directionalLight.target);
-    loadedObjects.push(directionalLight, directionalLight.target); // Track for disposal
+      const directionalLight = new renderer.THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(gridCenterX + 500, 1000, gridCenterZ - 500);
+      directionalLight.target.position.set(gridCenterX, 0, gridCenterZ);
+      renderer.add(directionalLight);
+      renderer.add(directionalLight.target);
+      loadedObjects.push(directionalLight, directionalLight.target);
+    }
 
     return {
       objects: loadedObjects,
