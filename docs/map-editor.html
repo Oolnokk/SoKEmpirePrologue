@@ -398,6 +398,7 @@ select {
       <option value="paint" selected>Paint / Select</option>
       <option value="pathStart">Set Path Start</option>
       <option value="pathEnd">Set Path End</option>
+      <option value="cableStart">Cable: Connect Buildings</option>
     </select>
 
     <label>Gameplay Path</label>
@@ -531,7 +532,7 @@ select {
       </div>
       <div class="camera-slider">
         <label for="camDistance">Distance</label>
-        <input type="range" id="camDistance" min="20" max="80" step="1" value="40" />
+        <input type="range" id="camDistance" min="5" max="80" step="1" value="40" />
       </div>
     </div>
 
@@ -550,6 +551,84 @@ select {
         <button id="downloadJsonBtn">Download JSON</button>
       </div>
       <textarea id="jsonOutput" class="json-output" readonly></textarea>
+    </div>
+
+    <!-- Cable Attachment Picker Card -->
+    <div class="card" id="attachmentPickerCard" style="display: none;">
+      <h2>Select Attachment Point</h2>
+      <div class="info-row">
+        <span class="info-label">Structure:</span>
+        <span class="info-value" id="attachmentStructureName">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Position:</span>
+        <span class="info-value" id="attachmentStructurePos">—</span>
+      </div>
+      <div id="attachmentPointButtons" class="button-row" style="flex-direction: column;"></div>
+      <div class="button-row">
+        <button id="cancelAttachmentBtn">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Cable Properties Card -->
+    <div class="card" id="cablePropertiesCard" style="display: none;">
+      <h2>Cable Properties</h2>
+      
+      <div class="field-group">
+        <label for="cableSlackInput">Slack (0–1): <span id="cableSlackValue">0.5</span></label>
+        <input type="range" id="cableSlackInput" min="0" max="1" step="0.05" value="0.5" />
+      </div>
+
+      <div class="field-group">
+        <label>
+          <input type="checkbox" id="cableDecorationEnable" checked />
+          Enable Decorations
+        </label>
+      </div>
+
+      <div id="cableDecorationOptions">
+        <div class="field-group">
+          <label for="cableDecorationType">Decoration Type</label>
+          <select id="cableDecorationType">
+            <option value="lanterns">Lanterns</option>
+            <option value="clothes">Clothes</option>
+            <option value="flags">Flags</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label for="cableDecorationCount">Count (0-20)</label>
+          <input type="number" id="cableDecorationCount" min="0" max="20" value="5" />
+        </div>
+
+        <div class="field-group">
+          <label for="cableDecorationSpacing">Spacing Mode</label>
+          <select id="cableDecorationSpacing">
+            <option value="equidistant">Equidistant</option>
+            <option value="random">Random</option>
+            <option value="clustered">Clustered</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label>
+            <input type="checkbox" id="cableDecorationRandomRotation" checked />
+            Random Rotation
+          </label>
+        </div>
+
+        <div class="field-group">
+          <label>
+            <input type="checkbox" id="cableDecorationRandomScale" checked />
+            Random Scale
+          </label>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="createCableBtn" class="primary">Create Cable</button>
+        <button id="cancelCableBtn">Cancel</button>
+      </div>
     </div>
   </aside>
 </section>
@@ -801,7 +880,16 @@ select {
         gltfTemplate: null,
         gltfFileName: "tower_commercial3D_t.gltf",
         instanceDefaults: { orientation: 0, scaleX: 1, scaleY: 1, scaleZ: 1, offsetX: 0, offsetY: 0 },
-        extraConfig: { rotationX: 90 }
+        extraConfig: { 
+          rotationX: 90,
+          attachmentPoints: [
+            {
+              id: "rooftop",
+              label: "Rooftop",
+              offset: { x: 0, y: 3.8, z: 0 }
+            }
+          ]
+        }
       }
     ];
 
@@ -818,6 +906,33 @@ select {
         gltfFileName: null,
         instanceDefaults: { orientation: 0, scaleX: 1, scaleY: 1, scaleZ: 1, offsetX: 0, offsetY: 0 },
         extraConfig: {}
+      }
+    ];
+
+    // Cable decoration assets (fallback definitions)
+    const FALLBACK_CABLE_DECORATION_ASSETS = [
+      {
+        id: "lanterns",
+        label: "Lanterns",
+        gltfPath: null,
+        fallbackGeometry: { type: "box", size: { x: 0.1, y: 0.15, z: 0.1 }, color: 0xff8c00 }
+      },
+      {
+        id: "clothes",
+        label: "Clothes",
+        gltfPath: null,
+        fallbackGeometry: { type: "plane", size: { x: 0.15, y: 0.2 }, color: 0x4169e1 },
+        variants: [
+          { color: 0x4169e1 }, // blue
+          { color: 0xffffff }, // white
+          { color: 0xff6b6b }  // red
+        ]
+      },
+      {
+        id: "flags",
+        label: "Flags",
+        gltfPath: null,
+        fallbackGeometry: { type: "plane", size: { x: 0.2, y: 0.12 }, color: 0xff0000 }
       }
     ];
 
@@ -869,9 +984,14 @@ select {
 
     // Gameplay path: defines the side-scroller axis your game uses for camera/sprite orientation.
     // start/end are grid coords; alignment rotates the 3D world so the path becomes +X.
-    let activeTool = "paint"; // "paint" | "pathStart" | "pathEnd"
+    let activeTool = "paint"; // "paint" | "pathStart" | "pathEnd" | "cableStart"
     let gameplayPath = { start: null, end: null }; // where used: export/import + 2D/3D overlays
     let alignWorldToPath = true; // where used: worldRoot rotation
+
+    // Cable/Clothesline System
+    let cableConnections = []; // Array of cable connection objects
+    let cableCreationPhase = null; // null | "selectingStart" | "selectingEnd"
+    let cableInProgress = null; // { startCell, startAssetId, startAttachmentId, startAttachmentOffset }
 
     let selectedPrimary = { row: null, col: null };
     let selectionSet = new Set();
@@ -915,10 +1035,354 @@ select {
       return Math.atan2(dz, dx); // yaw of path direction in XZ plane
     }
 
+    // --- CABLE SYSTEM FUNCTIONS ---
+
+    /**
+     * Calculate cable geometry with droop between two points
+     * @param {Object} startPos - {x, y, z}
+     * @param {Object} endPos - {x, y, z}
+     * @param {number} slack - 0 to 1, controls droop amount
+     * @param {number} segments - number of segments (default 16)
+     * @returns {Object} - { points: [{x, y, z, t}, ...], horizontalDist, maxDroop, slack }
+     */
+    function calculateCableGeometry(startPos, endPos, slack = 0.5, segments = 16) {
+      const dx = endPos.x - startPos.x;
+      const dz = endPos.z - startPos.z;
+      const horizontalDist = Math.sqrt(dx * dx + dz * dz);
+      const maxDroop = horizontalDist * 0.2 * (slack + 0.2);
+
+      const points = [];
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const x = startPos.x + dx * t;
+        const z = startPos.z + dz * t;
+        const baseY = startPos.y + (endPos.y - startPos.y) * t;
+        const droopFactor = 1 - Math.pow(2 * t - 1, 2);
+        const y = baseY - maxDroop * droopFactor;
+        points.push({ x, y, z, t });
+      }
+
+      return { points, horizontalDist, maxDroop, slack };
+    }
+
+    /**
+     * Get world position of attachment point on a structure
+     * @param {Object} cell - {row, col}
+     * @param {string} assetId - structure asset ID
+     * @param {Object} attachmentOffset - {x, y, z} relative to structure
+     * @param {Object} instanceData - cell state with orientation, scales, offsets
+     * @returns {Object} - {x, y, z} world position
+     */
+    function getAttachmentWorldPosition(cell, assetId, attachmentOffset, instanceData) {
+      const asset = getAssetById(assetId);
+      if (!asset) return { x: 0, y: 0, z: 0 };
+
+      const basePos = cellToWorld(cell.row, cell.col);
+      
+      // Calculate total scale
+      const instanceScale = {
+        x: instanceData.scaleX || 1,
+        y: instanceData.scaleY || 1,
+        z: instanceData.scaleZ || 1
+      };
+      const baseScale = asset.baseScale || { x: 1, y: 1, z: 1 };
+      const totalScaleX = instanceScale.x * baseScale.x;
+      const totalScaleY = instanceScale.y * baseScale.y;
+      const totalScaleZ = instanceScale.z * baseScale.z;
+
+      // Scale attachment offset
+      const localX = attachmentOffset.x * totalScaleX;
+      const localY = attachmentOffset.y * totalScaleY;
+      const localZ = attachmentOffset.z * totalScaleZ;
+
+      // Rotate by structure orientation (Y-axis rotation)
+      const orientation = instanceData.orientation || 0;
+      const forwardOffsetDeg = asset.forwardOffsetDeg || 0;
+      const yawRad = THREE.MathUtils.degToRad(orientation + forwardOffsetDeg);
+      
+      const cosYaw = Math.cos(yawRad);
+      const sinYaw = Math.sin(yawRad);
+      const rotatedX = localX * cosYaw - localZ * sinYaw;
+      const rotatedZ = localX * sinYaw + localZ * cosYaw;
+
+      // Apply instance offsets and base position
+      const yOffset = asset.yOffset || 0;
+      const instanceOffsetX = instanceData.offsetX || 0;
+      const instanceOffsetY = instanceData.offsetY || 0;
+
+      return {
+        x: basePos.x + rotatedX + instanceOffsetX,
+        y: localY + yOffset + instanceOffsetY,
+        z: basePos.z + rotatedZ
+      };
+    }
+
+    /**
+     * Create cable ribbon mesh from points
+     * @param {Array} points - array of {x, y, z} points along cable
+     * @param {number} ribbonWidth - width of the ribbon
+     * @param {Object} vertexColors - {top: {r, g, b}, bottom: {r, g, b}}
+     * @returns {THREE.Mesh} - cable mesh
+     */
+    function createCableRibbonFromPoints(points, ribbonWidth = 0.035, vertexColors = null) {
+      const defaultColors = {
+        top: { r: 0.55, g: 0.38, b: 0.22 },
+        bottom: { r: 0.28, g: 0.18, b: 0.10 }
+      };
+      const colors = vertexColors || defaultColors;
+
+      const vertices = [];
+      const vertexColorData = [];
+      const indices = [];
+
+      // Create vertical strip for each point
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        const halfWidth = ribbonWidth / 2;
+        
+        // Top vertex
+        vertices.push(p.x, p.y + halfWidth, p.z);
+        vertexColorData.push(colors.top.r, colors.top.g, colors.top.b);
+        
+        // Bottom vertex
+        vertices.push(p.x, p.y - halfWidth, p.z);
+        vertexColorData.push(colors.bottom.r, colors.bottom.g, colors.bottom.b);
+
+        // Create triangles connecting to next strip
+        if (i < points.length - 1) {
+          const base = i * 2;
+          // Triangle 1
+          indices.push(base, base + 2, base + 1);
+          // Triangle 2
+          indices.push(base + 1, base + 2, base + 3);
+        }
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(vertexColorData, 3));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+
+      const material = new THREE.MeshBasicMaterial({ 
+        vertexColors: true, 
+        side: THREE.DoubleSide 
+      });
+
+      return new THREE.Mesh(geometry, material);
+    }
+
+    /**
+     * Calculate decoration positions along cable
+     * @param {Object} cableGeometry - result from calculateCableGeometry
+     * @param {Object} decorationConfig - {type, count, spacingMode, randomRotation, randomScale}
+     * @returns {Array} - array of {position, rotation, scale, type, variantIndex}
+     */
+    function calculateDecorationPositions(cableGeometry, decorationConfig) {
+      const { points } = cableGeometry;
+      const { count, spacingMode, randomRotation, randomScale, type } = decorationConfig;
+      
+      if (!count || count <= 0) return [];
+
+      const decorations = [];
+      let tValues = [];
+
+      // Calculate t-values based on spacing mode
+      if (spacingMode === "equidistant") {
+        const margin = 0.1;
+        const range = 1 - 2 * margin;
+        for (let i = 0; i < count; i++) {
+          tValues.push(margin + (i / Math.max(1, count - 1)) * range);
+        }
+      } else if (spacingMode === "random") {
+        const margin = 0.05;
+        for (let i = 0; i < count; i++) {
+          tValues.push(margin + Math.random() * (1 - 2 * margin));
+        }
+        tValues.sort((a, b) => a - b);
+      } else if (spacingMode === "clustered") {
+        const numClusters = Math.min(3, Math.max(2, Math.ceil(count / 3)));
+        const clusterCenters = [];
+        for (let i = 0; i < numClusters; i++) {
+          clusterCenters.push(0.15 + (i / (numClusters - 1)) * 0.7);
+        }
+        for (let i = 0; i < count; i++) {
+          const center = clusterCenters[i % numClusters];
+          const spread = 0.08;
+          tValues.push(Math.max(0.05, Math.min(0.95, center + (Math.random() - 0.5) * spread)));
+        }
+        tValues.sort((a, b) => a - b);
+      }
+
+      // Interpolate positions from curve points
+      for (const t of tValues) {
+        const segmentIndex = Math.min(Math.floor(t * (points.length - 1)), points.length - 2);
+        const localT = (t * (points.length - 1)) - segmentIndex;
+        const p1 = points[segmentIndex];
+        const p2 = points[segmentIndex + 1];
+
+        const x = p1.x + (p2.x - p1.x) * localT;
+        const y = p1.y + (p2.y - p1.y) * localT - 0.15; // Slightly below cable
+        const z = p1.z + (p2.z - p1.z) * localT;
+
+        const rotation = randomRotation ? Math.random() * Math.PI * 2 : 0;
+        const scale = randomScale ? 0.7 + Math.random() * 0.5 : 1.0;
+        
+        // Select variant for clothes type
+        const asset = FALLBACK_CABLE_DECORATION_ASSETS.find(a => a.id === type);
+        const variantCount = asset?.variants?.length || 1;
+        const variantIndex = Math.floor(Math.random() * variantCount);
+
+        decorations.push({
+          position: { x, y, z },
+          rotation,
+          scale,
+          type,
+          variantIndex
+        });
+      }
+
+      return decorations;
+    }
+
+    /**
+     * Create decoration mesh
+     * @param {string} type - decoration type (lanterns, clothes, flags)
+     * @param {Object} config - {scale, variantIndex}
+     * @param {number} variantIndex - which variant to use (for clothes)
+     * @returns {THREE.Mesh|THREE.Group} - decoration mesh
+     */
+    function createDecoration(type, config = {}, variantIndex = 0) {
+      const asset = FALLBACK_CABLE_DECORATION_ASSETS.find(a => a.id === type);
+      if (!asset) return null;
+
+      // TODO: Use GLTF template if loaded
+      // For now, use fallback geometry
+      const fallback = asset.fallbackGeometry;
+      let mesh;
+
+      if (fallback.type === "box") {
+        const geom = new THREE.BoxGeometry(
+          fallback.size.x,
+          fallback.size.y,
+          fallback.size.z
+        );
+        const mat = new THREE.MeshBasicMaterial({ color: fallback.color });
+        mesh = new THREE.Mesh(geom, mat);
+      } else if (fallback.type === "plane") {
+        const geom = new THREE.PlaneGeometry(fallback.size.x, fallback.size.y);
+        
+        // Use variant color if available
+        let color = fallback.color;
+        if (asset.variants && asset.variants[variantIndex]) {
+          color = asset.variants[variantIndex].color;
+        }
+        
+        const mat = new THREE.MeshBasicMaterial({ 
+          color, 
+          side: THREE.DoubleSide 
+        });
+        mesh = new THREE.Mesh(geom, mat);
+      }
+
+      if (mesh && config.scale) {
+        mesh.scale.setScalar(config.scale);
+      }
+
+      return mesh;
+    }
+
     function setActiveTool(tool) {
       activeTool = tool;
       if (toolSelectEl) toolSelectEl.value = tool;
       logDebug("Tool set: " + tool);
+      
+      // Reset cable creation state when switching tools
+      if (tool !== "cableStart") {
+        cableCreationPhase = null;
+        cableInProgress = null;
+        hideAttachmentPicker();
+        hideCableProperties();
+      }
+    }
+
+    /**
+     * Show attachment point picker dialog
+     */
+    function showAttachmentPointPicker(row, col, asset, attachPoints) {
+      const card = document.getElementById("attachmentPickerCard");
+      const nameEl = document.getElementById("attachmentStructureName");
+      const posEl = document.getElementById("attachmentStructurePos");
+      const buttonsEl = document.getElementById("attachmentPointButtons");
+
+      nameEl.textContent = asset.label || asset.id;
+      posEl.textContent = `Row ${row}, Col ${col}`;
+
+      // Clear and populate buttons
+      buttonsEl.innerHTML = "";
+      for (const point of attachPoints) {
+        const btn = document.createElement("button");
+        btn.textContent = point.label || point.id;
+        btn.className = "primary";
+        btn.onclick = () => selectAttachmentPoint(row, col, asset, point);
+        buttonsEl.appendChild(btn);
+      }
+
+      card.style.display = "block";
+    }
+
+    /**
+     * Hide attachment picker dialog
+     */
+    function hideAttachmentPicker() {
+      const card = document.getElementById("attachmentPickerCard");
+      card.style.display = "none";
+    }
+
+    /**
+     * Select an attachment point for cable start or end
+     */
+    function selectAttachmentPoint(row, col, asset, attachPoint) {
+      hideAttachmentPicker();
+
+      if (cableCreationPhase === "selectingStart") {
+        // Store start point
+        cableInProgress = {
+          startCell: { row, col },
+          startAssetId: asset.id,
+          startAttachmentId: attachPoint.id,
+          startAttachmentOffset: attachPoint.offset
+        };
+        cableCreationPhase = "selectingEnd";
+        logDebug(`Cable start: ${asset.label} at (${row},${col}) - ${attachPoint.label}`);
+      } else if (cableCreationPhase === "selectingEnd") {
+        // Complete cable and show properties dialog
+        cableInProgress.endCell = { row, col };
+        cableInProgress.endAssetId = asset.id;
+        cableInProgress.endAttachmentId = attachPoint.id;
+        cableInProgress.endAttachmentOffset = attachPoint.offset;
+        
+        logDebug(`Cable end: ${asset.label} at (${row},${col}) - ${attachPoint.label}`);
+        
+        // Show cable properties dialog
+        showCablePropertiesDialog();
+      }
+    }
+
+    /**
+     * Show cable properties dialog
+     */
+    function showCablePropertiesDialog() {
+      const card = document.getElementById("cablePropertiesCard");
+      card.style.display = "block";
+    }
+
+    /**
+     * Hide cable properties dialog
+     */
+    function hideCableProperties() {
+      const card = document.getElementById("cablePropertiesCard");
+      card.style.display = "none";
     }
 
     function setGameplayPathPoint(kind, row, col) {
@@ -1507,7 +1971,7 @@ select {
 
     // --- THREE SETUP ---
     let scene, camera, renderer;
-    let worldRoot, pathGroup; // where used: rotate whole world to gameplayPath
+    let worldRoot, pathGroup, cableGroup; // where used: rotate whole world to gameplayPath
     let groundGroup, structureGroup, decorationGroup;
     let roadMat, sidewalkMat, segmentFallbackMat, structureFallbackMat, decoFallbackMat;
     let boxGeom, decoGeom;
@@ -1565,7 +2029,8 @@ select {
       structureGroup = new THREE.Group();
       decorationGroup = new THREE.Group();
       pathGroup = new THREE.Group();
-      worldRoot.add(groundGroup, structureGroup, decorationGroup, pathGroup);
+      cableGroup = new THREE.Group();
+      worldRoot.add(groundGroup, structureGroup, decorationGroup, pathGroup, cableGroup);
 
       roadMat = new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.7 });
       sidewalkMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.8 });
@@ -1615,7 +2080,21 @@ select {
       renderer.render(scene, camera);
     }
 
-    function clearGroup(group) { while (group.children.length) group.remove(group.children[0]); }
+    function clearGroup(group) { 
+      while (group.children.length) {
+        const child = group.children[0];
+        group.remove(child);
+        // Dispose geometries and materials to prevent memory leaks
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.dispose());
+          } else {
+            child.material.dispose();
+          }
+        }
+      }
+    }
 
     function applyWorldAlignmentFromPath() {
       if (!worldRoot) return;
@@ -1775,6 +2254,76 @@ select {
       const assetStatus = ALL_ASSETS.map(a => `${a.label}: ${a.gltfTemplate ? '✓ loaded' : '✗ fallback'}`).join(', ');
       logDebug(`3D rebuilt: ground=${groundCount}, structures=${structCount}, decorations=${decoCount}`);
       logDebug(`Asset models: ${assetStatus}`);
+      
+      // Rebuild cables after structures are in place
+      rebuildCables();
+    }
+
+    /**
+     * Rebuild all cables in the scene
+     */
+    function rebuildCables() {
+      if (!cableGroup) return;
+      clearGroup(cableGroup);
+
+      let cableCount = 0;
+      let decorationCount = 0;
+
+      for (const cable of cableConnections) {
+        try {
+          // Get start and end positions
+          const startState = layerStates[LAYERS.STRUCTURE][cable.startCell.row][cable.startCell.col];
+          const endState = layerStates[LAYERS.STRUCTURE][cable.endCell.row][cable.endCell.col];
+
+          if (!startState || startState.type !== cable.startAssetId) continue;
+          if (!endState || endState.type !== cable.endAssetId) continue;
+
+          const startPos = getAttachmentWorldPosition(
+            cable.startCell,
+            cable.startAssetId,
+            cable.startAttachmentOffset,
+            startState
+          );
+
+          const endPos = getAttachmentWorldPosition(
+            cable.endCell,
+            cable.endAssetId,
+            cable.endAttachmentOffset,
+            endState
+          );
+
+          // Calculate cable geometry
+          const cableGeometry = calculateCableGeometry(startPos, endPos, cable.slack || 0.5);
+
+          // Create ribbon mesh
+          const ribbonMesh = createCableRibbonFromPoints(cableGeometry.points);
+          if (ribbonMesh) {
+            cableGroup.add(ribbonMesh);
+            cableCount++;
+          }
+
+          // Add decorations if enabled
+          if (cable.decorationConfig && cable.decorationConfig.enabled) {
+            const decorations = calculateDecorationPositions(cableGeometry, cable.decorationConfig);
+            
+            for (const deco of decorations) {
+              const decoMesh = createDecoration(deco.type, { scale: deco.scale }, deco.variantIndex);
+              if (decoMesh) {
+                decoMesh.position.set(deco.position.x, deco.position.y, deco.position.z);
+                decoMesh.rotation.y = deco.rotation;
+                cableGroup.add(decoMesh);
+                decorationCount++;
+              }
+            }
+          }
+        } catch (err) {
+          logDebug(`Error rebuilding cable: ${err.message}`);
+        }
+      }
+
+      if (cableCount > 0) {
+        logDebug(`Cables rebuilt: ${cableCount} cables, ${decorationCount} decorations`);
+      }
     }
 
     // --- PAINTING / CLICK ---
@@ -1796,6 +2345,39 @@ select {
         setSingleSelection(row, col);
         setActiveTool("paint");
         return;
+      }
+
+      // Cable tool mode
+      if (activeTool === "cableStart") {
+        const structState = layerStates[LAYERS.STRUCTURE][row][col];
+        if (!structState || !structState.type) {
+          logDebug("Cable tool: no structure at this cell");
+          return;
+        }
+        
+        const asset = getAssetById(structState.type);
+        if (!asset) {
+          logDebug("Cable tool: structure asset not found");
+          return;
+        }
+
+        const attachPoints = asset.extraConfig?.attachmentPoints || [];
+        if (attachPoints.length === 0) {
+          logDebug("Cable tool: structure has no attachment points");
+          alert("This structure has no attachment points defined. Add attachmentPoints to extraConfig.");
+          return;
+        }
+
+        if (cableCreationPhase === null) {
+          // Starting a new cable
+          showAttachmentPointPicker(row, col, asset, attachPoints);
+          cableCreationPhase = "selectingStart";
+          return;
+        } else if (cableCreationPhase === "selectingEnd") {
+          // Selecting end point
+          showAttachmentPointPicker(row, col, asset, attachPoints);
+          return;
+        }
       }
 
       if (currentTileType === "empty") {
@@ -1983,8 +2565,144 @@ select {
       rebuild3DFromState();
     });
 
+    // --- CABLE UI EVENT LISTENERS ---
+    const cableSlackInput = document.getElementById("cableSlackInput");
+    const cableSlackValue = document.getElementById("cableSlackValue");
+    const cableDecorationEnable = document.getElementById("cableDecorationEnable");
+    const cableDecorationOptions = document.getElementById("cableDecorationOptions");
+    const createCableBtn = document.getElementById("createCableBtn");
+    const cancelCableBtn = document.getElementById("cancelCableBtn");
+    const cancelAttachmentBtn = document.getElementById("cancelAttachmentBtn");
+
+    if (cableSlackInput && cableSlackValue) {
+      cableSlackInput.addEventListener("input", () => {
+        cableSlackValue.textContent = cableSlackInput.value;
+      });
+    }
+
+    if (cableDecorationEnable && cableDecorationOptions) {
+      cableDecorationEnable.addEventListener("change", () => {
+        cableDecorationOptions.style.display = cableDecorationEnable.checked ? "block" : "none";
+      });
+    }
+
+    if (createCableBtn) {
+      createCableBtn.addEventListener("click", () => {
+        if (!cableInProgress) return;
+
+        const slack = Number(cableSlackInput.value) || 0.5;
+        const decorationEnabled = cableDecorationEnable.checked;
+        
+        const cable = {
+          id: `cable_${cableInProgress.startCell.row}_${cableInProgress.startCell.col}_to_${cableInProgress.endCell.row}_${cableInProgress.endCell.col}`,
+          startCell: cableInProgress.startCell,
+          startAssetId: cableInProgress.startAssetId,
+          startAttachmentId: cableInProgress.startAttachmentId,
+          startAttachmentOffset: cableInProgress.startAttachmentOffset,
+          endCell: cableInProgress.endCell,
+          endAssetId: cableInProgress.endAssetId,
+          endAttachmentId: cableInProgress.endAttachmentId,
+          endAttachmentOffset: cableInProgress.endAttachmentOffset,
+          slack: slack,
+          decorationConfig: decorationEnabled ? {
+            enabled: true,
+            type: document.getElementById("cableDecorationType").value,
+            count: Number(document.getElementById("cableDecorationCount").value) || 5,
+            spacingMode: document.getElementById("cableDecorationSpacing").value,
+            randomRotation: document.getElementById("cableDecorationRandomRotation").checked,
+            randomScale: document.getElementById("cableDecorationRandomScale").checked
+          } : { enabled: false }
+        };
+
+        cableConnections.push(cable);
+        logDebug(`Cable created: ${cable.id}`);
+        
+        // Reset state and rebuild
+        cableCreationPhase = null;
+        cableInProgress = null;
+        hideCableProperties();
+        rebuild3DFromState();
+      });
+    }
+
+    if (cancelCableBtn) {
+      cancelCableBtn.addEventListener("click", () => {
+        cableCreationPhase = null;
+        cableInProgress = null;
+        hideCableProperties();
+        logDebug("Cable creation cancelled");
+      });
+    }
+
+    if (cancelAttachmentBtn) {
+      cancelAttachmentBtn.addEventListener("click", () => {
+        cableCreationPhase = null;
+        cableInProgress = null;
+        hideAttachmentPicker();
+        logDebug("Attachment selection cancelled");
+      });
+    }
+
     // --- MAP JSON EXPORT/IMPORT ---
     function exportSnapshot() {
+      // Export cables with pre-calculated geometry
+      const exportedCables = cableConnections.map(cable => {
+        try {
+          // Get attachment world positions
+          const startState = layerStates[LAYERS.STRUCTURE][cable.startCell.row][cable.startCell.col];
+          const endState = layerStates[LAYERS.STRUCTURE][cable.endCell.row][cable.endCell.col];
+
+          const startPos = getAttachmentWorldPosition(
+            cable.startCell,
+            cable.startAssetId,
+            cable.startAttachmentOffset,
+            startState
+          );
+
+          const endPos = getAttachmentWorldPosition(
+            cable.endCell,
+            cable.endAssetId,
+            cable.endAttachmentOffset,
+            endState
+          );
+
+          // Calculate cable geometry
+          const cableGeometry = calculateCableGeometry(startPos, endPos, cable.slack || 0.5);
+
+          // Calculate decorations if enabled
+          let decorations = [];
+          if (cable.decorationConfig && cable.decorationConfig.enabled) {
+            decorations = calculateDecorationPositions(cableGeometry, cable.decorationConfig);
+          }
+
+          return {
+            id: cable.id,
+            metadata: {
+              startCell: cable.startCell,
+              startAssetId: cable.startAssetId,
+              startAttachmentId: cable.startAttachmentId,
+              endCell: cable.endCell,
+              endAssetId: cable.endAssetId,
+              endAttachmentId: cable.endAttachmentId,
+              slack: cable.slack,
+              decorationConfig: cable.decorationConfig
+            },
+            geometry: {
+              points: cableGeometry.points,
+              ribbonWidth: 0.035,
+              vertexColors: {
+                top: { r: 0.55, g: 0.38, b: 0.22 },
+                bottom: { r: 0.28, g: 0.18, b: 0.10 }
+              }
+            },
+            decorations: decorations
+          };
+        } catch (err) {
+          logDebug(`Error exporting cable ${cable.id}: ${err.message}`);
+          return null;
+        }
+      }).filter(Boolean);
+
       return {
         version: 4,
         rows: ROWS,
@@ -1992,6 +2710,7 @@ select {
         activeLayer,
         gameplayPath,
         alignWorldToPath,
+        cables: exportedCables,
 
         layerStates,
         assets: {
@@ -2146,6 +2865,51 @@ select {
         if (typeof data.alignWorldToPath === "boolean") {
           alignWorldToPath = data.alignWorldToPath;
           alignToPathCheckbox.checked = alignWorldToPath;
+        }
+
+        // Cable import
+        if (Array.isArray(data.cables)) {
+          cableConnections = [];
+          for (const cableData of data.cables) {
+            if (!cableData.metadata) continue;
+            
+            const meta = cableData.metadata;
+            const cable = {
+              id: cableData.id || `cable_${meta.startCell.row}_${meta.startCell.col}_to_${meta.endCell.row}_${meta.endCell.col}`,
+              startCell: meta.startCell,
+              startAssetId: meta.startAssetId,
+              startAttachmentId: meta.startAttachmentId,
+              startAttachmentOffset: null, // Will be resolved from asset config
+              endCell: meta.endCell,
+              endAssetId: meta.endAssetId,
+              endAttachmentId: meta.endAttachmentId,
+              endAttachmentOffset: null, // Will be resolved from asset config
+              slack: meta.slack || 0.5,
+              decorationConfig: meta.decorationConfig || { enabled: false }
+            };
+
+            // Resolve attachment offsets from asset definitions
+            const startAsset = getAssetById(meta.startAssetId);
+            if (startAsset && startAsset.extraConfig?.attachmentPoints) {
+              const startPoint = startAsset.extraConfig.attachmentPoints.find(p => p.id === meta.startAttachmentId);
+              if (startPoint) cable.startAttachmentOffset = startPoint.offset;
+            }
+
+            const endAsset = getAssetById(meta.endAssetId);
+            if (endAsset && endAsset.extraConfig?.attachmentPoints) {
+              const endPoint = endAsset.extraConfig.attachmentPoints.find(p => p.id === meta.endAttachmentId);
+              if (endPoint) cable.endAttachmentOffset = endPoint.offset;
+            }
+
+            if (cable.startAttachmentOffset && cable.endAttachmentOffset) {
+              cableConnections.push(cable);
+              logDebug(`Imported cable: ${cable.id}`);
+            } else {
+              logDebug(`Skipped cable ${cableData.id}: missing attachment point definitions`);
+            }
+          }
+        } else {
+          cableConnections = [];
         }
 
         selectionSet.clear();

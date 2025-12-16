@@ -18,6 +18,17 @@
     "offsetY": 0
   },
   "extra": {
-    "rotationX": 90
+    "rotationX": 90,
+    "attachmentPoints": [
+      {
+        "id": "rooftop",
+        "label": "Rooftop",
+        "offset": {
+          "x": 0,
+          "y": 3.8,
+          "z": 0
+        }
+      }
+    ]
   }
 }
