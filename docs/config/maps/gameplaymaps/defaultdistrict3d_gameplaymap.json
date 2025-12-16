@@ -4,7 +4,7 @@
     "left": -1160,
     "right": 1160,
     "top": -600,
-    "bottom": -400,
+    "bottom": -400
   },
   "visualsMap": "../visualsmaps/defaultdistrict3D_visualsmap.json",
   "scene3d": {
