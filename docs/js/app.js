@@ -3968,7 +3968,7 @@ function createEditorPreviewSandbox() {
     instances: [],
     colliders: [],
     drumSkins: [],
-    groundOffset: 140,
+    groundOffset: 230,
     ready: false,
     registry: null,
     detachRegistry: null,
@@ -4084,7 +4084,7 @@ function createEditorPreviewSandbox() {
     state.colliders = [];
     state.drumSkins = [];
     state.ready = false;
-    state.groundOffset = 140;
+    state.groundOffset = 230;
   };
 
   const setArea = (area) => {
@@ -4116,7 +4116,7 @@ function createEditorPreviewSandbox() {
     state.colliders = normalizedColliders;
     state.drumSkins = normalizedDrumSkins;
     const offset = Number(area?.ground?.offset);
-    state.groundOffset = Number.isFinite(offset) ? offset : 140;
+    state.groundOffset = Number.isFinite(offset) ? offset : 230;
 
     // Capture proximity scale from area
     const proximityScale = area?.proximityScale ?? area?.meta?.proximityScale ?? 1;
@@ -4271,7 +4271,7 @@ function createEditorPreviewSandbox() {
     const resolvedGround = Number.isFinite(groundY)
       ? groundY
       : (Number.isFinite(derivedAreaGround) ? derivedAreaGround : computeGroundYFromConfig(window.CONFIG, viewHeight));
-    const fallbackOffset = Number.isFinite(state.groundOffset) ? state.groundOffset : 140;
+    const fallbackOffset = Number.isFinite(state.groundOffset) ? state.groundOffset : 230;
     const groundLine = Number.isFinite(resolvedGround)
       ? resolvedGround
       : (viewHeight - fallbackOffset);
