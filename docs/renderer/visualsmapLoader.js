@@ -672,12 +672,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     // Enable lighting in the scene using the renderer's lighting system
     console.log(`[visualsmapLoader] Enabling scene lighting with darkness and light effects`);
     if (renderer.enableLighting) {
-      // Enable lighting with very dark ambient for nighttime atmosphere
+      // Enable lighting with nighttime atmosphere but still visible
       renderer.enableLighting({
-        ambientIntensity: 0.05,  // Very low ambient for dark night
-        ambientColor: 0x1a1a2e,  // Deep blue/purple night color
-        directionalIntensity: 0.15,  // Very dim moonlight
-        directionalColor: 0x8899cc,  // Cool moonlight blue
+        ambientIntensity: 0.25,  // Darker than default but not pitch black
+        ambientColor: 0x2a2a40,  // Slight blue tint for night
+        directionalIntensity: 0.4,  // Dimmer moonlight
+        directionalColor: 0xaabbcc,  // Cool moonlight
         directionalPosition: { x: gridCenterX + 5, y: 10, z: gridCenterZ - 7.5 },
         castShadows: true
       });
@@ -685,7 +685,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       // Update materials on all loaded objects to respond to lighting
       if (renderer.updateMaterialsForLighting) {
         loadedObjects.forEach(obj => {
-          if (obj.isObject3D && !obj.isLight) {
+          if (obj && typeof obj.traverse === 'function' && !obj.isLight) {
             renderer.updateMaterialsForLighting(obj);
           }
         });

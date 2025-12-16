@@ -691,12 +691,20 @@ export class Renderer {
       }
 
       this.camera = null;
+      
+      // Reset lights to prevent memory leaks
+      this.lights = {
+        ambient: null,
+        directional: null,
+        point: []
+      };
     } catch (error) {
       console.error('Error during dispose:', error);
       this.emit('error', { phase: 'dispose', error });
     }
 
     this.initialized = false;
+    this.lightingEnabled = false;
     this.eventHandlers = { ready: [], error: [], frame: [] };
   }
 
