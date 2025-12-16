@@ -6395,6 +6395,14 @@ function boot(){
     // Ground Y
     lines.push(`<span style="color:#ff0">Ground Y:</span> ${config?.groundY?.toFixed(1) || 'N/A'}`);
     
+    // Ground-based camera diagnostics
+    if (config?.camera?.useGroundBasedY) {
+      const groundY = config?.groundY ?? 0;
+      const offset = config?.camera?.groundYOffset ?? 0;
+      const calculated = groundY + offset;
+      lines.push(`<span style="color:#888">Ground mode: ${groundY.toFixed(1)} + ${offset.toFixed(1)} = ${calculated.toFixed(1)}</span>`);
+    }
+    
     // Camera position
     if (camera) {
       lines.push(`<span style="color:#ff0">Camera Y:</span> ${camera.y?.toFixed(1)}`);
