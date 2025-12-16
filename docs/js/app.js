@@ -6118,8 +6118,8 @@ function boot(){
 
         // Get dimensions
         const rect = stageEl.getBoundingClientRect();
-        // Enforce standard aspect ratio for 3D background to match 2D canvas
-        const aspectRatio = CONFIG.aspectRatio || (16 / 9);
+        // Enforce standard aspect ratio for 3D background to match 2D canvas (21:9 ultrawide)
+        const aspectRatio = CONFIG.aspectRatio || (21 / 9);
         const width = rect.width || 800;
         const height = width / aspectRatio; // Calculate height from width to maintain aspect ratio
 
@@ -6187,8 +6187,8 @@ function boot(){
         THREE_BG_RESIZE_HANDLER = () => {
           if (!GAME_RENDERER_3D || !THREE_BG_CONTAINER) return;
           const rect = stageEl.getBoundingClientRect();
-          // Enforce standard aspect ratio for 3D background to match 2D canvas
-          const aspectRatio = CONFIG.aspectRatio || (16 / 9);
+          // Enforce standard aspect ratio for 3D background to match 2D canvas (21:9 ultrawide)
+          const aspectRatio = CONFIG.aspectRatio || (21 / 9);
           const width = rect.width || 800;
           const height = width / aspectRatio; // Calculate height from width to maintain aspect ratio
           if (typeof GAME_RENDERER_3D.resize === 'function') {

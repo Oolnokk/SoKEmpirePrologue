@@ -878,12 +878,13 @@ window.CONFIG = {
   },
   actor: { scale: 0.70 },
   groundRatio: 0.50,
-  // Standard aspect ratio for both 2D and 3D backgrounds (16:9)
+  // Standard aspect ratio for both 2D and 3D backgrounds (21:9 ultrawide/cinematic)
   // This ratio MUST be enforced across all background rendering to ensure alignment
-  aspectRatio: 16 / 9,
+  // 21:9 provides a wider, more immersive fullscreen-like experience
+  aspectRatio: 21 / 9,
   // Canvas dimensions must maintain aspectRatio: w/h should equal aspectRatio
-  // Current: 1280/720 = 1.777... = 16/9 ✓
-  canvas: { w: 1280, h: 720, scale: 1 },
+  // Current: 1680/720 = 2.333... = 21/9 ✓
+  canvas: { w: 1680, h: 720, scale: 1 },
   camera: {
     manualOffsetX: 0,
     // When true, the camera snaps each frame to keep the player centered (opt-in)
@@ -973,7 +974,7 @@ window.CONFIG = {
   },
   mapEditor: {
     // Map editor canvas should also maintain the standard aspectRatio for consistency
-    // If height is 460, width should be ~818 (460 * 16/9) to maintain 16:9 ratio
+    // If height is 460, width should be ~1073 (460 * 21/9) to maintain 21:9 ratio
     canvas: { height: 460 },
     ground: {
       offset: 140,
