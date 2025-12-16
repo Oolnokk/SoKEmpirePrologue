@@ -45,7 +45,8 @@ export function syncCameraPosition(renderer, gameCamera, config = {}) {
   const cfg = { ...CAMERA_SYNC_CONFIG, ...config };
   
   // Calculate 3D camera position based on game camera
-  const camX = (gameCamera.x || 0) * cfg.parallaxFactor;
+  // Negate X to move camera opposite to player movement (side-scrolling effect)
+  const camX = -(gameCamera.x || 0) * cfg.parallaxFactor;
   const camY = cfg.cameraHeight;
   const camZ = cfg.cameraDistance;
   
