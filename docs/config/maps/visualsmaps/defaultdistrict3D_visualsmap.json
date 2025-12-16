@@ -7666,184 +7666,406 @@
       ],
       [
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        }
+      ],
+      [
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
         }
       ],
       [
@@ -8030,184 +8252,406 @@
       ],
       [
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        }
+      ],
+      [
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
+        },
+        {
+          "type": "light_sphere",
+          "orientation": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "scaleZ": 1,
+          "offsetX": 0,
+          "offsetY": 0,
+          "lightIntensity": 2.5
         }
       ],
       [
@@ -8394,730 +8838,406 @@
       ],
       [
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         }
       ],
       [
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         },
         {
-          "type": null,
+          "type": "light_sphere",
           "orientation": 0,
           "scaleX": 1,
           "scaleY": 1,
           "scaleZ": 1,
           "offsetX": 0,
-          "offsetY": 0
-        }
-      ],
-      [
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        }
-      ],
-      [
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
-        },
-        {
-          "type": null,
-          "orientation": 0,
-          "scaleX": 1,
-          "scaleY": 1,
-          "scaleZ": 1,
-          "offsetX": 0,
-          "offsetY": 0
+          "offsetY": 0,
+          "lightIntensity": 2.5
         }
       ],
       [
@@ -11058,7 +11178,7 @@
           "scaleZ": 1,
           "offsetX": 0,
           "offsetY": 0,
-          "lightIntensity": 1.0
+          "lightIntensity": 1
         },
         "extraConfig": {
           "rotationX": 0,
