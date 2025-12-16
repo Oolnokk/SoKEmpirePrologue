@@ -6361,6 +6361,13 @@ function boot(){
       lines.push(`  top: ${pb.top ?? 'missing'}, bottom: ${pb.bottom ?? 'missing'}`);
     }
     
+    // Debug: Show source of bounds
+    if (areaBounds) {
+      lines.push(`<span style="color:#888">  (from area: ${JSON.stringify(areaBounds)})</span>`);
+    } else if (configBounds) {
+      lines.push(`<span style="color:#888">  (from config: ${JSON.stringify(configBounds)})</span>`);
+    }
+    
     // Camera bounds
     if (camera?.verticalBounds) {
       lines.push(`<span style="color:#ff0">Camera V-Bounds:</span>`);
