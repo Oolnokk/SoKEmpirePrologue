@@ -531,9 +531,10 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             const pathAdjustment = (alignWorldToPath && Number.isFinite(pathYawRad)) ? pathYawRad : 0;
 
             // Apply orientation and path alignment (world-space rotation)
+            // Use rotateOnWorldAxis to rotate around world Y (vertical) regardless of template's rotationX
             const finalOrientationRad = ((orientationDeg * Math.PI) / 180) - pathAdjustment;
             if (finalOrientationRad !== 0) {
-              object.rotateY(finalOrientationRad);
+              object.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), finalOrientationRad);
             }
 
             // Add object to renderer
