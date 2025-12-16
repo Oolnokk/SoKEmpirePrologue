@@ -110,8 +110,12 @@ export class Renderer {
       this.renderer.setSize(this.width, this.height);
       
       // Enable shadows for lighting effects
-      this.renderer.shadowMap.enabled = true;
-      this.renderer.shadowMap.type = this.THREE.PCFSoftShadowMap;
+      if (this.renderer.shadowMap) {
+        this.renderer.shadowMap.enabled = true;
+        if (this.THREE.PCFSoftShadowMap !== undefined) {
+          this.renderer.shadowMap.type = this.THREE.PCFSoftShadowMap;
+        }
+      }
 
       // Attach to container if provided
       if (this.container && this.container.appendChild) {
