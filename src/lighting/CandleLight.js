@@ -77,14 +77,17 @@ export function createCandleLight(THREE, options = {}) {
   geometry.computeVertexNormals();
 
   // Create material with emissive properties
-  const material = new THREE.MeshStandardMaterial({
+  // Use MeshBasicMaterial for better performance and no lighting dependency
+  const material = new THREE.MeshBasicMaterial({
     color: color,
-    emissive: color,
-    emissiveIntensity: emissiveIntensity,
     transparent: true,
     opacity: opacity,
     side: THREE.DoubleSide
   });
+
+  // Store emissive properties for day/night system
+  material.emissive = new THREE.Color(color);
+  material.emissiveIntensity = emissiveIntensity;
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'candleLight';

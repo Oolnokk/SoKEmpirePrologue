@@ -692,17 +692,15 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       // Check if this is a tower structure
       if (obj.userData?.assetType && isTowerStructure(obj.userData.assetType)) {
         const candleLight = addCandleLightToTower(obj, renderer.THREE, dayNightSystem, {
-          withGlow: true,
+          withGlow: false, // Disable point lights to avoid shader uniform limit
           topWidth: 0.8,
           topDepth: 0.8,
           bottomWidth: 0.5,
           bottomDepth: 0.5,
           height: 1.5,
           color: 0xffbb66,
-          emissiveIntensity: 0.8,
-          opacity: 0.6,
-          lightIntensity: 1.5,
-          lightDistance: 8,
+          emissiveIntensity: 1.2, // Increased for visibility without point light
+          opacity: 0.8,
           autoPosition: true
         });
         candleLightCount++;
