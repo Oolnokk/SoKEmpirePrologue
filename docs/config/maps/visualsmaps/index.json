@@ -42,7 +42,26 @@
       "yOffset": 0.12,
       "forwardOffsetDeg": 0,
       "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
-      "extraConfig": { "rotationX": 90 }
+      "extraConfig": { 
+        "rotationX": 90,
+        "attachmentPoints": [
+          {
+            "id": "rooftop_left",
+            "label": "Rooftop Left",
+            "offset": { "x": -0.8, "y": 3.5, "z": 0 }
+          },
+          {
+            "id": "rooftop_right",
+            "label": "Rooftop Right",
+            "offset": { "x": 0.8, "y": 3.5, "z": 0 }
+          },
+          {
+            "id": "rooftop_center",
+            "label": "Rooftop Center",
+            "offset": { "x": 0, "y": 3.8, "z": 0 }
+          }
+        ]
+      }
     }
   ]
 }
