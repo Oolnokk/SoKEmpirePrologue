@@ -28,7 +28,7 @@
 	],
 	"materials":[
 		{
-			"alphaMode":"BLEND",
+			"alphaMode":"OPAQUE",
 			"doubleSided":true,
 			"extras":{
 				"niftools":{
@@ -46,7 +46,7 @@
 			}
 		},
 		{
-			"alphaMode":"BLEND",
+			"alphaMode":"OPAQUE",
 			"doubleSided":true,
 			"extras":{
 				"niftools":{
@@ -63,7 +63,7 @@
 			}
 		},
 		{
-			"alphaMode":"BLEND",
+			"alphaMode":"OPAQUE",
 			"doubleSided":true,
 			"extras":{
 				"niftools":{
