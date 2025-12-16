@@ -457,6 +457,11 @@
     }
 
     function isPointInEntity(wx, wy, entity) {
+      // Ensure meta exists
+      if (!entity.meta) {
+        entity.meta = {};
+      }
+
       if (entity.type === 'collider') {
         const shape = entity.meta.shape || 'rectangle';
         if (shape === 'rectangle') {
@@ -520,7 +525,7 @@
       // Group patrol points by routeId
       const routes = {};
       mapData.entities.forEach(entity => {
-        if (entity.type === 'patrol' && entity.meta.routeId) {
+        if (entity.type === 'patrol' && entity.meta && entity.meta.routeId) {
           if (!routes[entity.meta.routeId]) {
             routes[entity.meta.routeId] = [];
           }
@@ -612,6 +617,11 @@
     function drawEntity(entity, isSelected) {
       const color = getEntityColor(entity.type);
       const scr = worldToScreen(entity.x, entity.y);
+
+      // Ensure meta exists
+      if (!entity.meta) {
+        entity.meta = {};
+      }
 
       if (entity.type === 'collider') {
         const shape = entity.meta.shape || 'rectangle';

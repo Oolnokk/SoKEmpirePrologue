@@ -108,7 +108,12 @@
       "id": "collider_ground",
       "type": "collider",
       "x": 250,
-      "y": 130
+      "y": 130,
+      "meta": {
+        "shape": "rectangle",
+        "width": 100,
+        "height": 100
+      }
     }
   ]
 }
