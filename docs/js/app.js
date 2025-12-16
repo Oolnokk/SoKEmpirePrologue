@@ -6134,9 +6134,10 @@ function boot(){
         await GAME_RENDERER_3D.init();
 
         // Initialize uniform scale for consistent 3D/2D rendering
+        const DEFAULT_REFERENCE_HEIGHT = 600; // Matches REFERENCE_HEIGHT in config.js
         const initialUniformScale = typeof window.getUniformScale === 'function'
           ? window.getUniformScale(height)
-          : height / 600; // fallback to default reference height
+          : height / DEFAULT_REFERENCE_HEIGHT;
         if (window.GAME && window.GAME.CAMERA) {
           window.GAME.CAMERA.uniformScale = initialUniformScale;
         }
@@ -6197,9 +6198,10 @@ function boot(){
           const height = rect.height || 600;
           
           // Calculate uniform scale factor for consistent 3D/2D rendering
+          const DEFAULT_REFERENCE_HEIGHT = 600; // Matches REFERENCE_HEIGHT in config.js
           const uniformScale = typeof window.getUniformScale === 'function'
             ? window.getUniformScale(height)
-            : height / 600; // fallback to default reference height
+            : height / DEFAULT_REFERENCE_HEIGHT;
           
           // Store uniform scale in GAME.CAMERA for access by 2D rendering systems
           if (window.GAME && window.GAME.CAMERA) {
