@@ -5,6 +5,8 @@
 
 import { projectToGroundPlane } from './scene3d.js';
 import { applyAssetRotations } from './gltfTransforms.js';
+import { DayNightSystem } from '../../src/lighting/DayNightSystem.js';
+import { addCandleLightToTower, isTowerStructure } from '../../src/lighting/TowerLightingIntegration.js';
 
 const VISUALSMAP_INDEX_CACHE = {
   loaded: false,
@@ -537,6 +539,10 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               object.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), finalOrientationRad);
             }
 
+            // Tag object with asset type for later identification (day/night system, etc.)
+            object.userData.assetType = cell.type;
+            object.name = object.name || cell.type;
+
             // Add object to renderer
             renderer.add(object);
             loadedObjects.push(object);
@@ -640,22 +646,83 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log(`[visualsmapLoader] ✓ Camera type:`, renderer.camera.type);
     }
 
-    // Add lighting to the scene
-    console.log(`[visualsmapLoader] Adding scene lighting`);
+    // Initialize day/night lighting system (night by default)
+    console.log(`[visualsmapLoader] Initializing day/night lighting system`);
+    const dayNightSystem = new DayNightSystem({
+      defaultToNight: true,
+      transitionDuration: 2000
+    });
+
+    // Add ambient and directional lights
     const ambientLight = new renderer.THREE.AmbientLight(0xffffff, 0.6);
     renderer.add(ambientLight);
-    loadedObjects.push(ambientLight); // Track for disposal
+    loadedObjects.push(ambientLight);
 
     const directionalLight = new renderer.THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(gridCenterX + 500, 1000, gridCenterZ - 500);
     directionalLight.target.position.set(gridCenterX, 0, gridCenterZ);
     renderer.add(directionalLight);
     renderer.add(directionalLight.target);
-    loadedObjects.push(directionalLight, directionalLight.target); // Track for disposal
+    loadedObjects.push(directionalLight, directionalLight.target);
+
+    // Update lights when day/night changes
+    const updateSceneLighting = () => {
+      const config = dayNightSystem.getCurrentLightingConfig();
+      ambientLight.color.setHex(config.ambientColor);
+      ambientLight.intensity = config.ambientIntensity;
+      directionalLight.intensity = config.hemisphereIntensity * 1.5;
+    };
+
+    dayNightSystem.on('timeChange', updateSceneLighting);
+    updateSceneLighting(); // Set initial state
+
+    // Hook into renderer's frame update to update day/night transitions
+    const frameUpdateHandler = ({ time }) => {
+      dayNightSystem.update(0); // deltaTime handled internally by DayNightSystem
+    };
+    renderer.on('frame', frameUpdateHandler);
+
+    // Add candle lights to all tower structures
+    console.log(`[visualsmapLoader] Adding candle lights to tower structures`);
+    let candleLightCount = 0;
+    for (const obj of loadedObjects) {
+      // Skip lights and other non-3D objects
+      if (obj.isLight) continue;
+
+      // Check if this is a tower structure
+      if (obj.userData?.assetType && isTowerStructure(obj.userData.assetType)) {
+        const candleLight = addCandleLightToTower(obj, renderer.THREE, dayNightSystem, {
+          withGlow: true,
+          topWidth: 0.8,
+          topDepth: 0.8,
+          bottomWidth: 0.5,
+          bottomDepth: 0.5,
+          height: 1.5,
+          color: 0xffbb66,
+          emissiveIntensity: 0.8,
+          opacity: 0.6,
+          lightIntensity: 1.5,
+          lightDistance: 8,
+          autoPosition: true
+        });
+        candleLightCount++;
+      }
+    }
+    console.log(`[visualsmapLoader] ✓ Added ${candleLightCount} candle lights to towers`);
+
+    // Store day/night system reference for external control
+    if (typeof window !== 'undefined') {
+      window.dayNightSystem = dayNightSystem;
+      console.log(`[visualsmapLoader] ✓ Day/night system available via window.dayNightSystem`);
+      console.log(`[visualsmapLoader]   Usage: window.dayNightSystem.toggle() to switch day/night`);
+    }
 
     return {
       objects: loadedObjects,
+      dayNightSystem: dayNightSystem,
       dispose: () => {
+        renderer.off('frame', frameUpdateHandler);
+        dayNightSystem.dispose();
         loadedObjects.forEach(obj => renderer.remove(obj));
         loadedObjects.length = 0;
       }
