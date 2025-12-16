@@ -6319,6 +6319,12 @@ function boot(){
     const debugContent = document.getElementById('debugContent');
     if (!debugContent) return;
 
+    // Check if game is initialized before accessing game state
+    if (!window.GAME || !window.GAME.bootComplete) {
+      debugContent.innerHTML = 'Waiting for game to initialize...';
+      return;
+    }
+
     const area = window.GAME?.mapRegistry?.getActiveArea();
     const camera = window.GAME?.CAMERA;
     const player = window.GAME?.FIGHTERS?.player;
@@ -6361,7 +6367,9 @@ function boot(){
   }
 
   // Set up interval to update camera debug overlay
-  setInterval(updateCameraDebugOverlay, 250); // Update 4 times per second
+  // Store interval ID for potential cleanup
+  window.GAME ||= {};
+  window.GAME.debugInterval = setInterval(updateCameraDebugOverlay, 250); // Update 4 times per second
 
   boot();
 })();
