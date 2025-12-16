@@ -388,14 +388,22 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
     for (const layerName of layerOrder) {
       const layer = layerStates[layerName];
-      if (!layer || !Array.isArray(layer)) continue;
+      if (!layer || !Array.isArray(layer)) {
+        console.log(`[visualsmapLoader] Skipping layer ${layerName}: ${!layer ? 'null/undefined' : 'not an array'}`);
+        continue;
+      }
 
-      console.log(`[visualsmapLoader] Processing layer: ${layerName}`);
+      console.log(`[visualsmapLoader] Processing layer: ${layerName} (${layer.length} rows)`);
 
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
           const cell = layer[row]?.[col];
           if (!cell || !cell.type) continue;
+          
+          // Enhanced logging for light spheres
+          if (cell.type === 'light_sphere') {
+            console.log(`[visualsmapLoader] Found light_sphere at (${row},${col}) in layer ${layerName}`);
+          }
 
           // Load asset config if not cached; prefer inline or visualsmap index metadata
           if (!assetCache.has(cell.type)) {
