@@ -373,7 +373,7 @@
 
     // ===== Canvas Setup =====
     const canvas = document.getElementById('mapCanvas');
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: true });
 
     function resizeCanvas() {
       const rect = canvas.getBoundingClientRect();
@@ -476,9 +476,8 @@
 
     // ===== Drawing Functions =====
     function redraw() {
-      // Clear canvas
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Clear canvas (transparent to show 3D background)
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Draw ground line
       drawGroundLine();
