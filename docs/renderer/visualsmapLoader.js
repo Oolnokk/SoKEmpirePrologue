@@ -541,6 +541,14 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             renderer.add(object);
             loadedObjects.push(object);
 
+            // Apply emissive properties if emissive manager is available
+            if (renderer.emissiveManager) {
+              // Try to apply emissive properties for this asset type
+              // First try as structure, then as decoration
+              const assetType = cell.type || assetConfig.id;
+              renderer.applyEmissiveProperties(object, assetType, 'structures');
+            }
+
             // Log only first few placements per layer to avoid spam, then summary
             const LOG_SAMPLE_INTERVAL = 20; // Log every Nth placement to reduce console spam
             const isFirstInLayer = loadedObjects.length % LOG_SAMPLE_INTERVAL === 1;
@@ -640,18 +648,23 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log(`[visualsmapLoader] ✓ Camera type:`, renderer.camera.type);
     }
 
-    // Add lighting to the scene
-    console.log(`[visualsmapLoader] Adding scene lighting`);
-    const ambientLight = new renderer.THREE.AmbientLight(0xffffff, 0.6);
-    renderer.add(ambientLight);
-    loadedObjects.push(ambientLight); // Track for disposal
+    // Add lighting to the scene (only if time of day system is not active)
+    // The time of day system manages its own lights via LightingManager
+    if (!renderer.lightingManager) {
+      console.log(`[visualsmapLoader] Adding scene lighting`);
+      const ambientLight = new renderer.THREE.AmbientLight(0xffffff, 0.6);
+      renderer.add(ambientLight);
+      loadedObjects.push(ambientLight); // Track for disposal
 
-    const directionalLight = new renderer.THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(gridCenterX + 500, 1000, gridCenterZ - 500);
-    directionalLight.target.position.set(gridCenterX, 0, gridCenterZ);
-    renderer.add(directionalLight);
-    renderer.add(directionalLight.target);
-    loadedObjects.push(directionalLight, directionalLight.target); // Track for disposal
+      const directionalLight = new renderer.THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(gridCenterX + 500, 1000, gridCenterZ - 500);
+      directionalLight.target.position.set(gridCenterX, 0, gridCenterZ);
+      renderer.add(directionalLight);
+      renderer.add(directionalLight.target);
+      loadedObjects.push(directionalLight, directionalLight.target); // Track for disposal
+    } else {
+      console.log(`[visualsmapLoader] Time of day lighting is active, skipping static lights`);
+    }
 
     return {
       objects: loadedObjects,

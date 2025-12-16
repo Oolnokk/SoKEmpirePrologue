@@ -1,5 +1,40 @@
 # SoKEmpirePrologue
 
+## Time of Day System
+
+This project features a dynamic time of day system with:
+- **Day/night cycle** with smooth transitions between dawn, day, dusk, and night
+- **Dynamic lighting** that affects scene ambience and brightness
+- **Emissive objects** (torches, lanterns, fires) that glow stronger at night
+- **Configurable time speed** and starting time
+
+### Quick Start
+
+```javascript
+import { createRenderer } from './src/renderer/index.js';
+
+const renderer = createRenderer({
+  container: document.getElementById('canvas-container'),
+  timeOfDay: {
+    enabled: true,
+    startHour: 12,
+    speed: 1.0,
+    emissiveConfigUrl: './config/emissive-config.json',
+  },
+});
+
+await renderer.init();
+renderer.start();
+```
+
+### Interactive Demo
+
+View the interactive demo at [docs/time-of-day-demo.html](docs/time-of-day-demo.html) with live controls for time manipulation.
+
+### Documentation
+
+See [docs/TIME_OF_DAY_GUIDE.md](docs/TIME_OF_DAY_GUIDE.md) for complete usage instructions, API reference, and examples.
+
 ## Editing Visual Asset Configuration
 
 When editing the visual asset configuration file at `docs/config/maps/visualsmaps/index.json`, your changes may not appear immediately due to browser caching. Here's how to see your changes:
