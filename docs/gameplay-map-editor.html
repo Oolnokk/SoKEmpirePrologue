@@ -1257,7 +1257,7 @@
     let groundGroup, structureGroup, decorationGroup;
     let gltfLoader = null;
     let ALL_ASSETS = [];
-    const CELL_SIZE = 2;
+    const CELL_SIZE = 30; // Match GRID_UNIT_WORLD_SIZE from game
     
     const threeContainer = document.getElementById('threeViewport');
     const overlay = document.getElementById('threeOverlay');
@@ -1520,9 +1520,12 @@
     }
 
     function cellToWorld(row, col, rows, cols) {
+      // Match visualsmapLoader.js grid centering: (rows-1)/2 instead of rows/2
+      const halfRows = (rows - 1) / 2;
+      const halfCols = (cols - 1) / 2;
       return {
-        x: (col - cols / 2) * CELL_SIZE,
-        z: -(row - rows / 2) * CELL_SIZE
+        x: (col - halfCols) * CELL_SIZE,
+        z: -(row - halfRows) * CELL_SIZE
       };
     }
 
@@ -1549,19 +1552,46 @@
       const pathAngle = Math.atan2(dy, dx);
 
       // Rotate world so gameplayPath aligns with our horizontal ground line
-      if (data.alignWorldToPath !== false) {
+      const alignWorldToPath = data.alignWorldToPath !== false;
+      if (alignWorldToPath) {
         worldRoot.rotation.y = -pathAngle;
       }
 
-      // Calculate path center for camera positioning
-      const centerRow = (startRow + endRow) / 2;
-      const centerCol = (startCol + endCol) / 2;
-      const centerX = (centerCol - data.cols / 2) * CELL_SIZE;
-      const centerZ = -(centerRow - data.rows / 2) * CELL_SIZE;
+      // Position camera aligned with gameplay path (match visualsmapLoader.js logic)
+      const gridCenterX = 0;
+      const gridCenterZ = 0;
 
-      // Position camera to look at the gameplay path
-      camera.position.set(centerX, 30, centerZ + 40);
-      camera.lookAt(centerX, 0, centerZ);
+      let cameraX, cameraY, cameraZ, lookAtX, lookAtY, lookAtZ;
+
+      if (alignWorldToPath) {
+        // Side-scrolling camera aligned with gameplay path
+        // Position camera to the side of the path (negative Z = south)
+        cameraX = gridCenterX; // Center on the path horizontally
+        cameraY = CELL_SIZE * 0.8; // Height to see the ground plane and structures
+        cameraZ = -CELL_SIZE * 1.2; // Distance from path (negative Z = viewer side)
+
+        // Look at the center of the path
+        lookAtX = gridCenterX;
+        lookAtY = CELL_SIZE * 0.3; // Look slightly above ground level
+        lookAtZ = gridCenterZ;
+      } else {
+        // Fallback: top-down view of entire grid
+        const gridWidth = (data.cols - 1) * CELL_SIZE;
+        const gridDepth = (data.rows - 1) * CELL_SIZE;
+        const cameraDistance = Math.max(gridWidth, gridDepth) * 0.3;
+        cameraX = gridCenterX;
+        cameraY = cameraDistance * 1.5;
+        cameraZ = gridCenterZ - cameraDistance;
+        lookAtX = gridCenterX;
+        lookAtY = 0;
+        lookAtZ = gridCenterZ;
+      }
+
+      camera.position.set(cameraX, cameraY, cameraZ);
+      camera.lookAt(lookAtX, lookAtY, lookAtZ);
+
+      console.log(`[gameplay-editor] Camera position: (${cameraX.toFixed(1)}, ${cameraY.toFixed(1)}, ${cameraZ.toFixed(1)})`);
+      console.log(`[gameplay-editor] Camera look-at: (${lookAtX.toFixed(1)}, ${lookAtY.toFixed(1)}, ${lookAtZ.toFixed(1)})`);
 
       // Fallback materials for when models aren't loaded
       const segmentFallbackMat = new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.7, metalness: 0.2 });
@@ -1593,9 +1623,15 @@
               console.log(`[gameplay-editor] Using fallback box for ground: ${asset.label} (${cell.type})`);
             }
 
-            // Apply baseScale to both GLTF models and fallback boxes
-            obj.scale.set(asset.baseScale.x, asset.baseScale.y, asset.baseScale.z);
-            obj.position.set(x, asset.baseScale.y * 0.5 + asset.yOffset, z);
+            // Apply baseScale with CELL_SIZE factor (match visualsmapLoader.js inline asset scaling)
+            const scaleX = asset.baseScale.x * CELL_SIZE;
+            const scaleY = asset.baseScale.y * CELL_SIZE;
+            const scaleZ = asset.baseScale.z * CELL_SIZE;
+            obj.scale.set(scaleX, scaleY, scaleZ);
+
+            // Position with Y offset scaled by CELL_SIZE
+            const yOffset = asset.yOffset * CELL_SIZE;
+            obj.position.set(x, yOffset, z);
 
             obj.receiveShadow = true;
             groundGroup.add(obj);
@@ -1635,19 +1671,20 @@
               console.log(`[gameplay-editor] Using fallback box for structure: ${asset.label} (${cell.type})`);
             }
 
-            const baseX = asset.baseScale.x;
-            const baseY = asset.baseScale.y;
-            const baseZ = asset.baseScale.z;
-
-            // Apply both baseScale and instance scale
-            obj.scale.set(baseX * sx, baseY * sy, baseZ * sz);
+            // Apply baseScale with CELL_SIZE factor and instance scale (match visualsmapLoader.js)
+            const instanceScaleX = sx * asset.baseScale.x * CELL_SIZE;
+            const instanceScaleY = sy * asset.baseScale.y * CELL_SIZE;
+            const instanceScaleZ = sz * asset.baseScale.z * CELL_SIZE;
+            obj.scale.set(instanceScaleX, instanceScaleY, instanceScaleZ);
 
             // Rotate around world Y axis (vertical) for proper orientation
             obj.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), angle);
 
+            // Position with Y offset scaled by CELL_SIZE
+            const yOffset = asset.yOffset * CELL_SIZE;
             obj.position.set(
               x + offX,
-              (baseY * sy) * 0.5 + asset.yOffset,
+              yOffset,
               z + offZ
             );
 
