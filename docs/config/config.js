@@ -348,9 +348,9 @@ const MOVEMENT_PROFILES = {
 };
 
 const MOVEMENT_SPEED_MULTIPLIERS = {
-  combat: -0.25,
-  nonCombat: -0.15,
-  sneak: -0.15,
+  combat: 0.25,
+  nonCombat: 0.15,
+  sneak: 0.15,
 };
 
 // === ARM STANCES: Weapon-specific arm positions ===
