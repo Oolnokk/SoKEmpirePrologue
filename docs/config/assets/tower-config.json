@@ -3,11 +3,11 @@
   "label": "Tower",
   "gltfPath": "./docs/assets/3D/structures/tower_commercial3D_t.gltf",
   "baseScale": {
-    "x": 0.2,
-    "y": 0.2,
-    "z": 0.2
+    "x": 0.35,
+    "y": 0.35,
+    "z": 0.35
   },
-  "yOffset": 0.12,
+  "yOffset": 0.5,
   "forwardOffsetDeg": 0,
   "instanceDefaults": {
     "orientation": 0,
