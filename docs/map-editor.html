@@ -1734,7 +1734,10 @@ select {
         // GLTF templates are normalized to 1.0, so baseScale sets their base size
         obj.scale.set(baseX * sx, baseY * sy, baseZ * sz);
 
-        obj.rotation.y = angle;
+        // Rotate around world Y axis (vertical) for proper orientation
+        // Using rotateOnWorldAxis instead of rotation.y to work correctly after template's rotationX
+        obj.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), angle);
+
         obj.position.set(
           x + offX,
           (baseY * sy) * 0.5 + asset.yOffset,
