@@ -1220,11 +1220,12 @@ export function renderSprites(ctx){
 
   // Calculate uniform scale factor for consistent 3D/2D scaling
   // Use stored uniformScale from GAME.CAMERA if available, otherwise calculate it
+  const DEFAULT_REFERENCE_HEIGHT = 600; // Matches REFERENCE_HEIGHT in config.js
   let uniformScale = G.CAMERA?.uniformScale;
   if (!Number.isFinite(uniformScale) || uniformScale <= 0) {
     uniformScale = typeof window.getUniformScale === 'function'
       ? window.getUniformScale(canvasHeight)
-      : canvasHeight / 600; // fallback to default reference height of 600
+      : canvasHeight / DEFAULT_REFERENCE_HEIGHT;
   }
 
   // Apply uniform scale to the effective zoom

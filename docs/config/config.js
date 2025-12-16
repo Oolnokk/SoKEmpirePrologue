@@ -867,6 +867,11 @@ const REFERENCE_HEIGHT = 600;
 // Helper function to calculate uniform scale factor based on current viewport height
 // This ensures 3D and 2D elements scale together at the same rate
 window.getUniformScale = function(currentHeight) {
+  // Validate input to handle edge cases
+  if (!Number.isFinite(currentHeight) || currentHeight <= 0) {
+    console.warn('[getUniformScale] Invalid height:', currentHeight, '- using reference height');
+    return 1; // Return scale of 1 (no scaling) for invalid input
+  }
   const refHeight = window.CONFIG?.camera?.referenceHeight || REFERENCE_HEIGHT;
   return currentHeight / refHeight;
 };

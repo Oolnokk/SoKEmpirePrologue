@@ -88,14 +88,14 @@ export class Renderer {
       this.scene.background = new this.THREE.Color(this.clearColor);
 
       // Create camera (default perspective)
+      // FOV kept constant at 50 degrees for uniform scaling
       this.camera = new this.THREE.PerspectiveCamera(
-        50, // fov (kept constant for uniform scaling)
+        50,
         this.width / this.height,
         0.1,
         1000
       );
-      // Store the initial camera Z position as the base distance
-      this.baseCameraDistance = 10;
+      // baseCameraDistance is already initialized in constructor
       this.camera.position.set(0, 5, this.baseCameraDistance);
       this.camera.lookAt(0, 0, 0);
 
@@ -143,10 +143,11 @@ export class Renderer {
     try {
       // Calculate uniform scale factor based on viewport height
       // This keeps objects at consistent sizes regardless of aspect ratio
+      const DEFAULT_REFERENCE_HEIGHT = 600; // Matches REFERENCE_HEIGHT in config.js
       const uniformScale = typeof globalThis !== 'undefined' && 
                           typeof globalThis.getUniformScale === 'function'
         ? globalThis.getUniformScale(height)
-        : height / 600; // fallback to default reference height of 600
+        : height / DEFAULT_REFERENCE_HEIGHT;
 
       // Update camera aspect ratio (standard for any resize)
       this.camera.aspect = width / height;
