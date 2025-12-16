@@ -1,34 +1,28 @@
 {
   "asset": {
-    "generator": "SoK Empire Prologue - Light Sphere Generator v2",
-    "version": "2.0"
+    "version": "2.0",
+    "generator": "Manual Cube GLTF"
   },
   "scene": 0,
   "scenes": [
     {
-      "name": "Light Sphere Scene",
-      "nodes": [
-        0
-      ]
+      "nodes": [0]
     }
   ],
   "nodes": [
     {
-      "name": "LightSphere",
       "mesh": 0
     }
   ],
   "meshes": [
     {
-      "name": "Sphere",
       "primitives": [
         {
           "attributes": {
             "POSITION": 0,
-            "NORMAL": 1,
-            "TEXCOORD_0": 2
+            "NORMAL": 1
           },
-          "indices": 3,
+          "indices": 2,
           "material": 0
         }
       ]
@@ -36,58 +30,33 @@
   ],
   "materials": [
     {
-      "name": "EmissiveLight",
       "pbrMetallicRoughness": {
-        "baseColorFactor": [
-          1.0,
-          1.0,
-          1.0,
-          1.0
-        ],
+        "baseColorFactor": [1.0, 1.0, 1.0, 1.0],
         "metallicFactor": 0.0,
         "roughnessFactor": 0.5
       },
-      "emissiveFactor": [
-        5.0,
-        4.75,
-        4.0
-      ],
-      "doubleSided": false
+      "emissiveFactor": [5.0, 4.75, 4.0]
     }
   ],
   "accessors": [
     {
       "bufferView": 0,
       "componentType": 5126,
-      "count": 12,
+      "count": 24,
       "type": "VEC3",
-      "max": [
-        0.5,
-        0.5,
-        0.5
-      ],
-      "min": [
-        -0.5,
-        -0.5,
-        -0.5
-      ]
+      "max": [0.5, 0.5, 0.5],
+      "min": [-0.5, -0.5, -0.5]
     },
     {
       "bufferView": 1,
       "componentType": 5126,
-      "count": 12,
+      "count": 24,
       "type": "VEC3"
     },
     {
       "bufferView": 2,
-      "componentType": 5126,
-      "count": 12,
-      "type": "VEC2"
-    },
-    {
-      "bufferView": 3,
       "componentType": 5123,
-      "count": 60,
+      "count": 36,
       "type": "SCALAR"
     }
   ],
@@ -95,32 +64,23 @@
     {
       "buffer": 0,
       "byteOffset": 0,
-      "byteLength": 144,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteOffset": 144,
-      "byteLength": 144,
-      "target": 34962
+      "byteLength": 288
     },
     {
       "buffer": 0,
       "byteOffset": 288,
-      "byteLength": 96,
-      "target": 34962
+      "byteLength": 288
     },
     {
       "buffer": 0,
-      "byteOffset": 384,
-      "byteLength": 120,
-      "target": 34963
+      "byteOffset": 576,
+      "byteLength": 72
     }
   ],
   "buffers": [
     {
-      "uri": "data:application/octet-stream;base64,UJaGvkDE2T4AAAAAUJaGPkDE2T4AAAAAUJaGvkDE2b4AAAAAUJaGPkDE2b4AAAAAAAAAAFCWhr5AxNk+AAAAAFCWhj5AxNk+AAAAAFCWhr5AxNm+AAAAAFCWhj5AxNm+QMTZPgAAAABQloa+QMTZPgAAAABQloY+QMTZvgAAAABQloa+QMTZvgAAAABQloY+UJYGv0DEWT8AAAAAUJYGP0DEWT8AAAAAUJYGv0DEWb8AAAAAUJYGP0DEWb8AAAAAAAAAAFCWBr9AxFk/AAAAAFCWBj9AxFk/AAAAAFCWBr9AxFm/AAAAAFCWBj9AxFm/QMRZPwAAAABQlga/QMRZPwAAAABQlgY/QMRZvwAAAABQlga/QMRZvwAAAABQlgY/AACAPuxvND4AAEA/7G80PgAAgD4F5FI/AABAPwXkUj8AAAA/+xstPwAAAD8KyKU+AACAP/sbLT8AAIA/CsilPv2NVj8AAAA/A3IpPwAAAD8KyCU+AAAAP/sbrT4AAAA/AAALAAUAAAAFAAEAAAABAAcAAAAHAAoAAAAKAAsAAQAFAAkABQALAAQACwAKAAIACgAHAAYABwABAAgAAwAJAAQAAwAEAAIAAwACAAYAAwAGAAgAAwAIAAkABAAJAAUAAgAEAAsABgACAAoACAAGAAcACQAIAAEA",
-      "byteLength": 504
+      "byteLength": 648,
+      "uri": "data:application/octet-stream;base64,AAAgvwAAID8AACA/AAAgPwAAID8AACA/AAAgPwAAID8AACA/AAAgvwAAID8AACA/AAAgvwAAIL8AACA/AAAgPwAAIL8AACA/AAAgPwAAIL8AACA/AAAgvwAAIL8AACA/AAAgvwAAIL8AACA/AAAgPwAAIL8AACA/AAAgPwAAIL8AACAvAAAgPwAAIL8AACAvAAAgvwAAIL8AACAvAAAgvwAAIL8AACAvAAAgvwAAID8AACAvAAAgPwAAID8AACAvAAAgPwAAID8AACAvAAAgvwAAID8AACAvAAAgvwAAID8AACA/AAAgvwAAIL8AACA/AAAgvwAAIL8AACA/AAAgvwAAID8AACA/AAAgPwAAID8AACA/AAAgPwAAIL8AACA/AAAgPwAAIL8AACA/AAAgPwAAID8AACA/AAAgPwAAID8AACAvAAAgPwAAIL8AACAvAAAgPwAAIL8AACAvAAAgPwAAID8AACAvAAAgvwAAID8AACAvAAAgvwAAIL8AACAvAAAgvwAAIL8AACAvAAAgvwAAID8AACAvAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAIA/AAAAAAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAACAvwAAAAAAAAAAAACAvwAAgL8AAAAAAAAAAAAAAAAAAAAAAACAvwAAgL8AAAAAAAAAAAAQABEAEAASABEAEQATAA4ADwATAA8AFAAIAAkACgAJAAsACgAAAAEAAgADAAQABQAGAAcABQAHAAwADQAM"
     }
   ]
 }
