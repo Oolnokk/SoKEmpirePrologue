@@ -668,13 +668,14 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       }
     } else {
       // Fallback to old lighting system if new methods not available
-      console.warn('[visualsmapLoader] ⚠ New lighting system not available, using fallback');
-      const ambientLight = new renderer.THREE.AmbientLight(0xffffff, 0.6);
+      console.warn('[visualsmapLoader] ⚠ New lighting system not available, using fallback with nighttime settings');
+      // Use same nighttime settings as new system for consistency
+      const ambientLight = new renderer.THREE.AmbientLight(0x2a2a40, 0.25);
       renderer.add(ambientLight);
       loadedObjects.push(ambientLight);
 
-      const directionalLight = new renderer.THREE.DirectionalLight(0xffffff, 0.8);
-      directionalLight.position.set(gridCenterX + 500, 1000, gridCenterZ - 500);
+      const directionalLight = new renderer.THREE.DirectionalLight(0xaabbcc, 0.4);
+      directionalLight.position.set(gridCenterX + 5, 10, gridCenterZ - 7.5);
       directionalLight.target.position.set(gridCenterX, 0, gridCenterZ);
       renderer.add(directionalLight);
       renderer.add(directionalLight.target);
