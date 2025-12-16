@@ -299,7 +299,7 @@ const ensureWeaponStances = (config) => {
 const MOVEMENT_PROFILES = {
   combat: {
     enabled: true,
-    baseHz: 1.3,
+    baseHz: 0.6,
     speedScale: 1,
     minSpeed: 80,
     amp: 1.0,
@@ -348,9 +348,9 @@ const MOVEMENT_PROFILES = {
 };
 
 const MOVEMENT_SPEED_MULTIPLIERS = {
-  combat: 0.25,
-  nonCombat: 0.15,
-  sneak: 0.15,
+  combat: 1.25,
+  nonCombat: 0.5,
+  sneak: 0.3,
 };
 
 // === ARM STANCES: Weapon-specific arm positions ===
