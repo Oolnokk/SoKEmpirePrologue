@@ -66,6 +66,24 @@ export class Renderer {
   }
 
   /**
+   * Get the current uniform scale factor
+   * @private
+   * @param {number} height - Current viewport height
+   * @returns {number} Uniform scale factor
+   */
+  getUniformScale(height) {
+    const DEFAULT_REFERENCE_HEIGHT = 600; // Matches REFERENCE_HEIGHT in config.js
+    
+    // Try to use global getUniformScale function if available
+    if (typeof globalThis !== 'undefined' && typeof globalThis.getUniformScale === 'function') {
+      return globalThis.getUniformScale(height);
+    }
+    
+    // Fallback to direct calculation
+    return height / DEFAULT_REFERENCE_HEIGHT;
+  }
+
+  /**
    * Initialize the renderer and attach canvas to container when provided
    * @returns {Promise<void>} Resolves when initialization is complete
    */
@@ -143,11 +161,7 @@ export class Renderer {
     try {
       // Calculate uniform scale factor based on viewport height
       // This keeps objects at consistent sizes regardless of aspect ratio
-      const DEFAULT_REFERENCE_HEIGHT = 600; // Matches REFERENCE_HEIGHT in config.js
-      const uniformScale = typeof globalThis !== 'undefined' && 
-                          typeof globalThis.getUniformScale === 'function'
-        ? globalThis.getUniformScale(height)
-        : height / DEFAULT_REFERENCE_HEIGHT;
+      const uniformScale = this.getUniformScale(height);
 
       // Update camera aspect ratio (standard for any resize)
       this.camera.aspect = width / height;
@@ -205,16 +219,11 @@ export class Renderer {
         
         // Apply uniform scale to Z coordinate for consistent 3D/2D scaling
         // Get current uniform scale from game camera or calculate it
-        const DEFAULT_REFERENCE_HEIGHT = 600;
         let uniformScale = 1;
-        if (typeof globalThis !== 'undefined') {
-          if (globalThis.GAME?.CAMERA?.uniformScale) {
-            uniformScale = globalThis.GAME.CAMERA.uniformScale;
-          } else if (typeof globalThis.getUniformScale === 'function' && this.height) {
-            uniformScale = globalThis.getUniformScale(this.height);
-          } else if (this.height) {
-            uniformScale = this.height / DEFAULT_REFERENCE_HEIGHT;
-          }
+        if (typeof globalThis !== 'undefined' && globalThis.GAME?.CAMERA?.uniformScale) {
+          uniformScale = globalThis.GAME.CAMERA.uniformScale;
+        } else if (this.height) {
+          uniformScale = this.getUniformScale(this.height);
         }
         
         // Adjust Z distance based on uniform scale
