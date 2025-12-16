@@ -174,7 +174,7 @@ export class Renderer {
   }
 
   /**
-   * Set camera parameters
+   * Set camera parameters with uniform scaling applied
    * @param {Object} params - Camera parameters
    * @param {Object} [params.position] - Camera position {x, y, z}
    * @param {Object} [params.rotation] - Camera rotation {x, y, z}
@@ -199,10 +199,29 @@ export class Renderer {
         return;
       }
 
-      // Set position
+      // Set position with uniform scale applied to Z coordinate
       if (params.position) {
         const { x = 0, y = 0, z = 0 } = params.position;
-        this.camera.position.set(x, y, z);
+        
+        // Apply uniform scale to Z coordinate for consistent 3D/2D scaling
+        // Get current uniform scale from game camera or calculate it
+        const DEFAULT_REFERENCE_HEIGHT = 600;
+        let uniformScale = 1;
+        if (typeof globalThis !== 'undefined') {
+          if (globalThis.GAME?.CAMERA?.uniformScale) {
+            uniformScale = globalThis.GAME.CAMERA.uniformScale;
+          } else if (typeof globalThis.getUniformScale === 'function' && this.height) {
+            uniformScale = globalThis.getUniformScale(this.height);
+          } else if (this.height) {
+            uniformScale = this.height / DEFAULT_REFERENCE_HEIGHT;
+          }
+        }
+        
+        // Adjust Z distance based on uniform scale
+        // The Z value passed in represents the "base" distance at reference height
+        const adjustedZ = z / uniformScale;
+        
+        this.camera.position.set(x, y, adjustedZ);
       }
 
       // Set rotation
