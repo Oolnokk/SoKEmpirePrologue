@@ -1228,21 +1228,6 @@ select {
             if (n.isMesh) {
               n.castShadow = true;
               n.receiveShadow = true;
-
-              // Fix material depth/sorting issues to prevent face hiding
-              if (n.material) {
-                const materials = Array.isArray(n.material) ? n.material : [n.material];
-                materials.forEach(mat => {
-                  mat.depthWrite = true;
-                  mat.depthTest = true;
-                  mat.polygonOffset = true;
-                  mat.polygonOffsetFactor = 1;
-                  mat.polygonOffsetUnits = 1;
-                  if (mat.side === undefined) {
-                    mat.side = THREE.DoubleSide;
-                  }
-                });
-              }
             }
           });
           asset.gltfTemplate = root;
@@ -1290,26 +1275,6 @@ select {
             if (n.isMesh) {
               n.castShadow = true;
               n.receiveShadow = true;
-
-              // Fix material depth/sorting issues to prevent face hiding
-              if (n.material) {
-                const materials = Array.isArray(n.material) ? n.material : [n.material];
-                materials.forEach(mat => {
-                  // Ensure proper depth testing
-                  mat.depthWrite = true;
-                  mat.depthTest = true;
-
-                  // Add polygon offset to prevent z-fighting on overlapping faces
-                  mat.polygonOffset = true;
-                  mat.polygonOffsetFactor = 1;
-                  mat.polygonOffsetUnits = 1;
-
-                  // Ensure double-sided rendering if not already set
-                  if (mat.side === undefined) {
-                    mat.side = THREE.DoubleSide;
-                  }
-                });
-              }
             }
           });
           asset.gltfTemplate = root;
