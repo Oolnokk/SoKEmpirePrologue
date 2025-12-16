@@ -6104,8 +6104,7 @@ function boot(){
           THREE_BG_CONTAINER.style.position = 'absolute';
           THREE_BG_CONTAINER.style.left = '0';
           THREE_BG_CONTAINER.style.top = '0';
-          THREE_BG_CONTAINER.style.width = '100%';
-          THREE_BG_CONTAINER.style.height = '100%';
+          // Width and height will be set based on calculated aspect ratio dimensions
           THREE_BG_CONTAINER.style.zIndex = '0';
           THREE_BG_CONTAINER.style.overflow = 'hidden';
           stageEl.insertBefore(THREE_BG_CONTAINER, stageEl.firstChild);
@@ -6122,6 +6121,10 @@ function boot(){
         const aspectRatio = CONFIG.aspectRatio || (21 / 9);
         const width = rect.width || 800;
         const height = width / aspectRatio; // Calculate height from width to maintain aspect ratio
+
+        // Set container to exact calculated dimensions to prevent stretching/cutoff
+        THREE_BG_CONTAINER.style.width = `${width}px`;
+        THREE_BG_CONTAINER.style.height = `${height}px`;
 
         // Create renderer with enforced aspect ratio
         GAME_RENDERER_3D = createRenderer({
@@ -6191,6 +6194,11 @@ function boot(){
           const aspectRatio = CONFIG.aspectRatio || (21 / 9);
           const width = rect.width || 800;
           const height = width / aspectRatio; // Calculate height from width to maintain aspect ratio
+
+          // Update container dimensions to match calculated size
+          THREE_BG_CONTAINER.style.width = `${width}px`;
+          THREE_BG_CONTAINER.style.height = `${height}px`;
+
           if (typeof GAME_RENDERER_3D.resize === 'function') {
             GAME_RENDERER_3D.resize(width, height);
           }
