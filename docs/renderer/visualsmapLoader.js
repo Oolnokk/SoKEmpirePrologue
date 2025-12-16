@@ -440,6 +440,19 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             ? visualsMapBase
             : (assetConfig.__visualsmapIndexBase || docsBase || visualsMapBase || configBase || null);
           const gltfUrl = resolveAssetPath(gltfCandidate, gltfBase);
+          
+          // Enhanced logging for light_sphere debugging
+          if (cell.type === 'light_sphere') {
+            console.log(`[visualsmapLoader] 🔍 Resolving light_sphere GLTF at (${row},${col}):`);
+            console.log(`  - gltfCandidate:`, gltfCandidate);
+            console.log(`  - gltfBase:`, gltfBase);
+            console.log(`  - Resolved gltfUrl:`, gltfUrl);
+            console.log(`  - inlineAsset:`, inlineAsset);
+            console.log(`  - visualsMapBase:`, visualsMapBase);
+            console.log(`  - docsBase:`, docsBase);
+            console.log(`  - configBase:`, configBase);
+          }
+          
           if (!gltfUrl) {
             console.warn(`[visualsmapLoader] ✗ No gltfPath for asset: ${cell.type} at (${row},${col})`);
             console.warn(`[visualsmapLoader]   Asset config:`, assetConfig);
@@ -449,8 +462,14 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           // Load GLTF once per URL, then clone for each placement so we can place
           // multiple instances without Three.js re-parenting them out of the scene.
           if (!gltfCache.has(gltfUrl)) {
+            if (cell.type === 'light_sphere') {
+              console.log(`[visualsmapLoader] 🔍 Loading light_sphere GLTF for first time: ${gltfUrl}`);
+            }
             gltfCache.set(gltfUrl, (async () => {
               const base = await renderer.loadGLTF(gltfUrl);
+              if (cell.type === 'light_sphere') {
+                console.log(`[visualsmapLoader] 🔍 light_sphere GLTF loaded:`, base ? 'success' : 'failed');
+              }
               return base;
             })());
           }
@@ -459,7 +478,14 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             const baseObject = await gltfCache.get(gltfUrl);
             if (!baseObject) {
               console.warn(`[visualsmapLoader] ✗ Failed to load GLTF: ${gltfUrl}`);
+              if (cell.type === 'light_sphere') {
+                console.error(`[visualsmapLoader] 🔍 light_sphere GLTF failed to load from cache`);
+              }
               continue;
+            }
+            
+            if (cell.type === 'light_sphere') {
+              console.log(`[visualsmapLoader] 🔍 light_sphere GLTF retrieved from cache successfully`);
             }
 
             // Validate that baseObject has geometry
