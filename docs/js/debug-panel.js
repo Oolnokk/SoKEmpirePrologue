@@ -73,6 +73,29 @@ export function initDebugPanel() {
     dropBottleBtn.addEventListener('click', dropBottleOnPlayer);
   }
 
+  // Setup day/night toggle button
+  const dayNightBtn = $$('#btnToggleDayNight', panel);
+  const dayNightStatus = $$('#dayNightStatus', panel);
+  if (dayNightBtn) {
+    dayNightBtn.addEventListener('click', () => {
+      if (window.dayNightSystem) {
+        window.dayNightSystem.toggle();
+        const isNight = window.dayNightSystem.isNight;
+        if (dayNightStatus) {
+          dayNightStatus.textContent = isNight ? 'Current: Night 🌙' : 'Current: Day ☀️';
+          dayNightStatus.style.color = isNight ? '#a5b4fc' : '#fde68a';
+        }
+        console.log('[debug-panel] Toggled to:', isNight ? 'NIGHT' : 'DAY');
+      } else {
+        console.warn('[debug-panel] Day/night system not available yet');
+        if (dayNightStatus) {
+          dayNightStatus.textContent = 'System not loaded';
+          dayNightStatus.style.color = '#f87171';
+        }
+      }
+    });
+  }
+
   // Setup panel visibility toggle
   const toggleBtn = $$('#debugToggle');
   if (toggleBtn) {
