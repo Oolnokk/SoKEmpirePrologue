@@ -10964,7 +10964,8 @@
           "offsetY": 0
         },
         "extraConfig": {
-          "rotationX": 90
+          "rotationX": 90,
+          "rotationZ": 180
         }
       },
       {
@@ -10987,7 +10988,8 @@
           "offsetY": 0
         },
         "extraConfig": {
-          "rotationX": 90
+          "rotationX": 90,
+          "rotationZ": 180
         }
       }
     ],
@@ -11012,7 +11014,8 @@
           "offsetY": 0
         },
         "extraConfig": {
-          "rotationX": 90
+          "rotationX": 90,
+          "rotationZ": 180
         }
       }
     ],
