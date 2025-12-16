@@ -32,7 +32,7 @@ function computeGroundYFromConfig(config = {}, canvasHeightOverride) {
   const ratioRaw = Number(config?.groundRatio);
   const ratio = Number.isFinite(ratioRaw) && ratioRaw > 0 && ratioRaw < 1
     ? ratioRaw
-    : 0.7;
+    : 0.5;
   return Math.round(canvasHeight * ratio);
 }
 

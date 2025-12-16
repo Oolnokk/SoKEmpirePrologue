@@ -877,7 +877,7 @@ window.CONFIG = {
     skipKey: 'sok-entry-mode',
   },
   actor: { scale: 0.70 },
-  groundRatio: 0.70,
+  groundRatio: 0.50,
   canvas: { w: 720, h: 460, scale: 1 },
   camera: {
     manualOffsetX: 0,

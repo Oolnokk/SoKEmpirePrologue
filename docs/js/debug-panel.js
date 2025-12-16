@@ -435,7 +435,7 @@ function copyPoseConfigToClipboard() {
       actor: {
         scale: C.actor?.scale || 0.70
       },
-      groundRatio: C.groundRatio || 0.70,
+      groundRatio: C.groundRatio || 0.50,
       movement: {
         authoredWeight: C.movement?.authoredWeight || 0.6,
         physicsWeight: C.movement?.physicsWeight || 0.4
