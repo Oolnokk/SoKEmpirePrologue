@@ -10948,9 +10948,9 @@
         "id": "road",
         "label": "Road",
         "baseScale": {
-          "x": 1,
-          "y": 0.12,
-          "z": 1
+          "x": 0.25,
+          "y": 0.25,
+          "z": 0.25
         },
         "yOffset": 0,
         "forwardOffsetDeg": 0,
@@ -10963,15 +10963,17 @@
           "offsetX": 0,
           "offsetY": 0
         },
-        "extraConfig": {}
+        "extraConfig": {
+          "rotationX": 90
+        }
       },
       {
         "id": "sidewalk",
         "label": "Sidewalk",
         "baseScale": {
-          "x": 1,
-          "y": 0.12,
-          "z": 1
+          "x": 0.25,
+          "y": 0.25,
+          "z": 0.25
         },
         "yOffset": 0.02,
         "forwardOffsetDeg": 0,
@@ -10984,7 +10986,9 @@
           "offsetX": 0,
           "offsetY": 0
         },
-        "extraConfig": {}
+        "extraConfig": {
+          "rotationX": 90
+        }
       }
     ],
     "structures": [
@@ -10992,9 +10996,9 @@
         "id": "tower",
         "label": "Tower",
         "baseScale": {
-          "x": 0.6,
-          "y": 1.2,
-          "z": 0.6
+          "x": 0.2,
+          "y": 0.2,
+          "z": 0.2
         },
         "yOffset": 0.12,
         "forwardOffsetDeg": 0,
@@ -11007,7 +11011,9 @@
           "offsetX": 0,
           "offsetY": 0
         },
-        "extraConfig": {}
+        "extraConfig": {
+          "rotationX": 90
+        }
       }
     ],
     "decorations": [
@@ -11030,7 +11036,9 @@
           "offsetX": 0,
           "offsetY": 0
         },
-        "extraConfig": {}
+        "extraConfig": {
+          "rotationX": 90
+        }
       }
     ]
   }

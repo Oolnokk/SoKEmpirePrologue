@@ -132,6 +132,14 @@ select {
 .button-row button.primary { background: #2563eb; color: white; border-color: #1d4ed8; }
 .button-row button.primary:hover:not(:disabled) { background: #1d4ed8; }
 
+.copy-log-btn {
+  padding: 4px 8px; border-radius: 6px; border: 1px solid #334155;
+  background: #020617; font-size: 12px; cursor: pointer; color: #e5e7eb;
+  transition: background 0.15s;
+}
+.copy-log-btn:hover { background: #0b1120; }
+.copy-log-btn:active { background: #16a34a; border-color: #15803d; }
+
 .camera-slider { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .camera-slider label { font-size: 11px; color: #9ca3af; }
 .camera-slider input[type="range"] { width: 100%; }
@@ -231,6 +239,99 @@ select {
   color: #fca5a5; text-decoration: underline;
 }
 .deprecation-banner a:hover { color: #fecaca; }
+
+/* Config Editor Modal */
+.config-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.config-modal.visible { display: flex; }
+.config-modal-content {
+  background: #0f172a;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.config-modal-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.config-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #e5e7eb;
+}
+.config-modal-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.config-modal-close:hover { color: #e5e7eb; }
+.config-modal-body {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+.config-modal-textarea {
+  width: 100%;
+  min-height: 300px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  background: #020617;
+  color: #e5e7eb;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 8px;
+  resize: vertical;
+}
+.config-modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.config-modal-footer button {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 13px;
+  cursor: pointer;
+}
+.config-modal-footer button:hover { background: #0b1120; }
+.config-modal-footer button.primary {
+  background: #2563eb;
+  color: white;
+  border-color: #1d4ed8;
+}
+.config-modal-footer button.primary:hover { background: #1d4ed8; }
+.config-modal-info {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
 
   </style>
 </head>
@@ -435,7 +536,10 @@ select {
     </div>
 
     <div class="card">
-      <h2>Debug Log (inline)</h2>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <h2 style="margin: 0;">Debug Log (inline)</h2>
+        <button id="copyDebugLogBtn" class="copy-log-btn" title="Copy all logs to clipboard">📋 Copy</button>
+      </div>
       <div id="debugLog" class="debug-log"></div>
     </div>
 
@@ -456,6 +560,7 @@ select {
     import * as THREE from "https://esm.sh/three@0.149.0";
     import { GLTFLoader } from "https://esm.sh/three@0.149.0/examples/jsm/loaders/GLTFLoader.js";
     import * as BufferGeometryUtils from "https://esm.sh/three@0.149.0/examples/jsm/utils/BufferGeometryUtils.js";
+    import { applyAssetTransforms } from "./renderer/gltfTransforms.js";
 
     window.THREE = THREE;
     // Expose GLTFLoader and BufferGeometryUtils to global scope for compatibility
@@ -555,19 +660,22 @@ select {
     const docsBase = new URL('.', window.location.href);
 
     async function loadVisualAssetConfigs() {
+      logDebug('[INIT] loadVisualAssetConfigs starting...');
       try {
         // Add cache-busting parameter in development mode
         const isDev = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-        const indexPath = isDev 
+        const indexPath = isDev
           ? `config/maps/visualsmaps/index.json?t=${Date.now()}`
           : 'config/maps/visualsmaps/index.json';
-        
+
+        logDebug(`[INIT] Attempting to load: ${indexPath}`);
         // Try visualsmaps first
         const response = await fetch(new URL(indexPath, docsBase));
         if (response.ok) {
           const data = await response.json();
-          logDebug('Loaded assets from visualsmaps/index.json');
-          
+          logDebug('[INIT] ✓ Loaded assets from visualsmaps/index.json');
+          logDebug('[INIT] Tower extraConfig from index.json:', data.structures?.find(s => s.id === 'tower')?.extraConfig);
+
           SEGMENT_ASSETS = (data.segments || []).map(asset => ({
             ...asset,
             layer: LAYERS.GROUND,
@@ -575,7 +683,7 @@ select {
             gltfTemplate: asset.gltfTemplate || null,
             gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
           }));
-          
+
           STRUCTURE_ASSETS = (data.structures || []).map(asset => ({
             ...asset,
             layer: LAYERS.STRUCTURE,
@@ -583,7 +691,7 @@ select {
             gltfTemplate: asset.gltfTemplate || null,
             gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
           }));
-          
+
           DECORATION_ASSETS = (data.decorations || []).map(asset => ({
             ...asset,
             layer: LAYERS.DECORATION,
@@ -591,8 +699,9 @@ select {
             gltfTemplate: asset.gltfTemplate || null,
             gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
           }));
-          
+
           rebuildAllAssets();
+          logDebug('[INIT] Tower extraConfig after mapping:', STRUCTURE_ASSETS.find(s => s.id === 'tower')?.extraConfig);
           return true;
         }
       } catch (err) {
@@ -1145,14 +1254,22 @@ select {
         path,
         (gltf) => {
           const root = gltf.scene;
-          normalizeGltfSceneToUnit(root, asset.label);
 
-          // Apply X-axis rotation if specified in extraConfig
-          if (asset.extraConfig && typeof asset.extraConfig.rotationX === "number") {
-            const rotX = THREE.MathUtils.degToRad(asset.extraConfig.rotationX);
-            root.rotation.x = rotX;
-            logDebug("Applied X-rotation: " + asset.extraConfig.rotationX + "° for " + asset.label);
+          // Apply transforms BEFORE normalization using shared utility (ensures consistency with game)
+          // This is critical: bounding box must be calculated AFTER transforms for correct dimensions
+          try {
+            const applied = applyAssetTransforms(root, asset, false);
+            logDebug(`Applied transforms for ${asset.label}:`,
+              `Rot(${applied.rotation.x}°,${applied.rotation.y}°,${applied.rotation.z}°)`,
+              `Scale(${applied.scale.x},${applied.scale.y},${applied.scale.z})`,
+              `Offset(${applied.offset.x},${applied.offset.y},${applied.offset.z})`
+            );
+          } catch (err) {
+            logDebug(`ERROR applying transforms for ${asset.label}: ${err.message}`);
           }
+
+          // Normalize after transforms so the bounding box accounts for the transformed dimensions
+          normalizeGltfSceneToUnit(root, asset.label);
 
           root.traverse(n => {
             if (n.isMesh) {
@@ -1185,6 +1302,8 @@ select {
     function applyAssetConfigFromJson(asset, cfg) {
       if (!cfg || typeof cfg !== "object") return;
 
+      let needsModelReload = false;
+
       if (cfg.baseScale && typeof cfg.baseScale === "object") {
         const bs = cfg.baseScale;
         asset.baseScale = {
@@ -1192,6 +1311,7 @@ select {
           y: Number(bs.y ?? asset.baseScale.y),
           z: Number(bs.z ?? asset.baseScale.z)
         };
+        needsModelReload = true;
       }
 
       if (typeof cfg.yOffset === "number") {
@@ -1216,9 +1336,113 @@ select {
 
       if (cfg.extra && typeof cfg.extra === "object") {
         asset.extraConfig = cfg.extra;
+        needsModelReload = true; // Rotations affect GLTF baking, must reload
+      }
+
+      // If rotation or scale changed, clear cached model to force reload with new transforms
+      if (needsModelReload && asset.gltfPath) {
+        asset.gltfTemplate = null;
+        logDebug(`Cleared cached model for ${asset.label} - will reload with new config`);
+        // Auto-reload the model with new config
+        loadGltfFromPath(asset, asset.gltfPath);
       }
 
       logDebug("Asset config applied: " + asset.label);
+    }
+
+    // --- CONFIG EDITOR MODAL ---
+    let currentEditingAsset = null;
+
+    function openConfigEditor(asset) {
+      currentEditingAsset = asset;
+      const modal = document.getElementById("configModal");
+      const textarea = document.getElementById("configTextarea");
+      const assetNameEl = document.getElementById("configAssetName");
+      const sourceEl = document.getElementById("configSource");
+
+      assetNameEl.textContent = asset.label || asset.id;
+
+      // Load config from individual config file
+      loadAssetConfigFromFile(asset.id).then(config => {
+        if (config) {
+          textarea.value = JSON.stringify(config, null, 2);
+          sourceEl.textContent = `config/assets/${asset.id}-config.json`;
+        } else {
+          // Fallback to current asset config
+          const currentConfig = {
+            id: asset.id,
+            label: asset.label,
+            gltfPath: asset.gltfPath,
+            baseScale: asset.baseScale,
+            yOffset: asset.yOffset,
+            forwardOffsetDeg: asset.forwardOffsetDeg,
+            instanceDefaults: asset.instanceDefaults,
+            extra: asset.extraConfig || {}
+          };
+          textarea.value = JSON.stringify(currentConfig, null, 2);
+          sourceEl.textContent = "Current in-memory config";
+        }
+        modal.classList.add("visible");
+      });
+    }
+
+    function closeConfigEditor() {
+      const modal = document.getElementById("configModal");
+      modal.classList.remove("visible");
+      currentEditingAsset = null;
+    }
+
+    function applyConfigFromEditor() {
+      const textarea = document.getElementById("configTextarea");
+      try {
+        const cfg = JSON.parse(textarea.value);
+        if (currentEditingAsset) {
+          applyAssetConfigFromJson(currentEditingAsset, cfg);
+          rebuildAssetPanel();
+          rebuild3DFromState();
+          logDebug("Config applied from editor for: " + currentEditingAsset.label);
+        }
+        closeConfigEditor();
+      } catch (err) {
+        alert("Invalid JSON: " + (err?.message || String(err)));
+      }
+    }
+
+    function reloadConfigFromFile() {
+      if (!currentEditingAsset) return;
+      openConfigEditor(currentEditingAsset);
+    }
+
+    async function loadAssetConfigFromFile(assetId) {
+      try {
+        const configPath = `config/assets/${assetId}-config.json`;
+        const response = await fetch(configPath);
+        if (!response.ok) {
+          logDebug(`Could not load ${configPath}: ${response.status}`);
+          return null;
+        }
+        const config = await response.json();
+        logDebug(`Loaded config from ${configPath}`);
+        return config;
+      } catch (err) {
+        logDebug(`Error loading config for ${assetId}: ${err?.message || String(err)}`);
+        return null;
+      }
+    }
+
+    // Initialize modal event listeners
+    function initConfigModal() {
+      document.getElementById("configModalClose").addEventListener("click", closeConfigEditor);
+      document.getElementById("configCancelBtn").addEventListener("click", closeConfigEditor);
+      document.getElementById("configApplyBtn").addEventListener("click", applyConfigFromEditor);
+      document.getElementById("configReloadBtn").addEventListener("click", reloadConfigFromFile);
+
+      // Close modal when clicking outside
+      document.getElementById("configModal").addEventListener("click", (e) => {
+        if (e.target.id === "configModal") {
+          closeConfigEditor();
+        }
+      });
     }
 
     function rebuildAssetPanel() {
@@ -1269,36 +1493,14 @@ select {
           loadGltfForAsset(asset, file);
         });
 
-        const configInput = document.createElement("input");
-        configInput.type = "file";
-        configInput.accept = ".json";
-        configInput.style.display = "none";
-
-        configBtn.addEventListener("click", () => configInput.click());
-        configInput.addEventListener("change", (e) => {
-          const file = e.target.files && e.target.files[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            try {
-              const text = String(reader.result || "");
-              const cfg = JSON.parse(text);
-              applyAssetConfigFromJson(asset, cfg);
-              rebuildAssetPanel();
-              rebuild3DFromState();
-            } catch (err) {
-              logDebug("Config JSON ERROR for " + asset.label + ": " + (err?.message || String(err)));
-            }
-          };
-          reader.readAsText(file);
-        });
+        // Open live config editor instead of file upload
+        configBtn.addEventListener("click", () => openConfigEditor(asset));
 
         row.appendChild(nameSpan);
         row.appendChild(uploadBtn);
         row.appendChild(configBtn);
         row.appendChild(status);
         row.appendChild(fileInput);
-        row.appendChild(configInput);
         assetPanelEl.appendChild(row);
       });
     }
@@ -1486,8 +1688,11 @@ select {
           logDebug(`Using fallback box for ground segment: ${asset.label} (${cell.type}) - model not loaded`);
         }
 
-        obj.position.set(x, asset.baseScale.y * 0.5 + asset.yOffset, z);
+        // Apply baseScale to both GLTF models and fallback boxes
+        // GLTF templates are normalized to 1.0, so baseScale controls their final size
         obj.scale.set(asset.baseScale.x, asset.baseScale.y, asset.baseScale.z);
+        obj.position.set(x, asset.baseScale.y * 0.5 + asset.yOffset, z);
+
         obj.receiveShadow = true;
         groundGroup.add(obj);
         groundCount++;
@@ -1525,8 +1730,14 @@ select {
         const baseY = asset.baseScale.y;
         const baseZ = asset.baseScale.z;
 
+        // Apply both baseScale and instance scale to all objects
+        // GLTF templates are normalized to 1.0, so baseScale sets their base size
         obj.scale.set(baseX * sx, baseY * sy, baseZ * sz);
-        obj.rotation.y = angle;
+
+        // Rotate around world Y axis (vertical) for proper orientation
+        // Using rotateOnWorldAxis instead of rotation.y to work correctly after template's rotationX
+        obj.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), angle);
+
         obj.position.set(
           x + offX,
           (baseY * sy) * 0.5 + asset.yOffset,
@@ -1847,6 +2058,23 @@ select {
       logDebug("JSON downloaded as map.json");
     });
 
+    // Copy debug log to clipboard
+    document.getElementById("copyDebugLogBtn").addEventListener("click", async () => {
+      const logText = debugLines.slice().reverse().join('\n');
+      try {
+        await navigator.clipboard.writeText(logText);
+        const btn = document.getElementById("copyDebugLogBtn");
+        const originalText = btn.textContent;
+        btn.textContent = "✓ Copied!";
+        setTimeout(() => {
+          btn.textContent = originalText;
+        }, 2000);
+      } catch (err) {
+        console.error("Failed to copy debug log:", err);
+        alert("Failed to copy to clipboard. Check browser console for error.");
+      }
+    });
+
     function applyImportedAssetData(importedAssets) {
       function applyTo(list, incomingList) {
         if (!Array.isArray(incomingList)) return;
@@ -2004,6 +2232,7 @@ select {
       }
       
       initUI();
+      initConfigModal();
       createGridDom();
       initThree();
       autoLoadAssetModels(); // Auto-load models from asset paths
@@ -2017,5 +2246,28 @@ select {
       logDebug("Editor ready.");
     })();
   </script>
+
+  <!-- Config Editor Modal -->
+  <div id="configModal" class="config-modal">
+    <div class="config-modal-content">
+      <div class="config-modal-header">
+        <h3 id="configModalTitle">Edit Asset Config</h3>
+        <button class="config-modal-close" id="configModalClose">&times;</button>
+      </div>
+      <div class="config-modal-body">
+        <div class="config-modal-info">
+          Editing config for: <strong id="configAssetName"></strong><br>
+          Source: <span id="configSource"></span>
+        </div>
+        <textarea id="configTextarea" class="config-modal-textarea" spellcheck="false"></textarea>
+      </div>
+      <div class="config-modal-footer">
+        <button id="configReloadBtn">Reload from File</button>
+        <button id="configCancelBtn">Cancel</button>
+        <button id="configApplyBtn" class="primary">Apply Changes</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

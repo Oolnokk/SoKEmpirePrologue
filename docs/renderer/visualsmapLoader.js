@@ -4,6 +4,7 @@
  */
 
 import { projectToGroundPlane } from './scene3d.js';
+import { applyAssetRotations } from './gltfTransforms.js';
 
 const VISUALSMAP_INDEX_CACHE = {
   loaded: false,
@@ -475,23 +476,19 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               continue;
             }
 
-            // Get base rotations from asset config (these set the model's "zero" orientation)
-            const extraConfig = assetConfig.extra || assetConfig.extraConfig || {};
-            const baseRotationX = extraConfig.rotationX || 0;
-            const baseRotationY = extraConfig.rotationY || 0;
-            const baseRotationZ = extraConfig.rotationZ || 0;
+            // Log object structure for debugging
+            console.log(`[visualsmapLoader] Object structure for ${cell.type}:`, {
+              type: object.type,
+              children: object.children.length,
+              rotation: object.rotation,
+              scale: object.scale,
+              position: object.position
+            });
 
-            // Apply base rotations first (model initialization - sets coordinate system)
-            // These rotations define the model's "zero" orientation in object space
-            if (baseRotationX !== 0) {
-              object.rotateX((baseRotationX * Math.PI) / 180);
-            }
-            if (baseRotationY !== 0) {
-              object.rotateY((baseRotationY * Math.PI) / 180);
-            }
-            if (baseRotationZ !== 0) {
-              object.rotateZ((baseRotationZ * Math.PI) / 180);
-            }
+            // Apply base rotations using shared utility (ensures consistency across all tools)
+            const appliedRotations = applyAssetRotations(object, assetConfig, true);
+            console.log(`[visualsmapLoader] Applied rotations to ${cell.type}:`, appliedRotations);
+            console.log(`[visualsmapLoader] After rotation - rotation:`, object.rotation, 'scale:', object.scale);
 
             // Get offsets in grid units (pre-rotation)
             const gridOffsetX = cell.offsetX ?? assetConfig.instanceDefaults?.offsetX ?? 0;
@@ -534,9 +531,10 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             const pathAdjustment = (alignWorldToPath && Number.isFinite(pathYawRad)) ? pathYawRad : 0;
 
             // Apply orientation and path alignment (world-space rotation)
+            // Use rotateOnWorldAxis to rotate around world Y (vertical) regardless of template's rotationX
             const finalOrientationRad = ((orientationDeg * Math.PI) / 180) - pathAdjustment;
             if (finalOrientationRad !== 0) {
-              object.rotateY(finalOrientationRad);
+              object.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), finalOrientationRad);
             }
 
             // Add object to renderer
