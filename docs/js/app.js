@@ -6161,14 +6161,37 @@ function boot(){
                 // Camera sync config for side-scrolling view aligned with gameplay path
                 // Values match visualsmapLoader camera setup (based on cellSize/GRID_UNIT_WORLD_SIZE=30)
                 const cellSize = window.GRID_UNIT_WORLD_SIZE || 30;
+
+                // Calculate lookAtOffsetY to align 3D ground plane with 2D gameplay ground
+                const canvas = stageEl?.querySelector('canvas');
+                const canvasHeight = canvas?.height / (window.devicePixelRatio || 1) || 460;
+                const groundY = computeGroundYFromConfig(window.CONFIG, canvasHeight);
+                const groundRatio = groundY / canvasHeight; // Where ground appears (0-1, typically 0.7)
+
+                // Calculate lookAt height so Y=0 (ground plane) projects to groundRatio position
+                // For perspective projection, this depends on camera angle and FOV
+                const cameraHeight = cellSize * 0.8;  // 24 with cellSize=30
+                const cameraDistance = -cellSize * 1.2; // -36 with cellSize=30
+                const fov = 50; // Default FOV from scene3d config
+
+                // Convert ground screen position to view angle
+                // groundRatio=0.5 is screen center, >0.5 is below center
+                const screenOffsetFromCenter = groundRatio - 0.5; // 0.2 for groundRatio=0.7
+                const viewAngle = screenOffsetFromCenter * fov * (Math.PI / 180); // radians
+
+                // Calculate what Y height the camera should look at so that Y=0 appears at viewAngle
+                // tan(angle) = (lookAtY - groundY) / distanceToLookAt
+                const distanceToGround = Math.sqrt(cameraHeight * cameraHeight + cameraDistance * cameraDistance);
+                const lookAtOffsetY = cameraHeight - distanceToGround * Math.tan(viewAngle);
+
                 syncThreeCamera({
                   renderer: GAME_RENDERER_3D,
                   gameCamera: gameCamera,
                   config: {
                     parallaxFactor: 1.0,              // 3D camera follows 2D camera exactly (side-scrolling)
-                    cameraHeight: cellSize * 0.8,     // Height above ground (24 with cellSize=30)
-                    cameraDistance: -cellSize * 1.2,  // Negative Z = viewer side (-36 with cellSize=30)
-                    lookAtOffsetY: cellSize * 0.3     // Look slightly above ground (9 with cellSize=30)
+                    cameraHeight: cameraHeight,       // Height above ground
+                    cameraDistance: cameraDistance,   // Negative Z = viewer side
+                    lookAtOffsetY: lookAtOffsetY      // Calculated to align with 2D ground
                   }
                 });
               }
