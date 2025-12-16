@@ -109,13 +109,8 @@ export class Renderer {
       this.renderer.setPixelRatio(this.pixelRatio);
       this.renderer.setSize(this.width, this.height);
       
-      // Enable shadows for lighting effects
-      if (this.renderer.shadowMap) {
-        this.renderer.shadowMap.enabled = true;
-        if (this.THREE.PCFSoftShadowMap !== undefined) {
-          this.renderer.shadowMap.type = this.THREE.PCFSoftShadowMap;
-        }
-      }
+      // Shadows disabled for mobile performance
+      // Shadow rendering has significant performance cost on mobile devices
 
       // Attach to container if provided
       if (this.container && this.container.appendChild) {
@@ -340,19 +335,8 @@ export class Renderer {
       const position = options.directionalPosition || { x: 5, y: 10, z: 7.5 };
       this.lights.directional.position.set(position.x, position.y, position.z);
       
-      // Enable shadows if requested
-      const castShadows = options.castShadows !== undefined ? options.castShadows : true;
-      if (castShadows) {
-        this.lights.directional.castShadow = true;
-        this.lights.directional.shadow.mapSize.width = 2048;
-        this.lights.directional.shadow.mapSize.height = 2048;
-        this.lights.directional.shadow.camera.near = 0.5;
-        this.lights.directional.shadow.camera.far = 50;
-        this.lights.directional.shadow.camera.left = -10;
-        this.lights.directional.shadow.camera.right = 10;
-        this.lights.directional.shadow.camera.top = 10;
-        this.lights.directional.shadow.camera.bottom = -10;
-      }
+      // Shadows disabled for performance (significant cost on mobile)
+      this.lights.directional.castShadow = false;
       
       this.scene.add(this.lights.directional);
       
@@ -516,9 +500,9 @@ export class Renderer {
             }
           }
           
-          // Enable shadow casting and receiving
-          child.castShadow = true;
-          child.receiveShadow = true;
+          // Shadows disabled for mobile performance
+          child.castShadow = false;
+          child.receiveShadow = false;
         }
       });
     } catch (error) {

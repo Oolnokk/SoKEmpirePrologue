@@ -541,34 +541,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             renderer.add(object);
             loadedObjects.push(object);
 
-            // Check if this is a light decoration and add point light
-            const extraConfig = assetConfig.extraConfig || assetConfig.extra || {};
-            if (extraConfig.isLight && renderer.addPointLight) {
-              // Get light intensity from cell or defaults
-              const lightIntensity = cell.lightIntensity ?? assetConfig.instanceDefaults?.lightIntensity ?? 1.0;
-              const lightColor = extraConfig.lightColor !== undefined ? extraConfig.lightColor : 0xffffcc;
-              const lightDistance = extraConfig.lightDistance !== undefined ? extraConfig.lightDistance : 10;
-              const lightDecay = extraConfig.lightDecay !== undefined ? extraConfig.lightDecay : 2;
-              
-              const pointLight = renderer.addPointLight({
-                color: lightColor,
-                intensity: lightIntensity,
-                distance: lightDistance,
-                decay: lightDecay,
-                position: {
-                  x: object.position.x,
-                  y: object.position.y,
-                  z: object.position.z
-                },
-                castShadow: false // Point lights from decorations don't cast shadows by default
-              });
-              
-              if (pointLight) {
-                // Store reference to light on object for potential cleanup
-                object.userData.pointLight = pointLight;
-                console.log(`[visualsmapLoader]   Added point light for ${cell.type} with intensity ${lightIntensity}`);
-              }
-            }
+            // Point lights disabled for mobile performance
+            // Light spheres use emissive materials for visual effect without performance cost
+            // Note: 120 point lights caused severe lag on mobile devices
 
             // Log only first few placements per layer to avoid spam, then summary
             const LOG_SAMPLE_INTERVAL = 20; // Log every Nth placement to reduce console spam
@@ -679,7 +654,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
         directionalIntensity: 0.4,  // Dimmer moonlight
         directionalColor: 0xaabbcc,  // Cool moonlight
         directionalPosition: { x: gridCenterX + 5, y: 10, z: gridCenterZ - 7.5 },
-        castShadows: true
+        castShadows: false  // Disabled for mobile performance
       });
       
       // Update materials on all loaded objects to respond to lighting
