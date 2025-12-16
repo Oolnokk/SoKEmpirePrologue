@@ -6314,5 +6314,54 @@ function boot(){
     console.warn('[app] Game will continue without 3D background');
   }
 
+  // Camera Debug Overlay Update Function
+  function updateCameraDebugOverlay() {
+    const debugContent = document.getElementById('debugContent');
+    if (!debugContent) return;
+
+    const area = window.GAME?.mapRegistry?.getActiveArea();
+    const camera = window.GAME?.CAMERA;
+    const player = window.GAME?.FIGHTERS?.player;
+    const config = window.CONFIG;
+
+    const lines = [];
+    
+    // Area info
+    lines.push(`<span style="color:#ff0">Area:</span> ${area?.id || 'none'}`);
+    lines.push(`<span style="color:#ff0">Has playableBounds:</span> ${area?.playableBounds ? 'YES' : 'NO'}`);
+    
+    if (area?.playableBounds) {
+      const pb = area.playableBounds;
+      lines.push(`  left: ${pb.left}, right: ${pb.right}`);
+      lines.push(`  top: ${pb.top ?? 'missing'}, bottom: ${pb.bottom ?? 'missing'}`);
+    }
+    
+    // Camera bounds
+    if (camera?.verticalBounds) {
+      lines.push(`<span style="color:#ff0">Camera V-Bounds:</span>`);
+      lines.push(`  min: ${camera.verticalBounds.min?.toFixed(1)}`);
+      lines.push(`  max: ${camera.verticalBounds.max?.toFixed(1)}`);
+    }
+    
+    // Player position
+    if (player?.pos) {
+      lines.push(`<span style="color:#ff0">Player Y:</span> ${player.pos.y?.toFixed(1)}`);
+    }
+    
+    // Ground Y
+    lines.push(`<span style="color:#ff0">Ground Y:</span> ${config?.groundY?.toFixed(1) || 'N/A'}`);
+    
+    // Camera position
+    if (camera) {
+      lines.push(`<span style="color:#ff0">Camera Y:</span> ${camera.y?.toFixed(1)}`);
+      lines.push(`<span style="color:#ff0">Target Y:</span> ${camera.targetY?.toFixed(1)}`);
+    }
+
+    debugContent.innerHTML = lines.join('<br>');
+  }
+
+  // Set up interval to update camera debug overlay
+  setInterval(updateCameraDebugOverlay, 250); // Update 4 times per second
+
   boot();
 })();

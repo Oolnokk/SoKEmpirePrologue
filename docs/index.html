@@ -633,5 +633,11 @@
   <script type="module" src="./js/cosmetic-library.js?v=1"></script>
   <script type="module" src="./js/cosmetic-profiles.js?v=1"></script>
   <script src="./js/bootstrap.js?v=1"></script>
+
+  <!-- Camera/Position Debug Overlay -->
+  <div id="cameraDebugOverlay" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #0f0; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 4px; z-index: 10000; max-width: 300px; pointer-events: none;">
+    <div style="font-weight: bold; margin-bottom: 8px; color: #fff;">📊 Camera Debug</div>
+    <div id="debugContent" style="line-height: 1.5;">Loading...</div>
+  </div>
 </body>
 </html>
