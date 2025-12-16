@@ -10963,7 +10963,9 @@
           "offsetX": 0,
           "offsetY": 0
         },
-        "extraConfig": {}
+        "extraConfig": {
+          "rotationX": 90
+        }
       },
       {
         "id": "sidewalk",
@@ -10984,7 +10986,9 @@
           "offsetX": 0,
           "offsetY": 0
         },
-        "extraConfig": {}
+        "extraConfig": {
+          "rotationX": 90
+        }
       }
     ],
     "structures": [
@@ -11007,7 +11011,9 @@
           "offsetX": 0,
           "offsetY": 0
         },
-        "extraConfig": {}
+        "extraConfig": {
+          "rotationX": 90
+        }
       }
     ],
     "decorations": [
@@ -11030,7 +11036,9 @@
           "offsetX": 0,
           "offsetY": 0
         },
-        "extraConfig": {}
+        "extraConfig": {
+          "rotationX": 90
+        }
       }
     ]
   }
