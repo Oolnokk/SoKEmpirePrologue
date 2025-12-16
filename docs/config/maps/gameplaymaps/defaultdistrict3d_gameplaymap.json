@@ -3,8 +3,8 @@
   "playableBounds": {
     "left": -1160,
     "right": 1160,
-    "top": -200,
-    "bottom": 200
+    "top": -230,
+    "bottom": 230
   },
   "visualsMap": "../visualsmaps/defaultdistrict3D_visualsmap.json",
   "scene3d": {
@@ -27,7 +27,7 @@
       { "x": -1100, "y": 0 },
       { "x": 1580, "y": 0 }
     ],
-    "unitsPerPixel":
+    "unitsPerPixel": 1
   },
   "entities": [
     {
@@ -72,9 +72,9 @@
       }
     },
     {
-      "id": "patrol_target_1",
-      "type": "patrol",
-      "x": 1000,
+      "id":  "patrol_target_1",
+      "type":  "patrol",
+      "x":  1000,
       "y": 300,
       "meta": {
         "routeId": "city_guard_patrol",
@@ -95,11 +95,11 @@
     },
     {
       "id": "patrol_target_3",
-      "type": "patrol",
-      "x": -1000,
-      "y": 300,
-      "meta": {
-        "routeId": "city_guard_patrol",
+      "type":  "patrol",
+      "x":  -1000,
+      "y":  300,
+      "meta":  {
+        "routeId":  "city_guard_patrol",
         "sequence": 4,
         "name": "patrol3"
       }
@@ -108,53 +108,7 @@
       "id": "collider_ground",
       "type": "collider",
       "x": 250,
-      "y": 130,
-      "meta": {
-        "shape": "rectangle",
-        "width": 2500,
-        "height": 260,
-        "label": "Ground Collider"
-      }
-    },
-    {
-      "id": "collider_patrol_west",
-      "type": "collider",
-      "x": -390,
-      "y": 90,
-      "meta": {
-        "shape": "rectangle",
-        "width": 180,
-        "height": 180,
-        "label": "Patrol Point West",
-        "patrol": true
-      }
-    },
-    {
-      "id": "collider_patrol_east",
-      "type": "collider",
-      "x": 190,
-      "y": 90,
-      "meta": {
-        "shape": "rectangle",
-        "width": 180,
-        "height": 180,
-        "label": "Patrol Point East",
-        "patrol": true
-      }
-    },
-    {
-      "id": "exit_left",
-      "type": "exit",
-      "x": -1050,
-      "y": 90,
-      "meta": {}
-    },
-    {
-      "id": "exit_right",
-      "type": "exit",
-      "x": 1450,
-      "y": 90,
-      "meta": {}
+      "y": 130
     }
   ]
 }
