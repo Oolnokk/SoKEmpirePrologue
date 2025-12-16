@@ -206,7 +206,15 @@ function normalizeExplicitPlayableBounds(rawBounds) {
     return null;
   }
   const source = typeof (safe == null ? void 0 : safe.source) === 'string' ? safe.source : 'explicit';
-  return { left, right, source };
+  
+  // Include top and bottom for vertical bounds support
+  const result = { left, right, source };
+  const top = toNumber(safe?.top, NaN);
+  const bottom = toNumber(safe?.bottom, NaN);
+  if (Number.isFinite(top)) result.top = top;
+  if (Number.isFinite(bottom)) result.bottom = bottom;
+  
+  return result;
 }
 
 function validateGeometry(playableBounds, colliders, { allowDerivedPlayableBounds = false } = {}) {
