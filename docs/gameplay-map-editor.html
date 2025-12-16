@@ -104,10 +104,11 @@
       width: 100%;
       height: 600px;
       background: transparent;
-      border: 1px solid #475569;
+      border: none;
       cursor: crosshair;
       position: relative;
       z-index: 1;
+      pointer-events: auto;
     }
     .three-overlay {
       position: absolute;
@@ -299,6 +300,17 @@
             <input type="number" id="unitsPerPixel" value="1" step="0.1" />
             <div class="info">Conversion factor for screen to world coordinates</div>
           </div>
+          <div id="coordinateMappingControls" style="display: none;">
+            <hr style="margin: 12px 0; border: none; border-top: 1px solid #475569;">
+            <div class="form-row">
+              <label>Coordinate Scale Adjustment</label>
+              <input type="number" id="scaleAdjustment" value="1.0" step="0.1" min="0.1" max="10" />
+              <div class="info">Fine-tune visual map to gameplay coordinate mapping</div>
+            </div>
+            <div class="form-row">
+              <label>Mapping Status: <span id="mappingStatus">No visual map</span></label>
+            </div>
+          </div>
         </div>
 
         <div class="panel-section">
@@ -359,6 +371,9 @@
       },
       entities: []
     };
+
+    // Expose mapData to window for Three.js module
+    window.mapData = mapData;
 
     let selectedEntity = null;
     let currentTool = 'select';
@@ -476,12 +491,19 @@
 
     // ===== Drawing Functions =====
     function redraw() {
-      // Clear canvas
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Clear canvas with transparency to show 3D background
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw coordinate mapping reference if available
+      if (window.coordinateMapping && window.coordinateMapping.enabled) {
+        drawCoordinateMappingReference();
+      }
 
       // Draw ground line
       drawGroundLine();
+
+      // Draw patrol routes
+      drawPatrolRoutes();
 
       // Draw entities
       mapData.entities.forEach(entity => {
@@ -492,6 +514,71 @@
       if (dragState && dragState.type === 'creating') {
         drawCreatingPreview();
       }
+    }
+
+    function drawPatrolRoutes() {
+      // Group patrol points by routeId
+      const routes = {};
+      mapData.entities.forEach(entity => {
+        if (entity.type === 'patrol' && entity.meta.routeId) {
+          if (!routes[entity.meta.routeId]) {
+            routes[entity.meta.routeId] = [];
+          }
+          routes[entity.meta.routeId].push(entity);
+        }
+      });
+
+      // Draw lines connecting patrol points in each route
+      Object.keys(routes).forEach((routeId, routeIndex) => {
+        const points = routes[routeId].sort((a, b) => a.meta.sequence - b.meta.sequence);
+        if (points.length < 2) return;
+
+        ctx.save();
+        ctx.strokeStyle = getEntityColor('patrol');
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.5;
+        ctx.setLineDash([5, 5]);
+
+        ctx.beginPath();
+        const firstScr = worldToScreen(points[0].x, points[0].y);
+        ctx.moveTo(firstScr.x, firstScr.y);
+
+        for (let i = 1; i < points.length; i++) {
+          const scr = worldToScreen(points[i].x, points[i].y);
+          ctx.lineTo(scr.x, scr.y);
+        }
+
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      });
+    }
+
+    function drawCoordinateMappingReference() {
+      // Draw semi-transparent reference markers for debugging
+      ctx.save();
+      ctx.globalAlpha = 0.3;
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 5]);
+
+      // Draw vertical lines at key positions
+      const refPositions = [
+        mapData.ground.path[0].x,
+        mapData.ground.path[mapData.ground.path.length - 1].x,
+        0
+      ];
+
+      refPositions.forEach(x => {
+        const scr = worldToScreen(x, 0);
+        ctx.beginPath();
+        ctx.moveTo(scr.x, 0);
+        ctx.lineTo(scr.x, canvas.height);
+        ctx.stroke();
+      });
+
+      ctx.setLineDash([]);
+      ctx.restore();
     }
 
     function drawGroundLine() {
@@ -528,7 +615,7 @@
 
       if (entity.type === 'collider') {
         const shape = entity.meta.shape || 'rectangle';
-        
+
         ctx.strokeStyle = isSelected ? '#ffffff' : color;
         ctx.fillStyle = color + '40';
         ctx.lineWidth = isSelected ? 3 : 2;
@@ -546,31 +633,86 @@
           ctx.stroke();
         }
       } else {
-        // Point entities
+        // Point entities - draw with enhanced visibility
+        const radius = isSelected ? 12 : 10;
+
+        // Draw outer glow for better visibility on 3D background
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(scr.x, scr.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Draw inner circle
         ctx.fillStyle = isSelected ? '#ffffff' : color;
         ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(scr.x, scr.y, 8, 0, Math.PI * 2);
+        ctx.arc(scr.x, scr.y, radius - 2, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
-        // Draw patrol sequence number
-        if (entity.type === 'patrol' && entity.meta.sequence !== undefined) {
-          ctx.fillStyle = '#ffffff';
-          ctx.font = '12px sans-serif';
+        // Draw type-specific icons
+        if (entity.type === 'spawner') {
+          // Draw spawner icon (S)
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 10px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(entity.meta.sequence.toString(), scr.x, scr.y);
+          ctx.fillText('S', scr.x, scr.y);
+        } else if (entity.type === 'patrol') {
+          // Draw patrol sequence number
+          if (entity.meta.sequence !== undefined) {
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(entity.meta.sequence.toString(), scr.x, scr.y);
+          }
+        } else if (entity.type === 'entrance') {
+          // Draw entrance arrow
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(scr.x - 4, scr.y);
+          ctx.lineTo(scr.x + 4, scr.y);
+          ctx.moveTo(scr.x + 1, scr.y - 3);
+          ctx.lineTo(scr.x + 4, scr.y);
+          ctx.lineTo(scr.x + 1, scr.y + 3);
+          ctx.stroke();
+        } else if (entity.type === 'exit') {
+          // Draw exit arrow
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(scr.x + 4, scr.y);
+          ctx.lineTo(scr.x - 4, scr.y);
+          ctx.moveTo(scr.x - 1, scr.y - 3);
+          ctx.lineTo(scr.x - 4, scr.y);
+          ctx.lineTo(scr.x - 1, scr.y + 3);
+          ctx.stroke();
         }
       }
 
-      // Draw label
-      ctx.fillStyle = '#e5e7eb';
+      // Draw label with background for better visibility
+      const label = entity.id;
+      const labelY = scr.y + (entity.type === 'collider' ? ((entity.meta.height || 100) * viewZoom / 2) + 16 : 16);
+
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      ctx.fillText(entity.id, scr.x, scr.y + 12);
+      const metrics = ctx.measureText(label);
+
+      // Draw label background
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      ctx.fillRect(scr.x - metrics.width/2 - 2, labelY - 2, metrics.width + 4, 14);
+
+      // Draw label text
+      ctx.fillStyle = '#e5e7eb';
+      ctx.fillText(label, scr.x, labelY);
     }
 
     function drawCreatingPreview() {
@@ -1095,6 +1237,9 @@
         entities: data.entities || []
       };
 
+      // Update window reference
+      window.mapData = mapData;
+
       // Update UI
       document.getElementById('areaId').value = mapData.areaId;
       document.getElementById('unitsPerPixel').value = mapData.ground.unitsPerPixel || 1;
@@ -1113,6 +1258,11 @@
       updateEntityList();
       updateEntityProps();
       redraw();
+
+      // Recalculate coordinate mapping if visual map is loaded
+      if (window.recalculateCoordinateMapping) {
+        window.recalculateCoordinateMapping();
+      }
 
       alert('Map imported successfully!');
     }
@@ -1227,6 +1377,9 @@
     updateEntityList();
     updateEntityProps();
     redraw();
+
+    // Expose redraw to window for Three.js module
+    window.redraw = redraw;
   </script>
 
   <script type="module">
@@ -1246,7 +1399,123 @@
     let visualMapData = null;
     let groundGroup, structureGroup;
     const CELL_SIZE = 2;
-    
+
+    // Coordinate mapping between visual map and gameplay map
+    let coordinateMapping = {
+      enabled: false,
+      scale: 1,
+      offsetX: 0,
+      offsetZ: 0,
+      gameplayGroundY: 0
+    };
+
+    // Calculate coordinate mapping from visual map to gameplay map
+    function calculateCoordinateMapping(visualData, gameplayData) {
+      if (!visualData?.gameplayPath || !gameplayData?.ground?.path) {
+        console.warn('Missing gameplayPath or ground.path data');
+        return { enabled: false, scale: 1, offsetX: 0, offsetZ: 0, gameplayGroundY: 0 };
+      }
+
+      const startRow = visualData.gameplayPath.start.row;
+      const startCol = visualData.gameplayPath.start.col;
+      const endRow = visualData.gameplayPath.end.row;
+      const endCol = visualData.gameplayPath.end.col;
+
+      // Convert visual map grid coords to 3D world coords
+      const visual3DStartX = (startCol - visualData.cols / 2) * CELL_SIZE;
+      const visual3DEndX = (endCol - visualData.cols / 2) * CELL_SIZE;
+      const visual3DStartZ = -(startRow - visualData.rows / 2) * CELL_SIZE;
+      const visual3DEndZ = -(endRow - visualData.rows / 2) * CELL_SIZE;
+
+      // Gameplay ground path
+      const gameplayStartX = gameplayData.ground.path[0].x;
+      const gameplayEndX = gameplayData.ground.path[gameplayData.ground.path.length - 1].x;
+      const gameplayGroundY = gameplayData.ground.path[0].y;
+
+      // Calculate scale and offset
+      const visual3DLength = Math.sqrt(
+        Math.pow(visual3DEndX - visual3DStartX, 2) +
+        Math.pow(visual3DEndZ - visual3DStartZ, 2)
+      );
+      const gameplayLength = Math.abs(gameplayEndX - gameplayStartX);
+
+      const scale = gameplayLength / visual3DLength;
+      const offsetX = gameplayStartX - (visual3DStartX * scale);
+      const offsetZ = -(visual3DStartZ * scale);
+
+      console.log('Coordinate mapping calculated:', {
+        visual3DRange: { startX: visual3DStartX, endX: visual3DEndX, startZ: visual3DStartZ, endZ: visual3DEndZ },
+        gameplayRange: { startX: gameplayStartX, endX: gameplayEndX },
+        scale,
+        offsetX,
+        offsetZ
+      });
+
+      return {
+        enabled: true,
+        scale,
+        offsetX,
+        offsetZ,
+        gameplayGroundY
+      };
+    }
+
+    // Convert 3D visual coords to gameplay coords
+    function visual3DToGameplay(x3d, y3d, z3d) {
+      if (!coordinateMapping.enabled) {
+        return { x: x3d, y: y3d };
+      }
+      return {
+        x: x3d * coordinateMapping.scale + coordinateMapping.offsetX,
+        y: coordinateMapping.gameplayGroundY
+      };
+    }
+
+    // Convert gameplay coords to 3D visual coords
+    function gameplayToVisual3D(gx, gy) {
+      if (!coordinateMapping.enabled) {
+        return { x: gx, y: 0, z: 0 };
+      }
+      return {
+        x: (gx - coordinateMapping.offsetX) / coordinateMapping.scale,
+        y: 0,
+        z: coordinateMapping.offsetZ / coordinateMapping.scale
+      };
+    }
+
+    // Recalculate coordinate mapping when gameplay map changes
+    function recalculateCoordinateMapping() {
+      if (visualMapData && window.mapData) {
+        coordinateMapping = calculateCoordinateMapping(visualMapData, window.mapData);
+        console.log('Recalculated coordinate mapping:', coordinateMapping);
+        updateCoordinateMappingUI();
+        // Trigger canvas redraw
+        if (window.redraw) {
+          window.redraw();
+        }
+      }
+    }
+
+    // Update coordinate mapping UI controls
+    function updateCoordinateMappingUI() {
+      const controls = document.getElementById('coordinateMappingControls');
+      const statusSpan = document.getElementById('mappingStatus');
+
+      if (coordinateMapping.enabled && controls && statusSpan) {
+        controls.style.display = 'block';
+        statusSpan.textContent = `Active (scale: ${coordinateMapping.scale.toFixed(2)}x)`;
+      } else if (controls && statusSpan) {
+        controls.style.display = 'none';
+        statusSpan.textContent = 'No visual map';
+      }
+    }
+
+    // Expose coordinate mapping to main script
+    window.coordinateMapping = coordinateMapping;
+    window.visual3DToGameplay = visual3DToGameplay;
+    window.gameplayToVisual3D = gameplayToVisual3D;
+    window.recalculateCoordinateMapping = recalculateCoordinateMapping;
+
     const threeContainer = document.getElementById('threeViewport');
     const overlay = document.getElementById('threeOverlay');
 
@@ -1350,7 +1619,15 @@
 
       if (!data.gameplayPath || !data.gameplayPath.start || !data.gameplayPath.end) {
         overlay.textContent = filename ? `Visual map: ${filename} (no gameplayPath)` : 'Visual map loaded (no gameplayPath)';
+        coordinateMapping = { enabled: false, scale: 1, offsetX: 0, offsetZ: 0, gameplayGroundY: 0 };
         return;
+      }
+
+      // Calculate coordinate mapping with current gameplay map data
+      if (window.mapData) {
+        coordinateMapping = calculateCoordinateMapping(data, window.mapData);
+        console.log('Applied coordinate mapping:', coordinateMapping);
+        updateCoordinateMappingUI();
       }
 
       // Calculate gameplay path alignment
@@ -1418,7 +1695,10 @@
       });
 
       const displayName = filename || 'loaded';
-      overlay.textContent = `Visual map: ${displayName} - ${data.rows}×${data.cols} grid, path aligned`;
+      const mappingStatus = coordinateMapping.enabled ?
+        `(scale: ${coordinateMapping.scale.toFixed(1)}x)` :
+        '(no mapping)';
+      overlay.textContent = `Visual map: ${displayName} - ${data.rows}×${data.cols} grid ${mappingStatus}`;
     }
 
     function clearVisualMap() {
@@ -1430,6 +1710,11 @@
       camera.lookAt(0, 0, 0);
       overlay.textContent = 'No visual map loaded';
       document.getElementById('btnClearVisualMap').style.display = 'none';
+      coordinateMapping = { enabled: false, scale: 1, offsetX: 0, offsetZ: 0, gameplayGroundY: 0 };
+      updateCoordinateMappingUI();
+      if (window.redraw) {
+        window.redraw();
+      }
     }
 
     // Load visual map from path (exposed for built-in map loading)
