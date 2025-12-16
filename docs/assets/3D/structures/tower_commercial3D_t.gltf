@@ -32,7 +32,7 @@
 	],
 	"materials":[
 		{
-			"alphaMode":"OPAQUE",
+			"alphaMode":"BLEND",
 			"doubleSided":true,
 			"extensions":{
 				"KHR_materials_specular":{
@@ -59,7 +59,7 @@
 			}
 		},
 		{
-			"alphaMode":"OPAQUE",
+			"alphaMode":"BLEND",
 			"doubleSided":true,
 			"extensions":{
 				"KHR_materials_specular":{
