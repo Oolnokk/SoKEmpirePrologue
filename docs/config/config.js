@@ -878,6 +878,11 @@ window.CONFIG = {
   },
   actor: { scale: 0.70 },
   groundRatio: 0.50,
+  // Standard aspect ratio for both 2D and 3D backgrounds (16:9)
+  // This ratio MUST be enforced across all background rendering to ensure alignment
+  aspectRatio: 16 / 9,
+  // Canvas dimensions must maintain aspectRatio: w/h should equal aspectRatio
+  // Current: 1280/720 = 1.777... = 16/9 ✓
   canvas: { w: 1280, h: 720, scale: 1 },
   camera: {
     manualOffsetX: 0,
@@ -967,6 +972,8 @@ window.CONFIG = {
   playAreaMaxX: 1160,
   },
   mapEditor: {
+    // Map editor canvas should also maintain the standard aspectRatio for consistency
+    // If height is 460, width should be ~818 (460 * 16/9) to maintain 16:9 ratio
     canvas: { height: 460 },
     ground: {
       offset: 140,

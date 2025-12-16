@@ -6118,10 +6118,12 @@ function boot(){
 
         // Get dimensions
         const rect = stageEl.getBoundingClientRect();
+        // Enforce standard aspect ratio for 3D background to match 2D canvas
+        const aspectRatio = CONFIG.aspectRatio || (16 / 9);
         const width = rect.width || 800;
-        const height = rect.height || 600;
+        const height = width / aspectRatio; // Calculate height from width to maintain aspect ratio
 
-        // Create renderer
+        // Create renderer with enforced aspect ratio
         GAME_RENDERER_3D = createRenderer({
           container: THREE_BG_CONTAINER,
           width,
@@ -6181,12 +6183,14 @@ function boot(){
           });
         }
 
-        // Add resize handler
+        // Add resize handler with aspect ratio enforcement
         THREE_BG_RESIZE_HANDLER = () => {
           if (!GAME_RENDERER_3D || !THREE_BG_CONTAINER) return;
           const rect = stageEl.getBoundingClientRect();
+          // Enforce standard aspect ratio for 3D background to match 2D canvas
+          const aspectRatio = CONFIG.aspectRatio || (16 / 9);
           const width = rect.width || 800;
-          const height = rect.height || 600;
+          const height = width / aspectRatio; // Calculate height from width to maintain aspect ratio
           if (typeof GAME_RENDERER_3D.resize === 'function') {
             GAME_RENDERER_3D.resize(width, height);
           }

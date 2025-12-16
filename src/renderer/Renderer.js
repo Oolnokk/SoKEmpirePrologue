@@ -84,9 +84,10 @@ export class Renderer {
       this.scene.background = new this.THREE.Color(this.clearColor);
 
       // Create camera (default perspective)
+      // NOTE: Aspect ratio (width/height) should match CONFIG.aspectRatio (16:9) for 2D/3D alignment
       this.camera = new this.THREE.PerspectiveCamera(
         50, // fov
-        this.width / this.height,
+        this.width / this.height, // aspect ratio
         0.1,
         1000
       );
@@ -119,6 +120,10 @@ export class Renderer {
    * Resize the renderer and camera
    * @param {number} width - New width
    * @param {number} height - New height
+   *
+   * NOTE: For proper 2D/3D background alignment, width and height should maintain
+   * the standard aspect ratio defined in CONFIG.aspectRatio (default 16:9).
+   * The caller is responsible for enforcing this ratio.
    */
   resize(width, height) {
     if (!this.initialized) {
