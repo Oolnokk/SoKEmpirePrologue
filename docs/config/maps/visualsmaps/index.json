@@ -39,7 +39,7 @@
       "layer": "structure",
       "gltfPath": "./assets/3D/structures/tower_commercial3D_t.gltf",
       "baseScale": { "x": 0.32, "y": 0.32, "z": 0.32 },
-      "yOffset": 0.12,
+      "yOffset": 0.5,
       "forwardOffsetDeg": 0,
       "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
       "extraConfig": { "rotationX": 90 }
