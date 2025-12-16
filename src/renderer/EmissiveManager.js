@@ -133,7 +133,8 @@ export class EmissiveManager {
     const emissiveColor = parseColor(config.emissiveColor || '#ffffff');
     const emissiveIntensity = config.emissiveIntensity !== undefined ? config.emissiveIntensity : 1.0;
     const emissiveTextures = config.emissiveTextures || [];
-    const emissiveSprites = config.emissiveSprites || [];
+    // Note: emissiveSprites will be used in future sprite implementation
+    // const emissiveSprites = config.emissiveSprites || [];
 
     // Get current time of day multiplier
     const properties = this.timeOfDay.getLightingProperties();
@@ -153,7 +154,7 @@ export class EmissiveManager {
       if (child.isMesh && child.material) {
         const materials = Array.isArray(child.material) ? child.material : [child.material];
         
-        materials.forEach((material, index) => {
+        materials.forEach((material) => {
           // Check if this material should be emissive
           let shouldBeEmissive = emissiveTextures.length === 0; // Default: all textures if not specified
           

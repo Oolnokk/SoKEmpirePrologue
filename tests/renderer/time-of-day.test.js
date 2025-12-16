@@ -1,5 +1,5 @@
 import { describe, it, beforeEach } from 'node:test';
-import { strictEqual, ok, deepStrictEqual } from 'assert';
+import { strictEqual, ok } from 'assert';
 import { TimeOfDay, TIME_PERIODS } from '../../src/renderer/TimeOfDay.js';
 
 describe('TimeOfDay', () => {
@@ -126,10 +126,7 @@ describe('TimeOfDay', () => {
 
   describe('event handling', () => {
     it('should register and call event handlers', (t, done) => {
-      let changeEventFired = false;
-      
       timeOfDay.on('change', (data) => {
-        changeEventFired = true;
         ok(data.hour !== undefined);
         ok(data.period !== undefined);
         ok(data.properties !== undefined);

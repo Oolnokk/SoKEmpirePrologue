@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Time of Day System Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg:#05070a; --panel:#10141a; --card:#151b22;
+      --line:#27303c; --muted:#7f8ea3; --text:#e6edf3;
+      --btn:#1a2330; --btnHi:#222d3c;
+    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      padding: 16px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      background: #000;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      width: 320px;
+      background: var(--panel);
+      border-left: 1px solid var(--line);
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .control-group {
+      margin-bottom: 24px;
+    }
+
+    .control-group h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    .control-row {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--btn);
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #1a7f64;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #1a7f64;
+      cursor: pointer;
+      border: none;
+    }
+
+    .value-display {
+      display: inline-block;
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 500;
+      min-width: 60px;
+      text-align: right;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: var(--btn);
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: var(--btnHi);
+    }
+
+    button.primary {
+      background: #1a7f64;
+      border-color: #1a7f64;
+    }
+
+    button.primary:hover {
+      background: #2a9f84;
+    }
+
+    .info-panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .info-label {
+      color: var(--muted);
+    }
+
+    .info-value {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .period-dawn { color: #ffb380; }
+    .period-day { color: #87ceeb; }
+    .period-dusk { color: #ff8844; }
+    .period-night { color: #445577; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Time of Day System Demo</h1>
+    <p class="subtitle">Interactive demonstration of dynamic lighting and emissive objects</p>
+  </header>
+
+  <div class="container">
+    <div id="canvas-container"></div>
+
+    <div class="controls">
+      <div class="control-group">
+        <h3>Time Controls</h3>
+        <div class="control-row">
+          <label for="hour-slider">
+            Current Hour: <span id="hour-value" class="value-display">12:00</span>
+          </label>
+          <input type="range" id="hour-slider" min="0" max="24" step="0.1" value="12">
+        </div>
+        <div class="control-row">
+          <label for="speed-slider">
+            Time Speed: <span id="speed-value" class="value-display">1.0x</span>
+          </label>
+          <input type="range" id="speed-slider" min="0" max="10" step="0.1" value="1">
+        </div>
+        <div class="control-row">
+          <button id="toggle-time" class="primary">Pause Time</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>Quick Time Presets</h3>
+        <div class="control-row">
+          <button onclick="setHour(6)">Dawn (6:00)</button>
+        </div>
+        <div class="control-row">
+          <button onclick="setHour(12)">Noon (12:00)</button>
+        </div>
+        <div class="control-row">
+          <button onclick="setHour(18)">Dusk (18:00)</button>
+        </div>
+        <div class="control-row">
+          <button onclick="setHour(0)">Midnight (0:00)</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>Current State</h3>
+        <div class="info-panel">
+          <div class="info-row">
+            <span class="info-label">Time Period:</span>
+            <span id="period-value" class="info-value">Day</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Ambient Intensity:</span>
+            <span id="ambient-value" class="info-value">0.8</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Directional Intensity:</span>
+            <span id="directional-value" class="info-value">1.0</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Emissive Multiplier:</span>
+            <span id="emissive-value" class="info-value">0.2</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>About</h3>
+        <div class="info-panel">
+          This demo showcases the time of day system with:
+          <ul style="margin: 8px 0 0 20px; line-height: 1.8;">
+            <li>Smooth lighting transitions</li>
+            <li>Day/night cycle</li>
+            <li>Emissive objects (glowing at night)</li>
+            <li>Dynamic background colors</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createRenderer } from '../src/renderer/index.js';
+
+    let renderer;
+    let scene;
+    let camera;
+    let isRunning = true;
+
+    // Create scene objects
+    const objects = [];
+
+    async function init() {
+      // Initialize renderer with time of day system
+      renderer = createRenderer({
+        container: document.getElementById('canvas-container'),
+        timeOfDay: {
+          enabled: true,
+          startHour: 12,
+          speed: 1.0,
+          emissiveConfigUrl: './config/emissive-config.json',
+        },
+      });
+
+      await renderer.init();
+
+      // Add some demo objects
+      if (renderer.THREE && renderer.scene) {
+        scene = renderer.scene;
+        camera = renderer.camera;
+
+        // Set camera position
+        camera.position.set(0, 5, 15);
+        camera.lookAt(0, 0, 0);
+
+        // Create ground plane
+        const groundGeometry = new renderer.THREE.PlaneGeometry(30, 30);
+        const groundMaterial = new renderer.THREE.MeshStandardMaterial({ 
+          color: 0x2d3748,
+          roughness: 0.8,
+        });
+        const ground = new renderer.THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = 0;
+        scene.add(ground);
+
+        // Create some boxes as structures
+        const boxGeometry = new renderer.THREE.BoxGeometry(2, 3, 2);
+        
+        // Regular box
+        const regularMaterial = new renderer.THREE.MeshStandardMaterial({ color: 0x4a5568 });
+        const regularBox = new renderer.THREE.Mesh(boxGeometry, regularMaterial);
+        regularBox.position.set(-6, 1.5, 0);
+        scene.add(regularBox);
+
+        // Emissive box 1 (torch-like)
+        const emissiveMaterial1 = new renderer.THREE.MeshStandardMaterial({ 
+          color: 0x8b4513,
+          emissive: 0xffaa00,
+          emissiveIntensity: 0.5,
+        });
+        const emissiveBox1 = new renderer.THREE.Mesh(boxGeometry, emissiveMaterial1);
+        emissiveBox1.position.set(0, 1.5, 0);
+        scene.add(emissiveBox1);
+        objects.push({ mesh: emissiveBox1, baseEmissiveIntensity: 2.0, emissiveColor: 0xffaa00 });
+
+        // Emissive box 2 (lantern-like)
+        const emissiveMaterial2 = new renderer.THREE.MeshStandardMaterial({ 
+          color: 0x8b6914,
+          emissive: 0xffffaa,
+          emissiveIntensity: 0.5,
+        });
+        const emissiveBox2 = new renderer.THREE.Mesh(boxGeometry, emissiveMaterial2);
+        emissiveBox2.position.set(6, 1.5, 0);
+        scene.add(emissiveBox2);
+        objects.push({ mesh: emissiveBox2, baseEmissiveIntensity: 1.8, emissiveColor: 0xffffaa });
+
+        // Listen for time changes to update emissive objects
+        if (renderer.timeOfDay) {
+          renderer.timeOfDay.on('change', (data) => {
+            updateUI(data);
+            updateEmissiveObjects(data.properties.emissiveMultiplier);
+          });
+        }
+      }
+
+      // Set up UI controls
+      setupControls();
+
+      // Start rendering
+      renderer.start();
+
+      console.log('[Demo] Initialized successfully');
+    }
+
+    function updateEmissiveObjects(multiplier) {
+      objects.forEach(obj => {
+        if (obj.mesh.material.emissiveIntensity !== undefined) {
+          obj.mesh.material.emissiveIntensity = obj.baseEmissiveIntensity * multiplier;
+        }
+      });
+    }
+
+    function setupControls() {
+      const hourSlider = document.getElementById('hour-slider');
+      const hourValue = document.getElementById('hour-value');
+      const speedSlider = document.getElementById('speed-slider');
+      const speedValue = document.getElementById('speed-value');
+      const toggleButton = document.getElementById('toggle-time');
+
+      hourSlider.addEventListener('input', (e) => {
+        const hour = parseFloat(e.target.value);
+        if (renderer.timeOfDay) {
+          renderer.setTimeOfDayHour(hour);
+        }
+        updateHourDisplay(hour);
+      });
+
+      speedSlider.addEventListener('input', (e) => {
+        const speed = parseFloat(e.target.value);
+        if (renderer.timeOfDay) {
+          renderer.setTimeOfDaySpeed(speed);
+        }
+        speedValue.textContent = speed.toFixed(1) + 'x';
+      });
+
+      toggleButton.addEventListener('click', () => {
+        isRunning = !isRunning;
+        if (renderer.timeOfDay) {
+          renderer.setTimeOfDayEnabled(isRunning);
+        }
+        toggleButton.textContent = isRunning ? 'Pause Time' : 'Resume Time';
+        toggleButton.classList.toggle('primary', isRunning);
+      });
+    }
+
+    function updateHourDisplay(hour) {
+      const h = Math.floor(hour);
+      const m = Math.floor((hour - h) * 60);
+      document.getElementById('hour-value').textContent = 
+        `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+
+    function updateUI(data) {
+      updateHourDisplay(data.hour);
+      document.getElementById('hour-slider').value = data.hour;
+
+      const periodElement = document.getElementById('period-value');
+      periodElement.textContent = data.period.charAt(0).toUpperCase() + data.period.slice(1);
+      periodElement.className = 'info-value period-' + data.period;
+
+      document.getElementById('ambient-value').textContent = 
+        data.properties.ambientIntensity.toFixed(2);
+      document.getElementById('directional-value').textContent = 
+        data.properties.directionalIntensity.toFixed(2);
+      document.getElementById('emissive-value').textContent = 
+        data.properties.emissiveMultiplier.toFixed(2);
+    }
+
+    window.setHour = function(hour) {
+      if (renderer.timeOfDay) {
+        renderer.setTimeOfDayHour(hour);
+      }
+    };
+
+    // Start the demo
+    init().catch(error => {
+      console.error('[Demo] Initialization failed:', error);
+      document.getElementById('canvas-container').innerHTML = 
+        '<div style="color: red; padding: 20px;">Failed to initialize: ' + error.message + '</div>';
+    });
+  </script>
+</body>
+</html>
