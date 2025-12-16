@@ -1688,15 +1688,10 @@ select {
           logDebug(`Using fallback box for ground segment: ${asset.label} (${cell.type}) - model not loaded`);
         }
 
+        // Apply baseScale to both GLTF models and fallback boxes
+        // GLTF templates are normalized to 1.0, so baseScale controls their final size
+        obj.scale.set(asset.baseScale.x, asset.baseScale.y, asset.baseScale.z);
         obj.position.set(x, asset.baseScale.y * 0.5 + asset.yOffset, z);
-
-        // For GLTF models: template is already normalized, don't apply baseScale
-        // For fallback boxes: need baseScale since they're created at arbitrary size
-        if (asset.gltfTemplate) {
-          obj.scale.set(1, 1, 1); // Normalized size
-        } else {
-          obj.scale.set(asset.baseScale.x, asset.baseScale.y, asset.baseScale.z);
-        }
 
         obj.receiveShadow = true;
         groundGroup.add(obj);
@@ -1735,13 +1730,9 @@ select {
         const baseY = asset.baseScale.y;
         const baseZ = asset.baseScale.z;
 
-        // For GLTF models: template is already normalized to size 1.0, so only apply instance scale
-        // For fallback boxes: need baseScale since they're created at arbitrary size
-        if (asset.gltfTemplate) {
-          obj.scale.set(sx, sy, sz); // Instance scale only
-        } else {
-          obj.scale.set(baseX * sx, baseY * sy, baseZ * sz); // Base + instance scale
-        }
+        // Apply both baseScale and instance scale to all objects
+        // GLTF templates are normalized to 1.0, so baseScale sets their base size
+        obj.scale.set(baseX * sx, baseY * sy, baseZ * sz);
 
         obj.rotation.y = angle;
         obj.position.set(
