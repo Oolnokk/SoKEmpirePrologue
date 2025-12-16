@@ -1231,10 +1231,12 @@
 
   <script type="module">
     // ===== 3D Visual Map Background =====
-    let THREE;
+    let THREE, GLTFLoader;
     try {
       const threeModule = await import("https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js");
       THREE = threeModule;
+      const { GLTFLoader: Loader } = await import("https://esm.sh/three@0.149.0/examples/jsm/loaders/GLTFLoader.js");
+      GLTFLoader = Loader;
     } catch (err) {
       console.warn("Three.js not available:", err);
       document.getElementById('threeOverlay').textContent = '3D disabled (Three.js blocked)';
@@ -1242,9 +1244,20 @@
       document.getElementById('btnLoadVisualMap').title = 'Three.js CDN blocked by browser';
     }
 
+    // Import shared transform utilities
+    let applyAssetTransforms;
+    try {
+      const transforms = await import("./renderer/gltfTransforms.js");
+      applyAssetTransforms = transforms.applyAssetTransforms;
+    } catch (err) {
+      console.warn("gltfTransforms not available:", err);
+    }
+
     let scene, camera, renderer, worldRoot;
     let visualMapData = null;
-    let groundGroup, structureGroup;
+    let groundGroup, structureGroup, decorationGroup;
+    let gltfLoader = null;
+    let ALL_ASSETS = [];
     const CELL_SIZE = 2;
     
     const threeContainer = document.getElementById('threeViewport');
@@ -1308,7 +1321,16 @@
 
       groundGroup = new THREE.Group();
       structureGroup = new THREE.Group();
-      worldRoot.add(groundGroup, structureGroup);
+      decorationGroup = new THREE.Group();
+      worldRoot.add(groundGroup, structureGroup, decorationGroup);
+
+      // Initialize GLTF loader
+      if (GLTFLoader) {
+        gltfLoader = new GLTFLoader();
+      }
+
+      // Load asset index and models
+      loadAssetIndex();
 
       window.addEventListener('resize', onWindowResize);
       animate();
@@ -1342,11 +1364,175 @@
       }
     }
 
+    // Asset management functions
+    function getAssetById(id) {
+      return ALL_ASSETS.find(a => a.id === id) || null;
+    }
+
+    function normalizeGltfSceneToUnit(scene, assetLabel) {
+      const box = new THREE.Box3().setFromObject(scene);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      if (maxDim < 1e-6) return;
+
+      const s = 1.0 / maxDim;
+      scene.scale.multiplyScalar(s);
+      scene.updateMatrixWorld(true);
+
+      const box2 = new THREE.Box3().setFromObject(scene);
+      const center = new THREE.Vector3();
+      box2.getCenter(center);
+      scene.position.x -= center.x;
+      scene.position.z -= center.z;
+      scene.position.y -= box2.min.y;
+
+      console.log(`[gameplay-editor] GLTF normalized: ${assetLabel} maxDim=${maxDim.toFixed(3)} scale=${s.toFixed(3)}`);
+    }
+
+    function loadGltfFromPath(asset, path) {
+      if (!gltfLoader) {
+        console.warn('[gameplay-editor] GLTFLoader not available');
+        return;
+      }
+
+      console.log(`[gameplay-editor] Loading model for ${asset.label}: ${path}`);
+
+      gltfLoader.load(
+        path,
+        (gltf) => {
+          const root = gltf.scene;
+
+          // Apply transforms BEFORE normalization (critical for correct bounding box)
+          if (applyAssetTransforms) {
+            try {
+              const applied = applyAssetTransforms(root, asset, false);
+              console.log(`[gameplay-editor] Applied transforms for ${asset.label}:`,
+                `Rot(${applied.rotation.x}°,${applied.rotation.y}°,${applied.rotation.z}°)`,
+                `Scale(${applied.scale.x},${applied.scale.y},${applied.scale.z})`,
+                `Offset(${applied.offset.x},${applied.offset.y},${applied.offset.z})`
+              );
+            } catch (err) {
+              console.error(`[gameplay-editor] Error applying transforms for ${asset.label}:`, err);
+            }
+          }
+
+          // Normalize after transforms so bounding box accounts for transformed dimensions
+          normalizeGltfSceneToUnit(root, asset.label);
+
+          root.traverse(n => {
+            if (n.isMesh) {
+              n.castShadow = true;
+              n.receiveShadow = true;
+            }
+          });
+
+          asset.gltfTemplate = root;
+          console.log(`[gameplay-editor] Model loaded for ${asset.label}`);
+
+          // Re-render if we have a visualmap loaded
+          if (visualMapData) {
+            loadVisualMap(visualMapData, 'current');
+          }
+        },
+        undefined,
+        (err) => {
+          console.error(`[gameplay-editor] Model load error for ${asset.label}:`, err?.message || String(err));
+        }
+      );
+    }
+
+    async function loadAssetIndex() {
+      if (!THREE) return;
+
+      try {
+        const response = await fetch('./config/maps/visualsmaps/index.json');
+        if (!response.ok) {
+          console.error('[gameplay-editor] Failed to load asset index:', response.status);
+          return;
+        }
+
+        const data = await response.json();
+        console.log('[gameplay-editor] Asset index loaded:', data);
+
+        // Build ALL_ASSETS array from segments and structures
+        ALL_ASSETS = [];
+
+        if (data.segments) {
+          data.segments.forEach(asset => {
+            ALL_ASSETS.push({
+              id: asset.id,
+              label: asset.label,
+              layer: asset.layer || 'ground',
+              gltfPath: asset.gltfPath,
+              baseScale: asset.baseScale || { x: 1, y: 1, z: 1 },
+              yOffset: asset.yOffset || 0,
+              forwardOffsetDeg: asset.forwardOffsetDeg || 0,
+              instanceDefaults: asset.instanceDefaults || { orientation: 0, scaleX: 1, scaleY: 1, scaleZ: 1, offsetX: 0, offsetY: 0 },
+              extraConfig: asset.extraConfig || {},
+              gltfTemplate: null
+            });
+          });
+        }
+
+        if (data.structures) {
+          data.structures.forEach(asset => {
+            ALL_ASSETS.push({
+              id: asset.id,
+              label: asset.label,
+              layer: asset.layer || 'structure',
+              gltfPath: asset.gltfPath,
+              baseScale: asset.baseScale || { x: 1, y: 1, z: 1 },
+              yOffset: asset.yOffset || 0,
+              forwardOffsetDeg: asset.forwardOffsetDeg || 0,
+              instanceDefaults: asset.instanceDefaults || { orientation: 0, scaleX: 1, scaleY: 1, scaleZ: 1, offsetX: 0, offsetY: 0 },
+              extraConfig: asset.extraConfig || {},
+              gltfTemplate: null
+            });
+          });
+        }
+
+        console.log(`[gameplay-editor] Loaded ${ALL_ASSETS.length} assets`);
+
+        // Auto-load GLTF models for all assets
+        ALL_ASSETS.forEach(asset => {
+          if (asset.gltfPath) {
+            loadGltfFromPath(asset, asset.gltfPath);
+          }
+        });
+
+      } catch (err) {
+        console.error('[gameplay-editor] Error loading asset index:', err);
+      }
+    }
+
+    // Helper functions for rendering
+    function sanitizeScale(value, fallback) {
+      let v = Number(value);
+      if (!isFinite(v)) return fallback;
+      if (v === 0) v = 0.01;
+      return v;
+    }
+
+    function sanitizeOffset(value) {
+      let v = Number(value);
+      if (!isFinite(v)) return 0;
+      return v;
+    }
+
+    function cellToWorld(row, col, rows, cols) {
+      return {
+        x: (col - cols / 2) * CELL_SIZE,
+        z: -(row - rows / 2) * CELL_SIZE
+      };
+    }
+
     // Load and render visual map
     function loadVisualMap(data, filename = '') {
       visualMapData = data;
       clearGroup(groundGroup);
       clearGroup(structureGroup);
+      clearGroup(decorationGroup);
 
       if (!data.gameplayPath || !data.gameplayPath.start || !data.gameplayPath.end) {
         overlay.textContent = filename ? `Visual map: ${filename} (no gameplayPath)` : 'Visual map loaded (no gameplayPath)';
@@ -1378,53 +1564,140 @@
       camera.position.set(centerX, 30, centerZ + 40);
       camera.lookAt(centerX, 0, centerZ);
 
-      // Render ground tiles
-      const layers = ['ground', 'structure', 'decoration'];
-      layers.forEach(layerName => {
-        const layerData = data.layerStates?.[layerName];
-        if (!layerData) return;
+      // Fallback materials for when models aren't loaded
+      const segmentFallbackMat = new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.7, metalness: 0.2 });
+      const structureFallbackMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.7, metalness: 0.2 });
+      const decoFallbackMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.7, metalness: 0.2 });
+      const boxGeom = new THREE.BoxGeometry(CELL_SIZE * 0.9, CELL_SIZE * 0.9, CELL_SIZE * 0.9);
 
-        const targetGroup = layerName === 'structure' ? structureGroup : groundGroup;
-        // Create material once per layer (not per mesh) for better performance
-        const mat = new THREE.MeshStandardMaterial({
-          color: layerName === 'ground' ? 0x4b5563 : layerName === 'structure' ? 0x3b82f6 : 0xf97316,
-          roughness: 0.7,
-          metalness: 0.2
-        });
+      let groundCount = 0, structCount = 0, decoCount = 0;
 
-        for (let row = 0; row < data.rows; row++) {
-          for (let col = 0; col < data.cols; col++) {
-            const cell = layerData[row]?.[col];
+      // Ground segments (3D volumes with actual GLTF models)
+      const groundState = data.layerStates?.ground;
+      if (groundState) {
+        for (let r = 0; r < data.rows; r++) {
+          for (let c = 0; c < data.cols; c++) {
+            const cell = groundState[r]?.[c];
             if (!cell || !cell.type) continue;
 
-            const x = (col - data.cols / 2) * CELL_SIZE;
-            const z = -(row - data.rows / 2) * CELL_SIZE;
-            const y = layerName === 'structure' ? CELL_SIZE : 0.1;
+            const asset = getAssetById(cell.type);
+            if (!asset) continue;
 
-            const mesh = new THREE.Mesh(
-              new THREE.BoxGeometry(
-                CELL_SIZE * 0.9,
-                layerName === 'structure' ? CELL_SIZE * 2 : CELL_SIZE * 0.2,
-                CELL_SIZE * 0.9
-              ),
-              mat // Reuse same material for all meshes in this layer
-            );
-            mesh.position.set(x, y, z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            targetGroup.add(mesh);
+            const { x, z } = cellToWorld(r, c, data.rows, data.cols);
+
+            let obj;
+            if (asset.gltfTemplate) {
+              obj = asset.gltfTemplate.clone(true);
+              obj.traverse(n => { if (n.isMesh) { n.castShadow = false; n.receiveShadow = true; } });
+            } else {
+              obj = new THREE.Mesh(boxGeom, segmentFallbackMat);
+              console.log(`[gameplay-editor] Using fallback box for ground: ${asset.label} (${cell.type})`);
+            }
+
+            // Apply baseScale to both GLTF models and fallback boxes
+            obj.scale.set(asset.baseScale.x, asset.baseScale.y, asset.baseScale.z);
+            obj.position.set(x, asset.baseScale.y * 0.5 + asset.yOffset, z);
+
+            obj.receiveShadow = true;
+            groundGroup.add(obj);
+            groundCount++;
           }
         }
-      });
+      }
+
+      // Structures (3D with per-instance scale/rotation/offset)
+      const structState = data.layerStates?.structure;
+      if (structState) {
+        for (let r = 0; r < data.rows; r++) {
+          for (let c = 0; c < data.cols; c++) {
+            const cell = structState[r]?.[c];
+            if (!cell || !cell.type) continue;
+
+            const asset = getAssetById(cell.type);
+            if (!asset) continue;
+
+            const { x, z } = cellToWorld(r, c, data.rows, data.cols);
+            const sx = sanitizeScale(cell.scaleX, 1);
+            const sy = sanitizeScale(cell.scaleY, 1);
+            const sz = sanitizeScale(cell.scaleZ, 1);
+            const offX = sanitizeOffset(cell.offsetX);
+            const offZ = sanitizeOffset(cell.offsetY);
+
+            const yawDeg = (cell.orientation || 0) + (asset.forwardOffsetDeg || 0);
+            const angle = THREE.MathUtils.degToRad(yawDeg);
+
+            let obj;
+            if (asset.gltfTemplate) {
+              obj = asset.gltfTemplate.clone(true);
+              obj.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+            } else {
+              obj = new THREE.Mesh(boxGeom, structureFallbackMat);
+              obj.castShadow = true;
+              console.log(`[gameplay-editor] Using fallback box for structure: ${asset.label} (${cell.type})`);
+            }
+
+            const baseX = asset.baseScale.x;
+            const baseY = asset.baseScale.y;
+            const baseZ = asset.baseScale.z;
+
+            // Apply both baseScale and instance scale
+            obj.scale.set(baseX * sx, baseY * sy, baseZ * sz);
+
+            // Rotate around world Y axis (vertical) for proper orientation
+            obj.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), angle);
+
+            obj.position.set(
+              x + offX,
+              (baseY * sy) * 0.5 + asset.yOffset,
+              z + offZ
+            );
+
+            structureGroup.add(obj);
+            structCount++;
+          }
+        }
+      }
+
+      // Decorations (fallback spheres for now)
+      const decoState = data.layerStates?.decoration;
+      if (decoState) {
+        const decoGeom = new THREE.SphereGeometry(0.2, 8, 8);
+        for (let r = 0; r < data.rows; r++) {
+          for (let c = 0; c < data.cols; c++) {
+            const cell = decoState[r]?.[c];
+            if (!cell || !cell.type) continue;
+
+            const { x, z } = cellToWorld(r, c, data.rows, data.cols);
+            const sx = sanitizeScale(cell.scaleX, 0.8);
+            const sy = sanitizeScale(cell.scaleY, 0.8);
+            const sz = sanitizeScale(cell.scaleZ, 0.8);
+            const offX = sanitizeOffset(cell.offsetX);
+            const offZ = sanitizeOffset(cell.offsetY);
+
+            const deco = new THREE.Mesh(decoGeom, decoFallbackMat);
+            deco.position.set(x + offX, 0.2 * sy + 0.1, z + offZ);
+            deco.scale.set(sx, sy, sz);
+            deco.castShadow = true;
+            decorationGroup.add(deco);
+            decoCount++;
+          }
+        }
+      }
 
       const displayName = filename || 'loaded';
-      overlay.textContent = `Visual map: ${displayName} - ${data.rows}×${data.cols} grid, path aligned`;
+      const assetStatus = ALL_ASSETS.length > 0
+        ? ALL_ASSETS.map(a => `${a.label}: ${a.gltfTemplate ? '✓' : '✗'}`).join(', ')
+        : 'loading...';
+      overlay.textContent = `Visual map: ${displayName} - ${data.rows}×${data.cols} grid | ground=${groundCount}, structures=${structCount}, deco=${decoCount} | ${assetStatus}`;
+
+      console.log(`[gameplay-editor] Rendered visualmap: ground=${groundCount}, structures=${structCount}, decorations=${decoCount}`);
     }
 
     function clearVisualMap() {
       visualMapData = null;
       clearGroup(groundGroup);
       clearGroup(structureGroup);
+      clearGroup(decorationGroup);
       worldRoot.rotation.y = 0;
       camera.position.set(0, 30, 50);
       camera.lookAt(0, 0, 0);
