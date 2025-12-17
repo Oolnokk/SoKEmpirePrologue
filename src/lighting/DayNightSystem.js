@@ -142,14 +142,15 @@ export class DayNightSystem {
       this.transitionProgress = 1.0;
       this.isTransitioning = false;
       this.applyState(1.0);
-      if (wasNight !== this.isNight) {
-        this.emit('timeChange', { isNight: this.isNight, timeOfDayHours: this.timeOfDayHours });
-      }
+      // Always emit time change for continuous lighting updates
+      this.emit('timeChange', { isNight: this.isNight, timeOfDayHours: this.timeOfDayHours });
     } else if (wasNight !== this.isNight) {
       this.startTransition();
     } else {
       // Just update the blend without transitioning
       this.applyState(1.0);
+      // Emit time change even without day/night transition for continuous lighting
+      this.emit('timeChange', { isNight: this.isNight, timeOfDayHours: this.timeOfDayHours });
     }
   }
 
@@ -197,25 +198,53 @@ export class DayNightSystem {
   }
 
   /**
-   * Get current lighting configuration
+   * Get current lighting configuration with smooth interpolation across all hours
    * @returns {Object} Current lighting config
    */
   getCurrentLightingConfig() {
-    if (!this.isTransitioning) {
-      return this.isNight ? this.nightConfig : this.dayConfig;
+    // Calculate blend factor based on time of day (0-24 hours)
+    // 0-6: night -> dawn, 6-12: dawn -> noon, 12-18: noon -> dusk, 18-24: dusk -> night
+    let blend = 0;
+
+    if (this.timeOfDayHours >= 6 && this.timeOfDayHours < 18) {
+      // Day time (6am to 6pm) - interpolate from night to day and back
+      if (this.timeOfDayHours < 12) {
+        // 6am to noon - transitioning from night to full day
+        blend = (this.timeOfDayHours - 6) / 6; // 0 to 1
+      } else {
+        // Noon to 6pm - transitioning from full day back towards night
+        blend = 1 - ((this.timeOfDayHours - 12) / 6); // 1 to 0
+      }
+    } else {
+      // Night time (6pm to 6am)
+      blend = 0;
     }
 
-    // Interpolate between day and night configs
-    const blend = this.easeInOutCubic(this.transitionProgress);
-    const from = this.isNight ? this.dayConfig : this.nightConfig;
-    const to = this.isNight ? this.nightConfig : this.dayConfig;
+    // Apply easing for smoother transitions
+    blend = this.easeInOutCubic(blend);
 
+    // If transitioning, use transition blend instead
+    if (this.isTransitioning) {
+      const transitionBlend = this.easeInOutCubic(this.transitionProgress);
+      const from = this.isNight ? this.dayConfig : this.nightConfig;
+      const to = this.isNight ? this.nightConfig : this.dayConfig;
+
+      return {
+        ambientColor: this.lerpColor(from.ambientColor, to.ambientColor, transitionBlend),
+        ambientIntensity: this.lerp(from.ambientIntensity, to.ambientIntensity, transitionBlend),
+        skyColor: this.lerpColor(from.skyColor, to.skyColor, transitionBlend),
+        groundColor: this.lerpColor(from.groundColor, to.groundColor, transitionBlend),
+        hemisphereIntensity: this.lerp(from.hemisphereIntensity, to.hemisphereIntensity, transitionBlend)
+      };
+    }
+
+    // Interpolate between night and day configs based on time
     return {
-      ambientColor: this.lerpColor(from.ambientColor, to.ambientColor, blend),
-      ambientIntensity: this.lerp(from.ambientIntensity, to.ambientIntensity, blend),
-      skyColor: this.lerpColor(from.skyColor, to.skyColor, blend),
-      groundColor: this.lerpColor(from.groundColor, to.groundColor, blend),
-      hemisphereIntensity: this.lerp(from.hemisphereIntensity, to.hemisphereIntensity, blend)
+      ambientColor: this.lerpColor(this.nightConfig.ambientColor, this.dayConfig.ambientColor, blend),
+      ambientIntensity: this.lerp(this.nightConfig.ambientIntensity, this.dayConfig.ambientIntensity, blend),
+      skyColor: this.lerpColor(this.nightConfig.skyColor, this.dayConfig.skyColor, blend),
+      groundColor: this.lerpColor(this.nightConfig.groundColor, this.dayConfig.groundColor, blend),
+      hemisphereIntensity: this.lerp(this.nightConfig.hemisphereIntensity, this.dayConfig.hemisphereIntensity, blend)
     };
   }
 

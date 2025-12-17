@@ -666,7 +666,34 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     renderer.add(directionalLight.target);
     loadedObjects.push(directionalLight, directionalLight.target);
 
-    // Update lights and sky when day/night changes
+    // Track all materials for lighting tint application
+    const sceneMaterials = [];
+
+    // Collect all materials from loaded objects
+    for (const obj of loadedObjects) {
+      obj.traverse((child) => {
+        if (child.material) {
+          // Store original color if not already stored
+          if (Array.isArray(child.material)) {
+            child.material.forEach(mat => {
+              if (!mat.userData.originalColor) {
+                mat.userData.originalColor = mat.color ? mat.color.clone() : new renderer.THREE.Color(0xffffff);
+              }
+              sceneMaterials.push(mat);
+            });
+          } else {
+            if (!child.material.userData.originalColor) {
+              child.material.userData.originalColor = child.material.color ? child.material.color.clone() : new renderer.THREE.Color(0xffffff);
+            }
+            sceneMaterials.push(child.material);
+          }
+        }
+      });
+    }
+
+    console.log(`[visualsmapLoader] Collected ${sceneMaterials.length} materials for lighting tint`);
+
+    // Update lights, sky, and material tints when day/night changes
     const updateSceneLighting = () => {
       const config = dayNightSystem.getCurrentLightingConfig();
       ambientLight.color.setHex(config.ambientColor);
@@ -677,18 +704,37 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       if (renderer.scene && renderer.scene.background) {
         renderer.scene.background.setHex(config.skyColor);
       }
+
+      // Apply lighting tint to all materials (makes sprites and unlit materials respond to lighting)
+      const tintColor = new renderer.THREE.Color(config.ambientColor);
+      const tintIntensity = Math.max(config.ambientIntensity, 0.15); // Minimum 15% brightness
+
+      for (const mat of sceneMaterials) {
+        if (mat.userData.originalColor) {
+          // Blend original color with ambient tint
+          const blendedColor = mat.userData.originalColor.clone();
+          blendedColor.lerp(tintColor, 1 - tintIntensity);
+          mat.color.copy(blendedColor);
+          mat.needsUpdate = true;
+        }
+      }
     };
 
     dayNightSystem.on('timeChange', updateSceneLighting);
     updateSceneLighting(); // Set initial state
 
     // Hook into renderer's frame update to update day/night transitions
+    let lastUpdateTime = 0;
+    const UPDATE_INTERVAL = 100; // Update lighting every 100ms (10 FPS for lighting)
+
     const frameUpdateHandler = ({ time }) => {
       dayNightSystem.update(0); // deltaTime handled internally by DayNightSystem
 
-      // Update lighting continuously during transitions
-      if (dayNightSystem.isTransitioning) {
+      // Update lighting during transitions or periodically for continuous time changes
+      const shouldUpdate = dayNightSystem.isTransitioning || (time - lastUpdateTime > UPDATE_INTERVAL);
+      if (shouldUpdate) {
         updateSceneLighting();
+        lastUpdateTime = time;
       }
     };
     renderer.on('frame', frameUpdateHandler);
@@ -755,8 +801,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     // Expand to cover nearest tiles (cellSize * 3-4 tiles in each direction)
     const PROXIMITY_RADIUS = cellSize * 4; // Distance to activate light (covers ~4 tiles)
     const MAX_ACTIVE_LIGHTS = 8; // Increased for better coverage
-    const LIGHT_INTENSITY = 3; // Brighter lights for very dark night
-    const LIGHT_DISTANCE = cellSize * 3; // Light reaches ~3 tiles
+    const LIGHT_INTENSITY = 10; // Much brighter to actually illuminate surroundings in very dark night
+    const LIGHT_DISTANCE = cellSize * 4; // Light reaches ~4 tiles
 
     const updateProximityLighting = () => {
       // Only update when it's night and we have candles
