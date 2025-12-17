@@ -41,6 +41,7 @@ export class Renderer {
     this.height = options.height || 600;
     this.pixelRatio = options.pixelRatio || (typeof globalThis !== 'undefined' && globalThis.devicePixelRatio) || 1;
     this.clearColor = options.clearColor !== undefined ? options.clearColor : 0x000000;
+    this.cameraFar = Number.isFinite(options.cameraFar) ? options.cameraFar : 1000;
     
     // Three.js instances (null if not supported)
     this.THREE = isSupported() ? globalThis.THREE : null;
@@ -88,7 +89,7 @@ export class Renderer {
         50, // fov
         this.width / this.height,
         0.1,
-        1000
+        this.cameraFar
       );
       this.camera.position.set(0, 5, 10);
       this.camera.lookAt(0, 0, 0);

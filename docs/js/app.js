@@ -6182,6 +6182,9 @@ function boot(){
         const rect = stageEl.getBoundingClientRect();
         const width = rect.width || 800;
         const height = rect.height || 600;
+        const cameraFar = Number.isFinite(window.CONFIG?.camera?.far)
+          ? window.CONFIG.camera.far
+          : 1000;
 
         // Create renderer
         GAME_RENDERER_3D = createRenderer({
@@ -6189,7 +6192,8 @@ function boot(){
           width,
           height,
           pixelRatio: window.devicePixelRatio || 1,
-          clearColor: 0x0b1220 // Match default background color
+          clearColor: 0x0b1220, // Match default background color
+          cameraFar,
         });
 
         // Initialize renderer
