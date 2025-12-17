@@ -37,6 +37,15 @@ function getRef() {
   }
 }
 
+function remoteHasRef(ref) {
+  try {
+    const output = execSync(`git ls-remote origin ${ref}`, { encoding: 'utf8' }).trim();
+    return Boolean(output);
+  } catch {
+    return null;
+  }
+}
+
 function buildGithackUrls(slug, ref) {
   const base = `https://raw.githack.com/${slug}/${ref}/docs`;
   return {
@@ -61,6 +70,17 @@ if (!slug || !ref) {
   const suffix = problems.length ? ` (${problems.join('; ')})` : '';
   console.error(`Unable to produce githack URLs${suffix}.`);
   process.exit(1);
+}
+
+const remoteHasPublishedRef = remoteHasRef(ref);
+if (remoteHasPublishedRef === false) {
+  console.warn(
+    'Warning: origin does not expose this ref. Push the branch or use a published ref to avoid raw.githack.com 404s.',
+  );
+} else if (remoteHasPublishedRef === null) {
+  console.warn(
+    'Warning: Unable to verify ref availability on origin; raw.githack.com will 404 if the ref has not been pushed.',
+  );
 }
 
 const urls = buildGithackUrls(slug, ref);

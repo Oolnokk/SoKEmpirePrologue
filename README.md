@@ -88,7 +88,7 @@ If you want to open the static docs (e.g., the animation editor) without running
 node tools/githack-url.mjs
 ```
 
-The script prints links for `docs/index.html`, `docs/animation-editor.html`, `docs/cosmetic-editor.html`, and `docs/map-editor.html` using the current branch or commit. You can override the ref explicitly when needed:
+The script prints links for `docs/index.html`, `docs/animation-editor.html`, `docs/cosmetic-editor.html`, and `docs/map-editor.html` using the current branch or commit. It now warns if the ref is not published to your `origin` remote, because raw.githack.com cannot serve commits that are only local. You can override the ref explicitly when needed:
 
 ```
 node tools/githack-url.mjs --ref=feature-branch
