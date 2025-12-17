@@ -362,11 +362,9 @@
         <!-- Controls overlay -->
         <div class="controls-overlay">
           <div class="top-ui">
-            <button type="button" id="btnHelp" class="ui-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="helpPanel">❓ Help</button>
             <button type="button" id="btnFullscreen" class="ui-btn">⤢ Full</button>
             <button type="button" id="btnReloadCfg" class="ui-btn">↻ Config</button>
             <button type="button" id="debugToggle" class="ui-btn">🔍 Debug</button>
-            <button type="button" id="btnTeleportSpawn" class="ui-btn">⟰ Teleport</button>
           </div>
 
           <div class="help-panel" id="helpPanel" role="dialog" aria-modal="false" aria-label="On-screen control help">
@@ -399,9 +397,6 @@
             <button type="button" id="btnAttackB" class="action-btn attack-b ability-small">B</button>
             <button type="button" id="btnAttackC" class="action-btn attack-c">C</button>
           </div>
-
-          <!-- Interact Button -->
-          <button type="button" id="btnInteract" class="interact-btn">E</button>
         </div>
       </div>
 
@@ -420,9 +415,10 @@
             <div id="coordHud" style="color:#bfdbfe; font-size: 12px; margin-bottom: 6px;">
               Player: (—, —) | Spawn: (—, —)
             </div>
-            <div id="fpsHud" style="color:#d1fae5; font-size: 12px;">
+            <div id="fpsHud" style="color:#d1fae5; font-size: 12px; margin-bottom: 8px;">
               FPS: --
             </div>
+            <button type="button" id="btnTeleportSpawn" class="debug-action-btn" style="width: 100%;">⟰ Teleport to Spawn</button>
           </div>
 
           <div class="debug-panel-controls">
@@ -475,6 +471,11 @@
                 <!-- Pose editor will be populated by JavaScript -->
               </div>
             </div>
+          </div>
+
+          <!-- Help Button at Bottom -->
+          <div style="padding: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <button type="button" id="btnHelp" class="debug-action-btn" style="width: 100%;" aria-haspopup="dialog" aria-expanded="false" aria-controls="helpPanel">❓ Help</button>
           </div>
         </section>
         </div>
