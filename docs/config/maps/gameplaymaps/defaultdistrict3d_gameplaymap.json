@@ -44,7 +44,23 @@
       "y": 0,
       "meta": {
         "prefab": "spawn_npc",
-        "patrolRouteId": "city_guard_patrol"
+        "patrolRouteId": "city_guard_patrol",
+        "spawner": {
+          "type": "npc",
+          "count": 2,
+          "respawn": true,
+          "spawnRadius": 50,
+          "templateId": "watchman",
+          "characterId": "watchman",
+          "groupId": "city_guard",
+          "groupMeta": {
+            "id": "city_guard",
+            "faction": "city_watch",
+            "interests": ["patrol_point", "guard_post"],
+            "exitTags": ["exit"],
+            "exitWeights": {}
+          }
+        }
       }
     },
     {
@@ -55,6 +71,8 @@
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 0,
+        "name": "patrol_west",
+        "arriveRadius": 10,
         "description": "Western patrol area",
         "scheduleHours": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
       }
@@ -67,6 +85,8 @@
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 1,
+        "name": "patrol_center",
+        "arriveRadius": 10,
         "description": "Central patrol area",
         "scheduleHours": [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
       }
@@ -79,7 +99,9 @@
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 2,
-        "name": "patrol1"
+        "name": "patrol1",
+        "arriveRadius": 10,
+        "description": "Eastern guard post"
       }
     },
     {
@@ -90,7 +112,9 @@
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 3,
-        "name": "patrol2"
+        "name": "patrol2",
+        "arriveRadius": 10,
+        "description": "Central guard post"
       }
     },
     {
@@ -101,7 +125,9 @@
       "meta":  {
         "routeId":  "city_guard_patrol",
         "sequence": 4,
-        "name": "patrol3"
+        "name": "patrol3",
+        "arriveRadius": 10,
+        "description": "Western guard post"
       }
     },
     {
