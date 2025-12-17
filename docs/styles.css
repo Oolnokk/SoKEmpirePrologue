@@ -417,8 +417,6 @@ main.stack{
     width:100vw;
     max-width:100vw;
     overflow-x:hidden;
-    margin:0;
-    padding:0;
   }
   main.stack{
     width:100vw !important;
@@ -427,15 +425,11 @@ main.stack{
     padding:0;
     margin:0;
   }
-  /* Hide all widgets except the game stage */
-  .widget:not(.widget--clear){
-    display:none !important;
-  }
-  .widget--clear{
+  .widget, .widget--clear{
     width:100vw !important;
     max-width:100vw !important;
-    margin:0 !important;
-    padding:0 !important;
+    margin:0;
+    padding:0;
   }
 }
 
@@ -523,18 +517,6 @@ canvas#game{
   touch-action:none;
   position:relative;
   z-index:1;
-}
-
-/* Ensure canvas fills landscape properly with no borders */
-@media (orientation: landscape) {
-  canvas#game{
-    border-radius:0 !important;
-    position:absolute;
-    top:0;
-    left:0;
-    width:100vw !important;
-    height:100vh !important;
-  }
 }
 
 .coordinate-box{display:flex;flex-direction:column;gap:8px;}
