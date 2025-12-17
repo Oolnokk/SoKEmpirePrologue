@@ -449,8 +449,9 @@ function syncConfigGround(area) {
         if (!ratioLocked) {
             CONFIG.groundRatio = ratio;
         }
+        const { groundY: _staleGroundY, ...configWithoutGroundY } = CONFIG;
         const groundInputs = {
-            ...CONFIG,
+            ...configWithoutGroundY,
             groundRatio: appliedRatio,
             ground: {
                 ...(typeof CONFIG.ground === 'object' && CONFIG.ground ? CONFIG.ground : {}),
