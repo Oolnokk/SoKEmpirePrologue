@@ -434,9 +434,12 @@
     let viewZoom = 1.0;
 
     // Tile measurement settings (matches GRID_UNIT_WORLD_SIZE from config.js)
-    let tileSize = 30; // world units per tile
+    let tileSize = 30; // world units per tile (GRID_UNIT_WORLD_SIZE)
     let showRuler = true;
     let showGrid = true;
+
+    // Visual map tile info
+    let visualMapTiles = null; // { cols: 20, rows: 20, startX: -300, startY: 0 }
 
     // Touch state
     let touchStartDist = 0;
@@ -475,17 +478,30 @@
       };
     }
 
-    function worldToTiles(worldCoord) {
-      return worldCoord / tileSize;
+    function worldToTileIndex(worldX) {
+      if (!visualMapTiles) {
+        // Default: assume centered at origin
+        const startX = -(tileSize / 2);
+        return Math.floor((worldX - startX) / tileSize);
+      }
+      return Math.floor((worldX - visualMapTiles.startX) / tileSize);
     }
 
-    function tilesToWorld(tileCoord) {
-      return tileCoord * tileSize;
+    function tileIndexToWorld(tileIndex) {
+      if (!visualMapTiles) {
+        const startX = -(tileSize / 2);
+        return startX + (tileIndex * tileSize);
+      }
+      return visualMapTiles.startX + (tileIndex * tileSize);
+    }
+
+    function getTileCount(worldWidth) {
+      return Math.ceil(worldWidth / tileSize);
     }
 
     function formatCoordinate(worldCoord) {
-      const tiles = worldToTiles(worldCoord);
-      return `${worldCoord.toFixed(0)} (${tiles.toFixed(2)} tiles)`;
+      const tileIndex = worldToTileIndex(worldCoord);
+      return `${worldCoord.toFixed(0)} (tile ${tileIndex})`;
     }
 
     function validateEntities() {
@@ -645,38 +661,39 @@
       }
 
       if (showRuler) {
-        // Draw ruler labels above ground line
+        // Draw ruler labels above ground line showing tile indices
         ctx.fillStyle = '#475569';
         ctx.font = '10px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
 
-        // X-axis labels (every 5 tiles for readability) - positioned above ground
+        // X-axis labels - show tile indices at tile boundaries
         const rulerY = 20; // 20 world units above ground
-        const rulerScreenY = worldToScreen(0, rulerY).y;
-        for (let tx = startTileX; tx <= endTileX; tx++) {
-          if (tx % 5 === 0) {
-            const wx = tx * tileSize;
+        const startTileIdx = worldToTileIndex(topLeft.x);
+        const endTileIdx = worldToTileIndex(bottomRight.x);
+
+        for (let tileIdx = startTileIdx; tileIdx <= endTileIdx; tileIdx++) {
+          // Show labels every tile, or every 5 tiles if zoomed out
+          const interval = viewZoom < 0.5 ? 5 : 1;
+          if (tileIdx % interval === 0) {
+            const wx = tileIndexToWorld(tileIdx);
             const scr = worldToScreen(wx, rulerY);
-            ctx.fillText(`${tx}t`, scr.x, scr.y - 2);
+            ctx.fillText(`T${tileIdx}`, scr.x, scr.y - 2);
             ctx.fillStyle = '#64748b';
-            ctx.fillText(`${wx}`, scr.x, scr.y - 14);
+            ctx.fillText(`${wx.toFixed(0)}`, scr.x, scr.y - 14);
             ctx.fillStyle = '#475569';
           }
         }
 
-        // Y-axis labels (every 5 tiles for readability)
+        // Y-axis labels (every 30 units = 1 tile height)
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        const centerX = worldToScreen(0, 0).x;
         for (let ty = startTileY; ty <= endTileY; ty++) {
-          if (ty % 5 === 0 && ty !== 0) {
+          if (ty % 1 === 0 && ty !== 0) {
             const wy = ty * tileSize;
             const scr = worldToScreen(0, wy);
             if (scr.y >= 0 && scr.y <= canvas.height) {
-              ctx.fillText(`${ty}t`, 5, scr.y - 8);
-              ctx.fillStyle = '#64748b';
-              ctx.fillText(`${wy}`, 5, scr.y + 8);
+              ctx.fillText(`${wy}`, 5, scr.y);
               ctx.fillStyle = '#475569';
             }
           }
@@ -737,8 +754,8 @@
         const midX = (left + right) / 2;
         const midScr = worldToScreen(midX, labelY + 20);
         const span = right - left;
-        const spanTiles = worldToTiles(span);
-        ctx.fillText(`Width: ${span.toFixed(0)} (${spanTiles.toFixed(2)} tiles)`, midScr.x, midScr.y);
+        const tileCount = getTileCount(span);
+        ctx.fillText(`Width: ${span.toFixed(0)} units (${tileCount} tiles)`, midScr.x, midScr.y);
       }
     }
 
@@ -889,6 +906,14 @@
 
       let html = '';
 
+      // Show visual map tile info if loaded
+      if (visualMapTiles) {
+        const totalWidth = visualMapTiles.cols * tileSize;
+        html += '<strong>Visual Map:</strong><br/>';
+        html += `Tiles: ${visualMapTiles.cols} columns<br/>`;
+        html += `Width: ${totalWidth} units (${visualMapTiles.cols} tiles)<br/><br/>`;
+      }
+
       // Show playable bounds if present
       if (mapData.playableBounds) {
         const bounds = mapData.playableBounds;
@@ -897,11 +922,13 @@
 
         if (left !== undefined && right !== undefined) {
           const width = right - left;
-          const widthTiles = worldToTiles(width);
+          const tileCount = getTileCount(width);
+          const leftTile = worldToTileIndex(left);
+          const rightTile = worldToTileIndex(right);
           html += '<strong>Playable Bounds:</strong><br/>';
-          html += `Left: ${left} (${worldToTiles(left).toFixed(2)}t)<br/>`;
-          html += `Right: ${right} (${worldToTiles(right).toFixed(2)}t)<br/>`;
-          html += `Width: ${width} (${widthTiles.toFixed(2)} tiles)<br/><br/>`;
+          html += `Left: ${left} (tile ${leftTile})<br/>`;
+          html += `Right: ${right} (tile ${rightTile})<br/>`;
+          html += `Width: ${width} units (${tileCount} tiles)<br/><br/>`;
         }
       }
 
@@ -910,11 +937,13 @@
         const start = mapData.ground.path[0];
         const end = mapData.ground.path[mapData.ground.path.length - 1];
         const length = end.x - start.x;
-        const lengthTiles = worldToTiles(length);
+        const tileCount = getTileCount(length);
+        const startTile = worldToTileIndex(start.x);
+        const endTile = worldToTileIndex(end.x);
         html += '<strong>Ground Path:</strong><br/>';
-        html += `Start X: ${start.x} (${worldToTiles(start.x).toFixed(2)}t)<br/>`;
-        html += `End X: ${end.x} (${worldToTiles(end.x).toFixed(2)}t)<br/>`;
-        html += `Length: ${length} (${lengthTiles.toFixed(2)} tiles)<br/>`;
+        html += `Start X: ${start.x} (tile ${startTile})<br/>`;
+        html += `End X: ${end.x} (tile ${endTile})<br/>`;
+        html += `Length: ${length} units (${tileCount} tiles)<br/>`;
       }
 
       if (!html) {
@@ -933,8 +962,8 @@
       }
 
       const entity = selectedEntity;
-      const xTiles = worldToTiles(entity.x);
-      const yTiles = worldToTiles(entity.y);
+      const xTile = worldToTileIndex(entity.x);
+      const yUnits = entity.y;
 
       let html = `
         <div class="form-row">
@@ -948,12 +977,12 @@
         <div class="form-row">
           <label>X Position</label>
           <input type="number" id="propX" value="${entity.x.toFixed(2)}" step="10" />
-          <div class="info">${xTiles.toFixed(2)} tiles</div>
+          <div class="info">tile ${xTile}</div>
         </div>
         <div class="form-row">
           <label>Y Position</label>
           <input type="number" id="propY" value="${entity.y.toFixed(2)}" step="10" />
-          <div class="info">${yTiles.toFixed(2)} tiles</div>
+          <div class="info">${yUnits.toFixed(0)} units above ground</div>
         </div>
       `;
 
@@ -1696,6 +1725,9 @@
     updateEntityProps();
     updateMapMeasurements();
     redraw();
+
+    // Expose for visual map loader
+    window.updateMapMeasurements = updateMapMeasurements;
   </script>
 
   <script type="module">
@@ -1817,6 +1849,31 @@
       clearGroup(groundGroup);
       clearGroup(structureGroup);
 
+      // Extract tile info from visualsmap and gameplayPath
+      if (data.cols && data.rows && data.gameplayPath) {
+        const cols = data.cols;
+        const rows = data.rows;
+        const pathStartCol = data.gameplayPath.start?.col || 0;
+        const pathEndCol = data.gameplayPath.end?.col || cols - 1;
+        const pathTileCount = pathEndCol - pathStartCol + 1;
+
+        // Each tile/column is 30 world units (GRID_UNIT_WORLD_SIZE)
+        const WORLD_UNITS_PER_TILE = 30;
+        const totalWidth = pathTileCount * WORLD_UNITS_PER_TILE;
+
+        // Center the gameplay path at world origin
+        const startX = -(totalWidth / 2);
+
+        window.visualMapTiles = {
+          cols: pathTileCount,
+          rows: rows,
+          startX: startX,
+          startY: 0,
+          pathStartCol: pathStartCol
+        };
+        window.updateMapMeasurements?.();
+      }
+
       if (!data.gameplayPath || !data.gameplayPath.start || !data.gameplayPath.end) {
         overlay.textContent = filename ? `Visual map: ${filename} (no gameplayPath)` : 'Visual map loaded (no gameplayPath)';
         return;
@@ -1899,6 +1956,8 @@
       camera.lookAt(0, 0, 0);
       overlay.textContent = 'No visual map loaded';
       document.getElementById('btnClearVisualMap').style.display = 'none';
+      window.visualMapTiles = null;
+      window.updateMapMeasurements?.();
     }
 
     // Load visual map from path (exposed for built-in map loading)
