@@ -44,7 +44,7 @@ export class Renderer {
     
     // Base camera distance for uniform scaling calculations
     // This is the camera Z distance at reference viewport size
-    this.baseCameraDistance = 10;
+    this.baseCameraDistance = -20;
     
     // Three.js instances (null if not supported)
     this.THREE = isSupported() ? globalThis.THREE : null;
@@ -113,9 +113,15 @@ export class Renderer {
         0.1,
         1000
       );
-      // baseCameraDistance is already initialized in constructor
-      this.camera.position.set(0, 5, this.baseCameraDistance);
-      this.camera.lookAt(0, 0, 0);
+      // Set default camera position and rotation
+      this.camera.position.set(18.5, 10, -20);
+      this.camera.rotation.set(
+        190 * Math.PI / 180,  // Convert degrees to radians
+        0,
+        -180 * Math.PI / 180
+      );
+      // Update baseCameraDistance to match the new default Z position
+      this.baseCameraDistance = -20;
 
       // Create renderer
       this.renderer = new this.THREE.WebGLRenderer({ 
