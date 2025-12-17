@@ -1,23 +1,21 @@
-export function computeGroundY(config = {}, options = {}) {
-  const explicitRaw = Number(config?.groundY);
-  const explicit = Number.isFinite(explicitRaw) && explicitRaw > 0 ? explicitRaw : null;
+import { resolveGroundLine } from './ground-resolver.js?v=1';
 
+export function computeGroundY(config = {}, options = {}) {
   const canvasHeight = Number.isFinite(options.canvasHeight)
     ? options.canvasHeight
     : (Number.isFinite(config?.canvas?.h)
       ? config.canvas.h
       : (Number.isFinite(config?.canvas?.height) ? config.canvas.height : 460));
 
-  if (explicit != null) return explicit;
+  const groundY = Number.isFinite(config?.groundY) ? config.groundY : null;
+  const groundOffsetOverride = Number.isFinite(options.groundOffset) ? options.groundOffset : null;
 
-  const offset = Number(config?.ground?.offset);
-  if (Number.isFinite(offset)) {
-    return Math.round(canvasHeight - offset);
-  }
+  const { groundLine } = resolveGroundLine({
+    groundY,
+    viewHeight: canvasHeight,
+    groundOffset: groundOffsetOverride,
+    config,
+  });
 
-  const ratioRaw = Number(config?.groundRatio);
-  const ratio = Number.isFinite(ratioRaw) && ratioRaw > 0 && ratioRaw < 1
-    ? ratioRaw
-    : 0.7;
-  return Math.round(canvasHeight * ratio);
+  return groundLine;
 }

@@ -1,3 +1,5 @@
+import { computeGroundYFromConfig, resolveGroundLine } from './ground-resolver.js?v=1';
+
 // Character selection and settings management
 const ABILITY_SLOT_CONFIG = [
   { slot: 'A', type: 'light', elementId: 'slotALight' },
@@ -18,24 +20,6 @@ function getSlotAllowance(slotKey, type) {
   const slot = getSlotConfig(slotKey);
   return slot?.allowed?.[type] || null;
 }
-
-function computeGroundYFromConfig(config = {}, canvasHeightOverride) {
-  const explicit = Number.isFinite(config?.groundY) ? config.groundY : null;
-  const canvasHeight = Number.isFinite(canvasHeightOverride)
-    ? canvasHeightOverride
-    : (Number.isFinite(config?.canvas?.h) ? config.canvas.h : 460);
-  if (explicit != null) return explicit;
-  const offset = Number(config?.ground?.offset);
-  if (Number.isFinite(offset)) {
-    return Math.round(canvasHeight - offset);
-  }
-  const ratioRaw = Number(config?.groundRatio);
-  const ratio = Number.isFinite(ratioRaw) && ratioRaw > 0 && ratioRaw < 1
-    ? ratioRaw
-    : 0.7;
-  return Math.round(canvasHeight * ratio);
-}
-
 const BACKGROUND_DEFAULTS = {
   skyColors: [
     'rgba(59,63,69,0.9)',
@@ -4327,16 +4311,12 @@ function createEditorPreviewSandbox() {
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, viewWidth, viewHeight);
-    const derivedAreaGround = state.ready && Number.isFinite(state.groundOffset)
-      ? viewHeight - state.groundOffset
-      : null;
-    const resolvedGround = Number.isFinite(groundY)
-      ? groundY
-      : (Number.isFinite(derivedAreaGround) ? derivedAreaGround : computeGroundYFromConfig(window.CONFIG, viewHeight));
-    const fallbackOffset = Number.isFinite(state.groundOffset) ? state.groundOffset : 140;
-    const groundLine = Number.isFinite(resolvedGround)
-      ? resolvedGround
-      : (viewHeight - fallbackOffset);
+    const { groundLine } = resolveGroundLine({
+      groundY,
+      viewHeight,
+      groundOffset: state.ready ? state.groundOffset : null,
+      config: window.CONFIG,
+    });
     drawFarBackground(viewWidth, viewHeight);
 
     const drawDrumSkinLayer = (drum) => {
