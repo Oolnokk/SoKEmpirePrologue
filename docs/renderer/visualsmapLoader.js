@@ -696,6 +696,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     // Add candle lights to all tower structures
     console.log(`[visualsmapLoader] Adding candle lights at tower positions`);
     let candleLightCount = 0;
+    const candleLights = []; // Track all candle lights for proximity updates
+
     for (const obj of loadedObjects) {
       // Skip lights and other non-3D objects
       if (obj.isLight) continue;
@@ -739,10 +741,74 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           dayIntensity: 0.0
         });
 
+        // Store for proximity lighting
+        candleLight.userData.hasProximityLight = false;
+        candleLight.userData.proximityLight = null;
+        candleLights.push(candleLight);
+
         candleLightCount++;
       }
     }
     console.log(`[visualsmapLoader] ✓ Added ${candleLightCount} candle lights at tower positions`);
+
+    // Player proximity lighting system
+    const PROXIMITY_RADIUS = 150; // Distance to activate light
+    const MAX_ACTIVE_LIGHTS = 5; // Max simultaneous proximity lights
+
+    const updateProximityLighting = () => {
+      // Only update when it's night and we have candles
+      if (!dayNightSystem.isNight || candleLights.length === 0) {
+        // Remove all proximity lights during day
+        candleLights.forEach(candle => {
+          if (candle.userData.proximityLight) {
+            renderer.remove(candle.userData.proximityLight);
+            candle.userData.proximityLight = null;
+            candle.userData.hasProximityLight = false;
+          }
+        });
+        return;
+      }
+
+      // Get player position
+      const player = window.GAME?.FIGHTERS?.player;
+      if (!player || !player.pos) return;
+
+      const playerPos = new renderer.THREE.Vector3(player.pos.x, player.pos.y || 0, 0);
+
+      // Calculate distances and sort by proximity
+      const candleDistances = candleLights.map(candle => ({
+        candle,
+        distance: candle.position.distanceTo(playerPos)
+      })).sort((a, b) => a.distance - b.distance);
+
+      let activeLights = 0;
+
+      for (const { candle, distance } of candleDistances) {
+        const shouldHaveLight = distance < PROXIMITY_RADIUS && activeLights < MAX_ACTIVE_LIGHTS;
+
+        if (shouldHaveLight && !candle.userData.hasProximityLight) {
+          // Add point light
+          const pointLight = new renderer.THREE.PointLight(0xffaa44, 2, 200, 2);
+          pointLight.position.copy(candle.position);
+          renderer.add(pointLight);
+          candle.userData.proximityLight = pointLight;
+          candle.userData.hasProximityLight = true;
+          activeLights++;
+        } else if (!shouldHaveLight && candle.userData.hasProximityLight) {
+          // Remove point light
+          renderer.remove(candle.userData.proximityLight);
+          candle.userData.proximityLight = null;
+          candle.userData.hasProximityLight = false;
+        } else if (shouldHaveLight) {
+          activeLights++;
+        }
+      }
+    };
+
+    // Update proximity lighting every frame
+    renderer.on('frame', updateProximityLighting);
+
+    console.log(`[visualsmapLoader] ✓ Player proximity lighting enabled (radius: ${PROXIMITY_RADIUS}, max: ${MAX_ACTIVE_LIGHTS})`);
 
     // Store day/night system reference for external control
     if (typeof window !== 'undefined') {
