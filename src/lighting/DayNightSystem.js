@@ -165,7 +165,7 @@ export class DayNightSystem {
   }
 
   /**
-   * Update the system (call this every frame)
+   * Update the system (call this every frame to advance lighting transitions)
    */
   update() {
     if (!this.isTransitioning) return;
