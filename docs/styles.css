@@ -433,10 +433,10 @@ main.stack{
     padding:0;
   }
   .stage{
-    /* Use full height and calculate width based on config-defined aspect ratio */
+    /* Use full height and calculate width based on aspect ratio (720:460) */
     height:100vh !important;
     max-height:100vh !important;
-    width:calc(100vh * var(--stage-aspect-width) / var(--stage-aspect-height)) !important;
+    width:calc(100vh * 720 / 460) !important;
     max-width:100vw !important; /* Don't exceed viewport width */
     margin:0 auto !important; /* Center horizontally */
     border-radius:0;
