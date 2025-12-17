@@ -801,12 +801,22 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     // Expand to cover nearest tiles (cellSize * 3-4 tiles in each direction)
     const PROXIMITY_RADIUS = cellSize * 4; // Distance to activate light (covers ~4 tiles)
     const MAX_ACTIVE_LIGHTS = 8; // Increased for better coverage
-    const LIGHT_INTENSITY = 10; // Much brighter to actually illuminate surroundings in very dark night
-    const LIGHT_DISTANCE = cellSize * 4; // Light reaches ~4 tiles
+    const LIGHT_INTENSITY = 40; // VERY bright to actually illuminate in dark night
+    const LIGHT_DISTANCE = cellSize * 5; // Light reaches ~5 tiles
+    const LIGHT_DECAY = 1; // Linear decay (less attenuation than default 2)
 
     const updateProximityLighting = () => {
-      // Only update when it's night and we have candles
-      if (!dayNightSystem.isNight || candleLights.length === 0) {
+      // Get candle timing config (default: 5pm to 7am)
+      const CONFIG = window.CONFIG || {};
+      const candleStartHour = CONFIG.lighting?.candleStartHour ?? 17;
+      const candleEndHour = CONFIG.lighting?.candleEndHour ?? 7;
+      const currentHour = dayNightSystem.timeOfDayHours;
+
+      // Check if candles should be lit based on time of day
+      const candlesOn = currentHour >= candleStartHour || currentHour < candleEndHour;
+
+      // Only update when candles should be on and we have candles
+      if (!candlesOn || candleLights.length === 0) {
         // Remove all proximity lights during day
         candleLights.forEach(candle => {
           if (candle.userData.proximityLight) {
@@ -836,8 +846,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
         const shouldHaveLight = distance < PROXIMITY_RADIUS && activeLights < MAX_ACTIVE_LIGHTS;
 
         if (shouldHaveLight && !candle.userData.hasProximityLight) {
-          // Add point light with increased intensity for dark night
-          const pointLight = new renderer.THREE.PointLight(0xffaa44, LIGHT_INTENSITY, LIGHT_DISTANCE, 2);
+          // Add point light with high intensity and linear decay for better spread
+          const pointLight = new renderer.THREE.PointLight(0xffaa44, LIGHT_INTENSITY, LIGHT_DISTANCE, LIGHT_DECAY);
           pointLight.position.copy(candle.position);
           renderer.add(pointLight);
           candle.userData.proximityLight = pointLight;

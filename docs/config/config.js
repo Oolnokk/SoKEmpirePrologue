@@ -5,6 +5,11 @@ window.CONFIG = window.CONFIG || {};
 window.CONFIG.ui = window.CONFIG.ui || {};
 window.CONFIG.ui.showClock = true; // Display the in-game time clock
 
+// Day/Night Lighting Settings
+window.CONFIG.lighting = window.CONFIG.lighting || {};
+window.CONFIG.lighting.candleStartHour = 17; // Hour when candles turn on (5pm - during dusk)
+window.CONFIG.lighting.candleEndHour = 7; // Hour when candles turn off (7am - after dawn)
+
 // Heraldry & Material color palette
 const MATERIALS = {
   city_heraldry_A: { h: 137, s: 0.85, v: -0.5 },        // Royal Purple
