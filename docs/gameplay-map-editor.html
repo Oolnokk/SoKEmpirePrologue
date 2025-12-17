@@ -1578,6 +1578,27 @@
         playableBounds: data.playableBounds || null
       };
 
+      // Normalize entities to ensure they have proper meta objects
+      mapData.entities.forEach(entity => {
+        if (!entity.meta) {
+          entity.meta = {};
+        }
+
+        // Set default metadata based on type
+        if (entity.type === 'collider') {
+          if (!entity.meta.shape) entity.meta.shape = 'rectangle';
+          if (!entity.meta.width) entity.meta.width = 100;
+          if (!entity.meta.height) entity.meta.height = 100;
+        } else if (entity.type === 'patrol') {
+          if (entity.meta.sequence === undefined) entity.meta.sequence = 0;
+          if (!entity.meta.routeId) entity.meta.routeId = '';
+        } else if (entity.type === 'spawner') {
+          if (!entity.meta.prefab) entity.meta.prefab = 'spawn_default';
+        } else if (entity.type === 'prop') {
+          if (!entity.meta.prefab) entity.meta.prefab = 'prop_default';
+        }
+      });
+
       // Update UI
       document.getElementById('areaId').value = mapData.areaId;
       document.getElementById('unitsPerPixel').value = mapData.ground.unitsPerPixel || 1;
