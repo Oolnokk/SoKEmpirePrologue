@@ -9,6 +9,11 @@ import { DayNightSystem } from '../../src/lighting/DayNightSystem.js';
 import { isTowerStructure } from '../../src/lighting/TowerLightingIntegration.js';
 import { createCandleLight } from '../../src/lighting/CandleLight.js';
 
+const DEFAULT_GAMEPLAY_PATH_LOOK_AT = Object.freeze({
+  offsetY: 0.3, // Grid units; scaled by cellSize at runtime
+  offsetZ: 0,
+});
+
 const VISUALSMAP_INDEX_CACHE = {
   loaded: false,
   assets: null,
@@ -301,6 +306,40 @@ function gridToWorld(row, col, rows, cols, cellSize, pathYawRad, alignToPath) {
 }
 
 /**
+ * Build the set of grid cells touched by the gameplay path
+ * @param {Object} gameplayPath
+ * @param {number} rows
+ * @param {number} cols
+ * @returns {Set<string>}
+ */
+function collectPathCells(gameplayPath, rows, cols) {
+  const cells = new Set();
+  if (!gameplayPath?.start || !gameplayPath?.end) return cells;
+
+  const startRow = Math.min(Math.max(Math.round(gameplayPath.start.row), 0), rows - 1);
+  const startCol = Math.min(Math.max(Math.round(gameplayPath.start.col), 0), cols - 1);
+  const endRow = Math.min(Math.max(Math.round(gameplayPath.end.row), 0), rows - 1);
+  const endCol = Math.min(Math.max(Math.round(gameplayPath.end.col), 0), cols - 1);
+
+  const steps = Math.max(Math.abs(endRow - startRow), Math.abs(endCol - startCol), 1);
+  for (let i = 0; i <= steps; i++) {
+    const t = steps === 0 ? 0 : i / steps;
+    const r = Math.round(startRow + (endRow - startRow) * t);
+    const c = Math.round(startCol + (endCol - startCol) * t);
+    cells.add(`${r},${c}`);
+  }
+
+  return cells;
+}
+
+function resolveGameplayPathLookAtConfig(visualsMap) {
+  const lookAt = visualsMap?.gameplayPathLookAt || {};
+  const offsetY = Number.isFinite(Number(lookAt.offsetY)) ? Number(lookAt.offsetY) : DEFAULT_GAMEPLAY_PATH_LOOK_AT.offsetY;
+  const offsetZ = Number.isFinite(Number(lookAt.offsetZ)) ? Number(lookAt.offsetZ) : DEFAULT_GAMEPLAY_PATH_LOOK_AT.offsetZ;
+  return { offsetY, offsetZ };
+}
+
+/**
  * Load and place objects from visualsmap
  * @param {Object} renderer - The renderer instance
  * @param {Object} area - Area configuration with visualsMap path
@@ -334,6 +373,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log('[visualsmapLoader] - Layers:', Object.keys(visualsMap.layerStates || {}));
 
     const { rows = 20, cols = 20, layerStates = {}, gameplayPath, alignWorldToPath = false } = visualsMap;
+    const pathLookAtConfig = resolveGameplayPathLookAtConfig(visualsMap);
     const visualsMapBase = visualsMapUrl ? new URL('./', visualsMapUrl).href : '';
     const docsBase = deriveDocsBase(visualsMapUrl) || deriveDocsBase(gameplayMapUrl) || null;
     const configBase = deriveConfigBase(visualsMapUrl) || deriveConfigBase(gameplayMapUrl) || visualsMapBase || null;
@@ -370,6 +410,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     const loadedObjects = [];
     const assetCache = new Map();
     const gltfCache = new Map();
+    const pathGroundSamples = [];
 
     // Precompute path yaw to rotate world like the editor (world root rotated)
     let pathYawRad = null;
@@ -385,6 +426,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       pathYawRad = Math.atan2(dz, dx);
       console.log(`[visualsmapLoader] Path yaw (deg): ${((pathYawRad * 180) / Math.PI).toFixed(2)}`);
     }
+
+    const pathCells = collectPathCells(gameplayPath, rows, cols);
 
     // Process layers in order: ground, structure, decoration
     const layerOrder = ['ground', 'structure', 'decoration'];
@@ -517,6 +560,13 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
             // Apply position with Y offset (vertical offset is not affected by rotation)
             const yOffset = (assetConfig.yOffset || 0) * (inlineAsset ? cellSize : 1);
+            if (layerName === 'ground' && pathCells.size && pathCells.has(`${row},${col}`)) {
+              pathGroundSamples.push({
+                x: worldPos.x,
+                y: worldPos.y + yOffset,
+                z: worldPos.z,
+              });
+            }
             object.position.set(
               worldPos.x,
               worldPos.y + yOffset,
@@ -590,18 +640,46 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log(`[visualsmapLoader] - Renderer scene.children count:`, renderer.scene?.children?.length || 0);
     console.log('[visualsmapLoader] ========================================');
 
-    // Position camera aligned with gameplay path for side-scrolling view
     const gridCenterX = 0;
     const gridCenterZ = 0;
 
     const gridWidth = (cols - 1) * cellSize;
     const gridDepth = (rows - 1) * cellSize;
 
+    const lookAtOffsetsWorld = {
+      y: pathLookAtConfig.offsetY * cellSize,
+      z: pathLookAtConfig.offsetZ * cellSize,
+    };
+
+    const gameplayPathTarget = (() => {
+      if (!pathGroundSamples.length) {
+        return { x: gridCenterX, y: lookAtOffsetsWorld.y, z: gridCenterZ + lookAtOffsetsWorld.z };
+      }
+
+      const totals = pathGroundSamples.reduce((acc, pos) => {
+        acc.x += pos.x;
+        acc.y += pos.y;
+        acc.z += pos.z;
+        return acc;
+      }, { x: 0, y: 0, z: 0 });
+
+      const count = Math.max(pathGroundSamples.length, 1);
+      return {
+        x: totals.x / count,
+        y: (totals.y / count) + lookAtOffsetsWorld.y,
+        z: (totals.z / count) + lookAtOffsetsWorld.z,
+      };
+    })();
+
+    console.log(`[visualsmapLoader] Gameplay path look-at samples: ${pathGroundSamples.length}, offsets (y:${lookAtOffsetsWorld.y.toFixed(2)}, z:${lookAtOffsetsWorld.z.toFixed(2)})`);
+
+    // Position camera aligned with gameplay path for side-scrolling view
     // For side-scrolling gameplay aligned to path:
     // - When alignWorldToPath is true, the path is rotated to align with +X axis
     // - Camera should be positioned to the side (negative Z) looking at the path
     // - This creates a side view where the path runs left-to-right across the screen
     let cameraX, cameraY, cameraZ, lookAtX, lookAtY, lookAtZ;
+    const { x: targetX, y: targetY, z: targetZ } = gameplayPathTarget;
 
     if (alignWorldToPath && gameplayPath?.start && gameplayPath?.end) {
       // Side-scrolling camera aligned with gameplay path
@@ -610,10 +688,10 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       cameraY = cellSize * 0.8; // Height to see the ground plane and structures
       cameraZ = -cellSize * 1.2; // Distance from path (negative Z = viewer side)
 
-      // Look at the center of the path
-      lookAtX = gridCenterX;
-      lookAtY = cellSize * 0.3; // Look slightly above ground level
-      lookAtZ = gridCenterZ;
+      // Look at the gameplay path sample
+      lookAtX = targetX;
+      lookAtY = targetY;
+      lookAtZ = targetZ;
 
       console.log(`[visualsmapLoader] Setting side-scrolling camera aligned with gameplay path:`);
       console.log(`[visualsmapLoader] - Path aligned to +X axis (left-to-right)`);
@@ -624,9 +702,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       cameraX = gridCenterX;
       cameraY = cameraDistance * 1.5;
       cameraZ = gridCenterZ - cameraDistance;
-      lookAtX = gridCenterX;
-      lookAtY = 0;
-      lookAtZ = gridCenterZ;
+      lookAtX = targetX;
+      lookAtY = targetY;
+      lookAtZ = targetZ;
 
       console.log(`[visualsmapLoader] Setting top-down camera to view entire grid:`);
     }
