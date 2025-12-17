@@ -429,8 +429,8 @@
     let isPanning = false;
     let panStart = null;
 
-    // View state - y offset is locked to show ground at bottom
-    let viewOffset = { x: 0, y: -100 }; // Negative y centers ground at bottom of viewport
+    // View state - y offset is locked to show ground at bottom edge
+    let viewOffset = { x: 0, y: 0 }; // y=0 means ground at canvas center, we'll adjust rendering
     let viewZoom = 1.0;
 
     // Tile measurement settings (matches GRID_UNIT_WORLD_SIZE from config.js)
@@ -460,19 +460,18 @@
     // ===== Helper Functions =====
     function worldToScreen(wx, wy) {
       const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
+      // Ground (y=0) is at bottom of canvas, positive y goes up
       return {
         x: cx + (wx + viewOffset.x) * viewZoom,
-        y: cy - (wy - viewOffset.y) * viewZoom
+        y: canvas.height - wy * viewZoom
       };
     }
 
     function screenToWorld(sx, sy) {
       const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
       return {
         x: (sx - cx) / viewZoom - viewOffset.x,
-        y: -((sy - cy) / viewZoom - viewOffset.y)
+        y: (canvas.height - sy) / viewZoom
       };
     }
 
@@ -646,37 +645,40 @@
       }
 
       if (showRuler) {
-        // Draw ruler labels at tile boundaries
+        // Draw ruler labels above ground line
         ctx.fillStyle = '#475569';
         ctx.font = '10px monospace';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
+        ctx.textBaseline = 'bottom';
 
-        // X-axis labels (every 5 tiles for readability)
-        const centerY = worldToScreen(0, 0).y;
+        // X-axis labels (every 5 tiles for readability) - positioned above ground
+        const rulerY = 20; // 20 world units above ground
+        const rulerScreenY = worldToScreen(0, rulerY).y;
         for (let tx = startTileX; tx <= endTileX; tx++) {
           if (tx % 5 === 0) {
             const wx = tx * tileSize;
-            const scr = worldToScreen(wx, 0);
-            ctx.fillText(`${tx}t`, scr.x, Math.min(Math.max(centerY + 5, 12), canvas.height - 12));
+            const scr = worldToScreen(wx, rulerY);
+            ctx.fillText(`${tx}t`, scr.x, scr.y - 2);
             ctx.fillStyle = '#64748b';
-            ctx.fillText(`${wx}`, scr.x, Math.min(Math.max(centerY + 18, 25), canvas.height - 2));
+            ctx.fillText(`${wx}`, scr.x, scr.y - 14);
             ctx.fillStyle = '#475569';
           }
         }
 
         // Y-axis labels (every 5 tiles for readability)
-        ctx.textAlign = 'right';
+        ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         const centerX = worldToScreen(0, 0).x;
         for (let ty = startTileY; ty <= endTileY; ty++) {
           if (ty % 5 === 0 && ty !== 0) {
             const wy = ty * tileSize;
             const scr = worldToScreen(0, wy);
-            ctx.fillText(`${ty}t`, Math.min(Math.max(centerX - 5, canvas.width - 40), canvas.width - 5), scr.y - 8);
-            ctx.fillStyle = '#64748b';
-            ctx.fillText(`${wy}`, Math.min(Math.max(centerX - 5, canvas.width - 40), canvas.width - 5), scr.y + 8);
-            ctx.fillStyle = '#475569';
+            if (scr.y >= 0 && scr.y <= canvas.height) {
+              ctx.fillText(`${ty}t`, 5, scr.y - 8);
+              ctx.fillStyle = '#64748b';
+              ctx.fillText(`${wy}`, 5, scr.y + 8);
+              ctx.fillStyle = '#475569';
+            }
           }
         }
       }
@@ -718,25 +720,25 @@
 
         ctx.setLineDash([]);
 
-        // Draw bound labels
+        // Draw bound labels above ground
         ctx.fillStyle = '#ef4444';
         ctx.font = '11px sans-serif';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
+        ctx.textBaseline = 'bottom';
 
-        const centerY = worldToScreen(0, 0).y;
-        const leftScr = worldToScreen(left, 0);
-        const rightScr = worldToScreen(right, 0);
+        const labelY = 50; // 50 world units above ground
+        const leftScr = worldToScreen(left, labelY);
+        const rightScr = worldToScreen(right, labelY);
 
-        ctx.fillText(`Left: ${formatCoordinate(left)}`, leftScr.x, Math.max(centerY + 30, 40));
-        ctx.fillText(`Right: ${formatCoordinate(right)}`, rightScr.x, Math.max(centerY + 30, 40));
+        ctx.fillText(`Left: ${formatCoordinate(left)}`, leftScr.x, leftScr.y);
+        ctx.fillText(`Right: ${formatCoordinate(right)}`, rightScr.x, rightScr.y);
 
         // Draw bounds span
         const midX = (left + right) / 2;
-        const midScr = worldToScreen(midX, 0);
+        const midScr = worldToScreen(midX, labelY + 20);
         const span = right - left;
         const spanTiles = worldToTiles(span);
-        ctx.fillText(`Width: ${span.toFixed(0)} (${spanTiles.toFixed(2)} tiles)`, midScr.x, Math.max(centerY + 45, 55));
+        ctx.fillText(`Width: ${span.toFixed(0)} (${spanTiles.toFixed(2)} tiles)`, midScr.x, midScr.y);
       }
     }
 
