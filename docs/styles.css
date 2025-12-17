@@ -407,29 +407,40 @@ main.stack{
   padding:var(--pad);
 }
 
-/* In landscape orientation, allow full width and scale controls */
+/* In landscape orientation, maintain aspect ratio with letterboxing */
 @media (orientation: landscape) {
   :root{
     --control-scale-base:clamp(0.75,2.8vw,1.0);
-    --page-max:100vw;
   }
   html, body{
     width:100vw;
-    max-width:100vw;
     overflow-x:hidden;
+    margin:0;
+    padding:0;
   }
   main.stack{
-    width:100vw !important;
-    max-width:100vw !important;
+    width:100vw;
     gap:0;
     padding:0;
     margin:0;
   }
-  .widget, .widget--clear{
-    width:100vw !important;
-    max-width:100vw !important;
+  /* Hide extra widgets below the game */
+  .widget:not(.widget--clear){
+    display:none;
+  }
+  .widget--clear{
     margin:0;
     padding:0;
+  }
+  .stage{
+    /* Use full height and calculate width based on aspect ratio (720:460) */
+    height:100vh !important;
+    max-height:100vh !important;
+    width:calc(100vh * 720 / 460) !important;
+    max-width:100vw !important; /* Don't exceed viewport width */
+    margin:0 auto !important; /* Center horizontally */
+    border-radius:0;
+    outline:none;
   }
 }
 
@@ -467,21 +478,6 @@ main.stack{
   isolation:isolate;
   display:grid;
   place-items:center;
-}
-
-/* In landscape orientation, fill the screen width */
-@media (orientation: landscape) {
-  .stage{
-    --stage-max-height:100vh;
-    width:100vw !important;
-    max-width:100vw !important;
-    height:100vh !important;
-    max-height:100vh !important;
-    aspect-ratio:auto !important;
-    border-radius:0;
-    margin:0;
-    outline:none;
-  }
 }
 
 /* In fullscreen, use all available space */
