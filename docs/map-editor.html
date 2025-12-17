@@ -523,6 +523,14 @@ select {
     <div class="card">
       <h2>Camera</h2>
       <div class="camera-slider">
+        <label for="pathLookAtOffsetY">Gameplay path look-at Y offset</label>
+        <input type="range" id="pathLookAtOffsetY" min="-2" max="6" step="0.05" value="0.3" />
+      </div>
+      <div class="camera-slider">
+        <label for="pathLookAtOffsetZ">Gameplay path look-at Z offset</label>
+        <input type="range" id="pathLookAtOffsetZ" min="-6" max="6" step="0.1" value="0" />
+      </div>
+      <div class="camera-slider">
         <label for="camRotX">Tilt X (pitch)</label>
         <input type="range" id="camRotX" min="5" max="85" step="1" value="55" />
       </div>
@@ -708,6 +716,8 @@ select {
     const camRotXInput = document.getElementById("camRotX");
     const camRotYInput = document.getElementById("camRotY");
     const camDistanceInput = document.getElementById("camDistance");
+    const pathLookAtOffsetYInput = document.getElementById("pathLookAtOffsetY");
+    const pathLookAtOffsetZInput = document.getElementById("pathLookAtOffsetZ");
 
     const generateJsonBtn = document.getElementById("generateJsonBtn");
     const downloadJsonBtn = document.getElementById("downloadJsonBtn");
@@ -987,6 +997,9 @@ select {
     let activeTool = "paint"; // "paint" | "pathStart" | "pathEnd" | "cableStart"
     let gameplayPath = { start: null, end: null }; // where used: export/import + 2D/3D overlays
     let alignWorldToPath = true; // where used: worldRoot rotation
+    const DEFAULT_GAMEPLAY_PATH_LOOK_AT = { offsetY: 0.3, offsetZ: 0 };
+    let gameplayPathLookAtOffsetY = DEFAULT_GAMEPLAY_PATH_LOOK_AT.offsetY;
+    let gameplayPathLookAtOffsetZ = DEFAULT_GAMEPLAY_PATH_LOOK_AT.offsetZ;
 
     // Cable/Clothesline System
     let cableConnections = []; // Array of cable connection objects
@@ -1001,6 +1014,8 @@ select {
     let cameraRotX = Number(camRotXInput.value) || 55;
     let cameraRotY = Number(camRotYInput.value) || 35;
     let cameraDistance = Number(camDistanceInput.value) || 40;
+    pathLookAtOffsetYInput.value = gameplayPathLookAtOffsetY;
+    pathLookAtOffsetZInput.value = gameplayPathLookAtOffsetZ;
 
     // Get GLTFLoader constructor using tolerant pattern
     const LoaderCtor = (globalThis.THREE && globalThis.THREE.GLTFLoader) || 
@@ -1033,6 +1048,88 @@ select {
       const len = Math.hypot(dx, dz);
       if (len < 1e-6) return 0;
       return Math.atan2(dz, dx); // yaw of path direction in XZ plane
+    }
+
+    function buildPathCellSet() {
+      const cells = new Set();
+      if (!gameplayPath.start || !gameplayPath.end) return cells;
+
+      const startRow = clampCoord(gameplayPath.start.row, ROWS);
+      const startCol = clampCoord(gameplayPath.start.col, COLS);
+      const endRow = clampCoord(gameplayPath.end.row, ROWS);
+      const endCol = clampCoord(gameplayPath.end.col, COLS);
+
+      const steps = Math.max(Math.abs(endRow - startRow), Math.abs(endCol - startCol), 1);
+      for (let i = 0; i <= steps; i++) {
+        const t = steps === 0 ? 0 : i / steps;
+        const r = Math.round(startRow + (endRow - startRow) * t);
+        const c = Math.round(startCol + (endCol - startCol) * t);
+        cells.add(`${r},${c}`);
+      }
+      return cells;
+    }
+
+    function gridToWorldAligned(row, col) {
+      const relRow = row - HALF_ROWS;
+      const relCol = col - HALF_COLS;
+
+      let x = relCol * CELL_SIZE;
+      let z = relRow * CELL_SIZE;
+
+      if (alignWorldToPath && gameplayPath.start && gameplayPath.end) {
+        const yaw = -getPathYawRad();
+        const cos = Math.cos(yaw);
+        const sin = Math.sin(yaw);
+        const rx = x * cos - z * sin;
+        const rz = x * sin + z * cos;
+        x = rx;
+        z = rz;
+      }
+
+      return { x, y: 0, z };
+    }
+
+    function getGameplayPathBaseTarget() {
+      const pathCells = buildPathCellSet();
+      if (!pathCells.size) return { x: 0, y: 0, z: 0 };
+
+      const groundLayer = layerStates[LAYERS.GROUND];
+      let total = { x: 0, y: 0, z: 0, count: 0 };
+
+      for (const key of pathCells) {
+        const [rowStr, colStr] = key.split(',');
+        const r = Number(rowStr);
+        const c = Number(colStr);
+        const cell = groundLayer?.[r]?.[c];
+        if (!cell || !cell.type) continue;
+
+        const asset = getAssetById(cell.type);
+        const effectiveRow = r + (Number(cell.offsetY) || 0);
+        const effectiveCol = c + (Number(cell.offsetX) || 0);
+        const worldPos = gridToWorldAligned(effectiveRow, effectiveCol);
+        const height = ((asset?.baseScale?.y ?? 1) * 0.5) + (asset?.yOffset ?? 0);
+
+        total.x += worldPos.x;
+        total.y += worldPos.y + height;
+        total.z += worldPos.z;
+        total.count++;
+      }
+
+      if (!total.count) return { x: 0, y: 0, z: 0 };
+      return {
+        x: total.x / total.count,
+        y: total.y / total.count,
+        z: total.z / total.count,
+      };
+    }
+
+    function getGameplayPathCameraTarget() {
+      const base = getGameplayPathBaseTarget();
+      return {
+        x: base.x,
+        y: base.y + gameplayPathLookAtOffsetY * CELL_SIZE,
+        z: base.z + gameplayPathLookAtOffsetZ * CELL_SIZE,
+      };
     }
 
     // --- CABLE SYSTEM FUNCTIONS ---
@@ -2067,12 +2164,13 @@ select {
       const phi = THREE.MathUtils.degToRad(cameraRotX);
       const r = cameraDistance;
 
-      const x = r * Math.cos(phi) * Math.sin(theta);
-      const y = r * Math.sin(phi);
-      const z = r * Math.cos(phi) * Math.cos(theta);
+      const target = getGameplayPathCameraTarget();
+      const x = target.x + r * Math.cos(phi) * Math.sin(theta);
+      const y = target.y + r * Math.sin(phi);
+      const z = target.z + r * Math.cos(phi) * Math.cos(theta);
 
       camera.position.set(x, y, z);
-      camera.lookAt(0, 0, 0);
+      camera.lookAt(target.x, target.y, target.z);
     }
 
     function animate() {
@@ -2558,6 +2656,14 @@ select {
     camRotXInput.addEventListener("input", () => { cameraRotX = Number(camRotXInput.value) || 55; updateCameraFromState(); });
     camRotYInput.addEventListener("input", () => { cameraRotY = Number(camRotYInput.value) || 35; updateCameraFromState(); });
     camDistanceInput.addEventListener("input", () => { cameraDistance = Number(camDistanceInput.value) || 40; updateCameraFromState(); });
+    pathLookAtOffsetYInput.addEventListener("input", () => {
+      gameplayPathLookAtOffsetY = Number(pathLookAtOffsetYInput.value) || 0;
+      updateCameraFromState();
+    });
+    pathLookAtOffsetZInput.addEventListener("input", () => {
+      gameplayPathLookAtOffsetZ = Number(pathLookAtOffsetZInput.value) || 0;
+      updateCameraFromState();
+    });
 
     reload3DBtn.addEventListener("click", () => {
       logDebug("Manual 3D reload triggered. Reloading models from paths...");
@@ -2710,6 +2816,10 @@ select {
         activeLayer,
         gameplayPath,
         alignWorldToPath,
+        gameplayPathLookAt: {
+          offsetY: gameplayPathLookAtOffsetY,
+          offsetZ: gameplayPathLookAtOffsetZ
+        },
         cables: exportedCables,
 
         layerStates,
@@ -2867,6 +2977,17 @@ select {
           alignToPathCheckbox.checked = alignWorldToPath;
         }
 
+        const lookAtConfig = data.gameplayPathLookAt;
+        if (lookAtConfig && typeof lookAtConfig === "object") {
+          gameplayPathLookAtOffsetY = Number(lookAtConfig.offsetY ?? DEFAULT_GAMEPLAY_PATH_LOOK_AT.offsetY);
+          gameplayPathLookAtOffsetZ = Number(lookAtConfig.offsetZ ?? DEFAULT_GAMEPLAY_PATH_LOOK_AT.offsetZ);
+        } else {
+          gameplayPathLookAtOffsetY = DEFAULT_GAMEPLAY_PATH_LOOK_AT.offsetY;
+          gameplayPathLookAtOffsetZ = DEFAULT_GAMEPLAY_PATH_LOOK_AT.offsetZ;
+        }
+        pathLookAtOffsetYInput.value = gameplayPathLookAtOffsetY;
+        pathLookAtOffsetZInput.value = gameplayPathLookAtOffsetZ;
+
         // Cable import
         if (Array.isArray(data.cables)) {
           cableConnections = [];
@@ -2922,6 +3043,7 @@ select {
         rebuild3DFromState();
         updateGameplayPath2D();
         rebuildGameplayPath3D();
+        updateCameraFromState();
         applyWorldAlignmentFromPath();
 
         // Auto-reload models from their gltfPath after import
