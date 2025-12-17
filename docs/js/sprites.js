@@ -1717,23 +1717,21 @@ export function renderSprites(ctx){
       const multiplyB = Math.floor(b * 255 + (255 - b * 255) * ambientIntensity);
 
       ctx.save();
-      // Use temp canvas to multiply sprite pixels while preserving transparency
+      // Use CSS filter to darken sprites while respecting alpha channel
+      const brightness = ambientIntensity; // 0.2 at night, 1.0 at day
+
+      // Copy current canvas to temp
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = ctx.canvas.width;
       tempCanvas.height = ctx.canvas.height;
       const tempCtx = tempCanvas.getContext('2d');
-
-      // Copy current sprites to temp canvas
       tempCtx.drawImage(ctx.canvas, 0, 0);
 
-      // Apply multiply to darken sprites (preserves alpha)
-      tempCtx.globalCompositeOperation = 'multiply';
-      tempCtx.fillStyle = `rgb(${multiplyR}, ${multiplyG}, ${multiplyB})`;
-      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-
-      // Clear original and draw back the darkened sprites
+      // Clear and redraw with brightness filter (respects transparency)
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.filter = `brightness(${brightness})`;
       ctx.drawImage(tempCanvas, 0, 0);
+      ctx.filter = 'none';
       ctx.restore();
     }
   }
