@@ -6,7 +6,8 @@
 import { projectToGroundPlane } from './scene3d.js';
 import { applyAssetRotations } from './gltfTransforms.js';
 import { DayNightSystem } from '../../src/lighting/DayNightSystem.js';
-import { addCandleLightToTower, isTowerStructure } from '../../src/lighting/TowerLightingIntegration.js';
+import { isTowerStructure } from '../../src/lighting/TowerLightingIntegration.js';
+import { createCandleLight } from '../../src/lighting/CandleLight.js';
 
 const VISUALSMAP_INDEX_CACHE = {
   loaded: false,
@@ -683,7 +684,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     renderer.on('frame', frameUpdateHandler);
 
     // Add candle lights to all tower structures
-    console.log(`[visualsmapLoader] Adding candle lights to tower structures`);
+    console.log(`[visualsmapLoader] Adding candle lights at tower positions`);
     let candleLightCount = 0;
     for (const obj of loadedObjects) {
       // Skip lights and other non-3D objects
@@ -691,22 +692,47 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
       // Check if this is a tower structure
       if (obj.userData?.assetType && isTowerStructure(obj.userData.assetType)) {
-        const candleLight = addCandleLightToTower(obj, renderer.THREE, dayNightSystem, {
-          withGlow: false, // Disable point lights to avoid shader uniform limit
+        // Create candle light
+        const candleLight = createCandleLight(renderer.THREE, {
           topWidth: 0.8,
           topDepth: 0.8,
           bottomWidth: 0.5,
           bottomDepth: 0.5,
           height: 1.5,
           color: 0xffbb66,
-          emissiveIntensity: 1.2, // Increased for visibility without point light
-          opacity: 0.8,
-          autoPosition: true
+          emissiveIntensity: 1.2,
+          opacity: 0.8
         });
+
+        // Get tower's world position
+        const worldPos = new renderer.THREE.Vector3();
+        obj.getWorldPosition(worldPos);
+
+        // Position candle at tower location
+        candleLight.position.copy(worldPos);
+
+        // Scale up by 1.2x (120%)
+        candleLight.scale.set(1.2, 1.2, 1.2);
+
+        // Rotate 90 degrees on Y axis
+        candleLight.rotation.y = Math.PI / 2;
+
+        // Add directly to scene (not as child)
+        renderer.add(candleLight);
+        loadedObjects.push(candleLight);
+
+        // Register with day/night system
+        dayNightSystem.registerEmissiveObject(candleLight, {
+          nightEmissive: 0xffbb66,
+          nightIntensity: 1.2,
+          dayEmissive: 0x000000,
+          dayIntensity: 0.0
+        });
+
         candleLightCount++;
       }
     }
-    console.log(`[visualsmapLoader] ✓ Added ${candleLightCount} candle lights to towers`);
+    console.log(`[visualsmapLoader] ✓ Added ${candleLightCount} candle lights at tower positions`);
 
     // Store day/night system reference for external control
     if (typeof window !== 'undefined') {
