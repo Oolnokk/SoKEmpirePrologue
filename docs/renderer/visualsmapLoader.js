@@ -27,6 +27,90 @@ function isDevelopmentMode() {
 }
 
 /**
+ * Project a 3D world coordinate to 2D screen space
+ * @param {Object} worldPos - World position {x, y, z}
+ * @param {Object} camera - Three.js camera instance
+ * @param {Object} renderer - Three.js renderer instance
+ * @returns {Object} Screen position {x, y} in pixels
+ */
+function projectWorldToScreen(worldPos, camera, renderer) {
+  if (!worldPos || !camera || !renderer) {
+    console.warn('[visualsmapLoader] projectWorldToScreen: Missing required parameters');
+    return { x: 0, y: 0 };
+  }
+
+  // Create a Vector3 from world position
+  const THREE = renderer.THREE;
+  if (!THREE || !THREE.Vector3) {
+    console.warn('[visualsmapLoader] projectWorldToScreen: THREE.Vector3 not available');
+    return { x: 0, y: 0 };
+  }
+
+  const vector = new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z);
+  
+  // Project to normalized device coordinates (-1 to +1)
+  vector.project(camera);
+  
+  // Convert to screen coordinates
+  const canvas = renderer.renderer?.domElement;
+  const width = canvas?.width || renderer.width || 800;
+  const height = canvas?.height || renderer.height || 460;
+  
+  const screenX = (vector.x * 0.5 + 0.5) * width;
+  const screenY = (-(vector.y * 0.5) + 0.5) * height; // Y is flipped in screen space
+  
+  return { x: screenX, y: screenY };
+}
+
+/**
+ * Synchronize CONFIG.groundY from the gameplay path's screen position
+ * This calculates where the 3D gameplay path appears on screen and sets
+ * the 2D gameplay ground line to match it. The value is locked and won't
+ * change even if the camera moves (e.g., during jump puzzles).
+ * 
+ * @param {Object} gameplayPath - Gameplay path with start/end positions
+ * @param {Object} camera - Three.js camera instance
+ * @param {Object} renderer - Renderer instance
+ * @param {Object} options - Optional configuration
+ * @param {number} options.zOffset - Z-axis offset to apply to the path position (e.g., to project from tile edge)
+ * @param {number} options.cellSize - Size of grid cell in world units (for calculating tile edges)
+ */
+function syncGroundYFromGameplayPath(gameplayPath, camera, renderer, options = {}) {
+  if (!gameplayPath?.start || !gameplayPath?.end) {
+    console.log('[visualsmapLoader] syncGroundYFromGameplayPath: No valid gameplay path');
+    return;
+  }
+
+  if (!camera || !renderer) {
+    console.warn('[visualsmapLoader] syncGroundYFromGameplayPath: Missing camera or renderer');
+    return;
+  }
+
+  // Calculate the center of the gameplay path in world coordinates
+  // The path is at y=0 (ground level) in the 3D world
+  const pathCenterX = (gameplayPath.start.x + gameplayPath.end.x) / 2;
+  const pathCenterZ = (gameplayPath.start.z + gameplayPath.end.z) / 2;
+  
+  // Apply Z offset if specified (e.g., to project from tile edge instead of center)
+  const zOffset = options.zOffset || 0;
+  const pathWorldPos = { x: pathCenterX, y: 0, z: pathCenterZ + zOffset };
+
+  // Project to screen space
+  const screenPos = projectWorldToScreen(pathWorldPos, camera, renderer);
+
+  // Set CONFIG.groundY to the rounded screen Y position
+  const CONFIG = (window.CONFIG = window.CONFIG || {});
+  const newGroundY = Math.round(screenPos.y);
+  
+  // Lock the groundY value with a source marker so other systems don't overwrite it
+  CONFIG.groundY = newGroundY;
+  CONFIG.groundYSource = 'camera';
+  
+  const offsetInfo = zOffset !== 0 ? ` with Z offset ${zOffset.toFixed(1)}` : '';
+  console.log(`[visualsmapLoader] ✓ CONFIG.groundY synced from camera: ${newGroundY} (locked, path position: ${pathWorldPos.x.toFixed(1)}, ${pathWorldPos.y}, ${pathWorldPos.z.toFixed(1)}${offsetInfo})`);
+}
+
+/**
  * Clear the visualsmap index cache. Useful for development or when
  * index.json is updated and needs to be reloaded.
  * @public
@@ -647,6 +731,30 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log(`[visualsmapLoader] ✓ Camera type:`, renderer.camera.type);
     }
 
+    // Sync CONFIG.groundY from gameplay path screen position
+    // This should only be done when using aligned world-to-path rendering
+    if (alignWorldToPath && gameplayPath?.start && gameplayPath?.end) {
+      // Support optional Z offset to project from tile edge instead of center
+      // Can be configured as a fraction of cellSize (e.g., 0.5 for half a tile forward)
+      const pathZOffsetFraction = visualsMap.pathProjectionZOffset ?? 0.5; // Default to tile edge
+      const zOffset = pathZOffsetFraction * cellSize;
+      
+      syncGroundYFromGameplayPath(gameplayPath, renderer.camera, renderer, { 
+        zOffset, 
+        cellSize 
+      });
+      
+      // Store references for manual re-sync (e.g., from debug panel)
+      if (typeof window !== 'undefined') {
+        window.__groundYSyncData = {
+          gameplayPath,
+          camera: renderer.camera,
+          renderer,
+          options: { zOffset, cellSize }
+        };
+      }
+    }
+
     // Initialize day/night lighting system (night by default)
     console.log(`[visualsmapLoader] Initializing day/night lighting system`);
     const dayNightSystem = new DayNightSystem({
@@ -796,6 +904,17 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       window.dayNightSystem = dayNightSystem;
       console.log(`[visualsmapLoader] ✓ Day/night system available via window.dayNightSystem`);
       console.log(`[visualsmapLoader]   Usage: window.dayNightSystem.toggle() to switch day/night`);
+      
+      // Provide global helper to manually re-sync groundY from current camera view
+      window.resyncGroundYFromCamera = function() {
+        const data = window.__groundYSyncData;
+        if (!data) {
+          console.warn('[visualsmapLoader] Cannot re-sync groundY: No sync data available (map may not use alignWorldToPath)');
+          return;
+        }
+        syncGroundYFromGameplayPath(data.gameplayPath, data.camera, data.renderer, data.options);
+      };
+      console.log(`[visualsmapLoader] ✓ Manual groundY re-sync available via window.resyncGroundYFromCamera()`);
     }
 
     return {

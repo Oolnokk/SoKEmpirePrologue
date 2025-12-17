@@ -5712,9 +5712,39 @@ function initGameDebugPanel() {
     });
     openBtn.addEventListener('click', handleOpen3D);
     
+    // Sync groundY button
+    const syncGroundYBtn = document.createElement('button');
+    syncGroundYBtn.textContent = 'Sync groundY';
+    syncGroundYBtn.id = 'gameDebugSyncGroundYBtn';
+    syncGroundYBtn.setAttribute('tabindex', '0');
+    syncGroundYBtn.title = 'Re-sync CONFIG.groundY from current camera view of gameplay path';
+    Object.assign(syncGroundYBtn.style, {
+      background: '#3a7a5a',
+      border: 'none',
+      color: '#fff',
+      cursor: 'pointer',
+      padding: '4px 10px',
+      borderRadius: '3px',
+      fontSize: '11px'
+    });
+    syncGroundYBtn.addEventListener('click', () => {
+      try {
+        if (typeof window.resyncGroundYFromCamera === 'function') {
+          window.resyncGroundYFromCamera();
+          showDebugPanelStatus('✓ groundY re-synced from camera', 'success');
+        } else {
+          showDebugPanelStatus('✗ resyncGroundYFromCamera not available', 'error');
+        }
+      } catch (error) {
+        console.error('[app] Failed to sync groundY:', error);
+        showDebugPanelStatus('✗ Failed to sync groundY: ' + error.message, 'error');
+      }
+    });
+    
     actionsContainer.appendChild(reloadBtn);
     actionsContainer.appendChild(disposeBtn);
     actionsContainer.appendChild(openBtn);
+    actionsContainer.appendChild(syncGroundYBtn);
     header.insertBefore(actionsContainer, toggleBtn);
     
     // Status message line for action feedback

@@ -422,6 +422,12 @@ function ensureParallaxContainer() {
 }
 function syncConfigGround(area) {
     const CONFIG = (window.CONFIG = window.CONFIG || {});
+    // Check if groundY is locked by camera projection
+    // When set by camera, it should remain constant and not be overwritten
+    if (CONFIG.groundYSource === 'camera' && Number.isFinite(CONFIG.groundY)) {
+        console.log('[map-bootstrap] syncConfigGround: Skipping update, groundY is camera-locked at:', CONFIG.groundY);
+        return;
+    }
     const canvasConfig = CONFIG.canvas || {};
     const canvasHeight = Number.isFinite(canvasConfig.h) ? canvasConfig.h : 460;
     const rawOffset = Number(area?.ground?.offset);
@@ -697,10 +703,6 @@ async function loadStartingArea() {
         });
         // Set source URL so visualsmap paths can be resolved relative to this file
         area.source = layoutUrl.href;
-        console.debug('[map-bootstrap] Area object has visualsMap:', !!area.visualsMap, 'scene3d:', !!area.scene3d);
-        if (area.visualsMap) {
-            console.debug('[map-bootstrap] visualsMap path:', area.visualsMap);
-        }
         applyArea(area);
     }
     catch (error) {

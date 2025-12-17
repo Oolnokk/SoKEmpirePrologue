@@ -513,7 +513,21 @@ function ensureParallaxContainer(): { layers: unknown[]; areas: Record<string, u
 }
 
 function syncConfigGround(area: MapArea): void {
-  const CONFIG = (window.CONFIG = window.CONFIG || {});
+  const CONFIG = (window.CONFIG = window.CONFIG || {}) as Record<string, unknown> & {
+    groundY?: number;
+    groundYSource?: string;
+    groundRatio?: number;
+    canvas?: { h?: number };
+    ground?: Record<string, unknown>;
+  };
+  
+  // Check if groundY is locked by camera projection
+  // When set by camera, it should remain constant and not be overwritten
+  if (CONFIG.groundYSource === 'camera' && Number.isFinite(CONFIG.groundY)) {
+    console.log('[map-bootstrap] syncConfigGround: Skipping update, groundY is camera-locked at:', CONFIG.groundY);
+    return;
+  }
+  
   const canvasConfig = CONFIG.canvas || {};
   const canvasHeight = Number.isFinite(canvasConfig.h) ? (canvasConfig.h as number) : 460;
   const rawOffset = Number(area?.ground?.offset);

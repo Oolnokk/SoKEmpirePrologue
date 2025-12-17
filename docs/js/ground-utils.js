@@ -1,4 +1,11 @@
 export function computeGroundY(config = {}, options = {}) {
+  // Check if groundY is locked by camera projection
+  // When set by camera, it should remain constant even if camera moves
+  if (config?.groundYSource === 'camera' && Number.isFinite(config?.groundY)) {
+    console.log('[ground-utils] computeGroundY: Using camera-locked groundY:', config.groundY);
+    return config.groundY;
+  }
+
   const explicitRaw = Number(config?.groundY);
   const explicit = Number.isFinite(explicitRaw) && explicitRaw > 0 ? explicitRaw : null;
 
