@@ -85,9 +85,9 @@ export function createCandleLight(THREE, options = {}) {
     side: THREE.DoubleSide
   });
 
-  // Store emissive properties for day/night system
-  material.emissive = new THREE.Color(color);
-  material.emissiveIntensity = emissiveIntensity;
+  // Store custom properties for day/night system (not Three.js uniforms)
+  material.userData.nightEmissive = color;
+  material.userData.nightIntensity = emissiveIntensity;
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'candleLight';

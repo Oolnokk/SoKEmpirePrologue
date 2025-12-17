@@ -82,25 +82,13 @@ export class DayNightSystem {
 
     const material = emissiveObj.object.material;
 
-    // Handle both MeshStandardMaterial (with emissive) and MeshBasicMaterial (color only)
-    if (material.emissive) {
-      // MeshStandardMaterial or custom material with emissive support
-      if (isNight) {
-        material.emissive.setHex(emissiveObj.nightEmissive);
-        material.emissiveIntensity = emissiveObj.nightIntensity * blend;
-      } else {
-        material.emissive.setHex(emissiveObj.dayEmissive);
-        material.emissiveIntensity = emissiveObj.dayIntensity * (1 - blend);
-      }
+    // Use color and opacity for day/night changes (works with MeshBasicMaterial)
+    if (isNight) {
+      material.color.setHex(emissiveObj.nightEmissive);
+      material.opacity = emissiveObj.nightIntensity * blend;
     } else {
-      // MeshBasicMaterial - use color and opacity
-      if (isNight) {
-        material.color.setHex(emissiveObj.nightEmissive);
-        material.opacity = emissiveObj.nightIntensity * blend;
-      } else {
-        material.color.setHex(emissiveObj.dayEmissive);
-        material.opacity = emissiveObj.dayIntensity * (1 - blend);
-      }
+      material.color.setHex(emissiveObj.dayEmissive);
+      material.opacity = emissiveObj.dayIntensity * (1 - blend);
     }
 
     material.needsUpdate = true;
