@@ -12,7 +12,7 @@
       font-family: system-ui, -apple-system, sans-serif;
       background: #0f172a;
       color: #e5e7eb;
-      touch-action: none; /* Prevent default touch behaviors */
+      overflow-y: auto; /* Allow vertical page scrolling */
     }
     .app {
       max-width: 1400px;
@@ -116,17 +116,17 @@
     canvas {
       display: block;
       width: 100%;
-      height: 400px;
+      height: 200px;
       background: transparent;
       border: 1px solid #475569;
       cursor: crosshair;
       position: relative;
       z-index: 1;
-      touch-action: none;
+      touch-action: pan-y; /* Allow vertical page scrolling */
     }
     @media (max-width: 768px) {
       canvas {
-        height: 300px;
+        height: 180px;
       }
     }
     .three-overlay {
@@ -326,7 +326,7 @@
         <div id="threeViewport">
           <div class="three-overlay" id="threeOverlay">No visual map loaded</div>
         </div>
-        <canvas id="mapCanvas" width="1000" height="400"></canvas>
+        <canvas id="mapCanvas" width="1000" height="200"></canvas>
       </div>
 
       <div class="side-panel">
@@ -400,11 +400,11 @@
             <dt>E</dt><dd>Add entrance</dd>
             <dt>X</dt><dd>Add exit</dd>
             <dt>Delete</dt><dd>Delete selected</dd>
-            <dt>Arrow Keys</dt><dd>Pan view (scroll map)</dd>
+            <dt>← / →</dt><dd>Scroll map horizontally</dd>
             <dt>Shift + Wheel</dt><dd>Horizontal scroll</dd>
             <dt>+/-</dt><dd>Zoom in/out</dd>
-            <dt>0</dt><dd>Reset view</dd>
-            <dt>Shift + Drag</dt><dd>Pan view</dd>
+            <dt>0</dt><dd>Reset horizontal view</dd>
+            <dt>Shift + Drag</dt><dd>Pan horizontally</dd>
           </dl>
         </div>
       </div>
@@ -429,8 +429,8 @@
     let isPanning = false;
     let panStart = null;
 
-    // View state
-    let viewOffset = { x: 0, y: 0 };
+    // View state - y offset is locked to show ground at bottom
+    let viewOffset = { x: 0, y: -100 }; // Negative y centers ground at bottom of viewport
     let viewZoom = 1.0;
 
     // Tile measurement settings (matches GRID_UNIT_WORLD_SIZE from config.js)
@@ -1153,9 +1153,8 @@
 
       if (isPanning && panStart) {
         const dx = sx - panStart.x;
-        const dy = sy - panStart.y;
+        // Only horizontal panning - vertical is locked
         viewOffset.x += dx / viewZoom;
-        viewOffset.y -= dy / viewZoom;
         panStart = { x: sx, y: sy };
         redraw();
       } else if (dragState) {
@@ -1236,11 +1235,11 @@
     }
 
     canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
       const rect = canvas.getBoundingClientRect();
 
       if (e.touches.length === 2) {
-        // Two finger pinch to zoom
+        // Two finger pinch to zoom - prevent default
+        e.preventDefault();
         touchStartDist = getTouchDistance(e.touches);
         touchStartZoom = viewZoom;
         const center = getTouchCenter(e.touches);
@@ -1258,6 +1257,7 @@
         if (currentTool === 'select') {
           const entity = findEntityAt(world.x, world.y);
           if (entity) {
+            e.preventDefault(); // Prevent default when interacting with entity
             selectEntity(entity);
             dragState = {
               type: 'moving',
@@ -1266,27 +1266,28 @@
               offsetY: world.y - entity.y
             };
           } else {
-            // Start panning
+            // Allow page scrolling when not touching entity
             lastTouchPos = { x: sx, y: sy };
           }
         } else {
+          // Store touch position for potential horizontal pan
           lastTouchPos = { x: sx, y: sy };
         }
       }
     });
 
     canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
       const rect = canvas.getBoundingClientRect();
 
       if (e.touches.length === 2) {
+        e.preventDefault(); // Prevent default for pinch zoom
         // Pinch zoom
         const currentDist = getTouchDistance(e.touches);
         const scale = currentDist / touchStartDist;
         viewZoom = touchStartZoom * scale;
         viewZoom = Math.max(0.1, Math.min(5, viewZoom));
 
-        // Pan while zooming
+        // Pan horizontally while zooming (vertical locked)
         const center = getTouchCenter(e.touches);
         const currentPos = {
           x: center.x - rect.left,
@@ -1294,9 +1295,8 @@
         };
         if (lastTouchPos) {
           const dx = currentPos.x - lastTouchPos.x;
-          const dy = currentPos.y - lastTouchPos.y;
+          // Only horizontal panning - vertical is locked
           viewOffset.x += dx / viewZoom;
-          viewOffset.y -= dy / viewZoom;
           lastTouchPos = currentPos;
         }
         redraw();
@@ -1307,32 +1307,38 @@
         const world = screenToWorld(sx, sy);
 
         if (dragState && dragState.type === 'moving') {
+          e.preventDefault(); // Prevent default when moving entity
           // Move entity
           dragState.entity.x = world.x - dragState.offsetX;
           dragState.entity.y = world.y - dragState.offsetY;
           updateEntityProps();
           redraw();
         } else if (lastTouchPos) {
-          // Pan
+          // Check if movement is primarily horizontal
           const dx = sx - lastTouchPos.x;
           const dy = sy - lastTouchPos.y;
-          viewOffset.x += dx / viewZoom;
-          viewOffset.y -= dy / viewZoom;
-          lastTouchPos = { x: sx, y: sy };
-          redraw();
+          if (Math.abs(dx) > Math.abs(dy)) {
+            // Horizontal movement - pan map horizontally
+            e.preventDefault();
+            viewOffset.x += dx / viewZoom;
+            lastTouchPos = { x: sx, y: sy };
+            redraw();
+          }
+          // Otherwise allow vertical page scrolling
         }
       }
     });
 
     canvas.addEventListener('touchend', (e) => {
-      e.preventDefault();
       const rect = canvas.getBoundingClientRect();
 
       if (e.touches.length === 0) {
         // All touches ended
         if (dragState) {
+          e.preventDefault();
           dragState = null;
         } else if (e.changedTouches.length === 1 && currentTool !== 'select') {
+          e.preventDefault();
           // Single tap to place entity
           const touch = e.changedTouches[0];
           const sx = touch.clientX - rect.left;
@@ -1395,16 +1401,7 @@
           viewOffset.x += 50 / viewZoom;
           redraw();
           break;
-        case 'arrowup':
-          e.preventDefault();
-          viewOffset.y += 50 / viewZoom;
-          redraw();
-          break;
-        case 'arrowdown':
-          e.preventDefault();
-          viewOffset.y -= 50 / viewZoom;
-          redraw();
-          break;
+        // Vertical scrolling is locked - arrow up/down removed
         case '+':
         case '=':
           viewZoom *= 1.1;
@@ -1417,24 +1414,15 @@
           redraw();
           break;
         case '0':
-          viewOffset = { x: 0, y: 0 };
+          viewOffset.x = 0; // Reset horizontal position only
           viewZoom = 1.0;
           redraw();
           break;
-        case ' ':
-          e.preventDefault(); // Prevent page scrolling
-          if (!isPanning) {
-            canvas.style.cursor = 'grab';
-          }
-          break;
+        // Space key removed - allow natural page scrolling
       }
     });
 
-    document.addEventListener('keyup', (e) => {
-      if (e.key === ' ' && !isPanning) {
-        canvas.style.cursor = 'crosshair';
-      }
-    });
+    // Space key handler removed - allow natural page scrolling
 
     // ===== Button Event Handlers =====
     document.getElementById('toolSelect').addEventListener('click', () => setTool('select'));
