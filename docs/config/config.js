@@ -878,7 +878,7 @@ window.CONFIG = {
   },
   actor: { scale: 0.70 },
   groundRatio: 0.25,
-  canvas: { w: 1920, h: 1080, scale: 1 },
+  canvas: { w: 1280, h: 720, scale: 1 },
   camera: {
     manualOffsetX: 0,
     // When true, the camera snaps each frame to keep the player centered (opt-in)
