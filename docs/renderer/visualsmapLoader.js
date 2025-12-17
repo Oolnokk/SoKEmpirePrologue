@@ -876,9 +876,78 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log(`[visualsmapLoader]   Usage: window.dayNightSystem.toggle() to switch day/night`);
     }
 
+    // Create gameplay path visualization (hidden by default)
+    const pathGroup = new renderer.THREE.Group();
+    pathGroup.name = 'gameplayPath';
+    pathGroup.visible = false; // Hidden by default
+    renderer.add(pathGroup);
+    loadedObjects.push(pathGroup);
+
+    function buildGameplayPath3D() {
+      // Clear existing path objects
+      while (pathGroup.children.length > 0) {
+        pathGroup.remove(pathGroup.children[0]);
+      }
+
+      if (!gameplayPath?.start || !gameplayPath?.end) {
+        console.log('[visualsmapLoader] No gameplay path defined');
+        return;
+      }
+
+      // Materials matching map editor style
+      const lineMat = new renderer.THREE.LineBasicMaterial({ color: 0xfbbf24 }); // Yellow
+      const startMat = new renderer.THREE.MeshStandardMaterial({
+        color: 0x22c55e,
+        emissive: 0x16a34a,
+        emissiveIntensity: 0.25
+      }); // Green
+      const endMat = new renderer.THREE.MeshStandardMaterial({
+        color: 0xef4444,
+        emissive: 0xb91c1c,
+        emissiveIntensity: 0.25
+      }); // Red
+      const markerGeom = new renderer.THREE.SphereGeometry(0.12 * cellSize, 14, 14);
+
+      // Helper to create marker at grid position
+      function createMarker(gridRow, gridCol, material) {
+        const worldPos = gridToWorld(gridRow, gridCol, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+        const marker = new renderer.THREE.Mesh(markerGeom, material);
+        marker.position.set(worldPos.x, 0.18 * cellSize, worldPos.z);
+        marker.castShadow = false;
+        marker.receiveShadow = true;
+        pathGroup.add(marker);
+        return worldPos;
+      }
+
+      // Create start and end markers
+      const startPos = createMarker(gameplayPath.start.row, gameplayPath.start.col, startMat);
+      const endPos = createMarker(gameplayPath.end.row, gameplayPath.end.col, endMat);
+
+      // Draw line between start and end
+      const points = [
+        new renderer.THREE.Vector3(startPos.x, 0.18 * cellSize, startPos.z),
+        new renderer.THREE.Vector3(endPos.x, 0.18 * cellSize, endPos.z)
+      ];
+      const lineGeom = new renderer.THREE.BufferGeometry().setFromPoints(points);
+      const line = new renderer.THREE.Line(lineGeom, lineMat);
+      pathGroup.add(line);
+
+      console.log('[visualsmapLoader] ✓ Gameplay path visualization created');
+    }
+
+    // Build the path visualization
+    buildGameplayPath3D();
+
+    // Method to toggle path visibility
+    function setPathVisible(visible) {
+      pathGroup.visible = !!visible;
+      console.log(`[visualsmapLoader] Gameplay path visibility: ${pathGroup.visible}`);
+    }
+
     return {
       objects: loadedObjects,
       dayNightSystem: dayNightSystem,
+      setPathVisible: setPathVisible,
       dispose: () => {
         renderer.off('frame', frameUpdateHandler);
         dayNightSystem.dispose();
@@ -888,6 +957,6 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     };
   } catch (error) {
     console.error('[visualsmapLoader] Error loading visualsmap:', error);
-    return { objects: [], dispose: () => {} };
+    return { objects: [], dispose: () => {}, setPathVisible: () => {} };
   }
 }

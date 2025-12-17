@@ -67,6 +67,23 @@ export function initDebugPanel() {
     });
   }
 
+  // Setup gameplay path visibility checkbox
+  const pathCheckbox = $$('#showGameplayPathCheckbox', panel);
+  if (pathCheckbox) {
+    pathCheckbox.addEventListener('change', (e) => {
+      const isVisible = e.target.checked;
+      console.log('[debug-panel] Gameplay path visibility:', isVisible);
+
+      // Toggle path visibility in visualsmap adapter
+      const adapter = window.GAME?.visualsmapAdapter;
+      if (adapter && typeof adapter.setPathVisible === 'function') {
+        adapter.setPathVisible(isVisible);
+      } else {
+        console.warn('[debug-panel] Visualsmap adapter not available or missing setPathVisible method');
+      }
+    });
+  }
+
   // Setup drop bottle button
   const dropBottleBtn = $$('#btnDropBottle', panel);
   if (dropBottleBtn) {
