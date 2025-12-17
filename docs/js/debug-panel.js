@@ -96,6 +96,36 @@ export function initDebugPanel() {
     });
   }
 
+  // Setup copy URL button
+  const copyURLBtn = $$('#btnCopyURL', panel);
+  if (copyURLBtn) {
+    copyURLBtn.addEventListener('click', async () => {
+      try {
+        const url = window.location.href;
+        await navigator.clipboard.writeText(url);
+
+        // Visual feedback
+        const originalText = copyURLBtn.textContent;
+        const originalBg = copyURLBtn.style.background;
+        copyURLBtn.textContent = '✓ Copied!';
+        copyURLBtn.style.background = '#10b981';
+
+        setTimeout(() => {
+          copyURLBtn.textContent = originalText;
+          copyURLBtn.style.background = originalBg;
+        }, 1500);
+
+        console.log('[debug-panel] Copied URL to clipboard:', url);
+      } catch (err) {
+        console.error('[debug-panel] Failed to copy URL:', err);
+        copyURLBtn.textContent = '✗ Failed';
+        setTimeout(() => {
+          copyURLBtn.textContent = '📋 Copy URL';
+        }, 1500);
+      }
+    });
+  }
+
   // Setup panel visibility toggle
   const toggleBtn = $$('#debugToggle');
   if (toggleBtn) {
