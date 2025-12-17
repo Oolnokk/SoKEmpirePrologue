@@ -1694,31 +1694,35 @@ export function renderSprites(ctx){
     ctx.restore();
   }
 
-  // Apply lighting tint overlay AFTER sprites are drawn
+  ctx.restore(); // Restore camera transform before applying screen-space overlay
+
+  // Apply lighting tint overlay AFTER sprites are drawn, in screen space
   const dayNightSystem = (typeof window !== 'undefined' && window.dayNightSystem);
   if (dayNightSystem) {
     const lightingConfig = dayNightSystem.getCurrentLightingConfig();
     const ambientIntensity = lightingConfig.ambientIntensity || 1;
     const ambientColor = lightingConfig.ambientColor || 0xffffff;
 
-    // Extract RGB from hex color
-    const r = ((ambientColor >> 16) & 0xff) / 255;
-    const g = ((ambientColor >> 8) & 0xff) / 255;
-    const b = (ambientColor & 0xff) / 255;
-
-    // Apply lighting tint using multiply blend mode
-    // This darkens sprites based on ambient light intensity and color
+    // Only apply darkening if intensity is low enough (night time)
     const darkenAmount = Math.max(0, 1 - ambientIntensity);
-    if (darkenAmount > 0.01) {
+    if (darkenAmount > 0.05) {
+      // Extract RGB from hex color
+      const r = ((ambientColor >> 16) & 0xff) / 255;
+      const g = ((ambientColor >> 8) & 0xff) / 255;
+      const b = (ambientColor & 0xff) / 255;
+
+      // Calculate the multiply color (lerp between ambient color and white based on intensity)
+      const multiplyR = Math.floor(r * 255 + (255 - r * 255) * ambientIntensity);
+      const multiplyG = Math.floor(g * 255 + (255 - g * 255) * ambientIntensity);
+      const multiplyB = Math.floor(b * 255 + (255 - b * 255) * ambientIntensity);
+
       ctx.save();
       ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = `rgb(${Math.floor(r * 255 + (255 - r * 255) * ambientIntensity)}, ${Math.floor(g * 255 + (255 - g * 255) * ambientIntensity)}, ${Math.floor(b * 255 + (255 - b * 255) * ambientIntensity)})`;
+      ctx.fillStyle = `rgb(${multiplyR}, ${multiplyG}, ${multiplyB})`;
       ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       ctx.restore();
     }
   }
-
-  ctx.restore();
 }
 
 export function initSprites(){
