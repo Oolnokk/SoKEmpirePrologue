@@ -1,6 +1,6 @@
 // Re-exported to centralize ground calculations across rendering and physics.
 export function computeGroundYFromConfig(config = {}, canvasHeightOverride) {
-  const explicit = Number.isFinite(config?.groundY) ? config.groundY : null;
+  const explicit = Number.isFinite(config?.groundY) && config.groundY > 0 ? config.groundY : null;
   const canvasHeight = Number.isFinite(canvasHeightOverride)
     ? canvasHeightOverride
     : (Number.isFinite(config?.canvas?.h)
