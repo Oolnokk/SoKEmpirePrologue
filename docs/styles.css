@@ -417,6 +417,12 @@ main.stack{
     gap:0;
     padding:0;
   }
+  .widget, .widget--clear{
+    width:100vw;
+    max-width:100vw;
+    margin:0;
+    padding:0;
+  }
 }
 
 .widget{
@@ -459,10 +465,11 @@ main.stack{
 @media (orientation: landscape) {
   .stage{
     --stage-max-height:100vh;
-    width:100vw;
-    max-width:100vw;
-    height:100vh;
-    max-height:100vh;
+    width:100vw !important;
+    max-width:100vw !important;
+    height:100vh !important;
+    max-height:100vh !important;
+    aspect-ratio:auto !important;
     border-radius:0;
     margin:0;
     outline:none;
@@ -472,9 +479,10 @@ main.stack{
 /* In fullscreen, use all available space */
 .stage:fullscreen{
   --stage-max-height:100vh;
-  width:100vw;
-  max-width:100vw;
-  height:100vh;
+  width:100vw !important;
+  max-width:100vw !important;
+  height:100vh !important;
+  aspect-ratio:auto !important;
   border-radius:0;
   outline:none;
 }
