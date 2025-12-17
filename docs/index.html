@@ -15,7 +15,10 @@
     <div style="max-width:900px;margin:auto">
       <h3 style="margin:0 0 12px;color:#fecaca">Boot Diagnostics</h3>
       <div id="bootErrorLog" style="display:flex;flex-direction:column;gap:8px"></div>
-      <button style="margin-top:12px;padding:8px 12px;background:#1f2937;color:#fff;border:1px solid #374151;border-radius:8px" onclick="this.closest('#bootError').style.display='none'">Dismiss</button>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button id="copyBootErrors" style="padding:8px 12px;background:#1f2937;color:#fff;border:1px solid #374151;border-radius:8px;flex:1">📋 Copy Errors</button>
+        <button style="padding:8px 12px;background:#1f2937;color:#fff;border:1px solid #374151;border-radius:8px;flex:1" onclick="this.closest('#bootError').style.display='none'">Dismiss</button>
+      </div>
     </div>
   </div>
   <script>
@@ -116,6 +119,38 @@
         error(message){appendEntry(stringify(message),'error');},
         fallback(message){appendEntry(stringify(message),'fallback');}
       };
+
+      // Copy errors to clipboard
+      const copyBtn=document.getElementById('copyBootErrors');
+      if(copyBtn){
+        copyBtn.addEventListener('click',async function(){
+          try{
+            const entries=Array.from(log.children).map(el=>{
+              const title=el.querySelector('div')?.textContent||'';
+              const body=el.querySelector('pre')?.textContent||'';
+              return `${title}\n${body}`;
+            }).join('\n\n---\n\n');
+
+            const fullReport=`Boot Diagnostics Report\n${'='.repeat(50)}\nURL: ${window.location.href}\nTime: ${new Date().toISOString()}\n${'='.repeat(50)}\n\n${entries}`;
+
+            await navigator.clipboard.writeText(fullReport);
+
+            const orig=copyBtn.textContent;
+            copyBtn.textContent='✓ Copied!';
+            copyBtn.style.background='#10b981';
+            setTimeout(()=>{
+              copyBtn.textContent=orig;
+              copyBtn.style.background='#1f2937';
+            },1500);
+          }catch(err){
+            console.error('Failed to copy:',err);
+            copyBtn.textContent='✗ Failed';
+            setTimeout(()=>{
+              copyBtn.textContent='📋 Copy Errors';
+            },1500);
+          }
+        });
+      }
     })();
   </script>
   <script src="./js/entry-config.js"></script>
