@@ -455,6 +455,10 @@
       canvas.width = rect.width;
       canvas.height = rect.height;
       redraw();
+      // Sync 3D renderer size
+      if (typeof onWindowResize === 'function') {
+        onWindowResize();
+      }
     }
 
     window.addEventListener('resize', resizeCanvas);
@@ -592,9 +596,8 @@
 
     // ===== Drawing Functions =====
     function redraw() {
-      // Clear canvas
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Clear canvas with transparency to show 3D background
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Draw tile grid and ruler
       if (showGrid || showRuler) {
@@ -1575,6 +1578,27 @@
         playableBounds: data.playableBounds || null
       };
 
+      // Normalize entities to ensure they have proper meta objects
+      mapData.entities.forEach(entity => {
+        if (!entity.meta) {
+          entity.meta = {};
+        }
+
+        // Set default metadata based on type
+        if (entity.type === 'collider') {
+          if (!entity.meta.shape) entity.meta.shape = 'rectangle';
+          if (!entity.meta.width) entity.meta.width = 100;
+          if (!entity.meta.height) entity.meta.height = 100;
+        } else if (entity.type === 'patrol') {
+          if (entity.meta.sequence === undefined) entity.meta.sequence = 0;
+          if (!entity.meta.routeId) entity.meta.routeId = '';
+        } else if (entity.type === 'spawner') {
+          if (!entity.meta.prefab) entity.meta.prefab = 'spawn_default';
+        } else if (entity.type === 'prop') {
+          if (!entity.meta.prefab) entity.meta.prefab = 'prop_default';
+        }
+      });
+
       // Update UI
       document.getElementById('areaId').value = mapData.areaId;
       document.getElementById('unitsPerPixel').value = mapData.ground.unitsPerPixel || 1;
@@ -1763,12 +1787,16 @@
       worldRoot = new THREE.Group();
       scene.add(worldRoot);
 
-      const w = Math.max(threeContainer.clientWidth || 800, 400);
-      const h = Math.max(threeContainer.clientHeight || 600, 300);
+      // Match canvas size
+      const canvas = document.getElementById('mapCanvas');
+      const w = canvas.width;
+      const h = canvas.height;
 
       camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500);
       camera.position.set(0, 30, 50);
-      camera.lookAt(0, 0, 0);
+
+      // Set camera rotation: X:-180°, Y:0°, Z:-180° (in radians)
+      camera.rotation.set(-Math.PI, 0, -Math.PI);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -1816,8 +1844,10 @@
     }
 
     function onWindowResize() {
-      const w = Math.max(threeContainer.clientWidth || 800, 400);
-      const h = Math.max(threeContainer.clientHeight || 600, 300);
+      // Match canvas size
+      const canvas = document.getElementById('mapCanvas');
+      const w = canvas.width;
+      const h = canvas.height;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
@@ -1902,7 +1932,9 @@
 
       // Position camera to look at the gameplay path
       camera.position.set(centerX, 30, centerZ + 40);
-      camera.lookAt(centerX, 0, centerZ);
+
+      // Set camera rotation: X:-180°, Y:0°, Z:-180° (in radians)
+      camera.rotation.set(-Math.PI, 0, -Math.PI);
 
       // Render ground tiles
       const layers = ['ground', 'structure', 'decoration'];
@@ -1953,7 +1985,7 @@
       clearGroup(structureGroup);
       worldRoot.rotation.y = 0;
       camera.position.set(0, 30, 50);
-      camera.lookAt(0, 0, 0);
+      camera.rotation.set(-Math.PI, 0, -Math.PI);
       overlay.textContent = 'No visual map loaded';
       document.getElementById('btnClearVisualMap').style.display = 'none';
       window.visualMapTiles = null;
