@@ -644,6 +644,7 @@ function normalizeAreaDescriptor(area, options = {}) {
   const rawColliders = Array.isArray(area.colliders) ? area.colliders : [];
   const rawTilers = Array.isArray(area.tilers) ? area.tilers : [];
   const rawDrumSkins = Array.isArray(area.drumSkins) ? area.drumSkins : [];
+  const rawEntities = Array.isArray(area.entities) ? area.entities : [];
   const scene3d = area.scene3d !== undefined ? safeClone(area.scene3d) : undefined;
 
   const warnings = Array.isArray(area.warnings) ? [...area.warnings] : [];
@@ -762,7 +763,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     }))
     .filter(Boolean);
   const explicitSpawners = normalizeSpawnerList(area.spawners, warnings, { source: 'area' });
-  const entitySpawners = collectSpawnersFromEntities(area.entities, warnings);
+  const entitySpawners = collectSpawnersFromEntities(rawEntities, warnings);
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
   const spawners = mergeSpawnerLists(explicitSpawners, mergeSpawnerLists(entitySpawners, derivedSpawners, warnings), warnings);
   const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
@@ -770,7 +771,7 @@ function normalizeAreaDescriptor(area, options = {}) {
   const groupLibrary = mergeGroupLibraries(optionGroupLibrary, areaGroupLibrary);
   const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(area.pathTargets, warnings, { source: 'area' });
-  const entityPathTargets = collectPathTargetsFromEntities(area.entities, warnings);
+  const entityPathTargets = collectPathTargetsFromEntities(rawEntities, warnings);
   const derivedPathTargets = collectPathTargets(convertedInstances, warnings);
   const pathTargets = mergePathTargetLists(explicitPathTargets, mergePathTargetLists(entityPathTargets, derivedPathTargets, warnings), warnings);
   const pathTargetRegistry = buildPathTargetRegistry(pathTargets, warnings);

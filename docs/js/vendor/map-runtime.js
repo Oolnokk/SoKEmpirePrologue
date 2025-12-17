@@ -1247,6 +1247,7 @@ function normalizeAreaDescriptor(area, options = {}) {
       : [];
   const rawColliders = Array.isArray(area.colliders) ? area.colliders : [];
   const rawDrumSkins = Array.isArray(area.drumSkins) ? area.drumSkins : [];
+  const rawEntities = Array.isArray(area.entities) ? area.entities : [];
   const scene3d = area.scene3d !== undefined ? safeClone(area.scene3d) : undefined;
   const visualsMap = area.visualsMap !== undefined ? area.visualsMap : undefined;
 
@@ -1370,11 +1371,13 @@ function normalizeAreaDescriptor(area, options = {}) {
     }))
     .filter(Boolean);
   const explicitSpawners = normalizeSpawnerList(area.spawners, warnings, { source: 'area' });
+  const entitySpawners = collectSpawnersFromEntities(rawEntities, warnings);
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
-  const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners);
+  const spawners = mergeSpawnerLists(explicitSpawners, mergeSpawnerLists(entitySpawners, derivedSpawners, warnings), warnings);
   const explicitPathTargets = normalizePathTargetList(area.pathTargets, warnings, { source: 'area' });
+  const entityPathTargets = collectPathTargetsFromEntities(rawEntities, warnings);
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
-  const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets);
+  const pathTargets = mergePathTargetLists(explicitPathTargets, mergePathTargetLists(entityPathTargets, derivedPathTargets, warnings), warnings);
 
   // Collect POIs from behavior metadata and colliders
   const behaviorMeta = area.meta && typeof area.meta.behavior === 'object' && area.meta.behavior
@@ -1995,6 +1998,83 @@ function collectNpcSpawners(instances = [], warnings = []) {
     }
   }
   return spawners;
+}
+
+function collectSpawnersFromEntities(entities = [], warnings = []) {
+  if (!Array.isArray(entities)) return [];
+  const spawners = [];
+  
+  for (const entity of entities) {
+    if (!entity || typeof entity !== 'object') continue;
+    if (entity.type !== 'spawner') continue;
+    
+    const spawnerId = entity.id || null;
+    if (!spawnerId) {
+      warnings.push('Encountered spawner entity without an id');
+      continue;
+    }
+    
+    const meta = entity.meta || {};
+    const spawnerMeta = meta.spawner || {};
+    
+    const spawner = normalizeSpawnerRecord({
+      spawnerId,
+      id: spawnerId,
+      type: spawnerMeta.type || 'npc',
+      position: { x: entity.x ?? 0, y: entity.y ?? 0 },
+      spawnRadius: spawnerMeta.spawnRadius ?? 0,
+      count: spawnerMeta.count ?? 1,
+      respawn: spawnerMeta.respawn ?? false,
+      templateId: spawnerMeta.templateId ?? spawnerMeta.characterId ?? null,
+      characterId: spawnerMeta.characterId ?? spawnerMeta.templateId ?? null,
+      groupId: spawnerMeta.groupId ?? null,
+      group: spawnerMeta.groupMeta ?? null,
+      meta: {
+        ...meta,
+        sourceEntity: true,
+      },
+    }, warnings, { fallbackId: spawnerId, source: 'entity' });
+    
+    if (spawner) {
+      spawners.push(spawner);
+    }
+  }
+  
+  return spawners;
+}
+
+function collectPathTargetsFromEntities(entities = [], warnings = []) {
+  if (!Array.isArray(entities)) return [];
+  const targets = [];
+  
+  for (const entity of entities) {
+    if (!entity || typeof entity !== 'object') continue;
+    if (entity.type !== 'patrol') continue;
+    
+    const meta = entity.meta || {};
+    const name = meta.name || entity.id || null;
+    if (!name) {
+      warnings.push('Encountered patrol entity without a name or id');
+      continue;
+    }
+    
+    const target = normalizePathTargetRecord({
+      name,
+      id: entity.id || name,
+      order: meta.sequence ?? null,
+      position: { x: entity.x ?? 0, y: entity.y ?? 0 },
+      meta: {
+        ...meta,
+        sourceEntity: true,
+      },
+    }, warnings, { fallbackName: name, source: 'entity' });
+    
+    if (target) {
+      targets.push(target);
+    }
+  }
+  
+  return targets;
 }
 
 function normalizeSpawnerList(rawList = [], warnings = [], context = {}) {
