@@ -6158,7 +6158,10 @@ function boot(){
           GAME_RENDERER_3D.start();
         }
 
-        // Add camera synchronization (Pattern A: move 3D camera with game camera)
+        // Camera synchronization disabled to maintain fixed camera position/rotation
+        // The camera defaults are set in Renderer.js initialization
+        // Keeping this commented out in case camera sync needs to be re-enabled later
+        /*
         if (typeof GAME_RENDERER_3D.on === 'function') {
           GAME_RENDERER_3D.on('frame', () => {
             try {
@@ -6167,28 +6170,25 @@ function boot(){
 
               const gameCamera = window.GAME?.CAMERA;
               if (gameCamera && GAME_RENDERER_3D) {
-                // Camera sync config for side-scrolling view aligned with gameplay path
-                // Values match visualsmapLoader camera setup (based on cellSize/GRID_UNIT_WORLD_SIZE=30)
-                const cellSize = window.GRID_UNIT_WORLD_SIZE || 30;
                 syncThreeCamera({
                   renderer: GAME_RENDERER_3D,
                   gameCamera: gameCamera,
                   config: {
-                    parallaxFactor: 1.0,              // 3D camera follows 2D camera exactly (side-scrolling)
-                    cameraHeight: cellSize * 0.8,     // Height above ground (24 with cellSize=30)
-                    cameraDistance: -cellSize * 1.2,  // Negative Z = viewer side (-36 with cellSize=30)
-                    lookAtOffsetY: cellSize * 0.3     // Look slightly above ground (9 with cellSize=30)
+                    parallaxFactor: 1.0,
+                    cameraHeight: 10,
+                    cameraDistance: -20,
+                    lookAtOffsetY: 0
                   }
                 });
               }
             } catch (err) {
-              // Silently handle sync errors to avoid breaking render loop
               if (window.DEBUG_CAMERA_SYNC) {
                 console.warn('[app] Camera sync error:', err);
               }
             }
           });
         }
+        */
 
         // Add resize handler with unified 3D/2D scaling
         THREE_BG_RESIZE_HANDLER = () => {
