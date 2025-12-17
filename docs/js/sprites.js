@@ -1717,9 +1717,9 @@ export function renderSprites(ctx){
       const multiplyB = Math.floor(b * 255 + (255 - b * 255) * ambientIntensity);
 
       ctx.save();
-      // Use 'source-atop' to only affect existing sprite pixels, not transparent background
-      ctx.globalCompositeOperation = 'source-atop';
-      ctx.fillStyle = `rgba(${multiplyR}, ${multiplyG}, ${multiplyB}, ${darkenAmount})`;
+      // Use 'multiply' to darken sprites while preserving saturation
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = `rgb(${multiplyR}, ${multiplyG}, ${multiplyB})`;
       ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       ctx.restore();
     }
