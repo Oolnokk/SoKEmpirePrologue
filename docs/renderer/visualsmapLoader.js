@@ -5,9 +5,9 @@
 
 import { projectToGroundPlane } from './scene3d.js';
 import { applyAssetRotations } from './gltfTransforms.js';
-import { DayNightSystem } from '../../src/lighting/DayNightSystem.js';
-import { isTowerStructure } from '../../src/lighting/TowerLightingIntegration.js';
-import { createCandleLight } from '../../src/lighting/CandleLight.js';
+import { DayNightSystem } from '../lighting/DayNightSystem.js';
+import { isTowerStructure } from '../lighting/TowerLightingIntegration.js';
+import { createCandleLight } from '../lighting/CandleLight.js';
 
 const DEFAULT_GAMEPLAY_PATH_LOOK_AT = Object.freeze({
   offsetY: 0.3, // Grid units; scaled by cellSize at runtime
