@@ -363,7 +363,6 @@
         <div class="controls-overlay">
           <div class="top-ui">
             <button type="button" id="btnFullscreen" class="ui-btn">⤢ Full</button>
-            <button type="button" id="btnReloadCfg" class="ui-btn">↻ Config</button>
             <button type="button" id="debugToggle" class="ui-btn">🔍 Debug</button>
           </div>
 
@@ -418,7 +417,8 @@
             <div id="fpsHud" style="color:#d1fae5; font-size: 12px; margin-bottom: 8px;">
               FPS: --
             </div>
-            <button type="button" id="btnTeleportSpawn" class="debug-action-btn" style="width: 100%;">⟰ Teleport to Spawn</button>
+            <button type="button" id="btnTeleportSpawn" class="debug-action-btn" style="width: 100%; margin-bottom: 4px;">⟰ Teleport to Spawn</button>
+            <button type="button" id="btnReloadCfg" class="debug-action-btn" style="width: 100%;">↻ Reload Config</button>
           </div>
 
           <div class="debug-panel-controls">
@@ -694,6 +694,41 @@
   <script type="module" src="./js/map-bootstrap.js?v=1"></script>
   <script type="module" src="./js/cosmetic-library.js?v=1"></script>
   <script type="module" src="./js/cosmetic-profiles.js?v=1"></script>
+
+  <!-- Handle orientation changes and auto-scroll -->
+  <script>
+    (function() {
+      let lastOrientation = window.orientation || 0;
+
+      function handleOrientationChange() {
+        const currentOrientation = window.orientation || 0;
+        const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+
+        // If rotating to landscape, scroll to top
+        if (isLandscape && lastOrientation !== currentOrientation) {
+          setTimeout(() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }, 100);
+        }
+
+        lastOrientation = currentOrientation;
+      }
+
+      // Listen for orientation changes
+      window.addEventListener('orientationchange', handleOrientationChange);
+
+      // Also listen for resize events (some devices don't fire orientationchange)
+      let resizeTimeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(handleOrientationChange, 200);
+      });
+
+      // Initial check
+      handleOrientationChange();
+    })();
+  </script>
+
   <script src="./js/bootstrap.js?v=1"></script>
 </body>
 </html>

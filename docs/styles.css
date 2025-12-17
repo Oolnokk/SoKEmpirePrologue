@@ -407,6 +407,18 @@ main.stack{
   padding:var(--pad);
 }
 
+/* In landscape orientation, allow full width and scale controls */
+@media (orientation: landscape) {
+  :root{
+    --control-scale-base:clamp(0.75,2.8vw,1.0);
+  }
+  main.stack{
+    max-width:100%;
+    gap:0;
+    padding:0;
+  }
+}
+
 .widget{
   position:relative;
   background:var(--glass);
@@ -443,11 +455,26 @@ main.stack{
   place-items:center;
 }
 
+/* In landscape orientation, fill the screen width */
+@media (orientation: landscape) {
+  .stage{
+    --stage-max-height:100vh;
+    width:100vw;
+    max-width:100vw;
+    height:100vh;
+    max-height:100vh;
+    border-radius:0;
+    margin:0;
+    outline:none;
+  }
+}
+
 /* In fullscreen, use all available space */
 .stage:fullscreen{
   --stage-max-height:100vh;
   width:100vw;
   max-width:100vw;
+  height:100vh;
   border-radius:0;
   outline:none;
 }

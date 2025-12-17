@@ -198,6 +198,14 @@ export function initTouchControls(){
   function handleGlobalTouchStart(e){
     if (activeJoystickTouch) return; // Already have an active joystick touch
 
+    // Don't trigger joystick if touching a button or interactive element
+    const target = e.target;
+    if (target.tagName === 'BUTTON' || target.tagName === 'INPUT' ||
+        target.closest('button') || target.closest('.ui-btn') ||
+        target.closest('.action-btn') || target.closest('.debug-panel')){
+      return;
+    }
+
     const touch = e.touches[0];
     const screenWidth = window.innerWidth;
     const leftThird = screenWidth / 3;
