@@ -883,7 +883,8 @@ export function renderAll(ctx){
 
   G.ANCHORS_OBJ = anchorsById;
   G.FLIP_STATE = flipState;
-  G.RENDER_STATE = { entities: renderEntities };
+  const renderState = { entities: renderEntities };
+  G.RENDER_STATE = renderState;
   pruneFighterColliders(activeColliderIds);
 
   if (typeof window !== 'undefined' && window.RENDER_DEBUG) {
@@ -894,6 +895,7 @@ export function renderAll(ctx){
 
   const canvasHeight = ctx.canvas?.height || 0;
   const groundLine = computeGroundY(C, { canvasHeight }) ?? canvasHeight;
+  renderState.groundLine = groundLine;
 
   // Fallback background so the viewport is never visually blank
   try{

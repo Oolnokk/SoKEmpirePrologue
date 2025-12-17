@@ -19,3 +19,19 @@ export function computeGroundY(config = {}, options = {}) {
 
   return groundLine;
 }
+
+export function resolveSharedGroundY(config = {}, options = {}) {
+  const { canvasHeight } = options;
+  if (typeof window !== 'undefined') {
+    const sharedGroundY = window.GAME?.RENDER_STATE?.groundLine;
+    if (Number.isFinite(sharedGroundY)) return sharedGroundY;
+
+    const canvas = window.GAME?.CANVAS ?? window.GAME?.canvas;
+    const liveHeight = Number.isFinite(canvas?.height) ? canvas.height : Number.isFinite(canvas?.h) ? canvas.h : null;
+    if (Number.isFinite(liveHeight) && liveHeight !== canvasHeight) {
+      const resolved = computeGroundY(config, { ...options, canvasHeight: liveHeight });
+      if (Number.isFinite(resolved)) return resolved;
+    }
+  }
+  return computeGroundY(config, options);
+}

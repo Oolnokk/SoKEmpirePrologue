@@ -12,7 +12,7 @@ import {
   isPointInsideConeCollider,
   resolveFighterPerceptionColliders,
 } from './colliders.js?v=1';
-import { computeGroundY } from './ground-utils.js?v=1';
+import { resolveSharedGroundY } from './ground-utils.js?v=1';
 import { resolveStancePose, convertAimToHeadRad } from './animator.js?v=5';
 import { getAttackDefFromConfig, calculateMinChargeTime } from './config-utils.js?v=1';
 import {
@@ -2121,7 +2121,7 @@ function resolveBodyRadius(config) {
 
 function updateNpcRagdoll(state, config, dt) {
   if (!state.ragdoll) return;
-  const groundY = computeGroundY(config);
+  const groundY = resolveSharedGroundY(config);
   state.ragdollTime += dt;
   state.vel.y += (config.movement?.gravity || 0) * dt * 1.8;
   state.pos.x += state.vel.x * dt;
@@ -2149,7 +2149,7 @@ function updateNpcRecovery(state, config, dt) {
   if (!state.recovering) return;
   state.recoveryTime += dt;
   const t = Math.min(1, state.recoveryTime / (state.recoveryDuration || 0.8));
-  const groundY = computeGroundY(config);
+  const groundY = resolveSharedGroundY(config);
   const startY = Number.isFinite(state.recoveryStartY) ? state.recoveryStartY : groundY;
   state.pos.y = startY + (groundY - startY) * t;
   if (t >= 1) {
