@@ -6277,6 +6277,12 @@ function boot(){
                 GAME_VISUALSMAP_ADAPTER = null;
               }
 
+              // Clear stale gameplay path targets when switching contexts without visuals maps
+              if (GAME_RENDERER_3D) {
+                GAME_RENDERER_3D.userData = GAME_RENDERER_3D.userData || {};
+                GAME_RENDERER_3D.userData.gameplayPathTarget = null;
+              }
+
               // Load visualsmap if available (preferred)
               if (area && area.visualsMap) {
                 try {
@@ -6326,6 +6332,11 @@ function boot(){
             const areaToLoad = activeArea || (fallbackAreaId && typeof registry.getArea === 'function'
               ? registry.getArea(fallbackAreaId)
               : null);
+
+            if (GAME_RENDERER_3D) {
+              GAME_RENDERER_3D.userData = GAME_RENDERER_3D.userData || {};
+              GAME_RENDERER_3D.userData.gameplayPathTarget = null;
+            }
 
             // DEBUG: Log area properties
             console.log('[app] Initial area to load:', areaToLoad?.id, 'has visualsMap:', !!areaToLoad?.visualsMap, 'has scene3d:', !!areaToLoad?.scene3d);
