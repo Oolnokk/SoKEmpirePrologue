@@ -89,15 +89,8 @@ function syncGroundYFromGameplayPath(gameplayPath, camera, renderer) {
   const pathCenterZ = (gameplayPath.start.z + gameplayPath.end.z) / 2;
   const pathWorldPos = { x: pathCenterX, y: 0, z: pathCenterZ };
 
-  console.log('[visualsmapLoader] ========================================');
-  console.log('[visualsmapLoader] Syncing CONFIG.groundY from gameplay path');
-  console.log('[visualsmapLoader] - Path world position:', pathWorldPos);
-  console.log('[visualsmapLoader] - Path start:', gameplayPath.start);
-  console.log('[visualsmapLoader] - Path end:', gameplayPath.end);
-
   // Project to screen space
   const screenPos = projectWorldToScreen(pathWorldPos, camera, renderer);
-  console.log('[visualsmapLoader] - Projected screen position:', screenPos);
 
   // Set CONFIG.groundY to the rounded screen Y position
   const CONFIG = (window.CONFIG = window.CONFIG || {});
@@ -107,10 +100,7 @@ function syncGroundYFromGameplayPath(gameplayPath, camera, renderer) {
   CONFIG.groundY = newGroundY;
   CONFIG.groundYSource = 'camera';
   
-  console.log('[visualsmapLoader] ✓ CONFIG.groundY set to:', newGroundY);
-  console.log('[visualsmapLoader] ✓ CONFIG.groundYSource set to: camera (locked)');
-  console.log('[visualsmapLoader] ✓ This value will remain constant even if camera moves');
-  console.log('[visualsmapLoader] ========================================');
+  console.log(`[visualsmapLoader] ✓ CONFIG.groundY synced from camera: ${newGroundY} (locked, path center: ${pathWorldPos.x.toFixed(1)}, ${pathWorldPos.y}, ${pathWorldPos.z.toFixed(1)})`);
 }
 
 /**
