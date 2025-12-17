@@ -921,19 +921,25 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log(`[visualsmapLoader]   Usage: window.dayNightSystem.toggle() to switch day/night`);
     }
 
-    return {
-      objects: loadedObjects,
-      dayNightSystem: dayNightSystem,
-      gameplayPathTarget,
-      dispose: () => {
-        renderer.off('frame', frameUpdateHandler);
-        dayNightSystem.dispose();
-        loadedObjects.forEach(obj => renderer.remove(obj));
-        loadedObjects.length = 0;
+      return {
+        objects: loadedObjects,
+        dayNightSystem: dayNightSystem,
+        gameplayPathTarget,
+        dispose: () => {
+          if (renderer?.userData) {
+            renderer.userData.gameplayPathTarget = null;
+          }
+          renderer.off('frame', frameUpdateHandler);
+          dayNightSystem.dispose();
+          loadedObjects.forEach(obj => renderer.remove(obj));
+          loadedObjects.length = 0;
+        }
+      };
+    } catch (error) {
+      console.error('[visualsmapLoader] Error loading visualsmap:', error);
+      if (renderer?.userData) {
+        renderer.userData.gameplayPathTarget = null;
       }
-    };
-  } catch (error) {
-    console.error('[visualsmapLoader] Error loading visualsmap:', error);
-    return { objects: [], dispose: () => {} };
-  }
+      return { objects: [], dispose: () => {} };
+    }
 }

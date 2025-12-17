@@ -1296,6 +1296,11 @@ let GAME_RENDER_ADAPTER = null; // For single scene3d.sceneUrl loading (legacy)
 let GAME_VISUALSMAP_ADAPTER = null; // For grid-based visualsmap loading
 let THREE_BG_CONTAINER = null;
 let THREE_BG_RESIZE_HANDLER = null;
+let VISUALSMAP_RETRY_TIMER = null;
+let VISUALSMAP_RETRY_AREA_ID = null;
+let VISUALSMAP_RETRY_ATTEMPTS = 0;
+const VISUALSMAP_MAX_RETRIES = 2;
+const VISUALSMAP_RETRY_DELAY_MS = 2000;
 
 // Setup canvas
 const cv = $$('#game');
@@ -6150,6 +6155,75 @@ function boot(){
     const createRenderer = rendererModules?.createRenderer;
     const adaptScene3dToRenderer = rendererModules?.adaptScene3dToRenderer;
 
+    const clearVisualsmapRetryTimer = () => {
+      if (VISUALSMAP_RETRY_TIMER) {
+        clearTimeout(VISUALSMAP_RETRY_TIMER);
+        VISUALSMAP_RETRY_TIMER = null;
+      }
+      VISUALSMAP_RETRY_AREA_ID = null;
+      VISUALSMAP_RETRY_ATTEMPTS = 0;
+    };
+
+    const scheduleVisualsmapRetry = (area, gameplayMapUrl) => {
+      if (!area?.visualsMap || !GAME_RENDERER_3D) return;
+
+      const areaId = area.id || null;
+      if (!areaId) return;
+
+      if (VISUALSMAP_RETRY_AREA_ID !== areaId) {
+        clearVisualsmapRetryTimer();
+      }
+
+      if (VISUALSMAP_RETRY_ATTEMPTS >= VISUALSMAP_MAX_RETRIES) {
+        console.warn('[app] Visualsmap retry limit reached for area', areaId);
+        return;
+      }
+
+      VISUALSMAP_RETRY_AREA_ID = areaId;
+
+      VISUALSMAP_RETRY_TIMER = setTimeout(async () => {
+        VISUALSMAP_RETRY_TIMER = null;
+        VISUALSMAP_RETRY_ATTEMPTS += 1;
+
+        const registry = window.GAME?.mapRegistry;
+        const activeArea = registry && typeof registry.getActiveArea === 'function'
+          ? registry.getActiveArea()
+          : null;
+        const activeAreaId = activeArea?.id || (typeof registry?.getActiveAreaId === 'function'
+          ? registry.getActiveAreaId()
+          : null);
+        if (activeAreaId !== areaId) {
+          clearVisualsmapRetryTimer();
+          return;
+        }
+
+        try {
+          if (GAME_RENDERER_3D?.userData) {
+            GAME_RENDERER_3D.userData.gameplayPathTarget = null;
+          }
+
+          const visualsmapLoader = await getVisualsmapLoader();
+          GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, area, gameplayMapUrl);
+          window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
+          window.GAME.gameplayPathTarget = GAME_VISUALSMAP_ADAPTER?.gameplayPathTarget || null;
+
+          if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
+            lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+            clearVisualsmapRetryTimer();
+            console.log('[app] Visualsmap retry succeeded for area', areaId);
+          } else {
+            throw new Error('No objects loaded');
+          }
+        } catch (retryError) {
+          lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: retryError.message };
+          console.warn('[app] Visualsmap retry failed for area', areaId, retryError);
+          if (VISUALSMAP_RETRY_ATTEMPTS < VISUALSMAP_MAX_RETRIES) {
+            scheduleVisualsmapRetry(area, gameplayMapUrl);
+          }
+        }
+      }, VISUALSMAP_RETRY_DELAY_MS);
+    };
+
     if (rendererSupportsThree() && typeof createRenderer === 'function') {
       console.log('[app] Three.js detected - initializing 3D background renderer');
 
@@ -6267,6 +6341,8 @@ function boot(){
         if (registry && typeof registry.on === 'function') {
           registry.on('active-area-changed', async (area) => {
             try {
+              clearVisualsmapRetryTimer();
+
               // Dispose previous adapters if exist
               if (GAME_RENDER_ADAPTER && typeof GAME_RENDER_ADAPTER.dispose === 'function') {
                 GAME_RENDER_ADAPTER.dispose();
@@ -6275,6 +6351,12 @@ function boot(){
               if (GAME_VISUALSMAP_ADAPTER && typeof GAME_VISUALSMAP_ADAPTER.dispose === 'function') {
                 GAME_VISUALSMAP_ADAPTER.dispose();
                 GAME_VISUALSMAP_ADAPTER = null;
+              }
+
+              // Clear stale gameplay path targets when switching contexts without visuals maps
+              if (GAME_RENDERER_3D) {
+                GAME_RENDERER_3D.userData = GAME_RENDERER_3D.userData || {};
+                GAME_RENDERER_3D.userData.gameplayPathTarget = null;
               }
 
               // Load visualsmap if available (preferred)
@@ -6289,13 +6371,16 @@ function boot(){
                   if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
                     console.log('[app] Visualsmap loaded successfully:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
                     lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+                    clearVisualsmapRetryTimer();
                   } else {
                     console.warn('[app] Visualsmap loaded but no objects found');
                     lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
+                    scheduleVisualsmapRetry(area, gameplayMapUrl);
                   }
                 } catch (error) {
                   console.error('[app] Error loading visualsmap:', error);
                   lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
+                  scheduleVisualsmapRetry(area, area?.source || '');
                 }
               }
               // Fallback: Load single scene3d.sceneUrl if available and no visualsMap
@@ -6327,6 +6412,13 @@ function boot(){
               ? registry.getArea(fallbackAreaId)
               : null);
 
+            clearVisualsmapRetryTimer();
+
+            if (GAME_RENDERER_3D) {
+              GAME_RENDERER_3D.userData = GAME_RENDERER_3D.userData || {};
+              GAME_RENDERER_3D.userData.gameplayPathTarget = null;
+            }
+
             // DEBUG: Log area properties
             console.log('[app] Initial area to load:', areaToLoad?.id, 'has visualsMap:', !!areaToLoad?.visualsMap, 'has scene3d:', !!areaToLoad?.scene3d);
             if (areaToLoad) {
@@ -6342,8 +6434,10 @@ function boot(){
               window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
               if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
                 lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+                clearVisualsmapRetryTimer();
               } else {
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
+                scheduleVisualsmapRetry(areaToLoad, gameplayMapUrl);
               }
             }
             // Fallback: Load single scene3d.sceneUrl if available and no visualsMap
