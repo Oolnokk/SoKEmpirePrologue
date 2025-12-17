@@ -73,6 +73,95 @@ export function initDebugPanel() {
     dropBottleBtn.addEventListener('click', dropBottleOnPlayer);
   }
 
+  // Setup day/night toggle button
+  const dayNightBtn = $$('#btnToggleDayNight', panel);
+  const dayNightStatus = $$('#dayNightStatus', panel);
+  if (dayNightBtn) {
+    dayNightBtn.addEventListener('click', () => {
+      if (window.dayNightSystem) {
+        window.dayNightSystem.toggle();
+        updateDayNightUI();
+      } else {
+        console.warn('[debug-panel] Day/night system not available yet');
+        if (dayNightStatus) {
+          dayNightStatus.textContent = 'System not loaded';
+          dayNightStatus.style.color = '#f87171';
+        }
+      }
+    });
+  }
+
+  // Setup time of day slider
+  const timeSlider = $$('#timeOfDaySlider', panel);
+  const timeValue = $$('#timeOfDayValue', panel);
+  if (timeSlider && timeValue) {
+    timeSlider.addEventListener('input', (e) => {
+      const hours = parseFloat(e.target.value);
+      if (window.dayNightSystem && typeof window.dayNightSystem.setTimeOfDayHours === 'function') {
+        window.dayNightSystem.setTimeOfDayHours(hours, true); // immediate
+        updateDayNightUI();
+      }
+
+      // Update time display
+      const h = Math.floor(hours);
+      const m = Math.floor((hours - h) * 60);
+      timeValue.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    });
+  }
+
+  // Helper to update UI
+  function updateDayNightUI() {
+    if (!window.dayNightSystem) return;
+
+    const isNight = window.dayNightSystem.isNight;
+    if (dayNightStatus) {
+      dayNightStatus.textContent = isNight ? 'Current: Night 🌙' : 'Current: Day ☀️';
+      dayNightStatus.style.color = isNight ? '#a5b4fc' : '#fde68a';
+    }
+
+    // Update slider to match current state
+    if (timeSlider && window.dayNightSystem.timeOfDayHours !== undefined) {
+      timeSlider.value = window.dayNightSystem.timeOfDayHours;
+      const h = Math.floor(window.dayNightSystem.timeOfDayHours);
+      const m = Math.floor((window.dayNightSystem.timeOfDayHours - h) * 60);
+      if (timeValue) {
+        timeValue.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      }
+    }
+
+    console.log('[debug-panel] Time:', window.dayNightSystem.timeOfDayHours?.toFixed(1), 'hours', isNight ? '(NIGHT)' : '(DAY)');
+  }
+
+  // Setup copy URL button
+  const copyURLBtn = $$('#btnCopyURL', panel);
+  if (copyURLBtn) {
+    copyURLBtn.addEventListener('click', async () => {
+      try {
+        const url = window.location.href;
+        await navigator.clipboard.writeText(url);
+
+        // Visual feedback
+        const originalText = copyURLBtn.textContent;
+        const originalBg = copyURLBtn.style.background;
+        copyURLBtn.textContent = '✓ Copied!';
+        copyURLBtn.style.background = '#10b981';
+
+        setTimeout(() => {
+          copyURLBtn.textContent = originalText;
+          copyURLBtn.style.background = originalBg;
+        }, 1500);
+
+        console.log('[debug-panel] Copied URL to clipboard:', url);
+      } catch (err) {
+        console.error('[debug-panel] Failed to copy URL:', err);
+        copyURLBtn.textContent = '✗ Failed';
+        setTimeout(() => {
+          copyURLBtn.textContent = '📋 Copy URL';
+        }, 1500);
+      }
+    });
+  }
+
   // Setup panel visibility toggle
   const toggleBtn = $$('#debugToggle');
   if (toggleBtn) {
