@@ -299,6 +299,24 @@
             <input type="number" id="unitsPerPixel" value="1" step="0.1" />
             <div class="info">Conversion factor for screen to world coordinates</div>
           </div>
+          <div class="form-row">
+            <label>Tile Size (world units)</label>
+            <input type="number" id="tileSize" value="30" step="1" min="1" />
+            <div class="info">Grid unit size (matches GRID_UNIT_WORLD_SIZE)</div>
+          </div>
+          <div class="form-row">
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="showGrid" checked style="width: auto;" />
+              Show Grid
+            </label>
+          </div>
+          <div class="form-row">
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="showRuler" checked style="width: auto;" />
+              Show Ruler
+            </label>
+          </div>
+          <div id="mapMeasurements" class="info" style="margin-top: 12px; padding: 8px; background: #0f172a; border-radius: 4px; font-family: monospace; font-size: 11px; line-height: 1.6;"></div>
         </div>
 
         <div class="panel-section">
@@ -371,6 +389,11 @@
     let viewOffset = { x: 0, y: 0 };
     let viewZoom = 1.0;
 
+    // Tile measurement settings (matches GRID_UNIT_WORLD_SIZE from config.js)
+    let tileSize = 30; // world units per tile
+    let showRuler = true;
+    let showGrid = true;
+
     // ===== Canvas Setup =====
     const canvas = document.getElementById('mapCanvas');
     const ctx = canvas.getContext('2d');
@@ -402,6 +425,19 @@
         x: (sx - cx) / viewZoom - viewOffset.x,
         y: -((sy - cy) / viewZoom - viewOffset.y)
       };
+    }
+
+    function worldToTiles(worldCoord) {
+      return worldCoord / tileSize;
+    }
+
+    function tilesToWorld(tileCoord) {
+      return tileCoord * tileSize;
+    }
+
+    function formatCoordinate(worldCoord) {
+      const tiles = worldToTiles(worldCoord);
+      return `${worldCoord.toFixed(0)} (${tiles.toFixed(2)} tiles)`;
     }
 
     function createEntity(type, x, y) {
@@ -480,8 +516,18 @@
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      // Draw tile grid and ruler
+      if (showGrid || showRuler) {
+        drawTileGrid();
+      }
+
       // Draw ground line
       drawGroundLine();
+
+      // Draw playable bounds if present
+      if (mapData.playableBounds) {
+        drawPlayableBounds();
+      }
 
       // Draw entities
       mapData.entities.forEach(entity => {
@@ -491,6 +537,138 @@
       // Draw drag preview
       if (dragState && dragState.type === 'creating') {
         drawCreatingPreview();
+      }
+    }
+
+    function drawTileGrid() {
+      // Calculate visible world bounds
+      const topLeft = screenToWorld(0, 0);
+      const bottomRight = screenToWorld(canvas.width, canvas.height);
+
+      // Round to tile boundaries
+      const startTileX = Math.floor(topLeft.x / tileSize);
+      const endTileX = Math.ceil(bottomRight.x / tileSize);
+      const startTileY = Math.floor(bottomRight.y / tileSize); // Note: Y is inverted
+      const endTileY = Math.ceil(topLeft.y / tileSize);
+
+      if (showGrid) {
+        // Draw vertical grid lines
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1;
+        for (let tx = startTileX; tx <= endTileX; tx++) {
+          const wx = tx * tileSize;
+          const top = worldToScreen(wx, topLeft.y);
+          const bottom = worldToScreen(wx, bottomRight.y);
+          ctx.beginPath();
+          ctx.moveTo(top.x, top.y);
+          ctx.lineTo(bottom.x, bottom.y);
+          ctx.stroke();
+        }
+
+        // Draw horizontal grid lines
+        for (let ty = startTileY; ty <= endTileY; ty++) {
+          const wy = ty * tileSize;
+          const left = worldToScreen(topLeft.x, wy);
+          const right = worldToScreen(bottomRight.x, wy);
+          ctx.beginPath();
+          ctx.moveTo(left.x, left.y);
+          ctx.lineTo(right.x, right.y);
+          ctx.stroke();
+        }
+      }
+
+      if (showRuler) {
+        // Draw ruler labels at tile boundaries
+        ctx.fillStyle = '#475569';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        // X-axis labels (every 5 tiles for readability)
+        const centerY = worldToScreen(0, 0).y;
+        for (let tx = startTileX; tx <= endTileX; tx++) {
+          if (tx % 5 === 0) {
+            const wx = tx * tileSize;
+            const scr = worldToScreen(wx, 0);
+            ctx.fillText(`${tx}t`, scr.x, Math.min(Math.max(centerY + 5, 12), canvas.height - 12));
+            ctx.fillStyle = '#64748b';
+            ctx.fillText(`${wx}`, scr.x, Math.min(Math.max(centerY + 18, 25), canvas.height - 2));
+            ctx.fillStyle = '#475569';
+          }
+        }
+
+        // Y-axis labels (every 5 tiles for readability)
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        const centerX = worldToScreen(0, 0).x;
+        for (let ty = startTileY; ty <= endTileY; ty++) {
+          if (ty % 5 === 0 && ty !== 0) {
+            const wy = ty * tileSize;
+            const scr = worldToScreen(0, wy);
+            ctx.fillText(`${ty}t`, Math.min(Math.max(centerX - 5, canvas.width - 40), canvas.width - 5), scr.y - 8);
+            ctx.fillStyle = '#64748b';
+            ctx.fillText(`${wy}`, Math.min(Math.max(centerX - 5, canvas.width - 40), canvas.width - 5), scr.y + 8);
+            ctx.fillStyle = '#475569';
+          }
+        }
+      }
+    }
+
+    function drawPlayableBounds() {
+      const bounds = mapData.playableBounds;
+      if (!bounds) return;
+
+      const left = bounds.left || bounds.min;
+      const right = bounds.right || bounds.max;
+      const top = bounds.top;
+      const bottom = bounds.bottom;
+
+      if (left !== undefined && right !== undefined) {
+        // Draw vertical bounds
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 5]);
+
+        const topY = top !== undefined ? top : 1000;
+        const bottomY = bottom !== undefined ? bottom : -1000;
+
+        // Left bound
+        const leftTop = worldToScreen(left, topY);
+        const leftBottom = worldToScreen(left, bottomY);
+        ctx.beginPath();
+        ctx.moveTo(leftTop.x, leftTop.y);
+        ctx.lineTo(leftBottom.x, leftBottom.y);
+        ctx.stroke();
+
+        // Right bound
+        const rightTop = worldToScreen(right, topY);
+        const rightBottom = worldToScreen(right, bottomY);
+        ctx.beginPath();
+        ctx.moveTo(rightTop.x, rightTop.y);
+        ctx.lineTo(rightBottom.x, rightBottom.y);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+
+        // Draw bound labels
+        ctx.fillStyle = '#ef4444';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        const centerY = worldToScreen(0, 0).y;
+        const leftScr = worldToScreen(left, 0);
+        const rightScr = worldToScreen(right, 0);
+
+        ctx.fillText(`Left: ${formatCoordinate(left)}`, leftScr.x, Math.max(centerY + 30, 40));
+        ctx.fillText(`Right: ${formatCoordinate(right)}`, rightScr.x, Math.max(centerY + 30, 40));
+
+        // Draw bounds span
+        const midX = (left + right) / 2;
+        const midScr = worldToScreen(midX, 0);
+        const span = right - left;
+        const spanTiles = worldToTiles(span);
+        ctx.fillText(`Width: ${span.toFixed(0)} (${spanTiles.toFixed(2)} tiles)`, midScr.x, Math.max(centerY + 45, 55));
       }
     }
 
@@ -635,15 +813,59 @@
       redraw();
     }
 
+    function updateMapMeasurements() {
+      const measureDiv = document.getElementById('mapMeasurements');
+      if (!measureDiv) return;
+
+      let html = '';
+
+      // Show playable bounds if present
+      if (mapData.playableBounds) {
+        const bounds = mapData.playableBounds;
+        const left = bounds.left || bounds.min;
+        const right = bounds.right || bounds.max;
+
+        if (left !== undefined && right !== undefined) {
+          const width = right - left;
+          const widthTiles = worldToTiles(width);
+          html += '<strong>Playable Bounds:</strong><br/>';
+          html += `Left: ${left} (${worldToTiles(left).toFixed(2)}t)<br/>`;
+          html += `Right: ${right} (${worldToTiles(right).toFixed(2)}t)<br/>`;
+          html += `Width: ${width} (${widthTiles.toFixed(2)} tiles)<br/><br/>`;
+        }
+      }
+
+      // Show ground path if present
+      if (mapData.ground && mapData.ground.path && mapData.ground.path.length >= 2) {
+        const start = mapData.ground.path[0];
+        const end = mapData.ground.path[mapData.ground.path.length - 1];
+        const length = end.x - start.x;
+        const lengthTiles = worldToTiles(length);
+        html += '<strong>Ground Path:</strong><br/>';
+        html += `Start X: ${start.x} (${worldToTiles(start.x).toFixed(2)}t)<br/>`;
+        html += `End X: ${end.x} (${worldToTiles(end.x).toFixed(2)}t)<br/>`;
+        html += `Length: ${length} (${lengthTiles.toFixed(2)} tiles)<br/>`;
+      }
+
+      if (!html) {
+        html = '<em>No measurements available</em>';
+      }
+
+      measureDiv.innerHTML = html;
+    }
+
     function updateEntityProps() {
       const propsDiv = document.getElementById('entityProps');
-      
+
       if (!selectedEntity) {
         propsDiv.innerHTML = '<p class="info">No entity selected. Click on an entity or use a tool to add one.</p>';
         return;
       }
 
       const entity = selectedEntity;
+      const xTiles = worldToTiles(entity.x);
+      const yTiles = worldToTiles(entity.y);
+
       let html = `
         <div class="form-row">
           <label>ID</label>
@@ -656,10 +878,12 @@
         <div class="form-row">
           <label>X Position</label>
           <input type="number" id="propX" value="${entity.x.toFixed(2)}" step="10" />
+          <div class="info">${xTiles.toFixed(2)} tiles</div>
         </div>
         <div class="form-row">
           <label>Y Position</label>
           <input type="number" id="propY" value="${entity.y.toFixed(2)}" step="10" />
+          <div class="info">${yTiles.toFixed(2)} tiles</div>
         </div>
       `;
 
@@ -801,6 +1025,7 @@
     function updateMapSettings() {
       mapData.areaId = document.getElementById('areaId').value;
       mapData.ground.unitsPerPixel = parseFloat(document.getElementById('unitsPerPixel').value) || 1;
+      updateMapMeasurements();
     }
 
     // ===== Canvas Event Handlers =====
@@ -1092,7 +1317,8 @@
           path: [{ x: -1000, y: 0 }, { x: 1000, y: 0 }],
           unitsPerPixel: 1
         },
-        entities: data.entities || []
+        entities: data.entities || [],
+        playableBounds: data.playableBounds || null
       };
 
       // Update UI
@@ -1112,6 +1338,7 @@
       selectedEntity = null;
       updateEntityList();
       updateEntityProps();
+      updateMapMeasurements();
       redraw();
 
       alert('Map imported successfully!');
@@ -1121,6 +1348,22 @@
     document.getElementById('areaId').addEventListener('change', updateMapSettings);
     document.getElementById('unitsPerPixel').addEventListener('change', () => {
       updateMapSettings();
+      redraw();
+    });
+
+    document.getElementById('tileSize').addEventListener('change', () => {
+      tileSize = parseFloat(document.getElementById('tileSize').value) || 30;
+      updateMapMeasurements();
+      redraw();
+    });
+
+    document.getElementById('showGrid').addEventListener('change', (e) => {
+      showGrid = e.target.checked;
+      redraw();
+    });
+
+    document.getElementById('showRuler').addEventListener('change', (e) => {
+      showRuler = e.target.checked;
       redraw();
     });
 
@@ -1226,6 +1469,7 @@
     // ===== Initial Render =====
     updateEntityList();
     updateEntityProps();
+    updateMapMeasurements();
     redraw();
   </script>
 
