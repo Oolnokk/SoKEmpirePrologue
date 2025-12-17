@@ -165,10 +165,9 @@ export class DayNightSystem {
   }
 
   /**
-   * Update the system (call this every frame)
-   * @param {number} deltaTime - Time since last update in ms
+   * Update the system (call this every frame to advance lighting transitions)
    */
-  update(deltaTime) {
+  update() {
     if (!this.isTransitioning) return;
 
     const elapsed = performance.now() - this.transitionStartTime;
