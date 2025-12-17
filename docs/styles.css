@@ -456,21 +456,6 @@ main.stack{
   place-items:center;
 }
 
-/* In landscape orientation, fill the screen width */
-@media (orientation: landscape) {
-  .stage{
-    --stage-max-height:100vh;
-    width:100vw !important;
-    max-width:100vw !important;
-    height:100vh !important;
-    max-height:100vh !important;
-    aspect-ratio:auto !important;
-    border-radius:0;
-    margin:0;
-    outline:none;
-  }
-}
-
 /* In fullscreen, use all available space */
 .stage:fullscreen{
   --stage-max-height:100vh;
