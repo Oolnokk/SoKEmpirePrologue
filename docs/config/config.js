@@ -882,9 +882,9 @@ window.CONFIG = {
   camera: {
     manualOffsetX: 0,
     // When true, the camera snaps each frame to keep the player centered (opt-in)
-    rigidCenter: true,
+    rigidCenter: false,
     // When true together with rigidCenter, the camera will ignore playable bounds and may show beyond map edges
-    ignoreCenterBounds: true,
+    ignoreCenterBounds: false,
     awareness: {
       normalZoom: 1,
       scaleOffset: 0.5,
