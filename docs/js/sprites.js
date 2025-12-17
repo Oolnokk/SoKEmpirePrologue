@@ -1218,26 +1218,6 @@ export function renderSprites(ctx){
   const groundLine = computeGroundY(C, { canvasHeight }) ?? canvasHeight;
   const zOf = buildZMap(C);
 
-  // Apply lighting tint to 2D sprites
-  const dayNightSystem = (typeof window !== 'undefined' && window.dayNightSystem);
-  if (dayNightSystem) {
-    const lightingConfig = dayNightSystem.getCurrentLightingConfig();
-    const ambientIntensity = lightingConfig.ambientIntensity || 1;
-    const ambientColor = lightingConfig.ambientColor || 0xffffff;
-
-    // Extract RGB from hex color
-    const r = ((ambientColor >> 16) & 0xff) / 255;
-    const g = ((ambientColor >> 8) & 0xff) / 255;
-    const b = (ambientColor & 0xff) / 255;
-
-    // Create lighting tint overlay
-    ctx.save();
-    ctx.fillStyle = `rgba(${Math.floor(r * 255)}, ${Math.floor(g * 255)}, ${Math.floor(b * 255)}, ${1 - ambientIntensity})`;
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.restore();
-  }
-
   ctx.save();
   ctx.setTransform(zoom, 0, 0, zoom, -zoom * camX, groundLine * (1 - zoom));
 

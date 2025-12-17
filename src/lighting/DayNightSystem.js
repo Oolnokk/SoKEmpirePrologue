@@ -187,28 +187,13 @@ export class DayNightSystem {
   }
 
   /**
-   * Check if candles should be lit based on time and config
-   * @returns {boolean} Whether candles should be lit
-   */
-  areCandlesLit() {
-    const CONFIG = (typeof window !== 'undefined' && window.CONFIG) || {};
-    const candleStartHour = CONFIG.lighting?.candleStartHour ?? 17;
-    const candleEndHour = CONFIG.lighting?.candleEndHour ?? 7;
-    const currentHour = this.timeOfDayHours;
-
-    // Candles on from start hour (e.g., 5pm) through midnight to end hour (e.g., 7am)
-    return currentHour >= candleStartHour || currentHour < candleEndHour;
-  }
-
-  /**
    * Apply current state with given blend factor
    * @param {number} blend - Blend factor (0-1)
    */
   applyState(blend) {
-    // Update all registered emissive objects based on candle timing config
-    const candlesOn = this.areCandlesLit();
+    // Update all registered emissive objects
     for (const emissiveObj of this.emissiveObjects) {
-      this.updateEmissiveObject(emissiveObj, candlesOn, blend);
+      this.updateEmissiveObject(emissiveObj, this.isNight, blend);
     }
   }
 
