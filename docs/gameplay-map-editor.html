@@ -358,9 +358,11 @@
             <dt>E</dt><dd>Add entrance</dd>
             <dt>X</dt><dd>Add exit</dd>
             <dt>Delete</dt><dd>Delete selected</dd>
+            <dt>Arrow Keys</dt><dd>Pan view (scroll map)</dd>
+            <dt>Shift + Wheel</dt><dd>Horizontal scroll</dd>
             <dt>+/-</dt><dd>Zoom in/out</dd>
             <dt>0</dt><dd>Reset view</dd>
-            <dt>Space + Drag</dt><dd>Pan view</dd>
+            <dt>Shift + Drag</dt><dd>Pan view</dd>
           </dl>
         </div>
       </div>
@@ -1138,10 +1140,19 @@
 
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      viewZoom *= delta;
-      viewZoom = Math.max(0.1, Math.min(5, viewZoom));
-      redraw();
+
+      if (e.shiftKey) {
+        // Horizontal scroll with shift + wheel
+        const panSpeed = 30 / viewZoom;
+        viewOffset.x += (e.deltaY > 0 ? panSpeed : -panSpeed);
+        redraw();
+      } else {
+        // Vertical zoom
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        viewZoom *= delta;
+        viewZoom = Math.max(0.1, Math.min(5, viewZoom));
+        redraw();
+      }
     });
 
     // ===== Keyboard Shortcuts =====
@@ -1169,6 +1180,26 @@
               redraw();
             }
           }
+          break;
+        case 'arrowleft':
+          e.preventDefault();
+          viewOffset.x -= 50 / viewZoom;
+          redraw();
+          break;
+        case 'arrowright':
+          e.preventDefault();
+          viewOffset.x += 50 / viewZoom;
+          redraw();
+          break;
+        case 'arrowup':
+          e.preventDefault();
+          viewOffset.y += 50 / viewZoom;
+          redraw();
+          break;
+        case 'arrowdown':
+          e.preventDefault();
+          viewOffset.y -= 50 / viewZoom;
+          redraw();
           break;
         case '+':
         case '=':

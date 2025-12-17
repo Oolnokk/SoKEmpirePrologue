@@ -75,7 +75,7 @@
       "id":  "patrol_target_1",
       "type":  "patrol",
       "x":  1000,
-      "y": 300,
+      "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 2,
@@ -86,7 +86,7 @@
       "id": "patrol_target_2",
       "type": "patrol",
       "x": 100,
-      "y": 300,
+      "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 3,
@@ -97,7 +97,7 @@
       "id": "patrol_target_3",
       "type":  "patrol",
       "x":  -1000,
-      "y":  300,
+      "y":  0,
       "meta":  {
         "routeId":  "city_guard_patrol",
         "sequence": 4,
