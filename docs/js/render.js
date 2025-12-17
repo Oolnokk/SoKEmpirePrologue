@@ -1017,7 +1017,6 @@ export function renderAll(ctx){
 
   ctx.restore();
   drawClock(ctx);
-  drawCompass(ctx, 60, 80, 28, `zero=${angleZero()}`);
 }
 
 function drawAttackColliders(ctx, fighter, fighterId) {

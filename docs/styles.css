@@ -580,9 +580,9 @@ canvas#game{
   box-shadow:0 12px 28px rgba(0,0,0,0.35);
 }
 
-.health-bar{top:26px;height:24px;}
-.stamina-bar{top:56px;height:22px;}
-.footing-bar{top:84px;height:18px;padding:2px;border-radius:10px;}
+.health-bar{top:26px;height:12px;}
+.stamina-bar{top:44px;height:11px;}
+.footing-bar{top:61px;height:9px;padding:2px;border-radius:10px;}
 
 .health-fill,
 .stamina-fill,
@@ -719,8 +719,8 @@ canvas#game{
 /* Virtual controls */
 .joystick-area{
   position:absolute;
-  width:170px;
-  height:170px;
+  width:85px;
+  height:85px;
   display:none;
   pointer-events:auto;
 }
@@ -736,8 +736,8 @@ canvas#game{
 
 .joystick-stick{
   position:absolute;
-  width:72px;
-  height:72px;
+  width:36px;
+  height:36px;
   background:rgba(255,255,255,0.32);
   border:3px solid rgba(255,255,255,0.55);
   border-radius:50%;
