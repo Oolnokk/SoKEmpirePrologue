@@ -644,6 +644,7 @@ function normalizeAreaDescriptor(area, options = {}) {
   const rawColliders = Array.isArray(area.colliders) ? area.colliders : [];
   const rawTilers = Array.isArray(area.tilers) ? area.tilers : [];
   const rawDrumSkins = Array.isArray(area.drumSkins) ? area.drumSkins : [];
+  const rawEntities = Array.isArray(area.entities) ? area.entities : [];
   const scene3d = area.scene3d !== undefined ? safeClone(area.scene3d) : undefined;
 
   const warnings = Array.isArray(area.warnings) ? [...area.warnings] : [];
@@ -762,15 +763,17 @@ function normalizeAreaDescriptor(area, options = {}) {
     }))
     .filter(Boolean);
   const explicitSpawners = normalizeSpawnerList(area.spawners, warnings, { source: 'area' });
+  const entitySpawners = collectSpawnersFromEntities(rawEntities, warnings);
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
-  const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners, warnings);
+  const spawners = mergeSpawnerLists(explicitSpawners, mergeSpawnerLists(entitySpawners, derivedSpawners, warnings), warnings);
   const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
   const areaGroupLibrary = normalizeGroupLibrary(area.groupLibrary ?? area.groups, warnings, { source: 'area.groupLibrary' });
   const groupLibrary = mergeGroupLibraries(optionGroupLibrary, areaGroupLibrary);
   const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(area.pathTargets, warnings, { source: 'area' });
+  const entityPathTargets = collectPathTargetsFromEntities(rawEntities, warnings);
   const derivedPathTargets = collectPathTargets(convertedInstances, warnings);
-  const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets, warnings);
+  const pathTargets = mergePathTargetLists(explicitPathTargets, mergePathTargetLists(entityPathTargets, derivedPathTargets, warnings), warnings);
   const pathTargetRegistry = buildPathTargetRegistry(pathTargets, warnings);
   const pois = collectPois(alignedColliders, warnings);
   const poisByIndex = buildPoiIndex(pois);
@@ -1178,6 +1181,83 @@ function collectNpcSpawners(instances = [], warnings = []) {
     }
   }
   return spawners;
+}
+
+function collectSpawnersFromEntities(entities = [], warnings = []) {
+  if (!Array.isArray(entities)) return [];
+  const spawners = [];
+  
+  for (const entity of entities) {
+    if (!entity || typeof entity !== 'object') continue;
+    if (entity.type !== 'spawner') continue;
+    
+    const spawnerId = entity.id || null;
+    if (!spawnerId) {
+      warnings.push('Encountered spawner entity without an id');
+      continue;
+    }
+    
+    const meta = entity.meta || {};
+    const spawnerMeta = meta.spawner || {};
+    
+    const spawner = normalizeSpawnerRecord({
+      spawnerId,
+      id: spawnerId,
+      type: spawnerMeta.type || 'npc',
+      position: { x: entity.x ?? 0, y: entity.y ?? 0 },
+      spawnRadius: spawnerMeta.spawnRadius ?? 0,
+      count: spawnerMeta.count ?? 1,
+      respawn: spawnerMeta.respawn ?? false,
+      templateId: spawnerMeta.templateId ?? spawnerMeta.characterId ?? null,
+      characterId: spawnerMeta.characterId ?? spawnerMeta.templateId ?? null,
+      groupId: spawnerMeta.groupId ?? null,
+      group: spawnerMeta.groupMeta ?? null,
+      meta: {
+        ...meta,
+        sourceEntity: true,
+      },
+    }, warnings, { fallbackId: spawnerId, source: 'entity' });
+    
+    if (spawner) {
+      spawners.push(spawner);
+    }
+  }
+  
+  return spawners;
+}
+
+function collectPathTargetsFromEntities(entities = [], warnings = []) {
+  if (!Array.isArray(entities)) return [];
+  const targets = [];
+  
+  for (const entity of entities) {
+    if (!entity || typeof entity !== 'object') continue;
+    if (entity.type !== 'patrol') continue;
+    
+    const meta = entity.meta || {};
+    const name = meta.name || entity.id || null;
+    if (!name) {
+      warnings.push('Encountered patrol entity without a name or id');
+      continue;
+    }
+    
+    const target = normalizePathTargetRecord({
+      name,
+      id: entity.id || name,
+      order: meta.sequence ?? null,
+      position: { x: entity.x ?? 0, y: entity.y ?? 0 },
+      meta: {
+        ...meta,
+        sourceEntity: true,
+      },
+    }, warnings, { fallbackName: name, source: 'entity' });
+    
+    if (target) {
+      targets.push(target);
+    }
+  }
+  
+  return targets;
 }
 
 function normalizeSpawnerList(rawList = [], warnings = [], context = {}) {

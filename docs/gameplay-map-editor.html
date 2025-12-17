@@ -1022,6 +1022,10 @@
       } else if (entity.type === 'patrol') {
         html += `
           <div class="form-row">
+            <label>Name</label>
+            <input type="text" id="propPatrolName" value="${entity.meta.name || ''}" />
+          </div>
+          <div class="form-row">
             <label>Sequence</label>
             <input type="number" id="propSequence" value="${entity.meta.sequence || 0}" min="0" />
           </div>
@@ -1029,8 +1033,17 @@
             <label>Route ID</label>
             <input type="text" id="propRouteId" value="${entity.meta.routeId || ''}" />
           </div>
+          <div class="form-row">
+            <label>Arrive Radius</label>
+            <input type="number" id="propArriveRadius" value="${entity.meta.arriveRadius || 10}" min="1" />
+          </div>
+          <div class="form-row">
+            <label>Description</label>
+            <input type="text" id="propDescription" value="${entity.meta.description || ''}" />
+          </div>
         `;
       } else if (entity.type === 'spawner') {
+        const spawner = entity.meta.spawner || {};
         html += `
           <div class="form-row">
             <label>Prefab</label>
@@ -1039,6 +1052,35 @@
           <div class="form-row">
             <label>Patrol Route ID</label>
             <input type="text" id="propPatrolRouteId" value="${entity.meta.patrolRouteId || ''}" />
+          </div>
+          <h4 style="margin: 10px 0 5px 0; font-size: 12px; color: #9ca3af;">Spawner Config</h4>
+          <div class="form-row">
+            <label>Type</label>
+            <input type="text" id="propSpawnerType" value="${spawner.type || 'npc'}" />
+          </div>
+          <div class="form-row">
+            <label>Count</label>
+            <input type="number" id="propSpawnerCount" value="${spawner.count || 1}" min="1" max="50" />
+          </div>
+          <div class="form-row">
+            <label>Respawn</label>
+            <input type="checkbox" id="propSpawnerRespawn" ${spawner.respawn ? 'checked' : ''} />
+          </div>
+          <div class="form-row">
+            <label>Spawn Radius</label>
+            <input type="number" id="propSpawnerRadius" value="${spawner.spawnRadius || 0}" min="0" />
+          </div>
+          <div class="form-row">
+            <label>Template ID</label>
+            <input type="text" id="propTemplateId" value="${spawner.templateId || ''}" />
+          </div>
+          <div class="form-row">
+            <label>Character ID</label>
+            <input type="text" id="propCharacterId" value="${spawner.characterId || ''}" />
+          </div>
+          <div class="form-row">
+            <label>Group ID</label>
+            <input type="text" id="propGroupId" value="${spawner.groupId || ''}" />
           </div>
         `;
       }
@@ -1093,6 +1135,11 @@
       });
 
       // Patrol-specific
+      const propPatrolName = document.getElementById('propPatrolName');
+      if (propPatrolName) propPatrolName.addEventListener('change', () => {
+        entity.meta.name = propPatrolName.value;
+      });
+
       const propSequence = document.getElementById('propSequence');
       if (propSequence) propSequence.addEventListener('change', () => {
         entity.meta.sequence = parseInt(propSequence.value, 10) || 0;
@@ -1104,6 +1151,16 @@
         entity.meta.routeId = propRouteId.value;
       });
 
+      const propArriveRadius = document.getElementById('propArriveRadius');
+      if (propArriveRadius) propArriveRadius.addEventListener('change', () => {
+        entity.meta.arriveRadius = parseFloat(propArriveRadius.value) || 10;
+      });
+
+      const propDescription = document.getElementById('propDescription');
+      if (propDescription) propDescription.addEventListener('change', () => {
+        entity.meta.description = propDescription.value;
+      });
+
       // Spawner-specific
       const propPrefab = document.getElementById('propPrefab');
       if (propPrefab) propPrefab.addEventListener('change', () => {
@@ -1113,6 +1170,49 @@
       const propPatrolRouteId = document.getElementById('propPatrolRouteId');
       if (propPatrolRouteId) propPatrolRouteId.addEventListener('change', () => {
         entity.meta.patrolRouteId = propPatrolRouteId.value;
+      });
+
+      // Spawner config fields
+      const propSpawnerType = document.getElementById('propSpawnerType');
+      if (propSpawnerType) propSpawnerType.addEventListener('change', () => {
+        if (!entity.meta.spawner) entity.meta.spawner = {};
+        entity.meta.spawner.type = propSpawnerType.value;
+      });
+
+      const propSpawnerCount = document.getElementById('propSpawnerCount');
+      if (propSpawnerCount) propSpawnerCount.addEventListener('change', () => {
+        if (!entity.meta.spawner) entity.meta.spawner = {};
+        entity.meta.spawner.count = parseInt(propSpawnerCount.value, 10) || 1;
+      });
+
+      const propSpawnerRespawn = document.getElementById('propSpawnerRespawn');
+      if (propSpawnerRespawn) propSpawnerRespawn.addEventListener('change', () => {
+        if (!entity.meta.spawner) entity.meta.spawner = {};
+        entity.meta.spawner.respawn = propSpawnerRespawn.checked;
+      });
+
+      const propSpawnerRadius = document.getElementById('propSpawnerRadius');
+      if (propSpawnerRadius) propSpawnerRadius.addEventListener('change', () => {
+        if (!entity.meta.spawner) entity.meta.spawner = {};
+        entity.meta.spawner.spawnRadius = parseFloat(propSpawnerRadius.value) || 0;
+      });
+
+      const propTemplateId = document.getElementById('propTemplateId');
+      if (propTemplateId) propTemplateId.addEventListener('change', () => {
+        if (!entity.meta.spawner) entity.meta.spawner = {};
+        entity.meta.spawner.templateId = propTemplateId.value;
+      });
+
+      const propCharacterId = document.getElementById('propCharacterId');
+      if (propCharacterId) propCharacterId.addEventListener('change', () => {
+        if (!entity.meta.spawner) entity.meta.spawner = {};
+        entity.meta.spawner.characterId = propCharacterId.value;
+      });
+
+      const propGroupId = document.getElementById('propGroupId');
+      if (propGroupId) propGroupId.addEventListener('change', () => {
+        if (!entity.meta.spawner) entity.meta.spawner = {};
+        entity.meta.spawner.groupId = propGroupId.value;
       });
     }
 

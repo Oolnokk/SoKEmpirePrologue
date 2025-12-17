@@ -32,7 +32,10 @@
       "y": 0,
       "meta": {
         "sequence": 0,
-        "routeId": "route_guards"
+        "routeId": "route_guards",
+        "name": "patrol_1",
+        "arriveRadius": 10,
+        "description": "First patrol point"
       }
     },
     {
@@ -42,7 +45,10 @@
       "y": 0,
       "meta": {
         "sequence": 1,
-        "routeId": "route_guards"
+        "routeId": "route_guards",
+        "name": "patrol_2",
+        "arriveRadius": 10,
+        "description": "Second patrol point"
       }
     },
     {
@@ -52,7 +58,23 @@
       "y": 0,
       "meta": {
         "prefab": "spawn_npc",
-        "patrolRouteId": "route_guards"
+        "patrolRouteId": "route_guards",
+        "spawner": {
+          "type": "npc",
+          "count": 1,
+          "respawn": true,
+          "spawnRadius": 30,
+          "templateId": "guard",
+          "characterId": "guard",
+          "groupId": "example_guards",
+          "groupMeta": {
+            "id": "example_guards",
+            "faction": "guards",
+            "interests": ["patrol_point"],
+            "exitTags": ["exit"],
+            "exitWeights": {}
+          }
+        }
       }
     },
     {
