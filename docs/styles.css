@@ -424,9 +424,11 @@ main.stack{
 }
 
 .stage{
+  /* Default fallback values - dynamically overridden by app.js from CONFIG.canvas */
   --stage-aspect-width:720;
   --stage-aspect-height:460;
-  --stage-max-height:min(90vh,720px);
+  /* Max height allows stage to scale responsively while maintaining aspect ratio */
+  --stage-max-height:min(90vh,900px);
   position:relative;
   width:min(100%,calc(var(--stage-max-height)*var(--stage-aspect-width)/var(--stage-aspect-height)));
   aspect-ratio:var(--stage-aspect-width)/var(--stage-aspect-height);
