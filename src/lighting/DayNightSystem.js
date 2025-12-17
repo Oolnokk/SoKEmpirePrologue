@@ -21,11 +21,11 @@ export class DayNightSystem {
     };
 
     this.nightConfig = {
-      ambientColor: 0x404060,
-      ambientIntensity: 0.3,
-      skyColor: 0x1a1a2e,
-      groundColor: 0x0a0a14,
-      hemisphereIntensity: 0.2
+      ambientColor: 0x1a1a2e,
+      ambientIntensity: 0.05, // Very dark - candles are the main light source
+      skyColor: 0x0a0a14,
+      groundColor: 0x050508,
+      hemisphereIntensity: 0.05
     };
 
     // Emissive objects registry

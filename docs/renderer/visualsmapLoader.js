@@ -752,8 +752,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log(`[visualsmapLoader] ✓ Added ${candleLightCount} candle lights at tower positions`);
 
     // Player proximity lighting system
-    const PROXIMITY_RADIUS = 150; // Distance to activate light
-    const MAX_ACTIVE_LIGHTS = 5; // Max simultaneous proximity lights
+    // Expand to cover nearest tiles (cellSize * 3-4 tiles in each direction)
+    const PROXIMITY_RADIUS = cellSize * 4; // Distance to activate light (covers ~4 tiles)
+    const MAX_ACTIVE_LIGHTS = 8; // Increased for better coverage
+    const LIGHT_INTENSITY = 3; // Brighter lights for very dark night
+    const LIGHT_DISTANCE = cellSize * 3; // Light reaches ~3 tiles
 
     const updateProximityLighting = () => {
       // Only update when it's night and we have candles
@@ -787,8 +790,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
         const shouldHaveLight = distance < PROXIMITY_RADIUS && activeLights < MAX_ACTIVE_LIGHTS;
 
         if (shouldHaveLight && !candle.userData.hasProximityLight) {
-          // Add point light
-          const pointLight = new renderer.THREE.PointLight(0xffaa44, 2, 200, 2);
+          // Add point light with increased intensity for dark night
+          const pointLight = new renderer.THREE.PointLight(0xffaa44, LIGHT_INTENSITY, LIGHT_DISTANCE, 2);
           pointLight.position.copy(candle.position);
           renderer.add(pointLight);
           candle.userData.proximityLight = pointLight;
