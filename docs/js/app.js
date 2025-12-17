@@ -1301,6 +1301,67 @@ const cv = $$('#game');
 const stage = $$('#gameStage');
 const cx = cv?.getContext('2d', { alpha: true });
 if (cv) cv.style.background = 'transparent';
+
+// === SYNC CONFIG.canvas TO CSS AND CANVAS ATTRIBUTES ===
+// This makes CONFIG.canvas the single source of truth for game dimensions.
+// Any changes to CONFIG.canvas.w or CONFIG.canvas.h will automatically update:
+// - CSS custom properties (--stage-aspect-width, --stage-aspect-height) on .stage element
+// - Canvas element's width and height attributes
+// This ensures aspect ratio consistency across config, CSS, and canvas.
+(function syncCanvasDimensions() {
+  // Default fallback values (matching original hardcoded values)
+  const DEFAULT_WIDTH = 720;
+  const DEFAULT_HEIGHT = 460;
+  
+  // Read dimensions from CONFIG.canvas
+  let canvasWidth = DEFAULT_WIDTH;
+  let canvasHeight = DEFAULT_HEIGHT;
+  let configSource = 'defaults';
+  
+  if (window.CONFIG && window.CONFIG.canvas) {
+    const configW = window.CONFIG.canvas.w;
+    const configH = window.CONFIG.canvas.h;
+    
+    // Validate that width and height are positive numbers
+    const isValidWidth = Number.isFinite(configW) && configW > 0;
+    const isValidHeight = Number.isFinite(configH) && configH > 0;
+    
+    if (isValidWidth && isValidHeight) {
+      canvasWidth = configW;
+      canvasHeight = configH;
+      configSource = 'CONFIG.canvas';
+    } else {
+      // Log warnings for invalid config values
+      if (!isValidWidth) {
+        console.warn('[app] CONFIG.canvas.w is invalid:', configW, '- using default', DEFAULT_WIDTH);
+      }
+      if (!isValidHeight) {
+        console.warn('[app] CONFIG.canvas.h is invalid:', configH, '- using default', DEFAULT_HEIGHT);
+      }
+    }
+  } else {
+    console.warn('[app] CONFIG.canvas not found - using default dimensions:', DEFAULT_WIDTH, 'x', DEFAULT_HEIGHT);
+  }
+  
+  // Update CSS custom properties on .stage element
+  if (stage) {
+    stage.style.setProperty('--stage-aspect-width', String(canvasWidth));
+    stage.style.setProperty('--stage-aspect-height', String(canvasHeight));
+    console.log('[app] Updated CSS custom properties from', configSource + ':', canvasWidth, 'x', canvasHeight);
+  } else {
+    console.warn('[app] .stage element not found - CSS custom properties not updated');
+  }
+  
+  // Update canvas element's width and height attributes
+  if (cv) {
+    cv.width = canvasWidth;
+    cv.height = canvasHeight;
+    console.log('[app] Updated canvas dimensions from', configSource + ':', canvasWidth, 'x', canvasHeight);
+  } else {
+    console.warn('[app] Canvas element not found - canvas dimensions not updated');
+  }
+})();
+
 window.GAME ||= {};
 window.GAME.dynamicInstances = []; // Array for dynamically spawned instances
 initCamera({ canvas: cv });
