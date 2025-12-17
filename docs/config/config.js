@@ -878,13 +878,13 @@ window.CONFIG = {
   },
   actor: { scale: 0.70 },
   groundRatio: 0.50,
-  canvas: { w: 1280, h: 720, scale: 1 },
+  canvas: { w: 1920, h: 1080, scale: 1 },
   camera: {
     manualOffsetX: 0,
     // When true, the camera snaps each frame to keep the player centered (opt-in)
-    rigidCenter: false,
+    rigidCenter: true,
     // When true together with rigidCenter, the camera will ignore playable bounds and may show beyond map edges
-    ignoreCenterBounds: false,
+    ignoreCenterBounds: true,
     awareness: {
       normalZoom: 1,
       scaleOffset: 0.5,
