@@ -446,7 +446,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           // Load asset config if not cached; prefer inline or visualsmap index metadata
           if (!assetCache.has(cell.type)) {
             const inlineConfig = inlineAssetMap.get(cell.type) || null;
-            const indexConfig = !inlineConfig && visualsmapIndexAssets?.get(cell.type) || null;
+            const indexConfig = (!inlineConfig && visualsmapIndexAssets?.get(cell.type)) || null;
             if (inlineConfig) {
               assetCache.set(cell.type, inlineConfig);
               console.log(`[visualsmapLoader] ✓ Using inline asset config for ${cell.type}`);
@@ -454,7 +454,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               assetCache.set(cell.type, indexConfig);
               console.log(`[visualsmapLoader] ✓ Using visualsmap index config for ${cell.type}`);
             } else {
-                const config = await loadAssetConfig(cell.type, configBase);
+              const assetConfigBase = docsBase || visualsMapBase || configBase || null;
+              const config = await loadAssetConfig(cell.type, assetConfigBase);
               assetCache.set(cell.type, config);
 
               if (config) {
