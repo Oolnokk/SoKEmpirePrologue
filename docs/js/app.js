@@ -891,7 +891,8 @@ import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
 let visualsmapLoaderModule = null;
 async function getVisualsmapLoader() {
   if (!visualsmapLoaderModule) {
-    visualsmapLoaderModule = await import('../renderer/visualsmapLoader.js');
+    const resolvedUrl = resolveDocsRelativeUrl('renderer/visualsmapLoader.js');
+    visualsmapLoaderModule = await import(/* webpackIgnore: true */ resolvedUrl);
   }
   return visualsmapLoaderModule;
 }
