@@ -8,10 +8,11 @@
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 16px;
+      padding: 8px;
       font-family: system-ui, -apple-system, sans-serif;
       background: #0f172a;
       color: #e5e7eb;
+      touch-action: none; /* Prevent default touch behaviors */
     }
     .app {
       max-width: 1400px;
@@ -29,20 +30,26 @@
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 8px;
-      padding: 12px;
+      gap: 6px;
+      padding: 8px;
       background: #1e293b;
       border-radius: 8px;
       border: 1px solid #334155;
     }
     .toolbar-group {
       display: flex;
-      gap: 6px;
-      padding-right: 12px;
+      gap: 4px;
+      padding-right: 8px;
       border-right: 1px solid #475569;
     }
     .toolbar-group:last-child {
       border-right: none;
+    }
+    @media (max-width: 768px) {
+      .toolbar-group {
+        border-right: none;
+        padding-right: 0;
+      }
     }
     button, input, select, textarea {
       font: inherit;
@@ -53,6 +60,12 @@
       color: #e5e7eb;
       cursor: pointer;
       font-size: 13px;
+    }
+    @media (max-width: 768px) {
+      button, input, select, textarea {
+        padding: 8px 10px;
+        font-size: 14px;
+      }
     }
     button:hover {
       background: #1e293b;
@@ -86,6 +99,7 @@
       padding: 12px;
       overflow: hidden;
       position: relative;
+      min-height: 300px;
     }
     #threeViewport {
       position: absolute;
@@ -102,12 +116,18 @@
     canvas {
       display: block;
       width: 100%;
-      height: 600px;
+      height: 400px;
       background: transparent;
       border: 1px solid #475569;
       cursor: crosshair;
       position: relative;
       z-index: 1;
+      touch-action: none;
+    }
+    @media (max-width: 768px) {
+      canvas {
+        height: 300px;
+      }
     }
     .three-overlay {
       position: absolute;
@@ -196,6 +216,11 @@
       color: #64748b;
       margin-left: 4px;
     }
+    @media (max-width: 768px) {
+      .shortcut-hint {
+        display: none;
+      }
+    }
     .badge {
       display: inline-block;
       padding: 2px 6px;
@@ -210,6 +235,21 @@
     .badge-prop { background: #8b5cf6; color: #2e1065; }
     .badge-entrance { background: #06b6d4; color: #083344; }
     .badge-exit { background: #ef4444; color: #450a0a; }
+    .warning-banner {
+      background: #dc2626;
+      color: #fef2f2;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 8px;
+      border: 1px solid #991b1b;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .warning-banner strong {
+      font-weight: 600;
+    }
     .keyboard-shortcuts {
       font-size: 11px;
       line-height: 1.6;
@@ -279,12 +319,14 @@
       </div>
     </div>
 
+    <div id="warningContainer"></div>
+
     <div class="main">
       <div class="canvas-wrapper">
         <div id="threeViewport">
           <div class="three-overlay" id="threeOverlay">No visual map loaded</div>
         </div>
-        <canvas id="mapCanvas" width="1000" height="600"></canvas>
+        <canvas id="mapCanvas" width="1000" height="400"></canvas>
       </div>
 
       <div class="side-panel">
@@ -396,6 +438,11 @@
     let showRuler = true;
     let showGrid = true;
 
+    // Touch state
+    let touchStartDist = 0;
+    let touchStartZoom = 1.0;
+    let lastTouchPos = null;
+
     // ===== Canvas Setup =====
     const canvas = document.getElementById('mapCanvas');
     const ctx = canvas.getContext('2d');
@@ -440,6 +487,22 @@
     function formatCoordinate(worldCoord) {
       const tiles = worldToTiles(worldCoord);
       return `${worldCoord.toFixed(0)} (${tiles.toFixed(2)} tiles)`;
+    }
+
+    function validateEntities() {
+      const warnings = [];
+      mapData.entities.forEach(entity => {
+        if (entity.y < 0) {
+          warnings.push(`⚠️ <strong>${entity.id}</strong> is below ground (y: ${entity.y.toFixed(0)})`);
+        }
+      });
+
+      const warningContainer = document.getElementById('warningContainer');
+      if (warnings.length > 0) {
+        warningContainer.innerHTML = warnings.map(w => `<div class="warning-banner">${w}</div>`).join('');
+      } else {
+        warningContainer.innerHTML = '';
+      }
     }
 
     function createEntity(type, x, y) {
@@ -540,6 +603,9 @@
       if (dragState && dragState.type === 'creating') {
         drawCreatingPreview();
       }
+
+      // Validate entities
+      validateEntities();
     }
 
     function drawTileGrid() {
@@ -1152,6 +1218,144 @@
         viewZoom *= delta;
         viewZoom = Math.max(0.1, Math.min(5, viewZoom));
         redraw();
+      }
+    });
+
+    // ===== Touch Event Handlers =====
+    function getTouchDistance(touches) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function getTouchCenter(touches) {
+      return {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2
+      };
+    }
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+
+      if (e.touches.length === 2) {
+        // Two finger pinch to zoom
+        touchStartDist = getTouchDistance(e.touches);
+        touchStartZoom = viewZoom;
+        const center = getTouchCenter(e.touches);
+        lastTouchPos = {
+          x: center.x - rect.left,
+          y: center.y - rect.top
+        };
+      } else if (e.touches.length === 1) {
+        // Single touch for pan or tool action
+        const touch = e.touches[0];
+        const sx = touch.clientX - rect.left;
+        const sy = touch.clientY - rect.top;
+        const world = screenToWorld(sx, sy);
+
+        if (currentTool === 'select') {
+          const entity = findEntityAt(world.x, world.y);
+          if (entity) {
+            selectEntity(entity);
+            dragState = {
+              type: 'moving',
+              entity: entity,
+              offsetX: world.x - entity.x,
+              offsetY: world.y - entity.y
+            };
+          } else {
+            // Start panning
+            lastTouchPos = { x: sx, y: sy };
+          }
+        } else {
+          lastTouchPos = { x: sx, y: sy };
+        }
+      }
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+
+      if (e.touches.length === 2) {
+        // Pinch zoom
+        const currentDist = getTouchDistance(e.touches);
+        const scale = currentDist / touchStartDist;
+        viewZoom = touchStartZoom * scale;
+        viewZoom = Math.max(0.1, Math.min(5, viewZoom));
+
+        // Pan while zooming
+        const center = getTouchCenter(e.touches);
+        const currentPos = {
+          x: center.x - rect.left,
+          y: center.y - rect.top
+        };
+        if (lastTouchPos) {
+          const dx = currentPos.x - lastTouchPos.x;
+          const dy = currentPos.y - lastTouchPos.y;
+          viewOffset.x += dx / viewZoom;
+          viewOffset.y -= dy / viewZoom;
+          lastTouchPos = currentPos;
+        }
+        redraw();
+      } else if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const sx = touch.clientX - rect.left;
+        const sy = touch.clientY - rect.top;
+        const world = screenToWorld(sx, sy);
+
+        if (dragState && dragState.type === 'moving') {
+          // Move entity
+          dragState.entity.x = world.x - dragState.offsetX;
+          dragState.entity.y = world.y - dragState.offsetY;
+          updateEntityProps();
+          redraw();
+        } else if (lastTouchPos) {
+          // Pan
+          const dx = sx - lastTouchPos.x;
+          const dy = sy - lastTouchPos.y;
+          viewOffset.x += dx / viewZoom;
+          viewOffset.y -= dy / viewZoom;
+          lastTouchPos = { x: sx, y: sy };
+          redraw();
+        }
+      }
+    });
+
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+
+      if (e.touches.length === 0) {
+        // All touches ended
+        if (dragState) {
+          dragState = null;
+        } else if (e.changedTouches.length === 1 && currentTool !== 'select') {
+          // Single tap to place entity
+          const touch = e.changedTouches[0];
+          const sx = touch.clientX - rect.left;
+          const sy = touch.clientY - rect.top;
+          const world = screenToWorld(sx, sy);
+
+          const entity = createEntity(currentTool, world.x, world.y);
+          mapData.entities.push(entity);
+          selectEntity(entity);
+          updateEntityList();
+          updateMapSettings();
+        }
+        lastTouchPos = null;
+        touchStartDist = 0;
+        redraw();
+      } else if (e.touches.length === 1) {
+        // One finger remains
+        const touch = e.touches[0];
+        lastTouchPos = {
+          x: touch.clientX - rect.left,
+          y: touch.clientY - rect.top
+        };
+        touchStartDist = 0;
       }
     });
 
