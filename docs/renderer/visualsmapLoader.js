@@ -880,6 +880,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     const pathGroup = new renderer.THREE.Group();
     pathGroup.name = 'gameplayPath';
     pathGroup.visible = false; // Hidden by default
+    let pathStartWorld = null;
+    let pathEndWorld = null;
+    let pathVisible = false;
     renderer.add(pathGroup);
     loadedObjects.push(pathGroup);
 
@@ -922,6 +925,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       // Create start and end markers
       const startPos = createMarker(gameplayPath.start.row, gameplayPath.start.col, startMat);
       const endPos = createMarker(gameplayPath.end.row, gameplayPath.end.col, endMat);
+      pathStartWorld = new renderer.THREE.Vector3(startPos.x, 0.18 * cellSize, startPos.z);
+      pathEndWorld = new renderer.THREE.Vector3(endPos.x, 0.18 * cellSize, endPos.z);
 
       // Draw line between start and end
       const points = [
@@ -940,14 +945,71 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
     // Method to toggle path visibility
     function setPathVisible(visible) {
-      pathGroup.visible = !!visible;
+      pathVisible = !!visible;
+      pathGroup.visible = pathVisible;
       console.log(`[visualsmapLoader] Gameplay path visibility: ${pathGroup.visible}`);
+    }
+
+    function projectPointToCanvas(worldVec, targetCanvas) {
+      if (!worldVec || !renderer?.camera || !renderer?.renderer?.domElement) return null;
+
+      const domEl = renderer.renderer.domElement;
+      const cssWidth = domEl.clientWidth || domEl.width || renderer.width;
+      const cssHeight = domEl.clientHeight || domEl.height || renderer.height;
+      if (!cssWidth || !cssHeight) return null;
+
+      const projected = worldVec.clone().project(renderer.camera);
+      const screenX = (projected.x + 1) * 0.5 * cssWidth;
+      const screenY = (1 - (projected.y + 1) * 0.5) * cssHeight;
+
+      const canvasEl = targetCanvas || (typeof document !== 'undefined' ? document.getElementById('game') : null);
+      if (!canvasEl || !canvasEl.getBoundingClientRect) {
+        return { x: screenX, y: screenY };
+      }
+
+      const rect = canvasEl.getBoundingClientRect();
+      if (!rect.width || !rect.height) {
+        return { x: screenX, y: screenY };
+      }
+
+      const scaleX = canvasEl.width / rect.width;
+      const scaleY = canvasEl.height / rect.height;
+      return {
+        x: screenX * scaleX,
+        y: screenY * scaleY,
+      };
+    }
+
+    function getPathScreenLine(options = {}) {
+      const canvasEl = options.canvas || null;
+      if (!pathVisible || !pathStartWorld || !pathEndWorld) {
+        return { visible: false };
+      }
+
+      const start = projectPointToCanvas(pathStartWorld, canvasEl);
+      const end = projectPointToCanvas(pathEndWorld, canvasEl);
+      if (!start || !end) {
+        return { visible: false };
+      }
+
+      const valid = Number.isFinite(start.x) && Number.isFinite(start.y)
+        && Number.isFinite(end.x) && Number.isFinite(end.y);
+      if (!valid) {
+        return { visible: false };
+      }
+
+      return {
+        visible: true,
+        start,
+        end,
+      };
     }
 
     return {
       objects: loadedObjects,
       dayNightSystem: dayNightSystem,
       setPathVisible: setPathVisible,
+      getPathScreenLine,
       dispose: () => {
         renderer.off('frame', frameUpdateHandler);
         dayNightSystem.dispose();
@@ -957,6 +1019,6 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     };
   } catch (error) {
     console.error('[visualsmapLoader] Error loading visualsmap:', error);
-    return { objects: [], dispose: () => {}, setPathVisible: () => {} };
+    return { objects: [], dispose: () => {}, setPathVisible: () => {}, getPathScreenLine: () => ({ visible: false }) };
   }
 }

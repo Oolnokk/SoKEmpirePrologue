@@ -5038,6 +5038,43 @@ function renderBottles(ctx) {
   ctx.restore();
 }
 
+function renderGameplayPathOverlay(ctx) {
+  if (!ctx || !cv) return;
+
+  const adapter = window.GAME?.visualsmapAdapter;
+  const projection = adapter?.getPathScreenLine?.({ canvas: cv });
+  if (!projection?.visible || !projection.start || !projection.end) return;
+
+  const { start, end } = projection;
+  if (!Number.isFinite(start.x) || !Number.isFinite(start.y) || !Number.isFinite(end.x) || !Number.isFinite(end.y)) {
+    return;
+  }
+
+  const markerRadius = 6;
+
+  ctx.save();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#fbbf24';
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y);
+  ctx.lineTo(end.x, end.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#22c55e';
+  ctx.beginPath();
+  ctx.arc(start.x, start.y, markerRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath();
+  ctx.arc(end.x, end.y, markerRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 let last = performance.now();
 let fpsLast = performance.now();
 let frames = 0;
@@ -5059,6 +5096,7 @@ function loop(t){
   renderBottles(cx);
   renderAll(cx);
   renderSprites(cx);
+  renderGameplayPathOverlay(cx);
   runHitDetect();
   updateHUD();
   updateDebugPanel();
