@@ -1,5 +1,5 @@
 import { getFootingRecovery, getMovementMultipliers, getStatProfile } from './stat-hooks.js?v=1';
-import { computeGroundY } from './ground-utils.js?v=1';
+import { resolveSharedGroundY } from './ground-utils.js?v=1';
 import { updateAttackDash, isAttackDashing } from './attack-dash.js?v=1';
 
 const JOINT_LIMITS = {
@@ -292,7 +292,7 @@ function clampFighterToBounds(fighter, config) {
   const bounds = resolveHorizontalBounds(config);
   fighter.pos.x = clamp(fighter.pos.x, bounds.minX, bounds.maxX);
 
-  let groundY = computeGroundY(config);
+  let groundY = resolveSharedGroundY(config);
   if (!fighter.ragdoll && fighter.pos.y > groundY) {
     fighter.pos.y = groundY;
   }
@@ -481,7 +481,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
     : Array.isArray(config?.platformingColliders)
       ? config.platformingColliders
       : [];
-  let groundY = computeGroundY(config);
+  let groundY = resolveSharedGroundY(config);
   const defaultSurfaceMaterial = typeof config?.ground?.materialType === 'string'
     ? config.ground.materialType.trim()
     : '';
@@ -545,7 +545,7 @@ export function updateFighterPhysics(fighter, config, dt, options = {}) {
   const dashMult = 1;
 
   fighter.vel ||= { x: 0, y: 0 };
-  fighter.pos ||= { x: 0, y: computeGroundY(config) };
+  fighter.pos ||= { x: 0, y: resolveSharedGroundY(config) };
   if (!Number.isFinite(fighter.vel.x)) fighter.vel.x = 0;
   if (!Number.isFinite(fighter.vel.y)) fighter.vel.y = 0;
 
