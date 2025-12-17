@@ -7,7 +7,7 @@
     "y": 0.35,
     "z": 0.35
   },
-  "yOffset": 0.5,
+  "yOffset": -0.2,
   "forwardOffsetDeg": 0,
   "instanceDefaults": {
     "orientation": 0,
