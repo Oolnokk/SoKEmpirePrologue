@@ -666,12 +666,17 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     renderer.add(directionalLight.target);
     loadedObjects.push(directionalLight, directionalLight.target);
 
-    // Update lights when day/night changes
+    // Update lights and sky when day/night changes
     const updateSceneLighting = () => {
       const config = dayNightSystem.getCurrentLightingConfig();
       ambientLight.color.setHex(config.ambientColor);
       ambientLight.intensity = config.ambientIntensity;
       directionalLight.intensity = config.hemisphereIntensity * 1.5;
+
+      // Update sky background color
+      if (renderer.scene && renderer.scene.background) {
+        renderer.scene.background.setHex(config.skyColor);
+      }
     };
 
     dayNightSystem.on('timeChange', updateSceneLighting);
@@ -680,6 +685,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     // Hook into renderer's frame update to update day/night transitions
     const frameUpdateHandler = ({ time }) => {
       dayNightSystem.update(0); // deltaTime handled internally by DayNightSystem
+
+      // Update lighting continuously during transitions
+      if (dayNightSystem.isTransitioning) {
+        updateSceneLighting();
+      }
     };
     renderer.on('frame', frameUpdateHandler);
 

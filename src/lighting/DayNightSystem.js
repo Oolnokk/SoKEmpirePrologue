@@ -6,6 +6,7 @@
 export class DayNightSystem {
   constructor(options = {}) {
     this.isNight = options.defaultToNight !== undefined ? options.defaultToNight : true;
+    this.timeOfDayHours = this.isNight ? 0 : 12; // 0-24 hours (0=midnight, 12=noon)
     this.transitionDuration = options.transitionDuration || 2000; // ms
     this.isTransitioning = false;
     this.transitionProgress = 0;
@@ -111,14 +112,44 @@ export class DayNightSystem {
     if (this.isNight === night && !this.isTransitioning) return;
 
     this.isNight = night;
+    this.timeOfDayHours = night ? 0 : 12;
 
     if (immediate) {
       this.transitionProgress = 1.0;
       this.isTransitioning = false;
       this.applyState(1.0);
-      this.emit('timeChange', { isNight: this.isNight });
+      this.emit('timeChange', { isNight: this.isNight, timeOfDayHours: this.timeOfDayHours });
     } else {
       this.startTransition();
+    }
+  }
+
+  /**
+   * Set time of day using hours (0-24)
+   * @param {number} hours - Hour of day (0=midnight, 6=dawn, 12=noon, 18=dusk, 24=midnight)
+   * @param {boolean} immediate - If true, skip transition
+   */
+  setTimeOfDayHours(hours, immediate = false) {
+    // Normalize hours to 0-24 range
+    hours = ((hours % 24) + 24) % 24;
+    this.timeOfDayHours = hours;
+
+    // Determine if it's night (before 6am or after 6pm)
+    const wasNight = this.isNight;
+    this.isNight = hours < 6 || hours >= 18;
+
+    if (immediate) {
+      this.transitionProgress = 1.0;
+      this.isTransitioning = false;
+      this.applyState(1.0);
+      if (wasNight !== this.isNight) {
+        this.emit('timeChange', { isNight: this.isNight, timeOfDayHours: this.timeOfDayHours });
+      }
+    } else if (wasNight !== this.isNight) {
+      this.startTransition();
+    } else {
+      // Just update the blend without transitioning
+      this.applyState(1.0);
     }
   }
 
@@ -129,7 +160,7 @@ export class DayNightSystem {
     this.isTransitioning = true;
     this.transitionProgress = 0;
     this.transitionStartTime = performance.now();
-    this.emit('transitionStart', { isNight: this.isNight });
+    this.emit('transitionStart', { isNight: this.isNight, timeOfDayHours: this.timeOfDayHours });
   }
 
   /**

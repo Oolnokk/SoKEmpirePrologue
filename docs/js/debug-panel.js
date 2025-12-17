@@ -80,12 +80,7 @@ export function initDebugPanel() {
     dayNightBtn.addEventListener('click', () => {
       if (window.dayNightSystem) {
         window.dayNightSystem.toggle();
-        const isNight = window.dayNightSystem.isNight;
-        if (dayNightStatus) {
-          dayNightStatus.textContent = isNight ? 'Current: Night 🌙' : 'Current: Day ☀️';
-          dayNightStatus.style.color = isNight ? '#a5b4fc' : '#fde68a';
-        }
-        console.log('[debug-panel] Toggled to:', isNight ? 'NIGHT' : 'DAY');
+        updateDayNightUI();
       } else {
         console.warn('[debug-panel] Day/night system not available yet');
         if (dayNightStatus) {
@@ -94,6 +89,47 @@ export function initDebugPanel() {
         }
       }
     });
+  }
+
+  // Setup time of day slider
+  const timeSlider = $$('#timeOfDaySlider', panel);
+  const timeValue = $$('#timeOfDayValue', panel);
+  if (timeSlider && timeValue) {
+    timeSlider.addEventListener('input', (e) => {
+      const hours = parseFloat(e.target.value);
+      if (window.dayNightSystem && typeof window.dayNightSystem.setTimeOfDayHours === 'function') {
+        window.dayNightSystem.setTimeOfDayHours(hours, true); // immediate
+        updateDayNightUI();
+      }
+
+      // Update time display
+      const h = Math.floor(hours);
+      const m = Math.floor((hours - h) * 60);
+      timeValue.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    });
+  }
+
+  // Helper to update UI
+  function updateDayNightUI() {
+    if (!window.dayNightSystem) return;
+
+    const isNight = window.dayNightSystem.isNight;
+    if (dayNightStatus) {
+      dayNightStatus.textContent = isNight ? 'Current: Night 🌙' : 'Current: Day ☀️';
+      dayNightStatus.style.color = isNight ? '#a5b4fc' : '#fde68a';
+    }
+
+    // Update slider to match current state
+    if (timeSlider && window.dayNightSystem.timeOfDayHours !== undefined) {
+      timeSlider.value = window.dayNightSystem.timeOfDayHours;
+      const h = Math.floor(window.dayNightSystem.timeOfDayHours);
+      const m = Math.floor((window.dayNightSystem.timeOfDayHours - h) * 60);
+      if (timeValue) {
+        timeValue.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      }
+    }
+
+    console.log('[debug-panel] Time:', window.dayNightSystem.timeOfDayHours?.toFixed(1), 'hours', isNight ? '(NIGHT)' : '(DAY)');
   }
 
   // Setup copy URL button
