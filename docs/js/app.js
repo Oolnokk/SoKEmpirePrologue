@@ -5053,8 +5053,8 @@ function renderGameplayPathOverlay(ctx) {
   const markerRadius = 6;
 
   ctx.save();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = '#ff0000';
   ctx.setLineDash([8, 6]);
   ctx.beginPath();
   ctx.moveTo(start.x, start.y);
@@ -5062,12 +5062,12 @@ function renderGameplayPathOverlay(ctx) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  ctx.fillStyle = '#22c55e';
+  ctx.fillStyle = '#ff0000';
   ctx.beginPath();
   ctx.arc(start.x, start.y, markerRadius, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#ef4444';
+  ctx.fillStyle = '#ff000';
   ctx.beginPath();
   ctx.arc(end.x, end.y, markerRadius, 0, Math.PI * 2);
   ctx.fill();
