@@ -1,4 +1,5 @@
 import { GeometryService, MapRegistry, adaptLegacyLayoutGeometry, adaptSceneGeometry, convertLayoutToArea, } from './vendor/map-runtime.js';
+import { computeGroundY } from './ground-utils.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 const FALLBACK_LAYOUT_PATH = '../config/maps/gameplaymaps/defaultdistrict3d_gameplaymap.json';
 const FALLBACK_AREA_ID = 'defaultdistrict3d';
@@ -380,6 +381,7 @@ function applyEditorPreviewSettings(area, { token = null, createdAt = null } = {
     const canvasWidth = Number.isFinite(canvasConfig.w) ? canvasConfig.w : 720;
     const scene = resolveSceneDescriptor(area);
     const groundOffset = Number(area?.ground?.offset);
+    const normalizedGroundOffset = Number.isFinite(groundOffset) ? Math.max(0, groundOffset) : null;
     const normalizedColliders = Array.isArray(scene?.colliders)
         ? scene.colliders.map((col, index) => normalizeAreaCollider(col, index))
         : [];
@@ -395,11 +397,19 @@ function applyEditorPreviewSettings(area, { token = null, createdAt = null } = {
             preview.previousGroundRatio = CONFIG.groundRatio;
             CONFIG.groundRatio = ratio;
         }
-        preview.groundOffset = groundOffset;
-        const groundY = canvasHeight * appliedRatio;
+        preview.groundOffset = normalizedGroundOffset;
+        const groundInputs = {
+            ...CONFIG,
+            groundRatio: appliedRatio,
+            ground: {
+                ...(typeof CONFIG.ground === 'object' && CONFIG.ground ? CONFIG.ground : {}),
+                offset: ratioLocked ? undefined : normalizedGroundOffset,
+            },
+        };
+        const groundY = computeGroundY(groundInputs, { canvasHeight });
         const worldWidth = GAME?.CAMERA?.worldWidth || canvasWidth * 2;
         const colliderWidth = Math.max(worldWidth, canvasWidth * 2.5);
-        const colliderHeight = Math.max(48, groundOffset + 32);
+        const colliderHeight = Math.max(48, (normalizedGroundOffset ?? 0) + 32);
         const colliderLeft = -colliderWidth / 2;
         preview.groundCollider = {
             left: colliderLeft,
@@ -439,7 +449,16 @@ function syncConfigGround(area) {
         if (!ratioLocked) {
             CONFIG.groundRatio = ratio;
         }
-        CONFIG.groundY = Math.round(canvasHeight * appliedRatio);
+        const { groundY: _staleGroundY, ...configWithoutGroundY } = CONFIG;
+        const groundInputs = {
+            ...configWithoutGroundY,
+            groundRatio: appliedRatio,
+            ground: {
+                ...(typeof CONFIG.ground === 'object' && CONFIG.ground ? CONFIG.ground : {}),
+                offset: ratioLocked ? undefined : offset,
+            },
+        };
+        CONFIG.groundY = computeGroundY(groundInputs, { canvasHeight });
     }
     CONFIG.ground = {
         ...(typeof CONFIG.ground === 'object' && CONFIG.ground ? CONFIG.ground : {}),
