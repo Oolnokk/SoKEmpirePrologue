@@ -7,7 +7,7 @@ export function computeGroundY(config = {}, options = {}) {
       ? config.canvas.h
       : (Number.isFinite(config?.canvas?.height) ? config.canvas.height : 460));
 
-  const groundY = Number.isFinite(config?.groundY) ? config.groundY : null;
+  const groundY = Number.isFinite(config?.groundY) && config.groundY > 0 ? config.groundY : null;
   const groundOffsetOverride = Number.isFinite(options.groundOffset) ? options.groundOffset : null;
 
   const { groundLine } = resolveGroundLine({
