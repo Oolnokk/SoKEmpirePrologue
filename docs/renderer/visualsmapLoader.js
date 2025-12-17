@@ -27,6 +27,93 @@ function isDevelopmentMode() {
 }
 
 /**
+ * Project a 3D world coordinate to 2D screen space
+ * @param {Object} worldPos - World position {x, y, z}
+ * @param {Object} camera - Three.js camera instance
+ * @param {Object} renderer - Three.js renderer instance
+ * @returns {Object} Screen position {x, y} in pixels
+ */
+function projectWorldToScreen(worldPos, camera, renderer) {
+  if (!worldPos || !camera || !renderer) {
+    console.warn('[visualsmapLoader] projectWorldToScreen: Missing required parameters');
+    return { x: 0, y: 0 };
+  }
+
+  // Create a Vector3 from world position
+  const THREE = renderer.THREE;
+  if (!THREE || !THREE.Vector3) {
+    console.warn('[visualsmapLoader] projectWorldToScreen: THREE.Vector3 not available');
+    return { x: 0, y: 0 };
+  }
+
+  const vector = new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z);
+  
+  // Project to normalized device coordinates (-1 to +1)
+  vector.project(camera);
+  
+  // Convert to screen coordinates
+  const canvas = renderer.renderer?.domElement;
+  const width = canvas?.width || renderer.width || 800;
+  const height = canvas?.height || renderer.height || 460;
+  
+  const screenX = (vector.x * 0.5 + 0.5) * width;
+  const screenY = (-(vector.y * 0.5) + 0.5) * height; // Y is flipped in screen space
+  
+  return { x: screenX, y: screenY };
+}
+
+/**
+ * Synchronize CONFIG.groundY from the gameplay path's screen position
+ * This calculates where the 3D gameplay path appears on screen and sets
+ * the 2D gameplay ground line to match it. The value is locked and won't
+ * change even if the camera moves (e.g., during jump puzzles).
+ * 
+ * @param {Object} gameplayPath - Gameplay path with start/end positions
+ * @param {Object} camera - Three.js camera instance
+ * @param {Object} renderer - Renderer instance
+ */
+function syncGroundYFromGameplayPath(gameplayPath, camera, renderer) {
+  if (!gameplayPath?.start || !gameplayPath?.end) {
+    console.log('[visualsmapLoader] syncGroundYFromGameplayPath: No valid gameplay path');
+    return;
+  }
+
+  if (!camera || !renderer) {
+    console.warn('[visualsmapLoader] syncGroundYFromGameplayPath: Missing camera or renderer');
+    return;
+  }
+
+  // Calculate the center of the gameplay path in world coordinates
+  // The path is at y=0 (ground level) in the 3D world
+  const pathCenterX = (gameplayPath.start.x + gameplayPath.end.x) / 2;
+  const pathCenterZ = (gameplayPath.start.z + gameplayPath.end.z) / 2;
+  const pathWorldPos = { x: pathCenterX, y: 0, z: pathCenterZ };
+
+  console.log('[visualsmapLoader] ========================================');
+  console.log('[visualsmapLoader] Syncing CONFIG.groundY from gameplay path');
+  console.log('[visualsmapLoader] - Path world position:', pathWorldPos);
+  console.log('[visualsmapLoader] - Path start:', gameplayPath.start);
+  console.log('[visualsmapLoader] - Path end:', gameplayPath.end);
+
+  // Project to screen space
+  const screenPos = projectWorldToScreen(pathWorldPos, camera, renderer);
+  console.log('[visualsmapLoader] - Projected screen position:', screenPos);
+
+  // Set CONFIG.groundY to the rounded screen Y position
+  const CONFIG = (window.CONFIG = window.CONFIG || {});
+  const newGroundY = Math.round(screenPos.y);
+  
+  // Lock the groundY value with a source marker so other systems don't overwrite it
+  CONFIG.groundY = newGroundY;
+  CONFIG.groundYSource = 'camera';
+  
+  console.log('[visualsmapLoader] ✓ CONFIG.groundY set to:', newGroundY);
+  console.log('[visualsmapLoader] ✓ CONFIG.groundYSource set to: camera (locked)');
+  console.log('[visualsmapLoader] ✓ This value will remain constant even if camera moves');
+  console.log('[visualsmapLoader] ========================================');
+}
+
+/**
  * Clear the visualsmap index cache. Useful for development or when
  * index.json is updated and needs to be reloaded.
  * @public
@@ -645,6 +732,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     if (renderer.camera) {
       console.log(`[visualsmapLoader] ✓ Camera actual position after set:`, renderer.camera.position);
       console.log(`[visualsmapLoader] ✓ Camera type:`, renderer.camera.type);
+    }
+
+    // Sync CONFIG.groundY from gameplay path screen position
+    // This should only be done when using aligned world-to-path rendering
+    if (alignWorldToPath && gameplayPath?.start && gameplayPath?.end) {
+      syncGroundYFromGameplayPath(gameplayPath, renderer.camera, renderer);
     }
 
     // Initialize day/night lighting system (night by default)
