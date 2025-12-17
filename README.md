@@ -94,4 +94,10 @@ The script prints links for `docs/index.html`, `docs/animation-editor.html`, `do
 node tools/githack-url.mjs --ref=feature-branch
 ```
 
+If your local clone doesn't have an `origin` remote pointing at GitHub, pass the repository slug directly (or set `GITHACK_SLUG`):
+
+```
+node tools/githack-url.mjs --slug=OWNER/SoKEmpirePrologue
+```
+
 Paste any printed link into https://raw.githack.com to view that page directly.

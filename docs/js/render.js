@@ -136,7 +136,7 @@ export function computeAnchorsForFighter(F, C, fallbackFighterName) {
     legLowerRight: legLowerRightLen
   };
   const OFF = pickOffsets(C, fcfg); const hbAttach = (fcfg.parts?.hitbox?.torsoAttach || C.parts?.hitbox?.torsoAttach || { nx:0.5, ny:0.7 });
-  const centerX = F.pos?.x ?? 0; const centerY = F.pos?.y ?? ((C.groundRatio||0.7) * (C.canvas?.h||460));
+  const centerX = F.pos?.x ?? 0; const centerY = F.pos?.y ?? ((C.groundRatio||0.5) * (C.canvas?.h||460));
   const torsoAngRaw = F.jointAngles?.torso ?? 0; // already in radians from animator
   const torsoAng = torsoAngRaw; // with 'up' as zero, torso angle is used directly
   const torsoAttach = { x: centerX + (hbAttach.nx - 0.5) * L.hbW, y: centerY + (hbAttach.ny - 0.5) * L.hbH };

@@ -32,7 +32,7 @@ function computeGroundYFromConfig(config = {}, canvasHeightOverride) {
   const ratioRaw = Number(config?.groundRatio);
   const ratio = Number.isFinite(ratioRaw) && ratioRaw > 0 && ratioRaw < 1
     ? ratioRaw
-    : 0.7;
+    : 0.5;
   return Math.round(canvasHeight * ratio);
 }
 
@@ -6228,9 +6228,13 @@ function boot(){
                   gameCamera: gameCamera,
                   config: {
                     parallaxFactor: 1.0,              // 3D camera follows 2D camera exactly (side-scrolling)
+                    verticalParallax: 1.0,            // Follow vertical camera movement one-to-one
                     cameraHeight: cellSize * 0.8,     // Height above ground (24 with cellSize=30)
                     cameraDistance: -cellSize * 1.2,  // Negative Z = viewer side (-36 with cellSize=30)
-                    lookAtOffsetY: cellSize * 0.3     // Look slightly above ground (9 with cellSize=30)
+                    lookAtTarget: GAME_RENDERER_3D?.userData?.gameplayPathTarget || null,
+                    lookAtOffsetY: 0,
+                    lookAtOffsetZ: 0,
+                    freezeLookAtAfterInit: true
                   }
                 });
               }
@@ -6281,6 +6285,7 @@ function boot(){
                   const gameplayMapUrl = area.source || ''; // URL of the gameplaymap.json
                   GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, area, gameplayMapUrl);
                   window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
+                  window.GAME.gameplayPathTarget = GAME_VISUALSMAP_ADAPTER?.gameplayPathTarget || null;
                   if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
                     console.log('[app] Visualsmap loaded successfully:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
                     lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };

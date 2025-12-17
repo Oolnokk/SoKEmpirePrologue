@@ -17,6 +17,19 @@ function getRemoteSlug() {
   }
 }
 
+function getSlug() {
+  const slugArg = process.argv.find((arg) => arg.startsWith('--slug='));
+  if (slugArg) {
+    return slugArg.slice('--slug='.length);
+  }
+
+  if (process.env.GITHACK_SLUG) {
+    return process.env.GITHACK_SLUG;
+  }
+
+  return getRemoteSlug();
+}
+
 function getRef() {
   const refArg = process.argv.find((arg) => arg.startsWith('--ref='));
   if (refArg) {
@@ -47,13 +60,13 @@ function buildGithackUrls(slug, ref) {
   };
 }
 
-const slug = getRemoteSlug();
+const slug = getSlug();
 const ref = getRef();
 
 if (!slug || !ref) {
   const problems = [];
   if (!slug) {
-    problems.push('set an `origin` remote that points to github.com');
+    problems.push('pass --slug=<user/repo>, set GITHACK_SLUG, or set an `origin` remote that points to github.com');
   }
   if (!ref) {
     problems.push('ensure git can resolve your branch or commit');
