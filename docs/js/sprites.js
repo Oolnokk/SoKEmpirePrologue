@@ -1717,10 +1717,23 @@ export function renderSprites(ctx){
       const multiplyB = Math.floor(b * 255 + (255 - b * 255) * ambientIntensity);
 
       ctx.save();
-      // Use 'multiply' to darken sprites while preserving saturation
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = `rgb(${multiplyR}, ${multiplyG}, ${multiplyB})`;
-      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      // Use temp canvas to multiply sprite pixels while preserving transparency
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = ctx.canvas.width;
+      tempCanvas.height = ctx.canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      // Copy current sprites to temp canvas
+      tempCtx.drawImage(ctx.canvas, 0, 0);
+
+      // Apply multiply to darken sprites (preserves alpha)
+      tempCtx.globalCompositeOperation = 'multiply';
+      tempCtx.fillStyle = `rgb(${multiplyR}, ${multiplyG}, ${multiplyB})`;
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+      // Clear original and draw back the darkened sprites
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.drawImage(tempCanvas, 0, 0);
       ctx.restore();
     }
   }
