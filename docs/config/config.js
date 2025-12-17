@@ -886,6 +886,8 @@ window.CONFIG = {
   canvas: { w: 1280, h: 720, scale: 1 },
   camera: {
     manualOffsetX: 0,
+    // Far clipping distance for the 3D renderer's perspective camera
+    far: 5000,
     // When true, the camera snaps each frame to keep the player centered (opt-in)
     rigidCenter: false,
     // When true together with rigidCenter, the camera will ignore playable bounds and may show beyond map edges
