@@ -433,12 +433,12 @@ main.stack{
     padding:0;
   }
   .stage{
-    /* Use full width and calculate height based on config-defined aspect ratio */
-    width:100vw !important;
-    max-width:100vw !important;
-    height:calc(100vw * var(--stage-aspect-height) / var(--stage-aspect-width)) !important;
-    max-height:100vh !important; /* Don't exceed viewport height */
-    margin:0 !important;
+    /* Use full height and calculate width based on config-defined aspect ratio */
+    height:100vh !important;
+    max-height:100vh !important;
+    width:calc(100vh * var(--stage-aspect-width) / var(--stage-aspect-height)) !important;
+    max-width:100vw !important; /* Don't exceed viewport width */
+    margin:0 auto !important; /* Center horizontally */
     border-radius:0;
     outline:none;
   }
