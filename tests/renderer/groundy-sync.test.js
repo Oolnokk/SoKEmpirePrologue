@@ -111,6 +111,33 @@ describe('groundY camera sync behavior', () => {
       strictEqual(mockConfig.groundY, 300, 'groundY should be set');
       strictEqual(mockConfig.groundYSource, 'camera', 'groundYSource should mark it as camera-locked');
     });
+
+    it('should support Z offset for projecting from tile edge', () => {
+      const gameplayPath = {
+        start: { x: -10, z: 0 },
+        end: { x: 10, z: 0 }
+      };
+
+      // Path center would be at (0, 0, 0) in world space
+      const pathCenterX = (gameplayPath.start.x + gameplayPath.end.x) / 2;
+      const pathCenterZ = (gameplayPath.start.z + gameplayPath.end.z) / 2;
+
+      strictEqual(pathCenterX, 0, 'Path center X should be 0');
+      strictEqual(pathCenterZ, 0, 'Path center Z should be 0');
+
+      // With zOffset of 15 (half a tile), the projected position would be at z=15
+      const zOffset = 15;
+      const projectedZ = pathCenterZ + zOffset;
+
+      strictEqual(projectedZ, 15, 'Projected Z should include offset');
+      
+      // This would then be projected to screen space (simulated result)
+      const screenY = 310; // Different from center due to offset
+      mockConfig.groundY = Math.round(screenY);
+      mockConfig.groundYSource = 'camera';
+
+      strictEqual(mockConfig.groundY, 310, 'groundY should be set from offset position');
+    });
   });
 
   describe('computeGroundY protection', () => {

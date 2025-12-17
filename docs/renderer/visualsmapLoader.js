@@ -71,8 +71,11 @@ function projectWorldToScreen(worldPos, camera, renderer) {
  * @param {Object} gameplayPath - Gameplay path with start/end positions
  * @param {Object} camera - Three.js camera instance
  * @param {Object} renderer - Renderer instance
+ * @param {Object} options - Optional configuration
+ * @param {number} options.zOffset - Z-axis offset to apply to the path position (e.g., to project from tile edge)
+ * @param {number} options.cellSize - Size of grid cell in world units (for calculating tile edges)
  */
-function syncGroundYFromGameplayPath(gameplayPath, camera, renderer) {
+function syncGroundYFromGameplayPath(gameplayPath, camera, renderer, options = {}) {
   if (!gameplayPath?.start || !gameplayPath?.end) {
     console.log('[visualsmapLoader] syncGroundYFromGameplayPath: No valid gameplay path');
     return;
@@ -87,7 +90,10 @@ function syncGroundYFromGameplayPath(gameplayPath, camera, renderer) {
   // The path is at y=0 (ground level) in the 3D world
   const pathCenterX = (gameplayPath.start.x + gameplayPath.end.x) / 2;
   const pathCenterZ = (gameplayPath.start.z + gameplayPath.end.z) / 2;
-  const pathWorldPos = { x: pathCenterX, y: 0, z: pathCenterZ };
+  
+  // Apply Z offset if specified (e.g., to project from tile edge instead of center)
+  const zOffset = options.zOffset || 0;
+  const pathWorldPos = { x: pathCenterX, y: 0, z: pathCenterZ + zOffset };
 
   // Project to screen space
   const screenPos = projectWorldToScreen(pathWorldPos, camera, renderer);
@@ -100,7 +106,8 @@ function syncGroundYFromGameplayPath(gameplayPath, camera, renderer) {
   CONFIG.groundY = newGroundY;
   CONFIG.groundYSource = 'camera';
   
-  console.log(`[visualsmapLoader] ✓ CONFIG.groundY synced from camera: ${newGroundY} (locked, path center: ${pathWorldPos.x.toFixed(1)}, ${pathWorldPos.y}, ${pathWorldPos.z.toFixed(1)})`);
+  const offsetInfo = zOffset !== 0 ? ` with Z offset ${zOffset.toFixed(1)}` : '';
+  console.log(`[visualsmapLoader] ✓ CONFIG.groundY synced from camera: ${newGroundY} (locked, path position: ${pathWorldPos.x.toFixed(1)}, ${pathWorldPos.y}, ${pathWorldPos.z.toFixed(1)}${offsetInfo})`);
 }
 
 /**
@@ -727,7 +734,25 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     // Sync CONFIG.groundY from gameplay path screen position
     // This should only be done when using aligned world-to-path rendering
     if (alignWorldToPath && gameplayPath?.start && gameplayPath?.end) {
-      syncGroundYFromGameplayPath(gameplayPath, renderer.camera, renderer);
+      // Support optional Z offset to project from tile edge instead of center
+      // Can be configured as a fraction of cellSize (e.g., 0.5 for half a tile forward)
+      const pathZOffsetFraction = visualsMap.pathProjectionZOffset ?? 0.5; // Default to tile edge
+      const zOffset = pathZOffsetFraction * cellSize;
+      
+      syncGroundYFromGameplayPath(gameplayPath, renderer.camera, renderer, { 
+        zOffset, 
+        cellSize 
+      });
+      
+      // Store references for manual re-sync (e.g., from debug panel)
+      if (typeof window !== 'undefined') {
+        window.__groundYSyncData = {
+          gameplayPath,
+          camera: renderer.camera,
+          renderer,
+          options: { zOffset, cellSize }
+        };
+      }
     }
 
     // Initialize day/night lighting system (night by default)
@@ -879,6 +904,17 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       window.dayNightSystem = dayNightSystem;
       console.log(`[visualsmapLoader] ✓ Day/night system available via window.dayNightSystem`);
       console.log(`[visualsmapLoader]   Usage: window.dayNightSystem.toggle() to switch day/night`);
+      
+      // Provide global helper to manually re-sync groundY from current camera view
+      window.resyncGroundYFromCamera = function() {
+        const data = window.__groundYSyncData;
+        if (!data) {
+          console.warn('[visualsmapLoader] Cannot re-sync groundY: No sync data available (map may not use alignWorldToPath)');
+          return;
+        }
+        syncGroundYFromGameplayPath(data.gameplayPath, data.camera, data.renderer, data.options);
+      };
+      console.log(`[visualsmapLoader] ✓ Manual groundY re-sync available via window.resyncGroundYFromCamera()`);
     }
 
     return {
