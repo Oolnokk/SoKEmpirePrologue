@@ -908,13 +908,9 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter) {
 
   // Calculate required 2D world dimensions from 3D path extents
   // With pixelsToUnits = 1.0 (pixel-perfect), 1 pixel = 1 Three.js unit
-  const requiredWidth = pathExtents.spanX;  // Horizontal span of gameplay path
-  const requiredHeight = pathExtents.spanZ; // Vertical span of gameplay path
-
-  // Add padding to ensure path is fully visible (10% on each side = 20% total)
-  const padding = 0.2;
-  const worldWidth = requiredWidth * (1 + padding);
-  const worldHeight = requiredHeight * (1 + padding);
+  // Make 2D world exactly match path span so pixel 0 = path start, pixel N = path end
+  const worldWidth = pathExtents.spanX;  // Horizontal span of gameplay path
+  const worldHeight = Math.max(pathExtents.spanZ, 600); // Vertical span (min 600px for visibility)
 
   console.log('[app] Auto-sizing 2D world to gameplay path:');
   console.log(`  Path extents: X=[${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}] (span: ${pathExtents.spanX.toFixed(1)})`);
@@ -926,13 +922,13 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter) {
   gameCamera.worldHeight = worldHeight;
 
   // Update camera bounds to match the full world
-  // Camera position is measured from top-left corner (edge-based)
-  gameCamera.minX = 0;
-  gameCamera.maxX = worldWidth;
-  gameCamera.minY = 0;
-  gameCamera.maxY = worldHeight;
+  // Camera uses 'bounds' object with 'min' and 'max' properties
+  gameCamera.bounds = {
+    min: 0,
+    max: worldWidth
+  };
 
-  console.log(`  Camera bounds: X=[${gameCamera.minX}, ${gameCamera.maxX}], Y=[${gameCamera.minY}, ${gameCamera.maxY}]`);
+  console.log(`  Camera bounds: [${gameCamera.bounds.min}, ${gameCamera.bounds.max}]`);
 }
 
 // Optional 3D renderer modules (lazy-loaded to avoid breaking boot if assets aren't hosted)
