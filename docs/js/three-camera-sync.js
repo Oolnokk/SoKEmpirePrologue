@@ -69,13 +69,14 @@ export function syncCameraPosition(renderer, gameCamera, config = {}) {
 
   // Calculate 3D camera position
   // Position camera at the transformed location, offset by height and distance
-  const camX = parallaxX;
+  // IMPORTANT: Negate X to fix direction (moving right in 2D = camera right in 3D)
+  const camX = -parallaxX;  // Sign flip to match 2D movement direction
   const camY = cfg.cameraHeight;
   const camZ = parallaxZ + cfg.cameraDistance;
 
   // Calculate look-at target (where the camera should point)
   // Look at the transformed position on the ground plane
-  const lookAtX = parallaxX;
+  const lookAtX = -parallaxX;  // Also negate lookAt X to match camera
   const lookAtY = cfg.lookAtOffsetY;
   const lookAtZ = parallaxZ + cfg.lookAtOffsetZ;
 
