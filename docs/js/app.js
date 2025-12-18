@@ -5039,7 +5039,9 @@ function updateGroundYFromPath() {
   }
 }
 
-// Update playable bounds from gameplay path projection (syncs 3D path to 2D world space)
+// Calibrate 2D world space from 3D path projection
+// This measures a single 3D tile's screen size and uses it to set up proper 2D world coordinates
+let calibratedOnce = false;
 function updatePlayableBoundsFromPath() {
   if (!cv) return;
 
@@ -5052,28 +5054,43 @@ function updatePlayableBoundsFromPath() {
   const { start, end } = projection;
   if (!Number.isFinite(start.x) || !Number.isFinite(end.x)) return;
 
-  const camera = window.GAME?.CAMERA;
-  if (!camera) return;
+  // Measure the screen span of the 3D gameplay path
+  const screenStartX = start.x;
+  const screenEndX = end.x;
+  const screenSpan = Math.abs(screenEndX - screenStartX);
 
-  // Convert screen coordinates to world coordinates
-  // Formula: worldX = cameraX + (screenX - screenCenter) / zoom
-  const viewportWidth = cv.width || 720;
-  const screenCenter = viewportWidth / 2;
-  const zoom = Number.isFinite(camera.zoom) && camera.zoom > 0 ? camera.zoom : 1;
-  const cameraX = Number.isFinite(camera.x) ? camera.x : 0;
+  // The gameplay path spans 19 cells (col 0 to col 19 in a 20-column grid)
+  const pathCells = 19;
+  const pixelsPerCell = screenSpan / pathCells;
 
-  const worldStartX = cameraX + (start.x - screenCenter) / zoom;
-  const worldEndX = cameraX + (end.x - screenCenter) / zoom;
+  // Use screen pixels directly as 2D world units
+  // This creates a 1:1 mapping at zoom level 1
+  const leftBound = Math.min(screenStartX, screenEndX);
+  const rightBound = Math.max(screenStartX, screenEndX);
 
-  // Set playable bounds to match the projected path
-  const minX = Math.min(worldStartX, worldEndX);
-  const maxX = Math.max(worldStartX, worldEndX);
+  if (!calibratedOnce) {
+    console.log('[bounds] Calibrating 2D world space from 3D path:');
+    console.log(`  - Path screen span: ${screenSpan.toFixed(1)}px`);
+    console.log(`  - Path cells: ${pathCells}`);
+    console.log(`  - Pixels per cell: ${pixelsPerCell.toFixed(1)}px`);
+    console.log(`  - Playable bounds: ${leftBound.toFixed(1)} to ${rightBound.toFixed(1)}`);
+    calibratedOnce = true;
+  }
 
   if (window.CONFIG && window.CONFIG.map) {
-    window.CONFIG.map.playAreaMinX = minX;
-    window.CONFIG.map.playAreaMaxX = maxX;
-    window.CONFIG.map.activePlayableBounds = { left: minX, right: maxX };
-    window.CONFIG.map.playableBounds = { left: minX, right: maxX };
+    window.CONFIG.map.playAreaMinX = leftBound;
+    window.CONFIG.map.playAreaMaxX = rightBound;
+    window.CONFIG.map.activePlayableBounds = { left: leftBound, right: rightBound };
+    window.CONFIG.map.playableBounds = { left: leftBound, right: rightBound };
+
+    // Store calibration info for debugging
+    window.CONFIG.map._calibration = {
+      screenSpan: screenSpan.toFixed(1),
+      pathCells,
+      pixelsPerCell: pixelsPerCell.toFixed(1),
+      leftBound: leftBound.toFixed(1),
+      rightBound: rightBound.toFixed(1)
+    };
   }
 
   // Also update geometry service if available
@@ -5081,8 +5098,8 @@ function updatePlayableBoundsFromPath() {
   if (geometryService && typeof geometryService.getActiveGeometry === 'function') {
     const geometry = geometryService.getActiveGeometry();
     if (geometry?.playableBounds) {
-      geometry.playableBounds.left = minX;
-      geometry.playableBounds.right = maxX;
+      geometry.playableBounds.left = leftBound;
+      geometry.playableBounds.right = rightBound;
     }
   }
 }
