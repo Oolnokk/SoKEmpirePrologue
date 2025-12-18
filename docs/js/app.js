@@ -5059,6 +5059,8 @@ function renderGameplayPathOverlay(ctx) {
 
   // Get 3D world distance (in Three.js units)
   const distance3dWorld = projection.world3d?.distance || 0;
+  const path3dStart = projection.world3d?.start;
+  const path3dEnd = projection.world3d?.end;
 
   // Get 2D camera position (world coordinates)
   const camera2d = window.GAME?.CAMERA;
@@ -5176,6 +5178,20 @@ function renderGameplayPathOverlay(ctx) {
 
     ctx.fillStyle = '#ffaa44';
     ctx.fillText(text5, labelX, labelY5 + 4);
+  }
+
+  // Add 3D path extents (always show)
+  const labelY6 = !diffMatch ? (labelY4 + lineHeight * 2 + 4) : (labelY4 + lineHeight + 2);
+  if (path3dStart && path3dEnd) {
+    const text6 = `3D Path: X from ${path3dStart.x.toFixed(1)} to ${path3dEnd.x.toFixed(1)} | Cam in range: ${(cam3dX >= Math.min(path3dStart.x, path3dEnd.x) && cam3dX <= Math.max(path3dStart.x, path3dEnd.x)) ? '✓' : '✗'}`;
+    const metrics6 = ctx.measureText(text6);
+    const bgWidth6 = metrics6.width + padding * 2;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(labelX - bgWidth6 / 2, labelY6, bgWidth6, bgHeight3d);
+
+    ctx.fillStyle = '#aaaaff';
+    ctx.fillText(text6, labelX, labelY6 + 4);
   }
 
   ctx.restore();
