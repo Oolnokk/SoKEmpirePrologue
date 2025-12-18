@@ -5030,6 +5030,13 @@ function renderGameplayPathOverlay(ctx) {
     return;
   }
 
+  // Update groundY based on the current screen Y of the gameplay path
+  // Use the average of start and end Y positions
+  const pathScreenY = (start.y + end.y) / 2;
+  if (window.CONFIG && Number.isFinite(pathScreenY)) {
+    window.CONFIG.groundY = Math.round(pathScreenY);
+  }
+
   const markerRadius = 6;
 
   ctx.save();
