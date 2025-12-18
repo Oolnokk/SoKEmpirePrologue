@@ -138,14 +138,22 @@ export function initTouchControls(){
     e.preventDefault();
     JOY.active = true;
 
-    const rect = joystickArea.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-
-    JOY.startX = centerX;
-    JOY.startY = centerY;
-
     const touch = e.touches ? e.touches[0] : e;
+
+    // Position joystick at touch point
+    const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--control-scale')) || 1;
+    const joystickSize = 85 * scale; // joystick-area size * scale
+
+    // Center the joystick on the touch point
+    joystickArea.style.left = `${touch.clientX - joystickSize / 2}px`;
+    joystickArea.style.bottom = 'auto';
+    joystickArea.style.top = `${touch.clientY - joystickSize / 2}px`;
+
+    // Show the joystick
+    joystickArea.classList.add('visible');
+
+    JOY.startX = touch.clientX;
+    JOY.startY = touch.clientY;
     JOY.currentX = touch.clientX;
     JOY.currentY = touch.clientY;
 
@@ -172,6 +180,9 @@ export function initTouchControls(){
     JOY.normalized = 0;
     JOY.horizontalStrength = 0;
 
+    // Hide the joystick
+    joystickArea.classList.remove('visible');
+
     clearHorizontalInput();
     G.AIMING.manualAim = false;
     G.AIMING.targetAngle = resolveFacingAngle();
@@ -180,10 +191,75 @@ export function initTouchControls(){
     processJoystickInput();
   }
 
-  joystickArea.addEventListener('touchstart', handleJoystickStart, { passive: false });
-  joystickArea.addEventListener('touchmove', handleJoystickMove, { passive: false });
-  joystickArea.addEventListener('touchend', handleJoystickEnd, { passive: false });
-  joystickArea.addEventListener('touchcancel', handleJoystickEnd, { passive: false });
+  // Global touch listener for left third of screen
+  const controlsOverlay = document.querySelector('.controls-overlay');
+  let activeJoystickTouch = null;
+
+  function handleGlobalTouchStart(e){
+    if (activeJoystickTouch) return; // Already have an active joystick touch
+
+    // Don't trigger joystick if touching a button or interactive element
+    const target = e.target;
+    if (target.tagName === 'BUTTON' || target.tagName === 'INPUT' ||
+        target.closest('button') || target.closest('.ui-btn') ||
+        target.closest('.action-btn') || target.closest('.debug-panel')){
+      return;
+    }
+
+    const touch = e.touches[0];
+    const screenWidth = window.innerWidth;
+    const leftThird = screenWidth / 3;
+
+    // Check if touch is in left third of screen
+    if (touch.clientX <= leftThird){
+      activeJoystickTouch = touch.identifier;
+      handleJoystickStart(e);
+    }
+  }
+
+  function handleGlobalTouchMove(e){
+    if (activeJoystickTouch === null) return;
+
+    // Find our specific touch
+    for (let i = 0; i < e.touches.length; i++){
+      if (e.touches[i].identifier === activeJoystickTouch){
+        // Create a synthetic event with just our touch
+        const syntheticEvent = {
+          touches: [e.touches[i]],
+          preventDefault: () => e.preventDefault()
+        };
+        handleJoystickMove(syntheticEvent);
+        break;
+      }
+    }
+  }
+
+  function handleGlobalTouchEnd(e){
+    if (activeJoystickTouch === null) return;
+
+    // Check if our touch ended
+    let touchStillActive = false;
+    for (let i = 0; i < e.touches.length; i++){
+      if (e.touches[i].identifier === activeJoystickTouch){
+        touchStillActive = true;
+        break;
+      }
+    }
+
+    if (!touchStillActive){
+      activeJoystickTouch = null;
+      handleJoystickEnd(e);
+    }
+  }
+
+  if (controlsOverlay){
+    controlsOverlay.addEventListener('touchstart', handleGlobalTouchStart, { passive: false });
+    controlsOverlay.addEventListener('touchmove', handleGlobalTouchMove, { passive: false });
+    controlsOverlay.addEventListener('touchend', handleGlobalTouchEnd, { passive: false });
+    controlsOverlay.addEventListener('touchcancel', handleGlobalTouchEnd, { passive: false });
+  }
+
+  // Keep mouse support on the joystick area itself for desktop testing
   joystickArea.addEventListener('mousedown', handleJoystickStart);
   document.addEventListener('mousemove', handleJoystickMove);
   document.addEventListener('mouseup', handleJoystickEnd);
