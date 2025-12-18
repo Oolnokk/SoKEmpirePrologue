@@ -5052,8 +5052,25 @@ function renderGameplayPathOverlay(ctx) {
     return;
   }
 
+  // Calculate 3D projected line pixel length (screen space)
+  const dx3d = end.x - start.x;
+  const dy3d = end.y - start.y;
+  const pixelLength3d = Math.sqrt(dx3d * dx3d + dy3d * dy3d);
+
+  // Get 3D world distance (in Three.js units)
+  const distance3dWorld = projection.world3d?.distance || 0;
+
+  // Get 2D camera position (world coordinates)
+  const camera2d = window.GAME?.CAMERA;
+  const camX2d = camera2d?.x || 0;
+
+  // Get 3D camera position (from renderer)
+  const renderer3d = window.GAME?.renderer3d;
+  const cam3dX = renderer3d?.camera?.position?.x || 0;
+
   const markerRadius = 6;
 
+  // Draw 3D projected path line
   ctx.save();
   ctx.lineWidth = 4;
   ctx.strokeStyle = '#ff0000';
@@ -5064,15 +5081,56 @@ function renderGameplayPathOverlay(ctx) {
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // Draw markers
   ctx.fillStyle = '#ff0000';
   ctx.beginPath();
   ctx.arc(start.x, start.y, markerRadius, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#ff000';
+  ctx.fillStyle = '#ff0000';
   ctx.beginPath();
   ctx.arc(end.x, end.y, markerRadius, 0, Math.PI * 2);
   ctx.fill();
+
+  // Draw 3D line info label (above the line)
+  const midX = (start.x + end.x) / 2;
+  const midY = (start.y + end.y) / 2;
+  const labelOffsetY = -20; // Above the line
+
+  ctx.font = 'bold 14px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+
+  // 3D info background
+  const text3d = `3D: ${pixelLength3d.toFixed(1)}px screen | ${distance3dWorld.toFixed(1)}u world | cam.x: ${cam3dX.toFixed(1)}`;
+  const metrics3d = ctx.measureText(text3d);
+  const padding = 4;
+  const bgWidth3d = metrics3d.width + padding * 2;
+  const bgHeight3d = 18;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  ctx.fillRect(midX - bgWidth3d / 2, midY + labelOffsetY - bgHeight3d, bgWidth3d, bgHeight3d);
+
+  // 3D info text
+  ctx.fillStyle = '#ff6666';
+  ctx.fillText(text3d, midX, midY + labelOffsetY);
+
+  // Draw 2D line info label (below the line)
+  const labelOffsetY2d = 30; // Below the line
+
+  // For 2D, show camera position (in pixel/world coordinates)
+  // Since we have pixel-perfect mapping now, world units = pixels for 2D
+  const text2d = `2D: ${distance3dWorld.toFixed(1)}px world | cam.x: ${camX2d.toFixed(1)}px`;
+  const metrics2d = ctx.measureText(text2d);
+  const bgWidth2d = metrics2d.width + padding * 2;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  ctx.fillRect(midX - bgWidth2d / 2, midY + labelOffsetY2d, bgWidth2d, bgHeight3d);
+
+  // 2D info text
+  ctx.fillStyle = '#66ff66';
+  ctx.textBaseline = 'top';
+  ctx.fillText(text2d, midX, midY + labelOffsetY2d);
 
   ctx.restore();
 }
