@@ -115,14 +115,37 @@ updateTransformConfig({ pixelsToUnits: 0.5 });  // Half-speed 3D movement
 updateTransformConfig({ centerAt3dOrigin: false });
 ```
 
+## Procedural World Sizing (NEW)
+
+The 2D world now **automatically sizes itself** to match the 3D gameplay path extents. This means:
+- No hardcoded world dimensions
+- Works for any map size (short or long gameplay paths)
+- Camera can always reach the full path range
+
+### How It Works
+1. After visualsmap loads, `getPathExtents()` calculates path bounds
+2. `autoSizeWorldToGameplayPath()` computes required 2D world size
+3. Camera worldWidth/worldHeight set to match path spanX/spanZ (+ 20% padding)
+4. Camera bounds updated to allow full traversal
+
+### Example Output
+```
+[app] Auto-sizing 2D world to gameplay path:
+  Path extents: X=[-2850.0, 2850.0] (span: 5700.0)
+  Path extents: Z=[0.0, 0.0] (span: 0.0)
+  2D world dimensions: 6840.0 x 720.0 pixels
+  Camera bounds: X=[0, 6840.0], Y=[0, 720.0]
+```
+
 ## Configuration Options
 
-### Per-Area Configuration
-The transform automatically reads from:
-- `area.scene3d.ground.unitsPerPixel` - Scale factor
-- `window.GAME.CAMERA.worldWidth/Height` - 2D world dimensions
+### Automatic Configuration (Recommended)
+The system now automatically configures itself by:
+- Reading `area.scene3d.ground.unitsPerPixel` for scale factor
+- Calculating `worldWidth/Height` from 3D gameplay path extents
+- Setting camera bounds to match path range
 
-### Manual Override
+### Manual Override (Advanced)
 Set in config before area loads:
 ```javascript
 // In docs/config/config.js
@@ -137,12 +160,15 @@ window.CONFIG.coordinateTransform = {
 1. **Pixel-Perfect Mapping**: 1 pixel in 2D = 1 unit in 3D (exact correspondence)
 2. **Predictable Movement**: 2D and 3D move in consistent directions
 3. **Correct Scaling**: 3D camera movement matches 2D world dimensions exactly
-4. **Runtime Coupling**: No hard-coded magic numbers, uses actual game dimensions
-5. **Maintainable**: Clear separation between coordinate systems
-6. **Extensible**: Easy to add rotation/offset transformations
+4. **Procedural Sizing**: 2D world automatically sizes to 3D path extents (works for any map)
+5. **Full Path Traversal**: Camera can always reach the entire gameplay path
+6. **Runtime Coupling**: No hard-coded magic numbers, uses actual game dimensions
+7. **Maintainable**: Clear separation between coordinate systems
+8. **Extensible**: Easy to add rotation/offset transformations
 
 ## Future Enhancements
 
+- [x] ~~Auto-size 2D world from 3D gameplay path~~ **DONE**
 - [ ] Auto-detect world rotation from visualsmap path alignment
 - [ ] Support for vertical scrolling (map Y to 3D Y instead of Z)
 - [ ] Per-layer parallax factors (background vs foreground)
@@ -150,6 +176,7 @@ window.CONFIG.coordinateTransform = {
 
 ## Files Modified
 
-1. **Created**: `docs/js/coordinate-transform.js` (new module)
-2. **Updated**: `docs/js/three-camera-sync.js` (refactored)
-3. **Updated**: `docs/js/app.js` (integration)
+1. **Created**: `docs/js/coordinate-transform.js` (coordinate transformation module)
+2. **Updated**: `docs/js/three-camera-sync.js` (camera sync refactored with transforms)
+3. **Updated**: `docs/js/app.js` (integration + procedural sizing)
+4. **Updated**: `docs/renderer/visualsmapLoader.js` (added getPathExtents method)
