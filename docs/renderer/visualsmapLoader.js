@@ -185,7 +185,7 @@ async function loadVisualsmapIndex(baseContext = null) {
   // In development mode, skip cache to always fetch fresh data
   // In production, use cache for performance
   const isDev = isDevelopmentMode();
-
+  
   if (!isDev && VISUALSMAP_INDEX_CACHE.loaded && VISUALSMAP_INDEX_CACHE.assets) {
     console.log('[visualsmapLoader] ↻ Using cached visualsmap index');
     return {
@@ -195,10 +195,10 @@ async function loadVisualsmapIndex(baseContext = null) {
   }
 
   // Add cache-busting parameter in development mode
-  const configRoot = deriveConfigBase(baseContext) || null;
-  const indexBasePath = configRoot ? './maps/visualsmaps/index.json' : 'config/maps/visualsmaps/index.json';
-  const indexPath = isDev ? `${indexBasePath}?t=${Date.now()}` : indexBasePath;
-  const resolvedPath = resolveAssetPath(indexPath, configRoot || baseContext);
+  const indexPath = isDev 
+    ? `config/maps/visualsmaps/index.json?t=${Date.now()}`
+    : 'config/maps/visualsmaps/index.json';
+  const resolvedPath = resolveAssetPath(indexPath, baseContext);
 
   if (!resolvedPath) {
     console.warn('[visualsmapLoader] ✗ Could not resolve visualsmap index path');
@@ -247,11 +247,8 @@ async function loadVisualsmapIndex(baseContext = null) {
  * @returns {Promise<Object>} Asset configuration
  */
 async function loadAssetConfig(assetType, baseContext = null) {
-  const configRoot = deriveConfigBase(baseContext) || null;
-  const configPath = configRoot
-    ? `./assets/${assetType}-config.json`
-    : `config/assets/${assetType}-config.json`;
-  const resolvedPath = resolveAssetPath(configPath, configRoot || baseContext);
+  const configPath = `config/assets/${assetType}-config.json`;
+  const resolvedPath = resolveAssetPath(configPath, baseContext);
 
   console.log(`[visualsmapLoader] Loading asset config for "${assetType}": ${resolvedPath}`);
   
@@ -400,7 +397,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     // placements match editor defaults (orientation, rotations, scales).
     let visualsmapIndexAssets = null;
     if (!usingInlineAssets) {
-      const indexResult = await loadVisualsmapIndex(configBase || docsBase || visualsMapBase || null);
+      const indexResult = await loadVisualsmapIndex(docsBase || visualsMapBase || null);
       visualsmapIndexAssets = indexResult?.assets || null;
       if (visualsmapIndexAssets?.size) {
         console.log(`[visualsmapLoader] Using visualsmap index assets (count: ${visualsmapIndexAssets.size})`);
@@ -457,7 +454,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               assetCache.set(cell.type, indexConfig);
               console.log(`[visualsmapLoader] ✓ Using visualsmap index config for ${cell.type}`);
             } else {
-              const assetConfigBase = configBase || docsBase || visualsMapBase || null;
+              const assetConfigBase = docsBase || visualsMapBase || configBase || null;
               const config = await loadAssetConfig(cell.type, assetConfigBase);
               assetCache.set(cell.type, config);
 
