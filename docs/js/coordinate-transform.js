@@ -22,8 +22,8 @@
  */
 export const TRANSFORM_CONFIG = {
   // Scale factor from 2D pixels to 3D world units
-  // Default: 1 pixel = 0.1 Three.js units (makes a 1600px world = 160 units wide)
-  pixelsToUnits: 0.1,
+  // Default: 1 pixel = 1 Three.js unit (pixel-perfect mapping)
+  pixelsToUnits: 1.0,
 
   // 2D world dimensions in pixels (for centering calculations)
   world2dWidth: 1600,

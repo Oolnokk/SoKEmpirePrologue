@@ -19,7 +19,7 @@ Implemented a **tight runtime coupling** between 2D gameplay coordinates and 3D 
 - **Configuration**:
   ```javascript
   {
-    pixelsToUnits: 0.1,        // 1 pixel = 0.1 Three.js units
+    pixelsToUnits: 1.0,        // 1 pixel = 1 Three.js unit (pixel-perfect)
     world2dWidth: 1600,        // 2D world width in pixels
     world2dHeight: 600,        // 2D world height in pixels
     centerAt3dOrigin: true,    // Center 2D world at 3D (0,0,0)
@@ -33,10 +33,10 @@ Implemented a **tight runtime coupling** between 2D gameplay coordinates and 3D 
   camX = gameCamera.x * parallaxFactor  // 500 pixels → 500 units!
   ```
 
-- **After**: Transforms 2D coordinates to proper 3D world space
+- **After**: Transforms 2D coordinates to proper 3D world space (pixel-perfect)
   ```javascript
   worldPos = transform2dTo3d({ x: cam2dX, y: cam2dY })
-  camX = worldPos.x * parallaxFactor    // 500 pixels → 50 units (scaled)
+  camX = worldPos.x * parallaxFactor    // 500 pixels → 500 units (1:1)
   camZ = worldPos.z * parallaxFactor    // Y maps to Z in 3D
   ```
 
@@ -63,12 +63,12 @@ Implemented a **tight runtime coupling** between 2D gameplay coordinates and 3D 
 
 ## How It Works
 
-### Coordinate Transformation Flow
+### Coordinate Transformation Flow (Pixel-Perfect)
 1. **2D Camera Position** (e.g., x=800 pixels, y=300 pixels)
    ↓
-2. **Transform to 3D** (scale, center, rotate)
-   - Scale: 800 × 0.1 = 80 units, 300 × 0.1 = 30 units
-   - Center: 80 - (1600×0.1)/2 = 0 units, 30 - (600×0.1)/2 = 0 units
+2. **Transform to 3D** (scale 1:1, center, rotate)
+   - Scale: 800 × 1.0 = 800 units, 300 × 1.0 = 300 units
+   - Center: 800 - (1600×1.0)/2 = 0 units, 300 - (600×1.0)/2 = 0 units
    - Result: (0, 0, 0) in 3D world space
    ↓
 3. **Apply Parallax** (if < 1.0)
@@ -94,7 +94,7 @@ Implemented a **tight runtime coupling** between 2D gameplay coordinates and 3D 
 Check browser console for initialization message:
 ```
 [coordinate-transform] Transform config initialized: {
-  pixelsToUnits: 0.1,
+  pixelsToUnits: 1.0,  // Pixel-perfect 1:1 mapping
   world2dWidth: 1600,
   world2dHeight: 600,
   centerAt3dOrigin: true,
@@ -108,8 +108,8 @@ If movement feels off, adjust in browser console:
 // Import the module
 import { updateTransformConfig } from './docs/js/coordinate-transform.js';
 
-// Adjust scale (smaller = slower 3D movement)
-updateTransformConfig({ pixelsToUnits: 0.05 });
+// Adjust scale (default is 1.0 for pixel-perfect)
+updateTransformConfig({ pixelsToUnits: 0.5 });  // Half-speed 3D movement
 
 // Or disable centering
 updateTransformConfig({ centerAt3dOrigin: false });
@@ -127,18 +127,19 @@ Set in config before area loads:
 ```javascript
 // In docs/config/config.js
 window.CONFIG.coordinateTransform = {
-  pixelsToUnits: 0.15,  // Custom scale
+  pixelsToUnits: 1.0,   // Pixel-perfect (default)
   centerAt3dOrigin: false
 };
 ```
 
 ## Benefits
 
-1. **Predictable Movement**: 2D and 3D move in consistent directions
-2. **Correct Scaling**: 3D camera movement properly scaled to world size
-3. **Runtime Coupling**: No hard-coded magic numbers, uses actual game dimensions
-4. **Maintainable**: Clear separation between coordinate systems
-5. **Extensible**: Easy to add rotation/offset transformations
+1. **Pixel-Perfect Mapping**: 1 pixel in 2D = 1 unit in 3D (exact correspondence)
+2. **Predictable Movement**: 2D and 3D move in consistent directions
+3. **Correct Scaling**: 3D camera movement matches 2D world dimensions exactly
+4. **Runtime Coupling**: No hard-coded magic numbers, uses actual game dimensions
+5. **Maintainable**: Clear separation between coordinate systems
+6. **Extensible**: Easy to add rotation/offset transformations
 
 ## Future Enhancements
 
