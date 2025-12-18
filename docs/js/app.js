@@ -922,16 +922,36 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   gameCamera.worldWidth = worldWidth;
   gameCamera.worldHeight = worldHeight;
 
-  // Set bounds on the area object (camera system reads from here)
-  // The camera will be clamped to [min, max - viewportWidth]
+  // Set bounds - try multiple approaches since area object may not be extensible
+  const bounds = { min: 0, max: worldWidth };
+
   if (area) {
-    area.bounds = {
-      min: 0,
-      max: worldWidth
-    };
-    console.log(`  Area bounds set: [${area.bounds.min}, ${area.bounds.max}]`);
+    // Try to set on area.bounds first (preferred)
+    try {
+      area.bounds = bounds;
+      console.log(`  Area bounds set: [${area.bounds.min}, ${area.bounds.max}]`);
+    } catch (e) {
+      console.warn('[app] Cannot set area.bounds (object not extensible), trying area.camera...');
+
+      // Fallback: try to set on area.camera.bounds
+      if (area.camera) {
+        try {
+          area.camera.bounds = bounds;
+          console.log(`  Area.camera bounds set: [${area.camera.bounds.min}, ${area.camera.bounds.max}]`);
+        } catch (e2) {
+          console.warn('[app] Cannot set area.camera.bounds, setting on gameCamera.bounds as final fallback');
+          gameCamera.bounds = bounds;
+          console.log(`  GameCamera bounds set: [${gameCamera.bounds.min}, ${gameCamera.bounds.max}]`);
+        }
+      } else {
+        // No area.camera, set on gameCamera
+        gameCamera.bounds = bounds;
+        console.log(`  GameCamera bounds set: [${gameCamera.bounds.min}, ${gameCamera.bounds.max}]`);
+      }
+    }
   } else {
-    console.warn('[app] No area object provided, bounds not set on area');
+    console.warn('[app] No area object provided, setting bounds on gameCamera');
+    gameCamera.bounds = bounds;
   }
 }
 
