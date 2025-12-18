@@ -5135,6 +5135,7 @@ function renderGameplayPathOverlay(ctx) {
   // Add explanation of coordinate difference
   const labelY3 = labelY2d + lineHeight + 2;
   const worldWidth = camera2d?.worldWidth || 1600;
+  const worldHeight = camera2d?.worldHeight || 600;
   const expectedDiff = camX2d - (worldWidth / 2);
   const actualDiff = cam3dX;
   const diffMatch = Math.abs(expectedDiff - actualDiff) < 1;
@@ -5149,6 +5150,18 @@ function renderGameplayPathOverlay(ctx) {
 
   ctx.fillStyle = diffMatch ? '#88ff88' : '#ffaa44';
   ctx.fillText(text3, labelX, labelY3 + 4);
+
+  // Add world dimensions info
+  const labelY4 = labelY3 + lineHeight + 2;
+  const text4 = `World: ${worldWidth.toFixed(0)}×${worldHeight.toFixed(0)}px | Center: (${(worldWidth/2).toFixed(1)}, ${(worldHeight/2).toFixed(1)})`;
+  const metrics4 = ctx.measureText(text4);
+  const bgWidth4 = metrics4.width + padding * 2;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidth4 / 2, labelY4, bgWidth4, bgHeight3d);
+
+  ctx.fillStyle = '#aaaaaa';
+  ctx.fillText(text4, labelX, labelY4 + 4);
 
   ctx.restore();
 }

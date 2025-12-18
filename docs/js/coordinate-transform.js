@@ -48,8 +48,18 @@ export function transform2dTo3d(pos2d, config = {}) {
     return { x: 0, y: 0, z: 0 };
   }
 
-  // Merge with defaults
-  const cfg = { ...TRANSFORM_CONFIG, ...config };
+  // Merge with defaults, but use runtime camera dimensions if available
+  const gameCamera = (typeof window !== 'undefined') ? window.GAME?.CAMERA : null;
+  const runtimeWidth = gameCamera?.worldWidth;
+  const runtimeHeight = gameCamera?.worldHeight;
+
+  const cfg = {
+    ...TRANSFORM_CONFIG,
+    // Override with runtime dimensions if available and not explicitly overridden
+    ...(runtimeWidth && !config.world2dWidth ? { world2dWidth: runtimeWidth } : {}),
+    ...(runtimeHeight && !config.world2dHeight ? { world2dHeight: runtimeHeight } : {}),
+    ...config
+  };
 
   // Get 2D position
   const x2d = typeof pos2d.x === 'number' ? pos2d.x : 0;
