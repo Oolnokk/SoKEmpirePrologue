@@ -870,6 +870,7 @@ import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
+import { initTransformConfig } from './coordinate-transform.js?v=1';
 
 // Visualsmap loader for 3D grid-based scenes
 let visualsmapLoaderModule = null;
@@ -6266,8 +6267,8 @@ function boot(){
 
               const gameCamera = window.GAME?.CAMERA;
               if (gameCamera && GAME_RENDERER_3D) {
-                // Camera sync config for side-scrolling view aligned with gameplay path
-                // Values match visualsmapLoader camera setup (based on cellSize/GRID_UNIT_WORLD_SIZE=30)
+                // Camera sync with tight 2D-3D coordinate coupling
+                // Values based on cellSize/GRID_UNIT_WORLD_SIZE=30
                 const cellSize = window.GRID_UNIT_WORLD_SIZE || 30;
                 syncThreeCamera({
                   renderer: GAME_RENDERER_3D,
@@ -6276,7 +6277,8 @@ function boot(){
                     parallaxFactor: 1.0,              // 3D camera follows 2D camera exactly (side-scrolling)
                     cameraHeight: cellSize * 0.8,     // Height above ground (24 with cellSize=30)
                     cameraDistance: -cellSize * 1.2,  // Negative Z = viewer side (-36 with cellSize=30)
-                    lookAtOffsetY: cellSize * 0.3     // Look slightly above ground (9 with cellSize=30)
+                    lookAtOffsetY: cellSize * 0.3,    // Look slightly above ground (9 with cellSize=30)
+                    useTransform: true                // Enable coordinate transformation for tight coupling
                   }
                 });
               }
@@ -6330,6 +6332,13 @@ function boot(){
                   if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
                     console.log('[app] Visualsmap loaded successfully:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
                     lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+
+                    // Initialize coordinate transformation for tight 2D-3D coupling
+                    initTransformConfig({
+                      camera2d: window.GAME?.CAMERA,
+                      scene3d: area.scene3d,
+                      worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
+                    });
                   } else {
                     console.warn('[app] Visualsmap loaded but no objects found');
                     lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
@@ -6347,6 +6356,13 @@ function boot(){
                 if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
                   console.log('[app] 3D scene loaded successfully');
                   lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+
+                  // Initialize coordinate transformation for tight 2D-3D coupling
+                  initTransformConfig({
+                    camera2d: window.GAME?.CAMERA,
+                    scene3d: area.scene3d,
+                    worldRotation: 0
+                  });
                 } else {
                   console.warn('[app] Failed to load 3D scene:', GAME_RENDER_ADAPTER?.error);
                   lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
@@ -6383,6 +6399,13 @@ function boot(){
               window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
               if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
                 lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+
+                // Initialize coordinate transformation for tight 2D-3D coupling
+                initTransformConfig({
+                  camera2d: window.GAME?.CAMERA,
+                  scene3d: areaToLoad.scene3d,
+                  worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
+                });
               } else {
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
               }
@@ -6394,6 +6417,13 @@ function boot(){
               window.GAME.renderAdapter = GAME_RENDER_ADAPTER; // Expose for debugging
               if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
                 lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+
+                // Initialize coordinate transformation for tight 2D-3D coupling
+                initTransformConfig({
+                  camera2d: window.GAME?.CAMERA,
+                  scene3d: areaToLoad.scene3d,
+                  worldRotation: 0
+                });
               } else {
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
               }
