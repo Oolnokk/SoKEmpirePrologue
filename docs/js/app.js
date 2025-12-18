@@ -5039,7 +5039,7 @@ function updateGroundYFromPath() {
   }
 }
 
-// One-time calibration: Measure 3D tile edge and set 2D world scale
+// One-time calibration: Measure 3D tile and set 2D world bounds
 // This runs once after the 3D scene loads, not every frame
 let worldScaleCalibrated = false;
 
@@ -5062,14 +5062,6 @@ function calibrateWorldScaleFromTile() {
   console.log(`[calibration]   Screen width: ${pixelWidth.toFixed(1)}px`);
   console.log(`[calibration]   Flipped: ${flipped}`);
 
-  // Set GRID_UNIT_WORLD_SIZE to match the measured tile width
-  // This makes 1 grid unit = actual visible tile width in pixels
-  const oldGridSize = window.GRID_UNIT_WORLD_SIZE || 30;
-  window.GRID_UNIT_WORLD_SIZE = pixelWidth;
-
-  console.log(`[calibration]   Old GRID_UNIT_WORLD_SIZE: ${oldGridSize}`);
-  console.log(`[calibration]   New GRID_UNIT_WORLD_SIZE: ${window.GRID_UNIT_WORLD_SIZE.toFixed(1)}`);
-
   // Calculate playable bounds based on measured scale
   // The gameplay path spans 19 cells (col 0 to col 19)
   const pathCells = 19;
@@ -5081,13 +5073,24 @@ function calibrateWorldScaleFromTile() {
   if (!projection || !projection.start || !projection.end) return;
 
   const { start, end } = projection;
-  const pathStartX = Math.min(start.x, end.x);
 
-  // Set playable bounds (in 2D world space = pixels)
-  const leftBound = pathStartX;
-  const rightBound = pathStartX + totalWidth;
+  // Set bounds based on path position and measured width
+  let leftBound, rightBound;
+
+  if (flipped) {
+    // Coordinate system is flipped
+    const pathLeftX = Math.max(start.x, end.x);
+    leftBound = pathLeftX;
+    rightBound = pathLeftX - totalWidth;
+  } else {
+    // Normal coordinate system
+    const pathLeftX = Math.min(start.x, end.x);
+    leftBound = pathLeftX;
+    rightBound = pathLeftX + totalWidth;
+  }
 
   console.log(`[calibration]   Path cells: ${pathCells}`);
+  console.log(`[calibration]   Tile width: ${pixelWidth.toFixed(1)}px`);
   console.log(`[calibration]   Total width: ${totalWidth.toFixed(1)}px`);
   console.log(`[calibration]   Playable bounds: ${leftBound.toFixed(1)} to ${rightBound.toFixed(1)}`);
   console.log('[calibration] ========================================');
