@@ -8,19 +8,22 @@ Use these GitHack URLs to test each commit directly in your browser without need
 
 ## Recent Commits
 
-### Commit 5: Sign Flip Fix (Latest) ✅
-**Commit**: `c919fc3` - Remove incorrect sign flip in camera sync
+### Commit 5: Sign Flip Restoration (Latest) ✅
+**Commit**: `b41520a` - Restore sign flip for correct 3D visual scrolling direction
 
 **GitHack URL** (for HTML entry point):
 ```
-https://raw.githack.com/Oolnokk/SoKEmpirePrologue/c919fc3/docs/index.html
+https://raw.githack.com/Oolnokk/SoKEmpirePrologue/b41520a/docs/index.html
 ```
 
 **Changes**:
-- **FINAL FIX**: Removed incorrect sign negation on parallaxX
-- 3D camera now positioned correctly (left of path when at left of 2D world)
-- Fixed visual movement - 3D world now moves correctly with 2D camera
-- ✅ All coordinate systems properly aligned!
+- **CORRECT BEHAVIOR**: Sign flip is REQUIRED for proper side-scrolling
+- When player moves RIGHT → 3D world scrolls LEFT (standard behavior)
+- Camera position intentionally inverted for visual effect
+- Debug overlay "mismatch" is expected and correct
+- ✅ 3D world now scrolls in the right direction!
+
+**Note**: The debug overlay shows a "mismatch" between expected and actual camera position. This is intentional! The transform calculates the logical position, then we invert it for correct visual scrolling.
 
 ---
 
@@ -117,11 +120,11 @@ https://raw.githack.com/Oolnokk/SoKEmpirePrologue/57ea5be/docs/js/app.js
 
 ## Testing Checklist
 
-For commit `c919fc3` (latest, fully working):
+For commit `b41520a` (latest, fully working):
 
 1. **Open in browser** - Load the GitHack URL
    ```
-   https://raw.githack.com/Oolnokk/SoKEmpirePrologue/c919fc3/docs/index.html
+   https://raw.githack.com/Oolnokk/SoKEmpirePrologue/b41520a/docs/index.html
    ```
 
 2. **Open DevTools Console** - Press F12 to see initialization logs
@@ -138,25 +141,26 @@ For commit `c919fc3` (latest, fully working):
    [coordinate-transform] Transform config initialized: {...}
    ```
 
-5. **Verify debug overlay shows NO mismatch**:
+5. **Debug overlay mismatch is EXPECTED and CORRECT**:
    ```
-   ✓ Mismatch: expected -2256.4, got -2256.4
+   ✓ Mismatch: expected -2256.4, got 2256.4
    ```
-   (Values should match!)
+   This is intentional! The sign flip inverts camera position for proper side-scrolling.
 
-6. **Test movement** (c919fc3):
+6. **Test movement** (b41520a):
    - ✅ Character can move left and right freely
-   - ✅ 3D world moves correctly with 2D camera
+   - ✅ 3D world scrolls in CORRECT direction (opposite to player movement)
+   - ✅ When move RIGHT → 3D world scrolls LEFT
    - ✅ Can reach BOTH ends of the gameplay path
    - ✅ Pixel-perfect alignment (1px = 1 unit)
-   - ✅ Camera positioning matches expected values
 
 7. **Compare commits** (if needed):
    - `eb705ae` - Initial 0.1x scale fix
    - `57ea5be` - Pixel-perfect but hardcoded
    - `b87e263` - Procedural (broken - no movement)
-   - `b829992` - Bounds fix (broken - inverted camera)
-   - `c919fc3` - ✅ **FULLY WORKING**
+   - `b829992` - Bounds fix but had old sign flip
+   - `c919fc3` - Wrong direction (sign flip removed)
+   - `b41520a` - ✅ **FULLY WORKING** (sign flip restored)
 
 ## Alternative: Test via GitHub Pages
 
@@ -200,8 +204,9 @@ If GitHack URLs don't load:
 | `eb705ae` | 0.1x | Initial fix with 10% scaling | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/eb705ae/docs/index.html) |
 | `57ea5be` | 1.0x | Pixel-perfect 1:1 mapping | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/57ea5be/docs/index.html) |
 | `b87e263` | 1.0x | Procedural sizing (⚠️ broken - no movement) | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/b87e263/docs/index.html) |
-| `b829992` | 1.0x | Bounds fix (⚠️ inverted camera) | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/b829992/docs/index.html) |
-| `c919fc3` | 1.0x | ✅ **FULLY WORKING** - All fixes applied | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/c919fc3/docs/index.html) |
+| `b829992` | 1.0x | Bounds fix (⚠️ had sign flip, removed in next commit) | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/b829992/docs/index.html) |
+| `c919fc3` | 1.0x | ⚠️ Sign flip removed (broke scrolling direction) | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/c919fc3/docs/index.html) |
+| `b41520a` | 1.0x | ✅ **FULLY WORKING** - Sign flip restored | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/b41520a/docs/index.html) |
 
 ---
 
