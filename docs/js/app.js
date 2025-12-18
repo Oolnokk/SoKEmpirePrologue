@@ -922,23 +922,13 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   gameCamera.worldWidth = worldWidth;
   gameCamera.worldHeight = worldHeight;
 
-  console.log(`  Camera world size set: ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)}`);
+  // Set bounds directly on camera object
+  // The camera system should read from camera.bounds
+  gameCamera.bounds = { min: 0, max: worldWidth };
 
-  // Try to set bounds on area.camera by replacing the entire camera object
-  // This works around the non-extensible area object issue
-  if (area) {
-    try {
-      // Create a new camera config with bounds
-      const existingCamera = area.camera || {};
-      area.camera = {
-        ...existingCamera,
-        bounds: { min: 0, max: worldWidth }
-      };
-      console.log(`  Area.camera.bounds set via object replacement: [0, ${worldWidth.toFixed(1)}]`);
-    } catch (e) {
-      console.warn('[app] Cannot modify area.camera, bounds may not be enforced:', e.message);
-    }
-  }
+  console.log(`  Camera world size: ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)}`);
+  console.log(`  Camera bounds: [${gameCamera.bounds.min}, ${gameCamera.bounds.max}]`);
+  console.log(`  Note: Area object is frozen, bounds set on gameCamera instead`);
 }
 
 // Optional 3D renderer modules (lazy-loaded to avoid breaking boot if assets aren't hosted)
