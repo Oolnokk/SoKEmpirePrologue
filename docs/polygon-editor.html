@@ -189,6 +189,20 @@
       color: var(--muted);
       margin-bottom: 12px;
     }
+    .debug-overlay {
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      font-size: 11px;
+      color: #94a3b8;
+      background: rgba(15, 23, 42, 0.85);
+      padding: 6px 10px;
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 10;
+      font-family: ui-monospace, monospace;
+      line-height: 1.5;
+    }
     .controls-overlay {
       position: absolute;
       top: 16px;
@@ -355,7 +369,9 @@
   <div class="main-container">
     <!-- Center: 3D Viewport -->
     <div class="canvas-container">
-      <div id="viewport"></div>
+      <div id="viewport">
+        <div class="debug-overlay" id="debugOverlay">Initializing...</div>
+      </div>
 
       <div class="controls-overlay">
         <h3>Controls</h3>
@@ -615,6 +631,12 @@
       // Load available images
       loadAvailableImages();
 
+      // Initial debug update
+      const debugEl = document.getElementById('debugOverlay');
+      if (debugEl) {
+        debugEl.textContent = 'Scene: ✓ Initialized';
+      }
+
       console.log('Three.js initialization complete, starting animation loop');
       animate();
     }
@@ -633,7 +655,33 @@
       // Update z-ordering of transparent planes
       updatePlaneZOrder();
 
+      // Update debug overlay
+      updateDebugOverlay();
+
       renderer.render(scene, camera);
+    }
+
+    // Update debug overlay with current state
+    function updateDebugOverlay() {
+      const debugEl = document.getElementById('debugOverlay');
+      if (!debugEl) return;
+
+      const totalFaces = polygons.reduce((sum, p) => sum + p.faces.length, 0);
+      const totalPlanes = polygons.reduce((sum, p) =>
+        sum + p.faces.reduce((fsum, f) => fsum + f.planes.length, 0), 0);
+
+      const selectedInfo = selectedPolygonIndex >= 0
+        ? `${polygons[selectedPolygonIndex].id}/${selectedFaceIndex >= 0 ? polygons[selectedPolygonIndex].faces[selectedFaceIndex].name : 'none'}`
+        : 'none';
+
+      const camPos = camera.position;
+
+      debugEl.innerHTML = `
+Scene: ✓ Rendering<br>
+Polygons: ${polygons.length} (${totalFaces} faces, ${totalPlanes} planes)<br>
+Selected: ${selectedInfo}<br>
+Camera: (${camPos.x.toFixed(1)}, ${camPos.y.toFixed(1)}, ${camPos.z.toFixed(1)})
+      `.trim();
     }
 
     // Update z-ordering of planes based on camera distance
