@@ -1,8 +1,8 @@
 {
   "areaId": "defaultdistrict3d",
   "playableBounds": {
-    "left": -1160,
-    "right": 1160,
+    "left": -1100,
+    "right": 1580,
     "top": -600,
     "bottom": -400
   },

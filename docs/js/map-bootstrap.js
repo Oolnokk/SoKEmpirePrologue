@@ -474,8 +474,33 @@ function syncConfigPlayableBounds(area) {
     });
     const scene = resolveSceneDescriptor(area);
     const playable = scene?.playableBounds;
-    const left = Number.isFinite(playable?.left) ? playable.left : null;
-    const right = Number.isFinite(playable?.right) ? playable.right : null;
+    let left = Number.isFinite(playable?.left) ? playable.left : null;
+    let right = Number.isFinite(playable?.right) ? playable.right : null;
+
+    // Check if screen projection is flipped (start.x > end.x) and swap bounds if needed
+    if (left != null && right != null && typeof window !== 'undefined') {
+        const adapter = window.GAME?.visualsmapAdapter;
+        if (adapter && typeof adapter.getPathScreenLine === 'function') {
+            try {
+                const projection = adapter.getPathScreenLine({ canvas: document.getElementById('game') });
+                if (projection && projection.start && projection.end) {
+                    // If projected start.x > end.x, the screen projection is flipped
+                    if (Number.isFinite(projection.start.x) && Number.isFinite(projection.end.x)) {
+                        if (projection.start.x > projection.end.x) {
+                            // Swap left and right bounds to match flipped projection
+                            const temp = left;
+                            left = right;
+                            right = temp;
+                            console.log('[map-bootstrap] Detected flipped screen projection, swapped playable bounds');
+                        }
+                    }
+                }
+            } catch (error) {
+                // Silently continue if projection check fails
+            }
+        }
+    }
+
     if (left != null && right != null) {
         mapConfig.playableBounds = { ...playable, left, right };
         mapConfig.activePlayableBounds = mapConfig.playableBounds;
