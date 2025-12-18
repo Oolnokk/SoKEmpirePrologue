@@ -69,15 +69,14 @@ export function syncCameraPosition(renderer, gameCamera, config = {}) {
 
   // Calculate 3D camera position
   // Position camera at the transformed location, offset by height and distance
-  // IMPORTANT: Negate X for correct visual scrolling direction
-  // (when player moves right in 2D, 3D world should appear to scroll left)
-  const camX = -parallaxX;
+  // Note: X inversion is now handled in coordinate-transform.js
+  const camX = parallaxX;
   const camY = cfg.cameraHeight;
   const camZ = parallaxZ + cfg.cameraDistance;
 
   // Calculate look-at target (where the camera should point)
   // Look at the transformed position on the ground plane
-  const lookAtX = -parallaxX;
+  const lookAtX = parallaxX;
   const lookAtY = cfg.lookAtOffsetY;
   const lookAtZ = parallaxZ + cfg.lookAtOffsetZ;
 

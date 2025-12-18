@@ -66,14 +66,16 @@ export function transform2dTo3d(pos2d, config = {}) {
   const y2d = typeof pos2d.y === 'number' ? pos2d.y : 0;
 
   // Scale from pixels to 3D units
-  let x3d = x2d * cfg.pixelsToUnits;
+  // IMPORTANT: Invert X for correct side-scrolling direction
+  // (moving right in 2D should make 3D world scroll left)
+  let x3d = x2d * cfg.pixelsToUnits * -1;  // Negative scale for inversion
   let z3d = y2d * cfg.pixelsToUnits;
 
   // Center at 3D origin if configured
   if (cfg.centerAt3dOrigin) {
     const centerOffsetX = (cfg.world2dWidth * cfg.pixelsToUnits) / 2;
     const centerOffsetZ = (cfg.world2dHeight * cfg.pixelsToUnits) / 2;
-    x3d -= centerOffsetX;
+    x3d += centerOffsetX;  // Add instead of subtract due to negation
     z3d -= centerOffsetZ;
   }
 
