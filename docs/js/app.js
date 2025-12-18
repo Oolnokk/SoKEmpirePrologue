@@ -5039,8 +5039,8 @@ function updateGroundYFromPath() {
   }
 }
 
-// One-time calibration: Measure 3D tile and set 2D world bounds
-// This runs once after the 3D scene loads, not every frame
+// One-time calibration: Set GRID_UNIT_WORLD_SIZE to match screen pixels
+// This creates a 1:1 mapping where 1 world unit = 1 pixel
 let worldScaleCalibrated = false;
 
 function calibrateWorldScaleFromTile() {
@@ -5050,7 +5050,7 @@ function calibrateWorldScaleFromTile() {
   const adapter = window.GAME?.visualsmapAdapter;
   if (!adapter || typeof adapter.getTileScreenMeasurement !== 'function') return;
 
-  // Measure one tile edge in screen pixels
+  // Measure one tile's pixel width on screen
   const tileMeasurement = adapter.getTileScreenMeasurement({ canvas: cv });
   if (!tileMeasurement) return;
 
@@ -5059,50 +5059,58 @@ function calibrateWorldScaleFromTile() {
   console.log('[calibration] ========================================');
   console.log('[calibration] ONE-TIME WORLD SCALE CALIBRATION');
   console.log(`[calibration] Measured tile ${col}:`);
-  console.log(`[calibration]   Screen width: ${pixelWidth.toFixed(1)}px`);
+  console.log(`[calibration]   Current GRID_UNIT_WORLD_SIZE: ${window.GRID_UNIT_WORLD_SIZE || 30}`);
+  console.log(`[calibration]   Measured pixel width: ${pixelWidth.toFixed(1)}px`);
   console.log(`[calibration]   Flipped: ${flipped}`);
 
-  // Calculate playable bounds based on measured scale
-  // The gameplay path spans 19 cells (col 0 to col 19)
-  const pathCells = 19;
-  const totalWidth = pixelWidth * pathCells;
+  // Set GRID_UNIT_WORLD_SIZE to the measured pixel width
+  // This creates 1:1 mapping: 1 world unit = 1 pixel
+  window.GRID_UNIT_WORLD_SIZE = pixelWidth;
+  console.log(`[calibration]   New GRID_UNIT_WORLD_SIZE: ${pixelWidth.toFixed(1)}`);
 
-  // Get the path projection to find where it starts
+  // Calculate playable bounds: simply GRID_UNIT_WORLD_SIZE × 19 tiles
+  const pathCells = 19;
+  const totalWidth = window.GRID_UNIT_WORLD_SIZE * pathCells;
+
+  // Get path position to know where to place bounds
   if (typeof adapter.getPathScreenLine !== 'function') return;
   const projection = adapter.getPathScreenLine({ canvas: cv });
   if (!projection || !projection.start || !projection.end) return;
 
   const { start, end } = projection;
 
-  // Set bounds based on path position and measured width
+  // Place bounds at path location
   let leftBound, rightBound;
-
   if (flipped) {
-    // Coordinate system is flipped
     const pathLeftX = Math.max(start.x, end.x);
     leftBound = pathLeftX;
     rightBound = pathLeftX - totalWidth;
   } else {
-    // Normal coordinate system
     const pathLeftX = Math.min(start.x, end.x);
     leftBound = pathLeftX;
     rightBound = pathLeftX + totalWidth;
   }
 
   console.log(`[calibration]   Path cells: ${pathCells}`);
-  console.log(`[calibration]   Tile width: ${pixelWidth.toFixed(1)}px`);
   console.log(`[calibration]   Total width: ${totalWidth.toFixed(1)}px`);
   console.log(`[calibration]   Playable bounds: ${leftBound.toFixed(1)} to ${rightBound.toFixed(1)}`);
+  console.log('[calibration]   Result: 1 world unit = 1 pixel (perfect alignment)');
   console.log('[calibration] ========================================');
 
-  // Store the calibrated bounds (these won't change anymore)
+  // Store calibrated bounds
   if (window.CONFIG && window.CONFIG.map) {
     window.CONFIG.map.playAreaMinX = leftBound;
     window.CONFIG.map.playAreaMaxX = rightBound;
     window.CONFIG.map.activePlayableBounds = { left: leftBound, right: rightBound };
     window.CONFIG.map.playableBounds = { left: leftBound, right: rightBound };
-    window.CONFIG.map._worldScale = pixelWidth; // Store for reference
-    window.CONFIG.map._flipped = flipped;
+    window.CONFIG.map._calibration = {
+      measuredPixelWidth: pixelWidth,
+      gridUnitWorldSize: window.GRID_UNIT_WORLD_SIZE,
+      pathCells,
+      totalWidth,
+      flipped,
+      ratio: '1:1 (world units = pixels)'
+    };
   }
 
   // Update geometry service
