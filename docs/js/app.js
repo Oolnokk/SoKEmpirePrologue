@@ -922,36 +922,22 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   gameCamera.worldWidth = worldWidth;
   gameCamera.worldHeight = worldHeight;
 
-  // Set bounds - try multiple approaches since area object may not be extensible
-  const bounds = { min: 0, max: worldWidth };
+  console.log(`  Camera world size set: ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)}`);
 
+  // Try to set bounds on area.camera by replacing the entire camera object
+  // This works around the non-extensible area object issue
   if (area) {
-    // Try to set on area.bounds first (preferred)
     try {
-      area.bounds = bounds;
-      console.log(`  Area bounds set: [${area.bounds.min}, ${area.bounds.max}]`);
+      // Create a new camera config with bounds
+      const existingCamera = area.camera || {};
+      area.camera = {
+        ...existingCamera,
+        bounds: { min: 0, max: worldWidth }
+      };
+      console.log(`  Area.camera.bounds set via object replacement: [0, ${worldWidth.toFixed(1)}]`);
     } catch (e) {
-      console.warn('[app] Cannot set area.bounds (object not extensible), trying area.camera...');
-
-      // Fallback: try to set on area.camera.bounds
-      if (area.camera) {
-        try {
-          area.camera.bounds = bounds;
-          console.log(`  Area.camera bounds set: [${area.camera.bounds.min}, ${area.camera.bounds.max}]`);
-        } catch (e2) {
-          console.warn('[app] Cannot set area.camera.bounds, setting on gameCamera.bounds as final fallback');
-          gameCamera.bounds = bounds;
-          console.log(`  GameCamera bounds set: [${gameCamera.bounds.min}, ${gameCamera.bounds.max}]`);
-        }
-      } else {
-        // No area.camera, set on gameCamera
-        gameCamera.bounds = bounds;
-        console.log(`  GameCamera bounds set: [${gameCamera.bounds.min}, ${gameCamera.bounds.max}]`);
-      }
+      console.warn('[app] Cannot modify area.camera, bounds may not be enforced:', e.message);
     }
-  } else {
-    console.warn('[app] No area object provided, setting bounds on gameCamera');
-    gameCamera.bounds = bounds;
   }
 }
 
