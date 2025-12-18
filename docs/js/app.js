@@ -887,8 +887,9 @@ async function getVisualsmapLoader() {
  * This ensures the 2D camera can traverse the full 3D path range with pixel-perfect mapping.
  *
  * @param {Object} visualsmapAdapter - The visualsmap adapter with getPathExtents() method
+ * @param {Object} area - The area object to set bounds on
  */
-function autoSizeWorldToGameplayPath(visualsmapAdapter) {
+function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   if (!visualsmapAdapter || typeof visualsmapAdapter.getPathExtents !== 'function') {
     console.warn('[app] Cannot auto-size world: visualsmapAdapter missing or no getPathExtents method');
     return;
@@ -921,14 +922,17 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter) {
   gameCamera.worldWidth = worldWidth;
   gameCamera.worldHeight = worldHeight;
 
-  // Update camera bounds to match the full world
-  // Camera uses 'bounds' object with 'min' and 'max' properties
-  gameCamera.bounds = {
-    min: 0,
-    max: worldWidth
-  };
-
-  console.log(`  Camera bounds: [${gameCamera.bounds.min}, ${gameCamera.bounds.max}]`);
+  // Set bounds on the area object (camera system reads from here)
+  // The camera will be clamped to [min, max - viewportWidth]
+  if (area) {
+    area.bounds = {
+      min: 0,
+      max: worldWidth
+    };
+    console.log(`  Area bounds set: [${area.bounds.min}, ${area.bounds.max}]`);
+  } else {
+    console.warn('[app] No area object provided, bounds not set on area');
+  }
 }
 
 // Optional 3D renderer modules (lazy-loaded to avoid breaking boot if assets aren't hosted)
@@ -6503,7 +6507,7 @@ function boot(){
                     lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
 
                     // Auto-size 2D world to match 3D gameplay path (procedural sizing)
-                    autoSizeWorldToGameplayPath(GAME_VISUALSMAP_ADAPTER);
+                    autoSizeWorldToGameplayPath(GAME_VISUALSMAP_ADAPTER, area);
 
                     // Initialize coordinate transformation for tight 2D-3D coupling
                     initTransformConfig({
@@ -6573,7 +6577,7 @@ function boot(){
                 lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
 
                 // Auto-size 2D world to match 3D gameplay path (procedural sizing)
-                autoSizeWorldToGameplayPath(GAME_VISUALSMAP_ADAPTER);
+                autoSizeWorldToGameplayPath(GAME_VISUALSMAP_ADAPTER, areaToLoad);
 
                 // Initialize coordinate transformation for tight 2D-3D coupling
                 initTransformConfig({
