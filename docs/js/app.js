@@ -5187,19 +5187,22 @@ function renderGameplayPathOverlay(ctx) {
   const labelY3 = labelY2d + lineHeight + 2;
   const worldWidth = camera2d?.worldWidth || 1600;
   const worldHeight = camera2d?.worldHeight || 600;
-  const expectedDiff = camX2d - (worldWidth / 2);
-  const actualDiff = cam3dX;
-  const diffMatch = Math.abs(expectedDiff - actualDiff) < 1;
-  const text3 = diffMatch
-    ? `✓ Transform OK: ${camX2d.toFixed(1)} - ${(worldWidth/2).toFixed(1)} = ${cam3dX.toFixed(1)}`
-    : `⚠ Mismatch: expected ${expectedDiff.toFixed(1)}, got ${actualDiff.toFixed(1)}`;
+  // Transform: x3d = (worldWidth/2) - x2d
+  //   - Accounts for centering: 2D measured from left, 3D from center
+  //   - Accounts for inversion: moving right in 2D scrolls left in 3D
+  const expectedFrom2D = (worldWidth / 2) - camX2d;
+  const actual3D = cam3dX;
+  const transformOK = Math.abs(expectedFrom2D - actual3D) < 1;
+  const text3 = transformOK
+    ? `✓ 2D→3D: ${(worldWidth/2).toFixed(1)} - ${camX2d.toFixed(1)} = ${actual3D.toFixed(1)}`
+    : `⚠ 2D→3D error: expected ${expectedFrom2D.toFixed(1)}, got ${actual3D.toFixed(1)}`;
   const metrics3 = ctx.measureText(text3);
   const bgWidth3 = metrics3.width + padding * 2;
 
   ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
   ctx.fillRect(labelX - bgWidth3 / 2, labelY3, bgWidth3, bgHeight3d);
 
-  ctx.fillStyle = diffMatch ? '#88ff88' : '#ffaa44';
+  ctx.fillStyle = transformOK ? '#88ff88' : '#ffaa44';
   ctx.fillText(text3, labelX, labelY3 + 4);
 
   // Add world dimensions info
@@ -5215,10 +5218,10 @@ function renderGameplayPathOverlay(ctx) {
   ctx.fillText(text4, labelX, labelY4 + 4);
 
   // Add detailed mismatch debugging if there's a problem
-  if (!diffMatch) {
+  if (!transformOK) {
     const labelY5 = labelY4 + lineHeight + 2;
-    const discrepancy = actualDiff - expectedDiff;
-    const text5 = `Debug: Discrepancy=${discrepancy.toFixed(1)} | 2D=${camX2d.toFixed(1)} | 3D=${cam3dX.toFixed(1)} | Center=${(worldWidth/2).toFixed(1)}`;
+    const discrepancy = actual3D - expectedFrom2D;
+    const text5 = `Debug: Error=${discrepancy.toFixed(1)} | 2D=${camX2d.toFixed(1)} | 3D=${cam3dX.toFixed(1)} | Center=${(worldWidth/2).toFixed(1)}`;
     const metrics5 = ctx.measureText(text5);
     const bgWidth5 = metrics5.width + padding * 2;
 
