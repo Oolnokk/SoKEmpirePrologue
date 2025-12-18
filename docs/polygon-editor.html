@@ -1,0 +1,1304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Polygon Editor - 6-Faced Objects</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --panel: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .header-right {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .main-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      overflow: hidden;
+    }
+    .canvas-container {
+      position: relative;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #viewport {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .sidebar-right {
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .card h2 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .field {
+      margin-bottom: 12px;
+    }
+    .field:last-child {
+      margin-bottom: 0;
+    }
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .field input[type="text"],
+    .field input[type="number"],
+    .field select {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+    }
+    .field input[type="range"] {
+      width: 100%;
+    }
+    .btn {
+      padding: 8px 16px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+      width: 100%;
+    }
+    .btn:hover {
+      background: var(--primary-hover);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-secondary:hover {
+      background: var(--panel);
+    }
+    .btn-success {
+      background: var(--success);
+    }
+    .btn-success:hover {
+      background: #059669;
+    }
+    .btn-danger {
+      background: var(--danger);
+    }
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+    .button-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .button-row .btn {
+      width: auto;
+      flex: 1;
+    }
+    .coord-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .coord-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .info-banner {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .controls-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 11px;
+      color: var(--muted);
+      max-width: 300px;
+      z-index: 10;
+    }
+    .controls-overlay h3 {
+      font-size: 12px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .controls-overlay ul {
+      list-style: none;
+      padding: 0;
+    }
+    .controls-overlay li {
+      margin-bottom: 4px;
+    }
+    .controls-overlay kbd {
+      background: var(--card);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: ui-monospace, monospace;
+      font-size: 10px;
+    }
+    .polygon-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .polygon-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .polygon-item:hover {
+      border-color: var(--primary);
+    }
+    .polygon-item.selected {
+      border-color: var(--primary);
+      background: rgba(59, 130, 246, 0.1);
+    }
+    .polygon-info {
+      flex: 1;
+    }
+    .polygon-id {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .polygon-coords {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: ui-monospace, monospace;
+      margin-top: 2px;
+    }
+    .image-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .image-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .image-item:hover {
+      border-color: var(--primary);
+    }
+    .image-item.selected {
+      border-color: var(--primary);
+      background: rgba(59, 130, 246, 0.1);
+    }
+    .image-preview {
+      width: 100%;
+      height: 80px;
+      object-fit: contain;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+    }
+    .image-name {
+      font-size: 10px;
+      color: var(--muted);
+      text-align: center;
+      word-break: break-all;
+    }
+    .plane-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .plane-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+    .plane-item.selected {
+      border-color: var(--primary);
+      background: rgba(59, 130, 246, 0.1);
+    }
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 12px 0;
+    }
+    .range-value {
+      display: inline-block;
+      min-width: 45px;
+      text-align: right;
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      color: var(--text);
+    }
+    .field-with-value {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .field-with-value input[type="range"] {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Polygon Editor</h1>
+    <div class="header-right">
+      <button class="btn btn-secondary" id="importBtn" style="width: auto; padding: 8px 16px;">Import</button>
+      <button class="btn btn-secondary" id="exportBtn" style="width: auto; padding: 8px 16px;">Export</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- Center: 3D Viewport -->
+    <div class="canvas-container">
+      <div id="viewport"></div>
+
+      <div class="controls-overlay">
+        <h3>Controls</h3>
+        <ul>
+          <li><kbd>Click</kbd> on face to select it</li>
+          <li><kbd>Scroll</kbd> to zoom</li>
+          <li><kbd>Drag</kbd> to rotate camera</li>
+          <li><kbd>Right-drag</kbd> to pan</li>
+          <li><kbd>Delete</kbd> to remove selected polygon</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Right Sidebar: Controls -->
+    <div class="sidebar-right">
+      <!-- Polygon Management -->
+      <div class="card">
+        <h2>Polygons</h2>
+        <button class="btn btn-success" id="addPolygonBtn">+ Create Polygon</button>
+        <div style="height: 12px;"></div>
+        <div id="polygonList" class="polygon-list">
+          <div style="font-size: 12px; color: var(--muted); text-align: center; padding: 20px;">
+            No polygons created
+          </div>
+        </div>
+      </div>
+
+      <!-- Face Editor -->
+      <div class="card" id="faceEditorCard" style="display: none;">
+        <h2>Selected Face</h2>
+        <div class="info-banner">
+          Editing face of polygon. Changes apply to the selected face.
+        </div>
+
+        <div class="field">
+          <label>Face</label>
+          <select id="faceSelect">
+            <option value="0">Front</option>
+            <option value="1">Back</option>
+            <option value="2">Left</option>
+            <option value="3">Right</option>
+            <option value="4">Top</option>
+            <option value="5">Bottom</option>
+          </select>
+        </div>
+
+        <div class="divider"></div>
+
+        <h2 style="margin-bottom: 12px;">Transform</h2>
+
+        <div class="field">
+          <label>Translate X</label>
+          <div class="field-with-value">
+            <input type="range" id="faceTranslateX" min="-2" max="2" step="0.01" value="0">
+            <span class="range-value" id="faceTranslateXValue">0.00</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Translate Y</label>
+          <div class="field-with-value">
+            <input type="range" id="faceTranslateY" min="-2" max="2" step="0.01" value="0">
+            <span class="range-value" id="faceTranslateYValue">0.00</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Scale X</label>
+          <div class="field-with-value">
+            <input type="range" id="faceScaleX" min="0.1" max="3" step="0.01" value="1">
+            <span class="range-value" id="faceScaleXValue">1.00</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Scale Y</label>
+          <div class="field-with-value">
+            <input type="range" id="faceScaleY" min="0.1" max="3" step="0.01" value="1">
+            <span class="range-value" id="faceScaleYValue">1.00</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Rotation (degrees)</label>
+          <div class="field-with-value">
+            <input type="range" id="faceRotation" min="-180" max="180" step="1" value="0">
+            <span class="range-value" id="faceRotationValue">0°</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Image Plane Attachment -->
+      <div class="card" id="imagePlaneCard" style="display: none;">
+        <h2>Attach Image Plane</h2>
+        <div class="info-banner">
+          Select an image to attach as a transparent plane to the selected face.
+        </div>
+
+        <div class="field">
+          <label>Available Images</label>
+          <div id="imageList" class="image-list">
+            <div style="grid-column: 1 / -1; font-size: 12px; color: var(--muted); text-align: center; padding: 20px;">
+              Loading images...
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <h2 style="margin-bottom: 12px;">Plane Transform</h2>
+
+        <div class="field">
+          <label>Offset X</label>
+          <div class="field-with-value">
+            <input type="range" id="planeOffsetX" min="-2" max="2" step="0.01" value="0">
+            <span class="range-value" id="planeOffsetXValue">0.00</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Offset Y</label>
+          <div class="field-with-value">
+            <input type="range" id="planeOffsetY" min="-2" max="2" step="0.01" value="0">
+            <span class="range-value" id="planeOffsetYValue">0.00</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Scale X</label>
+          <div class="field-with-value">
+            <input type="range" id="planeScaleX" min="0.1" max="3" step="0.01" value="1">
+            <span class="range-value" id="planeScaleXValue">1.00</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Scale Y</label>
+          <div class="field-with-value">
+            <input type="range" id="planeScaleY" min="0.1" max="3" step="0.01" value="1">
+            <span class="range-value" id="planeScaleYValue">1.00</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Rotation (degrees)</label>
+          <div class="field-with-value">
+            <input type="range" id="planeRotation" min="-180" max="180" step="1" value="0">
+            <span class="range-value" id="planeRotationValue">0°</span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <h2 style="margin-bottom: 12px;">Attached Planes</h2>
+        <div id="planeList" class="plane-list">
+          <div style="font-size: 12px; color: var(--muted); text-align: center; padding: 12px;">
+            No planes attached
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button class="btn btn-danger" id="removePlaneBtn" disabled>Remove Selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+    // State
+    let scene, camera, renderer, controls;
+    let polygons = [];
+    let selectedPolygonIndex = -1;
+    let selectedFaceIndex = -1;
+    let selectedPlaneIndex = -1;
+    let availableImages = [];
+    let raycaster, mouse;
+
+    // Initialize Three.js (mimicking game demo renderer)
+    function init() {
+      const viewport = document.getElementById('viewport');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0f172a);
+
+      const w = viewport.clientWidth;
+      const h = viewport.clientHeight;
+      camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500);
+      camera.position.set(0, 5, 10);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(w, h);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      viewport.appendChild(renderer.domElement);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.minDistance = 2;
+      controls.maxDistance = 50;
+
+      // Lighting (mimicking game demo)
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x0b1120, 0.6);
+      scene.add(hemi);
+
+      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+      dir.position.set(25, 40, 15);
+      dir.castShadow = true;
+      dir.shadow.mapSize.set(1024, 1024);
+      dir.shadow.camera.near = 5;
+      dir.shadow.camera.far = 150;
+      scene.add(dir);
+
+      // Grid
+      const gridHelper = new THREE.GridHelper(20, 20, 0x334155, 0x1e293b);
+      scene.add(gridHelper);
+
+      // Axes
+      const axesHelper = new THREE.AxesHelper(2);
+      scene.add(axesHelper);
+
+      // Ground plane
+      const groundPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(200, 200),
+        new THREE.MeshStandardMaterial({
+          color: 0x1e293b,
+          roughness: 0.9,
+          metalness: 0.1
+        })
+      );
+      groundPlane.rotation.x = -Math.PI / 2;
+      groundPlane.receiveShadow = true;
+      scene.add(groundPlane);
+
+      // Raycaster for face selection
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+
+      // Event listeners
+      window.addEventListener('resize', onWindowResize);
+      renderer.domElement.addEventListener('click', onCanvasClick);
+      document.addEventListener('keydown', onKeyDown);
+
+      // Load available images
+      loadAvailableImages();
+
+      animate();
+    }
+
+    function onWindowResize() {
+      const viewport = document.getElementById('viewport');
+      camera.aspect = viewport.clientWidth / viewport.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+
+      // Update z-ordering of transparent planes
+      updatePlaneZOrder();
+
+      renderer.render(scene, camera);
+    }
+
+    // Update z-ordering of planes based on camera distance
+    function updatePlaneZOrder() {
+      const allPlanes = [];
+
+      polygons.forEach((polygon, polyIndex) => {
+        polygon.faces.forEach((face, faceIndex) => {
+          face.planes.forEach((planeData, planeIndex) => {
+            if (planeData.mesh) {
+              const distance = camera.position.distanceTo(planeData.mesh.position);
+              allPlanes.push({ mesh: planeData.mesh, distance });
+            }
+          });
+        });
+      });
+
+      // Sort by distance (far to near) and update renderOrder
+      allPlanes.sort((a, b) => b.distance - a.distance);
+      allPlanes.forEach((item, index) => {
+        item.mesh.renderOrder = index;
+      });
+    }
+
+    // Create 6-faced polygon (box)
+    function createPolygon(position = { x: 0, y: 1, z: 0 }) {
+      const size = { width: 1, height: 1, depth: 1 };
+
+      const polygon = {
+        id: `polygon_${polygons.length + 1}`,
+        position: { ...position },
+        size: { ...size },
+        group: new THREE.Group(),
+        faces: [],
+        meshes: []
+      };
+
+      // Create 6 faces as individual planes for easier selection
+      const faceConfigs = [
+        { name: 'front', normal: [0, 0, 1], up: [0, 1, 0], offset: [0, 0, size.depth/2] },
+        { name: 'back', normal: [0, 0, -1], up: [0, 1, 0], offset: [0, 0, -size.depth/2] },
+        { name: 'left', normal: [-1, 0, 0], up: [0, 1, 0], offset: [-size.width/2, 0, 0] },
+        { name: 'right', normal: [1, 0, 0], up: [0, 1, 0], offset: [size.width/2, 0, 0] },
+        { name: 'top', normal: [0, 1, 0], up: [0, 0, -1], offset: [0, size.height/2, 0] },
+        { name: 'bottom', normal: [0, -1, 0], up: [0, 0, 1], offset: [0, -size.height/2, 0] }
+      ];
+
+      faceConfigs.forEach((config, index) => {
+        const faceGeometry = new THREE.PlaneGeometry(
+          config.name === 'left' || config.name === 'right' ? size.depth : size.width,
+          config.name === 'top' || config.name === 'bottom' ? size.depth : size.height
+        );
+
+        const faceMaterial = new THREE.MeshStandardMaterial({
+          color: 0x3b82f6,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.7
+        });
+
+        const faceMesh = new THREE.Mesh(faceGeometry, faceMaterial);
+
+        // Position and orient face
+        faceMesh.position.set(...config.offset);
+        faceMesh.lookAt(
+          faceMesh.position.x + config.normal[0],
+          faceMesh.position.y + config.normal[1],
+          faceMesh.position.z + config.normal[2]
+        );
+
+        faceMesh.userData.polygonIndex = polygons.length;
+        faceMesh.userData.faceIndex = index;
+        faceMesh.userData.faceType = 'polygon-face';
+
+        polygon.group.add(faceMesh);
+        polygon.meshes.push(faceMesh);
+
+        polygon.faces.push({
+          name: config.name,
+          mesh: faceMesh,
+          transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 },
+          planes: []
+        });
+      });
+
+      polygon.group.position.set(position.x, position.y, position.z);
+      scene.add(polygon.group);
+      polygons.push(polygon);
+
+      updatePolygonList();
+      selectPolygon(polygons.length - 1);
+    }
+
+    // Face selection via raycasting
+    function onCanvasClick(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      // First, try to intersect with polygon faces (ignore planes)
+      const polygonFaces = [];
+      polygons.forEach(polygon => {
+        polygon.meshes.forEach(mesh => {
+          polygonFaces.push(mesh);
+        });
+      });
+
+      const intersects = raycaster.intersectObjects(polygonFaces, false);
+
+      if (intersects.length > 0) {
+        const hit = intersects[0].object;
+        if (hit.userData.faceType === 'polygon-face') {
+          selectPolygon(hit.userData.polygonIndex);
+          selectFace(hit.userData.faceIndex);
+        }
+      }
+    }
+
+    function onKeyDown(event) {
+      if (event.key === 'Delete' && selectedPolygonIndex >= 0) {
+        deletePolygon(selectedPolygonIndex);
+      }
+    }
+
+    function selectPolygon(index) {
+      // Deselect previous
+      if (selectedPolygonIndex >= 0 && polygons[selectedPolygonIndex]) {
+        polygons[selectedPolygonIndex].meshes.forEach(mesh => {
+          mesh.material.color.setHex(0x3b82f6);
+        });
+      }
+
+      selectedPolygonIndex = index;
+
+      if (index >= 0 && polygons[index]) {
+        // Highlight selected polygon
+        polygons[index].meshes.forEach(mesh => {
+          mesh.material.color.setHex(0x10b981);
+        });
+
+        // Show face editor
+        document.getElementById('faceEditorCard').style.display = 'block';
+        document.getElementById('imagePlaneCard').style.display = 'block';
+
+        if (selectedFaceIndex === -1) {
+          selectFace(0);
+        }
+      }
+
+      updatePolygonList();
+    }
+
+    function selectFace(index) {
+      selectedFaceIndex = index;
+      selectedPlaneIndex = -1;
+
+      if (selectedPolygonIndex >= 0 && polygons[selectedPolygonIndex]) {
+        const face = polygons[selectedPolygonIndex].faces[index];
+
+        document.getElementById('faceSelect').value = index;
+
+        // Update transform sliders
+        updateFaceTransformUI(face.transform);
+        updatePlaneList();
+      }
+    }
+
+    function updateFaceTransformUI(transform) {
+      document.getElementById('faceTranslateX').value = transform.x;
+      document.getElementById('faceTranslateXValue').textContent = transform.x.toFixed(2);
+      document.getElementById('faceTranslateY').value = transform.y;
+      document.getElementById('faceTranslateYValue').textContent = transform.y.toFixed(2);
+      document.getElementById('faceScaleX').value = transform.scaleX;
+      document.getElementById('faceScaleXValue').textContent = transform.scaleX.toFixed(2);
+      document.getElementById('faceScaleY').value = transform.scaleY;
+      document.getElementById('faceScaleYValue').textContent = transform.scaleY.toFixed(2);
+      document.getElementById('faceRotation').value = transform.rotation;
+      document.getElementById('faceRotationValue').textContent = transform.rotation + '°';
+    }
+
+    function applyFaceTransform() {
+      if (selectedPolygonIndex < 0 || selectedFaceIndex < 0) return;
+
+      const polygon = polygons[selectedPolygonIndex];
+      const face = polygon.faces[selectedFaceIndex];
+      const mesh = face.mesh;
+
+      // Store original position and rotation
+      const originalPos = mesh.userData.originalPosition || mesh.position.clone();
+      const originalRot = mesh.userData.originalRotation || mesh.rotation.clone();
+
+      if (!mesh.userData.originalPosition) {
+        mesh.userData.originalPosition = originalPos.clone();
+        mesh.userData.originalRotation = originalRot.clone();
+      }
+
+      // Reset to original
+      mesh.position.copy(originalPos);
+      mesh.rotation.copy(originalRot);
+      mesh.scale.set(1, 1, 1);
+
+      // Apply scale in local space
+      const scaleX = face.transform.scaleX;
+      const scaleY = face.transform.scaleY;
+
+      // All faces use X/Y for their local 2D space
+      mesh.scale.set(scaleX, scaleY, 1);
+
+      // Apply rotation around Z axis (face normal)
+      mesh.rotation.z = originalRot.z + (face.transform.rotation * Math.PI / 180);
+
+      // Apply translation in local 2D space (X and Y)
+      const offset = new THREE.Vector3(face.transform.x, face.transform.y, 0);
+      offset.applyQuaternion(mesh.quaternion);
+      mesh.position.add(offset);
+
+      // Update all attached planes
+      updateAllPlanesForFace(selectedPolygonIndex, selectedFaceIndex);
+    }
+
+    function updateAllPlanesForFace(polyIndex, faceIndex) {
+      if (polyIndex < 0 || faceIndex < 0) return;
+
+      const face = polygons[polyIndex].faces[faceIndex];
+      const savedPlaneIndex = selectedPlaneIndex;
+      const savedPolyIndex = selectedPolygonIndex;
+      const savedFaceIndex = selectedFaceIndex;
+
+      selectedPolygonIndex = polyIndex;
+      selectedFaceIndex = faceIndex;
+
+      face.planes.forEach((plane, index) => {
+        selectedPlaneIndex = index;
+        applyPlaneTransform();
+      });
+
+      selectedPolygonIndex = savedPolyIndex;
+      selectedFaceIndex = savedFaceIndex;
+      selectedPlaneIndex = savedPlaneIndex;
+    }
+
+    function deletePolygon(index) {
+      if (index < 0 || index >= polygons.length) return;
+
+      const polygon = polygons[index];
+      scene.remove(polygon.group);
+
+      // Dispose of all meshes and materials
+      polygon.meshes.forEach(mesh => {
+        if (mesh.geometry) mesh.geometry.dispose();
+        if (mesh.material) mesh.material.dispose();
+      });
+
+      polygon.faces.forEach(face => {
+        face.planes.forEach(planeData => {
+          if (planeData.mesh) {
+            scene.remove(planeData.mesh);
+            if (planeData.mesh.geometry) planeData.mesh.geometry.dispose();
+            if (planeData.mesh.material) {
+              if (planeData.mesh.material.map) planeData.mesh.material.map.dispose();
+              planeData.mesh.material.dispose();
+            }
+          }
+        });
+      });
+
+      polygons.splice(index, 1);
+
+      // Update indices
+      polygons.forEach((p, i) => {
+        p.meshes.forEach(mesh => {
+          mesh.userData.polygonIndex = i;
+        });
+      });
+
+      selectedPolygonIndex = -1;
+      selectedFaceIndex = -1;
+      document.getElementById('faceEditorCard').style.display = 'none';
+      document.getElementById('imagePlaneCard').style.display = 'none';
+
+      updatePolygonList();
+    }
+
+    function updatePolygonList() {
+      const list = document.getElementById('polygonList');
+
+      if (polygons.length === 0) {
+        list.innerHTML = '<div style="font-size: 12px; color: var(--muted); text-align: center; padding: 20px;">No polygons created</div>';
+        return;
+      }
+
+      list.innerHTML = polygons.map((polygon, index) => `
+        <div class="polygon-item ${index === selectedPolygonIndex ? 'selected' : ''}" onclick="window.selectPolygonFromList(${index})">
+          <div class="polygon-info">
+            <div class="polygon-id">${polygon.id}</div>
+            <div class="polygon-coords">(${polygon.position.x.toFixed(1)}, ${polygon.position.y.toFixed(1)}, ${polygon.position.z.toFixed(1)})</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Load available images from docs/assets
+    async function loadAvailableImages() {
+      // Hardcoded list of available images (can be extended)
+      // In a real implementation, this would be fetched from a server endpoint
+      const imagePaths = [
+        'assets/weapons/light_greatswords/hakahi.png',
+        'assets/weapons/spears/fishing_spear.png',
+        'assets/weapons/fishing_mace.png',
+        'assets/hud/arch-bar.png',
+        'assets/hud/linesegment_drawn.png',
+        'assets/props/bottle_tall.png'
+      ];
+
+      availableImages = imagePaths.map(path => ({
+        name: path.split('/').pop(),
+        path: path,
+        fullPath: './' + path
+      }));
+
+      updateImageList();
+    }
+
+    function updateImageList() {
+      const list = document.getElementById('imageList');
+
+      if (availableImages.length === 0) {
+        list.innerHTML = '<div style="grid-column: 1 / -1; font-size: 12px; color: var(--muted); text-align: center; padding: 20px;">No images available</div>';
+        return;
+      }
+
+      list.innerHTML = availableImages.map((img, index) => `
+        <div class="image-item" onclick="window.attachImagePlane(${index})">
+          <img src="${img.fullPath}" class="image-preview" alt="${img.name}" onerror="this.style.display='none'">
+          <div class="image-name">${img.name}</div>
+        </div>
+      `).join('');
+    }
+
+    // Attach image plane to selected face
+    function attachImagePlane(imageIndex) {
+      if (selectedPolygonIndex < 0 || selectedFaceIndex < 0) return;
+
+      const face = polygons[selectedPolygonIndex].faces[selectedFaceIndex];
+      const image = availableImages[imageIndex];
+
+      // Load texture
+      const textureLoader = new THREE.TextureLoader();
+      textureLoader.load(image.fullPath, (texture) => {
+        const aspect = texture.image.width / texture.image.height;
+
+        const planeGeometry = new THREE.PlaneGeometry(1 * aspect, 1);
+        const planeMaterial = new THREE.MeshBasicMaterial({
+          map: texture,
+          transparent: true,
+          side: THREE.DoubleSide,
+          alphaTest: 0.1,
+          depthWrite: false
+        });
+
+        const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
+
+        planeMesh.userData.faceType = 'image-plane';
+        planeMesh.userData.polygonIndex = selectedPolygonIndex;
+        planeMesh.userData.faceIndex = selectedFaceIndex;
+
+        scene.add(planeMesh);
+
+        const planeData = {
+          imageName: image.name,
+          imagePath: image.path,
+          mesh: planeMesh,
+          transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 }
+        };
+
+        face.planes.push(planeData);
+
+        // Apply initial transform to position plane on face
+        const tempSelectedPlane = selectedPlaneIndex;
+        selectedPlaneIndex = face.planes.length - 1;
+        applyPlaneTransform();
+        selectedPlaneIndex = tempSelectedPlane;
+
+        updatePlaneList();
+      });
+    }
+
+    function updatePlaneList() {
+      if (selectedPolygonIndex < 0 || selectedFaceIndex < 0) return;
+
+      const face = polygons[selectedPolygonIndex].faces[selectedFaceIndex];
+      const list = document.getElementById('planeList');
+
+      if (face.planes.length === 0) {
+        list.innerHTML = '<div style="font-size: 12px; color: var(--muted); text-align: center; padding: 12px;">No planes attached</div>';
+        document.getElementById('removePlaneBtn').disabled = true;
+        return;
+      }
+
+      list.innerHTML = face.planes.map((plane, index) => `
+        <div class="plane-item ${index === selectedPlaneIndex ? 'selected' : ''}" onclick="window.selectPlaneFromList(${index})">
+          <span>${plane.imageName}</span>
+          <span style="color: var(--muted); font-size: 10px;">Plane ${index + 1}</span>
+        </div>
+      `).join('');
+
+      document.getElementById('removePlaneBtn').disabled = selectedPlaneIndex < 0;
+    }
+
+    function selectPlaneFromList(index) {
+      selectedPlaneIndex = index;
+
+      if (selectedPolygonIndex >= 0 && selectedFaceIndex >= 0) {
+        const face = polygons[selectedPolygonIndex].faces[selectedFaceIndex];
+        const plane = face.planes[index];
+
+        // Update plane transform UI
+        document.getElementById('planeOffsetX').value = plane.transform.x;
+        document.getElementById('planeOffsetXValue').textContent = plane.transform.x.toFixed(2);
+        document.getElementById('planeOffsetY').value = plane.transform.y;
+        document.getElementById('planeOffsetYValue').textContent = plane.transform.y.toFixed(2);
+        document.getElementById('planeScaleX').value = plane.transform.scaleX;
+        document.getElementById('planeScaleXValue').textContent = plane.transform.scaleX.toFixed(2);
+        document.getElementById('planeScaleY').value = plane.transform.scaleY;
+        document.getElementById('planeScaleYValue').textContent = plane.transform.scaleY.toFixed(2);
+        document.getElementById('planeRotation').value = plane.transform.rotation;
+        document.getElementById('planeRotationValue').textContent = plane.transform.rotation + '°';
+      }
+
+      updatePlaneList();
+    }
+
+    function removePlane() {
+      if (selectedPolygonIndex < 0 || selectedFaceIndex < 0 || selectedPlaneIndex < 0) return;
+
+      const face = polygons[selectedPolygonIndex].faces[selectedFaceIndex];
+      const plane = face.planes[selectedPlaneIndex];
+
+      if (plane.mesh) {
+        polygons[selectedPolygonIndex].group.remove(plane.mesh);
+        if (plane.mesh.geometry) plane.mesh.geometry.dispose();
+        if (plane.mesh.material) {
+          if (plane.mesh.material.map) plane.mesh.material.map.dispose();
+          plane.mesh.material.dispose();
+        }
+      }
+
+      face.planes.splice(selectedPlaneIndex, 1);
+      selectedPlaneIndex = -1;
+      updatePlaneList();
+    }
+
+    function applyPlaneTransform() {
+      if (selectedPolygonIndex < 0 || selectedFaceIndex < 0 || selectedPlaneIndex < 0) return;
+
+      const face = polygons[selectedPolygonIndex].faces[selectedFaceIndex];
+      const plane = face.planes[selectedPlaneIndex];
+
+      if (!plane.mesh) return;
+
+      const faceMesh = face.mesh;
+
+      // Get face world transform
+      const faceWorldPos = new THREE.Vector3();
+      const faceWorldQuat = new THREE.Quaternion();
+      faceMesh.getWorldPosition(faceWorldPos);
+      faceMesh.getWorldQuaternion(faceWorldQuat);
+
+      // Position plane at face position
+      plane.mesh.position.copy(faceWorldPos);
+      plane.mesh.quaternion.copy(faceWorldQuat);
+
+      // Apply offset in face's local space (slightly in front)
+      const offset = new THREE.Vector3(
+        plane.transform.x,
+        plane.transform.y,
+        0.02  // Offset from face to prevent z-fighting
+      );
+      offset.applyQuaternion(faceWorldQuat);
+      plane.mesh.position.add(offset);
+
+      // Apply scale
+      plane.mesh.scale.set(plane.transform.scaleX, plane.transform.scaleY, 1);
+
+      // Apply rotation around plane normal (Z axis in local space)
+      plane.mesh.rotateZ(plane.transform.rotation * Math.PI / 180);
+    }
+
+    // Export/Import
+    function exportData() {
+      const data = {
+        polygons: polygons.map(polygon => ({
+          id: polygon.id,
+          position: polygon.position,
+          size: polygon.size,
+          faces: polygon.faces.map(face => ({
+            name: face.name,
+            transform: face.transform,
+            planes: face.planes.map(plane => ({
+              imagePath: plane.imagePath,
+              imageName: plane.imageName,
+              transform: plane.transform
+            }))
+          }))
+        }))
+      };
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'polygons.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+
+            // Clear existing polygons
+            while (polygons.length > 0) {
+              deletePolygon(0);
+            }
+
+            // Load polygons from data
+            data.polygons.forEach(polyData => {
+              createPolygon(polyData.position);
+              const polygon = polygons[polygons.length - 1];
+              const polyIndex = polygons.length - 1;
+
+              // Update polygon size if specified
+              if (polyData.size) {
+                polygon.size = { ...polyData.size };
+              }
+
+              polyData.faces.forEach((faceData, faceIndex) => {
+                polygon.faces[faceIndex].transform = { ...faceData.transform };
+
+                // Apply face transform
+                const savedPolyIndex = selectedPolygonIndex;
+                const savedFaceIndex = selectedFaceIndex;
+                selectedPolygonIndex = polyIndex;
+                selectedFaceIndex = faceIndex;
+                applyFaceTransform();
+                selectedPolygonIndex = savedPolyIndex;
+                selectedFaceIndex = savedFaceIndex;
+
+                // Load planes for this face
+                faceData.planes.forEach(planeData => {
+                  const imgIndex = availableImages.findIndex(img => img.path === planeData.imagePath);
+                  if (imgIndex >= 0) {
+                    const savedPolyIndex2 = selectedPolygonIndex;
+                    const savedFaceIndex2 = selectedFaceIndex;
+                    const savedPlaneIndex2 = selectedPlaneIndex;
+
+                    selectedPolygonIndex = polyIndex;
+                    selectedFaceIndex = faceIndex;
+
+                    // Attach plane and wait for it to load
+                    attachImagePlane(imgIndex);
+
+                    // Note: We can't immediately set transform because texture loads async
+                    // Store the transform to apply after load
+                    const face = polygon.faces[faceIndex];
+                    setTimeout(() => {
+                      if (face.planes.length > 0) {
+                        const lastPlane = face.planes[face.planes.length - 1];
+                        lastPlane.transform = { ...planeData.transform };
+                        selectedPlaneIndex = face.planes.length - 1;
+                        applyPlaneTransform();
+                      }
+                    }, 100);
+
+                    selectedPolygonIndex = savedPolyIndex2;
+                    selectedFaceIndex = savedFaceIndex2;
+                    selectedPlaneIndex = savedPlaneIndex2;
+                  }
+                });
+              });
+            });
+
+            updatePolygonList();
+          } catch (err) {
+            alert('Error loading file: ' + err.message);
+          }
+        };
+
+        reader.readAsText(file);
+      };
+
+      input.click();
+    }
+
+    // Event listeners
+    document.getElementById('addPolygonBtn').addEventListener('click', () => {
+      createPolygon();
+    });
+
+    document.getElementById('faceSelect').addEventListener('change', (e) => {
+      selectFace(parseInt(e.target.value));
+    });
+
+    // Face transform controls
+    ['faceTranslateX', 'faceTranslateY', 'faceScaleX', 'faceScaleY', 'faceRotation'].forEach(id => {
+      const input = document.getElementById(id);
+      input.addEventListener('input', (e) => {
+        if (selectedPolygonIndex < 0 || selectedFaceIndex < 0) return;
+
+        const face = polygons[selectedPolygonIndex].faces[selectedFaceIndex];
+        const prop = id.replace('face', '').replace('Translate', '').toLowerCase();
+        const value = parseFloat(e.target.value);
+
+        if (id.includes('Translate')) {
+          face.transform[prop] = value;
+        } else if (id.includes('Scale')) {
+          face.transform['scale' + prop.toUpperCase()] = value;
+        } else if (id.includes('Rotation')) {
+          face.transform.rotation = value;
+        }
+
+        document.getElementById(id + 'Value').textContent =
+          id.includes('Rotation') ? value + '°' : value.toFixed(2);
+
+        applyFaceTransform();
+      });
+    });
+
+    // Plane transform controls
+    ['planeOffsetX', 'planeOffsetY', 'planeScaleX', 'planeScaleY', 'planeRotation'].forEach(id => {
+      const input = document.getElementById(id);
+      input.addEventListener('input', (e) => {
+        if (selectedPolygonIndex < 0 || selectedFaceIndex < 0 || selectedPlaneIndex < 0) return;
+
+        const face = polygons[selectedPolygonIndex].faces[selectedFaceIndex];
+        const plane = face.planes[selectedPlaneIndex];
+        const value = parseFloat(e.target.value);
+
+        if (id.includes('Offset')) {
+          const axis = id.includes('X') ? 'x' : 'y';
+          plane.transform[axis] = value;
+        } else if (id.includes('Scale')) {
+          const axis = id.includes('X') ? 'X' : 'Y';
+          plane.transform['scale' + axis] = value;
+        } else if (id.includes('Rotation')) {
+          plane.transform.rotation = value;
+        }
+
+        document.getElementById(id + 'Value').textContent =
+          id.includes('Rotation') ? value + '°' : value.toFixed(2);
+
+        applyPlaneTransform();
+      });
+    });
+
+    document.getElementById('removePlaneBtn').addEventListener('click', removePlane);
+    document.getElementById('exportBtn').addEventListener('click', exportData);
+    document.getElementById('importBtn').addEventListener('click', importData);
+
+    // Global functions for onclick handlers
+    window.selectPolygonFromList = selectPolygon;
+    window.attachImagePlane = attachImagePlane;
+    window.selectPlaneFromList = selectPlaneFromList;
+
+    // Initialize
+    init();
+  </script>
+</body>
+</html>
