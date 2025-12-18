@@ -882,6 +882,59 @@ async function getVisualsmapLoader() {
   return visualsmapLoaderModule;
 }
 
+/**
+ * Automatically size the 2D world dimensions based on the 3D gameplay path extents.
+ * This ensures the 2D camera can traverse the full 3D path range with pixel-perfect mapping.
+ *
+ * @param {Object} visualsmapAdapter - The visualsmap adapter with getPathExtents() method
+ */
+function autoSizeWorldToGameplayPath(visualsmapAdapter) {
+  if (!visualsmapAdapter || typeof visualsmapAdapter.getPathExtents !== 'function') {
+    console.warn('[app] Cannot auto-size world: visualsmapAdapter missing or no getPathExtents method');
+    return;
+  }
+
+  const gameCamera = window.GAME?.CAMERA;
+  if (!gameCamera) {
+    console.warn('[app] Cannot auto-size world: GAME.CAMERA not available');
+    return;
+  }
+
+  const pathExtents = visualsmapAdapter.getPathExtents();
+  if (!pathExtents) {
+    console.warn('[app] Cannot auto-size world: no path extents available');
+    return;
+  }
+
+  // Calculate required 2D world dimensions from 3D path extents
+  // With pixelsToUnits = 1.0 (pixel-perfect), 1 pixel = 1 Three.js unit
+  const requiredWidth = pathExtents.spanX;  // Horizontal span of gameplay path
+  const requiredHeight = pathExtents.spanZ; // Vertical span of gameplay path
+
+  // Add padding to ensure path is fully visible (10% on each side = 20% total)
+  const padding = 0.2;
+  const worldWidth = requiredWidth * (1 + padding);
+  const worldHeight = requiredHeight * (1 + padding);
+
+  console.log('[app] Auto-sizing 2D world to gameplay path:');
+  console.log(`  Path extents: X=[${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}] (span: ${pathExtents.spanX.toFixed(1)})`);
+  console.log(`  Path extents: Z=[${pathExtents.start.z.toFixed(1)}, ${pathExtents.end.z.toFixed(1)}] (span: ${pathExtents.spanZ.toFixed(1)})`);
+  console.log(`  2D world dimensions: ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)} pixels`);
+
+  // Update camera world dimensions
+  gameCamera.worldWidth = worldWidth;
+  gameCamera.worldHeight = worldHeight;
+
+  // Update camera bounds to match the full world
+  // Camera position is measured from top-left corner (edge-based)
+  gameCamera.minX = 0;
+  gameCamera.maxX = worldWidth;
+  gameCamera.minY = 0;
+  gameCamera.maxY = worldHeight;
+
+  console.log(`  Camera bounds: X=[${gameCamera.minX}, ${gameCamera.maxX}], Y=[${gameCamera.minY}, ${gameCamera.maxY}]`);
+}
+
 // Optional 3D renderer modules (lazy-loaded to avoid breaking boot if assets aren't hosted)
 const rendererModuleState = {
   promise: null,
@@ -6453,6 +6506,9 @@ function boot(){
                     console.log('[app] Visualsmap loaded successfully:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
                     lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
 
+                    // Auto-size 2D world to match 3D gameplay path (procedural sizing)
+                    autoSizeWorldToGameplayPath(GAME_VISUALSMAP_ADAPTER);
+
                     // Initialize coordinate transformation for tight 2D-3D coupling
                     initTransformConfig({
                       camera2d: window.GAME?.CAMERA,
@@ -6519,6 +6575,9 @@ function boot(){
               window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
               if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
                 lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+
+                // Auto-size 2D world to match 3D gameplay path (procedural sizing)
+                autoSizeWorldToGameplayPath(GAME_VISUALSMAP_ADAPTER);
 
                 // Initialize coordinate transformation for tight 2D-3D coupling
                 initTransformConfig({
