@@ -5039,89 +5039,70 @@ function updateGroundYFromPath() {
   }
 }
 
-// Calibrate 2D world space from actual 3D tile measurement
-// Measure once and cache the result for efficiency
-let calibratedOnce = false;
-let cachedTileMeasurement = null;
+// One-time calibration: Measure 3D tile edge and set 2D world scale
+// This runs once after the 3D scene loads, not every frame
+let worldScaleCalibrated = false;
 
-function updatePlayableBoundsFromPath() {
+function calibrateWorldScaleFromTile() {
+  if (worldScaleCalibrated) return;
   if (!cv) return;
 
   const adapter = window.GAME?.visualsmapAdapter;
-  if (!adapter) return;
+  if (!adapter || typeof adapter.getTileScreenMeasurement !== 'function') return;
 
-  // Measure the tile only once and cache it
-  if (!cachedTileMeasurement && typeof adapter.getTileScreenMeasurement === 'function') {
-    cachedTileMeasurement = adapter.getTileScreenMeasurement({ canvas: cv });
-    if (!cachedTileMeasurement) return;
-  }
+  // Measure one tile edge in screen pixels
+  const tileMeasurement = adapter.getTileScreenMeasurement({ canvas: cv });
+  if (!tileMeasurement) return;
 
-  if (!cachedTileMeasurement) return;
+  const { pixelWidth, col, flipped } = tileMeasurement;
 
-  const { pixelWidth, col, flipped } = cachedTileMeasurement;
+  console.log('[calibration] ========================================');
+  console.log('[calibration] ONE-TIME WORLD SCALE CALIBRATION');
+  console.log(`[calibration] Measured tile ${col}:`);
+  console.log(`[calibration]   Screen width: ${pixelWidth.toFixed(1)}px`);
+  console.log(`[calibration]   Flipped: ${flipped}`);
 
-  // The gameplay path spans 19 cells (col 0 to col 19 in a 20-column grid)
+  // Set GRID_UNIT_WORLD_SIZE to match the measured tile width
+  // This makes 1 grid unit = actual visible tile width in pixels
+  const oldGridSize = window.GRID_UNIT_WORLD_SIZE || 30;
+  window.GRID_UNIT_WORLD_SIZE = pixelWidth;
+
+  console.log(`[calibration]   Old GRID_UNIT_WORLD_SIZE: ${oldGridSize}`);
+  console.log(`[calibration]   New GRID_UNIT_WORLD_SIZE: ${window.GRID_UNIT_WORLD_SIZE.toFixed(1)}`);
+
+  // Calculate playable bounds based on measured scale
+  // The gameplay path spans 19 cells (col 0 to col 19)
   const pathCells = 19;
+  const totalWidth = pixelWidth * pathCells;
 
-  // Calculate the total playable width based on cached tile measurement
-  const totalPlayableWidth = pixelWidth * pathCells;
-
-  // Now get the current path projection to know where the path endpoints are in screen space
+  // Get the path projection to find where it starts
   if (typeof adapter.getPathScreenLine !== 'function') return;
   const projection = adapter.getPathScreenLine({ canvas: cv });
   if (!projection || !projection.start || !projection.end) return;
 
   const { start, end } = projection;
-  if (!Number.isFinite(start.x) || !Number.isFinite(end.x)) return;
+  const pathStartX = Math.min(start.x, end.x);
 
-  // Use the path's actual screen position but with our measured tile width
-  // Calculate bounds from the path endpoints using the cached tile measurement
-  let leftBound, rightBound;
+  // Set playable bounds (in 2D world space = pixels)
+  const leftBound = pathStartX;
+  const rightBound = pathStartX + totalWidth;
 
-  if (flipped) {
-    // Coordinate system is flipped: use max as left, min as right
-    const pathLeftX = Math.max(start.x, end.x);
-    const pathRightX = Math.min(start.x, end.x);
-    leftBound = pathLeftX;
-    rightBound = pathLeftX - totalPlayableWidth;
-  } else {
-    // Normal coordinate system
-    const pathLeftX = Math.min(start.x, end.x);
-    const pathRightX = Math.max(start.x, end.x);
-    leftBound = pathLeftX;
-    rightBound = pathLeftX + totalPlayableWidth;
-  }
+  console.log(`[calibration]   Path cells: ${pathCells}`);
+  console.log(`[calibration]   Total width: ${totalWidth.toFixed(1)}px`);
+  console.log(`[calibration]   Playable bounds: ${leftBound.toFixed(1)} to ${rightBound.toFixed(1)}`);
+  console.log('[calibration] ========================================');
 
-  if (!calibratedOnce) {
-    console.log('[bounds] Calibrating 2D world space from cached 3D tile measurement:');
-    console.log(`  - Measured tile at col ${col} (cached)`);
-    console.log(`  - Tile pixel width: ${pixelWidth.toFixed(1)}px`);
-    console.log(`  - Path cells: ${pathCells}`);
-    console.log(`  - Total playable width: ${totalPlayableWidth.toFixed(1)}px`);
-    console.log(`  - Flipped: ${flipped}`);
-    console.log(`  - Playable bounds: ${leftBound.toFixed(1)} to ${rightBound.toFixed(1)}`);
-    calibratedOnce = true;
-  }
-
+  // Store the calibrated bounds (these won't change anymore)
   if (window.CONFIG && window.CONFIG.map) {
     window.CONFIG.map.playAreaMinX = leftBound;
     window.CONFIG.map.playAreaMaxX = rightBound;
     window.CONFIG.map.activePlayableBounds = { left: leftBound, right: rightBound };
     window.CONFIG.map.playableBounds = { left: leftBound, right: rightBound };
-
-    // Store calibration info for debugging
-    window.CONFIG.map._calibration = {
-      tileCol: col,
-      tilePixelWidth: pixelWidth.toFixed(1),
-      pathCells,
-      totalPlayableWidth: totalPlayableWidth.toFixed(1),
-      flipped,
-      leftBound: leftBound.toFixed(1),
-      rightBound: rightBound.toFixed(1)
-    };
+    window.CONFIG.map._worldScale = pixelWidth; // Store for reference
+    window.CONFIG.map._flipped = flipped;
   }
 
-  // Also update geometry service if available
+  // Update geometry service
   const geometryService = window.GAME?.geometryService;
   if (geometryService && typeof geometryService.getActiveGeometry === 'function') {
     const geometry = geometryService.getActiveGeometry();
@@ -5130,6 +5111,8 @@ function updatePlayableBoundsFromPath() {
       geometry.playableBounds.right = rightBound;
     }
   }
+
+  worldScaleCalibrated = true;
 }
 
 function renderGameplayPathOverlay(ctx) {
@@ -5256,47 +5239,50 @@ function renderGameplayPathOverlay(ctx) {
   ctx.fillStyle = '#00ff00';
   ctx.fillText(summaryText, centerX + summaryOffsetX, centerY + summaryOffsetY + 3);
 
-  // Draw debug markers for measured tile edges
-  if (cachedTileMeasurement) {
-    const { leftEdgeX, rightEdgeX, col } = cachedTileMeasurement;
-    const groundY = window.CONFIG?.groundY || cv.height / 2;
+  // Draw debug markers for measured tile edges (when debug is visible)
+  if (adapter && typeof adapter.getTileScreenMeasurement === 'function') {
+    const tileMeasurement = adapter.getTileScreenMeasurement({ canvas: cv });
+    if (tileMeasurement) {
+      const { leftEdgeX, rightEdgeX, col } = tileMeasurement;
+      const groundY = window.CONFIG?.groundY || cv.height / 2;
 
-    // Draw left edge marker (cyan)
-    ctx.fillStyle = '#00ffff';
-    ctx.beginPath();
-    ctx.arc(leftEdgeX, groundY, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+      // Draw left edge marker (cyan)
+      ctx.fillStyle = '#00ffff';
+      ctx.beginPath();
+      ctx.arc(leftEdgeX, groundY, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-    // Draw right edge marker (magenta)
-    ctx.fillStyle = '#ff00ff';
-    ctx.beginPath();
-    ctx.arc(rightEdgeX, groundY, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+      // Draw right edge marker (magenta)
+      ctx.fillStyle = '#ff00ff';
+      ctx.beginPath();
+      ctx.arc(rightEdgeX, groundY, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-    // Draw label showing which tile was measured
-    ctx.font = 'bold 10px monospace';
-    ctx.textAlign = 'center';
-    const tileLabel = `Tile ${col}`;
-    const tileLabelY = groundY - 20;
-    const tileCenterX = (leftEdgeX + rightEdgeX) / 2;
+      // Draw label showing which tile was measured
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      const tileLabel = `Tile ${col}`;
+      const tileLabelY = groundY - 20;
+      const tileCenterX = (leftEdgeX + rightEdgeX) / 2;
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-    const labelMetrics = ctx.measureText(tileLabel);
-    ctx.fillRect(
-      tileCenterX - labelMetrics.width / 2 - 3,
-      tileLabelY - 7,
-      labelMetrics.width + 6,
-      14
-    );
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      const labelMetrics = ctx.measureText(tileLabel);
+      ctx.fillRect(
+        tileCenterX - labelMetrics.width / 2 - 3,
+        tileLabelY - 7,
+        labelMetrics.width + 6,
+        14
+      );
 
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(tileLabel, tileCenterX, tileLabelY + 3);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(tileLabel, tileCenterX, tileLabelY + 3);
+    }
   }
 
   ctx.restore();
@@ -5441,9 +5427,11 @@ function loop(t){
     updateObstructionPhysics(props, window.CONFIG, dt);
   }
 
-  // Update groundY and playable bounds from gameplay path projection (must happen before camera update)
+  // Update groundY from gameplay path projection (must happen before camera update)
   updateGroundYFromPath();
-  updatePlayableBoundsFromPath();
+
+  // One-time calibration: Set world scale from measured tile (runs once, then skips)
+  calibrateWorldScaleFromTile();
 
   updatePoses();
   updateCamera(cv);
