@@ -187,12 +187,22 @@ export function initTransformConfig(options = {}) {
 }
 
 /**
- * Get current transform configuration
+ * Get current transform configuration (with runtime dimensions if available)
  *
  * @returns {Object} Current transform config
  */
 export function getTransformConfig() {
-  return { ...TRANSFORM_CONFIG };
+  // Always pull runtime dimensions from camera if available
+  const gameCamera = (typeof window !== 'undefined') ? window.GAME?.CAMERA : null;
+  const runtimeWidth = gameCamera?.worldWidth;
+  const runtimeHeight = gameCamera?.worldHeight;
+
+  return {
+    ...TRANSFORM_CONFIG,
+    // Override with runtime dimensions if available
+    ...(runtimeWidth ? { world2dWidth: runtimeWidth } : {}),
+    ...(runtimeHeight ? { world2dHeight: runtimeHeight } : {})
+  };
 }
 
 /**
