@@ -5157,21 +5157,37 @@ function renderGameplayPathOverlay(ctx) {
   const padding = 6;
   const lineHeight = 20;
 
+  // Player position (2D world coordinates)
+  const player = window.GAME?.FIGHTERS?.player;
+  const playerX = player?.hitbox?.x ?? player?.pos?.x ?? 0;
+  const playerY = player?.hitbox?.y ?? player?.pos?.y ?? 0;
+  const textPlayer = `Player: (${playerX.toFixed(1)}, ${playerY.toFixed(1)}) | Bounds: [${camera2d?.bounds?.min ?? 0}, ${camera2d?.bounds?.max ?? camera2d?.worldWidth ?? 'none'}]`;
+  const metricsPlayer = ctx.measureText(textPlayer);
+  const bgWidthPlayer = metricsPlayer.width + padding * 2;
+  const bgHeightPlayer = lineHeight;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidthPlayer / 2, labelY, bgWidthPlayer, bgHeightPlayer);
+
+  ctx.fillStyle = '#ffff66'; // Yellow for player info
+  ctx.fillText(textPlayer, labelX, labelY + 4);
+
   // 3D info (centered coordinate system)
+  const labelY3d = labelY + lineHeight + 2;
   const text3d = `3D: ${pixelLength3d.toFixed(1)}px screen | ${distance3dWorld.toFixed(1)}u world | cam: ${cam3dX.toFixed(1)} (centered)`;
   const metrics3d = ctx.measureText(text3d);
   const bgWidth3d = metrics3d.width + padding * 2;
   const bgHeight3d = lineHeight;
 
   ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-  ctx.fillRect(labelX - bgWidth3d / 2, labelY, bgWidth3d, bgHeight3d);
+  ctx.fillRect(labelX - bgWidth3d / 2, labelY3d, bgWidth3d, bgHeight3d);
 
   // 3D info text
   ctx.fillStyle = '#ff6666';
-  ctx.fillText(text3d, labelX, labelY + 4);
+  ctx.fillText(text3d, labelX, labelY3d + 4);
 
   // 2D info (edge-based coordinate system)
-  const labelY2d = labelY + lineHeight + 2;
+  const labelY2d = labelY3d + lineHeight + 2;
   const text2d = `2D: ${distance3dWorld.toFixed(1)}px world | cam: ${camX2d.toFixed(1)} (from edge)`;
   const metrics2d = ctx.measureText(text2d);
   const bgWidth2d = metrics2d.width + padding * 2;
