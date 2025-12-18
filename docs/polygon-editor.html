@@ -52,21 +52,25 @@
       display: grid;
       grid-template-columns: 1fr 400px;
       overflow: hidden;
+      min-height: 0;
     }
     .canvas-container {
       position: relative;
       background: var(--bg);
-      display: flex;
-      flex-direction: column;
       overflow: hidden;
+      min-width: 0;
+      min-height: 0;
     }
     #viewport {
-      flex: 1;
-      position: relative;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       width: 100%;
       height: 100%;
     }
-    canvas {
+    #viewport canvas {
       display: block;
       width: 100%;
       height: 100%;
@@ -520,8 +524,12 @@
   </div>
 
   <script type="module">
+    console.log('Polygon editor script loading...');
+
     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
     import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+    console.log('Three.js loaded:', THREE);
 
     // State
     let scene, camera, renderer, controls;
@@ -534,7 +542,10 @@
 
     // Initialize Three.js (mimicking game demo renderer)
     function init() {
+      console.log('Initializing Three.js scene...');
       const viewport = document.getElementById('viewport');
+      console.log('Viewport element:', viewport);
+      console.log('Viewport dimensions:', viewport.clientWidth, 'x', viewport.clientHeight);
 
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0f172a);
@@ -551,6 +562,7 @@
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       viewport.appendChild(renderer.domElement);
+      console.log('Renderer created and canvas appended');
 
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
@@ -603,6 +615,7 @@
       // Load available images
       loadAvailableImages();
 
+      console.log('Three.js initialization complete, starting animation loop');
       animate();
     }
 
@@ -647,6 +660,7 @@
 
     // Create 6-faced polygon (box)
     function createPolygon(position = { x: 0, y: 1, z: 0 }) {
+      console.log('Creating polygon at position:', position);
       const size = { width: 1, height: 1, depth: 1 };
 
       const polygon = {
@@ -657,6 +671,7 @@
         faces: [],
         meshes: []
       };
+      console.log('Polygon object created:', polygon.id);
 
       // Create 6 faces as individual planes for easier selection
       const faceConfigs = [
@@ -709,9 +724,11 @@
       polygon.group.position.set(position.x, position.y, position.z);
       scene.add(polygon.group);
       polygons.push(polygon);
+      console.log('Polygon added to scene, total polygons:', polygons.length);
 
       updatePolygonList();
       selectPolygon(polygons.length - 1);
+      console.log('Polygon creation complete');
     }
 
     // Face selection via raycasting
@@ -1229,6 +1246,7 @@
 
     // Event listeners
     document.getElementById('addPolygonBtn').addEventListener('click', () => {
+      console.log('Create polygon button clicked');
       createPolygon();
     });
 
