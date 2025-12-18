@@ -5018,6 +5018,27 @@ function renderBottles(ctx) {
   ctx.restore();
 }
 
+// Update groundY from gameplay path projection (runs every frame, independent of debug visualization)
+function updateGroundYFromPath() {
+  if (!cv) return;
+
+  const adapter = window.GAME?.visualsmapAdapter;
+  if (!adapter || typeof adapter.getPathScreenLine !== 'function') return;
+
+  const projection = adapter.getPathScreenLine({ canvas: cv });
+  if (!projection || !projection.start || !projection.end) return;
+
+  const { start, end } = projection;
+  if (!Number.isFinite(start.y) || !Number.isFinite(end.y)) return;
+
+  // Update groundY based on the current screen Y of the gameplay path
+  // Use the average of start and end Y positions
+  const pathScreenY = (start.y + end.y) / 2;
+  if (window.CONFIG && Number.isFinite(pathScreenY)) {
+    window.CONFIG.groundY = Math.round(pathScreenY);
+  }
+}
+
 function renderGameplayPathOverlay(ctx) {
   if (!ctx || !cv) return;
 
@@ -5028,13 +5049,6 @@ function renderGameplayPathOverlay(ctx) {
   const { start, end } = projection;
   if (!Number.isFinite(start.x) || !Number.isFinite(start.y) || !Number.isFinite(end.x) || !Number.isFinite(end.y)) {
     return;
-  }
-
-  // Update groundY based on the current screen Y of the gameplay path
-  // Use the average of start and end Y positions
-  const pathScreenY = (start.y + end.y) / 2;
-  if (window.CONFIG && Number.isFinite(pathScreenY)) {
-    window.CONFIG.groundY = Math.round(pathScreenY);
   }
 
   const markerRadius = 6;
@@ -5076,6 +5090,9 @@ function loop(t){
   if (props.length > 0) {
     updateObstructionPhysics(props, window.CONFIG, dt);
   }
+
+  // Update groundY from gameplay path projection (must happen before camera update)
+  updateGroundYFromPath();
 
   updatePoses();
   updateCamera(cv);
