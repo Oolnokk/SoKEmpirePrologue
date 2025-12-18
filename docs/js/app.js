@@ -5117,8 +5117,11 @@ function renderGameplayPathOverlay(ctx) {
   }
 
   const markerRadius = 6;
+  const pathCells = 19; // Gameplay path spans 19 cells (col 0 to 19)
 
   ctx.save();
+
+  // Draw main path line
   ctx.lineWidth = 4;
   ctx.strokeStyle = '#ff0000';
   ctx.setLineDash([8, 6]);
@@ -5128,15 +5131,221 @@ function renderGameplayPathOverlay(ctx) {
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // Draw start/end markers
   ctx.fillStyle = '#ff0000';
   ctx.beginPath();
   ctx.arc(start.x, start.y, markerRadius, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#ff000';
+  ctx.fillStyle = '#ff0000';
   ctx.beginPath();
   ctx.arc(end.x, end.y, markerRadius, 0, Math.PI * 2);
   ctx.fill();
+
+  // Draw tile subdivision markers
+  const pathLength = Math.sqrt(
+    Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2)
+  );
+  const screenPixelsPerCell = pathLength / pathCells;
+
+  // Get calibration data for world measurements
+  const calibration = window.CONFIG?.map?._calibration;
+  const worldUnitsPerCell = calibration ? parseFloat(calibration.pixelsPerCell) : screenPixelsPerCell;
+
+  // Calculate perpendicular direction for tick marks
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const perpX = -dy / pathLength; // Rotate 90 degrees
+  const perpY = dx / pathLength;
+  const tickLength = 8;
+
+  ctx.strokeStyle = '#ffff00';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#ffff00';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'center';
+
+  // Draw subdivision marks for each cell
+  for (let i = 0; i <= pathCells; i++) {
+    const t = i / pathCells;
+    const x = start.x + (end.x - start.x) * t;
+    const y = start.y + (end.y - start.y) * t;
+
+    // Draw tick mark perpendicular to path
+    ctx.beginPath();
+    ctx.moveTo(x - perpX * tickLength, y - perpY * tickLength);
+    ctx.lineTo(x + perpX * tickLength, y + perpY * tickLength);
+    ctx.stroke();
+
+    // Draw measurement label between ticks (except at the end)
+    if (i < pathCells) {
+      const midT = (i + 0.5) / pathCells;
+      const midX = start.x + (end.x - start.x) * midT;
+      const midY = start.y + (end.y - start.y) * midT;
+
+      // Offset text perpendicular to path for readability
+      const textOffsetX = perpX * 16;
+      const textOffsetY = perpY * 16;
+
+      // Draw background for text
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      const labelText = `S:${screenPixelsPerCell.toFixed(0)}px W:${worldUnitsPerCell.toFixed(0)}`;
+      const textMetrics = ctx.measureText(labelText);
+      const textWidth = textMetrics.width;
+      const textHeight = 10;
+      ctx.fillRect(
+        midX + textOffsetX - textWidth / 2 - 2,
+        midY + textOffsetY - textHeight / 2 - 1,
+        textWidth + 4,
+        textHeight + 2
+      );
+
+      // Draw text label
+      ctx.fillStyle = '#ffff00';
+      ctx.fillText(labelText, midX + textOffsetX, midY + textOffsetY + 3);
+    }
+  }
+
+  // Draw summary at path center
+  const centerX = (start.x + end.x) / 2;
+  const centerY = (start.y + end.y) / 2;
+  const summaryOffsetX = perpX * 40;
+  const summaryOffsetY = perpY * 40;
+
+  ctx.font = 'bold 11px monospace';
+  const summaryText = `${pathCells} tiles × ${screenPixelsPerCell.toFixed(1)}px`;
+  const summaryMetrics = ctx.measureText(summaryText);
+  const summaryWidth = summaryMetrics.width;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(
+    centerX + summaryOffsetX - summaryWidth / 2 - 3,
+    centerY + summaryOffsetY - 7,
+    summaryWidth + 6,
+    14
+  );
+
+  ctx.fillStyle = '#00ff00';
+  ctx.fillText(summaryText, centerX + summaryOffsetX, centerY + summaryOffsetY + 3);
+
+  ctx.restore();
+}
+
+// Render 2D world space bounds markers (matches 3D path overlay)
+function render2DWorldBoundsOverlay(ctx) {
+  if (!ctx || !cv) return;
+
+  const config = window.CONFIG;
+  if (!config?.map?.activePlayableBounds) return;
+
+  const bounds = config.map.activePlayableBounds;
+  if (!Number.isFinite(bounds.left) || !Number.isFinite(bounds.right)) return;
+
+  const camera = window.GAME?.CAMERA;
+  if (!camera) return;
+
+  const groundY = Number.isFinite(config.groundY) ? config.groundY : cv.height / 2;
+  const zoom = Number.isFinite(camera.zoom) && camera.zoom > 0 ? camera.zoom : 1;
+  const cameraX = Number.isFinite(camera.x) ? camera.x : 0;
+
+  // Convert world coordinates to screen coordinates
+  const screenCenter = cv.width / 2;
+  const worldToScreenX = (worldX) => screenCenter + (worldX - cameraX) * zoom;
+
+  const leftScreenX = worldToScreenX(bounds.left);
+  const rightScreenX = worldToScreenX(bounds.right);
+
+  // Only render if at least part of the bounds is visible
+  if (rightScreenX < 0 || leftScreenX > cv.width) return;
+
+  ctx.save();
+
+  const pathCells = 19;
+  const worldSpan = bounds.right - bounds.left;
+  const worldUnitsPerCell = worldSpan / pathCells;
+
+  // Draw main bounds line
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#00ff00';
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(leftScreenX, groundY);
+  ctx.lineTo(rightScreenX, groundY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Draw subdivision markers
+  ctx.strokeStyle = '#00ffff';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#00ffff';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'center';
+
+  const tickLength = 8;
+
+  for (let i = 0; i <= pathCells; i++) {
+    const t = i / pathCells;
+    const worldX = bounds.left + worldSpan * t;
+    const screenX = worldToScreenX(worldX);
+
+    // Skip if off-screen
+    if (screenX < -20 || screenX > cv.width + 20) continue;
+
+    // Draw tick mark
+    ctx.beginPath();
+    ctx.moveTo(screenX, groundY - tickLength);
+    ctx.lineTo(screenX, groundY + tickLength);
+    ctx.stroke();
+
+    // Draw measurement label between ticks
+    if (i < pathCells) {
+      const midT = (i + 0.5) / pathCells;
+      const midWorldX = bounds.left + worldSpan * midT;
+      const midScreenX = worldToScreenX(midWorldX);
+
+      if (midScreenX >= 0 && midScreenX <= cv.width) {
+        const labelY = groundY - 20;
+
+        // Draw background for text
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        const labelText = `W:${worldUnitsPerCell.toFixed(0)}`;
+        const textMetrics = ctx.measureText(labelText);
+        const textWidth = textMetrics.width;
+        ctx.fillRect(
+          midScreenX - textWidth / 2 - 2,
+          labelY - 7,
+          textWidth + 4,
+          12
+        );
+
+        // Draw text
+        ctx.fillStyle = '#00ffff';
+        ctx.fillText(labelText, midScreenX, labelY + 3);
+      }
+    }
+  }
+
+  // Draw summary
+  const summaryScreenX = worldToScreenX((bounds.left + bounds.right) / 2);
+  if (summaryScreenX >= 0 && summaryScreenX <= cv.width) {
+    const summaryY = groundY + 25;
+
+    ctx.font = 'bold 11px monospace';
+    const summaryText = `2D: ${pathCells} cells × ${worldUnitsPerCell.toFixed(1)}wu`;
+    const summaryMetrics = ctx.measureText(summaryText);
+    const summaryWidth = summaryMetrics.width;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(
+      summaryScreenX - summaryWidth / 2 - 3,
+      summaryY - 7,
+      summaryWidth + 6,
+      14
+    );
+
+    ctx.fillStyle = '#00ff00';
+    ctx.fillText(summaryText, summaryScreenX, summaryY + 3);
+  }
 
   ctx.restore();
 }
@@ -5166,7 +5375,8 @@ function loop(t){
   renderBottles(cx);
   renderAll(cx);
   renderSprites(cx);
-  renderGameplayPathOverlay(cx);
+  render2DWorldBoundsOverlay(cx); // 2D world space ruler (green)
+  renderGameplayPathOverlay(cx);   // 3D projection ruler (red/yellow)
   runHitDetect();
   updateHUD();
   updateDebugPanel();
