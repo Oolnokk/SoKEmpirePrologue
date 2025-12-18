@@ -5039,6 +5039,54 @@ function updateGroundYFromPath() {
   }
 }
 
+// Update playable bounds from gameplay path projection (syncs 3D path to 2D world space)
+function updatePlayableBoundsFromPath() {
+  if (!cv) return;
+
+  const adapter = window.GAME?.visualsmapAdapter;
+  if (!adapter || typeof adapter.getPathScreenLine !== 'function') return;
+
+  const projection = adapter.getPathScreenLine({ canvas: cv });
+  if (!projection || !projection.start || !projection.end) return;
+
+  const { start, end } = projection;
+  if (!Number.isFinite(start.x) || !Number.isFinite(end.x)) return;
+
+  const camera = window.GAME?.CAMERA;
+  if (!camera) return;
+
+  // Convert screen coordinates to world coordinates
+  // Formula: worldX = cameraX + (screenX - screenCenter) / zoom
+  const viewportWidth = cv.width || 720;
+  const screenCenter = viewportWidth / 2;
+  const zoom = Number.isFinite(camera.zoom) && camera.zoom > 0 ? camera.zoom : 1;
+  const cameraX = Number.isFinite(camera.x) ? camera.x : 0;
+
+  const worldStartX = cameraX + (start.x - screenCenter) / zoom;
+  const worldEndX = cameraX + (end.x - screenCenter) / zoom;
+
+  // Set playable bounds to match the projected path
+  const minX = Math.min(worldStartX, worldEndX);
+  const maxX = Math.max(worldStartX, worldEndX);
+
+  if (window.CONFIG && window.CONFIG.map) {
+    window.CONFIG.map.playAreaMinX = minX;
+    window.CONFIG.map.playAreaMaxX = maxX;
+    window.CONFIG.map.activePlayableBounds = { left: minX, right: maxX };
+    window.CONFIG.map.playableBounds = { left: minX, right: maxX };
+  }
+
+  // Also update geometry service if available
+  const geometryService = window.GAME?.geometryService;
+  if (geometryService && typeof geometryService.getActiveGeometry === 'function') {
+    const geometry = geometryService.getActiveGeometry();
+    if (geometry?.playableBounds) {
+      geometry.playableBounds.left = minX;
+      geometry.playableBounds.right = maxX;
+    }
+  }
+}
+
 function renderGameplayPathOverlay(ctx) {
   if (!ctx || !cv) return;
 
@@ -5091,8 +5139,9 @@ function loop(t){
     updateObstructionPhysics(props, window.CONFIG, dt);
   }
 
-  // Update groundY from gameplay path projection (must happen before camera update)
+  // Update groundY and playable bounds from gameplay path projection (must happen before camera update)
   updateGroundYFromPath();
+  updatePlayableBoundsFromPath();
 
   updatePoses();
   updateCamera(cv);
