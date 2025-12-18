@@ -5233,7 +5233,7 @@ function renderGameplayPathOverlay(ctx) {
   }
 
   // Add 3D path extents (always show)
-  const labelY6 = !diffMatch ? (labelY4 + lineHeight * 2 + 4) : (labelY4 + lineHeight + 2);
+  const labelY6 = !transformOK ? (labelY4 + lineHeight * 2 + 4) : (labelY4 + lineHeight + 2);
   if (path3dStart && path3dEnd) {
     const text6 = `3D Path: X from ${path3dStart.x.toFixed(1)} to ${path3dEnd.x.toFixed(1)} | Cam in range: ${(cam3dX >= Math.min(path3dStart.x, path3dEnd.x) && cam3dX <= Math.max(path3dStart.x, path3dEnd.x)) ? '✓' : '✗'}`;
     const metrics6 = ctx.measureText(text6);
