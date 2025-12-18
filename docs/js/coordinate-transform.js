@@ -87,6 +87,16 @@ export function transform2dTo3d(pos2d, config = {}) {
     z3d = rotatedZ;
   }
 
+  // Optional debug logging (enable with window.DEBUG_COORDINATE_TRANSFORM = true)
+  if (typeof window !== 'undefined' && window.DEBUG_COORDINATE_TRANSFORM) {
+    console.log('[coordinate-transform]', {
+      input: { x: x2d, y: y2d },
+      config: { worldWidth: cfg.world2dWidth, worldHeight: cfg.world2dHeight, pixelsToUnits: cfg.pixelsToUnits },
+      centerOffset: cfg.centerAt3dOrigin ? (cfg.world2dWidth * cfg.pixelsToUnits) / 2 : 0,
+      output: { x: x3d, z: z3d }
+    });
+  }
+
   return {
     x: x3d,
     y: 0, // 2D gameplay is flat, so Y is always at ground level

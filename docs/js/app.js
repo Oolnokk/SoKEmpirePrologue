@@ -5163,6 +5163,21 @@ function renderGameplayPathOverlay(ctx) {
   ctx.fillStyle = '#aaaaaa';
   ctx.fillText(text4, labelX, labelY4 + 4);
 
+  // Add detailed mismatch debugging if there's a problem
+  if (!diffMatch) {
+    const labelY5 = labelY4 + lineHeight + 2;
+    const discrepancy = actualDiff - expectedDiff;
+    const text5 = `Debug: Discrepancy=${discrepancy.toFixed(1)} | 2D=${camX2d.toFixed(1)} | 3D=${cam3dX.toFixed(1)} | Center=${(worldWidth/2).toFixed(1)}`;
+    const metrics5 = ctx.measureText(text5);
+    const bgWidth5 = metrics5.width + padding * 2;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(labelX - bgWidth5 / 2, labelY5, bgWidth5, bgHeight3d);
+
+    ctx.fillStyle = '#ffaa44';
+    ctx.fillText(text5, labelX, labelY5 + 4);
+  }
+
   ctx.restore();
 }
 
