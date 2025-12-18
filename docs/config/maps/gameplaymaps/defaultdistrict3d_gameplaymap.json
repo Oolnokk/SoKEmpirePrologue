@@ -1,11 +1,6 @@
 {
   "areaId": "defaultdistrict3d",
-  "playableBounds": {
-    "left": -1160,
-    "right": 1160,
-    "top": -600,
-    "bottom": -400
-  },
+  "playableBounds": null,
   "visualsMap": "../visualsmaps/defaultdistrict3D_visualsmap.json",
   "scene3d": {
     "sceneUrl": "/assets/3D/tower_commercial3D.glb",

@@ -936,7 +936,21 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     window.CONFIG.playAreaMinX = pathExtents.minX;
     window.CONFIG.playAreaMaxX = pathExtents.maxX;
 
+    // Also update mapConfig.playableBounds (used by physics and map bootstrap)
+    const newPlayableBounds = {
+      left: pathExtents.minX,
+      right: pathExtents.maxX,
+      top: -600,    // Keep existing vertical bounds
+      bottom: -400
+    };
+
+    if (window.CONFIG.map) {
+      window.CONFIG.map.playableBounds = newPlayableBounds;
+      window.CONFIG.map.activePlayableBounds = newPlayableBounds;
+    }
+
     console.log(`  Play area bounds updated: [${oldMinX}, ${oldMaxX}] → [${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}]`);
+    console.log(`  mapConfig.playableBounds: {left: ${pathExtents.minX.toFixed(1)}, right: ${pathExtents.maxX.toFixed(1)}}`);
   } else {
     console.warn('[app] Cannot update play area bounds: window.CONFIG not available');
   }
