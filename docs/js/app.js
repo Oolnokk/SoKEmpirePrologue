@@ -5201,8 +5201,24 @@ function renderGameplayPathOverlay(ctx) {
   ctx.fillStyle = '#ffff66'; // Yellow for player info
   ctx.fillText(textPlayer, labelX, labelY + 4);
 
+  // Playable bounds info (CONFIG values)
+  const labelYBounds = labelY + lineHeight + 2;
+  const playableLeft = window.CONFIG?.map?.playableBounds?.left ?? window.CONFIG?.map?.activePlayableBounds?.left ?? 'null';
+  const playableRight = window.CONFIG?.map?.playableBounds?.right ?? window.CONFIG?.map?.activePlayableBounds?.right ?? 'null';
+  const configMinX = window.CONFIG?.playAreaMinX ?? 'null';
+  const configMaxX = window.CONFIG?.playAreaMaxX ?? 'null';
+  const textBounds = `Playable: [${playableLeft}, ${playableRight}] | Config: [${configMinX}, ${configMaxX}]`;
+  const metricsBounds = ctx.measureText(textBounds);
+  const bgWidthBounds = metricsBounds.width + padding * 2;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidthBounds / 2, labelYBounds, bgWidthBounds, lineHeight);
+
+  ctx.fillStyle = '#ff99ff'; // Pink for bounds info
+  ctx.fillText(textBounds, labelX, labelYBounds + 4);
+
   // 3D info (centered coordinate system)
-  const labelY3d = labelY + lineHeight + 2;
+  const labelY3d = labelYBounds + lineHeight + 2;
   const text3d = `3D: ${pixelLength3d.toFixed(1)}px screen | ${distance3dWorld.toFixed(1)}u world | cam: ${cam3dX.toFixed(1)} (centered)`;
   const metrics3d = ctx.measureText(text3d);
   const bgWidth3d = metrics3d.width + padding * 2;
