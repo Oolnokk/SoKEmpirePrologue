@@ -982,7 +982,10 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
     function getPathScreenLine(options = {}) {
       const canvasEl = options.canvas || null;
-      if (!pathVisible || !pathStartWorld || !pathEndWorld) {
+
+      // Always compute projection data (needed for groundY calculation)
+      // The visible flag indicates if the debug overlay should be rendered
+      if (!pathStartWorld || !pathEndWorld) {
         return { visible: false };
       }
 
@@ -999,7 +1002,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       }
 
       return {
-        visible: true,
+        visible: pathVisible, // For debug rendering - controlled by checkbox
         start,
         end,
       };
