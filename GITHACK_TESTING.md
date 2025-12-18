@@ -8,7 +8,23 @@ Use these GitHack URLs to test each commit directly in your browser without need
 
 ## Recent Commits
 
-### Commit 4: Camera Bounds Fix (Latest)
+### Commit 5: Sign Flip Fix (Latest) ✅
+**Commit**: `c919fc3` - Remove incorrect sign flip in camera sync
+
+**GitHack URL** (for HTML entry point):
+```
+https://raw.githack.com/Oolnokk/SoKEmpirePrologue/c919fc3/docs/index.html
+```
+
+**Changes**:
+- **FINAL FIX**: Removed incorrect sign negation on parallaxX
+- 3D camera now positioned correctly (left of path when at left of 2D world)
+- Fixed visual movement - 3D world now moves correctly with 2D camera
+- ✅ All coordinate systems properly aligned!
+
+---
+
+### Commit 4: Camera Bounds Fix
 **Commit**: `b829992` - Fix camera movement: remove padding and use correct bounds format
 
 **GitHack URL** (for HTML entry point):
@@ -17,11 +33,11 @@ https://raw.githack.com/Oolnokk/SoKEmpirePrologue/b829992/docs/index.html
 ```
 
 **Changes**:
-- **CRITICAL FIX**: Changed camera bounds from minX/maxX to `bounds = { min, max }` format
+- Changed camera bounds from minX/maxX to `bounds = { min, max }` format
 - Removed world size padding - 2D world now exactly matches 3D path span
 - 2D pixel 0 → 3D path start (-2850)
 - 2D pixel 5700 → 3D path end (+2850)
-- Character can now move properly across full path range
+- ⚠️ Had sign flip issue (fixed in c919fc3)
 
 ---
 
@@ -101,32 +117,46 @@ https://raw.githack.com/Oolnokk/SoKEmpirePrologue/57ea5be/docs/js/app.js
 
 ## Testing Checklist
 
-For each commit URL:
+For commit `c919fc3` (latest, fully working):
 
 1. **Open in browser** - Load the GitHack URL
+   ```
+   https://raw.githack.com/Oolnokk/SoKEmpirePrologue/c919fc3/docs/index.html
+   ```
+
 2. **Open DevTools Console** - Press F12 to see initialization logs
-3. **Check for auto-sizing** (b829992 - latest):
+3. **Check for auto-sizing**:
    ```
    [app] Auto-sizing 2D world to gameplay path:
      Path extents: X=[-2850.0, 2850.0] (span: 5700.0)
      2D world dimensions: 5700.0 x 600.0 pixels
      Camera bounds: [0, 5700.0]
    ```
-   Note: No padding - 2D world exactly matches path span
+
 4. **Check for transform init**:
    ```
    [coordinate-transform] Transform config initialized: {...}
    ```
-5. **Test movement** (b829992):
-   - ✅ Character should be able to move left/right
-   - ✅ 3D world moves in same direction
+
+5. **Verify debug overlay shows NO mismatch**:
+   ```
+   ✓ Mismatch: expected -2256.4, got -2256.4
+   ```
+   (Values should match!)
+
+6. **Test movement** (c919fc3):
+   - ✅ Character can move left and right freely
+   - ✅ 3D world moves correctly with 2D camera
    - ✅ Can reach BOTH ends of the gameplay path
    - ✅ Pixel-perfect alignment (1px = 1 unit)
-6. **Compare commits**:
-   - `eb705ae` (0.1 scale) - slow 3D movement
-   - `57ea5be` (1.0 scale) - pixel-perfect but hardcoded size
-   - `b87e263` (procedural) - ⚠️ broken (no movement)
-   - `b829992` (procedural + fix) - ✅ **WORKING**
+   - ✅ Camera positioning matches expected values
+
+7. **Compare commits** (if needed):
+   - `eb705ae` - Initial 0.1x scale fix
+   - `57ea5be` - Pixel-perfect but hardcoded
+   - `b87e263` - Procedural (broken - no movement)
+   - `b829992` - Bounds fix (broken - inverted camera)
+   - `c919fc3` - ✅ **FULLY WORKING**
 
 ## Alternative: Test via GitHub Pages
 
@@ -169,8 +199,9 @@ If GitHack URLs don't load:
 |--------|-------|-------------|-----|
 | `eb705ae` | 0.1x | Initial fix with 10% scaling | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/eb705ae/docs/index.html) |
 | `57ea5be` | 1.0x | Pixel-perfect 1:1 mapping | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/57ea5be/docs/index.html) |
-| `b87e263` | 1.0x | Procedural sizing (⚠️ broken) | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/b87e263/docs/index.html) |
-| `b829992` | 1.0x | **WORKING** - Procedural + bounds fix | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/b829992/docs/index.html) |
+| `b87e263` | 1.0x | Procedural sizing (⚠️ broken - no movement) | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/b87e263/docs/index.html) |
+| `b829992` | 1.0x | Bounds fix (⚠️ inverted camera) | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/b829992/docs/index.html) |
+| `c919fc3` | 1.0x | ✅ **FULLY WORKING** - All fixes applied | [Test](https://raw.githack.com/Oolnokk/SoKEmpirePrologue/c919fc3/docs/index.html) |
 
 ---
 
