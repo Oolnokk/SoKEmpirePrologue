@@ -5039,8 +5039,9 @@ function updateGroundYFromPath() {
   }
 }
 
-// One-time calibration: Set GRID_UNIT_WORLD_SIZE to match screen pixels
-// This creates a 1:1 mapping where 1 world unit = 1 pixel
+// One-time calibration: Measure 3D tile projection and set 2D bounds
+// Establishes consistent conversion factor between 3D world units and 2D pixels
+// Does NOT modify GRID_UNIT_WORLD_SIZE (3D scene is already loaded)
 let worldScaleCalibrated = false;
 
 function calibrateWorldScaleFromTile() {
@@ -5057,20 +5058,17 @@ function calibrateWorldScaleFromTile() {
   const { pixelWidth, col, flipped } = tileMeasurement;
 
   console.log('[calibration] ========================================');
-  console.log('[calibration] ONE-TIME WORLD SCALE CALIBRATION');
+  console.log('[calibration] ONE-TIME 2D BOUNDS CALIBRATION');
   console.log(`[calibration] Measured tile ${col}:`);
-  console.log(`[calibration]   Current GRID_UNIT_WORLD_SIZE: ${window.GRID_UNIT_WORLD_SIZE || 30}`);
+  console.log(`[calibration]   GRID_UNIT_WORLD_SIZE (3D): ${window.GRID_UNIT_WORLD_SIZE || 30}`);
   console.log(`[calibration]   Measured pixel width: ${pixelWidth.toFixed(1)}px`);
+  console.log(`[calibration]   Conversion: ${(pixelWidth / (window.GRID_UNIT_WORLD_SIZE || 30)).toFixed(2)}px per world unit`);
   console.log(`[calibration]   Flipped: ${flipped}`);
 
-  // Set GRID_UNIT_WORLD_SIZE to the measured pixel width
-  // This creates 1:1 mapping: 1 world unit = 1 pixel
-  window.GRID_UNIT_WORLD_SIZE = pixelWidth;
-  console.log(`[calibration]   New GRID_UNIT_WORLD_SIZE: ${pixelWidth.toFixed(1)}`);
-
-  // Calculate playable bounds: simply GRID_UNIT_WORLD_SIZE × 19 tiles
+  // Calculate 2D playable bounds from measured pixel width
+  // Don't touch GRID_UNIT_WORLD_SIZE - 3D scene is already loaded
   const pathCells = 19;
-  const totalWidth = window.GRID_UNIT_WORLD_SIZE * pathCells;
+  const totalWidth = pixelWidth * pathCells;
 
   // Get path position to know where to place bounds
   if (typeof adapter.getPathScreenLine !== 'function') return;
@@ -5092,24 +5090,25 @@ function calibrateWorldScaleFromTile() {
   }
 
   console.log(`[calibration]   Path cells: ${pathCells}`);
-  console.log(`[calibration]   Total width: ${totalWidth.toFixed(1)}px`);
+  console.log(`[calibration]   Total 2D width: ${totalWidth.toFixed(1)}px (${pathCells} × ${pixelWidth.toFixed(1)}px)`);
   console.log(`[calibration]   Playable bounds: ${leftBound.toFixed(1)} to ${rightBound.toFixed(1)}`);
-  console.log('[calibration]   Result: 1 world unit = 1 pixel (perfect alignment)');
   console.log('[calibration] ========================================');
 
-  // Store calibrated bounds
+  // Store calibrated bounds and conversion factor
+  const pixelsPerWorldUnit = pixelWidth / (window.GRID_UNIT_WORLD_SIZE || 30);
+
   if (window.CONFIG && window.CONFIG.map) {
     window.CONFIG.map.playAreaMinX = leftBound;
     window.CONFIG.map.playAreaMaxX = rightBound;
     window.CONFIG.map.activePlayableBounds = { left: leftBound, right: rightBound };
     window.CONFIG.map.playableBounds = { left: leftBound, right: rightBound };
     window.CONFIG.map._calibration = {
-      measuredPixelWidth: pixelWidth,
-      gridUnitWorldSize: window.GRID_UNIT_WORLD_SIZE,
+      tilePixelWidth: pixelWidth,
       pathCells,
       totalWidth,
       flipped,
-      ratio: '1:1 (world units = pixels)'
+      gridUnitWorldSize: window.GRID_UNIT_WORLD_SIZE || 30,
+      pixelsPerWorldUnit: pixelsPerWorldUnit.toFixed(3)
     };
   }
 
