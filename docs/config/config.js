@@ -2400,7 +2400,19 @@ CONFIG.npcGroups = {
 // Global grid-unit world scale configuration for map editor and runtime
 // This defines the world-space size of one grid unit (in pixels/units)
 // Used by the map editor for 3D preview scaling and exported in EnvironmentMap
-// Priority: 1) Pre-existing window.GRID_UNIT_WORLD_SIZE, 2) CONFIG.map.gridUnit, 3) Default 30
+// Priority: 1) Pre-existing, 2) Calibrated (localStorage), 3) CONFIG.map.gridUnit, 4) Default 30
 if (typeof window.GRID_UNIT_WORLD_SIZE === 'undefined') {
-  window.GRID_UNIT_WORLD_SIZE = window.CONFIG?.map?.gridUnit || 30;
+  // Check for calibrated value from previous session
+  let calibratedValue = null;
+  try {
+    const stored = localStorage.getItem('GRID_UNIT_WORLD_SIZE_CALIBRATED');
+    if (stored) {
+      calibratedValue = parseFloat(stored);
+      console.log(`[config] Using calibrated GRID_UNIT_WORLD_SIZE: ${calibratedValue.toFixed(2)}`);
+    }
+  } catch (e) {
+    // localStorage not available
+  }
+
+  window.GRID_UNIT_WORLD_SIZE = calibratedValue || window.CONFIG?.map?.gridUnit || 30;
 }
