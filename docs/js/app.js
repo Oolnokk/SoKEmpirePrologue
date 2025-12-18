@@ -926,6 +926,21 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   // The camera system should read from camera.bounds
   gameCamera.bounds = { min: 0, max: worldWidth };
 
+  // Update play area bounds to match 3D path extents
+  // The play area bounds use centered coordinates (like the 3D world)
+  // This allows the player to move across the full range of the gameplay path
+  if (window.CONFIG) {
+    const oldMinX = window.CONFIG.playAreaMinX;
+    const oldMaxX = window.CONFIG.playAreaMaxX;
+
+    window.CONFIG.playAreaMinX = pathExtents.minX;
+    window.CONFIG.playAreaMaxX = pathExtents.maxX;
+
+    console.log(`  Play area bounds updated: [${oldMinX}, ${oldMaxX}] → [${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}]`);
+  } else {
+    console.warn('[app] Cannot update play area bounds: window.CONFIG not available');
+  }
+
   console.log(`  Camera world size: ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)}`);
   console.log(`  Camera bounds: [${gameCamera.bounds.min}, ${gameCamera.bounds.max}]`);
   console.log(`  Note: Area object is frozen, bounds set on gameCamera instead`);
