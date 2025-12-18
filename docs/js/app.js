@@ -5092,45 +5092,63 @@ function renderGameplayPathOverlay(ctx) {
   ctx.arc(end.x, end.y, markerRadius, 0, Math.PI * 2);
   ctx.fill();
 
-  // Draw 3D line info label (above the line)
-  const midX = (start.x + end.x) / 2;
-  const midY = (start.y + end.y) / 2;
-  const labelOffsetY = -20; // Above the line
+  // Position labels in viewport, following camera
+  // Use canvas center for consistent visibility
+  const canvasWidth = cv?.width || 800;
+  const canvasHeight = cv?.height || 600;
+  const labelX = canvasWidth / 2;
+  const labelY = 40; // Fixed position from top
 
-  ctx.font = 'bold 14px monospace';
+  ctx.font = 'bold 13px monospace';
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
+  ctx.textBaseline = 'top';
 
-  // 3D info background
-  const text3d = `3D: ${pixelLength3d.toFixed(1)}px screen | ${distance3dWorld.toFixed(1)}u world | cam.x: ${cam3dX.toFixed(1)}`;
+  const padding = 6;
+  const lineHeight = 20;
+
+  // 3D info (centered coordinate system)
+  const text3d = `3D: ${pixelLength3d.toFixed(1)}px screen | ${distance3dWorld.toFixed(1)}u world | cam: ${cam3dX.toFixed(1)} (centered)`;
   const metrics3d = ctx.measureText(text3d);
-  const padding = 4;
   const bgWidth3d = metrics3d.width + padding * 2;
-  const bgHeight3d = 18;
+  const bgHeight3d = lineHeight;
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-  ctx.fillRect(midX - bgWidth3d / 2, midY + labelOffsetY - bgHeight3d, bgWidth3d, bgHeight3d);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidth3d / 2, labelY, bgWidth3d, bgHeight3d);
 
   // 3D info text
   ctx.fillStyle = '#ff6666';
-  ctx.fillText(text3d, midX, midY + labelOffsetY);
+  ctx.fillText(text3d, labelX, labelY + 4);
 
-  // Draw 2D line info label (below the line)
-  const labelOffsetY2d = 30; // Below the line
-
-  // For 2D, show camera position (in pixel/world coordinates)
-  // Since we have pixel-perfect mapping now, world units = pixels for 2D
-  const text2d = `2D: ${distance3dWorld.toFixed(1)}px world | cam.x: ${camX2d.toFixed(1)}px`;
+  // 2D info (edge-based coordinate system)
+  const labelY2d = labelY + lineHeight + 2;
+  const text2d = `2D: ${distance3dWorld.toFixed(1)}px world | cam: ${camX2d.toFixed(1)} (from edge)`;
   const metrics2d = ctx.measureText(text2d);
   const bgWidth2d = metrics2d.width + padding * 2;
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-  ctx.fillRect(midX - bgWidth2d / 2, midY + labelOffsetY2d, bgWidth2d, bgHeight3d);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidth2d / 2, labelY2d, bgWidth2d, bgHeight3d);
 
   // 2D info text
   ctx.fillStyle = '#66ff66';
-  ctx.textBaseline = 'top';
-  ctx.fillText(text2d, midX, midY + labelOffsetY2d);
+  ctx.fillText(text2d, labelX, labelY2d + 4);
+
+  // Add explanation of coordinate difference
+  const labelY3 = labelY2d + lineHeight + 2;
+  const worldWidth = camera2d?.worldWidth || 1600;
+  const expectedDiff = camX2d - (worldWidth / 2);
+  const actualDiff = cam3dX;
+  const diffMatch = Math.abs(expectedDiff - actualDiff) < 1;
+  const text3 = diffMatch
+    ? `✓ Transform OK: ${camX2d.toFixed(1)} - ${(worldWidth/2).toFixed(1)} = ${cam3dX.toFixed(1)}`
+    : `⚠ Mismatch: expected ${expectedDiff.toFixed(1)}, got ${actualDiff.toFixed(1)}`;
+  const metrics3 = ctx.measureText(text3);
+  const bgWidth3 = metrics3.width + padding * 2;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidth3 / 2, labelY3, bgWidth3, bgHeight3d);
+
+  ctx.fillStyle = diffMatch ? '#88ff88' : '#ffaa44';
+  ctx.fillText(text3, labelX, labelY3 + 4);
 
   ctx.restore();
 }
