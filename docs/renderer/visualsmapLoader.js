@@ -478,15 +478,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
           // Resolve GLTF path
           const gltfCandidate = assetConfig.gltfPath || assetConfig.gltfFileName;
-          const targetsDocsAssets = typeof gltfCandidate === 'string' && gltfCandidate.replace(/^\.\/+/, '').startsWith('assets/');
           const gltfBase = inlineAsset
             ? visualsMapBase
-            : (targetsDocsAssets && docsBase)
-              || assetConfig.__visualsmapIndexBase
-              || docsBase
-              || visualsMapBase
-              || configBase
-              || null;
+            : (assetConfig.__visualsmapIndexBase || docsBase || visualsMapBase || configBase || null);
           const gltfUrl = resolveAssetPath(gltfCandidate, gltfBase);
           if (!gltfUrl) {
             console.warn(`[visualsmapLoader] ✗ No gltfPath for asset: ${cell.type} at (${row},${col})`);
