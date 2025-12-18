@@ -407,16 +407,46 @@ main.stack{
   padding:var(--pad);
 }
 
-/* In landscape orientation: minimal changes for better gameplay */
+/* In landscape orientation: lock to container width, maintain aspect ratio */
 @media (orientation: landscape) {
+  :root{
+    --control-scale-base:clamp(0.75,2.8vw,1.0);
+  }
+
+  html, body{
+    width:100vw;
+    overflow-x:hidden;
+    margin:0;
+    padding:0;
+  }
+
+  main.stack{
+    width:100vw;
+    gap:0;
+    padding:0;
+    margin:0;
+  }
+
   /* Hide extra widgets below the game for cleaner view */
   .widget:not(.widget--clear){
     display:none;
   }
 
-  /* Slightly larger controls in landscape */
-  :root{
-    --control-scale-base:clamp(0.75,2.8vw,1.0);
+  .widget--clear{
+    width:100vw;
+    margin:0;
+    padding:0;
+  }
+
+  .stage{
+    /* Lock width to 100vw to match container, calculate height from aspect ratio */
+    width:100vw !important;
+    max-width:100vw !important;
+    height:calc(100vw * var(--stage-aspect-height) / var(--stage-aspect-width)) !important;
+    max-height:100vh !important;
+    margin:0 !important;
+    border-radius:0;
+    outline:none;
   }
 }
 
