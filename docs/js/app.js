@@ -5039,40 +5039,63 @@ function updateGroundYFromPath() {
   }
 }
 
-// Calibrate 2D world space from 3D path projection
-// This measures a single 3D tile's screen size and uses it to set up proper 2D world coordinates
+// Calibrate 2D world space from actual 3D tile measurement
+// This measures a single 3D tile's screen projection and uses it to set up proper 2D world coordinates
 let calibratedOnce = false;
 function updatePlayableBoundsFromPath() {
   if (!cv) return;
 
   const adapter = window.GAME?.visualsmapAdapter;
-  if (!adapter || typeof adapter.getPathScreenLine !== 'function') return;
+  if (!adapter || typeof adapter.getTileScreenMeasurement !== 'function') return;
 
-  const projection = adapter.getPathScreenLine({ canvas: cv });
-  if (!projection || !projection.start || !projection.end) return;
+  // Get actual tile measurement from 3D scene
+  const tileMeasurement = adapter.getTileScreenMeasurement({ canvas: cv });
+  if (!tileMeasurement) return;
 
-  const { start, end } = projection;
-  if (!Number.isFinite(start.x) || !Number.isFinite(end.x)) return;
-
-  // Measure the screen span of the 3D gameplay path
-  const screenStartX = start.x;
-  const screenEndX = end.x;
-  const screenSpan = Math.abs(screenEndX - screenStartX);
+  const { pixelWidth, leftEdgeX, rightEdgeX, col, flipped } = tileMeasurement;
 
   // The gameplay path spans 19 cells (col 0 to col 19 in a 20-column grid)
   const pathCells = 19;
-  const pixelsPerCell = screenSpan / pathCells;
 
-  // Use screen pixels directly as 2D world units
-  // This creates a 1:1 mapping at zoom level 1
-  const leftBound = Math.min(screenStartX, screenEndX);
-  const rightBound = Math.max(screenStartX, screenEndX);
+  // Calculate the total playable width based on actual tile measurement
+  const totalPlayableWidth = pixelWidth * pathCells;
+
+  // Use screen pixels directly as 2D world units (1:1 mapping at zoom level 1)
+  // Calculate bounds from the measured tile's position
+  // The measured tile is at position `col`, so we can calculate where the path starts and ends
+  let leftBound, rightBound;
+
+  if (flipped) {
+    // Coordinate system is flipped: rightEdgeX is actually on the left
+    // The measured tile's right edge is at rightEdgeX
+    // Tiles to the right (higher col) extend toward higher X
+    // Tiles to the left (lower col) extend toward lower X
+    const tileRightX = rightEdgeX;
+    const tilesToRight = pathCells - col - 1; // How many tiles are to the right of this one
+    const tilesToLeft = col; // How many tiles are to the left of this one
+
+    rightBound = tileRightX + (tilesToRight * pixelWidth);
+    leftBound = tileRightX - (tilesToLeft * pixelWidth) - pixelWidth;
+  } else {
+    // Normal coordinate system: leftEdgeX is on the left
+    // The measured tile's left edge is at leftEdgeX
+    // Tiles to the right (higher col) extend toward higher X
+    // Tiles to the left (lower col) extend toward lower X
+    const tileLeftX = leftEdgeX;
+    const tilesToRight = pathCells - col - 1; // How many tiles are to the right of this one
+    const tilesToLeft = col; // How many tiles are to the left of this one
+
+    leftBound = tileLeftX - (tilesToLeft * pixelWidth);
+    rightBound = tileLeftX + (tilesToRight * pixelWidth) + pixelWidth;
+  }
 
   if (!calibratedOnce) {
-    console.log('[bounds] Calibrating 2D world space from 3D path:');
-    console.log(`  - Path screen span: ${screenSpan.toFixed(1)}px`);
+    console.log('[bounds] Calibrating 2D world space from actual 3D tile:');
+    console.log(`  - Measured tile at col ${col}`);
+    console.log(`  - Tile pixel width: ${pixelWidth.toFixed(1)}px`);
     console.log(`  - Path cells: ${pathCells}`);
-    console.log(`  - Pixels per cell: ${pixelsPerCell.toFixed(1)}px`);
+    console.log(`  - Total playable width: ${totalPlayableWidth.toFixed(1)}px`);
+    console.log(`  - Flipped: ${flipped}`);
     console.log(`  - Playable bounds: ${leftBound.toFixed(1)} to ${rightBound.toFixed(1)}`);
     calibratedOnce = true;
   }
@@ -5085,9 +5108,11 @@ function updatePlayableBoundsFromPath() {
 
     // Store calibration info for debugging
     window.CONFIG.map._calibration = {
-      screenSpan: screenSpan.toFixed(1),
+      tileCol: col,
+      tilePixelWidth: pixelWidth.toFixed(1),
       pathCells,
-      pixelsPerCell: pixelsPerCell.toFixed(1),
+      totalPlayableWidth: totalPlayableWidth.toFixed(1),
+      flipped,
       leftBound: leftBound.toFixed(1),
       rightBound: rightBound.toFixed(1)
     };
@@ -5234,6 +5259,11 @@ function renderGameplayPathOverlay(ctx) {
 // Render 2D world space bounds markers (matches 3D path overlay)
 function render2DWorldBoundsOverlay(ctx) {
   if (!ctx || !cv) return;
+
+  // Only show when gameplay path debug is enabled
+  const adapter = window.GAME?.visualsmapAdapter;
+  const projection = adapter?.getPathScreenLine?.({ canvas: cv });
+  if (!projection?.visible) return;
 
   const config = window.CONFIG;
   if (!config?.map?.activePlayableBounds) return;

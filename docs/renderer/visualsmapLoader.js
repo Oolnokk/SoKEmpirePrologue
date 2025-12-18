@@ -1008,11 +1008,89 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       };
     }
 
+    /**
+     * Measure the screen projection of a single 3D tile along the gameplay path.
+     * Finds the tile closest to the camera and returns its screen width.
+     * @param {Object} options - { canvas: HTMLCanvasElement }
+     * @returns {Object|null} { pixelWidth: number, leftEdgeX: number, rightEdgeX: number, col: number, flipped: boolean } or null
+     */
+    function getTileScreenMeasurement(options = {}) {
+      const canvasEl = options.canvas || null;
+
+      if (!gameplayPath?.start || !gameplayPath?.end || !renderer?.camera) {
+        return null;
+      }
+
+      // Gameplay path is at row 10, spanning columns 0-19
+      const pathRow = gameplayPath.start.row;
+      const startCol = Math.min(gameplayPath.start.col, gameplayPath.end.col);
+      const endCol = Math.max(gameplayPath.start.col, gameplayPath.end.col);
+
+      // Find the tile (column) closest to camera by projecting each tile center
+      let closestCol = startCol;
+      let closestDistance = Infinity;
+
+      for (let col = startCol; col <= endCol; col++) {
+        const worldPos = gridToWorld(pathRow, col, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+        const tileCenter = new renderer.THREE.Vector3(worldPos.x, 0, worldPos.z);
+        const distToCamera = tileCenter.distanceTo(renderer.camera.position);
+
+        if (distToCamera < closestDistance) {
+          closestDistance = distToCamera;
+          closestCol = col;
+        }
+      }
+
+      // Calculate the four corners of this tile in 3D world space
+      // A tile occupies the space from (row, col) to (row+1, col+1) in grid coordinates
+      // But since we're measuring horizontally along the path, we care about col to col+1
+      const topLeft = gridToWorld(pathRow, closestCol, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+      const topRight = gridToWorld(pathRow, closestCol + 1, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+      const bottomLeft = gridToWorld(pathRow + 1, closestCol, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+      const bottomRight = gridToWorld(pathRow + 1, closestCol + 1, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+
+      // Project all four corners to screen space
+      const tlScreen = projectPointToCanvas(new renderer.THREE.Vector3(topLeft.x, 0, topLeft.z), canvasEl);
+      const trScreen = projectPointToCanvas(new renderer.THREE.Vector3(topRight.x, 0, topRight.z), canvasEl);
+      const blScreen = projectPointToCanvas(new renderer.THREE.Vector3(bottomLeft.x, 0, bottomLeft.z), canvasEl);
+      const brScreen = projectPointToCanvas(new renderer.THREE.Vector3(bottomRight.x, 0, bottomRight.z), canvasEl);
+
+      if (!tlScreen || !trScreen || !blScreen || !brScreen) {
+        return null;
+      }
+
+      // Calculate left and right edges as the average X of the left and right corners
+      // This accounts for perspective projection where the tile might not be perfectly rectangular on screen
+      const leftEdgeX = (tlScreen.x + blScreen.x) / 2;
+      const rightEdgeX = (trScreen.x + brScreen.x) / 2;
+
+      // Calculate pixel width
+      const pixelWidth = Math.abs(rightEdgeX - leftEdgeX);
+
+      // Detect if coordinate system is flipped (right edge appears to the left of left edge)
+      const flipped = rightEdgeX < leftEdgeX;
+
+      console.log(`[visualsmapLoader] Tile measurement at col ${closestCol}:`);
+      console.log(`  - Left edge X: ${leftEdgeX.toFixed(1)}px`);
+      console.log(`  - Right edge X: ${rightEdgeX.toFixed(1)}px`);
+      console.log(`  - Pixel width: ${pixelWidth.toFixed(1)}px`);
+      console.log(`  - Flipped: ${flipped}`);
+
+      return {
+        pixelWidth,
+        leftEdgeX,
+        rightEdgeX,
+        col: closestCol,
+        flipped,
+      };
+    }
+
     return {
       objects: loadedObjects,
       dayNightSystem: dayNightSystem,
       setPathVisible: setPathVisible,
       getPathScreenLine,
+      getTileScreenMeasurement,
       dispose: () => {
         renderer.off('frame', frameUpdateHandler);
         dayNightSystem.dispose();
@@ -1022,6 +1100,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     };
   } catch (error) {
     console.error('[visualsmapLoader] Error loading visualsmap:', error);
-    return { objects: [], dispose: () => {}, setPathVisible: () => {}, getPathScreenLine: () => ({ visible: false }) };
+    return {
+      objects: [],
+      dispose: () => {},
+      setPathVisible: () => {},
+      getPathScreenLine: () => ({ visible: false }),
+      getTileScreenMeasurement: () => null
+    };
   }
 }
