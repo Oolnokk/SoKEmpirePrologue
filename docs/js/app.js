@@ -992,8 +992,6 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     }
 
     console.log(`  Play area bounds (centered coords): [${oldMinX}, ${oldMaxX}] → [${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}]`);
-    console.log(`  Transform calc: worldCenter=${worldCenter}, pathMinX_3d=${pathMinX_3d.toFixed(1)}, pathMaxX_3d=${pathMaxX_3d.toFixed(1)}`);
-    console.log(`  2D bounds from transform: left=${left_2d.toFixed(1)}, right=${right_2d.toFixed(1)}`);
     console.log(`  Playable bounds (2D coords): {left: ${newPlayableBounds.left}, right: ${newPlayableBounds.right}}`);
     console.log(`  geometryService bounds: {left: ${newPlayableBounds.left}, right: ${newPlayableBounds.right}}`);
   } else {
