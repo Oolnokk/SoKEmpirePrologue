@@ -901,6 +901,10 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     return;
   }
 
+  // Get player spawn position to use as reference for bounds calculation
+  const player = window.GAME?.FIGHTERS?.player;
+  const playerSpawnX = player?.hitbox?.x ?? player?.pos?.x ?? null;
+
   const pathExtents = visualsmapAdapter.getPathExtents();
   if (!pathExtents) {
     console.warn('[app] Cannot auto-size world: no path extents available');
@@ -912,15 +916,27 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   const gridUnit = window.GRID_UNIT_WORLD_SIZE || 300;
   const halfTile = gridUnit / 2;
 
-  // World dimensions: tile span + margins (half tile on each end)
-  const worldWidth = pathExtents.spanX + gridUnit;
-  const worldHeight = Math.max(pathExtents.spanZ, 600);
+  // World dimensions: need to accommodate spawn offset + path span
+  // If player spawns at X, world must be wide enough for [X, X + pathSpan]
+  let worldWidth, worldHeight;
 
-  console.log('[app] Auto-sizing 2D world to gameplay path:');
-  console.log(`  Path extents (tile centers): X=[${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}] (span: ${pathExtents.spanX.toFixed(1)})`);
-  console.log(`  Grid unit: ${gridUnit} | Half-tile margin: ${halfTile}`);
-  console.log(`  Path extents: Z=[${pathExtents.start.z.toFixed(1)}, ${pathExtents.end.z.toFixed(1)}] (span: ${pathExtents.spanZ.toFixed(1)})`);
-  console.log(`  2D world dimensions (with tile margins): ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)} pixels`);
+  if (playerSpawnX !== null && Number.isFinite(playerSpawnX)) {
+    // World width = spawn offset + path span + some margin
+    worldWidth = playerSpawnX + pathExtents.spanX + halfTile;
+    worldHeight = Math.max(pathExtents.spanZ, 600);
+    console.log('[app] Auto-sizing 2D world to gameplay path (spawn-based):');
+    console.log(`  Player spawn: ${playerSpawnX.toFixed(1)}`);
+    console.log(`  Path span: ${pathExtents.spanX.toFixed(1)}`);
+    console.log(`  World width: spawn (${playerSpawnX.toFixed(1)}) + span (${pathExtents.spanX.toFixed(1)}) + margin (${halfTile}) = ${worldWidth.toFixed(1)}`);
+  } else {
+    // Fallback: tile span + margins
+    worldWidth = pathExtents.spanX + gridUnit;
+    worldHeight = Math.max(pathExtents.spanZ, 600);
+    console.log('[app] Auto-sizing 2D world to gameplay path:');
+    console.log(`  Path extents (tile centers): X=[${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}] (span: ${pathExtents.spanX.toFixed(1)})`);
+    console.log(`  Grid unit: ${gridUnit} | Half-tile margin: ${halfTile}`);
+    console.log(`  2D world dimensions (with tile margins): ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)} pixels`);
+  }
 
   // Update camera world dimensions
   gameCamera.worldWidth = worldWidth;
@@ -937,42 +953,49 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     window.CONFIG.playAreaMinX = pathExtents.minX;
     window.CONFIG.playAreaMaxX = pathExtents.maxX;
 
-    // Calculate 2D world bounds from where tiles actually render on screen
-    // Use the 3D world positions and transform them to 2D world coordinates
-    const pathScreenLine = visualsmapAdapter.getPathScreenLine?.();
+    // Calculate 2D world bounds based on where the player spawns
+    // The spawn position is the reference point for the playable area
     let left_2d, right_2d, boundsMethod;
 
-    if (pathScreenLine?.world3d?.start && pathScreenLine?.world3d?.end) {
-      // Get 3D world positions of path endpoints
-      const path3dStartX = pathScreenLine.world3d.start.x;
-      const path3dEndX = pathScreenLine.world3d.end.x;
+    if (playerSpawnX !== null && Number.isFinite(playerSpawnX)) {
+      // Use player spawn as reference - assume spawn is at or near first tile
+      // The path spans pathExtents.spanX (5700) pixels in both 2D and 3D (1:1 mapping)
+      const pathSpan = pathExtents.spanX;
 
-      // Transform 3D world positions to 2D world positions
-      // Using: x2d = worldCenter - x3d (accounts for inversion and centering)
-      const worldCenter = worldWidth / 2;
+      // Spawn is at the left edge (or slightly offset from it)
+      // Assume spawn is at first tile edge, so left bound is at spawn
+      left_2d = playerSpawnX;
+      right_2d = playerSpawnX + pathSpan;
 
-      // Transform each endpoint
-      const start2d = worldCenter - path3dStartX;
-      const end2d = worldCenter - path3dEndX;
-
-      // Add tile margins (half tile on each end)
-      left_2d = Math.min(start2d, end2d) - halfTile;
-      right_2d = Math.max(start2d, end2d) + halfTile;
-
-      boundsMethod = `3D world[${path3dStartX.toFixed(0)}, ${path3dEndX.toFixed(0)}] → 2D[${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
-      console.log(`  Calculated bounds from 3D world positions:`);
-      console.log(`    3D: start=${path3dStartX.toFixed(1)}, end=${path3dEndX.toFixed(1)}`);
-      console.log(`    2D: start=${start2d.toFixed(1)}, end=${end2d.toFixed(1)}`);
-      console.log(`    With margins: [${left_2d.toFixed(1)}, ${right_2d.toFixed(1)}]`);
+      boundsMethod = `Spawn-based: [${playerSpawnX.toFixed(0)} + ${pathSpan.toFixed(0)}] = [${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
+      console.log(`  Calculated bounds from player spawn position:`);
+      console.log(`    Player spawn: ${playerSpawnX.toFixed(1)}`);
+      console.log(`    Path span: ${pathSpan.toFixed(1)}`);
+      console.log(`    Bounds: [${left_2d.toFixed(1)}, ${right_2d.toFixed(1)}]`);
     } else {
-      // Fallback: use path extents
-      const worldCenter = worldWidth / 2;
-      const pathMinX_3d = pathExtents.minX - halfTile;
-      const pathMaxX_3d = pathExtents.maxX + halfTile;
-      left_2d = worldCenter - pathMaxX_3d;
-      right_2d = worldCenter - pathMinX_3d;
-      boundsMethod = `Fallback: 3D[${pathExtents.minX.toFixed(0)}, ${pathExtents.maxX.toFixed(0)}]`;
-      console.log(`  Fallback: using path extents`);
+      // Fallback: use coordinate transform
+      const pathScreenLine = visualsmapAdapter.getPathScreenLine?.();
+
+      if (pathScreenLine?.world3d?.start && pathScreenLine?.world3d?.end) {
+        const path3dStartX = pathScreenLine.world3d.start.x;
+        const path3dEndX = pathScreenLine.world3d.end.x;
+        const worldCenter = worldWidth / 2;
+
+        const start2d = worldCenter - path3dStartX;
+        const end2d = worldCenter - path3dEndX;
+
+        left_2d = Math.min(start2d, end2d) - halfTile;
+        right_2d = Math.max(start2d, end2d) + halfTile;
+
+        boundsMethod = `Transform: 3D[${path3dStartX.toFixed(0)}, ${path3dEndX.toFixed(0)}] → 2D[${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
+        console.log(`  Fallback: using 3D world transform`);
+      } else {
+        const worldCenter = worldWidth / 2;
+        left_2d = worldCenter - (pathExtents.maxX + halfTile);
+        right_2d = worldCenter - (pathExtents.minX - halfTile);
+        boundsMethod = `Fallback: path extents`;
+        console.log(`  Fallback: using path extents`);
+      }
     }
 
     // Store for debug overlay
