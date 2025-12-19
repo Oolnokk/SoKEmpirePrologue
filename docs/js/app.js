@@ -2004,6 +2004,98 @@ if (fullscreenBtn && stageEl){
   updateFullscreenUi();
 }
 
+// Debug overlay copy button
+{
+  const copyBtn = document.getElementById('debugOverlayCopy');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        const data = window.DEBUG_OVERLAY_DATA;
+        if (!data) {
+          console.warn('[debug-copy] No debug data available');
+          return;
+        }
+
+        // Format debug data as human-readable text
+        const lines = [
+          'Debug Overlay Data',
+          '='.repeat(60),
+          `Time: ${new Date().toISOString()}`,
+          `URL: ${window.location.href}`,
+          '='.repeat(60),
+          '',
+          `Player Position: (${data.player.x.toFixed(1)}, ${data.player.y.toFixed(1)})`,
+          `Camera Bounds: [${data.cameraBounds.min}, ${data.cameraBounds.max}]`,
+          '',
+          `Playable Bounds: [${data.playableBounds.left}, ${data.playableBounds.right}]`,
+          `Bounds Method: ${data.boundsMethod}`,
+          '',
+          `3D World:`,
+          `  Screen Pixels: ${data.world3d.screenPixels.toFixed(1)}px`,
+          `  World Units: ${data.world3d.worldUnits.toFixed(1)}u`,
+          `  Camera X: ${data.world3d.cameraX.toFixed(1)} (centered)`,
+          '',
+          `2D World:`,
+          `  World Pixels: ${data.world2d.worldPixels.toFixed(1)}px`,
+          `  Camera X: ${data.world2d.cameraX.toFixed(1)} (from edge)`,
+          '',
+          `World Dimensions: ${data.worldDimensions.width}×${data.worldDimensions.height}px`,
+          '',
+          `Transform Check:`,
+          `  Expected (2D→3D): ${data.transform.expected.toFixed(1)}`,
+          `  Actual (3D cam): ${data.transform.actual.toFixed(1)}`,
+          `  Status: ${data.transform.ok ? '✓ OK' : '✗ MISMATCH'}`,
+          ''
+        ];
+
+        if (data.path3d) {
+          lines.push(
+            `3D Path Extents:`,
+            `  Start X: ${data.path3d.start.toFixed(1)}`,
+            `  End X: ${data.path3d.end.toFixed(1)}`,
+            `  Camera in Range: ${data.path3d.cameraInRange ? '✓' : '✗'}`,
+            ''
+          );
+        }
+
+        lines.push(
+          `Projected Positions (3D→Canvas):`,
+          `  Start: (${data.projectedPositions.start.x.toFixed(1)}, ${data.projectedPositions.start.y.toFixed(1)})`,
+          `  End: (${data.projectedPositions.end.x.toFixed(1)}, ${data.projectedPositions.end.y.toFixed(1)})`,
+          '',
+          '='.repeat(60),
+          'Raw JSON:',
+          JSON.stringify(data, null, 2)
+        );
+
+        const text = lines.join('\n');
+
+        await navigator.clipboard.writeText(text);
+
+        // Visual feedback
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = '✓ Copied!';
+        copyBtn.style.background = 'rgba(16, 185, 129, 0.95)';
+        copyBtn.style.borderColor = 'rgba(52, 211, 153, 0.6)';
+        setTimeout(() => {
+          copyBtn.textContent = orig;
+          copyBtn.style.background = 'rgba(31, 41, 55, 0.95)';
+          copyBtn.style.borderColor = 'rgba(148, 163, 184, 0.4)';
+        }, 1500);
+      } catch (err) {
+        console.error('[debug-copy] Failed to copy:', err);
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = '✗ Failed';
+        copyBtn.style.background = 'rgba(220, 38, 38, 0.95)';
+        setTimeout(() => {
+          copyBtn.textContent = orig;
+          copyBtn.style.background = 'rgba(31, 41, 55, 0.95)';
+        }, 1500);
+      }
+    });
+  }
+}
+
 if (boneKeyList) {
   const LABELS = {
     torso: 'Torso',
@@ -5174,7 +5266,12 @@ function renderGameplayPathOverlay(ctx) {
 
   const adapter = window.GAME?.visualsmapAdapter;
   const projection = adapter?.getPathScreenLine?.({ canvas: cv });
-  if (!projection?.visible || !projection.start || !projection.end) return;
+  if (!projection?.visible || !projection.start || !projection.end) {
+    // Hide copy button when overlay is not visible
+    const copyBtn = document.getElementById('debugOverlayCopy');
+    if (copyBtn) copyBtn.style.display = 'none';
+    return;
+  }
 
   const { start, end } = projection;
   if (!Number.isFinite(start.x) || !Number.isFinite(start.y) || !Number.isFinite(end.x) || !Number.isFinite(end.y)) {
@@ -5356,6 +5453,44 @@ function renderGameplayPathOverlay(ctx) {
     ctx.fillStyle = '#aaaaff';
     ctx.fillText(text6, labelX, labelY6 + 4);
   }
+
+  // Store debug data for clipboard copy
+  const worldWidth = camera2d?.worldWidth || 1600;
+  const worldHeight = camera2d?.worldHeight || 600;
+  window.DEBUG_OVERLAY_DATA = {
+    player: { x: playerX, y: playerY },
+    cameraBounds: { min: camera2d?.bounds?.min ?? 0, max: camera2d?.bounds?.max ?? camera2d?.worldWidth ?? 'none' },
+    playableBounds: { left: playableLeft, right: playableRight },
+    boundsMethod: boundsMethod,
+    world3d: {
+      screenPixels: pixelLength3d,
+      worldUnits: distance3dWorld,
+      cameraX: cam3dX
+    },
+    world2d: {
+      worldPixels: distance3dWorld,
+      cameraX: camX2d
+    },
+    worldDimensions: { width: worldWidth, height: worldHeight },
+    transform: {
+      expected: (worldWidth / 2) - camX2d,
+      actual: cam3dX,
+      ok: transformOK
+    },
+    path3d: path3dStart && path3dEnd ? {
+      start: path3dStart.x,
+      end: path3dEnd.x,
+      cameraInRange: (cam3dX >= Math.min(path3dStart.x, path3dEnd.x) && cam3dX <= Math.max(path3dStart.x, path3dEnd.x))
+    } : null,
+    projectedPositions: {
+      start: { x: start.x, y: start.y },
+      end: { x: end.x, y: end.y }
+    }
+  };
+
+  // Show copy button when overlay is visible
+  const copyBtn = document.getElementById('debugOverlayCopy');
+  if (copyBtn) copyBtn.style.display = 'block';
 
   ctx.restore();
 }
