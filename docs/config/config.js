@@ -954,7 +954,7 @@ window.CONFIG = {
     }
   },
   map: {
-  gridUnit: 300,
+  gridUnit: 400,
   spawnLayerId: 'gameplay',
   defaultLayoutId: 'defaultdistrict3d',
   previewStoragePrefix: 'sok-map-editor-preview:',
