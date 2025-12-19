@@ -921,6 +921,17 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   // Use ground path start if available, otherwise player spawn
   const referenceX = groundPathStartX !== null ? groundPathStartX : playerSpawnX;
 
+  // Store for debug overlay
+  if (typeof window !== 'undefined') {
+    window.DEBUG_GROUND_PATH_REF = {
+      groundPath: groundPath ? groundPath.map(p => p.x) : null,
+      groundPathStartX: groundPathStartX,
+      playerSpawnX: playerSpawnX,
+      referenceX: referenceX,
+      source: groundPathStartX !== null ? 'ground path' : (playerSpawnX !== null ? 'player spawn' : 'none')
+    };
+  }
+
   const pathExtents = visualsmapAdapter.getPathExtents();
   if (!pathExtents) {
     console.warn('[app] Cannot auto-size world: no path extents available');
@@ -5508,11 +5519,13 @@ function renderGameplayPathOverlay(ctx) {
 
   // Store debug data for clipboard copy
   // (worldWidth and worldHeight already declared above)
+  const groundPathRef = window.DEBUG_GROUND_PATH_REF || null;
   window.DEBUG_OVERLAY_DATA = {
     player: { x: playerX, y: playerY },
     cameraBounds: { min: camera2d?.bounds?.min ?? 0, max: camera2d?.bounds?.max ?? camera2d?.worldWidth ?? 'none' },
     playableBounds: { left: playableLeft, right: playableRight },
     boundsMethod: boundsMethod,
+    groundPathReference: groundPathRef,
     world3d: {
       screenPixels: pixelLength3d,
       worldUnits: distance3dWorld,
