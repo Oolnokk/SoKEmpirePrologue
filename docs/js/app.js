@@ -941,33 +941,24 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     window.CONFIG.playAreaMinX = pathExtents.minX;
     window.CONFIG.playAreaMaxX = pathExtents.maxX;
 
-    // Get actual canvas positions of path markers from 3D projection
-    // This is ground truth for where tiles are actually rendered
-    const pathScreenLine = visualsmapAdapter.getPathScreenLine?.();
-    let left_2d, right_2d, boundsMethod;
+    // Calculate 2D world bounds from 3D path extents using coordinate transform
+    // The transform handles the coordinate system conversion:
+    // - 3D is centered at origin (negative left, positive right)
+    // - 2D starts at 0 on the left edge
+    // - X is inverted (moving right in 2D scrolls world left in 3D)
+    const worldCenter = worldWidth / 2;
+    const pathMinX_3d = pathExtents.minX - halfTile;
+    const pathMaxX_3d = pathExtents.maxX + halfTile;
 
-    if (pathScreenLine && pathScreenLine.start && pathScreenLine.end) {
-      // Use actual projected positions (accounting for tile-width margins)
-      const startX = pathScreenLine.start.x;
-      const endX = pathScreenLine.end.x;
+    // Transform: x2d = worldCenter - x3d (accounting for inversion and centering)
+    const left_2d = worldCenter - pathMaxX_3d;
+    const right_2d = worldCenter - pathMinX_3d;
 
-      // Determine which is left vs right (path may be inverted on screen)
-      left_2d = Math.min(startX, endX) - halfTile;
-      right_2d = Math.max(startX, endX) + halfTile;
-
-      boundsMethod = `Projected (${startX.toFixed(0)}, ${endX.toFixed(0)})`;
-      console.log(`  Using projected path positions: start=${startX.toFixed(1)}, end=${endX.toFixed(1)}`);
-    } else {
-      // Fallback: calculate using coordinate transform inverse
-      const worldCenter = worldWidth / 2;
-      const pathMinX_3d = pathExtents.minX - halfTile;
-      const pathMaxX_3d = pathExtents.maxX + halfTile;
-      left_2d = worldCenter - pathMaxX_3d;
-      right_2d = worldCenter - pathMinX_3d;
-
-      boundsMethod = 'Transform fallback';
-      console.log(`  Fallback: calculated bounds from transform`);
-    }
+    const boundsMethod = `Transform: 3D[${pathExtents.minX.toFixed(0)}, ${pathExtents.maxX.toFixed(0)}] → 2D[${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
+    console.log(`  Calculated bounds from 3D path extents:`);
+    console.log(`    3D path X: ${pathExtents.minX.toFixed(1)} to ${pathExtents.maxX.toFixed(1)}`);
+    console.log(`    With margins: ${pathMinX_3d.toFixed(1)} to ${pathMaxX_3d.toFixed(1)}`);
+    console.log(`    2D bounds: ${left_2d.toFixed(1)} to ${right_2d.toFixed(1)}`);
 
     // Store for debug overlay
     if (typeof window !== 'undefined') {
