@@ -75,9 +75,29 @@ export function syncCameraPosition(renderer, gameCamera, config = {}) {
   const camZ = parallaxZ + cfg.cameraDistance;
 
   // Calculate look-at target (where the camera should point)
-  // Look at the transformed position on the ground plane
+  // Try to get player position to center camera on player
+  let playerHeight = cfg.lookAtOffsetY; // Default to config offset
+
+  if (typeof window !== 'undefined') {
+    const player = window.GAME?.FIGHTERS?.player;
+    if (player?.pos) {
+      // Transform player's 2D position to 3D to get their world coordinates
+      const player3dPos = cfg.useTransform
+        ? transform2dTo3d({ x: player.pos.x, y: player.pos.y }, getTransformConfig())
+        : { x: player.pos.x, y: 0, z: player.pos.y };
+
+      // Estimate player height (center of mass, approximately half their sprite height)
+      // Typical player sprites are ~60-100 units tall, so center is ~30-50 units up
+      const estimatedPlayerHeight = (typeof window.GRID_UNIT_WORLD_SIZE !== 'undefined')
+        ? window.GRID_UNIT_WORLD_SIZE * 0.15  // 15% of grid unit (45 with GRID_UNIT_WORLD_SIZE=300)
+        : 15; // Fallback to 15 units
+
+      playerHeight = player3dPos.y + estimatedPlayerHeight;
+    }
+  }
+
   const lookAtX = parallaxX;
-  const lookAtY = cfg.lookAtOffsetY;
+  const lookAtY = playerHeight; // Look at player height instead of fixed offset
   const lookAtZ = parallaxZ + cfg.lookAtOffsetZ;
 
   // Update renderer camera parameters
