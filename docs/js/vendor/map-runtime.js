@@ -1432,6 +1432,12 @@ function normalizeAreaDescriptor(area, options = {}) {
     pois: mergedPois,
   };
 
+  const ground = area.ground && typeof area.ground === 'object' ? safeClone(area.ground) : {};
+  ground.offset = toNumber(area.ground?.offset ?? area.groundOffset, ground.offset ?? 0);
+  if (area.ground?.height != null || ground.height != null) {
+    ground.height = toNumber(area.ground?.height ?? ground.height, ground.height ?? 0);
+  }
+
   return {
     id: areaId,
     name: areaName,
@@ -1440,9 +1446,7 @@ function normalizeAreaDescriptor(area, options = {}) {
       startX: toNumber(area.camera?.startX ?? area.cameraStartX, 0),
       startZoom: toNumber(area.camera?.startZoom ?? area.zoomStart, 1),
     },
-    ground: {
-      offset: toNumber(area.ground?.offset ?? area.groundOffset, 0),
-    },
+    ground,
     scene3d,
     visualsMap,
     proximityScale,
@@ -1584,8 +1588,16 @@ export function convertLayoutToArea(layout, options = {}) {
     throw new TypeError('layout must be an object');
   }
 
-  if (isAreaDescriptor(layout)) {
-    return normalizeAreaDescriptor(layout, options);
+  const unitMode = typeof layout.units === 'string'
+    ? layout.units.trim().toLowerCase()
+    : typeof layout.meta?.units === 'string'
+      ? layout.meta.units.trim().toLowerCase()
+      : null;
+  const shouldScale = unitMode === 'grid' || unitMode === 'grid-units';
+  const scaledLayout = shouldScale ? scaleAreaDescriptorUnits(layout, options) : layout;
+
+  if (isAreaDescriptor(scaledLayout)) {
+    return normalizeAreaDescriptor(scaledLayout, options);
   }
 
   const resolvedAreaId = options.areaId ?? layout.areaId ?? layout.id ?? 'builder_area';
@@ -2246,3 +2258,178 @@ function safeClone(value) {
   }
 }
 
+function resolveGridUnitScale(options = {}) {
+  const direct = toNumber(options.gridUnit ?? options.gridUnitSize, null);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  if (typeof window !== 'undefined') {
+    const globalScale = toNumber(window.GRID_UNIT_WORLD_SIZE, null);
+    if (Number.isFinite(globalScale) && globalScale > 0) return globalScale;
+  }
+  return 30;
+}
+
+function scaleNumber(value, scale) {
+  return Number.isFinite(value) ? value * scale : value;
+}
+
+function scalePoint(point, scale) {
+  if (!point || typeof point !== 'object') return point;
+  return {
+    ...point,
+    x: scaleNumber(point.x, scale),
+    y: scaleNumber(point.y, scale),
+  };
+}
+
+function scaleBounds(bounds, scale) {
+  if (!bounds || typeof bounds !== 'object') return bounds;
+  return {
+    ...bounds,
+    left: scaleNumber(bounds.left, scale),
+    right: scaleNumber(bounds.right, scale),
+    top: scaleNumber(bounds.top ?? bounds.topOffset, scale),
+    topOffset: scaleNumber(bounds.topOffset ?? bounds.top, scale),
+    bottom: scaleNumber(bounds.bottom, scale),
+    width: scaleNumber(bounds.width, scale),
+    height: scaleNumber(bounds.height, scale),
+  };
+}
+
+function scaleColliderRecord(collider, scale) {
+  if (!collider || typeof collider !== 'object') return collider;
+  return {
+    ...collider,
+    left: scaleNumber(collider.left ?? collider.x, scale),
+    right: scaleNumber(collider.right, scale),
+    width: scaleNumber(collider.width ?? collider.w, scale),
+    topOffset: scaleNumber(collider.topOffset ?? collider.top ?? collider.y ?? collider.offsetY, scale),
+    bottomOffset: scaleNumber(collider.bottomOffset ?? collider.bottom, scale),
+    height: scaleNumber(collider.height ?? collider.h, scale),
+  };
+}
+
+function scaleSpawnerRecord(spawner, scale) {
+  if (!spawner || typeof spawner !== 'object') return spawner;
+  const position = scalePoint(spawner.position, scale);
+  return {
+    ...spawner,
+    position,
+    x: scaleNumber(spawner.x, scale),
+    y: scaleNumber(spawner.y, scale),
+    spawnRadius: scaleNumber(spawner.spawnRadius ?? spawner.radius, scale),
+  };
+}
+
+function scalePathTargetRecord(target, scale) {
+  if (!target || typeof target !== 'object') return target;
+  return {
+    ...target,
+    position: scalePoint(target.position, scale),
+    x: scaleNumber(target.x, scale),
+    y: scaleNumber(target.y, scale),
+  };
+}
+
+function scaleInstanceRecord(instance, scale) {
+  if (!instance || typeof instance !== 'object') return instance;
+  return {
+    ...instance,
+    position: scalePoint(instance.position, scale),
+    x: scaleNumber(instance.x, scale),
+    y: scaleNumber(instance.y, scale),
+  };
+}
+
+function scaleEntityRecord(entity, scale) {
+  if (!entity || typeof entity !== 'object') return entity;
+  const meta = entity.meta && typeof entity.meta === 'object' ? { ...entity.meta } : entity.meta;
+  if (meta && typeof meta === 'object') {
+    if (meta.bounds && typeof meta.bounds === 'object') {
+      meta.bounds = scaleBounds(meta.bounds, scale);
+    }
+    if (Number.isFinite(meta.width)) meta.width = scaleNumber(meta.width, scale);
+    if (Number.isFinite(meta.height)) meta.height = scaleNumber(meta.height, scale);
+    if (Number.isFinite(meta.radius)) meta.radius = scaleNumber(meta.radius, scale);
+  }
+  return {
+    ...entity,
+    x: scaleNumber(entity.x, scale),
+    y: scaleNumber(entity.y, scale),
+    position: scalePoint(entity.position, scale),
+    meta,
+  };
+}
+
+function scalePoiRecord(poi, scale) {
+  if (!poi || typeof poi !== 'object') return poi;
+  const bounds = poi.bounds && typeof poi.bounds === 'object' ? scaleBounds(poi.bounds, scale) : poi.bounds;
+  return { ...poi, bounds };
+}
+
+function scaleAreaDescriptorUnits(area, options = {}) {
+  const scale = resolveGridUnitScale(options);
+  const cloned = safeClone(area);
+
+  if (cloned.playableBounds && typeof cloned.playableBounds === 'object') {
+    cloned.playableBounds = scaleBounds(cloned.playableBounds, scale);
+  }
+
+  if (cloned.camera && typeof cloned.camera === 'object') {
+    cloned.camera = {
+      ...cloned.camera,
+      startX: scaleNumber(cloned.camera.startX, scale),
+    };
+  }
+  if (Number.isFinite(cloned.cameraStartX)) {
+    cloned.cameraStartX = scaleNumber(cloned.cameraStartX, scale);
+  }
+
+  if (cloned.ground && typeof cloned.ground === 'object') {
+    cloned.ground = {
+      ...cloned.ground,
+      offset: scaleNumber(cloned.ground.offset, scale),
+      height: scaleNumber(cloned.ground.height, scale),
+      path: Array.isArray(cloned.ground.path)
+        ? cloned.ground.path.map((pt) => scalePoint(pt, scale))
+        : cloned.ground.path,
+    };
+  }
+  if (Number.isFinite(cloned.groundOffset)) {
+    cloned.groundOffset = scaleNumber(cloned.groundOffset, scale);
+  }
+  if (Number.isFinite(cloned.groundHeight)) {
+    cloned.groundHeight = scaleNumber(cloned.groundHeight, scale);
+  }
+
+  if (Array.isArray(cloned.entities)) {
+    cloned.entities = cloned.entities.map((entity) => scaleEntityRecord(entity, scale));
+  }
+  if (Array.isArray(cloned.instances)) {
+    cloned.instances = cloned.instances.map((inst) => scaleInstanceRecord(inst, scale));
+  }
+  if (Array.isArray(cloned.colliders)) {
+    cloned.colliders = cloned.colliders.map((col) => scaleColliderRecord(col, scale));
+  }
+  if (Array.isArray(cloned.spawners)) {
+    cloned.spawners = cloned.spawners.map((spawner) => scaleSpawnerRecord(spawner, scale));
+  }
+  if (Array.isArray(cloned.pathTargets)) {
+    cloned.pathTargets = cloned.pathTargets.map((target) => scalePathTargetRecord(target, scale));
+  }
+  if (Array.isArray(cloned.patrolPoints)) {
+    cloned.patrolPoints = cloned.patrolPoints.map((point) => scaleEntityRecord(point, scale));
+  }
+
+  if (cloned.meta?.behavior?.pois && Array.isArray(cloned.meta.behavior.pois)) {
+    cloned.meta.behavior.pois = cloned.meta.behavior.pois.map((poi) => scalePoiRecord(poi, scale));
+  }
+
+  if (cloned.meta?.background?.bounds) {
+    cloned.meta.background = {
+      ...cloned.meta.background,
+      bounds: scaleBounds(cloned.meta.background.bounds, scale),
+    };
+  }
+
+  return cloned;
+}
