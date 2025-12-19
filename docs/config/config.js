@@ -954,7 +954,7 @@ window.CONFIG = {
     }
   },
   map: {
-  gridUnit: 300,
+  gridUnit: 30,
   spawnLayerId: 'gameplay',
   defaultLayoutId: 'defaultdistrict3d',
   previewStoragePrefix: 'sok-map-editor-preview:',
@@ -970,8 +970,8 @@ window.CONFIG = {
       areaName: 'DefaultDistrict3D',
     },
   ],
-  playAreaMinX: -1160,
-  playAreaMaxX: 1160,
+  playAreaMinX: 0,
+  playAreaMaxX: 0,
   },
   mapEditor: {
     canvas: { height: 460 },
