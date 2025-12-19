@@ -5455,8 +5455,7 @@ function renderGameplayPathOverlay(ctx) {
   }
 
   // Store debug data for clipboard copy
-  const worldWidth = camera2d?.worldWidth || 1600;
-  const worldHeight = camera2d?.worldHeight || 600;
+  // (worldWidth and worldHeight already declared above)
   window.DEBUG_OVERLAY_DATA = {
     player: { x: playerX, y: playerY },
     cameraBounds: { min: camera2d?.bounds?.min ?? 0, max: camera2d?.bounds?.max ?? camera2d?.worldWidth ?? 'none' },
