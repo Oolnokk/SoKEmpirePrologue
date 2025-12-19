@@ -931,8 +931,8 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   gameCamera.bounds = { min: 0, max: worldWidth };
 
   // Update play area bounds to match 3D path extents
-  // CRITICAL: Playable bounds must be in 2D world coordinates (edge-based, starting at 0)
-  // NOT 3D centered coordinates! Physics system interprets these as 2D positions.
+  // CRITICAL: Calculate where 3D path actually maps to in 2D using the coordinate transform
+  // Don't assume [0, worldWidth] - tiles might be offset!
   if (window.CONFIG) {
     const oldMinX = window.CONFIG.playAreaMinX;
     const oldMaxX = window.CONFIG.playAreaMaxX;
@@ -941,12 +941,20 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     window.CONFIG.playAreaMinX = pathExtents.minX;
     window.CONFIG.playAreaMaxX = pathExtents.maxX;
 
-    // Playable bounds for physics: 2D edge-based coordinates (0 to worldWidth)
-    // Player can move across the full 2D world width, which maps to full 3D path via transforms
+    // Calculate actual 2D bounds using the coordinate transform
+    // x2d = worldCenter - x3d (from coordinate-transform.js: x3d = -x2d + worldCenter)
+    const worldCenter = worldWidth / 2;
+    const pathMinX_3d = pathExtents.minX - halfTile;  // Left edge with margin
+    const pathMaxX_3d = pathExtents.maxX + halfTile;  // Right edge with margin
+
+    // Inverse transform: x2d = worldCenter - x3d
+    const left_2d = worldCenter - pathMaxX_3d;   // Right edge in 3D → left edge in 2D (inverted)
+    const right_2d = worldCenter - pathMinX_3d;  // Left edge in 3D → right edge in 2D (inverted)
+
     const newPlayableBounds = {
-      left: 0,              // Left edge of 2D world
-      right: worldWidth,    // Right edge of 2D world (5700px)
-      top: -600,            // Keep existing vertical bounds
+      left: Math.round(left_2d),
+      right: Math.round(right_2d),
+      top: -600,
       bottom: -400
     };
 
@@ -969,7 +977,9 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     }
 
     console.log(`  Play area bounds (centered coords): [${oldMinX}, ${oldMaxX}] → [${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}]`);
-    console.log(`  Playable bounds (2D coords): {left: ${newPlayableBounds.left}, right: ${newPlayableBounds.right}} (full world traversal)`);
+    console.log(`  Transform calc: worldCenter=${worldCenter}, pathMinX_3d=${pathMinX_3d.toFixed(1)}, pathMaxX_3d=${pathMaxX_3d.toFixed(1)}`);
+    console.log(`  2D bounds from transform: left=${left_2d.toFixed(1)}, right=${right_2d.toFixed(1)}`);
+    console.log(`  Playable bounds (2D coords): {left: ${newPlayableBounds.left}, right: ${newPlayableBounds.right}}`);
     console.log(`  geometryService bounds: {left: ${newPlayableBounds.left}, right: ${newPlayableBounds.right}}`);
   } else {
     console.warn('[app] Cannot update play area bounds: window.CONFIG not available');
