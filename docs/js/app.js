@@ -926,10 +926,6 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   gameCamera.worldWidth = worldWidth;
   gameCamera.worldHeight = worldHeight;
 
-  // Set bounds directly on camera object
-  // The camera system should read from camera.bounds
-  gameCamera.bounds = { min: 0, max: worldWidth };
-
   // Update play area bounds to match 3D path extents
   // CRITICAL: Calculate where 3D path actually maps to in 2D using the coordinate transform
   // Don't assume [0, worldWidth] - tiles might be offset!
@@ -941,24 +937,43 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     window.CONFIG.playAreaMinX = pathExtents.minX;
     window.CONFIG.playAreaMaxX = pathExtents.maxX;
 
-    // Calculate 2D world bounds from 3D path extents using coordinate transform
-    // The transform handles the coordinate system conversion:
-    // - 3D is centered at origin (negative left, positive right)
-    // - 2D starts at 0 on the left edge
-    // - X is inverted (moving right in 2D scrolls world left in 3D)
-    const worldCenter = worldWidth / 2;
-    const pathMinX_3d = pathExtents.minX - halfTile;
-    const pathMaxX_3d = pathExtents.maxX + halfTile;
+    // Calculate 2D world bounds from where tiles actually render on screen
+    // Use the 3D world positions and transform them to 2D world coordinates
+    const pathScreenLine = visualsmapAdapter.getPathScreenLine?.();
+    let left_2d, right_2d, boundsMethod;
 
-    // Transform: x2d = worldCenter - x3d (accounting for inversion and centering)
-    const left_2d = worldCenter - pathMaxX_3d;
-    const right_2d = worldCenter - pathMinX_3d;
+    if (pathScreenLine?.world3d?.start && pathScreenLine?.world3d?.end) {
+      // Get 3D world positions of path endpoints
+      const path3dStartX = pathScreenLine.world3d.start.x;
+      const path3dEndX = pathScreenLine.world3d.end.x;
 
-    const boundsMethod = `Transform: 3D[${pathExtents.minX.toFixed(0)}, ${pathExtents.maxX.toFixed(0)}] → 2D[${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
-    console.log(`  Calculated bounds from 3D path extents:`);
-    console.log(`    3D path X: ${pathExtents.minX.toFixed(1)} to ${pathExtents.maxX.toFixed(1)}`);
-    console.log(`    With margins: ${pathMinX_3d.toFixed(1)} to ${pathMaxX_3d.toFixed(1)}`);
-    console.log(`    2D bounds: ${left_2d.toFixed(1)} to ${right_2d.toFixed(1)}`);
+      // Transform 3D world positions to 2D world positions
+      // Using: x2d = worldCenter - x3d (accounts for inversion and centering)
+      const worldCenter = worldWidth / 2;
+
+      // Transform each endpoint
+      const start2d = worldCenter - path3dStartX;
+      const end2d = worldCenter - path3dEndX;
+
+      // Add tile margins (half tile on each end)
+      left_2d = Math.min(start2d, end2d) - halfTile;
+      right_2d = Math.max(start2d, end2d) + halfTile;
+
+      boundsMethod = `3D world[${path3dStartX.toFixed(0)}, ${path3dEndX.toFixed(0)}] → 2D[${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
+      console.log(`  Calculated bounds from 3D world positions:`);
+      console.log(`    3D: start=${path3dStartX.toFixed(1)}, end=${path3dEndX.toFixed(1)}`);
+      console.log(`    2D: start=${start2d.toFixed(1)}, end=${end2d.toFixed(1)}`);
+      console.log(`    With margins: [${left_2d.toFixed(1)}, ${right_2d.toFixed(1)}]`);
+    } else {
+      // Fallback: use path extents
+      const worldCenter = worldWidth / 2;
+      const pathMinX_3d = pathExtents.minX - halfTile;
+      const pathMaxX_3d = pathExtents.maxX + halfTile;
+      left_2d = worldCenter - pathMaxX_3d;
+      right_2d = worldCenter - pathMinX_3d;
+      boundsMethod = `Fallback: 3D[${pathExtents.minX.toFixed(0)}, ${pathExtents.maxX.toFixed(0)}]`;
+      console.log(`  Fallback: using path extents`);
+    }
 
     // Store for debug overlay
     if (typeof window !== 'undefined') {
@@ -993,8 +1008,14 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     console.log(`  Play area bounds (centered coords): [${oldMinX}, ${oldMaxX}] → [${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}]`);
     console.log(`  Playable bounds (2D coords): {left: ${newPlayableBounds.left}, right: ${newPlayableBounds.right}}`);
     console.log(`  geometryService bounds: {left: ${newPlayableBounds.left}, right: ${newPlayableBounds.right}}`);
+
+    // Update camera bounds to match playable bounds
+    gameCamera.bounds = { min: newPlayableBounds.left, max: newPlayableBounds.right };
+    console.log(`  Camera bounds: [${newPlayableBounds.left}, ${newPlayableBounds.right}]`);
   } else {
     console.warn('[app] Cannot update play area bounds: window.CONFIG not available');
+    // Fallback: set camera bounds to full world width
+    gameCamera.bounds = { min: 0, max: worldWidth };
   }
 
   console.log(`  Camera world size: ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)}`);
