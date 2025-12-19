@@ -74,9 +74,9 @@ export function syncCameraPosition(renderer, gameCamera, config = {}) {
   const camY = cfg.cameraHeight;
   const camZ = parallaxZ + cfg.cameraDistance;
 
-  // Calculate look-at target (where the camera should point)
-  // Try to get player position to center camera on player
-  let playerHeight = cfg.lookAtOffsetY; // Default to config offset
+  // Calculate camera X rotation (pitch) to center on player
+  // Y and Z rotations stay locked at 0
+  let rotationX = 0; // Default pitch
 
   if (typeof window !== 'undefined') {
     const player = window.GAME?.FIGHTERS?.player;
@@ -92,19 +92,27 @@ export function syncCameraPosition(renderer, gameCamera, config = {}) {
         ? window.GRID_UNIT_WORLD_SIZE * 0.15  // 15% of grid unit (45 with GRID_UNIT_WORLD_SIZE=300)
         : 15; // Fallback to 15 units
 
-      playerHeight = player3dPos.y + estimatedPlayerHeight;
+      const playerWorldY = player3dPos.y + estimatedPlayerHeight;
+
+      // Calculate pitch angle to look at player
+      // Using camera position and player position to compute the angle
+      const deltaY = playerWorldY - camY; // Vertical distance from camera to player
+      const deltaZ = parallaxZ - camZ; // Horizontal distance (in Z axis for side view)
+
+      // arctan(vertical / horizontal) gives pitch angle
+      rotationX = Math.atan2(deltaY, Math.abs(deltaZ));
     }
   }
 
-  const lookAtX = parallaxX;
-  const lookAtY = playerHeight; // Look at player height instead of fixed offset
-  const lookAtZ = parallaxZ + cfg.lookAtOffsetZ;
-
-  // Update renderer camera parameters
+  // Update renderer camera parameters with position and locked rotations
   if (typeof renderer.setCameraParams === 'function') {
     renderer.setCameraParams({
       position: { x: camX, y: camY, z: camZ },
-      lookAt: { x: lookAtX, y: lookAtY, z: lookAtZ }
+      rotation: {
+        x: rotationX,  // Pitch to center on player
+        y: 0,          // Yaw locked at 0
+        z: 0           // Roll locked at 0
+      }
     });
   }
 }
