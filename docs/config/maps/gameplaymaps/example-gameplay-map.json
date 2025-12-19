@@ -1,9 +1,10 @@
 {
   "areaId": "example-gameplay-map",
+  "units": "grid",
   "ground": {
     "path": [
-      { "x": -1000, "y": 0 },
-      { "x": 1000, "y": 0 }
+      { "x": -33.3333, "y": 0 },
+      { "x": 33.3333, "y": 0 }
     ],
     "unitsPerPixel": 1
   },
@@ -11,14 +12,14 @@
     {
       "id": "entrance_1",
       "type": "entrance",
-      "x": -900,
+      "x": -30,
       "y": 0,
       "meta": {}
     },
     {
       "id": "spawner_1",
       "type": "spawner",
-      "x": -500,
+      "x": -16.6667,
       "y": 0,
       "meta": {
         "prefab": "spawn_player",
@@ -38,7 +39,7 @@
     {
       "id": "patrol_2",
       "type": "patrol",
-      "x": 200,
+      "x": 6.6667,
       "y": 0,
       "meta": {
         "sequence": 1,
@@ -48,7 +49,7 @@
     {
       "id": "spawner_2",
       "type": "spawner",
-      "x": 500,
+      "x": 16.6667,
       "y": 0,
       "meta": {
         "prefab": "spawn_npc",
@@ -58,35 +59,35 @@
     {
       "id": "collider_1",
       "type": "collider",
-      "x": -200,
+      "x": -6.6667,
       "y": 0,
       "meta": {
         "shape": "rectangle",
-        "width": 150,
-        "height": 200
+        "width": 5,
+        "height": 6.6667
       }
     },
     {
       "id": "collider_2",
       "type": "collider",
-      "x": 300,
-      "y": 100,
+      "x": 10,
+      "y": 3.3333,
       "meta": {
         "shape": "circle",
-        "radius": 75
+        "radius": 2.5
       }
     },
     {
       "id": "prop_1",
       "type": "prop",
-      "x": -300,
-      "y": 50,
+      "x": -10,
+      "y": 1.6667,
       "meta": {}
     },
     {
       "id": "exit_1",
       "type": "exit",
-      "x": 900,
+      "x": 30,
       "y": 0,
       "meta": {}
     }
