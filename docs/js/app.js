@@ -944,7 +944,7 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     // Get actual canvas positions of path markers from 3D projection
     // This is ground truth for where tiles are actually rendered
     const pathScreenLine = visualsmapAdapter.getPathScreenLine?.();
-    let left_2d, right_2d;
+    let left_2d, right_2d, boundsMethod;
 
     if (pathScreenLine && pathScreenLine.start && pathScreenLine.end) {
       // Use actual projected positions (accounting for tile-width margins)
@@ -955,6 +955,7 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
       left_2d = Math.min(startX, endX) - halfTile;
       right_2d = Math.max(startX, endX) + halfTile;
 
+      boundsMethod = `Projected (${startX.toFixed(0)}, ${endX.toFixed(0)})`;
       console.log(`  Using projected path positions: start=${startX.toFixed(1)}, end=${endX.toFixed(1)}`);
     } else {
       // Fallback: calculate using coordinate transform inverse
@@ -963,7 +964,14 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
       const pathMaxX_3d = pathExtents.maxX + halfTile;
       left_2d = worldCenter - pathMaxX_3d;
       right_2d = worldCenter - pathMinX_3d;
+
+      boundsMethod = 'Transform fallback';
       console.log(`  Fallback: calculated bounds from transform`);
+    }
+
+    // Store for debug overlay
+    if (typeof window !== 'undefined') {
+      window.DEBUG_BOUNDS_METHOD = boundsMethod;
     }
 
     const newPlayableBounds = {
@@ -5248,9 +5256,8 @@ function renderGameplayPathOverlay(ctx) {
   const labelYBounds = labelY + lineHeight + 2;
   const playableLeft = window.CONFIG?.map?.playableBounds?.left ?? window.CONFIG?.map?.activePlayableBounds?.left ?? 'null';
   const playableRight = window.CONFIG?.map?.playableBounds?.right ?? window.CONFIG?.map?.activePlayableBounds?.right ?? 'null';
-  const configMinX = window.CONFIG?.playAreaMinX ?? 'null';
-  const configMaxX = window.CONFIG?.playAreaMaxX ?? 'null';
-  const textBounds = `Playable: [${playableLeft}, ${playableRight}] | Config: [${configMinX}, ${configMaxX}]`;
+  const boundsMethod = window.DEBUG_BOUNDS_METHOD || 'unknown';
+  const textBounds = `Playable: [${playableLeft}, ${playableRight}] | Method: ${boundsMethod}`;
   const metricsBounds = ctx.measureText(textBounds);
   const bgWidthBounds = metricsBounds.width + padding * 2;
 
