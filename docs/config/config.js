@@ -887,7 +887,7 @@ window.CONFIG = {
   camera: {
     manualOffsetX: 0,
     // Far clipping distance for the 3D renderer's perspective camera
-    far: 5000,
+    far: 10000,
     // When true, the camera snaps each frame to keep the player centered (opt-in)
     rigidCenter: false,
     // When true together with rigidCenter, the camera will ignore playable bounds and may show beyond map edges
@@ -954,7 +954,7 @@ window.CONFIG = {
     }
   },
   map: {
-  gridUnit: 30,
+  gridUnit: 300,
   spawnLayerId: 'gameplay',
   defaultLayoutId: 'defaultdistrict3d',
   previewStoragePrefix: 'sok-map-editor-preview:',
