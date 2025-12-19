@@ -1001,10 +1001,21 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
         return { visible: false };
       }
 
+      // Calculate 3D world distance between path endpoints
+      const dx3dWorld = pathEndWorld.x - pathStartWorld.x;
+      const dz3dWorld = pathEndWorld.z - pathStartWorld.z;
+      const distance3dWorld = Math.sqrt(dx3dWorld * dx3dWorld + dz3dWorld * dz3dWorld);
+
       return {
         visible: pathVisible, // For debug rendering - controlled by checkbox
         start,
         end,
+        // 3D world info (in Three.js units)
+        world3d: {
+          start: { x: pathStartWorld.x, z: pathStartWorld.z },
+          end: { x: pathEndWorld.x, z: pathEndWorld.z },
+          distance: distance3dWorld
+        }
       };
     }
 
@@ -1013,6 +1024,21 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       dayNightSystem: dayNightSystem,
       setPathVisible: setPathVisible,
       getPathScreenLine,
+      getPathExtents: () => {
+        if (!pathStartWorld || !pathEndWorld) {
+          return null;
+        }
+        return {
+          start: { x: pathStartWorld.x, z: pathStartWorld.z },
+          end: { x: pathEndWorld.x, z: pathEndWorld.z },
+          minX: Math.min(pathStartWorld.x, pathEndWorld.x),
+          maxX: Math.max(pathStartWorld.x, pathEndWorld.x),
+          minZ: Math.min(pathStartWorld.z, pathEndWorld.z),
+          maxZ: Math.max(pathStartWorld.z, pathEndWorld.z),
+          spanX: Math.abs(pathEndWorld.x - pathStartWorld.x),
+          spanZ: Math.abs(pathEndWorld.z - pathStartWorld.z)
+        };
+      },
       dispose: () => {
         renderer.off('frame', frameUpdateHandler);
         dayNightSystem.dispose();

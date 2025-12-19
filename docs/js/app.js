@@ -870,6 +870,7 @@ import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
+import { initTransformConfig } from './coordinate-transform.js?v=1';
 
 // Visualsmap loader for 3D grid-based scenes
 let visualsmapLoaderModule = null;
@@ -879,6 +880,198 @@ async function getVisualsmapLoader() {
     visualsmapLoaderModule = await import(/* webpackIgnore: true */ resolvedUrl);
   }
   return visualsmapLoaderModule;
+}
+
+/**
+ * Automatically size the 2D world dimensions based on the 3D gameplay path extents.
+ * This ensures the 2D camera can traverse the full 3D path range with pixel-perfect mapping.
+ *
+ * @param {Object} visualsmapAdapter - The visualsmap adapter with getPathExtents() method
+ * @param {Object} area - The area object to set bounds on
+ */
+function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
+  if (!visualsmapAdapter || typeof visualsmapAdapter.getPathExtents !== 'function') {
+    console.warn('[app] Cannot auto-size world: visualsmapAdapter missing or no getPathExtents method');
+    return;
+  }
+
+  const gameCamera = window.GAME?.CAMERA;
+  if (!gameCamera) {
+    console.warn('[app] Cannot auto-size world: GAME.CAMERA not available');
+    return;
+  }
+
+  // Get gameplay path start from area's ground path (defines playable area extent)
+  // This is the authoritative source for where the playable area begins
+  const groundPath = area?.ground?.path;
+  let groundPathStartX = null;
+
+  if (groundPath && Array.isArray(groundPath) && groundPath.length > 0) {
+    // Ground path is in gameplay map coordinates, need to transform to 2D world coords
+    // For now, find the leftmost point
+    groundPathStartX = Math.min(...groundPath.map(p => p.x));
+    console.log(`[app] Ground path from gameplay map: ${groundPath.map(p => p.x).join(', ')}`);
+    console.log(`[app] Leftmost ground path point: ${groundPathStartX}`);
+  }
+
+  // Fallback: use player spawn position if ground path not available
+  const player = window.GAME?.FIGHTERS?.player;
+  const playerSpawnX = player?.hitbox?.x ?? player?.pos?.x ?? null;
+
+  // Use ground path start if available, otherwise player spawn
+  const referenceX = groundPathStartX !== null ? groundPathStartX : playerSpawnX;
+
+  // Store for debug overlay
+  if (typeof window !== 'undefined') {
+    window.DEBUG_GROUND_PATH_REF = {
+      groundPath: groundPath ? groundPath.map(p => p.x) : null,
+      groundPathStartX: groundPathStartX,
+      playerSpawnX: playerSpawnX,
+      referenceX: referenceX,
+      source: groundPathStartX !== null ? 'ground path' : (playerSpawnX !== null ? 'player spawn' : 'none')
+    };
+  }
+
+  const pathExtents = visualsmapAdapter.getPathExtents();
+  if (!pathExtents) {
+    console.warn('[app] Cannot auto-size world: no path extents available');
+    return;
+  }
+
+  // Bounds are measured in TILES using gridUnit from config.js
+  // gridUnit defines tile size in both 2D pixels and 3D units (with pixelsToUnits=1.0)
+  const gridUnit = window.GRID_UNIT_WORLD_SIZE || 300;
+  const halfTile = gridUnit / 2;
+
+  // World dimensions: need to accommodate reference point + path span
+  // Reference point is either ground path start or player spawn
+  let worldWidth, worldHeight;
+
+  if (referenceX !== null && Number.isFinite(referenceX)) {
+    // World width = reference offset + path span + margin
+    worldWidth = referenceX + pathExtents.spanX + halfTile;
+    worldHeight = Math.max(pathExtents.spanZ, 600);
+    const refSource = groundPathStartX !== null ? 'ground path' : 'player spawn';
+    console.log(`[app] Auto-sizing 2D world to gameplay path (${refSource}-based):`);
+    console.log(`  Reference point: ${referenceX.toFixed(1)} (${refSource})`);
+    console.log(`  Path span: ${pathExtents.spanX.toFixed(1)}`);
+    console.log(`  World width: ref (${referenceX.toFixed(1)}) + span (${pathExtents.spanX.toFixed(1)}) + margin (${halfTile}) = ${worldWidth.toFixed(1)}`);
+  } else {
+    // Fallback: tile span + margins
+    worldWidth = pathExtents.spanX + gridUnit;
+    worldHeight = Math.max(pathExtents.spanZ, 600);
+    console.log('[app] Auto-sizing 2D world to gameplay path (fallback):');
+    console.log(`  Path extents (tile centers): X=[${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}] (span: ${pathExtents.spanX.toFixed(1)})`);
+    console.log(`  Grid unit: ${gridUnit} | Half-tile margin: ${halfTile}`);
+    console.log(`  2D world dimensions (with tile margins): ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)} pixels`);
+  }
+
+  // Update camera world dimensions
+  gameCamera.worldWidth = worldWidth;
+  gameCamera.worldHeight = worldHeight;
+
+  // Update play area bounds to match 3D path extents
+  // CRITICAL: Calculate where 3D path actually maps to in 2D using the coordinate transform
+  // Don't assume [0, worldWidth] - tiles might be offset!
+  if (window.CONFIG) {
+    const oldMinX = window.CONFIG.playAreaMinX;
+    const oldMaxX = window.CONFIG.playAreaMaxX;
+
+    // Keep these in centered coords for compatibility with other systems
+    window.CONFIG.playAreaMinX = pathExtents.minX;
+    window.CONFIG.playAreaMaxX = pathExtents.maxX;
+
+    // Calculate 2D world bounds based on gameplay map's ground path or player spawn
+    // Ground path defines the authoritative playable area extent
+    let left_2d, right_2d, boundsMethod;
+
+    if (referenceX !== null && Number.isFinite(referenceX)) {
+      // Use ground path start or player spawn as reference
+      // The path spans pathExtents.spanX (5700) pixels in both 2D and 3D (1:1 mapping)
+      const pathSpan = pathExtents.spanX;
+      const refSource = groundPathStartX !== null ? 'ground path start' : 'player spawn';
+
+      // Reference point is at the left edge of playable area
+      left_2d = referenceX;
+      right_2d = referenceX + pathSpan;
+
+      boundsMethod = `${refSource}: [${referenceX.toFixed(0)} + ${pathSpan.toFixed(0)}] = [${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
+      console.log(`  Calculated bounds from ${refSource}:`);
+      console.log(`    Reference point: ${referenceX.toFixed(1)}`);
+      console.log(`    Path span: ${pathSpan.toFixed(1)}`);
+      console.log(`    Bounds: [${left_2d.toFixed(1)}, ${right_2d.toFixed(1)}]`);
+    } else {
+      // Fallback: use coordinate transform
+      const pathScreenLine = visualsmapAdapter.getPathScreenLine?.();
+
+      if (pathScreenLine?.world3d?.start && pathScreenLine?.world3d?.end) {
+        const path3dStartX = pathScreenLine.world3d.start.x;
+        const path3dEndX = pathScreenLine.world3d.end.x;
+        const worldCenter = worldWidth / 2;
+
+        const start2d = worldCenter - path3dStartX;
+        const end2d = worldCenter - path3dEndX;
+
+        left_2d = Math.min(start2d, end2d) - halfTile;
+        right_2d = Math.max(start2d, end2d) + halfTile;
+
+        boundsMethod = `Transform: 3D[${path3dStartX.toFixed(0)}, ${path3dEndX.toFixed(0)}] → 2D[${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
+        console.log(`  Fallback: using 3D world transform`);
+      } else {
+        const worldCenter = worldWidth / 2;
+        left_2d = worldCenter - (pathExtents.maxX + halfTile);
+        right_2d = worldCenter - (pathExtents.minX - halfTile);
+        boundsMethod = `Fallback: path extents`;
+        console.log(`  Fallback: using path extents`);
+      }
+    }
+
+    // Store for debug overlay
+    if (typeof window !== 'undefined') {
+      window.DEBUG_BOUNDS_METHOD = boundsMethod;
+    }
+
+    const newPlayableBounds = {
+      left: Math.round(left_2d),
+      right: Math.round(right_2d),
+      top: -600,
+      bottom: -400
+    };
+
+    if (window.CONFIG.map) {
+      window.CONFIG.map.playableBounds = newPlayableBounds;
+      window.CONFIG.map.activePlayableBounds = newPlayableBounds;
+    }
+
+    // CRITICAL: Also update geometryService's cached bounds
+    // The physics system reads from geometryService FIRST (higher priority than CONFIG)
+    // so we must update its cached geometry or the old bounds will persist
+    const geometryService = window.GAME?.geometryService;
+    if (geometryService && area?.id) {
+      const existingGeometry = geometryService.getGeometry(area.id);
+      if (existingGeometry) {
+        // Update the cached geometry's playableBounds
+        existingGeometry.playableBounds = newPlayableBounds;
+        console.log(`  geometryService bounds updated for area: ${area.id}`);
+      }
+    }
+
+    console.log(`  Play area bounds (centered coords): [${oldMinX}, ${oldMaxX}] → [${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}]`);
+    console.log(`  Playable bounds (2D coords): {left: ${newPlayableBounds.left}, right: ${newPlayableBounds.right}}`);
+    console.log(`  geometryService bounds: {left: ${newPlayableBounds.left}, right: ${newPlayableBounds.right}}`);
+
+    // Update camera bounds to match playable bounds
+    gameCamera.bounds = { min: newPlayableBounds.left, max: newPlayableBounds.right };
+    console.log(`  Camera bounds: [${newPlayableBounds.left}, ${newPlayableBounds.right}]`);
+  } else {
+    console.warn('[app] Cannot update play area bounds: window.CONFIG not available');
+    // Fallback: set camera bounds to full world width
+    gameCamera.bounds = { min: 0, max: worldWidth };
+  }
+
+  console.log(`  Camera world size: ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)}`);
+  console.log(`  Camera bounds: [${gameCamera.bounds.min}, ${gameCamera.bounds.max}]`);
+  console.log(`  2D world [0, ${worldWidth.toFixed(1)}] maps to 3D path [${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}] via transforms`);
 }
 
 // Optional 3D renderer modules (lazy-loaded to avoid breaking boot if assets aren't hosted)
@@ -1872,6 +2065,98 @@ if (fullscreenBtn && stageEl){
   doc.addEventListener('fullscreenchange', updateFullscreenUi);
   doc.addEventListener('webkitfullscreenchange', updateFullscreenUi);
   updateFullscreenUi();
+}
+
+// Debug overlay copy button
+{
+  const copyBtn = document.getElementById('debugOverlayCopy');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        const data = window.DEBUG_OVERLAY_DATA;
+        if (!data) {
+          console.warn('[debug-copy] No debug data available');
+          return;
+        }
+
+        // Format debug data as human-readable text
+        const lines = [
+          'Debug Overlay Data',
+          '='.repeat(60),
+          `Time: ${new Date().toISOString()}`,
+          `URL: ${window.location.href}`,
+          '='.repeat(60),
+          '',
+          `Player Position: (${data.player.x.toFixed(1)}, ${data.player.y.toFixed(1)})`,
+          `Camera Bounds: [${data.cameraBounds.min}, ${data.cameraBounds.max}]`,
+          '',
+          `Playable Bounds: [${data.playableBounds.left}, ${data.playableBounds.right}]`,
+          `Bounds Method: ${data.boundsMethod}`,
+          '',
+          `3D World:`,
+          `  Screen Pixels: ${data.world3d.screenPixels.toFixed(1)}px`,
+          `  World Units: ${data.world3d.worldUnits.toFixed(1)}u`,
+          `  Camera X: ${data.world3d.cameraX.toFixed(1)} (centered)`,
+          '',
+          `2D World:`,
+          `  World Pixels: ${data.world2d.worldPixels.toFixed(1)}px`,
+          `  Camera X: ${data.world2d.cameraX.toFixed(1)} (from edge)`,
+          '',
+          `World Dimensions: ${data.worldDimensions.width}×${data.worldDimensions.height}px`,
+          '',
+          `Transform Check:`,
+          `  Expected (2D→3D): ${data.transform.expected.toFixed(1)}`,
+          `  Actual (3D cam): ${data.transform.actual.toFixed(1)}`,
+          `  Status: ${data.transform.ok ? '✓ OK' : '✗ MISMATCH'}`,
+          ''
+        ];
+
+        if (data.path3d) {
+          lines.push(
+            `3D Path Extents:`,
+            `  Start X: ${data.path3d.start.toFixed(1)}`,
+            `  End X: ${data.path3d.end.toFixed(1)}`,
+            `  Camera in Range: ${data.path3d.cameraInRange ? '✓' : '✗'}`,
+            ''
+          );
+        }
+
+        lines.push(
+          `Projected Positions (3D→Canvas):`,
+          `  Start: (${data.projectedPositions.start.x.toFixed(1)}, ${data.projectedPositions.start.y.toFixed(1)})`,
+          `  End: (${data.projectedPositions.end.x.toFixed(1)}, ${data.projectedPositions.end.y.toFixed(1)})`,
+          '',
+          '='.repeat(60),
+          'Raw JSON:',
+          JSON.stringify(data, null, 2)
+        );
+
+        const text = lines.join('\n');
+
+        await navigator.clipboard.writeText(text);
+
+        // Visual feedback
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = '✓ Copied!';
+        copyBtn.style.background = 'rgba(16, 185, 129, 0.95)';
+        copyBtn.style.borderColor = 'rgba(52, 211, 153, 0.6)';
+        setTimeout(() => {
+          copyBtn.textContent = orig;
+          copyBtn.style.background = 'rgba(31, 41, 55, 0.95)';
+          copyBtn.style.borderColor = 'rgba(148, 163, 184, 0.4)';
+        }, 1500);
+      } catch (err) {
+        console.error('[debug-copy] Failed to copy:', err);
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = '✗ Failed';
+        copyBtn.style.background = 'rgba(220, 38, 38, 0.95)';
+        setTimeout(() => {
+          copyBtn.textContent = orig;
+          copyBtn.style.background = 'rgba(31, 41, 55, 0.95)';
+        }, 1500);
+      }
+    });
+  }
 }
 
 if (boneKeyList) {
@@ -5044,15 +5329,39 @@ function renderGameplayPathOverlay(ctx) {
 
   const adapter = window.GAME?.visualsmapAdapter;
   const projection = adapter?.getPathScreenLine?.({ canvas: cv });
-  if (!projection?.visible || !projection.start || !projection.end) return;
+  if (!projection?.visible || !projection.start || !projection.end) {
+    // Hide copy button when overlay is not visible
+    const copyBtn = document.getElementById('debugOverlayCopy');
+    if (copyBtn) copyBtn.style.display = 'none';
+    return;
+  }
 
   const { start, end } = projection;
   if (!Number.isFinite(start.x) || !Number.isFinite(start.y) || !Number.isFinite(end.x) || !Number.isFinite(end.y)) {
     return;
   }
 
+  // Calculate 3D projected line pixel length (screen space)
+  const dx3d = end.x - start.x;
+  const dy3d = end.y - start.y;
+  const pixelLength3d = Math.sqrt(dx3d * dx3d + dy3d * dy3d);
+
+  // Get 3D world distance (in Three.js units)
+  const distance3dWorld = projection.world3d?.distance || 0;
+  const path3dStart = projection.world3d?.start;
+  const path3dEnd = projection.world3d?.end;
+
+  // Get 2D camera position (world coordinates)
+  const camera2d = window.GAME?.CAMERA;
+  const camX2d = camera2d?.x || 0;
+
+  // Get 3D camera position (from renderer)
+  const renderer3d = window.GAME?.renderer3d;
+  const cam3dX = renderer3d?.camera?.position?.x || 0;
+
   const markerRadius = 6;
 
+  // Draw 3D projected path line
   ctx.save();
   ctx.lineWidth = 4;
   ctx.strokeStyle = '#ff0000';
@@ -5063,15 +5372,189 @@ function renderGameplayPathOverlay(ctx) {
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // Draw markers
   ctx.fillStyle = '#ff0000';
   ctx.beginPath();
   ctx.arc(start.x, start.y, markerRadius, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#ff000';
+  ctx.fillStyle = '#ff0000';
   ctx.beginPath();
   ctx.arc(end.x, end.y, markerRadius, 0, Math.PI * 2);
   ctx.fill();
+
+  // Position labels in viewport, following camera
+  // Use canvas center for consistent visibility
+  const canvasWidth = cv?.width || 800;
+  const canvasHeight = cv?.height || 600;
+  const labelX = canvasWidth / 2;
+  const labelY = 40; // Fixed position from top
+
+  ctx.font = 'bold 13px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  const padding = 6;
+  const lineHeight = 20;
+
+  // Player position (2D world coordinates)
+  const player = window.GAME?.FIGHTERS?.player;
+  const playerX = player?.hitbox?.x ?? player?.pos?.x ?? 0;
+  const playerY = player?.hitbox?.y ?? player?.pos?.y ?? 0;
+  const textPlayer = `Player: (${playerX.toFixed(1)}, ${playerY.toFixed(1)}) | Bounds: [${camera2d?.bounds?.min ?? 0}, ${camera2d?.bounds?.max ?? camera2d?.worldWidth ?? 'none'}]`;
+  const metricsPlayer = ctx.measureText(textPlayer);
+  const bgWidthPlayer = metricsPlayer.width + padding * 2;
+  const bgHeightPlayer = lineHeight;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidthPlayer / 2, labelY, bgWidthPlayer, bgHeightPlayer);
+
+  ctx.fillStyle = '#ffff66'; // Yellow for player info
+  ctx.fillText(textPlayer, labelX, labelY + 4);
+
+  // Playable bounds info (CONFIG values)
+  const labelYBounds = labelY + lineHeight + 2;
+  const playableLeft = window.CONFIG?.map?.playableBounds?.left ?? window.CONFIG?.map?.activePlayableBounds?.left ?? 'null';
+  const playableRight = window.CONFIG?.map?.playableBounds?.right ?? window.CONFIG?.map?.activePlayableBounds?.right ?? 'null';
+  const boundsMethod = window.DEBUG_BOUNDS_METHOD || 'unknown';
+  const textBounds = `Playable: [${playableLeft}, ${playableRight}] | Method: ${boundsMethod}`;
+  const metricsBounds = ctx.measureText(textBounds);
+  const bgWidthBounds = metricsBounds.width + padding * 2;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidthBounds / 2, labelYBounds, bgWidthBounds, lineHeight);
+
+  ctx.fillStyle = '#ff99ff'; // Pink for bounds info
+  ctx.fillText(textBounds, labelX, labelYBounds + 4);
+
+  // 3D info (centered coordinate system)
+  const labelY3d = labelYBounds + lineHeight + 2;
+  const text3d = `3D: ${pixelLength3d.toFixed(1)}px screen | ${distance3dWorld.toFixed(1)}u world | cam: ${cam3dX.toFixed(1)} (centered)`;
+  const metrics3d = ctx.measureText(text3d);
+  const bgWidth3d = metrics3d.width + padding * 2;
+  const bgHeight3d = lineHeight;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidth3d / 2, labelY3d, bgWidth3d, bgHeight3d);
+
+  // 3D info text
+  ctx.fillStyle = '#ff6666';
+  ctx.fillText(text3d, labelX, labelY3d + 4);
+
+  // 2D info (edge-based coordinate system)
+  const labelY2d = labelY3d + lineHeight + 2;
+  const text2d = `2D: ${distance3dWorld.toFixed(1)}px world | cam: ${camX2d.toFixed(1)} (from edge)`;
+  const metrics2d = ctx.measureText(text2d);
+  const bgWidth2d = metrics2d.width + padding * 2;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidth2d / 2, labelY2d, bgWidth2d, bgHeight3d);
+
+  // 2D info text
+  ctx.fillStyle = '#66ff66';
+  ctx.fillText(text2d, labelX, labelY2d + 4);
+
+  // Add explanation of coordinate difference
+  const labelY3 = labelY2d + lineHeight + 2;
+  const worldWidth = camera2d?.worldWidth || 1600;
+  const worldHeight = camera2d?.worldHeight || 600;
+  // Transform: x3d = (worldWidth/2) - x2d
+  //   - Accounts for centering: 2D measured from left, 3D from center
+  //   - Accounts for inversion: moving right in 2D scrolls left in 3D
+  const expectedFrom2D = (worldWidth / 2) - camX2d;
+  const actual3D = cam3dX;
+  const transformOK = Math.abs(expectedFrom2D - actual3D) < 1;
+  const text3 = transformOK
+    ? `✓ 2D→3D: ${(worldWidth/2).toFixed(1)} - ${camX2d.toFixed(1)} = ${actual3D.toFixed(1)}`
+    : `⚠ 2D→3D error: expected ${expectedFrom2D.toFixed(1)}, got ${actual3D.toFixed(1)}`;
+  const metrics3 = ctx.measureText(text3);
+  const bgWidth3 = metrics3.width + padding * 2;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidth3 / 2, labelY3, bgWidth3, bgHeight3d);
+
+  ctx.fillStyle = transformOK ? '#88ff88' : '#ffaa44';
+  ctx.fillText(text3, labelX, labelY3 + 4);
+
+  // Add world dimensions info
+  const labelY4 = labelY3 + lineHeight + 2;
+  const text4 = `World: ${worldWidth.toFixed(0)}×${worldHeight.toFixed(0)}px | Center: (${(worldWidth/2).toFixed(1)}, ${(worldHeight/2).toFixed(1)})`;
+  const metrics4 = ctx.measureText(text4);
+  const bgWidth4 = metrics4.width + padding * 2;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidth4 / 2, labelY4, bgWidth4, bgHeight3d);
+
+  ctx.fillStyle = '#aaaaaa';
+  ctx.fillText(text4, labelX, labelY4 + 4);
+
+  // Add detailed mismatch debugging if there's a problem
+  if (!transformOK) {
+    const labelY5 = labelY4 + lineHeight + 2;
+    const discrepancy = actual3D - expectedFrom2D;
+    const text5 = `Debug: Error=${discrepancy.toFixed(1)} | 2D=${camX2d.toFixed(1)} | 3D=${cam3dX.toFixed(1)} | Center=${(worldWidth/2).toFixed(1)}`;
+    const metrics5 = ctx.measureText(text5);
+    const bgWidth5 = metrics5.width + padding * 2;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(labelX - bgWidth5 / 2, labelY5, bgWidth5, bgHeight3d);
+
+    ctx.fillStyle = '#ffaa44';
+    ctx.fillText(text5, labelX, labelY5 + 4);
+  }
+
+  // Add 3D path extents (always show)
+  const labelY6 = !transformOK ? (labelY4 + lineHeight * 2 + 4) : (labelY4 + lineHeight + 2);
+  if (path3dStart && path3dEnd) {
+    const text6 = `3D Path: X from ${path3dStart.x.toFixed(1)} to ${path3dEnd.x.toFixed(1)} | Cam in range: ${(cam3dX >= Math.min(path3dStart.x, path3dEnd.x) && cam3dX <= Math.max(path3dStart.x, path3dEnd.x)) ? '✓' : '✗'}`;
+    const metrics6 = ctx.measureText(text6);
+    const bgWidth6 = metrics6.width + padding * 2;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(labelX - bgWidth6 / 2, labelY6, bgWidth6, bgHeight3d);
+
+    ctx.fillStyle = '#aaaaff';
+    ctx.fillText(text6, labelX, labelY6 + 4);
+  }
+
+  // Store debug data for clipboard copy
+  // (worldWidth and worldHeight already declared above)
+  const groundPathRef = window.DEBUG_GROUND_PATH_REF || null;
+  window.DEBUG_OVERLAY_DATA = {
+    player: { x: playerX, y: playerY },
+    cameraBounds: { min: camera2d?.bounds?.min ?? 0, max: camera2d?.bounds?.max ?? camera2d?.worldWidth ?? 'none' },
+    playableBounds: { left: playableLeft, right: playableRight },
+    boundsMethod: boundsMethod,
+    groundPathReference: groundPathRef,
+    world3d: {
+      screenPixels: pixelLength3d,
+      worldUnits: distance3dWorld,
+      cameraX: cam3dX
+    },
+    world2d: {
+      worldPixels: distance3dWorld,
+      cameraX: camX2d
+    },
+    worldDimensions: { width: worldWidth, height: worldHeight },
+    transform: {
+      expected: (worldWidth / 2) - camX2d,
+      actual: cam3dX,
+      ok: transformOK
+    },
+    path3d: path3dStart && path3dEnd ? {
+      start: path3dStart.x,
+      end: path3dEnd.x,
+      cameraInRange: (cam3dX >= Math.min(path3dStart.x, path3dEnd.x) && cam3dX <= Math.max(path3dStart.x, path3dEnd.x))
+    } : null,
+    projectedPositions: {
+      start: { x: start.x, y: start.y },
+      end: { x: end.x, y: end.y }
+    }
+  };
+
+  // Show copy button when overlay is visible
+  const copyBtn = document.getElementById('debugOverlayCopy');
+  if (copyBtn) copyBtn.style.display = 'block';
 
   ctx.restore();
 }
@@ -6266,8 +6749,8 @@ function boot(){
 
               const gameCamera = window.GAME?.CAMERA;
               if (gameCamera && GAME_RENDERER_3D) {
-                // Camera sync config for side-scrolling view aligned with gameplay path
-                // Values match visualsmapLoader camera setup (based on cellSize/GRID_UNIT_WORLD_SIZE=30)
+                // Camera sync with tight 2D-3D coordinate coupling
+                // Values based on cellSize/GRID_UNIT_WORLD_SIZE=30
                 const cellSize = window.GRID_UNIT_WORLD_SIZE || 30;
                 syncThreeCamera({
                   renderer: GAME_RENDERER_3D,
@@ -6276,7 +6759,8 @@ function boot(){
                     parallaxFactor: 1.0,              // 3D camera follows 2D camera exactly (side-scrolling)
                     cameraHeight: cellSize * 0.8,     // Height above ground (24 with cellSize=30)
                     cameraDistance: -cellSize * 1.2,  // Negative Z = viewer side (-36 with cellSize=30)
-                    lookAtOffsetY: cellSize * 0.3     // Look slightly above ground (9 with cellSize=30)
+                    lookAtOffsetY: cellSize * 0.3,    // Look slightly above ground (9 with cellSize=30)
+                    useTransform: true                // Enable coordinate transformation for tight coupling
                   }
                 });
               }
@@ -6330,6 +6814,16 @@ function boot(){
                   if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
                     console.log('[app] Visualsmap loaded successfully:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
                     lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+
+                    // Auto-size 2D world to match 3D gameplay path (procedural sizing)
+                    autoSizeWorldToGameplayPath(GAME_VISUALSMAP_ADAPTER, area);
+
+                    // Initialize coordinate transformation for tight 2D-3D coupling
+                    initTransformConfig({
+                      camera2d: window.GAME?.CAMERA,
+                      scene3d: area.scene3d,
+                      worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
+                    });
                   } else {
                     console.warn('[app] Visualsmap loaded but no objects found');
                     lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
@@ -6347,6 +6841,13 @@ function boot(){
                 if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
                   console.log('[app] 3D scene loaded successfully');
                   lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+
+                  // Initialize coordinate transformation for tight 2D-3D coupling
+                  initTransformConfig({
+                    camera2d: window.GAME?.CAMERA,
+                    scene3d: area.scene3d,
+                    worldRotation: 0
+                  });
                 } else {
                   console.warn('[app] Failed to load 3D scene:', GAME_RENDER_ADAPTER?.error);
                   lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
@@ -6383,6 +6884,16 @@ function boot(){
               window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
               if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
                 lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+
+                // Auto-size 2D world to match 3D gameplay path (procedural sizing)
+                autoSizeWorldToGameplayPath(GAME_VISUALSMAP_ADAPTER, areaToLoad);
+
+                // Initialize coordinate transformation for tight 2D-3D coupling
+                initTransformConfig({
+                  camera2d: window.GAME?.CAMERA,
+                  scene3d: areaToLoad.scene3d,
+                  worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
+                });
               } else {
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
               }
@@ -6394,6 +6905,13 @@ function boot(){
               window.GAME.renderAdapter = GAME_RENDER_ADAPTER; // Expose for debugging
               if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
                 lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+
+                // Initialize coordinate transformation for tight 2D-3D coupling
+                initTransformConfig({
+                  camera2d: window.GAME?.CAMERA,
+                  scene3d: areaToLoad.scene3d,
+                  worldRotation: 0
+                });
               } else {
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
               }
