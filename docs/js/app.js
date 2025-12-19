@@ -941,15 +941,30 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     window.CONFIG.playAreaMinX = pathExtents.minX;
     window.CONFIG.playAreaMaxX = pathExtents.maxX;
 
-    // Calculate actual 2D bounds using the coordinate transform
-    // x2d = worldCenter - x3d (from coordinate-transform.js: x3d = -x2d + worldCenter)
-    const worldCenter = worldWidth / 2;
-    const pathMinX_3d = pathExtents.minX - halfTile;  // Left edge with margin
-    const pathMaxX_3d = pathExtents.maxX + halfTile;  // Right edge with margin
+    // Get actual canvas positions of path markers from 3D projection
+    // This is ground truth for where tiles are actually rendered
+    const pathScreenLine = visualsmapAdapter.getPathScreenLine?.();
+    let left_2d, right_2d;
 
-    // Inverse transform: x2d = worldCenter - x3d
-    const left_2d = worldCenter - pathMaxX_3d;   // Right edge in 3D → left edge in 2D (inverted)
-    const right_2d = worldCenter - pathMinX_3d;  // Left edge in 3D → right edge in 2D (inverted)
+    if (pathScreenLine && pathScreenLine.start && pathScreenLine.end) {
+      // Use actual projected positions (accounting for tile-width margins)
+      const startX = pathScreenLine.start.x;
+      const endX = pathScreenLine.end.x;
+
+      // Determine which is left vs right (path may be inverted on screen)
+      left_2d = Math.min(startX, endX) - halfTile;
+      right_2d = Math.max(startX, endX) + halfTile;
+
+      console.log(`  Using projected path positions: start=${startX.toFixed(1)}, end=${endX.toFixed(1)}`);
+    } else {
+      // Fallback: calculate using coordinate transform inverse
+      const worldCenter = worldWidth / 2;
+      const pathMinX_3d = pathExtents.minX - halfTile;
+      const pathMaxX_3d = pathExtents.maxX + halfTile;
+      left_2d = worldCenter - pathMaxX_3d;
+      right_2d = worldCenter - pathMinX_3d;
+      console.log(`  Fallback: calculated bounds from transform`);
+    }
 
     const newPlayableBounds = {
       left: Math.round(left_2d),
