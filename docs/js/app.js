@@ -890,20 +890,41 @@ async function getVisualsmapLoader() {
  * @param {Object} area - The area object to set bounds on
  */
 function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
-  if (!visualsmapAdapter || typeof visualsmapAdapter.getPathExtents !== 'function') {
-    console.warn('[app] Cannot auto-size world: visualsmapAdapter missing or no getPathExtents method');
-    return;
-  }
-
   const gameCamera = window.GAME?.CAMERA;
   if (!gameCamera) {
     console.warn('[app] Cannot auto-size world: GAME.CAMERA not available');
     return;
   }
 
-  const pathExtents = visualsmapAdapter.getPathExtents();
+  // CRITICAL: Prefer ground.path from gameplay map over visualsmap path
+  // The ground path defines the actual playable area, while visualsmap may include decorative tiles
+  let pathExtents = null;
+
+  if (area?.ground?.path && Array.isArray(area.ground.path) && area.ground.path.length >= 2) {
+    // Use ground path from gameplay map (the actual playable bounds)
+    const groundPath = area.ground.path;
+    const startX = groundPath[0].x;
+    const endX = groundPath[groundPath.length - 1].x;
+    const minX = Math.min(startX, endX);
+    const maxX = Math.max(startX, endX);
+
+    pathExtents = {
+      start: { x: startX, z: 0 },
+      end: { x: endX, z: 0 },
+      minX: minX,
+      maxX: maxX,
+      spanX: Math.abs(maxX - minX),
+      spanZ: 0
+    };
+    console.log('[app] Using ground.path from gameplay map for bounds calculation');
+  } else if (visualsmapAdapter && typeof visualsmapAdapter.getPathExtents === 'function') {
+    // Fallback to visualsmap path
+    pathExtents = visualsmapAdapter.getPathExtents();
+    console.log('[app] Using visualsmap path extents for bounds calculation');
+  }
+
   if (!pathExtents) {
-    console.warn('[app] Cannot auto-size world: no path extents available');
+    console.warn('[app] Cannot auto-size world: no path extents available from ground.path or visualsmap');
     return;
   }
 
