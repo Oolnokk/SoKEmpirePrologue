@@ -909,14 +909,18 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
 
   // Calculate required 2D world dimensions from 3D path extents
   // With pixelsToUnits = 1.0 (pixel-perfect), 1 pixel = 1 Three.js unit
-  // Make 2D world exactly match path span so pixel 0 = path start, pixel N = path end
-  const worldWidth = pathExtents.spanX;  // Horizontal span of gameplay path
+  // IMPORTANT: Path extents give CENTER points of start/end tiles
+  // Add half a tile width on each end for full traversal
+  const gridUnit = window.GRID_UNIT_WORLD_SIZE || 300;
+  const halfTile = gridUnit / 2;  // 150 units
+  const worldWidth = pathExtents.spanX + gridUnit;  // Add full tile (half on each end)
   const worldHeight = Math.max(pathExtents.spanZ, 600); // Vertical span (min 600px for visibility)
 
   console.log('[app] Auto-sizing 2D world to gameplay path:');
-  console.log(`  Path extents: X=[${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}] (span: ${pathExtents.spanX.toFixed(1)})`);
+  console.log(`  Path extents (tile centers): X=[${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}] (span: ${pathExtents.spanX.toFixed(1)})`);
+  console.log(`  Grid unit: ${gridUnit} | Half-tile margin: ${halfTile}`);
   console.log(`  Path extents: Z=[${pathExtents.start.z.toFixed(1)}, ${pathExtents.end.z.toFixed(1)}] (span: ${pathExtents.spanZ.toFixed(1)})`);
-  console.log(`  2D world dimensions: ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)} pixels`);
+  console.log(`  2D world dimensions (with tile margins): ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)} pixels`);
 
   // Update camera world dimensions
   gameCamera.worldWidth = worldWidth;
