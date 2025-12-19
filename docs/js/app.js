@@ -949,6 +949,19 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
       window.CONFIG.map.activePlayableBounds = newPlayableBounds;
     }
 
+    // CRITICAL: Also update geometryService's cached bounds
+    // The physics system reads from geometryService FIRST (higher priority than CONFIG)
+    // so we must update its cached geometry or the old bounds will persist
+    const geometryService = window.GAME?.geometryService;
+    if (geometryService && area?.id) {
+      const existingGeometry = geometryService.getGeometry(area.id);
+      if (existingGeometry) {
+        // Update the cached geometry's playableBounds
+        existingGeometry.playableBounds = newPlayableBounds;
+        console.log(`  geometryService bounds updated for area: ${area.id}`);
+      }
+    }
+
     console.log(`  Play area bounds updated: [${oldMinX}, ${oldMaxX}] → [${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}]`);
     console.log(`  mapConfig.playableBounds: {left: ${pathExtents.minX.toFixed(1)}, right: ${pathExtents.maxX.toFixed(1)}}`);
   } else {
