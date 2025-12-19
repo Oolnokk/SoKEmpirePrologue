@@ -901,9 +901,25 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     return;
   }
 
-  // Get player spawn position to use as reference for bounds calculation
+  // Get gameplay path start from area's ground path (defines playable area extent)
+  // This is the authoritative source for where the playable area begins
+  const groundPath = area?.ground?.path;
+  let groundPathStartX = null;
+
+  if (groundPath && Array.isArray(groundPath) && groundPath.length > 0) {
+    // Ground path is in gameplay map coordinates, need to transform to 2D world coords
+    // For now, find the leftmost point
+    groundPathStartX = Math.min(...groundPath.map(p => p.x));
+    console.log(`[app] Ground path from gameplay map: ${groundPath.map(p => p.x).join(', ')}`);
+    console.log(`[app] Leftmost ground path point: ${groundPathStartX}`);
+  }
+
+  // Fallback: use player spawn position if ground path not available
   const player = window.GAME?.FIGHTERS?.player;
   const playerSpawnX = player?.hitbox?.x ?? player?.pos?.x ?? null;
+
+  // Use ground path start if available, otherwise player spawn
+  const referenceX = groundPathStartX !== null ? groundPathStartX : playerSpawnX;
 
   const pathExtents = visualsmapAdapter.getPathExtents();
   if (!pathExtents) {
@@ -916,23 +932,24 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   const gridUnit = window.GRID_UNIT_WORLD_SIZE || 300;
   const halfTile = gridUnit / 2;
 
-  // World dimensions: need to accommodate spawn offset + path span
-  // If player spawns at X, world must be wide enough for [X, X + pathSpan]
+  // World dimensions: need to accommodate reference point + path span
+  // Reference point is either ground path start or player spawn
   let worldWidth, worldHeight;
 
-  if (playerSpawnX !== null && Number.isFinite(playerSpawnX)) {
-    // World width = spawn offset + path span + some margin
-    worldWidth = playerSpawnX + pathExtents.spanX + halfTile;
+  if (referenceX !== null && Number.isFinite(referenceX)) {
+    // World width = reference offset + path span + margin
+    worldWidth = referenceX + pathExtents.spanX + halfTile;
     worldHeight = Math.max(pathExtents.spanZ, 600);
-    console.log('[app] Auto-sizing 2D world to gameplay path (spawn-based):');
-    console.log(`  Player spawn: ${playerSpawnX.toFixed(1)}`);
+    const refSource = groundPathStartX !== null ? 'ground path' : 'player spawn';
+    console.log(`[app] Auto-sizing 2D world to gameplay path (${refSource}-based):`);
+    console.log(`  Reference point: ${referenceX.toFixed(1)} (${refSource})`);
     console.log(`  Path span: ${pathExtents.spanX.toFixed(1)}`);
-    console.log(`  World width: spawn (${playerSpawnX.toFixed(1)}) + span (${pathExtents.spanX.toFixed(1)}) + margin (${halfTile}) = ${worldWidth.toFixed(1)}`);
+    console.log(`  World width: ref (${referenceX.toFixed(1)}) + span (${pathExtents.spanX.toFixed(1)}) + margin (${halfTile}) = ${worldWidth.toFixed(1)}`);
   } else {
     // Fallback: tile span + margins
     worldWidth = pathExtents.spanX + gridUnit;
     worldHeight = Math.max(pathExtents.spanZ, 600);
-    console.log('[app] Auto-sizing 2D world to gameplay path:');
+    console.log('[app] Auto-sizing 2D world to gameplay path (fallback):');
     console.log(`  Path extents (tile centers): X=[${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}] (span: ${pathExtents.spanX.toFixed(1)})`);
     console.log(`  Grid unit: ${gridUnit} | Half-tile margin: ${halfTile}`);
     console.log(`  2D world dimensions (with tile margins): ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)} pixels`);
@@ -953,23 +970,23 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     window.CONFIG.playAreaMinX = pathExtents.minX;
     window.CONFIG.playAreaMaxX = pathExtents.maxX;
 
-    // Calculate 2D world bounds based on where the player spawns
-    // The spawn position is the reference point for the playable area
+    // Calculate 2D world bounds based on gameplay map's ground path or player spawn
+    // Ground path defines the authoritative playable area extent
     let left_2d, right_2d, boundsMethod;
 
-    if (playerSpawnX !== null && Number.isFinite(playerSpawnX)) {
-      // Use player spawn as reference - assume spawn is at or near first tile
+    if (referenceX !== null && Number.isFinite(referenceX)) {
+      // Use ground path start or player spawn as reference
       // The path spans pathExtents.spanX (5700) pixels in both 2D and 3D (1:1 mapping)
       const pathSpan = pathExtents.spanX;
+      const refSource = groundPathStartX !== null ? 'ground path start' : 'player spawn';
 
-      // Spawn is at the left edge (or slightly offset from it)
-      // Assume spawn is at first tile edge, so left bound is at spawn
-      left_2d = playerSpawnX;
-      right_2d = playerSpawnX + pathSpan;
+      // Reference point is at the left edge of playable area
+      left_2d = referenceX;
+      right_2d = referenceX + pathSpan;
 
-      boundsMethod = `Spawn-based: [${playerSpawnX.toFixed(0)} + ${pathSpan.toFixed(0)}] = [${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
-      console.log(`  Calculated bounds from player spawn position:`);
-      console.log(`    Player spawn: ${playerSpawnX.toFixed(1)}`);
+      boundsMethod = `${refSource}: [${referenceX.toFixed(0)} + ${pathSpan.toFixed(0)}] = [${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
+      console.log(`  Calculated bounds from ${refSource}:`);
+      console.log(`    Reference point: ${referenceX.toFixed(1)}`);
       console.log(`    Path span: ${pathSpan.toFixed(1)}`);
       console.log(`    Bounds: [${left_2d.toFixed(1)}, ${right_2d.toFixed(1)}]`);
     } else {
