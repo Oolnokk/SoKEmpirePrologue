@@ -927,20 +927,22 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   gameCamera.bounds = { min: 0, max: worldWidth };
 
   // Update play area bounds to match 3D path extents
-  // The play area bounds use centered coordinates (like the 3D world)
-  // This allows the player to move across the full range of the gameplay path
+  // CRITICAL: Playable bounds must be in 2D world coordinates (edge-based, starting at 0)
+  // NOT 3D centered coordinates! Physics system interprets these as 2D positions.
   if (window.CONFIG) {
     const oldMinX = window.CONFIG.playAreaMinX;
     const oldMaxX = window.CONFIG.playAreaMaxX;
 
+    // Keep these in centered coords for compatibility with other systems
     window.CONFIG.playAreaMinX = pathExtents.minX;
     window.CONFIG.playAreaMaxX = pathExtents.maxX;
 
-    // Also update mapConfig.playableBounds (used by physics and map bootstrap)
+    // Playable bounds for physics: 2D edge-based coordinates (0 to worldWidth)
+    // Player can move across the full 2D world width, which maps to full 3D path via transforms
     const newPlayableBounds = {
-      left: pathExtents.minX,
-      right: pathExtents.maxX,
-      top: -600,    // Keep existing vertical bounds
+      left: 0,              // Left edge of 2D world
+      right: worldWidth,    // Right edge of 2D world (5700px)
+      top: -600,            // Keep existing vertical bounds
       bottom: -400
     };
 
@@ -962,15 +964,16 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
       }
     }
 
-    console.log(`  Play area bounds updated: [${oldMinX}, ${oldMaxX}] → [${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}]`);
-    console.log(`  mapConfig.playableBounds: {left: ${pathExtents.minX.toFixed(1)}, right: ${pathExtents.maxX.toFixed(1)}}`);
+    console.log(`  Play area bounds (centered coords): [${oldMinX}, ${oldMaxX}] → [${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}]`);
+    console.log(`  Playable bounds (2D coords): {left: ${newPlayableBounds.left}, right: ${newPlayableBounds.right}} (full world traversal)`);
+    console.log(`  geometryService bounds: {left: ${newPlayableBounds.left}, right: ${newPlayableBounds.right}}`);
   } else {
     console.warn('[app] Cannot update play area bounds: window.CONFIG not available');
   }
 
   console.log(`  Camera world size: ${worldWidth.toFixed(1)} x ${worldHeight.toFixed(1)}`);
   console.log(`  Camera bounds: [${gameCamera.bounds.min}, ${gameCamera.bounds.max}]`);
-  console.log(`  Note: Area object is frozen, bounds set on gameCamera instead`);
+  console.log(`  2D world [0, ${worldWidth.toFixed(1)}] maps to 3D path [${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}] via transforms`);
 }
 
 // Optional 3D renderer modules (lazy-loaded to avoid breaking boot if assets aren't hosted)
