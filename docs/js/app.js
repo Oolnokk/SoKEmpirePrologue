@@ -890,52 +890,31 @@ async function getVisualsmapLoader() {
  * @param {Object} area - The area object to set bounds on
  */
 function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
+  if (!visualsmapAdapter || typeof visualsmapAdapter.getPathExtents !== 'function') {
+    console.warn('[app] Cannot auto-size world: visualsmapAdapter missing or no getPathExtents method');
+    return;
+  }
+
   const gameCamera = window.GAME?.CAMERA;
   if (!gameCamera) {
     console.warn('[app] Cannot auto-size world: GAME.CAMERA not available');
     return;
   }
 
-  // CRITICAL: Prefer ground.path from gameplay map over visualsmap path
-  // The ground path defines the actual playable area, while visualsmap may include decorative tiles
-  let pathExtents = null;
-
-  if (area?.ground?.path && Array.isArray(area.ground.path) && area.ground.path.length >= 2) {
-    // Use ground path from gameplay map (the actual playable bounds)
-    const groundPath = area.ground.path;
-    const startX = groundPath[0].x;
-    const endX = groundPath[groundPath.length - 1].x;
-    const minX = Math.min(startX, endX);
-    const maxX = Math.max(startX, endX);
-
-    pathExtents = {
-      start: { x: startX, z: 0 },
-      end: { x: endX, z: 0 },
-      minX: minX,
-      maxX: maxX,
-      spanX: Math.abs(maxX - minX),
-      spanZ: 0
-    };
-    console.log('[app] Using ground.path from gameplay map for bounds calculation');
-  } else if (visualsmapAdapter && typeof visualsmapAdapter.getPathExtents === 'function') {
-    // Fallback to visualsmap path
-    pathExtents = visualsmapAdapter.getPathExtents();
-    console.log('[app] Using visualsmap path extents for bounds calculation');
-  }
-
+  const pathExtents = visualsmapAdapter.getPathExtents();
   if (!pathExtents) {
-    console.warn('[app] Cannot auto-size world: no path extents available from ground.path or visualsmap');
+    console.warn('[app] Cannot auto-size world: no path extents available');
     return;
   }
 
-  // Calculate required 2D world dimensions from 3D path extents
-  // With pixelsToUnits = 1.0 (pixel-perfect), 1 pixel = 1 Three.js unit
-  // IMPORTANT: Path extents give CENTER points of start/end tiles
-  // Add half a tile width on each end for full traversal
+  // Bounds are measured in TILES using gridUnit from config.js
+  // gridUnit defines tile size in both 2D pixels and 3D units (with pixelsToUnits=1.0)
   const gridUnit = window.GRID_UNIT_WORLD_SIZE || 300;
-  const halfTile = gridUnit / 2;  // 150 units
-  const worldWidth = pathExtents.spanX + gridUnit;  // Add full tile (half on each end)
-  const worldHeight = Math.max(pathExtents.spanZ, 600); // Vertical span (min 600px for visibility)
+  const halfTile = gridUnit / 2;
+
+  // World dimensions: tile span + margins (half tile on each end)
+  const worldWidth = pathExtents.spanX + gridUnit;
+  const worldHeight = Math.max(pathExtents.spanZ, 600);
 
   console.log('[app] Auto-sizing 2D world to gameplay path:');
   console.log(`  Path extents (tile centers): X=[${pathExtents.minX.toFixed(1)}, ${pathExtents.maxX.toFixed(1)}] (span: ${pathExtents.spanX.toFixed(1)})`);
