@@ -432,8 +432,15 @@
     let panStart = null;
 
     // View state - y offset is locked to show ground at bottom edge
-    let viewOffset = { x: 0, y: 0 }; // y=0 means ground at canvas center, we'll adjust rendering
+    let viewOffsetX = 0;
     let viewZoom = 1.0;
+    const setViewOffsetX = (value) => {
+      viewOffsetX = value;
+      window.viewOffsetX = viewOffsetX;
+      window.updateVisualMapCameraPan?.(viewOffsetX);
+    };
+    const bumpViewOffsetX = (delta) => setViewOffsetX(viewOffsetX + delta);
+    window.viewOffsetX = viewOffsetX;
 
     function resolveGridUnit(source) {
       const layoutUnit = Number(source?.gridUnit);
@@ -520,7 +527,7 @@
       const cx = canvas.width / 2;
       // Ground (y=0) is at bottom of canvas, positive y goes up
       return {
-        x: cx + (wx + viewOffset.x) * viewZoom,
+        x: cx + (wx + viewOffsetX) * viewZoom,
         y: canvas.height - wy * viewZoom
       };
     }
@@ -528,7 +535,7 @@
     function screenToWorld(sx, sy) {
       const cx = canvas.width / 2;
       return {
-        x: (sx - cx) / viewZoom - viewOffset.x,
+        x: (sx - cx) / viewZoom - viewOffsetX,
         y: (canvas.height - sy) / viewZoom
       };
     }
@@ -1260,7 +1267,7 @@
       if (isPanning && panStart) {
         const dx = sx - panStart.x;
         // Only horizontal panning - vertical is locked
-        viewOffset.x += dx / viewZoom;
+        bumpViewOffsetX(dx / viewZoom);
         panStart = { x: sx, y: sy };
         redraw();
       } else if (dragState) {
@@ -1315,7 +1322,7 @@
       if (e.shiftKey) {
         // Horizontal scroll with shift + wheel
         const panSpeed = tileSize / viewZoom;
-        viewOffset.x += (e.deltaY > 0 ? panSpeed : -panSpeed);
+        bumpViewOffsetX(e.deltaY > 0 ? panSpeed : -panSpeed);
         redraw();
       } else {
         // Vertical zoom
@@ -1402,7 +1409,7 @@
         if (lastTouchPos) {
           const dx = currentPos.x - lastTouchPos.x;
           // Only horizontal panning - vertical is locked
-          viewOffset.x += dx / viewZoom;
+          bumpViewOffsetX(dx / viewZoom);
           lastTouchPos = currentPos;
         }
         redraw();
@@ -1426,7 +1433,7 @@
           if (Math.abs(dx) > Math.abs(dy)) {
             // Horizontal movement - pan map horizontally
             e.preventDefault();
-            viewOffset.x += dx / viewZoom;
+            bumpViewOffsetX(dx / viewZoom);
             lastTouchPos = { x: sx, y: sy };
             redraw();
           }
@@ -1499,12 +1506,12 @@
           break;
         case 'arrowleft':
           e.preventDefault();
-          viewOffset.x -= 50 / viewZoom;
+          bumpViewOffsetX(-50 / viewZoom);
           redraw();
           break;
         case 'arrowright':
           e.preventDefault();
-          viewOffset.x += 50 / viewZoom;
+          bumpViewOffsetX(50 / viewZoom);
           redraw();
           break;
         // Vertical scrolling is locked - arrow up/down removed
@@ -1520,7 +1527,7 @@
           redraw();
           break;
         case '0':
-          viewOffset.x = 0; // Reset horizontal position only
+          setViewOffsetX(0); // Reset horizontal position only
           viewZoom = 1.0;
           redraw();
           break;
@@ -1565,7 +1572,7 @@
     });
 
     document.getElementById('btnResetView').addEventListener('click', () => {
-      viewOffset = { x: 0, y: 0 };
+      setViewOffsetX(0);
       viewZoom = 1.0;
       redraw();
     });
@@ -1860,8 +1867,24 @@
     // ===== 3D Visual Map Background =====
     let THREE;
     try {
-      const threeModule = await import("https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js");
-      THREE = threeModule;
+      const threeModuleUrls = Array.isArray(window.CONFIG?.mapEditor?.threeModuleUrls)
+        ? window.CONFIG.mapEditor.threeModuleUrls
+        : [];
+      let loadError;
+      for (const moduleUrl of threeModuleUrls) {
+        try {
+          const threeModule = await import(moduleUrl);
+          THREE = threeModule;
+          loadError = null;
+          break;
+        } catch (err) {
+          loadError = err;
+          console.warn(`Three.js import failed for ${moduleUrl}:`, err);
+        }
+      }
+      if (!THREE && loadError) {
+        throw loadError;
+      }
     } catch (err) {
       console.warn("Three.js not available:", err);
       document.getElementById('threeOverlay').textContent = '3D disabled (Three.js blocked)';
@@ -1870,15 +1893,55 @@
     }
 
     let scene, camera, renderer, worldRoot;
-    let groundGroup, structureGroup;
-    const CELL_SIZE = Number(window.CONFIG?.mapEditor?.visualCellSize);
-    const groundPlaneSize = Number(window.CONFIG?.mapEditor?.visualGroundPlaneSize);
+    let groundGroup, structureGroup, groundPlane;
+    let baseCameraState = null;
+    const visualMapConfig = window.CONFIG?.mapEditor?.visualMap ?? {};
+    const visualMapScene = visualMapConfig.scene ?? {};
+    const visualMapCamera = visualMapConfig.camera ?? {};
+    const visualMapLighting = visualMapConfig.lighting ?? {};
+    const visualMapGroundPlane = visualMapConfig.groundPlane ?? {};
+    const visualMapLayers = visualMapConfig.layers ?? {};
     const resolveWorldUnitsPerTile = () => {
       const candidate = window.GRID_UNIT_WORLD_SIZE
         ?? window.CONFIG?.mapEditor?.tileSize
         ?? window.CONFIG?.map?.gridUnit;
       return Number.isFinite(candidate) ? candidate : 0;
     };
+    const coerceFiniteNumber = (value, fallback) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : fallback;
+    };
+    const resolveCellSize = () => {
+      const worldUnits = resolveWorldUnitsPerTile();
+      if (Number.isFinite(worldUnits) && worldUnits > 0) {
+        return worldUnits;
+      }
+      const fallback = coerceFiniteNumber(visualMapConfig.cellSizeFallback, 1);
+      return fallback > 0 ? fallback : 1;
+    };
+    const resolveLookAtOffsets = (data) => {
+      const lookAt = data?.gameplayPathLookAt ?? {};
+      const defaults = visualMapCamera.lookAt ?? {};
+      const offsetY = Number.isFinite(Number(lookAt.offsetY))
+        ? Number(lookAt.offsetY)
+        : coerceFiniteNumber(defaults.offsetY, 0);
+      const offsetZ = Number.isFinite(Number(lookAt.offsetZ))
+        ? Number(lookAt.offsetZ)
+        : coerceFiniteNumber(defaults.offsetZ, 0);
+      return { offsetY, offsetZ };
+    };
+    const syncCameraPan = (panX) => {
+      if (!camera || !baseCameraState) return;
+      const panScale = coerceFiniteNumber(visualMapCamera.panXScale, 1);
+      const offset = Number.isFinite(panX) ? panX * panScale : 0;
+      camera.position.x = baseCameraState.position.x + offset;
+      camera.lookAt(
+        baseCameraState.lookAt.x + offset,
+        baseCameraState.lookAt.y,
+        baseCameraState.lookAt.z
+      );
+    };
+    window.updateVisualMapCameraPan = syncCameraPan;
     
     const threeContainer = document.getElementById('threeViewport');
     const overlay = document.getElementById('threeOverlay');
@@ -1890,7 +1953,7 @@
         return;
       }
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0f172a);
+      scene.background = new THREE.Color(coerceFiniteNumber(visualMapScene.background, 0x0f172a));
 
       worldRoot = new THREE.Group();
       scene.add(worldRoot);
@@ -1900,11 +1963,12 @@
       const w = canvas.width;
       const h = canvas.height;
 
-      camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500);
-      camera.position.set(0, resolveWorldUnitsPerTile(), 50);
-
-      // Set camera rotation: X:-180°, Y:0°, Z:-180° (in radians)
-      camera.rotation.set(-Math.PI, 0, -Math.PI);
+      const fov = coerceFiniteNumber(visualMapCamera.fov, 45);
+      const near = coerceFiniteNumber(visualMapCamera.near, 0.1);
+      const far = coerceFiniteNumber(visualMapCamera.far, 500);
+      camera = new THREE.PerspectiveCamera(fov, w / h, near, far);
+      camera.position.set(0, resolveCellSize(), resolveCellSize());
+      camera.lookAt(0, 0, 0);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -1915,28 +1979,48 @@
       threeContainer.appendChild(renderer.domElement);
 
       // Lighting
-      const hemi = new THREE.HemisphereLight(0xffffff, 0x0b1120, 0.6);
+      const hemiConfig = visualMapLighting.hemisphere ?? {};
+      const hemi = new THREE.HemisphereLight(
+        coerceFiniteNumber(hemiConfig.skyColor, 0xffffff),
+        coerceFiniteNumber(hemiConfig.groundColor, 0x0b1120),
+        coerceFiniteNumber(hemiConfig.intensity, 0.6)
+      );
       scene.add(hemi);
 
-      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-      dir.position.set(25, 40, 15);
+      const dirConfig = visualMapLighting.directional ?? {};
+      const dir = new THREE.DirectionalLight(
+        coerceFiniteNumber(dirConfig.color, 0xffffff),
+        coerceFiniteNumber(dirConfig.intensity, 0.8)
+      );
+      const dirPosition = dirConfig.position ?? {};
+      dir.position.set(
+        coerceFiniteNumber(dirPosition.x, 25),
+        coerceFiniteNumber(dirPosition.y, 40),
+        coerceFiniteNumber(dirPosition.z, 15)
+      );
       dir.castShadow = true;
-      dir.shadow.mapSize.set(1024, 1024);
-      dir.shadow.camera.near = 5;
-      dir.shadow.camera.far = 150;
-      dir.shadow.camera.left = -50;
-      dir.shadow.camera.right = 50;
-      dir.shadow.camera.top = 50;
-      dir.shadow.camera.bottom = -50;
+      const dirShadow = dirConfig.shadow ?? {};
+      const dirShadowMapSize = coerceFiniteNumber(dirShadow.mapSize, 1024);
+      dir.shadow.mapSize.set(dirShadowMapSize, dirShadowMapSize);
+      dir.shadow.camera.near = coerceFiniteNumber(dirShadow.near, 5);
+      dir.shadow.camera.far = coerceFiniteNumber(dirShadow.far, 150);
+      dir.shadow.camera.left = coerceFiniteNumber(dirShadow.left, -50);
+      dir.shadow.camera.right = coerceFiniteNumber(dirShadow.right, 50);
+      dir.shadow.camera.top = coerceFiniteNumber(dirShadow.top, 50);
+      dir.shadow.camera.bottom = coerceFiniteNumber(dirShadow.bottom, -50);
+      dir.shadow.radius = coerceFiniteNumber(dirShadow.radius, 4);
       scene.add(dir);
 
       // Ground plane
-      const groundPlane = new THREE.Mesh(
-        new THREE.PlaneGeometry(groundPlaneSize, groundPlaneSize),
+      groundPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(
+          coerceFiniteNumber(visualMapGroundPlane.size, 200),
+          coerceFiniteNumber(visualMapGroundPlane.size, 200)
+        ),
         new THREE.MeshStandardMaterial({ 
-          color: 0x1e293b, 
-          roughness: 0.9,
-          metalness: 0.1
+          color: coerceFiniteNumber(visualMapGroundPlane.color, 0x1e293b),
+          roughness: coerceFiniteNumber(visualMapGroundPlane.roughness, 0.9),
+          metalness: coerceFiniteNumber(visualMapGroundPlane.metalness, 0.1)
         })
       );
       groundPlane.rotation.x = -Math.PI / 2;
@@ -1986,10 +2070,67 @@
       }
     }
 
+    function gridToWorld(row, col, rows, cols, cellSize, pathYawRad, alignToPath) {
+      const halfRows = (rows - 1) / 2;
+      const halfCols = (cols - 1) / 2;
+      const relRow = row - halfRows;
+      const relCol = col - halfCols;
+      let x = relCol * cellSize;
+      let z = -relRow * cellSize;
+
+      if (alignToPath && Number.isFinite(pathYawRad)) {
+        const cos = Math.cos(-pathYawRad);
+        const sin = Math.sin(-pathYawRad);
+        const rx = x * cos - z * sin;
+        const rz = x * sin + z * cos;
+        x = rx;
+        z = rz;
+      }
+
+      return { x, y: 0, z };
+    }
+
+    function resolvePathYawRad(data, cellSize, alignWorldToPath) {
+      if (!alignWorldToPath || !data?.gameplayPath?.start || !data?.gameplayPath?.end) {
+        return null;
+      }
+      const halfRows = (data.rows - 1) / 2;
+      const halfCols = (data.cols - 1) / 2;
+      const startX = (data.gameplayPath.start.col - halfCols) * cellSize;
+      const startZ = -(data.gameplayPath.start.row - halfRows) * cellSize;
+      const endX = (data.gameplayPath.end.col - halfCols) * cellSize;
+      const endZ = -(data.gameplayPath.end.row - halfRows) * cellSize;
+      return Math.atan2(endZ - startZ, endX - startX);
+    }
+
+    function resolveGroundPlaneSize(gridWidth, gridDepth) {
+      const baseSize = coerceFiniteNumber(visualMapGroundPlane.size, 0);
+      const multiplier = coerceFiniteNumber(visualMapGroundPlane.sizeMultiplier, 1);
+      const gridSpan = Math.max(gridWidth || 0, gridDepth || 0);
+      const scaled = gridSpan > 0 ? gridSpan * multiplier : 0;
+      const candidate = Math.max(baseSize, scaled);
+      return candidate > 0 ? candidate : 1;
+    }
+
+    function updateGroundPlane(gridWidth, gridDepth) {
+      if (!groundPlane?.geometry) return;
+      const size = resolveGroundPlaneSize(gridWidth, gridDepth);
+      groundPlane.geometry.dispose();
+      groundPlane.geometry = new THREE.PlaneGeometry(size, size);
+    }
+
     // Load and render visual map
     function loadVisualMap(data, filename = '') {
       clearGroup(groundGroup);
       clearGroup(structureGroup);
+
+      const cellSize = resolveCellSize();
+      const alignWorldToPath = data?.alignWorldToPath === true;
+      const pathYawRad = resolvePathYawRad(data, cellSize, alignWorldToPath);
+
+      const gridWidth = (data.cols - 1) * cellSize;
+      const gridDepth = (data.rows - 1) * cellSize;
+      updateGroundPlane(gridWidth, gridDepth);
 
       // Extract tile info from visualsmap and gameplayPath
       if (data.cols && data.rows && data.gameplayPath) {
@@ -2000,11 +2141,8 @@
         const pathTileCount = pathEndCol - pathStartCol + 1;
 
         // Each tile/column matches GRID_UNIT_WORLD_SIZE for alignment
-        const worldUnitsPerTile = resolveWorldUnitsPerTile();
-        const totalWidth = pathTileCount * worldUnitsPerTile;
-
-        // Center the gameplay path at world origin
-        const startX = -(totalWidth / 2);
+        const halfCols = (cols - 1) / 2;
+        const startX = (pathStartCol - halfCols) * cellSize;
 
         window.setVisualMapTiles?.({
           cols: pathTileCount,
@@ -2026,26 +2164,43 @@
       const endRow = data.gameplayPath.end.row;
       const endCol = data.gameplayPath.end.col;
 
-      const dx = endCol - startCol;
-      const dy = endRow - startRow;
-      const pathAngle = Math.atan2(dy, dx);
-
-      // Rotate world so gameplayPath aligns with our horizontal ground line
-      if (data.alignWorldToPath !== false) {
-        worldRoot.rotation.y = -pathAngle;
-      }
-
       // Calculate path center for camera positioning
-      const centerRow = (startRow + endRow) / 2;
-      const centerCol = (startCol + endCol) / 2;
-      const centerX = (centerCol - data.cols / 2) * CELL_SIZE;
-      const centerZ = -(centerRow - data.rows / 2) * CELL_SIZE;
+      const lookAtOffsets = resolveLookAtOffsets(data);
+      const startPos = gridToWorld(startRow, startCol, data.rows, data.cols, cellSize, pathYawRad, alignWorldToPath);
+      const endPos = gridToWorld(endRow, endCol, data.rows, data.cols, cellSize, pathYawRad, alignWorldToPath);
+      const targetX = (startPos.x + endPos.x) / 2;
+      const targetZ = (startPos.z + endPos.z) / 2;
+      const targetY = lookAtOffsets.offsetY * cellSize;
+      const lookAtX = targetX;
+      const lookAtY = targetY;
+      const lookAtZ = targetZ + (lookAtOffsets.offsetZ * cellSize);
 
-      // Position camera to look at the gameplay path
-      camera.position.set(centerX, resolveWorldUnitsPerTile(), centerZ + 40);
-
-      // Set camera rotation: X:-180°, Y:0°, Z:-180° (in radians)
-      camera.rotation.set(-Math.PI, 0, -Math.PI);
+      if (alignWorldToPath) {
+        const alignConfig = visualMapCamera.alignToPath ?? {};
+        const heightTiles = coerceFiniteNumber(alignConfig.heightTiles, 0.8);
+        const distanceTiles = coerceFiniteNumber(alignConfig.distanceTiles, 1.2);
+        camera.position.set(
+          targetX,
+          cellSize * heightTiles,
+          targetZ - cellSize * distanceTiles
+        );
+      } else {
+        const topDownConfig = visualMapCamera.topDown ?? {};
+        const distanceTiles = coerceFiniteNumber(topDownConfig.distanceTiles, 0.3);
+        const heightMultiplier = coerceFiniteNumber(topDownConfig.heightMultiplier, 1.5);
+        const cameraDistance = Math.max(gridWidth, gridDepth) * distanceTiles;
+        camera.position.set(
+          targetX,
+          cameraDistance * heightMultiplier,
+          targetZ - cameraDistance
+        );
+      }
+      camera.lookAt(lookAtX, lookAtY, lookAtZ);
+      baseCameraState = {
+        position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        lookAt: { x: lookAtX, y: lookAtY, z: lookAtZ },
+      };
+      syncCameraPan(window.viewOffsetX ?? 0);
 
       // Render ground tiles
       const layers = ['ground', 'structure', 'decoration'];
@@ -2054,11 +2209,18 @@
         if (!layerData) return;
 
         const targetGroup = layerName === 'structure' ? structureGroup : groundGroup;
+        const layerStyle = visualMapLayers[layerName] ?? {};
+        const layerColor = coerceFiniteNumber(layerStyle.color, layerName === 'ground' ? 0x4b5563 : layerName === 'structure' ? 0x3b82f6 : 0xf97316);
+        const layerRoughness = coerceFiniteNumber(layerStyle.roughness, 0.7);
+        const layerMetalness = coerceFiniteNumber(layerStyle.metalness, 0.2);
+        const layerHeightScale = coerceFiniteNumber(layerStyle.heightScale, layerName === 'structure' ? 2 : 0.2);
+        const footprintScale = coerceFiniteNumber(visualMapLayers.footprintScale, 0.9);
+        const layerYOffset = coerceFiniteNumber(visualMapLayers.yOffset, 0.1);
         // Create material once per layer (not per mesh) for better performance
         const mat = new THREE.MeshStandardMaterial({
-          color: layerName === 'ground' ? 0x4b5563 : layerName === 'structure' ? 0x3b82f6 : 0xf97316,
-          roughness: 0.7,
-          metalness: 0.2
+          color: layerColor,
+          roughness: layerRoughness,
+          metalness: layerMetalness
         });
 
         for (let row = 0; row < data.rows; row++) {
@@ -2066,19 +2228,19 @@
             const cell = layerData[row]?.[col];
             if (!cell || !cell.type) continue;
 
-            const x = (col - data.cols / 2) * CELL_SIZE;
-            const z = -(row - data.rows / 2) * CELL_SIZE;
-            const y = layerName === 'structure' ? CELL_SIZE : 0.1;
+            const worldPos = gridToWorld(row, col, data.rows, data.cols, cellSize, pathYawRad, alignWorldToPath);
+            const height = cellSize * layerHeightScale;
+            const y = (height / 2) + layerYOffset;
 
             const mesh = new THREE.Mesh(
               new THREE.BoxGeometry(
-                CELL_SIZE * 0.9,
-                layerName === 'structure' ? CELL_SIZE * 2 : CELL_SIZE * 0.2,
-                CELL_SIZE * 0.9
+                cellSize * footprintScale,
+                height,
+                cellSize * footprintScale
               ),
               mat // Reuse same material for all meshes in this layer
             );
-            mesh.position.set(x, y, z);
+            mesh.position.set(worldPos.x, y, worldPos.z);
             mesh.castShadow = true;
             mesh.receiveShadow = true;
             targetGroup.add(mesh);
@@ -2087,15 +2249,16 @@
       });
 
       const displayName = filename || 'loaded';
-      overlay.textContent = `Visual map: ${displayName} - ${data.rows}×${data.cols} grid, path aligned`;
+      overlay.textContent = `Visual map: ${displayName} - ${data.rows}×${data.cols} grid, path ${alignWorldToPath ? 'aligned' : 'not aligned'}`;
     }
 
     function clearVisualMap() {
       clearGroup(groundGroup);
       clearGroup(structureGroup);
-      worldRoot.rotation.y = 0;
-      camera.position.set(0, resolveWorldUnitsPerTile(), 50);
-      camera.rotation.set(-Math.PI, 0, -Math.PI);
+      const cellSize = resolveCellSize();
+      camera.position.set(0, cellSize, cellSize);
+      camera.lookAt(0, 0, 0);
+      baseCameraState = null;
       overlay.textContent = 'No visual map loaded';
       document.getElementById('btnClearVisualMap').style.display = 'none';
       window.setVisualMapTiles?.(null);
