@@ -293,10 +293,9 @@
         </div>
 
         <div class="field">
-          <label>Or use existing structure</label>
+          <label>Or use existing asset</label>
           <select id="existingStructureSelect">
-            <option value="">-- Select Structure --</option>
-            <option value="tower">Tower</option>
+            <option value="">-- Select Asset --</option>
           </select>
         </div>
 
@@ -401,6 +400,7 @@
     let attachmentPoints = [];
     let selectedPointIndex = -1;
     let attachmentMarkers = [];
+    let availableAssets = [];
     const editorConfig = window.CONFIG?.mapObjectEditor;
 
     if (!editorConfig) {
@@ -516,14 +516,96 @@
       loadModel(url, file.name);
     });
 
-    // Load existing structure
+    const docsBase = new URL('.', window.location.href);
+
+    function normalizeGltfPath(gltfPath) {
+      if (!gltfPath) return null;
+      let normalized = gltfPath;
+      if (normalized.startsWith('./docs/')) {
+        normalized = `./${normalized.slice('./docs/'.length)}`;
+      } else if (normalized.startsWith('docs/')) {
+        normalized = normalized.slice('docs/'.length);
+      }
+      return new URL(normalized, docsBase).href;
+    }
+
+    function normalizeAsset(asset, layer) {
+      return {
+        id: asset.id,
+        label: asset.label || asset.id,
+        layer: layer,
+        gltfPath: asset.gltfPath || asset.gltfFileName || null
+      };
+    }
+
+    async function loadAssetCatalog() {
+      const select = document.getElementById('existingStructureSelect');
+      const assets = [];
+      let loaded = false;
+
+      try {
+        const response = await fetch(new URL(editorConfig.assets.visualsIndexPath, docsBase));
+        if (response.ok) {
+          const data = await response.json();
+          (data.segments || []).forEach(asset => assets.push(normalizeAsset(asset, 'segment')));
+          (data.structures || []).forEach(asset => assets.push(normalizeAsset(asset, 'structure')));
+          (data.decorations || []).forEach(asset => assets.push(normalizeAsset(asset, 'decoration')));
+          loaded = assets.length > 0;
+        }
+      } catch (error) {
+        console.warn('Failed to load visualsmaps asset index:', error);
+      }
+
+      if (!loaded) {
+        try {
+          const indexResponse = await fetch(new URL(editorConfig.assets.assetIndexPath, docsBase));
+          if (indexResponse.ok) {
+            const index = await indexResponse.json();
+            const segmentConfigs = await Promise.all(
+              (index.segments || []).map(file =>
+                fetch(new URL(`config/assets/${file}`, docsBase)).then(resp => resp.json()).catch(() => null)
+              )
+            );
+            const structureConfigs = await Promise.all(
+              (index.structures || []).map(file =>
+                fetch(new URL(`config/assets/${file}`, docsBase)).then(resp => resp.json()).catch(() => null)
+              )
+            );
+
+            segmentConfigs.filter(Boolean).forEach(asset => assets.push(normalizeAsset(asset, 'segment')));
+            structureConfigs.filter(Boolean).forEach(asset => assets.push(normalizeAsset(asset, 'structure')));
+            loaded = assets.length > 0;
+          }
+        } catch (error) {
+          console.warn('Failed to load config/assets index:', error);
+        }
+      }
+
+      availableAssets = assets.filter(asset => asset.gltfPath);
+
+      const options = availableAssets
+        .map(asset => {
+          const label = `${asset.label} (${asset.layer})`;
+          return `<option value="${asset.id}">${label}</option>`;
+        })
+        .join('');
+
+      select.innerHTML = `<option value="">-- Select Asset --</option>${options}`;
+    }
+
+    // Load existing asset
     document.getElementById('loadExistingBtn').addEventListener('click', () => {
       const select = document.getElementById('existingStructureSelect');
       const value = select.value;
-      
-      if (value === 'tower') {
-        loadModel('./assets/3D/structures/tower_commercial3D_t.gltf', 'tower');
+      const asset = availableAssets.find(entry => entry.id === value);
+      const resolvedPath = asset ? normalizeGltfPath(asset.gltfPath) : null;
+
+      if (resolvedPath) {
+        loadModel(resolvedPath, asset.label);
+        return;
       }
+
+      alert('No asset selected or asset is missing a model path.');
     });
 
     function loadModel(url, name) {
@@ -741,6 +823,7 @@
 
     // Initialize
     init();
+    loadAssetCatalog();
   </script>
 </body>
 </html>
