@@ -5348,15 +5348,78 @@ function renderGameplayPathOverlay(ctx) {
     return;
   }
 
+  const canvasWidth = cv?.width || 800;
+  const canvasHeight = cv?.height || 600;
+
+  const gridUnit = window.GRID_UNIT_WORLD_SIZE;
+  const path3dStart = projection.world3d?.start;
+  const path3dEnd = projection.world3d?.end;
+  const distance3dWorld = projection.world3d?.distance || 0;
+  const halfTile = Number.isFinite(gridUnit) ? gridUnit / 2 : 0;
+  const hasTileData = Number.isFinite(gridUnit) && gridUnit > 0
+    && path3dStart && path3dEnd && distance3dWorld > 0;
+
+  if (hasTileData) {
+    const dxWorld = path3dEnd.x - path3dStart.x;
+    const dzWorld = path3dEnd.z - path3dStart.z;
+    const lineOffsets = [];
+    for (let offset = -halfTile; offset <= distance3dWorld + halfTile + 0.001; offset += gridUnit) {
+      lineOffsets.push(offset);
+    }
+
+    const camera2d = window.GAME?.CAMERA;
+    const camX2d = camera2d?.x || 0;
+    const zoom2d = Number.isFinite(camera2d?.zoom) ? camera2d.zoom : 1;
+    const activeArea = resolveActiveParallaxArea();
+    const transformConfig = activeArea?.scene3d?.ground?.unitsPerPixel
+      ? initTransformConfig({
+        camera2d,
+        scene3d: activeArea.scene3d,
+        worldRotation: 0
+      })
+      : null;
+
+    ctx.save();
+    ctx.globalAlpha = 0.65;
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'square';
+
+    ctx.strokeStyle = '#fbbf24';
+    ctx.beginPath();
+    for (const offset of lineOffsets) {
+      const t = offset / distance3dWorld;
+      const screenX = start.x + (end.x - start.x) * t;
+      ctx.moveTo(screenX, 0);
+      ctx.lineTo(screenX, canvasHeight);
+    }
+    ctx.stroke();
+
+    if (transformConfig) {
+      ctx.strokeStyle = '#ff0000';
+      ctx.beginPath();
+      for (const offset of lineOffsets) {
+        const t = offset / distance3dWorld;
+        const worldPoint = {
+          x: path3dStart.x + dxWorld * t,
+          z: path3dStart.z + dzWorld * t
+        };
+        const world2d = transform3dTo2d(worldPoint, transformConfig);
+        const screenX = (world2d.x - camX2d) * zoom2d;
+        ctx.moveTo(screenX, 0);
+        ctx.lineTo(screenX, canvasHeight);
+      }
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
   // Calculate 3D projected line pixel length (screen space)
   const dx3d = end.x - start.x;
   const dy3d = end.y - start.y;
   const pixelLength3d = Math.sqrt(dx3d * dx3d + dy3d * dy3d);
 
   // Get 3D world distance (in Three.js units)
-  const distance3dWorld = projection.world3d?.distance || 0;
-  const path3dStart = projection.world3d?.start;
-  const path3dEnd = projection.world3d?.end;
 
   // Get 2D camera position (world coordinates)
   const camera2d = window.GAME?.CAMERA;
@@ -5392,8 +5455,6 @@ function renderGameplayPathOverlay(ctx) {
 
   // Position labels in viewport, following camera
   // Use canvas center for consistent visibility
-  const canvasWidth = cv?.width || 800;
-  const canvasHeight = cv?.height || 600;
   const labelX = canvasWidth / 2;
   const labelY = 40; // Fixed position from top
 
