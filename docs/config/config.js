@@ -972,10 +972,6 @@ window.CONFIG = {
   ],
   playAreaMinX: 0,
   playAreaMaxX: 0,
-  visualsmapAlignment: {
-    enabled: true,
-    start2dX: 0
-  },
   },
   mapEditor: {
     canvas: { height: 460 },
