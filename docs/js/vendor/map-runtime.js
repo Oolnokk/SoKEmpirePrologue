@@ -1437,6 +1437,9 @@ function normalizeAreaDescriptor(area, options = {}) {
   if (area.ground?.height != null || ground.height != null) {
     ground.height = toNumber(area.ground?.height ?? ground.height, ground.height ?? 0);
   }
+  if (Array.isArray(area.ground?.path) && !Array.isArray(ground.path)) {
+    ground.path = safeClone(area.ground.path);
+  }
 
   return {
     id: areaId,
