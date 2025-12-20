@@ -3485,8 +3485,8 @@ function updateEnemyIndicators() {
   const metrics = getCanvasMetrics();
   if (!metrics) return;
   const camera = window.GAME?.CAMERA || {};
-  const zoom = Math.max(Number.isFinite(camera.renderZoom) ? camera.renderZoom : (Number.isFinite(camera.zoom) ? camera.zoom : 1), 0.05);
-  const camX = Number.isFinite(camera.renderX) ? camera.renderX : (Number.isFinite(camera.x) ? camera.x : 0);
+  const zoom = Math.max(Number.isFinite(camera.zoom) ? camera.zoom : 1, 0.05);
+  const camX = Number.isFinite(camera.x) ? camera.x : 0;
   const groundLine = computeGroundYFromConfig(window.CONFIG, metrics.height);
   const pivotY = Number.isFinite(groundLine) ? groundLine : metrics.height;
   const verticalOffset = pivotY * (1 - zoom);
@@ -5197,9 +5197,9 @@ function drawStage(){
   if (!cx) return;
   const C = window.CONFIG || {};
   const camera = window.GAME?.CAMERA || {};
-  const camX = Number.isFinite(camera.renderX) ? camera.renderX : (camera.x || 0);
+  const camX = camera.x || 0;
   const worldW = camera.worldWidth || 1600;
-  const zoom = Number.isFinite(camera.renderZoom) ? camera.renderZoom : (Number.isFinite(camera.zoom) ? camera.zoom : 1);
+  const zoom = Number.isFinite(camera.zoom) ? camera.zoom : 1;
   cx.clearRect(0,0,cv.width,cv.height);
   // Removed opaque background fill to allow 3D canvas to show through
   const previewResult = EDITOR_PREVIEW_SANDBOX.renderAndBlit(cx, {
@@ -5240,8 +5240,8 @@ function renderBottles(ctx) {
   if (!ctx || !window.GAME?.dynamicInstances) return;
 
   const camera = window.GAME?.CAMERA || {};
-  const camX = Number.isFinite(camera.renderX) ? camera.renderX : (camera.x || 0);
-  const zoom = Number.isFinite(camera.renderZoom) ? camera.renderZoom : (Number.isFinite(camera.zoom) ? camera.zoom : 1);
+  const camX = camera.x || 0;
+  const zoom = Number.isFinite(camera.zoom) ? camera.zoom : 1;
   const groundY = computeGroundYFromConfig(window.CONFIG || {}, cv?.height);
 
   // Use the same camera transform as fighters
@@ -5387,11 +5387,8 @@ function renderGameplayPathOverlay(ctx) {
     }
 
     const camera2d = window.GAME?.CAMERA;
-    const worldCamX2d = camera2d?.x || 0;
-    const renderCamX2d = Number.isFinite(camera2d?.renderX) ? camera2d.renderX : worldCamX2d;
-    const zoom2d = Number.isFinite(camera2d?.renderZoom)
-      ? camera2d.renderZoom
-      : (Number.isFinite(camera2d?.zoom) ? camera2d.zoom : 1);
+    const camX2d = camera2d?.x || 0;
+    const zoom2d = Number.isFinite(camera2d?.zoom) ? camera2d.zoom : 1;
     const activeArea = resolveActiveParallaxArea();
     const transformConfig = activeArea?.scene3d?.ground?.unitsPerPixel
       ? initTransformConfig({
@@ -5431,7 +5428,7 @@ function renderGameplayPathOverlay(ctx) {
           z: path3dStart.z + dzWorld * t
         };
         const world2d = transform3dTo2d(worldPoint, transformConfig);
-        const screenX = (world2d.x - renderCamX2d) * zoom2d;
+        const screenX = (world2d.x - camX2d) * zoom2d;
         ctx.moveTo(screenX, 0);
         ctx.lineTo(screenX, canvasHeight);
       }
@@ -5445,8 +5442,8 @@ function renderGameplayPathOverlay(ctx) {
         const worldPointB = { x: path3dStart.x + stepX, z: path3dStart.z + stepZ };
         const world2dA = transform3dTo2d(worldPointA, transformConfig);
         const world2dB = transform3dTo2d(worldPointB, transformConfig);
-        const screenXA = (world2dA.x - renderCamX2d) * zoom2d;
-        const screenXB = (world2dB.x - renderCamX2d) * zoom2d;
+        const screenXA = (world2dA.x - camX2d) * zoom2d;
+        const screenXB = (world2dB.x - camX2d) * zoom2d;
         tileScreenPx2d = Math.abs(screenXB - screenXA);
       }
     }
@@ -5744,8 +5741,8 @@ function updateMousePosition(e) {
   window.GAME.MOUSE.y = pixelY;
   // World coordinates account for camera offset and zoom
   const camera = window.GAME?.CAMERA || {};
-  const camX = Number.isFinite(camera.renderX) ? camera.renderX : (camera.x || 0);
-  const zoom = Math.max(Number.isFinite(camera.renderZoom) ? camera.renderZoom : (Number.isFinite(camera.zoom) ? camera.zoom : 1), 1e-4);
+  const camX = camera.x || 0;
+  const zoom = Math.max(Number.isFinite(camera.zoom) ? camera.zoom : 1, 1e-4);
   const groundLine = computeGroundYFromConfig(window.CONFIG, cv?.height);
   const pivotY = Number.isFinite(groundLine) ? groundLine : cv.height;
   const verticalOffset = pivotY * (1 - zoom);
