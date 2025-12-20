@@ -5,7 +5,7 @@
  * This ensures predictable, consistent movement and positioning across both rendering systems.
  *
  * Coordinate Systems:
- * - 2D Gameplay: Pixel-based coordinates (e.g., 0-1600 pixels wide)
+ * - 2D Gameplay: Grid-unit coordinates (e.g., 0-1600 grid units wide)
  *   - Origin: Top-left of game world
  *   - X-axis: Right is positive
  *   - Y-axis: Down is positive (standard 2D canvas)
@@ -21,11 +21,11 @@
  * Configuration for coordinate space transformation
  */
 export const TRANSFORM_CONFIG = {
-  // Scale factor from 2D pixels to 3D world units
-  // Default: 1 pixel = 1 Three.js unit (pixel-perfect mapping)
+  // Scale factor from 2D gameplay grid units to 3D world units
+  // Default: 1 grid unit = 1 Three.js unit (grid-perfect mapping)
   pixelsToUnits: 1.0,
 
-  // 2D world dimensions in pixels (for centering calculations)
+  // 2D world dimensions in grid units (for centering calculations)
   world2dWidth: 1600,
   world2dHeight: 600,
 
@@ -65,7 +65,7 @@ export function transform2dTo3d(pos2d, config = {}) {
   const x2d = typeof pos2d.x === 'number' ? pos2d.x : 0;
   const y2d = typeof pos2d.y === 'number' ? pos2d.y : 0;
 
-  // Scale from pixels to 3D units
+  // Scale from grid units to 3D units
   // IMPORTANT: Invert X for correct side-scrolling direction
   // (moving right in 2D should make 3D world scroll left)
   let x3d = x2d * cfg.pixelsToUnits * -1;  // Negative scale for inversion
@@ -143,7 +143,7 @@ export function transform3dTo2d(pos3d, config = {}) {
     z3d += centerOffsetZ;
   }
 
-  // Scale from 3D units back to pixels
+  // Scale from 3D units back to grid units
   const x2d = x3d / cfg.pixelsToUnits;
   const y2d = z3d / cfg.pixelsToUnits;
 

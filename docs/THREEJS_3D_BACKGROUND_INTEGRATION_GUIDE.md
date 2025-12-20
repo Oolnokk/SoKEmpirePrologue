@@ -509,7 +509,7 @@ const adapted = await adaptScene3dToRenderer(renderer, scene3d);
 
 - [ ] Apply same world rotation/scaling as editor to align with 2D plane
 - [ ] Use same unit conversions (CELL_SIZE, etc.) for consistent distances
-- [ ] Ensure 3D coordinates correspond correctly to 2D pixel/unit positions
+- [ ] Ensure 3D coordinates correspond correctly to 2D grid-unit positions
 
 **Example:**
 ```javascript

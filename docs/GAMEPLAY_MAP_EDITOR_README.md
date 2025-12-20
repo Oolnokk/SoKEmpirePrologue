@@ -77,8 +77,23 @@ Visual maps must include a `gameplayPath` property:
 ### Coordinate System
 
 - **Visual Map**: Grid-based (rows/cols), with configurable cell size
-- **Gameplay Map**: World coordinates (x, y in world units)
+- **Gameplay Map**: Grid-based gameplay coordinates (x, y in grid units)
 - **Alignment**: The gameplayPath in the visual map corresponds to the ground line in the gameplay editor
+
+### Unit System (Gameplay = Grid Units)
+
+Gameplay data is authored in **grid units**, not pixels. Treat every gameplay-facing coordinate and dimension in the gameplay map as grid space. Pixels only appear at the render/UI layer.
+
+**Gameplay data inputs that use grid units:**
+- `ground.path[]`: every `{ x, y }` point along the gameplay ground line.
+- **Entity positions**: every entity with `x`, `y` (`entrance`, `exit`, `prop`, `spawner`, `patrol`, `collider`, etc.).
+- **Collider sizes**: `meta.width`, `meta.height`, `meta.radius` on collider entities.
+- **Spawner ranges**: `spawnRadius` / `radius` fields when used on spawners (runtime uses these for spawn offsets).
+- **Patrol targets/waypoints**: `patrol` entity coordinates and any `routeId` targets.
+- **Camera start + bounds**: `camera.x`, `camera.y`, `camera.bounds`, `camera.verticalBounds`, `camera.worldWidth/worldHeight` when supplied by an area descriptor.
+- **Playable bounds**: `playableBounds` min/max values (if present in a gameplay map or area descriptor).
+
+**Conversion boundary:** only convert grid units → pixels inside the render/UI layer (2D canvas, HUD, or 3D renderer adapter). Authoring, map data, and runtime gameplay logic stay in grid units.
 
 ## Browser Compatibility
 

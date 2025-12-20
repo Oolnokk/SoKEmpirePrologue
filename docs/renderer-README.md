@@ -19,6 +19,12 @@ The renderer module provides a small, well-documented API for 3D rendering that 
 - **Adapter Pattern**: Integrates with existing scene3d configuration format
 - **Minimal Dependencies**: No build changes required; uses runtime detection
 
+## Unit System & Conversion Boundary
+
+- **Gameplay coordinates are grid units.** Author gameplay map data (ground paths, spawners, colliders, patrols, camera positions) in grid space.
+- **Convert grid → pixels only at the render/UI layer.** The renderer, canvas, or HUD should handle pixel scaling and device pixel ratios.
+- **3D rendering uses units.** `scene3d.ground.unitsPerPixel` (and the coordinate transform) controls how grid units map into 3D world units; this is rendering-only and should not change gameplay data.
+
 ## Installation
 
 The renderer module is already available in the repository at `src/renderer/`. No additional dependencies or build steps are required.
