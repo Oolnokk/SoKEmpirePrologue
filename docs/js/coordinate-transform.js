@@ -32,6 +32,10 @@ export const TRANSFORM_CONFIG = {
   // Whether to center the 2D world at 3D origin (true) or align origins (false)
   centerAt3dOrigin: true,
 
+  // World-space offsets applied after rotation (align 3D map to 2D anchor)
+  offset3dX: 0,
+  offset3dZ: 0,
+
   // World rotation in radians (for path alignment)
   worldRotationY: 0,
 };
@@ -89,11 +93,25 @@ export function transform2dTo3d(pos2d, config = {}) {
     z3d = rotatedZ;
   }
 
+  // Apply world-space offset after rotation
+  if (Number.isFinite(cfg.offset3dX)) {
+    x3d += cfg.offset3dX;
+  }
+  if (Number.isFinite(cfg.offset3dZ)) {
+    z3d += cfg.offset3dZ;
+  }
+
   // Optional debug logging (enable with window.DEBUG_COORDINATE_TRANSFORM = true)
   if (typeof window !== 'undefined' && window.DEBUG_COORDINATE_TRANSFORM) {
     console.log('[coordinate-transform]', {
       input: { x: x2d, y: y2d },
-      config: { worldWidth: cfg.world2dWidth, worldHeight: cfg.world2dHeight, pixelsToUnits: cfg.pixelsToUnits },
+      config: {
+        worldWidth: cfg.world2dWidth,
+        worldHeight: cfg.world2dHeight,
+        pixelsToUnits: cfg.pixelsToUnits,
+        offset3dX: cfg.offset3dX,
+        offset3dZ: cfg.offset3dZ
+      },
       centerOffset: cfg.centerAt3dOrigin ? (cfg.world2dWidth * cfg.pixelsToUnits) / 2 : 0,
       output: { x: x3d, z: z3d }
     });
@@ -124,6 +142,14 @@ export function transform3dTo2d(pos3d, config = {}) {
 
   let x3d = typeof pos3d.x === 'number' ? pos3d.x : 0;
   let z3d = typeof pos3d.z === 'number' ? pos3d.z : 0;
+
+  // Reverse world-space offset before rotation
+  if (Number.isFinite(cfg.offset3dX)) {
+    x3d -= cfg.offset3dX;
+  }
+  if (Number.isFinite(cfg.offset3dZ)) {
+    z3d -= cfg.offset3dZ;
+  }
 
   // Reverse world rotation if needed
   if (cfg.worldRotationY !== 0) {
@@ -161,7 +187,7 @@ export function transform3dTo2d(pos3d, config = {}) {
  * @returns {Object} Updated transform config
  */
 export function initTransformConfig(options = {}) {
-  const { camera2d, scene3d, worldRotation } = options;
+  const { camera2d, scene3d, worldRotation, offset3dX, offset3dZ } = options;
 
   // Update from 2D camera dimensions
   if (camera2d) {
@@ -181,6 +207,13 @@ export function initTransformConfig(options = {}) {
   // Update world rotation
   if (typeof worldRotation === 'number') {
     TRANSFORM_CONFIG.worldRotationY = worldRotation;
+  }
+
+  if (Number.isFinite(offset3dX)) {
+    TRANSFORM_CONFIG.offset3dX = offset3dX;
+  }
+  if (Number.isFinite(offset3dZ)) {
+    TRANSFORM_CONFIG.offset3dZ = offset3dZ;
   }
 
   console.log('[coordinate-transform] Transform config initialized:', TRANSFORM_CONFIG);

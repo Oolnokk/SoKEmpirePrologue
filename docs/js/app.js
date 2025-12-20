@@ -870,7 +870,7 @@ import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
-import { initTransformConfig, transform3dTo2d } from './coordinate-transform.js?v=1';
+import { initTransformConfig, transform2dTo3d, transform3dTo2d, updateTransformConfig } from './coordinate-transform.js?v=1';
 
 // Visualsmap loader for 3D grid-based scenes
 let visualsmapLoaderModule = null;
@@ -1010,6 +1010,33 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
       scene3d: area.scene3d,
       worldRotation: 0
     });
+
+    const alignmentConfig = window.CONFIG?.map?.visualsmapAlignment;
+    const alignmentEnabled = alignmentConfig?.enabled === true;
+    const alignmentTarget2dX = Number.isFinite(alignmentConfig?.start2dX) ? alignmentConfig.start2dX : referenceX;
+    const anchor3dX = pathExtents.start?.x;
+
+    if (alignmentEnabled && Number.isFinite(alignmentTarget2dX) && Number.isFinite(anchor3dX)) {
+      const baseTransform = {
+        ...transformConfig,
+        offset3dX: 0,
+        offset3dZ: 0
+      };
+      const baseMapping = transform2dTo3d({ x: alignmentTarget2dX, y: 0 }, baseTransform);
+      const offset3dX = anchor3dX - baseMapping.x;
+
+      updateTransformConfig({ offset3dX });
+      transformConfig.offset3dX = offset3dX;
+
+      console.log('[app] Visualsmap alignment enabled:');
+      console.log(`  Align 3D path start X ${anchor3dX.toFixed(1)} to 2D X ${alignmentTarget2dX.toFixed(1)}`);
+      console.log(`  Base mapping (no offset): 2D ${alignmentTarget2dX.toFixed(1)} → 3D ${baseMapping.x.toFixed(1)}`);
+      console.log(`  Applied 3D offset X: ${offset3dX.toFixed(1)}`);
+    } else {
+      updateTransformConfig({ offset3dX: 0, offset3dZ: 0 });
+      transformConfig.offset3dX = 0;
+      transformConfig.offset3dZ = 0;
+    }
 
     const oldMinX = window.CONFIG.playAreaMinX;
     const oldMaxX = window.CONFIG.playAreaMaxX;
