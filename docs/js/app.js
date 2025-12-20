@@ -5960,7 +5960,9 @@ function renderMinimap() {
 
   const w = minimapCanvas.width;
   const h = minimapCanvas.height;
-  const cellSize = window.GRID_UNIT_WORLD_SIZE || 30;
+  const cellSize = Number.isFinite(window.GRID_UNIT_WORLD_SIZE)
+    ? window.GRID_UNIT_WORLD_SIZE
+    : window.CONFIG?.map?.gridUnit;
   const worldSize = 20 * cellSize; // 20x20 grid
   const scale = Math.min(w, h) * 0.8 / worldSize;
   const centerX = w / 2;
@@ -6876,8 +6878,10 @@ function boot(){
               const gameCamera = window.GAME?.CAMERA;
               if (gameCamera && GAME_RENDERER_3D) {
                 // Camera sync with tight 2D-3D coordinate coupling
-                // Values based on cellSize/GRID_UNIT_WORLD_SIZE=30
-                const cellSize = window.GRID_UNIT_WORLD_SIZE || 30;
+                // Values based on cellSize/GRID_UNIT_WORLD_SIZE from config
+                const cellSize = Number.isFinite(window.GRID_UNIT_WORLD_SIZE)
+                  ? window.GRID_UNIT_WORLD_SIZE
+                  : window.CONFIG?.map?.gridUnit;
                 syncThreeCamera({
                   renderer: GAME_RENDERER_3D,
                   gameCamera: gameCamera,

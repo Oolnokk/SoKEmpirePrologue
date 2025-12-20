@@ -44,20 +44,32 @@ export function syncCameraPosition(renderer, gameCamera, config = {}) {
   // Merge config with defaults
   const cfg = { ...CAMERA_SYNC_CONFIG, ...config };
 
-  // Get 2D camera position
-  const cam2dX = gameCamera.x || 0;
-  const cam2dY = gameCamera.y || 0;
+  // Get 2D camera position (use viewport center to account for zoom)
+  const cam2dX = Number.isFinite(gameCamera.x) ? gameCamera.x : 0;
+  const cam2dY = Number.isFinite(gameCamera.y) ? gameCamera.y : 0;
+  const viewportWorldWidth = Number.isFinite(gameCamera.viewportWorldWidth)
+    ? gameCamera.viewportWorldWidth
+    : (Number.isFinite(gameCamera.viewportWidth) && Number.isFinite(gameCamera.zoom) && gameCamera.zoom !== 0
+      ? gameCamera.viewportWidth / gameCamera.zoom
+      : null);
+  const viewportWorldHeight = Number.isFinite(gameCamera.viewportWorldHeight)
+    ? gameCamera.viewportWorldHeight
+    : (Number.isFinite(gameCamera.viewportHeight) && Number.isFinite(gameCamera.zoom) && gameCamera.zoom !== 0
+      ? gameCamera.viewportHeight / gameCamera.zoom
+      : null);
+  const center2dX = Number.isFinite(viewportWorldWidth) ? cam2dX + viewportWorldWidth / 2 : cam2dX;
+  const center2dY = Number.isFinite(viewportWorldHeight) ? cam2dY + viewportWorldHeight / 2 : cam2dY;
 
   // Transform 2D camera position to 3D world position
   let worldPos;
   if (cfg.useTransform) {
     // Use coordinate transformation for proper 2D-to-3D mapping
     const transformCfg = getTransformConfig();
-    worldPos = transform2dTo3d({ x: cam2dX, y: cam2dY }, transformCfg);
+    worldPos = transform2dTo3d({ x: center2dX, y: center2dY }, transformCfg);
   } else {
     // Legacy behavior: direct pixel-to-unit mapping with parallax
     worldPos = {
-      x: cam2dX * cfg.parallaxFactor,
+      x: center2dX * cfg.parallaxFactor,
       y: 0,
       z: 0
     };
