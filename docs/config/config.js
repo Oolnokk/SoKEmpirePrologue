@@ -1012,6 +1012,10 @@ window.CONFIG = {
     tileSize: 300,
     visualCellSize: 2,
     visualGroundPlaneSize: 200,
+    threeModuleUrls: [
+      './vendor/three/three.module.js',
+      'https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js',
+    ],
     canvas: { height: 460 },
     ground: {
       offset: 140,

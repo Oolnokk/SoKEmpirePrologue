@@ -1860,8 +1860,24 @@
     // ===== 3D Visual Map Background =====
     let THREE;
     try {
-      const threeModule = await import("https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js");
-      THREE = threeModule;
+      const threeModuleUrls = Array.isArray(window.CONFIG?.mapEditor?.threeModuleUrls)
+        ? window.CONFIG.mapEditor.threeModuleUrls
+        : [];
+      let loadError;
+      for (const moduleUrl of threeModuleUrls) {
+        try {
+          const threeModule = await import(moduleUrl);
+          THREE = threeModule;
+          loadError = null;
+          break;
+        } catch (err) {
+          loadError = err;
+          console.warn(`Three.js import failed for ${moduleUrl}:`, err);
+        }
+      }
+      if (!THREE && loadError) {
+        throw loadError;
+      }
     } catch (err) {
       console.warn("Three.js not available:", err);
       document.getElementById('threeOverlay').textContent = '3D disabled (Three.js blocked)';
