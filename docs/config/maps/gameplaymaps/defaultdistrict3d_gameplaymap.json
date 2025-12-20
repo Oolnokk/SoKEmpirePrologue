@@ -20,8 +20,8 @@
   },
   "ground": {
     "path": [
-      { "x": -9.5, "y": 0 },
-      { "x": 9.5, "y": 0 }
+      { "x": -36.6667, "y": 0 },
+      { "x": 52.6667, "y": 0 }
     ],
     "unitsPerPixel": 1
   },
@@ -29,14 +29,14 @@
     {
       "id": "entrance_left",
       "type": "entrance",
-      "x": -3.6667,
+      "x": -36.6667,
       "y": 0,
       "meta": {}
     },
     {
       "id": "spawner_watchmen_1",
       "type": "spawner",
-      "x": 4.3333,
+      "x": 43.3333,
       "y": 0,
       "meta": {
         "prefab": "spawn_npc",
@@ -46,7 +46,7 @@
     {
       "id": "patrol_west_1",
       "type": "patrol",
-      "x": -1.6,
+      "x": -16,
       "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
@@ -58,7 +58,7 @@
     {
       "id": "patrol_center",
       "type": "patrol",
-      "x": 0.3333,
+      "x": 3.3333,
       "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
@@ -70,7 +70,7 @@
     {
       "id":  "patrol_target_1",
       "type":  "patrol",
-      "x":  3.3333,
+      "x":  33.3333,
       "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
@@ -81,7 +81,7 @@
     {
       "id": "patrol_target_2",
       "type": "patrol",
-      "x": 0.3333,
+      "x": 3.3333,
       "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
@@ -92,7 +92,7 @@
     {
       "id": "patrol_target_3",
       "type":  "patrol",
-      "x":  -3.3333,
+      "x":  -33.3333,
       "y":  0,
       "meta":  {
         "routeId":  "city_guard_patrol",
@@ -103,8 +103,8 @@
     {
       "id": "collider_ground",
       "type": "collider",
-      "x": 0.8333,
-      "y": 0.4333
+      "x": 8.3333,
+      "y": 4.3333
     }
   ]
 }
