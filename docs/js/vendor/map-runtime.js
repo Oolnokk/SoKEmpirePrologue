@@ -1854,6 +1854,11 @@ export function convertLayoutToArea(layout, options = {}) {
     pois: normalizedPois,
   };
 
+  const groundPathUnits = layout.ground?.pathUnits ?? layout.ground?.units ?? null;
+  const gridUnit = resolveGridUnit(layout);
+  const rawGroundPath = Array.isArray(layout.ground?.path) ? safeClone(layout.ground.path) : undefined;
+  const normalizedGroundPath = normalizeGroundPath(rawGroundPath, groundPathUnits, gridUnit, warnings);
+
   return {
     id: resolvedAreaId,
     name: resolvedAreaName,
@@ -1864,6 +1869,9 @@ export function convertLayoutToArea(layout, options = {}) {
     },
     ground: {
       offset: toNumber(layout.groundOffset, 0),
+      path: normalizedGroundPath,
+      pathUnits: groundPathUnits ?? undefined,
+      unitsPerPixel: toNumber(layout.ground?.unitsPerPixel, undefined),
     },
     scene3d: layout.scene3d !== undefined ? safeClone(layout.scene3d) : undefined,
     visualsMap: layout.visualsMap !== undefined ? layout.visualsMap : undefined,
@@ -2144,6 +2152,38 @@ function createGroundCollider({ pbLeft, pbRight, groundOffset, groundHeight, ind
   }, index);
 }
 
+function resolveGridUnit(layout) {
+  const layoutUnit = toNumber(layout?.gridUnit, undefined);
+  const metaUnit = toNumber(layout?.meta?.gridUnit, undefined);
+  const globalUnit = toNumber(
+    typeof globalThis !== 'undefined'
+      ? (globalThis.GRID_UNIT_WORLD_SIZE ?? globalThis.CONFIG?.map?.gridUnit)
+      : undefined,
+    undefined,
+  );
+  return layoutUnit ?? metaUnit ?? globalUnit;
+}
+
+function normalizeGroundPath(path, units, gridUnit, warnings) {
+  if (!Array.isArray(path)) return undefined;
+  const normalizedUnits = typeof units === 'string' ? units.trim().toLowerCase() : '';
+  const usesGridUnits = normalizedUnits === 'grid'
+    || normalizedUnits === 'grid_world_units'
+    || normalizedUnits === 'tile'
+    || normalizedUnits === 'tiles';
+  if (!usesGridUnits) return path;
+
+  if (!Number.isFinite(gridUnit) || gridUnit === 0) {
+    warnings?.push?.('ground.pathUnits is grid-based but no gridUnit is configured; leaving path unscaled');
+    return path;
+  }
+
+  return path.map((point) => ({
+    x: toNumber(point?.x, 0) * gridUnit,
+    y: toNumber(point?.y, 0) * gridUnit,
+  }));
+}
+
 function toNumber(value, fallback) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
@@ -2245,4 +2285,3 @@ function safeClone(value) {
     return JSON.parse(JSON.stringify(value));
   }
 }
-
