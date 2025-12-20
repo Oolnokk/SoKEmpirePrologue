@@ -35,6 +35,10 @@ window.CONFIG.mapObjectEditor = {
   model: {
     targetSize: 2
   },
+  assets: {
+    visualsIndexPath: 'config/maps/visualsmaps/index.json',
+    assetIndexPath: 'config/assets/asset-index.json'
+  },
   defaults: {
     addPointPosition: { x: 0, y: 1, z: 0 }
   }
