@@ -1,5 +1,6 @@
 {
   "areaId": "defaultdistrict3d",
+  "units": "grid",
   "playableBounds": null,
   "visualsMap": "../visualsmaps/defaultdistrict3D_visualsmap.json",
   "scene3d": {
@@ -19,8 +20,8 @@
   },
   "ground": {
     "path": [
-      { "x": -1100, "y": 0 },
-      { "x": 1580, "y": 0 }
+      { "x": -9.5, "y": 0 },
+      { "x": 9.5, "y": 0 }
     ],
     "unitsPerPixel": 1
   },
@@ -28,14 +29,14 @@
     {
       "id": "entrance_left",
       "type": "entrance",
-      "x": -1100,
+      "x": -3.6667,
       "y": 0,
       "meta": {}
     },
     {
       "id": "spawner_watchmen_1",
       "type": "spawner",
-      "x": 1300,
+      "x": 4.3333,
       "y": 0,
       "meta": {
         "prefab": "spawn_npc",
@@ -45,7 +46,7 @@
     {
       "id": "patrol_west_1",
       "type": "patrol",
-      "x": -480,
+      "x": -1.6,
       "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
@@ -57,7 +58,7 @@
     {
       "id": "patrol_center",
       "type": "patrol",
-      "x": 100,
+      "x": 0.3333,
       "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
@@ -69,7 +70,7 @@
     {
       "id":  "patrol_target_1",
       "type":  "patrol",
-      "x":  1000,
+      "x":  3.3333,
       "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
@@ -80,7 +81,7 @@
     {
       "id": "patrol_target_2",
       "type": "patrol",
-      "x": 100,
+      "x": 0.3333,
       "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
@@ -91,7 +92,7 @@
     {
       "id": "patrol_target_3",
       "type":  "patrol",
-      "x":  -1000,
+      "x":  -3.3333,
       "y":  0,
       "meta":  {
         "routeId":  "city_guard_patrol",
@@ -102,8 +103,8 @@
     {
       "id": "collider_ground",
       "type": "collider",
-      "x": 250,
-      "y": 130
+      "x": 0.8333,
+      "y": 0.4333
     }
   ]
 }
