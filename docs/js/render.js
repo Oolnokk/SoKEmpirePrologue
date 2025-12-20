@@ -916,8 +916,10 @@ export function renderAll(ctx){
     }
   }catch(_e){ /* ignore */ }
   
-  const camX = G.CAMERA?.x || 0;
-  const zoom = Number.isFinite(G.CAMERA?.zoom) ? G.CAMERA.zoom : 1;
+  const camX = Number.isFinite(G.CAMERA?.renderX) ? G.CAMERA.renderX : (G.CAMERA?.x || 0);
+  const zoom = Number.isFinite(G.CAMERA?.renderZoom)
+    ? G.CAMERA.renderZoom
+    : (Number.isFinite(G.CAMERA?.zoom) ? G.CAMERA.zoom : 1);
   ctx.save();
   ctx.translate(0, groundLine);
   ctx.scale(zoom, zoom);
