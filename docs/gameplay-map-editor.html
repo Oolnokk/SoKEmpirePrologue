@@ -411,6 +411,7 @@
     </div>
   </div>
 
+  <script src="./config/config.js"></script>
   <script>
     // ===== Data Model =====
     let mapData = {
@@ -466,16 +467,16 @@
     }
 
     // Tile measurement settings (matches GRID_UNIT_WORLD_SIZE from config.js)
-    let tileSize = resolveGridUnit({});
+    const tileSizeCandidate = window.GRID_UNIT_WORLD_SIZE
+      ?? window.CONFIG?.mapEditor?.tileSize
+      ?? window.CONFIG?.map?.gridUnit;
+    const defaultTileSize = Number.isFinite(tileSizeCandidate) ? tileSizeCandidate : 0;
+    let tileSize = defaultTileSize; // world units per tile (GRID_UNIT_WORLD_SIZE)
     let showRuler = true;
     let showGrid = true;
 
-    function setVisualMapTiles(tiles) {
-      window.visualMapTiles = tiles;
-      window.updateMapMeasurements?.();
-    }
-
-    window.setVisualMapTiles = setVisualMapTiles;
+    // Visual map tile info
+    let visualMapTiles = null; // { cols: 20, rows: 20, startX: -tileSize / 2, startY: 0 }
 
     // Touch state
     let touchStartDist = 0;
@@ -483,7 +484,7 @@
     let lastTouchPos = null;
 
     const tileSizeInput = document.getElementById('tileSize');
-    if (tileSizeInput && Number.isFinite(tileSize)) {
+    if (Number.isFinite(tileSize)) {
       tileSizeInput.value = tileSize;
     }
 
@@ -729,7 +730,7 @@
           }
         }
 
-        // Y-axis labels (every 30 units = 1 tile height)
+        // Y-axis labels (every tileSize units = 1 tile height)
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         for (let ty = startTileY; ty <= endTileY; ty++) {
@@ -1302,7 +1303,7 @@
 
       if (e.shiftKey) {
         // Horizontal scroll with shift + wheel
-        const panSpeed = 30 / viewZoom;
+        const panSpeed = tileSize / viewZoom;
         viewOffset.x += (e.deltaY > 0 ? panSpeed : -panSpeed);
         redraw();
       } else {
@@ -1711,13 +1712,9 @@
     });
 
     document.getElementById('tileSize').addEventListener('change', () => {
-      const nextTileSize = parseFloat(document.getElementById('tileSize').value);
-      const fallbackTileSize = resolveGridUnit(mapData);
-      if (Number.isFinite(nextTileSize)) {
-        tileSize = nextTileSize;
-      } else if (Number.isFinite(fallbackTileSize)) {
-        tileSize = fallbackTileSize;
-      }
+      const parsedTileSize = parseFloat(tileSizeInput.value);
+      tileSize = Number.isFinite(parsedTileSize) ? parsedTileSize : defaultTileSize;
+      tileSizeInput.value = Number.isFinite(tileSize) ? tileSize : tileSizeInput.value;
       updateMapMeasurements();
       redraw();
     });
@@ -1858,6 +1855,12 @@
     let visualMapData = null;
     let groundGroup, structureGroup;
     const CELL_SIZE = 2;
+    const resolveWorldUnitsPerTile = () => {
+      const candidate = window.GRID_UNIT_WORLD_SIZE
+        ?? window.CONFIG?.mapEditor?.tileSize
+        ?? window.CONFIG?.map?.gridUnit;
+      return Number.isFinite(candidate) ? candidate : 0;
+    };
     
     const threeContainer = document.getElementById('threeViewport');
     const overlay = document.getElementById('threeOverlay');
@@ -1880,7 +1883,7 @@
       const h = canvas.height;
 
       camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500);
-      camera.position.set(0, 30, 50);
+      camera.position.set(0, resolveWorldUnitsPerTile(), 50);
 
       // Set camera rotation: X:-180°, Y:0°, Z:-180° (in radians)
       camera.rotation.set(-Math.PI, 0, -Math.PI);
@@ -1979,8 +1982,9 @@
         const pathEndCol = data.gameplayPath.end?.col || cols - 1;
         const pathTileCount = pathEndCol - pathStartCol + 1;
 
-        // Each tile/column is 30 world units (GRID_UNIT_WORLD_SIZE)
-        const totalWidth = pathTileCount * tileSize;
+        // Each tile/column matches GRID_UNIT_WORLD_SIZE for alignment
+        const worldUnitsPerTile = resolveWorldUnitsPerTile();
+        const totalWidth = pathTileCount * worldUnitsPerTile;
 
         // Center the gameplay path at world origin
         const startX = -(totalWidth / 2);
@@ -2021,7 +2025,7 @@
       const centerZ = -(centerRow - data.rows / 2) * CELL_SIZE;
 
       // Position camera to look at the gameplay path
-      camera.position.set(centerX, 30, centerZ + 40);
+      camera.position.set(centerX, resolveWorldUnitsPerTile(), centerZ + 40);
 
       // Set camera rotation: X:-180°, Y:0°, Z:-180° (in radians)
       camera.rotation.set(-Math.PI, 0, -Math.PI);
@@ -2074,7 +2078,7 @@
       clearGroup(groundGroup);
       clearGroup(structureGroup);
       worldRoot.rotation.y = 0;
-      camera.position.set(0, 30, 50);
+      camera.position.set(0, resolveWorldUnitsPerTile(), 50);
       camera.rotation.set(-Math.PI, 0, -Math.PI);
       overlay.textContent = 'No visual map loaded';
       document.getElementById('btnClearVisualMap').style.display = 'none';

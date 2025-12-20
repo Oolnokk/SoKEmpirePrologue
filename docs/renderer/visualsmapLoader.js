@@ -404,8 +404,10 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       }
     }
 
-    // Use the global grid unit world size configuration (default 30)
-    const cellSize = (typeof window !== 'undefined' && window.GRID_UNIT_WORLD_SIZE) || 30;
+    // Use the global grid unit world size configuration
+    const cellSize = (typeof window !== 'undefined' && window.GRID_UNIT_WORLD_SIZE)
+      || window.CONFIG?.mapEditor?.tileSize
+      || window.CONFIG?.map?.gridUnit;
     console.log(`[visualsmapLoader] Using cellSize: ${cellSize} (from GRID_UNIT_WORLD_SIZE)`);
     const loadedObjects = [];
     const assetCache = new Map();
