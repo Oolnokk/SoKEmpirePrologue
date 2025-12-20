@@ -434,6 +434,38 @@
     let viewOffset = { x: 0, y: 0 }; // y=0 means ground at canvas center, we'll adjust rendering
     let viewZoom = 1.0;
 
+    function resolveGridUnit(source) {
+      const layoutUnit = Number(source?.gridUnit);
+      const metaUnit = Number(source?.meta?.gridUnit);
+      const globalUnit = Number.isFinite(window.GRID_UNIT_WORLD_SIZE)
+        ? window.GRID_UNIT_WORLD_SIZE
+        : Number(window.CONFIG?.map?.gridUnit);
+      if (Number.isFinite(layoutUnit)) return layoutUnit;
+      if (Number.isFinite(metaUnit)) return metaUnit;
+      if (Number.isFinite(globalUnit)) return globalUnit;
+      return undefined;
+    }
+
+    function normalizePathUnits(units) {
+      return typeof units === 'string' ? units.trim().toLowerCase() : '';
+    }
+
+    function usesGridPathUnits(units) {
+      const normalized = normalizePathUnits(units);
+      return normalized === 'grid'
+        || normalized === 'grid_world_units'
+        || normalized === 'tile'
+        || normalized === 'tiles';
+    }
+
+    function scaleGroundPath(path, scale) {
+      if (!Array.isArray(path) || !Number.isFinite(scale) || scale === 0) return path;
+      return path.map(point => ({
+        x: (Number(point?.x) || 0) * scale,
+        y: (Number(point?.y) || 0) * scale
+      }));
+    }
+
     // Tile measurement settings (matches GRID_UNIT_WORLD_SIZE from config.js)
     const tileSizeCandidate = window.GRID_UNIT_WORLD_SIZE
       ?? window.CONFIG?.mapEditor?.tileSize
@@ -466,9 +498,7 @@
       canvas.height = rect.height;
       redraw();
       // Sync 3D renderer size
-      if (typeof onWindowResize === 'function') {
-        onWindowResize();
-      }
+      window.onWindowResize?.();
     }
 
     window.addEventListener('resize', resizeCanvas);
@@ -493,6 +523,7 @@
     }
 
     function worldToTileIndex(worldX) {
+      const visualMapTiles = window.visualMapTiles;
       if (!visualMapTiles) {
         // Default: assume centered at origin
         const startX = -(tileSize / 2);
@@ -502,6 +533,7 @@
     }
 
     function tileIndexToWorld(tileIndex) {
+      const visualMapTiles = window.visualMapTiles;
       if (!visualMapTiles) {
         const startX = -(tileSize / 2);
         return startX + (tileIndex * tileSize);
@@ -918,6 +950,7 @@
       if (!measureDiv) return;
 
       let html = '';
+      const visualMapTiles = window.visualMapTiles;
 
       // Show visual map tile info if loaded
       if (visualMapTiles) {
@@ -1138,6 +1171,24 @@
       mapData.areaId = document.getElementById('areaId').value;
       mapData.ground.unitsPerPixel = parseFloat(document.getElementById('unitsPerPixel').value) || 1;
       updateMapMeasurements();
+    }
+
+    function buildExportMapData() {
+      const exportGround = mapData.ground ? { ...mapData.ground } : undefined;
+      if (exportGround?.path && Array.isArray(exportGround.path)) {
+        exportGround.path = exportGround.path.map(point => ({
+          x: Number(point?.x) || 0,
+          y: Number(point?.y) || 0
+        }));
+        if (usesGridPathUnits(exportGround.pathUnits)) {
+          const gridUnit = resolveGridUnit(mapData);
+          exportGround.path = scaleGroundPath(exportGround.path, Number.isFinite(gridUnit) ? 1 / gridUnit : undefined);
+        }
+      }
+      return {
+        ...mapData,
+        ground: exportGround
+      };
     }
 
     // ===== Canvas Event Handlers =====
@@ -1511,12 +1562,13 @@
     // ===== Import/Export =====
     document.getElementById('btnExport').addEventListener('click', () => {
       updateMapSettings();
-      const json = JSON.stringify(mapData, null, 2);
+      const exportData = buildExportMapData();
+      const json = JSON.stringify(exportData, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${mapData.areaId}.gameplaymap.json`;
+      a.download = `${exportData.areaId}.gameplaymap.json`;
       a.click();
       URL.revokeObjectURL(url);
     });
@@ -1555,11 +1607,12 @@
     document.getElementById('btnSaveToServer').addEventListener('click', async () => {
       updateMapSettings();
       try {
-        const targetUrl = new URL(`./config/maps/gameplaymaps/${mapData.areaId}.json`, window.location.href);
+        const exportData = buildExportMapData();
+        const targetUrl = new URL(`./config/maps/gameplaymaps/${exportData.areaId}.json`, window.location.href);
         const response = await fetch(targetUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(mapData, null, 2)
+          body: JSON.stringify(exportData, null, 2)
         });
         if (response.ok) {
           alert('Saved to server successfully!');
@@ -1578,12 +1631,31 @@
         return;
       }
 
+      const rawGround = data.ground || {};
+      const groundPathUnits = rawGround.pathUnits ?? rawGround.units ?? null;
+      const gridUnit = resolveGridUnit(data);
+      const rawGroundPath = Array.isArray(rawGround.path)
+        ? rawGround.path
+        : [{ x: -1000, y: 0 }, { x: 1000, y: 0 }];
+      const normalizedGroundPath = usesGridPathUnits(groundPathUnits)
+        ? scaleGroundPath(rawGroundPath, gridUnit)
+        : rawGroundPath;
+
+      const normalizedGround = {
+        ...rawGround,
+        path: normalizedGroundPath,
+        pathUnits: groundPathUnits ?? rawGround.pathUnits ?? undefined,
+        unitsPerPixel: rawGround.unitsPerPixel ?? 1
+      };
+      if ('units' in normalizedGround) {
+        delete normalizedGround.units;
+      }
+
       mapData = {
         areaId: data.areaId,
-        ground: data.ground || {
-          path: [{ x: -1000, y: 0 }, { x: 1000, y: 0 }],
-          unitsPerPixel: 1
-        },
+        gridUnit: data.gridUnit ?? undefined,
+        meta: data.meta ?? undefined,
+        ground: normalizedGround,
         entities: data.entities || [],
         playableBounds: data.playableBounds || null
       };
@@ -1862,6 +1934,9 @@
     }
 
     function onWindowResize() {
+      if (!camera || !renderer) {
+        return;
+      }
       // Match canvas size
       const canvas = document.getElementById('mapCanvas');
       const w = canvas.width;
@@ -1870,6 +1945,8 @@
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
     }
+
+    window.onWindowResize = onWindowResize;
 
     function animate() {
       requestAnimationFrame(animate);
@@ -1912,14 +1989,13 @@
         // Center the gameplay path at world origin
         const startX = -(totalWidth / 2);
 
-        window.visualMapTiles = {
+        window.setVisualMapTiles?.({
           cols: pathTileCount,
           rows: rows,
           startX: startX,
           startY: 0,
           pathStartCol: pathStartCol
-        };
-        window.updateMapMeasurements?.();
+        });
       }
 
       if (!data.gameplayPath || !data.gameplayPath.start || !data.gameplayPath.end) {
@@ -2006,8 +2082,7 @@
       camera.rotation.set(-Math.PI, 0, -Math.PI);
       overlay.textContent = 'No visual map loaded';
       document.getElementById('btnClearVisualMap').style.display = 'none';
-      window.visualMapTiles = null;
-      window.updateMapMeasurements?.();
+      window.setVisualMapTiles?.(null);
     }
 
     // Load visual map from path (exposed for built-in map loading)
