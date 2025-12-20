@@ -5398,6 +5398,8 @@ function renderGameplayPathOverlay(ctx) {
       })
       : null;
 
+    const tileNumbering = window.CONFIG?.debug?.tileNumbering;
+
     ctx.save();
     ctx.globalAlpha = 0.65;
     ctx.lineWidth = 8;
@@ -5412,6 +5414,29 @@ function renderGameplayPathOverlay(ctx) {
       ctx.lineTo(screenX, canvasHeight);
     }
     ctx.stroke();
+
+    if (tileNumbering?.enabled) {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.font = `${tileNumbering.fontWeight} ${tileNumbering.fontSize}px ${tileNumbering.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      for (const offset of lineOffsets) {
+        const t = offset / distance3dWorld;
+        const screenX = start.x + (end.x - start.x) * t;
+        const tileIndex = Math.round((offset + halfTile) / gridUnit);
+        const label = `${tileNumbering.labelPrefix3d}${tileIndex}`;
+        const metrics = ctx.measureText(label);
+        const bgWidth = metrics.width + tileNumbering.padding * 2;
+        const bgHeight = tileNumbering.fontSize + tileNumbering.padding * 2;
+        const labelY = tileNumbering.labelY3d;
+        ctx.fillStyle = tileNumbering.background;
+        ctx.fillRect(screenX - bgWidth / 2, labelY, bgWidth, bgHeight);
+        ctx.fillStyle = tileNumbering.color3d;
+        ctx.fillText(label, screenX, labelY + tileNumbering.padding);
+      }
+      ctx.restore();
+    }
 
     const screenSpan3d = Math.abs(end.x - start.x);
     if (screenSpan3d > 0 && distance3dWorld > 0) {
@@ -5433,6 +5458,34 @@ function renderGameplayPathOverlay(ctx) {
         ctx.lineTo(screenX, canvasHeight);
       }
       ctx.stroke();
+
+      if (tileNumbering?.enabled) {
+        ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.font = `${tileNumbering.fontWeight} ${tileNumbering.fontSize}px ${tileNumbering.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        for (const offset of lineOffsets) {
+          const t = offset / distance3dWorld;
+          const worldPoint = {
+            x: path3dStart.x + dxWorld * t,
+            z: path3dStart.z + dzWorld * t
+          };
+          const world2d = transform3dTo2d(worldPoint, transformConfig);
+          const screenX = (world2d.x - camX2d) * zoom2d;
+          const tileIndex = Math.round((offset + halfTile) / gridUnit);
+          const label = `${tileNumbering.labelPrefix2d}${tileIndex}`;
+          const metrics = ctx.measureText(label);
+          const bgWidth = metrics.width + tileNumbering.padding * 2;
+          const bgHeight = tileNumbering.fontSize + tileNumbering.padding * 2;
+          const labelY = tileNumbering.labelY2d;
+          ctx.fillStyle = tileNumbering.background;
+          ctx.fillRect(screenX - bgWidth / 2, labelY, bgWidth, bgHeight);
+          ctx.fillStyle = tileNumbering.color2d;
+          ctx.fillText(label, screenX, labelY + tileNumbering.padding);
+        }
+        ctx.restore();
+      }
 
       if (distance3dWorld > 0) {
         const invDistance = 1 / distance3dWorld;
