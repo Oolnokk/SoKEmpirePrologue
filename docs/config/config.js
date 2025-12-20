@@ -886,6 +886,7 @@ window.CONFIG = {
   canvas: { w: 1280, h: 720, scale: 1 },
   camera: {
     manualOffsetX: 0,
+    useVisualZoom: true,
     // Far clipping distance for the 3D renderer's perspective camera
     far: 8000,
     // When true, the camera snaps each frame to keep the player centered (opt-in)
