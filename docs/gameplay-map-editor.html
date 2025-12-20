@@ -1852,7 +1852,6 @@
     }
 
     let scene, camera, renderer, worldRoot;
-    let visualMapData = null;
     let groundGroup, structureGroup;
     const CELL_SIZE = 2;
     const resolveWorldUnitsPerTile = () => {
@@ -1970,7 +1969,6 @@
 
     // Load and render visual map
     function loadVisualMap(data, filename = '') {
-      visualMapData = data;
       clearGroup(groundGroup);
       clearGroup(structureGroup);
 
@@ -2074,7 +2072,6 @@
     }
 
     function clearVisualMap() {
-      visualMapData = null;
       clearGroup(groundGroup);
       clearGroup(structureGroup);
       worldRoot.rotation.y = 0;
