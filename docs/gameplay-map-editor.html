@@ -460,9 +460,7 @@
       canvas.height = rect.height;
       redraw();
       // Sync 3D renderer size
-      if (typeof onWindowResize === 'function') {
-        onWindowResize();
-      }
+      window.onWindowResize?.();
     }
 
     window.addEventListener('resize', resizeCanvas);
@@ -1851,6 +1849,9 @@
     }
 
     function onWindowResize() {
+      if (!camera || !renderer) {
+        return;
+      }
       // Match canvas size
       const canvas = document.getElementById('mapCanvas');
       const w = canvas.width;
@@ -1859,6 +1860,8 @@
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
     }
+
+    window.onWindowResize = onWindowResize;
 
     function animate() {
       requestAnimationFrame(animate);
