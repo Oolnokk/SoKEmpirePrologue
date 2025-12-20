@@ -434,12 +434,16 @@
     let viewZoom = 1.0;
 
     // Tile measurement settings (matches GRID_UNIT_WORLD_SIZE from config.js)
-    let tileSize = 30; // world units per tile (GRID_UNIT_WORLD_SIZE)
+    let tileSize = window.GRID_UNIT_WORLD_SIZE; // world units per tile (GRID_UNIT_WORLD_SIZE)
     let showRuler = true;
     let showGrid = true;
 
-    // Visual map tile info
-    let visualMapTiles = null; // { cols: 20, rows: 20, startX: -300, startY: 0 }
+    function setVisualMapTiles(tiles) {
+      window.visualMapTiles = tiles;
+      window.updateMapMeasurements?.();
+    }
+
+    window.setVisualMapTiles = setVisualMapTiles;
 
     // Touch state
     let touchStartDist = 0;
@@ -483,6 +487,7 @@
     }
 
     function worldToTileIndex(worldX) {
+      const visualMapTiles = window.visualMapTiles;
       if (!visualMapTiles) {
         // Default: assume centered at origin
         const startX = -(tileSize / 2);
@@ -492,6 +497,7 @@
     }
 
     function tileIndexToWorld(tileIndex) {
+      const visualMapTiles = window.visualMapTiles;
       if (!visualMapTiles) {
         const startX = -(tileSize / 2);
         return startX + (tileIndex * tileSize);
@@ -908,6 +914,7 @@
       if (!measureDiv) return;
 
       let html = '';
+      const visualMapTiles = window.visualMapTiles;
 
       // Show visual map tile info if loaded
       if (visualMapTiles) {
@@ -1888,20 +1895,18 @@
         const pathTileCount = pathEndCol - pathStartCol + 1;
 
         // Each tile/column is 30 world units (GRID_UNIT_WORLD_SIZE)
-        const WORLD_UNITS_PER_TILE = 30;
-        const totalWidth = pathTileCount * WORLD_UNITS_PER_TILE;
+        const totalWidth = pathTileCount * tileSize;
 
         // Center the gameplay path at world origin
         const startX = -(totalWidth / 2);
 
-        window.visualMapTiles = {
+        window.setVisualMapTiles?.({
           cols: pathTileCount,
           rows: rows,
           startX: startX,
           startY: 0,
           pathStartCol: pathStartCol
-        };
-        window.updateMapMeasurements?.();
+        });
       }
 
       if (!data.gameplayPath || !data.gameplayPath.start || !data.gameplayPath.end) {
@@ -1988,8 +1993,7 @@
       camera.rotation.set(-Math.PI, 0, -Math.PI);
       overlay.textContent = 'No visual map loaded';
       document.getElementById('btnClearVisualMap').style.display = 'none';
-      window.visualMapTiles = null;
-      window.updateMapMeasurements?.();
+      window.setVisualMapTiles?.(null);
     }
 
     // Load visual map from path (exposed for built-in map loading)
