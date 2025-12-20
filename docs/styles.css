@@ -428,7 +428,7 @@ main.stack{
   }
 
   /* Hide extra widgets below the game for cleaner view */
-  .widget:not(.widget--clear){
+  .widget:not(.widget--clear):not(.debug-panel){
     display:none;
   }
 

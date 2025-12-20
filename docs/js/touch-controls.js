@@ -28,6 +28,20 @@ export function initTouchControls(){
   }
 
   const now = () => performance.now();
+  const setJoystickHomePosition = () => {
+    joystickArea.classList.add('visible');
+    joystickArea.style.left = '';
+    joystickArea.style.top = '';
+    joystickArea.style.bottom = '';
+  };
+  const getJoystickSize = () => {
+    const rect = joystickArea.getBoundingClientRect();
+    if (rect.width) return rect.width;
+    const size = parseFloat(getComputedStyle(joystickArea).width);
+    return Number.isFinite(size) ? size : 0;
+  };
+
+  setJoystickHomePosition();
 
   function isPlayerBusy(){
     if (typeof G.combat?.isPlayerBusy === 'function'){
@@ -141,13 +155,13 @@ export function initTouchControls(){
     const touch = e.touches ? e.touches[0] : e;
 
     // Position joystick at touch point
-    const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--control-scale')) || 1;
-    const joystickSize = 85 * scale; // joystick-area size * scale
+    const joystickSize = getJoystickSize();
+    const joystickOffset = joystickSize ? joystickSize / 2 : 0;
 
     // Center the joystick on the touch point
-    joystickArea.style.left = `${touch.clientX - joystickSize / 2}px`;
+    joystickArea.style.left = `${touch.clientX - joystickOffset}px`;
     joystickArea.style.bottom = 'auto';
-    joystickArea.style.top = `${touch.clientY - joystickSize / 2}px`;
+    joystickArea.style.top = `${touch.clientY - joystickOffset}px`;
 
     // Show the joystick
     joystickArea.classList.add('visible');
@@ -180,8 +194,7 @@ export function initTouchControls(){
     JOY.normalized = 0;
     JOY.horizontalStrength = 0;
 
-    // Hide the joystick
-    joystickArea.classList.remove('visible');
+    setJoystickHomePosition();
 
     clearHorizontalInput();
     G.AIMING.manualAim = false;
