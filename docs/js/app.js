@@ -870,7 +870,7 @@ import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
-import { initTransformConfig } from './coordinate-transform.js?v=1';
+import { initTransformConfig, transform3dTo2d } from './coordinate-transform.js?v=1';
 
 // Visualsmap loader for 3D grid-based scenes
 let visualsmapLoaderModule = null;
@@ -894,6 +894,24 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     console.warn('[app] Cannot auto-size world: visualsmapAdapter missing or no getPathExtents method');
     return;
   }
+
+  const scheduleAutoSizeRetry = (reason) => {
+    if (typeof window === 'undefined') return;
+    const retryState = window.__AUTO_SIZE_WORLD_RETRY_STATE || (window.__AUTO_SIZE_WORLD_RETRY_STATE = {});
+    const retryKey = area?.id || 'default';
+    const state = retryState[retryKey] || { pending: false, attempts: 0 };
+    if (state.pending || state.attempts >= 3) {
+      return;
+    }
+    state.pending = true;
+    state.attempts += 1;
+    retryState[retryKey] = state;
+    console.warn(`[app] Auto-size deferred (${reason}); retrying after 3D scene load...`);
+    setTimeout(() => {
+      state.pending = false;
+      autoSizeWorldToGameplayPath(visualsmapAdapter, area);
+    }, 250);
+  };
 
   const gameCamera = window.GAME?.CAMERA;
   if (!gameCamera) {
@@ -940,7 +958,11 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
 
   // Bounds are measured in TILES using gridUnit from config.js
   // gridUnit defines tile size in both 2D pixels and 3D units (with pixelsToUnits=1.0)
-  const gridUnit = window.GRID_UNIT_WORLD_SIZE || 300;
+  const gridUnit = window.GRID_UNIT_WORLD_SIZE;
+  if (!Number.isFinite(gridUnit)) {
+    scheduleAutoSizeRetry('GRID_UNIT_WORLD_SIZE not initialized');
+    return;
+  }
   const halfTile = gridUnit / 2;
 
   // World dimensions: need to accommodate reference point + path span
@@ -974,6 +996,21 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
   // CRITICAL: Calculate where 3D path actually maps to in 2D using the coordinate transform
   // Don't assume [0, worldWidth] - tiles might be offset!
   if (window.CONFIG) {
+    if (!Number.isFinite(gameCamera.worldWidth) || !Number.isFinite(gameCamera.worldHeight)) {
+      scheduleAutoSizeRetry('camera world dimensions not initialized');
+      return;
+    }
+    if (!area?.scene3d?.ground?.unitsPerPixel) {
+      scheduleAutoSizeRetry('transform config not initialized');
+      return;
+    }
+
+    const transformConfig = initTransformConfig({
+      camera2d: gameCamera,
+      scene3d: area.scene3d,
+      worldRotation: 0
+    });
+
     const oldMinX = window.CONFIG.playAreaMinX;
     const oldMaxX = window.CONFIG.playAreaMaxX;
 
@@ -985,46 +1022,16 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
     // Ground path defines the authoritative playable area extent
     let left_2d, right_2d, boundsMethod;
 
-    if (referenceX !== null && Number.isFinite(referenceX)) {
-      // Use ground path start or player spawn as reference
-      // The path spans pathExtents.spanX (5700) pixels in both 2D and 3D (1:1 mapping)
-      const pathSpan = pathExtents.spanX;
-      const refSource = groundPathStartX !== null ? 'ground path start' : 'player spawn';
+    const pathStart2d = transform3dTo2d({ x: pathExtents.start.x, z: pathExtents.start.z }, transformConfig);
+    const pathEnd2d = transform3dTo2d({ x: pathExtents.end.x, z: pathExtents.end.z }, transformConfig);
 
-      // Reference point is at the left edge of playable area
-      left_2d = referenceX;
-      right_2d = referenceX + pathSpan;
+    left_2d = Math.min(pathStart2d.x, pathEnd2d.x);
+    right_2d = Math.max(pathStart2d.x, pathEnd2d.x);
 
-      boundsMethod = `${refSource}: [${referenceX.toFixed(0)} + ${pathSpan.toFixed(0)}] = [${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
-      console.log(`  Calculated bounds from ${refSource}:`);
-      console.log(`    Reference point: ${referenceX.toFixed(1)}`);
-      console.log(`    Path span: ${pathSpan.toFixed(1)}`);
-      console.log(`    Bounds: [${left_2d.toFixed(1)}, ${right_2d.toFixed(1)}]`);
-    } else {
-      // Fallback: use coordinate transform
-      const pathScreenLine = visualsmapAdapter.getPathScreenLine?.();
-
-      if (pathScreenLine?.world3d?.start && pathScreenLine?.world3d?.end) {
-        const path3dStartX = pathScreenLine.world3d.start.x;
-        const path3dEndX = pathScreenLine.world3d.end.x;
-        const worldCenter = worldWidth / 2;
-
-        const start2d = worldCenter - path3dStartX;
-        const end2d = worldCenter - path3dEndX;
-
-        left_2d = Math.min(start2d, end2d) - halfTile;
-        right_2d = Math.max(start2d, end2d) + halfTile;
-
-        boundsMethod = `Transform: 3D[${path3dStartX.toFixed(0)}, ${path3dEndX.toFixed(0)}] → 2D[${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
-        console.log(`  Fallback: using 3D world transform`);
-      } else {
-        const worldCenter = worldWidth / 2;
-        left_2d = worldCenter - (pathExtents.maxX + halfTile);
-        right_2d = worldCenter - (pathExtents.minX - halfTile);
-        boundsMethod = `Fallback: path extents`;
-        console.log(`  Fallback: using path extents`);
-      }
-    }
+    boundsMethod = `Transform3D→2D: 3D[${pathExtents.start.x.toFixed(0)}, ${pathExtents.end.x.toFixed(0)}] → 2D[${Math.round(left_2d)}, ${Math.round(right_2d)}]`;
+    console.log('  Calculated bounds from 3D path extents:');
+    console.log(`    3D path start/end: [${pathExtents.start.x.toFixed(1)}, ${pathExtents.end.x.toFixed(1)}]`);
+    console.log(`    2D bounds: [${left_2d.toFixed(1)}, ${right_2d.toFixed(1)}]`);
 
     // Store for debug overlay
     if (typeof window !== 'undefined') {
