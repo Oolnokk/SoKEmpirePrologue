@@ -1027,6 +1027,7 @@ window.CONFIG = {
         fov: 45,
         near: 0.1,
         far: 500,
+        panXScale: 1,
         alignToPath: {
           heightTiles: 0.8,
           distanceTiles: 1.2,

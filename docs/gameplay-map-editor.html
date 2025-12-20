@@ -432,8 +432,15 @@
     let panStart = null;
 
     // View state - y offset is locked to show ground at bottom edge
-    let viewOffset = { x: 0, y: 0 }; // y=0 means ground at canvas center, we'll adjust rendering
+    let viewOffsetX = 0;
     let viewZoom = 1.0;
+    const setViewOffsetX = (value) => {
+      viewOffsetX = value;
+      window.viewOffsetX = viewOffsetX;
+      window.updateVisualMapCameraPan?.(viewOffsetX);
+    };
+    const bumpViewOffsetX = (delta) => setViewOffsetX(viewOffsetX + delta);
+    window.viewOffsetX = viewOffsetX;
 
     function resolveGridUnit(source) {
       const layoutUnit = Number(source?.gridUnit);
@@ -520,7 +527,7 @@
       const cx = canvas.width / 2;
       // Ground (y=0) is at bottom of canvas, positive y goes up
       return {
-        x: cx + (wx + viewOffset.x) * viewZoom,
+        x: cx + (wx + viewOffsetX) * viewZoom,
         y: canvas.height - wy * viewZoom
       };
     }
@@ -528,7 +535,7 @@
     function screenToWorld(sx, sy) {
       const cx = canvas.width / 2;
       return {
-        x: (sx - cx) / viewZoom - viewOffset.x,
+        x: (sx - cx) / viewZoom - viewOffsetX,
         y: (canvas.height - sy) / viewZoom
       };
     }
@@ -1260,7 +1267,7 @@
       if (isPanning && panStart) {
         const dx = sx - panStart.x;
         // Only horizontal panning - vertical is locked
-        viewOffset.x += dx / viewZoom;
+        bumpViewOffsetX(dx / viewZoom);
         panStart = { x: sx, y: sy };
         redraw();
       } else if (dragState) {
@@ -1315,7 +1322,7 @@
       if (e.shiftKey) {
         // Horizontal scroll with shift + wheel
         const panSpeed = tileSize / viewZoom;
-        viewOffset.x += (e.deltaY > 0 ? panSpeed : -panSpeed);
+        bumpViewOffsetX(e.deltaY > 0 ? panSpeed : -panSpeed);
         redraw();
       } else {
         // Vertical zoom
@@ -1402,7 +1409,7 @@
         if (lastTouchPos) {
           const dx = currentPos.x - lastTouchPos.x;
           // Only horizontal panning - vertical is locked
-          viewOffset.x += dx / viewZoom;
+          bumpViewOffsetX(dx / viewZoom);
           lastTouchPos = currentPos;
         }
         redraw();
@@ -1426,7 +1433,7 @@
           if (Math.abs(dx) > Math.abs(dy)) {
             // Horizontal movement - pan map horizontally
             e.preventDefault();
-            viewOffset.x += dx / viewZoom;
+            bumpViewOffsetX(dx / viewZoom);
             lastTouchPos = { x: sx, y: sy };
             redraw();
           }
@@ -1499,12 +1506,12 @@
           break;
         case 'arrowleft':
           e.preventDefault();
-          viewOffset.x -= 50 / viewZoom;
+          bumpViewOffsetX(-50 / viewZoom);
           redraw();
           break;
         case 'arrowright':
           e.preventDefault();
-          viewOffset.x += 50 / viewZoom;
+          bumpViewOffsetX(50 / viewZoom);
           redraw();
           break;
         // Vertical scrolling is locked - arrow up/down removed
@@ -1520,7 +1527,7 @@
           redraw();
           break;
         case '0':
-          viewOffset.x = 0; // Reset horizontal position only
+          setViewOffsetX(0); // Reset horizontal position only
           viewZoom = 1.0;
           redraw();
           break;
@@ -1565,7 +1572,7 @@
     });
 
     document.getElementById('btnResetView').addEventListener('click', () => {
-      viewOffset = { x: 0, y: 0 };
+      setViewOffsetX(0);
       viewZoom = 1.0;
       redraw();
     });
@@ -1887,6 +1894,7 @@
 
     let scene, camera, renderer, worldRoot;
     let groundGroup, structureGroup, groundPlane;
+    let baseCameraState = null;
     const visualMapConfig = window.CONFIG?.mapEditor?.visualMap ?? {};
     const visualMapScene = visualMapConfig.scene ?? {};
     const visualMapCamera = visualMapConfig.camera ?? {};
@@ -1922,6 +1930,18 @@
         : coerceFiniteNumber(defaults.offsetZ, 0);
       return { offsetY, offsetZ };
     };
+    const syncCameraPan = (panX) => {
+      if (!camera || !baseCameraState) return;
+      const panScale = coerceFiniteNumber(visualMapCamera.panXScale, 1);
+      const offset = Number.isFinite(panX) ? panX * panScale : 0;
+      camera.position.x = baseCameraState.position.x + offset;
+      camera.lookAt(
+        baseCameraState.lookAt.x + offset,
+        baseCameraState.lookAt.y,
+        baseCameraState.lookAt.z
+      );
+    };
+    window.updateVisualMapCameraPan = syncCameraPan;
     
     const threeContainer = document.getElementById('threeViewport');
     const overlay = document.getElementById('threeOverlay');
@@ -2176,6 +2196,11 @@
         );
       }
       camera.lookAt(lookAtX, lookAtY, lookAtZ);
+      baseCameraState = {
+        position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        lookAt: { x: lookAtX, y: lookAtY, z: lookAtZ },
+      };
+      syncCameraPan(window.viewOffsetX ?? 0);
 
       // Render ground tiles
       const layers = ['ground', 'structure', 'decoration'];
@@ -2233,6 +2258,7 @@
       const cellSize = resolveCellSize();
       camera.position.set(0, cellSize, cellSize);
       camera.lookAt(0, 0, 0);
+      baseCameraState = null;
       overlay.textContent = 'No visual map loaded';
       document.getElementById('btnClearVisualMap').style.display = 'none';
       window.setVisualMapTiles?.(null);
