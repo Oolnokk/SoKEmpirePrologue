@@ -19,9 +19,10 @@
   },
   "ground": {
     "path": [
-      { "x": -1100, "y": 0 },
-      { "x": 1580, "y": 0 }
+      { "x": 0, "y": 0 },
+      { "x": 19, "y": 0 }
     ],
+    "pathUnits": "grid",
     "unitsPerPixel": 1
   },
   "entities": [
