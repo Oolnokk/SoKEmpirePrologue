@@ -281,7 +281,7 @@ async function loadAssetConfig(assetType, baseContext = null) {
  * @param {boolean} alignToPath - Whether to align world to gameplay path
  * @returns {Object} World position {x, y, z}
  */
-function gridToWorld(row, col, rows, cols, cellSize, pathYawRad, alignToPath, worldOffsetWorld) {
+function gridToWorld(row, col, rows, cols, cellSize, pathYawRad, alignToPath) {
   // Match editor centering: grid spans from -(N-1)/2 .. +(N-1)/2
   const halfRows = (rows - 1) / 2;
   const halfCols = (cols - 1) / 2;
@@ -302,10 +302,7 @@ function gridToWorld(row, col, rows, cols, cellSize, pathYawRad, alignToPath, wo
     z = rz;
   }
 
-  const offsetX = Number.isFinite(worldOffsetWorld?.x) ? worldOffsetWorld.x : 0;
-  const offsetZ = Number.isFinite(worldOffsetWorld?.z) ? worldOffsetWorld.z : 0;
-
-  return { x: x + offsetX, y: 0, z: z + offsetZ };
+  return { x, y: 0, z };
 }
 
 /**
@@ -375,11 +372,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log('[visualsmapLoader] - Grid size:', visualsMap.rows, 'x', visualsMap.cols);
     console.log('[visualsmapLoader] - Layers:', Object.keys(visualsMap.layerStates || {}));
 
-    const { rows = 20, cols = 20, layerStates = {}, gameplayPath, alignWorldToPath = false, worldOffset = null } = visualsMap;
-    const worldOffsetWorld = {
-      x: Number.isFinite(worldOffset?.x) ? worldOffset.x : 0,
-      z: Number.isFinite(worldOffset?.z) ? worldOffset.z : 0,
-    };
+    const { rows = 20, cols = 20, layerStates = {}, gameplayPath, alignWorldToPath = false } = visualsMap;
     const pathLookAtConfig = resolveGameplayPathLookAtConfig(visualsMap);
     const visualsMapBase = visualsMapUrl ? new URL('./', visualsMapUrl).href : '';
     const docsBase = deriveDocsBase(visualsMapUrl) || deriveDocsBase(gameplayMapUrl) || null;
@@ -554,7 +547,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             // These need to be applied BEFORE rotation to maintain editor-defined positions
             const effectiveCol = col + gridOffsetX;
             const effectiveRow = row + gridOffsetY;
-            const worldPos = gridToWorld(effectiveRow, effectiveCol, rows, cols, cellSize, pathYawRad, alignWorldToPath, worldOffsetWorld);
+            const worldPos = gridToWorld(effectiveRow, effectiveCol, rows, cols, cellSize, pathYawRad, alignWorldToPath);
 
             // Apply base scale with GRID_UNIT_WORLD_SIZE factor
             // Inline editor exports express baseScale in grid units; legacy configs keep previous scaling
@@ -922,7 +915,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
       // Helper to create marker at grid position
       function createMarker(gridRow, gridCol, material) {
-        const worldPos = gridToWorld(gridRow, gridCol, rows, cols, cellSize, pathYawRad, alignWorldToPath, worldOffsetWorld);
+        const worldPos = gridToWorld(gridRow, gridCol, rows, cols, cellSize, pathYawRad, alignWorldToPath);
         const marker = new renderer.THREE.Mesh(markerGeom, material);
         marker.position.set(worldPos.x, 0.18 * cellSize, worldPos.z);
         marker.castShadow = false;
