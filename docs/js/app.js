@@ -971,13 +971,13 @@ function autoSizeWorldToGameplayPath(visualsmapAdapter, area) {
 
   if (referenceX !== null && Number.isFinite(referenceX)) {
     // World width = reference offset + path span + margin
-    worldWidth = referenceX + pathExtents.spanX + halfTile;
+    worldWidth = referenceX + pathExtents.spanX + gridUnit;
     worldHeight = Math.max(pathExtents.spanZ, 600);
     const refSource = groundPathStartX !== null ? 'ground path' : 'player spawn';
     console.log(`[app] Auto-sizing 2D world to gameplay path (${refSource}-based):`);
     console.log(`  Reference point: ${referenceX.toFixed(1)} (${refSource})`);
     console.log(`  Path span: ${pathExtents.spanX.toFixed(1)}`);
-    console.log(`  World width: ref (${referenceX.toFixed(1)}) + span (${pathExtents.spanX.toFixed(1)}) + margin (${halfTile}) = ${worldWidth.toFixed(1)}`);
+    console.log(`  World width: ref (${referenceX.toFixed(1)}) + span (${pathExtents.spanX.toFixed(1)}) + margin (${gridUnit}) = ${worldWidth.toFixed(1)}`);
   } else {
     // Fallback: tile span + margins
     worldWidth = pathExtents.spanX + gridUnit;
