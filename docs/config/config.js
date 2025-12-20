@@ -5,6 +5,51 @@ window.CONFIG = window.CONFIG || {};
 window.CONFIG.ui = window.CONFIG.ui || {};
 window.CONFIG.ui.showClock = true; // Display the in-game time clock
 
+window.CONFIG.mapObjectEditor = {
+  scene: {
+    background: 0x020617
+  },
+  camera: {
+    fov: 45,
+    near: 0.1,
+    far: 1000,
+    position: { x: 5, y: 3, z: 5 },
+    minDistance: 1,
+    maxDistance: 50,
+    target: { x: 0, y: 0, z: 0 }
+  },
+  controls: {
+    enableDamping: true,
+    dampingFactor: 0.05
+  },
+  lighting: {
+    ambient: { color: 0xffffff, intensity: 0.6 },
+    directional: { color: 0xffffff, intensity: 0.8, position: { x: 5, y: 10, z: 5 } }
+  },
+  helpers: {
+    grid: { size: 10, divisions: 10, colorCenterLine: 0x334155, colorGrid: 0x1e293b },
+    axesSize: 2
+  },
+  marker: {
+    radius: 0.05,
+    widthSegments: 16,
+    heightSegments: 16,
+    color: 0x3b82f6
+  },
+  model: {
+    targetSize: 2
+  },
+  assets: {
+    preferConfigAssets: true,
+    visualsIndexPath: 'config/maps/visualsmaps/index.json',
+    assetIndexPath: 'config/assets/asset-index.json'
+  },
+  defaults: {
+    attachmentKey: 'extraConfig',
+    addPointPosition: { x: 0, y: 1, z: 0 }
+  }
+};
+
 // Day/Night Lighting Settings
 window.CONFIG.lighting = window.CONFIG.lighting || {};
 window.CONFIG.lighting.candleStartHour = 17; // Hour when candles turn on (5pm - during dusk)
