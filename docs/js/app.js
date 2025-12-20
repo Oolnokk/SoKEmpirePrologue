@@ -5370,9 +5370,17 @@ function renderGameplayPathOverlay(ctx) {
   const hasTileData = Number.isFinite(gridUnit) && gridUnit > 0
     && path3dStart && path3dEnd && distance3dWorld > 0;
 
+  let tileScreenPx3d = null;
+  let tileScreenPx2d = null;
+  let tileScreenPxRatio = null;
+  let worldDx = 0;
+  let worldDz = 0;
+
   if (hasTileData) {
     const dxWorld = path3dEnd.x - path3dStart.x;
     const dzWorld = path3dEnd.z - path3dStart.z;
+    worldDx = dxWorld;
+    worldDz = dzWorld;
     const lineOffsets = [];
     for (let offset = -halfTile; offset <= distance3dWorld + halfTile + 0.001; offset += gridUnit) {
       lineOffsets.push(offset);
@@ -5405,6 +5413,11 @@ function renderGameplayPathOverlay(ctx) {
     }
     ctx.stroke();
 
+    const screenSpan3d = Math.abs(end.x - start.x);
+    if (screenSpan3d > 0 && distance3dWorld > 0) {
+      tileScreenPx3d = (screenSpan3d / distance3dWorld) * gridUnit;
+    }
+
     if (transformConfig) {
       ctx.strokeStyle = '#ff0000';
       ctx.beginPath();
@@ -5420,6 +5433,19 @@ function renderGameplayPathOverlay(ctx) {
         ctx.lineTo(screenX, canvasHeight);
       }
       ctx.stroke();
+
+      if (distance3dWorld > 0) {
+        const invDistance = 1 / distance3dWorld;
+        const stepX = dxWorld * invDistance * gridUnit;
+        const stepZ = dzWorld * invDistance * gridUnit;
+        const worldPointA = { x: path3dStart.x, z: path3dStart.z };
+        const worldPointB = { x: path3dStart.x + stepX, z: path3dStart.z + stepZ };
+        const world2dA = transform3dTo2d(worldPointA, transformConfig);
+        const world2dB = transform3dTo2d(worldPointB, transformConfig);
+        const screenXA = (world2dA.x - camX2d) * zoom2d;
+        const screenXB = (world2dB.x - camX2d) * zoom2d;
+        tileScreenPx2d = Math.abs(screenXB - screenXA);
+      }
     }
 
     ctx.restore();
@@ -5533,8 +5559,26 @@ function renderGameplayPathOverlay(ctx) {
   ctx.fillStyle = '#66ff66';
   ctx.fillText(text2d, labelX, labelY2d + 4);
 
+  if (Number.isFinite(tileScreenPx3d) && Number.isFinite(tileScreenPx2d) && tileScreenPx3d > 0) {
+    tileScreenPxRatio = tileScreenPx2d / tileScreenPx3d;
+  }
+
+  const labelYTile = labelY2d + lineHeight + 2;
+  const tileTextValue3d = Number.isFinite(tileScreenPx3d) ? tileScreenPx3d.toFixed(1) : 'n/a';
+  const tileTextValue2d = Number.isFinite(tileScreenPx2d) ? tileScreenPx2d.toFixed(1) : 'n/a';
+  const tileTextRatio = Number.isFinite(tileScreenPxRatio) ? (tileScreenPxRatio * 100).toFixed(1) : 'n/a';
+  const textTile = `Tile px: 3D ${tileTextValue3d}px | 2D ${tileTextValue2d}px | ratio ${tileTextRatio}%`;
+  const metricsTile = ctx.measureText(textTile);
+  const bgWidthTile = metricsTile.width + padding * 2;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.fillRect(labelX - bgWidthTile / 2, labelYTile, bgWidthTile, bgHeight3d);
+
+  ctx.fillStyle = '#ffd166';
+  ctx.fillText(textTile, labelX, labelYTile + 4);
+
   // Add explanation of coordinate difference
-  const labelY3 = labelY2d + lineHeight + 2;
+  const labelY3 = labelYTile + lineHeight + 2;
   const worldWidth = camera2d?.worldWidth || 1600;
   const worldHeight = camera2d?.worldHeight || 600;
   // Transform: x3d = (worldWidth/2) - x2d
@@ -5608,12 +5652,15 @@ function renderGameplayPathOverlay(ctx) {
     world3d: {
       screenPixels: pixelLength3d,
       worldUnits: distance3dWorld,
-      cameraX: cam3dX
+      cameraX: cam3dX,
+      tileScreenPx: tileScreenPx3d
     },
     world2d: {
       worldPixels: distance3dWorld,
-      cameraX: camX2d
+      cameraX: camX2d,
+      tileScreenPx: tileScreenPx2d
     },
+    tileScreenPxRatio,
     worldDimensions: { width: worldWidth, height: worldHeight },
     transform: {
       expected: (worldWidth / 2) - camX2d,
