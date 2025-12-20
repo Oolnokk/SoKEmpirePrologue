@@ -5387,7 +5387,8 @@ function renderGameplayPathOverlay(ctx) {
     }
 
     const camera2d = window.GAME?.CAMERA;
-    const renderCamX2d = Number.isFinite(camera2d?.renderX) ? camera2d.renderX : (camera2d?.x || 0);
+    const worldCamX2d = camera2d?.x || 0;
+    const renderCamX2d = Number.isFinite(camera2d?.renderX) ? camera2d.renderX : worldCamX2d;
     const zoom2d = Number.isFinite(camera2d?.renderZoom)
       ? camera2d.renderZoom
       : (Number.isFinite(camera2d?.zoom) ? camera2d.zoom : 1);
