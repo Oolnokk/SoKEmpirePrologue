@@ -1002,9 +1002,11 @@ function drawBoneSprite(ctx, asset, bone, styleKey, style){
   posY += offsetY;
 
   if (showOrigins){
-    const zoom = Number.isFinite(window.GAME?.CAMERA?.zoom) && window.GAME.CAMERA.zoom > 0
-      ? window.GAME.CAMERA.zoom
-      : 1;
+    const zoom = Number.isFinite(window.GAME?.CAMERA?.renderZoom) && window.GAME.CAMERA.renderZoom > 0
+      ? window.GAME.CAMERA.renderZoom
+      : (Number.isFinite(window.GAME?.CAMERA?.zoom) && window.GAME.CAMERA.zoom > 0
+        ? window.GAME.CAMERA.zoom
+        : 1);
     const radius = 4 / zoom;
     const strokeWidth = 1.5 / zoom;
     const originCategory = opts.originCategory || 'body';
@@ -1212,8 +1214,10 @@ export function renderSprites(ctx){
   const showSprites = DEBUG.showSprites !== false;
   if (!showSprites && !showOrigins) return; // Skip entirely if neither sprites nor origins should render
 
-  const camX = G.CAMERA?.x || 0;
-  const zoom = Number.isFinite(G.CAMERA?.zoom) ? G.CAMERA.zoom : 1;
+  const camX = Number.isFinite(G.CAMERA?.renderX) ? G.CAMERA.renderX : (G.CAMERA?.x || 0);
+  const zoom = Number.isFinite(G.CAMERA?.renderZoom)
+    ? G.CAMERA.renderZoom
+    : (Number.isFinite(G.CAMERA?.zoom) ? G.CAMERA.zoom : 1);
   const canvasHeight = ctx.canvas?.height || 0;
   const groundLine = computeGroundY(C, { canvasHeight }) ?? canvasHeight;
   const zOf = buildZMap(C);
