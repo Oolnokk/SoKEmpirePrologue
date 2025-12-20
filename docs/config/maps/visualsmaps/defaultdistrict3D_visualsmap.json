@@ -14,10 +14,6 @@
     }
   },
   "alignWorldToPath": true,
-  "worldOffset": {
-    "x": 2850,
-    "z": 0
-  },
   "layerStates": {
     "ground": [
       [
