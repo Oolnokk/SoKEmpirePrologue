@@ -1437,6 +1437,9 @@ function normalizeAreaDescriptor(area, options = {}) {
   if (area.ground?.height != null || ground.height != null) {
     ground.height = toNumber(area.ground?.height ?? ground.height, ground.height ?? 0);
   }
+  if (Array.isArray(area.ground?.path) && !Array.isArray(ground.path)) {
+    ground.path = safeClone(area.ground.path);
+  }
 
   return {
     id: areaId,
@@ -2383,6 +2386,9 @@ function scaleAreaDescriptorUnits(area, options = {}) {
   if (Number.isFinite(cloned.cameraStartX)) {
     cloned.cameraStartX = scaleNumber(cloned.cameraStartX, scale);
   }
+  if (Number.isFinite(cloned.distance)) {
+    cloned.distance = scaleNumber(cloned.distance, scale);
+  }
 
   if (cloned.ground && typeof cloned.ground === 'object') {
     cloned.ground = {
@@ -2417,7 +2423,11 @@ function scaleAreaDescriptorUnits(area, options = {}) {
     cloned.pathTargets = cloned.pathTargets.map((target) => scalePathTargetRecord(target, scale));
   }
   if (Array.isArray(cloned.patrolPoints)) {
-    cloned.patrolPoints = cloned.patrolPoints.map((point) => scaleEntityRecord(point, scale));
+    cloned.patrolPoints = cloned.patrolPoints.map((point) => ({
+      ...scaleEntityRecord(point, scale),
+      width: scaleNumber(point?.width, scale),
+      height: scaleNumber(point?.height, scale),
+    }));
   }
 
   if (cloned.meta?.behavior?.pois && Array.isArray(cloned.meta.behavior.pois)) {
