@@ -994,7 +994,21 @@ window.CONFIG = {
   groundY: 0,
   // Debug options are surfaced in the debug panel; freezeAngles lets animators hold joints for edits
   debug: {
-    freezeAngles: false
+    freezeAngles: false,
+    tileNumbering: {
+      enabled: true,
+      fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
+      fontSize: 11,
+      fontWeight: 'bold',
+      padding: 2,
+      background: 'rgba(0, 0, 0, 0.6)',
+      labelY3d: 12,
+      labelY2d: 28,
+      color3d: '#fbbf24',
+      color2d: '#ff4d4d',
+      labelPrefix3d: '3D ',
+      labelPrefix2d: '2D ',
+    },
   },
   basePose: {
     torso: 0,
