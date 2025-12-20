@@ -343,7 +343,7 @@
           </div>
           <div class="form-row">
             <label>Tile Size (world units)</label>
-            <input type="number" id="tileSize" value="30" step="1" min="1" />
+            <input type="number" id="tileSize" value="" step="1" min="1" />
             <div class="info">Grid unit size (matches GRID_UNIT_WORLD_SIZE)</div>
           </div>
           <div class="form-row">
@@ -433,8 +433,40 @@
     let viewOffset = { x: 0, y: 0 }; // y=0 means ground at canvas center, we'll adjust rendering
     let viewZoom = 1.0;
 
+    function resolveGridUnit(source) {
+      const layoutUnit = Number(source?.gridUnit);
+      const metaUnit = Number(source?.meta?.gridUnit);
+      const globalUnit = Number.isFinite(window.GRID_UNIT_WORLD_SIZE)
+        ? window.GRID_UNIT_WORLD_SIZE
+        : Number(window.CONFIG?.map?.gridUnit);
+      if (Number.isFinite(layoutUnit)) return layoutUnit;
+      if (Number.isFinite(metaUnit)) return metaUnit;
+      if (Number.isFinite(globalUnit)) return globalUnit;
+      return undefined;
+    }
+
+    function normalizePathUnits(units) {
+      return typeof units === 'string' ? units.trim().toLowerCase() : '';
+    }
+
+    function usesGridPathUnits(units) {
+      const normalized = normalizePathUnits(units);
+      return normalized === 'grid'
+        || normalized === 'grid_world_units'
+        || normalized === 'tile'
+        || normalized === 'tiles';
+    }
+
+    function scaleGroundPath(path, scale) {
+      if (!Array.isArray(path) || !Number.isFinite(scale) || scale === 0) return path;
+      return path.map(point => ({
+        x: (Number(point?.x) || 0) * scale,
+        y: (Number(point?.y) || 0) * scale
+      }));
+    }
+
     // Tile measurement settings (matches GRID_UNIT_WORLD_SIZE from config.js)
-    let tileSize = window.GRID_UNIT_WORLD_SIZE; // world units per tile (GRID_UNIT_WORLD_SIZE)
+    let tileSize = resolveGridUnit({});
     let showRuler = true;
     let showGrid = true;
 
@@ -449,6 +481,11 @@
     let touchStartDist = 0;
     let touchStartZoom = 1.0;
     let lastTouchPos = null;
+
+    const tileSizeInput = document.getElementById('tileSize');
+    if (tileSizeInput && Number.isFinite(tileSize)) {
+      tileSizeInput.value = tileSize;
+    }
 
     // ===== Canvas Setup =====
     const canvas = document.getElementById('mapCanvas');
@@ -1135,6 +1172,24 @@
       updateMapMeasurements();
     }
 
+    function buildExportMapData() {
+      const exportGround = mapData.ground ? { ...mapData.ground } : undefined;
+      if (exportGround?.path && Array.isArray(exportGround.path)) {
+        exportGround.path = exportGround.path.map(point => ({
+          x: Number(point?.x) || 0,
+          y: Number(point?.y) || 0
+        }));
+        if (usesGridPathUnits(exportGround.pathUnits)) {
+          const gridUnit = resolveGridUnit(mapData);
+          exportGround.path = scaleGroundPath(exportGround.path, Number.isFinite(gridUnit) ? 1 / gridUnit : undefined);
+        }
+      }
+      return {
+        ...mapData,
+        ground: exportGround
+      };
+    }
+
     // ===== Canvas Event Handlers =====
     canvas.addEventListener('mousedown', (e) => {
       const rect = canvas.getBoundingClientRect();
@@ -1506,12 +1561,13 @@
     // ===== Import/Export =====
     document.getElementById('btnExport').addEventListener('click', () => {
       updateMapSettings();
-      const json = JSON.stringify(mapData, null, 2);
+      const exportData = buildExportMapData();
+      const json = JSON.stringify(exportData, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${mapData.areaId}.gameplaymap.json`;
+      a.download = `${exportData.areaId}.gameplaymap.json`;
       a.click();
       URL.revokeObjectURL(url);
     });
@@ -1550,11 +1606,12 @@
     document.getElementById('btnSaveToServer').addEventListener('click', async () => {
       updateMapSettings();
       try {
-        const targetUrl = new URL(`./config/maps/gameplaymaps/${mapData.areaId}.json`, window.location.href);
+        const exportData = buildExportMapData();
+        const targetUrl = new URL(`./config/maps/gameplaymaps/${exportData.areaId}.json`, window.location.href);
         const response = await fetch(targetUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(mapData, null, 2)
+          body: JSON.stringify(exportData, null, 2)
         });
         if (response.ok) {
           alert('Saved to server successfully!');
@@ -1573,12 +1630,31 @@
         return;
       }
 
+      const rawGround = data.ground || {};
+      const groundPathUnits = rawGround.pathUnits ?? rawGround.units ?? null;
+      const gridUnit = resolveGridUnit(data);
+      const rawGroundPath = Array.isArray(rawGround.path)
+        ? rawGround.path
+        : [{ x: -1000, y: 0 }, { x: 1000, y: 0 }];
+      const normalizedGroundPath = usesGridPathUnits(groundPathUnits)
+        ? scaleGroundPath(rawGroundPath, gridUnit)
+        : rawGroundPath;
+
+      const normalizedGround = {
+        ...rawGround,
+        path: normalizedGroundPath,
+        pathUnits: groundPathUnits ?? rawGround.pathUnits ?? undefined,
+        unitsPerPixel: rawGround.unitsPerPixel ?? 1
+      };
+      if ('units' in normalizedGround) {
+        delete normalizedGround.units;
+      }
+
       mapData = {
         areaId: data.areaId,
-        ground: data.ground || {
-          path: [{ x: -1000, y: 0 }, { x: 1000, y: 0 }],
-          unitsPerPixel: 1
-        },
+        gridUnit: data.gridUnit ?? undefined,
+        meta: data.meta ?? undefined,
+        ground: normalizedGround,
         entities: data.entities || [],
         playableBounds: data.playableBounds || null
       };
@@ -1635,7 +1711,13 @@
     });
 
     document.getElementById('tileSize').addEventListener('change', () => {
-      tileSize = parseFloat(document.getElementById('tileSize').value) || 30;
+      const nextTileSize = parseFloat(document.getElementById('tileSize').value);
+      const fallbackTileSize = resolveGridUnit(mapData);
+      if (Number.isFinite(nextTileSize)) {
+        tileSize = nextTileSize;
+      } else if (Number.isFinite(fallbackTileSize)) {
+        tileSize = fallbackTileSize;
+      }
       updateMapMeasurements();
       redraw();
     });
