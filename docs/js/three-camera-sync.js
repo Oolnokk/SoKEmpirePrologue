@@ -44,6 +44,11 @@ export function syncCameraPosition(renderer, gameCamera, config = {}) {
   // Merge config with defaults
   const cfg = { ...CAMERA_SYNC_CONFIG, ...config };
 
+  const baseZoom = Number.isFinite(gameCamera.zoom) ? gameCamera.zoom : 1;
+  const visualZoom = Number.isFinite(gameCamera.renderZoom) ? gameCamera.renderZoom : baseZoom;
+  const zoomFactor = baseZoom > 0 ? visualZoom / baseZoom : visualZoom;
+  const effectiveZoom = Number.isFinite(zoomFactor) && zoomFactor > 0 ? zoomFactor : 1;
+
   // Get 2D camera position
   const cam2dX = gameCamera.x || 0;
   const cam2dY = gameCamera.y || 0;
@@ -71,13 +76,13 @@ export function syncCameraPosition(renderer, gameCamera, config = {}) {
   // Position camera at the transformed location, offset by height and distance
   // Note: X inversion is now handled in coordinate-transform.js
   const camX = parallaxX;
-  const camY = cfg.cameraHeight;
-  const camZ = parallaxZ + cfg.cameraDistance;
+  const camY = cfg.cameraHeight / effectiveZoom;
+  const camZ = parallaxZ + (cfg.cameraDistance / effectiveZoom);
 
   // Calculate look-at target (where the camera should point)
   // Look at the transformed position on the ground plane
   const lookAtX = parallaxX;
-  const lookAtY = cfg.lookAtOffsetY;
+  const lookAtY = cfg.lookAtOffsetY / effectiveZoom;
   const lookAtZ = parallaxZ + cfg.lookAtOffsetZ;
 
   // Update renderer camera parameters
