@@ -2100,6 +2100,17 @@ if (fullscreenBtn && stageEl){
           `Playable Bounds: [${data.playableBounds.left}, ${data.playableBounds.right}]`,
           `Bounds Method: ${data.boundsMethod}`,
           '',
+          ...(data.groundPathReference
+            ? [
+              'Ground Path Reference:',
+              `  Ground Path Xs: ${Array.isArray(data.groundPathReference.groundPath) ? data.groundPathReference.groundPath.join(', ') : 'null'}`,
+              `  Ground Path Start X: ${data.groundPathReference.groundPathStartX ?? 'null'}`,
+              `  Player Spawn X: ${data.groundPathReference.playerSpawnX ?? 'null'}`,
+              `  Reference X: ${data.groundPathReference.referenceX ?? 'null'}`,
+              `  Source: ${data.groundPathReference.source ?? 'unknown'}`,
+              ''
+            ]
+            : []),
           `3D World:`,
           `  Screen Pixels: ${data.world3d.screenPixels.toFixed(1)}px`,
           `  World Units: ${data.world3d.worldUnits.toFixed(1)}u`,
