@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Gameplay Map Editor</title>
+  <script src="./config/config.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -475,8 +476,18 @@
     let showRuler = true;
     let showGrid = true;
 
-    // Visual map tile info
-    let visualMapTiles = null; // { cols: 20, rows: 20, startX: -tileSize / 2, startY: 0 }
+    // Visual map tile info shared with 3D loader
+    function getVisualMapTiles() {
+      return window.visualMapTiles || null;
+    }
+
+    function setVisualMapTiles(value) {
+      window.visualMapTiles = value;
+      updateMapMeasurements();
+      redraw();
+    }
+
+    window.setVisualMapTiles = setVisualMapTiles;
 
     // Touch state
     let touchStartDist = 0;
@@ -523,7 +534,7 @@
     }
 
     function worldToTileIndex(worldX) {
-      const visualMapTiles = window.visualMapTiles;
+      const visualMapTiles = getVisualMapTiles();
       if (!visualMapTiles) {
         // Default: assume centered at origin
         const startX = -(tileSize / 2);
@@ -533,7 +544,7 @@
     }
 
     function tileIndexToWorld(tileIndex) {
-      const visualMapTiles = window.visualMapTiles;
+      const visualMapTiles = getVisualMapTiles();
       if (!visualMapTiles) {
         const startX = -(tileSize / 2);
         return startX + (tileIndex * tileSize);
@@ -823,7 +834,7 @@
       ctx.stroke();
 
       // Draw ground endpoints
-      ground.path.forEach((pt, idx) => {
+      ground.path.forEach((pt) => {
         const scr = worldToScreen(pt.x, pt.y);
         ctx.fillStyle = '#94a3b8';
         ctx.beginPath();
@@ -950,7 +961,7 @@
       if (!measureDiv) return;
 
       let html = '';
-      const visualMapTiles = window.visualMapTiles;
+      const visualMapTiles = getVisualMapTiles();
 
       // Show visual map tile info if loaded
       if (visualMapTiles) {
@@ -1660,6 +1671,12 @@
         playableBounds: data.playableBounds || null
       };
 
+      const nextTileSize = resolveGridUnit(mapData);
+      if (Number.isFinite(nextTileSize)) {
+        tileSize = nextTileSize;
+        tileSizeInput.value = tileSize;
+      }
+
       // Normalize entities to ensure they have proper meta objects
       mapData.entities.forEach(entity => {
         if (!entity.meta) {
@@ -1715,6 +1732,7 @@
       const parsedTileSize = parseFloat(tileSizeInput.value);
       tileSize = Number.isFinite(parsedTileSize) ? parsedTileSize : defaultTileSize;
       tileSizeInput.value = Number.isFinite(tileSize) ? tileSize : tileSizeInput.value;
+      mapData.gridUnit = Number.isFinite(tileSize) ? tileSize : mapData.gridUnit;
       updateMapMeasurements();
       redraw();
     });
@@ -1853,7 +1871,8 @@
 
     let scene, camera, renderer, worldRoot;
     let groundGroup, structureGroup;
-    const CELL_SIZE = 2;
+    const CELL_SIZE = Number(window.CONFIG?.mapEditor?.visualCellSize);
+    const groundPlaneSize = Number(window.CONFIG?.mapEditor?.visualGroundPlaneSize);
     const resolveWorldUnitsPerTile = () => {
       const candidate = window.GRID_UNIT_WORLD_SIZE
         ?? window.CONFIG?.mapEditor?.tileSize
@@ -1913,7 +1932,7 @@
 
       // Ground plane
       const groundPlane = new THREE.Mesh(
-        new THREE.PlaneGeometry(200, 200),
+        new THREE.PlaneGeometry(groundPlaneSize, groundPlaneSize),
         new THREE.MeshStandardMaterial({ 
           color: 0x1e293b, 
           roughness: 0.9,

@@ -975,6 +975,8 @@ window.CONFIG = {
   },
   mapEditor: {
     tileSize: 300,
+    visualCellSize: 2,
+    visualGroundPlaneSize: 200,
     canvas: { height: 460 },
     ground: {
       offset: 140,
