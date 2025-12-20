@@ -401,6 +401,7 @@
     let selectedPointIndex = -1;
     let attachmentMarkers = [];
     let availableAssets = [];
+    let currentAsset = null;
     const editorConfig = window.CONFIG?.mapObjectEditor;
 
     if (!editorConfig) {
@@ -432,8 +433,8 @@
       viewport.appendChild(renderer.domElement);
 
       controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.05;
+      controls.enableDamping = editorConfig.controls.enableDamping;
+      controls.dampingFactor = editorConfig.controls.dampingFactor;
       controls.minDistance = editorConfig.camera.minDistance;
       controls.maxDistance = editorConfig.camera.maxDistance;
 
@@ -513,6 +514,7 @@
       if (!file) return;
 
       const url = URL.createObjectURL(file);
+      currentAsset = null;
       loadModel(url, file.name);
     });
 
@@ -529,64 +531,95 @@
       return new URL(normalized, docsBase).href;
     }
 
-    function normalizeAsset(asset, layer) {
+    function extractAttachmentPoints(asset) {
+      return asset?.extra?.attachmentPoints || asset?.extraConfig?.attachmentPoints || [];
+    }
+
+    function resolveAttachmentKey(asset) {
+      if (asset?.extra && typeof asset.extra === 'object') {
+        return 'extra';
+      }
+      if (asset?.extraConfig && typeof asset.extraConfig === 'object') {
+        return 'extraConfig';
+      }
+      return editorConfig.defaults.attachmentKey;
+    }
+
+    function normalizeAsset(asset, category) {
       return {
         id: asset.id,
         label: asset.label || asset.id,
-        layer: layer,
-        gltfPath: asset.gltfPath || asset.gltfFileName || null
+        category,
+        gltfPath: asset.gltfPath || asset.gltfFileName || null,
+        attachmentPoints: extractAttachmentPoints(asset),
+        attachmentKey: resolveAttachmentKey(asset)
       };
+    }
+
+    async function loadConfigAssetCatalog() {
+      try {
+        const indexResponse = await fetch(new URL(editorConfig.assets.assetIndexPath, docsBase));
+        if (!indexResponse.ok) return [];
+
+        const index = await indexResponse.json();
+        const segmentConfigs = await Promise.all(
+          (index.segments || []).map(file =>
+            fetch(new URL(`config/assets/${file}`, docsBase))
+              .then(resp => resp.ok ? resp.json() : null)
+              .then(config => config ? normalizeAsset(config, 'segment') : null)
+              .catch(() => null)
+          )
+        );
+        const structureConfigs = await Promise.all(
+          (index.structures || []).map(file =>
+            fetch(new URL(`config/assets/${file}`, docsBase))
+              .then(resp => resp.ok ? resp.json() : null)
+              .then(config => config ? normalizeAsset(config, 'structure') : null)
+              .catch(() => null)
+          )
+        );
+
+        return [...segmentConfigs, ...structureConfigs].filter(Boolean);
+      } catch (error) {
+        console.warn('Failed to load config/assets index:', error);
+        return [];
+      }
+    }
+
+    async function loadVisualsAssetCatalog() {
+      try {
+        const response = await fetch(new URL(editorConfig.assets.visualsIndexPath, docsBase));
+        if (!response.ok) return [];
+        const data = await response.json();
+        return [
+          ...(data.segments || []).map(asset => normalizeAsset(asset, 'segment')),
+          ...(data.structures || []).map(asset => normalizeAsset(asset, 'structure')),
+          ...(data.decorations || []).map(asset => normalizeAsset(asset, 'decoration'))
+        ];
+      } catch (error) {
+        console.warn('Failed to load visualsmaps asset index:', error);
+        return [];
+      }
     }
 
     async function loadAssetCatalog() {
       const select = document.getElementById('existingStructureSelect');
-      const assets = [];
-      let loaded = false;
+      const orderedSources = editorConfig.assets.preferConfigAssets
+        ? [loadConfigAssetCatalog, loadVisualsAssetCatalog]
+        : [loadVisualsAssetCatalog, loadConfigAssetCatalog];
+      let assets = [];
 
-      try {
-        const response = await fetch(new URL(editorConfig.assets.visualsIndexPath, docsBase));
-        if (response.ok) {
-          const data = await response.json();
-          (data.segments || []).forEach(asset => assets.push(normalizeAsset(asset, 'segment')));
-          (data.structures || []).forEach(asset => assets.push(normalizeAsset(asset, 'structure')));
-          (data.decorations || []).forEach(asset => assets.push(normalizeAsset(asset, 'decoration')));
-          loaded = assets.length > 0;
-        }
-      } catch (error) {
-        console.warn('Failed to load visualsmaps asset index:', error);
-      }
-
-      if (!loaded) {
-        try {
-          const indexResponse = await fetch(new URL(editorConfig.assets.assetIndexPath, docsBase));
-          if (indexResponse.ok) {
-            const index = await indexResponse.json();
-            const segmentConfigs = await Promise.all(
-              (index.segments || []).map(file =>
-                fetch(new URL(`config/assets/${file}`, docsBase)).then(resp => resp.json()).catch(() => null)
-              )
-            );
-            const structureConfigs = await Promise.all(
-              (index.structures || []).map(file =>
-                fetch(new URL(`config/assets/${file}`, docsBase)).then(resp => resp.json()).catch(() => null)
-              )
-            );
-
-            segmentConfigs.filter(Boolean).forEach(asset => assets.push(normalizeAsset(asset, 'segment')));
-            structureConfigs.filter(Boolean).forEach(asset => assets.push(normalizeAsset(asset, 'structure')));
-            loaded = assets.length > 0;
-          }
-        } catch (error) {
-          console.warn('Failed to load config/assets index:', error);
-        }
+      for (const loader of orderedSources) {
+        assets = await loader();
+        if (assets.length > 0) break;
       }
 
       availableAssets = assets.filter(asset => asset.gltfPath);
 
       const options = availableAssets
         .map(asset => {
-          const label = `${asset.label} (${asset.layer})`;
-          return `<option value="${asset.id}">${label}</option>`;
+          const tag = asset.category ? ` (${asset.category})` : '';
+          return `<option value="${asset.id}">${asset.label}${tag}</option>`;
         })
         .join('');
 
@@ -601,15 +634,18 @@
       const resolvedPath = asset ? normalizeGltfPath(asset.gltfPath) : null;
 
       if (resolvedPath) {
-        loadModel(resolvedPath, asset.label);
+        currentAsset = asset;
+        loadModel(resolvedPath, asset.label, asset.attachmentPoints);
         return;
       }
 
       alert('No asset selected or asset is missing a model path.');
     });
 
-    function loadModel(url, name) {
+    function loadModel(url, name, initialAttachmentPoints = []) {
       const loader = new GLTFLoader();
+
+      clearAttachmentPoints();
       
       loader.load(url, (gltf) => {
         // Remove old model
@@ -633,6 +669,10 @@
         currentModel.position.sub(center.multiplyScalar(scale));
 
         scene.add(currentModel);
+
+        if (initialAttachmentPoints.length > 0) {
+          setAttachmentPoints(initialAttachmentPoints);
+        }
 
         // Update info
         document.getElementById('modelInfo').innerHTML = `
@@ -670,6 +710,30 @@
         }
       });
       return count;
+    }
+
+    function clearAttachmentPoints() {
+      attachmentPoints = [];
+      selectedPointIndex = -1;
+      document.getElementById('pointEditorCard').style.display = 'none';
+      updateMarkers();
+      updatePointsList();
+      updateJsonOutput();
+    }
+
+    function setAttachmentPoints(points) {
+      attachmentPoints = points.map(point => ({
+        id: point.id,
+        label: point.label || point.id,
+        offset: {
+          x: point.offset.x,
+          y: point.offset.y,
+          z: point.offset.z
+        }
+      }));
+      updateMarkers();
+      updatePointsList();
+      updateJsonOutput();
     }
 
     // Attachment point management
@@ -752,8 +816,9 @@
     }
 
     function updateJsonOutput() {
+      const key = currentAsset?.attachmentKey || editorConfig.defaults.attachmentKey;
       const output = {
-        extraConfig: {
+        [key]: {
           attachmentPoints: attachmentPoints
         }
       };
@@ -804,8 +869,9 @@
     });
 
     document.getElementById('exportJsonBtn').addEventListener('click', () => {
+      const key = currentAsset?.attachmentKey || editorConfig.defaults.attachmentKey;
       const output = {
-        extraConfig: {
+        [key]: {
           attachmentPoints: attachmentPoints
         }
       };

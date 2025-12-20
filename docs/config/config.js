@@ -18,6 +18,10 @@ window.CONFIG.mapObjectEditor = {
     maxDistance: 50,
     target: { x: 0, y: 0, z: 0 }
   },
+  controls: {
+    enableDamping: true,
+    dampingFactor: 0.05
+  },
   lighting: {
     ambient: { color: 0xffffff, intensity: 0.6 },
     directional: { color: 0xffffff, intensity: 0.8, position: { x: 5, y: 10, z: 5 } }
@@ -36,10 +40,12 @@ window.CONFIG.mapObjectEditor = {
     targetSize: 2
   },
   assets: {
+    preferConfigAssets: true,
     visualsIndexPath: 'config/maps/visualsmaps/index.json',
     assetIndexPath: 'config/assets/asset-index.json'
   },
   defaults: {
+    attachmentKey: 'extraConfig',
     addPointPosition: { x: 0, y: 1, z: 0 }
   }
 };
