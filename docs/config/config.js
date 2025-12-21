@@ -1122,6 +1122,7 @@ window.CONFIG = {
   debug: {
     freezeAngles: false,
     censusUpdateMs: 200,
+    censusUpdateMinMs: 16,
     tileNumbering: {
       enabled: true,
       fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
