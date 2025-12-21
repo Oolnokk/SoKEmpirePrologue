@@ -1,6 +1,5 @@
 {
   "areaId": "defaultdistrict3d",
-  "playableBounds": null,
   "visualsMap": "../visualsmaps/defaultdistrict3D_visualsmap.json",
   "scene3d": {
     "sceneUrl": "/assets/3D/tower_commercial3D.glb",
@@ -17,10 +16,17 @@
       "materials": "unlit"
     }
   },
+
   "ground": {
     "path": [
-      { "x": 0, "y": 0 },
-      { "x": 19, "y": 0 }
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 19,
+        "y": 0
+      }
     ],
     "pathUnits": "grid",
     "unitsPerPixel": 1
@@ -29,14 +35,14 @@
     {
       "id": "entrance_left",
       "type": "entrance",
-      "x": -1100,
+      "x": 1100,
       "y": 0,
       "meta": {}
     },
     {
       "id": "spawner_watchmen_1",
       "type": "spawner",
-      "x": 1300,
+      "x": 5700,
       "y": 0,
       "meta": {
         "prefab": "spawn_npc",
@@ -46,65 +52,53 @@
     {
       "id": "patrol_west_1",
       "type": "patrol",
-      "x": -480,
+      "x": 1480,
       "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 0,
         "description": "Western patrol area",
-        "scheduleHours": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        "scheduleHours": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ]
       }
     },
     {
       "id": "patrol_center",
       "type": "patrol",
-      "x": 100,
+      "x": 2800,
       "y": 0,
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 1,
         "description": "Central patrol area",
-        "scheduleHours": [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+        "scheduleHours": [
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
       }
-    },
-    {
-      "id":  "patrol_target_1",
-      "type":  "patrol",
-      "x":  1000,
-      "y": 0,
-      "meta": {
-        "routeId": "city_guard_patrol",
-        "sequence": 2,
-        "name": "patrol1"
-      }
-    },
-    {
-      "id": "patrol_target_2",
-      "type": "patrol",
-      "x": 100,
-      "y": 0,
-      "meta": {
-        "routeId": "city_guard_patrol",
-        "sequence": 3,
-        "name": "patrol2"
-      }
-    },
-    {
-      "id": "patrol_target_3",
-      "type":  "patrol",
-      "x":  -1000,
-      "y":  0,
-      "meta":  {
-        "routeId":  "city_guard_patrol",
-        "sequence": 4,
-        "name": "patrol3"
-      }
-    },
-    {
-      "id": "collider_ground",
-      "type": "collider",
-      "x": 250,
-      "y": 130
     }
-  ]
+  ],
+  "playableBounds": null
 }
