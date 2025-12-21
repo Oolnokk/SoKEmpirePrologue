@@ -434,13 +434,22 @@
     // View state - y offset is locked to show ground at bottom edge
     let viewOffsetX = 0;
     let viewZoom = 1.0;
+    const notifyVisualMapCamera = () => {
+      window.updateVisualMapCameraSync?.(viewOffsetX, viewZoom);
+    };
     const setViewOffsetX = (value) => {
       viewOffsetX = value;
       window.viewOffsetX = viewOffsetX;
-      window.updateVisualMapCameraPan?.(viewOffsetX);
+      notifyVisualMapCamera();
     };
     const bumpViewOffsetX = (delta) => setViewOffsetX(viewOffsetX + delta);
     window.viewOffsetX = viewOffsetX;
+    const setViewZoom = (value) => {
+      viewZoom = value;
+      window.viewZoom = viewZoom;
+      notifyVisualMapCamera();
+    };
+    window.viewZoom = viewZoom;
 
     function resolveGridUnit(source) {
       const layoutUnit = Number(source?.gridUnit);
@@ -1327,8 +1336,7 @@
       } else {
         // Vertical zoom
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        viewZoom *= delta;
-        viewZoom = Math.max(0.1, Math.min(5, viewZoom));
+        setViewZoom(Math.max(0.1, Math.min(5, viewZoom * delta)));
         redraw();
       }
     });
@@ -1397,8 +1405,7 @@
         // Pinch zoom
         const currentDist = getTouchDistance(e.touches);
         const scale = currentDist / touchStartDist;
-        viewZoom = touchStartZoom * scale;
-        viewZoom = Math.max(0.1, Math.min(5, viewZoom));
+        setViewZoom(Math.max(0.1, Math.min(5, touchStartZoom * scale)));
 
         // Pan horizontally while zooming (vertical locked)
         const center = getTouchCenter(e.touches);
@@ -1517,18 +1524,16 @@
         // Vertical scrolling is locked - arrow up/down removed
         case '+':
         case '=':
-          viewZoom *= 1.1;
-          viewZoom = Math.min(5, viewZoom);
+          setViewZoom(Math.min(5, viewZoom * 1.1));
           redraw();
           break;
         case '-':
-          viewZoom *= 0.9;
-          viewZoom = Math.max(0.1, viewZoom);
+          setViewZoom(Math.max(0.1, viewZoom * 0.9));
           redraw();
           break;
         case '0':
           setViewOffsetX(0); // Reset horizontal position only
-          viewZoom = 1.0;
+          setViewZoom(1.0);
           redraw();
           break;
         // Space key removed - allow natural page scrolling
@@ -1560,20 +1565,18 @@
     });
 
     document.getElementById('btnZoomIn').addEventListener('click', () => {
-      viewZoom *= 1.2;
-      viewZoom = Math.min(5, viewZoom);
+      setViewZoom(Math.min(5, viewZoom * 1.2));
       redraw();
     });
 
     document.getElementById('btnZoomOut').addEventListener('click', () => {
-      viewZoom *= 0.8;
-      viewZoom = Math.max(0.1, viewZoom);
+      setViewZoom(Math.max(0.1, viewZoom * 0.8));
       redraw();
     });
 
     document.getElementById('btnResetView').addEventListener('click', () => {
       setViewOffsetX(0);
-      viewZoom = 1.0;
+      setViewZoom(1.0);
       redraw();
     });
 
@@ -1930,10 +1933,12 @@
         : coerceFiniteNumber(defaults.offsetZ, 0);
       return { offsetY, offsetZ };
     };
-    const syncCameraPan = (panX) => {
+    const syncCameraPan = (panX, zoom) => {
       if (!camera || !baseCameraState) return;
       const panScale = coerceFiniteNumber(visualMapCamera.panXScale, 1);
-      const offset = Number.isFinite(panX) ? panX * panScale : 0;
+      const zoomScale = coerceFiniteNumber(visualMapCamera.panZoomScale, 1);
+      const zoomFactor = Number.isFinite(zoom) ? zoom : 1;
+      const offset = Number.isFinite(panX) ? panX * panScale * zoomScale * zoomFactor : 0;
       camera.position.x = baseCameraState.position.x + offset;
       camera.lookAt(
         baseCameraState.lookAt.x + offset,
@@ -1941,7 +1946,7 @@
         baseCameraState.lookAt.z
       );
     };
-    window.updateVisualMapCameraPan = syncCameraPan;
+    window.updateVisualMapCameraSync = syncCameraPan;
     
     const threeContainer = document.getElementById('threeViewport');
     const overlay = document.getElementById('threeOverlay');
@@ -2200,7 +2205,7 @@
         position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
         lookAt: { x: lookAtX, y: lookAtY, z: lookAtZ },
       };
-      syncCameraPan(window.viewOffsetX ?? 0);
+      syncCameraPan(window.viewOffsetX ?? 0, window.viewZoom ?? 1);
 
       // Render ground tiles
       const layers = ['ground', 'structure', 'decoration'];
