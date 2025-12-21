@@ -11,6 +11,7 @@ import {
   resolveDefaultLayoutId,
   resolvePreviewStoragePrefix,
 } from './map-config-defaults.js';
+import { SpawnService, translateAreaToSpawnPayload } from './spawn-service.js';
 
 type PrefabLoadError = { type?: string; error?: unknown };
 type PrefabLibrary = { prefabs: Map<string, unknown>; errors: PrefabLoadError[] };
@@ -160,6 +161,38 @@ function ensureGeometryService(): GeometryService {
   const service = new GeometryService({ logger: console });
   GAME.geometryService = service;
   return service;
+}
+
+function ensureSpawnService(): SpawnService {
+  const GAME = resolveGameContainer() as Record<string, unknown> & { spawnService?: SpawnService };
+  const existing = GAME.spawnService;
+  if (existing instanceof SpawnService) {
+    return existing;
+  }
+  const service = new SpawnService({ logger: console });
+  GAME.spawnService = service;
+  return service;
+}
+
+function registerAreaSpawns(area: MapArea): void {
+  if (!area) return;
+  const service = ensureSpawnService();
+  const basePayload = translateAreaToSpawnPayload(area);
+  const areaRecord = area as Record<string, unknown>;
+  const fallbackScene = (areaRecord.scene as Record<string, unknown> | undefined) || {};
+  const fallbackSpawnPoints = Array.isArray(areaRecord.spawnPoints)
+    ? (areaRecord.spawnPoints as unknown[])
+    : Array.isArray(fallbackScene.spawnPoints)
+      ? (fallbackScene.spawnPoints as unknown[])
+      : [];
+  const spawnPoints = basePayload.spawnPoints.length ? basePayload.spawnPoints : fallbackSpawnPoints;
+  const baseGroupLibrary = basePayload.groupLibrary;
+  const fallbackGroupLibrary = (areaRecord.groupLibrary || areaRecord.groups || fallbackScene.groupLibrary || fallbackScene.groups || {}) as Record<string, unknown>;
+  const groupLibrary = Object.keys(baseGroupLibrary || {}).length ? baseGroupLibrary : fallbackGroupLibrary;
+  const areaId = basePayload.areaId || area.id;
+  if (!areaId) return;
+  service.registerArea(areaId, spawnPoints, { groupLibrary });
+  service.setActiveArea(areaId);
 }
 
 function registerAreaGeometry(area: MapArea): void {
@@ -668,6 +701,7 @@ function applyArea(area: MapArea): void {
   window.GAME.mapRegistry = registry;
   window.GAME.currentAreaId = area.id;
   window.GAME.__onMapRegistryReadyForCamera?.(registry);
+  registerAreaSpawns(area);
 
   bindAreaNameOverlay(registry);
   bindGeometryService(registry);
