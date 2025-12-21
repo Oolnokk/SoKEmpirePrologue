@@ -207,13 +207,14 @@ export function initDebugPanel() {
 function resolveCensusUpdateMs() {
   const debugConfig = window.CONFIG?.debug || {};
   const raw = Number(debugConfig.censusUpdateMs);
-  const minMs = Number.isFinite(debugConfig.censusUpdateMinMs)
-    ? debugConfig.censusUpdateMinMs
-    : undefined;
-  if (Number.isFinite(raw)) {
-    return Number.isFinite(minMs) ? Math.max(minMs, raw) : raw;
+  const minMs = Number(debugConfig.censusUpdateMinMs);
+  if (!Number.isFinite(raw)) {
+    return undefined;
   }
-  return minMs;
+  if (Number.isFinite(minMs)) {
+    return Math.max(minMs, raw);
+  }
+  return raw;
 }
 
 // Throttle state for bottle census updates
@@ -236,7 +237,7 @@ function updateBottleCensus() {
   // Throttle updates to avoid DOM thrashing
   const now = Date.now();
   const throttleMs = resolveCensusUpdateMs();
-  if (now - lastBottleCensusUpdate < throttleMs) {
+  if (Number.isFinite(throttleMs) && now - lastBottleCensusUpdate < throttleMs) {
     return;
   }
   lastBottleCensusUpdate = now;
@@ -277,7 +278,7 @@ function updateEntityCensus() {
 
   const now = Date.now();
   const throttleMs = resolveCensusUpdateMs();
-  if (now - lastEntityCensusUpdate < throttleMs) {
+  if (Number.isFinite(throttleMs) && now - lastEntityCensusUpdate < throttleMs) {
     return;
   }
   lastEntityCensusUpdate = now;
