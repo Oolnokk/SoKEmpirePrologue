@@ -207,10 +207,13 @@ export function initDebugPanel() {
 function resolveCensusUpdateMs() {
   const debugConfig = window.CONFIG?.debug || {};
   const raw = Number(debugConfig.censusUpdateMs);
+  const minMs = Number.isFinite(debugConfig.censusUpdateMinMs)
+    ? debugConfig.censusUpdateMinMs
+    : undefined;
   if (Number.isFinite(raw)) {
-    return Math.max(16, raw);
+    return Number.isFinite(minMs) ? Math.max(minMs, raw) : raw;
   }
-  return 200;
+  return minMs;
 }
 
 // Throttle state for bottle census updates
