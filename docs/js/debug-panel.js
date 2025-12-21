@@ -204,9 +204,20 @@ export function initDebugPanel() {
   console.log('[debug-panel] Debug panel initialized');
 }
 
+function resolveCensusUpdateMs() {
+  const debugConfig = window.CONFIG?.debug || {};
+  const raw = Number(debugConfig.censusUpdateMs);
+  if (Number.isFinite(raw)) {
+    return Math.max(16, raw);
+  }
+  return 200;
+}
+
 // Throttle state for bottle census updates
 let lastBottleCensusUpdate = 0;
 let lastBottleCensusContent = '';
+let lastEntityCensusUpdate = 0;
+let lastEntityCensusContent = '';
 
 /**
  * Update the bottle census display showing status of all spawned bottles.
@@ -216,12 +227,13 @@ let lastBottleCensusContent = '';
  * Throttled to update every 100ms to avoid DOM thrashing.
  */
 function updateBottleCensus() {
-  const censusContent = $$('#bottleCensusContent');
+ const censusContent = $$('#bottleCensusContent');
   if (!censusContent) return;
 
-  // Throttle updates to every 100ms
+  // Throttle updates to avoid DOM thrashing
   const now = Date.now();
-  if (now - lastBottleCensusUpdate < 100) {
+  const throttleMs = resolveCensusUpdateMs();
+  if (now - lastBottleCensusUpdate < throttleMs) {
     return;
   }
   lastBottleCensusUpdate = now;
@@ -252,6 +264,57 @@ function updateBottleCensus() {
   }
 }
 
+/**
+ * Update the entity census display showing runtime entity counts.
+ * Summarizes fighters, NPCs, spawners, and map instances.
+ */
+function updateEntityCensus() {
+  const censusContent = $$('#entityCensusContent');
+  if (!censusContent) return;
+
+  const now = Date.now();
+  const throttleMs = resolveCensusUpdateMs();
+  if (now - lastEntityCensusUpdate < throttleMs) {
+    return;
+  }
+  lastEntityCensusUpdate = now;
+
+  const G = window.GAME || {};
+  const registry = G.mapRegistry || window.__MAP_REGISTRY__;
+  const activeArea = registry?.getActiveArea?.() || null;
+  const areaId = activeArea?.id || G.currentAreaId || null;
+  const spawnService = G.spawnService || null;
+  const totalSpawners = spawnService?.getSpawners && areaId
+    ? spawnService.getSpawners(areaId).length
+    : 0;
+  const npcSpawners = spawnService?.getSpawners && areaId
+    ? spawnService.getSpawners(areaId, { type: 'npc' }).length
+    : 0;
+  const instances = Array.isArray(activeArea?.instances) ? activeArea.instances.length : 0;
+  const pathTargets = Array.isArray(activeArea?.pathTargets) ? activeArea.pathTargets.length : 0;
+  const dynamicInstances = Array.isArray(G.dynamicInstances) ? G.dynamicInstances.length : 0;
+
+  const fighters = G.FIGHTERS || {};
+  const fighterList = Object.values(fighters).filter(Boolean);
+  const totalFighters = fighterList.length;
+  const npcFighters = fighterList.filter((fighter) => fighter?.id !== 'player' && !fighter?.isPlayer);
+  const aliveNpcs = npcFighters.filter((fighter) => !fighter?.isDead).length;
+
+  const lines = [
+    `Area: ${areaId || 'none'}`,
+    `Spawners: ${totalSpawners} (NPC ${npcSpawners})`,
+    `Instances: ${instances} | Path Targets: ${pathTargets}`,
+    `Fighters: ${totalFighters} | NPCs alive: ${aliveNpcs}`,
+    `Dynamic Instances: ${dynamicInstances}`,
+  ];
+  const newContent = lines.join('<br>');
+
+  if (newContent !== lastEntityCensusContent) {
+    censusContent.innerHTML = newContent;
+    lastEntityCensusContent = newContent;
+  }
+}
+
 // Update the debug panel with current frame data
 export function updateDebugPanel() {
   const panel = $$('#debugPanel');
@@ -262,6 +325,7 @@ export function updateDebugPanel() {
 
   // Update bottle census
   updateBottleCensus();
+  updateEntityCensus();
   
   if (!G.FIGHTERS || !G.ANCHORS_OBJ) return;
 
@@ -716,4 +780,3 @@ async function dropBottleOnPlayer() {
     console.error('[debug-panel] Failed to drop bottle:', error);
   }
 }
-

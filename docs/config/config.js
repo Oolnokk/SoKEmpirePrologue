@@ -1121,6 +1121,7 @@ window.CONFIG = {
   // Debug options are surfaced in the debug panel; freezeAngles lets animators hold joints for edits
   debug: {
     freezeAngles: false,
+    censusUpdateMs: 200,
     tileNumbering: {
       enabled: true,
       fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
