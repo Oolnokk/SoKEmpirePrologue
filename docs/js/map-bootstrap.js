@@ -1,6 +1,7 @@
 import { GeometryService, MapRegistry, adaptLegacyLayoutGeometry, adaptSceneGeometry, convertLayoutToArea, } from './vendor/map-runtime.js';
 import { computeGroundY } from './ground-utils.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
+import { SpawnService, translateAreaToSpawnPayload } from './spawn-service.js';
 const FALLBACK_LAYOUT_PATH = '../config/maps/gameplaymaps/defaultdistrict3d_gameplaymap.json';
 const FALLBACK_AREA_ID = 'defaultdistrict3d';
 const FALLBACK_AREA_NAME = 'DefaultDistrict3D';
@@ -115,6 +116,38 @@ function ensureGeometryService() {
     const service = new GeometryService({ logger: console });
     GAME.geometryService = service;
     return service;
+}
+function ensureSpawnService() {
+    const GAME = resolveGameContainer();
+    const existing = GAME.spawnService;
+    if (existing instanceof SpawnService) {
+        return existing;
+    }
+    const service = new SpawnService({ logger: console });
+    GAME.spawnService = service;
+    return service;
+}
+function registerAreaSpawns(area) {
+    if (!area)
+        return;
+    const service = ensureSpawnService();
+    const basePayload = translateAreaToSpawnPayload(area);
+    const areaRecord = area;
+    const fallbackScene = areaRecord.scene || {};
+    const fallbackSpawnPoints = Array.isArray(areaRecord.spawnPoints)
+        ? areaRecord.spawnPoints
+        : Array.isArray(fallbackScene.spawnPoints)
+            ? fallbackScene.spawnPoints
+            : [];
+    const spawnPoints = basePayload.spawnPoints.length ? basePayload.spawnPoints : fallbackSpawnPoints;
+    const baseGroupLibrary = basePayload.groupLibrary;
+    const fallbackGroupLibrary = areaRecord.groupLibrary || areaRecord.groups || fallbackScene.groupLibrary || fallbackScene.groups || {};
+    const groupLibrary = Object.keys(baseGroupLibrary || {}).length ? baseGroupLibrary : fallbackGroupLibrary;
+    const areaId = basePayload.areaId || area.id;
+    if (!areaId)
+        return;
+    service.registerArea(areaId, spawnPoints, { groupLibrary });
+    service.setActiveArea(areaId);
 }
 function registerAreaGeometry(area) {
     if (!area)
@@ -573,6 +606,7 @@ function applyArea(area) {
     window.GAME.mapRegistry = registry;
     window.GAME.currentAreaId = area.id;
     window.GAME.__onMapRegistryReadyForCamera?.(registry);
+    registerAreaSpawns(area);
     bindAreaNameOverlay(registry);
     bindGeometryService(registry);
     bindPlayableBoundsSync(registry);
