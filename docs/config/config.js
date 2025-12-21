@@ -1010,8 +1010,86 @@ window.CONFIG = {
   },
   mapEditor: {
     tileSize: 300,
-    visualCellSize: 2,
-    visualGroundPlaneSize: 200,
+    threeModuleUrls: [
+      './vendor/three/three.module.js',
+      'https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js',
+    ],
+    visualMap: {
+      cellSizeFallback: 2,
+      scene: {
+        background: 0x0f172a,
+      },
+      camera: {
+        fov: 45,
+        near: 0.1,
+        far: 500,
+        panXScale: 1,
+        panZoomScale: 1,
+        alignToPath: {
+          heightTiles: 0.8,
+          distanceTiles: 1.2,
+        },
+        topDown: {
+          distanceTiles: 0.3,
+          heightMultiplier: 1.5,
+        },
+        lookAt: {
+          offsetY: 0.3,
+          offsetZ: 0,
+        },
+      },
+      lighting: {
+        hemisphere: {
+          skyColor: 0xffffff,
+          groundColor: 0x0b1120,
+          intensity: 0.6,
+        },
+        directional: {
+          color: 0xffffff,
+          intensity: 0.8,
+          position: { x: 25, y: 40, z: 15 },
+          shadow: {
+            mapSize: 1024,
+            near: 5,
+            far: 150,
+            left: -50,
+            right: 50,
+            top: 50,
+            bottom: -50,
+            radius: 4,
+          },
+        },
+      },
+      groundPlane: {
+        size: 200,
+        sizeMultiplier: 1.1,
+        color: 0x1e293b,
+        roughness: 0.9,
+        metalness: 0.1,
+      },
+      layers: {
+        ground: {
+          color: 0x4b5563,
+          roughness: 0.7,
+          metalness: 0.2,
+          heightScale: 0.2,
+        },
+        structure: {
+          color: 0x3b82f6,
+          roughness: 0.7,
+          metalness: 0.2,
+          heightScale: 2,
+        },
+        decoration: {
+          color: 0xf97316,
+          roughness: 0.7,
+          metalness: 0.2,
+          heightScale: 0.2,
+        },
+        footprintScale: 0.9,
+        yOffset: 0.1,
+      },
+    },
     canvas: { height: 460 },
     ground: {
       offset: 140,
