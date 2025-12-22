@@ -223,6 +223,43 @@ let lastBottleCensusContent = '';
 let lastEntityCensusUpdate = 0;
 let lastEntityCensusContent = '';
 
+function resolveNpcSpawnerList({ spawnService, areaId, activeArea } = {}) {
+  if (spawnService?.getSpawners && areaId) {
+    const spawners = spawnService.getSpawners(areaId, { type: 'npc' });
+    return Array.isArray(spawners) ? spawners : [];
+  }
+  const areaSpawners = Array.isArray(activeArea?.spawners) ? activeArea.spawners : [];
+  return areaSpawners.filter((spawner) => {
+    const resolvedType = (spawner?.type || spawner?.kind || 'npc').toString().toLowerCase();
+    return resolvedType === 'npc';
+  });
+}
+
+function resolveSpawnerGroupMembers(spawner) {
+  const groupMeta = spawner?.groupMeta || spawner?.group || spawner?.meta?.group || null;
+  return Array.isArray(groupMeta?.members) ? groupMeta.members : [];
+}
+
+function countIntendedNpcSpawns(spawners = []) {
+  return spawners.reduce((total, spawner) => {
+    const members = resolveSpawnerGroupMembers(spawner);
+    if (members.length) {
+      const memberTotal = members.reduce((sum, member) => {
+        const countRaw = Number(member?.count);
+        const count = Number.isFinite(countRaw) ? Math.max(1, Math.round(countRaw)) : 1;
+        return sum + count;
+      }, 0);
+      return total + memberTotal;
+    }
+
+    const countRaw = Number(
+      spawner?.count ?? spawner?.maxCount ?? spawner?.max ?? spawner?.quantity ?? spawner?.spawn?.count ?? spawner?.meta?.spawnCount,
+    );
+    const count = Number.isFinite(countRaw) ? Math.max(1, Math.round(countRaw)) : 1;
+    return total + count;
+  }, 0);
+}
+
 /**
  * Update the bottle census display showing status of all spawned bottles.
  * Displays position, velocity, and ground state for debugging physics.
@@ -288,12 +325,16 @@ function updateEntityCensus() {
   const activeArea = registry?.getActiveArea?.() || null;
   const areaId = activeArea?.id || G.currentAreaId || null;
   const spawnService = G.spawnService || null;
+  const gameplayNpcSpawners = resolveNpcSpawnerList({ spawnService, areaId, activeArea });
   const totalSpawners = spawnService?.getSpawners && areaId
     ? spawnService.getSpawners(areaId).length
     : 0;
-  const npcSpawners = spawnService?.getSpawners && areaId
-    ? spawnService.getSpawners(areaId, { type: 'npc' }).length
-    : 0;
+  const intendedNpcSpawners = gameplayNpcSpawners.length;
+  const intendedNpcCount = countIntendedNpcSpawns(gameplayNpcSpawners);
+  const runtimeNpcSpawners = Array.isArray(G.npcSpawnerRuntime?.spawners)
+    ? G.npcSpawnerRuntime.spawners
+    : [];
+  const actualNpcSpawners = runtimeNpcSpawners.length;
   const instances = Array.isArray(activeArea?.instances) ? activeArea.instances.length : 0;
   const pathTargets = Array.isArray(activeArea?.pathTargets) ? activeArea.pathTargets.length : 0;
   const dynamicInstances = Array.isArray(G.dynamicInstances) ? G.dynamicInstances.length : 0;
@@ -306,9 +347,9 @@ function updateEntityCensus() {
 
   const lines = [
     `Area: ${areaId || 'none'}`,
-    `Spawners: ${totalSpawners} (NPC ${npcSpawners})`,
+    `Spawners: ${totalSpawners} (NPC ${actualNpcSpawners}/${intendedNpcSpawners})`,
     `Instances: ${instances} | Path Targets: ${pathTargets}`,
-    `Fighters: ${totalFighters} | NPCs alive: ${aliveNpcs}`,
+    `Fighters: ${totalFighters} | NPCs alive: ${aliveNpcs}/${intendedNpcCount}`,
     `Dynamic Instances: ${dynamicInstances}`,
   ];
   const newContent = lines.join('<br>');
