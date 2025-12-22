@@ -128,7 +128,7 @@ A regular refresh (F5) will likely show cached data. The hard refresh clears bot
 
 ### Development Mode (Automatic Cache Bypass)
 
-If you're running on `localhost` or via `file://` protocol, the editors automatically disable caching and always fetch the latest `index.json`. You only need a regular refresh (F5) in development mode.
+If you're running on `localhost`, `127.0.0.1`, or via `file://` protocol, the editors automatically disable caching and always fetch the latest `index.json`. You only need a regular refresh (F5) in development mode.
 
 In production/deployment environments, caching is enabled for performance, so a hard refresh is required.
 

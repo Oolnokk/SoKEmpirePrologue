@@ -5,7 +5,7 @@
 When editing the visual asset configuration file at `docs/config/maps/visualsmaps/index.json`, your changes may not appear immediately due to browser caching. Here's how to see your changes:
 
 ### Development Mode (Automatic)
-If you're running on `localhost` or via `file://` protocol, cache-busting is **automatic**. Simply refresh the page (F5) to see your changes.
+If you're running on `localhost`, `127.0.0.1`, or via `file://` protocol, cache-busting is **automatic**. Simply refresh the page (F5) to see your changes.
 
 ### Production/Deployment Mode
 For deployed sites or other domains, perform a **hard refresh**:
