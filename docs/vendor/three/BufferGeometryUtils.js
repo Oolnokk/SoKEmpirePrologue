@@ -6,7 +6,7 @@
  * 
  * For modern ES6 imports, use BufferGeometryUtils.module.js directly.
  * 
- * TODO: This is a wrapper around a stub file. See BufferGeometryUtils.module.js for replacement instructions.
+ * Wrapper around BufferGeometryUtils.module.js for classic/global usage.
  */
 
 // Check if THREE is available globally

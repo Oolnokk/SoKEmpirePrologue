@@ -34,14 +34,12 @@ Three.js v0.160.0 is included in `docs/vendor/three/` for offline use:
 - `three.module.js` - ES module build (**working** ✓)
 - `GLTFLoader.js` - Classic globals wrapper (**working** ✓)
 - `GLTFLoader.module.js` - ES module build (**working** ✓)
-- `BufferGeometryUtils.js` - UMD wrapper (**stub** ⚠)
-- `BufferGeometryUtils.module.js` - ES module (**stub** ⚠)
+- `BufferGeometryUtils.js` - UMD wrapper (**working** ✓)
+- `BufferGeometryUtils.module.js` - ES module (**working** ✓)
 
 ### BufferGeometryUtils Status
 
-**IMPORTANT:** The BufferGeometryUtils files are currently STUB implementations due to firewall restrictions during automated setup. They provide minimal functionality to prevent import errors, but should be replaced with the actual Three.js v0.160.0 files for full GLTF model support.
-
-See `docs/vendor/three/README.md` for instructions on replacing the stub files with the actual implementations. The stubs log clear warnings when used, making it easy to identify when replacement is needed.
+The BufferGeometryUtils files are installed from Three.js v0.160.0 and ready for use. See `docs/vendor/three/README.md` for replacement steps if you upgrade Three.js or need to reinstall the vendor files.
 
 ### Testing Offline Integration
 
