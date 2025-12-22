@@ -1240,6 +1240,14 @@ function normalizeSpawnerRecord(raw, warnings = [], context = {}) {
     warnings.push(`Ignored ${source} without spawnerId`);
     return null;
   }
+  const rawType = typeof safe.type === 'string'
+    ? safe.type
+    : typeof safe.kind === 'string'
+      ? safe.kind
+      : null;
+  const normalizedType = rawType && rawType.trim().toLowerCase() === 'spawner'
+    ? 'npc'
+    : rawType;
 
   const spawnRadius = clampNonNegativeNumber(
     safe.spawnRadius ?? safe.radius ?? safe.spawn?.radius ?? safe.meta?.spawnRadius,
@@ -1281,7 +1289,7 @@ function normalizeSpawnerRecord(raw, warnings = [], context = {}) {
     ...safe,
     spawnerId,
     id: spawnerId,
-    type: safe.type || safe.kind || 'npc',
+    type: normalizedType || 'npc',
     position,
     spawnRadius,
     count,
