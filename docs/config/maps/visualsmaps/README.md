@@ -10,7 +10,7 @@ This directory contains visual map configuration files for the 3D map editors an
 
 **Important:** This file is cached for performance. After editing, you need to:
 
-1. **Development Mode** (localhost or file://): Regular refresh (F5) works
+1. **Development Mode** (localhost, 127.0.0.1, or file://): Regular refresh (F5) works
 2. **Production Mode**: Hard refresh required:
    - Windows/Linux: `Ctrl + Shift + R` or `Ctrl + F5`
    - macOS: `Cmd + Shift + R`
