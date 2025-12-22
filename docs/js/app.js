@@ -5009,6 +5009,70 @@ function installPreviewSandboxRegistryBridge() {
 
 installPreviewSandboxRegistryBridge();
 
+function installScene3dRegistryBridge(onAttach) {
+  const GAME = (window.GAME = window.GAME || {});
+  const attach = (registry) => {
+    if (typeof onAttach === 'function') {
+      onAttach(registry);
+    }
+  };
+
+  let registryValue = GAME.mapRegistry || null;
+  if (registryValue) {
+    attach(registryValue);
+  }
+
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(GAME, 'mapRegistry');
+    if (descriptor && descriptor.configurable === false) {
+      throw new Error();
+    }
+
+    if (descriptor && (descriptor.get || descriptor.set)) {
+      Object.defineProperty(GAME, 'mapRegistry', {
+        configurable: true,
+        enumerable: true,
+        get() {
+          return typeof descriptor.get === 'function' ? descriptor.get() : registryValue;
+        },
+        set(value) {
+          if (typeof descriptor.set === 'function') {
+            descriptor.set(value);
+          } else {
+            registryValue = value;
+          }
+          if (value) {
+            attach(value);
+          }
+        },
+      });
+      return;
+    }
+
+    Object.defineProperty(GAME, 'mapRegistry', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return registryValue;
+      },
+      set(value) {
+        registryValue = value;
+        if (value) {
+          attach(value);
+        }
+      },
+    });
+  } catch (_err) {
+    const existing = GAME.__onMapRegistryReadyForCamera;
+    GAME.__onMapRegistryReadyForCamera = (registry) => {
+      attach(registry);
+      if (typeof existing === 'function' && existing !== GAME.__onMapRegistryReadyForCamera) {
+        existing(registry);
+      }
+    };
+  }
+}
+
 function drawEditorPreviewMap(cx, { camX, groundY, worldWidth }) {
   const area = resolveActiveParallaxArea();
   if (!area) return;
@@ -6971,77 +7035,75 @@ function boot(){
         };
         window.addEventListener('resize', THREE_BG_RESIZE_HANDLER);
 
-        // Hook into MapRegistry to load scene3d when active area changes
-        const registry = window.GAME?.mapRegistry;
-        if (registry && typeof registry.on === 'function') {
-          registry.on('active-area-changed', async (area) => {
-            try {
-              // Dispose previous adapters if exist
-              if (GAME_RENDER_ADAPTER && typeof GAME_RENDER_ADAPTER.dispose === 'function') {
-                GAME_RENDER_ADAPTER.dispose();
-                GAME_RENDER_ADAPTER = null;
-              }
-              if (GAME_VISUALSMAP_ADAPTER && typeof GAME_VISUALSMAP_ADAPTER.dispose === 'function') {
-                GAME_VISUALSMAP_ADAPTER.dispose();
-                GAME_VISUALSMAP_ADAPTER = null;
-              }
+        const handleScene3dAreaChange = async (area) => {
+          try {
+            // Dispose previous adapters if exist
+            if (GAME_RENDER_ADAPTER && typeof GAME_RENDER_ADAPTER.dispose === 'function') {
+              GAME_RENDER_ADAPTER.dispose();
+              GAME_RENDER_ADAPTER = null;
+            }
+            if (GAME_VISUALSMAP_ADAPTER && typeof GAME_VISUALSMAP_ADAPTER.dispose === 'function') {
+              GAME_VISUALSMAP_ADAPTER.dispose();
+              GAME_VISUALSMAP_ADAPTER = null;
+            }
 
-              // Load visualsmap if available (preferred)
-              if (area && area.visualsMap) {
-                try {
-                  console.log('[app] Loading visualsmap for area:', area.id, area.visualsMap);
-                  const visualsmapLoader = await getVisualsmapLoader();
-                  const gameplayMapUrl = area.source || ''; // URL of the gameplaymap.json
-                  GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, area, gameplayMapUrl);
-                  window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
-                  if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
-                    console.log('[app] Visualsmap loaded successfully:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
-                    lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
-
-                    // Auto-size 2D world to match 3D gameplay path (procedural sizing)
-                    autoSizeWorldToGameplayPath(GAME_VISUALSMAP_ADAPTER, area);
-
-                    // Initialize coordinate transformation for tight 2D-3D coupling
-                    initTransformConfig({
-                      camera2d: window.GAME?.CAMERA,
-                      scene3d: area.scene3d,
-                      worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
-                    });
-                  } else {
-                    console.warn('[app] Visualsmap loaded but no objects found');
-                    lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
-                  }
-                } catch (error) {
-                  console.error('[app] Error loading visualsmap:', error);
-                  lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
-                }
-              }
-              // Fallback: Load single scene3d.sceneUrl if available and no visualsMap
-              else if (area && area.scene3d && area.scene3d.sceneUrl && typeof adaptScene3dToRenderer === 'function') {
-                console.log('[app] Loading 3D scene for area:', area.id, area.scene3d.sceneUrl);
-                GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, area.scene3d);
-                window.GAME.renderAdapter = GAME_RENDER_ADAPTER; // Expose for debugging
-                if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
-                  console.log('[app] 3D scene loaded successfully');
+            // Load visualsmap if available (preferred)
+            if (area && area.visualsMap) {
+              try {
+                console.log('[app] Loading visualsmap for area:', area.id, area.visualsMap);
+                const visualsmapLoader = await getVisualsmapLoader();
+                const gameplayMapUrl = area.source || ''; // URL of the gameplaymap.json
+                GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, area, gameplayMapUrl);
+                window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
+                if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
+                  console.log('[app] Visualsmap loaded successfully:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
                   lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
+
+                  // Auto-size 2D world to match 3D gameplay path (procedural sizing)
+                  autoSizeWorldToGameplayPath(GAME_VISUALSMAP_ADAPTER, area);
 
                   // Initialize coordinate transformation for tight 2D-3D coupling
                   initTransformConfig({
                     camera2d: window.GAME?.CAMERA,
                     scene3d: area.scene3d,
-                    worldRotation: 0
+                    worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
                   });
                 } else {
-                  console.warn('[app] Failed to load 3D scene:', GAME_RENDER_ADAPTER?.error);
-                  lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
+                  console.warn('[app] Visualsmap loaded but no objects found');
+                  lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
                 }
+              } catch (error) {
+                console.error('[app] Error loading visualsmap:', error);
+                lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
               }
-            } catch (error) {
-              console.error('[app] Error loading 3D scene:', error);
-              lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
             }
-          });
+            // Fallback: Load single scene3d.sceneUrl if available and no visualsMap
+            else if (area && area.scene3d && area.scene3d.sceneUrl && typeof adaptScene3dToRenderer === 'function') {
+              console.log('[app] Loading 3D scene for area:', area.id, area.scene3d.sceneUrl);
+              GAME_RENDER_ADAPTER = await adaptScene3dToRenderer(GAME_RENDERER_3D, area.scene3d);
+              window.GAME.renderAdapter = GAME_RENDER_ADAPTER; // Expose for debugging
+              if (GAME_RENDER_ADAPTER && !GAME_RENDER_ADAPTER.error) {
+                console.log('[app] 3D scene loaded successfully');
+                lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
 
+                // Initialize coordinate transformation for tight 2D-3D coupling
+                initTransformConfig({
+                  camera2d: window.GAME?.CAMERA,
+                  scene3d: area.scene3d,
+                  worldRotation: 0
+                });
+              } else {
+                console.warn('[app] Failed to load 3D scene:', GAME_RENDER_ADAPTER?.error);
+                lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
+              }
+            }
+          } catch (error) {
+            console.error('[app] Error loading 3D scene:', error);
+            lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
+          }
+        };
+
+        const loadInitialScene3dArea = async (registry) => {
           // Try to load initial area
           try {
             const activeArea = typeof registry.getActiveArea === 'function'
@@ -7103,7 +7165,23 @@ function boot(){
             console.warn('[app] Failed to load initial 3D scene:', error);
             lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
           }
-        }
+        };
+
+        // Hook into MapRegistry to load scene3d when active area changes
+        let scene3dRegistry = null;
+        const attachScene3dRegistry = (registry) => {
+          if (!registry || typeof registry.on !== 'function') {
+            return;
+          }
+          if (scene3dRegistry === registry) {
+            return;
+          }
+          scene3dRegistry = registry;
+          registry.on('active-area-changed', handleScene3dAreaChange);
+          loadInitialScene3dArea(registry);
+        };
+
+        installScene3dRegistryBridge(attachScene3dRegistry);
 
         // Expose for debugging
         window.GAME.renderer3d = GAME_RENDERER_3D;
