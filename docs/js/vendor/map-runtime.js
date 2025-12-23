@@ -1369,9 +1369,35 @@ function normalizeAreaDescriptor(area, options = {}) {
       warnings,
     }))
     .filter(Boolean);
+  const rawEntities = Array.isArray(area.entities) ? area.entities : [];
+  const entitySpawnerEntries = rawEntities.filter((entity) => {
+    if (!entity || typeof entity !== 'object') return false;
+    if (typeof entity.type !== 'string') return false;
+    return entity.type.trim().toLowerCase() === 'spawner';
+  });
+  if (Array.isArray(area.entities) && entitySpawnerEntries.length === 0) {
+    warnings.push('area.entities present but no spawner entities were found');
+  }
+  const entitySpawners = normalizeSpawnerList(
+    entitySpawnerEntries.map((entity) => {
+      const meta = entity.meta && typeof entity.meta === 'object' ? entity.meta : {};
+      const templateId = pickNonEmptyString(entity.templateId ?? meta.prefab ?? meta.templateId);
+      return {
+        ...entity,
+        spawnerId: entity.id ?? entity.spawnerId,
+        position: {
+          x: toNumber(entity.x, 0),
+          y: toNumber(entity.y, 0),
+        },
+        templateId,
+      };
+    }),
+    warnings,
+    { source: 'area.entities' },
+  );
   const explicitSpawners = normalizeSpawnerList(area.spawners, warnings, { source: 'area' });
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
-  const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners);
+  const spawners = mergeSpawnerLists([...explicitSpawners, ...entitySpawners], derivedSpawners);
   const explicitPathTargets = normalizePathTargetList(area.pathTargets, warnings, { source: 'area' });
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
   const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets);
