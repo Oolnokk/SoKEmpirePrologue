@@ -1506,6 +1506,11 @@ window.CONFIG = {
       minVelocity: 45,
       minProgress: 4,
       minDistance: 18
+    },
+    schedule: {
+      // POI names to use when NPCs are off-duty (only used if their main schedule has no matches).
+      // Example: ['idle', 'barracks']
+      offDutyInterests: []
     }
   },
 

@@ -40,7 +40,9 @@ The day/night lighting system provides:
 
 ### Basic Control
 
-The day/night system is automatically initialized and made available globally when a map is loaded:
+The day/night system is automatically initialized and made available globally when a map is loaded. The game now runs
+through a single shared **game time** value (see below), so prefer using the shared time helpers instead of directly
+mutating the lighting system.
 
 ```javascript
 // Toggle between day and night
@@ -52,7 +54,24 @@ window.dayNightSystem.setTimeOfDay(false); // Day
 
 // Immediate change (no transition)
 window.dayNightSystem.setTimeOfDay(true, true);
+
+// Preferred: update shared game time (updates background + lighting together)
+window.setGameTime24h(18.5);
 ```
+
+### Unified Game Time Flow
+
+The canonical game time lives in `docs/js/app.js` and is shared across:
+
+- Background skies (`background.sky.time24h` via `setBackgroundTime24h`)
+- UI clock (`docs/js/render.js`)
+- NPC schedules (`docs/js/npc.js`)
+- Lighting (`window.dayNightSystem.setTimeOfDayHours`)
+
+`loop()` advances time every frame by `dt * CONFIG.time.timeScale` (hours per second) unless
+`CONFIG.time.paused` is set. The updated value is persisted to the active area background and mirrored into the
+day/night lighting system automatically. Manual changes (e.g., via the debug slider) should call `window.setGameTime24h`
+so all systems remain in sync.
 
 ### Configuration
 
@@ -183,7 +202,7 @@ dayNightSystem.unregisterEmissiveObject(myObject);
 
 ## Animation Loop Integration
 
-The system automatically updates every frame via the renderer's frame event:
+The lighting system updates every frame via the renderer's frame event:
 
 ```javascript
 renderer.on('frame', ({ time }) => {
