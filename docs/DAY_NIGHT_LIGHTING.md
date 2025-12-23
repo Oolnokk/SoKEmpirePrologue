@@ -69,9 +69,10 @@ The canonical game time lives in `docs/js/app.js` and is shared across:
 - Lighting (`window.dayNightSystem.setTimeOfDayHours`)
 
 `loop()` advances time every frame by `dt * CONFIG.time.timeScale` (hours per second) unless
-`CONFIG.time.paused` is set. The updated value is persisted to the active area background and mirrored into the
-day/night lighting system automatically. Manual changes (e.g., via the debug slider) should call `window.setGameTime24h`
-so all systems remain in sync.
+`CONFIG.time.paused` is set. The updated value is persisted to a runtime background store keyed by the active area
+(MapRegistry areas are frozen, so runtime state is stored separately) and mirrored into the day/night lighting system
+automatically. Manual changes (e.g., via the debug slider) should call `window.setGameTime24h` so all systems remain in
+sync.
 
 ### Configuration
 
