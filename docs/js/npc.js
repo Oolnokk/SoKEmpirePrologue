@@ -15,6 +15,7 @@ import {
 import { resolveSharedGroundY } from './ground-utils.js?v=1';
 import { resolveStancePose, convertAimToHeadRad } from './animator.js?v=5';
 import { getAttackDefFromConfig, calculateMinChargeTime } from './config-utils.js?v=1';
+import { getCurrentGameHour, isScheduleActive } from './schedule-utils.js?v=1';
 import {
   isPointInsidePoi,
   getRandomGroundPointInPoi,
@@ -135,12 +136,6 @@ function resolveNpcPathTarget(state, area) {
   };
 }
 
-function getCurrentGameHour(area) {
-  const time24h = area?.background?.sky?.time24h;
-  if (!Number.isFinite(time24h)) return 12;
-  return Math.floor(time24h) % 24;
-}
-
 function selectNpcTargetPoi(state, area) {
   if (!state || !area) return null;
 
@@ -155,13 +150,7 @@ function selectNpcTargetPoi(state, area) {
 
   const currentHour = getCurrentGameHour(area);
 
-  const scheduledPois = matchingPois.filter(poi => {
-    const scheduleHours = poi.meta?.scheduleHours;
-    if (!Array.isArray(scheduleHours) || scheduleHours.length === 0) {
-      return true;
-    }
-    return scheduleHours.includes(currentHour);
-  });
+  const scheduledPois = matchingPois.filter(poi => isScheduleActive(poi?.meta, currentHour));
 
   const candidatePois = scheduledPois.length > 0 ? scheduledPois : matchingPois;
 
@@ -189,12 +178,9 @@ function updateNpcNavigateMode(state, dt, area) {
 
   const lastHour = ooc.lastScheduleHour;
   if (Number.isFinite(lastHour) && lastHour !== currentHour) {
-    const scheduleHours = currentPoi?.meta?.scheduleHours;
-    if (Array.isArray(scheduleHours) && scheduleHours.length > 0) {
-      if (!scheduleHours.includes(currentHour)) {
-        ooc.currentPoi = null;
-        ooc.targetPoint = null;
-      }
+    if (!isScheduleActive(currentPoi?.meta, currentHour)) {
+      ooc.currentPoi = null;
+      ooc.targetPoint = null;
     }
   }
   ooc.lastScheduleHour = currentHour;

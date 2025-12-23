@@ -4,6 +4,7 @@ import { pickFighterName } from './fighter-utils.js?v=1';
 import { getStatProfile } from './stat-hooks.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
 import { triggerFullRagdoll } from './physics.js?v=2';
+import { getCurrentGameHour, isScheduleActive } from './schedule-utils.js?v=1';
 
 import { instantiateCharacterTemplate } from './character-templates.js?v=1';
 
@@ -471,6 +472,7 @@ export function initFighters(cv, cx, options = {}){
         ? spawner.position
         : { x: spawner.x ?? 0, y: spawner.y ?? 0 };
       const spawnRadius = Math.max(0, Math.min(Number(spawner.spawnRadius ?? spawner.radius ?? 0) || 0, 5000));
+      const scheduleMeta = spawner.meta && typeof spawner.meta === 'object' ? spawner.meta : null;
 
       const groupId = spawner.groupId || spawner.groupMeta?.id || null;
       const groupMeta = spawner.groupMeta
@@ -491,6 +493,7 @@ export function initFighters(cv, cx, options = {}){
               characterId: memberTemplateId,
               groupId: groupId,
               groupMeta,
+              scheduleMeta,
               activeIds: new Set(),
               hasInitialized: false,
             });
@@ -509,6 +512,7 @@ export function initFighters(cv, cx, options = {}){
           characterId: spawner.characterId || null,
           groupId: groupId,
           groupMeta,
+          scheduleMeta,
           activeIds: new Set(),
           hasInitialized: false,
         });
@@ -583,6 +587,7 @@ export function initFighters(cv, cx, options = {}){
 
     const cleanupAndRespawn = () => {
       const fighters = G.FIGHTERS || {};
+      const currentHour = getCurrentGameHour(area);
       for (const entry of runtime.spawners) {
         for (const id of Array.from(entry.activeIds)) {
           const fighter = fighters[id];
@@ -593,8 +598,9 @@ export function initFighters(cv, cx, options = {}){
             }
           }
         }
-        const shouldInitialFill = !entry.hasInitialized;
-        const shouldRespawn = entry.respawn && entry.hasInitialized;
+        const scheduleActive = isScheduleActive(entry.scheduleMeta, currentHour);
+        const shouldInitialFill = scheduleActive && !entry.hasInitialized;
+        const shouldRespawn = scheduleActive && entry.respawn && entry.hasInitialized;
 
         if (shouldInitialFill || shouldRespawn) {
           while (entry.activeIds.size < entry.count) {
