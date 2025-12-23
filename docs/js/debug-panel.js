@@ -97,6 +97,9 @@ export function initDebugPanel() {
     dayNightBtn.addEventListener('click', () => {
       if (window.dayNightSystem) {
         window.dayNightSystem.toggle();
+        if (window.setGameTime24h && Number.isFinite(window.dayNightSystem.timeOfDayHours)) {
+          window.setGameTime24h(window.dayNightSystem.timeOfDayHours);
+        }
         updateDayNightUI();
       } else {
         console.warn('[debug-panel] Day/night system not available yet');
@@ -114,39 +117,45 @@ export function initDebugPanel() {
   if (timeSlider && timeValue) {
     timeSlider.addEventListener('input', (e) => {
       const hours = parseFloat(e.target.value);
-      if (window.dayNightSystem && typeof window.dayNightSystem.setTimeOfDayHours === 'function') {
-        window.dayNightSystem.setTimeOfDayHours(hours, true); // immediate
-        updateDayNightUI();
+      const sharedTime = window.setGameTime24h
+        ? window.setGameTime24h(hours)
+        : (typeof window.setBackgroundTime24h === 'function' ? window.setBackgroundTime24h(hours) : hours);
+      if (!window.setGameTime24h && window.dayNightSystem?.setTimeOfDayHours) {
+        window.dayNightSystem.setTimeOfDayHours(sharedTime, true);
       }
+      updateDayNightUI();
 
       // Update time display
-      const h = Math.floor(hours);
-      const m = Math.floor((hours - h) * 60);
+      const displayTime = Number.isFinite(sharedTime) ? sharedTime : hours;
+      const h = Math.floor(displayTime);
+      const m = Math.floor((displayTime - h) * 60);
       timeValue.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
     });
   }
 
   // Helper to update UI
   function updateDayNightUI() {
-    if (!window.dayNightSystem) return;
-
-    const isNight = window.dayNightSystem.isNight;
+    const time24h = Number.isFinite(window.gameTimeController?.time24h)
+      ? window.gameTimeController.time24h
+      : window.dayNightSystem?.timeOfDayHours;
+    const isNight = window.dayNightSystem?.isNight
+      ?? (Number.isFinite(time24h) ? time24h < 6 || time24h >= 18 : false);
     if (dayNightStatus) {
       dayNightStatus.textContent = isNight ? 'Current: Night 🌙' : 'Current: Day ☀️';
       dayNightStatus.style.color = isNight ? '#a5b4fc' : '#fde68a';
     }
 
     // Update slider to match current state
-    if (timeSlider && window.dayNightSystem.timeOfDayHours !== undefined) {
-      timeSlider.value = window.dayNightSystem.timeOfDayHours;
-      const h = Math.floor(window.dayNightSystem.timeOfDayHours);
-      const m = Math.floor((window.dayNightSystem.timeOfDayHours - h) * 60);
+    if (timeSlider && Number.isFinite(time24h)) {
+      timeSlider.value = time24h;
+      const h = Math.floor(time24h);
+      const m = Math.floor((time24h - h) * 60);
       if (timeValue) {
         timeValue.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
       }
     }
 
-    console.log('[debug-panel] Time:', window.dayNightSystem.timeOfDayHours?.toFixed(1), 'hours', isNight ? '(NIGHT)' : '(DAY)');
+    console.log('[debug-panel] Time:', Number.isFinite(time24h) ? time24h.toFixed(1) : 'n/a', 'hours', isNight ? '(NIGHT)' : '(DAY)');
   }
 
   // Setup copy URL button
