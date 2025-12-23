@@ -20,6 +20,8 @@ function getSlotAllowance(slotKey, type) {
   const slot = getSlotConfig(slotKey);
   return slot?.allowed?.[type] || null;
 }
+
+const GAME_TIME_DEFAULTS = window.CONFIG?.time || {};
 const BACKGROUND_DEFAULTS = {
   skyColors: [
     'rgba(59,63,69,0.9)',
@@ -29,7 +31,7 @@ const BACKGROUND_DEFAULTS = {
   tilePortion: 0,
   tileScale: 1,
   tileOffsetY: 0,
-  time24h: 12,
+  time24h: GAME_TIME_DEFAULTS.startTime24h,
 };
 
 const BACKGROUND_STORE_FALLBACK = {};
@@ -215,6 +217,84 @@ function setBackgroundTime24h(value, areaId = null) {
 
 if (typeof window !== 'undefined') {
   window.setBackgroundTime24h = setBackgroundTime24h;
+}
+
+function resolveGameTimeConfig() {
+  return window.CONFIG?.time || {};
+}
+
+function normalizeTime24h(value) {
+  const numeric = coerceFiniteNumber(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  return ((numeric % 24) + 24) % 24;
+}
+
+function createGameTimeController() {
+  const config = resolveGameTimeConfig();
+  const initial = normalizeTime24h(
+    resolveBackgroundForArea()?.sky?.time24h
+    ?? config.startTime24h
+    ?? BACKGROUND_DEFAULTS.time24h,
+  );
+  const controller = {
+    time24h: Number.isFinite(initial) ? initial : normalizeTime24h(config.startTime24h),
+    timeScale: coerceFiniteNumber(config.timeScale),
+    paused: Boolean(config.paused),
+  };
+
+  controller.updateFromConfig = () => {
+    const latest = resolveGameTimeConfig();
+    const scale = coerceFiniteNumber(latest.timeScale);
+    if (Number.isFinite(scale)) {
+      controller.timeScale = scale;
+    }
+    controller.paused = Boolean(latest.paused);
+  };
+
+  controller.setTime24h = (value, { areaId = null, persist = true, syncLighting = true } = {}) => {
+    const normalized = normalizeTime24h(value ?? controller.time24h);
+    if (!Number.isFinite(normalized)) {
+      return controller.time24h;
+    }
+    controller.time24h = normalized;
+    if (persist && typeof setBackgroundTime24h === 'function') {
+      const area = areaId ? resolveAreaById(areaId) : resolveActiveParallaxArea();
+      const targetId = area?.id || areaId || null;
+      setBackgroundTime24h(controller.time24h, targetId);
+    }
+    if (syncLighting && window.dayNightSystem?.setTimeOfDayHours) {
+      window.dayNightSystem.setTimeOfDayHours(controller.time24h, true);
+    }
+    return controller.time24h;
+  };
+
+  controller.advance = (dt, { areaId = null } = {}) => {
+    controller.updateFromConfig();
+    if (controller.paused) {
+      return controller.setTime24h(controller.time24h, { areaId });
+    }
+    const deltaHours = (Number.isFinite(dt) ? dt : 0)
+      * (Number.isFinite(controller.timeScale) ? controller.timeScale : 0);
+    if (!Number.isFinite(deltaHours) || deltaHours === 0) {
+      return controller.setTime24h(controller.time24h, { areaId });
+    }
+    return controller.setTime24h(controller.time24h + deltaHours, { areaId });
+  };
+
+  return controller;
+}
+
+const gameTimeController = createGameTimeController();
+
+function setGameTime24h(value, areaId = null) {
+  return gameTimeController.setTime24h(value, { areaId });
+}
+
+if (typeof window !== 'undefined') {
+  window.gameTimeController = gameTimeController;
+  window.setGameTime24h = setGameTime24h;
 }
 
 function abilityMatchesSlot(def = {}, type, allowance) {
@@ -5807,6 +5887,8 @@ let fpsLast = performance.now();
 let frames = 0;
 function loop(t){
   const dt = (t - last) / 1000; last = t;
+  const activeArea = resolveActiveParallaxArea();
+  gameTimeController.advance(dt, { areaId: activeArea?.id || null });
   if (window.GAME?.combat) window.GAME.combat.tick(dt);
   updateNpcSystems(dt);
   updateBountySystem(dt);
