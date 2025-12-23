@@ -22,6 +22,7 @@ import { getNpcDashTrail, getNpcAttackTrail } from './npc.js?v=2';
 import { pickFighterConfig, lengths, pickOffsets, resolveBoneLengthScale } from './fighter-utils.js?v=1';
 import { updateFighterColliders, pruneFighterColliders, getFighterColliders } from './colliders.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
+import { getCurrentGameHour, isScheduleActive, resolveScheduleEntry } from './schedule-utils.js?v=1';
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -605,9 +606,7 @@ function drawPOIs(ctx) {
   const pois = area.pois || [];
   if (!pois.length) return;
 
-  const GAME = window.GAME || {};
-  const currentHour = area?.background?.sky?.time24h;
-  const hour = Number.isFinite(currentHour) ? Math.floor(currentHour) % 24 : null;
+  const hour = getCurrentGameHour(area);
 
   ctx.save();
 
@@ -621,9 +620,9 @@ function drawPOIs(ctx) {
     const height = Number.isFinite(bounds.height) ? bounds.height : 100;
 
     // Check if POI is scheduled for current hour
-    const scheduleHours = poi.meta?.scheduleHours;
-    const isScheduled = !Array.isArray(scheduleHours) || scheduleHours.length === 0 ||
-                       (hour !== null && scheduleHours.includes(hour));
+    const scheduleEntry = resolveScheduleEntry(poi.meta);
+    const scheduleHours = scheduleEntry?.hours || [];
+    const isScheduled = isScheduleActive(poi.meta, hour);
 
     // Draw POI box
     ctx.strokeStyle = isScheduled ? 'rgba(34, 197, 94, 0.8)' : 'rgba(148, 163, 184, 0.5)';
@@ -647,8 +646,10 @@ function drawPOIs(ctx) {
     ctx.fillText(name, centerX, centerY);
 
     // Draw schedule info if available
-    if (Array.isArray(scheduleHours) && scheduleHours.length > 0) {
-      const scheduleText = `Hours: ${scheduleHours[0]}-${scheduleHours[scheduleHours.length - 1]}`;
+    if (scheduleEntry && (scheduleEntry.label || scheduleHours.length > 0)) {
+      const scheduleText = scheduleEntry.label
+        ? scheduleEntry.label
+        : `Hours: ${scheduleHours.join(', ')}`;
       ctx.font = '11px system-ui, sans-serif';
       ctx.strokeText(scheduleText, centerX, centerY + 18);
       ctx.fillStyle = isScheduled ? '#16a34a' : '#64748b';

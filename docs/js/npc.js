@@ -15,6 +15,7 @@ import {
 import { resolveSharedGroundY } from './ground-utils.js?v=1';
 import { resolveStancePose, convertAimToHeadRad } from './animator.js?v=5';
 import { getAttackDefFromConfig, calculateMinChargeTime } from './config-utils.js?v=1';
+import { getCurrentGameHour, isScheduleActive } from './schedule-utils.js?v=1';
 import {
   isPointInsidePoi,
   getRandomGroundPointInPoi,
@@ -158,37 +159,6 @@ function resolveNpcPathTarget(state, area) {
   };
 }
 
-function getCurrentGameHour(area) {
-  const time24h = area?.background?.sky?.time24h;
-  if (!Number.isFinite(time24h)) return 12;
-  return Math.floor(time24h) % 24;
-}
-
-function resolveOffDutyInterests(state) {
-  const groupInterests = state?.group?.offDutyInterests;
-  if (Array.isArray(groupInterests) && groupInterests.length > 0) {
-    return groupInterests;
-  }
-  const configInterests = window.CONFIG?.npc?.schedule?.offDutyInterests;
-  if (Array.isArray(configInterests) && configInterests.length > 0) {
-    return configInterests;
-  }
-  return [];
-}
-
-function resolveNpcOffDutyPoi(state, area, currentHour) {
-  const poisByName = area?.poisByName;
-  if (!poisByName) return null;
-  const offDutyInterests = resolveOffDutyInterests(state);
-  if (!offDutyInterests.length) return null;
-  const offDutyPois = selectPoisByInterests(poisByName, offDutyInterests);
-  const scheduledOffDuty = offDutyPois.filter((poi) => {
-    const scheduleHours = poi.meta?.scheduleHours;
-    return isScheduleHourMatch(scheduleHours, currentHour);
-  });
-  return selectRandomPoi(scheduledOffDuty);
-}
-
 function selectNpcTargetPoi(state, area) {
   if (!state || !area) return null;
 
@@ -203,10 +173,7 @@ function selectNpcTargetPoi(state, area) {
 
   const currentHour = getCurrentGameHour(area);
 
-  const scheduledPois = matchingPois.filter(poi => {
-    const scheduleHours = poi.meta?.scheduleHours;
-    return isScheduleHourMatch(scheduleHours, currentHour);
-  });
+  const scheduledPois = matchingPois.filter(poi => isScheduleActive(poi?.meta, currentHour));
 
   if (scheduledPois.length > 0) {
     return selectRandomPoi(scheduledPois);
@@ -251,6 +218,16 @@ function updateNpcNavigateMode(state, area) {
   const ooc = state.outOfCombat || {};
   resetNpcScheduleTargets(state, area);
   const currentPoi = ooc.currentPoi;
+  const currentHour = getCurrentGameHour(area);
+
+  const lastHour = ooc.lastScheduleHour;
+  if (Number.isFinite(lastHour) && lastHour !== currentHour) {
+    if (!isScheduleActive(currentPoi?.meta, currentHour)) {
+      ooc.currentPoi = null;
+      ooc.targetPoint = null;
+    }
+  }
+  ooc.lastScheduleHour = currentHour;
 
   if (!currentPoi) {
     const targetPoi = selectNpcTargetPoi(state, area);

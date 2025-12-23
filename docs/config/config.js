@@ -55,11 +55,31 @@ window.CONFIG.lighting = window.CONFIG.lighting || {};
 window.CONFIG.lighting.candleStartHour = 17; // Hour when candles turn on (5pm - during dusk)
 window.CONFIG.lighting.candleEndHour = 7; // Hour when candles turn off (7am - after dawn)
 
-// Game time settings
-window.CONFIG.time = window.CONFIG.time || {};
-window.CONFIG.time.startTime24h = 12; // Default start time (24h format)
-window.CONFIG.time.timeScale = 0.05; // Hours per second
-window.CONFIG.time.paused = false; // Pause automatic time progression
+// NPC scheduling presets
+window.CONFIG.scheduleDefaults = window.CONFIG.scheduleDefaults || {};
+window.CONFIG.scheduleDefaults.fallbackHour = 12;
+window.CONFIG.schedules = window.CONFIG.schedules || {};
+window.CONFIG.schedules.citywatch_duty = {
+  label: 'City Watch Duty (All Hours)',
+  hours: [
+    0, 1, 2, 3, 4, 5,
+    6, 7, 8, 9, 10, 11,
+    12, 13, 14, 15, 16, 17,
+    18, 19, 20, 21, 22, 23
+  ]
+};
+window.CONFIG.schedules.citywatch_patrol_west = {
+  label: 'City Watch Patrol West (00-11)',
+  hours: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+};
+window.CONFIG.schedules.citywatch_patrol_center = {
+  label: 'City Watch Patrol Center (12-23)',
+  hours: [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+};
+window.CONFIG.schedules.citywatch_off_duty = {
+  label: 'City Watch Off Duty',
+  hours: []
+};
 
 // Heraldry & Material color palette
 const MATERIALS = {
