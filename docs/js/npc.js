@@ -75,18 +75,41 @@ function ensureNpcPathState(state) {
   return pathState;
 }
 
+function isScheduleHourMatch(scheduleHours, currentHour) {
+  if (!Array.isArray(scheduleHours) || scheduleHours.length === 0) {
+    return true;
+  }
+  return scheduleHours.includes(currentHour);
+}
+
+function resetNpcPathScheduleState(state, currentHour) {
+  if (!state) return;
+  const pathState = ensureNpcPathState(state);
+  pathState.sequenceIndex = 0;
+  pathState.lastScheduleHour = currentHour;
+}
+
 function resolveNpcPathTarget(state, area) {
   const config = resolveNpcPathingConfig(state);
   if (!config || !area) return null;
   const playableBounds = resolveActivePlayableBounds(area);
   const allTargets = Array.isArray(area.pathTargets) ? area.pathTargets : [];
+  const currentHour = getCurrentGameHour(area);
   let candidates = allTargets;
   if (config.name) {
     candidates = candidates.filter((target) => target?.name === config.name);
   }
+  candidates = candidates.filter((target) => {
+    const scheduleHours = target?.meta?.scheduleHours;
+    return isScheduleHourMatch(scheduleHours, currentHour);
+  });
   if (!candidates.length) return null;
 
   const pathState = ensureNpcPathState(state);
+  if (pathState.lastScheduleHour !== currentHour) {
+    pathState.sequenceIndex = 0;
+    pathState.lastScheduleHour = currentHour;
+  }
   if (pathState.pathName !== (config.name || null) || pathState.areaId !== (area?.id || null)) {
     pathState.sequenceIndex = 0;
     pathState.pathName = config.name || null;
@@ -141,6 +164,31 @@ function getCurrentGameHour(area) {
   return Math.floor(time24h) % 24;
 }
 
+function resolveOffDutyInterests(state) {
+  const groupInterests = state?.group?.offDutyInterests;
+  if (Array.isArray(groupInterests) && groupInterests.length > 0) {
+    return groupInterests;
+  }
+  const configInterests = window.CONFIG?.npc?.schedule?.offDutyInterests;
+  if (Array.isArray(configInterests) && configInterests.length > 0) {
+    return configInterests;
+  }
+  return [];
+}
+
+function resolveNpcOffDutyPoi(state, area, currentHour) {
+  const poisByName = area?.poisByName;
+  if (!poisByName) return null;
+  const offDutyInterests = resolveOffDutyInterests(state);
+  if (!offDutyInterests.length) return null;
+  const offDutyPois = selectPoisByInterests(poisByName, offDutyInterests);
+  const scheduledOffDuty = offDutyPois.filter((poi) => {
+    const scheduleHours = poi.meta?.scheduleHours;
+    return isScheduleHourMatch(scheduleHours, currentHour);
+  });
+  return selectRandomPoi(scheduledOffDuty);
+}
+
 function selectNpcTargetPoi(state, area) {
   if (!state || !area) return null;
 
@@ -157,15 +205,32 @@ function selectNpcTargetPoi(state, area) {
 
   const scheduledPois = matchingPois.filter(poi => {
     const scheduleHours = poi.meta?.scheduleHours;
-    if (!Array.isArray(scheduleHours) || scheduleHours.length === 0) {
-      return true;
-    }
-    return scheduleHours.includes(currentHour);
+    return isScheduleHourMatch(scheduleHours, currentHour);
   });
 
-  const candidatePois = scheduledPois.length > 0 ? scheduledPois : matchingPois;
+  if (scheduledPois.length > 0) {
+    return selectRandomPoi(scheduledPois);
+  }
 
-  return selectRandomPoi(candidatePois);
+  return resolveNpcOffDutyPoi(state, area, currentHour);
+}
+
+function resetNpcScheduleTargets(state, area) {
+  const ooc = state.outOfCombat || {};
+  const currentHour = getCurrentGameHour(area);
+  const lastHour = ooc.lastScheduleHour;
+  const changed = Number.isFinite(lastHour) && lastHour !== currentHour;
+
+  if (changed) {
+    ooc.currentPoi = null;
+    ooc.targetPoint = null;
+    ooc.targetExit = null;
+    ooc.mode = 'navigate';
+    resetNpcPathScheduleState(state, currentHour);
+  }
+
+  ooc.lastScheduleHour = currentHour;
+  return { currentHour, changed };
 }
 
 function selectNpcEscapeTarget(state, area) {
@@ -182,22 +247,10 @@ function selectNpcEscapeTarget(state, area) {
   return selectWeightedExit(exits, exitWeights);
 }
 
-function updateNpcNavigateMode(state, dt, area) {
+function updateNpcNavigateMode(state, area) {
   const ooc = state.outOfCombat || {};
+  resetNpcScheduleTargets(state, area);
   const currentPoi = ooc.currentPoi;
-  const currentHour = getCurrentGameHour(area);
-
-  const lastHour = ooc.lastScheduleHour;
-  if (Number.isFinite(lastHour) && lastHour !== currentHour) {
-    const scheduleHours = currentPoi?.meta?.scheduleHours;
-    if (Array.isArray(scheduleHours) && scheduleHours.length > 0) {
-      if (!scheduleHours.includes(currentHour)) {
-        ooc.currentPoi = null;
-        ooc.targetPoint = null;
-      }
-    }
-  }
-  ooc.lastScheduleHour = currentHour;
 
   if (!currentPoi) {
     const targetPoi = selectNpcTargetPoi(state, area);
@@ -205,14 +258,6 @@ function updateNpcNavigateMode(state, dt, area) {
       ooc.currentPoi = targetPoi;
       ooc.targetPoint = getRandomGroundPointInPoi(targetPoi);
       ooc.mode = 'navigate';
-    } else {
-      const exit = selectNpcEscapeTarget(state, area);
-      if (exit) {
-        ooc.targetExit = exit;
-        ooc.targetPoint = getRandomGroundPointInPoi(exit);
-        ooc.escaping = true;
-        ooc.mode = 'escape';
-      }
     }
     return;
   }
@@ -224,7 +269,11 @@ function updateNpcNavigateMode(state, dt, area) {
   }
 }
 
-function updateNpcRepositionMode(state, dt, area) {
+function updateNpcRepositionMode(state, area) {
+  const { changed } = resetNpcScheduleTargets(state, area);
+  if (changed) {
+    return;
+  }
   const ooc = state.outOfCombat || {};
   const currentPoi = ooc.currentPoi;
   const targetPoint = ooc.targetPoint;
@@ -249,6 +298,10 @@ function updateNpcRepositionMode(state, dt, area) {
 }
 
 function updateNpcWaitMode(state, dt, area) {
+  const { changed } = resetNpcScheduleTargets(state, area);
+  if (changed) {
+    return;
+  }
   const ooc = state.outOfCombat || {};
 
   ooc.waitTimer = Math.max(0, (ooc.waitTimer || 0) - dt);
@@ -2336,9 +2389,9 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       }
 
       if (ooc.mode === 'navigate') {
-        updateNpcNavigateMode(state, dt, activeArea);
+        updateNpcNavigateMode(state, activeArea);
       } else if (ooc.mode === 'reposition') {
-        updateNpcRepositionMode(state, dt, activeArea);
+        updateNpcRepositionMode(state, activeArea);
       } else if (ooc.mode === 'wait') {
         updateNpcWaitMode(state, dt, activeArea);
       } else if (ooc.mode === 'escape') {

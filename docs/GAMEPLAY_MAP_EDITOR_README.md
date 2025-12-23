@@ -36,6 +36,24 @@ The Gameplay Map Editor now supports loading 3D visual maps as a background refe
    - Click the "❌ Clear" button to remove the 3D background
    - This reverts to the standard 2D-only editing mode
 
+## NPC Schedules (POIs & Patrol Routes)
+
+POIs and patrol targets can optionally declare `meta.scheduleHours` (array of 0–23 integers). NPCs will **only** select targets whose schedule includes the current in-game hour.
+
+- If a POI or path target has **no** `scheduleHours`, it is always considered on-duty.
+- If **no** scheduled POIs match the current hour, NPCs will idle unless you define an explicit off-duty fallback.
+
+### Off-duty fallback
+
+You can configure a fallback list of POI names (interests) for off-duty hours:
+
+```js
+// docs/config/config.js
+CONFIG.npc.schedule.offDutyInterests = ['idle', 'barracks'];
+```
+
+These POIs are only used when no on-schedule POIs match the current hour. If you do not define any off-duty interests, NPCs will remain idle when off-schedule.
+
 ## Visual Map Format
 
 Visual maps must include a `gameplayPath` property:
