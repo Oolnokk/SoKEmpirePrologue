@@ -49,6 +49,7 @@ export function resolveScheduleEntry(meta = {}, config) {
       id: scheduleId,
       hours: scheduleHours.slice(),
       label: resolvedLabel,
+      hasSchedule: true,
     };
   }
 
@@ -58,11 +59,12 @@ export function resolveScheduleEntry(meta = {}, config) {
       id: scheduleId,
       hours: fallbackHours.slice(),
       label: meta.scheduleLabel ?? resolvedLabel ?? null,
+      hasSchedule: true,
     };
   }
 
   return scheduleId || resolvedLabel
-    ? { id: scheduleId, hours: [], label: resolvedLabel }
+    ? { id: scheduleId, hours: [], label: resolvedLabel, hasSchedule: true }
     : null;
 }
 
@@ -72,8 +74,11 @@ export function resolveScheduleHours(meta = {}, config) {
 }
 
 export function isScheduleActive(meta = {}, hour = null, config) {
-  const hours = resolveScheduleHours(meta, config);
-  if (!Array.isArray(hours) || hours.length === 0) return true;
+  const entry = resolveScheduleEntry(meta, config);
+  if (!entry) return true; // No schedule metadata means always active
+
+  const hours = Array.isArray(entry.hours) ? entry.hours : [];
+  if (hours.length === 0) return false; // Explicit schedule with no active hours
   if (!Number.isFinite(hour)) return false;
   return hours.includes(hour);
 }
