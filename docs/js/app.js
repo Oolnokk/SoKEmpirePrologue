@@ -187,10 +187,11 @@ function resolveBackgroundForArea(areaId = null) {
   const store = getBackgroundStore();
   const area = resolveAreaById(areaId);
   const key = area?.id || areaId || null;
-  const source = (typeof area?.background === 'object' && area.background)
+  const stored = store[key];
+  const source = (stored && typeof stored === 'object' && stored)
+    || (typeof area?.background === 'object' && area.background)
     || (typeof area?.meta?.background === 'object' && area.meta.background)
     || (key && typeof window.CONFIG?.areas?.[key]?.background === 'object' && window.CONFIG.areas[key].background)
-    || store[key]
     || (!key ? window.BACKGROUND : null)
     || window.BACKGROUND;
   return ensureBackgroundConfig(source, key || null);
@@ -203,13 +204,21 @@ function setBackgroundTime24h(value, areaId = null) {
   background.sky.time24h = time;
 
   const targetKey = area?.id || areaId || null;
-  if (area) {
+  const store = getBackgroundStore();
+  const resolvedKey = targetKey || BACKGROUND_GLOBAL_KEY;
+  store[resolvedKey] = background;
+  if (!targetKey && typeof window !== 'undefined') {
+    window.BACKGROUND = background;
+  }
+
+  const configArea = targetKey && window.CONFIG?.areas?.[targetKey];
+  if (configArea && Object.isExtensible(configArea)) {
+    configArea.background = normalizeBackgroundConfig(configArea.background || background, configArea.background || {});
+    configArea.background.sky.time24h = time;
+  }
+  if (area && Object.isExtensible(area)) {
     area.background = normalizeBackgroundConfig(area.background || background, area.background || {});
     area.background.sky.time24h = time;
-  }
-  if (targetKey && window.CONFIG?.areas?.[targetKey]) {
-    window.CONFIG.areas[targetKey].background = normalizeBackgroundConfig(window.CONFIG.areas[targetKey].background || background, window.CONFIG.areas[targetKey].background || {});
-    window.CONFIG.areas[targetKey].background.sky.time24h = time;
   }
 
   return background.sky.time24h;
