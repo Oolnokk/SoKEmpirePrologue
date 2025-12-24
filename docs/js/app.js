@@ -6012,6 +6012,7 @@ function loop(t){
   renderBottles(cx);
   renderAll(cx);
   renderSprites(cx);
+  renderSpawnerOverlay(cx);
   renderGameplayPathOverlay(cx);
   renderGameplayElementsOverlay(cx);
   runHitDetect();

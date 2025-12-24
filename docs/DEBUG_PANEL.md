@@ -157,6 +157,12 @@ The debug panel is designed to be accessible to AI agents:
 - **Frame-by-frame Updates**: Real-time data for testing and verification
 - **No Visual Inspection Needed**: All data is available as structured numbers
 
+## Spawner Visualization Toggle
+
+- **Control**: `🧭 Show Spawners` checkbox, located alongside the gameplay path toggle in the debug panel.
+- **Behavior**: When enabled, the visuals renderer builds a Three.js marker group for every spawner in the active area. Spawners are pulled from `window.GAME.spawnService.getSpawners(activeAreaId)` with fallbacks to `area.spawners` or `scene.spawnPoints`, then projected into both the 3D scene and a 2D overlay.
+- **Overlay**: The overlay draws labeled icons on the debug canvas each frame using the adapter’s `getSpawnerScreenPositions({ canvas })` helper. Disabling the checkbox hides both the 3D markers and the 2D overlay.
+
 ## Debug Flags
 
 ### window.DEBUG_COSMETICS_TRACE

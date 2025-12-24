@@ -267,6 +267,63 @@ async function loadAssetConfig(assetType, baseContext = null) {
   }
 }
 
+function getCandleLightDefaults() {
+  const defaults = (typeof window !== 'undefined' && window.CONFIG?.lighting?.candleDefaults) || {};
+  return {
+    topWidth: defaults.topWidth ?? 0.8,
+    topDepth: defaults.topDepth ?? 0.8,
+    bottomWidth: defaults.bottomWidth ?? 0.5,
+    bottomDepth: defaults.bottomDepth ?? 0.5,
+    height: defaults.height ?? 1.5,
+    color: defaults.color ?? 0xffbb66,
+    emissiveIntensity: defaults.emissiveIntensity ?? 1.2,
+    opacity: defaults.opacity ?? 0.8,
+    rotationYDeg: defaults.rotationYDeg ?? 90,
+    scale: defaults.scale ?? 1.2,
+    nightEmissive: defaults.nightEmissive ?? 0xffbb66,
+    nightIntensity: defaults.nightIntensity ?? 1.2,
+    dayEmissive: defaults.dayEmissive ?? 0x000000,
+    dayIntensity: defaults.dayIntensity ?? 0.0,
+  };
+}
+
+function resolveCandleOffset(candleConfig, assetConfig) {
+  const baseOffset = { x: 0, y: 0, z: 0, ...(candleConfig?.offset || {}) };
+  const attachmentId = candleConfig?.attachmentId;
+
+  if (attachmentId && Array.isArray(assetConfig?.extra?.attachmentPoints)) {
+    const attachment = assetConfig.extra.attachmentPoints.find(point => point.id === attachmentId);
+    if (attachment?.offset) {
+      baseOffset.x += attachment.offset.x ?? 0;
+      baseOffset.y += attachment.offset.y ?? 0;
+      baseOffset.z += attachment.offset.z ?? 0;
+    }
+  }
+
+  return baseOffset;
+}
+
+function resolveCandleScale(scaleConfig, defaultScale) {
+  if (typeof scaleConfig === 'number') {
+    return { x: scaleConfig, y: scaleConfig, z: scaleConfig };
+  }
+
+  if (scaleConfig && typeof scaleConfig === 'object') {
+    return {
+      x: scaleConfig.x ?? defaultScale,
+      y: scaleConfig.y ?? defaultScale,
+      z: scaleConfig.z ?? defaultScale,
+    };
+  }
+
+  return { x: defaultScale, y: defaultScale, z: defaultScale };
+}
+
+function resolveRotationY(rotationDeg, fallbackDeg) {
+  const rotation = Number.isFinite(rotationDeg) ? rotationDeg : fallbackDeg;
+  return Number.isFinite(rotation) ? (rotation * Math.PI) / 180 : 0;
+}
+
 /**
  * Convert grid coordinates to world coordinates
  * Grid: (row, col) where row 0 is top
@@ -819,57 +876,55 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     };
     renderer.on('frame', frameUpdateHandler);
 
-    // Add candle lights to all tower structures
-    console.log(`[visualsmapLoader] Adding candle lights at tower positions`);
+    console.log(`[visualsmapLoader] Adding candle lights from asset configs`);
+    const candleDefaults = getCandleLightDefaults();
     let candleLightCount = 0;
 
     for (const obj of loadedObjects) {
-      // Skip lights and other non-3D objects
       if (obj.isLight) continue;
 
-      // Check if this is a tower structure
-      if (obj.userData?.assetType && isTowerStructure(obj.userData.assetType)) {
-        // Create candle light
-        const candleLight = createCandleLight(renderer.THREE, {
-          topWidth: 0.8,
-          topDepth: 0.8,
-          bottomWidth: 0.5,
-          bottomDepth: 0.5,
-          height: 1.5,
-          color: 0xffbb66,
-          emissiveIntensity: 1.2,
-          opacity: 0.8
-        });
+      const assetType = obj.userData?.assetType;
+      if (!assetType || !isTowerStructure(assetType)) continue;
 
-        // Get tower's world position
-        const worldPos = new renderer.THREE.Vector3();
-        obj.getWorldPosition(worldPos);
+      const assetConfig = assetCache.get(assetType);
+      const candleLights = assetConfig?.extra?.candleLights;
+      if (!Array.isArray(candleLights) || candleLights.length === 0) continue;
 
-        // Position candle at tower location
+      for (const candleConfig of candleLights) {
+        const options = {
+          ...candleDefaults,
+          ...(candleConfig.options || {}),
+        };
+
+        const candleLight = candleConfig.withGlow
+          ? createCandleLightWithGlow(renderer.THREE, options)
+          : createCandleLight(renderer.THREE, options);
+
+        const offset = resolveCandleOffset(candleConfig, assetConfig);
+        obj.updateMatrixWorld(true);
+        const worldPos = obj.localToWorld(new renderer.THREE.Vector3(offset.x, offset.y, offset.z));
         candleLight.position.copy(worldPos);
 
-        // Scale up by 1.2x (120%)
-        candleLight.scale.set(1.2, 1.2, 1.2);
+        const scale = resolveCandleScale(candleConfig.scale, candleDefaults.scale);
+        candleLight.scale.set(scale.x, scale.y, scale.z);
 
-        // Rotate 90 degrees on Y axis
-        candleLight.rotation.y = Math.PI / 2;
+        candleLight.rotation.y = resolveRotationY(candleConfig.rotationYDeg, candleDefaults.rotationYDeg);
 
-        // Add directly to scene (not as child)
         renderer.add(candleLight);
         loadedObjects.push(candleLight);
 
-        // Register with day/night system
+        const lightingConfig = candleConfig.lighting || {};
         dayNightSystem.registerEmissiveObject(candleLight, {
-          nightEmissive: 0xffbb66,
-          nightIntensity: 1.2,
-          dayEmissive: 0x000000,
-          dayIntensity: 0.0
+          nightEmissive: lightingConfig.nightEmissive ?? options.color ?? candleDefaults.nightEmissive,
+          nightIntensity: lightingConfig.nightIntensity ?? options.emissiveIntensity ?? candleDefaults.nightIntensity,
+          dayEmissive: lightingConfig.dayEmissive ?? candleDefaults.dayEmissive,
+          dayIntensity: lightingConfig.dayIntensity ?? candleDefaults.dayIntensity,
         });
 
         candleLightCount++;
       }
     }
-    console.log(`[visualsmapLoader] ✓ Added ${candleLightCount} candle lights at tower positions`);
+    console.log(`[visualsmapLoader] ✓ Added ${candleLightCount} candle lights from asset configs`);
 
     // Store day/night system reference for external control
     if (typeof window !== 'undefined') {
@@ -960,6 +1015,21 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
       return vec;
     };
+
+    const spawnerGroup = new renderer.THREE.Group();
+    spawnerGroup.name = 'spawners';
+    spawnerGroup.visible = false;
+    renderer.add(spawnerGroup);
+    loadedObjects.push(spawnerGroup);
+
+    const spawnerMarkerGeom = new renderer.THREE.SphereGeometry(0.1 * cellSize, 12, 12);
+    const spawnerMarkerMat = new renderer.THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0ea5e9,
+      emissiveIntensity: 0.4,
+    });
+    let spawnerWorldPositions = [];
+    let spawnersVisible = false;
 
     function buildGameplayPath3D() {
       // Clear existing path objects
@@ -1145,6 +1215,80 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     // Build the path visualization and gameplay markers
     buildGameplayElements();
 
+    function resolveSpawnerId(spawner, fallbackIndex) {
+      if (!spawner) return fallbackIndex != null ? `spawner_${fallbackIndex}` : 'spawner';
+      if (typeof spawner.spawnerId === 'string' && spawner.spawnerId.trim()) return spawner.spawnerId.trim();
+      if (typeof spawner.id === 'string' && spawner.id.trim()) return spawner.id.trim();
+      if (typeof spawner.name === 'string' && spawner.name.trim()) return spawner.name.trim();
+      return fallbackIndex != null ? `spawner_${fallbackIndex}` : 'spawner';
+    }
+
+    function resolveSpawnerPosition(spawner) {
+      if (!spawner) return null;
+
+      const hasGridCoords = Number.isFinite(spawner.row) && Number.isFinite(spawner.col);
+      if (hasGridCoords) {
+        const world = gridToWorld(spawner.row, spawner.col, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+        return new renderer.THREE.Vector3(world.x, 0.18 * cellSize, world.z);
+      }
+
+      const rawPos = (spawner.position && typeof spawner.position === 'object') ? spawner.position : spawner;
+      const x = Number(rawPos.x);
+      const y = Number(rawPos.y);
+      const z = Number(rawPos.z ?? rawPos.depth);
+
+      if (!Number.isFinite(x)) return null;
+
+      const worldY = Number.isFinite(y) ? y : 0.18 * cellSize;
+      const worldZ = Number.isFinite(z) ? z : 0;
+      return new renderer.THREE.Vector3(x, worldY, worldZ);
+    }
+
+    function collectSpawnerSources() {
+      const areaId = area?.id || window.GAME?.currentAreaId || null;
+      const spawnService = window.GAME?.spawnService;
+      const serviceSpawners = spawnService?.getSpawners && areaId ? spawnService.getSpawners(areaId) : [];
+      const sceneSpawnPoints = Array.isArray(area?.scene?.spawnPoints) ? area.scene.spawnPoints : [];
+      const areaSpawners = Array.isArray(area?.spawners) ? area.spawners : [];
+      return [...serviceSpawners, ...sceneSpawnPoints, ...areaSpawners];
+    }
+
+    function buildSpawnerMarkers() {
+      while (spawnerGroup.children.length > 0) {
+        spawnerGroup.remove(spawnerGroup.children[0]);
+      }
+      spawnerWorldPositions = [];
+
+      const spawners = collectSpawnerSources();
+      if (!spawners.length) {
+        console.log('[visualsmapLoader] No spawners found for visualization');
+        return;
+      }
+
+      const seen = new Set();
+      spawners.forEach((spawner, index) => {
+        const id = resolveSpawnerId(spawner, index + 1);
+        if (seen.has(id)) return;
+        seen.add(id);
+
+        const worldPos = resolveSpawnerPosition(spawner);
+        if (!worldPos) return;
+
+        const marker = new renderer.THREE.Mesh(spawnerMarkerGeom, spawnerMarkerMat.clone());
+        marker.position.copy(worldPos);
+        marker.castShadow = false;
+        marker.receiveShadow = true;
+        marker.userData.spawnerId = id;
+        spawnerGroup.add(marker);
+
+        spawnerWorldPositions.push({ id, label: id, world: worldPos.clone() });
+      });
+
+      console.log(`[visualsmapLoader] Spawner markers built: ${spawnerWorldPositions.length}`);
+    }
+
+    buildSpawnerMarkers();
+
     // Method to toggle path visibility
     function setPathVisible(visible) {
       pathVisible = !!visible;
@@ -1159,6 +1303,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
     function setGameplayElementsVisible(visible) {
       setPathVisible(visible);
+    }
+
+    function setSpawnersVisible(visible) {
+      spawnersVisible = !!visible;
+      spawnerGroup.visible = spawnersVisible;
+      console.log(`[visualsmapLoader] Spawner visibility: ${spawnerGroup.visible}`);
     }
 
     function projectPointToCanvas(worldVec, targetCanvas) {
