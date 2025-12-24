@@ -76,10 +76,19 @@ export function initDebugPanel() {
 
       // Toggle path visibility in visualsmap adapter
       const adapter = window.GAME?.visualsmapAdapter;
-      if (adapter && typeof adapter.setPathVisible === 'function') {
+      const hasAdapter = !!adapter;
+      const setPath = typeof adapter?.setPathVisible === 'function';
+      const setGameplayElements = typeof adapter?.setGameplayElementsVisible === 'function';
+
+      if (setPath) {
         adapter.setPathVisible(isVisible);
-      } else {
-        console.warn('[debug-panel] Visualsmap adapter not available or missing setPathVisible method');
+      }
+      if (setGameplayElements) {
+        adapter.setGameplayElementsVisible(isVisible);
+      }
+
+      if (!hasAdapter || (!setPath && !setGameplayElements)) {
+        console.warn('[debug-panel] Visualsmap adapter not available or missing gameplay debug visibility methods');
       }
     });
   }

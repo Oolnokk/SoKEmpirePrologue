@@ -5891,6 +5891,101 @@ function renderGameplayPathOverlay(ctx) {
   ctx.restore();
 }
 
+function renderGameplayElementsOverlay(ctx) {
+  if (!ctx || !cv) return;
+
+  const adapter = window.GAME?.visualsmapAdapter;
+  const overlay = adapter?.getGameplayElementsScreenData?.({ canvas: cv });
+  if (!overlay?.visible) return;
+
+  const colors = overlay.colors || {};
+  const spawnerColor = colors.spawnerColor || '#22c55e';
+  const targetColor = colors.targetColor || '#38bdf8';
+  const poiStroke = colors.poiStroke || '#f472b6';
+  const poiFill = colors.poiFill || 'rgba(244, 114, 182, 0.08)';
+  const labelBg = colors.labelBackground || 'rgba(0, 0, 0, 0.75)';
+  const labelColor = colors.labelColor || '#e5e7eb';
+  const spawnerRadius = Math.max(4, (Number(colors.spawnerRadius) || 0.24) * 50);
+  const targetRadius = Math.max(4, (Number(colors.targetRadius) || 0.2) * 50);
+
+  ctx.save();
+  ctx.lineWidth = 2;
+
+  for (const poi of overlay.pois || []) {
+    if (!Array.isArray(poi.points) || poi.points.length < 3) continue;
+    ctx.beginPath();
+    poi.points.forEach((point, index) => {
+      if (index === 0) {
+        ctx.moveTo(point.x, point.y);
+      } else {
+        ctx.lineTo(point.x, point.y);
+      }
+    });
+    ctx.closePath();
+    ctx.fillStyle = poiFill;
+    ctx.strokeStyle = poiStroke;
+    ctx.fill();
+    ctx.stroke();
+
+    if (poi.label) {
+      const xs = poi.points.map((p) => p.x);
+      const ys = poi.points.map((p) => p.y);
+      const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+      const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+      const padding = 4;
+      ctx.font = '11px monospace';
+      const metrics = ctx.measureText(poi.label);
+      const width = metrics.width + padding * 2;
+      const height = 16;
+      ctx.fillStyle = labelBg;
+      ctx.fillRect(centerX - width / 2, centerY - height / 2, width, height);
+      ctx.fillStyle = labelColor;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(poi.label, centerX, centerY);
+    }
+  }
+
+  const drawMarker = (point, radius, color, label) => {
+    if (!point) return;
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2;
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (label) {
+      const padding = 4;
+      ctx.font = '11px monospace';
+      const metrics = ctx.measureText(label);
+      const width = metrics.width + padding * 2;
+      const height = 16;
+      const labelX = point.x + radius + 8;
+      const labelY = point.y - height / 2;
+      ctx.fillStyle = labelBg;
+      ctx.fillRect(labelX, labelY, width, height);
+      ctx.fillStyle = labelColor;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, labelX + padding, point.y);
+    }
+  };
+
+  for (const spawner of overlay.spawners || []) {
+    const label = spawner.label || spawner.id || 'Spawner';
+    drawMarker(spawner.screen, spawnerRadius, spawnerColor, label);
+  }
+
+  for (const target of overlay.targets || []) {
+    const label = target.order != null ? `${target.label || target.id || 'Target'} (#${target.order})` : (target.label || target.id || 'Target');
+    drawMarker(target.screen, targetRadius, targetColor, label);
+  }
+
+  ctx.restore();
+}
+
 let last = performance.now();
 let fpsLast = performance.now();
 let frames = 0;
@@ -5918,6 +6013,7 @@ function loop(t){
   renderAll(cx);
   renderSprites(cx);
   renderGameplayPathOverlay(cx);
+  renderGameplayElementsOverlay(cx);
   runHitDetect();
   updateHUD();
   updateDebugPanel();
