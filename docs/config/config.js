@@ -54,6 +54,22 @@ window.CONFIG.mapObjectEditor = {
 window.CONFIG.lighting = window.CONFIG.lighting || {};
 window.CONFIG.lighting.candleStartHour = 17; // Hour when candles turn on (5pm - during dusk)
 window.CONFIG.lighting.candleEndHour = 7; // Hour when candles turn off (7am - after dawn)
+window.CONFIG.lighting.candleDefaults = {
+  topWidth: 0.8,
+  topDepth: 0.8,
+  bottomWidth: 0.5,
+  bottomDepth: 0.5,
+  height: 1.5,
+  color: 0xffbb66,
+  emissiveIntensity: 1.2,
+  opacity: 0.8,
+  rotationYDeg: 90,
+  scale: 1.2,
+  nightEmissive: 0xffbb66,
+  nightIntensity: 1.2,
+  dayEmissive: 0x000000,
+  dayIntensity: 0.0
+};
 
 // NPC scheduling presets
 window.CONFIG.scheduleDefaults = window.CONFIG.scheduleDefaults || {};
