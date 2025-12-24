@@ -5,6 +5,19 @@ window.CONFIG = window.CONFIG || {};
 window.CONFIG.ui = window.CONFIG.ui || {};
 window.CONFIG.ui.showClock = true; // Display the in-game time clock
 
+window.CONFIG.debug = window.CONFIG.debug || {};
+window.CONFIG.debug.gameplayOverlay = window.CONFIG.debug.gameplayOverlay || {
+  spawnerColor: '#22c55e',
+  spawnerRadius: 0.24,
+  targetColor: '#38bdf8',
+  targetRadius: 0.2,
+  poiStroke: '#f472b6',
+  poiFill: 'rgba(244, 114, 182, 0.08)',
+  poiHeight: 0.3,
+  labelBackground: 'rgba(0, 0, 0, 0.75)',
+  labelColor: '#e5e7eb'
+};
+
 window.CONFIG.mapObjectEditor = {
   scene: {
     background: 0x020617

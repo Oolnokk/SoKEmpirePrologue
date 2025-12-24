@@ -3,11 +3,11 @@
  * Loads grid-based visual maps and converts them to 3D scene objects
  */
 
-import { projectToGroundPlane } from './scene3d.js';
 import { applyAssetRotations } from './gltfTransforms.js';
 import { DayNightSystem } from '../lighting/DayNightSystem.js';
 import { isTowerStructure } from '../lighting/TowerLightingIntegration.js';
-import { createCandleLight, createCandleLightWithGlow } from '../lighting/CandleLight.js';
+import { createCandleLight } from '../lighting/CandleLight.js';
+import { transform2dTo3d, getTransformConfig } from '../js/coordinate-transform.js';
 
 const DEFAULT_GAMEPLAY_PATH_LOOK_AT = Object.freeze({
   offsetY: 0.3, // Grid units; scaled by cellSize at runtime
@@ -933,15 +933,88 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log(`[visualsmapLoader]   Usage: window.dayNightSystem.toggle() to switch day/night`);
     }
 
+    const gameplayDebugGroup = new renderer.THREE.Group();
+    gameplayDebugGroup.name = 'gameplayDebug';
+    gameplayDebugGroup.visible = false;
+    renderer.add(gameplayDebugGroup);
+    loadedObjects.push(gameplayDebugGroup);
+
     // Create gameplay path visualization (hidden by default)
     const pathGroup = new renderer.THREE.Group();
     pathGroup.name = 'gameplayPath';
-    pathGroup.visible = false; // Hidden by default
+    gameplayDebugGroup.add(pathGroup);
+
+    const spawnerGroup = new renderer.THREE.Group();
+    spawnerGroup.name = 'gameplaySpawners';
+    gameplayDebugGroup.add(spawnerGroup);
+
+    const targetGroup = new renderer.THREE.Group();
+    targetGroup.name = 'gameplayPathTargets';
+    gameplayDebugGroup.add(targetGroup);
+
+    const poiGroup = new renderer.THREE.Group();
+    poiGroup.name = 'gameplayPois';
+    gameplayDebugGroup.add(poiGroup);
+
     let pathStartWorld = null;
     let pathEndWorld = null;
     let pathVisible = false;
-    renderer.add(pathGroup);
-    loadedObjects.push(pathGroup);
+    let gameplayElementsVisible = false;
+
+    const gameplayMarkers = {
+      spawners: [],
+      targets: [],
+      pois: [],
+    };
+
+    const resolveOverlayConfig = () => {
+      const cfg = (typeof window !== 'undefined' ? window.CONFIG?.debug?.gameplayOverlay : null) || {};
+      return {
+        spawnerColor: cfg.spawnerColor || '#22c55e',
+        spawnerRadius: Number(cfg.spawnerRadius) || 0.24,
+        targetColor: cfg.targetColor || '#38bdf8',
+        targetRadius: Number(cfg.targetRadius) || 0.2,
+        poiStroke: cfg.poiStroke || '#f472b6',
+        poiFill: cfg.poiFill || 'rgba(244, 114, 182, 0.08)',
+        poiHeight: Number(cfg.poiHeight) || 0.3,
+        labelBackground: cfg.labelBackground || 'rgba(0, 0, 0, 0.75)',
+        labelColor: cfg.labelColor || '#e5e7eb',
+      };
+    };
+
+    const clearGroup = (group) => {
+      if (!group) return;
+      while (group.children.length > 0) {
+        const child = group.children[0];
+        group.remove(child);
+      }
+    };
+
+    const resolveTransform = () => {
+      const config = typeof getTransformConfig === 'function' ? getTransformConfig() : {};
+      const unitsPerPixel = area?.scene3d?.ground?.unitsPerPixel;
+      return {
+        ...config,
+        ...(Number.isFinite(unitsPerPixel) ? { pixelsToUnits: unitsPerPixel } : {}),
+      };
+    };
+
+    const toWorldVector = (point2d) => {
+      if (!point2d) return null;
+      const sourcePoint = {
+        x: Number(point2d.x) || 0,
+        y: Number(point2d.y) || 0,
+      };
+      const transformConfig = resolveTransform();
+      const pos3d = transform2dTo3d(sourcePoint, transformConfig);
+      const vec = new renderer.THREE.Vector3(pos3d.x, pos3d.y, pos3d.z);
+
+      if (alignWorldToPath && Number.isFinite(pathYawRad)) {
+        vec.applyAxisAngle(new renderer.THREE.Vector3(0, 1, 0), -pathYawRad);
+      }
+
+      return vec;
+    };
 
     const spawnerGroup = new renderer.THREE.Group();
     spawnerGroup.name = 'spawners';
@@ -1012,8 +1085,135 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log('[visualsmapLoader] ✓ Gameplay path visualization created');
     }
 
-    // Build the path visualization
-    buildGameplayPath3D();
+    function buildSpawnerMarkers() {
+      clearGroup(spawnerGroup);
+      gameplayMarkers.spawners.length = 0;
+
+      const overlayConfig = resolveOverlayConfig();
+      const spawners = Array.isArray(area?.spawners) ? area.spawners : [];
+      if (!spawners.length) return;
+
+      const radius = overlayConfig.spawnerRadius * cellSize;
+      const geometry = new renderer.THREE.SphereGeometry(radius, 14, 14);
+      const emissiveColor = new renderer.THREE.Color(overlayConfig.spawnerColor);
+      const material = new renderer.THREE.MeshStandardMaterial({
+        color: emissiveColor,
+        emissive: emissiveColor,
+        emissiveIntensity: 0.4,
+      });
+
+      for (const spawner of spawners) {
+        const worldPos = toWorldVector(spawner.position || { x: spawner.x, y: spawner.y });
+        if (!worldPos) continue;
+
+        const mesh = new renderer.THREE.Mesh(geometry, material);
+        mesh.position.copy(worldPos);
+        spawnerGroup.add(mesh);
+
+        gameplayMarkers.spawners.push({
+          id: spawner.spawnerId || spawner.id || spawner.name || 'spawner',
+          label: spawner.name || spawner.spawnerId || spawner.id || 'Spawner',
+          worldPosition: mesh.position.clone(),
+        });
+      }
+    }
+
+    function buildPathTargetMarkers() {
+      clearGroup(targetGroup);
+      gameplayMarkers.targets.length = 0;
+
+      const overlayConfig = resolveOverlayConfig();
+      const targets = Array.isArray(area?.pathTargets) ? area.pathTargets : [];
+      if (!targets.length) return;
+
+      const radius = overlayConfig.targetRadius * cellSize;
+      const geometry = new renderer.THREE.SphereGeometry(radius, 12, 12);
+      const emissiveColor = new renderer.THREE.Color(overlayConfig.targetColor);
+      const material = new renderer.THREE.MeshStandardMaterial({
+        color: emissiveColor,
+        emissive: emissiveColor,
+        emissiveIntensity: 0.4,
+      });
+
+      for (const target of targets) {
+        const worldPos = toWorldVector(target.position || { x: target.x, y: target.y });
+        if (!worldPos) continue;
+
+        const mesh = new renderer.THREE.Mesh(geometry, material);
+        mesh.position.copy(worldPos);
+        targetGroup.add(mesh);
+
+        gameplayMarkers.targets.push({
+          id: target.name || target.id || 'target',
+          label: target.name || target.id || 'Path Target',
+          order: target.order ?? null,
+          worldPosition: mesh.position.clone(),
+        });
+      }
+    }
+
+    function buildPoiOutlines() {
+      clearGroup(poiGroup);
+      gameplayMarkers.pois.length = 0;
+
+      const overlayConfig = resolveOverlayConfig();
+      const pois = Array.isArray(area?.pois) ? area.pois : [];
+      if (!pois.length) return;
+
+      const strokeColor = new renderer.THREE.Color(overlayConfig.poiStroke);
+      const material = new renderer.THREE.LineBasicMaterial({
+        color: strokeColor,
+        transparent: true,
+        opacity: 0.9,
+      });
+      const heightOffset = overlayConfig.poiHeight * cellSize;
+
+      for (const poi of pois) {
+        const bounds = poi.bounds || {};
+        const left = Number.isFinite(bounds.left) ? bounds.left : 0;
+        const right = Number.isFinite(bounds.right) ? bounds.right : (left + (Number(bounds.width) || 0));
+        const top = Number.isFinite(bounds.topOffset) ? bounds.topOffset : 0;
+        const bottom = Number.isFinite(bounds.bottom) ? bounds.bottom : (top + (Number(bounds.height) || 0));
+
+        const corners2d = [
+          { x: left, y: top },
+          { x: right, y: top },
+          { x: right, y: bottom },
+          { x: left, y: bottom },
+        ];
+        const corners3d = corners2d.map(toWorldVector).filter(Boolean);
+        if (corners3d.length !== 4) continue;
+
+        const elevated = corners3d.map((corner) => {
+          const clone = corner.clone();
+          clone.y += heightOffset;
+          return clone;
+        });
+
+        const geometry = new renderer.THREE.BufferGeometry().setFromPoints([
+          ...elevated,
+          elevated[0],
+        ]);
+        const line = new renderer.THREE.Line(geometry, material);
+        poiGroup.add(line);
+
+        gameplayMarkers.pois.push({
+          id: poi.id || poi.name || 'poi',
+          label: poi.label || poi.name || 'POI',
+          corners: elevated.map((v) => v.clone()),
+        });
+      }
+    }
+
+    function buildGameplayElements() {
+      buildGameplayPath3D();
+      buildSpawnerMarkers();
+      buildPathTargetMarkers();
+      buildPoiOutlines();
+    }
+
+    // Build the path visualization and gameplay markers
+    buildGameplayElements();
 
     function resolveSpawnerId(spawner, fallbackIndex) {
       if (!spawner) return fallbackIndex != null ? `spawner_${fallbackIndex}` : 'spawner';
@@ -1092,8 +1292,17 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     // Method to toggle path visibility
     function setPathVisible(visible) {
       pathVisible = !!visible;
+      gameplayElementsVisible = !!visible;
+      gameplayDebugGroup.visible = gameplayElementsVisible;
       pathGroup.visible = pathVisible;
-      console.log(`[visualsmapLoader] Gameplay path visibility: ${pathGroup.visible}`);
+      spawnerGroup.visible = gameplayElementsVisible;
+      targetGroup.visible = gameplayElementsVisible;
+      poiGroup.visible = gameplayElementsVisible;
+      console.log(`[visualsmapLoader] Gameplay map debug visibility: ${gameplayDebugGroup.visible}`);
+    }
+
+    function setGameplayElementsVisible(visible) {
+      setPathVisible(visible);
     }
 
     function setSpawnersVisible(visible) {
@@ -1171,26 +1380,38 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       };
     }
 
-    function getSpawnerScreenPositions(options = {}) {
-      const canvasEl = options.canvas || null;
-      if (!spawnerWorldPositions.length) {
-        return { visible: false, spawners: [] };
+    function getGameplayElementsScreenData(options = {}) {
+      if (!gameplayElementsVisible) {
+        return { visible: false };
       }
 
-      const results = spawnerWorldPositions.map(({ id, label, world }) => {
-        const screen = projectPointToCanvas(world, canvasEl);
-        if (!screen || !Number.isFinite(screen.x) || !Number.isFinite(screen.y)) return null;
-        return {
-          id,
-          label,
-          screen,
-          world: { x: world.x, y: world.y, z: world.z }
-        };
+      const canvasEl = options.canvas || null;
+      const overlayConfig = resolveOverlayConfig();
+
+      const spawners = gameplayMarkers.spawners.map((spawner) => {
+        const screen = projectPointToCanvas(spawner.worldPosition, canvasEl);
+        if (!screen) return null;
+        return { ...spawner, screen };
+      }).filter(Boolean);
+
+      const targets = gameplayMarkers.targets.map((target) => {
+        const screen = projectPointToCanvas(target.worldPosition, canvasEl);
+        if (!screen) return null;
+        return { ...target, screen };
+      }).filter(Boolean);
+
+      const pois = gameplayMarkers.pois.map((poi) => {
+        const points = poi.corners.map((corner) => projectPointToCanvas(corner, canvasEl)).filter(Boolean);
+        if (points.length !== poi.corners.length) return null;
+        return { ...poi, points };
       }).filter(Boolean);
 
       return {
-        visible: spawnersVisible && results.length > 0,
-        spawners: results
+        visible: true,
+        spawners,
+        targets,
+        pois,
+        colors: overlayConfig,
       };
     }
 
@@ -1198,9 +1419,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       objects: loadedObjects,
       dayNightSystem: dayNightSystem,
       setPathVisible: setPathVisible,
-      setSpawnersVisible: setSpawnersVisible,
+      setGameplayElementsVisible,
       getPathScreenLine,
-      getSpawnerScreenPositions,
+      getGameplayElementsScreenData,
       getPathExtents: () => {
         if (!pathStartWorld || !pathEndWorld) {
           return null;
@@ -1229,9 +1450,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       objects: [],
       dispose: () => {},
       setPathVisible: () => {},
-      setSpawnersVisible: () => {},
+      setGameplayElementsVisible: () => {},
       getPathScreenLine: () => ({ visible: false }),
-      getSpawnerScreenPositions: () => ({ visible: false, spawners: [] })
+      getGameplayElementsScreenData: () => ({ visible: false }),
     };
   }
 }

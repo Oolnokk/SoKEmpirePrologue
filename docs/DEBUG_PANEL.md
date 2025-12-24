@@ -110,6 +110,13 @@ This allows agents to:
 2. The button will change to **✕ Debug** when the panel is open
 3. Click again to hide the panel
 
+### Gameplay Path & Map Elements Overlay
+
+- The **🛤️ Show Gameplay Path & Map Elements** checkbox toggles a combined debug overlay.
+- When enabled, the 3D renderer draws the gameplay path plus markers for gameplay-map entities (spawners, patrol/path targets, and POI bounds).
+- The 2D canvas also receives projected overlays for the same elements so their positions can be validated against the side-scrolling camera.
+- Visibility is routed through `window.GAME.visualsmapAdapter.setPathVisible` / `setGameplayElementsVisible`, so the checkbox controls both the 3D markers and 2D projection.
+
 ### Editing Poses
 
 1. Open the debug panel
