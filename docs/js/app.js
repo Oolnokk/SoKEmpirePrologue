@@ -5891,6 +5891,54 @@ function renderGameplayPathOverlay(ctx) {
   ctx.restore();
 }
 
+function renderSpawnerOverlay(ctx) {
+  if (!ctx || !cv) return;
+
+  const checkbox = document.getElementById('showSpawnersCheckbox');
+  if (checkbox && !checkbox.checked) return;
+
+  const adapter = window.GAME?.visualsmapAdapter;
+  const projection = adapter?.getSpawnerScreenPositions?.({ canvas: cv });
+  const spawners = projection?.spawners || [];
+  if (!projection?.visible || !spawners.length) return;
+
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
+  ctx.strokeStyle = 'rgba(14, 165, 233, 0.95)';
+  ctx.lineWidth = 2;
+  ctx.font = '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+  ctx.textBaseline = 'top';
+
+  spawners.forEach((spawner) => {
+    if (!spawner?.screen) return;
+    const { x, y } = spawner.screen;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    const label = spawner.label || spawner.id;
+    if (label) {
+      const padding = 4;
+      const metrics = ctx.measureText(label);
+      const textWidth = metrics.width;
+      const textHeight = 12;
+      const boxX = x + 12;
+      const boxY = y - textHeight / 2;
+      ctx.fillStyle = 'rgba(8, 47, 73, 0.85)';
+      ctx.fillRect(boxX - padding, boxY - padding, textWidth + padding * 2, textHeight + padding * 2);
+      ctx.fillStyle = '#e0f2fe';
+      ctx.fillText(label, boxX, boxY);
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
+    }
+  });
+
+  ctx.restore();
+}
+
 let last = performance.now();
 let fpsLast = performance.now();
 let frames = 0;
@@ -5917,6 +5965,7 @@ function loop(t){
   renderBottles(cx);
   renderAll(cx);
   renderSprites(cx);
+  renderSpawnerOverlay(cx);
   renderGameplayPathOverlay(cx);
   runHitDetect();
   updateHUD();

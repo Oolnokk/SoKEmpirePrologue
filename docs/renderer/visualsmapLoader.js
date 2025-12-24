@@ -888,6 +888,21 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     renderer.add(pathGroup);
     loadedObjects.push(pathGroup);
 
+    const spawnerGroup = new renderer.THREE.Group();
+    spawnerGroup.name = 'spawners';
+    spawnerGroup.visible = false;
+    renderer.add(spawnerGroup);
+    loadedObjects.push(spawnerGroup);
+
+    const spawnerMarkerGeom = new renderer.THREE.SphereGeometry(0.1 * cellSize, 12, 12);
+    const spawnerMarkerMat = new renderer.THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0ea5e9,
+      emissiveIntensity: 0.4,
+    });
+    let spawnerWorldPositions = [];
+    let spawnersVisible = false;
+
     function buildGameplayPath3D() {
       // Clear existing path objects
       while (pathGroup.children.length > 0) {
@@ -945,11 +960,91 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     // Build the path visualization
     buildGameplayPath3D();
 
+    function resolveSpawnerId(spawner, fallbackIndex) {
+      if (!spawner) return fallbackIndex != null ? `spawner_${fallbackIndex}` : 'spawner';
+      if (typeof spawner.spawnerId === 'string' && spawner.spawnerId.trim()) return spawner.spawnerId.trim();
+      if (typeof spawner.id === 'string' && spawner.id.trim()) return spawner.id.trim();
+      if (typeof spawner.name === 'string' && spawner.name.trim()) return spawner.name.trim();
+      return fallbackIndex != null ? `spawner_${fallbackIndex}` : 'spawner';
+    }
+
+    function resolveSpawnerPosition(spawner) {
+      if (!spawner) return null;
+
+      const hasGridCoords = Number.isFinite(spawner.row) && Number.isFinite(spawner.col);
+      if (hasGridCoords) {
+        const world = gridToWorld(spawner.row, spawner.col, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+        return new renderer.THREE.Vector3(world.x, 0.18 * cellSize, world.z);
+      }
+
+      const rawPos = (spawner.position && typeof spawner.position === 'object') ? spawner.position : spawner;
+      const x = Number(rawPos.x);
+      const y = Number(rawPos.y);
+      const z = Number(rawPos.z ?? rawPos.depth);
+
+      if (!Number.isFinite(x)) return null;
+
+      const worldY = Number.isFinite(y) ? y : 0.18 * cellSize;
+      const worldZ = Number.isFinite(z) ? z : 0;
+      return new renderer.THREE.Vector3(x, worldY, worldZ);
+    }
+
+    function collectSpawnerSources() {
+      const areaId = area?.id || window.GAME?.currentAreaId || null;
+      const spawnService = window.GAME?.spawnService;
+      const serviceSpawners = spawnService?.getSpawners && areaId ? spawnService.getSpawners(areaId) : [];
+      const sceneSpawnPoints = Array.isArray(area?.scene?.spawnPoints) ? area.scene.spawnPoints : [];
+      const areaSpawners = Array.isArray(area?.spawners) ? area.spawners : [];
+      return [...serviceSpawners, ...sceneSpawnPoints, ...areaSpawners];
+    }
+
+    function buildSpawnerMarkers() {
+      while (spawnerGroup.children.length > 0) {
+        spawnerGroup.remove(spawnerGroup.children[0]);
+      }
+      spawnerWorldPositions = [];
+
+      const spawners = collectSpawnerSources();
+      if (!spawners.length) {
+        console.log('[visualsmapLoader] No spawners found for visualization');
+        return;
+      }
+
+      const seen = new Set();
+      spawners.forEach((spawner, index) => {
+        const id = resolveSpawnerId(spawner, index + 1);
+        if (seen.has(id)) return;
+        seen.add(id);
+
+        const worldPos = resolveSpawnerPosition(spawner);
+        if (!worldPos) return;
+
+        const marker = new renderer.THREE.Mesh(spawnerMarkerGeom, spawnerMarkerMat.clone());
+        marker.position.copy(worldPos);
+        marker.castShadow = false;
+        marker.receiveShadow = true;
+        marker.userData.spawnerId = id;
+        spawnerGroup.add(marker);
+
+        spawnerWorldPositions.push({ id, label: id, world: worldPos.clone() });
+      });
+
+      console.log(`[visualsmapLoader] Spawner markers built: ${spawnerWorldPositions.length}`);
+    }
+
+    buildSpawnerMarkers();
+
     // Method to toggle path visibility
     function setPathVisible(visible) {
       pathVisible = !!visible;
       pathGroup.visible = pathVisible;
       console.log(`[visualsmapLoader] Gameplay path visibility: ${pathGroup.visible}`);
+    }
+
+    function setSpawnersVisible(visible) {
+      spawnersVisible = !!visible;
+      spawnerGroup.visible = spawnersVisible;
+      console.log(`[visualsmapLoader] Spawner visibility: ${spawnerGroup.visible}`);
     }
 
     function projectPointToCanvas(worldVec, targetCanvas) {
@@ -1021,11 +1116,36 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       };
     }
 
+    function getSpawnerScreenPositions(options = {}) {
+      const canvasEl = options.canvas || null;
+      if (!spawnerWorldPositions.length) {
+        return { visible: false, spawners: [] };
+      }
+
+      const results = spawnerWorldPositions.map(({ id, label, world }) => {
+        const screen = projectPointToCanvas(world, canvasEl);
+        if (!screen || !Number.isFinite(screen.x) || !Number.isFinite(screen.y)) return null;
+        return {
+          id,
+          label,
+          screen,
+          world: { x: world.x, y: world.y, z: world.z }
+        };
+      }).filter(Boolean);
+
+      return {
+        visible: spawnersVisible && results.length > 0,
+        spawners: results
+      };
+    }
+
     return {
       objects: loadedObjects,
       dayNightSystem: dayNightSystem,
       setPathVisible: setPathVisible,
+      setSpawnersVisible: setSpawnersVisible,
       getPathScreenLine,
+      getSpawnerScreenPositions,
       getPathExtents: () => {
         if (!pathStartWorld || !pathEndWorld) {
           return null;
@@ -1050,6 +1170,13 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     };
   } catch (error) {
     console.error('[visualsmapLoader] Error loading visualsmap:', error);
-    return { objects: [], dispose: () => {}, setPathVisible: () => {}, getPathScreenLine: () => ({ visible: false }) };
+    return {
+      objects: [],
+      dispose: () => {},
+      setPathVisible: () => {},
+      setSpawnersVisible: () => {},
+      getPathScreenLine: () => ({ visible: false }),
+      getSpawnerScreenPositions: () => ({ visible: false, spawners: [] })
+    };
   }
 }
