@@ -84,6 +84,22 @@ export function initDebugPanel() {
     });
   }
 
+  // Setup spawner visibility checkbox
+  const spawnerCheckbox = $$('#showSpawnersCheckbox', panel);
+  if (spawnerCheckbox) {
+    spawnerCheckbox.addEventListener('change', (e) => {
+      const isVisible = e.target.checked;
+      console.log('[debug-panel] Spawner visibility:', isVisible);
+
+      const adapter = window.GAME?.visualsmapAdapter;
+      if (adapter && typeof adapter.setSpawnersVisible === 'function') {
+        adapter.setSpawnersVisible(isVisible);
+      } else {
+        console.warn('[debug-panel] Visualsmap adapter not available or missing setSpawnersVisible method');
+      }
+    });
+  }
+
   // Setup drop bottle button
   const dropBottleBtn = $$('#btnDropBottle', panel);
   if (dropBottleBtn) {
