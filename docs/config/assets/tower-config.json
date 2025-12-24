@@ -19,6 +19,27 @@
   },
   "extra": {
     "rotationX": 90,
+    "candleLights": [
+      {
+        "id": "rooftop-glow",
+        "attachmentId": "rooftop",
+        "offset": { "x": 0, "y": 0, "z": 0 },
+        "withGlow": true,
+        "rotationYDeg": 90,
+        "scale": 1.2,
+        "options": {
+          "color": 16759654,
+          "emissiveIntensity": 1.2,
+          "opacity": 0.8
+        },
+        "lighting": {
+          "nightEmissive": 16759654,
+          "nightIntensity": 1.2,
+          "dayEmissive": 0,
+          "dayIntensity": 0
+        }
+      }
+    ],
     "attachmentPoints": [
       {
         "id": "rooftop",

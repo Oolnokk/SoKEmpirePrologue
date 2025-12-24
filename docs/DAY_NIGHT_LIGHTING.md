@@ -33,7 +33,7 @@ The day/night lighting system provides:
 
 4. **VisualsMapLoader Integration** (`docs/renderer/visualsmapLoader.js`)
    - Initializes day/night system when loading maps
-   - Automatically adds candle lights to all tower structures
+   - Automatically adds candle lights defined in asset configs (e.g., `tower-config.json`) to tower structures
    - Updates ambient and directional lighting based on time of day
 
 ## Usage
@@ -103,27 +103,30 @@ The system defaults to **night mode** with the following configuration:
 
 ### Candle Light Properties
 
-Each candle light is a **trapezoidal frustum** with these default properties:
+Each candle light is a **trapezoidal frustum** with defaults stored in `CONFIG.lighting.candleDefaults` (`docs/config/config.js`). Current values:
 
 ```javascript
 {
   topWidth: 0.8,        // Width at top
   topDepth: 0.8,        // Depth at top
   bottomWidth: 0.5,     // Width at bottom
-  bottomDepth: 0.5,     // Depth at bottom
+  bottomDepth: 0.5,     // Width at bottom
   height: 1.5,          // Total height
   color: 0xffbb66,      // Orangy pale yellow (candle light)
-  emissiveIntensity: 0.8,
-  opacity: 0.6,
-  lightIntensity: 1.5,  // Point light intensity
-  lightDistance: 8,     // Point light range
-  autoPosition: true    // Automatically position inside tower
+  emissiveIntensity: 1.2,
+  opacity: 0.8,
+  rotationYDeg: 90,
+  scale: 1.2,
+  nightEmissive: 0xffbb66,
+  nightIntensity: 1.2,
+  dayEmissive: 0x000000,
+  dayIntensity: 0.0
 }
 ```
 
 #### Night State
 - Emissive Color: `0xffbb66` (orangy pale yellow)
-- Emissive Intensity: `0.8`
+- Emissive Intensity: `1.2`
 - Point Light: **ON** (visible glow)
 
 #### Day State
@@ -139,13 +142,20 @@ The candle light uses a custom trapezoidal frustum geometry:
 - **Shape**: Wider at the top, narrower at the bottom (like a truncated pyramid)
 - **Rendering**: Double-sided with transparency
 - **Material**: MeshStandardMaterial with emissive properties
-- **Position**: Automatically centered inside tower structures at 20% height from bottom
+- **Position**: Placed using per-asset config offsets (optionally anchored to attachment points)
 
 ### Structure
 
 Each candle light is a Three.js Group containing:
 1. **Mesh**: The trapezoidal frustum with emissive material
 2. **PointLight**: Optional point light for glow effect (when `withGlow: true`)
+
+### Configuring candle lights per asset
+
+- Add candle definitions under `extra.candleLights` in the asset config (for example `docs/config/assets/tower-config.json`).
+- Each entry can reference an `attachmentId` (from `extra.attachmentPoints`) and an additional `offset` to fine-tune placement in local object space.
+- Rendering options go under `options` (passed to `createCandleLight`/`createCandleLightWithGlow`), while day/night emissive overrides live under `lighting`.
+- The visuals map loader merges these entries with the defaults above and registers each candle with the day/night system automatically.
 
 ## Tower Detection
 
