@@ -31,6 +31,19 @@
     "pathUnits": "grid",
     "unitsPerPixel": 1
   },
+  "groupLibrary": {
+    "city_guard_patrol": {
+      "name": "City Watch Patrol",
+      "faction": "citywatch",
+      "interests": ["patrol-point", "gate", "barracks"],
+      "exitTags": ["map-exit:left", "map-exit:right"],
+      "exitWeights": { "map-exit:left": 2, "map-exit:right": 1 },
+      "members": [
+        { "templateId": "citywatch_watchman", "count": 3 }
+      ],
+      "meta": { "role": "patrol" }
+    }
+  },
   "entities": [
     {
       "id": "entrance_left",
@@ -42,6 +55,7 @@
     {
       "id": "spawner_watchmen_1",
       "type": "spawner",
+      "groupId": "city_guard_patrol",
       "x": 5700,
       "y": 0,
       "meta": {
