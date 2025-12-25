@@ -944,9 +944,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     pathGroup.name = 'gameplayPath';
     gameplayDebugGroup.add(pathGroup);
 
-    const spawnerGroup = new renderer.THREE.Group();
-    spawnerGroup.name = 'gameplaySpawners';
-    gameplayDebugGroup.add(spawnerGroup);
+    const gameplaySpawnerGroup = new renderer.THREE.Group();
+    gameplaySpawnerGroup.name = 'gameplaySpawners';
+    gameplayDebugGroup.add(gameplaySpawnerGroup);
 
     const targetGroup = new renderer.THREE.Group();
     targetGroup.name = 'gameplayPathTargets';
@@ -1085,8 +1085,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log('[visualsmapLoader] ✓ Gameplay path visualization created');
     }
 
-    function buildSpawnerMarkers() {
-      clearGroup(spawnerGroup);
+    function buildGameplaySpawnerMarkers() {
+      clearGroup(gameplaySpawnerGroup);
       gameplayMarkers.spawners.length = 0;
 
       const overlayConfig = resolveOverlayConfig();
@@ -1108,7 +1108,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
         const mesh = new renderer.THREE.Mesh(geometry, material);
         mesh.position.copy(worldPos);
-        spawnerGroup.add(mesh);
+        gameplaySpawnerGroup.add(mesh);
 
         gameplayMarkers.spawners.push({
           id: spawner.spawnerId || spawner.id || spawner.name || 'spawner',
@@ -1207,7 +1207,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
     function buildGameplayElements() {
       buildGameplayPath3D();
-      buildSpawnerMarkers();
+      buildGameplaySpawnerMarkers();
       buildPathTargetMarkers();
       buildPoiOutlines();
     }
@@ -1281,7 +1281,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
         marker.userData.spawnerId = id;
         spawnerGroup.add(marker);
 
-        spawnerWorldPositions.push({ id, label: id, world: worldPos.clone() });
+        const label = spawner.name || spawner.label || id;
+        spawnerWorldPositions.push({ id, label, world: worldPos.clone() });
       });
 
       console.log(`[visualsmapLoader] Spawner markers built: ${spawnerWorldPositions.length}`);
@@ -1295,7 +1296,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       gameplayElementsVisible = !!visible;
       gameplayDebugGroup.visible = gameplayElementsVisible;
       pathGroup.visible = pathVisible;
-      spawnerGroup.visible = gameplayElementsVisible;
+      gameplaySpawnerGroup.visible = gameplayElementsVisible;
       targetGroup.visible = gameplayElementsVisible;
       poiGroup.visible = gameplayElementsVisible;
       console.log(`[visualsmapLoader] Gameplay map debug visibility: ${gameplayDebugGroup.visible}`);
@@ -1309,6 +1310,32 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       spawnersVisible = !!visible;
       spawnerGroup.visible = spawnersVisible;
       console.log(`[visualsmapLoader] Spawner visibility: ${spawnerGroup.visible}`);
+    }
+
+    function getSpawnerScreenPositions(options = {}) {
+      if (!spawnersVisible) {
+        return { visible: false, spawners: [] };
+      }
+
+      const canvasEl = options.canvas || null;
+      const overlayConfig = resolveOverlayConfig();
+
+      const spawners = spawnerWorldPositions.map((spawner) => {
+        const screen = projectPointToCanvas(spawner.world, canvasEl);
+        if (!screen) return null;
+        return { ...spawner, screen };
+      }).filter(Boolean);
+
+      return {
+        visible: spawnersVisible && spawners.length > 0,
+        spawners,
+        colors: {
+          spawnerColor: overlayConfig.spawnerColor,
+          spawnerRadius: overlayConfig.spawnerRadius,
+          labelBackground: overlayConfig.labelBackground,
+          labelColor: overlayConfig.labelColor,
+        },
+      };
     }
 
     function projectPointToCanvas(worldVec, targetCanvas) {
@@ -1420,7 +1447,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       dayNightSystem: dayNightSystem,
       setPathVisible: setPathVisible,
       setGameplayElementsVisible,
+      setSpawnersVisible,
       getPathScreenLine,
+      getSpawnerScreenPositions,
       getGameplayElementsScreenData,
       getPathExtents: () => {
         if (!pathStartWorld || !pathEndWorld) {
@@ -1451,7 +1480,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       dispose: () => {},
       setPathVisible: () => {},
       setGameplayElementsVisible: () => {},
+      setSpawnersVisible: () => {},
       getPathScreenLine: () => ({ visible: false }),
+      getSpawnerScreenPositions: () => ({ visible: false, spawners: [] }),
       getGameplayElementsScreenData: () => ({ visible: false }),
     };
   }
