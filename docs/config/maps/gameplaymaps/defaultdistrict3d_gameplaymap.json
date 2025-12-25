@@ -16,7 +16,6 @@
       "materials": "unlit"
     }
   },
-
   "ground": {
     "path": [
       {
@@ -49,29 +48,37 @@
         "patrolRouteId": "city_guard_patrol",
         "scheduleId": "citywatch_duty"
       }
-    },
+    }
+  ],
+  "patrolPoints": [
     {
       "id": "patrol_west_1",
-      "type": "patrol",
       "x": 1480,
       "y": 0,
+      "width": 180,
+      "height": 180,
+      "label": "Western patrol area",
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 0,
         "description": "Western patrol area",
-        "scheduleId": "citywatch_patrol_west"
+        "scheduleId": "citywatch_patrol_west",
+        "patrol": true
       }
     },
     {
       "id": "patrol_center",
-      "type": "patrol",
       "x": 2800,
       "y": 0,
+      "width": 180,
+      "height": 180,
+      "label": "Central patrol area",
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 1,
         "description": "Central patrol area",
-        "scheduleId": "citywatch_patrol_center"
+        "scheduleId": "citywatch_patrol_center",
+        "patrol": true
       }
     }
   ],
