@@ -5495,6 +5495,60 @@ function updateGroundYFromPath() {
   }
 }
 
+function renderSpawnerOverlay(ctx) {
+  if (!ctx || !cv) return;
+
+  const adapter = window.GAME?.visualsmapAdapter;
+  const overlay = adapter?.getSpawnerScreenPositions?.({ canvas: cv });
+  if (!overlay?.visible) return;
+
+  const colors = overlay.colors || {};
+  const spawnerColor = colors.spawnerColor || '#22c55e';
+  const labelBg = colors.labelBackground || 'rgba(0, 0, 0, 0.75)';
+  const labelColor = colors.labelColor || '#e5e7eb';
+  const spawnerRadius = Math.max(4, (Number(colors.spawnerRadius) || 0.24) * 50);
+
+  ctx.save();
+  ctx.lineWidth = 2;
+
+  const drawMarker = (point, radius, color, label) => {
+    if (!point) return;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.beginPath();
+    ctx.arc(point.x + 1, point.y + 1, radius + 1, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (label) {
+      const padding = 4;
+      ctx.font = '11px monospace';
+      const metrics = ctx.measureText(label);
+      const width = metrics.width + padding * 2;
+      const height = 16;
+      const labelX = point.x + radius + 8;
+      const labelY = point.y - height / 2;
+      ctx.fillStyle = labelBg;
+      ctx.fillRect(labelX, labelY, width, height);
+      ctx.fillStyle = labelColor;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, labelX + padding, point.y);
+    }
+  };
+
+  for (const spawner of overlay.spawners || []) {
+    const label = spawner.label || spawner.id || 'Spawner';
+    drawMarker(spawner.screen, spawnerRadius, spawnerColor, label);
+  }
+
+  ctx.restore();
+}
+
 function renderGameplayPathOverlay(ctx) {
   if (!ctx || !cv) return;
 
