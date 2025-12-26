@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NPC Group Spawner Test</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    h1 {
+      color: #38bdf8;
+      border-bottom: 2px solid #1e293b;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #22c55e;
+      margin-top: 30px;
+    }
+    .controls {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    .controls label {
+      display: block;
+      margin: 10px 0;
+      cursor: pointer;
+    }
+    .controls input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    button {
+      background: #22c55e;
+      color: #0f172a;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #16a34a;
+    }
+    button:active {
+      background: #15803d;
+    }
+    .output {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 4px solid #38bdf8;
+    }
+    .npc {
+      padding: 10px;
+      margin: 10px 0;
+      background: #334155;
+      border-radius: 4px;
+      border-left: 3px solid #22c55e;
+    }
+    .npc-name {
+      font-size: 18px;
+      font-weight: bold;
+      color: #38bdf8;
+    }
+    .npc-details {
+      font-size: 14px;
+      color: #94a3b8;
+      margin-top: 5px;
+    }
+    .group-header {
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0 10px 0;
+      border-left: 4px solid #f472b6;
+    }
+    .group-name {
+      font-size: 20px;
+      font-weight: bold;
+      color: #f472b6;
+    }
+    .group-info {
+      color: #94a3b8;
+      margin-top: 5px;
+    }
+    code {
+      background: #0f172a;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #22c55e;
+    }
+    .error {
+      background: #7f1d1d;
+      color: #fecaca;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+    .console-output {
+      background: #0f172a;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 10px 0;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎮 NPC Group Spawner Test</h1>
+
+  <div class="controls">
+    <h2>Debug Controls</h2>
+    <label>
+      <input type="checkbox" id="enableDebug">
+      Enable Debug Logging
+    </label>
+    <label>
+      <input type="checkbox" id="logNames">
+      Log Generated Names
+    </label>
+    <label>
+      <input type="checkbox" id="debugNames">
+      Detailed Name Generation Debug
+    </label>
+    <br>
+    <button onclick="spawnTestGroup()">Spawn City Watch Patrol</button>
+    <button onclick="spawnAllGroups()">Spawn All Groups</button>
+    <button onclick="clearOutput()">Clear Output</button>
+  </div>
+
+  <div id="output" class="output">
+    <p style="color: #94a3b8;">Click a button to spawn NPCs...</p>
+  </div>
+
+  <div id="console" class="console-output" style="display: none;">
+    <h3>Console Output:</h3>
+    <div id="consoleContent"></div>
+  </div>
+
+  <script type="module">
+    import { SpawnService } from './js/spawn-service.js';
+    import { spawnNpcGroup, spawnAllGroups as spawnAllGroupsFunc } from './js/npc-group-spawner.js?v=1';
+
+    // Initialize CONFIG
+    window.CONFIG = window.CONFIG || {};
+    window.CONFIG.debug = window.CONFIG.debug || {};
+    window.CONFIG.debug.npcGroupSpawner = {
+      enabled: false,
+      logNames: false,
+      debugNames: false,
+    };
+
+    // Mock character templates
+    window.CONFIG.characterTemplates = {
+      citywatch_watchman: {
+        label: 'City Watch Watchman',
+        baseCharacter: null,
+        defaults: {
+          fighter: 'fighter_default',
+          stats: { baseline: 10, strength: 12, agility: 10, endurance: 11 },
+        },
+        overrides: {},
+      },
+    };
+
+    // Setup spawn service
+    const spawnService = new SpawnService({ logger: console });
+
+    // Test group library
+    const groupLibrary = {
+      city_guard_patrol: {
+        id: 'city_guard_patrol',
+        name: 'City Watch Patrol',
+        faction: 'citywatch',
+        interests: ['patrol-point', 'gate', 'barracks'],
+        members: [
+          { templateId: 'citywatch_watchman', count: 3 },
+        ],
+        meta: {
+          role: 'patrol',
+          culture: 'mao_ao', // Use Mao-ao name generation
+        },
+      },
+    };
+
+    // Test spawners
+    const spawners = [
+      {
+        id: 'spawn_west_gate',
+        spawnerId: 'spawn_west_gate',
+        type: 'npc',
+        groupId: 'city_guard_patrol',
+        x: 10,
+        y: 0,
+      },
+    ];
+
+    // Register test area
+    spawnService.registerArea('test_area', spawners, { groupLibrary });
+
+    // Update debug settings from checkboxes
+    document.getElementById('enableDebug').addEventListener('change', (e) => {
+      window.CONFIG.debug.npcGroupSpawner.enabled = e.target.checked;
+      if (e.target.checked) {
+        document.getElementById('console').style.display = 'block';
+      }
+    });
+
+    document.getElementById('logNames').addEventListener('change', (e) => {
+      window.CONFIG.debug.npcGroupSpawner.logNames = e.target.checked;
+    });
+
+    document.getElementById('debugNames').addEventListener('change', (e) => {
+      window.CONFIG.debug.npcGroupSpawner.debugNames = e.target.checked;
+    });
+
+    // Capture console output
+    const originalLog = console.log;
+    console.log = function(...args) {
+      originalLog.apply(console, args);
+      const consoleContent = document.getElementById('consoleContent');
+      if (consoleContent && window.CONFIG.debug.npcGroupSpawner.enabled) {
+        const msg = args.map(arg =>
+          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' ');
+        consoleContent.innerHTML += `<div style="margin: 2px 0; color: #22c55e;">${escapeHtml(msg)}</div>`;
+        consoleContent.scrollTop = consoleContent.scrollHeight;
+      }
+    };
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Spawn test group
+    window.spawnTestGroup = function() {
+      const output = document.getElementById('output');
+      output.innerHTML = '<h2>Spawning City Watch Patrol...</h2>';
+
+      try {
+        const spawner = spawnService.getSpawner('test_area', 'spawn_west_gate');
+        if (!spawner) {
+          output.innerHTML += '<div class="error">Error: Spawner not found</div>';
+          return;
+        }
+
+        const fighters = spawnNpcGroup(spawner);
+
+        if (fighters.length === 0) {
+          output.innerHTML += '<div class="error">No fighters spawned</div>';
+          return;
+        }
+
+        output.innerHTML += `
+          <div class="group-header">
+            <div class="group-name">${spawner.groupMeta.name}</div>
+            <div class="group-info">
+              Faction: <code>${spawner.groupMeta.faction}</code> |
+              Group ID: <code>${spawner.groupMeta.id}</code> |
+              Spawned: <strong>${fighters.length}</strong> NPCs
+            </div>
+          </div>
+        `;
+
+        fighters.forEach((fighter, i) => {
+          output.innerHTML += `
+            <div class="npc">
+              <div class="npc-name">${i + 1}. ${fighter.npcName || 'Unnamed'}</div>
+              <div class="npc-details">
+                Gender: <code>${fighter.gender}</code> |
+                Template: <code>${fighter.templateId}</code> |
+                Culture: <code>${fighter.culture}</code>
+                ${fighter.nameParts ? ` | First: <code>${fighter.nameParts.first}</code> Last: <code>${fighter.nameParts.last}</code>` : ''}
+              </div>
+            </div>
+          `;
+        });
+
+        output.innerHTML += `<p style="color: #22c55e; margin-top: 20px;">✓ Successfully spawned ${fighters.length} NPCs</p>`;
+      } catch (error) {
+        output.innerHTML += `<div class="error">Error: ${error.message}</div>`;
+        console.error(error);
+      }
+    };
+
+    // Spawn all groups
+    window.spawnAllGroups = function() {
+      const output = document.getElementById('output');
+      output.innerHTML = '<h2>Spawning All Groups...</h2>';
+
+      try {
+        const fighters = spawnAllGroupsFunc(spawnService, 'test_area');
+
+        if (fighters.length === 0) {
+          output.innerHTML += '<div class="error">No fighters spawned</div>';
+          return;
+        }
+
+        // Group by groupId
+        const groupedFighters = fighters.reduce((acc, fighter) => {
+          const groupId = fighter.groupId || 'unknown';
+          if (!acc[groupId]) acc[groupId] = [];
+          acc[groupId].push(fighter);
+          return acc;
+        }, {});
+
+        Object.entries(groupedFighters).forEach(([groupId, groupFighters]) => {
+          const groupName = groupFighters[0]?.groupName || groupId;
+          output.innerHTML += `
+            <div class="group-header">
+              <div class="group-name">${groupName}</div>
+              <div class="group-info">
+                Group ID: <code>${groupId}</code> |
+                Count: <strong>${groupFighters.length}</strong>
+              </div>
+            </div>
+          `;
+
+          groupFighters.forEach((fighter, i) => {
+            output.innerHTML += `
+              <div class="npc">
+                <div class="npc-name">${i + 1}. ${fighter.npcName || 'Unnamed'}</div>
+                <div class="npc-details">
+                  Gender: <code>${fighter.gender}</code> |
+                  Template: <code>${fighter.templateId}</code> |
+                  Culture: <code>${fighter.culture}</code>
+                </div>
+              </div>
+            `;
+          });
+        });
+
+        output.innerHTML += `<p style="color: #22c55e; margin-top: 20px;">✓ Successfully spawned ${fighters.length} total NPCs</p>`;
+      } catch (error) {
+        output.innerHTML += `<div class="error">Error: ${error.message}</div>`;
+        console.error(error);
+      }
+    };
+
+    // Clear output
+    window.clearOutput = function() {
+      document.getElementById('output').innerHTML = '<p style="color: #94a3b8;">Click a button to spawn NPCs...</p>';
+      document.getElementById('consoleContent').innerHTML = '';
+    };
+
+    console.log('NPC Group Spawner Test initialized');
+  </script>
+</body>
+</html>
