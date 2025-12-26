@@ -6,8 +6,114 @@ import { radToDeg, radToDegNum, degToRad } from './math-utils.js?v=1';
 import { pushPoseOverride as runtimePushPoseOverride, pushPoseLayerOverride as runtimePushPoseLayerOverride } from './animator.js?v=5';
 import { normalizePrefabDefinition } from './prefab-catalog.js?v=1';
 
+// Console capture system - stores all console messages for later export
+const CONSOLE_CAPTURE = {
+  messages: [],
+  maxMessages: 1000, // Limit to prevent memory issues
+  originalLog: null,
+  originalWarn: null,
+  originalError: null,
+  originalInfo: null,
+  originalDebug: null,
+  isCapturing: false
+};
+
+// Initialize console capture
+function initConsoleCapture() {
+  if (CONSOLE_CAPTURE.isCapturing) return;
+
+  // Store original console methods
+  CONSOLE_CAPTURE.originalLog = console.log.bind(console);
+  CONSOLE_CAPTURE.originalWarn = console.warn.bind(console);
+  CONSOLE_CAPTURE.originalError = console.error.bind(console);
+  CONSOLE_CAPTURE.originalInfo = console.info.bind(console);
+  CONSOLE_CAPTURE.originalDebug = console.debug ? console.debug.bind(console) : null;
+
+  // Helper to capture and store messages
+  const captureMessage = (type, originalFn, args) => {
+    // Call original function first
+    originalFn(...args);
+
+    // Format and store message
+    const timestamp = new Date().toISOString();
+    const message = args.map(arg => {
+      if (arg instanceof Error) {
+        return arg.stack || `${arg.name}: ${arg.message}`;
+      }
+      if (typeof arg === 'object') {
+        try {
+          return JSON.stringify(arg, null, 2);
+        } catch (e) {
+          return String(arg);
+        }
+      }
+      return String(arg);
+    }).join(' ');
+
+    CONSOLE_CAPTURE.messages.push({ type, timestamp, message });
+
+    // Limit array size
+    if (CONSOLE_CAPTURE.messages.length > CONSOLE_CAPTURE.maxMessages) {
+      CONSOLE_CAPTURE.messages.shift();
+    }
+  };
+
+  // Override console methods
+  console.log = function(...args) {
+    captureMessage('log', CONSOLE_CAPTURE.originalLog, args);
+  };
+
+  console.warn = function(...args) {
+    captureMessage('warn', CONSOLE_CAPTURE.originalWarn, args);
+  };
+
+  console.error = function(...args) {
+    captureMessage('error', CONSOLE_CAPTURE.originalError, args);
+  };
+
+  console.info = function(...args) {
+    captureMessage('info', CONSOLE_CAPTURE.originalInfo, args);
+  };
+
+  if (CONSOLE_CAPTURE.originalDebug) {
+    console.debug = function(...args) {
+      captureMessage('debug', CONSOLE_CAPTURE.originalDebug, args);
+    };
+  }
+
+  CONSOLE_CAPTURE.isCapturing = true;
+  console.log('[debug-panel] Console capture initialized');
+}
+
+// Export console messages as formatted text
+function exportConsoleLogs() {
+  const lines = [
+    'Console Output Export',
+    '='.repeat(80),
+    `Timestamp: ${new Date().toISOString()}`,
+    `URL: ${window.location.href}`,
+    `Total Messages: ${CONSOLE_CAPTURE.messages.length}`,
+    '='.repeat(80),
+    ''
+  ];
+
+  CONSOLE_CAPTURE.messages.forEach((entry, index) => {
+    const typeLabel = entry.type.toUpperCase().padEnd(6);
+    lines.push(`[${entry.timestamp}] ${typeLabel} ${entry.message}`);
+  });
+
+  lines.push('');
+  lines.push('='.repeat(80));
+  lines.push('End of console output');
+
+  return lines.join('\n');
+}
+
 // Initialize the debug panel
 export function initDebugPanel() {
+  // Initialize console capture first
+  initConsoleCapture();
+
   const panel = $$('#debugPanel');
   if (!panel) {
     console.warn('[debug-panel] Debug panel element not found');
@@ -46,6 +152,12 @@ export function initDebugPanel() {
   };
 
   panel.addEventListener('keydown', handlePanelKeydown);
+
+  // Setup copy console button
+  const copyConsoleBtn = $$('#debugCopyConsole', panel);
+  if (copyConsoleBtn) {
+    copyConsoleBtn.addEventListener('click', copyConsoleToClipboard);
+  }
 
   // Setup copy JSON button
   const copyBtn = $$('#debugCopyJson', panel);
@@ -653,6 +765,36 @@ function setNestedValue(obj, path, value) {
     return current[key];
   }, obj);
   target[lastKey] = value;
+}
+
+// Copy console output to clipboard
+function copyConsoleToClipboard() {
+  const consoleText = exportConsoleLogs();
+
+  // Copy to clipboard
+  navigator.clipboard.writeText(consoleText).then(() => {
+    console.log('[debug-panel] Copied console output to clipboard');
+    showCopyNotificationConsole();
+  }).catch(err => {
+    console.error('[debug-panel] Failed to copy console:', err);
+    // Fallback: show in console
+    console.log('[debug-panel] Console export:', consoleText);
+  });
+}
+
+// Show a temporary notification that console copy succeeded
+function showCopyNotificationConsole() {
+  const btn = $$('#debugCopyConsole');
+  if (!btn) return;
+
+  const originalText = btn.textContent;
+  btn.textContent = '✓ Copied!';
+  btn.style.background = '#10b981';
+
+  setTimeout(() => {
+    btn.textContent = originalText;
+    btn.style.background = '';
+  }, 1500);
 }
 
 // Copy current pose and config to clipboard as JSON
