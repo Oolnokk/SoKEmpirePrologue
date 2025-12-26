@@ -367,6 +367,7 @@
         <div class="controls-overlay">
           <div class="top-ui">
             <button type="button" id="btnFullscreen" class="ui-btn">⤢ Full</button>
+            <button type="button" id="runtimeConfigToggle" class="ui-btn">🛠 Runtime Config</button>
             <button type="button" id="debugToggle" class="ui-btn">🔍 Debug</button>
           </div>
 
@@ -499,6 +500,31 @@
             <button type="button" id="btnHelp" class="debug-action-btn" style="width: 100%;" aria-haspopup="dialog" aria-expanded="false" aria-controls="helpPanel">❓ Help</button>
           </div>
         </section>
+        <div class="runtime-config-modal" id="runtimeConfigModal" aria-hidden="true">
+          <div class="runtime-config-dialog" role="dialog" aria-modal="true" aria-labelledby="runtimeConfigTitle">
+            <div class="runtime-config-header">
+              <h4 id="runtimeConfigTitle">Runtime JSON Loader</h4>
+              <button type="button" class="runtime-config-close" id="runtimeConfigClose" aria-label="Close runtime config">×</button>
+            </div>
+            <div class="runtime-config-controls">
+              <label>
+                Target
+                <select id="runtimeConfigTarget">
+                  <option value="arch">HUD Arch</option>
+                  <option value="clock">Clock</option>
+                  <option value="resourceBars">Resource Bars</option>
+                </select>
+              </label>
+              <button type="button" id="runtimeConfigExport" class="ui-btn">Export Current</button>
+              <button type="button" id="runtimeConfigCopy" class="ui-btn">Copy JSON</button>
+            </div>
+            <textarea id="runtimeConfigTextarea" class="runtime-config-textarea" spellcheck="false" aria-label="Runtime configuration JSON"></textarea>
+            <div class="runtime-config-actions">
+              <button type="button" id="runtimeConfigApply">Apply JSON</button>
+            </div>
+            <div class="runtime-config-status" id="runtimeConfigStatus" role="status"></div>
+          </div>
+        </div>
         </div>
       </section>
 

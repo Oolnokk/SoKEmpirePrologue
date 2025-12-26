@@ -18,10 +18,111 @@ window.CONFIG.ui.clock = {
   boxPaddingX: __existingClockConfig.boxPaddingX ?? 10,
   boxPaddingY: __existingClockConfig.boxPaddingY ?? 5,
   strokeWidth: __existingClockConfig.strokeWidth ?? 3,
+  fallbackMode: __existingClockConfig.fallbackMode ?? 'system',
+  debugTime24h: __existingClockConfig.debugTime24h ?? 12,
 };
+window.CONFIG.ui.clockDefaults = JSON.parse(JSON.stringify(window.CONFIG.ui.clock));
 
 // Preserve legacy flag while aligning it with the clock settings
 window.CONFIG.ui.showClock = window.CONFIG.ui.clock.enabled;
+
+// HUD resource bar styling and layout
+const __existingResourceBars = window.CONFIG.ui.resourceBars || {};
+const RESOURCE_BAR_DEFAULTS = {
+  enabled: __existingResourceBars.enabled !== false,
+  health: {
+    visible: __existingResourceBars.health?.visible !== false,
+    position: {
+      left: __existingResourceBars.health?.position?.left ?? 16,
+      top: __existingResourceBars.health?.position?.top ?? 26,
+    },
+    size: {
+      width: __existingResourceBars.health?.size?.width ?? 220,
+      height: __existingResourceBars.health?.size?.height ?? 12,
+    },
+    padding: __existingResourceBars.health?.padding ?? 3,
+    borderRadius: __existingResourceBars.health?.borderRadius ?? 12,
+    background: __existingResourceBars.health?.background ?? 'rgba(5,7,11,0.78)',
+    border: __existingResourceBars.health?.border ?? '1px solid rgba(148,163,184,0.28)',
+    shadow: __existingResourceBars.health?.shadow ?? '0 12px 28px rgba(0,0,0,0.35)',
+    backdropFilter: __existingResourceBars.health?.backdropFilter ?? 'blur(6px)',
+    fill: {
+      color: __existingResourceBars.health?.fill?.color
+        ?? 'linear-gradient(90deg,#ef4444 0%,#f87171 48%,#ef4444 100%)',
+      shadow: __existingResourceBars.health?.fill?.shadow ?? '0 0 14px rgba(239,68,68,0.45)',
+    },
+    label: {
+      color: __existingResourceBars.health?.label?.color ?? '#f8fafc',
+      shadow: __existingResourceBars.health?.label?.shadow ?? '0 1px 3px rgba(0,0,0,0.75)',
+      fontSize: __existingResourceBars.health?.label?.fontSize ?? 11,
+      fontWeight: __existingResourceBars.health?.label?.fontWeight ?? 600,
+    },
+  },
+  stamina: {
+    visible: __existingResourceBars.stamina?.visible !== false,
+    position: {
+      left: __existingResourceBars.stamina?.position?.left ?? 16,
+      top: __existingResourceBars.stamina?.position?.top ?? 44,
+    },
+    size: {
+      width: __existingResourceBars.stamina?.size?.width ?? 220,
+      height: __existingResourceBars.stamina?.size?.height ?? 11,
+    },
+    padding: __existingResourceBars.stamina?.padding ?? 3,
+    borderRadius: __existingResourceBars.stamina?.borderRadius ?? 12,
+    background: __existingResourceBars.stamina?.background ?? 'rgba(5,7,11,0.78)',
+    border: __existingResourceBars.stamina?.border ?? '1px solid rgba(148,163,184,0.28)',
+    shadow: __existingResourceBars.stamina?.shadow ?? '0 12px 28px rgba(0,0,0,0.35)',
+    backdropFilter: __existingResourceBars.stamina?.backdropFilter ?? 'blur(6px)',
+    fill: {
+      color: __existingResourceBars.stamina?.fill?.color
+        ?? 'linear-gradient(90deg,#22c55e 0%,#86efac 55%,#22c55e 100%)',
+      shadow: __existingResourceBars.stamina?.fill?.shadow ?? '0 0 12px rgba(34,197,94,0.45)',
+      lowColor: __existingResourceBars.stamina?.fill?.lowColor
+        ?? 'linear-gradient(90deg,#ef4444 0%,#fca5a5 55%,#ef4444 100%)',
+      lowShadow: __existingResourceBars.stamina?.fill?.lowShadow ?? '0 0 12px rgba(239,68,68,0.45)',
+      dashingColor: __existingResourceBars.stamina?.fill?.dashingColor
+        ?? 'linear-gradient(90deg,#3b82f6 0%,#60a5fa 55%,#3b82f6 100%)',
+      dashingShadow: __existingResourceBars.stamina?.fill?.dashingShadow ?? '0 0 16px rgba(59,130,246,0.55)',
+    },
+    label: {
+      color: __existingResourceBars.stamina?.label?.color ?? '#f8fafc',
+      shadow: __existingResourceBars.stamina?.label?.shadow ?? '0 1px 3px rgba(0,0,0,0.75)',
+      fontSize: __existingResourceBars.stamina?.label?.fontSize ?? 11,
+      fontWeight: __existingResourceBars.stamina?.label?.fontWeight ?? 600,
+    },
+  },
+  footing: {
+    visible: __existingResourceBars.footing?.visible !== false,
+    position: {
+      left: __existingResourceBars.footing?.position?.left ?? 16,
+      top: __existingResourceBars.footing?.position?.top ?? 61,
+    },
+    size: {
+      width: __existingResourceBars.footing?.size?.width ?? 220,
+      height: __existingResourceBars.footing?.size?.height ?? 9,
+    },
+    padding: __existingResourceBars.footing?.padding ?? 2,
+    borderRadius: __existingResourceBars.footing?.borderRadius ?? 10,
+    background: __existingResourceBars.footing?.background ?? 'rgba(5,7,11,0.78)',
+    border: __existingResourceBars.footing?.border ?? '1px solid rgba(148,163,184,0.28)',
+    shadow: __existingResourceBars.footing?.shadow ?? '0 12px 28px rgba(0,0,0,0.35)',
+    backdropFilter: __existingResourceBars.footing?.backdropFilter ?? 'blur(6px)',
+    fill: {
+      color: __existingResourceBars.footing?.fill?.color
+        ?? 'linear-gradient(90deg,#d4d4d8 0%,#f4f4f5 60%,#d4d4d8 100%)',
+      shadow: __existingResourceBars.footing?.fill?.shadow ?? '0 0 10px rgba(212,212,216,0.4)',
+    },
+    label: {
+      color: __existingResourceBars.footing?.label?.color ?? '#27272a',
+      shadow: __existingResourceBars.footing?.label?.shadow ?? '0 1px 1px rgba(255,255,255,0.55)',
+      fontSize: __existingResourceBars.footing?.label?.fontSize ?? 11,
+      fontWeight: __existingResourceBars.footing?.label?.fontWeight ?? 600,
+    },
+  },
+};
+window.CONFIG.ui.resourceBarsDefaults = JSON.parse(JSON.stringify(RESOURCE_BAR_DEFAULTS));
+window.CONFIG.ui.resourceBars = JSON.parse(JSON.stringify(RESOURCE_BAR_DEFAULTS));
 
 window.CONFIG.debug = window.CONFIG.debug || {};
 window.CONFIG.debug.gameplayOverlay = window.CONFIG.debug.gameplayOverlay || {
