@@ -417,6 +417,39 @@ function countIntendedNpcSpawns(spawners = []) {
   }, 0);
 }
 
+function resolveColliderList({ activeArea, geometryService } = {}) {
+  const areaColliders = Array.isArray(activeArea?.colliders) ? activeArea.colliders : null;
+  if (Array.isArray(areaColliders) && areaColliders.length) {
+    return areaColliders;
+  }
+
+  const runtimeColliders = geometryService?.getActiveColliders?.();
+  if (Array.isArray(runtimeColliders) && runtimeColliders.length) {
+    return runtimeColliders;
+  }
+
+  return [];
+}
+
+function collectPatrolTargets({ activeArea, geometryService } = {}) {
+  const colliders = resolveColliderList({ activeArea, geometryService });
+  const seen = new Set();
+
+  return colliders.reduce((acc, collider, index) => {
+    if (!collider?.meta?.patrol) return acc;
+
+    const id = typeof collider.id === 'string' && collider.id.trim() ? collider.id.trim() : null;
+    const label = typeof collider.label === 'string' && collider.label.trim() ? collider.label.trim() : null;
+    const display = label || id || `patrol-${index + 1}`;
+    const key = id || display;
+    if (seen.has(key)) return acc;
+
+    seen.add(key);
+    acc.push(display);
+    return acc;
+  }, []);
+}
+
 /**
  * Update the bottle census display showing status of all spawned bottles.
  * Displays position, velocity, and ground state for debugging physics.
@@ -482,6 +515,7 @@ function updateEntityCensus() {
   const activeArea = registry?.getActiveArea?.() || null;
   const areaId = activeArea?.id || G.currentAreaId || null;
   const spawnService = G.spawnService || null;
+  const geometryService = G.geometryService || null;
   const gameplayNpcSpawners = resolveNpcSpawnerList({ spawnService, areaId, activeArea });
   const totalSpawners = spawnService?.getSpawners && areaId
     ? spawnService.getSpawners(areaId).length
@@ -494,6 +528,8 @@ function updateEntityCensus() {
   const actualNpcSpawners = runtimeNpcSpawners.length;
   const instances = Array.isArray(activeArea?.instances) ? activeArea.instances.length : 0;
   const pathTargets = Array.isArray(activeArea?.pathTargets) ? activeArea.pathTargets.length : 0;
+  const patrolTargets = collectPatrolTargets({ activeArea, geometryService });
+  const patrolTargetCount = patrolTargets.length;
   const dynamicInstances = Array.isArray(G.dynamicInstances) ? G.dynamicInstances.length : 0;
 
   const fighters = G.FIGHTERS || {};
@@ -505,10 +541,13 @@ function updateEntityCensus() {
   const lines = [
     `Area: ${areaId || 'none'}`,
     `Spawners: ${totalSpawners} (NPC ${actualNpcSpawners}/${intendedNpcSpawners})`,
-    `Instances: ${instances} | Path Targets: ${pathTargets}`,
+    `Instances: ${instances} | Path Targets: ${pathTargets} | Patrol Targets: ${patrolTargetCount}`,
     `Fighters: ${totalFighters} | NPCs alive: ${aliveNpcs}/${intendedNpcCount}`,
     `Dynamic Instances: ${dynamicInstances}`,
   ];
+  if (patrolTargetCount > 0) {
+    lines.push(`Patrol list: ${patrolTargets.join(', ')}`);
+  }
   const newContent = lines.join('<br>');
 
   if (newContent !== lastEntityCensusContent) {
