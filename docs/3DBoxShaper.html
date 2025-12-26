@@ -95,6 +95,16 @@
     .stickerItem small { color: var(--muted); display:block; }
     .toggle { display:flex; align-items:center; gap:10px; }
     .toggle input { transform: scale(1.2); }
+    #viewportStatus {
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 14px;
+      color: var(--muted);
+      pointer-events:none;
+    }
   </style>
 </head>
 <body>
@@ -118,7 +128,7 @@
         </label>
       </div>
       <div class="help" style="margin-top:8px;">
-        Tap a face to select it. Only faces are selectable (no edges/verts). Face edits move its 4 vertices.
+        Tap a face to select it. Only faces are selectable (no edges/verts). Face edits move its 4 vertices. The canvas renders in the right-hand viewport; watch the centered status text there for loading or error messages.
       </div>
     </div>
 
@@ -282,6 +292,7 @@
   </div>
 
   <div id="viewport">
+    <div id="viewportStatus">Initializing 3D viewport…</div>
     <div id="debug"></div>
   </div>
 </div>
@@ -292,6 +303,7 @@
   import { OrbitControls } from "./vendor/three/OrbitControls.js";
   import { GLTFExporter } from "./vendor/three/GLTFExporter.js";
 
+  (async function main() {
   globalThis.THREE = globalThis.THREE || THREE;
 
   // -------------------------
@@ -561,6 +573,7 @@
   // Three.js setup
   // -------------------------
   const viewportEl = document.getElementById("viewport");
+  const viewportStatusEl = document.getElementById("viewportStatus");
   const renderer = createRenderer({
     container: viewportEl,
     width: viewportEl.clientWidth,
@@ -571,6 +584,13 @@
   });
 
   await renderer.init();
+
+  if (!renderer.renderer) {
+    viewportStatusEl.textContent = "Renderer unavailable: WebGL/Three.js initialization failed.";
+    return;
+  }
+
+  viewportStatusEl.textContent = "";
 
   const scene = renderer.scene;
   scene.background = new THREE.Color(0x0b0f14);
@@ -1423,6 +1443,7 @@
   });
 
   renderer.start();
-</script>
+  })();
+ </script>
 </body>
 </html>
