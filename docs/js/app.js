@@ -960,6 +960,7 @@ import { initBountySystem, updateBountySystem, getBountyState } from './bounty.j
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
 import { initTransformConfig, transform3dTo2d } from './coordinate-transform.js?v=1';
+import { init3DRendering } from './render3d.js?v=1';
 
 // Visualsmap loader for 3D grid-based scenes
 let visualsmapLoaderModule = null;
@@ -1565,6 +1566,7 @@ async function ensureRendererModules() {
 // 3D Background Renderer State
 // TODO: Requires global THREE to be loaded (via CDN or bundler). See docs/renderer-README.md
 let GAME_RENDERER_3D = null;
+let GAME_RENDERER_3D_ENTITIES = null; // 3D entity renderer (for demo)
 let GAME_RENDER_ADAPTER = null; // For single scene3d.sceneUrl loading (legacy)
 let GAME_VISUALSMAP_ADAPTER = null; // For grid-based visualsmap loading
 let THREE_BG_CONTAINER = null;
@@ -1574,7 +1576,12 @@ let THREE_BG_RESIZE_HANDLER = null;
 const cv = $$('#game');
 const stage = $$('#gameStage');
 const cx = cv?.getContext('2d', { alpha: true });
-if (cv) cv.style.background = 'transparent';
+if (cv) {
+  cv.style.background = 'transparent';
+  // Make canvas semi-transparent for 3D demo
+  cv.style.opacity = '0.2';
+  cv.style.pointerEvents = 'none'; // Allow clicks to pass through to 3D scene
+}
 
 // === SYNC CONFIG.canvas TO CSS AND CANVAS ATTRIBUTES ===
 // This makes CONFIG.canvas the single source of truth for game dimensions.
@@ -6062,10 +6069,20 @@ function loop(t){
 
   updatePoses();
   updateCamera(cv);
-  drawStage();
-  renderBottles(cx);
-  renderAll(cx);
-  renderSprites(cx);
+
+  // Update 3D entity rendering (demo feature)
+  if (GAME_RENDERER_3D_ENTITIES && typeof GAME_RENDERER_3D_ENTITIES.update === 'function') {
+    GAME_RENDERER_3D_ENTITIES.update();
+  }
+
+  // 2D Canvas rendering (hidden for 3D demo)
+  // Uncomment these lines to re-enable 2D rendering
+  // drawStage();
+  // renderBottles(cx);
+  // renderAll(cx);
+  // renderSprites(cx);
+
+  // Keep debug overlays visible
   renderSpawnerOverlay(cx);
   renderGameplayPathOverlay(cx);
   renderGameplayElementsOverlay(cx);
@@ -7210,6 +7227,12 @@ function boot(){
 
         // Initialize renderer
         await GAME_RENDERER_3D.init();
+
+        // Initialize 3D entity rendering (demo feature)
+        GAME_RENDERER_3D_ENTITIES = init3DRendering(GAME_RENDERER_3D);
+        if (GAME_RENDERER_3D_ENTITIES) {
+          console.log('[app] 3D entity rendering initialized');
+        }
 
         // Configure renderer canvas to not intercept pointer events
         if (GAME_RENDERER_3D.renderer?.domElement) {
