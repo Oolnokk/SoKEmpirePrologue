@@ -216,17 +216,53 @@ async function loadVisualsmapIndex(baseContext = null) {
 
     const indexJson = await response.json();
     const baseUrl = new URL('./', resolvedPath).href;
+    const configBasePath = indexJson.configBasePath || '../../assets/';
+    const configBaseUrl = new URL(configBasePath, baseUrl).href;
     const assetMap = new Map();
 
-    ['segments', 'structures', 'decorations'].forEach((section) => {
+    // Handle both new format (array of file paths) and legacy format (array of objects)
+    for (const section of ['segments', 'structures', 'decorations']) {
       const list = indexJson?.[section];
-      if (!Array.isArray(list)) return;
-      list.forEach((asset) => {
-        if (!asset?.id) return;
-        // Preserve original object shape while tagging the source base
-        assetMap.set(asset.id, { ...asset, __visualsmapIndexBase: baseUrl });
-      });
-    });
+      if (!Array.isArray(list)) continue;
+
+      for (const item of list) {
+        // New format: item is a string (config file path)
+        if (typeof item === 'string') {
+          try {
+            const configUrl = new URL(item, configBaseUrl).href;
+            console.log(`[visualsmapLoader] Loading config from: ${configUrl}`);
+            const configResponse = await fetch(configUrl);
+            if (!configResponse.ok) {
+              console.warn(`[visualsmapLoader] ✗ Failed to load config: ${configUrl}`);
+              continue;
+            }
+            const asset = await configResponse.json();
+            if (asset?.id) {
+              // Add layer information based on section
+              const layerMap = { segments: 'ground', structures: 'structure', decorations: 'decoration' };
+              assetMap.set(asset.id, {
+                ...asset,
+                layer: asset.layer || layerMap[section],
+                __visualsmapIndexBase: configBaseUrl,
+                // Normalize property names: prefer 'extra' but support 'extraConfig' for compatibility
+                extra: asset.extra || asset.extraConfig,
+              });
+            }
+          } catch (error) {
+            console.warn(`[visualsmapLoader] ✗ Error loading config ${item}:`, error);
+          }
+        }
+        // Legacy format: item is a full asset object
+        else if (item?.id) {
+          assetMap.set(item.id, {
+            ...item,
+            __visualsmapIndexBase: baseUrl,
+            // Normalize property names
+            extra: item.extra || item.extraConfig,
+          });
+        }
+      }
+    }
 
     VISUALSMAP_INDEX_CACHE.loaded = true;
     VISUALSMAP_INDEX_CACHE.assets = assetMap;

@@ -763,9 +763,49 @@ select {
         if (response.ok) {
           const data = await response.json();
           logDebug('[INIT] ✓ Loaded assets from visualsmaps/index.json');
-          logDebug('[INIT] Tower extraConfig from index.json:', data.structures?.find(s => s.id === 'tower')?.extraConfig);
 
-          SEGMENT_ASSETS = (data.segments || []).map(asset => ({
+          // Helper function to load assets from either format
+          const loadAssetList = async (list, section) => {
+            if (!Array.isArray(list)) return [];
+
+            // New format: array of file paths
+            if (list.length > 0 && typeof list[0] === 'string') {
+              const configBasePath = data.configBasePath || '../../assets/';
+              const configBaseUrl = new URL(configBasePath, new URL(indexPath, docsBase));
+
+              const configs = await Promise.all(
+                list.map(async (file) => {
+                  try {
+                    const configUrl = new URL(file, configBaseUrl).href;
+                    const resp = await fetch(configUrl);
+                    if (!resp.ok) return null;
+                    const config = await resp.json();
+                    // Normalize property names
+                    return {
+                      ...config,
+                      extraConfig: config.extra || config.extraConfig || {}
+                    };
+                  } catch (err) {
+                    logDebug(`Failed to load config ${file}: ${err.message}`);
+                    return null;
+                  }
+                })
+              );
+              return configs.filter(Boolean);
+            }
+
+            // Legacy format: array of objects
+            return list.map(asset => ({
+              ...asset,
+              extraConfig: asset.extra || asset.extraConfig || {}
+            }));
+          };
+
+          const segments = await loadAssetList(data.segments, 'segments');
+          const structures = await loadAssetList(data.structures, 'structures');
+          const decorations = await loadAssetList(data.decorations, 'decorations');
+
+          SEGMENT_ASSETS = segments.map(asset => ({
             ...asset,
             layer: LAYERS.GROUND,
             colorVar: asset.colorVar || '--road-color',
@@ -773,7 +813,7 @@ select {
             gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
           }));
 
-          STRUCTURE_ASSETS = (data.structures || []).map(asset => ({
+          STRUCTURE_ASSETS = structures.map(asset => ({
             ...asset,
             layer: LAYERS.STRUCTURE,
             colorVar: asset.colorVar || '--tower-color',
@@ -781,7 +821,7 @@ select {
             gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
           }));
 
-          DECORATION_ASSETS = (data.decorations || []).map(asset => ({
+          DECORATION_ASSETS = decorations.map(asset => ({
             ...asset,
             layer: LAYERS.DECORATION,
             colorVar: asset.colorVar || '--tower-color',
