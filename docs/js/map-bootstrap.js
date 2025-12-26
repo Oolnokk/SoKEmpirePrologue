@@ -127,6 +127,11 @@ function ensureSpawnService() {
     GAME.spawnService = service;
     return service;
 }
+
+function resolveGroupLibrary() {
+    const globalConfig = (typeof window !== 'undefined' ? window.CONFIG : globalThis.CONFIG) || {};
+    return globalConfig.npcGroups || {};
+}
 function registerAreaSpawns(area) {
     if (!area)
         return;
@@ -627,7 +632,7 @@ function applyPreviewLayout(descriptor, { previewToken = null, createdAt = null,
             : typeof record.name === 'string'
                 ? record.name
                 : 'Editor Preview';
-        const area = convertLayoutToArea(descriptor, { areaId, areaName, prefabResolver });
+        const area = convertLayoutToArea(descriptor, { areaId, areaName, prefabResolver, groupLibrary: resolveGroupLibrary() });
         area.source = record.source || 'map-editor-preview';
         area.meta = {
             ...area.meta,
@@ -747,6 +752,7 @@ async function loadStartingArea() {
             areaId: layout?.areaId || layout?.id || DEFAULT_AREA_ID,
             areaName: layout?.areaName || layout?.name || DEFAULT_AREA_NAME,
             prefabResolver,
+            groupLibrary: resolveGroupLibrary(),
         });
         // Set source URL so visualsmap paths can be resolved relative to this file
         area.source = layoutUrl.href;
@@ -762,6 +768,7 @@ async function loadStartingArea() {
             areaId: DEFAULT_AREA_ID,
             areaName: 'Empty Area',
             prefabResolver,
+            groupLibrary: resolveGroupLibrary(),
         });
         fallbackArea.source = 'fallback-empty';
         fallbackArea.warnings = [...(fallbackArea.warnings || []), 'Fallback area generated due to load failure'];

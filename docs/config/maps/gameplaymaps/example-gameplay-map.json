@@ -9,50 +9,62 @@
   },
   "entities": [
     {
-      "id": "entrance_1",
-      "type": "entrance",
+      "id": "door_entry",
+      "type": "door",
       "x": -900,
       "y": 0,
-      "meta": {}
-    },
-    {
-      "id": "spawner_1",
-      "type": "spawner",
-      "x": -500,
-      "y": 0,
       "meta": {
-        "prefab": "spawn_player",
-        "patrolRouteId": ""
+        "doorId": "door_entry",
+        "targetAreaId": "defaultdistrict3d",
+        "targetDoorId": "door_entry",
+        "interactable": true,
+        "locked": false,
+        "scale": { "x": 1, "y": 2 },
+        "tags": ["door", "map-exit:left"]
       }
     },
     {
-      "id": "patrol_1",
-      "type": "patrol",
+      "id": "groupspawner_1",
+      "type": "groupspawner",
+      "x": -500,
+      "y": 0,
+      "meta": {
+        "groupId": "city_guard_patrol",
+        "spawnRadius": 60,
+        "spawnDelayRange": [0.75, 1.25]
+      }
+    },
+    {
+      "id": "patrolpoint_1",
+      "type": "patrolpoint",
       "x": 0,
       "y": 0,
       "meta": {
         "sequence": 0,
-        "routeId": "route_guards"
+        "routeId": "route_guards",
+        "scale": { "x": 1, "y": 1 }
       }
     },
     {
-      "id": "patrol_2",
-      "type": "patrol",
+      "id": "patrolpoint_2",
+      "type": "patrolpoint",
       "x": 200,
       "y": 0,
       "meta": {
         "sequence": 1,
-        "routeId": "route_guards"
+        "routeId": "route_guards",
+        "scale": { "x": 1, "y": 1 }
       }
     },
     {
-      "id": "spawner_2",
-      "type": "spawner",
+      "id": "groupspawner_2",
+      "type": "groupspawner",
       "x": 500,
       "y": 0,
       "meta": {
-        "prefab": "spawn_npc",
-        "patrolRouteId": "route_guards"
+        "groupId": "city_guard_patrol",
+        "spawnRadius": 90,
+        "spawnDelayRange": [0.75, 1.25]
       }
     },
     {
@@ -77,18 +89,30 @@
       }
     },
     {
-      "id": "prop_1",
-      "type": "prop",
+      "id": "propspawn_1",
+      "type": "propspawn",
       "x": -300,
       "y": 50,
-      "meta": {}
+      "meta": {
+        "props": [
+          { "id": "bottle", "weight": 1 }
+        ]
+      }
     },
     {
-      "id": "exit_1",
-      "type": "exit",
+      "id": "door_exit",
+      "type": "door",
       "x": 900,
       "y": 0,
-      "meta": {}
+      "meta": {
+        "doorId": "door_exit",
+        "targetAreaId": "defaultdistrict3d",
+        "targetDoorId": "door_entry",
+        "interactable": true,
+        "locked": false,
+        "scale": { "x": 1, "y": 2 },
+        "tags": ["door", "map-exit:right"]
+      }
     }
   ]
 }

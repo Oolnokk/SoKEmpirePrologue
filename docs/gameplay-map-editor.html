@@ -230,12 +230,11 @@
       font-weight: 600;
       margin-right: 4px;
     }
-    .badge-spawner { background: #22c55e; color: #052e16; }
-    .badge-patrol { background: #3b82f6; color: #172554; }
+    .badge-groupspawner { background: #22c55e; color: #052e16; }
+    .badge-patrolpoint { background: #3b82f6; color: #172554; }
     .badge-collider { background: #f59e0b; color: #451a03; }
-    .badge-prop { background: #8b5cf6; color: #2e1065; }
-    .badge-entrance { background: #06b6d4; color: #083344; }
-    .badge-exit { background: #ef4444; color: #450a0a; }
+    .badge-propspawn { background: #8b5cf6; color: #2e1065; }
+    .badge-door { background: #06b6d4; color: #083344; }
     .warning-banner {
       background: #dc2626;
       color: #fef2f2;
@@ -270,7 +269,7 @@
   <div class="app">
     <header>
       <h1>Gameplay Map Editor</h1>
-      <p class="info" style="margin: 0;">Lightweight editor for gameplay-only map data (spawners, patrols, colliders, props, entrances/exits)</p>
+      <p class="info" style="margin: 0;">Lightweight editor for gameplay map entities (group spawners, patrol points, doors, prop spawns, colliders)</p>
     </header>
 
     <div class="toolbar">
@@ -278,23 +277,20 @@
         <button id="toolSelect" class="active" title="Select and move entities (V)">
           ✋ Select <span class="shortcut-hint">[V]</span>
         </button>
-        <button id="toolSpawner" title="Add spawner point (S)">
-          🎯 Spawner <span class="shortcut-hint">[S]</span>
+        <button id="toolSpawner" title="Add group spawner (S)">
+          🎯 Group Spawner <span class="shortcut-hint">[S]</span>
         </button>
-        <button id="toolPatrol" title="Add patrol/waypoint (P)">
-          📍 Patrol <span class="shortcut-hint">[P]</span>
+        <button id="toolPatrol" title="Add patrol point (P)">
+          📍 Patrol Point <span class="shortcut-hint">[P]</span>
         </button>
         <button id="toolCollider" title="Add collider (C)">
           ⬜ Collider <span class="shortcut-hint">[C]</span>
         </button>
-        <button id="toolProp" title="Add prop marker (O)">
-          ⭕ Prop <span class="shortcut-hint">[O]</span>
+        <button id="toolProp" title="Add prop spawn (O)">
+          ⭕ Prop Spawn <span class="shortcut-hint">[O]</span>
         </button>
-        <button id="toolEntrance" title="Add entrance point (E)">
-          🚪 Entrance <span class="shortcut-hint">[E]</span>
-        </button>
-        <button id="toolExit" title="Add exit point (X)">
-          🚪 Exit <span class="shortcut-hint">[X]</span>
+        <button id="toolDoor" title="Add door / entrance (D)">
+          🚪 Door <span class="shortcut-hint">[D]</span>
         </button>
       </div>
       <div class="toolbar-group">
@@ -394,12 +390,11 @@
           <h3>Keyboard Shortcuts</h3>
           <dl class="keyboard-shortcuts">
             <dt>V</dt><dd>Select tool</dd>
-            <dt>S</dt><dd>Add spawner</dd>
+            <dt>S</dt><dd>Add group spawner</dd>
             <dt>P</dt><dd>Add patrol point</dd>
             <dt>C</dt><dd>Add collider</dd>
-            <dt>O</dt><dd>Add prop</dd>
-            <dt>E</dt><dd>Add entrance</dd>
-            <dt>X</dt><dd>Add exit</dd>
+            <dt>O</dt><dd>Add prop spawn</dd>
+            <dt>D</dt><dd>Add door</dd>
             <dt>Delete</dt><dd>Delete selected</dd>
             <dt>← / →</dt><dd>Scroll map horizontally</dd>
             <dt>Shift + Wheel</dt><dd>Horizontal scroll</dd>
@@ -423,6 +418,21 @@
       },
       entities: []
     };
+
+    const mapEntityConfig = window.CONFIG?.mapEntities || {};
+    const defaultGroupDelayRange = Array.isArray(mapEntityConfig.groupSpawner?.delayRangeSeconds)
+      && mapEntityConfig.groupSpawner.delayRangeSeconds.length >= 2
+      ? [...mapEntityConfig.groupSpawner.delayRangeSeconds]
+      : [0.75, 1.25];
+    const defaultPatrolScale = mapEntityConfig.patrolPoint?.defaultScale
+      ? { ...mapEntityConfig.patrolPoint.defaultScale }
+      : { x: 1, y: 1 };
+    const defaultDoorScale = mapEntityConfig.door?.defaultScale
+      ? { ...mapEntityConfig.door.defaultScale }
+      : { x: 1, y: 2 };
+    const defaultPropWeights = Array.isArray(mapEntityConfig.propSpawn?.defaultProps)
+      ? mapEntityConfig.propSpawn.defaultProps.map((prop) => ({ ...prop }))
+      : [{ id: 'bottle', weight: 1 }];
 
     let selectedEntity = null;
     let currentTool = 'select';
@@ -593,41 +603,81 @@
       }
     }
 
+    function normalizeEntityType(type) {
+      const normalized = (type || '').toString().toLowerCase();
+      if (normalized === 'spawner' || normalized === 'group-spawner' || normalized === 'groupspawner') return 'groupspawner';
+      if (normalized === 'patrol' || normalized === 'patrol-point' || normalized === 'patrolpoint') return 'patrolpoint';
+      if (normalized === 'prop' || normalized === 'prop-spawn' || normalized === 'propspawn') return 'propspawn';
+      if (normalized === 'door' || normalized === 'entrance' || normalized === 'exit') return 'door';
+      return normalized;
+    }
+
+    function clonePropWeights(list) {
+      return (Array.isArray(list) ? list : []).map((entry) => ({
+        id: entry.id || '',
+        weight: Number(entry.weight) || 1,
+      }));
+    }
+
     function createEntity(type, x, y) {
+      const normalizedType = normalizeEntityType(type);
       const entity = {
-        id: `${type}_${nextEntityId++}`,
-        type: type,
-        x: x,
-        y: y,
+        id: `${normalizedType}_${nextEntityId++}`,
+        type: normalizedType,
+        x,
+        y,
         meta: {}
       };
 
-      // Set default metadata based on type
-      if (type === 'collider') {
+      if (normalizedType === 'collider') {
         entity.meta.shape = 'rectangle';
         entity.meta.width = 100;
         entity.meta.height = 100;
-      } else if (type === 'patrol') {
+      } else if (normalizedType === 'patrolpoint') {
         entity.meta.sequence = 0;
         entity.meta.routeId = '';
-      } else if (type === 'spawner') {
-        entity.meta.prefab = 'spawn_default';
-        entity.meta.patrolRouteId = '';
+        entity.meta.scale = { ...defaultPatrolScale };
+      } else if (normalizedType === 'groupspawner') {
+        entity.meta.groupId = '';
+        entity.meta.spawnRadius = tileSize || 0;
+        entity.meta.spawnDelayRange = [...defaultGroupDelayRange];
+      } else if (normalizedType === 'propspawn') {
+        entity.meta.props = clonePropWeights(defaultPropWeights);
+      } else if (normalizedType === 'door') {
+        entity.meta.doorId = entity.id;
+        entity.meta.targetAreaId = '';
+        entity.meta.targetDoorId = '';
+        entity.meta.interactable = true;
+        entity.meta.locked = false;
+        entity.meta.scale = { ...defaultDoorScale };
+        entity.meta.tags = ['door'];
       }
 
       return entity;
     }
 
     function getEntityColor(type) {
+      const normalized = normalizeEntityType(type);
       const colors = {
-        spawner: '#22c55e',
-        patrol: '#3b82f6',
+        groupspawner: '#22c55e',
+        patrolpoint: '#3b82f6',
         collider: '#f59e0b',
-        prop: '#8b5cf6',
-        entrance: '#06b6d4',
-        exit: '#ef4444'
+        propspawn: '#8b5cf6',
+        door: '#06b6d4'
       };
-      return colors[type] || '#ffffff';
+      return colors[normalized] || '#ffffff';
+    }
+
+    function getEntityLabel(type) {
+      const normalized = normalizeEntityType(type);
+      const labels = {
+        groupspawner: 'GROUP',
+        patrolpoint: 'PATROL',
+        collider: 'COLLIDER',
+        propspawn: 'PROP',
+        door: 'DOOR'
+      };
+      return labels[normalized] || normalized.toUpperCase();
     }
 
     function isPointInEntity(wx, wy, entity) {
@@ -860,12 +910,13 @@
     }
 
     function drawEntity(entity, isSelected) {
-      const color = getEntityColor(entity.type);
+      const normalizedType = normalizeEntityType(entity.type);
+      const color = getEntityColor(normalizedType);
       const scr = worldToScreen(entity.x, entity.y);
 
-      if (entity.type === 'collider') {
+      if (normalizedType === 'collider') {
         const shape = entity.meta.shape || 'rectangle';
-        
+
         ctx.strokeStyle = isSelected ? '#ffffff' : color;
         ctx.fillStyle = color + '40';
         ctx.lineWidth = isSelected ? 3 : 2;
@@ -882,8 +933,29 @@
           ctx.fill();
           ctx.stroke();
         }
+      } else if (normalizedType === 'patrolpoint' || normalizedType === 'door') {
+        const scale = entity.meta.scale || {};
+        const scaleX = Number(scale.x) || 1;
+        const scaleY = Number(scale.y) || 1;
+        const heightWorld = (tileSize || 0) * scaleY;
+        const widthWorld = (tileSize || 0) * scaleX;
+        const top = worldToScreen(entity.x, entity.y - heightWorld);
+
+        ctx.strokeStyle = isSelected ? '#ffffff' : color;
+        ctx.fillStyle = color + '40';
+        ctx.lineWidth = isSelected ? 3 : 2;
+
+        ctx.fillRect(scr.x - (widthWorld * viewZoom) / 2, top.y, widthWorld * viewZoom, heightWorld * viewZoom);
+        ctx.strokeRect(scr.x - (widthWorld * viewZoom) / 2, top.y, widthWorld * viewZoom, heightWorld * viewZoom);
+
+        if (normalizedType === 'patrolpoint' && entity.meta.sequence !== undefined) {
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(entity.meta.sequence.toString(), scr.x, scr.y - (heightWorld * viewZoom) / 2);
+        }
       } else {
-        // Point entities
         ctx.fillStyle = isSelected ? '#ffffff' : color;
         ctx.strokeStyle = '#0f172a';
         ctx.lineWidth = 2;
@@ -891,18 +963,8 @@
         ctx.arc(scr.x, scr.y, 8, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
-
-        // Draw patrol sequence number
-        if (entity.type === 'patrol' && entity.meta.sequence !== undefined) {
-          ctx.fillStyle = '#ffffff';
-          ctx.font = '12px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(entity.meta.sequence.toString(), scr.x, scr.y);
-        }
       }
 
-      // Draw label
       ctx.fillStyle = '#e5e7eb';
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'center';
@@ -951,8 +1013,9 @@
         }
 
         const badge = document.createElement('span');
-        badge.className = `badge badge-${entity.type}`;
-        badge.textContent = entity.type.toUpperCase();
+        const normalizedType = normalizeEntityType(entity.type);
+        badge.className = `badge badge-${normalizedType}`;
+        badge.textContent = getEntityLabel(normalizedType);
 
         item.appendChild(badge);
         item.appendChild(document.createTextNode(entity.id));
@@ -1035,6 +1098,8 @@
       }
 
       const entity = selectedEntity;
+      const normalizedType = normalizeEntityType(entity.type);
+      const typeLabel = getEntityLabel(normalizedType);
       const xTile = worldToTileIndex(entity.x);
       const yUnits = entity.y;
 
@@ -1045,7 +1110,7 @@
         </div>
         <div class="form-row">
           <label>Type</label>
-          <input type="text" value="${entity.type}" readonly style="background: #1e293b;" />
+          <input type="text" value="${typeLabel}" readonly style="background: #1e293b;" />
         </div>
         <div class="form-row">
           <label>X Position</label>
@@ -1059,8 +1124,7 @@
         </div>
       `;
 
-      // Type-specific properties
-      if (entity.type === 'collider') {
+      if (normalizedType === 'collider') {
         html += `
           <div class="form-row">
             <label>Shape</label>
@@ -1089,7 +1153,7 @@
             </div>
           `;
         }
-      } else if (entity.type === 'patrol') {
+      } else if (normalizedType === 'patrolpoint') {
         html += `
           <div class="form-row">
             <label>Sequence</label>
@@ -1099,16 +1163,77 @@
             <label>Route ID</label>
             <input type="text" id="propRouteId" value="${entity.meta.routeId || ''}" />
           </div>
+          <div class="form-row">
+            <label>Collider Scale (grid units)</label>
+            <div style="display:flex; gap:6px;">
+              <input type="number" id="propScaleX" value="${entity.meta.scale?.x ?? defaultPatrolScale.x}" step="0.1" />
+              <input type="number" id="propScaleY" value="${entity.meta.scale?.y ?? defaultPatrolScale.y}" step="0.1" />
+            </div>
+          </div>
         `;
-      } else if (entity.type === 'spawner') {
+      } else if (normalizedType === 'groupspawner') {
+        const npcGroupEntries = Object.entries(window.CONFIG?.npcGroups || {});
+        const groupOptions = npcGroupEntries.map(([id, group]) => {
+          const selected = (entity.meta.groupId || '') === id ? 'selected' : '';
+          const label = (group?.name || id).toString();
+          return `<option value="${id}" ${selected}>${label}</option>`;
+        }).join('');
         html += `
           <div class="form-row">
-            <label>Prefab</label>
-            <input type="text" id="propPrefab" value="${entity.meta.prefab || 'spawn_default'}" />
+            <label>Group ID</label>
+            <select id="propGroupId">
+              <option value="">-- Select Group --</option>
+              ${groupOptions}
+            </select>
           </div>
           <div class="form-row">
-            <label>Patrol Route ID</label>
-            <input type="text" id="propPatrolRouteId" value="${entity.meta.patrolRouteId || ''}" />
+            <label>Spawn Radius</label>
+            <input type="number" id="propSpawnRadius" value="${entity.meta.spawnRadius ?? tileSize}" step="10" />
+            <div class="info">Radius in world units</div>
+          </div>
+          <div class="form-row">
+            <label>Spawn Delay Range (sec)</label>
+            <div style="display:flex; gap:6px;">
+              <input type="number" id="propSpawnDelayMin" value="${entity.meta.spawnDelayRange?.[0] ?? defaultGroupDelayRange[0]}" step="0.05" />
+              <input type="number" id="propSpawnDelayMax" value="${entity.meta.spawnDelayRange?.[1] ?? defaultGroupDelayRange[1]}" step="0.05" />
+            </div>
+          </div>
+        `;
+      } else if (normalizedType === 'propspawn') {
+        const listText = (entity.meta.props || []).map((p) => `${p.id}:${p.weight ?? 1}`).join('\n');
+        html += `
+          <div class="form-row">
+            <label>Prop Weights (id:weight per line)</label>
+            <textarea id="propWeights" rows="4">${listText}</textarea>
+          </div>
+        `;
+      } else if (normalizedType === 'door') {
+        html += `
+          <div class="form-row">
+            <label>Door ID</label>
+            <input type="text" id="propDoorId" value="${entity.meta.doorId || entity.id}" />
+          </div>
+          <div class="form-row">
+            <label>Target Map ID</label>
+            <input type="text" id="propTargetArea" value="${entity.meta.targetAreaId || ''}" />
+          </div>
+          <div class="form-row">
+            <label>Target Door ID</label>
+            <input type="text" id="propTargetDoor" value="${entity.meta.targetDoorId || ''}" />
+          </div>
+          <div class="form-row">
+            <label><input type="checkbox" id="propInteractable" ${entity.meta.interactable !== false ? 'checked' : ''}/> Interactable</label>
+          </div>
+          <div class="form-row">
+            <label><input type="checkbox" id="propLocked" ${entity.meta.locked ? 'checked' : ''}/> Locked</label>
+            <div class="info">Locked handling pending; keep unchecked for now.</div>
+          </div>
+          <div class="form-row">
+            <label>Collider Scale (grid units)</label>
+            <div style="display:flex; gap:6px;">
+              <input type="number" id="propDoorScaleX" value="${entity.meta.scale?.x ?? defaultDoorScale.x}" step="0.1" />
+              <input type="number" id="propDoorScaleY" value="${entity.meta.scale?.y ?? defaultDoorScale.y}" step="0.1" />
+            </div>
           </div>
         `;
       }
@@ -1174,24 +1299,121 @@
         entity.meta.routeId = propRouteId.value;
       });
 
-      // Spawner-specific
-      const propPrefab = document.getElementById('propPrefab');
-      if (propPrefab) propPrefab.addEventListener('change', () => {
-        entity.meta.prefab = propPrefab.value;
+      const propScaleX = document.getElementById('propScaleX');
+      const propScaleY = document.getElementById('propScaleY');
+      if (propScaleX || propScaleY) {
+        entity.meta.scale = entity.meta.scale || { ...defaultPatrolScale };
+        if (propScaleX) propScaleX.addEventListener('change', () => {
+          entity.meta.scale.x = parseFloat(propScaleX.value) || defaultPatrolScale.x;
+          redraw();
+        });
+        if (propScaleY) propScaleY.addEventListener('change', () => {
+          entity.meta.scale.y = parseFloat(propScaleY.value) || defaultPatrolScale.y;
+          redraw();
+        });
+      }
+
+      // Group spawner-specific
+      const propGroupId = document.getElementById('propGroupId');
+      if (propGroupId) propGroupId.addEventListener('change', () => {
+        entity.meta.groupId = propGroupId.value;
       });
 
-      const propPatrolRouteId = document.getElementById('propPatrolRouteId');
-      if (propPatrolRouteId) propPatrolRouteId.addEventListener('change', () => {
-        entity.meta.patrolRouteId = propPatrolRouteId.value;
+      const propSpawnRadius = document.getElementById('propSpawnRadius');
+      if (propSpawnRadius) propSpawnRadius.addEventListener('change', () => {
+        entity.meta.spawnRadius = parseFloat(propSpawnRadius.value) || tileSize || 0;
       });
+
+      const propSpawnDelayMin = document.getElementById('propSpawnDelayMin');
+      const propSpawnDelayMax = document.getElementById('propSpawnDelayMax');
+      if (propSpawnDelayMin || propSpawnDelayMax) {
+        entity.meta.spawnDelayRange = entity.meta.spawnDelayRange || [...defaultGroupDelayRange];
+        if (propSpawnDelayMin) propSpawnDelayMin.addEventListener('change', () => {
+          entity.meta.spawnDelayRange[0] = parseFloat(propSpawnDelayMin.value) || defaultGroupDelayRange[0];
+        });
+        if (propSpawnDelayMax) propSpawnDelayMax.addEventListener('change', () => {
+          entity.meta.spawnDelayRange[1] = parseFloat(propSpawnDelayMax.value) || defaultGroupDelayRange[1];
+        });
+      }
+
+      // Prop spawn-specific
+      const propWeights = document.getElementById('propWeights');
+      if (propWeights) propWeights.addEventListener('change', () => {
+        const lines = propWeights.value.split(/\n+/);
+        entity.meta.props = lines
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            const [idPart, weightPart] = line.split(':');
+            return { id: idPart?.trim() || '', weight: Number(weightPart) || 1 };
+          })
+          .filter((entry) => entry.id);
+        if (!entity.meta.props.length) {
+          entity.meta.props = clonePropWeights(defaultPropWeights);
+        }
+      });
+
+      // Door-specific
+      const propDoorId = document.getElementById('propDoorId');
+      if (propDoorId) propDoorId.addEventListener('change', () => {
+        entity.meta.doorId = propDoorId.value || entity.id;
+        entity.id = entity.meta.doorId;
+        updateEntityList();
+        redraw();
+      });
+
+      const propTargetArea = document.getElementById('propTargetArea');
+      if (propTargetArea) propTargetArea.addEventListener('change', () => {
+        entity.meta.targetAreaId = propTargetArea.value;
+      });
+
+      const propTargetDoor = document.getElementById('propTargetDoor');
+      if (propTargetDoor) propTargetDoor.addEventListener('change', () => {
+        entity.meta.targetDoorId = propTargetDoor.value;
+      });
+
+      const propInteractable = document.getElementById('propInteractable');
+      if (propInteractable) propInteractable.addEventListener('change', () => {
+        entity.meta.interactable = propInteractable.checked;
+      });
+
+      const propLocked = document.getElementById('propLocked');
+      if (propLocked) propLocked.addEventListener('change', () => {
+        entity.meta.locked = propLocked.checked;
+      });
+
+      const propDoorScaleX = document.getElementById('propDoorScaleX');
+      const propDoorScaleY = document.getElementById('propDoorScaleY');
+      if (propDoorScaleX || propDoorScaleY) {
+        entity.meta.scale = entity.meta.scale || { ...defaultDoorScale };
+        if (propDoorScaleX) propDoorScaleX.addEventListener('change', () => {
+          entity.meta.scale.x = parseFloat(propDoorScaleX.value) || defaultDoorScale.x;
+          redraw();
+        });
+        if (propDoorScaleY) propDoorScaleY.addEventListener('change', () => {
+          entity.meta.scale.y = parseFloat(propDoorScaleY.value) || defaultDoorScale.y;
+          redraw();
+        });
+      }
     }
 
     function setTool(tool) {
-      currentTool = tool;
+      const normalized = normalizeEntityType(tool || 'select');
+      currentTool = normalized;
       document.querySelectorAll('.toolbar button[id^="tool"]').forEach(btn => {
         btn.classList.remove('active');
       });
-      document.getElementById(`tool${tool.charAt(0).toUpperCase() + tool.slice(1)}`).classList.add('active');
+      const toolIdMap = {
+        select: 'toolSelect',
+        groupspawner: 'toolSpawner',
+        patrolpoint: 'toolPatrol',
+        collider: 'toolCollider',
+        propspawn: 'toolProp',
+        door: 'toolDoor'
+      };
+      const resolvedId = toolIdMap[normalized] || `tool${normalized.charAt(0).toUpperCase() + normalized.slice(1)}`;
+      const btn = document.getElementById(resolvedId);
+      if (btn) btn.classList.add('active');
     }
 
     function updateMapSettings() {
@@ -1492,12 +1714,11 @@
 
       switch(e.key.toLowerCase()) {
         case 'v': setTool('select'); break;
-        case 's': setTool('spawner'); break;
-        case 'p': setTool('patrol'); break;
+        case 's': setTool('groupspawner'); break;
+        case 'p': setTool('patrolpoint'); break;
         case 'c': setTool('collider'); break;
-        case 'o': setTool('prop'); break;
-        case 'e': setTool('entrance'); break;
-        case 'x': setTool('exit'); break;
+        case 'o': setTool('propspawn'); break;
+        case 'd': setTool('door'); break;
         case 'delete':
         case 'backspace':
           if (selectedEntity) {
@@ -1544,12 +1765,11 @@
 
     // ===== Button Event Handlers =====
     document.getElementById('toolSelect').addEventListener('click', () => setTool('select'));
-    document.getElementById('toolSpawner').addEventListener('click', () => setTool('spawner'));
-    document.getElementById('toolPatrol').addEventListener('click', () => setTool('patrol'));
+    document.getElementById('toolSpawner').addEventListener('click', () => setTool('groupspawner'));
+    document.getElementById('toolPatrol').addEventListener('click', () => setTool('patrolpoint'));
     document.getElementById('toolCollider').addEventListener('click', () => setTool('collider'));
-    document.getElementById('toolProp').addEventListener('click', () => setTool('prop'));
-    document.getElementById('toolEntrance').addEventListener('click', () => setTool('entrance'));
-    document.getElementById('toolExit').addEventListener('click', () => setTool('exit'));
+    document.getElementById('toolProp').addEventListener('click', () => setTool('propspawn'));
+    document.getElementById('toolDoor').addEventListener('click', () => setTool('door'));
 
     document.getElementById('btnDelete').addEventListener('click', () => {
       if (selectedEntity) {
@@ -1688,24 +1908,42 @@
       }
 
       // Normalize entities to ensure they have proper meta objects
-      mapData.entities.forEach(entity => {
-        if (!entity.meta) {
-          entity.meta = {};
+      mapData.entities = mapData.entities.map((entity) => {
+        const normalizedType = normalizeEntityType(entity.type || '');
+        const nextEntity = { ...entity, type: normalizedType, meta: entity.meta && typeof entity.meta === 'object' ? { ...entity.meta } : {} };
+
+        if (normalizedType === 'collider') {
+          if (!nextEntity.meta.shape) nextEntity.meta.shape = 'rectangle';
+          if (!nextEntity.meta.width) nextEntity.meta.width = 100;
+          if (!nextEntity.meta.height) nextEntity.meta.height = 100;
+        } else if (normalizedType === 'patrolpoint') {
+          if (nextEntity.meta.sequence === undefined) nextEntity.meta.sequence = 0;
+          if (!nextEntity.meta.routeId) nextEntity.meta.routeId = '';
+          nextEntity.meta.scale = nextEntity.meta.scale || { ...defaultPatrolScale };
+        } else if (normalizedType === 'groupspawner') {
+          if (!nextEntity.meta.groupId) nextEntity.meta.groupId = '';
+          if (!Array.isArray(nextEntity.meta.spawnDelayRange)) {
+            nextEntity.meta.spawnDelayRange = [...defaultGroupDelayRange];
+          }
+          if (!Number.isFinite(nextEntity.meta.spawnRadius)) {
+            nextEntity.meta.spawnRadius = tileSize || 0;
+          }
+        } else if (normalizedType === 'propspawn') {
+          nextEntity.meta.props = clonePropWeights(nextEntity.meta.props?.length ? nextEntity.meta.props : defaultPropWeights);
+        } else if (normalizedType === 'door') {
+          nextEntity.meta.doorId = nextEntity.meta.doorId || nextEntity.id;
+          nextEntity.id = nextEntity.meta.doorId;
+          nextEntity.meta.targetAreaId = nextEntity.meta.targetAreaId || '';
+          nextEntity.meta.targetDoorId = nextEntity.meta.targetDoorId || '';
+          nextEntity.meta.interactable = nextEntity.meta.interactable !== false;
+          nextEntity.meta.locked = !!nextEntity.meta.locked;
+          nextEntity.meta.scale = nextEntity.meta.scale || { ...defaultDoorScale };
+          nextEntity.meta.tags = Array.isArray(nextEntity.meta.tags) && nextEntity.meta.tags.length
+            ? nextEntity.meta.tags
+            : ['door'];
         }
 
-        // Set default metadata based on type
-        if (entity.type === 'collider') {
-          if (!entity.meta.shape) entity.meta.shape = 'rectangle';
-          if (!entity.meta.width) entity.meta.width = 100;
-          if (!entity.meta.height) entity.meta.height = 100;
-        } else if (entity.type === 'patrol') {
-          if (entity.meta.sequence === undefined) entity.meta.sequence = 0;
-          if (!entity.meta.routeId) entity.meta.routeId = '';
-        } else if (entity.type === 'spawner') {
-          if (!entity.meta.prefab) entity.meta.prefab = 'spawn_default';
-        } else if (entity.type === 'prop') {
-          if (!entity.meta.prefab) entity.meta.prefab = 'prop_default';
-        }
+        return nextEntity;
       });
 
       // Update UI

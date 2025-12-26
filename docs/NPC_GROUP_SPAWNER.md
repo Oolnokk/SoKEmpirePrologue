@@ -10,6 +10,7 @@ A comprehensive system for spawning groups of NPCs with procedurally generated n
 - ✅ **Family relationships** - support for inherited surnames and marriage rules
 - ✅ **Debug controls** - toggle logging for names, patterns, and generation steps
 - ✅ **Character template integration** - works with existing character template system
+- ✅ **Configurable spawn timing** - per-member delay ranges with optional scheduled callbacks
 
 ## Files
 
@@ -38,6 +39,7 @@ A comprehensive system for spawning groups of NPCs with procedurally generated n
     debugNames: false,   // Enable detailed name generation debug
   };
   ```
+  - `CONFIG.mapEntities.groupSpawner.delayRangeSeconds` controls the default spawn cadence (defaults to `[0.75, 1.25]`).
 
 ### Test Files
 
@@ -66,6 +68,23 @@ const fighters = spawnNpcGroup(spawner);
 // - culture: "mao_ao"
 // - groupId, groupName, spawnerId, etc.
 ```
+
+### Spawn Timing & Callbacks
+
+`spawnNpcGroup` assigns each fighter a cumulative delay to support staggered spawning:
+
+- Per-member ranges can be set via `spawnDelayRangeSeconds` (array) or `spawnDelaySeconds` (single value) on the member, or on the group meta.
+- Defaults come from `CONFIG.mapEntities.groupSpawner.delayRangeSeconds`.
+- Each fighter includes `spawnDelayMs`/`spawnDelaySeconds` and `meta.memberDelaySeconds` for the per-member roll.
+- Provide an `onSpawn` callback to receive fighters in real time:
+
+```javascript
+spawnNpcGroup(spawner, {
+  onSpawn: (fighter) => spawnIntoWorld(fighter),
+});
+```
+
+If no callback is provided, the returned array still contains delay metadata so callers can schedule their own spawning.
 
 ### Spawn All Groups in Area
 
