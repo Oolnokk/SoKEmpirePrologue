@@ -106,11 +106,6 @@
   function buildButtonArch(rootEl) {
     const archCfg = CFG.arch;
     const btnCfgs = [...CFG.buttons];
-    const scale = archCfg.scale || 1;
-    const baseButtonHeight =
-      (archCfg.buttonHeightPx ?? archCfg.buttonSizePx ?? archCfg.buttonWidthPx ?? 0) * scale;
-    const baseButtonWidth =
-      (archCfg.buttonWidthPx ?? archCfg.buttonHeightPx ?? archCfg.buttonSizePx ?? 0) * scale;
 
     const container = document.createElement("div");
     container.className = "arch-hud";
@@ -122,8 +117,20 @@
     const vp = getViewportRect(rootEl);
     const scale = archCfg.scale || 1;
     const baseButtonSize = resolveAdaptiveSize(archCfg.buttonSizePx, vp, 0.1);
+    const baseButtonWidth =
+      archCfg.buttonWidthPx != null
+        ? resolveAdaptiveSize(archCfg.buttonWidthPx, vp)
+        : baseButtonSize;
+    const baseButtonHeight =
+      archCfg.buttonHeightPx != null
+        ? resolveAdaptiveSize(archCfg.buttonHeightPx, vp)
+        : baseButtonSize;
     const baseRadius = resolveAdaptiveSize(archCfg.radiusPx, vp, 0.18);
     const buttonSize = baseButtonSize * scale;
+    const btnWidth = (baseButtonWidth ?? 0) * scale;
+    const btnHeight = (baseButtonHeight ?? 0) * scale;
+    const halfWidth = btnWidth / 2;
+    const halfHeight = btnHeight / 2;
     const radius = baseRadius * scale;
     container.style.setProperty("--arch-button-size", `${buttonSize}px`);
     if (!Number.isFinite(radius) || radius <= 0) return container;
@@ -235,9 +242,6 @@
 
       const x = center.x + radius * Math.cos(centerA);
       const y = center.y + radius * Math.sin(centerA);
-
-      const size = buttonSize;
-      const halfSize = size / 2;
 
       const btnEl = document.createElement("button");
       btnEl.className = "arch-hud__button";
