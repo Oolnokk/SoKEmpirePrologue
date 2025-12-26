@@ -7,6 +7,7 @@ import { triggerFullRagdoll } from './physics.js?v=2';
 import { getCurrentGameHour, isScheduleActive } from './schedule-utils.js?v=1';
 
 import { instantiateCharacterTemplate } from './character-templates.js?v=1';
+import { generateNpcName, parseFighterName } from './npc-group-spawner.js?v=1';
 
 function clone(value) {
   if (value == null) return value;
@@ -22,6 +23,16 @@ function clone(value) {
   } catch (_err) {
     return value;
   }
+}
+
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash) >>> 0;
 }
 
 function normalizeStats(rawStats = {}) {
@@ -1087,6 +1098,33 @@ export function spawnAdditionalNpc(options = {}) {
       applyCharacterTemplateToFighter(npc, templateResult, baseTemplate);
     }
   }
+
+  // Generate NPC name based on fighter culture/gender
+  if (templateResult?.character) {
+    const fighterName = templateResult.character?.fighter || templateResult.character?.fighterName || null;
+    const parsed = parseFighterName(fighterName);
+
+    // Only generate names if fighter has culture tag (e.g., "Mao-ao_m" or "Mao-ao_f")
+    if (parsed.culture && parsed.gender) {
+      const nameSeed = options.nameSeed || (id ? hashString(id) : Math.floor(Math.random() * 2 ** 31));
+      const nameResult = generateNpcName({
+        culture: parsed.culture,
+        gender: parsed.gender,
+        seed: nameSeed,
+        debug: window.CONFIG?.debug?.npcGroupSpawner?.debugNames || false,
+      });
+
+      npc.npcName = nameResult.name;
+      npc.nameParts = nameResult.parts;
+      npc.gender = parsed.gender;
+      npc.culture = parsed.culture;
+
+      if (window.CONFIG?.debug?.npcGroupSpawner?.logNames) {
+        console.log(`[NPC-Name] Generated "${nameResult.name}" for ${fighterName} (${parsed.gender}, ${parsed.culture})`);
+      }
+    }
+  }
+
   const runtimeTemplate = templateResult ? npc : baseTemplate;
   resetRuntimeState(npc, runtimeTemplate, {
     id,

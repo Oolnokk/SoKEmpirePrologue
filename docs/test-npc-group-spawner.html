@@ -163,14 +163,23 @@
       debugNames: false,
     };
 
-    // Mock character templates
+    // Mock character templates with culture/gender tags
     window.CONFIG.characterTemplates = {
       citywatch_watchman: {
         label: 'City Watch Watchman',
         baseCharacter: null,
         defaults: {
-          fighter: 'fighter_default',
+          fighter: 'Mao-ao_m',  // Male Mao-ao culture
           stats: { baseline: 10, strength: 12, agility: 10, endurance: 11 },
+        },
+        overrides: {},
+      },
+      citywatch_patrol_female: {
+        label: 'City Watch Patrol (Female)',
+        baseCharacter: null,
+        defaults: {
+          fighter: 'Mao-ao_f',  // Female Mao-ao culture
+          stats: { baseline: 10, strength: 11, agility: 11, endurance: 10 },
         },
         overrides: {},
       },
@@ -187,11 +196,12 @@
         faction: 'citywatch',
         interests: ['patrol-point', 'gate', 'barracks'],
         members: [
-          { templateId: 'citywatch_watchman', count: 3 },
+          { templateId: 'citywatch_watchman', count: 2 },
+          { templateId: 'citywatch_patrol_female', count: 1 },
         ],
         meta: {
           role: 'patrol',
-          culture: 'mao_ao', // Use Mao-ao name generation
+          culture: 'mao_ao', // Use Mao-ao name generation (fallback)
         },
       },
     };

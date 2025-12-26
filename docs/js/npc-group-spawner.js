@@ -59,11 +59,42 @@ function seedFromString(str) {
 }
 
 /**
+ * Parse culture and gender from fighter name
+ * Examples:
+ *   "Mao-ao_m" → { culture: "mao-ao", gender: "male" }
+ *   "Mao-ao_f" → { culture: "mao-ao", gender: "female" }
+ *   "fighter_default" → { culture: null, gender: null }
+ */
+function parseFighterName(fighterName) {
+  if (!fighterName || typeof fighterName !== 'string') {
+    return { culture: null, gender: null };
+  }
+
+  // Check for _m (male) or _f (female) suffix
+  const genderMatch = fighterName.match(/^(.+?)_([mf])$/i);
+  if (!genderMatch) {
+    return { culture: null, gender: null };
+  }
+
+  const culturePart = genderMatch[1];
+  const genderPart = genderMatch[2].toLowerCase();
+
+  // Normalize culture name (e.g., "Mao-ao" → "mao_ao")
+  const cultureName = culturePart.toLowerCase().replace(/-/g, '_');
+  const gender = genderPart === 'm' ? 'male' : 'female';
+
+  return { culture: cultureName, gender };
+}
+
+/**
  * Resolve the culture for name generation
  * Defaults to mao_ao if not specified
  */
-function resolveCulture(groupMeta, member) {
-  const cultureName = member?.culture
+function resolveCulture(fighterName, groupMeta, member) {
+  // Try to parse from fighter name first (e.g., "Mao-ao_m" → "mao_ao")
+  const parsed = parseFighterName(fighterName);
+  const cultureName = parsed.culture
+    || member?.culture
     || groupMeta?.culture
     || groupMeta?.meta?.culture
     || 'mao_ao';
@@ -77,9 +108,15 @@ function resolveCulture(groupMeta, member) {
 }
 
 /**
- * Determine gender from template or randomize
+ * Determine gender from fighter name, template, or randomize
  */
-function resolveGender(member, templateResult, rng) {
+function resolveGender(fighterName, member, templateResult, rng) {
+  // Try to parse from fighter name first (e.g., "Mao-ao_m" → "male")
+  const parsed = parseFighterName(fighterName);
+  if (parsed.gender) {
+    return parsed.gender;
+  }
+
   // Check explicit gender in member definition
   if (member?.gender === 'male' || member?.gender === 'female') {
     return member.gender;
@@ -154,9 +191,14 @@ function instantiateGroupMember(member, groupMeta, memberIndex, spawner, rng) {
     return null;
   }
 
-  // Resolve culture and gender
-  const culture = resolveCulture(groupMeta, member);
-  const gender = resolveGender(member, templateResult, rng);
+  // Extract fighter name for culture/gender parsing
+  const fighterName = templateResult.character?.fighter
+    || templateResult.character?.fighterName
+    || null;
+
+  // Resolve culture and gender (from fighter name like "Mao-ao_m" or fallbacks)
+  const culture = resolveCulture(fighterName, groupMeta, member);
+  const gender = resolveGender(fighterName, member, templateResult, rng);
 
   // Generate deterministic seed based on spawner, group, and member
   const spawnerId = spawner?.spawnerId || spawner?.id || 'unknown';
@@ -332,4 +374,8 @@ export default {
   spawnAllGroups,
   generateNpcName,
   initNpcGroupSpawnerDebug,
+  parseFighterName,
 };
+
+// Also export parseFighterName individually
+export { parseFighterName };

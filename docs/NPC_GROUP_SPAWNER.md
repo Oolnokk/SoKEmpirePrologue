@@ -119,6 +119,45 @@ const spawners = [
 ];
 ```
 
+## Fighter Culture & Gender Tags
+
+Names are automatically generated based on the fighter's culture and gender, which are encoded in the fighter name using suffixes:
+
+- **`_m`** = Male (e.g., `Mao-ao_m`)
+- **`_f`** = Female (e.g., `Mao-ao_f`)
+
+The prefix determines the culture (e.g., `Mao-ao` → `mao_ao` culture).
+
+### Example Fighter Names
+
+```javascript
+{
+  fighter: "Mao-ao_m"   // Male Mao-ao culture → generates names like "Kayji Kayji"
+  fighter: "Mao-ao_f"   // Female Mao-ao culture → generates names like "A'eyma Kayao"
+}
+```
+
+### Character Template Example
+
+```javascript
+window.CONFIG.characterTemplates = {
+  citywatch_guard_male: {
+    label: 'City Watch Guard (Male)',
+    defaults: {
+      fighter: 'Mao-ao_m',  // Will generate male Mao-ao names
+      stats: { baseline: 10, strength: 12 }
+    }
+  },
+  citywatch_guard_female: {
+    label: 'City Watch Guard (Female)',
+    defaults: {
+      fighter: 'Mao-ao_f',  // Will generate female Mao-ao names
+      stats: { baseline: 10, agility: 12 }
+    }
+  }
+};
+```
+
 ## Name Generation
 
 ### Mao-ao Culture Rules
