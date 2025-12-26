@@ -6320,112 +6320,357 @@ function createCameraControlRow(type, axis, label) {
   return row;
 }
 
+function resolveMinimapConfig() {
+  const minimapConfig = window.CONFIG?.debug?.minimap || {};
+  const overlay = window.CONFIG?.debug?.gameplayOverlay || {};
+  return {
+    background: minimapConfig.background ?? '#0a0a0a',
+    gridColor: minimapConfig.gridColor ?? '#222',
+    boundsColor: minimapConfig.boundsColor ?? '#444',
+    pathColor: minimapConfig.pathColor ?? '#4a9eff',
+    axisColor: minimapConfig.axisColor ?? '#666',
+    axisFont: minimapConfig.axisFont ?? '10px monospace',
+    mapInfoFont: minimapConfig.mapInfoFont ?? '11px monospace',
+    mapInfoColor: minimapConfig.mapInfoColor ?? '#ddd',
+    mapInfoSecondary: minimapConfig.mapInfoSecondary ?? '#9ee4ff',
+    cameraFill: minimapConfig.cameraFill ?? '#ff4444',
+    cameraStroke: minimapConfig.cameraStroke ?? '#ff8888',
+    cameraLineWidth: minimapConfig.cameraLineWidth ?? 2,
+    cameraConeLength: minimapConfig.cameraConeLength ?? 30,
+    cameraConeAngleDeg: minimapConfig.cameraConeAngleDeg ?? 30,
+    cameraLabelFont: minimapConfig.cameraLabelFont ?? '9px monospace',
+    cameraLabelColor: minimapConfig.cameraLabelColor ?? '#ff8888',
+    gridCells: Number.isFinite(minimapConfig.gridCells) ? minimapConfig.gridCells : 20,
+    padding: Number.isFinite(minimapConfig.padding) ? minimapConfig.padding : 16,
+    boundsMargin: Number.isFinite(minimapConfig.boundsMargin) ? minimapConfig.boundsMargin : 0.08,
+    markerRadius: Number.isFinite(minimapConfig.markerRadius) ? minimapConfig.markerRadius : 5,
+    spawnerColor: minimapConfig.spawnerColor ?? overlay.spawnerColor ?? '#22c55e',
+    poiStroke: minimapConfig.poiStroke ?? overlay.poiStroke ?? '#f472b6',
+    poiFill: minimapConfig.poiFill ?? overlay.poiFill ?? 'rgba(244, 114, 182, 0.08)',
+    labelBackground: minimapConfig.labelBackground ?? overlay.labelBackground ?? 'rgba(0, 0, 0, 0.75)',
+    labelColor: minimapConfig.labelColor ?? overlay.labelColor ?? '#e5e7eb',
+  };
+}
+
+function resolveActiveMapInfo(area) {
+  const configLayouts = window.CONFIG?.map?.layouts;
+  const resolvedName = area?.meta?.areaName || area?.name || area?.id || 'Unknown area';
+  let resolvedPath = typeof area?.source === 'string' && area.source ? area.source : null;
+
+  if (!resolvedPath && Array.isArray(configLayouts)) {
+    const matched = configLayouts.find((entry) => entry?.id === area?.id || entry?.areaId === area?.id);
+    if (matched && matched.path) {
+      resolvedPath = matched.path;
+    }
+  }
+
+  return {
+    name: resolvedName,
+    path: resolvedPath || 'Unknown gameplaymap source',
+  };
+}
+
+function normalizePoiBounds(poi) {
+  const bounds = poi?.bounds || {};
+  const leftVal = Number(bounds.left);
+  const rightVal = Number(bounds.right);
+  const widthVal = Number(bounds.width);
+  const topVal = Number(bounds.topOffset);
+  const bottomVal = Number(bounds.bottom);
+  const heightVal = Number(bounds.height);
+
+  const left = Number.isFinite(leftVal)
+    ? leftVal
+    : Number.isFinite(rightVal) && Number.isFinite(widthVal)
+      ? rightVal - widthVal
+      : 0;
+  const right = Number.isFinite(rightVal)
+    ? rightVal
+    : Number.isFinite(widthVal)
+      ? left + widthVal
+      : left;
+  const top = Number.isFinite(topVal) ? topVal : 0;
+  const bottom = Number.isFinite(bottomVal)
+    ? bottomVal
+    : Number.isFinite(heightVal)
+      ? top + heightVal
+      : top;
+
+  return { left, right, top, bottom, label: poi?.label || poi?.name || 'POI' };
+}
+
+function computeMinimapBounds({ groundPath, spawners, pois, patrols, cellSize, gridCells, boundsMargin }) {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  let hasData = false;
+
+  const addPoint = (x, z = 0) => {
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+    hasData = true;
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minZ = Math.min(minZ, z);
+    maxZ = Math.max(maxZ, z);
+  };
+
+  const addRect = ({ left, right, top, bottom }) => {
+    const rectLeft = Number.isFinite(left) ? left : null;
+    const rectRight = Number.isFinite(right) ? right : null;
+    const rectTop = Number.isFinite(top) ? top : null;
+    const rectBottom = Number.isFinite(bottom) ? bottom : null;
+    if (rectLeft === null || rectRight === null || rectTop === null || rectBottom === null) return;
+    addPoint(rectLeft, rectTop);
+    addPoint(rectRight, rectBottom);
+  };
+
+  groundPath.forEach((pt) => addPoint(pt?.x, pt?.y ?? 0));
+  spawners.forEach((sp) => addPoint(sp?.x, sp?.y ?? 0));
+
+  patrols.forEach((collider) => {
+    const left = Number(collider?.left);
+    const width = Number(collider?.width);
+    const top = Number.isFinite(collider?.topOffset) ? Number(collider.topOffset) : 0;
+    const height = Number(collider?.height);
+    addRect({ left, right: left + (Number.isFinite(width) ? width : 0), top, bottom: top + (Number.isFinite(height) ? height : 0) });
+  });
+
+  pois.forEach((poi) => {
+    const bounds = normalizePoiBounds(poi);
+    addRect(bounds);
+  });
+
+  if (!hasData) {
+    const fallbackHalfSpan = (gridCells * cellSize) / 2;
+    return {
+      minX: -fallbackHalfSpan,
+      maxX: fallbackHalfSpan,
+      minZ: -fallbackHalfSpan,
+      maxZ: fallbackHalfSpan,
+    };
+  }
+
+  const spanX = maxX - minX;
+  const spanZ = maxZ - minZ;
+  const margin = Math.max(spanX, spanZ) * (boundsMargin ?? 0.08);
+  return {
+    minX: minX - margin,
+    maxX: maxX + margin,
+    minZ: minZ - margin,
+    maxZ: maxZ + margin,
+  };
+}
+
 function renderMinimap() {
   if (!minimapCtx || !minimapCanvas) return;
 
   const cam = getActiveThreeCamera();
-  const renderer = GAME_RENDERER_3D;
+  const area = resolveActiveParallaxArea();
+  const minimapConfig = resolveMinimapConfig();
 
   const w = minimapCanvas.width;
   const h = minimapCanvas.height;
+  const fallbackCellSize = Number.isFinite(window.CONFIG?.map?.gridUnit) ? window.CONFIG.map.gridUnit : 300;
   const cellSize = Number.isFinite(window.GRID_UNIT_WORLD_SIZE)
     ? window.GRID_UNIT_WORLD_SIZE
-    : window.CONFIG?.map?.gridUnit;
-  const worldSize = 20 * cellSize; // 20x20 grid
-  const scale = Math.min(w, h) * 0.8 / worldSize;
+    : fallbackCellSize;
+  const gridCells = minimapConfig.gridCells || 20;
+
+  const groundPath = Array.isArray(area?.ground?.path) ? area.ground.path : [];
+  const spawners = Array.isArray(area?.spawners) ? area.spawners : [];
+  const pois = Array.isArray(area?.pois) ? area.pois : [];
+  const patrols = Array.isArray(area?.colliders) ? area.colliders.filter((c) => c?.meta?.patrol) : [];
+  const bounds = computeMinimapBounds({ groundPath, spawners, pois, patrols, cellSize, gridCells, boundsMargin: minimapConfig.boundsMargin });
+
+  const spanX = Math.max(1, bounds.maxX - bounds.minX);
+  const spanZ = Math.max(1, bounds.maxZ - bounds.minZ);
+  const scale = Math.min((w - minimapConfig.padding * 2) / spanX, (h - minimapConfig.padding * 2) / spanZ);
   const centerX = w / 2;
   const centerY = h / 2;
+  const worldCenterX = (bounds.minX + bounds.maxX) / 2;
+  const worldCenterZ = (bounds.minZ + bounds.maxZ) / 2;
+
+  const project = (x, z = 0) => ({
+    x: centerX + (x - worldCenterX) * scale,
+    y: centerY + (z - worldCenterZ) * scale,
+  });
 
   // Clear canvas
-  minimapCtx.fillStyle = '#0a0a0a';
+  minimapCtx.fillStyle = minimapConfig.background;
   minimapCtx.fillRect(0, 0, w, h);
 
-  // Draw grid
-  minimapCtx.strokeStyle = '#222';
+  // Draw grid based on configured cell size
+  minimapCtx.strokeStyle = minimapConfig.gridColor;
   minimapCtx.lineWidth = 1;
-  for (let i = -10; i <= 10; i++) {
-    const offset = i * cellSize * scale;
-    // Vertical lines
-    minimapCtx.beginPath();
-    minimapCtx.moveTo(centerX + offset, centerY - 10 * cellSize * scale);
-    minimapCtx.lineTo(centerX + offset, centerY + 10 * cellSize * scale);
-    minimapCtx.stroke();
-    // Horizontal lines
-    minimapCtx.beginPath();
-    minimapCtx.moveTo(centerX - 10 * cellSize * scale, centerY + offset);
-    minimapCtx.lineTo(centerX + 10 * cellSize * scale, centerY + offset);
-    minimapCtx.stroke();
+  if (Number.isFinite(cellSize) && cellSize > 0) {
+    const startX = Math.floor(bounds.minX / cellSize) - 1;
+    const endX = Math.ceil(bounds.maxX / cellSize) + 1;
+    const startZ = Math.floor(bounds.minZ / cellSize) - 1;
+    const endZ = Math.ceil(bounds.maxZ / cellSize) + 1;
+
+    for (let gx = startX; gx <= endX; gx++) {
+      const worldX = gx * cellSize;
+      const top = project(worldX, bounds.minZ);
+      const bottom = project(worldX, bounds.maxZ);
+      minimapCtx.beginPath();
+      minimapCtx.moveTo(top.x, top.y);
+      minimapCtx.lineTo(bottom.x, bottom.y);
+      minimapCtx.stroke();
+    }
+
+    for (let gz = startZ; gz <= endZ; gz++) {
+      const worldZ = gz * cellSize;
+      const left = project(bounds.minX, worldZ);
+      const right = project(bounds.maxX, worldZ);
+      minimapCtx.beginPath();
+      minimapCtx.moveTo(left.x, left.y);
+      minimapCtx.lineTo(right.x, right.y);
+      minimapCtx.stroke();
+    }
   }
 
   // Draw world bounds
-  minimapCtx.strokeStyle = '#444';
+  minimapCtx.strokeStyle = minimapConfig.boundsColor;
   minimapCtx.lineWidth = 2;
-  const boundsSize = 10 * cellSize * scale;
-  minimapCtx.strokeRect(centerX - boundsSize, centerY - boundsSize, boundsSize * 2, boundsSize * 2);
+  const boundsTopLeft = project(bounds.minX, bounds.minZ);
+  const boundsBottomRight = project(bounds.maxX, bounds.maxZ);
+  minimapCtx.strokeRect(
+    boundsTopLeft.x,
+    boundsTopLeft.y,
+    boundsBottomRight.x - boundsTopLeft.x,
+    boundsBottomRight.y - boundsTopLeft.y,
+  );
 
-  // Draw gameplay path (row 10, col 0 to col 19)
-  minimapCtx.strokeStyle = '#4a9eff';
-  minimapCtx.lineWidth = 3;
-  minimapCtx.beginPath();
-  const pathY = centerY; // Row 10 is center
-  const pathStartX = centerX - 9.5 * cellSize * scale; // Col 0
-  const pathEndX = centerX + 9.5 * cellSize * scale; // Col 19
-  minimapCtx.moveTo(pathStartX, pathY);
-  minimapCtx.lineTo(pathEndX, pathY);
-  minimapCtx.stroke();
+  // Draw gameplay path if available
+  if (groundPath.length > 1) {
+    minimapCtx.strokeStyle = minimapConfig.pathColor;
+    minimapCtx.lineWidth = 3;
+    minimapCtx.beginPath();
+    const first = project(groundPath[0].x, groundPath[0].y ?? 0);
+    minimapCtx.moveTo(first.x, first.y);
+    for (let i = 1; i < groundPath.length; i++) {
+      const pt = project(groundPath[i].x, groundPath[i].y ?? 0);
+      minimapCtx.lineTo(pt.x, pt.y);
+    }
+    minimapCtx.stroke();
+  }
 
   // Draw axis labels
-  minimapCtx.fillStyle = '#666';
-  minimapCtx.font = '10px monospace';
-  minimapCtx.fillText('+X', centerX + boundsSize + 5, centerY);
-  minimapCtx.fillText('-X', centerX - boundsSize - 25, centerY);
-  minimapCtx.fillText('+Z', centerX, centerY + boundsSize + 12);
-  minimapCtx.fillText('-Z', centerX, centerY - boundsSize - 5);
+  minimapCtx.fillStyle = minimapConfig.axisColor;
+  minimapCtx.font = minimapConfig.axisFont;
+  minimapCtx.fillText('+X', boundsBottomRight.x + 5, centerY);
+  minimapCtx.fillText('-X', boundsTopLeft.x - 25, centerY);
+  minimapCtx.fillText('+Z', centerX, boundsBottomRight.y + 12);
+  minimapCtx.fillText('-Z', centerX, boundsTopLeft.y - 5);
+
+  // Draw POIs
+  pois.forEach((poi) => {
+    const bounds = normalizePoiBounds(poi);
+
+    const topLeft = project(bounds.left, bounds.top);
+    const size = project(bounds.right, bounds.bottom);
+    minimapCtx.fillStyle = minimapConfig.poiFill;
+    minimapCtx.strokeStyle = minimapConfig.poiStroke;
+    minimapCtx.lineWidth = 1.5;
+    minimapCtx.beginPath();
+    minimapCtx.rect(topLeft.x, topLeft.y, size.x - topLeft.x, size.y - topLeft.y);
+    minimapCtx.fill();
+    minimapCtx.stroke();
+
+    const label = bounds.label;
+    minimapCtx.fillStyle = minimapConfig.labelColor;
+    minimapCtx.font = '9px monospace';
+    minimapCtx.fillText(label, topLeft.x + 2, topLeft.y - 2);
+  });
+
+  // Draw spawners
+  minimapCtx.fillStyle = minimapConfig.spawnerColor;
+  minimapCtx.strokeStyle = minimapConfig.spawnerColor;
+  spawners.forEach((spawner) => {
+    const projected = project(spawner.x, spawner.y ?? 0);
+    minimapCtx.beginPath();
+    minimapCtx.arc(projected.x, projected.y, minimapConfig.markerRadius, 0, Math.PI * 2);
+    minimapCtx.fill();
+    minimapCtx.stroke();
+
+    if (spawner?.id) {
+      minimapCtx.font = '9px monospace';
+      const textWidth = minimapCtx.measureText(spawner.id).width;
+      const padding = 2;
+      minimapCtx.fillStyle = minimapConfig.labelBackground;
+      minimapCtx.fillRect(projected.x - padding, projected.y - 10 - padding, textWidth + padding * 2, 12);
+      minimapCtx.fillStyle = minimapConfig.labelColor;
+      minimapCtx.fillText(spawner.id, projected.x, projected.y - 1);
+    }
+  });
+
+  // Draw patrol colliders as markers on the ground
+  if (patrols.length) {
+    minimapCtx.strokeStyle = minimapConfig.pathColor;
+    minimapCtx.lineWidth = 1.5;
+    patrols.forEach((collider) => {
+      const left = Number(collider?.left);
+      const width = Number(collider?.width);
+      const top = Number.isFinite(collider?.topOffset) ? Number(collider.topOffset) : 0;
+      const height = Number(collider?.height);
+      const topLeft = project(left, top);
+      const size = project(left + (Number.isFinite(width) ? width : 0), top + (Number.isFinite(height) ? height : 0));
+      minimapCtx.strokeRect(topLeft.x, topLeft.y, size.x - topLeft.x, size.y - topLeft.y);
+    });
+  }
 
   // Draw camera if available
-  if (cam && renderer) {
-    const camX = cam.position.x * scale;
-    const camZ = cam.position.z * scale;
-    const screenX = centerX + camX;
-    const screenY = centerY + camZ; // Z maps to Y in top-down view
+  if (cam) {
+    const cameraRotY = cam.rotation.y;
+    const coneLength = minimapConfig.cameraConeLength;
+    const coneAngle = degToRad(minimapConfig.cameraConeAngleDeg);
+    const position = project(cam.position.x, cam.position.z);
 
     // Draw camera cone showing view direction
-    minimapCtx.fillStyle = '#ff4444';
-    minimapCtx.strokeStyle = '#ff8888';
-    minimapCtx.lineWidth = 2;
-
-    const cameraRotY = cam.rotation.y;
-    const coneLength = 30;
-    const coneAngle = Math.PI / 6; // 30 degrees
+    minimapCtx.fillStyle = minimapConfig.cameraFill;
+    minimapCtx.strokeStyle = minimapConfig.cameraStroke;
+    minimapCtx.lineWidth = minimapConfig.cameraLineWidth;
 
     minimapCtx.beginPath();
-    minimapCtx.arc(screenX, screenY, 5, 0, Math.PI * 2);
+    minimapCtx.arc(position.x, position.y, minimapConfig.markerRadius, 0, Math.PI * 2);
     minimapCtx.fill();
 
     // Draw view cone
     minimapCtx.beginPath();
-    minimapCtx.moveTo(screenX, screenY);
+    minimapCtx.moveTo(position.x, position.y);
     const leftAngle = cameraRotY - coneAngle;
     const rightAngle = cameraRotY + coneAngle;
-    minimapCtx.lineTo(
-      screenX + Math.sin(leftAngle) * coneLength,
-      screenY + Math.cos(leftAngle) * coneLength
+    const leftPoint = project(
+      cam.position.x + Math.sin(leftAngle) * coneLength,
+      cam.position.z + Math.cos(leftAngle) * coneLength,
     );
-    minimapCtx.lineTo(
-      screenX + Math.sin(rightAngle) * coneLength,
-      screenY + Math.cos(rightAngle) * coneLength
+    const rightPoint = project(
+      cam.position.x + Math.sin(rightAngle) * coneLength,
+      cam.position.z + Math.cos(rightAngle) * coneLength,
     );
+    minimapCtx.lineTo(leftPoint.x, leftPoint.y);
+    minimapCtx.lineTo(rightPoint.x, rightPoint.y);
     minimapCtx.closePath();
     minimapCtx.stroke();
 
     // Draw camera position text
-    minimapCtx.fillStyle = '#ff8888';
-    minimapCtx.font = '9px monospace';
+    minimapCtx.fillStyle = minimapConfig.cameraLabelColor;
+    minimapCtx.font = minimapConfig.cameraLabelFont;
     minimapCtx.fillText(
       `Camera (${cam.position.x.toFixed(0)}, ${cam.position.y.toFixed(0)}, ${cam.position.z.toFixed(0)})`,
-      5, h - 5
+      5,
+      h - 5,
     );
   }
+
+  // Map info
+  const mapInfo = resolveActiveMapInfo(area);
+  minimapCtx.fillStyle = minimapConfig.mapInfoColor;
+  minimapCtx.font = minimapConfig.mapInfoFont;
+  minimapCtx.fillText(`Map: ${mapInfo.name}`, 5, 14);
+  minimapCtx.fillStyle = minimapConfig.mapInfoSecondary;
+  minimapCtx.fillText(`Source: ${mapInfo.path}`, 5, 28);
 }
 
 function syncCameraControlState() {
