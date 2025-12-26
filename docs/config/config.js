@@ -5,6 +5,12 @@ window.CONFIG = window.CONFIG || {};
 window.CONFIG.ui = window.CONFIG.ui || {};
 window.CONFIG.ui.showClock = true; // Display the in-game time clock
 
+// Time System Settings
+window.CONFIG.time = window.CONFIG.time || {};
+window.CONFIG.time.startTime24h = 12; // Start at noon (12:00)
+window.CONFIG.time.timeScale = 0.1; // Time speed (0.1 = 1 real second = 6 game minutes)
+window.CONFIG.time.paused = false; // Whether time is paused
+
 window.CONFIG.debug = window.CONFIG.debug || {};
 window.CONFIG.debug.gameplayOverlay = window.CONFIG.debug.gameplayOverlay || {
   spawnerColor: '#22c55e',

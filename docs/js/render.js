@@ -667,10 +667,9 @@ function drawClock(ctx) {
   const CONFIG = window.CONFIG || {};
   if (!CONFIG.ui?.showClock) return;
 
-  // Get the current area and time
-  const registry = window.__MAP_REGISTRY__;
-  const area = registry?.getActiveArea?.();
-  const time24h = area?.background?.sky?.time24h;
+  // Get time from gameTimeController for better accuracy
+  const timeController = window.gameTimeController;
+  const time24h = timeController?.time24h;
 
   if (!Number.isFinite(time24h)) return;
 
@@ -679,30 +678,79 @@ function drawClock(ctx) {
   const minutes = Math.floor((time24h % 1) * 60);
   const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 
+  // Get time scale and paused status
+  const timeScale = timeController?.timeScale ?? 0;
+  const isPaused = timeController?.paused ?? true;
+
   // Draw clock in top-right corner
   const canvasWidth = ctx.canvas?.width || 720;
   const padding = 20;
   const x = canvasWidth - padding;
-  const y = 30;
+  let y = 30;
 
   ctx.save();
-  ctx.font = 'bold 24px system-ui, sans-serif';
+
+  // Draw time
+  ctx.font = 'bold 28px system-ui, sans-serif';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';
 
-  // Draw background
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-  const metrics = ctx.measureText(timeString);
-  const textWidth = metrics.width;
-  const textHeight = 30;
-  ctx.fillRect(x - textWidth - 10, y - 5, textWidth + 20, textHeight + 10);
+  const timeMetrics = ctx.measureText(timeString);
+  const timeWidth = timeMetrics.width;
+  const timeHeight = 34;
+
+  // Draw background for time
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  ctx.fillRect(x - timeWidth - 12, y - 6, timeWidth + 24, timeHeight + 12);
 
   // Draw time text with stroke for visibility
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
   ctx.lineWidth = 3;
   ctx.strokeText(timeString, x, y);
-  ctx.fillStyle = '#ffffff';
+
+  // Color based on time of day
+  const isNight = hours < 6 || hours >= 18;
+  ctx.fillStyle = isNight ? '#a5b4fc' : '#fde68a';
   ctx.fillText(timeString, x, y);
+
+  // Draw status indicator (paused/speed)
+  y += timeHeight + 8;
+  ctx.font = '14px system-ui, sans-serif';
+
+  let statusText = '';
+  let statusColor = '#ffffff';
+
+  if (isPaused) {
+    statusText = '⏸ PAUSED';
+    statusColor = '#f87171';
+  } else if (timeScale > 0) {
+    // Calculate real-time to game-time ratio
+    const gameMinutesPerSecond = timeScale * 60;
+    if (gameMinutesPerSecond >= 60) {
+      statusText = `▶ ${(gameMinutesPerSecond / 60).toFixed(1)}h/s`;
+    } else {
+      statusText = `▶ ${gameMinutesPerSecond.toFixed(0)}m/s`;
+    }
+    statusColor = '#86efac';
+  } else {
+    statusText = '⏸ STOPPED';
+    statusColor = '#fbbf24';
+  }
+
+  const statusMetrics = ctx.measureText(statusText);
+  const statusWidth = statusMetrics.width;
+  const statusHeight = 20;
+
+  // Draw background for status
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  ctx.fillRect(x - statusWidth - 10, y - 4, statusWidth + 20, statusHeight + 8);
+
+  // Draw status text
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+  ctx.lineWidth = 2;
+  ctx.strokeText(statusText, x, y);
+  ctx.fillStyle = statusColor;
+  ctx.fillText(statusText, x, y);
 
   ctx.restore();
 }
