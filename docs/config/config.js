@@ -36,6 +36,35 @@ window.CONFIG.debug.gameplayOverlay = window.CONFIG.debug.gameplayOverlay || {
   labelColor: '#e5e7eb'
 };
 
+const __existingMinimapConfig = window.CONFIG.debug.minimap || {};
+window.CONFIG.debug.minimap = {
+  background: __existingMinimapConfig.background ?? '#0a0a0a',
+  gridColor: __existingMinimapConfig.gridColor ?? '#222',
+  boundsColor: __existingMinimapConfig.boundsColor ?? '#444',
+  pathColor: __existingMinimapConfig.pathColor ?? '#4a9eff',
+  axisColor: __existingMinimapConfig.axisColor ?? '#666',
+  axisFont: __existingMinimapConfig.axisFont ?? '10px monospace',
+  mapInfoFont: __existingMinimapConfig.mapInfoFont ?? '11px monospace',
+  mapInfoColor: __existingMinimapConfig.mapInfoColor ?? '#ddd',
+  mapInfoSecondary: __existingMinimapConfig.mapInfoSecondary ?? '#9ee4ff',
+  cameraFill: __existingMinimapConfig.cameraFill ?? '#ff4444',
+  cameraStroke: __existingMinimapConfig.cameraStroke ?? '#ff8888',
+  cameraLineWidth: __existingMinimapConfig.cameraLineWidth ?? 2,
+  cameraConeLength: __existingMinimapConfig.cameraConeLength ?? 30,
+  cameraConeAngleDeg: __existingMinimapConfig.cameraConeAngleDeg ?? 30,
+  cameraLabelFont: __existingMinimapConfig.cameraLabelFont ?? '9px monospace',
+  cameraLabelColor: __existingMinimapConfig.cameraLabelColor ?? '#ff8888',
+  gridCells: __existingMinimapConfig.gridCells ?? 20,
+  padding: __existingMinimapConfig.padding ?? 16,
+  boundsMargin: __existingMinimapConfig.boundsMargin ?? 0.08,
+  markerRadius: __existingMinimapConfig.markerRadius ?? 5,
+  spawnerColor: __existingMinimapConfig.spawnerColor ?? window.CONFIG.debug.gameplayOverlay.spawnerColor,
+  poiStroke: __existingMinimapConfig.poiStroke ?? window.CONFIG.debug.gameplayOverlay.poiStroke,
+  poiFill: __existingMinimapConfig.poiFill ?? window.CONFIG.debug.gameplayOverlay.poiFill,
+  labelBackground: __existingMinimapConfig.labelBackground ?? window.CONFIG.debug.gameplayOverlay.labelBackground,
+  labelColor: __existingMinimapConfig.labelColor ?? window.CONFIG.debug.gameplayOverlay.labelColor,
+};
+
 // NPC Group Spawner Debug Settings
 window.CONFIG.debug.npcGroupSpawner = window.CONFIG.debug.npcGroupSpawner || {
   enabled: false,      // Enable general debug logging for group spawning
