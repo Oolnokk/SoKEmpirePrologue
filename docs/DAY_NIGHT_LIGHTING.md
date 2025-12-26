@@ -74,6 +74,13 @@ The canonical game time lives in `docs/js/app.js` and is shared across:
 automatically. Manual changes (e.g., via the debug slider) should call `window.setGameTime24h` so all systems remain in
 sync.
 
+### HUD Clock
+
+The runtime HUD draws the current in-game time in the top-right corner using the shared game time. Clock
+presentation is configured via `CONFIG.ui.clock` (`docs/config/config.js`), including enable/disable,
+font, padding, and colors. The renderer falls back to the shared `gameTimeController` when no active
+MapRegistry area is available, ensuring the overlay always reflects the latest game time.
+
 ### Configuration
 
 The system defaults to **night mode** with the following configuration:
