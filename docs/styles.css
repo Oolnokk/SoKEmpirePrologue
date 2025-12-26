@@ -624,19 +624,19 @@ canvas#game{
 .stamina-bar,
 .footing-bar{
   position:absolute;
-  left:16px;
-  width:220px;
-  border-radius:12px;
-  padding:3px;
-  background:rgba(5,7,11,0.78);
-  border:1px solid rgba(148,163,184,0.28);
-  backdrop-filter:blur(6px);
-  box-shadow:0 12px 28px rgba(0,0,0,0.35);
+  left:var(--bar-left,16px);
+  width:var(--bar-width,220px);
+  border-radius:var(--bar-radius,12px);
+  padding:var(--bar-padding,3px);
+  background:var(--bar-bg,rgba(5,7,11,0.78));
+  border:var(--bar-border,1px solid rgba(148,163,184,0.28));
+  backdrop-filter:var(--bar-backdrop,blur(6px));
+  box-shadow:var(--bar-shadow,0 12px 28px rgba(0,0,0,0.35));
 }
 
-.health-bar{top:26px;height:12px;}
-.stamina-bar{top:44px;height:11px;}
-.footing-bar{top:61px;height:9px;padding:2px;border-radius:10px;}
+.health-bar{top:var(--bar-top,26px);height:var(--bar-height,12px);}
+.stamina-bar{top:var(--bar-top,44px);height:var(--bar-height,11px);}
+.footing-bar{top:var(--bar-top,61px);height:var(--bar-height,9px);padding:var(--bar-padding,2px);border-radius:var(--bar-radius,10px);}
 
 .health-fill,
 .stamina-fill,
@@ -645,14 +645,16 @@ canvas#game{
   width:100%;
   border-radius:999px;
   transition:width 0.18s ease-out;
+  background:var(--bar-fill, linear-gradient(90deg,#22c55e 0%,#86efac 55%,#22c55e 100%));
+  box-shadow:var(--bar-fill-shadow,0 0 12px rgba(34,197,94,0.45));
 }
 
-.health-fill{background:linear-gradient(90deg,#ef4444 0%,#f87171 48%,#ef4444 100%);box-shadow:0 0 14px rgba(239,68,68,0.45);}
-.stamina-fill{background:linear-gradient(90deg,#22c55e 0%,#86efac 55%,#22c55e 100%);box-shadow:0 0 12px rgba(34,197,94,0.45);}
-.stamina-fill.low{background:linear-gradient(90deg,#ef4444 0%,#fca5a5 55%,#ef4444 100%);box-shadow:0 0 12px rgba(239,68,68,0.45);}
-.stamina-fill.dashing{background:linear-gradient(90deg,#3b82f6 0%,#60a5fa 55%,#3b82f6 100%);box-shadow:0 0 16px rgba(59,130,246,0.55);animation:pulse 0.32s ease-in-out infinite alternate;}
+.health-fill{background:var(--bar-fill,linear-gradient(90deg,#ef4444 0%,#f87171 48%,#ef4444 100%));box-shadow:var(--bar-fill-shadow,0 0 14px rgba(239,68,68,0.45));}
+.stamina-fill{background:var(--bar-fill,linear-gradient(90deg,#22c55e 0%,#86efac 55%,#22c55e 100%));box-shadow:var(--bar-fill-shadow,0 0 12px rgba(34,197,94,0.45));}
+.stamina-fill.low{background:var(--bar-fill-low,linear-gradient(90deg,#ef4444 0%,#fca5a5 55%,#ef4444 100%));box-shadow:var(--bar-fill-low-shadow,0 0 12px rgba(239,68,68,0.45));}
+.stamina-fill.dashing{background:var(--bar-fill-dash,linear-gradient(90deg,#3b82f6 0%,#60a5fa 55%,#3b82f6 100%));box-shadow:var(--bar-fill-dash-shadow,0 0 16px rgba(59,130,246,0.55));animation:pulse 0.32s ease-in-out infinite alternate;}
 @keyframes pulse{from{opacity:0.8;}to{opacity:1;}}
-.footing-fill{background:linear-gradient(90deg,#d4d4d8 0%,#f4f4f5 60%,#d4d4d8 100%);box-shadow:0 0 10px rgba(212,212,216,0.4);}
+.footing-fill{background:var(--bar-fill,linear-gradient(90deg,#d4d4d8 0%,#f4f4f5 60%,#d4d4d8 100%));box-shadow:var(--bar-fill-shadow,0 0 10px rgba(212,212,216,0.4));}
 
 .health-label,
 .stamina-label,
@@ -662,15 +664,15 @@ canvas#game{
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:11px;
-  font-weight:600;
-  color:#f8fafc;
-  text-shadow:0 1px 3px rgba(0,0,0,0.75);
+  font-size:var(--bar-label-size,11px);
+  font-weight:var(--bar-label-weight,600);
+  color:var(--bar-label-color,#f8fafc);
+  text-shadow:var(--bar-label-shadow,0 1px 3px rgba(0,0,0,0.75));
   pointer-events:none;
   letter-spacing:0.35px;
 }
 
-.footing-label{color:#27272a;text-shadow:0 1px 1px rgba(255,255,255,0.55);}
+.footing-label{color:var(--bar-label-color,#27272a);text-shadow:var(--bar-label-shadow,0 1px 1px rgba(255,255,255,0.55));}
 
 .combat-info{
   position:absolute;
@@ -704,6 +706,56 @@ canvas#game{
 .combat-info .phase{
   color:#fbbf24;
 }
+
+.runtime-config-modal{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:120;
+}
+
+.runtime-config-modal.visible{display:flex;}
+.runtime-config-modal::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:rgba(5,7,11,0.65);
+  backdrop-filter:blur(6px);
+}
+
+.runtime-config-dialog{
+  position:relative;
+  width:min(90vw,520px);
+  max-height:80vh;
+  padding:16px;
+  background:rgba(15,23,42,0.96);
+  border:1px solid rgba(148,163,184,0.35);
+  border-radius:14px;
+  box-shadow:0 24px 64px rgba(0,0,0,0.55);
+  color:#e2e8f0;
+  font:13px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  z-index:1;
+}
+
+.runtime-config-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;}
+.runtime-config-header h4{margin:0;font-size:14px;letter-spacing:0.2px;color:#f8fafc;}
+.runtime-config-close{background:none;border:none;color:#cbd5e1;font-size:18px;cursor:pointer;line-height:1;}
+.runtime-config-close:hover{color:#fff;}
+
+.runtime-config-controls{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+.runtime-config-controls label{display:flex;align-items:center;gap:6px;color:#cbd5e1;font-size:12px;}
+.runtime-config-controls select{background:#0f172a;border:1px solid rgba(148,163,184,0.35);color:#e2e8f0;border-radius:6px;padding:6px 8px;font-size:12px;}
+.runtime-config-textarea{width:100%;min-height:200px;background:#0b1220;border:1px solid rgba(148,163,184,0.35);border-radius:10px;color:#e5e7eb;padding:10px;font:12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;resize:vertical;box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);}
+
+.runtime-config-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap;}
+.runtime-config-actions button{background:#1f2937;border:1px solid rgba(148,163,184,0.35);color:#e2e8f0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px;}
+.runtime-config-actions button:hover{background:#273449;border-color:#60a5fa;color:#fff;}
+
+.runtime-config-status{margin-top:8px;font-size:12px;color:#cbd5e1;min-height:18px;}
+.runtime-config-status.success{color:#a7f3d0;}
+.runtime-config-status.error{color:#fecdd3;}
 
 .bounty-indicator{
   position:absolute;

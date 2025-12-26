@@ -138,6 +138,24 @@ This allows agents to:
 3. The button will briefly show **✓ Copied!** to confirm success
 4. The JSON data is now in your clipboard and can be pasted into code or shared
 
+### Runtime JSON Loader (HUD/Clock/Resource Bars)
+
+The top-right HUD now includes a **🛠 Runtime Config** button. It opens a modal loader for pasting JSON, exporting current settings, and copying to the clipboard. Supported targets:
+
+- **HUD Arch**: Validates pasted JSON with `mergeArchConfig` (clamps numeric fields) and hot-rebuilds the touch arch via `archTouchHandle.updateConfig`.
+- **Clock**: Updates `window.CONFIG.ui.clock` and `ui.showClock` live. New fields:
+  - `fallbackMode`: `'system'` (default) or `'debug'` for choosing the fallback source when no map/controller time is present.
+  - `debugTime24h`: Debug fallback hour (0–24) used when `fallbackMode` is `debug` or when the system clock cannot be read.
+- Clock rendering now tries area time → controller time → the configured fallback (debug value or system clock) so the HUD stays visible during tuning.
+- **Resource Bars**: Writes `window.CONFIG.ui.resourceBars` and reapplies CSS custom properties for the health/stamina/footing bars at runtime. The schema mirrors the defaults in `config.js`:
+  - `enabled`, per-bar `visible`
+  - `position` (`left`, `top`), `size` (`width`, `height`), `padding`, `borderRadius`
+  - Styling: `background`, `border`, `shadow`, `backdropFilter`
+  - Fill colors/shadows (`fill.color`, `fill.shadow`) plus optional `lowColor`/`lowShadow` and `dashingColor`/`dashingShadow` for the stamina bar
+  - Label styling: `label.color`, `label.shadow`, `label.fontSize`, `label.fontWeight`
+
+The modal can export the current config for the selected target, copy it to the clipboard, and apply pasted JSON immediately without reloading the page.
+
 ## Integration with Game Loop
 
 The debug panel integrates seamlessly with the game's render loop:
