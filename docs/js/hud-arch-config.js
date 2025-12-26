@@ -44,28 +44,28 @@ window.HUD_ARCH_CONFIG = {
       coverageWeight: 1.2, // share of available angle
       gapDeg: 10, // carve half on each side AFTER placement math
       widthPx: 108, // extra extrusion
-      sprite: "img/ui/btn-heavy.png"
+      letter: "H"
     },
     {
       id: "attackLight",
       order: 1,
       coverageWeight: 1,
       gapDeg: 8,
-      sprite: "img/ui/btn-light.png"
+      letter: "L"
     },
     {
       id: "attackSpecial",
       order: 2,
       coverageWeight: 1.1,
       gapDeg: 8,
-      sprite: "img/ui/btn-special.png"
+      letter: "S"
     },
     {
       id: "attackUtility",
       order: 3,
       coverageWeight: 1.7,
       gapDeg: 10,
-      sprite: "img/ui/btn-utility.png"
+      letter: "U"
     }
   ]
 };

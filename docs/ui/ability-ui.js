@@ -6,14 +6,37 @@
 (function() {
   'use strict';
 
-  // Default keyboard mapping for arch buttons
-  const DEFAULT_KEY_MAPPING = {
+  // Default keyboard mapping for arch buttons (used only if config is missing)
+  const FALLBACK_KEY_MAPPING = {
     0: 'a', // First button
     1: 'b', // Second button
     2: 'c', // Third button
     3: 'j', // Fourth button
     4: 's', // Fifth button
   };
+
+  const CONFIG_ARCH_LETTERS = (() => {
+    const buttons = window.CONFIG?.ui?.hud?.arch?.buttons;
+    if (!Array.isArray(buttons)) return {};
+    return buttons.reduce((acc, btn) => {
+      if (btn?.id && btn.letter) {
+        acc[btn.id] = btn.letter;
+      }
+      return acc;
+    }, {});
+  })();
+
+  function ensureButtonLabel(button) {
+    let label = button.querySelector('.arch-hud__button-label') || button.querySelector('.arch-btn-label');
+    if (!label) {
+      label = document.createElement('span');
+      label.className = 'arch-hud__button-label';
+      button.textContent = '';
+      button.appendChild(label);
+    }
+    label.style.pointerEvents = 'none';
+    return label;
+  }
 
   /**
    * Initialize arch buttons with letter labels
@@ -29,9 +52,11 @@
     }
 
     const {
-      keyMapping = DEFAULT_KEY_MAPPING,
+      keyMapping = null,
       showLetters = true,
     } = options;
+
+    const resolvedKeyMapping = keyMapping || FALLBACK_KEY_MAPPING;
 
     // Find all arch buttons within the container
     const buttons = archElement.querySelectorAll('.arch-hud__button, .arch-btn');
@@ -42,8 +67,12 @@
     }
 
     buttons.forEach((button, index) => {
-      const key = keyMapping[index] || DEFAULT_KEY_MAPPING[index];
-      
+      const configId = button.id?.replace(/^arch-btn-/, '') || button.dataset.id;
+      const key =
+        button.dataset.letter ||
+        CONFIG_ARCH_LETTERS[configId] ||
+        resolvedKeyMapping[index];
+
       if (!key) {
         return; // Skip if no key mapping exists for this index
       }
@@ -58,32 +87,9 @@
 
       // Add or update text content with the key letter
       if (showLetters) {
-        // Check if button already has an image
-        const hasImage = button.querySelector('img');
-        
-        if (hasImage) {
-          // If it has an image, create a label element for the letter
-          let label = button.querySelector('.arch-btn-label');
-          if (!label) {
-            label = document.createElement('span');
-            label.className = 'arch-btn-label';
-            label.style.cssText = `
-              position: absolute;
-              bottom: 8px;
-              right: 8px;
-              font-size: 0.7em;
-              font-weight: 700;
-              color: rgba(226, 232, 240, 0.9);
-              text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-              pointer-events: none;
-            `;
-            button.appendChild(label);
-          }
-          label.textContent = key.toUpperCase();
-        } else {
-          // If no image, set the letter as main content
-          button.textContent = key.toUpperCase();
-        }
+        const label = ensureButtonLabel(button);
+        label.textContent = key.toUpperCase();
+        button.dataset.letter = key.toUpperCase();
       }
     });
 
