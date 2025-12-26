@@ -46,53 +46,54 @@
   "entities": [
     {
       "id": "entrance_left",
-      "type": "entrance",
+      "type": "door",
       "x": 1100,
       "y": 0,
-      "meta": {}
+      "meta": {
+        "doorId": "entrance_left",
+        "interactable": true,
+        "locked": false,
+        "scale": { "x": 1, "y": 2 },
+        "tags": ["door", "entrance", "map-exit:left"]
+      }
     },
     {
       "id": "spawner_watchmen_1",
-      "type": "spawner",
-      "groupId": "city_guard_patrol",
+      "type": "groupspawner",
       "x": 5700,
       "y": 0,
       "meta": {
-        "prefab": "spawn_npc",
+        "groupId": "city_guard_patrol",
+        "spawnRadius": 60,
+        "spawnDelayRange": [0.75, 1.25],
         "patrolRouteId": "city_guard_patrol",
         "scheduleId": "citywatch_duty"
       }
-    }
-  ],
-  "patrolPoints": [
+    },
     {
       "id": "patrol_west_1",
+      "type": "patrolpoint",
       "x": 1480,
       "y": 0,
-      "width": 180,
-      "height": 180,
-      "label": "Western patrol area",
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 0,
-        "description": "Western patrol area",
-        "scheduleId": "citywatch_patrol_west",
-        "patrol": true
+        "scale": { "x": 1.8, "y": 1.8 },
+        "label": "Western patrol area",
+        "scheduleId": "citywatch_patrol_west"
       }
     },
     {
       "id": "patrol_center",
+      "type": "patrolpoint",
       "x": 2800,
       "y": 0,
-      "width": 180,
-      "height": 180,
-      "label": "Central patrol area",
       "meta": {
         "routeId": "city_guard_patrol",
         "sequence": 1,
-        "description": "Central patrol area",
-        "scheduleId": "citywatch_patrol_center",
-        "patrol": true
+        "scale": { "x": 1.8, "y": 1.8 },
+        "label": "Central patrol area",
+        "scheduleId": "citywatch_patrol_center"
       }
     }
   ],

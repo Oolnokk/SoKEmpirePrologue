@@ -373,6 +373,7 @@
         <div class="panel-section">
           <h3>Import / Export</h3>
           <button class="btn-block" id="btnExport">📥 Download JSON</button>
+          <button class="btn-block" id="btnCopyToClipboard">📋 Copy JSON to Clipboard</button>
           <button class="btn-block" id="btnImportFile">📤 Import from File</button>
           <input type="file" id="fileInput" accept=".json" style="display: none;" />
           <button class="btn-block" id="btnImportPaste">📋 Import from Clipboard</button>
@@ -1178,6 +1179,29 @@
           const label = (group?.name || id).toString();
           return `<option value="${id}" ${selected}>${label}</option>`;
         }).join('');
+
+        // Get patrol points for schedule dropdown
+        const patrolPoints = mapData.entities.filter(e => normalizeEntityType(e.type) === 'patrolpoint');
+        const patrolOptions = patrolPoints.map(p => {
+          const label = p.meta?.label || p.id;
+          return `<option value="${p.id}">${label}</option>`;
+        }).join('');
+
+        // Build schedule entries HTML
+        const patrolSchedule = entity.meta.patrolSchedule || [];
+        const scheduleEntriesHtml = patrolSchedule.map((entry, idx) => {
+          const patrolLabel = patrolPoints.find(p => p.id === entry.patrolPointId)?.meta?.label || entry.patrolPointId;
+          return `
+            <div class="schedule-entry" data-index="${idx}" style="background: #1e293b; padding: 8px; margin-bottom: 6px; border-radius: 4px; position: relative;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <strong style="font-size: 11px;">${patrolLabel}</strong>
+                <button class="btn-delete-schedule" data-index="${idx}" style="background: #dc2626; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 11px;">✕</button>
+              </div>
+              <div style="font-size: 11px; color: #94a3b8;">Hours: ${entry.hourRange[0]}-${entry.hourRange[1]}</div>
+            </div>
+          `;
+        }).join('');
+
         html += `
           <div class="form-row">
             <label>Group ID</label>
@@ -1197,6 +1221,27 @@
               <input type="number" id="propSpawnDelayMin" value="${entity.meta.spawnDelayRange?.[0] ?? defaultGroupDelayRange[0]}" step="0.05" />
               <input type="number" id="propSpawnDelayMax" value="${entity.meta.spawnDelayRange?.[1] ?? defaultGroupDelayRange[1]}" step="0.05" />
             </div>
+          </div>
+          <div class="form-row" style="border-top: 1px solid #334155; padding-top: 12px; margin-top: 12px;">
+            <label>Patrol Schedule</label>
+            <div class="info" style="margin-bottom: 8px;">Assign patrol points to specific hour ranges (0-23)</div>
+            <div id="scheduleEntries" style="margin-bottom: 8px;">
+              ${scheduleEntriesHtml || '<div class="info">No schedule entries. Add one below.</div>'}
+            </div>
+            <div style="background: #0f172a; padding: 8px; border-radius: 4px;">
+              <select id="schedulePatrolPoint" style="width: 100%; margin-bottom: 6px; padding: 4px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 4px;">
+                <option value="">-- Select Patrol Point --</option>
+                ${patrolOptions}
+              </select>
+              <div style="display: flex; gap: 6px; margin-bottom: 6px; align-items: center;">
+                <label style="font-size: 11px; margin: 0;">From:</label>
+                <input type="number" id="scheduleHourStart" min="0" max="23" value="0" style="flex: 1; padding: 4px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 4px;" />
+                <label style="font-size: 11px; margin: 0;">To:</label>
+                <input type="number" id="scheduleHourEnd" min="0" max="23" value="6" style="flex: 1; padding: 4px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 4px;" />
+              </div>
+              <button id="btnAddSchedule" style="width: 100%; padding: 6px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">+ Add Schedule Entry</button>
+            </div>
+            ${patrolSchedule.length > 0 ? '<button id="btnPreviewSchedule" style="width: 100%; padding: 8px; margin-top: 8px; background: #8b5cf6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">🎬 Preview Schedule Animation</button>' : ''}
           </div>
         `;
       } else if (normalizedType === 'propspawn') {
@@ -1335,6 +1380,60 @@
           entity.meta.spawnDelayRange[1] = parseFloat(propSpawnDelayMax.value) || defaultGroupDelayRange[1];
         });
       }
+
+      // Schedule management for groupspawner
+      const btnAddSchedule = document.getElementById('btnAddSchedule');
+      if (btnAddSchedule) {
+        btnAddSchedule.addEventListener('click', () => {
+          const patrolPointSelect = document.getElementById('schedulePatrolPoint');
+          const hourStart = document.getElementById('scheduleHourStart');
+          const hourEnd = document.getElementById('scheduleHourEnd');
+
+          const patrolPointId = patrolPointSelect.value;
+          const startHour = parseInt(hourStart.value, 10);
+          const endHour = parseInt(hourEnd.value, 10);
+
+          if (!patrolPointId) {
+            alert('Please select a patrol point');
+            return;
+          }
+
+          if (!Number.isInteger(startHour) || !Number.isInteger(endHour) || startHour < 0 || startHour > 23 || endHour < 0 || endHour > 23) {
+            alert('Hours must be integers between 0 and 23');
+            return;
+          }
+
+          if (startHour >= endHour) {
+            alert('Start hour must be less than end hour');
+            return;
+          }
+
+          // Initialize patrolSchedule if it doesn't exist
+          if (!entity.meta.patrolSchedule) {
+            entity.meta.patrolSchedule = [];
+          }
+
+          // Add the schedule entry
+          entity.meta.patrolSchedule.push({
+            patrolPointId: patrolPointId,
+            hourRange: [startHour, endHour]
+          });
+
+          // Refresh the entity props to show the new schedule
+          updateEntityProps();
+        });
+      }
+
+      // Delete schedule entry buttons
+      document.querySelectorAll('.btn-delete-schedule').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const index = parseInt(btn.getAttribute('data-index'), 10);
+          if (entity.meta.patrolSchedule && Array.isArray(entity.meta.patrolSchedule)) {
+            entity.meta.patrolSchedule.splice(index, 1);
+            updateEntityProps();
+          }
+        });
+      });
 
       // Prop spawn-specific
       const propWeights = document.getElementById('propWeights');
@@ -1802,16 +1901,55 @@
 
     // ===== Import/Export =====
     document.getElementById('btnExport').addEventListener('click', () => {
-      updateMapSettings();
-      const exportData = buildExportMapData();
-      const json = JSON.stringify(exportData, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${exportData.areaId}.gameplaymap.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      try {
+        updateMapSettings();
+        const exportData = buildExportMapData();
+        const json = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${exportData.areaId || 'map'}_gameplaymap.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+
+        // Visual feedback
+        const btn = document.getElementById('btnExport');
+        const originalText = btn.textContent;
+        btn.textContent = '✅ Downloaded!';
+        btn.style.background = '#22c55e';
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.background = '';
+        }, 2000);
+      } catch (err) {
+        alert('Error exporting JSON: ' + err.message);
+        console.error('Export error:', err);
+      }
+    });
+
+    document.getElementById('btnCopyToClipboard').addEventListener('click', async () => {
+      try {
+        updateMapSettings();
+        const exportData = buildExportMapData();
+        const json = JSON.stringify(exportData, null, 2);
+        await navigator.clipboard.writeText(json);
+
+        // Visual feedback
+        const btn = document.getElementById('btnCopyToClipboard');
+        const originalText = btn.textContent;
+        btn.textContent = '✅ Copied!';
+        btn.style.background = '#22c55e';
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.background = '';
+        }, 2000);
+      } catch (err) {
+        alert('Error copying to clipboard: ' + err.message);
+        console.error('Clipboard error:', err);
+      }
     });
 
     document.getElementById('btnImportFile').addEventListener('click', () => {
@@ -2562,6 +2700,255 @@
 
     // Initialize Three.js
     initThree();
+
+    // ===== Schedule Preview Animation =====
+    let previewAnimationId = null;
+
+    function showSchedulePreview(spawnerEntity) {
+      const patrolSchedule = spawnerEntity.meta.patrolSchedule || [];
+      if (!patrolSchedule.length) {
+        alert('No schedule entries to preview');
+        return;
+      }
+
+      // Create modal
+      const modal = document.createElement('div');
+      modal.id = 'schedulePreviewModal';
+      modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; display: flex; align-items: center; justify-content: center;';
+
+      const container = document.createElement('div');
+      container.style.cssText = 'background: #0f172a; border: 2px solid #334155; border-radius: 8px; padding: 20px; max-width: 800px; width: 90%;';
+
+      const header = document.createElement('div');
+      header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
+      header.innerHTML = `
+        <h2 style="margin: 0; color: #f8fafc; font-size: 18px;">Schedule Preview - ${spawnerEntity.id}</h2>
+        <button id="closePreview" style="background: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600;">✕ Close</button>
+      `;
+
+      const info = document.createElement('div');
+      info.style.cssText = 'background: #1e293b; padding: 12px; border-radius: 4px; margin-bottom: 12px; font-size: 13px; color: #94a3b8;';
+      info.innerHTML = `
+        <strong style="color: #f8fafc;">24-Hour Cycle Preview</strong><br/>
+        Each second = 1 game hour. Triangles represent NPCs, colored by group. NPCs teleport to assigned patrol points during scheduled hours.
+      `;
+
+      const timeDisplay = document.createElement('div');
+      timeDisplay.id = 'previewTime';
+      timeDisplay.style.cssText = 'text-align: center; font-size: 24px; font-weight: 700; color: #3b82f6; margin-bottom: 12px; font-family: monospace;';
+      timeDisplay.textContent = 'Hour: 0';
+
+      const canvas = document.createElement('canvas');
+      canvas.id = 'previewCanvas';
+      canvas.width = 760;
+      canvas.height = 400;
+      canvas.style.cssText = 'width: 100%; background: #1e293b; border-radius: 4px; border: 1px solid #334155;';
+
+      const legend = document.createElement('div');
+      legend.style.cssText = 'margin-top: 12px; font-size: 12px; color: #94a3b8;';
+
+      container.appendChild(header);
+      container.appendChild(info);
+      container.appendChild(timeDisplay);
+      container.appendChild(canvas);
+      container.appendChild(legend);
+      modal.appendChild(container);
+      document.body.appendChild(modal);
+
+      // Close button
+      document.getElementById('closePreview').addEventListener('click', () => {
+        if (previewAnimationId) cancelAnimationFrame(previewAnimationId);
+        document.body.removeChild(modal);
+      });
+
+      // Animation logic
+      const ctx = canvas.getContext('2d');
+      const groupId = spawnerEntity.meta.groupId;
+      const groupConfig = window.CONFIG?.npcGroups?.[groupId];
+
+      if (!groupConfig) {
+        legend.innerHTML = '<strong style="color: #dc2626;">Error: Group not found in CONFIG</strong>';
+        return;
+      }
+
+      // Calculate total NPCs
+      let totalNPCs = 0;
+      (groupConfig.members || []).forEach(member => {
+        totalNPCs += member.count || 0;
+      });
+
+      if (totalNPCs === 0) {
+        legend.innerHTML = '<strong style="color: #dc2626;">Error: No NPCs in group</strong>';
+        return;
+      }
+
+      // Generate random color for this group
+      const groupColor = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+
+      // Create NPC objects with spawn delays
+      const npcs = [];
+      const spawnDelayRange = spawnerEntity.meta.spawnDelayRange || [0.75, 1.25];
+      for (let i = 0; i < totalNPCs; i++) {
+        const spawnDelay = spawnDelayRange[0] + (spawnDelayRange[1] - spawnDelayRange[0]) * (i / Math.max(1, totalNPCs - 1));
+        npcs.push({
+          index: i,
+          spawnDelay: spawnDelay,
+          currentPatrol: null,
+          x: 0,
+          y: 0
+        });
+      }
+
+      // Get patrol points from schedule
+      const patrolPoints = mapData.entities.filter(e => normalizeEntityType(e.type) === 'patrolpoint');
+
+      // Build legend
+      let legendHtml = '<strong style="color: #f8fafc;">Schedule:</strong><br/>';
+      patrolSchedule.forEach(entry => {
+        const pt = patrolPoints.find(p => p.id === entry.patrolPointId);
+        const label = pt?.meta?.label || entry.patrolPointId;
+        legendHtml += `<span style="color: ${groupColor};">▲</span> ${label}: Hours ${entry.hourRange[0]}-${entry.hourRange[1]}<br/>`;
+      });
+      legend.innerHTML = legendHtml;
+
+      // Find spawner position on map
+      const spawnerScreenPos = worldToScreen(spawnerEntity.x, spawnerEntity.y);
+
+      // Animation loop
+      const startTime = Date.now();
+      const cycleDuration = 24000; // 24 seconds for 24 hours
+
+      function animate() {
+        const elapsed = Date.now() - startTime;
+        const cycleTime = elapsed % cycleDuration;
+        const currentHour = Math.floor((cycleTime / cycleDuration) * 24);
+        const hourProgress = (cycleTime / cycleDuration) * 24 - currentHour;
+
+        timeDisplay.textContent = `Hour: ${currentHour}`;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw map elements in preview
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+
+        // Calculate bounds for all relevant entities
+        const allEntities = [spawnerEntity, ...patrolSchedule.map(e => patrolPoints.find(p => p.id === e.patrolPointId))].filter(Boolean);
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        allEntities.forEach(e => {
+          minX = Math.min(minX, e.x);
+          maxX = Math.max(maxX, e.x);
+          minY = Math.min(minY, e.y);
+          maxY = Math.max(maxY, e.y);
+        });
+
+        const padding = 50;
+        const worldWidth = maxX - minX || 1000;
+        const worldHeight = maxY - minY || 500;
+        const scale = Math.min((canvasWidth - padding * 2) / worldWidth, (canvasHeight - padding * 2) / worldHeight, 0.5);
+
+        function worldToCanvasX(wx) {
+          return (wx - minX) * scale + padding;
+        }
+
+        function worldToCanvasY(wy) {
+          return canvasHeight / 2 + (wy - ((minY + maxY) / 2)) * scale;
+        }
+
+        // Draw spawner
+        ctx.fillStyle = '#fbbf24';
+        const spawnerX = worldToCanvasX(spawnerEntity.x);
+        const spawnerY = worldToCanvasY(spawnerEntity.y);
+        ctx.beginPath();
+        ctx.arc(spawnerX, spawnerY, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Spawner', spawnerX, spawnerY - 12);
+
+        // Draw patrol points
+        patrolSchedule.forEach(entry => {
+          const pt = patrolPoints.find(p => p.id === entry.patrolPointId);
+          if (pt) {
+            const px = worldToCanvasX(pt.x);
+            const py = worldToCanvasY(pt.y);
+
+            const isActive = currentHour >= entry.hourRange[0] && currentHour < entry.hourRange[1];
+            ctx.fillStyle = isActive ? '#22c55e' : '#64748b';
+            ctx.beginPath();
+            ctx.arc(px, py, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            const label = pt.meta?.label || pt.id;
+            ctx.fillText(label, px, py - 10);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '9px sans-serif';
+            ctx.fillText(`${entry.hourRange[0]}-${entry.hourRange[1]}h`, px, py + 18);
+          }
+        });
+
+        // Update and draw NPCs
+        npcs.forEach((npc, idx) => {
+          // Determine current patrol point based on schedule
+          let targetPatrol = null;
+          for (const entry of patrolSchedule) {
+            if (currentHour >= entry.hourRange[0] && currentHour < entry.hourRange[1]) {
+              targetPatrol = patrolPoints.find(p => p.id === entry.patrolPointId);
+              break;
+            }
+          }
+
+          let npcX, npcY;
+          if (targetPatrol) {
+            npcX = worldToCanvasX(targetPatrol.x);
+            npcY = worldToCanvasY(targetPatrol.y);
+            // Spread NPCs around the patrol point based on spawn delay
+            const angle = (idx / totalNPCs) * Math.PI * 2;
+            const spread = 20 + npc.spawnDelay * 10;
+            npcX += Math.cos(angle) * spread;
+            npcY += Math.sin(angle) * spread;
+          } else {
+            // Stay at spawner
+            npcX = spawnerX;
+            npcY = spawnerY;
+            const angle = (idx / totalNPCs) * Math.PI * 2;
+            const spread = 15 + npc.spawnDelay * 8;
+            npcX += Math.cos(angle) * spread;
+            npcY += Math.sin(angle) * spread;
+          }
+
+          // Draw NPC as triangle
+          ctx.fillStyle = groupColor;
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(npcX, npcY - 6);
+          ctx.lineTo(npcX - 5, npcY + 4);
+          ctx.lineTo(npcX + 5, npcY + 4);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        });
+
+        previewAnimationId = requestAnimationFrame(animate);
+      }
+
+      animate();
+    }
+
+    // Add event listener for preview button (dynamically added)
+    document.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'btnPreviewSchedule') {
+        if (selectedEntity && normalizeEntityType(selectedEntity.type) === 'groupspawner') {
+          showSchedulePreview(selectedEntity);
+        }
+      }
+    });
   </script>
 </body>
 </html>
