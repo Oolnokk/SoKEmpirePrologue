@@ -5,6 +5,7 @@ import { $$, fmt } from './dom-utils.js?v=1';
 import { radToDeg, radToDegNum, degToRad } from './math-utils.js?v=1';
 import { pushPoseOverride as runtimePushPoseOverride, pushPoseLayerOverride as runtimePushPoseLayerOverride } from './animator.js?v=5';
 import { normalizePrefabDefinition } from './prefab-catalog.js?v=1';
+import { DEBUG_LOGGER } from './debug-logger.js?v=1';
 
 // Console capture system - stores all console messages for later export
 const CONSOLE_CAPTURE = {
@@ -82,7 +83,7 @@ function initConsoleCapture() {
   }
 
   CONSOLE_CAPTURE.isCapturing = true;
-  console.log('[debug-panel] Console capture initialized');
+  DEBUG_LOGGER.log('debug-panel', 'Console capture initialized');
 }
 
 // Export console messages as formatted text
@@ -109,6 +110,91 @@ function exportConsoleLogs() {
   return lines.join('\n');
 }
 
+// Initialize debug log categories UI
+function initDebugLogCategories() {
+  const container = $$('#debugLogCategoriesContent');
+  if (!container) {
+    console.warn('[debug-panel] Debug log categories container not found');
+    return;
+  }
+
+  // Get all categories from DEBUG_LOGGER
+  const categories = DEBUG_LOGGER.getCategories();
+  const sortedCategories = Object.keys(categories).sort();
+
+  // Build the UI
+  let html = '';
+  for (const category of sortedCategories) {
+    const isEnabled = categories[category];
+    const checkboxId = `logCategory_${category.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+    html += `
+      <label class="debug-log-category-label" style="display: flex; align-items: center; gap: 4px; padding: 2px 4px; cursor: pointer; user-select: none;">
+        <input
+          type="checkbox"
+          id="${checkboxId}"
+          data-category="${category}"
+          ${isEnabled ? 'checked' : ''}
+          style="margin: 0; cursor: pointer;"
+        />
+        <span style="font-size: 10px; color: #94a3b8;">${category}</span>
+      </label>
+    `;
+  }
+
+  container.innerHTML = html;
+
+  // Attach event listeners to all checkboxes
+  for (const category of sortedCategories) {
+    const checkboxId = `logCategory_${category.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const checkbox = $$(`#${checkboxId}`);
+    if (checkbox) {
+      checkbox.addEventListener('change', (e) => {
+        const category = e.target.dataset.category;
+        const isEnabled = e.target.checked;
+
+        if (isEnabled) {
+          DEBUG_LOGGER.enable(category);
+        } else {
+          DEBUG_LOGGER.disable(category);
+        }
+
+        console.log(`[debug-panel] Debug category '${category}' ${isEnabled ? 'enabled' : 'disabled'}`);
+      });
+    }
+  }
+
+  // Setup "All On" button
+  const enableAllBtn = $$('#btnEnableAllLogs');
+  if (enableAllBtn) {
+    enableAllBtn.addEventListener('click', () => {
+      DEBUG_LOGGER.enableAll();
+      // Update all checkboxes
+      for (const category of sortedCategories) {
+        const checkboxId = `logCategory_${category.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const checkbox = $$(`#${checkboxId}`);
+        if (checkbox) checkbox.checked = true;
+      }
+      console.log('[debug-panel] All debug categories enabled');
+    });
+  }
+
+  // Setup "All Off" button
+  const disableAllBtn = $$('#btnDisableAllLogs');
+  if (disableAllBtn) {
+    disableAllBtn.addEventListener('click', () => {
+      DEBUG_LOGGER.disableAll();
+      // Update all checkboxes
+      for (const category of sortedCategories) {
+        const checkboxId = `logCategory_${category.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const checkbox = $$(`#${checkboxId}`);
+        if (checkbox) checkbox.checked = false;
+      }
+      console.log('[debug-panel] All debug categories disabled');
+    });
+  }
+}
+
 // Initialize the debug panel
 export function initDebugPanel() {
   // Initialize console capture first
@@ -116,7 +202,7 @@ export function initDebugPanel() {
 
   const panel = $$('#debugPanel');
   if (!panel) {
-    console.warn('[debug-panel] Debug panel element not found');
+    DEBUG_LOGGER.warn('debug-panel', 'Debug panel element not found');
     return;
   }
 
@@ -153,6 +239,9 @@ export function initDebugPanel() {
 
   panel.addEventListener('keydown', handlePanelKeydown);
 
+  // Initialize debug log categories UI
+  initDebugLogCategories();
+
   // Setup copy console button
   const copyConsoleBtn = $$('#debugCopyConsole', panel);
   if (copyConsoleBtn) {
@@ -175,7 +264,7 @@ export function initDebugPanel() {
     freezeCheckbox.addEventListener('change', (e) => {
       if (!C.debug) C.debug = {};
       C.debug.freezeAngles = e.target.checked;
-      console.log('[debug-panel] Freeze angles:', C.debug.freezeAngles);
+      DEBUG_LOGGER.log('debug-panel', 'Freeze angles:', C.debug.freezeAngles);
     });
   }
 
@@ -184,7 +273,7 @@ export function initDebugPanel() {
   if (pathCheckbox) {
     pathCheckbox.addEventListener('change', (e) => {
       const isVisible = e.target.checked;
-      console.log('[debug-panel] Gameplay path visibility:', isVisible);
+      DEBUG_LOGGER.log('debug-panel', 'Gameplay path visibility:', isVisible);
 
       // Toggle path visibility in visualsmap adapter
       const adapter = window.GAME?.visualsmapAdapter;
@@ -200,7 +289,7 @@ export function initDebugPanel() {
       }
 
       if (!hasAdapter || (!setPath && !setGameplayElements)) {
-        console.warn('[debug-panel] Visualsmap adapter not available or missing gameplay debug visibility methods');
+        DEBUG_LOGGER.warn('debug-panel', 'Visualsmap adapter not available or missing gameplay debug visibility methods');
       }
     });
   }
@@ -210,13 +299,13 @@ export function initDebugPanel() {
   if (spawnerCheckbox) {
     spawnerCheckbox.addEventListener('change', (e) => {
       const isVisible = e.target.checked;
-      console.log('[debug-panel] Spawner visibility:', isVisible);
+      DEBUG_LOGGER.log('debug-panel', 'Spawner visibility:', isVisible);
 
       const adapter = window.GAME?.visualsmapAdapter;
       if (adapter && typeof adapter.setSpawnersVisible === 'function') {
         adapter.setSpawnersVisible(isVisible);
       } else {
-        console.warn('[debug-panel] Visualsmap adapter not available or missing setSpawnersVisible method');
+        DEBUG_LOGGER.warn('debug-panel', 'Visualsmap adapter not available or missing setSpawnersVisible method');
       }
     });
   }
@@ -347,8 +436,9 @@ export function initDebugPanel() {
     });
   }
 
-  console.log('[debug-panel] Debug panel initialized');
+  DEBUG_LOGGER.log('debug-panel', 'Debug panel initialized');
 }
+
 
 function resolveCensusUpdateMs() {
   const debugConfig = window.CONFIG?.debug || {};

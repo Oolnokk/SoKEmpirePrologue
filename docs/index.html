@@ -473,6 +473,20 @@
               <div style="font-weight: 600; margin-bottom: 4px;">🧭 Entity Census</div>
               <div id="entityCensusContent">No entity data yet</div>
             </div>
+
+            <!-- Console Debug Categories -->
+            <div id="debugLogCategories" style="margin-top: 12px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-weight: 600;">🔌 Console Debug Routing</div>
+                <div style="display: flex; gap: 4px;">
+                  <button type="button" id="btnEnableAllLogs" class="debug-mini-btn" title="Enable all categories" style="font-size: 10px; padding: 2px 6px;">All On</button>
+                  <button type="button" id="btnDisableAllLogs" class="debug-mini-btn" title="Disable all categories" style="font-size: 10px; padding: 2px 6px;">All Off</button>
+                </div>
+              </div>
+              <div id="debugLogCategoriesContent" style="max-height: 200px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                <!-- Categories will be populated by JavaScript -->
+              </div>
+            </div>
           </div>
 
           <div class="debug-panel-content">
