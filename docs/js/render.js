@@ -1018,8 +1018,67 @@ export function renderAll(ctx){
     drawPOIs(ctx);
   }
 
+  if (DEBUG.showNpcDetails) {
+    for (const entity of renderEntities) {
+      if (!entity || !entity.fighter) continue;
+      // Only show for NPCs (not player)
+      if (entity.id === 'player') continue;
+      drawNpcDetails(ctx, entity.fighter, entity.hitbox);
+    }
+  }
+
   ctx.restore();
   drawClock(ctx);
+}
+
+function drawNpcDetails(ctx, fighter, hitbox) {
+  if (!ctx || !fighter) return;
+
+  const npcName = fighter.npcName || null;
+  if (!npcName) return;
+
+  // Get position above NPC's head
+  const x = Number.isFinite(hitbox?.x) ? hitbox.x : (fighter.pos?.x ?? 0);
+  const y = Number.isFinite(hitbox?.y) ? hitbox.y : (fighter.pos?.y ?? 0);
+
+  // Position text above the head (hitbox top - offset)
+  const hitboxHeight = Number.isFinite(hitbox?.h) ? hitbox.h : 80;
+  const textY = y - hitboxHeight / 2 - 20;
+
+  ctx.save();
+  ctx.font = 'bold 14px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+
+  // Draw background for better readability
+  const metrics = ctx.measureText(npcName);
+  const textWidth = metrics.width;
+  const padding = 6;
+  const bgX = x - textWidth / 2 - padding;
+  const bgY = textY - 16;
+  const bgWidth = textWidth + padding * 2;
+  const bgHeight = 18;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+  ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+
+  // Draw name with outline for visibility
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+  ctx.lineWidth = 3;
+  ctx.strokeText(npcName, x, textY);
+
+  // Color based on gender if available
+  let nameColor = '#e2e8f0'; // Default light gray
+  if (fighter.gender === 'male') {
+    nameColor = '#60a5fa'; // Blue
+  } else if (fighter.gender === 'female') {
+    nameColor = '#f472b6'; // Pink
+  }
+
+  ctx.fillStyle = nameColor;
+  ctx.fillText(npcName, x, textY);
+
+  ctx.restore();
 }
 
 function drawAttackColliders(ctx, fighter, fighterId) {
