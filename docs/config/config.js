@@ -18,6 +18,13 @@ window.CONFIG.debug.gameplayOverlay = window.CONFIG.debug.gameplayOverlay || {
   labelColor: '#e5e7eb'
 };
 
+// NPC Group Spawner Debug Settings
+window.CONFIG.debug.npcGroupSpawner = window.CONFIG.debug.npcGroupSpawner || {
+  enabled: false,      // Enable general debug logging for group spawning
+  logNames: false,     // Log all generated NPC names to console
+  debugNames: false,   // Enable detailed name generation debug info (syllables, patterns, etc)
+};
+
 window.CONFIG.mapObjectEditor = {
   scene: {
     background: 0x020617

@@ -7,6 +7,7 @@ import { triggerFullRagdoll } from './physics.js?v=2';
 import { getCurrentGameHour, isScheduleActive } from './schedule-utils.js?v=1';
 
 import { instantiateCharacterTemplate } from './character-templates.js?v=1';
+import { generateNpcName, parseFighterName } from './npc-group-spawner.js?v=1';
 
 function clone(value) {
   if (value == null) return value;
@@ -22,6 +23,16 @@ function clone(value) {
   } catch (_err) {
     return value;
   }
+}
+
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash) >>> 0;
 }
 
 function normalizeStats(rawStats = {}) {
@@ -459,6 +470,8 @@ export function initFighters(cv, cx, options = {}){
     const entries = [];
     const spawners = spawnService.getSpawners(area.id, { type: 'npc' });
 
+    console.log('[normalizeNpcSpawners] Found', spawners.length, 'spawners for area', area.id);
+
     for (const spawner of spawners) {
       if (!spawner || typeof spawner !== 'object') continue;
       const spawnerId = typeof spawner.spawnerId === 'string' && spawner.spawnerId.trim()
@@ -478,10 +491,14 @@ export function initFighters(cv, cx, options = {}){
       const groupMeta = spawner.groupMeta
         || (groupId && C.npcGroups && C.npcGroups[groupId] ? clone(C.npcGroups[groupId]) : null);
 
+      console.log('[normalizeNpcSpawners] Spawner', spawnerId, '- groupId:', groupId, '- has groupMeta:', !!groupMeta, '- members:', groupMeta?.members?.length || 0);
+
       if (groupMeta && Array.isArray(groupMeta.members)) {
+        console.log('[normalizeNpcSpawners] Processing group members for', spawnerId);
         groupMeta.members.forEach((member, memberIndex) => {
           const memberCount = Math.max(1, Math.min(Number(member.count) || 1, 50));
           const memberTemplateId = member.templateId || member.characterId || null;
+          console.log('[normalizeNpcSpawners]   Member', memberIndex, '- templateId:', memberTemplateId, '- count:', memberCount);
           if (memberTemplateId) {
             entries.push({
               spawnerId: `${spawnerId}_member_${memberIndex}`,
@@ -500,6 +517,7 @@ export function initFighters(cv, cx, options = {}){
           }
         });
       } else {
+        console.log('[normalizeNpcSpawners] No group members, creating single spawner entry');
         const countRaw = Math.round(Number(spawner.count ?? spawner.maxCount ?? 1) || 1);
         const count = countRaw > 0 ? Math.min(countRaw, 50) : 1;
         entries.push({
@@ -518,6 +536,7 @@ export function initFighters(cv, cx, options = {}){
         });
       }
     }
+    console.log('[normalizeNpcSpawners] Created', entries.length, 'spawner entries');
     return entries;
   }
 
@@ -603,13 +622,20 @@ export function initFighters(cv, cx, options = {}){
         const shouldRespawn = scheduleActive && entry.respawn && entry.hasInitialized;
 
         if (shouldInitialFill || shouldRespawn) {
+          console.log('[cleanupAndRespawn] Spawner', entry.spawnerId, '- active:', entry.activeIds.size, '- target:', entry.count, '- template:', entry.templateId);
           while (entry.activeIds.size < entry.count) {
+            console.log('[cleanupAndRespawn] Spawning NPC', entry.activeIds.size + 1, '/', entry.count);
             const npc = spawnNpcFromSpawner(entry);
-            if (!npc) break;
+            if (!npc) {
+              console.log('[cleanupAndRespawn] Failed to spawn NPC, breaking loop');
+              break;
+            }
+            console.log('[cleanupAndRespawn] Successfully spawned', npc.id);
           }
           if (shouldRespawn || entry.activeIds.size > 0) {
             entry.hasInitialized = true;
           }
+          console.log('[cleanupAndRespawn] Final activeIds.size:', entry.activeIds.size);
         }
       }
     };
@@ -1087,6 +1113,33 @@ export function spawnAdditionalNpc(options = {}) {
       applyCharacterTemplateToFighter(npc, templateResult, baseTemplate);
     }
   }
+
+  // Generate NPC name based on fighter culture/gender
+  if (templateResult?.character) {
+    const fighterName = templateResult.character?.fighter || templateResult.character?.fighterName || null;
+    const parsed = parseFighterName(fighterName);
+
+    // Only generate names if fighter has culture tag (e.g., "Mao-ao_m" or "Mao-ao_f")
+    if (parsed.culture && parsed.gender) {
+      const nameSeed = options.nameSeed || (id ? hashString(id) : Math.floor(Math.random() * 2 ** 31));
+      const nameResult = generateNpcName({
+        culture: parsed.culture,
+        gender: parsed.gender,
+        seed: nameSeed,
+        debug: window.CONFIG?.debug?.npcGroupSpawner?.debugNames || false,
+      });
+
+      npc.npcName = nameResult.name;
+      npc.nameParts = nameResult.parts;
+      npc.gender = parsed.gender;
+      npc.culture = parsed.culture;
+
+      if (window.CONFIG?.debug?.npcGroupSpawner?.logNames) {
+        console.log(`[NPC-Name] Generated "${nameResult.name}" for ${fighterName} (${parsed.gender}, ${parsed.culture})`);
+      }
+    }
+  }
+
   const runtimeTemplate = templateResult ? npc : baseTemplate;
   resetRuntimeState(npc, runtimeTemplate, {
     id,

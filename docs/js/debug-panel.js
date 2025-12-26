@@ -221,6 +221,17 @@ export function initDebugPanel() {
     });
   }
 
+  // Setup NPC Details visibility checkbox
+  const npcDetailsCheckbox = $$('#showNpcDetailsCheckbox', panel);
+  if (npcDetailsCheckbox) {
+    npcDetailsCheckbox.addEventListener('change', (e) => {
+      const isVisible = e.target.checked;
+      console.log('[debug-panel] NPC Details visibility:', isVisible);
+      if (!window.RENDER_DEBUG) window.RENDER_DEBUG = {};
+      window.RENDER_DEBUG.showNpcDetails = isVisible;
+    });
+  }
+
   // Setup drop bottle button
   const dropBottleBtn = $$('#btnDropBottle', panel);
   if (dropBottleBtn) {
