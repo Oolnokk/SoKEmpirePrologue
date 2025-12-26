@@ -58,6 +58,45 @@ function seedFromString(str) {
   return Math.abs(hash) >>> 0;
 }
 
+function normalizeDelayRange(range, fallback) {
+  if (Array.isArray(range) && range.length > 0) {
+    const min = Number(range[0]);
+    const max = Number(range[1] ?? range[0]);
+    const normalizedMin = Number.isFinite(min) ? Math.max(0, min) : null;
+    if (normalizedMin != null) {
+      const normalizedMax = Number.isFinite(max) ? Math.max(normalizedMin, max) : normalizedMin;
+      return [normalizedMin, normalizedMax];
+    }
+  }
+  return fallback;
+}
+
+function getDefaultDelayRangeSeconds() {
+  const configured = ROOT.CONFIG?.mapEntities?.groupSpawner?.delayRangeSeconds;
+  const fallback = [0.75, 1.25];
+  return normalizeDelayRange(configured, fallback) || fallback;
+}
+
+function resolveMemberDelayRange(member, groupMeta) {
+  const memberRange = member?.spawnDelayRangeSeconds
+    || member?.meta?.spawnDelayRangeSeconds
+    || (Number.isFinite(member?.spawnDelaySeconds) ? [member.spawnDelaySeconds, member.spawnDelaySeconds] : null)
+    || (Number.isFinite(member?.meta?.spawnDelaySeconds) ? [member.meta.spawnDelaySeconds, member.meta.spawnDelaySeconds] : null);
+  const groupRange = groupMeta?.spawnDelayRangeSeconds
+    || groupMeta?.meta?.spawnDelayRangeSeconds
+    || (Number.isFinite(groupMeta?.meta?.spawnDelaySeconds) ? [groupMeta.meta.spawnDelaySeconds, groupMeta.meta.spawnDelaySeconds] : null);
+  const defaultRange = getDefaultDelayRangeSeconds();
+  return normalizeDelayRange(memberRange, normalizeDelayRange(groupRange, defaultRange)) || defaultRange;
+}
+
+function rollDelaySeconds(rng, range) {
+  const [min, max] = range;
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return 0;
+  if (max <= min) return min;
+  const t = typeof rng === 'function' ? rng() : Math.random();
+  return min + (max - min) * t;
+}
+
 /**
  * Parse culture and gender from fighter name
  * Examples:
@@ -283,17 +322,44 @@ export function spawnNpcGroup(spawner, options = {}) {
   // Create deterministic RNG
   const baseSeed = options.seed || seedFromString(spawner.spawnerId || spawner.id || String(Math.random()));
   const rng = mulberry32(baseSeed);
+  const delayRng = mulberry32(baseSeed + 1);
+  const shouldSchedule = typeof options.onSpawn === 'function' && typeof setTimeout === 'function';
+  let cumulativeDelayMs = 0;
+  let isFirstSpawn = true;
 
   const fighters = [];
   let memberIndex = 0;
 
   for (const member of members) {
     const count = Math.max(1, Math.round(member.count || 1));
+    const delayRange = resolveMemberDelayRange(member, groupMeta);
 
     for (let i = 0; i < count; i++) {
       const fighter = instantiateGroupMember(member, groupMeta, memberIndex, spawner, rng);
       if (fighter) {
+        const delaySeconds = isFirstSpawn ? 0 : rollDelaySeconds(delayRng, delayRange);
+        cumulativeDelayMs += delaySeconds * 1000;
+        const spawnDelayMs = Math.round(cumulativeDelayMs);
+        const spawnDelaySeconds = Math.round((spawnDelayMs / 1000) * 1000) / 1000;
+        fighter.spawnDelayMs = spawnDelayMs;
+        fighter.spawnDelaySeconds = spawnDelaySeconds;
+        fighter.meta = {
+          ...(fighter.meta || {}),
+          spawnDelayMs,
+          spawnDelaySeconds,
+          memberDelaySeconds: delaySeconds,
+        };
         fighters.push(fighter);
+        if (shouldSchedule) {
+          setTimeout(() => {
+            try {
+              options.onSpawn(clone(fighter));
+            } catch (error) {
+              console.warn('[NPC-Group-Spawner] onSpawn handler threw', error);
+            }
+          }, spawnDelayMs);
+        }
+        isFirstSpawn = false;
       }
       memberIndex++;
     }

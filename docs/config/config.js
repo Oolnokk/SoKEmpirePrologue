@@ -65,6 +65,20 @@ window.CONFIG.debug.minimap = {
   labelColor: __existingMinimapConfig.labelColor ?? window.CONFIG.debug.gameplayOverlay.labelColor,
 };
 
+// Gameplay map entity defaults
+window.CONFIG.mapEntities = window.CONFIG.mapEntities || {};
+window.CONFIG.mapEntities.groupSpawner = window.CONFIG.mapEntities.groupSpawner || {};
+window.CONFIG.mapEntities.groupSpawner.delayRangeSeconds = window.CONFIG.mapEntities.groupSpawner.delayRangeSeconds
+  || [0.75, 1.25];
+window.CONFIG.mapEntities.patrolPoint = window.CONFIG.mapEntities.patrolPoint || {};
+window.CONFIG.mapEntities.patrolPoint.defaultScale = window.CONFIG.mapEntities.patrolPoint.defaultScale
+  || { x: 1, y: 1 };
+window.CONFIG.mapEntities.door = window.CONFIG.mapEntities.door || {};
+window.CONFIG.mapEntities.door.defaultScale = window.CONFIG.mapEntities.door.defaultScale || { x: 1, y: 2 };
+window.CONFIG.mapEntities.propSpawn = window.CONFIG.mapEntities.propSpawn || {};
+window.CONFIG.mapEntities.propSpawn.defaultProps = window.CONFIG.mapEntities.propSpawn.defaultProps
+  || [{ id: 'bottle', weight: 1 }];
+
 // NPC Group Spawner Debug Settings
 window.CONFIG.debug.npcGroupSpawner = window.CONFIG.debug.npcGroupSpawner || {
   enabled: false,      // Enable general debug logging for group spawning

@@ -849,6 +849,270 @@ function parsePathTargetTag(tags = []) {
   return null;
 }
 
+function normalizeMapEntityType(value) {
+  const normalized = (value || '').toString().toLowerCase();
+  if (normalized === 'spawner' || normalized === 'group-spawner' || normalized === 'groupspawner') return 'groupspawner';
+  if (normalized === 'patrol' || normalized === 'patrol-point' || normalized === 'patrolpoint') return 'patrolpoint';
+  if (normalized === 'prop' || normalized === 'prop-spawn' || normalized === 'propspawn') return 'propspawn';
+  if (normalized === 'door' || normalized === 'entrance' || normalized === 'exit') return 'door';
+  return normalized;
+}
+
+function normalizeMapEntities(rawList = [], warnings = [], { gridUnit = 30 } = {}) {
+  const list = [];
+  const byId = new Map();
+  rawList.forEach((raw, index) => {
+    if (!raw || typeof raw !== 'object') return;
+    const kind = normalizeMapEntityType(raw.type || raw.kind || '');
+    if (!kind) return;
+    const id = typeof raw.id === 'string' && raw.id.trim() ? raw.id.trim() : `map_entity_${index}`;
+    const position = {
+      x: toNumber(raw.x, 0),
+      y: toNumber(raw.y, 0),
+    };
+    const meta = raw.meta && typeof raw.meta === 'object' ? safeClone(raw.meta) : {};
+    const tags = Array.isArray(meta.tags)
+      ? meta.tags.filter((tag) => typeof tag === 'string' && tag.trim()).map((tag) => tag.trim())
+      : [];
+    const scale = meta.scale && typeof meta.scale === 'object' ? safeClone(meta.scale) : null;
+    const entity = { id, kind, position, meta: { ...meta, scale }, tags, gridUnit };
+    list.push(entity);
+    byId.set(id, entity);
+  });
+  return { list, byId };
+}
+
+function mapEntitiesToSpawnerList(mapEntities = [], warnings = []) {
+  return normalizeSpawnerList(
+    mapEntities
+      .filter((entity) => entity.kind === 'groupspawner')
+      .map((entity, index) => ({
+        spawnerId: entity.id || `map_group_${index}`,
+        position: { ...entity.position },
+        groupId: entity.meta?.groupId || entity.meta?.group?.id || null,
+        group: entity.meta?.group,
+        spawnRadius: clampNonNegativeNumber(entity.meta?.spawnRadius, 0),
+        respawn: Boolean(entity.meta?.respawn ?? false),
+        spawnDelayRange: Array.isArray(entity.meta?.spawnDelayRange) ? [...entity.meta.spawnDelayRange] : undefined,
+        meta: { ...entity.meta, mapEntityId: entity.id },
+        tags: entity.tags || [],
+      })),
+    warnings,
+    { source: 'mapEntities' },
+  );
+}
+
+function mapEntitiesToPathTargets(mapEntities = [], warnings = []) {
+  return mapEntities
+    .filter((entity) => entity.kind === 'patrolpoint')
+    .map((entity, index) => normalizePathTargetRecord({
+      name: entity.meta?.routeId || entity.meta?.pathId || entity.id || `patrol_${index}`,
+      order: Number.isFinite(Number(entity.meta?.sequence)) ? Number(entity.meta.sequence) : null,
+      position: entity.position,
+      tags: entity.tags,
+      meta: { ...entity.meta, mapEntityId: entity.id },
+    }, warnings, { fallbackName: entity.id || `patrol_${index}`, source: 'mapEntities:patrol' }))
+    .filter(Boolean);
+}
+
+function mapEntitiesToDoors(mapEntities = [], warnings = [], { gridUnit = 30 } = {}) {
+  const doors = [];
+  const doorPois = [];
+  for (const entity of mapEntities.filter((entry) => entry.kind === 'door')) {
+    const scale = entity.meta?.scale || {};
+    const scaleX = Number(scale.x) || 1;
+    const scaleY = Number(scale.y) || 1;
+    const width = gridUnit * scaleX;
+    const height = gridUnit * scaleY;
+    const left = (entity.position?.x ?? 0) - (width / 2);
+    const topOffset = (entity.position?.y ?? 0) - height;
+    const tags = Array.isArray(entity.tags) ? [...entity.tags] : [];
+    if (!tags.includes('door')) tags.push('door');
+    if (!tags.some((tag) => typeof tag === 'string' && tag.toLowerCase().startsWith('map-exit'))) {
+      tags.push('map-exit:door');
+    }
+    const doorId = entity.meta?.doorId || entity.id || `door_${doors.length}`;
+    const door = {
+      doorId,
+      id: doorId,
+      targetAreaId: entity.meta?.targetAreaId || null,
+      targetDoorId: entity.meta?.targetDoorId || null,
+      interactable: entity.meta?.interactable !== false,
+      locked: !!entity.meta?.locked,
+      position: { ...entity.position },
+      scale: { x: scaleX, y: scaleY },
+      tags,
+      meta: { ...entity.meta, mapEntityId: entity.id },
+    };
+    doors.push(door);
+    doorPois.push({
+      id: doorId,
+      name: doorId,
+      label: entity.meta?.label || doorId,
+      type: 'door',
+      shape: 'box',
+      bounds: { left, width, topOffset, height },
+      tags,
+      meta: { ...door.meta, door: true },
+      sourceTag: 'map-entity:door',
+    });
+  }
+  return { doors, doorPois };
+}
+
+function mapEntitiesToPropSpawns(mapEntities = []) {
+  const propSpawns = [];
+  for (const [index, entity] of mapEntities.entries()) {
+    if (entity.kind !== 'propspawn') continue;
+    const props = Array.isArray(entity.meta?.props) && entity.meta.props.length
+      ? entity.meta.props.map((prop) => ({ id: prop.id || '', weight: Number(prop.weight) || 1 })).filter((prop) => prop.id)
+      : [];
+    propSpawns.push({
+      id: entity.id || `propspawn_${index}`,
+      position: { ...entity.position },
+      props,
+      meta: { ...entity.meta, mapEntityId: entity.id },
+      tags: entity.tags || [],
+    });
+  }
+  return propSpawns;
+}
+
+function buildSimpleIndex(records = [], key = 'id') {
+  const index = {};
+  for (const record of Array.isArray(records) ? records : []) {
+    const id = record?.[key];
+    if (id == null) continue;
+    index[id] = record;
+  }
+  return index;
+}
+
+function normalizeGroupMember(member) {
+  if (member == null) return null;
+  if (typeof member === 'string') {
+    const templateId = pickNonEmptyString(member);
+    return templateId ? { templateId, count: 1 } : null;
+  }
+  if (typeof member !== 'object') return null;
+  const safe = safeClone(member);
+  const templateId = pickNonEmptyString(
+    safe.templateId,
+    safe.characterTemplateId,
+    safe.characterId,
+    safe.character,
+    safe.id,
+  );
+  const characterId = pickNonEmptyString(safe.characterId, safe.character);
+  const count = clampPositiveInteger(safe.count ?? safe.quantity ?? safe.amount, 1);
+  const delayRange = Array.isArray(safe.spawnDelayRangeSeconds)
+    ? [...safe.spawnDelayRangeSeconds]
+    : Array.isArray(safe.meta?.spawnDelayRangeSeconds)
+      ? [...safe.meta.spawnDelayRangeSeconds]
+      : null;
+  const delaySeconds = Number(safe.spawnDelaySeconds ?? safe.meta?.spawnDelaySeconds);
+  return {
+    ...safe,
+    templateId: templateId ?? null,
+    characterId: characterId ?? null,
+    count,
+    spawnDelayRangeSeconds: delayRange || (Number.isFinite(delaySeconds) ? [delaySeconds, delaySeconds] : undefined),
+  };
+}
+
+function normalizeGroupRecord(raw, warnings = [], context = {}) {
+  const source = typeof context.source === 'string' ? context.source : 'group';
+  const safe = raw && typeof raw === 'object' ? safeClone(raw) : {};
+  const groupId = pickNonEmptyString(safe.id, context.groupId);
+  if (!groupId) {
+    warnings.push(`Ignored ${source} without id`);
+    return null;
+  }
+
+  const name = pickNonEmptyString(safe.name, safe.label, groupId);
+  const faction = pickNonEmptyString(safe.faction);
+  const interests = Array.isArray(safe.interests)
+    ? safe.interests.map((tag) => pickNonEmptyString(tag)).filter(Boolean)
+    : [];
+  const exitTags = Array.isArray(safe.exitTags)
+    ? safe.exitTags.map((tag) => pickNonEmptyString(tag)).filter(Boolean)
+    : [];
+  const exitWeights = safe.exitWeights && typeof safe.exitWeights === 'object'
+    ? safeClone(safe.exitWeights)
+    : {};
+  const members = Array.isArray(safe.members)
+    ? safe.members.map((member) => normalizeGroupMember(member)).filter(Boolean)
+    : [];
+  const meta = safe.meta && typeof safe.meta === 'object' ? safeClone(safe.meta) : {};
+
+  return {
+    ...safe,
+    id: groupId,
+    name,
+    faction,
+    interests,
+    exitTags,
+    exitWeights,
+    members,
+    meta,
+  };
+}
+
+function normalizeGroupLibrary(rawLibrary = {}, warnings = [], context = {}) {
+  const normalized = {};
+  const source = typeof context.source === 'string' ? context.source : 'groupLibrary';
+
+  const addRecord = (record, keyHint) => {
+    const group = normalizeGroupRecord(record, warnings, { source, groupId: keyHint });
+    if (!group) return;
+    if (!normalized[group.id]) {
+      normalized[group.id] = group;
+    }
+  };
+
+  if (Array.isArray(rawLibrary)) {
+    rawLibrary.forEach((record, index) => addRecord(record, `group_${index}`));
+  } else if (rawLibrary && typeof rawLibrary === 'object') {
+    Object.entries(rawLibrary).forEach(([key, record]) => addRecord(record, key));
+  }
+
+  return normalized;
+}
+
+function mergeGroupLibraries(...libraries) {
+  const merged = {};
+  libraries.forEach((lib) => {
+    if (!lib || typeof lib !== 'object') return;
+    Object.entries(lib).forEach(([id, group]) => {
+      merged[id] = safeClone(group);
+    });
+  });
+  return merged;
+}
+
+function attachGroupsToSpawners(spawners = [], groupLibrary = {}, warnings = []) {
+  if (!Array.isArray(spawners)) return [];
+  return spawners.map((spawner) => {
+    if (!spawner || typeof spawner !== 'object') return spawner;
+    const inlineGroup = spawner.group && typeof spawner.group === 'object' ? safeClone(spawner.group) : null;
+    const groupId = pickNonEmptyString(
+      spawner.groupId,
+      spawner.meta?.groupId,
+      inlineGroup?.id,
+      inlineGroup?.groupId,
+    );
+    const group = groupId && groupLibrary[groupId] ? safeClone(groupLibrary[groupId]) : inlineGroup || null;
+    if (!group && groupId) {
+      warnings.push(`Spawner "${spawner.spawnerId}" references missing group "${groupId}"`);
+    }
+    return {
+      ...spawner,
+      groupId: groupId || null,
+      group: group || undefined,
+    };
+  });
+}
+
 function normalizePathTargetRecord(raw, warnings = [], context = {}) {
   const source = typeof context.source === 'string' ? context.source : 'pathTarget';
   const safe = raw && typeof raw === 'object' ? safeClone(raw) : {};
@@ -1811,12 +2075,18 @@ export function convertLayoutToArea(layout, options = {}) {
     }))
     .filter(Boolean);
   const rawEntities = Array.isArray(layout.entities) ? layout.entities : [];
+  const resolvedGridUnit = resolveGridUnit(layout);
+  const mapEntities = normalizeMapEntities(rawEntities, warnings, { gridUnit: resolvedGridUnit ?? 30 });
+  const mapEntitySpawners = mapEntitiesToSpawnerList(mapEntities.list, warnings);
+  const mapEntityPathTargets = mapEntitiesToPathTargets(mapEntities.list, warnings);
+  const { doors: mapEntityDoors = [], doorPois: mapEntityDoorPois = [] } = mapEntitiesToDoors(mapEntities.list, warnings, { gridUnit: resolvedGridUnit ?? 30 });
+  const mapEntityPropSpawns = mapEntitiesToPropSpawns(mapEntities.list);
   const entitySpawnerEntries = rawEntities.filter((entity) => {
     if (!entity || typeof entity !== 'object') return false;
     if (typeof entity.type !== 'string') return false;
     return entity.type.trim().toLowerCase() === 'spawner';
   });
-  if (Array.isArray(layout.entities) && entitySpawnerEntries.length === 0) {
+  if (Array.isArray(layout.entities) && entitySpawnerEntries.length === 0 && mapEntitySpawners.length === 0) {
     warnings.push('layout.entities present but no spawner entities were found');
   }
   const entitySpawners = normalizeSpawnerList(
@@ -1838,10 +2108,14 @@ export function convertLayoutToArea(layout, options = {}) {
   );
   const explicitSpawners = normalizeSpawnerList(layout.spawners, warnings, { source: 'layout' });
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
-  const spawners = mergeSpawnerLists([...explicitSpawners, ...entitySpawners], derivedSpawners);
+  const spawners = mergeSpawnerLists([...explicitSpawners, ...entitySpawners, ...mapEntitySpawners], derivedSpawners);
+  const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
+  const layoutGroupLibrary = normalizeGroupLibrary(layout.groupLibrary ?? layout.groups, warnings, { source: 'layout.groupLibrary' });
+  const groupLibrary = mergeGroupLibraries(optionGroupLibrary, layoutGroupLibrary);
+  const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(layout.pathTargets, warnings, { source: 'layout' });
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
-  const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets);
+  const pathTargets = mergePathTargetLists([...explicitPathTargets, ...mapEntityPathTargets], derivedPathTargets);
   const backgroundFromLayout = typeof layout.background === 'object' && layout.background
     ? safeClone(layout.background)
     : null;
@@ -1887,7 +2161,11 @@ export function convertLayoutToArea(layout, options = {}) {
       meta: poi.meta && typeof poi.meta === 'object' ? poi.meta : {}
     };
   }).filter(Boolean);
-  const poiIndex = buildPoiIndex(normalizedPois);
+  const pois = [...normalizedPois, ...mapEntityDoorPois];
+  const poiIndex = buildPoiIndex(pois);
+  const mapEntitiesById = buildSimpleIndex(mapEntities.list);
+  const doorsById = buildSimpleIndex(mapEntityDoors, 'doorId');
+  const propSpawnsById = buildSimpleIndex(mapEntityPropSpawns);
 
   const geometry = {
     layers: convertedLayers,
@@ -1899,17 +2177,20 @@ export function convertLayoutToArea(layout, options = {}) {
   const scene = {
     geometry,
     colliders: alignedColliders,
-    spawnPoints: spawners,
-    spawnPointsById: buildSpawnerIndex(spawners),
+    spawnPoints: spawnersWithGroups,
+    spawnPointsById: buildSpawnerIndex(spawnersWithGroups),
     playableBounds,
     pathTargets,
-    pois: normalizedPois,
+    pois,
+    mapEntities: mapEntities.list,
+    doors: mapEntityDoors,
+    propSpawns: mapEntityPropSpawns,
+    groupLibrary,
   };
 
   const groundPathUnits = layout.ground?.pathUnits ?? layout.ground?.units ?? null;
-  const gridUnit = resolveGridUnit(layout);
   const rawGroundPath = Array.isArray(layout.ground?.path) ? safeClone(layout.ground.path) : undefined;
-  const normalizedGroundPath = normalizeGroundPath(rawGroundPath, groundPathUnits, gridUnit, warnings);
+  const normalizedGroundPath = normalizeGroundPath(rawGroundPath, groundPathUnits, resolvedGridUnit, warnings);
 
   return {
     id: resolvedAreaId,
@@ -1933,16 +2214,23 @@ export function convertLayoutToArea(layout, options = {}) {
     instances: convertedInstances,
     instancesById: geometry.instancesById,
     pathTargets,
-    spawners,
+    spawners: spawnersWithGroups,
     spawnersById: scene.spawnPointsById,
     colliders: alignedColliders,
-    pois: normalizedPois,
+    pois,
     poisById: poiIndex.byId,
     poisByName: poiIndex.byName,
+    mapEntities: mapEntities.list,
+    mapEntitiesById,
+    doors: mapEntityDoors,
+    doorsById,
+    propSpawns: mapEntityPropSpawns,
+    propSpawnsById,
     drumSkins: convertedDrumSkins,
     playableBounds,
     warnings,
     background,
+    groupLibrary,
     meta: {
       ...metaFromLayout,
       exportedAt: metaFromLayout.exportedAt || null,
