@@ -139,12 +139,13 @@ export function transform3dTo2d(pos3d, config = {}) {
   if (cfg.centerAt3dOrigin) {
     const centerOffsetX = (cfg.world2dWidth * cfg.pixelsToUnits) / 2;
     const centerOffsetZ = (cfg.world2dHeight * cfg.pixelsToUnits) / 2;
-    x3d += centerOffsetX;
+    x3d -= centerOffsetX;  // Subtract to reverse the addition in forward transform
     z3d += centerOffsetZ;
   }
 
   // Scale from 3D units back to pixels
-  const x2d = x3d / cfg.pixelsToUnits;
+  // Reverse the -1 negation from forward transform
+  const x2d = -x3d / cfg.pixelsToUnits;
   const y2d = z3d / cfg.pixelsToUnits;
 
   return { x: x2d, y: y2d };
