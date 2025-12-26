@@ -292,6 +292,7 @@
   import { OrbitControls } from "./vendor/three/OrbitControls.js";
   import { GLTFExporter } from "./vendor/three/GLTFExporter.js";
 
+  (async function main() {
   globalThis.THREE = globalThis.THREE || THREE;
 
   // -------------------------
@@ -1423,6 +1424,7 @@
   });
 
   renderer.start();
-</script>
+  })();
+ </script>
 </body>
 </html>
