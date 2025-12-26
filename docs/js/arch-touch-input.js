@@ -72,7 +72,7 @@ function sanitizeNumber(value, fallback) {
   return Number.isFinite(num) ? num : fallback;
 }
 
-export function mergeArchConfig(raw = {}) {
+function mergeArchConfig(raw = {}) {
   const arch = raw.arch || {};
   const buttons = Array.isArray(raw.buttons) && raw.buttons.length ? raw.buttons : null;
   return {
@@ -323,12 +323,6 @@ export function initArchTouchInput({ input = null, enabled = true, config: rawCo
 
   return {
     rebuild,
-    updateConfig(nextRaw) {
-      const next = mergeArchConfig(nextRaw);
-      config.arch = next.arch;
-      config.buttons = next.buttons;
-      rebuild();
-    },
     destroy() {
       clearTimeout(resizeTimer);
       window.removeEventListener('resize', onResize);
