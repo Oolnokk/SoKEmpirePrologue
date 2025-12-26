@@ -17,7 +17,7 @@
       overflow:auto;
     }
     #viewport { flex:1; position:relative; }
-    #c { width:100%; height:100%; display:block; }
+    #viewport canvas { width:100%; height:100%; display:block; }
 
     h2 { margin: 10px 0 8px; font-size: 14px; letter-spacing:.3px; color: var(--muted); text-transform: uppercase; }
     .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
@@ -282,15 +282,17 @@
   </div>
 
   <div id="viewport">
-    <canvas id="c"></canvas>
     <div id="debug"></div>
   </div>
 </div>
 
 <script type="module">
-  import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-  import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-  import { GLTFExporter } from "https://unpkg.com/three@0.160.0/examples/jsm/exporters/GLTFExporter.js";
+  import * as THREE from "./vendor/three/three.module.js";
+  import { createRenderer } from "./renderer/index.js";
+  import { OrbitControls } from "./vendor/three/OrbitControls.js";
+  import { GLTFExporter } from "./vendor/three/GLTFExporter.js";
+
+  globalThis.THREE = globalThis.THREE || THREE;
 
   // -------------------------
   // Debug overlay (mobile-friendly)
@@ -558,16 +560,38 @@
   // -------------------------
   // Three.js setup
   // -------------------------
-  const canvas = document.getElementById("c");
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+  const viewportEl = document.getElementById("viewport");
+  const renderer = createRenderer({
+    container: viewportEl,
+    width: viewportEl.clientWidth,
+    height: viewportEl.clientHeight,
+    pixelRatio: Math.min(devicePixelRatio || 1, 2),
+    clearColor: 0x0b0f14,
+    cameraFar: 100,
+  });
 
-  const scene = new THREE.Scene();
+  await renderer.init();
+
+  const scene = renderer.scene;
   scene.background = new THREE.Color(0x0b0f14);
 
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
-  camera.position.set(2.2, 1.7, 2.2);
+  const camera = renderer.camera;
+  camera.near = 0.01;
+  camera.updateProjectionMatrix();
+  renderer.setCameraParams({
+    position: { x: 2.2, y: 1.7, z: 2.2 },
+    lookAt: { x: 0, y: 0.2, z: 0 },
+    fov: 45,
+  });
+
+  const canvas = renderer.renderer?.domElement;
+  if (canvas) {
+    canvas.id = "c";
+  }
+
+  if (!canvas) {
+    throw new Error("Renderer canvas not initialized");
+  }
 
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
@@ -1373,14 +1397,10 @@
   // Render loop + resize
   // -------------------------
   function resizeRendererToDisplaySize() {
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    const pr = renderer.getPixelRatio();
-    const need = (canvas.width !== Math.floor(w * pr)) || (canvas.height !== Math.floor(h * pr));
-    if (need) {
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
+    const w = viewportEl.clientWidth;
+    const h = viewportEl.clientHeight;
+    if (renderer.width !== w || renderer.height !== h) {
+      renderer.resize(w, h);
     }
   }
 
@@ -1389,10 +1409,9 @@
   refreshStickerList();
   syncStickerInputsFromSelection();
 
-  function tick() {
+  renderer.on("frame", () => {
     resizeRendererToDisplaySize();
     controls.update();
-    renderer.render(scene, camera);
 
     const st = getSelectedSticker();
     setDebug(
@@ -1401,11 +1420,9 @@
       (st ? `Sticker ${st.id.slice(0,6)}… on ${faceLabel(st.quadId)}  mode=${st.params.clipToFace ? "clipped" : "overhang"}\n` : "") +
       `Tip: select top(+y) → scale 0.8/0.8 to get a frustum; subdivide faces for extra sticker targets.`
     );
+  });
 
-    requestAnimationFrame(tick);
-  }
-
-  tick();
+  renderer.start();
 </script>
 </body>
 </html>
