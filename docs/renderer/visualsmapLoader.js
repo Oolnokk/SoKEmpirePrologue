@@ -918,6 +918,9 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     };
     renderer.on('frame', frameUpdateHandler);
 
+    // TODO: Refactor candle lights to be spawned by structures/decorations themselves
+    // Temporarily disabled to unblock config consolidation testing
+    /*
     console.log(`[visualsmapLoader] Adding candle lights from asset configs`);
     const candleDefaults = getCandleLightDefaults();
     let candleLightCount = 0;
@@ -967,6 +970,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       }
     }
     console.log(`[visualsmapLoader] ✓ Added ${candleLightCount} candle lights from asset configs`);
+    */
+    console.log(`[visualsmapLoader] ⚠ Candle lights temporarily disabled - will refactor to structure-spawned`);
 
     // Store day/night system reference for external control
     if (typeof window !== 'undefined') {
