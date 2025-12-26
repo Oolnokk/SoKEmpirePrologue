@@ -1,0 +1,1430 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Low-Poly glTF Face Editor (Cube + Subdivide + Stickers)</title>
+  <style>
+    :root { --bg:#0b0f14; --panel:#121822; --panel2:#0f1520; --text:#e8eef7; --muted:#9fb0c8; --line:#253246; --acc:#6aa7ff; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; }
+    #app { display:flex; height:100vh; }
+    #sidebar {
+      width: 380px; max-width: 92vw;
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border-right:1px solid var(--line);
+      padding: 12px;
+      overflow:auto;
+    }
+    #viewport { flex:1; position:relative; }
+    #viewport canvas { width:100%; height:100%; display:block; }
+
+    h2 { margin: 10px 0 8px; font-size: 14px; letter-spacing:.3px; color: var(--muted); text-transform: uppercase; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .col { display:flex; flex-direction:column; gap:6px; }
+    .card {
+      border:1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(255,255,255,0.03);
+      margin-bottom: 10px;
+    }
+    label { font-size: 12px; color: var(--muted); }
+    input[type="number"], input[type="text"], select, input[type="color"] {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      padding: 10px 10px;
+      color: var(--text);
+      outline:none;
+    }
+    input[type="color"] { padding: 6px 8px; height: 42px; }
+    input[type="file"] { width:100%; }
+    button {
+      background: rgba(106,167,255,0.18);
+      border:1px solid rgba(106,167,255,0.35);
+      color: var(--text);
+      padding: 10px 10px;
+      border-radius: 12px;
+      cursor:pointer;
+      font-weight: 600;
+    }
+    button:active { transform: translateY(1px); }
+    button.secondary {
+      background: rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.12);
+      font-weight: 600;
+    }
+    button.danger {
+      background: rgba(255,90,90,0.16);
+      border:1px solid rgba(255,90,90,0.35);
+    }
+    .mini { font-size: 12px; padding: 8px 10px; border-radius: 10px; }
+    .pill {
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 6px 10px; border-radius: 999px;
+      border:1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      font-size: 12px; color: var(--muted);
+    }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    .grid3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; }
+    .hr { height:1px; background: var(--line); margin:10px 0; }
+    .help { font-size: 12px; color: var(--muted); line-height: 1.35; }
+    #debug {
+      position:absolute; left:10px; bottom:10px;
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 12px;
+      color: var(--text);
+      max-width: min(560px, 95vw);
+      white-space: pre-wrap;
+      pointer-events:none;
+    }
+    .list { display:flex; flex-direction:column; gap:8px; }
+    .stickerItem {
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 10px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.04);
+    }
+    .stickerItem.active { border-color: rgba(106,167,255,0.6); background: rgba(106,167,255,0.10); }
+    .stickerItem small { color: var(--muted); display:block; }
+    .toggle { display:flex; align-items:center; gap:10px; }
+    .toggle input { transform: scale(1.2); }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div class="pill" id="selPill">Selected face: (none)</div>
+        <div class="pill" id="selStickerPill">Sticker: (none)</div>
+      </div>
+      <div class="hr"></div>
+      <div class="row">
+        <button class="secondary mini" id="resetBtn">Reset cube</button>
+        <button class="secondary mini" id="undoBtn">Undo</button>
+        <button class="secondary mini" id="redoBtn">Redo</button>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <label class="toggle">
+          <input type="checkbox" id="baseTransparentChk" />
+          Base faces fully transparent
+        </label>
+      </div>
+      <div class="help" style="margin-top:8px;">
+        Tap a face to select it. Only faces are selectable (no edges/verts). Face edits move its 4 vertices.
+      </div>
+    </div>
+
+    <h2>Face Tools</h2>
+    <div class="card">
+      <div class="help">
+        Subdivide replaces the selected face with 4 smaller faces (2×2). Any stickers on the original face are removed.
+      </div>
+      <div class="hr"></div>
+      <div class="row">
+        <button id="subdivideBtn">Subdivide selected face (2×2)</button>
+      </div>
+      <div class="hr"></div>
+      <div class="help"><b>Face Color</b> (per face)</div>
+      <div class="grid2" style="margin-top:8px;">
+        <div class="col">
+          <label>Color</label>
+          <input type="color" id="faceColor" value="#9bb3d6" />
+        </div>
+        <div class="col">
+          <label>&nbsp;</label>
+          <button class="secondary" id="applyFaceColorBtn">Apply to face</button>
+        </div>
+      </div>
+      <div class="help" style="margin-top:8px;">
+        Useful for roofs (no PNG) or matching sticker vibes.
+      </div>
+    </div>
+
+    <h2>Face Transform</h2>
+    <div class="card">
+      <div class="help">Scale is in <b>face-local</b> axes (u/v). Rotate is face-local (x=u, y=v, z=normal). Translate is world XYZ.</div>
+      <div class="hr"></div>
+
+      <div class="grid2">
+        <div class="col">
+          <label>Scale X (u)</label>
+          <input type="number" id="scaleX" value="0.85" step="0.01" />
+        </div>
+        <div class="col">
+          <label>Scale Y (v)</label>
+          <input type="number" id="scaleY" value="0.85" step="0.01" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button id="applyScaleBtn">Apply scale to face</button>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid3">
+        <div class="col">
+          <label>Rotate X° (u)</label>
+          <input type="number" id="rotX" value="0" step="1" />
+        </div>
+        <div class="col">
+          <label>Rotate Y° (v)</label>
+          <input type="number" id="rotY" value="0" step="1" />
+        </div>
+        <div class="col">
+          <label>Rotate Z° (n)</label>
+          <input type="number" id="rotZ" value="0" step="1" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button id="applyRotateBtn">Apply rotation to face</button>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid3">
+        <div class="col">
+          <label>Translate X</label>
+          <input type="number" id="trX" value="0" step="0.01" />
+        </div>
+        <div class="col">
+          <label>Translate Y</label>
+          <input type="number" id="trY" value="0" step="0.01" />
+        </div>
+        <div class="col">
+          <label>Translate Z</label>
+          <input type="number" id="trZ" value="0" step="0.01" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button id="applyTranslateBtn">Apply translation to face</button>
+      </div>
+    </div>
+
+    <h2>Stickers (PNG planes)</h2>
+    <div class="card">
+      <div class="help">
+        Default mode: sticker is a plane that can extend beyond the face edges.<br/>
+        Turn on <b>Clip sticker to face</b> to crop it exactly to the face.
+      </div>
+      <div class="hr"></div>
+      <button id="addStickerBtn">Add sticker to selected face</button>
+      <input type="file" id="stickerFile" accept="image/png" style="display:none;" />
+      <div class="hr"></div>
+
+      <div class="list" id="stickerList"></div>
+
+      <div class="hr"></div>
+      <div class="help"><b>Sticker Transform</b> (applies to selected sticker)</div>
+
+      <label class="toggle" style="margin-top:8px;">
+        <input type="checkbox" id="stClip" />
+        Clip sticker to face (cull overhang)
+      </label>
+
+      <div class="grid2" style="margin-top:8px;">
+        <div class="col">
+          <label>Translate U (face-local)</label>
+          <input type="number" id="stTx" value="0" step="0.01" />
+        </div>
+        <div class="col">
+          <label>Translate V (face-local)</label>
+          <input type="number" id="stTy" value="0" step="0.01" />
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:8px;">
+        <div class="col">
+          <label>Scale U</label>
+          <input type="number" id="stSx" value="1" step="0.01" />
+        </div>
+        <div class="col">
+          <label>Scale V</label>
+          <input type="number" id="stSy" value="1" step="0.01" />
+        </div>
+      </div>
+      <div class="col" style="margin-top:8px;">
+        <label>Rotate Z°</label>
+        <input type="number" id="stRz" value="0" step="1" />
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button class="secondary" id="applyStickerBtn">Apply to sticker</button>
+        <button class="danger" id="removeStickerBtn">Remove sticker</button>
+      </div>
+      <div class="help" style="margin-top:8px;">
+        Translate U/V units are in “face sizes”: 1.0 shifts one full face width/height.<br/>
+        In <b>clipped</b> mode, transforms affect the sticker’s <b>UV mapping</b> on the face.
+      </div>
+    </div>
+
+    <h2>Export</h2>
+    <div class="card">
+      <div class="row">
+        <button id="exportGltfBtn">Export .gltf (embedded)</button>
+        <button class="secondary" id="exportGlbBtn">Export .glb</button>
+      </div>
+      <div class="help" style="margin-top:8px;">
+        Export includes base mesh + sticker meshes. Clipped stickers export as face-sized quads (no overhang).
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="help">
+        Quick “tower frustum” recipe: select top(+y) face → scale 0.8/0.8 → add 4 side stickers + 1 top sticker → set base faces fully transparent → export.
+      </div>
+    </div>
+  </div>
+
+  <div id="viewport">
+    <div id="debug"></div>
+  </div>
+</div>
+
+<script type="module">
+  import * as THREE from "./vendor/three/three.module.js";
+  import { createRenderer } from "./renderer/index.js";
+  import { OrbitControls } from "./vendor/three/OrbitControls.js";
+  import { GLTFExporter } from "./vendor/three/GLTFExporter.js";
+
+  (async function main() {
+  globalThis.THREE = globalThis.THREE || THREE;
+
+  // -------------------------
+  // Debug overlay (mobile-friendly)
+  // -------------------------
+  const debugEl = document.getElementById("debug");
+  function setDebug(text) { debugEl.textContent = text; }
+
+  // -------------------------
+  // IDs
+  // -------------------------
+  function newId(prefix="id") {
+    return prefix + "_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
+  }
+
+  // -------------------------
+  // Editable quad mesh with stable face IDs
+  // -------------------------
+  class EditableQuadMesh {
+    constructor() {
+      this.vertices = []; // Array<THREE.Vector3> (shared)
+      this.quads = [];    // Array<{id:string, v:[a,b,c,d], color:string}>
+      this.triToQuadId = []; // triangleIndex -> quadId
+      this.geometry = new THREE.BufferGeometry();
+      this._posAttr = null;
+      this._indexAttr = null;
+      this.resetCube();
+    }
+
+    resetCube() {
+      this.vertices = [
+        new THREE.Vector3(-0.5, -0.5, -0.5), // 0
+        new THREE.Vector3( 0.5, -0.5, -0.5), // 1
+        new THREE.Vector3( 0.5,  0.5, -0.5), // 2
+        new THREE.Vector3(-0.5,  0.5, -0.5), // 3
+        new THREE.Vector3(-0.5, -0.5,  0.5), // 4
+        new THREE.Vector3( 0.5, -0.5,  0.5), // 5
+        new THREE.Vector3( 0.5,  0.5,  0.5), // 6
+        new THREE.Vector3(-0.5,  0.5,  0.5), // 7
+      ];
+
+      const defaultColor = "#9bb3d6";
+      this.quads = [
+        { id:"front",  v:[4,5,6,7], color: defaultColor }, // +z
+        { id:"back",   v:[0,3,2,1], color: defaultColor }, // -z
+        { id:"right",  v:[1,2,6,5], color: defaultColor }, // +x
+        { id:"left",   v:[0,4,7,3], color: defaultColor }, // -x
+        { id:"top",    v:[3,7,6,2], color: defaultColor }, // +y
+        { id:"bottom", v:[0,1,5,4], color: defaultColor }, // -y
+      ];
+
+      this.buildGeometry();
+    }
+
+    quadIndexById(id) {
+      return this.quads.findIndex(q => q.id === id);
+    }
+
+    getQuadById(id) {
+      return this.quads.find(q => q.id === id) ?? null;
+    }
+
+    buildGeometry() {
+      // Positions: one per shared vertex
+      const pos = new Float32Array(this.vertices.length * 3);
+      for (let i = 0; i < this.vertices.length; i++) {
+        pos[i*3+0] = this.vertices[i].x;
+        pos[i*3+1] = this.vertices[i].y;
+        pos[i*3+2] = this.vertices[i].z;
+      }
+
+      // Indices & tri->quad mapping
+      const indices = [];
+      this.triToQuadId = [];
+
+      for (let qi = 0; qi < this.quads.length; qi++) {
+        const q = this.quads[qi];
+        const [a,b,c,d] = q.v;
+
+        indices.push(a,b,c);
+        this.triToQuadId.push(q.id);
+
+        indices.push(a,c,d);
+        this.triToQuadId.push(q.id);
+      }
+
+      this.geometry = new THREE.BufferGeometry();
+      this._posAttr = new THREE.BufferAttribute(pos, 3);
+      this._indexAttr = new THREE.BufferAttribute(new Uint32Array(indices), 1);
+
+      this.geometry.setAttribute("position", this._posAttr);
+      this.geometry.setIndex(this._indexAttr);
+      this.geometry.computeVertexNormals();
+      this.geometry.computeBoundingSphere();
+      this.geometry.computeBoundingBox();
+    }
+
+    updateGeometryPositionsOnly() {
+      const arr = this._posAttr.array;
+      for (let i = 0; i < this.vertices.length; i++) {
+        arr[i*3+0] = this.vertices[i].x;
+        arr[i*3+1] = this.vertices[i].y;
+        arr[i*3+2] = this.vertices[i].z;
+      }
+      this._posAttr.needsUpdate = true;
+      this.geometry.computeVertexNormals();
+      this.geometry.computeBoundingSphere();
+      this.geometry.computeBoundingBox();
+    }
+
+    getFaceBasis(quadId) {
+      const q = this.getQuadById(quadId);
+      if (!q) {
+        return {
+          center: new THREE.Vector3(),
+          u: new THREE.Vector3(1,0,0),
+          v: new THREE.Vector3(0,1,0),
+          n: new THREE.Vector3(0,0,1),
+          sizeU: 1, sizeV: 1
+        };
+      }
+      const [a,b,c,d] = q.v;
+      const va = this.vertices[a], vb = this.vertices[b], vc = this.vertices[c], vd = this.vertices[d];
+
+      const center = new THREE.Vector3()
+        .add(va).add(vb).add(vc).add(vd)
+        .multiplyScalar(0.25);
+
+      const u = new THREE.Vector3().subVectors(vb, va);
+      const v = new THREE.Vector3().subVectors(vd, va);
+
+      const sizeU = u.length();
+      const sizeV = v.length();
+
+      if (sizeU < 1e-8 || sizeV < 1e-8) {
+        return { center, u:new THREE.Vector3(1,0,0), v:new THREE.Vector3(0,1,0), n:new THREE.Vector3(0,0,1), sizeU: Math.max(sizeU,1e-6), sizeV: Math.max(sizeV,1e-6) };
+      }
+
+      u.normalize();
+      v.normalize();
+      const n = new THREE.Vector3().crossVectors(u, v).normalize();
+
+      return { center, u, v, n, sizeU, sizeV };
+    }
+
+    applyFaceLocalScale(quadId, scaleU, scaleV) {
+      const q = this.getQuadById(quadId);
+      if (!q) return;
+
+      const { center, u, v } = this.getFaceBasis(quadId);
+      scaleU = Math.max(0.001, scaleU);
+      scaleV = Math.max(0.001, scaleV);
+
+      for (const vi of q.v) {
+        const p = this.vertices[vi];
+        const rel = new THREE.Vector3().subVectors(p, center);
+        const du = rel.dot(u);
+        const dv = rel.dot(v);
+        const dn = rel.clone().sub(u.clone().multiplyScalar(du)).sub(v.clone().multiplyScalar(dv));
+        const newRel = new THREE.Vector3()
+          .add(u.clone().multiplyScalar(du * scaleU))
+          .add(v.clone().multiplyScalar(dv * scaleV))
+          .add(dn);
+        p.copy(center.clone().add(newRel));
+      }
+    }
+
+    applyFaceLocalRotation(quadId, rotUdeg, rotVdeg, rotNdeg) {
+      const q = this.getQuadById(quadId);
+      if (!q) return;
+
+      const { center, u, v, n } = this.getFaceBasis(quadId);
+      const ru = THREE.MathUtils.degToRad(rotUdeg);
+      const rv = THREE.MathUtils.degToRad(rotVdeg);
+      const rn = THREE.MathUtils.degToRad(rotNdeg);
+
+      const quat = new THREE.Quaternion()
+        .setFromAxisAngle(u, ru)
+        .multiply(new THREE.Quaternion().setFromAxisAngle(v, rv))
+        .multiply(new THREE.Quaternion().setFromAxisAngle(n, rn));
+
+      for (const vi of q.v) {
+        const p = this.vertices[vi];
+        const rel = new THREE.Vector3().subVectors(p, center);
+        rel.applyQuaternion(quat);
+        p.copy(center.clone().add(rel));
+      }
+    }
+
+    applyFaceWorldTranslate(quadId, dx, dy, dz) {
+      const q = this.getQuadById(quadId);
+      if (!q) return;
+
+      const t = new THREE.Vector3(dx, dy, dz);
+      for (const vi of q.v) this.vertices[vi].add(t);
+    }
+
+    setFaceColor(quadId, hex) {
+      const q = this.getQuadById(quadId);
+      if (!q) return;
+      q.color = normalizeHexColor(hex);
+    }
+
+    subdivideFace2x2(quadId) {
+      const qi = this.quadIndexById(quadId);
+      if (qi < 0) return null;
+
+      const q = this.quads[qi];
+      const [a,b,c,d] = q.v;
+      const va = this.vertices[a], vb = this.vertices[b], vc = this.vertices[c], vd = this.vertices[d];
+
+      const ab = va.clone().add(vb).multiplyScalar(0.5);
+      const bc = vb.clone().add(vc).multiplyScalar(0.5);
+      const cd = vc.clone().add(vd).multiplyScalar(0.5);
+      const da = vd.clone().add(va).multiplyScalar(0.5);
+      const cc = va.clone().add(vb).add(vc).add(vd).multiplyScalar(0.25);
+
+      const iAB = this.vertices.push(ab) - 1;
+      const iBC = this.vertices.push(bc) - 1;
+      const iCD = this.vertices.push(cd) - 1;
+      const iDA = this.vertices.push(da) - 1;
+      const iCC = this.vertices.push(cc) - 1;
+
+      // Replace one quad with 4. Order follows original orientation.
+      const color = q.color;
+
+      const q0 = { id: newId("face"), v:[a, iAB, iCC, iDA], color };
+      const q1 = { id: newId("face"), v:[iAB, b, iBC, iCC], color };
+      const q2 = { id: newId("face"), v:[iCC, iBC, c, iCD], color };
+      const q3 = { id: newId("face"), v:[iDA, iCC, iCD, d], color };
+
+      this.quads.splice(qi, 1, q0, q1, q2, q3);
+
+      // Rebuild geometry buffers (topology changed)
+      this.buildGeometry();
+      return { removedId: quadId, newIds: [q0.id, q1.id, q2.id, q3.id] };
+    }
+
+    serialize() {
+      return {
+        vertices: this.vertices.map(v => v.toArray()),
+        quads: this.quads.map(q => ({ id:q.id, v:[...q.v], color:q.color })),
+      };
+    }
+
+    restore(state) {
+      this.vertices = state.vertices.map(a => new THREE.Vector3(a[0], a[1], a[2]));
+      this.quads = state.quads.map(q => ({ id:q.id, v:[...q.v], color:q.color }));
+      this.buildGeometry();
+    }
+  }
+
+  function normalizeHexColor(hex) {
+    if (typeof hex !== "string") return "#9bb3d6";
+    // accept "#rgb" or "#rrggbb"
+    let h = hex.trim().toLowerCase();
+    if (!h.startsWith("#")) h = "#" + h;
+    if (h.length === 4) {
+      const r = h[1], g = h[2], b = h[3];
+      h = "#" + r+r + g+g + b+b;
+    }
+    if (h.length !== 7) return "#9bb3d6";
+    return h;
+  }
+
+  // -------------------------
+  // Three.js setup
+  // -------------------------
+  const viewportEl = document.getElementById("viewport");
+  const renderer = createRenderer({
+    container: viewportEl,
+    width: viewportEl.clientWidth,
+    height: viewportEl.clientHeight,
+    pixelRatio: Math.min(devicePixelRatio || 1, 2),
+    clearColor: 0x0b0f14,
+    cameraFar: 100,
+  });
+
+  await renderer.init();
+
+  const scene = renderer.scene;
+  scene.background = new THREE.Color(0x0b0f14);
+
+  const camera = renderer.camera;
+  camera.near = 0.01;
+  camera.updateProjectionMatrix();
+  renderer.setCameraParams({
+    position: { x: 2.2, y: 1.7, z: 2.2 },
+    lookAt: { x: 0, y: 0.2, z: 0 },
+    fov: 45,
+  });
+
+  const canvas = renderer.renderer?.domElement;
+  if (canvas) {
+    canvas.id = "c";
+  }
+
+  if (!canvas) {
+    throw new Error("Renderer canvas not initialized");
+  }
+
+  const controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.target.set(0, 0.2, 0);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+  dir.position.set(3, 5, 2);
+  scene.add(dir);
+
+  const grid = new THREE.GridHelper(8, 16, 0x2a3a52, 0x182235);
+  grid.position.y = -0.5;
+  scene.add(grid);
+
+  const editable = new EditableQuadMesh();
+
+  // Base mesh uses multi-material (per-face colors)
+  const baseMesh = new THREE.Mesh(editable.geometry, []);
+  scene.add(baseMesh);
+
+  function buildBaseMaterialsAndGroups() {
+    // map color -> materialIndex
+    const colorToIndex = new Map();
+    const materials = [];
+
+    function ensureMaterial(hex) {
+      const key = normalizeHexColor(hex);
+      const existing = colorToIndex.get(key);
+      if (existing !== undefined) return existing;
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(key),
+        metalness: 0.05,
+        roughness: 0.85,
+        transparent: true,
+        opacity: document.getElementById("baseTransparentChk").checked ? 0.0 : 0.85,
+        side: THREE.DoubleSide,
+      });
+      const idx = materials.push(mat) - 1;
+      colorToIndex.set(key, idx);
+      return idx;
+    }
+
+    // groups: 6 indices per quad (2 triangles)
+    editable.geometry.clearGroups();
+    for (let qi = 0; qi < editable.quads.length; qi++) {
+      const q = editable.quads[qi];
+      const mi = ensureMaterial(q.color);
+      const start = qi * 6; // index-buffer entries (not bytes)
+      editable.geometry.addGroup(start, 6, mi);
+    }
+
+    baseMesh.material = materials;
+  }
+
+  buildBaseMaterialsAndGroups();
+
+  // Outline for selected face
+  const outlineGeom = new THREE.BufferGeometry();
+  const outlinePos = new Float32Array(5 * 3);
+  outlineGeom.setAttribute("position", new THREE.BufferAttribute(outlinePos, 3));
+  const outlineMat = new THREE.LineBasicMaterial({ color: 0x6aa7ff });
+  const outline = new THREE.Line(outlineGeom, outlineMat);
+  scene.add(outline);
+
+  // Raycasting
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+
+  // -------------------------
+  // Stickers
+  // -------------------------
+  // Sticker params:
+  // - clipToFace=false: plane overhang allowed; params move/scale/rotate plane in face space.
+  // - clipToFace=true: geometry is face-sized quad; params affect UV mapping (cropped).
+  const stickers = []; // { id, quadId, dataURL, params:{tx,ty,sx,sy,rzDeg,clipToFace}, mesh, tex }
+  let selectedQuadId = "top";
+  let selectedStickerId = null;
+
+  function makeStickerMaterial(tex) {
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 1,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    return mat;
+  }
+
+  function makePlaneStickerMesh(tex) {
+    const geo = new THREE.PlaneGeometry(1, 1, 1, 1);
+    const mat = makeStickerMaterial(tex);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 10;
+    return mesh;
+  }
+
+  function makeFaceClippedStickerMesh(tex) {
+    // Placeholder geo; will be rebuilt per face update
+    const geo = new THREE.BufferGeometry();
+    const mat = makeStickerMaterial(tex);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 10;
+    return mesh;
+  }
+
+  function rebuildClippedStickerGeometry(st) {
+    const q = editable.getQuadById(st.quadId);
+    if (!q) return;
+
+    const { center, u, v, n, sizeU, sizeV } = editable.getFaceBasis(st.quadId);
+    const [a,b,c,d] = q.v;
+
+    const eps = 0.002;
+    const pa = editable.vertices[a].clone().add(n.clone().multiplyScalar(eps));
+    const pb = editable.vertices[b].clone().add(n.clone().multiplyScalar(eps));
+    const pc = editable.vertices[c].clone().add(n.clone().multiplyScalar(eps));
+    const pd = editable.vertices[d].clone().add(n.clone().multiplyScalar(eps));
+
+    // UV transform:
+    // Base uv for corners is computed from face local coordinates.
+    // Then we apply: centered -> rotate -> scale(zoom) -> translate -> back to 0..1
+    // Note: to make sticker look "bigger" on the face, we divide by sx/sy (zoom in).
+    const tx = st.params.tx;
+    const ty = st.params.ty;
+    const sx = Math.max(0.001, st.params.sx);
+    const sy = Math.max(0.001, st.params.sy);
+    const ang = THREE.MathUtils.degToRad(st.params.rzDeg);
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+
+    function cornerUV(p) {
+      const rel = p.clone().sub(center);
+      let x = (rel.dot(u) / sizeU) + 0.5;
+      let y = (rel.dot(v) / sizeV) + 0.5;
+
+      // center
+      x -= 0.5; y -= 0.5;
+
+      // rotate
+      const xr = x * ca - y * sa;
+      const yr = x * sa + y * ca;
+
+      // zoom (divide)
+      const xz = xr / sx;
+      const yz = yr / sy;
+
+      // translate in face-size units
+      const xt = xz + tx;
+      const yt = yz + ty;
+
+      // back to 0..1
+      return new THREE.Vector2(xt + 0.5, yt + 0.5);
+    }
+
+    const uva = cornerUV(pa);
+    const uvb = cornerUV(pb);
+    const uvc = cornerUV(pc);
+    const uvd = cornerUV(pd);
+
+    // Two triangles: a,b,c and a,c,d (non-indexed for simplicity)
+    const positions = new Float32Array([
+      pa.x, pa.y, pa.z,
+      pb.x, pb.y, pb.z,
+      pc.x, pc.y, pc.z,
+
+      pa.x, pa.y, pa.z,
+      pc.x, pc.y, pc.z,
+      pd.x, pd.y, pd.z,
+    ]);
+
+    const uvs = new Float32Array([
+      uva.x, uva.y,
+      uvb.x, uvb.y,
+      uvc.x, uvc.y,
+
+      uva.x, uva.y,
+      uvc.x, uvc.y,
+      uvd.x, uvd.y,
+    ]);
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+    geo.computeVertexNormals();
+
+    st.mesh.geometry.dispose();
+    st.mesh.geometry = geo;
+
+    // Keep mesh transform neutral in clipped mode
+    st.mesh.position.set(0,0,0);
+    st.mesh.rotation.set(0,0,0);
+    st.mesh.scale.set(1,1,1);
+  }
+
+  function updateStickerTransform(st) {
+    const q = editable.getQuadById(st.quadId);
+    if (!q) return;
+
+    if (st.params.clipToFace) {
+      rebuildClippedStickerGeometry(st);
+      return;
+    }
+
+    // Overhang plane mode: transform plane in face space (world)
+    const { center, u, v, n, sizeU, sizeV } = editable.getFaceBasis(st.quadId);
+
+    const tx = st.params.tx;
+    const ty = st.params.ty;
+    const sx = Math.max(0.001, st.params.sx);
+    const sy = Math.max(0.001, st.params.sy);
+    const rz = THREE.MathUtils.degToRad(st.params.rzDeg);
+
+    // Align plane axes to face basis (x->u, y->v, z->n)
+    const m = new THREE.Matrix4().makeBasis(u, v, n);
+    const faceQuat = new THREE.Quaternion().setFromRotationMatrix(m);
+
+    const eps = 0.002;
+    const pos = center.clone()
+      .add(u.clone().multiplyScalar(tx * sizeU))
+      .add(v.clone().multiplyScalar(ty * sizeV))
+      .add(n.clone().multiplyScalar(eps));
+
+    st.mesh.position.copy(pos);
+    st.mesh.quaternion.copy(faceQuat);
+    st.mesh.rotateZ(rz);
+    st.mesh.scale.set(sizeU * sx, sizeV * sy, 1);
+  }
+
+  function updateAllStickers() {
+    for (const st of stickers) updateStickerTransform(st);
+  }
+
+  function removeStickersOnFace(quadId) {
+    const toRemove = stickers.filter(s => s.quadId === quadId);
+    if (toRemove.length === 0) return;
+
+    for (const st of toRemove) {
+      scene.remove(st.mesh);
+      st.mesh.geometry.dispose?.();
+      st.mesh.material.dispose?.();
+      st.tex?.dispose?.();
+    }
+    for (let i = stickers.length - 1; i >= 0; i--) {
+      if (stickers[i].quadId === quadId) stickers.splice(i, 1);
+    }
+    if (toRemove.some(s => s.id === selectedStickerId)) {
+      setSelectedSticker(null);
+    }
+    refreshStickerList();
+  }
+
+  // -------------------------
+  // UI helpers
+  // -------------------------
+  const selPill = document.getElementById("selPill");
+  const selStickerPill = document.getElementById("selStickerPill");
+
+  function faceLabel(id) {
+    // Pretty labels for base cube faces; fallback for subdiv faces
+    const map = {
+      front: "front(+z)",
+      back: "back(-z)",
+      right: "right(+x)",
+      left: "left(-x)",
+      top: "top(+y)",
+      bottom: "bottom(-y)",
+    };
+    if (map[id]) return map[id];
+    return id.slice(0, 10) + "…";
+  }
+
+  function setSelectedFace(id) {
+    selectedQuadId = id;
+    selPill.textContent = id ? `Selected face: ${faceLabel(id)}` : "Selected face: (none)";
+    refreshOutline();
+    syncFaceColorInput();
+  }
+
+  function setSelectedSticker(id) {
+    selectedStickerId = id;
+    selStickerPill.textContent = id ? `Sticker: ${id.slice(0,6)}…` : "Sticker: (none)";
+    refreshStickerList();
+    syncStickerInputsFromSelection();
+  }
+
+  function refreshOutline() {
+    if (!selectedQuadId || !editable.getQuadById(selectedQuadId)) {
+      outline.visible = false;
+      return;
+    }
+    outline.visible = true;
+    const q = editable.getQuadById(selectedQuadId);
+    const [a,b,c,d] = q.v;
+    const pts = [
+      editable.vertices[a],
+      editable.vertices[b],
+      editable.vertices[c],
+      editable.vertices[d],
+      editable.vertices[a],
+    ];
+    const aPos = outlineGeom.getAttribute("position").array;
+    for (let i = 0; i < 5; i++) {
+      aPos[i*3+0] = pts[i].x;
+      aPos[i*3+1] = pts[i].y;
+      aPos[i*3+2] = pts[i].z;
+    }
+    outlineGeom.getAttribute("position").needsUpdate = true;
+  }
+
+  // Sticker list UI
+  const stickerListEl = document.getElementById("stickerList");
+  function refreshStickerList() {
+    stickerListEl.innerHTML = "";
+    if (stickers.length === 0) {
+      const div = document.createElement("div");
+      div.className = "help";
+      div.textContent = "No stickers yet.";
+      stickerListEl.appendChild(div);
+      return;
+    }
+    for (const st of stickers) {
+      const item = document.createElement("div");
+      item.className = "stickerItem" + (st.id === selectedStickerId ? " active" : "");
+      const left = document.createElement("div");
+      left.innerHTML =
+        `<div><b>${st.id.slice(0,6)}…</b>` +
+        `<small>on ${faceLabel(st.quadId)} • ${st.params.clipToFace ? "clipped" : "overhang"}</small></div>`;
+      const right = document.createElement("div");
+      const btn = document.createElement("button");
+      btn.className = "secondary mini";
+      btn.textContent = "Select";
+      btn.onclick = () => setSelectedSticker(st.id);
+      right.appendChild(btn);
+      item.appendChild(left);
+      item.appendChild(right);
+      stickerListEl.appendChild(item);
+    }
+  }
+
+  function getSelectedSticker() {
+    if (!selectedStickerId) return null;
+    return stickers.find(s => s.id === selectedStickerId) ?? null;
+  }
+
+  function num(id) {
+    const v = Number(document.getElementById(id).value);
+    return Number.isFinite(v) ? v : 0;
+  }
+  function clampFinite(x, fallback = 0) {
+    return Number.isFinite(x) ? x : fallback;
+  }
+
+  function requireFaceSelected() {
+    if (!selectedQuadId || !editable.getQuadById(selectedQuadId)) {
+      setDebug("Select a face first (tap a face).");
+      return false;
+    }
+    return true;
+  }
+
+  // -------------------------
+  // Undo/Redo (includes topology)
+  // -------------------------
+  const undoStack = [];
+  const redoStack = [];
+
+  function snapshot(label) {
+    const entry = {
+      label,
+      mesh: editable.serialize(),
+      stickers: stickers.map(s => ({
+        id: s.id,
+        quadId: s.quadId,
+        dataURL: s.dataURL,
+        params: { ...s.params },
+      })),
+      selectedQuadId,
+      selectedStickerId,
+      baseTransparent: document.getElementById("baseTransparentChk").checked,
+    };
+    undoStack.push(entry);
+    if (undoStack.length > 80) undoStack.shift();
+    redoStack.length = 0;
+  }
+
+  async function restoreEntry(entry) {
+    editable.restore(entry.mesh);
+    baseMesh.geometry = editable.geometry;
+    buildBaseMaterialsAndGroups();
+
+    // Remove current sticker meshes
+    for (const st of stickers) {
+      scene.remove(st.mesh);
+      st.mesh.geometry.dispose?.();
+      st.mesh.material.dispose?.();
+      st.tex?.dispose?.();
+    }
+    stickers.length = 0;
+
+    // Recreate stickers
+    for (const s of entry.stickers) {
+      const tex = await loadTextureFromDataURL(s.dataURL);
+      tex.colorSpace = THREE.SRGBColorSpace;
+
+      const mesh = s.params.clipToFace ? makeFaceClippedStickerMesh(tex) : makePlaneStickerMesh(tex);
+      scene.add(mesh);
+
+      stickers.push({ ...s, tex, mesh });
+    }
+
+    document.getElementById("baseTransparentChk").checked = entry.baseTransparent;
+    // update opacity across all base materials
+    applyBaseTransparency(entry.baseTransparent);
+
+    setSelectedFace(entry.selectedQuadId);
+    setSelectedSticker(entry.selectedStickerId);
+
+    updateAllStickers();
+    refreshStickerList();
+  }
+
+  function undo() {
+    if (undoStack.length === 0) return;
+    const current = {
+      label: "current",
+      mesh: editable.serialize(),
+      stickers: stickers.map(s => ({ id:s.id, quadId:s.quadId, dataURL:s.dataURL, params:{...s.params} })),
+      selectedQuadId,
+      selectedStickerId,
+      baseTransparent: document.getElementById("baseTransparentChk").checked,
+    };
+    const prev = undoStack.pop();
+    redoStack.push(current);
+    restoreEntry(prev);
+  }
+
+  function redo() {
+    if (redoStack.length === 0) return;
+    const current = {
+      label: "current",
+      mesh: editable.serialize(),
+      stickers: stickers.map(s => ({ id:s.id, quadId:s.quadId, dataURL:s.dataURL, params:{...s.params} })),
+      selectedQuadId,
+      selectedStickerId,
+      baseTransparent: document.getElementById("baseTransparentChk").checked,
+    };
+    const next = redoStack.pop();
+    undoStack.push(current);
+    restoreEntry(next);
+  }
+
+  // -------------------------
+  // Sticker load helper
+  // -------------------------
+  function loadTextureFromDataURL(dataURL) {
+    return new Promise((resolve, reject) => {
+      const loader = new THREE.TextureLoader();
+      loader.load(
+        dataURL,
+        tex => resolve(tex),
+        undefined,
+        err => reject(err)
+      );
+    });
+  }
+
+  function fileToDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
+  // -------------------------
+  // Interactions: select face
+  // -------------------------
+  function onPointer(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    pointer.x = x * 2 - 1;
+    pointer.y = -(y * 2 - 1);
+
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObject(baseMesh, true);
+    if (hits.length > 0) {
+      const h = hits[0];
+      const triIndex = h.faceIndex;
+      const quadId = editable.triToQuadId[triIndex];
+      if (quadId) setSelectedFace(quadId);
+    }
+  }
+  canvas.addEventListener("pointerdown", onPointer);
+
+  // -------------------------
+  // UI wiring
+  // -------------------------
+  function applyBaseTransparency(on) {
+    const mats = Array.isArray(baseMesh.material) ? baseMesh.material : [baseMesh.material];
+    for (const m of mats) {
+      if (!m) continue;
+      m.transparent = true;
+      m.opacity = on ? 0.0 : 0.85;
+      m.needsUpdate = true;
+    }
+  }
+
+  document.getElementById("resetBtn").onclick = () => {
+    snapshot("reset");
+    editable.resetCube();
+    baseMesh.geometry = editable.geometry;
+    buildBaseMaterialsAndGroups();
+
+    // Remove stickers
+    for (const st of stickers) {
+      scene.remove(st.mesh);
+      st.mesh.geometry.dispose?.();
+      st.mesh.material.dispose?.();
+      st.tex?.dispose?.();
+    }
+    stickers.length = 0;
+    refreshStickerList();
+
+    setSelectedFace("top");
+    setSelectedSticker(null);
+  };
+
+  document.getElementById("undoBtn").onclick = () => undo();
+  document.getElementById("redoBtn").onclick = () => redo();
+
+  document.getElementById("baseTransparentChk").onchange = (e) => {
+    snapshot("baseTransparency");
+    applyBaseTransparency(e.target.checked);
+  };
+
+  // Face color
+  function syncFaceColorInput() {
+    const q = editable.getQuadById(selectedQuadId);
+    if (!q) return;
+    document.getElementById("faceColor").value = normalizeHexColor(q.color);
+  }
+
+  document.getElementById("applyFaceColorBtn").onclick = () => {
+    if (!requireFaceSelected()) return;
+    snapshot("faceColor");
+    const hex = document.getElementById("faceColor").value;
+    editable.setFaceColor(selectedQuadId, hex);
+    buildBaseMaterialsAndGroups();
+  };
+
+  // Subdivide
+  document.getElementById("subdivideBtn").onclick = () => {
+    if (!requireFaceSelected()) return;
+    snapshot("subdivide");
+
+    // Remove stickers on original face (requested behavior)
+    removeStickersOnFace(selectedQuadId);
+
+    const res = editable.subdivideFace2x2(selectedQuadId);
+    if (!res) { setDebug("Subdivision failed."); return; }
+
+    baseMesh.geometry = editable.geometry;
+    buildBaseMaterialsAndGroups();
+
+    // Select first new face
+    setSelectedFace(res.newIds[0]);
+    refreshOutline();
+    updateAllStickers(); // stickers on other faces need refresh because geometry buffers replaced
+  };
+
+  // Face transforms
+  document.getElementById("applyScaleBtn").onclick = () => {
+    if (!requireFaceSelected()) return;
+    snapshot("faceScale");
+    const sx = Math.max(0.001, clampFinite(num("scaleX"), 1));
+    const sy = Math.max(0.001, clampFinite(num("scaleY"), 1));
+    editable.applyFaceLocalScale(selectedQuadId, sx, sy);
+    editable.updateGeometryPositionsOnly();
+    refreshOutline();
+    updateAllStickers();
+  };
+
+  document.getElementById("applyRotateBtn").onclick = () => {
+    if (!requireFaceSelected()) return;
+    snapshot("faceRotate");
+    const rx = clampFinite(num("rotX"), 0);
+    const ry = clampFinite(num("rotY"), 0);
+    const rz = clampFinite(num("rotZ"), 0);
+    editable.applyFaceLocalRotation(selectedQuadId, rx, ry, rz);
+    editable.updateGeometryPositionsOnly();
+    refreshOutline();
+    updateAllStickers();
+  };
+
+  document.getElementById("applyTranslateBtn").onclick = () => {
+    if (!requireFaceSelected()) return;
+    snapshot("faceTranslate");
+    const dx = clampFinite(num("trX"), 0);
+    const dy = clampFinite(num("trY"), 0);
+    const dz = clampFinite(num("trZ"), 0);
+    editable.applyFaceWorldTranslate(selectedQuadId, dx, dy, dz);
+    editable.updateGeometryPositionsOnly();
+    refreshOutline();
+    updateAllStickers();
+  };
+
+  // Add sticker
+  const stickerFile = document.getElementById("stickerFile");
+  document.getElementById("addStickerBtn").onclick = () => {
+    if (!requireFaceSelected()) return;
+    stickerFile.value = "";
+    stickerFile.click();
+  };
+
+  stickerFile.onchange = async () => {
+    if (!requireFaceSelected()) return;
+    const file = stickerFile.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".png")) {
+      setDebug("Please choose a .png file (alpha supported).");
+      return;
+    }
+
+    snapshot("addSticker");
+
+    const dataURL = await fileToDataURL(file);
+    const tex = await loadTextureFromDataURL(dataURL);
+    tex.colorSpace = THREE.SRGBColorSpace;
+
+    // default: overhang plane
+    const mesh = makePlaneStickerMesh(tex);
+    scene.add(mesh);
+
+    const st = {
+      id: newId("stk"),
+      quadId: selectedQuadId,
+      dataURL,
+      tex,
+      params: { tx: 0, ty: 0, sx: 1, sy: 1, rzDeg: 0, clipToFace: false },
+      mesh,
+    };
+
+    stickers.push(st);
+    updateStickerTransform(st);
+    refreshStickerList();
+    setSelectedSticker(st.id);
+  };
+
+  // Sticker transform UI
+  function syncStickerInputsFromSelection() {
+    const st = getSelectedSticker();
+    if (!st) {
+      document.getElementById("stClip").checked = false;
+      document.getElementById("stTx").value = 0;
+      document.getElementById("stTy").value = 0;
+      document.getElementById("stSx").value = 1;
+      document.getElementById("stSy").value = 1;
+      document.getElementById("stRz").value = 0;
+      return;
+    }
+    document.getElementById("stClip").checked = !!st.params.clipToFace;
+    document.getElementById("stTx").value = st.params.tx;
+    document.getElementById("stTy").value = st.params.ty;
+    document.getElementById("stSx").value = st.params.sx;
+    document.getElementById("stSy").value = st.params.sy;
+    document.getElementById("stRz").value = st.params.rzDeg;
+  }
+
+  document.getElementById("applyStickerBtn").onclick = () => {
+    const st = getSelectedSticker();
+    if (!st) { setDebug("Select a sticker first."); return; }
+    snapshot("stickerTransform");
+
+    const clipToFace = document.getElementById("stClip").checked;
+
+    // If mode changed, rebuild mesh type
+    if (!!st.params.clipToFace !== !!clipToFace) {
+      // swap mesh
+      scene.remove(st.mesh);
+      st.mesh.geometry.dispose?.();
+      st.mesh.material.dispose?.();
+
+      st.params.clipToFace = !!clipToFace;
+      st.mesh = st.params.clipToFace ? makeFaceClippedStickerMesh(st.tex) : makePlaneStickerMesh(st.tex);
+      scene.add(st.mesh);
+    }
+
+    st.params.tx = clampFinite(num("stTx"), 0);
+    st.params.ty = clampFinite(num("stTy"), 0);
+    st.params.sx = Math.max(0.001, clampFinite(num("stSx"), 1));
+    st.params.sy = Math.max(0.001, clampFinite(num("stSy"), 1));
+    st.params.rzDeg = clampFinite(num("stRz"), 0);
+
+    updateStickerTransform(st);
+    refreshStickerList();
+  };
+
+  document.getElementById("removeStickerBtn").onclick = () => {
+    const st = getSelectedSticker();
+    if (!st) { setDebug("Select a sticker first."); return; }
+    snapshot("removeSticker");
+
+    scene.remove(st.mesh);
+    st.mesh.geometry.dispose?.();
+    st.mesh.material.dispose?.();
+    st.tex?.dispose?.();
+
+    const idx = stickers.findIndex(s => s.id === st.id);
+    if (idx >= 0) stickers.splice(idx, 1);
+    setSelectedSticker(null);
+    refreshStickerList();
+  };
+
+  // -------------------------
+  // Export (gltf / glb)
+  // -------------------------
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function cloneBaseMeshForExport() {
+    // clone geometry (positions + indices + groups)
+    const geo = editable.geometry.clone();
+    // clone materials
+    const mats = (Array.isArray(baseMesh.material) ? baseMesh.material : [baseMesh.material]).map(m => m.clone());
+    const mesh = new THREE.Mesh(geo, mats);
+    return mesh;
+  }
+
+  function buildExportStickerMesh(st) {
+    // For export:
+    // - overhang stickers export as planes
+    // - clipped stickers export as face-sized quad with baked UVs (already baked in geometry)
+    const tex = st.tex;
+    const mat = makeStickerMaterial(tex);
+
+    if (!st.params.clipToFace) {
+      const geo = new THREE.PlaneGeometry(1, 1, 1, 1);
+      const mesh = new THREE.Mesh(geo, mat);
+      // apply same transform logic as preview
+      const tmp = { ...st, mesh, params: { ...st.params } };
+      updateStickerTransform(tmp);
+      return mesh;
+    }
+
+    // clipped: reuse baked geometry (rebuild once for export to ensure current face positions)
+    const mesh = new THREE.Mesh(new THREE.BufferGeometry(), mat);
+    const tmp = { ...st, mesh, params: { ...st.params } };
+    rebuildClippedStickerGeometry(tmp);
+    return mesh;
+  }
+
+  function exportScene(binary) {
+    const exporter = new GLTFExporter();
+    const group = new THREE.Group();
+
+    group.add(cloneBaseMeshForExport());
+
+    for (const st of stickers) {
+      // skip stickers whose face no longer exists
+      if (!editable.getQuadById(st.quadId)) continue;
+      group.add(buildExportStickerMesh(st));
+    }
+
+    const options = {
+      binary,
+      embedImages: true,
+      forcePowerOfTwoTextures: false,
+      includeCustomExtensions: false,
+      trs: true,
+    };
+
+    exporter.parse(
+      group,
+      (result) => {
+        if (binary) {
+          const blob = new Blob([result], { type: "application/octet-stream" });
+          downloadBlob(blob, "structure.glb");
+        } else {
+          const json = JSON.stringify(result, null, 2);
+          const blob = new Blob([json], { type: "application/json" });
+          downloadBlob(blob, "structure.gltf");
+        }
+      },
+      (err) => setDebug("Export error: " + err),
+      options
+    );
+  }
+
+  document.getElementById("exportGltfBtn").onclick = () => exportScene(false);
+  document.getElementById("exportGlbBtn").onclick = () => exportScene(true);
+
+  // -------------------------
+  // Render loop + resize
+  // -------------------------
+  function resizeRendererToDisplaySize() {
+    const w = viewportEl.clientWidth;
+    const h = viewportEl.clientHeight;
+    if (renderer.width !== w || renderer.height !== h) {
+      renderer.resize(w, h);
+    }
+  }
+
+  // Initialize selection + UI
+  setSelectedFace("top");
+  refreshStickerList();
+  syncStickerInputsFromSelection();
+
+  renderer.on("frame", () => {
+    resizeRendererToDisplaySize();
+    controls.update();
+
+    const st = getSelectedSticker();
+    setDebug(
+      `Face: ${selectedQuadId ? faceLabel(selectedQuadId) : "(none)"}\n` +
+      `Faces: ${editable.quads.length}   Stickers: ${stickers.length}\n` +
+      (st ? `Sticker ${st.id.slice(0,6)}… on ${faceLabel(st.quadId)}  mode=${st.params.clipToFace ? "clipped" : "overhang"}\n` : "") +
+      `Tip: select top(+y) → scale 0.8/0.8 to get a frustum; subdivide faces for extra sticker targets.`
+    );
+  });
+
+  renderer.start();
+  })();
+ </script>
+</body>
+</html>

@@ -37,6 +37,93 @@ const BACKGROUND_DEFAULTS = {
 const BACKGROUND_STORE_FALLBACK = {};
 const BACKGROUND_GLOBAL_KEY = '__global__';
 
+const CLOCK_DEFAULTS = window.CONFIG?.ui?.clockDefaults || {
+  enabled: true,
+  padding: 20,
+  offsetY: 30,
+  font: 'bold 24px system-ui, sans-serif',
+  background: 'rgba(0, 0, 0, 0.5)',
+  stroke: 'rgba(0, 0, 0, 0.8)',
+  textColor: '#ffffff',
+  boxHeight: 30,
+  boxPaddingX: 10,
+  boxPaddingY: 5,
+  strokeWidth: 3,
+  fallbackMode: 'system',
+  debugTime24h: 12,
+};
+
+const RESOURCE_BAR_DEFAULTS = JSON.parse(JSON.stringify(window.CONFIG?.ui?.resourceBarsDefaults || {
+  enabled: true,
+  health: {
+    visible: true,
+    position: { left: 16, top: 26 },
+    size: { width: 220, height: 12 },
+    padding: 3,
+    borderRadius: 12,
+    background: 'rgba(5,7,11,0.78)',
+    border: '1px solid rgba(148,163,184,0.28)',
+    shadow: '0 12px 28px rgba(0,0,0,0.35)',
+    backdropFilter: 'blur(6px)',
+    fill: {
+      color: 'linear-gradient(90deg,#ef4444 0%,#f87171 48%,#ef4444 100%)',
+      shadow: '0 0 14px rgba(239,68,68,0.45)',
+    },
+    label: {
+      color: '#f8fafc',
+      shadow: '0 1px 3px rgba(0,0,0,0.75)',
+      fontSize: 11,
+      fontWeight: 600,
+    },
+  },
+  stamina: {
+    visible: true,
+    position: { left: 16, top: 44 },
+    size: { width: 220, height: 11 },
+    padding: 3,
+    borderRadius: 12,
+    background: 'rgba(5,7,11,0.78)',
+    border: '1px solid rgba(148,163,184,0.28)',
+    shadow: '0 12px 28px rgba(0,0,0,0.35)',
+    backdropFilter: 'blur(6px)',
+    fill: {
+      color: 'linear-gradient(90deg,#22c55e 0%,#86efac 55%,#22c55e 100%)',
+      shadow: '0 0 12px rgba(34,197,94,0.45)',
+      lowColor: 'linear-gradient(90deg,#ef4444 0%,#fca5a5 55%,#ef4444 100%)',
+      lowShadow: '0 0 12px rgba(239,68,68,0.45)',
+      dashingColor: 'linear-gradient(90deg,#3b82f6 0%,#60a5fa 55%,#3b82f6 100%)',
+      dashingShadow: '0 0 16px rgba(59,130,246,0.55)',
+    },
+    label: {
+      color: '#f8fafc',
+      shadow: '0 1px 3px rgba(0,0,0,0.75)',
+      fontSize: 11,
+      fontWeight: 600,
+    },
+  },
+  footing: {
+    visible: true,
+    position: { left: 16, top: 61 },
+    size: { width: 220, height: 9 },
+    padding: 2,
+    borderRadius: 10,
+    background: 'rgba(5,7,11,0.78)',
+    border: '1px solid rgba(148,163,184,0.28)',
+    shadow: '0 12px 28px rgba(0,0,0,0.35)',
+    backdropFilter: 'blur(6px)',
+    fill: {
+      color: 'linear-gradient(90deg,#d4d4d8 0%,#f4f4f5 60%,#d4d4d8 100%)',
+      shadow: '0 0 10px rgba(212,212,216,0.4)',
+    },
+    label: {
+      color: '#27272a',
+      shadow: '0 1px 1px rgba(255,255,255,0.55)',
+      fontSize: 11,
+      fontWeight: 600,
+    },
+  },
+}));
+
 const colorParserCtx = typeof document !== 'undefined'
   ? document.createElement('canvas').getContext('2d')
   : null;
@@ -73,6 +160,89 @@ function lerpCssColor(a, b, t) {
   const bCh = Math.round(lerp(start.b, end.b));
   const aCh = lerp(start.a, end.a);
   return `rgba(${r}, ${g}, ${bCh}, ${Number(aCh.toFixed(3))})`;
+}
+
+function clampNumber(value, fallback, min = -Infinity, max = Infinity) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.min(Math.max(num, min), max);
+}
+
+function mergeClockConfig(raw = {}) {
+  const fallback = window.CONFIG?.ui?.clockDefaults || CLOCK_DEFAULTS;
+  const mode = typeof raw.fallbackMode === 'string' ? raw.fallbackMode : fallback.fallbackMode;
+  const normalizedMode = mode === 'debug' ? 'debug' : 'system';
+  return {
+    enabled: raw.enabled ?? fallback.enabled,
+    padding: clampNumber(raw.padding, fallback.padding, 0, Infinity),
+    offsetY: clampNumber(raw.offsetY, fallback.offsetY, -Infinity, Infinity),
+    font: typeof raw.font === 'string' ? raw.font : fallback.font,
+    background: typeof raw.background === 'string' ? raw.background : fallback.background,
+    stroke: typeof raw.stroke === 'string' ? raw.stroke : fallback.stroke,
+    textColor: typeof raw.textColor === 'string' ? raw.textColor : fallback.textColor,
+    boxHeight: clampNumber(raw.boxHeight, fallback.boxHeight, 0, Infinity),
+    boxPaddingX: clampNumber(raw.boxPaddingX, fallback.boxPaddingX, 0, Infinity),
+    boxPaddingY: clampNumber(raw.boxPaddingY, fallback.boxPaddingY, 0, Infinity),
+    strokeWidth: clampNumber(raw.strokeWidth, fallback.strokeWidth, 0, Infinity),
+    fallbackMode: normalizedMode,
+    debugTime24h: clampNumber(raw.debugTime24h, fallback.debugTime24h, 0, 24),
+  };
+}
+
+function mergeResourceBarConfig(raw = {}) {
+  const source = typeof raw === 'object' && raw ? raw : {};
+  const fallback = RESOURCE_BAR_DEFAULTS;
+  const sanitizeBar = (key) => {
+    const base = fallback[key] || {};
+    const bar = source[key] || {};
+    const pos = bar.position || {};
+    const size = bar.size || {};
+    const fill = bar.fill || {};
+    const label = bar.label || {};
+    return {
+      visible: bar.visible !== false && base.visible !== false,
+      position: {
+        left: clampNumber(pos.left, base.position?.left ?? 0, -10000, 10000),
+        top: clampNumber(pos.top, base.position?.top ?? 0, -10000, 10000),
+      },
+      size: {
+        width: clampNumber(size.width, base.size?.width ?? 0, 0, 10000),
+        height: clampNumber(size.height, base.size?.height ?? 0, 0, 1000),
+      },
+      padding: clampNumber(bar.padding, base.padding ?? 0, 0, 1000),
+      borderRadius: clampNumber(bar.borderRadius, base.borderRadius ?? 0, 0, 1000),
+      background: typeof bar.background === 'string' ? bar.background : base.background,
+      border: typeof bar.border === 'string' ? bar.border : base.border,
+      shadow: typeof bar.shadow === 'string' ? bar.shadow : base.shadow,
+      backdropFilter: typeof bar.backdropFilter === 'string' ? bar.backdropFilter : base.backdropFilter,
+      fill: {
+        color: typeof fill.color === 'string' ? fill.color : base.fill?.color,
+        shadow: typeof fill.shadow === 'string' ? fill.shadow : base.fill?.shadow,
+        lowColor: typeof fill.lowColor === 'string' ? fill.lowColor : base.fill?.lowColor,
+        lowShadow: typeof fill.lowShadow === 'string' ? fill.lowShadow : base.fill?.lowShadow,
+        dashingColor: typeof fill.dashingColor === 'string' ? fill.dashingColor : base.fill?.dashingColor,
+        dashingShadow: typeof fill.dashingShadow === 'string' ? fill.dashingShadow : base.fill?.dashingShadow,
+      },
+      label: {
+        color: typeof label.color === 'string' ? label.color : base.label?.color,
+        shadow: typeof label.shadow === 'string' ? label.shadow : base.label?.shadow,
+        fontSize: clampNumber(label.fontSize, base.label?.fontSize ?? 11, 6, 64),
+        fontWeight: clampNumber(label.fontWeight, base.label?.fontWeight ?? 600, 100, 900),
+      },
+    };
+  };
+
+  return {
+    enabled: source.enabled !== false && fallback.enabled !== false,
+    health: sanitizeBar('health'),
+    stamina: sanitizeBar('stamina'),
+    footing: sanitizeBar('footing'),
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.mergeClockConfig = mergeClockConfig;
+  window.mergeResourceBarConfig = mergeResourceBarConfig;
 }
 
 function sampleDayCycleColor(colors, time24h, offset = 0) {
@@ -955,7 +1125,7 @@ import { initSprites, renderSprites } from './sprites.js?v=8';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
 import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
-import initArchTouchInput from './arch-touch-input.js?v=1';
+import initArchTouchInput, { mergeArchConfig } from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
@@ -1987,9 +2157,12 @@ function applyRenderOrder(){
 applyRenderOrder();
 
 // HUD refs
+const healthBar = document.querySelector('.health-bar');
 const staminaFill = $$('#staminaFill');
 const footingFill = $$('#footingFill');
 const healthFill = $$('#healthFill');
+const staminaBar = staminaFill?.parentElement || document.querySelector('.stamina-bar');
+const footingBar = footingFill?.parentElement || document.querySelector('.footing-bar');
 const staminaLabel = $$('#staminaLabel');
 const footingLabel = $$('#footingLabel');
 const healthLabel = $$('#healthLabel');
@@ -2067,6 +2240,7 @@ let archTouchHandle = null;
 refreshBottomHudConfig();
 refreshEnemyIndicatorConfig();
 syncHudScaleFactors({ force: true });
+applyResourceBarStyles(window.CONFIG?.ui?.resourceBars);
 
 if (helpBtn && helpPanel) {
   const setHelpVisible = (visible) => {
@@ -2094,6 +2268,139 @@ if (helpBtn && helpPanel) {
 
   setHelpVisible(false);
 }
+
+function getRuntimeConfigSnapshot(targetKey) {
+  switch (targetKey) {
+    case 'arch':
+      return mergeArchConfig(window.CONFIG?.hud?.arch || {});
+    case 'clock':
+      return mergeClockConfig(window.CONFIG?.ui?.clock || {});
+    case 'resourceBars':
+      return mergeResourceBarConfig(window.CONFIG?.ui?.resourceBars || {});
+    default:
+      return {};
+  }
+}
+
+function initRuntimeConfigPanel() {
+  const modal = document.getElementById('runtimeConfigModal');
+  const toggleBtn = document.getElementById('runtimeConfigToggle');
+  const closeBtn = document.getElementById('runtimeConfigClose');
+  const targetSelect = document.getElementById('runtimeConfigTarget');
+  const textarea = document.getElementById('runtimeConfigTextarea');
+  const statusEl = document.getElementById('runtimeConfigStatus');
+  const exportBtn = document.getElementById('runtimeConfigExport');
+  const applyBtn = document.getElementById('runtimeConfigApply');
+  const copyBtn = document.getElementById('runtimeConfigCopy');
+
+  if (!modal || !toggleBtn || !textarea || !targetSelect) return;
+
+  const showModal = (visible) => {
+    modal.classList.toggle('visible', visible);
+    modal.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    if (visible) {
+      textarea.focus();
+      populateFromCurrent();
+    } else if (statusEl) {
+      statusEl.textContent = '';
+      statusEl.className = 'runtime-config-status';
+    }
+  };
+
+  const setStatus = (text, type = 'info') => {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.className = `runtime-config-status ${type === 'error' ? 'error' : type === 'success' ? 'success' : ''}`;
+  };
+
+  const populateFromCurrent = () => {
+    try {
+      const targetKey = targetSelect.value;
+      const data = getRuntimeConfigSnapshot(targetKey);
+      textarea.value = JSON.stringify(data, null, 2);
+      setStatus('Current config loaded', 'success');
+    } catch (error) {
+      console.error('[runtime-config] Failed to export config', error);
+      setStatus('Unable to export current config', 'error');
+    }
+  };
+
+  const applyFromTextarea = () => {
+    try {
+      const parsed = JSON.parse(textarea.value || '{}');
+      const targetKey = targetSelect.value;
+      if (targetKey === 'arch') {
+        const merged = mergeArchConfig(parsed);
+        window.CONFIG ||= {};
+        window.CONFIG.hud ||= {};
+        window.CONFIG.hud.arch = merged;
+        archTouchHandle?.updateConfig?.(merged);
+        setStatus('HUD arch updated and rebuilt', 'success');
+        return;
+      }
+      if (targetKey === 'clock') {
+        const mergedClock = mergeClockConfig(parsed);
+        window.CONFIG ||= {};
+        window.CONFIG.ui ||= {};
+        window.CONFIG.ui.clock = mergedClock;
+        window.CONFIG.ui.showClock = mergedClock.enabled;
+        setStatus('Clock settings updated', 'success');
+        return;
+      }
+      if (targetKey === 'resourceBars') {
+        const mergedBars = mergeResourceBarConfig(parsed);
+        applyResourceBarStyles(mergedBars);
+        setStatus('Resource bar styling updated', 'success');
+      }
+    } catch (error) {
+      console.error('[runtime-config] Failed to apply JSON', error);
+      setStatus('Invalid JSON or config', 'error');
+    }
+  };
+
+  toggleBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    const next = !modal.classList.contains('visible');
+    showModal(next);
+  });
+
+  closeBtn?.addEventListener('click', () => showModal(false));
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) showModal(false);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && modal.classList.contains('visible')) {
+      showModal(false);
+    }
+  });
+
+  targetSelect.addEventListener('change', populateFromCurrent);
+  exportBtn?.addEventListener('click', populateFromCurrent);
+  applyBtn?.addEventListener('click', applyFromTextarea);
+  copyBtn?.addEventListener('click', async () => {
+    if (!textarea.value) {
+      setStatus('Nothing to copy', 'error');
+      return;
+    }
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(textarea.value);
+      } else {
+        textarea.select();
+        document.execCommand('copy');
+      }
+      setStatus('Copied to clipboard', 'success');
+    } catch (error) {
+      console.error('[runtime-config] Copy failed', error);
+      setStatus('Copy failed', 'error');
+    }
+  });
+
+  populateFromCurrent();
+}
+
+initRuntimeConfigPanel();
 
 if (reloadBtn){
   reloadBtn.addEventListener('click', async ()=>{
@@ -2595,6 +2902,7 @@ document.addEventListener('config:updated', ()=>{
   refreshBottomHudConfig();
   refreshEnemyIndicatorConfig();
   syncHudScaleFactors({ force: true });
+  applyResourceBarStyles(window.CONFIG?.ui?.resourceBars);
 });
 
 // Fighter selection and settings management
@@ -3632,6 +3940,51 @@ function updateEnemyIndicators() {
       entry.needsPathRefresh = true;
     }
   });
+}
+
+function applyResourceBarStyles(rawConfig = null) {
+  const merged = mergeResourceBarConfig(rawConfig || window.CONFIG?.ui?.resourceBars || {});
+  window.CONFIG ||= {};
+  window.CONFIG.ui ||= {};
+  window.CONFIG.ui.resourceBars = merged;
+
+  const applyBar = (barEl, fillEl, labelEl, cfg) => {
+    if (!barEl || !cfg) return;
+    const visible = merged.enabled && cfg.visible !== false;
+    barEl.style.display = visible ? 'block' : 'none';
+    if (!visible) return;
+
+    barEl.style.setProperty('--bar-left', `${cfg.position.left}px`);
+    barEl.style.setProperty('--bar-top', `${cfg.position.top}px`);
+    barEl.style.setProperty('--bar-width', `${cfg.size.width}px`);
+    barEl.style.setProperty('--bar-height', `${cfg.size.height}px`);
+    barEl.style.setProperty('--bar-padding', `${cfg.padding}px`);
+    barEl.style.setProperty('--bar-radius', `${cfg.borderRadius}px`);
+    barEl.style.setProperty('--bar-bg', cfg.background || '');
+    barEl.style.setProperty('--bar-border', cfg.border || '');
+    barEl.style.setProperty('--bar-shadow', cfg.shadow || '');
+    barEl.style.setProperty('--bar-backdrop', cfg.backdropFilter || '');
+
+    if (fillEl) {
+      fillEl.style.setProperty('--bar-fill', cfg.fill?.color || '');
+      fillEl.style.setProperty('--bar-fill-shadow', cfg.fill?.shadow || '');
+      if (cfg.fill?.lowColor) fillEl.style.setProperty('--bar-fill-low', cfg.fill.lowColor);
+      if (cfg.fill?.lowShadow) fillEl.style.setProperty('--bar-fill-low-shadow', cfg.fill.lowShadow);
+      if (cfg.fill?.dashingColor) fillEl.style.setProperty('--bar-fill-dash', cfg.fill.dashingColor);
+      if (cfg.fill?.dashingShadow) fillEl.style.setProperty('--bar-fill-dash-shadow', cfg.fill.dashingShadow);
+    }
+
+    if (labelEl) {
+      labelEl.style.setProperty('--bar-label-color', cfg.label?.color || '');
+      labelEl.style.setProperty('--bar-label-shadow', cfg.label?.shadow || '');
+      if (cfg.label?.fontSize) labelEl.style.setProperty('--bar-label-size', `${cfg.label.fontSize}px`);
+      if (cfg.label?.fontWeight) labelEl.style.setProperty('--bar-label-weight', cfg.label.fontWeight);
+    }
+  };
+
+  applyBar(healthBar, healthFill, healthLabel, merged.health);
+  applyBar(staminaBar, staminaFill, staminaLabel, merged.stamina);
+  applyBar(footingBar, footingFill, footingLabel, merged.footing);
 }
 
 function updateHUD(){
@@ -6320,112 +6673,357 @@ function createCameraControlRow(type, axis, label) {
   return row;
 }
 
+function resolveMinimapConfig() {
+  const minimapConfig = window.CONFIG?.debug?.minimap || {};
+  const overlay = window.CONFIG?.debug?.gameplayOverlay || {};
+  return {
+    background: minimapConfig.background ?? '#0a0a0a',
+    gridColor: minimapConfig.gridColor ?? '#222',
+    boundsColor: minimapConfig.boundsColor ?? '#444',
+    pathColor: minimapConfig.pathColor ?? '#4a9eff',
+    axisColor: minimapConfig.axisColor ?? '#666',
+    axisFont: minimapConfig.axisFont ?? '10px monospace',
+    mapInfoFont: minimapConfig.mapInfoFont ?? '11px monospace',
+    mapInfoColor: minimapConfig.mapInfoColor ?? '#ddd',
+    mapInfoSecondary: minimapConfig.mapInfoSecondary ?? '#9ee4ff',
+    cameraFill: minimapConfig.cameraFill ?? '#ff4444',
+    cameraStroke: minimapConfig.cameraStroke ?? '#ff8888',
+    cameraLineWidth: minimapConfig.cameraLineWidth ?? 2,
+    cameraConeLength: minimapConfig.cameraConeLength ?? 30,
+    cameraConeAngleDeg: minimapConfig.cameraConeAngleDeg ?? 30,
+    cameraLabelFont: minimapConfig.cameraLabelFont ?? '9px monospace',
+    cameraLabelColor: minimapConfig.cameraLabelColor ?? '#ff8888',
+    gridCells: Number.isFinite(minimapConfig.gridCells) ? minimapConfig.gridCells : 20,
+    padding: Number.isFinite(minimapConfig.padding) ? minimapConfig.padding : 16,
+    boundsMargin: Number.isFinite(minimapConfig.boundsMargin) ? minimapConfig.boundsMargin : 0.08,
+    markerRadius: Number.isFinite(minimapConfig.markerRadius) ? minimapConfig.markerRadius : 5,
+    spawnerColor: minimapConfig.spawnerColor ?? overlay.spawnerColor ?? '#22c55e',
+    poiStroke: minimapConfig.poiStroke ?? overlay.poiStroke ?? '#f472b6',
+    poiFill: minimapConfig.poiFill ?? overlay.poiFill ?? 'rgba(244, 114, 182, 0.08)',
+    labelBackground: minimapConfig.labelBackground ?? overlay.labelBackground ?? 'rgba(0, 0, 0, 0.75)',
+    labelColor: minimapConfig.labelColor ?? overlay.labelColor ?? '#e5e7eb',
+  };
+}
+
+function resolveActiveMapInfo(area) {
+  const configLayouts = window.CONFIG?.map?.layouts;
+  const resolvedName = area?.meta?.areaName || area?.name || area?.id || 'Unknown area';
+  let resolvedPath = typeof area?.source === 'string' && area.source ? area.source : null;
+
+  if (!resolvedPath && Array.isArray(configLayouts)) {
+    const matched = configLayouts.find((entry) => entry?.id === area?.id || entry?.areaId === area?.id);
+    if (matched && matched.path) {
+      resolvedPath = matched.path;
+    }
+  }
+
+  return {
+    name: resolvedName,
+    path: resolvedPath || 'Unknown gameplaymap source',
+  };
+}
+
+function normalizePoiBounds(poi) {
+  const bounds = poi?.bounds || {};
+  const leftVal = Number(bounds.left);
+  const rightVal = Number(bounds.right);
+  const widthVal = Number(bounds.width);
+  const topVal = Number(bounds.topOffset);
+  const bottomVal = Number(bounds.bottom);
+  const heightVal = Number(bounds.height);
+
+  const left = Number.isFinite(leftVal)
+    ? leftVal
+    : Number.isFinite(rightVal) && Number.isFinite(widthVal)
+      ? rightVal - widthVal
+      : 0;
+  const right = Number.isFinite(rightVal)
+    ? rightVal
+    : Number.isFinite(widthVal)
+      ? left + widthVal
+      : left;
+  const top = Number.isFinite(topVal) ? topVal : 0;
+  const bottom = Number.isFinite(bottomVal)
+    ? bottomVal
+    : Number.isFinite(heightVal)
+      ? top + heightVal
+      : top;
+
+  return { left, right, top, bottom, label: poi?.label || poi?.name || 'POI' };
+}
+
+function computeMinimapBounds({ groundPath, spawners, pois, patrols, cellSize, gridCells, boundsMargin }) {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  let hasData = false;
+
+  const addPoint = (x, z = 0) => {
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+    hasData = true;
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minZ = Math.min(minZ, z);
+    maxZ = Math.max(maxZ, z);
+  };
+
+  const addRect = ({ left, right, top, bottom }) => {
+    const rectLeft = Number.isFinite(left) ? left : null;
+    const rectRight = Number.isFinite(right) ? right : null;
+    const rectTop = Number.isFinite(top) ? top : null;
+    const rectBottom = Number.isFinite(bottom) ? bottom : null;
+    if (rectLeft === null || rectRight === null || rectTop === null || rectBottom === null) return;
+    addPoint(rectLeft, rectTop);
+    addPoint(rectRight, rectBottom);
+  };
+
+  groundPath.forEach((pt) => addPoint(pt?.x, pt?.y ?? 0));
+  spawners.forEach((sp) => addPoint(sp?.x, sp?.y ?? 0));
+
+  patrols.forEach((collider) => {
+    const left = Number(collider?.left);
+    const width = Number(collider?.width);
+    const top = Number.isFinite(collider?.topOffset) ? Number(collider.topOffset) : 0;
+    const height = Number(collider?.height);
+    addRect({ left, right: left + (Number.isFinite(width) ? width : 0), top, bottom: top + (Number.isFinite(height) ? height : 0) });
+  });
+
+  pois.forEach((poi) => {
+    const bounds = normalizePoiBounds(poi);
+    addRect(bounds);
+  });
+
+  if (!hasData) {
+    const fallbackHalfSpan = (gridCells * cellSize) / 2;
+    return {
+      minX: -fallbackHalfSpan,
+      maxX: fallbackHalfSpan,
+      minZ: -fallbackHalfSpan,
+      maxZ: fallbackHalfSpan,
+    };
+  }
+
+  const spanX = maxX - minX;
+  const spanZ = maxZ - minZ;
+  const margin = Math.max(spanX, spanZ) * (boundsMargin ?? 0.08);
+  return {
+    minX: minX - margin,
+    maxX: maxX + margin,
+    minZ: minZ - margin,
+    maxZ: maxZ + margin,
+  };
+}
+
 function renderMinimap() {
   if (!minimapCtx || !minimapCanvas) return;
 
   const cam = getActiveThreeCamera();
-  const renderer = GAME_RENDERER_3D;
+  const area = resolveActiveParallaxArea();
+  const minimapConfig = resolveMinimapConfig();
 
   const w = minimapCanvas.width;
   const h = minimapCanvas.height;
+  const fallbackCellSize = Number.isFinite(window.CONFIG?.map?.gridUnit) ? window.CONFIG.map.gridUnit : 300;
   const cellSize = Number.isFinite(window.GRID_UNIT_WORLD_SIZE)
     ? window.GRID_UNIT_WORLD_SIZE
-    : window.CONFIG?.map?.gridUnit;
-  const worldSize = 20 * cellSize; // 20x20 grid
-  const scale = Math.min(w, h) * 0.8 / worldSize;
+    : fallbackCellSize;
+  const gridCells = minimapConfig.gridCells || 20;
+
+  const groundPath = Array.isArray(area?.ground?.path) ? area.ground.path : [];
+  const spawners = Array.isArray(area?.spawners) ? area.spawners : [];
+  const pois = Array.isArray(area?.pois) ? area.pois : [];
+  const patrols = Array.isArray(area?.colliders) ? area.colliders.filter((c) => c?.meta?.patrol) : [];
+  const bounds = computeMinimapBounds({ groundPath, spawners, pois, patrols, cellSize, gridCells, boundsMargin: minimapConfig.boundsMargin });
+
+  const spanX = Math.max(1, bounds.maxX - bounds.minX);
+  const spanZ = Math.max(1, bounds.maxZ - bounds.minZ);
+  const scale = Math.min((w - minimapConfig.padding * 2) / spanX, (h - minimapConfig.padding * 2) / spanZ);
   const centerX = w / 2;
   const centerY = h / 2;
+  const worldCenterX = (bounds.minX + bounds.maxX) / 2;
+  const worldCenterZ = (bounds.minZ + bounds.maxZ) / 2;
+
+  const project = (x, z = 0) => ({
+    x: centerX + (x - worldCenterX) * scale,
+    y: centerY + (z - worldCenterZ) * scale,
+  });
 
   // Clear canvas
-  minimapCtx.fillStyle = '#0a0a0a';
+  minimapCtx.fillStyle = minimapConfig.background;
   minimapCtx.fillRect(0, 0, w, h);
 
-  // Draw grid
-  minimapCtx.strokeStyle = '#222';
+  // Draw grid based on configured cell size
+  minimapCtx.strokeStyle = minimapConfig.gridColor;
   minimapCtx.lineWidth = 1;
-  for (let i = -10; i <= 10; i++) {
-    const offset = i * cellSize * scale;
-    // Vertical lines
-    minimapCtx.beginPath();
-    minimapCtx.moveTo(centerX + offset, centerY - 10 * cellSize * scale);
-    minimapCtx.lineTo(centerX + offset, centerY + 10 * cellSize * scale);
-    minimapCtx.stroke();
-    // Horizontal lines
-    minimapCtx.beginPath();
-    minimapCtx.moveTo(centerX - 10 * cellSize * scale, centerY + offset);
-    minimapCtx.lineTo(centerX + 10 * cellSize * scale, centerY + offset);
-    minimapCtx.stroke();
+  if (Number.isFinite(cellSize) && cellSize > 0) {
+    const startX = Math.floor(bounds.minX / cellSize) - 1;
+    const endX = Math.ceil(bounds.maxX / cellSize) + 1;
+    const startZ = Math.floor(bounds.minZ / cellSize) - 1;
+    const endZ = Math.ceil(bounds.maxZ / cellSize) + 1;
+
+    for (let gx = startX; gx <= endX; gx++) {
+      const worldX = gx * cellSize;
+      const top = project(worldX, bounds.minZ);
+      const bottom = project(worldX, bounds.maxZ);
+      minimapCtx.beginPath();
+      minimapCtx.moveTo(top.x, top.y);
+      minimapCtx.lineTo(bottom.x, bottom.y);
+      minimapCtx.stroke();
+    }
+
+    for (let gz = startZ; gz <= endZ; gz++) {
+      const worldZ = gz * cellSize;
+      const left = project(bounds.minX, worldZ);
+      const right = project(bounds.maxX, worldZ);
+      minimapCtx.beginPath();
+      minimapCtx.moveTo(left.x, left.y);
+      minimapCtx.lineTo(right.x, right.y);
+      minimapCtx.stroke();
+    }
   }
 
   // Draw world bounds
-  minimapCtx.strokeStyle = '#444';
+  minimapCtx.strokeStyle = minimapConfig.boundsColor;
   minimapCtx.lineWidth = 2;
-  const boundsSize = 10 * cellSize * scale;
-  minimapCtx.strokeRect(centerX - boundsSize, centerY - boundsSize, boundsSize * 2, boundsSize * 2);
+  const boundsTopLeft = project(bounds.minX, bounds.minZ);
+  const boundsBottomRight = project(bounds.maxX, bounds.maxZ);
+  minimapCtx.strokeRect(
+    boundsTopLeft.x,
+    boundsTopLeft.y,
+    boundsBottomRight.x - boundsTopLeft.x,
+    boundsBottomRight.y - boundsTopLeft.y,
+  );
 
-  // Draw gameplay path (row 10, col 0 to col 19)
-  minimapCtx.strokeStyle = '#4a9eff';
-  minimapCtx.lineWidth = 3;
-  minimapCtx.beginPath();
-  const pathY = centerY; // Row 10 is center
-  const pathStartX = centerX - 9.5 * cellSize * scale; // Col 0
-  const pathEndX = centerX + 9.5 * cellSize * scale; // Col 19
-  minimapCtx.moveTo(pathStartX, pathY);
-  minimapCtx.lineTo(pathEndX, pathY);
-  minimapCtx.stroke();
+  // Draw gameplay path if available
+  if (groundPath.length > 1) {
+    minimapCtx.strokeStyle = minimapConfig.pathColor;
+    minimapCtx.lineWidth = 3;
+    minimapCtx.beginPath();
+    const first = project(groundPath[0].x, groundPath[0].y ?? 0);
+    minimapCtx.moveTo(first.x, first.y);
+    for (let i = 1; i < groundPath.length; i++) {
+      const pt = project(groundPath[i].x, groundPath[i].y ?? 0);
+      minimapCtx.lineTo(pt.x, pt.y);
+    }
+    minimapCtx.stroke();
+  }
 
   // Draw axis labels
-  minimapCtx.fillStyle = '#666';
-  minimapCtx.font = '10px monospace';
-  minimapCtx.fillText('+X', centerX + boundsSize + 5, centerY);
-  minimapCtx.fillText('-X', centerX - boundsSize - 25, centerY);
-  minimapCtx.fillText('+Z', centerX, centerY + boundsSize + 12);
-  minimapCtx.fillText('-Z', centerX, centerY - boundsSize - 5);
+  minimapCtx.fillStyle = minimapConfig.axisColor;
+  minimapCtx.font = minimapConfig.axisFont;
+  minimapCtx.fillText('+X', boundsBottomRight.x + 5, centerY);
+  minimapCtx.fillText('-X', boundsTopLeft.x - 25, centerY);
+  minimapCtx.fillText('+Z', centerX, boundsBottomRight.y + 12);
+  minimapCtx.fillText('-Z', centerX, boundsTopLeft.y - 5);
+
+  // Draw POIs
+  pois.forEach((poi) => {
+    const bounds = normalizePoiBounds(poi);
+
+    const topLeft = project(bounds.left, bounds.top);
+    const size = project(bounds.right, bounds.bottom);
+    minimapCtx.fillStyle = minimapConfig.poiFill;
+    minimapCtx.strokeStyle = minimapConfig.poiStroke;
+    minimapCtx.lineWidth = 1.5;
+    minimapCtx.beginPath();
+    minimapCtx.rect(topLeft.x, topLeft.y, size.x - topLeft.x, size.y - topLeft.y);
+    minimapCtx.fill();
+    minimapCtx.stroke();
+
+    const label = bounds.label;
+    minimapCtx.fillStyle = minimapConfig.labelColor;
+    minimapCtx.font = '9px monospace';
+    minimapCtx.fillText(label, topLeft.x + 2, topLeft.y - 2);
+  });
+
+  // Draw spawners
+  minimapCtx.fillStyle = minimapConfig.spawnerColor;
+  minimapCtx.strokeStyle = minimapConfig.spawnerColor;
+  spawners.forEach((spawner) => {
+    const projected = project(spawner.x, spawner.y ?? 0);
+    minimapCtx.beginPath();
+    minimapCtx.arc(projected.x, projected.y, minimapConfig.markerRadius, 0, Math.PI * 2);
+    minimapCtx.fill();
+    minimapCtx.stroke();
+
+    if (spawner?.id) {
+      minimapCtx.font = '9px monospace';
+      const textWidth = minimapCtx.measureText(spawner.id).width;
+      const padding = 2;
+      minimapCtx.fillStyle = minimapConfig.labelBackground;
+      minimapCtx.fillRect(projected.x - padding, projected.y - 10 - padding, textWidth + padding * 2, 12);
+      minimapCtx.fillStyle = minimapConfig.labelColor;
+      minimapCtx.fillText(spawner.id, projected.x, projected.y - 1);
+    }
+  });
+
+  // Draw patrol colliders as markers on the ground
+  if (patrols.length) {
+    minimapCtx.strokeStyle = minimapConfig.pathColor;
+    minimapCtx.lineWidth = 1.5;
+    patrols.forEach((collider) => {
+      const left = Number(collider?.left);
+      const width = Number(collider?.width);
+      const top = Number.isFinite(collider?.topOffset) ? Number(collider.topOffset) : 0;
+      const height = Number(collider?.height);
+      const topLeft = project(left, top);
+      const size = project(left + (Number.isFinite(width) ? width : 0), top + (Number.isFinite(height) ? height : 0));
+      minimapCtx.strokeRect(topLeft.x, topLeft.y, size.x - topLeft.x, size.y - topLeft.y);
+    });
+  }
 
   // Draw camera if available
-  if (cam && renderer) {
-    const camX = cam.position.x * scale;
-    const camZ = cam.position.z * scale;
-    const screenX = centerX + camX;
-    const screenY = centerY + camZ; // Z maps to Y in top-down view
+  if (cam) {
+    const cameraRotY = cam.rotation.y;
+    const coneLength = minimapConfig.cameraConeLength;
+    const coneAngle = degToRad(minimapConfig.cameraConeAngleDeg);
+    const position = project(cam.position.x, cam.position.z);
 
     // Draw camera cone showing view direction
-    minimapCtx.fillStyle = '#ff4444';
-    minimapCtx.strokeStyle = '#ff8888';
-    minimapCtx.lineWidth = 2;
-
-    const cameraRotY = cam.rotation.y;
-    const coneLength = 30;
-    const coneAngle = Math.PI / 6; // 30 degrees
+    minimapCtx.fillStyle = minimapConfig.cameraFill;
+    minimapCtx.strokeStyle = minimapConfig.cameraStroke;
+    minimapCtx.lineWidth = minimapConfig.cameraLineWidth;
 
     minimapCtx.beginPath();
-    minimapCtx.arc(screenX, screenY, 5, 0, Math.PI * 2);
+    minimapCtx.arc(position.x, position.y, minimapConfig.markerRadius, 0, Math.PI * 2);
     minimapCtx.fill();
 
     // Draw view cone
     minimapCtx.beginPath();
-    minimapCtx.moveTo(screenX, screenY);
+    minimapCtx.moveTo(position.x, position.y);
     const leftAngle = cameraRotY - coneAngle;
     const rightAngle = cameraRotY + coneAngle;
-    minimapCtx.lineTo(
-      screenX + Math.sin(leftAngle) * coneLength,
-      screenY + Math.cos(leftAngle) * coneLength
+    const leftPoint = project(
+      cam.position.x + Math.sin(leftAngle) * coneLength,
+      cam.position.z + Math.cos(leftAngle) * coneLength,
     );
-    minimapCtx.lineTo(
-      screenX + Math.sin(rightAngle) * coneLength,
-      screenY + Math.cos(rightAngle) * coneLength
+    const rightPoint = project(
+      cam.position.x + Math.sin(rightAngle) * coneLength,
+      cam.position.z + Math.cos(rightAngle) * coneLength,
     );
+    minimapCtx.lineTo(leftPoint.x, leftPoint.y);
+    minimapCtx.lineTo(rightPoint.x, rightPoint.y);
     minimapCtx.closePath();
     minimapCtx.stroke();
 
     // Draw camera position text
-    minimapCtx.fillStyle = '#ff8888';
-    minimapCtx.font = '9px monospace';
+    minimapCtx.fillStyle = minimapConfig.cameraLabelColor;
+    minimapCtx.font = minimapConfig.cameraLabelFont;
     minimapCtx.fillText(
       `Camera (${cam.position.x.toFixed(0)}, ${cam.position.y.toFixed(0)}, ${cam.position.z.toFixed(0)})`,
-      5, h - 5
+      5,
+      h - 5,
     );
   }
+
+  // Map info
+  const mapInfo = resolveActiveMapInfo(area);
+  minimapCtx.fillStyle = minimapConfig.mapInfoColor;
+  minimapCtx.font = minimapConfig.mapInfoFont;
+  minimapCtx.fillText(`Map: ${mapInfo.name}`, 5, 14);
+  minimapCtx.fillStyle = minimapConfig.mapInfoSecondary;
+  minimapCtx.fillText(`Source: ${mapInfo.path}`, 5, 28);
 }
 
 function syncCameraControlState() {
