@@ -220,6 +220,11 @@ async function loadVisualsmapIndex(baseContext = null) {
     const configBaseUrl = new URL(configBasePath, baseUrl).href;
     const assetMap = new Map();
 
+    // Derive the docs base for resolving gltfPath (which are relative to docs/)
+    // index.json is at: docs/config/maps/visualsmaps/index.json
+    // We need to go up to docs/ for gltf path resolution
+    const docsBaseFromIndex = deriveDocsBase(resolvedPath) || baseUrl;
+
     // Handle both new format (array of file paths) and legacy format (array of objects)
     for (const section of ['segments', 'structures', 'decorations']) {
       const list = indexJson?.[section];
@@ -243,7 +248,8 @@ async function loadVisualsmapIndex(baseContext = null) {
               assetMap.set(asset.id, {
                 ...asset,
                 layer: asset.layer || layerMap[section],
-                __visualsmapIndexBase: configBaseUrl,
+                // Use docs base for gltf resolution since paths in config are relative to docs/
+                __visualsmapIndexBase: docsBaseFromIndex,
                 // Normalize property names: prefer 'extra' but support 'extraConfig' for compatibility
                 extra: asset.extra || asset.extraConfig,
               });
