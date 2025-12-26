@@ -1,5 +1,16 @@
 # SoKEmpirePrologue
 
+## AI Assistant Guidelines
+
+This project includes comprehensive documentation for AI assistants (like Claude, ChatGPT, Cursor, etc.) to reduce token usage and prevent code duplication:
+
+- **`.cursorrules`** - Comprehensive AI assistant guidelines with full codebase documentation
+- **`.ai-quick-reference.md`** - Quick reference cheat sheet of what already exists
+
+**For AI assistants:** Read these files FIRST before implementing features to avoid recreating existing code!
+
+**For developers:** These files serve as excellent architecture documentation and codebase navigation guides.
+
 ## Editing Visual Asset Configuration
 
 When editing the visual asset configuration file at `docs/config/maps/visualsmaps/index.json`, your changes may not appear immediately due to browser caching. Here's how to see your changes:
