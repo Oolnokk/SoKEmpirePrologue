@@ -6075,12 +6075,12 @@ function loop(t){
     GAME_RENDERER_3D_ENTITIES.update();
   }
 
-  // 2D Canvas rendering (hidden for 3D demo)
-  // Uncomment these lines to re-enable 2D rendering
-  // drawStage();
-  // renderBottles(cx);
-  // renderAll(cx);
-  // renderSprites(cx);
+  // 2D Canvas rendering (mostly hidden for 3D demo)
+  // renderAll() is needed to compute bone data for sprite billboards
+  drawStage();
+  renderBottles(cx);
+  renderAll(cx); // REQUIRED: Populates window.GAME.RENDER_STATE with bone data
+  // renderSprites(cx); // Disabled: sprites shown in 3D instead
 
   // Keep debug overlays visible
   renderSpawnerOverlay(cx);
