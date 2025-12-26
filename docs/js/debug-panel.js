@@ -768,28 +768,61 @@ function setNestedValue(obj, path, value) {
 }
 
 // Copy console output to clipboard
-function copyConsoleToClipboard() {
+async function copyConsoleToClipboard() {
   const consoleText = exportConsoleLogs();
 
-  // Copy to clipboard
-  navigator.clipboard.writeText(consoleText).then(() => {
-    console.log('[debug-panel] Copied console output to clipboard');
-    showCopyNotificationConsole();
-  }).catch(err => {
+  // Try modern clipboard API first
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(consoleText);
+      console.log('[debug-panel] Copied console output to clipboard');
+      showCopyNotificationConsole(true);
+      return;
+    } catch (err) {
+      console.warn('[debug-panel] Clipboard API failed, trying fallback:', err);
+    }
+  }
+
+  // Fallback: use textarea + execCommand
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = consoleText;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const success = document.execCommand('copy');
+    document.body.removeChild(textarea);
+
+    if (success) {
+      console.log('[debug-panel] Copied console output to clipboard (fallback method)');
+      showCopyNotificationConsole(true);
+    } else {
+      throw new Error('execCommand failed');
+    }
+  } catch (err) {
     console.error('[debug-panel] Failed to copy console:', err);
-    // Fallback: show in console
-    console.log('[debug-panel] Console export:', consoleText);
-  });
+    showCopyNotificationConsole(false);
+    // Last resort: show in console
+    console.log('[debug-panel] Console export (copy failed, see below):\n', consoleText);
+  }
 }
 
-// Show a temporary notification that console copy succeeded
-function showCopyNotificationConsole() {
+// Show a temporary notification that console copy succeeded or failed
+function showCopyNotificationConsole(success = true) {
   const btn = $$('#debugCopyConsole');
   if (!btn) return;
 
   const originalText = btn.textContent;
-  btn.textContent = '✓ Copied!';
-  btn.style.background = '#10b981';
+
+  if (success) {
+    btn.textContent = '✓ Copied!';
+    btn.style.background = '#10b981';
+  } else {
+    btn.textContent = '✗ Failed';
+    btn.style.background = '#dc2626';
+  }
 
   setTimeout(() => {
     btn.textContent = originalText;
