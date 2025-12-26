@@ -37,93 +37,6 @@ const BACKGROUND_DEFAULTS = {
 const BACKGROUND_STORE_FALLBACK = {};
 const BACKGROUND_GLOBAL_KEY = '__global__';
 
-const CLOCK_DEFAULTS = window.CONFIG?.ui?.clockDefaults || {
-  enabled: true,
-  padding: 20,
-  offsetY: 30,
-  font: 'bold 24px system-ui, sans-serif',
-  background: 'rgba(0, 0, 0, 0.5)',
-  stroke: 'rgba(0, 0, 0, 0.8)',
-  textColor: '#ffffff',
-  boxHeight: 30,
-  boxPaddingX: 10,
-  boxPaddingY: 5,
-  strokeWidth: 3,
-  fallbackMode: 'system',
-  debugTime24h: 12,
-};
-
-const RESOURCE_BAR_DEFAULTS = JSON.parse(JSON.stringify(window.CONFIG?.ui?.resourceBarsDefaults || {
-  enabled: true,
-  health: {
-    visible: true,
-    position: { left: 16, top: 26 },
-    size: { width: 220, height: 12 },
-    padding: 3,
-    borderRadius: 12,
-    background: 'rgba(5,7,11,0.78)',
-    border: '1px solid rgba(148,163,184,0.28)',
-    shadow: '0 12px 28px rgba(0,0,0,0.35)',
-    backdropFilter: 'blur(6px)',
-    fill: {
-      color: 'linear-gradient(90deg,#ef4444 0%,#f87171 48%,#ef4444 100%)',
-      shadow: '0 0 14px rgba(239,68,68,0.45)',
-    },
-    label: {
-      color: '#f8fafc',
-      shadow: '0 1px 3px rgba(0,0,0,0.75)',
-      fontSize: 11,
-      fontWeight: 600,
-    },
-  },
-  stamina: {
-    visible: true,
-    position: { left: 16, top: 44 },
-    size: { width: 220, height: 11 },
-    padding: 3,
-    borderRadius: 12,
-    background: 'rgba(5,7,11,0.78)',
-    border: '1px solid rgba(148,163,184,0.28)',
-    shadow: '0 12px 28px rgba(0,0,0,0.35)',
-    backdropFilter: 'blur(6px)',
-    fill: {
-      color: 'linear-gradient(90deg,#22c55e 0%,#86efac 55%,#22c55e 100%)',
-      shadow: '0 0 12px rgba(34,197,94,0.45)',
-      lowColor: 'linear-gradient(90deg,#ef4444 0%,#fca5a5 55%,#ef4444 100%)',
-      lowShadow: '0 0 12px rgba(239,68,68,0.45)',
-      dashingColor: 'linear-gradient(90deg,#3b82f6 0%,#60a5fa 55%,#3b82f6 100%)',
-      dashingShadow: '0 0 16px rgba(59,130,246,0.55)',
-    },
-    label: {
-      color: '#f8fafc',
-      shadow: '0 1px 3px rgba(0,0,0,0.75)',
-      fontSize: 11,
-      fontWeight: 600,
-    },
-  },
-  footing: {
-    visible: true,
-    position: { left: 16, top: 61 },
-    size: { width: 220, height: 9 },
-    padding: 2,
-    borderRadius: 10,
-    background: 'rgba(5,7,11,0.78)',
-    border: '1px solid rgba(148,163,184,0.28)',
-    shadow: '0 12px 28px rgba(0,0,0,0.35)',
-    backdropFilter: 'blur(6px)',
-    fill: {
-      color: 'linear-gradient(90deg,#d4d4d8 0%,#f4f4f5 60%,#d4d4d8 100%)',
-      shadow: '0 0 10px rgba(212,212,216,0.4)',
-    },
-    label: {
-      color: '#27272a',
-      shadow: '0 1px 1px rgba(255,255,255,0.55)',
-      fontSize: 11,
-      fontWeight: 600,
-    },
-  },
-}));
-
 const colorParserCtx = typeof document !== 'undefined'
   ? document.createElement('canvas').getContext('2d')
   : null;
@@ -160,89 +73,6 @@ function lerpCssColor(a, b, t) {
   const bCh = Math.round(lerp(start.b, end.b));
   const aCh = lerp(start.a, end.a);
   return `rgba(${r}, ${g}, ${bCh}, ${Number(aCh.toFixed(3))})`;
-}
-
-function clampNumber(value, fallback, min = -Infinity, max = Infinity) {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return fallback;
-  return Math.min(Math.max(num, min), max);
-}
-
-function mergeClockConfig(raw = {}) {
-  const fallback = window.CONFIG?.ui?.clockDefaults || CLOCK_DEFAULTS;
-  const mode = typeof raw.fallbackMode === 'string' ? raw.fallbackMode : fallback.fallbackMode;
-  const normalizedMode = mode === 'debug' ? 'debug' : 'system';
-  return {
-    enabled: raw.enabled ?? fallback.enabled,
-    padding: clampNumber(raw.padding, fallback.padding, 0, Infinity),
-    offsetY: clampNumber(raw.offsetY, fallback.offsetY, -Infinity, Infinity),
-    font: typeof raw.font === 'string' ? raw.font : fallback.font,
-    background: typeof raw.background === 'string' ? raw.background : fallback.background,
-    stroke: typeof raw.stroke === 'string' ? raw.stroke : fallback.stroke,
-    textColor: typeof raw.textColor === 'string' ? raw.textColor : fallback.textColor,
-    boxHeight: clampNumber(raw.boxHeight, fallback.boxHeight, 0, Infinity),
-    boxPaddingX: clampNumber(raw.boxPaddingX, fallback.boxPaddingX, 0, Infinity),
-    boxPaddingY: clampNumber(raw.boxPaddingY, fallback.boxPaddingY, 0, Infinity),
-    strokeWidth: clampNumber(raw.strokeWidth, fallback.strokeWidth, 0, Infinity),
-    fallbackMode: normalizedMode,
-    debugTime24h: clampNumber(raw.debugTime24h, fallback.debugTime24h, 0, 24),
-  };
-}
-
-function mergeResourceBarConfig(raw = {}) {
-  const source = typeof raw === 'object' && raw ? raw : {};
-  const fallback = RESOURCE_BAR_DEFAULTS;
-  const sanitizeBar = (key) => {
-    const base = fallback[key] || {};
-    const bar = source[key] || {};
-    const pos = bar.position || {};
-    const size = bar.size || {};
-    const fill = bar.fill || {};
-    const label = bar.label || {};
-    return {
-      visible: bar.visible !== false && base.visible !== false,
-      position: {
-        left: clampNumber(pos.left, base.position?.left ?? 0, -10000, 10000),
-        top: clampNumber(pos.top, base.position?.top ?? 0, -10000, 10000),
-      },
-      size: {
-        width: clampNumber(size.width, base.size?.width ?? 0, 0, 10000),
-        height: clampNumber(size.height, base.size?.height ?? 0, 0, 1000),
-      },
-      padding: clampNumber(bar.padding, base.padding ?? 0, 0, 1000),
-      borderRadius: clampNumber(bar.borderRadius, base.borderRadius ?? 0, 0, 1000),
-      background: typeof bar.background === 'string' ? bar.background : base.background,
-      border: typeof bar.border === 'string' ? bar.border : base.border,
-      shadow: typeof bar.shadow === 'string' ? bar.shadow : base.shadow,
-      backdropFilter: typeof bar.backdropFilter === 'string' ? bar.backdropFilter : base.backdropFilter,
-      fill: {
-        color: typeof fill.color === 'string' ? fill.color : base.fill?.color,
-        shadow: typeof fill.shadow === 'string' ? fill.shadow : base.fill?.shadow,
-        lowColor: typeof fill.lowColor === 'string' ? fill.lowColor : base.fill?.lowColor,
-        lowShadow: typeof fill.lowShadow === 'string' ? fill.lowShadow : base.fill?.lowShadow,
-        dashingColor: typeof fill.dashingColor === 'string' ? fill.dashingColor : base.fill?.dashingColor,
-        dashingShadow: typeof fill.dashingShadow === 'string' ? fill.dashingShadow : base.fill?.dashingShadow,
-      },
-      label: {
-        color: typeof label.color === 'string' ? label.color : base.label?.color,
-        shadow: typeof label.shadow === 'string' ? label.shadow : base.label?.shadow,
-        fontSize: clampNumber(label.fontSize, base.label?.fontSize ?? 11, 6, 64),
-        fontWeight: clampNumber(label.fontWeight, base.label?.fontWeight ?? 600, 100, 900),
-      },
-    };
-  };
-
-  return {
-    enabled: source.enabled !== false && fallback.enabled !== false,
-    health: sanitizeBar('health'),
-    stamina: sanitizeBar('stamina'),
-    footing: sanitizeBar('footing'),
-  };
-}
-
-if (typeof window !== 'undefined') {
-  window.mergeClockConfig = mergeClockConfig;
-  window.mergeResourceBarConfig = mergeResourceBarConfig;
 }
 
 function sampleDayCycleColor(colors, time24h, offset = 0) {
@@ -1125,7 +955,7 @@ import { initSprites, renderSprites } from './sprites.js?v=8';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
 import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
-import initArchTouchInput, { mergeArchConfig } from './arch-touch-input.js?v=1';
+import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
@@ -2157,12 +1987,9 @@ function applyRenderOrder(){
 applyRenderOrder();
 
 // HUD refs
-const healthBar = document.querySelector('.health-bar');
 const staminaFill = $$('#staminaFill');
 const footingFill = $$('#footingFill');
 const healthFill = $$('#healthFill');
-const staminaBar = staminaFill?.parentElement || document.querySelector('.stamina-bar');
-const footingBar = footingFill?.parentElement || document.querySelector('.footing-bar');
 const staminaLabel = $$('#staminaLabel');
 const footingLabel = $$('#footingLabel');
 const healthLabel = $$('#healthLabel');
@@ -2240,7 +2067,6 @@ let archTouchHandle = null;
 refreshBottomHudConfig();
 refreshEnemyIndicatorConfig();
 syncHudScaleFactors({ force: true });
-applyResourceBarStyles(window.CONFIG?.ui?.resourceBars);
 
 if (helpBtn && helpPanel) {
   const setHelpVisible = (visible) => {
@@ -2268,139 +2094,6 @@ if (helpBtn && helpPanel) {
 
   setHelpVisible(false);
 }
-
-function getRuntimeConfigSnapshot(targetKey) {
-  switch (targetKey) {
-    case 'arch':
-      return mergeArchConfig(window.CONFIG?.hud?.arch || {});
-    case 'clock':
-      return mergeClockConfig(window.CONFIG?.ui?.clock || {});
-    case 'resourceBars':
-      return mergeResourceBarConfig(window.CONFIG?.ui?.resourceBars || {});
-    default:
-      return {};
-  }
-}
-
-function initRuntimeConfigPanel() {
-  const modal = document.getElementById('runtimeConfigModal');
-  const toggleBtn = document.getElementById('runtimeConfigToggle');
-  const closeBtn = document.getElementById('runtimeConfigClose');
-  const targetSelect = document.getElementById('runtimeConfigTarget');
-  const textarea = document.getElementById('runtimeConfigTextarea');
-  const statusEl = document.getElementById('runtimeConfigStatus');
-  const exportBtn = document.getElementById('runtimeConfigExport');
-  const applyBtn = document.getElementById('runtimeConfigApply');
-  const copyBtn = document.getElementById('runtimeConfigCopy');
-
-  if (!modal || !toggleBtn || !textarea || !targetSelect) return;
-
-  const showModal = (visible) => {
-    modal.classList.toggle('visible', visible);
-    modal.setAttribute('aria-hidden', visible ? 'false' : 'true');
-    if (visible) {
-      textarea.focus();
-      populateFromCurrent();
-    } else if (statusEl) {
-      statusEl.textContent = '';
-      statusEl.className = 'runtime-config-status';
-    }
-  };
-
-  const setStatus = (text, type = 'info') => {
-    if (!statusEl) return;
-    statusEl.textContent = text;
-    statusEl.className = `runtime-config-status ${type === 'error' ? 'error' : type === 'success' ? 'success' : ''}`;
-  };
-
-  const populateFromCurrent = () => {
-    try {
-      const targetKey = targetSelect.value;
-      const data = getRuntimeConfigSnapshot(targetKey);
-      textarea.value = JSON.stringify(data, null, 2);
-      setStatus('Current config loaded', 'success');
-    } catch (error) {
-      console.error('[runtime-config] Failed to export config', error);
-      setStatus('Unable to export current config', 'error');
-    }
-  };
-
-  const applyFromTextarea = () => {
-    try {
-      const parsed = JSON.parse(textarea.value || '{}');
-      const targetKey = targetSelect.value;
-      if (targetKey === 'arch') {
-        const merged = mergeArchConfig(parsed);
-        window.CONFIG ||= {};
-        window.CONFIG.hud ||= {};
-        window.CONFIG.hud.arch = merged;
-        archTouchHandle?.updateConfig?.(merged);
-        setStatus('HUD arch updated and rebuilt', 'success');
-        return;
-      }
-      if (targetKey === 'clock') {
-        const mergedClock = mergeClockConfig(parsed);
-        window.CONFIG ||= {};
-        window.CONFIG.ui ||= {};
-        window.CONFIG.ui.clock = mergedClock;
-        window.CONFIG.ui.showClock = mergedClock.enabled;
-        setStatus('Clock settings updated', 'success');
-        return;
-      }
-      if (targetKey === 'resourceBars') {
-        const mergedBars = mergeResourceBarConfig(parsed);
-        applyResourceBarStyles(mergedBars);
-        setStatus('Resource bar styling updated', 'success');
-      }
-    } catch (error) {
-      console.error('[runtime-config] Failed to apply JSON', error);
-      setStatus('Invalid JSON or config', 'error');
-    }
-  };
-
-  toggleBtn.addEventListener('click', (event) => {
-    event.preventDefault();
-    const next = !modal.classList.contains('visible');
-    showModal(next);
-  });
-
-  closeBtn?.addEventListener('click', () => showModal(false));
-  modal.addEventListener('click', (event) => {
-    if (event.target === modal) showModal(false);
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && modal.classList.contains('visible')) {
-      showModal(false);
-    }
-  });
-
-  targetSelect.addEventListener('change', populateFromCurrent);
-  exportBtn?.addEventListener('click', populateFromCurrent);
-  applyBtn?.addEventListener('click', applyFromTextarea);
-  copyBtn?.addEventListener('click', async () => {
-    if (!textarea.value) {
-      setStatus('Nothing to copy', 'error');
-      return;
-    }
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(textarea.value);
-      } else {
-        textarea.select();
-        document.execCommand('copy');
-      }
-      setStatus('Copied to clipboard', 'success');
-    } catch (error) {
-      console.error('[runtime-config] Copy failed', error);
-      setStatus('Copy failed', 'error');
-    }
-  });
-
-  populateFromCurrent();
-}
-
-initRuntimeConfigPanel();
 
 if (reloadBtn){
   reloadBtn.addEventListener('click', async ()=>{
@@ -2902,7 +2595,6 @@ document.addEventListener('config:updated', ()=>{
   refreshBottomHudConfig();
   refreshEnemyIndicatorConfig();
   syncHudScaleFactors({ force: true });
-  applyResourceBarStyles(window.CONFIG?.ui?.resourceBars);
 });
 
 // Fighter selection and settings management
@@ -3940,51 +3632,6 @@ function updateEnemyIndicators() {
       entry.needsPathRefresh = true;
     }
   });
-}
-
-function applyResourceBarStyles(rawConfig = null) {
-  const merged = mergeResourceBarConfig(rawConfig || window.CONFIG?.ui?.resourceBars || {});
-  window.CONFIG ||= {};
-  window.CONFIG.ui ||= {};
-  window.CONFIG.ui.resourceBars = merged;
-
-  const applyBar = (barEl, fillEl, labelEl, cfg) => {
-    if (!barEl || !cfg) return;
-    const visible = merged.enabled && cfg.visible !== false;
-    barEl.style.display = visible ? 'block' : 'none';
-    if (!visible) return;
-
-    barEl.style.setProperty('--bar-left', `${cfg.position.left}px`);
-    barEl.style.setProperty('--bar-top', `${cfg.position.top}px`);
-    barEl.style.setProperty('--bar-width', `${cfg.size.width}px`);
-    barEl.style.setProperty('--bar-height', `${cfg.size.height}px`);
-    barEl.style.setProperty('--bar-padding', `${cfg.padding}px`);
-    barEl.style.setProperty('--bar-radius', `${cfg.borderRadius}px`);
-    barEl.style.setProperty('--bar-bg', cfg.background || '');
-    barEl.style.setProperty('--bar-border', cfg.border || '');
-    barEl.style.setProperty('--bar-shadow', cfg.shadow || '');
-    barEl.style.setProperty('--bar-backdrop', cfg.backdropFilter || '');
-
-    if (fillEl) {
-      fillEl.style.setProperty('--bar-fill', cfg.fill?.color || '');
-      fillEl.style.setProperty('--bar-fill-shadow', cfg.fill?.shadow || '');
-      if (cfg.fill?.lowColor) fillEl.style.setProperty('--bar-fill-low', cfg.fill.lowColor);
-      if (cfg.fill?.lowShadow) fillEl.style.setProperty('--bar-fill-low-shadow', cfg.fill.lowShadow);
-      if (cfg.fill?.dashingColor) fillEl.style.setProperty('--bar-fill-dash', cfg.fill.dashingColor);
-      if (cfg.fill?.dashingShadow) fillEl.style.setProperty('--bar-fill-dash-shadow', cfg.fill.dashingShadow);
-    }
-
-    if (labelEl) {
-      labelEl.style.setProperty('--bar-label-color', cfg.label?.color || '');
-      labelEl.style.setProperty('--bar-label-shadow', cfg.label?.shadow || '');
-      if (cfg.label?.fontSize) labelEl.style.setProperty('--bar-label-size', `${cfg.label.fontSize}px`);
-      if (cfg.label?.fontWeight) labelEl.style.setProperty('--bar-label-weight', cfg.label.fontWeight);
-    }
-  };
-
-  applyBar(healthBar, healthFill, healthLabel, merged.health);
-  applyBar(staminaBar, staminaFill, staminaLabel, merged.stamina);
-  applyBar(footingBar, footingFill, footingLabel, merged.footing);
 }
 
 function updateHUD(){

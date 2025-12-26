@@ -665,9 +665,7 @@ function drawClock(ctx) {
 
   // Check if clock display is enabled
   const CONFIG = window.CONFIG || {};
-  const clockConfig = (typeof window !== 'undefined' && typeof window.mergeClockConfig === 'function'
-    ? window.mergeClockConfig(CONFIG.ui?.clock || {})
-    : CONFIG.ui?.clock || {});
+  const clockConfig = CONFIG.ui?.clock || {};
   const showClock = clockConfig.enabled ?? CONFIG.ui?.showClock;
   if (!showClock) return;
 
@@ -676,24 +674,7 @@ function drawClock(ctx) {
   const area = registry?.getActiveArea?.();
   const areaTime = area?.background?.sky?.time24h ?? window.BACKGROUND?.sky?.time24h;
   const controllerTime = window.gameTimeController?.time24h;
-  const debugFallback = Number.isFinite(clockConfig.debugTime24h) ? clockConfig.debugTime24h : null;
-  const systemTime = (() => {
-    try {
-      const now = new Date();
-      return now.getHours() + (now.getMinutes() / 60);
-    } catch (_err) {
-      return null;
-    }
-  })();
-  let time24h = Number.isFinite(areaTime) ? areaTime : controllerTime;
-
-  if (!Number.isFinite(time24h)) {
-    if (clockConfig.fallbackMode === 'debug' && debugFallback != null) {
-      time24h = debugFallback;
-    } else {
-      time24h = Number.isFinite(systemTime) ? systemTime : debugFallback;
-    }
-  }
+  const time24h = Number.isFinite(areaTime) ? areaTime : controllerTime;
 
   if (!Number.isFinite(time24h)) return;
 
