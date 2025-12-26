@@ -106,11 +106,7 @@
   function buildButtonArch(rootEl) {
     const archCfg = CFG.arch;
     const btnCfgs = [...CFG.buttons];
-    const scale = archCfg.scale || 1;
-    const baseButtonHeight =
-      (archCfg.buttonHeightPx ?? archCfg.buttonSizePx ?? archCfg.buttonWidthPx ?? 0) * scale;
-    const baseButtonWidth =
-      (archCfg.buttonWidthPx ?? archCfg.buttonHeightPx ?? archCfg.buttonSizePx ?? 0) * scale;
+    const letterMap = archCfg.letters || {};
 
     const container = document.createElement("div");
     container.className = "arch-hud";
@@ -236,12 +232,17 @@
       const x = center.x + radius * Math.cos(centerA);
       const y = center.y + radius * Math.sin(centerA);
 
-      const size = buttonSize;
-      const halfSize = size / 2;
+      const btnWidth =
+        btnCfg.widthPx != null ? Number(btnCfg.widthPx) * scale : buttonSize;
+      const btnHeight =
+        btnCfg.heightPx != null ? Number(btnCfg.heightPx) * scale : buttonSize;
+      const halfWidth = btnWidth / 2;
+      const halfHeight = btnHeight / 2;
 
       const btnEl = document.createElement("button");
       btnEl.className = "arch-hud__button";
       btnEl.id = `arch-btn-${btnCfg.id}`;
+      btnEl.type = "button";
 
       let rotDeg = 0;
       if (archCfg.rotateWithArch) {
@@ -254,11 +255,13 @@
       btnEl.style.width = `${btnWidth}px`;
       btnEl.style.height = `${btnHeight}px`;
 
-      if (btnCfg.sprite) {
-        const img = document.createElement("img");
-        img.src = btnCfg.sprite;
-        img.alt = btnCfg.id;
-        btnEl.appendChild(img);
+      const letter = (btnCfg.letter || letterMap[btnCfg.id] || "").toString().trim();
+      if (letter) {
+        btnEl.dataset.letter = letter.toUpperCase();
+        const label = document.createElement("span");
+        label.className = "arch-hud__button-label";
+        label.textContent = letter.toUpperCase();
+        btnEl.appendChild(label);
       }
 
       // --- Hook your existing ability logic here ----------------------------

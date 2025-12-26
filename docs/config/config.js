@@ -1053,10 +1053,10 @@ window.CONFIG = {
         debug: false,
       },
       buttons: [
-        { id: 'attackA', action: 'buttonA', order: 2, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-light.png' },
-        { id: 'attackB', action: 'buttonB', order: 3, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-heavy.png' },
-        { id: 'attackC', action: 'buttonC', order: 4, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-special.png' },
-        { id: 'jump', action: 'jump', order: 1, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-jump.png' },
+        { id: 'attackA', action: 'buttonA', order: 2, lengthPct: 0.25, gapPx: 12, letter: 'A' },
+        { id: 'attackB', action: 'buttonB', order: 3, lengthPct: 0.25, gapPx: 12, letter: 'B' },
+        { id: 'attackC', action: 'buttonC', order: 4, lengthPct: 0.25, gapPx: 12, letter: 'C' },
+        { id: 'jump', action: 'jump', order: 1, lengthPct: 0.25, gapPx: 12, letter: 'J' },
       ]
     }
   },

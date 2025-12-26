@@ -13,10 +13,10 @@ const DEFAULT_CONFIG = {
     debug: false,
   },
   buttons: [
-    { id: 'attackA', action: 'buttonA', order: 0, lengthPct: 0.22, gapPx: 12, sprite: 'img/ui/btn-light.png' },
-    { id: 'attackB', action: 'buttonB', order: 1, lengthPct: 0.22, gapPx: 12, sprite: 'img/ui/btn-heavy.png' },
-    { id: 'attackC', action: 'buttonC', order: 2, lengthPct: 0.24, gapPx: 12, sprite: 'img/ui/btn-special.png' },
-    { id: 'jump', action: 'jump', order: 3, lengthPct: 0.20, gapPx: 12, sprite: 'img/ui/btn-jump.png' },
+    { id: 'attackA', action: 'buttonA', order: 0, lengthPct: 0.22, gapPx: 12, letter: 'A' },
+    { id: 'attackB', action: 'buttonB', order: 1, lengthPct: 0.22, gapPx: 12, letter: 'B' },
+    { id: 'attackC', action: 'buttonC', order: 2, lengthPct: 0.24, gapPx: 12, letter: 'C' },
+    { id: 'jump', action: 'jump', order: 3, lengthPct: 0.20, gapPx: 12, letter: 'J' },
   ],
 };
 
@@ -217,11 +217,13 @@ function buildButtonArch(config, handlers = {}, rootEl = null) {
     btnEl.style.top = `${y - halfSize}px`;
     btnEl.style.transform = `rotate(${rotDeg}deg)`;
 
-    if (btnCfg.sprite) {
-      const img = document.createElement('img');
-      img.src = btnCfg.sprite;
-      img.alt = btnCfg.id;
-      btnEl.appendChild(img);
+    const letter = (btnCfg.letter || '').toString().trim();
+    if (letter) {
+      btnEl.dataset.letter = letter.toUpperCase();
+      const label = document.createElement('span');
+      label.className = 'arch-hud__button-label';
+      label.textContent = letter.toUpperCase();
+      btnEl.appendChild(label);
     }
 
     const onDown = (event) => {
