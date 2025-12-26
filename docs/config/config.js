@@ -164,93 +164,85 @@ const abilityKnockback = window.abilityKnockback || ((base, { clamp } = {}) => {
 });
 window.abilityKnockback = abilityKnockback;
 
+const deepClone = (value) => JSON.parse(JSON.stringify(value || {}));
+
+const ABILITY_JSON_CACHE = window.ABILITY_JSON_CACHE || {};
+const ABILITY_JSON_BASE = typeof document !== 'undefined'
+  ? './config/abilities/'
+  : `${typeof process !== 'undefined' ? process.cwd() : ''}/docs/config/abilities/`;
+
+const loadAbilityJson = (fileName) => {
+  const cacheKey = fileName;
+  if (ABILITY_JSON_CACHE[cacheKey]) return ABILITY_JSON_CACHE[cacheKey];
+  const path = `${ABILITY_JSON_BASE}${fileName}`;
+  let result = null;
+
+  if (typeof XMLHttpRequest !== 'undefined') {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', path, false);
+      xhr.overrideMimeType?.('application/json');
+      xhr.send(null);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        result = JSON.parse(xhr.responseText || '{}');
+      }
+    } catch (err) {
+      console.warn('Failed to load ability config', fileName, err);
+    }
+  } else if (typeof require === 'function') {
+    try {
+      const fs = require('fs');
+      result = JSON.parse(fs.readFileSync(path, 'utf8'));
+    } catch (err) {
+      console.warn('Failed to load ability config in Node', fileName, err);
+    }
+  }
+
+  if (result) {
+    ABILITY_JSON_CACHE[cacheKey] = result;
+    window.ABILITY_JSON_CACHE = ABILITY_JSON_CACHE;
+    return result;
+  }
+
+  return {};
+};
+
+const toFunction = (value) => {
+  if (typeof value === 'function') return value;
+  if (typeof value === 'string') {
+    // eslint-disable-next-line no-new-func
+    return new Function('stage', `return (${value})(stage);`);
+  }
+  return null;
+};
+
+const hydrateAbilityDefinition = (definition = {}) => {
+  const prepared = deepClone(definition);
+  if (prepared.onHit && typeof prepared.onHit === 'object' && typeof prepared.onHit.knockback === 'number') {
+    const { knockback, clamp } = prepared.onHit;
+    prepared.onHit = abilityKnockback(knockback, { clamp });
+  }
+  if (prepared.charge?.stageMultipliers) {
+    prepared.charge.stageMultipliers = toFunction(prepared.charge.stageMultipliers) || prepared.charge.stageMultipliers;
+  }
+  return prepared;
+};
+
 const ensureAbilityLibrary = () => {
   const library = window.ABILITY_LIBRARY || {};
   if (Object.keys(library).length > 0) {
     return library;
   }
 
-  const fallbackAbilities = {
-    combo_light: {
-      name: 'Weapon Combo',
-      type: 'light',
-      trigger: 'combo',
-      tags: ['combo', 'light'],
-      comboFromWeapon: true,
-      fallbackWeapon: 'unarmed',
-      multipliers: { durations: 1 },
-      onHit: abilityKnockback(8)
-    },
-    unarmed_combo_light: {
-      name: 'Unarmed Combo',
-      type: 'light',
-      trigger: 'combo',
-      tags: ['combo', 'light', 'unarmed'],
-      sequence: ['UnArCA1', 'UnArCA2', 'UnArCA3', 'UnArCA4'],
-      defaultAttack: 'UnArCA1',
-      comboWindowMs: 3000,
-      onHit: abilityKnockback(8)
-    },
-    quick_light: {
-      name: 'Quick Kick',
-      type: 'light',
-      trigger: 'single',
-      tags: ['quick', 'light'],
-      variants: [
-        { id: 'postCombo', attack: 'QuickKickCombo', require: { comboHitsGte: 4, comboActive: true } },
-        { id: 'default', attack: 'QuickKick' }
-      ],
-      multipliers: { durations: 1 },
-      onHit: abilityKnockback(10)
-    },
-    quick_punch: {
-      name: 'Quick Punch',
-      type: 'light',
-      trigger: 'single',
-      tags: ['quick', 'light'],
-      variants: [
-        { id: 'postCombo', attack: 'QuickPunchCombo', require: { comboHitsGte: 4, comboActive: true } },
-        { id: 'default', attack: 'QuickPunch' }
-      ],
-      multipliers: { durations: 1 },
-      onHit: abilityKnockback(10)
-    },
-    heavy_hold: {
-      name: 'Charged Slam',
-      type: 'heavy',
-      trigger: 'hold-release',
-      tags: ['heavy', 'hold'],
-      attack: 'Slam',
-      charge: {
-        minStage: 1,
-        maxStage: 5,
-        stageDurationMs: 200,
-        stageMultipliers: (stage) => ({
-          durations: 1 + stage * 0.05,
-          knockback: 1 + stage * 0.25
-        })
-      },
-      onHit: abilityKnockback(14)
-    },
-    evade_defensive: {
-      name: 'Evade',
-      type: 'defensive',
-      trigger: 'defensive',
-      tags: ['defensive', 'mobility'],
-      defensive: {
-        poseKey: 'Stance',
-        poseRefreshMs: 220,
-        staminaDrainPerSecond: 40,
-        minStaminaRatio: 0.6
-      }
-    }
-  };
+  const abilityJson = loadAbilityJson('ability-library.json');
+  const hydrated = {};
+  Object.entries(abilityJson || {}).forEach(([id, def]) => {
+    hydrated[id] = hydrateAbilityDefinition(def);
+  });
 
-  window.ABILITY_LIBRARY = fallbackAbilities;
-  return fallbackAbilities;
+  window.ABILITY_LIBRARY = hydrated;
+  return hydrated;
 };
-
-const deepClone = (value) => JSON.parse(JSON.stringify(value || {}));
 
 const mergeAbilityManifests = (config) => {
   if (!config) return;
@@ -806,188 +798,31 @@ const COSMETIC_LIBRARY_SOURCES = {
 	
 };
 
-const KICK_MOVE_POSES = {
-  Stance: {
-    ...deepClone(BASE_POSES.Stance),
-  },
-  Windup: {
-    torso: -10,
-    lShoulder: -100,
-    lElbow: -120,
-    rShoulder: -80,
-    rElbow: -100,
-    lHip:130,
-    lKnee:90,
-    rHip:100,
-    rKnee:90,
-    rootMoveVel: { x: 0, y: 0 },
-    impulseMag: 0,
-    impulseDirDeg: 0,
-    allowAiming: true,
-    aimLegs: true,
-    aimRightLegOnly: true,
-    anim_events: [
-      
-    ]
-  },
-  Strike: {
-    torso: 120,
-    lShoulder: -27,
-    lElbow: 0,
-    rShoulder: 90,
-    rElbow: 0,
-    lHip:180,
-    lKnee:0,
-    rHip:110,
-    rKnee:20,
-    rootMoveVel: { x: 0, y: 0 },
-    impulseMag: 0,
-    impulseDirDeg: 0,
-    allowAiming: false,
-    aimLegs: true,
-    aimRightLegOnly: true,
-    flip: true,
-    flipAt: 0.1,
-    flipParts: ['ARM_R_UPPER', 'ARM_R_LOWER', 'LEG_R_UPPER', 'LEG_R_LOWER'],
-    fullFlipFacing: true,
-    fullFlipAt: 0.1,
-    anim_events: [
-    ]
-  },
-  Recoil: // Kick recoil pose definition
-  {
-    torso: 80,
-    lShoulder: -27,
-    lElbow: 0,
-    rShoulder: 90,
-    rElbow: 0,
-    lHip:180,
-    lKnee:0,
-    rHip:110,
-    rKnee:20,
-    rootMoveVel: { x: 0, y: 0 },
-    impulseMag: 0,
-    impulseDirDeg: 0,
-    allowAiming: false,
-    aimLegs: true,
-    flip: true,
-    flipAt: 0.9,
-    flipParts: ['ARM_R_UPPER', 'ARM_R_LOWER', 'LEG_R_UPPER', 'LEG_R_LOWER'],
-    fullFlipFacing: true,
-    fullFlipAt: 0.9,
-    anim_events: [
-    ]
-  }
-};
+const ABILITY_POSE_LIBRARY = (() => {
+  const poses = loadAbilityJson('pose-library.json');
+  const resolved = {};
+  Object.entries(poses || {}).forEach(([id, poseSet]) => {
+    resolved[id] = deepClone(poseSet);
+  });
+  return resolved;
+})();
 
-const PUNCH_MOVE_POSES = {
-  Stance: {
-        ...deepClone(BASE_POSES.Stance),
-    },
-  Windup: {
-		torso: 10,
-        lShoulder: 0,
-        lElbow: 120,
-        rShoulder: 0,
-        rElbow: 120,
-        lHip: 110,
-        lKnee: 40,
-        rHip: 30,
-        rKnee: 40,
-    rootMoveVel: { x: 0, y: 0 },
-    impulseMag: 0,
-    impulseDirDeg: 0,
-    allowAiming: true,
-    aimLegs: false,
-    anim_events: [
-    ]
-  },
-  Strike: {
-		torso: 10,
-        lShoulder: -230,
-        lElbow: 0,
-        rShoulder: -230,
-        rElbow: 0,
-        lHip: 110,
-        lKnee: 40,
-        rHip: 30,
-        rKnee: 40,
-    rootMoveVel: { x: 0, y: 0, flip: false },
-    impulseMag: 0,
-    impulseDirDeg: 0,
-    allowAiming: true,
-    aimLegs: false,
-    anim_events: [
-    ]
-  },
-  Recoil: {
-		torso: 60,
-        lShoulder: -100,
-        lElbow: 0,
-        rShoulder: -180,
-        rElbow: 0,
-        lHip: 110,
-        lKnee: 40,
-        rHip: 30,
-        rKnee: 40,
-    rootMoveVel: { x: 0, y: 0 },
-    impulseMag: 0,
-    impulseDirDeg: 0,
-    allowAiming: false,
-    aimLegs: false,
-    anim_events: [
-    ]
-  }
-};
+const ABILITY_MOVES = (() => {
+  const moves = loadAbilityJson('move-library.json');
+  const resolved = {};
+  Object.entries(moves || {}).forEach(([id, moveDef]) => {
+    const move = deepClone(moveDef);
+    const poseSetId = move.poseSetId || id;
+    if (poseSetId && ABILITY_POSE_LIBRARY[poseSetId]) {
+      move.poses = deepClone(ABILITY_POSE_LIBRARY[poseSetId]);
+    }
+    delete move.poseSetId;
+    resolved[id] = move;
+  });
+  return resolved;
+})();
 
-const SLAM_MOVE_POSES = {
-  Stance: deepClone(PUNCH_MOVE_POSES.Stance),
-  Windup: {
-    torso: -35,
-    lShoulder: -360,
-    lElbow: 0,
-    rShoulder: -360,
-    rElbow: 0,
-    lHip: 40,
-    lKnee: 90,
-    rHip: -90,
-    rKnee: 90,
-    rootMoveVel: { x: 0, y: 0 },
-    impulseMag: 0,
-    impulseDirDeg: 0,
-    allowAiming: true,
-    aimLegs: false,
-    anim_events: [
-      { time: 0.00, velocityY: -680 },
-      { time: 0.00, gravityScale: 0.35, gravityScaleDurationMs: 1200 }
-    ]
-  },
-  Charge: {
-    torso: -45,
-    lShoulder: -370,
-    lElbow: -10,
-    rShoulder: -370,
-    rElbow: -10,
-    lHip: 50,
-    lKnee: 110,
-    rHip: -100,
-    rKnee: 110,
-    rootMoveVel: { x: 0, y: 0 },
-    impulseMag: 0,
-    impulseDirDeg: 0,
-    translate: { x: 75, y: 0, local: true },
-    allowAiming: true,
-    aimLegs: false
-  },
-  Slam: {
-    ...deepClone(PUNCH_MOVE_POSES.Strike),
-    anim_events: [
-      { time: 0.00, resetGravityScale: true },
-      { time: 0.00, impulse: 520, aimRelative: true }
-    ]
-  },
-  Recoil: deepClone(PUNCH_MOVE_POSES.Recoil)
-};
+const ABILITY_ATTACKS = loadAbilityJson('attacks.json');
 
 window.CONFIG = {
   basePose: deepClone(BASE_POSES.Stance),
@@ -1581,37 +1416,8 @@ window.CONFIG = {
     currentWeapon: 'unarmed'
   },
 
-  moves: {
-    KICK: {
-      name: 'Quick Kick',
-      tags: ['light', 'quick'],
-      durations: { toWindup: 480, toStrike: 210, toRecoil: 680, toStance: 200 },
-      knockbackBase: 360,
-      cancelWindow: 0.6,
-      poses: deepClone(KICK_MOVE_POSES)
-    },
-	PUNCH: {
-      name: 'Punch',
-      tags: ['light', 'quick'],
-      durations: { toWindup: 380, toStrike: 210, toRecoil: 200, toStance: 120 },
-      knockbackBase: 140,
-      cancelWindow: 0.7,
-      poses: deepClone(PUNCH_MOVE_POSES)
-    },
-    SLAM: {
-      name: 'Charged Slam',
-      tags: ['heavy'],
-      durations: { toWindup: 400, toCharge: 400, toStrike: 160, toRecoil: 200, toStance: 120 },
-      knockbackBase: 250,
-      cancelWindow: 0.5,
-      poses: deepClone(SLAM_MOVE_POSES),
-      sequence: [
-        { poseKey: 'Windup', durMs: 400 },
-        { poseKey: 'Charge', durMs: 400 },
-        { poseKey: 'Slam', durMs: 160, strike: {} },
-        { poseKey: 'Recoil', durMs: 200 }
-      ]
-    },
+  moves: deepClone(ABILITY_MOVES),
+
   },
 
   // === NEW: weapon definitions (bones + selective colliders) ===
@@ -2101,71 +1907,7 @@ window.CONFIG = {
   abilitySystem: {
     thresholds: { tapMaxMs: 200, chargeStageMs: 200 },
     defaults: { comboWindowMs: 3000 },
-    attacks: {
-      QuickKick: {
-        preset: 'KICK',
-        tags: ['quick', 'light'],
-        sequence: ['KICK'],
-        attackData: {
-          damage: { health: 10 },
-          staminaCost: 12,
-          colliders: ['footR'],
-          range: 80,
-          dash: { velocity: 280, duration: 0.22 }
-        }
-      },
-      QuickKickCombo: {
-        preset: 'KICK',
-        tags: ['quick', 'light', 'comboVariant'],
-        sequence: ['KICK'],
-        multipliers: { durations: 0.85, knockback: 1.35 },
-        attackData: {
-          damage: { health: 12 },
-          staminaCost: 13,
-          colliders: ['footR'],
-          range: 80,
-          dash: { velocity: 290, duration: 0.2 }
-        }
-      },
-      QuickPunch: {
-        preset: 'PUNCH',
-        tags: ['quick', 'light'],
-        sequence: ['PUNCH'],
-        attackData: {
-          damage: { health: 9 },
-          staminaCost: 10,
-          colliders: ['handR'],
-          range: 65,
-          dash: { velocity: 240, duration: 0.18 }
-        }
-      },
-      QuickPunchCombo: {
-        preset: 'PUNCH',
-        tags: ['quick', 'light', 'comboVariant'],
-        sequence: ['PUNCH'],
-        multipliers: { durations: 0.85, knockback: 1.35 },
-        attackData: {
-          damage: { health: 11 },
-          staminaCost: 11,
-          colliders: ['handR'],
-          range: 65,
-          dash: { velocity: 250, duration: 0.16 }
-        }
-      },
-      Slam: {
-        preset: 'SLAM',
-        tags: ['heavy'],
-        sequence: ['SLAM'],
-        multipliers: { durations: 1.1, knockback: 1.2 },
-        attackData: {
-          damage: { health: 22 },
-          staminaCost: 28,
-          colliders: ['handL', 'handR'],
-          range: 75,
-          dash: { velocity: 400, duration: 1.2 }
-        }
-      }
-    },
+    attacks: deepClone(ABILITY_ATTACKS),
     abilities: ensureAbilityLibrary(),
     slots: {
       A: {
@@ -2197,6 +1939,7 @@ window.CONFIG = {
       }
     }
   }
+
 }
 
 const posePhaseInfo = (poseName) => {
@@ -2575,12 +2318,12 @@ window.CONFIG = window.CONFIG || {};
       }
     },
     library: {
-      KICK_Windup: { base: 'Windup', overrides: deepClone(KICK_MOVE_POSES.Windup) },
-      KICK_Strike: { base: 'Strike', overrides: deepClone(KICK_MOVE_POSES.Strike) },
-      KICK_Recoil: { base: 'Recoil', overrides: deepClone(KICK_MOVE_POSES.Recoil) },
-      SLAM_Windup: { base: 'Windup', overrides: deepClone(SLAM_MOVE_POSES.Windup) },
-      SLAM_Strike: { base: 'Slam', overrides: deepClone(SLAM_MOVE_POSES.Slam) },
-      SLAM_Recoil: { base: 'Recoil', overrides: deepClone(SLAM_MOVE_POSES.Recoil) }
+      KICK_Windup: { base: 'Windup', overrides: deepClone((ABILITY_POSE_LIBRARY.KICK || {}).Windup || {}) },
+      KICK_Strike: { base: 'Strike', overrides: deepClone((ABILITY_POSE_LIBRARY.KICK || {}).Strike || {}) },
+      KICK_Recoil: { base: 'Recoil', overrides: deepClone((ABILITY_POSE_LIBRARY.KICK || {}).Recoil || {}) },
+      SLAM_Windup: { base: 'Windup', overrides: deepClone((ABILITY_POSE_LIBRARY.SLAM || {}).Windup || {}) },
+      SLAM_Strike: { base: 'Slam', overrides: deepClone((ABILITY_POSE_LIBRARY.SLAM || {}).Slam || {}) },
+      SLAM_Recoil: { base: 'Recoil', overrides: deepClone((ABILITY_POSE_LIBRARY.SLAM || {}).Recoil || {}) }
     }
   };
 

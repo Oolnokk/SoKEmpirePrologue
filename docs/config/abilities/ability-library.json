@@ -1,0 +1,72 @@
+{
+  "combo_light": {
+    "name": "Weapon Combo",
+    "type": "light",
+    "trigger": "combo",
+    "tags": ["combo", "light"],
+    "comboFromWeapon": true,
+    "fallbackWeapon": "unarmed",
+    "multipliers": { "durations": 1 },
+    "onHit": { "knockback": 8 }
+  },
+  "unarmed_combo_light": {
+    "name": "Unarmed Combo",
+    "type": "light",
+    "trigger": "combo",
+    "tags": ["combo", "light", "unarmed"],
+    "sequence": ["UnArCA1", "UnArCA2", "UnArCA3", "UnArCA4"],
+    "defaultAttack": "UnArCA1",
+    "comboWindowMs": 3000,
+    "onHit": { "knockback": 8 }
+  },
+  "quick_light": {
+    "name": "Quick Kick",
+    "type": "light",
+    "trigger": "single",
+    "tags": ["quick", "light"],
+    "variants": [
+      { "id": "postCombo", "attack": "QuickKickCombo", "require": { "comboHitsGte": 4, "comboActive": true } },
+      { "id": "default", "attack": "QuickKick" }
+    ],
+    "multipliers": { "durations": 1 },
+    "onHit": { "knockback": 10 }
+  },
+  "quick_punch": {
+    "name": "Quick Punch",
+    "type": "light",
+    "trigger": "single",
+    "tags": ["quick", "light"],
+    "variants": [
+      { "id": "postCombo", "attack": "QuickPunchCombo", "require": { "comboHitsGte": 4, "comboActive": true } },
+      { "id": "default", "attack": "QuickPunch" }
+    ],
+    "multipliers": { "durations": 1 },
+    "onHit": { "knockback": 10 }
+  },
+  "heavy_hold": {
+    "name": "Charged Slam",
+    "type": "heavy",
+    "trigger": "hold-release",
+    "tags": ["heavy", "hold"],
+    "attack": "Slam",
+    "charge": {
+      "minStage": 1,
+      "maxStage": 5,
+      "stageDurationMs": 200,
+      "stageMultipliers": "(stage) => ({ durations: 1 + stage * 0.05, knockback: 1 + stage * 0.25 })"
+    },
+    "onHit": { "knockback": 14 }
+  },
+  "evade_defensive": {
+    "name": "Evade",
+    "type": "defensive",
+    "trigger": "defensive",
+    "tags": ["defensive", "mobility"],
+    "defensive": {
+      "poseKey": "Stance",
+      "poseRefreshMs": 220,
+      "staminaDrainPerSecond": 40,
+      "minStaminaRatio": 0.6
+    }
+  }
+}
