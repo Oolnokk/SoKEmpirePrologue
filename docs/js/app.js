@@ -959,7 +959,7 @@ import initArchTouchInput from './arch-touch-input.js?v=1';
 import { initBountySystem, updateBountySystem, getBountyState } from './bounty.js?v=1';
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
-import { initTransformConfig, transform3dTo2d } from './coordinate-transform.js?v=1';
+import { initTransformConfig, transform3dTo2d, transform2dTo3d, getTransformConfig } from './coordinate-transform.js?v=1';
 
 // Visualsmap loader for 3D grid-based scenes
 let visualsmapLoaderModule = null;
@@ -5841,14 +5841,23 @@ function renderGameplayPathOverlay(ctx) {
   const labelY3 = labelYTile + lineHeight + 2;
   const worldWidth = camera2d?.worldWidth || 1600;
   const worldHeight = camera2d?.worldHeight || 600;
-  // Transform: x3d = (worldWidth/2) - x2d
-  //   - Accounts for centering: 2D measured from left, 3D from center
-  //   - Accounts for inversion: moving right in 2D scrolls left in 3D
-  const expectedFrom2D = (worldWidth / 2) - camX2d;
+
+  // Calculate viewport center (matching three-camera-sync.js logic)
+  const viewportWorldWidth = Number.isFinite(camera2d?.viewportWorldWidth)
+    ? camera2d.viewportWorldWidth
+    : (Number.isFinite(camera2d?.viewportWidth) && Number.isFinite(camera2d?.zoom) && camera2d.zoom !== 0
+      ? camera2d.viewportWidth / camera2d.zoom
+      : null);
+  const center2dX = Number.isFinite(viewportWorldWidth) ? camX2d + viewportWorldWidth / 2 : camX2d;
+
+  // Use actual transform function to calculate expected 3D position
+  const transformCfg = getTransformConfig();
+  const transformed = transform2dTo3d({ x: center2dX, y: 0 }, transformCfg);
+  const expectedFrom2D = transformed.x;
   const actual3D = cam3dX;
   const transformOK = Math.abs(expectedFrom2D - actual3D) < 1;
   const text3 = transformOK
-    ? `✓ 2D→3D: ${(worldWidth/2).toFixed(1)} - ${camX2d.toFixed(1)} = ${actual3D.toFixed(1)}`
+    ? `✓ 2D→3D: transform(${center2dX.toFixed(1)}) = ${actual3D.toFixed(1)}`
     : `⚠ 2D→3D error: expected ${expectedFrom2D.toFixed(1)}, got ${actual3D.toFixed(1)}`;
   const metrics3 = ctx.measureText(text3);
   const bgWidth3 = metrics3.width + padding * 2;
