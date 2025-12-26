@@ -665,12 +665,16 @@ function drawClock(ctx) {
 
   // Check if clock display is enabled
   const CONFIG = window.CONFIG || {};
-  if (!CONFIG.ui?.showClock) return;
+  const clockConfig = CONFIG.ui?.clock || {};
+  const showClock = clockConfig.enabled ?? CONFIG.ui?.showClock;
+  if (!showClock) return;
 
   // Get the current area and time
   const registry = window.__MAP_REGISTRY__;
   const area = registry?.getActiveArea?.();
-  const time24h = area?.background?.sky?.time24h;
+  const areaTime = area?.background?.sky?.time24h ?? window.BACKGROUND?.sky?.time24h;
+  const controllerTime = window.gameTimeController?.time24h;
+  const time24h = Number.isFinite(areaTime) ? areaTime : controllerTime;
 
   if (!Number.isFinite(time24h)) return;
 
@@ -681,27 +685,29 @@ function drawClock(ctx) {
 
   // Draw clock in top-right corner
   const canvasWidth = ctx.canvas?.width || 720;
-  const padding = 20;
+  const padding = Number(clockConfig.padding) || 0;
   const x = canvasWidth - padding;
-  const y = 30;
+  const y = Number.isFinite(clockConfig.offsetY) ? clockConfig.offsetY : 30;
 
   ctx.save();
-  ctx.font = 'bold 24px system-ui, sans-serif';
+  ctx.font = clockConfig.font || 'bold 24px system-ui, sans-serif';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';
 
   // Draw background
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillStyle = clockConfig.background || 'rgba(0, 0, 0, 0.5)';
   const metrics = ctx.measureText(timeString);
   const textWidth = metrics.width;
-  const textHeight = 30;
-  ctx.fillRect(x - textWidth - 10, y - 5, textWidth + 20, textHeight + 10);
+  const textHeight = Number.isFinite(clockConfig.boxHeight) ? clockConfig.boxHeight : 30;
+  const boxPaddingX = Number.isFinite(clockConfig.boxPaddingX) ? clockConfig.boxPaddingX : 10;
+  const boxPaddingY = Number.isFinite(clockConfig.boxPaddingY) ? clockConfig.boxPaddingY : 5;
+  ctx.fillRect(x - textWidth - boxPaddingX, y - boxPaddingY, textWidth + boxPaddingX * 2, textHeight + boxPaddingY * 2);
 
   // Draw time text with stroke for visibility
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = clockConfig.stroke || 'rgba(0, 0, 0, 0.8)';
+  ctx.lineWidth = Number.isFinite(clockConfig.strokeWidth) ? clockConfig.strokeWidth : 3;
   ctx.strokeText(timeString, x, y);
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = clockConfig.textColor || '#ffffff';
   ctx.fillText(timeString, x, y);
 
   ctx.restore();
