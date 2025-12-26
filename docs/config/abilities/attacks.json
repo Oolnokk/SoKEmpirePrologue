@@ -1,0 +1,65 @@
+{
+  "QuickKick": {
+    "preset": "KICK",
+    "tags": ["quick", "light"],
+    "sequence": ["KICK"],
+    "attackData": {
+      "damage": { "health": 10 },
+      "staminaCost": 12,
+      "colliders": ["footR"],
+      "range": 80,
+      "dash": { "velocity": 280, "duration": 0.22 }
+    }
+  },
+  "QuickKickCombo": {
+    "preset": "KICK",
+    "tags": ["quick", "light", "comboVariant"],
+    "sequence": ["KICK"],
+    "multipliers": { "durations": 0.85, "knockback": 1.35 },
+    "attackData": {
+      "damage": { "health": 12 },
+      "staminaCost": 13,
+      "colliders": ["footR"],
+      "range": 80,
+      "dash": { "velocity": 290, "duration": 0.2 }
+    }
+  },
+  "QuickPunch": {
+    "preset": "PUNCH",
+    "tags": ["quick", "light"],
+    "sequence": ["PUNCH"],
+    "attackData": {
+      "damage": { "health": 9 },
+      "staminaCost": 10,
+      "colliders": ["handR"],
+      "range": 65,
+      "dash": { "velocity": 240, "duration": 0.18 }
+    }
+  },
+  "QuickPunchCombo": {
+    "preset": "PUNCH",
+    "tags": ["quick", "light", "comboVariant"],
+    "sequence": ["PUNCH"],
+    "multipliers": { "durations": 0.85, "knockback": 1.35 },
+    "attackData": {
+      "damage": { "health": 11 },
+      "staminaCost": 11,
+      "colliders": ["handR"],
+      "range": 65,
+      "dash": { "velocity": 250, "duration": 0.16 }
+    }
+  },
+  "Slam": {
+    "preset": "SLAM",
+    "tags": ["heavy"],
+    "sequence": ["SLAM"],
+    "multipliers": { "durations": 1.1, "knockback": 1.2 },
+    "attackData": {
+      "damage": { "health": 22 },
+      "staminaCost": 28,
+      "colliders": ["handL", "handR"],
+      "range": 75,
+      "dash": { "velocity": 400, "duration": 1.2 }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "KICK": {
+    "name": "Quick Kick",
+    "tags": ["light", "quick"],
+    "durations": { "toWindup": 480, "toStrike": 210, "toRecoil": 680, "toStance": 200 },
+    "knockbackBase": 360,
+    "cancelWindow": 0.6,
+    "poseSetId": "KICK"
+  },
+  "PUNCH": {
+    "name": "Punch",
+    "tags": ["light", "quick"],
+    "durations": { "toWindup": 380, "toStrike": 210, "toRecoil": 200, "toStance": 120 },
+    "knockbackBase": 140,
+    "cancelWindow": 0.7,
+    "poseSetId": "PUNCH"
+  },
+  "SLAM": {
+    "name": "Charged Slam",
+    "tags": ["heavy"],
+    "durations": { "toWindup": 400, "toCharge": 400, "toStrike": 160, "toRecoil": 200, "toStance": 120 },
+    "knockbackBase": 250,
+    "cancelWindow": 0.5,
+    "poseSetId": "SLAM",
+    "sequence": [
+      { "poseKey": "Windup", "durMs": 400 },
+      { "poseKey": "Charge", "durMs": 400 },
+      { "poseKey": "Slam", "durMs": 160, "strike": {} },
+      { "poseKey": "Recoil", "durMs": 200 }
+    ]
+  }
+}
