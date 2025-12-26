@@ -1447,8 +1447,6 @@ window.CONFIG = {
 
   moves: deepClone(ABILITY_MOVES),
 
-  },
-
   // === NEW: weapon definitions (bones + selective colliders) ===
   // Used by drawSkeleton() and getActiveColliders()/drawAttackColliders()
   weapons: {
