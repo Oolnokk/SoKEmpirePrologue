@@ -246,6 +246,7 @@
       const btnEl = document.createElement("button");
       btnEl.className = "arch-hud__button";
       btnEl.id = `arch-btn-${btnCfg.id}`;
+      btnEl.type = "button";
 
       let rotDeg = 0;
       if (archCfg.rotateWithArch) {
@@ -258,11 +259,13 @@
       btnEl.style.width = `${btnWidth}px`;
       btnEl.style.height = `${btnHeight}px`;
 
-      if (btnCfg.sprite) {
-        const img = document.createElement("img");
-        img.src = btnCfg.sprite;
-        img.alt = btnCfg.id;
-        btnEl.appendChild(img);
+      const letter = (btnCfg.letter || letterMap[btnCfg.id] || "").toString().trim();
+      if (letter) {
+        btnEl.dataset.letter = letter.toUpperCase();
+        const label = document.createElement("span");
+        label.className = "arch-hud__button-label";
+        label.textContent = letter.toUpperCase();
+        btnEl.appendChild(label);
       }
 
       // --- Hook your existing ability logic here ----------------------------

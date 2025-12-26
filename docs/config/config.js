@@ -3,7 +3,25 @@
 // UI Display Settings
 window.CONFIG = window.CONFIG || {};
 window.CONFIG.ui = window.CONFIG.ui || {};
-window.CONFIG.ui.showClock = true; // Display the in-game time clock
+
+// Clock display settings for in-game HUD overlay
+const __existingClockConfig = window.CONFIG.ui.clock || {};
+window.CONFIG.ui.clock = {
+  enabled: __existingClockConfig.enabled ?? window.CONFIG.ui.showClock ?? true,
+  padding: __existingClockConfig.padding ?? 20,
+  offsetY: __existingClockConfig.offsetY ?? 30,
+  font: __existingClockConfig.font ?? 'bold 24px system-ui, sans-serif',
+  background: __existingClockConfig.background ?? 'rgba(0, 0, 0, 0.5)',
+  stroke: __existingClockConfig.stroke ?? 'rgba(0, 0, 0, 0.8)',
+  textColor: __existingClockConfig.textColor ?? '#ffffff',
+  boxHeight: __existingClockConfig.boxHeight ?? 30,
+  boxPaddingX: __existingClockConfig.boxPaddingX ?? 10,
+  boxPaddingY: __existingClockConfig.boxPaddingY ?? 5,
+  strokeWidth: __existingClockConfig.strokeWidth ?? 3,
+};
+
+// Preserve legacy flag while aligning it with the clock settings
+window.CONFIG.ui.showClock = window.CONFIG.ui.clock.enabled;
 
 window.CONFIG.debug = window.CONFIG.debug || {};
 window.CONFIG.debug.gameplayOverlay = window.CONFIG.debug.gameplayOverlay || {
@@ -1053,10 +1071,10 @@ window.CONFIG = {
         debug: false,
       },
       buttons: [
-        { id: 'attackA', action: 'buttonA', order: 2, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-light.png' },
-        { id: 'attackB', action: 'buttonB', order: 3, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-heavy.png' },
-        { id: 'attackC', action: 'buttonC', order: 4, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-special.png' },
-        { id: 'jump', action: 'jump', order: 1, lengthPct: 0.25, gapPx: 12, sprite: 'img/ui/btn-jump.png' },
+        { id: 'attackA', action: 'buttonA', order: 2, lengthPct: 0.25, gapPx: 12, letter: 'A' },
+        { id: 'attackB', action: 'buttonB', order: 3, lengthPct: 0.25, gapPx: 12, letter: 'B' },
+        { id: 'attackC', action: 'buttonC', order: 4, lengthPct: 0.25, gapPx: 12, letter: 'C' },
+        { id: 'jump', action: 'jump', order: 1, lengthPct: 0.25, gapPx: 12, letter: 'J' },
       ]
     }
   },
