@@ -682,26 +682,25 @@ function drawClock(ctx) {
   const timeScale = timeController?.timeScale ?? 0;
   const isPaused = timeController?.paused ?? true;
 
-  // Draw clock in top-right corner
+  // Draw clock in top-center
   const canvasWidth = ctx.canvas?.width || 720;
-  const padding = 20;
-  const x = canvasWidth - padding;
-  let y = 30;
+  const x = canvasWidth / 2;
+  let y = 20;
 
   ctx.save();
 
   // Draw time
-  ctx.font = 'bold 28px system-ui, sans-serif';
-  ctx.textAlign = 'right';
+  ctx.font = 'bold 32px system-ui, sans-serif';
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
   const timeMetrics = ctx.measureText(timeString);
   const timeWidth = timeMetrics.width;
-  const timeHeight = 34;
+  const timeHeight = 38;
 
-  // Draw background for time
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-  ctx.fillRect(x - timeWidth - 12, y - 6, timeWidth + 24, timeHeight + 12);
+  // Draw background for time (centered)
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+  ctx.fillRect(x - timeWidth / 2 - 16, y - 8, timeWidth + 32, timeHeight + 16);
 
   // Draw time text with stroke for visibility
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
@@ -714,8 +713,8 @@ function drawClock(ctx) {
   ctx.fillText(timeString, x, y);
 
   // Draw status indicator (paused/speed)
-  y += timeHeight + 8;
-  ctx.font = '14px system-ui, sans-serif';
+  y += timeHeight + 6;
+  ctx.font = '16px system-ui, sans-serif';
 
   let statusText = '';
   let statusColor = '#ffffff';
@@ -739,11 +738,11 @@ function drawClock(ctx) {
 
   const statusMetrics = ctx.measureText(statusText);
   const statusWidth = statusMetrics.width;
-  const statusHeight = 20;
+  const statusHeight = 22;
 
-  // Draw background for status
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-  ctx.fillRect(x - statusWidth - 10, y - 4, statusWidth + 20, statusHeight + 8);
+  // Draw background for status (centered)
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+  ctx.fillRect(x - statusWidth / 2 - 12, y - 4, statusWidth + 24, statusHeight + 8);
 
   // Draw status text
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
