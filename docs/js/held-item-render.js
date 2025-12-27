@@ -45,6 +45,7 @@ export function renderHeldItems(ctx) {
 
 /**
  * Render a bottle sprite in hand
+ * Bottle is 50% scale with attachment point 75% up from bottom (centered)
  */
 function renderBottleInHand(ctx, handX, handY, handAngle, camX, zoom) {
   ctx.save();
@@ -53,28 +54,34 @@ function renderBottleInHand(ctx, handX, handY, handAngle, camX, zoom) {
   ctx.translate(handX - camX, handY);
   ctx.rotate(handAngle + Math.PI / 2); // Orient bottle upright relative to hand
 
-  // Draw simple bottle shape (placeholder - will use sprite later)
+  // Offset so attachment point is 75% up from bottle bottom
+  // Bottle dimensions at 50% scale: height=18.5px (from y=-11 to y=7.5)
+  // 75% up from bottom (y=7.5) = 7.5 - (18.5 * 0.75) = -6.375
+  // Shift bottle so this point is at y=0 (hand position)
+  ctx.translate(0, 6.375);
+
+  // Draw simple bottle shape at 50% scale (placeholder - will use sprite later)
   ctx.fillStyle = 'rgba(139, 69, 19, 0.8)'; // Brown glass
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 0.5;
 
-  // Bottle body
+  // Bottle body (50% scale)
   ctx.beginPath();
-  ctx.rect(-4, -15, 8, 30);
+  ctx.rect(-2, -7.5, 4, 15);
   ctx.fill();
   ctx.stroke();
 
-  // Bottle neck
+  // Bottle neck (50% scale)
   ctx.fillStyle = 'rgba(100, 50, 10, 0.9)';
   ctx.beginPath();
-  ctx.rect(-2, -20, 4, 5);
+  ctx.rect(-1, -10, 2, 2.5);
   ctx.fill();
   ctx.stroke();
 
-  // Bottle cap
+  // Bottle cap (50% scale)
   ctx.fillStyle = 'rgba(180, 120, 60, 1)';
   ctx.beginPath();
-  ctx.rect(-3, -22, 6, 2);
+  ctx.rect(-1.5, -11, 3, 1);
   ctx.fill();
   ctx.stroke();
 
