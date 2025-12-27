@@ -608,7 +608,7 @@
               <input type="checkbox" id="debugOnTickFilter">
               Show on-tick debug output (live only)
             </label>
-            <div class="debug-console-filter-subtext">Filter by script and bracketed log tags (e.g. [Renderer]). New sources appear automatically.</div>
+            <div class="debug-console-filter-subtext">Filter by the scripts generating messages. New scripts appear automatically.</div>
             <div class="debug-script-filters" id="debugScriptFilters">
               <div class="debug-script-filter-placeholder">Waiting for scripts to log…</div>
             </div>
@@ -782,9 +782,6 @@
 
       const consoleConfig = (window.CONFIG && window.CONFIG.debug && window.CONFIG.debug.console) || {};
       const MAX_MESSAGES = consoleConfig.maxMessages ?? 100;
-      const ON_TICK_TAG_PATTERN = consoleConfig.onTickTagPattern || /^\s*\[on-?tick\]\s*(.*)$/i;
-      const SCRIPT_TAG_PATTERN = consoleConfig.scriptTagPattern || /^\s*\[script:([^\]]+)\]\s*(.*)$/i;
-      const SCRIPT_LABEL_PATTERN = consoleConfig.scriptLabelPattern || /^\s*\[([^\]\s][^\]]*)\]\s*(.*)$/;
 
       const colors = {
         debug: '#3b82f6',
@@ -816,41 +813,27 @@
 
       function extractMetadata(args) {
         let scriptOverride;
-        let bracketScript;
         let isOnTick = false;
 
         const cleanedArgs = Array.from(args).map((arg) => {
           if (typeof arg === 'string') {
-            let text = arg;
-
-            const onTickMatch = text.match(ON_TICK_TAG_PATTERN);
+            const onTickMatch = arg.match(/^\[on-?tick\]\s*(.*)$/i);
             if (onTickMatch) {
               isOnTick = true;
-              text = onTickMatch[1] || '';
+              return onTickMatch[1] || '';
             }
 
-            const scriptMatch = text.match(SCRIPT_TAG_PATTERN);
+            const scriptMatch = arg.match(/^\[script:([^\]]+)\]\s*(.*)$/i);
             if (scriptMatch) {
               scriptOverride = scriptMatch[1].trim();
-              text = scriptMatch[2] || '';
+              return scriptMatch[2] || '';
             }
-
-            const labelMatch = text.match(SCRIPT_LABEL_PATTERN);
-            if (labelMatch) {
-              const candidate = labelMatch[1].trim();
-              if (candidate) {
-                bracketScript = candidate;
-              }
-              text = labelMatch[2] || '';
-            }
-
-            return text;
           }
 
           if (arg && typeof arg === 'object' && !Array.isArray(arg)) {
             const clone = { ...arg };
             if (typeof clone.debugScript === 'string') {
-              scriptOverride = clone.debugScript.trim?.() || clone.debugScript;
+              scriptOverride = clone.debugScript;
               delete clone.debugScript;
             }
             if (clone.onTick || clone.debugOnTick) {
@@ -864,7 +847,7 @@
           return arg;
         });
 
-        return { cleanedArgs, scriptOverride, bracketScript, isOnTick };
+        return { cleanedArgs, scriptOverride, isOnTick };
       }
 
       function getCallerScript() {
@@ -937,7 +920,6 @@
           debugState.onTickMessages = [];
           return;
         }
-      }
 
         debugState.onTickMessages = debugState.onTickMessages.filter(
           (entry) => debugState.scriptFilters.get(entry.scriptName) !== false
@@ -1019,8 +1001,8 @@
       }
 
       function addMessage(level, args) {
-        const { cleanedArgs, scriptOverride, bracketScript, isOnTick } = extractMetadata(args);
-        const scriptName = scriptOverride || bracketScript || getCallerScript() || 'unknown';
+        const { cleanedArgs, scriptOverride, isOnTick } = extractMetadata(args);
+        const scriptName = scriptOverride || getCallerScript() || 'unknown';
 
         ensureScriptFilter(scriptName);
 
