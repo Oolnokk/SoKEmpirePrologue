@@ -941,6 +941,15 @@ async function loadStartingArea() {
             source: layoutUrl.href,
             layout,
         });
+        console.debug('[map-bootstrap] Layout groupLibrary:', layout.groupLibrary);
+        console.debug('[map-bootstrap] Layout entities:', layout.entities);
+        console.debug('[map-bootstrap] Entities breakdown:', {
+            total: layout.entities?.length || 0,
+            groupspawners: layout.entities?.filter(e => e.type === 'groupspawner').length || 0,
+            doors: layout.entities?.filter(e => e.type === 'door').length || 0,
+            patrolpoints: layout.entities?.filter(e => e.type === 'patrolpoint').length || 0,
+            propspawns: layout.entities?.filter(e => e.type === 'propspawn').length || 0,
+        });
         const area = convertLayoutToArea(layout, {
             areaId: layout?.areaId || layout?.id || DEFAULT_AREA_ID,
             areaName: layout?.areaName || layout?.name || DEFAULT_AREA_NAME,
@@ -953,6 +962,9 @@ async function loadStartingArea() {
         if (area.visualsMap) {
             console.debug('[map-bootstrap] visualsMap path:', area.visualsMap);
         }
+        console.debug('[map-bootstrap] Area spawners:', area.spawners);
+        console.debug('[map-bootstrap] Area groupLibrary:', area.groupLibrary);
+        console.debug('[map-bootstrap] Spawn payload:', translateAreaToSpawnPayload(area));
         applyArea(area);
     }
     catch (error) {
