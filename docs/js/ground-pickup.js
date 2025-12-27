@@ -227,6 +227,26 @@ export class GroundPickupManager {
   }
 
   /**
+   * Trigger pickup action (for touch/button controls)
+   */
+  triggerPickup() {
+    if (this.currentPrompt) {
+      this.pickupProp(this.currentPrompt);
+    }
+  }
+
+  /**
+   * Get current context state (for UI updates)
+   */
+  getContextState() {
+    return {
+      hasContext: !!this.currentPrompt,
+      contextText: this.currentPrompt?.promptText || null,
+      nearbyCount: this.nearbyProps.length
+    };
+  }
+
+  /**
    * Enable/disable pickup system
    */
   setEnabled(enabled) {

@@ -99,6 +99,19 @@ function mergeArchConfig(raw = {}) {
 
 function setInputState(input, action, down) {
   if (!input) return;
+
+  // Handle special context action
+  if (action === 'context') {
+    if (down) {
+      // Trigger context action (e.g., pickup)
+      const pickupManager = window.GAME?.groundPickupManager;
+      if (pickupManager) {
+        pickupManager.triggerPickup();
+      }
+    }
+    return;
+  }
+
   if (action === 'jump') {
     input.jump = !!down;
     return;
@@ -204,7 +217,7 @@ function buildButtonArch(config, handlers = {}, rootEl = null) {
     const halfSize = size / 2;
 
     const btnEl = document.createElement('button');
-    btnEl.className = 'arch-hud__button';
+    btnEl.className = btnCfg.contextual ? 'arch-hud__button arch-hud__button--context' : 'arch-hud__button';
     btnEl.id = `arch-btn-${btnCfg.id}`;
     btnEl.type = 'button';
 

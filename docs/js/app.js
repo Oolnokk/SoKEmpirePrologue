@@ -955,6 +955,7 @@ import { initSprites, renderSprites } from './sprites.js?v=8';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
 import { initGroundPickup } from './ground-pickup.js?v=1';
 import { renderHeldItems } from './held-item-render.js?v=1';
+import { initContextButton, updateContextButton } from './arch-context-button.js?v=1';
 import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
@@ -6092,6 +6093,9 @@ function loop(t){
     window.GAME.groundPickupManager.update();
   }
 
+  // Update context button visibility
+  updateContextButton();
+
   // FPS HUD
   frames++;
   const elapsed = (t - fpsLast);
@@ -7397,6 +7401,8 @@ function boot(){
     initDebugPanel();
     console.log('[app] boot() - Calling initGroundPickup()');
     initGroundPickup();
+    console.log('[app] boot() - Calling initContextButton()');
+    initContextButton();
     console.log('[app] boot() - Calling initTouchControls()');
     initTouchControls();
     console.log('[app] boot() - Checking shouldEnableArchHud()');

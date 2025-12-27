@@ -6,6 +6,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Khymeryyan';
+  src: url('./assets/hud/Khymeryyanroman4.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Fullscreen HUD layer that holds the arch buttons */
 .arch-hud {
   position: absolute;
@@ -44,6 +52,18 @@
   height: 100%;
   line-height: 1;
   pointer-events: none;
+}
+
+/* Context button - uses Khymeryyan font with fallback */
+.arch-hud__button--context {
+  font-family: 'Khymeryyan', 'TankanScript', sans-serif;
+  font-size: calc(var(--arch-button-size, 84px) * 0.32);
+  letter-spacing: 0.05em;
+  display: none; /* Hidden by default, shown when context available */
+}
+
+.arch-hud__button--context.is-visible {
+  display: flex;
 }
 
 @media (max-width: 640px), (max-height: 480px) {
