@@ -1309,9 +1309,15 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     const holsterManager = new SpriteHolsterManager(renderer.scene, coordinateTransform, renderer.THREE);
 
     // Load holster entities from gameplaymap
-    const holsterEntities = Array.isArray(area?.entities)
-      ? area.entities.filter(e => e.type === 'spriteholster')
-      : [];
+    const entityList = Array.isArray(area?.mapEntities)
+      ? area.mapEntities
+      : Array.isArray(area?.entities)
+        ? area.entities
+        : [];
+    const holsterEntities = entityList.filter((entity) => {
+      const type = (entity?.kind || entity?.type || '').toString().toLowerCase();
+      return type === 'spriteholster';
+    });
 
     if (holsterEntities.length > 0) {
       console.log(`[visualsmapLoader] Loading ${holsterEntities.length} SpriteHolster entities`);
