@@ -900,19 +900,37 @@ function normalizeAreaDescriptor(area, options = {}) {
       warnings,
     }))
     .filter(Boolean);
+  const rawEntities = Array.isArray(area.entities) ? area.entities : [];
+  const resolvedGridUnit = resolveGridUnit(area) ?? 30;
+  const mapEntities = normalizeMapEntities(rawEntities, { gridUnit: resolvedGridUnit });
+  const mapEntitySpawners = mapEntitiesToSpawnerList(mapEntities.list, warnings);
+  const mapEntityPathTargets = mapEntitiesToPathTargets(mapEntities.list, warnings);
+  const { doors: mapEntityDoors = [], doorPois: mapEntityDoorPois = [] } = mapEntitiesToDoors(
+    mapEntities.list,
+    { gridUnit: resolvedGridUnit },
+  );
+  const mapEntityPropSpawns = mapEntitiesToPropSpawns(mapEntities.list);
   const explicitSpawners = normalizeSpawnerList(area.spawners, warnings, { source: 'area' });
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
-  const spawners = mergeSpawnerLists(explicitSpawners, derivedSpawners, warnings);
+  const spawners = mergeSpawnerLists([
+    ...explicitSpawners,
+    ...mapEntitySpawners,
+  ], derivedSpawners, warnings);
   const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
   const areaGroupLibrary = normalizeGroupLibrary(area.groupLibrary ?? area.groups, warnings, { source: 'area.groupLibrary' });
   const groupLibrary = mergeGroupLibraries(optionGroupLibrary, areaGroupLibrary);
   const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(area.pathTargets, warnings, { source: 'area' });
   const derivedPathTargets = collectPathTargets(convertedInstances, warnings);
-  const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets, warnings);
+  const pathTargets = mergePathTargetLists([
+    ...explicitPathTargets,
+    ...mapEntityPathTargets,
+  ], derivedPathTargets, warnings);
   const pathTargetRegistry = buildPathTargetRegistry(pathTargets, warnings);
-  const pois = collectPois(alignedColliders, warnings);
+  const pois = [...collectPois(alignedColliders, warnings), ...mapEntityDoorPois];
   const poisByIndex = buildPoiIndex(pois);
+  const doorsById = buildSimpleIndex(mapEntityDoors, 'doorId');
+  const propSpawnsById = buildSimpleIndex(mapEntityPropSpawns);
 
   return {
     id: areaId,
@@ -937,6 +955,14 @@ function normalizeAreaDescriptor(area, options = {}) {
     pois,
     poisById: poisByIndex.byId,
     poisByName: poisByIndex.byName,
+    mapEntities: mapEntities.list,
+    mapEntitiesById: buildSimpleIndex(mapEntities.list),
+    entities: mapEntities.list,
+    entitiesById: buildSimpleIndex(mapEntities.list),
+    doors: mapEntityDoors,
+    doorsById,
+    propSpawns: mapEntityPropSpawns,
+    propSpawnsById,
     spawners: spawnersWithGroups,
     spawnersById: buildSpawnerIndex(spawnersWithGroups),
     groupLibrary,

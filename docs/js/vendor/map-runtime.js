@@ -1642,13 +1642,21 @@ function normalizeAreaDescriptor(area, options = {}) {
   const rawEntities = Array.isArray(area.entities) ? area.entities : [];
   const resolvedGridUnit = resolveGridUnit(area) ?? 30;
   const mapEntities = normalizeMapEntities(rawEntities, warnings, { gridUnit: resolvedGridUnit });
+  const mapEntitySpawners = mapEntitiesToSpawnerList(mapEntities.list, warnings);
+  const mapEntityPathTargets = mapEntitiesToPathTargets(mapEntities.list, warnings);
+  const { doors: mapEntityDoors = [], doorPois: mapEntityDoorPois = [] } = mapEntitiesToDoors(
+    mapEntities.list,
+    warnings,
+    { gridUnit: resolvedGridUnit },
+  );
+  const mapEntityPropSpawns = mapEntitiesToPropSpawns(mapEntities.list);
   const mapEntitiesById = buildSimpleIndex(mapEntities.list);
   const entitySpawnerEntries = rawEntities.filter((entity) => {
     if (!entity || typeof entity !== 'object') return false;
     if (typeof entity.type !== 'string') return false;
     return normalizeMapEntityType(entity.type) === 'groupspawner';
   });
-  if (Array.isArray(area.entities) && entitySpawnerEntries.length === 0) {
+  if (Array.isArray(area.entities) && entitySpawnerEntries.length === 0 && mapEntitySpawners.length === 0) {
     warnings.push('area.entities present but no spawner entities were found');
   }
   const entitySpawners = normalizeSpawnerList(
@@ -1670,10 +1678,21 @@ function normalizeAreaDescriptor(area, options = {}) {
   );
   const explicitSpawners = normalizeSpawnerList(area.spawners, warnings, { source: 'area' });
   const derivedSpawners = collectNpcSpawners(convertedInstances, warnings);
-  const spawners = mergeSpawnerLists([...explicitSpawners, ...entitySpawners], derivedSpawners);
+  const spawners = mergeSpawnerLists([
+    ...explicitSpawners,
+    ...entitySpawners,
+    ...mapEntitySpawners,
+  ], derivedSpawners);
+  const optionGroupLibrary = normalizeGroupLibrary(options.groupLibrary, warnings, { source: 'options.groupLibrary' });
+  const areaGroupLibrary = normalizeGroupLibrary(area.groupLibrary ?? area.groups, warnings, { source: 'area.groupLibrary' });
+  const groupLibrary = mergeGroupLibraries(optionGroupLibrary, areaGroupLibrary);
+  const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(area.pathTargets, warnings, { source: 'area' });
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
-  const pathTargets = mergePathTargetLists(explicitPathTargets, derivedPathTargets);
+  const pathTargets = mergePathTargetLists([
+    ...explicitPathTargets,
+    ...mapEntityPathTargets,
+  ], derivedPathTargets);
 
   // Collect POIs from behavior metadata and colliders
   const behaviorMeta = area.meta && typeof area.meta.behavior === 'object' && area.meta.behavior
@@ -1711,8 +1730,11 @@ function normalizeAreaDescriptor(area, options = {}) {
     mergedPois.push(poi);
   };
   normalizedPoisFromMeta.forEach(addPoi);
+  mapEntityDoorPois.forEach(addPoi);
   poisFromColliders.forEach(addPoi);
   const poiIndex = buildPoiIndex(mergedPois);
+  const doorsById = buildSimpleIndex(mapEntityDoors, 'doorId');
+  const propSpawnsById = buildSimpleIndex(mapEntityPropSpawns);
 
   const geometry = {
     layers: convertedLayers,
@@ -1724,12 +1746,15 @@ function normalizeAreaDescriptor(area, options = {}) {
   const scene = {
     geometry,
     colliders: alignedColliders,
-    spawnPoints: spawners,
-    spawnPointsById: buildSpawnerIndex(spawners),
+    spawnPoints: spawnersWithGroups,
+    spawnPointsById: buildSpawnerIndex(spawnersWithGroups),
     playableBounds,
     pathTargets,
     pois: mergedPois,
     mapEntities: mapEntities.list,
+    doors: mapEntityDoors,
+    propSpawns: mapEntityPropSpawns,
+    groupLibrary,
   };
 
   return {
@@ -1751,7 +1776,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     instances: convertedInstances,
     instancesById: geometry.instancesById,
     pathTargets,
-    spawners,
+    spawners: spawnersWithGroups,
     spawnersById: scene.spawnPointsById,
     colliders: alignedColliders,
     pois: mergedPois,
@@ -1761,8 +1786,13 @@ function normalizeAreaDescriptor(area, options = {}) {
     mapEntitiesById,
     entities: mapEntities.list,
     entitiesById: mapEntitiesById,
+    doors: mapEntityDoors,
+    doorsById,
+    propSpawns: mapEntityPropSpawns,
+    propSpawnsById,
     drumSkins: convertedDrumSkins,
     playableBounds,
+    groupLibrary,
     warnings,
     meta: {
       ...(area.meta ? safeClone(area.meta) : {}),
