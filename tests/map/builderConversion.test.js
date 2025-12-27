@@ -196,6 +196,26 @@ test('convertLayoutToArea merges explicit path targets with derived markers', ()
   assert.ok(area.pathTargetsByCoordinate['5,-3'].some((pt) => pt.registryId === explicitAlpha.registryId));
 });
 
+test('patrol map entities sharing a route remain distinct', () => {
+  const layout = {
+    areaId: 'patrol_area',
+    layers: [
+      { id: 'game', name: 'Gameplay', parallax: 1, yOffset: 0, sep: 120, scale: 1, type: 'gameplay' },
+    ],
+    entities: [
+      { id: 'patrol_west', type: 'patrolpoint', x: 0, y: 0, meta: { routeId: 'shared_route', sequence: 0 } },
+      { id: 'patrol_east', type: 'patrolpoint', x: 100, y: 0, meta: { routeId: 'shared_route', sequence: 1 } },
+    ],
+  };
+
+  const area = convertLayoutToArea(layout);
+
+  const names = area.pathTargets.map((pt) => pt.name).sort();
+  assert.deepEqual(names, ['patrol_east', 'patrol_west']);
+  assert.equal(area.pathTargets.find((pt) => pt.name === 'patrol_west').order, 0);
+  assert.equal(area.pathTargets.find((pt) => pt.name === 'patrol_east').order, 1);
+});
+
 test('convertLayoutToArea tolerates missing arrays', () => {
   const area = convertLayoutToArea({ id: 'fallback' });
   assert.equal(area.layers.length, 0);

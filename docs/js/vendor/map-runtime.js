@@ -907,7 +907,12 @@ function mapEntitiesToPathTargets(mapEntities = [], warnings = []) {
   return mapEntities
     .filter((entity) => entity.kind === 'patrolpoint')
     .map((entity, index) => normalizePathTargetRecord({
-      name: entity.meta?.routeId || entity.meta?.pathId || entity.id || `patrol_${index}`,
+      name: pickNonEmptyString(
+        entity.meta?.pathId,
+        entity.id,
+        entity.meta?.routeId,
+        `patrol_${index}`,
+      ),
       order: Number.isFinite(Number(entity.meta?.sequence)) ? Number(entity.meta.sequence) : null,
       position: entity.position,
       tags: entity.tags,
@@ -1183,7 +1188,10 @@ function mergePathTargetLists(explicit = [], derived = []) {
   const keyForTarget = (target) => {
     const name = typeof target?.name === 'string' ? target.name.trim() : '';
     const instanceId = typeof target?.instanceId === 'string' ? target.instanceId.trim() : '';
+    const order = Number.isFinite(target?.order) ? target.order : null;
     if (name && instanceId) return `${name}::${instanceId}`;
+    if (name && order != null) return `${name}::order:${order}`;
+    if (instanceId && order != null) return `${instanceId}::order:${order}`;
     return name || instanceId || null;
   };
 
