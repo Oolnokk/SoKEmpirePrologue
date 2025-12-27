@@ -597,6 +597,16 @@
           </div>
         </div>
 
+        <div class="box" id="debugConsoleBox">
+          <div class="label">
+            Debug Console
+            <button type="button" id="toggleDebugConsole" class="toggle-btn" style="float: right; background: #334155; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Clear</button>
+          </div>
+          <div id="debugConsole" style="font-family: monospace; font-size: 10px; color: #94a3b8; background: #0f172a; padding: 8px; border-radius: 4px; max-height: 300px; overflow-y: auto; line-height: 1.4;">
+            <div style="color: #64748b; font-style: italic;">Console output will appear here...</div>
+          </div>
+        </div>
+
         <div class="box" id="fighterSettingsBox" style="display: none;">
           <div class="label fighter-settings-label">
             Fighter Settings
@@ -737,6 +747,122 @@
 
       // Initial check
       handleOrientationChange();
+    })();
+  </script>
+
+  <script>
+    // Debug Console - Intercept console messages and display on screen
+    (function() {
+      const debugConsole = document.getElementById('debugConsole');
+      const clearBtn = document.getElementById('toggleDebugConsole');
+
+      if (!debugConsole) return;
+
+      let messageCount = 0;
+      const MAX_MESSAGES = 100;
+
+      function formatValue(value) {
+        if (value === null) return 'null';
+        if (value === undefined) return 'undefined';
+        if (typeof value === 'object') {
+          try {
+            return JSON.stringify(value, null, 2);
+          } catch (e) {
+            return String(value);
+          }
+        }
+        return String(value);
+      }
+
+      function addMessage(level, args) {
+        messageCount++;
+
+        // Clear placeholder if this is the first message
+        if (messageCount === 1) {
+          debugConsole.innerHTML = '';
+        }
+
+        // Limit message count
+        const messages = debugConsole.querySelectorAll('.console-message');
+        if (messages.length >= MAX_MESSAGES) {
+          messages[0].remove();
+        }
+
+        const colors = {
+          debug: '#3b82f6',
+          log: '#94a3b8',
+          warn: '#f59e0b',
+          error: '#ef4444',
+          info: '#22c55e'
+        };
+
+        const msg = document.createElement('div');
+        msg.className = 'console-message';
+        msg.style.cssText = `
+          padding: 4px 0;
+          border-bottom: 1px solid #1e293b;
+          word-break: break-word;
+        `;
+
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+
+        const formattedArgs = Array.from(args).map(arg => formatValue(arg)).join(' ');
+
+        msg.innerHTML = `
+          <span style="color: #64748b; font-size: 9px;">[${timestamp}]</span>
+          <span style="color: ${colors[level] || '#94a3b8'}; font-weight: 600; font-size: 9px;"> ${level.toUpperCase()}</span>
+          <div style="margin-left: 4px; white-space: pre-wrap; color: #f8fafc;">${formattedArgs}</div>
+        `;
+
+        debugConsole.appendChild(msg);
+        debugConsole.scrollTop = debugConsole.scrollHeight;
+      }
+
+      // Store original console methods
+      const originalConsole = {
+        debug: console.debug,
+        log: console.log,
+        warn: console.warn,
+        error: console.error,
+        info: console.info
+      };
+
+      // Intercept console methods
+      console.debug = function(...args) {
+        addMessage('debug', args);
+        originalConsole.debug.apply(console, args);
+      };
+
+      console.log = function(...args) {
+        addMessage('log', args);
+        originalConsole.log.apply(console, args);
+      };
+
+      console.warn = function(...args) {
+        addMessage('warn', args);
+        originalConsole.warn.apply(console, args);
+      };
+
+      console.error = function(...args) {
+        addMessage('error', args);
+        originalConsole.error.apply(console, args);
+      };
+
+      console.info = function(...args) {
+        addMessage('info', args);
+        originalConsole.info.apply(console, args);
+      };
+
+      // Clear button
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          debugConsole.innerHTML = '<div style="color: #64748b; font-style: italic;">Console cleared...</div>';
+          messageCount = 0;
+        });
+      }
+
+      // Log that debug console is ready
+      console.info('Debug console initialized');
     })();
   </script>
 
