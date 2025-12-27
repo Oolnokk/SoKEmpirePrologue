@@ -891,6 +891,8 @@ function displayMapLoadError(error, layoutUrl) {
     overlay.innerHTML = diagnosticHtml;
 }
 async function loadStartingArea() {
+    console.log('[map-bootstrap] 🚀 START - Loading starting area...');
+    console.log('[map-bootstrap] Layout URL:', layoutUrl);
     const params = new URLSearchParams(window.location.search);
     const configPreviewToken = typeof MAP_CONFIG.previewToken === 'string' ? MAP_CONFIG.previewToken : null;
     const previewToken = configPreviewToken || params.get('preview');
@@ -901,6 +903,7 @@ async function loadStartingArea() {
     const { prefabs: prefabMap } = await prefabLibraryPromise;
     const prefabResolver = createPrefabResolver(prefabMap);
     if (previewPayload?.layout) {
+        console.log('[map-bootstrap] Using preview payload');
         const applied = applyPreviewLayout(previewPayload.layout, {
             previewToken,
             createdAt: previewPayload.createdAt ?? null,
@@ -925,16 +928,21 @@ async function loadStartingArea() {
         }
         console.warn('[map-bootstrap] Preview token requested but no payload was available');
     }
+    console.log('[map-bootstrap] No preview - fetching layout from:', layoutUrl.href);
     if (typeof fetch !== 'function') {
         console.warn('[map-bootstrap] fetch is unavailable; skipping starting map load');
         return;
     }
     try {
+        console.log('[map-bootstrap] Fetching layout...');
         const response = await fetch(layoutUrl, { cache: 'no-cache' });
+        console.log('[map-bootstrap] Fetch response status:', response.status, response.ok);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
+        console.log('[map-bootstrap] Parsing JSON...');
         const layout = await response.json();
+        console.log('[map-bootstrap] ✅ JSON parsed successfully');
         console.log('[map-bootstrap] Loaded raw layout descriptor', {
             id: layout?.areaId || layout?.id || DEFAULT_AREA_ID,
             name: layout?.areaName || layout?.name || DEFAULT_AREA_NAME,
