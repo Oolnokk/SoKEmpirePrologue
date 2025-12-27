@@ -960,7 +960,8 @@ import { initBountySystem, updateBountySystem, getBountyState } from './bounty.j
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
 import { initTransformConfig, transform3dTo2d, transform2dTo3d, getTransformConfig } from './coordinate-transform.js?v=1';
-import { loadStartingArea } from './map-bootstrap.js?v=999';
+// DO NOT static import map-bootstrap - causes race condition!
+// Use dynamic import in boot() instead
 
 // Visualsmap loader for 3D grid-based scenes
 let visualsmapLoaderModule = null;
@@ -7394,19 +7395,24 @@ function boot(){
     window.GAME.__appInitialized = true;
     console.log('[app] ✅ App initialization complete - now loading map...');
 
-    // Load the map AFTER app is fully initialized (race condition fix)
-    console.log('[app] 🔍 loadStartingArea function available:', typeof loadStartingArea);
-    if (typeof loadStartingArea === 'function') {
-      console.log('[app] 🚀 Calling loadStartingArea()...');
-      loadStartingArea().then(() => {
-        console.log('[app] ✅ Map loaded successfully');
-      }).catch((error) => {
-        console.log('[app] ❌ Map load failed:', error.message);
-        console.log('[app] Error stack:', error.stack);
-      });
-    } else {
-      console.log('[app] ❌ ERROR: loadStartingArea is not a function!');
-    }
+    // CRITICAL: Use dynamic import to load map-bootstrap AFTER app is ready
+    // Static import causes race condition where both modules load in parallel
+    console.log('[app] 🚀 Dynamically importing map-bootstrap...');
+    import('./map-bootstrap.js?v=999').then((module) => {
+      console.log('[app] ✅ map-bootstrap module imported');
+      console.log('[app] 🔍 loadStartingArea available:', typeof module.loadStartingArea);
+      if (typeof module.loadStartingArea === 'function') {
+        console.log('[app] 🚀 Calling loadStartingArea()...');
+        return module.loadStartingArea();
+      } else {
+        throw new Error('loadStartingArea is not a function');
+      }
+    }).then(() => {
+      console.log('[app] ✅ Map loaded successfully');
+    }).catch((error) => {
+      console.log('[app] ❌ Map load failed:', error.message);
+      console.log('[app] Error stack:', error.stack);
+    });
   } catch (e){
     const b=document.getElementById('bootError'), m=document.getElementById('bootErrorMsg');
     if(b&&m){ m.textContent=(e.message||'Unknown error'); b.style.display='block'; }
