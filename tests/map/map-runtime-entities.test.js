@@ -1,4 +1,6 @@
 import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 
 import { convertLayoutToArea } from '../../docs/js/vendor/map-runtime.js';
@@ -63,4 +65,19 @@ test('area descriptors derive spawners, targets, and props from map entities', (
   assert.equal(area.pathTargets[0].name, 'route-a');
   assert.equal(area.doors.length, 1);
   assert.equal(area.propSpawns.length, 1);
+});
+
+test('default gameplay map keeps distinct patrol targets', () => {
+  const mapPath = path.join(process.cwd(), 'docs/config/maps/gameplaymaps/defaultdistrict3d_gameplaymap.json');
+  const layout = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
+
+  const area = convertLayoutToArea(layout);
+
+  const west = area.pathTargets.find((pt) => pt.name === 'patrol_west');
+  const east = area.pathTargets.find((pt) => pt.name === 'patrol_east');
+
+  assert.ok(west, 'patrol_west should survive normalization');
+  assert.ok(east, 'patrol_east should survive normalization');
+  assert.equal(west.order, 0);
+  assert.equal(east.order, 1);
 });

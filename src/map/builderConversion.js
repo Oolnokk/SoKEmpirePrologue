@@ -335,7 +335,12 @@ function mapEntitiesToPathTargets(mapEntities = [], warnings = []) {
   return mapEntities
     .filter((entity) => entity.kind === 'patrolpoint')
     .map((entity, index) => normalizePathTargetRecord({
-      name: entity.meta?.routeId || entity.meta?.pathId || entity.id || `patrol_${index}`,
+      name: pickNonEmptyString(
+        entity.meta?.pathId,
+        entity.id,
+        entity.meta?.routeId,
+        `patrol_${index}`,
+      ),
       order: Number.isFinite(Number(entity.meta?.sequence)) ? Number(entity.meta.sequence) : null,
       position: entity.position,
       tags: entity.tags,
