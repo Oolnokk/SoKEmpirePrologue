@@ -1180,24 +1180,28 @@
           return `<option value="${id}" ${selected}>${label}</option>`;
         }).join('');
 
-        // Get patrol points for schedule dropdown
+        // Get patrol points for reference info
         const patrolPoints = mapData.entities.filter(e => normalizeEntityType(e.type) === 'patrolpoint');
-        const patrolOptions = patrolPoints.map(p => {
-          const label = p.meta?.label || p.id;
-          return `<option value="${p.id}">${label}</option>`;
-        }).join('');
+        const patrolPointsList = patrolPoints.length > 0
+          ? patrolPoints.map(p => `<div style="font-size: 10px; color: #64748b; padding: 2px 0;">• ${p.id}${p.meta?.label ? ` (${p.meta.label})` : ''}</div>`).join('')
+          : '<div style="font-size: 10px; color: #64748b;">No patrol points in map yet</div>';
 
         // Build schedule entries HTML
         const patrolSchedule = entity.meta.patrolSchedule || [];
         const scheduleEntriesHtml = patrolSchedule.map((entry, idx) => {
-          const patrolLabel = patrolPoints.find(p => p.id === entry.patrolPointId)?.meta?.label || entry.patrolPointId;
+          const patrolPoint = patrolPoints.find(p => p.id === entry.patrolPointId);
+          const patrolLabel = patrolPoint?.meta?.label || entry.patrolPointId;
+          const exists = !!patrolPoint;
           return `
             <div class="schedule-entry" data-index="${idx}" style="background: #1e293b; padding: 8px; margin-bottom: 6px; border-radius: 4px; position: relative;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <strong style="font-size: 11px;">${patrolLabel}</strong>
                 <button class="btn-delete-schedule" data-index="${idx}" style="background: #dc2626; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 11px;">✕</button>
               </div>
-              <div style="font-size: 11px; color: #94a3b8;">Hours: ${entry.hourRange[0]}-${entry.hourRange[1]}</div>
+              <div style="font-size: 11px; color: #94a3b8;">
+                Hours: ${entry.hourRange[0]}-${entry.hourRange[1]}
+                ${!exists ? ' <span style="color: #f59e0b;">⚠ Point not found</span>' : ''}
+              </div>
             </div>
           `;
         }).join('');
@@ -1228,20 +1232,25 @@
             <div id="scheduleEntries" style="margin-bottom: 8px;">
               ${scheduleEntriesHtml || '<div class="info">No schedule entries. Add one below.</div>'}
             </div>
+            <div id="scheduleError" style="display: none; background: #dc2626; color: #fef2f2; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 11px;"></div>
             <div style="background: #0f172a; padding: 8px; border-radius: 4px;">
-              <select id="schedulePatrolPoint" style="width: 100%; margin-bottom: 6px; padding: 4px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 4px;">
-                <option value="">-- Select Patrol Point --</option>
-                ${patrolOptions}
-              </select>
+              <label style="font-size: 11px; color: #94a3b8; margin-bottom: 4px; display: block;">Patrol Point ID:</label>
+              <input type="text" id="schedulePatrolPoint" placeholder="e.g. patrol_west_1" style="width: 100%; margin-bottom: 6px; padding: 6px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 4px; font-family: monospace; font-size: 12px;" />
+              <details style="margin-bottom: 8px;">
+                <summary style="font-size: 10px; color: #64748b; cursor: pointer; user-select: none;">📋 Available Patrol Points (${patrolPoints.length})</summary>
+                <div style="margin-top: 4px; padding: 6px; background: #1e293b; border-radius: 4px; max-height: 120px; overflow-y: auto;">
+                  ${patrolPointsList}
+                </div>
+              </details>
               <div style="display: flex; gap: 6px; margin-bottom: 6px; align-items: center;">
-                <label style="font-size: 11px; margin: 0;">From:</label>
+                <label style="font-size: 11px; margin: 0; color: #94a3b8;">From:</label>
                 <input type="number" id="scheduleHourStart" min="0" max="23" value="0" style="flex: 1; padding: 4px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 4px;" />
-                <label style="font-size: 11px; margin: 0;">To:</label>
+                <label style="font-size: 11px; margin: 0; color: #94a3b8;">To:</label>
                 <input type="number" id="scheduleHourEnd" min="0" max="23" value="6" style="flex: 1; padding: 4px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 4px;" />
               </div>
               <button id="btnAddSchedule" style="width: 100%; padding: 6px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">+ Add Schedule Entry</button>
             </div>
-            ${patrolSchedule.length > 0 ? '<button id="btnPreviewSchedule" style="width: 100%; padding: 8px; margin-top: 8px; background: #8b5cf6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">🎬 Preview Schedule Animation</button>' : ''}
+            <button id="btnPreviewSchedule" style="width: 100%; padding: 8px; margin-top: 8px; background: #8b5cf6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; display: ${patrolSchedule.length > 0 ? 'block' : 'none'};">🎬 Preview Schedule Animation</button>
           </div>
         `;
       } else if (normalizedType === 'propspawn') {
@@ -1383,28 +1392,50 @@
 
       // Schedule management for groupspawner
       const btnAddSchedule = document.getElementById('btnAddSchedule');
+      const scheduleError = document.getElementById('scheduleError');
+
       if (btnAddSchedule) {
+        const showScheduleError = (message) => {
+          if (scheduleError) {
+            scheduleError.textContent = '❌ ' + message;
+            scheduleError.style.display = 'block';
+            setTimeout(() => {
+              scheduleError.style.display = 'none';
+            }, 5000);
+          }
+        };
+
         btnAddSchedule.addEventListener('click', () => {
-          const patrolPointSelect = document.getElementById('schedulePatrolPoint');
+          const patrolPointInput = document.getElementById('schedulePatrolPoint');
           const hourStart = document.getElementById('scheduleHourStart');
           const hourEnd = document.getElementById('scheduleHourEnd');
 
-          const patrolPointId = patrolPointSelect.value;
+          const patrolPointId = patrolPointInput.value.trim();
           const startHour = parseInt(hourStart.value, 10);
           const endHour = parseInt(hourEnd.value, 10);
 
+          // Validation with detailed on-screen errors
           if (!patrolPointId) {
-            alert('Please select a patrol point');
+            showScheduleError('Please enter a patrol point ID (e.g., "patrol_west_1")');
+            patrolPointInput.focus();
             return;
           }
 
-          if (!Number.isInteger(startHour) || !Number.isInteger(endHour) || startHour < 0 || startHour > 23 || endHour < 0 || endHour > 23) {
-            alert('Hours must be integers between 0 and 23');
+          if (!Number.isInteger(startHour) || startHour < 0 || startHour > 23) {
+            showScheduleError(`Invalid start hour "${hourStart.value}". Must be an integer between 0 and 23.`);
+            hourStart.focus();
+            return;
+          }
+
+          if (!Number.isInteger(endHour) || endHour < 0 || endHour > 23) {
+            showScheduleError(`Invalid end hour "${hourEnd.value}". Must be an integer between 0 and 23.`);
+            hourEnd.focus();
             return;
           }
 
           if (startHour >= endHour) {
-            alert('Start hour must be less than end hour');
+            showScheduleError(`Start hour (${startHour}) must be less than end hour (${endHour}). Example: 6 to 12.`);
+            hourStart.focus();
             return;
           }
 
@@ -1418,6 +1449,14 @@
             patrolPointId: patrolPointId,
             hourRange: [startHour, endHour]
           });
+
+          // Clear inputs
+          patrolPointInput.value = '';
+
+          // Hide error on success
+          if (scheduleError) {
+            scheduleError.style.display = 'none';
+          }
 
           // Refresh the entity props to show the new schedule
           updateEntityProps();
@@ -2706,10 +2745,6 @@
 
     function showSchedulePreview(spawnerEntity) {
       const patrolSchedule = spawnerEntity.meta.patrolSchedule || [];
-      if (!patrolSchedule.length) {
-        alert('No schedule entries to preview');
-        return;
-      }
 
       // Create modal
       const modal = document.createElement('div');
@@ -2761,13 +2796,19 @@
         document.body.removeChild(modal);
       });
 
+      // Check for schedule entries
+      if (!patrolSchedule.length) {
+        legend.innerHTML = '<strong style="color: #dc2626;">❌ Error: No schedule entries to preview</strong><br/><div style="margin-top: 8px; color: #64748b;">Add schedule entries using the form above, then click Preview again.</div>';
+        return;
+      }
+
       // Animation logic
       const ctx = canvas.getContext('2d');
       const groupId = spawnerEntity.meta.groupId;
       const groupConfig = window.CONFIG?.npcGroups?.[groupId];
 
       if (!groupConfig) {
-        legend.innerHTML = '<strong style="color: #dc2626;">Error: Group not found in CONFIG</strong>';
+        legend.innerHTML = `<strong style="color: #dc2626;">❌ Error: Group "${groupId}" not found in CONFIG</strong><br/><div style="margin-top: 8px; color: #64748b;">Make sure the Group ID field is set to a valid NPC group. Check window.CONFIG.npcGroups in console for available groups.</div>`;
         return;
       }
 
@@ -2778,7 +2819,7 @@
       });
 
       if (totalNPCs === 0) {
-        legend.innerHTML = '<strong style="color: #dc2626;">Error: No NPCs in group</strong>';
+        legend.innerHTML = `<strong style="color: #dc2626;">❌ Error: No NPCs in group "${groupId}"</strong><br/><div style="margin-top: 8px; color: #64748b;">The group configuration has no members defined. Check the groupLibrary in your map JSON or CONFIG.npcGroups.</div>`;
         return;
       }
 
