@@ -122,8 +122,9 @@ function resolveAssetPath(assetPath, baseContext = null) {
     // For relative paths (including those without './' or '../'), use standard URL resolution
     resolvedPath = new URL(assetPath, baseUrl).href;
   }
-  
-  console.log(`[visualsmapLoader] Resolved asset path: "${assetPath}" → "${resolvedPath}"`);
+
+  // Verbose per-asset logging disabled to prevent console flooding
+  // console.log(`[visualsmapLoader] Resolved asset path: "${assetPath}" → "${resolvedPath}"`);
   return resolvedPath;
 }
 
@@ -906,19 +907,20 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               continue;
             }
 
-            // Log object structure for debugging
-            console.log(`[visualsmapLoader] Object structure for ${cell.type}:`, {
-              type: object.type,
-              children: object.children.length,
-              rotation: object.rotation,
-              scale: object.scale,
-              position: object.position
-            });
+            // Verbose per-object logging disabled to prevent console flooding
+            // console.log(`[visualsmapLoader] Object structure for ${cell.type}:`, {
+            //   type: object.type,
+            //   children: object.children.length,
+            //   rotation: object.rotation,
+            //   scale: object.scale,
+            //   position: object.position
+            // });
 
             // Apply base rotations using shared utility (ensures consistency across all tools)
-            const appliedRotations = applyAssetRotations(object, assetConfig, true);
-            console.log(`[visualsmapLoader] Applied rotations to ${cell.type}:`, appliedRotations);
-            console.log(`[visualsmapLoader] After rotation - rotation:`, object.rotation, 'scale:', object.scale);
+            // Debug flag set to false to prevent per-object console flooding
+            const appliedRotations = applyAssetRotations(object, assetConfig, false);
+            // console.log(`[visualsmapLoader] Applied rotations to ${cell.type}:`, appliedRotations);
+            // console.log(`[visualsmapLoader] After rotation - rotation:`, object.rotation, 'scale:', object.scale);
 
             // Get offsets in grid units (pre-rotation)
             const gridOffsetX = cell.offsetX ?? assetConfig.instanceDefaults?.offsetX ?? 0;

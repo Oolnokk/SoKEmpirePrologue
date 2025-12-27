@@ -310,11 +310,10 @@ export class Renderer {
         const childCountBefore = this.scene.children.length;
         this.scene.add(object);
         
-        // Log only if something changed (useful for debugging)
-        // Check once after adding to avoid redundant property access
-        if (this.scene.children.length !== childCountBefore) {
-          console.log(`[Renderer] Added object to scene: ${childCountBefore} -> ${this.scene.children.length} children`);
-        }
+        // Verbose per-object logging disabled to prevent console flooding
+        // if (this.scene.children.length !== childCountBefore) {
+        //   console.log(`[Renderer] Added object to scene: ${childCountBefore} -> ${this.scene.children.length} children`);
+        // }
       } else {
         console.warn('Cannot add object: not a THREE.Object3D', object);
       }
