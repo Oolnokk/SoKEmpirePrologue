@@ -7395,15 +7395,23 @@ function boot(){
     console.log('[app] ✅ App initialization complete - now loading map...');
 
     // Load the map AFTER app is fully initialized (race condition fix)
-    loadStartingArea().then(() => {
-      console.log('[app] ✅ Map loaded successfully');
-    }).catch((error) => {
-      console.error('[app] ❌ Map load failed:', error);
-    });
+    console.log('[app] 🔍 loadStartingArea function available:', typeof loadStartingArea);
+    if (typeof loadStartingArea === 'function') {
+      console.log('[app] 🚀 Calling loadStartingArea()...');
+      loadStartingArea().then(() => {
+        console.log('[app] ✅ Map loaded successfully');
+      }).catch((error) => {
+        console.log('[app] ❌ Map load failed:', error.message);
+        console.log('[app] Error stack:', error.stack);
+      });
+    } else {
+      console.log('[app] ❌ ERROR: loadStartingArea is not a function!');
+    }
   } catch (e){
     const b=document.getElementById('bootError'), m=document.getElementById('bootErrorMsg');
     if(b&&m){ m.textContent=(e.message||'Unknown error'); b.style.display='block'; }
-    console.error(e);
+    console.log('[app] ❌ Boot error:', e.message);
+    console.log('[app] Error stack:', e.stack);
   }
 }
 
