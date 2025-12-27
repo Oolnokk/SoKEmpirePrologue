@@ -5,6 +5,8 @@
  * concerns.
  */
 
+import { DEFAULT_SCENE3D_BASE_PATH } from '../../config.js';
+
 const DEFAULT_SCENE = Object.freeze({
   sceneUrl: null,
   ground: Object.freeze({
@@ -98,7 +100,6 @@ export function resolveScene3dUrl(sceneUrl, opts = {}) {
     return sceneUrl;
   }
 
-  const defaultBase = '/docs/config/maps/visualsmaps/';
   let locationBase;
   if (typeof window !== 'undefined' && window.location?.href) {
     try {
@@ -108,21 +109,20 @@ export function resolveScene3dUrl(sceneUrl, opts = {}) {
     }
   }
 
-  const basePath = opts.base || locationBase || defaultBase;
+  const basePath = opts.base || locationBase || DEFAULT_SCENE3D_BASE_PATH;
   const baseUrl = new URL(
     basePath,
     typeof window !== 'undefined' && window.location?.href ? window.location.href : 'http://localhost/',
   );
-  const docsRoot = baseUrl.pathname.replace(/config\/maps\/visualsmaps\/?$/, '');
 
   // Already absolute URL (http/https)
   if (sceneUrl.startsWith('http://') || sceneUrl.startsWith('https://')) {
     return sceneUrl;
   }
 
-  // Paths starting at /config/ should be anchored under the docs root when present
+  // Paths starting at /config/ are already anchored and should remain untouched
   if (sceneUrl.startsWith('/config/')) {
-    return docsRoot + sceneUrl.replace(/^\//, '');
+    return sceneUrl;
   }
 
   // Relative path starting with './' - strip and resolve
