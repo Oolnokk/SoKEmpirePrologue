@@ -7712,11 +7712,13 @@ function boot(){
                   scene3d: areaToLoad.scene3d,
                   worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
                 });
+                console.log('[3D-LOAD-INITIAL] ✓ Coordinate transform initialized, continuing...');
               } else {
                 console.log('[3D-LOAD-INITIAL] ⚠️ WARNING: Visualsmap loaded but no objects found');
                 console.log('[3D-LOAD-INITIAL] Adapter:', GAME_VISUALSMAP_ADAPTER);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
               }
+              console.log('[3D-LOAD-INITIAL] ✓ Visualsmap load block completed');
             }
             // Fallback: Load single scene3d.sceneUrl if available and no visualsMap
             else if (areaToLoad && areaToLoad.scene3d && areaToLoad.scene3d.sceneUrl && typeof adaptScene3dToRenderer === 'function') {
@@ -7741,29 +7743,39 @@ function boot(){
             console.log('[3D-LOAD-INITIAL] Error stack:', error.stack);
             lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
           }
+          console.log('[3D-LOAD-INITIAL] ✓ loadInitialScene3dArea function defined');
         };
 
         // Hook into MapRegistry to load scene3d when active area changes
+        console.log('[app] Setting up scene3d registry bridge...');
         let scene3dRegistry = null;
         const attachScene3dRegistry = (registry) => {
+          console.log('[app] attachScene3dRegistry called with registry:', !!registry);
           if (!registry || typeof registry.on !== 'function') {
+            console.log('[app] Registry invalid or missing .on method, returning');
             return;
           }
           if (scene3dRegistry === registry) {
+            console.log('[app] Registry already attached, returning');
             return;
           }
+          console.log('[app] Attaching scene3d registry bridge');
           scene3dRegistry = registry;
           registry.on('active-area-changed', handleScene3dAreaChange);
+          console.log('[app] Calling loadInitialScene3dArea...');
           loadInitialScene3dArea(registry);
+          console.log('[app] loadInitialScene3dArea call returned (async)');
         };
 
+        console.log('[app] Calling installScene3dRegistryBridge...');
         installScene3dRegistryBridge(attachScene3dRegistry);
+        console.log('[app] installScene3dRegistryBridge completed');
 
         // Expose for debugging
         window.GAME.renderer3d = GAME_RENDERER_3D;
         window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER;
         window.GAME.renderAdapter = GAME_RENDER_ADAPTER;
-        console.log('[app] 3D background renderer initialized successfully');
+        console.log('[app] 🟢🟢🟢 3D background renderer initialized successfully 🟢🟢🟢');
       }
     } else {
       if (rendererModuleState.error) {
@@ -7777,5 +7789,7 @@ function boot(){
     console.warn('[app] Game will continue without 3D background');
   }
 
+  console.log('[app] 🔵🔵🔵 ABOUT TO CALL boot() 🔵🔵🔵');
   boot();
+  console.log('[app] 🟡🟡🟡 boot() CALL RETURNED 🟡🟡🟡');
 })();
