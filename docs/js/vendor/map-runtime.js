@@ -1129,7 +1129,12 @@ function normalizePathTargetRecord(raw, warnings = [], context = {}) {
     return null;
   }
 
-  const orderCandidate = safe.order ?? safe.meta?.order ?? safe.meta?.pathOrder;
+  const orderCandidate = safe.order
+    ?? safe.meta?.order
+    ?? safe.meta?.pathOrder
+    ?? safe.meta?.sequence
+    ?? safe.meta?.index
+    ?? safe.meta?.seq;
   const order = Number.isFinite(Number(orderCandidate)) ? Number(orderCandidate) : null;
   const position = {
     x: toNumber(safe.position?.x ?? safe.x ?? 0, 0),
@@ -2027,6 +2032,13 @@ export function convertLayoutToArea(layout, options = {}) {
       const x = Number.isFinite(Number(pt.x)) ? Number(pt.x) : defaultX;
       const topOffset = Number.isFinite(Number(pt.y)) ? Number(pt.y) : (pt.topOffset ?? groundOffset);
       const height = Number.isFinite(Number(pt.height)) ? Number(pt.height) : 48;
+      const baseTags = Array.isArray(pt.tags)
+        ? pt.tags.filter((tag) => typeof tag === 'string' && tag.trim()).map((tag) => tag.trim())
+        : [];
+      const metaTags = Array.isArray(pt.meta?.tags)
+        ? pt.meta.tags.filter((tag) => typeof tag === 'string' && tag.trim()).map((tag) => tag.trim())
+        : [];
+      const tags = Array.from(new Set([...baseTags, ...metaTags]));
 
       convertedColliders.push(normalizeCollider({
         id,
@@ -2038,17 +2050,17 @@ export function convertLayoutToArea(layout, options = {}) {
         meta: { ...pt.meta, patrol: true }
       }, convertedColliders.length));
 
-      const order = Number.isFinite(Number(pt.order ?? pt.meta?.order ?? pt.meta?.pathOrder))
-        ? Number(pt.order ?? pt.meta?.order ?? pt.meta?.pathOrder)
-        : idx + 1;
+      const orderCandidate = pt.order ?? pt.meta?.order ?? pt.meta?.pathOrder ?? pt.meta?.sequence;
+      const order = Number.isFinite(Number(orderCandidate)) ? Number(orderCandidate) : idx + 1;
+      const routeName = pt.meta?.routeId || pt.meta?.pathId || pt.routeId || pt.pathId || pt.name || id;
 
       const patrolTarget = normalizePathTargetRecord({
-        name: pt.name || id,
+        name: routeName,
         order,
         position: { x, y: topOffset },
-        tags: Array.isArray(pt.tags) ? pt.tags : [],
+        tags,
         meta: { ...(pt.meta || {}), patrol: true, label, colliderId: id },
-      }, warnings, { source: 'layout.patrolPoints', fallbackName: `patrol_${idx + 1}` });
+      }, warnings, { source: 'layout.patrolPoints', fallbackName: routeName || `patrol_${idx + 1}` });
 
       if (patrolTarget) {
         patrolPathTargets.push(patrolTarget);
