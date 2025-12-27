@@ -109,11 +109,26 @@
       position:absolute;
       inset:0;
       display:flex;
+      flex-direction:column;
       align-items:center;
       justify-content:center;
       font-size: 14px;
       color: var(--muted);
       pointer-events:none;
+      gap: 12px;
+    }
+    .progress-bar {
+      width: 240px;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--acc);
+      transition: width 0.3s ease;
+      width: 0%;
     }
   </style>
 </head>
@@ -302,7 +317,13 @@
   </div>
 
   <div id="viewport">
-    <div id="viewportStatus">Initializing 3D viewport…</div>
+    <div id="viewportStatus">
+      <div id="statusText">Initializing 3D viewport…</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div id="statusPercent" style="font-size: 12px; color: var(--muted);">0%</div>
+    </div>
     <div id="debug"></div>
   </div>
 </div>
@@ -585,9 +606,21 @@
   // -------------------------
   const viewportEl = document.getElementById("viewport");
   const viewportStatusEl = document.getElementById("viewportStatus");
+  const statusText = document.getElementById("statusText");
+  const statusPercent = document.getElementById("statusPercent");
+  const progressFill = document.getElementById("progressFill");
 
-  console.log("Creating renderer...");
-  viewportStatusEl.textContent = "Creating renderer...";
+  function setProgress(percent, message) {
+    statusText.textContent = message;
+    statusPercent.textContent = `${percent}%`;
+    progressFill.style.width = `${percent}%`;
+    console.log(`[${percent}%] ${message}`);
+  }
+
+  setProgress(10, "Loading modules...");
+
+  await new Promise(resolve => setTimeout(resolve, 50)); // Brief delay to show initial state
+  setProgress(25, "Creating renderer...");
 
   const renderer = createRenderer({
     container: viewportEl,
@@ -598,32 +631,41 @@
     cameraFar: 100,
   });
 
+  setProgress(40, "Configuring renderer...");
+
   // Set up event listeners BEFORE initializing
   renderer.on('ready', (event) => {
     console.log('Renderer ready event:', event);
     if (event.supported) {
-      console.log("Renderer ready - hiding status message");
-      viewportStatusEl.style.display = "none";
+      setProgress(75, "Setting up scene...");
 
-      const scene = renderer.scene;
-      scene.background = new THREE.Color(0x0b0f14);
+      setTimeout(() => {
+        const scene = renderer.scene;
+        scene.background = new THREE.Color(0x0b0f14);
 
-      setupScene();
+        setupScene();
+
+        setProgress(100, "Ready!");
+        setTimeout(() => {
+          viewportStatusEl.style.display = "none";
+        }, 300);
+      }, 100);
     } else {
-      viewportStatusEl.textContent = "Three.js not available - renderer in no-op mode";
-      viewportStatusEl.style.color = "#ff6b6b";
+      statusText.textContent = "Three.js not available - renderer in no-op mode";
+      statusText.style.color = "#ff6b6b";
+      progressFill.style.background = "#ef4444";
     }
   });
 
   renderer.on('error', (event) => {
     console.error('Renderer error:', event);
-    viewportStatusEl.textContent = `Error during ${event.phase}: ${event.error?.message || 'Unknown error'}`;
-    viewportStatusEl.style.color = "#ff6b6b";
+    statusText.textContent = `Error during ${event.phase}: ${event.error?.message || 'Unknown error'}`;
+    statusText.style.color = "#ff6b6b";
+    progressFill.style.background = "#ef4444";
     viewportStatusEl.style.display = "block";
   });
 
-  console.log("Initializing renderer...");
-  viewportStatusEl.textContent = "Initializing renderer...";
+  setProgress(50, "Initializing renderer...");
 
   await renderer.init();
 
