@@ -479,19 +479,49 @@ window.addEventListener("unhandledrejection", (event) => {
 
 logDebug("Page loaded, debug log ready");
 logDebug("Starting module imports...");
+
+// Timeout to detect if modules never load
+setTimeout(() => {
+  if (!window.__modulesLoaded) {
+    logDebug("ERROR: Module import timeout - modules failed to load after 5 seconds");
+    logDebug("Possible causes: CORS issue, file not found, or syntax error in module");
+    const statusText = document.getElementById("statusText");
+    const progressFill = document.getElementById("progressFill");
+    if (statusText) {
+      statusText.textContent = "Module loading failed - check log";
+      statusText.style.color = "#ff6b6b";
+    }
+    if (progressFill) {
+      progressFill.style.background = "#ef4444";
+    }
+  }
+}, 5000);
 </script>
 
 <script type="module">
-  import * as THREE from "./vendor/three/three.module.js";
-  import { createRenderer } from "./renderer/index.js";
-  import { OrbitControls } from "./vendor/three/OrbitControls.js";
-  import { GLTFExporter } from "./vendor/three/GLTFExporter.js";
+  try {
+    logDebug("Importing THREE.js...");
+    const THREE = await import("./vendor/three/three.module.js");
+    logDebug("✓ THREE.js imported");
 
-  logDebug("Modules imported successfully");
+    logDebug("Importing createRenderer...");
+    const { createRenderer } = await import("./renderer/index.js");
+    logDebug("✓ createRenderer imported");
+
+    logDebug("Importing OrbitControls...");
+    const { OrbitControls } = await import("./vendor/three/OrbitControls.js");
+    logDebug("✓ OrbitControls imported");
+
+    logDebug("Importing GLTFExporter...");
+    const { GLTFExporter } = await import("./vendor/three/GLTFExporter.js");
+    logDebug("✓ GLTFExporter imported");
+
+    window.__modulesLoaded = true;
+    logDebug("All modules imported successfully");
 
   (async function main() {
   try {
-    globalThis.THREE = globalThis.THREE || THREE;
+    globalThis.THREE = globalThis.THREE || THREE.default || THREE;
     logDebug("3DBoxShaper initializing...");
 
     // -------------------------
@@ -1682,15 +1712,31 @@ logDebug("Starting module imports...");
   } // End of setupScene()
 
   } catch (error) {
+    logDebug("FATAL ERROR in main: " + error.message);
     console.error("Fatal error during initialization:", error);
     const viewportStatusEl = document.getElementById("viewportStatus");
     if (viewportStatusEl) {
-      viewportStatusEl.textContent = `Fatal error: ${error.message}`;
+      const statusText = document.getElementById("statusText");
+      if (statusText) statusText.textContent = `Fatal error: ${error.message}`;
       viewportStatusEl.style.color = "#ff6b6b";
       viewportStatusEl.style.display = "block";
     }
   }
   })();
+
+  } catch (error) {
+    logDebug("FATAL ERROR during module import: " + error.message);
+    logDebug("Stack: " + error.stack);
+    const statusText = document.getElementById("statusText");
+    const progressFill = document.getElementById("progressFill");
+    if (statusText) {
+      statusText.textContent = `Module import failed: ${error.message}`;
+      statusText.style.color = "#ff6b6b";
+    }
+    if (progressFill) {
+      progressFill.style.background = "#ef4444";
+    }
+  }
  </script>
 </body>
 </html>
