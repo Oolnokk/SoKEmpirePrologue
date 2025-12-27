@@ -7415,21 +7415,25 @@ function boot(){
 
     // CRITICAL: Use dynamic import to load map-bootstrap AFTER app is ready
     // Static import causes race condition where both modules load in parallel
-    console.log('[app] 🚀 Dynamically importing map-bootstrap...');
+    console.log('🟡🟡🟡 [app/boot] 🚀 ABOUT TO IMPORT map-bootstrap.js 🟡🟡🟡');
+    console.log('[app] boot() - Dynamically importing map-bootstrap...');
     import('./map-bootstrap.js?v=999').then((module) => {
-      console.log('[app] ✅ map-bootstrap module imported');
-      console.log('[app] 🔍 loadStartingArea available:', typeof module.loadStartingArea);
+      console.log('🟢🟢🟢 [app/boot] ✅ map-bootstrap.js IMPORT SUCCESS 🟢🟢🟢');
+      console.log('[app] map-bootstrap module imported successfully');
+      console.log('[app] loadStartingArea available:', typeof module.loadStartingArea);
       if (typeof module.loadStartingArea === 'function') {
-        console.log('[app] 🚀 Calling loadStartingArea()...');
+        console.log('🔵🔵🔵 [app/boot] 🚀 CALLING loadStartingArea() 🔵🔵🔵');
         return module.loadStartingArea();
       } else {
         throw new Error('loadStartingArea is not a function');
       }
     }).then(() => {
-      console.log('[app] ✅ Map loaded successfully');
+      console.log('✅✅✅ [app/boot] ✅ MAP LOADED SUCCESSFULLY ✅✅✅');
     }).catch((error) => {
-      console.log('[app] ❌ Map load failed:', error.message);
-      console.log('[app] Error stack:', error.stack);
+      console.error('❌❌❌ [app/boot] ❌ MAP LOAD FAILED ❌❌❌');
+      console.error('[app] Map load error:', error.message);
+      console.error('[app] Error stack:', error.stack);
+      console.error('[app] Full error object:', error);
     });
   } catch (e){
     const b=document.getElementById('bootError'), m=document.getElementById('bootErrorMsg');

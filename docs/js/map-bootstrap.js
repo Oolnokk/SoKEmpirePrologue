@@ -136,9 +136,10 @@ function resolveGroupLibrary() {
     return globalConfig.npcGroups || {};
 }
 function registerAreaSpawns(area) {
-    console.log('[SPAWN-REGISTER] 🎮 registerAreaSpawns() called for area:', area?.id);
+    console.log('🎮🎮🎮 [SPAWN-REGISTER] registerAreaSpawns() CALLED 🎮🎮🎮');
+    console.log('[SPAWN-REGISTER] Area ID:', area?.id);
     if (!area) {
-        console.log('[SPAWN-REGISTER] ⚠️ No area provided, returning early');
+        console.log('⚠️⚠️⚠️ [SPAWN-REGISTER] NO AREA PROVIDED - RETURNING EARLY ⚠️⚠️⚠️');
         return;
     }
     console.log('[SPAWN-REGISTER] Area has spawners:', area.spawners?.length || 0);
