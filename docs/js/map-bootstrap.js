@@ -697,6 +697,199 @@ function waitForPreviewMessage(previewToken, { timeoutMs = 3000 } = {}) {
         }
     });
 }
+function displayMapLoadError(error, layoutUrl) {
+    if (typeof document === 'undefined') return;
+
+    // Create or update error overlay
+    let overlay = document.getElementById('map-load-error-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'map-load-error-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 100000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    const errorType = error.message?.includes('HTTP') ? 'http' :
+                      error.message?.includes('JSON') || error instanceof SyntaxError ? 'json' :
+                      'unknown';
+
+    const httpMatch = error.message?.match(/HTTP (\d+)/);
+    const httpStatus = httpMatch ? httpMatch[1] : null;
+
+    let diagnosticHtml = `
+        <div style="background: #1e293b; border: 2px solid #dc2626; border-radius: 8px; padding: 24px; max-width: 800px; width: 100%; max-height: 90vh; overflow-y: auto; font-family: system-ui, -apple-system, sans-serif;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                <div style="font-size: 48px;">❌</div>
+                <div>
+                    <h1 style="margin: 0; color: #f8fafc; font-size: 24px; font-weight: 600;">Map Load Failed</h1>
+                    <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 14px;">The game couldn't load the gameplay map</p>
+                </div>
+            </div>
+
+            <div style="background: #dc2626; color: #fef2f2; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                <strong style="font-size: 14px;">Error:</strong>
+                <div style="font-family: monospace; font-size: 13px; margin-top: 6px; word-break: break-word;">
+                    ${error.message || 'Unknown error'}
+                </div>
+            </div>
+
+            <div style="background: #0f172a; padding: 16px; border-radius: 6px; margin-bottom: 16px;">
+                <strong style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 12px;">📊 Diagnostic Information</strong>
+                <div style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: #f8fafc;">Map URL:</strong><br/>
+                        <code style="background: #1e293b; padding: 4px 8px; border-radius: 4px; display: block; margin-top: 4px; word-break: break-all; color: #3b82f6; font-size: 12px;">
+                            ${layoutUrl?.href || 'Unknown'}
+                        </code>
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: #f8fafc;">Error Type:</strong>
+                        <span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 11px;">
+                            ${errorType.toUpperCase()}
+                        </span>
+                    </div>
+                    ${httpStatus ? `
+                        <div style="margin-bottom: 8px;">
+                            <strong style="color: #f8fafc;">HTTP Status:</strong>
+                            <span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 11px;">
+                                ${httpStatus}
+                            </span>
+                        </div>
+                    ` : ''}
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: #f8fafc;">Browser:</strong> ${navigator.userAgent.split(' ').slice(-2).join(' ')}
+                    </div>
+                    <div>
+                        <strong style="color: #f8fafc;">Current URL:</strong><br/>
+                        <code style="background: #1e293b; padding: 4px 8px; border-radius: 4px; display: block; margin-top: 4px; word-break: break-all; font-size: 11px;">
+                            ${window.location.href}
+                        </code>
+                    </div>
+                </div>
+            </div>
+    `;
+
+    // Add specific troubleshooting based on error type
+    if (errorType === 'http') {
+        if (httpStatus === '404') {
+            diagnosticHtml += `
+                <div style="background: #1e293b; padding: 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #f59e0b;">
+                    <strong style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 8px;">🔍 404 Not Found</strong>
+                    <div style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                        <p style="margin: 0 0 12px 0;">The map file doesn't exist at the specified URL.</p>
+                        <strong style="color: #f8fafc;">Possible causes:</strong>
+                        <ul style="margin: 8px 0; padding-left: 20px;">
+                            <li>File path is incorrect in config.js</li>
+                            <li>Map file hasn't been created yet</li>
+                            <li>File was moved or renamed</li>
+                            <li>Server path configuration issue</li>
+                        </ul>
+                        <strong style="color: #f8fafc;">How to fix:</strong>
+                        <ol style="margin: 8px 0; padding-left: 20px;">
+                            <li>Check that <code style="background: #0f172a; padding: 2px 6px; border-radius: 3px;">defaultdistrict3d_gameplaymap.json</code> exists</li>
+                            <li>Verify path in <code style="background: #0f172a; padding: 2px 6px; border-radius: 3px;">config.js</code> → <code style="background: #0f172a; padding: 2px 6px; border-radius: 3px;">map.layouts[0].path</code></li>
+                            <li>Open browser DevTools → Network tab to see exact failing URL</li>
+                        </ol>
+                    </div>
+                </div>
+            `;
+        } else if (httpStatus === '500' || httpStatus === '502' || httpStatus === '503') {
+            diagnosticHtml += `
+                <div style="background: #1e293b; padding: 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #dc2626;">
+                    <strong style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 8px;">⚠️ Server Error (${httpStatus})</strong>
+                    <div style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                        <p style="margin: 0 0 12px 0;">The server encountered an error while trying to serve the map file.</p>
+                        <strong style="color: #f8fafc;">How to fix:</strong>
+                        <ol style="margin: 8px 0; padding-left: 20px;">
+                            <li>Check if the development server is running</li>
+                            <li>Restart the server</li>
+                            <li>Check server logs for errors</li>
+                            <li>Verify file permissions on the server</li>
+                        </ol>
+                    </div>
+                </div>
+            `;
+        }
+    } else if (errorType === 'json') {
+        diagnosticHtml += `
+            <div style="background: #1e293b; padding: 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #f59e0b;">
+                <strong style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 8px;">📝 JSON Parse Error</strong>
+                <div style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                    <p style="margin: 0 0 12px 0;">The map file was found but contains invalid JSON.</p>
+                    <strong style="color: #f8fafc;">Common causes:</strong>
+                    <ul style="margin: 8px 0; padding-left: 20px;">
+                        <li>Missing or extra commas</li>
+                        <li>Unclosed brackets or braces</li>
+                        <li>Unquoted strings</li>
+                        <li>Trailing commas (not allowed in JSON)</li>
+                        <li>Comments (not allowed in JSON)</li>
+                    </ul>
+                    <strong style="color: #f8fafc;">How to fix:</strong>
+                    <ol style="margin: 8px 0; padding-left: 20px;">
+                        <li>Open the map file in a text editor</li>
+                        <li>Use a JSON validator (e.g., <code style="background: #0f172a; padding: 2px 6px; border-radius: 3px;">jsonlint.com</code>)</li>
+                        <li>Check browser console for line number of error</li>
+                        <li>Common fix: Remove trailing commas after last array/object items</li>
+                    </ol>
+                </div>
+            </div>
+        `;
+    } else {
+        diagnosticHtml += `
+            <div style="background: #1e293b; padding: 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #64748b;">
+                <strong style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 8px;">🔧 General Troubleshooting</strong>
+                <div style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                    <strong style="color: #f8fafc;">Debug steps:</strong>
+                    <ol style="margin: 8px 0; padding-left: 20px;">
+                        <li>Open browser DevTools (F12)</li>
+                        <li>Check the Console tab for detailed error messages</li>
+                        <li>Check the Network tab to see the failed request</li>
+                        <li>Verify the map file exists and is valid JSON</li>
+                        <li>Try loading the URL directly in your browser</li>
+                    </ol>
+                </div>
+            </div>
+        `;
+    }
+
+    diagnosticHtml += `
+            <div style="background: #0f172a; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                <strong style="color: #f8fafc; font-size: 12px; display: block; margin-bottom: 8px;">🐛 Full Error Stack</strong>
+                <pre style="margin: 0; padding: 8px; background: #000; border-radius: 4px; overflow-x: auto; font-size: 11px; color: #ef4444; line-height: 1.4;">${error.stack || error.message || String(error)}</pre>
+            </div>
+
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button onclick="location.reload()" style="flex: 1; min-width: 150px; padding: 12px 24px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                    🔄 Reload Page
+                </button>
+                <button onclick="document.getElementById('map-load-error-overlay').remove()" style="flex: 1; min-width: 150px; padding: 12px 24px; background: #64748b; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                    ✕ Dismiss (Load Empty Map)
+                </button>
+            </div>
+
+            <div style="margin-top: 16px; padding: 12px; background: #0f172a; border-radius: 6px; text-align: center;">
+                <p style="margin: 0; color: #64748b; font-size: 12px;">
+                    A fallback empty map has been loaded. The game may not function correctly.
+                </p>
+            </div>
+        </div>
+    `;
+
+    overlay.innerHTML = diagnosticHtml;
+}
 async function loadStartingArea() {
     const params = new URLSearchParams(window.location.search);
     const configPreviewToken = typeof MAP_CONFIG.previewToken === 'string' ? MAP_CONFIG.previewToken : null;
@@ -764,6 +957,10 @@ async function loadStartingArea() {
     }
     catch (error) {
         console.error('[map-bootstrap] Failed to load starting map', error);
+
+        // Display detailed error diagnostics on screen
+        displayMapLoadError(error, layoutUrl);
+
         const fallbackArea = convertLayoutToArea({}, {
             areaId: DEFAULT_AREA_ID,
             areaName: 'Empty Area',
