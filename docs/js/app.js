@@ -960,6 +960,8 @@ import { initBountySystem, updateBountySystem, getBountyState } from './bounty.j
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
 import { initTransformConfig, transform3dTo2d, transform2dTo3d, getTransformConfig } from './coordinate-transform.js?v=1';
+// DO NOT static import map-bootstrap - causes race condition!
+// Use dynamic import in boot() instead
 
 // Visualsmap loader for 3D grid-based scenes
 let visualsmapLoaderModule = null;
@@ -7363,18 +7365,31 @@ function fmt(val, decimals = 0) {
 }
 
 function boot(){
+  console.log('[app] 🟢🟢🟢 BOOT() FUNCTION CALLED - START 🟢🟢🟢');
   try {
+    console.log('[app] boot() - Setting status to "Booted"');
     if (statusInfo) statusInfo.textContent = 'Booted';
+    console.log('[app] boot() - Calling initPresets()');
     initPresets();
+    console.log('[app] boot() - Calling ensureAltSequenceUsesKickAlt()');
     ensureAltSequenceUsesKickAlt();
+    console.log('[app] boot() - Calling initFighters()');
     initFighters(cv, cx, { spawnNpc: false });
+    console.log('[app] boot() - Calling initNpcSystems()');
     initNpcSystems();
+    console.log('[app] boot() - Calling initBountySystem()');
     initBountySystem();
+    console.log('[app] boot() - Calling initControls()');
     initControls();
+    console.log('[app] boot() - Calling initCombat()');
     initCombat();
+    console.log('[app] boot() - Calling initHitDetect()');
     initHitDetect();
+    console.log('[app] boot() - Calling initDebugPanel()');
     initDebugPanel();
+    console.log('[app] boot() - Calling initTouchControls()');
     initTouchControls();
+    console.log('[app] boot() - Checking shouldEnableArchHud()');
     if (shouldEnableArchHud()) {
       archTouchHandle?.destroy?.();
       archTouchHandle = initArchTouchInput({
@@ -7383,16 +7398,44 @@ function boot(){
         enabled: true,
       });
     }
+    console.log('[app] boot() - Calling initSelectionDropdowns()');
     initSelectionDropdowns();
+    console.log('[app] boot() - Calling initGameDebugPanel()');
     initGameDebugPanel(); // Initialize 3D/Runtime debug panel
+    console.log('[app] boot() - Calling requestAnimationFrame(loop)');
     requestAnimationFrame(loop);
+    console.log('[app] boot() - Setting up interactPrompt timeout');
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);
+    console.log('[app] boot() - Marking boot complete');
     // Mark boot as complete for debug panel
     window.GAME.bootComplete = true;
+    // Signal to map-bootstrap that app initialization is complete (race condition fix)
+    window.GAME.__appInitialized = true;
+    console.log('[app] ✅ App initialization complete - now loading map...');
+
+    // CRITICAL: Use dynamic import to load map-bootstrap AFTER app is ready
+    // Static import causes race condition where both modules load in parallel
+    console.log('[app] 🚀 Dynamically importing map-bootstrap...');
+    import('./map-bootstrap.js?v=999').then((module) => {
+      console.log('[app] ✅ map-bootstrap module imported');
+      console.log('[app] 🔍 loadStartingArea available:', typeof module.loadStartingArea);
+      if (typeof module.loadStartingArea === 'function') {
+        console.log('[app] 🚀 Calling loadStartingArea()...');
+        return module.loadStartingArea();
+      } else {
+        throw new Error('loadStartingArea is not a function');
+      }
+    }).then(() => {
+      console.log('[app] ✅ Map loaded successfully');
+    }).catch((error) => {
+      console.log('[app] ❌ Map load failed:', error.message);
+      console.log('[app] Error stack:', error.stack);
+    });
   } catch (e){
     const b=document.getElementById('bootError'), m=document.getElementById('bootErrorMsg');
     if(b&&m){ m.textContent=(e.message||'Unknown error'); b.style.display='block'; }
-    console.error(e);
+    console.log('[app] ❌ Boot error:', e.message);
+    console.log('[app] Error stack:', e.stack);
   }
 }
 
@@ -7546,13 +7589,26 @@ function boot(){
             // Load visualsmap if available (preferred)
             if (area && area.visualsMap) {
               try {
-                console.log('[app] Loading visualsmap for area:', area.id, area.visualsMap);
+                console.log('[3D-LOAD] 🎬 START: Loading visualsmap for area:', area.id);
+                console.log('[3D-LOAD] Visualsmap path:', area.visualsMap);
+                console.log('[3D-LOAD] Area source:', area.source);
+                console.log('[3D-LOAD] Renderer ready:', !!GAME_RENDERER_3D);
+
+                console.log('[3D-LOAD] Step 1/3: Getting visualsmap loader...');
                 const visualsmapLoader = await getVisualsmapLoader();
+                console.log('[3D-LOAD] ✓ Visualsmap loader obtained');
+
                 const gameplayMapUrl = area.source || ''; // URL of the gameplaymap.json
+                console.log('[3D-LOAD] Step 2/3: Loading visualsmap from:', gameplayMapUrl);
+
                 GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, area, gameplayMapUrl);
+                console.log('[3D-LOAD] ✓ Visualsmap data loaded');
+
                 window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
+
+                console.log('[3D-LOAD] Step 3/3: Validating loaded objects...');
                 if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
-                  console.log('[app] Visualsmap loaded successfully:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
+                  console.log('[3D-LOAD] ✅ SUCCESS! Visualsmap loaded:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
                   lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
 
                   // Auto-size 2D world to match 3D gameplay path (procedural sizing)
@@ -7565,11 +7621,13 @@ function boot(){
                     worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
                   });
                 } else {
-                  console.warn('[app] Visualsmap loaded but no objects found');
+                  console.log('[3D-LOAD] ⚠️ WARNING: Visualsmap loaded but no objects found');
+                  console.log('[3D-LOAD] Adapter:', GAME_VISUALSMAP_ADAPTER);
                   lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
                 }
               } catch (error) {
-                console.error('[app] Error loading visualsmap:', error);
+                console.log('[3D-LOAD] ❌ ERROR loading visualsmap:', error.message);
+                console.log('[3D-LOAD] Error stack:', error.stack);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
               }
             }
@@ -7594,7 +7652,8 @@ function boot(){
               }
             }
           } catch (error) {
-            console.error('[app] Error loading 3D scene:', error);
+            console.log('[3D-LOAD] ❌ ERROR in area change handler:', error.message);
+            console.log('[3D-LOAD] Error stack:', error.stack);
             lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
           }
         };
@@ -7618,12 +7677,26 @@ function boot(){
 
             // Load visualsmap if available (preferred)
             if (areaToLoad && areaToLoad.visualsMap) {
-              console.log('[app] Loading initial visualsmap:', areaToLoad.id);
+              console.log('[3D-LOAD-INITIAL] 🎬 START: Loading initial visualsmap for area:', areaToLoad.id);
+              console.log('[3D-LOAD-INITIAL] Visualsmap path:', areaToLoad.visualsMap);
+              console.log('[3D-LOAD-INITIAL] Area source:', areaToLoad.source);
+              console.log('[3D-LOAD-INITIAL] Renderer ready:', !!GAME_RENDERER_3D);
+
+              console.log('[3D-LOAD-INITIAL] Step 1/3: Getting visualsmap loader...');
               const visualsmapLoader = await getVisualsmapLoader();
+              console.log('[3D-LOAD-INITIAL] ✓ Visualsmap loader obtained');
+
               const gameplayMapUrl = areaToLoad.source || '';
+              console.log('[3D-LOAD-INITIAL] Step 2/3: Loading visualsmap from:', gameplayMapUrl);
+
               GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, areaToLoad, gameplayMapUrl);
+              console.log('[3D-LOAD-INITIAL] ✓ Visualsmap data loaded');
+
               window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
+
+              console.log('[3D-LOAD-INITIAL] Step 3/3: Validating loaded objects...');
               if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
+                console.log('[3D-LOAD-INITIAL] ✅ SUCCESS! Visualsmap loaded:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
                 lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
 
                 // Auto-size 2D world to match 3D gameplay path (procedural sizing)
@@ -7636,6 +7709,8 @@ function boot(){
                   worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
                 });
               } else {
+                console.log('[3D-LOAD-INITIAL] ⚠️ WARNING: Visualsmap loaded but no objects found');
+                console.log('[3D-LOAD-INITIAL] Adapter:', GAME_VISUALSMAP_ADAPTER);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
               }
             }
@@ -7658,7 +7733,8 @@ function boot(){
               }
             }
           } catch (error) {
-            console.warn('[app] Failed to load initial 3D scene:', error);
+            console.log('[3D-LOAD-INITIAL] ❌ ERROR loading initial 3D scene:', error.message);
+            console.log('[3D-LOAD-INITIAL] Error stack:', error.stack);
             lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
           }
         };

@@ -2,6 +2,9 @@ import { GeometryService, MapRegistry, adaptLegacyLayoutGeometry, adaptSceneGeom
 import { computeGroundY } from './ground-utils.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 import { SpawnService, translateAreaToSpawnPayload } from './spawn-service.js';
+// CRITICAL: These logs MUST appear if module executes
+console.log('🔴🔴🔴 [MAP-BOOTSTRAP-TOP] MODULE EXECUTING - ALL IMPORTS COMPLETE 🔴🔴🔴');
+console.log('[MAP-BOOTSTRAP-MODULE] 🟢 map-bootstrap.js module loaded and executing');
 const FALLBACK_LAYOUT_PATH = '../config/maps/gameplaymaps/defaultdistrict3d_gameplaymap.json';
 const FALLBACK_AREA_ID = 'defaultdistrict3d';
 const FALLBACK_AREA_NAME = 'DefaultDistrict3D';
@@ -133,10 +136,17 @@ function resolveGroupLibrary() {
     return globalConfig.npcGroups || {};
 }
 function registerAreaSpawns(area) {
-    if (!area)
+    console.log('[SPAWN-REGISTER] 🎮 registerAreaSpawns() called for area:', area?.id);
+    if (!area) {
+        console.log('[SPAWN-REGISTER] ⚠️ No area provided, returning early');
         return;
+    }
+    console.log('[SPAWN-REGISTER] Area has spawners:', area.spawners?.length || 0);
+    console.log('[SPAWN-REGISTER] Area has entities:', area.entities?.length || 0);
     const service = ensureSpawnService();
+    console.log('[SPAWN-REGISTER] SpawnService ready:', !!service);
     const basePayload = translateAreaToSpawnPayload(area);
+    console.log('[SPAWN-REGISTER] Base payload spawnPoints:', basePayload.spawnPoints?.length || 0);
     const areaRecord = area;
     const fallbackScene = areaRecord.scene || {};
     const fallbackSpawnPoints = Array.isArray(areaRecord.spawnPoints)
@@ -145,6 +155,7 @@ function registerAreaSpawns(area) {
             ? fallbackScene.spawnPoints
             : [];
     const spawnPoints = basePayload.spawnPoints.length ? basePayload.spawnPoints : fallbackSpawnPoints;
+    console.log('[SPAWN-REGISTER] Final spawnPoints count:', spawnPoints.length);
     const baseGroupLibrary = basePayload.groupLibrary;
     const fallbackGroupLibrary = areaRecord.groupLibrary || areaRecord.groups || fallbackScene.groupLibrary || fallbackScene.groups || {};
     const groupLibrary = Object.keys(baseGroupLibrary || {}).length ? baseGroupLibrary : fallbackGroupLibrary;
@@ -587,11 +598,22 @@ function adaptSceneForLegacyParallax(area) {
     };
 }
 function applyArea(area) {
+    console.log('[APPLY-AREA] 🗺️ applyArea() called for area:', area?.id);
+    console.log('[APPLY-AREA] Area has:', {
+        spawners: area.spawners?.length || 0,
+        entities: area.entities?.length || 0,
+        visualsMap: !!area.visualsMap,
+        scene3d: !!area.scene3d,
+        groupLibrary: Object.keys(area.groupLibrary || {}).length
+    });
     const registry = (window.__MAP_REGISTRY__ instanceof MapRegistry)
         ? window.__MAP_REGISTRY__
         : new MapRegistry({ logger: console });
+    console.log('[APPLY-AREA] Registry exists:', registry instanceof MapRegistry);
     registry.registerArea(area.id, area);
+    console.log('[APPLY-AREA] Area registered in registry');
     registry.setActiveArea(area.id);
+    console.log('[APPLY-AREA] Active area set to:', area.id);
     window.__MAP_REGISTRY__ = registry;
     registerAreaGeometry(area);
     // REMOVED: Legacy PARALLAX writes - the runtime no longer populates window.PARALLAX
@@ -697,7 +719,202 @@ function waitForPreviewMessage(previewToken, { timeoutMs = 3000 } = {}) {
         }
     });
 }
+function displayMapLoadError(error, layoutUrl) {
+    if (typeof document === 'undefined') return;
+
+    // Create or update error overlay
+    let overlay = document.getElementById('map-load-error-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'map-load-error-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 100000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    const errorType = error.message?.includes('HTTP') ? 'http' :
+                      error.message?.includes('JSON') || error instanceof SyntaxError ? 'json' :
+                      'unknown';
+
+    const httpMatch = error.message?.match(/HTTP (\d+)/);
+    const httpStatus = httpMatch ? httpMatch[1] : null;
+
+    let diagnosticHtml = `
+        <div style="background: #1e293b; border: 2px solid #dc2626; border-radius: 8px; padding: 24px; max-width: 800px; width: 100%; max-height: 90vh; overflow-y: auto; font-family: system-ui, -apple-system, sans-serif;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                <div style="font-size: 48px;">❌</div>
+                <div>
+                    <h1 style="margin: 0; color: #f8fafc; font-size: 24px; font-weight: 600;">Map Load Failed</h1>
+                    <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 14px;">The game couldn't load the gameplay map</p>
+                </div>
+            </div>
+
+            <div style="background: #dc2626; color: #fef2f2; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                <strong style="font-size: 14px;">Error:</strong>
+                <div style="font-family: monospace; font-size: 13px; margin-top: 6px; word-break: break-word;">
+                    ${error.message || 'Unknown error'}
+                </div>
+            </div>
+
+            <div style="background: #0f172a; padding: 16px; border-radius: 6px; margin-bottom: 16px;">
+                <strong style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 12px;">📊 Diagnostic Information</strong>
+                <div style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: #f8fafc;">Map URL:</strong><br/>
+                        <code style="background: #1e293b; padding: 4px 8px; border-radius: 4px; display: block; margin-top: 4px; word-break: break-all; color: #3b82f6; font-size: 12px;">
+                            ${layoutUrl?.href || 'Unknown'}
+                        </code>
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: #f8fafc;">Error Type:</strong>
+                        <span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 11px;">
+                            ${errorType.toUpperCase()}
+                        </span>
+                    </div>
+                    ${httpStatus ? `
+                        <div style="margin-bottom: 8px;">
+                            <strong style="color: #f8fafc;">HTTP Status:</strong>
+                            <span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 11px;">
+                                ${httpStatus}
+                            </span>
+                        </div>
+                    ` : ''}
+                    <div style="margin-bottom: 8px;">
+                        <strong style="color: #f8fafc;">Browser:</strong> ${navigator.userAgent.split(' ').slice(-2).join(' ')}
+                    </div>
+                    <div>
+                        <strong style="color: #f8fafc;">Current URL:</strong><br/>
+                        <code style="background: #1e293b; padding: 4px 8px; border-radius: 4px; display: block; margin-top: 4px; word-break: break-all; font-size: 11px;">
+                            ${window.location.href}
+                        </code>
+                    </div>
+                </div>
+            </div>
+    `;
+
+    // Add specific troubleshooting based on error type
+    if (errorType === 'http') {
+        if (httpStatus === '404') {
+            diagnosticHtml += `
+                <div style="background: #1e293b; padding: 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #f59e0b;">
+                    <strong style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 8px;">🔍 404 Not Found</strong>
+                    <div style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                        <p style="margin: 0 0 12px 0;">The map file doesn't exist at the specified URL.</p>
+                        <strong style="color: #f8fafc;">Possible causes:</strong>
+                        <ul style="margin: 8px 0; padding-left: 20px;">
+                            <li>File path is incorrect in config.js</li>
+                            <li>Map file hasn't been created yet</li>
+                            <li>File was moved or renamed</li>
+                            <li>Server path configuration issue</li>
+                        </ul>
+                        <strong style="color: #f8fafc;">How to fix:</strong>
+                        <ol style="margin: 8px 0; padding-left: 20px;">
+                            <li>Check that <code style="background: #0f172a; padding: 2px 6px; border-radius: 3px;">defaultdistrict3d_gameplaymap.json</code> exists</li>
+                            <li>Verify path in <code style="background: #0f172a; padding: 2px 6px; border-radius: 3px;">config.js</code> → <code style="background: #0f172a; padding: 2px 6px; border-radius: 3px;">map.layouts[0].path</code></li>
+                            <li>Open browser DevTools → Network tab to see exact failing URL</li>
+                        </ol>
+                    </div>
+                </div>
+            `;
+        } else if (httpStatus === '500' || httpStatus === '502' || httpStatus === '503') {
+            diagnosticHtml += `
+                <div style="background: #1e293b; padding: 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #dc2626;">
+                    <strong style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 8px;">⚠️ Server Error (${httpStatus})</strong>
+                    <div style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                        <p style="margin: 0 0 12px 0;">The server encountered an error while trying to serve the map file.</p>
+                        <strong style="color: #f8fafc;">How to fix:</strong>
+                        <ol style="margin: 8px 0; padding-left: 20px;">
+                            <li>Check if the development server is running</li>
+                            <li>Restart the server</li>
+                            <li>Check server logs for errors</li>
+                            <li>Verify file permissions on the server</li>
+                        </ol>
+                    </div>
+                </div>
+            `;
+        }
+    } else if (errorType === 'json') {
+        diagnosticHtml += `
+            <div style="background: #1e293b; padding: 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #f59e0b;">
+                <strong style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 8px;">📝 JSON Parse Error</strong>
+                <div style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                    <p style="margin: 0 0 12px 0;">The map file was found but contains invalid JSON.</p>
+                    <strong style="color: #f8fafc;">Common causes:</strong>
+                    <ul style="margin: 8px 0; padding-left: 20px;">
+                        <li>Missing or extra commas</li>
+                        <li>Unclosed brackets or braces</li>
+                        <li>Unquoted strings</li>
+                        <li>Trailing commas (not allowed in JSON)</li>
+                        <li>Comments (not allowed in JSON)</li>
+                    </ul>
+                    <strong style="color: #f8fafc;">How to fix:</strong>
+                    <ol style="margin: 8px 0; padding-left: 20px;">
+                        <li>Open the map file in a text editor</li>
+                        <li>Use a JSON validator (e.g., <code style="background: #0f172a; padding: 2px 6px; border-radius: 3px;">jsonlint.com</code>)</li>
+                        <li>Check browser console for line number of error</li>
+                        <li>Common fix: Remove trailing commas after last array/object items</li>
+                    </ol>
+                </div>
+            </div>
+        `;
+    } else {
+        diagnosticHtml += `
+            <div style="background: #1e293b; padding: 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #64748b;">
+                <strong style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 8px;">🔧 General Troubleshooting</strong>
+                <div style="color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                    <strong style="color: #f8fafc;">Debug steps:</strong>
+                    <ol style="margin: 8px 0; padding-left: 20px;">
+                        <li>Open browser DevTools (F12)</li>
+                        <li>Check the Console tab for detailed error messages</li>
+                        <li>Check the Network tab to see the failed request</li>
+                        <li>Verify the map file exists and is valid JSON</li>
+                        <li>Try loading the URL directly in your browser</li>
+                    </ol>
+                </div>
+            </div>
+        `;
+    }
+
+    diagnosticHtml += `
+            <div style="background: #0f172a; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                <strong style="color: #f8fafc; font-size: 12px; display: block; margin-bottom: 8px;">🐛 Full Error Stack</strong>
+                <pre style="margin: 0; padding: 8px; background: #000; border-radius: 4px; overflow-x: auto; font-size: 11px; color: #ef4444; line-height: 1.4;">${error.stack || error.message || String(error)}</pre>
+            </div>
+
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button onclick="location.reload()" style="flex: 1; min-width: 150px; padding: 12px 24px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                    🔄 Reload Page
+                </button>
+                <button onclick="document.getElementById('map-load-error-overlay').remove()" style="flex: 1; min-width: 150px; padding: 12px 24px; background: #64748b; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                    ✕ Dismiss (Load Empty Map)
+                </button>
+            </div>
+
+            <div style="margin-top: 16px; padding: 12px; background: #0f172a; border-radius: 6px; text-align: center;">
+                <p style="margin: 0; color: #64748b; font-size: 12px;">
+                    A fallback empty map has been loaded. The game may not function correctly.
+                </p>
+            </div>
+        </div>
+    `;
+
+    overlay.innerHTML = diagnosticHtml;
+}
 async function loadStartingArea() {
+    console.log('[map-bootstrap] 🚀 START - Loading starting area...');
+    console.log('[map-bootstrap] Layout URL:', layoutUrl);
     const params = new URLSearchParams(window.location.search);
     const configPreviewToken = typeof MAP_CONFIG.previewToken === 'string' ? MAP_CONFIG.previewToken : null;
     const previewToken = configPreviewToken || params.get('preview');
@@ -708,6 +925,7 @@ async function loadStartingArea() {
     const { prefabs: prefabMap } = await prefabLibraryPromise;
     const prefabResolver = createPrefabResolver(prefabMap);
     if (previewPayload?.layout) {
+        console.log('[map-bootstrap] Using preview payload');
         const applied = applyPreviewLayout(previewPayload.layout, {
             previewToken,
             createdAt: previewPayload.createdAt ?? null,
@@ -732,21 +950,35 @@ async function loadStartingArea() {
         }
         console.warn('[map-bootstrap] Preview token requested but no payload was available');
     }
+    console.log('[map-bootstrap] No preview - fetching layout from:', layoutUrl.href);
     if (typeof fetch !== 'function') {
         console.warn('[map-bootstrap] fetch is unavailable; skipping starting map load');
         return;
     }
     try {
+        console.log('[map-bootstrap] Fetching layout...');
         const response = await fetch(layoutUrl, { cache: 'no-cache' });
+        console.log('[map-bootstrap] Fetch response status:', response.status, response.ok);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
+        console.log('[map-bootstrap] Parsing JSON...');
         const layout = await response.json();
-        console.debug('[map-bootstrap] Loaded raw layout descriptor', {
+        console.log('[map-bootstrap] ✅ JSON parsed successfully');
+        console.log('[map-bootstrap] Loaded raw layout descriptor', {
             id: layout?.areaId || layout?.id || DEFAULT_AREA_ID,
             name: layout?.areaName || layout?.name || DEFAULT_AREA_NAME,
             source: layoutUrl.href,
             layout,
+        });
+        console.log('[map-bootstrap] Layout groupLibrary:', layout.groupLibrary);
+        console.log('[map-bootstrap] Layout entities:', layout.entities);
+        console.log('[map-bootstrap] Entities breakdown:', {
+            total: layout.entities?.length || 0,
+            groupspawners: layout.entities?.filter(e => e.type === 'groupspawner').length || 0,
+            doors: layout.entities?.filter(e => e.type === 'door').length || 0,
+            patrolpoints: layout.entities?.filter(e => e.type === 'patrolpoint').length || 0,
+            propspawns: layout.entities?.filter(e => e.type === 'propspawn').length || 0,
         });
         const area = convertLayoutToArea(layout, {
             areaId: layout?.areaId || layout?.id || DEFAULT_AREA_ID,
@@ -756,14 +988,21 @@ async function loadStartingArea() {
         });
         // Set source URL so visualsmap paths can be resolved relative to this file
         area.source = layoutUrl.href;
-        console.debug('[map-bootstrap] Area object has visualsMap:', !!area.visualsMap, 'scene3d:', !!area.scene3d);
+        console.log('[map-bootstrap] Area object has visualsMap:', !!area.visualsMap, 'scene3d:', !!area.scene3d);
         if (area.visualsMap) {
-            console.debug('[map-bootstrap] visualsMap path:', area.visualsMap);
+            console.log('[map-bootstrap] visualsMap path:', area.visualsMap);
         }
+        console.log('[map-bootstrap] Area spawners:', area.spawners);
+        console.log('[map-bootstrap] Area groupLibrary:', area.groupLibrary);
+        console.log('[map-bootstrap] Spawn payload:', translateAreaToSpawnPayload(area));
         applyArea(area);
     }
     catch (error) {
         console.error('[map-bootstrap] Failed to load starting map', error);
+
+        // Display detailed error diagnostics on screen
+        displayMapLoadError(error, layoutUrl);
+
         const fallbackArea = convertLayoutToArea({}, {
             areaId: DEFAULT_AREA_ID,
             areaName: 'Empty Area',
@@ -775,4 +1014,12 @@ async function loadStartingArea() {
         applyArea(fallbackArea);
     }
 }
-await loadStartingArea();
+// Export loadStartingArea for app.js to call when ready
+// This ensures app initializes FIRST, then map loads (race condition fix)
+export { loadStartingArea };
+
+// Also expose globally for debugging
+if (typeof window !== 'undefined') {
+    window.__loadStartingArea = loadStartingArea;
+    console.log('[MAP-BOOTSTRAP-MODULE] 🟢 Exported loadStartingArea, waiting for app.js to call it');
+}
