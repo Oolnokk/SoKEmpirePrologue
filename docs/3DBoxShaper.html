@@ -342,6 +342,11 @@
         Clip sticker to face (cull overhang)
       </label>
 
+      <div class="col" style="margin-top:8px;">
+        <label>Priority (higher renders on top)</label>
+        <input type="number" id="stPriority" value="0" step="1" />
+      </div>
+
       <div class="grid2" style="margin-top:8px;">
         <div class="col">
           <label>Translate U (face-local)</label>
@@ -371,8 +376,9 @@
         <button class="danger" id="removeStickerBtn">Remove sticker</button>
       </div>
       <div class="help" style="margin-top:8px;">
-        Translate U/V units are in “face sizes”: 1.0 shifts one full face width/height.<br/>
-        In <b>clipped</b> mode, transforms affect the sticker’s <b>UV mapping</b> on the face.
+        Translate U/V units are in "face sizes": 1.0 shifts one full face width/height.<br/>
+        In <b>clipped</b> mode, transforms affect the sticker's <b>UV mapping</b> on the face.<br/>
+        <b>Transforms are deterministic:</b> all values are relative to the sticker's upload state. Applying 1.1 scale twice results in 110% size, not 121%.
       </div>
     </div>
 
@@ -952,7 +958,9 @@ setTimeout(() => {
   // Sticker params:
   // - clipToFace=false: plane overhang allowed; params move/scale/rotate plane in face space.
   // - clipToFace=true: geometry is face-sized quad; params affect UV mapping (cropped).
-  const stickers = []; // { id, quadId, dataURL, params:{tx,ty,sx,sy,rzDeg,clipToFace}, mesh, tex }
+  // - params are DETERMINISTIC: values represent absolute transform relative to upload state (baseParams)
+  // - priority: higher values render on top (default 0)
+  const stickers = []; // { id, quadId, dataURL, params:{tx,ty,sx,sy,rzDeg,clipToFace}, baseParams:{tx,ty,sx,sy,rzDeg}, priority, mesh, tex }
   let selectedQuadId = "top";
   let selectedStickerId = null;
 
@@ -1075,6 +1083,9 @@ setTimeout(() => {
   function updateStickerTransform(st) {
     const q = editable.getQuadById(st.quadId);
     if (!q) return;
+
+    // Set render order based on priority (higher priority renders on top)
+    st.mesh.renderOrder = 10 + (st.priority ?? 0);
 
     if (st.params.clipToFace) {
       rebuildClippedStickerGeometry(st);
@@ -1203,7 +1214,7 @@ setTimeout(() => {
       item.className = "stickerItem" + (st.id === selectedStickerId ? " active" : "");
       const left = document.createElement("div");
       left.innerHTML =
-        `<div><b>${st.id.slice(0,6)}…</b>` +
+        `<div><b>${st.id.slice(0,6)}…</b> <span style="color:var(--acc);">p${st.priority ?? 0}</span>` +
         `<small>on ${faceLabel(st.quadId)} • ${st.params.clipToFace ? "clipped" : "overhang"}</small></div>`;
       const right = document.createElement("div");
       const btn = document.createElement("button");
@@ -1253,6 +1264,8 @@ setTimeout(() => {
         quadId: s.quadId,
         dataURL: s.dataURL,
         params: { ...s.params },
+        baseParams: { ...s.baseParams },
+        priority: s.priority ?? 0,
       })),
       selectedQuadId,
       selectedStickerId,
@@ -1304,7 +1317,7 @@ setTimeout(() => {
     const current = {
       label: "current",
       mesh: editable.serialize(),
-      stickers: stickers.map(s => ({ id:s.id, quadId:s.quadId, dataURL:s.dataURL, params:{...s.params} })),
+      stickers: stickers.map(s => ({ id:s.id, quadId:s.quadId, dataURL:s.dataURL, params:{...s.params}, baseParams:{...s.baseParams}, priority:s.priority??0 })),
       selectedQuadId,
       selectedStickerId,
       baseTransparent: document.getElementById("baseTransparentChk").checked,
@@ -1319,7 +1332,7 @@ setTimeout(() => {
     const current = {
       label: "current",
       mesh: editable.serialize(),
-      stickers: stickers.map(s => ({ id:s.id, quadId:s.quadId, dataURL:s.dataURL, params:{...s.params} })),
+      stickers: stickers.map(s => ({ id:s.id, quadId:s.quadId, dataURL:s.dataURL, params:{...s.params}, baseParams:{...s.baseParams}, priority:s.priority??0 })),
       selectedQuadId,
       selectedStickerId,
       baseTransparent: document.getElementById("baseTransparentChk").checked,
@@ -1519,6 +1532,8 @@ setTimeout(() => {
       dataURL,
       tex,
       params: { tx: 0, ty: 0, sx: 1, sy: 1, rzDeg: 0, clipToFace: false },
+      baseParams: { tx: 0, ty: 0, sx: 1, sy: 1, rzDeg: 0 }, // deterministic reference point
+      priority: 0,
       mesh,
     };
 
@@ -1533,6 +1548,7 @@ setTimeout(() => {
     const st = getSelectedSticker();
     if (!st) {
       document.getElementById("stClip").checked = false;
+      document.getElementById("stPriority").value = 0;
       document.getElementById("stTx").value = 0;
       document.getElementById("stTy").value = 0;
       document.getElementById("stSx").value = 1;
@@ -1541,6 +1557,7 @@ setTimeout(() => {
       return;
     }
     document.getElementById("stClip").checked = !!st.params.clipToFace;
+    document.getElementById("stPriority").value = st.priority ?? 0;
     document.getElementById("stTx").value = st.params.tx;
     document.getElementById("stTy").value = st.params.ty;
     document.getElementById("stSx").value = st.params.sx;
@@ -1567,6 +1584,10 @@ setTimeout(() => {
       scene.add(st.mesh);
     }
 
+    // Update priority (for render order)
+    st.priority = Math.round(clampFinite(num("stPriority"), 0));
+
+    // Update transform params (deterministic - always relative to baseParams)
     st.params.tx = clampFinite(num("stTx"), 0);
     st.params.ty = clampFinite(num("stTy"), 0);
     st.params.sx = Math.max(0.001, clampFinite(num("stSx"), 1));
