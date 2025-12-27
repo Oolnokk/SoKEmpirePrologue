@@ -36,18 +36,30 @@ function initConsoleCapture() {
 
     // Format and store message
     const timestamp = new Date().toISOString();
+    const MAX_MESSAGE_LENGTH = 5000; // Prevent base64 blobs from flooding console
+
     const message = args.map(arg => {
       if (arg instanceof Error) {
         return arg.stack || `${arg.name}: ${arg.message}`;
       }
       if (typeof arg === 'object') {
         try {
-          return JSON.stringify(arg, null, 2);
+          const stringified = JSON.stringify(arg, null, 2);
+          // Truncate large objects (likely containing binary data)
+          if (stringified.length > MAX_MESSAGE_LENGTH) {
+            return stringified.substring(0, MAX_MESSAGE_LENGTH) + `... [truncated ${stringified.length - MAX_MESSAGE_LENGTH} chars]`;
+          }
+          return stringified;
         } catch (e) {
           return String(arg);
         }
       }
-      return String(arg);
+      const str = String(arg);
+      // Truncate long strings too
+      if (str.length > MAX_MESSAGE_LENGTH) {
+        return str.substring(0, MAX_MESSAGE_LENGTH) + `... [truncated ${str.length - MAX_MESSAGE_LENGTH} chars]`;
+      }
+      return str;
     }).join(' ');
 
     CONSOLE_CAPTURE.messages.push({ type, timestamp, message });
