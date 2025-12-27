@@ -9,6 +9,8 @@ import { isTowerStructure } from '../lighting/TowerLightingIntegration.js';
 import { createCandleLight } from '../lighting/CandleLight.js';
 import { transform2dTo3d, getTransformConfig } from '../js/coordinate-transform.js';
 import { SpriteHolsterManager } from '../js/spriteholster-manager.js';
+import { WeatherPlaneManager } from './WeatherPlaneManager.js';
+import { RainParticleSystem } from './RainParticleSystem.js';
 
 const DEFAULT_GAMEPLAY_PATH_LOOK_AT = Object.freeze({
   offsetY: 0.3, // Grid units; scaled by cellSize at runtime
@@ -541,7 +543,7 @@ async function loadVisualsmapIndex(baseContext = null) {
     const baseUrl = new URL('./', resolvedPath).href;
     const assetMap = new Map();
 
-    ['segments', 'structures', 'decorations'].forEach((section) => {
+    ['segments', 'structures', 'decorations', 'weather'].forEach((section) => {
       const list = indexJson?.[section];
       if (!Array.isArray(list)) return;
       list.forEach((asset) => {
@@ -764,7 +766,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
 
     // Prefer inline asset definitions from visualsmap JSON when available
     const inlineAssetMap = new Map();
-    ['segments', 'structures', 'decorations'].forEach(section => {
+    ['segments', 'structures', 'decorations', 'weather'].forEach(section => {
       const list = visualsMap.assets?.[section];
       if (Array.isArray(list)) {
         list.forEach(asset => {
@@ -1334,6 +1336,99 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log(`[visualsmapLoader] ✓ SpriteHolster manager available via window.holsterManager`);
     }
 
+    // Initialize weather system if weather layer exists
+    let weatherPlaneManager = null;
+    let rainParticleSystem = null;
+    const weatherLayer = layerStates['weather'];
+
+    if (weatherLayer && Array.isArray(weatherLayer)) {
+      console.log(`[visualsmapLoader] Initializing weather system`);
+
+      // Load weather assets from index
+      const weatherIndexResult = await loadVisualsmapIndex(docsBase || visualsMapBase || null);
+      const weatherAssets = weatherIndexResult?.assets || null;
+
+      // Create weather managers
+      weatherPlaneManager = new WeatherPlaneManager(
+        renderer.scene,
+        renderer.THREE,
+        renderer.textureLoader
+      );
+
+      const bounds = {
+        width: gridWidth * 1.5,
+        height: gridDepth * 2,
+        depth: gridWidth
+      };
+      rainParticleSystem = new RainParticleSystem(renderer.scene, renderer.THREE, bounds);
+
+      // Process weather layer cells
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const cell = weatherLayer[row]?.[col];
+          if (!cell || !cell.type) continue;
+
+          // Load weather asset config
+          let weatherConfig = weatherAssets?.get(cell.type);
+          if (!weatherConfig) {
+            console.warn(`[visualsmapLoader] Weather asset not found: ${cell.type}`);
+            continue;
+          }
+
+          const instanceConfig = {
+            scaleX: cell.scaleX ?? weatherConfig.instanceDefaults?.scaleX ?? 1,
+            scaleY: cell.scaleY ?? weatherConfig.instanceDefaults?.scaleY ?? 1,
+            scaleZ: cell.scaleZ ?? weatherConfig.instanceDefaults?.scaleZ ?? 1,
+            offsetX: (cell.offsetX ?? weatherConfig.instanceDefaults?.offsetX ?? 0),
+            offsetY: (cell.offsetY ?? weatherConfig.instanceDefaults?.offsetY ?? 0),
+            orientation: cell.orientation ?? weatherConfig.instanceDefaults?.orientation ?? 0
+          };
+
+          // Create weather element based on type
+          if (weatherConfig.weatherType === 'rain') {
+            // Initialize rain particle system
+            const rainConfig = weatherConfig.extraConfig || {};
+            rainParticleSystem.init({
+              particleCount: rainConfig.particleCount || 1200,
+              intensity: rainConfig.intensity || 0.5,
+              windDirection: rainConfig.windDirection || 25,
+              fallSpeed: rainConfig.fallSpeed || 1400,
+              sideSpeed: rainConfig.sideSpeed || 900
+            });
+            console.log(`[visualsmapLoader] ✓ Initialized rain layer`);
+          } else if (weatherConfig.weatherType === 'sky' ||
+                     weatherConfig.weatherType === 'cloud' ||
+                     weatherConfig.weatherType === 'jungle') {
+            // Add weather plane
+            const planeId = `${cell.type}_${row}_${col}`;
+            await weatherPlaneManager.addWeatherPlane(planeId, weatherConfig, instanceConfig);
+            console.log(`[visualsmapLoader] ✓ Added ${weatherConfig.weatherType} plane: ${weatherConfig.label || cell.type}`);
+          }
+        }
+      }
+
+      // Hook weather system into frame update
+      const weatherUpdateHandler = ({ time, deltaTime }) => {
+        if (weatherPlaneManager) {
+          const windDir = rainParticleSystem ? rainParticleSystem.windDirection : 25;
+          weatherPlaneManager.update(deltaTime / 1000, windDir);
+        }
+        if (rainParticleSystem) {
+          rainParticleSystem.update(deltaTime / 1000);
+        }
+      };
+      renderer.on('frame', weatherUpdateHandler);
+
+      // Store reference for cleanup
+      if (typeof window !== 'undefined') {
+        window.weatherPlaneManager = weatherPlaneManager;
+        window.rainParticleSystem = rainParticleSystem;
+        console.log(`[visualsmapLoader] ✓ Weather systems available via window.weatherPlaneManager and window.rainParticleSystem`);
+      }
+
+      console.log(`[visualsmapLoader] ✓ Weather system initialized`);
+    }
+
     const gameplayDebugGroup = new renderer.THREE.Group();
     gameplayDebugGroup.name = 'gameplayDebug';
     gameplayDebugGroup.visible = false;
@@ -1872,6 +1967,12 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
         renderer.off('frame', frameUpdateHandler);
         dayNightSystem.dispose();
         holsterManager.dispose();
+        if (weatherPlaneManager) {
+          weatherPlaneManager.clear();
+        }
+        if (rainParticleSystem) {
+          rainParticleSystem.dispose();
+        }
         loadedObjects.forEach(obj => renderer.remove(obj));
         loadedObjects.length = 0;
       }

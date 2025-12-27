@@ -9,6 +9,7 @@
       --tower-color: #3b82f6;
       --road-color: #6b7280;
       --sidewalk-color: #9ca3af;
+      --weather-color: #60a5fa;
       --grid-border: #1f2937;
       --bg: #0f172a;
     }
@@ -365,6 +366,7 @@ select {
         <option value="ground">Ground Segments</option>
         <option value="structure" selected>Structures</option>
         <option value="decoration">Decorations</option>
+        <option value="weather">Weather</option>
       </select>
 
       <label for="tileTypeSelect">Tile Brush</label>
@@ -729,8 +731,8 @@ select {
     const HALF_ROWS = (ROWS - 1) / 2;
     const HALF_COLS = (COLS - 1) / 2;
 
-    const LAYERS = { GROUND: "ground", STRUCTURE: "structure", DECORATION: "decoration" };
-    const LAYER_ORDER = [LAYERS.GROUND, LAYERS.STRUCTURE, LAYERS.DECORATION];
+    const LAYERS = { GROUND: "ground", STRUCTURE: "structure", DECORATION: "decoration", WEATHER: "weather" };
+    const LAYER_ORDER = [LAYERS.GROUND, LAYERS.STRUCTURE, LAYERS.DECORATION, LAYERS.WEATHER];
 
     // --- DYNAMIC ASSET LOADER ---
     // Attempts to load asset definitions from canonical locations:
@@ -740,10 +742,11 @@ select {
     let SEGMENT_ASSETS = [];
     let STRUCTURE_ASSETS = [];
     let DECORATION_ASSETS = [];
+    let WEATHER_ASSETS = [];
     let ALL_ASSETS = [];
 
     function rebuildAllAssets() {
-      ALL_ASSETS = [...SEGMENT_ASSETS, ...STRUCTURE_ASSETS, ...DECORATION_ASSETS];
+      ALL_ASSETS = [...SEGMENT_ASSETS, ...STRUCTURE_ASSETS, ...DECORATION_ASSETS, ...WEATHER_ASSETS];
     }
 
     const docsBase = new URL('.', window.location.href);
@@ -787,6 +790,14 @@ select {
             colorVar: asset.colorVar || '--tower-color',
             gltfTemplate: asset.gltfTemplate || null,
             gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
+          }));
+
+          WEATHER_ASSETS = (data.weather || []).map(asset => ({
+            ...asset,
+            layer: LAYERS.WEATHER,
+            colorVar: asset.colorVar || '--weather-color',
+            gltfTemplate: asset.gltfTemplate || null,
+            gltfFileName: asset.imagePath ? asset.imagePath.split('/').pop() : null
           }));
 
           rebuildAllAssets();

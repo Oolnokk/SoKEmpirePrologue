@@ -66,5 +66,139 @@
       "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
       "extraConfig": {}
     }
+  ],
+  "weather": [
+    {
+      "id": "sky_background",
+      "label": "Sky Background",
+      "layer": "weather",
+      "weatherType": "sky",
+      "imagePath": null,
+      "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
+      "yOffset": 841,
+      "zDepth": -1000,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
+      "extraConfig": {
+        "gradient": {
+          "top": "#0b1430",
+          "middle": "#5fa0d0",
+          "bottom": "#e6eef5"
+        }
+      }
+    },
+    {
+      "id": "cloud_medium_l",
+      "label": "Cloud Medium Left",
+      "layer": "weather",
+      "weatherType": "cloud",
+      "imagePath": "./assets/backdrops/cloud_medium_L.png",
+      "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
+      "yOffset": 840,
+      "zDepth": -500,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": -1 },
+      "extraConfig": { "flipX": true, "animate": true, "breathe": true }
+    },
+    {
+      "id": "cloud_large_central",
+      "label": "Cloud Large Central",
+      "layer": "weather",
+      "weatherType": "cloud",
+      "imagePath": "./assets/backdrops/cloud_large_central.png",
+      "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
+      "yOffset": 674,
+      "zDepth": -500,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": -167 },
+      "extraConfig": { "animate": true, "breathe": true }
+    },
+    {
+      "id": "cloud_small_r",
+      "label": "Cloud Small Right",
+      "layer": "weather",
+      "weatherType": "cloud",
+      "imagePath": "./assets/backdrops/cloud_small_R.png",
+      "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
+      "yOffset": 873,
+      "zDepth": -500,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": 32 },
+      "extraConfig": { "animate": true, "breathe": true }
+    },
+    {
+      "id": "jungle_tall_r",
+      "label": "Jungle Tall Right",
+      "layer": "weather",
+      "weatherType": "jungle",
+      "imagePath": "./assets/backdrops/jungle_tall_R.png",
+      "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
+      "yOffset": 867,
+      "zDepth": 200,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": 26 },
+      "extraConfig": { "wiggle": true, "wiggleAmount": 0.55, "wiggleHeight": 0.55 }
+    },
+    {
+      "id": "jungle_tall_l",
+      "label": "Jungle Tall Left",
+      "layer": "weather",
+      "weatherType": "jungle",
+      "imagePath": "./assets/backdrops/jungle_tall_L.png",
+      "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
+      "yOffset": 831,
+      "zDepth": 200,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": -10 },
+      "extraConfig": { "wiggle": true, "wiggleAmount": 0.55, "wiggleHeight": 0.55 }
+    },
+    {
+      "id": "jungle_wide_r",
+      "label": "Jungle Wide Right",
+      "layer": "weather",
+      "weatherType": "jungle",
+      "imagePath": "./assets/backdrops/jungle_wide_R.png",
+      "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
+      "yOffset": 1027,
+      "zDepth": 200,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": 186 },
+      "extraConfig": { "wiggle": true, "wiggleAmount": 0.55, "wiggleHeight": 0.55 }
+    },
+    {
+      "id": "jungle_wide_l",
+      "label": "Jungle Wide Left",
+      "layer": "weather",
+      "weatherType": "jungle",
+      "imagePath": "./assets/backdrops/jungle_wide_L.png",
+      "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
+      "yOffset": 1015,
+      "zDepth": 200,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": 174 },
+      "extraConfig": { "wiggle": true, "wiggleAmount": 0.55, "wiggleHeight": 0.55 }
+    },
+    {
+      "id": "jungle_central",
+      "label": "Jungle Central",
+      "layer": "weather",
+      "weatherType": "jungle",
+      "imagePath": "./assets/backdrops/jungle_central.png",
+      "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
+      "yOffset": 1045,
+      "zDepth": 200,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": 204 },
+      "extraConfig": { "wiggle": true, "wiggleAmount": 0.55, "wiggleHeight": 0.55 }
+    },
+    {
+      "id": "rain_layer",
+      "label": "Rain Layer",
+      "layer": "weather",
+      "weatherType": "rain",
+      "imagePath": null,
+      "baseScale": { "x": 1, "y": 1, "z": 1 },
+      "yOffset": 0,
+      "zDepth": 0,
+      "instanceDefaults": { "orientation": 0, "scaleX": 1, "scaleY": 1, "scaleZ": 1, "offsetX": 0, "offsetY": 0 },
+      "extraConfig": {
+        "particleCount": 1200,
+        "intensity": 0.5,
+        "windDirection": 25,
+        "fallSpeed": 1400,
+        "sideSpeed": 900
+      }
+    }
   ]
 }
