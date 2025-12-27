@@ -52,7 +52,7 @@ function renderBottleInHand(ctx, handX, handY, handAngle, camX, zoom) {
 
   // Transform to world space
   ctx.translate(handX - camX, handY);
-  ctx.rotate(handAngle + Math.PI / 2); // Orient bottle upright relative to hand
+  ctx.rotate(handAngle); // Orient bottle same direction as katana blade (along bone)
 
   // Offset so attachment point is 75% up from bottle bottom
   // Bottle dimensions at 50% scale: height=18.5px (from y=-11 to y=7.5)
