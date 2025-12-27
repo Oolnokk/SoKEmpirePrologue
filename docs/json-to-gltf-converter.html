@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BoxShaper JSON to GLTF Converter</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #0b0f14;
+      color: #e8eef7;
+    }
+    h1 { color: #6aa7ff; }
+    .card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    button {
+      background: rgba(106,167,255,0.18);
+      border: 1px solid rgba(106,167,255,0.35);
+      color: #e8eef7;
+      padding: 12px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      margin: 5px;
+    }
+    button:hover { background: rgba(106,167,255,0.28); }
+    input[type="file"] { margin: 10px 0; }
+    #status {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.3);
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .success { color: #4ade80; }
+    .error { color: #f87171; }
+  </style>
+</head>
+<body>
+  <h1>BoxShaper JSON → GLTF Converter</h1>
+
+  <div class="card">
+    <h3>Step 1: Select your JSON file</h3>
+    <input type="file" id="jsonFile" accept=".json">
+
+    <h3>Step 2: Convert & Download</h3>
+    <button id="convertGltfBtn">Convert to .gltf</button>
+    <button id="convertGlbBtn">Convert to .glb</button>
+
+    <div id="status"></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from './vendor/three/three.module.js';
+    import { GLTFExporter } from './vendor/three/GLTFExporter.js';
+
+    const status = document.getElementById('status');
+    let jsonData = null;
+
+    function log(msg, isError = false) {
+      status.innerHTML += `<div class="${isError ? 'error' : 'success'}">${msg}</div>`;
+    }
+
+    document.getElementById('jsonFile').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        status.innerHTML = '';
+        const text = await file.text();
+        jsonData = JSON.parse(text);
+        log('✓ JSON loaded successfully');
+        log(`Found ${jsonData.mesh.quads.length} faces, ${jsonData.stickers.length} stickers`);
+      } catch (err) {
+        log('Error loading JSON: ' + err.message, true);
+      }
+    });
+
+    async function buildMeshFromJSON(data) {
+      // Rebuild geometry from JSON
+      const vertices = data.mesh.vertices.map(v => new THREE.Vector3(v[0], v[1], v[2]));
+
+      // Build geometry with indexed faces
+      const positions = new Float32Array(vertices.length * 3);
+      vertices.forEach((v, i) => {
+        positions[i * 3] = v.x;
+        positions[i * 3 + 1] = v.y;
+        positions[i * 3 + 2] = v.z;
+      });
+
+      const indices = [];
+      const colorToMaterial = new Map();
+      const materials = [];
+
+      // Build materials and groups
+      data.mesh.quads.forEach((quad, qi) => {
+        const [a, b, c, d] = quad.v;
+        indices.push(a, b, c, a, c, d);
+
+        const key = `${quad.color}|${quad.emissive ? 'e' : 'b'}`;
+        if (!colorToMaterial.has(key)) {
+          const mat = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(quad.color),
+            metalness: 0.05,
+            roughness: 0.85,
+            transparent: true,
+            opacity: data.baseTransparent ? 0.0 : 0.85,
+            side: THREE.DoubleSide,
+            emissive: quad.emissive ? new THREE.Color(quad.color) : new THREE.Color(0),
+            emissiveIntensity: quad.emissive ? 1.15 : 0,
+          });
+          colorToMaterial.set(key, materials.length);
+          materials.push(mat);
+        }
+      });
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setIndex(indices);
+
+      // Add groups for materials
+      let indexOffset = 0;
+      data.mesh.quads.forEach(quad => {
+        const key = `${quad.color}|${quad.emissive ? 'e' : 'b'}`;
+        const matIndex = colorToMaterial.get(key);
+        geometry.addGroup(indexOffset, 6, matIndex);
+        indexOffset += 6;
+      });
+
+      geometry.computeVertexNormals();
+
+      return new THREE.Mesh(geometry, materials);
+    }
+
+    async function buildStickers(data, scene) {
+      const stickers = [];
+
+      for (const st of data.stickers) {
+        try {
+          // Load texture from dataURL
+          const loader = new THREE.TextureLoader();
+          const texture = await new Promise((resolve, reject) => {
+            loader.load(st.dataURL, resolve, undefined, reject);
+          });
+          texture.colorSpace = THREE.SRGBColorSpace;
+
+          // Create sticker mesh (simplified - just plane for now)
+          const geo = new THREE.PlaneGeometry(1, 1);
+          const mat = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            side: THREE.DoubleSide,
+          });
+          const mesh = new THREE.Mesh(geo, mat);
+
+          // TODO: Apply transforms based on st.params
+          // For now, just add it to the scene
+          stickers.push(mesh);
+          scene.add(mesh);
+        } catch (err) {
+          log(`Warning: Failed to load sticker ${st.id}: ${err.message}`, true);
+        }
+      }
+
+      return stickers;
+    }
+
+    async function convertToGLTF(binary) {
+      if (!jsonData) {
+        log('Please select a JSON file first', true);
+        return;
+      }
+
+      try {
+        log('Building 3D scene from JSON...');
+        const scene = new THREE.Scene();
+
+        // Build base mesh
+        const baseMesh = await buildMeshFromJSON(jsonData);
+        scene.add(baseMesh);
+        log('✓ Base mesh built');
+
+        // Build stickers
+        if (jsonData.stickers.length > 0) {
+          await buildStickers(jsonData, scene);
+          log(`✓ ${jsonData.stickers.length} stickers added`);
+        }
+
+        // Add metadata
+        scene.userData.boxShaperData = jsonData;
+
+        // Export to GLTF
+        log('Exporting to GLTF...');
+        const exporter = new GLTFExporter();
+
+        exporter.parse(
+          scene,
+          (result) => {
+            if (binary) {
+              const blob = new Blob([result], { type: 'application/octet-stream' });
+              downloadBlob(blob, 'structure.glb');
+              log('✓ .glb file downloaded!', false);
+            } else {
+              const json = JSON.stringify(result, null, 2);
+              const blob = new Blob([json], { type: 'application/json' });
+              downloadBlob(blob, 'structure.gltf');
+              log('✓ .gltf file downloaded!', false);
+            }
+          },
+          (err) => {
+            log('Export error: ' + err, true);
+          },
+          {
+            binary,
+            embedImages: true,
+          }
+        );
+      } catch (err) {
+        log('Conversion error: ' + err.message, true);
+      }
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    document.getElementById('convertGltfBtn').onclick = () => convertToGLTF(false);
+    document.getElementById('convertGlbBtn').onclick = () => convertToGLTF(true);
+  </script>
+</body>
+</html>
