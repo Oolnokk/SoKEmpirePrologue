@@ -334,6 +334,9 @@
       <div class="row" style="margin-top:8px;">
         <button id="applyTranslateBtn">Apply translation to face</button>
       </div>
+      <div class="help" style="margin-top:8px;">
+        <b>Transforms are deterministic:</b> all values are absolute, not cumulative. Applying 0.85 scale twice results in 85% size, not 72% (0.85×0.85). Each face remembers its original state.
+      </div>
     </div>
 
     <h2>Stickers (PNG planes)</h2>
@@ -594,16 +597,93 @@ setTimeout(() => {
       ];
 
       const defaultColor = "#9bb3d6";
+      const defaultTransforms = { scaleU: 1, scaleV: 1, rotU: 0, rotV: 0, rotN: 0, translateX: 0, translateY: 0, translateZ: 0 };
+
       this.quads = [
-        { id:"front",  v:[4,5,6,7], color: defaultColor, emissive: false }, // +z
-        { id:"back",   v:[0,3,2,1], color: defaultColor, emissive: false }, // -z
-        { id:"right",  v:[1,2,6,5], color: defaultColor, emissive: false }, // +x
-        { id:"left",   v:[0,4,7,3], color: defaultColor, emissive: false }, // -x
-        { id:"top",    v:[3,7,6,2], color: defaultColor, emissive: false }, // +y
-        { id:"bottom", v:[0,1,5,4], color: defaultColor, emissive: false }, // -y
+        { id:"front",  v:[4,5,6,7], color: defaultColor, emissive: false, transforms: {...defaultTransforms}, baseVertices: null }, // +z
+        { id:"back",   v:[0,3,2,1], color: defaultColor, emissive: false, transforms: {...defaultTransforms}, baseVertices: null }, // -z
+        { id:"right",  v:[1,2,6,5], color: defaultColor, emissive: false, transforms: {...defaultTransforms}, baseVertices: null }, // +x
+        { id:"left",   v:[0,4,7,3], color: defaultColor, emissive: false, transforms: {...defaultTransforms}, baseVertices: null }, // -x
+        { id:"top",    v:[3,7,6,2], color: defaultColor, emissive: false, transforms: {...defaultTransforms}, baseVertices: null }, // +y
+        { id:"bottom", v:[0,1,5,4], color: defaultColor, emissive: false, transforms: {...defaultTransforms}, baseVertices: null }, // -y
       ];
 
+      // Store initial base vertices for each quad
+      for (const q of this.quads) {
+        this.captureBaseVertices(q);
+      }
+
       this.buildGeometry();
+    }
+
+    captureBaseVertices(quad) {
+      // Store current vertex positions as base state for this quad
+      quad.baseVertices = quad.v.map(vi => this.vertices[vi].clone());
+    }
+
+    rebuildQuadFromTransforms(quad) {
+      // Rebuild quad vertices from base state + stored transforms
+      if (!quad.baseVertices || quad.baseVertices.length !== 4) {
+        // No base state, capture current as base
+        this.captureBaseVertices(quad);
+        return;
+      }
+
+      const t = quad.transforms;
+
+      // Calculate center of base vertices
+      const baseCenter = new THREE.Vector3();
+      for (const bv of quad.baseVertices) {
+        baseCenter.add(bv);
+      }
+      baseCenter.multiplyScalar(0.25);
+
+      // Calculate base face basis (u, v, n from base vertices)
+      const bu = new THREE.Vector3().subVectors(quad.baseVertices[1], quad.baseVertices[0]);
+      const bv = new THREE.Vector3().subVectors(quad.baseVertices[3], quad.baseVertices[0]);
+      const baseSizeU = bu.length();
+      const baseSizeV = bv.length();
+      bu.normalize();
+      bv.normalize();
+      const bn = new THREE.Vector3().crossVectors(bu, bv).normalize();
+
+      // Apply transforms to each vertex
+      for (let i = 0; i < 4; i++) {
+        const baseVert = quad.baseVertices[i].clone();
+
+        // 1. Get position relative to base center
+        let rel = new THREE.Vector3().subVectors(baseVert, baseCenter);
+
+        // 2. Convert to local coordinates
+        const du = rel.dot(bu);
+        const dv = rel.dot(bv);
+        const dn = rel.clone().sub(bu.clone().multiplyScalar(du)).sub(bv.clone().multiplyScalar(dv));
+
+        // 3. Apply scale
+        rel = new THREE.Vector3()
+          .add(bu.clone().multiplyScalar(du * t.scaleU))
+          .add(bv.clone().multiplyScalar(dv * t.scaleV))
+          .add(dn);
+
+        // 4. Apply rotation (face-local)
+        const ru = THREE.MathUtils.degToRad(t.rotU);
+        const rv = THREE.MathUtils.degToRad(t.rotV);
+        const rn = THREE.MathUtils.degToRad(t.rotN);
+        const quat = new THREE.Quaternion()
+          .setFromAxisAngle(bu, ru)
+          .multiply(new THREE.Quaternion().setFromAxisAngle(bv, rv))
+          .multiply(new THREE.Quaternion().setFromAxisAngle(bn, rn));
+        rel.applyQuaternion(quat);
+
+        // 5. Translate back from center
+        let newPos = baseCenter.clone().add(rel);
+
+        // 6. Apply world translation
+        newPos.add(new THREE.Vector3(t.translateX, t.translateY, t.translateZ));
+
+        // 7. Update vertex
+        this.vertices[quad.v[i]].copy(newPos);
+      }
     }
 
     quadIndexById(id) {
@@ -701,52 +781,38 @@ setTimeout(() => {
       const q = this.getQuadById(quadId);
       if (!q) return;
 
-      const { center, u, v } = this.getFaceBasis(quadId);
-      scaleU = Math.max(0.001, scaleU);
-      scaleV = Math.max(0.001, scaleV);
+      // Deterministic: set transform parameters (not compound)
+      q.transforms.scaleU = Math.max(0.001, scaleU);
+      q.transforms.scaleV = Math.max(0.001, scaleV);
 
-      for (const vi of q.v) {
-        const p = this.vertices[vi];
-        const rel = new THREE.Vector3().subVectors(p, center);
-        const du = rel.dot(u);
-        const dv = rel.dot(v);
-        const dn = rel.clone().sub(u.clone().multiplyScalar(du)).sub(v.clone().multiplyScalar(dv));
-        const newRel = new THREE.Vector3()
-          .add(u.clone().multiplyScalar(du * scaleU))
-          .add(v.clone().multiplyScalar(dv * scaleV))
-          .add(dn);
-        p.copy(center.clone().add(newRel));
-      }
+      // Rebuild vertices from base + all transforms
+      this.rebuildQuadFromTransforms(q);
     }
 
     applyFaceLocalRotation(quadId, rotUdeg, rotVdeg, rotNdeg) {
       const q = this.getQuadById(quadId);
       if (!q) return;
 
-      const { center, u, v, n } = this.getFaceBasis(quadId);
-      const ru = THREE.MathUtils.degToRad(rotUdeg);
-      const rv = THREE.MathUtils.degToRad(rotVdeg);
-      const rn = THREE.MathUtils.degToRad(rotNdeg);
+      // Deterministic: set transform parameters (not compound)
+      q.transforms.rotU = rotUdeg;
+      q.transforms.rotV = rotVdeg;
+      q.transforms.rotN = rotNdeg;
 
-      const quat = new THREE.Quaternion()
-        .setFromAxisAngle(u, ru)
-        .multiply(new THREE.Quaternion().setFromAxisAngle(v, rv))
-        .multiply(new THREE.Quaternion().setFromAxisAngle(n, rn));
-
-      for (const vi of q.v) {
-        const p = this.vertices[vi];
-        const rel = new THREE.Vector3().subVectors(p, center);
-        rel.applyQuaternion(quat);
-        p.copy(center.clone().add(rel));
-      }
+      // Rebuild vertices from base + all transforms
+      this.rebuildQuadFromTransforms(q);
     }
 
     applyFaceWorldTranslate(quadId, dx, dy, dz) {
       const q = this.getQuadById(quadId);
       if (!q) return;
 
-      const t = new THREE.Vector3(dx, dy, dz);
-      for (const vi of q.v) this.vertices[vi].add(t);
+      // Deterministic: set transform parameters (not compound)
+      q.transforms.translateX = dx;
+      q.transforms.translateY = dy;
+      q.transforms.translateZ = dz;
+
+      // Rebuild vertices from base + all transforms
+      this.rebuildQuadFromTransforms(q);
     }
 
     setFaceColor(quadId, hex) {
@@ -783,15 +849,21 @@ setTimeout(() => {
 
       // Replace one quad with 4. Order follows original orientation.
       const color = q.color;
-
       const emissive = !!q.emissive;
+      const defaultTransforms = { scaleU: 1, scaleV: 1, rotU: 0, rotV: 0, rotN: 0, translateX: 0, translateY: 0, translateZ: 0 };
 
-      const q0 = { id: newId("face"), v:[a, iAB, iCC, iDA], color, emissive };
-      const q1 = { id: newId("face"), v:[iAB, b, iBC, iCC], color, emissive };
-      const q2 = { id: newId("face"), v:[iCC, iBC, c, iCD], color, emissive };
-      const q3 = { id: newId("face"), v:[iDA, iCC, iCD, d], color, emissive };
+      const q0 = { id: newId("face"), v:[a, iAB, iCC, iDA], color, emissive, transforms: {...defaultTransforms}, baseVertices: null };
+      const q1 = { id: newId("face"), v:[iAB, b, iBC, iCC], color, emissive, transforms: {...defaultTransforms}, baseVertices: null };
+      const q2 = { id: newId("face"), v:[iCC, iBC, c, iCD], color, emissive, transforms: {...defaultTransforms}, baseVertices: null };
+      const q3 = { id: newId("face"), v:[iDA, iCC, iCD, d], color, emissive, transforms: {...defaultTransforms}, baseVertices: null };
 
       this.quads.splice(qi, 1, q0, q1, q2, q3);
+
+      // Capture base vertices for new quads
+      this.captureBaseVertices(q0);
+      this.captureBaseVertices(q1);
+      this.captureBaseVertices(q2);
+      this.captureBaseVertices(q3);
 
       // Rebuild geometry buffers (topology changed)
       this.buildGeometry();
@@ -801,13 +873,31 @@ setTimeout(() => {
     serialize() {
       return {
         vertices: this.vertices.map(v => v.toArray()),
-        quads: this.quads.map(q => ({ id:q.id, v:[...q.v], color:q.color, emissive: !!q.emissive })),
+        quads: this.quads.map(q => ({
+          id: q.id,
+          v: [...q.v],
+          color: q.color,
+          emissive: !!q.emissive,
+          transforms: { ...q.transforms },
+          baseVertices: q.baseVertices ? q.baseVertices.map(bv => bv.toArray()) : null,
+        })),
       };
     }
 
     restore(state) {
       this.vertices = state.vertices.map(a => new THREE.Vector3(a[0], a[1], a[2]));
-      this.quads = state.quads.map(q => ({ id:q.id, v:[...q.v], color:q.color, emissive: !!q.emissive }));
+
+      const defaultTransforms = { scaleU: 1, scaleV: 1, rotU: 0, rotV: 0, rotN: 0, translateX: 0, translateY: 0, translateZ: 0 };
+
+      this.quads = state.quads.map(q => ({
+        id: q.id,
+        v: [...q.v],
+        color: q.color,
+        emissive: !!q.emissive,
+        transforms: q.transforms ? { ...q.transforms } : { ...defaultTransforms },
+        baseVertices: q.baseVertices ? q.baseVertices.map(bv => new THREE.Vector3(bv[0], bv[1], bv[2])) : null,
+      }));
+
       this.buildGeometry();
     }
   }
