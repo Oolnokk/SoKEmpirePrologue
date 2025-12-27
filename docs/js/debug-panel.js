@@ -9,7 +9,7 @@ import { normalizePrefabDefinition } from './prefab-catalog.js?v=1';
 // Console capture system - stores all console messages for later export
 const CONSOLE_CAPTURE = {
   messages: [],
-  maxMessages: 1000, // Limit to prevent memory issues
+  maxMessages: 10000, // Increased from 1000 to preserve boot logs during heavy 3D loading
   originalLog: null,
   originalWarn: null,
   originalError: null,
