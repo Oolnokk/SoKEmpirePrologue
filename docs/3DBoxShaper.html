@@ -1108,20 +1108,25 @@ setTimeout(() => {
     const sy = Math.max(0.001, st.params.sy);
     const rz = THREE.MathUtils.degToRad(st.params.rzDeg);
 
+    // Calculate position on face surface (before normal offset)
+    const posOnFace = center.clone()
+      .add(u.clone().multiplyScalar(tx * sizeU))
+      .add(v.clone().multiplyScalar(ty * sizeV));
+
     // Align plane axes to face basis (x->u, y->v, z->n)
     // This makes the sticker inherit the face's 3D rotation
     const m = new THREE.Matrix4().makeBasis(u, v, n);
     const faceQuat = new THREE.Quaternion().setFromRotationMatrix(m);
 
-    const eps = 0.002;
-    const pos = center.clone()
-      .add(u.clone().multiplyScalar(tx * sizeU))
-      .add(v.clone().multiplyScalar(ty * sizeV))
-      .add(n.clone().multiplyScalar(eps));
-
-    st.mesh.position.copy(pos);
+    // Apply face rotation + sticker's face-local Z rotation
     st.mesh.quaternion.copy(faceQuat);  // Inherit face's 3D rotation
     st.mesh.rotateZ(rz);                 // Add face-local Z rotation on top
+
+    // Offset along face normal to prevent z-fighting (independent of sticker rotation)
+    const eps = 0.002;
+    const pos = posOnFace.clone().add(n.clone().multiplyScalar(eps));
+
+    st.mesh.position.copy(pos);
     st.mesh.scale.set(sizeU * sx, sizeV * sy, 1);
   }
 
