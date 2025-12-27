@@ -198,9 +198,12 @@ export class GroundPickupManager {
       inst.physics.vel = { x: 0, y: 0 };
     }
 
-    // Hide the prop visually (we'll remove from render later)
-    if (inst.position) {
-      inst.position.y = -9999; // Move off-screen
+    // Remove from dynamicInstances array so it stops being rendered/updated on ground
+    const dynamicInstances = this.getDynamicInstances();
+    const index = dynamicInstances.indexOf(inst);
+    if (index > -1) {
+      dynamicInstances.splice(index, 1);
+      console.log('[GroundPickup] Removed from dynamicInstances, remaining:', dynamicInstances.length);
     }
 
     // Add to player's held item
