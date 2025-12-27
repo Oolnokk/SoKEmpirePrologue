@@ -76,15 +76,79 @@
     .help { font-size: 12px; color: var(--muted); line-height: 1.35; }
     #debug {
       position:absolute; left:10px; bottom:10px;
-      background: rgba(0,0,0,0.45);
-      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.85);
+      border: 1px solid rgba(106,167,255,0.3);
       border-radius: 12px;
-      padding: 10px;
+      padding: 12px;
       font-size: 12px;
       color: var(--text);
-      max-width: min(560px, 95vw);
+      max-width: min(640px, 95vw);
+      min-width: 320px;
       white-space: pre-wrap;
-      pointer-events:none;
+      pointer-events:auto;
+      font-family: monospace;
+      line-height: 1.5;
+      backdrop-filter: blur(8px);
+    }
+    #debug .debug-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+    #debug .debug-title {
+      font-weight: 600;
+      color: var(--acc);
+      font-size: 13px;
+      letter-spacing: 0.3px;
+    }
+    #debug .debug-section {
+      margin-bottom: 8px;
+      padding: 6px 0;
+    }
+    #debug .debug-section-title {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    #debug .debug-value {
+      color: #6ee7b7;
+      font-weight: 500;
+    }
+    #debug .debug-label {
+      color: var(--muted);
+      min-width: 80px;
+      display: inline-block;
+    }
+    #debugCopyBtn {
+      padding: 6px 12px;
+      font-size: 11px;
+      border-radius: 8px;
+      background: rgba(106,167,255,0.2);
+      border: 1px solid rgba(106,167,255,0.4);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    #debugCopyBtn:hover {
+      background: rgba(106,167,255,0.3);
+      border-color: rgba(106,167,255,0.6);
+    }
+    #debugCopyBtn:active {
+      transform: translateY(1px);
+    }
+    #debugCopyBtn.success {
+      background: rgba(16,185,129,0.3);
+      border-color: rgba(16,185,129,0.6);
+    }
+    #debugCopyBtn.error {
+      background: rgba(239,68,68,0.3);
+      border-color: rgba(239,68,68,0.6);
     }
     #viewportStatus {
       position:absolute;
@@ -219,7 +283,13 @@
       </div>
       <div id="statusPercent" style="font-size: 12px; color: var(--muted);">0%</div>
     </div>
-    <div id="debug"></div>
+    <div id="debug">
+      <div class="debug-header">
+        <div class="debug-title">Debug Info</div>
+        <button id="debugCopyBtn">📋 Copy</button>
+      </div>
+      <div id="debugContent"></div>
+    </div>
   </div>
 </div>
 
@@ -248,7 +318,127 @@
     }
 
     const debugEl = document.getElementById("debug");
-    function setDebug(text) { debugEl.textContent = text; }
+    const debugContentEl = document.getElementById("debugContent");
+
+    function formatVector3(v) {
+      if (!v) return 'N/A';
+      return `(${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)})`;
+    }
+
+    function formatNumber(n, decimals = 2) {
+      if (n == null || isNaN(n)) return 'N/A';
+      return n.toFixed(decimals);
+    }
+
+    function generateDebugData() {
+      const data = {
+        timestamp: new Date().toISOString(),
+        model: {
+          loaded: !!currentModel,
+          name: currentAsset?.label || 'Custom Upload',
+          category: currentAsset?.category || 'N/A',
+          vertexCount: 0,
+          size: { x: 0, y: 0, z: 0 },
+          scale: 0
+        },
+        camera: {
+          position: { x: 0, y: 0, z: 0 },
+          target: { x: 0, y: 0, z: 0 },
+          distance: 0
+        },
+        attachmentPoints: {
+          count: attachmentPoints.length,
+          selected: selectedPointIndex >= 0 ? selectedPointIndex : null,
+          points: attachmentPoints.map(p => ({
+            id: p.id,
+            label: p.label,
+            offset: p.offset
+          }))
+        },
+        scene: {
+          objectCount: 0
+        }
+      };
+
+      // Populate model data
+      if (currentModel) {
+        const box = new THREE.Box3().setFromObject(currentModel);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        data.model.size = { x: size.x, y: size.y, z: size.z };
+        data.model.scale = currentModel.scale.x;
+
+        currentModel.traverse((child) => {
+          if (child.isMesh && child.geometry && child.geometry.attributes.position) {
+            data.model.vertexCount += child.geometry.attributes.position.count;
+          }
+        });
+      }
+
+      // Populate camera data
+      if (renderer?.camera) {
+        const cam = renderer.camera;
+        data.camera.position = { x: cam.position.x, y: cam.position.y, z: cam.position.z };
+        if (cam.userData?.orbitTarget) {
+          data.camera.target = cam.userData.orbitTarget;
+        }
+        data.camera.distance = cam.position.length();
+      }
+
+      // Populate scene data
+      if (renderer?.scene) {
+        data.scene.objectCount = 0;
+        renderer.scene.traverse(() => data.scene.objectCount++);
+      }
+
+      return data;
+    }
+
+    function setDebug(debugData) {
+      const html = `
+        <div class="debug-section">
+          <div class="debug-section-title">Model</div>
+          <div><span class="debug-label">Status:</span> <span class="debug-value">${debugData.model.loaded ? 'Loaded' : 'None'}</span></div>
+          ${debugData.model.loaded ? `
+          <div><span class="debug-label">Name:</span> <span class="debug-value">${debugData.model.name}</span></div>
+          <div><span class="debug-label">Category:</span> <span class="debug-value">${debugData.model.category}</span></div>
+          <div><span class="debug-label">Vertices:</span> <span class="debug-value">${debugData.model.vertexCount.toLocaleString()}</span></div>
+          <div><span class="debug-label">Size:</span> <span class="debug-value">${formatNumber(debugData.model.size.x)} × ${formatNumber(debugData.model.size.y)} × ${formatNumber(debugData.model.size.z)}</span></div>
+          <div><span class="debug-label">Scale:</span> <span class="debug-value">${formatNumber(debugData.model.scale, 3)}</span></div>
+          ` : ''}
+        </div>
+
+        <div class="debug-section">
+          <div class="debug-section-title">Camera</div>
+          <div><span class="debug-label">Position:</span> <span class="debug-value">${formatVector3(debugData.camera.position)}</span></div>
+          <div><span class="debug-label">Target:</span> <span class="debug-value">${formatVector3(debugData.camera.target)}</span></div>
+          <div><span class="debug-label">Distance:</span> <span class="debug-value">${formatNumber(debugData.camera.distance)}</span></div>
+        </div>
+
+        <div class="debug-section">
+          <div class="debug-section-title">Attachment Points</div>
+          <div><span class="debug-label">Total:</span> <span class="debug-value">${debugData.attachmentPoints.count}</span></div>
+          <div><span class="debug-label">Selected:</span> <span class="debug-value">${debugData.attachmentPoints.selected !== null ? '#' + debugData.attachmentPoints.selected : 'None'}</span></div>
+          ${debugData.attachmentPoints.selected !== null ? `
+          <div><span class="debug-label">ID:</span> <span class="debug-value">${debugData.attachmentPoints.points[debugData.attachmentPoints.selected].id}</span></div>
+          <div><span class="debug-label">Position:</span> <span class="debug-value">${formatVector3(debugData.attachmentPoints.points[debugData.attachmentPoints.selected].offset)}</span></div>
+          ` : ''}
+        </div>
+
+        <div class="debug-section">
+          <div class="debug-section-title">Scene</div>
+          <div><span class="debug-label">Objects:</span> <span class="debug-value">${debugData.scene.objectCount}</span></div>
+        </div>
+
+        <div class="debug-section" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; margin-top: 4px;">
+          <div style="font-size: 10px; color: var(--muted); opacity: 0.7;">
+            💡 Tip: Click on the model to place attachment points
+          </div>
+        </div>
+      `;
+
+      debugContentEl.innerHTML = html;
+    }
 
     const viewportEl = document.getElementById("viewport");
     const viewportStatusEl = document.getElementById("viewportStatus");
@@ -336,6 +526,9 @@
         editorConfig.camera.target.z
       );
 
+      // Store target in camera userData for debug access
+      camera.userData.orbitTarget = controls.target;
+
       // Lighting
       const ambientLight = new THREE.AmbientLight(
         editorConfig.lighting.ambient.color,
@@ -401,7 +594,10 @@
       renderer.on("frame", () => {
         resizeRendererToDisplaySize();
         controls.update();
-        setDebug(`Model: ${currentModel ? 'loaded' : 'none'}\nPoints: ${attachmentPoints.length}\nTip: Click on model to place attachment points`);
+
+        // Update debug panel
+        const debugData = generateDebugData();
+        setDebug(debugData);
       });
 
       renderer.start();
@@ -765,6 +961,76 @@
     });
 
     window.selectPointFromList = selectPoint;
+
+    // Copy debug info to clipboard
+    const debugCopyBtn = document.getElementById('debugCopyBtn');
+    if (debugCopyBtn) {
+      debugCopyBtn.addEventListener('click', async () => {
+        try {
+          const debugData = generateDebugData();
+
+          // Format debug data as readable text
+          const textOutput = `
+=== Map Object Editor Debug Info ===
+Timestamp: ${debugData.timestamp}
+
+--- Model ---
+Status: ${debugData.model.loaded ? 'Loaded' : 'None'}
+${debugData.model.loaded ? `Name: ${debugData.model.name}
+Category: ${debugData.model.category}
+Vertices: ${debugData.model.vertexCount.toLocaleString()}
+Size: ${formatNumber(debugData.model.size.x)} × ${formatNumber(debugData.model.size.y)} × ${formatNumber(debugData.model.size.z)}
+Scale: ${formatNumber(debugData.model.scale, 3)}` : ''}
+
+--- Camera ---
+Position: ${formatVector3(debugData.camera.position)}
+Target: ${formatVector3(debugData.camera.target)}
+Distance: ${formatNumber(debugData.camera.distance)}
+
+--- Attachment Points (${debugData.attachmentPoints.count}) ---
+Selected: ${debugData.attachmentPoints.selected !== null ? '#' + debugData.attachmentPoints.selected : 'None'}
+${debugData.attachmentPoints.points.map((p, i) =>
+  `${i === debugData.attachmentPoints.selected ? '→ ' : '  '}[${i}] ${p.id} (${p.label})\n     Position: ${formatVector3(p.offset)}`
+).join('\n')}
+
+--- Scene ---
+Total Objects: ${debugData.scene.objectCount}
+
+--- JSON Export ---
+${JSON.stringify(debugData, null, 2)}
+
+========================================
+          `.trim();
+
+          // Copy to clipboard using modern API
+          await navigator.clipboard.writeText(textOutput);
+
+          // Visual feedback - success
+          const originalText = debugCopyBtn.textContent;
+          debugCopyBtn.textContent = '✓ Copied!';
+          debugCopyBtn.classList.add('success');
+
+          setTimeout(() => {
+            debugCopyBtn.textContent = originalText;
+            debugCopyBtn.classList.remove('success');
+          }, 2000);
+
+          console.log('[map-object-editor] Debug info copied to clipboard');
+        } catch (err) {
+          console.error('[map-object-editor] Failed to copy debug info:', err);
+
+          // Visual feedback - error
+          const originalText = debugCopyBtn.textContent;
+          debugCopyBtn.textContent = '✗ Failed';
+          debugCopyBtn.classList.add('error');
+
+          setTimeout(() => {
+            debugCopyBtn.textContent = originalText;
+            debugCopyBtn.classList.remove('error');
+          }, 2000);
+        }
+      });
+    }
 
   } catch (error) {
     console.error("Fatal error during initialization:", error);
