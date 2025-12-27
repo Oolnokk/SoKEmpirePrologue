@@ -549,9 +549,17 @@ setTimeout(() => {
     const { OrbitControls } = await import("./vendor/three/OrbitControls.js");
     logDebug("✓ OrbitControls imported");
 
-    logDebug("Importing GLTFExporter...");
-    const { GLTFExporter } = await import("./vendor/three/GLTFExporter.js");
-    logDebug("✓ GLTFExporter imported");
+    // Try to load GLTFExporter (optional - may fail on raw.githack.com)
+    let GLTFExporter = null;
+    try {
+      logDebug("Importing GLTFExporter...");
+      const module = await import("./vendor/three/GLTFExporter.js");
+      GLTFExporter = module.GLTFExporter;
+      logDebug("✓ GLTFExporter imported");
+    } catch (err) {
+      logDebug("WARNING: GLTFExporter failed to load: " + err.message);
+      logDebug("GLTF export disabled. Use 'Download State (JSON)' instead.");
+    }
 
     window.__modulesLoaded = true;
     logDebug("All core modules imported successfully");
@@ -1900,6 +1908,12 @@ setTimeout(() => {
   }
 
   async function exportScene(binary) {
+    if (!GLTFExporter) {
+      setDebug("GLTF export unavailable. Use 'Download State (JSON)' instead.");
+      logDebug("ERROR: GLTFExporter not loaded - cannot export GLTF");
+      return;
+    }
+
     const exporter = new GLTFExporter();
     const group = new THREE.Group();
 
@@ -1958,8 +1972,20 @@ setTimeout(() => {
     );
   }
 
-  document.getElementById("exportGltfBtn").onclick = () => exportScene(false);
-  document.getElementById("exportGlbBtn").onclick = () => exportScene(true);
+  // Set up export buttons (disable if GLTFExporter unavailable)
+  const exportGltfBtn = document.getElementById("exportGltfBtn");
+  const exportGlbBtn = document.getElementById("exportGlbBtn");
+
+  if (!GLTFExporter) {
+    exportGltfBtn.disabled = true;
+    exportGlbBtn.disabled = true;
+    exportGltfBtn.title = "GLTF export unavailable - use JSON download";
+    exportGlbBtn.title = "GLTF export unavailable - use JSON download";
+    logDebug("GLTF export buttons disabled (GLTFExporter not available)");
+  } else {
+    exportGltfBtn.onclick = () => exportScene(false);
+    exportGlbBtn.onclick = () => exportScene(true);
+  }
 
   // Download state as JSON (fallback if GLTF export fails)
   document.getElementById("downloadStateBtn").onclick = () => {
