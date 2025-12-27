@@ -953,6 +953,8 @@ import { initManualZoom } from './manual-zoom.js?v=1';
 import { initHitDetect, runHitDetect } from './hitdetect.js?v=1';
 import { initSprites, renderSprites } from './sprites.js?v=8';
 import { initDebugPanel, updateDebugPanel } from './debug-panel.js?v=1';
+import { initGroundPickup } from './ground-pickup.js?v=1';
+import { renderHeldItems } from './held-item-render.js?v=1';
 import { $$, show } from './dom-utils.js?v=1';
 import { initTouchControls } from './touch-controls.js?v=1';
 import initArchTouchInput from './arch-touch-input.js?v=1';
@@ -6077,12 +6079,18 @@ function loop(t){
   renderBottles(cx);
   renderAll(cx);
   renderSprites(cx);
+  renderHeldItems(cx);
   renderSpawnerOverlay(cx);
   renderGameplayPathOverlay(cx);
   renderGameplayElementsOverlay(cx);
   runHitDetect();
   updateHUD();
   updateDebugPanel();
+
+  // Update ground pickup system
+  if (window.GAME?.groundPickupManager) {
+    window.GAME.groundPickupManager.update();
+  }
 
   // FPS HUD
   frames++;
@@ -7387,6 +7395,8 @@ function boot(){
     initHitDetect();
     console.log('[app] boot() - Calling initDebugPanel()');
     initDebugPanel();
+    console.log('[app] boot() - Calling initGroundPickup()');
+    initGroundPickup();
     console.log('[app] boot() - Calling initTouchControls()');
     initTouchControls();
     console.log('[app] boot() - Checking shouldEnableArchHud()');
