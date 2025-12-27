@@ -875,7 +875,7 @@ function normalizeMapEntities(rawList = [], warnings = [], { gridUnit = 30 } = {
       ? meta.tags.filter((tag) => typeof tag === 'string' && tag.trim()).map((tag) => tag.trim())
       : [];
     const scale = meta.scale && typeof meta.scale === 'object' ? safeClone(meta.scale) : null;
-    const entity = { id, kind, position, meta: { ...meta, scale }, tags, gridUnit };
+    const entity = { id, kind, type: kind, position, meta: { ...meta, scale }, tags, gridUnit };
     list.push(entity);
     byId.set(id, entity);
   });
@@ -1640,6 +1640,9 @@ function normalizeAreaDescriptor(area, options = {}) {
     }))
     .filter(Boolean);
   const rawEntities = Array.isArray(area.entities) ? area.entities : [];
+  const resolvedGridUnit = resolveGridUnit(area) ?? 30;
+  const mapEntities = normalizeMapEntities(rawEntities, warnings, { gridUnit: resolvedGridUnit });
+  const mapEntitiesById = buildSimpleIndex(mapEntities.list);
   const entitySpawnerEntries = rawEntities.filter((entity) => {
     if (!entity || typeof entity !== 'object') return false;
     if (typeof entity.type !== 'string') return false;
@@ -1726,6 +1729,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     playableBounds,
     pathTargets,
     pois: mergedPois,
+    mapEntities: mapEntities.list,
   };
 
   return {
@@ -1753,6 +1757,10 @@ function normalizeAreaDescriptor(area, options = {}) {
     pois: mergedPois,
     poisById: poiIndex.byId,
     poisByName: poiIndex.byName,
+    mapEntities: mapEntities.list,
+    mapEntitiesById,
+    entities: mapEntities.list,
+    entitiesById: mapEntitiesById,
     drumSkins: convertedDrumSkins,
     playableBounds,
     warnings,
@@ -2258,6 +2266,8 @@ export function convertLayoutToArea(layout, options = {}) {
     poisByName: poiIndex.byName,
     mapEntities: mapEntities.list,
     mapEntitiesById,
+    entities: mapEntities.list,
+    entitiesById: mapEntitiesById,
     doors: mapEntityDoors,
     doorsById,
     propSpawns: mapEntityPropSpawns,
