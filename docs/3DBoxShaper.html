@@ -357,6 +357,11 @@
         Clip sticker to face (cull overhang)
       </label>
 
+      <div class="col" style="margin-top:8px;">
+        <label>Priority (higher renders on top)</label>
+        <input type="number" id="stPriority" value="0" step="1" />
+      </div>
+
       <div class="grid2" style="margin-top:8px;">
         <div class="col">
           <label>Translate U (face-local)</label>
@@ -386,8 +391,9 @@
         <button class="danger" id="removeStickerBtn">Remove sticker</button>
       </div>
       <div class="help" style="margin-top:8px;">
-        Translate U/V units are in “face sizes”: 1.0 shifts one full face width/height.<br/>
-        In <b>clipped</b> mode, transforms affect the sticker’s <b>UV mapping</b> on the face.
+        Translate U/V units are in "face sizes": 1.0 shifts one full face width/height.<br/>
+        In <b>clipped</b> mode, transforms affect the sticker's <b>UV mapping</b> on the face.<br/>
+        <b>Transforms are deterministic:</b> all values are relative to the sticker's upload state. Applying 1.1 scale twice results in 110% size, not 121%.
       </div>
     </div>
 
@@ -398,7 +404,16 @@
         <button class="secondary" id="exportGlbBtn">Export .glb</button>
       </div>
       <div class="help" style="margin-top:8px;">
-        Export includes base mesh + sticker meshes. Clipped stickers export as face-sized quads (no overhang).
+        Export includes base mesh + sticker meshes + editor metadata. Files can be re-imported to continue editing. Clipped stickers export as face-sized quads (no overhang).
+      </div>
+    </div>
+
+    <h2>Import</h2>
+    <div class="card">
+      <button id="importBtn">Import .gltf / .glb</button>
+      <input type="file" id="importFile" accept=".gltf,.glb" style="display:none;" />
+      <div class="help" style="margin-top:8px;">
+        Load a previously exported .gltf or .glb file. Note: This replaces the current scene (uses undo/redo).
       </div>
     </div>
 
@@ -1024,7 +1039,12 @@ setTimeout(() => {
   // Sticker params:
   // - clipToFace=false: plane overhang allowed; params move/scale/rotate plane in face space.
   // - clipToFace=true: geometry is face-sized quad; params affect UV mapping (cropped).
-  const stickers = []; // { id, quadId, dataURL, params:{tx,ty,sx,sy,rzDeg,clipToFace}, mesh, tex }
+  // - params are DETERMINISTIC: values represent absolute transform relative to upload state (baseParams)
+  // - priority: higher values render on top (default 0)
+  // - ROTATION INHERITANCE: stickers always inherit the face's 3D rotation
+  //   * Overhang mode: face rotation via quaternion + sticker's rzDeg on top
+  //   * Clipped mode: face rotation baked into vertex positions
+  const stickers = []; // { id, quadId, dataURL, params:{tx,ty,sx,sy,rzDeg,clipToFace}, baseParams:{tx,ty,sx,sy,rzDeg}, priority, mesh, tex }
   let selectedQuadId = "top";
   let selectedStickerId = null;
 
@@ -1060,6 +1080,8 @@ setTimeout(() => {
     const q = editable.getQuadById(st.quadId);
     if (!q) return;
 
+    // Clipped mode: geometry uses actual face vertex positions in world space,
+    // so it automatically inherits the face's 3D rotation (baked into vertex positions)
     const { center, u, v, n, sizeU, sizeV } = editable.getFaceBasis(st.quadId);
     const [a,b,c,d] = q.v;
 
@@ -1148,12 +1170,17 @@ setTimeout(() => {
     const q = editable.getQuadById(st.quadId);
     if (!q) return;
 
+    // Set render order based on priority (higher priority renders on top)
+    st.mesh.renderOrder = 10 + (st.priority ?? 0);
+
     if (st.params.clipToFace) {
       rebuildClippedStickerGeometry(st);
       return;
     }
 
     // Overhang plane mode: transform plane in face space (world)
+    // getFaceBasis computes u,v,n from CURRENT vertex positions, so stickers
+    // automatically inherit any 3D rotation applied to the face.
     const { center, u, v, n, sizeU, sizeV } = editable.getFaceBasis(st.quadId);
 
     const tx = st.params.tx;
@@ -1162,19 +1189,28 @@ setTimeout(() => {
     const sy = Math.max(0.001, st.params.sy);
     const rz = THREE.MathUtils.degToRad(st.params.rzDeg);
 
-    // Align plane axes to face basis (x->u, y->v, z->n)
-    const m = new THREE.Matrix4().makeBasis(u, v, n);
-    const faceQuat = new THREE.Quaternion().setFromRotationMatrix(m);
-
-    const eps = 0.002;
-    const pos = center.clone()
+    // Calculate position on face surface (before normal offset)
+    const posOnFace = center.clone()
       .add(u.clone().multiplyScalar(tx * sizeU))
-      .add(v.clone().multiplyScalar(ty * sizeV))
-      .add(n.clone().multiplyScalar(eps));
+      .add(v.clone().multiplyScalar(ty * sizeV));
+
+    // Create rotation quaternion around face normal (face-local Z rotation)
+    const zRotQuat = new THREE.Quaternion().setFromAxisAngle(n, rz);
+
+    // Rotate u and v vectors by the face-local Z rotation
+    const uRotated = u.clone().applyQuaternion(zRotQuat);
+    const vRotated = v.clone().applyQuaternion(zRotQuat);
+
+    // Build final orientation matrix with rotated basis vectors
+    // This ensures the sticker stays parallel to the face while rotating
+    const m = new THREE.Matrix4().makeBasis(uRotated, vRotated, n);
+    st.mesh.quaternion.setFromRotationMatrix(m);
+
+    // Offset along face normal to prevent z-fighting (independent of sticker rotation)
+    const eps = 0.002;
+    const pos = posOnFace.clone().add(n.clone().multiplyScalar(eps));
 
     st.mesh.position.copy(pos);
-    st.mesh.quaternion.copy(faceQuat);
-    st.mesh.rotateZ(rz);
     st.mesh.scale.set(sizeU * sx, sizeV * sy, 1);
   }
 
@@ -1282,7 +1318,7 @@ setTimeout(() => {
       item.className = "stickerItem" + (st.id === selectedStickerId ? " active" : "");
       const left = document.createElement("div");
       left.innerHTML =
-        `<div><b>${st.id.slice(0,6)}…</b>` +
+        `<div><b>${st.id.slice(0,6)}…</b> <span style="color:var(--acc);">p${st.priority ?? 0}</span>` +
         `<small>on ${faceLabel(st.quadId)} • ${st.params.clipToFace ? "clipped" : "overhang"}</small></div>`;
       const right = document.createElement("div");
       const btn = document.createElement("button");
@@ -1332,6 +1368,8 @@ setTimeout(() => {
         quadId: s.quadId,
         dataURL: s.dataURL,
         params: { ...s.params },
+        baseParams: { ...s.baseParams },
+        priority: s.priority ?? 0,
       })),
       selectedQuadId,
       selectedStickerId,
@@ -1389,7 +1427,7 @@ setTimeout(() => {
     const current = {
       label: "current",
       mesh: editable.serialize(),
-      stickers: stickers.map(s => ({ id:s.id, quadId:s.quadId, dataURL:s.dataURL, params:{...s.params} })),
+      stickers: stickers.map(s => ({ id:s.id, quadId:s.quadId, dataURL:s.dataURL, params:{...s.params}, baseParams:{...s.baseParams}, priority:s.priority??0 })),
       selectedQuadId,
       selectedStickerId,
       baseTransparent: document.getElementById("baseTransparentChk").checked,
@@ -1405,7 +1443,7 @@ setTimeout(() => {
     const current = {
       label: "current",
       mesh: editable.serialize(),
-      stickers: stickers.map(s => ({ id:s.id, quadId:s.quadId, dataURL:s.dataURL, params:{...s.params} })),
+      stickers: stickers.map(s => ({ id:s.id, quadId:s.quadId, dataURL:s.dataURL, params:{...s.params}, baseParams:{...s.baseParams}, priority:s.priority??0 })),
       selectedQuadId,
       selectedStickerId,
       baseTransparent: document.getElementById("baseTransparentChk").checked,
@@ -1621,6 +1659,8 @@ setTimeout(() => {
       dataURL,
       tex,
       params: { tx: 0, ty: 0, sx: 1, sy: 1, rzDeg: 0, clipToFace: false },
+      baseParams: { tx: 0, ty: 0, sx: 1, sy: 1, rzDeg: 0 }, // deterministic reference point
+      priority: 0,
       mesh,
     };
 
@@ -1635,6 +1675,7 @@ setTimeout(() => {
     const st = getSelectedSticker();
     if (!st) {
       document.getElementById("stClip").checked = false;
+      document.getElementById("stPriority").value = 0;
       document.getElementById("stTx").value = 0;
       document.getElementById("stTy").value = 0;
       document.getElementById("stSx").value = 1;
@@ -1643,6 +1684,7 @@ setTimeout(() => {
       return;
     }
     document.getElementById("stClip").checked = !!st.params.clipToFace;
+    document.getElementById("stPriority").value = st.priority ?? 0;
     document.getElementById("stTx").value = st.params.tx;
     document.getElementById("stTy").value = st.params.ty;
     document.getElementById("stSx").value = st.params.sx;
@@ -1669,6 +1711,10 @@ setTimeout(() => {
       scene.add(st.mesh);
     }
 
+    // Update priority (for render order)
+    st.priority = Math.round(clampFinite(num("stPriority"), 0));
+
+    // Update transform params (deterministic - always relative to baseParams)
     st.params.tx = clampFinite(num("stTx"), 0);
     st.params.ty = clampFinite(num("stTy"), 0);
     st.params.sx = Math.max(0.001, clampFinite(num("stSx"), 1));
@@ -1777,6 +1823,23 @@ setTimeout(() => {
     const exporter = new GLTFExporter();
     const group = new THREE.Group();
 
+    // Store editor state as metadata in scene extras
+    group.userData.boxShaperData = {
+      version: 1,
+      mesh: editable.serialize(),
+      stickers: stickers.map(s => ({
+        id: s.id,
+        quadId: s.quadId,
+        dataURL: s.dataURL,
+        params: { ...s.params },
+        baseParams: { ...s.baseParams },
+        priority: s.priority ?? 0,
+      })),
+      selectedQuadId,
+      selectedStickerId,
+      baseTransparent: document.getElementById("baseTransparentChk").checked,
+    };
+
     group.add(cloneBaseMeshForExport());
 
     for (const st of stickers) {
@@ -1816,6 +1879,118 @@ setTimeout(() => {
 
   document.getElementById("exportGltfBtn").onclick = () => exportScene(false);
   document.getElementById("exportGlbBtn").onclick = () => exportScene(true);
+
+  // -------------------------
+  // Import (gltf / glb)
+  // -------------------------
+  const importFile = document.getElementById("importFile");
+  document.getElementById("importBtn").onclick = () => {
+    importFile.value = "";
+    importFile.click();
+  };
+
+  importFile.onchange = async () => {
+    const file = importFile.files?.[0];
+    if (!file) return;
+
+    try {
+      setDebug("Loading file...");
+      const arrayBuffer = await file.arrayBuffer();
+
+      // Load GLTFLoader on-demand
+      if (!globalThis.GLTFLoader) {
+        logDebug("Loading GLTFLoader for import...");
+        const module = await import("./vendor/three/GLTFLoader.js");
+        globalThis.GLTFLoader = module.GLTFLoader;
+        logDebug("✓ GLTFLoader loaded");
+      }
+
+      const loader = new GLTFLoader();
+
+      loader.parse(arrayBuffer, "", (gltf) => {
+        snapshot("import");
+
+        // Check for editor metadata in scene extras
+        const metadata = gltf.scene.userData?.boxShaperData;
+
+        if (metadata) {
+          // Full state restoration from metadata
+          logDebug("Found 3DBoxShaper metadata, restoring full state...");
+          restoreFromMetadata(gltf, metadata);
+        } else {
+          // Basic visual import (no editable structure)
+          logDebug("No metadata found, importing as visual reference only...");
+          importAsVisual(gltf);
+        }
+
+        setDebug("Import complete!");
+      }, (err) => {
+        logDebug("Import error: " + err);
+        setDebug("Import error: " + err.message);
+      });
+    } catch (err) {
+      logDebug("Import error: " + err);
+      setDebug("Import failed: " + err.message);
+    }
+  };
+
+  async function restoreFromMetadata(gltf, metadata) {
+    // Restore editable mesh
+    editable.restore(metadata.mesh);
+    baseMesh.geometry = editable.geometry;
+    buildBaseMaterialsAndGroups();
+
+    // Clear current stickers
+    for (const st of stickers) {
+      scene.remove(st.mesh);
+      st.mesh.geometry.dispose?.();
+      st.mesh.material.dispose?.();
+      st.tex?.dispose?.();
+    }
+    stickers.length = 0;
+
+    // Restore stickers
+    for (const sData of metadata.stickers || []) {
+      const tex = await loadTextureFromDataURL(sData.dataURL);
+      tex.colorSpace = THREE.SRGBColorSpace;
+
+      const mesh = sData.params.clipToFace ? makeFaceClippedStickerMesh(tex) : makePlaneStickerMesh(tex);
+      scene.add(mesh);
+
+      const st = { ...sData, tex, mesh };
+      stickers.push(st);
+    }
+
+    // Restore UI state
+    document.getElementById("baseTransparentChk").checked = metadata.baseTransparent ?? false;
+    applyBaseTransparency(metadata.baseTransparent ?? false);
+
+    setSelectedFace(metadata.selectedQuadId || "top");
+    setSelectedSticker(metadata.selectedStickerId || null);
+
+    updateAllStickers();
+    refreshStickerList();
+  }
+
+  function importAsVisual(gltf) {
+    // Clear scene first
+    editable.resetCube();
+    baseMesh.geometry = editable.geometry;
+    buildBaseMaterialsAndGroups();
+
+    for (const st of stickers) {
+      scene.remove(st.mesh);
+      st.mesh.geometry.dispose?.();
+      st.mesh.material.dispose?.();
+      st.tex?.dispose?.();
+    }
+    stickers.length = 0;
+
+    // Add imported meshes as visual reference (not editable)
+    scene.add(gltf.scene);
+    setDebug("Imported as visual reference (not editable). Meshes added to scene.");
+    refreshStickerList();
+  }
 
   // -------------------------
   // Render loop + resize
