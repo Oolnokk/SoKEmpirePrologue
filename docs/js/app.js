@@ -7365,18 +7365,31 @@ function fmt(val, decimals = 0) {
 }
 
 function boot(){
+  console.log('[app] 🟢🟢🟢 BOOT() FUNCTION CALLED - START 🟢🟢🟢');
   try {
+    console.log('[app] boot() - Setting status to "Booted"');
     if (statusInfo) statusInfo.textContent = 'Booted';
+    console.log('[app] boot() - Calling initPresets()');
     initPresets();
+    console.log('[app] boot() - Calling ensureAltSequenceUsesKickAlt()');
     ensureAltSequenceUsesKickAlt();
+    console.log('[app] boot() - Calling initFighters()');
     initFighters(cv, cx, { spawnNpc: false });
+    console.log('[app] boot() - Calling initNpcSystems()');
     initNpcSystems();
+    console.log('[app] boot() - Calling initBountySystem()');
     initBountySystem();
+    console.log('[app] boot() - Calling initControls()');
     initControls();
+    console.log('[app] boot() - Calling initCombat()');
     initCombat();
+    console.log('[app] boot() - Calling initHitDetect()');
     initHitDetect();
+    console.log('[app] boot() - Calling initDebugPanel()');
     initDebugPanel();
+    console.log('[app] boot() - Calling initTouchControls()');
     initTouchControls();
+    console.log('[app] boot() - Checking shouldEnableArchHud()');
     if (shouldEnableArchHud()) {
       archTouchHandle?.destroy?.();
       archTouchHandle = initArchTouchInput({
@@ -7385,10 +7398,15 @@ function boot(){
         enabled: true,
       });
     }
+    console.log('[app] boot() - Calling initSelectionDropdowns()');
     initSelectionDropdowns();
+    console.log('[app] boot() - Calling initGameDebugPanel()');
     initGameDebugPanel(); // Initialize 3D/Runtime debug panel
+    console.log('[app] boot() - Calling requestAnimationFrame(loop)');
     requestAnimationFrame(loop);
+    console.log('[app] boot() - Setting up interactPrompt timeout');
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);
+    console.log('[app] boot() - Marking boot complete');
     // Mark boot as complete for debug panel
     window.GAME.bootComplete = true;
     // Signal to map-bootstrap that app initialization is complete (race condition fix)
