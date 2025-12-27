@@ -1099,6 +1099,7 @@ setTimeout(() => {
         roughness: 0.85,
         transparent: true,
         opacity: transparent ? 0.0 : 0.85,
+        depthWrite: !transparent, // Disable depth writes for transparent base to prevent z-fighting
         side: THREE.DoubleSide,
         emissive: emissive ? new THREE.Color(normalized) : new THREE.Color(0x000000),
         emissiveIntensity: emissive ? emissiveDefaults.intensity : 0,
