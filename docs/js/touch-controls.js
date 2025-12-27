@@ -1,6 +1,8 @@
 // touch-controls.js — Virtual joystick and touch button handlers for mobile
 // v=1
 
+import { DEFAULT_BOTTOM_BUTTON_ACTIONS } from './hud-layout.js?v=1';
+
 export function initTouchControls(){
   const G = window.GAME || {};
   if (!G.JOYSTICK || !G.AIMING) return;
@@ -21,6 +23,9 @@ export function initTouchControls(){
   const btnAttackB = document.getElementById('btnAttackB');
   const btnAttackC = document.getElementById('btnAttackC');
   const btnInteract = document.getElementById('btnInteract');
+
+  const buttonActions = { ...DEFAULT_BOTTOM_BUTTON_ACTIONS, ...(window.CONFIG?.hud?.bottomButtons?.actions || {}) };
+  const resolveButtonAction = (key) => buttonActions[key] || DEFAULT_BOTTOM_BUTTON_ACTIONS[key] || key;
 
   if (!joystickArea || !joystickStick) {
     console.warn('[touch-controls] Joystick elements not found');
@@ -318,12 +323,12 @@ export function initTouchControls(){
     window.dispatchEvent(evt);
   }
 
-  bindHold(btnAttackA, () => setButtonState('buttonA', true), () => setButtonState('buttonA', false));
-  bindHold(btnAttackB, () => setButtonState('buttonB', true), () => setButtonState('buttonB', false));
-  bindHold(btnAttackC, () => setButtonState('buttonC', true), () => setButtonState('buttonC', false));
+  bindHold(btnAttackA, () => setButtonState(resolveButtonAction('attackA'), true), () => setButtonState(resolveButtonAction('attackA'), false));
+  bindHold(btnAttackB, () => setButtonState(resolveButtonAction('attackB'), true), () => setButtonState(resolveButtonAction('attackB'), false));
+  bindHold(btnAttackC, () => setButtonState(resolveButtonAction('attackC'), true), () => setButtonState(resolveButtonAction('attackC'), false));
 
   if (btnJump){
-    bindHold(btnJump, () => { input.jump = true; }, () => { input.jump = false; });
+    bindHold(btnJump, () => setButtonState(resolveButtonAction('jump'), true), () => setButtonState(resolveButtonAction('jump'), false));
   }
 
   if (btnInteract){

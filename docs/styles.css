@@ -15,6 +15,24 @@
   --hud-panel-height:200px;
   --hud-panel-offset-y:0px;
   --hud-button-diameter:82px;
+  --health-bar-left:16px;
+  --health-bar-top:26px;
+  --health-bar-width:220px;
+  --health-bar-height:12px;
+  --health-bar-padding:3px;
+  --health-bar-radius:12px;
+  --stamina-bar-left:16px;
+  --stamina-bar-top:44px;
+  --stamina-bar-width:220px;
+  --stamina-bar-height:11px;
+  --stamina-bar-padding:3px;
+  --stamina-bar-radius:12px;
+  --footing-bar-left:16px;
+  --footing-bar-top:61px;
+  --footing-bar-width:220px;
+  --footing-bar-height:9px;
+  --footing-bar-padding:2px;
+  --footing-bar-radius:10px;
   --enemy-indicator-stroke:2px;
   --stage-bottom-offset:clamp(14px,2.8vw,26px);
   --page-max:1280px;
@@ -624,19 +642,36 @@ canvas#game{
 .stamina-bar,
 .footing-bar{
   position:absolute;
-  left:16px;
-  width:220px;
-  border-radius:12px;
-  padding:3px;
+  left:var(--health-bar-left);
+  width:var(--health-bar-width);
   background:rgba(5,7,11,0.78);
   border:1px solid rgba(148,163,184,0.28);
   backdrop-filter:blur(6px);
   box-shadow:0 12px 28px rgba(0,0,0,0.35);
 }
 
-.health-bar{top:26px;height:12px;}
-.stamina-bar{top:44px;height:11px;}
-.footing-bar{top:61px;height:9px;padding:2px;border-radius:10px;}
+.health-bar{
+  top:var(--health-bar-top);
+  height:var(--health-bar-height);
+  padding:var(--health-bar-padding);
+  border-radius:var(--health-bar-radius);
+}
+.stamina-bar{
+  top:var(--stamina-bar-top);
+  height:var(--stamina-bar-height);
+  padding:var(--stamina-bar-padding);
+  border-radius:var(--stamina-bar-radius);
+  left:var(--stamina-bar-left, var(--health-bar-left));
+  width:var(--stamina-bar-width, var(--health-bar-width));
+}
+.footing-bar{
+  top:var(--footing-bar-top);
+  height:var(--footing-bar-height);
+  padding:var(--footing-bar-padding);
+  border-radius:var(--footing-bar-radius);
+  left:var(--footing-bar-left, var(--health-bar-left));
+  width:var(--footing-bar-width, var(--health-bar-width));
+}
 
 .health-fill,
 .stamina-fill,

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HUD Layout Editor</title>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="../hud-arch.css">
+  <style>
+    body.hud-editor-page{
+      background:#0b1220;
+      color:#e5e7eb;
+    }
+    .hud-editor-layout{display:grid;grid-template-columns:2fr 1fr;gap:18px;align-items:start;padding:18px;}
+    .hud-preview-card{position:relative;border:1px solid rgba(148,163,184,0.25);border-radius:14px;overflow:hidden;background:radial-gradient(circle at 20% 20%, rgba(59,130,246,0.08), rgba(15,23,42,0.7));}
+    .hud-preview-card header{padding:12px 14px;border-bottom:1px solid rgba(148,163,184,0.2);font-weight:700;letter-spacing:0.4px;}
+    .preview-stage-wrapper{position:relative;padding:12px;}
+    .preview-stage{position:relative;aspect-ratio:16/9;background:radial-gradient(circle at 50% 30%, rgba(59,130,246,0.08), rgba(15,23,42,0.9));border-radius:10px;border:1px solid rgba(148,163,184,0.15);overflow:hidden;}
+    .preview-stage .stage{position:absolute;inset:0;}
+    .grid-overlay{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(to right, rgba(148,163,184,0.2) 1px, transparent 1px),linear-gradient(to bottom, rgba(148,163,184,0.2) 1px, transparent 1px);background-size:var(--grid-size,24px) var(--grid-size,24px);mix-blend-mode:screen;opacity:0.6;}
+    .overlay-handle{position:absolute;transform:translate(-50%, -50%);width:14px;height:14px;border-radius:50%;background:#38bdf8;border:2px solid #0ea5e9;box-shadow:0 4px 16px rgba(14,165,233,0.65);cursor:grab;}
+    .overlay-handle:active{cursor:grabbing;}
+    .bar-overlay{position:absolute;border:1px dashed rgba(248,250,252,0.7);background:rgba(14,165,233,0.12);cursor:move;}
+    .bar-overlay .resize{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:4px;background:#facc15;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:nwse-resize;}
+    .control-panels{display:flex;flex-direction:column;gap:12px;}
+    .panel{background:rgba(15,23,42,0.75);border:1px solid rgba(148,163,184,0.25);border-radius:12px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,0.25);}
+    .panel h3{margin:0 0 10px;font-size:15px;letter-spacing:0.25px;}
+    .field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px 12px;}
+    .field{display:flex;flex-direction:column;font-size:12px;color:#cbd5e1;gap:4px;}
+    .field input,.field select, .field textarea{width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.35);background:#0b1220;color:#e2e8f0;font-size:13px;}
+    .field textarea{min-height:120px;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;}
+    .button-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+    .button-row button{padding:8px 12px;border-radius:8px;border:1px solid rgba(148,163,184,0.35);background:#1d4ed8;color:#e0f2fe;font-weight:700;cursor:pointer;}
+    .button-row button.secondary{background:#0f172a;color:#e2e8f0;}
+    .button-row button:disabled{opacity:0.65;cursor:not-allowed;}
+    .drag-hint{font-size:12px;color:#94a3b8;margin:4px 0 0;}
+    @media (max-width:1024px){.hud-editor-layout{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body class="hud-editor-page">
+  <main class="hud-editor-layout">
+    <section class="hud-preview-card">
+      <header>HUD Preview</header>
+      <div class="preview-stage-wrapper">
+        <div class="preview-stage" id="previewStage">
+          <div class="grid-overlay" id="gridOverlay"></div>
+          <div class="stage" id="gameStage">
+            <div class="health-bar">
+              <div class="health-fill" id="healthFill"></div>
+              <div class="health-label" id="healthLabel">HP: 100</div>
+            </div>
+            <div class="combat-info" id="combatInfo"></div>
+            <div class="stamina-bar">
+              <div class="stamina-fill" id="staminaFill"></div>
+              <div class="stamina-label" id="staminaLabel">STAMINA</div>
+            </div>
+            <div class="footing-bar">
+              <div class="footing-fill" id="footingFill"></div>
+              <div class="footing-label" id="footingLabel">FOOTING</div>
+            </div>
+            <div class="controls-overlay">
+              <div class="action-buttons curved-hud">
+                <svg class="action-hud-bg" width="100%" height="100%" viewBox="0 0 360 200" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                  <path class="action-hud-path" d="M0 140 Q180 60 360 140 L360 200 L0 200 Z"></path>
+                </svg>
+                <button type="button" id="btnJump" class="action-btn jump">↑</button>
+                <button type="button" id="btnAttackA" class="action-btn attack-a ability-small">A</button>
+                <button type="button" id="btnAttackB" class="action-btn attack-b ability-small">B</button>
+                <button type="button" id="btnAttackC" class="action-btn attack-c">C</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="drag-hint">Drag buttons, bar overlays, or arch handles to snap to the grid.</p>
+    </section>
+    <section class="control-panels">
+      <div class="panel">
+        <h3>Grid & Preview</h3>
+        <div class="field-grid">
+          <label class="field">Grid Size (px)
+            <input type="number" id="gridSize" value="24" min="4" max="120" step="2">
+          </label>
+          <label class="field">Preview Width
+            <input type="number" id="previewWidth" value="960" min="320" max="1600" step="10">
+          </label>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Bottom HUD</h3>
+        <div class="field-grid" id="bottomFields"></div>
+        <div class="field-grid" id="buttonFields" style="margin-top:10px;"></div>
+      </div>
+      <div class="panel">
+        <h3>Arch & Actions</h3>
+        <div class="field-grid" id="archFields"></div>
+        <div class="field-grid" id="archButtons"></div>
+      </div>
+      <div class="panel">
+        <h3>Resource Bars</h3>
+        <div class="field-grid" id="resourceFields"></div>
+      </div>
+      <div class="panel">
+        <h3>Export</h3>
+        <div class="field">
+          <label>HUD JSON</label>
+          <textarea id="configOutput" readonly></textarea>
+        </div>
+        <div class="button-row">
+          <button id="copyConfig">Copy JSON</button>
+          <button id="resetConfig" class="secondary">Reset to defaults</button>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="../config/config.js"></script>
+  <script type="module" src="./hud-editor.js?v=1"></script>
+</body>
+</html>

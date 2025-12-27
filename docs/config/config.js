@@ -947,12 +947,23 @@ window.CONFIG = {
       offsetY: 0,
       scale: 1,
       scaleWithActor: true,
+      actions: {
+        jump: 'jump',
+        attackA: 'buttonA',
+        attackB: 'buttonB',
+        attackC: 'buttonC',
+      },
       buttons: {
         jump: { left: 65, top: 45, rotateDeg: 0 },
         attackA: { left: 70, top: 50, rotateDeg: 0 },
         attackB: { left: 85, top: 65, rotateDeg: 0 },
         attackC: { left: 90, top: 70, rotateDeg: 0 },
       }
+    },
+    resourceBars: {
+      health: { left: 16, top: 26, width: 220, height: 12, padding: 3, radius: 12 },
+      stamina: { left: 16, top: 44, width: 220, height: 11, padding: 3, radius: 12 },
+      footing: { left: 16, top: 61, width: 220, height: 9, padding: 2, radius: 10 },
     },
     enemyIndicators: {
       width: 96,
