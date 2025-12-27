@@ -566,7 +566,11 @@ function updateEntityCensus() {
   const fighterList = Object.values(fighters).filter(Boolean);
   const totalFighters = fighterList.length;
   const npcFighters = fighterList.filter((fighter) => fighter?.id !== 'player' && !fighter?.isPlayer);
-  const aliveNpcs = npcFighters.filter((fighter) => !fighter?.isDead).length;
+  const aliveNpcFighters = npcFighters.filter((fighter) => !fighter?.isDead);
+  const aliveNpcs = aliveNpcFighters.length;
+  const npcNames = aliveNpcFighters
+    .map((fighter) => fighter?.npcName || fighter?.templateId || fighter?.id)
+    .filter(Boolean);
 
   const lines = [
     `Area: ${areaId || 'none'}`,
@@ -575,6 +579,7 @@ function updateEntityCensus() {
     `Fighters: ${totalFighters} | NPCs alive: ${aliveNpcs}/${intendedNpcCount}`,
     `Dynamic Instances: ${dynamicInstances}`,
   ];
+  lines.push(`NPCs: ${npcNames.length > 0 ? npcNames.join(', ') : 'none'}`);
   if (patrolTargetCount > 0) {
     lines.push(`Patrol list: ${patrolTargets.join(', ')}`);
   }
