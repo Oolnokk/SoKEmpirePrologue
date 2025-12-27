@@ -1015,5 +1015,27 @@ async function loadStartingArea() {
     }
 }
 console.log('[MAP-BOOTSTRAP-MODULE] 🟢 About to call loadStartingArea()...');
+
+// CRITICAL FIX: Wait for app.js to be ready before loading map
+// This prevents a race condition where map-bootstrap runs first and breaks app initialization
+async function waitForAppReady() {
+    console.log('[MAP-BOOTSTRAP] Waiting for app.js to be ready...');
+    const maxWait = 30000; // 30 seconds max
+    const startTime = Date.now();
+
+    while (!window.GAME?.__appInitialized && (Date.now() - startTime < maxWait)) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    if (window.GAME?.__appInitialized) {
+        console.log('[MAP-BOOTSTRAP] ✅ App is ready, proceeding with map load');
+        return true;
+    } else {
+        console.log('[MAP-BOOTSTRAP] ⚠️ Timeout waiting for app, proceeding anyway');
+        return false;
+    }
+}
+
+await waitForAppReady();
 await loadStartingArea();
 console.log('[MAP-BOOTSTRAP-MODULE] 🟢 loadStartingArea() completed');

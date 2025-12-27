@@ -7389,6 +7389,9 @@ function boot(){
     setTimeout(()=>{ const p=$$('#interactPrompt'); show(p,true); setTimeout(()=>show(p,false),1200); }, 600);
     // Mark boot as complete for debug panel
     window.GAME.bootComplete = true;
+    // Signal to map-bootstrap that app initialization is complete (race condition fix)
+    window.GAME.__appInitialized = true;
+    console.log('[app] ✅ App initialization complete - map-bootstrap can now proceed');
   } catch (e){
     const b=document.getElementById('bootError'), m=document.getElementById('bootErrorMsg');
     if(b&&m){ m.textContent=(e.message||'Unknown error'); b.style.display='block'; }
