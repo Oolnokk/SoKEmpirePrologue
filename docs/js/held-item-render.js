@@ -22,21 +22,22 @@ export function renderHeldItems(ctx) {
   for (const [id, fighter] of Object.entries(fighters)) {
     if (!fighter || !fighter.currentHeldItem) continue;
 
-    // Get hand bone position
+    // Get weapon bone (weapon should be stowed when holding prop)
     const bones = G.ANCHORS_OBJ?.[id];
     if (!bones) continue;
 
-    // Use right forearm end as hand position (attach point)
-    const handBone = bones.arm_R_lower;
-    if (!handBone) continue;
+    // Use weapon_0 bone (same as weapon attachment)
+    const weaponBone = bones.weapon_0;
+    if (!weaponBone) continue;
 
-    const handX = handBone.endX || handBone.x;
-    const handY = handBone.endY || handBone.y;
+    // Use start of weapon bone as attachment point
+    const boneX = weaponBone.x;
+    const boneY = weaponBone.y;
 
     // Simple bottle rendering for now
     const heldItem = fighter.currentHeldItem;
     if (heldItem.prefabId === 'bottle_tall') {
-      renderBottleInHand(ctx, handX, handY, handBone.ang || 0, camX, zoom);
+      renderBottleInHand(ctx, boneX, boneY, weaponBone.ang || 0, camX, zoom);
     }
   }
 

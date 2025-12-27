@@ -192,10 +192,18 @@ export class GroundPickupManager {
     // Mark as picked up (so it won't show in proximity again)
     inst.pickedUp = true;
 
-    // Disable physics - this stops the collider from being simulated
+    // Disable and clear physics completely to remove collider
     if (inst.physics) {
       inst.physics.disabled = true;
+      inst.physics.enabled = false;
       inst.physics.vel = { x: 0, y: 0 };
+      inst.physics.acc = { x: 0, y: 0 };
+      inst.physics.onGround = false;
+    }
+
+    // Clear collider data if present
+    if (inst.collider) {
+      inst.collider = null;
     }
 
     // Remove from dynamicInstances array so it stops being rendered/updated on ground
@@ -220,7 +228,13 @@ export class GroundPickupManager {
       // Set current held item
       player.currentHeldItem = player.heldItems[player.heldItems.length - 1];
 
+      // Stow weapon when holding a prop
+      if (player.anim?.weapon) {
+        player.anim.weapon.stowed = true;
+      }
+
       console.log('[GroundPickup] ✓ Added to player held items:', player.currentHeldItem);
+      console.log('[GroundPickup] ✓ Weapon stowed');
     }
 
     // Dispatch event for other systems
