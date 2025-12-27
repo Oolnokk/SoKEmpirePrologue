@@ -7546,13 +7546,26 @@ function boot(){
             // Load visualsmap if available (preferred)
             if (area && area.visualsMap) {
               try {
-                console.log('[app] Loading visualsmap for area:', area.id, area.visualsMap);
+                console.log('[3D-LOAD] 🎬 START: Loading visualsmap for area:', area.id);
+                console.log('[3D-LOAD] Visualsmap path:', area.visualsMap);
+                console.log('[3D-LOAD] Area source:', area.source);
+                console.log('[3D-LOAD] Renderer ready:', !!GAME_RENDERER_3D);
+
+                console.log('[3D-LOAD] Step 1/3: Getting visualsmap loader...');
                 const visualsmapLoader = await getVisualsmapLoader();
+                console.log('[3D-LOAD] ✓ Visualsmap loader obtained');
+
                 const gameplayMapUrl = area.source || ''; // URL of the gameplaymap.json
+                console.log('[3D-LOAD] Step 2/3: Loading visualsmap from:', gameplayMapUrl);
+
                 GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, area, gameplayMapUrl);
+                console.log('[3D-LOAD] ✓ Visualsmap data loaded');
+
                 window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
+
+                console.log('[3D-LOAD] Step 3/3: Validating loaded objects...');
                 if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
-                  console.log('[app] Visualsmap loaded successfully:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
+                  console.log('[3D-LOAD] ✅ SUCCESS! Visualsmap loaded:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
                   lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
 
                   // Auto-size 2D world to match 3D gameplay path (procedural sizing)
@@ -7565,11 +7578,13 @@ function boot(){
                     worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
                   });
                 } else {
-                  console.warn('[app] Visualsmap loaded but no objects found');
+                  console.log('[3D-LOAD] ⚠️ WARNING: Visualsmap loaded but no objects found');
+                  console.log('[3D-LOAD] Adapter:', GAME_VISUALSMAP_ADAPTER);
                   lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
                 }
               } catch (error) {
-                console.error('[app] Error loading visualsmap:', error);
+                console.log('[3D-LOAD] ❌ ERROR loading visualsmap:', error.message);
+                console.log('[3D-LOAD] Error stack:', error.stack);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
               }
             }
@@ -7594,7 +7609,8 @@ function boot(){
               }
             }
           } catch (error) {
-            console.error('[app] Error loading 3D scene:', error);
+            console.log('[3D-LOAD] ❌ ERROR in area change handler:', error.message);
+            console.log('[3D-LOAD] Error stack:', error.stack);
             lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
           }
         };
@@ -7618,12 +7634,26 @@ function boot(){
 
             // Load visualsmap if available (preferred)
             if (areaToLoad && areaToLoad.visualsMap) {
-              console.log('[app] Loading initial visualsmap:', areaToLoad.id);
+              console.log('[3D-LOAD-INITIAL] 🎬 START: Loading initial visualsmap for area:', areaToLoad.id);
+              console.log('[3D-LOAD-INITIAL] Visualsmap path:', areaToLoad.visualsMap);
+              console.log('[3D-LOAD-INITIAL] Area source:', areaToLoad.source);
+              console.log('[3D-LOAD-INITIAL] Renderer ready:', !!GAME_RENDERER_3D);
+
+              console.log('[3D-LOAD-INITIAL] Step 1/3: Getting visualsmap loader...');
               const visualsmapLoader = await getVisualsmapLoader();
+              console.log('[3D-LOAD-INITIAL] ✓ Visualsmap loader obtained');
+
               const gameplayMapUrl = areaToLoad.source || '';
+              console.log('[3D-LOAD-INITIAL] Step 2/3: Loading visualsmap from:', gameplayMapUrl);
+
               GAME_VISUALSMAP_ADAPTER = await visualsmapLoader.loadVisualsMap(GAME_RENDERER_3D, areaToLoad, gameplayMapUrl);
+              console.log('[3D-LOAD-INITIAL] ✓ Visualsmap data loaded');
+
               window.GAME.visualsmapAdapter = GAME_VISUALSMAP_ADAPTER; // Expose for debugging
+
+              console.log('[3D-LOAD-INITIAL] Step 3/3: Validating loaded objects...');
               if (GAME_VISUALSMAP_ADAPTER && GAME_VISUALSMAP_ADAPTER.objects.length > 0) {
+                console.log('[3D-LOAD-INITIAL] ✅ SUCCESS! Visualsmap loaded:', GAME_VISUALSMAP_ADAPTER.objects.length, 'objects');
                 lastGLTFLoadStatus = { success: true, timestamp: Date.now(), error: null };
 
                 // Auto-size 2D world to match 3D gameplay path (procedural sizing)
@@ -7636,6 +7666,8 @@ function boot(){
                   worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
                 });
               } else {
+                console.log('[3D-LOAD-INITIAL] ⚠️ WARNING: Visualsmap loaded but no objects found');
+                console.log('[3D-LOAD-INITIAL] Adapter:', GAME_VISUALSMAP_ADAPTER);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
               }
             }
@@ -7658,7 +7690,8 @@ function boot(){
               }
             }
           } catch (error) {
-            console.warn('[app] Failed to load initial 3D scene:', error);
+            console.log('[3D-LOAD-INITIAL] ❌ ERROR loading initial 3D scene:', error.message);
+            console.log('[3D-LOAD-INITIAL] Error stack:', error.stack);
             lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
           }
         };
