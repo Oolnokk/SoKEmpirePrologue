@@ -10,13 +10,23 @@
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; }
     #app { display:flex; height:100vh; }
     #sidebar {
-      width: 380px; max-width: 92vw;
+      width: 380px;
+      max-width: 40vw;
       background: linear-gradient(180deg, var(--panel), var(--panel2));
       border-right:1px solid var(--line);
       padding: 12px;
-      overflow:auto;
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex-shrink: 0;
     }
-    #viewport { flex:1; position:relative; }
+    #viewport {
+      flex: 1;
+      position: sticky;
+      top: 0;
+      right: 0;
+      min-width: 400px;
+      height: 100vh;
+    }
     #viewport canvas { width:100%; height:100%; display:block; }
 
     h2 { margin: 10px 0 8px; font-size: 14px; letter-spacing:.3px; color: var(--muted); text-transform: uppercase; }
@@ -590,7 +600,8 @@
     return;
   }
 
-  viewportStatusEl.textContent = "";
+  // Hide the initialization message
+  viewportStatusEl.style.display = "none";
 
   const scene = renderer.scene;
   scene.background = new THREE.Color(0x0b0f14);
