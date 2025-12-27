@@ -422,70 +422,76 @@
   </div>
 </div>
 
+<script>
+// -------------------------
+// Debug Log UI Setup (runs immediately, before module loading)
+// -------------------------
+const debugLogContent = document.getElementById("debugLogContent");
+const debugLogPanel = document.getElementById("debugLogPanel");
+const debugLogToggle = document.getElementById("debugLogToggle");
+const debugLines = [];
+
+function logDebug(msg) {
+  const ts = new Date().toISOString().split("T")[1].split(".")[0];
+  const line = `[${ts}] ${msg}`;
+  debugLines.unshift(line);
+  if (debugLines.length > 100) debugLines.pop();
+  if (debugLogContent) {
+    debugLogContent.innerHTML = debugLines.map(l => `<div class="debug-log-line">${l}</div>`).join("");
+  }
+  console.log(line);
+}
+
+// Debug log controls
+debugLogToggle?.addEventListener("click", () => {
+  debugLogPanel.classList.toggle("visible");
+  debugLogToggle.style.display = debugLogPanel.classList.contains("visible") ? "none" : "block";
+});
+
+document.getElementById("closeDebugLog")?.addEventListener("click", () => {
+  debugLogPanel.classList.remove("visible");
+  debugLogToggle.style.display = "block";
+});
+
+document.getElementById("clearDebugLog")?.addEventListener("click", () => {
+  debugLines.length = 0;
+  if (debugLogContent) debugLogContent.innerHTML = "";
+  logDebug("Log cleared");
+});
+
+document.getElementById("copyDebugLog")?.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(debugLines.join("\n"));
+    logDebug("Log copied to clipboard");
+  } catch (err) {
+    logDebug("Failed to copy: " + err.message);
+  }
+});
+
+// Capture console errors
+window.addEventListener("error", (event) => {
+  logDebug("ERROR: " + event.message + " at " + event.filename + ":" + event.lineno);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  logDebug("UNHANDLED REJECTION: " + (event.reason?.message || event.reason));
+});
+
+logDebug("Page loaded, debug log ready");
+logDebug("Starting module imports...");
+</script>
+
 <script type="module">
   import * as THREE from "./vendor/three/three.module.js";
   import { createRenderer } from "./renderer/index.js";
   import { OrbitControls } from "./vendor/three/OrbitControls.js";
   import { GLTFExporter } from "./vendor/three/GLTFExporter.js";
 
+  logDebug("Modules imported successfully");
+
   (async function main() {
   try {
     globalThis.THREE = globalThis.THREE || THREE;
-
-    // -------------------------
-    // Debug Log UI (mobile-friendly)
-    // -------------------------
-    const debugLogContent = document.getElementById("debugLogContent");
-    const debugLogPanel = document.getElementById("debugLogPanel");
-    const debugLogToggle = document.getElementById("debugLogToggle");
-    const debugLines = [];
-
-    function logDebug(msg) {
-      const ts = new Date().toISOString().split("T")[1].split(".")[0];
-      const line = `[${ts}] ${msg}`;
-      debugLines.unshift(line);
-      if (debugLines.length > 100) debugLines.pop();
-      if (debugLogContent) {
-        debugLogContent.innerHTML = debugLines.map(l => `<div class="debug-log-line">${l}</div>`).join("");
-      }
-      console.log(line);
-    }
-
-    // Debug log controls
-    debugLogToggle?.addEventListener("click", () => {
-      debugLogPanel.classList.toggle("visible");
-      debugLogToggle.style.display = debugLogPanel.classList.contains("visible") ? "none" : "block";
-    });
-
-    document.getElementById("closeDebugLog")?.addEventListener("click", () => {
-      debugLogPanel.classList.remove("visible");
-      debugLogToggle.style.display = "block";
-    });
-
-    document.getElementById("clearDebugLog")?.addEventListener("click", () => {
-      debugLines.length = 0;
-      if (debugLogContent) debugLogContent.innerHTML = "";
-      logDebug("Log cleared");
-    });
-
-    document.getElementById("copyDebugLog")?.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(debugLines.join("\n"));
-        logDebug("Log copied to clipboard");
-      } catch (err) {
-        logDebug("Failed to copy: " + err.message);
-      }
-    });
-
-    // Capture console errors
-    window.addEventListener("error", (event) => {
-      logDebug("ERROR: " + event.message + " at " + event.filename + ":" + event.lineno);
-    });
-
-    window.addEventListener("unhandledrejection", (event) => {
-      logDebug("UNHANDLED REJECTION: " + (event.reason?.message || event.reason));
-    });
-
     logDebug("3DBoxShaper initializing...");
 
     // -------------------------
