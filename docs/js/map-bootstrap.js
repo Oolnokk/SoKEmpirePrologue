@@ -136,9 +136,10 @@ function resolveGroupLibrary() {
     return globalConfig.npcGroups || {};
 }
 function registerAreaSpawns(area) {
-    console.log('[SPAWN-REGISTER] 🎮 registerAreaSpawns() called for area:', area?.id);
+    console.log('🎮🎮🎮 [SPAWN-REGISTER] registerAreaSpawns() CALLED 🎮🎮🎮');
+    console.log('[SPAWN-REGISTER] Area ID:', area?.id);
     if (!area) {
-        console.log('[SPAWN-REGISTER] ⚠️ No area provided, returning early');
+        console.log('⚠️⚠️⚠️ [SPAWN-REGISTER] NO AREA PROVIDED - RETURNING EARLY ⚠️⚠️⚠️');
         return;
     }
     console.log('[SPAWN-REGISTER] Area has spawners:', area.spawners?.length || 0);
@@ -164,6 +165,25 @@ function registerAreaSpawns(area) {
         return;
     service.registerArea(areaId, spawnPoints, { groupLibrary });
     service.setActiveArea(areaId);
+
+    // Initialize NPC spawners after registration
+    console.log('[SPAWN-REGISTER] Spawners registered, now initializing NPC spawner runtime...');
+    initializeNpcSpawnersAfterRegistration(area);
+}
+
+async function initializeNpcSpawnersAfterRegistration(area) {
+    // Dynamic import to avoid circular dependencies and ensure fighter.js is loaded
+    try {
+        const fighterModule = await import('./fighter.js?v=8');
+        if (typeof fighterModule.initializeNpcSpawnersForArea === 'function') {
+            console.log('[SPAWN-REGISTER] Calling initializeNpcSpawnersForArea...');
+            fighterModule.initializeNpcSpawnersForArea(area);
+        } else {
+            console.log('[SPAWN-REGISTER] ⚠️ initializeNpcSpawnersForArea not available in fighter module');
+        }
+    } catch (error) {
+        console.log('[SPAWN-REGISTER] ❌ Failed to initialize NPC spawners:', error.message);
+    }
 }
 function registerAreaGeometry(area) {
     if (!area)

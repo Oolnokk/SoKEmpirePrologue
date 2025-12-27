@@ -9,7 +9,7 @@ import { normalizePrefabDefinition } from './prefab-catalog.js?v=1';
 // Console capture system - stores all console messages for later export
 const CONSOLE_CAPTURE = {
   messages: [],
-  maxMessages: 1000, // Limit to prevent memory issues
+  maxMessages: 10000, // Increased from 1000 to preserve boot logs during heavy 3D loading
   originalLog: null,
   originalWarn: null,
   originalError: null,
@@ -29,6 +29,23 @@ function initConsoleCapture() {
   CONSOLE_CAPTURE.originalInfo = console.info.bind(console);
   CONSOLE_CAPTURE.originalDebug = console.debug ? console.debug.bind(console) : null;
 
+  // Helper to detect and truncate base64 data in objects before stringification
+  const base64SafeReplacer = (key, value) => {
+    if (typeof value === 'string') {
+      // Detect data URLs (e.g., data:image/png;base64,...)
+      if (value.startsWith('data:')) {
+        if (value.length > 100) {
+          return value.substring(0, 100) + `... [base64 data URL ${value.length} chars]`;
+        }
+      }
+      // Detect long base64 strings (100+ chars of base64 characters)
+      else if (value.length > 100 && /^[A-Za-z0-9+/]{100,}={0,2}$/.test(value.substring(0, 120))) {
+        return value.substring(0, 100) + `... [base64 string ${value.length} chars]`;
+      }
+    }
+    return value;
+  };
+
   // Helper to capture and store messages
   const captureMessage = (type, originalFn, args) => {
     // Call original function first
@@ -36,18 +53,31 @@ function initConsoleCapture() {
 
     // Format and store message
     const timestamp = new Date().toISOString();
+    const MAX_MESSAGE_LENGTH = 5000; // Prevent base64 blobs from flooding console
+
     const message = args.map(arg => {
       if (arg instanceof Error) {
         return arg.stack || `${arg.name}: ${arg.message}`;
       }
       if (typeof arg === 'object') {
         try {
-          return JSON.stringify(arg, null, 2);
+          // Use base64SafeReplacer to detect and truncate base64 data during stringification
+          const stringified = JSON.stringify(arg, base64SafeReplacer, 2);
+          // Truncate large objects (likely containing binary data)
+          if (stringified.length > MAX_MESSAGE_LENGTH) {
+            return stringified.substring(0, MAX_MESSAGE_LENGTH) + `... [truncated ${stringified.length - MAX_MESSAGE_LENGTH} chars]`;
+          }
+          return stringified;
         } catch (e) {
           return String(arg);
         }
       }
-      return String(arg);
+      const str = String(arg);
+      // Truncate long strings too
+      if (str.length > MAX_MESSAGE_LENGTH) {
+        return str.substring(0, MAX_MESSAGE_LENGTH) + `... [truncated ${str.length - MAX_MESSAGE_LENGTH} chars]`;
+      }
+      return str;
     }).join(' ');
 
     CONSOLE_CAPTURE.messages.push({ type, timestamp, message });
