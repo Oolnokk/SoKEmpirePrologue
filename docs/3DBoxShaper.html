@@ -10,13 +10,23 @@
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; }
     #app { display:flex; height:100vh; }
     #sidebar {
-      width: 380px; max-width: 92vw;
+      width: 380px;
+      max-width: 40vw;
       background: linear-gradient(180deg, var(--panel), var(--panel2));
       border-right:1px solid var(--line);
       padding: 12px;
-      overflow:auto;
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex-shrink: 0;
     }
-    #viewport { flex:1; position:relative; }
+    #viewport {
+      flex: 1;
+      position: sticky;
+      top: 0;
+      right: 0;
+      min-width: 400px;
+      height: 100vh;
+    }
     #viewport canvas { width:100%; height:100%; display:block; }
 
     h2 { margin: 10px 0 8px; font-size: 14px; letter-spacing:.3px; color: var(--muted); text-transform: uppercase; }
@@ -84,6 +94,84 @@
       white-space: pre-wrap;
       pointer-events:none;
     }
+    #debugLogPanel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: min(360px, 90vw);
+      max-height: 40vh;
+      background: rgba(11, 15, 20, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      overflow: hidden;
+      pointer-events: auto;
+      display: none;
+    }
+    #debugLogPanel.visible { display: block; }
+    .debug-log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .debug-log-header h3 {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .debug-log-buttons {
+      display: flex;
+      gap: 6px;
+    }
+    .debug-log-btn {
+      padding: 4px 8px;
+      font-size: 11px;
+      background: rgba(106, 167, 255, 0.18);
+      border: 1px solid rgba(106, 167, 255, 0.35);
+      color: var(--text);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .debug-log-btn:hover {
+      background: rgba(106, 167, 255, 0.28);
+    }
+    #debugLogContent {
+      max-height: calc(40vh - 44px);
+      overflow-y: auto;
+      padding: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .debug-log-line {
+      padding: 2px 4px;
+      border-radius: 3px;
+      margin-bottom: 2px;
+      color: #bfdbfe;
+    }
+    .debug-log-line:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .debug-log-toggle {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 8px 12px;
+      background: rgba(11, 15, 20, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      pointer-events: auto;
+      z-index: 10;
+    }
+    .debug-log-toggle:hover {
+      background: rgba(17, 24, 39, 0.95);
+    }
     .list { display:flex; flex-direction:column; gap:8px; }
     .stickerItem {
       display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -99,11 +187,26 @@
       position:absolute;
       inset:0;
       display:flex;
+      flex-direction:column;
       align-items:center;
       justify-content:center;
       font-size: 14px;
       color: var(--muted);
       pointer-events:none;
+      gap: 12px;
+    }
+    .progress-bar {
+      width: 240px;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--acc);
+      transition: width 0.3s ease;
+      width: 0%;
     }
   </style>
 </head>
@@ -292,25 +395,140 @@
   </div>
 
   <div id="viewport">
-    <div id="viewportStatus">Initializing 3D viewport…</div>
+    <div id="viewportStatus">
+      <div id="statusText">Initializing 3D viewport…</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div id="statusPercent" style="font-size: 12px; color: var(--muted);">0%</div>
+    </div>
     <div id="debug"></div>
+
+    <!-- Debug Log Toggle Button -->
+    <button class="debug-log-toggle" id="debugLogToggle">📋 Log</button>
+
+    <!-- Debug Log Panel -->
+    <div id="debugLogPanel">
+      <div class="debug-log-header">
+        <h3>Debug Log</h3>
+        <div class="debug-log-buttons">
+          <button class="debug-log-btn" id="copyDebugLog">Copy</button>
+          <button class="debug-log-btn" id="clearDebugLog">Clear</button>
+          <button class="debug-log-btn" id="closeDebugLog">Close</button>
+        </div>
+      </div>
+      <div id="debugLogContent"></div>
+    </div>
   </div>
 </div>
 
+<script>
+// -------------------------
+// Debug Log UI Setup (runs immediately, before module loading)
+// -------------------------
+const debugLogContent = document.getElementById("debugLogContent");
+const debugLogPanel = document.getElementById("debugLogPanel");
+const debugLogToggle = document.getElementById("debugLogToggle");
+const debugLines = [];
+
+function logDebug(msg) {
+  const ts = new Date().toISOString().split("T")[1].split(".")[0];
+  const line = `[${ts}] ${msg}`;
+  debugLines.unshift(line);
+  if (debugLines.length > 100) debugLines.pop();
+  if (debugLogContent) {
+    debugLogContent.innerHTML = debugLines.map(l => `<div class="debug-log-line">${l}</div>`).join("");
+  }
+  console.log(line);
+}
+
+// Debug log controls
+debugLogToggle?.addEventListener("click", () => {
+  debugLogPanel.classList.toggle("visible");
+  debugLogToggle.style.display = debugLogPanel.classList.contains("visible") ? "none" : "block";
+});
+
+document.getElementById("closeDebugLog")?.addEventListener("click", () => {
+  debugLogPanel.classList.remove("visible");
+  debugLogToggle.style.display = "block";
+});
+
+document.getElementById("clearDebugLog")?.addEventListener("click", () => {
+  debugLines.length = 0;
+  if (debugLogContent) debugLogContent.innerHTML = "";
+  logDebug("Log cleared");
+});
+
+document.getElementById("copyDebugLog")?.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(debugLines.join("\n"));
+    logDebug("Log copied to clipboard");
+  } catch (err) {
+    logDebug("Failed to copy: " + err.message);
+  }
+});
+
+// Capture console errors
+window.addEventListener("error", (event) => {
+  logDebug("ERROR: " + event.message + " at " + event.filename + ":" + event.lineno);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  logDebug("UNHANDLED REJECTION: " + (event.reason?.message || event.reason));
+});
+
+logDebug("Page loaded, debug log ready");
+logDebug("Starting module imports...");
+
+// Timeout to detect if modules never load
+setTimeout(() => {
+  if (!window.__modulesLoaded) {
+    logDebug("ERROR: Module import timeout - modules failed to load after 5 seconds");
+    logDebug("Possible causes: CORS issue, file not found, or syntax error in module");
+    const statusText = document.getElementById("statusText");
+    const progressFill = document.getElementById("progressFill");
+    if (statusText) {
+      statusText.textContent = "Module loading failed - check log";
+      statusText.style.color = "#ff6b6b";
+    }
+    if (progressFill) {
+      progressFill.style.background = "#ef4444";
+    }
+  }
+}, 5000);
+</script>
+
 <script type="module">
-  import * as THREE from "./vendor/three/three.module.js";
-  import { createRenderer } from "./renderer/index.js";
-  import { OrbitControls } from "./vendor/three/OrbitControls.js";
-  import { GLTFExporter } from "./vendor/three/GLTFExporter.js";
+  try {
+    logDebug("Importing THREE.js...");
+    const THREE = await import("./vendor/three/three.module.js");
+    logDebug("✓ THREE.js imported");
+
+    logDebug("Importing createRenderer...");
+    const { createRenderer } = await import("./renderer/index.js");
+    logDebug("✓ createRenderer imported");
+
+    logDebug("Importing OrbitControls...");
+    const { OrbitControls } = await import("./vendor/three/OrbitControls.js");
+    logDebug("✓ OrbitControls imported");
+
+    // GLTFExporter is optional - only load it when needed for export
+    logDebug("Skipping GLTFExporter (loaded on-demand for export)");
+    let GLTFExporter = null;
+
+    window.__modulesLoaded = true;
+    logDebug("All core modules imported successfully");
 
   (async function main() {
-  globalThis.THREE = globalThis.THREE || THREE;
+  try {
+    globalThis.THREE = globalThis.THREE || THREE.default || THREE;
+    logDebug("3DBoxShaper initializing...");
 
-  // -------------------------
-  // Debug overlay (mobile-friendly)
-  // -------------------------
-  const debugEl = document.getElementById("debug");
-  function setDebug(text) { debugEl.textContent = text; }
+    // -------------------------
+    // Debug overlay (mobile-friendly)
+    // -------------------------
+    const debugEl = document.getElementById("debug");
+    function setDebug(text) { debugEl.textContent = text; }
 
   // -------------------------
   // IDs
@@ -574,6 +792,22 @@
   // -------------------------
   const viewportEl = document.getElementById("viewport");
   const viewportStatusEl = document.getElementById("viewportStatus");
+  const statusText = document.getElementById("statusText");
+  const statusPercent = document.getElementById("statusPercent");
+  const progressFill = document.getElementById("progressFill");
+
+  function setProgress(percent, message) {
+    statusText.textContent = message;
+    statusPercent.textContent = `${percent}%`;
+    progressFill.style.width = `${percent}%`;
+    logDebug(`[${percent}%] ${message}`);
+  }
+
+  setProgress(10, "Loading modules...");
+
+  await new Promise(resolve => setTimeout(resolve, 50)); // Brief delay to show initial state
+  setProgress(25, "Creating renderer...");
+
   const renderer = createRenderer({
     container: viewportEl,
     width: viewportEl.clientWidth,
@@ -583,17 +817,49 @@
     cameraFar: 100,
   });
 
+  setProgress(40, "Configuring renderer...");
+
+  // Set up event listeners BEFORE initializing
+  renderer.on('ready', (event) => {
+    logDebug('Renderer ready event: supported=' + event.supported);
+    if (event.supported) {
+      setProgress(75, "Setting up scene...");
+
+      setTimeout(() => {
+        const scene = renderer.scene;
+        scene.background = new THREE.Color(0x0b0f14);
+
+        setupScene();
+
+        setProgress(100, "Ready!");
+        logDebug("Scene setup complete, viewport ready");
+        setTimeout(() => {
+          viewportStatusEl.style.display = "none";
+        }, 300);
+      }, 100);
+    } else {
+      logDebug("ERROR: Three.js not available - renderer in no-op mode");
+      statusText.textContent = "Three.js not available - renderer in no-op mode";
+      statusText.style.color = "#ff6b6b";
+      progressFill.style.background = "#ef4444";
+    }
+  });
+
+  renderer.on('error', (event) => {
+    const errMsg = `Error during ${event.phase}: ${event.error?.message || 'Unknown error'}`;
+    logDebug("RENDERER ERROR: " + errMsg);
+    statusText.textContent = errMsg;
+    statusText.style.color = "#ff6b6b";
+    progressFill.style.background = "#ef4444";
+    viewportStatusEl.style.display = "block";
+  });
+
+  setProgress(50, "Initializing renderer...");
+
   await renderer.init();
 
-  if (!renderer.renderer) {
-    viewportStatusEl.textContent = "Renderer unavailable: WebGL/Three.js initialization failed.";
-    return;
-  }
-
-  viewportStatusEl.textContent = "";
-
+  function setupScene() {
   const scene = renderer.scene;
-  scene.background = new THREE.Color(0x0b0f14);
 
   const camera = renderer.camera;
   camera.near = 0.01;
@@ -1373,7 +1639,21 @@
     return mesh;
   }
 
-  function exportScene(binary) {
+  async function exportScene(binary) {
+    // Load GLTFExporter on-demand
+    if (!GLTFExporter) {
+      try {
+        logDebug("Loading GLTFExporter for export...");
+        const module = await import("./vendor/three/GLTFExporter.js");
+        GLTFExporter = module.GLTFExporter;
+        logDebug("✓ GLTFExporter loaded");
+      } catch (err) {
+        logDebug("ERROR: Failed to load GLTFExporter: " + err.message);
+        setDebug("Export error: GLTFExporter failed to load - " + err.message);
+        return;
+      }
+    }
+
     const exporter = new GLTFExporter();
     const group = new THREE.Group();
 
@@ -1443,7 +1723,34 @@
   });
 
   renderer.start();
+  } // End of setupScene()
+
+  } catch (error) {
+    logDebug("FATAL ERROR in main: " + error.message);
+    console.error("Fatal error during initialization:", error);
+    const viewportStatusEl = document.getElementById("viewportStatus");
+    if (viewportStatusEl) {
+      const statusText = document.getElementById("statusText");
+      if (statusText) statusText.textContent = `Fatal error: ${error.message}`;
+      viewportStatusEl.style.color = "#ff6b6b";
+      viewportStatusEl.style.display = "block";
+    }
+  }
   })();
+
+  } catch (error) {
+    logDebug("FATAL ERROR during module import: " + error.message);
+    logDebug("Stack: " + error.stack);
+    const statusText = document.getElementById("statusText");
+    const progressFill = document.getElementById("progressFill");
+    if (statusText) {
+      statusText.textContent = `Module import failed: ${error.message}`;
+      statusText.style.color = "#ff6b6b";
+    }
+    if (progressFill) {
+      progressFill.style.background = "#ef4444";
+    }
+  }
  </script>
 </body>
 </html>
