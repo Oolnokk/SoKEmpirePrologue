@@ -778,9 +778,10 @@
       function addMessage(level, args) {
         messageCount++;
 
-        // Clear placeholder if this is the first message
-        if (messageCount === 1) {
-          debugConsole.innerHTML = '';
+        // Clear ONLY the placeholder text if it exists, don't clear actual messages
+        const placeholder = debugConsole.querySelector('div[style*="font-style: italic"]');
+        if (placeholder && placeholder.textContent.includes('Console output will appear here')) {
+          placeholder.remove();
         }
 
         // Limit message count
