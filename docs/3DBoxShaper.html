@@ -314,13 +314,14 @@
   import { GLTFExporter } from "./vendor/three/GLTFExporter.js";
 
   (async function main() {
-  globalThis.THREE = globalThis.THREE || THREE;
+  try {
+    globalThis.THREE = globalThis.THREE || THREE;
 
-  // -------------------------
-  // Debug overlay (mobile-friendly)
-  // -------------------------
-  const debugEl = document.getElementById("debug");
-  function setDebug(text) { debugEl.textContent = text; }
+    // -------------------------
+    // Debug overlay (mobile-friendly)
+    // -------------------------
+    const debugEl = document.getElementById("debug");
+    function setDebug(text) { debugEl.textContent = text; }
 
   // -------------------------
   // IDs
@@ -584,6 +585,10 @@
   // -------------------------
   const viewportEl = document.getElementById("viewport");
   const viewportStatusEl = document.getElementById("viewportStatus");
+
+  console.log("Creating renderer...");
+  viewportStatusEl.textContent = "Creating renderer...";
+
   const renderer = createRenderer({
     container: viewportEl,
     width: viewportEl.clientWidth,
@@ -593,13 +598,20 @@
     cameraFar: 100,
   });
 
+  console.log("Initializing renderer...");
+  viewportStatusEl.textContent = "Initializing renderer...";
+
   await renderer.init();
+
+  console.log("Renderer initialized:", !!renderer.renderer);
 
   if (!renderer.renderer) {
     viewportStatusEl.textContent = "Renderer unavailable: WebGL/Three.js initialization failed.";
+    viewportStatusEl.style.color = "#ff6b6b";
     return;
   }
 
+  console.log("Renderer ready - hiding status message");
   // Hide the initialization message
   viewportStatusEl.style.display = "none";
 
@@ -1454,6 +1466,15 @@
   });
 
   renderer.start();
+  } catch (error) {
+    console.error("Fatal error during initialization:", error);
+    const viewportStatusEl = document.getElementById("viewportStatus");
+    if (viewportStatusEl) {
+      viewportStatusEl.textContent = `Fatal error: ${error.message}`;
+      viewportStatusEl.style.color = "#ff6b6b";
+      viewportStatusEl.style.display = "block";
+    }
+  }
   })();
  </script>
 </body>
