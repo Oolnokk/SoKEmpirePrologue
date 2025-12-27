@@ -5,6 +5,7 @@ const DEFAULT_CONFIG = {
     radiusPx: 150,
     start: { x: 0.98, y: 0.94 },
     end: { x: 0.78, y: 0.86 },
+    gridSnapPx: 0,
     scale: 1,
     buttonSizePx: 84,
     defaultGapPx: 10,
@@ -86,6 +87,7 @@ function mergeArchConfig(raw = {}) {
         x: sanitizeNumber(arch.end?.x, DEFAULT_CONFIG.arch.end.x),
         y: sanitizeNumber(arch.end?.y, DEFAULT_CONFIG.arch.end.y),
       },
+      gridSnapPx: sanitizeNumber(arch.gridSnapPx ?? arch.gridSizePx, DEFAULT_CONFIG.arch.gridSnapPx),
       scale: sanitizeNumber(arch.scale, DEFAULT_CONFIG.arch.scale),
       buttonSizePx: sanitizeNumber(arch.buttonSizePx, DEFAULT_CONFIG.arch.buttonSizePx),
       defaultGapPx: sanitizeNumber(arch.defaultGapPx, DEFAULT_CONFIG.arch.defaultGapPx),
@@ -158,6 +160,38 @@ function normalizeAngleDelta(delta) {
   return delta;
 }
 
+function snapToGrid(point, gridSizePx) {
+  if (!gridSizePx || !Number.isFinite(gridSizePx)) return point;
+  return {
+    x: Math.round(point.x / gridSizePx) * gridSizePx,
+    y: Math.round(point.y / gridSizePx) * gridSizePx,
+  };
+}
+
+function observeButtonList(buttons, onChange) {
+  if (!Array.isArray(buttons) || !onChange) return null;
+  const methods = ['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse'];
+  const originals = new Map();
+
+  methods.forEach((method) => {
+    if (typeof buttons[method] !== 'function') return;
+    originals.set(method, buttons[method]);
+    // eslint-disable-next-line no-param-reassign
+    buttons[method] = function patchedMethod(...args) {
+      const result = originals.get(method).apply(this, args);
+      onChange();
+      return result;
+    };
+  });
+
+  return () => {
+    originals.forEach((original, method) => {
+      // eslint-disable-next-line no-param-reassign
+      buttons[method] = original;
+    });
+  };
+}
+
 function buildButtonArch(config, handlers = {}, rootEl = null) {
   const archCfg = config.arch;
   const btnCfgs = [...config.buttons].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -172,8 +206,8 @@ function buildButtonArch(config, handlers = {}, rootEl = null) {
   const scale = archCfg.scale || 1;
   const baseRadius = archCfg.radiusPx * scale;
   const flipY = archCfg.flipVertical !== false;
-  const startPt = vpPoint(archCfg.start, vp, flipY);
-  const endPt = vpPoint(archCfg.end, vp, flipY);
+  const startPt = snapToGrid(vpPoint(archCfg.start, vp, flipY), archCfg.gridSnapPx);
+  const endPt = snapToGrid(vpPoint(archCfg.end, vp, flipY), archCfg.gridSnapPx);
   const chordLength = Math.hypot(endPt.x - startPt.x, endPt.y - startPt.y);
   const radius = Math.max(baseRadius, chordLength / 2 + archCfg.buttonSizePx * scale * 0.1);
   const center = chooseCircleCenter(startPt, endPt, radius, {
@@ -188,28 +222,12 @@ function buildButtonArch(config, handlers = {}, rootEl = null) {
   const totalLength = Math.abs(radius * totalAngle);
   if (!Number.isFinite(totalLength) || totalLength === 0) return container;
 
-  let cursorLen = 0;
   const debugInfo = [];
+  const btnCount = btnCfgs.length;
 
-  btnCfgs.forEach((btnCfg) => {
-    const segLength = btnCfg.lengthPct * totalLength;
-    const gap = btnCfg.gapPx != null ? btnCfg.gapPx : archCfg.defaultGapPx || 0;
-
-    // Raw segment along arc
-    const rawStart = cursorLen;
-    const rawEnd = cursorLen + segLength;
-
-    // Carve AFTER sizing
-    const carvedStart = rawStart + gap / 2;
-    const carvedEnd = rawEnd - gap / 2;
-
-    const startL = Math.min(carvedStart, carvedEnd);
-    const endL = Math.max(carvedStart, carvedEnd);
-    const centerL = (startL + endL) * 0.5;
-
-    const t = centerL / totalLength; // 0..1 along the arch
-    const angleAlong = totalAngle * t + startRad; // radians
-
+  btnCfgs.forEach((btnCfg, idx) => {
+    const t = btnCount > 1 ? idx / (btnCount - 1) : 0.5;
+    const angleAlong = startRad + totalAngle * t;
     const x = center.x + radius * Math.cos(angleAlong);
     const y = center.y + radius * Math.sin(angleAlong);
 
@@ -260,17 +278,12 @@ function buildButtonArch(config, handlers = {}, rootEl = null) {
     if (archCfg.debug) {
       debugInfo.push({
         id: btnCfg.id,
-        rawStart,
-        rawEnd,
-        carvedStart: startL,
-        carvedEnd: endL,
         angleDeg: (angleAlong * 180) / Math.PI,
         screenX: x,
         screenY: y,
+        t,
       });
     }
-
-    cursorLen += segLength;
   });
 
   if (archCfg.debug && debugInfo.length) {
@@ -299,6 +312,8 @@ export function initArchTouchInput({ input = null, enabled = true, config: rawCo
   const config = mergeArchConfig(rawConfig || window.CONFIG?.hud?.arch || {});
   let container = null;
   let resizeTimer = null;
+  let teardownButtonObserver = null;
+  let buttonObserverTarget = null;
 
   const handleDown = (btnCfg, btnEl) => {
     btnEl?.classList.add('active');
@@ -319,6 +334,11 @@ export function initArchTouchInput({ input = null, enabled = true, config: rawCo
     if (container?.parentNode) {
       container.parentNode.removeChild(container);
     }
+    if (buttonObserverTarget !== config.buttons) {
+      if (typeof teardownButtonObserver === 'function') teardownButtonObserver();
+      buttonObserverTarget = config.buttons;
+      teardownButtonObserver = observeButtonList(buttonObserverTarget, rebuild);
+    }
     const root = getHudRoot();
     container = buildButtonArch(config, { onDown: handleDown, onUp: handleUp }, root);
     root.appendChild(container);
@@ -333,6 +353,7 @@ export function initArchTouchInput({ input = null, enabled = true, config: rawCo
   };
   window.addEventListener('resize', onResize);
   document.addEventListener('fullscreenchange', rebuild);
+  window.addEventListener('archButtonsChanged', rebuild);
 
   return {
     rebuild,
@@ -340,6 +361,8 @@ export function initArchTouchInput({ input = null, enabled = true, config: rawCo
       clearTimeout(resizeTimer);
       window.removeEventListener('resize', onResize);
       document.removeEventListener('fullscreenchange', rebuild);
+      window.removeEventListener('archButtonsChanged', rebuild);
+      if (typeof teardownButtonObserver === 'function') teardownButtonObserver();
       if (container?.parentNode) container.parentNode.removeChild(container);
       document.documentElement.classList.remove('arch-hud-active');
     },

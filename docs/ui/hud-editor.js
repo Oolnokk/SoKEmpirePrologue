@@ -48,6 +48,11 @@ let gridSize = Number(gridSizeInput?.value) || 24;
 let originalHudConfig = null;
 let currentResourceBars = [];
 
+const DEFAULT_ARCH_ANCHORS = {
+  start: { x: 0.98, y: 0.94 },
+  end: { x: 0.78, y: 0.86 },
+};
+
 function ensureHudConfig() {
   window.CONFIG = window.CONFIG || {};
   window.CONFIG.hud = window.CONFIG.hud || {};
@@ -68,6 +73,12 @@ function ensureHudConfig() {
   };
   window.CONFIG.hud.arch = window.CONFIG.hud.arch || {};
   window.CONFIG.hud.arch.arch = window.CONFIG.hud.arch.arch || {};
+  const archCfg = window.CONFIG.hud.arch.arch;
+  archCfg.start = archCfg.start || { ...DEFAULT_ARCH_ANCHORS.start };
+  archCfg.end = archCfg.end || { ...DEFAULT_ARCH_ANCHORS.end };
+  if (!Number.isFinite(archCfg.gridSnapPx)) {
+    archCfg.gridSnapPx = gridSize;
+  }
   window.CONFIG.hud.arch.buttons = Array.isArray(window.CONFIG.hud.arch.buttons)
     ? window.CONFIG.hud.arch.buttons
     : [];
@@ -132,6 +143,9 @@ function updateGridVisuals() {
   if (previewStage) {
     const width = Number(previewWidthInput?.value) || 960;
     previewStage.style.width = `${width}px`;
+  }
+  if (window.CONFIG?.hud?.arch?.arch) {
+    window.CONFIG.hud.arch.arch.gridSnapPx = gridSize;
   }
 }
 
@@ -227,10 +241,10 @@ function renderButtonFields() {
 function renderArchFields() {
   const arch = window.CONFIG.hud.arch.arch || {};
   const fields = [
-    { label: 'Start X (0-1)', key: 'start.x', value: arch.start?.x ?? 0.1 },
-    { label: 'Start Y (0-1)', key: 'start.y', value: arch.start?.y ?? 0.75 },
-    { label: 'End X (0-1)', key: 'end.x', value: arch.end?.x ?? 0.25 },
-    { label: 'End Y (0-1)', key: 'end.y', value: arch.end?.y ?? 0.9 },
+    { label: 'Start X (0-1)', key: 'start.x', value: arch.start?.x ?? DEFAULT_ARCH_ANCHORS.start.x },
+    { label: 'Start Y (0-1)', key: 'start.y', value: arch.start?.y ?? DEFAULT_ARCH_ANCHORS.start.y },
+    { label: 'End X (0-1)', key: 'end.x', value: arch.end?.x ?? DEFAULT_ARCH_ANCHORS.end.x },
+    { label: 'End Y (0-1)', key: 'end.y', value: arch.end?.y ?? DEFAULT_ARCH_ANCHORS.end.y },
     { label: 'Radius (px)', key: 'radiusPx', value: arch.radiusPx ?? 180 },
     { label: 'Scale', key: 'scale', value: arch.scale ?? 1, step: 0.05, min: 0.25, max: 3 },
     { label: 'Button Size (px)', key: 'buttonSizePx', value: arch.buttonSizePx ?? 90 },
@@ -462,6 +476,7 @@ function placeHandle(id, normX, normY, rect) {
     el = document.createElement('div');
     el.className = 'overlay-handle';
     el.dataset.handle = id;
+    el.title = id === 'arch-start' ? 'Arch start' : 'Arch end';
     previewStage.appendChild(el);
     bindArchHandle(el);
   }
