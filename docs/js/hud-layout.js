@@ -26,11 +26,65 @@ export const DEFAULT_BOTTOM_HUD_CONFIG = {
   actions: DEFAULT_BOTTOM_BUTTON_ACTIONS,
 };
 
-export const DEFAULT_RESOURCE_BAR_CONFIG = {
-  health: { left: 16, top: 26, width: 220, height: 12, padding: 3, radius: 12 },
-  stamina: { left: 16, top: 44, width: 220, height: 11, padding: 3, radius: 12 },
-  footing: { left: 16, top: 61, width: 220, height: 9, padding: 2, radius: 10 },
-};
+export const DEFAULT_RESOURCE_BARS = [
+  {
+    id: 'health',
+    label: 'HP',
+    resourceKey: 'health',
+    left: 16,
+    top: 26,
+    width: 220,
+    height: 12,
+    padding: 3,
+    radius: 12,
+    lowThreshold: 0,
+    colors: {
+      fill: '#f87171',
+      background: 'rgba(5,7,11,0.78)',
+      border: 'rgba(148,163,184,0.28)',
+      label: '#f8fafc',
+      fillLow: '#f87171',
+    },
+  },
+  {
+    id: 'stamina',
+    label: 'Stamina',
+    resourceKey: 'stamina',
+    left: 16,
+    top: 44,
+    width: 220,
+    height: 11,
+    padding: 3,
+    radius: 12,
+    lowThreshold: 0.25,
+    colors: {
+      fill: '#22c55e',
+      background: 'rgba(5,7,11,0.78)',
+      border: 'rgba(148,163,184,0.28)',
+      label: '#f8fafc',
+      fillLow: '#ef4444',
+    },
+  },
+  {
+    id: 'footing',
+    label: 'Footing',
+    resourceKey: 'footing',
+    left: 16,
+    top: 61,
+    width: 220,
+    height: 9,
+    padding: 2,
+    radius: 10,
+    lowThreshold: 0,
+    colors: {
+      fill: '#e2e8f0',
+      background: 'rgba(5,7,11,0.78)',
+      border: 'rgba(148,163,184,0.28)',
+      label: '#0f172a',
+      fillLow: '#e2e8f0',
+    },
+  },
+];
 
 function clampNumber(value, min, max) {
   if (!Number.isFinite(value)) {
@@ -139,34 +193,67 @@ export function updateHudBackgroundPath(config, actionHudPath, actionHudSvg) {
   actionHudSvg.setAttribute('viewBox', `0 0 ${config.width} ${config.height}`);
 }
 
-export function computeResourceBarConfig(raw = null, defaults = DEFAULT_RESOURCE_BAR_CONFIG) {
+function normalizeBarColors(barColors = {}, defaultColors = {}) {
+  const colors = { ...defaultColors, ...(barColors || {}) };
+  colors.fillLow = colors.fillLow || colors.fill;
+  return colors;
+}
+
+function normalizeResourceEntry(spec = {}, fallback = {}, defaults = {}) {
+  const { colors: defaultColors = {} } = fallback;
+  const normalized = {
+    id: spec.id || fallback.id || spec.resourceKey || 'bar',
+    label: spec.label || fallback.label || spec.id || 'Resource',
+    resourceKey: spec.resourceKey || spec.key || fallback.resourceKey || fallback.id,
+    left: coerceNumber(spec.left, fallback.left ?? defaults.left ?? 0),
+    top: coerceNumber(spec.top, fallback.top ?? defaults.top ?? 0),
+    width: Math.max(20, coerceNumber(spec.width, fallback.width ?? defaults.width ?? 160)),
+    height: Math.max(4, coerceNumber(spec.height, fallback.height ?? defaults.height ?? 10)),
+    padding: coerceNumber(spec.padding, fallback.padding ?? defaults.padding ?? 2),
+    radius: coerceNumber(spec.radius, fallback.radius ?? defaults.radius ?? 8),
+    lowThreshold: Number.isFinite(spec.lowThreshold)
+      ? clampNumber(spec.lowThreshold, 0, 1)
+      : clampNumber(fallback.lowThreshold ?? defaults.lowThreshold ?? 0, 0, 1),
+  };
+  normalized.colors = normalizeBarColors(spec.colors, normalizeBarColors(defaultColors, defaults.colors));
+  return normalized;
+}
+
+function convertLegacyBars(src = {}, defaults = DEFAULT_RESOURCE_BARS, themeDefaults = {}) {
+  return Object.entries(src)
+    .filter(([key]) => key !== 'defaults' && key !== 'bars')
+    .map(([key, spec]) => normalizeResourceEntry({ id: key, ...spec }, defaults.find((d) => d.id === key) || {}, themeDefaults));
+}
+
+export function computeResourceBarConfig(raw = null, defaults = DEFAULT_RESOURCE_BARS) {
   const src = raw || window.CONFIG?.hud?.resourceBars || {};
-  const result = {};
-  for (const [key, def] of Object.entries(defaults)) {
-    const spec = src[key] || {};
-    result[key] = {
-      left: coerceNumber(spec.left, def.left),
-      top: coerceNumber(spec.top, def.top),
-      width: Math.max(20, coerceNumber(spec.width, def.width)),
-      height: Math.max(2, coerceNumber(spec.height, def.height)),
-      padding: coerceNumber(spec.padding, def.padding),
-      radius: coerceNumber(spec.radius, def.radius),
-    };
-  }
-  return result;
+  const themeDefaults = { colors: src.defaults || {} };
+  const bars = Array.isArray(src.bars)
+    ? src.bars
+    : (!src.bars && Object.keys(src).length ? convertLegacyBars(src, defaults, themeDefaults) : null);
+  const base = bars || defaults;
+  return base.map((spec, idx) => normalizeResourceEntry(spec, defaults[idx] || {}, themeDefaults));
 }
 
 export function applyResourceBarLayout(config, rootElement = typeof document !== 'undefined' ? document.documentElement : null) {
   if (!config || !rootElement?.style) return;
   const root = rootElement.style;
-  for (const [key, spec] of Object.entries(config)) {
+  config.forEach((spec) => {
+    const key = spec.id;
+    if (!key) return;
     root.setProperty(`--${key}-bar-left`, `${spec.left}px`);
     root.setProperty(`--${key}-bar-top`, `${spec.top}px`);
     root.setProperty(`--${key}-bar-width`, `${spec.width}px`);
     root.setProperty(`--${key}-bar-height`, `${spec.height}px`);
     root.setProperty(`--${key}-bar-padding`, `${spec.padding}px`);
     root.setProperty(`--${key}-bar-radius`, `${spec.radius}px`);
-  }
+    if (spec.colors?.fill) root.setProperty(`--${key}-bar-fill`, spec.colors.fill);
+    if (spec.colors?.fillLow) root.setProperty(`--${key}-bar-fill-low`, spec.colors.fillLow);
+    if (spec.colors?.background) root.setProperty(`--${key}-bar-bg`, spec.colors.background);
+    if (spec.colors?.border) root.setProperty(`--${key}-bar-border`, spec.colors.border);
+    if (spec.colors?.label) root.setProperty(`--${key}-bar-label`, spec.colors.label);
+  });
+  root.setProperty('--hud-resource-bar-count', `${config.length}`);
 }
 
 export function createHudLayoutController({

@@ -1,5 +1,6 @@
 import { computeGroundYFromConfig, resolveGroundLine } from './ground-resolver.js?v=1';
 import { createHudLayoutController } from './hud-layout.js?v=1';
+import { buildResourceReadings, createResourceBarLayer } from './resource-bars.js?v=1';
 
 // Character selection and settings management
 const ABILITY_SLOT_CONFIG = [
@@ -1993,12 +1994,6 @@ function applyRenderOrder(){
 applyRenderOrder();
 
 // HUD refs
-const staminaFill = $$('#staminaFill');
-const footingFill = $$('#footingFill');
-const healthFill = $$('#healthFill');
-const staminaLabel = $$('#staminaLabel');
-const footingLabel = $$('#footingLabel');
-const healthLabel = $$('#healthLabel');
 const combatInfo = $$('#combatInfo');
 const bountyHud = $$('#bountyHud');
 const bountyStars = $$('#bountyStars');
@@ -2014,12 +2009,18 @@ const actionButtonRefs = {
   attackB: document.getElementById('btnAttackB'),
   attackC: document.getElementById('btnAttackC'),
 };
+const resourceBarContainer = document.getElementById('resourceBars');
+const resourceBarLayer = createResourceBarLayer(resourceBarContainer);
 const hudLayout = createHudLayoutController({
   actionButtonRefs,
   actionHudPath,
   actionHudSvg,
   resolveActorScale: () => resolveGlobalActorScale() * resolveSelectedFighterScale(),
 });
+const playerStatsEvents = window.GAME.playerStatsEvents || new EventTarget();
+window.GAME.playerStatsEvents = playerStatsEvents;
+let resourceBarConfig = hudLayout.getResourceBarConfig();
+resourceBarLayer.setBars(resourceBarConfig);
 const fpsHud = $$('#fpsHud');
 const coordHud = $$('#coordHud');
 const boneKeyList = $$('#boneKeyList');
@@ -2055,9 +2056,34 @@ const DEFAULT_ENEMY_INDICATOR_CONFIG = {
 let enemyIndicatorConfigCache = null;
 let enemyIndicatorConfigVersion = 0;
 let archTouchHandle = null;
+const playerResourceCache = new Map();
+
+playerStatsEvents.addEventListener('player:resource', (event) => {
+  const { barId, reading } = event.detail || {};
+  if (!barId) return;
+  resourceBarLayer.updateBar(barId, reading || { ratio: 0, current: 0, max: 100 });
+});
+
+function rebuildResourceBars() {
+  resourceBarConfig = hudLayout.refreshResourceBars();
+  resourceBarLayer.setBars(resourceBarConfig);
+  playerResourceCache.clear();
+}
+
+function emitResourceReadings(player) {
+  if (!player || !resourceBarConfig?.length) return;
+  const readings = buildResourceReadings(player, resourceBarConfig);
+  resourceBarConfig.forEach((bar) => {
+    const reading = readings[bar.id] || { ratio: 0, current: 0, max: 100, asPercent: true };
+    const signature = `${reading.current ?? 'null'}|${reading.max ?? 'null'}|${Math.round((reading.ratio ?? 0) * 1000)}`;
+    if (playerResourceCache.get(bar.id) === signature) return;
+    playerResourceCache.set(bar.id, signature);
+    playerStatsEvents.dispatchEvent(new CustomEvent('player:resource', { detail: { barId: bar.id, bar, reading } }));
+  });
+}
 
 hudLayout.refreshBottomHudConfig();
-hudLayout.refreshResourceBars();
+rebuildResourceBars();
 refreshEnemyIndicatorConfig();
 hudLayout.syncHudScaleFactors({ force: true });
 
@@ -2586,7 +2612,7 @@ document.addEventListener('config:updated', ()=>{
   ensureAltSequenceUsesKickAlt();
   applyRenderOrder();
   hudLayout.refreshBottomHudConfig();
-  hudLayout.refreshResourceBars();
+  rebuildResourceBars();
   refreshEnemyIndicatorConfig();
   hudLayout.syncHudScaleFactors({ force: true });
 });
@@ -3516,47 +3542,7 @@ function updateHUD(){
   const G = window.GAME;
   const P = G.FIGHTERS?.player;
   if (!P) return;
-  const S = P.stamina;
-  if (S && staminaFill){
-    const ratio = S.max ? Math.max(0, Math.min(1, S.current / S.max)) : 0;
-    const pct = Math.round(ratio * 100);
-    staminaFill.style.width = `${pct}%`;
-    staminaFill.classList.toggle('low', ratio <= 0.25);
-    if (staminaLabel){
-      staminaLabel.textContent = `Stamina ${pct}%`;
-    }
-  } else if (staminaLabel){
-    staminaLabel.textContent = 'Stamina';
-  }
-
-  if (footingFill){
-    const footing = Math.round(Math.max(0, Math.min(100, P.footing ?? 0)));
-    footingFill.style.width = `${footing}%`;
-    if (footingLabel){
-      footingLabel.textContent = `Footing ${footing}%`;
-    }
-  } else if (footingLabel){
-    footingLabel.textContent = 'Footing';
-  }
-
-  if (healthFill){
-    const health = P.health;
-    if (health){
-      const max = Number.isFinite(health.max) ? health.max : 100;
-      const current = Number.isFinite(health.current) ? Math.max(0, Math.min(health.current, max)) : max;
-      const ratio = max > 0 ? current / max : 0;
-      const pct = Math.round(ratio * 100);
-      healthFill.style.width = `${pct}%`;
-      if (healthLabel){
-        healthLabel.textContent = `HP: ${current}/${max}`;
-      }
-    } else {
-      healthFill.style.width = '100%';
-      if (healthLabel){
-        healthLabel.textContent = 'HP: 100';
-      }
-    }
-  }
+  emitResourceReadings(P);
 
   // Combat info display
   if (combatInfo) {
