@@ -1306,7 +1306,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       }
     };
 
-    const holsterManager = new SpriteHolsterManager(renderer.scene, coordinateTransform);
+    const holsterManager = new SpriteHolsterManager(renderer.scene, coordinateTransform, renderer.THREE);
 
     // Load holster entities from gameplaymap
     const holsterEntities = Array.isArray(area?.entities)

@@ -5,18 +5,18 @@
  */
 
 export class SpriteHolsterManager {
-  constructor(scene, coordinateTransform) {
-    // THREE is available globally via the renderer
-    this.THREE = globalThis.THREE;
+  constructor(scene, coordinateTransform, THREE) {
+    // THREE is passed from renderer
+    this.THREE = THREE;
     if (!this.THREE) {
-      console.error('[SpriteHolsterManager] THREE not available on globalThis');
-      throw new Error('this.THREE.js is required for SpriteHolsterManager');
+      console.error('[SpriteHolsterManager] THREE not provided');
+      throw new Error('THREE.js is required for SpriteHolsterManager');
     }
 
     this.scene = scene;
     this.coordinateTransform = coordinateTransform;
     this.holsters = new Map(); // holsterId -> holster data
-    this.holsterGroup = new this.this.THREE.Group();
+    this.holsterGroup = new this.THREE.Group();
     this.holsterGroup.name = 'SpriteHolsters';
     this.scene.add(this.holsterGroup);
   }
