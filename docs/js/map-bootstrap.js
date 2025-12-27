@@ -1,9 +1,10 @@
-console.log('[MAP-BOOTSTRAP-MODULE] 🟢 map-bootstrap.js module is loading...');
 import { GeometryService, MapRegistry, adaptLegacyLayoutGeometry, adaptSceneGeometry, convertLayoutToArea, } from './vendor/map-runtime.js';
 import { computeGroundY } from './ground-utils.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 import { SpawnService, translateAreaToSpawnPayload } from './spawn-service.js';
-console.log('[MAP-BOOTSTRAP-MODULE] 🟢 All imports complete');
+// CRITICAL: These logs MUST appear if module executes
+console.log('🔴🔴🔴 [MAP-BOOTSTRAP-TOP] MODULE EXECUTING - ALL IMPORTS COMPLETE 🔴🔴🔴');
+console.log('[MAP-BOOTSTRAP-MODULE] 🟢 map-bootstrap.js module loaded and executing');
 const FALLBACK_LAYOUT_PATH = '../config/maps/gameplaymaps/defaultdistrict3d_gameplaymap.json';
 const FALLBACK_AREA_ID = 'defaultdistrict3d';
 const FALLBACK_AREA_NAME = 'DefaultDistrict3D';
