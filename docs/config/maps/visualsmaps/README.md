@@ -76,6 +76,15 @@ Individual visual map definitions containing placed 3D assets on a grid.
 }
 ```
 
+**Interior Mode Extensions:**
+
+- `tags`: Array of strings. Include `"interior"` to enable the interior rendering helpers (masking everything outside the activated tiles in-game).
+- `activeBounds` (or `activeArea`): `{ minRow, maxRow, minCol, maxCol }` defining the contiguous activated tiles used for default zoom framing.
+- `activeTiles`: Optional explicit list of activated tiles (`[{"row":0,"col":0}]`) used to visualize tile cubes in the interior helper overlay.
+- `textures`: Optional surface textures for interior scenes:
+  - `ground`: `{ "image": "./assets/images/floor.png", "mode": "tile" | "stretch", "repeat": { "x": 4, "y": 4 } }`
+  - `backwall`: Same shape as `ground`, applied to the Z:0 backwall plane.
+
 ## Caching Behavior
 
 The game runtime (`docs/renderer/visualsmapLoader.js`) implements intelligent caching:

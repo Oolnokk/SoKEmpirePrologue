@@ -287,7 +287,7 @@ function normalizeMapEntityType(value) {
   return normalized;
 }
 
-function normalizeMapEntities(rawList = [], warnings = [], { gridUnit = 30 } = {}) {
+function normalizeMapEntities(rawList = [], { gridUnit = 30 } = {}) {
   const list = [];
   const byId = new Map();
   rawList.forEach((raw, index) => {
@@ -344,7 +344,7 @@ function mapEntitiesToPathTargets(mapEntities = [], warnings = []) {
     .filter(Boolean);
 }
 
-function mapEntitiesToDoors(mapEntities = [], warnings = [], { gridUnit = 30 } = {}) {
+function mapEntitiesToDoors(mapEntities = [], { gridUnit = 30 } = {}) {
   const doors = [];
   const doorPois = [];
   for (const entity of mapEntities.filter((entry) => entry.kind === 'door')) {
@@ -1116,10 +1116,10 @@ export function convertLayoutToArea(layout, options = {}) {
     .filter(Boolean);
   const rawEntities = Array.isArray(layout.entities) ? layout.entities : [];
   const gridUnit = toNumber(layout.gridUnit ?? layout.meta?.gridUnit, 30);
-  const mapEntities = normalizeMapEntities(rawEntities, warnings, { gridUnit });
+  const mapEntities = normalizeMapEntities(rawEntities, { gridUnit });
   const mapEntitySpawners = mapEntitiesToSpawnerList(mapEntities.list, warnings);
   const mapEntityPathTargets = mapEntitiesToPathTargets(mapEntities.list, warnings);
-  const { doors: mapEntityDoors = [], doorPois: mapEntityDoorPois = [] } = mapEntitiesToDoors(mapEntities.list, warnings, { gridUnit });
+  const { doors: mapEntityDoors = [], doorPois: mapEntityDoorPois = [] } = mapEntitiesToDoors(mapEntities.list, { gridUnit });
   const mapEntityPropSpawns = mapEntitiesToPropSpawns(mapEntities.list);
   const entitySpawnerEntries = rawEntities.filter((entity) => {
     if (!entity || typeof entity !== 'object') return false;

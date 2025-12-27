@@ -20,6 +20,18 @@ const VISUALSMAP_INDEX_CACHE = {
   baseUrl: null,
 };
 
+const DEFAULT_VISUALSMAP_CONFIG = Object.freeze({
+  textureBasePath: './assets/images/',
+  interior: {
+    maskColor: '#000000',
+    maskPadding: 0.1,
+    wallHeight: 8,
+    cubeOpacity: 0.22,
+    backwallDepth: 0.25,
+    backwallGridColor: '#1f2937'
+  }
+});
+
 /**
  * Detect if running in development mode (file protocol or localhost)
  * @returns {boolean} True if in development mode
@@ -172,6 +184,315 @@ function deriveConfigBase(refUrl) {
     console.warn('[visualsmapLoader] Failed to derive config base from', refUrl, err);
     return null;
   }
+}
+
+function getVisualsmapConfig() {
+  const userConfig = (typeof window !== 'undefined' && window.CONFIG?.visualsmap) || {};
+  const interior = userConfig.interior || {};
+  return {
+    textureBasePath: userConfig.textureBasePath || DEFAULT_VISUALSMAP_CONFIG.textureBasePath,
+    interior: {
+      maskColor: interior.maskColor || DEFAULT_VISUALSMAP_CONFIG.interior.maskColor,
+      maskPadding: Number.isFinite(interior.maskPadding)
+        ? interior.maskPadding
+        : DEFAULT_VISUALSMAP_CONFIG.interior.maskPadding,
+      wallHeight: Number.isFinite(interior.wallHeight)
+        ? interior.wallHeight
+        : DEFAULT_VISUALSMAP_CONFIG.interior.wallHeight,
+      cubeOpacity: Number.isFinite(interior.cubeOpacity)
+        ? interior.cubeOpacity
+        : DEFAULT_VISUALSMAP_CONFIG.interior.cubeOpacity,
+      backwallDepth: Number.isFinite(interior.backwallDepth)
+        ? interior.backwallDepth
+        : DEFAULT_VISUALSMAP_CONFIG.interior.backwallDepth,
+      backwallGridColor: interior.backwallGridColor || DEFAULT_VISUALSMAP_CONFIG.interior.backwallGridColor
+    }
+  };
+}
+
+function normalizeTags(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((tag) => (typeof tag === 'string' ? tag.trim() : ''))
+    .filter(Boolean);
+}
+
+function normalizeBounds(rawBounds, rows, cols) {
+  if (!rawBounds || typeof rawBounds !== 'object') return null;
+  const clampRow = (value) => Math.min(Math.max(Math.round(Number(value)), 0), rows - 1);
+  const clampCol = (value) => Math.min(Math.max(Math.round(Number(value)), 0), cols - 1);
+
+  const minRow = clampRow(rawBounds.minRow ?? rawBounds.startRow ?? rawBounds.rowStart ?? rawBounds.row);
+  const maxRow = clampRow(rawBounds.maxRow ?? rawBounds.endRow ?? rawBounds.rowEnd ?? rawBounds.row ?? minRow);
+  const minCol = clampCol(rawBounds.minCol ?? rawBounds.startCol ?? rawBounds.colStart ?? rawBounds.col);
+  const maxCol = clampCol(rawBounds.maxCol ?? rawBounds.endCol ?? rawBounds.colEnd ?? rawBounds.col ?? minCol);
+
+  return {
+    minRow: Math.min(minRow, maxRow),
+    maxRow: Math.max(minRow, maxRow),
+    minCol: Math.min(minCol, maxCol),
+    maxCol: Math.max(minCol, maxCol),
+  };
+}
+
+function resolveActiveArea(visualsMap, rows, cols) {
+  const activeTiles = Array.isArray(visualsMap?.activeTiles)
+    ? visualsMap.activeTiles
+      .map((tile) => ({ row: Number(tile?.row), col: Number(tile?.col) }))
+      .filter((tile) => Number.isFinite(tile.row) && Number.isFinite(tile.col))
+    : [];
+
+  let bounds = normalizeBounds(visualsMap?.activeBounds || visualsMap?.activeArea, rows, cols);
+
+  if (!bounds && activeTiles.length) {
+    const minRow = Math.max(Math.min(...activeTiles.map((tile) => Math.round(tile.row))), 0);
+    const maxRow = Math.min(Math.max(...activeTiles.map((tile) => Math.round(tile.row))), rows - 1);
+    const minCol = Math.max(Math.min(...activeTiles.map((tile) => Math.round(tile.col))), 0);
+    const maxCol = Math.min(Math.max(...activeTiles.map((tile) => Math.round(tile.col))), cols - 1);
+    bounds = { minRow, maxRow, minCol, maxCol };
+  }
+
+  if (!bounds) {
+    bounds = { minRow: 0, maxRow: rows - 1, minCol: 0, maxCol: cols - 1 };
+  }
+
+  // Ensure bounds match grid size in case of partial specification
+  bounds = {
+    minRow: Math.max(0, Math.min(bounds.minRow, rows - 1)),
+    maxRow: Math.max(0, Math.min(bounds.maxRow, rows - 1)),
+    minCol: Math.max(0, Math.min(bounds.minCol, cols - 1)),
+    maxCol: Math.max(0, Math.min(bounds.maxCol, cols - 1)),
+  };
+
+  return {
+    bounds,
+    tiles: activeTiles,
+  };
+}
+
+function computeWorldBounds(activeBounds, rows, cols, cellSize, pathYawRad, alignWorldToPath) {
+  const corners = [
+    gridToWorld(activeBounds.minRow, activeBounds.minCol, rows, cols, cellSize, pathYawRad, alignWorldToPath),
+    gridToWorld(activeBounds.maxRow, activeBounds.maxCol, rows, cols, cellSize, pathYawRad, alignWorldToPath),
+    gridToWorld(activeBounds.minRow, activeBounds.maxCol, rows, cols, cellSize, pathYawRad, alignWorldToPath),
+    gridToWorld(activeBounds.maxRow, activeBounds.minCol, rows, cols, cellSize, pathYawRad, alignWorldToPath),
+  ];
+
+  const xs = corners.map((corner) => corner.x);
+  const zs = corners.map((corner) => corner.z);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minZ = Math.min(...zs);
+  const maxZ = Math.max(...zs);
+
+  return {
+    minX,
+    maxX,
+    minZ,
+    maxZ,
+    centerX: (minX + maxX) / 2,
+    centerZ: (minZ + maxZ) / 2,
+    width: Math.max(maxX - minX, cellSize),
+    depth: Math.max(maxZ - minZ, cellSize),
+  };
+}
+
+function resolveTextureConfig(textures, key) {
+  const entry = textures && typeof textures === 'object' ? textures[key] : null;
+  if (!entry) return null;
+
+  const descriptor = typeof entry === 'string' ? { image: entry } : entry;
+  if (!descriptor?.image && !descriptor?.url) return null;
+
+  return {
+    image: descriptor.image || descriptor.url,
+    mode: descriptor.mode === 'stretch' ? 'stretch' : 'tile',
+    repeat: descriptor.repeat && typeof descriptor.repeat === 'object' ? descriptor.repeat : null,
+  };
+}
+
+function loadTexture(renderer, url) {
+  return new Promise((resolve) => {
+    const loader = new renderer.THREE.TextureLoader();
+    loader.load(url, (texture) => resolve(texture), undefined, () => resolve(null));
+  });
+}
+
+async function buildTexturedPlane(renderer, {
+  boundsWorld,
+  cellSize,
+  textureConfig,
+  orientation,
+  baseContext,
+}) {
+  const resolvedUrl = resolveAssetPath(textureConfig.image, baseContext);
+  if (!resolvedUrl) return null;
+
+  const texture = await loadTexture(renderer, resolvedUrl);
+  if (!texture) {
+    console.warn('[visualsmapLoader] ✗ Failed to load texture for interior surface:', resolvedUrl);
+    return null;
+  }
+
+  if (textureConfig.mode === 'stretch') {
+    texture.wrapS = renderer.THREE.ClampToEdgeWrapping;
+    texture.wrapT = renderer.THREE.ClampToEdgeWrapping;
+    texture.repeat.set(1, 1);
+  } else {
+    texture.wrapS = renderer.THREE.RepeatWrapping;
+    texture.wrapT = renderer.THREE.RepeatWrapping;
+    const repeatX = Number.isFinite(textureConfig.repeat?.x)
+      ? textureConfig.repeat.x
+      : Math.max(1, Math.round(boundsWorld.width / cellSize));
+    const repeatY = Number.isFinite(textureConfig.repeat?.y)
+      ? textureConfig.repeat.y
+      : Math.max(1, Math.round(boundsWorld.depth / cellSize));
+    texture.repeat.set(repeatX, repeatY);
+  }
+
+  const material = new renderer.THREE.MeshStandardMaterial({
+    map: texture,
+    side: renderer.THREE.DoubleSide,
+  });
+
+  const planeGeometry = new renderer.THREE.PlaneGeometry(boundsWorld.width, boundsWorld.depth);
+  const plane = new renderer.THREE.Mesh(planeGeometry, material);
+
+  if (orientation === 'ground') {
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.set(boundsWorld.centerX, 0.005, boundsWorld.centerZ);
+  } else {
+    plane.position.set(boundsWorld.centerX, boundsWorld.depth / 2, 0);
+  }
+
+  return plane;
+}
+
+async function buildInteriorVisuals(renderer, {
+  boundsWorld,
+  cellSize,
+  activeTiles,
+  config,
+  textures,
+  baseContext,
+  rows,
+  cols,
+  pathYawRad,
+  alignWorldToPath,
+}) {
+  const interior = config.interior;
+  const group = new renderer.THREE.Group();
+  const padding = Math.max(0, interior.maskPadding) * cellSize;
+
+  const outerHalfWidth = (boundsWorld.width / 2) + padding * 2;
+  const outerHalfDepth = (boundsWorld.depth / 2) + padding * 2;
+  const innerHalfWidth = (boundsWorld.width / 2) + padding;
+  const innerHalfDepth = (boundsWorld.depth / 2) + padding;
+
+  const shape = new renderer.THREE.Shape();
+  shape.moveTo(-outerHalfWidth, -outerHalfDepth);
+  shape.lineTo(outerHalfWidth, -outerHalfDepth);
+  shape.lineTo(outerHalfWidth, outerHalfDepth);
+  shape.lineTo(-outerHalfWidth, outerHalfDepth);
+  shape.lineTo(-outerHalfWidth, -outerHalfDepth);
+
+  const hole = new renderer.THREE.Path();
+  hole.moveTo(-innerHalfWidth, -innerHalfDepth);
+  hole.lineTo(innerHalfWidth, -innerHalfDepth);
+  hole.lineTo(innerHalfWidth, innerHalfDepth);
+  hole.lineTo(-innerHalfWidth, innerHalfDepth);
+  hole.lineTo(-innerHalfWidth, -innerHalfDepth);
+  shape.holes.push(hole);
+
+  const maskGeometry = new renderer.THREE.ShapeGeometry(shape);
+  maskGeometry.rotateX(-Math.PI / 2);
+  const maskMaterial = new renderer.THREE.MeshBasicMaterial({
+    color: interior.maskColor,
+    side: renderer.THREE.DoubleSide,
+    depthWrite: true,
+  });
+  const mask = new renderer.THREE.Mesh(maskGeometry, maskMaterial);
+  mask.position.set(boundsWorld.centerX, 0.02, boundsWorld.centerZ);
+  group.add(mask);
+
+  const wallHeight = Math.max(interior.wallHeight * cellSize, cellSize);
+  const wallThickness = Math.max(cellSize * 0.08, 0.05);
+  const wallMaterial = new renderer.THREE.MeshBasicMaterial({ color: interior.maskColor, side: renderer.THREE.DoubleSide });
+
+  const walls = [
+    { width: wallThickness, depth: boundsWorld.depth + (padding * 2), x: boundsWorld.minX - padding - (wallThickness / 2), z: boundsWorld.centerZ },
+    { width: wallThickness, depth: boundsWorld.depth + (padding * 2), x: boundsWorld.maxX + padding + (wallThickness / 2), z: boundsWorld.centerZ },
+    { width: boundsWorld.width + (padding * 2), depth: wallThickness, x: boundsWorld.centerX, z: boundsWorld.minZ - padding - (wallThickness / 2) },
+    { width: boundsWorld.width + (padding * 2), depth: wallThickness, x: boundsWorld.centerX, z: boundsWorld.maxZ + padding + (wallThickness / 2) },
+  ];
+
+  walls.forEach((wall) => {
+    const geom = new renderer.THREE.BoxGeometry(wall.width, wallHeight, wall.depth);
+    const mesh = new renderer.THREE.Mesh(geom, wallMaterial.clone());
+    mesh.position.set(wall.x, wallHeight / 2, wall.z);
+    group.add(mesh);
+  });
+
+  const backwall = new renderer.THREE.GridHelper(
+    Math.max(boundsWorld.width, cellSize),
+    Math.max(2, Math.round(boundsWorld.width / cellSize)),
+    interior.backwallGridColor,
+    interior.backwallGridColor,
+  );
+  backwall.rotation.x = Math.PI / 2;
+  backwall.position.set(boundsWorld.centerX, boundsWorld.depth / 2, 0);
+  group.add(backwall);
+
+  const textureConfigs = {
+    ground: resolveTextureConfig(textures, 'ground'),
+    backwall: resolveTextureConfig(textures, 'backwall'),
+  };
+
+  if (textureConfigs.ground) {
+    const groundPlane = await buildTexturedPlane(renderer, {
+      boundsWorld,
+      cellSize,
+      textureConfig: textureConfigs.ground,
+      orientation: 'ground',
+      baseContext,
+    });
+    if (groundPlane) group.add(groundPlane);
+  }
+
+  if (textureConfigs.backwall) {
+    const wallBounds = { ...boundsWorld, depth: Math.max(boundsWorld.depth, cellSize) };
+    const backwallPlane = await buildTexturedPlane(renderer, {
+      boundsWorld: wallBounds,
+      cellSize,
+      textureConfig: textureConfigs.backwall,
+      orientation: 'backwall',
+      baseContext,
+    });
+    if (backwallPlane) {
+      backwallPlane.position.z = 0 - (config.interior.backwallDepth * cellSize);
+      group.add(backwallPlane);
+    }
+  }
+
+  if (activeTiles.length) {
+    const cubeGeom = new renderer.THREE.BoxGeometry(cellSize, cellSize, cellSize);
+    const cubeMat = new renderer.THREE.MeshBasicMaterial({
+      color: interior.maskColor,
+      transparent: true,
+      opacity: interior.cubeOpacity,
+      depthWrite: false,
+    });
+
+    activeTiles.forEach((tile) => {
+      const pos = gridToWorld(tile.row, tile.col, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+      const mesh = new renderer.THREE.Mesh(cubeGeom, cubeMat.clone());
+      mesh.position.set(pos.x, cellSize / 2, pos.z);
+      group.add(mesh);
+    });
+  }
+
+  renderer.add(group);
+  return group;
 }
 
 /**
@@ -429,7 +750,11 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log('[visualsmapLoader] - Grid size:', visualsMap.rows, 'x', visualsMap.cols);
     console.log('[visualsmapLoader] - Layers:', Object.keys(visualsMap.layerStates || {}));
 
+    const visualsmapConfig = getVisualsmapConfig();
+    const tags = normalizeTags(visualsMap.tags);
+    const isInteriorVisualsMap = tags.some((tag) => tag.toLowerCase() === 'interior');
     const { rows = 20, cols = 20, layerStates = {}, gameplayPath, alignWorldToPath = false } = visualsMap;
+    const activeArea = resolveActiveArea(visualsMap, rows, cols);
     const pathLookAtConfig = resolveGameplayPathLookAtConfig(visualsMap);
     const visualsMapBase = visualsMapUrl ? new URL('./', visualsMapUrl).href : '';
     const docsBase = deriveDocsBase(visualsMapUrl) || deriveDocsBase(gameplayMapUrl) || null;
@@ -599,11 +924,17 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             const gridOffsetX = cell.offsetX ?? assetConfig.instanceDefaults?.offsetX ?? 0;
             const gridOffsetY = cell.offsetY ?? assetConfig.instanceDefaults?.offsetY ?? 0;
 
+            const freePlacement = (cell.position && typeof cell.position === 'object') ? {
+              x: Number(cell.position.x),
+              y: Number(cell.position.y),
+              z: Number(cell.position.z ?? cell.position.depth ?? cell.position.yOffset),
+            } : null;
+
             // Calculate world position with pre-rotation offsets applied in grid space
             // offsetX = column offset, offsetY = row offset (in grid coordinates)
             // These need to be applied BEFORE rotation to maintain editor-defined positions
-            const effectiveCol = col + gridOffsetX;
-            const effectiveRow = row + gridOffsetY;
+            const effectiveCol = col + (Number.isFinite(freePlacement?.x) ? freePlacement.x : gridOffsetX);
+            const effectiveRow = row + (Number.isFinite(freePlacement?.z) ? freePlacement.z : gridOffsetY);
             const worldPos = gridToWorld(effectiveRow, effectiveCol, rows, cols, cellSize, pathYawRad, alignWorldToPath);
 
             // Apply base scale with GRID_UNIT_WORLD_SIZE factor
@@ -618,7 +949,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
             object.scale.set(instanceScale.x, instanceScale.y, instanceScale.z);
 
             // Apply position with Y offset (vertical offset is not affected by rotation)
-            const yOffset = (assetConfig.yOffset || 0) * (inlineAsset ? cellSize : 1);
+            const freeHeightOffset = Number.isFinite(freePlacement?.y) ? freePlacement.y * cellSize : 0;
+            const yOffset = ((assetConfig.yOffset || 0) * (inlineAsset ? cellSize : 1)) + freeHeightOffset;
             if (layerName === 'ground' && pathCells.size && pathCells.has(`${row},${col}`)) {
               pathGroundSamples.push({
                 x: worldPos.x,
@@ -699,11 +1031,30 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.log(`[visualsmapLoader] - Renderer scene.children count:`, renderer.scene?.children?.length || 0);
     console.log('[visualsmapLoader] ========================================');
 
-    const gridCenterX = 0;
-    const gridCenterZ = 0;
+    const worldBounds = computeWorldBounds(activeArea.bounds, rows, cols, cellSize, pathYawRad, alignWorldToPath);
+    const gridCenterX = worldBounds.centerX;
+    const gridCenterZ = worldBounds.centerZ;
 
-    const gridWidth = (cols - 1) * cellSize;
-    const gridDepth = (rows - 1) * cellSize;
+    if (isInteriorVisualsMap) {
+      const interiorGroup = await buildInteriorVisuals(renderer, {
+        boundsWorld: worldBounds,
+        cellSize,
+        activeTiles: activeArea.tiles,
+        config: visualsmapConfig,
+        textures: visualsMap.textures || {},
+        baseContext: visualsmapConfig.textureBasePath || visualsMapBase || configBase,
+        rows,
+        cols,
+        pathYawRad,
+        alignWorldToPath,
+      });
+      if (interiorGroup) {
+        loadedObjects.push(interiorGroup);
+      }
+    }
+
+    const gridWidth = worldBounds.width;
+    const gridDepth = worldBounds.depth;
 
     const lookAtOffsetsWorld = {
       y: pathLookAtConfig.offsetY * cellSize,
