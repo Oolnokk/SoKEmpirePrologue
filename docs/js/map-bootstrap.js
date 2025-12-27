@@ -935,15 +935,15 @@ async function loadStartingArea() {
             throw new Error(`HTTP ${response.status}`);
         }
         const layout = await response.json();
-        console.debug('[map-bootstrap] Loaded raw layout descriptor', {
+        console.log('[map-bootstrap] Loaded raw layout descriptor', {
             id: layout?.areaId || layout?.id || DEFAULT_AREA_ID,
             name: layout?.areaName || layout?.name || DEFAULT_AREA_NAME,
             source: layoutUrl.href,
             layout,
         });
-        console.debug('[map-bootstrap] Layout groupLibrary:', layout.groupLibrary);
-        console.debug('[map-bootstrap] Layout entities:', layout.entities);
-        console.debug('[map-bootstrap] Entities breakdown:', {
+        console.log('[map-bootstrap] Layout groupLibrary:', layout.groupLibrary);
+        console.log('[map-bootstrap] Layout entities:', layout.entities);
+        console.log('[map-bootstrap] Entities breakdown:', {
             total: layout.entities?.length || 0,
             groupspawners: layout.entities?.filter(e => e.type === 'groupspawner').length || 0,
             doors: layout.entities?.filter(e => e.type === 'door').length || 0,
@@ -958,13 +958,13 @@ async function loadStartingArea() {
         });
         // Set source URL so visualsmap paths can be resolved relative to this file
         area.source = layoutUrl.href;
-        console.debug('[map-bootstrap] Area object has visualsMap:', !!area.visualsMap, 'scene3d:', !!area.scene3d);
+        console.log('[map-bootstrap] Area object has visualsMap:', !!area.visualsMap, 'scene3d:', !!area.scene3d);
         if (area.visualsMap) {
-            console.debug('[map-bootstrap] visualsMap path:', area.visualsMap);
+            console.log('[map-bootstrap] visualsMap path:', area.visualsMap);
         }
-        console.debug('[map-bootstrap] Area spawners:', area.spawners);
-        console.debug('[map-bootstrap] Area groupLibrary:', area.groupLibrary);
-        console.debug('[map-bootstrap] Spawn payload:', translateAreaToSpawnPayload(area));
+        console.log('[map-bootstrap] Area spawners:', area.spawners);
+        console.log('[map-bootstrap] Area groupLibrary:', area.groupLibrary);
+        console.log('[map-bootstrap] Spawn payload:', translateAreaToSpawnPayload(area));
         applyArea(area);
     }
     catch (error) {
