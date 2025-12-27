@@ -192,6 +192,12 @@ export class GroundPickupManager {
     // Mark as picked up (so it won't show in proximity again)
     inst.pickedUp = true;
 
+    // Disable physics - this stops the collider from being simulated
+    if (inst.physics) {
+      inst.physics.disabled = true;
+      inst.physics.vel = { x: 0, y: 0 };
+    }
+
     // Hide the prop visually (we'll remove from render later)
     if (inst.position) {
       inst.position.y = -9999; // Move off-screen
