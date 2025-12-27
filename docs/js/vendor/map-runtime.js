@@ -1637,7 +1637,7 @@ function normalizeAreaDescriptor(area, options = {}) {
   const entitySpawnerEntries = rawEntities.filter((entity) => {
     if (!entity || typeof entity !== 'object') return false;
     if (typeof entity.type !== 'string') return false;
-    return entity.type.trim().toLowerCase() === 'spawner';
+    return normalizeMapEntityType(entity.type) === 'groupspawner';
   });
   if (Array.isArray(area.entities) && entitySpawnerEntries.length === 0) {
     warnings.push('area.entities present but no spawner entities were found');
@@ -2084,7 +2084,7 @@ export function convertLayoutToArea(layout, options = {}) {
   const entitySpawnerEntries = rawEntities.filter((entity) => {
     if (!entity || typeof entity !== 'object') return false;
     if (typeof entity.type !== 'string') return false;
-    return entity.type.trim().toLowerCase() === 'spawner';
+    return normalizeMapEntityType(entity.type) === 'groupspawner';
   });
   if (Array.isArray(layout.entities) && entitySpawnerEntries.length === 0 && mapEntitySpawners.length === 0) {
     warnings.push('layout.entities present but no spawner entities were found');
