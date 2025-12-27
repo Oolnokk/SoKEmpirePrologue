@@ -24,6 +24,7 @@ const buttonFields = document.getElementById('buttonFields');
 const archFields = document.getElementById('archFields');
 const archButtons = document.getElementById('archButtons');
 const resourceFields = document.getElementById('resourceFields');
+const textFields = document.getElementById('textFields');
 const output = document.getElementById('configOutput');
 const copyBtn = document.getElementById('copyConfig');
 const resetBtn = document.getElementById('resetConfig');
@@ -41,8 +42,10 @@ const actionButtonRefs = {
 };
 const resourceBarContainer = document.getElementById('resourceBars');
 const resourceBarLayer = createResourceBarLayer(resourceBarContainer);
+const hudTextContainer = document.getElementById('hudTextContainer');
 
 const barOverlays = {};
+const textOverlays = {};
 let archHandle = null;
 let gridSize = Number(gridSizeInput?.value) || 24;
 let originalHudConfig = null;
@@ -51,6 +54,19 @@ let currentResourceBars = [];
 const DEFAULT_ARCH_ANCHORS = {
   start: { x: 0.98, y: 0.94 },
   end: { x: 0.78, y: 0.86 },
+};
+
+const DEFAULT_TEXT_ELEMENT = {
+  id: 'text-1',
+  text: 'Sample Text',
+  font: 'Khymeryyan Roman',
+  fontSize: 32,
+  color: '#ffffff',
+  left: 100,
+  top: 50,
+  rotation: 0,
+  scale: 1,
+  orientation: 'horizontal',
 };
 
 function ensureHudConfig() {
@@ -81,6 +97,9 @@ function ensureHudConfig() {
   }
   window.CONFIG.hud.arch.buttons = Array.isArray(window.CONFIG.hud.arch.buttons)
     ? window.CONFIG.hud.arch.buttons
+    : [];
+  window.CONFIG.hud.textElements = Array.isArray(window.CONFIG.hud.textElements)
+    ? window.CONFIG.hud.textElements
     : [];
 }
 
@@ -312,6 +331,250 @@ function renderArchButtons() {
       buttons[idx].action = event.target.value;
     });
   });
+}
+
+function getTextElements() {
+  const texts = window.CONFIG?.hud?.textElements;
+  return Array.isArray(texts) ? texts : [];
+}
+
+function findTextElement(textId) {
+  return getTextElements().find((text) => text.id === textId);
+}
+
+function renderTextElements() {
+  if (!hudTextContainer) return;
+  hudTextContainer.innerHTML = '';
+  const texts = getTextElements();
+  texts.forEach((spec) => {
+    const el = document.createElement('div');
+    el.className = 'hud-text-element';
+    el.dataset.textId = spec.id;
+    el.textContent = spec.text || '';
+    el.style.cssText = `
+      position: absolute;
+      left: ${spec.left}px;
+      top: ${spec.top}px;
+      font-family: ${spec.font || 'Khymeryyan Roman'}, serif;
+      font-size: ${spec.fontSize || 32}px;
+      color: ${spec.color || '#ffffff'};
+      transform: rotate(${spec.rotation || 0}deg) scale(${spec.scale || 1});
+      writing-mode: ${spec.orientation === 'vertical' ? 'vertical-rl' : 'horizontal-tb'};
+    `;
+    hudTextContainer.appendChild(el);
+  });
+}
+
+function renderTextFields() {
+  const texts = getTextElements();
+  textFields.innerHTML = '';
+  texts.forEach((spec, idx) => {
+    const block = document.createElement('div');
+    block.className = 'field';
+    block.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+        <strong style="font-size:13px">${spec.id || `Text ${idx + 1}`}</strong>
+        <button type="button" class="secondary" data-remove-text="${spec.id}">Remove</button>
+      </div>
+      <div class="field-grid" style="margin-top:6px;">
+        <label class="field">Id<input type="text" data-text-index="${idx}" data-text-field="id" value="${spec.id}"></label>
+        <label class="field">Text<input type="text" data-text-index="${idx}" data-text-field="text" value="${spec.text || ''}"></label>
+        <label class="field">Font
+          <select data-text-index="${idx}" data-text-field="font">
+            <option value="Khymeryyan Roman" ${spec.font === 'Khymeryyan Roman' ? 'selected' : ''}>Khymeryyan Roman</option>
+            <option value="Tankanscript" ${spec.font === 'Tankanscript' ? 'selected' : ''}>Tankanscript</option>
+            <option value="Arial" ${spec.font === 'Arial' ? 'selected' : ''}>Arial</option>
+          </select>
+        </label>
+        <label class="field">Font Size (px)<input type="number" data-text-index="${idx}" data-text-field="fontSize" value="${spec.fontSize || 32}"></label>
+        <label class="field">Color<input type="text" data-text-index="${idx}" data-text-field="color" value="${spec.color || '#ffffff'}"></label>
+        <label class="field">Left (px)<input type="number" data-text-index="${idx}" data-text-field="left" value="${spec.left}"></label>
+        <label class="field">Top (px)<input type="number" data-text-index="${idx}" data-text-field="top" value="${spec.top}"></label>
+        <label class="field">Rotation (deg)<input type="number" data-text-index="${idx}" data-text-field="rotation" value="${spec.rotation || 0}" step="5" min="-180" max="180"></label>
+        <label class="field">Scale<input type="number" data-text-index="${idx}" data-text-field="scale" value="${spec.scale || 1}" step="0.1" min="0.1" max="5"></label>
+        <label class="field">Orientation
+          <select data-text-index="${idx}" data-text-field="orientation">
+            <option value="horizontal" ${spec.orientation === 'horizontal' ? 'selected' : ''}>Horizontal</option>
+            <option value="vertical" ${spec.orientation === 'vertical' ? 'selected' : ''}>Vertical</option>
+          </select>
+        </label>
+      </div>
+    `;
+    textFields.appendChild(block);
+  });
+
+  const addRow = document.createElement('div');
+  addRow.className = 'button-row';
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.textContent = 'Add Text';
+  addRow.appendChild(addBtn);
+  textFields.appendChild(addRow);
+
+  textFields.querySelectorAll('input, select').forEach((input) => {
+    input.addEventListener('input', (event) => {
+      const { textIndex, textField } = event.target.dataset;
+      const idx = Number(textIndex);
+      const textsRef = getTextElements();
+      const text = textsRef[idx];
+      if (!text) return;
+      if (['left', 'top', 'fontSize', 'rotation', 'scale'].includes(textField)) {
+        const value = Number(event.target.value);
+        if (!Number.isFinite(value)) return;
+        text[textField] = value;
+      } else {
+        text[textField] = event.target.value;
+      }
+      refreshPreview();
+    });
+  });
+
+  textFields.querySelectorAll('button[data-remove-text]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      const id = event.target.dataset.removeText;
+      window.CONFIG.hud.textElements = getTextElements().filter((text) => text.id !== id);
+      refreshPreview();
+    });
+  });
+
+  addBtn.addEventListener('click', () => {
+    const template = clone(DEFAULT_TEXT_ELEMENT);
+    const suffix = Date.now().toString(36).slice(-4);
+    template.id = `text-${suffix}`;
+    window.CONFIG.hud.textElements.push(template);
+    refreshPreview();
+  });
+}
+
+function updateTextOverlays(texts = getTextElements()) {
+  const activeIds = new Set();
+  texts.forEach((spec) => {
+    if (!spec?.id) return;
+    let overlay = textOverlays[spec.id];
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'text-overlay';
+      overlay.dataset.text = spec.id;
+      const resize = document.createElement('div');
+      resize.className = 'resize';
+      const rotateHandle = document.createElement('div');
+      rotateHandle.className = 'rotate-handle';
+      rotateHandle.title = 'Drag to rotate';
+      overlay.appendChild(resize);
+      overlay.appendChild(rotateHandle);
+      previewStage.appendChild(overlay);
+      textOverlays[spec.id] = overlay;
+      bindTextOverlay(overlay);
+    }
+    const textEl = hudTextContainer?.querySelector(`[data-text-id="${spec.id}"]`);
+    if (textEl) {
+      const rect = textEl.getBoundingClientRect();
+      const stageRect = previewStage.getBoundingClientRect();
+      overlay.style.left = `${spec.left}px`;
+      overlay.style.top = `${spec.top}px`;
+      overlay.style.width = `${rect.width}px`;
+      overlay.style.height = `${rect.height}px`;
+    }
+    activeIds.add(spec.id);
+  });
+
+  Object.keys(textOverlays).forEach((key) => {
+    if (!activeIds.has(key)) {
+      const overlay = textOverlays[key];
+      if (overlay?.remove) overlay.remove();
+      delete textOverlays[key];
+    }
+  });
+}
+
+function bindTextOverlay(overlay) {
+  const resize = overlay.querySelector('.resize');
+  const rotateHandle = overlay.querySelector('.rotate-handle');
+  overlay.addEventListener('pointerdown', (event) => {
+    if (event.target === rotateHandle) {
+      startTextRotation(event, overlay);
+    } else if (event.target === resize) {
+      startTextResize(event, overlay);
+    } else {
+      startTextMove(event, overlay);
+    }
+  });
+}
+
+function startTextMove(event, overlay) {
+  event.preventDefault();
+  const textId = overlay.dataset.text;
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const textCfg = findTextElement(textId);
+  if (!textCfg) return;
+  const startLeft = textCfg.left;
+  const startTop = textCfg.top;
+  const onMove = (moveEvt) => {
+    const dx = snap(moveEvt.clientX - startX);
+    const dy = snap(moveEvt.clientY - startY);
+    textCfg.left = clamp(startLeft + dx, -400, 1200);
+    textCfg.top = clamp(startTop + dy, -200, 800);
+    refreshPreview();
+  };
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp, { once: true });
+}
+
+function startTextResize(event, overlay) {
+  event.preventDefault();
+  const textId = overlay.dataset.text;
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const textCfg = findTextElement(textId);
+  if (!textCfg) return;
+  const startScale = textCfg.scale || 1;
+  const onMove = (moveEvt) => {
+    const dx = moveEvt.clientX - startX;
+    const dy = moveEvt.clientY - startY;
+    const delta = Math.max(dx, dy);
+    const newScale = Math.max(0.1, startScale + delta / 100);
+    textCfg.scale = Math.round(newScale * 100) / 100;
+    refreshPreview();
+  };
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp, { once: true });
+}
+
+function startTextRotation(event, overlay) {
+  event.preventDefault();
+  const textId = overlay.dataset.text;
+  const textCfg = findTextElement(textId);
+  if (!textCfg) return;
+  const rect = overlay.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const startAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
+  const startRotation = textCfg.rotation || 0;
+  const onMove = (moveEvt) => {
+    const currentAngle = Math.atan2(moveEvt.clientY - centerY, moveEvt.clientX - centerX) * (180 / Math.PI);
+    const deltaAngle = currentAngle - startAngle;
+    let newRotation = startRotation + deltaAngle;
+    newRotation = snap(newRotation / 5) * 5;
+    newRotation = ((newRotation % 360) + 360) % 360;
+    if (newRotation > 180) newRotation -= 360;
+    textCfg.rotation = Math.round(newRotation);
+    refreshPreview();
+  };
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp, { once: true });
 }
 
 function renderResourceFields() {
@@ -587,12 +850,15 @@ function refreshPreview() {
   refreshResourceValues(currentResourceBars);
   hudLayout.syncHudScaleFactors({ force: true });
   refreshArchPreview();
+  renderTextElements();
   updateOverlays(currentResourceBars);
+  updateTextOverlays();
   renderBottomFields();
   renderButtonFields();
   renderArchFields();
   renderArchButtons();
   renderResourceFields();
+  renderTextFields();
   renderOutput();
 }
 
@@ -604,6 +870,7 @@ function renderOutput() {
       defaults: window.CONFIG.hud.resourceBars.defaults || {},
       bars: getComputedResourceBars(window.CONFIG.hud.resourceBars),
     },
+    textElements: getTextElements(),
     enemyIndicators: window.CONFIG.hud.enemyIndicators,
   };
   output.value = JSON.stringify(hud, null, 2);

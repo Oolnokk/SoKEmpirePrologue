@@ -7,6 +7,16 @@
   <link rel="stylesheet" href="../styles.css">
   <link rel="stylesheet" href="../hud-arch.css">
   <style>
+    @font-face {
+      font-family: 'Khymeryyan Roman';
+      src: url('../assets/hud/Khymeryyanroman4.otf') format('opentype');
+    }
+    @font-face {
+      font-family: 'Tankanscript';
+      src: url('../assets/hud/tankanscript_rotated_flipped_horiz.otf') format('opentype');
+    }
+  </style>
+  <style>
     body.hud-editor-page{
       background:#0b1220;
       color:#e5e7eb;
@@ -22,6 +32,11 @@
     .overlay-handle:active{cursor:grabbing;}
     .bar-overlay{position:absolute;border:1px dashed rgba(248,250,252,0.7);background:rgba(14,165,233,0.12);cursor:move;}
     .bar-overlay .resize{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:4px;background:#facc15;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:nwse-resize;}
+    .text-overlay{position:absolute;border:1px dashed rgba(34,197,94,0.7);background:rgba(34,197,94,0.08);cursor:move;pointer-events:auto;}
+    .text-overlay .resize{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:4px;background:#22c55e;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:nwse-resize;}
+    .text-overlay .rotate-handle{position:absolute;top:-24px;left:50%;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;background:#a78bfa;border:2px solid #8b5cf6;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:grab;}
+    .text-overlay .rotate-handle:active{cursor:grabbing;}
+    .hud-text-element{pointer-events:none;white-space:nowrap;transform-origin:center center;}
     .control-panels{display:flex;flex-direction:column;gap:12px;}
     .panel{background:rgba(15,23,42,0.75);border:1px solid rgba(148,163,184,0.25);border-radius:12px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,0.25);}
     .panel h3{margin:0 0 10px;font-size:15px;letter-spacing:0.25px;}
@@ -46,6 +61,7 @@
           <div class="grid-overlay" id="gridOverlay"></div>
           <div class="stage" id="gameStage">
             <div class="resource-bars" id="resourceBars"></div>
+            <div class="hud-text-container" id="hudTextContainer"></div>
             <div class="combat-info" id="combatInfo"></div>
             <div class="controls-overlay">
               <div class="action-buttons curved-hud">
@@ -88,6 +104,10 @@
       <div class="panel">
         <h3>Resource Bars</h3>
         <div class="field-grid" id="resourceFields"></div>
+      </div>
+      <div class="panel">
+        <h3>Text Elements</h3>
+        <div class="field-grid" id="textFields"></div>
       </div>
       <div class="panel">
         <h3>Export</h3>
