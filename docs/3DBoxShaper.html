@@ -406,17 +406,21 @@
         <button id="exportGltfBtn">Export .gltf (embedded)</button>
         <button class="secondary" id="exportGlbBtn">Export .glb</button>
       </div>
+      <div class="row" style="margin-top:8px;">
+        <button class="secondary" id="downloadStateBtn">Download State (JSON)</button>
+      </div>
       <div class="help" style="margin-top:8px;">
-        Export includes base mesh + sticker meshes + editor metadata. Files can be re-imported to continue editing. Clipped stickers export as face-sized quads (no overhang).
+        Export includes base mesh + sticker meshes + editor metadata. Files can be re-imported to continue editing. Clipped stickers export as face-sized quads (no overhang).<br/>
+        <b>Download State</b> saves editor data as JSON (lightweight fallback if GLTF export fails).
       </div>
     </div>
 
     <h2>Import</h2>
     <div class="card">
-      <button id="importBtn">Import .gltf / .glb</button>
-      <input type="file" id="importFile" accept=".gltf,.glb" style="display:none;" />
+      <button id="importBtn">Import .gltf / .glb / .json</button>
+      <input type="file" id="importFile" accept=".gltf,.glb,.json" style="display:none;" />
       <div class="help" style="margin-top:8px;">
-        Load a previously exported .gltf or .glb file. Note: This replaces the current scene (uses undo/redo).
+        Load a previously exported file. Supports .gltf, .glb (with metadata), or .json (state-only). Note: This replaces the current scene (uses undo/redo).
       </div>
     </div>
 
@@ -1957,6 +1961,31 @@ setTimeout(() => {
   document.getElementById("exportGltfBtn").onclick = () => exportScene(false);
   document.getElementById("exportGlbBtn").onclick = () => exportScene(true);
 
+  // Download state as JSON (fallback if GLTF export fails)
+  document.getElementById("downloadStateBtn").onclick = () => {
+    const state = {
+      version: 1,
+      mesh: editable.serialize(),
+      stickers: stickers.map(s => ({
+        id: s.id,
+        quadId: s.quadId,
+        dataURL: s.dataURL,
+        params: { ...s.params },
+        baseParams: { ...s.baseParams },
+        priority: s.priority ?? 0,
+      })),
+      selectedQuadId,
+      selectedStickerId,
+      baseTransparent: document.getElementById("baseTransparentChk").checked,
+      faceLightsEnabled: faceLightToggle?.checked ?? false,
+    };
+
+    const json = JSON.stringify(state, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    downloadBlob(blob, "boxshaper-state.json");
+    setDebug("State downloaded as JSON");
+  };
+
   // -------------------------
   // Import (gltf / glb)
   // -------------------------
@@ -1972,6 +2001,19 @@ setTimeout(() => {
 
     try {
       setDebug("Loading file...");
+
+      // Check if it's a JSON file
+      if (file.name.toLowerCase().endsWith('.json')) {
+        const text = await file.text();
+        const metadata = JSON.parse(text);
+        snapshot("import");
+        logDebug("Importing from JSON state file...");
+        await restoreFromMetadata(null, metadata);
+        setDebug("Import from JSON complete!");
+        return;
+      }
+
+      // Otherwise, treat as GLTF/GLB
       const arrayBuffer = await file.arrayBuffer();
 
       // Load GLTFLoader on-demand
