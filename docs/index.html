@@ -600,6 +600,7 @@
         <div class="box" id="debugConsoleBox">
           <div class="label">
             Debug Console
+            <button type="button" id="copyDebugConsole" class="toggle-btn" style="float: right; background: #3b82f6; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-left: 4px;">📋 Copy</button>
             <button type="button" id="toggleDebugConsole" class="toggle-btn" style="float: right; background: #334155; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Clear</button>
           </div>
           <div id="debugConsole" style="font-family: monospace; font-size: 10px; color: #94a3b8; background: #0f172a; padding: 8px; border-radius: 4px; max-height: 300px; overflow-y: auto; line-height: 1.4;">
@@ -858,6 +859,47 @@
         clearBtn.addEventListener('click', () => {
           debugConsole.innerHTML = '<div style="color: #64748b; font-style: italic;">Console cleared...</div>';
           messageCount = 0;
+        });
+      }
+
+      // Copy button
+      const copyBtn = document.getElementById('copyDebugConsole');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+          try {
+            // Get all console messages
+            const messages = debugConsole.querySelectorAll('.console-message');
+            let text = '';
+
+            messages.forEach(msg => {
+              // Extract timestamp, level, and message
+              const timestamp = msg.querySelector('span:first-child')?.textContent || '';
+              const level = msg.querySelector('span:nth-child(2)')?.textContent || '';
+              const content = msg.querySelector('div')?.textContent || '';
+              text += `${timestamp} ${level}\n${content}\n\n`;
+            });
+
+            // If no messages, copy placeholder text
+            if (!text.trim()) {
+              text = debugConsole.textContent;
+            }
+
+            await navigator.clipboard.writeText(text);
+
+            // Visual feedback
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = '✅ Copied!';
+            copyBtn.style.background = '#22c55e';
+            setTimeout(() => {
+              copyBtn.textContent = originalText;
+              copyBtn.style.background = '#3b82f6';
+            }, 2000);
+          } catch (err) {
+            copyBtn.textContent = '❌ Failed';
+            setTimeout(() => {
+              copyBtn.textContent = '📋 Copy';
+            }, 2000);
+          }
         });
       }
 
