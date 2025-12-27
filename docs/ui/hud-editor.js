@@ -3,10 +3,15 @@ import {
   createHudLayoutController,
   DEFAULT_BOTTOM_BUTTON_ACTIONS,
   DEFAULT_BOTTOM_HUD_CONFIG,
-  DEFAULT_RESOURCE_BAR_CONFIG,
   computeBottomHudConfig,
-  computeResourceBarConfig,
+  DEFAULT_RESOURCE_BARS,
 } from '../js/hud-layout.js?v=1';
+import {
+  collectResourceKeysFromPlayer,
+  createResourceBarLayer,
+  getComputedResourceBars,
+  resolveResourceReading,
+} from '../js/resource-bars.js?v=1';
 
 const clone = (value) => (typeof structuredClone === 'function'
   ? structuredClone(value)
@@ -34,11 +39,14 @@ const actionButtonRefs = {
   attackB: document.getElementById('btnAttackB'),
   attackC: document.getElementById('btnAttackC'),
 };
+const resourceBarContainer = document.getElementById('resourceBars');
+const resourceBarLayer = createResourceBarLayer(resourceBarContainer);
 
 const barOverlays = {};
 let archHandle = null;
 let gridSize = Number(gridSizeInput?.value) || 24;
 let originalHudConfig = null;
+let currentResourceBars = [];
 
 function ensureHudConfig() {
   window.CONFIG = window.CONFIG || {};
@@ -52,13 +60,12 @@ function ensureHudConfig() {
     ...DEFAULT_BOTTOM_HUD_CONFIG.buttons,
     ...(window.CONFIG.hud.bottomButtons.buttons || {}),
   };
-  window.CONFIG.hud.resourceBars = window.CONFIG.hud.resourceBars || {};
-  ['health', 'stamina', 'footing'].forEach((key) => {
-    window.CONFIG.hud.resourceBars[key] = {
-      ...DEFAULT_RESOURCE_BAR_CONFIG[key],
-      ...(window.CONFIG.hud.resourceBars[key] || {}),
-    };
-  });
+  const resourceSrc = window.CONFIG.hud.resourceBars || {};
+  const normalizedBars = getComputedResourceBars(resourceSrc).map((bar) => ({ ...bar, colors: { ...bar.colors } }));
+  window.CONFIG.hud.resourceBars = {
+    defaults: { ...(resourceSrc.defaults || {}) },
+    bars: normalizedBars.length ? normalizedBars : clone(DEFAULT_RESOURCE_BARS),
+  };
   window.CONFIG.hud.arch = window.CONFIG.hud.arch || {};
   window.CONFIG.hud.arch.arch = window.CONFIG.hud.arch.arch || {};
   window.CONFIG.hud.arch.buttons = Array.isArray(window.CONFIG.hud.arch.buttons)
@@ -77,8 +84,20 @@ function setupGameInputStub() {
   };
 }
 
+function setupSamplePlayerState() {
+  window.GAME = window.GAME || {};
+  window.GAME.FIGHTERS = window.GAME.FIGHTERS || {};
+  window.GAME.FIGHTERS.player = window.GAME.FIGHTERS.player || {
+    health: { current: 96, max: 120 },
+    stamina: { current: 62, max: 120 },
+    footing: 82,
+    focus: { current: 44, max: 60 },
+  };
+}
+
 ensureHudConfig();
 setupGameInputStub();
+setupSamplePlayerState();
 originalHudConfig = clone(window.CONFIG.hud);
 
 const hudLayout = createHudLayoutController({
@@ -95,6 +114,15 @@ function snap(value) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function getResourceBars() {
+  const bars = window.CONFIG?.hud?.resourceBars?.bars;
+  return Array.isArray(bars) ? bars : [];
+}
+
+function findResourceBar(barId) {
+  return getResourceBars().find((bar) => bar.id === barId);
 }
 
 function updateGridVisuals() {
@@ -273,33 +301,105 @@ function renderArchButtons() {
 }
 
 function renderResourceFields() {
-  const cfg = window.CONFIG.hud.resourceBars;
+  const bars = getResourceBars();
+  const resourceKeys = new Set([
+    ...collectResourceKeysFromPlayer(window.GAME?.FIGHTERS?.player),
+    ...bars.map((bar) => bar.resourceKey || bar.id || 'resource'),
+  ]);
+
   resourceFields.innerHTML = '';
-  Object.entries(cfg).forEach(([key, spec]) => {
+  bars.forEach((spec, idx) => {
+    const keyOptions = Array.from(resourceKeys).map((key) => `<option value="${key}"></option>`).join('');
     const block = document.createElement('div');
     block.className = 'field';
     block.innerHTML = `
-      <strong style="font-size:13px">${key}</strong>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+        <strong style="font-size:13px">${spec.label || spec.id || `Bar ${idx + 1}`}</strong>
+        <button type="button" class="secondary" data-remove-bar="${spec.id}">Remove</button>
+      </div>
       <div class="field-grid" style="margin-top:6px;">
-        <label class="field">Left (px)<input type="number" data-bar="${key}" data-bar-field="left" value="${spec.left}"></label>
-        <label class="field">Top (px)<input type="number" data-bar="${key}" data-bar-field="top" value="${spec.top}"></label>
-        <label class="field">Width (px)<input type="number" data-bar="${key}" data-bar-field="width" value="${spec.width}"></label>
-        <label class="field">Height (px)<input type="number" data-bar="${key}" data-bar-field="height" value="${spec.height}"></label>
-        <label class="field">Padding (px)<input type="number" data-bar="${key}" data-bar-field="padding" value="${spec.padding}"></label>
-        <label class="field">Radius (px)<input type="number" data-bar="${key}" data-bar-field="radius" value="${spec.radius}"></label>
+        <label class="field">Id<input type="text" data-bar-index="${idx}" data-bar-field="id" value="${spec.id}"></label>
+        <label class="field">Label<input type="text" data-bar-index="${idx}" data-bar-field="label" value="${spec.label || ''}"></label>
+        <label class="field">Resource Key
+          <input type="text" list="resource-key-${idx}" data-bar-index="${idx}" data-bar-field="resourceKey" value="${spec.resourceKey || spec.id || ''}">
+          <datalist id="resource-key-${idx}">${keyOptions}</datalist>
+        </label>
+        <label class="field">Left (px)<input type="number" data-bar-index="${idx}" data-bar-field="left" value="${spec.left}"></label>
+        <label class="field">Top (px)<input type="number" data-bar-index="${idx}" data-bar-field="top" value="${spec.top}"></label>
+        <label class="field">Width (px)<input type="number" data-bar-index="${idx}" data-bar-field="width" value="${spec.width}"></label>
+        <label class="field">Height (px)<input type="number" data-bar-index="${idx}" data-bar-field="height" value="${spec.height}"></label>
+        <label class="field">Padding (px)<input type="number" data-bar-index="${idx}" data-bar-field="padding" value="${spec.padding}"></label>
+        <label class="field">Radius (px)<input type="number" data-bar-index="${idx}" data-bar-field="radius" value="${spec.radius}"></label>
+        <label class="field">Low Threshold (0-1)<input type="number" step="0.05" min="0" max="1" data-bar-index="${idx}" data-bar-field="lowThreshold" value="${spec.lowThreshold ?? 0}"></label>
+      </div>
+      <div class="field-grid" style="margin-top:8px;">
+        <label class="field">Fill<input type="text" data-bar-index="${idx}" data-bar-color="fill" value="${spec.colors?.fill || ''}"></label>
+        <label class="field">Low Fill<input type="text" data-bar-index="${idx}" data-bar-color="fillLow" value="${spec.colors?.fillLow || ''}"></label>
+        <label class="field">Background<input type="text" data-bar-index="${idx}" data-bar-color="background" value="${spec.colors?.background || ''}"></label>
+        <label class="field">Border<input type="text" data-bar-index="${idx}" data-bar-color="border" value="${spec.colors?.border || ''}"></label>
+        <label class="field">Label Color<input type="text" data-bar-index="${idx}" data-bar-color="label" value="${spec.colors?.label || ''}"></label>
       </div>
     `;
     resourceFields.appendChild(block);
   });
 
-  resourceFields.querySelectorAll('input').forEach((input) => {
+  const addRow = document.createElement('div');
+  addRow.className = 'button-row';
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.textContent = 'Add Bar';
+  addRow.appendChild(addBtn);
+  resourceFields.appendChild(addRow);
+
+  resourceFields.querySelectorAll('input[data-bar-field]').forEach((input) => {
     input.addEventListener('input', (event) => {
-      const { bar, barField } = event.target.dataset;
-      const value = Number(event.target.value);
-      if (!Number.isFinite(value) || !window.CONFIG.hud.resourceBars[bar]) return;
-      window.CONFIG.hud.resourceBars[bar][barField] = value;
+      const { barIndex, barField } = event.target.dataset;
+      const idx = Number(barIndex);
+      const barsRef = getResourceBars();
+      const bar = barsRef[idx];
+      if (!bar) return;
+      if (['left', 'top', 'width', 'height', 'padding', 'radius'].includes(barField)) {
+        const value = Number(event.target.value);
+        if (!Number.isFinite(value)) return;
+        bar[barField] = value;
+      } else if (barField === 'lowThreshold') {
+        bar.lowThreshold = clamp(Number(event.target.value) || 0, 0, 1);
+      } else {
+        bar[barField] = event.target.value;
+      }
       refreshPreview();
     });
+  });
+
+  resourceFields.querySelectorAll('input[data-bar-color]').forEach((input) => {
+    input.addEventListener('input', (event) => {
+      const { barIndex, barColor } = event.target.dataset;
+      const idx = Number(barIndex);
+      const barsRef = getResourceBars();
+      const bar = barsRef[idx];
+      if (!bar) return;
+      bar.colors = bar.colors || {};
+      bar.colors[barColor] = event.target.value;
+      refreshPreview();
+    });
+  });
+
+  resourceFields.querySelectorAll('button[data-remove-bar]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      const id = event.target.dataset.removeBar;
+      window.CONFIG.hud.resourceBars.bars = getResourceBars().filter((bar) => bar.id !== id);
+      refreshPreview();
+    });
+  });
+
+  addBtn.addEventListener('click', () => {
+    const template = clone(DEFAULT_RESOURCE_BARS[0]);
+    const suffix = Date.now().toString(36).slice(-4);
+    template.id = `resource-${suffix}`;
+    template.label = template.label || template.id;
+    template.resourceKey = template.resourceKey || template.id;
+    window.CONFIG.hud.resourceBars.bars.push(template);
+    refreshPreview();
   });
 }
 
@@ -312,26 +412,36 @@ function refreshArchPreview() {
   });
 }
 
-function updateOverlays() {
-  const bars = computeResourceBarConfig();
+function updateOverlays(bars = currentResourceBars) {
   const stageRect = previewStage.getBoundingClientRect();
-  Object.entries(bars).forEach(([key, spec]) => {
-    let overlay = barOverlays[key];
+  const activeIds = new Set();
+  bars.forEach((spec) => {
+    if (!spec?.id) return;
+    let overlay = barOverlays[spec.id];
     if (!overlay) {
       overlay = document.createElement('div');
       overlay.className = 'bar-overlay';
-      overlay.dataset.bar = key;
+      overlay.dataset.bar = spec.id;
       const resize = document.createElement('div');
       resize.className = 'resize';
       overlay.appendChild(resize);
       previewStage.appendChild(overlay);
-      barOverlays[key] = overlay;
+      barOverlays[spec.id] = overlay;
       bindBarOverlay(overlay);
     }
     overlay.style.left = `${spec.left}px`;
     overlay.style.top = `${spec.top}px`;
     overlay.style.width = `${spec.width}px`;
     overlay.style.height = `${spec.height}px`;
+    activeIds.add(spec.id);
+  });
+
+  Object.keys(barOverlays).forEach((key) => {
+    if (!activeIds.has(key)) {
+      const overlay = barOverlays[key];
+      if (overlay?.remove) overlay.remove();
+      delete barOverlays[key];
+    }
   });
 
   positionArchHandles(stageRect);
@@ -423,7 +533,8 @@ function startBarInteraction(event, overlay, mode) {
   const startX = event.clientX;
   const startY = event.clientY;
   const startRect = overlay.getBoundingClientRect();
-  const barCfg = window.CONFIG.hud.resourceBars[bar];
+  const barCfg = findResourceBar(bar);
+  if (!barCfg) return;
   const onMove = (moveEvt) => {
     const dx = snap(moveEvt.clientX - startX);
     const dy = snap(moveEvt.clientY - startY);
@@ -444,12 +555,24 @@ function startBarInteraction(event, overlay, mode) {
   window.addEventListener('pointerup', onUp, { once: true });
 }
 
+function refreshResourceValues(bars = currentResourceBars) {
+  const readings = {};
+  const player = window.GAME?.FIGHTERS?.player;
+  bars.forEach((bar) => {
+    readings[bar.id] = resolveResourceReading(player, bar) || { ratio: 0, current: 0, max: 100, asPercent: true };
+  });
+  resourceBarLayer.updateAll(readings);
+}
+
 function refreshPreview() {
   hudLayout.refreshBottomHudConfig();
-  hudLayout.refreshResourceBars();
+  currentResourceBars = hudLayout.refreshResourceBars();
+  window.CONFIG.hud.resourceBars.bars = currentResourceBars.map((bar) => ({ ...bar, colors: { ...bar.colors } }));
+  resourceBarLayer.setBars(currentResourceBars);
+  refreshResourceValues(currentResourceBars);
   hudLayout.syncHudScaleFactors({ force: true });
   refreshArchPreview();
-  updateOverlays();
+  updateOverlays(currentResourceBars);
   renderBottomFields();
   renderButtonFields();
   renderArchFields();
@@ -462,7 +585,10 @@ function renderOutput() {
   const hud = {
     bottomButtons: computeBottomHudConfig(),
     arch: window.CONFIG.hud.arch,
-    resourceBars: computeResourceBarConfig(),
+    resourceBars: {
+      defaults: window.CONFIG.hud.resourceBars.defaults || {},
+      bars: getComputedResourceBars(window.CONFIG.hud.resourceBars),
+    },
     enemyIndicators: window.CONFIG.hud.enemyIndicators,
   };
   output.value = JSON.stringify(hud, null, 2);
@@ -502,8 +628,6 @@ function bindExportButtons() {
 
 function init() {
   updateGridVisuals();
-  hudLayout.refreshResourceBars();
-  hudLayout.refreshBottomHudConfig();
   bindButtonDrags();
   bindGridInputs();
   bindExportButtons();
