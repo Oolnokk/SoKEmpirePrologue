@@ -512,12 +512,12 @@ setTimeout(() => {
     const { OrbitControls } = await import("./vendor/three/OrbitControls.js");
     logDebug("✓ OrbitControls imported");
 
-    logDebug("Importing GLTFExporter...");
-    const { GLTFExporter } = await import("./vendor/three/GLTFExporter.js");
-    logDebug("✓ GLTFExporter imported");
+    // GLTFExporter is optional - only load it when needed for export
+    logDebug("Skipping GLTFExporter (loaded on-demand for export)");
+    let GLTFExporter = null;
 
     window.__modulesLoaded = true;
-    logDebug("All modules imported successfully");
+    logDebug("All core modules imported successfully");
 
   (async function main() {
   try {
@@ -1639,7 +1639,21 @@ setTimeout(() => {
     return mesh;
   }
 
-  function exportScene(binary) {
+  async function exportScene(binary) {
+    // Load GLTFExporter on-demand
+    if (!GLTFExporter) {
+      try {
+        logDebug("Loading GLTFExporter for export...");
+        const module = await import("./vendor/three/GLTFExporter.js");
+        GLTFExporter = module.GLTFExporter;
+        logDebug("✓ GLTFExporter loaded");
+      } catch (err) {
+        logDebug("ERROR: Failed to load GLTFExporter: " + err.message);
+        setDebug("Export error: GLTFExporter failed to load - " + err.message);
+        return;
+      }
+    }
+
     const exporter = new GLTFExporter();
     const group = new THREE.Group();
 
