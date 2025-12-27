@@ -7743,11 +7743,11 @@ function boot(){
             console.log('[3D-LOAD-INITIAL] Error stack:', error.stack);
             lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
           }
-          console.log('[3D-LOAD-INITIAL] ✓ loadInitialScene3dArea function defined');
+          console.log('[3D-LOAD-INITIAL] ✓ loadInitialScene3dArea function definition complete');
         };
 
         // Hook into MapRegistry to load scene3d when active area changes
-        console.log('[app] Setting up scene3d registry bridge...');
+        console.log('[app] 🟡🟡🟡 Setting up scene3d registry bridge... 🟡🟡🟡');
         let scene3dRegistry = null;
         const attachScene3dRegistry = (registry) => {
           console.log('[app] attachScene3dRegistry called with registry:', !!registry);
