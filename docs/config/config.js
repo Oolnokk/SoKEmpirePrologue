@@ -961,19 +961,19 @@ window.CONFIG = {
       enabled: true,
       arch: {
         radiusPx: 180,
-        start: { x: 0.90, y: 0.25 },
-        end: { x: 0.75, y: 0.10 },
+        start: { x: 0.10, y: 0.75 },  // 180° rotation: was (0.90, 0.25), now flipped to opposite corner
+        end: { x: 0.25, y: 0.90 },    // 180° rotation: was (0.75, 0.10), now flipped to opposite corner
         scale: 1,
-        buttonSizePx: 45,
-        defaultGapPx: 12,
+        buttonSizePx: 90,              // Enlarged from 45px
+        defaultGapPx: 36,              // 200% increase: was 12, now 36 (12 + 24)
         rotateWithArch: true,
         debug: false,
       },
       buttons: [
-        { id: 'attackA', action: 'buttonA', order: 2, lengthPct: 0.25, gapPx: 12, letter: 'A' },
-        { id: 'attackB', action: 'buttonB', order: 3, lengthPct: 0.25, gapPx: 12, letter: 'B' },
-        { id: 'attackC', action: 'buttonC', order: 4, lengthPct: 0.25, gapPx: 12, letter: 'C' },
-        { id: 'jump', action: 'jump', order: 1, lengthPct: 0.25, gapPx: 12, letter: 'J' },
+        { id: 'attackA', action: 'buttonA', order: 2, lengthPct: 0.25, gapPx: 36, letter: 'A' },  // 200% spacing increase
+        { id: 'attackB', action: 'buttonB', order: 3, lengthPct: 0.25, gapPx: 36, letter: 'B' },  // 200% spacing increase
+        { id: 'attackC', action: 'buttonC', order: 4, lengthPct: 0.25, gapPx: 36, letter: 'C' },  // 200% spacing increase
+        { id: 'jump', action: 'jump', order: 1, lengthPct: 0.25, gapPx: 36, letter: 'J' },        // 200% spacing increase
       ]
     }
   },

@@ -45,43 +45,49 @@ export function renderHeldItems(ctx) {
 
 /**
  * Render a bottle sprite in hand
- * Bottle is 50% scale with attachment point 75% up from bottom (centered)
+ * Bottle is 25% of original scale with attachment point 75% up from bottom (centered)
+ * Maintains constant screen size regardless of zoom level
  */
 function renderBottleInHand(ctx, handX, handY, handAngle, camX, zoom) {
   ctx.save();
 
   // Transform to world space
   ctx.translate(handX - camX, handY);
+
+  // Apply inverse zoom to maintain constant screen size
+  const invZoom = 1 / zoom;
+  ctx.scale(invZoom, invZoom);
+
   ctx.rotate(handAngle); // Orient bottle same direction as katana blade (along bone)
 
   // Offset so attachment point is 75% up from bottle bottom
-  // Bottle dimensions at 50% scale: height=18.5px (from y=-11 to y=7.5)
-  // 75% up from bottom (y=7.5) = 7.5 - (18.5 * 0.75) = -6.375
+  // Bottle dimensions at 25% scale: height=9.25px (from y=-5.5 to y=3.75)
+  // 75% up from bottom (y=3.75) = 3.75 - (9.25 * 0.75) = -3.1875
   // Shift bottle so this point is at y=0 (hand position)
-  ctx.translate(0, 6.375);
+  ctx.translate(0, 3.1875);
 
-  // Draw simple bottle shape at 50% scale (placeholder - will use sprite later)
+  // Draw simple bottle shape at 25% scale (placeholder - will use sprite later)
   ctx.fillStyle = 'rgba(139, 69, 19, 0.8)'; // Brown glass
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-  ctx.lineWidth = 0.5;
+  ctx.lineWidth = 0.25;
 
-  // Bottle body (50% scale)
+  // Bottle body (25% scale)
   ctx.beginPath();
-  ctx.rect(-2, -7.5, 4, 15);
+  ctx.rect(-1, -3.75, 2, 7.5);
   ctx.fill();
   ctx.stroke();
 
-  // Bottle neck (50% scale)
+  // Bottle neck (25% scale)
   ctx.fillStyle = 'rgba(100, 50, 10, 0.9)';
   ctx.beginPath();
-  ctx.rect(-1, -10, 2, 2.5);
+  ctx.rect(-0.5, -5, 1, 1.25);
   ctx.fill();
   ctx.stroke();
 
-  // Bottle cap (50% scale)
+  // Bottle cap (25% scale)
   ctx.fillStyle = 'rgba(180, 120, 60, 1)';
   ctx.beginPath();
-  ctx.rect(-1.5, -11, 3, 1);
+  ctx.rect(-0.75, -5.5, 1.5, 0.5);
   ctx.fill();
   ctx.stroke();
 
