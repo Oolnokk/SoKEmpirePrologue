@@ -98,7 +98,7 @@ export function resolveScene3dUrl(sceneUrl, opts = {}) {
     return sceneUrl;
   }
 
-  const defaultBase = '/docs/config/maps/visualsmaps/';
+  const defaultBase = '/config/maps/visualsmaps/';
   let locationBase;
   if (typeof window !== 'undefined' && window.location?.href) {
     try {
@@ -113,16 +113,15 @@ export function resolveScene3dUrl(sceneUrl, opts = {}) {
     basePath,
     typeof window !== 'undefined' && window.location?.href ? window.location.href : 'http://localhost/',
   );
-  const docsRoot = baseUrl.pathname.replace(/config\/maps\/visualsmaps\/?$/, '');
 
   // Already absolute URL (http/https)
   if (sceneUrl.startsWith('http://') || sceneUrl.startsWith('https://')) {
     return sceneUrl;
   }
 
-  // Paths starting at /config/ should be anchored under the docs root when present
+  // Paths starting at /config/ should be returned unchanged to honor config-rooted assets
   if (sceneUrl.startsWith('/config/')) {
-    return docsRoot + sceneUrl.replace(/^\//, '');
+    return sceneUrl;
   }
 
   // Relative path starting with './' - strip and resolve

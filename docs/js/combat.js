@@ -769,9 +769,10 @@ export function makeCombat(G, C, options = {}){
   }
 
   function runAttackTimeline({ segments, context, onComplete, resetMirrorBeforeStance=false, sequenceSteps=[] }){
+    const mirrorTarget = context?.poseTarget || poseTarget || 'player';
     const ordered = Array.isArray(segments) ? segments.slice() : [];
     if (!ordered.length){
-      resetMirror(poseTarget);
+      resetMirror(mirrorTarget);
       if (typeof onComplete === 'function') onComplete();
       return;
     }
@@ -809,7 +810,7 @@ export function makeCombat(G, C, options = {}){
     const runSegmentAt = (idx) => {
       if (idx >= ordered.length){
         if (!mirrorCleared){
-          resetMirror(poseTarget);
+          resetMirror(mirrorTarget);
           mirrorCleared = true;
         }
         timelineState.active = false;
@@ -819,7 +820,7 @@ export function makeCombat(G, C, options = {}){
       }
       const segment = ordered[idx];
       if (resetMirrorBeforeStance && !stanceReset && segment.phase === 'Stance'){
-        resetMirror(poseTarget);
+        resetMirror(mirrorTarget);
         stanceReset = true;
         mirrorCleared = true;
       }

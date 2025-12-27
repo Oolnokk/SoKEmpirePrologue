@@ -292,9 +292,11 @@ function clampFighterToBounds(fighter, config) {
   const bounds = resolveHorizontalBounds(config);
   fighter.pos.x = clamp(fighter.pos.x, bounds.minX, bounds.maxX);
 
-  let groundY = resolveSharedGroundY(config);
-  if (!fighter.ragdoll && fighter.pos.y > groundY) {
-    fighter.pos.y = groundY;
+  const resolvedGroundY = typeof resolveSharedGroundY === 'function'
+    ? resolveSharedGroundY(config)
+    : (Number.isFinite(config?.groundY) ? config.groundY : 0);
+  if (!fighter.ragdoll && fighter.pos.y > resolvedGroundY) {
+    fighter.pos.y = resolvedGroundY;
   }
 }
 
