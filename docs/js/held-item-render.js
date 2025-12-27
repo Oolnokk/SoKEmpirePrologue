@@ -45,46 +45,47 @@ export function renderHeldItems(ctx) {
 
 /**
  * Render a bottle sprite in hand
- * Bottle is 25% of original scale with attachment point 75% up from bottom (centered)
- * Maintains constant screen size regardless of zoom level
+ * Mimics weapon sprite rendering - bottle size based on fixed dimensions,
+ * rendered in world space like weapons on bones
  */
 function renderBottleInHand(ctx, handX, handY, handAngle, camX, zoom) {
   ctx.save();
 
-  // Transform to world space
-  ctx.translate(handX - camX, handY);
+  // Position at hand bone end (world coordinates)
+  ctx.translate(handX, handY);
 
-  // Apply inverse zoom to maintain constant screen size
-  const invZoom = 1 / zoom;
-  ctx.scale(invZoom, invZoom);
+  // Rotate with bone angle + PI (same as weapon sprites)
+  ctx.rotate(handAngle + Math.PI);
 
-  ctx.rotate(handAngle); // Orient bottle same direction as katana blade (along bone)
+  // Bottle dimensions - fixed size in world space (like a weapon)
+  // Total height: 9.25px, attachment at 75% up from bottom
+  const bottleHeight = 9.25;
+  const bottleWidth = 1.5;
 
-  // Offset so attachment point is 75% up from bottle bottom
-  // Bottle dimensions at 25% scale: height=9.25px (from y=-5.5 to y=3.75)
-  // 75% up from bottom (y=3.75) = 3.75 - (9.25 * 0.75) = -3.1875
-  // Shift bottle so this point is at y=0 (hand position)
-  ctx.translate(0, 3.1875);
+  // Offset so attachment point (75% up from bottom) is at origin
+  // Bottom at +3.75, top at -5.5, 75% up = -3.1875
+  const attachmentOffset = 3.1875;
+  ctx.translate(0, -attachmentOffset);
 
-  // Draw simple bottle shape at 25% scale (placeholder - will use sprite later)
+  // Draw bottle shape
   ctx.fillStyle = 'rgba(139, 69, 19, 0.8)'; // Brown glass
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
   ctx.lineWidth = 0.25;
 
-  // Bottle body (25% scale)
+  // Bottle body
   ctx.beginPath();
-  ctx.rect(-1, -3.75, 2, 7.5);
+  ctx.rect(-bottleWidth / 2, -3.75, bottleWidth, 7.5);
   ctx.fill();
   ctx.stroke();
 
-  // Bottle neck (25% scale)
+  // Bottle neck
   ctx.fillStyle = 'rgba(100, 50, 10, 0.9)';
   ctx.beginPath();
   ctx.rect(-0.5, -5, 1, 1.25);
   ctx.fill();
   ctx.stroke();
 
-  // Bottle cap (25% scale)
+  // Bottle cap
   ctx.fillStyle = 'rgba(180, 120, 60, 1)';
   ctx.beginPath();
   ctx.rect(-0.75, -5.5, 1.5, 0.5);
