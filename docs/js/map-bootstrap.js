@@ -1014,28 +1014,12 @@ async function loadStartingArea() {
         applyArea(fallbackArea);
     }
 }
-console.log('[MAP-BOOTSTRAP-MODULE] 🟢 About to call loadStartingArea()...');
+// Export loadStartingArea for app.js to call when ready
+// This ensures app initializes FIRST, then map loads (race condition fix)
+export { loadStartingArea };
 
-// CRITICAL FIX: Wait for app.js to be ready before loading map
-// This prevents a race condition where map-bootstrap runs first and breaks app initialization
-async function waitForAppReady() {
-    console.log('[MAP-BOOTSTRAP] Waiting for app.js to be ready...');
-    const maxWait = 30000; // 30 seconds max
-    const startTime = Date.now();
-
-    while (!window.GAME?.__appInitialized && (Date.now() - startTime < maxWait)) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    if (window.GAME?.__appInitialized) {
-        console.log('[MAP-BOOTSTRAP] ✅ App is ready, proceeding with map load');
-        return true;
-    } else {
-        console.log('[MAP-BOOTSTRAP] ⚠️ Timeout waiting for app, proceeding anyway');
-        return false;
-    }
+// Also expose globally for debugging
+if (typeof window !== 'undefined') {
+    window.__loadStartingArea = loadStartingArea;
+    console.log('[MAP-BOOTSTRAP-MODULE] 🟢 Exported loadStartingArea, waiting for app.js to call it');
 }
-
-await waitForAppReady();
-await loadStartingArea();
-console.log('[MAP-BOOTSTRAP-MODULE] 🟢 loadStartingArea() completed');

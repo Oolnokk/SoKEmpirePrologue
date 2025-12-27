@@ -960,6 +960,7 @@ import { initBountySystem, updateBountySystem, getBountyState } from './bounty.j
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
 import { initTransformConfig, transform3dTo2d, transform2dTo3d, getTransformConfig } from './coordinate-transform.js?v=1';
+import { loadStartingArea } from './map-bootstrap.js?v=999';
 
 // Visualsmap loader for 3D grid-based scenes
 let visualsmapLoaderModule = null;
@@ -7391,7 +7392,14 @@ function boot(){
     window.GAME.bootComplete = true;
     // Signal to map-bootstrap that app initialization is complete (race condition fix)
     window.GAME.__appInitialized = true;
-    console.log('[app] ✅ App initialization complete - map-bootstrap can now proceed');
+    console.log('[app] ✅ App initialization complete - now loading map...');
+
+    // Load the map AFTER app is fully initialized (race condition fix)
+    loadStartingArea().then(() => {
+      console.log('[app] ✅ Map loaded successfully');
+    }).catch((error) => {
+      console.error('[app] ❌ Map load failed:', error);
+    });
   } catch (e){
     const b=document.getElementById('bootError'), m=document.getElementById('bootErrorMsg');
     if(b&&m){ m.textContent=(e.message||'Unknown error'); b.style.display='block'; }
