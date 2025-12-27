@@ -8,6 +8,7 @@ import { DayNightSystem } from '../lighting/DayNightSystem.js';
 import { isTowerStructure } from '../lighting/TowerLightingIntegration.js';
 import { createCandleLight } from '../lighting/CandleLight.js';
 import { transform2dTo3d, getTransformConfig } from '../js/coordinate-transform.js';
+import { SpriteHolsterManager } from '../js/spriteholster-manager.js';
 
 const DEFAULT_GAMEPLAY_PATH_LOOK_AT = Object.freeze({
   offsetY: 0.3, // Grid units; scaled by cellSize at runtime
@@ -1288,6 +1289,45 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log(`[visualsmapLoader]   Usage: window.dayNightSystem.toggle() to switch day/night`);
     }
 
+    // Initialize SpriteHolster system for prop/NPC 3D placeholders
+    console.log(`[visualsmapLoader] Initializing SpriteHolster system`);
+    const coordinateTransform = {
+      gameplayTo3D: (x, y) => {
+        const transformConfig = resolveTransform();
+        const pos3d = transform2dTo3d({ x, y }, transformConfig);
+        const vec = new renderer.THREE.Vector3(pos3d.x, pos3d.y, pos3d.z);
+
+        // Apply world rotation if path alignment is enabled
+        if (alignWorldToPath && Number.isFinite(pathYawRad)) {
+          vec.applyAxisAngle(new renderer.THREE.Vector3(0, 1, 0), -pathYawRad);
+        }
+
+        return vec;
+      }
+    };
+
+    const holsterManager = new SpriteHolsterManager(renderer.scene, coordinateTransform, renderer.THREE);
+
+    // Load holster entities from gameplaymap
+    const holsterEntities = Array.isArray(area?.entities)
+      ? area.entities.filter(e => e.type === 'spriteholster')
+      : [];
+
+    if (holsterEntities.length > 0) {
+      console.log(`[visualsmapLoader] Loading ${holsterEntities.length} SpriteHolster entities`);
+      holsterEntities.forEach(entity => {
+        holsterManager.addHolster(entity);
+      });
+    } else {
+      console.log(`[visualsmapLoader] No SpriteHolster entities found in gameplaymap`);
+    }
+
+    // Store holster manager reference for external control
+    if (typeof window !== 'undefined') {
+      window.holsterManager = holsterManager;
+      console.log(`[visualsmapLoader] ✓ SpriteHolster manager available via window.holsterManager`);
+    }
+
     const gameplayDebugGroup = new renderer.THREE.Group();
     gameplayDebugGroup.name = 'gameplayDebug';
     gameplayDebugGroup.visible = false;
@@ -1800,6 +1840,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     return {
       objects: loadedObjects,
       dayNightSystem: dayNightSystem,
+      holsterManager: holsterManager,
       setPathVisible: setPathVisible,
       setGameplayElementsVisible,
       setSpawnersVisible,
@@ -1824,6 +1865,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       dispose: () => {
         renderer.off('frame', frameUpdateHandler);
         dayNightSystem.dispose();
+        holsterManager.dispose();
         loadedObjects.forEach(obj => renderer.remove(obj));
         loadedObjects.length = 0;
       }
@@ -1832,6 +1874,7 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
     console.error('[visualsmapLoader] Error loading visualsmap:', error);
     return {
       objects: [],
+      holsterManager: null,
       dispose: () => {},
       setPathVisible: () => {},
       setGameplayElementsVisible: () => {},

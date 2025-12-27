@@ -1,401 +1,240 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Map Object Editor - Attachment Points</title>
   <style>
-    :root {
-      --bg: #020617;
-      --panel: #0f172a;
-      --card: #1e293b;
-      --border: #334155;
-      --text: #e2e8f0;
-      --muted: #94a3b8;
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --success: #10b981;
-      --warning: #f59e0b;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    header {
-      background: var(--panel);
-      border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    h1 {
-      font-size: 20px;
-      font-weight: 600;
-      color: var(--text);
-    }
-    .header-right {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-    .main-container {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 320px 1fr 380px;
-      grid-template-rows: minmax(0, 1fr);
-      overflow: hidden;
-    }
-    .sidebar {
-      background: var(--panel);
-      border-right: 1px solid var(--border);
+    :root { --bg:#0b0f14; --panel:#121822; --panel2:#0f1520; --text:#e8eef7; --muted:#9fb0c8; --line:#253246; --acc:#6aa7ff; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; }
+    #app { display:flex; height:100vh; }
+    #sidebar {
+      width: 380px;
+      max-width: 40vw;
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border-right:1px solid var(--line);
+      padding: 12px;
       overflow-y: auto;
-      padding: 16px;
-    }
-    .sidebar-right {
-      background: var(--panel);
-      border-left: 1px solid var(--border);
-      overflow-y: auto;
-      padding: 16px;
-    }
-    .canvas-container {
-      position: relative;
-      background: var(--bg);
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
+      overflow-x: hidden;
+      flex-shrink: 0;
     }
     #viewport {
       flex: 1;
-      position: relative;
-      min-height: 0;
+      position: sticky;
+      top: 0;
+      right: 0;
+      min-width: 400px;
+      height: 100vh;
     }
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
+    #viewport canvas { width:100%; height:100%; display:block; }
+
+    h2 { margin: 10px 0 8px; font-size: 14px; letter-spacing:.3px; color: var(--muted); text-transform: uppercase; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .col { display:flex; flex-direction:column; gap:6px; }
     .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
+      border:1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(255,255,255,0.03);
+      margin-bottom: 10px;
     }
-    .card h2 {
-      font-size: 14px;
+    label { font-size: 12px; color: var(--muted); }
+    input[type="number"], input[type="text"], select, input[type="file"] {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      padding: 10px 10px;
+      color: var(--text);
+      outline:none;
+    }
+    input[type="file"] { padding: 6px 8px; }
+    button {
+      background: rgba(106,167,255,0.18);
+      border:1px solid rgba(106,167,255,0.35);
+      color: var(--text);
+      padding: 10px 10px;
+      border-radius: 12px;
+      cursor:pointer;
       font-weight: 600;
-      margin-bottom: 12px;
-      color: var(--text);
     }
-    .field {
-      margin-bottom: 12px;
+    button:active { transform: translateY(1px); }
+    button.secondary {
+      background: rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.12);
+      font-weight: 600;
     }
-    .field label {
-      display: block;
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 4px;
+    button.danger {
+      background: rgba(255,90,90,0.16);
+      border:1px solid rgba(255,90,90,0.35);
     }
-    .field input[type="text"],
-    .field input[type="number"],
-    .field select {
-      width: 100%;
-      padding: 8px 12px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-size: 13px;
-    }
-    .field input[type="file"] {
-      width: 100%;
-      padding: 8px 0;
-      color: var(--text);
-      font-size: 13px;
-    }
-    .btn {
-      padding: 8px 16px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .btn:hover {
-      background: var(--primary-hover);
-    }
-    .btn-secondary {
-      background: var(--card);
-      border: 1px solid var(--border);
-      color: var(--text);
-    }
-    .btn-secondary:hover {
-      background: var(--panel);
-    }
-    .btn-sm {
-      padding: 6px 12px;
-      font-size: 12px;
-    }
-    .btn-danger {
-      background: #ef4444;
-    }
-    .btn-danger:hover {
-      background: #dc2626;
-    }
-    .button-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .attachment-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .attachment-item {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      transition: border-color 0.2s;
-    }
-    .attachment-item:hover {
-      border-color: var(--primary);
-    }
-    .attachment-item.selected {
-      border-color: var(--primary);
-      background: rgba(59, 130, 246, 0.1);
-    }
-    .attachment-info {
-      flex: 1;
-    }
-    .attachment-id {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text);
-    }
-    .attachment-label {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 2px;
-    }
-    .attachment-coords {
-      font-size: 11px;
-      color: var(--muted);
-      font-family: ui-monospace, monospace;
-      margin-top: 4px;
-    }
-    .attachment-actions {
-      display: flex;
-      gap: 4px;
-    }
-    .coord-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-    .info-banner {
-      background: rgba(59, 130, 246, 0.1);
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      border-radius: 6px;
-      padding: 12px;
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 16px;
-    }
-    .warning-banner {
-      background: rgba(245, 158, 11, 0.1);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      border-radius: 6px;
-      padding: 12px;
-      font-size: 12px;
-      color: var(--warning);
-      margin-bottom: 16px;
-    }
-    .controls-overlay {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      background: rgba(15, 23, 42, 0.95);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
-      font-size: 11px;
-      color: var(--muted);
-      max-width: 300px;
-    }
-    .controls-overlay h3 {
+    .mini { font-size: 12px; padding: 8px 10px; border-radius: 10px; }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    .grid3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; }
+    .hr { height:1px; background: var(--line); margin:10px 0; }
+    .help { font-size: 12px; color: var(--muted); line-height: 1.35; }
+    #debug {
+      position:absolute; left:10px; bottom:10px;
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 10px;
       font-size: 12px;
       color: var(--text);
-      margin-bottom: 8px;
-    }
-    .controls-overlay ul {
-      list-style: none;
-      padding: 0;
-    }
-    .controls-overlay li {
-      margin-bottom: 4px;
-    }
-    .controls-overlay kbd {
-      background: var(--card);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: ui-monospace, monospace;
-      font-size: 10px;
-    }
-    #debugOutput {
-      font-family: ui-monospace, monospace;
-      font-size: 11px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px;
-      max-height: 120px;
-      overflow-y: auto;
+      max-width: min(560px, 95vw);
       white-space: pre-wrap;
-      word-break: break-all;
+      pointer-events:none;
     }
+    #viewportStatus {
+      position:absolute;
+      inset:0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      font-size: 14px;
+      color: var(--muted);
+      pointer-events:none;
+      gap: 12px;
+    }
+    .progress-bar {
+      width: 240px;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--acc);
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    .list { display:flex; flex-direction:column; gap:8px; }
+    .point-item {
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 10px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.04);
+      cursor:pointer;
+    }
+    .point-item.active { border-color: rgba(106,167,255,0.6); background: rgba(106,167,255,0.10); }
+    .point-item small { color: var(--muted); display:block; font-family: monospace; }
   </style>
+  <script src="./config/config.js"></script>
 </head>
 <body>
-  <header>
-    <h1>Map Object Editor</h1>
-    <div class="header-right">
-      <span style="font-size: 12px; color: var(--muted);">Attachment Point Editor</span>
-    </div>
-  </header>
-
-  <div class="main-container">
-    <!-- Left Sidebar: Model Loading -->
-    <div class="sidebar">
-      <div class="card">
-        <h2>Load 3D Model</h2>
-        <div class="info-banner">
-          Load a GLTF model to define attachment points for cables, decorations, and other features.
-        </div>
-        
-        <div class="field">
-          <label>Model File (GLTF/GLB)</label>
-          <input type="file" id="modelInput" accept=".gltf,.glb">
-        </div>
-
-        <div class="field">
-          <label>Or use existing asset</label>
-          <select id="existingStructureSelect">
-            <option value="">-- Select Asset --</option>
-          </select>
-        </div>
-
-        <div class="button-row">
-          <button class="btn btn-sm" id="loadExistingBtn">Load Structure</button>
-        </div>
+<div id="app">
+  <div id="sidebar">
+    <div class="card">
+      <h2>Load 3D Model</h2>
+      <div class="help" style="margin-bottom:10px;">
+        Load a GLTF model to define attachment points for candles, cables, and decorations.
       </div>
 
-      <div class="card">
-        <h2>Model Info</h2>
-        <div id="modelInfo" style="font-size: 12px; color: var(--muted);">
-          No model loaded
-        </div>
+      <div class="col">
+        <label>Model File (GLTF/GLB)</label>
+        <input type="file" id="modelInput" accept=".gltf,.glb">
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="col">
+        <label>Or use existing asset</label>
+        <select id="existingAssetSelect">
+          <option value="">-- Select Asset --</option>
+        </select>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <button class="secondary mini" id="loadAssetBtn">Load Selected</button>
       </div>
     </div>
 
-    <!-- Center: 3D Viewport -->
-    <div class="canvas-container">
-      <div id="viewport"></div>
-      
-      <div class="controls-overlay">
-        <h3>Controls</h3>
-        <ul>
-          <li><kbd>Click</kbd> on model to place attachment point</li>
-          <li><kbd>Scroll</kbd> to zoom</li>
-          <li><kbd>Drag</kbd> to rotate camera</li>
-          <li><kbd>Right-drag</kbd> to pan</li>
-        </ul>
+    <div class="card">
+      <h2>Model Info</h2>
+      <div id="modelInfo" class="help">
+        No model loaded
       </div>
     </div>
 
-    <!-- Right Sidebar: Attachment Points -->
-    <div class="sidebar-right">
-      <div class="card">
-        <h2>Attachment Points</h2>
-        <div class="button-row">
-          <button class="btn btn-sm" id="addPointBtn">+ Add Point</button>
-          <button class="btn btn-secondary btn-sm" id="exportJsonBtn">Export JSON</button>
+    <div class="card">
+      <h2>Attachment Points</h2>
+      <div class="row">
+        <button id="addPointBtn">+ Add Point</button>
+        <button class="secondary" id="exportJsonBtn">Export JSON</button>
+      </div>
+    </div>
+
+    <div class="card" id="pointEditorCard" style="display: none;">
+      <h2>Edit Point</h2>
+
+      <div class="col">
+        <label>ID</label>
+        <input type="text" id="pointId" placeholder="e.g., rooftop_left">
+      </div>
+
+      <div class="col" style="margin-top:8px;">
+        <label>Label</label>
+        <input type="text" id="pointLabel" placeholder="e.g., Rooftop Left">
+      </div>
+
+      <div class="col" style="margin-top:8px;">
+        <label>Position (X, Y, Z)</label>
+        <div class="grid3">
+          <input type="number" id="pointX" step="0.1" placeholder="X">
+          <input type="number" id="pointY" step="0.1" placeholder="Y">
+          <input type="number" id="pointZ" step="0.1" placeholder="Z">
         </div>
       </div>
 
-      <div class="card" id="pointEditorCard" style="display: none;">
-        <h2>Edit Point</h2>
-        
-        <div class="field">
-          <label>ID</label>
-          <input type="text" id="pointId" placeholder="e.g., rooftop_left">
-        </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="mini" id="savePointBtn">Save</button>
+        <button class="secondary mini" id="cancelPointBtn">Cancel</button>
+        <button class="danger mini" id="deletePointBtn">Delete</button>
+      </div>
+    </div>
 
-        <div class="field">
-          <label>Label</label>
-          <input type="text" id="pointLabel" placeholder="e.g., Rooftop Left">
-        </div>
-
-        <div class="field">
-          <label>Position</label>
-          <div class="coord-grid">
-            <div>
-              <input type="number" id="pointX" step="0.1" placeholder="X">
-            </div>
-            <div>
-              <input type="number" id="pointY" step="0.1" placeholder="Y">
-            </div>
-            <div>
-              <input type="number" id="pointZ" step="0.1" placeholder="Z">
-            </div>
-          </div>
-        </div>
-
-        <div class="button-row">
-          <button class="btn btn-sm" id="savePointBtn">Save</button>
-          <button class="btn btn-secondary btn-sm" id="cancelPointBtn">Cancel</button>
-          <button class="btn btn-danger btn-sm" id="deletePointBtn">Delete</button>
+    <div class="card">
+      <h2>Points List</h2>
+      <div id="pointsList" class="list">
+        <div class="help" style="text-align: center; padding: 20px;">
+          No attachment points defined
         </div>
       </div>
+    </div>
 
-      <div class="card">
-        <h2>Points List</h2>
-        <div id="attachmentList" class="attachment-list">
-          <div style="font-size: 12px; color: var(--muted); text-align: center; padding: 20px;">
-            No attachment points defined
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>JSON Output</h2>
-        <div id="debugOutput"></div>
-      </div>
+    <div class="card">
+      <h2>JSON Output</h2>
+      <div id="jsonOutput" style="font-family: monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"></div>
     </div>
   </div>
 
-  <script src="./config/config.js"></script>
-  <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+  <div id="viewport">
+    <div id="viewportStatus">
+      <div id="statusText">Initializing 3D viewport…</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div id="statusPercent" style="font-size: 12px; color: var(--muted);">0%</div>
+    </div>
+    <div id="debug"></div>
+  </div>
+</div>
 
+<script type="module">
+  try {
+    const THREE = await import("./vendor/three/three.module.js");
+    const { createRenderer } = await import("./renderer/index.js");
+    const { OrbitControls } = await import("./vendor/three/OrbitControls.js");
+    const { GLTFLoader } = await import("./vendor/three/GLTFLoader.js");
+
+    globalThis.THREE = globalThis.THREE || THREE.default || THREE;
+
+  (async function main() {
+  try {
     // State
-    let scene, camera, renderer, controls;
     let currentModel = null;
     let attachmentPoints = [];
     let selectedPointIndex = -1;
@@ -405,38 +244,97 @@
     const editorConfig = window.CONFIG?.mapObjectEditor;
 
     if (!editorConfig) {
-      throw new Error('Missing map object editor configuration.');
+      throw new Error('Missing map object editor configuration in window.CONFIG.');
     }
 
-    // Initialize Three.js
-    function init() {
-      const viewport = document.getElementById('viewport');
-      
-      scene = new THREE.Scene();
+    const debugEl = document.getElementById("debug");
+    function setDebug(text) { debugEl.textContent = text; }
+
+    const viewportEl = document.getElementById("viewport");
+    const viewportStatusEl = document.getElementById("viewportStatus");
+    const statusText = document.getElementById("statusText");
+    const statusPercent = document.getElementById("statusPercent");
+    const progressFill = document.getElementById("progressFill");
+
+    function setProgress(percent, message) {
+      statusText.textContent = message;
+      statusPercent.textContent = `${percent}%`;
+      progressFill.style.width = `${percent}%`;
+    }
+
+    setProgress(10, "Loading modules...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    setProgress(25, "Creating renderer...");
+
+    const renderer = createRenderer({
+      container: viewportEl,
+      width: viewportEl.clientWidth,
+      height: viewportEl.clientHeight,
+      pixelRatio: Math.min(devicePixelRatio || 1, 2),
+      clearColor: editorConfig.scene.background,
+      cameraFar: editorConfig.camera.far,
+    });
+
+    setProgress(40, "Configuring renderer...");
+
+    renderer.on('ready', (event) => {
+      if (event.supported) {
+        setProgress(75, "Setting up scene...");
+
+        setTimeout(() => {
+          setupScene();
+          setProgress(100, "Ready!");
+          setTimeout(() => {
+            viewportStatusEl.style.display = "none";
+          }, 300);
+        }, 100);
+      } else {
+        statusText.textContent = "Three.js not available - renderer in no-op mode";
+        statusText.style.color = "#ff6b6b";
+        progressFill.style.background = "#ef4444";
+      }
+    });
+
+    renderer.on('error', (event) => {
+      const errMsg = `Error during ${event.phase}: ${event.error?.message || 'Unknown error'}`;
+      statusText.textContent = errMsg;
+      statusText.style.color = "#ff6b6b";
+      progressFill.style.background = "#ef4444";
+      viewportStatusEl.style.display = "block";
+    });
+
+    setProgress(50, "Initializing renderer...");
+    await renderer.init();
+
+    function setupScene() {
+      const scene = renderer.scene;
       scene.background = new THREE.Color(editorConfig.scene.background);
 
-      camera = new THREE.PerspectiveCamera(
-        editorConfig.camera.fov,
-        viewport.clientWidth / viewport.clientHeight,
-        editorConfig.camera.near,
-        editorConfig.camera.far
-      );
-      camera.position.set(
-        editorConfig.camera.position.x,
-        editorConfig.camera.position.y,
-        editorConfig.camera.position.z
-      );
+      const camera = renderer.camera;
+      camera.near = editorConfig.camera.near;
+      camera.far = editorConfig.camera.far;
+      camera.updateProjectionMatrix();
+      renderer.setCameraParams({
+        position: editorConfig.camera.position,
+        lookAt: editorConfig.camera.target || { x: 0, y: 0, z: 0 },
+        fov: editorConfig.camera.fov,
+      });
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(viewport.clientWidth, viewport.clientHeight);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      viewport.appendChild(renderer.domElement);
+      const canvas = renderer.renderer?.domElement;
+      if (!canvas) {
+        throw new Error("Renderer canvas not initialized");
+      }
 
-      controls = new OrbitControls(camera, renderer.domElement);
+      const controls = new OrbitControls(camera, canvas);
       controls.enableDamping = editorConfig.controls.enableDamping;
       controls.dampingFactor = editorConfig.controls.dampingFactor;
       controls.minDistance = editorConfig.camera.minDistance;
       controls.maxDistance = editorConfig.camera.maxDistance;
+      controls.target.set(
+        editorConfig.camera.target.x,
+        editorConfig.camera.target.y,
+        editorConfig.camera.target.z
+      );
 
       // Lighting
       const ambientLight = new THREE.AmbientLight(
@@ -469,17 +367,14 @@
       const axesHelper = new THREE.AxesHelper(editorConfig.helpers.axesSize);
       scene.add(axesHelper);
 
-      // Handle window resize
-      window.addEventListener('resize', onWindowResize);
-
       // Raycaster for clicking
       const raycaster = new THREE.Raycaster();
       const mouse = new THREE.Vector2();
 
-      renderer.domElement.addEventListener('click', (event) => {
+      canvas.addEventListener('click', (event) => {
         if (!currentModel) return;
 
-        const rect = renderer.domElement.getBoundingClientRect();
+        const rect = canvas.getBoundingClientRect();
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -492,32 +387,139 @@
         }
       });
 
-      animate();
+      // Handle window resize
+      function resizeRendererToDisplaySize() {
+        const w = viewportEl.clientWidth;
+        const h = viewportEl.clientHeight;
+        if (renderer.width !== w || renderer.height !== h) {
+          renderer.resize(w, h);
+        }
+      }
+      window.addEventListener('resize', resizeRendererToDisplaySize);
+
+      // Render loop
+      renderer.on("frame", () => {
+        resizeRendererToDisplaySize();
+        controls.update();
+        setDebug(`Model: ${currentModel ? 'loaded' : 'none'}\nPoints: ${attachmentPoints.length}\nTip: Click on model to place attachment points`);
+      });
+
+      renderer.start();
+
+      // Load asset catalog
+      loadAssetCatalog();
     }
 
-    function onWindowResize() {
-      const viewport = document.getElementById('viewport');
-      camera.aspect = viewport.clientWidth / viewport.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+    function addMarker(position) {
+      const geometry = new THREE.SphereGeometry(
+        editorConfig.marker.radius,
+        editorConfig.marker.widthSegments,
+        editorConfig.marker.heightSegments
+      );
+      const material = new THREE.MeshBasicMaterial({ color: editorConfig.marker.color });
+      const marker = new THREE.Mesh(geometry, material);
+      marker.position.copy(position);
+      renderer.scene.add(marker);
+      attachmentMarkers.push(marker);
     }
 
-    function animate() {
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
+    function updateMarkers() {
+      attachmentMarkers.forEach(marker => renderer.scene.remove(marker));
+      attachmentMarkers = [];
+
+      attachmentPoints.forEach(point => {
+        addMarker(new THREE.Vector3(point.offset.x, point.offset.y, point.offset.z));
+      });
     }
 
-    // Load model from file
-    document.getElementById('modelInput').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+    function addAttachmentPoint(position) {
+      const id = `point_${attachmentPoints.length + 1}`;
+      const point = {
+        id: id,
+        label: `Point ${attachmentPoints.length + 1}`,
+        offset: {
+          x: parseFloat(position.x.toFixed(3)),
+          y: parseFloat(position.y.toFixed(3)),
+          z: parseFloat(position.z.toFixed(3))
+        }
+      };
 
-      const url = URL.createObjectURL(file);
-      currentAsset = null;
-      loadModel(url, file.name);
-    });
+      attachmentPoints.push(point);
+      addMarker(position);
+      updatePointsList();
+      updateJsonOutput();
 
+      selectPoint(attachmentPoints.length - 1);
+    }
+
+    function selectPoint(index) {
+      selectedPointIndex = index;
+      const point = attachmentPoints[index];
+
+      document.getElementById('pointEditorCard').style.display = 'block';
+      document.getElementById('pointId').value = point.id;
+      document.getElementById('pointLabel').value = point.label;
+      document.getElementById('pointX').value = point.offset.x;
+      document.getElementById('pointY').value = point.offset.y;
+      document.getElementById('pointZ').value = point.offset.z;
+
+      updatePointsList();
+    }
+
+    function updatePointsList() {
+      const list = document.getElementById('pointsList');
+
+      if (attachmentPoints.length === 0) {
+        list.innerHTML = '<div class="help" style="text-align: center; padding: 20px;">No attachment points defined</div>';
+        return;
+      }
+
+      list.innerHTML = attachmentPoints.map((point, index) => `
+        <div class="point-item ${index === selectedPointIndex ? 'active' : ''}" onclick="window.selectPointFromList(${index})">
+          <div>
+            <div><b>${point.id}</b></div>
+            <small>${point.label}</small>
+            <small>(${point.offset.x}, ${point.offset.y}, ${point.offset.z})</small>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateJsonOutput() {
+      const key = currentAsset?.attachmentKey || editorConfig.defaults.attachmentKey;
+      const output = {
+        [key]: {
+          attachmentPoints: attachmentPoints
+        }
+      };
+      document.getElementById('jsonOutput').textContent = JSON.stringify(output, null, 2);
+    }
+
+    function clearAttachmentPoints() {
+      attachmentPoints = [];
+      selectedPointIndex = -1;
+      document.getElementById('pointEditorCard').style.display = 'none';
+      updateMarkers();
+      updatePointsList();
+      updateJsonOutput();
+    }
+
+    function setAttachmentPoints(points) {
+      attachmentPoints = points.map(point => ({
+        id: point.id,
+        label: point.label || point.id,
+        offset: {
+          x: point.offset.x,
+          y: point.offset.y,
+          z: point.offset.z
+        }
+      }));
+      updateMarkers();
+      updatePointsList();
+      updateJsonOutput();
+    }
+
+    // Model loading
     const docsBase = new URL('.', window.location.href);
 
     function normalizeGltfPath(gltfPath) {
@@ -603,7 +605,7 @@
     }
 
     async function loadAssetCatalog() {
-      const select = document.getElementById('existingStructureSelect');
+      const select = document.getElementById('existingAssetSelect');
       const orderedSources = editorConfig.assets.preferConfigAssets
         ? [loadConfigAssetCatalog, loadVisualsAssetCatalog]
         : [loadVisualsAssetCatalog, loadConfigAssetCatalog];
@@ -626,35 +628,18 @@
       select.innerHTML = `<option value="">-- Select Asset --</option>${options}`;
     }
 
-    // Load existing asset
-    document.getElementById('loadExistingBtn').addEventListener('click', () => {
-      const select = document.getElementById('existingStructureSelect');
-      const value = select.value;
-      const asset = availableAssets.find(entry => entry.id === value);
-      const resolvedPath = asset ? normalizeGltfPath(asset.gltfPath) : null;
-
-      if (resolvedPath) {
-        currentAsset = asset;
-        loadModel(resolvedPath, asset.label, asset.attachmentPoints);
-        return;
-      }
-
-      alert('No asset selected or asset is missing a model path.');
-    });
-
     function loadModel(url, name, initialAttachmentPoints = []) {
       const loader = new GLTFLoader();
 
       clearAttachmentPoints();
-      
+
       loader.load(url, (gltf) => {
-        // Remove old model
         if (currentModel) {
-          scene.remove(currentModel);
+          renderer.scene.remove(currentModel);
         }
 
         currentModel = gltf.scene;
-        
+
         // Normalize model size
         const box = new THREE.Box3().setFromObject(currentModel);
         const size = new THREE.Vector3();
@@ -668,164 +653,59 @@
         box.getCenter(center);
         currentModel.position.sub(center.multiplyScalar(scale));
 
-        scene.add(currentModel);
+        renderer.scene.add(currentModel);
 
         if (initialAttachmentPoints.length > 0) {
           setAttachmentPoints(initialAttachmentPoints);
         }
 
         // Update info
+        let vertCount = 0;
+        currentModel.traverse((child) => {
+          if (child.isMesh && child.geometry) {
+            if (child.geometry.attributes.position) {
+              vertCount += child.geometry.attributes.position.count;
+            }
+          }
+        });
+
         document.getElementById('modelInfo').innerHTML = `
           <strong>${name}</strong><br>
-          Vertices: ${countVertices(currentModel)}<br>
+          Vertices: ${vertCount}<br>
           Size: ${size.x.toFixed(2)} × ${size.y.toFixed(2)} × ${size.z.toFixed(2)}<br>
           Scale: ${scale.toFixed(3)}
         `;
-
-        // Reset camera
-        camera.position.set(
-          editorConfig.camera.position.x,
-          editorConfig.camera.position.y,
-          editorConfig.camera.position.z
-        );
-        controls.target.set(
-          editorConfig.camera.target.x,
-          editorConfig.camera.target.y,
-          editorConfig.camera.target.z
-        );
-        controls.update();
       }, undefined, (error) => {
         console.error('Error loading model:', error);
         alert('Error loading model: ' + error.message);
       });
     }
 
-    function countVertices(object) {
-      let count = 0;
-      object.traverse((child) => {
-        if (child.isMesh && child.geometry) {
-          if (child.geometry.attributes.position) {
-            count += child.geometry.attributes.position.count;
-          }
-        }
-      });
-      return count;
-    }
+    // Event handlers
+    document.getElementById('modelInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
 
-    function clearAttachmentPoints() {
-      attachmentPoints = [];
-      selectedPointIndex = -1;
-      document.getElementById('pointEditorCard').style.display = 'none';
-      updateMarkers();
-      updatePointsList();
-      updateJsonOutput();
-    }
+      const url = URL.createObjectURL(file);
+      currentAsset = null;
+      loadModel(url, file.name);
+    });
 
-    function setAttachmentPoints(points) {
-      attachmentPoints = points.map(point => ({
-        id: point.id,
-        label: point.label || point.id,
-        offset: {
-          x: point.offset.x,
-          y: point.offset.y,
-          z: point.offset.z
-        }
-      }));
-      updateMarkers();
-      updatePointsList();
-      updateJsonOutput();
-    }
+    document.getElementById('loadAssetBtn').addEventListener('click', () => {
+      const select = document.getElementById('existingAssetSelect');
+      const value = select.value;
+      const asset = availableAssets.find(entry => entry.id === value);
+      const resolvedPath = asset ? normalizeGltfPath(asset.gltfPath) : null;
 
-    // Attachment point management
-    function addAttachmentPoint(position) {
-      const id = `point_${attachmentPoints.length + 1}`;
-      const point = {
-        id: id,
-        label: `Point ${attachmentPoints.length + 1}`,
-        offset: {
-          x: parseFloat(position.x.toFixed(3)),
-          y: parseFloat(position.y.toFixed(3)),
-          z: parseFloat(position.z.toFixed(3))
-        }
-      };
-
-      attachmentPoints.push(point);
-      addMarker(position);
-      updatePointsList();
-      updateJsonOutput();
-      
-      // Auto-select new point
-      selectPoint(attachmentPoints.length - 1);
-    }
-
-    function addMarker(position) {
-      const geometry = new THREE.SphereGeometry(
-        editorConfig.marker.radius,
-        editorConfig.marker.widthSegments,
-        editorConfig.marker.heightSegments
-      );
-      const material = new THREE.MeshBasicMaterial({ color: editorConfig.marker.color });
-      const marker = new THREE.Mesh(geometry, material);
-      marker.position.copy(position);
-      scene.add(marker);
-      attachmentMarkers.push(marker);
-    }
-
-    function updateMarkers() {
-      // Remove old markers
-      attachmentMarkers.forEach(marker => scene.remove(marker));
-      attachmentMarkers = [];
-
-      // Add new markers
-      attachmentPoints.forEach(point => {
-        addMarker(new THREE.Vector3(point.offset.x, point.offset.y, point.offset.z));
-      });
-    }
-
-    function selectPoint(index) {
-      selectedPointIndex = index;
-      const point = attachmentPoints[index];
-
-      document.getElementById('pointEditorCard').style.display = 'block';
-      document.getElementById('pointId').value = point.id;
-      document.getElementById('pointLabel').value = point.label;
-      document.getElementById('pointX').value = point.offset.x;
-      document.getElementById('pointY').value = point.offset.y;
-      document.getElementById('pointZ').value = point.offset.z;
-
-      updatePointsList();
-    }
-
-    function updatePointsList() {
-      const list = document.getElementById('attachmentList');
-      
-      if (attachmentPoints.length === 0) {
-        list.innerHTML = '<div style="font-size: 12px; color: var(--muted); text-align: center; padding: 20px;">No attachment points defined</div>';
+      if (resolvedPath) {
+        currentAsset = asset;
+        loadModel(resolvedPath, asset.label, asset.attachmentPoints);
         return;
       }
 
-      list.innerHTML = attachmentPoints.map((point, index) => `
-        <div class="attachment-item ${index === selectedPointIndex ? 'selected' : ''}" onclick="window.selectPointFromList(${index})">
-          <div class="attachment-info">
-            <div class="attachment-id">${point.id}</div>
-            <div class="attachment-label">${point.label}</div>
-            <div class="attachment-coords">(${point.offset.x}, ${point.offset.y}, ${point.offset.z})</div>
-          </div>
-        </div>
-      `).join('');
-    }
+      alert('No asset selected or asset is missing a model path.');
+    });
 
-    function updateJsonOutput() {
-      const key = currentAsset?.attachmentKey || editorConfig.defaults.attachmentKey;
-      const output = {
-        [key]: {
-          attachmentPoints: attachmentPoints
-        }
-      };
-      document.getElementById('debugOutput').textContent = JSON.stringify(output, null, 2);
-    }
-
-    // Event handlers
     document.getElementById('addPointBtn').addEventListener('click', () => {
       const center = new THREE.Vector3(
         editorConfig.defaults.addPointPosition.x,
@@ -884,12 +764,32 @@
       URL.revokeObjectURL(url);
     });
 
-    // Make selectPoint available globally for onclick
     window.selectPointFromList = selectPoint;
 
-    // Initialize
-    init();
-    loadAssetCatalog();
-  </script>
+  } catch (error) {
+    console.error("Fatal error during initialization:", error);
+    const viewportStatusEl = document.getElementById("viewportStatus");
+    if (viewportStatusEl) {
+      const statusText = document.getElementById("statusText");
+      if (statusText) statusText.textContent = `Fatal error: ${error.message}`;
+      viewportStatusEl.style.color = "#ff6b6b";
+      viewportStatusEl.style.display = "block";
+    }
+  }
+  })();
+
+  } catch (error) {
+    console.error("FATAL ERROR during module import:", error);
+    const statusText = document.getElementById("statusText");
+    const progressFill = document.getElementById("progressFill");
+    if (statusText) {
+      statusText.textContent = `Module import failed: ${error.message}`;
+      statusText.style.color = "#ff6b6b";
+    }
+    if (progressFill) {
+      progressFill.style.background = "#ef4444";
+    }
+  }
+</script>
 </body>
 </html>
