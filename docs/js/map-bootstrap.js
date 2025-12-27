@@ -164,6 +164,25 @@ function registerAreaSpawns(area) {
         return;
     service.registerArea(areaId, spawnPoints, { groupLibrary });
     service.setActiveArea(areaId);
+
+    // Initialize NPC spawners after registration
+    console.log('[SPAWN-REGISTER] Spawners registered, now initializing NPC spawner runtime...');
+    initializeNpcSpawnersAfterRegistration(area);
+}
+
+async function initializeNpcSpawnersAfterRegistration(area) {
+    // Dynamic import to avoid circular dependencies and ensure fighter.js is loaded
+    try {
+        const fighterModule = await import('./fighter.js?v=8');
+        if (typeof fighterModule.initializeNpcSpawnersForArea === 'function') {
+            console.log('[SPAWN-REGISTER] Calling initializeNpcSpawnersForArea...');
+            fighterModule.initializeNpcSpawnersForArea(area);
+        } else {
+            console.log('[SPAWN-REGISTER] ⚠️ initializeNpcSpawnersForArea not available in fighter module');
+        }
+    } catch (error) {
+        console.log('[SPAWN-REGISTER] ❌ Failed to initialize NPC spawners:', error.message);
+    }
 }
 function registerAreaGeometry(area) {
     if (!area)

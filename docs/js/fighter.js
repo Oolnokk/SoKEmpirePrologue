@@ -1307,3 +1307,245 @@ export function resetFighterStateForTesting(fighter, overrides = {}) {
   const template = fighter.isPlayer ? templates.player : templates.npc;
   return resetRuntimeState(fighter, template, overrides);
 }
+
+/**
+ * Initialize NPC spawners for a given area.
+ * This function should be called after spawners are registered in the SpawnService.
+ * @param {object} area - The area descriptor with spawner data
+ */
+export function initializeNpcSpawnersForArea(area = null) {
+  console.log('[initializeNpcSpawnersForArea] 🎯 Called for area:', area?.id);
+
+  const G = window.GAME ||= {};
+  const C = window.CONFIG || {};
+
+  // Resolve active area if not provided
+  const resolvedArea = area || resolveActiveArea();
+  if (!resolvedArea) {
+    console.log('[initializeNpcSpawnersForArea] ⚠️ No area provided or active');
+    return;
+  }
+
+  console.log('[initializeNpcSpawnersForArea] Resolved area:', resolvedArea.id);
+
+  // Helper to resolve active area
+  function resolveActiveArea() {
+    const registry = window.GAME?.mapRegistry || window.__MAP_REGISTRY__;
+    if (!registry || typeof registry.getActiveArea !== 'function') return null;
+    return registry.getActiveArea();
+  }
+
+  // Helper to resolve spawn service
+  function resolveSpawnService() {
+    return window.GAME?.spawnService || null;
+  }
+
+  // Compute ground Y
+  const W = C.canvas || { w: 720, h: 460, scale: 1 };
+  const gy = computeGroundY(C, { canvasHeight: Number.isFinite(C.canvas?.h) ? C.canvas.h : W.h });
+
+  // Normalize NPC spawners from SpawnService
+  function normalizeNpcSpawners(area) {
+    if (!area || !area.id) {
+      console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners] No area or area.id');
+      return [];
+    }
+    const spawnService = resolveSpawnService();
+    if (!spawnService || typeof spawnService.getSpawners !== 'function') {
+      console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners] No spawnService');
+      return [];
+    }
+
+    const entries = [];
+    const spawners = spawnService.getSpawners(area.id, { type: 'npc' });
+
+    console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners] Found', spawners.length, 'spawners for area', area.id);
+
+    for (const spawner of spawners) {
+      if (!spawner || typeof spawner !== 'object') continue;
+      const spawnerId = typeof spawner.spawnerId === 'string' && spawner.spawnerId.trim()
+        ? spawner.spawnerId.trim()
+        : typeof spawner.id === 'string' && spawner.id.trim()
+          ? spawner.id.trim()
+          : null;
+      if (!spawnerId) continue;
+
+      const position = spawner.position && typeof spawner.position === 'object'
+        ? spawner.position
+        : { x: spawner.x ?? 0, y: spawner.y ?? 0 };
+      const spawnRadius = Math.max(0, Math.min(Number(spawner.spawnRadius ?? spawner.radius ?? 0) || 0, 5000));
+      const scheduleMeta = spawner.meta && typeof spawner.meta === 'object' ? spawner.meta : null;
+
+      const groupId = spawner.groupId || spawner.groupMeta?.id || null;
+      const groupMeta = spawner.groupMeta
+        || (groupId && C.npcGroups && C.npcGroups[groupId] ? clone(C.npcGroups[groupId]) : null);
+
+      console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners] Spawner', spawnerId, '- groupId:', groupId, '- has groupMeta:', !!groupMeta, '- members:', groupMeta?.members?.length || 0);
+
+      if (groupMeta && Array.isArray(groupMeta.members)) {
+        console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners] Processing group members for', spawnerId);
+        groupMeta.members.forEach((member, memberIndex) => {
+          const memberCount = Math.max(1, Math.min(Number(member.count) || 1, 50));
+          const memberTemplateId = member.templateId || member.characterId || null;
+          console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners]   Member', memberIndex, '- templateId:', memberTemplateId, '- count:', memberCount);
+          if (memberTemplateId) {
+            entries.push({
+              spawnerId: `${spawnerId}_member_${memberIndex}`,
+              position: { x: position.x ?? 0, y: position.y ?? 0 },
+              spawnRadius,
+              count: memberCount,
+              respawn: spawner.respawn !== false && !!spawner.respawn,
+              templateId: memberTemplateId,
+              characterId: memberTemplateId,
+              groupId: groupId,
+              groupMeta,
+              scheduleMeta,
+              activeIds: new Set(),
+              hasInitialized: false,
+            });
+          }
+        });
+      } else {
+        console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners] No group members, creating single spawner entry');
+        const countRaw = Math.round(Number(spawner.count ?? spawner.maxCount ?? 1) || 1);
+        const count = countRaw > 0 ? Math.min(countRaw, 50) : 1;
+        entries.push({
+          spawnerId,
+          position: { x: position.x ?? 0, y: position.y ?? 0 },
+          spawnRadius,
+          count,
+          respawn: spawner.respawn !== false && !!spawner.respawn,
+          templateId: spawner.templateId || spawner.characterId || null,
+          characterId: spawner.characterId || null,
+          groupId: groupId,
+          groupMeta,
+          scheduleMeta,
+          activeIds: new Set(),
+          hasInitialized: false,
+        });
+      }
+    }
+    console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners] Created', entries.length, 'spawner entries');
+    return entries;
+  }
+
+  // Spawn NPC from spawner
+  function spawnNpcFromSpawner(spawner) {
+    if (!spawner) return null;
+    const distance = spawner.spawnRadius > 0 ? Math.random() * spawner.spawnRadius : 0;
+    const angle = Math.random() * Math.PI * 2;
+    const offsetX = Math.cos(angle) * distance;
+    const offsetY = Math.sin(angle) * distance;
+    const spawnX = (spawner.position?.x ?? 0) + offsetX;
+    const spawnYOffset = (spawner.position?.y ?? 0) + offsetY;
+
+    console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] Spawning at', spawnX, gy - 1 + spawnYOffset, 'templateId:', spawner.templateId);
+
+    const npc = spawnAdditionalNpc({
+      x: spawnX,
+      y: gy - 1 + spawnYOffset,
+      templateId: spawner.templateId || spawner.characterId || undefined,
+    });
+    if (npc) {
+      npc.spawnMetadata = {
+        ...(npc.spawnMetadata || {}),
+        spawnerId: spawner.spawnerId,
+      };
+
+      // Initialize group state from spawner metadata
+      if (spawner.groupId || spawner.groupMeta) {
+        const group = (npc.group ||= {});
+        group.id = spawner.groupId || group.id;
+
+        if (spawner.groupMeta) {
+          const meta = spawner.groupMeta;
+          if (meta.faction) group.faction = meta.faction;
+          if (Array.isArray(meta.interests)) group.interests = [...meta.interests];
+          if (Array.isArray(meta.exitTags)) group.exitTags = [...meta.exitTags];
+          if (meta.exitWeights && typeof meta.exitWeights === 'object') {
+            group.exitWeights = { ...meta.exitWeights };
+          }
+
+          // Mark NPCs with interests as passive patrol NPCs
+          if (group.interests && group.interests.length > 0) {
+            npc.patrolNpc = true;
+            // Explicitly initialize aggression to passive
+            const aggression = (npc.aggression ||= {});
+            aggression.triggered = false;
+            aggression.active = false;
+            aggression.wakeTimer = 0;
+          }
+        }
+      }
+
+      spawner.activeIds.add(npc.id);
+      console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] Successfully spawned', npc.id);
+    } else {
+      console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] Failed to spawn NPC');
+    }
+    return npc;
+  }
+
+  // Teardown existing spawner runtime
+  function teardownSpawnerRuntime() {
+    const runtime = G.npcSpawnerRuntime;
+    if (runtime?.intervalId) {
+      clearInterval(runtime.intervalId);
+      console.log('[initializeNpcSpawnersForArea/teardownSpawnerRuntime] Cleared interval');
+    }
+    G.npcSpawnerRuntime = null;
+  }
+
+  // Bootstrap spawner runtime
+  teardownSpawnerRuntime();
+  const npcSpawners = normalizeNpcSpawners(resolvedArea);
+  if (!npcSpawners.length) {
+    console.log('[initializeNpcSpawnersForArea] No NPC spawners found for area', resolvedArea.id);
+    return;
+  }
+
+  console.log('[initializeNpcSpawnersForArea] Setting up runtime with', npcSpawners.length, 'spawners');
+  const runtime = { areaId: resolvedArea?.id || null, spawners: npcSpawners, intervalId: null };
+
+  const cleanupAndRespawn = () => {
+    const fighters = G.FIGHTERS || {};
+    const currentHour = getCurrentGameHour(resolvedArea);
+    for (const entry of runtime.spawners) {
+      for (const id of Array.from(entry.activeIds)) {
+        const fighter = fighters[id];
+        if (!fighter || fighter.isDead) {
+          entry.activeIds.delete(id);
+          if (fighter?.isDead) {
+            removeNpcFighter(id);
+          }
+        }
+      }
+      const scheduleActive = isScheduleActive(entry.scheduleMeta, currentHour);
+      const shouldInitialFill = scheduleActive && !entry.hasInitialized;
+      const shouldRespawn = scheduleActive && entry.respawn && entry.hasInitialized;
+
+      if (shouldInitialFill || shouldRespawn) {
+        console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Spawner', entry.spawnerId, '- active:', entry.activeIds.size, '- target:', entry.count, '- template:', entry.templateId);
+        while (entry.activeIds.size < entry.count) {
+          console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Spawning NPC', entry.activeIds.size + 1, '/', entry.count);
+          const npc = spawnNpcFromSpawner(entry);
+          if (!npc) {
+            console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Failed to spawn NPC, breaking loop');
+            break;
+          }
+          console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Successfully spawned', npc.id);
+        }
+        if (shouldRespawn || entry.activeIds.size > 0) {
+          entry.hasInitialized = true;
+        }
+        console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Final activeIds.size:', entry.activeIds.size);
+      }
+    }
+  };
+
+  console.log('[initializeNpcSpawnersForArea] Running initial spawn...');
+  cleanupAndRespawn();
+  runtime.intervalId = setInterval(cleanupAndRespawn, 1000);
+  G.npcSpawnerRuntime = runtime;
+  console.log('[initializeNpcSpawnersForArea] ✅ NPC spawner runtime initialized');
+}
