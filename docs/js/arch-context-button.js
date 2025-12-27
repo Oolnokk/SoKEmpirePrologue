@@ -3,6 +3,14 @@
  * Adds a dynamic button that changes based on game context (e.g., "take" near props)
  */
 
+function notifyArchButtonsChanged(reason = 'arch-context') {
+  try {
+    window.dispatchEvent(new CustomEvent('archButtonsChanged', { detail: { reason } }));
+  } catch (err) {
+    console.warn('[ArchContext] Failed to dispatch archButtonsChanged', err);
+  }
+}
+
 /**
  * Add context button to HUD arch configuration
  */
@@ -29,13 +37,12 @@ export function addContextButtonToArch() {
     id: 'context',
     action: 'context',
     order: 4,
-    lengthPct: 0.20,
-    gapPx: 12,
     letter: 'take',
     contextual: true // Mark as contextual so we can handle it specially
   });
 
   console.log('[ArchContext] ✓ Context button added to arch configuration');
+  notifyArchButtonsChanged('context-added');
 }
 
 /**
