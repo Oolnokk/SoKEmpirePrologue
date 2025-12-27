@@ -1838,6 +1838,7 @@ setTimeout(() => {
       selectedQuadId,
       selectedStickerId,
       baseTransparent: document.getElementById("baseTransparentChk").checked,
+      faceLightsEnabled: faceLightToggle?.checked ?? false,
     };
 
     group.add(cloneBaseMeshForExport());
@@ -1965,11 +1966,16 @@ setTimeout(() => {
     document.getElementById("baseTransparentChk").checked = metadata.baseTransparent ?? false;
     applyBaseTransparency(metadata.baseTransparent ?? false);
 
+    if (faceLightToggle) {
+      faceLightToggle.checked = metadata.faceLightsEnabled ?? false;
+    }
+
     setSelectedFace(metadata.selectedQuadId || "top");
     setSelectedSticker(metadata.selectedStickerId || null);
 
     updateAllStickers();
     refreshStickerList();
+    refreshEmissiveLights();
   }
 
   function importAsVisual(gltf) {
