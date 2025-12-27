@@ -1,7 +1,9 @@
+console.log('[MAP-BOOTSTRAP-MODULE] 🟢 map-bootstrap.js module is loading...');
 import { GeometryService, MapRegistry, adaptLegacyLayoutGeometry, adaptSceneGeometry, convertLayoutToArea, } from './vendor/map-runtime.js';
 import { computeGroundY } from './ground-utils.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 import { SpawnService, translateAreaToSpawnPayload } from './spawn-service.js';
+console.log('[MAP-BOOTSTRAP-MODULE] 🟢 All imports complete');
 const FALLBACK_LAYOUT_PATH = '../config/maps/gameplaymaps/defaultdistrict3d_gameplaymap.json';
 const FALLBACK_AREA_ID = 'defaultdistrict3d';
 const FALLBACK_AREA_NAME = 'DefaultDistrict3D';
@@ -133,10 +135,17 @@ function resolveGroupLibrary() {
     return globalConfig.npcGroups || {};
 }
 function registerAreaSpawns(area) {
-    if (!area)
+    console.log('[SPAWN-REGISTER] 🎮 registerAreaSpawns() called for area:', area?.id);
+    if (!area) {
+        console.log('[SPAWN-REGISTER] ⚠️ No area provided, returning early');
         return;
+    }
+    console.log('[SPAWN-REGISTER] Area has spawners:', area.spawners?.length || 0);
+    console.log('[SPAWN-REGISTER] Area has entities:', area.entities?.length || 0);
     const service = ensureSpawnService();
+    console.log('[SPAWN-REGISTER] SpawnService ready:', !!service);
     const basePayload = translateAreaToSpawnPayload(area);
+    console.log('[SPAWN-REGISTER] Base payload spawnPoints:', basePayload.spawnPoints?.length || 0);
     const areaRecord = area;
     const fallbackScene = areaRecord.scene || {};
     const fallbackSpawnPoints = Array.isArray(areaRecord.spawnPoints)
@@ -145,6 +154,7 @@ function registerAreaSpawns(area) {
             ? fallbackScene.spawnPoints
             : [];
     const spawnPoints = basePayload.spawnPoints.length ? basePayload.spawnPoints : fallbackSpawnPoints;
+    console.log('[SPAWN-REGISTER] Final spawnPoints count:', spawnPoints.length);
     const baseGroupLibrary = basePayload.groupLibrary;
     const fallbackGroupLibrary = areaRecord.groupLibrary || areaRecord.groups || fallbackScene.groupLibrary || fallbackScene.groups || {};
     const groupLibrary = Object.keys(baseGroupLibrary || {}).length ? baseGroupLibrary : fallbackGroupLibrary;
@@ -587,11 +597,22 @@ function adaptSceneForLegacyParallax(area) {
     };
 }
 function applyArea(area) {
+    console.log('[APPLY-AREA] 🗺️ applyArea() called for area:', area?.id);
+    console.log('[APPLY-AREA] Area has:', {
+        spawners: area.spawners?.length || 0,
+        entities: area.entities?.length || 0,
+        visualsMap: !!area.visualsMap,
+        scene3d: !!area.scene3d,
+        groupLibrary: Object.keys(area.groupLibrary || {}).length
+    });
     const registry = (window.__MAP_REGISTRY__ instanceof MapRegistry)
         ? window.__MAP_REGISTRY__
         : new MapRegistry({ logger: console });
+    console.log('[APPLY-AREA] Registry exists:', registry instanceof MapRegistry);
     registry.registerArea(area.id, area);
+    console.log('[APPLY-AREA] Area registered in registry');
     registry.setActiveArea(area.id);
+    console.log('[APPLY-AREA] Active area set to:', area.id);
     window.__MAP_REGISTRY__ = registry;
     registerAreaGeometry(area);
     // REMOVED: Legacy PARALLAX writes - the runtime no longer populates window.PARALLAX
@@ -992,4 +1013,6 @@ async function loadStartingArea() {
         applyArea(fallbackArea);
     }
 }
+console.log('[MAP-BOOTSTRAP-MODULE] 🟢 About to call loadStartingArea()...');
 await loadStartingArea();
+console.log('[MAP-BOOTSTRAP-MODULE] 🟢 loadStartingArea() completed');
