@@ -47,11 +47,11 @@
     {
       "id": "entrance_left",
       "type": "door",
-      "x": 1100,
+      "x": 50,
       "y": 0,
       "meta": {
         "doorId": "entrance_left",
-        "interactable": true,
+        "interactable": false,
         "locked": false,
         "scale": {
           "x": 1,
@@ -67,9 +67,9 @@
       }
     },
     {
-      "id": "spawner_watchmen_1",
+      "id": "spawner_citywatch_1",
       "type": "groupspawner",
-      "x": 5700,
+      "x": 5400,
       "y": 0,
       "meta": {
         "groupId": "city_guard_patrol",
@@ -82,52 +82,143 @@
         "scheduleId": "citywatch_duty",
         "patrolSchedule": [
           {
-            "patrolPointId": "patrol_west_1",
+            "patrolPointId": "patrol_west",
             "hourRange": [
-              6,
+              1,
+              2
+            ]
+          },
+          {
+            "patrolPointId": "patrol_east",
+            "hourRange": [
+              3,
+              4
+            ]
+          },
+          {
+            "patrolPointId": "patrol_west",
+            "hourRange": [
+              5,
+              6
+            ]
+          },
+          {
+            "patrolPointId": "patrol_east",
+            "hourRange": [
+              7,
+              8
+            ]
+          },
+          {
+            "patrolPointId": "patrol_west",
+            "hourRange": [
+              9,
+              10
+            ]
+          },
+          {
+            "patrolPointId": "patrol_east",
+            "hourRange": [
+              11,
               12
             ]
           },
           {
-            "patrolPointId": "patrol_center",
+            "patrolPointId": "patrol_west",
             "hourRange": [
-              12,
-              18
+              13,
+              20
+            ]
+          },
+          {
+            "patrolPointId": "patrol_east",
+            "hourRange": [
+              21,
+              22
+            ]
+          },
+          {
+            "patrolPointId": "patrol_west",
+            "hourRange": [
+              22,
+              23
             ]
           }
         ]
       }
     },
     {
-      "id": "patrol_west_1",
+      "id": "patrol_west",
       "type": "patrolpoint",
-      "x": 1480,
+      "x": 800,
       "y": 0,
       "meta": {
-        "routeId": "city_guard_patrol",
+        "routeId": "pp_west",
         "sequence": 0,
         "scale": {
-          "x": 1.8,
-          "y": 1.8
+          "x": 2,
+          "y": 0.5
         },
         "label": "Western patrol area",
         "scheduleId": "citywatch_patrol_west"
       }
     },
     {
-      "id": "patrol_center",
+      "id": "patrol_east",
       "type": "patrolpoint",
       "x": 2800,
       "y": 0,
       "meta": {
-        "routeId": "city_guard_patrol",
+        "routeId": "pp_east",
         "sequence": 1,
         "scale": {
-          "x": 1.8,
-          "y": 1.8
+          "x": 2,
+          "y": 0.5
         },
         "label": "Central patrol area",
         "scheduleId": "citywatch_patrol_center"
+      }
+    },
+    {
+      "id": "propspawn_2",
+      "type": "propspawn",
+      "x": 2644.3381385803223,
+      "y": 74.72885131835938,
+      "meta": {
+        "props": [
+          {
+            "id": "bottle",
+            "weight": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "propspawn_3",
+      "type": "propspawn",
+      "x": 2636.2761268615723,
+      "y": 67.43222045898438,
+      "meta": {
+        "props": [
+          {
+            "id": "bottle",
+            "weight": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "propspawn_4",
+      "type": "propspawn",
+      "x": 2656.7883338928223,
+      "y": 70.69964599609375,
+      "meta": {
+        "props": [
+          {
+            "id": "bottle",
+            "weight": 1
+          }
+        ]
       }
     }
   ],
