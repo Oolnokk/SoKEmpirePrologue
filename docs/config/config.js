@@ -36,6 +36,13 @@ window.CONFIG.debug.gameplayOverlay = window.CONFIG.debug.gameplayOverlay || {
   labelColor: '#e5e7eb'
 };
 
+// Debug console settings for the UI debug panel
+const __existingDebugConsoleConfig = window.CONFIG.debug.console || {};
+window.CONFIG.debug.console = {
+  maxMessages: __existingDebugConsoleConfig.maxMessages ?? 100,
+  onTickDefault: __existingDebugConsoleConfig.onTickDefault ?? false,
+};
+
 const __existingMinimapConfig = window.CONFIG.debug.minimap || {};
 window.CONFIG.debug.minimap = {
   background: __existingMinimapConfig.background ?? '#0a0a0a',

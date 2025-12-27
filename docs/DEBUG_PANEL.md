@@ -230,3 +230,10 @@ When enabled, logs detailed information for each sprite drawn:
 - Updates are throttled by checking if panel is visible
 - Only updates DOM when panel is open
 - Minimal impact on game performance (~1-2ms per frame when open)
+
+## Debug console filters
+
+- The debug console now groups messages by their source script and exposes a checkbox for each script as soon as it logs. All script checkboxes start enabled so investigators can see the full timeline, and unchecking a script hides its entries without deleting them.
+- A dedicated **Show on-tick debug output** checkbox (off by default) controls high-frequency debug spam. On-tick entries are only kept while this toggle and the originating script's checkbox are turned on; turning either off clears those transient lines.
+- Script names are inferred from the call stack when possible. You can override the label by prefixing a message with `[script:my-fix-name]` or by logging an object that contains `debugScript: 'my-fix-name'`. Mark a message as on-tick with `[on-tick]` or with an object property of `onTick: true` or `debugOnTick: true`.
+- Debug console limits are configurable via `window.CONFIG.debug.console`: `maxMessages` caps stored history per category (default 100) and `onTickDefault` controls whether the on-tick checkbox starts enabled.
