@@ -1,4 +1,5 @@
 import { computeGroundYFromConfig, resolveGroundLine } from './ground-resolver.js?v=1';
+import { createHudLayoutController } from './hud-layout.js?v=1';
 
 // Character selection and settings management
 const ABILITY_SLOT_CONFIG = [
@@ -2013,6 +2014,12 @@ const actionButtonRefs = {
   attackB: document.getElementById('btnAttackB'),
   attackC: document.getElementById('btnAttackC'),
 };
+const hudLayout = createHudLayoutController({
+  actionButtonRefs,
+  actionHudPath,
+  actionHudSvg,
+  resolveActorScale: () => resolveGlobalActorScale() * resolveSelectedFighterScale(),
+});
 const fpsHud = $$('#fpsHud');
 const coordHud = $$('#coordHud');
 const boneKeyList = $$('#boneKeyList');
@@ -2027,24 +2034,6 @@ if (enemyIndicatorLayer && stageEl) {
   enemyIndicatorLayer.setAttribute('aria-hidden', 'true');
   stageEl.appendChild(enemyIndicatorLayer);
 }
-
-const DEFAULT_BUTTON_LAYOUT = {
-  jump: { left: '15%', top: '72%', rotate: '-12deg' },
-  attackA: { left: '40%', top: '44%', rotate: '-6deg' },
-  attackB: { left: '58%', top: '38%', rotate: '6deg' },
-  attackC: { left: '82%', top: '68%', rotate: '12deg' },
-};
-
-const DEFAULT_BOTTOM_HUD_CONFIG = {
-  width: 360,
-  height: 200,
-  edgeHeight: 90,
-  apexHeight: 140,
-  offsetY: 0,
-  scale: 1,
-  scaleWithActor: true,
-  buttons: DEFAULT_BUTTON_LAYOUT,
-};
 
 const DEFAULT_ENEMY_INDICATOR_CONFIG = {
   width: 96,
@@ -2063,15 +2052,14 @@ const DEFAULT_ENEMY_INDICATOR_CONFIG = {
   scaleWithActor: true,
 };
 
-let bottomHudConfigCache = null;
 let enemyIndicatorConfigCache = null;
 let enemyIndicatorConfigVersion = 0;
-let hudScaleSignature = null;
 let archTouchHandle = null;
 
-refreshBottomHudConfig();
+hudLayout.refreshBottomHudConfig();
+hudLayout.refreshResourceBars();
 refreshEnemyIndicatorConfig();
-syncHudScaleFactors({ force: true });
+hudLayout.syncHudScaleFactors({ force: true });
 
 if (helpBtn && helpPanel) {
   const setHelpVisible = (visible) => {
@@ -2552,7 +2540,7 @@ function setNestedConfigValue(path, value) {
 
 function initAppSettingsBindings() {
   const bindings = [
-    { id: 'actorScale', path: 'actor.scale', type: 'range', parser: parseFloat, onChange: () => syncHudScaleFactors({ force: true }) },
+    { id: 'actorScale', path: 'actor.scale', type: 'range', parser: parseFloat, onChange: () => hudLayout.syncHudScaleFactors({ force: true }) },
     { id: 'groundRatio', path: 'groundRatio', type: 'range', parser: parseFloat },
     { id: 'handMultiplier', path: 'colliders.handMultiplier', type: 'range', parser: parseFloat },
     { id: 'footMultiplier', path: 'colliders.footMultiplier', type: 'range', parser: parseFloat },
@@ -2597,9 +2585,10 @@ document.addEventListener('config:updated', ()=>{
   initPresets();
   ensureAltSequenceUsesKickAlt();
   applyRenderOrder();
-  refreshBottomHudConfig();
+  hudLayout.refreshBottomHudConfig();
+  hudLayout.refreshResourceBars();
   refreshEnemyIndicatorConfig();
-  syncHudScaleFactors({ force: true });
+  hudLayout.syncHudScaleFactors({ force: true });
 });
 
 // Fighter selection and settings management
@@ -3240,109 +3229,6 @@ function clampNumber(value, min, max) {
   return result;
 }
 
-function formatPercentValue(value, fallback) {
-  if (typeof value === 'string' && value.trim()) {
-    return value.trim();
-  }
-  if (Number.isFinite(value)) {
-    const normalized = Math.abs(value) <= 1 ? value * 100 : value;
-    return `${normalized}%`;
-  }
-  return fallback;
-}
-
-function formatDegreesValue(value, fallback) {
-  if (typeof value === 'string' && value.trim()) {
-    return value.trim();
-  }
-  if (Number.isFinite(value)) {
-    return `${value}deg`;
-  }
-  return fallback;
-}
-
-function normalizeButtonLayout(rawLayout = {}) {
-  const layout = {};
-  for (const key of Object.keys(DEFAULT_BUTTON_LAYOUT)) {
-    const base = DEFAULT_BUTTON_LAYOUT[key];
-    const spec = rawLayout[key] || {};
-    layout[key] = {
-      left: formatPercentValue(spec.left ?? spec.x ?? spec.xPercent, base.left),
-      top: formatPercentValue(spec.top ?? spec.y ?? spec.yPercent, base.top),
-      rotate: formatDegreesValue(spec.rotate ?? spec.rotateDeg ?? spec.rotation, base.rotate),
-    };
-  }
-  return layout;
-}
-
-function computeBottomHudConfig() {
-  const raw = window.CONFIG?.hud?.bottomButtons || {};
-  const defaults = DEFAULT_BOTTOM_HUD_CONFIG;
-  const width = clampNumber(coerceNumber(raw.width, defaults.width), 220, 720);
-  const height = clampNumber(coerceNumber(raw.height, defaults.height), 140, 320);
-  const edgeHeight = clampNumber(coerceNumber(raw.edgeHeight, defaults.edgeHeight), 24, height);
-  const apexHeight = clampNumber(coerceNumber(raw.apexHeight, defaults.apexHeight), edgeHeight + 8, height + 220);
-  const offsetY = coerceNumber(raw.offsetY, defaults.offsetY) || 0;
-  const scale = Number.isFinite(raw.scale) ? Math.max(0.3, raw.scale) : defaults.scale;
-  const scaleWithActor = raw.scaleWithActor !== false;
-  const buttons = normalizeButtonLayout(raw.buttons || raw.buttonLayout || {});
-  return { width, height, edgeHeight, apexHeight, offsetY, scale, scaleWithActor, buttons };
-}
-
-function getBottomHudConfig() {
-  if (!bottomHudConfigCache) {
-    bottomHudConfigCache = computeBottomHudConfig();
-  }
-  return bottomHudConfigCache;
-}
-
-function refreshBottomHudConfig() {
-  bottomHudConfigCache = computeBottomHudConfig();
-  applyBottomHudCss(bottomHudConfigCache);
-  applyButtonLayout(bottomHudConfigCache.buttons);
-  updateHudBackgroundPath(bottomHudConfigCache);
-}
-
-function applyBottomHudCss(config) {
-  if (!config || !document?.documentElement?.style) return;
-  const root = document.documentElement.style;
-  root.setProperty('--hud-panel-width', `${config.width}px`);
-  root.setProperty('--hud-panel-height', `${config.height}px`);
-  root.setProperty('--hud-panel-offset-y', `${config.offsetY}px`);
-  const buttonSize = Math.max(54, config.height * 0.45);
-  root.setProperty('--hud-button-diameter', `${buttonSize}px`);
-  root.setProperty('--action-size', `${config.height}px`);
-}
-
-function applyButtonLayout(layout) {
-  if (!layout) return;
-  for (const [key, el] of Object.entries(actionButtonRefs)) {
-    if (!el) continue;
-    const spec = layout[key];
-    applyButtonVar(el, '--btn-left', spec?.left);
-    applyButtonVar(el, '--btn-top', spec?.top);
-    applyButtonVar(el, '--btn-rotate', spec?.rotate);
-  }
-}
-
-function applyButtonVar(el, varName, value) {
-  if (!el || !varName) return;
-  if (typeof value === 'string' && value.trim()) {
-    el.style.setProperty(varName, value.trim());
-  } else {
-    el.style.removeProperty(varName);
-  }
-}
-
-function updateHudBackgroundPath(config) {
-  if (!actionHudPath || !actionHudSvg || !config) return;
-  const startY = Math.max(0, config.height - config.edgeHeight);
-  const apexY = Math.max(0, config.height - config.apexHeight);
-  const path = `M 0 ${startY} Q ${config.width / 2} ${apexY} ${config.width} ${startY} L ${config.width} ${config.height} L 0 ${config.height} Z`;
-  actionHudPath.setAttribute('d', path);
-  actionHudSvg.setAttribute('viewBox', `0 0 ${config.width} ${config.height}`);
-}
-
 function resolveGlobalActorScale() {
   return Number.isFinite(window.CONFIG?.actor?.scale) ? window.CONFIG.actor.scale : 1;
 }
@@ -3352,21 +3238,6 @@ function resolveSelectedFighterScale() {
   if (!selected) return 1;
   const fighterConfig = window.CONFIG?.fighters?.[selected];
   return Number.isFinite(fighterConfig?.actor?.scale) ? fighterConfig.actor.scale : 1;
-}
-
-function syncHudScaleFactors({ force } = {}) {
-  const config = getBottomHudConfig();
-  const actorScale = config.scaleWithActor === false
-    ? 1
-    : resolveGlobalActorScale() * resolveSelectedFighterScale();
-  const hudScale = Number.isFinite(config.scale) ? config.scale : 1;
-  const signature = `${actorScale.toFixed(4)}|${hudScale.toFixed(4)}`;
-  if (!force && hudScaleSignature === signature) return;
-  hudScaleSignature = signature;
-  if (!document?.documentElement?.style) return;
-  const root = document.documentElement.style;
-  root.setProperty('--actor-scale', actorScale.toFixed(4));
-  root.setProperty('--hud-panel-scale', hudScale.toFixed(4));
 }
 
 function computeEnemyIndicatorConfig() {
@@ -3640,7 +3511,7 @@ function updateEnemyIndicators() {
 }
 
 function updateHUD(){
-  syncHudScaleFactors();
+  hudLayout.syncHudScaleFactors();
   updateEnemyIndicators();
   const G = window.GAME;
   const P = G.FIGHTERS?.player;
