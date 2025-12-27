@@ -389,7 +389,16 @@
         <button class="secondary" id="exportGlbBtn">Export .glb</button>
       </div>
       <div class="help" style="margin-top:8px;">
-        Export includes base mesh + sticker meshes. Clipped stickers export as face-sized quads (no overhang).
+        Export includes base mesh + sticker meshes + editor metadata. Files can be re-imported to continue editing. Clipped stickers export as face-sized quads (no overhang).
+      </div>
+    </div>
+
+    <h2>Import</h2>
+    <div class="card">
+      <button id="importBtn">Import .gltf / .glb</button>
+      <input type="file" id="importFile" accept=".gltf,.glb" style="display:none;" />
+      <div class="help" style="margin-top:8px;">
+        Load a previously exported .gltf or .glb file. Note: This replaces the current scene (uses undo/redo).
       </div>
     </div>
 
@@ -1694,6 +1703,23 @@ setTimeout(() => {
     const exporter = new GLTFExporter();
     const group = new THREE.Group();
 
+    // Store editor state as metadata in scene extras
+    group.userData.boxShaperData = {
+      version: 1,
+      mesh: editable.serialize(),
+      stickers: stickers.map(s => ({
+        id: s.id,
+        quadId: s.quadId,
+        dataURL: s.dataURL,
+        params: { ...s.params },
+        baseParams: { ...s.baseParams },
+        priority: s.priority ?? 0,
+      })),
+      selectedQuadId,
+      selectedStickerId,
+      baseTransparent: document.getElementById("baseTransparentChk").checked,
+    };
+
     group.add(cloneBaseMeshForExport());
 
     for (const st of stickers) {
@@ -1729,6 +1755,118 @@ setTimeout(() => {
 
   document.getElementById("exportGltfBtn").onclick = () => exportScene(false);
   document.getElementById("exportGlbBtn").onclick = () => exportScene(true);
+
+  // -------------------------
+  // Import (gltf / glb)
+  // -------------------------
+  const importFile = document.getElementById("importFile");
+  document.getElementById("importBtn").onclick = () => {
+    importFile.value = "";
+    importFile.click();
+  };
+
+  importFile.onchange = async () => {
+    const file = importFile.files?.[0];
+    if (!file) return;
+
+    try {
+      setDebug("Loading file...");
+      const arrayBuffer = await file.arrayBuffer();
+
+      // Load GLTFLoader on-demand
+      if (!globalThis.GLTFLoader) {
+        logDebug("Loading GLTFLoader for import...");
+        const module = await import("./vendor/three/GLTFLoader.js");
+        globalThis.GLTFLoader = module.GLTFLoader;
+        logDebug("✓ GLTFLoader loaded");
+      }
+
+      const loader = new GLTFLoader();
+
+      loader.parse(arrayBuffer, "", (gltf) => {
+        snapshot("import");
+
+        // Check for editor metadata in scene extras
+        const metadata = gltf.scene.userData?.boxShaperData;
+
+        if (metadata) {
+          // Full state restoration from metadata
+          logDebug("Found 3DBoxShaper metadata, restoring full state...");
+          restoreFromMetadata(gltf, metadata);
+        } else {
+          // Basic visual import (no editable structure)
+          logDebug("No metadata found, importing as visual reference only...");
+          importAsVisual(gltf);
+        }
+
+        setDebug("Import complete!");
+      }, (err) => {
+        logDebug("Import error: " + err);
+        setDebug("Import error: " + err.message);
+      });
+    } catch (err) {
+      logDebug("Import error: " + err);
+      setDebug("Import failed: " + err.message);
+    }
+  };
+
+  async function restoreFromMetadata(gltf, metadata) {
+    // Restore editable mesh
+    editable.restore(metadata.mesh);
+    baseMesh.geometry = editable.geometry;
+    buildBaseMaterialsAndGroups();
+
+    // Clear current stickers
+    for (const st of stickers) {
+      scene.remove(st.mesh);
+      st.mesh.geometry.dispose?.();
+      st.mesh.material.dispose?.();
+      st.tex?.dispose?.();
+    }
+    stickers.length = 0;
+
+    // Restore stickers
+    for (const sData of metadata.stickers || []) {
+      const tex = await loadTextureFromDataURL(sData.dataURL);
+      tex.colorSpace = THREE.SRGBColorSpace;
+
+      const mesh = sData.params.clipToFace ? makeFaceClippedStickerMesh(tex) : makePlaneStickerMesh(tex);
+      scene.add(mesh);
+
+      const st = { ...sData, tex, mesh };
+      stickers.push(st);
+    }
+
+    // Restore UI state
+    document.getElementById("baseTransparentChk").checked = metadata.baseTransparent ?? false;
+    applyBaseTransparency(metadata.baseTransparent ?? false);
+
+    setSelectedFace(metadata.selectedQuadId || "top");
+    setSelectedSticker(metadata.selectedStickerId || null);
+
+    updateAllStickers();
+    refreshStickerList();
+  }
+
+  function importAsVisual(gltf) {
+    // Clear scene first
+    editable.resetCube();
+    baseMesh.geometry = editable.geometry;
+    buildBaseMaterialsAndGroups();
+
+    for (const st of stickers) {
+      scene.remove(st.mesh);
+      st.mesh.geometry.dispose?.();
+      st.mesh.material.dispose?.();
+      st.tex?.dispose?.();
+    }
+    stickers.length = 0;
+
+    // Add imported meshes as visual reference (not editable)
+    scene.add(gltf.scene);
+    setDebug("Imported as visual reference (not editable). Meshes added to scene.");
+    refreshStickerList();
+  }
 
   // -------------------------
   // Render loop + resize
