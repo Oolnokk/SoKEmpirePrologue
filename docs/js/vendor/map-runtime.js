@@ -892,6 +892,7 @@ function mapEntitiesToSpawnerList(mapEntities = [], warnings = []) {
         groupId: entity.meta?.groupId || entity.meta?.group?.id || null,
         group: entity.meta?.group,
         spawnRadius: clampNonNegativeNumber(entity.meta?.spawnRadius, 0),
+        count: entity.meta?.count ?? entity.meta?.spawnCount,
         respawn: Boolean(entity.meta?.respawn ?? false),
         spawnDelayRange: Array.isArray(entity.meta?.spawnDelayRange) ? [...entity.meta.spawnDelayRange] : undefined,
         meta: { ...entity.meta, mapEntityId: entity.id },
@@ -2416,7 +2417,13 @@ function normalizeSpawnerRecord(raw, warnings = [], context = {}) {
     0,
   );
   const count = clampPositiveInteger(
-    safe.count ?? safe.maxCount ?? safe.max ?? safe.quantity ?? safe.spawn?.count ?? safe.meta?.spawnCount,
+    safe.count
+      ?? safe.maxCount
+      ?? safe.max
+      ?? safe.quantity
+      ?? safe.spawn?.count
+      ?? safe.meta?.spawnCount
+      ?? safe.meta?.count,
     1,
   );
   const respawn = Boolean(safe.respawn ?? safe.autoRespawn ?? safe.spawn?.respawn ?? false);
