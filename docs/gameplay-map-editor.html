@@ -2798,28 +2798,105 @@
 
       // Check for schedule entries
       if (!patrolSchedule.length) {
-        legend.innerHTML = '<strong style="color: #dc2626;">❌ Error: No schedule entries to preview</strong><br/><div style="margin-top: 8px; color: #64748b;">Add schedule entries using the form above, then click Preview again.</div>';
+        legend.innerHTML = `
+          <strong style="color: #dc2626;">❌ Error: No schedule entries to preview</strong>
+          <div style="margin-top: 8px; padding: 8px; background: #1e293b; border-radius: 4px; font-size: 11px;">
+            <div style="color: #64748b; margin-bottom: 6px;">The spawner has no patrol schedule configured.</div>
+            <div style="color: #94a3b8;"><strong>How to fix:</strong></div>
+            <ol style="margin: 4px 0; padding-left: 20px; color: #94a3b8;">
+              <li>Enter a patrol point ID (e.g., "patrol_west_1")</li>
+              <li>Set hour range (e.g., From: 6, To: 12)</li>
+              <li>Click "+ Add Schedule Entry"</li>
+              <li>Click Preview again</li>
+            </ol>
+          </div>
+        `;
         return;
       }
 
       // Animation logic
       const ctx = canvas.getContext('2d');
       const groupId = spawnerEntity.meta.groupId;
-      const groupConfig = window.CONFIG?.npcGroups?.[groupId];
 
-      if (!groupConfig) {
-        legend.innerHTML = `<strong style="color: #dc2626;">❌ Error: Group "${groupId}" not found in CONFIG</strong><br/><div style="margin-top: 8px; color: #64748b;">Make sure the Group ID field is set to a valid NPC group. Check window.CONFIG.npcGroups in console for available groups.</div>`;
+      // Detailed group validation
+      if (!groupId) {
+        const availableGroups = Object.keys(window.CONFIG?.npcGroups || {});
+        legend.innerHTML = `
+          <strong style="color: #dc2626;">❌ Error: No Group ID configured</strong>
+          <div style="margin-top: 8px; padding: 8px; background: #1e293b; border-radius: 4px; font-size: 11px;">
+            <div style="color: #64748b; margin-bottom: 6px;">The spawner doesn't have a groupId set.</div>
+            <div style="color: #94a3b8;"><strong>How to fix:</strong></div>
+            <ol style="margin: 4px 0; padding-left: 20px; color: #94a3b8;">
+              <li>Select a group from the "Group ID" dropdown above</li>
+            </ol>
+            ${availableGroups.length > 0 ? `
+              <div style="margin-top: 8px; color: #64748b;">Available groups: <code style="background: #0f172a; padding: 2px 4px; border-radius: 3px; color: #3b82f6;">${availableGroups.join('</code>, <code style="background: #0f172a; padding: 2px 4px; border-radius: 3px; color: #3b82f6;">')}</code></div>
+            ` : '<div style="margin-top: 8px; color: #f59e0b;">⚠ Warning: No groups found in CONFIG.npcGroups</div>'}
+          </div>
+        `;
         return;
       }
 
-      // Calculate total NPCs
+      const groupConfig = window.CONFIG?.npcGroups?.[groupId];
+
+      if (!groupConfig) {
+        const availableGroups = Object.keys(window.CONFIG?.npcGroups || {});
+        const suggestion = availableGroups.length > 0 ? availableGroups[0] : 'none';
+        legend.innerHTML = `
+          <strong style="color: #dc2626;">❌ Error: Group "${groupId}" not found</strong>
+          <div style="margin-top: 8px; padding: 8px; background: #1e293b; border-radius: 4px; font-size: 11px;">
+            <div style="color: #64748b; margin-bottom: 6px;">The group ID "<code style="background: #0f172a; padding: 2px 4px; border-radius: 3px; color: #ef4444;">${groupId}</code>" doesn't exist in window.CONFIG.npcGroups.</div>
+            <div style="color: #94a3b8;"><strong>Diagnostic Info:</strong></div>
+            <ul style="margin: 4px 0; padding-left: 20px; color: #94a3b8;">
+              <li>Requested group: <code style="background: #0f172a; padding: 2px 4px; border-radius: 3px;">${groupId}</code></li>
+              <li>Total groups available: ${availableGroups.length}</li>
+              <li>CONFIG object exists: ${!!window.CONFIG ? '✓ Yes' : '✗ No'}</li>
+              <li>CONFIG.npcGroups exists: ${!!window.CONFIG?.npcGroups ? '✓ Yes' : '✗ No'}</li>
+            </ul>
+            ${availableGroups.length > 0 ? `
+              <div style="margin-top: 8px; color: #94a3b8;"><strong>Available groups:</strong></div>
+              <div style="margin-top: 4px; padding: 6px; background: #0f172a; border-radius: 3px; max-height: 100px; overflow-y: auto;">
+                ${availableGroups.map(g => `<div style="font-family: monospace; font-size: 10px; color: #3b82f6; padding: 2px 0;">• ${g}</div>`).join('')}
+              </div>
+              <div style="margin-top: 8px; color: #94a3b8;"><strong>How to fix:</strong></div>
+              <ol style="margin: 4px 0; padding-left: 20px; color: #94a3b8;">
+                <li>Change the "Group ID" dropdown to: <code style="background: #0f172a; padding: 2px 4px; border-radius: 3px; color: #22c55e;">${suggestion}</code></li>
+                <li>Or add "${groupId}" to CONFIG.npcGroups in config.js</li>
+              </ol>
+            ` : `
+              <div style="margin-top: 8px; color: #f59e0b;"><strong>⚠ Critical:</strong> No NPC groups defined in CONFIG</div>
+              <div style="margin-top: 4px; color: #64748b;">Check that config.js is loaded and defines window.CONFIG.npcGroups</div>
+            `}
+          </div>
+        `;
+        return;
+      }
+
+      // Calculate total NPCs with detailed validation
       let totalNPCs = 0;
-      (groupConfig.members || []).forEach(member => {
+      const members = groupConfig.members || [];
+      members.forEach(member => {
         totalNPCs += member.count || 0;
       });
 
       if (totalNPCs === 0) {
-        legend.innerHTML = `<strong style="color: #dc2626;">❌ Error: No NPCs in group "${groupId}"</strong><br/><div style="margin-top: 8px; color: #64748b;">The group configuration has no members defined. Check the groupLibrary in your map JSON or CONFIG.npcGroups.</div>`;
+        legend.innerHTML = `
+          <strong style="color: #dc2626;">❌ Error: Group "${groupId}" has no NPCs</strong>
+          <div style="margin-top: 8px; padding: 8px; background: #1e293b; border-radius: 4px; font-size: 11px;">
+            <div style="color: #64748b; margin-bottom: 6px;">The group is configured but has no members to spawn.</div>
+            <div style="color: #94a3b8;"><strong>Group Configuration:</strong></div>
+            <pre style="margin: 4px 0; padding: 8px; background: #0f172a; border-radius: 3px; overflow-x: auto; color: #64748b; font-size: 10px;">${JSON.stringify(groupConfig, null, 2)}</pre>
+            <div style="margin-top: 8px; color: #94a3b8;"><strong>Issue:</strong></div>
+            <ul style="margin: 4px 0; padding-left: 20px; color: #94a3b8;">
+              <li>members array: ${members.length > 0 ? `${members.length} entries (but all have count: 0)` : 'empty or missing'}</li>
+            </ul>
+            <div style="margin-top: 8px; color: #94a3b8;"><strong>How to fix:</strong></div>
+            <ol style="margin: 4px 0; padding-left: 20px; color: #94a3b8;">
+              <li>Add members to the group in config.js or map's groupLibrary</li>
+              <li>Example: <code style="background: #0f172a; padding: 2px 4px; border-radius: 3px; display: block; margin-top: 4px;">members: [{ templateId: "guard", count: 3 }]</code></li>
+            </ol>
+          </div>
+        `;
         return;
       }
 
@@ -2843,13 +2920,92 @@
       // Get patrol points from schedule
       const patrolPoints = mapData.entities.filter(e => normalizeEntityType(e.type) === 'patrolpoint');
 
-      // Build legend
-      let legendHtml = '<strong style="color: #f8fafc;">Schedule:</strong><br/>';
+      // Validate all patrol points exist
+      const missingPatrolPoints = [];
+      const validPatrolPoints = [];
+      patrolSchedule.forEach(entry => {
+        const pt = patrolPoints.find(p => p.id === entry.patrolPointId);
+        if (!pt) {
+          if (!missingPatrolPoints.includes(entry.patrolPointId)) {
+            missingPatrolPoints.push(entry.patrolPointId);
+          }
+        } else {
+          if (!validPatrolPoints.find(v => v.id === pt.id)) {
+            validPatrolPoints.push(pt);
+          }
+        }
+      });
+
+      // Build legend with detailed warnings
+      let legendHtml = '';
+
+      // Show warning if there are missing patrol points
+      if (missingPatrolPoints.length > 0) {
+        legendHtml += `
+          <div style="background: #dc2626; color: #fef2f2; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 11px;">
+            <strong>⚠ Warning: ${missingPatrolPoints.length} patrol point(s) not found in map</strong>
+            <div style="margin-top: 6px; padding: 6px; background: rgba(0,0,0,0.2); border-radius: 3px;">
+              <div style="color: #fef2f2; margin-bottom: 4px;">Missing:</div>
+              ${missingPatrolPoints.map(id => `<div style="font-family: monospace; font-size: 10px; padding: 2px 0;">• ${id}</div>`).join('')}
+            </div>
+            <div style="margin-top: 6px; color: #fef2f2; font-size: 10px;">
+              NPCs will stay at spawner during hours assigned to missing patrol points.
+            </div>
+          </div>
+        `;
+      }
+
+      // Show info about patrol points found
+      legendHtml += `<div style="background: #1e293b; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 11px;">`;
+      legendHtml += `<strong style="color: #f8fafc;">Patrol Points in Map: ${patrolPoints.length}</strong><br/>`;
+      if (patrolPoints.length > 0) {
+        legendHtml += `<div style="margin-top: 4px; color: #64748b;">`;
+        patrolPoints.forEach(pt => {
+          const used = patrolSchedule.some(e => e.patrolPointId === pt.id);
+          legendHtml += `<div style="padding: 2px 0; font-size: 10px;">
+            ${used ? '<span style="color: #22c55e;">●</span>' : '<span style="color: #64748b;">○</span>'}
+            <code style="background: #0f172a; padding: 1px 4px; border-radius: 2px; color: ${used ? '#3b82f6' : '#64748b'};">${pt.id}</code>
+            ${pt.meta?.label ? `<span style="color: #94a3b8;"> (${pt.meta.label})</span>` : ''}
+          </div>`;
+        });
+        legendHtml += `</div>`;
+      } else {
+        legendHtml += `<div style="margin-top: 4px; color: #f59e0b;">No patrol points found in map</div>`;
+      }
+      legendHtml += `</div>`;
+
+      // Show schedule
+      legendHtml += '<div style="background: #1e293b; padding: 8px; border-radius: 4px; font-size: 11px;">';
+      legendHtml += '<strong style="color: #f8fafc;">Schedule Entries:</strong><br/>';
+      legendHtml += `<div style="margin-top: 4px;">`;
       patrolSchedule.forEach(entry => {
         const pt = patrolPoints.find(p => p.id === entry.patrolPointId);
         const label = pt?.meta?.label || entry.patrolPointId;
-        legendHtml += `<span style="color: ${groupColor};">▲</span> ${label}: Hours ${entry.hourRange[0]}-${entry.hourRange[1]}<br/>`;
+        const exists = !!pt;
+        legendHtml += `
+          <div style="padding: 2px 0;">
+            <span style="color: ${groupColor};">▲</span>
+            <strong style="color: ${exists ? '#f8fafc' : '#f59e0b'};">${label}</strong>
+            <span style="color: #94a3b8;"> (Hours ${entry.hourRange[0]}-${entry.hourRange[1]})</span>
+            ${!exists ? ' <span style="color: #f59e0b; font-size: 10px;">⚠ missing</span>' : ''}
+          </div>
+        `;
       });
+      legendHtml += `</div></div>`;
+
+      // NPC info
+      legendHtml += `
+        <div style="margin-top: 8px; background: #1e293b; padding: 8px; border-radius: 4px; font-size: 11px;">
+          <strong style="color: #f8fafc;">Group Info:</strong><br/>
+          <div style="margin-top: 4px; color: #94a3b8;">
+            <div>Group: <code style="background: #0f172a; padding: 1px 4px; border-radius: 2px; color: #3b82f6;">${groupId}</code></div>
+            <div>Total NPCs: ${totalNPCs}</div>
+            <div>Spawn delay: ${spawnDelayRange[0]}s - ${spawnDelayRange[1]}s</div>
+            <div>Color: <span style="background: ${groupColor}; color: white; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 10px;">${groupColor}</span></div>
+          </div>
+        </div>
+      `;
+
       legend.innerHTML = legendHtml;
 
       // Find spawner position on map
