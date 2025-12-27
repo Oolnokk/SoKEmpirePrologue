@@ -960,6 +960,9 @@ setTimeout(() => {
   // - clipToFace=true: geometry is face-sized quad; params affect UV mapping (cropped).
   // - params are DETERMINISTIC: values represent absolute transform relative to upload state (baseParams)
   // - priority: higher values render on top (default 0)
+  // - ROTATION INHERITANCE: stickers always inherit the face's 3D rotation
+  //   * Overhang mode: face rotation via quaternion + sticker's rzDeg on top
+  //   * Clipped mode: face rotation baked into vertex positions
   const stickers = []; // { id, quadId, dataURL, params:{tx,ty,sx,sy,rzDeg,clipToFace}, baseParams:{tx,ty,sx,sy,rzDeg}, priority, mesh, tex }
   let selectedQuadId = "top";
   let selectedStickerId = null;
@@ -996,6 +999,8 @@ setTimeout(() => {
     const q = editable.getQuadById(st.quadId);
     if (!q) return;
 
+    // Clipped mode: geometry uses actual face vertex positions in world space,
+    // so it automatically inherits the face's 3D rotation (baked into vertex positions)
     const { center, u, v, n, sizeU, sizeV } = editable.getFaceBasis(st.quadId);
     const [a,b,c,d] = q.v;
 
@@ -1093,6 +1098,8 @@ setTimeout(() => {
     }
 
     // Overhang plane mode: transform plane in face space (world)
+    // getFaceBasis computes u,v,n from CURRENT vertex positions, so stickers
+    // automatically inherit any 3D rotation applied to the face.
     const { center, u, v, n, sizeU, sizeV } = editable.getFaceBasis(st.quadId);
 
     const tx = st.params.tx;
@@ -1102,6 +1109,7 @@ setTimeout(() => {
     const rz = THREE.MathUtils.degToRad(st.params.rzDeg);
 
     // Align plane axes to face basis (x->u, y->v, z->n)
+    // This makes the sticker inherit the face's 3D rotation
     const m = new THREE.Matrix4().makeBasis(u, v, n);
     const faceQuat = new THREE.Quaternion().setFromRotationMatrix(m);
 
@@ -1112,8 +1120,8 @@ setTimeout(() => {
       .add(n.clone().multiplyScalar(eps));
 
     st.mesh.position.copy(pos);
-    st.mesh.quaternion.copy(faceQuat);
-    st.mesh.rotateZ(rz);
+    st.mesh.quaternion.copy(faceQuat);  // Inherit face's 3D rotation
+    st.mesh.rotateZ(rz);                 // Add face-local Z rotation on top
     st.mesh.scale.set(sizeU * sx, sizeV * sy, 1);
   }
 
