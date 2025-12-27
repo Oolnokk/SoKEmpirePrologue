@@ -110,6 +110,13 @@ This allows agents to:
 2. The button will change to **✕ Debug** when the panel is open
 3. Click again to hide the panel
 
+### Console filtering and tagging
+
+- The console view mirrors `console.debug`/`log`/`warn`/`error`/`info` output and automatically builds filter checkboxes for each source label.
+- Sources are resolved in order from explicit tags (e.g. `[script:FixAttempt42]`) to leading bracketed prefixes (e.g. `[Renderer] loading…`), then falling back to the logging file name.
+- A separate **Show on-tick debug output (live only)** toggle gates `[on-tick]`-tagged logs; these are transient and cleared when hidden or filtered out.
+- Tag patterns are configurable in `window.CONFIG.debug.console` via `onTickTagPattern`, `scriptTagPattern`, and `scriptLabelPattern` (see `docs/config/config.js`).
+
 ### Gameplay Path & Map Elements Overlay
 
 - The **🛤️ Show Gameplay Path & Map Elements** checkbox toggles a combined debug overlay.
