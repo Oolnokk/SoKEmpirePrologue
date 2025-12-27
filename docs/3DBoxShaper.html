@@ -598,25 +598,37 @@
     cameraFar: 100,
   });
 
+  // Set up event listeners BEFORE initializing
+  renderer.on('ready', (event) => {
+    console.log('Renderer ready event:', event);
+    if (event.supported) {
+      console.log("Renderer ready - hiding status message");
+      viewportStatusEl.style.display = "none";
+
+      const scene = renderer.scene;
+      scene.background = new THREE.Color(0x0b0f14);
+
+      setupScene();
+    } else {
+      viewportStatusEl.textContent = "Three.js not available - renderer in no-op mode";
+      viewportStatusEl.style.color = "#ff6b6b";
+    }
+  });
+
+  renderer.on('error', (event) => {
+    console.error('Renderer error:', event);
+    viewportStatusEl.textContent = `Error during ${event.phase}: ${event.error?.message || 'Unknown error'}`;
+    viewportStatusEl.style.color = "#ff6b6b";
+    viewportStatusEl.style.display = "block";
+  });
+
   console.log("Initializing renderer...");
   viewportStatusEl.textContent = "Initializing renderer...";
 
   await renderer.init();
 
-  console.log("Renderer initialized:", !!renderer.renderer);
-
-  if (!renderer.renderer) {
-    viewportStatusEl.textContent = "Renderer unavailable: WebGL/Three.js initialization failed.";
-    viewportStatusEl.style.color = "#ff6b6b";
-    return;
-  }
-
-  console.log("Renderer ready - hiding status message");
-  // Hide the initialization message
-  viewportStatusEl.style.display = "none";
-
+  function setupScene() {
   const scene = renderer.scene;
-  scene.background = new THREE.Color(0x0b0f14);
 
   const camera = renderer.camera;
   camera.near = 0.01;
@@ -1466,6 +1478,8 @@
   });
 
   renderer.start();
+  } // End of setupScene()
+
   } catch (error) {
     console.error("Fatal error during initialization:", error);
     const viewportStatusEl = document.getElementById("viewportStatus");
