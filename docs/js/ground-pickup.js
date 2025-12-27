@@ -228,13 +228,14 @@ export class GroundPickupManager {
       // Set current held item
       player.currentHeldItem = player.heldItems[player.heldItems.length - 1];
 
-      // Stow weapon when holding a prop
-      if (player.anim?.weapon) {
-        player.anim.weapon.stowed = true;
+      // Store original weapon and switch to 'holding-prop' stance
+      if (!player.originalWeapon && player.weapon) {
+        player.originalWeapon = player.weapon;
       }
+      player.weapon = 'holding-prop';
 
       console.log('[GroundPickup] ✓ Added to player held items:', player.currentHeldItem);
-      console.log('[GroundPickup] ✓ Weapon stowed');
+      console.log('[GroundPickup] ✓ Switched to holding-prop stance');
     }
 
     // Dispatch event for other systems

@@ -599,6 +599,16 @@ const ARM_STANCES = {
     weapon: -45,
     weaponGripPercents: { primary: 0.28, secondary: 0.72 },
   },
+
+  'holding-prop': {
+    // Holding small object in right hand
+    lShoulder: -120,
+    lElbow: -120,
+    rShoulder: -60,
+    rElbow: -110,
+    weapon: 0,  // Weapon bone points forward/down
+    weaponGripPercents: { primary: 0.75, secondary: 0.75 },
+  },
 };
 
 // Weapon sprite skins centralize art references so multiple looks can ship per weapon type.
@@ -1497,6 +1507,33 @@ window.CONFIG = {
             haft: { start: 0.0, end: 0.0 },
             grips: [
               { id: 'primary', percent: 0.5, limb: 'right', offset: { ax: 0, ay: 0 } }
+            ],
+            colliders: []
+          }
+        ]
+      },
+      colliders: {},
+      sprite: {
+        url: '',
+        anchorBone: 'weapon_0',
+        anchorMode: 'start',
+        alignDeg: 0,
+        styleOverride: {}
+      }
+    },
+
+    'holding-prop': {
+      rig: {
+        base: { anchor: 'rightWrist' },
+        bones: [
+          {
+            id: 'weapon_0',
+            length: 20, // Short bone for holding small props
+            angleOffsetDeg: 0,
+            joint: { percent: 0.75 },
+            haft: { start: 0.0, end: 0.0 },
+            grips: [
+              { id: 'primary', percent: 0.75, limb: 'right', offset: { ax: 0, ay: 0 } }
             ],
             colliders: []
           }
