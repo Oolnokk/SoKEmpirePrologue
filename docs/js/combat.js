@@ -14,8 +14,9 @@ import { startAttackDash, isAttackDashing } from './attack-dash.js?v=1';
 export function initCombat(){
   const G = (window.GAME ||= {});
   const C = (window.CONFIG || {});
-  console.log('[combat] CONFIG.presets:', C.presets);
-  console.log('[combat] CONFIG keys:', Object.keys(C));
+  // Disabled: CONFIG logging can output massive base64 font/image data
+  // console.log('[combat] CONFIG.presets:', C.presets);
+  // console.log('[combat] CONFIG keys:', Object.keys(C));
   G.combat = makeCombat(G, C, { fighterKey: 'player', poseTarget: 'player' });
   console.log('[combat] ready');
 }
