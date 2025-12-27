@@ -588,14 +588,23 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           // Load GLTF once per URL, then clone for each placement so we can place
           // multiple instances without Three.js re-parenting them out of the scene.
           if (!gltfCache.has(gltfUrl)) {
+            console.log(`[visualsmapLoader] 📦 Starting GLTF load for: ${cell.type}`);
             gltfCache.set(gltfUrl, (async () => {
-              const base = await renderer.loadGLTF(gltfUrl);
-              return base;
+              try {
+                const base = await renderer.loadGLTF(gltfUrl);
+                console.log(`[visualsmapLoader] ✓ GLTF loaded successfully: ${cell.type}`);
+                return base;
+              } catch (error) {
+                console.error(`[visualsmapLoader] ✗ GLTF load failed for ${cell.type}:`, error);
+                return null;
+              }
             })());
           }
 
           try {
+            console.log(`[visualsmapLoader] ⏳ Awaiting GLTF for ${cell.type}...`);
             const baseObject = await gltfCache.get(gltfUrl);
+            console.log(`[visualsmapLoader] ✓ GLTF ready for ${cell.type}, baseObject:`, baseObject ? 'valid' : 'null');
             if (!baseObject) {
               console.warn(`[visualsmapLoader] ✗ Failed to load GLTF: ${gltfUrl}`);
               continue;
