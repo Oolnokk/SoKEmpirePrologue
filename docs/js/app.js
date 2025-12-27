@@ -7762,14 +7762,24 @@ function boot(){
           console.log('[app] Attaching scene3d registry bridge');
           scene3dRegistry = registry;
           registry.on('active-area-changed', handleScene3dAreaChange);
-          console.log('[app] Calling loadInitialScene3dArea...');
-          loadInitialScene3dArea(registry);
-          console.log('[app] loadInitialScene3dArea call returned (async)');
+          console.log('[app] Scene3d registry bridge attached (initial load happens separately)');
+          // Note: Initial 3D scene load is called directly in start() to ensure it completes before boot()
         };
 
         console.log('[app] Calling installScene3dRegistryBridge...');
         installScene3dRegistryBridge(attachScene3dRegistry);
         console.log('[app] installScene3dRegistryBridge completed');
+
+        // Load initial 3D scene and WAIT for it to complete before calling boot()
+        console.log('[app] Loading initial 3D scene...');
+        const registry = window.GAME?.mapRegistry;
+        if (registry) {
+          console.log('[app] Registry available, loading initial scene...');
+          await loadInitialScene3dArea(registry);
+          console.log('[app] ✓ Initial 3D scene loaded successfully');
+        } else {
+          console.warn('[app] Registry not available yet, skipping initial 3D load');
+        }
 
         // Expose for debugging
         window.GAME.renderer3d = GAME_RENDERER_3D;
