@@ -2009,29 +2009,49 @@ export function convertLayoutToArea(layout, options = {}) {
     pbRight = 600;
   }
   
-  // Convert patrolPoints to colliders with meta.patrol = true
+  const patrolPathTargets = [];
+
+  // Convert patrolPoints to colliders and path targets
   if (Array.isArray(layout.patrolPoints)) {
     const groundOffset = toNumber(layout.groundOffset ?? layout.ground?.offset, 420);
     const boundsWidth = pbRight - pbLeft;
-    
+
     layout.patrolPoints.forEach((pt, idx) => {
       const id = pt.id || `patrol-${idx + 1}`;
+      const label = pt.label || pt.name || `Patrol ${idx + 1}`;
       const width = Number.isFinite(Number(pt.width)) ? Number(pt.width) : 48;
       // Calculate default x position evenly spaced within playable bounds
       const spacing = boundsWidth / (layout.patrolPoints.length + 1);
       const defaultX = pbLeft + spacing * (idx + 1);
       const x = Number.isFinite(Number(pt.x)) ? Number(pt.x) : defaultX;
       const topOffset = Number.isFinite(Number(pt.y)) ? Number(pt.y) : (pt.topOffset ?? groundOffset);
-      
+      const height = Number.isFinite(Number(pt.height)) ? Number(pt.height) : 48;
+
       convertedColliders.push(normalizeCollider({
         id,
-        label: pt.label || `Patrol ${idx + 1}`,
+        label,
         left: x - width / 2,
         width,
         topOffset,
-        height: Number.isFinite(Number(pt.height)) ? Number(pt.height) : 48,
+        height,
         meta: { ...pt.meta, patrol: true }
       }, convertedColliders.length));
+
+      const order = Number.isFinite(Number(pt.order ?? pt.meta?.order ?? pt.meta?.pathOrder))
+        ? Number(pt.order ?? pt.meta?.order ?? pt.meta?.pathOrder)
+        : idx + 1;
+
+      const patrolTarget = normalizePathTargetRecord({
+        name: pt.name || id,
+        order,
+        position: { x, y: topOffset },
+        tags: Array.isArray(pt.tags) ? pt.tags : [],
+        meta: { ...(pt.meta || {}), patrol: true, label, colliderId: id },
+      }, warnings, { source: 'layout.patrolPoints', fallbackName: `patrol_${idx + 1}` });
+
+      if (patrolTarget) {
+        patrolPathTargets.push(patrolTarget);
+      }
     });
   }
   
@@ -2115,7 +2135,10 @@ export function convertLayoutToArea(layout, options = {}) {
   const spawnersWithGroups = attachGroupsToSpawners(spawners, groupLibrary, warnings);
   const explicitPathTargets = normalizePathTargetList(layout.pathTargets, warnings, { source: 'layout' });
   const derivedPathTargets = collectPathTargets(convertedInstances, convertedLayers, warnings);
-  const pathTargets = mergePathTargetLists([...explicitPathTargets, ...mapEntityPathTargets], derivedPathTargets);
+  const pathTargets = mergePathTargetLists(
+    [...explicitPathTargets, ...mapEntityPathTargets, ...patrolPathTargets],
+    derivedPathTargets,
+  );
   const backgroundFromLayout = typeof layout.background === 'object' && layout.background
     ? safeClone(layout.background)
     : null;
