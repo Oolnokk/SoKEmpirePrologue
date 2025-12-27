@@ -843,7 +843,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
               assetCache.set(cell.type, config);
 
               if (config) {
-                console.log(`[visualsmapLoader] ✓ Loaded config for ${cell.type}:`, config.gltfPath || 'no gltfPath');
+                // Don't log config object - may contain large base64 texture data
+                console.log(`[visualsmapLoader] ✓ Loaded config for ${cell.type}: ${config.gltfPath || 'no gltfPath'}`);
               } else {
                 console.warn(`[visualsmapLoader] ✗ Failed to load config for ${cell.type}`);
               }
@@ -865,7 +866,8 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
           const gltfUrl = resolveAssetPath(gltfCandidate, gltfBase);
           if (!gltfUrl) {
             console.warn(`[visualsmapLoader] ✗ No gltfPath for asset: ${cell.type} at (${row},${col})`);
-            console.warn(`[visualsmapLoader]   Asset config:`, assetConfig);
+            // Don't log full assetConfig - may contain large base64 texture data
+            console.warn(`[visualsmapLoader]   Asset type: ${cell.type}, config keys: ${Object.keys(assetConfig || {}).join(', ')}`);
             continue;
           }
 
