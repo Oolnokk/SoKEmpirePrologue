@@ -131,6 +131,18 @@ window.CONFIG.mapObjectEditor = {
   }
 };
 
+// Visualsmap + 3D map builder settings
+window.CONFIG.visualsmap = window.CONFIG.visualsmap || {};
+window.CONFIG.visualsmap.textureBasePath = window.CONFIG.visualsmap.textureBasePath || './assets/images/';
+window.CONFIG.visualsmap.interior = {
+  maskColor: window.CONFIG.visualsmap?.interior?.maskColor || '#000000',
+  maskPadding: window.CONFIG.visualsmap?.interior?.maskPadding ?? 0.1,
+  wallHeight: window.CONFIG.visualsmap?.interior?.wallHeight ?? 8,
+  cubeOpacity: window.CONFIG.visualsmap?.interior?.cubeOpacity ?? 0.22,
+  backwallDepth: window.CONFIG.visualsmap?.interior?.backwallDepth ?? 0.25,
+  backwallGridColor: window.CONFIG.visualsmap?.interior?.backwallGridColor || '#1f2937'
+};
+
 // Day/Night Lighting Settings
 window.CONFIG.lighting = window.CONFIG.lighting || {};
 window.CONFIG.lighting.candleStartHour = 17; // Hour when candles turn on (5pm - during dusk)

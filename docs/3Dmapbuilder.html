@@ -202,6 +202,15 @@
           <li>JSON export/import for version control</li>
           <li>Gameplay path visualization</li>
         </ul>
+
+        <h3>Interior Mode</h3>
+        <ul style="text-align: left; max-width: 500px; margin: 0 auto 16px;">
+          <li>Select a contiguous set of active tiles first — this bounds the default zoom and powers the interior mask.</li>
+          <li>A gridded backwall appears along the X/Y plane at Z:0 and active tiles render as cubes to show the playable volume.</li>
+          <li>Ground/backwall tiles can stretch or tile PNG textures from <code>assets/images</code> across the activated area.</li>
+          <li>Furniture and decorations support full X/Y/Z offsets per entry so they can sit anywhere inside a tile.</li>
+          <li>Exports add an <code>"interior"</code> tag so runtime rendering hides everything outside the activated tiles with opaque black.</li>
+        </ul>
         
         <h3>Related Documentation</h3>
         <ul style="text-align: left; max-width: 500px; margin: 0 auto 16px;">
