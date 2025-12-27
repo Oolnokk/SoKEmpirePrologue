@@ -468,7 +468,8 @@ export function initFighters(cv, cx, options = {}){
     if (!spawnService || typeof spawnService.getSpawners !== 'function') return [];
 
     const entries = [];
-    const spawners = spawnService.getSpawners(area.id, { type: 'npc' });
+    // Get ALL spawners (not filtered by type) since NPC spawners can be type "npc", "groupspawner", etc.
+    const spawners = spawnService.getSpawners(area.id);
 
     console.log('[normalizeNpcSpawners] Found', spawners.length, 'spawners for area', area.id);
 
@@ -1357,7 +1358,8 @@ export function initializeNpcSpawnersForArea(area = null) {
     }
 
     const entries = [];
-    const spawners = spawnService.getSpawners(area.id, { type: 'npc' });
+    // Get ALL spawners (not filtered by type) since NPC spawners can be type "npc", "groupspawner", etc.
+    const spawners = spawnService.getSpawners(area.id);
 
     console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners] Found', spawners.length, 'spawners for area', area.id);
 
