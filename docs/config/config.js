@@ -65,6 +65,12 @@ window.CONFIG.debug.minimap = {
   labelColor: __existingMinimapConfig.labelColor ?? window.CONFIG.debug.gameplayOverlay.labelColor,
 };
 
+const __existingEntityCensusConfig = window.CONFIG.debug.entityCensus || {};
+window.CONFIG.debug.entityCensus = {
+  showSpawnerDetails: __existingEntityCensusConfig.showSpawnerDetails ?? false,
+  maxSpawnerDetails: __existingEntityCensusConfig.maxSpawnerDetails ?? 6,
+};
+
 // Gameplay map entity defaults
 window.CONFIG.mapEntities = window.CONFIG.mapEntities || {};
 window.CONFIG.mapEntities.groupSpawner = window.CONFIG.mapEntities.groupSpawner || {};

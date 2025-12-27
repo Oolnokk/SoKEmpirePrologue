@@ -5,6 +5,7 @@ import { $$, fmt } from './dom-utils.js?v=1';
 import { radToDeg, radToDegNum, degToRad } from './math-utils.js?v=1';
 import { pushPoseOverride as runtimePushPoseOverride, pushPoseLayerOverride as runtimePushPoseLayerOverride } from './animator.js?v=5';
 import { normalizePrefabDefinition } from './prefab-catalog.js?v=1';
+import { getCurrentGameHour, isScheduleActive, resolveScheduleEntry } from './schedule-utils.js?v=1';
 
 // Console capture system - stores all console messages for later export
 const CONSOLE_CAPTURE = {
@@ -447,6 +448,27 @@ function countIntendedNpcSpawns(spawners = []) {
   }, 0);
 }
 
+function resolveSpawnerScheduleInfo({ spawner, activeArea, config }) {
+  const meta = spawner?.meta || spawner || {};
+  const scheduleEntry = resolveScheduleEntry(meta, config);
+  const hasSchedule = Boolean(scheduleEntry?.hasSchedule || scheduleEntry?.id || scheduleEntry?.label);
+  const hour = getCurrentGameHour(activeArea, config);
+  const active = isScheduleActive(meta, hour, config);
+  const label = scheduleEntry?.label || scheduleEntry?.id || null;
+
+  return { hasSchedule, active, label, hour };
+}
+
+function resolveSpawnerLabel(spawner, fallbackIndex = 0) {
+  const id = typeof spawner?.id === 'string' && spawner.id.trim()
+    ? spawner.id.trim()
+    : null;
+  const label = typeof spawner?.label === 'string' && spawner.label.trim()
+    ? spawner.label.trim()
+    : null;
+  return label || id || `spawner-${fallbackIndex + 1}`;
+}
+
 function resolveColliderList({ activeArea, geometryService } = {}) {
   const areaColliders = Array.isArray(activeArea?.colliders) ? activeArea.colliders : null;
   if (Array.isArray(areaColliders) && areaColliders.length) {
@@ -541,15 +563,25 @@ function updateEntityCensus() {
   lastEntityCensusUpdate = now;
 
   const G = window.GAME || {};
+  const config = window.CONFIG || {};
+  const debugConfig = config.debug || {};
+  const entityCensusConfig = debugConfig.entityCensus || {};
+  const showSpawnerDetails = Boolean(entityCensusConfig.showSpawnerDetails);
+  const maxSpawnerDetailsRaw = Number(entityCensusConfig.maxSpawnerDetails);
+  const maxSpawnerDetails = Number.isFinite(maxSpawnerDetailsRaw)
+    ? Math.max(1, Math.round(maxSpawnerDetailsRaw))
+    : 6;
   const registry = G.mapRegistry || window.__MAP_REGISTRY__;
   const activeArea = registry?.getActiveArea?.() || null;
   const areaId = activeArea?.id || G.currentAreaId || null;
   const spawnService = G.spawnService || null;
   const geometryService = G.geometryService || null;
+  const serviceSpawners = spawnService?.getSpawners && areaId
+    ? spawnService.getSpawners(areaId)
+    : [];
   const gameplayNpcSpawners = resolveNpcSpawnerList({ spawnService, areaId, activeArea });
-  const totalSpawners = spawnService?.getSpawners && areaId
-    ? spawnService.getSpawners(areaId).length
-    : 0;
+  const totalSpawners = serviceSpawners.length
+    || (Array.isArray(activeArea?.spawners) ? activeArea.spawners.length : 0);
   const intendedNpcSpawners = gameplayNpcSpawners.length;
   const intendedNpcCount = countIntendedNpcSpawns(gameplayNpcSpawners);
   const runtimeNpcSpawners = Array.isArray(G.npcSpawnerRuntime?.spawners)
@@ -572,6 +604,12 @@ function updateEntityCensus() {
     .map((fighter) => fighter?.npcName || fighter?.templateId || fighter?.id)
     .filter(Boolean);
 
+  const npcSpawnerDetails = (serviceSpawners.length ? serviceSpawners : gameplayNpcSpawners)
+    .filter((spawner) => {
+      const resolvedType = (spawner?.type || spawner?.kind || 'npc').toString().toLowerCase();
+      return resolvedType === 'npc';
+    });
+
   const lines = [
     `Area: ${areaId || 'none'}`,
     `Spawners: ${totalSpawners} (NPC ${actualNpcSpawners}/${intendedNpcSpawners})`,
@@ -582,6 +620,31 @@ function updateEntityCensus() {
   lines.push(`NPCs: ${npcNames.length > 0 ? npcNames.join(', ') : 'none'}`);
   if (patrolTargetCount > 0) {
     lines.push(`Patrol list: ${patrolTargets.join(', ')}`);
+  }
+  if (showSpawnerDetails && npcSpawnerDetails.length > 0) {
+    const detailLines = npcSpawnerDetails.slice(0, maxSpawnerDetails).map((spawner, index) => {
+      const memberTotal = countIntendedNpcSpawns([spawner]);
+      const groupId = spawner?.groupId
+        || spawner?.group?.id
+        || spawner?.groupMeta?.id
+        || spawner?.meta?.groupId
+        || 'solo';
+      const scheduleInfo = resolveSpawnerScheduleInfo({ spawner, activeArea, config });
+      const status = scheduleInfo.hasSchedule
+        ? scheduleInfo.active
+          ? '🟢 active'
+          : '⚪ inactive'
+        : '🟢 always';
+      const scheduleLabel = scheduleInfo.label ? ` ${scheduleInfo.label}` : '';
+      const hourLabel = Number.isFinite(scheduleInfo.hour) ? ` @${scheduleInfo.hour}h` : '';
+      return `${resolveSpawnerLabel(spawner, index)} [${groupId}] members:${memberTotal} schedule:${status}${scheduleLabel}${hourLabel}`;
+    });
+    const remaining = npcSpawnerDetails.length - detailLines.length;
+    lines.push('Spawner details:');
+    lines.push(...detailLines.map((line) => `- ${line}`));
+    if (remaining > 0) {
+      lines.push(`(+${remaining} more spawners hidden)`);
+    }
   }
   const newContent = lines.join('<br>');
 

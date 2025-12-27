@@ -163,6 +163,12 @@ The debug panel is designed to be accessible to AI agents:
 - **Behavior**: When enabled, the visuals renderer builds a Three.js marker group for every spawner in the active area. Spawners are pulled from `window.GAME.spawnService.getSpawners(activeAreaId)` with fallbacks to `area.spawners` or `scene.spawnPoints`, then projected into both the 3D scene and a 2D overlay.
 - **Overlay**: The overlay draws labeled icons on the debug canvas each frame using the adapter’s `getSpawnerScreenPositions({ canvas })` helper. Disabling the checkbox hides both the 3D markers and the 2D overlay.
 
+### Entity Census Spawner Details
+
+- **Purpose**: Quickly inspect how many NPCs each spawner intends to create, what group it belongs to, and whether its schedule is currently active.
+- **Source**: The census pulls spawners from `SpawnService.getSpawners(areaId)` (or area-level fallbacks) and reuses `resolveNpcSpawnerList` plus `countIntendedNpcSpawns` to mirror runtime spawn math.
+- **Config**: The block is hidden by default to keep the panel compact. Enable it via `window.CONFIG.debug.entityCensus.showSpawnerDetails = true;` and optionally cap rows with `window.CONFIG.debug.entityCensus.maxSpawnerDetails`.
+
 ## Debug Flags
 
 ### window.DEBUG_COSMETICS_TRACE
