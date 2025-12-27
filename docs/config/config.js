@@ -152,6 +152,15 @@ window.CONFIG.lighting.candleDefaults = {
   dayIntensity: 0.0
 };
 
+// 3D Box Shaper defaults (emissive faces + helper lights)
+window.CONFIG.boxShaper = window.CONFIG.boxShaper || {};
+window.CONFIG.boxShaper.emissive = {
+  intensity: 1.15,
+  pointLightIntensity: 0.8,
+  pointLightDistance: 7,
+  pointLightDecay: 2.2
+};
+
 // NPC scheduling presets
 window.CONFIG.scheduleDefaults = window.CONFIG.scheduleDefaults || {};
 window.CONFIG.scheduleDefaults.fallbackHour = 12;

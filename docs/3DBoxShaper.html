@@ -209,6 +209,7 @@
       width: 0%;
     }
   </style>
+  <script src="./config/config.js"></script>
 </head>
 <body>
 <div id="app">
@@ -254,6 +255,20 @@
         <div class="col">
           <label>&nbsp;</label>
           <button class="secondary" id="applyFaceColorBtn">Apply to face</button>
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:10px; align-items:center;">
+        <div class="col" style="gap:4px;">
+          <label style="display:flex;gap:8px;align-items:center;margin:0">
+            <input type="checkbox" id="faceEmissiveChk" /> Emissive face material
+          </label>
+          <div class="help">Emissive uses the face color for glow and exports with the mesh.</div>
+        </div>
+        <div class="col" style="gap:4px;">
+          <label style="display:flex;gap:8px;align-items:center;margin:0">
+            <input type="checkbox" id="faceLightToggle" /> Spawn point lights on emissive faces
+          </label>
+          <div class="help">Global toggle for preview/exports; lights use face centers.</div>
         </div>
       </div>
       <div class="help" style="margin-top:8px;">
@@ -565,12 +580,12 @@ setTimeout(() => {
 
       const defaultColor = "#9bb3d6";
       this.quads = [
-        { id:"front",  v:[4,5,6,7], color: defaultColor }, // +z
-        { id:"back",   v:[0,3,2,1], color: defaultColor }, // -z
-        { id:"right",  v:[1,2,6,5], color: defaultColor }, // +x
-        { id:"left",   v:[0,4,7,3], color: defaultColor }, // -x
-        { id:"top",    v:[3,7,6,2], color: defaultColor }, // +y
-        { id:"bottom", v:[0,1,5,4], color: defaultColor }, // -y
+        { id:"front",  v:[4,5,6,7], color: defaultColor, emissive: false }, // +z
+        { id:"back",   v:[0,3,2,1], color: defaultColor, emissive: false }, // -z
+        { id:"right",  v:[1,2,6,5], color: defaultColor, emissive: false }, // +x
+        { id:"left",   v:[0,4,7,3], color: defaultColor, emissive: false }, // -x
+        { id:"top",    v:[3,7,6,2], color: defaultColor, emissive: false }, // +y
+        { id:"bottom", v:[0,1,5,4], color: defaultColor, emissive: false }, // -y
       ];
 
       this.buildGeometry();
@@ -725,6 +740,12 @@ setTimeout(() => {
       q.color = normalizeHexColor(hex);
     }
 
+    setFaceEmissive(quadId, on) {
+      const q = this.getQuadById(quadId);
+      if (!q) return;
+      q.emissive = !!on;
+    }
+
     subdivideFace2x2(quadId) {
       const qi = this.quadIndexById(quadId);
       if (qi < 0) return null;
@@ -748,10 +769,12 @@ setTimeout(() => {
       // Replace one quad with 4. Order follows original orientation.
       const color = q.color;
 
-      const q0 = { id: newId("face"), v:[a, iAB, iCC, iDA], color };
-      const q1 = { id: newId("face"), v:[iAB, b, iBC, iCC], color };
-      const q2 = { id: newId("face"), v:[iCC, iBC, c, iCD], color };
-      const q3 = { id: newId("face"), v:[iDA, iCC, iCD, d], color };
+      const emissive = !!q.emissive;
+
+      const q0 = { id: newId("face"), v:[a, iAB, iCC, iDA], color, emissive };
+      const q1 = { id: newId("face"), v:[iAB, b, iBC, iCC], color, emissive };
+      const q2 = { id: newId("face"), v:[iCC, iBC, c, iCD], color, emissive };
+      const q3 = { id: newId("face"), v:[iDA, iCC, iCD, d], color, emissive };
 
       this.quads.splice(qi, 1, q0, q1, q2, q3);
 
@@ -763,13 +786,13 @@ setTimeout(() => {
     serialize() {
       return {
         vertices: this.vertices.map(v => v.toArray()),
-        quads: this.quads.map(q => ({ id:q.id, v:[...q.v], color:q.color })),
+        quads: this.quads.map(q => ({ id:q.id, v:[...q.v], color:q.color, emissive: !!q.emissive })),
       };
     }
 
     restore(state) {
       this.vertices = state.vertices.map(a => new THREE.Vector3(a[0], a[1], a[2]));
-      this.quads = state.quads.map(q => ({ id:q.id, v:[...q.v], color:q.color }));
+      this.quads = state.quads.map(q => ({ id:q.id, v:[...q.v], color:q.color, emissive: !!q.emissive }));
       this.buildGeometry();
     }
   }
@@ -795,6 +818,8 @@ setTimeout(() => {
   const statusText = document.getElementById("statusText");
   const statusPercent = document.getElementById("statusPercent");
   const progressFill = document.getElementById("progressFill");
+  const faceEmissiveChk = document.getElementById("faceEmissiveChk");
+  const faceLightToggle = document.getElementById("faceLightToggle");
 
   function setProgress(percent, message) {
     statusText.textContent = message;
@@ -807,6 +832,13 @@ setTimeout(() => {
 
   await new Promise(resolve => setTimeout(resolve, 50)); // Brief delay to show initial state
   setProgress(25, "Creating renderer...");
+
+  const emissiveDefaults = window.CONFIG?.boxShaper?.emissive ?? {
+    intensity: 1.15,
+    pointLightIntensity: 0.8,
+    pointLightDistance: 7,
+    pointLightDecay: 2.2,
+  };
 
   const renderer = createRenderer({
     container: viewportEl,
@@ -898,22 +930,61 @@ setTimeout(() => {
   const baseMesh = new THREE.Mesh(editable.geometry, []);
   scene.add(baseMesh);
 
+  const emissiveLights = [];
+
+  function clearEmissiveLights() {
+    while (emissiveLights.length > 0) {
+      const l = emissiveLights.pop();
+      scene.remove(l);
+    }
+  }
+
+  function rebuildEmissiveLight(l, q) {
+    const { center } = editable.getFaceBasis(q.id);
+    l.position.copy(center);
+    l.color.set(normalizeHexColor(q.color));
+    l.intensity = emissiveDefaults.pointLightIntensity;
+    l.distance = emissiveDefaults.pointLightDistance;
+    l.decay = emissiveDefaults.pointLightDecay;
+  }
+
+  function refreshEmissiveLights() {
+    clearEmissiveLights();
+    if (!faceLightToggle?.checked) return;
+    for (const q of editable.quads) {
+      if (!q.emissive) continue;
+      const light = new THREE.PointLight(
+        new THREE.Color(normalizeHexColor(q.color)),
+        emissiveDefaults.pointLightIntensity,
+        emissiveDefaults.pointLightDistance,
+        emissiveDefaults.pointLightDecay
+      );
+      rebuildEmissiveLight(light, q);
+      emissiveLights.push(light);
+      scene.add(light);
+    }
+  }
+
   function buildBaseMaterialsAndGroups() {
-    // map color -> materialIndex
+    // map color/emissive -> materialIndex
     const colorToIndex = new Map();
     const materials = [];
+    const transparent = document.getElementById("baseTransparentChk").checked;
 
-    function ensureMaterial(hex) {
-      const key = normalizeHexColor(hex);
+    function ensureMaterial(hex, emissive) {
+      const normalized = normalizeHexColor(hex);
+      const key = `${normalized}|${emissive ? "e" : "b"}`;
       const existing = colorToIndex.get(key);
       if (existing !== undefined) return existing;
       const mat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(key),
+        color: new THREE.Color(normalized),
         metalness: 0.05,
         roughness: 0.85,
         transparent: true,
-        opacity: document.getElementById("baseTransparentChk").checked ? 0.0 : 0.85,
+        opacity: transparent ? 0.0 : 0.85,
         side: THREE.DoubleSide,
+        emissive: emissive ? new THREE.Color(normalized) : new THREE.Color(0x000000),
+        emissiveIntensity: emissive ? emissiveDefaults.intensity : 0,
       });
       const idx = materials.push(mat) - 1;
       colorToIndex.set(key, idx);
@@ -924,12 +995,13 @@ setTimeout(() => {
     editable.geometry.clearGroups();
     for (let qi = 0; qi < editable.quads.length; qi++) {
       const q = editable.quads[qi];
-      const mi = ensureMaterial(q.color);
+      const mi = ensureMaterial(q.color, !!q.emissive);
       const start = qi * 6; // index-buffer entries (not bytes)
       editable.geometry.addGroup(start, 6, mi);
     }
 
     baseMesh.material = materials;
+    refreshEmissiveLights();
   }
 
   buildBaseMaterialsAndGroups();
@@ -1149,11 +1221,18 @@ setTimeout(() => {
     return id.slice(0, 10) + "…";
   }
 
+  function syncFaceEmissiveInput() {
+    const q = editable.getQuadById(selectedQuadId);
+    if (!q || !faceEmissiveChk) return;
+    faceEmissiveChk.checked = !!q.emissive;
+  }
+
   function setSelectedFace(id) {
     selectedQuadId = id;
     selPill.textContent = id ? `Selected face: ${faceLabel(id)}` : "Selected face: (none)";
     refreshOutline();
     syncFaceColorInput();
+    syncFaceEmissiveInput();
   }
 
   function setSelectedSticker(id) {
@@ -1257,6 +1336,7 @@ setTimeout(() => {
       selectedQuadId,
       selectedStickerId,
       baseTransparent: document.getElementById("baseTransparentChk").checked,
+      faceLightsEnabled: faceLightToggle?.checked ?? false,
     };
     undoStack.push(entry);
     if (undoStack.length > 80) undoStack.shift();
@@ -1292,11 +1372,16 @@ setTimeout(() => {
     // update opacity across all base materials
     applyBaseTransparency(entry.baseTransparent);
 
+    if (faceLightToggle) {
+      faceLightToggle.checked = !!entry.faceLightsEnabled;
+    }
+
     setSelectedFace(entry.selectedQuadId);
     setSelectedSticker(entry.selectedStickerId);
 
     updateAllStickers();
     refreshStickerList();
+    refreshEmissiveLights();
   }
 
   function undo() {
@@ -1308,6 +1393,7 @@ setTimeout(() => {
       selectedQuadId,
       selectedStickerId,
       baseTransparent: document.getElementById("baseTransparentChk").checked,
+      faceLightsEnabled: faceLightToggle?.checked ?? false,
     };
     const prev = undoStack.pop();
     redoStack.push(current);
@@ -1323,6 +1409,7 @@ setTimeout(() => {
       selectedQuadId,
       selectedStickerId,
       baseTransparent: document.getElementById("baseTransparentChk").checked,
+      faceLightsEnabled: faceLightToggle?.checked ?? false,
     };
     const next = redoStack.pop();
     undoStack.push(current);
@@ -1415,6 +1502,11 @@ setTimeout(() => {
     applyBaseTransparency(e.target.checked);
   };
 
+  faceLightToggle.onchange = () => {
+    snapshot("emissiveLightsToggle");
+    refreshEmissiveLights();
+  };
+
   // Face color
   function syncFaceColorInput() {
     const q = editable.getQuadById(selectedQuadId);
@@ -1427,6 +1519,13 @@ setTimeout(() => {
     snapshot("faceColor");
     const hex = document.getElementById("faceColor").value;
     editable.setFaceColor(selectedQuadId, hex);
+    buildBaseMaterialsAndGroups();
+  };
+
+  faceEmissiveChk.onchange = (e) => {
+    if (!requireFaceSelected()) { faceEmissiveChk.checked = false; return; }
+    snapshot("faceEmissive");
+    editable.setFaceEmissive(selectedQuadId, e.target.checked);
     buildBaseMaterialsAndGroups();
   };
 
@@ -1460,6 +1559,7 @@ setTimeout(() => {
     editable.updateGeometryPositionsOnly();
     refreshOutline();
     updateAllStickers();
+    refreshEmissiveLights();
   };
 
   document.getElementById("applyRotateBtn").onclick = () => {
@@ -1472,6 +1572,7 @@ setTimeout(() => {
     editable.updateGeometryPositionsOnly();
     refreshOutline();
     updateAllStickers();
+    refreshEmissiveLights();
   };
 
   document.getElementById("applyTranslateBtn").onclick = () => {
@@ -1484,6 +1585,7 @@ setTimeout(() => {
     editable.updateGeometryPositionsOnly();
     refreshOutline();
     updateAllStickers();
+    refreshEmissiveLights();
   };
 
   // Add sticker
@@ -1639,6 +1741,24 @@ setTimeout(() => {
     return mesh;
   }
 
+  function buildEmissiveExportLights() {
+    if (!faceLightToggle?.checked) return [];
+    const lights = [];
+    for (const q of editable.quads) {
+      if (!q.emissive) continue;
+      const light = new THREE.PointLight(
+        new THREE.Color(normalizeHexColor(q.color)),
+        emissiveDefaults.pointLightIntensity,
+        emissiveDefaults.pointLightDistance,
+        emissiveDefaults.pointLightDecay
+      );
+      const { center } = editable.getFaceBasis(q.id);
+      light.position.copy(center);
+      lights.push(light);
+    }
+    return lights;
+  }
+
   async function exportScene(binary) {
     // Load GLTFExporter on-demand
     if (!GLTFExporter) {
@@ -1663,6 +1783,10 @@ setTimeout(() => {
       // skip stickers whose face no longer exists
       if (!editable.getQuadById(st.quadId)) continue;
       group.add(buildExportStickerMesh(st));
+    }
+
+    for (const light of buildEmissiveExportLights()) {
+      group.add(light);
     }
 
     const options = {
@@ -1717,6 +1841,7 @@ setTimeout(() => {
     setDebug(
       `Face: ${selectedQuadId ? faceLabel(selectedQuadId) : "(none)"}\n` +
       `Faces: ${editable.quads.length}   Stickers: ${stickers.length}\n` +
+      `Emissive faces: ${editable.quads.filter(q => q.emissive).length}   Lights: ${emissiveLights.length}\n` +
       (st ? `Sticker ${st.id.slice(0,6)}… on ${faceLabel(st.quadId)}  mode=${st.params.clipToFace ? "clipped" : "overhang"}\n` : "") +
       `Tip: select top(+y) → scale 0.8/0.8 to get a frustum; subdivide faces for extra sticker targets.`
     );
