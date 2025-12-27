@@ -192,7 +192,7 @@ export class GroundPickupManager {
     // Mark as picked up (so it won't show in proximity again)
     inst.pickedUp = true;
 
-    // Disable and clear physics completely to remove collider
+    // Disable physics but keep object in dynamicInstances
     if (inst.physics) {
       inst.physics.disabled = true;
       inst.physics.enabled = false;
@@ -206,13 +206,9 @@ export class GroundPickupManager {
       inst.collider = null;
     }
 
-    // Remove from dynamicInstances array so it stops being rendered/updated on ground
-    const dynamicInstances = this.getDynamicInstances();
-    const index = dynamicInstances.indexOf(inst);
-    if (index > -1) {
-      dynamicInstances.splice(index, 1);
-      console.log('[GroundPickup] Removed from dynamicInstances, remaining:', dynamicInstances.length);
-    }
+    // Mark as held so update loop knows to move it with bone
+    inst.heldBy = 'player';
+    inst.attachToBone = 'weapon_0';
 
     // Add to player's held item
     const player = this.getPlayer();
@@ -229,13 +225,18 @@ export class GroundPickupManager {
       player.currentHeldItem = player.heldItems[player.heldItems.length - 1];
 
       // Store original weapon and switch to 'holding-prop' stance
-      if (!player.originalWeapon && player.weapon) {
-        player.originalWeapon = player.weapon;
+      if (!player.originalWeapon) {
+        player.originalWeapon = player.weapon || player.renderProfile?.weapon;
       }
+
+      // Set weapon in both places to ensure animator picks it up
       player.weapon = 'holding-prop';
+      if (!player.renderProfile) player.renderProfile = {};
+      player.renderProfile.weapon = 'holding-prop';
 
       console.log('[GroundPickup] ✓ Added to player held items:', player.currentHeldItem);
       console.log('[GroundPickup] ✓ Switched to holding-prop stance');
+      console.log('[GroundPickup] ✓ Set weapon:', player.weapon, '| renderProfile:', player.renderProfile.weapon);
     }
 
     // Dispatch event for other systems

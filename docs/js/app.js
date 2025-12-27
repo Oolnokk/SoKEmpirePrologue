@@ -6071,6 +6071,31 @@ function loop(t){
     updateObstructionPhysics(props, window.CONFIG, dt);
   }
 
+  // Update held object positions to follow bones
+  for (const inst of props) {
+    if (inst.heldBy && inst.attachToBone) {
+      // Get the fighter holding this object
+      const fighter = window.GAME?.FIGHTERS?.[inst.heldBy];
+      if (!fighter) continue;
+
+      // Get the bone to attach to
+      const bones = window.GAME?.ANCHORS_OBJ?.[inst.heldBy];
+      if (!bones) continue;
+
+      const bone = bones[inst.attachToBone];
+      if (!bone) continue;
+
+      // Update position to match bone position
+      inst.position.x = bone.x;
+      inst.position.y = bone.y;
+
+      // Optional: match bone rotation if needed for physics
+      if (inst.rotation !== undefined) {
+        inst.rotation = bone.ang || 0;
+      }
+    }
+  }
+
   // Update groundY from gameplay path projection (must happen before camera update)
   updateGroundYFromPath();
 
