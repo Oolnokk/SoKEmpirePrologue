@@ -246,7 +246,7 @@ export class Renderer {
             const scene = gltf.scene;
             console.log(`[Renderer] ✓ GLTF loaded successfully: ${url}`);
             console.log(`[Renderer]   - Scene children: ${scene.children.length}`);
-            console.log(`[Renderer]   - Scene bounds:`, scene);
+            // Don't log scene object - contains large base64 texture data
             
             // Count meshes and geometry types
             let meshCount = 0;
