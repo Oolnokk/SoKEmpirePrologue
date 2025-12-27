@@ -4,14 +4,19 @@
  * to spawn/activate their corresponding 2D gameplay entities.
  */
 
-import * as THREE from 'three';
-
 export class SpriteHolsterManager {
   constructor(scene, coordinateTransform) {
+    // THREE is available globally via the renderer
+    this.THREE = globalThis.THREE;
+    if (!this.THREE) {
+      console.error('[SpriteHolsterManager] THREE not available on globalThis');
+      throw new Error('this.THREE.js is required for SpriteHolsterManager');
+    }
+
     this.scene = scene;
     this.coordinateTransform = coordinateTransform;
     this.holsters = new Map(); // holsterId -> holster data
-    this.holsterGroup = new THREE.Group();
+    this.holsterGroup = new this.this.THREE.Group();
     this.holsterGroup.name = 'SpriteHolsters';
     this.scene.add(this.holsterGroup);
   }
@@ -76,7 +81,7 @@ export class SpriteHolsterManager {
    * Create debug symbols visualization (Case B - for props)
    */
   _createDebugSymbols(entity) {
-    const group = new THREE.Group();
+    const group = new this.THREE.Group();
     group.name = `holster_${entity.id}`;
 
     const debugSymbols = entity.meta.debugSymbols || [
@@ -87,41 +92,41 @@ export class SpriteHolsterManager {
     debugSymbols.forEach((symbolDef, index) => {
       let geometry, material, mesh;
 
-      const color = new THREE.Color(symbolDef.color || '#ffffff');
+      const color = new this.THREE.Color(symbolDef.color || '#ffffff');
       const size = symbolDef.size || 5;
 
       switch (symbolDef.type) {
         case 'sphere':
-          geometry = new THREE.SphereGeometry(size, 16, 16);
-          material = new THREE.MeshBasicMaterial({
+          geometry = new this.THREE.SphereGeometry(size, 16, 16);
+          material = new this.THREE.MeshBasicMaterial({
             color,
             transparent: true,
             opacity: 0.7,
             depthTest: true
           });
-          mesh = new THREE.Mesh(geometry, material);
+          mesh = new this.THREE.Mesh(geometry, material);
           break;
 
         case 'box':
-          geometry = new THREE.BoxGeometry(size, size, size);
-          material = new THREE.MeshBasicMaterial({
+          geometry = new this.THREE.BoxGeometry(size, size, size);
+          material = new this.THREE.MeshBasicMaterial({
             color,
             transparent: true,
             opacity: 0.7,
             depthTest: true
           });
-          mesh = new THREE.Mesh(geometry, material);
+          mesh = new this.THREE.Mesh(geometry, material);
           break;
 
         case 'cone':
-          geometry = new THREE.ConeGeometry(size, size * 2, 8);
-          material = new THREE.MeshBasicMaterial({
+          geometry = new this.THREE.ConeGeometry(size, size * 2, 8);
+          material = new this.THREE.MeshBasicMaterial({
             color,
             transparent: true,
             opacity: 0.7,
             depthTest: true
           });
-          mesh = new THREE.Mesh(geometry, material);
+          mesh = new this.THREE.Mesh(geometry, material);
           break;
 
         default:
@@ -137,9 +142,9 @@ export class SpriteHolsterManager {
         group.add(mesh);
 
         // Add wireframe outline
-        const wireframe = new THREE.LineSegments(
-          new THREE.EdgesGeometry(geometry),
-          new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 })
+        const wireframe = new this.THREE.LineSegments(
+          new this.THREE.EdgesGeometry(geometry),
+          new this.THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 })
         );
         wireframe.position.copy(mesh.position);
         group.add(wireframe);
@@ -167,9 +172,9 @@ export class SpriteHolsterManager {
     ctx.font = '12px monospace';
     ctx.fillText('NPC', 20, 64);
 
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(material);
+    const texture = new this.THREE.CanvasTexture(canvas);
+    const material = new this.THREE.SpriteMaterial({ map: texture });
+    const sprite = new this.THREE.Sprite(material);
     sprite.scale.set(32, 64, 1);
 
     return sprite;
