@@ -603,6 +603,16 @@
             <button type="button" id="copyDebugConsole" class="toggle-btn" style="float: right; background: #3b82f6; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-left: 4px;">📋 Copy</button>
             <button type="button" id="toggleDebugConsole" class="toggle-btn" style="float: right; background: #334155; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Clear</button>
           </div>
+          <div class="debug-console-filters" id="debugConsoleFilters">
+            <label class="debug-console-filter" for="debugOnTickFilter">
+              <input type="checkbox" id="debugOnTickFilter">
+              Show on-tick debug output (live only)
+            </label>
+            <div class="debug-console-filter-subtext">Filter by script and bracketed log tags (e.g. [Renderer]). New sources appear automatically.</div>
+            <div class="debug-script-filters" id="debugScriptFilters">
+              <div class="debug-script-filter-placeholder">Waiting for scripts to log…</div>
+            </div>
+          </div>
           <div id="debugConsole" style="font-family: monospace; font-size: 10px; color: #94a3b8; background: #0f172a; padding: 8px; border-radius: 4px; max-height: 300px; overflow-y: auto; line-height: 1.4;">
             <div style="color: #64748b; font-style: italic;">Console output will appear here...</div>
           </div>
@@ -763,11 +773,33 @@
     (function() {
       const debugConsole = document.getElementById('debugConsole');
       const clearBtn = document.getElementById('toggleDebugConsole');
+      const copyBtn = document.getElementById('copyDebugConsole');
+      const scriptFiltersEl = document.getElementById('debugScriptFilters');
+      const onTickToggle = document.getElementById('debugOnTickFilter');
+      const filtersContainer = document.getElementById('debugConsoleFilters');
 
-      if (!debugConsole) return;
+      if (!debugConsole || !filtersContainer || !scriptFiltersEl) return;
 
-      let messageCount = 0;
-      const MAX_MESSAGES = 100;
+      const consoleConfig = (window.CONFIG && window.CONFIG.debug && window.CONFIG.debug.console) || {};
+      const MAX_MESSAGES = consoleConfig.maxMessages ?? 100;
+      const ON_TICK_TAG_PATTERN = consoleConfig.onTickTagPattern || /^\s*\[on-?tick\]\s*(.*)$/i;
+      const SCRIPT_TAG_PATTERN = consoleConfig.scriptTagPattern || /^\s*\[script:([^\]]+)\]\s*(.*)$/i;
+      const SCRIPT_LABEL_PATTERN = consoleConfig.scriptLabelPattern || /^\s*\[([^\]\s][^\]]*)\]\s*(.*)$/;
+
+      const colors = {
+        debug: '#3b82f6',
+        log: '#94a3b8',
+        warn: '#f59e0b',
+        error: '#ef4444',
+        info: '#22c55e'
+      };
+
+      const debugState = {
+        messages: [],
+        onTickMessages: [],
+        scriptFilters: new Map(),
+        showOnTick: consoleConfig.onTickDefault ?? false,
+      };
 
       function formatValue(value) {
         if (value === null) return 'null';
@@ -782,29 +814,136 @@
         return String(value);
       }
 
-      function addMessage(level, args) {
-        messageCount++;
+      function extractMetadata(args) {
+        let scriptOverride;
+        let bracketScript;
+        let isOnTick = false;
 
-        // Clear ONLY the placeholder text if it exists, don't clear actual messages
-        const placeholder = debugConsole.querySelector('div[style*="font-style: italic"]');
-        if (placeholder && placeholder.textContent.includes('Console output will appear here')) {
+        const cleanedArgs = Array.from(args).map((arg) => {
+          if (typeof arg === 'string') {
+            let text = arg;
+
+            const onTickMatch = text.match(ON_TICK_TAG_PATTERN);
+            if (onTickMatch) {
+              isOnTick = true;
+              text = onTickMatch[1] || '';
+            }
+
+            const scriptMatch = text.match(SCRIPT_TAG_PATTERN);
+            if (scriptMatch) {
+              scriptOverride = scriptMatch[1].trim();
+              text = scriptMatch[2] || '';
+            }
+
+            const labelMatch = text.match(SCRIPT_LABEL_PATTERN);
+            if (labelMatch) {
+              const candidate = labelMatch[1].trim();
+              if (candidate) {
+                bracketScript = candidate;
+              }
+              text = labelMatch[2] || '';
+            }
+
+            return text;
+          }
+
+          if (arg && typeof arg === 'object' && !Array.isArray(arg)) {
+            const clone = { ...arg };
+            if (typeof clone.debugScript === 'string') {
+              scriptOverride = clone.debugScript.trim?.() || clone.debugScript;
+              delete clone.debugScript;
+            }
+            if (clone.onTick || clone.debugOnTick) {
+              isOnTick = true;
+              delete clone.onTick;
+              delete clone.debugOnTick;
+            }
+            return clone;
+          }
+
+          return arg;
+        });
+
+        return { cleanedArgs, scriptOverride, bracketScript, isOnTick };
+      }
+
+      function getCallerScript() {
+        const stack = new Error().stack;
+        if (!stack) return 'unknown';
+
+        const lines = stack.split('\n').slice(2);
+        for (const line of lines) {
+          const match = line.match(/\(?((?:https?:\/\/[^\s)]+)|(?:[^\s)]+)):(\d+):(\d+)\)?/);
+          if (match && match[1]) {
+            const path = match[1].split(/[?#]/)[0];
+            const parts = path.split('/');
+            const filename = parts.pop();
+            if (filename) {
+              return filename;
+            }
+          }
+        }
+
+        return 'unknown';
+      }
+
+      function removeScriptPlaceholder() {
+        const placeholder = scriptFiltersEl.querySelector('.debug-script-filter-placeholder');
+        if (placeholder) {
           placeholder.remove();
         }
+      }
 
-        // Limit message count
-        const messages = debugConsole.querySelectorAll('.console-message');
-        if (messages.length >= MAX_MESSAGES) {
-          messages[0].remove();
+      function ensureScriptFilter(scriptName) {
+        const name = scriptName || 'unknown';
+
+        if (debugState.scriptFilters.has(name)) return;
+
+        debugState.scriptFilters.set(name, true);
+        removeScriptPlaceholder();
+
+        const filterId = `debug-script-${debugState.scriptFilters.size}`;
+        const label = document.createElement('label');
+        label.className = 'debug-console-filter';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = filterId;
+        checkbox.checked = true;
+        checkbox.dataset.scriptName = name;
+
+        checkbox.addEventListener('change', () => {
+          debugState.scriptFilters.set(name, checkbox.checked);
+          purgeOnTickCache();
+          renderMessages();
+        });
+
+        const text = document.createElement('span');
+        text.textContent = name;
+
+        label.appendChild(checkbox);
+        label.appendChild(text);
+        scriptFiltersEl.appendChild(label);
+      }
+
+      function trimList(list) {
+        while (list.length > MAX_MESSAGES) {
+          list.shift();
+        }
+      }
+
+      function purgeOnTickCache() {
+        if (!debugState.showOnTick) {
+          debugState.onTickMessages = [];
+          return;
         }
 
-        const colors = {
-          debug: '#3b82f6',
-          log: '#94a3b8',
-          warn: '#f59e0b',
-          error: '#ef4444',
-          info: '#22c55e'
-        };
+        debugState.onTickMessages = debugState.onTickMessages.filter(
+          (entry) => debugState.scriptFilters.get(entry.scriptName) !== false
+        );
+      }
 
+      function buildMessage(entry) {
         const msg = document.createElement('div');
         msg.className = 'console-message';
         msg.style.cssText = `
@@ -813,18 +952,99 @@
           word-break: break-word;
         `;
 
-        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+        const meta = document.createElement('div');
+        meta.className = 'console-message__meta';
 
-        const formattedArgs = Array.from(args).map(arg => formatValue(arg)).join(' ');
+        const timestamp = document.createElement('span');
+        timestamp.className = 'console-timestamp';
+        timestamp.textContent = `[${entry.timestamp}]`;
 
-        msg.innerHTML = `
-          <span style="color: #64748b; font-size: 9px;">[${timestamp}]</span>
-          <span style="color: ${colors[level] || '#94a3b8'}; font-weight: 600; font-size: 9px;"> ${level.toUpperCase()}</span>
-          <div style="margin-left: 4px; white-space: pre-wrap; color: #f8fafc;">${formattedArgs}</div>
-        `;
+        const level = document.createElement('span');
+        level.className = 'console-level';
+        level.style.color = colors[entry.level] || '#94a3b8';
+        level.textContent = ` ${entry.level.toUpperCase()}`;
 
-        debugConsole.appendChild(msg);
+        const scriptLabel = document.createElement('span');
+        scriptLabel.className = 'console-script-label';
+        scriptLabel.textContent = entry.scriptName;
+
+        meta.appendChild(timestamp);
+        meta.appendChild(level);
+        meta.appendChild(scriptLabel);
+
+        if (entry.isOnTick) {
+          const badge = document.createElement('span');
+          badge.className = 'console-badge';
+          badge.textContent = 'on-tick';
+          meta.appendChild(badge);
+        }
+
+        const content = document.createElement('div');
+        content.style.marginLeft = '4px';
+        content.style.whiteSpace = 'pre-wrap';
+        content.style.color = '#f8fafc';
+        content.textContent = entry.formattedArgs;
+
+        msg.appendChild(meta);
+        msg.appendChild(content);
+        return msg;
+      }
+
+      function getVisibleEntries() {
+        const scriptAllowed = (name) => debugState.scriptFilters.get(name) !== false;
+
+        const persisted = debugState.messages.filter((entry) => scriptAllowed(entry.scriptName));
+        const onTick = debugState.showOnTick
+          ? debugState.onTickMessages.filter((entry) => scriptAllowed(entry.scriptName))
+          : [];
+
+        return [...persisted, ...onTick];
+      }
+
+      function renderMessages() {
+        debugConsole.innerHTML = '';
+        const visible = getVisibleEntries();
+
+        if (!visible.length) {
+          debugConsole.innerHTML = '<div style="color: #64748b; font-style: italic;">Console output will appear here (filtered by script)...</div>';
+          return;
+        }
+
+        visible.forEach((entry) => {
+          debugConsole.appendChild(buildMessage(entry));
+        });
+
         debugConsole.scrollTop = debugConsole.scrollHeight;
+      }
+
+      function addMessage(level, args) {
+        const { cleanedArgs, scriptOverride, bracketScript, isOnTick } = extractMetadata(args);
+        const scriptName = scriptOverride || bracketScript || getCallerScript() || 'unknown';
+
+        ensureScriptFilter(scriptName);
+
+        const timestamp = new Date().toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          fractionalSecondDigits: 3
+        });
+
+        const formattedArgs = cleanedArgs.map((arg) => formatValue(arg)).join(' ');
+        const entry = { level, timestamp, formattedArgs, scriptName, isOnTick: Boolean(isOnTick) };
+
+        if (entry.isOnTick) {
+          if (debugState.showOnTick && debugState.scriptFilters.get(scriptName) !== false) {
+            debugState.onTickMessages.push(entry);
+            trimList(debugState.onTickMessages);
+          }
+        } else {
+          debugState.messages.push(entry);
+          trimList(debugState.messages);
+        }
+
+        renderMessages();
       }
 
       // Store original console methods
@@ -839,7 +1059,9 @@
       // Intercept console methods
       console.debug = function(...args) {
         addMessage('debug', args);
-        originalConsole.debug.apply(console, args);
+        if (originalConsole.debug) {
+          originalConsole.debug.apply(console, args);
+        }
       };
 
       console.log = function(...args) {
@@ -865,36 +1087,31 @@
       // Clear button
       if (clearBtn) {
         clearBtn.addEventListener('click', () => {
-          debugConsole.innerHTML = '<div style="color: #64748b; font-style: italic;">Console cleared...</div>';
-          messageCount = 0;
+          debugState.messages = [];
+          debugState.onTickMessages = [];
+          renderMessages();
         });
       }
 
       // Copy button
-      const copyBtn = document.getElementById('copyDebugConsole');
       if (copyBtn) {
         copyBtn.addEventListener('click', async () => {
           try {
-            // Get all console messages
-            const messages = debugConsole.querySelectorAll('.console-message');
+            const visibleEntries = getVisibleEntries();
             let text = '';
 
-            messages.forEach(msg => {
-              // Extract timestamp, level, and message
-              const timestamp = msg.querySelector('span:first-child')?.textContent || '';
-              const level = msg.querySelector('span:nth-child(2)')?.textContent || '';
-              const content = msg.querySelector('div')?.textContent || '';
-              text += `${timestamp} ${level}\n${content}\n\n`;
+            visibleEntries.forEach((entry) => {
+              text += `[${entry.timestamp}] ${entry.level.toUpperCase()} (${entry.scriptName})`;
+              if (entry.isOnTick) text += ' [on-tick]';
+              text += `\n${entry.formattedArgs}\n\n`;
             });
 
-            // If no messages, copy placeholder text
             if (!text.trim()) {
-              text = debugConsole.textContent;
+              text = debugConsole.textContent || '';
             }
 
             await navigator.clipboard.writeText(text);
 
-            // Visual feedback
             const originalText = copyBtn.textContent;
             copyBtn.textContent = '✅ Copied!';
             copyBtn.style.background = '#22c55e';
@@ -910,6 +1127,18 @@
           }
         });
       }
+
+      if (onTickToggle) {
+        onTickToggle.checked = debugState.showOnTick;
+        onTickToggle.addEventListener('change', () => {
+          debugState.showOnTick = onTickToggle.checked;
+          purgeOnTickCache();
+          renderMessages();
+        });
+      }
+
+      // Render initial state
+      renderMessages();
 
       // Log that debug console is ready
       console.info('Debug console initialized');

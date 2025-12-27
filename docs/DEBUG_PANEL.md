@@ -110,6 +110,13 @@ This allows agents to:
 2. The button will change to **✕ Debug** when the panel is open
 3. Click again to hide the panel
 
+### Console filtering and tagging
+
+- The console view mirrors `console.debug`/`log`/`warn`/`error`/`info` output and automatically builds filter checkboxes for each source label.
+- Sources are resolved in order from explicit tags (e.g. `[script:FixAttempt42]`) to leading bracketed prefixes (e.g. `[Renderer] loading…`), then falling back to the logging file name.
+- A separate **Show on-tick debug output (live only)** toggle gates `[on-tick]`-tagged logs; these are transient and cleared when hidden or filtered out.
+- Tag patterns are configurable in `window.CONFIG.debug.console` via `onTickTagPattern`, `scriptTagPattern`, and `scriptLabelPattern` (see `docs/config/config.js`).
+
 ### Gameplay Path & Map Elements Overlay
 
 - The **🛤️ Show Gameplay Path & Map Elements** checkbox toggles a combined debug overlay.
@@ -230,3 +237,10 @@ When enabled, logs detailed information for each sprite drawn:
 - Updates are throttled by checking if panel is visible
 - Only updates DOM when panel is open
 - Minimal impact on game performance (~1-2ms per frame when open)
+
+## Debug console filters
+
+- The debug console now groups messages by their source script and exposes a checkbox for each script as soon as it logs. All script checkboxes start enabled so investigators can see the full timeline, and unchecking a script hides its entries without deleting them.
+- A dedicated **Show on-tick debug output** checkbox (off by default) controls high-frequency debug spam. On-tick entries are only kept while this toggle and the originating script's checkbox are turned on; turning either off clears those transient lines.
+- Script names are inferred from the call stack when possible. You can override the label by prefixing a message with `[script:my-fix-name]` or by logging an object that contains `debugScript: 'my-fix-name'`. Mark a message as on-tick with `[on-tick]` or with an object property of `onTick: true` or `debugOnTick: true`.
+- Debug console limits are configurable via `window.CONFIG.debug.console`: `maxMessages` caps stored history per category (default 100) and `onTickDefault` controls whether the on-tick checkbox starts enabled.

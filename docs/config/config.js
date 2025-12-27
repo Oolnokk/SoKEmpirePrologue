@@ -36,6 +36,19 @@ window.CONFIG.debug.gameplayOverlay = window.CONFIG.debug.gameplayOverlay || {
   labelColor: '#e5e7eb'
 };
 
+// Debug console settings for the UI debug panel
+const __existingDebugConsoleConfig = window.CONFIG.debug.console || {};
+window.CONFIG.debug.console = {
+  maxMessages: __existingDebugConsoleConfig.maxMessages ?? 100,
+  onTickDefault: __existingDebugConsoleConfig.onTickDefault ?? false,
+  onTickTagPattern: __existingDebugConsoleConfig.onTickTagPattern
+    || /^\s*\[on-?tick\]\s*(.*)$/i,
+  scriptTagPattern: __existingDebugConsoleConfig.scriptTagPattern
+    || /^\s*\[script:([^\]]+)\]\s*(.*)$/i,
+  scriptLabelPattern: __existingDebugConsoleConfig.scriptLabelPattern
+    || /^\s*\[([^\]\s][^\]]*)\]\s*(.*)$/
+};
+
 const __existingMinimapConfig = window.CONFIG.debug.minimap || {};
 window.CONFIG.debug.minimap = {
   background: __existingMinimapConfig.background ?? '#0a0a0a',
