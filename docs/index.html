@@ -937,6 +937,7 @@
           debugState.onTickMessages = [];
           return;
         }
+      }
 
         debugState.onTickMessages = debugState.onTickMessages.filter(
           (entry) => debugState.scriptFilters.get(entry.scriptName) !== false
