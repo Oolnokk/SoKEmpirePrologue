@@ -4,21 +4,36 @@
  */
 
 export class WeatherPlaneManager {
-  constructor(scene, THREE, textureLoader) {
+  constructor(scene, THREE, textureLoader, sceneBounds = null) {
     this.scene = scene;
     this.THREE = THREE;
     this.textureLoader = textureLoader;
     this.planes = new Map(); // id -> { mesh, config, animation }
     this.time = 0;
+
+    // Scene bounds for auto-sizing weather planes
+    // If not provided, use sensible defaults
+    this.sceneBounds = sceneBounds || {
+      minX: -1000,
+      maxX: 1000,
+      minZ: -500,
+      maxZ: 500,
+      spanX: 2000,
+      spanZ: 1000
+    };
   }
 
   /**
    * Create a sky background plane with gradient
+   * Auto-sizes to span the entire scene bounds
    */
   async createSkyPlane(config, position, scale) {
     const { gradient } = config.extraConfig || {};
-    const width = 3200;
-    const height = 1800;
+
+    // Auto-size to span the scene with margin
+    const margin = 1.5; // Extend beyond scene bounds
+    const width = this.sceneBounds.spanX * margin;
+    const height = 1800; // Fixed vertical size
 
     // Create canvas texture with gradient
     const canvas = document.createElement('canvas');
@@ -64,6 +79,7 @@ export class WeatherPlaneManager {
 
   /**
    * Create a cloud plane with texture and breathing animation
+   * Auto-sizes to span the scene bounds
    */
   async createCloudPlane(config, position, scale) {
     const texture = await this.textureLoader.load(config.imagePath);
@@ -78,9 +94,10 @@ export class WeatherPlaneManager {
       opacity: 1.0
     });
 
-    // Use texture's natural dimensions
+    // Auto-size to span the scene with margin
+    const margin = 1.3;
     const aspectRatio = texture.image.width / texture.image.height;
-    const baseWidth = 1600;
+    const baseWidth = this.sceneBounds.spanX * margin;
     const width = baseWidth * scale.x;
     const height = (baseWidth / aspectRatio) * scale.y;
 
@@ -107,6 +124,7 @@ export class WeatherPlaneManager {
 
   /**
    * Create jungle foliage plane with wiggle shader
+   * Auto-sizes to span the scene bounds
    */
   async createJunglePlane(config, position, scale) {
     const texture = await this.textureLoader.load(config.imagePath);
@@ -169,8 +187,10 @@ export class WeatherPlaneManager {
       depthWrite: false
     });
 
+    // Auto-size to span the scene with margin
+    const margin = 1.3;
     const aspectRatio = texture.image.width / texture.image.height;
-    const baseWidth = 1600;
+    const baseWidth = this.sceneBounds.spanX * margin;
     const width = baseWidth * scale.x;
     const height = (baseWidth / aspectRatio) * scale.y;
 

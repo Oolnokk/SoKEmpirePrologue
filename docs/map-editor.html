@@ -366,7 +366,6 @@ select {
         <option value="ground">Ground Segments</option>
         <option value="structure" selected>Structures</option>
         <option value="decoration">Decorations</option>
-        <option value="weather">Weather</option>
       </select>
 
       <label for="tileTypeSelect">Tile Brush</label>
@@ -543,6 +542,65 @@ select {
       <div class="camera-slider">
         <label for="camDistance">Distance</label>
         <input type="range" id="camDistance" min="5" max="80" step="1" value="40" />
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Weather Layers</h2>
+      <p style="font-size: 12px; color: #9ca3af; margin: 0 0 12px;">Scene-level backdrop elements that span the gameplay path.</p>
+
+      <div class="info-row" style="margin-bottom: 8px;">
+        <label><input type="checkbox" id="weatherEnableCheckbox" /> Enable Weather</label>
+      </div>
+
+      <div id="weatherControls" style="display: none;">
+        <h3 style="font-size: 13px; margin: 12px 0 8px; color: #cbd5e1;">Sky</h3>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label><input type="checkbox" id="weatherSkyEnable" checked /> Sky Background</label>
+        </div>
+
+        <h3 style="font-size: 13px; margin: 12px 0 8px; color: #cbd5e1;">Clouds</h3>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label><input type="checkbox" id="weatherCloudMediumL" checked /> Cloud Medium Left</label>
+        </div>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label><input type="checkbox" id="weatherCloudLargeCentral" checked /> Cloud Large Central</label>
+        </div>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label><input type="checkbox" id="weatherCloudSmallR" checked /> Cloud Small Right</label>
+        </div>
+
+        <h3 style="font-size: 13px; margin: 12px 0 8px; color: #cbd5e1;">Jungle Foliage</h3>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label><input type="checkbox" id="weatherJungleTallR" checked /> Jungle Tall Right</label>
+        </div>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label><input type="checkbox" id="weatherJungleTallL" checked /> Jungle Tall Left</label>
+        </div>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label><input type="checkbox" id="weatherJungleWideR" checked /> Jungle Wide Right</label>
+        </div>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label><input type="checkbox" id="weatherJungleWideL" checked /> Jungle Wide Left</label>
+        </div>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label><input type="checkbox" id="weatherJungleCentral" checked /> Jungle Central</label>
+        </div>
+
+        <h3 style="font-size: 13px; margin: 12px 0 8px; color: #cbd5e1;">Rain</h3>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label><input type="checkbox" id="weatherRainEnable" checked /> Rain Particles</label>
+        </div>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label for="weatherRainIntensity" style="font-size: 12px;">Intensity</label>
+          <input type="range" id="weatherRainIntensity" min="0" max="1" step="0.1" value="0.5" style="width: 100%;" />
+          <span id="weatherRainIntensityValue" style="font-size: 11px; color: #9ca3af;">0.5</span>
+        </div>
+        <div class="info-row" style="margin-bottom: 4px;">
+          <label for="weatherWindDirection" style="font-size: 12px;">Wind Direction (deg)</label>
+          <input type="range" id="weatherWindDirection" min="-180" max="180" step="1" value="25" style="width: 100%;" />
+          <span id="weatherWindDirectionValue" style="font-size: 11px; color: #9ca3af;">25°</span>
+        </div>
       </div>
     </div>
 
@@ -731,8 +789,8 @@ select {
     const HALF_ROWS = (ROWS - 1) / 2;
     const HALF_COLS = (COLS - 1) / 2;
 
-    const LAYERS = { GROUND: "ground", STRUCTURE: "structure", DECORATION: "decoration", WEATHER: "weather" };
-    const LAYER_ORDER = [LAYERS.GROUND, LAYERS.STRUCTURE, LAYERS.DECORATION, LAYERS.WEATHER];
+    const LAYERS = { GROUND: "ground", STRUCTURE: "structure", DECORATION: "decoration" };
+    const LAYER_ORDER = [LAYERS.GROUND, LAYERS.STRUCTURE, LAYERS.DECORATION];
 
     // --- DYNAMIC ASSET LOADER ---
     // Attempts to load asset definitions from canonical locations:
@@ -742,11 +800,10 @@ select {
     let SEGMENT_ASSETS = [];
     let STRUCTURE_ASSETS = [];
     let DECORATION_ASSETS = [];
-    let WEATHER_ASSETS = [];
     let ALL_ASSETS = [];
 
     function rebuildAllAssets() {
-      ALL_ASSETS = [...SEGMENT_ASSETS, ...STRUCTURE_ASSETS, ...DECORATION_ASSETS, ...WEATHER_ASSETS];
+      ALL_ASSETS = [...SEGMENT_ASSETS, ...STRUCTURE_ASSETS, ...DECORATION_ASSETS];
     }
 
     const docsBase = new URL('.', window.location.href);
@@ -790,14 +847,6 @@ select {
             colorVar: asset.colorVar || '--tower-color',
             gltfTemplate: asset.gltfTemplate || null,
             gltfFileName: asset.gltfPath ? asset.gltfPath.split('/').pop() : null
-          }));
-
-          WEATHER_ASSETS = (data.weather || []).map(asset => ({
-            ...asset,
-            layer: LAYERS.WEATHER,
-            colorVar: asset.colorVar || '--weather-color',
-            gltfTemplate: asset.gltfTemplate || null,
-            gltfFileName: asset.imagePath ? asset.imagePath.split('/').pop() : null
           }));
 
           rebuildAllAssets();
@@ -2676,6 +2725,27 @@ select {
       updateCameraFromState();
     });
 
+    // Weather controls
+    const weatherEnableCheckbox = document.getElementById("weatherEnableCheckbox");
+    const weatherControls = document.getElementById("weatherControls");
+    const weatherRainIntensity = document.getElementById("weatherRainIntensity");
+    const weatherRainIntensityValue = document.getElementById("weatherRainIntensityValue");
+    const weatherWindDirection = document.getElementById("weatherWindDirection");
+    const weatherWindDirectionValue = document.getElementById("weatherWindDirectionValue");
+
+    weatherEnableCheckbox.addEventListener("change", () => {
+      weatherControls.style.display = weatherEnableCheckbox.checked ? "" : "none";
+      logDebug("Weather " + (weatherEnableCheckbox.checked ? "enabled" : "disabled"));
+    });
+
+    weatherRainIntensity.addEventListener("input", () => {
+      weatherRainIntensityValue.textContent = Number(weatherRainIntensity.value).toFixed(1);
+    });
+
+    weatherWindDirection.addEventListener("input", () => {
+      weatherWindDirectionValue.textContent = Number(weatherWindDirection.value) + "°";
+    });
+
     reload3DBtn.addEventListener("click", () => {
       logDebug("Manual 3D reload triggered. Reloading models from paths...");
       autoLoadAssetModels();
@@ -2832,6 +2902,24 @@ select {
           offsetZ: gameplayPathLookAtOffsetZ
         },
         cables: exportedCables,
+
+        weather: weatherEnableCheckbox.checked ? {
+          enabled: true,
+          layers: [
+            document.getElementById("weatherSkyEnable").checked ? "sky_background" : null,
+            document.getElementById("weatherCloudMediumL").checked ? "cloud_medium_l" : null,
+            document.getElementById("weatherCloudLargeCentral").checked ? "cloud_large_central" : null,
+            document.getElementById("weatherCloudSmallR").checked ? "cloud_small_r" : null,
+            document.getElementById("weatherJungleTallR").checked ? "jungle_tall_r" : null,
+            document.getElementById("weatherJungleTallL").checked ? "jungle_tall_l" : null,
+            document.getElementById("weatherJungleWideR").checked ? "jungle_wide_r" : null,
+            document.getElementById("weatherJungleWideL").checked ? "jungle_wide_l" : null,
+            document.getElementById("weatherJungleCentral").checked ? "jungle_central" : null,
+            document.getElementById("weatherRainEnable").checked ? "rain_layer" : null
+          ].filter(Boolean),
+          rainIntensity: Number(weatherRainIntensity.value),
+          windDirection: Number(weatherWindDirection.value)
+        } : { enabled: false },
 
         layerStates,
         assets: {
