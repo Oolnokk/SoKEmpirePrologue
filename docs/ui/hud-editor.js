@@ -62,7 +62,6 @@ const undoBtn = document.getElementById('undoBtn');
 const DEFAULT_ARCH_ANCHORS = {
   start: { x: 0.98, y: 0.94 },
   end: { x: 0.78, y: 0.86 },
-  control: { x: 0.88, y: 0.75 },
 };
 
 const DEFAULT_TEXT_ELEMENT = {
@@ -101,7 +100,6 @@ function ensureHudConfig() {
   const archCfg = window.CONFIG.hud.arch.arch;
   archCfg.start = archCfg.start || { ...DEFAULT_ARCH_ANCHORS.start };
   archCfg.end = archCfg.end || { ...DEFAULT_ARCH_ANCHORS.end };
-  archCfg.control = archCfg.control || { ...DEFAULT_ARCH_ANCHORS.control };
   if (!Number.isFinite(archCfg.gridSnapPx)) {
     archCfg.gridSnapPx = gridSize;
   }
@@ -274,8 +272,7 @@ function renderArchFields() {
     { label: 'Start Y (0-1)', key: 'start.y', value: arch.start?.y ?? DEFAULT_ARCH_ANCHORS.start.y, step: 0.01 },
     { label: 'End X (0-1)', key: 'end.x', value: arch.end?.x ?? DEFAULT_ARCH_ANCHORS.end.x, step: 0.01 },
     { label: 'End Y (0-1)', key: 'end.y', value: arch.end?.y ?? DEFAULT_ARCH_ANCHORS.end.y, step: 0.01 },
-    { label: 'Control X (0-1)', key: 'control.x', value: arch.control?.x ?? DEFAULT_ARCH_ANCHORS.control.x, step: 0.01 },
-    { label: 'Control Y (0-1)', key: 'control.y', value: arch.control?.y ?? DEFAULT_ARCH_ANCHORS.control.y, step: 0.01 },
+    { label: 'Rotation (deg)', key: 'rotation', value: arch.rotation ?? 0, step: 5, min: -180, max: 180 },
     { label: 'Radius (px)', key: 'radiusPx', value: arch.radiusPx ?? 180 },
     { label: 'Scale', key: 'scale', value: arch.scale ?? 1, step: 0.05, min: 0.25, max: 3 },
     { label: 'Button Size (px)', key: 'buttonSizePx', value: arch.buttonSizePx ?? 90 },
@@ -740,12 +737,10 @@ function positionArchHandles(stageRect) {
   const arch = window.CONFIG.hud.arch.arch || {};
   const start = arch.start || {};
   const end = arch.end || {};
-  const control = arch.control || {};
   const rect = stageRect || previewStage.getBoundingClientRect();
-  placeHandle('arch-start', start.x ?? 0, start.y ?? 0, rect, 'Start point');
-  placeHandle('arch-end', end.x ?? 0, end.y ?? 0, rect, 'End point');
-  placeHandle('arch-control', control.x ?? 0, control.y ?? 0, rect, 'Curve control', true);
-  drawArchCurve(start, end, control, rect);
+  placeHandle('arch-start', start.x ?? 0, start.y ?? 0, rect, 'Arch start point');
+  placeHandle('arch-end', end.x ?? 0, end.y ?? 0, rect, 'Arch end point');
+  drawArchLine(start, end, rect);
 }
 
 function placeHandle(id, normX, normY, rect, title = '', isControl = false) {
@@ -764,7 +759,7 @@ function placeHandle(id, normX, normY, rect, title = '', isControl = false) {
   el.style.top = `${y}px`;
 }
 
-function drawArchCurve(start, end, control, rect) {
+function drawArchLine(start, end, rect) {
   let svg = document.querySelector('.arch-curve-overlay');
   if (!svg) {
     svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -776,12 +771,9 @@ function drawArchCurve(start, end, control, rect) {
   const startY = (start.y || 0) * rect.height;
   const endX = (end.x || 0) * rect.width;
   const endY = (end.y || 0) * rect.height;
-  const controlX = (control.x || 0) * rect.width;
-  const controlY = (control.y || 0) * rect.height;
 
   svg.innerHTML = `
-    <path class="arch-control-line" d="M${startX},${startY} L${controlX},${controlY} L${endX},${endY}" />
-    <path class="arch-curve-path" d="M${startX},${startY} Q${controlX},${controlY} ${endX},${endY}" />
+    <line x1="${startX}" y1="${startY}" x2="${endX}" y2="${endY}" class="arch-curve-path" />
   `;
 }
 
@@ -867,7 +859,7 @@ function performUndo() {
   const archCfg = window.CONFIG.hud.arch.arch;
 
   // Restore old value
-  if (action.target === 'start' || action.target === 'end' || action.target === 'control') {
+  if (action.target === 'start' || action.target === 'end') {
     archCfg[action.target] = clone(action.oldValue);
   }
 
@@ -886,9 +878,7 @@ function bindStageClick() {
     const rect = previewStage.getBoundingClientRect();
     const handleId = selectedHandle.dataset.handle;
 
-    let target = 'start';
-    if (handleId === 'arch-end') target = 'end';
-    else if (handleId === 'arch-control') target = 'control';
+    let target = handleId === 'arch-end' ? 'end' : 'start';
 
     // Calculate new position
     const normX = clamp(snap(event.clientX - rect.left) / rect.width, 0, 1);
