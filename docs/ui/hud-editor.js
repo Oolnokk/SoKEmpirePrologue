@@ -51,6 +51,14 @@ let gridSize = Number(gridSizeInput?.value) || 24;
 let originalHudConfig = null;
 let currentResourceBars = [];
 
+// Selection and undo state
+let selectedHandle = null;
+let undoHistory = [];
+const MAX_UNDO_HISTORY = 20;
+
+const cancelBtn = document.getElementById('cancelBtn');
+const undoBtn = document.getElementById('undoBtn');
+
 const DEFAULT_ARCH_ANCHORS = {
   start: { x: 0.98, y: 0.94 },
   end: { x: 0.78, y: 0.86 },
@@ -803,28 +811,104 @@ function bindButtonDrags() {
 }
 
 function bindArchHandle(el) {
-  el.addEventListener('pointerdown', (event) => {
-    event.preventDefault();
+  el.addEventListener('click', (event) => {
+    event.stopPropagation();
+    selectHandle(el);
+  });
+}
+
+function selectHandle(el) {
+  // Deselect previous
+  if (selectedHandle) {
+    selectedHandle.classList.remove('selected');
+  }
+
+  // Select new
+  selectedHandle = el;
+  el.classList.add('selected');
+
+  // Update button states
+  updateControlButtons();
+}
+
+function deselectHandle() {
+  if (selectedHandle) {
+    selectedHandle.classList.remove('selected');
+    selectedHandle = null;
+  }
+  updateControlButtons();
+}
+
+function updateControlButtons() {
+  if (cancelBtn) {
+    cancelBtn.disabled = !selectedHandle;
+  }
+  if (undoBtn) {
+    undoBtn.disabled = undoHistory.length === 0;
+  }
+}
+
+function saveToUndo(target, oldValue, newValue) {
+  undoHistory.push({
+    target,
+    oldValue: clone(oldValue),
+    newValue: clone(newValue),
+  });
+  if (undoHistory.length > MAX_UNDO_HISTORY) {
+    undoHistory.shift();
+  }
+  updateControlButtons();
+}
+
+function performUndo() {
+  if (undoHistory.length === 0) return;
+
+  const action = undoHistory.pop();
+  const archCfg = window.CONFIG.hud.arch.arch;
+
+  // Restore old value
+  if (action.target === 'start' || action.target === 'end' || action.target === 'control') {
+    archCfg[action.target] = clone(action.oldValue);
+  }
+
+  deselectHandle();
+  refreshPreview();
+  updateControlButtons();
+}
+
+function bindStageClick() {
+  previewStage.addEventListener('click', (event) => {
+    if (!selectedHandle) return;
+
+    // Don't process if clicking on a handle
+    if (event.target.classList.contains('overlay-handle')) return;
+
     const rect = previewStage.getBoundingClientRect();
-    const handleId = el.dataset.handle;
+    const handleId = selectedHandle.dataset.handle;
+
     let target = 'start';
     if (handleId === 'arch-end') target = 'end';
     else if (handleId === 'arch-control') target = 'control';
 
-    const onMove = (moveEvt) => {
-      const normX = clamp(snap(moveEvt.clientX - rect.left) / rect.width, 0, 1);
-      const normY = clamp(snap(moveEvt.clientY - rect.top) / rect.height, 0, 1);
-      window.CONFIG.hud.arch.arch[target] = window.CONFIG.hud.arch.arch[target] || {};
-      window.CONFIG.hud.arch.arch[target].x = normX;
-      window.CONFIG.hud.arch.arch[target].y = normY;
-      refreshPreview();
-    };
-    const onUp = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp, { once: true });
+    // Calculate new position
+    const normX = clamp(snap(event.clientX - rect.left) / rect.width, 0, 1);
+    const normY = clamp(snap(event.clientY - rect.top) / rect.height, 0, 1);
+
+    // Save old value for undo
+    const archCfg = window.CONFIG.hud.arch.arch;
+    const oldValue = clone(archCfg[target]);
+
+    // Update position
+    archCfg[target] = archCfg[target] || {};
+    archCfg[target].x = normX;
+    archCfg[target].y = normY;
+
+    // Save to undo
+    saveToUndo(target, oldValue, archCfg[target]);
+
+    // Deselect and refresh
+    deselectHandle();
+    refreshPreview();
   });
 }
 
@@ -940,11 +1024,27 @@ function bindExportButtons() {
   });
 }
 
+function bindControlButtons() {
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      deselectHandle();
+    });
+  }
+
+  if (undoBtn) {
+    undoBtn.addEventListener('click', () => {
+      performUndo();
+    });
+  }
+}
+
 function init() {
   updateGridVisuals();
   bindButtonDrags();
   bindGridInputs();
   bindExportButtons();
+  bindStageClick();
+  bindControlButtons();
   refreshPreview();
 }
 

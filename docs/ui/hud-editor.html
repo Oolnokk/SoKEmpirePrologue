@@ -99,14 +99,33 @@
       background:#38bdf8;
       border:2px solid #0ea5e9;
       box-shadow:0 4px 16px rgba(14,165,233,0.65);
-      cursor:grab;
+      cursor:pointer;
       z-index:100;
+      transition: all 0.2s ease;
     }
-    .overlay-handle:active { cursor:grabbing; }
+    .overlay-handle:hover {
+      transform:translate(-50%, -50%) scale(1.2);
+      box-shadow:0 6px 20px rgba(14,165,233,0.8);
+    }
+    .overlay-handle.selected {
+      background:#ef4444;
+      border-color:#dc2626;
+      box-shadow:0 0 0 4px rgba(239,68,68,0.3), 0 4px 16px rgba(239,68,68,0.65);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow:0 0 0 4px rgba(239,68,68,0.3), 0 4px 16px rgba(239,68,68,0.65); }
+      50% { box-shadow:0 0 0 8px rgba(239,68,68,0.1), 0 4px 20px rgba(239,68,68,0.8); }
+    }
     .overlay-handle.control-point {
       background:#a78bfa;
       border-color:#8b5cf6;
       box-shadow:0 4px 16px rgba(139,92,246,0.65);
+    }
+    .overlay-handle.control-point.selected {
+      background:#ef4444;
+      border-color:#dc2626;
+      box-shadow:0 0 0 4px rgba(239,68,68,0.3), 0 4px 16px rgba(239,68,68,0.65);
     }
     .arch-curve-overlay {
       position:absolute;
@@ -193,6 +212,53 @@
       text-align:center;
       border-top:1px solid var(--line);
       background:rgba(0,0,0,0.15);
+    }
+    .control-buttons {
+      position:absolute;
+      bottom:16px;
+      right:16px;
+      display:flex;
+      gap:8px;
+      z-index:200;
+    }
+    .control-btn {
+      padding:8px 12px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.15);
+      background:rgba(15,23,42,0.9);
+      color:var(--text);
+      font-size:12px;
+      font-weight:600;
+      cursor:pointer;
+      transition:all 0.2s ease;
+      backdrop-filter:blur(10px);
+    }
+    .control-btn:hover {
+      background:rgba(30,41,59,0.95);
+      border-color:rgba(255,255,255,0.25);
+    }
+    .control-btn:active {
+      transform:translateY(1px);
+    }
+    .control-btn:disabled {
+      opacity:0.4;
+      cursor:not-allowed;
+    }
+    .control-btn.cancel {
+      background:rgba(239,68,68,0.2);
+      border-color:rgba(239,68,68,0.4);
+    }
+    .control-btn.cancel:hover:not(:disabled) {
+      background:rgba(239,68,68,0.3);
+      border-color:rgba(239,68,68,0.5);
+    }
+    .control-btn.undo {
+      background:rgba(251,191,36,0.2);
+      border-color:rgba(251,191,36,0.4);
+    }
+    .control-btn.undo:hover:not(:disabled) {
+      background:rgba(251,191,36,0.3);
+      border-color:rgba(251,191,36,0.5);
     }
     h2 {
       margin: 14px 0 8px;
@@ -357,7 +423,11 @@
             </div>
           </div>
         </div>
-        <p class="drag-hint">💡 Drag elements to position • Grid snap enabled</p>
+        <p class="drag-hint">💡 Tap handle to select • Tap stage to move • Grid snap enabled</p>
+        <div class="control-buttons">
+          <button id="cancelBtn" class="control-btn cancel" disabled>✕ Cancel</button>
+          <button id="undoBtn" class="control-btn undo" disabled>↶ Undo</button>
+        </div>
       </section>
     </main>
   </div>
