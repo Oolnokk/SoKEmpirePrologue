@@ -272,7 +272,6 @@ function renderArchFields() {
     { label: 'Start Y (0-1)', key: 'start.y', value: arch.start?.y ?? DEFAULT_ARCH_ANCHORS.start.y, step: 0.01 },
     { label: 'End X (0-1)', key: 'end.x', value: arch.end?.x ?? DEFAULT_ARCH_ANCHORS.end.x, step: 0.01 },
     { label: 'End Y (0-1)', key: 'end.y', value: arch.end?.y ?? DEFAULT_ARCH_ANCHORS.end.y, step: 0.01 },
-    { label: 'Rotation (deg)', key: 'rotation', value: arch.rotation ?? 0, step: 5, min: -180, max: 180 },
     { label: 'Radius (px)', key: 'radiusPx', value: arch.radiusPx ?? 180 },
     { label: 'Scale', key: 'scale', value: arch.scale ?? 1, step: 0.05, min: 0.25, max: 3 },
     { label: 'Button Size (px)', key: 'buttonSizePx', value: arch.buttonSizePx ?? 90 },
