@@ -933,13 +933,16 @@ function refreshPreview() {
   renderTextElements();
   updateOverlays(currentResourceBars);
   updateTextOverlays();
+  renderOutput();
+}
+
+function refreshAllFields() {
   renderBottomFields();
   renderButtonFields();
   renderArchFields();
   renderArchButtons();
   renderResourceFields();
   renderTextFields();
-  renderOutput();
 }
 
 function renderOutput() {
@@ -984,6 +987,7 @@ function bindExportButtons() {
   resetBtn?.addEventListener('click', () => {
     window.CONFIG.hud = clone(originalHudConfig || window.CONFIG.hud);
     ensureHudConfig();
+    refreshAllFields();
     refreshPreview();
   });
 }
@@ -993,6 +997,7 @@ function init() {
   bindButtonDrags();
   bindGridInputs();
   bindExportButtons();
+  refreshAllFields();
   refreshPreview();
 }
 
