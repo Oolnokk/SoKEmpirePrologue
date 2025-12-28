@@ -17,111 +17,320 @@
     }
   </style>
   <style>
-    body.hud-editor-page{
-      background:#0b1220;
-      color:#e5e7eb;
+    :root { --bg:#0b0f14; --panel:#121822; --panel2:#0f1520; --text:#e8eef7; --muted:#9fb0c8; --line:#253246; --acc:#6aa7ff; }
+    * { box-sizing: border-box; }
+    body {
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background:var(--bg);
+      color:var(--text);
+      height:100vh;
+      overflow:hidden;
     }
-    .hud-editor-layout{display:grid;grid-template-columns:2fr 1fr;gap:18px;align-items:start;padding:18px;}
-    .hud-preview-card{position:relative;border:1px solid rgba(148,163,184,0.25);border-radius:14px;overflow:hidden;background:radial-gradient(circle at 20% 20%, rgba(59,130,246,0.08), rgba(15,23,42,0.7));}
-    .hud-preview-card header{padding:12px 14px;border-bottom:1px solid rgba(148,163,184,0.2);font-weight:700;letter-spacing:0.4px;}
-    .preview-stage-wrapper{position:relative;padding:12px;}
-    .preview-stage{position:relative;aspect-ratio:16/9;background:radial-gradient(circle at 50% 30%, rgba(59,130,246,0.08), rgba(15,23,42,0.9));border-radius:10px;border:1px solid rgba(148,163,184,0.15);overflow:hidden;}
-    .preview-stage .stage{position:absolute;inset:0;}
-    .grid-overlay{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(to right, rgba(148,163,184,0.2) 1px, transparent 1px),linear-gradient(to bottom, rgba(148,163,184,0.2) 1px, transparent 1px);background-size:var(--grid-size,24px) var(--grid-size,24px);mix-blend-mode:screen;opacity:0.6;}
-    .overlay-handle{position:absolute;transform:translate(-50%, -50%);width:14px;height:14px;border-radius:50%;background:#38bdf8;border:2px solid #0ea5e9;box-shadow:0 4px 16px rgba(14,165,233,0.65);cursor:grab;}
-    .overlay-handle:active{cursor:grabbing;}
-    .bar-overlay{position:absolute;border:1px dashed rgba(248,250,252,0.7);background:rgba(14,165,233,0.12);cursor:move;}
-    .bar-overlay .resize{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:4px;background:#facc15;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:nwse-resize;}
-    .text-overlay{position:absolute;border:1px dashed rgba(34,197,94,0.7);background:rgba(34,197,94,0.08);cursor:move;pointer-events:auto;}
-    .text-overlay .resize{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:4px;background:#22c55e;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:nwse-resize;}
-    .text-overlay .rotate-handle{position:absolute;top:-24px;left:50%;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;background:#a78bfa;border:2px solid #8b5cf6;box-shadow:0 2px 6px rgba(0,0,0,0.35);cursor:grab;}
-    .text-overlay .rotate-handle:active{cursor:grabbing;}
-    .hud-text-element{pointer-events:none;white-space:nowrap;transform-origin:center center;}
-    .control-panels{display:flex;flex-direction:column;gap:12px;}
-    .panel{background:rgba(15,23,42,0.75);border:1px solid rgba(148,163,184,0.25);border-radius:12px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,0.25);}
-    .panel h3{margin:0 0 10px;font-size:15px;letter-spacing:0.25px;}
-    .field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px 12px;}
-    .field{display:flex;flex-direction:column;font-size:12px;color:#cbd5e1;gap:4px;}
-    .field input,.field select, .field textarea{width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(148,163,184,0.35);background:#0b1220;color:#e2e8f0;font-size:13px;}
-    .field textarea{min-height:120px;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;}
-    .button-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
-    .button-row button{padding:8px 12px;border-radius:8px;border:1px solid rgba(148,163,184,0.35);background:#1d4ed8;color:#e0f2fe;font-weight:700;cursor:pointer;}
-    .button-row button.secondary{background:#0f172a;color:#e2e8f0;}
-    .button-row button:disabled{opacity:0.65;cursor:not-allowed;}
-    .drag-hint{font-size:12px;color:#94a3b8;margin:4px 0 0;}
-    @media (max-width:1024px){.hud-editor-layout{grid-template-columns:1fr;}}
+    #app { display:flex; height:100vh; }
+    #sidebar {
+      width: 420px;
+      max-width: 45vw;
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border-right:1px solid var(--line);
+      padding: 12px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex-shrink: 0;
+    }
+    #viewport {
+      flex: 1;
+      position: relative;
+      min-width: 400px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .hud-preview-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background:var(--bg);
+      overflow: hidden;
+    }
+    .hud-preview-card header {
+      padding:12px 16px;
+      border-bottom:1px solid var(--line);
+      font-weight:600;
+      font-size:14px;
+      letter-spacing:0.3px;
+      color:var(--muted);
+      text-transform:uppercase;
+      background:rgba(255,255,255,0.02);
+    }
+    .preview-stage-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding:20px;
+      overflow: auto;
+    }
+    .preview-stage {
+      position:relative;
+      width: min(95%, 1200px);
+      aspect-ratio:16/9;
+      background:radial-gradient(circle at 50% 30%, rgba(59,130,246,0.08), rgba(15,23,42,0.9));
+      border-radius:10px;
+      border:1px solid rgba(148,163,184,0.15);
+      overflow:hidden;
+    }
+    .preview-stage .stage { position:absolute; inset:0; }
+    .grid-overlay {
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background-image:linear-gradient(to right, rgba(148,163,184,0.2) 1px, transparent 1px),linear-gradient(to bottom, rgba(148,163,184,0.2) 1px, transparent 1px);
+      background-size:var(--grid-size,24px) var(--grid-size,24px);
+      mix-blend-mode:screen;
+      opacity:0.6;
+    }
+    .overlay-handle {
+      position:absolute;
+      transform:translate(-50%, -50%);
+      width:14px;
+      height:14px;
+      border-radius:50%;
+      background:#38bdf8;
+      border:2px solid #0ea5e9;
+      box-shadow:0 4px 16px rgba(14,165,233,0.65);
+      cursor:grab;
+    }
+    .overlay-handle:active { cursor:grabbing; }
+    .bar-overlay {
+      position:absolute;
+      border:1px dashed rgba(248,250,252,0.7);
+      background:rgba(14,165,233,0.12);
+      cursor:move;
+    }
+    .bar-overlay .resize {
+      position:absolute;
+      right:-6px;
+      bottom:-6px;
+      width:14px;
+      height:14px;
+      border-radius:4px;
+      background:#facc15;
+      box-shadow:0 2px 6px rgba(0,0,0,0.35);
+      cursor:nwse-resize;
+    }
+    .text-overlay {
+      position:absolute;
+      border:1px dashed rgba(34,197,94,0.7);
+      background:rgba(34,197,94,0.08);
+      cursor:move;
+      pointer-events:auto;
+    }
+    .text-overlay .resize {
+      position:absolute;
+      right:-6px;
+      bottom:-6px;
+      width:14px;
+      height:14px;
+      border-radius:4px;
+      background:#22c55e;
+      box-shadow:0 2px 6px rgba(0,0,0,0.35);
+      cursor:nwse-resize;
+    }
+    .text-overlay .rotate-handle {
+      position:absolute;
+      top:-24px;
+      left:50%;
+      transform:translateX(-50%);
+      width:18px;
+      height:18px;
+      border-radius:50%;
+      background:#a78bfa;
+      border:2px solid #8b5cf6;
+      box-shadow:0 2px 6px rgba(0,0,0,0.35);
+      cursor:grab;
+    }
+    .text-overlay .rotate-handle:active { cursor:grabbing; }
+    .hud-text-element {
+      pointer-events:none;
+      white-space:nowrap;
+      transform-origin:center center;
+    }
+    .drag-hint {
+      font-size:11px;
+      color:var(--muted);
+      padding:8px 16px;
+      text-align:center;
+      border-top:1px solid var(--line);
+      background:rgba(0,0,0,0.15);
+    }
+    h2 {
+      margin: 14px 0 8px;
+      font-size: 13px;
+      letter-spacing:.3px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight:600;
+    }
+    .panel {
+      border:1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,0.03);
+      margin-bottom: 12px;
+    }
+    .panel h3 {
+      margin:0 0 10px;
+      font-size:13px;
+      letter-spacing:0.3px;
+      color:var(--acc);
+      font-weight:600;
+    }
+    .field-grid {
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+    }
+    .field {
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .field label, .field > span {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight:500;
+    }
+    .field input, .field select, .field textarea {
+      width:100%;
+      background: rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text);
+      outline:none;
+      font-size:13px;
+    }
+    .field textarea {
+      min-height:120px;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+      font-size:11px;
+    }
+    .button-row {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+    .button-row button, #copyConfig, #resetConfig {
+      background: rgba(106,167,255,0.18);
+      border:1px solid rgba(106,167,255,0.35);
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: 10px;
+      cursor:pointer;
+      font-weight: 600;
+      font-size:12px;
+    }
+    .button-row button:active, #copyConfig:active, #resetConfig:active {
+      transform: translateY(1px);
+    }
+    .button-row button.secondary, #resetConfig {
+      background: rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.12);
+    }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    @media (max-width:1024px) {
+      #app { flex-direction:column; }
+      #sidebar { width:100%; max-width:100%; border-right:none; border-bottom:1px solid var(--line); height:50vh; }
+      #viewport { height:50vh; min-width:unset; }
+    }
   </style>
 </head>
-<body class="hud-editor-page">
-  <main class="hud-editor-layout">
-    <section class="hud-preview-card">
-      <header>HUD Preview</header>
-      <div class="preview-stage-wrapper">
-        <div class="preview-stage" id="previewStage">
-          <div class="grid-overlay" id="gridOverlay"></div>
-          <div class="stage" id="gameStage">
-            <div class="resource-bars" id="resourceBars"></div>
-            <div class="hud-text-container" id="hudTextContainer"></div>
-            <div class="combat-info" id="combatInfo"></div>
-            <div class="controls-overlay">
-              <div class="action-buttons curved-hud">
-                <svg class="action-hud-bg" width="100%" height="100%" viewBox="0 0 360 200" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-                  <path class="action-hud-path" d="M0 140 Q180 60 360 140 L360 200 L0 200 Z"></path>
-                </svg>
-                <button type="button" id="btnJump" class="action-btn jump">↑</button>
-                <button type="button" id="btnAttackA" class="action-btn attack-a ability-small">A</button>
-                <button type="button" id="btnAttackB" class="action-btn attack-b ability-small">B</button>
-                <button type="button" id="btnAttackC" class="action-btn attack-c">C</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p class="drag-hint">Drag buttons, bar overlays, or arch handles to snap to the grid.</p>
-    </section>
-    <section class="control-panels">
+<body>
+  <div id="app">
+    <!-- Scrollable left sidebar -->
+    <aside id="sidebar">
+      <h2>⚙️ HUD Configuration</h2>
+
       <div class="panel">
         <h3>Grid & Preview</h3>
         <div class="field-grid">
-          <label class="field">Grid Size (px)
+          <label class="field">
+            <span>Grid Size (px)</span>
             <input type="number" id="gridSize" value="24" min="4" max="120" step="2">
           </label>
-          <label class="field">Preview Width
+          <label class="field">
+            <span>Preview Width (px)</span>
             <input type="number" id="previewWidth" value="960" min="320" max="1600" step="10">
           </label>
         </div>
       </div>
+
+      <h2>📐 Bottom HUD</h2>
       <div class="panel">
-        <h3>Bottom HUD</h3>
         <div class="field-grid" id="bottomFields"></div>
         <div class="field-grid" id="buttonFields" style="margin-top:10px;"></div>
       </div>
+
+      <h2>🌙 Arch & Actions</h2>
       <div class="panel">
-        <h3>Arch & Actions</h3>
         <div class="field-grid" id="archFields"></div>
         <div class="field-grid" id="archButtons"></div>
       </div>
+
+      <h2>📊 Resource Bars</h2>
       <div class="panel">
-        <h3>Resource Bars</h3>
         <div class="field-grid" id="resourceFields"></div>
       </div>
+
+      <h2>✏️ Text Elements</h2>
       <div class="panel">
-        <h3>Text Elements</h3>
         <div class="field-grid" id="textFields"></div>
       </div>
+
+      <h2>💾 Export</h2>
       <div class="panel">
-        <h3>Export</h3>
         <div class="field">
-          <label>HUD JSON</label>
+          <span>HUD JSON</span>
           <textarea id="configOutput" readonly></textarea>
         </div>
         <div class="button-row">
           <button id="copyConfig">Copy JSON</button>
-          <button id="resetConfig" class="secondary">Reset to defaults</button>
+          <button id="resetConfig" class="secondary">Reset</button>
         </div>
       </div>
-    </section>
-  </main>
+    </aside>
+
+    <!-- Fixed right viewport -->
+    <main id="viewport">
+      <section class="hud-preview-card">
+        <header>HUD Preview</header>
+        <div class="preview-stage-wrapper">
+          <div class="preview-stage" id="previewStage">
+            <div class="grid-overlay" id="gridOverlay"></div>
+            <div class="stage" id="gameStage">
+              <div class="resource-bars" id="resourceBars"></div>
+              <div class="hud-text-container" id="hudTextContainer"></div>
+              <div class="combat-info" id="combatInfo"></div>
+              <div class="controls-overlay">
+                <div class="action-buttons curved-hud">
+                  <svg class="action-hud-bg" width="100%" height="100%" viewBox="0 0 360 200" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                    <path class="action-hud-path" d="M0 140 Q180 60 360 140 L360 200 L0 200 Z"></path>
+                  </svg>
+                  <button type="button" id="btnJump" class="action-btn jump">↑</button>
+                  <button type="button" id="btnAttackA" class="action-btn attack-a ability-small">A</button>
+                  <button type="button" id="btnAttackB" class="action-btn attack-b ability-small">B</button>
+                  <button type="button" id="btnAttackC" class="action-btn attack-c">C</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="drag-hint">💡 Drag elements to position • Grid snap enabled</p>
+      </section>
+    </main>
+  </div>
   <script src="../config/config.js"></script>
   <script type="module" src="./hud-editor.js?v=1"></script>
 </body>
