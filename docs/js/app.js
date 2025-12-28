@@ -6491,6 +6491,101 @@ function renderMinimap() {
     });
   }
 
+  // Draw path targets
+  const pathTargets = Array.isArray(area?.pathTargets) ? area.pathTargets : [];
+  if (pathTargets.length) {
+    minimapCtx.fillStyle = '#38bdf8';
+    minimapCtx.strokeStyle = '#38bdf8';
+    pathTargets.forEach((target) => {
+      const pos = target?.position;
+      if (!pos || !Number.isFinite(pos.x)) return;
+      const projected = project(pos.x, pos.y ?? 0);
+      minimapCtx.beginPath();
+      minimapCtx.arc(projected.x, projected.y, 4, 0, Math.PI * 2);
+      minimapCtx.fill();
+
+      const label = target?.name || target?.id || 'Target';
+      const order = Number.isFinite(target?.order) ? `#${target.order}` : '';
+      const fullLabel = order ? `${label} ${order}` : label;
+      minimapCtx.font = '8px monospace';
+      const textWidth = minimapCtx.measureText(fullLabel).width;
+      const padding = 2;
+      minimapCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      minimapCtx.fillRect(projected.x - textWidth / 2 - padding, projected.y - 16, textWidth + padding * 2, 10);
+      minimapCtx.fillStyle = '#38bdf8';
+      minimapCtx.fillText(fullLabel, projected.x - textWidth / 2, projected.y - 8);
+    });
+  }
+
+  // Draw NPCs
+  const GAME = window.GAME || {};
+  const fighters = GAME.FIGHTERS || {};
+  const npcFighters = Object.values(fighters).filter((f) => f && f.id !== 'player' && !f.isPlayer && !f.isDead);
+  if (npcFighters.length) {
+    npcFighters.forEach((fighter) => {
+      const x = fighter?.hitbox?.x ?? fighter?.pos?.x;
+      const y = fighter?.hitbox?.y ?? fighter?.pos?.y;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+      const projected = project(x, y ?? 0);
+
+      // Draw NPC marker (circle)
+      const npcColor = fighter.gender === 'male' ? '#60a5fa' : fighter.gender === 'female' ? '#f472b6' : '#e2e8f0';
+      minimapCtx.fillStyle = npcColor;
+      minimapCtx.strokeStyle = npcColor;
+      minimapCtx.beginPath();
+      minimapCtx.arc(projected.x, projected.y, 5, 0, Math.PI * 2);
+      minimapCtx.fill();
+
+      // Get target info
+      const ooc = fighter.outOfCombat || {};
+      const targetPoint = ooc.targetPoint;
+      const pathTarget = fighter.aiPathState?.currentTarget;
+
+      let targetX = null;
+      let targetY = null;
+      if (targetPoint && Number.isFinite(targetPoint.x)) {
+        targetX = targetPoint.x;
+        targetY = targetPoint.y ?? 0;
+      } else if (pathTarget && Number.isFinite(pathTarget.goalX)) {
+        targetX = pathTarget.goalX;
+        targetY = pathTarget.goalY ?? 0;
+      }
+
+      // Draw line to target if exists
+      if (targetX !== null) {
+        const targetProjected = project(targetX, targetY);
+        minimapCtx.strokeStyle = '#22c55e';
+        minimapCtx.lineWidth = 1.5;
+        minimapCtx.setLineDash([3, 3]);
+        minimapCtx.beginPath();
+        minimapCtx.moveTo(projected.x, projected.y);
+        minimapCtx.lineTo(targetProjected.x, targetProjected.y);
+        minimapCtx.stroke();
+        minimapCtx.setLineDash([]);
+      }
+
+      // Draw NPC name and info
+      const name = fighter.npcName || fighter.templateId || fighter.id || 'NPC';
+      const deltaX = targetX !== null ? targetX - x : null;
+      const direction = deltaX !== null ? (deltaX >= 0 ? '+' : '') : '';
+      const infoText = deltaX !== null
+        ? `${name} (${x.toFixed(0)}, ${y.toFixed(0)}) Δ${direction}${deltaX.toFixed(0)}`
+        : `${name} (${x.toFixed(0)}, ${y.toFixed(0)})`;
+
+      minimapCtx.font = '8px monospace';
+      const textWidth = minimapCtx.measureText(infoText).width;
+      const padding = 2;
+      const textY = projected.y - 10;
+
+      minimapCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      minimapCtx.fillRect(projected.x - textWidth / 2 - padding, textY - 8, textWidth + padding * 2, 10);
+
+      minimapCtx.fillStyle = deltaX !== null ? '#22c55e' : '#94a3b8';
+      minimapCtx.fillText(infoText, projected.x - textWidth / 2, textY);
+    });
+  }
+
   // Draw camera if available
   if (cam) {
     const cameraRotY = cam.rotation.y;
