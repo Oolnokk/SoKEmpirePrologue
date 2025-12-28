@@ -601,12 +601,12 @@ const ARM_STANCES = {
   },
 
   'holding-prop': {
-    // Holding small object in right hand
-    lShoulder: -120,
-    lElbow: -120,
-    rShoulder: -60,
-    rElbow: -110,
-    weapon: 0,  // Weapon bone points forward/down
+    // Based on passive_arms (unarmed) but right arm bent up towards face
+    lShoulder: -120,  // Left arm passive
+    lElbow: -120,     // Left arm passive
+    rShoulder: -100,  // Right arm raised towards face
+    rElbow: -80,      // Right elbow bent to bring hand near face
+    weapon: -30,      // Weapon bone angled towards face
     weaponGripPercents: { primary: 0.75, secondary: 0.75 },
   },
 };
