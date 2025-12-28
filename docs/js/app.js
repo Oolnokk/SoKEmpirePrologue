@@ -7264,11 +7264,32 @@ function boot(){
     initTouchControls();
     console.log('[app] boot() - Checking shouldEnableArchHud()');
     if (shouldEnableArchHud()) {
+      // Initialize CONFIG.hud.arch from HUD_ARCH_CONFIG if not already set
+      window.CONFIG = window.CONFIG || {};
+      window.CONFIG.hud = window.CONFIG.hud || {};
+      if (!window.CONFIG.hud.arch && window.HUD_ARCH_CONFIG) {
+        window.CONFIG.hud.arch = window.HUD_ARCH_CONFIG;
+      }
+
       archTouchHandle?.destroy?.();
       archTouchHandle = initArchTouchInput({
         input: window.GAME?.input || null,
         config: window.CONFIG?.hud?.arch,
         enabled: true,
+      });
+
+      // Apply container transform if configured
+      requestAnimationFrame(() => {
+        const archHud = document.querySelector('.arch-hud');
+        const containerCfg = window.CONFIG?.hud?.arch?.container;
+        if (archHud && containerCfg) {
+          const rotation = containerCfg.rotation || 0;
+          const scale = containerCfg.scale || 1;
+          const offsetX = containerCfg.offsetX || 0;
+          const offsetY = containerCfg.offsetY || 0;
+          archHud.style.transformOrigin = 'center center';
+          archHud.style.transform = `translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale})`;
+        }
       });
     }
     console.log('[app] boot() - Calling initSelectionDropdowns()');
