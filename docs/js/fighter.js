@@ -1383,7 +1383,13 @@ export function initializeNpcSpawnersForArea(area = null) {
       const groupMeta = spawner.groupMeta
         || (groupId && C.npcGroups && C.npcGroups[groupId] ? clone(C.npcGroups[groupId]) : null);
 
-      console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners] Spawner', spawnerId, '- groupId:', groupId, '- has groupMeta:', !!groupMeta, '- members:', groupMeta?.members?.length || 0);
+      console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners] Spawner', spawnerId);
+      console.log('  - spawner.groupId:', spawner.groupId);
+      console.log('  - spawner.meta?.groupId:', spawner.meta?.groupId);
+      console.log('  - spawner.groupMeta:', spawner.groupMeta);
+      console.log('  - resolved groupId:', groupId);
+      console.log('  - resolved groupMeta:', groupMeta);
+      console.log('  - groupMeta.members:', groupMeta?.members);
 
       if (groupMeta && Array.isArray(groupMeta.members)) {
         console.log('[initializeNpcSpawnersForArea/normalizeNpcSpawners] Processing group members for', spawnerId);
@@ -1482,6 +1488,18 @@ export function initializeNpcSpawnersForArea(area = null) {
       }
 
       spawner.activeIds.add(npc.id);
+
+      // Generate pre-computed schedule for this NPC
+      if (npc.group?.interests && npc.group.interests.length > 0) {
+        try {
+          const { generateNpcSchedule } = await import('./npc-schedule-generator.js?v=1');
+          npc.preGeneratedSchedule = generateNpcSchedule(npc, resolvedArea);
+          console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] Generated schedule for', npc.id, 'with', npc.preGeneratedSchedule?.length || 0, 'entries');
+        } catch (err) {
+          console.error('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] Failed to generate schedule for', npc.id, err);
+        }
+      }
+
       console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] Successfully spawned', npc.id);
     } else {
       console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] Failed to spawn NPC');

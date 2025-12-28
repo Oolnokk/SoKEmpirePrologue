@@ -25,6 +25,7 @@ import {
   selectWeightedExit,
   getPoiCenter,
 } from './poi-utils.js?v=1';
+import { getCurrentScheduledPoi } from './npc-schedule-generator.js?v=1';
 
 function clamp(value, min, max) {
   if (value < min) return min;
@@ -162,12 +163,25 @@ function resolveNpcPathTarget(state, area) {
 function selectNpcTargetPoi(state, area) {
   if (!state || !area) return null;
 
+  // NEW: Use pre-generated schedule if available (performance optimization)
+  if (state.preGeneratedSchedule && state.preGeneratedSchedule.length > 0) {
+    const currentHour = getCurrentGameHour(area);
+    const scheduleEntry = getCurrentScheduledPoi(state, currentHour);
+
+    if (scheduleEntry && scheduleEntry.poi) {
+      console.log('[selectNpcTargetPoi] Using pre-generated schedule for', state.id, '- POI:', scheduleEntry.poi.id);
+      return scheduleEntry.poi;
+    }
+  }
+
+  // FALLBACK: Old expensive POI lookup (only if no pre-generated schedule)
   const group = state.group || {};
   const interests = group.interests || [];
   const poisByName = area.poisByName;
 
   if (!poisByName || !interests.length) return null;
 
+  console.warn('[selectNpcTargetPoi] No pre-generated schedule for', state.id, '- falling back to expensive POI lookup');
   const matchingPois = selectPoisByInterests(poisByName, interests);
   if (!matchingPois.length) return null;
 
