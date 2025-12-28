@@ -673,6 +673,15 @@ async function applyArea(area) {
 
             await registerAreaSpawns(area);
 
+            // Initialize NPC systems AFTER entities have spawned
+            console.log('[APPLY-AREA] 🤖 Initializing NPC and bounty systems after entity spawn...');
+            if (typeof window.initNpcSystems === 'function') {
+                window.initNpcSystems();
+            }
+            if (typeof window.initBountySystem === 'function') {
+                window.initBountySystem();
+            }
+
             console.log('[APPLY-AREA] ✅ Entity population complete');
             resolve();
         };

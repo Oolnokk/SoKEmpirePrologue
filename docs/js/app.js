@@ -7357,10 +7357,8 @@ function boot(){
     ensureAltSequenceUsesKickAlt();
     console.log('[app] boot() - Calling initFighters()');
     initFighters(cv, cx, { spawnNpc: false });
-    console.log('[app] boot() - Calling initNpcSystems()');
-    initNpcSystems();
-    console.log('[app] boot() - Calling initBountySystem()');
-    initBountySystem();
+    // DEFERRED: initNpcSystems() and initBountySystem() will be called after entities spawn
+    // (after visualsMap loads and entity initialization completes)
     console.log('[app] boot() - Calling initControls()');
     initControls();
     console.log('[app] boot() - Calling initCombat()');

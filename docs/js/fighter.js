@@ -1054,7 +1054,9 @@ export function initFighters(cv, cx, options = {}){
       delayMs: spawnNpcDelayMs,
     });
   } else {
-    bootstrapNpcSpawnerRuntime(activeArea);
+    // DISABLED: Old spawner runtime - now using area-based entity initialization
+    // bootstrapNpcSpawnerRuntime(activeArea);
+    console.log('[initFighters] Skipping old spawner runtime - entities will spawn after visualsMap loads');
   }
   if (G.editorPreview) {
     G.editorPreview.spawn = {
