@@ -677,6 +677,15 @@ async function applyArea(area) {
                 window.initBountySystem();
             }
 
+            // Activate spawners AFTER visualsMap loads and all systems are initialized
+            console.log('[APPLY-AREA] 🎬 Activating NPC spawners after visualsMap load...');
+            const fighterModule = await import('./fighter.js?v=8');
+            if (typeof fighterModule.activateNpcSpawners === 'function') {
+                fighterModule.activateNpcSpawners();
+            } else {
+                console.warn('[APPLY-AREA] ⚠️ activateNpcSpawners not found in fighter module');
+            }
+
             console.log('[APPLY-AREA] ✅ Entity population complete');
             resolve();
         };

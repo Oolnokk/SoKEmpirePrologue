@@ -7721,17 +7721,13 @@ function boot(){
                   worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
                 });
 
-                // Dispatch event to signal that visualsMap is ready for entity population
-                console.log('[3D-LOAD-INITIAL] 📡 Dispatching visualsmap-ready event for entity population');
-                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: areaToLoad } }));
+                // DO NOT dispatch event here - let the area-change handler dispatch after visualsMap loads
                 console.log('[3D-LOAD-INITIAL] ✓ Coordinate transform initialized, continuing...');
               } else {
                 console.log('[3D-LOAD-INITIAL] ⚠️ WARNING: Visualsmap loaded but no objects found');
                 console.log('[3D-LOAD-INITIAL] Adapter:', GAME_VISUALSMAP_ADAPTER);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
-                // Dispatch event even if no objects - entities still need to spawn
-                console.log('[3D-LOAD-INITIAL] 📡 Dispatching visualsmap-ready event despite no objects');
-                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: areaToLoad } }));
+                // DO NOT dispatch event here - let the area-change handler handle entity spawning
               }
               console.log('[3D-LOAD-INITIAL] ✓ Visualsmap load block completed');
             }
@@ -7750,30 +7746,22 @@ function boot(){
                   worldRotation: 0
                 });
 
-                // Dispatch event to signal that scene3d is ready for entity population
-                console.log('[app] 📡 Dispatching visualsmap-ready event for entity population (initial scene3d fallback)');
-                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: areaToLoad } }));
+                // DO NOT dispatch event here - let the area-change handler handle entity spawning
               } else {
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
-                // Dispatch event even on scene3d error - entities still need to spawn
-                console.log('[app] 📡 Dispatching visualsmap-ready event despite initial scene3d error');
-                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: areaToLoad } }));
+                // DO NOT dispatch event here - let the area-change handler handle entity spawning
               }
             }
-            // No visualsMap and no scene3d - still need to spawn entities
+            // No visualsMap and no scene3d
             else {
-              console.log('[app] No visualsMap or scene3d found for initial area - spawning entities anyway');
-              console.log('[app] 📡 Dispatching visualsmap-ready event (no initial 3D scene)');
-              window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: areaToLoad || {} } }));
+              console.log('[app] No visualsMap or scene3d found for initial area');
+              // DO NOT dispatch event here - let the area-change handler handle entity spawning
             }
           } catch (error) {
             console.log('[3D-LOAD-INITIAL] ❌ ERROR loading initial 3D scene:', error.message);
             console.log('[3D-LOAD-INITIAL] Error stack:', error.stack);
             lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
-            // Dispatch event even on catastrophic error - entities still need to spawn
-            console.log('[app] 📡 Dispatching visualsmap-ready event despite initial load error');
-            const fallbackArea = window.GAME?.mapRegistry?.getActiveArea?.() || {};
-            window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: fallbackArea } }));
+            // DO NOT dispatch event here - let the area-change handler handle entity spawning
           }
           console.log('[3D-LOAD-INITIAL] ✓ loadInitialScene3dArea function definition complete');
         };

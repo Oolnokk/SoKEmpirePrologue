@@ -1414,6 +1414,7 @@ export function initializeNpcSpawnersForArea(area = null) {
               scheduleMeta,
               activeIds: new Set(),
               hasInitialized: false,
+              isActive: false, // Spawners are inactive by default until visualsMap loads
             });
           }
         });
@@ -1434,6 +1435,7 @@ export function initializeNpcSpawnersForArea(area = null) {
           scheduleMeta,
           activeIds: new Set(),
           hasInitialized: false,
+          isActive: false, // Spawners are inactive by default until visualsMap loads
         });
       }
     }
@@ -1534,6 +1536,11 @@ export function initializeNpcSpawnersForArea(area = null) {
     const fighters = G.FIGHTERS || {};
     const currentHour = getCurrentGameHour(resolvedArea);
     for (const entry of runtime.spawners) {
+      // Skip inactive spawners - they won't spawn until activated after visualsMap loads
+      if (!entry.isActive) {
+        continue;
+      }
+
       for (const id of Array.from(entry.activeIds)) {
         const fighter = fighters[id];
         if (!fighter || fighter.isDead) {
@@ -1569,9 +1576,37 @@ export function initializeNpcSpawnersForArea(area = null) {
     }
   };
 
-  console.log('[initializeNpcSpawnersForArea] Running initial spawn...');
-  cleanupAndRespawn();
+  console.log('[initializeNpcSpawnersForArea] Spawners created but INACTIVE - waiting for visualsMap to load...');
+  // Don't run initial spawn yet - wait for spawners to be activated
+  // cleanupAndRespawn();
   runtime.intervalId = setInterval(cleanupAndRespawn, 1000);
   G.npcSpawnerRuntime = runtime;
-  console.log('[initializeNpcSpawnersForArea] ✅ NPC spawner runtime initialized');
+  console.log('[initializeNpcSpawnersForArea] ✅ NPC spawner runtime initialized (spawners inactive)');
+}
+
+/**
+ * Activate all spawners for the current area
+ * Should be called AFTER visualsMap has loaded
+ */
+export function activateNpcSpawners() {
+  console.log('[activateNpcSpawners] 🎬 Activating spawners...');
+  const G = window.GAME ||= {};
+  const runtime = G.npcSpawnerRuntime;
+
+  if (!runtime || !Array.isArray(runtime.spawners)) {
+    console.log('[activateNpcSpawners] ⚠️ No spawner runtime found');
+    return;
+  }
+
+  // Activate all spawners
+  let activatedCount = 0;
+  for (const spawner of runtime.spawners) {
+    if (!spawner.isActive) {
+      spawner.isActive = true;
+      activatedCount++;
+    }
+  }
+
+  console.log('[activateNpcSpawners] ✅ Activated', activatedCount, 'spawners');
+  console.log('[activateNpcSpawners] Total spawners:', runtime.spawners.length);
 }
