@@ -335,10 +335,12 @@ function setArchValue(path, value) {
 
   // Navigate to the correct object (arch.arch or arch.container)
   if (parts[0] === 'container') {
-    target = target.container || {};
+    if (!target.container) target.container = {};
+    target = target.container;
     parts.shift(); // Remove 'container' from path
   } else {
-    target = target.arch || {};
+    if (!target.arch) target.arch = {};
+    target = target.arch;
   }
 
   while (parts.length > 1) {
@@ -848,6 +850,8 @@ function bindArchHandle(el) {
     window.addEventListener('pointerup', onUp, { once: true });
   });
 }
+
+function bindButtonDrags() {
   Object.entries(actionButtonRefs).forEach(([key, el]) => {
     if (!el) return;
     el.addEventListener('pointerdown', (event) => {
@@ -869,106 +873,6 @@ function bindArchHandle(el) {
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp, { once: true });
     });
-  });
-}
-
-function bindArchHandle(el) {
-  el.addEventListener('click', (event) => {
-    event.stopPropagation();
-    selectHandle(el);
-  });
-}
-
-function selectHandle(el) {
-  // Deselect previous
-  if (selectedHandle) {
-    selectedHandle.classList.remove('selected');
-  }
-
-  // Select new
-  selectedHandle = el;
-  el.classList.add('selected');
-
-  // Update button states
-  updateControlButtons();
-}
-
-function deselectHandle() {
-  if (selectedHandle) {
-    selectedHandle.classList.remove('selected');
-    selectedHandle = null;
-  }
-  updateControlButtons();
-}
-
-function updateControlButtons() {
-  if (cancelBtn) {
-    cancelBtn.disabled = !selectedHandle;
-  }
-  if (undoBtn) {
-    undoBtn.disabled = undoHistory.length === 0;
-  }
-}
-
-function saveToUndo(target, oldValue, newValue) {
-  undoHistory.push({
-    target,
-    oldValue: clone(oldValue),
-    newValue: clone(newValue),
-  });
-  if (undoHistory.length > MAX_UNDO_HISTORY) {
-    undoHistory.shift();
-  }
-  updateControlButtons();
-}
-
-function performUndo() {
-  if (undoHistory.length === 0) return;
-
-  const action = undoHistory.pop();
-  const archCfg = window.CONFIG.hud.arch.arch;
-
-  // Restore old value
-  if (action.target === 'start' || action.target === 'end') {
-    archCfg[action.target] = clone(action.oldValue);
-  }
-
-  deselectHandle();
-  refreshPreview();
-  updateControlButtons();
-}
-
-function bindStageClick() {
-  previewStage.addEventListener('click', (event) => {
-    if (!selectedHandle) return;
-
-    // Don't process if clicking on a handle
-    if (event.target.classList.contains('overlay-handle')) return;
-
-    const rect = previewStage.getBoundingClientRect();
-    const handleId = selectedHandle.dataset.handle;
-
-    let target = handleId === 'arch-end' ? 'end' : 'start';
-
-    // Calculate new position
-    const normX = clamp(snap(event.clientX - rect.left) / rect.width, 0, 1);
-    const normY = clamp(snap(event.clientY - rect.top) / rect.height, 0, 1);
-
-    // Save old value for undo
-    const archCfg = window.CONFIG.hud.arch.arch;
-    const oldValue = clone(archCfg[target]);
-
-    // Update position
-    archCfg[target] = archCfg[target] || {};
-    archCfg[target].x = normX;
-    archCfg[target].y = normY;
-
-    // Save to undo
-    saveToUndo(target, oldValue, archCfg[target]);
-
-    // Deselect and refresh
-    deselectHandle();
-    refreshPreview();
   });
 }
 
