@@ -330,7 +330,8 @@ export function initFighters(cv, cx, options = {}){
     ? Math.max(0, opts.npcSpawnDelayMs)
     : 10000;
   const spawnNpcImmediately = spawnNpcEnabled && opts.spawnNpc === true && spawnNpcDelayMs === 0;
-  const enableNpcTemplate = spawnNpcEnabled || hasNpcSpawners;
+  // Always enable NPC template so spawners can work after map loads
+  const enableNpcTemplate = true; // was: spawnNpcEnabled || hasNpcSpawners
   const requestedPoseKey = typeof opts.poseKey === 'string' && opts.poseKey.trim()
     ? opts.poseKey.trim()
     : null;
