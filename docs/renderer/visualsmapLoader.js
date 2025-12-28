@@ -1336,103 +1336,6 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       console.log(`[visualsmapLoader] ✓ SpriteHolster manager available via window.holsterManager`);
     }
 
-    // Initialize weather system if weather config exists
-    let weatherPlaneManager = null;
-    let rainParticleSystem = null;
-    const weatherConfig = visualsMap.weather;
-
-    if (weatherConfig && weatherConfig.enabled) {
-      console.log(`[visualsmapLoader] Initializing weather system`);
-
-      // Load weather assets from index
-      const weatherIndexResult = await loadVisualsmapIndex(docsBase || visualsMapBase || null);
-      const weatherAssets = weatherIndexResult?.assets || null;
-
-      // Get scene bounds from gameplay path for auto-sizing
-      const sceneBounds = {
-        minX: Math.min(pathStartWorld.x, pathEndWorld.x) - gridWidth * 0.5,
-        maxX: Math.max(pathStartWorld.x, pathEndWorld.x) + gridWidth * 0.5,
-        minZ: Math.min(pathStartWorld.z, pathEndWorld.z) - gridDepth * 0.5,
-        maxZ: Math.max(pathStartWorld.z, pathEndWorld.z) + gridDepth * 0.5,
-        spanX: Math.abs(pathEndWorld.x - pathStartWorld.x) + gridWidth,
-        spanZ: Math.abs(pathEndWorld.z - pathStartWorld.z) + gridDepth
-      };
-
-      // Create weather managers with scene bounds
-      weatherPlaneManager = new WeatherPlaneManager(
-        renderer.scene,
-        renderer.THREE,
-        renderer.textureLoader,
-        sceneBounds
-      );
-
-      const rainBounds = {
-        width: sceneBounds.spanX * 1.5,
-        height: sceneBounds.spanZ * 2,
-        depth: sceneBounds.spanX
-      };
-      rainParticleSystem = new RainParticleSystem(renderer.scene, renderer.THREE, rainBounds);
-
-      // Process weather layers (list of asset IDs)
-      const weatherLayers = weatherConfig.layers || [];
-      for (const assetId of weatherLayers) {
-        const assetConfig = weatherAssets?.get(assetId);
-        if (!assetConfig) {
-          console.warn(`[visualsmapLoader] Weather asset not found: ${assetId}`);
-          continue;
-        }
-
-        const instanceConfig = {
-          scaleX: assetConfig.instanceDefaults?.scaleX ?? 1,
-          scaleY: assetConfig.instanceDefaults?.scaleY ?? 1,
-          scaleZ: assetConfig.instanceDefaults?.scaleZ ?? 1,
-          offsetX: assetConfig.instanceDefaults?.offsetX ?? 0,
-          offsetY: assetConfig.instanceDefaults?.offsetY ?? 0,
-          orientation: assetConfig.instanceDefaults?.orientation ?? 0
-        };
-
-        // Create weather element based on type
-        if (assetConfig.weatherType === 'rain') {
-          // Initialize rain particle system
-          rainParticleSystem.init({
-            particleCount: 1200,
-            intensity: weatherConfig.rainIntensity ?? 0.5,
-            windDirection: weatherConfig.windDirection ?? 25,
-            fallSpeed: 1400,
-            sideSpeed: 900
-          });
-          console.log(`[visualsmapLoader] ✓ Initialized rain layer (intensity: ${weatherConfig.rainIntensity}, wind: ${weatherConfig.windDirection}°)`);
-        } else if (assetConfig.weatherType === 'sky' ||
-                   assetConfig.weatherType === 'cloud' ||
-                   assetConfig.weatherType === 'jungle') {
-          // Add weather plane
-          await weatherPlaneManager.addWeatherPlane(assetId, assetConfig, instanceConfig);
-          console.log(`[visualsmapLoader] ✓ Added ${assetConfig.weatherType} plane: ${assetConfig.label || assetId}`);
-        }
-      }
-
-      // Hook weather system into frame update
-      const weatherUpdateHandler = ({ time, deltaTime }) => {
-        if (weatherPlaneManager) {
-          const windDir = rainParticleSystem ? rainParticleSystem.windDirection : 25;
-          weatherPlaneManager.update(deltaTime / 1000, windDir);
-        }
-        if (rainParticleSystem) {
-          rainParticleSystem.update(deltaTime / 1000);
-        }
-      };
-      renderer.on('frame', weatherUpdateHandler);
-
-      // Store reference for cleanup
-      if (typeof window !== 'undefined') {
-        window.weatherPlaneManager = weatherPlaneManager;
-        window.rainParticleSystem = rainParticleSystem;
-        console.log(`[visualsmapLoader] ✓ Weather systems available via window.weatherPlaneManager and window.rainParticleSystem`);
-      }
-
-      console.log(`[visualsmapLoader] ✓ Weather system initialized with ${weatherLayers.length} layers`);
-    }
-
     const gameplayDebugGroup = new renderer.THREE.Group();
     gameplayDebugGroup.name = 'gameplayDebug';
     gameplayDebugGroup.visible = false;
@@ -1583,6 +1486,103 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       pathGroup.add(line);
 
       console.log('[visualsmapLoader] ✓ Gameplay path visualization created');
+    }
+
+    // Initialize weather system if weather config exists (after path is set up)
+    let weatherPlaneManager = null;
+    let rainParticleSystem = null;
+    const weatherConfig = visualsMap.weather;
+
+    if (weatherConfig && weatherConfig.enabled && pathStartWorld && pathEndWorld) {
+      console.log(`[visualsmapLoader] Initializing weather system`);
+
+      // Load weather assets from index
+      const weatherIndexResult = await loadVisualsmapIndex(docsBase || visualsMapBase || null);
+      const weatherAssets = weatherIndexResult?.assets || null;
+
+      // Get scene bounds from gameplay path for auto-sizing
+      const sceneBounds = {
+        minX: Math.min(pathStartWorld.x, pathEndWorld.x) - gridWidth * 0.5,
+        maxX: Math.max(pathStartWorld.x, pathEndWorld.x) + gridWidth * 0.5,
+        minZ: Math.min(pathStartWorld.z, pathEndWorld.z) - gridDepth * 0.5,
+        maxZ: Math.max(pathStartWorld.z, pathEndWorld.z) + gridDepth * 0.5,
+        spanX: Math.abs(pathEndWorld.x - pathStartWorld.x) + gridWidth,
+        spanZ: Math.abs(pathEndWorld.z - pathStartWorld.z) + gridDepth
+      };
+
+      // Create weather managers with scene bounds
+      weatherPlaneManager = new WeatherPlaneManager(
+        renderer.scene,
+        renderer.THREE,
+        renderer.textureLoader,
+        sceneBounds
+      );
+
+      const rainBounds = {
+        width: sceneBounds.spanX * 1.5,
+        height: sceneBounds.spanZ * 2,
+        depth: sceneBounds.spanX
+      };
+      rainParticleSystem = new RainParticleSystem(renderer.scene, renderer.THREE, rainBounds);
+
+      // Process weather layers (list of asset IDs)
+      const weatherLayers = weatherConfig.layers || [];
+      for (const assetId of weatherLayers) {
+        const assetConfig = weatherAssets?.get(assetId);
+        if (!assetConfig) {
+          console.warn(`[visualsmapLoader] Weather asset not found: ${assetId}`);
+          continue;
+        }
+
+        const instanceConfig = {
+          scaleX: assetConfig.instanceDefaults?.scaleX ?? 1,
+          scaleY: assetConfig.instanceDefaults?.scaleY ?? 1,
+          scaleZ: assetConfig.instanceDefaults?.scaleZ ?? 1,
+          offsetX: assetConfig.instanceDefaults?.offsetX ?? 0,
+          offsetY: assetConfig.instanceDefaults?.offsetY ?? 0,
+          orientation: assetConfig.instanceDefaults?.orientation ?? 0
+        };
+
+        // Create weather element based on type
+        if (assetConfig.weatherType === 'rain') {
+          // Initialize rain particle system
+          rainParticleSystem.init({
+            particleCount: 1200,
+            intensity: weatherConfig.rainIntensity ?? 0.5,
+            windDirection: weatherConfig.windDirection ?? 25,
+            fallSpeed: 1400,
+            sideSpeed: 900
+          });
+          console.log(`[visualsmapLoader] ✓ Initialized rain layer (intensity: ${weatherConfig.rainIntensity}, wind: ${weatherConfig.windDirection}°)`);
+        } else if (assetConfig.weatherType === 'sky' ||
+                   assetConfig.weatherType === 'cloud' ||
+                   assetConfig.weatherType === 'jungle') {
+          // Add weather plane
+          await weatherPlaneManager.addWeatherPlane(assetId, assetConfig, instanceConfig);
+          console.log(`[visualsmapLoader] ✓ Added ${assetConfig.weatherType} plane: ${assetConfig.label || assetId}`);
+        }
+      }
+
+      // Hook weather system into frame update
+      const weatherUpdateHandler = ({ time, deltaTime }) => {
+        if (weatherPlaneManager) {
+          const windDir = rainParticleSystem ? rainParticleSystem.windDirection : 25;
+          weatherPlaneManager.update(deltaTime / 1000, windDir);
+        }
+        if (rainParticleSystem) {
+          rainParticleSystem.update(deltaTime / 1000);
+        }
+      };
+      renderer.on('frame', weatherUpdateHandler);
+
+      // Store reference for cleanup
+      if (typeof window !== 'undefined') {
+        window.weatherPlaneManager = weatherPlaneManager;
+        window.rainParticleSystem = rainParticleSystem;
+        console.log(`[visualsmapLoader] ✓ Weather systems available via window.weatherPlaneManager and window.rainParticleSystem`);
+      }
+
+      console.log(`[visualsmapLoader] ✓ Weather system initialized with ${weatherLayers.length} layers`);
     }
 
     function buildGameplaySpawnerMarkers() {
