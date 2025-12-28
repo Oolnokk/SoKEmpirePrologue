@@ -7269,6 +7269,26 @@ function boot(){
       window.CONFIG.hud = window.CONFIG.hud || {};
       window.CONFIG.hud.arch = window.HUD_ARCH_CONFIG || window.CONFIG.hud.arch;
 
+      console.log('[app] HUD_ARCH_CONFIG loaded:', window.HUD_ARCH_CONFIG);
+      console.log('[app] CONFIG.hud.arch:', window.CONFIG.hud.arch);
+
+      // Helper function to apply container transform
+      const applyArchContainerTransform = () => {
+        requestAnimationFrame(() => {
+          const archHud = document.querySelector('.arch-hud');
+          const containerCfg = window.CONFIG?.hud?.arch?.container;
+          if (archHud && containerCfg) {
+            const rotation = containerCfg.rotation || 0;
+            const scale = containerCfg.scale || 1;
+            const offsetX = containerCfg.offsetX || 0;
+            const offsetY = containerCfg.offsetY || 0;
+            archHud.style.transformOrigin = 'center center';
+            archHud.style.transform = `translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale})`;
+            console.log('[app] Applied arch container transform:', { rotation, scale, offsetX, offsetY });
+          }
+        });
+      };
+
       archTouchHandle?.destroy?.();
       archTouchHandle = initArchTouchInput({
         input: window.GAME?.input || null,
@@ -7276,20 +7296,20 @@ function boot(){
         enabled: true,
       });
 
-      // Apply container transform if configured
-      requestAnimationFrame(() => {
-        const archHud = document.querySelector('.arch-hud');
-        const containerCfg = window.CONFIG?.hud?.arch?.container;
-        if (archHud && containerCfg) {
-          const rotation = containerCfg.rotation || 0;
-          const scale = containerCfg.scale || 1;
-          const offsetX = containerCfg.offsetX || 0;
-          const offsetY = containerCfg.offsetY || 0;
-          archHud.style.transformOrigin = 'center center';
-          archHud.style.transform = `translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale})`;
-          console.log('[app] Applied arch container transform:', { rotation, scale, offsetX, offsetY });
-        }
-      });
+      // Apply transform initially
+      applyArchContainerTransform();
+
+      // Reapply transform after arch rebuilds (resize, orientation change, fullscreen)
+      let resizeTimeout;
+      const onResize = () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(applyArchContainerTransform, 100);
+      };
+
+      window.addEventListener('resize', onResize);
+      window.addEventListener('orientationchange', applyArchContainerTransform);
+      document.addEventListener('fullscreenchange', applyArchContainerTransform);
+      window.addEventListener('archButtonsChanged', applyArchContainerTransform);
     }
     console.log('[app] boot() - Calling initSelectionDropdowns()');
     initSelectionDropdowns();
