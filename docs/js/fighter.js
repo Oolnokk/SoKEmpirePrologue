@@ -8,6 +8,7 @@ import { getCurrentGameHour, isScheduleActive } from './schedule-utils.js?v=1';
 
 import { instantiateCharacterTemplate } from './character-templates.js?v=1';
 import { generateNpcName, parseFighterName } from './npc-group-spawner.js?v=1';
+import { generateNpcSchedule } from './npc-schedule-generator.js?v=1';
 
 function clone(value) {
   if (value == null) return value;
@@ -1492,7 +1493,6 @@ export function initializeNpcSpawnersForArea(area = null) {
       // Generate pre-computed schedule for this NPC
       if (npc.group?.interests && npc.group.interests.length > 0) {
         try {
-          const { generateNpcSchedule } = await import('./npc-schedule-generator.js?v=1');
           npc.preGeneratedSchedule = generateNpcSchedule(npc, resolvedArea);
           console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] Generated schedule for', npc.id, 'with', npc.preGeneratedSchedule?.length || 0, 'entries');
         } catch (err) {
