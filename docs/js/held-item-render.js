@@ -38,6 +38,13 @@ export function renderHeldItems(ctx) {
     const template = part?.propTemplate;
     if (!template || !template.url) continue;
 
+    // Get the fighter holding this item for flip state
+    const fighter = G.FIGHTERS?.[inst.heldBy];
+    const flipLeft = fighter?.flipLeft != null
+      ? !!fighter.flipLeft
+      : !!(G.FLIP_STATE && inst.heldBy && G.FLIP_STATE[inst.heldBy]);
+    const centerX = Number.isFinite(fighter?.centerX) ? fighter.centerX : (G.ANCHORS_OBJ?.[inst.heldBy]?.center?.x ?? 0);
+
     // Use prop config scale (NOT affected by bone transforms)
     const scaleX = inst.scale?.x || 1;
     const scaleY = inst.scale?.y || scaleX;
@@ -65,6 +72,13 @@ export function renderHeldItems(ctx) {
     }
 
     ctx.save();
+
+    // Apply flip if character is facing left (same as sprite rendering)
+    if (flipLeft) {
+      ctx.translate(centerX * 2, 0);
+      ctx.scale(-1, 1);
+    }
+
     ctx.translate(pos.x, pos.y);
     ctx.scale(scaleX, scaleY); // Apply prop config scale
     if (rotRad) ctx.rotate(rotRad);

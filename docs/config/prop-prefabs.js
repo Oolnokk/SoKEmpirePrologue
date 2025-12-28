@@ -64,8 +64,8 @@ export const PROP_PREFABS = {
     render: {
       renderType: 'sprite',
       spriteUrl: './assets/props/bottle_tall.png',  // Path to bottle sprite
-      spriteWidth: 37,   // Natural sprite dimensions
-      spriteHeight: 100,
+      spriteWidth: 100,   // Template dimensions (matches prefab)
+      spriteHeight: 120,
       color: 'rgba(139, 69, 19, 0.8)',  // Fallback color for placeholder
       outlineColor: 'rgba(255, 255, 255, 0.3)'
     }
