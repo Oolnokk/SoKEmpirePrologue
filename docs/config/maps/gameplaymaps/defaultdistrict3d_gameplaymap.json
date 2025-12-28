@@ -79,7 +79,6 @@
           1.25
         ],
         "patrolRouteId": "city_guard_patrol",
-        "scheduleId": "citywatch_duty",
         "patrolSchedule": [
           {
             "patrolPointId": "patrol_west",
