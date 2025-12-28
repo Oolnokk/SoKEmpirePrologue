@@ -284,8 +284,8 @@ function renderArchFields() {
     { label: '─── Container ───', key: 'separator', value: '', disabled: true },
     { label: 'Rotation (deg)', key: 'container.rotation', value: container.rotation ?? 0, step: 5, min: -180, max: 180 },
     { label: 'Scale', key: 'container.scale', value: container.scale ?? 1, step: 0.05, min: 0.1, max: 3 },
-    { label: 'Offset X (px)', key: 'container.offsetX', value: container.offsetX ?? 0, step: 10 },
-    { label: 'Offset Y (px)', key: 'container.offsetY', value: container.offsetY ?? 0, step: 10 },
+    { label: 'Offset X (0-1)', key: 'container.offsetXPct', value: container.offsetXPct ?? 0, step: 0.01, min: -1, max: 2 },
+    { label: 'Offset Y (0-1)', key: 'container.offsetYPct', value: container.offsetYPct ?? 0, step: 0.01, min: -1, max: 2 },
     { label: '─── Arch ───', key: 'separator2', value: '', disabled: true },
     { label: 'Radius (px)', key: 'radiusPx', value: arch.radiusPx ?? 180 },
     { label: 'Scale', key: 'scale', value: arch.scale ?? 1, step: 0.05, min: 0.25, max: 3 },
@@ -347,13 +347,13 @@ function updateArchFieldValues() {
   // Update container inputs
   const rotationInput = archFields.querySelector('[data-arch-key="container.rotation"]');
   const scaleInput = archFields.querySelector('[data-arch-key="container.scale"]');
-  const offsetXInput = archFields.querySelector('[data-arch-key="container.offsetX"]');
-  const offsetYInput = archFields.querySelector('[data-arch-key="container.offsetY"]');
+  const offsetXPctInput = archFields.querySelector('[data-arch-key="container.offsetXPct"]');
+  const offsetYPctInput = archFields.querySelector('[data-arch-key="container.offsetYPct"]');
 
   if (rotationInput) rotationInput.value = container.rotation ?? 0;
   if (scaleInput) scaleInput.value = (container.scale ?? 1).toFixed(2);
-  if (offsetXInput) offsetXInput.value = container.offsetX ?? 0;
-  if (offsetYInput) offsetYInput.value = container.offsetY ?? 0;
+  if (offsetXPctInput) offsetXPctInput.value = (container.offsetXPct ?? 0).toFixed(3);
+  if (offsetYPctInput) offsetYPctInput.value = (container.offsetYPct ?? 0).toFixed(3);
 }
 
 function setArchValue(path, value) {
@@ -755,8 +755,26 @@ function applyArchContainerTransform() {
   const cfg = window.CONFIG.hud.arch.container || {};
   const rotation = cfg.rotation || 0;
   const scale = cfg.scale || 1;
-  const offsetX = cfg.offsetX || 0;
-  const offsetY = cfg.offsetY || 0;
+
+  // Get preview stage dimensions
+  const stage = document.getElementById('previewStage');
+  const rect = stage ? stage.getBoundingClientRect() : { width: 960, height: 540 };
+
+  // Support both pixel offsets and percentage offsets
+  let offsetX = 0;
+  let offsetY = 0;
+
+  if (cfg.offsetXPct !== undefined) {
+    offsetX = cfg.offsetXPct * rect.width;
+  } else if (cfg.offsetX !== undefined) {
+    offsetX = cfg.offsetX;
+  }
+
+  if (cfg.offsetYPct !== undefined) {
+    offsetY = cfg.offsetYPct * rect.height;
+  } else if (cfg.offsetY !== undefined) {
+    offsetY = cfg.offsetY;
+  }
 
   container.style.transform = `translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale})`;
 }

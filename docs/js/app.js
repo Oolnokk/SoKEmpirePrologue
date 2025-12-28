@@ -7278,13 +7278,33 @@ function boot(){
           const archHud = document.querySelector('.arch-hud');
           const containerCfg = window.CONFIG?.hud?.arch?.container;
           if (archHud && containerCfg) {
+            // Get viewport dimensions
+            const vw = window.visualViewport?.width || window.innerWidth;
+            const vh = window.visualViewport?.height || window.innerHeight;
+
             const rotation = containerCfg.rotation || 0;
             const scale = containerCfg.scale || 1;
-            const offsetX = containerCfg.offsetX || 0;
-            const offsetY = containerCfg.offsetY || 0;
+
+            // Support both pixel offsets (offsetX/Y) and percentage offsets (offsetXPct/YPct)
+            // Percentage offsets are viewport-relative and scale with screen size
+            let offsetX = 0;
+            let offsetY = 0;
+
+            if (containerCfg.offsetXPct !== undefined) {
+              offsetX = containerCfg.offsetXPct * vw;
+            } else if (containerCfg.offsetX !== undefined) {
+              offsetX = containerCfg.offsetX;
+            }
+
+            if (containerCfg.offsetYPct !== undefined) {
+              offsetY = containerCfg.offsetYPct * vh;
+            } else if (containerCfg.offsetY !== undefined) {
+              offsetY = containerCfg.offsetY;
+            }
+
             archHud.style.transformOrigin = 'center center';
             archHud.style.transform = `translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale})`;
-            console.log('[app] Applied arch container transform:', { rotation, scale, offsetX, offsetY });
+            console.log('[app] Applied arch container transform:', { rotation, scale, offsetX, offsetY, vw, vh });
           }
         });
       };

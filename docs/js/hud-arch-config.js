@@ -25,8 +25,10 @@ window.HUD_ARCH_CONFIG = {
   container: {
     rotation: 0,
     scale: 0.5,
-    offsetX: 125,
-    offsetY: 25
+    // Viewport-relative offsets (0-1 range, where 0.5 = center)
+    // These scale with viewport size, unlike pixel offsets
+    offsetXPct: 0.13,  // ~13% from left edge
+    offsetYPct: 0.035  // ~3.5% from top edge
   },
 
   // YOU ONLY EDIT THIS LIST:
