@@ -6478,8 +6478,6 @@ function renderMinimap() {
 
   // Draw patrol colliders as markers on the ground
   if (patrols.length) {
-    minimapCtx.strokeStyle = minimapConfig.pathColor;
-    minimapCtx.lineWidth = 1.5;
     patrols.forEach((collider) => {
       const left = Number(collider?.left);
       const width = Number(collider?.width);
@@ -6487,7 +6485,27 @@ function renderMinimap() {
       const height = Number(collider?.height);
       const topLeft = project(left, top);
       const size = project(left + (Number.isFinite(width) ? width : 0), top + (Number.isFinite(height) ? height : 0));
+
+      // Draw filled patrol zone
+      minimapCtx.fillStyle = 'rgba(251, 191, 36, 0.2)'; // Yellow with transparency
+      minimapCtx.fillRect(topLeft.x, topLeft.y, size.x - topLeft.x, size.y - topLeft.y);
+
+      // Draw border
+      minimapCtx.strokeStyle = '#fbbf24'; // Yellow
+      minimapCtx.lineWidth = 2;
       minimapCtx.strokeRect(topLeft.x, topLeft.y, size.x - topLeft.x, size.y - topLeft.y);
+
+      // Draw label
+      const label = collider?.meta?.label || collider?.id || 'Patrol';
+      const centerX = (topLeft.x + size.x) / 2;
+      const centerY = (topLeft.y + size.y) / 2;
+      minimapCtx.font = '9px monospace';
+      const textWidth = minimapCtx.measureText(label).width;
+      const padding = 2;
+      minimapCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      minimapCtx.fillRect(centerX - textWidth / 2 - padding, centerY - 5, textWidth + padding * 2, 11);
+      minimapCtx.fillStyle = '#fbbf24';
+      minimapCtx.fillText(label, centerX - textWidth / 2, centerY + 3);
     });
   }
 

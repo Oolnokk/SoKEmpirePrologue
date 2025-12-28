@@ -274,6 +274,41 @@ function updateNpcRepositionMode(state, area) {
   }
 }
 
+function isPointInPatrolCollider(point, collider) {
+  if (!point || !collider) return false;
+  const x = point.x;
+  const y = point.y;
+  const left = Number(collider.left);
+  const right = left + Number(collider.width || 0);
+  const top = Number.isFinite(collider.topOffset) ? Number(collider.topOffset) : 0;
+  const bottom = top + Number(collider.height || 0);
+  return x >= left && x <= right && y >= top && y <= bottom;
+}
+
+function getRandomPointInPatrolCollider(collider) {
+  if (!collider) return null;
+  const left = Number(collider.left);
+  const width = Number(collider.width || 0);
+  const top = Number.isFinite(collider.topOffset) ? Number(collider.topOffset) : 0;
+  const height = Number(collider.height || 0);
+  const x = left + Math.random() * width;
+  const y = top + Math.random() * height;
+  return { x, y };
+}
+
+function findPatrolColliderAtPosition(pos, area) {
+  if (!pos || !area) return null;
+  const patrols = Array.isArray(area.colliders)
+    ? area.colliders.filter((c) => c?.meta?.patrol)
+    : [];
+  for (const collider of patrols) {
+    if (isPointInPatrolCollider(pos, collider)) {
+      return collider;
+    }
+  }
+  return null;
+}
+
 function updateNpcWaitMode(state, dt, area) {
   const { changed } = resetNpcScheduleTargets(state, area);
   if (changed) {
@@ -289,12 +324,23 @@ function updateNpcWaitMode(state, dt, area) {
     const repositionChance = curiosity.repositionChance || 0.3;
     const baseInterval = curiosity.baseRepositionInterval || 5;
 
-    if (Math.random() < repositionChance) {
+    // Check if in a patrol collider
+    const patrolCollider = findPatrolColliderAtPosition(state.pos, area);
+
+    if (patrolCollider) {
+      // Always reposition when in patrol collider
+      ooc.mode = 'reposition';
+      ooc.targetPoint = getRandomPointInPatrolCollider(patrolCollider);
+      ooc.currentPoi = null; // Clear POI since we're in patrol mode
+    } else if (Math.random() < repositionChance && ooc.currentPoi) {
+      // Normal POI repositioning
       ooc.mode = 'reposition';
       ooc.targetPoint = getRandomGroundPointInPoi(ooc.currentPoi);
     }
 
-    ooc.nextRepositionCheck = baseInterval;
+    // Randomize next check interval
+    const variance = baseInterval * 0.5;
+    ooc.nextRepositionCheck = baseInterval + (Math.random() - 0.5) * variance;
   }
 }
 

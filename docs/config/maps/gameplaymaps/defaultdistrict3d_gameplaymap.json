@@ -156,8 +156,8 @@
         "routeId": "city_guard_patrol",
         "sequence": 0,
         "scale": {
-          "x": 2,
-          "y": 0.5
+          "x": 1.5,
+          "y": 0.3
         },
         "label": "Western patrol area",
         "scheduleId": "citywatch_patrol_west"
@@ -172,8 +172,8 @@
         "routeId": "city_guard_patrol",
         "sequence": 1,
         "scale": {
-          "x": 2,
-          "y": 0.5
+          "x": 1.5,
+          "y": 0.3
         },
         "label": "Central patrol area",
         "scheduleId": "citywatch_patrol_center"
@@ -183,7 +183,7 @@
       "id": "propspawn_2",
       "type": "propspawn",
       "x": 2644.3381385803223,
-      "y": 74.72885131835938,
+      "y": 0,
       "meta": {
         "props": [
           {
@@ -197,7 +197,7 @@
       "id": "propspawn_3",
       "type": "propspawn",
       "x": 2636.2761268615723,
-      "y": 67.43222045898438,
+      "y": 0,
       "meta": {
         "props": [
           {
@@ -211,7 +211,7 @@
       "id": "propspawn_4",
       "type": "propspawn",
       "x": 2656.7883338928223,
-      "y": 70.69964599609375,
+      "y": 0,
       "meta": {
         "props": [
           {
