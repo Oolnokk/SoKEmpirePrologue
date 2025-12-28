@@ -7610,6 +7610,11 @@ function boot(){
                     scene3d: area.scene3d,
                     worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
                   });
+
+                  // Dispatch event to signal that visualsMap is ready for entity population
+                  // This triggers map entity initialization (NPCs, props, etc.) after ground Y is calculated
+                  console.log('[3D-LOAD] 📡 Dispatching visualsmap-ready event for entity population');
+                  window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area } }));
                 } else {
                   console.log('[3D-LOAD] ⚠️ WARNING: Visualsmap loaded but no objects found');
                   console.log('[3D-LOAD] Adapter:', GAME_VISUALSMAP_ADAPTER);
@@ -7636,6 +7641,10 @@ function boot(){
                   scene3d: area.scene3d,
                   worldRotation: 0
                 });
+
+                // Dispatch event to signal that scene3d is ready for entity population
+                console.log('[app] 📡 Dispatching visualsmap-ready event for entity population (scene3d fallback)');
+                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area } }));
               } else {
                 console.warn('[app] Failed to load 3D scene:', GAME_RENDER_ADAPTER?.error);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
@@ -7698,6 +7707,10 @@ function boot(){
                   scene3d: areaToLoad.scene3d,
                   worldRotation: 0 // TODO: Get rotation from visualsmap if path-aligned
                 });
+
+                // Dispatch event to signal that visualsMap is ready for entity population
+                console.log('[3D-LOAD-INITIAL] 📡 Dispatching visualsmap-ready event for entity population');
+                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: areaToLoad } }));
                 console.log('[3D-LOAD-INITIAL] ✓ Coordinate transform initialized, continuing...');
               } else {
                 console.log('[3D-LOAD-INITIAL] ⚠️ WARNING: Visualsmap loaded but no objects found');
@@ -7720,6 +7733,10 @@ function boot(){
                   scene3d: areaToLoad.scene3d,
                   worldRotation: 0
                 });
+
+                // Dispatch event to signal that scene3d is ready for entity population
+                console.log('[app] 📡 Dispatching visualsmap-ready event for entity population (initial scene3d fallback)');
+                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: areaToLoad } }));
               } else {
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
               }

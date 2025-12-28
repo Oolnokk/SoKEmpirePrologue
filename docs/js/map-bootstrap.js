@@ -657,13 +657,49 @@ async function applyArea(area) {
     window.GAME.currentAreaId = area.id;
     window.GAME.__onMapRegistryReadyForCamera?.(registry);
 
-    // CRITICAL: Await entity spawning to prevent race conditions
-    await registerAreaSpawns(area);
+    // DEFERRED: Entity spawning now happens AFTER visualsMap loads
+    // Set up event listener to populate map entities when visualsMap is ready
+    console.log('[APPLY-AREA] ⏳ Waiting for visualsmap-ready event before populating entities...');
+
+    const entityPopulationPromise = new Promise((resolve) => {
+        let hasPopulated = false;
+
+        const populateEntities = async (event) => {
+            if (hasPopulated) return;
+            hasPopulated = true;
+
+            const eventArea = event?.detail?.area;
+            console.log('[APPLY-AREA] 📥 visualsmap-ready event received for area:', eventArea?.id);
+            console.log('[APPLY-AREA] 🎬 Starting entity population (NPCs, props, etc.)...');
+
+            await registerAreaSpawns(area);
+
+            console.log('[APPLY-AREA] ✅ Entity population complete');
+            resolve();
+        };
+
+        // Listen for visualsmap-ready event
+        window.addEventListener('visualsmap-ready', populateEntities, { once: true });
+
+        // Timeout fallback - populate entities anyway after 10 seconds
+        setTimeout(() => {
+            if (!hasPopulated) {
+                console.warn('[APPLY-AREA] ⚠️ Timeout waiting for visualsmap-ready - populating entities anyway');
+                populateEntities({});
+            }
+        }, 10000);
+    });
+
+    // Don't await here - let the event handler trigger entity population
+    // This allows applyArea to complete and the visualsMap to start loading
+    entityPopulationPromise.then(() => {
+        console.log('[APPLY-AREA] 🎉 Map fully loaded with entities');
+    });
 
     bindAreaNameOverlay(registry);
     bindGeometryService(registry);
     bindPlayableBoundsSync(registry);
-    console.info(`[map-bootstrap] ✅ Loaded area "${area.id}" (${area.source || 'unknown source'})`);
+    console.info(`[map-bootstrap] ✅ Area geometry and config loaded "${area.id}" (entities pending visualsMap)`);
 }
 async function applyPreviewLayout(descriptor, { previewToken = null, createdAt = null, prefabResolver, }) {
     if (!descriptor)
