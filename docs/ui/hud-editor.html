@@ -99,24 +99,10 @@
       background:#38bdf8;
       border:2px solid #0ea5e9;
       box-shadow:0 4px 16px rgba(14,165,233,0.65);
-      cursor:pointer;
+      cursor:grab;
       z-index:100;
-      transition: all 0.2s ease;
     }
-    .overlay-handle:hover {
-      transform:translate(-50%, -50%) scale(1.2);
-      box-shadow:0 6px 20px rgba(14,165,233,0.8);
-    }
-    .overlay-handle.selected {
-      background:#ef4444;
-      border-color:#dc2626;
-      box-shadow:0 0 0 4px rgba(239,68,68,0.3), 0 4px 16px rgba(239,68,68,0.65);
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { box-shadow:0 0 0 4px rgba(239,68,68,0.3), 0 4px 16px rgba(239,68,68,0.65); }
-      50% { box-shadow:0 0 0 8px rgba(239,68,68,0.1), 0 4px 20px rgba(239,68,68,0.8); }
-    }
+    .overlay-handle:active { cursor:grabbing; }
     .arch-curve-overlay {
       position:absolute;
       inset:0;
@@ -405,11 +391,7 @@
             </div>
           </div>
         </div>
-        <p class="drag-hint">💡 Tap handle to select • Tap stage to move • Grid snap enabled</p>
-        <div class="control-buttons">
-          <button id="cancelBtn" class="control-btn cancel" disabled>✕ Cancel</button>
-          <button id="undoBtn" class="control-btn undo" disabled>↶ Undo</button>
-        </div>
+        <p class="drag-hint">💡 Drag handles to adjust • Grid snap enabled</p>
       </section>
     </main>
   </div>

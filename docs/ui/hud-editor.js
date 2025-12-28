@@ -51,14 +51,6 @@ let gridSize = Number(gridSizeInput?.value) || 24;
 let originalHudConfig = null;
 let currentResourceBars = [];
 
-// Selection and undo state
-let selectedHandle = null;
-let undoHistory = [];
-const MAX_UNDO_HISTORY = 20;
-
-const cancelBtn = document.getElementById('cancelBtn');
-const undoBtn = document.getElementById('undoBtn');
-
 const DEFAULT_ARCH_ANCHORS = {
   start: { x: 0.98, y: 0.94 },
   end: { x: 0.78, y: 0.86 },
@@ -739,14 +731,13 @@ function positionArchHandles(stageRect) {
   const rect = stageRect || previewStage.getBoundingClientRect();
   placeHandle('arch-start', start.x ?? 0, start.y ?? 0, rect, 'Arch start point');
   placeHandle('arch-end', end.x ?? 0, end.y ?? 0, rect, 'Arch end point');
-  drawArchLine(start, end, rect);
 }
 
-function placeHandle(id, normX, normY, rect, title = '', isControl = false) {
+function placeHandle(id, normX, normY, rect, title = '') {
   let el = document.querySelector(`[data-handle="${id}"]`);
   if (!el) {
     el = document.createElement('div');
-    el.className = isControl ? 'overlay-handle control-point' : 'overlay-handle';
+    el.className = 'overlay-handle';
     el.dataset.handle = id;
     el.title = title;
     previewStage.appendChild(el);
@@ -758,25 +749,30 @@ function placeHandle(id, normX, normY, rect, title = '', isControl = false) {
   el.style.top = `${y}px`;
 }
 
-function drawArchLine(start, end, rect) {
-  let svg = document.querySelector('.arch-curve-overlay');
-  if (!svg) {
-    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'arch-curve-overlay');
-    previewStage.appendChild(svg);
-  }
+function bindArchHandle(el) {
+  el.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = previewStage.getBoundingClientRect();
+    const handleId = el.dataset.handle;
+    const target = handleId === 'arch-end' ? 'end' : 'start';
 
-  const startX = (start.x || 0) * rect.width;
-  const startY = (start.y || 0) * rect.height;
-  const endX = (end.x || 0) * rect.width;
-  const endY = (end.y || 0) * rect.height;
-
-  svg.innerHTML = `
-    <line x1="${startX}" y1="${startY}" x2="${endX}" y2="${endY}" class="arch-curve-path" />
-  `;
+    const onMove = (moveEvt) => {
+      const normX = clamp(snap(moveEvt.clientX - rect.left) / rect.width, 0, 1);
+      const normY = clamp(snap(moveEvt.clientY - rect.top) / rect.height, 0, 1);
+      window.CONFIG.hud.arch.arch[target] = window.CONFIG.hud.arch.arch[target] || {};
+      window.CONFIG.hud.arch.arch[target].x = normX;
+      window.CONFIG.hud.arch.arch[target].y = normY;
+      refreshPreview();
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, { once: true });
+  });
 }
-
-function bindButtonDrags() {
   Object.entries(actionButtonRefs).forEach(([key, el]) => {
     if (!el) return;
     el.addEventListener('pointerdown', (event) => {
@@ -1013,27 +1009,11 @@ function bindExportButtons() {
   });
 }
 
-function bindControlButtons() {
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', () => {
-      deselectHandle();
-    });
-  }
-
-  if (undoBtn) {
-    undoBtn.addEventListener('click', () => {
-      performUndo();
-    });
-  }
-}
-
 function init() {
   updateGridVisuals();
   bindButtonDrags();
   bindGridInputs();
   bindExportButtons();
-  bindStageClick();
-  bindControlButtons();
   refreshPreview();
 }
 
