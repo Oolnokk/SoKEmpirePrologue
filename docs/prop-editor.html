@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Prop Editor</title>
+  <style>
+    :root{--bg:#0b0d10;--panel:#12161b;--card:#151b22;--muted:#8aa0b8;--text:#e6edf3;--line:#2a3442;--btn:#1d2633;--btnHi:#263142}
+    *{box-sizing:border-box}html,body{height:100%;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Noto Sans;margin:0;
+      padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);}
+    #app{display:grid;grid-template-columns:minmax(280px, 480px) 1fr;grid-template-rows:60px auto 1fr;grid-template-areas:"top top" "bar bar" "left right";height:100%}
+    header{grid-area:top;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+    header h1{font-size:16px;margin:0;color:var(--muted);letter-spacing:0.02em}
+    button,select,input,textarea{background:var(--btn);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px}
+    button:hover{background:var(--btnHi)}
+    #left{grid-area:left;overflow:auto;border-right:1px solid var(--line);background:var(--panel)}
+    #right{grid-area:right;display:grid;grid-template-rows:auto 1fr;gap:8px;padding:8px;min-width:240px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin:8px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+    .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+    .bar{display:flex;align-items:center;gap:8px;justify-content:space-between;margin:6px 0 2px}
+    label{font-size:11px;color:#8aa0b8;display:block;margin-bottom:4px}
+    #cvWrap{width:100%; position:relative; overflow:hidden; border:1px solid var(--line); border-radius:14px; background:var(--card)}
+    canvas{display:block; width:100%; height:100%}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .toolbar select{min-width:160px}
+    .pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:rgba(30,64,175,.35);font-size:11px;color:#cbd5f5;border:1px solid rgba(59,130,246,.45)}
+    .grid-divider{margin-top:12px;padding-top:12px;border-top:1px solid rgba(42,52,66,.8)}
+    .action-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:rgba(139,92,246,.18);border:1px solid rgba(167,139,250,.35);font-size:11px;color:#ddd6fe;margin:4px}
+    .action-badge button{background:none;border:none;padding:0;color:#ddd6fe;font-size:11px;cursor:pointer}
+    .action-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+    @media (max-width:1100px){#app{grid-template-columns:1fr;grid-template-rows:60px auto auto auto;grid-template-areas:"top" "bar" "right" "left"}
+      #right{height:50vh} }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Prop Editor</h1>
+    <div class="toolbar">
+      <select id="prefabSelect">
+        <option value="">Browse props…</option>
+      </select>
+      <button id="btnLoad" type="button">Load Selected</button>
+      <button id="btnRefresh" type="button" title="Reload props">↻</button>
+      <button id="btnNew" type="button">New Prop</button>
+      <button id="btnImport" type="button">Import JSON</button>
+      <button id="btnExport" type="button">Download JSON</button>
+    </div>
+  </header>
+
+  <div style="grid-area:bar;padding:10px 16px;background:#151b22;border-bottom:1px solid #2a3442;color:#9fb4ce;font-size:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+    <span class="pill">Prop Configuration</span>
+    <span class="pill">Attachment Points</span>
+    <span class="pill">Contextual Actions</span>
+  </div>
+
+  <aside id="left">
+    <!-- Prefab Details -->
+    <div class="card">
+      <div class="bar">
+        <strong>Prefab Details</strong>
+      </div>
+      <label>Prefab ID</label>
+      <input type="text" id="prefabId" placeholder="bottle_01">
+
+      <label>Display Name</label>
+      <input type="text" id="displayName" placeholder="Glass Bottle">
+
+      <label>Tags (comma-separated)</label>
+      <input type="text" id="tags" placeholder="prop, item, container">
+    </div>
+
+    <!-- Transform & Scale -->
+    <div class="card">
+      <div class="bar">
+        <strong>Transform & Scale</strong>
+      </div>
+
+      <label>Scale</label>
+      <div class="row">
+        <div>
+          <label>X</label>
+          <input type="number" id="scaleX" value="1" step="0.1">
+        </div>
+        <div>
+          <label>Y</label>
+          <input type="number" id="scaleY" value="1" step="0.1">
+        </div>
+      </div>
+
+      <label>Rotation (degrees)</label>
+      <input type="number" id="rotation" value="0" step="1">
+    </div>
+
+    <!-- Sprite Base Point -->
+    <div class="card">
+      <div class="bar">
+        <strong>Sprite Base (Ground Contact)</strong>
+      </div>
+      <p style="font-size:11px;color:#8aa0b8;margin:0 0 8px">The point on the sprite that touches the ground or collides with surfaces</p>
+
+      <label>Base Point Y-Offset (pixels)</label>
+      <input type="number" id="basePointY" value="0" step="1">
+      <p style="font-size:10px;color:#6b7280;margin-top:4px">Positive = above sprite center, Negative = below</p>
+
+      <label>Base Point X-Offset (pixels)</label>
+      <input type="number" id="basePointX" value="0" step="1">
+    </div>
+
+    <!-- Attachment Configuration -->
+    <div class="card">
+      <div class="bar">
+        <strong>Bone Attachment</strong>
+      </div>
+      <p style="font-size:11px;color:#8aa0b8;margin:0 0 8px">Two-point line defining where and how the prop attaches to weapon bone</p>
+
+      <label>Attach Point 1 (Grip)</label>
+      <div class="row">
+        <div>
+          <label>X</label>
+          <input type="number" id="attach1X" value="0" step="1">
+        </div>
+        <div>
+          <label>Y</label>
+          <input type="number" id="attach1Y" value="0" step="1">
+        </div>
+      </div>
+
+      <label>Attach Point 2 (Orientation)</label>
+      <div class="row">
+        <div>
+          <label>X</label>
+          <input type="number" id="attach2X" value="0" step="1">
+        </div>
+        <div>
+          <label>Y</label>
+          <input type="number" id="attach2Y" value="-10" step="1">
+        </div>
+      </div>
+
+      <p style="font-size:10px;color:#6b7280;margin-top:8px">Point 1 is the grip point, Point 2 defines the forward direction</p>
+    </div>
+
+    <!-- Contextual Actions -->
+    <div class="card">
+      <div class="bar">
+        <strong>Contextual Actions</strong>
+      </div>
+      <p style="font-size:11px;color:#8aa0b8;margin:0 0 8px">Actions that appear on HUD arch when holding this prop</p>
+
+      <div class="action-list" id="actionList">
+        <div class="action-badge">Use <button onclick="toggleAction('use')">×</button></div>
+        <div class="action-badge">Drop <button onclick="toggleAction('drop')">×</button></div>
+        <div class="action-badge">Stow <button onclick="toggleAction('stow')">×</button></div>
+        <div class="action-badge">Throw <button onclick="toggleAction('throw')">×</button></div>
+      </div>
+
+      <div class="grid-divider"></div>
+      <label>Add Custom Action</label>
+      <div class="row">
+        <input type="text" id="customAction" placeholder="Action name">
+        <button id="btnAddAction" type="button">Add</button>
+      </div>
+    </div>
+
+  </aside>
+
+  <main id="right">
+    <div id="cvWrap" style="height: 100%">
+      <canvas id="canvas" width="800" height="600"></canvas>
+    </div>
+  </main>
+</div>
+
+<script type="module" src="./js/prop-editor-app.js"></script>
+</body>
+</html>

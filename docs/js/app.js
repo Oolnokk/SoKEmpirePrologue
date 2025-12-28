@@ -963,6 +963,7 @@ import { initBountySystem, updateBountySystem, getBountyState } from './bounty.j
 import { initAllObstructionPhysics, updateObstructionPhysics } from './obstruction-physics.js?v=1';
 import { syncCamera as syncThreeCamera } from './three-camera-sync.js?v=1';
 import { initTransformConfig, transform3dTo2d, transform2dTo3d, getTransformConfig } from './coordinate-transform.js?v=1';
+import { applyPropConfig } from '../config/prop-prefabs.js?v=1';
 // DO NOT static import map-bootstrap - causes race condition!
 // Use dynamic import in boot() instead
 
@@ -5034,6 +5035,12 @@ function createEditorPreviewSandbox() {
       restitution: 0.3, // Default bounce factor
     };
 
+    // Apply prop configuration if available (handles scale, attachment points, actions, etc.)
+    // This looks for a matching prefabId in the prop config system
+    if (instance.prefabId) {
+      applyPropConfig(prop, instance.prefabId);
+    }
+
     // Add to the global props array
     game.dynamicInstances.push(prop);
 
@@ -5413,6 +5420,9 @@ function renderBottles(ctx) {
   for (const inst of window.GAME.dynamicInstances) {
     if (!inst || !inst.position) continue;
 
+    // Skip rendering held items here - they're rendered separately
+    if (inst.heldBy) continue;
+
     const prefab = inst.prefab;
     if (!prefab || !prefab.parts || !prefab.parts.length) continue;
 
@@ -5435,9 +5445,16 @@ function renderBottles(ctx) {
     const width = Number.isFinite(template.w) ? template.w : (img?.naturalWidth || 100);
     const height = Number.isFinite(template.h) ? template.h : (img?.naturalHeight || 100);
 
-    // Compute anchor point
-    const ax = width * ((template.anchorXPct ?? 50) / 100);
-    const ay = height * ((template.anchorYPct ?? 100) / 100);
+    // Compute anchor point (use prop config if available)
+    let ax = width * ((template.anchorXPct ?? 50) / 100);
+    let ay = height * ((template.anchorYPct ?? 100) / 100);
+
+    // Adjust anchor if prop config specifies sprite base
+    if (inst.propConfig?.spriteBase) {
+      const base = inst.propConfig.spriteBase;
+      ax -= base.x;
+      ay -= base.y;
+    }
 
     ctx.save();
     ctx.translate(pos.x, pos.y);  // pos.y is already relative to ground in world coords
@@ -5447,10 +5464,11 @@ function renderBottles(ctx) {
     if (ready) {
       ctx.drawImage(img, -ax, -ay, width, height);
     } else {
-      // Placeholder
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.3)';
+      // Placeholder - use prop config render settings if available
+      const renderConfig = inst.propConfig?.render || {};
+      ctx.fillStyle = renderConfig.color || 'rgba(148, 163, 184, 0.3)';
       ctx.fillRect(-ax, -ay, width, height);
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
+      ctx.strokeStyle = renderConfig.outlineColor || 'rgba(148, 163, 184, 0.6)';
       ctx.lineWidth = 2;
       ctx.strokeRect(-ax, -ay, width, height);
     }
@@ -6089,9 +6107,10 @@ function loop(t){
       inst.position.x = bone.x;
       inst.position.y = bone.y;
 
-      // Optional: match bone rotation if needed for physics
-      if (inst.rotation !== undefined) {
-        inst.rotation = bone.ang || 0;
+      // Update rotation to match bone angle (convert radians to degrees)
+      if (bone.ang !== undefined) {
+        inst.rotationDeg = (bone.ang * 180 / Math.PI);
+        inst.rotation = bone.ang; // Also store radians for convenience
       }
     }
   }
