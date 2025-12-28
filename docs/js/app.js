@@ -5066,6 +5066,9 @@ function installPreviewSandboxRegistryBridge() {
   // Expose the sandbox for dynamic instance spawning
   GAME.editorPreview = EDITOR_PREVIEW_SANDBOX;
 
+  // Expose loadPrefabImage for other modules (held-item-render, etc.)
+  GAME.loadPrefabImage = loadPrefabImage;
+
   const attach = (registry) => {
     try {
       EDITOR_PREVIEW_SANDBOX.attachToRegistry(registry);

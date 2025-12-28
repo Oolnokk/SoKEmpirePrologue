@@ -46,8 +46,9 @@ export function renderHeldItems(ctx) {
     const pos = inst.position;
     const rotRad = (inst.rotationDeg || 0) * Math.PI / 180;
 
-    // Load image
-    const img = window.GAME?.prefabImageCache?.[template.url];
+    // Load image using the same function as renderBottles
+    const loadImage = window.GAME?.loadPrefabImage;
+    const img = loadImage ? loadImage(template.url) : null;
     const ready = img && img.complete && !img.__broken && img.naturalWidth > 0 && img.naturalHeight > 0;
     const width = Number.isFinite(template.w) ? template.w : (img?.naturalWidth || 100);
     const height = Number.isFinite(template.h) ? template.h : (img?.naturalHeight || 100);
