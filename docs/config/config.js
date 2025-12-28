@@ -1,7 +1,18 @@
 // khyunchained CONFIG with sprite anchor mapping (torso/start) & optional debug
 
-// UI Display Settings
+// Global Game Time Configuration
 window.CONFIG = window.CONFIG || {};
+window.CONFIG.time = window.CONFIG.time || {};
+
+// Time system settings - controls global game time progression
+const __existingTimeConfig = window.CONFIG.time || {};
+window.CONFIG.time = {
+  startTime24h: __existingTimeConfig.startTime24h ?? 12,  // Starting hour (0-24), default 12:00 (noon)
+  timeScale: __existingTimeConfig.timeScale ?? 60.0,      // Time speed multiplier (60 = 1 real second = 1 game minute)
+  paused: __existingTimeConfig.paused ?? false,           // Whether time is paused on start
+};
+
+// UI Display Settings
 window.CONFIG.ui = window.CONFIG.ui || {};
 
 // Clock display settings for in-game HUD overlay

@@ -654,7 +654,23 @@ function updateEntityCensus() {
       return resolvedType === 'npc';
     });
 
+  // Player position
+  const player = G.FIGHTERS?.player;
+  const playerX = player?.hitbox?.x ?? player?.pos?.x ?? 0;
+  const playerY = player?.hitbox?.y ?? player?.pos?.y ?? 0;
+
+  // Game time (format as HH:MM)
+  const gameTime = G.gameTimeController?.time24h ?? window.gameTimeController?.time24h ?? 12;
+  const hours = Math.floor(gameTime);
+  const minutes = Math.floor((gameTime % 1) * 60);
+  const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  const timeScale = G.gameTimeController?.timeScale ?? window.gameTimeController?.timeScale ?? 1;
+  const timePaused = G.gameTimeController?.paused ?? window.gameTimeController?.paused ?? false;
+  const timeStatus = timePaused ? '⏸️ PAUSED' : `▶️ ${timeScale.toFixed(1)}x`;
+
   const lines = [
+    `Player: (${playerX.toFixed(1)}, ${playerY.toFixed(1)})`,
+    `Game Time: ${timeStr} ${timeStatus}`,
     `Area: ${areaId || 'none'}`,
     `Spawners: ${totalSpawners} (NPC ${actualNpcSpawners}/${intendedNpcSpawners})`,
     `Instances: ${instances} | Path Targets: ${pathTargets} | Patrol Targets: ${patrolTargetCount}`,
