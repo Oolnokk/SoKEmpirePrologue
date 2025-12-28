@@ -7264,12 +7264,10 @@ function boot(){
     initTouchControls();
     console.log('[app] boot() - Checking shouldEnableArchHud()');
     if (shouldEnableArchHud()) {
-      // Initialize CONFIG.hud.arch from HUD_ARCH_CONFIG if not already set
+      // Always use HUD_ARCH_CONFIG as the arch configuration source
       window.CONFIG = window.CONFIG || {};
       window.CONFIG.hud = window.CONFIG.hud || {};
-      if (!window.CONFIG.hud.arch && window.HUD_ARCH_CONFIG) {
-        window.CONFIG.hud.arch = window.HUD_ARCH_CONFIG;
-      }
+      window.CONFIG.hud.arch = window.HUD_ARCH_CONFIG || window.CONFIG.hud.arch;
 
       archTouchHandle?.destroy?.();
       archTouchHandle = initArchTouchInput({
@@ -7289,6 +7287,7 @@ function boot(){
           const offsetY = containerCfg.offsetY || 0;
           archHud.style.transformOrigin = 'center center';
           archHud.style.transform = `translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale})`;
+          console.log('[app] Applied arch container transform:', { rotation, scale, offsetX, offsetY });
         }
       });
     }
