@@ -336,25 +336,36 @@ function updateNpcWaitMode(state, dt, area) {
   if (ooc.nextRepositionCheck <= 0) {
     const curiosity = state.ai?.curiosity || {};
     const repositionChance = curiosity.repositionChance || 0.3;
-    const baseInterval = curiosity.baseRepositionInterval || 5;
 
     // Check if in a patrol collider
     const patrolCollider = findPatrolColliderAtPosition(state.pos, area);
 
     if (patrolCollider) {
-      // Always reposition when in patrol collider
+      // ALWAYS reposition when in patrol collider - NPCs should actively patrol
+      // Use shorter interval for patrol zones (more active patrolling)
+      const patrolInterval = curiosity.patrolRepositionInterval || 2; // Faster repositioning in patrol zones
       ooc.mode = 'reposition';
       ooc.targetPoint = getRandomPointInPatrolCollider(patrolCollider);
       ooc.currentPoi = null; // Clear POI since we're in patrol mode
+
+      // Randomize next check interval (shorter for patrols)
+      const variance = patrolInterval * 0.5;
+      ooc.nextRepositionCheck = patrolInterval + (Math.random() - 0.5) * variance;
     } else if (Math.random() < repositionChance && ooc.currentPoi) {
-      // Normal POI repositioning
+      // Normal POI repositioning (less frequent)
+      const baseInterval = curiosity.baseRepositionInterval || 5;
       ooc.mode = 'reposition';
       ooc.targetPoint = getRandomGroundPointInPoi(ooc.currentPoi);
-    }
 
-    // Randomize next check interval
-    const variance = baseInterval * 0.5;
-    ooc.nextRepositionCheck = baseInterval + (Math.random() - 0.5) * variance;
+      // Randomize next check interval
+      const variance = baseInterval * 0.5;
+      ooc.nextRepositionCheck = baseInterval + (Math.random() - 0.5) * variance;
+    } else {
+      // No repositioning this check - set next check time
+      const baseInterval = curiosity.baseRepositionInterval || 5;
+      const variance = baseInterval * 0.5;
+      ooc.nextRepositionCheck = baseInterval + (Math.random() - 0.5) * variance;
+    }
   }
 }
 

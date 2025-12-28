@@ -23,6 +23,7 @@ import { pickFighterConfig, lengths, pickOffsets, resolveBoneLengthScale } from 
 import { updateFighterColliders, pruneFighterColliders, getFighterColliders } from './colliders.js?v=1';
 import { computeGroundY } from './ground-utils.js?v=1';
 import { getCurrentGameHour, isScheduleActive, resolveScheduleEntry } from './schedule-utils.js?v=1';
+import { isPointInsidePoi } from './poi-utils.js?v=1';
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -1073,21 +1074,43 @@ function drawNpcDetails(ctx, fighter, hitbox) {
   ctx.lineWidth = 3;
   ctx.strokeText(npcName, x, textY);
 
-  // Color based on gender if available
-  let nameColor = '#e2e8f0'; // Default light gray
-  if (fighter.gender === 'male') {
-    nameColor = '#60a5fa'; // Blue
-  } else if (fighter.gender === 'female') {
-    nameColor = '#f472b6'; // Pink
+  // Color based on position status relative to scheduled POI/target
+  let nameColor = '#94a3b8'; // Default gray (no target)
+  const oocState = fighter.outOfCombat || {};
+  const currentPoi = oocState.currentPoi;
+  const targetPoint = oocState.targetPoint;
+  const pathTarget = fighter.aiPathState?.currentTarget;
+
+  // Check if NPC has a scheduled target
+  const hasTarget = currentPoi || targetPoint || pathTarget;
+
+  if (hasTarget && currentPoi) {
+    // Check if NPC is inside their scheduled POI
+    const isInside = isPointInsidePoi(fighter.pos, currentPoi);
+    nameColor = isInside ? '#22c55e' : '#ef4444'; // Green if inside, red if outside
+  } else if (hasTarget && (targetPoint || pathTarget)) {
+    // Check if NPC is in range of their target point
+    const target = targetPoint || pathTarget;
+    if (target && Number.isFinite(target.x || target.goalX)) {
+      const targetX = target.x ?? target.goalX;
+      const targetY = target.y ?? target.goalY ?? fighter.pos.y;
+      const arriveRadius = target.arriveRadius ?? 10;
+      const dx = targetX - x;
+      const dy = targetY - y;
+      const distance = Math.hypot(dx, dy);
+      nameColor = distance <= arriveRadius ? '#22c55e' : '#ef4444'; // Green if in range, red if not
+    } else {
+      nameColor = '#94a3b8'; // Gray if target data invalid
+    }
+  } else {
+    nameColor = '#94a3b8'; // Gray if no target
   }
 
   ctx.fillStyle = nameColor;
   ctx.fillText(npcName, x, textY);
 
-  // Draw position and target information below name
-  const ooc = fighter.outOfCombat || {};
-  const targetPoint = ooc.targetPoint;
-  const pathTarget = fighter.aiPathState?.currentTarget;
+  // Draw position and target information below name (reuse variables from above)
+  const pathTargetForInfo = fighter.aiPathState?.currentTarget;
 
   let positionInfo = `(${x.toFixed(0)}, ${y.toFixed(0)})`;
   let targetInfo = '';
@@ -1096,10 +1119,10 @@ function drawNpcDetails(ctx, fighter, hitbox) {
     const deltaX = targetPoint.x - x;
     const direction = deltaX >= 0 ? '+' : '';
     targetInfo = ` → (${targetPoint.x.toFixed(0)}, ${(targetPoint.y ?? 0).toFixed(0)}) Δ${direction}${deltaX.toFixed(0)}`;
-  } else if (pathTarget && Number.isFinite(pathTarget.goalX)) {
-    const deltaX = pathTarget.goalX - x;
+  } else if (pathTargetForInfo && Number.isFinite(pathTargetForInfo.goalX)) {
+    const deltaX = pathTargetForInfo.goalX - x;
     const direction = deltaX >= 0 ? '+' : '';
-    targetInfo = ` → (${pathTarget.goalX.toFixed(0)}, ${(pathTarget.goalY ?? 0).toFixed(0)}) Δ${direction}${deltaX.toFixed(0)}`;
+    targetInfo = ` → (${pathTargetForInfo.goalX.toFixed(0)}, ${(pathTargetForInfo.goalY ?? 0).toFixed(0)}) Δ${direction}${deltaX.toFixed(0)}`;
   }
 
   const infoText = positionInfo + targetInfo;
