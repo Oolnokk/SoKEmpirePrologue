@@ -330,7 +330,8 @@ export function initFighters(cv, cx, options = {}){
     ? Math.max(0, opts.npcSpawnDelayMs)
     : 10000;
   const spawnNpcImmediately = spawnNpcEnabled && opts.spawnNpc === true && spawnNpcDelayMs === 0;
-  const enableNpcTemplate = spawnNpcEnabled || hasNpcSpawners;
+  // Always enable NPC template so spawners can work after map loads
+  const enableNpcTemplate = true; // was: spawnNpcEnabled || hasNpcSpawners
   const requestedPoseKey = typeof opts.poseKey === 'string' && opts.poseKey.trim()
     ? opts.poseKey.trim()
     : null;
@@ -1523,24 +1524,27 @@ export function initializeNpcSpawnersForArea(area = null) {
         }
       }
       const scheduleActive = isScheduleActive(entry.scheduleMeta, currentHour);
-      const shouldInitialFill = scheduleActive && !entry.hasInitialized;
+      // Always do initial fill, even if schedule is inactive (for testing/debugging)
+      const shouldInitialFill = !entry.hasInitialized;
       const shouldRespawn = scheduleActive && entry.respawn && entry.hasInitialized;
 
       if (shouldInitialFill || shouldRespawn) {
-        console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Spawner', entry.spawnerId, '- active:', entry.activeIds.size, '- target:', entry.count, '- template:', entry.templateId);
+        console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Spawner', entry.spawnerId, '- active:', entry.activeIds.size, '- target:', entry.count, '- template:', entry.templateId, '- scheduleActive:', scheduleActive);
         while (entry.activeIds.size < entry.count) {
           console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Spawning NPC', entry.activeIds.size + 1, '/', entry.count);
           const npc = spawnNpcFromSpawner(entry);
           if (!npc) {
-            console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Failed to spawn NPC, breaking loop');
+            console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] ❌ Failed to spawn NPC, breaking loop');
             break;
           }
-          console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Successfully spawned', npc.id);
+          console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] ✅ Successfully spawned', npc.id);
         }
         if (shouldRespawn || entry.activeIds.size > 0) {
           entry.hasInitialized = true;
         }
         console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Final activeIds.size:', entry.activeIds.size);
+      } else {
+        console.log('[initializeNpcSpawnersForArea/cleanupAndRespawn] Skipping spawner', entry.spawnerId, '- scheduleActive:', scheduleActive, '- hasInitialized:', entry.hasInitialized);
       }
     }
   };
