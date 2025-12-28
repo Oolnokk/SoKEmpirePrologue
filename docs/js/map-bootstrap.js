@@ -655,11 +655,10 @@ async function applyArea(area) {
     window.GAME = window.GAME || {};
     window.GAME.mapRegistry = registry;
     window.GAME.currentAreaId = area.id;
-    window.GAME.__onMapRegistryReadyForCamera?.(registry);
 
-    // DEFERRED: Entity spawning now happens AFTER visualsMap loads
-    // Set up event listener to populate map entities when visualsMap is ready
-    console.log('[APPLY-AREA] ⏳ Waiting for visualsmap-ready event before populating entities...');
+    // CRITICAL: Set up event listener BEFORE calling __onMapRegistryReadyForCamera
+    // This ensures the listener is ready when visualsMap loading is triggered
+    console.log('[APPLY-AREA] ⏳ Setting up visualsmap-ready event listener BEFORE triggering 3D load...');
 
     const entityPopulationPromise = new Promise((resolve) => {
         let hasPopulated = false;
@@ -695,6 +694,10 @@ async function applyArea(area) {
     entityPopulationPromise.then(() => {
         console.log('[APPLY-AREA] 🎉 Map fully loaded with entities');
     });
+
+    // NOW trigger 3D loading - event listener is ready to catch the visualsmap-ready event
+    console.log('[APPLY-AREA] 🚀 Triggering 3D load via __onMapRegistryReadyForCamera...');
+    window.GAME.__onMapRegistryReadyForCamera?.(registry);
 
     bindAreaNameOverlay(registry);
     bindGeometryService(registry);
