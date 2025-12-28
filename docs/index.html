@@ -615,6 +615,9 @@
               <div class="debug-script-filter-placeholder">Waiting for scripts to log…</div>
             </div>
           </div>
+          <div style="margin: 8px 0;">
+            <input type="text" id="debugConsoleSearch" placeholder="🔍 Search console logs..." style="width: 100%; padding: 6px 8px; font-size: 11px; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 4px; font-family: monospace;">
+          </div>
           <div id="debugConsole" style="font-family: monospace; font-size: 10px; color: #94a3b8; background: #0f172a; padding: 8px; border-radius: 4px; max-height: 300px; overflow-y: auto; line-height: 1.4;">
             <div style="color: #64748b; font-style: italic;">Console output will appear here...</div>
           </div>
@@ -798,6 +801,7 @@
         onTickMessages: [],
         scriptFilters: new Map(),
         showOnTick: consoleConfig.onTickDefault ?? false,
+        searchTerm: '',
       };
 
       function formatValue(value) {
@@ -994,10 +998,21 @@
 
       function getVisibleEntries() {
         const scriptAllowed = (name) => debugState.scriptFilters.get(name) !== false;
+        const searchTerm = debugState.searchTerm.toLowerCase();
 
-        const persisted = debugState.messages.filter((entry) => scriptAllowed(entry.scriptName));
+        const matchesSearch = (entry) => {
+          if (!searchTerm) return true;
+          const searchableText = `${entry.level} ${entry.scriptName} ${entry.formattedArgs}`.toLowerCase();
+          return searchableText.includes(searchTerm);
+        };
+
+        const persisted = debugState.messages.filter((entry) =>
+          scriptAllowed(entry.scriptName) && matchesSearch(entry)
+        );
         const onTick = debugState.showOnTick
-          ? debugState.onTickMessages.filter((entry) => scriptAllowed(entry.scriptName))
+          ? debugState.onTickMessages.filter((entry) =>
+              scriptAllowed(entry.scriptName) && matchesSearch(entry)
+            )
           : [];
 
         return [...persisted, ...onTick];
@@ -1135,6 +1150,15 @@
         onTickToggle.addEventListener('change', () => {
           debugState.showOnTick = onTickToggle.checked;
           purgeOnTickCache();
+          renderMessages();
+        });
+      }
+
+      // Search input
+      const searchInput = document.getElementById('debugConsoleSearch');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          debugState.searchTerm = e.target.value;
           renderMessages();
         });
       }
