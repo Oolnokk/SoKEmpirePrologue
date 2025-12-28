@@ -586,6 +586,19 @@
           </div>
         </div>
 
+        <div class="box" id="entityDebugBox">
+          <div class="label">Entity Initialization Debug</div>
+          <div style="margin-bottom: 8px; font-size: 11px; color: #94a3b8;">
+            Manually trigger entity spawning if entities fail to load automatically:
+          </div>
+          <button type="button" id="manualEntityInit" class="toggle-btn" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%; font-weight: bold;">
+            🔄 Manually Initialize Entities
+          </button>
+          <div id="entityInitResult" style="margin-top: 8px; font-size: 11px; color: #94a3b8; min-height: 20px;">
+            <!-- Result will appear here -->
+          </div>
+        </div>
+
         <div class="box" id="debugConsoleBox">
           <div class="label">
             Debug Console
@@ -840,23 +853,40 @@
       }
 
       function getCallerScript() {
-        const stack = new Error().stack;
-        if (!stack) return 'unknown';
+        try {
+          const stack = new Error().stack;
+          if (!stack) return 'index.html';
 
-        const lines = stack.split('\n').slice(2);
-        for (const line of lines) {
-          const match = line.match(/\(?((?:https?:\/\/[^\s)]+)|(?:[^\s)]+)):(\d+):(\d+)\)?/);
-          if (match && match[1]) {
-            const path = match[1].split(/[?#]/)[0];
-            const parts = path.split('/');
-            const filename = parts.pop();
-            if (filename) {
-              return filename;
+          const lines = stack.split('\n');
+
+          // Skip first lines: Error creation, getCallerScript, addMessage, console wrapper
+          for (let i = 4; i < lines.length; i++) {
+            const line = lines[i];
+
+            // Try multiple regex patterns for different browsers
+            // Chrome/Edge: "at functionName (https://domain/path/file.js:123:45)"
+            // Firefox: "functionName@https://domain/path/file.js:123:45"
+            const patterns = [
+              /([^\/\s]+\.js)(?:\?[^:]*)?:\d+:\d+/,  // Match filename.js:line:col
+              /\/([^\/\s]+\.js)(?:\?[^:]*)?$/,        // Match /filename.js at end
+            ];
+
+            for (const pattern of patterns) {
+              const match = line.match(pattern);
+              if (match && match[1]) {
+                const filename = match[1];
+                // Skip internal files
+                if (!filename.includes('VM') && filename !== 'chrome-extension') {
+                  return filename;
+                }
+              }
             }
           }
-        }
 
-        return 'unknown';
+          return 'index.html';
+        } catch (e) {
+          return 'index.html';
+        }
       }
 
       function removeScriptPlaceholder() {
@@ -1114,6 +1144,95 @@
 
       // Log that debug console is ready
       console.info('Debug console initialized');
+    })();
+
+    // Manual Entity Initialization Button
+    (function() {
+      const button = document.getElementById('manualEntityInit');
+      const resultDiv = document.getElementById('entityInitResult');
+
+      if (!button || !resultDiv) return;
+
+      button.addEventListener('click', async () => {
+        console.log('[ManualEntityInit] 🔄 Button clicked - attempting manual entity initialization');
+
+        button.disabled = true;
+        button.style.opacity = '0.5';
+        button.textContent = '⏳ Initializing...';
+        resultDiv.innerHTML = '<span style="color: #f59e0b;">⏳ Initializing entities...</span>';
+
+        try {
+          // Get active area
+          const GAME = window.GAME || {};
+          const registry = GAME.mapRegistry || window.__MAP_REGISTRY__;
+
+          if (!registry || typeof registry.getActiveArea !== 'function') {
+            throw new Error('MapRegistry not available');
+          }
+
+          const activeArea = registry.getActiveArea();
+          if (!activeArea) {
+            throw new Error('No active area found');
+          }
+
+          console.log('[ManualEntityInit] Active area:', activeArea.id);
+          console.log('[ManualEntityInit] Importing entity-initialization module...');
+
+          // Dynamically import the entity initialization module
+          const entityInitModule = await import('./js/entity-initialization.js');
+
+          console.log('[ManualEntityInit] Module loaded, calling initializeAreaEntities...');
+
+          // Call the initialization function
+          const result = await entityInitModule.initializeAreaEntities(activeArea);
+
+          console.log('[ManualEntityInit] ✅ Initialization complete:', result);
+
+          // Display results
+          const pathTargets = result.pathTargets?.initialized || 0;
+          const propSpawns = result.propSpawns?.initialized || 0;
+          const npcs = result.npcs?.initialized || 0;
+          const errors = result.errors?.length || 0;
+
+          if (result.success) {
+            resultDiv.innerHTML = `
+              <span style="color: #22c55e; font-weight: bold;">✅ Success!</span><br>
+              PathTargets: ${pathTargets} | PropSpawns: ${propSpawns} | NPCs: ${npcs}
+              ${errors > 0 ? `<br><span style="color: #ef4444;">⚠️ ${errors} error(s) - check console</span>` : ''}
+            `;
+            button.textContent = '✅ Initialized Successfully';
+            button.style.background = '#22c55e';
+          } else {
+            resultDiv.innerHTML = `
+              <span style="color: #ef4444; font-weight: bold;">❌ Failed</span><br>
+              ${errors} error(s) - check console for details
+            `;
+            button.textContent = '❌ Initialization Failed';
+            button.style.background = '#ef4444';
+          }
+
+        } catch (error) {
+          console.error('[ManualEntityInit] ❌ Fatal error:', error);
+
+          resultDiv.innerHTML = `
+            <span style="color: #ef4444; font-weight: bold;">❌ Error</span><br>
+            ${error.message || 'Unknown error'}
+          `;
+          button.textContent = '❌ Error';
+          button.style.background = '#ef4444';
+        } finally {
+          button.disabled = false;
+          button.style.opacity = '1';
+
+          // Reset button after 5 seconds
+          setTimeout(() => {
+            button.textContent = '🔄 Manually Initialize Entities';
+            button.style.background = '#10b981';
+          }, 5000);
+        }
+      });
+
+      console.log('[ManualEntityInit] Manual entity initialization button ready');
     })();
   </script>
 

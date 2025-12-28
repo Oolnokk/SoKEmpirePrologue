@@ -47,6 +47,38 @@ function initConsoleCapture() {
     return value;
   };
 
+  // Helper to extract source file from stack trace
+  const extractSource = () => {
+    try {
+      const stack = new Error().stack;
+      if (!stack) return 'unknown';
+
+      // Stack trace lines look like:
+      // "at captureMessage (file.js:123:45)" or
+      // "at http://example.com/path/file.js:123:45"
+      const lines = stack.split('\n');
+
+      // Skip first 3 lines (Error creation, captureMessage, console.log/warn/etc wrapper)
+      for (let i = 3; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Extract filename from various stack trace formats
+        // Match: /path/to/file.js or http://domain/path/file.js
+        const match = line.match(/([^\/\s]+\.js)(?:\?[^:]*)?(?::\d+)?(?::\d+)?/);
+        if (match) {
+          const filename = match[1];
+          // Skip internal browser files
+          if (!filename.includes('VM') && filename !== 'debug-panel.js') {
+            return filename;
+          }
+        }
+      }
+      return 'index.html';
+    } catch (e) {
+      return 'unknown';
+    }
+  };
+
   // Helper to capture and store messages
   const captureMessage = (type, originalFn, args) => {
     // Call original function first
@@ -54,6 +86,7 @@ function initConsoleCapture() {
 
     // Format and store message
     const timestamp = new Date().toISOString();
+    const source = extractSource();
     const MAX_MESSAGE_LENGTH = 5000; // Prevent base64 blobs from flooding console
 
     const message = args.map(arg => {
@@ -81,7 +114,7 @@ function initConsoleCapture() {
       return str;
     }).join(' ');
 
-    CONSOLE_CAPTURE.messages.push({ type, timestamp, message });
+    CONSOLE_CAPTURE.messages.push({ type, timestamp, source, message });
 
     // Limit array size
     if (CONSOLE_CAPTURE.messages.length > CONSOLE_CAPTURE.maxMessages) {
@@ -130,7 +163,8 @@ function exportConsoleLogs() {
 
   CONSOLE_CAPTURE.messages.forEach((entry, index) => {
     const typeLabel = entry.type.toUpperCase().padEnd(6);
-    lines.push(`[${entry.timestamp}] ${typeLabel} ${entry.message}`);
+    const source = entry.source ? `(${entry.source})` : '';
+    lines.push(`[${entry.timestamp}] ${typeLabel} ${source} ${entry.message}`);
   });
 
   lines.push('');
