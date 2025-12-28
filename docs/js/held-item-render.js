@@ -5,40 +5,81 @@
 
 /**
  * Render held items for all fighters
+ * Renders items from dynamicInstances that have heldBy set
  */
 export function renderHeldItems(ctx) {
   const G = window.GAME || {};
-  const C = window.CONFIG || {};
 
-  if (!ctx) return;
+  if (!ctx || !G.dynamicInstances) return;
 
-  const camX = G.CAMERA?.x || 0;
-  const zoom = Number.isFinite(G.CAMERA?.zoom) ? G.CAMERA.zoom : 1;
+  const camera = G.CAMERA || {};
+  const camX = camera.x || 0;
+  const zoom = Number.isFinite(camera.zoom) ? camera.zoom : 1;
+
+  // Get ground Y for camera transform (same as renderBottles)
+  const groundY = window.CONFIG?.groundY;
+  const cv = window.GAME?.CV;
+  const pivotY = Number.isFinite(groundY) ? groundY : cv?.height || 0;
 
   ctx.save();
+  // Apply same camera transform as bottles
+  ctx.translate(0, pivotY);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-camX, -pivotY);
 
-  // Iterate through fighters
-  const fighters = G.FIGHTERS || {};
-  for (const [id, fighter] of Object.entries(fighters)) {
-    if (!fighter || !fighter.currentHeldItem) continue;
+  // Render held items from dynamicInstances
+  for (const inst of G.dynamicInstances) {
+    if (!inst || !inst.heldBy) continue;
 
-    // Get weapon bone (weapon should be stowed when holding prop)
-    const bones = G.ANCHORS_OBJ?.[id];
-    if (!bones) continue;
+    const prefab = inst.prefab;
+    if (!prefab || !prefab.parts || !prefab.parts.length) continue;
 
-    // Use weapon_0 bone (same as weapon attachment)
-    const weaponBone = bones.weapon_0;
-    if (!weaponBone) continue;
+    const part = prefab.parts.find(p => p?.propTemplate);
+    const template = part?.propTemplate;
+    if (!template || !template.url) continue;
 
-    // Use start of weapon bone as attachment point
-    const boneX = weaponBone.x;
-    const boneY = weaponBone.y;
+    // Use prop config scale (NOT affected by bone transforms)
+    const scaleX = inst.scale?.x || 1;
+    const scaleY = inst.scale?.y || scaleX;
 
-    // Simple bottle rendering for now
-    const heldItem = fighter.currentHeldItem;
-    if (heldItem.prefabId === 'bottle_tall') {
-      renderBottleInHand(ctx, boneX, boneY, weaponBone.ang || 0, camX, zoom);
+    // Position and rotation come from bone (already set in update loop)
+    const pos = inst.position;
+    const rotRad = (inst.rotationDeg || 0) * Math.PI / 180;
+
+    // Load image
+    const img = window.GAME?.prefabImageCache?.[template.url];
+    const ready = img && img.complete && !img.__broken && img.naturalWidth > 0 && img.naturalHeight > 0;
+    const width = Number.isFinite(template.w) ? template.w : (img?.naturalWidth || 100);
+    const height = Number.isFinite(template.h) ? template.h : (img?.naturalHeight || 100);
+
+    // Compute anchor point
+    let ax = width * ((template.anchorXPct ?? 50) / 100);
+    let ay = height * ((template.anchorYPct ?? 100) / 100);
+
+    // Adjust anchor if prop config specifies sprite base
+    if (inst.propConfig?.spriteBase) {
+      const base = inst.propConfig.spriteBase;
+      ax -= base.x;
+      ay -= base.y;
     }
+
+    ctx.save();
+    ctx.translate(pos.x, pos.y);
+    ctx.scale(scaleX, scaleY); // Apply prop config scale
+    if (rotRad) ctx.rotate(rotRad);
+
+    if (ready) {
+      ctx.drawImage(img, -ax, -ay, width, height);
+    } else {
+      // Placeholder - use prop config render settings if available
+      const renderConfig = inst.propConfig?.render || {};
+      ctx.fillStyle = renderConfig.color || 'rgba(148, 163, 184, 0.3)';
+      ctx.fillRect(-ax, -ay, width, height);
+      ctx.strokeStyle = renderConfig.outlineColor || 'rgba(148, 163, 184, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-ax, -ay, width, height);
+    }
+    ctx.restore();
   }
 
   ctx.restore();
