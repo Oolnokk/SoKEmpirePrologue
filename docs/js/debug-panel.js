@@ -679,50 +679,7 @@ function updateEntityCensus() {
     `Dynamic Instances: ${dynamicInstances}`,
     `Init Status: ${initComplete ? '✅ Complete' : '⚠️ Pending'} - PathTargets: ${initPathTargets}, PropSpawns: ${initPropSpawns}, NPCs: ${initNpcs}${initErrors > 0 ? ` ❌ ${initErrors} errors` : ''}`,
   ];
-  // NPC details - show positions and targets when showSpawnerDetails is enabled
-  if (showSpawnerDetails && aliveNpcFighters.length > 0) {
-    lines.push('NPC Details:');
-    aliveNpcFighters.forEach((fighter) => {
-      const name = fighter?.npcName || fighter?.templateId || fighter?.id || 'Unknown';
-      const currentX = fighter?.hitbox?.x ?? fighter?.pos?.x ?? 0;
-      const currentY = fighter?.hitbox?.y ?? fighter?.pos?.y ?? 0;
-
-      // Get target from outOfCombat state
-      const ooc = fighter?.outOfCombat || {};
-      const targetPoint = ooc.targetPoint;
-      const currentPoi = ooc.currentPoi;
-      const pathTarget = fighter?.aiPathState?.currentTarget;
-
-      let targetInfo = '';
-      let distanceInfo = '';
-
-      if (targetPoint && Number.isFinite(targetPoint.x)) {
-        const targetX = targetPoint.x;
-        const targetY = targetPoint.y ?? 0;
-        const deltaX = targetX - currentX;
-        const distance = Math.sqrt(deltaX * deltaX + Math.pow(targetY - currentY, 2));
-        const direction = deltaX >= 0 ? '+' : '';
-        targetInfo = ` → target:(${targetX.toFixed(1)}, ${targetY.toFixed(1)})`;
-        distanceInfo = ` dist:${distance.toFixed(1)} deltaX:${direction}${deltaX.toFixed(1)}`;
-      } else if (pathTarget && Number.isFinite(pathTarget.goalX)) {
-        const targetX = pathTarget.goalX;
-        const targetY = pathTarget.goalY ?? 0;
-        const deltaX = targetX - currentX;
-        const distance = Math.sqrt(deltaX * deltaX + Math.pow(targetY - currentY, 2));
-        const direction = deltaX >= 0 ? '+' : '';
-        targetInfo = ` → path:(${targetX.toFixed(1)}, ${targetY.toFixed(1)})`;
-        distanceInfo = ` dist:${distance.toFixed(1)} deltaX:${direction}${deltaX.toFixed(1)}`;
-      }
-
-      const poiName = currentPoi?.name || currentPoi?.id || '';
-      const poiInfo = poiName ? ` [${poiName}]` : '';
-      const mode = ooc.mode ? ` mode:${ooc.mode}` : '';
-
-      lines.push(`- ${name} pos:(${currentX.toFixed(1)}, ${currentY.toFixed(1)})${targetInfo}${distanceInfo}${poiInfo}${mode}`);
-    });
-  } else {
-    lines.push(`NPCs: ${npcNames.length > 0 ? npcNames.join(', ') : 'none'}`);
-  }
+  lines.push(`NPCs: ${npcNames.length > 0 ? npcNames.join(', ') : 'none'}`);
   if (patrolTargetCount > 0) {
     lines.push(`Patrol list: ${patrolTargets.join(', ')}`);
   }

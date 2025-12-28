@@ -1084,6 +1084,47 @@ function drawNpcDetails(ctx, fighter, hitbox) {
   ctx.fillStyle = nameColor;
   ctx.fillText(npcName, x, textY);
 
+  // Draw position and target information below name
+  const ooc = fighter.outOfCombat || {};
+  const targetPoint = ooc.targetPoint;
+  const pathTarget = fighter.aiPathState?.currentTarget;
+
+  let positionInfo = `(${x.toFixed(0)}, ${y.toFixed(0)})`;
+  let targetInfo = '';
+
+  if (targetPoint && Number.isFinite(targetPoint.x)) {
+    const deltaX = targetPoint.x - x;
+    const direction = deltaX >= 0 ? '+' : '';
+    targetInfo = ` → (${targetPoint.x.toFixed(0)}, ${(targetPoint.y ?? 0).toFixed(0)}) Δ${direction}${deltaX.toFixed(0)}`;
+  } else if (pathTarget && Number.isFinite(pathTarget.goalX)) {
+    const deltaX = pathTarget.goalX - x;
+    const direction = deltaX >= 0 ? '+' : '';
+    targetInfo = ` → (${pathTarget.goalX.toFixed(0)}, ${(pathTarget.goalY ?? 0).toFixed(0)}) Δ${direction}${deltaX.toFixed(0)}`;
+  }
+
+  const infoText = positionInfo + targetInfo;
+  const infoY = textY + 16;
+
+  // Draw info text with smaller font
+  ctx.font = 'bold 11px monospace';
+  const infoMetrics = ctx.measureText(infoText);
+  const infoWidth = infoMetrics.width;
+  const infoPadding = 4;
+  const infoBgX = x - infoWidth / 2 - infoPadding;
+  const infoBgY = infoY - 13;
+  const infoBgWidth = infoWidth + infoPadding * 2;
+  const infoBgHeight = 14;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+  ctx.fillRect(infoBgX, infoBgY, infoBgWidth, infoBgHeight);
+
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+  ctx.lineWidth = 2;
+  ctx.strokeText(infoText, x, infoY);
+
+  ctx.fillStyle = targetInfo ? '#22c55e' : '#94a3b8';
+  ctx.fillText(infoText, x, infoY);
+
   ctx.restore();
 }
 
