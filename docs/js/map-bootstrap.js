@@ -661,12 +661,7 @@ async function applyArea(area) {
     console.log('[APPLY-AREA] ⏳ Setting up visualsmap-ready event listener BEFORE triggering 3D load...');
 
     const entityPopulationPromise = new Promise((resolve) => {
-        let hasPopulated = false;
-
         const populateEntities = async (event) => {
-            if (hasPopulated) return;
-            hasPopulated = true;
-
             const eventArea = event?.detail?.area;
             console.log('[APPLY-AREA] 📥 visualsmap-ready event received for area:', eventArea?.id);
             console.log('[APPLY-AREA] 🎬 Starting entity population (NPCs, props, etc.)...');
@@ -686,16 +681,9 @@ async function applyArea(area) {
             resolve();
         };
 
-        // Listen for visualsmap-ready event
+        // Listen for visualsmap-ready event - NO TIMEOUT FALLBACK
+        // The event MUST be dispatched by the 3D loader in all code paths
         window.addEventListener('visualsmap-ready', populateEntities, { once: true });
-
-        // Timeout fallback - populate entities anyway after 10 seconds
-        setTimeout(() => {
-            if (!hasPopulated) {
-                console.warn('[APPLY-AREA] ⚠️ Timeout waiting for visualsmap-ready - populating entities anyway');
-                populateEntities({});
-            }
-        }, 10000);
     });
 
     // Don't await here - let the event handler trigger entity population

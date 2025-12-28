@@ -7622,6 +7622,9 @@ function boot(){
                 console.log('[3D-LOAD] ❌ ERROR loading visualsmap:', error.message);
                 console.log('[3D-LOAD] Error stack:', error.stack);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
+                // Dispatch event even on error - entities still need to spawn
+                console.log('[app] 📡 Dispatching visualsmap-ready event despite error (entities will spawn)');
+                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area } }));
               }
             }
             // Fallback: Load single scene3d.sceneUrl if available and no visualsMap
@@ -7646,12 +7649,24 @@ function boot(){
               } else {
                 console.warn('[app] Failed to load 3D scene:', GAME_RENDER_ADAPTER?.error);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
+                // Dispatch event even on error - entities still need to spawn
+                console.log('[app] 📡 Dispatching visualsmap-ready event despite scene3d error (entities will spawn)');
+                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area } }));
               }
+            }
+            // No visualsMap and no scene3d - still need to spawn entities
+            else {
+              console.log('[app] No visualsMap or scene3d found for area - spawning entities anyway');
+              console.log('[app] 📡 Dispatching visualsmap-ready event (no 3D scene)');
+              window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area } }));
             }
           } catch (error) {
             console.log('[3D-LOAD] ❌ ERROR in area change handler:', error.message);
             console.log('[3D-LOAD] Error stack:', error.stack);
             lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
+            // Dispatch event even on catastrophic error - entities still need to spawn
+            console.log('[app] 📡 Dispatching visualsmap-ready event despite error (entities will spawn)');
+            window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: area || {} } }));
           }
         };
 
@@ -7714,6 +7729,9 @@ function boot(){
                 console.log('[3D-LOAD-INITIAL] ⚠️ WARNING: Visualsmap loaded but no objects found');
                 console.log('[3D-LOAD-INITIAL] Adapter:', GAME_VISUALSMAP_ADAPTER);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: 'No objects loaded' };
+                // Dispatch event even if no objects - entities still need to spawn
+                console.log('[3D-LOAD-INITIAL] 📡 Dispatching visualsmap-ready event despite no objects');
+                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: areaToLoad } }));
               }
               console.log('[3D-LOAD-INITIAL] ✓ Visualsmap load block completed');
             }
@@ -7737,12 +7755,25 @@ function boot(){
                 window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: areaToLoad } }));
               } else {
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
+                // Dispatch event even on scene3d error - entities still need to spawn
+                console.log('[app] 📡 Dispatching visualsmap-ready event despite initial scene3d error');
+                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: areaToLoad } }));
               }
+            }
+            // No visualsMap and no scene3d - still need to spawn entities
+            else {
+              console.log('[app] No visualsMap or scene3d found for initial area - spawning entities anyway');
+              console.log('[app] 📡 Dispatching visualsmap-ready event (no initial 3D scene)');
+              window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: areaToLoad || {} } }));
             }
           } catch (error) {
             console.log('[3D-LOAD-INITIAL] ❌ ERROR loading initial 3D scene:', error.message);
             console.log('[3D-LOAD-INITIAL] Error stack:', error.stack);
             lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
+            // Dispatch event even on catastrophic error - entities still need to spawn
+            console.log('[app] 📡 Dispatching visualsmap-ready event despite initial load error');
+            const fallbackArea = window.GAME?.mapRegistry?.getActiveArea?.() || {};
+            window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: fallbackArea } }));
           }
           console.log('[3D-LOAD-INITIAL] ✓ loadInitialScene3dArea function definition complete');
         };
