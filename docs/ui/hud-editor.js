@@ -56,6 +56,13 @@ const DEFAULT_ARCH_ANCHORS = {
   end: { x: 0.78, y: 0.86 },
 };
 
+const DEFAULT_ARCH_CONTAINER = {
+  rotation: 0,
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+};
+
 const DEFAULT_TEXT_ELEMENT = {
   id: 'text-1',
   text: 'Sample Text',
@@ -95,6 +102,15 @@ function ensureHudConfig() {
   if (!Number.isFinite(archCfg.gridSnapPx)) {
     archCfg.gridSnapPx = gridSize;
   }
+
+  // Initialize container transform
+  window.CONFIG.hud.arch.container = window.CONFIG.hud.arch.container || {};
+  const containerCfg = window.CONFIG.hud.arch.container;
+  containerCfg.rotation = containerCfg.rotation ?? DEFAULT_ARCH_CONTAINER.rotation;
+  containerCfg.scale = containerCfg.scale ?? DEFAULT_ARCH_CONTAINER.scale;
+  containerCfg.offsetX = containerCfg.offsetX ?? DEFAULT_ARCH_CONTAINER.offsetX;
+  containerCfg.offsetY = containerCfg.offsetY ?? DEFAULT_ARCH_CONTAINER.offsetY;
+
   window.CONFIG.hud.arch.buttons = Array.isArray(window.CONFIG.hud.arch.buttons)
     ? window.CONFIG.hud.arch.buttons
     : [];
@@ -259,21 +275,32 @@ function renderButtonFields() {
 
 function renderArchFields() {
   const arch = window.CONFIG.hud.arch.arch || {};
+  const container = window.CONFIG.hud.arch.container || {};
   const fields = [
     { label: 'Start X (0-1)', key: 'start.x', value: arch.start?.x ?? DEFAULT_ARCH_ANCHORS.start.x, step: 0.01 },
     { label: 'Start Y (0-1)', key: 'start.y', value: arch.start?.y ?? DEFAULT_ARCH_ANCHORS.start.y, step: 0.01 },
     { label: 'End X (0-1)', key: 'end.x', value: arch.end?.x ?? DEFAULT_ARCH_ANCHORS.end.x, step: 0.01 },
     { label: 'End Y (0-1)', key: 'end.y', value: arch.end?.y ?? DEFAULT_ARCH_ANCHORS.end.y, step: 0.01 },
+    { label: '─── Container ───', key: 'separator', value: '', disabled: true },
+    { label: 'Rotation (deg)', key: 'container.rotation', value: container.rotation ?? 0, step: 5, min: -180, max: 180 },
+    { label: 'Scale', key: 'container.scale', value: container.scale ?? 1, step: 0.05, min: 0.1, max: 3 },
+    { label: 'Offset X (px)', key: 'container.offsetX', value: container.offsetX ?? 0, step: 10 },
+    { label: 'Offset Y (px)', key: 'container.offsetY', value: container.offsetY ?? 0, step: 10 },
+    { label: '─── Arch ───', key: 'separator2', value: '', disabled: true },
     { label: 'Radius (px)', key: 'radiusPx', value: arch.radiusPx ?? 180 },
     { label: 'Scale', key: 'scale', value: arch.scale ?? 1, step: 0.05, min: 0.25, max: 3 },
     { label: 'Button Size (px)', key: 'buttonSizePx', value: arch.buttonSizePx ?? 90 },
     { label: 'Default Gap (px)', key: 'defaultGapPx', value: arch.defaultGapPx ?? 36 },
   ];
-  archFields.innerHTML = fields.map((field) => `
+  archFields.innerHTML = fields.map((field) => {
+    if (field.key.startsWith('separator')) {
+      return `<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:11px;margin:8px 0 4px;border-top:1px solid var(--line);padding-top:8px;">${field.label}</div>`;
+    }
+    return `
     <label class="field">${field.label}
-      <input type="number" data-arch-key="${field.key}" value="${field.value}" step="${field.step ?? 1}" min="${field.min ?? ''}" max="${field.max ?? ''}">
-    </label>
-  `).join('');
+      <input type="number" data-arch-key="${field.key}" value="${field.value}" step="${field.step ?? 1}" min="${field.min ?? ''}" max="${field.max ?? ''}" ${field.disabled ? 'disabled' : ''}>
+    </label>`;
+  }).join('');
   const rotateField = document.createElement('label');
   rotateField.className = 'field';
   rotateField.innerHTML = `Rotate with Arch <input type="checkbox" data-arch-toggle="rotateWithArch" ${arch.rotateWithArch !== false ? 'checked' : ''}>`;
@@ -304,13 +331,25 @@ function renderArchFields() {
 
 function setArchValue(path, value) {
   const parts = path.split('.');
-  let target = window.CONFIG.hud.arch.arch;
+  let target = window.CONFIG.hud.arch;
+
+  // Navigate to the correct object (arch.arch or arch.container)
+  if (parts[0] === 'container') {
+    target = target.container || {};
+    parts.shift(); // Remove 'container' from path
+  } else {
+    target = target.arch || {};
+  }
+
   while (parts.length > 1) {
     const key = parts.shift();
     target[key] = target[key] || {};
     target = target[key];
   }
   target[parts[0]] = value;
+
+  // Apply container transform
+  applyArchContainerTransform();
 }
 
 function renderArchButtons() {
@@ -680,6 +719,40 @@ function renderResourceFields() {
   });
 }
 
+function applyArchContainerTransform() {
+  const container = document.getElementById('archContainer');
+  if (!container) return;
+
+  const cfg = window.CONFIG.hud.arch.container || {};
+  const rotation = cfg.rotation || 0;
+  const scale = cfg.scale || 1;
+  const offsetX = cfg.offsetX || 0;
+  const offsetY = cfg.offsetY || 0;
+
+  container.style.transform = `translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale})`;
+}
+
+function updateArchContainerBounds() {
+  const container = document.getElementById('archContainer');
+  if (!container) return;
+
+  // Remove existing bounds
+  const existingBounds = container.querySelector('.arch-container-bounds');
+  if (existingBounds) existingBounds.remove();
+
+  // Add visual bounds for editor
+  const bounds = document.createElement('div');
+  bounds.className = 'arch-container-bounds';
+
+  const label = document.createElement('div');
+  label.className = 'arch-container-label';
+  const cfg = window.CONFIG.hud.arch.container || {};
+  label.textContent = `Arch Container: ${cfg.rotation || 0}° • ${(cfg.scale || 1).toFixed(2)}x • (${cfg.offsetX || 0}, ${cfg.offsetY || 0})`;
+  bounds.appendChild(label);
+
+  container.appendChild(bounds);
+}
+
 function refreshArchPreview() {
   if (archHandle?.destroy) archHandle.destroy();
   archHandle = initArchTouchInput({
@@ -687,6 +760,8 @@ function refreshArchPreview() {
     enabled: window.CONFIG?.hud?.arch?.enabled !== false,
     config: window.CONFIG?.hud?.arch,
   });
+  applyArchContainerTransform();
+  updateArchContainerBounds();
 }
 
 function updateOverlays(bars = currentResourceBars) {
