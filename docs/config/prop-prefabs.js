@@ -62,8 +62,11 @@ export const PROP_PREFABS = {
 
     // Render properties
     render: {
-      renderType: 'placeholder',  // 'placeholder' or 'sprite' when sprites are added
-      color: 'rgba(139, 69, 19, 0.8)',  // Brown for bottle
+      renderType: 'sprite',
+      spriteUrl: './assets/props/bottle_tall.png',  // Path to bottle sprite
+      spriteWidth: 37,   // Natural sprite dimensions
+      spriteHeight: 100,
+      color: 'rgba(139, 69, 19, 0.8)',  // Fallback color for placeholder
       outlineColor: 'rgba(255, 255, 255, 0.3)'
     }
   },

@@ -28,11 +28,52 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let zoom = 4;
 
+// Available prop prefabs (loaded from config)
+let availablePrefabs = {};
+
+// Image cache for rendering
+const imageCache = {};
+function loadImage(url) {
+  if (imageCache[url]) return imageCache[url];
+  const img = new Image();
+  img.src = url;
+  imageCache[url] = img;
+  img.onload = () => draw();
+  return img;
+}
+
 // Initialize
-function init() {
+async function init() {
+  await loadAvailablePrefabs();
   setupEventListeners();
+  populatePrefabDropdown();
   loadPropToUI();
   draw();
+}
+
+// Load available prefabs from config
+async function loadAvailablePrefabs() {
+  try {
+    const module = await import('../config/prop-prefabs.js');
+    availablePrefabs = module.PROP_PREFABS || {};
+    console.log('[PropEditor] Loaded prefabs:', Object.keys(availablePrefabs));
+  } catch (err) {
+    console.error('[PropEditor] Failed to load prefabs:', err);
+  }
+}
+
+// Populate the prefab dropdown
+function populatePrefabDropdown() {
+  const select = document.getElementById('prefabSelect');
+  select.innerHTML = '<option value="">Browse props…</option>';
+
+  Object.keys(availablePrefabs).forEach(prefabId => {
+    const prefab = availablePrefabs[prefabId];
+    const option = document.createElement('option');
+    option.value = prefabId;
+    option.textContent = `${prefab.displayName || prefabId} (${prefabId})`;
+    select.appendChild(option);
+  });
 }
 
 function setupEventListeners() {
@@ -99,14 +140,64 @@ function setupEventListeners() {
   });
 
   // Buttons
+  document.getElementById('btnLoad').addEventListener('click', loadSelectedPrefab);
+  document.getElementById('btnRefresh').addEventListener('click', async () => {
+    await loadAvailablePrefabs();
+    populatePrefabDropdown();
+  });
   document.getElementById('btnNew').addEventListener('click', newProp);
   document.getElementById('btnImport').addEventListener('click', importJSON);
   document.getElementById('btnExport').addEventListener('click', exportJSON);
   document.getElementById('btnAddAction').addEventListener('click', addCustomAction);
 
+  // Prefab selection
+  document.getElementById('prefabSelect').addEventListener('change', (e) => {
+    if (e.target.value) {
+      loadPrefabById(e.target.value);
+    }
+  });
+
   // Canvas resize
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
+}
+
+function loadSelectedPrefab() {
+  const select = document.getElementById('prefabSelect');
+  const prefabId = select.value;
+  if (prefabId) {
+    loadPrefabById(prefabId);
+  }
+}
+
+function loadPrefabById(prefabId) {
+  const prefab = availablePrefabs[prefabId];
+  if (!prefab) {
+    console.warn('[PropEditor] Prefab not found:', prefabId);
+    return;
+  }
+
+  // Load prefab data into current prop
+  currentProp = {
+    prefabId: prefab.prefabId || prefabId,
+    displayName: prefab.displayName || prefabId,
+    tags: prefab.tags || [],
+    transform: {
+      scale: { ...(prefab.transform?.scale || { x: 1, y: 1 }) },
+      rotation: prefab.transform?.rotation || 0
+    },
+    spriteBase: { ...(prefab.spriteBase || { x: 0, y: 0 }) },
+    attachment: {
+      point1: { ...(prefab.attachment?.point1 || { x: 0, y: 0 }) },
+      point2: { ...(prefab.attachment?.point2 || { x: 0, y: -10 }) }
+    },
+    actions: prefab.actions?.map(a => typeof a === 'string' ? a : a.id) || []
+  };
+
+  loadPropToUI();
+  renderActionList();
+  draw();
+  console.log('[PropEditor] Loaded prefab:', prefabId);
 }
 
 function loadPropToUI() {
@@ -207,7 +298,25 @@ function drawGrid(cx, cy) {
 }
 
 function drawBottle() {
-  // Simple bottle shape placeholder
+  // Try to load actual sprite if available
+  const prefab = availablePrefabs[currentProp.prefabId];
+  const spriteUrl = prefab?.render?.spriteUrl;
+
+  if (spriteUrl) {
+    const img = loadImage(spriteUrl);
+    const ready = img && img.complete && !img.error && img.naturalWidth > 0;
+
+    if (ready) {
+      const w = prefab.render.spriteWidth || img.naturalWidth;
+      const h = prefab.render.spriteHeight || img.naturalHeight;
+
+      // Draw centered
+      ctx.drawImage(img, -w / 2, -h / 2, w, h);
+      return;
+    }
+  }
+
+  // Fallback: Simple bottle shape placeholder
   const bottleHeight = 9.25;
   const bottleWidth = 1.5;
   const neckHeight = 2;
