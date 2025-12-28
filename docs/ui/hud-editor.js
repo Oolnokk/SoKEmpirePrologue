@@ -329,6 +329,33 @@ function renderArchFields() {
   });
 }
 
+function updateArchFieldValues() {
+  const arch = window.CONFIG.hud.arch.arch || {};
+  const container = window.CONFIG.hud.arch.container || {};
+
+  // Update arch anchor inputs
+  const startXInput = archFields.querySelector('[data-arch-key="start.x"]');
+  const startYInput = archFields.querySelector('[data-arch-key="start.y"]');
+  const endXInput = archFields.querySelector('[data-arch-key="end.x"]');
+  const endYInput = archFields.querySelector('[data-arch-key="end.y"]');
+
+  if (startXInput) startXInput.value = (arch.start?.x ?? DEFAULT_ARCH_ANCHORS.start.x).toFixed(3);
+  if (startYInput) startYInput.value = (arch.start?.y ?? DEFAULT_ARCH_ANCHORS.start.y).toFixed(3);
+  if (endXInput) endXInput.value = (arch.end?.x ?? DEFAULT_ARCH_ANCHORS.end.x).toFixed(3);
+  if (endYInput) endYInput.value = (arch.end?.y ?? DEFAULT_ARCH_ANCHORS.end.y).toFixed(3);
+
+  // Update container inputs
+  const rotationInput = archFields.querySelector('[data-arch-key="container.rotation"]');
+  const scaleInput = archFields.querySelector('[data-arch-key="container.scale"]');
+  const offsetXInput = archFields.querySelector('[data-arch-key="container.offsetX"]');
+  const offsetYInput = archFields.querySelector('[data-arch-key="container.offsetY"]');
+
+  if (rotationInput) rotationInput.value = container.rotation ?? 0;
+  if (scaleInput) scaleInput.value = (container.scale ?? 1).toFixed(2);
+  if (offsetXInput) offsetXInput.value = container.offsetX ?? 0;
+  if (offsetYInput) offsetYInput.value = container.offsetY ?? 0;
+}
+
 function setArchValue(path, value) {
   const parts = path.split('.');
   let target = window.CONFIG.hud.arch;
@@ -773,8 +800,11 @@ function refreshArchPreview() {
     archContainer.appendChild(archHud);
   }
 
-  applyArchContainerTransform();
-  updateArchContainerBounds();
+  // Use requestAnimationFrame to ensure DOM updates complete before applying transform
+  requestAnimationFrame(() => {
+    applyArchContainerTransform();
+    updateArchContainerBounds();
+  });
 }
 
 function updateOverlays(bars = currentResourceBars) {
@@ -851,11 +881,13 @@ function bindArchHandle(el) {
       window.CONFIG.hud.arch.arch[target] = window.CONFIG.hud.arch.arch[target] || {};
       window.CONFIG.hud.arch.arch[target].x = normX;
       window.CONFIG.hud.arch.arch[target].y = normY;
+      updateArchFieldValues();
       refreshPreview();
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      updateArchFieldValues();
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp, { once: true });
