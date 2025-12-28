@@ -489,7 +489,7 @@ export function initFighters(cv, cx, options = {}){
       const spawnRadius = Math.max(0, Math.min(Number(spawner.spawnRadius ?? spawner.radius ?? 0) || 0, 5000));
       const scheduleMeta = spawner.meta && typeof spawner.meta === 'object' ? spawner.meta : null;
 
-      const groupId = spawner.groupId || spawner.groupMeta?.id || null;
+      const groupId = spawner.groupId || spawner.meta?.groupId || spawner.groupMeta?.id || null;
       const groupMeta = spawner.groupMeta
         || (groupId && C.npcGroups && C.npcGroups[groupId] ? clone(C.npcGroups[groupId]) : null);
 
@@ -1379,7 +1379,7 @@ export function initializeNpcSpawnersForArea(area = null) {
       const spawnRadius = Math.max(0, Math.min(Number(spawner.spawnRadius ?? spawner.radius ?? 0) || 0, 5000));
       const scheduleMeta = spawner.meta && typeof spawner.meta === 'object' ? spawner.meta : null;
 
-      const groupId = spawner.groupId || spawner.groupMeta?.id || null;
+      const groupId = spawner.groupId || spawner.meta?.groupId || spawner.groupMeta?.id || null;
       const groupMeta = spawner.groupMeta
         || (groupId && C.npcGroups && C.npcGroups[groupId] ? clone(C.npcGroups[groupId]) : null);
 

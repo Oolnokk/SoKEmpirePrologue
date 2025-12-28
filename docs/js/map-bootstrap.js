@@ -170,6 +170,13 @@ async function registerAreaSpawns(area) {
     service.registerArea(areaId, spawnPoints, { groupLibrary });
     service.setActiveArea(areaId);
 
+    // Make groupLibrary available globally for NPC spawner initialization
+    if (Object.keys(groupLibrary || {}).length > 0) {
+        window.CONFIG = window.CONFIG || {};
+        window.CONFIG.npcGroups = { ...(window.CONFIG.npcGroups || {}), ...groupLibrary };
+        console.log('[SPAWN-REGISTER] Set CONFIG.npcGroups with', Object.keys(groupLibrary).length, 'groups');
+    }
+
     // Initialize ALL entities (NPCs, path targets, props, etc.) with proper async handling
     console.log('[SPAWN-REGISTER] Spawners registered, now initializing all entities...');
     try {
