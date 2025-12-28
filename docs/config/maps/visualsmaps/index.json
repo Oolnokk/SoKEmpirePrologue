@@ -94,7 +94,7 @@
       "imagePath": "./assets/backdrops/cloud_medium_L.png",
       "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
       "yOffset": 840,
-      "zDepth": -500,
+      "zDepth": -800,
       "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": -1 },
       "extraConfig": { "flipX": true, "animate": true, "breathe": true }
     },
@@ -106,7 +106,7 @@
       "imagePath": "./assets/backdrops/cloud_large_central.png",
       "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
       "yOffset": 674,
-      "zDepth": -500,
+      "zDepth": -750,
       "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": -167 },
       "extraConfig": { "animate": true, "breathe": true }
     },
@@ -118,7 +118,7 @@
       "imagePath": "./assets/backdrops/cloud_small_R.png",
       "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
       "yOffset": 873,
-      "zDepth": -500,
+      "zDepth": -700,
       "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": 32 },
       "extraConfig": { "animate": true, "breathe": true }
     },
@@ -130,7 +130,7 @@
       "imagePath": "./assets/backdrops/jungle_tall_R.png",
       "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
       "yOffset": 867,
-      "zDepth": 200,
+      "zDepth": -100,
       "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": 26 },
       "extraConfig": { "wiggle": true, "wiggleAmount": 0.55, "wiggleHeight": 0.55 }
     },
@@ -142,7 +142,7 @@
       "imagePath": "./assets/backdrops/jungle_tall_L.png",
       "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
       "yOffset": 831,
-      "zDepth": 200,
+      "zDepth": -50,
       "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": -10 },
       "extraConfig": { "wiggle": true, "wiggleAmount": 0.55, "wiggleHeight": 0.55 }
     },
@@ -154,7 +154,7 @@
       "imagePath": "./assets/backdrops/jungle_wide_R.png",
       "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
       "yOffset": 1027,
-      "zDepth": 200,
+      "zDepth": 0,
       "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": 186 },
       "extraConfig": { "wiggle": true, "wiggleAmount": 0.55, "wiggleHeight": 0.55 }
     },
@@ -166,7 +166,7 @@
       "imagePath": "./assets/backdrops/jungle_wide_L.png",
       "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
       "yOffset": 1015,
-      "zDepth": 200,
+      "zDepth": 50,
       "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": 174 },
       "extraConfig": { "wiggle": true, "wiggleAmount": 0.55, "wiggleHeight": 0.55 }
     },
@@ -178,7 +178,7 @@
       "imagePath": "./assets/backdrops/jungle_central.png",
       "baseScale": { "x": 1.65, "y": 1.65, "z": 1 },
       "yOffset": 1045,
-      "zDepth": 200,
+      "zDepth": 100,
       "instanceDefaults": { "orientation": 0, "scaleX": 1.25, "scaleY": 1.0, "scaleZ": 1, "offsetX": 0, "offsetY": 204 },
       "extraConfig": { "wiggle": true, "wiggleAmount": 0.55, "wiggleHeight": 0.55 }
     },

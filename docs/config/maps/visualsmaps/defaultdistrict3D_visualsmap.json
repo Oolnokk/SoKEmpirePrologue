@@ -14,6 +14,23 @@
     }
   },
   "alignWorldToPath": true,
+  "weather": {
+    "enabled": true,
+    "layers": [
+      "sky_background",
+      "cloud_medium_l",
+      "cloud_large_central",
+      "cloud_small_r",
+      "jungle_tall_r",
+      "jungle_tall_l",
+      "jungle_wide_r",
+      "jungle_wide_l",
+      "jungle_central",
+      "rain_layer"
+    ],
+    "rainIntensity": 0.5,
+    "windDirection": 25
+  },
   "layerStates": {
     "ground": [
       [
