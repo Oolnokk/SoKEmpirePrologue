@@ -163,6 +163,19 @@
       }
     },
     {
+      "id": "patrol_west_poi",
+      "type": "poi",
+      "x": 800,
+      "y": 0,
+      "meta": {
+        "tags": ["patrol-point"],
+        "label": "Western patrol area",
+        "scheduleId": "citywatch_patrol_west",
+        "width": 450,
+        "height": 90
+      }
+    },
+    {
       "id": "patrol_east",
       "type": "patrolpoint",
       "x": 2800,
@@ -176,6 +189,19 @@
         },
         "label": "Central patrol area",
         "scheduleId": "citywatch_patrol_center"
+      }
+    },
+    {
+      "id": "patrol_east_poi",
+      "type": "poi",
+      "x": 2800,
+      "y": 0,
+      "meta": {
+        "tags": ["patrol-point"],
+        "label": "Central patrol area",
+        "scheduleId": "citywatch_patrol_center",
+        "width": 450,
+        "height": 90
       }
     },
     {
