@@ -7622,9 +7622,7 @@ function boot(){
                 console.log('[3D-LOAD] ❌ ERROR loading visualsmap:', error.message);
                 console.log('[3D-LOAD] Error stack:', error.stack);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
-                // Dispatch event even on error - entities still need to spawn
-                console.log('[app] 📡 Dispatching visualsmap-ready event despite error (entities will spawn)');
-                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area } }));
+                // DO NOT dispatch event on error - visualsMap must load successfully for proper ground Y calculation
               }
             }
             // Fallback: Load single scene3d.sceneUrl if available and no visualsMap
@@ -7643,30 +7641,24 @@ function boot(){
                   worldRotation: 0
                 });
 
-                // Dispatch event to signal that scene3d is ready for entity population
-                console.log('[app] 📡 Dispatching visualsmap-ready event for entity population (scene3d fallback)');
-                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area } }));
+                // DO NOT dispatch event here - only dispatch after visualsMap loads with proper ground Y
+                console.log('[app] ⚠️ Scene3d fallback loaded but no visualsMap - entities will not spawn');
               } else {
                 console.warn('[app] Failed to load 3D scene:', GAME_RENDER_ADAPTER?.error);
                 lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: GAME_RENDER_ADAPTER?.error || 'unknown' };
-                // Dispatch event even on error - entities still need to spawn
-                console.log('[app] 📡 Dispatching visualsmap-ready event despite scene3d error (entities will spawn)');
-                window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area } }));
+                // DO NOT dispatch event on error
               }
             }
-            // No visualsMap and no scene3d - still need to spawn entities
+            // No visualsMap and no scene3d
             else {
-              console.log('[app] No visualsMap or scene3d found for area - spawning entities anyway');
-              console.log('[app] 📡 Dispatching visualsmap-ready event (no 3D scene)');
-              window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area } }));
+              console.log('[app] ⚠️ No visualsMap or scene3d found for area - entities will not spawn');
+              // DO NOT dispatch event - visualsMap is required for proper ground Y calculation
             }
           } catch (error) {
             console.log('[3D-LOAD] ❌ ERROR in area change handler:', error.message);
             console.log('[3D-LOAD] Error stack:', error.stack);
             lastGLTFLoadStatus = { success: false, timestamp: Date.now(), error: error.message };
-            // Dispatch event even on catastrophic error - entities still need to spawn
-            console.log('[app] 📡 Dispatching visualsmap-ready event despite error (entities will spawn)');
-            window.dispatchEvent(new CustomEvent('visualsmap-ready', { detail: { area: area || {} } }));
+            // DO NOT dispatch event on catastrophic error
           }
         };
 
