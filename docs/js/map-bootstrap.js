@@ -2,6 +2,7 @@ import { GeometryService, MapRegistry, adaptLegacyLayoutGeometry, adaptSceneGeom
 import { computeGroundY } from './ground-utils.js';
 import { loadPrefabsFromManifests, createPrefabResolver, summarizeLoadErrors } from './prefab-catalog.js';
 import { SpawnService, translateAreaToSpawnPayload } from './spawn-service.js';
+import { initializeAreaEntities } from './entity-initialization.js';
 // CRITICAL: These logs MUST appear if module executes
 console.log('🔴🔴🔴 [MAP-BOOTSTRAP-TOP] MODULE EXECUTING - ALL IMPORTS COMPLETE 🔴🔴🔴');
 console.log('[MAP-BOOTSTRAP-MODULE] 🟢 map-bootstrap.js module loaded and executing');
@@ -135,7 +136,7 @@ function resolveGroupLibrary() {
     const globalConfig = (typeof window !== 'undefined' ? window.CONFIG : globalThis.CONFIG) || {};
     return globalConfig.npcGroups || {};
 }
-function registerAreaSpawns(area) {
+async function registerAreaSpawns(area) {
     console.log('🎮🎮🎮 [SPAWN-REGISTER] registerAreaSpawns() CALLED 🎮🎮🎮');
     console.log('[SPAWN-REGISTER] Area ID:', area?.id);
     if (!area) {
@@ -144,6 +145,9 @@ function registerAreaSpawns(area) {
     }
     console.log('[SPAWN-REGISTER] Area has spawners:', area.spawners?.length || 0);
     console.log('[SPAWN-REGISTER] Area has entities:', area.entities?.length || 0);
+    console.log('[SPAWN-REGISTER] Area has pathTargets:', area.pathTargets?.length || 0);
+    console.log('[SPAWN-REGISTER] Area has propSpawns:', area.propSpawns?.length || 0);
+
     const service = ensureSpawnService();
     console.log('[SPAWN-REGISTER] SpawnService ready:', !!service);
     const basePayload = translateAreaToSpawnPayload(area);
@@ -166,23 +170,13 @@ function registerAreaSpawns(area) {
     service.registerArea(areaId, spawnPoints, { groupLibrary });
     service.setActiveArea(areaId);
 
-    // Initialize NPC spawners after registration
-    console.log('[SPAWN-REGISTER] Spawners registered, now initializing NPC spawner runtime...');
-    initializeNpcSpawnersAfterRegistration(area);
-}
-
-async function initializeNpcSpawnersAfterRegistration(area) {
-    // Dynamic import to avoid circular dependencies and ensure fighter.js is loaded
+    // Initialize ALL entities (NPCs, path targets, props, etc.) with proper async handling
+    console.log('[SPAWN-REGISTER] Spawners registered, now initializing all entities...');
     try {
-        const fighterModule = await import('./fighter.js?v=8');
-        if (typeof fighterModule.initializeNpcSpawnersForArea === 'function') {
-            console.log('[SPAWN-REGISTER] Calling initializeNpcSpawnersForArea...');
-            fighterModule.initializeNpcSpawnersForArea(area);
-        } else {
-            console.log('[SPAWN-REGISTER] ⚠️ initializeNpcSpawnersForArea not available in fighter module');
-        }
+        const result = await initializeAreaEntities(area);
+        console.log('[SPAWN-REGISTER] ✅ Entity initialization complete:', result);
     } catch (error) {
-        console.log('[SPAWN-REGISTER] ❌ Failed to initialize NPC spawners:', error.message);
+        console.error('[SPAWN-REGISTER] ❌ Entity initialization failed:', error);
     }
 }
 function registerAreaGeometry(area) {
@@ -617,11 +611,13 @@ function adaptSceneForLegacyParallax(area) {
         meta: area.meta,
     };
 }
-function applyArea(area) {
+async function applyArea(area) {
     console.log('[APPLY-AREA] 🗺️ applyArea() called for area:', area?.id);
     console.log('[APPLY-AREA] Area has:', {
         spawners: area.spawners?.length || 0,
         entities: area.entities?.length || 0,
+        pathTargets: area.pathTargets?.length || 0,
+        propSpawns: area.propSpawns?.length || 0,
         visualsMap: !!area.visualsMap,
         scene3d: !!area.scene3d,
         groupLibrary: Object.keys(area.groupLibrary || {}).length
@@ -653,13 +649,16 @@ function applyArea(area) {
     window.GAME.mapRegistry = registry;
     window.GAME.currentAreaId = area.id;
     window.GAME.__onMapRegistryReadyForCamera?.(registry);
-    registerAreaSpawns(area);
+
+    // CRITICAL: Await entity spawning to prevent race conditions
+    await registerAreaSpawns(area);
+
     bindAreaNameOverlay(registry);
     bindGeometryService(registry);
     bindPlayableBoundsSync(registry);
-    console.info(`[map-bootstrap] Loaded area "${area.id}" (${area.source || 'unknown source'})`);
+    console.info(`[map-bootstrap] ✅ Loaded area "${area.id}" (${area.source || 'unknown source'})`);
 }
-function applyPreviewLayout(descriptor, { previewToken = null, createdAt = null, prefabResolver, }) {
+async function applyPreviewLayout(descriptor, { previewToken = null, createdAt = null, prefabResolver, }) {
     if (!descriptor)
         return false;
     try {
@@ -682,7 +681,7 @@ function applyPreviewLayout(descriptor, { previewToken = null, createdAt = null,
             previewToken: previewToken || null,
             previewCreatedAt: createdAt ?? null,
         };
-        applyArea(area);
+        await applyArea(area);
         applyEditorPreviewSettings(area, {
             token: previewToken || null,
             createdAt: createdAt ?? null,
@@ -946,7 +945,7 @@ async function loadStartingArea() {
     const prefabResolver = createPrefabResolver(prefabMap);
     if (previewPayload?.layout) {
         console.log('[map-bootstrap] Using preview payload');
-        const applied = applyPreviewLayout(previewPayload.layout, {
+        const applied = await applyPreviewLayout(previewPayload.layout, {
             previewToken,
             createdAt: previewPayload.createdAt ?? null,
             prefabResolver,
@@ -959,7 +958,7 @@ async function loadStartingArea() {
         console.warn('[map-bootstrap] Preview token requested but no payload was available in storage; waiting for direct preview message.');
         const messagePayload = await previewMessagePromise;
         if (messagePayload?.layout) {
-            const applied = applyPreviewLayout(messagePayload.layout, {
+            const applied = await applyPreviewLayout(messagePayload.layout, {
                 previewToken,
                 createdAt: messagePayload.createdAt ?? null,
                 prefabResolver,
@@ -1015,7 +1014,7 @@ async function loadStartingArea() {
         console.log('[map-bootstrap] Area spawners:', area.spawners);
         console.log('[map-bootstrap] Area groupLibrary:', area.groupLibrary);
         console.log('[map-bootstrap] Spawn payload:', translateAreaToSpawnPayload(area));
-        applyArea(area);
+        await applyArea(area);
     }
     catch (error) {
         console.error('[map-bootstrap] Failed to load starting map', error);
@@ -1031,7 +1030,7 @@ async function loadStartingArea() {
         });
         fallbackArea.source = 'fallback-empty';
         fallbackArea.warnings = [...(fallbackArea.warnings || []), 'Fallback area generated due to load failure'];
-        applyArea(fallbackArea);
+        await applyArea(fallbackArea);
     }
 }
 // Export loadStartingArea for app.js to call when ready
