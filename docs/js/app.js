@@ -6535,6 +6535,82 @@ function renderMinimap() {
     );
   }
 
+  // Draw NPCs and player
+  const GAME = window.GAME || {};
+  const fighters = GAME.FIGHTERS || {};
+  const transform = window.getTransformConfig ? window.getTransformConfig() : null;
+
+  // Helper to convert 2D game coordinates to 3D world coordinates for minimap
+  const convert2DTo3D = (x2d, y2d) => {
+    if (typeof window.transform2dTo3d === 'function' && transform) {
+      try {
+        return window.transform2dTo3d(x2d, y2d, transform);
+      } catch (e) {
+        // Fallback if transform fails
+        return { x: x2d - (transform?.world2dWidth || 0) / 2, y: 0, z: 0 };
+      }
+    }
+    // Simple fallback: center the 2D coordinate
+    const worldWidth = transform?.world2dWidth || 6580;
+    return { x: x2d - worldWidth / 2, y: 0, z: 0 };
+  };
+
+  // Draw player
+  const player = fighters.player;
+  if (player && Number.isFinite(player.pos?.x) && Number.isFinite(player.pos?.y)) {
+    const pos3d = convert2DTo3D(player.pos.x, player.pos.y);
+    const projected = project(pos3d.x, pos3d.z);
+
+    // Draw player as green circle with outline
+    minimapCtx.fillStyle = '#22c55e';
+    minimapCtx.strokeStyle = '#fff';
+    minimapCtx.lineWidth = 2;
+    minimapCtx.beginPath();
+    minimapCtx.arc(projected.x, projected.y, minimapConfig.markerRadius * 1.2, 0, Math.PI * 2);
+    minimapCtx.fill();
+    minimapCtx.stroke();
+
+    // Draw player label
+    minimapCtx.font = '10px monospace';
+    minimapCtx.fillStyle = minimapConfig.labelBackground;
+    const playerText = 'Player';
+    const textWidth = minimapCtx.measureText(playerText).width;
+    minimapCtx.fillRect(projected.x - textWidth / 2 - 2, projected.y - 15, textWidth + 4, 12);
+    minimapCtx.fillStyle = '#22c55e';
+    minimapCtx.fillText(playerText, projected.x - textWidth / 2, projected.y - 6);
+  }
+
+  // Draw NPCs
+  const npcFighters = Object.values(fighters).filter((f) => f && f.id !== 'player' && !f.isPlayer);
+  npcFighters.forEach((npc) => {
+    if (!Number.isFinite(npc.pos?.x) || !Number.isFinite(npc.pos?.y)) return;
+
+    const pos3d = convert2DTo3D(npc.pos.x, npc.pos.y);
+    const projected = project(pos3d.x, pos3d.z);
+
+    // Color based on state
+    const isDead = npc.isDead;
+    const color = isDead ? '#64748b' : '#ef4444';
+
+    // Draw NPC as red circle with outline
+    minimapCtx.fillStyle = color;
+    minimapCtx.strokeStyle = '#fff';
+    minimapCtx.lineWidth = 1.5;
+    minimapCtx.beginPath();
+    minimapCtx.arc(projected.x, projected.y, minimapConfig.markerRadius, 0, Math.PI * 2);
+    minimapCtx.fill();
+    minimapCtx.stroke();
+
+    // Draw NPC label (name or id)
+    const npcName = npc.npcName || npc.id || 'NPC';
+    minimapCtx.font = '8px monospace';
+    minimapCtx.fillStyle = minimapConfig.labelBackground;
+    const npcTextWidth = minimapCtx.measureText(npcName).width;
+    minimapCtx.fillRect(projected.x - npcTextWidth / 2 - 1, projected.y + 6, npcTextWidth + 2, 10);
+    minimapCtx.fillStyle = color;
+    minimapCtx.fillText(npcName, projected.x - npcTextWidth / 2, projected.y + 14);
+  });
+
   // Map info
   const mapInfo = resolveActiveMapInfo(area);
   minimapCtx.fillStyle = minimapConfig.mapInfoColor;

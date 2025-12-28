@@ -1441,12 +1441,18 @@ export function initializeNpcSpawnersForArea(area = null) {
     const offsetY = Math.sin(angle) * distance;
     const spawnX = (spawner.position?.x ?? 0) + offsetX;
     const spawnYOffset = (spawner.position?.y ?? 0) + offsetY;
+    const finalY = gy - 1 + spawnYOffset;
 
-    console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] Spawning at', spawnX, gy - 1 + spawnYOffset, 'templateId:', spawner.templateId);
+    console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] 🎯 Spawning NPC:');
+    console.log('  Spawner ID:', spawner.spawnerId);
+    console.log('  Spawner center (2D):', spawner.position?.x ?? 0, spawner.position?.y ?? 0);
+    console.log('  Spawn radius:', spawner.spawnRadius, '| Random offset:', offsetX.toFixed(2), offsetY.toFixed(2));
+    console.log('  Final 2D position: x =', spawnX.toFixed(2), ', y =', finalY.toFixed(2));
+    console.log('  Template:', spawner.templateId);
 
     const npc = spawnAdditionalNpc({
       x: spawnX,
-      y: gy - 1 + spawnYOffset,
+      y: finalY,
       templateId: spawner.templateId || spawner.characterId || undefined,
     });
     if (npc) {
@@ -1482,9 +1488,9 @@ export function initializeNpcSpawnersForArea(area = null) {
       }
 
       spawner.activeIds.add(npc.id);
-      console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] Successfully spawned', npc.id);
+      console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] ✅ Successfully spawned', npc.id, 'at 2D position:', npc.pos.x.toFixed(2), npc.pos.y.toFixed(2));
     } else {
-      console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] Failed to spawn NPC');
+      console.log('[initializeNpcSpawnersForArea/spawnNpcFromSpawner] ❌ Failed to spawn NPC');
     }
     return npc;
   }
