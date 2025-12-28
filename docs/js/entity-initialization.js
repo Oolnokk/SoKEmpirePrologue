@@ -43,7 +43,8 @@ export async function initializeAreaEntities(area) {
       results.pathTargets = pathTargetResult.value;
     } else {
       results.errors.push({ type: 'pathTargets', error: pathTargetResult.reason });
-      console.error('[EntityInit] ❌ Path targets failed:', pathTargetResult.reason);
+      console.error('[EntityInit] ❌❌❌ PATH TARGETS FAILED ❌❌❌');
+      console.error('[EntityInit]', pathTargetResult.reason);
     }
 
     // Process prop spawn results
@@ -51,7 +52,8 @@ export async function initializeAreaEntities(area) {
       results.propSpawns = propSpawnResult.value;
     } else {
       results.errors.push({ type: 'propSpawns', error: propSpawnResult.reason });
-      console.error('[EntityInit] ❌ Prop spawns failed:', propSpawnResult.reason);
+      console.error('[EntityInit] ❌❌❌ PROP SPAWNS FAILED ❌❌❌');
+      console.error('[EntityInit]', propSpawnResult.reason);
     }
 
     // Process NPC results
@@ -59,7 +61,8 @@ export async function initializeAreaEntities(area) {
       results.npcs = npcResult.value;
     } else {
       results.errors.push({ type: 'npcs', error: npcResult.reason });
-      console.error('[EntityInit] ❌ NPC spawners failed:', npcResult.reason);
+      console.error('[EntityInit] ❌❌❌ NPC SPAWNERS FAILED ❌❌❌');
+      console.error('[EntityInit]', npcResult.reason);
     }
 
     const totalInitialized = results.pathTargets.initialized + results.propSpawns.initialized + results.npcs.initialized;
@@ -74,12 +77,22 @@ export async function initializeAreaEntities(area) {
     });
 
     results.success = true;
+
+    // Store status globally for debug panel
+    const GAME = window.GAME ||= {};
+    GAME.entityInitializationStatus = results;
+
     return results;
 
   } catch (error) {
     console.error('[EntityInit] ❌ Fatal error during entity initialization:', error);
     results.success = false;
     results.errors.push({ type: 'fatal', error });
+
+    // Store error status globally for debug panel
+    const GAME = window.GAME ||= {};
+    GAME.entityInitializationStatus = results;
+
     return results;
   }
 }

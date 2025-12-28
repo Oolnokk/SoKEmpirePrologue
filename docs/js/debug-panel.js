@@ -593,6 +593,16 @@ function updateEntityCensus() {
   const patrolTargets = collectPatrolTargets({ activeArea, geometryService });
   const patrolTargetCount = patrolTargets.length;
   const dynamicInstances = Array.isArray(G.dynamicInstances) ? G.dynamicInstances.length : 0;
+  const propSpawns = Array.isArray(activeArea?.propSpawns) ? activeArea.propSpawns.length : 0;
+  const mapEntities = Array.isArray(activeArea?.entities) ? activeArea.entities.length : 0;
+
+  // Entity initialization status
+  const initStatus = G.entityInitializationStatus || null;
+  const initComplete = initStatus?.success || false;
+  const initPathTargets = initStatus?.pathTargets?.initialized || 0;
+  const initPropSpawns = initStatus?.propSpawns?.initialized || 0;
+  const initNpcs = initStatus?.npcs?.initialized || 0;
+  const initErrors = initStatus?.errors?.length || 0;
 
   const fighters = G.FIGHTERS || {};
   const fighterList = Object.values(fighters).filter(Boolean);
@@ -614,8 +624,10 @@ function updateEntityCensus() {
     `Area: ${areaId || 'none'}`,
     `Spawners: ${totalSpawners} (NPC ${actualNpcSpawners}/${intendedNpcSpawners})`,
     `Instances: ${instances} | Path Targets: ${pathTargets} | Patrol Targets: ${patrolTargetCount}`,
+    `Prop Spawns: ${propSpawns} | Map Entities: ${mapEntities}`,
     `Fighters: ${totalFighters} | NPCs alive: ${aliveNpcs}/${intendedNpcCount}`,
     `Dynamic Instances: ${dynamicInstances}`,
+    `Init Status: ${initComplete ? '✅ Complete' : '⚠️ Pending'} - PathTargets: ${initPathTargets}, PropSpawns: ${initPropSpawns}, NPCs: ${initNpcs}${initErrors > 0 ? ` ❌ ${initErrors} errors` : ''}`,
   ];
   lines.push(`NPCs: ${npcNames.length > 0 ? npcNames.join(', ') : 'none'}`);
   if (patrolTargetCount > 0) {
