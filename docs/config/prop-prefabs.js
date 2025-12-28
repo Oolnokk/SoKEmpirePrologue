@@ -12,32 +12,32 @@ export const PROP_PREFABS = {
 
     // Visual transform
     transform: {
-      scale: { x: 0.25, y: 0.25 },  // 25% of original size
+      scale: { x: 0.3, y: 0.2 },
       rotation: 0
     },
 
     // Ground contact point (relative to sprite center)
     spriteBase: {
       x: 0,
-      y: 3.7  // Bottom of bottle (75% up from bottom = 3.7px at 25% scale)
+      y: 3
     },
 
     // Attachment configuration for holding
     // Point 1 is the grip (where the bone attaches)
     // Point 2 defines the forward direction (like weapon handle)
     attachment: {
-      point1: { x: 0, y: 3.2 },    // Grip at 75% up the bottle
-      point2: { x: 0, y: -4.6 }    // Orientation point at top (bottle points along bone)
+      point1: { x: -3, y: -30 },  // Grip point
+      point2: { x: -3, y: -10 }   // Orientation point
     },
 
     // Contextual actions that appear on HUD arch when held
     // These are placeholder for future integration
     actions: [
       {
-        id: 'use',
-        label: 'drink',  // Khymeryyan font label
+        id: 'drink',
+        label: 'drink',
         icon: null,
-        handler: 'useProp'  // Will call window.GAME.propActions.useProp(prop)
+        handler: 'useProp'
       },
       {
         id: 'drop',
