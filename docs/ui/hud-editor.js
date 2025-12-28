@@ -762,6 +762,17 @@ function refreshArchPreview() {
     enabled: window.CONFIG?.hud?.arch?.enabled !== false,
     config: window.CONFIG?.hud?.arch,
   });
+
+  // Move the created arch elements into the archContainer
+  const archContainer = document.getElementById('archContainer');
+  const archHud = document.querySelector('.arch-hud');
+  if (archContainer && archHud && archHud.parentNode !== archContainer) {
+    // Clear any existing arch elements in the container
+    archContainer.querySelectorAll('.arch-hud').forEach(el => el.remove());
+    // Move the new arch into the container
+    archContainer.appendChild(archHud);
+  }
+
   applyArchContainerTransform();
   updateArchContainerBounds();
 }
