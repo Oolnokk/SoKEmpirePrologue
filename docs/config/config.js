@@ -7,8 +7,8 @@ window.CONFIG.time = window.CONFIG.time || {};
 // Time system settings - controls global game time progression
 const __existingTimeConfig = window.CONFIG.time || {};
 window.CONFIG.time = {
-  startTime24h: __existingTimeConfig.startTime24h ?? 12,  // Starting hour (0-24), default 12:00 (noon)
-  timeScale: __existingTimeConfig.timeScale ?? 60.0,      // Time speed multiplier (60 = 1 real second = 1 game minute)
+  startTime24h: __existingTimeConfig.startTime24h ?? 6,   // Starting hour (0-24), default 6:00 AM
+  timeScale: __existingTimeConfig.timeScale ?? 1.0,       // Hours per real second (1.0 = 1 real second = 1 game hour)
   paused: __existingTimeConfig.paused ?? false,           // Whether time is paused on start
 };
 
