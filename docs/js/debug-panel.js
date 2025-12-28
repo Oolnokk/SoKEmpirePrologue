@@ -324,25 +324,27 @@ export function initDebugPanel() {
     });
   }
 
-  // Setup time of day slider
-  const timeSlider = $$('#timeOfDaySlider', panel);
-  const timeValue = $$('#timeOfDayValue', panel);
-  if (timeSlider && timeValue) {
-    timeSlider.addEventListener('input', (e) => {
-      const hours = parseFloat(e.target.value);
-      const sharedTime = window.setGameTime24h
-        ? window.setGameTime24h(hours)
-        : (typeof window.setBackgroundTime24h === 'function' ? window.setBackgroundTime24h(hours) : hours);
-      if (!window.setGameTime24h && window.dayNightSystem?.setTimeOfDayHours) {
-        window.dayNightSystem.setTimeOfDayHours(sharedTime, true);
-      }
-      updateDayNightUI();
+  // Setup time speed slider (controls timeScale, not absolute time)
+  const timeSpeedSlider = $$('#timeSpeedSlider', panel);
+  const timeSpeedValue = $$('#timeSpeedValue', panel);
+  if (timeSpeedSlider && timeSpeedValue) {
+    timeSpeedSlider.addEventListener('input', (e) => {
+      const speed = parseFloat(e.target.value);
 
-      // Update time display
-      const displayTime = Number.isFinite(sharedTime) ? sharedTime : hours;
-      const h = Math.floor(displayTime);
-      const m = Math.floor((displayTime - h) * 60);
-      timeValue.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      // Set time scale on gameTimeController
+      if (window.gameTimeController) {
+        window.gameTimeController.timeScale = speed;
+        window.gameTimeController.paused = speed === 0;
+      }
+
+      // Update display
+      if (speed === 0) {
+        timeSpeedValue.textContent = '⏸️ Paused';
+      } else {
+        timeSpeedValue.textContent = `${speed.toFixed(1)}x`;
+      }
+
+      console.log('[debug-panel] Time speed set to:', speed);
     });
   }
 
@@ -353,22 +355,42 @@ export function initDebugPanel() {
       : window.dayNightSystem?.timeOfDayHours;
     const isNight = window.dayNightSystem?.isNight
       ?? (Number.isFinite(time24h) ? time24h < 6 || time24h >= 18 : false);
+
+    // Update day/night status
     if (dayNightStatus) {
       dayNightStatus.textContent = isNight ? 'Current: Night 🌙' : 'Current: Day ☀️';
       dayNightStatus.style.color = isNight ? '#a5b4fc' : '#fde68a';
     }
 
-    // Update slider to match current state
-    if (timeSlider && Number.isFinite(time24h)) {
-      timeSlider.value = time24h;
+    // Update current time display
+    const currentTimeDisplay = $$('#currentTimeDisplay', panel);
+    if (currentTimeDisplay && Number.isFinite(time24h)) {
       const h = Math.floor(time24h);
       const m = Math.floor((time24h - h) * 60);
-      if (timeValue) {
-        timeValue.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      currentTimeDisplay.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+
+    // Update day/night indicator
+    const dayNightIndicator = $$('#dayNightIndicator', panel);
+    if (dayNightIndicator) {
+      dayNightIndicator.textContent = isNight ? '🌙 Night' : '☀️ Day';
+      dayNightIndicator.style.color = isNight ? '#a5b4fc' : '#fde68a';
+    }
+
+    // Update time speed slider to match current speed
+    const timeScale = window.gameTimeController?.timeScale ?? 1;
+    if (timeSpeedSlider) {
+      timeSpeedSlider.value = timeScale;
+    }
+    if (timeSpeedValue) {
+      if (timeScale === 0) {
+        timeSpeedValue.textContent = '⏸️ Paused';
+      } else {
+        timeSpeedValue.textContent = `${timeScale.toFixed(1)}x`;
       }
     }
 
-    console.log('[debug-panel] Time:', Number.isFinite(time24h) ? time24h.toFixed(1) : 'n/a', 'hours', isNight ? '(NIGHT)' : '(DAY)');
+    console.log('[debug-panel] Time:', Number.isFinite(time24h) ? time24h.toFixed(1) : 'n/a', 'hours', isNight ? '(NIGHT)' : '(DAY)', `(speed: ${timeScale.toFixed(1)}x)`);
   }
 
   // Setup copy URL button
