@@ -27,7 +27,7 @@ window.HUD_ARCH_CONFIG = {
     scale: 0.5,
     // Viewport-relative offsets (0-1 range, where 0.5 = center)
     // These scale with viewport size, unlike pixel offsets
-    offsetXPct: 0.5, 
+    offsetXPct: 0.2, 
     offsetYPct: 0.035 
   },
 
