@@ -2,70 +2,68 @@
 window.HUD_ARCH_CONFIG = {
   arch: {
     // circle geometry
-    // Option 1: set an absolute pixel override (number)
-    // Option 2: use adaptive sizing below (preferred default)
-    radiusPx: {
-      base: 150, // fallback for very small viewports
-      viewportPct: 0.18, // portion of the smaller viewport side
-      min: 120,
-      max: 240,
-    },
+    radiusPx: 180,
     start: {
-      x: 0.98, // near the far bottom-right edge
-      y: 0.94
+      x: 0.25,
+      y: 0.75
     },
     end: {
-      x: 0.78, // lower-right edge, pulled inward
-      y: 0.86
+      x: 0.5,
+      y: 0.25
     },
-    circleRadius: 150, // distance from arch center to button centers
-    startDegree: 215, // degrees from +X axis
-    endDegree: 140, // degrees from +X axis
 
-    scale: 1.0, // global multiplier (can tie to character scale)
-    buttonSizePx: {
-      base: 84,
-      viewportPct: 0.1, // portion of the smaller viewport side
-      min: 68,
-      max: 124,
-    }, // base button square size
-    defaultGapPx: 10, // default carving distance per segment
-    rotateWithArch: true, // rotate along tangent? (fan out)
-    flipVertical: false, // mirror along the horizontal axis to hug the gameplay viewport
-    concave: false, // invert the arc direction
-    debug: true // on-screen debug overlay
+    scale: 1.0,
+    buttonSizePx: 30,
+    defaultGapPx: 36,
+    rotateWithArch: true,
+    flipVertical: false,
+    debug: false,
+    gridSnapPx: 24
+  },
+
+  // Container transform for the entire arch
+  container: {
+    rotation: 0,
+    scale: 0.5,
+    // Viewport-relative offsets (0-1 range, where 0.5 = center)
+    // These scale with viewport size, unlike pixel offsets
+    offsetXPct: 0.13,  // ~13% from left edge
+    offsetYPct: 0.035  // ~3.5% from top edge
   },
 
   // YOU ONLY EDIT THIS LIST:
   buttons: [
     {
-      id: "attackHeavy",
-      order: 0, // first clockwise
-      coverageWeight: 1.2, // share of available angle
-      gapDeg: 10, // carve half on each side AFTER placement math
-      widthPx: 108, // extra extrusion
-      letter: "H"
-    },
-    {
-      id: "attackLight",
-      order: 1,
-      coverageWeight: 1,
-      gapDeg: 8,
-      letter: "L"
-    },
-    {
-      id: "attackSpecial",
+      id: "attackA",
+      action: "buttonA",
       order: 2,
-      coverageWeight: 1.1,
-      gapDeg: 8,
-      letter: "S"
+      lengthPct: 0.25,
+      gapPx: 36,
+      letter: "A"
     },
     {
-      id: "attackUtility",
+      id: "attackB",
+      action: "buttonB",
       order: 3,
-      coverageWeight: 1.7,
-      gapDeg: 10,
-      letter: "U"
+      lengthPct: 0.25,
+      gapPx: 36,
+      letter: "B"
+    },
+    {
+      id: "attackC",
+      action: "buttonC",
+      order: 4,
+      lengthPct: 0.25,
+      gapPx: 36,
+      letter: "C"
+    },
+    {
+      id: "jump",
+      action: "jump",
+      order: 1,
+      lengthPct: 0.25,
+      gapPx: 36,
+      letter: "J"
     }
   ]
 };

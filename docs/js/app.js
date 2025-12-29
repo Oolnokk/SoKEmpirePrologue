@@ -7264,12 +7264,72 @@ function boot(){
     initTouchControls();
     console.log('[app] boot() - Checking shouldEnableArchHud()');
     if (shouldEnableArchHud()) {
+      // Always use HUD_ARCH_CONFIG as the arch configuration source
+      window.CONFIG = window.CONFIG || {};
+      window.CONFIG.hud = window.CONFIG.hud || {};
+      window.CONFIG.hud.arch = window.HUD_ARCH_CONFIG || window.CONFIG.hud.arch;
+
+      console.log('[app] HUD_ARCH_CONFIG loaded:', window.HUD_ARCH_CONFIG);
+      console.log('[app] CONFIG.hud.arch:', window.CONFIG.hud.arch);
+
+      // Helper function to apply container transform
+      const applyArchContainerTransform = () => {
+        requestAnimationFrame(() => {
+          const archHud = document.querySelector('.arch-hud');
+          const containerCfg = window.CONFIG?.hud?.arch?.container;
+          if (archHud && containerCfg) {
+            // Get viewport dimensions
+            const vw = window.visualViewport?.width || window.innerWidth;
+            const vh = window.visualViewport?.height || window.innerHeight;
+
+            const rotation = containerCfg.rotation || 0;
+            const scale = containerCfg.scale || 1;
+
+            // Support both pixel offsets (offsetX/Y) and percentage offsets (offsetXPct/YPct)
+            // Percentage offsets are viewport-relative and scale with screen size
+            let offsetX = 0;
+            let offsetY = 0;
+
+            if (containerCfg.offsetXPct !== undefined) {
+              offsetX = containerCfg.offsetXPct * vw;
+            } else if (containerCfg.offsetX !== undefined) {
+              offsetX = containerCfg.offsetX;
+            }
+
+            if (containerCfg.offsetYPct !== undefined) {
+              offsetY = containerCfg.offsetYPct * vh;
+            } else if (containerCfg.offsetY !== undefined) {
+              offsetY = containerCfg.offsetY;
+            }
+
+            archHud.style.transformOrigin = 'center center';
+            archHud.style.transform = `translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale})`;
+            console.log('[app] Applied arch container transform:', { rotation, scale, offsetX, offsetY, vw, vh });
+          }
+        });
+      };
+
       archTouchHandle?.destroy?.();
       archTouchHandle = initArchTouchInput({
         input: window.GAME?.input || null,
         config: window.CONFIG?.hud?.arch,
         enabled: true,
       });
+
+      // Apply transform initially
+      applyArchContainerTransform();
+
+      // Reapply transform after arch rebuilds (resize, orientation change, fullscreen)
+      let resizeTimeout;
+      const onResize = () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(applyArchContainerTransform, 100);
+      };
+
+      window.addEventListener('resize', onResize);
+      window.addEventListener('orientationchange', applyArchContainerTransform);
+      document.addEventListener('fullscreenchange', applyArchContainerTransform);
+      window.addEventListener('archButtonsChanged', applyArchContainerTransform);
     }
     console.log('[app] boot() - Calling initSelectionDropdowns()');
     initSelectionDropdowns();
