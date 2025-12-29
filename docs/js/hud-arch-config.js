@@ -16,7 +16,7 @@ window.HUD_ARCH_CONFIG = {
     buttonSizePx: 50,
     defaultGapPx: 50,
     rotateWithArch: true,
-    flipVertical: false,
+    flipVertical: true,
     debug: false,
     gridSnapPx: 24
   },
