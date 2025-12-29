@@ -24,6 +24,7 @@ function getSlotAllowance(slotKey, type) {
 }
 
 const GAME_TIME_DEFAULTS = window.CONFIG?.time || {};
+const TIME_SCALE_DEFAULT = 1;
 const BACKGROUND_DEFAULTS = {
   skyColors: [
     'rgba(59,63,69,0.9)',
@@ -249,19 +250,32 @@ function createGameTimeController() {
     ?? config.startTime24h
     ?? BACKGROUND_DEFAULTS.time24h,
   );
+  const initialScale = coerceFiniteNumber(config.timeScale);
   const controller = {
     time24h: Number.isFinite(initial) ? initial : normalizeTime24h(config.startTime24h),
-    timeScale: coerceFiniteNumber(config.timeScale),
+    timeScale: Number.isFinite(initialScale) ? initialScale : TIME_SCALE_DEFAULT,
     paused: Boolean(config.paused),
   };
 
   controller.updateFromConfig = () => {
     const latest = resolveGameTimeConfig();
-    const scale = coerceFiniteNumber(latest.timeScale);
-    if (Number.isFinite(scale)) {
-      controller.timeScale = scale;
-    }
+    controller.setTimeScale(latest.timeScale, { persist: false });
     controller.paused = Boolean(latest.paused);
+  };
+
+  controller.setTimeScale = (value, { persist = true } = {}) => {
+    const normalized = coerceFiniteNumber(value);
+    controller.timeScale = Number.isFinite(normalized)
+      ? normalized
+      : (Number.isFinite(controller.timeScale) ? controller.timeScale : TIME_SCALE_DEFAULT);
+
+    if (persist && typeof window !== 'undefined') {
+      const configRoot = (window.CONFIG = window.CONFIG || {});
+      const timeConfig = (configRoot.time = configRoot.time || {});
+      timeConfig.timeScale = controller.timeScale;
+    }
+
+    return controller.timeScale;
   };
 
   controller.setTime24h = (value, { areaId = null, persist = true, syncLighting = true } = {}) => {
@@ -286,8 +300,8 @@ function createGameTimeController() {
     if (controller.paused) {
       return controller.setTime24h(controller.time24h, { areaId });
     }
-    const deltaHours = (Number.isFinite(dt) ? dt : 0)
-      * (Number.isFinite(controller.timeScale) ? controller.timeScale : 0);
+    const timeScale = Number.isFinite(controller.timeScale) ? controller.timeScale : TIME_SCALE_DEFAULT;
+    const deltaHours = (Number.isFinite(dt) ? dt : 0) * timeScale;
     if (!Number.isFinite(deltaHours) || deltaHours === 0) {
       return controller.setTime24h(controller.time24h, { areaId });
     }
