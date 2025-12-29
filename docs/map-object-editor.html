@@ -311,14 +311,43 @@
     let attachmentMarkers = [];
     let availableAssets = [];
     let currentAsset = null;
-    const editorConfig = window.CONFIG?.mapObjectEditor;
-
-    if (!editorConfig) {
-      throw new Error('Missing map object editor configuration in window.CONFIG.');
-    }
 
     const debugEl = document.getElementById("debug");
     const debugContentEl = document.getElementById("debugContent");
+
+    const viewportEl = document.getElementById("viewport");
+    const viewportStatusEl = document.getElementById("viewportStatus");
+    const statusText = document.getElementById("statusText");
+    const statusPercent = document.getElementById("statusPercent");
+    const progressFill = document.getElementById("progressFill");
+
+    function showFatalError(message) {
+      statusText.textContent = message;
+      statusText.style.color = "#ff6b6b";
+      progressFill.style.background = "#ef4444";
+      viewportStatusEl.style.display = "block";
+    }
+
+    async function loadEditorConfig() {
+      if (window.CONFIG?.mapObjectEditor) {
+        return window.CONFIG.mapObjectEditor;
+      }
+
+      try {
+        await import("./config/config.js");
+      } catch (error) {
+        console.error("Failed to load map object editor config from docs/config/config.js", error);
+      }
+
+      return window.CONFIG?.mapObjectEditor;
+    }
+
+    const editorConfig = await loadEditorConfig();
+
+    if (!editorConfig) {
+      showFatalError('Missing map object editor configuration in window.CONFIG.');
+      throw new Error('Missing map object editor configuration in window.CONFIG.');
+    }
 
     function formatVector3(v) {
       if (!v) return 'N/A';
@@ -439,12 +468,6 @@
 
       debugContentEl.innerHTML = html;
     }
-
-    const viewportEl = document.getElementById("viewport");
-    const viewportStatusEl = document.getElementById("viewportStatus");
-    const statusText = document.getElementById("statusText");
-    const statusPercent = document.getElementById("statusPercent");
-    const progressFill = document.getElementById("progressFill");
 
     function setProgress(percent, message) {
       statusText.textContent = message;
