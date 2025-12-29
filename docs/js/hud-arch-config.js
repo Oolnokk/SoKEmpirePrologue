@@ -23,7 +23,7 @@ window.HUD_ARCH_CONFIG = {
 
   // Container transform for the entire arch
   container: {
-    rotation: 0,
+    rotation: 90,
     scale: 0.5,
     // Viewport-relative offsets (0-1 range, where 0.5 = center)
     // These scale with viewport size, unlike pixel offsets
