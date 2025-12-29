@@ -1535,6 +1535,13 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
         emissive: emissiveColor,
         emissiveIntensity: 0.4,
       });
+      const rangeMaterial = new renderer.THREE.LineDashedMaterial({
+        color: emissiveColor,
+        dashSize: Math.max(cellSize * 0.35, 0.1),
+        gapSize: Math.max(cellSize * 0.2, 0.05),
+        opacity: 0.9,
+        transparent: true,
+      });
 
       for (const target of targets) {
         const worldPos = toWorldVector(target.position || { x: target.x, y: target.y });
@@ -1544,11 +1551,24 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
         mesh.position.copy(worldPos);
         targetGroup.add(mesh);
 
+        const minX = Number.isFinite(target?.range?.minX) ? target.range.minX : (target.position?.x ?? target.x);
+        const maxX = Number.isFinite(target?.range?.maxX) ? target.range.maxX : (target.position?.x ?? target.x);
+        const rangeStart = toWorldVector({ x: minX, y: target.position?.y ?? target.y });
+        const rangeEnd = toWorldVector({ x: maxX, y: target.position?.y ?? target.y });
+        if (rangeStart && rangeEnd && rangeStart.distanceTo(rangeEnd) > 0.001) {
+          const lineGeometry = new renderer.THREE.BufferGeometry().setFromPoints([rangeStart, rangeEnd]);
+          const line = new renderer.THREE.Line(lineGeometry, rangeMaterial);
+          line.computeLineDistances?.();
+          targetGroup.add(line);
+        }
+
         gameplayMarkers.targets.push({
           id: target.name || target.id || 'target',
           label: target.name || target.id || 'Path Target',
           order: target.order ?? null,
           worldPosition: mesh.position.clone(),
+          rangeWorld: (rangeStart && rangeEnd) ? { start: rangeStart.clone(), end: rangeEnd.clone() } : null,
+          range: target.range || null,
         });
       }
     }
@@ -1825,7 +1845,16 @@ export async function loadVisualsMap(renderer, area, gameplayMapUrl) {
       const targets = gameplayMarkers.targets.map((target) => {
         const screen = projectPointToCanvas(target.worldPosition, canvasEl);
         if (!screen) return null;
-        return { ...target, screen };
+        const rangeScreen = target.rangeWorld
+          ? {
+            start: projectPointToCanvas(target.rangeWorld.start, canvasEl),
+            end: projectPointToCanvas(target.rangeWorld.end, canvasEl),
+          }
+          : null;
+        if (rangeScreen && (!rangeScreen.start || !rangeScreen.end)) {
+          return { ...target, screen };
+        }
+        return { ...target, screen, rangeScreen };
       }).filter(Boolean);
 
       const pois = gameplayMarkers.pois.map((poi) => {

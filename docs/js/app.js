@@ -5912,14 +5912,41 @@ function renderGameplayElementsOverlay(ctx) {
     }
   };
 
+  const drawRange = (range, color) => {
+    if (!range?.start || !range?.end) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash([8, 6]);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = color;
+    ctx.moveTo(range.start.x, range.start.y);
+    ctx.lineTo(range.end.x, range.end.y);
+    ctx.stroke();
+    ctx.restore();
+  };
+
   for (const spawner of overlay.spawners || []) {
     const label = spawner.label || spawner.id || 'Spawner';
     drawMarker(spawner.screen, spawnerRadius, spawnerColor, label);
   }
 
   for (const target of overlay.targets || []) {
-    const label = target.order != null ? `${target.label || target.id || 'Target'} (#${target.order})` : (target.label || target.id || 'Target');
-    drawMarker(target.screen, targetRadius, targetColor, label);
+    const baseLabel = target.order != null ? `${target.label || target.id || 'Target'} (#${target.order})` : (target.label || target.id || 'Target');
+    const rangeLabel = target.range?.minX != null && target.range?.maxX != null
+      ? `${Number(target.range.minX).toFixed(1)}→${Number(target.range.maxX).toFixed(1)}`
+      : null;
+    const label = rangeLabel ? `${baseLabel} [${rangeLabel}]` : baseLabel;
+
+    if (target.rangeScreen?.start && target.rangeScreen?.end) {
+      drawRange(target.rangeScreen, targetColor);
+      const midPoint = {
+        x: (target.rangeScreen.start.x + target.rangeScreen.end.x) / 2,
+        y: (target.rangeScreen.start.y + target.rangeScreen.end.y) / 2,
+      };
+      drawMarker(midPoint, targetRadius, targetColor, label);
+    } else {
+      drawMarker(target.screen, targetRadius, targetColor, label);
+    }
   }
 
   ctx.restore();
