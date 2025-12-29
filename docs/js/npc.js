@@ -76,6 +76,102 @@ function ensureNpcPathState(state) {
   return pathState;
 }
 
+function pickFiniteNumber(...candidates) {
+  for (const candidate of candidates) {
+    const num = Number(candidate);
+    if (Number.isFinite(num)) return num;
+  }
+  return null;
+}
+
+function ensureNpcPathRangeState(state) {
+  const pathState = ensureNpcPathState(state);
+  const rangeState = pathState.rangeState || {};
+  pathState.rangeState = rangeState;
+  return rangeState;
+}
+
+function resolveNpcPathTargetRange(target, fallbackX, playableBounds = null) {
+  const rawRange = target?.range || target?.meta?.range || {};
+  const rangeCenter = pickFiniteNumber(rawRange.centerX, fallbackX, target?.position?.x);
+  const centerX = clampXToPlayableBounds(rangeCenter ?? fallbackX, playableBounds);
+  const minCandidate = pickFiniteNumber(
+    rawRange.minX,
+    rawRange.left,
+    rawRange.start,
+    rawRange.rangeMinX,
+    target?.rangeMinX,
+    target?.meta?.rangeMinX,
+  );
+  const maxCandidate = pickFiniteNumber(
+    rawRange.maxX,
+    rawRange.right,
+    rawRange.end,
+    rawRange.rangeMaxX,
+    target?.rangeMaxX,
+    target?.meta?.rangeMaxX,
+  );
+  const radiusCandidate = pickFiniteNumber(
+    rawRange.radius,
+    rawRange.r,
+    rawRange.rangeRadius,
+    target?.rangeRadius,
+    target?.meta?.rangeRadius,
+  );
+  const widthCandidate = pickFiniteNumber(
+    rawRange.width,
+    rawRange.rangeWidth,
+    target?.rangeWidth,
+    target?.meta?.rangeWidth,
+  );
+
+  let minX = Number.isFinite(minCandidate) ? minCandidate : null;
+  let maxX = Number.isFinite(maxCandidate) ? maxCandidate : null;
+
+  if (!Number.isFinite(minX) && !Number.isFinite(maxX) && Number.isFinite(widthCandidate)) {
+    const half = Math.abs(widthCandidate) / 2;
+    minX = centerX - half;
+    maxX = centerX + half;
+  }
+
+  if (!Number.isFinite(minX) && !Number.isFinite(maxX) && Number.isFinite(radiusCandidate)) {
+    const radius = Math.abs(radiusCandidate);
+    minX = centerX - radius;
+    maxX = centerX + radius;
+  }
+
+  if (!Number.isFinite(minX) && !Number.isFinite(maxX)) {
+    minX = centerX;
+    maxX = centerX;
+  }
+
+  const orderedMin = clampXToPlayableBounds(Math.min(minX, maxX), playableBounds);
+  const orderedMax = clampXToPlayableBounds(Math.max(minX, maxX), playableBounds);
+  const width = orderedMax - orderedMin;
+  const radius = width / 2;
+  const resolvedCenter = orderedMin + radius;
+
+  return {
+    minX: orderedMin,
+    maxX: orderedMax,
+    centerX: resolvedCenter,
+    radius,
+    width,
+  };
+}
+
+function samplePathTargetGoalX(range, playableBounds = null) {
+  if (range && Number.isFinite(range.minX) && Number.isFinite(range.maxX)) {
+    const span = Math.max(0, range.maxX - range.minX);
+    if (span <= 0.01) {
+      return clampXToPlayableBounds(range.minX, playableBounds);
+    }
+    const offset = Math.random() * span;
+    return clampXToPlayableBounds(range.minX + offset, playableBounds);
+  }
+  return clampXToPlayableBounds(range?.centerX ?? 0, playableBounds);
+}
+
 function isScheduleHourMatch(scheduleHours, currentHour) {
   if (!Array.isArray(scheduleHours) || scheduleHours.length === 0) {
     return true;
@@ -107,6 +203,7 @@ function resolveNpcPathTarget(state, area) {
   if (!candidates.length) return null;
 
   const pathState = ensureNpcPathState(state);
+  const rangeState = ensureNpcPathRangeState(state);
   if (pathState.lastScheduleHour !== currentHour) {
     pathState.sequenceIndex = 0;
     pathState.lastScheduleHour = currentHour;
@@ -122,10 +219,12 @@ function resolveNpcPathTarget(state, area) {
   const ordered = candidates.filter((target) => Number.isFinite(target?.order)).sort((a, b) => a.order - b.order);
 
   let target = null;
+  let targetRange = null;
   if (ordered.length) {
     const index = ((pathState.sequenceIndex ?? 0) % ordered.length + ordered.length) % ordered.length;
     target = ordered[index];
-    const goalX = clampXToPlayableBounds(target.position?.x ?? state.pos.x, playableBounds);
+    targetRange = resolveNpcPathTargetRange(target, clampXToPlayableBounds(target.position?.x ?? state.pos.x, playableBounds), playableBounds);
+    const goalX = targetRange?.centerX ?? clampXToPlayableBounds(target.position?.x ?? state.pos.x, playableBounds);
     const goalY = Number.isFinite(target.position?.y) ? target.position.y : (state.pos?.y ?? 0);
     const dx = goalX - (state.pos?.x ?? 0);
     const dy = goalY - (state.pos?.y ?? 0);
@@ -133,6 +232,7 @@ function resolveNpcPathTarget(state, area) {
     if (arrived) {
       pathState.sequenceIndex = (index + 1) % ordered.length;
       target = ordered[pathState.sequenceIndex];
+      targetRange = null;
     } else {
       pathState.sequenceIndex = index;
     }
@@ -140,7 +240,8 @@ function resolveNpcPathTarget(state, area) {
     const posX = state.pos?.x ?? 0;
     const posY = state.pos?.y ?? 0;
     target = candidates.reduce((best, candidate) => {
-      const goalX = clampXToPlayableBounds(candidate?.position?.x ?? posX, playableBounds);
+      const sampleRange = resolveNpcPathTargetRange(candidate, clampXToPlayableBounds(candidate?.position?.x ?? posX, playableBounds), playableBounds);
+      const goalX = sampleRange?.centerX ?? clampXToPlayableBounds(candidate?.position?.x ?? posX, playableBounds);
       const goalY = Number.isFinite(candidate?.position?.y) ? candidate.position.y : posY;
       const distance = Math.hypot(goalX - posX, goalY - posY);
       if (!best) return { candidate, distance };
@@ -149,13 +250,43 @@ function resolveNpcPathTarget(state, area) {
   }
 
   if (!target) return null;
-  const goalX = clampXToPlayableBounds(target.position?.x ?? state.pos.x, playableBounds);
+  const baseGoalX = clampXToPlayableBounds(target.position?.x ?? state.pos.x, playableBounds);
   const goalY = Number.isFinite(target.position?.y) ? target.position.y : (state.pos?.y ?? 0);
+  targetRange = targetRange || resolveNpcPathTargetRange(target, baseGoalX, playableBounds);
+  const targetKey = target.registryId || target.instanceId || target.name || target.sourceTag || 'path-target';
+  const sameTarget = rangeState.targetKey === targetKey;
+  const defaultGoalX = Number.isFinite(rangeState.goalX) && sameTarget
+    ? clampXToPlayableBounds(rangeState.goalX, playableBounds)
+    : samplePathTargetGoalX(targetRange, playableBounds);
+  const dxDefault = defaultGoalX - (state.pos?.x ?? 0);
+  const dyDefault = goalY - (state.pos?.y ?? 0);
+  const distanceToDefault = Math.hypot(dxDefault, dyDefault);
+  const enteredRange = distanceToDefault <= arriveRadius && !rangeState.inRange;
+  const goalX = enteredRange
+    ? samplePathTargetGoalX(targetRange, playableBounds)
+    : defaultGoalX;
+
+  rangeState.targetKey = targetKey;
+  rangeState.range = targetRange;
+  rangeState.goalX = goalX;
+  rangeState.goalY = goalY;
+  rangeState.arriveRadius = arriveRadius;
+  rangeState.inRange = distanceToDefault <= arriveRadius;
+  rangeState.justEntered = !!enteredRange;
+  if (!Number.isFinite(rangeState.reoffsetTimer) || !sameTarget) {
+    rangeState.reoffsetTimer = 1 + Math.random();
+  }
+  if (enteredRange) {
+    rangeState.shuffleTimer = Math.max(rangeState.shuffleTimer || 0, 0.35);
+    rangeState.shufflesRemaining = Math.max(rangeState.shufflesRemaining || 0, 2);
+    rangeState.shuffleDir = Math.sign(goalX - (state.pos?.x ?? 0)) || (Math.random() > 0.5 ? 1 : -1);
+  }
   return {
     ...target,
     goalX,
     goalY,
     arriveRadius,
+    range: targetRange,
   };
 }
 
@@ -2403,12 +2534,69 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       }
     } else if (pathTarget) {
       const arriveRadius = pathTarget.arriveRadius ?? 6;
-      const dxPath = pathTarget.goalX - state.pos.x;
-      const dyPath = (pathTarget.goalY ?? state.pos.y) - state.pos.y;
+      const rangeState = ensureNpcPathRangeState(state);
+      const dxPath = (rangeState.goalX ?? pathTarget.goalX) - state.pos.x;
+      const dyPath = (rangeState.goalY ?? pathTarget.goalY ?? state.pos.y) - state.pos.y;
       const distance = Math.hypot(dxPath, dyPath);
-      input.left = distance > arriveRadius && dxPath < -arriveRadius;
-      input.right = distance > arriveRadius && dxPath > arriveRadius;
-      state.mode = distance > arriveRadius ? 'patrol' : 'idle';
+      const inRange = distance <= arriveRadius;
+      const hadShuffleTimer = Number.isFinite(rangeState.shuffleTimer) && rangeState.shuffleTimer > 0;
+      rangeState.shuffleTimer = Math.max(0, Number.isFinite(rangeState.shuffleTimer) ? rangeState.shuffleTimer - dt : 0);
+      rangeState.reoffsetTimer = Math.max(0, Number.isFinite(rangeState.reoffsetTimer) ? rangeState.reoffsetTimer - dt : 0);
+      let appliedShuffle = false;
+
+      if (rangeState.justEntered) {
+        rangeState.justEntered = false;
+        rangeState.shuffleTimer = Math.max(rangeState.shuffleTimer, 0.3);
+        rangeState.shufflesRemaining = Math.max(rangeState.shufflesRemaining || 0, 2);
+        rangeState.shuffleDir = Math.sign(dxPath) || (Math.random() > 0.5 ? 1 : -1);
+      }
+
+      if (rangeState.shuffleTimer > 0 && rangeState.shufflesRemaining > 0) {
+        input.left = (rangeState.shuffleDir || -1) < 0;
+        input.right = (rangeState.shuffleDir || 1) > 0;
+        appliedShuffle = true;
+      }
+
+      const shuffleExpired = hadShuffleTimer && rangeState.shuffleTimer <= 0;
+      if (shuffleExpired && rangeState.shufflesRemaining > 0) {
+        rangeState.shufflesRemaining -= 1;
+        if (rangeState.shufflesRemaining > 0) {
+          rangeState.shuffleTimer = 0.18;
+          rangeState.shuffleDir = -(rangeState.shuffleDir || -1);
+        } else {
+          rangeState.shuffleDir = 0;
+        }
+      }
+
+      if (inRange && rangeState.reoffsetTimer <= 0 && pathTarget.range) {
+        const newGoal = samplePathTargetGoalX(pathTarget.range, resolveActivePlayableBounds(activeArea));
+        rangeState.goalX = newGoal;
+        rangeState.reoffsetTimer = 1 + Math.random() * 1.5;
+        rangeState.shuffleTimer = Math.max(rangeState.shuffleTimer, 0.2);
+        rangeState.shufflesRemaining = Math.max(rangeState.shufflesRemaining || 0, 1);
+        rangeState.shuffleDir = Math.sign((newGoal ?? state.pos.x) - state.pos.x) || (Math.random() > 0.5 ? 1 : -1);
+      }
+
+      if (!appliedShuffle) {
+        if (!inRange) {
+          input.left = dxPath < -arriveRadius;
+          input.right = dxPath > arriveRadius;
+        } else if (Math.abs(dxPath) > Math.max(2, arriveRadius * 0.35)) {
+          input.left = dxPath < 0;
+          input.right = dxPath > 0;
+        }
+      }
+
+      if (rangeState.shuffleTimer > 0 && rangeState.shuffleDir) {
+        state.mode = 'patrol';
+      } else if (!inRange || Math.abs(dxPath) > arriveRadius * 0.35) {
+        state.mode = 'patrol';
+      } else {
+        state.mode = 'idle';
+      }
+
+      pathTarget.goalX = rangeState.goalX ?? pathTarget.goalX;
+      pathTarget.goalY = rangeState.goalY ?? pathTarget.goalY;
     }
 
     if (stamina) {

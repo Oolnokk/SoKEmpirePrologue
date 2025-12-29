@@ -141,6 +141,7 @@ async function initializePathTargets(area) {
         goalX: target.goalX ?? target.position?.x ?? 0,
         goalY: target.goalY ?? target.position?.y ?? 0,
         arriveRadius: target.arriveRadius ?? 6,
+        range: target.range,
         tags: Array.isArray(target.tags) ? target.tags : [],
         meta: target.meta || {},
       };
@@ -148,7 +149,10 @@ async function initializePathTargets(area) {
       areaTargets.push(validTarget);
       result.initialized++;
 
-      console.log('[EntityInit/PathTargets] ✓ Initialized:', validTarget.name, 'at', validTarget.goalX, validTarget.goalY);
+      const rangeLabel = validTarget.range
+        ? `range ${validTarget.range.minX?.toFixed?.(1)}–${validTarget.range.maxX?.toFixed?.(1)}`
+        : `at ${validTarget.goalX},${validTarget.goalY}`;
+      console.log('[EntityInit/PathTargets] ✓ Initialized:', validTarget.name, rangeLabel, 'center', validTarget.goalX, validTarget.goalY);
     } catch (error) {
       console.error('[EntityInit/PathTargets] ✗ Failed to initialize target:', target, error);
       result.failed++;

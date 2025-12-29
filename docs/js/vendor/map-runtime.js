@@ -994,6 +994,74 @@ function buildSimpleIndex(records = [], key = 'id') {
   return index;
 }
 
+function normalizePathTargetRange(raw = {}, position = { x: 0, y: 0 }) {
+  const rawRange = (raw && typeof raw === 'object') ? (raw.range ?? raw.meta?.range ?? null) : null;
+  const centerX = Number.isFinite(position?.x) ? Number(position.x) : 0;
+
+  const radiusCandidate = toNumber(
+    rawRange?.radius
+    ?? rawRange?.r
+    ?? raw.rangeRadius
+    ?? raw.meta?.rangeRadius,
+    null,
+  );
+  const widthCandidate = toNumber(
+    rawRange?.width
+    ?? raw.rangeWidth
+    ?? raw.meta?.rangeWidth,
+    null,
+  );
+  let startCandidate = toNumber(
+    rawRange?.minX
+    ?? rawRange?.left
+    ?? rawRange?.start
+    ?? raw.rangeMinX
+    ?? raw.meta?.rangeMinX,
+    null,
+  );
+  let endCandidate = toNumber(
+    rawRange?.maxX
+    ?? rawRange?.right
+    ?? rawRange?.end
+    ?? raw.rangeMaxX
+    ?? raw.meta?.rangeMaxX,
+    null,
+  );
+
+  if (Number.isFinite(widthCandidate) && !Number.isFinite(startCandidate) && !Number.isFinite(endCandidate)) {
+    const half = Math.abs(widthCandidate) / 2;
+    startCandidate = centerX - half;
+    endCandidate = centerX + half;
+  }
+
+  if (Number.isFinite(radiusCandidate) && !Number.isFinite(startCandidate) && !Number.isFinite(endCandidate)) {
+    const radius = Math.abs(radiusCandidate);
+    startCandidate = centerX - radius;
+    endCandidate = centerX + radius;
+  }
+
+  if (!Number.isFinite(startCandidate) && !Number.isFinite(endCandidate)) {
+    startCandidate = centerX;
+    endCandidate = centerX;
+  }
+
+  const minX = Number.isFinite(startCandidate) ? startCandidate : centerX;
+  const maxX = Number.isFinite(endCandidate) ? endCandidate : centerX;
+  const orderedMin = Math.min(minX, maxX);
+  const orderedMax = Math.max(minX, maxX);
+  const width = orderedMax - orderedMin;
+  const radius = width / 2;
+  const resolvedCenter = orderedMin + radius;
+
+  return {
+    minX: orderedMin,
+    maxX: orderedMax,
+    width,
+    radius,
+    centerX: resolvedCenter,
+  };
+}
+
 function normalizeGroupMember(member) {
   if (member == null) return null;
   if (typeof member === 'string') {
@@ -1145,6 +1213,7 @@ function normalizePathTargetRecord(raw, warnings = [], context = {}) {
     x: toNumber(safe.position?.x ?? safe.x ?? 0, 0),
     y: toNumber(safe.position?.y ?? safe.y ?? 0, 0),
   };
+  const range = normalizePathTargetRange(safe, position);
   const layerId = typeof safe.layerId === 'string' && safe.layerId.trim() ? safe.layerId.trim() : null;
   const instanceId = typeof safe.instanceId === 'string' && safe.instanceId.trim() ? safe.instanceId.trim() : null;
   const tags = Array.isArray(safe.tags)
@@ -1163,6 +1232,8 @@ function normalizePathTargetRecord(raw, warnings = [], context = {}) {
     instanceId,
     layerId,
     position,
+    range,
+    world: { ...position },
     tags,
     meta,
     sourceTag: typeof safe.sourceTag === 'string' ? safe.sourceTag : null,
