@@ -7,6 +7,8 @@ import { pushPoseOverride as runtimePushPoseOverride, pushPoseLayerOverride as r
 import { normalizePrefabDefinition } from './prefab-catalog.js?v=1';
 import { getCurrentGameHour, isScheduleActive, resolveScheduleEntry } from './schedule-utils.js?v=1';
 
+let updateDayNightUI = () => {};
+
 // Console capture system - stores all console messages for later export
 const CONSOLE_CAPTURE = {
   messages: [],
@@ -310,8 +312,8 @@ export function initDebugPanel() {
     dayNightBtn.addEventListener('click', () => {
       if (window.dayNightSystem) {
         window.dayNightSystem.toggle();
-        if (window.setGameTime24h && Number.isFinite(window.dayNightSystem.timeOfDayHours)) {
-          window.setGameTime24h(window.dayNightSystem.timeOfDayHours);
+        if (window.gameTimeController?.setTime24h && Number.isFinite(window.dayNightSystem.timeOfDayHours)) {
+          window.gameTimeController.setTime24h(window.dayNightSystem.timeOfDayHours);
         }
         updateDayNightUI();
       } else {
@@ -324,52 +326,72 @@ export function initDebugPanel() {
     });
   }
 
-  // Setup time of day slider
-  const timeSlider = $$('#timeOfDaySlider', panel);
-  const timeValue = $$('#timeOfDayValue', panel);
-  if (timeSlider && timeValue) {
-    timeSlider.addEventListener('input', (e) => {
-      const hours = parseFloat(e.target.value);
-      const sharedTime = window.setGameTime24h
-        ? window.setGameTime24h(hours)
-        : (typeof window.setBackgroundTime24h === 'function' ? window.setBackgroundTime24h(hours) : hours);
-      if (!window.setGameTime24h && window.dayNightSystem?.setTimeOfDayHours) {
-        window.dayNightSystem.setTimeOfDayHours(sharedTime, true);
-      }
-      updateDayNightUI();
+  const formatClock = (hours) => {
+    if (!Number.isFinite(hours)) return '--:--';
+    const h = Math.floor(hours);
+    const m = Math.floor((hours - h) * 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
 
-      // Update time display
-      const displayTime = Number.isFinite(sharedTime) ? sharedTime : hours;
-      const h = Math.floor(displayTime);
-      const m = Math.floor((displayTime - h) * 60);
-      timeValue.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  const formatTimeScale = (value) => {
+    if (!Number.isFinite(value)) return '1x';
+    const normalized = Number(value.toFixed(2));
+    return `${normalized % 1 === 0 ? normalized.toFixed(0) : normalized}x`;
+  };
+
+  let lastLoggedTime = null;
+  let lastLoggedScale = null;
+
+  const timeSpeedSlider = $$('#timeSpeedSlider', panel);
+  const timeSpeedValue = $$('#timeSpeedValue', panel);
+  if (timeSpeedSlider && timeSpeedValue) {
+    timeSpeedSlider.addEventListener('input', (e) => {
+      const scale = parseFloat(e.target.value);
+      const appliedScale = window.gameTimeController?.setTimeScale
+        ? window.gameTimeController.setTimeScale(scale)
+        : scale;
+
+      if (Number.isFinite(appliedScale)) {
+        timeSpeedValue.textContent = formatTimeScale(appliedScale);
+      }
+
+      updateDayNightUI();
     });
   }
 
-  // Helper to update UI
-  function updateDayNightUI() {
+  updateDayNightUI = () => {
     const time24h = Number.isFinite(window.gameTimeController?.time24h)
       ? window.gameTimeController.time24h
       : window.dayNightSystem?.timeOfDayHours;
     const isNight = window.dayNightSystem?.isNight
       ?? (Number.isFinite(time24h) ? time24h < 6 || time24h >= 18 : false);
+
+    const timeScale = Number.isFinite(window.gameTimeController?.timeScale)
+      ? window.gameTimeController.timeScale
+      : 1;
+
     if (dayNightStatus) {
-      dayNightStatus.textContent = isNight ? 'Current: Night 🌙' : 'Current: Day ☀️';
+      const timeLabel = formatClock(time24h);
+      dayNightStatus.textContent = `${isNight ? 'Current: Night 🌙' : 'Current: Day ☀️'} — ${timeLabel}`;
       dayNightStatus.style.color = isNight ? '#a5b4fc' : '#fde68a';
     }
 
-    // Update slider to match current state
-    if (timeSlider && Number.isFinite(time24h)) {
-      timeSlider.value = time24h;
-      const h = Math.floor(time24h);
-      const m = Math.floor((time24h - h) * 60);
-      if (timeValue) {
-        timeValue.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-      }
+    if (timeSpeedSlider && Number.isFinite(timeScale)) {
+      timeSpeedSlider.value = timeScale;
     }
 
-    console.log('[debug-panel] Time:', Number.isFinite(time24h) ? time24h.toFixed(1) : 'n/a', 'hours', isNight ? '(NIGHT)' : '(DAY)');
-  }
+    if (timeSpeedValue) {
+      timeSpeedValue.textContent = formatTimeScale(timeScale);
+    }
+
+    const roundedTime = Number.isFinite(time24h) ? Number(time24h.toFixed(2)) : null;
+    const roundedScale = Number.isFinite(timeScale) ? Number(timeScale.toFixed(2)) : null;
+    if (roundedTime !== lastLoggedTime || roundedScale !== lastLoggedScale) {
+      console.log('[debug-panel] Time:', Number.isFinite(time24h) ? time24h.toFixed(1) : 'n/a', 'hours', isNight ? '(NIGHT)' : '(DAY)', '×', formatTimeScale(timeScale));
+      lastLoggedTime = roundedTime;
+      lastLoggedScale = roundedScale;
+    }
+  };
 
   // Setup copy URL button
   const copyURLBtn = $$('#btnCopyURL', panel);
@@ -707,6 +729,8 @@ export function updateDebugPanel() {
 
   const G = window.GAME || {};
   const C = window.CONFIG || {};
+
+  updateDayNightUI();
 
   // Update bottle census
   updateBottleCensus();
