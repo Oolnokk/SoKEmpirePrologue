@@ -13,8 +13,8 @@ window.HUD_ARCH_CONFIG = {
     },
 
     scale: 1.0,
-    buttonSizePx: 30,
-    defaultGapPx: 36,
+    buttonSizePx: 50,
+    defaultGapPx: 50,
     rotateWithArch: true,
     flipVertical: false,
     debug: false,
