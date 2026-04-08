@@ -32,7 +32,7 @@ async function loadCosmetic(id, url){
  * relative to that directory.
  */
 function resolveIndexPath(indexUrl, relativePath){
-  if (!indexUrl || !relativePath) return relativePath;
+  if (!indexUrl || !relativePath) return null;
   try {
     return new URL(relativePath, indexUrl).href;
   } catch {
@@ -51,8 +51,11 @@ async function loadEntriesFromIndex(indexPath){
     const data = await response.json();
     const entries = Array.isArray(data.entries) ? data.entries : [];
     return entries
-      .filter((e) => typeof e.id === 'string' && e.id.length && typeof e.path === 'string' && e.path.length)
-      .map((e) => [e.id, resolveIndexPath(indexPath, e.path)]);
+      .filter((entry) => typeof entry.id === 'string' && entry.id.length && typeof entry.path === 'string' && entry.path.length)
+      .flatMap((entry) => {
+        const url = resolveIndexPath(indexPath, entry.path);
+        return url ? [[entry.id, url]] : [];
+      });
   } catch (err) {
     console.warn(`[cosmetics] Failed to load cosmetic index from ${indexPath}`, err);
     return [];
