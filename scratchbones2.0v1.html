@@ -1,0 +1,2273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Madiao Mobile Challenge</title>
+  <style>
+    :root {
+      --bg: #15110f;
+      --bg2: #221917;
+      --panel: rgba(46, 34, 30, 0.95);
+      --panel-soft: rgba(67, 49, 43, 0.9);
+      --accent: #c89952;
+      --accent-2: #f2d08f;
+      --danger: #c85a5a;
+      --ok: #66b17c;
+      --text: #f4e8d0;
+      --muted: #cdbb9f;
+      --card: #f8f1df;
+      --card-text: #32231d;
+      --wild: #f1d347;
+      --shadow: 0 10px 24px rgba(0,0,0,0.28);
+      --radius: 18px;
+      --safe: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; background: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%); color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; height: 100%; }
+    body { overscroll-behavior: none; }
+
+    button, select, input { font: inherit; }
+
+    #app {
+      min-height: 100dvh;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto auto;
+      gap: 10px;
+      padding: 12px 12px calc(12px + var(--safe));
+    }
+
+    .topbar, .panel, .controls, .handWrap, .eventLog {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+    }
+
+    .topbar {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .titleRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    h1 {
+      font-size: 1.15rem;
+      line-height: 1.1;
+      margin: 0;
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+
+    .chipRow, .riskBar, .aiRow, .selectionRow, .controlsRow, .bottomActions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: var(--panel-soft);
+      color: var(--text);
+      font-size: 0.8rem;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .panel {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .sectionTitle {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--accent-2);
+    }
+
+    .aiSeat {
+      background: var(--panel-soft);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 10px;
+      min-width: 0;
+      flex: 1 1 calc(33.333% - 8px);
+    }
+
+    .seatName { font-weight: 700; font-size: 0.92rem; }
+    .seatMeta { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
+    .seatStatus { margin-top: 6px; font-size: 0.8rem; }
+    .seatSeed { font-size: 0.68rem; color: var(--accent); font-style: italic; margin-top: 3px; letter-spacing: 0.01em; }
+    .seatTags { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+    .eliminated { opacity: 0.55; filter: grayscale(0.4); }
+
+    .centerInfo {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .bigInfo {
+      background: rgba(255,255,255,0.04);
+      border-radius: 14px;
+      padding: 10px;
+      min-height: 74px;
+    }
+
+    .bigLabel { font-size: 0.76rem; color: var(--muted); }
+    .bigValue { font-size: 1.1rem; font-weight: 800; margin-top: 4px; }
+    .smallText { font-size: 0.85rem; color: var(--muted); }
+
+    .controls {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      position: sticky;
+      bottom: 0;
+      z-index: 4;
+      background: linear-gradient(180deg, rgba(46,34,30,0.96), rgba(37,28,25,0.98));
+      backdrop-filter: blur(8px);
+    }
+
+    .controlsRow > * { flex: 1 1 0; min-width: 0; }
+    .controls label { display: grid; gap: 6px; font-size: 0.8rem; color: var(--muted); }
+
+    select {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: #2a1f1c;
+      color: var(--text);
+      padding: 11px 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 14px;
+      padding: 12px 14px;
+      color: #1d140f;
+      background: var(--accent);
+      font-weight: 800;
+      box-shadow: var(--shadow);
+    }
+
+    button.secondary { background: #8f7761; color: #fff6ea; }
+    button.danger { background: var(--danger); color: white; }
+    button.ok { background: var(--ok); color: #102314; }
+    button.ghost { background: rgba(255,255,255,0.08); color: var(--text); box-shadow: none; border: 1px solid rgba(255,255,255,0.08); }
+    button:disabled { opacity: 0.45; box-shadow: none; }
+
+    .handWrap {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .handHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .handScroll {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scroll-snap-type: x proximity;
+    }
+
+    .card {
+      min-width: 69px;
+      min-height: 178px;
+      padding: 40px 10px 78px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 28%), var(--card);
+      color: var(--card-text);
+      border: 3px solid transparent;
+      border-radius: 22px 22px 38px 38px / 26px 26px 86px 86px;
+      box-shadow: 0 10px 14px rgba(0,0,0,0.18);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-start;
+      scroll-snap-align: start;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      width: 58px;
+      height: 58px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: rgba(255,255,255,0.36);
+      box-shadow: inset 0 3px 7px rgba(255,255,255,0.4), inset 0 -6px 10px rgba(0,0,0,0.06);
+      z-index: 0;
+    }
+
+    .card.wild { background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 26%), linear-gradient(180deg, #f8eb99, var(--wild)); }
+    .card.selected { transform: translateY(-4px); border-color: #62b0ff; }
+    .cardTop,
+    .cardMid,
+    .cardBottom {
+      position: relative;
+      z-index: 1;
+    }
+    .cardTop {
+      margin-top: 0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      opacity: 0.9;
+      text-align: center;
+    }
+    .cardMid {
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      width: 100%;
+      height: 30px;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      font-weight: 900;
+      text-align: center;
+      line-height: 1;
+    }
+    .cardBottom {
+      margin-top: auto;
+      font-size: 0.72rem;
+      text-align: center;
+      opacity: 0.8;
+    }
+
+    .eventLog {
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      max-height: 180px;
+      overflow: auto;
+    }
+
+    .logItem {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 9px 10px;
+      font-size: 0.84rem;
+      color: var(--text);
+    }
+
+    .banner {
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-size: 0.9rem;
+      background: rgba(200, 153, 82, 0.12);
+      border: 1px solid rgba(200, 153, 82, 0.25);
+    }
+
+    .banner.warn { background: rgba(200,90,90,0.14); border-color: rgba(200,90,90,0.3); }
+    .banner.good { background: rgba(102,177,124,0.14); border-color: rgba(102,177,124,0.3); }
+
+    .challengeBar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tiny { font-size: 0.74rem; color: var(--muted); }
+
+    details.debug {
+      background: rgba(255,255,255,0.04);
+      border-radius: 14px;
+      padding: 8px 10px;
+    }
+    details.debug summary { cursor: pointer; font-weight: 700; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.74rem;
+      color: #f4eeda;
+      margin: 8px 0 0;
+    }
+
+    #challengeBox {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      padding: 0 12px calc(12px + var(--safe));
+      display: none;
+      pointer-events: none;
+    }
+
+    .challengeBoxInner {
+      background: linear-gradient(170deg, rgba(46,28,22,0.98), rgba(28,18,14,0.99));
+      border: 1px solid rgba(200,90,90,0.3);
+      border-radius: var(--radius) var(--radius) 0 0;
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.55);
+      backdrop-filter: blur(14px);
+      padding: 14px 16px 16px;
+      display: grid;
+      gap: 10px;
+      pointer-events: all;
+    }
+
+    .challengeBoxHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .challengeTimerRow {
+      display: grid;
+      gap: 4px;
+    }
+
+    .timerLabel {
+      font-size: 0.72rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .timerTrack {
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .timerFill {
+      height: 100%;
+      background: var(--danger);
+      border-radius: 999px;
+      transition: width 0.85s linear;
+    }
+
+    .challengeBoxBtns {
+      display: flex;
+      gap: 10px;
+    }
+
+    .challengeBoxBtns button { flex: 1 1 0; min-width: 0; }
+
+    @media (min-width: 880px) {
+      #app { max-width: 980px; margin: 0 auto; }
+      #challengeBox { max-width: 980px; left: 50%; transform: translateX(-50%); }
+      .card { min-width: 96px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="challengeBox">
+    <div class="challengeBoxInner">
+      <div class="challengeBoxHeader">
+        <div class="sectionTitle" style="color:var(--danger);">Challenge window</div>
+        <div id="challengeTimerCount" style="font-size:1.05rem;font-weight:800;color:var(--danger);"></div>
+      </div>
+      <div id="challengeBoxInfo" class="tiny"></div>
+      <div class="challengeTimerRow">
+        <div class="timerLabel">
+          <span>Auto: let it stand</span>
+          <span id="challengeTimerLabel"></span>
+        </div>
+        <div class="timerTrack"><div class="timerFill" id="challengeTimerBar"></div></div>
+      </div>
+      <div class="challengeBoxBtns">
+        <button class="danger" id="challengeBtnFixed">⚔ Challenge</button>
+        <button class="secondary" id="letPassBtnFixed">Let it stand</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+    const DEBUG_ENABLED = true;
+    const CHALLENGE_TIMER_SECS = 8;
+
+    const MAO_AO_CULTURE = {
+      id: "mao_ao",
+      displayName: "Mao-ao",
+      casing: "title",
+      birthRules: {
+        surnameFromParent: false,
+        maleFirstInitialMatchesSurnameFirstLetter: true,
+      },
+      marriageRules: {
+        wifeTakesHusbandSurname: true,
+        wifePrefixesHusbandFirstInitial: true,
+      },
+      positionedSyllables: {
+        pools: {
+          consonants: ["w", "r", "t", "y", "p", "s", "f", "g", "h", "b", "n", "m", "k"],
+          clusters: ["sh", "hy"],
+          vowels: ["a", "e", "i", "o", "u", "ai", "ao"],
+          diphthongs: ["ai", "ao"],
+        },
+        firstName: {
+          syllables: { min: 3, max: 3 },
+          first: {
+            female: { patterns: ["V", "Vn", "Vng"] },
+            male: { patterns: ["CV", "CVn", "CVng", "CVr"] },
+          },
+          middle: {
+            female: { patterns: ["CV", "CVn"] },
+            male: { patterns: ["CV", "CVn", "CVr"] },
+          },
+          last: {
+            male: { patterns: ["jei", "ji", "jo", "CV{e}", "CV{i}", "CV{o}", "CV{u}", "CV{ai}"] },
+            female: { patterns: ["CV{a}", "CV{i}", "CV{ai}"] },
+          },
+          conditionalLast: {},
+        },
+        lastName: {
+          syllables: { exact: 2 },
+          deriveFromFirstNameMaleRules: true,
+        },
+      },
+    };
+
+    function pickFromRng(rng, arr) {
+      if (!arr || arr.length === 0) throw new Error('pickFromRng() called with empty array');
+      return arr[Math.floor(rng() * arr.length)];
+    }
+
+    function titleCase(s) {
+      if (!s) return s;
+      return s[0].toUpperCase() + s.slice(1).toLowerCase();
+    }
+
+    function applyCasing(s, casing) {
+      if (!casing) return s;
+      if (casing === 'lower') return s.toLowerCase();
+      if (casing === 'upper') return s.toUpperCase();
+      return titleCase(s);
+    }
+
+    function clampInt(n, min, max) {
+      return Math.max(min, Math.min(max, Math.floor(n)));
+    }
+
+    function tokenListSortedLongestFirst(tokens) {
+      return (tokens || []).slice().sort((a, b) => b.length - a.length);
+    }
+
+    function startsWithAnyToken(str, tokens) {
+      for (const token of tokens) if (str.startsWith(token)) return token;
+      return null;
+    }
+
+    function endsWithAnyToken(str, tokens) {
+      for (const token of tokens) if (str.endsWith(token)) return token;
+      return null;
+    }
+
+    function joinSyllablesWithHiatus(syllables, pools) {
+      if (syllables.length <= 1) return syllables.join('');
+      const vowelTokens = tokenListSortedLongestFirst(pools.vowels);
+      let out = syllables[0];
+      for (let i = 1; i < syllables.length; i++) {
+        let next = syllables[i];
+        if (out.endsWith('n') && next.startsWith('n') && !next.startsWith('ng')) {
+          next = next.slice(1);
+        }
+        const prevEndsVowel = !!endsWithAnyToken(out, vowelTokens);
+        const nextStartsVowel = !!startsWithAnyToken(next, vowelTokens);
+        out += (prevEndsVowel && nextStartsVowel) ? "'" + next : next;
+      }
+      return out;
+    }
+
+    function isVariablePattern(pattern) {
+      return pattern.includes('V');
+    }
+
+    function isOnsetlessVPattern(pattern) {
+      return isVariablePattern(pattern) && pattern.startsWith('V');
+    }
+
+    function parseForcedVowel(pattern) {
+      const match = pattern.match(/^(.*)\{([^}]+)\}$/);
+      if (!match) return { basePattern: pattern, forcedVowels: null };
+      return {
+        basePattern: match[1],
+        forcedVowels: match[2].split('|').map(s => s.trim()).filter(Boolean),
+      };
+    }
+
+    function syllableEndsWithN(syllable) {
+      return /n$/i.test(syllable || '') && !/ng$/i.test(syllable || '');
+    }
+
+    function syllableHasDiphthong(syllable, pools) {
+      if (!syllable) return false;
+      const diphthongs = [...(pools.diphthongs || []), 'ei'];
+      return diphthongs.some(d => syllable.includes(d));
+    }
+
+    function patternHasDiphthong(pattern) {
+      return pattern.includes('{ai}') || pattern.includes('{ao}') || pattern.includes('ei');
+    }
+
+    function constrainLastPatterns(patterns, previousSyllable, ctx = {}) {
+      return patterns.filter(pattern => {
+        if (pattern.includes('{ai}') && !syllableEndsWithN(previousSyllable)) return false;
+        if (/^j/.test(pattern) && !(ctx.allowInitialJ || syllableEndsWithN(previousSyllable))) return false;
+        if (ctx.usedDiphthong && patternHasDiphthong(pattern)) return false;
+        return true;
+      });
+    }
+
+    function getVowelPoolForPattern(pools, hasConsonantEnding, forcedVowels, ctx = {}) {
+      let pool = pools.vowels.slice();
+      const diphthongs = pools.diphthongs || [];
+      if (ctx.position === 'middle') pool = pool.filter(v => !diphthongs.includes(v));
+      if (ctx.usedDiphthong) pool = pool.filter(v => !diphthongs.includes(v));
+      if (ctx.nameType === 'last' && ctx.position === 'first') pool = pool.filter(v => v !== 'ai');
+      if (forcedVowels && forcedVowels.length) pool = pool.filter(v => forcedVowels.includes(v));
+      if (!hasConsonantEnding || diphthongs.length === 0) return pool;
+      const monophthongs = pool.filter(v => !diphthongs.includes(v));
+      return monophthongs.length ? monophthongs : pool;
+    }
+
+    function buildSyllableFromPattern(rng, pools, pattern, opts = {}) {
+      if (!isVariablePattern(pattern)) return pattern;
+      const { basePattern, forcedVowels } = parseForcedVowel(pattern);
+      const onsetPool = pools.consonants.concat(pools.clusters);
+      const startsWithCV = basePattern.startsWith('CV');
+      const startsWithV = basePattern.startsWith('V');
+      if (!startsWithCV && !startsWithV) throw new Error(`Unsupported pattern "${pattern}".`);
+      const coda = basePattern.slice(startsWithCV ? 2 : 1);
+      const vowelPool = getVowelPoolForPattern(pools, coda.length > 0, forcedVowels, opts);
+      const nucleus = pickFromRng(rng, vowelPool);
+      if (startsWithCV) {
+        const forcedOnset = opts.forceOnsetInitialLetter ? String(opts.forceOnsetInitialLetter).toLowerCase() : '';
+        const onset = forcedOnset && pools.consonants.includes(forcedOnset) ? forcedOnset : pickFromRng(rng, onsetPool);
+        return onset + nucleus + coda;
+      }
+      return nucleus + coda;
+    }
+
+    function pickPattern(rng, patterns, { allowOnsetlessV }) {
+      const filtered = allowOnsetlessV ? patterns : patterns.filter(p => !isOnsetlessVPattern(parseForcedVowel(p).basePattern));
+      if (!filtered.length) throw new Error(`No valid patterns after filtering.`);
+      return pickFromRng(rng, filtered);
+    }
+
+    function buildPositionedFirstName(rng, positioned, gender, opt = {}) {
+      const pools = positioned.pools;
+      const rules = positioned.firstName;
+      const syllables = [];
+      let usedDiphthong = false;
+      const firstSet = gender === 'male' ? rules.first.male : rules.first.female;
+      const middleSet = gender === 'male' ? rules.middle.male : rules.middle.female;
+      const lastSetBase = gender === 'male' ? rules.last.male : rules.last.female;
+      const syllableCount = clampInt(rules.syllables.min, rules.syllables.min, rules.syllables.max);
+
+      const firstPattern = pickPattern(rng, firstSet.patterns, { allowOnsetlessV: gender === 'female' });
+      const firstSyllable = buildSyllableFromPattern(rng, pools, firstPattern, {
+        forceOnsetInitialLetter: gender === 'male' ? opt.forceFirstNameInitialLetter : undefined,
+        position: 'first',
+        nameType: 'first',
+        usedDiphthong,
+      });
+      syllables.push(firstSyllable);
+      usedDiphthong = usedDiphthong || syllableHasDiphthong(firstSyllable, pools);
+
+      const middleCount = Math.max(0, syllableCount - 2);
+      for (let i = 0; i < middleCount; i++) {
+        const middlePattern = pickPattern(rng, middleSet.patterns, { allowOnsetlessV: false });
+        const middleSyllable = buildSyllableFromPattern(rng, pools, middlePattern, {
+          position: 'middle',
+          nameType: 'first',
+          usedDiphthong,
+        });
+        syllables.push(middleSyllable);
+        usedDiphthong = usedDiphthong || syllableHasDiphthong(middleSyllable, pools);
+      }
+
+      const lastPatternOptions = constrainLastPatterns(lastSetBase.patterns, syllables[syllables.length - 1] || '', { usedDiphthong, allowInitialJ: false });
+      const lastPattern = pickPattern(rng, lastPatternOptions, { allowOnsetlessV: false });
+      const lastSyllable = buildSyllableFromPattern(rng, pools, lastPattern, {
+        position: 'last',
+        nameType: 'first',
+        usedDiphthong,
+      });
+      syllables.push(lastSyllable);
+      return joinSyllablesWithHiatus(syllables, pools);
+    }
+
+    function buildMaoAoSurname(rng, positioned) {
+      const pools = positioned.pools;
+      const firstNameRules = positioned.firstName;
+      const syllables = [];
+      let usedDiphthong = false;
+
+      const firstPattern = pickPattern(rng, firstNameRules.first.male.patterns, { allowOnsetlessV: false });
+      const firstSyllable = buildSyllableFromPattern(rng, pools, firstPattern, {
+        position: 'first',
+        nameType: 'last',
+        usedDiphthong,
+      });
+      syllables.push(firstSyllable);
+      usedDiphthong = usedDiphthong || syllableHasDiphthong(firstSyllable, pools);
+
+      const lastPatternOptions = constrainLastPatterns(firstNameRules.last.male.patterns, syllables[0] || '', { usedDiphthong, allowInitialJ: false });
+      const lastPattern = pickPattern(rng, lastPatternOptions, { allowOnsetlessV: false });
+      const lastSyllable = buildSyllableFromPattern(rng, pools, lastPattern, {
+        position: 'last',
+        nameType: 'last',
+        usedDiphthong,
+      });
+      syllables.push(lastSyllable);
+      return joinSyllablesWithHiatus(syllables, pools);
+    }
+
+    function generateMaoAoNameFromSeed(seedString, gender = 'male') {
+      const numericSeed = hashStringToSeed(seedString);
+      const rng = mulberry32(numericSeed);
+      const surname = buildMaoAoSurname(rng, MAO_AO_CULTURE.positionedSyllables);
+      const forceInitial = MAO_AO_CULTURE.birthRules?.maleFirstInitialMatchesSurnameFirstLetter && gender === 'male' && surname
+        ? String(surname[0]).toLowerCase()
+        : undefined;
+      const firstName = buildPositionedFirstName(rng, MAO_AO_CULTURE.positionedSyllables, gender, {
+        forceFirstNameInitialLetter: forceInitial,
+      });
+      return [applyCasing(firstName, MAO_AO_CULTURE.casing), applyCasing(surname, MAO_AO_CULTURE.casing)].filter(Boolean).join(' ');
+    }
+
+    function hashStringToSeed(text) {
+      let h = 2166136261 >>> 0;
+      const input = String(text || '');
+      for (let i = 0; i < input.length; i++) {
+        h ^= input.charCodeAt(i);
+        h = Math.imul(h, 16777619) >>> 0;
+      }
+      return h >>> 0;
+    }
+
+    function generateAiIdentity(index) {
+      const identitySeed = `madiao-ai-${state.seed}-${index}`;
+      const gender = 'male';
+      const name = generateMaoAoNameFromSeed(identitySeed, gender);
+      return {
+        name,
+        seed: name,
+        personality: derivePersonality(name),
+      };
+    }
+
+    // Deterministic hash: same seed string always yields same personality
+    function hashSeed(seed, salt) {
+      let h = (salt * 2654435761) >>> 0;
+      for (let i = 0; i < seed.length; i++) {
+        h = Math.imul(h ^ seed.charCodeAt(i), 2246822519) >>> 0;
+        h ^= h >>> 16;
+      }
+      return h / 4294967296;
+    }
+
+    function clamp01(n) {
+      return Math.max(0, Math.min(1, n));
+    }
+
+    function derivePersonality(seed) {
+      const roleCycle = ['bold_liar', 'tricky_neutral', 'careful_honest'];
+      const roleIndex = Math.floor(hashSeed(seed, 97) * roleCycle.length);
+      const role = roleCycle[roleIndex];
+      const aggressionBase = hashSeed(seed, 1);
+      const suspicionBase = hashSeed(seed, 2);
+      const courageBase = hashSeed(seed, 3);
+      const solidarityBase = hashSeed(seed, 4);
+      const greedBase = hashSeed(seed, 5);
+      const honestyBase = hashSeed(seed, 6);
+
+      if (role === 'bold_liar') {
+        return {
+          archetype: 'Bold liar',
+          aggression: clamp01(0.78 + aggressionBase * 0.2),
+          suspicion: clamp01(0.52 + suspicionBase * 0.28),
+          courage: clamp01(0.66 + courageBase * 0.26),
+          solidarity: clamp01(0.2 + solidarityBase * 0.55),
+          greed: clamp01(0.62 + greedBase * 0.28),
+          honesty: clamp01(0.14 + honestyBase * 0.18),
+          overSuspects: suspicionBase > 0.45,
+        };
+      }
+
+      if (role === 'tricky_neutral') {
+        return {
+          archetype: 'Tricky neutral',
+          aggression: clamp01(0.48 + aggressionBase * 0.18),
+          suspicion: clamp01(0.58 + suspicionBase * 0.26),
+          courage: clamp01(0.46 + courageBase * 0.24),
+          solidarity: clamp01(0.25 + solidarityBase * 0.45),
+          greed: clamp01(0.48 + greedBase * 0.22),
+          honesty: clamp01(0.42 + honestyBase * 0.16),
+          overSuspects: suspicionBase > 0.25,
+        };
+      }
+
+      return {
+        archetype: 'Careful honest',
+        aggression: clamp01(0.1 + aggressionBase * 0.18),
+        suspicion: clamp01(0.48 + suspicionBase * 0.24),
+        courage: clamp01(0.18 + courageBase * 0.22),
+        solidarity: clamp01(0.3 + solidarityBase * 0.45),
+        greed: clamp01(0.28 + greedBase * 0.2),
+        honesty: clamp01(0.76 + honestyBase * 0.16),
+        overSuspects: suspicionBase > 0.7,
+      };
+    }
+
+    function personalityTags(p) {
+      const tags = [];
+      if (p.archetype) tags.push(p.archetype);
+      if      (p.aggression  > 0.72) tags.push('Bluffs big');
+      else if (p.aggression  > 0.56) tags.push('Pressure plays');
+      else if (p.honesty !== undefined && p.honesty > 0.74) tags.push('Truth baits');
+      if      (p.overSuspects || p.suspicion > 0.76) tags.push('Over-suspects');
+      else if (p.suspicion   > 0.6) tags.push('Suspicious');
+      else if (p.suspicion   < 0.24) tags.push('Trusting');
+      if      (p.courage     > 0.66) tags.push('Bold bettor');
+      else if (p.courage     < 0.34) tags.push('Folds easy');
+      if      (p.solidarity  > 0.66) tags.push('Backs others');
+      if      (p.greed       > 0.66) tags.push('Dumps big');
+      return tags.length ? tags.join(' · ') : 'Balanced';
+    }
+ // Used by: debug panel rendering and state dumps.
+    const AI_THINK_MS = 650; // Used by: AI turn pacing so mobile play stays readable.
+    const START_HAND_SIZE = 10; // Used by: dealing fresh hands at match start and after a clear.
+    const WILD_COUNT = 10; // Used by: deck construction and bluff validation. Increased so rounds have more wildcard pressure and more explosive truthful hands.
+    const PLAYER_NAMES = ['You']; // Used by: seat labels and logs. AI seats generate Mao-ao names at match start.
+
+    const CONFIG = {
+      startingChips: 12, // Used by: initial bankroll for every player.
+      challengeBaseTransfer: 1, // Used by: the minimum chip swing on a challenge fold or unresolved minimum stake.
+      concedeRoundChipLoss: 1, // Used by: cost to concede the active claim and open a new round.
+      maxRaiseAmount: 3, // Used by: the maximum automatic raise step available in the fixed +1/+2/+3 ladder.
+      maxRaisesPerPlayer: 3, // Used by: limiting each bettor to three raises per challenge duel.
+      clearBonusBase: 1, // Used by: chips taken from each opponent on a player's first clear.
+      clearBonusIncrement: 1, // Used by: added chips taken from each opponent on each later clear.
+      maxChallengeBet: 13, // Used by: safety cap for UI and AI betting loops. Sized to allow the full per-player +1/+2/+3 raise ladder for both sides in one duel.
+    };
+
+    const state = {
+      players: [],
+      leaderIndex: 0,
+      currentTurn: 0,
+      declaredRank: null,
+      pile: [],
+      selectedCardIds: new Set(),
+      challengeWindow: null,
+      betting: null,
+      gameOver: false,
+      winnerIndex: null,
+      banner: 'Open a round by selecting one or more cards, then declare a number.',
+      bannerType: 'normal',
+      logs: [],
+      seed: Math.floor(Math.random() * 1e9),
+      round: 1,
+      stats: {
+        successfulChallenges: 0,
+        failedChallenges: 0,
+        bluffsCaught: 0,
+        safeTruths: 0,
+        totalClears: 0,
+        chipsMovedByChallenges: 0,
+      },
+      recentChange: "Challenge win messages now show net chips gained after subtracting the winner's own contribution, and AI risk checks still factor in chip counts across play, challenge, and betting.",
+      challengeTimer: null,
+      challengeTimeLeft: 0,
+      roundConcessions: new Set(), // Used by: skipping players who have conceded the current claim until the round ends.
+    };
+
+    function mulberry32(a) {
+      return function() {
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      }
+    }
+
+    let rand = mulberry32(state.seed);
+
+    function rngInt(min, max) {
+      return Math.floor(rand() * (max - min + 1)) + min;
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function createDeck() {
+      const deck = [];
+      let id = 1;
+      for (let rank = 1; rank <= 10; rank++) {
+        for (let copy = 0; copy < 4; copy++) {
+          deck.push({ id: id++, rank, wild: false });
+        }
+      }
+      for (let i = 0; i < WILD_COUNT; i++) deck.push({ id: id++, rank: null, wild: true });
+      return shuffle(deck);
+    }
+
+    function sortCards(a, b) {
+      if (a.wild && !b.wild) return 1;
+      if (!a.wild && b.wild) return -1;
+      if (a.wild && b.wild) return a.id - b.id;
+      return a.rank - b.rank || a.id - b.id;
+    }
+
+    function makePlayers() {
+      return Array.from({ length: 4 }, (_, index) => {
+        if (index === 0) {
+          return {
+            id: index,
+            name: PLAYER_NAMES[0],
+            hand: [],
+            chips: CONFIG.startingChips,
+            eliminated: false,
+            isHuman: true,
+            lastAction: 'Ready',
+            clears: 0,
+            seed: null,
+            personality: null,
+            reads: {},
+          };
+        }
+        const aiIdentity = generateAiIdentity(index);
+        return {
+          id: index,
+          name: aiIdentity.name,
+          hand: [],
+          chips: CONFIG.startingChips,
+          eliminated: false,
+          isHuman: false,
+          lastAction: 'Ready',
+          clears: 0,
+          seed: aiIdentity.seed,
+          personality: aiIdentity.personality,
+          reads: {},
+        };
+      });
+    }
+
+    function alivePlayers() {
+      return state.players.filter(p => !p.eliminated);
+    }
+
+    function nextAliveIndex(start) {
+      let i = start;
+      for (let steps = 0; steps < state.players.length; steps++) {
+        i = (i + 1) % state.players.length;
+        if (!state.players[i].eliminated) return i;
+      }
+      return start;
+    }
+
+    function previousAliveIndex(start) {
+      let i = start;
+      for (let steps = 0; steps < state.players.length; steps++) {
+        i = (i - 1 + state.players.length) % state.players.length;
+        if (!state.players[i].eliminated) return i;
+      }
+      return start;
+    }
+
+
+    function hasConcededThisRound(playerIndex) {
+      return state.roundConcessions.has(playerIndex);
+    }
+
+    function isEligibleForCurrentRound(playerIndex) {
+      const player = state.players[playerIndex];
+      return !!player && !player.eliminated && !hasConcededThisRound(playerIndex);
+    }
+
+    function nextRoundEligibleIndex(start) {
+      let i = start;
+      for (let steps = 0; steps < state.players.length; steps++) {
+        i = (i + 1) % state.players.length;
+        if (isEligibleForCurrentRound(i)) return i;
+      }
+      return null;
+    }
+
+    function currentDeclarerIndex() {
+      const lastPlay = state.pile[state.pile.length - 1];
+      return lastPlay ? lastPlay.playerIndex : state.leaderIndex;
+    }
+
+    function maybeEndRoundFromConcessions() {
+      if (state.declaredRank === null || !state.pile.length) return false;
+      const declarerId = currentDeclarerIndex();
+      const remainingOpponents = alivePlayers().filter(p => p.id !== declarerId && !hasConcededThisRound(p.id));
+      if (remainingOpponents.length > 0) return false;
+      addLog(`Everyone else concedes the claim. ${seatLabel(state.players[declarerId])} wins the round uncontested.`);
+      openNewRound(declarerId);
+      return true;
+    }
+
+    function selectedCards() {
+      return state.players[0].hand.filter(c => state.selectedCardIds.has(c.id));
+    }
+
+
+    function addLog(text) {
+      state.logs.unshift({ text, ts: Date.now() });
+      state.logs = state.logs.slice(0, 30);
+    }
+
+    function seatLabel(playerOrIndex) {
+      const player = typeof playerOrIndex === 'number' ? state.players[playerOrIndex] : playerOrIndex;
+      if (!player) return 'Seat ?';
+      const seatNumber = Number(player.id) + 1;
+      return `Seat ${seatNumber} · ${player.name}`;
+    }
+
+    function setBanner(text, type = 'normal') {
+      state.banner = text;
+      state.bannerType = type;
+    }
+
+    function dealFreshHands() {
+      const deck = createDeck();
+      for (const player of state.players) {
+        if (player.eliminated) {
+          player.hand = [];
+          continue;
+        }
+        player.hand = deck.splice(0, START_HAND_SIZE).sort(sortCards);
+        player.lastAction = player.lastAction === 'Out of chips' ? player.lastAction : 'Waiting';
+      }
+    }
+
+    function startGame() {
+      clearChallengeTimer();
+      state.players = makePlayers();
+      state.selectedCardIds.clear();
+      state.pile = [];
+      state.challengeWindow = null;
+      state.betting = null;
+      state.declaredRank = null;
+      state.gameOver = false;
+      state.winnerIndex = null;
+      state.logs = [];
+      state.round = 1;
+      state.roundConcessions.clear();
+      state.stats = { successfulChallenges: 0, failedChallenges: 0, bluffsCaught: 0, safeTruths: 0, totalClears: 0, chipsMovedByChallenges: 0 };
+      state.seed = Math.floor(Math.random() * 1e9);
+      rand = mulberry32(state.seed);
+      dealFreshHands();
+      state.leaderIndex = rngInt(0, state.players.length - 1);
+      state.currentTurn = state.leaderIndex;
+      setBanner(state.currentTurn === 0 ? 'Your lead. Select cards and declare any number.' : `${seatLabel(state.currentTurn)} opens the round.`);
+      addLog(`A new match begins. ${seatLabel(state.leaderIndex)} leads the first round.`);
+      render();
+      if (state.currentTurn !== 0) scheduleAiTurn();
+    }
+
+    function toggleSelect(cardId) {
+      if (state.gameOver || state.currentTurn !== 0 || state.challengeWindow || state.betting) return;
+      if (state.selectedCardIds.has(cardId)) state.selectedCardIds.delete(cardId);
+      else state.selectedCardIds.add(cardId);
+      render();
+    }
+
+    function humanPlay() {
+      if (state.betting) return;
+      const cards = selectedCards();
+      const declaredRank = Number(document.getElementById('declareRank').value);
+      if (!cards.length) {
+        setBanner('Pick at least one card before playing.', 'warn');
+        render();
+        return;
+      }
+      if (state.declaredRank !== null && declaredRank !== state.declaredRank) {
+        setBanner(`This round is locked to ${state.declaredRank}.`, 'warn');
+        render();
+        return;
+      }
+      performPlay(0, cards.map(c => c.id), declaredRank);
+    }
+
+    function humanConcedeRound() {
+      if (state.gameOver || state.currentTurn !== 0 || state.challengeWindow || state.betting) return;
+      if (state.declaredRank === null) {
+        setBanner('You can only concede after a declaration exists.', 'warn');
+        render();
+        return;
+      }
+      const amount = transferToBank(0, CONFIG.concedeRoundChipLoss, 'You concede the claim and pay 1 chip to the bank.');
+      state.players[0].lastAction = 'Conceded round';
+      if (amount <= 0) return;
+      state.roundConcessions.add(0);
+      if (maybeEndRoundFromConcessions()) return;
+      const nextPlayer = nextRoundEligibleIndex(0);
+      if (nextPlayer === null) {
+        openNewRound(currentDeclarerIndex());
+        return;
+      }
+      state.currentTurn = nextPlayer;
+      setBanner(`${seatLabel(state.players[nextPlayer])} is up on ${state.declaredRank}.`);
+      render();
+      if (nextPlayer !== 0) scheduleAiTurn();
+    }
+
+    function performPlay(playerIndex, cardIds, declaredRank) {
+      const player = state.players[playerIndex];
+      const cards = player.hand.filter(c => cardIds.includes(c.id));
+      if (!cards.length) return;
+
+      player.hand = player.hand.filter(c => !cardIds.includes(c.id));
+      player.hand.sort(sortCards);
+
+      const truthful = cards.every(c => c.wild || c.rank === declaredRank);
+      state.declaredRank = declaredRank;
+      const play = {
+        playerIndex,
+        cards,
+        declaredRank,
+        truthful,
+        actualSummary: cards.map(c => c.wild ? 'W' : String(c.rank)).join(', '),
+      };
+      state.pile.push(play);
+      observePlayForReads(play);
+      player.lastAction = truthful ? `Played ${cards.length}` : `Bluffed ${cards.length}`;
+      if (truthful) state.stats.safeTruths += 1;
+
+      state.selectedCardIds.clear();
+      addLog(`${seatLabel(player)} declares ${cards.length} × ${declaredRank}.`);
+      setBanner(player.isHuman
+        ? `You declared ${cards.length} × ${declaredRank}. Opponents may challenge.`
+        : `${seatLabel(player)} declared ${cards.length} × ${declaredRank}. You may challenge now.`);
+
+      const backups = alivePlayers().map(p => p.id).filter(id => id !== playerIndex && !hasConcededThisRound(id));
+      state.challengeWindow = {
+        lastPlay: play,
+        challengerOptions: backups,
+        backupCandidates: backups,
+      };
+      render();
+
+      if (playerIndex !== 0) {
+        startChallengeTimer();
+      }
+
+      window.setTimeout(() => {
+        if (state.challengeWindow && !state.betting && state.challengeWindow.lastPlay.playerIndex === playerIndex && !state.gameOver) {
+          maybeAiRespondToLatestPlay(playerIndex);
+        }
+      }, AI_THINK_MS);
+    }
+
+    function maybeAiRespondToLatestPlay(playerIndex) {
+      if (!state.challengeWindow || state.betting) return;
+      const lastPlay = state.challengeWindow.lastPlay;
+      if (!lastPlay || lastPlay.playerIndex !== playerIndex) return;
+
+      const possibleChallengers = state.challengeWindow.challengerOptions.filter(idx => idx !== 0 && !state.players[idx].eliminated);
+      let chosenChallenger = null;
+      for (const idx of possibleChallengers) {
+        if (aiShouldChallenge(idx, lastPlay)) {
+          chosenChallenger = idx;
+          break;
+        }
+      }
+      if (chosenChallenger !== null) {
+        startChallenge(chosenChallenger, playerIndex);
+      } else if (playerIndex === 0) {
+        advanceAfterNoChallenge(playerIndex);
+      }
+    }
+
+    function countKnownRank(rank) {
+      let count = 0;
+      for (const play of state.pile) {
+        for (const card of play.cards) {
+          if (!card.wild && card.rank === rank) count++;
+        }
+      }
+      return count;
+    }
+
+    function countVisibleWilds() {
+      let count = 0;
+      for (const play of state.pile) {
+        for (const card of play.cards) if (card.wild) count++;
+      }
+      return count;
+    }
+
+    function ensureReadProfile(observerIndex, targetIndex) {
+      const observer = state.players[observerIndex];
+      if (!observer) return null;
+      if (!observer.reads) observer.reads = {};
+      if (!observer.reads[targetIndex]) {
+        observer.reads[targetIndex] = {
+          truthfulCount: 0,
+          bluffCount: 0,
+          challengeWins: 0,
+          challengeLosses: 0,
+          repeatRankCount: 0,
+          repeatedCount: 0,
+          quickJudgmentBias: 0,
+          currentTruthStreak: 0,
+          currentBluffStreak: 0,
+          lastDeclaredRank: null,
+          lastTruthful: null,
+        };
+      }
+      return observer.reads[targetIndex];
+    }
+
+    function observePlayForReads(play) {
+      for (const observer of state.players) {
+        if (observer.eliminated || observer.id === play.playerIndex) continue;
+        const read = ensureReadProfile(observer.id, play.playerIndex);
+        if (!read) continue;
+        if (play.truthful) {
+          read.truthfulCount += 1;
+          read.currentTruthStreak += 1;
+          read.currentBluffStreak = 0;
+          if (read.quickJudgmentBias < 0) read.quickJudgmentBias *= 0.55;
+          read.quickJudgmentBias -= 0.1;
+        } else {
+          read.bluffCount += 1;
+          read.currentBluffStreak += 1;
+          read.currentTruthStreak = 0;
+          if (read.quickJudgmentBias > 0) read.quickJudgmentBias *= 0.55;
+          read.quickJudgmentBias += 0.14;
+        }
+        if (read.lastDeclaredRank === play.declaredRank) {
+          read.repeatRankCount += 1;
+          read.repeatedCount += 1;
+          read.quickJudgmentBias += 0.06;
+        } else {
+          read.repeatRankCount = 0;
+        }
+        read.lastDeclaredRank = play.declaredRank;
+        read.lastTruthful = play.truthful;
+        read.quickJudgmentBias = clamp01((read.quickJudgmentBias + 1) / 2) * 2 - 1;
+      }
+    }
+
+    function noteChallengeReadResult(challengerIndex, targetIndex, challengeSucceeded) {
+      const read = ensureReadProfile(challengerIndex, targetIndex);
+      if (!read) return;
+      if (challengeSucceeded) {
+        read.challengeWins += 1;
+        read.quickJudgmentBias += 0.18;
+      } else {
+        read.challengeLosses += 1;
+        read.quickJudgmentBias -= 0.14;
+      }
+      read.quickJudgmentBias = Math.max(-1, Math.min(1, read.quickJudgmentBias));
+    }
+
+    function suspicionFromReadProfile(read, pers) {
+      if (!read) return 0;
+      const seenTotal = read.truthfulCount + read.bluffCount;
+      const bluffRate = seenTotal > 0 ? read.bluffCount / seenTotal : 0.5;
+      const repeatPressure = Math.min(0.18, read.repeatRankCount * 0.05 + read.repeatedCount * 0.015);
+      const streakPressure = Math.min(0.22, read.currentBluffStreak * 0.09) - Math.min(0.16, read.currentTruthStreak * 0.05);
+      const challengeMemory = Math.min(0.2, read.challengeWins * 0.08) - Math.min(0.14, read.challengeLosses * 0.05);
+      const snapWeight = pers?.overSuspects ? 0.16 : 0.1;
+      return (
+        (bluffRate - 0.5) * 0.42 +
+        repeatPressure +
+        streakPressure +
+        challengeMemory +
+        read.quickJudgmentBias * snapWeight
+      );
+    }
+
+    function aiShouldChallenge(challengerIndex, play) {
+      const challenger = state.players[challengerIndex];
+      const pers = challenger.personality;
+      const knownRankCount = countKnownRank(play.declaredRank);
+      const visibleWilds = countVisibleWilds();
+      const impossibleOverage = Math.max(0, knownRankCount + play.cards.length - 4 - visibleWilds);
+      const read = ensureReadProfile(challengerIndex, play.playerIndex);
+      let suspicion = 0;
+      if (!play.truthful) suspicion += 0.24;
+      suspicion += impossibleOverage * 0.27;
+      suspicion += play.cards.length >= 3 ? 0.1 : 0;
+      suspicion += play.cards.length >= 5 ? 0.08 : 0;
+      suspicion += challenger.chips <= 2 ? -0.18 : 0;
+      suspicion += challenger.chips >= 8 ? 0.05 : 0;
+      suspicion += play.playerIndex === 0 ? 0.1 : 0;
+      suspicion += suspicionFromReadProfile(read, pers);
+      suspicion += rand() * 0.16;
+      if (pers) {
+        suspicion += (pers.suspicion  - 0.5) * 0.34;
+        suspicion += (pers.aggression - 0.5) * 0.08;
+        if (pers.overSuspects) suspicion += 0.1;
+      }
+      return suspicion >= 0.52;
+    }
+
+    function humanChallenge() {
+      if (!state.challengeWindow || state.gameOver || state.betting) return;
+      const target = state.challengeWindow.lastPlay.playerIndex;
+      if (target === 0) return;
+      clearChallengeTimer();
+      startChallenge(0, target);
+    }
+
+    function humanAcceptNoChallenge() {
+      if (!state.challengeWindow || state.gameOver || state.betting) return;
+      clearChallengeTimer();
+      const target = state.challengeWindow.lastPlay.playerIndex;
+      advanceAfterNoChallenge(target);
+    }
+
+    function eligibleBackupIds(challengerId, challengedId) {
+      return alivePlayers().map(p => p.id).filter(id => id !== challengerId && id !== challengedId);
+    }
+
+    function startChallenge(challengerIndex, challengedIndex) {
+      if (!state.challengeWindow || state.gameOver || state.betting) return;
+      clearChallengeTimer();
+      const play = state.challengeWindow.lastPlay;
+      addLog(`${seatLabel(challengerIndex)} challenges ${seatLabel(challengedIndex)}.`);
+      state.betting = {
+        play,
+        challengerId: challengerIndex,
+        challengedId: challengedIndex,
+        currentActorId: challengerIndex,
+        stake: CONFIG.challengeBaseTransfer,
+        contributions: {
+          [challengerIndex]: 0,
+          [challengedIndex]: 0,
+        },
+        raiseCounts: {
+          [challengerIndex]: 0,
+          [challengedIndex]: 0,
+        },
+        backupQueue: [],
+        phase: 'betting',
+        lastRaiseBy: null,
+        pendingAutoReveal: false,
+      };
+      state.challengeWindow = null;
+
+      for (const id of eligibleBackupIds(challengerIndex, challengedIndex)) {
+        if (id !== 0 && aiShouldJoinBackup(id, play)) state.betting.backupQueue.push(id);
+      }
+      setBanner(`${seatLabel(challengerIndex)} and ${seatLabel(challengedIndex)} are betting on the challenge.`);
+      render();
+      scheduleBettingAiIfNeeded();
+    }
+
+    function aiShouldJoinBackup(playerIndex, play) {
+      const p = state.players[playerIndex];
+      let score = 0.15 + rand() * 0.22;
+      if (!play.truthful) score += 0.22;
+      if (p.chips <= 2) score -= 0.18;
+      if (play.playerIndex === 0) score += 0.05;
+      if (p.personality) score += (p.personality.solidarity - 0.5) * 0.3;
+      return score > 0.35;
+    }
+
+    function getContribution(id) {
+      return state.betting?.contributions?.[id] || 0;
+    }
+
+    function getRaiseCount(id) {
+      return state.betting?.raiseCounts?.[id] || 0;
+    }
+
+    function nextRaiseAmountForPlayer(id) {
+      if (!state.betting) return 0;
+      const player = state.players[id];
+      if (!player || player.eliminated) return 0;
+      const raiseCount = getRaiseCount(id);
+      if (raiseCount >= CONFIG.maxRaisesPerPlayer) return 0;
+      if (state.betting.stake >= CONFIG.maxChallengeBet) return 0;
+      const toCall = amountToCall(id);
+      const maxByBankroll = player.chips - toCall;
+      if (maxByBankroll <= 0) return 0;
+      const scheduledRaise = Math.min(CONFIG.maxRaiseAmount, raiseCount + 1);
+      return Math.max(0, Math.min(scheduledRaise, CONFIG.maxChallengeBet - state.betting.stake, maxByBankroll));
+    }
+
+    function getRaiseOptionsForPlayer(id) {
+      const nextRaise = nextRaiseAmountForPlayer(id);
+      return nextRaise > 0 ? [nextRaise] : [];
+    }
+
+    function getOpponentId(id) {
+      if (!state.betting) return null;
+      return id === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
+    }
+
+    function amountToCall(id) {
+      if (!state.betting) return 0;
+      return Math.max(0, state.betting.stake - getContribution(id));
+    }
+
+    function canPlayerAfford(id, amount) {
+      return state.players[id] && !state.players[id].eliminated && state.players[id].chips >= amount;
+    }
+
+    function recordContribution(id, amount) {
+      if (!state.betting || amount <= 0) return 0;
+      const player = state.players[id];
+      const paid = Math.min(player.chips, amount);
+      player.chips -= paid;
+      state.betting.contributions[id] = getContribution(id) + paid;
+      eliminateIfNeeded(id, `${seatLabel(player)} ran out of chips during the challenge.`);
+      return paid;
+    }
+
+    function transferToBank(playerIndex, amount, logMessage) {
+      const player = state.players[playerIndex];
+      if (player.eliminated) return 0;
+      const paid = Math.min(player.chips, amount);
+      player.chips -= paid;
+      if (logMessage) addLog(logMessage.replace('1 chip', `${paid} chip${paid === 1 ? '' : 's'}`));
+      eliminateIfNeeded(playerIndex, `${seatLabel(player)} ran out of chips.`);
+      render();
+      return paid;
+    }
+
+    function eliminateIfNeeded(playerIndex, logMessage) {
+      const player = state.players[playerIndex];
+      if (!player || player.eliminated || player.chips > 0) return false;
+      player.chips = 0;
+      player.eliminated = true;
+      player.hand = [];
+      player.lastAction = 'Out of chips';
+      addLog(logMessage || `${seatLabel(player)} is out of chips and eliminated.`);
+      if (state.currentTurn === playerIndex) state.currentTurn = nextAliveIndex(playerIndex);
+      return checkGameOverBySurvivors();
+    }
+
+    function maybeAutoRevealAfterMatchedBet() {
+      if (!state.betting) return;
+      const a = state.betting.challengerId;
+      const b = state.betting.challengedId;
+      if (getContribution(a) === state.betting.stake && getContribution(b) === state.betting.stake) {
+        revealChallenge();
+      }
+    }
+
+    function resolveBetAction(playerId, action) {
+      if (!state.betting || state.gameOver) return;
+      if (state.betting.currentActorId !== playerId) return;
+      const command = typeof action === 'string' ? action : action?.type;
+      const player = state.players[playerId];
+      const opponentId = getOpponentId(playerId);
+      const opponent = state.players[opponentId];
+      const toCall = amountToCall(playerId);
+
+      if (command === 'joinBackup') {
+        if (state.betting.backupQueue.includes(playerId) || playerId === state.betting.challengerId || playerId === state.betting.challengedId || player.eliminated) return;
+        state.betting.backupQueue.push(playerId);
+        addLog(`${seatLabel(player)} lines up behind the challenger as a backup caller.`);
+        render();
+        return;
+      }
+
+      if (command === 'checkcall') {
+        const paid = recordContribution(playerId, toCall);
+        if (toCall > 0) addLog(`${seatLabel(player)} calls for ${paid} chip${paid === 1 ? '' : 's'}.`);
+        else addLog(`${seatLabel(player)} checks.`);
+        player.lastAction = toCall > 0 ? 'Called' : 'Checked';
+        if (state.gameOver) return;
+        if (getContribution(playerId) < state.betting.stake) {
+          finalizeChallengeByFold(opponentId, playerId, 'could not cover the call');
+          return;
+        }
+        maybeAutoRevealAfterMatchedBet();
+        if (!state.betting) return;
+        state.betting.currentActorId = opponentId;
+        render();
+        scheduleBettingAiIfNeeded();
+        return;
+      }
+
+      if (command === 'raise') {
+        const raiseBy = nextRaiseAmountForPlayer(playerId);
+        const newStake = Math.min(CONFIG.maxChallengeBet, state.betting.stake + raiseBy);
+        const amountNeeded = newStake - getContribution(playerId);
+        if (!canPlayerAfford(playerId, amountNeeded) || newStake <= state.betting.stake || raiseBy <= 0) {
+          resolveBetAction(playerId, 'checkcall');
+          return;
+        }
+        state.betting.stake = newStake;
+        state.betting.raiseCounts[playerId] = getRaiseCount(playerId) + 1;
+        const paid = recordContribution(playerId, amountNeeded);
+        state.betting.lastRaiseBy = playerId;
+        player.lastAction = `Raised +${raiseBy}`;
+        addLog(`${seatLabel(player)} raises the challenge stake by ${raiseBy} to ${newStake}.`);
+        if (state.gameOver) return;
+        if (paid < amountNeeded) {
+          finalizeChallengeByFold(opponentId, playerId, 'could not fund the raise');
+          return;
+        }
+        state.betting.currentActorId = opponentId;
+        render();
+        scheduleBettingAiIfNeeded();
+        return;
+      }
+
+      if (command === 'fold') {
+        player.lastAction = 'Folded challenge';
+        const immediate = state.betting.stake <= CONFIG.challengeBaseTransfer && getContribution(playerId) === 0 && getContribution(opponentId) === 0;
+        if (immediate) {
+          const penalty = recordContribution(playerId, CONFIG.challengeBaseTransfer);
+          if (playerId === state.betting.challengedId) {
+            addLog(`${seatLabel(player)} folds immediately and pays ${penalty} chip${penalty === 1 ? '' : 's'} for backing down from the challenged claim.`);
+          } else {
+            addLog(`${seatLabel(player)} folds immediately and pays ${penalty} chip${penalty === 1 ? '' : 's'} for backing down from the challenge.`);
+          }
+        }
+        if (playerId === state.betting.challengerId) {
+          const backupId = pullNextViableBackup();
+          if (backupId !== null) {
+            addLog(`${seatLabel(player)} folds, but ${seatLabel(backupId)} steps in behind the challenge.`);
+            state.betting.challengerId = backupId;
+            state.betting.contributions[backupId] = state.betting.contributions[backupId] || 0;
+            const needed = amountToCall(backupId);
+            const paid = recordContribution(backupId, needed);
+            state.players[backupId].lastAction = 'Backup called';
+            addLog(`${seatLabel(backupId)} matches ${paid} chip${paid === 1 ? '' : 's'} as the backup caller.`);
+            if (getContribution(backupId) < state.betting.stake) {
+              finalizeChallengeByFold(state.betting.challengedId, backupId, 'could not cover the backup call');
+              return;
+            }
+            maybeAutoRevealAfterMatchedBet();
+            if (!state.betting) return;
+            state.betting.currentActorId = state.betting.challengedId;
+            render();
+            scheduleBettingAiIfNeeded();
+            return;
+          }
+        }
+        finalizeChallengeByFold(opponentId, playerId, immediate ? 'folded immediately' : 'folded the betting duel');
+      }
+    }
+
+    function pullNextViableBackup() {
+      if (!state.betting) return null;
+      while (state.betting.backupQueue.length) {
+        const id = state.betting.backupQueue.shift();
+        const p = state.players[id];
+        if (p && !p.eliminated && p.chips > 0) return id;
+      }
+      return null;
+    }
+
+    function challengePotTotal() {
+      if (!state.betting) return 0;
+      return Object.values(state.betting.contributions).reduce((sum, val) => sum + val, 0);
+    }
+
+    function netChallengeGainFor(winnerId, grossAward) {
+      if (!state.betting) return grossAward;
+      const ownContribution = state.betting.contributions?.[winnerId] || 0;
+      return Math.max(0, grossAward - ownContribution);
+    }
+
+    function finalizeChallengeByFold(winnerId, loserId, reason) {
+      if (!state.betting || state.gameOver) return;
+      const winner = state.players[winnerId];
+      const loser = state.players[loserId];
+      let award = challengePotTotal();
+      if (award < CONFIG.challengeBaseTransfer) award = CONFIG.challengeBaseTransfer;
+      const netGain = netChallengeGainFor(winnerId, award);
+      winner.chips += award;
+      state.stats.chipsMovedByChallenges += award;
+      addLog(`${seatLabel(loser)} ${reason}. ${seatLabel(winner)} wins ${netGain} net chip${netGain === 1 ? '' : 's'} from the challenge.`);
+      if (winnerId === state.betting.challengerId) {
+        state.stats.successfulChallenges += 1;
+        noteChallengeReadResult(state.betting.challengerId, state.betting.challengedId, true);
+      } else {
+        state.stats.failedChallenges += 1;
+        noteChallengeReadResult(state.betting.challengerId, state.betting.challengedId, false);
+      }
+      state.betting = null;
+      concludeChallengeFlow(winnerId);
+    }
+
+    function revealChallenge() {
+      if (!state.betting || state.gameOver) return;
+      const play = state.betting.play;
+      const challengerId = state.betting.challengerId;
+      const challengedId = state.betting.challengedId;
+      const success = !play.truthful;
+      const winnerId = success ? challengerId : challengedId;
+      const loserId = success ? challengedId : challengerId;
+      const winner = state.players[winnerId];
+      const loser = state.players[loserId];
+      const pot = challengePotTotal();
+      const netGain = netChallengeGainFor(winnerId, pot);
+      winner.chips += pot;
+      state.stats.chipsMovedByChallenges += pot;
+
+      if (success) {
+        state.stats.successfulChallenges += 1;
+        state.stats.bluffsCaught += 1;
+        noteChallengeReadResult(challengerId, challengedId, true);
+        loser.lastAction = 'Caught bluffing';
+        addLog(`Challenge succeeds. ${seatLabel(loser)} was bluffing.`);
+        loser.hand.push(...collectPileCards());
+        loser.hand.sort(sortCards);
+      } else {
+        state.stats.failedChallenges += 1;
+        addLog(`Challenge fails. ${state.players[challengedId].name} was truthful.`);
+      }
+      addLog(`${seatLabel(winner)} wins ${netGain} net chip${netGain === 1 ? '' : 's'} from the challenge.`);
+      state.betting = null;
+      concludeChallengeFlow(winnerId);
+    }
+
+    function concludeChallengeFlow(winnerId) {
+      if (state.gameOver) return;
+      if (checkGameOverBySurvivors()) return;
+      if (state.pile.length) {
+        const lastPlay = state.pile[state.pile.length - 1];
+        if (lastPlay && lastPlay.playerIndex === winnerId && checkForClearAndRedeal(winnerId)) return;
+      }
+      openNewRound(winnerId);
+    }
+
+    function collectPileCards() {
+      const cards = [];
+      for (const play of state.pile) cards.push(...play.cards);
+      state.pile = [];
+      state.declaredRank = null;
+      return cards;
+    }
+
+    function advanceAfterNoChallenge(lastPlayerIndex) {
+      if (!state.challengeWindow || state.gameOver || state.betting) return;
+      state.challengeWindow = null;
+      if (checkForClearAndRedeal(lastPlayerIndex)) return;
+      if (maybeEndRoundFromConcessions()) return;
+      const nextPlayer = nextRoundEligibleIndex(lastPlayerIndex);
+      if (nextPlayer === null) {
+        openNewRound(currentDeclarerIndex());
+        return;
+      }
+      state.currentTurn = nextPlayer;
+      setBanner(state.currentTurn === 0
+        ? `Your turn. Match ${state.declaredRank}, bluff, or concede the round.`
+        : `${seatLabel(state.players[state.currentTurn])} is thinking about ${state.declaredRank}.`);
+      render();
+      if (state.currentTurn !== 0) scheduleAiTurn();
+    }
+
+    function clearRewardForPlayer(player) {
+      return CONFIG.clearBonusBase + (player.clears * CONFIG.clearBonusIncrement);
+    }
+
+    function checkForClearAndRedeal(playerIndex) {
+      const player = state.players[playerIndex];
+      if (player.eliminated || player.hand.length !== 0) return false;
+      const rewardPerOpponent = clearRewardForPlayer(player);
+      let totalWon = 0;
+      for (const other of state.players) {
+        if (other.id === playerIndex || other.eliminated) continue;
+        const paid = Math.min(other.chips, rewardPerOpponent);
+        other.chips -= paid;
+        totalWon += paid;
+        if (paid > 0) addLog(`${seatLabel(other)} pays ${paid} chip${paid === 1 ? '' : 's'} to ${seatLabel(player)} for the clear.`);
+      }
+      player.chips += totalWon;
+      player.clears += 1;
+      state.stats.totalClears += 1;
+      addLog(`${seatLabel(player)} clears their hand and collects ${totalWon} chip${totalWon === 1 ? '' : 's'} total.`);
+
+      let ended = false;
+      for (const p of state.players) {
+        if (eliminateIfNeeded(p.id, `${seatLabel(p)} is out of chips after the clear payout.`)) ended = true;
+      }
+      if (ended || checkGameOverBySurvivors()) {
+        render();
+        return true;
+      }
+
+      dealFreshHands();
+      state.pile = [];
+      state.declaredRank = null;
+      state.challengeWindow = null;
+      state.betting = null;
+      state.round += 1;
+      state.leaderIndex = playerIndex;
+      state.currentTurn = playerIndex;
+      setBanner(playerIndex === 0
+        ? `You cleared your hand. New hands are dealt, and you lead again.`
+        : `${seatLabel(player)} cleared their hand, new hands are dealt, and they lead again.`, 'good');
+      render();
+      if (state.currentTurn !== 0) scheduleAiTurn();
+      return true;
+    }
+
+    function openNewRound(leaderIndex) {
+      if (state.gameOver) return;
+      if (checkGameOverBySurvivors()) return;
+      state.leaderIndex = leaderIndex;
+      state.currentTurn = leaderIndex;
+      state.declaredRank = null;
+      state.challengeWindow = null;
+      state.betting = null;
+      state.pile = [];
+      state.roundConcessions.clear();
+      state.round += 1;
+      state.selectedCardIds.clear();
+      state.roundConcessions.clear();
+      setBanner(state.currentTurn === 0
+        ? 'You open the new round. Select cards and declare any number.'
+        : `${seatLabel(state.currentTurn)} opens a new round.`);
+      render();
+      if (state.currentTurn !== 0) scheduleAiTurn();
+    }
+
+    function checkGameOverBySurvivors() {
+      const survivors = alivePlayers();
+      if (survivors.length === 1) {
+        state.gameOver = true;
+        state.winnerIndex = survivors[0].id;
+        setBanner(survivors[0].id === 0 ? 'You win. Everyone else ran out of chips.' : `${seatLabel(survivors[0])} wins. Everyone else ran out of chips.`, 'good');
+        addLog(state.banner);
+        render();
+        return true;
+      }
+      return false;
+    }
+
+    function scheduleAiTurn() {
+      if (state.gameOver) return;
+      window.setTimeout(() => {
+        if (!state.gameOver && state.currentTurn !== 0 && !state.challengeWindow && !state.betting) {
+          aiTakeTurn(state.currentTurn);
+        }
+      }, AI_THINK_MS);
+    }
+
+    function scheduleBettingAiIfNeeded() {
+      if (!state.betting || state.gameOver) return;
+      const actorId = state.betting.currentActorId;
+      if (actorId === 0) return;
+      window.setTimeout(() => {
+        if (state.betting && !state.gameOver && state.betting.currentActorId === actorId) {
+          aiTakeBettingAction(actorId);
+        }
+      }, AI_THINK_MS);
+    }
+
+    function aiTakeTurn(playerIndex) {
+      const player = state.players[playerIndex];
+      if (player.eliminated || state.gameOver || state.challengeWindow || state.betting) return;
+      const decision = chooseAiPlay(player);
+      if (decision.type === 'concede') {
+        player.lastAction = 'Conceded round';
+        const paid = transferToBank(playerIndex, CONFIG.concedeRoundChipLoss, `${seatLabel(player)} concedes the claim and pays 1 chip to the bank.`);
+        if (paid <= 0 || state.gameOver) return;
+        state.roundConcessions.add(playerIndex);
+        if (maybeEndRoundFromConcessions()) return;
+        const nextPlayer = nextRoundEligibleIndex(playerIndex);
+        if (nextPlayer === null) {
+          openNewRound(currentDeclarerIndex());
+          return;
+        }
+        state.currentTurn = nextPlayer;
+        setBanner(nextPlayer === 0
+          ? `Your turn. Match ${state.declaredRank}, bluff, or concede the round.`
+          : `${seatLabel(state.players[nextPlayer])} is up on ${state.declaredRank}.`);
+        render();
+        if (nextPlayer !== 0) scheduleAiTurn();
+        return;
+      }
+      performPlay(playerIndex, decision.cardIds, decision.declaredRank);
+    }
+
+
+    function getAiHonesty(player) {
+      const explicitHonesty = player?.personality?.honesty;
+      if (typeof explicitHonesty === 'number') return clamp01(explicitHonesty);
+      const aggression = player?.personality?.aggression ?? 0.5;
+      return Math.max(0.08, Math.min(0.92, 1 - aggression));
+    }
+
+    function cardsOfRank(player, rank) {
+      return player.hand.filter(c => !c.wild && c.rank === rank);
+    }
+
+    function wildCards(player) {
+      return player.hand.filter(c => c.wild);
+    }
+
+    function bestTruthfulOpeningRank(player) {
+      const allWilds = wildCards(player).length;
+      let bestRank = 1;
+      let bestCount = -1;
+      let bestNatural = -1;
+      for (let rank = 1; rank <= 10; rank++) {
+        const natural = cardsOfRank(player, rank).length;
+        const total = natural + allWilds;
+        if (total > bestCount || (total === bestCount && natural > bestNatural)) {
+          bestRank = rank;
+          bestCount = total;
+          bestNatural = natural;
+        }
+      }
+      return {
+        rank: bestRank,
+        naturalCount: bestNatural,
+        totalTruthfulCount: bestCount,
+      };
+    }
+
+    function buildTruthfulPlayForRank(player, rank, desiredCount, opts = {}) {
+      const saveWilds = !!opts.saveWilds;
+      const natural = cardsOfRank(player, rank).slice();
+      const wilds = wildCards(player).slice();
+      const chosen = [];
+
+      while (natural.length && chosen.length < desiredCount) chosen.push(natural.shift());
+      if (!saveWilds || chosen.length < desiredCount) {
+        while (wilds.length && chosen.length < desiredCount) chosen.push(wilds.shift());
+      }
+      return chosen.slice(0, desiredCount);
+    }
+
+    function buildBluffPlay(player, declaredRank, desiredCount = 1) {
+      const offRank = player.hand.filter(c => !c.wild && c.rank !== declaredRank);
+      const wilds = wildCards(player).slice();
+      const chosen = [];
+
+      while (offRank.length && chosen.length < desiredCount) chosen.push(offRank.shift());
+      while (chosen.length < desiredCount && wilds.length) chosen.push(wilds.shift());
+
+      if (!chosen.length && player.hand.length) chosen.push(player.hand[0]);
+      return chosen.slice(0, Math.max(1, desiredCount));
+    }
+
+    function chooseAiPlay(player) {
+      const targetRank = state.declaredRank;
+      const pers = player.personality;
+      const honesty = getAiHonesty(player);
+      const greed = pers ? pers.greed : 0.5;
+      const aggression = pers ? pers.aggression : 0.5;
+
+      if (targetRank === null) {
+        const openingPlan = bestTruthfulOpeningRank(player);
+        const canMakeHugeTruth = openingPlan.totalTruthfulCount >= 5;
+        const wantsTruthBait = honesty >= 0.68 && canMakeHugeTruth;
+        let desiredCount;
+
+        if (wantsTruthBait) {
+          desiredCount = Math.min(openingPlan.totalTruthfulCount, Math.max(5, Math.min(6, openingPlan.totalTruthfulCount)));
+        } else if (openingPlan.naturalCount >= 3 && rand() < 0.52 + greed * 0.22) {
+          desiredCount = Math.min(openingPlan.naturalCount, rngInt(2, Math.min(4, openingPlan.naturalCount)));
+        } else if (openingPlan.totalTruthfulCount >= 3 && rand() < 0.32 + greed * 0.2) {
+          desiredCount = Math.min(openingPlan.totalTruthfulCount, rngInt(2, Math.min(4, openingPlan.totalTruthfulCount)));
+        } else {
+          desiredCount = 1;
+        }
+
+        const openingCards = buildTruthfulPlayForRank(player, openingPlan.rank, desiredCount, {
+          saveWilds: honesty >= 0.62 && !wantsTruthBait,
+        });
+
+        if (openingCards.length) {
+          return {
+            type: 'play',
+            declaredRank: openingPlan.rank,
+            cardIds: openingCards.map(c => c.id),
+          };
+        }
+
+        const fallbackCard = player.hand[0];
+        return { type: 'play', declaredRank: rngInt(1, 10), cardIds: [fallbackCard.id] };
+      }
+
+      const normalMatches = cardsOfRank(player, targetRank);
+      const wilds = wildCards(player);
+      const maxTruthful = normalMatches.length + wilds.length;
+      const hasHugeTruth = maxTruthful >= 5;
+      const wantsTruthBait = honesty >= 0.68 && hasHugeTruth;
+      const shouldPreserveWilds = honesty >= 0.62 && wilds.length > 0 && normalMatches.length > 0;
+
+      if (wantsTruthBait) {
+        const baitCount = Math.min(maxTruthful, Math.max(5, Math.min(6, maxTruthful)));
+        const baitCards = buildTruthfulPlayForRank(player, targetRank, baitCount, { saveWilds: false });
+        if (baitCards.length >= 5) {
+          return { type: 'play', declaredRank: targetRank, cardIds: baitCards.map(c => c.id) };
+        }
+      }
+
+      if (normalMatches.length) {
+        let desiredCount = 1;
+        if (normalMatches.length >= 3 && rand() < 0.42 + greed * 0.22) {
+          desiredCount = rngInt(2, Math.min(4, normalMatches.length));
+        } else if (player.hand.length <= 3) {
+          desiredCount = Math.min(normalMatches.length, player.hand.length);
+        }
+        return {
+          type: 'play',
+          declaredRank: targetRank,
+          cardIds: normalMatches.slice(0, desiredCount).map(c => c.id),
+        };
+      }
+
+      if (wilds.length) {
+        if (honesty >= 0.74) {
+          const bluffRiskTolerance = player.chips <= 2
+            ? 0.1 + (1 - honesty) * 0.4
+            : player.chips <= 5
+              ? 0.18 + (1 - honesty) * 0.45
+              : 0.28 + (1 - honesty) * 0.5;
+          if (rand() < bluffRiskTolerance) {
+            return { type: 'play', declaredRank: targetRank, cardIds: buildBluffPlay(player, targetRank, 1).map(c => c.id) };
+          }
+          return { type: 'concede' };
+        }
+
+        const useWildsNow = player.hand.length <= 2 || rand() < (0.18 + (1 - honesty) * 0.38);
+        if (useWildsNow) {
+          return { type: 'play', declaredRank: targetRank, cardIds: [wilds[0].id] };
+        }
+      }
+
+      const bluffCountCap = aggression > 0.74 ? 4 : aggression > 0.52 ? 3 : 2;
+      const bluffCount = Math.min(
+        bluffCountCap,
+        Math.max(1, player.hand.length <= 3 ? player.hand.length : (rand() < 0.4 + greed * 0.2 ? 2 : 1))
+      );
+      const bluffRiskTolerance = player.chips <= 2
+        ? 0.12 + aggression * 0.45
+        : player.chips <= 5
+          ? 0.24 + aggression * 0.58
+          : Math.min(0.95, 0.4 + aggression * 0.72);
+
+      if (honesty <= 0.32 && rand() < bluffRiskTolerance) {
+        return {
+          type: 'play',
+          declaredRank: targetRank,
+          cardIds: buildBluffPlay(player, targetRank, Math.max(2, bluffCount)).map(c => c.id),
+        };
+      }
+
+      if (honesty > 0.32 && honesty < 0.68) {
+        const trickyRate = Math.min(0.7, 0.18 + aggression * 0.34 + greed * 0.16);
+        if (rand() < trickyRate) {
+          return {
+            type: 'play',
+            declaredRank: targetRank,
+            cardIds: buildBluffPlay(player, targetRank, bluffCount).map(c => c.id),
+          };
+        }
+      }
+
+      if (rand() < bluffRiskTolerance * 0.72) {
+        return {
+          type: 'play',
+          declaredRank: targetRank,
+          cardIds: buildBluffPlay(player, targetRank, 1).map(c => c.id),
+        };
+      }
+
+      if (shouldPreserveWilds && wilds.length) {
+        return { type: 'concede' };
+      }
+      if (wilds.length) return { type: 'play', declaredRank: targetRank, cardIds: [wilds[0].id] };
+      return { type: 'concede' };
+    }
+
+    function estimateFoldPressureAgainst(actorId, opponentId) {
+      const actor = state.players[actorId];
+      const opponent = state.players[opponentId];
+      const actorRead = ensureReadProfile(actorId, opponentId);
+      const opponentPers = opponent?.personality;
+      let pressure = 0.5;
+      pressure += actorRead ? -Math.min(0.2, actorRead.challengeWins * 0.06) + Math.min(0.12, actorRead.challengeLosses * 0.04) : 0;
+      pressure += opponentPers ? (0.5 - opponentPers.courage) * 0.32 : 0;
+      pressure += opponentPers ? (0.5 - opponentPers.suspicion) * 0.12 : 0;
+      pressure += opponentPers?.overSuspects ? -0.06 : 0;
+      pressure += opponent && opponent.chips <= 2 ? 0.08 : 0;
+      pressure += opponent && opponent.chips >= 8 ? -0.04 : 0;
+      pressure += state.betting ? Math.min(0.14, Math.max(0, state.betting.stake - CONFIG.challengeBaseTransfer) * 0.05) : 0;
+      return Math.max(0.05, Math.min(0.95, pressure));
+    }
+
+    function aiBetIntent(actorId) {
+      const b = state.betting;
+      if (!b) {
+        return { confidence: 0.5, raiseDrive: 0.5, foldFloor: 0.32, mode: 'neutral' };
+      }
+      const play = b.play;
+      const player = state.players[actorId];
+      const pers = player.personality;
+      const opponentId = getOpponentId(actorId);
+      const opponent = state.players[opponentId];
+      const playerRead = ensureReadProfile(actorId, opponentId);
+      const opponentRead = ensureReadProfile(opponentId, actorId);
+      const opponentPers = opponent?.personality; // Used by: challenged-side betting incentives and fold-pressure reads.
+      const foldPressure = estimateFoldPressureAgainst(actorId, opponentId);
+      const bankrollBoost = Math.min(0.18, player.chips / 40);
+      const couragePush = pers ? (pers.courage - 0.5) * 0.22 : 0;
+      const randomNudge = rand() * 0.12 - 0.06;
+
+      let confidence = actorId === b.challengerId
+        ? (play.truthful ? 0.3 : 0.74)
+        : (play.truthful ? 0.74 : 0.24);
+      confidence += bankrollBoost + couragePush + randomNudge;
+
+      let raiseDrive = confidence;
+      let foldFloor = pers ? 0.32 - (pers.courage - 0.5) * 0.18 : 0.32;
+      let mode = actorId === b.challengerId ? 'challenge_pressure' : (play.truthful ? 'truth_value_raise' : 'bluff_escape_raise');
+
+      if (actorId === b.challengerId) {
+        confidence += suspicionFromReadProfile(playerRead, pers) * 0.18;
+        raiseDrive += foldPressure * 0.45;
+        raiseDrive += opponentRead && opponentRead.currentBluffStreak > 0 ? Math.min(0.12, opponentRead.currentBluffStreak * 0.05) : 0;
+        raiseDrive -= play.truthful ? 0.14 : 0;
+      } else if (play.truthful) {
+        raiseDrive += (1 - foldPressure) * 0.34;
+        raiseDrive += opponentPers ? opponentPers.aggression * 0.12 : 0;
+        raiseDrive += Math.min(0.12, Math.max(0, b.stake - CONFIG.challengeBaseTransfer) * 0.04);
+        confidence += 0.06;
+      } else {
+        raiseDrive += foldPressure * 0.58;
+        raiseDrive -= (1 - foldPressure) * 0.2;
+        raiseDrive += opponentPers ? (0.5 - opponentPers.courage) * 0.16 : 0;
+        foldFloor += 0.06;
+      }
+
+      return {
+        confidence: Math.max(0.05, Math.min(0.95, confidence)),
+        raiseDrive: Math.max(0.05, Math.min(0.98, raiseDrive)),
+        foldFloor: Math.max(0.08, Math.min(0.7, foldFloor)),
+        mode,
+      };
+    }
+
+    function aiTakeBettingAction(actorId) {
+      if (!state.betting || state.gameOver || state.betting.currentActorId !== actorId) return;
+      const intent = aiBetIntent(actorId);
+      const confidence = intent.confidence;
+      const toCall = amountToCall(actorId);
+      const player = state.players[actorId];
+      const pers = player.personality;
+      const raiseOptions = getRaiseOptionsForPlayer(actorId);
+      const canRaise = raiseOptions.length > 0;
+      const raiseThresh = pers ? 0.68 - (pers.courage - 0.5) * 0.18 : 0.68;
+      const hardRaiseThresh = raiseThresh + 0.08;
+
+      if (toCall === 0) {
+        if (canRaise && intent.raiseDrive > raiseThresh) resolveBetAction(actorId, 'raise');
+        else resolveBetAction(actorId, 'checkcall');
+        return;
+      }
+
+      if (toCall > player.chips) {
+        resolveBetAction(actorId, 'fold');
+        return;
+      }
+
+      if (confidence < intent.foldFloor) {
+        resolveBetAction(actorId, 'fold');
+      } else if (canRaise && intent.raiseDrive > hardRaiseThresh && player.chips > toCall) {
+        resolveBetAction(actorId, 'raise');
+      } else {
+        resolveBetAction(actorId, 'checkcall');
+      }
+    }
+
+    function humanBetAction(action) {
+      resolveBetAction(0, action);
+    }
+
+    function humanRaiseSelected() {
+      resolveBetAction(0, 'raise');
+    }
+
+    function humanJoinBackup() {
+      resolveBetAction(0, 'joinBackup');
+    }
+
+    function cardLabel(card) {
+      return card.wild ? 'Wild' : String(card.rank);
+    }
+
+    function startChallengeTimer() {
+      clearChallengeTimer();
+      state.challengeTimeLeft = CHALLENGE_TIMER_SECS;
+      updateChallengeBoxTimer();
+      state.challengeTimer = setInterval(() => {
+        state.challengeTimeLeft--;
+        updateChallengeBoxTimer();
+        if (state.challengeTimeLeft <= 0) {
+          clearChallengeTimer();
+          if (state.challengeWindow && !state.betting && !state.gameOver) {
+            humanAcceptNoChallenge();
+          }
+        }
+      }, 1000);
+    }
+
+    function clearChallengeTimer() {
+      if (state.challengeTimer) {
+        clearInterval(state.challengeTimer);
+        state.challengeTimer = null;
+      }
+      state.challengeTimeLeft = 0;
+    }
+
+    function updateChallengeBoxTimer() {
+      const pct = (state.challengeTimeLeft / CHALLENGE_TIMER_SECS) * 100;
+      const bar = document.getElementById('challengeTimerBar');
+      const count = document.getElementById('challengeTimerCount');
+      const label = document.getElementById('challengeTimerLabel');
+      if (bar) bar.style.width = pct + '%';
+      if (count) count.textContent = state.challengeTimeLeft + 's';
+      if (label) label.textContent = state.challengeTimeLeft + 's';
+    }
+
+    function renderChallengeBox() {
+      const box = document.getElementById('challengeBox');
+      if (!box) return;
+      const cw = state.challengeWindow;
+      const humanCanDecide = cw && !state.betting && !state.gameOver && cw.lastPlay.playerIndex !== 0;
+      box.style.display = humanCanDecide ? 'block' : 'none';
+      if (!humanCanDecide) return;
+      const lastPlay = cw.lastPlay;
+      const info = document.getElementById('challengeBoxInfo');
+      if (info) {
+        info.textContent = `${seatLabel(lastPlay.playerIndex)} declared ${lastPlay.cards.length} × ${lastPlay.declaredRank}. Challenge before the timer runs out, or let it stand.`;
+      }
+      updateChallengeBoxTimer();
+      document.getElementById('challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
+      document.getElementById('letPassBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanAcceptNoChallenge(); });
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      const player = state.players[0] || { hand: [], chips: 0, clears: 0 };
+      const selected = selectedCards();
+      const canHumanAct = !state.gameOver && state.currentTurn === 0 && !state.challengeWindow && !state.betting && !hasConcededThisRound(0);
+      const declareOptions = Array.from({ length: 10 }, (_, i) => i + 1)
+        .map(rank => `<option value="${rank}" ${state.declaredRank === rank ? 'selected' : ''}>${rank}</option>`)
+        .join('');
+      const bannerClass = state.bannerType === 'warn' ? 'warn' : state.bannerType === 'good' ? 'good' : '';
+      const backupHumanEligible = !!state.betting && eligibleBackupIds(state.betting.challengerId, state.betting.challengedId).includes(0) && !state.betting.backupQueue.includes(0);
+      const bettingActorHuman = !!state.betting && state.betting.currentActorId === 0;
+      const humanCallAmount = state.betting ? amountToCall(0) : 0;
+      const humanRaiseAmount = state.betting && bettingActorHuman ? nextRaiseAmountForPlayer(0) : 0;
+      const humanCanRaise = humanRaiseAmount > 0;
+
+      app.innerHTML = `
+        <div class="topbar">
+          <div class="titleRow">
+            <div>
+              <h1>Madiao Mobile Challenge</h1>
+              <div class="subtitle">Single-file mobile prototype with chip duels, backup callers, and configurable clear payouts.</div>
+            </div>
+            <button class="ghost" id="restartBtn">New Match</button>
+          </div>
+          <div class="chipRow">
+            <div class="chip">Round ${state.round}</div>
+            <div class="chip">Lead: ${state.players[state.leaderIndex]?.name || '-'}</div>
+            <div class="chip">Turn: ${state.players[state.currentTurn]?.name || '-'}</div>
+            <div class="chip">Pile Plays: ${state.pile.length}</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="sectionTitle">Table</div>
+          <div class="aiRow">
+            ${state.players.slice(1).map(p => `
+              <div class="aiSeat ${p.eliminated ? 'eliminated' : ''}">
+                <div class="seatName">${seatLabel(p)}</div>
+                <div class="seatMeta">Cards ${p.hand.length} · Chips ${p.chips} · Clears ${p.clears}</div>
+                ${p.seed ? `<div class="seatSeed">${p.seed}</div>` : ''}
+                ${p.personality ? `<div class="seatTags">${personalityTags(p.personality)}</div>` : ''}
+                <div class="seatStatus">${p.lastAction}</div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="centerInfo">
+            <div class="bigInfo">
+              <div class="bigLabel">Current claim</div>
+              <div class="bigValue">${state.declaredRank === null ? 'Open round' : state.declaredRank}</div>
+              <div class="smallText">A challenge ends the round. If everyone else concedes first, the declarer wins it uncontested.</div>
+            </div>
+            <div class="bigInfo">
+              <div class="bigLabel">Your standing</div>
+              <div class="bigValue">${player.hand.length} cards · ${player.chips} chips</div>
+              <div class="smallText">Clear reward starts at ${CONFIG.clearBonusBase} and grows by ${CONFIG.clearBonusIncrement} each clear.</div>
+            </div>
+          </div>
+          <div class="banner ${bannerClass}">${state.banner || ''}</div>
+          ${state.challengeWindow && state.challengeWindow.lastPlay.playerIndex === 0 ? `
+            <div class="tiny" style="padding:6px 2px;">Opponents are considering whether to challenge your play…</div>
+          ` : ''}
+          ${state.betting ? `
+            <div>
+              <div class="sectionTitle">Challenge betting</div>
+              <div class="tiny">Challenger: ${seatLabel(state.betting.challengerId)} · Challenged: ${seatLabel(state.betting.challengedId)} · Current stake: ${state.betting.stake}</div>
+              <div class="tiny" style="margin-top:6px;">Contributions — ${seatLabel(state.betting.challengerId)}: ${getContribution(state.betting.challengerId)} (${getRaiseCount(state.betting.challengerId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengerId) || 0}) · ${seatLabel(state.betting.challengedId)}: ${getContribution(state.betting.challengedId)} (${getRaiseCount(state.betting.challengedId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengedId) || 0}) · Backup queue: ${state.betting.backupQueue.map(id => seatLabel(id)).join(', ') || 'none'}</div>
+              <div class="challengeBar" style="margin-top:8px;">
+                ${bettingActorHuman ? `
+                  <button class="secondary" id="betCallBtn">${humanCallAmount > 0 ? `Call ${humanCallAmount}` : 'Check'}</button>
+                  <button id="betRaiseBtn" ${!humanCanRaise ? 'disabled' : ''}>Raise +${humanRaiseAmount || 0}</button>
+                  <button class="danger" id="betFoldBtn">Fold</button>
+                ` : `<div class="tiny">${seatLabel(state.betting.currentActorId)} is deciding the next betting action.</div>`}
+                ${backupHumanEligible ? `<button class="ghost" id="joinBackupBtn">Join as backup caller</button>` : ''}
+              </div>
+            </div>
+          ` : ''}
+          <details class="debug">
+            <summary>Debug tools</summary>
+            <div class="tiny" style="margin-top:8px;">Recent change: ${state.recentChange}</div>
+            <pre>${DEBUG_ENABLED ? escapeHtml(JSON.stringify(debugSnapshot(), null, 2)) : 'Debug disabled.'}</pre>
+          </details>
+        </div>
+
+        <div class="handWrap">
+          <div class="handHeader">
+            <div>
+              <div class="sectionTitle">Your hand</div>
+              <div class="tiny">Tap cards to select. Wild cards count as any declared number.</div>
+            </div>
+            <div class="tiny">Selected: ${selected.length}</div>
+          </div>
+          <div class="handScroll">
+            ${player.hand.map(card => `
+              <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}">
+                <div class="cardTop">${card.wild ? 'Yellow' : 'Number'}</div>
+                <div class="cardMid">${card.wild ? '★' : card.rank}</div>
+                <div class="cardBottom">${card.wild ? 'Wild card' : 'Claimable as shown'}</div>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="eventLog">
+          <div class="sectionTitle">Recent events</div>
+          ${state.logs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
+        </div>
+
+        <div class="controls">
+          <div class="controlsRow">
+            <label>
+              Declare number
+              <select id="declareRank" ${!canHumanAct ? 'disabled' : ''}>
+                ${declareOptions}
+              </select>
+            </label>
+          </div>
+          <div class="bottomActions">
+            <button id="playBtn" ${!canHumanAct ? 'disabled' : ''}>Play Selected</button>
+            <button class="secondary" id="concedeBtn" ${!canHumanAct || state.declaredRank === null ? 'disabled' : ''}>Concede Round</button>
+          </div>
+        </div>
+      `;
+
+      if (state.declaredRank !== null) {
+        const select = document.getElementById('declareRank');
+        if (select) select.value = String(state.declaredRank);
+      }
+
+      document.getElementById('restartBtn')?.addEventListener('click', startGame);
+      document.getElementById('playBtn')?.addEventListener('click', humanPlay);
+      document.getElementById('concedeBtn')?.addEventListener('click', humanConcedeRound);
+      document.getElementById('betCallBtn')?.addEventListener('click', () => humanBetAction('checkcall'));
+      document.getElementById('betRaiseBtn')?.addEventListener('click', humanRaiseSelected);
+      document.getElementById('betFoldBtn')?.addEventListener('click', () => humanBetAction('fold'));
+      document.getElementById('joinBackupBtn')?.addEventListener('click', humanJoinBackup);
+      app.querySelectorAll('[data-card-id]').forEach(el => {
+        el.addEventListener('click', () => toggleSelect(Number(el.getAttribute('data-card-id'))));
+      });
+      renderChallengeBox();
+    }
+
+    function debugSnapshot() {
+      return {
+        seed: state.seed,
+        round: state.round,
+        currentTurn: state.players[state.currentTurn]?.name,
+        leader: state.players[state.leaderIndex]?.name,
+        declaredRank: state.declaredRank,
+        challengeOpen: !!state.challengeWindow,
+        betting: state.betting ? {
+          challenger: state.players[state.betting.challengerId]?.name,
+          challenged: state.players[state.betting.challengedId]?.name,
+          currentActor: state.players[state.betting.currentActorId]?.name,
+          stake: state.betting.stake,
+          contributions: Object.fromEntries(Object.entries(state.betting.contributions).map(([id, value]) => [state.players[Number(id)]?.name || id, value])),
+          raiseCounts: Object.fromEntries(Object.entries(state.betting.raiseCounts || {}).map(([id, value]) => [state.players[Number(id)]?.name || id, value])),
+          backupQueue: state.betting.backupQueue.map(id => state.players[id]?.name),
+          playTruthful: state.betting.play.truthful,
+        } : null,
+        pile: state.pile.map(p => ({
+          by: seatLabel(p.playerIndex),
+          declaredRank: p.declaredRank,
+          count: p.cards.length,
+          truthful: p.truthful,
+          actual: p.actualSummary,
+        })),
+        players: state.players.map(p => ({
+          name: seatLabel(p),
+          seed: p.seed || 'human',
+          cards: p.hand.map(cardLabel),
+          chips: p.chips,
+          clears: p.clears,
+          eliminated: p.eliminated,
+          concededThisRound: hasConcededThisRound(p.id),
+          lastAction: p.lastAction,
+          reads: Object.fromEntries(Object.entries(p.reads || {}).map(([id, read]) => [seatLabel(Number(id)), { truthfulCount: read.truthfulCount, bluffCount: read.bluffCount, repeatRankCount: read.repeatRankCount, quickJudgmentBias: Number(read.quickJudgmentBias.toFixed(2)), currentTruthStreak: read.currentTruthStreak, currentBluffStreak: read.currentBluffStreak, challengeWins: read.challengeWins, challengeLosses: read.challengeLosses }])),
+        })),
+        config: CONFIG,
+        stats: state.stats,
+        recentChange: state.recentChange,
+      };
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
+
+    startGame();
+
+  </script>
+</body>
+</html>
