@@ -211,6 +211,9 @@ const HAIR_OPTIONS = [
     id: 'shoulder_length', label: 'Shoulder Length',
     tintSlot: 'A',
     layers: [
+      // Back layer: shoulder_length_drape uses smaller scale (sx:2,sy:2) and more
+      // centred placement (ax:-0.1,ay:-0.1) than other hair styles — this matches
+      // the shoulder_length_drape.json cosmetic config exactly.
       { url: 'cosmetics/appearance/mao-ao/headhair/shoulderlength-front_mint.png',
         ax: -0.1, ay: -0.1, sx: 2, sy: 2, pos: 'back' },
       { url: 'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
@@ -292,7 +295,7 @@ function loadImg(relPath) {
     img.onload  = () => resolve(img);
     img.onerror = () => {
       // If relative path fails (standalone download), retry with GitHub raw URL
-      if (!url.startsWith('https://raw.github')) {
+      if (!url.startsWith('https://raw.githubusercontent.com')) {
         const rawUrl = 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/assets/' + relPath;
         const img2 = new Image();
         img2.crossOrigin = 'anonymous';
@@ -382,7 +385,8 @@ function randomProfile() {
   const hair       = pick(HAIR_OPTIONS);
   const eyes       = pick(EYES_OPTIONS);
   // facial hair only occasionally, and skewed absent
-  const facialHair = Math.random() < 0.35 ? pick(FACIAL_HAIR_OPTIONS) : FACIAL_HAIR_OPTIONS[0];
+  const noFacialHair = FACIAL_HAIR_OPTIONS.find(o => o.id === 'none') ?? FACIAL_HAIR_OPTIONS[0];
+  const facialHair = Math.random() < 0.35 ? pick(FACIAL_HAIR_OPTIONS) : noFacialHair;
   const bodyColors = randomBodyColors();
   return { fighter, hair, eyes, facialHair, bodyColors };
 }
