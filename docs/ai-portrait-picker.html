@@ -693,6 +693,19 @@ function makeCSSFilter(color) {
 // Rendered dimensions (width-factor 1.0, same as game fighter config):
 //   h = L * sy
 //   w = (img.naturalWidth / img.naturalHeight) * L * sx
+// Appearance cosmetics (hair, eyes, facial hair) are authored relative to the
+// head bone, so their effective transform is composed with HEAD_XFORM:
+//   effectiveAx/Ay = HEAD_XFORM.ax/ay + layer.ax/ay  (additive offsets)
+//   effectiveSx/Sy = HEAD_XFORM.sx/sy * layer.sx/sy  (multiplicative scales)
+function composeXform(base, child) {
+  return {
+    ax: (base.ax ?? 0) + (child.ax ?? 0),
+    ay: (base.ay ?? 0) + (child.ay ?? 0),
+    sx: (base.sx ?? 1) * (child.sx ?? 1),
+    sy: (base.sy ?? 1) * (child.sy ?? 1),
+  };
+}
+
 function drawLayer(ctx, img, xform, cssFilter) {
   const { ax, ay, sx, sy } = xform;
   const h = L * sy;
@@ -796,7 +809,7 @@ async function renderProfile(canvas, profile) {
   // ── Phase 1: hair back layers (behind head) ──────────────
   for (const { layer, filter } of backLayers) {
     const img = imgMap.get(layer.url);
-    if (img) drawLayer(ctx, img, layer, filter);
+    if (img) drawLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
   }
 
   // ── Phase 2: head base sprite (body color A) ─────────────
@@ -814,7 +827,7 @@ async function renderProfile(canvas, profile) {
   // ── Phase 4: hair front layers + eyes + facial hair ──────
   for (const { layer, filter } of frontLayers) {
     const img = imgMap.get(layer.url);
-    if (img) drawLayer(ctx, img, layer, filter);
+    if (img) drawLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
   }
 }
 
@@ -1011,7 +1024,7 @@ function buildRenderChain(profile) {
         filter:      filterFor(group.tintSlot),
         relPath:     layer.url,
         resolvedUrl: ASSET_BASE + layer.url,
-        transform:   { ax: layer.ax, ay: layer.ay, sx: layer.sx, sy: layer.sy },
+        transform:   composeXform(HEAD_XFORM, layer),
       };
       (layer.pos === 'back' ? backEntries : frontEntries).push(entry);
     }
