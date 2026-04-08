@@ -1,0 +1,31 @@
+{
+  "id": "cosmetics",
+  "label": "Cosmetics",
+  "entries": [
+    { "id": "basic_headband",       "path": "./basic_headband.json" },
+    { "id": "citywatch_helmet",     "path": "./citywatch_helmet.json" },
+    { "id": "layered_travel_cloak", "path": "./layered_travel_cloak.json" },
+    { "id": "simple_poncho",        "path": "./simple_poncho.json" },
+    { "id": "anuri_hood",           "path": "./anuri_hood.json" },
+    { "id": "anuri_poncho",         "path": "./anuri_poncho.json" },
+    { "id": "bronze_armbands",      "path": "./bronze_armbands.json" },
+    { "id": "bronze_footbands",     "path": "./bronze_footbands.json" },
+    { "id": "basic_pants",          "path": "./basic_pants.json" },
+    { "id": "appearance::Mao-ao_M::mao-ao_circled_eyes",          "path": "./appearance/mao-ao/circled_eyes.json" },
+    { "id": "appearance::Mao-ao_M::mao-ao_circled_eyes_f",        "path": "./appearance/mao-ao/circled_eyes_f.json" },
+    { "id": "appearance::Mao-ao_M::mao-ao_circled_eye_L",         "path": "./appearance/mao-ao/circled_eye_L.json" },
+    { "id": "appearance::Mao-ao_M::mao-ao_smooth_striped",        "path": "./appearance/mao-ao/smooth_striped.json" },
+    { "id": "appearance::Mao-ao_M::mao-ao_shoulder_length_drape", "path": "./appearance/mao-ao/shoulder_length_drape.json" },
+    { "id": "appearance::Mao-ao_M::mao-ao_tuft",                  "path": "./appearance/mao-ao/tuft.json" },
+    { "id": "appearance::Mao-ao_M::mao-ao_long_ponytail",         "path": "./appearance/mao-ao/long_ponytail.json" },
+    { "id": "appearance::Mao-ao_M::mao-ao_wildbeard",             "path": "./appearance/mao-ao/wildbeard.json" },
+    { "id": "appearance::Mao-ao_F::mao-ao_circled_eyes",          "path": "./appearance/mao-ao/circled_eyes.json" },
+    { "id": "appearance::Mao-ao_F::mao-ao_circled_eyes_f",        "path": "./appearance/mao-ao/circled_eyes_f.json" },
+    { "id": "appearance::Mao-ao_F::mao-ao_circled_eye_L",         "path": "./appearance/mao-ao/circled_eye_L.json" },
+    { "id": "appearance::Mao-ao_F::mao-ao_smooth_striped",        "path": "./appearance/mao-ao/smooth_striped.json" },
+    { "id": "appearance::Mao-ao_F::mao-ao_shoulder_length_drape", "path": "./appearance/mao-ao/shoulder_length_drape.json" },
+    { "id": "appearance::Mao-ao_F::mao-ao_tuft",                  "path": "./appearance/mao-ao/tuft.json" },
+    { "id": "appearance::Mao-ao_F::mao-ao_long_ponytail",         "path": "./appearance/mao-ao/long_ponytail.json" },
+    { "id": "appearance::Mao-ao_F::mao-ao_wildbeard",             "path": "./appearance/mao-ao/wildbeard.json" }
+  ]
+}

@@ -1264,7 +1264,7 @@ window.CONFIG = {
 
   cosmetics: {
     profileSources: COSMETIC_PROFILE_SOURCES,
-    librarySources: COSMETIC_LIBRARY_SOURCES
+    libraryIndexPath: './config/cosmetics/index.json'
   },
 
   fighters: {

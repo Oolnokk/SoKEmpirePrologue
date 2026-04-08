@@ -173,13 +173,10 @@ class CosmeticWorkbench {
     };
 
     for (const [id, cosmetic] of Object.entries(library)) {
-      const label = cosmetic.name || id;
+      const label = cosmetic.meta?.name || id;
       const entry = { id, label };
       const slotList = Array.isArray(cosmetic.slots) ? cosmetic.slots : (cosmetic.slot ? [cosmetic.slot] : []);
       slotList.forEach((slot) => addSlotEntry(slot, entry));
-      if (cosmetic.appearance?.slot) {
-        addSlotEntry(`appearance:${cosmetic.appearance.slot}`, entry);
-      }
     }
 
     COSMETIC_SLOTS.forEach((slot) => {
