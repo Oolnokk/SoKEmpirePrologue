@@ -395,7 +395,8 @@ document.getElementById('copyBtn').addEventListener('click', () => {
     s.textContent = '✓ Copied to clipboard';
     setTimeout(() => { s.textContent = ''; }, 2000);
   }).catch(() => {
-    // Fallback: select a temp textarea
+    // Fallback for browsers that block navigator.clipboard (e.g. non-HTTPS contexts).
+    // document.execCommand is deprecated but remains a widely-supported last resort.
     const ta = document.createElement('textarea');
     ta.value = json;
     document.body.appendChild(ta);
