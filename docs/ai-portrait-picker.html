@@ -278,6 +278,14 @@ const FACIAL_HAIR_OPTIONS = [
         ax: 0, ay: -0.1, sx: 0.95, sy: 1.14, pos: 'front' },
     ],
   },
+  {
+    id: 'wildbeard', label: 'Wildbeard',
+    tintSlot: 'A',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/facialhair/wildbeard_mint2.png',
+        ax: 0, ay: -0.1, sx: 0.95, sy: 1.14, pos: 'front' },
+    ],
+  },
 ];
 
 // ─────────────────────────────────────────────────────────
@@ -552,6 +560,7 @@ function preloadCommon() {
     'cosmetics/appearance/mao-ao/headhair/shoulderlength-front_mint.png',
     'cosmetics/appearance/mao-ao/headhair/tuft_striped-front_mint.png',
     'cosmetics/appearance/mao-ao/facialhair/wild_beard_mint.png',
+    'cosmetics/appearance/mao-ao/facialhair/wildbeard_mint2.png',
   ];
   for (const u of commonUrls) loadImg(u);
 }
