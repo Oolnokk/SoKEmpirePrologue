@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cosmetic Placer — Scale &amp; Translate Tuner</title>
+  <style>
+    :root {
+      --bg: #0b0d10; --panel: #12161b; --card: #151b22;
+      --muted: #8aa0b8; --text: #e6edf3; --line: #2a3442;
+      --btn: #1d2633; --btnHi: #263142; --accent: #4e9eff;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
+    body { display: grid; grid-template-columns: 320px 1fr; grid-template-rows: 48px 1fr; height: 100vh; }
+
+    /* ── header ── */
+    header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+    header h1 { font-size: 13px; color: var(--muted); }
+
+    /* ── left panel ── */
+    #panel { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 12px; }
+
+    .section { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+      padding: 10px 12px; margin-bottom: 10px; }
+    .section h2 { font-size: 11px; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+    label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+    input[type=text], input[type=number], select, textarea {
+      width: 100%; background: var(--btn); color: var(--text);
+      border: 1px solid var(--line); border-radius: 6px;
+      padding: 6px 8px; font-size: 12px; margin-bottom: 8px; }
+    textarea { resize: vertical; height: 100px; font-family: monospace; font-size: 11px; }
+    input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+    .slider-row { display: grid; grid-template-columns: 80px 1fr 64px; gap: 6px;
+      align-items: center; margin-bottom: 8px; }
+    .slider-row label { margin: 0; }
+    .slider-row input[type=number] { margin: 0; text-align: right; }
+
+    button { background: var(--btn); color: var(--text); border: 1px solid var(--line);
+      border-radius: 6px; padding: 7px 12px; font-size: 12px; cursor: pointer; transition: background 0.12s; }
+    button:hover { background: var(--btnHi); }
+    .btn-accent { background: #1b3d6e; border-color: var(--accent); color: var(--accent); }
+    .btn-accent:hover { background: #23508a; }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    /* ── right: canvas ── */
+    #stage { display: flex; align-items: center; justify-content: center;
+      background: #060809; position: relative; overflow: hidden; }
+    canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+
+    /* ── diff output ── */
+    #diffOutput { font-family: monospace; font-size: 11px; color: #9cf; background: #0a1520;
+      border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-bottom: 8px;
+      white-space: pre; overflow-x: auto; }
+    .tag-plus  { color: #6fdb7a; }
+    .tag-minus { color: #ff7070; }
+    .tag-eq    { color: #888; }
+
+    #copyBtn { width: 100%; }
+    #copyStatus { font-size: 11px; color: #6fdb7a; height: 16px; margin-top: 4px; text-align: center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Cosmetic Placer <span style="color:#8aa0b8">— Scale &amp; Translate Tuner</span></h1>
+  <span style="font-size:11px;color:#555">Adjust xform values · see JSON diff · copy to clipboard</span>
+</header>
+
+<!-- ══════════════════ LEFT PANEL ══════════════════ -->
+<aside id="panel">
+
+  <!-- Asset URLs -->
+  <div class="section">
+    <h2>Assets</h2>
+    <label>Head sprite URL (background)</label>
+    <input type="text" id="headUrl"
+      value="assets/fightersprites/mao-ao-m/head_mint.png">
+
+    <label>Cosmetic URL</label>
+    <input type="text" id="cosUrl"
+      value="assets/cosmetics/appearance/mao-ao/facialhair/wildbeard_mint2.png">
+
+    <button id="loadBtn" style="width:100%">⟳ Load / Reload</button>
+  </div>
+
+  <!-- Tint (HSV) -->
+  <div class="section">
+    <h2>Tint (HSV)</h2>
+    <div class="row2">
+      <div>
+        <label>H (deg)</label>
+        <input type="number" id="tintH" value="0" step="1">
+      </div>
+      <div>
+        <label>S (−1 → +1)</label>
+        <input type="number" id="tintS" value="0" step="0.05">
+      </div>
+    </div>
+    <div>
+      <label>V (−1 → +1)</label>
+      <input type="number" id="tintV" value="0" step="0.05">
+    </div>
+  </div>
+
+  <!-- Bone-length scale -->
+  <div class="section">
+    <h2>Canvas / Bone</h2>
+    <div class="row2">
+      <div>
+        <label>Canvas px</label>
+        <input type="number" id="canvasSz" value="300" min="100" max="800" step="10">
+      </div>
+      <div>
+        <label>Bone L</label>
+        <input type="number" id="boneL" value="80" min="10" max="400" step="5">
+      </div>
+    </div>
+    <button id="applyCanvasBtn" style="width:100%">Apply Canvas / Bone</button>
+  </div>
+
+  <!-- Xform sliders -->
+  <div class="section">
+    <h2>Xform</h2>
+
+    <div class="slider-row">
+      <label>ax (↑ fwd)</label>
+      <input type="range" id="s_ax" min="-5" max="5" step="0.01" value="0">
+      <input type="number" id="n_ax" min="-5" max="5" step="0.01" value="0">
+    </div>
+    <div class="slider-row">
+      <label>ay (→ right)</label>
+      <input type="range" id="s_ay" min="-5" max="5" step="0.01" value="-0.1">
+      <input type="number" id="n_ay" min="-5" max="5" step="0.01" value="-0.1">
+    </div>
+    <div class="slider-row">
+      <label>scaleX</label>
+      <input type="range" id="s_sx" min="0.1" max="10" step="0.01" value="0.95">
+      <input type="number" id="n_sx" min="0.1" max="10" step="0.01" value="0.95">
+    </div>
+    <div class="slider-row">
+      <label>scaleY</label>
+      <input type="range" id="s_sy" min="0.1" max="10" step="0.01" value="1.14">
+      <input type="number" id="n_sy" min="0.1" max="10" step="0.01" value="1.14">
+    </div>
+  </div>
+
+  <!-- Reference / baseline -->
+  <div class="section">
+    <h2>Baseline (for diff)</h2>
+    <p style="font-size:11px;color:#666;margin-bottom:8px">
+      Enter the <em>original</em> xform values here. The diff panel shows
+      what changed relative to this baseline.
+    </p>
+    <div class="row2">
+      <div><label>ax₀</label><input type="number" id="ref_ax" value="0" step="0.01"></div>
+      <div><label>ay₀</label><input type="number" id="ref_ay" value="-0.1" step="0.01"></div>
+    </div>
+    <div class="row2">
+      <div><label>scaleX₀</label><input type="number" id="ref_sx" value="0.95" step="0.01"></div>
+      <div><label>scaleY₀</label><input type="number" id="ref_sy" value="1.14" step="0.01"></div>
+    </div>
+    <button id="snapBaselineBtn" style="width:100%;margin-top:4px">⤵ Snap baseline to current</button>
+  </div>
+
+  <!-- Diff output -->
+  <div class="section">
+    <h2>JSON Diff</h2>
+    <div id="diffOutput">—</div>
+    <button id="copyBtn" class="btn-accent">⎘ Copy full xform JSON</button>
+    <div id="copyStatus"></div>
+  </div>
+
+</aside>
+
+<!-- ══════════════════ CANVAS ══════════════════ -->
+<main id="stage">
+  <canvas id="cv"></canvas>
+</main>
+
+<script>
+// ─────────────────────────────────────────────────────────
+//  GLOBALS
+// ─────────────────────────────────────────────────────────
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+let CW = 300, CH = 300, L = 80;
+let headImg = null, cosImg = null;
+
+// Current xform
+let xf = { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 };
+
+// Baseline (for diff)
+let base = { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 };
+
+// ─────────────────────────────────────────────────────────
+//  CANVAS SETUP
+// ─────────────────────────────────────────────────────────
+function resizeCanvas(w, h) {
+  cv.width  = w;
+  cv.height = h;
+  cv.style.width  = w + 'px';
+  cv.style.height = h + 'px';
+  CW = w; CH = h;
+}
+resizeCanvas(CW, CH);
+
+// ─────────────────────────────────────────────────────────
+//  IMAGE LOADING
+// ─────────────────────────────────────────────────────────
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = () => reject(new Error('Could not load: ' + url));
+    img.src = url;
+  });
+}
+
+async function loadAssets() {
+  const headUrl = document.getElementById('headUrl').value.trim();
+  const cosUrl  = document.getElementById('cosUrl').value.trim();
+  headImg = null; cosImg = null;
+  try { headImg = await loadImage(headUrl); } catch (e) { console.warn(e); }
+  try { cosImg  = await loadImage(cosUrl);  } catch (e) { console.warn(e); }
+  render();
+}
+
+// ─────────────────────────────────────────────────────────
+//  TINT FILTER
+// ─────────────────────────────────────────────────────────
+function buildFilter() {
+  const h = Number(document.getElementById('tintH').value) || 0;
+  const s = Math.max(0, 1 + (Number(document.getElementById('tintS').value) || 0));
+  const v = Math.max(0, 1 + (Number(document.getElementById('tintV').value) || 0));
+  if (h === 0 && s === 1 && v === 1) return 'none';
+  return `hue-rotate(${h.toFixed(1)}deg) saturate(${s.toFixed(3)}) brightness(${v.toFixed(3)})`;
+}
+
+// ─────────────────────────────────────────────────────────
+//  RENDER
+// ─────────────────────────────────────────────────────────
+function drawLayer(img, ax, ay, sx, sy, filter) {
+  const h = L * sy;
+  const w = (img.naturalWidth / img.naturalHeight) * L * sx;
+  const cx = CW / 2 + ay * L;
+  const cy = CH / 2 - ax * L;
+  ctx.save();
+  ctx.filter = filter || 'none';
+  ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+  ctx.restore();
+}
+
+function render() {
+  ctx.clearRect(0, 0, CW, CH);
+
+  // Grid lines (centre cross)
+  ctx.save();
+  ctx.strokeStyle = '#1e2836';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.moveTo(CW / 2, 0);   ctx.lineTo(CW / 2, CH);
+  ctx.moveTo(0, CH / 2);   ctx.lineTo(CW, CH / 2);
+  ctx.stroke();
+  ctx.restore();
+
+  if (headImg) {
+    // Head sprite (no tint — background reference)
+    drawLayer(headImg, 0, 0, 1, 1, 'none');
+  }
+
+  if (cosImg) {
+    drawLayer(cosImg, xf.ax, xf.ay, xf.sx, xf.sy, buildFilter());
+  }
+
+  updateDiff();
+}
+
+// ─────────────────────────────────────────────────────────
+//  DIFF OUTPUT
+// ─────────────────────────────────────────────────────────
+function fmt(v) { return Number(v.toFixed(4)).toString(); }
+
+function updateDiff() {
+  const fields = ['ax', 'ay', 'sx', 'sy'];
+  const keys   = { ax: 'ax', ay: 'ay', sx: 'scaleX', sy: 'scaleY' };
+
+  let lines = '';
+  for (const f of fields) {
+    const cur = xf[f];
+    const ref = base[f];
+    const diff = cur - ref;
+    const tag  = Math.abs(diff) < 1e-9
+      ? '<span class="tag-eq">  (no change)</span>'
+      : diff > 0
+        ? `<span class="tag-plus">  Δ +${fmt(diff)}</span>`
+        : `<span class="tag-minus">  Δ ${fmt(diff)}</span>`;
+    lines += `  "${keys[f]}": ${fmt(cur)}${tag}\n`;
+  }
+
+  document.getElementById('diffOutput').innerHTML = `{\n${lines}}`;
+}
+
+function buildJsonSnippet() {
+  return JSON.stringify(
+    { ax: round4(xf.ax), ay: round4(xf.ay), scaleX: round4(xf.sx), scaleY: round4(xf.sy), rotDeg: 0 },
+    null, 2
+  );
+}
+
+function round4(v) {
+  return Math.round(v * 10000) / 10000;
+}
+
+// ─────────────────────────────────────────────────────────
+//  SLIDER ↔ NUMBER SYNC
+// ─────────────────────────────────────────────────────────
+const PAIRS = [
+  ['s_ax', 'n_ax', 'ax'],
+  ['s_ay', 'n_ay', 'ay'],
+  ['s_sx', 'n_sx', 'sx'],
+  ['s_sy', 'n_sy', 'sy'],
+];
+
+function syncFromSlider(key, sliderId, numberId) {
+  const val = parseFloat(document.getElementById(sliderId).value);
+  document.getElementById(numberId).value = val;
+  xf[key] = val;
+  render();
+}
+
+function syncFromNumber(key, sliderId, numberId) {
+  const val = parseFloat(document.getElementById(numberId).value);
+  if (!isNaN(val)) {
+    document.getElementById(sliderId).value = val;
+    xf[key] = val;
+    render();
+  }
+}
+
+for (const [sid, nid, key] of PAIRS) {
+  document.getElementById(sid).addEventListener('input',  () => syncFromSlider(key, sid, nid));
+  document.getElementById(nid).addEventListener('change', () => syncFromNumber(key, sid, nid));
+  document.getElementById(nid).addEventListener('input',  () => syncFromNumber(key, sid, nid));
+}
+
+// ─────────────────────────────────────────────────────────
+//  BUTTON HANDLERS
+// ─────────────────────────────────────────────────────────
+document.getElementById('loadBtn').addEventListener('click', loadAssets);
+
+document.getElementById('applyCanvasBtn').addEventListener('click', () => {
+  const sz = parseInt(document.getElementById('canvasSz').value, 10) || 300;
+  const bl = parseFloat(document.getElementById('boneL').value) || 80;
+  L = bl;
+  resizeCanvas(sz, sz);
+  render();
+});
+
+document.getElementById('snapBaselineBtn').addEventListener('click', () => {
+  base = { ...xf };
+  document.getElementById('ref_ax').value = fmt(base.ax);
+  document.getElementById('ref_ay').value = fmt(base.ay);
+  document.getElementById('ref_sx').value = fmt(base.sx);
+  document.getElementById('ref_sy').value = fmt(base.sy);
+  updateDiff();
+});
+
+// Baseline number fields update base on change
+for (const [field, id] of [['ax','ref_ax'],['ay','ref_ay'],['sx','ref_sx'],['sy','ref_sy']]) {
+  document.getElementById(id).addEventListener('change', () => {
+    base[field] = parseFloat(document.getElementById(id).value) || 0;
+    updateDiff();
+  });
+}
+
+// Tint fields re-render on change
+['tintH','tintS','tintV'].forEach(id => {
+  document.getElementById(id).addEventListener('input', render);
+  document.getElementById(id).addEventListener('change', render);
+});
+
+// Copy button
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const json = buildJsonSnippet();
+  navigator.clipboard.writeText(json).then(() => {
+    const s = document.getElementById('copyStatus');
+    s.textContent = '✓ Copied to clipboard';
+    setTimeout(() => { s.textContent = ''; }, 2000);
+  }).catch(() => {
+    // Fallback for browsers that block navigator.clipboard (e.g. non-HTTPS contexts).
+    // document.execCommand is deprecated but remains a widely-supported last resort.
+    const ta = document.createElement('textarea');
+    ta.value = json;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const s = document.getElementById('copyStatus');
+    s.textContent = '✓ Copied (fallback)';
+    setTimeout(() => { s.textContent = ''; }, 2000);
+  });
+});
+
+// ─────────────────────────────────────────────────────────
+//  MOUSE-DRAG on canvas (translate only — drag cosmetic)
+// ─────────────────────────────────────────────────────────
+let dragging = false, dragStart = null, xfStart = null;
+
+cv.addEventListener('mousedown', e => {
+  dragging  = true;
+  dragStart = { x: e.clientX, y: e.clientY };
+  xfStart   = { ...xf };
+  cv.style.cursor = 'grabbing';
+});
+
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - dragStart.x;   // pixels right  → +ay
+  const dy = e.clientY - dragStart.y;   // pixels down   → -ax
+  const newAx = xfStart.ax - dy / L;
+  const newAy = xfStart.ay + dx / L;
+  xf.ax = Math.round(newAx * 1000) / 1000;
+  xf.ay = Math.round(newAy * 1000) / 1000;
+  // sync UI
+  document.getElementById('s_ax').value = xf.ax;
+  document.getElementById('n_ax').value = xf.ax;
+  document.getElementById('s_ay').value = xf.ay;
+  document.getElementById('n_ay').value = xf.ay;
+  render();
+});
+
+window.addEventListener('mouseup', () => {
+  dragging = false;
+  cv.style.cursor = 'grab';
+});
+
+cv.style.cursor = 'grab';
+
+// ─────────────────────────────────────────────────────────
+//  SCROLL-WHEEL: uniform scale
+// ─────────────────────────────────────────────────────────
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.05 : 0.05;
+  xf.sx = Math.max(0.1, Math.round((xf.sx + delta) * 1000) / 1000);
+  xf.sy = Math.max(0.1, Math.round((xf.sy + delta) * 1000) / 1000);
+  document.getElementById('s_sx').value = xf.sx;
+  document.getElementById('n_sx').value = xf.sx;
+  document.getElementById('s_sy').value = xf.sy;
+  document.getElementById('n_sy').value = xf.sy;
+  render();
+}, { passive: false });
+
+// ─────────────────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────────────────
+loadAssets();
+</script>
+</body>
+</html>
