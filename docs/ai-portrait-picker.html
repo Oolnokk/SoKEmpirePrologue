@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mao-ao AI Profile Picker</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0e0e18;
+    color: #c8c8d8;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px 48px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #e8e0b0;
+    text-shadow: 0 0 18px rgba(220,200,100,0.35);
+  }
+  header p {
+    font-size: 0.8rem;
+    color: #777;
+    margin-top: 4px;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  button {
+    padding: 8px 20px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background: #1e1e30;
+    color: #c8c8d8;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover { background: #2a2a44; border-color: #888; }
+  button:active { background: #14142a; }
+
+  #count-select {
+    padding: 8px 12px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background: #1e1e30;
+    color: #c8c8d8;
+    font-size: 0.85rem;
+  }
+
+  #grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+  }
+
+  .card {
+    background: #15151f;
+    border: 1px solid #2a2a3e;
+    border-radius: 6px;
+    padding: 8px 8px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transition: border-color 0.15s;
+    cursor: pointer;
+  }
+  .card:hover { border-color: #555; }
+  .card canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  .card .label {
+    font-size: 0.7rem;
+    color: #666;
+    text-align: center;
+    line-height: 1.4;
+    max-width: 120px;
+    word-break: break-word;
+  }
+  .card.loading canvas { opacity: 0.4; }
+
+  #status {
+    text-align: center;
+    font-size: 0.75rem;
+    color: #555;
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mao-ao Profile Picker</h1>
+  <p>Randomised AI character portraits · click a card to reroll it</p>
+</header>
+
+<div class="controls">
+  <button id="btn-reroll">🎲 Reroll All</button>
+  <button id="btn-more">+ Add More</button>
+  <select id="count-select">
+    <option value="6" selected>6 portraits</option>
+    <option value="9">9 portraits</option>
+    <option value="12">12 portraits</option>
+    <option value="3">3 portraits</option>
+  </select>
+</div>
+
+<div id="grid"></div>
+<div id="status"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────
+//  CONFIGURATION
+// ─────────────────────────────────────────────────────────
+
+// Asset base — works when served from the docs/ directory (GitHub Pages, dev server, githack).
+// Falls back to the GitHub raw URL so the file also works as a standalone download.
+const ASSET_BASE = (() => {
+  const loc = window.location.href;
+  // If we're already on a local or hosted path that includes docs/, use relative assets/
+  if (loc.includes('localhost') || loc.includes('127.0.0.1') ||
+      loc.includes('oolnokk.github.io') || loc.includes('githack.com') ||
+      loc.includes('rawcdn.githack')) {
+    return './assets/';
+  }
+  // Standalone / file:// / downloaded HTML
+  return 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/assets/';
+})();
+
+// Canvas / rendering constants
+const CW = 200;          // canvas width  px
+const CH = 200;          // canvas height px
+const L  = 80;           // "bone length" — controls the scale of all sprites
+
+// Head xform (from config spriteStyle for Mao-ao head bone)
+const HEAD_XFORM = { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 };
+
+// ─────────────────────────────────────────────────────────
+//  FIGHTER DEFINITIONS
+// ─────────────────────────────────────────────────────────
+
+const FIGHTERS = [
+  {
+    id:       'M',
+    label:    'Mao-ao (M)',
+    headUrl:  'fightersprites/mao-ao-m/head_mint.png',
+    urUrl:    'fightersprites/mao-ao-m/untinted_regions/ur-head.png',
+  },
+  {
+    id:       'F',
+    label:    'Mao-ao (F)',
+    headUrl:  'fightersprites/mao-ao-f/head.png',
+    urUrl:    'fightersprites/mao-ao-f/untinted_regions/ur-head.png',
+  },
+];
+
+// ─────────────────────────────────────────────────────────
+//  COSMETIC DEFINITIONS
+//  Each layer: { url, ax, ay, sx, sy, pos: 'back'|'front' }
+//  Xform values come directly from the JSON cosmetic configs.
+//  ax/ay are in units of bone-length L (percent mode).
+//  Canvas position formula (head bone pointing up):
+//    center_x = CW/2 + ay*L
+//    center_y = CH/2 - ax*L
+//  Rendered size: w = (img.naturalWidth/img.naturalHeight)*L*sx, h = L*sy
+// ─────────────────────────────────────────────────────────
+
+const HAIR_OPTIONS = [
+  { id: 'none', label: 'No Hair', tintSlot: null, layers: [] },
+  {
+    id: 'tuft', label: 'Tuft',
+    tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
+        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
+    ],
+  },
+  {
+    id: 'tuft_striped', label: 'Tuft Striped',
+    tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/headhair/tuft_striped-front_mint.png',
+        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
+    ],
+  },
+  {
+    id: 'smooth_striped', label: 'Smooth Striped',
+    tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/headhair/smooth_striped_mint.png',
+        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
+    ],
+  },
+  {
+    id: 'shoulder_length', label: 'Shoulder Length',
+    tintSlot: 'A',
+    layers: [
+      // Back layer: shoulder_length_drape uses smaller scale (sx:2,sy:2) and more
+      // centred placement (ax:-0.1,ay:-0.1) than other hair styles — this matches
+      // the shoulder_length_drape.json cosmetic config exactly.
+      { url: 'cosmetics/appearance/mao-ao/headhair/shoulderlength-front_mint.png',
+        ax: -0.1, ay: -0.1, sx: 2, sy: 2, pos: 'back' },
+      { url: 'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
+        ax: -0.1, ay: -0.1, sx: 2, sy: 2, pos: 'front' },
+    ],
+  },
+  {
+    id: 'long_ponytail', label: 'Long Ponytail',
+    tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/headhair/ponytail_long-back_mint.png',
+        ax: -0.6, ay: -0.6, sx: 3, sy: 3, pos: 'back' },
+      { url: 'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
+        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
+    ],
+  },
+];
+
+const EYES_OPTIONS = [
+  { id: 'none', label: 'No Eye Mark', tintSlot: null, layers: [] },
+  {
+    id: 'circled_eyes', label: 'Circled Eyes',
+    tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eyes_mint.png',
+        ax: -0.4, ay: -0.1, sx: 2.85, sy: 2.85, pos: 'front' },
+    ],
+  },
+  {
+    id: 'circled_eyes_f', label: 'Circled Eyes (F)',
+    tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eyes_f.png',
+        ax: 0, ay: -0.1, sx: 0.95, sy: 1.14, pos: 'front' },
+    ],
+  },
+  {
+    id: 'circled_eye_L', label: 'Circle (Left)',
+    tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eye_L_mint.png',
+        ax: -0.4, ay: -0.1, sx: 2.85, sy: 2.85, pos: 'front' },
+    ],
+  },
+  {
+    id: 'circled_eye_R', label: 'Circle (Right)',
+    tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eye_R_mint.png',
+        ax: -0.4, ay:  0.1, sx: 2.85, sy: 2.85, pos: 'front' },
+    ],
+  },
+];
+
+const FACIAL_HAIR_OPTIONS = [
+  { id: 'none',       label: 'No Facial Hair', tintSlot: null, layers: [] },
+  {
+    id: 'wild_beard', label: 'Wild Beard',
+    tintSlot: 'A',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/facialhair/wild_beard_mint.png',
+        ax: 0, ay: -0.1, sx: 0.95, sy: 1.14, pos: 'front' },
+    ],
+  },
+];
+
+// ─────────────────────────────────────────────────────────
+//  IMAGE CACHE
+// ─────────────────────────────────────────────────────────
+
+const IMG_CACHE = new Map();
+
+function loadImg(relPath) {
+  const url = ASSET_BASE + relPath;
+  if (IMG_CACHE.has(url)) return IMG_CACHE.get(url);
+  const promise = new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = () => {
+      // If relative path fails (standalone download), retry with GitHub raw URL
+      if (!url.startsWith('https://raw.githubusercontent.com')) {
+        const rawUrl = 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/assets/' + relPath;
+        const img2 = new Image();
+        img2.crossOrigin = 'anonymous';
+        img2.onload  = () => resolve(img2);
+        img2.onerror = () => reject(new Error('Failed: ' + relPath));
+        img2.src = rawUrl;
+      } else {
+        reject(new Error('Failed: ' + relPath));
+      }
+    };
+    img.src = url;
+  });
+  IMG_CACHE.set(url, promise);
+  return promise;
+}
+
+// ─────────────────────────────────────────────────────────
+//  TINTING
+// ─────────────────────────────────────────────────────────
+
+// The game uses h/s/v (where v acts as brightness/lightness).
+// CSS filter equivalents:
+//   hue-rotate(h deg)
+//   saturate(1 + s)   — clamped to ≥ 0
+//   brightness(1 + v) — clamped to ≥ 0
+function makeCSSFilter(color) {
+  if (!color) return 'none';
+  const h = Number(color.h) || 0;
+  const s = Math.max(0, 1 + (Number(color.s) || 0));
+  const b = Math.max(0, 1 + (Number(color.v ?? color.l) || 0));
+  return `hue-rotate(${h.toFixed(1)}deg) saturate(${s.toFixed(3)}) brightness(${b.toFixed(3)})`;
+}
+
+// ─────────────────────────────────────────────────────────
+//  BONE-XFORM DRAWING
+// ─────────────────────────────────────────────────────────
+
+// All sprite positioning uses the game's bone-up coordinate system.
+// For a bone pointing straight up (ang = 0):
+//   forward axis (fx, fy) = (0, -1)  →  ax*L moves UP on screen
+//   right axis   (rx, ry) = (1,  0)  →  ay*L moves RIGHT on screen
+//
+// Sprite center in canvas coords (bone midpoint at canvas center):
+//   cx = CW/2 + ay * L
+//   cy = CH/2 - ax * L      ← note: screen-y increases downward
+//
+// Rendered dimensions (width-factor 1.0, same as game fighter config):
+//   h = L * sy
+//   w = (img.naturalWidth / img.naturalHeight) * L * sx
+function drawLayer(ctx, img, xform, cssFilter) {
+  const { ax, ay, sx, sy } = xform;
+  const h = L * sy;
+  const w = (img.naturalWidth / img.naturalHeight) * L * sx;
+  const cx = CW / 2 + ay * L;
+  const cy = CH / 2 - ax * L;
+
+  ctx.save();
+  ctx.filter = cssFilter || 'none';
+  ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+  ctx.restore();
+}
+
+// ─────────────────────────────────────────────────────────
+//  RANDOMISATION
+// ─────────────────────────────────────────────────────────
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// Generate plausible random body-color triplet (A=skin, B=markings, C=accent)
+function randomBodyColors() {
+  const rh = (lo, hi) => lo + Math.random() * (hi - lo);
+  const rc = (lo, hi) => lo + Math.random() * (hi - lo);
+  return {
+    // A — overall body/skin tint
+    A: { h: rh(-140, 80),  s: rc(-0.45, 0.50), v: rc(-0.35, 0.20) },
+    // B — markings & hair highlights (more saturated, wider hue range)
+    B: { h: rh(-180, 180), s: rc( 0.00, 0.65), v: rc(-0.25, 0.45) },
+    // C — accent (not heavily used for head cosmetics, but included for completeness)
+    C: { h: rh(-60, 120),  s: rc( 0.05, 0.35), v: rc(-0.15, 0.12) },
+  };
+}
+
+function randomProfile() {
+  const fighter    = pick(FIGHTERS);
+  const hair       = pick(HAIR_OPTIONS);
+  const eyes       = pick(EYES_OPTIONS);
+  // facial hair only occasionally, and skewed absent
+  const noFacialHair = FACIAL_HAIR_OPTIONS.find(o => o.id === 'none') ?? FACIAL_HAIR_OPTIONS[0];
+  const facialHair = Math.random() < 0.35 ? pick(FACIAL_HAIR_OPTIONS) : noFacialHair;
+  const bodyColors = randomBodyColors();
+  return { fighter, hair, eyes, facialHair, bodyColors };
+}
+
+// ─────────────────────────────────────────────────────────
+//  RENDERING
+// ─────────────────────────────────────────────────────────
+
+async function renderProfile(canvas, profile) {
+  const { fighter, hair, eyes, facialHair, bodyColors } = profile;
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, CW, CH);
+
+  // Resolve CSS filters for each body-color slot
+  const filterFor = (slot) => slot ? makeCSSFilter(bodyColors[slot]) : 'none';
+  const filterA = makeCSSFilter(bodyColors.A);
+  const filterUR = 'none'; // untinted overlay is drawn as-is
+
+  // Collect all cosmetic layers, split by render phase
+  const allCosmeticGroups = [hair, eyes, facialHair];
+  const backLayers  = [];
+  const frontLayers = [];
+
+  for (const group of allCosmeticGroups) {
+    if (!group || !group.layers.length) continue;
+    for (const layer of group.layers) {
+      const target = layer.pos === 'back' ? backLayers : frontLayers;
+      target.push({ layer, filter: filterFor(group.tintSlot) });
+    }
+  }
+
+  // Collect all image URLs we need to load
+  const neededUrls = new Set([
+    fighter.headUrl,
+    fighter.urUrl,
+    ...backLayers.map(({ layer }) => layer.url),
+    ...frontLayers.map(({ layer }) => layer.url),
+  ]);
+
+  // Load all images in parallel (cached)
+  let imgMap;
+  try {
+    const entries = await Promise.all(
+      [...neededUrls].map(async (url) => [url, await loadImg(url)])
+    );
+    imgMap = new Map(entries);
+  } catch (err) {
+    console.warn('[portrait] image load error', err);
+    ctx.fillStyle = '#220000';
+    ctx.fillRect(0, 0, CW, CH);
+    ctx.fillStyle = '#ff4444';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Load error', CW / 2, CH / 2);
+    return;
+  }
+
+  // ── Phase 1: hair back layers (behind head) ──────────────
+  for (const { layer, filter } of backLayers) {
+    const img = imgMap.get(layer.url);
+    if (img) drawLayer(ctx, img, layer, filter);
+  }
+
+  // ── Phase 2: head base sprite (body color A) ─────────────
+  {
+    const img = imgMap.get(fighter.headUrl);
+    if (img) drawLayer(ctx, img, HEAD_XFORM, filterA);
+  }
+
+  // ── Phase 3: untinted head overlay ───────────────────────
+  {
+    const img = imgMap.get(fighter.urUrl);
+    if (img) drawLayer(ctx, img, HEAD_XFORM, filterUR);
+  }
+
+  // ── Phase 4: hair front layers + eyes + facial hair ──────
+  for (const { layer, filter } of frontLayers) {
+    const img = imgMap.get(layer.url);
+    if (img) drawLayer(ctx, img, layer, filter);
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  CARD CREATION & UI
+// ─────────────────────────────────────────────────────────
+
+function makeLabel(profile) {
+  const { fighter, hair, eyes, facialHair } = profile;
+  const parts = [fighter.label];
+  if (hair.id !== 'none')       parts.push(hair.label);
+  if (eyes.id !== 'none')       parts.push(eyes.label);
+  if (facialHair.id !== 'none') parts.push(facialHair.label);
+  return parts.join('\n');
+}
+
+function createCard(profile) {
+  const card   = document.createElement('div');
+  card.className = 'card loading';
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = CW;
+  canvas.height = CH;
+  canvas.style.width  = '160px';
+  canvas.style.height = '160px';
+
+  const label = document.createElement('div');
+  label.className = 'label';
+
+  card.appendChild(canvas);
+  card.appendChild(label);
+
+  // Clicking the card rerolls just that portrait
+  card.addEventListener('click', () => {
+    const newProfile = randomProfile();
+    label.textContent = makeLabel(newProfile);
+    card.classList.add('loading');
+    renderProfile(canvas, newProfile).finally(() => card.classList.remove('loading'));
+  });
+
+  // Initial render
+  label.textContent = makeLabel(profile);
+  renderProfile(canvas, profile).finally(() => card.classList.remove('loading'));
+
+  return card;
+}
+
+function populateGrid(count) {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    grid.appendChild(createCard(randomProfile()));
+  }
+}
+
+function rerollAll() {
+  const count = parseInt(document.getElementById('count-select').value, 10) || 6;
+  populateGrid(count);
+}
+
+function addMore() {
+  const count = parseInt(document.getElementById('count-select').value, 10) || 6;
+  const grid = document.getElementById('grid');
+  for (let i = 0; i < count; i++) {
+    grid.appendChild(createCard(randomProfile()));
+  }
+}
+
+// Preload the most commonly needed images in the background
+function preloadCommon() {
+  const commonUrls = [
+    'fightersprites/mao-ao-m/head_mint.png',
+    'fightersprites/mao-ao-f/head.png',
+    'fightersprites/mao-ao-m/untinted_regions/ur-head.png',
+    'fightersprites/mao-ao-f/untinted_regions/ur-head.png',
+    'cosmetics/appearance/mao-ao/eyes/circled_eyes_mint.png',
+    'cosmetics/appearance/mao-ao/eyes/circled_eyes_f.png',
+    'cosmetics/appearance/mao-ao/eyes/circled_eye_L_mint.png',
+    'cosmetics/appearance/mao-ao/eyes/circled_eye_R_mint.png',
+    'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
+    'cosmetics/appearance/mao-ao/headhair/smooth_striped_mint.png',
+    'cosmetics/appearance/mao-ao/headhair/ponytail_long-back_mint.png',
+    'cosmetics/appearance/mao-ao/headhair/shoulderlength-front_mint.png',
+    'cosmetics/appearance/mao-ao/headhair/tuft_striped-front_mint.png',
+    'cosmetics/appearance/mao-ao/facialhair/wild_beard_mint.png',
+  ];
+  for (const u of commonUrls) loadImg(u);
+}
+
+// ─────────────────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────────────────
+
+document.getElementById('btn-reroll').addEventListener('click', rerollAll);
+document.getElementById('btn-more').addEventListener('click', addMore);
+document.getElementById('count-select').addEventListener('change', rerollAll);
+
+preloadCommon();
+populateGrid(parseInt(document.getElementById('count-select').value, 10) || 6);
+</script>
+</body>
+</html>
