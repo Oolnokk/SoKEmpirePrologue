@@ -102,6 +102,215 @@
     color: #555;
     margin-top: 12px;
   }
+
+  /* ─── Custom Builder ─────────────────────────────────────── */
+  .builder-section {
+    max-width: 940px;
+    margin: 0 auto 32px;
+    border: 1px solid #2a2a3e;
+    border-radius: 8px;
+    padding: 16px;
+    background: #12121c;
+  }
+  .builder-section h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #c8c0a0;
+    margin-bottom: 14px;
+    letter-spacing: 0.05em;
+  }
+  .builder-layout {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .builder-controls {
+    flex: 1;
+    min-width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .builder-preview-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 220px;
+  }
+  .ctrl-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .ctrl-group label {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .ctrl-group select {
+    padding: 5px 8px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background: #1a1a28;
+    color: #c8c8d8;
+    font-size: 0.82rem;
+    width: 100%;
+    cursor: pointer;
+  }
+  .color-slots {
+    border: 1px solid #2a2a3e;
+    border-radius: 6px;
+    padding: 8px 10px;
+    background: #0e0e18;
+  }
+  .color-slots h3 {
+    font-size: 0.7rem;
+    color: #777;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+  .color-slot {
+    margin-bottom: 8px;
+  }
+  .color-slot:last-child { margin-bottom: 0; }
+  .color-slot-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+  .color-slot-label {
+    font-size: 0.7rem;
+    color: #aaa;
+    font-weight: 600;
+    min-width: 90px;
+  }
+  .color-swatch {
+    width: 28px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid #444;
+    background: #909090;
+    flex-shrink: 0;
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 1px;
+  }
+  .slider-row .axis-label {
+    font-size: 0.63rem;
+    color: #666;
+    min-width: 10px;
+    text-align: right;
+  }
+  .slider-row input[type=range] {
+    flex: 1;
+    accent-color: #8888cc;
+    height: 14px;
+    cursor: pointer;
+  }
+  .slider-val {
+    font-size: 0.63rem;
+    color: #888;
+    min-width: 36px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  #builder-canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    border: 1px solid #2a2a3e;
+    border-radius: 4px;
+  }
+  .builder-btn-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* ─── Diagnostics ──────────────────────────────────────── */
+  .diag-section {
+    width: 100%;
+    max-width: 420px;
+  }
+  details.diag-details > summary {
+    cursor: pointer;
+    font-size: 0.78rem;
+    color: #8888bb;
+    padding: 7px 10px;
+    border: 1px solid #2a2a3e;
+    border-radius: 4px;
+    background: #0e0e18;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+  }
+  details.diag-details > summary::-webkit-details-marker { display: none; }
+  details.diag-details[open] > summary { border-radius: 4px 4px 0 0; border-bottom: none; }
+  details.diag-details > summary::after { content: '▶'; font-size: 0.6rem; color: #666; }
+  details.diag-details[open] > summary::after { content: '▼'; }
+  .diag-body {
+    border: 1px solid #2a2a3e;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    padding: 10px 12px;
+    background: #0e0e18;
+  }
+  .diag-copy-btn {
+    margin-bottom: 10px;
+    font-size: 0.75rem;
+  }
+  .diag-chain {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .diag-step {
+    border: 1px solid #222238;
+    border-radius: 4px;
+    padding: 6px 8px;
+    background: #12121c;
+  }
+  .diag-step-header {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #b0a8d0;
+    margin-bottom: 4px;
+  }
+  .diag-step-detail {
+    font-size: 0.67rem;
+    color: #666;
+    line-height: 1.65;
+    font-family: 'Consolas', 'Courier New', monospace;
+    word-break: break-all;
+  }
+  .diag-step-detail .dk { color: #777; }
+  .diag-step-detail .dv { color: #9999bb; }
+
+  /* ─── Section divider ───────────────────────────────────── */
+  .section-divider {
+    border: none;
+    border-top: 1px solid #1e1e2e;
+    margin: 0 auto 24px;
+    max-width: 940px;
+  }
+  .section-heading {
+    text-align: center;
+    font-size: 0.82rem;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 18px;
+  }
 </style>
 </head>
 <body>
@@ -120,6 +329,137 @@
     <option value="3">3 portraits</option>
   </select>
 </div>
+
+<!-- ──────────────────────────────────────────────────────
+     CUSTOM PORTRAIT BUILDER
+     ─────────────────────────────────────────────────────── -->
+<section class="builder-section">
+  <h2>🎨 Custom Portrait Builder</h2>
+  <div class="builder-layout">
+
+    <!-- Left: controls -->
+    <div class="builder-controls">
+
+      <div class="ctrl-group">
+        <label for="b-fighter">Fighter</label>
+        <select id="b-fighter"></select>
+      </div>
+
+      <div class="ctrl-group">
+        <label for="b-hair">Hair</label>
+        <select id="b-hair"></select>
+      </div>
+
+      <div class="ctrl-group">
+        <label for="b-eyes">Eye Mark</label>
+        <select id="b-eyes"></select>
+      </div>
+
+      <div class="ctrl-group">
+        <label for="b-facial">Facial Hair</label>
+        <select id="b-facial"></select>
+      </div>
+
+      <!-- Color slots -->
+      <div class="color-slots">
+        <h3>Body Colors</h3>
+
+        <!-- Slot A: skin/body -->
+        <div class="color-slot">
+          <div class="color-slot-header">
+            <span class="color-slot-label">A — Skin/Body</span>
+            <div class="color-swatch" id="b-swatch-A"></div>
+          </div>
+          <div class="slider-row">
+            <span class="axis-label">H</span>
+            <input type="range" id="b-color-A-h" min="-180" max="180" step="1" value="0">
+            <span class="slider-val" id="b-color-A-h-val">0°</span>
+          </div>
+          <div class="slider-row">
+            <span class="axis-label">S</span>
+            <input type="range" id="b-color-A-s" min="-1" max="1" step="0.01" value="0">
+            <span class="slider-val" id="b-color-A-s-val">+0%</span>
+          </div>
+          <div class="slider-row">
+            <span class="axis-label">V</span>
+            <input type="range" id="b-color-A-v" min="-1" max="1" step="0.01" value="0">
+            <span class="slider-val" id="b-color-A-v-val">+0%</span>
+          </div>
+        </div>
+
+        <!-- Slot B: markings/hair -->
+        <div class="color-slot">
+          <div class="color-slot-header">
+            <span class="color-slot-label">B — Markings/Hair</span>
+            <div class="color-swatch" id="b-swatch-B"></div>
+          </div>
+          <div class="slider-row">
+            <span class="axis-label">H</span>
+            <input type="range" id="b-color-B-h" min="-180" max="180" step="1" value="0">
+            <span class="slider-val" id="b-color-B-h-val">0°</span>
+          </div>
+          <div class="slider-row">
+            <span class="axis-label">S</span>
+            <input type="range" id="b-color-B-s" min="-1" max="1" step="0.01" value="0">
+            <span class="slider-val" id="b-color-B-s-val">+0%</span>
+          </div>
+          <div class="slider-row">
+            <span class="axis-label">V</span>
+            <input type="range" id="b-color-B-v" min="-1" max="1" step="0.01" value="0">
+            <span class="slider-val" id="b-color-B-v-val">+0%</span>
+          </div>
+        </div>
+
+        <!-- Slot C: accent -->
+        <div class="color-slot">
+          <div class="color-slot-header">
+            <span class="color-slot-label">C — Accent</span>
+            <div class="color-swatch" id="b-swatch-C"></div>
+          </div>
+          <div class="slider-row">
+            <span class="axis-label">H</span>
+            <input type="range" id="b-color-C-h" min="-180" max="180" step="1" value="0">
+            <span class="slider-val" id="b-color-C-h-val">0°</span>
+          </div>
+          <div class="slider-row">
+            <span class="axis-label">S</span>
+            <input type="range" id="b-color-C-s" min="-1" max="1" step="0.01" value="0">
+            <span class="slider-val" id="b-color-C-s-val">+0%</span>
+          </div>
+          <div class="slider-row">
+            <span class="axis-label">V</span>
+            <input type="range" id="b-color-C-v" min="-1" max="1" step="0.01" value="0">
+            <span class="slider-val" id="b-color-C-v-val">+0%</span>
+          </div>
+        </div>
+      </div><!-- /color-slots -->
+
+      <div class="builder-btn-row">
+        <button id="btn-randomize-colors">🎨 Randomise Colors</button>
+        <button id="btn-randomize-all">🎲 Randomise All</button>
+      </div>
+    </div><!-- /builder-controls -->
+
+    <!-- Right: preview canvas + diagnostics -->
+    <div class="builder-preview-col">
+      <canvas id="builder-canvas" width="200" height="200" style="width:200px;height:200px;"></canvas>
+
+      <div class="diag-section">
+        <details class="diag-details" id="diag-details">
+          <summary>🔍 Diagnostics / Render Chain</summary>
+          <div class="diag-body">
+            <button class="diag-copy-btn" id="btn-copy-diag">📋 Copy to clipboard</button>
+            <ul class="diag-chain" id="diag-chain"></ul>
+          </div>
+        </details>
+      </div>
+    </div><!-- /builder-preview-col -->
+
+  </div><!-- /builder-layout -->
+</section>
+
+<hr class="section-divider">
+<p class="section-heading">🎲 Random Gallery</p>
 
 <div id="grid"></div>
 <div id="status"></div>
@@ -575,6 +915,310 @@ document.getElementById('count-select').addEventListener('change', rerollAll);
 
 preloadCommon();
 populateGrid(parseInt(document.getElementById('count-select').value, 10) || 6);
+
+// ─────────────────────────────────────────────────────────
+//  CUSTOM BUILDER
+// ─────────────────────────────────────────────────────────
+
+/** Read a single color slot from the slider inputs. */
+function readColorSlot(slot) {
+  return {
+    h: parseFloat(document.getElementById(`b-color-${slot}-h`).value) || 0,
+    s: parseFloat(document.getElementById(`b-color-${slot}-s`).value) || 0,
+    v: parseFloat(document.getElementById(`b-color-${slot}-v`).value) || 0,
+  };
+}
+
+/** Write a color slot back to the slider inputs and refresh label + swatch. */
+function writeColorSlot(slot, color) {
+  const val = (id, v) => { document.getElementById(id).value = v; };
+  val(`b-color-${slot}-h`, (color.h  ?? 0).toFixed(2));
+  val(`b-color-${slot}-s`, (color.s  ?? 0).toFixed(2));
+  // 'l' (lightness) is an alternate field name used by some older color objects; treat it as 'v'
+  val(`b-color-${slot}-v`, (color.v  ?? color.l ?? 0).toFixed(2));
+  updateColorSlotUI(slot);
+}
+
+/** Refresh the numeric labels and swatch for a color slot. */
+function updateColorSlotUI(slot) {
+  const h = parseFloat(document.getElementById(`b-color-${slot}-h`).value);
+  const s = parseFloat(document.getElementById(`b-color-${slot}-s`).value);
+  const v = parseFloat(document.getElementById(`b-color-${slot}-v`).value);
+  document.getElementById(`b-color-${slot}-h-val`).textContent =
+    h.toFixed(0) + '°';
+  document.getElementById(`b-color-${slot}-s-val`).textContent =
+    (s >= 0 ? '+' : '') + (s * 100).toFixed(0) + '%';
+  document.getElementById(`b-color-${slot}-v-val`).textContent =
+    (v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%';
+  // Update swatch: apply filter on a neutral mid-gray background
+  document.getElementById(`b-swatch-${slot}`).style.filter = makeCSSFilter({ h, s, v });
+}
+
+/** Build a profile object from the current builder UI state. */
+function getBuilderProfile() {
+  const fighter    = FIGHTERS.find(f => f.id === document.getElementById('b-fighter').value) ?? FIGHTERS[0];
+  const hair       = HAIR_OPTIONS.find(o => o.id === document.getElementById('b-hair').value) ?? HAIR_OPTIONS[0];
+  const eyes       = EYES_OPTIONS.find(o => o.id === document.getElementById('b-eyes').value) ?? EYES_OPTIONS[0];
+  const facialHair = FACIAL_HAIR_OPTIONS.find(o => o.id === document.getElementById('b-facial').value) ?? FACIAL_HAIR_OPTIONS[0];
+  return {
+    fighter,
+    hair,
+    eyes,
+    facialHair,
+    bodyColors: { A: readColorSlot('A'), B: readColorSlot('B'), C: readColorSlot('C') },
+  };
+}
+
+/** Render the builder canvas and refresh diagnostics. */
+async function renderBuilderPreview() {
+  const canvas  = document.getElementById('builder-canvas');
+  const profile = getBuilderProfile();
+  await renderProfile(canvas, profile);
+  updateDiagnostics(profile);
+}
+
+// ─────────────────────────────────────────────────────────
+//  RENDER CHAIN / DIAGNOSTICS
+// ─────────────────────────────────────────────────────────
+
+/**
+ * Build an ordered array of render-chain entries for a profile.
+ * Mirrors the exact draw order in renderProfile().
+ */
+function buildRenderChain(profile) {
+  const { fighter, hair, eyes, facialHair, bodyColors } = profile;
+  const filterFor = (slot) => slot ? makeCSSFilter(bodyColors[slot]) : 'none';
+
+  const cosmeticGroups = [
+    { group: hair,       category: 'Hair' },
+    { group: eyes,       category: 'Eyes' },
+    { group: facialHair, category: 'Facial Hair' },
+  ];
+
+  const backEntries  = [];
+  const frontEntries = [];
+
+  for (const { group, category } of cosmeticGroups) {
+    if (!group || !group.layers.length) continue;
+    const multiLayer = group.layers.length > 1;
+    for (let i = 0; i < group.layers.length; i++) {
+      const layer = group.layers[i];
+      const entry = {
+        category: `${category}${multiLayer ? ` — layer ${i + 1}` : ''} (${layer.pos})`,
+        optionId:    group.id,
+        optionLabel: group.label,
+        tintSlot:    group.tintSlot,
+        filter:      filterFor(group.tintSlot),
+        relPath:     layer.url,
+        resolvedUrl: ASSET_BASE + layer.url,
+        transform:   { ax: layer.ax, ay: layer.ay, sx: layer.sx, sy: layer.sy },
+      };
+      (layer.pos === 'back' ? backEntries : frontEntries).push(entry);
+    }
+  }
+
+  const chain = [];
+
+  // Phase 1 – back cosmetic layers (drawn behind the head)
+  for (const e of backEntries) chain.push(e);
+
+  // Phase 2 – head base sprite (tinted with slot A)
+  chain.push({
+    category:    'Head Base',
+    optionId:    fighter.id,
+    optionLabel: fighter.label,
+    tintSlot:    'A',
+    filter:      filterFor('A'),
+    relPath:     fighter.headUrl,
+    resolvedUrl: ASSET_BASE + fighter.headUrl,
+    transform:   { ...HEAD_XFORM },
+  });
+
+  // Phase 3 – untinted head overlay (no tint)
+  chain.push({
+    category:    'Head Overlay (untinted)',
+    optionId:    fighter.id,
+    optionLabel: fighter.label,
+    tintSlot:    null,
+    filter:      'none',
+    relPath:     fighter.urUrl,
+    resolvedUrl: ASSET_BASE + fighter.urUrl,
+    transform:   { ...HEAD_XFORM },
+  });
+
+  // Phase 4 – front cosmetic layers (drawn on top of the head)
+  for (const e of frontEntries) chain.push(e);
+
+  return chain;
+}
+
+/** Minimal HTML escaping to prevent injection in diagnostic innerHTML. */
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Render the diagnostics panel from a profile. */
+function updateDiagnostics(profile) {
+  const chain = buildRenderChain(profile);
+  const list  = document.getElementById('diag-chain');
+  list.innerHTML = '';
+
+  chain.forEach((e, i) => {
+    const { ax, ay, sx, sy } = e.transform;
+    const tintText = e.tintSlot
+      ? `slot ${escHtml(e.tintSlot)} → ${escHtml(e.filter)}`
+      : 'none (untinted)';
+
+    const li = document.createElement('li');
+    li.className = 'diag-step';
+    li.innerHTML =
+      `<div class="diag-step-header">Step ${i + 1} — ${escHtml(e.category)}</div>` +
+      `<div class="diag-step-detail">` +
+        `<span class="dk">Option     :</span> <span class="dv">${escHtml(e.optionId)}</span> — "${escHtml(e.optionLabel)}"<br>` +
+        `<span class="dk">Resolved   :</span> <span class="dv">${escHtml(e.resolvedUrl)}</span><br>` +
+        `<span class="dk">Rel path   :</span> <span class="dv">${escHtml(e.relPath)}</span><br>` +
+        `<span class="dk">Transform  :</span> ax=${ax.toFixed(2)}  ay=${ay.toFixed(2)}  sx=${sx.toFixed(2)}  sy=${sy.toFixed(2)}<br>` +
+        `<span class="dk">Tint       :</span> ${tintText}` +
+      `</div>`;
+    list.appendChild(li);
+  });
+}
+
+/** Copy a plain-text render-chain summary to the clipboard. */
+function copyDiagnostics() {
+  const profile = getBuilderProfile();
+  const { fighter, hair, eyes, facialHair, bodyColors } = profile;
+  const chain   = buildRenderChain(profile);
+
+  const lines = [
+    '=== Portrait Render Chain ===',
+    `Fighter     : ${fighter.id} — ${fighter.label}`,
+    `Hair        : ${hair.id} — ${hair.label}`,
+    `Eyes        : ${eyes.id} — ${eyes.label}`,
+    `Facial Hair : ${facialHair.id} — ${facialHair.label}`,
+    '',
+    'Body Colors:',
+    ...Object.entries(bodyColors).map(([slot, c]) => {
+      // 'l' (lightness) is an alternate field name used by some older color objects; treat it as 'v'
+      const v = (c.v ?? c.l ?? 0);
+      return `  ${slot}: h=${Number(c.h).toFixed(1)}°  s=${(Number(c.s) * 100).toFixed(1)}%  v=${(v * 100).toFixed(1)}%`;
+    }),
+    '',
+    'Render Chain:',
+    ...chain.flatMap((e, i) => {
+      const { ax, ay, sx, sy } = e.transform;
+      const tint = e.tintSlot ? `slot ${e.tintSlot}: ${e.filter}` : 'none';
+      return [
+        `  [${i + 1}] ${e.category}`,
+        `       Option    : ${e.optionId} — "${e.optionLabel}"`,
+        `       Resolved  : ${e.resolvedUrl}`,
+        `       Rel path  : ${e.relPath}`,
+        `       Transform : ax=${ax.toFixed(2)} ay=${ay.toFixed(2)} sx=${sx.toFixed(2)} sy=${sy.toFixed(2)}`,
+        `       Tint      : ${tint}`,
+      ];
+    }),
+  ];
+
+  const text = lines.join('\n');
+
+  const btn    = document.getElementById('btn-copy-diag');
+  const finish = (msg) => {
+    btn.textContent = msg;
+    setTimeout(() => { btn.textContent = '📋 Copy to clipboard'; }, 2200);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => finish('✓ Copied!')).catch(() => fallbackCopy(text, finish));
+  } else {
+    fallbackCopy(text, finish);
+  }
+}
+
+function fallbackCopy(text, cb) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); cb('✓ Copied!'); }
+  catch { cb('⚠ Copy failed — please select and copy the text manually'); }
+  document.body.removeChild(ta);
+}
+
+// ─────────────────────────────────────────────────────────
+//  BUILDER INIT
+// ─────────────────────────────────────────────────────────
+
+function populateBuilderDropdowns() {
+  const fill = (id, opts) => {
+    document.getElementById(id).innerHTML =
+      opts.map(o => `<option value="${escHtml(o.id)}">${escHtml(o.label)}</option>`).join('');
+  };
+  fill('b-fighter', FIGHTERS);
+  fill('b-hair',    HAIR_OPTIONS);
+  fill('b-eyes',    EYES_OPTIONS);
+  fill('b-facial',  FACIAL_HAIR_OPTIONS);
+}
+
+function initBuilder() {
+  populateBuilderDropdowns();
+
+  // Start with a random profile so controls are pre-filled
+  const init = randomProfile();
+  document.getElementById('b-fighter').value = init.fighter.id;
+  document.getElementById('b-hair').value    = init.hair.id;
+  document.getElementById('b-eyes').value    = init.eyes.id;
+  document.getElementById('b-facial').value  = init.facialHair.id;
+  writeColorSlot('A', init.bodyColors.A);
+  writeColorSlot('B', init.bodyColors.B);
+  writeColorSlot('C', init.bodyColors.C);
+
+  // Wire cosmetic dropdowns
+  ['b-fighter', 'b-hair', 'b-eyes', 'b-facial'].forEach(id => {
+    document.getElementById(id).addEventListener('change', renderBuilderPreview);
+  });
+
+  // Wire color sliders
+  ['A', 'B', 'C'].forEach(slot => {
+    ['h', 's', 'v'].forEach(axis => {
+      document.getElementById(`b-color-${slot}-${axis}`).addEventListener('input', () => {
+        updateColorSlotUI(slot);
+        renderBuilderPreview();
+      });
+    });
+  });
+
+  document.getElementById('btn-randomize-colors').addEventListener('click', () => {
+    const c = randomBodyColors();
+    writeColorSlot('A', c.A);
+    writeColorSlot('B', c.B);
+    writeColorSlot('C', c.C);
+    renderBuilderPreview();
+  });
+
+  document.getElementById('btn-randomize-all').addEventListener('click', () => {
+    const p = randomProfile();
+    document.getElementById('b-fighter').value = p.fighter.id;
+    document.getElementById('b-hair').value    = p.hair.id;
+    document.getElementById('b-eyes').value    = p.eyes.id;
+    document.getElementById('b-facial').value  = p.facialHair.id;
+    writeColorSlot('A', p.bodyColors.A);
+    writeColorSlot('B', p.bodyColors.B);
+    writeColorSlot('C', p.bodyColors.C);
+    renderBuilderPreview();
+  });
+
+  document.getElementById('btn-copy-diag').addEventListener('click', copyDiagnostics);
+
+  renderBuilderPreview();
+}
+
+initBuilder();
 </script>
 </body>
 </html>
