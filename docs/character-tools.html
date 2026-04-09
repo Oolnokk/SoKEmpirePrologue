@@ -63,6 +63,8 @@ html, body {
   border-bottom: 3px solid transparent;
   margin-bottom: -2px;
   transition: color 0.15s, border-color 0.15s;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .mode-tab:hover { color: var(--text); }
 .mode-tab.active {
@@ -492,8 +494,8 @@ details.diag-details[open] > summary::after { content: '▼'; }
      ════════════════════════════════════════════════════════ -->
 <div id="mode-bar">
   <span class="app-title">⚔ SoK Character Tools</span>
-  <button class="mode-tab active" data-mode="portrait">🖼 AI Portrait Picker</button>
-  <button class="mode-tab" data-mode="cosmetic">🎨 Cosmetic Placer</button>
+  <button class="mode-tab active" data-mode="portrait" title="AI Portrait Picker (press 1)">🖼 AI Portrait Picker</button>
+  <button class="mode-tab" data-mode="cosmetic" title="Cosmetic Placer (press 2)">🎨 Cosmetic Placer</button>
 </div>
 
 <!-- ════════════════════════════════════════════════════════
@@ -663,11 +665,20 @@ details.diag-details[open] > summary::after { content: '▼'; }
       <input type="text" id="cos-headPath" value="fightersprites/mao-ao-m/head_mint.png">
       <p class="asset-hint">e.g. fightersprites/mao-ao-m/head_mint.png</p>
 
-      <label>Cosmetic (relative path)</label>
-      <input type="text" id="cos-cosPath" value="cosmetics/appearance/mao-ao/facialhair/wildbeard_mint2.png">
-      <p class="asset-hint">e.g. cosmetics/appearance/mao-ao/facialhair/wildbeard_mint2.png</p>
+      <label>Cosmetic Category</label>
+      <select id="cos-catSelect">
+        <option value="hair">Hair</option>
+        <option value="eyes">Eye Mark</option>
+        <option value="facialhair">Facial Hair</option>
+      </select>
 
-      <button id="cos-loadBtn" style="width:100%">⟳ Load / Reload</button>
+      <label>Cosmetic</label>
+      <select id="cos-cosSelect"></select>
+
+      <label id="cos-layerLabel" style="display:none">Layer</label>
+      <select id="cos-layerSelect" style="display:none"></select>
+
+      <button id="cos-loadBtn" style="width:100%;margin-top:4px">⟳ Load / Reload</button>
     </div>
 
     <!-- Tint (HSV) -->
@@ -838,17 +849,34 @@ function execCopy(text, onSuccess, onFail) {
 (function initModeSwitcher() {
   const tabs     = document.querySelectorAll('.mode-tab');
   const sections = document.querySelectorAll('.mode-section');
+  const STORAGE_KEY = 'sok-tools-mode';
+
+  function activateMode(target) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === target));
+    sections.forEach(s => s.classList.toggle('active', s.id === 'mode-' + target));
+    try { localStorage.setItem(STORAGE_KEY, target); } catch (_) {}
+  }
 
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      const target = tab.dataset.mode;
-      tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === target));
-      sections.forEach(s => {
-        const match = s.id === 'mode-' + target;
-        s.classList.toggle('active', match);
-      });
+      if (!tab.classList.contains('active')) activateMode(tab.dataset.mode);
     });
   });
+
+  // Keyboard shortcuts: 1 → portrait, 2 → cosmetic (skipped when typing in an input)
+  document.addEventListener('keydown', e => {
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.key === '1') activateMode('portrait');
+    else if (e.key === '2') activateMode('cosmetic');
+  });
+
+  // Restore last-used mode from localStorage
+  let saved;
+  try { saved = localStorage.getItem(STORAGE_KEY); } catch (_) {}
+  if (saved && Array.from(tabs).some(t => t.dataset.mode === saved)) {
+    activateMode(saved);
+  }
 })();
 
 
@@ -1438,6 +1466,95 @@ function cosResizeCanvas(w, h) {
 }
 cosResizeCanvas(cosCW, cosCH);
 
+// ── Cosmetic picker ────────────────────────────────────────
+
+const COS_CATEGORIES = [
+  { id: 'hair',       label: 'Hair',        options: HAIR_OPTIONS },
+  { id: 'eyes',       label: 'Eye Mark',    options: EYES_OPTIONS },
+  { id: 'facialhair', label: 'Facial Hair', options: FACIAL_HAIR_OPTIONS },
+];
+
+/** Sync all four xform sliders/numbers + baseline from given values. */
+function cosSetXform(ax, ay, sx, sy) {
+  cosXf  = { ax, ay, sx, sy };
+  cosBase = { ...cosXf };
+  document.getElementById('cos-s_ax').value = ax;
+  document.getElementById('cos-n_ax').value = ax;
+  document.getElementById('cos-s_ay').value = ay;
+  document.getElementById('cos-n_ay').value = ay;
+  document.getElementById('cos-s_sx').value = sx;
+  document.getElementById('cos-n_sx').value = sx;
+  document.getElementById('cos-s_sy').value = sy;
+  document.getElementById('cos-n_sy').value = sy;
+  document.getElementById('cos-ref_ax').value = cosFmt(ax);
+  document.getElementById('cos-ref_ay').value = cosFmt(ay);
+  document.getElementById('cos-ref_sx').value = cosFmt(sx);
+  document.getElementById('cos-ref_sy').value = cosFmt(sy);
+}
+
+/** Return the currently selected cosmetic option object, or null. */
+function cosGetSelectedItem() {
+  const catId  = document.getElementById('cos-catSelect').value;
+  const itemId = document.getElementById('cos-cosSelect').value;
+  const cat    = COS_CATEGORIES.find(c => c.id === catId);
+  return cat ? (cat.options.find(o => o.id === itemId) ?? null) : null;
+}
+
+/** Return the relative URL of the selected cosmetic layer, or null if none. */
+function cosGetSelectedLayerIndex() {
+  const item = cosGetSelectedItem();
+  if (!item || item.layers.length <= 1) return 0;
+  return parseInt(document.getElementById('cos-layerSelect').value) || 0;
+}
+
+/** Return the relative URL of the selected cosmetic layer, or null if none. */
+function cosGetSelectedLayerUrl() {
+  const item = cosGetSelectedItem();
+  if (!item || !item.layers.length) return null;
+  return item.layers[cosGetSelectedLayerIndex()].url;
+}
+
+/**
+ * Rebuild the layer dropdown for the current item selection, show/hide it,
+ * and pre-fill the xform sliders from the selected layer's defaults.
+ */
+function cosPopulateLayerSelect() {
+  const item   = cosGetSelectedItem();
+  const layers = item ? item.layers : [];
+  const layerLabel = document.getElementById('cos-layerLabel');
+  const layerSel   = document.getElementById('cos-layerSelect');
+
+  if (layers.length > 1) {
+    layerSel.innerHTML = layers
+      .map((l, i) => `<option value="${escHtml(String(i))}">Layer ${i + 1} (${escHtml(l.pos)})</option>`)
+      .join('');
+    layerLabel.style.display = '';
+    layerSel.style.display   = '';
+  } else {
+    layerLabel.style.display = 'none';
+    layerSel.style.display   = 'none';
+  }
+
+  // Pre-fill xform from the selected layer (composed with HEAD_XFORM)
+  if (layers.length > 0) {
+    const layerIdx = cosGetSelectedLayerIndex();
+    const layer    = layers[layerIdx];
+    const composed = composeXform(HEAD_XFORM, layer);
+    cosSetXform(composed.ax, composed.ay, composed.sx, composed.sy);
+  }
+}
+
+/** Rebuild the item dropdown for the current category and refresh layers. */
+function cosPopulateItemSelect() {
+  const catId   = document.getElementById('cos-catSelect').value;
+  const cat     = COS_CATEGORIES.find(c => c.id === catId);
+  const itemSel = document.getElementById('cos-cosSelect');
+  itemSel.innerHTML = (cat ? cat.options : [])
+    .map(o => `<option value="${escHtml(o.id)}">${escHtml(o.label)}</option>`)
+    .join('');
+  cosPopulateLayerSelect();
+}
+
 // ── Asset loading (uses shared ASSET_BASE) ─────────────────
 
 function cosLoadImage(relPath) {
@@ -1461,11 +1578,13 @@ function cosLoadImage(relPath) {
 }
 
 async function cosLoadAssets() {
-  const headPath = document.getElementById('cos-headPath').value.trim();
-  const cosPath  = document.getElementById('cos-cosPath').value.trim();
+  const headPath    = document.getElementById('cos-headPath').value.trim();
+  const cosLayerUrl = cosGetSelectedLayerUrl();
   cosHeadImg = null; cosCosImg = null;
   try { cosHeadImg = await cosLoadImage(headPath); } catch (e) { console.warn(e); }
-  try { cosCosImg  = await cosLoadImage(cosPath);  } catch (e) { console.warn(e); }
+  if (cosLayerUrl) {
+    try { cosCosImg = await cosLoadImage(cosLayerUrl); } catch (e) { console.warn(e); }
+  }
   cosRender();
 }
 
@@ -1601,8 +1720,8 @@ function cosBuildFullJson() {
   }
 
   // No existing JSON — generate a canonical appearance-cosmetic structure
-  const cosPath = document.getElementById('cos-cosPath').value.trim();
-  const imageUrl = cosPath ? ('./assets/' + cosPath) : './assets/cosmetics/appearance/mao-ao/REPLACE_ME.png';
+  const cosLayerUrl = cosGetSelectedLayerUrl();
+  const imageUrl = cosLayerUrl ? ('./assets/' + cosLayerUrl) : './assets/cosmetics/appearance/mao-ao/REPLACE_ME.png';
 
   return JSON.stringify({
     meta: { name: 'Untitled Cosmetic' },
@@ -1754,6 +1873,26 @@ cosCV.addEventListener('wheel', e => {
 }, { passive: false });
 
 // ── Cosmetic mode init ─────────────────────────────────────
+
+// Initialise pickers, pre-select default (wildbeard facial hair matches old default)
+document.getElementById('cos-catSelect').value = 'facialhair';
+cosPopulateItemSelect();
+document.getElementById('cos-cosSelect').value = 'wildbeard';
+cosPopulateLayerSelect();
+
+// Wire picker change events → rebuild layers + auto-reload
+document.getElementById('cos-catSelect').addEventListener('change', () => {
+  cosPopulateItemSelect();
+  cosLoadAssets();
+});
+document.getElementById('cos-cosSelect').addEventListener('change', () => {
+  cosPopulateLayerSelect();
+  cosLoadAssets();
+});
+document.getElementById('cos-layerSelect').addEventListener('change', () => {
+  cosPopulateLayerSelect();
+  cosLoadAssets();
+});
 
 cosLoadAssets();
 
