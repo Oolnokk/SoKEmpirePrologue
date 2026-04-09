@@ -2732,6 +2732,17 @@ function cosGetCurrentSpeciesData() {
 }
 
 /**
+ * Return the gender-specific block from the currently selected species in the
+ * Species Editor, or null when no selection / data not yet loaded.
+ */
+function speGetCurrentSpeciesData() {
+  const speciesId = document.getElementById('spe-species').value;
+  const gender    = document.getElementById('spe-gender').value;
+  if (!speciesId || !speAllSpecies[speciesId]) return null;
+  return speAllSpecies[speciesId][gender] || null;
+}
+
+/**
  * Called when the species or gender dropdown in the Cosmetic Placer changes.
  * Updates the hidden head-path input, re-filters cosmetics, and reloads assets.
  */
@@ -2817,6 +2828,12 @@ document.getElementById('cos-gender').addEventListener('change',  cosOnSpeciesCh
 // ============================================================
 // MODE: SPECIES EDITOR
 // ============================================================
+
+// ── Editor canvas ───────────────────────────────────────────
+
+const speCV  = document.getElementById('spe-cv');
+const speCtx = speCV.getContext('2d');
+let speCW = 300, speCH = 300, speL = 80;
 
 // ── Editor state ───────────────────────────────────────────
 
@@ -3012,16 +3029,62 @@ function speBuildExportJson() {
 
 // ── Species Editor event handlers ──────────────────────────
 
+/**
+ * Load and draw the head sprite for the currently selected species+gender
+ * onto the Species Editor preview canvas (#spe-cv), reusing cosLoadImage.
+ */
+async function speRenderHeadPreview() {
+  speCtx.clearRect(0, 0, speCW, speCH);
+  const data = speGetCurrentSpeciesData();
+  if (!data || !data.headSprite) { console.warn('[spe] No headSprite for current selection'); return; }
+  const xf = data.headXform || HEAD_XFORM;
+
+  let headImg = null;
+  try { headImg = await cosLoadImage(data.headSprite); } catch (e) { console.warn('[spe] Head sprite load failed:', data.headSprite, e); }
+  if (!headImg) return;
+
+  const urImgs = [];
+  for (const mid of (data.headUrLayers || [])) {
+    try { urImgs.push(await cosLoadImage(mid.url)); } catch (e) { console.warn('[spe] UR overlay load failed:', mid.url, e); }
+  }
+
+  speCtx.clearRect(0, 0, speCW, speCH);
+
+  // Centre cross guide
+  speCtx.save();
+  speCtx.strokeStyle = '#1e2836'; speCtx.lineWidth = 1;
+  speCtx.beginPath();
+  speCtx.moveTo(speCW / 2, 0);   speCtx.lineTo(speCW / 2, speCH);
+  speCtx.moveTo(0, speCH / 2);   speCtx.lineTo(speCW, speCH / 2);
+  speCtx.stroke();
+  speCtx.restore();
+
+  const drawLayer = (img, ax, ay, sx, sy) => {
+    const h = speL * sy;
+    const w = (img.naturalWidth / img.naturalHeight) * speL * sx;
+    const cx = speCW / 2 + ay * speL;
+    const cy = speCH / 2 - ax * speL;
+    speCtx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+  };
+
+  drawLayer(headImg, xf.ax, xf.ay, xf.sx, xf.sy);
+  for (const urImg of urImgs) {
+    drawLayer(urImg, xf.ax, xf.ay, xf.sx, xf.sy);
+  }
+}
+
 function speOnSpeciesOrGenderChanged() {
   const speciesId = document.getElementById('spe-species').value;
   if (!speciesId || !speAllSpecies[speciesId]) return;
   speLoadIntoEditor(speAllSpecies[speciesId]);
+  speRenderHeadPreview();
 }
 
 document.getElementById('spe-species').addEventListener('change', speOnSpeciesOrGenderChanged);
 document.getElementById('spe-gender').addEventListener('change',  () => {
   speSelectedStop = -1;
   speRefreshEditorUI();
+  speRenderHeadPreview();
 });
 document.getElementById('spe-slot').addEventListener('change', () => {
   speActiveSlot   = document.getElementById('spe-slot').value;
