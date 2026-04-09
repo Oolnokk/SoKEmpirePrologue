@@ -485,6 +485,30 @@ details.diag-details[open] > summary::after { content: '▼'; }
 
 #cosCopyStatus { font-size: 11px; color: #6fdb7a; height: 16px; margin-top: 4px; text-align: center; }
 .asset-hint { font-size: 10px; color: #556; margin-top: -6px; margin-bottom: 8px; font-style: italic; }
+
+/* ── Slot tabs ── */
+.cos-slot-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.cos-slot-tab {
+  flex: 1;
+  padding: 5px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--btn);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+.cos-slot-tab:hover { background: var(--btnHi); color: var(--text); }
+.cos-slot-tab.active { background: #1b3d6e; border-color: var(--accent); color: var(--accent); }
+#cos-slot-hint { font-size: 10px; color: var(--muted); margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -658,19 +682,23 @@ details.diag-details[open] > summary::after { content: '▼'; }
   <!-- LEFT PANEL -->
   <aside id="cos-panel">
 
+    <!-- Slot selector -->
+    <div class="cos-section">
+      <h2>Active Slot</h2>
+      <div class="cos-slot-tabs">
+        <button class="cos-slot-tab" data-slot="hairBack">Hair Back</button>
+        <button class="cos-slot-tab" data-slot="eyes">Eyes</button>
+        <button class="cos-slot-tab active" data-slot="hairFront">Hair Front</button>
+      </div>
+      <div id="cos-slot-hint">Editing: Hair Front · category: Hair</div>
+    </div>
+
     <!-- Asset paths (relative, resolved via ASSET_BASE) -->
     <div class="cos-section">
       <h2>Assets</h2>
       <label>Head sprite (relative path)</label>
       <input type="text" id="cos-headPath" value="fightersprites/mao-ao-m/head_mint.png">
       <p class="asset-hint">e.g. fightersprites/mao-ao-m/head_mint.png</p>
-
-      <label>Cosmetic Category</label>
-      <select id="cos-catSelect">
-        <option value="hair">Hair</option>
-        <option value="eyes">Eye Mark</option>
-        <option value="facialhair">Facial Hair</option>
-      </select>
 
       <label>Cosmetic</label>
       <select id="cos-cosSelect"></select>
@@ -739,6 +767,10 @@ details.diag-details[open] > summary::after { content: '▼'; }
         <input type="range" id="cos-s_sy" min="0.1" max="10" step="0.01" value="1.14">
         <input type="number" id="cos-n_sy" min="0.1" max="10" step="0.01" value="1.14">
       </div>
+      <div class="cos-row2" style="margin-top:4px">
+        <button id="cos-copyXformBtn">⎘ Copy xform</button>
+        <button id="cos-pasteXformBtn">⎗ Paste xform</button>
+      </div>
     </div>
 
     <!-- Baseline / diff -->
@@ -764,6 +796,7 @@ details.diag-details[open] > summary::after { content: '▼'; }
       <div id="cosDiffOutput">—</div>
 
       <button id="cos-copyFullBtn" class="btn-accent" style="width:100%">⎘ Copy full cosmetic JSON</button>
+      <button id="cos-copyCombinedBtn" style="width:100%;margin-top:4px">⎘ Copy combined appearance JSON</button>
       <div id="cosCopyStatus"></div>
     </div>
 
@@ -942,7 +975,7 @@ function portraitCategoryForEntry(entry) {
   if (path.includes('/headhair/') || path.includes('headhair/')) return 'hair';
   if (path.includes('/eyes/')     || path.includes('eyes/'))     return 'eyes';
   if (path.includes('/facialhair/') || path.includes('facialhair/')) return 'facialhair';
-  if (/\beye(s|_|$)/.test(name)) return 'eyes';
+  if (name.includes('eye')) return 'eyes';
   if (name.includes('beard') || name.includes('stache') || name.includes('whisker') || name.includes('facial')) return 'facialhair';
   return 'hair';
 }
@@ -1534,19 +1567,50 @@ const cosCV  = document.getElementById('cos-cv');
 const cosCtx = cosCV.getContext('2d');
 
 let cosCW = 300, cosCH = 300, cosL = 80;
-let cosHeadImg = null, cosCosImg = null;
+let cosHeadImg = null;
 
-// Current xform (ax, ay, sx, sy) — stores raw JSON values
-let cosXf   = { ax: 0, ay: 0, sx: 1, sy: 1 };
+// ── Slot state ─────────────────────────────────────────────
 
-// Baseline (for diff)
-let cosBase = { ax: 0, ay: 0, sx: 1, sy: 1 };
+/**
+ * Three independent slots: Hair Back, Eyes, Hair Front.
+ * Each slot tracks its own cosmetic selection, layer index, loaded JSON,
+ * decoded layer list, rendered image, xform, baseline, and tint.
+ */
+const SLOT_DEFS = [
+  { key: 'hairBack',  label: 'Hair Back',  cat: 'hair' },
+  { key: 'eyes',      label: 'Eyes',       cat: 'eyes' },
+  { key: 'hairFront', label: 'Hair Front', cat: 'hair' },
+];
 
-// Loaded cosmetic data
-let cosLoadedJson    = null; // original JSON object for the selected cosmetic
-let cosCurrentLayers = [];   // [{name, url, xform:{ax,ay,scaleX,scaleY,rotDeg?}}]
-let cosIndexEntries  = [];   // all appearance:: entries from the index
-let cosIndexBaseUrl  = '';   // URL used to resolve entry paths
+const SLOTS = {};
+for (const def of SLOT_DEFS) {
+  SLOTS[def.key] = {
+    key:           def.key,
+    label:         def.label,
+    cat:           def.cat,
+    loadedJson:    null,          // raw JSON object fetched from disk
+    currentLayers: [],            // [{ name, url, xform:{ax,ay,scaleX,scaleY} }]
+    img:           null,          // HTMLImageElement for the selected layer
+    xf:            { ax: 0, ay: 0, sx: 1, sy: 1 },
+    base:          { ax: 0, ay: 0, sx: 1, sy: 1 },
+    cosEntryId:    '',            // currently selected entry id in cos-cosSelect
+    layerIdx:      0,
+    tint:          { h: 0, s: 0, v: 0 },
+  };
+}
+
+let cosActiveSlotKey = 'hairFront';
+
+// cosXf / cosBase mirror the active slot's objects (mutated in-place by slider sync)
+let cosXf   = SLOTS[cosActiveSlotKey].xf;
+let cosBase  = SLOTS[cosActiveSlotKey].base;
+
+// Internal clipboard for copy/paste xform
+let cosXformClipboard = null;
+
+// Index data
+let cosIndexEntries = [];   // all appearance:: entries
+let cosIndexBaseUrl = '';   // URL used to resolve relative entry paths
 
 // ── Canvas setup ───────────────────────────────────────────
 
@@ -1585,8 +1649,8 @@ function cosGetCategoryForEntry(entry) {
   if (path.includes('/headhair/') || path.includes('headhair/')) return 'hair';
   if (path.includes('/eyes/') || path.includes('eyes/')) return 'eyes';
   if (path.includes('/facialhair/') || path.includes('facialhair/')) return 'facialhair';
-  // Infer from cosmetic name (use word-boundary check to avoid false positives)
-  if (/\beye(s|_|$)/.test(name)) return 'eyes';
+  // Infer from cosmetic name (check for 'eye' anywhere to catch circled_eyes etc.)
+  if (name.includes('eye')) return 'eyes';
   if (name.includes('beard') || name.includes('stache') || name.includes('whisker') || name.includes('facial')) return 'facialhair';
   return 'hair';
 }
@@ -1638,13 +1702,19 @@ async function cosLoadIndex() {
     }
   }
   cosIndexEntries = (data.entries || []).filter(e => e.id && e.id.startsWith('appearance::'));
+  // Set initial slot hint
+  const initSlot = SLOTS[cosActiveSlotKey];
+  document.getElementById('cos-slot-hint').textContent =
+    `Editing: ${initSlot.label} · category: ${initSlot.cat === 'hair' ? 'Hair' : initSlot.cat === 'eyes' ? 'Eye Mark' : 'Facial Hair'}`;
   cosPopulateItemSelect();
   await cosLoadSelectedCosmetic();
 }
 
-/** Fetch and store the JSON for the currently selected cosmetic entry. */
+/** Fetch and store the JSON for the currently selected cosmetic entry into the active slot. */
 async function cosLoadSelectedCosmetic() {
   const entryId = document.getElementById('cos-cosSelect').value;
+  const slot    = SLOTS[cosActiveSlotKey];
+  slot.cosEntryId = entryId;
   if (!entryId) return;
   const entry = cosIndexEntries.find(e => e.id === entryId);
   if (!entry) return;
@@ -1657,27 +1727,28 @@ async function cosLoadSelectedCosmetic() {
     json = await resp.json();
   } catch (e) {
     console.warn('[cos] Failed to load cosmetic JSON:', cosJsonUrl, e);
-    cosLoadedJson = null;
-    cosCurrentLayers = [];
+    slot.loadedJson    = null;
+    slot.currentLayers = [];
     cosPopulateLayerSelect();
     return;
   }
-  cosLoadedJson = json;
-  cosCurrentLayers = cosExtractLayers(json);
+  slot.loadedJson    = json;
+  slot.currentLayers = cosExtractLayers(json);
   cosPopulateLayerSelect();
   await cosLoadAssets();
 }
 
-/** Return the resolved URL for the currently selected layer's image. */
+/** Return the resolved URL for the currently selected layer's image in the active slot. */
 function cosGetCurrentLayerUrl() {
-  const idx = parseInt(document.getElementById('cos-layerSelect').value) || 0;
-  const layer = cosCurrentLayers[idx];
+  const slot  = SLOTS[cosActiveSlotKey];
+  const layer = slot.currentLayers[slot.layerIdx];
   return layer ? layer.url : null;
 }
 
-/** Set xform sliders/baseline from a specific layer index in cosCurrentLayers. */
+/** Set xform sliders/baseline from a specific layer index in the active slot's currentLayers. */
 function cosSetXformFromLayer(idx) {
-  const layer = cosCurrentLayers[idx >= 0 ? idx : 0];
+  const slot  = SLOTS[cosActiveSlotKey];
+  const layer = slot.currentLayers[idx >= 0 ? idx : 0];
   if (!layer) return;
   const { ax = 0, ay = 0, scaleX = 1, scaleY = 1 } = layer.xform || {};
   cosSetXform(ax, ay, scaleX, scaleY);
@@ -1685,8 +1756,9 @@ function cosSetXformFromLayer(idx) {
 
 /** Sync all four xform sliders/numbers + baseline from given values. */
 function cosSetXform(ax, ay, sx, sy) {
-  cosXf  = { ax, ay, sx, sy };
-  cosBase = { ...cosXf };
+  const slot = SLOTS[cosActiveSlotKey];
+  slot.xf  = cosXf  = { ax, ay, sx, sy };
+  slot.base = cosBase = { ax, ay, sx, sy };
   document.getElementById('cos-s_ax').value = ax;
   document.getElementById('cos-n_ax').value = ax;
   document.getElementById('cos-s_ay').value = ay;
@@ -1702,11 +1774,12 @@ function cosSetXform(ax, ay, sx, sy) {
 }
 
 /**
- * Rebuild the layer dropdown from cosCurrentLayers, show/hide it,
+ * Rebuild the layer dropdown from the active slot's currentLayers, show/hide it,
  * and set xform sliders from the first layer's values.
  */
 function cosPopulateLayerSelect() {
-  const layers     = cosCurrentLayers;
+  const slot       = SLOTS[cosActiveSlotKey];
+  const layers     = slot.currentLayers;
   const layerLabel = document.getElementById('cos-layerLabel');
   const layerSel   = document.getElementById('cos-layerSelect');
 
@@ -1721,12 +1794,14 @@ function cosPopulateLayerSelect() {
     layerSel.style.display   = 'none';
   }
 
+  slot.layerIdx = 0;
+  layerSel.value = '0';
   cosSetXformFromLayer(0);
 }
 
-/** Rebuild the item dropdown for the current category from cosIndexEntries. */
+/** Rebuild the item dropdown for the active slot's category from cosIndexEntries. */
 function cosPopulateItemSelect() {
-  const catId   = document.getElementById('cos-catSelect').value;
+  const catId   = SLOTS[cosActiveSlotKey].cat;
   const itemSel = document.getElementById('cos-cosSelect');
   const entries = cosIndexEntries.filter(e => cosGetCategoryForEntry(e) === catId);
 
@@ -1792,10 +1867,12 @@ function cosLoadImageAbsolute(url) {
 async function cosLoadAssets() {
   const headPath = document.getElementById('cos-headPath').value.trim();
   const cosUrl   = cosGetCurrentLayerUrl();
-  cosHeadImg = null; cosCosImg = null;
+  const slot     = SLOTS[cosActiveSlotKey];
+  cosHeadImg = null;
+  slot.img   = null;
   try { cosHeadImg = await cosLoadImage(headPath); } catch (e) { console.warn(e); }
   if (cosUrl) {
-    try { cosCosImg = await cosLoadImageAbsolute(cosUrl); } catch (e) { console.warn(e); }
+    try { slot.img = await cosLoadImageAbsolute(cosUrl); } catch (e) { console.warn(e); }
   }
   cosRender();
 }
@@ -1807,6 +1884,12 @@ function cosGetFilter() {
   const s = Number(document.getElementById('cos-tintS').value) || 0;
   const v = Number(document.getElementById('cos-tintV').value) || 0;
   return buildCSSFilter(h, s, v);
+}
+
+/** Return the CSS filter for any slot using its stored tint. */
+function cosSlotFilter(key) {
+  const t = SLOTS[key].tint;
+  return buildCSSFilter(t.h, t.s, t.v);
 }
 
 // ── Render ─────────────────────────────────────────────────
@@ -1834,13 +1917,21 @@ function cosRender() {
   cosCtx.stroke();
   cosCtx.restore();
 
+  // Helper: draw a slot's image with its composed xform
+  const drawSlot = (key) => {
+    const s = SLOTS[key];
+    if (!s.img) return;
+    const d = composeXform(HEAD_XFORM, s.xf);
+    cosDrawLayer(s.img, d.ax, d.ay, d.sx, d.sy, cosSlotFilter(key));
+  };
+
+  // Render order: Hair Back → Head → Eyes → Hair Front
+  drawSlot('hairBack');
   if (cosHeadImg) {
     cosDrawLayer(cosHeadImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
   }
-  if (cosCosImg) {
-    const d = composeXform(HEAD_XFORM, cosXf);
-    cosDrawLayer(cosCosImg, d.ax, d.ay, d.sx, d.sy, cosGetFilter());
-  }
+  drawSlot('eyes');
+  drawSlot('hairFront');
 
   cosUpdateDiff();
 }
@@ -1871,7 +1962,7 @@ function cosUpdateDiff() {
 // ── Full cosmetic JSON builder ─────────────────────────────
 
 /**
- * Builds the full cosmetic JSON to copy.
+ * Builds the full cosmetic JSON for the ACTIVE slot.
  *
  * Clones the in-memory original JSON (loaded when the cosmetic was selected)
  * and patches only the xform values for the active layer, preserving all other
@@ -1881,17 +1972,18 @@ function cosUpdateDiff() {
  * JSON was loaded.
  */
 function cosBuildFullJson() {
+  const slot = SLOTS[cosActiveSlotKey];
   const xformPatch = {
-    ax:     cosRound4(cosXf.ax),
-    ay:     cosRound4(cosXf.ay),
-    scaleX: cosRound4(cosXf.sx),
-    scaleY: cosRound4(cosXf.sy),
+    ax:     cosRound4(slot.xf.ax),
+    ay:     cosRound4(slot.xf.ay),
+    scaleX: cosRound4(slot.xf.sx),
+    scaleY: cosRound4(slot.xf.sy),
   };
 
-  if (cosLoadedJson) {
-    const patched = JSON.parse(JSON.stringify(cosLoadedJson));
-    const layerIdx  = parseInt(document.getElementById('cos-layerSelect').value) || 0;
-    const layerName = cosCurrentLayers[layerIdx] && cosCurrentLayers[layerIdx].name;
+  if (slot.loadedJson) {
+    const patched   = JSON.parse(JSON.stringify(slot.loadedJson));
+    const layerIdx  = slot.layerIdx;
+    const layerName = slot.currentLayers[layerIdx] && slot.currentLayers[layerIdx].name;
 
     if (layerName) {
       // Multi-layer: patch parts.head.layers.<layerName>.spriteStyle.base.xform.head
@@ -1918,8 +2010,8 @@ function cosBuildFullJson() {
   }
 
   // Fallback: no JSON loaded — generate a minimal canonical structure
-  const xform = { ...xformPatch, rotDeg: 0 };
-  const imageUrl = (cosGetCurrentLayerUrl()) || './assets/cosmetics/appearance/mao-ao/REPLACE_ME.png';
+  const xform    = { ...xformPatch, rotDeg: 0 };
+  const imageUrl = cosGetCurrentLayerUrl() || './assets/cosmetics/appearance/mao-ao/REPLACE_ME.png';
 
   return JSON.stringify({
     meta: { name: 'Untitled Cosmetic' },
@@ -1938,6 +2030,59 @@ function cosBuildFullJson() {
   }, null, 2);
 }
 
+/**
+ * Builds a combined appearance JSON that merges the active layers from all
+ * three slots (Hair Back, Eyes, Hair Front) into a single parts.head.layers
+ * structure, using each slot's loaded config JSON as the source of truth for
+ * image URLs and filling in the current xform from the slot's sliders.
+ */
+function cosBuildCombinedJson() {
+  const layers = {};
+
+  for (const def of SLOT_DEFS) {
+    const slot = SLOTS[def.key];
+    if (!slot.loadedJson) continue;
+
+    const currentLayer = slot.currentLayers[slot.layerIdx];
+    if (!currentLayer) continue;
+
+    // Retrieve raw image URL from the original JSON (not the resolved absolute URL)
+    const head = slot.loadedJson.parts && slot.loadedJson.parts.head;
+    let imageUrl;
+    if (head && head.layers && currentLayer.name) {
+      const layerObj = head.layers[currentLayer.name];
+      imageUrl = layerObj && layerObj.image && layerObj.image.url;
+    } else if (head && head.image) {
+      imageUrl = head.image.url;
+    }
+    if (!imageUrl) continue;
+
+    layers[def.key] = {
+      image: { url: imageUrl },
+      spriteStyle: {
+        base: {
+          xform: {
+            head: {
+              ax:     cosRound4(slot.xf.ax),
+              ay:     cosRound4(slot.xf.ay),
+              scaleX: cosRound4(slot.xf.sx),
+              scaleY: cosRound4(slot.xf.sy),
+              rotDeg: 0,
+            },
+          },
+        },
+      },
+    };
+  }
+
+  return JSON.stringify({
+    meta: { name: 'Combined Appearance' },
+    type: 'appearance',
+    appearance: { inheritSprite: 'head' },
+    parts: { head: { layers } },
+  }, null, 2);
+}
+
 // ── Slider ↔ number sync ───────────────────────────────────
 
 const COS_PAIRS = [
@@ -1951,6 +2096,7 @@ function cosSyncFromSlider(key, sliderId, numberId) {
   const val = parseFloat(document.getElementById(sliderId).value);
   document.getElementById(numberId).value = val;
   cosXf[key] = val;
+  SLOTS[cosActiveSlotKey].xf[key] = val;
   cosRender();
 }
 
@@ -1959,6 +2105,7 @@ function cosSyncFromNumber(key, sliderId, numberId) {
   if (!isNaN(val)) {
     document.getElementById(sliderId).value = val;
     cosXf[key] = val;
+    SLOTS[cosActiveSlotKey].xf[key] = val;
     cosRender();
   }
 }
@@ -1982,7 +2129,8 @@ document.getElementById('cos-applyCanvasBtn').addEventListener('click', () => {
 });
 
 document.getElementById('cos-snapBaselineBtn').addEventListener('click', () => {
-  cosBase = { ...cosXf };
+  const slot = SLOTS[cosActiveSlotKey];
+  slot.base = cosBase = { ...cosXf };
   document.getElementById('cos-ref_ax').value = cosFmt(cosBase.ax);
   document.getElementById('cos-ref_ay').value = cosFmt(cosBase.ay);
   document.getElementById('cos-ref_sx').value = cosFmt(cosBase.sx);
@@ -1994,19 +2142,27 @@ document.getElementById('cos-snapBaselineBtn').addEventListener('click', () => {
 for (const [field, id] of [['ax','cos-ref_ax'],['ay','cos-ref_ay'],['sx','cos-ref_sx'],['sy','cos-ref_sy']]) {
   document.getElementById(id).addEventListener('change', () => {
     cosBase[field] = parseFloat(document.getElementById(id).value) || 0;
+    SLOTS[cosActiveSlotKey].base[field] = cosBase[field];
     cosUpdateDiff();
   });
 }
 
-// Tint fields re-render on change
+// Tint fields sync to active slot and re-render
 ['cos-tintH','cos-tintS','cos-tintV'].forEach(id => {
-  document.getElementById(id).addEventListener('input', cosRender);
-  document.getElementById(id).addEventListener('change', cosRender);
+  const update = () => {
+    const slot = SLOTS[cosActiveSlotKey];
+    slot.tint.h = parseFloat(document.getElementById('cos-tintH').value) || 0;
+    slot.tint.s = parseFloat(document.getElementById('cos-tintS').value) || 0;
+    slot.tint.v = parseFloat(document.getElementById('cos-tintV').value) || 0;
+    cosRender();
+  };
+  document.getElementById(id).addEventListener('input', update);
+  document.getElementById(id).addEventListener('change', update);
 });
 
-// Copy full cosmetic JSON button
+// Copy full cosmetic JSON button (active slot only)
 document.getElementById('cos-copyFullBtn').addEventListener('click', () => {
-  const json = cosBuildFullJson();
+  const json   = cosBuildFullJson();
   const status = document.getElementById('cosCopyStatus');
   copyToClipboard(
     json,
@@ -2019,6 +2175,57 @@ document.getElementById('cos-copyFullBtn').addEventListener('click', () => {
       setTimeout(() => { status.textContent = ''; }, 2500);
     }
   );
+});
+
+// Copy combined appearance JSON button (all slots)
+document.getElementById('cos-copyCombinedBtn').addEventListener('click', () => {
+  const json   = cosBuildCombinedJson();
+  const status = document.getElementById('cosCopyStatus');
+  copyToClipboard(
+    json,
+    () => {
+      status.textContent = '✓ Copied combined appearance JSON to clipboard';
+      setTimeout(() => { status.textContent = ''; }, 2500);
+    },
+    () => {
+      status.textContent = '⚠ Copy failed';
+      setTimeout(() => { status.textContent = ''; }, 2500);
+    }
+  );
+});
+
+// Copy xform button — save active slot's xform to internal clipboard (+ OS clipboard as JSON)
+document.getElementById('cos-copyXformBtn').addEventListener('click', () => {
+  const xf = SLOTS[cosActiveSlotKey].xf;
+  cosXformClipboard = { ax: xf.ax, ay: xf.ay, sx: xf.sx, sy: xf.sy };
+  const json = JSON.stringify({ ax: xf.ax, ay: xf.ay, scaleX: xf.sx, scaleY: xf.sy }, null, 2);
+  const status = document.getElementById('cosCopyStatus');
+  copyToClipboard(
+    json,
+    () => {
+      status.textContent = '✓ Xform copied';
+      setTimeout(() => { status.textContent = ''; }, 1800);
+    },
+    () => {
+      status.textContent = '⚠ Xform saved internally (clipboard unavailable)';
+      setTimeout(() => { status.textContent = ''; }, 2500);
+    }
+  );
+});
+
+// Paste xform button — apply internal clipboard xform to active slot
+document.getElementById('cos-pasteXformBtn').addEventListener('click', () => {
+  if (!cosXformClipboard) {
+    document.getElementById('cosCopyStatus').textContent = '⚠ Nothing in xform clipboard';
+    setTimeout(() => { document.getElementById('cosCopyStatus').textContent = ''; }, 2000);
+    return;
+  }
+  const { ax, ay, sx, sy } = cosXformClipboard;
+  cosSetXform(ax, ay, sx, sy);
+  cosRender();
+  const status = document.getElementById('cosCopyStatus');
+  status.textContent = '✓ Xform pasted';
+  setTimeout(() => { status.textContent = ''; }, 1800);
 });
 
 // ── Mouse-drag: translate cosmetic ────────────────────────
@@ -2038,6 +2245,8 @@ window.addEventListener('mousemove', e => {
   const dy = e.clientY - cosDragStart.y;
   cosXf.ax = Math.round((cosXfStart.ax - dy / cosL) * 1000) / 1000;
   cosXf.ay = Math.round((cosXfStart.ay + dx / cosL) * 1000) / 1000;
+  SLOTS[cosActiveSlotKey].xf.ax = cosXf.ax;
+  SLOTS[cosActiveSlotKey].xf.ay = cosXf.ay;
   document.getElementById('cos-s_ax').value = cosXf.ax;
   document.getElementById('cos-n_ax').value = cosXf.ax;
   document.getElementById('cos-s_ay').value = cosXf.ay;
@@ -2059,6 +2268,8 @@ cosCV.addEventListener('wheel', e => {
   const delta = e.deltaY > 0 ? -0.05 : 0.05;
   cosXf.sx = Math.max(0.1, Math.round((cosXf.sx + delta) * 1000) / 1000);
   cosXf.sy = Math.max(0.1, Math.round((cosXf.sy + delta) * 1000) / 1000);
+  SLOTS[cosActiveSlotKey].xf.sx = cosXf.sx;
+  SLOTS[cosActiveSlotKey].xf.sy = cosXf.sy;
   document.getElementById('cos-s_sx').value = cosXf.sx;
   document.getElementById('cos-n_sx').value = cosXf.sx;
   document.getElementById('cos-s_sy').value = cosXf.sy;
@@ -2066,23 +2277,103 @@ cosCV.addEventListener('wheel', e => {
   cosRender();
 }, { passive: false });
 
+// ── Slot activation ────────────────────────────────────────
+
+/**
+ * Switch the active slot: flush current UI state to the old slot, then restore
+ * the new slot's state (cosmetic selection, layer, xform, tint) into the UI.
+ */
+function cosActivateSlot(newKey) {
+  if (newKey === cosActiveSlotKey) return;
+
+  // Flush current UI state to the active slot
+  const old       = SLOTS[cosActiveSlotKey];
+  old.xf          = { ...cosXf };
+  old.base        = { ...cosBase };
+  old.tint        = {
+    h: parseFloat(document.getElementById('cos-tintH').value) || 0,
+    s: parseFloat(document.getElementById('cos-tintS').value) || 0,
+    v: parseFloat(document.getElementById('cos-tintV').value) || 0,
+  };
+  old.cosEntryId  = document.getElementById('cos-cosSelect').value;
+  old.layerIdx    = parseInt(document.getElementById('cos-layerSelect').value) || 0;
+
+  // Switch active slot
+  cosActiveSlotKey = newKey;
+  const slot = SLOTS[newKey];
+  cosXf   = slot.xf;
+  cosBase = slot.base;
+
+  // Update tab buttons
+  document.querySelectorAll('.cos-slot-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.slot === newKey);
+  });
+  document.getElementById('cos-slot-hint').textContent =
+    `Editing: ${slot.label} · category: ${slot.cat === 'hair' ? 'Hair' : slot.cat === 'eyes' ? 'Eye Mark' : 'Facial Hair'}`;
+
+  // Re-populate cosmetic select for new category
+  cosPopulateItemSelect();
+
+  // Restore previously selected cosmetic (if any)
+  if (slot.cosEntryId) {
+    const itemSel = document.getElementById('cos-cosSelect');
+    // Check if the entry still exists in the repopulated list
+    if (Array.from(itemSel.options).some(o => o.value === slot.cosEntryId)) {
+      itemSel.value = slot.cosEntryId;
+    }
+  }
+
+  // Restore layer select
+  const layerSel = document.getElementById('cos-layerSelect');
+  if (slot.currentLayers.length > 1) {
+    layerSel.innerHTML = slot.currentLayers
+      .map((l, i) => `<option value="${escHtml(String(i))}">${escHtml(l.name || 'Layer ' + (i + 1))}</option>`)
+      .join('');
+    layerSel.value = String(slot.layerIdx);
+    document.getElementById('cos-layerLabel').style.display = '';
+    layerSel.style.display = '';
+  } else {
+    document.getElementById('cos-layerLabel').style.display = 'none';
+    layerSel.style.display = 'none';
+  }
+
+  // Restore xform UI
+  const xf = slot.xf;
+  document.getElementById('cos-s_ax').value = xf.ax;
+  document.getElementById('cos-n_ax').value = xf.ax;
+  document.getElementById('cos-s_ay').value = xf.ay;
+  document.getElementById('cos-n_ay').value = xf.ay;
+  document.getElementById('cos-s_sx').value = xf.sx;
+  document.getElementById('cos-n_sx').value = xf.sx;
+  document.getElementById('cos-s_sy').value = xf.sy;
+  document.getElementById('cos-n_sy').value = xf.sy;
+  document.getElementById('cos-ref_ax').value = cosFmt(slot.base.ax);
+  document.getElementById('cos-ref_ay').value = cosFmt(slot.base.ay);
+  document.getElementById('cos-ref_sx').value = cosFmt(slot.base.sx);
+  document.getElementById('cos-ref_sy').value = cosFmt(slot.base.sy);
+
+  // Restore tint UI
+  document.getElementById('cos-tintH').value = slot.tint.h;
+  document.getElementById('cos-tintS').value = slot.tint.s;
+  document.getElementById('cos-tintV').value = slot.tint.v;
+
+  cosRender();
+}
+
 // ── Cosmetic mode init ─────────────────────────────────────
 
-// Wire picker change events
-document.getElementById('cos-catSelect').addEventListener('change', () => {
-  cosPopulateItemSelect();
-  // Auto-select the first item in the new category, then load it
-  const first = document.getElementById('cos-cosSelect').options[0];
-  if (first && first.value) {
-    document.getElementById('cos-cosSelect').value = first.value;
-  }
-  cosLoadSelectedCosmetic();
+// Wire slot tab click events
+document.querySelectorAll('.cos-slot-tab').forEach(btn => {
+  btn.addEventListener('click', () => cosActivateSlot(btn.dataset.slot));
 });
+
+// Wire picker change events
 document.getElementById('cos-cosSelect').addEventListener('change', () => {
   cosLoadSelectedCosmetic();
 });
 document.getElementById('cos-layerSelect').addEventListener('change', () => {
   const idx = parseInt(document.getElementById('cos-layerSelect').value) || 0;
+  SLOTS[cosActiveSlotKey].layerIdx = idx;
   cosSetXformFromLayer(idx);
   cosLoadAssets();
 });
