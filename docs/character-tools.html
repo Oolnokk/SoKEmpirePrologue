@@ -1018,6 +1018,27 @@ details.diag-details[open] > summary::after { content: '▼'; }
       </div>
     </div>
 
+    <!-- Preview Tint -->
+    <div class="cos-section">
+      <h2>Preview Tint</h2>
+      <div id="spe-prev-follow" style="font-size:11px;color:var(--muted);margin-bottom:8px">Scrub sliders to preview tint</div>
+      <div class="cos-slider-row">
+        <label>H</label>
+        <input type="range" id="spe-prevH" min="-180" max="180" step="1" value="0">
+        <input type="number" id="spe-prevH-n" min="-180" max="180" step="1" value="0">
+      </div>
+      <div class="cos-slider-row">
+        <label>S</label>
+        <input type="range" id="spe-prevS" min="-1" max="1" step="0.01" value="0">
+        <input type="number" id="spe-prevS-n" min="-1" max="1" step="0.01" value="0">
+      </div>
+      <div class="cos-slider-row">
+        <label>V</label>
+        <input type="range" id="spe-prevV" min="-1" max="1" step="0.01" value="0">
+        <input type="number" id="spe-prevV-n" min="-1" max="1" step="0.01" value="0">
+      </div>
+    </div>
+
     <!-- Export -->
     <div class="cos-section">
       <h2>Export</h2>
@@ -1128,6 +1149,9 @@ function execCopy(text, onSuccess, onFail) {
     tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === target));
     sections.forEach(s => s.classList.toggle('active', s.id === 'mode-' + target));
     try { localStorage.setItem(STORAGE_KEY, target); } catch (_) {}
+    // Re-render Species Editor canvas when switching to it so cosmetic changes from
+    // Cosmetic Placer are reflected immediately without requiring a manual interaction.
+    if (target === 'species') speRenderHeadPreview();
   }
 
   tabs.forEach(tab => {
@@ -2717,6 +2741,9 @@ let speIndexEntries = [];   // array of { speciesId, label, path }
 let speIndexBaseUrl = '';
 let speAllSpecies   = {};   // speciesId → loaded species JSON
 
+/** Guard flag to prevent infinite loops when syncing species/gender dropdowns. */
+let _speciesSyncInProgress = false;
+
 /**
  * Return the gender-specific block from the currently selected species in the
  * Cosmetic Placer, or null when no selection / data not yet loaded.
@@ -2753,6 +2780,14 @@ function cosOnSpeciesChanged() {
   }
   cosPopulateItemSelect();
   cosLoadAssets();
+  // Sync species/gender dropdowns to Species Editor (prevent circular call with flag)
+  if (!_speciesSyncInProgress) {
+    _speciesSyncInProgress = true;
+    document.getElementById('spe-species').value = document.getElementById('cos-species').value;
+    document.getElementById('spe-gender').value  = document.getElementById('cos-gender').value;
+    speOnSpeciesOrGenderChanged();
+    _speciesSyncInProgress = false;
+  }
 }
 
 // ── Species index loader ────────────────────────────────────
@@ -2841,6 +2876,11 @@ let speActiveSlot     = 'A';
 let speSelectedStop   = -1;     // index into current slot's stops array
 let speWorkingRanges  = {};     // { male: { A:{...}, B:{...}, C:{...} }, female: {...} }
 let speLoadedJson     = null;   // original (unmodified) species JSON for the current species
+
+/** Preview tint HSV values (applied to head in Species Editor canvas). */
+let spePreviewHSV = { h: 0, s: 0, v: 0 };
+/** True right after clicking a stop marker; false once user moves preview sliders. */
+let speFollowSelectedStop = false;
 
 /**
  * Return the currently active range object { minH, maxH, subdivisions, stops[] },
@@ -2938,6 +2978,15 @@ function speSelectStop(idx) {
   speSelectedStop = idx;
   speRenderHBar();
   speUpdateStopEditor();
+  // Follow-stop mode: set preview tint to match this stop's midpoint S/V
+  const stop = range.stops[idx];
+  speFollowSelectedStop = true;
+  spePreviewHSV.h = stop.h;
+  spePreviewHSV.s = (stop.sMin + stop.sMax) / 2;
+  spePreviewHSV.v = (stop.vMin + stop.vMax) / 2;
+  speWritePreviewSliders();
+  speUpdatePreviewFollowInfo();
+  speRenderHeadPreview();
 }
 
 function speUpdateStopEditor() {
@@ -2968,6 +3017,9 @@ function speOnStopFieldChange() {
     if (!isNaN(rawVal)) stop[key] = Math.max(-1, Math.min(1, rawVal));
   });
   speRenderHBar();
+  // Update preview S/V clamps since stop ranges changed, then re-render
+  speUpdatePreviewClamps();
+  speRenderHeadPreview();
 }
 
 // ── Subdivision recalculation ──────────────────────────────
@@ -3005,6 +3057,8 @@ function speRecalcStops() {
   if (speSelectedStop >= newStops.length) speSelectedStop = newStops.length - 1;
   speRenderHBar();
   speUpdateStopEditor();
+  speUpdatePreviewClamps();
+  speRenderHeadPreview();
 }
 
 // ── Export ─────────────────────────────────────────────────
@@ -3062,17 +3116,41 @@ async function speRenderHeadPreview() {
   speCtx.stroke();
   speCtx.restore();
 
-  const drawLayer = (img, ax, ay, sx, sy) => {
+  const previewFilter = buildCSSFilter(spePreviewHSV.h, spePreviewHSV.s, spePreviewHSV.v);
+
+  const drawLayerFn = (img, ax, ay, sx, sy, filter) => {
     const h = speL * sy;
     const w = (img.naturalWidth / img.naturalHeight) * speL * sx;
     const cx = speCW / 2 + ay * speL;
     const cy = speCH / 2 - ax * speL;
+    speCtx.save();
+    speCtx.filter = filter || 'none';
     speCtx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+    speCtx.restore();
   };
 
-  drawLayer(headImg, xf.ax, xf.ay, xf.sx, xf.sy);
+  // Hair Back cosmetic (from Cosmetic Placer)
+  {
+    const s = SLOTS['hairBack'];
+    if (s && s.img) {
+      const d = composeXform(xf, s.xf);
+      drawLayerFn(s.img, d.ax, d.ay, d.sx, d.sy, cosSlotFilter('hairBack'));
+    }
+  }
+
+  // Head sprite with preview tint, then untinted overlays
+  drawLayerFn(headImg, xf.ax, xf.ay, xf.sx, xf.sy, previewFilter);
   for (const urImg of urImgs) {
-    drawLayer(urImg, xf.ax, xf.ay, xf.sx, xf.sy);
+    drawLayerFn(urImg, xf.ax, xf.ay, xf.sx, xf.sy, 'none');
+  }
+
+  // Eyes + Hair Front cosmetics (from Cosmetic Placer)
+  for (const key of ['eyes', 'hairFront']) {
+    const s = SLOTS[key];
+    if (s && s.img) {
+      const d = composeXform(xf, s.xf);
+      drawLayerFn(s.img, d.ax, d.ay, d.sx, d.sy, cosSlotFilter(key));
+    }
   }
 }
 
@@ -3081,6 +3159,14 @@ function speOnSpeciesOrGenderChanged() {
   if (!speciesId || !speAllSpecies[speciesId]) return;
   speLoadIntoEditor(speAllSpecies[speciesId]);
   speRenderHeadPreview();
+  // Sync species/gender dropdowns to Cosmetic Placer (prevent circular call with flag)
+  if (!_speciesSyncInProgress) {
+    _speciesSyncInProgress = true;
+    document.getElementById('cos-species').value = document.getElementById('spe-species').value;
+    document.getElementById('cos-gender').value  = document.getElementById('spe-gender').value;
+    cosOnSpeciesChanged();
+    _speciesSyncInProgress = false;
+  }
 }
 
 document.getElementById('spe-species').addEventListener('change', speOnSpeciesOrGenderChanged);
@@ -3088,11 +3174,19 @@ document.getElementById('spe-gender').addEventListener('change',  () => {
   speSelectedStop = -1;
   speRefreshEditorUI();
   speRenderHeadPreview();
+  // Sync gender to Cosmetic Placer
+  if (!_speciesSyncInProgress) {
+    _speciesSyncInProgress = true;
+    document.getElementById('cos-gender').value = document.getElementById('spe-gender').value;
+    cosOnSpeciesChanged();
+    _speciesSyncInProgress = false;
+  }
 });
 document.getElementById('spe-slot').addEventListener('change', () => {
   speActiveSlot   = document.getElementById('spe-slot').value;
   speSelectedStop = -1;
   speRefreshEditorUI();
+  speUpdatePreviewClamps();
 });
 
 // H slider ↔ number sync
@@ -3160,6 +3254,147 @@ document.getElementById('spe-exportBtn').addEventListener('click', () => {
     () => { status.textContent = '✓ Copied species JSON'; setTimeout(() => { status.textContent = ''; }, 2500); },
     () => { status.textContent = '⚠ Copy failed';         setTimeout(() => { status.textContent = ''; }, 2500); }
   );
+});
+
+// ── Preview tint helpers ────────────────────────────────────
+
+/**
+ * Interpolate the allowed S/V range at a given hue from the current slot's stops.
+ * Falls back to full range when no stops are defined.
+ */
+function speGetPreviewSVLimits(h) {
+  const range = speGetRange();
+  if (!range || !range.stops || range.stops.length === 0) {
+    return { sMin: -1, sMax: 1, vMin: -1, vMax: 1 };
+  }
+  const stops = range.stops;
+  if (stops.length === 1) {
+    return { sMin: stops[0].sMin, sMax: stops[0].sMax, vMin: stops[0].vMin, vMax: stops[0].vMax };
+  }
+  if (h <= stops[0].h) {
+    return { sMin: stops[0].sMin, sMax: stops[0].sMax, vMin: stops[0].vMin, vMax: stops[0].vMax };
+  }
+  if (h >= stops[stops.length - 1].h) {
+    const last = stops[stops.length - 1];
+    return { sMin: last.sMin, sMax: last.sMax, vMin: last.vMin, vMax: last.vMax };
+  }
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (h >= stops[i].h && h <= stops[i + 1].h) {
+      const a = stops[i], b = stops[i + 1];
+      const t = (b.h === a.h) ? 0 : (h - a.h) / (b.h - a.h);
+      return {
+        sMin: a.sMin + (b.sMin - a.sMin) * t,
+        sMax: a.sMax + (b.sMax - a.sMax) * t,
+        vMin: a.vMin + (b.vMin - a.vMin) * t,
+        vMax: a.vMax + (b.vMax - a.vMax) * t,
+      };
+    }
+  }
+  return { sMin: -1, sMax: 1, vMin: -1, vMax: 1 };
+}
+
+/** Update the min/max attributes of preview S/V sliders based on stops + current H. */
+function speUpdatePreviewClamps() {
+  const lim = speGetPreviewSVLimits(spePreviewHSV.h);
+  const fmt  = v => Number(v.toFixed(3));
+
+  const sSlider = document.getElementById('spe-prevS');
+  const sNum    = document.getElementById('spe-prevS-n');
+  const vSlider = document.getElementById('spe-prevV');
+  const vNum    = document.getElementById('spe-prevV-n');
+
+  sSlider.min = fmt(lim.sMin); sSlider.max = fmt(lim.sMax);
+  sNum.min    = fmt(lim.sMin); sNum.max    = fmt(lim.sMax);
+  vSlider.min = fmt(lim.vMin); vSlider.max = fmt(lim.vMax);
+  vNum.min    = fmt(lim.vMin); vNum.max    = fmt(lim.vMax);
+
+  // Clamp current preview values to the new allowed range
+  spePreviewHSV.s = Math.max(lim.sMin, Math.min(lim.sMax, spePreviewHSV.s));
+  spePreviewHSV.v = Math.max(lim.vMin, Math.min(lim.vMax, spePreviewHSV.v));
+  sSlider.value   = spePreviewHSV.s;  sNum.value   = Number(spePreviewHSV.s.toFixed(3));
+  vSlider.value   = spePreviewHSV.v;  vNum.value   = Number(spePreviewHSV.v.toFixed(3));
+}
+
+/** Write spePreviewHSV values back to all three preview slider/number pairs. */
+function speWritePreviewSliders() {
+  document.getElementById('spe-prevH').value   = spePreviewHSV.h;
+  document.getElementById('spe-prevH-n').value = spePreviewHSV.h;
+  document.getElementById('spe-prevS').value   = Number(spePreviewHSV.s.toFixed(3));
+  document.getElementById('spe-prevS-n').value = Number(spePreviewHSV.s.toFixed(3));
+  document.getElementById('spe-prevV').value   = Number(spePreviewHSV.v.toFixed(3));
+  document.getElementById('spe-prevV-n').value = Number(spePreviewHSV.v.toFixed(3));
+  speUpdatePreviewClamps();
+}
+
+/** Update the follow-stop info text in the Preview Tint section. */
+function speUpdatePreviewFollowInfo() {
+  const el = document.getElementById('spe-prev-follow');
+  if (!el) return;
+  if (speFollowSelectedStop && speSelectedStop >= 0) {
+    el.textContent = `Following stop ${speSelectedStop} · move sliders to detach`;
+    el.style.color = 'var(--accent)';
+  } else {
+    el.textContent = 'Scrub sliders to preview tint';
+    el.style.color = 'var(--muted)';
+  }
+}
+
+// ── Preview tint slider event handlers ─────────────────────
+
+document.getElementById('spe-prevH').addEventListener('input', () => {
+  speFollowSelectedStop = false;
+  spePreviewHSV.h = parseFloat(document.getElementById('spe-prevH').value) || 0;
+  document.getElementById('spe-prevH-n').value = spePreviewHSV.h;
+  speUpdatePreviewClamps();
+  speUpdatePreviewFollowInfo();
+  speRenderHeadPreview();
+});
+document.getElementById('spe-prevH-n').addEventListener('input', () => {
+  const v = parseFloat(document.getElementById('spe-prevH-n').value);
+  if (!isNaN(v)) {
+    speFollowSelectedStop = false;
+    spePreviewHSV.h = v;
+    document.getElementById('spe-prevH').value = v;
+    speUpdatePreviewClamps();
+    speUpdatePreviewFollowInfo();
+    speRenderHeadPreview();
+  }
+});
+
+document.getElementById('spe-prevS').addEventListener('input', () => {
+  speFollowSelectedStop = false;
+  spePreviewHSV.s = parseFloat(document.getElementById('spe-prevS').value) || 0;
+  document.getElementById('spe-prevS-n').value = spePreviewHSV.s;
+  speUpdatePreviewFollowInfo();
+  speRenderHeadPreview();
+});
+document.getElementById('spe-prevS-n').addEventListener('input', () => {
+  const v = parseFloat(document.getElementById('spe-prevS-n').value);
+  if (!isNaN(v)) {
+    speFollowSelectedStop = false;
+    spePreviewHSV.s = v;
+    document.getElementById('spe-prevS').value = v;
+    speUpdatePreviewFollowInfo();
+    speRenderHeadPreview();
+  }
+});
+
+document.getElementById('spe-prevV').addEventListener('input', () => {
+  speFollowSelectedStop = false;
+  spePreviewHSV.v = parseFloat(document.getElementById('spe-prevV').value) || 0;
+  document.getElementById('spe-prevV-n').value = spePreviewHSV.v;
+  speUpdatePreviewFollowInfo();
+  speRenderHeadPreview();
+});
+document.getElementById('spe-prevV-n').addEventListener('input', () => {
+  const v = parseFloat(document.getElementById('spe-prevV-n').value);
+  if (!isNaN(v)) {
+    speFollowSelectedStop = false;
+    spePreviewHSV.v = v;
+    document.getElementById('spe-prevV').value = v;
+    speUpdatePreviewFollowInfo();
+    speRenderHeadPreview();
+  }
 });
 
 // ── Load species index on startup ──────────────────────────
