@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SoK Character Tools</title>
+<style>
+/* ============================================================
+   SHARED / GLOBAL STYLES
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0b0d10;
+  --panel: #12161b;
+  --card: #151b22;
+  --muted: #8aa0b8;
+  --text: #e6edf3;
+  --line: #2a3442;
+  --btn: #1d2633;
+  --btnHi: #263142;
+  --accent: #4e9eff;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+/* ── Mode-switcher bar ── */
+#mode-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 16px;
+  background: var(--panel);
+  border-bottom: 2px solid var(--line);
+  height: 48px;
+}
+#mode-bar .app-title {
+  font-size: 12px;
+  color: var(--muted);
+  margin-right: 20px;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+.mode-tab {
+  padding: 0 20px;
+  height: 48px;
+  line-height: 48px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.mode-tab:hover { color: var(--text); }
+.mode-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ── Hidden mode panel ── */
+.mode-section { display: none; }
+.mode-section.active { display: block; }
+
+/* ============================================================
+   MODE A — AI PORTRAIT PICKER  (styles)
+   ============================================================ */
+#mode-portrait {
+  background: #0e0e18;
+  color: #c8c8d8;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: calc(100vh - 48px);
+  padding: 24px 16px 48px;
+}
+
+#mode-portrait header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+#mode-portrait header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #e8e0b0;
+  text-shadow: 0 0 18px rgba(220,200,100,0.35);
+}
+#mode-portrait header p {
+  font-size: 0.8rem;
+  color: #777;
+  margin-top: 4px;
+}
+
+.portrait-controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.portrait-controls button,
+.portrait-controls select {
+  padding: 8px 20px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #1e1e30;
+  color: #c8c8d8;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.portrait-controls button:hover { background: #2a2a44; border-color: #888; }
+.portrait-controls button:active { background: #14142a; }
+.portrait-controls select { padding: 8px 12px; }
+
+#portrait-count-select {
+  padding: 8px 12px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #1e1e30;
+  color: #c8c8d8;
+  font-size: 0.85rem;
+}
+
+#portrait-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+}
+
+.portrait-card {
+  background: #15151f;
+  border: 1px solid #2a2a3e;
+  border-radius: 6px;
+  padding: 8px 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.15s;
+  cursor: pointer;
+}
+.portrait-card:hover { border-color: #555; }
+.portrait-card canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.portrait-card .card-label {
+  font-size: 0.7rem;
+  color: #666;
+  text-align: center;
+  line-height: 1.4;
+  max-width: 120px;
+  word-break: break-word;
+}
+.portrait-card.loading canvas { opacity: 0.4; }
+
+#portrait-status {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #555;
+  margin-top: 12px;
+}
+
+/* ─── Custom Builder ─────────────────────────────────────── */
+.builder-section {
+  max-width: 940px;
+  margin: 0 auto 32px;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
+  background: #12121c;
+}
+.builder-section h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #c8c0a0;
+  margin-bottom: 14px;
+  letter-spacing: 0.05em;
+}
+.builder-layout {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.builder-controls {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.builder-preview-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 220px;
+}
+.ctrl-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ctrl-group label {
+  font-size: 0.7rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ctrl-group select {
+  padding: 5px 8px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #1a1a28;
+  color: #c8c8d8;
+  font-size: 0.82rem;
+  width: 100%;
+  cursor: pointer;
+}
+.color-slots {
+  border: 1px solid #2a2a3e;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #0e0e18;
+}
+.color-slots h3 {
+  font-size: 0.7rem;
+  color: #777;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+.color-slot { margin-bottom: 8px; }
+.color-slot:last-child { margin-bottom: 0; }
+.color-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+.color-slot-label {
+  font-size: 0.7rem;
+  color: #aaa;
+  font-weight: 600;
+  min-width: 90px;
+}
+.color-swatch {
+  width: 28px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid #444;
+  background: #909090;
+  flex-shrink: 0;
+}
+.portrait-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 1px;
+}
+.portrait-slider-row .axis-label {
+  font-size: 0.63rem;
+  color: #666;
+  min-width: 10px;
+  text-align: right;
+}
+.portrait-slider-row input[type=range] {
+  flex: 1;
+  accent-color: #8888cc;
+  height: 14px;
+  cursor: pointer;
+}
+.slider-val {
+  font-size: 0.63rem;
+  color: #888;
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+#builder-canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  border: 1px solid #2a2a3e;
+  border-radius: 4px;
+}
+.builder-btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.builder-btn-row button {
+  padding: 8px 14px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #1e1e30;
+  color: #c8c8d8;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.builder-btn-row button:hover { background: #2a2a44; }
+
+/* ─── Diagnostics ──────────────────────────────────────── */
+.diag-section { width: 100%; max-width: 420px; }
+details.diag-details > summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: #8888bb;
+  padding: 7px 10px;
+  border: 1px solid #2a2a3e;
+  border-radius: 4px;
+  background: #0e0e18;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+details.diag-details > summary::-webkit-details-marker { display: none; }
+details.diag-details[open] > summary { border-radius: 4px 4px 0 0; border-bottom: none; }
+details.diag-details > summary::after { content: '▶'; font-size: 0.6rem; color: #666; }
+details.diag-details[open] > summary::after { content: '▼'; }
+.diag-body {
+  border: 1px solid #2a2a3e;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  padding: 10px 12px;
+  background: #0e0e18;
+}
+.diag-copy-btn {
+  margin-bottom: 10px;
+  font-size: 0.75rem;
+  padding: 6px 14px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #1e1e30;
+  color: #c8c8d8;
+  cursor: pointer;
+}
+.diag-copy-btn:hover { background: #2a2a44; }
+.diag-chain { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.diag-step { border: 1px solid #222238; border-radius: 4px; padding: 6px 8px; background: #12121c; }
+.diag-step-header { font-size: 0.74rem; font-weight: 600; color: #b0a8d0; margin-bottom: 4px; }
+.diag-step-detail {
+  font-size: 0.67rem; color: #666; line-height: 1.65;
+  font-family: 'Consolas', 'Courier New', monospace; word-break: break-all;
+}
+.diag-step-detail .dk { color: #777; }
+.diag-step-detail .dv { color: #9999bb; }
+
+.section-divider { border: none; border-top: 1px solid #1e1e2e; margin: 0 auto 24px; max-width: 940px; }
+.section-heading {
+  text-align: center; font-size: 0.82rem; color: #555;
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 18px;
+}
+
+/* ============================================================
+   MODE B — COSMETIC PLACER  (styles)
+   ============================================================ */
+#mode-cosmetic {
+  display: none; /* overridden by .active */
+  height: calc(100vh - 48px);
+}
+#mode-cosmetic.active {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: calc(100vh - 48px);
+}
+
+/* ── left panel ── */
+#cos-panel {
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.cos-section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.cos-section h2 {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#cos-panel label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+#cos-panel input[type=text],
+#cos-panel input[type=number],
+#cos-panel select,
+#cos-panel textarea {
+  width: 100%;
+  background: var(--btn);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+#cos-panel textarea {
+  resize: vertical;
+  height: 120px;
+  font-family: monospace;
+  font-size: 11px;
+}
+#cos-panel input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+.cos-slider-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 64px;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.cos-slider-row label { margin: 0; }
+.cos-slider-row input[type=number] { margin: 0; text-align: right; }
+
+#cos-panel button {
+  background: var(--btn);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+#cos-panel button:hover { background: var(--btnHi); }
+.btn-accent { background: #1b3d6e !important; border-color: var(--accent) !important; color: var(--accent) !important; }
+.btn-accent:hover { background: #23508a !important; }
+
+.cos-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* ── right: canvas ── */
+#cos-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #060809;
+  position: relative;
+  overflow: hidden;
+}
+#cos-stage canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+
+/* ── diff output ── */
+#cosDiffOutput {
+  font-family: monospace;
+  font-size: 11px;
+  color: #9cf;
+  background: #0a1520;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+  white-space: pre;
+  overflow-x: auto;
+}
+.cos-tag-plus  { color: #6fdb7a; }
+.cos-tag-minus { color: #ff7070; }
+.cos-tag-eq    { color: #888; }
+
+#cosCopyStatus { font-size: 11px; color: #6fdb7a; height: 16px; margin-top: 4px; text-align: center; }
+.asset-hint { font-size: 10px; color: #556; margin-top: -6px; margin-bottom: 8px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════
+     MODE SWITCHER BAR
+     ════════════════════════════════════════════════════════ -->
+<div id="mode-bar">
+  <span class="app-title">⚔ SoK Character Tools</span>
+  <button class="mode-tab active" data-mode="portrait">🖼 AI Portrait Picker</button>
+  <button class="mode-tab" data-mode="cosmetic">🎨 Cosmetic Placer</button>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     MODE A — AI PORTRAIT PICKER
+     ════════════════════════════════════════════════════════ -->
+<div id="mode-portrait" class="mode-section active">
+
+  <header>
+    <h1>Mao-ao Profile Picker</h1>
+    <p>Randomised AI character portraits · click a card to reroll it</p>
+  </header>
+
+  <div class="portrait-controls">
+    <button id="btn-reroll">🎲 Reroll All</button>
+    <button id="btn-more">+ Add More</button>
+    <select id="portrait-count-select">
+      <option value="6" selected>6 portraits</option>
+      <option value="9">9 portraits</option>
+      <option value="12">12 portraits</option>
+      <option value="3">3 portraits</option>
+    </select>
+  </div>
+
+  <!-- ── Custom Portrait Builder ── -->
+  <section class="builder-section">
+    <h2>🎨 Custom Portrait Builder</h2>
+    <div class="builder-layout">
+
+      <!-- Left: controls -->
+      <div class="builder-controls">
+        <div class="ctrl-group">
+          <label for="b-fighter">Fighter</label>
+          <select id="b-fighter"></select>
+        </div>
+        <div class="ctrl-group">
+          <label for="b-hair">Hair</label>
+          <select id="b-hair"></select>
+        </div>
+        <div class="ctrl-group">
+          <label for="b-eyes">Eye Mark</label>
+          <select id="b-eyes"></select>
+        </div>
+        <div class="ctrl-group">
+          <label for="b-facial">Facial Hair</label>
+          <select id="b-facial"></select>
+        </div>
+
+        <!-- Color slots -->
+        <div class="color-slots">
+          <h3>Body Colors</h3>
+
+          <!-- Slot A: skin/body -->
+          <div class="color-slot">
+            <div class="color-slot-header">
+              <span class="color-slot-label">A — Skin/Body</span>
+              <div class="color-swatch" id="b-swatch-A"></div>
+            </div>
+            <div class="portrait-slider-row">
+              <span class="axis-label">H</span>
+              <input type="range" id="b-color-A-h" min="-180" max="180" step="1" value="0">
+              <span class="slider-val" id="b-color-A-h-val">0°</span>
+            </div>
+            <div class="portrait-slider-row">
+              <span class="axis-label">S</span>
+              <input type="range" id="b-color-A-s" min="-1" max="1" step="0.01" value="0">
+              <span class="slider-val" id="b-color-A-s-val">+0%</span>
+            </div>
+            <div class="portrait-slider-row">
+              <span class="axis-label">V</span>
+              <input type="range" id="b-color-A-v" min="-1" max="1" step="0.01" value="0">
+              <span class="slider-val" id="b-color-A-v-val">+0%</span>
+            </div>
+          </div>
+
+          <!-- Slot B: markings/hair -->
+          <div class="color-slot">
+            <div class="color-slot-header">
+              <span class="color-slot-label">B — Markings/Hair</span>
+              <div class="color-swatch" id="b-swatch-B"></div>
+            </div>
+            <div class="portrait-slider-row">
+              <span class="axis-label">H</span>
+              <input type="range" id="b-color-B-h" min="-180" max="180" step="1" value="0">
+              <span class="slider-val" id="b-color-B-h-val">0°</span>
+            </div>
+            <div class="portrait-slider-row">
+              <span class="axis-label">S</span>
+              <input type="range" id="b-color-B-s" min="-1" max="1" step="0.01" value="0">
+              <span class="slider-val" id="b-color-B-s-val">+0%</span>
+            </div>
+            <div class="portrait-slider-row">
+              <span class="axis-label">V</span>
+              <input type="range" id="b-color-B-v" min="-1" max="1" step="0.01" value="0">
+              <span class="slider-val" id="b-color-B-v-val">+0%</span>
+            </div>
+          </div>
+
+          <!-- Slot C: accent -->
+          <div class="color-slot">
+            <div class="color-slot-header">
+              <span class="color-slot-label">C — Accent</span>
+              <div class="color-swatch" id="b-swatch-C"></div>
+            </div>
+            <div class="portrait-slider-row">
+              <span class="axis-label">H</span>
+              <input type="range" id="b-color-C-h" min="-180" max="180" step="1" value="0">
+              <span class="slider-val" id="b-color-C-h-val">0°</span>
+            </div>
+            <div class="portrait-slider-row">
+              <span class="axis-label">S</span>
+              <input type="range" id="b-color-C-s" min="-1" max="1" step="0.01" value="0">
+              <span class="slider-val" id="b-color-C-s-val">+0%</span>
+            </div>
+            <div class="portrait-slider-row">
+              <span class="axis-label">V</span>
+              <input type="range" id="b-color-C-v" min="-1" max="1" step="0.01" value="0">
+              <span class="slider-val" id="b-color-C-v-val">+0%</span>
+            </div>
+          </div>
+        </div><!-- /color-slots -->
+
+        <div class="builder-btn-row">
+          <button id="btn-randomize-colors">🎨 Randomise Colors</button>
+          <button id="btn-randomize-all">🎲 Randomise All</button>
+        </div>
+      </div><!-- /builder-controls -->
+
+      <!-- Right: preview canvas + diagnostics -->
+      <div class="builder-preview-col">
+        <canvas id="builder-canvas" width="200" height="200" style="width:200px;height:200px;"></canvas>
+
+        <div class="diag-section">
+          <details class="diag-details" id="diag-details">
+            <summary>🔍 Diagnostics / Render Chain</summary>
+            <div class="diag-body">
+              <button class="diag-copy-btn" id="btn-copy-diag">📋 Copy to clipboard</button>
+              <ul class="diag-chain" id="diag-chain"></ul>
+            </div>
+          </details>
+        </div>
+      </div><!-- /builder-preview-col -->
+
+    </div><!-- /builder-layout -->
+  </section>
+
+  <hr class="section-divider">
+  <p class="section-heading">🎲 Random Gallery</p>
+
+  <div id="portrait-grid"></div>
+  <div id="portrait-status"></div>
+
+</div><!-- /mode-portrait -->
+
+
+<!-- ════════════════════════════════════════════════════════
+     MODE B — COSMETIC PLACER
+     ════════════════════════════════════════════════════════ -->
+<div id="mode-cosmetic" class="mode-section">
+
+  <!-- LEFT PANEL -->
+  <aside id="cos-panel">
+
+    <!-- Asset paths (relative, resolved via ASSET_BASE) -->
+    <div class="cos-section">
+      <h2>Assets</h2>
+      <label>Head sprite (relative path)</label>
+      <input type="text" id="cos-headPath" value="fightersprites/mao-ao-m/head_mint.png">
+      <p class="asset-hint">e.g. fightersprites/mao-ao-m/head_mint.png</p>
+
+      <label>Cosmetic (relative path)</label>
+      <input type="text" id="cos-cosPath" value="cosmetics/appearance/mao-ao/facialhair/wildbeard_mint2.png">
+      <p class="asset-hint">e.g. cosmetics/appearance/mao-ao/facialhair/wildbeard_mint2.png</p>
+
+      <button id="cos-loadBtn" style="width:100%">⟳ Load / Reload</button>
+    </div>
+
+    <!-- Tint (HSV) -->
+    <div class="cos-section">
+      <h2>Tint (HSV)</h2>
+      <div class="cos-row2">
+        <div>
+          <label>H (deg)</label>
+          <input type="number" id="cos-tintH" value="0" step="1">
+        </div>
+        <div>
+          <label>S (−1 → +1)</label>
+          <input type="number" id="cos-tintS" value="0" step="0.05">
+        </div>
+      </div>
+      <div>
+        <label>V (−1 → +1)</label>
+        <input type="number" id="cos-tintV" value="0" step="0.05">
+      </div>
+    </div>
+
+    <!-- Canvas / Bone scale -->
+    <div class="cos-section">
+      <h2>Canvas / Bone</h2>
+      <div class="cos-row2">
+        <div>
+          <label>Canvas px</label>
+          <input type="number" id="cos-canvasSz" value="300" min="100" max="800" step="10">
+        </div>
+        <div>
+          <label>Bone L</label>
+          <input type="number" id="cos-boneL" value="80" min="10" max="400" step="5">
+        </div>
+      </div>
+      <button id="cos-applyCanvasBtn" style="width:100%">Apply Canvas / Bone</button>
+    </div>
+
+    <!-- Xform sliders -->
+    <div class="cos-section">
+      <h2>Xform</h2>
+      <div class="cos-slider-row">
+        <label>ax (↑ fwd)</label>
+        <input type="range" id="cos-s_ax" min="-5" max="5" step="0.01" value="0">
+        <input type="number" id="cos-n_ax" min="-5" max="5" step="0.01" value="0">
+      </div>
+      <div class="cos-slider-row">
+        <label>ay (→ right)</label>
+        <input type="range" id="cos-s_ay" min="-5" max="5" step="0.01" value="-0.1">
+        <input type="number" id="cos-n_ay" min="-5" max="5" step="0.01" value="-0.1">
+      </div>
+      <div class="cos-slider-row">
+        <label>scaleX</label>
+        <input type="range" id="cos-s_sx" min="0.1" max="10" step="0.01" value="0.95">
+        <input type="number" id="cos-n_sx" min="0.1" max="10" step="0.01" value="0.95">
+      </div>
+      <div class="cos-slider-row">
+        <label>scaleY</label>
+        <input type="range" id="cos-s_sy" min="0.1" max="10" step="0.01" value="1.14">
+        <input type="number" id="cos-n_sy" min="0.1" max="10" step="0.01" value="1.14">
+      </div>
+    </div>
+
+    <!-- Baseline / diff -->
+    <div class="cos-section">
+      <h2>Baseline (for diff)</h2>
+      <p style="font-size:11px;color:#666;margin-bottom:8px">
+        Enter the <em>original</em> xform values here. The diff panel shows what changed.
+      </p>
+      <div class="cos-row2">
+        <div><label>ax₀</label><input type="number" id="cos-ref_ax" value="0" step="0.01"></div>
+        <div><label>ay₀</label><input type="number" id="cos-ref_ay" value="-0.1" step="0.01"></div>
+      </div>
+      <div class="cos-row2">
+        <div><label>scaleX₀</label><input type="number" id="cos-ref_sx" value="0.95" step="0.01"></div>
+        <div><label>scaleY₀</label><input type="number" id="cos-ref_sy" value="1.14" step="0.01"></div>
+      </div>
+      <button id="cos-snapBaselineBtn" style="width:100%;margin-top:4px">⤵ Snap baseline to current</button>
+    </div>
+
+    <!-- Diff + full JSON copy -->
+    <div class="cos-section">
+      <h2>JSON Diff &amp; Export</h2>
+      <div id="cosDiffOutput">—</div>
+
+      <!-- Optional: paste existing cosmetic JSON to get a full updated file -->
+      <label style="margin-top:6px">Paste existing cosmetic JSON (optional)</label>
+      <textarea id="cos-existingJson" placeholder='Paste the full cosmetic .json here to get a complete updated file on copy. Leave blank for a minimal xform-only snippet.'></textarea>
+
+      <button id="cos-copyFullBtn" class="btn-accent" style="width:100%">⎘ Copy full cosmetic JSON</button>
+      <div id="cosCopyStatus"></div>
+    </div>
+
+  </aside>
+
+  <!-- CANVAS -->
+  <main id="cos-stage">
+    <canvas id="cos-cv"></canvas>
+  </main>
+
+</div><!-- /mode-cosmetic -->
+
+
+<script>
+// ============================================================
+// SHARED UTILITIES
+// ============================================================
+
+/**
+ * Asset base — resolves to ./assets/ when served from a hosted environment
+ * (GitHub Pages, localhost, githack), or falls back to the raw GitHub URL
+ * so the file also works as a standalone download.
+ */
+const ASSET_BASE = (() => {
+  const loc = window.location.href;
+  if (
+    loc.includes('localhost') ||
+    loc.includes('127.0.0.1') ||
+    loc.includes('oolnokk.github.io') ||
+    loc.includes('githack.com') ||
+    loc.includes('rawcdn.githack')
+  ) {
+    return './assets/';
+  }
+  return 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/assets/';
+})();
+
+/** Build a CSS filter string from HSV tint values (game convention). */
+function buildCSSFilter(h, s, v) {
+  const sat = Math.max(0, 1 + (Number(s) || 0));
+  const bri = Math.max(0, 1 + (Number(v) || 0));
+  if ((Number(h) || 0) === 0 && sat === 1 && bri === 1) return 'none';
+  return `hue-rotate(${(Number(h) || 0).toFixed(1)}deg) saturate(${sat.toFixed(3)}) brightness(${bri.toFixed(3)})`;
+}
+
+/** Minimal HTML-escape to prevent injection in diagnostics innerHTML. */
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Clipboard copy with textarea fallback for non-HTTPS contexts. */
+function copyToClipboard(text, onSuccess, onFail) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(onSuccess).catch(() => execCopy(text, onSuccess, onFail));
+  } else {
+    execCopy(text, onSuccess, onFail);
+  }
+}
+function execCopy(text, onSuccess, onFail) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); onSuccess(); }
+  catch { if (onFail) onFail(); }
+  document.body.removeChild(ta);
+}
+
+// ============================================================
+// MODE SWITCHING
+// ============================================================
+
+(function initModeSwitcher() {
+  const tabs     = document.querySelectorAll('.mode-tab');
+  const sections = document.querySelectorAll('.mode-section');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.mode;
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === target));
+      sections.forEach(s => {
+        const match = s.id === 'mode-' + target;
+        s.classList.toggle('active', match);
+      });
+    });
+  });
+})();
+
+
+// ============================================================
+// MODE: AI PORTRAIT PICKER
+// ============================================================
+
+// ── Configuration ──────────────────────────────────────────
+
+const PORTRAIT_CW = 200;
+const PORTRAIT_CH = 200;
+const PORTRAIT_L  = 80;
+
+// Head xform (from config spriteStyle for Mao-ao head bone)
+const HEAD_XFORM = { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 };
+
+// ── Fighter definitions ────────────────────────────────────
+
+const FIGHTERS = [
+  {
+    id:      'M',
+    label:   'Mao-ao (M)',
+    headUrl: 'fightersprites/mao-ao-m/head_mint.png',
+    urUrl:   'fightersprites/mao-ao-m/untinted_regions/ur-head.png',
+  },
+  {
+    id:      'F',
+    label:   'Mao-ao (F)',
+    headUrl: 'fightersprites/mao-ao-f/head.png',
+    urUrl:   'fightersprites/mao-ao-f/untinted_regions/ur-head.png',
+  },
+];
+
+// ── Cosmetic definitions ───────────────────────────────────
+
+const HAIR_OPTIONS = [
+  { id: 'none', label: 'No Hair', tintSlot: null, layers: [] },
+  {
+    id: 'tuft', label: 'Tuft', tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
+        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
+    ],
+  },
+  {
+    id: 'tuft_striped', label: 'Tuft Striped', tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/headhair/tuft_striped-front_mint.png',
+        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
+    ],
+  },
+  {
+    id: 'smooth_striped', label: 'Smooth Striped', tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/headhair/smooth_striped_mint.png',
+        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
+    ],
+  },
+  {
+    id: 'shoulder_length', label: 'Shoulder Length', tintSlot: 'A',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/headhair/shoulderlength-front_mint.png',
+        ax: -0.1, ay: -0.1, sx: 2, sy: 2, pos: 'back' },
+      { url: 'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
+        ax: -0.1, ay: -0.1, sx: 2, sy: 2, pos: 'front' },
+    ],
+  },
+  {
+    id: 'long_ponytail', label: 'Long Ponytail', tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/headhair/ponytail_long-back_mint.png',
+        ax: -0.6, ay: -0.15, sx: 3, sy: 3, pos: 'back' },
+      { url: 'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
+        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
+    ],
+  },
+];
+
+const EYES_OPTIONS = [
+  { id: 'none', label: 'No Eye Mark', tintSlot: null, layers: [] },
+  {
+    id: 'circled_eyes', label: 'Circled Eyes', tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eyes_mint.png',
+        ax: -0.4, ay: -0.1, sx: 2.85, sy: 2.85, pos: 'front' },
+    ],
+  },
+  {
+    id: 'circled_eyes_f', label: 'Circled Eyes (F)', tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eyes_f.png',
+        ax: 0, ay: -0.1, sx: 0.95, sy: 1.14, pos: 'front' },
+    ],
+  },
+  {
+    id: 'circled_eye_L', label: 'Circle (Left)', tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eye_L_mint.png',
+        ax: -0.4, ay: -0.1, sx: 2.85, sy: 2.85, pos: 'front' },
+    ],
+  },
+  {
+    id: 'circled_eye_R', label: 'Circle (Right)', tintSlot: 'B',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eye_R_mint.png',
+        ax: -0.4, ay:  0.1, sx: 2.85, sy: 2.85, pos: 'front' },
+    ],
+  },
+];
+
+const FACIAL_HAIR_OPTIONS = [
+  { id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] },
+  {
+    id: 'wild_beard', label: 'Wild Beard', tintSlot: 'A',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/facialhair/wild_beard_mint.png',
+        ax: 0, ay: -0.1, sx: 0.95, sy: 1.14, pos: 'front' },
+    ],
+  },
+  {
+    id: 'wildbeard', label: 'Wildbeard', tintSlot: 'A',
+    layers: [
+      { url: 'cosmetics/appearance/mao-ao/facialhair/wildbeard_mint2.png',
+        ax: -0.15, ay: -0.05, sx: 2.3, sy: 2.5, pos: 'front' },
+    ],
+  },
+];
+
+// ── Image cache ────────────────────────────────────────────
+
+const IMG_CACHE = new Map();
+
+function loadImg(relPath) {
+  const url = ASSET_BASE + relPath;
+  if (IMG_CACHE.has(url)) return IMG_CACHE.get(url);
+  const promise = new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = () => {
+      if (!url.startsWith('https://raw.githubusercontent.com')) {
+        const rawUrl = 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/assets/' + relPath;
+        const img2 = new Image();
+        img2.crossOrigin = 'anonymous';
+        img2.onload  = () => resolve(img2);
+        img2.onerror = () => reject(new Error('Failed: ' + relPath));
+        img2.src = rawUrl;
+      } else {
+        reject(new Error('Failed: ' + relPath));
+      }
+    };
+    img.src = url;
+  });
+  IMG_CACHE.set(url, promise);
+  return promise;
+}
+
+// ── Tinting ────────────────────────────────────────────────
+
+function makeCSSFilter(color) {
+  if (!color) return 'none';
+  return buildCSSFilter(color.h, color.s, color.v ?? color.l);
+}
+
+// ── Bone-xform drawing ─────────────────────────────────────
+
+function composeXform(base, child) {
+  return {
+    ax: (base.ax ?? 0) + (child.ax ?? 0),
+    ay: (base.ay ?? 0) + (child.ay ?? 0),
+    sx: (base.sx ?? 1) * (child.sx ?? 1),
+    sy: (base.sy ?? 1) * (child.sy ?? 1),
+  };
+}
+
+function drawPortraitLayer(ctx, img, xform, cssFilter) {
+  const { ax, ay, sx, sy } = xform;
+  const h  = PORTRAIT_L * sy;
+  const w  = (img.naturalWidth / img.naturalHeight) * PORTRAIT_L * sx;
+  const cx = PORTRAIT_CW / 2 + ay * PORTRAIT_L;
+  const cy = PORTRAIT_CH / 2 - ax * PORTRAIT_L;
+  ctx.save();
+  ctx.filter = cssFilter || 'none';
+  ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+  ctx.restore();
+}
+
+// ── Randomisation ──────────────────────────────────────────
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function randomBodyColors() {
+  const rh = (lo, hi) => lo + Math.random() * (hi - lo);
+  const rc = (lo, hi) => lo + Math.random() * (hi - lo);
+  return {
+    A: { h: rh(-140, 80),  s: rc(-0.45, 0.50), v: rc(-0.35, 0.20) },
+    B: { h: rh(-180, 180), s: rc( 0.00, 0.65), v: rc(-0.25, 0.45) },
+    C: { h: rh(-60, 120),  s: rc( 0.05, 0.35), v: rc(-0.15, 0.12) },
+  };
+}
+
+function randomProfile() {
+  const fighter    = pick(FIGHTERS);
+  const hair       = pick(HAIR_OPTIONS);
+  const eyes       = pick(EYES_OPTIONS);
+  const noFacialHair = FACIAL_HAIR_OPTIONS.find(o => o.id === 'none') ?? FACIAL_HAIR_OPTIONS[0];
+  const facialHair = Math.random() < 0.35 ? pick(FACIAL_HAIR_OPTIONS) : noFacialHair;
+  const bodyColors = randomBodyColors();
+  return { fighter, hair, eyes, facialHair, bodyColors };
+}
+
+// ── Rendering ──────────────────────────────────────────────
+
+async function renderProfile(canvas, profile) {
+  const { fighter, hair, eyes, facialHair, bodyColors } = profile;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
+
+  const filterFor = (slot) => slot ? makeCSSFilter(bodyColors[slot]) : 'none';
+  const filterA   = makeCSSFilter(bodyColors.A);
+
+  const allCosmeticGroups = [hair, eyes, facialHair];
+  const backLayers  = [];
+  const frontLayers = [];
+
+  for (const group of allCosmeticGroups) {
+    if (!group || !group.layers.length) continue;
+    for (const layer of group.layers) {
+      const target = layer.pos === 'back' ? backLayers : frontLayers;
+      target.push({ layer, filter: filterFor(group.tintSlot) });
+    }
+  }
+
+  const neededUrls = new Set([
+    fighter.headUrl, fighter.urUrl,
+    ...backLayers.map(({ layer }) => layer.url),
+    ...frontLayers.map(({ layer }) => layer.url),
+  ]);
+
+  let imgMap;
+  try {
+    const entries = await Promise.all(
+      [...neededUrls].map(async (url) => [url, await loadImg(url)])
+    );
+    imgMap = new Map(entries);
+  } catch (err) {
+    console.warn('[portrait] image load error', err);
+    ctx.fillStyle = '#220000'; ctx.fillRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
+    ctx.fillStyle = '#ff4444'; ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Load error', PORTRAIT_CW / 2, PORTRAIT_CH / 2);
+    return;
+  }
+
+  for (const { layer, filter } of backLayers) {
+    const img = imgMap.get(layer.url);
+    if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
+  }
+  { const img = imgMap.get(fighter.headUrl); if (img) drawPortraitLayer(ctx, img, HEAD_XFORM, filterA); }
+  { const img = imgMap.get(fighter.urUrl);   if (img) drawPortraitLayer(ctx, img, HEAD_XFORM, 'none'); }
+  for (const { layer, filter } of frontLayers) {
+    const img = imgMap.get(layer.url);
+    if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
+  }
+}
+
+// ── Card creation & grid UI ────────────────────────────────
+
+function makeLabel(profile) {
+  const { fighter, hair, eyes, facialHair } = profile;
+  const parts = [fighter.label];
+  if (hair.id !== 'none')       parts.push(hair.label);
+  if (eyes.id !== 'none')       parts.push(eyes.label);
+  if (facialHair.id !== 'none') parts.push(facialHair.label);
+  return parts.join('\n');
+}
+
+function createCard(profile) {
+  const card   = document.createElement('div');
+  card.className = 'portrait-card loading';
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = PORTRAIT_CW;
+  canvas.height = PORTRAIT_CH;
+  canvas.style.width  = '160px';
+  canvas.style.height = '160px';
+
+  const label = document.createElement('div');
+  label.className = 'card-label';
+
+  card.appendChild(canvas);
+  card.appendChild(label);
+
+  card.addEventListener('click', () => {
+    const newProfile = randomProfile();
+    label.textContent = makeLabel(newProfile);
+    card.classList.add('loading');
+    renderProfile(canvas, newProfile).finally(() => card.classList.remove('loading'));
+  });
+
+  label.textContent = makeLabel(profile);
+  renderProfile(canvas, profile).finally(() => card.classList.remove('loading'));
+
+  return card;
+}
+
+function populateGrid(count) {
+  const grid = document.getElementById('portrait-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < count; i++) grid.appendChild(createCard(randomProfile()));
+}
+
+function rerollAll() {
+  const count = parseInt(document.getElementById('portrait-count-select').value, 10) || 6;
+  populateGrid(count);
+}
+
+function addMore() {
+  const count = parseInt(document.getElementById('portrait-count-select').value, 10) || 6;
+  const grid  = document.getElementById('portrait-grid');
+  for (let i = 0; i < count; i++) grid.appendChild(createCard(randomProfile()));
+}
+
+function preloadCommon() {
+  const urls = [
+    'fightersprites/mao-ao-m/head_mint.png',
+    'fightersprites/mao-ao-f/head.png',
+    'fightersprites/mao-ao-m/untinted_regions/ur-head.png',
+    'fightersprites/mao-ao-f/untinted_regions/ur-head.png',
+    'cosmetics/appearance/mao-ao/eyes/circled_eyes_mint.png',
+    'cosmetics/appearance/mao-ao/eyes/circled_eyes_f.png',
+    'cosmetics/appearance/mao-ao/eyes/circled_eye_L_mint.png',
+    'cosmetics/appearance/mao-ao/eyes/circled_eye_R_mint.png',
+    'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
+    'cosmetics/appearance/mao-ao/headhair/smooth_striped_mint.png',
+    'cosmetics/appearance/mao-ao/headhair/ponytail_long-back_mint.png',
+    'cosmetics/appearance/mao-ao/headhair/shoulderlength-front_mint.png',
+    'cosmetics/appearance/mao-ao/headhair/tuft_striped-front_mint.png',
+    'cosmetics/appearance/mao-ao/facialhair/wild_beard_mint.png',
+    'cosmetics/appearance/mao-ao/facialhair/wildbeard_mint2.png',
+  ];
+  for (const u of urls) loadImg(u);
+}
+
+// ── Custom builder ─────────────────────────────────────────
+
+function readColorSlot(slot) {
+  return {
+    h: parseFloat(document.getElementById(`b-color-${slot}-h`).value) || 0,
+    s: parseFloat(document.getElementById(`b-color-${slot}-s`).value) || 0,
+    v: parseFloat(document.getElementById(`b-color-${slot}-v`).value) || 0,
+  };
+}
+
+function writeColorSlot(slot, color) {
+  const val = (id, v) => { document.getElementById(id).value = v; };
+  val(`b-color-${slot}-h`, (color.h  ?? 0).toFixed(2));
+  val(`b-color-${slot}-s`, (color.s  ?? 0).toFixed(2));
+  val(`b-color-${slot}-v`, (color.v  ?? color.l ?? 0).toFixed(2));
+  updateColorSlotUI(slot);
+}
+
+function updateColorSlotUI(slot) {
+  const h = parseFloat(document.getElementById(`b-color-${slot}-h`).value);
+  const s = parseFloat(document.getElementById(`b-color-${slot}-s`).value);
+  const v = parseFloat(document.getElementById(`b-color-${slot}-v`).value);
+  document.getElementById(`b-color-${slot}-h-val`).textContent = h.toFixed(0) + '°';
+  document.getElementById(`b-color-${slot}-s-val`).textContent = (s >= 0 ? '+' : '') + (s * 100).toFixed(0) + '%';
+  document.getElementById(`b-color-${slot}-v-val`).textContent = (v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%';
+  document.getElementById(`b-swatch-${slot}`).style.filter = makeCSSFilter({ h, s, v });
+}
+
+function getBuilderProfile() {
+  const fighter    = FIGHTERS.find(f => f.id === document.getElementById('b-fighter').value) ?? FIGHTERS[0];
+  const hair       = HAIR_OPTIONS.find(o => o.id === document.getElementById('b-hair').value) ?? HAIR_OPTIONS[0];
+  const eyes       = EYES_OPTIONS.find(o => o.id === document.getElementById('b-eyes').value) ?? EYES_OPTIONS[0];
+  const facialHair = FACIAL_HAIR_OPTIONS.find(o => o.id === document.getElementById('b-facial').value) ?? FACIAL_HAIR_OPTIONS[0];
+  return { fighter, hair, eyes, facialHair, bodyColors: { A: readColorSlot('A'), B: readColorSlot('B'), C: readColorSlot('C') } };
+}
+
+async function renderBuilderPreview() {
+  const canvas  = document.getElementById('builder-canvas');
+  const profile = getBuilderProfile();
+  await renderProfile(canvas, profile);
+  updateDiagnostics(profile);
+}
+
+// ── Diagnostics ────────────────────────────────────────────
+
+function buildRenderChain(profile) {
+  const { fighter, hair, eyes, facialHair, bodyColors } = profile;
+  const filterFor = (slot) => slot ? makeCSSFilter(bodyColors[slot]) : 'none';
+  const cosGroups = [{ group: hair, category: 'Hair' }, { group: eyes, category: 'Eyes' }, { group: facialHair, category: 'Facial Hair' }];
+  const backEntries = [], frontEntries = [];
+
+  for (const { group, category } of cosGroups) {
+    if (!group || !group.layers.length) continue;
+    const multiLayer = group.layers.length > 1;
+    for (let i = 0; i < group.layers.length; i++) {
+      const layer = group.layers[i];
+      const entry = {
+        category:    `${category}${multiLayer ? ` — layer ${i + 1}` : ''} (${layer.pos})`,
+        optionId:    group.id,
+        optionLabel: group.label,
+        tintSlot:    group.tintSlot,
+        filter:      filterFor(group.tintSlot),
+        relPath:     layer.url,
+        resolvedUrl: ASSET_BASE + layer.url,
+        transform:   composeXform(HEAD_XFORM, layer),
+      };
+      (layer.pos === 'back' ? backEntries : frontEntries).push(entry);
+    }
+  }
+
+  const chain = [...backEntries];
+  chain.push({ category: 'Head Base', optionId: fighter.id, optionLabel: fighter.label, tintSlot: 'A', filter: filterFor('A'), relPath: fighter.headUrl, resolvedUrl: ASSET_BASE + fighter.headUrl, transform: { ...HEAD_XFORM } });
+  chain.push({ category: 'Head Overlay (untinted)', optionId: fighter.id, optionLabel: fighter.label, tintSlot: null, filter: 'none', relPath: fighter.urUrl, resolvedUrl: ASSET_BASE + fighter.urUrl, transform: { ...HEAD_XFORM } });
+  chain.push(...frontEntries);
+  return chain;
+}
+
+function updateDiagnostics(profile) {
+  const chain = buildRenderChain(profile);
+  const list  = document.getElementById('diag-chain');
+  list.innerHTML = '';
+
+  chain.forEach((e, i) => {
+    const { ax, ay, sx, sy } = e.transform;
+    const tintText = e.tintSlot ? `slot ${escHtml(e.tintSlot)} → ${escHtml(e.filter)}` : 'none (untinted)';
+    const li = document.createElement('li');
+    li.className = 'diag-step';
+    li.innerHTML =
+      `<div class="diag-step-header">Step ${i + 1} — ${escHtml(e.category)}</div>` +
+      `<div class="diag-step-detail">` +
+        `<span class="dk">Option     :</span> <span class="dv">${escHtml(e.optionId)}</span> — "${escHtml(e.optionLabel)}"<br>` +
+        `<span class="dk">Resolved   :</span> <span class="dv">${escHtml(e.resolvedUrl)}</span><br>` +
+        `<span class="dk">Rel path   :</span> <span class="dv">${escHtml(e.relPath)}</span><br>` +
+        `<span class="dk">Transform  :</span> ax=${ax.toFixed(2)}  ay=${ay.toFixed(2)}  sx=${sx.toFixed(2)}  sy=${sy.toFixed(2)}<br>` +
+        `<span class="dk">Tint       :</span> ${tintText}` +
+      `</div>`;
+    list.appendChild(li);
+  });
+}
+
+function copyDiagnostics() {
+  const profile = getBuilderProfile();
+  const { fighter, hair, eyes, facialHair, bodyColors } = profile;
+  const chain   = buildRenderChain(profile);
+
+  const lines = [
+    '=== Portrait Render Chain ===',
+    `Fighter     : ${fighter.id} — ${fighter.label}`,
+    `Hair        : ${hair.id} — ${hair.label}`,
+    `Eyes        : ${eyes.id} — ${eyes.label}`,
+    `Facial Hair : ${facialHair.id} — ${facialHair.label}`,
+    '', 'Body Colors:',
+    ...Object.entries(bodyColors).map(([slot, c]) => {
+      const v = (c.v ?? c.l ?? 0);
+      return `  ${slot}: h=${Number(c.h).toFixed(1)}°  s=${(Number(c.s) * 100).toFixed(1)}%  v=${(v * 100).toFixed(1)}%`;
+    }),
+    '', 'Render Chain:',
+    ...chain.flatMap((e, i) => {
+      const { ax, ay, sx, sy } = e.transform;
+      const tint = e.tintSlot ? `slot ${e.tintSlot}: ${e.filter}` : 'none';
+      return [
+        `  [${i + 1}] ${e.category}`,
+        `       Option    : ${e.optionId} — "${e.optionLabel}"`,
+        `       Resolved  : ${e.resolvedUrl}`,
+        `       Rel path  : ${e.relPath}`,
+        `       Transform : ax=${ax.toFixed(2)} ay=${ay.toFixed(2)} sx=${sx.toFixed(2)} sy=${sy.toFixed(2)}`,
+        `       Tint      : ${tint}`,
+      ];
+    }),
+  ];
+
+  const btn    = document.getElementById('btn-copy-diag');
+  const finish = (msg) => {
+    btn.textContent = msg;
+    setTimeout(() => { btn.textContent = '📋 Copy to clipboard'; }, 2200);
+  };
+
+  copyToClipboard(lines.join('\n'), () => finish('✓ Copied!'), () => finish('⚠ Copy failed'));
+}
+
+// ── Builder init ───────────────────────────────────────────
+
+function populateBuilderDropdowns() {
+  const fill = (id, opts) => {
+    document.getElementById(id).innerHTML =
+      opts.map(o => `<option value="${escHtml(o.id)}">${escHtml(o.label)}</option>`).join('');
+  };
+  fill('b-fighter', FIGHTERS);
+  fill('b-hair',    HAIR_OPTIONS);
+  fill('b-eyes',    EYES_OPTIONS);
+  fill('b-facial',  FACIAL_HAIR_OPTIONS);
+}
+
+function initBuilder() {
+  populateBuilderDropdowns();
+
+  const init = randomProfile();
+  document.getElementById('b-fighter').value = init.fighter.id;
+  document.getElementById('b-hair').value    = init.hair.id;
+  document.getElementById('b-eyes').value    = init.eyes.id;
+  document.getElementById('b-facial').value  = init.facialHair.id;
+  writeColorSlot('A', init.bodyColors.A);
+  writeColorSlot('B', init.bodyColors.B);
+  writeColorSlot('C', init.bodyColors.C);
+
+  ['b-fighter', 'b-hair', 'b-eyes', 'b-facial'].forEach(id => {
+    document.getElementById(id).addEventListener('change', renderBuilderPreview);
+  });
+
+  ['A', 'B', 'C'].forEach(slot => {
+    ['h', 's', 'v'].forEach(axis => {
+      document.getElementById(`b-color-${slot}-${axis}`).addEventListener('input', () => {
+        updateColorSlotUI(slot);
+        renderBuilderPreview();
+      });
+    });
+  });
+
+  document.getElementById('btn-randomize-colors').addEventListener('click', () => {
+    const c = randomBodyColors();
+    writeColorSlot('A', c.A);
+    writeColorSlot('B', c.B);
+    writeColorSlot('C', c.C);
+    renderBuilderPreview();
+  });
+
+  document.getElementById('btn-randomize-all').addEventListener('click', () => {
+    const p = randomProfile();
+    document.getElementById('b-fighter').value = p.fighter.id;
+    document.getElementById('b-hair').value    = p.hair.id;
+    document.getElementById('b-eyes').value    = p.eyes.id;
+    document.getElementById('b-facial').value  = p.facialHair.id;
+    writeColorSlot('A', p.bodyColors.A);
+    writeColorSlot('B', p.bodyColors.B);
+    writeColorSlot('C', p.bodyColors.C);
+    renderBuilderPreview();
+  });
+
+  document.getElementById('btn-copy-diag').addEventListener('click', copyDiagnostics);
+  renderBuilderPreview();
+}
+
+// ── Portrait mode init ─────────────────────────────────────
+
+document.getElementById('btn-reroll').addEventListener('click', rerollAll);
+document.getElementById('btn-more').addEventListener('click', addMore);
+document.getElementById('portrait-count-select').addEventListener('change', rerollAll);
+
+preloadCommon();
+populateGrid(parseInt(document.getElementById('portrait-count-select').value, 10) || 6);
+initBuilder();
+
+
+// ============================================================
+// MODE: COSMETIC PLACER
+// ============================================================
+
+// ── Globals ────────────────────────────────────────────────
+
+const cosCV  = document.getElementById('cos-cv');
+const cosCtx = cosCV.getContext('2d');
+
+let cosCW = 300, cosCH = 300, cosL = 80;
+let cosHeadImg = null, cosCosImg = null;
+
+// Current xform (ax, ay, sx, sy)
+let cosXf   = { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 };
+
+// Baseline (for diff)
+let cosBase = { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 };
+
+// ── Canvas setup ───────────────────────────────────────────
+
+function cosResizeCanvas(w, h) {
+  cosCV.width  = w; cosCV.height = h;
+  cosCV.style.width  = w + 'px'; cosCV.style.height = h + 'px';
+  cosCW = w; cosCH = h;
+}
+cosResizeCanvas(cosCW, cosCH);
+
+// ── Asset loading (uses shared ASSET_BASE) ─────────────────
+
+function cosLoadImage(relPath) {
+  return new Promise((resolve, reject) => {
+    const url = ASSET_BASE + relPath.trim();
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = () => {
+      // Fallback: try raw GitHub URL directly
+      const rawUrl = 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/assets/' + relPath.trim();
+      if (url === rawUrl) { reject(new Error('Could not load: ' + relPath)); return; }
+      const img2 = new Image();
+      img2.crossOrigin = 'anonymous';
+      img2.onload  = () => resolve(img2);
+      img2.onerror = () => reject(new Error('Could not load: ' + relPath));
+      img2.src = rawUrl;
+    };
+    img.src = url;
+  });
+}
+
+async function cosLoadAssets() {
+  const headPath = document.getElementById('cos-headPath').value.trim();
+  const cosPath  = document.getElementById('cos-cosPath').value.trim();
+  cosHeadImg = null; cosCosImg = null;
+  try { cosHeadImg = await cosLoadImage(headPath); } catch (e) { console.warn(e); }
+  try { cosCosImg  = await cosLoadImage(cosPath);  } catch (e) { console.warn(e); }
+  cosRender();
+}
+
+// ── Tint filter ────────────────────────────────────────────
+
+function cosGetFilter() {
+  const h = Number(document.getElementById('cos-tintH').value) || 0;
+  const s = Number(document.getElementById('cos-tintS').value) || 0;
+  const v = Number(document.getElementById('cos-tintV').value) || 0;
+  return buildCSSFilter(h, s, v);
+}
+
+// ── Render ─────────────────────────────────────────────────
+
+function cosDrawLayer(img, ax, ay, sx, sy, filter) {
+  const h = cosL * sy;
+  const w = (img.naturalWidth / img.naturalHeight) * cosL * sx;
+  const cx = cosCW / 2 + ay * cosL;
+  const cy = cosCH / 2 - ax * cosL;
+  cosCtx.save();
+  cosCtx.filter = filter || 'none';
+  cosCtx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+  cosCtx.restore();
+}
+
+function cosRender() {
+  cosCtx.clearRect(0, 0, cosCW, cosCH);
+
+  // Centre cross guide
+  cosCtx.save();
+  cosCtx.strokeStyle = '#1e2836'; cosCtx.lineWidth = 1;
+  cosCtx.beginPath();
+  cosCtx.moveTo(cosCW / 2, 0);   cosCtx.lineTo(cosCW / 2, cosCH);
+  cosCtx.moveTo(0, cosCH / 2);   cosCtx.lineTo(cosCW, cosCH / 2);
+  cosCtx.stroke();
+  cosCtx.restore();
+
+  if (cosHeadImg) cosDrawLayer(cosHeadImg, 0, 0, 1, 1, 'none');
+  if (cosCosImg)  cosDrawLayer(cosCosImg, cosXf.ax, cosXf.ay, cosXf.sx, cosXf.sy, cosGetFilter());
+
+  cosUpdateDiff();
+}
+
+// ── Diff output ────────────────────────────────────────────
+
+function cosFmt(v) { return Number(v.toFixed(4)).toString(); }
+function cosRound4(v) { return Math.round(v * 10000) / 10000; }
+
+function cosUpdateDiff() {
+  const fields = ['ax', 'ay', 'sx', 'sy'];
+  const keys   = { ax: 'ax', ay: 'ay', sx: 'scaleX', sy: 'scaleY' };
+  let lines = '';
+  for (const f of fields) {
+    const cur  = cosXf[f];
+    const ref  = cosBase[f];
+    const diff = cur - ref;
+    const tag  = Math.abs(diff) < 1e-9
+      ? '<span class="cos-tag-eq">  (no change)</span>'
+      : diff > 0
+        ? `<span class="cos-tag-plus">  Δ +${cosFmt(diff)}</span>`
+        : `<span class="cos-tag-minus">  Δ ${cosFmt(diff)}</span>`;
+    lines += `  "${keys[f]}": ${cosFmt(cur)}${tag}\n`;
+  }
+  document.getElementById('cosDiffOutput').innerHTML = `{\n${lines}}`;
+}
+
+// ── Full cosmetic JSON builder ─────────────────────────────
+
+/**
+ * Builds the full cosmetic JSON to copy.
+ *
+ * If the user has pasted an existing cosmetic JSON into the textarea, this
+ * function parses it and replaces only the xform values for the "head" bone,
+ * preserving all other fields (meta, type, appearance, image URL, etc.).
+ *
+ * If the textarea is empty, a canonical appearance-cosmetic structure is
+ * generated using the current asset path as the image URL.
+ */
+function cosBuildFullJson() {
+  const xform = {
+    ax:     cosRound4(cosXf.ax),
+    ay:     cosRound4(cosXf.ay),
+    scaleX: cosRound4(cosXf.sx),
+    scaleY: cosRound4(cosXf.sy),
+    rotDeg: 0,
+  };
+
+  const existing = document.getElementById('cos-existingJson').value.trim();
+
+  if (existing) {
+    let parsed;
+    try { parsed = JSON.parse(existing); }
+    catch { return JSON.stringify({ error: 'Pasted JSON is invalid — please check for syntax errors.' }, null, 2); }
+
+    // Deep-set the xform under the most common paths found in cosmetic configs:
+    //   parts.head.spriteStyle.xform.head          (appearance cosmetics)
+    //   parts.head.layers.front.spriteStyle.base.xform.head  (hat/slot cosmetics)
+    // We try to find an xform.head object anywhere in parts.* and update it.
+    let patched = false;
+
+    function patchXformIn(obj) {
+      if (!obj || typeof obj !== 'object') return false;
+      // Check if this object itself has an xform.head path
+      if (obj.xform && typeof obj.xform === 'object') {
+        if (obj.xform.head && typeof obj.xform.head === 'object') {
+          Object.assign(obj.xform.head, xform);
+          return true;
+        }
+        // Some configs have xform directly containing the fields (no sub-bone key)
+        if ('ax' in obj.xform || 'scaleX' in obj.xform) {
+          Object.assign(obj.xform, xform);
+          return true;
+        }
+      }
+      // Recurse into children
+      for (const key of Object.keys(obj)) {
+        if (patchXformIn(obj[key])) return true;
+      }
+      return false;
+    }
+
+    patched = patchXformIn(parsed);
+    if (!patched) {
+      // Couldn't find an xform to patch — attach it to parts.head.spriteStyle.xform.head
+      parsed.parts = parsed.parts || {};
+      parsed.parts.head = parsed.parts.head || {};
+      parsed.parts.head.spriteStyle = parsed.parts.head.spriteStyle || {};
+      parsed.parts.head.spriteStyle.xform = parsed.parts.head.spriteStyle.xform || {};
+      parsed.parts.head.spriteStyle.xform.head = xform;
+    }
+
+    return JSON.stringify(parsed, null, 2);
+  }
+
+  // No existing JSON — generate a canonical appearance-cosmetic structure
+  const cosPath = document.getElementById('cos-cosPath').value.trim();
+  const imageUrl = cosPath ? ('./assets/' + cosPath) : './assets/cosmetics/appearance/mao-ao/REPLACE_ME.png';
+
+  return JSON.stringify({
+    meta: { name: 'Untitled Cosmetic' },
+    type: 'appearance',
+    appearance: {
+      inheritSprite: 'head',
+      bodyColors: ['A'],
+      originalId: 'REPLACE_ME',
+    },
+    parts: {
+      head: {
+        image: { url: imageUrl },
+        spriteStyle: {
+          xform: {
+            head: xform,
+          },
+        },
+      },
+    },
+  }, null, 2);
+}
+
+// ── Slider ↔ number sync ───────────────────────────────────
+
+const COS_PAIRS = [
+  ['cos-s_ax', 'cos-n_ax', 'ax'],
+  ['cos-s_ay', 'cos-n_ay', 'ay'],
+  ['cos-s_sx', 'cos-n_sx', 'sx'],
+  ['cos-s_sy', 'cos-n_sy', 'sy'],
+];
+
+function cosSyncFromSlider(key, sliderId, numberId) {
+  const val = parseFloat(document.getElementById(sliderId).value);
+  document.getElementById(numberId).value = val;
+  cosXf[key] = val;
+  cosRender();
+}
+
+function cosSyncFromNumber(key, sliderId, numberId) {
+  const val = parseFloat(document.getElementById(numberId).value);
+  if (!isNaN(val)) {
+    document.getElementById(sliderId).value = val;
+    cosXf[key] = val;
+    cosRender();
+  }
+}
+
+for (const [sid, nid, key] of COS_PAIRS) {
+  document.getElementById(sid).addEventListener('input',  () => cosSyncFromSlider(key, sid, nid));
+  document.getElementById(nid).addEventListener('change', () => cosSyncFromNumber(key, sid, nid));
+  document.getElementById(nid).addEventListener('input',  () => cosSyncFromNumber(key, sid, nid));
+}
+
+// ── Button handlers ────────────────────────────────────────
+
+document.getElementById('cos-loadBtn').addEventListener('click', cosLoadAssets);
+
+document.getElementById('cos-applyCanvasBtn').addEventListener('click', () => {
+  const sz = parseInt(document.getElementById('cos-canvasSz').value, 10) || 300;
+  const bl = parseFloat(document.getElementById('cos-boneL').value) || 80;
+  cosL = bl;
+  cosResizeCanvas(sz, sz);
+  cosRender();
+});
+
+document.getElementById('cos-snapBaselineBtn').addEventListener('click', () => {
+  cosBase = { ...cosXf };
+  document.getElementById('cos-ref_ax').value = cosFmt(cosBase.ax);
+  document.getElementById('cos-ref_ay').value = cosFmt(cosBase.ay);
+  document.getElementById('cos-ref_sx').value = cosFmt(cosBase.sx);
+  document.getElementById('cos-ref_sy').value = cosFmt(cosBase.sy);
+  cosUpdateDiff();
+});
+
+// Baseline number fields update base on change
+for (const [field, id] of [['ax','cos-ref_ax'],['ay','cos-ref_ay'],['sx','cos-ref_sx'],['sy','cos-ref_sy']]) {
+  document.getElementById(id).addEventListener('change', () => {
+    cosBase[field] = parseFloat(document.getElementById(id).value) || 0;
+    cosUpdateDiff();
+  });
+}
+
+// Tint fields re-render on change
+['cos-tintH','cos-tintS','cos-tintV'].forEach(id => {
+  document.getElementById(id).addEventListener('input', cosRender);
+  document.getElementById(id).addEventListener('change', cosRender);
+});
+
+// Copy full cosmetic JSON button
+document.getElementById('cos-copyFullBtn').addEventListener('click', () => {
+  const json = cosBuildFullJson();
+  const status = document.getElementById('cosCopyStatus');
+  copyToClipboard(
+    json,
+    () => {
+      status.textContent = '✓ Copied full cosmetic JSON to clipboard';
+      setTimeout(() => { status.textContent = ''; }, 2500);
+    },
+    () => {
+      status.textContent = '⚠ Copy failed';
+      setTimeout(() => { status.textContent = ''; }, 2500);
+    }
+  );
+});
+
+// ── Mouse-drag: translate cosmetic ────────────────────────
+
+let cosDragging = false, cosDragStart = null, cosXfStart = null;
+
+cosCV.addEventListener('mousedown', e => {
+  cosDragging  = true;
+  cosDragStart = { x: e.clientX, y: e.clientY };
+  cosXfStart   = { ...cosXf };
+  cosCV.style.cursor = 'grabbing';
+});
+
+window.addEventListener('mousemove', e => {
+  if (!cosDragging) return;
+  const dx = e.clientX - cosDragStart.x;
+  const dy = e.clientY - cosDragStart.y;
+  cosXf.ax = Math.round((cosXfStart.ax - dy / cosL) * 1000) / 1000;
+  cosXf.ay = Math.round((cosXfStart.ay + dx / cosL) * 1000) / 1000;
+  document.getElementById('cos-s_ax').value = cosXf.ax;
+  document.getElementById('cos-n_ax').value = cosXf.ax;
+  document.getElementById('cos-s_ay').value = cosXf.ay;
+  document.getElementById('cos-n_ay').value = cosXf.ay;
+  cosRender();
+});
+
+window.addEventListener('mouseup', () => {
+  cosDragging = false;
+  cosCV.style.cursor = 'grab';
+});
+
+cosCV.style.cursor = 'grab';
+
+// ── Scroll-wheel: uniform scale ────────────────────────────
+
+cosCV.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.05 : 0.05;
+  cosXf.sx = Math.max(0.1, Math.round((cosXf.sx + delta) * 1000) / 1000);
+  cosXf.sy = Math.max(0.1, Math.round((cosXf.sy + delta) * 1000) / 1000);
+  document.getElementById('cos-s_sx').value = cosXf.sx;
+  document.getElementById('cos-n_sx').value = cosXf.sx;
+  document.getElementById('cos-s_sy').value = cosXf.sy;
+  document.getElementById('cos-n_sy').value = cosXf.sy;
+  cosRender();
+}, { passive: false });
+
+// ── Cosmetic mode init ─────────────────────────────────────
+
+cosLoadAssets();
+
+</script>
+</body>
+</html>
