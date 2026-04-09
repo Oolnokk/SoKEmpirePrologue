@@ -947,13 +947,20 @@ const FIGHTERS = [
     id:      'M',
     label:   'Mao-ao (M)',
     headUrl: 'fightersprites/mao-ao-m/head_mint.png',
-    urUrl:   'fightersprites/mao-ao-m/untinted_regions/ur-head.png',
+    // urLayers: untinted-region overlays drawn between tinted head and front cosmetics.
+    // Each entry may optionally include an `xform` override; defaults to HEAD_XFORM.
+    urLayers: [
+      { url: 'fightersprites/mao-ao-m/untinted_regions/ur-head.png' },
+    ],
   },
   {
     id:      'F',
     label:   'Mao-ao (F)',
     headUrl: 'fightersprites/mao-ao-f/head.png',
-    urUrl:   'fightersprites/mao-ao-f/untinted_regions/ur-head.png',
+    urLayers: [
+      { url: 'fightersprites/mao-ao-f/untinted_regions/ur-head.png' },
+      { url: 'fightersprites/mao-ao-f/untinted_regions/ur-torso.png' },
+    ],
   },
 ];
 
@@ -1167,11 +1174,48 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/**
+ * Allowed HSV delta ranges for each body-color slot.
+ * Slot A ("Skin/Body") is narrowed so random and slider values stay in a
+ * plausible skin-tone range relative to the mint base sprites.
+ * The default config examples use h≈-90, s≈0.5, v≈-0.2 for body A,
+ * all of which fall well within this range.
+ * Slots B and C are unrestricted.
+ */
+const BODYCOLOR_LIMITS = {
+  // Slot A: "Skin/Body" — narrowed to keep randomisation in a plausible
+  // skin-tone range relative to the mint base sprites.
+  // The default config examples (h:-90, s:0.5, v:-0.2 for Mao-ao) all fall
+  // comfortably within these bounds.
+  A: { hMin: -130, hMax: -30, sMin: 0.05, sMax: 0.75, vMin: -0.50, vMax: 0.20 },
+  B: { hMin: -180, hMax:  180, sMin: -1.00, sMax: 1.00, vMin: -1.00, vMax: 1.00 },
+  C: { hMin: -180, hMax:  180, sMin: -1.00, sMax: 1.00, vMin: -1.00, vMax: 1.00 },
+};
+
+function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+/**
+ * Return a copy of hsv with each component clamped to BODYCOLOR_LIMITS[slot].
+ * If the slot has no limits defined, the original hsv is returned unchanged.
+ */
+function clampBodyColor(slot, hsv) {
+  const lim = BODYCOLOR_LIMITS[slot];
+  if (!lim) return hsv;
+  // Normalise all three components defensively; support legacy 'l' as 'v'
+  return {
+    h: clamp(hsv.h ?? 0, lim.hMin, lim.hMax),
+    s: clamp(hsv.s ?? 0, lim.sMin, lim.sMax),
+    v: clamp(hsv.v ?? hsv.l ?? 0, lim.vMin, lim.vMax),
+  };
+}
+
 function randomBodyColors() {
   const rh = (lo, hi) => lo + Math.random() * (hi - lo);
   const rc = (lo, hi) => lo + Math.random() * (hi - lo);
+  const lA = BODYCOLOR_LIMITS.A;
   return {
-    A: { h: rh(-140, 80),  s: rc(-0.45, 0.50), v: rc(-0.35, 0.20) },
+    // Slot A generates directly within the skin limits (no post-clamp needed)
+    A: { h: rh(lA.hMin, lA.hMax), s: rc(lA.sMin, lA.sMax), v: rc(lA.vMin, lA.vMax) },
     B: { h: rh(-180, 180), s: rc( 0.00, 0.65), v: rc(-0.25, 0.45) },
     C: { h: rh(-60, 120),  s: rc( 0.05, 0.35), v: rc(-0.15, 0.12) },
   };
@@ -1210,7 +1254,8 @@ async function renderProfile(canvas, profile) {
   }
 
   const neededUrls = new Set([
-    fighter.headUrl, fighter.urUrl,
+    fighter.headUrl,
+    ...(fighter.urLayers || []).map(m => m.url),
     ...backLayers.map(({ layer }) => layer.url),
     ...frontLayers.map(({ layer }) => layer.url),
   ]);
@@ -1235,7 +1280,12 @@ async function renderProfile(canvas, profile) {
     if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
   }
   { const img = imgMap.get(fighter.headUrl); if (img) drawPortraitLayer(ctx, img, HEAD_XFORM, filterA); }
-  { const img = imgMap.get(fighter.urUrl);   if (img) drawPortraitLayer(ctx, img, HEAD_XFORM, 'none'); }
+  // Mid layers: untinted overlays drawn after tinted head but before front cosmetics.
+  // filter is always 'none' so original pixel colours (e.g. pink ear interiors) are preserved.
+  for (const mid of (fighter.urLayers || [])) {
+    const img = imgMap.get(mid.url);
+    if (img) drawPortraitLayer(ctx, img, mid.xform || HEAD_XFORM, 'none');
+  }
   for (const { layer, filter } of frontLayers) {
     const img = imgMap.get(layer.url);
     if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
@@ -1300,13 +1350,8 @@ function addMore() {
 }
 
 function preloadCommon() {
-  // Always preload fighter head sprites (these are never in config)
-  const urls = [
-    'fightersprites/mao-ao-m/head_mint.png',
-    'fightersprites/mao-ao-f/head.png',
-    'fightersprites/mao-ao-m/untinted_regions/ur-head.png',
-    'fightersprites/mao-ao-f/untinted_regions/ur-head.png',
-  ];
+  // Derive head and UR-overlay URLs from the FIGHTERS array (single source of truth)
+  const urls = FIGHTERS.flatMap(f => [f.headUrl, ...(f.urLayers || []).map(m => m.url)]);
   // Derive cosmetic layer URLs from whichever arrays are currently loaded
   for (const arr of [HAIR_OPTIONS, EYES_OPTIONS, FACIAL_HAIR_OPTIONS]) {
     for (const opt of arr) {
@@ -1329,11 +1374,13 @@ function readColorSlot(slot) {
 }
 
 function writeColorSlot(slot, color) {
+  // Clamp before writing so sliders always stay within their allowed limits.
+  // clampBodyColor handles missing fields and the legacy 'l' alias for 'v'.
+  const clamped = clampBodyColor(slot, color);
   const val = (id, v) => { document.getElementById(id).value = v; };
-  val(`b-color-${slot}-h`, (color.h  ?? 0).toFixed(2));
-  val(`b-color-${slot}-s`, (color.s  ?? 0).toFixed(2));
-  // 'l' (lightness) is an alternate field name used by some older color objects; treat it as 'v'
-  val(`b-color-${slot}-v`, (color.v  ?? color.l ?? 0).toFixed(2));
+  val(`b-color-${slot}-h`, clamped.h.toFixed(2));
+  val(`b-color-${slot}-s`, clamped.s.toFixed(2));
+  val(`b-color-${slot}-v`, clamped.v.toFixed(2));
   updateColorSlotUI(slot);
 }
 
@@ -1391,7 +1438,9 @@ function buildRenderChain(profile) {
 
   const chain = [...backEntries];
   chain.push({ category: 'Head Base', optionId: fighter.id, optionLabel: fighter.label, tintSlot: 'A', filter: filterFor('A'), relPath: fighter.headUrl, resolvedUrl: ASSET_BASE + fighter.headUrl, transform: { ...HEAD_XFORM } });
-  chain.push({ category: 'Head Overlay (untinted)', optionId: fighter.id, optionLabel: fighter.label, tintSlot: null, filter: 'none', relPath: fighter.urUrl, resolvedUrl: ASSET_BASE + fighter.urUrl, transform: { ...HEAD_XFORM } });
+  for (const mid of (fighter.urLayers || [])) {
+    chain.push({ category: 'Head Overlay (untinted)', optionId: fighter.id, optionLabel: fighter.label, tintSlot: null, filter: 'none', relPath: mid.url, resolvedUrl: ASSET_BASE + mid.url, transform: { ...(mid.xform || HEAD_XFORM) } });
+  }
   chain.push(...frontEntries);
   return chain;
 }
@@ -1475,6 +1524,17 @@ function populateBuilderDropdowns() {
 
 function initBuilder() {
   populateBuilderDropdowns();
+
+  // Apply skin-range limits to slot A sliders so the user cannot drag outside
+  // the allowed range.  BODYCOLOR_LIMITS is the single source of truth.
+  const limA = BODYCOLOR_LIMITS.A;
+  ['h', 's', 'v'].forEach(axis => {
+    const el  = document.getElementById(`b-color-A-${axis}`);
+    const min = axis === 'h' ? limA.hMin : axis === 's' ? limA.sMin : limA.vMin;
+    const max = axis === 'h' ? limA.hMax : axis === 's' ? limA.sMax : limA.vMax;
+    el.min = min;
+    el.max = max;
+  });
 
   const init = randomProfile();
   document.getElementById('b-fighter').value = init.fighter.id;
@@ -1561,6 +1621,19 @@ initBuilder();
 // MODE: COSMETIC PLACER
 // ============================================================
 
+// ── Shared helper ──────────────────────────────────────────
+
+/**
+ * Return the urLayers array for the fighter whose headUrl matches the given
+ * relative head path.  Used by both Mode A rendering and Mode B (Cosmetic
+ * Placer) so both modes can draw the same untinted overlays.
+ * Returns an empty array when no matching fighter is found.
+ */
+function getFighterUrLayers(headRelPath) {
+  const f = FIGHTERS.find(f => f.headUrl === (headRelPath || '').trim());
+  return f ? (f.urLayers || []) : [];
+}
+
 // ── Globals ────────────────────────────────────────────────
 
 const cosCV  = document.getElementById('cos-cv');
@@ -1568,6 +1641,7 @@ const cosCtx = cosCV.getContext('2d');
 
 let cosCW = 300, cosCH = 300, cosL = 80;
 let cosHeadImg = null;
+let cosUrImgs  = [];   // UR overlay HTMLImageElement[] for the currently loaded head
 
 // ── Slot state ─────────────────────────────────────────────
 
@@ -1874,7 +1948,13 @@ async function cosLoadAssets() {
   const slot     = SLOTS[cosActiveSlotKey];
   cosHeadImg = null;
   slot.img   = null;
+  cosUrImgs  = [];
   try { cosHeadImg = await cosLoadImage(headPath); } catch (e) { console.warn(e); }
+  // Load UR overlay images for the fighter that owns this head sprite
+  const urLayers = getFighterUrLayers(headPath);
+  for (const mid of urLayers) {
+    try { cosUrImgs.push(await cosLoadImage(mid.url)); } catch (e) { console.warn('[cos] UR overlay load failed:', mid.url, e); }
+  }
   if (cosUrl) {
     try { slot.img = await cosLoadImageAbsolute(cosUrl); } catch (e) { console.warn(e); }
   }
@@ -1929,10 +2009,15 @@ function cosRender() {
     cosDrawLayer(s.img, d.ax, d.ay, d.sx, d.sy, cosSlotFilter(key));
   };
 
-  // Render order: Hair Back → Head → Eyes → Hair Front
+  // Render order: Hair Back → Head → UR overlays → Eyes → Hair Front
   drawSlot('hairBack');
   if (cosHeadImg) {
     cosDrawLayer(cosHeadImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
+    // Draw untinted-region overlays immediately after the head (same render
+    // position) so flesh-toned areas are preserved when the head has a tint.
+    for (const urImg of cosUrImgs) {
+      cosDrawLayer(urImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
+    }
   }
   drawSlot('eyes');
   drawSlot('hairFront');
