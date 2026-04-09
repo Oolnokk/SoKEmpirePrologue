@@ -11,16 +11,16 @@
       "layers": {
         "back": {
           "image": {
-            "url": "./assets/cosmetics/appearance/mao-ao/headhair/ponytail_long-back.png"
+            "url": "./assets/cosmetics/appearance/mao-ao/headhair/ponytail_long-back_mint.png"
           },
           "spriteStyle": {
             "base": {
               "xform": {
                 "head": {
-                  "ax": -0.6,
-                  "ay": -0.15,
-                  "scaleX": 3,
-                  "scaleY": 3,
+                  "ax": -0.1,
+                  "ay": -0.1,
+                  "scaleX": 2,
+                  "scaleY": 2,
                   "rotDeg": 0
                 }
               }
@@ -29,16 +29,16 @@
         },
         "front": {
           "image": {
-            "url": "./assets/cosmetics/appearance/mao-ao/headhair/tuft-front.png"
+            "url": "./assets/cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png"
           },
           "spriteStyle": {
             "base": {
               "xform": {
                 "head": {
-                  "ax": -0.6,
-                  "ay": -0.15,
-                  "scaleX": 4,
-                  "scaleY": 4,
+                  "ax": -0.1,
+                  "ay": -0.1,
+                  "scaleX": 2,
+                  "scaleY": 2,
                   "rotDeg": 0
                 }
               }
