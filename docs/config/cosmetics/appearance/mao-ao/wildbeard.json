@@ -15,7 +15,7 @@
         "xform": {
           "head": {
             "ax": -0.15,
-  "ay": -0.05,
+  "ay": 0.05,
   "scaleX": 2.3,
   "scaleY": 2.5,
   "rotDeg": 0
