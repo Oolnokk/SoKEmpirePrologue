@@ -1,9 +1,13 @@
 {
-  "meta": { "name": "Circled Eyes F" },
+  "meta": {
+    "name": "Circled Eyes F"
+  },
   "type": "appearance",
   "appearance": {
     "inheritSprite": "head",
-    "bodyColors": ["B"],
+    "bodyColors": [
+      "B"
+    ],
     "originalId": "mao-ao_circled_eyes_f"
   },
   "parts": {
@@ -14,10 +18,10 @@
       "spriteStyle": {
         "xform": {
           "head": {
-            "ax": -0.45,
-            "ay": -0.021,
-            "scaleX": 2.85,
-            "scaleY": 2.65,
+            "ax": 0.01,
+            "ay": -0.022,
+            "scaleX": 1,
+            "scaleY": 0.9,
             "rotDeg": 0
           }
         }
