@@ -502,7 +502,7 @@ details.diag-details[open] > summary::after { content: '▼'; }
 <div id="mode-portrait" class="mode-section active">
 
   <header>
-    <h1>Mao-ao Profile Picker</h1>
+    <h1>AI Portrait Picker</h1>
     <p>Randomised AI character portraits · click a card to reroll it</p>
   </header>
 
@@ -1010,6 +1010,7 @@ function loadImg(relPath) {
 
 function makeCSSFilter(color) {
   if (!color) return 'none';
+  // 'l' (lightness) is an alternate field name used by some older color objects; treat it as 'v'
   return buildCSSFilter(color.h, color.s, color.v ?? color.l);
 }
 
@@ -1209,6 +1210,7 @@ function writeColorSlot(slot, color) {
   const val = (id, v) => { document.getElementById(id).value = v; };
   val(`b-color-${slot}-h`, (color.h  ?? 0).toFixed(2));
   val(`b-color-${slot}-s`, (color.s  ?? 0).toFixed(2));
+  // 'l' (lightness) is an alternate field name used by some older color objects; treat it as 'v'
   val(`b-color-${slot}-v`, (color.v  ?? color.l ?? 0).toFixed(2));
   updateColorSlotUI(slot);
 }
@@ -1308,6 +1310,7 @@ function copyDiagnostics() {
     `Facial Hair : ${facialHair.id} — ${facialHair.label}`,
     '', 'Body Colors:',
     ...Object.entries(bodyColors).map(([slot, c]) => {
+      // 'l' (lightness) is an alternate field name used by some older color objects; treat it as 'v'
       const v = (c.v ?? c.l ?? 0);
       return `  ${slot}: h=${Number(c.h).toFixed(1)}°  s=${(Number(c.s) * 100).toFixed(1)}%  v=${(v * 100).toFixed(1)}%`;
     }),
