@@ -745,7 +745,7 @@ details.diag-details[open] > summary::after { content: '▼'; }
     <div class="cos-section">
       <h2>Baseline (for diff)</h2>
       <p style="font-size:11px;color:#666;margin-bottom:8px">
-        Enter the <em>original</em> xform values here. The diff panel shows what changed.
+        Baseline xform values are auto-loaded from the selected cosmetic's original JSON. The diff panel shows what changed.
       </p>
       <div class="cos-row2">
         <div><label>ax₀</label><input type="number" id="cos-ref_ax" value="0" step="0.01"></div>
@@ -762,10 +762,6 @@ details.diag-details[open] > summary::after { content: '▼'; }
     <div class="cos-section">
       <h2>JSON Diff &amp; Export</h2>
       <div id="cosDiffOutput">—</div>
-
-      <!-- Optional: paste existing cosmetic JSON to get a full updated file -->
-      <label style="margin-top:6px">Paste existing cosmetic JSON (optional)</label>
-      <textarea id="cos-existingJson" placeholder='Paste the full cosmetic .json here to get a complete updated file on copy. Leave blank for a minimal xform-only snippet.'></textarea>
 
       <button id="cos-copyFullBtn" class="btn-accent" style="width:100%">⎘ Copy full cosmetic JSON</button>
       <div id="cosCopyStatus"></div>
@@ -803,6 +799,24 @@ const ASSET_BASE = (() => {
     return './assets/';
   }
   return 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/assets/';
+})();
+
+/**
+ * Config base — same logic as ASSET_BASE but points at the config/ folder.
+ * Used to fetch cosmetics/index.json and cosmetic JSON files.
+ */
+const CONFIG_BASE = (() => {
+  const loc = window.location.href;
+  if (
+    loc.includes('localhost') ||
+    loc.includes('127.0.0.1') ||
+    loc.includes('oolnokk.github.io') ||
+    loc.includes('githack.com') ||
+    loc.includes('rawcdn.githack')
+  ) {
+    return './config/';
+  }
+  return 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/config/';
 })();
 
 /** Build a CSS filter string from HSV tint values (game convention). */
@@ -1451,11 +1465,17 @@ const cosCtx = cosCV.getContext('2d');
 let cosCW = 300, cosCH = 300, cosL = 80;
 let cosHeadImg = null, cosCosImg = null;
 
-// Current xform (ax, ay, sx, sy)
-let cosXf   = { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 };
+// Current xform (ax, ay, sx, sy) — stores raw JSON values
+let cosXf   = { ax: 0, ay: 0, sx: 1, sy: 1 };
 
 // Baseline (for diff)
-let cosBase = { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 };
+let cosBase = { ax: 0, ay: 0, sx: 1, sy: 1 };
+
+// Loaded cosmetic data
+let cosLoadedJson    = null; // original JSON object for the selected cosmetic
+let cosCurrentLayers = [];   // [{name, url, xform:{ax,ay,scaleX,scaleY,rotDeg?}}]
+let cosIndexEntries  = [];   // all appearance:: entries from the index
+let cosIndexBaseUrl  = '';   // URL used to resolve entry paths
 
 // ── Canvas setup ───────────────────────────────────────────
 
@@ -1466,13 +1486,131 @@ function cosResizeCanvas(w, h) {
 }
 cosResizeCanvas(cosCW, cosCH);
 
-// ── Cosmetic picker ────────────────────────────────────────
+// ── Cosmetic index & dynamic loading ──────────────────────
 
-const COS_CATEGORIES = [
-  { id: 'hair',       label: 'Hair',        options: HAIR_OPTIONS },
-  { id: 'eyes',       label: 'Eye Mark',    options: EYES_OPTIONS },
-  { id: 'facialhair', label: 'Facial Hair', options: FACIAL_HAIR_OPTIONS },
-];
+/**
+ * Resolve an image URL from a cosmetic JSON file to a full URL.
+ * URLs like "./assets/..." in the JSONs are relative to the docs root
+ * (same folder as character-tools.html), so we use ASSET_BASE for those.
+ */
+function resolveImageUrl(url) {
+  if (!url) return url;
+  if (url.startsWith('./assets/')) {
+    return ASSET_BASE + url.slice('./assets/'.length);
+  }
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  try { return new URL(url, window.location.href).toString(); } catch (_) { return url; }
+}
+
+/**
+ * Classify an appearance index entry into a UI category ('hair', 'eyes', 'facialhair')
+ * by examining the entry path and cosmetic name embedded in the id.
+ */
+function cosGetCategoryForEntry(entry) {
+  const path = (entry.path || '').toLowerCase();
+  const name = (entry.id.split('::').pop() || '').toLowerCase();
+  if (path.includes('/headhair/') || path.includes('headhair/')) return 'hair';
+  if (path.includes('/eyes/') || path.includes('eyes/')) return 'eyes';
+  if (path.includes('/facialhair/') || path.includes('facialhair/')) return 'facialhair';
+  // Infer from cosmetic name (use word-boundary check to avoid false positives)
+  if (/\beye(s|_|$)/.test(name)) return 'eyes';
+  if (name.includes('beard') || name.includes('stache') || name.includes('whisker') || name.includes('facial')) return 'facialhair';
+  return 'hair';
+}
+
+/**
+ * Extract layer descriptors from a loaded cosmetic JSON.
+ * Returns an array of { name, url, xform } objects.
+ */
+function cosExtractLayers(json) {
+  const head = json && json.parts && json.parts.head;
+  if (!head) return [];
+  if (head.layers) {
+    return Object.entries(head.layers).map(([name, layer]) => {
+      const xformHead =
+        (layer.spriteStyle && layer.spriteStyle.base && layer.spriteStyle.base.xform && layer.spriteStyle.base.xform.head) ||
+        (layer.spriteStyle && layer.spriteStyle.xform && layer.spriteStyle.xform.head) ||
+        {};
+      return { name, url: resolveImageUrl(layer.image && layer.image.url), xform: xformHead };
+    });
+  } else if (head.image) {
+    const xformHead =
+      (head.spriteStyle && head.spriteStyle.xform && head.spriteStyle.xform.head) || {};
+    return [{ name: null, url: resolveImageUrl(head.image.url), xform: xformHead }];
+  }
+  return [];
+}
+
+/** Fetch the cosmetics index, populate cosIndexEntries, and initialise the picker. */
+async function cosLoadIndex() {
+  const indexUrl = CONFIG_BASE + 'cosmetics/index.json';
+  // Resolve to an absolute URL so new URL(relativePath, cosIndexBaseUrl) works
+  cosIndexBaseUrl = new URL(indexUrl, window.location.href).toString();
+  let data;
+  try {
+    const resp = await fetch(cosIndexBaseUrl);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    data = await resp.json();
+  } catch (e) {
+    console.warn('[cos] Primary index fetch failed, falling back to raw GitHub URL', e);
+    const rawUrl = 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/config/cosmetics/index.json';
+    try {
+      const resp2 = await fetch(rawUrl);
+      if (!resp2.ok) throw new Error('HTTP ' + resp2.status);
+      data = await resp2.json();
+      cosIndexBaseUrl = rawUrl;
+    } catch (e2) {
+      console.error('[cos] Failed to load cosmetics index', e2);
+      return;
+    }
+  }
+  cosIndexEntries = (data.entries || []).filter(e => e.id && e.id.startsWith('appearance::'));
+  cosPopulateItemSelect();
+  await cosLoadSelectedCosmetic();
+}
+
+/** Fetch and store the JSON for the currently selected cosmetic entry. */
+async function cosLoadSelectedCosmetic() {
+  const entryId = document.getElementById('cos-cosSelect').value;
+  if (!entryId) return;
+  const entry = cosIndexEntries.find(e => e.id === entryId);
+  if (!entry) return;
+
+  const cosJsonUrl = new URL(entry.path, cosIndexBaseUrl).toString();
+  let json;
+  try {
+    const resp = await fetch(cosJsonUrl);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    json = await resp.json();
+  } catch (e) {
+    console.warn('[cos] Failed to load cosmetic JSON:', cosJsonUrl, e);
+    cosLoadedJson = null;
+    cosCurrentLayers = [];
+    cosPopulateLayerSelect();
+    return;
+  }
+  cosLoadedJson = json;
+  cosCurrentLayers = cosExtractLayers(json);
+  cosPopulateLayerSelect();
+  await cosLoadAssets();
+}
+
+/** Return the resolved URL for the currently selected layer's image. */
+function cosGetCurrentLayerUrl() {
+  const idx = parseInt(document.getElementById('cos-layerSelect').value) || 0;
+  const layer = cosCurrentLayers[idx];
+  return layer ? layer.url : null;
+}
+
+/** Set xform sliders/baseline from a specific layer index in cosCurrentLayers. */
+function cosSetXformFromLayer(idx) {
+  const layer = cosCurrentLayers[idx >= 0 ? idx : 0];
+  if (!layer) return;
+  const { ax = 0, ay = 0, scaleX = 1, scaleY = 1 } = layer.xform || {};
+  cosSetXform(ax, ay, scaleX, scaleY);
+}
 
 /** Sync all four xform sliders/numbers + baseline from given values. */
 function cosSetXform(ax, ay, sx, sy) {
@@ -1492,41 +1630,18 @@ function cosSetXform(ax, ay, sx, sy) {
   document.getElementById('cos-ref_sy').value = cosFmt(sy);
 }
 
-/** Return the currently selected cosmetic option object, or null. */
-function cosGetSelectedItem() {
-  const catId  = document.getElementById('cos-catSelect').value;
-  const itemId = document.getElementById('cos-cosSelect').value;
-  const cat    = COS_CATEGORIES.find(c => c.id === catId);
-  return cat ? (cat.options.find(o => o.id === itemId) ?? null) : null;
-}
-
-/** Return the relative URL of the selected cosmetic layer, or null if none. */
-function cosGetSelectedLayerIndex() {
-  const item = cosGetSelectedItem();
-  if (!item || item.layers.length <= 1) return 0;
-  return parseInt(document.getElementById('cos-layerSelect').value) || 0;
-}
-
-/** Return the relative URL of the selected cosmetic layer, or null if none. */
-function cosGetSelectedLayerUrl() {
-  const item = cosGetSelectedItem();
-  if (!item || !item.layers.length) return null;
-  return item.layers[cosGetSelectedLayerIndex()].url;
-}
-
 /**
- * Rebuild the layer dropdown for the current item selection, show/hide it,
- * and pre-fill the xform sliders from the selected layer's defaults.
+ * Rebuild the layer dropdown from cosCurrentLayers, show/hide it,
+ * and set xform sliders from the first layer's values.
  */
 function cosPopulateLayerSelect() {
-  const item   = cosGetSelectedItem();
-  const layers = item ? item.layers : [];
+  const layers     = cosCurrentLayers;
   const layerLabel = document.getElementById('cos-layerLabel');
   const layerSel   = document.getElementById('cos-layerSelect');
 
   if (layers.length > 1) {
     layerSel.innerHTML = layers
-      .map((l, i) => `<option value="${escHtml(String(i))}">Layer ${i + 1} (${escHtml(l.pos)})</option>`)
+      .map((l, i) => `<option value="${escHtml(String(i))}">${escHtml(l.name ? l.name : 'Layer ' + (i + 1))}</option>`)
       .join('');
     layerLabel.style.display = '';
     layerSel.style.display   = '';
@@ -1535,28 +1650,43 @@ function cosPopulateLayerSelect() {
     layerSel.style.display   = 'none';
   }
 
-  // Pre-fill xform from the selected layer (composed with HEAD_XFORM)
-  if (layers.length > 0) {
-    const layerIdx = cosGetSelectedLayerIndex();
-    const layer    = layers[layerIdx];
-    const composed = composeXform(HEAD_XFORM, layer);
-    cosSetXform(composed.ax, composed.ay, composed.sx, composed.sy);
-  }
+  cosSetXformFromLayer(0);
 }
 
-/** Rebuild the item dropdown for the current category and refresh layers. */
+/** Rebuild the item dropdown for the current category from cosIndexEntries. */
 function cosPopulateItemSelect() {
   const catId   = document.getElementById('cos-catSelect').value;
-  const cat     = COS_CATEGORIES.find(c => c.id === catId);
   const itemSel = document.getElementById('cos-cosSelect');
-  itemSel.innerHTML = (cat ? cat.options : [])
-    .map(o => `<option value="${escHtml(o.id)}">${escHtml(o.label)}</option>`)
-    .join('');
-  cosPopulateLayerSelect();
+  const entries = cosIndexEntries.filter(e => cosGetCategoryForEntry(e) === catId);
+
+  // Deduplicate by path (M and F variants share the same JSON file)
+  const seen = new Set();
+  const unique = entries.filter(e => {
+    if (seen.has(e.path)) return false;
+    seen.add(e.path);
+    return true;
+  });
+
+  if (unique.length === 0) {
+    itemSel.innerHTML = '<option value="">Loading…</option>';
+    return;
+  }
+
+  itemSel.innerHTML = unique.map(e => {
+    const shortId = e.id.split('::').pop() || e.id;
+    // Strip the fighter-specific prefix (e.g. "mao-ao_") that is part of the internal ID
+    // but is not meaningful for display purposes since all entries in a category share the same fighter.
+    const label = shortId
+      .replace(/^mao-ao_/i, '')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+    return `<option value="${escHtml(e.id)}">${escHtml(label)}</option>`;
+  }).join('');
 }
 
-// ── Asset loading (uses shared ASSET_BASE) ─────────────────
+// ── Asset loading ──────────────────────────────────────────
 
+/** Load an image from a relative path (prepends ASSET_BASE for the head sprite). */
 function cosLoadImage(relPath) {
   return new Promise((resolve, reject) => {
     const url = ASSET_BASE + relPath.trim();
@@ -1577,13 +1707,24 @@ function cosLoadImage(relPath) {
   });
 }
 
+/** Load an image from an already-resolved absolute URL (cosmetic images). */
+function cosLoadImageAbsolute(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = () => reject(new Error('Could not load: ' + url));
+    img.src = url;
+  });
+}
+
 async function cosLoadAssets() {
-  const headPath    = document.getElementById('cos-headPath').value.trim();
-  const cosLayerUrl = cosGetSelectedLayerUrl();
+  const headPath = document.getElementById('cos-headPath').value.trim();
+  const cosUrl   = cosGetCurrentLayerUrl();
   cosHeadImg = null; cosCosImg = null;
   try { cosHeadImg = await cosLoadImage(headPath); } catch (e) { console.warn(e); }
-  if (cosLayerUrl) {
-    try { cosCosImg = await cosLoadImage(cosLayerUrl); } catch (e) { console.warn(e); }
+  if (cosUrl) {
+    try { cosCosImg = await cosLoadImageAbsolute(cosUrl); } catch (e) { console.warn(e); }
   }
   cosRender();
 }
@@ -1622,8 +1763,13 @@ function cosRender() {
   cosCtx.stroke();
   cosCtx.restore();
 
-  if (cosHeadImg) cosDrawLayer(cosHeadImg, 0, 0, 1, 1, 'none');
-  if (cosCosImg)  cosDrawLayer(cosCosImg, cosXf.ax, cosXf.ay, cosXf.sx, cosXf.sy, cosGetFilter());
+  if (cosHeadImg) {
+    cosDrawLayer(cosHeadImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
+  }
+  if (cosCosImg) {
+    const d = composeXform(HEAD_XFORM, cosXf);
+    cosDrawLayer(cosCosImg, d.ax, d.ay, d.sx, d.sy, cosGetFilter());
+  }
 
   cosUpdateDiff();
 }
@@ -1656,72 +1802,53 @@ function cosUpdateDiff() {
 /**
  * Builds the full cosmetic JSON to copy.
  *
- * If the user has pasted an existing cosmetic JSON into the textarea, this
- * function parses it and replaces only the xform values for the "head" bone,
- * preserving all other fields (meta, type, appearance, image URL, etc.).
+ * Clones the in-memory original JSON (loaded when the cosmetic was selected)
+ * and patches only the xform values for the active layer, preserving all other
+ * fields (meta, type, appearance, image URL, rotDeg if present, etc.).
  *
- * If the textarea is empty, a canonical appearance-cosmetic structure is
- * generated using the current asset path as the image URL.
+ * Falls back to generating a canonical appearance-cosmetic structure only if no
+ * JSON was loaded.
  */
 function cosBuildFullJson() {
-  const xform = {
+  const xformPatch = {
     ax:     cosRound4(cosXf.ax),
     ay:     cosRound4(cosXf.ay),
     scaleX: cosRound4(cosXf.sx),
     scaleY: cosRound4(cosXf.sy),
-    rotDeg: 0,
   };
 
-  const existing = document.getElementById('cos-existingJson').value.trim();
+  if (cosLoadedJson) {
+    const patched = JSON.parse(JSON.stringify(cosLoadedJson));
+    const layerIdx  = parseInt(document.getElementById('cos-layerSelect').value) || 0;
+    const layerName = cosCurrentLayers[layerIdx] && cosCurrentLayers[layerIdx].name;
 
-  if (existing) {
-    let parsed;
-    try { parsed = JSON.parse(existing); }
-    catch { return JSON.stringify({ error: 'Pasted JSON is invalid — please check for syntax errors.' }, null, 2); }
-
-    // Deep-set the xform under the most common paths found in cosmetic configs:
-    //   parts.head.spriteStyle.xform.head          (appearance cosmetics)
-    //   parts.head.layers.front.spriteStyle.base.xform.head  (hat/slot cosmetics)
-    // We try to find an xform.head object anywhere in parts.* and update it.
-    let patched = false;
-
-    function patchXformIn(obj) {
-      if (!obj || typeof obj !== 'object') return false;
-      // Check if this object itself has an xform.head path
-      if (obj.xform && typeof obj.xform === 'object') {
-        if (obj.xform.head && typeof obj.xform.head === 'object') {
-          Object.assign(obj.xform.head, xform);
-          return true;
-        }
-        // Some configs have xform directly containing the fields (no sub-bone key)
-        if ('ax' in obj.xform || 'scaleX' in obj.xform) {
-          Object.assign(obj.xform, xform);
-          return true;
+    if (layerName) {
+      // Multi-layer: patch parts.head.layers.<layerName>.spriteStyle.base.xform.head
+      const layerObj = patched.parts && patched.parts.head && patched.parts.head.layers && patched.parts.head.layers[layerName];
+      if (layerObj) {
+        const xformTarget =
+          (layerObj.spriteStyle && layerObj.spriteStyle.base && layerObj.spriteStyle.base.xform && layerObj.spriteStyle.base.xform.head) ||
+          (layerObj.spriteStyle && layerObj.spriteStyle.xform && layerObj.spriteStyle.xform.head);
+        if (xformTarget) {
+          Object.assign(xformTarget, xformPatch);
         }
       }
-      // Recurse into children
-      for (const key of Object.keys(obj)) {
-        if (patchXformIn(obj[key])) return true;
+    } else {
+      // Single-layer: patch parts.head.spriteStyle.xform.head
+      const xformTarget =
+        patched.parts && patched.parts.head && patched.parts.head.spriteStyle &&
+        patched.parts.head.spriteStyle.xform && patched.parts.head.spriteStyle.xform.head;
+      if (xformTarget) {
+        Object.assign(xformTarget, xformPatch);
       }
-      return false;
     }
 
-    patched = patchXformIn(parsed);
-    if (!patched) {
-      // Couldn't find an xform to patch — attach it to parts.head.spriteStyle.xform.head
-      parsed.parts = parsed.parts || {};
-      parsed.parts.head = parsed.parts.head || {};
-      parsed.parts.head.spriteStyle = parsed.parts.head.spriteStyle || {};
-      parsed.parts.head.spriteStyle.xform = parsed.parts.head.spriteStyle.xform || {};
-      parsed.parts.head.spriteStyle.xform.head = xform;
-    }
-
-    return JSON.stringify(parsed, null, 2);
+    return JSON.stringify(patched, null, 2);
   }
 
-  // No existing JSON — generate a canonical appearance-cosmetic structure
-  const cosLayerUrl = cosGetSelectedLayerUrl();
-  const imageUrl = cosLayerUrl ? ('./assets/' + cosLayerUrl) : './assets/cosmetics/appearance/mao-ao/REPLACE_ME.png';
+  // Fallback: no JSON loaded — generate a minimal canonical structure
+  const xform = { ...xformPatch, rotDeg: 0 };
+  const imageUrl = (cosGetCurrentLayerUrl()) || './assets/cosmetics/appearance/mao-ao/REPLACE_ME.png';
 
   return JSON.stringify({
     meta: { name: 'Untitled Cosmetic' },
@@ -1734,11 +1861,7 @@ function cosBuildFullJson() {
     parts: {
       head: {
         image: { url: imageUrl },
-        spriteStyle: {
-          xform: {
-            head: xform,
-          },
-        },
+        spriteStyle: { xform: { head: xform } },
       },
     },
   }, null, 2);
@@ -1874,27 +1997,27 @@ cosCV.addEventListener('wheel', e => {
 
 // ── Cosmetic mode init ─────────────────────────────────────
 
-// Initialise pickers, pre-select default (wildbeard facial hair matches old default)
-document.getElementById('cos-catSelect').value = 'facialhair';
-cosPopulateItemSelect();
-document.getElementById('cos-cosSelect').value = 'wildbeard';
-cosPopulateLayerSelect();
-
-// Wire picker change events → rebuild layers + auto-reload
+// Wire picker change events
 document.getElementById('cos-catSelect').addEventListener('change', () => {
   cosPopulateItemSelect();
-  cosLoadAssets();
+  // Auto-select the first item in the new category, then load it
+  const first = document.getElementById('cos-cosSelect').options[0];
+  if (first && first.value) {
+    document.getElementById('cos-cosSelect').value = first.value;
+  }
+  cosLoadSelectedCosmetic();
 });
 document.getElementById('cos-cosSelect').addEventListener('change', () => {
-  cosPopulateLayerSelect();
-  cosLoadAssets();
+  cosLoadSelectedCosmetic();
 });
 document.getElementById('cos-layerSelect').addEventListener('change', () => {
-  cosPopulateLayerSelect();
+  const idx = parseInt(document.getElementById('cos-layerSelect').value) || 0;
+  cosSetXformFromLayer(idx);
   cosLoadAssets();
 });
 
-cosLoadAssets();
+// Load the index and initialise — populates dropdowns and selects the first cosmetic
+cosLoadIndex();
 
 </script>
 </body>
