@@ -1757,8 +1757,12 @@ function cosSetXformFromLayer(idx) {
 /** Sync all four xform sliders/numbers + baseline from given values. */
 function cosSetXform(ax, ay, sx, sy) {
   const slot = SLOTS[cosActiveSlotKey];
-  slot.xf  = cosXf  = { ax, ay, sx, sy };
-  slot.base = cosBase = { ax, ay, sx, sy };
+  // Mutate the existing objects in-place so that all references remain valid
+  Object.assign(slot.xf,   { ax, ay, sx, sy });
+  Object.assign(slot.base, { ax, ay, sx, sy });
+  // Keep module-level aliases in sync
+  cosXf  = slot.xf;
+  cosBase = slot.base;
   document.getElementById('cos-s_ax').value = ax;
   document.getElementById('cos-n_ax').value = ax;
   document.getElementById('cos-s_ay').value = ay;
@@ -2130,7 +2134,8 @@ document.getElementById('cos-applyCanvasBtn').addEventListener('click', () => {
 
 document.getElementById('cos-snapBaselineBtn').addEventListener('click', () => {
   const slot = SLOTS[cosActiveSlotKey];
-  slot.base = cosBase = { ...cosXf };
+  Object.assign(slot.base, cosXf);
+  cosBase = slot.base;
   document.getElementById('cos-ref_ax').value = cosFmt(cosBase.ax);
   document.getElementById('cos-ref_ay').value = cosFmt(cosBase.ay);
   document.getElementById('cos-ref_sx').value = cosFmt(cosBase.sx);
@@ -2286,17 +2291,15 @@ cosCV.addEventListener('wheel', e => {
 function cosActivateSlot(newKey) {
   if (newKey === cosActiveSlotKey) return;
 
-  // Flush current UI state to the active slot
-  const old       = SLOTS[cosActiveSlotKey];
-  old.xf          = { ...cosXf };
-  old.base        = { ...cosBase };
-  old.tint        = {
-    h: parseFloat(document.getElementById('cos-tintH').value) || 0,
-    s: parseFloat(document.getElementById('cos-tintS').value) || 0,
-    v: parseFloat(document.getElementById('cos-tintV').value) || 0,
-  };
-  old.cosEntryId  = document.getElementById('cos-cosSelect').value;
-  old.layerIdx    = parseInt(document.getElementById('cos-layerSelect').value) || 0;
+  // Flush current UI state to the active slot (mutate in-place to keep references valid)
+  const old = SLOTS[cosActiveSlotKey];
+  Object.assign(old.xf,   cosXf);
+  Object.assign(old.base, cosBase);
+  old.tint.h     = parseFloat(document.getElementById('cos-tintH').value) || 0;
+  old.tint.s     = parseFloat(document.getElementById('cos-tintS').value) || 0;
+  old.tint.v     = parseFloat(document.getElementById('cos-tintV').value) || 0;
+  old.cosEntryId = document.getElementById('cos-cosSelect').value;
+  old.layerIdx   = parseInt(document.getElementById('cos-layerSelect').value) || 0;
 
   // Switch active slot
   cosActiveSlotKey = newKey;
