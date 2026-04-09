@@ -1,14 +1,10 @@
 {
-  "meta": {
-    "name": "Untitled Cosmetic"
-  },
+  "meta": { "name": "Wildbeard" },
   "type": "appearance",
   "appearance": {
     "inheritSprite": "head",
-    "bodyColors": [
-      "A"
-    ],
-    "originalId": "REPLACE_ME"
+    "bodyColors": ["A"],
+    "originalId": "mao-ao_wildbeard"
   },
   "parts": {
     "head": {
@@ -19,10 +15,10 @@
         "xform": {
           "head": {
             "ax": -0.15,
-            "ay": -0.05,
-            "scaleX": 2.185,
-            "scaleY": 2.85,
-            "rotDeg": 0
+  "ay": -0.05,
+  "scaleX": 2.3,
+  "scaleY": 2.5,
+  "rotDeg": 0
           }
         }
       }
