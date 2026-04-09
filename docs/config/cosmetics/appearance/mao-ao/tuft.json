@@ -14,10 +14,10 @@
       "spriteStyle": {
         "xform": {
           "head": {
-            "ax": -0.1  (no change)
-            "ay": -0.1  (no change)
-            "scaleX": 2  (no change)
-            "scaleY": 2  (no change)
+            "ax": -0.1
+            "ay": -0.1
+            "scaleX": 2
+            "scaleY": 2
           }
         }
       }
