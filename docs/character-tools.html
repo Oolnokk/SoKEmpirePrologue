@@ -3033,7 +3033,9 @@ function speBuildExportJson() {
  * Load and draw the head sprite for the currently selected species+gender
  * onto the Species Editor preview canvas (#spe-cv), reusing cosLoadImage.
  */
+let speRenderGen = 0;
 async function speRenderHeadPreview() {
+  const gen = ++speRenderGen;
   speCtx.clearRect(0, 0, speCW, speCH);
   const data = speGetCurrentSpeciesData();
   if (!data || !data.headSprite) { console.warn('[spe] No headSprite for current selection'); return; }
@@ -3041,12 +3043,13 @@ async function speRenderHeadPreview() {
 
   let headImg = null;
   try { headImg = await cosLoadImage(data.headSprite); } catch (e) { console.warn('[spe] Head sprite load failed:', data.headSprite, e); }
-  if (!headImg) return;
+  if (!headImg || gen !== speRenderGen) return;
 
   const urImgs = [];
   for (const mid of (data.headUrLayers || [])) {
     try { urImgs.push(await cosLoadImage(mid.url)); } catch (e) { console.warn('[spe] UR overlay load failed:', mid.url, e); }
   }
+  if (gen !== speRenderGen) return;
 
   speCtx.clearRect(0, 0, speCW, speCH);
 
