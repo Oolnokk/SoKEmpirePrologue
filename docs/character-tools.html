@@ -173,7 +173,7 @@ html, body {
 #portrait-status {
   text-align: center;
   font-size: 0.75rem;
-  color: #555;
+  color: #d08840;
   margin-top: 12px;
 }
 
@@ -924,100 +924,149 @@ const FIGHTERS = [
   },
 ];
 
-// ── Cosmetic definitions ───────────────────────────────────
+// ── Cosmetic option arrays (populated from config on init) ─
 
-const HAIR_OPTIONS = [
-  { id: 'none', label: 'No Hair', tintSlot: null, layers: [] },
-  {
-    id: 'tuft', label: 'Tuft', tintSlot: 'B',
-    layers: [
-      { url: 'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
-        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
-    ],
-  },
-  {
-    id: 'tuft_striped', label: 'Tuft Striped', tintSlot: 'B',
-    layers: [
-      { url: 'cosmetics/appearance/mao-ao/headhair/tuft_striped-front_mint.png',
-        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
-    ],
-  },
-  {
-    id: 'smooth_striped', label: 'Smooth Striped', tintSlot: 'B',
-    layers: [
-      { url: 'cosmetics/appearance/mao-ao/headhair/smooth_striped_mint.png',
-        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
-    ],
-  },
-  {
-    id: 'shoulder_length', label: 'Shoulder Length', tintSlot: 'A',
-    layers: [
-      { url: 'cosmetics/appearance/mao-ao/headhair/shoulderlength-front_mint.png',
-        ax: -0.1, ay: -0.1, sx: 2, sy: 2, pos: 'back' },
-      { url: 'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
-        ax: -0.1, ay: -0.1, sx: 2, sy: 2, pos: 'front' },
-    ],
-  },
-  {
-    id: 'long_ponytail', label: 'Long Ponytail', tintSlot: 'B',
-    layers: [
-      { url: 'cosmetics/appearance/mao-ao/headhair/ponytail_long-back_mint.png',
-        ax: -0.6, ay: -0.15, sx: 3, sy: 3, pos: 'back' },
-      { url: 'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
-        ax: -0.6, ay: -0.15, sx: 4, sy: 4, pos: 'front' },
-    ],
-  },
-];
+let HAIR_OPTIONS         = [{ id: 'none', label: 'No Hair',        tintSlot: null, layers: [] }];
+let EYES_OPTIONS         = [{ id: 'none', label: 'No Eye Mark',    tintSlot: null, layers: [] }];
+let FACIAL_HAIR_OPTIONS  = [{ id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] }];
 
-const EYES_OPTIONS = [
-  { id: 'none', label: 'No Eye Mark', tintSlot: null, layers: [] },
-  {
-    id: 'circled_eyes', label: 'Circled Eyes', tintSlot: 'B',
-    layers: [
-      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eyes_mint.png',
-        ax: -0.4, ay: -0.1, sx: 2.85, sy: 2.85, pos: 'front' },
-    ],
-  },
-  {
-    id: 'circled_eyes_f', label: 'Circled Eyes (F)', tintSlot: 'B',
-    layers: [
-      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eyes_f.png',
-        ax: 0, ay: -0.1, sx: 0.95, sy: 1.14, pos: 'front' },
-    ],
-  },
-  {
-    id: 'circled_eye_L', label: 'Circle (Left)', tintSlot: 'B',
-    layers: [
-      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eye_L_mint.png',
-        ax: -0.4, ay: -0.1, sx: 2.85, sy: 2.85, pos: 'front' },
-    ],
-  },
-  {
-    id: 'circled_eye_R', label: 'Circle (Right)', tintSlot: 'B',
-    layers: [
-      { url: 'cosmetics/appearance/mao-ao/eyes/circled_eye_R_mint.png',
-        ax: -0.4, ay:  0.1, sx: 2.85, sy: 2.85, pos: 'front' },
-    ],
-  },
-];
+// ── Config-driven cosmetic loader ──────────────────────────
 
-const FACIAL_HAIR_OPTIONS = [
-  { id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] },
-  {
-    id: 'wild_beard', label: 'Wild Beard', tintSlot: 'A',
-    layers: [
-      { url: 'cosmetics/appearance/mao-ao/facialhair/wild_beard_mint.png',
-        ax: 0, ay: -0.1, sx: 0.95, sy: 1.14, pos: 'front' },
-    ],
-  },
-  {
-    id: 'wildbeard', label: 'Wildbeard', tintSlot: 'A',
-    layers: [
-      { url: 'cosmetics/appearance/mao-ao/facialhair/wildbeard_mint2.png',
-        ax: -0.15, ay: -0.05, sx: 2.3, sy: 2.5, pos: 'front' },
-    ],
-  },
-];
+/**
+ * Classify an appearance index entry into a portrait picker category
+ * ('hair', 'eyes', 'facialhair') by examining its path and internal id.
+ */
+function portraitCategoryForEntry(entry) {
+  const path = (entry.path || '').toLowerCase();
+  const name = (entry.id.split('::').pop() || '').toLowerCase();
+  if (path.includes('/headhair/') || path.includes('headhair/')) return 'hair';
+  if (path.includes('/eyes/')     || path.includes('eyes/'))     return 'eyes';
+  if (path.includes('/facialhair/') || path.includes('facialhair/')) return 'facialhair';
+  if (/\beye(s|_|$)/.test(name)) return 'eyes';
+  if (name.includes('beard') || name.includes('stache') || name.includes('whisker') || name.includes('facial')) return 'facialhair';
+  return 'hair';
+}
+
+/**
+ * Convert a cosmetic JSON image URL (./assets/…) to the relative path
+ * expected by loadImg(), which prepends ASSET_BASE = './assets/'.
+ */
+function portraitRelPath(url) {
+  if (!url) return url;
+  if (url.startsWith('./assets/')) return url.slice('./assets/'.length);
+  return url;
+}
+
+/**
+ * Build a portrait-picker option object from a cosmetic index entry and
+ * its loaded JSON.  Converts JSON xform fields (scaleX/scaleY) to the
+ * internal sx/sy naming used by drawPortraitLayer / composeXform.
+ */
+function portraitOptionFromJson(entry, json) {
+  const label    = (json.meta && json.meta.name) || entry.id.split('::').pop().replace(/^mao-ao_/i, '').replace(/_/g, ' ');
+  const tintSlot = (json.appearance && json.appearance.bodyColors && json.appearance.bodyColors[0]) || null;
+  const shortId  = entry.id.split('::').pop().replace(/^mao-ao_/i, '');
+
+  const layers = [];
+  const head   = json.parts && json.parts.head;
+
+  if (head) {
+    if (head.layers) {
+      // Multi-layer cosmetic (e.g. long_ponytail with back + front layers)
+      for (const [layerName, layer] of Object.entries(head.layers)) {
+        const xf =
+          (layer.spriteStyle && layer.spriteStyle.base && layer.spriteStyle.base.xform && layer.spriteStyle.base.xform.head) ||
+          (layer.spriteStyle && layer.spriteStyle.xform && layer.spriteStyle.xform.head) || {};
+        const imgUrl = layer.image && layer.image.url;
+        if (imgUrl) {
+          layers.push({
+            url: portraitRelPath(imgUrl),
+            ax:  xf.ax     ?? 0,
+            ay:  xf.ay     ?? 0,
+            sx:  xf.scaleX ?? 1,
+            sy:  xf.scaleY ?? 1,
+            pos: layerName === 'back' ? 'back' : 'front',
+          });
+        }
+      }
+    } else if (head.image) {
+      // Single-layer cosmetic
+      const xf = (head.spriteStyle && head.spriteStyle.xform && head.spriteStyle.xform.head) || {};
+      const imgUrl = head.image.url;
+      if (imgUrl) {
+        layers.push({
+          url: portraitRelPath(imgUrl),
+          ax:  xf.ax     ?? 0,
+          ay:  xf.ay     ?? 0,
+          sx:  xf.scaleX ?? 1,
+          sy:  xf.scaleY ?? 1,
+          pos: 'front',
+        });
+      }
+    }
+  }
+
+  return { id: shortId, label, tintSlot, layers };
+}
+
+/**
+ * Fetch cosmetics/index.json (with raw-GitHub fallback), load each
+ * appearance::Mao-ao_M:: entry, and populate HAIR_OPTIONS / EYES_OPTIONS /
+ * FACIAL_HAIR_OPTIONS.  Throws on unrecoverable failure so callers can show
+ * an error message.
+ */
+async function portraitLoadCosmetics() {
+  let indexBaseUrl = new URL(CONFIG_BASE + 'cosmetics/index.json', window.location.href).toString();
+  let data;
+  try {
+    const resp = await fetch(indexBaseUrl);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    data = await resp.json();
+  } catch (e) {
+    console.warn('[portrait] Primary index fetch failed, falling back to raw GitHub URL', e);
+    const rawUrl = 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/config/cosmetics/index.json';
+    const resp2 = await fetch(rawUrl);
+    if (!resp2.ok) throw new Error('HTTP ' + resp2.status);
+    data = await resp2.json();
+    indexBaseUrl = rawUrl;
+  }
+
+  // Only load Mao-ao M entries (M and F share the same JSONs; M avoids duplicates)
+  const maoEntries = (data.entries || []).filter(e => e.id && e.id.startsWith('appearance::Mao-ao_M::'));
+
+  // Fetch each cosmetic JSON in parallel
+  const results = await Promise.all(maoEntries.map(async (entry) => {
+    const jsonUrl = new URL(entry.path, indexBaseUrl).toString();
+    try {
+      const resp = await fetch(jsonUrl);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' for ' + entry.id);
+      const json = await resp.json();
+      return { entry, json };
+    } catch (e) {
+      console.warn('[portrait] Could not load cosmetic JSON:', entry.id, e);
+      return null;
+    }
+  }));
+
+  // Bucket options by category
+  const hair   = [{ id: 'none', label: 'No Hair',        tintSlot: null, layers: [] }];
+  const eyes   = [{ id: 'none', label: 'No Eye Mark',    tintSlot: null, layers: [] }];
+  const facial = [{ id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] }];
+
+  for (const result of results) {
+    if (!result) continue;
+    const option = portraitOptionFromJson(result.entry, result.json);
+    if (!option.layers.length) continue;
+    const cat = portraitCategoryForEntry(result.entry);
+    if (cat === 'eyes')        eyes.push(option);
+    else if (cat === 'facialhair') facial.push(option);
+    else                       hair.push(option);
+  }
+
+  HAIR_OPTIONS        = hair;
+  EYES_OPTIONS        = eyes;
+  FACIAL_HAIR_OPTIONS = facial;
+}
 
 // ── Image cache ────────────────────────────────────────────
 
@@ -1218,23 +1267,21 @@ function addMore() {
 }
 
 function preloadCommon() {
+  // Always preload fighter head sprites (these are never in config)
   const urls = [
     'fightersprites/mao-ao-m/head_mint.png',
     'fightersprites/mao-ao-f/head.png',
     'fightersprites/mao-ao-m/untinted_regions/ur-head.png',
     'fightersprites/mao-ao-f/untinted_regions/ur-head.png',
-    'cosmetics/appearance/mao-ao/eyes/circled_eyes_mint.png',
-    'cosmetics/appearance/mao-ao/eyes/circled_eyes_f.png',
-    'cosmetics/appearance/mao-ao/eyes/circled_eye_L_mint.png',
-    'cosmetics/appearance/mao-ao/eyes/circled_eye_R_mint.png',
-    'cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png',
-    'cosmetics/appearance/mao-ao/headhair/smooth_striped_mint.png',
-    'cosmetics/appearance/mao-ao/headhair/ponytail_long-back_mint.png',
-    'cosmetics/appearance/mao-ao/headhair/shoulderlength-front_mint.png',
-    'cosmetics/appearance/mao-ao/headhair/tuft_striped-front_mint.png',
-    'cosmetics/appearance/mao-ao/facialhair/wild_beard_mint.png',
-    'cosmetics/appearance/mao-ao/facialhair/wildbeard_mint2.png',
   ];
+  // Derive cosmetic layer URLs from whichever arrays are currently loaded
+  for (const arr of [HAIR_OPTIONS, EYES_OPTIONS, FACIAL_HAIR_OPTIONS]) {
+    for (const opt of arr) {
+      for (const layer of (opt.layers || [])) {
+        if (layer.url) urls.push(layer.url);
+      }
+    }
+  }
   for (const u of urls) loadImg(u);
 }
 
@@ -1448,9 +1495,33 @@ document.getElementById('btn-reroll').addEventListener('click', rerollAll);
 document.getElementById('btn-more').addEventListener('click', addMore);
 document.getElementById('portrait-count-select').addEventListener('change', rerollAll);
 
-preloadCommon();
-populateGrid(parseInt(document.getElementById('portrait-count-select').value, 10) || 6);
+// Set up event listeners immediately; cosmetic dropdowns will be repopulated
+// once config loading completes.
 initBuilder();
+
+// Async: load cosmetics from config, then refresh UI
+(async function initPortraitCosmetics() {
+  const statusEl = document.getElementById('portrait-status');
+  try {
+    await portraitLoadCosmetics();
+  } catch (e) {
+    console.error('[portrait] Failed to load cosmetics config:', e);
+    if (statusEl) {
+      statusEl.textContent = '⚠ Could not load cosmetic configs — only default (none) options are available.';
+    }
+  }
+  // Always finish init (even on failure, we still show 'none' options)
+  preloadCommon();
+  populateBuilderDropdowns();
+  const count = parseInt(document.getElementById('portrait-count-select').value, 10) || 6;
+  populateGrid(count);
+  // Re-roll builder to pick from freshly loaded options
+  const p = randomProfile();
+  document.getElementById('b-hair').value   = p.hair.id;
+  document.getElementById('b-eyes').value   = p.eyes.id;
+  document.getElementById('b-facial').value = p.facialHair.id;
+  renderBuilderPreview();
+})();
 
 
 // ============================================================
