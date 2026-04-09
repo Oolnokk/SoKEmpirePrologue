@@ -9,7 +9,7 @@
   "parts": {
     "head": {
       "image": {
-        "url": "./assets/cosmetics/appearance/mao-ao/headhair/tuft-front.png"
+        "url": "./assets/cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png"
       },
       "spriteStyle": {
         "xform": {
