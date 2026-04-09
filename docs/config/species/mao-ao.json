@@ -1,0 +1,98 @@
+{
+  "speciesId": "mao-ao",
+  "label": "Mao-ao",
+  "male": {
+    "headSprite": "fightersprites/mao-ao-m/head_mint.png",
+    "headUrLayers": [
+      { "url": "fightersprites/mao-ao-m/untinted_regions/ur-head.png" }
+    ],
+    "headXform": { "ax": 0, "ay": -0.1, "sx": 0.95, "sy": 1.14 },
+    "allowedCosmetics": [
+      "appearance::Mao-ao_M::mao-ao_circled_eyes",
+      "appearance::Mao-ao_M::mao-ao_circled_eyes_f",
+      "appearance::Mao-ao_M::mao-ao_circled_eye_L",
+      "appearance::Mao-ao_M::mao-ao_smooth_striped",
+      "appearance::Mao-ao_M::mao-ao_shoulder_length_drape",
+      "appearance::Mao-ao_M::mao-ao_tuft",
+      "appearance::Mao-ao_M::mao-ao_long_ponytail",
+      "appearance::Mao-ao_M::mao-ao_wildbeard"
+    ],
+    "bodyColorRanges": {
+      "A": {
+        "minH": -130,
+        "maxH": -30,
+        "subdivisions": 3,
+        "stops": [
+          { "h": -130, "sMin": 0.05, "vMin": -0.50, "sMax": 0.75, "vMax": 0.20 },
+          { "h": -80,  "sMin": 0.05, "vMin": -0.50, "sMax": 0.75, "vMax": 0.20 },
+          { "h": -30,  "sMin": 0.05, "vMin": -0.50, "sMax": 0.75, "vMax": 0.20 }
+        ]
+      },
+      "B": {
+        "minH": -180,
+        "maxH": 180,
+        "subdivisions": 2,
+        "stops": [
+          { "h": -180, "sMin": -1.0, "vMin": -1.0, "sMax": 1.0, "vMax": 1.0 },
+          { "h":  180, "sMin": -1.0, "vMin": -1.0, "sMax": 1.0, "vMax": 1.0 }
+        ]
+      },
+      "C": {
+        "minH": -180,
+        "maxH": 180,
+        "subdivisions": 2,
+        "stops": [
+          { "h": -180, "sMin": -1.0, "vMin": -1.0, "sMax": 1.0, "vMax": 1.0 },
+          { "h":  180, "sMin": -1.0, "vMin": -1.0, "sMax": 1.0, "vMax": 1.0 }
+        ]
+      }
+    }
+  },
+  "female": {
+    "headSprite": "fightersprites/mao-ao-f/head.png",
+    "headUrLayers": [
+      { "url": "fightersprites/mao-ao-f/untinted_regions/ur-head.png" }
+    ],
+    "headXform": { "ax": 0, "ay": -0.1, "sx": 0.95, "sy": 1.14 },
+    "allowedCosmetics": [
+      "appearance::Mao-ao_F::mao-ao_circled_eyes",
+      "appearance::Mao-ao_F::mao-ao_circled_eyes_f",
+      "appearance::Mao-ao_F::mao-ao_circled_eye_L",
+      "appearance::Mao-ao_F::mao-ao_smooth_striped",
+      "appearance::Mao-ao_F::mao-ao_shoulder_length_drape",
+      "appearance::Mao-ao_F::mao-ao_tuft",
+      "appearance::Mao-ao_F::mao-ao_long_ponytail",
+      "appearance::Mao-ao_F::mao-ao_wildbeard"
+    ],
+    "bodyColorRanges": {
+      "A": {
+        "minH": -130,
+        "maxH": -30,
+        "subdivisions": 3,
+        "stops": [
+          { "h": -130, "sMin": 0.05, "vMin": -0.50, "sMax": 0.75, "vMax": 0.20 },
+          { "h": -80,  "sMin": 0.05, "vMin": -0.50, "sMax": 0.75, "vMax": 0.20 },
+          { "h": -30,  "sMin": 0.05, "vMin": -0.50, "sMax": 0.75, "vMax": 0.20 }
+        ]
+      },
+      "B": {
+        "minH": -180,
+        "maxH": 180,
+        "subdivisions": 2,
+        "stops": [
+          { "h": -180, "sMin": -1.0, "vMin": -1.0, "sMax": 1.0, "vMax": 1.0 },
+          { "h":  180, "sMin": -1.0, "vMin": -1.0, "sMax": 1.0, "vMax": 1.0 }
+        ]
+      },
+      "C": {
+        "minH": -180,
+        "maxH": 180,
+        "subdivisions": 2,
+        "stops": [
+          { "h": -180, "sMin": -1.0, "vMin": -1.0, "sMax": 1.0, "vMax": 1.0 },
+          { "h":  180, "sMin": -1.0, "vMin": -1.0, "sMax": 1.0, "vMax": 1.0 }
+        ]
+      }
+    }
+  }
+}

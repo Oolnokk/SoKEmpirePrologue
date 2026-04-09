@@ -509,6 +509,125 @@ details.diag-details[open] > summary::after { content: '▼'; }
 .cos-slot-tab:hover { background: var(--btnHi); color: var(--text); }
 .cos-slot-tab.active { background: #1b3d6e; border-color: var(--accent); color: var(--accent); }
 #cos-slot-hint { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* ============================================================
+   MODE C — SPECIES EDITOR  (styles)
+   ============================================================ */
+
+#mode-species {
+  min-height: calc(100vh - 48px);
+  background: var(--bg);
+}
+
+#spe-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: calc(100vh - 48px);
+}
+
+#spe-panel {
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+#spe-panel .cos-section { border-top: 1px solid var(--line); padding-top: 12px; margin-bottom: 10px; }
+#spe-panel .cos-section:first-child { border-top: none; padding-top: 0; }
+#spe-panel .cos-section h2 { font-size: 11px; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+#spe-panel label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+#spe-panel input[type=number],
+#spe-panel select {
+  width: 100%;
+  background: var(--btn);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+#spe-panel input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; margin-bottom: 8px; }
+
+#spe-panel button {
+  background: var(--btn);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+#spe-panel button:hover { background: var(--btnHi); }
+
+/* ── H-range bar ── */
+#spe-hbar-outer {
+  position: relative;
+  height: 36px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+#spe-hbar-bg {
+  position: absolute;
+  inset: 0;
+  /* Full hue spectrum for -180..180; each CSS hsl degree corresponds to 1 game degree.
+     -180 maps to hsl(0), +180 maps to hsl(360). */
+  background: linear-gradient(to right,
+    hsl(0,80%,50%), hsl(30,80%,50%), hsl(60,80%,50%), hsl(90,80%,50%),
+    hsl(120,80%,50%), hsl(150,80%,50%), hsl(180,80%,50%), hsl(210,80%,50%),
+    hsl(240,80%,50%), hsl(270,80%,50%), hsl(300,80%,50%), hsl(330,80%,50%),
+    hsl(360,80%,50%)
+  );
+}
+#spe-hbar-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.spe-range-fill {
+  position: absolute;
+  top: 0; bottom: 0;
+  background: rgba(255,255,255,0.18);
+  pointer-events: none;
+}
+.spe-marker {
+  position: absolute;
+  top: 0; bottom: 0;
+  transform: translateX(-50%);
+  cursor: pointer;
+  pointer-events: all;
+  transition: opacity 0.1s;
+}
+.spe-marker:hover { opacity: 0.75; }
+.spe-marker.spe-min-marker { width: 4px; background: #ff6060; }
+.spe-marker.spe-max-marker { width: 4px; background: #60ff60; }
+.spe-marker.spe-stop-marker { width: 3px; background: #4488ff; }
+.spe-marker.spe-stop-selected { width: 4px !important; background: #fff !important; outline: 2px solid var(--accent); z-index: 1; }
+
+.spe-hbar-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 58px;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.spe-hbar-row label { margin: 0; }
+.spe-hbar-row input[type=number] { margin: 0; text-align: right; width: 100%; }
+
+/* ── Stage ── */
+#spe-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #060809;
+}
+#spe-stage canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 </style>
 </head>
 <body>
@@ -520,6 +639,7 @@ details.diag-details[open] > summary::after { content: '▼'; }
   <span class="app-title">⚔ SoK Character Tools</span>
   <button class="mode-tab active" data-mode="portrait" title="AI Portrait Picker (press 1)">🖼 AI Portrait Picker</button>
   <button class="mode-tab" data-mode="cosmetic" title="Cosmetic Placer (press 2)">🎨 Cosmetic Placer</button>
+  <button class="mode-tab" data-mode="species" title="Species Editor (press 3)">🧬 Species Editor</button>
 </div>
 
 <!-- ════════════════════════════════════════════════════════
@@ -696,9 +816,15 @@ details.diag-details[open] > summary::after { content: '▼'; }
     <!-- Asset paths (relative, resolved via ASSET_BASE) -->
     <div class="cos-section">
       <h2>Assets</h2>
-      <label>Head sprite (relative path)</label>
-      <input type="text" id="cos-headPath" value="fightersprites/mao-ao-m/head_mint.png">
-      <p class="asset-hint">e.g. fightersprites/mao-ao-m/head_mint.png</p>
+      <label>Species</label>
+      <select id="cos-species"></select>
+      <label>Gender</label>
+      <select id="cos-gender">
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+      <!-- Hidden: head sprite path resolved from selected species+gender -->
+      <input type="hidden" id="cos-headPath" value="fightersprites/mao-ao-m/head_mint.png">
 
       <label>Cosmetic</label>
       <select id="cos-cosSelect"></select>
@@ -810,6 +936,106 @@ details.diag-details[open] > summary::after { content: '▼'; }
 </div><!-- /mode-cosmetic -->
 
 
+<!-- ════════════════════════════════════════════════════════
+     MODE C — SPECIES EDITOR
+     ════════════════════════════════════════════════════════ -->
+<div id="mode-species" class="mode-section">
+<div id="spe-layout">
+
+  <!-- LEFT PANEL -->
+  <aside id="spe-panel">
+
+    <!-- Species & gender selection -->
+    <div class="cos-section">
+      <h2>Species &amp; Gender</h2>
+      <label>Species</label>
+      <select id="spe-species"></select>
+      <label>Gender</label>
+      <select id="spe-gender">
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+      <label style="margin-top:4px">Color Slot</label>
+      <select id="spe-slot">
+        <option value="A">A — Skin / Body</option>
+        <option value="B">B — Markings / Hair</option>
+        <option value="C">C — Accent</option>
+      </select>
+    </div>
+
+    <!-- Hue range authoring -->
+    <div class="cos-section">
+      <h2>Hue Range</h2>
+      <!-- Visual H bar — markers are injected by JS -->
+      <div id="spe-hbar-outer">
+        <div id="spe-hbar-bg"></div>
+        <div id="spe-hbar-markers"></div>
+      </div>
+      <!-- H position slider (used with Set min/max H buttons) -->
+      <div class="spe-hbar-row">
+        <label>H</label>
+        <input type="range" id="spe-h-slider" min="-180" max="180" step="1" value="-130">
+        <input type="number" id="spe-h-num" min="-180" max="180" step="1" value="-130">
+      </div>
+      <div class="cos-row2" style="margin-bottom:8px">
+        <button id="spe-setMinH">⊣ Set min H</button>
+        <button id="spe-setMaxH">Set max H ⊢</button>
+      </div>
+      <label>Total hue stops (incl. endpoints)</label>
+      <select id="spe-subdivisions">
+        <option value="2">2 — endpoints only</option>
+        <option value="3" selected>3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+      </select>
+    </div>
+
+    <!-- Selected stop editor -->
+    <div class="cos-section">
+      <h2>Selected Stop</h2>
+      <div id="spe-stop-info" style="font-size:11px;color:var(--muted);margin-bottom:8px">Click a marker to select a stop</div>
+      <div class="cos-slider-row">
+        <label>sMin</label>
+        <input type="range" id="spe-sMin" min="-1" max="1" step="0.01" value="-1">
+        <input type="number" id="spe-sMin-n" min="-1" max="1" step="0.01" value="-1">
+      </div>
+      <div class="cos-slider-row">
+        <label>vMin</label>
+        <input type="range" id="spe-vMin" min="-1" max="1" step="0.01" value="-1">
+        <input type="number" id="spe-vMin-n" min="-1" max="1" step="0.01" value="-1">
+      </div>
+      <div class="cos-slider-row">
+        <label>sMax</label>
+        <input type="range" id="spe-sMax" min="-1" max="1" step="0.01" value="1">
+        <input type="number" id="spe-sMax-n" min="-1" max="1" step="0.01" value="1">
+      </div>
+      <div class="cos-slider-row">
+        <label>vMax</label>
+        <input type="range" id="spe-vMax" min="-1" max="1" step="0.01" value="1">
+        <input type="number" id="spe-vMax-n" min="-1" max="1" step="0.01" value="1">
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="cos-section">
+      <h2>Export</h2>
+      <button id="spe-exportBtn" class="btn-accent" style="width:100%">⎘ Copy species JSON</button>
+      <div id="spe-copyStatus" style="font-size:11px;color:#6fdb7a;height:16px;margin-top:4px;text-align:center"></div>
+    </div>
+
+  </aside>
+
+  <!-- PREVIEW CANVAS -->
+  <main id="spe-stage">
+    <canvas id="spe-cv" width="300" height="300"></canvas>
+  </main>
+
+</div><!-- /spe-layout -->
+</div><!-- /mode-species -->
+
+
 <script>
 // ============================================================
 // SHARED UTILITIES
@@ -910,12 +1136,13 @@ function execCopy(text, onSuccess, onFail) {
     });
   });
 
-  // Keyboard shortcuts: 1 → portrait, 2 → cosmetic (skipped when typing in an input)
+  // Keyboard shortcuts: 1 → portrait, 2 → cosmetic, 3 → species (skipped when typing in an input)
   document.addEventListener('keydown', e => {
     const tag = document.activeElement ? document.activeElement.tagName : '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     if (e.key === '1') activateMode('portrait');
     else if (e.key === '2') activateMode('cosmetic');
+    else if (e.key === '3') activateMode('species');
   });
 
   // Restore last-used mode from localStorage
@@ -959,7 +1186,7 @@ const FIGHTERS = [
     headUrl: 'fightersprites/mao-ao-f/head.png',
     urLayers: [
       { url: 'fightersprites/mao-ao-f/untinted_regions/ur-head.png' },
-      { url: 'fightersprites/mao-ao-f/untinted_regions/ur-torso.png' },
+      // ur-torso.png is intentionally excluded: portrait mode only renders the head region
     ],
   },
 ];
@@ -1881,7 +2108,16 @@ function cosPopulateLayerSelect() {
 function cosPopulateItemSelect() {
   const catId   = SLOTS[cosActiveSlotKey].cat;
   const itemSel = document.getElementById('cos-cosSelect');
-  const entries = cosIndexEntries.filter(e => cosGetCategoryForEntry(e) === catId);
+
+  // Start from all appearance entries that match the active category
+  let entries = cosIndexEntries.filter(e => cosGetCategoryForEntry(e) === catId);
+
+  // When species data is loaded, further restrict to that species/gender's allowedCosmetics
+  const speciesData = cosGetCurrentSpeciesData();
+  const allowed = speciesData ? (speciesData.allowedCosmetics || null) : null;
+  if (allowed) {
+    entries = entries.filter(e => allowed.includes(e.id));
+  }
 
   // Deduplicate by path (M and F variants share the same JSON file)
   const seen = new Set();
@@ -1892,7 +2128,7 @@ function cosPopulateItemSelect() {
   });
 
   if (unique.length === 0) {
-    itemSel.innerHTML = '<option value="">Loading…</option>';
+    itemSel.innerHTML = '<option value="">No cosmetics available</option>';
     return;
   }
 
@@ -1950,8 +2186,9 @@ async function cosLoadAssets() {
   slot.img   = null;
   cosUrImgs  = [];
   try { cosHeadImg = await cosLoadImage(headPath); } catch (e) { console.warn(e); }
-  // Load UR overlay images for the fighter that owns this head sprite
-  const urLayers = getFighterUrLayers(headPath);
+  // Use species-defined headUrLayers when available; fall back to FIGHTERS-based lookup
+  const speciesData = cosGetCurrentSpeciesData();
+  const urLayers = speciesData ? (speciesData.headUrLayers || []) : getFighterUrLayers(headPath);
   for (const mid of urLayers) {
     try { cosUrImgs.push(await cosLoadImage(mid.url)); } catch (e) { console.warn('[cos] UR overlay load failed:', mid.url, e); }
   }
@@ -2468,6 +2705,400 @@ document.getElementById('cos-layerSelect').addEventListener('change', () => {
 
 // Load the index and initialise — populates dropdowns and selects the first cosmetic
 cosLoadIndex();
+
+
+// ============================================================
+// SHARED SPECIES SYSTEM  (used by Cosmetic Placer + Species Editor)
+// ============================================================
+
+// ── Species data store ─────────────────────────────────────
+
+let speIndexEntries = [];   // array of { speciesId, label, path }
+let speIndexBaseUrl = '';
+let speAllSpecies   = {};   // speciesId → loaded species JSON
+
+/**
+ * Return the gender-specific block from the currently selected species in the
+ * Cosmetic Placer, or null when no selection / data not yet loaded.
+ */
+function cosGetCurrentSpeciesData() {
+  const speciesEl = document.getElementById('cos-species');
+  const genderEl  = document.getElementById('cos-gender');
+  if (!speciesEl || !genderEl) return null;
+  const speciesId = speciesEl.value;
+  const gender    = genderEl.value;
+  if (!speciesId || !speAllSpecies[speciesId]) return null;
+  return speAllSpecies[speciesId][gender] || null;
+}
+
+/**
+ * Called when the species or gender dropdown in the Cosmetic Placer changes.
+ * Updates the hidden head-path input, re-filters cosmetics, and reloads assets.
+ */
+function cosOnSpeciesChanged() {
+  const data = cosGetCurrentSpeciesData();
+  if (data && data.headSprite) {
+    document.getElementById('cos-headPath').value = data.headSprite;
+  }
+  cosPopulateItemSelect();
+  cosLoadAssets();
+}
+
+// ── Species index loader ────────────────────────────────────
+
+/**
+ * Fetch species/index.json (with raw-GitHub fallback) and kick off loading
+ * each individual species JSON.
+ */
+async function speLoadSpeciesIndex() {
+  const indexUrl = CONFIG_BASE + 'species/index.json';
+  speIndexBaseUrl = new URL(indexUrl, window.location.href).toString();
+  let data;
+  try {
+    const resp = await fetch(speIndexBaseUrl);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    data = await resp.json();
+  } catch (e) {
+    console.warn('[species] Primary index fetch failed, falling back to raw GitHub URL', e);
+    const rawUrl = 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/config/species/index.json';
+    try {
+      const resp2 = await fetch(rawUrl);
+      if (!resp2.ok) throw new Error('HTTP ' + resp2.status);
+      data = await resp2.json();
+      speIndexBaseUrl = rawUrl;
+    } catch (e2) {
+      console.error('[species] Failed to load species index', e2);
+      return;
+    }
+  }
+
+  speIndexEntries = data.entries || [];
+  spePopulateSpeciesDropdowns();
+
+  // Load each species JSON
+  await Promise.all(speIndexEntries.map(entry => {
+    const url = new URL(entry.path, speIndexBaseUrl).toString();
+    return speLoadSpeciesJson(entry.speciesId, url);
+  }));
+
+  // After all JSONs are loaded, trigger initial state for both modes
+  spePopulateSpeciesDropdowns();
+  cosOnSpeciesChanged();
+  speOnSpeciesOrGenderChanged();
+}
+
+async function speLoadSpeciesJson(speciesId, url) {
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    speAllSpecies[speciesId] = json;
+  } catch (e) {
+    console.warn('[species] Failed to load species JSON for', speciesId, e);
+  }
+}
+
+/** Populate species <select> dropdowns in both Cosmetic Placer and Species Editor. */
+function spePopulateSpeciesDropdowns() {
+  const opts = speIndexEntries
+    .map(e => `<option value="${escHtml(e.speciesId)}">${escHtml(e.label)}</option>`)
+    .join('');
+  const cosEl = document.getElementById('cos-species');
+  if (cosEl) { const prev = cosEl.value; cosEl.innerHTML = opts; if (prev) cosEl.value = prev; }
+  const speEl = document.getElementById('spe-species');
+  if (speEl) { const prev = speEl.value; speEl.innerHTML = opts; if (prev) speEl.value = prev; }
+}
+
+// Wire species/gender dropdowns in Cosmetic Placer
+document.getElementById('cos-species').addEventListener('change', cosOnSpeciesChanged);
+document.getElementById('cos-gender').addEventListener('change',  cosOnSpeciesChanged);
+
+
+// ============================================================
+// MODE: SPECIES EDITOR
+// ============================================================
+
+// ── Editor state ───────────────────────────────────────────
+
+let speActiveSlot     = 'A';
+let speSelectedStop   = -1;     // index into current slot's stops array
+let speWorkingRanges  = {};     // { male: { A:{...}, B:{...}, C:{...} }, female: {...} }
+let speLoadedJson     = null;   // original (unmodified) species JSON for the current species
+
+/**
+ * Return the currently active range object { minH, maxH, subdivisions, stops[] },
+ * or null when nothing is loaded.
+ */
+function speGetRange() {
+  const gender = document.getElementById('spe-gender').value;
+  if (!speWorkingRanges[gender]) return null;
+  return speWorkingRanges[gender][speActiveSlot] || null;
+}
+
+// ── Loading species into editor ────────────────────────────
+
+function speLoadIntoEditor(json) {
+  speLoadedJson    = json;
+  speWorkingRanges = {};
+  const defaultRange = (minH, maxH) => ({
+    minH, maxH, subdivisions: 2,
+    stops: [
+      { h: minH, sMin: -1, vMin: -1, sMax: 1, vMax: 1 },
+      { h: maxH, sMin: -1, vMin: -1, sMax: 1, vMax: 1 },
+    ],
+  });
+  for (const gender of ['male', 'female']) {
+    speWorkingRanges[gender] = {};
+    const gData = json[gender];
+    for (const slot of ['A', 'B', 'C']) {
+      const src = gData && gData.bodyColorRanges && gData.bodyColorRanges[slot];
+      speWorkingRanges[gender][slot] = src
+        ? JSON.parse(JSON.stringify(src))
+        : defaultRange(-180, 180);
+    }
+  }
+  speSelectedStop = -1;
+  speRefreshEditorUI();
+}
+
+function speRefreshEditorUI() {
+  const range = speGetRange();
+  if (!range) return;
+  const subdivEl = document.getElementById('spe-subdivisions');
+  const n = range.stops ? range.stops.length : (range.subdivisions || 2);
+  // Match to nearest available option
+  const available = [2, 3, 4, 5, 6, 7];
+  const best = available.reduce((a, b) => Math.abs(b - n) < Math.abs(a - n) ? b : a);
+  subdivEl.value = String(best);
+  speRenderHBar();
+  speUpdateStopEditor();
+}
+
+// ── H-bar rendering ────────────────────────────────────────
+
+/**
+ * Map a hue value (-180..180) to a percentage position on the bar (0..100).
+ */
+function speHPct(h) { return ((h + 180) / 360 * 100); }
+
+function speRenderHBar() {
+  const container = document.getElementById('spe-hbar-markers');
+  container.innerHTML = '';
+  const range = speGetRange();
+  if (!range || !range.stops || !range.stops.length) return;
+
+  const { minH, maxH, stops } = range;
+
+  // Range-highlight fill between minH and maxH
+  const fill = document.createElement('div');
+  fill.className = 'spe-range-fill';
+  fill.style.left  = speHPct(minH) + '%';
+  fill.style.right = (100 - speHPct(maxH)) + '%';
+  container.appendChild(fill);
+
+  // Stop markers
+  stops.forEach((stop, i) => {
+    const marker = document.createElement('div');
+    const pct    = speHPct(stop.h);
+    let cls = 'spe-marker spe-stop-marker';
+    if (i === 0)                 cls = 'spe-marker spe-min-marker';
+    else if (i === stops.length - 1) cls = 'spe-marker spe-max-marker';
+    if (i === speSelectedStop)   cls += ' spe-stop-selected';
+    marker.className   = cls;
+    marker.style.left  = pct + '%';
+    const endLabel = i === 0 ? 'min H' : i === stops.length - 1 ? 'max H' : 'stop';
+    marker.title = `${endLabel} ${i}: h=${stop.h.toFixed(0)}°  sMin=${stop.sMin}  vMin=${stop.vMin}  sMax=${stop.sMax}  vMax=${stop.vMax}`;
+    marker.addEventListener('click', () => speSelectStop(i));
+    container.appendChild(marker);
+  });
+}
+
+// ── Stop selection & editing ───────────────────────────────
+
+function speSelectStop(idx) {
+  const range = speGetRange();
+  if (!range || idx < 0 || idx >= range.stops.length) return;
+  speSelectedStop = idx;
+  speRenderHBar();
+  speUpdateStopEditor();
+}
+
+function speUpdateStopEditor() {
+  const infoEl = document.getElementById('spe-stop-info');
+  const range  = speGetRange();
+  if (speSelectedStop < 0 || !range || speSelectedStop >= range.stops.length) {
+    infoEl.textContent = 'Click a marker on the bar to select a stop';
+    return;
+  }
+  const stop    = range.stops[speSelectedStop];
+  const isFirst = speSelectedStop === 0;
+  const isLast  = speSelectedStop === range.stops.length - 1;
+  const kind    = isFirst ? 'min H' : isLast ? 'max H' : 'intermediate';
+  infoEl.textContent = `Stop ${speSelectedStop} · h = ${stop.h.toFixed(0)}°  (${kind})`;
+  ['sMin', 'vMin', 'sMax', 'vMax'].forEach(key => {
+    const val = stop[key] ?? 0;
+    document.getElementById('spe-' + key).value     = val;
+    document.getElementById('spe-' + key + '-n').value = val;
+  });
+}
+
+function speOnStopFieldChange() {
+  const range = speGetRange();
+  if (!range || speSelectedStop < 0 || speSelectedStop >= range.stops.length) return;
+  const stop = range.stops[speSelectedStop];
+  ['sMin', 'vMin', 'sMax', 'vMax'].forEach(key => {
+    const rawVal = parseFloat(document.getElementById('spe-' + key).value);
+    if (!isNaN(rawVal)) stop[key] = Math.max(-1, Math.min(1, rawVal));
+  });
+  speRenderHBar();
+}
+
+// ── Subdivision recalculation ──────────────────────────────
+
+/**
+ * Recalculate stop positions from the current minH/maxH and subdivisions count.
+ * S/V values are interpolated from the nearest existing stop.
+ */
+function speRecalcStops() {
+  const range = speGetRange();
+  if (!range) return;
+  const n    = parseInt(document.getElementById('spe-subdivisions').value) || 2;
+  const { minH, maxH } = range;
+  const old  = range.stops || [];
+
+  const newStops = [];
+  for (let i = 0; i < n; i++) {
+    const h = n === 1 ? minH : minH + i * (maxH - minH) / (n - 1);
+    // Interpolate S/V from nearest existing stop
+    let best = old[0] || { sMin: -1, vMin: -1, sMax: 1, vMax: 1 };
+    let bestDist = Infinity;
+    for (const s of old) {
+      const d = Math.abs(s.h - h);
+      if (d < bestDist) { bestDist = d; best = s; }
+    }
+    newStops.push({
+      h:    Math.round(h * 100) / 100,
+      sMin: best.sMin, vMin: best.vMin,
+      sMax: best.sMax, vMax: best.vMax,
+    });
+  }
+  range.stops        = newStops;
+  range.subdivisions = n;
+
+  if (speSelectedStop >= newStops.length) speSelectedStop = newStops.length - 1;
+  speRenderHBar();
+  speUpdateStopEditor();
+}
+
+// ── Export ─────────────────────────────────────────────────
+
+/**
+ * Build the full species JSON for export, merging all working range edits
+ * back into the original species JSON structure.
+ */
+function speBuildExportJson() {
+  if (!speLoadedJson) return JSON.stringify({}, null, 2);
+  const result = JSON.parse(JSON.stringify(speLoadedJson));
+  for (const gender of ['male', 'female']) {
+    if (!result[gender] || !speWorkingRanges[gender]) continue;
+    if (!result[gender].bodyColorRanges) result[gender].bodyColorRanges = {};
+    for (const slot of ['A', 'B', 'C']) {
+      const range = speWorkingRanges[gender][slot];
+      if (range) result[gender].bodyColorRanges[slot] = JSON.parse(JSON.stringify(range));
+    }
+  }
+  return JSON.stringify(result, null, 2);
+}
+
+// ── Species Editor event handlers ──────────────────────────
+
+function speOnSpeciesOrGenderChanged() {
+  const speciesId = document.getElementById('spe-species').value;
+  if (!speciesId || !speAllSpecies[speciesId]) return;
+  speLoadIntoEditor(speAllSpecies[speciesId]);
+}
+
+document.getElementById('spe-species').addEventListener('change', speOnSpeciesOrGenderChanged);
+document.getElementById('spe-gender').addEventListener('change',  () => {
+  speSelectedStop = -1;
+  speRefreshEditorUI();
+});
+document.getElementById('spe-slot').addEventListener('change', () => {
+  speActiveSlot   = document.getElementById('spe-slot').value;
+  speSelectedStop = -1;
+  speRefreshEditorUI();
+});
+
+// H slider ↔ number sync
+document.getElementById('spe-h-slider').addEventListener('input', () => {
+  document.getElementById('spe-h-num').value = document.getElementById('spe-h-slider').value;
+});
+document.getElementById('spe-h-num').addEventListener('input', () => {
+  const v = parseInt(document.getElementById('spe-h-num').value);
+  if (!isNaN(v)) document.getElementById('spe-h-slider').value = v;
+});
+
+// Set min H / max H buttons
+document.getElementById('spe-setMinH').addEventListener('click', () => {
+  const range = speGetRange();
+  if (!range) return;
+  const h = parseInt(document.getElementById('spe-h-slider').value);
+  range.minH = h;
+  if (range.maxH <= range.minH) range.maxH = range.minH + 1;
+  speRecalcStops();
+});
+document.getElementById('spe-setMaxH').addEventListener('click', () => {
+  const range = speGetRange();
+  if (!range) return;
+  const h = parseInt(document.getElementById('spe-h-slider').value);
+  range.maxH = h;
+  if (range.minH >= range.maxH) range.minH = range.maxH - 1;
+  speRecalcStops();
+});
+
+// Subdivisions dropdown
+document.getElementById('spe-subdivisions').addEventListener('change', speRecalcStops);
+
+// Stop field sliders/numbers
+['sMin', 'vMin', 'sMax', 'vMax'].forEach(key => {
+  const sliderId = 'spe-' + key;
+  const numId    = 'spe-' + key + '-n';
+  document.getElementById(sliderId).addEventListener('input', () => {
+    document.getElementById(numId).value = document.getElementById(sliderId).value;
+    speOnStopFieldChange();
+  });
+  document.getElementById(numId).addEventListener('input', () => {
+    const v = parseFloat(document.getElementById(numId).value);
+    if (!isNaN(v)) {
+      document.getElementById(sliderId).value = Math.max(-1, Math.min(1, v));
+      speOnStopFieldChange();
+    }
+  });
+  document.getElementById(numId).addEventListener('change', () => {
+    const v = parseFloat(document.getElementById(numId).value);
+    if (!isNaN(v)) {
+      const clamped = Math.max(-1, Math.min(1, v));
+      document.getElementById(numId).value    = clamped;
+      document.getElementById(sliderId).value = clamped;
+      speOnStopFieldChange();
+    }
+  });
+});
+
+// Export button
+document.getElementById('spe-exportBtn').addEventListener('click', () => {
+  const json   = speBuildExportJson();
+  const status = document.getElementById('spe-copyStatus');
+  copyToClipboard(
+    json,
+    () => { status.textContent = '✓ Copied species JSON'; setTimeout(() => { status.textContent = ''; }, 2500); },
+    () => { status.textContent = '⚠ Copy failed';         setTimeout(() => { status.textContent = ''; }, 2500); }
+  );
+});
+
+// ── Load species index on startup ──────────────────────────
+
+speLoadSpeciesIndex();
 
 </script>
 </body>
