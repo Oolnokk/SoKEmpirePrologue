@@ -1507,6 +1507,8 @@ function randomColorFromRange(range) {
   const h = range.minH + Math.random() * (range.maxH - range.minH);
   const stops = range.stops;
   let i = 0;
+  // Advance i so stops[i]..stops[i+1] is the segment containing h.
+  // Condition `i < stops.length - 2` ensures stops[i+1] is always valid.
   while (i < stops.length - 2 && stops[i + 1].h <= h) i++;
   const s0 = stops[i], s1 = stops[i + 1];
   const t = s1.h === s0.h ? 0 : clamp((h - s0.h) / (s1.h - s0.h), 0, 1);
@@ -1552,6 +1554,9 @@ function portraitRefreshCosmeticOptions() {
   for (const entry of entries) {
     const opt = portraitOptionCache.get(entry.id);
     if (!opt || !opt.layers.length) continue;
+    // opt.id is the cosmetic short-id (e.g. 'circled_eyes'); entry.id is the
+    // species-qualified key.  Dedup by opt.id so M+F variants of the same
+    // cosmetic don't produce duplicate options when no species filter is active.
     if (seenIds.has(opt.id)) continue;
     seenIds.add(opt.id);
     const cat = portraitCategoryForEntry(entry);
