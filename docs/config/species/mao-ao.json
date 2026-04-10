@@ -16,10 +16,8 @@
     },
     "allowedCosmetics": [
       "appearance::Mao-ao_M::mao-ao_circled_eyes",
-      "appearance::Mao-ao_M::mao-ao_circled_eyes_f",
       "appearance::Mao-ao_M::mao-ao_circled_eye_L",
       "appearance::Mao-ao_M::mao-ao_smooth_striped",
-      "appearance::Mao-ao_M::mao-ao_shoulder_length_drape",
       "appearance::Mao-ao_M::mao-ao_tuft",
       "appearance::Mao-ao_M::mao-ao_long_ponytail",
       "appearance::Mao-ao_M::mao-ao_wildbeard"
@@ -104,14 +102,10 @@
       "sy": 1.14
     },
     "allowedCosmetics": [
-      "appearance::Mao-ao_F::mao-ao_circled_eyes",
       "appearance::Mao-ao_F::mao-ao_circled_eyes_f",
       "appearance::Mao-ao_F::mao-ao_circled_eye_L",
-      "appearance::Mao-ao_F::mao-ao_smooth_striped",
       "appearance::Mao-ao_F::mao-ao_shoulder_length_drape",
-      "appearance::Mao-ao_F::mao-ao_tuft",
-      "appearance::Mao-ao_F::mao-ao_long_ponytail",
-      "appearance::Mao-ao_F::mao-ao_wildbeard"
+      "appearance::Mao-ao_F::mao-ao_long_ponytail"
     ],
     "bodyColorRanges": {
       "A": {
