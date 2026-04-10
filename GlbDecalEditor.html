@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scratchbones · Decal Editor</title>
+  <style>
+    :root {
+      --bg: #15110f;
+      --panel: rgba(46, 34, 30, 0.97);
+      --panel-soft: rgba(67, 49, 43, 0.9);
+      --accent: #c89952;
+      --accent-2: #f2d08f;
+      --text: #f4e8d0;
+      --muted: #cdbb9f;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, sans-serif;
+      overflow: hidden;
+    }
+    #layout { display: flex; height: 100vh; }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 210px;
+      flex-shrink: 0;
+      background: var(--panel);
+      border-right: 1px solid rgba(255,255,255,0.07);
+      padding: 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+    }
+    .sideLabel {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+    }
+    #dropZone {
+      border: 2px dashed rgba(200,153,82,0.35);
+      border-radius: var(--radius);
+      padding: 14px 8px;
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.18s, background 0.18s;
+    }
+    #dropZone.over { border-color: var(--accent); background: rgba(200,153,82,0.07); }
+    #dropZone input { display: none; }
+    #modelName {
+      font-size: 0.72rem;
+      color: var(--accent);
+      text-align: center;
+      word-break: break-all;
+      min-height: 1em;
+    }
+    .decalGrid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+    }
+    .decalThumb {
+      aspect-ratio: 1;
+      border-radius: 9px;
+      border: 2px solid transparent;
+      background: rgba(255,255,255,0.05);
+      cursor: pointer;
+      padding: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.12s, background 0.12s;
+      position: relative;
+    }
+    .decalThumb img { width: 100%; height: 100%; object-fit: contain; }
+    .decalThumb .num {
+      position: absolute;
+      bottom: 2px;
+      right: 4px;
+      font-size: 0.58rem;
+      color: var(--muted);
+      line-height: 1;
+    }
+    .decalThumb.active { border-color: var(--accent); background: rgba(200,153,82,0.14); }
+    .decalThumb:hover:not(.active) { border-color: rgba(200,153,82,0.4); }
+
+    .sliderGroup { display: grid; gap: 5px; }
+    .sliderGroup label {
+      font-size: 0.76rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+    .btnStack { display: grid; gap: 7px; }
+    button {
+      width: 100%;
+      padding: 9px 10px;
+      border: none;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #1d140f;
+      font-weight: 800;
+      font-size: 0.82rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s;
+    }
+    button.ghost {
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    button:disabled { opacity: 0.38; cursor: default; }
+
+    #status {
+      font-size: 0.73rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.4;
+      margin-top: auto;
+      padding-top: 6px;
+    }
+
+    /* ── Canvas ── */
+    #canvasWrap { flex: 1; position: relative; overflow: hidden; }
+    #canvasWrap canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    #hint {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.65);
+      color: var(--muted);
+      font-size: 0.75rem;
+      padding: 5px 14px;
+      border-radius: 999px;
+      pointer-events: none;
+      white-space: nowrap;
+      transition: opacity 0.3s;
+    }
+    #hint.hidden { opacity: 0; }
+
+    #uvPreview {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 120px;
+      height: 120px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: #1a1210;
+      display: none;
+    }
+    #uvPreview canvas { border-radius: 10px; }
+    #uvPreviewLabel {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      font-size: 0.66rem;
+      color: var(--muted);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+<div id="layout">
+  <div id="sidebar">
+    <div class="sideLabel">Model</div>
+
+    <div id="dropZone">
+      <div>Drop GLB here</div>
+      <div style="margin-top:3px;font-size:0.7rem;opacity:0.7">or click to browse</div>
+      <input type="file" id="fileInput" accept=".glb,.gltf">
+    </div>
+    <div id="modelName"></div>
+
+    <div class="sideLabel">Decal</div>
+    <div class="decalGrid" id="decalGrid"></div>
+
+    <div class="sliderGroup">
+      <label>Size <span id="sizeVal">20%</span></label>
+      <input type="range" id="sizeSlider" min="3" max="70" value="20">
+    </div>
+    <div class="sliderGroup">
+      <label>Rotation <span id="rotVal">0°</span></label>
+      <input type="range" id="rotSlider" min="0" max="360" value="0">
+    </div>
+    <div class="sliderGroup">
+      <label>Opacity <span id="opacVal">100%</span></label>
+      <input type="range" id="opacSlider" min="10" max="100" value="100">
+    </div>
+
+    <div class="btnStack">
+      <button id="undoBtn" class="ghost" disabled>↩ Undo</button>
+      <button id="clearBtn" class="ghost" disabled>Clear texture</button>
+      <button id="exportBtn" disabled>Export GLB</button>
+    </div>
+
+    <div id="status">Load a GLB to begin</div>
+  </div>
+
+  <div id="canvasWrap">
+    <div id="hint">Hover the model · click to stamp decal</div>
+    <canvas id="uvPreview"></canvas>
+    <div id="uvPreviewLabel">UV map</div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFExporter }  from 'three/addons/exporters/GLTFExporter.js';
+
+// ─── Renderer / Scene ───────────────────────────────────────────────────────
+const wrap = document.getElementById('canvasWrap');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+wrap.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1c1411);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.001, 500);
+camera.position.set(0, 0.4, 2);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+
+// Lighting
+scene.add(new THREE.AmbientLight(0xfff0e0, 0.9));
+const sun = new THREE.DirectionalLight(0xfff5e8, 2.8);
+sun.position.set(2, 5, 3);
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xd4c4a8, 0.5);
+fill.position.set(-3, 1, -2);
+scene.add(fill);
+
+// Grid
+const grid = new THREE.GridHelper(6, 24, 0x2a1f1c, 0x1e1612);
+scene.add(grid);
+
+// Resize
+function resize() {
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(wrap);
+resize();
+
+// ─── State ──────────────────────────────────────────────────────────────────
+const CANVAS_SIZE = 1024;
+let modelMeshes  = [];
+let loadedModel  = null;
+let modelSpan    = 1.0;
+let selDecal     = 0;
+const decalImgs  = [];
+const undoStack  = [];   // [{ mesh, imageData }]
+
+// ─── Ghost ──────────────────────────────────────────────────────────────────
+const ghostMat = new THREE.MeshBasicMaterial({
+  transparent: true, opacity: 0.75, depthTest: true,
+  side: THREE.FrontSide, polygonOffset: true, polygonOffsetFactor: -2,
+});
+const ghost = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), ghostMat);
+ghost.visible = false;
+ghost.renderOrder = 5;
+scene.add(ghost);
+
+// ─── Decal panel ────────────────────────────────────────────────────────────
+const grid2 = document.getElementById('decalGrid');
+for (let i = 1; i <= 10; i++) {
+  const src = `docs/assets/symbols/scratchbone${i}.png`;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = src;
+  decalImgs.push(img);
+
+  const thumb = document.createElement('div');
+  thumb.className = 'decalThumb' + (i === 1 ? ' active' : '');
+  thumb.innerHTML = `<img src="${src}" alt="${i}"><span class="num">${i}</span>`;
+  thumb.addEventListener('click', () => {
+    document.querySelectorAll('.decalThumb').forEach(t => t.classList.remove('active'));
+    thumb.classList.add('active');
+    selDecal = i - 1;
+    refreshGhostTex();
+  });
+  grid2.appendChild(thumb);
+}
+
+function refreshGhostTex() {
+  const img = decalImgs[selDecal];
+  const apply = () => {
+    const t = new THREE.Texture(img);
+    t.needsUpdate = true;
+    t.colorSpace = THREE.SRGBColorSpace;
+    if (ghostMat.map) ghostMat.map.dispose();
+    ghostMat.map = t;
+    ghostMat.needsUpdate = true;
+  };
+  img.complete ? apply() : (img.onload = apply);
+}
+refreshGhostTex();
+
+// ─── Slider helpers ─────────────────────────────────────────────────────────
+const sizeSlider = document.getElementById('sizeSlider');
+const rotSlider  = document.getElementById('rotSlider');
+const opacSlider = document.getElementById('opacSlider');
+
+sizeSlider.addEventListener('input', () => document.getElementById('sizeVal').textContent = sizeSlider.value + '%');
+rotSlider .addEventListener('input', () => document.getElementById('rotVal') .textContent = rotSlider.value  + '°');
+opacSlider.addEventListener('input', () => document.getElementById('opacVal').textContent = opacSlider.value + '%');
+
+const getSize = () => Number(sizeSlider.value) / 100;
+const getRot  = () => Number(rotSlider.value)  * Math.PI / 180;
+const getOpac = () => Number(opacSlider.value) / 100;
+
+// ─── GLB Loading ────────────────────────────────────────────────────────────
+const loader = new GLTFLoader();
+
+function loadGLB(buffer, filename) {
+  if (loadedModel) {
+    scene.remove(loadedModel);
+    modelMeshes.forEach(m => { m.geometry.dispose(); });
+    modelMeshes = [];
+    undoStack.length = 0;
+    document.getElementById('undoBtn').disabled = true;
+  }
+
+  loader.parse(buffer, '', gltf => {
+    loadedModel = gltf.scene;
+    scene.add(loadedModel);
+
+    loadedModel.traverse(node => {
+      if (node.isMesh) {
+        modelMeshes.push(node);
+        initMeshTexture(node);
+      }
+    });
+
+    const box = new THREE.Box3().setFromObject(loadedModel);
+    const center = box.getCenter(new THREE.Vector3());
+    modelSpan = box.getSize(new THREE.Vector3()).length();
+
+    controls.target.copy(center);
+    camera.position.copy(center).addScaledVector(
+      new THREE.Vector3(0.3, 0.4, 1).normalize(), modelSpan * 1.6
+    );
+    camera.near = modelSpan * 0.005;
+    camera.far  = modelSpan * 40;
+    camera.updateProjectionMatrix();
+    controls.update();
+
+    document.getElementById('modelName').textContent = filename;
+    document.getElementById('exportBtn').disabled = false;
+    document.getElementById('clearBtn') .disabled = false;
+    document.getElementById('status')   .textContent = `${modelMeshes.length} mesh(es) · click to stamp`;
+    document.getElementById('hint').classList.add('hidden');
+    showUVPreview();
+  }, err => {
+    document.getElementById('status').textContent = 'Load error: ' + err.message;
+  });
+}
+
+function initMeshTexture(mesh) {
+  if (mesh.userData.texCanvas) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = CANVAS_SIZE;
+  canvas.height = CANVAS_SIZE;
+  const ctx = canvas.getContext('2d');
+  fillIvory(ctx);
+
+  mesh.userData.texCanvas = canvas;
+  mesh.userData.texCtx    = ctx;
+
+  const srcMat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+  const mat    = srcMat.clone();
+  const tex    = new THREE.CanvasTexture(canvas);
+  tex.flipY         = false;   // glTF UV convention: (0,0) = top-left
+  tex.colorSpace    = THREE.SRGBColorSpace;
+  mat.map           = tex;
+  mat.needsUpdate   = true;
+  mesh.material     = mat;
+}
+
+function fillIvory(ctx) {
+  const g = ctx.createRadialGradient(512, 460, 60, 512, 512, 640);
+  g.addColorStop(0, '#f6ecda');
+  g.addColorStop(1, '#dccfae');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+}
+
+// ─── Drop / file input ──────────────────────────────────────────────────────
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click',     () => fileInput.click());
+dropZone.addEventListener('dragover',  e  => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop',      e  => {
+  e.preventDefault(); dropZone.classList.remove('over');
+  if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) readFile(fileInput.files[0]); });
+
+function readFile(file) {
+  const r = new FileReader();
+  r.onload = e => loadGLB(e.target.result, file.name);
+  r.readAsArrayBuffer(file);
+}
+
+// ─── Raycasting ─────────────────────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+const mouse2    = new THREE.Vector2();
+
+function getHit(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse2.x = ((e.clientX - r.left) / r.width)  *  2 - 1;
+  mouse2.y = ((e.clientY - r.top)  / r.height) * -2 + 1;
+  raycaster.setFromCamera(mouse2, camera);
+  return raycaster.intersectObjects(modelMeshes, false)[0] ?? null;
+}
+
+// Orient ghost to surface normal, apply spin
+function orientGhost(hit) {
+  const normal = hit.face.normal.clone()
+    .transformDirection(hit.object.matrixWorld).normalize();
+
+  ghost.position.copy(hit.point).addScaledVector(normal, modelSpan * 0.002);
+
+  // lookAt orients +Z toward target; PlaneGeometry faces +Z by default
+  const target = ghost.position.clone().add(normal);
+  const up = Math.abs(normal.y) < 0.98
+    ? new THREE.Vector3(0, 1, 0)
+    : new THREE.Vector3(1, 0, 0);
+  const mtx = new THREE.Matrix4().lookAt(ghost.position, target, up);
+  ghost.quaternion.setFromRotationMatrix(mtx);
+  ghost.rotateZ(getRot());
+
+  const img = decalImgs[selDecal];
+  const aspect = (img.complete && img.naturalWidth) ? img.naturalHeight / img.naturalWidth : 1;
+  const s = getSize() * modelSpan * 0.45;
+  ghost.scale.set(s, s * aspect, 1);
+  ghostMat.opacity = getOpac() * 0.78;
+}
+
+// ─── Mouse: hover (ghost) + click (stamp) ───────────────────────────────────
+let mouseDownAt = null;
+
+renderer.domElement.addEventListener('mousemove', e => {
+  if (!modelMeshes.length) return;
+  const hit = getHit(e);
+  if (!hit || !hit.uv) { ghost.visible = false; return; }
+  ghost.visible = true;
+  orientGhost(hit);
+});
+
+renderer.domElement.addEventListener('mouseleave', () => { ghost.visible = false; });
+
+renderer.domElement.addEventListener('mousedown', e => {
+  mouseDownAt = { x: e.clientX, y: e.clientY };
+});
+
+renderer.domElement.addEventListener('mouseup', e => {
+  if (!mouseDownAt || !modelMeshes.length) return;
+  const dx = e.clientX - mouseDownAt.x;
+  const dy = e.clientY - mouseDownAt.y;
+  if (Math.hypot(dx, dy) < 5) {          // click (not drag)
+    const hit = getHit(e);
+    if (hit?.uv) stampDecal(hit);
+  }
+  mouseDownAt = null;
+});
+
+// ─── Stamp ──────────────────────────────────────────────────────────────────
+function stampDecal(hit) {
+  const mesh = hit.object;
+  const ctx  = mesh.userData.texCtx;
+  const img  = decalImgs[selDecal];
+  if (!ctx || !img.complete) return;
+
+  saveUndo(mesh);
+
+  // flipY=false → UV(0,0)=top-left → canvas coords are direct
+  const cx = hit.uv.x * CANVAS_SIZE;
+  const cy = hit.uv.y * CANVAS_SIZE;
+
+  const pw = getSize() * CANVAS_SIZE * 0.45;
+  const ph = pw * (img.naturalHeight / img.naturalWidth);
+
+  ctx.save();
+  ctx.globalAlpha = getOpac();
+  ctx.translate(cx, cy);
+  ctx.rotate(getRot());
+  ctx.drawImage(img, -pw / 2, -ph / 2, pw, ph);
+  ctx.restore();
+
+  mesh.material.map.needsUpdate = true;
+  document.getElementById('undoBtn').disabled = false;
+  document.getElementById('status').textContent = `Stamp placed · ${undoStack.length} in history`;
+  showUVPreview(mesh);
+}
+
+// ─── Undo ────────────────────────────────────────────────────────────────────
+function saveUndo(mesh) {
+  const data = mesh.userData.texCtx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  undoStack.push({ mesh, data });
+  if (undoStack.length > 30) undoStack.shift();
+}
+
+document.getElementById('undoBtn').addEventListener('click', () => {
+  if (!undoStack.length) return;
+  const { mesh, data } = undoStack.pop();
+  mesh.userData.texCtx.putImageData(data, 0, 0);
+  mesh.material.map.needsUpdate = true;
+  document.getElementById('undoBtn').disabled = undoStack.length === 0;
+  document.getElementById('status').textContent = `Undone · ${undoStack.length} remaining`;
+  showUVPreview(mesh);
+});
+
+// ─── Clear ───────────────────────────────────────────────────────────────────
+document.getElementById('clearBtn').addEventListener('click', () => {
+  modelMeshes.forEach(mesh => {
+    if (!mesh.userData.texCtx) return;
+    saveUndo(mesh);
+    fillIvory(mesh.userData.texCtx);
+    mesh.material.map.needsUpdate = true;
+  });
+  document.getElementById('undoBtn').disabled = false;
+  document.getElementById('status').textContent = 'Texture cleared';
+  if (modelMeshes[0]) showUVPreview(modelMeshes[0]);
+});
+
+// ─── UV preview ──────────────────────────────────────────────────────────────
+const uvCanvas = document.getElementById('uvPreview');
+const uvCtx    = uvCanvas.getContext('2d');
+uvCanvas.width  = 120;
+uvCanvas.height = 120;
+
+function showUVPreview(mesh) {
+  const m = mesh ?? modelMeshes[0];
+  if (!m?.userData.texCanvas) return;
+  document.getElementById('uvPreview').style.display = 'block';
+  uvCtx.drawImage(m.userData.texCanvas, 0, 0, 120, 120);
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+document.getElementById('exportBtn').addEventListener('click', () => {
+  if (!loadedModel) return;
+  document.getElementById('status').textContent = 'Exporting…';
+  const exporter = new GLTFExporter();
+  exporter.parse(
+    loadedModel,
+    glb => {
+      const url = URL.createObjectURL(new Blob([glb], { type: 'application/octet-stream' }));
+      const a   = Object.assign(document.createElement('a'), { href: url, download: 'decaled.glb' });
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      document.getElementById('status').textContent = 'Exported ✓';
+    },
+    err => { document.getElementById('status').textContent = 'Export error'; console.error(err); },
+    { binary: true }
+  );
+});
+
+// ─── Render loop ──────────────────────────────────────────────────────────────
+(function loop() {
+  requestAnimationFrame(loop);
+  controls.update();
+  renderer.render(scene, camera);
+})();
+</script>
+</body>
+</html>
