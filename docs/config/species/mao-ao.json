@@ -103,7 +103,6 @@
     },
     "allowedCosmetics": [
       "appearance::Mao-ao_F::mao-ao_circled_eyes_f",
-      "appearance::Mao-ao_F::mao-ao_circled_eye_L",
       "appearance::Mao-ao_F::mao-ao_shoulder_length_drape",
       "appearance::Mao-ao_F::mao-ao_long_ponytail"
     ],
