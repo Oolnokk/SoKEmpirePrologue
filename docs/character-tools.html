@@ -1064,6 +1064,7 @@ details.diag-details[open] > summary::after { content: '▼'; }
 </div><!-- /mode-species -->
 
 
+<script src="js/portrait-utils.js"></script>
 <script>
 // ============================================================
 // SHARED UTILITIES
@@ -1088,6 +1089,9 @@ const ASSET_BASE = (() => {
   return 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/assets/';
 })();
 
+// Sync the shared portrait module's asset base to match this page's ASSET_BASE.
+setPortraitAssetBase(ASSET_BASE);
+
 /**
  * Config base — same logic as ASSET_BASE but points at the config/ folder.
  * Used to fetch cosmetics/index.json and cosmetic JSON files.
@@ -1106,13 +1110,6 @@ const CONFIG_BASE = (() => {
   return 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/config/';
 })();
 
-/** Build a CSS filter string from HSV tint values (game convention). */
-function buildCSSFilter(h, s, v) {
-  const sat = Math.max(0, 1 + (Number(s) || 0));
-  const bri = Math.max(0, 1 + (Number(v) || 0));
-  if ((Number(h) || 0) === 0 && sat === 1 && bri === 1) return 'none';
-  return `hue-rotate(${(Number(h) || 0).toFixed(1)}deg) saturate(${sat.toFixed(3)}) brightness(${bri.toFixed(3)})`;
-}
 
 /** Minimal HTML-escape to prevent injection in diagnostics innerHTML. */
 function escHtml(str) {
@@ -1189,40 +1186,8 @@ function execCopy(text, onSuccess, onFail) {
 // MODE: AI PORTRAIT PICKER
 // ============================================================
 
-// ── Configuration ──────────────────────────────────────────
-
-const PORTRAIT_CW = 200;
-const PORTRAIT_CH = 200;
-const PORTRAIT_L  = 80;
-
-// Head xform (from config spriteStyle for Mao-ao head bone)
-const HEAD_XFORM = { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 };
-
-// ── Fighter definitions ────────────────────────────────────
-
-const FIGHTERS = [
-  {
-    id:      'M',
-    label:   'Mao-ao (M)',
-    headUrl: 'fightersprites/mao-ao-m/head_mint.png',
-    // urLayers: untinted-region overlays drawn between tinted head and front cosmetics.
-    // Each entry may optionally include an `xform` override; defaults to HEAD_XFORM.
-    urLayers: [
-      { url: 'fightersprites/mao-ao-m/untinted_regions/ur-head.png' },
-    ],
-  },
-  {
-    id:      'F',
-    label:   'Mao-ao (F)',
-    headUrl: 'fightersprites/mao-ao-f/head.png',
-    urLayers: [
-      { url: 'fightersprites/mao-ao-f/untinted_regions/ur-head.png' },
-      // ur-torso.png is intentionally excluded: portrait mode only renders the head region
-    ],
-  },
-];
-
 // ── Cosmetic option arrays (populated from config on init) ─
+// (PORTRAIT_CW/CH/L, HEAD_XFORM, FIGHTERS, BODYCOLOR_LIMITS provided by portrait-utils.js)
 
 let HAIR_OPTIONS         = [{ id: 'none', label: 'No Hair',        tintSlot: null, layers: [] }];
 let EYES_OPTIONS         = [{ id: 'none', label: 'No Eye Mark',    tintSlot: null, layers: [] }];
@@ -1238,224 +1203,27 @@ let _portraitSpeciesLoadAttempted = false;
 const portraitOptionCache = new Map();
 
 // ── Config-driven cosmetic loader ──────────────────────────
+// (portraitCategoryForEntry, portraitRelPath, portraitOptionFromJson provided by portrait-utils.js)
 
 /**
- * Classify an appearance index entry into a portrait picker category
- * ('hair', 'eyes', 'facialhair') by examining its path and internal id.
- */
-function portraitCategoryForEntry(entry) {
-  const path = (entry.path || '').toLowerCase();
-  const name = (entry.id.split('::').pop() || '').toLowerCase();
-  if (path.includes('/headhair/') || path.includes('headhair/')) return 'hair';
-  if (path.includes('/eyes/')     || path.includes('eyes/'))     return 'eyes';
-  if (path.includes('/facialhair/') || path.includes('facialhair/')) return 'facialhair';
-  if (name.includes('eye')) return 'eyes';
-  if (name.includes('beard') || name.includes('stache') || name.includes('whisker') || name.includes('facial')) return 'facialhair';
-  return 'hair';
-}
-
-/**
- * Convert a cosmetic JSON image URL (./assets/…) to the relative path
- * expected by loadImg(), which prepends ASSET_BASE = './assets/'.
- */
-function portraitRelPath(url) {
-  if (!url) return url;
-  if (url.startsWith('./assets/')) return url.slice('./assets/'.length);
-  return url;
-}
-
-/**
- * Build a portrait-picker option object from a cosmetic index entry and
- * its loaded JSON.  Converts JSON xform fields (scaleX/scaleY) to the
- * internal sx/sy naming used by drawPortraitLayer / composeXform.
- */
-function portraitOptionFromJson(entry, json) {
-  const label    = (json.meta && json.meta.name) || entry.id.split('::').pop().replace(/^mao-ao_/i, '').replace(/_/g, ' ');
-  const tintSlot = (json.appearance && json.appearance.bodyColors && json.appearance.bodyColors[0]) || null;
-  const shortId  = entry.id.split('::').pop().replace(/^mao-ao_/i, '');
-
-  const layers = [];
-  const head   = json.parts && json.parts.head;
-
-  if (head) {
-    if (head.layers) {
-      // Multi-layer cosmetic (e.g. long_ponytail with back + front layers)
-      for (const [layerName, layer] of Object.entries(head.layers)) {
-        const xf =
-          (layer.spriteStyle && layer.spriteStyle.base && layer.spriteStyle.base.xform && layer.spriteStyle.base.xform.head) ||
-          (layer.spriteStyle && layer.spriteStyle.xform && layer.spriteStyle.xform.head) || {};
-        const imgUrl = layer.image && layer.image.url;
-        if (imgUrl) {
-          layers.push({
-            url: portraitRelPath(imgUrl),
-            ax:  xf.ax     ?? 0,
-            ay:  xf.ay     ?? 0,
-            sx:  xf.scaleX ?? 1,
-            sy:  xf.scaleY ?? 1,
-            pos: layerName === 'back' ? 'back' : 'front',
-          });
-        }
-      }
-    } else if (head.image) {
-      // Single-layer cosmetic
-      const xf = (head.spriteStyle && head.spriteStyle.xform && head.spriteStyle.xform.head) || {};
-      const imgUrl = head.image.url;
-      if (imgUrl) {
-        layers.push({
-          url: portraitRelPath(imgUrl),
-          ax:  xf.ax     ?? 0,
-          ay:  xf.ay     ?? 0,
-          sx:  xf.scaleX ?? 1,
-          sy:  xf.scaleY ?? 1,
-          pos: 'front',
-        });
-      }
-    }
-  }
-
-  return { id: shortId, label, tintSlot, layers };
-}
-
-/**
- * Fetch cosmetics/index.json (with raw-GitHub fallback), load each
- * appearance::Mao-ao_M:: entry, and populate HAIR_OPTIONS / EYES_OPTIONS /
- * FACIAL_HAIR_OPTIONS.  Throws on unrecoverable failure so callers can show
- * an error message.
+ * Load all cosmetics via the shared loadPortraitCosmetics(), then populate
+ * this page's local entry/cache stores and run species-aware filtering.
  */
 async function portraitLoadCosmetics() {
-  let indexBaseUrl = new URL(CONFIG_BASE + 'cosmetics/index.json', window.location.href).toString();
-  let data;
-  try {
-    const resp = await fetch(indexBaseUrl);
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    data = await resp.json();
-  } catch (e) {
-    console.warn('[portrait] Primary index fetch failed, falling back to raw GitHub URL', e);
-    const rawUrl = 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/config/cosmetics/index.json';
-    const resp2 = await fetch(rawUrl);
-    if (!resp2.ok) throw new Error('HTTP ' + resp2.status);
-    data = await resp2.json();
-    indexBaseUrl = rawUrl;
-  }
-
-  // Load ALL appearance entries; species filtering is done in portraitRefreshCosmeticOptions()
-  const allEntries = (data.entries || []).filter(e => e.id && e.id.startsWith('appearance::'));
-
-  // Deduplicate by path so each JSON file is fetched only once (M and F variants share files)
-  const pathToEntries = new Map();
-  for (const entry of allEntries) {
-    if (!pathToEntries.has(entry.path)) pathToEntries.set(entry.path, []);
-    pathToEntries.get(entry.path).push(entry);
-  }
-
-  await Promise.all([...pathToEntries.entries()].map(async ([path, entries]) => {
-    const jsonUrl = new URL(path, indexBaseUrl).toString();
-    let json;
-    try {
-      const resp = await fetch(jsonUrl);
-      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' for ' + path);
-      json = await resp.json();
-    } catch (e) {
-      console.warn('[portrait] Could not load cosmetic JSON:', path, e);
-      return;
-    }
-    for (const entry of entries) {
-      const opt = portraitOptionFromJson(entry, json);
-      if (opt.layers.length) {
-        portraitOptionCache.set(entry.id, opt);
-        portraitIndexEntries.push(entry);
-      }
-    }
-  }));
-
+  const { indexEntries, optionCache } = await loadPortraitCosmetics(CONFIG_BASE);
+  portraitIndexEntries = indexEntries;
+  for (const [key, val] of optionCache) portraitOptionCache.set(key, val);
   portraitRefreshCosmeticOptions();
 }
 
-// ── Image cache ────────────────────────────────────────────
-
-const IMG_CACHE = new Map();
-
-function loadImg(relPath) {
-  const url = ASSET_BASE + relPath;
-  if (IMG_CACHE.has(url)) return IMG_CACHE.get(url);
-  const promise = new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload  = () => resolve(img);
-    img.onerror = () => {
-      if (!url.startsWith('https://raw.githubusercontent.com')) {
-        const rawUrl = 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/assets/' + relPath;
-        const img2 = new Image();
-        img2.crossOrigin = 'anonymous';
-        img2.onload  = () => resolve(img2);
-        img2.onerror = () => reject(new Error('Failed: ' + relPath));
-        img2.src = rawUrl;
-      } else {
-        reject(new Error('Failed: ' + relPath));
-      }
-    };
-    img.src = url;
-  });
-  IMG_CACHE.set(url, promise);
-  return promise;
-}
-
-// ── Tinting ────────────────────────────────────────────────
-
-function makeCSSFilter(color) {
-  if (!color) return 'none';
-  // 'l' (lightness) is an alternate field name used by some older color objects; treat it as 'v'
-  return buildCSSFilter(color.h, color.s, color.v ?? color.l);
-}
-
-// ── Bone-xform drawing ─────────────────────────────────────
-
-function composeXform(base, child) {
-  return {
-    ax: (base.ax ?? 0) + (child.ax ?? 0),
-    ay: (base.ay ?? 0) + (child.ay ?? 0),
-    sx: (base.sx ?? 1) * (child.sx ?? 1),
-    sy: (base.sy ?? 1) * (child.sy ?? 1),
-  };
-}
-
-function drawPortraitLayer(ctx, img, xform, cssFilter) {
-  const { ax, ay, sx, sy } = xform;
-  const h  = PORTRAIT_L * sy;
-  const w  = (img.naturalWidth / img.naturalHeight) * PORTRAIT_L * sx;
-  const cx = PORTRAIT_CW / 2 + ay * PORTRAIT_L;
-  const cy = PORTRAIT_CH / 2 - ax * PORTRAIT_L;
-  ctx.save();
-  ctx.filter = cssFilter || 'none';
-  ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
-  ctx.restore();
-}
-
 // ── Randomisation ──────────────────────────────────────────
+// (loadImg, makeCSSFilter, composeXform, drawPortraitLayer, BODYCOLOR_LIMITS provided by portrait-utils.js)
 
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-/**
- * Allowed HSV delta ranges for each body-color slot.
- * Slot A ("Skin/Body") is narrowed so random and slider values stay in a
- * plausible skin-tone range relative to the mint base sprites.
- * The default config examples use h≈-90, s≈0.5, v≈-0.2 for body A,
- * all of which fall well within this range.
- * Slots B and C are unrestricted.
- */
-const BODYCOLOR_LIMITS = {
-  // Slot A: "Skin/Body" — narrowed to keep randomisation in a plausible
-  // skin-tone range relative to the mint base sprites.
-  // The default config examples (h:-90, s:0.5, v:-0.2 for Mao-ao) all fall
-  // comfortably within these bounds.
-  A: { hMin: -130, hMax: -30, sMin: 0.05, sMax: 0.75, vMin: -0.50, vMax: 0.20 },
-  B: { hMin: -180, hMax:  180, sMin: -1.00, sMax: 1.00, vMin: -1.00, vMax: 1.00 },
-  C: { hMin: -180, hMax:  180, sMin: -1.00, sMax: 1.00, vMin: -1.00, vMax: 1.00 },
-};
-
-function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+// (BODYCOLOR_LIMITS and clamp provided by portrait-utils.js)
 
 /**
  * Return a copy of hsv with each component clamped to BODYCOLOR_LIMITS[slot].
@@ -1502,40 +1270,10 @@ function bGetCurrentSpeciesData() {
   return speAllSpecies[speciesId][gender] || null;
 }
 
-/**
- * Generate a random HSV color sampled uniformly within a bodyColorRanges slot.
- * Interpolates S/V bounds between adjacent stops for the randomly chosen H.
- */
-function randomColorFromRange(range) {
-  if (!range || !range.stops || range.stops.length < 2) return { h: 0, s: 0, v: 0 };
-  const h = range.minH + Math.random() * (range.maxH - range.minH);
-  const stops = range.stops;
-  let i = 0;
-  // Advance i so stops[i]..stops[i+1] is the segment containing h.
-  // Condition `i < stops.length - 2` ensures stops[i+1] is always valid.
-  while (i < stops.length - 2 && stops[i + 1].h <= h) i++;
-  const s0 = stops[i], s1 = stops[i + 1];
-  const t = s1.h === s0.h ? 0 : clamp((h - s0.h) / (s1.h - s0.h), 0, 1);
-  const sMin = s0.sMin + t * (s1.sMin - s0.sMin);
-  const sMax = s0.sMax + t * (s1.sMax - s0.sMax);
-  const vMin = s0.vMin + t * (s1.vMin - s0.vMin);
-  const vMax = s0.vMax + t * (s1.vMax - s0.vMax);
-  return { h, s: sMin + Math.random() * (sMax - sMin), v: vMin + Math.random() * (vMax - vMin) };
-}
-
 function randomBodyColors() {
   const gData  = bGetCurrentSpeciesData();
   const ranges = gData ? gData.bodyColorRanges : null;
-  const rh = (lo, hi) => lo + Math.random() * (hi - lo);
-  function fallback(slot) {
-    const lim = BODYCOLOR_LIMITS[slot];
-    return { h: rh(lim.hMin, lim.hMax), s: rh(lim.sMin, lim.sMax), v: rh(lim.vMin, lim.vMax) };
-  }
-  return {
-    A: ranges && ranges.A ? randomColorFromRange(ranges.A) : fallback('A'),
-    B: ranges && ranges.B ? randomColorFromRange(ranges.B) : fallback('B'),
-    C: ranges && ranges.C ? randomColorFromRange(ranges.C) : fallback('C'),
-  };
+  return randomBodyColorsSeeded(() => Math.random(), ranges);
 }
 
 /**
@@ -1596,66 +1334,7 @@ function randomProfile() {
   return { fighter, hair, eyes, facialHair, bodyColors };
 }
 
-// ── Rendering ──────────────────────────────────────────────
-
-async function renderProfile(canvas, profile) {
-  const { fighter, hair, eyes, facialHair, bodyColors } = profile;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
-
-  const filterFor = (slot) => slot ? makeCSSFilter(bodyColors[slot]) : 'none';
-  const filterA   = makeCSSFilter(bodyColors.A);
-
-  const allCosmeticGroups = [hair, eyes, facialHair];
-  const backLayers  = [];
-  const frontLayers = [];
-
-  for (const group of allCosmeticGroups) {
-    if (!group || !group.layers.length) continue;
-    for (const layer of group.layers) {
-      const target = layer.pos === 'back' ? backLayers : frontLayers;
-      target.push({ layer, filter: filterFor(group.tintSlot) });
-    }
-  }
-
-  const neededUrls = new Set([
-    fighter.headUrl,
-    ...(fighter.urLayers || []).map(m => m.url),
-    ...backLayers.map(({ layer }) => layer.url),
-    ...frontLayers.map(({ layer }) => layer.url),
-  ]);
-
-  let imgMap;
-  try {
-    const entries = await Promise.all(
-      [...neededUrls].map(async (url) => [url, await loadImg(url)])
-    );
-    imgMap = new Map(entries);
-  } catch (err) {
-    console.warn('[portrait] image load error', err);
-    ctx.fillStyle = '#220000'; ctx.fillRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
-    ctx.fillStyle = '#ff4444'; ctx.font = '11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Load error', PORTRAIT_CW / 2, PORTRAIT_CH / 2);
-    return;
-  }
-
-  for (const { layer, filter } of backLayers) {
-    const img = imgMap.get(layer.url);
-    if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
-  }
-  { const img = imgMap.get(fighter.headUrl); if (img) drawPortraitLayer(ctx, img, HEAD_XFORM, filterA); }
-  // Mid layers: untinted overlays drawn after tinted head but before front cosmetics.
-  // filter is always 'none' so original pixel colours (e.g. pink ear interiors) are preserved.
-  for (const mid of (fighter.urLayers || [])) {
-    const img = imgMap.get(mid.url);
-    if (img) drawPortraitLayer(ctx, img, mid.xform || HEAD_XFORM, 'none');
-  }
-  for (const { layer, filter } of frontLayers) {
-    const img = imgMap.get(layer.url);
-    if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
-  }
-}
+// (renderProfile provided by portrait-utils.js)
 
 // ── Card creation & grid UI ────────────────────────────────
 
