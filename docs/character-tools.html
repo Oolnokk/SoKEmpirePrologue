@@ -1230,6 +1230,10 @@ let FACIAL_HAIR_OPTIONS  = [{ id: 'none', label: 'No Facial Hair', tintSlot: nul
 
 // All appearance:: entries loaded from cosmetics index (unfiltered)
 let portraitIndexEntries = [];
+// Set to true once speLoadSpeciesIndex() finishes (success or failure), so
+// initPortraitCosmetics() knows whether to populate the grid itself or defer
+// to bOnSpeciesChanged() → rerollAll().
+let _portraitSpeciesLoadAttempted = false;
 // Full entry.id → portrait option object (cached to avoid re-fetching)
 const portraitOptionCache = new Map();
 
@@ -2038,14 +2042,22 @@ initBuilder();
   // Always finish init (even on failure, we still show 'none' options)
   preloadCommon();
   populateBuilderDropdowns();
-  const count = parseInt(document.getElementById('portrait-count-select').value, 10) || 6;
-  populateGrid(count);
-  // Re-roll builder to pick from freshly loaded options
-  const p = randomProfile();
-  document.getElementById('b-hair').value   = p.hair.id;
-  document.getElementById('b-eyes').value   = p.eyes.id;
-  document.getElementById('b-facial').value = p.facialHair.id;
-  renderBuilderPreview();
+  // Only populate the grid now if species data is already available or if the
+  // species loader has already finished (including failure).  In the common case
+  // (cosmetics finish loading before species), species data won't be ready yet —
+  // bOnSpeciesChanged() will call rerollAll() once speLoadSpeciesIndex() completes,
+  // generating the grid with correct per-gender cosmetic filtering at that point.
+  if (Object.keys(speAllSpecies).length > 0 || _portraitSpeciesLoadAttempted) {
+    portraitRefreshCosmeticOptions();
+    const count = parseInt(document.getElementById('portrait-count-select').value, 10) || 6;
+    populateGrid(count);
+    // Re-roll builder to pick from freshly loaded options
+    const p = randomProfile();
+    document.getElementById('b-hair').value   = p.hair.id;
+    document.getElementById('b-eyes').value   = p.eyes.id;
+    document.getElementById('b-facial').value = p.facialHair.id;
+    renderBuilderPreview();
+  }
 })();
 
 
@@ -2995,6 +3007,8 @@ async function speLoadSpeciesIndex() {
       speIndexBaseUrl = rawUrl;
     } catch (e2) {
       console.error('[species] Failed to load species index', e2);
+      _portraitSpeciesLoadAttempted = true;
+      bOnSpeciesChanged(); // populate portrait grid with unfiltered fallback options
       return;
     }
   }
@@ -3009,6 +3023,7 @@ async function speLoadSpeciesIndex() {
   }));
 
   // After all JSONs are loaded, trigger initial state for all three modes
+  _portraitSpeciesLoadAttempted = true;
   spePopulateSpeciesDropdowns();
   cosOnSpeciesChanged();
   speOnSpeciesOrGenderChanged();
