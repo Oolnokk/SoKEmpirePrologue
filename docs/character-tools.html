@@ -671,8 +671,15 @@ details.diag-details[open] > summary::after { content: '▼'; }
       <!-- Left: controls -->
       <div class="builder-controls">
         <div class="ctrl-group">
-          <label for="b-fighter">Fighter</label>
-          <select id="b-fighter"></select>
+          <label for="b-species">Species</label>
+          <select id="b-species"></select>
+        </div>
+        <div class="ctrl-group">
+          <label for="b-gender">Gender</label>
+          <select id="b-gender">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
         </div>
         <div class="ctrl-group">
           <label for="b-hair">Hair</label>
@@ -1221,6 +1228,11 @@ let HAIR_OPTIONS         = [{ id: 'none', label: 'No Hair',        tintSlot: nul
 let EYES_OPTIONS         = [{ id: 'none', label: 'No Eye Mark',    tintSlot: null, layers: [] }];
 let FACIAL_HAIR_OPTIONS  = [{ id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] }];
 
+// All appearance:: entries loaded from cosmetics index (unfiltered)
+let portraitIndexEntries = [];
+// Full entry.id → portrait option object (cached to avoid re-fetching)
+const portraitOptionCache = new Map();
+
 // ── Config-driven cosmetic loader ──────────────────────────
 
 /**
@@ -1322,41 +1334,37 @@ async function portraitLoadCosmetics() {
     indexBaseUrl = rawUrl;
   }
 
-  // Only load Mao-ao M entries (M and F share the same JSONs; M avoids duplicates)
-  const maoEntries = (data.entries || []).filter(e => e.id && e.id.startsWith('appearance::Mao-ao_M::'));
+  // Load ALL appearance entries; species filtering is done in portraitRefreshCosmeticOptions()
+  const allEntries = (data.entries || []).filter(e => e.id && e.id.startsWith('appearance::'));
 
-  // Fetch each cosmetic JSON in parallel
-  const results = await Promise.all(maoEntries.map(async (entry) => {
-    const jsonUrl = new URL(entry.path, indexBaseUrl).toString();
+  // Deduplicate by path so each JSON file is fetched only once (M and F variants share files)
+  const pathToEntries = new Map();
+  for (const entry of allEntries) {
+    if (!pathToEntries.has(entry.path)) pathToEntries.set(entry.path, []);
+    pathToEntries.get(entry.path).push(entry);
+  }
+
+  await Promise.all([...pathToEntries.entries()].map(async ([path, entries]) => {
+    const jsonUrl = new URL(path, indexBaseUrl).toString();
+    let json;
     try {
       const resp = await fetch(jsonUrl);
-      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' for ' + entry.id);
-      const json = await resp.json();
-      return { entry, json };
+      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' for ' + path);
+      json = await resp.json();
     } catch (e) {
-      console.warn('[portrait] Could not load cosmetic JSON:', entry.id, e);
-      return null;
+      console.warn('[portrait] Could not load cosmetic JSON:', path, e);
+      return;
+    }
+    for (const entry of entries) {
+      const opt = portraitOptionFromJson(entry, json);
+      if (opt.layers.length) {
+        portraitOptionCache.set(entry.id, opt);
+        portraitIndexEntries.push(entry);
+      }
     }
   }));
 
-  // Bucket options by category
-  const hair   = [{ id: 'none', label: 'No Hair',        tintSlot: null, layers: [] }];
-  const eyes   = [{ id: 'none', label: 'No Eye Mark',    tintSlot: null, layers: [] }];
-  const facial = [{ id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] }];
-
-  for (const result of results) {
-    if (!result) continue;
-    const option = portraitOptionFromJson(result.entry, result.json);
-    if (!option.layers.length) continue;
-    const cat = portraitCategoryForEntry(result.entry);
-    if (cat === 'eyes')        eyes.push(option);
-    else if (cat === 'facialhair') facial.push(option);
-    else                       hair.push(option);
-  }
-
-  HAIR_OPTIONS        = hair;
-  EYES_OPTIONS        = eyes;
-  FACIAL_HAIR_OPTIONS = facial;
+  portraitRefreshCosmeticOptions();
 }
 
 // ── Image cache ────────────────────────────────────────────
@@ -1447,9 +1455,24 @@ function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 
 /**
  * Return a copy of hsv with each component clamped to BODYCOLOR_LIMITS[slot].
- * If the slot has no limits defined, the original hsv is returned unchanged.
+ * When species data is loaded for the portrait mode, uses its bodyColorRanges
+ * instead of the static BODYCOLOR_LIMITS fallback.
  */
 function clampBodyColor(slot, hsv) {
+  const gData = bGetCurrentSpeciesData();
+  const range = gData && gData.bodyColorRanges ? gData.bodyColorRanges[slot] : null;
+  if (range) {
+    const stops = range.stops || [];
+    const sMin = stops.length ? Math.min(...stops.map(s => s.sMin)) : -1;
+    const sMax = stops.length ? Math.max(...stops.map(s => s.sMax)) : 1;
+    const vMin = stops.length ? Math.min(...stops.map(s => s.vMin)) : -1;
+    const vMax = stops.length ? Math.max(...stops.map(s => s.vMax)) : 1;
+    return {
+      h: clamp(hsv.h ?? 0, range.minH, range.maxH),
+      s: clamp(hsv.s ?? 0, sMin, sMax),
+      v: clamp(hsv.v ?? hsv.l ?? 0, vMin, vMax),
+    };
+  }
   const lim = BODYCOLOR_LIMITS[slot];
   if (!lim) return hsv;
   // Normalise all three components defensively; support legacy 'l' as 'v'
@@ -1460,20 +1483,102 @@ function clampBodyColor(slot, hsv) {
   };
 }
 
+/**
+ * Return the gender-specific species block for the currently selected species
+ * and gender in the AI Portrait Picker (b-species / b-gender dropdowns).
+ * Returns null when no selection or data not yet loaded.
+ */
+function bGetCurrentSpeciesData() {
+  const speciesEl = document.getElementById('b-species');
+  const genderEl  = document.getElementById('b-gender');
+  if (!speciesEl || !genderEl) return null;
+  const speciesId = speciesEl.value;
+  const gender    = genderEl.value;
+  if (!speciesId || typeof speAllSpecies === 'undefined' || !speAllSpecies[speciesId]) return null;
+  return speAllSpecies[speciesId][gender] || null;
+}
+
+/**
+ * Generate a random HSV color sampled uniformly within a bodyColorRanges slot.
+ * Interpolates S/V bounds between adjacent stops for the randomly chosen H.
+ */
+function randomColorFromRange(range) {
+  if (!range || !range.stops || range.stops.length < 2) return { h: 0, s: 0, v: 0 };
+  const h = range.minH + Math.random() * (range.maxH - range.minH);
+  const stops = range.stops;
+  let i = 0;
+  while (i < stops.length - 2 && stops[i + 1].h <= h) i++;
+  const s0 = stops[i], s1 = stops[i + 1];
+  const t = s1.h === s0.h ? 0 : clamp((h - s0.h) / (s1.h - s0.h), 0, 1);
+  const sMin = s0.sMin + t * (s1.sMin - s0.sMin);
+  const sMax = s0.sMax + t * (s1.sMax - s0.sMax);
+  const vMin = s0.vMin + t * (s1.vMin - s0.vMin);
+  const vMax = s0.vMax + t * (s1.vMax - s0.vMax);
+  return { h, s: sMin + Math.random() * (sMax - sMin), v: vMin + Math.random() * (vMax - vMin) };
+}
+
 function randomBodyColors() {
+  const gData  = bGetCurrentSpeciesData();
+  const ranges = gData ? gData.bodyColorRanges : null;
   const rh = (lo, hi) => lo + Math.random() * (hi - lo);
-  const rc = (lo, hi) => lo + Math.random() * (hi - lo);
-  const lA = BODYCOLOR_LIMITS.A;
+  function fallback(slot) {
+    const lim = BODYCOLOR_LIMITS[slot];
+    return { h: rh(lim.hMin, lim.hMax), s: rh(lim.sMin, lim.sMax), v: rh(lim.vMin, lim.vMax) };
+  }
   return {
-    // Slot A generates directly within the skin limits (no post-clamp needed)
-    A: { h: rh(lA.hMin, lA.hMax), s: rc(lA.sMin, lA.sMax), v: rc(lA.vMin, lA.vMax) },
-    B: { h: rh(-180, 180), s: rc( 0.00, 0.65), v: rc(-0.25, 0.45) },
-    C: { h: rh(-60, 120),  s: rc( 0.05, 0.35), v: rc(-0.15, 0.12) },
+    A: ranges && ranges.A ? randomColorFromRange(ranges.A) : fallback('A'),
+    B: ranges && ranges.B ? randomColorFromRange(ranges.B) : fallback('B'),
+    C: ranges && ranges.C ? randomColorFromRange(ranges.C) : fallback('C'),
   };
 }
 
+/**
+ * Rebuild HAIR_OPTIONS / EYES_OPTIONS / FACIAL_HAIR_OPTIONS from the loaded
+ * cosmetics index, filtered to the current species+gender's allowedCosmetics
+ * when species data is available.
+ */
+function portraitRefreshCosmeticOptions() {
+  const gData   = bGetCurrentSpeciesData();
+  const allowed = gData ? (gData.allowedCosmetics || null) : null;
+
+  let entries = portraitIndexEntries;
+  if (allowed) entries = entries.filter(e => allowed.includes(e.id));
+
+  const hair   = [{ id: 'none', label: 'No Hair',        tintSlot: null, layers: [] }];
+  const eyes   = [{ id: 'none', label: 'No Eye Mark',    tintSlot: null, layers: [] }];
+  const facial = [{ id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] }];
+  const seenIds = new Set();
+
+  for (const entry of entries) {
+    const opt = portraitOptionCache.get(entry.id);
+    if (!opt || !opt.layers.length) continue;
+    if (seenIds.has(opt.id)) continue;
+    seenIds.add(opt.id);
+    const cat = portraitCategoryForEntry(entry);
+    if (cat === 'eyes')        eyes.push(opt);
+    else if (cat === 'facialhair') facial.push(opt);
+    else                       hair.push(opt);
+  }
+
+  HAIR_OPTIONS        = hair;
+  EYES_OPTIONS        = eyes;
+  FACIAL_HAIR_OPTIONS = facial;
+}
+
 function randomProfile() {
-  const fighter    = pick(FIGHTERS);
+  const gData     = bGetCurrentSpeciesData();
+  const speciesId = document.getElementById('b-species') ? document.getElementById('b-species').value : '';
+  const gender    = document.getElementById('b-gender')  ? document.getElementById('b-gender').value  : 'male';
+  const fighter = gData
+    ? {
+        id:       speciesId + '-' + gender,
+        label:    (typeof speIndexEntries !== 'undefined'
+                    ? (speIndexEntries.find(e => e.speciesId === speciesId) || {}).label || speciesId
+                    : speciesId) + ' (' + gender + ')',
+        headUrl:  gData.headSprite,
+        urLayers: gData.headUrLayers || [],
+      }
+    : pick(FIGHTERS);
   const hair       = pick(HAIR_OPTIONS);
   const eyes       = pick(EYES_OPTIONS);
   const noFacialHair = FACIAL_HAIR_OPTIONS.find(o => o.id === 'none') ?? FACIAL_HAIR_OPTIONS[0];
@@ -1601,8 +1706,25 @@ function addMore() {
 }
 
 function preloadCommon() {
-  // Derive head and UR-overlay URLs from the FIGHTERS array (single source of truth)
-  const urls = FIGHTERS.flatMap(f => [f.headUrl, ...(f.urLayers || []).map(m => m.url)]);
+  // Preload head sprites and UR-overlay URLs from loaded species data
+  const urls = [];
+  if (typeof speAllSpecies !== 'undefined') {
+    for (const speciesJson of Object.values(speAllSpecies)) {
+      for (const gender of ['male', 'female']) {
+        const gData = speciesJson[gender];
+        if (!gData) continue;
+        if (gData.headSprite) urls.push(gData.headSprite);
+        for (const mid of (gData.headUrLayers || [])) if (mid.url) urls.push(mid.url);
+      }
+    }
+  }
+  // Fall back to FIGHTERS when species data is not yet loaded
+  if (!urls.length) {
+    for (const f of FIGHTERS) {
+      urls.push(f.headUrl);
+      for (const m of (f.urLayers || [])) if (m.url) urls.push(m.url);
+    }
+  }
   // Derive cosmetic layer URLs from whichever arrays are currently loaded
   for (const arr of [HAIR_OPTIONS, EYES_OPTIONS, FACIAL_HAIR_OPTIONS]) {
     for (const opt of arr) {
@@ -1646,7 +1768,19 @@ function updateColorSlotUI(slot) {
 }
 
 function getBuilderProfile() {
-  const fighter    = FIGHTERS.find(f => f.id === document.getElementById('b-fighter').value) ?? FIGHTERS[0];
+  const gData     = bGetCurrentSpeciesData();
+  const speciesId = document.getElementById('b-species') ? document.getElementById('b-species').value : '';
+  const gender    = document.getElementById('b-gender')  ? document.getElementById('b-gender').value  : 'male';
+  const fighter = gData
+    ? {
+        id:       speciesId + '-' + gender,
+        label:    (typeof speIndexEntries !== 'undefined'
+                    ? (speIndexEntries.find(e => e.speciesId === speciesId) || {}).label || speciesId
+                    : speciesId) + ' (' + gender + ')',
+        headUrl:  gData.headSprite,
+        urLayers: gData.headUrLayers || [],
+      }
+    : FIGHTERS[0];
   const hair       = HAIR_OPTIONS.find(o => o.id === document.getElementById('b-hair').value) ?? HAIR_OPTIONS[0];
   const eyes       = EYES_OPTIONS.find(o => o.id === document.getElementById('b-eyes').value) ?? EYES_OPTIONS[0];
   const facialHair = FACIAL_HAIR_OPTIONS.find(o => o.id === document.getElementById('b-facial').value) ?? FACIAL_HAIR_OPTIONS[0];
@@ -1764,31 +1898,71 @@ function copyDiagnostics() {
 
 function populateBuilderDropdowns() {
   const fill = (id, opts) => {
-    document.getElementById(id).innerHTML =
-      opts.map(o => `<option value="${escHtml(o.id)}">${escHtml(o.label)}</option>`).join('');
+    const el = document.getElementById(id);
+    if (!el) return;
+    const prev = el.value;
+    el.innerHTML = opts.map(o => `<option value="${escHtml(o.id)}">${escHtml(o.label)}</option>`).join('');
+    if (prev && [...el.options].some(o => o.value === prev)) el.value = prev;
   };
-  fill('b-fighter', FIGHTERS);
-  fill('b-hair',    HAIR_OPTIONS);
-  fill('b-eyes',    EYES_OPTIONS);
-  fill('b-facial',  FACIAL_HAIR_OPTIONS);
+  fill('b-hair',   HAIR_OPTIONS);
+  fill('b-eyes',   EYES_OPTIONS);
+  fill('b-facial', FACIAL_HAIR_OPTIONS);
+}
+
+/**
+ * Update the min/max attributes of the body-color sliders (A/B/C) from the
+ * current species+gender's bodyColorRanges, falling back to BODYCOLOR_LIMITS.
+ */
+function bUpdateSliderLimits() {
+  const gData  = bGetCurrentSpeciesData();
+  const ranges = gData ? gData.bodyColorRanges : null;
+  for (const slot of ['A', 'B', 'C']) {
+    const range = ranges ? ranges[slot] : null;
+    if (range) {
+      const stops = range.stops || [];
+      document.getElementById(`b-color-${slot}-h`).min = range.minH;
+      document.getElementById(`b-color-${slot}-h`).max = range.maxH;
+      document.getElementById(`b-color-${slot}-s`).min = stops.length ? Math.min(...stops.map(s => s.sMin)) : -1;
+      document.getElementById(`b-color-${slot}-s`).max = stops.length ? Math.max(...stops.map(s => s.sMax)) : 1;
+      document.getElementById(`b-color-${slot}-v`).min = stops.length ? Math.min(...stops.map(s => s.vMin)) : -1;
+      document.getElementById(`b-color-${slot}-v`).max = stops.length ? Math.max(...stops.map(s => s.vMax)) : 1;
+    } else {
+      const lim = BODYCOLOR_LIMITS[slot];
+      document.getElementById(`b-color-${slot}-h`).min = lim.hMin;
+      document.getElementById(`b-color-${slot}-h`).max = lim.hMax;
+      document.getElementById(`b-color-${slot}-s`).min = lim.sMin;
+      document.getElementById(`b-color-${slot}-s`).max = lim.sMax;
+      document.getElementById(`b-color-${slot}-v`).min = lim.vMin;
+      document.getElementById(`b-color-${slot}-v`).max = lim.vMax;
+    }
+  }
+}
+
+/**
+ * Called when the species or gender in the AI Portrait Picker changes.
+ * Re-filters cosmetics, updates slider limits, re-randomises the builder, and
+ * regenerates the gallery so everything stays within the selected species/gender.
+ */
+function bOnSpeciesChanged() {
+  portraitRefreshCosmeticOptions();
+  bUpdateSliderLimits();
+  populateBuilderDropdowns();
+  const p = randomProfile();
+  document.getElementById('b-hair').value   = p.hair.id;
+  document.getElementById('b-eyes').value   = p.eyes.id;
+  document.getElementById('b-facial').value = p.facialHair.id;
+  writeColorSlot('A', p.bodyColors.A);
+  writeColorSlot('B', p.bodyColors.B);
+  writeColorSlot('C', p.bodyColors.C);
+  renderBuilderPreview();
+  rerollAll();
 }
 
 function initBuilder() {
   populateBuilderDropdowns();
-
-  // Apply skin-range limits to slot A sliders so the user cannot drag outside
-  // the allowed range.  BODYCOLOR_LIMITS is the single source of truth.
-  const limA = BODYCOLOR_LIMITS.A;
-  ['h', 's', 'v'].forEach(axis => {
-    const el  = document.getElementById(`b-color-A-${axis}`);
-    const min = axis === 'h' ? limA.hMin : axis === 's' ? limA.sMin : limA.vMin;
-    const max = axis === 'h' ? limA.hMax : axis === 's' ? limA.sMax : limA.vMax;
-    el.min = min;
-    el.max = max;
-  });
+  bUpdateSliderLimits();
 
   const init = randomProfile();
-  document.getElementById('b-fighter').value = init.fighter.id;
   document.getElementById('b-hair').value    = init.hair.id;
   document.getElementById('b-eyes').value    = init.eyes.id;
   document.getElementById('b-facial').value  = init.facialHair.id;
@@ -1796,7 +1970,10 @@ function initBuilder() {
   writeColorSlot('B', init.bodyColors.B);
   writeColorSlot('C', init.bodyColors.C);
 
-  ['b-fighter', 'b-hair', 'b-eyes', 'b-facial'].forEach(id => {
+  document.getElementById('b-species').addEventListener('change', bOnSpeciesChanged);
+  document.getElementById('b-gender').addEventListener('change',  bOnSpeciesChanged);
+
+  ['b-hair', 'b-eyes', 'b-facial'].forEach(id => {
     document.getElementById(id).addEventListener('change', renderBuilderPreview);
   });
 
@@ -1819,7 +1996,6 @@ function initBuilder() {
 
   document.getElementById('btn-randomize-all').addEventListener('click', () => {
     const p = randomProfile();
-    document.getElementById('b-fighter').value = p.fighter.id;
     document.getElementById('b-hair').value    = p.hair.id;
     document.getElementById('b-eyes').value    = p.eyes.id;
     document.getElementById('b-facial').value  = p.facialHair.id;
@@ -2827,10 +3003,11 @@ async function speLoadSpeciesIndex() {
     return speLoadSpeciesJson(entry.speciesId, url);
   }));
 
-  // After all JSONs are loaded, trigger initial state for both modes
+  // After all JSONs are loaded, trigger initial state for all three modes
   spePopulateSpeciesDropdowns();
   cosOnSpeciesChanged();
   speOnSpeciesOrGenderChanged();
+  bOnSpeciesChanged();
 }
 
 async function speLoadSpeciesJson(speciesId, url) {
@@ -2844,7 +3021,7 @@ async function speLoadSpeciesJson(speciesId, url) {
   }
 }
 
-/** Populate species <select> dropdowns in both Cosmetic Placer and Species Editor. */
+/** Populate species <select> dropdowns in Cosmetic Placer, Species Editor, and AI Portrait Picker. */
 function spePopulateSpeciesDropdowns() {
   const opts = speIndexEntries
     .map(e => `<option value="${escHtml(e.speciesId)}">${escHtml(e.label)}</option>`)
@@ -2853,6 +3030,8 @@ function spePopulateSpeciesDropdowns() {
   if (cosEl) { const prev = cosEl.value; cosEl.innerHTML = opts; if (prev) cosEl.value = prev; }
   const speEl = document.getElementById('spe-species');
   if (speEl) { const prev = speEl.value; speEl.innerHTML = opts; if (prev) speEl.value = prev; }
+  const bEl   = document.getElementById('b-species');
+  if (bEl)  { const prev = bEl.value;   bEl.innerHTML = opts;   if (prev) bEl.value = prev; }
 }
 
 // Wire species/gender dropdowns in Cosmetic Placer
