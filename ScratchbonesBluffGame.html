@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Madiao Mobile Challenge</title>
+  <script src="docs/js/portrait-utils.js"></script>
   <style>
     :root {
       --bg: #15110f;
@@ -113,6 +114,7 @@
     .seatSeed { font-size: 0.68rem; color: var(--accent); font-style: italic; margin-top: 3px; letter-spacing: 0.01em; }
     .seatTags { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
+    .seatPortrait { display: block; width: 64px; height: 64px; border-radius: 8px; margin-bottom: 6px; }
 
     .centerInfo {
       display: grid;
@@ -988,6 +990,7 @@
       state.seed = Math.floor(Math.random() * 1e9);
       rand = mulberry32(state.seed);
       dealFreshHands();
+      for (const p of state.players) p.profile = generatePlayerProfile(p);
       state.leaderIndex = rngInt(0, state.players.length - 1);
       state.currentTurn = state.leaderIndex;
       setBanner(state.currentTurn === 0 ? 'Your lead. Select cards and declare any number.' : `${seatLabel(state.currentTurn)} opens the round.`);
@@ -2112,6 +2115,7 @@
           <div class="aiRow">
             ${state.players.slice(1).map(p => `
               <div class="aiSeat ${p.eliminated ? 'eliminated' : ''}">
+                <canvas class="seatPortrait" data-seat-id="${p.id}" width="200" height="200"></canvas>
                 <div class="seatName">${seatLabel(p)}</div>
                 <div class="seatMeta">Cards ${p.hand.length} · Chips ${p.chips} · Clears ${p.clears}</div>
                 ${p.seed ? `<div class="seatSeed">${p.seed}</div>` : ''}
@@ -2214,6 +2218,7 @@
         el.addEventListener('click', () => toggleSelect(Number(el.getAttribute('data-card-id'))));
       });
       renderChallengeBox();
+      renderSeatPortraits();
     }
 
     function debugSnapshot() {
@@ -2264,6 +2269,39 @@
         .replaceAll('<', '&lt;')
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;');
+    }
+
+    // ── Portrait generation ────────────────────────────────
+
+    let _portraitCosmetics = null;
+
+    setPortraitAssetBase('./docs/assets/');
+
+    loadPortraitCosmetics('./docs/config/').then(cosmetics => {
+      _portraitCosmetics = cosmetics;
+      // If a game is already running, generate portraits now and paint them.
+      if (state.players.length) {
+        for (const p of state.players) p.profile = generatePlayerProfile(p);
+        renderSeatPortraits();
+      }
+    }).catch(e => console.warn('[game] portrait cosmetics failed to load', e));
+
+    function generatePlayerProfile(player) {
+      if (!_portraitCosmetics) return null;
+      const { hairOptions, eyesOptions, facialHairOptions } = _portraitCosmetics;
+      const seedStr = player.seed || `player-${player.id}`;
+      const rng = mulberry32(hashStringToSeed(seedStr));
+      return randomProfileSeeded(rng, FIGHTERS, hairOptions, eyesOptions, facialHairOptions);
+    }
+
+    function renderSeatPortraits() {
+      const root = document.getElementById('app');
+      if (!root) return;
+      for (const p of state.players.slice(1)) {
+        if (!p.profile) continue;
+        const canvas = root.querySelector(`canvas[data-seat-id="${p.id}"]`);
+        if (canvas) renderProfile(canvas, p.profile);
+      }
     }
 
     startGame();
