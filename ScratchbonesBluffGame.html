@@ -380,6 +380,472 @@
       #challengeBox { max-width: 980px; left: 50%; transform: translateX(-50%); }
       .card { min-width: 96px; }
     }
+
+    /* ===== CHALLENGE CINEMATIC OVERLAY ===== */
+    #challengeCinematic {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 28px 20px calc(32px + var(--safe));
+      overflow: hidden;
+    }
+    #challengeCinematic.cin-active { display: flex; }
+
+    .cin-bg {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 28%, rgba(55,14,8,0.97) 0%, rgba(9,4,2,0.99) 70%);
+      z-index: -2;
+      animation: cinBgIn 0.28s ease both;
+    }
+    @keyframes cinBgIn { from { opacity:0; } to { opacity:1; } }
+
+    /* Vignette ring */
+    .cin-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0,0,0,0.55) 100%);
+    }
+
+    /* Floating ember particles */
+    .cin-embers {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .cin-ember {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      animation: cinEmberRise var(--dur,3s) ease-out var(--delay,0s) infinite;
+    }
+    @keyframes cinEmberRise {
+      0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0.8; }
+      60%  { opacity: 0.6; }
+      100% { transform: translateY(-110vh) translateX(var(--drift,20px)) scale(0.2); opacity: 0; }
+    }
+
+    /* Horizontal shimmer line */
+    .cin-shimmer {
+      position: absolute;
+      left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(200,153,82,0.5) 30%, rgba(242,208,143,0.8) 50%, rgba(200,153,82,0.5) 70%, transparent 100%);
+      animation: cinShimmerSlide 2.4s ease-in-out infinite;
+      z-index: -1;
+    }
+    @keyframes cinShimmerSlide {
+      0%,100% { top: 35%; opacity:0.4; }
+      50%      { top: 65%; opacity:0.9; }
+    }
+
+    .cin-headline {
+      font-size: 2rem;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-align: center;
+      animation: cinHeadlineIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    @keyframes cinHeadlineIn {
+      from { transform: scale(0.55); opacity:0; }
+      to   { transform: scale(1); opacity:1; }
+    }
+    .cin-headline.cin-announce {
+      color: var(--danger);
+      text-shadow: 0 0 28px rgba(200,90,90,0.85), 0 0 56px rgba(200,90,90,0.35);
+      animation: cinHeadlineIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both, cinPulse 1.2s ease-in-out 0.5s infinite;
+    }
+    .cin-headline.cin-caught {
+      color: var(--danger);
+      text-shadow: 0 0 28px rgba(200,90,90,0.85), 0 0 56px rgba(200,90,90,0.35);
+    }
+    .cin-headline.cin-defended {
+      color: var(--ok);
+      text-shadow: 0 0 28px rgba(102,177,124,0.85), 0 0 56px rgba(102,177,124,0.35);
+    }
+    .cin-headline.cin-fold {
+      color: var(--muted);
+      font-size: 1.5rem;
+      text-shadow: none;
+      letter-spacing: 0.08em;
+    }
+    @keyframes cinPulse {
+      0%,100% { text-shadow: 0 0 28px rgba(200,90,90,0.85), 0 0 56px rgba(200,90,90,0.35); }
+      50%      { text-shadow: 0 0 44px rgba(200,90,90,1),    0 0 90px rgba(200,90,90,0.55); }
+    }
+
+    .cin-players {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      width: 100%;
+      max-width: 520px;
+    }
+    .cin-player {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .cin-player.challenger {
+      animation: cinSlideL 0.45s cubic-bezier(0.34,1.4,0.64,1) 0.1s both;
+    }
+    .cin-player.challenged {
+      animation: cinSlideR 0.45s cubic-bezier(0.34,1.4,0.64,1) 0.1s both;
+    }
+    @keyframes cinSlideL { from { transform:translateX(-40px); opacity:0; } to { transform:translateX(0); opacity:1; } }
+    @keyframes cinSlideR { from { transform:translateX( 40px); opacity:0; } to { transform:translateX(0); opacity:1; } }
+
+    .cin-role {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .cin-avatar {
+      width: 66px;
+      height: 66px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.65rem;
+      font-weight: 900;
+      color: rgba(255,255,255,0.92);
+      box-shadow: 0 4px 22px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.18);
+      border: 2px solid rgba(255,255,255,0.12);
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+    .cin-avatar canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: block;
+      position: relative;
+      z-index: 1;
+    }
+    .cin-avatar-fallback {
+      position: relative;
+      z-index: 1;
+    }
+    /* Outer ring glow */
+    .cin-avatar.avatar-glow::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(200,153,82,0.4);
+      animation: cinRingPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes cinRingPulse {
+      0%,100% { transform:scale(1); opacity:0.4; }
+      50%      { transform:scale(1.07); opacity:0.9; }
+    }
+    .cin-name {
+      font-size: 0.86rem;
+      font-weight: 700;
+      text-align: center;
+      color: var(--text);
+    }
+    .cin-arch {
+      font-size: 0.68rem;
+      color: var(--accent);
+      text-align: center;
+    }
+    .cin-tags {
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .cin-vs {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: var(--accent-2);
+      text-shadow: 0 0 16px rgba(242,208,143,0.55);
+      align-self: center;
+      flex-shrink: 0;
+    }
+
+    .cin-divider {
+      width: 100%;
+      max-width: 520px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(200,153,82,0.28), transparent);
+    }
+
+    /* Card flip layout */
+    .cin-cards-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      animation: cinCardsIn 0.4s ease 0.22s both;
+    }
+    @keyframes cinCardsIn {
+      from { transform:translateY(14px); opacity:0; }
+      to   { transform:translateY(0); opacity:1; }
+    }
+    .cin-cards-label {
+      font-size: 0.73rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .cin-cards-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* 3-D card flip */
+    .cin-card-wrap {
+      perspective: 640px;
+      width: 54px;
+      height: 84px;
+    }
+    .cin-card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+    .cin-card-wrap.flip-it .cin-card-inner {
+      animation: cinFlip 0.58s cubic-bezier(0.4, 0, 0.2, 1) var(--fd, 0s) both;
+    }
+    @keyframes cinFlip {
+      0%   { transform: rotateY(0deg); }
+      100% { transform: rotateY(180deg); }
+    }
+
+    .cin-card-back, .cin-card-face {
+      position: absolute;
+      inset: 0;
+      border-radius: 11px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+    .cin-card-back {
+      background: linear-gradient(145deg, #1a1008, #2d1a12);
+      border: 2px solid rgba(200,153,82,0.2);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.55);
+      font-size: 1.2rem;
+      color: rgba(200,153,82,0.22);
+    }
+    .cin-card-face {
+      transform: rotateY(180deg);
+      border: 2px solid transparent;
+    }
+    .cin-card-face.face-truth {
+      background: linear-gradient(155deg, #0d2015, #1b3e28);
+      border-color: rgba(102,177,124,0.55);
+      box-shadow: 0 0 16px rgba(102,177,124,0.28);
+    }
+    .cin-card-face.face-lie {
+      background: linear-gradient(155deg, #200d0d, #3e1b1b);
+      border-color: rgba(200,90,90,0.55);
+      box-shadow: 0 0 16px rgba(200,90,90,0.28);
+    }
+    .cin-card-face.face-wild {
+      background: linear-gradient(155deg, #2a2000, #4a3a00);
+      border-color: rgba(241,211,71,0.55);
+      box-shadow: 0 0 16px rgba(241,211,71,0.28);
+    }
+    .cin-card-rank {
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: var(--text);
+      line-height: 1;
+    }
+    .cin-card-sub {
+      font-size: 0.5rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 3px;
+      opacity: 0.8;
+    }
+    .face-truth .cin-card-sub { color: var(--ok); }
+    .face-lie   .cin-card-sub { color: var(--danger); }
+    .face-wild  .cin-card-sub { color: var(--wild); }
+
+    .cin-result {
+      padding: 10px 26px;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-align: center;
+      animation: cinResultIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes cinResultIn {
+      from { transform:scale(0.75); opacity:0; }
+      to   { transform:scale(1); opacity:1; }
+    }
+    .cin-result.res-good   { background:rgba(102,177,124,0.18); border:1px solid rgba(102,177,124,0.4); color:var(--ok); }
+    .cin-result.res-warn   { background:rgba(200,90,90,0.18);   border:1px solid rgba(200,90,90,0.4);   color:var(--danger); }
+    .cin-result.res-neutral{ background:rgba(200,153,82,0.12);  border:1px solid rgba(200,153,82,0.28); color:var(--accent-2); }
+
+    .cin-status-line {
+      font-size: 0.7rem;
+      color: var(--muted);
+      font-style: italic;
+      text-align: center;
+    }
+
+    .cin-continue {
+      padding: 11px 34px;
+      background: var(--accent);
+      color: #1d140f;
+      border-radius: 14px;
+      font-weight: 800;
+      font-size: 0.9rem;
+      border: none;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      animation: cinBtnIn 0.3s ease 0.3s both;
+    }
+    @keyframes cinBtnIn {
+      from { opacity:0; transform:translateY(10px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* Betting zone inside cinematic */
+    #cin-betting-zone {
+      width: 100%;
+      max-width: 520px;
+      display: grid;
+      gap: 8px;
+    }
+    .cin-bet-header {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-align: center;
+    }
+    .cin-bet-stake {
+      font-size: 1.15rem;
+      font-weight: 900;
+      color: var(--accent-2);
+      text-align: center;
+      text-shadow: 0 0 14px rgba(242,208,143,0.4);
+    }
+    .cin-bet-contribs {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    .cin-bet-actions {
+      display: flex;
+      gap: 9px;
+      margin-top: 2px;
+    }
+    .cin-bet-actions button {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 12px 8px;
+      font-size: 0.85rem;
+      font-weight: 800;
+    }
+    .cin-waiting {
+      font-size: 0.74rem;
+      color: var(--muted);
+      font-style: italic;
+      text-align: center;
+      animation: cinWaitPulse 1.3s ease-in-out infinite;
+    }
+    @keyframes cinWaitPulse {
+      0%,100% { opacity:0.5; }
+      50%      { opacity:1; }
+    }
+    .cin-bet-backup {
+      width: 100%;
+    }
+
+    /* ── Chip sprites ── */
+    .cin-chip-row {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-wrap: wrap;
+    }
+    .cin-chip-count {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-left: 5px;
+      white-space: nowrap;
+    }
+    .cin-chip-extra {
+      font-size: 0.66rem;
+      color: var(--muted);
+      margin-left: 2px;
+    }
+
+    /* Three-column chip summary */
+    .cin-chip-table {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 6px 10px;
+      align-items: start;
+      width: 100%;
+      max-width: 520px;
+    }
+    .cin-chip-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .cin-chip-col.left  { align-items: flex-start; }
+    .cin-chip-col.right { align-items: flex-end; }
+    .cin-chip-col-mid {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .cin-chip-label {
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .cin-chip-pot-label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-align: center;
+    }
+    .cin-chip-sublabel {
+      font-size: 0.62rem;
+      color: var(--muted);
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -404,6 +870,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Challenge cinematic overlay — populated by JS -->
+  <div id="challengeCinematic"></div>
 
   <script>
 
@@ -801,7 +1270,7 @@
         totalClears: 0,
         chipsMovedByChallenges: 0,
       },
-      recentChange: "Challenge win messages now show net chips gained after subtracting the winner's own contribution, and AI risk checks still factor in chip counts across play, challenge, and betting.",
+      recentChange: "AI portraits now render in both the table seats and the cinematic avatar rings, while cinematic overlays still fall back to initials if portrait cosmetics are unavailable.",
       challengeTimer: null,
       challengeTimeLeft: 0,
       roundConcessions: new Set(), // Used by: skipping players who have conceded the current claim until the round ends.
@@ -1289,6 +1758,7 @@
       }
       setBanner(`${seatLabel(challengerIndex)} and ${seatLabel(challengedIndex)} are betting on the challenge.`);
       render();
+      showChallengeCinematic(challengerIndex, challengedIndex, play);
       scheduleBettingAiIfNeeded();
     }
 
@@ -1520,6 +1990,7 @@
         state.stats.failedChallenges += 1;
         noteChallengeReadResult(state.betting.challengerId, state.betting.challengedId, false);
       }
+      showFoldCinematic(winnerId, loserId);
       state.betting = null;
       concludeChallengeFlow(winnerId);
     }
@@ -1552,6 +2023,7 @@
         addLog(`Challenge fails. ${state.players[challengedId].name} was truthful.`);
       }
       addLog(`${seatLabel(winner)} wins ${netGain} net chip${netGain === 1 ? '' : 's'} from the challenge.`);
+      showRevealCinematic(challengerId, challengedId, play, success);
       state.betting = null;
       concludeChallengeFlow(winnerId);
     }
@@ -2218,7 +2690,7 @@
         el.addEventListener('click', () => toggleSelect(Number(el.getAttribute('data-card-id'))));
       });
       renderChallengeBox();
-      renderSeatPortraits();
+      refreshCinematicBettingZone();
     }
 
     function debugSnapshot() {
@@ -2271,20 +2743,24 @@
         .replaceAll('"', '&quot;');
     }
 
-    // ── Portrait generation ────────────────────────────────
 
+    // ── Portrait generation ────────────────────────────────
     let _portraitCosmetics = null;
 
-    setPortraitAssetBase('./docs/assets/');
+    if (window.setPortraitAssetBase && window.loadPortraitCosmetics) {
+      setPortraitAssetBase('./docs/assets/');
 
-    loadPortraitCosmetics('./docs/config/').then(cosmetics => {
-      _portraitCosmetics = cosmetics;
-      // If a game is already running, generate portraits now and paint them.
-      if (state.players.length) {
-        for (const p of state.players) p.profile = generatePlayerProfile(p);
-        renderSeatPortraits();
-      }
-    }).catch(e => console.warn('[game] portrait cosmetics failed to load', e));
+      loadPortraitCosmetics('./docs/config/').then(cosmetics => {
+        _portraitCosmetics = cosmetics;
+        if (state.players.length) {
+          for (const p of state.players) p.profile = generatePlayerProfile(p);
+          renderSeatPortraits();
+          renderCinematicPortraits();
+        }
+      }).catch(e => console.warn('[game] portrait cosmetics failed to load', e));
+    } else {
+      console.warn('[game] portrait utils unavailable; falling back to initials.');
+    }
 
     function generatePlayerProfile(player) {
       if (!_portraitCosmetics) return null;
@@ -2300,8 +2776,345 @@
       for (const p of state.players.slice(1)) {
         if (!p.profile) continue;
         const canvas = root.querySelector(`canvas[data-seat-id="${p.id}"]`);
-        if (canvas) renderProfile(canvas, p.profile);
+        if (canvas && window.renderProfile) renderProfile(canvas, p.profile);
       }
+    }
+
+    function renderCinematicPortraits() {
+      const root = document.getElementById('challengeCinematic');
+      if (!root || !root.classList.contains('cin-active')) return;
+      for (const p of state.players) {
+        if (!p.profile) continue;
+        const canvas = root.querySelector(`canvas[data-cin-player-id="${p.id}"]`);
+        if (canvas && window.renderProfile) renderProfile(canvas, p.profile);
+      }
+    }
+
+    // ===== CHALLENGE CINEMATIC =====
+    let _cinTimeout = null;
+
+    function _clearCinTimeout() {
+      if (_cinTimeout) { clearTimeout(_cinTimeout); _cinTimeout = null; }
+    }
+
+    function closeCinematic() {
+      _clearCinTimeout();
+      const el = document.getElementById('challengeCinematic');
+      if (el) el.classList.remove('cin-active');
+    }
+
+    function refreshCinematicBettingZone() {
+      const zone = document.getElementById('cin-betting-zone');
+      if (!zone || !state.betting) return;
+
+      const b = state.betting;
+      const humanActor    = b.currentActorId === 0;
+      const callAmt       = amountToCall(0);
+      const raiseAmt      = nextRaiseAmountForPlayer(0);
+      const canRaise      = raiseAmt > 0;
+      const actorPlayer   = state.players[b.currentActorId];
+      const actorName     = actorPlayer?.isHuman ? 'You' : (actorPlayer?.name || '?');
+      const backupEligible = eligibleBackupIds(b.challengerId, b.challengedId).includes(0) && !b.backupQueue.includes(0);
+
+      const cPlayer = state.players[b.challengerId];
+      const dPlayer = state.players[b.challengedId];
+      const cContrib = getContribution(b.challengerId);
+      const dContrib = getContribution(b.challengedId);
+      const potTotal  = cContrib + dContrib;
+
+      // Left: challenger bank | Middle: pot pile | Right: declared bank
+      const chipTable = `
+        <div class="cin-chip-table">
+          <div class="cin-chip-col left">
+            <div class="cin-chip-label">${cPlayer?.isHuman ? 'Your' : cPlayer?.name?.split(' ')[0]} bank</div>
+            ${_chipWalletHtml(cPlayer?.chips || 0, CHIP_BANK)}
+            <div class="cin-chip-sublabel">bet in</div>
+            ${_chipPileHtml(cContrib, CHIP_GOLD)}
+          </div>
+
+          <div class="cin-chip-col-mid">
+            <div class="cin-chip-pot-label">Pot</div>
+            ${_chipPileHtml(potTotal, CHIP_GOLD)}
+            <div style="font-size:0.6rem;color:var(--muted);">stake ${b.stake}</div>
+          </div>
+
+          <div class="cin-chip-col right">
+            <div class="cin-chip-label">${dPlayer?.isHuman ? 'Your' : dPlayer?.name?.split(' ')[0]} bank</div>
+            ${_chipWalletHtml(dPlayer?.chips || 0, CHIP_BANK)}
+            <div class="cin-chip-sublabel">bet in</div>
+            ${_chipPileHtml(dContrib, CHIP_GOLD)}
+          </div>
+        </div>`;
+
+      zone.innerHTML = `
+        <div class="cin-divider"></div>
+        <div class="cin-bet-header">⚖ Betting on the challenge</div>
+        ${chipTable}
+        ${humanActor
+          ? `<div class="cin-bet-actions">
+               <button class="secondary" id="cinCallBtn">${callAmt > 0 ? `Call ${callAmt}` : 'Check'}</button>
+               <button id="cinRaiseBtn" ${!canRaise ? 'disabled' : ''}>Raise +${raiseAmt || 0}</button>
+               <button class="danger" id="cinFoldBtn">Fold</button>
+             </div>
+             ${backupEligible ? `<button class="ghost cin-bet-backup" id="cinBackupBtn">Join as backup caller</button>` : ''}`
+          : `<div class="cin-waiting">${actorName} is deciding…</div>`
+        }
+      `;
+
+      if (humanActor) {
+        document.getElementById('cinCallBtn')?.addEventListener('click', () => humanBetAction('checkcall'));
+        document.getElementById('cinRaiseBtn')?.addEventListener('click', humanRaiseSelected);
+        document.getElementById('cinFoldBtn')?.addEventListener('click', () => humanBetAction('fold'));
+        document.getElementById('cinBackupBtn')?.addEventListener('click', humanJoinBackup);
+      }
+    }
+
+    // ── Chip sprite helpers ──
+    function _chipSvg(fill, size) {
+      size = size || 20;
+      const cx = size / 2;
+      const rOut  = cx - 0.8;
+      const rRing = rOut * 0.80;
+      const rIn   = rOut * 0.58;
+      const notches = [];
+      for (let a = 0; a < 360; a += 30) {
+        const rad = a * Math.PI / 180;
+        notches.push(`<circle cx="${(cx + Math.cos(rad)*rRing).toFixed(1)}" cy="${(cx + Math.sin(rad)*rRing).toFixed(1)}" r="${(size*0.076).toFixed(1)}" fill="rgba(0,0,0,0.28)"/>`);
+      }
+      const glintX = (cx - size * 0.07).toFixed(1);
+      const glintY = (cx - size * 0.16).toFixed(1);
+      const glintRX = (size * 0.14).toFixed(1);
+      const glintRY = (size * 0.07).toFixed(1);
+      return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="display:inline-block;flex-shrink:0;vertical-align:middle;">`
+        + `<circle cx="${cx}" cy="${cx}" r="${rOut.toFixed(1)}" fill="${fill}" stroke="rgba(0,0,0,0.38)" stroke-width="0.9"/>`
+        + notches.join('')
+        + `<circle cx="${cx}" cy="${cx}" r="${rIn.toFixed(1)}" fill="${fill}" stroke="rgba(0,0,0,0.22)" stroke-width="0.7"/>`
+        + `<ellipse cx="${glintX}" cy="${glintY}" rx="${glintRX}" ry="${glintRY}" fill="rgba(255,255,255,0.28)"/>`
+        + `</svg>`;
+    }
+
+    // Single chip + bold number — for bankroll display
+    function _chipWalletHtml(count, fill) {
+      return `<span style="display:inline-flex;align-items:center;gap:5px;">${_chipSvg(fill, 20)}<span style="font-size:0.95rem;font-weight:800;color:var(--text);">${count}</span></span>`;
+    }
+
+    // Overlapping spread pile — for pot / contributions
+    function _chipPileHtml(count, fill) {
+      if (count <= 0) return `<span style="font-size:0.8rem;color:var(--muted);font-style:italic;">—</span>`;
+      const chipSize = 22;
+      const spread   = 10;
+      const show     = Math.min(count, 13);
+      const w        = (show - 1) * spread + chipSize;
+      const h        = chipSize + 6;
+      let inner = '';
+      for (let i = 0; i < show; i++) {
+        const x    = i * spread;
+        const rot  = (((i * 7) % 10) - 5) * 2.2;   // deterministic wobble −11°…+11°
+        const yOff = (((i * 3) % 4)) * 0.9;          // subtle vertical stagger 0–2.7px
+        inner += `<div style="position:absolute;left:${x}px;top:${yOff.toFixed(1)}px;transform:rotate(${rot.toFixed(1)}deg);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.45));">${_chipSvg(fill, chipSize)}</div>`;
+      }
+      const extra = count > 13
+        ? `<span style="position:absolute;right:-26px;top:50%;transform:translateY(-50%);font-size:0.6rem;color:var(--muted);">+${count-13}</span>`
+        : '';
+      return `<div style="position:relative;display:inline-block;width:${w}px;height:${h}px;">${inner}${extra}</div>`;
+    }
+
+    // Chip fill colors
+    const CHIP_GOLD   = '#c89952';
+    const CHIP_BANK   = '#7a8fa0';
+    const CHIP_GOOD   = '#4fa06e';
+    const CHIP_DANGER = '#b04444';
+
+    // Deterministic hue from a string (for avatar colors)
+    function _avatarHue(name) {
+      let h = 0;
+      for (let i = 0; i < (name || '').length; i++) h = (h * 37 + name.charCodeAt(i)) % 360;
+      return h;
+    }
+
+    // Build player profile HTML for cinematic — chip count as single chip + number
+    function _cinPlayerHtml(player, role) {
+      const hue = player.isHuman ? 210 : _avatarHue(player.name);
+      const sat = player.isHuman ? 50 : 58;
+      const lig = player.isHuman ? 38 : 36;
+      const color = `hsl(${hue},${sat}%,${lig}%)`;
+      const initial = player.isHuman ? 'Y' : (player.name || '?')[0].toUpperCase();
+      const roleLabel = role === 'challenger' ? '⚔ Challenger' : '🃏 Declared';
+      const arch = player.personality?.archetype || '';
+      const tags = player.personality ? personalityTags(player.personality) : '';
+      const portraitMarkup = player.profile
+        ? `<canvas data-cin-player-id="${player.id}" width="200" height="200" aria-label="${escapeHtml(player.name || 'Player')} portrait"></canvas>`
+        : `<span class="cin-avatar-fallback">${initial}</span>`;
+      return `
+        <div class="cin-player ${role}">
+          <div class="cin-role">${roleLabel}</div>
+          <div class="cin-avatar avatar-glow" style="background:${color};">${portraitMarkup}</div>
+          <div class="cin-name">${player.isHuman ? 'You' : player.name}</div>
+          ${arch ? `<div class="cin-arch">${arch}</div>` : ''}
+          ${tags ? `<div class="cin-tags">${tags}</div>` : ''}
+        </div>`;
+    }
+
+    // Build ember particles HTML
+    function _cinEmbersHtml(colorHue) {
+      const embers = [];
+      for (let i = 0; i < 18; i++) {
+        const left  = (10 + Math.random() * 80).toFixed(1);
+        const delay = (Math.random() * 2.5).toFixed(2);
+        const dur   = (2.2 + Math.random() * 1.8).toFixed(2);
+        const drift = ((Math.random() - 0.5) * 80).toFixed(1);
+        const sat   = 60 + Math.floor(Math.random() * 30);
+        const lig   = 55 + Math.floor(Math.random() * 20);
+        embers.push(`<div class="cin-ember" style="left:${left}%;bottom:0;background:hsl(${colorHue},${sat}%,${lig}%);--delay:${delay}s;--dur:${dur}s;--drift:${drift}px;"></div>`);
+      }
+      return `<div class="cin-embers">${embers.join('')}</div>`;
+    }
+
+    // Build card row HTML (face-down or revealed)
+    function _cinCardsHtml(play, revealed) {
+      if (!play) return '';
+      const cards = play.cards;
+      const rowItems = cards.map((card, i) => {
+        if (!revealed) {
+          return `<div class="cin-card-wrap">
+            <div class="cin-card-inner">
+              <div class="cin-card-back">✦</div>
+              <div class="cin-card-face face-truth"></div>
+            </div>
+          </div>`;
+        }
+        const isWild = card.wild;
+        const matchesClaim = card.wild || card.rank === play.declaredRank;
+        const faceClass = isWild ? 'face-wild' : (matchesClaim ? 'face-truth' : 'face-lie');
+        const rank = isWild ? '★' : card.rank;
+        const sub  = isWild ? 'Wild' : (matchesClaim ? 'True' : 'Lie!');
+        return `<div class="cin-card-wrap flip-it" style="--fd:${(i * 0.09).toFixed(2)}s;">
+          <div class="cin-card-inner">
+            <div class="cin-card-back">✦</div>
+            <div class="cin-card-face ${faceClass}">
+              <div class="cin-card-rank">${rank}</div>
+              <div class="cin-card-sub">${sub}</div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+      return `
+        <div class="cin-cards-wrap">
+          <div class="cin-cards-label">Claimed — ${cards.length} × ${play.declaredRank}</div>
+          <div class="cin-cards-row">${rowItems}</div>
+        </div>`;
+    }
+
+    // Phase 1: Challenge announced
+    function showChallengeCinematic(challengerIndex, challengedIndex, play) {
+      const cin = document.getElementById('challengeCinematic');
+      if (!cin) return;
+      _clearCinTimeout();
+
+      const challenger = state.players[challengerIndex];
+      const challenged = state.players[challengedIndex];
+      const humanInvolved = challengerIndex === 0 || challengedIndex === 0;
+
+      cin.innerHTML = `
+        <div class="cin-bg"></div>
+        ${_cinEmbersHtml(10)}
+        <div class="cin-shimmer"></div>
+        <div class="cin-headline cin-announce">⚔ Challenge ⚔</div>
+        <div class="cin-players">
+          ${_cinPlayerHtml(challenger, 'challenger')}
+          <div class="cin-vs">VS</div>
+          ${_cinPlayerHtml(challenged, 'challenged')}
+        </div>
+        <div class="cin-divider"></div>
+        ${_cinCardsHtml(play, false)}
+        ${humanInvolved
+          ? `<div id="cin-betting-zone"></div>`
+          : `<div class="cin-status-line">Cards face‑down — betting underway…</div>`
+        }
+      `;
+      cin.classList.add('cin-active');
+      renderCinematicPortraits();
+
+      if (humanInvolved) {
+        // Stay open — betting UI lives inside; refreshed by refreshCinematicBettingZone()
+        refreshCinematicBettingZone();
+      } else {
+        // AI vs AI: auto-dismiss after a beat
+        _cinTimeout = setTimeout(() => cin.classList.remove('cin-active'), 2000);
+      }
+    }
+
+    // Phase 2a: Reveal (no fold)
+    function showRevealCinematic(challengerIndex, challengedIndex, play, success) {
+      const cin = document.getElementById('challengeCinematic');
+      if (!cin) return;
+      _clearCinTimeout();
+
+      const challenger = state.players[challengerIndex];
+      const challenged = state.players[challengedIndex];
+      const winnerId  = success ? challengerIndex : challengedIndex;
+      const winner    = state.players[winnerId];
+      const humanWon  = winnerId === 0;
+      const humanLost = !humanWon && (challengerIndex === 0 || challengedIndex === 0);
+
+      const headlineText  = success ? '🎯 Bluff Caught!' : '✔ Truthful Play!';
+      const headlineClass = success ? 'cin-caught' : 'cin-defended';
+      const resultText    = (winner.isHuman ? 'You win' : `${winner.name} wins`) + ' the challenge.';
+      const resClass      = humanWon ? 'res-good' : humanLost ? 'res-warn' : 'res-neutral';
+      const emberHue      = success ? 10 : 130;
+      const winChipColor  = humanWon ? CHIP_GOOD : CHIP_DANGER;
+
+      cin.innerHTML = `
+        <div class="cin-bg"></div>
+        ${_cinEmbersHtml(emberHue)}
+        <div class="cin-shimmer"></div>
+        <div class="cin-headline ${headlineClass}">${headlineText}</div>
+        <div class="cin-players">
+          ${_cinPlayerHtml(challenger, 'challenger')}
+          <div class="cin-vs">VS</div>
+          ${_cinPlayerHtml(challenged, 'challenged')}
+        </div>
+        <div class="cin-divider"></div>
+        ${_cinCardsHtml(play, true)}
+        <div class="cin-result ${resClass}">${resultText}</div>
+        <button class="cin-continue" id="cinContinueBtn">Continue →</button>
+      `;
+      cin.classList.add('cin-active');
+      renderCinematicPortraits();
+
+      document.getElementById('cinContinueBtn')?.addEventListener('click', closeCinematic);
+      _cinTimeout = setTimeout(closeCinematic, 4200);
+    }
+
+    // Phase 2b: Fold resolution
+    function showFoldCinematic(winnerId, loserId) {
+      const cin = document.getElementById('challengeCinematic');
+      if (!cin) return;
+      _clearCinTimeout();
+
+      const winner    = state.players[winnerId];
+      const loser     = state.players[loserId];
+      const winnerName = winner.isHuman ? 'You' : winner.name;
+      const loserName  = loser.isHuman  ? 'You' : loser.name;
+      const humanWon   = winnerId === 0;
+      const humanLost  = loserId  === 0;
+      const resClass   = humanWon ? 'res-good' : humanLost ? 'res-warn' : 'res-neutral';
+
+      cin.innerHTML = `
+        <div class="cin-bg"></div>
+        ${_cinEmbersHtml(30)}
+        <div class="cin-shimmer"></div>
+        <div class="cin-headline cin-fold">🏳 Fold</div>
+        <div class="cin-result ${resClass}" style="max-width:360px;text-align:center;">
+          ${loserName} folds — ${winnerName} takes the pot.
+        </div>
+        <button class="cin-continue" id="cinContinueBtn">Continue →</button>
+      `;
+      cin.classList.add('cin-active');
+      renderCinematicPortraits();
+
+      document.getElementById('cinContinueBtn')?.addEventListener('click', closeCinematic);
+      _cinTimeout = setTimeout(closeCinematic, 2600);
     }
 
     startGame();
