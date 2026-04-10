@@ -47,44 +47,44 @@
         ]
       },
       "B": {
-        "minH": -180,
-        "maxH": 180,
+        "minH": -90,
+        "maxH": -32,
         "subdivisions": 2,
         "stops": [
           {
-            "h": -180,
-            "sMin": -1,
-            "vMin": -1,
-            "sMax": 1,
-            "vMax": 1
+            "h": -90,
+            "sMin": 0.05,
+            "vMin": -0.5,
+            "sMax": 0.75,
+            "vMax": 0.2
           },
           {
-            "h": 180,
-            "sMin": -1,
-            "vMin": -1,
-            "sMax": 1,
-            "vMax": 1
+            "h": -32,
+            "sMin": 0.05,
+            "vMin": -0.59,
+            "sMax": 0.09,
+            "vMax": -0.16
           }
         ]
       },
       "C": {
-        "minH": -180,
-        "maxH": 180,
+        "minH": -90,
+        "maxH": -32,
         "subdivisions": 2,
         "stops": [
           {
-            "h": -180,
-            "sMin": -1,
-            "vMin": -1,
-            "sMax": 1,
-            "vMax": 1
+            "h": -90,
+            "sMin": 0.05,
+            "vMin": -0.5,
+            "sMax": 0.75,
+            "vMax": 0.2
           },
           {
-            "h": 180,
-            "sMin": -1,
-            "vMin": -1,
-            "sMax": 1,
-            "vMax": 1
+            "h": -32,
+            "sMin": 0.05,
+            "vMin": -0.59,
+            "sMax": 0.09,
+            "vMax": -0.16
           }
         ]
       }
@@ -115,72 +115,65 @@
     ],
     "bodyColorRanges": {
       "A": {
-        "minH": -130,
-        "maxH": -30,
-        "subdivisions": 3,
+        "minH": -90,
+        "maxH": -32,
+        "subdivisions": 2,
         "stops": [
           {
-            "h": -130,
+            "h": -90,
             "sMin": 0.05,
             "vMin": -0.5,
             "sMax": 0.75,
             "vMax": 0.2
           },
           {
-            "h": -80,
+            "h": -32,
             "sMin": 0.05,
-            "vMin": -0.5,
-            "sMax": 0.75,
-            "vMax": 0.2
-          },
-          {
-            "h": -30,
-            "sMin": 0.05,
-            "vMin": -0.5,
-            "sMax": 0.75,
-            "vMax": 0.2
+            "vMin": -0.59,
+            "sMax": 0.09,
+            "vMax": -0.16
           }
         ]
       },
       "B": {
-        "minH": -180,
-        "maxH": 180,
+        "minH": -90,
+        "maxH": -32,
         "subdivisions": 2,
         "stops": [
           {
-            "h": -180,
-            "sMin": -1,
-            "vMin": -1,
-            "sMax": 1,
-            "vMax": 1
+            "h": -90,
+            "sMin": 0.05,
+            "vMin": -0.5,
+            "sMax": 0.75,
+            "vMax": 0.2
           },
           {
-            "h": 180,
-            "sMin": -1,
-            "vMin": -1,
-            "sMax": 1,
-            "vMax": 1
+            "h": -32,
+            "sMin": 0.05,
+            "vMin": -0.59,
+            "sMax": 0.09,
+            "vMax": -0.16
           }
         ]
       },
       "C": {
-        "minH": -180,
-        "maxH": 180,
+        "minH": -90,
+        "maxH": -32,
         "subdivisions": 2,
         "stops": [
           {
-            "h": -180,
-            "sMin": -1,
-            "vMin": -1,
-            "sMax": 1,
-            "vMax": 1
+            "h": -90,
+            "sMin": 0.05,
+            "vMin": -0.5,
+            "sMax": 0.75,
+            "vMax": 0.2
           },
           {
-            "h": 180,
-            "sMin": -1,
-            "vMin": -1,
-            "sMax": 1,
-            "vMax": 1
+            "h": -32,
+            "sMin": 0.05,
+            "vMin": -0.59,
+            "sMax": 0.09,
+            "vMax": -0.16
           }
         ]
       }
