@@ -310,7 +310,30 @@ async function loadPortraitCosmetics(configBase) {
     else                           hairOptions.push(opt);
   }
 
-  return { hairOptions, eyesOptions, facialHairOptions, indexEntries, optionCache };
+  // Load species body color ranges, keyed by fighter ID
+  const bodyColorRangesByGender = {};
+  try {
+    const speciesIdxUrl = new URL(configBase + 'species/index.json', window.location.href).toString();
+    const speciesIdxResp = await fetch(speciesIdxUrl);
+    if (speciesIdxResp.ok) {
+      const speciesIdx = await speciesIdxResp.json();
+      await Promise.all((speciesIdx.entries || []).map(async entry => {
+        const sUrl = new URL(entry.path, speciesIdxUrl).toString();
+        const sResp = await fetch(sUrl);
+        if (!sResp.ok) return;
+        const sData = await sResp.json();
+        for (const genderData of Object.values(sData)) {
+          if (!genderData || typeof genderData !== 'object' || !genderData.bodyColorRanges) continue;
+          const fighter = FIGHTERS.find(f => genderData.headSprite && f.headUrl === genderData.headSprite);
+          if (fighter) bodyColorRangesByGender[fighter.id] = genderData.bodyColorRanges;
+        }
+      }));
+    }
+  } catch (e) {
+    console.warn('[portrait] Could not load species body color ranges', e);
+  }
+
+  return { hairOptions, eyesOptions, facialHairOptions, indexEntries, optionCache, bodyColorRangesByGender };
 }
 
 // ── Seeded randomisation ───────────────────────────────────
@@ -356,13 +379,13 @@ function randomBodyColorsSeeded(rng, bodyColorRanges) {
  * Generate a fully deterministic random profile using a provided rng() function.
  * All option arrays must be supplied by the caller.
  */
-function randomProfileSeeded(rng, fighters, hairOptions, eyesOptions, facialHairOptions) {
+function randomProfileSeeded(rng, fighters, hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender) {
   const pickRng = (arr) => arr[Math.floor(rng() * arr.length)];
   const fighter    = pickRng(fighters);
   const hair       = pickRng(hairOptions);
   const eyes       = pickRng(eyesOptions);
   const noFacialHair = facialHairOptions.find(o => o.id === 'none') ?? facialHairOptions[0];
   const facialHair = rng() < 0.35 ? pickRng(facialHairOptions) : noFacialHair;
-  const bodyColors = randomBodyColorsSeeded(rng);
+  const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id]);
   return { fighter, hair, eyes, facialHair, bodyColors };
 }

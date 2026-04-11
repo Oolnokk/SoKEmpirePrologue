@@ -2789,10 +2789,10 @@
 
     function generatePlayerProfile(player) {
       if (!_portraitCosmetics) return null;
-      const { hairOptions, eyesOptions, facialHairOptions } = _portraitCosmetics;
+      const { hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender } = _portraitCosmetics;
       const seedStr = player.seed || `player-${player.id}`;
       const rng = mulberry32(hashStringToSeed(seedStr));
-      return randomProfileSeeded(rng, FIGHTERS, hairOptions, eyesOptions, facialHairOptions);
+      return randomProfileSeeded(rng, FIGHTERS, hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender);
     }
 
     function renderSeatPortraits() {
