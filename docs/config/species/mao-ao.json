@@ -13,7 +13,10 @@
       "appearance::Mao-ao_M::mao-ao_smooth_striped",
       "appearance::Mao-ao_M::mao-ao_tuft",
       "appearance::Mao-ao_M::mao-ao_long_ponytail",
-      "appearance::Mao-ao_M::mao-ao_wildbeard"
+      "appearance::Mao-ao_M::mao-ao_wildbeard",
+      "appearance::hat::riverlandskasa_low",
+      "appearance::hat::riverlandskasa_tight",
+      "appearance::hat::riverlandskasa_wide"
     ],
     "bodyColorRanges": {
       "A": {
@@ -59,7 +62,10 @@
     "allowedCosmetics": [
       "appearance::Mao-ao_F::mao-ao_circled_eyes_f",
       "appearance::Mao-ao_F::mao-ao_shoulder_length_drape",
-      "appearance::Mao-ao_F::mao-ao_long_ponytail"
+      "appearance::Mao-ao_F::mao-ao_long_ponytail",
+      "appearance::hat::riverlandskasa_low",
+      "appearance::hat::riverlandskasa_tight",
+      "appearance::hat::riverlandskasa_wide"
     ],
     "bodyColorRanges": {
       "A": {

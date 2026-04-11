@@ -2893,13 +2893,13 @@
 
     function generatePlayerProfile(player) {
       if (!_portraitCosmetics) return null;
-      const { hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter } = _portraitCosmetics;
+      const { hairOptions, eyesOptions, facialHairOptions, hatOptions, bodyColorRangesByGender, allowedCosmeticsByFighter } = _portraitCosmetics;
       const seedStr = player.seed || `player-${player.id}`;
       const rng = mulberry32(hashStringToSeed(seedStr));
       const fighterPool = player.gender === 'male'   ? FIGHTERS.filter(f => f.id === 'M')
                         : player.gender === 'female' ? FIGHTERS.filter(f => f.id === 'F')
                         : FIGHTERS;
-      return randomProfileSeeded(rng, fighterPool.length ? fighterPool : FIGHTERS, hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter);
+      return randomProfileSeeded(rng, fighterPool.length ? fighterPool : FIGHTERS, hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions);
     }
 
     function renderSeatPortraits() {
