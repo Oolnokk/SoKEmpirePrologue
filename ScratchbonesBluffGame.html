@@ -35,16 +35,17 @@
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%); color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
-    body { overscroll-behavior: none; }
+    body { overscroll-behavior: none; overflow: hidden; }
 
     button, select, input { font: inherit; }
 
     #app {
-      min-height: 100dvh;
+      height: 100dvh;
+      overflow: hidden;
       display: grid;
-      grid-template-rows: auto auto 1fr auto auto;
-      gap: 10px;
-      padding: 12px 12px calc(12px + var(--safe));
+      grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+      gap: 8px;
+      padding: 8px 8px calc(8px + var(--safe));
     }
 
     .topbar, .panel, .controls, .handWrap, .eventLog {
@@ -55,9 +56,9 @@
     }
 
     .topbar {
-      padding: 12px;
+      padding: 8px 12px;
       display: grid;
-      gap: 10px;
+      gap: 6px;
     }
 
     .titleRow {
@@ -96,9 +97,11 @@
     }
 
     .panel {
-      padding: 12px;
+      padding: 10px 12px;
       display: grid;
-      gap: 10px;
+      gap: 8px;
+      min-height: 0;
+      overflow-y: auto;
     }
 
     .sectionTitle {
@@ -129,6 +132,8 @@
 
     .seatAvatarBox {
       flex: 1;
+      min-width: 0;
+      overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -140,7 +145,7 @@
     .seatSeed { font-size: 0.68rem; color: var(--accent); font-style: italic; margin-top: 3px; letter-spacing: 0.01em; }
     .seatTags { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
-    .seatPortrait { display: block; width: 192px; height: 192px; border-radius: 8px; }
+    .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 8px; }
 
     .centerInfo {
       display: grid;
@@ -152,7 +157,6 @@
       background: rgba(255,255,255,0.04);
       border-radius: 14px;
       padding: 10px;
-      min-height: 74px;
     }
 
     .bigLabel { font-size: 0.76rem; color: var(--muted); }
@@ -199,9 +203,10 @@
     button:disabled { opacity: 0.45; box-shadow: none; }
 
     .handWrap {
-      padding: 12px;
+      padding: 8px 12px;
       display: grid;
-      gap: 10px;
+      gap: 6px;
+      min-height: 0;
     }
 
     .handHeader {
@@ -291,11 +296,12 @@
     }
 
     .eventLog {
-      padding: 12px;
+      padding: 8px 12px;
       display: grid;
-      gap: 8px;
-      max-height: 180px;
-      overflow: auto;
+      gap: 6px;
+      max-height: 96px;
+      min-height: 0;
+      overflow-y: auto;
     }
 
     .logItem {
@@ -2599,10 +2605,7 @@
       app.innerHTML = `
         <div class="topbar">
           <div class="titleRow">
-            <div>
-              <h1>Madiao Mobile Challenge</h1>
-              <div class="subtitle">Single-file mobile prototype with chip duels, backup callers, and configurable clear payouts.</div>
-            </div>
+            <h1>Madiao Mobile Challenge</h1>
             <button class="ghost" id="restartBtn">New Match</button>
           </div>
           <div class="chipRow">
@@ -2671,10 +2674,7 @@
 
         <div class="handWrap">
           <div class="handHeader">
-            <div>
-              <div class="sectionTitle">Your hand</div>
-              <div class="tiny">Tap cards to select. Wild cards count as any declared number.</div>
-            </div>
+            <div class="sectionTitle">Your hand</div>
             <div class="tiny">Selected: ${selected.length}</div>
           </div>
           <div class="handScroll">
