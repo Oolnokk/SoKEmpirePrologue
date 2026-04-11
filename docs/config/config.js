@@ -851,6 +851,9 @@ const COSMETIC_PROFILE_SOURCES = {
 const COSMETIC_LIBRARY_SOURCES = {
   basic_headband: './config/cosmetics/basic_headband.json',
   citywatch_helmet: './config/cosmetics/citywatch_helmet.json',
+  riverlandskasa_low: './config/cosmetics/riverlandskasa_low.json',
+  riverlandskasa_tight: './config/cosmetics/riverlandskasa_tight.json',
+  riverlandskasa_wide: './config/cosmetics/riverlandskasa_wide.json',
   layered_travel_cloak: './config/cosmetics/layered_travel_cloak.json',
   simple_poncho: './config/cosmetics/simple_poncho.json',
   anuri_hood: './config/cosmetics/anuri_hood.json',
