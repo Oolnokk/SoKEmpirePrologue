@@ -43,6 +43,9 @@
     html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
     body { overscroll-behavior: none; overflow: hidden; }
 
+    /* Hide 2D hand when 3D background is active */
+    body.bg3d-active .handWrap { display: none !important; }
+
     /* ===== 3D BACKDROP ===== */
     #three-backdrop {
       position: fixed;
@@ -1657,6 +1660,8 @@
       else state.selectedCardIds.add(cardId);
       render();
     }
+    // Bridge for 3D scratchbone hand — set once, picked up by the backdrop module
+    window._sbToggleSelect = (id) => toggleSelect(id);
 
     function humanPlay() {
       if (state.betting) return;
@@ -2877,6 +2882,8 @@
       renderChallengeBox();
       refreshCinematicBettingZone();
       renderSeatPortraits();
+      // Push hand to 3D layer if active
+      window.update3DHand?.(player.hand, state.selectedCardIds);
     }
 
     function debugSnapshot() {
@@ -3348,52 +3355,44 @@
 
   </script>
 
-  <!-- ===== 3D BACKDROP SYSTEM ===== -->
+  <!-- ===== 3D BACKDROP + SCRATCHBONE HAND SYSTEM ===== -->
   <script type="module">
     import * as THREE from './docs/vendor/three/three.module.js';
-    import { OrbitControls } from './docs/vendor/three/OrbitControls.js';
-    import { GLTFLoader }    from './docs/vendor/three/GLTFLoader.module.js';
+    import { GLTFLoader } from './docs/vendor/three/GLTFLoader.module.js';
 
-    const canvas   = document.getElementById('three-backdrop');
-    const loadBtn  = document.getElementById('bg-load-btn');
-    const clearBtn = document.getElementById('bg-clear-btn');
+    const canvas    = document.getElementById('three-backdrop');
+    const loadBtn   = document.getElementById('bg-load-btn');
+    const clearBtn  = document.getElementById('bg-clear-btn');
     const fileInput = document.getElementById('bg-glb-input');
 
-    // --- Renderer ---
+    // ── Renderer ──────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0); // fully transparent — page bg shows through
+    renderer.setClearColor(0x000000, 0);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // --- Scene ---
+    // ── Scene / Camera ────────────────────────────────────────
     const scene  = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 500);
+    const camera = new THREE.PerspectiveCamera(55, 1, 0.05, 500);
     camera.position.set(0, 2, 7);
     camera.lookAt(0, 1, 0);
 
     // Lights
-    const ambient = new THREE.AmbientLight(0xffd5a0, 0.7);
-    scene.add(ambient);
+    scene.add(new THREE.AmbientLight(0xffd5a0, 0.7));
     const sun = new THREE.DirectionalLight(0xfff0e0, 1.1);
     sun.position.set(5, 10, 6);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far  = 60;
+    sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 60;
     sun.shadow.camera.left = sun.shadow.camera.bottom = -15;
-    sun.shadow.camera.right = sun.shadow.camera.top  =  15;
+    sun.shadow.camera.right = sun.shadow.camera.top   =  15;
     scene.add(sun);
     const fill = new THREE.DirectionalLight(0x8899bb, 0.3);
     fill.position.set(-4, 3, -3);
     scene.add(fill);
 
-    // Orbit (pointer-events: none on canvas so clicks go through to game UI;
-    // but we attach orbit to the document so it still works via bg-controls area)
-    // We intentionally leave OrbitControls off to keep BG static unless user drags
-    // the load button area. Keeping it simple: static camera.
-
-    // --- Resize ---
+    // ── Resize ────────────────────────────────────────────────
     function resize() {
       const w = window.innerWidth, h = window.innerHeight;
       renderer.setSize(w, h, false);
@@ -3403,86 +3402,295 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // --- GLB management ---
-    let bgModel  = null;
-    let animMixer = null;
-    const loader = new GLTFLoader();
+    // ── Background GLB ────────────────────────────────────────
+    let bgModel = null, animMixer = null;
+    const bgLoader = new GLTFLoader();
 
-    function loadGLB(file) {
+    function loadBG(file) {
       const url = URL.createObjectURL(file);
-      loader.load(url, (gltf) => {
+      bgLoader.load(url, (gltf) => {
         URL.revokeObjectURL(url);
-
-        // Remove previous
-        if (bgModel) { scene.remove(bgModel); bgModel = null; animMixer = null; }
-
+        if (bgModel) scene.remove(bgModel);
         bgModel = gltf.scene;
+        bgModel.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 
-        // Enable shadows
-        bgModel.traverse(o => {
-          if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
-        });
-
-        // Auto-fit: center + scale to fill view at camera distance
         const box  = new THREE.Box3().setFromObject(bgModel);
         const size = box.getSize(new THREE.Vector3());
         const cent = box.getCenter(new THREE.Vector3());
-
-        // Move so model center is at origin, bottom on y=0
         bgModel.position.x -= cent.x;
         bgModel.position.z -= cent.z;
         bgModel.position.y -= box.min.y;
 
-        // Scale so longest horizontal dim fits ~80% of view width
         const camDist = camera.position.distanceTo(new THREE.Vector3(0, size.y * 0.5, 0));
-        const halfFovRad = (camera.fov / 2) * Math.PI / 180;
-        const visibleWidth = 2 * camDist * Math.tan(halfFovRad) * camera.aspect;
-        const maxDim = Math.max(size.x, size.z);
-        if (maxDim > 0.001) {
-          const targetFill = visibleWidth * 0.8;
-          bgModel.scale.setScalar(targetFill / maxDim);
-        }
+        const visW = 2 * camDist * Math.tan((camera.fov / 2) * Math.PI / 180) * camera.aspect;
+        const maxH = Math.max(size.x, size.z);
+        if (maxH > 0.001) bgModel.scale.setScalar((visW * 0.8) / maxH);
 
         scene.add(bgModel);
-
-        // Animations
-        if (gltf.animations && gltf.animations.length) {
+        if (gltf.animations.length) {
           animMixer = new THREE.AnimationMixer(bgModel);
-          gltf.animations.forEach(clip => animMixer.clipAction(clip).play());
+          gltf.animations.forEach(c => animMixer.clipAction(c).play());
         }
-
         clearBtn.style.display = '';
         loadBtn.textContent = '⬡ Change BG';
-      }, undefined, (err) => {
-        console.error('[3D BG] Load error:', err);
-        URL.revokeObjectURL(url);
-      });
+        // Activate 3D hand mode
+        document.body.classList.add('bg3d-active');
+        // Re-push current hand immediately
+        window.update3DHand?.(null, null); // force rebuild if state exists
+      }, undefined, (err) => { console.error('[3D BG]', err); URL.revokeObjectURL(url); });
     }
 
     function clearBG() {
       if (bgModel) { scene.remove(bgModel); bgModel = null; animMixer = null; }
+      document.body.classList.remove('bg3d-active');
+      clearAllBones();
       clearBtn.style.display = 'none';
       loadBtn.textContent = '⬡ Load 3D BG';
     }
 
-    // --- Button wiring ---
     loadBtn.addEventListener('click', () => fileInput.click());
     clearBtn.addEventListener('click', clearBG);
     fileInput.addEventListener('change', e => {
       const f = e.target.files[0];
-      if (f) loadGLB(f);
+      if (f) loadBG(f);
       e.target.value = '';
     });
 
-    // --- Render loop ---
+    // ═══════════════════════════════════════════════════════════
+    // SCRATCHBONE HAND SYSTEM
+    // ═══════════════════════════════════════════════════════════
+
+    const boneLoader    = new GLTFLoader();
+    const boneTemplates = {}; // rank(1-10) → cloneable THREE.Group | null(=fallback)
+    let   activeBones   = []; // { cardId, group, selected }
+    const boneRaycaster = new THREE.Raycaster();
+    const _ndcMouse     = new THREE.Vector2();
+    const _normalMatrix = new THREE.Matrix3();
+
+    // ── Preload all 10 bone GLBs (silently fall back on 404) ──
+    for (let r = 1; r <= 10; r++) {
+      const rank = r;
+      boneLoader.load(
+        `docs/assets/3D/3DProps/3DScratchbone${rank}.glb`,
+        gltf  => { boneTemplates[rank] = gltf.scene; },
+        undefined,
+        ()    => { boneTemplates[rank] = null; }  // not found → fallback rect
+      );
+    }
+
+    // ── Fallback: small oblong rectangle with rank label ──────
+    function makeFallbackBone(rank, wild) {
+      const g   = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({
+        color    : wild ? 0xf1d347 : 0xf0e8d0,
+        roughness: 0.55,
+        metalness: 0.05,
+        emissive : new THREE.Color(0, 0, 0),
+      });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.34, 0.06), mat);
+      g.add(body);
+
+      // Canvas label
+      const cvs = document.createElement('canvas');
+      cvs.width = 128; cvs.height = 196;
+      const ctx = cvs.getContext('2d');
+      ctx.fillStyle = wild ? '#f8eb70' : '#f5eed8';
+      ctx.beginPath();
+      ctx.roundRect(6, 6, 116, 184, 14);
+      ctx.fill();
+      ctx.fillStyle = '#32231d';
+      ctx.font = 'bold 88px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(wild ? '★' : String(rank), 64, 98);
+      const tex   = new THREE.CanvasTexture(cvs);
+      const label = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.155, 0.29),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
+      );
+      label.position.z = 0.032;
+      g.add(label);
+
+      g.userData.sbEmissiveMats = [mat];
+      g.userData.isScratchbone  = true;
+      return g;
+    }
+
+    // ── Build one bone group for a card ───────────────────────
+    function makeBoneGroup(rank, wild) {
+      const tpl = boneTemplates[rank]; // undefined = still loading → fallback
+      let g;
+      if (tpl) {
+        g = tpl.clone(true);
+        const mats = [];
+        g.traverse(o => {
+          if (o.isMesh) {
+            (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+              if ('emissive' in m) mats.push(m);
+            });
+            o.castShadow = true;
+          }
+        });
+        g.userData.sbEmissiveMats = mats;
+      } else {
+        g = makeFallbackBone(rank, wild);
+      }
+      g.userData.isScratchbone = true;
+      return g;
+    }
+
+    // ── Set glow on a bone ────────────────────────────────────
+    function setGlow(group, r, gv, b) {
+      (group.userData.sbEmissiveMats || []).forEach(m => m.emissive.setRGB(r, gv, b));
+    }
+
+    // ── Compute the hand plane by raycasting into the scene ───
+    function getHandPlane() {
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      dir.y -= 0.5;
+      dir.normalize();
+
+      boneRaycaster.set(camera.position, dir);
+      boneRaycaster.far = 25;
+
+      const meshes = [];
+      scene.traverse(o => { if (o.isMesh && !o.userData.isScratchbone) meshes.push(o); });
+
+      const hits = boneRaycaster.intersectObjects(meshes, false);
+      if (hits.length) {
+        const h  = hits[0];
+        _normalMatrix.getNormalMatrix(h.object.matrixWorld);
+        const N  = h.face.normal.clone().applyMatrix3(_normalMatrix).normalize();
+        const wU = new THREE.Vector3(0, 1, 0);
+        // Right vector along surface
+        let R = new THREE.Vector3().crossVectors(wU, N);
+        if (R.length() < 0.01) R.crossVectors(new THREE.Vector3(1, 0, 0), N);
+        R.normalize();
+        return { pos: h.point.clone(), N, R };
+      }
+      // Fallback: fixed plane below/in-front of camera
+      const pos = camera.position.clone().addScaledVector(dir, 3.5);
+      const N   = dir.clone().negate();
+      const R   = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), dir).normalize();
+      return { pos, N, R };
+    }
+
+    // ── Orient a bone to lie on the surface plane ─────────────
+    function orientOnPlane(group, pos, N) {
+      // +Z of the bone = surface normal (label faces out)
+      // +Y of the bone = projected world-up onto surface
+      const wU  = new THREE.Vector3(0, 1, 0);
+      let   Y   = wU.clone().sub(N.clone().multiplyScalar(wU.dot(N))).normalize();
+      if    (Y.length() < 0.05) Y.set(0, 0, 1);
+      const X   = new THREE.Vector3().crossVectors(Y, N).normalize();
+      const mat = new THREE.Matrix4().makeBasis(X, Y, N);
+      group.setRotationFromMatrix(mat);
+    }
+
+    // ── Remove all active bones from scene ────────────────────
+    function clearAllBones() {
+      activeBones.forEach(b => scene.remove(b.group));
+      activeBones = [];
+    }
+
+    // ── Main entry: called from game's render() ───────────────
+    window.update3DHand = function(hand, selectedIds) {
+      // Only active when a BG is loaded
+      if (!document.body.classList.contains('bg3d-active')) return;
+
+      clearAllBones();
+      if (!hand || !hand.length) return;
+
+      const plane   = getHandPlane();
+      const spacing = 0.28;
+      const halfW   = ((hand.length - 1) * spacing) / 2;
+
+      hand.forEach((card, i) => {
+        const group    = makeBoneGroup(card.rank, card.wild);
+        const offset   = i * spacing - halfW;
+        const pos      = plane.pos.clone().addScaledVector(plane.R, offset)
+                                          .addScaledVector(plane.N, 0.04);
+        group.position.copy(pos);
+        orientOnPlane(group, pos, plane.N);
+
+        const isSel = selectedIds instanceof Set
+          ? selectedIds.has(card.id)
+          : (selectedIds || []).includes(card.id);
+
+        if (isSel) {
+          group.position.addScaledVector(plane.N, 0.12); // lift selected bones
+          setGlow(group, 0.5, 0.35, 0.0);               // golden glow
+        }
+
+        scene.add(group);
+        activeBones.push({ cardId: card.id, group, selected: isSel });
+      });
+    };
+
+    // ── Pick which bone is under the cursor ───────────────────
+    function pickBone(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      _ndcMouse.set(
+        ((clientX - rect.left) / rect.width)  *  2 - 1,
+        ((clientY - rect.top)  / rect.height) * -2 + 1
+      );
+      boneRaycaster.setFromCamera(_ndcMouse, camera);
+
+      const boneMeshes = [];
+      activeBones.forEach(b => b.group.traverse(o => { if (o.isMesh) boneMeshes.push(o); }));
+      const hits = boneRaycaster.intersectObjects(boneMeshes, false);
+      if (!hits.length) return null;
+
+      // Walk up from hit mesh to find the root scratchbone group
+      let node = hits[0].object;
+      while (node) {
+        if (node.userData.isScratchbone) {
+          return activeBones.find(b => b.group === node) || null;
+        }
+        node = node.parent;
+      }
+      return null;
+    }
+
+    // ── Hover: glow on mousemove (document, no stopProp needed) ─
+    document.addEventListener('mousemove', e => {
+      if (!activeBones.length) return;
+      const hit = pickBone(e.clientX, e.clientY);
+      activeBones.forEach(b => {
+        if (hit && b.cardId === hit.cardId) {
+          setGlow(b.group, 0.65, 0.65, 0.55);    // bright hover
+          document.body.style.cursor = 'pointer';
+        } else if (b.selected) {
+          setGlow(b.group, 0.5, 0.35, 0.0);       // golden selected
+        } else {
+          setGlow(b.group, 0, 0, 0);
+        }
+      });
+      if (!hit && document.body.style.cursor === 'pointer') {
+        document.body.style.cursor = '';
+      }
+    });
+
+    // ── Click: select/deselect bone (capture phase to intercept before UI) ─
+    document.addEventListener('click', e => {
+      if (!activeBones.length) return;
+      const hit = pickBone(e.clientX, e.clientY);
+      if (hit) {
+        e.stopPropagation();
+        e.preventDefault();
+        window._sbToggleSelect?.(hit.cardId);
+      }
+    }, true);
+
+    // ── Render loop ───────────────────────────────────────────
     const clock = new THREE.Clock();
-    function animate() {
+    (function animate() {
       requestAnimationFrame(animate);
       const dt = clock.getDelta();
       if (animMixer) animMixer.update(dt);
       renderer.render(scene, camera);
-    }
-    animate();
+    })();
   </script>
 
 </body>
