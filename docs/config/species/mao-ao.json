@@ -12,12 +12,14 @@
       "appearance::Mao-ao_M::mao-ao_circled_eye_L",
       "appearance::Mao-ao_M::mao-ao_smooth_striped",
       "appearance::Mao-ao_M::mao-ao_tuft",
-      "appearance::Mao-ao_M::mao-ao_long_ponytail",
-      "appearance::Mao-ao_M::mao-ao_wildbeard"
+      "appearance::Mao-ao_M::mao-ao_wildbeard",
+      "appearance::hat::basic_headband",
+      "appearance::hat::riverlandskasa_low",
+      "appearance::hat::riverlandskasa_wide"
     ],
     "bodyColorRanges": {
       "A": {
-        "minH": -115,
+        "minH": -100,
         "maxH": 90,
         "stops": [
           { "h": -115, "sMin": -0.50, "sMax":  0.95, "vMin": -0.35, "vMax":  0.55 },
@@ -28,7 +30,7 @@
         ]
       },
       "B": {
-        "minH": -115,
+        "minH": -100,
         "maxH": 90,
         "stops": [
           { "h": -115, "sMin": -0.10, "sMax":  1.00, "vMin": -0.70, "vMax":  0.10 },
@@ -39,7 +41,7 @@
         ]
       },
       "C": {
-        "minH": -115,
+        "minH": -100,
         "maxH": 90,
         "stops": [
           { "h": -115, "sMin": -0.60, "sMax":  0.70, "vMin": -0.20, "vMax":  0.60 },
@@ -59,11 +61,14 @@
     "allowedCosmetics": [
       "appearance::Mao-ao_F::mao-ao_circled_eyes_f",
       "appearance::Mao-ao_F::mao-ao_shoulder_length_drape",
-      "appearance::Mao-ao_F::mao-ao_long_ponytail"
+      "appearance::Mao-ao_F::mao-ao_long_ponytail",
+      "appearance::hat::basic_headband",
+      "appearance::hat::riverlandskasa_low",
+      "appearance::hat::riverlandskasa_wide"
     ],
     "bodyColorRanges": {
       "A": {
-        "minH": -115,
+        "minH": -100,
         "maxH": 90,
         "stops": [
           { "h": -115, "sMin": -0.50, "sMax":  0.95, "vMin": -0.35, "vMax":  0.55 },
@@ -74,7 +79,7 @@
         ]
       },
       "B": {
-        "minH": -115,
+        "minH": -100,
         "maxH": 90,
         "stops": [
           { "h": -115, "sMin": -0.10, "sMax":  1.00, "vMin": -0.70, "vMax":  0.10 },
@@ -85,7 +90,7 @@
         ]
       },
       "C": {
-        "minH": -115,
+        "minH": -100,
         "maxH": 90,
         "stops": [
           { "h": -115, "sMin": -0.60, "sMax":  0.70, "vMin": -0.20, "vMax":  0.60 },

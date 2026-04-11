@@ -41,9 +41,9 @@ const FIGHTERS = [
 // ── Body color limits ──────────────────────────────────────
 
 const BODYCOLOR_LIMITS = {
-  A: { hMin: -130, hMax:  -30, sMin: 0.05, sMax: 0.75, vMin: -0.50, vMax: 0.20 },
-  B: { hMin: -180, hMax:  180, sMin: -1.00, sMax: 1.00, vMin: -1.00, vMax: 1.00 },
-  C: { hMin: -180, hMax:  180, sMin: -1.00, sMax: 1.00, vMin: -1.00, vMax: 1.00 },
+  A: { hMin: -100, hMax:  -30, sMin: 0.05, sMax: 0.75, vMin: -0.50, vMax: 0.20 },
+  B: { hMin: -100, hMax:  -30, sMin: -0.20, sMax: 0.90, vMin: -0.85, vMax: 0.10 },
+  C: { hMin: -100, hMax:  -30, sMin: -0.65, sMax: 0.65, vMin: -0.25, vMax: 0.55 },
 };
 
 // ── Image loading ──────────────────────────────────────────
@@ -122,14 +122,17 @@ function drawPortraitLayer(ctx, img, xform, cssFilter) {
 // ── Rendering ──────────────────────────────────────────────
 
 async function renderProfile(canvas, profile) {
-  const { fighter, hair, eyes, facialHair, bodyColors } = profile;
+  const { fighter, hair, hairFront, hairBack, hairSide, eyes, facialHair, hat, bodyColors } = profile;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
 
   const filterFor = (slot) => slot ? makeCSSFilter(bodyColors[slot]) : 'none';
   const filterA   = makeCSSFilter(bodyColors.A);
 
-  const allCosmeticGroups = [hair, eyes, facialHair];
+  // Support both three-slot (hairBack/hairSide/hairFront) and legacy single-slot (hair).
+  const allCosmeticGroups = hairFront !== undefined
+    ? [hairBack, hairSide, eyes, facialHair, hairFront, hat]
+    : [hair, eyes, facialHair, hat];
   const backLayers  = [];
   const frontLayers = [];
 
@@ -239,7 +242,10 @@ function portraitOptionFromJson(entry, json) {
     }
   }
 
-  return { id: shortId, label, tintSlot, layers };
+  const colorRange = (json.slot === 'hat' && json.colorRange) ? json.colorRange : null;
+  const resolvedTintSlot = colorRange ? 'HAT' : tintSlot;
+  const hairSlot = json.hairSlot || null; // 'front' | 'back' | 'side'
+  return { id: shortId, label, tintSlot: resolvedTintSlot, layers, slot: json.slot || null, colorRange, hairSlot };
 }
 
 /**
@@ -294,9 +300,12 @@ async function loadPortraitCosmetics(configBase) {
   }));
 
   // Build categorised option arrays (unfiltered — callers may apply species filtering)
-  const hairOptions       = [{ id: 'none', label: 'No Hair',        tintSlot: null, layers: [] }];
+  const hairFrontOptions  = [{ id: 'none', label: 'No Front Hair',  tintSlot: null, layers: [] }];
+  const hairBackOptions   = [{ id: 'none', label: 'No Back Hair',   tintSlot: null, layers: [] }];
+  const hairSideOptions   = [{ id: 'none', label: 'No Side Hair',   tintSlot: null, layers: [] }];
   const eyesOptions       = [{ id: 'none', label: 'No Eye Mark',    tintSlot: null, layers: [] }];
   const facialHairOptions = [{ id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] }];
+  const hatOptions        = [{ id: 'none', label: 'No Hat',         tintSlot: null, layers: [] }];
   const seenIds = new Set();
 
   for (const entry of indexEntries) {
@@ -304,10 +313,17 @@ async function loadPortraitCosmetics(configBase) {
     if (!opt || !opt.layers.length) continue;
     if (seenIds.has(opt.id)) continue;
     seenIds.add(opt.id);
-    const cat = portraitCategoryForEntry(entry);
-    if (cat === 'eyes')            eyesOptions.push(opt);
+    const cat = opt.slot === 'hat'       ? 'hat'
+              : opt.hairSlot === 'front' ? 'hairFront'
+              : opt.hairSlot === 'back'  ? 'hairBack'
+              : opt.hairSlot === 'side'  ? 'hairSide'
+              : portraitCategoryForEntry(entry);
+    if      (cat === 'hat')        hatOptions.push(opt);
+    else if (cat === 'hairFront')  hairFrontOptions.push(opt);
+    else if (cat === 'hairBack')   hairBackOptions.push(opt);
+    else if (cat === 'hairSide')   hairSideOptions.push(opt);
+    else if (cat === 'eyes')       eyesOptions.push(opt);
     else if (cat === 'facialhair') facialHairOptions.push(opt);
-    else                           hairOptions.push(opt);
   }
 
   // Load species body color ranges and allowed cosmetics, keyed by fighter ID
@@ -341,7 +357,7 @@ async function loadPortraitCosmetics(configBase) {
     console.warn('[portrait] Could not load species data', e);
   }
 
-  return { hairOptions, eyesOptions, facialHairOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter };
+  return { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter };
 }
 
 // ── Seeded randomisation ───────────────────────────────────
@@ -387,19 +403,28 @@ function randomBodyColorsSeeded(rng, bodyColorRanges) {
  * Generate a fully deterministic random profile using a provided rng() function.
  * All option arrays must be supplied by the caller.
  */
-function randomProfileSeeded(rng, fighters, hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter) {
-  const pickRng = (arr) => arr[Math.floor(rng() * arr.length)];
-  const fighter = pickRng(fighters);
+function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions) {
+  const pickRng  = (arr) => arr[Math.floor(rng() * arr.length)];
+  const filterArr = (arr) => arr && allowed ? arr.filter(o => o.id === 'none' || allowed.has(o.id)) : arr;
+  const fighter  = pickRng(fighters);
+  const allowed  = allowedCosmeticsByFighter?.[fighter.id];
 
-  const allowed = allowedCosmeticsByFighter?.[fighter.id];
-  const filteredHair       = allowed ? hairOptions.filter(o => o.id === 'none' || allowed.has(o.id))       : hairOptions;
-  const filteredEyes       = allowed ? eyesOptions.filter(o => o.id === 'none' || allowed.has(o.id))       : eyesOptions;
-  const filteredFacialHair = allowed ? facialHairOptions.filter(o => o.id === 'none' || allowed.has(o.id)) : facialHairOptions;
+  const filteredHairFront  = filterArr(hairFrontOptions)  ?? [];
+  const filteredHairBack   = filterArr(hairBackOptions)   ?? [];
+  const filteredHairSide   = filterArr(hairSideOptions)   ?? [];
+  const filteredEyes       = filterArr(eyesOptions)       ?? [];
+  const filteredFacialHair = filterArr(facialHairOptions) ?? [];
+  const filteredHat        = filterArr(hatOptions) ?? [{ id: 'none', label: 'No Hat', tintSlot: null, layers: [] }];
 
-  const hair       = pickRng(filteredHair);
-  const eyes       = pickRng(filteredEyes);
-  const noFacialHair = filteredFacialHair.find(o => o.id === 'none') ?? filteredFacialHair[0];
-  const facialHair = rng() < 0.35 ? pickRng(filteredFacialHair) : noFacialHair;
+  const hairFront  = pickRng(filteredHairFront.length  ? filteredHairFront  : [{ id: 'none', label: 'No Front Hair', tintSlot: null, layers: [] }]);
+  const hairBack   = pickRng(filteredHairBack.length   ? filteredHairBack   : [{ id: 'none', label: 'No Back Hair',  tintSlot: null, layers: [] }]);
+  const hairSide   = pickRng(filteredHairSide.length   ? filteredHairSide   : [{ id: 'none', label: 'No Side Hair',  tintSlot: null, layers: [] }]);
+  const eyes       = pickRng(filteredEyes.length       ? filteredEyes       : [{ id: 'none', label: 'No Eye Mark',   tintSlot: null, layers: [] }]);
+  const noFacialHair = filteredFacialHair.find(o => o.id === 'none') ?? filteredFacialHair[0] ?? { id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] };
+  const facialHair = rng() < 0.35 ? pickRng(filteredFacialHair.length ? filteredFacialHair : [noFacialHair]) : noFacialHair;
+  const noHat      = filteredHat.find(o => o.id === 'none') ?? filteredHat[0];
+  const hat        = rng() < 0.5 ? pickRng(filteredHat) : noHat;
   const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id]);
-  return { fighter, hair, eyes, facialHair, bodyColors };
+  if (hat && hat.colorRange) bodyColors.HAT = randomColorFromRangeSeeded(hat.colorRange, rng);
+  return { fighter, hairFront, hairBack, hairSide, eyes, facialHair, hat, bodyColors };
 }
