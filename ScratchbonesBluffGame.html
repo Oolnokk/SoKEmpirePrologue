@@ -40,12 +40,59 @@
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { margin: 0; background: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%); color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
+    html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
     body { overscroll-behavior: none; overflow: hidden; }
+
+    /* ===== 3D BACKDROP ===== */
+    #three-backdrop {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    #bg-controls {
+      position: fixed;
+      bottom: calc(12px + var(--safe, 0px));
+      left: 12px;
+      z-index: 30;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    #bg-load-btn {
+      font-size: 0.72rem;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: rgba(46,34,30,0.88);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--muted);
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+    }
+    #bg-load-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    #bg-clear-btn {
+      font-size: 0.72rem;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: rgba(46,34,30,0.88);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--muted);
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      display: none;
+    }
+    #bg-clear-btn:hover { border-color: var(--danger); color: var(--danger); }
 
     button, select, input { font: inherit; }
 
     #app {
+      position: relative;
+      z-index: 1;
       height: 100dvh;
       overflow: hidden;
       display: grid;
@@ -973,6 +1020,16 @@
   </style>
 </head>
 <body>
+  <!-- 3D backdrop canvas — rendered below all UI -->
+  <canvas id="three-backdrop"></canvas>
+
+  <!-- BG import controls -->
+  <div id="bg-controls">
+    <button id="bg-load-btn">⬡ Load 3D BG</button>
+    <button id="bg-clear-btn">✕ Clear BG</button>
+  </div>
+  <input type="file" id="bg-glb-input" accept=".glb,.gltf" style="display:none">
+
   <div id="app"></div>
   <div id="challengeBox">
     <div class="challengeBoxInner">
@@ -3290,5 +3347,143 @@
     startGame();
 
   </script>
+
+  <!-- ===== 3D BACKDROP SYSTEM ===== -->
+  <script type="module">
+    import * as THREE from './docs/vendor/three/three.module.js';
+    import { OrbitControls } from './docs/vendor/three/OrbitControls.js';
+    import { GLTFLoader }    from './docs/vendor/three/GLTFLoader.module.js';
+
+    const canvas   = document.getElementById('three-backdrop');
+    const loadBtn  = document.getElementById('bg-load-btn');
+    const clearBtn = document.getElementById('bg-clear-btn');
+    const fileInput = document.getElementById('bg-glb-input');
+
+    // --- Renderer ---
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0); // fully transparent — page bg shows through
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // --- Scene ---
+    const scene  = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 500);
+    camera.position.set(0, 2, 7);
+    camera.lookAt(0, 1, 0);
+
+    // Lights
+    const ambient = new THREE.AmbientLight(0xffd5a0, 0.7);
+    scene.add(ambient);
+    const sun = new THREE.DirectionalLight(0xfff0e0, 1.1);
+    sun.position.set(5, 10, 6);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far  = 60;
+    sun.shadow.camera.left = sun.shadow.camera.bottom = -15;
+    sun.shadow.camera.right = sun.shadow.camera.top  =  15;
+    scene.add(sun);
+    const fill = new THREE.DirectionalLight(0x8899bb, 0.3);
+    fill.position.set(-4, 3, -3);
+    scene.add(fill);
+
+    // Orbit (pointer-events: none on canvas so clicks go through to game UI;
+    // but we attach orbit to the document so it still works via bg-controls area)
+    // We intentionally leave OrbitControls off to keep BG static unless user drags
+    // the load button area. Keeping it simple: static camera.
+
+    // --- Resize ---
+    function resize() {
+      const w = window.innerWidth, h = window.innerHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- GLB management ---
+    let bgModel  = null;
+    let animMixer = null;
+    const loader = new GLTFLoader();
+
+    function loadGLB(file) {
+      const url = URL.createObjectURL(file);
+      loader.load(url, (gltf) => {
+        URL.revokeObjectURL(url);
+
+        // Remove previous
+        if (bgModel) { scene.remove(bgModel); bgModel = null; animMixer = null; }
+
+        bgModel = gltf.scene;
+
+        // Enable shadows
+        bgModel.traverse(o => {
+          if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+        });
+
+        // Auto-fit: center + scale to fill view at camera distance
+        const box  = new THREE.Box3().setFromObject(bgModel);
+        const size = box.getSize(new THREE.Vector3());
+        const cent = box.getCenter(new THREE.Vector3());
+
+        // Move so model center is at origin, bottom on y=0
+        bgModel.position.x -= cent.x;
+        bgModel.position.z -= cent.z;
+        bgModel.position.y -= box.min.y;
+
+        // Scale so longest horizontal dim fits ~80% of view width
+        const camDist = camera.position.distanceTo(new THREE.Vector3(0, size.y * 0.5, 0));
+        const halfFovRad = (camera.fov / 2) * Math.PI / 180;
+        const visibleWidth = 2 * camDist * Math.tan(halfFovRad) * camera.aspect;
+        const maxDim = Math.max(size.x, size.z);
+        if (maxDim > 0.001) {
+          const targetFill = visibleWidth * 0.8;
+          bgModel.scale.setScalar(targetFill / maxDim);
+        }
+
+        scene.add(bgModel);
+
+        // Animations
+        if (gltf.animations && gltf.animations.length) {
+          animMixer = new THREE.AnimationMixer(bgModel);
+          gltf.animations.forEach(clip => animMixer.clipAction(clip).play());
+        }
+
+        clearBtn.style.display = '';
+        loadBtn.textContent = '⬡ Change BG';
+      }, undefined, (err) => {
+        console.error('[3D BG] Load error:', err);
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    function clearBG() {
+      if (bgModel) { scene.remove(bgModel); bgModel = null; animMixer = null; }
+      clearBtn.style.display = 'none';
+      loadBtn.textContent = '⬡ Load 3D BG';
+    }
+
+    // --- Button wiring ---
+    loadBtn.addEventListener('click', () => fileInput.click());
+    clearBtn.addEventListener('click', clearBG);
+    fileInput.addEventListener('change', e => {
+      const f = e.target.files[0];
+      if (f) loadGLB(f);
+      e.target.value = '';
+    });
+
+    // --- Render loop ---
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      if (animMixer) animMixer.update(dt);
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+
 </body>
 </html>
