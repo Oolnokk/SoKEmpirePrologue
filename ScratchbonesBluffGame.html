@@ -6,6 +6,20 @@
   <title>Madiao Mobile Challenge</title>
   <script src="docs/js/portrait-utils.js"></script>
   <style>
+    @font-face {
+      font-family: 'Khymeryyanroman4';
+      src: url('./docs/assets/hud/Khymeryyanroman4.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+      size-adjust: 150%;
+    }
+    @font-face {
+      font-family: 'TankanScript';
+      src: url('./docs/assets/hud/tankanscript_rotated_flipped_horiz.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+    }
+
     :root {
       --bg: #15110f;
       --bg2: #221917;
@@ -26,17 +40,25 @@
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { margin: 0; background: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%); color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; height: 100%; }
-    body { overscroll-behavior: none; }
+    html, body { margin: 0; background: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%); color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
+    body { overscroll-behavior: none; overflow: hidden; }
 
     button, select, input { font: inherit; }
 
     #app {
-      min-height: 100dvh;
+      height: 100dvh;
+      overflow: hidden;
       display: grid;
-      grid-template-rows: auto auto 1fr auto auto;
-      gap: 10px;
-      padding: 12px 12px calc(12px + var(--safe));
+      grid-template-columns: minmax(0, 1fr) 280px;
+      grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+      grid-template-areas:
+        "topbar   sidebar"
+        "panel    sidebar"
+        "hand     sidebar"
+        "log      sidebar"
+        "controls sidebar";
+      gap: 8px;
+      padding: 8px 8px calc(8px + var(--safe));
     }
 
     .topbar, .panel, .controls, .handWrap, .eventLog {
@@ -47,9 +69,10 @@
     }
 
     .topbar {
-      padding: 12px;
+      grid-area: topbar;
+      padding: 8px 12px;
       display: grid;
-      gap: 10px;
+      gap: 6px;
     }
 
     .titleRow {
@@ -88,9 +111,12 @@
     }
 
     .panel {
-      padding: 12px;
+      grid-area: panel;
+      padding: 10px 12px;
       display: grid;
-      gap: 10px;
+      gap: 8px;
+      min-height: 0;
+      overflow-y: auto;
     }
 
     .sectionTitle {
@@ -99,13 +125,40 @@
       color: var(--accent-2);
     }
 
+    #aiSidebar {
+      grid-area: sidebar;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
     .aiSeat {
       background: var(--panel-soft);
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 14px;
       padding: 10px;
       min-width: 0;
-      flex: 1 1 calc(33.333% - 8px);
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .seatInfo {
+      flex: 2;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .seatAvatarBox {
+      width: 96px;
+      height: 96px;
+      flex-shrink: 0;
+      overflow: hidden;
+      border-radius: 8px;
     }
 
     .seatName { font-weight: 700; font-size: 0.92rem; }
@@ -114,7 +167,7 @@
     .seatSeed { font-size: 0.68rem; color: var(--accent); font-style: italic; margin-top: 3px; letter-spacing: 0.01em; }
     .seatTags { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
-    .seatPortrait { display: block; width: 64px; height: 64px; border-radius: 8px; margin-bottom: 6px; }
+    .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 8px; }
 
     .centerInfo {
       display: grid;
@@ -126,7 +179,6 @@
       background: rgba(255,255,255,0.04);
       border-radius: 14px;
       padding: 10px;
-      min-height: 74px;
     }
 
     .bigLabel { font-size: 0.76rem; color: var(--muted); }
@@ -134,11 +186,10 @@
     .smallText { font-size: 0.85rem; color: var(--muted); }
 
     .controls {
+      grid-area: controls;
       padding: 12px;
       display: grid;
       gap: 10px;
-      position: sticky;
-      bottom: 0;
       z-index: 4;
       background: linear-gradient(180deg, rgba(46,34,30,0.96), rgba(37,28,25,0.98));
       backdrop-filter: blur(8px);
@@ -173,9 +224,11 @@
     button:disabled { opacity: 0.45; box-shadow: none; }
 
     .handWrap {
-      padding: 12px;
+      grid-area: hand;
+      padding: 8px 12px;
       display: grid;
-      gap: 10px;
+      gap: 6px;
+      min-height: 0;
     }
 
     .handHeader {
@@ -265,11 +318,13 @@
     }
 
     .eventLog {
-      padding: 12px;
+      grid-area: log;
+      padding: 8px 12px;
       display: grid;
-      gap: 8px;
-      max-height: 180px;
-      overflow: auto;
+      gap: 6px;
+      max-height: 96px;
+      min-height: 0;
+      overflow-y: auto;
     }
 
     .logItem {
@@ -497,6 +552,8 @@
       flex-direction: column;
       align-items: center;
       gap: 5px;
+      position: relative;
+      overflow: visible;
     }
     .cin-player.challenger {
       animation: cinSlideL 0.45s cubic-bezier(0.34,1.4,0.64,1) 0.1s both;
@@ -515,8 +572,8 @@
       color: var(--muted);
     }
     .cin-avatar {
-      width: 66px;
-      height: 66px;
+      width: 132px;
+      height: 132px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -529,6 +586,9 @@
       position: relative;
       overflow: hidden;
       isolation: isolate;
+    }
+    .cin-player.challenged .cin-avatar {
+      transform: scaleX(-1);
     }
     .cin-avatar canvas {
       width: 100%;
@@ -710,6 +770,70 @@
       color: var(--muted);
       font-style: italic;
       text-align: center;
+    }
+
+    /* ── Bet-action burst (Call! / Raise! / Fold!) over avatar ── */
+    .cin-action-burst {
+      position: absolute;
+      top: 42%;
+      left: 50%;
+      z-index: 20;
+      pointer-events: none;
+      font-size: 2rem;
+      font-weight: 900;
+      white-space: nowrap;
+      letter-spacing: 0.04em;
+      animation: cinBurst 2.1s both;
+    }
+    .cin-action-burst.burst-call  { color: #88ccff; text-shadow: 0 0 14px rgba(100,180,255,0.9), 0 0 32px rgba(60,140,255,0.5); }
+    .cin-action-burst.burst-raise { color: #f2d08f; text-shadow: 0 0 14px rgba(242,160,40,0.95), 0 0 32px rgba(200,110,10,0.6); }
+    .cin-action-burst.burst-fold  { color: #ff9090; text-shadow: 0 0 14px rgba(255,70,70,0.95),  0 0 32px rgba(200,30,30,0.6); }
+    @keyframes cinBurst {
+      0%   { transform: translate(-50%, -50%) scale(0.3);  opacity: 1;
+             animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+      19%  { transform: translate(-50%, -50%) scale(1.5);  opacity: 1;
+             animation-timing-function: linear; }
+      67%  { transform: translate(-50%, -50%) scale(1.5);  opacity: 1;
+             animation-timing-function: ease-in; }
+      100% { transform: translate(-50%, -105%) scale(2.28); opacity: 0; }
+    }
+
+    /* ── Tankanscript vertical side columns ── */
+    .cin-tankan {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: 'TankanScript', serif;
+      font-size: 7.5rem;
+      line-height: 1;
+      writing-mode: vertical-rl;
+      pointer-events: none;
+      z-index: 1;
+      letter-spacing: 0.12em;
+      color: rgba(255, 130, 40, 0.55);
+      text-shadow:
+        0 0 8px  rgba(255, 50, 0, 0.9),
+        0 0 22px rgba(200, 20, 0, 0.55),
+        0 0 50px rgba(140, 10, 0, 0.4);
+      opacity: 0;
+      animation: cinTankanIn 0.65s ease-out 0.05s forwards, tankanFlicker 2.4s ease-in-out 0.8s infinite;
+    }
+    .cin-tankan.left  { left:  max(8px, calc(50% - 350px)); }
+    .cin-tankan.right { right: max(8px, calc(50% - 350px)); transform: translateY(-50%) scaleX(-1); }
+    @keyframes cinTankanIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes tankanFlicker {
+      0%, 100% {
+        filter: brightness(1);
+        text-shadow: 0 0 8px rgba(255,50,0,0.9), 0 0 22px rgba(200,20,0,0.55), 0 0 50px rgba(140,10,0,0.4);
+      }
+      38% {
+        filter: brightness(1.45);
+        text-shadow: 0 0 14px rgba(255,90,0,1), 0 0 34px rgba(220,40,0,0.75), 0 0 70px rgba(170,15,0,0.55);
+      }
+      65% { filter: brightness(0.8); }
     }
 
     .cin-continue {
@@ -1142,11 +1266,12 @@
 
     function generateAiIdentity(index) {
       const identitySeed = `madiao-ai-${state.seed}-${index}`;
-      const gender = 'male';
+      const gender = (hashStringToSeed(identitySeed) & 1) === 0 ? 'male' : 'female';
       const name = generateMaoAoNameFromSeed(identitySeed, gender);
       return {
         name,
         seed: name,
+        gender,
         personality: derivePersonality(name),
       };
     }
@@ -1346,6 +1471,7 @@
           lastAction: 'Ready',
           clears: 0,
           seed: aiIdentity.seed,
+          gender: aiIdentity.gender,
           personality: aiIdentity.personality,
           reads: {},
         };
@@ -1871,6 +1997,9 @@
         render();
         return;
       }
+
+      // Show cinematic burst + tankan for call/raise/fold
+      _announceCinematicBetAction(playerId, command);
 
       if (command === 'checkcall') {
         const paid = recordContribution(playerId, toCall);
@@ -2568,10 +2697,7 @@
       app.innerHTML = `
         <div class="topbar">
           <div class="titleRow">
-            <div>
-              <h1>Madiao Mobile Challenge</h1>
-              <div class="subtitle">Single-file mobile prototype with chip duels, backup callers, and configurable clear payouts.</div>
-            </div>
+            <h1>Madiao Mobile Challenge</h1>
             <button class="ghost" id="restartBtn">New Match</button>
           </div>
           <div class="chipRow">
@@ -2582,20 +2708,25 @@
           </div>
         </div>
 
-        <div class="panel">
-          <div class="sectionTitle">Table</div>
-          <div class="aiRow">
-            ${state.players.slice(1).map(p => `
-              <div class="aiSeat ${p.eliminated ? 'eliminated' : ''}">
-                <canvas class="seatPortrait" data-seat-id="${p.id}" width="200" height="200"></canvas>
+        <div id="aiSidebar">
+          <div class="sectionTitle" style="padding:6px 10px 2px;color:var(--accent-2);">Table</div>
+          ${state.players.slice(1).map(p => `
+            <div class="aiSeat ${p.eliminated ? 'eliminated' : ''}">
+              <div class="seatInfo">
                 <div class="seatName">${seatLabel(p)}</div>
                 <div class="seatMeta">Cards ${p.hand.length} · Chips ${p.chips} · Clears ${p.clears}</div>
                 ${p.seed ? `<div class="seatSeed">${p.seed}</div>` : ''}
                 ${p.personality ? `<div class="seatTags">${personalityTags(p.personality)}</div>` : ''}
                 <div class="seatStatus">${p.lastAction}</div>
               </div>
-            `).join('')}
-          </div>
+              <div class="seatAvatarBox">
+                <canvas class="seatPortrait" data-seat-id="${p.id}" width="200" height="200"></canvas>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="panel">
           <div class="centerInfo">
             <div class="bigInfo">
               <div class="bigLabel">Current claim</div>
@@ -2636,10 +2767,7 @@
 
         <div class="handWrap">
           <div class="handHeader">
-            <div>
-              <div class="sectionTitle">Your hand</div>
-              <div class="tiny">Tap cards to select. Wild cards count as any declared number.</div>
-            </div>
+            <div class="sectionTitle">Your hand</div>
             <div class="tiny">Selected: ${selected.length}</div>
           </div>
           <div class="handScroll">
@@ -2691,6 +2819,7 @@
       });
       renderChallengeBox();
       refreshCinematicBettingZone();
+      renderSeatPortraits();
     }
 
     function debugSnapshot() {
@@ -2764,10 +2893,13 @@
 
     function generatePlayerProfile(player) {
       if (!_portraitCosmetics) return null;
-      const { hairOptions, eyesOptions, facialHairOptions } = _portraitCosmetics;
+      const { hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter } = _portraitCosmetics;
       const seedStr = player.seed || `player-${player.id}`;
       const rng = mulberry32(hashStringToSeed(seedStr));
-      return randomProfileSeeded(rng, FIGHTERS, hairOptions, eyesOptions, facialHairOptions);
+      const fighterPool = player.gender === 'male'   ? FIGHTERS.filter(f => f.id === 'M')
+                        : player.gender === 'female' ? FIGHTERS.filter(f => f.id === 'F')
+                        : FIGHTERS;
+      return randomProfileSeeded(rng, fighterPool.length ? fighterPool : FIGHTERS, hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter);
     }
 
     function renderSeatPortraits() {
@@ -2869,6 +3001,37 @@
       }
     }
 
+    // ── Cinematic bet-action announcement (burst + tankan columns) ──
+    function _announceCinematicBetAction(playerId, command) {
+      const cin = document.getElementById('challengeCinematic');
+      if (!cin || !cin.classList.contains('cin-active')) return;
+
+      // Burst word above the avatar
+      const playerEl = cin.querySelector(`.cin-player[data-player-id="${playerId}"]`);
+      if (playerEl) {
+        playerEl.querySelectorAll('.cin-action-burst').forEach(el => el.remove());
+        const label = command === 'checkcall' ? 'Call!' : command === 'raise' ? 'Raise!' : 'Fold!';
+        const cls   = command === 'checkcall' ? 'burst-call' : command === 'raise' ? 'burst-raise' : 'burst-fold';
+        const burst = document.createElement('div');
+        burst.className = `cin-action-burst ${cls}`;
+        burst.textContent = label;
+        playerEl.appendChild(burst);
+        burst.addEventListener('animationend', () => burst.remove());
+      }
+
+      // Tankanscript vertical side columns — persist until next action or cinematic close
+      const tankanText = TANKAN_STRINGS[command] || '';
+      if (tankanText) {
+        cin.querySelectorAll('.cin-tankan').forEach(el => el.remove());
+        for (const side of ['left', 'right']) {
+          const el = document.createElement('div');
+          el.className = `cin-tankan ${side}`;
+          el.textContent = tankanText;
+          cin.appendChild(el);
+        }
+      }
+    }
+
     // ── Chip sprite helpers ──
     function _chipSvg(fill, size) {
       size = size || 20;
@@ -2925,6 +3088,13 @@
     const CHIP_GOOD   = '#4fa06e';
     const CHIP_DANGER = '#b04444';
 
+    // Tankanscript labels for bet actions — swap strings for conlang equivalents
+    const TANKAN_STRINGS = {
+      checkcall: 'Call',
+      raise:     'Raise',
+      fold:      'Fold',
+    };
+
     // Deterministic hue from a string (for avatar colors)
     function _avatarHue(name) {
       let h = 0;
@@ -2946,7 +3116,7 @@
         ? `<canvas data-cin-player-id="${player.id}" width="200" height="200" aria-label="${escapeHtml(player.name || 'Player')} portrait"></canvas>`
         : `<span class="cin-avatar-fallback">${initial}</span>`;
       return `
-        <div class="cin-player ${role}">
+        <div class="cin-player ${role}" data-player-id="${player.id}">
           <div class="cin-role">${roleLabel}</div>
           <div class="cin-avatar avatar-glow" style="background:${color};">${portraitMarkup}</div>
           <div class="cin-name">${player.isHuman ? 'You' : player.name}</div>

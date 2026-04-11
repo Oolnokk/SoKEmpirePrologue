@@ -310,7 +310,38 @@ async function loadPortraitCosmetics(configBase) {
     else                           hairOptions.push(opt);
   }
 
-  return { hairOptions, eyesOptions, facialHairOptions, indexEntries, optionCache };
+  // Load species body color ranges and allowed cosmetics, keyed by fighter ID
+  const bodyColorRangesByGender = {};
+  const allowedCosmeticsByFighter = {};
+  try {
+    const speciesIdxUrl = new URL(configBase + 'species/index.json', window.location.href).toString();
+    const speciesIdxResp = await fetch(speciesIdxUrl);
+    if (speciesIdxResp.ok) {
+      const speciesIdx = await speciesIdxResp.json();
+      await Promise.all((speciesIdx.entries || []).map(async entry => {
+        const sUrl = new URL(entry.path, speciesIdxUrl).toString();
+        const sResp = await fetch(sUrl);
+        if (!sResp.ok) return;
+        const sData = await sResp.json();
+        for (const genderData of Object.values(sData)) {
+          if (!genderData || typeof genderData !== 'object' || !genderData.bodyColorRanges) continue;
+          const fighter = FIGHTERS.find(f => genderData.headSprite && f.headUrl === genderData.headSprite);
+          if (fighter) {
+            bodyColorRangesByGender[fighter.id] = genderData.bodyColorRanges;
+            if (genderData.allowedCosmetics) {
+              allowedCosmeticsByFighter[fighter.id] = new Set(
+                genderData.allowedCosmetics.map(id => id.split('::').pop().replace(/^mao-ao_/i, ''))
+              );
+            }
+          }
+        }
+      }));
+    }
+  } catch (e) {
+    console.warn('[portrait] Could not load species data', e);
+  }
+
+  return { hairOptions, eyesOptions, facialHairOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter };
 }
 
 // ── Seeded randomisation ───────────────────────────────────
@@ -356,13 +387,19 @@ function randomBodyColorsSeeded(rng, bodyColorRanges) {
  * Generate a fully deterministic random profile using a provided rng() function.
  * All option arrays must be supplied by the caller.
  */
-function randomProfileSeeded(rng, fighters, hairOptions, eyesOptions, facialHairOptions) {
+function randomProfileSeeded(rng, fighters, hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter) {
   const pickRng = (arr) => arr[Math.floor(rng() * arr.length)];
-  const fighter    = pickRng(fighters);
-  const hair       = pickRng(hairOptions);
-  const eyes       = pickRng(eyesOptions);
-  const noFacialHair = facialHairOptions.find(o => o.id === 'none') ?? facialHairOptions[0];
-  const facialHair = rng() < 0.35 ? pickRng(facialHairOptions) : noFacialHair;
-  const bodyColors = randomBodyColorsSeeded(rng);
+  const fighter = pickRng(fighters);
+
+  const allowed = allowedCosmeticsByFighter?.[fighter.id];
+  const filteredHair       = allowed ? hairOptions.filter(o => o.id === 'none' || allowed.has(o.id))       : hairOptions;
+  const filteredEyes       = allowed ? eyesOptions.filter(o => o.id === 'none' || allowed.has(o.id))       : eyesOptions;
+  const filteredFacialHair = allowed ? facialHairOptions.filter(o => o.id === 'none' || allowed.has(o.id)) : facialHairOptions;
+
+  const hair       = pickRng(filteredHair);
+  const eyes       = pickRng(filteredEyes);
+  const noFacialHair = filteredFacialHair.find(o => o.id === 'none') ?? filteredFacialHair[0];
+  const facialHair = rng() < 0.35 ? pickRng(filteredFacialHair) : noFacialHair;
+  const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id]);
   return { fighter, hair, eyes, facialHair, bodyColors };
 }
