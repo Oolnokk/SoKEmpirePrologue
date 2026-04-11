@@ -13,6 +13,12 @@
       font-style: normal;
       size-adjust: 150%;
     }
+    @font-face {
+      font-family: 'TankanScript';
+      src: url('./docs/assets/hud/tankanscript_rotated_flipped_horiz.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+    }
 
     :root {
       --bg: #15110f;
@@ -43,7 +49,7 @@
       height: 100dvh;
       overflow: hidden;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 200px;
+      grid-template-columns: minmax(0, 1fr) 280px;
       grid-template-rows: auto minmax(0, 1fr) auto auto auto;
       grid-template-areas:
         "topbar   sidebar"
@@ -148,12 +154,11 @@
     }
 
     .seatAvatarBox {
-      flex: 1;
-      min-width: 0;
+      width: 96px;
+      height: 96px;
+      flex-shrink: 0;
       overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      border-radius: 8px;
     }
 
     .seatName { font-weight: 700; font-size: 0.92rem; }
@@ -547,6 +552,8 @@
       flex-direction: column;
       align-items: center;
       gap: 5px;
+      position: relative;
+      overflow: visible;
     }
     .cin-player.challenger {
       animation: cinSlideL 0.45s cubic-bezier(0.34,1.4,0.64,1) 0.1s both;
@@ -763,6 +770,66 @@
       color: var(--muted);
       font-style: italic;
       text-align: center;
+    }
+
+    /* ── Bet-action burst (Call! / Raise! / Fold!) over avatar ── */
+    .cin-action-burst {
+      position: absolute;
+      top: 42%;
+      left: 50%;
+      z-index: 20;
+      pointer-events: none;
+      font-size: 2rem;
+      font-weight: 900;
+      white-space: nowrap;
+      letter-spacing: 0.04em;
+      animation: cinBurst 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .cin-action-burst.burst-call  { color: #88ccff; text-shadow: 0 0 14px rgba(100,180,255,0.9), 0 0 32px rgba(60,140,255,0.5); }
+    .cin-action-burst.burst-raise { color: #f2d08f; text-shadow: 0 0 14px rgba(242,160,40,0.95), 0 0 32px rgba(200,110,10,0.6); }
+    .cin-action-burst.burst-fold  { color: #ff9090; text-shadow: 0 0 14px rgba(255,70,70,0.95),  0 0 32px rgba(200,30,30,0.6); }
+    @keyframes cinBurst {
+      0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
+      35%  { transform: translate(-50%, -50%) scale(1.25); opacity: 1; }
+      100% { transform: translate(-50%, -90%) scale(1.9); opacity: 0; }
+    }
+
+    /* ── Tankanscript vertical side columns ── */
+    .cin-tankan {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: 'TankanScript', serif;
+      font-size: 5rem;
+      line-height: 1;
+      writing-mode: vertical-rl;
+      pointer-events: none;
+      z-index: 1;
+      letter-spacing: 0.12em;
+      color: rgba(255, 130, 40, 0.55);
+      text-shadow:
+        0 0 8px  rgba(255, 50, 0, 0.9),
+        0 0 22px rgba(200, 20, 0, 0.55),
+        0 0 50px rgba(140, 10, 0, 0.4);
+      opacity: 0;
+      animation: cinTankanIn 0.65s ease-out 0.05s forwards, tankanFlicker 2.4s ease-in-out 0.8s infinite;
+    }
+    .cin-tankan.left  { left:  10px; }
+    .cin-tankan.right { right: 10px; transform: translateY(-50%) scaleX(-1); }
+    @keyframes cinTankanIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes tankanFlicker {
+      0%, 100% {
+        filter: brightness(1);
+        text-shadow: 0 0 8px rgba(255,50,0,0.9), 0 0 22px rgba(200,20,0,0.55), 0 0 50px rgba(140,10,0,0.4);
+      }
+      38% {
+        filter: brightness(1.45);
+        text-shadow: 0 0 14px rgba(255,90,0,1), 0 0 34px rgba(220,40,0,0.75), 0 0 70px rgba(170,15,0,0.55);
+      }
+      65% { filter: brightness(0.8); }
     }
 
     .cin-continue {
@@ -1927,6 +1994,9 @@
         return;
       }
 
+      // Show cinematic burst + tankan for call/raise/fold
+      _announceCinematicBetAction(playerId, command);
+
       if (command === 'checkcall') {
         const paid = recordContribution(playerId, toCall);
         if (toCall > 0) addLog(`${seatLabel(player)} calls for ${paid} chip${paid === 1 ? '' : 's'}.`);
@@ -2927,6 +2997,37 @@
       }
     }
 
+    // ── Cinematic bet-action announcement (burst + tankan columns) ──
+    function _announceCinematicBetAction(playerId, command) {
+      const cin = document.getElementById('challengeCinematic');
+      if (!cin || !cin.classList.contains('cin-active')) return;
+
+      // Burst word above the avatar
+      const playerEl = cin.querySelector(`.cin-player[data-player-id="${playerId}"]`);
+      if (playerEl) {
+        playerEl.querySelectorAll('.cin-action-burst').forEach(el => el.remove());
+        const label = command === 'checkcall' ? 'Call!' : command === 'raise' ? 'Raise!' : 'Fold!';
+        const cls   = command === 'checkcall' ? 'burst-call' : command === 'raise' ? 'burst-raise' : 'burst-fold';
+        const burst = document.createElement('div');
+        burst.className = `cin-action-burst ${cls}`;
+        burst.textContent = label;
+        playerEl.appendChild(burst);
+        burst.addEventListener('animationend', () => burst.remove());
+      }
+
+      // Tankanscript vertical side columns — persist until next action or cinematic close
+      const tankanText = TANKAN_STRINGS[command] || '';
+      if (tankanText) {
+        cin.querySelectorAll('.cin-tankan').forEach(el => el.remove());
+        for (const side of ['left', 'right']) {
+          const el = document.createElement('div');
+          el.className = `cin-tankan ${side}`;
+          el.textContent = tankanText;
+          cin.appendChild(el);
+        }
+      }
+    }
+
     // ── Chip sprite helpers ──
     function _chipSvg(fill, size) {
       size = size || 20;
@@ -2983,6 +3084,13 @@
     const CHIP_GOOD   = '#4fa06e';
     const CHIP_DANGER = '#b04444';
 
+    // Tankanscript labels for bet actions — swap strings for conlang equivalents
+    const TANKAN_STRINGS = {
+      checkcall: 'Call',
+      raise:     'Raise',
+      fold:      'Fold',
+    };
+
     // Deterministic hue from a string (for avatar colors)
     function _avatarHue(name) {
       let h = 0;
@@ -3004,7 +3112,7 @@
         ? `<canvas data-cin-player-id="${player.id}" width="200" height="200" aria-label="${escapeHtml(player.name || 'Player')} portrait"></canvas>`
         : `<span class="cin-avatar-fallback">${initial}</span>`;
       return `
-        <div class="cin-player ${role}">
+        <div class="cin-player ${role}" data-player-id="${player.id}">
           <div class="cin-role">${roleLabel}</div>
           <div class="cin-avatar avatar-glow" style="background:${color};">${portraitMarkup}</div>
           <div class="cin-name">${player.isHuman ? 'You' : player.name}</div>
