@@ -106,6 +106,24 @@
       padding: 10px;
       min-width: 0;
       flex: 1 1 calc(33.333% - 8px);
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .seatInfo {
+      flex: 2;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .seatAvatarBox {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .seatName { font-weight: 700; font-size: 0.92rem; }
@@ -114,7 +132,7 @@
     .seatSeed { font-size: 0.68rem; color: var(--accent); font-style: italic; margin-top: 3px; letter-spacing: 0.01em; }
     .seatTags { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
-    .seatPortrait { display: block; width: 64px; height: 64px; border-radius: 8px; margin-bottom: 6px; }
+    .seatPortrait { display: block; width: 192px; height: 192px; border-radius: 8px; }
 
     .centerInfo {
       display: grid;
@@ -515,8 +533,8 @@
       color: var(--muted);
     }
     .cin-avatar {
-      width: 66px;
-      height: 66px;
+      width: 132px;
+      height: 132px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -529,6 +547,9 @@
       position: relative;
       overflow: hidden;
       isolation: isolate;
+    }
+    .cin-player.challenged .cin-avatar {
+      transform: scaleX(-1);
     }
     .cin-avatar canvas {
       width: 100%;
@@ -2587,12 +2608,16 @@
           <div class="aiRow">
             ${state.players.slice(1).map(p => `
               <div class="aiSeat ${p.eliminated ? 'eliminated' : ''}">
-                <canvas class="seatPortrait" data-seat-id="${p.id}" width="200" height="200"></canvas>
-                <div class="seatName">${seatLabel(p)}</div>
-                <div class="seatMeta">Cards ${p.hand.length} · Chips ${p.chips} · Clears ${p.clears}</div>
-                ${p.seed ? `<div class="seatSeed">${p.seed}</div>` : ''}
-                ${p.personality ? `<div class="seatTags">${personalityTags(p.personality)}</div>` : ''}
-                <div class="seatStatus">${p.lastAction}</div>
+                <div class="seatInfo">
+                  <div class="seatName">${seatLabel(p)}</div>
+                  <div class="seatMeta">Cards ${p.hand.length} · Chips ${p.chips} · Clears ${p.clears}</div>
+                  ${p.seed ? `<div class="seatSeed">${p.seed}</div>` : ''}
+                  ${p.personality ? `<div class="seatTags">${personalityTags(p.personality)}</div>` : ''}
+                  <div class="seatStatus">${p.lastAction}</div>
+                </div>
+                <div class="seatAvatarBox">
+                  <canvas class="seatPortrait" data-seat-id="${p.id}" width="200" height="200"></canvas>
+                </div>
               </div>
             `).join('')}
           </div>
