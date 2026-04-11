@@ -1,6 +1,7 @@
 {
   "meta": { "name": "Tuft" },
   "type": "appearance",
+  "hairSlot": "front",
   "appearance": {
     "inheritSprite": "head",
     "bodyColors": ["B"],
@@ -8,16 +9,23 @@
   },
   "parts": {
     "head": {
-      "image": {
-        "url": "./assets/cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png"
-      },
-      "spriteStyle": {
-        "xform": {
-          "head": {
-            "ax": -0.1
-            "ay": -0.1
-            "scaleX": 2
-            "scaleY": 2
+      "layers": {
+        "front": {
+          "image": {
+            "url": "./assets/cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "head": {
+                  "ax": -0.1,
+                  "ay": -0.1,
+                  "scaleX": 2,
+                  "scaleY": 2,
+                  "rotDeg": 0
+                }
+              }
+            }
           }
         }
       }

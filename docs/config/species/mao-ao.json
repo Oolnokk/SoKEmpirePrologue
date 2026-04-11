@@ -12,11 +12,9 @@
       "appearance::Mao-ao_M::mao-ao_circled_eye_L",
       "appearance::Mao-ao_M::mao-ao_smooth_striped",
       "appearance::Mao-ao_M::mao-ao_tuft",
-      "appearance::Mao-ao_M::mao-ao_long_ponytail",
       "appearance::Mao-ao_M::mao-ao_wildbeard",
       "appearance::hat::basic_headband",
       "appearance::hat::riverlandskasa_low",
-      "appearance::hat::riverlandskasa_tight",
       "appearance::hat::riverlandskasa_wide"
     ],
     "bodyColorRanges": {
@@ -66,7 +64,6 @@
       "appearance::Mao-ao_F::mao-ao_long_ponytail",
       "appearance::hat::basic_headband",
       "appearance::hat::riverlandskasa_low",
-      "appearance::hat::riverlandskasa_tight",
       "appearance::hat::riverlandskasa_wide"
     ],
     "bodyColorRanges": {

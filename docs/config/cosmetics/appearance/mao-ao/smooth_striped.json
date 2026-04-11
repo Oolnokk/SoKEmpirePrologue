@@ -1,6 +1,7 @@
 {
   "meta": { "name": "Smooth Striped" },
   "type": "appearance",
+  "hairSlot": "front",
   "appearance": {
     "inheritSprite": "head",
     "bodyColors": ["B"],

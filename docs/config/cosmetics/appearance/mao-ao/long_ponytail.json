@@ -1,6 +1,7 @@
 {
   "meta": { "name": "Long Ponytail" },
   "type": "appearance",
+  "hairSlot": "back",
   "appearance": {
     "inheritSprite": "head",
     "bodyColors": ["A"],
@@ -12,24 +13,6 @@
         "back": {
           "image": {
             "url": "./assets/cosmetics/appearance/mao-ao/headhair/ponytail_long-back_mint.png"
-          },
-          "spriteStyle": {
-            "base": {
-              "xform": {
-                "head": {
-                  "ax": -0.1,
-                  "ay": -0.1,
-                  "scaleX": 2,
-                  "scaleY": 2,
-                  "rotDeg": 0
-                }
-              }
-            }
-          }
-        },
-        "front": {
-          "image": {
-            "url": "./assets/cosmetics/appearance/mao-ao/headhair/tuft-front_mint.png"
           },
           "spriteStyle": {
             "base": {
