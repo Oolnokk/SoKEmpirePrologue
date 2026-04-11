@@ -43,7 +43,14 @@
       height: 100dvh;
       overflow: hidden;
       display: grid;
+      grid-template-columns: minmax(0, 1fr) 200px;
       grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+      grid-template-areas:
+        "topbar   sidebar"
+        "panel    sidebar"
+        "hand     sidebar"
+        "log      sidebar"
+        "controls sidebar";
       gap: 8px;
       padding: 8px 8px calc(8px + var(--safe));
     }
@@ -56,6 +63,7 @@
     }
 
     .topbar {
+      grid-area: topbar;
       padding: 8px 12px;
       display: grid;
       gap: 6px;
@@ -97,6 +105,7 @@
     }
 
     .panel {
+      grid-area: panel;
       padding: 10px 12px;
       display: grid;
       gap: 8px;
@@ -110,13 +119,21 @@
       color: var(--accent-2);
     }
 
+    #aiSidebar {
+      grid-area: sidebar;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
     .aiSeat {
       background: var(--panel-soft);
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 14px;
       padding: 10px;
       min-width: 0;
-      flex: 1 1 calc(33.333% - 8px);
       display: flex;
       flex-direction: row;
       align-items: flex-start;
@@ -164,11 +181,10 @@
     .smallText { font-size: 0.85rem; color: var(--muted); }
 
     .controls {
+      grid-area: controls;
       padding: 12px;
       display: grid;
       gap: 10px;
-      position: sticky;
-      bottom: 0;
       z-index: 4;
       background: linear-gradient(180deg, rgba(46,34,30,0.96), rgba(37,28,25,0.98));
       backdrop-filter: blur(8px);
@@ -203,6 +219,7 @@
     button:disabled { opacity: 0.45; box-shadow: none; }
 
     .handWrap {
+      grid-area: hand;
       padding: 8px 12px;
       display: grid;
       gap: 6px;
@@ -296,6 +313,7 @@
     }
 
     .eventLog {
+      grid-area: log;
       padding: 8px 12px;
       display: grid;
       gap: 6px;
@@ -2616,24 +2634,25 @@
           </div>
         </div>
 
-        <div class="panel">
-          <div class="sectionTitle">Table</div>
-          <div class="aiRow">
-            ${state.players.slice(1).map(p => `
-              <div class="aiSeat ${p.eliminated ? 'eliminated' : ''}">
-                <div class="seatInfo">
-                  <div class="seatName">${seatLabel(p)}</div>
-                  <div class="seatMeta">Cards ${p.hand.length} · Chips ${p.chips} · Clears ${p.clears}</div>
-                  ${p.seed ? `<div class="seatSeed">${p.seed}</div>` : ''}
-                  ${p.personality ? `<div class="seatTags">${personalityTags(p.personality)}</div>` : ''}
-                  <div class="seatStatus">${p.lastAction}</div>
-                </div>
-                <div class="seatAvatarBox">
-                  <canvas class="seatPortrait" data-seat-id="${p.id}" width="200" height="200"></canvas>
-                </div>
+        <div id="aiSidebar">
+          <div class="sectionTitle" style="padding:6px 10px 2px;color:var(--accent-2);">Table</div>
+          ${state.players.slice(1).map(p => `
+            <div class="aiSeat ${p.eliminated ? 'eliminated' : ''}">
+              <div class="seatInfo">
+                <div class="seatName">${seatLabel(p)}</div>
+                <div class="seatMeta">Cards ${p.hand.length} · Chips ${p.chips} · Clears ${p.clears}</div>
+                ${p.seed ? `<div class="seatSeed">${p.seed}</div>` : ''}
+                ${p.personality ? `<div class="seatTags">${personalityTags(p.personality)}</div>` : ''}
+                <div class="seatStatus">${p.lastAction}</div>
               </div>
-            `).join('')}
-          </div>
+              <div class="seatAvatarBox">
+                <canvas class="seatPortrait" data-seat-id="${p.id}" width="200" height="200"></canvas>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="panel">
           <div class="centerInfo">
             <div class="bigInfo">
               <div class="bigLabel">Current claim</div>
