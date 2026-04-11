@@ -4,7 +4,7 @@
   "hairSlot": "front",
   "appearance": {
     "inheritSprite": "head",
-    "bodyColors": ["B"],
+    "bodyColors": ["A"],
     "originalId": "mao-ao_tuft"
   },
   "parts": {

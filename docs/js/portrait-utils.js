@@ -41,9 +41,9 @@ const FIGHTERS = [
 // ── Body color limits ──────────────────────────────────────
 
 const BODYCOLOR_LIMITS = {
-  A: { hMin: -130, hMax:  -30, sMin: 0.05, sMax: 0.75, vMin: -0.50, vMax: 0.20 },
-  B: { hMin: -180, hMax:  180, sMin: -1.00, sMax: 1.00, vMin: -1.00, vMax: 1.00 },
-  C: { hMin: -180, hMax:  180, sMin: -1.00, sMax: 1.00, vMin: -1.00, vMax: 1.00 },
+  A: { hMin: -100, hMax:  -30, sMin: 0.05, sMax: 0.75, vMin: -0.50, vMax: 0.20 },
+  B: { hMin: -100, hMax:  -30, sMin: -0.20, sMax: 0.90, vMin: -0.85, vMax: 0.10 },
+  C: { hMin: -100, hMax:  -30, sMin: -0.65, sMax: 0.65, vMin: -0.25, vMax: 0.55 },
 };
 
 // ── Image loading ──────────────────────────────────────────
