@@ -1171,11 +1171,12 @@
 
     function generateAiIdentity(index) {
       const identitySeed = `madiao-ai-${state.seed}-${index}`;
-      const gender = 'male';
+      const gender = (hashStringToSeed(identitySeed) & 1) === 0 ? 'male' : 'female';
       const name = generateMaoAoNameFromSeed(identitySeed, gender);
       return {
         name,
         seed: name,
+        gender,
         personality: derivePersonality(name),
       };
     }
@@ -2724,6 +2725,7 @@
       });
       renderChallengeBox();
       refreshCinematicBettingZone();
+      renderSeatPortraits();
     }
 
     function debugSnapshot() {
@@ -2797,10 +2799,13 @@
 
     function generatePlayerProfile(player) {
       if (!_portraitCosmetics) return null;
-      const { hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender } = _portraitCosmetics;
+      const { hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter } = _portraitCosmetics;
       const seedStr = player.seed || `player-${player.id}`;
       const rng = mulberry32(hashStringToSeed(seedStr));
-      return randomProfileSeeded(rng, FIGHTERS, hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender);
+      const fighterPool = player.gender === 'male'   ? FIGHTERS.filter(f => f.id === 'M')
+                        : player.gender === 'female' ? FIGHTERS.filter(f => f.id === 'F')
+                        : FIGHTERS;
+      return randomProfileSeeded(rng, fighterPool.length ? fighterPool : FIGHTERS, hairOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter);
     }
 
     function renderSeatPortraits() {
