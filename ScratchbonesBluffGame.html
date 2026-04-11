@@ -6,6 +6,13 @@
   <title>Madiao Mobile Challenge</title>
   <script src="docs/js/portrait-utils.js"></script>
   <style>
+    @font-face {
+      font-family: 'Khymeryyanroman4';
+      src: url('./docs/assets/hud/Khymeryyanroman4.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+    }
+
     :root {
       --bg: #15110f;
       --bg2: #221917;
@@ -26,7 +33,7 @@
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { margin: 0; background: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%); color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; height: 100%; }
+    html, body { margin: 0; background: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%); color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; height: 100%; }
     body { overscroll-behavior: none; }
 
     button, select, input { font: inherit; }
