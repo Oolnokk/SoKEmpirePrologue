@@ -329,7 +329,9 @@ async function loadPortraitCosmetics(configBase) {
           if (fighter) {
             bodyColorRangesByGender[fighter.id] = genderData.bodyColorRanges;
             if (genderData.allowedCosmetics) {
-              allowedCosmeticsByFighter[fighter.id] = new Set(genderData.allowedCosmetics);
+              allowedCosmeticsByFighter[fighter.id] = new Set(
+                genderData.allowedCosmetics.map(id => id.split('::').pop().replace(/^mao-ao_/i, ''))
+              );
             }
           }
         }
