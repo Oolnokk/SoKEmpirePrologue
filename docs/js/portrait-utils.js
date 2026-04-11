@@ -239,7 +239,9 @@ function portraitOptionFromJson(entry, json) {
     }
   }
 
-  return { id: shortId, label, tintSlot, layers, slot: json.slot || null };
+  const colorRange = (json.slot === 'hat' && json.colorRange) ? json.colorRange : null;
+  const resolvedTintSlot = colorRange ? 'HAT' : tintSlot;
+  return { id: shortId, label, tintSlot: resolvedTintSlot, layers, slot: json.slot || null, colorRange };
 }
 
 /**
@@ -408,5 +410,6 @@ function randomProfileSeeded(rng, fighters, hairOptions, eyesOptions, facialHair
   const noHat      = filteredHat.find(o => o.id === 'none') ?? filteredHat[0];
   const hat        = rng() < 0.5 ? pickRng(filteredHat) : noHat;
   const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id]);
+  if (hat && hat.colorRange) bodyColors.HAT = randomColorFromRangeSeeded(hat.colorRange, rng);
   return { fighter, hair, eyes, facialHair, hat, bodyColors };
 }
