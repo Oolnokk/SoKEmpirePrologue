@@ -35,6 +35,7 @@
   </script>
 
   <script src="docs/js/portrait-utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     @font-face {
       font-family: 'Khymeryyanroman4';
@@ -1028,6 +1029,8 @@
       transition: opacity 0.3s;
     }
     body.mode-3d .handWrap { display: none; }
+    /* Used during html2canvas capture to suppress transition flicker */
+    body.no-transition * { transition: none !important; }
     body.mode-3d .controls {
       opacity: 1;
       pointer-events: auto;
@@ -3756,6 +3759,11 @@
   let sbCompleted = 0;   // successes + failures; when === 10 all loads are done
   let syncPending = false;
 
+  // UIBase capture state
+  let uiCapturePending = false;
+  let uiLastCaptureMs  = 0;
+  const UI_CAPTURE_THROTTLE_MS = 250;
+
   function preloadScratchbones() {
     console.log('[3DTable] preloading scratchbones from', SCRATCHBONE_BASE);
     const loader = new GLTFLoader();
@@ -4169,51 +4177,81 @@
     tex.needsUpdate = true;
   }
 
-  // Composite all panel canvases onto the 1280×720 UIParentPlane canvas.
-  // Each panel is placed at the position its DOM element occupies relative to #app,
-  // scaled to the fixed 1280×720 resolution.  The 'hand' panel is intentionally
-  // skipped so the transparent region reveals the 3D scratchbone meshes beneath.
+  // Capture the 2D UI via html2canvas and project it onto UIBase.
+  // Briefly switches to 2D layout (suppressing CSS transitions) so the capture
+  // shows full-opacity panels with the real fonts and CSS.
+  // The hand panel is display:none in 3D mode; its rect is cleared after capture
+  // so the transparent gap reveals 3D scratchbone meshes behind the plane.
   function projUIParent(entry) {
+    if (uiCapturePending) return;
+    if (Date.now() - uiLastCaptureMs < UI_CAPTURE_THROTTLE_MS) return;
+    if (typeof html2canvas === 'undefined') return;
+
+    uiCapturePending = true;
     const { cvs, ctx, tex } = entry;
-    const CW = cvs.width;   // 1280
-    const CH = cvs.height;  // 720
+    const CW = cvs.width, CH = cvs.height;
+    const body  = document.body;
+    const appEl = document.getElementById('app') || body;
 
-    const appEl   = document.getElementById('app') || document.body;
-    const appRect = appEl.getBoundingClientRect();
-    if (!appRect.width || !appRect.height) { tex.needsUpdate = true; return; }
+    // Suppress CSS transitions and switch to 2D layout for the capture.
+    body.classList.add('no-transition');
+    const had3d = body.classList.contains('mode-3d');
+    if (had3d) body.classList.remove('mode-3d');
 
-    const scaleX = CW / appRect.width;
-    const scaleY = CH / appRect.height;
+    // Wait one rAF so the browser applies the 2D layout before html2canvas reads it.
+    requestAnimationFrame(() => {
+      html2canvas(appEl, {
+        useCORS:         true,
+        allowTaint:      true,
+        backgroundColor: null,
+        scale:           1,
+        logging:         false,
+        ignoreElements:  el => el.id === 'threeCanvas',  // skip 3D canvas
+      }).then(captured => {
+        // Restore 3D mode and re-enable transitions immediately.
+        if (had3d) body.classList.add('mode-3d');
+        body.classList.remove('no-transition');
 
-    ctx.clearRect(0, 0, CW, CH);
+        // Draw captured 2D layout scaled to 1280×720.
+        ctx.clearRect(0, 0, CW, CH);
+        ctx.drawImage(captured, 0, 0, CW, CH);
 
-    for (const [projId, panelEntry] of activeProj) {
-      if (projId === 'UIBase') continue;
-      if (projId === 'hand') continue;   // leave transparent for scratchbones
+        // Blank the hand/card-selection area so scratchbones show through.
+        const handEl = document.querySelector('[data-proj-id="hand"]');
+        if (handEl) {
+          const appRect  = appEl.getBoundingClientRect();
+          const handRect = handEl.getBoundingClientRect();
+          const sx = CW / captured.width;
+          const sy = CH / captured.height;
+          ctx.clearRect(
+            (handRect.left - appRect.left) * sx,
+            (handRect.top  - appRect.top)  * sy,
+            handRect.width  * sx,
+            handRect.height * sy
+          );
+        }
 
-      const el = document.querySelector(`[data-proj-id="${projId}"]`);
-      if (!el) continue;
-
-      const rect = el.getBoundingClientRect();
-      const x = (rect.left - appRect.left) * scaleX;
-      const y = (rect.top  - appRect.top)  * scaleY;
-      const w = rect.width  * scaleX;
-      const h = rect.height * scaleY;
-
-      if (w > 0 && h > 0) ctx.drawImage(panelEntry.cvs, x, y, w, h);
-    }
-
-    tex.needsUpdate = true;
+        tex.needsUpdate  = true;
+        uiCapturePending = false;
+        uiLastCaptureMs  = Date.now();
+      }).catch(err => {
+        if (had3d) body.classList.add('mode-3d');
+        body.classList.remove('no-transition');
+        console.warn('[3DTable] html2canvas capture failed:', err);
+        uiCapturePending = false;
+      });
+    });
   }
 
   function syncProjections() {
     let uiParent = null;
     for (const entry of activeProj.values()) {
       if (entry.projId === 'UIBase') { uiParent = entry; continue; }
+      if (entry.virtual) continue;           // virtual entries exist only as html2canvas fallback
       if (entry.type === 'canvas') projCanvas(entry);
       else if (entry.type === 'html') projHtml(entry);
     }
-    // UIParentPlane composited last so all source canvases are already updated.
+    // html2canvas DOM capture — runs async, throttled; virtual panel entries are unused.
     if (uiParent) projUIParent(uiParent);
   }
 
