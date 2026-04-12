@@ -3556,12 +3556,18 @@
         uiBase = baseNode ? setupUIPlane(baseNode) : null;
         uiList = listNode ? setupUIPlane(listNode) : null;
 
-        // Collect slot nodes – their matrices are pre-baked, no repositioning needed
+        // Collect slot nodes – matrices are pre-baked; permanently hide their meshes
         slotNodes = [];
         for (let i = 1; i <= 14; i++) {
           const node = gltf.scene.getObjectByName(`placeholder:ownedslot:${i}`);
-          if (node) slotNodes.push({ node, idx: i });
+          if (node) {
+            node.traverse(c => { if (c.isMesh) c.visible = false; });
+            slotNodes.push({ node, idx: i });
+          }
         }
+
+        // Hidden in 2D mode until the user switches to 3D
+        gltfRoot.visible = is3D;
 
         sync();
       },
@@ -3657,25 +3663,16 @@
     });
     cards3D = [];
 
-    if (!gltfRoot) return;
-
-    hand.forEach((card, i) => {
+    // Cap at 14 slots; placeholder meshes stay hidden permanently
+    hand.slice(0, 14).forEach((card, i) => {
       const slot = slotNodes[i];
       if (!slot) return;
-
-      // Show/hide the placeholder mesh based on occupancy
-      slot.node.traverse(child => { if (child.isMesh) child.visible = false; });
 
       const obj = placeCardObject(card, slot.node, selectedIds.has(card.id));
       if (!obj) return;   // scratchbone not yet cached → sync() will retry
 
       gltfRoot.add(obj);
       cards3D.push({ obj, cardId: card.id });
-    });
-
-    // Restore placeholder visibility for unoccupied slots
-    slotNodes.slice(hand.length).forEach(slot => {
-      slot.node.traverse(child => { if (child.isMesh) child.visible = true; });
     });
   }
 
@@ -3825,12 +3822,12 @@
   // ─── public sync ─────────────────────────────────────────────────────────
 
   function sync() {
+    if (!is3D || !gltfRoot) return;   // 2D mode: nothing to do
     const gs = window._scratchbones;
     if (!gs) return;
     const s = gs.state;
     drawUIBase(s);
     drawUIList(s);
-    if (!gltfRoot) return;
     if (sbLoaded < 10) { syncPending = true; return; } // retry when all loaded
     updateCards(s.players?.[0]?.hand ?? [], s.selectedCardIds);
   }
@@ -3909,8 +3906,18 @@
     is3D = !is3D;
     document.body.classList.toggle('mode-3d', is3D);
     document.getElementById('tableToggleBtn').textContent = is3D ? '2D' : '3D';
-    if (!is3D) document.getElementById('tablePopout').style.display = 'none';
-    if (is3D) sync();
+    if (gltfRoot) gltfRoot.visible = is3D;
+    if (!is3D) {
+      document.getElementById('tablePopout').style.display = 'none';
+      // Clear scratchbones — 2D hand takes over
+      cards3D.forEach(({ obj }) => {
+        if (obj.parent) obj.parent.remove(obj);
+        obj.traverse(c => { if (c.isMesh && c.material) c.material.dispose(); });
+      });
+      cards3D = [];
+    } else {
+      sync();
+    }
   });
 
   document.getElementById('tablePopoutToggle')?.addEventListener('click', () => {
