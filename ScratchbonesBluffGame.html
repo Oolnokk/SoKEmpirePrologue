@@ -3863,7 +3863,9 @@
   }
 
   function makeProjEntry(plane, projId, type) {
-    const { w, h } = canvasSizeForPlane(plane);
+    const { w, h } = projId === 'UIParentPlane'
+      ? { w: 1280, h: 720 }
+      : canvasSizeForPlane(plane);
     const cvs = document.createElement('canvas');
     cvs.width = w; cvs.height = h;
     const ctx = cvs.getContext('2d');
@@ -3887,18 +3889,39 @@
     return { projId, type, cvs, ctx, tex };
   }
 
+  // Create a canvas-only (no 3D plane) entry for use as a compositing source.
+  function makeVirtualEntry(projId, type) {
+    const cvs = document.createElement('canvas');
+    cvs.width = 512; cvs.height = 512;
+    const ctx = cvs.getContext('2d');
+    return { projId, type, cvs, ctx, tex: null, virtual: true };
+  }
+
   function scanProjectionPlanes(gltfScene) {
     for (const e of activeProj.values()) e.tex?.dispose();
     activeProj.clear();
 
+    let parentPlaneMesh = null;
+
     gltfScene.traverse(obj => {
       if (!obj.isMesh) return;
+      if (obj.name === 'UIParentPlane') { parentPlaneMesh = obj; return; }
       const name = obj.name;
       const isHtml   = PROJ_HTML.has(name) || PROJ_SEAT.test(name);
       const isCanvas = PROJ_AVATAR.test(name);
       if (!isHtml && !isCanvas) return;
       activeProj.set(name, makeProjEntry(obj, name, isHtml ? 'html' : 'canvas'));
     });
+
+    if (parentPlaneMesh) {
+      activeProj.set('UIParentPlane', makeProjEntry(parentPlaneMesh, 'UIParentPlane', 'ui_parent'));
+      // Create virtual render targets for all HTML panels that don't already have
+      // a dedicated 3D plane — projUIParent will composite these into UIParentPlane.
+      for (const id of PROJ_HTML) {
+        if (!activeProj.has(id)) activeProj.set(id, makeVirtualEntry(id, 'html'));
+      }
+      console.log('[3DTable] UIParentPlane composite mode active');
+    }
 
     console.log('[3DTable] proj planes:', [...activeProj.keys()].join(', ') || '(none)');
   }
@@ -4071,7 +4094,7 @@
     } else if (PROJ_SEAT.test(projId)) {
       const id = parseInt(projId.split('-')[1]);
       const p  = s.players[id];
-      if (!p) { bg(); tex.needsUpdate = true; return; }
+      if (!p) { bg(); if (tex) tex.needsUpdate = true; return; }
       bg(p.eliminated ? 0.6 : 0.9);
       let y = PAD + FLG;
       txt(seatLabel(p), PAD, y, p.eliminated ? MUT : ACC, FLG, true); y += LH;
@@ -4111,7 +4134,7 @@
       txt(projId, PAD, ch / 2, MUT, FMD);
     }
 
-    tex.needsUpdate = true;
+    if (tex) tex.needsUpdate = true;  // virtual entries (UIParentPlane sources) have no tex
   }
 
   // Copy a portrait canvas directly into the projection canvas.
@@ -4128,11 +4151,52 @@
     tex.needsUpdate = true;
   }
 
-  function syncProjections() {
-    for (const entry of activeProj.values()) {
-      if (entry.type === 'canvas') projCanvas(entry);
-      else projHtml(entry);
+  // Composite all panel canvases onto the 1280×720 UIParentPlane canvas.
+  // Each panel is placed at the position its DOM element occupies relative to #app,
+  // scaled to the fixed 1280×720 resolution.  The 'hand' panel is intentionally
+  // skipped so the transparent region reveals the 3D scratchbone meshes beneath.
+  function projUIParent(entry) {
+    const { cvs, ctx, tex } = entry;
+    const CW = cvs.width;   // 1280
+    const CH = cvs.height;  // 720
+
+    const appEl   = document.getElementById('app') || document.body;
+    const appRect = appEl.getBoundingClientRect();
+    if (!appRect.width || !appRect.height) { tex.needsUpdate = true; return; }
+
+    const scaleX = CW / appRect.width;
+    const scaleY = CH / appRect.height;
+
+    ctx.clearRect(0, 0, CW, CH);
+
+    for (const [projId, panelEntry] of activeProj) {
+      if (projId === 'UIParentPlane') continue;
+      if (projId === 'hand') continue;   // leave transparent for scratchbones
+
+      const el = document.querySelector(`[data-proj-id="${projId}"]`);
+      if (!el) continue;
+
+      const rect = el.getBoundingClientRect();
+      const x = (rect.left - appRect.left) * scaleX;
+      const y = (rect.top  - appRect.top)  * scaleY;
+      const w = rect.width  * scaleX;
+      const h = rect.height * scaleY;
+
+      if (w > 0 && h > 0) ctx.drawImage(panelEntry.cvs, x, y, w, h);
     }
+
+    tex.needsUpdate = true;
+  }
+
+  function syncProjections() {
+    let uiParent = null;
+    for (const entry of activeProj.values()) {
+      if (entry.projId === 'UIParentPlane') { uiParent = entry; continue; }
+      if (entry.type === 'canvas') projCanvas(entry);
+      else if (entry.type === 'html') projHtml(entry);
+    }
+    // UIParentPlane composited last so all source canvases are already updated.
+    if (uiParent) projUIParent(uiParent);
   }
 
   // ─── scratchbone placement ───────────────────────────────────────────────
