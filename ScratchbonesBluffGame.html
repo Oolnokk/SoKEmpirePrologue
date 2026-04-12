@@ -3845,6 +3845,8 @@
     const ctx = cvs.getContext('2d');
     const tex = new THREE.CanvasTexture(cvs);
     tex.flipY = false;
+    tex.center.set(0.5, 0.5);
+    tex.rotation = Math.PI / 2;   // correct for CCW spawn orientation
 
     // Replace plane material with our canvas texture
     const mat = new THREE.MeshBasicMaterial({
@@ -3877,9 +3879,8 @@
   }
 
   // Draw game state directly onto a projection canvas using canvas 2D API.
-  // The SVG foreignObject + img.src approach would work in Firefox but Chrome
-  // intentionally renders foreignObject blank when SVG is used as an image
-  // source, so we skip it and draw directly from state instead.
+  // All coordinates are relative to canvas dimensions so the layout adapts
+  // to whatever aspect ratio canvasSizeForPlane() computed for each plane.
   function projHtml(entry) {
     const gs = window._scratchbones;
     if (!gs) return;
@@ -3887,15 +3888,29 @@
     const { projId, cvs, ctx, tex } = entry;
     const cw = cvs.width, ch = cvs.height;
 
-    ctx.clearRect(0, 0, cw, ch);
+    // ── responsive units ─────────────────────────────────────────────────────
+    // u scales with the shorter canvas dimension so text stays proportional
+    // regardless of plane aspect ratio.
+    const u    = Math.min(cw, ch) / 512;
+    const PAD  = Math.round(16 * u);
+    const FSM  = Math.round(16 * u);   // small label
+    const FMD  = Math.round(20 * u);   // body text
+    const FLG  = Math.round(28 * u);   // heading
+    const LH   = Math.round(26 * u);   // line height
+    const R    = Math.round(6  * u);   // chip border-radius
+    const wide = cw > ch * 1.5;        // landscape panel
+    const tall = ch > cw * 1.5;        // portrait panel
 
-    // ── shared helpers ──────────────────────────────────────────────────────
-    const BG   = 'rgba(26,18,14,0.92)';
+    // ── colours ──────────────────────────────────────────────────────────────
     const ACC  = '#c89952';
     const MUT  = '#8a7a6a';
     const TXT  = '#e8d9c0';
     const WARN = '#e05050';
     const GOOD = '#50c878';
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.textBaseline = 'alphabetic';
 
     function bg(alpha = 0.92) {
       ctx.fillStyle = `rgba(26,18,14,${alpha})`;
@@ -3903,159 +3918,172 @@
     }
     function border() {
       ctx.strokeStyle = 'rgba(200,153,82,0.35)';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = Math.max(1, Math.round(2 * u));
       ctx.strokeRect(1, 1, cw - 2, ch - 2);
     }
-    function label(text, x, y, color = MUT, size = 11) {
+    function txt(str, x, y, color = TXT, size = FMD, bold = false) {
       ctx.fillStyle = color;
-      ctx.font = `${size}px sans-serif`;
-      ctx.fillText(text, x, y);
+      ctx.font = `${bold ? 'bold ' : ''}${size}px sans-serif`;
+      ctx.fillText(String(str), x, y);
     }
-    function value(text, x, y, color = TXT, size = 14) {
-      ctx.fillStyle = color;
-      ctx.font = `bold ${size}px sans-serif`;
-      ctx.fillText(text, x, y);
-    }
-    function chip(text, x, y, w = 80, h = 22) {
+    function chip(str, x, y, chipH) {
+      chipH = chipH || Math.round(LH * 1.2);
+      ctx.font = `${FSM}px sans-serif`;
+      const chipW = Math.max(Math.round(60 * u), ctx.measureText(str).width + PAD * 2);
       ctx.fillStyle = 'rgba(200,153,82,0.18)';
-      ctx.beginPath();
-      ctx.roundRect(x, y, w, h, 4);
-      ctx.fill();
+      ctx.beginPath(); ctx.roundRect(x, y, chipW, chipH, R); ctx.fill();
       ctx.fillStyle = ACC;
-      ctx.font = '11px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(text, x + w / 2, y + 14);
+      ctx.fillText(str, x + chipW / 2, y + chipH * 0.68);
       ctx.textAlign = 'left';
+      return chipW;
     }
     function seatLabel(p) {
       return p ? (p.id === 0 ? 'You' : p.name || `AI ${p.id}`) : '?';
     }
 
-    ctx.textBaseline = 'alphabetic';
-
-    // ── per-panel rendering ──────────────────────────────────────────────────
+    // ── per-panel rendering ───────────────────────────────────────────────────
     if (projId === 'topbar') {
       bg();
-      value('Madiao Mobile Challenge', 12, 28, ACC, 15);
-      const chips = [
-        `Round ${s.round}`,
-        `Lead: ${seatLabel(s.players[s.leaderIndex])}`,
-        `Turn: ${seatLabel(s.players[s.currentTurn])}`,
-        `Pile: ${s.pile.length}`,
-      ];
-      let cx = 12;
-      chips.forEach(t => {
-        const w = Math.max(80, ctx.measureText(t).width + 16);
-        chip(t, cx, 40, w, 22);
-        cx += w + 8;
-      });
+      if (wide) {
+        txt('Madiao Mobile Challenge', PAD, PAD + FLG, ACC, FLG, true);
+        const chipH = Math.round(LH * 1.1);
+        const chipY = ch / 2 - chipH / 2;
+        let cx = PAD;
+        [`Round ${s.round}`,
+         `Lead: ${seatLabel(s.players[s.leaderIndex])}`,
+         `Turn: ${seatLabel(s.players[s.currentTurn])}`,
+         `Pile: ${s.pile.length}`].forEach(t => {
+          cx += chip(t, cx, chipY, chipH) + Math.round(8 * u);
+        });
+      } else {
+        txt('Madiao', PAD, PAD + FLG, ACC, FLG, true);
+        let y = PAD + FLG + LH;
+        [`Rnd ${s.round}`,
+         `Lead: ${seatLabel(s.players[s.leaderIndex])}`,
+         `Turn: ${seatLabel(s.players[s.currentTurn])}`,
+         `Pile: ${s.pile.length}`].forEach(t => {
+          txt(t, PAD, y, TXT, FSM); y += LH;
+        });
+      }
       border();
 
     } else if (projId === 'panel') {
       bg();
-      label('Current claim', 12, 22);
-      value(s.declaredRank === null ? 'Open round' : String(s.declaredRank), 12, 44, ACC, 20);
+      let y = PAD + FMD;
+      txt('Current claim', PAD, y, MUT, FSM);
+      y += LH;
+      txt(s.declaredRank === null ? 'Open round' : String(s.declaredRank),
+          PAD, y, ACC, FLG, true);
+      y += Math.round(LH * 1.6);
       const human = s.players[0];
       if (human) {
-        label('Your standing', 12, 70);
-        value(`${human.hand.length} cards · ${human.chips} chips`, 12, 90, TXT, 14);
+        txt('Your standing', PAD, y, MUT, FSM); y += LH;
+        txt(`${human.hand.length} cards · ${human.chips} chips`, PAD, y, TXT, FMD);
+        y += Math.round(LH * 1.4);
       }
       if (s.banner) {
-        const bannerColor = s.bannerType === 'warn' ? WARN : s.bannerType === 'good' ? GOOD : TXT;
+        const bc = s.bannerType === 'warn' ? WARN : s.bannerType === 'good' ? GOOD : TXT;
         ctx.fillStyle = 'rgba(200,153,82,0.12)';
-        ctx.fillRect(8, 100, cw - 16, 30);
-        value(s.banner, 14, 121, bannerColor, 13);
+        ctx.fillRect(PAD, y - FMD + 2, cw - PAD * 2, LH + PAD / 2);
+        txt(s.banner, PAD + 4, y + LH * 0.1, bc, FMD);
       }
       border();
 
     } else if (projId === 'log') {
       bg();
-      value('Recent events', 12, 22, ACC, 13);
-      const logs = (s.logs || []).slice(-8);
-      logs.forEach((item, i) => {
-        label(item.text, 12, 44 + i * 18, TXT, 11);
+      txt('Events', PAD, PAD + FMD, ACC, FMD, true);
+      const maxRows = Math.floor((ch - PAD * 2 - LH * 1.5) / LH);
+      (s.logs || []).slice(-maxRows).forEach((item, i) => {
+        txt(item.text, PAD, PAD + LH * 1.5 + (i + 1) * LH, TXT, FSM);
       });
       border();
 
     } else if (projId === 'controls') {
       bg();
-      const human = s.players[0];
       const canAct = s.currentTurn === 0 && !s.challengeWindow && !s.betting;
-      value('Your turn', 12, 28, canAct ? GOOD : MUT, 13);
-      if (s.declaredRank !== null) {
-        label(`Declared rank: ${s.declaredRank}`, 12, 50);
-      }
-      if (s.betting) {
-        label('Challenge betting in progress', 12, 50, WARN, 11);
-      }
+      let y = PAD + FMD;
+      txt(canAct ? 'Your turn' : 'Waiting…', PAD, y, canAct ? GOOD : MUT, FMD, true);
+      y += LH;
+      if (s.declaredRank !== null) txt(`Rank: ${s.declaredRank}`, PAD, y, TXT, FSM);
+      if (s.betting)               txt('Challenge betting', PAD, y, WARN, FSM);
       border();
 
     } else if (projId === 'humaninfo') {
       bg();
       const human = s.players[0];
       if (human) {
-        value(seatLabel(human), 12, 26, ACC, 14);
-        label(`Cards: ${human.hand.length}  ·  Chips: ${human.chips}`, 12, 46, TXT, 12);
+        let y = PAD + FLG;
+        txt(seatLabel(human), PAD, y, ACC, FLG, true); y += LH;
+        txt(`${human.hand.length} cards · ${human.chips} chips`, PAD, y, TXT, FMD);
         if (s.currentTurn === 0) {
-          ctx.fillStyle = 'rgba(80,200,120,0.2)';
-          ctx.fillRect(8, 54, cw - 16, 18);
-          label('Your turn', 12, 67, GOOD, 11);
+          ctx.fillStyle = 'rgba(80,200,120,0.18)';
+          ctx.fillRect(0, y + PAD / 2, cw, LH);
+          txt('Your turn', PAD, y + PAD / 2 + LH * 0.75, GOOD, FSM);
         }
       }
       border();
 
     } else if (projId === 'sidebar') {
       bg(0.95);
-      label('TABLE', 12, 18, ACC, 11);
-      let y = 28;
-      s.players.slice(1).forEach(p => {
-        if (y + 50 > ch) return;
-        ctx.fillStyle = p.eliminated ? 'rgba(80,50,40,0.5)' : 'rgba(200,153,82,0.08)';
-        ctx.fillRect(8, y, cw - 16, 44);
-        value(seatLabel(p), 14, y + 16, p.eliminated ? MUT : TXT, 12);
-        label(`${p.hand.length} cards · ${p.chips} chips`, 14, y + 30, MUT, 10);
+      txt('TABLE', PAD, PAD + FSM, ACC, FSM, true);
+      const aiPlayers = s.players.slice(1);
+      const rowH = Math.floor((ch - PAD * 2 - LH) / Math.max(1, aiPlayers.length));
+      aiPlayers.forEach((p, i) => {
+        const ry = PAD + LH + i * rowH;
+        if (ry + rowH > ch) return;
+        ctx.fillStyle = p.eliminated ? 'rgba(80,50,40,0.5)' : 'rgba(200,153,82,0.07)';
+        ctx.fillRect(PAD / 2, ry + 2, cw - PAD, rowH - 4);
+        txt(seatLabel(p), PAD, ry + FMD, p.eliminated ? MUT : TXT, FMD, true);
+        txt(`${p.hand.length}crd · ${p.chips}ch`, PAD, ry + FMD + FSM + 2, MUT, FSM);
         if (s.currentTurn === p.id) {
           ctx.fillStyle = GOOD;
-          ctx.fillRect(cw - 12, y + 4, 4, 36);
+          ctx.fillRect(cw - Math.round(6 * u), ry + 4, Math.round(4 * u), rowH - 8);
         }
-        y += 50;
       });
       border();
 
     } else if (PROJ_SEAT.test(projId)) {
       const id = parseInt(projId.split('-')[1]);
       const p  = s.players[id];
-      if (!p) { bg(); return; }
+      if (!p) { bg(); tex.needsUpdate = true; return; }
       bg(p.eliminated ? 0.6 : 0.9);
-      value(seatLabel(p), 12, 24, p.eliminated ? MUT : ACC, 13);
-      label(`${p.hand.length} cards · ${p.chips} chips · ${p.clears} clears`, 12, 42, TXT, 11);
-      if (p.lastAction) label(p.lastAction, 12, 58, MUT, 10);
+      let y = PAD + FLG;
+      txt(seatLabel(p), PAD, y, p.eliminated ? MUT : ACC, FLG, true); y += LH;
+      if (wide) {
+        txt(`${p.hand.length} cards · ${p.chips} chips · ${p.clears} clears`,
+            PAD, y, TXT, FMD); y += LH;
+      } else {
+        [`Cards: ${p.hand.length}`, `Chips: ${p.chips}`, `Clears: ${p.clears}`]
+          .forEach(t => { txt(t, PAD, y, TXT, FMD); y += LH; });
+      }
+      if (p.lastAction) txt(p.lastAction, PAD, y, MUT, FSM);
       if (s.currentTurn === p.id) {
         ctx.fillStyle = GOOD;
-        ctx.fillRect(0, 0, 4, ch);
+        ctx.fillRect(0, 0, Math.round(5 * u), ch);
       }
       border();
 
     } else if (projId === 'cinematic') {
       if (!s.betting && !s.challengeWindow) {
-        ctx.clearRect(0, 0, cw, ch); // transparent when inactive
+        ctx.clearRect(0, 0, cw, ch);   // transparent when inactive
       } else {
         bg(0.95);
-        value('CHALLENGE', cw / 2, ch / 2 - 10, WARN, 18);
         ctx.textAlign = 'center';
+        txt('CHALLENGE', cw / 2, ch / 2, WARN, FLG, true);
         if (s.betting) {
-          const ch_ = seatLabel(s.players[s.betting.challengerId]);
-          const cd_ = seatLabel(s.players[s.betting.challengedId]);
-          label(`${ch_} vs ${cd_} · Stake: ${s.betting.stake}`, cw / 2, ch / 2 + 14, TXT, 12);
+          const a = seatLabel(s.players[s.betting.challengerId]);
+          const b = seatLabel(s.players[s.betting.challengedId]);
+          txt(`${a} vs ${b} · Stake: ${s.betting.stake}`,
+              cw / 2, ch / 2 + LH, TXT, FMD);
         }
         ctx.textAlign = 'left';
         border();
       }
 
     } else {
-      // Unknown panel — draw a placeholder
       bg();
-      label(projId, 12, ch / 2, MUT, 12);
+      txt(projId, PAD, ch / 2, MUT, FMD);
     }
 
     tex.needsUpdate = true;
