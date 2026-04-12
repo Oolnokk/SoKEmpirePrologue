@@ -3811,7 +3811,7 @@
         // to avoid WebGLState errors from PBR on LINE geometry.
         slotNodes = [];
         for (let i = 1; i <= 14; i++) {
-          const node = gltf.scene.getObjectByName(`ownedslot${i}`);
+          const node = gltf.scene.getObjectByName(`placeholderownedslot${i}`);
           if (node) {
             if (node.material) {
               (Array.isArray(node.material) ? node.material : [node.material])
@@ -3917,7 +3917,13 @@
 
     gltfScene.traverse(obj => {
       if (!obj.isMesh) return;
-      if (obj.name === 'UIBase') { parentPlaneMesh = obj; return; }  // GLTF "UI:Base" → Three.js strips colon
+      // GLTF "ui_plane:UIBase" → Three.js strips colon → "ui_planeuibase"
+      if (obj.name === 'ui_planeuibase') { parentPlaneMesh = obj; return; }
+      // GLTF "ui_plane:UIPlayerList" → "ui_planeuiplayerlist" → project sidebar content
+      if (obj.name === 'ui_planeuiplayerlist') {
+        activeProj.set('sidebar', makeProjEntry(obj, 'sidebar', 'html'));
+        return;
+      }
       const name = obj.name;
       const isHtml   = PROJ_HTML.has(name) || PROJ_SEAT.test(name);
       const isCanvas = PROJ_AVATAR.test(name);
@@ -3928,11 +3934,11 @@
     if (parentPlaneMesh) {
       activeProj.set('UIBase', makeProjEntry(parentPlaneMesh, 'UIBase', 'ui_parent'));
       // Create virtual render targets for all HTML panels that don't already have
-      // a dedicated 3D plane — projUIParent will composite these into UIParentPlane.
+      // a dedicated 3D plane — projUIParent will composite these into UIBase.
       for (const id of PROJ_HTML) {
         if (!activeProj.has(id)) activeProj.set(id, makeVirtualEntry(id, 'html'));
       }
-      console.log('[3DTable] UIParentPlane composite mode active');
+      console.log('[3DTable] UIBase composite mode active');
     }
 
     console.log('[3DTable] proj planes:', [...activeProj.keys()].join(', ') || '(none)');
