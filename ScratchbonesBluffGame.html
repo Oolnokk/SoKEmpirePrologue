@@ -3741,7 +3741,8 @@
 
   const SCRATCHBONE_BASE = 'docs/assets/3D/3DProps/';
   const sbCache = new Map();   // rank 1-10 → THREE.Group (gltf.scene template)
-  let sbLoaded  = 0;
+  let sbLoaded    = 0;
+  let sbCompleted = 0;   // successes + failures; when === 10 all loads are done
   let syncPending = false;
 
   function preloadScratchbones() {
@@ -3753,11 +3754,15 @@
         gltf => {
           console.log('[3DTable] sb', rank, 'loaded');
           sbCache.set(rank, gltf.scene);
-          sbLoaded++;
-          if (syncPending && sbLoaded === 10) { syncPending = false; sync(); }
+          sbLoaded++;    sbCompleted++;
+          if (syncPending && sbCompleted === 10) { syncPending = false; sync(); }
         },
         undefined,
-        err => console.warn(`[3DTable] scratchbone ${rank} load error:`, err)
+        err => {
+          console.warn(`[3DTable] scratchbone ${rank} load error:`, err);
+          sbCompleted++;
+          if (syncPending && sbCompleted === 10) { syncPending = false; sync(); }
+        }
       );
     }
   }
@@ -3808,6 +3813,25 @@
         }
         console.log('[3DTable] slot nodes found:', slotNodes.length);
 
+        // Convert any remaining PBR materials to unlit (MeshBasicMaterial).
+        // projection planes and slot wireframes are already replaced above;
+        // this catches the FOUNDATION mesh and any other structural geometry.
+        gltfRoot.traverse(obj => {
+          if (!obj.isMesh) return;
+          const m = obj.material;
+          if (!m || !m.isMeshStandardMaterial) return;
+          const basic = new THREE.MeshBasicMaterial({
+            color:       m.color,
+            map:         m.map        || null,
+            alphaMap:    m.alphaMap   || null,
+            transparent: m.transparent,
+            opacity:     m.opacity,
+            side:        m.side,
+          });
+          m.dispose();
+          obj.material = basic;
+        });
+
         // Add to scene only after all materials are clean
         scene.add(gltfRoot);
 
@@ -3847,6 +3871,7 @@
     tex.flipY = false;
     tex.center.set(0.5, 0.5);
     tex.rotation = Math.PI / 2;   // correct for CCW spawn orientation
+    tex.repeat.set(-1, 1);        // un-mirror back-face UV (planes are face-down)
 
     // Replace plane material with our canvas texture
     const mat = new THREE.MeshBasicMaterial({
@@ -3892,12 +3917,12 @@
     // u scales with the shorter canvas dimension so text stays proportional
     // regardless of plane aspect ratio.
     const u    = Math.min(cw, ch) / 512;
-    const PAD  = Math.round(16 * u);
-    const FSM  = Math.round(16 * u);   // small label
-    const FMD  = Math.round(20 * u);   // body text
-    const FLG  = Math.round(28 * u);   // heading
-    const LH   = Math.round(26 * u);   // line height
-    const R    = Math.round(6  * u);   // chip border-radius
+    const PAD  = Math.round( 40 * u);
+    const FSM  = Math.round( 80 * u);   // small label  (×5)
+    const FMD  = Math.round(100 * u);   // body text    (×5)
+    const FLG  = Math.round(140 * u);   // heading      (×5)
+    const LH   = Math.round(130 * u);   // line height  (×5)
+    const R    = Math.round( 20 * u);   // chip border-radius
     const wide = cw > ch * 1.5;        // landscape panel
     const tall = ch > cw * 1.5;        // portrait panel
 
@@ -4200,7 +4225,7 @@
     if (!gs) return;
     const s = gs.state;
     syncProjections();
-    if (sbLoaded < 10) { syncPending = true; return; }
+    if (sbCompleted < 10) { syncPending = true; return; }
     updateCards(s.players?.[0]?.hand ?? [], s.selectedCardIds);
   }
 
