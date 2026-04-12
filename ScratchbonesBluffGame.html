@@ -970,7 +970,142 @@
       color: var(--muted);
       font-style: italic;
     }
+
+    /* ── 3D Table ──────────────────────────────────────────────── */
+    #threeCanvas {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      display: block;
+    }
+
+    /* In 3D mode the canvas IS the background */
+    body.mode-3d {
+      background: transparent !important;
+    }
+    body.mode-3d #threeCanvas {
+      pointer-events: none; /* document listener handles card clicks */
+    }
+    /* Fade non-essential panels so the 3D scene shows through */
+    body.mode-3d .topbar,
+    body.mode-3d .panel,
+    body.mode-3d .eventLog,
+    body.mode-3d #aiSidebar {
+      opacity: 0.18;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    body.mode-3d .handWrap { display: none; }
+    body.mode-3d .controls {
+      opacity: 1;
+      pointer-events: auto;
+      position: relative; z-index: 10;
+      transition: opacity 0.3s;
+    }
+
+    /* 3D toggle button – fixed bottom-right */
+    #tableToggleBtn {
+      position: fixed;
+      bottom: calc(10px + var(--safe)); right: 62px;
+      z-index: 200;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(46,34,30,0.94);
+      border: 1px solid rgba(200,153,82,0.55);
+      color: var(--accent);
+      font-size: 0.78rem;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
+    #tableToggleBtn:hover { background: rgba(67,49,43,0.97); }
+
+    /* Gear button to open popout */
+    #tablePopoutToggle {
+      position: fixed;
+      bottom: calc(10px + var(--safe)); right: 10px;
+      z-index: 200;
+      padding: 6px 10px;
+      border-radius: 20px;
+      background: rgba(46,34,30,0.92);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    #tablePopoutToggle:hover { background: rgba(67,49,43,0.97); }
+
+    /* Popout panel */
+    #tablePopout {
+      position: fixed;
+      bottom: calc(50px + var(--safe)); right: 10px;
+      z-index: 200;
+      width: 238px;
+      display: none;
+      background: rgba(20,12,8,0.97);
+      border: 1px solid rgba(200,153,82,0.35);
+      border-radius: 12px;
+      padding: 12px 14px 14px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    #tablePopout h3 {
+      margin: 0 0 9px;
+      font-size: 0.82rem;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+    }
+    .ts-row {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+    }
+    .ts-label {
+      font-size: 0.67rem; color: var(--muted);
+      width: 38px; flex-shrink: 0;
+    }
+    .ts-range {
+      flex: 1; min-width: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .ts-val {
+      font-size: 0.67rem; color: var(--accent-2);
+      width: 38px; text-align: right; font-variant-numeric: tabular-nums;
+    }
+    .ts-btn {
+      display: block; width: 100%;
+      padding: 5px 8px; margin-bottom: 6px;
+      border-radius: 7px;
+      background: rgba(67,49,43,0.9);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text); font-size: 0.72rem;
+      cursor: pointer; text-align: left;
+    }
+    .ts-btn:hover { background: rgba(90,66,55,0.95); }
+    .ts-divider {
+      border: none; border-top: 1px solid rgba(255,255,255,0.08);
+      margin: 8px 0;
+    }
+    .ts-file-label {
+      display: block; font-size: 0.72rem; color: var(--muted);
+      margin-bottom: 8px; cursor: pointer;
+    }
+    .ts-file-label input[type=file] {
+      display: block; margin-top: 4px;
+      font-size: 0.68rem; color: var(--muted); width: 100%;
+    }
+    .ts-section-title {
+      font-size: 0.67rem; color: var(--accent); letter-spacing: 0.08em;
+      margin: 4px 0 5px; font-weight: 700;
+    }
   </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body>
   <div id="app"></div>
@@ -997,6 +1132,28 @@
 
   <!-- Challenge cinematic overlay — populated by JS -->
   <div id="challengeCinematic"></div>
+
+  <!-- 3D table canvas — always rendered, provides background in mode-3d -->
+  <canvas id="threeCanvas"></canvas>
+
+  <!-- 3D mode toggle + settings popout -->
+  <button id="tableToggleBtn" title="Toggle 3D table view">3D</button>
+  <button id="tablePopoutToggle" title="3D table settings">⚙</button>
+
+  <div id="tablePopout" role="dialog" aria-label="3D table settings">
+    <h3>3D Table</h3>
+
+    <button class="ts-btn" id="gltfLoadDefault">↓ Load ScratchbonesTableV1.gltf</button>
+
+    <label class="ts-file-label">
+      Import GLTF / GLB…
+      <input type="file" id="gltfFileInput" accept=".gltf,.glb">
+    </label>
+
+    <hr class="ts-divider">
+    <div class="ts-section-title">TRANSFORM</div>
+    <div id="tableSliders"><!-- populated by module script --></div>
+  </div>
 
   <script>
 
@@ -2820,6 +2977,8 @@
       renderChallengeBox();
       refreshCinematicBettingZone();
       renderSeatPortraits();
+      // Notify 3D module to re-sync UI planes and card meshes
+      if (window._table3D) window._table3D.sync();
     }
 
     function debugSnapshot() {
@@ -3287,8 +3446,439 @@
       _cinTimeout = setTimeout(closeCinematic, 2600);
     }
 
+    // ── Bridge for Three.js module ────────────────────────────────────────
+    window._scratchbones = {
+      get state()      { return state; },
+      toggleSelect,
+    };
+
     startGame();
 
+  </script>
+
+  <script type="module">
+  /**
+   * ScratchbonesBluffGame – 3D table integration
+   *
+   * Responsibilities:
+   *   • Render a Three.js scene behind the HTML UI (canvas z-index 0).
+   *   • Load ScratchbonesTableV1.gltf (or any GLTF via file import).
+   *   • Project 2D game state onto two CanvasTexture UI planes:
+   *       ui_plane:ui:base        → main HUD (claim, chips, logs…)
+   *       ui_plane:ui:playerlist  → opponent seat list
+   *   • Replace the DOM hand (.handWrap) with BoxGeometry card meshes
+   *     attached to placeholder:ownedslot:N nodes (14 total).
+   *   • Handle card selection via document-level click + raycasting.
+   *   • Expose transform sliders + GLTF import in a hidden popout.
+   */
+  import * as THREE from 'three';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+  // ─── renderer / scene / camera ──────────────────────────────────────────
+
+  const canvas   = document.getElementById('threeCanvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  // Dark-wood theme background – matches CSS radial-gradient midpoint
+  renderer.setClearColor(0x15110f, 1);
+
+  const scene  = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0, 7, 9);
+  camera.lookAt(0, 0, 0);
+
+  // Ambient + directional light for PBR card materials
+  scene.add(new THREE.AmbientLight(0xfff8e8, 0.6));
+  const sun = new THREE.DirectionalLight(0xfff2cc, 1.1);
+  sun.position.set(3, 8, 5);
+  scene.add(sun);
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ─── mutable state ───────────────────────────────────────────────────────
+
+  let gltfRoot  = null;
+  let uiBase    = null;   // { cvs, ctx, tex }
+  let uiList    = null;
+  let slotNodes = [];     // [{node, idx}] – 14 entries
+  let cards3D   = [];     // [{mesh, cardId, slotNode}]
+  let is3D      = false;
+
+  // Default transform – slightly tilted toward viewer
+  const T = { rx: -0.42, ry: 0, rz: 0, tx: 0, ty: -0.9, tz: 0, sc: 1 };
+
+  // ─── GLTF loading ────────────────────────────────────────────────────────
+
+  function loadGLTF(url) {
+    new GLTFLoader().load(
+      url,
+      gltf => {
+        if (gltfRoot) scene.remove(gltfRoot);
+        gltfRoot = gltf.scene;
+        scene.add(gltfRoot);
+        applyTransform();
+
+        // Wire up UI planes
+        const baseNode = gltf.scene.getObjectByName('ui_plane:ui:base');
+        const listNode = gltf.scene.getObjectByName('ui_plane:ui:playerlist');
+        uiBase = baseNode ? setupUIPlane(baseNode, 'base') : null;
+        uiList = listNode ? setupUIPlane(listNode, 'list') : null;
+
+        // Collect + pre-position slot placeholder nodes
+        slotNodes = [];
+        for (let i = 1; i <= 14; i++) {
+          const node = gltf.scene.getObjectByName(`placeholder:ownedslot:${i}`);
+          if (node) {
+            positionSlot(node, i);
+            slotNodes.push({ node, idx: i });
+          }
+        }
+
+        sync();
+      },
+      undefined,
+      err => console.error('[3DTable] GLTF load error:', err)
+    );
+  }
+
+  // ─── UI plane setup ──────────────────────────────────────────────────────
+
+  function setupUIPlane(node, which) {
+    const cvs = document.createElement('canvas');
+    cvs.width = 512; cvs.height = 288;
+    const ctx = cvs.getContext('2d');
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.flipY = false;
+
+    // Replace GLTF material with canvas-texture MeshBasicMaterial
+    node.traverse(child => {
+      if (child.isMesh) {
+        child.material = new THREE.MeshBasicMaterial({
+          map: tex,
+          transparent: true,
+          side: THREE.FrontSide,
+          depthWrite: false,
+        });
+      }
+    });
+
+    // Position and tilt each plane to face the camera at default transform
+    if (which === 'base') {
+      node.position.set(-2.0, 0.85, 1.7);
+      node.rotation.set(-0.55, 0.18, 0);
+      node.scale.setScalar(1.7);
+    } else {
+      node.position.set(2.9, 0.9, 0.4);
+      node.rotation.set(-0.38, -0.42, 0);
+      node.scale.setScalar(1.6);
+    }
+
+    return { cvs, ctx, tex };
+  }
+
+  // ─── slot placement ──────────────────────────────────────────────────────
+
+  /**
+   * Arrange 14 slots in two rows of 7 on the table surface.
+   * Slot geometry (the brief's 7×0.892×1.64 box) is hidden;
+   * card meshes are added as children at runtime.
+   */
+  function positionSlot(node, i) {
+    const row = i <= 7 ? 0 : 1;
+    const col = (i - 1) % 7;
+    node.position.set(
+      (col - 3) * 0.82,  // x: −2.46 … +2.46
+      0.13,              // y: just above table top
+      row === 0 ? 1.1 : -0.25
+    );
+    // Hide the template mesh – we parent our own card geometry here
+    node.traverse(child => { if (child.isMesh) child.visible = false; });
+  }
+
+  // ─── 3D card meshes ──────────────────────────────────────────────────────
+
+  const CARD_GEO = new THREE.BoxGeometry(0.62, 0.022, 0.92);
+
+  function makeCardMesh(card, selected) {
+    const col = selected ? 0x62b0ff : (card.wild ? 0xffd854 : 0xf2e8d0);
+    const mat = new THREE.MeshStandardMaterial({
+      color: col,
+      roughness: 0.72,
+      metalness: 0.04,
+      emissive: new THREE.Color(
+        selected ? 0x1a3a6a : (card.wild ? 0x443300 : 0x100c08)
+      ),
+      emissiveIntensity: selected ? 0.65 : 0.12,
+    });
+    const mesh = new THREE.Mesh(CARD_GEO, mat);
+    mesh.userData.cardId = card.id;
+    mesh.position.y = selected ? 0.24 : 0;  // lift selected card
+    return mesh;
+  }
+
+  function updateCards(hand, selectedIds) {
+    // Detach and dispose old card meshes
+    cards3D.forEach(({ mesh, slotNode }) => {
+      slotNode.remove(mesh);
+      mesh.material.dispose();
+    });
+    cards3D = [];
+
+    hand.forEach((card, i) => {
+      const slot = slotNodes[i];
+      if (!slot) return;
+      const mesh = makeCardMesh(card, selectedIds.has(card.id));
+      slot.node.add(mesh);
+      cards3D.push({ mesh, cardId: card.id, slotNode: slot.node });
+    });
+  }
+
+  // ─── transform ───────────────────────────────────────────────────────────
+
+  function applyTransform() {
+    if (!gltfRoot) return;
+    gltfRoot.rotation.set(T.rx, T.ry, T.rz);
+    gltfRoot.position.set(T.tx, T.ty, T.tz);
+    gltfRoot.scale.setScalar(T.sc);
+  }
+
+  // ─── canvas 2D drawing helpers ───────────────────────────────────────────
+
+  function rr(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);          ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x+w, y, x+w, y+r, r); ctx.lineTo(x+w, y+h-r);
+    ctx.arcTo(x+w, y+h, x+w-r, y+h, r); ctx.lineTo(x+r, y+h);
+    ctx.arcTo(x, y+h, x, y+h-r, r); ctx.lineTo(x, y+r);
+    ctx.arcTo(x, y, x+r, y, r);
+    ctx.closePath();
+  }
+
+  function wrapText(ctx, text, x, y, maxW, lh, max = 4) {
+    const words = text.split(' ');
+    let line = '', n = 0;
+    for (const w of words) {
+      const test = line ? `${line} ${w}` : w;
+      if (ctx.measureText(test).width > maxW && line) {
+        ctx.fillText(line, x, y); y += lh; line = w;
+        if (++n >= max) { ctx.fillText(line, x, y); return; }
+      } else { line = test; }
+    }
+    if (line) ctx.fillText(line, x, y);
+  }
+
+  // ─── draw HUD (ui_plane:ui:base) ─────────────────────────────────────────
+
+  function drawUIBase(state) {
+    if (!uiBase) return;
+    const { cvs, ctx, tex } = uiBase;
+    const W = cvs.width, H = cvs.height;
+    ctx.clearRect(0, 0, W, H);
+
+    // Panel background
+    ctx.fillStyle = 'rgba(18,10,6,0.90)';
+    rr(ctx, 0, 0, W, H, 10); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,153,82,0.45)'; ctx.lineWidth = 2;
+    rr(ctx, 1, 1, W-2, H-2, 10); ctx.stroke();
+
+    const pl = state.players?.[0] || {};
+
+    // Title
+    ctx.fillStyle = '#c89952';
+    ctx.font = 'bold 17px monospace';
+    ctx.fillText('Madiao Mobile Challenge', 14, 26);
+
+    // Chip row
+    ctx.fillStyle = 'rgba(67,49,43,0.8)';
+    rr(ctx, 10, 31, W-20, 24, 4); ctx.fill();
+    ctx.fillStyle = '#e8d0a0'; ctx.font = '11px monospace';
+    const turnName = state.players?.[state.currentTurn]?.name ?? '—';
+    const leadName = state.players?.[state.leaderIndex]?.name ?? '—';
+    ctx.fillText(
+      `Round ${state.round ?? '—'}  ·  Turn: ${turnName}  ·  Lead: ${leadName}  ·  Pile: ${state.pile?.length ?? 0}`,
+      14, 47
+    );
+
+    // Claim + standing
+    ctx.fillStyle = '#f2d08f'; ctx.font = 'bold 15px monospace';
+    ctx.fillText(
+      state.declaredRank === null ? 'Open round' : `Claim: ${state.declaredRank}`,
+      14, 77
+    );
+    ctx.fillStyle = '#a09060'; ctx.font = '12px monospace';
+    ctx.fillText(
+      `${pl.hand?.length ?? 0} cards  ·  ${pl.chips ?? 0} chips  ·  ${pl.clears ?? 0} clears`,
+      14, 95
+    );
+
+    // Banner
+    if (state.banner) {
+      const bc = state.bannerType === 'warn' ? 'rgba(140,60,40,0.78)'
+               : state.bannerType === 'good' ? 'rgba(40,100,60,0.78)'
+               : 'rgba(70,50,30,0.78)';
+      ctx.fillStyle = bc;
+      rr(ctx, 10, 103, W-20, 44, 5); ctx.fill();
+      ctx.fillStyle = '#e8d8b8'; ctx.font = '11px monospace';
+      wrapText(ctx, state.banner, 16, 119, W-28, 13, 3);
+    }
+
+    // Recent logs
+    ctx.fillStyle = '#7a6848'; ctx.font = 'bold 10px monospace';
+    ctx.fillText('— Recent events —', 14, 161);
+    (state.logs ?? []).slice(-4).forEach((log, i) => {
+      ctx.fillStyle = i === 0 ? '#b8a87a' : '#7a6848';
+      ctx.font = '10px monospace';
+      ctx.fillText((log.text ?? '').substring(0, 70), 14, 175 + i * 13);
+    });
+
+    tex.needsUpdate = true;
+  }
+
+  // ─── draw player list (ui_plane:ui:playerlist) ───────────────────────────
+
+  function drawUIList(state) {
+    if (!uiList) return;
+    const { cvs, ctx, tex } = uiList;
+    const W = cvs.width, H = cvs.height;
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.fillStyle = 'rgba(16,9,5,0.92)';
+    rr(ctx, 0, 0, W, H, 10); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,153,82,0.4)'; ctx.lineWidth = 2;
+    rr(ctx, 1, 1, W-2, H-2, 10); ctx.stroke();
+
+    ctx.fillStyle = '#f2d08f'; ctx.font = 'bold 14px monospace';
+    ctx.fillText('Table', 14, 22);
+
+    const opp  = state.players?.slice(1) ?? [];
+    const rowH = Math.min(44, (H - 30) / Math.max(opp.length, 1));
+
+    opp.forEach((p, i) => {
+      const y = 30 + i * rowH;
+      ctx.globalAlpha = p.eliminated ? 0.42 : 1;
+      ctx.fillStyle = p.eliminated ? 'rgba(45,35,28,0.55)' : 'rgba(67,49,43,0.78)';
+      rr(ctx, 8, y + 1, W - 16, rowH - 3, 4); ctx.fill();
+
+      const fs = Math.max(10, Math.round(rowH * 0.28));
+      ctx.fillStyle = '#ecdcb0'; ctx.font = `bold ${fs}px monospace`;
+      ctx.fillText(p.name ?? '?', 12, y + rowH * 0.40);
+
+      ctx.fillStyle = '#9a8860'; ctx.font = `${Math.max(9, fs - 2)}px monospace`;
+      ctx.fillText(`Cards:${p.hand?.length ?? 0}  Chips:${p.chips ?? 0}`, 12, y + rowH * 0.68);
+
+      if (p.lastAction && rowH > 28) {
+        ctx.fillStyle = '#6a5838'; ctx.font = `${Math.max(8, fs - 3)}px monospace`;
+        ctx.fillText(p.lastAction.substring(0, 45), 12, y + rowH * 0.88);
+      }
+      ctx.globalAlpha = 1;
+    });
+
+    tex.needsUpdate = true;
+  }
+
+  // ─── public sync ─────────────────────────────────────────────────────────
+
+  function sync() {
+    const gs = window._scratchbones;
+    if (!gs) return;
+    const s = gs.state;
+    drawUIBase(s);
+    drawUIList(s);
+    if (gltfRoot) updateCards(s.players?.[0]?.hand ?? [], s.selectedCardIds);
+  }
+
+  // Register so render() can call it
+  window._table3D = { sync };
+
+  // ─── raycasting – card selection ─────────────────────────────────────────
+
+  const raycaster = new THREE.Raycaster();
+  const ptr       = new THREE.Vector2();
+
+  document.addEventListener('click', e => {
+    if (!is3D || !gltfRoot || !cards3D.length) return;
+    const rect = canvas.getBoundingClientRect();
+    ptr.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+    ptr.y = -((e.clientY - rect.top)  / rect.height)  * 2 + 1;
+    raycaster.setFromCamera(ptr, camera);
+    const hits = raycaster.intersectObjects(cards3D.map(c => c.mesh));
+    if (hits.length > 0) {
+      const id = hits[0].object.userData.cardId;
+      if (id !== undefined) window._scratchbones?.toggleSelect(id);
+    }
+  });
+
+  // ─── popout controls ─────────────────────────────────────────────────────
+
+  const SLIDERS = [
+    { id:'rx', label:'Rot X',  min:-3.14, max:3.14, step:0.01, init:-0.42 },
+    { id:'ry', label:'Rot Y',  min:-3.14, max:3.14, step:0.01, init: 0    },
+    { id:'rz', label:'Rot Z',  min:-3.14, max:3.14, step:0.01, init: 0    },
+    { id:'tx', label:'Pos X',  min:-10,   max:10,   step:0.05, init: 0    },
+    { id:'ty', label:'Pos Y',  min:-10,   max:5,    step:0.05, init:-0.9  },
+    { id:'tz', label:'Pos Z',  min:-10,   max:10,   step:0.05, init: 0    },
+    { id:'sc', label:'Scale',  min: 0.1,  max:5,    step:0.05, init: 1    },
+  ];
+
+  function buildSliders() {
+    const container = document.getElementById('tableSliders');
+    if (!container) return;
+    container.innerHTML = '';
+    for (const def of SLIDERS) {
+      const row = document.createElement('div');
+      row.className = 'ts-row';
+      row.innerHTML =
+        `<span class="ts-label">${def.label}</span>` +
+        `<input class="ts-range" type="range" id="ts_${def.id}"` +
+        ` min="${def.min}" max="${def.max}" step="${def.step}" value="${def.init}">` +
+        `<span class="ts-val" id="tsv_${def.id}">${def.init.toFixed(2)}</span>`;
+      container.appendChild(row);
+      row.querySelector(`#ts_${def.id}`).addEventListener('input', ev => {
+        T[def.id] = parseFloat(ev.target.value);
+        document.getElementById(`tsv_${def.id}`).textContent =
+          parseFloat(ev.target.value).toFixed(2);
+        applyTransform();
+      });
+    }
+  }
+
+  buildSliders();
+
+  // ─── event wiring ────────────────────────────────────────────────────────
+
+  document.getElementById('tableToggleBtn')?.addEventListener('click', () => {
+    is3D = !is3D;
+    document.body.classList.toggle('mode-3d', is3D);
+    document.getElementById('tableToggleBtn').textContent = is3D ? '2D' : '3D';
+    if (!is3D) document.getElementById('tablePopout').style.display = 'none';
+    if (is3D) sync();
+  });
+
+  document.getElementById('tablePopoutToggle')?.addEventListener('click', () => {
+    const pop = document.getElementById('tablePopout');
+    pop.style.display = pop.style.display === 'block' ? 'none' : 'block';
+  });
+
+  document.getElementById('gltfLoadDefault')?.addEventListener('click', () => {
+    loadGLTF('ScratchbonesTableV1.gltf');
+  });
+
+  document.getElementById('gltfFileInput')?.addEventListener('change', e => {
+    const file = e.target.files?.[0];
+    if (file) loadGLTF(URL.createObjectURL(file));
+  });
+
+  // ─── animation loop ──────────────────────────────────────────────────────
+
+  (function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+  })();
   </script>
 </body>
 </html>
