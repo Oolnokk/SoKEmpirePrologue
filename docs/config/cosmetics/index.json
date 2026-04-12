@@ -22,6 +22,9 @@
     { "id": "appearance::Mao-ao_M::mao-ao_tuft",                  "path": "./appearance/mao-ao/tuft.json" },
     { "id": "appearance::Mao-ao_M::mao-ao_long_ponytail",         "path": "./appearance/mao-ao/long_ponytail.json" },
     { "id": "appearance::Mao-ao_M::mao-ao_wildbeard",             "path": "./appearance/mao-ao/wildbeard.json" },
+    { "id": "appearance::Mao-ao_M::mao-ao_forwardtuft_long",      "path": "./appearance/mao-ao/forwardtuft_long.json" },
+    { "id": "appearance::Mao-ao_M::mao-ao_forwardtuft_short",     "path": "./appearance/mao-ao/forwardtuft_short.json" },
+    { "id": "appearance::Mao-ao_M::mao-ao_splayedknot_medium",    "path": "./appearance/mao-ao/splayedknot_medium.json" },
     { "id": "appearance::Mao-ao_F::mao-ao_circled_eyes",          "path": "./appearance/mao-ao/circled_eyes.json" },
     { "id": "appearance::Mao-ao_F::mao-ao_circled_eyes_f",        "path": "./appearance/mao-ao/circled_eyes_f.json" },
     { "id": "appearance::Mao-ao_F::mao-ao_circled_eye_L",         "path": "./appearance/mao-ao/circled_eye_L.json" },
@@ -29,6 +32,9 @@
     { "id": "appearance::Mao-ao_F::mao-ao_shoulder_length_drape", "path": "./appearance/mao-ao/shoulder_length_drape.json" },
     { "id": "appearance::Mao-ao_F::mao-ao_tuft",                  "path": "./appearance/mao-ao/tuft.json" },
     { "id": "appearance::Mao-ao_F::mao-ao_long_ponytail",         "path": "./appearance/mao-ao/long_ponytail.json" },
-    { "id": "appearance::Mao-ao_F::mao-ao_wildbeard",             "path": "./appearance/mao-ao/wildbeard.json" }
+    { "id": "appearance::Mao-ao_F::mao-ao_wildbeard",             "path": "./appearance/mao-ao/wildbeard.json" },
+    { "id": "appearance::Mao-ao_F::mao-ao_forwardtuft_long",      "path": "./appearance/mao-ao/forwardtuft_long.json" },
+    { "id": "appearance::Mao-ao_F::mao-ao_forwardtuft_short",     "path": "./appearance/mao-ao/forwardtuft_short.json" },
+    { "id": "appearance::Mao-ao_F::mao-ao_splayedknot_medium",    "path": "./appearance/mao-ao/splayedknot_medium.json" }
   ]
 }
