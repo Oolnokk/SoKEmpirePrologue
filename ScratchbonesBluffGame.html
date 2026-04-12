@@ -3905,7 +3905,7 @@
 
     gltfScene.traverse(obj => {
       if (!obj.isMesh) return;
-      if (obj.name === 'UIParentPlane') { parentPlaneMesh = obj; return; }
+      if (obj.name === 'UIBase') { parentPlaneMesh = obj; return; }  // GLTF "UI:Base" → Three.js strips colon
       const name = obj.name;
       const isHtml   = PROJ_HTML.has(name) || PROJ_SEAT.test(name);
       const isCanvas = PROJ_AVATAR.test(name);
@@ -3914,7 +3914,7 @@
     });
 
     if (parentPlaneMesh) {
-      activeProj.set('UIParentPlane', makeProjEntry(parentPlaneMesh, 'UIParentPlane', 'ui_parent'));
+      activeProj.set('UIBase', makeProjEntry(parentPlaneMesh, 'UIBase', 'ui_parent'));
       // Create virtual render targets for all HTML panels that don't already have
       // a dedicated 3D plane — projUIParent will composite these into UIParentPlane.
       for (const id of PROJ_HTML) {
@@ -4170,7 +4170,7 @@
     ctx.clearRect(0, 0, CW, CH);
 
     for (const [projId, panelEntry] of activeProj) {
-      if (projId === 'UIParentPlane') continue;
+      if (projId === 'UIBase') continue;
       if (projId === 'hand') continue;   // leave transparent for scratchbones
 
       const el = document.querySelector(`[data-proj-id="${projId}"]`);
@@ -4191,7 +4191,7 @@
   function syncProjections() {
     let uiParent = null;
     for (const entry of activeProj.values()) {
-      if (entry.projId === 'UIParentPlane') { uiParent = entry; continue; }
+      if (entry.projId === 'UIBase') { uiParent = entry; continue; }
       if (entry.type === 'canvas') projCanvas(entry);
       else if (entry.type === 'html') projHtml(entry);
     }
