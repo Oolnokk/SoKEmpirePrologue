@@ -1007,7 +1007,7 @@
       width: 100%; height: 100%;
       z-index: 0;
       pointer-events: none;
-      display: block;
+      display: none; /* hidden in 2D mode – avoids covering the HTML UI */
     }
 
     /* In 3D mode the canvas IS the background */
@@ -1015,6 +1015,7 @@
       background: transparent !important;
     }
     body.mode-3d #threeCanvas {
+      display: block;
       pointer-events: none; /* document listener handles card clicks */
     }
     /* Fade non-essential panels so the 3D scene shows through */
@@ -3660,15 +3661,18 @@
         uiBase = baseNode ? setupUIPlane(baseNode) : null;
         uiList = listNode ? setupUIPlane(listNode) : null;
 
-        // Collect slot nodes – matrices are pre-baked; permanently hide their meshes
+        // Collect slot nodes – matrices are pre-baked; permanently hide placeholder wireframes.
+        // Note: slots use GLTF primitive mode 1 (LINES) → THREE.LineSegments, not THREE.Mesh,
+        // so we hide the node directly rather than checking isMesh.
         slotNodes = [];
         for (let i = 1; i <= 14; i++) {
           const node = gltf.scene.getObjectByName(`placeholder:ownedslot:${i}`);
           if (node) {
-            node.traverse(c => { if (c.isMesh) c.visible = false; });
+            node.visible = false;
             slotNodes.push({ node, idx: i });
           }
         }
+        console.log('[3DTable] slot nodes found:', slotNodes.length);
 
         // Hidden in 2D mode until the user switches to 3D
         gltfRoot.visible = is3D;
@@ -3933,7 +3937,9 @@
     drawUIBase(s);
     drawUIList(s);
     if (sbLoaded < 10) { syncPending = true; return; } // retry when all loaded
-    updateCards(s.players?.[0]?.hand ?? [], s.selectedCardIds);
+    const hand = s.players?.[0]?.hand ?? [];
+    console.log('[3DTable] sync: hand', hand.length, 'slots', slotNodes.length, 'sb', sbLoaded);
+    updateCards(hand, s.selectedCardIds);
   }
 
   window._table3D = { sync };
