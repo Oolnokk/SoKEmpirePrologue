@@ -3774,32 +3774,42 @@
         console.log('[3DTable] table GLTF loaded ok');
         if (gltfRoot) scene.remove(gltfRoot);
         gltfRoot = gltf.scene;
-        scene.add(gltfRoot);
-        applyTransform();
 
         // Dump all node names so we can see exactly what Three.js calls them
         const allNames = [];
         gltf.scene.traverse(c => { if (c.name) allNames.push(c.name); });
         console.log('[3DTable] scene node names:', allNames.join(' | '));
 
-        // Ensure all matrices are current before we read slot positions
+        // Apply transform + update matrices before material replacement so
+        // canvasSizeForPlane() gets accurate bounding boxes.
+        applyTransform();
         gltfRoot.updateWorldMatrix(true, true);
 
-        // Scan scene for planes tagged with projection IDs
+        // Replace ui_plane materials with canvas textures BEFORE adding to
+        // the scene so Three.js never sees the original BLEND/PBR materials
+        // on those meshes (avoids THREE.WebGLState errors).
         scanProjectionPlanes(gltf.scene);
 
-        // Collect slot nodes – matrices are pre-baked; permanently hide placeholder wireframes.
-        // Note: slots use GLTF primitive mode 1 (LINES) → THREE.LineSegments, not THREE.Mesh,
-        // so we hide the node directly rather than checking isMesh.
+        // Collect slot nodes – matrices are pre-baked; permanently hide placeholder
+        // wireframes and swap their BLEND/PBR material for a plain LineBasicMaterial
+        // to avoid WebGLState errors from PBR on LINE geometry.
         slotNodes = [];
         for (let i = 1; i <= 14; i++) {
           const node = gltf.scene.getObjectByName(`ownedslot${i}`);
           if (node) {
+            if (node.material) {
+              (Array.isArray(node.material) ? node.material : [node.material])
+                .forEach(m => m.dispose());
+              node.material = new THREE.LineBasicMaterial({ color: 0xffa040 });
+            }
             node.visible = false;
             slotNodes.push({ node, idx: i });
           }
         }
         console.log('[3DTable] slot nodes found:', slotNodes.length);
+
+        // Add to scene only after all materials are clean
+        scene.add(gltfRoot);
 
         // Hidden in 2D mode until the user switches to 3D
         gltfRoot.visible = is3D;
