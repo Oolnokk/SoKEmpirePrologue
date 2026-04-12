@@ -3661,8 +3661,9 @@
         gltfRoot.updateWorldMatrix(true, true);
 
         // Wire up canvas-texture UI planes (keep their GLTF-baked position/scale)
-        const baseNode = gltf.scene.getObjectByName('ui_plane:ui:base');
-        const listNode = gltf.scene.getObjectByName('ui_plane:ui:playerlist');
+        // Three.js r160 strips colons from node names: "ui_plane:ui:base" → "ui_planeuibase"
+        const baseNode = gltf.scene.getObjectByName('ui_planeuibase');
+        const listNode = gltf.scene.getObjectByName('ui_planeuiplayerlist');
         uiBase = baseNode ? setupUIPlane(baseNode) : null;
         uiList = listNode ? setupUIPlane(listNode) : null;
 
@@ -3671,7 +3672,7 @@
         // so we hide the node directly rather than checking isMesh.
         slotNodes = [];
         for (let i = 1; i <= 14; i++) {
-          const node = gltf.scene.getObjectByName(`placeholder:ownedslot:${i}`);
+          const node = gltf.scene.getObjectByName(`placeholderownedslot${i}`);
           if (node) {
             node.visible = false;
             slotNodes.push({ node, idx: i });
