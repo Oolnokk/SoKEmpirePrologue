@@ -4,6 +4,36 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Madiao Mobile Challenge</title>
+
+  <!-- ── Debug log interceptor – runs before everything else ── -->
+  <script>
+  (function() {
+    const _logs = [];
+    const _orig = { log: console.log, warn: console.warn, error: console.error };
+    ['log','warn','error'].forEach(lvl => {
+      console[lvl] = function(...a) {
+        _orig[lvl].apply(console, a);
+        const line = a.map(x => {
+          try { return (typeof x === 'object') ? JSON.stringify(x, null, 1) : String(x); }
+          catch(_) { return String(x); }
+        }).join(' ');
+        _logs.push({ lvl, line, t: Date.now() });
+        const el = document.getElementById('_dbgBody');
+        if (el) {
+          const row = document.createElement('div');
+          row.className = '_dl _dl-' + lvl;
+          row.textContent = line;
+          el.appendChild(row);
+          el.scrollTop = el.scrollHeight;
+        }
+      };
+    });
+    window.addEventListener('error', e => console.error('UNCAUGHT', e.message, e.filename + ':' + e.lineno));
+    window.addEventListener('unhandledrejection', e => console.error('UNHANDLED PROMISE', e.reason));
+    window._debugLogs = _logs;
+  })();
+  </script>
+
   <script src="docs/js/portrait-utils.js"></script>
   <style>
     @font-face {
@@ -970,7 +1000,253 @@
       color: var(--muted);
       font-style: italic;
     }
+
+    /* ── 3D Table ──────────────────────────────────────────────── */
+    #threeCanvas {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      display: none; /* hidden in 2D mode – avoids covering the HTML UI */
+    }
+
+    /* In 3D mode the canvas IS the background */
+    body.mode-3d {
+      background: transparent !important;
+    }
+    body.mode-3d #threeCanvas {
+      display: block;
+      pointer-events: none; /* document listener handles card clicks */
+    }
+    /* Fade non-essential panels so the 3D scene shows through */
+    body.mode-3d .topbar,
+    body.mode-3d .panel,
+    body.mode-3d .eventLog,
+    body.mode-3d #aiSidebar {
+      opacity: 0.18;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    body.mode-3d .handWrap { display: none; }
+    body.mode-3d .controls {
+      opacity: 1;
+      pointer-events: auto;
+      position: relative; z-index: 10;
+      transition: opacity 0.3s;
+    }
+
+    /* 3D toggle button – fixed bottom-right */
+    #tableToggleBtn {
+      position: fixed;
+      bottom: calc(10px + var(--safe)); right: 62px;
+      z-index: 200;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(46,34,30,0.94);
+      border: 1px solid rgba(200,153,82,0.55);
+      color: var(--accent);
+      font-size: 0.78rem;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
+    #tableToggleBtn:hover { background: rgba(67,49,43,0.97); }
+
+    /* Gear button to open popout */
+    #tablePopoutToggle {
+      position: fixed;
+      bottom: calc(10px + var(--safe)); right: 10px;
+      z-index: 200;
+      padding: 6px 10px;
+      border-radius: 20px;
+      background: rgba(46,34,30,0.92);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    #tablePopoutToggle:hover { background: rgba(67,49,43,0.97); }
+
+    /* Popout panel */
+    #tablePopout {
+      position: fixed;
+      bottom: calc(50px + var(--safe)); right: 10px;
+      z-index: 200;
+      width: 238px;
+      display: none;
+      background: rgba(20,12,8,0.97);
+      border: 1px solid rgba(200,153,82,0.35);
+      border-radius: 12px;
+      padding: 12px 14px 14px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    #tablePopout h3 {
+      margin: 0 0 9px;
+      font-size: 0.82rem;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+    }
+    .ts-row {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+    }
+    .ts-label {
+      font-size: 0.67rem; color: var(--muted);
+      width: 38px; flex-shrink: 0;
+    }
+    .ts-range {
+      flex: 1; min-width: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .ts-val {
+      font-size: 0.67rem; color: var(--accent-2);
+      width: 38px; text-align: right; font-variant-numeric: tabular-nums;
+    }
+    .ts-btn {
+      display: block; width: 100%;
+      padding: 5px 8px; margin-bottom: 6px;
+      border-radius: 7px;
+      background: rgba(67,49,43,0.9);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text); font-size: 0.72rem;
+      cursor: pointer; text-align: left;
+    }
+    .ts-btn:hover { background: rgba(90,66,55,0.95); }
+    .ts-divider {
+      border: none; border-top: 1px solid rgba(255,255,255,0.08);
+      margin: 8px 0;
+    }
+    .ts-file-label {
+      display: block; font-size: 0.72rem; color: var(--muted);
+      margin-bottom: 8px; cursor: pointer;
+    }
+    .ts-file-label input[type=file] {
+      display: block; margin-top: 4px;
+      font-size: 0.68rem; color: var(--muted); width: 100%;
+    }
+    .ts-section-title {
+      font-size: 0.67rem; color: var(--accent); letter-spacing: 0.08em;
+      margin: 4px 0 5px; font-weight: 700;
+    }
+
+    /* ── Debug log panel ─────────────────────────────────────────── */
+    #_dbgBtn {
+      position: fixed;
+      bottom: calc(10px + var(--safe)); left: 10px;
+      z-index: 9999;
+      background: rgba(30,20,18,0.92);
+      border: 1px solid rgba(200,150,80,0.4);
+      color: #c89952;
+      font-size: 0.72rem;
+      padding: 6px 11px;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
+    #_dbgBtn:hover { background: rgba(67,49,43,0.97); }
+
+    #_dbgPanel {
+      position: fixed;
+      bottom: calc(50px + var(--safe)); left: 10px;
+      width: min(420px, calc(100vw - 20px));
+      max-height: 55vh;
+      display: none;
+      flex-direction: column;
+      background: rgba(14,10,9,0.96);
+      border: 1px solid rgba(200,150,80,0.3);
+      border-radius: 10px;
+      z-index: 9998;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    }
+    #_dbgPanel.open { display: flex; }
+    #_dbgPanelHead {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 10px;
+      border-bottom: 1px solid rgba(200,150,80,0.15);
+      flex-shrink: 0;
+    }
+    #_dbgPanelHead span {
+      font-size: 0.72rem; color: #c89952; letter-spacing: 0.06em;
+    }
+    #_dbgCopyBtn {
+      font-size: 0.68rem; padding: 3px 8px;
+      background: rgba(67,49,43,0.9);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text); border-radius: 5px; cursor: pointer;
+    }
+    #_dbgCopyBtn:hover { background: rgba(90,66,55,0.95); }
+    #_dbgBody {
+      flex: 1; overflow-y: auto;
+      padding: 7px 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.65rem;
+      line-height: 1.5;
+    }
+    ._dl { word-break: break-word; padding: 1px 0; }
+    ._dl-log  { color: #c8bfaf; }
+    ._dl-warn { color: #e6b84a; }
+    ._dl-error{ color: #e05555; }
+
+    /* ── Projection mapping mode ─────────────────────────────── */
+    #projMapBtn {
+      position: fixed;
+      bottom: calc(10px + var(--safe)); right: 116px;
+      z-index: 1000;
+      background: rgba(30,20,18,0.92);
+      border: 1px solid rgba(200,150,80,0.4);
+      color: #c89952; font-size: 0.72rem;
+      padding: 6px 11px; border-radius: 8px;
+      cursor: pointer; letter-spacing: 0.05em;
+    }
+    #projMapBtn:hover { background: rgba(67,49,43,0.97); }
+    #projMapBtn.active { background: #c89952; color: #15110f; }
+    #projMapBtn.active:hover { background: #e0ad60; }
+
+    #projMapTip {
+      position: fixed; z-index: 9997;
+      background: rgba(14,10,9,0.97);
+      border: 1px solid rgba(200,150,80,0.5);
+      border-radius: 8px; padding: 8px 14px;
+      pointer-events: none;
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem; color: #f2d08f;
+      white-space: nowrap; display: none;
+    }
+
+    /* Outline all projectable elements in mapping mode */
+    body.proj-mapping [data-proj-id] {
+      outline: 2px dashed rgba(200,153,82,0.55) !important;
+      outline-offset: 1px;
+      cursor: crosshair !important;
+      user-select: none !important;
+    }
+    body.proj-mapping [data-proj-id]:hover {
+      outline: 2px solid #c89952 !important;
+      background: rgba(200,153,82,0.09) !important;
+    }
+    /* Freeze game interaction while mapping */
+    body.proj-mapping button:not(#projMapBtn),
+    body.proj-mapping select,
+    body.proj-mapping input,
+    body.proj-mapping .card {
+      pointer-events: none !important;
+    }
+
+    /* Human player row in sidebar (same as aiSeat) */
+    .humanSeat {
+      border-top: 1px solid rgba(200,153,82,0.22);
+      margin-top: 4px;
+    }
   </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body>
   <div id="app"></div>
@@ -996,7 +1272,43 @@
   </div>
 
   <!-- Challenge cinematic overlay — populated by JS -->
-  <div id="challengeCinematic"></div>
+  <div id="challengeCinematic" data-proj-id="cinematic"></div>
+
+  <!-- 3D table canvas — always rendered, provides background in mode-3d -->
+  <canvas id="threeCanvas"></canvas>
+
+  <!-- 3D mode toggle + settings popout -->
+  <button id="tableToggleBtn" title="Toggle 3D table view">3D</button>
+  <button id="tablePopoutToggle" title="3D table settings">⚙</button>
+
+  <div id="tablePopout" role="dialog" aria-label="3D table settings">
+    <h3>3D Table</h3>
+
+    <button class="ts-btn" id="gltfLoadDefault">↓ Load ScratchbonesTableV1</button>
+
+    <label class="ts-file-label">
+      Import GLTF / GLB…
+      <input type="file" id="gltfFileInput" accept=".gltf,.glb">
+    </label>
+
+    <hr class="ts-divider">
+    <div class="ts-section-title">TRANSFORM</div>
+    <div id="tableSliders"><!-- populated by module script --></div>
+  </div>
+
+  <!-- UI projection mapping mode -->
+  <button id="projMapBtn" title="Inspect panel projection IDs">Map</button>
+  <div id="projMapTip"></div>
+
+  <!-- Debug log panel -->
+  <button id="_dbgBtn" title="Toggle debug log">Log</button>
+  <div id="_dbgPanel">
+    <div id="_dbgPanelHead">
+      <span>DEBUG LOG</span>
+      <button id="_dbgCopyBtn">Copy</button>
+    </div>
+    <div id="_dbgBody"></div>
+  </div>
 
   <script>
 
@@ -2695,7 +3007,7 @@
       const humanCanRaise = humanRaiseAmount > 0;
 
       app.innerHTML = `
-        <div class="topbar">
+        <div class="topbar" data-proj-id="topbar">
           <div class="titleRow">
             <h1>Madiao Mobile Challenge</h1>
             <button class="ghost" id="restartBtn">New Match</button>
@@ -2708,10 +3020,10 @@
           </div>
         </div>
 
-        <div id="aiSidebar">
+        <div id="aiSidebar" data-proj-id="sidebar">
           <div class="sectionTitle" style="padding:6px 10px 2px;color:var(--accent-2);">Table</div>
           ${state.players.slice(1).map(p => `
-            <div class="aiSeat ${p.eliminated ? 'eliminated' : ''}">
+            <div class="aiSeat ${p.eliminated ? 'eliminated' : ''}" data-proj-id="seat-${p.id}">
               <div class="seatInfo">
                 <div class="seatName">${seatLabel(p)}</div>
                 <div class="seatMeta">Cards ${p.hand.length} · Chips ${p.chips} · Clears ${p.clears}</div>
@@ -2719,14 +3031,23 @@
                 ${p.personality ? `<div class="seatTags">${personalityTags(p.personality)}</div>` : ''}
                 <div class="seatStatus">${p.lastAction}</div>
               </div>
-              <div class="seatAvatarBox">
+              <div class="seatAvatarBox" data-proj-id="avatar-${p.id}">
                 <canvas class="seatPortrait" data-seat-id="${p.id}" width="200" height="200"></canvas>
               </div>
             </div>
           `).join('')}
+          <div class="aiSeat humanSeat" data-proj-id="humaninfo">
+            <div class="seatInfo">
+              <div class="seatName">${seatLabel(player)}</div>
+              <div class="seatMeta">Cards ${player.hand.length} · Chips ${player.chips}</div>
+            </div>
+            <div class="seatAvatarBox" data-proj-id="avatar-human">
+              <canvas class="seatPortrait" data-seat-id="0" width="200" height="200"></canvas>
+            </div>
+          </div>
         </div>
 
-        <div class="panel">
+        <div class="panel" data-proj-id="panel">
           <div class="centerInfo">
             <div class="bigInfo">
               <div class="bigLabel">Current claim</div>
@@ -2765,7 +3086,7 @@
           </details>
         </div>
 
-        <div class="handWrap">
+        <div class="handWrap" data-proj-id="hand">
           <div class="handHeader">
             <div class="sectionTitle">Your hand</div>
             <div class="tiny">Selected: ${selected.length}</div>
@@ -2781,12 +3102,12 @@
           </div>
         </div>
 
-        <div class="eventLog">
+        <div class="eventLog" data-proj-id="log">
           <div class="sectionTitle">Recent events</div>
           ${state.logs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
         </div>
 
-        <div class="controls">
+        <div class="controls" data-proj-id="controls">
           <div class="controlsRow">
             <label>
               Declare number
@@ -2820,6 +3141,8 @@
       renderChallengeBox();
       refreshCinematicBettingZone();
       renderSeatPortraits();
+      // Notify 3D module to re-sync UI planes and card meshes
+      if (window._table3D) window._table3D.sync();
     }
 
     function debugSnapshot() {
@@ -3287,8 +3610,558 @@
       _cinTimeout = setTimeout(closeCinematic, 2600);
     }
 
+    // ── UI projection mapping mode ────────────────────────────────────────
+    (function initProjMap() {
+      const btn = document.getElementById('projMapBtn');
+      const tip = document.getElementById('projMapTip');
+      if (!btn || !tip) return;
+
+      let active = false;
+
+      btn.addEventListener('click', () => {
+        active = !active;
+        document.body.classList.toggle('proj-mapping', active);
+        btn.classList.toggle('active', active);
+        if (!active) tip.style.display = 'none';
+      });
+
+      document.addEventListener('mousemove', e => {
+        if (!active) return;
+        const el = e.target.closest('[data-proj-id]');
+        if (el) {
+          tip.textContent = el.getAttribute('data-proj-id');
+          tip.style.display = 'block';
+          tip.style.left = (e.clientX + 16) + 'px';
+          tip.style.top  = Math.max(8, e.clientY - 42) + 'px';
+        } else {
+          tip.style.display = 'none';
+        }
+      });
+
+      // Capture phase: intercept clicks on projectable elements
+      document.addEventListener('click', e => {
+        if (!active) return;
+        if (e.target.closest('#projMapBtn')) return;
+        const el = e.target.closest('[data-proj-id]');
+        if (!el) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const id = el.getAttribute('data-proj-id');
+        navigator.clipboard?.writeText(id).catch(() => {});
+        tip.textContent = id + '  ✓ copied';
+        setTimeout(() => { if (active) tip.textContent = el.getAttribute('data-proj-id'); }, 1400);
+      }, true);
+    })();
+
+    // ── Bridge for Three.js module ────────────────────────────────────────
+    window._scratchbones = {
+      get state()      { return state; },
+      toggleSelect,
+    };
+
     startGame();
 
+  </script>
+
+  <script type="module">
+  /**
+   * ScratchbonesBluffGame – 3D table integration
+   *
+   * Responsibilities:
+   *   • Render a Three.js scene behind the HTML UI (canvas z-index 0).
+   *   • Load docs/assets/3D/3DFurniture/ScratchbonesTableV1.gltf
+   *     (or any GLTF/GLB via file import).
+   *   • Project 2D game state onto two CanvasTexture UI planes in the table.
+   *   • Load 3DScratchbone1-10.glb and place the appropriate model at each
+   *     pre-positioned placeholder:ownedslot:N node (14 total).
+   *     • Scratchbone rank maps to hand card rank (wild cards cycle via id).
+   *     • Selected cards get a blue emissive highlight + slight lift.
+   *     • Click on a scratchbone → raycasting → toggleSelect(cardId).
+   *   • Popout: load buttons, GLTF file import, 7 transform sliders.
+   */
+  import * as THREE from 'three';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  console.log('[3DTable] module started, THREE r' + THREE.REVISION);
+
+  // ─── renderer / scene / camera ──────────────────────────────────────────
+
+  const canvas   = document.getElementById('threeCanvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x15110f, 1);   // dark-wood theme, matches CSS bg
+
+  const scene  = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0, 4, 5);
+  camera.lookAt(0, 1.3, 0);   // look toward table surface (Y≈1.3)
+
+  scene.add(new THREE.AmbientLight(0xfff8e8, 0.65));
+  const sun = new THREE.DirectionalLight(0xfff2cc, 1.1);
+  sun.position.set(2, 6, 4);
+  scene.add(sun);
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ─── mutable state ───────────────────────────────────────────────────────
+
+  let gltfRoot  = null;
+  let slotNodes = [];     // [{node, idx}] – 14 entries (pre-positioned by GLTF matrices)
+  let cards3D   = [];     // [{obj, cardId}]  – scratchbone objects parented to gltfRoot
+  let is3D      = false;
+
+  // ─── UI projection registry ──────────────────────────────────────────────
+  //
+  // Tag a GLTF plane with one of these IDs to project that 2D UI box onto it.
+  //
+  //   HTML panels  → rendered via SVG foreignObject (text, layout, colors)
+  //     topbar       .topbar                 sidebar      #aiSidebar
+  //     panel        .panel                  hand         .handWrap
+  //     log          .eventLog               controls     .controls
+  //     cinematic    #challengeCinematic      humaninfo    human player row
+  //     seat-{id}    individual AI seat row
+  //
+  //   Canvas-direct → portrait canvas pixels copied (preserves transparency)
+  //     avatar-{id}  AI player avatar canvas  avatar-human  human avatar canvas
+  //
+  const PROJ_HTML  = new Set(['topbar','sidebar','panel','hand','log','controls','cinematic','humaninfo']);
+  const PROJ_SEAT  = /^seat-\d+$/;
+  const PROJ_AVATAR= /^avatar-(.+)$/;   // avatar-1 … avatar-N  or  avatar-human
+
+  const activeProj = new Map(); // projId → { type:'html'|'canvas', cvs, ctx, tex }
+
+  // Default transform (user can tune with sliders)
+  const T = { rx: 0.90, ry: 1.57, rz: 0.10, tx: 0, ty: -1.95, tz: -8.85, sc: 4.10 };
+
+  // ─── scratchbone asset cache ─────────────────────────────────────────────
+
+  const SCRATCHBONE_BASE = 'docs/assets/3D/3DProps/';
+  const sbCache = new Map();   // rank 1-10 → THREE.Group (gltf.scene template)
+  let sbLoaded  = 0;
+  let syncPending = false;
+
+  function preloadScratchbones() {
+    console.log('[3DTable] preloading scratchbones from', SCRATCHBONE_BASE);
+    const loader = new GLTFLoader();
+    for (let rank = 1; rank <= 10; rank++) {
+      loader.load(
+        `${SCRATCHBONE_BASE}3DScratchbone${rank}.glb`,
+        gltf => {
+          console.log('[3DTable] sb', rank, 'loaded');
+          sbCache.set(rank, gltf.scene);
+          sbLoaded++;
+          if (syncPending && sbLoaded === 10) { syncPending = false; sync(); }
+        },
+        undefined,
+        err => console.warn(`[3DTable] scratchbone ${rank} load error:`, err)
+      );
+    }
+  }
+
+  preloadScratchbones();
+
+  // ─── GLTF table loading ──────────────────────────────────────────────────
+
+  function loadGLTF(url) {
+    console.log('[3DTable] loadGLTF:', url);
+    new GLTFLoader().load(
+      url,
+      gltf => {
+        console.log('[3DTable] table GLTF loaded ok');
+        if (gltfRoot) scene.remove(gltfRoot);
+        gltfRoot = gltf.scene;
+        scene.add(gltfRoot);
+        applyTransform();
+
+        // Dump all node names so we can see exactly what Three.js calls them
+        const allNames = [];
+        gltf.scene.traverse(c => { if (c.name) allNames.push(c.name); });
+        console.log('[3DTable] scene node names:', allNames.join(' | '));
+
+        // Ensure all matrices are current before we read slot positions
+        gltfRoot.updateWorldMatrix(true, true);
+
+        // Scan scene for planes tagged with projection IDs
+        scanProjectionPlanes(gltf.scene);
+
+        // Collect slot nodes – matrices are pre-baked; permanently hide placeholder wireframes.
+        // Note: slots use GLTF primitive mode 1 (LINES) → THREE.LineSegments, not THREE.Mesh,
+        // so we hide the node directly rather than checking isMesh.
+        slotNodes = [];
+        for (let i = 1; i <= 14; i++) {
+          const node = gltf.scene.getObjectByName(`placeholderownedslot${i}`);
+          if (node) {
+            node.visible = false;
+            slotNodes.push({ node, idx: i });
+          }
+        }
+        console.log('[3DTable] slot nodes found:', slotNodes.length);
+
+        // Hidden in 2D mode until the user switches to 3D
+        gltfRoot.visible = is3D;
+
+        sync();
+      },
+      undefined,
+      err => console.error('[3DTable] table load error:', err)
+    );
+  }
+
+  // ─── UI projection system ────────────────────────────────────────────────
+
+  function canvasSizeForPlane(plane) {
+    try {
+      plane.geometry.computeBoundingBox();
+      const b = plane.geometry.boundingBox;
+      const pw = Math.abs(b.max.x - b.min.x);
+      const ph = Math.abs(b.max.y - b.min.y) || Math.abs(b.max.z - b.min.z);
+      if (!pw || !ph) return { w: 512, h: 512 };
+      const base = 512;
+      const aspect = pw / ph;
+      return aspect >= 1
+        ? { w: Math.min(1024, Math.round(base * aspect)), h: base }
+        : { w: base, h: Math.min(1024, Math.round(base / aspect)) };
+    } catch (_) { return { w: 512, h: 512 }; }
+  }
+
+  function makeProjEntry(plane, projId, type) {
+    const { w, h } = canvasSizeForPlane(plane);
+    const cvs = document.createElement('canvas');
+    cvs.width = w; cvs.height = h;
+    const ctx = cvs.getContext('2d');
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.flipY = false;
+
+    // Replace plane material with our canvas texture
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex, side: THREE.DoubleSide,
+      transparent: true, depthWrite: false,
+    });
+    if (plane.material) {
+      (Array.isArray(plane.material) ? plane.material : [plane.material])
+        .forEach(m => m?.dispose());
+    }
+    plane.material = mat;
+
+    return { projId, type, cvs, ctx, tex };
+  }
+
+  function scanProjectionPlanes(gltfScene) {
+    for (const e of activeProj.values()) e.tex?.dispose();
+    activeProj.clear();
+
+    gltfScene.traverse(obj => {
+      if (!obj.isMesh) return;
+      const name = obj.name;
+      const isHtml   = PROJ_HTML.has(name) || PROJ_SEAT.test(name);
+      const isCanvas = PROJ_AVATAR.test(name);
+      if (!isHtml && !isCanvas) return;
+      activeProj.set(name, makeProjEntry(obj, name, isHtml ? 'html' : 'canvas'));
+    });
+
+    console.log('[3DTable] proj planes:', [...activeProj.keys()].join(', ') || '(none)');
+  }
+
+  // Render an HTML element into a projection canvas via SVG foreignObject.
+  // Children that have their own projection plane are hidden (they'll be
+  // rendered independently onto their own plane).
+  async function projHtml(entry) {
+    const el = document.querySelector(`[data-proj-id="${entry.projId}"]`);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const { cvs, ctx, tex } = entry;
+    const cw = cvs.width, ch = cvs.height;
+    const scale = Math.min(cw / rect.width, ch / rect.height);
+    const ox = (cw - rect.width  * scale) / 2;
+    const oy = (ch - rect.height * scale) / 2;
+
+    // Gather all inline CSS from the document
+    const css = Array.from(document.querySelectorAll('style'))
+      .map(s => s.textContent).join('\n');
+
+    // Clone element; hide children with their own projection planes
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('[data-proj-id]').forEach(child => {
+      if (activeProj.has(child.getAttribute('data-proj-id')))
+        child.style.display = 'none';
+    });
+
+    const svg = [
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${cw}" height="${ch}">`,
+      `<defs><style><![CDATA[${css}]]></style></defs>`,
+      `<foreignObject width="${Math.ceil(rect.width)}" height="${Math.ceil(rect.height)}"`,
+      ` transform="matrix(${scale},0,0,${scale},${ox},${oy})">`,
+      `<div xmlns="http://www.w3.org/1999/xhtml"`,
+      ` style="width:${Math.ceil(rect.width)}px;height:${Math.ceil(rect.height)}px;overflow:hidden;">`,
+      clone.outerHTML,
+      `</div></foreignObject></svg>`,
+    ].join('');
+
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+    await new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, cw, ch);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        tex.needsUpdate = true;
+        resolve();
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+      img.src = url;
+    });
+  }
+
+  // Copy a portrait canvas directly into the projection canvas.
+  // Preserves transparent pixels so the 3D scene shows through.
+  function projCanvas(entry) {
+    const { projId, cvs, ctx, tex } = entry;
+    const m = PROJ_AVATAR.exec(projId);
+    if (!m) return;
+    const seatId = m[1] === 'human' ? '0' : m[1];
+    const portrait = document.querySelector(`canvas[data-seat-id="${seatId}"]`);
+    if (!portrait) return;
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    ctx.drawImage(portrait, 0, 0, cvs.width, cvs.height);
+    tex.needsUpdate = true;
+  }
+
+  function syncProjections() {
+    for (const entry of activeProj.values()) {
+      if (entry.type === 'canvas') projCanvas(entry);
+      else projHtml(entry); // fire-and-forget async
+    }
+  }
+
+  // ─── scratchbone placement ───────────────────────────────────────────────
+
+  /**
+   * Build a scratchbone object for `card`.
+   *
+   * The slot node has a pre-baked matrix that includes a 0.055 scale.
+   * The scratchbone models carry their own 0.0841 internal scale via their
+   * child node transform.  To avoid compounding scales we add the scratchbone
+   * directly to gltfRoot and copy the slot's LOCAL position + rotation (but
+   * NOT its scale) from the slot's matrix decomposition.
+   */
+  function placeCardObject(card, slotNode, selected) {
+    const rank  = card.wild
+      ? ((card.id - 1) % 10) + 1          // distribute wilds across models
+      : Math.max(1, Math.min(10, card.rank));
+    const template = sbCache.get(rank);
+    if (!template) return null;            // not yet loaded – will retry
+
+    const obj = template.clone(true);
+
+    // Tag every mesh child with this card's id for raycasting
+    obj.traverse(child => {
+      if (!child.isMesh) return;
+      child.userData.cardId = card.id;
+      // Clone material so we can tint per-card without affecting the template
+      if (child.material) child.material = child.material.clone();
+      if (selected && child.material) {
+        child.material.emissive      = new THREE.Color(0x1a3a8a);
+        child.material.emissiveIntensity = 0.75;
+      }
+    });
+
+    // Decompose the slot's LOCAL matrix to get position+rotation inside gltfRoot
+    // (slot node is a direct child of ExportRoot = gltfRoot, so .matrix is local)
+    slotNode.updateMatrix();
+    const slotPos  = new THREE.Vector3();
+    const slotQuat = new THREE.Quaternion();
+    const _scale   = new THREE.Vector3();
+    slotNode.matrix.decompose(slotPos, slotQuat, _scale);  // discard _scale
+
+    obj.position.copy(slotPos);
+    obj.quaternion.copy(slotQuat);
+
+    // Lift selected card along the slot's local Y axis (up from table)
+    if (selected) {
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(slotQuat);
+      obj.position.addScaledVector(up, 0.04);
+    }
+
+    return obj;
+  }
+
+  function updateCards(hand, selectedIds) {
+    // Detach and dispose previous scratchbone objects
+    cards3D.forEach(({ obj }) => {
+      if (obj.parent) obj.parent.remove(obj);
+      obj.traverse(c => { if (c.isMesh && c.material) c.material.dispose(); });
+    });
+    cards3D = [];
+
+    // Cap at 14 slots; placeholder meshes stay hidden permanently
+    hand.slice(0, 14).forEach((card, i) => {
+      const slot = slotNodes[i];
+      if (!slot) return;
+
+      const obj = placeCardObject(card, slot.node, selectedIds.has(card.id));
+      if (!obj) return;   // scratchbone not yet cached → sync() will retry
+
+      gltfRoot.add(obj);
+      cards3D.push({ obj, cardId: card.id });
+    });
+  }
+
+  // ─── transform ───────────────────────────────────────────────────────────
+
+  function applyTransform() {
+    if (!gltfRoot) return;
+    gltfRoot.rotation.set(T.rx, T.ry, T.rz);
+    gltfRoot.position.set(T.tx, T.ty, T.tz);
+    gltfRoot.scale.setScalar(T.sc);
+  }
+
+  // ─── public sync ─────────────────────────────────────────────────────────
+
+  function sync() {
+    if (!is3D || !gltfRoot) return;   // 2D mode: nothing to do
+    const gs = window._scratchbones;
+    if (!gs) return;
+    const s = gs.state;
+    syncProjections();
+    if (sbLoaded < 10) { syncPending = true; return; }
+    updateCards(s.players?.[0]?.hand ?? [], s.selectedCardIds);
+  }
+
+  window._table3D = { sync };
+
+  // ─── raycasting – card selection ─────────────────────────────────────────
+
+  const raycaster = new THREE.Raycaster();
+  const ptr       = new THREE.Vector2();
+
+  // Collect every mesh leaf inside each placed scratchbone object
+  function cardMeshes() {
+    const out = [];
+    cards3D.forEach(({ obj }) =>
+      obj.traverse(c => { if (c.isMesh) out.push(c); })
+    );
+    return out;
+  }
+
+  document.addEventListener('click', e => {
+    if (!is3D || !gltfRoot || !cards3D.length) return;
+    const rect = canvas.getBoundingClientRect();
+    ptr.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+    ptr.y = -((e.clientY - rect.top)  / rect.height)  * 2 + 1;
+    raycaster.setFromCamera(ptr, camera);
+    const hits = raycaster.intersectObjects(cardMeshes());
+    if (hits.length > 0) {
+      const id = hits[0].object.userData.cardId;
+      if (id !== undefined) window._scratchbones?.toggleSelect(id);
+    }
+  });
+
+  // ─── popout controls ─────────────────────────────────────────────────────
+
+  const SLIDERS = [
+    { id:'rx', label:'Rot X',  min:-3.14, max:3.14, step:0.01, init: 0.90 },
+    { id:'ry', label:'Rot Y',  min:-3.14, max:3.14, step:0.01, init: 1.57 },
+    { id:'rz', label:'Rot Z',  min:-3.14, max:3.14, step:0.01, init: 0.10 },
+    { id:'tx', label:'Pos X',  min:-10,   max:10,   step:0.05, init: 0    },
+    { id:'ty', label:'Pos Y',  min:-10,   max:10,   step:0.05, init:-1.95 },
+    { id:'tz', label:'Pos Z',  min:-20,   max:0,    step:0.05, init:-8.85 },
+    { id:'sc', label:'Scale',  min: 0.1,  max:8,    step:0.05, init: 4.10 },
+  ];
+
+  function buildSliders() {
+    const container = document.getElementById('tableSliders');
+    if (!container) return;
+    container.innerHTML = '';
+    for (const def of SLIDERS) {
+      const row = document.createElement('div');
+      row.className = 'ts-row';
+      row.innerHTML =
+        `<span class="ts-label">${def.label}</span>` +
+        `<input class="ts-range" type="range" id="ts_${def.id}"` +
+        ` min="${def.min}" max="${def.max}" step="${def.step}" value="${def.init}">` +
+        `<span class="ts-val" id="tsv_${def.id}">${def.init.toFixed(2)}</span>`;
+      container.appendChild(row);
+      row.querySelector(`#ts_${def.id}`).addEventListener('input', ev => {
+        T[def.id] = parseFloat(ev.target.value);
+        document.getElementById(`tsv_${def.id}`).textContent =
+          parseFloat(ev.target.value).toFixed(2);
+        applyTransform();
+      });
+    }
+  }
+
+  buildSliders();
+
+  // Auto-load the table on startup — no button click required
+  loadGLTF('docs/assets/3D/3DFurniture/ScratchbonesTableV1.gltf');
+
+  // ─── event wiring ────────────────────────────────────────────────────────
+
+  document.getElementById('tableToggleBtn')?.addEventListener('click', () => {
+    is3D = !is3D;
+    document.body.classList.toggle('mode-3d', is3D);
+    document.getElementById('tableToggleBtn').textContent = is3D ? '2D' : '3D';
+    if (gltfRoot) gltfRoot.visible = is3D;
+    if (!is3D) {
+      document.getElementById('tablePopout').style.display = 'none';
+      // Clear scratchbones — 2D hand takes over
+      cards3D.forEach(({ obj }) => {
+        if (obj.parent) obj.parent.remove(obj);
+        obj.traverse(c => { if (c.isMesh && c.material) c.material.dispose(); });
+      });
+      cards3D = [];
+    } else {
+      sync();
+    }
+  });
+
+  document.getElementById('tablePopoutToggle')?.addEventListener('click', () => {
+    const pop = document.getElementById('tablePopout');
+    pop.style.display = pop.style.display === 'block' ? 'none' : 'block';
+  });
+
+  document.getElementById('gltfLoadDefault')?.addEventListener('click', () => {
+    loadGLTF('docs/assets/3D/3DFurniture/ScratchbonesTableV1.gltf');
+  });
+
+  document.getElementById('gltfFileInput')?.addEventListener('change', e => {
+    const file = e.target.files?.[0];
+    if (file) loadGLTF(URL.createObjectURL(file));
+  });
+
+  // ─── debug log panel ────────────────────────────────────────────────────
+
+  document.getElementById('_dbgBtn')?.addEventListener('click', () => {
+    document.getElementById('_dbgPanel').classList.toggle('open');
+  });
+
+  document.getElementById('_dbgCopyBtn')?.addEventListener('click', () => {
+    const text = (window._debugLogs || [])
+      .map(e => `[${e.lvl.toUpperCase()}] ${e.line}`)
+      .join('\n');
+    navigator.clipboard?.writeText(text).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
+    const btn = document.getElementById('_dbgCopyBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+  });
+
+  // ─── animation loop ──────────────────────────────────────────────────────
+
+  (function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+  })();
   </script>
 </body>
 </html>
