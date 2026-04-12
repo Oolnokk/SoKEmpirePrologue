@@ -3737,6 +3737,17 @@
   // Default transform (user can tune with sliders)
   const T = { rx: 0.90, ry: 1.57, rz: 0.10, tx: 0, ty: -1.95, tz: -8.85, sc: 4.10 };
 
+  // ─── cel-shade gradient ───────────────────────────────────────────────────
+  // 3-step ramp: shadow → midtone → highlight. NearestFilter keeps hard bands.
+  const toonGradient = (() => {
+    const data = new Uint8Array([64, 160, 255]);
+    const tex  = new THREE.DataTexture(data, 3, 1, THREE.LuminanceFormat);
+    tex.minFilter = THREE.NearestFilter;
+    tex.magFilter = THREE.NearestFilter;
+    tex.needsUpdate = true;
+    return tex;
+  })();
+
   // ─── scratchbone asset cache ─────────────────────────────────────────────
 
   const SCRATCHBONE_BASE = 'docs/assets/3D/3DProps/';
@@ -3813,23 +3824,24 @@
         }
         console.log('[3DTable] slot nodes found:', slotNodes.length);
 
-        // Convert any remaining PBR materials to unlit (MeshBasicMaterial).
-        // projection planes and slot wireframes are already replaced above;
+        // Convert any remaining PBR materials to cel-shaded (MeshToonMaterial).
+        // Projection planes and slot wireframes are already replaced above;
         // this catches the FOUNDATION mesh and any other structural geometry.
         gltfRoot.traverse(obj => {
           if (!obj.isMesh) return;
           const m = obj.material;
           if (!m || !m.isMeshStandardMaterial) return;
-          const basic = new THREE.MeshBasicMaterial({
+          const toon = new THREE.MeshToonMaterial({
             color:       m.color,
             map:         m.map        || null,
             alphaMap:    m.alphaMap   || null,
             transparent: m.transparent,
             opacity:     m.opacity,
             side:        m.side,
+            gradientMap: toonGradient,
           });
           m.dispose();
-          obj.material = basic;
+          obj.material = toon;
         });
 
         // Add to scene only after all materials are clean
@@ -4223,11 +4235,21 @@
     obj.traverse(child => {
       if (!child.isMesh) return;
       child.userData.cardId = card.id;
-      // Clone material so we can tint per-card without affecting the template
-      if (child.material) child.material = child.material.clone();
-      if (selected && child.material) {
-        child.material.emissive      = new THREE.Color(0x1a3a8a);
-        child.material.emissiveIntensity = 0.75;
+      // Convert to cel-shaded toon material, preserving the original color/map
+      const m = child.material;
+      if (m) {
+        const toon = new THREE.MeshToonMaterial({
+          color:       m.color        || new THREE.Color(0xffffff),
+          map:         m.map          || null,
+          alphaMap:    m.alphaMap     || null,
+          transparent: m.transparent  || false,
+          opacity:     m.opacity      ?? 1,
+          side:        m.side         ?? THREE.FrontSide,
+          gradientMap: toonGradient,
+          emissive:    selected ? new THREE.Color(0x1a3a8a) : new THREE.Color(0x000000),
+          emissiveIntensity: selected ? 0.75 : 0,
+        });
+        child.material = toon;
       }
     });
 
