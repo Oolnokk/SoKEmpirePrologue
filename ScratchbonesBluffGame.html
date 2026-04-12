@@ -3793,7 +3793,7 @@
         // so we hide the node directly rather than checking isMesh.
         slotNodes = [];
         for (let i = 1; i <= 14; i++) {
-          const node = gltf.scene.getObjectByName(`placeholderownedslot${i}`);
+          const node = gltf.scene.getObjectByName(`ownedslot${i}`);
           if (node) {
             node.visible = false;
             slotNodes.push({ node, idx: i });
@@ -3899,7 +3899,7 @@
       ` transform="matrix(${scale},0,0,${scale},${ox},${oy})">`,
       `<div xmlns="http://www.w3.org/1999/xhtml"`,
       ` style="width:${Math.ceil(rect.width)}px;height:${Math.ceil(rect.height)}px;overflow:hidden;">`,
-      clone.outerHTML,
+      new XMLSerializer().serializeToString(clone),
       `</div></foreignObject></svg>`,
     ].join('');
 
