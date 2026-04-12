@@ -3573,6 +3573,7 @@
    */
   import * as THREE from 'three';
   import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  console.log('[3DTable] module started, THREE r' + THREE.REVISION);
 
   // ─── renderer / scene / camera ──────────────────────────────────────────
 
@@ -3618,11 +3619,13 @@
   let syncPending = false;
 
   function preloadScratchbones() {
+    console.log('[3DTable] preloading scratchbones from', SCRATCHBONE_BASE);
     const loader = new GLTFLoader();
     for (let rank = 1; rank <= 10; rank++) {
       loader.load(
         `${SCRATCHBONE_BASE}3DScratchbone${rank}.glb`,
         gltf => {
+          console.log('[3DTable] sb', rank, 'loaded');
           sbCache.set(rank, gltf.scene);
           sbLoaded++;
           if (syncPending && sbLoaded === 10) { syncPending = false; sync(); }
@@ -3638,9 +3641,11 @@
   // ─── GLTF table loading ──────────────────────────────────────────────────
 
   function loadGLTF(url) {
+    console.log('[3DTable] loadGLTF:', url);
     new GLTFLoader().load(
       url,
       gltf => {
+        console.log('[3DTable] table GLTF loaded ok');
         if (gltfRoot) scene.remove(gltfRoot);
         gltfRoot = gltf.scene;
         scene.add(gltfRoot);
