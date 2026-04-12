@@ -3876,56 +3876,189 @@
     console.log('[3DTable] proj planes:', [...activeProj.keys()].join(', ') || '(none)');
   }
 
-  // Render an HTML element into a projection canvas via SVG foreignObject.
-  // Children that have their own projection plane are hidden (they'll be
-  // rendered independently onto their own plane).
-  async function projHtml(entry) {
-    const el = document.querySelector(`[data-proj-id="${entry.projId}"]`);
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-
-    const { cvs, ctx, tex } = entry;
+  // Draw game state directly onto a projection canvas using canvas 2D API.
+  // The SVG foreignObject + img.src approach would work in Firefox but Chrome
+  // intentionally renders foreignObject blank when SVG is used as an image
+  // source, so we skip it and draw directly from state instead.
+  function projHtml(entry) {
+    const gs = window._scratchbones;
+    if (!gs) return;
+    const s  = gs.state;
+    const { projId, cvs, ctx, tex } = entry;
     const cw = cvs.width, ch = cvs.height;
-    const scale = Math.min(cw / rect.width, ch / rect.height);
-    const ox = (cw - rect.width  * scale) / 2;
-    const oy = (ch - rect.height * scale) / 2;
 
-    // Gather all inline CSS from the document
-    const css = Array.from(document.querySelectorAll('style'))
-      .map(s => s.textContent).join('\n');
+    ctx.clearRect(0, 0, cw, ch);
 
-    // Clone element; hide children with their own projection planes
-    const clone = el.cloneNode(true);
-    clone.querySelectorAll('[data-proj-id]').forEach(child => {
-      if (activeProj.has(child.getAttribute('data-proj-id')))
-        child.style.display = 'none';
-    });
+    // ── shared helpers ──────────────────────────────────────────────────────
+    const BG   = 'rgba(26,18,14,0.92)';
+    const ACC  = '#c89952';
+    const MUT  = '#8a7a6a';
+    const TXT  = '#e8d9c0';
+    const WARN = '#e05050';
+    const GOOD = '#50c878';
 
-    const svg = [
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${cw}" height="${ch}">`,
-      `<defs><style><![CDATA[${css}]]></style></defs>`,
-      `<foreignObject width="${Math.ceil(rect.width)}" height="${Math.ceil(rect.height)}"`,
-      ` transform="matrix(${scale},0,0,${scale},${ox},${oy})">`,
-      `<div xmlns="http://www.w3.org/1999/xhtml"`,
-      ` style="width:${Math.ceil(rect.width)}px;height:${Math.ceil(rect.height)}px;overflow:hidden;">`,
-      new XMLSerializer().serializeToString(clone),
-      `</div></foreignObject></svg>`,
-    ].join('');
+    function bg(alpha = 0.92) {
+      ctx.fillStyle = `rgba(26,18,14,${alpha})`;
+      ctx.fillRect(0, 0, cw, ch);
+    }
+    function border() {
+      ctx.strokeStyle = 'rgba(200,153,82,0.35)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(1, 1, cw - 2, ch - 2);
+    }
+    function label(text, x, y, color = MUT, size = 11) {
+      ctx.fillStyle = color;
+      ctx.font = `${size}px sans-serif`;
+      ctx.fillText(text, x, y);
+    }
+    function value(text, x, y, color = TXT, size = 14) {
+      ctx.fillStyle = color;
+      ctx.font = `bold ${size}px sans-serif`;
+      ctx.fillText(text, x, y);
+    }
+    function chip(text, x, y, w = 80, h = 22) {
+      ctx.fillStyle = 'rgba(200,153,82,0.18)';
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, 4);
+      ctx.fill();
+      ctx.fillStyle = ACC;
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, x + w / 2, y + 14);
+      ctx.textAlign = 'left';
+    }
+    function seatLabel(p) {
+      return p ? (p.id === 0 ? 'You' : p.name || `AI ${p.id}`) : '?';
+    }
 
-    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
-    await new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        ctx.clearRect(0, 0, cw, ch);
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-        tex.needsUpdate = true;
-        resolve();
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-      img.src = url;
-    });
+    ctx.textBaseline = 'alphabetic';
+
+    // ── per-panel rendering ──────────────────────────────────────────────────
+    if (projId === 'topbar') {
+      bg();
+      value('Madiao Mobile Challenge', 12, 28, ACC, 15);
+      const chips = [
+        `Round ${s.round}`,
+        `Lead: ${seatLabel(s.players[s.leaderIndex])}`,
+        `Turn: ${seatLabel(s.players[s.currentTurn])}`,
+        `Pile: ${s.pile.length}`,
+      ];
+      let cx = 12;
+      chips.forEach(t => {
+        const w = Math.max(80, ctx.measureText(t).width + 16);
+        chip(t, cx, 40, w, 22);
+        cx += w + 8;
+      });
+      border();
+
+    } else if (projId === 'panel') {
+      bg();
+      label('Current claim', 12, 22);
+      value(s.declaredRank === null ? 'Open round' : String(s.declaredRank), 12, 44, ACC, 20);
+      const human = s.players[0];
+      if (human) {
+        label('Your standing', 12, 70);
+        value(`${human.hand.length} cards · ${human.chips} chips`, 12, 90, TXT, 14);
+      }
+      if (s.banner) {
+        const bannerColor = s.bannerType === 'warn' ? WARN : s.bannerType === 'good' ? GOOD : TXT;
+        ctx.fillStyle = 'rgba(200,153,82,0.12)';
+        ctx.fillRect(8, 100, cw - 16, 30);
+        value(s.banner, 14, 121, bannerColor, 13);
+      }
+      border();
+
+    } else if (projId === 'log') {
+      bg();
+      value('Recent events', 12, 22, ACC, 13);
+      const logs = (s.logs || []).slice(-8);
+      logs.forEach((item, i) => {
+        label(item.text, 12, 44 + i * 18, TXT, 11);
+      });
+      border();
+
+    } else if (projId === 'controls') {
+      bg();
+      const human = s.players[0];
+      const canAct = s.currentTurn === 0 && !s.challengeWindow && !s.betting;
+      value('Your turn', 12, 28, canAct ? GOOD : MUT, 13);
+      if (s.declaredRank !== null) {
+        label(`Declared rank: ${s.declaredRank}`, 12, 50);
+      }
+      if (s.betting) {
+        label('Challenge betting in progress', 12, 50, WARN, 11);
+      }
+      border();
+
+    } else if (projId === 'humaninfo') {
+      bg();
+      const human = s.players[0];
+      if (human) {
+        value(seatLabel(human), 12, 26, ACC, 14);
+        label(`Cards: ${human.hand.length}  ·  Chips: ${human.chips}`, 12, 46, TXT, 12);
+        if (s.currentTurn === 0) {
+          ctx.fillStyle = 'rgba(80,200,120,0.2)';
+          ctx.fillRect(8, 54, cw - 16, 18);
+          label('Your turn', 12, 67, GOOD, 11);
+        }
+      }
+      border();
+
+    } else if (projId === 'sidebar') {
+      bg(0.95);
+      label('TABLE', 12, 18, ACC, 11);
+      let y = 28;
+      s.players.slice(1).forEach(p => {
+        if (y + 50 > ch) return;
+        ctx.fillStyle = p.eliminated ? 'rgba(80,50,40,0.5)' : 'rgba(200,153,82,0.08)';
+        ctx.fillRect(8, y, cw - 16, 44);
+        value(seatLabel(p), 14, y + 16, p.eliminated ? MUT : TXT, 12);
+        label(`${p.hand.length} cards · ${p.chips} chips`, 14, y + 30, MUT, 10);
+        if (s.currentTurn === p.id) {
+          ctx.fillStyle = GOOD;
+          ctx.fillRect(cw - 12, y + 4, 4, 36);
+        }
+        y += 50;
+      });
+      border();
+
+    } else if (PROJ_SEAT.test(projId)) {
+      const id = parseInt(projId.split('-')[1]);
+      const p  = s.players[id];
+      if (!p) { bg(); return; }
+      bg(p.eliminated ? 0.6 : 0.9);
+      value(seatLabel(p), 12, 24, p.eliminated ? MUT : ACC, 13);
+      label(`${p.hand.length} cards · ${p.chips} chips · ${p.clears} clears`, 12, 42, TXT, 11);
+      if (p.lastAction) label(p.lastAction, 12, 58, MUT, 10);
+      if (s.currentTurn === p.id) {
+        ctx.fillStyle = GOOD;
+        ctx.fillRect(0, 0, 4, ch);
+      }
+      border();
+
+    } else if (projId === 'cinematic') {
+      if (!s.betting && !s.challengeWindow) {
+        ctx.clearRect(0, 0, cw, ch); // transparent when inactive
+      } else {
+        bg(0.95);
+        value('CHALLENGE', cw / 2, ch / 2 - 10, WARN, 18);
+        ctx.textAlign = 'center';
+        if (s.betting) {
+          const ch_ = seatLabel(s.players[s.betting.challengerId]);
+          const cd_ = seatLabel(s.players[s.betting.challengedId]);
+          label(`${ch_} vs ${cd_} · Stake: ${s.betting.stake}`, cw / 2, ch / 2 + 14, TXT, 12);
+        }
+        ctx.textAlign = 'left';
+        border();
+      }
+
+    } else {
+      // Unknown panel — draw a placeholder
+      bg();
+      label(projId, 12, ch / 2, MUT, 12);
+    }
+
+    tex.needsUpdate = true;
   }
 
   // Copy a portrait canvas directly into the projection canvas.
@@ -3945,7 +4078,7 @@
   function syncProjections() {
     for (const entry of activeProj.values()) {
       if (entry.type === 'canvas') projCanvas(entry);
-      else projHtml(entry); // fire-and-forget async
+      else projHtml(entry);
     }
   }
 
