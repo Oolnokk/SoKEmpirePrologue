@@ -1143,7 +1143,7 @@
   <div id="tablePopout" role="dialog" aria-label="3D table settings">
     <h3>3D Table</h3>
 
-    <button class="ts-btn" id="gltfLoadDefault">↓ Load ScratchbonesTableV1.gltf</button>
+    <button class="ts-btn" id="gltfLoadDefault">↓ Load ScratchbonesTableV1</button>
 
     <label class="ts-file-label">
       Import GLTF / GLB…
@@ -3462,14 +3462,15 @@
    *
    * Responsibilities:
    *   • Render a Three.js scene behind the HTML UI (canvas z-index 0).
-   *   • Load ScratchbonesTableV1.gltf (or any GLTF via file import).
-   *   • Project 2D game state onto two CanvasTexture UI planes:
-   *       ui_plane:ui:base        → main HUD (claim, chips, logs…)
-   *       ui_plane:ui:playerlist  → opponent seat list
-   *   • Replace the DOM hand (.handWrap) with BoxGeometry card meshes
-   *     attached to placeholder:ownedslot:N nodes (14 total).
-   *   • Handle card selection via document-level click + raycasting.
-   *   • Expose transform sliders + GLTF import in a hidden popout.
+   *   • Load docs/assets/3D/3DFurniture/ScratchbonesTableV1.gltf
+   *     (or any GLTF/GLB via file import).
+   *   • Project 2D game state onto two CanvasTexture UI planes in the table.
+   *   • Load 3DScratchbone1-10.glb and place the appropriate model at each
+   *     pre-positioned placeholder:ownedslot:N node (14 total).
+   *     • Scratchbone rank maps to hand card rank (wild cards cycle via id).
+   *     • Selected cards get a blue emissive highlight + slight lift.
+   *     • Click on a scratchbone → raycasting → toggleSelect(cardId).
+   *   • Popout: load buttons, GLTF file import, 7 transform sliders.
    */
   import * as THREE from 'three';
   import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -3480,18 +3481,16 @@
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  // Dark-wood theme background – matches CSS radial-gradient midpoint
-  renderer.setClearColor(0x15110f, 1);
+  renderer.setClearColor(0x15110f, 1);   // dark-wood theme, matches CSS bg
 
   const scene  = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(0, 7, 9);
-  camera.lookAt(0, 0, 0);
+  camera.position.set(0, 4, 5);
+  camera.lookAt(0, 1.3, 0);   // look toward table surface (Y≈1.3)
 
-  // Ambient + directional light for PBR card materials
-  scene.add(new THREE.AmbientLight(0xfff8e8, 0.6));
+  scene.add(new THREE.AmbientLight(0xfff8e8, 0.65));
   const sun = new THREE.DirectionalLight(0xfff2cc, 1.1);
-  sun.position.set(3, 8, 5);
+  sun.position.set(2, 6, 4);
   scene.add(sun);
 
   window.addEventListener('resize', () => {
@@ -3505,14 +3504,39 @@
   let gltfRoot  = null;
   let uiBase    = null;   // { cvs, ctx, tex }
   let uiList    = null;
-  let slotNodes = [];     // [{node, idx}] – 14 entries
-  let cards3D   = [];     // [{mesh, cardId, slotNode}]
+  let slotNodes = [];     // [{node, idx}] – 14 entries (pre-positioned by GLTF matrices)
+  let cards3D   = [];     // [{obj, cardId}]  – scratchbone objects parented to gltfRoot
   let is3D      = false;
 
-  // Default transform – slightly tilted toward viewer
-  const T = { rx: -0.42, ry: 0, rz: 0, tx: 0, ty: -0.9, tz: 0, sc: 1 };
+  // Default transform (user can tune with sliders)
+  const T = { rx: 0, ry: 0, rz: 0, tx: 0, ty: 0, tz: 0, sc: 1 };
 
-  // ─── GLTF loading ────────────────────────────────────────────────────────
+  // ─── scratchbone asset cache ─────────────────────────────────────────────
+
+  const SCRATCHBONE_BASE = 'docs/assets/3D/3DProps/';
+  const sbCache = new Map();   // rank 1-10 → THREE.Group (gltf.scene template)
+  let sbLoaded  = 0;
+  let syncPending = false;
+
+  function preloadScratchbones() {
+    const loader = new GLTFLoader();
+    for (let rank = 1; rank <= 10; rank++) {
+      loader.load(
+        `${SCRATCHBONE_BASE}3DScratchbone${rank}.glb`,
+        gltf => {
+          sbCache.set(rank, gltf.scene);
+          sbLoaded++;
+          if (syncPending && sbLoaded === 10) { syncPending = false; sync(); }
+        },
+        undefined,
+        err => console.warn(`[3DTable] scratchbone ${rank} load error:`, err)
+      );
+    }
+  }
+
+  preloadScratchbones();
+
+  // ─── GLTF table loading ──────────────────────────────────────────────────
 
   function loadGLTF(url) {
     new GLTFLoader().load(
@@ -3523,118 +3547,135 @@
         scene.add(gltfRoot);
         applyTransform();
 
-        // Wire up UI planes
+        // Ensure all matrices are current before we read slot positions
+        gltfRoot.updateWorldMatrix(true, true);
+
+        // Wire up canvas-texture UI planes (keep their GLTF-baked position/scale)
         const baseNode = gltf.scene.getObjectByName('ui_plane:ui:base');
         const listNode = gltf.scene.getObjectByName('ui_plane:ui:playerlist');
-        uiBase = baseNode ? setupUIPlane(baseNode, 'base') : null;
-        uiList = listNode ? setupUIPlane(listNode, 'list') : null;
+        uiBase = baseNode ? setupUIPlane(baseNode) : null;
+        uiList = listNode ? setupUIPlane(listNode) : null;
 
-        // Collect + pre-position slot placeholder nodes
+        // Collect slot nodes – their matrices are pre-baked, no repositioning needed
         slotNodes = [];
         for (let i = 1; i <= 14; i++) {
           const node = gltf.scene.getObjectByName(`placeholder:ownedslot:${i}`);
-          if (node) {
-            positionSlot(node, i);
-            slotNodes.push({ node, idx: i });
-          }
+          if (node) slotNodes.push({ node, idx: i });
         }
 
         sync();
       },
       undefined,
-      err => console.error('[3DTable] GLTF load error:', err)
+      err => console.error('[3DTable] table load error:', err)
     );
   }
 
   // ─── UI plane setup ──────────────────────────────────────────────────────
 
-  function setupUIPlane(node, which) {
+  /**
+   * Replace the plane's GLTF material with a MeshBasicMaterial backed by a
+   * CanvasTexture.  Position/scale are kept as designed in the GLTF.
+   */
+  function setupUIPlane(node) {
     const cvs = document.createElement('canvas');
     cvs.width = 512; cvs.height = 288;
     const ctx = cvs.getContext('2d');
     const tex = new THREE.CanvasTexture(cvs);
     tex.flipY = false;
 
-    // Replace GLTF material with canvas-texture MeshBasicMaterial
     node.traverse(child => {
       if (child.isMesh) {
         child.material = new THREE.MeshBasicMaterial({
           map: tex,
           transparent: true,
-          side: THREE.FrontSide,
+          side: THREE.DoubleSide,
           depthWrite: false,
         });
       }
     });
 
-    // Position and tilt each plane to face the camera at default transform
-    if (which === 'base') {
-      node.position.set(-2.0, 0.85, 1.7);
-      node.rotation.set(-0.55, 0.18, 0);
-      node.scale.setScalar(1.7);
-    } else {
-      node.position.set(2.9, 0.9, 0.4);
-      node.rotation.set(-0.38, -0.42, 0);
-      node.scale.setScalar(1.6);
-    }
-
     return { cvs, ctx, tex };
   }
 
-  // ─── slot placement ──────────────────────────────────────────────────────
+  // ─── scratchbone placement ───────────────────────────────────────────────
 
   /**
-   * Arrange 14 slots in two rows of 7 on the table surface.
-   * Slot geometry (the brief's 7×0.892×1.64 box) is hidden;
-   * card meshes are added as children at runtime.
+   * Build a scratchbone object for `card`.
+   *
+   * The slot node has a pre-baked matrix that includes a 0.055 scale.
+   * The scratchbone models carry their own 0.0841 internal scale via their
+   * child node transform.  To avoid compounding scales we add the scratchbone
+   * directly to gltfRoot and copy the slot's LOCAL position + rotation (but
+   * NOT its scale) from the slot's matrix decomposition.
    */
-  function positionSlot(node, i) {
-    const row = i <= 7 ? 0 : 1;
-    const col = (i - 1) % 7;
-    node.position.set(
-      (col - 3) * 0.82,  // x: −2.46 … +2.46
-      0.13,              // y: just above table top
-      row === 0 ? 1.1 : -0.25
-    );
-    // Hide the template mesh – we parent our own card geometry here
-    node.traverse(child => { if (child.isMesh) child.visible = false; });
-  }
+  function placeCardObject(card, slotNode, selected) {
+    const rank  = card.wild
+      ? ((card.id - 1) % 10) + 1          // distribute wilds across models
+      : Math.max(1, Math.min(10, card.rank));
+    const template = sbCache.get(rank);
+    if (!template) return null;            // not yet loaded – will retry
 
-  // ─── 3D card meshes ──────────────────────────────────────────────────────
+    const obj = template.clone(true);
 
-  const CARD_GEO = new THREE.BoxGeometry(0.62, 0.022, 0.92);
-
-  function makeCardMesh(card, selected) {
-    const col = selected ? 0x62b0ff : (card.wild ? 0xffd854 : 0xf2e8d0);
-    const mat = new THREE.MeshStandardMaterial({
-      color: col,
-      roughness: 0.72,
-      metalness: 0.04,
-      emissive: new THREE.Color(
-        selected ? 0x1a3a6a : (card.wild ? 0x443300 : 0x100c08)
-      ),
-      emissiveIntensity: selected ? 0.65 : 0.12,
+    // Tag every mesh child with this card's id for raycasting
+    obj.traverse(child => {
+      if (!child.isMesh) return;
+      child.userData.cardId = card.id;
+      // Clone material so we can tint per-card without affecting the template
+      if (child.material) child.material = child.material.clone();
+      if (selected && child.material) {
+        child.material.emissive      = new THREE.Color(0x1a3a8a);
+        child.material.emissiveIntensity = 0.75;
+      }
     });
-    const mesh = new THREE.Mesh(CARD_GEO, mat);
-    mesh.userData.cardId = card.id;
-    mesh.position.y = selected ? 0.24 : 0;  // lift selected card
-    return mesh;
+
+    // Decompose the slot's LOCAL matrix to get position+rotation inside gltfRoot
+    // (slot node is a direct child of ExportRoot = gltfRoot, so .matrix is local)
+    slotNode.updateMatrix();
+    const slotPos  = new THREE.Vector3();
+    const slotQuat = new THREE.Quaternion();
+    const _scale   = new THREE.Vector3();
+    slotNode.matrix.decompose(slotPos, slotQuat, _scale);  // discard _scale
+
+    obj.position.copy(slotPos);
+    obj.quaternion.copy(slotQuat);
+
+    // Lift selected card along the slot's local Y axis (up from table)
+    if (selected) {
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(slotQuat);
+      obj.position.addScaledVector(up, 0.04);
+    }
+
+    return obj;
   }
 
   function updateCards(hand, selectedIds) {
-    // Detach and dispose old card meshes
-    cards3D.forEach(({ mesh, slotNode }) => {
-      slotNode.remove(mesh);
-      mesh.material.dispose();
+    // Detach and dispose previous scratchbone objects
+    cards3D.forEach(({ obj }) => {
+      if (obj.parent) obj.parent.remove(obj);
+      obj.traverse(c => { if (c.isMesh && c.material) c.material.dispose(); });
     });
     cards3D = [];
+
+    if (!gltfRoot) return;
 
     hand.forEach((card, i) => {
       const slot = slotNodes[i];
       if (!slot) return;
-      const mesh = makeCardMesh(card, selectedIds.has(card.id));
-      slot.node.add(mesh);
-      cards3D.push({ mesh, cardId: card.id, slotNode: slot.node });
+
+      // Show/hide the placeholder mesh based on occupancy
+      slot.node.traverse(child => { if (child.isMesh) child.visible = false; });
+
+      const obj = placeCardObject(card, slot.node, selectedIds.has(card.id));
+      if (!obj) return;   // scratchbone not yet cached → sync() will retry
+
+      gltfRoot.add(obj);
+      cards3D.push({ obj, cardId: card.id });
+    });
+
+    // Restore placeholder visibility for unoccupied slots
+    slotNodes.slice(hand.length).forEach(slot => {
+      slot.node.traverse(child => { if (child.isMesh) child.visible = true; });
     });
   }
 
@@ -3789,10 +3830,11 @@
     const s = gs.state;
     drawUIBase(s);
     drawUIList(s);
-    if (gltfRoot) updateCards(s.players?.[0]?.hand ?? [], s.selectedCardIds);
+    if (!gltfRoot) return;
+    if (sbLoaded < 10) { syncPending = true; return; } // retry when all loaded
+    updateCards(s.players?.[0]?.hand ?? [], s.selectedCardIds);
   }
 
-  // Register so render() can call it
   window._table3D = { sync };
 
   // ─── raycasting – card selection ─────────────────────────────────────────
@@ -3800,13 +3842,22 @@
   const raycaster = new THREE.Raycaster();
   const ptr       = new THREE.Vector2();
 
+  // Collect every mesh leaf inside each placed scratchbone object
+  function cardMeshes() {
+    const out = [];
+    cards3D.forEach(({ obj }) =>
+      obj.traverse(c => { if (c.isMesh) out.push(c); })
+    );
+    return out;
+  }
+
   document.addEventListener('click', e => {
     if (!is3D || !gltfRoot || !cards3D.length) return;
     const rect = canvas.getBoundingClientRect();
     ptr.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
     ptr.y = -((e.clientY - rect.top)  / rect.height)  * 2 + 1;
     raycaster.setFromCamera(ptr, camera);
-    const hits = raycaster.intersectObjects(cards3D.map(c => c.mesh));
+    const hits = raycaster.intersectObjects(cardMeshes());
     if (hits.length > 0) {
       const id = hits[0].object.userData.cardId;
       if (id !== undefined) window._scratchbones?.toggleSelect(id);
@@ -3865,7 +3916,7 @@
   });
 
   document.getElementById('gltfLoadDefault')?.addEventListener('click', () => {
-    loadGLTF('ScratchbonesTableV1.gltf');
+    loadGLTF('docs/assets/3D/3DFurniture/ScratchbonesTableV1.gltf');
   });
 
   document.getElementById('gltfFileInput')?.addEventListener('change', e => {
