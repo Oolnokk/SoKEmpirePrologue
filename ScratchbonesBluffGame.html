@@ -3652,6 +3652,11 @@
         scene.add(gltfRoot);
         applyTransform();
 
+        // Dump all node names so we can see exactly what Three.js calls them
+        const allNames = [];
+        gltf.scene.traverse(c => { if (c.name) allNames.push(c.name); });
+        console.log('[3DTable] scene node names:', allNames.join(' | '));
+
         // Ensure all matrices are current before we read slot positions
         gltfRoot.updateWorldMatrix(true, true);
 
