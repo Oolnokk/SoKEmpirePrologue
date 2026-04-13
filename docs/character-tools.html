@@ -1046,6 +1046,43 @@ details.diag-details[open] > summary::after { content: '▼'; }
       </div>
     </div>
 
+    <!-- Portrait body layer placer -->
+    <div class="cos-section">
+      <h2>Portrait Body Layer Placer</h2>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+        Drag on canvas to move selected layer. Wheel scales. Use numbers for exact placement.
+      </div>
+      <label>Layer</label>
+      <select id="spe-body-layer"></select>
+      <label>Sprite URL</label>
+      <input type="text" id="spe-body-url" readonly>
+      <div class="cos-slider-row">
+        <label>ax</label>
+        <input type="range" id="spe-body-ax" min="-5" max="5" step="0.01" value="0">
+        <input type="number" id="spe-body-ax-n" min="-5" max="5" step="0.01" value="0">
+      </div>
+      <div class="cos-slider-row">
+        <label>ay</label>
+        <input type="range" id="spe-body-ay" min="-5" max="5" step="0.01" value="0">
+        <input type="number" id="spe-body-ay-n" min="-5" max="5" step="0.01" value="0">
+      </div>
+      <div class="cos-slider-row">
+        <label>scaleX</label>
+        <input type="range" id="spe-body-sx" min="0.1" max="10" step="0.01" value="1">
+        <input type="number" id="spe-body-sx-n" min="0.1" max="10" step="0.01" value="1">
+      </div>
+      <div class="cos-slider-row">
+        <label>scaleY</label>
+        <input type="range" id="spe-body-sy" min="0.1" max="10" step="0.01" value="1">
+        <input type="number" id="spe-body-sy-n" min="0.1" max="10" step="0.01" value="1">
+      </div>
+      <div class="cos-slider-row">
+        <label>rotDeg</label>
+        <input type="range" id="spe-body-rot" min="-180" max="180" step="1" value="0">
+        <input type="number" id="spe-body-rot-n" min="-180" max="180" step="1" value="0">
+      </div>
+    </div>
+
     <!-- Export -->
     <div class="cos-section">
       <h2>Export</h2>
@@ -2097,13 +2134,6 @@ async function cosLoadAssets() {
 
 // ── Tint filter ────────────────────────────────────────────
 
-function cosGetFilter() {
-  const h = Number(document.getElementById('cos-tintH').value) || 0;
-  const s = Number(document.getElementById('cos-tintS').value) || 0;
-  const v = Number(document.getElementById('cos-tintV').value) || 0;
-  return buildCSSFilter(h, s, v);
-}
-
 /** Return the CSS filter for any slot using its stored tint. */
 function cosSlotFilter(key) {
   const t = SLOTS[key].tint;
@@ -2754,6 +2784,9 @@ let speCW = 300, speCH = 300, speL = 80;
 let speActiveSlot     = 'A';
 let speSelectedStop   = -1;     // index into current slot's stops array
 let speWorkingRanges  = {};     // { male: { A:{...}, B:{...}, C:{...} }, female: {...} }
+let speWorkingPortraitLayers = {}; // { male:[{id,url,tintSlot,pos,xform}], female:[...] }
+let spePortraitLayerImages = {};   // { male:[img|null], female:[...] }
+let speSelectedBodyLayerIndex = 0;
 let speLoadedJson     = null;   // original (unmodified) species JSON for the current species
 
 /** Preview tint HSV values (applied to head in Species Editor canvas). */
@@ -2771,11 +2804,106 @@ function speGetRange() {
   return speWorkingRanges[gender][speActiveSlot] || null;
 }
 
+function speGetCurrentPortraitLayers() {
+  const gender = document.getElementById('spe-gender').value;
+  return speWorkingPortraitLayers[gender] || [];
+}
+
+function speGetCurrentPortraitLayer() {
+  const layers = speGetCurrentPortraitLayers();
+  if (!layers.length) return null;
+  if (speSelectedBodyLayerIndex < 0 || speSelectedBodyLayerIndex >= layers.length) speSelectedBodyLayerIndex = 0;
+  return layers[speSelectedBodyLayerIndex] || null;
+}
+
+function speNormalizePortraitBodyLayers(gData) {
+  const fallback = (FIGHTERS.find(f => f.headUrl === gData?.headSprite) || {}).bodyLayers || [];
+  const src = Array.isArray(gData?.portraitBodyLayers) && gData.portraitBodyLayers.length
+    ? gData.portraitBodyLayers
+    : fallback;
+  return src.map((layer, idx) => ({
+    id: layer.id || `bodyLayer${idx + 1}`,
+    url: String(layer.url || '').trim(),
+    tintSlot: layer.tintSlot || 'A',
+    pos: layer.pos === 'front' ? 'front' : 'back',
+    xform: {
+      ax: Number(layer.xform?.ax ?? layer.ax ?? 0),
+      ay: Number(layer.xform?.ay ?? layer.ay ?? 0),
+      scaleX: Number(layer.xform?.scaleX ?? layer.xform?.sx ?? layer.scaleX ?? layer.sx ?? 1),
+      scaleY: Number(layer.xform?.scaleY ?? layer.xform?.sy ?? layer.scaleY ?? layer.sy ?? 1),
+      rotDeg: Number(layer.xform?.rotDeg ?? layer.rotDeg ?? 0),
+    },
+  }));
+}
+
+function speWriteBodyLayerXformControls() {
+  const layer = speGetCurrentPortraitLayer();
+  document.getElementById('spe-body-url').value = layer ? (layer.url || '') : '';
+  if (!layer) return;
+  const fields = [
+    ['ax', 'spe-body-ax', 'spe-body-ax-n'],
+    ['ay', 'spe-body-ay', 'spe-body-ay-n'],
+    ['scaleX', 'spe-body-sx', 'spe-body-sx-n'],
+    ['scaleY', 'spe-body-sy', 'spe-body-sy-n'],
+    ['rotDeg', 'spe-body-rot', 'spe-body-rot-n'],
+  ];
+  for (const [key, sliderId, numId] of fields) {
+    const val = Number(layer.xform[key] ?? 0);
+    document.getElementById(sliderId).value = val;
+    document.getElementById(numId).value = val;
+  }
+}
+
+function speUpdateBodyLayerControls() {
+  const layerSelect = document.getElementById('spe-body-layer');
+  const layers = speGetCurrentPortraitLayers();
+  if (!layers.length) {
+    layerSelect.innerHTML = '<option value="">No portrait body layers</option>';
+    document.getElementById('spe-body-url').value = '';
+    return;
+  }
+  layerSelect.innerHTML = layers.map((layer, idx) =>
+    `<option value="${idx}">${escHtml(layer.id || 'Layer ' + (idx + 1))} · ${escHtml(layer.pos || 'back')}</option>`
+  ).join('');
+  if (speSelectedBodyLayerIndex >= layers.length) speSelectedBodyLayerIndex = 0;
+  layerSelect.value = String(speSelectedBodyLayerIndex);
+  speWriteBodyLayerXformControls();
+}
+
+function speSetBodyLayerField(field, value) {
+  const layer = speGetCurrentPortraitLayer();
+  if (!layer) return;
+  layer.xform[field] = value;
+  speWriteBodyLayerXformControls();
+  speRenderHeadPreview();
+}
+
+async function speLoadPortraitLayerImagesForGender(gender) {
+  const layers = speWorkingPortraitLayers[gender] || [];
+  spePortraitLayerImages[gender] = new Array(layers.length).fill(null);
+  await Promise.all(layers.map(async (layer, idx) => {
+    const url = String(layer.url || '').trim();
+    if (!url) return;
+    try {
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        spePortraitLayerImages[gender][idx] = await cosLoadImageAbsolute(url);
+      } else {
+        const relPath = url.startsWith('./assets/') ? url.slice('./assets/'.length) : url;
+        spePortraitLayerImages[gender][idx] = await cosLoadImage(relPath);
+      }
+    } catch (e) {
+      console.warn('[spe] portrait body layer load failed:', url, e);
+    }
+  }));
+}
+
 // ── Loading species into editor ────────────────────────────
 
 function speLoadIntoEditor(json) {
   speLoadedJson    = json;
   speWorkingRanges = {};
+  speWorkingPortraitLayers = {};
+  spePortraitLayerImages = {};
   const defaultRange = (minH, maxH) => ({
     minH, maxH, subdivisions: 2,
     stops: [
@@ -2786,6 +2914,7 @@ function speLoadIntoEditor(json) {
   for (const gender of ['male', 'female']) {
     speWorkingRanges[gender] = {};
     const gData = json[gender];
+    speWorkingPortraitLayers[gender] = speNormalizePortraitBodyLayers(gData);
     for (const slot of ['A', 'B', 'C']) {
       const src = gData && gData.bodyColorRanges && gData.bodyColorRanges[slot];
       speWorkingRanges[gender][slot] = src
@@ -2794,7 +2923,11 @@ function speLoadIntoEditor(json) {
     }
   }
   speSelectedStop = -1;
+  speSelectedBodyLayerIndex = 0;
+  Promise.all(['male', 'female'].map(g => speLoadPortraitLayerImagesForGender(g)))
+    .finally(() => speRenderHeadPreview());
   speRefreshEditorUI();
+  speUpdateBodyLayerControls();
 }
 
 function speRefreshEditorUI() {
@@ -2956,6 +3089,19 @@ function speBuildExportJson() {
       const range = speWorkingRanges[gender][slot];
       if (range) result[gender].bodyColorRanges[slot] = JSON.parse(JSON.stringify(range));
     }
+    result[gender].portraitBodyLayers = (speWorkingPortraitLayers[gender] || []).map(layer => ({
+      id: layer.id,
+      url: layer.url,
+      tintSlot: layer.tintSlot || 'A',
+      pos: layer.pos || 'back',
+      xform: {
+        ax: cosRound4(layer.xform.ax),
+        ay: cosRound4(layer.xform.ay),
+        scaleX: cosRound4(layer.xform.scaleX),
+        scaleY: cosRound4(layer.xform.scaleY),
+        rotDeg: cosRound4(layer.xform.rotDeg || 0),
+      },
+    }));
   }
   return JSON.stringify(result, null, 2);
 }
@@ -2997,16 +3143,39 @@ async function speRenderHeadPreview() {
 
   const previewFilter = buildCSSFilter(spePreviewHSV.h, spePreviewHSV.s, spePreviewHSV.v);
 
-  const drawLayerFn = (img, ax, ay, sx, sy, filter) => {
+  const drawLayerFn = (img, ax, ay, sx, sy, filter, rotDeg = 0) => {
     const h = speL * sy;
     const w = (img.naturalWidth / img.naturalHeight) * speL * sx;
     const cx = speCW / 2 + ay * speL;
     const cy = speCH / 2 - ax * speL;
     speCtx.save();
+    speCtx.translate(cx, cy);
+    speCtx.rotate((Number(rotDeg) || 0) * Math.PI / 180);
     speCtx.filter = filter || 'none';
-    speCtx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+    speCtx.drawImage(img, -w / 2, -h / 2, w, h);
     speCtx.restore();
   };
+
+  const gender = document.getElementById('spe-gender').value;
+  const portraitLayers = speWorkingPortraitLayers[gender] || [];
+  const portraitImages = spePortraitLayerImages[gender] || [];
+  const drawPortraitLayersAtPos = (pos) => {
+    portraitLayers.forEach((layer, idx) => {
+      if ((layer.pos || 'back') !== pos) return;
+      const img = portraitImages[idx];
+      if (!img) return;
+      const x = layer.xform || {};
+      const d = composeXform(xf, {
+        ax: Number(x.ax ?? 0),
+        ay: Number(x.ay ?? 0),
+        sx: Number(x.scaleX ?? 1),
+        sy: Number(x.scaleY ?? 1),
+      });
+      drawLayerFn(img, d.ax, d.ay, d.sx, d.sy, 'none', Number(x.rotDeg ?? 0));
+    });
+  };
+
+  drawPortraitLayersAtPos('back');
 
   // Hair Back cosmetic (from Cosmetic Placer)
   {
@@ -3031,12 +3200,14 @@ async function speRenderHeadPreview() {
       drawLayerFn(s.img, d.ax, d.ay, d.sx, d.sy, cosSlotFilter(key));
     }
   }
+  drawPortraitLayersAtPos('front');
 }
 
 function speOnSpeciesOrGenderChanged() {
   const speciesId = document.getElementById('spe-species').value;
   if (!speciesId || !speAllSpecies[speciesId]) return;
   speLoadIntoEditor(speAllSpecies[speciesId]);
+  speUpdateBodyLayerControls();
   speRenderHeadPreview();
   // Sync species/gender dropdowns to Cosmetic Placer (prevent circular call with flag)
   if (!_speciesSyncInProgress) {
@@ -3051,7 +3222,9 @@ function speOnSpeciesOrGenderChanged() {
 document.getElementById('spe-species').addEventListener('change', speOnSpeciesOrGenderChanged);
 document.getElementById('spe-gender').addEventListener('change',  () => {
   speSelectedStop = -1;
+  speSelectedBodyLayerIndex = 0;
   speRefreshEditorUI();
+  speUpdateBodyLayerControls();
   speRenderHeadPreview();
   // Sync gender to Cosmetic Placer
   if (!_speciesSyncInProgress) {
@@ -3067,6 +3240,35 @@ document.getElementById('spe-slot').addEventListener('change', () => {
   speRefreshEditorUI();
   speUpdatePreviewClamps();
 });
+
+document.getElementById('spe-body-layer').addEventListener('change', () => {
+  const idx = parseInt(document.getElementById('spe-body-layer').value, 10);
+  speSelectedBodyLayerIndex = Number.isFinite(idx) ? idx : 0;
+  speWriteBodyLayerXformControls();
+  speRenderHeadPreview();
+});
+
+const SPE_BODY_FIELDS = [
+  ['ax', 'spe-body-ax', 'spe-body-ax-n'],
+  ['ay', 'spe-body-ay', 'spe-body-ay-n'],
+  ['scaleX', 'spe-body-sx', 'spe-body-sx-n'],
+  ['scaleY', 'spe-body-sy', 'spe-body-sy-n'],
+  ['rotDeg', 'spe-body-rot', 'spe-body-rot-n'],
+];
+for (const [key, sliderId, numberId] of SPE_BODY_FIELDS) {
+  document.getElementById(sliderId).addEventListener('input', () => {
+    const v = parseFloat(document.getElementById(sliderId).value);
+    if (!Number.isFinite(v)) return;
+    document.getElementById(numberId).value = v;
+    speSetBodyLayerField(key, v);
+  });
+  document.getElementById(numberId).addEventListener('input', () => {
+    const v = parseFloat(document.getElementById(numberId).value);
+    if (!Number.isFinite(v)) return;
+    document.getElementById(sliderId).value = v;
+    speSetBodyLayerField(key, v);
+  });
+}
 
 // H slider ↔ number sync
 document.getElementById('spe-h-slider').addEventListener('input', () => {
@@ -3272,6 +3474,50 @@ document.getElementById('spe-prevV-n').addEventListener('input', () => {
     speRenderHeadPreview();
   }
 });
+
+// ── Portrait body layer mouse controls ─────────────────────
+let speLayerDragging = false;
+let speLayerDragStart = null;
+let speLayerXformStart = null;
+
+speCV.addEventListener('mousedown', (e) => {
+  const layer = speGetCurrentPortraitLayer();
+  if (!layer) return;
+  speLayerDragging = true;
+  speLayerDragStart = { x: e.clientX, y: e.clientY };
+  speLayerXformStart = { ...layer.xform };
+  speCV.style.cursor = 'grabbing';
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!speLayerDragging) return;
+  const layer = speGetCurrentPortraitLayer();
+  if (!layer || !speLayerDragStart || !speLayerXformStart) return;
+  const dx = e.clientX - speLayerDragStart.x;
+  const dy = e.clientY - speLayerDragStart.y;
+  layer.xform.ax = Math.round((speLayerXformStart.ax - dy / speL) * 1000) / 1000;
+  layer.xform.ay = Math.round((speLayerXformStart.ay + dx / speL) * 1000) / 1000;
+  speWriteBodyLayerXformControls();
+  speRenderHeadPreview();
+});
+
+window.addEventListener('mouseup', () => {
+  speLayerDragging = false;
+  speCV.style.cursor = 'grab';
+});
+
+speCV.addEventListener('wheel', (e) => {
+  const layer = speGetCurrentPortraitLayer();
+  if (!layer) return;
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.05 : 0.05;
+  layer.xform.scaleX = Math.max(0.1, Math.round((layer.xform.scaleX + delta) * 1000) / 1000);
+  layer.xform.scaleY = Math.max(0.1, Math.round((layer.xform.scaleY + delta) * 1000) / 1000);
+  speWriteBodyLayerXformControls();
+  speRenderHeadPreview();
+}, { passive: false });
+
+speCV.style.cursor = 'grab';
 
 // ── Load species index on startup ──────────────────────────
 

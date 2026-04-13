@@ -7,6 +7,11 @@
       { "url": "fightersprites/mao-ao-m/untinted_regions/ur-head.png" }
     ],
     "headXform": { "ax": 0, "ay": -0.1, "sx": 0.95, "sy": 1.14 },
+    "portraitBodyLayers": [
+      { "id": "torso", "url": "portraitsprites/torso_mao-ao_m.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } },
+      { "id": "armL", "url": "portraitsprites/arm-L_mao-ao_m.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } },
+      { "id": "armR", "url": "portraitsprites/arm-R_mao-ao_m.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } }
+    ],
     "allowedCosmetics": [
       "appearance::Mao-ao_M::mao-ao_circled_eyes",
       "appearance::Mao-ao_M::mao-ao_circled_eye_L",
@@ -80,6 +85,11 @@
       { "url": "fightersprites/mao-ao-f/untinted_regions/ur-head.png" }
     ],
     "headXform": { "ax": 0, "ay": -0.1, "sx": 0.95, "sy": 1.14 },
+    "portraitBodyLayers": [
+      { "id": "torso", "url": "portraitsprites/torso_mao-ao_f.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } },
+      { "id": "armL", "url": "portraitsprites/arm-L_mao-ao_f.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } },
+      { "id": "armR", "url": "portraitsprites/arm-R_mao-ao_f.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } }
+    ],
     "allowedCosmetics": [
       "appearance::Mao-ao_F::mao-ao_circled_eyes_f",
       "appearance::Mao-ao_F::mao-ao_smooth_striped",
