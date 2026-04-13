@@ -44,7 +44,14 @@ const FIGHTERS = [
   },
 ];
 
-// ── Body color limits ──────────────────────────────────────
+// Probability of randomly assigning an overwear item when no cosmeticWeights are
+// configured. Lower than the hat probability (0.5) because overwear covers more of
+// the portrait and is expected to be rarer in the default look.
+const OVERWEAR_DEFAULT_PROBABILITY = 0.4;
+// Arms and legs are excluded because those body parts are not rendered in portraits.
+const PORTRAIT_CLOTHING_SLOTS_HAT      = new Set(['hat', 'hood']);
+const PORTRAIT_CLOTHING_SLOTS_OVERWEAR = new Set(['overwear']);
+const PORTRAIT_CLOTHING_SLOTS_EXCLUDED = new Set(['arms', 'legs']);
 
 const BODYCOLOR_LIMITS = {
   A: { hMin: -100, hMax:  -30, sMin: 0.05, sMax: 0.75, vMin: -0.50, vMax: 0.20 },
@@ -314,6 +321,9 @@ function portraitOptionFromJson(entry, json) {
           url:      portraitRelPath(imgUrl),
           ax:       xf.ax ?? 0,
           ay:       xf.ay ?? 0,
+          // Existing fighting-game torso configs use scaleMulX/scaleMulY (bone-relative
+          // multipliers). For the static portrait frame they are treated as direct sx/sy
+          // values; portrait-specific cosmetics should use scaleX/scaleY instead.
           sx:       xf.scaleX ?? xf.scaleMulX ?? 1,
           sy:       xf.scaleY ?? xf.scaleMulY ?? 1,
           pos:      layerName === 'back' ? 'back' : 'front',
@@ -410,9 +420,6 @@ async function loadPortraitCosmetics(configBase) {
 
   // Also load non-appearance clothing entries: hat, hood, and overwear slots
   // (arms and legs slots are excluded as they are not rendered in portraits).
-  const CLOTHING_SLOTS_HAT      = new Set(['hat', 'hood']);
-  const CLOTHING_SLOTS_OVERWEAR = new Set(['overwear']);
-  const EXCLUDED_CLOTHING_SLOTS = new Set(['arms', 'legs']);
   const clothingEntries = (data.entries || []).filter(e => e.id && !e.id.startsWith('appearance::'));
   const clothingPathMap = new Map();
   for (const entry of clothingEntries) {
@@ -433,9 +440,9 @@ async function loadPortraitCosmetics(configBase) {
       return;
     }
     const slot = json.slot || (Array.isArray(json.slots) ? json.slots[0] : null);
-    if (!slot || EXCLUDED_CLOTHING_SLOTS.has(slot)) return;
-    const isHat      = CLOTHING_SLOTS_HAT.has(slot);
-    const isOverwear = CLOTHING_SLOTS_OVERWEAR.has(slot);
+    if (!slot || PORTRAIT_CLOTHING_SLOTS_EXCLUDED.has(slot)) return;
+    const isHat      = PORTRAIT_CLOTHING_SLOTS_HAT.has(slot);
+    const isOverwear = PORTRAIT_CLOTHING_SLOTS_OVERWEAR.has(slot);
     if (!isHat && !isOverwear) return;
 
     for (const entry of entries) {
@@ -604,7 +611,7 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   const overwearPool = (overwearOptions && overwearOptions.length) ? overwearOptions : [noOverwear];
   const overwear = weights?.overwear
     ? weightedPickRng(overwearPool, weights.overwear, rng)
-    : (rng() < 0.4 ? pickRng(overwearPool) : noOverwear);
+    : (rng() < OVERWEAR_DEFAULT_PROBABILITY ? pickRng(overwearPool) : noOverwear);
 
   // Enforce disallowed cosmetic combination rules.
   // Each rule specifies conditions (slot-value pairs that must all match) and
