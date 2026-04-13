@@ -1001,38 +1001,15 @@
       font-style: italic;
     }
 
-    /* ── 3D Table ──────────────────────────────────────────────── */
+    /* ── 3D Scratchbone Overlay ─────────────────────────────────── */
+    /* Canvas sits above cards (z 150) but below challenge box / cinematic (z 200).
+       pointer-events:none lets all clicks pass through to the 2D UI. */
     #threeCanvas {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
-      z-index: 0;
+      z-index: 150;
       pointer-events: none;
-      display: none; /* hidden in 2D mode – avoids covering the HTML UI */
-    }
-
-    /* In 3D mode the canvas IS the background */
-    body.mode-3d {
-      background: transparent !important;
-    }
-    body.mode-3d #threeCanvas {
-      display: block;
-      pointer-events: none; /* document listener handles card clicks */
-    }
-    /* Fade non-essential panels so the 3D scene shows through */
-    body.mode-3d .topbar,
-    body.mode-3d .panel,
-    body.mode-3d .eventLog,
-    body.mode-3d #aiSidebar {
-      opacity: 0.18;
-      pointer-events: none;
-      transition: opacity 0.3s;
-    }
-    body.mode-3d .handWrap { display: none; }
-    body.mode-3d .controls {
-      opacity: 1;
-      pointer-events: auto;
-      position: relative; z-index: 10;
-      transition: opacity 0.3s;
+      display: none; /* hidden until toggled on */
     }
 
     /* 3D toggle button – fixed bottom-right */
@@ -3141,8 +3118,6 @@
       renderChallengeBox();
       refreshCinematicBettingZone();
       renderSeatPortraits();
-      // Notify 3D module to re-sync UI planes and card meshes
-      if (window._table3D) window._table3D.sync();
     }
 
     function debugSnapshot() {
@@ -3468,8 +3443,9 @@
       if (!play) return '';
       const cards = play.cards;
       const rowItems = cards.map((card, i) => {
+        const cardRank = card.wild ? ((card.id - 1) % 10) + 1 : Math.max(1, Math.min(10, card.rank));
         if (!revealed) {
-          return `<div class="cin-card-wrap">
+          return `<div class="cin-card-wrap" data-card-rank="${cardRank}" data-card-wild="${card.wild ? 'true' : 'false'}">
             <div class="cin-card-inner">
               <div class="cin-card-back">✦</div>
               <div class="cin-card-face face-truth"></div>
@@ -3481,7 +3457,7 @@
         const faceClass = isWild ? 'face-wild' : (matchesClaim ? 'face-truth' : 'face-lie');
         const rank = isWild ? '★' : card.rank;
         const sub  = isWild ? 'Wild' : (matchesClaim ? 'True' : 'Lie!');
-        return `<div class="cin-card-wrap flip-it" style="--fd:${(i * 0.09).toFixed(2)}s;">
+        return `<div class="cin-card-wrap flip-it" style="--fd:${(i * 0.09).toFixed(2)}s;" data-card-rank="${cardRank}" data-card-wild="${isWild ? 'true' : 'false'}">
           <div class="cin-card-inner">
             <div class="cin-card-back">✦</div>
             <div class="cin-card-face ${faceClass}">
@@ -3665,23 +3641,22 @@
 
   <script type="module">
   /**
-   * ScratchbonesBluffGame – 3D table integration
+   * ScratchbonesBluffGame – 3D scratchbone UI overlay
    *
    * Responsibilities:
-   *   • Render a Three.js scene behind the HTML UI (canvas z-index 0).
-   *   • Load docs/assets/3D/3DFurniture/ScratchbonesTableV1.gltf
-   *     (or any GLTF/GLB via file import).
-   *   • Project 2D game state onto two CanvasTexture UI planes in the table.
-   *   • Load 3DScratchbone1-10.glb and place the appropriate model at each
-   *     pre-positioned placeholder:ownedslot:N node (14 total).
-   *     • Scratchbone rank maps to hand card rank (wild cards cycle via id).
-   *     • Selected cards get a blue emissive highlight + slight lift.
-   *     • Click on a scratchbone → raycasting → toggleSelect(cardId).
-   *   • Popout: load buttons, GLTF file import, 7 transform sliders.
+   *   • Render a Three.js scene on top of the HTML UI (canvas z-index 150,
+   *     pointer-events none so clicks pass through to the 2D UI).
+   *   • Orthographic camera mapped 1:1 to screen pixels.
+   *   • Per-frame CardTracker: for every visible .card[data-card-id] and
+   *     .cin-card-wrap element, spawn a scratchbone mesh at the element's
+   *     screen-space centre.  Face-down elements rotate PI around Y.
+   *     Selected hand cards receive a blue emissive tint.
+   *   • Optional background: load ScratchbonesTableV1.gltf as scenery.
+   *   • Toggle button shows/hides the overlay (no game state changes).
    */
   import * as THREE from 'three';
   import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-  console.log('[3DTable] module started, THREE r' + THREE.REVISION);
+  console.log('[3DOverlay] module started, THREE r' + THREE.REVISION);
 
   // ─── renderer / scene / camera ──────────────────────────────────────────
 
