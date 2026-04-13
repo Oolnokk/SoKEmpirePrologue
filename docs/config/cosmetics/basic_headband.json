@@ -19,7 +19,7 @@
           "spriteStyle": {
             "base": {
               "xform": {
-                "head": { "ax": -0.1, "ay": -0.1, "scaleX": 2.2, "scaleY": 2.2, "rotDeg": 0 }
+                "head": { "ax": -0.1, "ay": -0.1, "scaleX": 2, "scaleY": 2, "rotDeg": 0 }
               }
             }
           }
