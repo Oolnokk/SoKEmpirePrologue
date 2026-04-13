@@ -2872,7 +2872,13 @@
 
     function resolveScratchbone2DAsset(card, { flipped = false } = {}) {
       const clampedRank = Math.max(1, Math.min(10, Number(card?.rank) || 1));
-      if (flipped || card?.wild) {
+      if (card?.wild) {
+        return {
+          src: './docs/assets/hud/2DScratchBoneWild.png',
+          fallbackSrc: './docs/assets/hud/2DScratchBoneWild.png',
+        };
+      }
+      if (flipped) {
         return {
           src: './docs/assets/hud/2DScratchboneFlipped.png',
           fallbackSrc: './docs/assets/hud/2DScratchBoneFlipped.png',
