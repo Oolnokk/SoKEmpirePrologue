@@ -438,7 +438,7 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   // repairSlots (slots to try forcing to a non-none option, tried in random order).
   if (disallowedCombos.length) {
     const filteredBySlot = { hairFront: filteredHairFront, hairBack: filteredHairBack, hairSide: filteredHairSide };
-    let maxIter = disallowedCombos.length + 1;
+    let maxIter = disallowedCombos.length * 2 + 1;
     let violated = true;
     while (violated && maxIter-- > 0) {
       violated = false;
