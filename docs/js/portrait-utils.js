@@ -406,6 +406,7 @@ function randomBodyColorsSeeded(rng, bodyColorRanges) {
 /**
  * Weighted random pick from an array, driven by rng().
  * weights: object mapping item.id to a numeric weight (items absent from the map default to 1).
+ * A weight of 0 effectively excludes that item from selection.
  * Falls back to uniform pick when weights is null/undefined.
  *
  * To tune cosmetic odds, add a "cosmeticWeights" block to the species JSON (e.g. mao-ao.json)
