@@ -279,72 +279,36 @@
     .card {
       min-width: 69px;
       min-height: 178px;
-      padding: 40px 10px 78px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 28%), var(--card);
+      padding: 0;
+      background: transparent;
       color: var(--card-text);
       border: 3px solid transparent;
       border-radius: 22px 22px 38px 38px / 26px 26px 86px 86px;
       box-shadow: 0 10px 14px rgba(0,0,0,0.18);
       display: flex;
-      flex-direction: column;
-      gap: 8px;
-      align-items: center;
-      justify-content: flex-start;
+      align-items: stretch;
+      justify-content: stretch;
       scroll-snap-align: start;
       position: relative;
       overflow: hidden;
       isolation: isolate;
     }
 
-    .card::before {
-      content: '';
-      position: absolute;
-      bottom: 10px;
-      left: 50%;
-      width: 58px;
-      height: 58px;
-      transform: translateX(-50%);
-      border-radius: 50%;
-      background: rgba(255,255,255,0.36);
-      box-shadow: inset 0 3px 7px rgba(255,255,255,0.4), inset 0 -6px 10px rgba(0,0,0,0.06);
-      z-index: 0;
+    .card.wild { box-shadow: 0 10px 16px rgba(241, 211, 71, 0.18); }
+    .card.selected { transform: translateY(-4px); border-color: transparent; }
+    .card.selected .cardArt {
+      filter:
+        drop-shadow(0 0 1px rgba(98, 176, 255, 0.95))
+        drop-shadow(0 0 4px rgba(98, 176, 255, 0.85))
+        drop-shadow(0 0 9px rgba(98, 176, 255, 0.72));
     }
-
-    .card.wild { background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 26%), linear-gradient(180deg, #f8eb99, var(--wild)); }
-    .card.selected { transform: translateY(-4px); border-color: #62b0ff; }
-    .cardTop,
-    .cardMid,
-    .cardBottom {
-      position: relative;
-      z-index: 1;
-    }
-    .cardTop {
-      margin-top: 0;
-      font-size: 0.78rem;
-      font-weight: 700;
-      opacity: 0.9;
-      text-align: center;
-    }
-    .cardMid {
-      position: absolute;
-      top: 18px;
-      left: 50%;
+    .cardArt {
       width: 100%;
-      height: 30px;
-      transform: translateX(-50%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.8rem;
-      font-weight: 900;
-      text-align: center;
-      line-height: 1;
-    }
-    .cardBottom {
-      margin-top: auto;
-      font-size: 0.72rem;
-      text-align: center;
-      opacity: 0.8;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border-radius: inherit;
+      pointer-events: none;
     }
 
     .eventLog {
@@ -735,45 +699,32 @@
       backface-visibility: hidden;
       -webkit-backface-visibility: hidden;
     }
-    .cin-card-back {
-      background: linear-gradient(145deg, #1a1008, #2d1a12);
-      border: 2px solid rgba(200,153,82,0.2);
-      box-shadow: 0 4px 14px rgba(0,0,0,0.55);
-      font-size: 1.2rem;
-      color: rgba(200,153,82,0.22);
-    }
+    .cin-card-back { overflow: hidden; }
     .cin-card-face {
       transform: rotateY(180deg);
-      border: 2px solid transparent;
+      overflow: visible;
     }
-    .cin-card-face.face-truth {
-      background: linear-gradient(155deg, #0d2015, #1b3e28);
-      border-color: rgba(102,177,124,0.55);
-      box-shadow: 0 0 16px rgba(102,177,124,0.28);
-    }
-    .cin-card-face.face-lie {
-      background: linear-gradient(155deg, #200d0d, #3e1b1b);
-      border-color: rgba(200,90,90,0.55);
-      box-shadow: 0 0 16px rgba(200,90,90,0.28);
-    }
-    .cin-card-face.face-wild {
-      background: linear-gradient(155deg, #2a2000, #4a3a00);
-      border-color: rgba(241,211,71,0.55);
-      box-shadow: 0 0 16px rgba(241,211,71,0.28);
-    }
-    .cin-card-rank {
-      font-size: 1.45rem;
-      font-weight: 900;
-      color: var(--text);
-      line-height: 1;
+    .cin-card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+      display: block;
     }
     .cin-card-sub {
-      font-size: 0.5rem;
+      position: absolute;
+      left: 50%;
+      bottom: -7px;
+      transform: translateX(-50%);
+      font-size: 0.52rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      margin-top: 3px;
-      opacity: 0.8;
+      opacity: 0.95;
+      z-index: 3;
+      pointer-events: none;
+      white-space: nowrap;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.7), 0 0 8px rgba(0,0,0,0.45);
     }
     .face-truth .cin-card-sub { color: var(--ok); }
     .face-lie   .cin-card-sub { color: var(--danger); }
@@ -2917,6 +2868,32 @@
       return card.wild ? 'Wild' : String(card.rank);
     }
 
+    function resolveScratchbone2DAsset(card, { flipped = false } = {}) {
+      const clampedRank = Math.max(1, Math.min(10, Number(card?.rank) || 1));
+      if (flipped || card?.wild) {
+        return {
+          src: './docs/assets/hud/2DScratchboneFlipped.png',
+          fallbackSrc: './docs/assets/hud/2DScratchBoneFlipped.png',
+        };
+      }
+      return {
+        src: `./docs/assets/hud/2DScratchbone${clampedRank}.png`,
+        fallbackSrc: `./docs/assets/hud/2DScratchbones${clampedRank}.png`,
+      };
+    }
+
+    function wireScratchboneImageFallbacks(root = document) {
+      root.querySelectorAll('img[data-fallback-src]').forEach(img => {
+        const fallbackSrc = img.getAttribute('data-fallback-src');
+        if (!fallbackSrc || img.dataset.fallbackApplied === 'true') return;
+        img.addEventListener('error', () => {
+          if (img.dataset.fallbackApplied === 'true') return;
+          img.dataset.fallbackApplied = 'true';
+          img.src = fallbackSrc;
+        }, { once: true });
+      });
+    }
+
     function startChallengeTimer() {
       clearChallengeTimer();
       state.challengeTimeLeft = CHALLENGE_TIMER_SECS;
@@ -3069,13 +3046,14 @@
             <div class="tiny">Selected: ${selected.length}</div>
           </div>
           <div class="handScroll">
-            ${player.hand.map(card => `
-              <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}">
-                <div class="cardTop">${card.wild ? 'Yellow' : 'Number'}</div>
-                <div class="cardMid">${card.wild ? '★' : card.rank}</div>
-                <div class="cardBottom">${card.wild ? 'Wild card' : 'Claimable as shown'}</div>
+            ${player.hand.map(card => {
+              const art = resolveScratchbone2DAsset(card);
+              return `
+              <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}" title="${card.wild ? 'Wild card' : `Scratchbone ${card.rank}`}">
+                <img class="cardArt" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`}">
               </button>
-            `).join('')}
+            `;
+            }).join('')}
           </div>
         </div>
 
@@ -3115,6 +3093,7 @@
       app.querySelectorAll('[data-card-id]').forEach(el => {
         el.addEventListener('click', () => toggleSelect(Number(el.getAttribute('data-card-id'))));
       });
+      wireScratchboneImageFallbacks(app);
       renderChallengeBox();
       refreshCinematicBettingZone();
       renderSeatPortraits();
@@ -3290,6 +3269,7 @@
           : `<div class="cin-waiting">${actorName} is deciding…</div>`
         }
       `;
+      wireScratchboneImageFallbacks(zone);
 
       if (humanActor) {
         document.getElementById('cinCallBtn')?.addEventListener('click', () => humanBetAction('checkcall'));
@@ -3444,24 +3424,24 @@
       const cards = play.cards;
       const rowItems = cards.map((card, i) => {
         const cardRank = card.wild ? ((card.id - 1) % 10) + 1 : Math.max(1, Math.min(10, card.rank));
+        const art = resolveScratchbone2DAsset({ ...card, rank: cardRank }, { flipped: !revealed });
         if (!revealed) {
           return `<div class="cin-card-wrap" data-card-rank="${cardRank}" data-card-wild="${card.wild ? 'true' : 'false'}">
             <div class="cin-card-inner">
-              <div class="cin-card-back">✦</div>
-              <div class="cin-card-face face-truth"></div>
+              <div class="cin-card-back"><img class="cin-card-image" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Hidden scratchbone card"></div>
+              <div class="cin-card-face"></div>
             </div>
           </div>`;
         }
         const isWild = card.wild;
         const matchesClaim = card.wild || card.rank === play.declaredRank;
         const faceClass = isWild ? 'face-wild' : (matchesClaim ? 'face-truth' : 'face-lie');
-        const rank = isWild ? '★' : card.rank;
-        const sub  = isWild ? 'Wild' : (matchesClaim ? 'True' : 'Lie!');
+        const sub = isWild ? 'Wild' : (matchesClaim ? 'True' : 'Lie!');
         return `<div class="cin-card-wrap flip-it" style="--fd:${(i * 0.09).toFixed(2)}s;" data-card-rank="${cardRank}" data-card-wild="${isWild ? 'true' : 'false'}">
           <div class="cin-card-inner">
-            <div class="cin-card-back">✦</div>
+            <div class="cin-card-back"><img class="cin-card-image" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Hidden scratchbone card"></div>
             <div class="cin-card-face ${faceClass}">
-              <div class="cin-card-rank">${rank}</div>
+              <img class="cin-card-image" src="${resolveScratchbone2DAsset({ ...card, rank: cardRank }, { flipped: false }).src}" data-fallback-src="${resolveScratchbone2DAsset({ ...card, rank: cardRank }, { flipped: false }).fallbackSrc}" alt="${isWild ? 'Revealed wild scratchbone card' : `Revealed scratchbone ${cardRank} card`}">
               <div class="cin-card-sub">${sub}</div>
             </div>
           </div>
@@ -3501,6 +3481,7 @@
           : `<div class="cin-status-line">Cards face‑down — betting underway…</div>`
         }
       `;
+      wireScratchboneImageFallbacks(cin);
       cin.classList.add('cin-active');
       renderCinematicPortraits();
 
@@ -3548,6 +3529,7 @@
         <div class="cin-result ${resClass}">${resultText}</div>
         <button class="cin-continue" id="cinContinueBtn">Continue →</button>
       `;
+      wireScratchboneImageFallbacks(cin);
       cin.classList.add('cin-active');
       renderCinematicPortraits();
 
@@ -3579,6 +3561,7 @@
         </div>
         <button class="cin-continue" id="cinContinueBtn">Continue →</button>
       `;
+      wireScratchboneImageFallbacks(cin);
       cin.classList.add('cin-active');
       renderCinematicPortraits();
 
