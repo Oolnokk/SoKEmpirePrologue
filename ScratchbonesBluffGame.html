@@ -3170,13 +3170,13 @@
 
     function generatePlayerProfile(player) {
       if (!_portraitCosmetics) return null;
-      const { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, overwearOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter } = _portraitCosmetics;
+      const { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter } = _portraitCosmetics;
       const seedStr = player.seed || `player-${player.id}`;
       const rng = mulberry32(hashStringToSeed(seedStr));
       const fighterPool = player.gender === 'male'   ? FIGHTERS.filter(f => f.id === 'M')
                         : player.gender === 'female' ? FIGHTERS.filter(f => f.id === 'F')
                         : FIGHTERS;
-      return randomProfileSeeded(rng, fighterPool.length ? fighterPool : FIGHTERS, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter, overwearOptions);
+      return randomProfileSeeded(rng, fighterPool.length ? fighterPool : FIGHTERS, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter);
     }
 
     function renderSeatPortraits() {
@@ -3185,7 +3185,7 @@
       for (const p of state.players.slice(1)) {
         if (!p.profile) continue;
         const canvas = root.querySelector(`canvas[data-seat-id="${p.id}"]`);
-        if (canvas && window.renderProfile) renderProfile(canvas, p.profile, { showBody: true });
+        if (canvas && window.renderProfile) renderProfile(canvas, p.profile);
       }
     }
 
