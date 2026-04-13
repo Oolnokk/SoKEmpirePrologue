@@ -58,6 +58,68 @@ function resolveActivePlayableBounds(area = null) {
   return null;
 }
 
+function clonePoiForSchedule(poi) {
+  if (!poi) return null;
+  const bounds = poi.bounds
+    ? {
+        left: poi.bounds.left,
+        right: poi.bounds.right,
+        top: poi.bounds.top,
+        bottom: poi.bounds.bottom,
+      }
+    : null;
+  return {
+    id: poi.id || null,
+    name: poi.name || null,
+    label: poi.label || poi.name || poi.id || 'POI',
+    bounds,
+    meta: poi.meta ? { ...poi.meta } : {},
+  };
+}
+
+function buildGroupPoiSchedule(group, area) {
+  if (!group || !area || !area.poisByName) return null;
+  const interests = Array.isArray(group.interests) ? group.interests : [];
+  if (!interests.length) return null;
+
+  const matchingPois = selectPoisByInterests(area.poisByName, interests)
+    .map(clonePoiForSchedule)
+    .filter(Boolean);
+
+  if (!matchingPois.length) return null;
+
+  const targetsByHour = Array.from({ length: 24 }, (_, hour) =>
+    matchingPois.filter((poi) => isScheduleActive(poi.meta, hour))
+  );
+
+  const offDutyTargets = matchingPois;
+  const exitTargets = selectMapExits(area.pois || []).map(clonePoiForSchedule).filter(Boolean);
+
+  return {
+    areaId: area.id || null,
+    targetsByHour,
+    offDutyTargets,
+    exitTargets,
+  };
+}
+
+function ensureGroupPoiSchedule(state, area) {
+  const group = ensureNpcGroupState(state);
+  if (!group) return null;
+  const interests = Array.isArray(group.interests) ? group.interests : [];
+  if (!interests.length || !area) return null;
+
+  const existing = group.poiSchedule || null;
+  const needsBuild = !existing || existing.areaId !== (area.id || null);
+  if (!needsBuild) return existing;
+
+  const schedule = buildGroupPoiSchedule(group, area);
+  if (schedule) {
+    group.poiSchedule = schedule;
+  }
+  return group.poiSchedule || null;
+}
+
 function resolveNpcPathingConfig(state) {
   const ai = state?.ai || {};
   const config = ai.pathing ?? ai.path ?? null;
@@ -290,34 +352,28 @@ function resolveNpcPathTarget(state, area) {
   };
 }
 
-function selectNpcTargetPoi(state, area) {
-  if (!state || !area) return null;
+function selectNpcTargetPoi(state, currentHour = null) {
+  if (!state) return null;
 
-  const group = state.group || {};
-  const interests = group.interests || [];
-  const poisByName = area.poisByName;
+  const schedule = state.group?.poiSchedule;
+  if (!schedule) return null;
 
-  if (!poisByName || !interests.length) return null;
+  const hour = Number.isFinite(currentHour) ? currentHour : null;
+  const hourlyTargets = Number.isInteger(hour) ? schedule.targetsByHour?.[hour] : null;
+  const candidates = hourlyTargets && hourlyTargets.length
+    ? hourlyTargets
+    : schedule.offDutyTargets || [];
 
-  const matchingPois = selectPoisByInterests(poisByName, interests);
-  if (!matchingPois.length) return null;
+  if (!candidates.length) return null;
 
-  const currentHour = getCurrentGameHour(area);
-
-  const scheduledPois = matchingPois.filter(poi => isScheduleActive(poi?.meta, currentHour));
-
-  if (scheduledPois.length > 0) {
-    return selectRandomPoi(scheduledPois);
-  }
-
-  return resolveNpcOffDutyPoi(state, area, currentHour);
+  return selectRandomPoi(candidates);
 }
 
-function resetNpcScheduleTargets(state, area) {
+function resetNpcScheduleTargets(state, area, currentHour = null) {
   const ooc = state.outOfCombat || {};
-  const currentHour = getCurrentGameHour(area);
+  const resolvedHour = Number.isFinite(currentHour) ? currentHour : getCurrentGameHour(area);
   const lastHour = ooc.lastScheduleHour;
-  const changed = Number.isFinite(lastHour) && lastHour !== currentHour;
+  const changed = Number.isFinite(lastHour) && lastHour !== resolvedHour;
 
   if (changed) {
     ooc.currentPoi = null;
@@ -327,16 +383,15 @@ function resetNpcScheduleTargets(state, area) {
     resetNpcPathScheduleState(state, currentHour);
   }
 
-  ooc.lastScheduleHour = currentHour;
-  return { currentHour, changed };
+  ooc.lastScheduleHour = resolvedHour;
+  return { currentHour: resolvedHour, changed };
 }
 
-function selectNpcEscapeTarget(state, area) {
-  if (!state || !area) return null;
+function selectNpcEscapeTarget(state) {
+  if (!state) return null;
 
-  const allPois = area.pois || [];
-  const exits = selectMapExits(allPois);
-
+  const schedule = state.group?.poiSchedule;
+  const exits = schedule?.exitTargets || [];
   if (!exits.length) return null;
 
   const group = state.group || {};
@@ -345,23 +400,22 @@ function selectNpcEscapeTarget(state, area) {
   return selectWeightedExit(exits, exitWeights);
 }
 
-function updateNpcNavigateMode(state, area) {
+function updateNpcNavigateMode(state, area, currentHour = null) {
   const ooc = state.outOfCombat || {};
-  resetNpcScheduleTargets(state, area);
+  const { currentHour: resolvedHour } = resetNpcScheduleTargets(state, area, currentHour);
   const currentPoi = ooc.currentPoi;
-  const currentHour = getCurrentGameHour(area);
 
   const lastHour = ooc.lastScheduleHour;
-  if (Number.isFinite(lastHour) && lastHour !== currentHour) {
-    if (!isScheduleActive(currentPoi?.meta, currentHour)) {
+  if (Number.isFinite(lastHour) && lastHour !== resolvedHour) {
+    if (!isScheduleActive(currentPoi?.meta, resolvedHour)) {
       ooc.currentPoi = null;
       ooc.targetPoint = null;
     }
   }
-  ooc.lastScheduleHour = currentHour;
+  ooc.lastScheduleHour = resolvedHour;
 
   if (!currentPoi) {
-    const targetPoi = selectNpcTargetPoi(state, area);
+    const targetPoi = selectNpcTargetPoi(state, resolvedHour);
     if (targetPoi) {
       ooc.currentPoi = targetPoi;
       ooc.targetPoint = getRandomGroundPointInPoi(targetPoi);
@@ -435,7 +489,7 @@ function updateNpcEscapeMode(state, dt, area) {
   const targetPoint = ooc.targetPoint;
 
   if (!targetExit || !targetPoint) {
-    const exit = selectNpcEscapeTarget(state, area);
+    const exit = selectNpcEscapeTarget(state);
     if (exit) {
       ooc.targetExit = exit;
       ooc.targetPoint = getRandomGroundPointInPoi(exit);
@@ -2327,6 +2381,9 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
 
   const activeArea = resolveActiveArea();
   const playableBounds = resolveActivePlayableBounds(activeArea);
+  const currentHour = getCurrentGameHour(activeArea);
+
+  const poiSchedule = ensureGroupPoiSchedule(state, activeArea);
 
   const visuals = ensureNpcVisualState(state);
 
@@ -2485,7 +2542,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
     state.mode = aggression.triggered ? 'alert' : 'idle';
     state.cooldown = 0;
 
-    const usePoiSystem = activeArea && activeArea.pois && group.interests && group.interests.length > 0;
+    const usePoiSystem = !!poiSchedule;
 
     if (usePoiSystem && !isFollower) {
       if (shouldNpcEscape(G, state) && !ooc.escaping) {
@@ -2497,7 +2554,7 @@ function updateNpcMovement(G, state, dt, abilityIntent = null) {
       }
 
       if (ooc.mode === 'navigate') {
-        updateNpcNavigateMode(state, activeArea);
+        updateNpcNavigateMode(state, activeArea, currentHour);
       } else if (ooc.mode === 'reposition') {
         updateNpcRepositionMode(state, activeArea);
       } else if (ooc.mode === 'wait') {
