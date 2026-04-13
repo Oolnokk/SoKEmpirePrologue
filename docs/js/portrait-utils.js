@@ -8,43 +8,71 @@
 //   setPortraitAssetBase('./docs/assets/');     // ScratchbonesBluffGame
 // ============================================================
 
-// ── Constants ──────────────────────────────────────────────
+// ── Constants / Config ─────────────────────────────────────
 
-const PORTRAIT_CW = 200;
-const PORTRAIT_CH = 200;
-const PORTRAIT_L  = 80;
-
-// Head xform (from config spriteStyle for Mao-ao head bone)
-const HEAD_XFORM = { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 };
-
-// ── Fighter definitions ────────────────────────────────────
-
-const FIGHTERS = [
-  {
-    id:      'M',
-    label:   'Mao-ao (M)',
-    headUrl: 'fightersprites/mao-ao-m/head_mint.png',
-    urLayers: [
-      { url: 'fightersprites/mao-ao-m/untinted_regions/ur-head.png' },
-    ],
-  },
-  {
-    id:      'F',
-    label:   'Mao-ao (F)',
-    headUrl: 'fightersprites/mao-ao-f/head.png',
-    urLayers: [
-      { url: 'fightersprites/mao-ao-f/untinted_regions/ur-head.png' },
-    ],
-  },
-];
-
-// ── Body color limits ──────────────────────────────────────
-
-const BODYCOLOR_LIMITS = {
-  A: { hMin: -100, hMax:  -30, sMin: 0.05, sMax: 0.75, vMin: -0.50, vMax: 0.20 },
-  B: { hMin: -100, hMax:  -30, sMin: -0.20, sMax: 0.90, vMin: -0.85, vMax: 0.10 },
-  C: { hMin: -100, hMax:  -30, sMin: -0.65, sMax: 0.65, vMin: -0.25, vMax: 0.55 },
+const _PORTRAIT_DEFAULTS = {
+  canvas: { width: 200, height: 200, layerSize: 80 },
+  headXform: { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 },
+  fighters: [
+    {
+      id:      'M',
+      label:   'Mao-ao (M)',
+      headUrl: 'fightersprites/mao-ao-m/head_mint.png',
+      bodyLayers: [
+        { id: 'torso', url: 'portraitsprites/torso_mao-ao_m.png', tintSlot: 'A', pos: 'back' },
+        { id: 'armL', url: 'portraitsprites/arm-L_mao-ao_m.png', tintSlot: 'A', pos: 'back' },
+        { id: 'armR', url: 'portraitsprites/arm-R_mao-ao_m.png', tintSlot: 'A', pos: 'back' },
+      ],
+      urLayers: [
+        { url: 'fightersprites/mao-ao-m/untinted_regions/ur-head.png' },
+      ],
+    },
+    {
+      id:      'F',
+      label:   'Mao-ao (F)',
+      headUrl: 'fightersprites/mao-ao-f/head.png',
+      bodyLayers: [
+        { id: 'torso', url: 'portraitsprites/torso_mao-ao_f.png', tintSlot: 'A', pos: 'back' },
+        { id: 'armL', url: 'portraitsprites/arm-L_mao-ao_f.png', tintSlot: 'A', pos: 'back' },
+        { id: 'armR', url: 'portraitsprites/arm-R_mao-ao_f.png', tintSlot: 'A', pos: 'back' },
+      ],
+      urLayers: [
+        { url: 'fightersprites/mao-ao-f/untinted_regions/ur-head.png' },
+      ],
+    },
+  ],
+  bodyColorLimits: {
+    A: { hMin: -100, hMax:  -30, sMin: 0.05, sMax: 0.75, vMin: -0.50, vMax: 0.20 },
+    B: { hMin: -100, hMax:  -30, sMin: -0.20, sMax: 0.90, vMin: -0.85, vMax: 0.10 },
+    C: { hMin: -100, hMax:  -30, sMin: -0.65, sMax: 0.65, vMin: -0.25, vMax: 0.55 },
+  }
 };
+
+let _portraitConfig = {
+  ..._PORTRAIT_DEFAULTS,
+  ...(window.PORTRAIT_CONFIG || {})
+};
+
+function setPortraitConfig(overrides) {
+  _portraitConfig = {
+    ..._PORTRAIT_DEFAULTS,
+    ..._portraitConfig,
+    ...(overrides || {})
+  };
+  PORTRAIT_CW = _portraitConfig.canvas?.width ?? 200;
+  PORTRAIT_CH = _portraitConfig.canvas?.height ?? 200;
+  PORTRAIT_L = _portraitConfig.canvas?.layerSize ?? 80;
+  HEAD_XFORM = _portraitConfig.headXform || _PORTRAIT_DEFAULTS.headXform;
+  FIGHTERS = _portraitConfig.fighters || _PORTRAIT_DEFAULTS.fighters;
+  BODYCOLOR_LIMITS = _portraitConfig.bodyColorLimits || _PORTRAIT_DEFAULTS.bodyColorLimits;
+}
+
+let PORTRAIT_CW = _portraitConfig.canvas?.width ?? 200;
+let PORTRAIT_CH = _portraitConfig.canvas?.height ?? 200;
+let PORTRAIT_L  = _portraitConfig.canvas?.layerSize ?? 80;
+let HEAD_XFORM = _portraitConfig.headXform || _PORTRAIT_DEFAULTS.headXform;
+let FIGHTERS = _portraitConfig.fighters || _PORTRAIT_DEFAULTS.fighters;
+let BODYCOLOR_LIMITS = _portraitConfig.bodyColorLimits || _PORTRAIT_DEFAULTS.bodyColorLimits;
 
 // ── Image loading ──────────────────────────────────────────
 
@@ -122,12 +150,26 @@ function drawPortraitLayer(ctx, img, xform, cssFilter) {
 // ── Rendering ──────────────────────────────────────────────
 
 async function renderProfile(canvas, profile) {
-  const { fighter, hair, hairFront, hairBack, hairSide, eyes, facialHair, hat, bodyColors } = profile;
+  const { fighter, hair, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic, bodyColors } = profile;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
 
   const filterFor = (slot) => slot ? makeCSSFilter(bodyColors[slot]) : 'none';
   const filterA   = makeCSSFilter(bodyColors.A);
+
+  const bodyBackLayers = [];
+  const bodyFrontLayers = [];
+  for (const layer of (fighter.bodyLayers || [])) {
+    const target = layer.pos === 'front' ? bodyFrontLayers : bodyBackLayers;
+    target.push({ layer, filter: filterFor(layer.tintSlot || 'A') });
+  }
+  for (const group of [torsoCosmetic, armCosmetic]) {
+    if (!group || !group.layers || !group.layers.length) continue;
+    for (const layer of group.layers) {
+      const target = layer.pos === 'back' ? bodyBackLayers : bodyFrontLayers;
+      target.push({ layer, filter: filterFor(group.tintSlot || 'A') });
+    }
+  }
 
   // Support both three-slot (hairBack/hairSide/hairFront) and legacy single-slot (hair).
   const allCosmeticGroups = hairFront !== undefined
@@ -147,8 +189,10 @@ async function renderProfile(canvas, profile) {
   const neededUrls = new Set([
     fighter.headUrl,
     ...(fighter.urLayers || []).map(m => m.url),
+    ...bodyBackLayers.map(({ layer }) => layer.url),
     ...backLayers.map(({ layer }) => layer.url),
     ...frontLayers.map(({ layer }) => layer.url),
+    ...bodyFrontLayers.map(({ layer }) => layer.url),
   ]);
 
   let imgMap;
@@ -166,6 +210,10 @@ async function renderProfile(canvas, profile) {
     return;
   }
 
+  for (const { layer, filter } of bodyBackLayers) {
+    const img = imgMap.get(layer.url);
+    if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
+  }
   for (const { layer, filter } of backLayers) {
     const img = imgMap.get(layer.url);
     if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
@@ -176,6 +224,10 @@ async function renderProfile(canvas, profile) {
     if (img) drawPortraitLayer(ctx, img, mid.xform || HEAD_XFORM, 'none');
   }
   for (const { layer, filter } of frontLayers) {
+    const img = imgMap.get(layer.url);
+    if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
+  }
+  for (const { layer, filter } of bodyFrontLayers) {
     const img = imgMap.get(layer.url);
     if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
   }
@@ -242,6 +294,33 @@ function portraitOptionFromJson(entry, json) {
     }
   }
 
+  // Portrait torso/arm clothing layers come from non-appearance cosmetic files and
+  // are selected by using '/portrait/' asset paths.
+  if (!layers.length && json.parts && typeof json.parts === 'object') {
+    for (const [partName, partDef] of Object.entries(json.parts)) {
+      const partLayers = partDef && partDef.layers ? partDef.layers : null;
+      if (!partLayers || typeof partLayers !== 'object') continue;
+      for (const [layerName, layer] of Object.entries(partLayers)) {
+        const imgUrl = layer?.image?.url;
+        if (!imgUrl || !String(imgUrl).toLowerCase().includes('/portrait/')) continue;
+        const xf =
+          layer?.spriteStyle?.base?.xform?.[partName] ||
+          layer?.spriteStyle?.base?.xform?.head ||
+          layer?.spriteStyle?.xform?.[partName] ||
+          layer?.spriteStyle?.xform?.head ||
+          {};
+        layers.push({
+          url: portraitRelPath(imgUrl),
+          ax:  xf.ax     ?? 0,
+          ay:  xf.ay     ?? 0,
+          sx:  xf.scaleX ?? xf.scaleMulX ?? 1,
+          sy:  xf.scaleY ?? xf.scaleMulY ?? 1,
+          pos: layerName === 'back' ? 'back' : 'front',
+        });
+      }
+    }
+  }
+
   const colorRange = (json.slot === 'hat' && json.colorRange) ? json.colorRange : null;
   const resolvedTintSlot = colorRange ? 'HAT' : tintSlot;
   const hairSlot = json.hairSlot || null; // 'front' | 'back' | 'side'
@@ -269,7 +348,7 @@ async function loadPortraitCosmetics(configBase) {
     indexBaseUrl = rawUrl;
   }
 
-  const allEntries = (data.entries || []).filter(e => e.id && e.id.startsWith('appearance::'));
+  const allEntries = (data.entries || []).filter(e => e.id && (e.id.startsWith('appearance::') || !e.id.includes('::')));
   const pathToEntries = new Map();
   for (const entry of allEntries) {
     if (!pathToEntries.has(entry.path)) pathToEntries.set(entry.path, []);
@@ -306,6 +385,8 @@ async function loadPortraitCosmetics(configBase) {
   const eyesOptions       = [{ id: 'none', label: 'No Eye Mark',    tintSlot: null, layers: [] }];
   const facialHairOptions = [{ id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] }];
   const hatOptions        = [{ id: 'none', label: 'No Hat',         tintSlot: null, layers: [] }];
+  const torsoPortraitOptions = [{ id: 'none', label: 'No Torso Clothing', tintSlot: null, layers: [] }];
+  const armPortraitOptions = [{ id: 'none', label: 'No Arm Clothing', tintSlot: null, layers: [] }];
   const seenIds = new Set();
 
   for (const entry of indexEntries) {
@@ -324,6 +405,12 @@ async function loadPortraitCosmetics(configBase) {
     else if (cat === 'hairSide')   hairSideOptions.push(opt);
     else if (cat === 'eyes')       eyesOptions.push(opt);
     else if (cat === 'facialhair') facialHairOptions.push(opt);
+
+    if (!entry.id.startsWith('appearance::')) {
+      const lowerLayers = opt.layers.map(l => (l.url || '').toLowerCase());
+      if (lowerLayers.some(u => u.includes('/torso/portrait/'))) torsoPortraitOptions.push(opt);
+      if (lowerLayers.some(u => u.includes('/arms/portrait/'))) armPortraitOptions.push(opt);
+    }
   }
 
   // Load species body color ranges, allowed cosmetics, and cosmetic weights, keyed by fighter ID
@@ -367,7 +454,7 @@ async function loadPortraitCosmetics(configBase) {
     console.warn('[portrait] Could not load species data', e);
   }
 
-  return { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter };
+  return { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, torsoPortraitOptions, armPortraitOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter };
 }
 
 // ── Seeded randomisation ───────────────────────────────────
@@ -446,7 +533,7 @@ function weightedPickRng(arr, weights, rng) {
  *   per-category weights map (see weightedPickRng docs above). When omitted the selection
  *   falls back to the original uniform-random behaviour.
  */
-function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter) {
+function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter, torsoPortraitOptions, armPortraitOptions) {
   const pickRng   = (arr) => arr[Math.floor(rng() * arr.length)];
   const fighter   = pickRng(fighters);
   const fighterEntry = allowedCosmeticsByFighter?.[fighter.id];
@@ -505,7 +592,11 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
     }
   }
 
+  const torsoCosmetic = weightedPickRng((torsoPortraitOptions && torsoPortraitOptions.length) ? torsoPortraitOptions : [{ id: 'none', label: 'No Torso Clothing', tintSlot: null, layers: [] }], null, rng);
+  const armCosmetic = weightedPickRng((armPortraitOptions && armPortraitOptions.length) ? armPortraitOptions : [{ id: 'none', label: 'No Arm Clothing', tintSlot: null, layers: [] }], null, rng);
   const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id]);
   if (hat && hat.colorRange) bodyColors.HAT = randomColorFromRangeSeeded(hat.colorRange, rng);
-  return { fighter, hairFront, hairBack, hairSide, eyes, facialHair, hat, bodyColors };
+  return { fighter, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic, bodyColors };
 }
+
+window.setPortraitConfig = setPortraitConfig;
