@@ -3,9 +3,11 @@
   "colorRange": {
     "minH": -180,
     "maxH": 180,
+    "stops": [
       { "h": -180, "sMin": 0.05, "sMax": 0.85, "vMin": -0.10, "vMax": 0.35 },
       { "h":    0, "sMin": 0.05, "sMax": 0.85, "vMin": -0.10, "vMax": 0.35 },
       { "h":  180, "sMin": 0.05, "sMax": 0.85, "vMin": -0.10, "vMax": 0.35 }
+    ]
   },
   "parts": {
     "head": {
