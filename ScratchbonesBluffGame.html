@@ -79,16 +79,16 @@
       height: 100dvh;
       overflow: hidden;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 280px;
+      grid-template-columns: minmax(0, 1fr) 240px;
       grid-template-rows: auto minmax(0, 1fr) auto auto auto;
       grid-template-areas:
         "topbar   sidebar"
         "panel    sidebar"
-        "hand     sidebar"
         "log      sidebar"
-        "controls sidebar";
-      gap: 8px;
-      padding: 8px 8px calc(8px + var(--safe));
+        "controls sidebar"
+        "hand     hand";
+      gap: 6px;
+      padding: 6px 6px calc(6px + var(--safe));
     }
 
     .topbar, .panel, .controls, .handWrap, .eventLog {
@@ -100,20 +100,20 @@
 
     .topbar {
       grid-area: topbar;
-      padding: 8px 12px;
+      padding: 5px 8px;
       display: grid;
-      gap: 6px;
+      gap: 4px;
     }
 
     .titleRow {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 8px;
     }
 
     h1 {
-      font-size: 1.15rem;
+      font-size: 0.95rem;
       line-height: 1.1;
       margin: 0;
       letter-spacing: 0.02em;
@@ -121,8 +121,8 @@
 
     .subtitle {
       color: var(--muted);
-      font-size: 0.85rem;
-      margin-top: 4px;
+      font-size: 0.75rem;
+      margin-top: 2px;
     }
 
     .chipRow, .riskBar, .aiRow, .selectionRow, .controlsRow, .bottomActions {
@@ -132,26 +132,26 @@
     }
 
     .chip {
-      padding: 8px 10px;
+      padding: 5px 8px;
       border-radius: 999px;
       background: var(--panel-soft);
       color: var(--text);
-      font-size: 0.8rem;
+      font-size: 0.7rem;
       border: 1px solid rgba(255,255,255,0.08);
     }
 
     .panel {
       grid-area: panel;
-      padding: 10px 12px;
+      padding: 8px 10px;
       display: grid;
-      gap: 8px;
+      gap: 6px;
       min-height: 0;
       overflow-y: auto;
     }
 
     .sectionTitle {
       font-weight: 700;
-      font-size: 0.95rem;
+      font-size: 0.82rem;
       color: var(--accent-2);
     }
 
@@ -159,7 +159,7 @@
       grid-area: sidebar;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 5px;
       overflow-y: auto;
       min-height: 0;
     }
@@ -167,13 +167,13 @@
     .aiSeat {
       background: var(--panel-soft);
       border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 14px;
-      padding: 10px;
+      border-radius: 10px;
+      padding: 6px;
       min-width: 0;
       display: flex;
       flex-direction: row;
       align-items: flex-start;
-      gap: 8px;
+      gap: 5px;
     }
 
     .seatInfo {
@@ -184,63 +184,63 @@
     }
 
     .seatAvatarBox {
-      width: 192px;
-      height: 192px;
+      width: 72px;
+      height: 72px;
       flex-shrink: 0;
       overflow: hidden;
-      border-radius: 8px;
+      border-radius: 6px;
     }
 
-    .seatName { font-weight: 700; font-size: 0.92rem; }
-    .seatMeta { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
-    .seatStatus { margin-top: 6px; font-size: 0.8rem; }
-    .seatSeed { font-size: 0.68rem; color: var(--accent); font-style: italic; margin-top: 3px; letter-spacing: 0.01em; }
-    .seatTags { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+    .seatName { font-weight: 700; font-size: 0.78rem; }
+    .seatMeta { color: var(--muted); font-size: 0.68rem; margin-top: 2px; }
+    .seatStatus { margin-top: 4px; font-size: 0.68rem; }
+    .seatSeed { font-size: 0.6rem; color: var(--accent); font-style: italic; margin-top: 2px; letter-spacing: 0.01em; }
+    .seatTags { font-size: 0.6rem; color: var(--muted); margin-top: 2px; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
-    .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 8px; }
+    .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 6px; }
 
     .centerInfo {
       display: grid;
-      gap: 8px;
+      gap: 6px;
       grid-template-columns: 1fr 1fr;
     }
 
     .bigInfo {
       background: rgba(255,255,255,0.04);
-      border-radius: 14px;
-      padding: 10px;
+      border-radius: 10px;
+      padding: 7px;
     }
 
-    .bigLabel { font-size: 0.76rem; color: var(--muted); }
-    .bigValue { font-size: 1.1rem; font-weight: 800; margin-top: 4px; }
-    .smallText { font-size: 0.85rem; color: var(--muted); }
+    .bigLabel { font-size: 0.68rem; color: var(--muted); }
+    .bigValue { font-size: 0.9rem; font-weight: 800; margin-top: 3px; }
+    .smallText { font-size: 0.75rem; color: var(--muted); }
 
     .controls {
       grid-area: controls;
-      padding: 12px;
+      padding: 8px;
       display: grid;
-      gap: 10px;
+      gap: 7px;
       z-index: 4;
       background: linear-gradient(180deg, rgba(46,34,30,0.96), rgba(37,28,25,0.98));
       backdrop-filter: blur(8px);
     }
 
     .controlsRow > * { flex: 1 1 0; min-width: 0; }
-    .controls label { display: grid; gap: 6px; font-size: 0.8rem; color: var(--muted); }
+    .controls label { display: grid; gap: 4px; font-size: 0.72rem; color: var(--muted); }
 
     select {
       width: 100%;
-      border-radius: 12px;
+      border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.1);
       background: #2a1f1c;
       color: var(--text);
-      padding: 11px 12px;
+      padding: 8px 10px;
     }
 
     button {
       border: none;
-      border-radius: 14px;
-      padding: 12px 14px;
+      border-radius: 11px;
+      padding: 9px 10px;
       color: #1d140f;
       background: var(--accent);
       font-weight: 800;
@@ -255,63 +255,70 @@
 
     .handWrap {
       grid-area: hand;
-      padding: 8px 12px;
+      padding: 3px 0;
       display: grid;
-      gap: 6px;
+      gap: 3px;
       min-height: 0;
+      overflow: visible;
     }
 
     .handHeader {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 8px;
+      padding: 0 4px;
     }
 
     .handScroll {
       display: flex;
-      gap: 10px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-      scroll-snap-type: x proximity;
+      gap: 0;
+      overflow: visible;
+      width: 100%;
+      padding: 0;
     }
 
+    /* 2D cards are hidden (but still laid-out & clickable) when 3D overlay is on */
+    body.hand-3d-active .card { opacity: 0; }
+
     .card {
-      min-width: 69px;
-      min-height: 178px;
-      padding: 40px 10px 78px;
+      flex: 0 0 35px;
+      min-width: 35px;
+      min-height: 90px;
+      padding: 20px 5px 40px;
       background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 28%), var(--card);
       color: var(--card-text);
-      border: 3px solid transparent;
-      border-radius: 22px 22px 38px 38px / 26px 26px 86px 86px;
-      box-shadow: 0 10px 14px rgba(0,0,0,0.18);
+      border: 2px solid transparent;
+      border-radius: 11px 11px 19px 19px / 13px 13px 43px 43px;
+      box-shadow: 0 5px 8px rgba(0,0,0,0.18);
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 4px;
       align-items: center;
       justify-content: flex-start;
-      scroll-snap-align: start;
       position: relative;
       overflow: hidden;
       isolation: isolate;
+      margin-right: var(--hand-card-gap, 5px);
     }
+    .card:last-child { margin-right: 0; }
 
     .card::before {
       content: '';
       position: absolute;
-      bottom: 10px;
+      bottom: 5px;
       left: 50%;
-      width: 58px;
-      height: 58px;
+      width: 29px;
+      height: 29px;
       transform: translateX(-50%);
       border-radius: 50%;
       background: rgba(255,255,255,0.36);
-      box-shadow: inset 0 3px 7px rgba(255,255,255,0.4), inset 0 -6px 10px rgba(0,0,0,0.06);
+      box-shadow: inset 0 2px 4px rgba(255,255,255,0.4), inset 0 -3px 5px rgba(0,0,0,0.06);
       z-index: 0;
     }
 
     .card.wild { background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 26%), linear-gradient(180deg, #f8eb99, var(--wild)); }
-    .card.selected { transform: translateY(-4px); border-color: #62b0ff; }
+    .card.selected { transform: translateY(-3px); border-color: #62b0ff; }
     .cardTop,
     .cardMid,
     .cardBottom {
@@ -320,48 +327,48 @@
     }
     .cardTop {
       margin-top: 0;
-      font-size: 0.78rem;
+      font-size: 0.58rem;
       font-weight: 700;
       opacity: 0.9;
       text-align: center;
     }
     .cardMid {
       position: absolute;
-      top: 18px;
+      top: 9px;
       left: 50%;
       width: 100%;
-      height: 30px;
+      height: 16px;
       transform: translateX(-50%);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.8rem;
+      font-size: 0.9rem;
       font-weight: 900;
       text-align: center;
       line-height: 1;
     }
     .cardBottom {
       margin-top: auto;
-      font-size: 0.72rem;
+      font-size: 0.52rem;
       text-align: center;
       opacity: 0.8;
     }
 
     .eventLog {
       grid-area: log;
-      padding: 8px 12px;
+      padding: 6px 8px;
       display: grid;
-      gap: 6px;
-      max-height: 96px;
+      gap: 4px;
+      max-height: 72px;
       min-height: 0;
       overflow-y: auto;
     }
 
     .logItem {
       background: rgba(255,255,255,0.05);
-      border-radius: 12px;
-      padding: 9px 10px;
-      font-size: 0.84rem;
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 0.72rem;
       color: var(--text);
     }
 
@@ -463,7 +470,6 @@
     @media (min-width: 880px) {
       #app { max-width: 980px; margin: 0 auto; }
       #challengeBox { max-width: 980px; left: 50%; transform: translateX(-50%); }
-      .card { min-width: 96px; }
     }
 
     /* ===== CHALLENGE CINEMATIC OVERLAY ===== */
@@ -1049,6 +1055,8 @@
       bottom: calc(50px + var(--safe)); right: 10px;
       z-index: 200;
       width: 238px;
+      max-height: calc(100dvh - 80px - var(--safe));
+      overflow-y: auto;
       display: none;
       background: rgba(20,12,8,0.97);
       border: 1px solid rgba(200,153,82,0.35);
@@ -3118,6 +3126,21 @@
       renderChallengeBox();
       refreshCinematicBettingZone();
       renderSeatPortraits();
+      requestAnimationFrame(recalcCardSpacing);
+    }
+
+    // ── Card spacing – fit all cards edge-to-edge, overlap when needed ──────
+    function recalcCardSpacing() {
+      const scroll = document.querySelector('.handScroll');
+      if (!scroll) return;
+      const cards = Array.from(scroll.querySelectorAll('.card'));
+      const n = cards.length;
+      if (!n) return;
+      const cardW = 35;
+      const w = scroll.offsetWidth;
+      // distribute cards across full width; allow overlap (negative gap) when tight
+      const gap = n > 1 ? Math.max(-cardW * 0.6, Math.min(5, (w - n * cardW) / (n - 1))) : Math.max(0, w - cardW);
+      document.documentElement.style.setProperty('--hand-card-gap', gap.toFixed(1) + 'px');
     }
 
     function debugSnapshot() {
@@ -3636,6 +3659,7 @@
     };
 
     startGame();
+    window.addEventListener('resize', () => requestAnimationFrame(recalcCardSpacing));
 
   </script>
 
@@ -3735,6 +3759,10 @@
 
   // User-tunable scale multiplier exposed in the popout
   let boneSizeMultiplier = 1.0;
+  // User-tunable rotation offsets (degrees) added on top of face orientation
+  let boneRotOffset = { x: 0, y: 0, z: 0 };
+  // User-tunable translation offsets (pixels) added on top of card-centre position
+  let bonePosOffset = { x: 0, y: 0, z: 0 };
 
   function disposeMesh(obj) {
     obj.traverse(c => {
@@ -3853,12 +3881,16 @@
         obj.scale.setScalar((rect.height / modelMaxDim) * boneSizeMultiplier);
       }
 
-      // Position at card centre.  Camera: left=0,right=W,top=H,bottom=0
+      // Position at card centre + user translation offset.  Camera: left=0,right=W,top=H,bottom=0
       // → worldY = H - domY
-      obj.position.set(cx, H - cy, 0);
+      obj.position.set(cx + bonePosOffset.x, H - cy + bonePosOffset.y, bonePosOffset.z);
 
-      // Face orientation
-      obj.rotation.set(0, faceDown ? Math.PI : 0, 0);
+      // Face orientation + user rotation offset
+      obj.rotation.set(
+        THREE.MathUtils.degToRad(boneRotOffset.x),
+        (faceDown ? Math.PI : 0) + THREE.MathUtils.degToRad(boneRotOffset.y),
+        THREE.MathUtils.degToRad(boneRotOffset.z)
+      );
 
       // Selection tint
       applyTint(obj, selected);
@@ -3870,20 +3902,48 @@
   function buildPopout() {
     const container = document.getElementById('tablePopout');
     if (!container) return;
+
+    function makeRow(id, label, min, max, step, val) {
+      return `
+        <div class="ts-row">
+          <span class="ts-label">${label}</span>
+          <input class="ts-range" type="range" id="ts_${id}"
+                 min="${min}" max="${max}" step="${step}" value="${val}">
+          <span class="ts-val" id="tsv_${id}">${val}</span>
+        </div>`;
+    }
+
     container.innerHTML = `
       <h3>3D Overlay</h3>
       <div class="ts-section-title">BONE SCALE</div>
-      <div class="ts-row">
-        <span class="ts-label">Scale</span>
-        <input class="ts-range" type="range" id="ts_boneScale"
-               min="0.1" max="4" step="0.05" value="1.00">
-        <span class="ts-val" id="tsv_boneScale">1.00</span>
-      </div>`;
-    document.getElementById('ts_boneScale')?.addEventListener('input', ev => {
-      boneSizeMultiplier = parseFloat(ev.target.value);
-      document.getElementById('tsv_boneScale').textContent =
-        boneSizeMultiplier.toFixed(2);
-    });
+      ${makeRow('boneScale', 'Scale', 0.1, 4, 0.05, '1.00')}
+      <div class="ts-section-title">ROTATION (°)</div>
+      ${makeRow('rotX', 'Rot X', -180, 180, 1, '0')}
+      ${makeRow('rotY', 'Rot Y', -180, 180, 1, '0')}
+      ${makeRow('rotZ', 'Rot Z', -180, 180, 1, '0')}
+      <div class="ts-section-title">TRANSLATION (px)</div>
+      ${makeRow('posX', 'Pos X', -300, 300, 1, '0')}
+      ${makeRow('posY', 'Pos Y', -300, 300, 1, '0')}
+      ${makeRow('posZ', 'Pos Z', -300, 300, 1, '0')}`;
+
+    function bind(id, onVal) {
+      const el = document.getElementById(`ts_${id}`);
+      const vEl = document.getElementById(`tsv_${id}`);
+      if (!el) return;
+      el.addEventListener('input', ev => {
+        const v = parseFloat(ev.target.value);
+        onVal(v);
+        vEl.textContent = v.toFixed(id === 'boneScale' ? 2 : 0);
+      });
+    }
+
+    bind('boneScale', v => { boneSizeMultiplier = v; });
+    bind('rotX',      v => { boneRotOffset.x = v; });
+    bind('rotY',      v => { boneRotOffset.y = v; });
+    bind('rotZ',      v => { boneRotOffset.z = v; });
+    bind('posX',      v => { bonePosOffset.x = v; });
+    bind('posY',      v => { bonePosOffset.y = v; });
+    bind('posZ',      v => { bonePosOffset.z = v; });
   }
 
   buildPopout();
@@ -3896,6 +3956,10 @@
     overlayVisible = !overlayVisible;
     canvas.style.display = overlayVisible ? 'block' : 'none';
     document.getElementById('tableToggleBtn').textContent = overlayVisible ? '✕ 3D' : '3D';
+
+    // Toggle opacity-0 on hand cards so 3D bones show through (clicks still work)
+    document.body.classList.toggle('hand-3d-active', overlayVisible);
+
     if (!overlayVisible) {
       // Dispose all tracked meshes when the overlay is hidden
       for (const [, tracked] of trackedMeshes) {
