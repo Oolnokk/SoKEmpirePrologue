@@ -1251,7 +1251,7 @@
   <!-- Challenge cinematic overlay — populated by JS -->
   <div id="challengeCinematic" data-proj-id="cinematic"></div>
 
-  <!-- 3D table canvas — always rendered, provides background in mode-3d -->
+  <!-- 3D scratchbone overlay canvas – sits above the UI, pointer-events none -->
   <canvas id="threeCanvas"></canvas>
 
   <!-- 3D mode toggle + settings popout -->
@@ -3645,469 +3645,271 @@
    *
    * Responsibilities:
    *   • Render a Three.js scene on top of the HTML UI (canvas z-index 150,
-   *     pointer-events none so clicks pass through to the 2D UI).
+   *     pointer-events none so clicks pass through to the 2D UI unchanged).
    *   • Orthographic camera mapped 1:1 to screen pixels.
-   *   • Per-frame CardTracker: for every visible .card[data-card-id] and
-   *     .cin-card-wrap element, spawn a scratchbone mesh at the element's
-   *     screen-space centre.  Face-down elements rotate PI around Y.
+   *   • Per-frame CardTracker: for every visible .card[data-card-id] (hand)
+   *     and .cin-card-wrap[data-card-rank] (cinematic) element, maintain one
+   *     scratchbone mesh centred on the element's screen-space position.
+   *     Face-down elements (no .flip-it) rotate PI around Y.
    *     Selected hand cards receive a blue emissive tint.
-   *   • Optional background: load ScratchbonesTableV1.gltf as scenery.
-   *   • Toggle button shows/hides the overlay (no game state changes).
+   *   • Toggle button shows/hides the overlay – no game state changes.
    */
   import * as THREE from 'three';
   import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
   console.log('[3DOverlay] module started, THREE r' + THREE.REVISION);
 
   // ─── renderer / scene / camera ──────────────────────────────────────────
+  // Canvas sits above the 2D UI (z-index 150) with a fully transparent
+  // background, so the HTML layout is completely unchanged.
 
   const canvas   = document.getElementById('threeCanvas');
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setClearColor(0x15110f, 1);   // dark-wood theme, matches CSS bg
+  renderer.setClearColor(0x000000, 0);   // transparent – 2D UI shows through
 
-  const scene  = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(0, 4, 5);
-  camera.lookAt(0, 1.3, 0);   // look toward table surface (Y≈1.3)
+  // Orthographic camera in screen-pixel space.
+  // left=0, right=W, top=H, bottom=0  →  world y=H at top of screen, y=0 at bottom.
+  // +x goes right, +y goes up (standard Three.js).
+  // Convert DOM coords (y=0 at top):  worldY = H - domY.
+  function makeOrthoCamera() {
+    const W = window.innerWidth, H = window.innerHeight;
+    return new THREE.OrthographicCamera(0, W, H, 0, -1000, 1000);
+  }
+  let camera = makeOrthoCamera();
 
-  scene.add(new THREE.AmbientLight(0xfff8e8, 0.65));
-  const sun = new THREE.DirectionalLight(0xfff2cc, 1.1);
-  sun.position.set(2, 6, 4);
+  const scene = new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+  const sun = new THREE.DirectionalLight(0xfff2cc, 1.4);
+  sun.position.set(0.3, 0.5, 1);  // slightly off-centre, shining toward the screen
   scene.add(sun);
 
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+  function resizeRenderer() {
+    const W = window.innerWidth, H = window.innerHeight;
+    renderer.setSize(W, H);
+    camera.right  = W;
+    camera.top    = H;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-
-  // ─── mutable state ───────────────────────────────────────────────────────
-
-  let gltfRoot  = null;
-  let slotNodes = [];     // [{node, idx}] – 14 entries (pre-positioned by GLTF matrices)
-  let cards3D   = [];     // [{obj, cardId}]  – scratchbone objects parented to gltfRoot
-  let is3D      = false;
-
-  // ─── UI projection registry ──────────────────────────────────────────────
-  //
-  // Tag a GLTF plane with one of these IDs to project that 2D UI box onto it.
-  //
-  //   HTML panels  → rendered via SVG foreignObject (text, layout, colors)
-  //     topbar       .topbar                 sidebar      #aiSidebar
-  //     panel        .panel                  hand         .handWrap
-  //     log          .eventLog               controls     .controls
-  //     cinematic    #challengeCinematic      humaninfo    human player row
-  //     seat-{id}    individual AI seat row
-  //
-  //   Canvas-direct → portrait canvas pixels copied (preserves transparency)
-  //     avatar-{id}  AI player avatar canvas  avatar-human  human avatar canvas
-  //
-  const PROJ_HTML  = new Set(['topbar','sidebar','panel','hand','log','controls','cinematic','humaninfo']);
-  const PROJ_SEAT  = /^seat-\d+$/;
-  const PROJ_AVATAR= /^avatar-(.+)$/;   // avatar-1 … avatar-N  or  avatar-human
-
-  const activeProj = new Map(); // projId → { type:'html'|'canvas', cvs, ctx, tex }
-
-  // Default transform (user can tune with sliders)
-  const T = { rx: 0.90, ry: 1.57, rz: 0.10, tx: 0, ty: -1.95, tz: -8.85, sc: 4.10 };
+  }
+  resizeRenderer();
+  window.addEventListener('resize', resizeRenderer);
 
   // ─── scratchbone asset cache ─────────────────────────────────────────────
 
   const SCRATCHBONE_BASE = 'docs/assets/3D/3DProps/';
-  const sbCache = new Map();   // rank 1-10 → THREE.Group (gltf.scene template)
-  let sbLoaded  = 0;
-  let syncPending = false;
+  const sbCache       = new Map();   // rank 1–10 → THREE.Group template
+  const sbNaturalSize = new Map();   // rank 1–10 → largest axis length in model units
 
   function preloadScratchbones() {
-    console.log('[3DTable] preloading scratchbones from', SCRATCHBONE_BASE);
+    console.log('[3DOverlay] preloading scratchbones from', SCRATCHBONE_BASE);
     const loader = new GLTFLoader();
     for (let rank = 1; rank <= 10; rank++) {
       loader.load(
         `${SCRATCHBONE_BASE}3DScratchbone${rank}.glb`,
         gltf => {
-          console.log('[3DTable] sb', rank, 'loaded');
+          console.log('[3DOverlay] sb', rank, 'loaded');
+          const box  = new THREE.Box3().setFromObject(gltf.scene);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+          sbNaturalSize.set(rank, size);
           sbCache.set(rank, gltf.scene);
-          sbLoaded++;
-          if (syncPending && sbLoaded === 10) { syncPending = false; sync(); }
         },
         undefined,
-        err => console.warn(`[3DTable] scratchbone ${rank} load error:`, err)
+        err => console.warn(`[3DOverlay] scratchbone ${rank} load error:`, err)
       );
     }
   }
 
   preloadScratchbones();
 
-  // ─── GLTF table loading ──────────────────────────────────────────────────
+  // ─── CardTracker ─────────────────────────────────────────────────────────
+  //
+  // Every frame we scan all .card[data-card-id] (hand) and
+  // .cin-card-wrap[data-card-rank] (cinematic) elements.  For each visible
+  // element we maintain one scratchbone mesh centred on it.
+  //
+  //   Face-down  →  rotation.y = Math.PI   (back of model faces camera)
+  //   Face-up    →  rotation.y = 0
+  //   Selected   →  blue emissive tint
 
-  function loadGLTF(url) {
-    console.log('[3DTable] loadGLTF:', url);
-    new GLTFLoader().load(
-      url,
-      gltf => {
-        console.log('[3DTable] table GLTF loaded ok');
-        if (gltfRoot) scene.remove(gltfRoot);
-        gltfRoot = gltf.scene;
-        scene.add(gltfRoot);
-        applyTransform();
+  const trackedMeshes = new Map(); // Element → { obj, rank }
 
-        // Dump all node names so we can see exactly what Three.js calls them
-        const allNames = [];
-        gltf.scene.traverse(c => { if (c.name) allNames.push(c.name); });
-        console.log('[3DTable] scene node names:', allNames.join(' | '));
+  // User-tunable scale multiplier exposed in the popout
+  let boneSizeMultiplier = 1.0;
 
-        // Ensure all matrices are current before we read slot positions
-        gltfRoot.updateWorldMatrix(true, true);
-
-        // Scan scene for planes tagged with projection IDs
-        scanProjectionPlanes(gltf.scene);
-
-        // Collect slot nodes – matrices are pre-baked; permanently hide placeholder wireframes.
-        // Note: slots use GLTF primitive mode 1 (LINES) → THREE.LineSegments, not THREE.Mesh,
-        // so we hide the node directly rather than checking isMesh.
-        slotNodes = [];
-        for (let i = 1; i <= 14; i++) {
-          const node = gltf.scene.getObjectByName(`placeholderownedslot${i}`);
-          if (node) {
-            node.visible = false;
-            slotNodes.push({ node, idx: i });
-          }
-        }
-        console.log('[3DTable] slot nodes found:', slotNodes.length);
-
-        // Hidden in 2D mode until the user switches to 3D
-        gltfRoot.visible = is3D;
-
-        sync();
-      },
-      undefined,
-      err => console.error('[3DTable] table load error:', err)
-    );
-  }
-
-  // ─── UI projection system ────────────────────────────────────────────────
-
-  function canvasSizeForPlane(plane) {
-    try {
-      plane.geometry.computeBoundingBox();
-      const b = plane.geometry.boundingBox;
-      const pw = Math.abs(b.max.x - b.min.x);
-      const ph = Math.abs(b.max.y - b.min.y) || Math.abs(b.max.z - b.min.z);
-      if (!pw || !ph) return { w: 512, h: 512 };
-      const base = 512;
-      const aspect = pw / ph;
-      return aspect >= 1
-        ? { w: Math.min(1024, Math.round(base * aspect)), h: base }
-        : { w: base, h: Math.min(1024, Math.round(base / aspect)) };
-    } catch (_) { return { w: 512, h: 512 }; }
-  }
-
-  function makeProjEntry(plane, projId, type) {
-    const { w, h } = canvasSizeForPlane(plane);
-    const cvs = document.createElement('canvas');
-    cvs.width = w; cvs.height = h;
-    const ctx = cvs.getContext('2d');
-    const tex = new THREE.CanvasTexture(cvs);
-    tex.flipY = false;
-
-    // Replace plane material with our canvas texture
-    const mat = new THREE.MeshBasicMaterial({
-      map: tex, side: THREE.DoubleSide,
-      transparent: true, depthWrite: false,
-    });
-    if (plane.material) {
-      (Array.isArray(plane.material) ? plane.material : [plane.material])
-        .forEach(m => m?.dispose());
-    }
-    plane.material = mat;
-
-    return { projId, type, cvs, ctx, tex };
-  }
-
-  function scanProjectionPlanes(gltfScene) {
-    for (const e of activeProj.values()) e.tex?.dispose();
-    activeProj.clear();
-
-    gltfScene.traverse(obj => {
-      if (!obj.isMesh) return;
-      const name = obj.name;
-      const isHtml   = PROJ_HTML.has(name) || PROJ_SEAT.test(name);
-      const isCanvas = PROJ_AVATAR.test(name);
-      if (!isHtml && !isCanvas) return;
-      activeProj.set(name, makeProjEntry(obj, name, isHtml ? 'html' : 'canvas'));
-    });
-
-    console.log('[3DTable] proj planes:', [...activeProj.keys()].join(', ') || '(none)');
-  }
-
-  // Render an HTML element into a projection canvas via SVG foreignObject.
-  // Children that have their own projection plane are hidden (they'll be
-  // rendered independently onto their own plane).
-  async function projHtml(entry) {
-    const el = document.querySelector(`[data-proj-id="${entry.projId}"]`);
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-
-    const { cvs, ctx, tex } = entry;
-    const cw = cvs.width, ch = cvs.height;
-    const scale = Math.min(cw / rect.width, ch / rect.height);
-    const ox = (cw - rect.width  * scale) / 2;
-    const oy = (ch - rect.height * scale) / 2;
-
-    // Gather all inline CSS from the document
-    const css = Array.from(document.querySelectorAll('style'))
-      .map(s => s.textContent).join('\n');
-
-    // Clone element; hide children with their own projection planes
-    const clone = el.cloneNode(true);
-    clone.querySelectorAll('[data-proj-id]').forEach(child => {
-      if (activeProj.has(child.getAttribute('data-proj-id')))
-        child.style.display = 'none';
-    });
-
-    const svg = [
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${cw}" height="${ch}">`,
-      `<defs><style><![CDATA[${css}]]></style></defs>`,
-      `<foreignObject width="${Math.ceil(rect.width)}" height="${Math.ceil(rect.height)}"`,
-      ` transform="matrix(${scale},0,0,${scale},${ox},${oy})">`,
-      `<div xmlns="http://www.w3.org/1999/xhtml"`,
-      ` style="width:${Math.ceil(rect.width)}px;height:${Math.ceil(rect.height)}px;overflow:hidden;">`,
-      clone.outerHTML,
-      `</div></foreignObject></svg>`,
-    ].join('');
-
-    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
-    await new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        ctx.clearRect(0, 0, cw, ch);
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-        tex.needsUpdate = true;
-        resolve();
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-      img.src = url;
+  function disposeMesh(obj) {
+    obj.traverse(c => {
+      if (!c.isMesh) return;
+      c.geometry?.dispose();
+      if (c.material) c.material.dispose();
     });
   }
 
-  // Copy a portrait canvas directly into the projection canvas.
-  // Preserves transparent pixels so the 3D scene shows through.
-  function projCanvas(entry) {
-    const { projId, cvs, ctx, tex } = entry;
-    const m = PROJ_AVATAR.exec(projId);
-    if (!m) return;
-    const seatId = m[1] === 'human' ? '0' : m[1];
-    const portrait = document.querySelector(`canvas[data-seat-id="${seatId}"]`);
-    if (!portrait) return;
-    ctx.clearRect(0, 0, cvs.width, cvs.height);
-    ctx.drawImage(portrait, 0, 0, cvs.width, cvs.height);
-    tex.needsUpdate = true;
+  // Returns the rank (1–10) for a card object, used in both hand and cinematic contexts.
+  function resolveRank(card) {
+    return card.wild ? ((card.id - 1) % 10) + 1 : Math.max(1, Math.min(10, card.rank));
   }
 
-  function syncProjections() {
-    for (const entry of activeProj.values()) {
-      if (entry.type === 'canvas') projCanvas(entry);
-      else projHtml(entry); // fire-and-forget async
-    }
-  }
-
-  // ─── scratchbone placement ───────────────────────────────────────────────
-
-  /**
-   * Build a scratchbone object for `card`.
-   *
-   * The slot node has a pre-baked matrix that includes a 0.055 scale.
-   * The scratchbone models carry their own 0.0841 internal scale via their
-   * child node transform.  To avoid compounding scales we add the scratchbone
-   * directly to gltfRoot and copy the slot's LOCAL position + rotation (but
-   * NOT its scale) from the slot's matrix decomposition.
-   */
-  function placeCardObject(card, slotNode, selected) {
-    const rank  = card.wild
-      ? ((card.id - 1) % 10) + 1          // distribute wilds across models
-      : Math.max(1, Math.min(10, card.rank));
+  function buildMesh(rank, cardHeight) {
     const template = sbCache.get(rank);
-    if (!template) return null;            // not yet loaded – will retry
+    if (!template) return null;
 
     const obj = template.clone(true);
 
-    // Tag every mesh child with this card's id for raycasting
-    obj.traverse(child => {
-      if (!child.isMesh) return;
-      child.userData.cardId = card.id;
-      // Clone material so we can tint per-card without affecting the template
-      if (child.material) child.material = child.material.clone();
-      if (selected && child.material) {
-        child.material.emissive      = new THREE.Color(0x1a3a8a);
-        child.material.emissiveIntensity = 0.75;
-      }
-    });
-
-    // Decompose the slot's LOCAL matrix to get position+rotation inside gltfRoot
-    // (slot node is a direct child of ExportRoot = gltfRoot, so .matrix is local)
-    slotNode.updateMatrix();
-    const slotPos  = new THREE.Vector3();
-    const slotQuat = new THREE.Quaternion();
-    const _scale   = new THREE.Vector3();
-    slotNode.matrix.decompose(slotPos, slotQuat, _scale);  // discard _scale
-
-    obj.position.copy(slotPos);
-    obj.quaternion.copy(slotQuat);
-
-    // Lift selected card along the slot's local Y axis (up from table)
-    if (selected) {
-      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(slotQuat);
-      obj.position.addScaledVector(up, 0.04);
+    // Scale: fit the model's largest natural axis to cardHeight pixels,
+    // then apply the user multiplier.
+    const nat = sbNaturalSize.get(rank);
+    if (nat) {
+      const modelMaxDim = Math.max(nat.x, nat.y, nat.z, 1e-6);
+      obj.scale.setScalar((cardHeight / modelMaxDim) * boneSizeMultiplier);
     }
 
+    // Clone materials so each instance can be tinted independently
+    obj.traverse(child => {
+      if (child.isMesh && child.material) child.material = child.material.clone();
+    });
     return obj;
   }
 
-  function updateCards(hand, selectedIds) {
-    // Detach and dispose previous scratchbone objects
-    cards3D.forEach(({ obj }) => {
-      if (obj.parent) obj.parent.remove(obj);
-      obj.traverse(c => { if (c.isMesh && c.material) c.material.dispose(); });
-    });
-    cards3D = [];
-
-    // Cap at 14 slots; placeholder meshes stay hidden permanently
-    hand.slice(0, 14).forEach((card, i) => {
-      const slot = slotNodes[i];
-      if (!slot) return;
-
-      const obj = placeCardObject(card, slot.node, selectedIds.has(card.id));
-      if (!obj) return;   // scratchbone not yet cached → sync() will retry
-
-      gltfRoot.add(obj);
-      cards3D.push({ obj, cardId: card.id });
+  function applyTint(obj, selected) {
+    obj.traverse(child => {
+      if (!child.isMesh || !child.material) return;
+      if (child.material.emissive) {
+        child.material.emissive.setHex(selected ? 0x1a3a8a : 0x000000);
+        child.material.emissiveIntensity = selected ? 0.75 : 0;
+      }
     });
   }
 
-  // ─── transform ───────────────────────────────────────────────────────────
+  function cardTrackerUpdate() {
+    const W = window.innerWidth, H = window.innerHeight;
 
-  function applyTransform() {
-    if (!gltfRoot) return;
-    gltfRoot.rotation.set(T.rx, T.ry, T.rz);
-    gltfRoot.position.set(T.tx, T.ty, T.tz);
-    gltfRoot.scale.setScalar(T.sc);
-  }
+    // Collect every live card element
+    const currentEls = new Set();
+    document.querySelectorAll('.card[data-card-id]').forEach(el => currentEls.add(el));
+    document.querySelectorAll('.cin-card-wrap[data-card-rank]').forEach(el => currentEls.add(el));
 
-  // ─── public sync ─────────────────────────────────────────────────────────
-
-  function sync() {
-    if (!is3D || !gltfRoot) return;   // 2D mode: nothing to do
-    const gs = window._scratchbones;
-    if (!gs) return;
-    const s = gs.state;
-    syncProjections();
-    if (sbLoaded < 10) { syncPending = true; return; }
-    updateCards(s.players?.[0]?.hand ?? [], s.selectedCardIds);
-  }
-
-  window._table3D = { sync };
-
-  // ─── raycasting – card selection ─────────────────────────────────────────
-
-  const raycaster = new THREE.Raycaster();
-  const ptr       = new THREE.Vector2();
-
-  // Collect every mesh leaf inside each placed scratchbone object
-  function cardMeshes() {
-    const out = [];
-    cards3D.forEach(({ obj }) =>
-      obj.traverse(c => { if (c.isMesh) out.push(c); })
-    );
-    return out;
-  }
-
-  document.addEventListener('click', e => {
-    if (!is3D || !gltfRoot || !cards3D.length) return;
-    const rect = canvas.getBoundingClientRect();
-    ptr.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
-    ptr.y = -((e.clientY - rect.top)  / rect.height)  * 2 + 1;
-    raycaster.setFromCamera(ptr, camera);
-    const hits = raycaster.intersectObjects(cardMeshes());
-    if (hits.length > 0) {
-      const id = hits[0].object.userData.cardId;
-      if (id !== undefined) window._scratchbones?.toggleSelect(id);
+    // Remove meshes for elements that left the DOM or scrolled off-screen
+    for (const [el, tracked] of trackedMeshes) {
+      if (!currentEls.has(el)) {
+        scene.remove(tracked.obj);
+        disposeMesh(tracked.obj);
+        trackedMeshes.delete(el);
+      }
     }
-  });
 
-  // ─── popout controls ─────────────────────────────────────────────────────
+    for (const el of currentEls) {
+      const rect = el.getBoundingClientRect();
+      const cx   = rect.left + rect.width  / 2;
+      const cy   = rect.top  + rect.height / 2;
 
-  const SLIDERS = [
-    { id:'rx', label:'Rot X',  min:-3.14, max:3.14, step:0.01, init: 0.90 },
-    { id:'ry', label:'Rot Y',  min:-3.14, max:3.14, step:0.01, init: 1.57 },
-    { id:'rz', label:'Rot Z',  min:-3.14, max:3.14, step:0.01, init: 0.10 },
-    { id:'tx', label:'Pos X',  min:-10,   max:10,   step:0.05, init: 0    },
-    { id:'ty', label:'Pos Y',  min:-10,   max:10,   step:0.05, init:-1.95 },
-    { id:'tz', label:'Pos Z',  min:-20,   max:0,    step:0.05, init:-8.85 },
-    { id:'sc', label:'Scale',  min: 0.1,  max:8,    step:0.05, init: 4.10 },
-  ];
+      // Cull elements that are fully outside the viewport or have no size
+      if (rect.width === 0 || rect.height === 0 ||
+          rect.right < 0 || rect.left > W || rect.bottom < 0 || rect.top > H) {
+        if (trackedMeshes.has(el)) {
+          const t = trackedMeshes.get(el);
+          scene.remove(t.obj);
+          disposeMesh(t.obj);
+          trackedMeshes.delete(el);
+        }
+        continue;
+      }
 
-  function buildSliders() {
-    const container = document.getElementById('tableSliders');
+      // Resolve rank, face state, and selection state
+      let rank, faceDown, selected;
+      if (el.classList.contains('card')) {
+        // Hand card
+        const cardId = Number(el.dataset.cardId);
+        const card   = window._scratchbones?.state?.players?.[0]?.hand?.find(c => c.id === cardId);
+        if (!card) continue;
+        rank     = resolveRank(card);
+        faceDown = false;
+        selected = el.classList.contains('selected');
+      } else {
+        // Cinematic card
+        rank     = Number(el.dataset.cardRank);
+        faceDown = !el.classList.contains('flip-it');
+        selected = false;
+      }
+
+      if (!sbCache.has(rank)) continue;   // model not yet loaded
+
+      const existing = trackedMeshes.get(el);
+
+      // Rebuild mesh if rank changed or first appearance
+      if (!existing || existing.rank !== rank) {
+        if (existing) { scene.remove(existing.obj); disposeMesh(existing.obj); }
+        const obj = buildMesh(rank, rect.height);
+        if (!obj) continue;
+        scene.add(obj);
+        trackedMeshes.set(el, { obj, rank });
+      }
+
+      const { obj } = trackedMeshes.get(el);
+
+      // Refresh scale (handles resize or multiplier change)
+      const nat = sbNaturalSize.get(rank);
+      if (nat) {
+        const modelMaxDim = Math.max(nat.x, nat.y, nat.z, 1e-6);
+        obj.scale.setScalar((rect.height / modelMaxDim) * boneSizeMultiplier);
+      }
+
+      // Position at card centre.  Camera: left=0,right=W,top=H,bottom=0
+      // → worldY = H - domY
+      obj.position.set(cx, H - cy, 0);
+
+      // Face orientation
+      obj.rotation.set(0, faceDown ? Math.PI : 0, 0);
+
+      // Selection tint
+      applyTint(obj, selected);
+    }
+  }
+
+  // ─── popout – bone scale slider ──────────────────────────────────────────
+
+  function buildPopout() {
+    const container = document.getElementById('tablePopout');
     if (!container) return;
-    container.innerHTML = '';
-    for (const def of SLIDERS) {
-      const row = document.createElement('div');
-      row.className = 'ts-row';
-      row.innerHTML =
-        `<span class="ts-label">${def.label}</span>` +
-        `<input class="ts-range" type="range" id="ts_${def.id}"` +
-        ` min="${def.min}" max="${def.max}" step="${def.step}" value="${def.init}">` +
-        `<span class="ts-val" id="tsv_${def.id}">${def.init.toFixed(2)}</span>`;
-      container.appendChild(row);
-      row.querySelector(`#ts_${def.id}`).addEventListener('input', ev => {
-        T[def.id] = parseFloat(ev.target.value);
-        document.getElementById(`tsv_${def.id}`).textContent =
-          parseFloat(ev.target.value).toFixed(2);
-        applyTransform();
-      });
-    }
+    container.innerHTML = `
+      <h3>3D Overlay</h3>
+      <div class="ts-section-title">BONE SCALE</div>
+      <div class="ts-row">
+        <span class="ts-label">Scale</span>
+        <input class="ts-range" type="range" id="ts_boneScale"
+               min="0.1" max="4" step="0.05" value="1.00">
+        <span class="ts-val" id="tsv_boneScale">1.00</span>
+      </div>`;
+    document.getElementById('ts_boneScale')?.addEventListener('input', ev => {
+      boneSizeMultiplier = parseFloat(ev.target.value);
+      document.getElementById('tsv_boneScale').textContent =
+        boneSizeMultiplier.toFixed(2);
+    });
   }
 
-  buildSliders();
+  buildPopout();
 
-  // Auto-load the table on startup — no button click required
-  loadGLTF('docs/assets/3D/3DFurniture/ScratchbonesTableV1.gltf');
+  // ─── toggle + popout event wiring ────────────────────────────────────────
 
-  // ─── event wiring ────────────────────────────────────────────────────────
+  let overlayVisible = false;
 
   document.getElementById('tableToggleBtn')?.addEventListener('click', () => {
-    is3D = !is3D;
-    document.body.classList.toggle('mode-3d', is3D);
-    document.getElementById('tableToggleBtn').textContent = is3D ? '2D' : '3D';
-    if (gltfRoot) gltfRoot.visible = is3D;
-    if (!is3D) {
+    overlayVisible = !overlayVisible;
+    canvas.style.display = overlayVisible ? 'block' : 'none';
+    document.getElementById('tableToggleBtn').textContent = overlayVisible ? '✕ 3D' : '3D';
+    if (!overlayVisible) {
+      // Dispose all tracked meshes when the overlay is hidden
+      for (const [, tracked] of trackedMeshes) {
+        scene.remove(tracked.obj);
+        disposeMesh(tracked.obj);
+      }
+      trackedMeshes.clear();
       document.getElementById('tablePopout').style.display = 'none';
-      // Clear scratchbones — 2D hand takes over
-      cards3D.forEach(({ obj }) => {
-        if (obj.parent) obj.parent.remove(obj);
-        obj.traverse(c => { if (c.isMesh && c.material) c.material.dispose(); });
-      });
-      cards3D = [];
-    } else {
-      sync();
     }
   });
 
   document.getElementById('tablePopoutToggle')?.addEventListener('click', () => {
     const pop = document.getElementById('tablePopout');
     pop.style.display = pop.style.display === 'block' ? 'none' : 'block';
-  });
-
-  document.getElementById('gltfLoadDefault')?.addEventListener('click', () => {
-    loadGLTF('docs/assets/3D/3DFurniture/ScratchbonesTableV1.gltf');
-  });
-
-  document.getElementById('gltfFileInput')?.addEventListener('change', e => {
-    const file = e.target.files?.[0];
-    if (file) loadGLTF(URL.createObjectURL(file));
   });
 
   // ─── debug log panel ────────────────────────────────────────────────────
@@ -4135,6 +3937,7 @@
 
   (function animate() {
     requestAnimationFrame(animate);
+    if (overlayVisible) cardTrackerUpdate();
     renderer.render(scene, camera);
   })();
   </script>
