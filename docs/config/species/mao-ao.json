@@ -11,6 +11,8 @@
       "appearance::Mao-ao_M::mao-ao_circled_eyes",
       "appearance::Mao-ao_M::mao-ao_circled_eye_L",
       "appearance::Mao-ao_M::mao-ao_smooth_striped",
+      "appearance::Mao-ao_M::mao-ao_forwardtuft_short",
+      "appearance::Mao-ao_M::mao-ao_forwardtuft_long",
       "appearance::Mao-ao_M::mao-ao_tuft",
       "appearance::Mao-ao_M::mao-ao_wildbeard",
       "appearance::hat::basic_headband",
@@ -60,11 +62,24 @@
     "headXform": { "ax": 0, "ay": -0.1, "sx": 0.95, "sy": 1.14 },
     "allowedCosmetics": [
       "appearance::Mao-ao_F::mao-ao_circled_eyes_f",
+      "appearance::Mao-ao_F::mao-ao_smooth_striped",
+      "appearance::Mao-ao_F::mao-ao_forwardtuft_short",
+      "appearance::Mao-ao_F::mao-ao_forwardtuft_long",
       "appearance::Mao-ao_F::mao-ao_shoulder_length_drape",
       "appearance::Mao-ao_F::mao-ao_long_ponytail",
       "appearance::hat::basic_headband",
       "appearance::hat::riverlandskasa_low",
       "appearance::hat::riverlandskasa_wide"
+    ],
+    "disallowedCosmeticCombos": [
+      {
+        "conditions": { "hairFront": "none", "hairSide": "none", "hairBack": "none" },
+        "repairSlots": ["hairSide", "hairBack"]
+      },
+      {
+        "conditions": { "hairFront": "smooth_striped", "hairSide": "none", "hairBack": "none" },
+        "repairSlots": ["hairSide", "hairBack"]
+      }
     ],
     "bodyColorRanges": {
       "A": {

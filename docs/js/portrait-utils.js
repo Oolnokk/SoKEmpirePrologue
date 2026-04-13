@@ -345,9 +345,15 @@ async function loadPortraitCosmetics(configBase) {
           if (fighter) {
             bodyColorRangesByGender[fighter.id] = genderData.bodyColorRanges;
             if (genderData.allowedCosmetics) {
-              allowedCosmeticsByFighter[fighter.id] = new Set(
-                genderData.allowedCosmetics.map(id => id.split('::').pop().replace(/^mao-ao_/i, ''))
-              );
+              allowedCosmeticsByFighter[fighter.id] = {
+                set: new Set(
+                  genderData.allowedCosmetics.map(id => id.split('::').pop().replace(/^mao-ao_/i, ''))
+                ),
+                disallowedCombos: (genderData.disallowedCosmeticCombos || []).map(rule => ({
+                  conditions: rule.conditions || {},
+                  repairSlots: rule.repairSlots || []
+                }))
+              };
             }
           }
         }
@@ -405,9 +411,11 @@ function randomBodyColorsSeeded(rng, bodyColorRanges) {
  */
 function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions) {
   const pickRng  = (arr) => arr[Math.floor(rng() * arr.length)];
-  const filterArr = (arr) => arr && allowed ? arr.filter(o => o.id === 'none' || allowed.has(o.id)) : arr;
   const fighter  = pickRng(fighters);
-  const allowed  = allowedCosmeticsByFighter?.[fighter.id];
+  const fighterEntry = allowedCosmeticsByFighter?.[fighter.id];
+  const allowed  = fighterEntry instanceof Set ? fighterEntry : (fighterEntry?.set ?? null);
+  const disallowedCombos = (fighterEntry instanceof Set ? [] : (fighterEntry?.disallowedCombos ?? []));
+  const filterArr = (arr) => arr && allowed ? arr.filter(o => o.id === 'none' || allowed.has(o.id)) : arr;
 
   const filteredHairFront  = filterArr(hairFrontOptions)  ?? [];
   const filteredHairBack   = filterArr(hairBackOptions)   ?? [];
@@ -416,14 +424,45 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   const filteredFacialHair = filterArr(facialHairOptions) ?? [];
   const filteredHat        = filterArr(hatOptions) ?? [{ id: 'none', label: 'No Hat', tintSlot: null, layers: [] }];
 
-  const hairFront  = pickRng(filteredHairFront.length  ? filteredHairFront  : [{ id: 'none', label: 'No Front Hair', tintSlot: null, layers: [] }]);
-  const hairBack   = pickRng(filteredHairBack.length   ? filteredHairBack   : [{ id: 'none', label: 'No Back Hair',  tintSlot: null, layers: [] }]);
-  const hairSide   = pickRng(filteredHairSide.length   ? filteredHairSide   : [{ id: 'none', label: 'No Side Hair',  tintSlot: null, layers: [] }]);
+  let hairFront  = pickRng(filteredHairFront.length  ? filteredHairFront  : [{ id: 'none', label: 'No Front Hair', tintSlot: null, layers: [] }]);
+  let hairBack   = pickRng(filteredHairBack.length   ? filteredHairBack   : [{ id: 'none', label: 'No Back Hair',  tintSlot: null, layers: [] }]);
+  let hairSide   = pickRng(filteredHairSide.length   ? filteredHairSide   : [{ id: 'none', label: 'No Side Hair',  tintSlot: null, layers: [] }]);
   const eyes       = pickRng(filteredEyes.length       ? filteredEyes       : [{ id: 'none', label: 'No Eye Mark',   tintSlot: null, layers: [] }]);
   const noFacialHair = filteredFacialHair.find(o => o.id === 'none') ?? filteredFacialHair[0] ?? { id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] };
   const facialHair = rng() < 0.35 ? pickRng(filteredFacialHair.length ? filteredFacialHair : [noFacialHair]) : noFacialHair;
   const noHat      = filteredHat.find(o => o.id === 'none') ?? filteredHat[0];
   const hat        = rng() < 0.5 ? pickRng(filteredHat) : noHat;
+
+  // Enforce disallowed cosmetic combination rules.
+  // Each rule specifies conditions (slot-value pairs that must all match) and
+  // repairSlots (slots to try forcing to a non-none option, tried in random order).
+  if (disallowedCombos.length) {
+    const filteredBySlot = { hairFront: filteredHairFront, hairBack: filteredHairBack, hairSide: filteredHairSide };
+    let maxIter = disallowedCombos.length * 2 + 1;
+    let violated = true;
+    while (violated && maxIter-- > 0) {
+      violated = false;
+      for (const rule of disallowedCombos) {
+        const cur = { hairFront, hairBack, hairSide };
+        const matches = Object.entries(rule.conditions).every(([slot, val]) => cur[slot]?.id === val);
+        if (!matches || !rule.repairSlots.length) continue;
+        violated = true;
+        const slots = rule.repairSlots.slice();
+        if (slots.length >= 2 && rng() < 0.5) slots.reverse();
+        for (const slot of slots) {
+          const nonNone = (filteredBySlot[slot] || []).filter(o => o.id !== 'none');
+          if (nonNone.length) {
+            if      (slot === 'hairFront') hairFront = pickRng(nonNone);
+            else if (slot === 'hairBack')  hairBack  = pickRng(nonNone);
+            else if (slot === 'hairSide')  hairSide  = pickRng(nonNone);
+            break;
+          }
+        }
+        break; // restart rule checking after each repair
+      }
+    }
+  }
+
   const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id]);
   if (hat && hat.colorRange) bodyColors.HAT = randomColorFromRangeSeeded(hat.colorRange, rng);
   return { fighter, hairFront, hairBack, hairSide, eyes, facialHair, hat, bodyColors };
