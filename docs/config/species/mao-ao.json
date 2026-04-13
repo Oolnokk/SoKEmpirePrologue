@@ -12,11 +12,33 @@
       "appearance::Mao-ao_M::mao-ao_circled_eye_L",
       "appearance::Mao-ao_M::mao-ao_smooth_striped",
       "appearance::Mao-ao_M::mao-ao_tuft",
+      "appearance::Mao-ao_M::mao-ao_forwardtuft_long",
+      "appearance::Mao-ao_M::mao-ao_forwardtuft_short",
+      "appearance::Mao-ao_M::mao-ao_shoulder_length_drape",
       "appearance::Mao-ao_M::mao-ao_wildbeard",
       "appearance::hat::basic_headband",
       "appearance::hat::riverlandskasa_low",
       "appearance::hat::riverlandskasa_wide"
     ],
+    "cosmeticWeights": {
+      "hat": {
+        "none": 30,
+        "basic_headband": 30,
+        "riverlandskasa_low": 20,
+        "riverlandskasa_wide": 20
+      },
+      "hairFront": {
+        "none": 5,
+        "smooth_striped": 5,
+        "tuft": 30,
+        "forwardtuft_long": 30,
+        "forwardtuft_short": 30
+      },
+      "hairSide": {
+        "none": 90,
+        "shoulder_length_drape": 10
+      }
+    },
     "bodyColorRanges": {
       "A": {
         "minH": -100,
@@ -62,10 +84,35 @@
       "appearance::Mao-ao_F::mao-ao_circled_eyes_f",
       "appearance::Mao-ao_F::mao-ao_shoulder_length_drape",
       "appearance::Mao-ao_F::mao-ao_long_ponytail",
+      "appearance::Mao-ao_F::mao-ao_splayedknot_medium",
+      "appearance::Mao-ao_F::mao-ao_smooth_striped",
+      "appearance::Mao-ao_F::mao-ao_tuft",
+      "appearance::Mao-ao_F::mao-ao_forwardtuft_long",
+      "appearance::Mao-ao_F::mao-ao_forwardtuft_short",
       "appearance::hat::basic_headband",
       "appearance::hat::riverlandskasa_low",
       "appearance::hat::riverlandskasa_wide"
     ],
+    "cosmeticWeights": {
+      "hat": {
+        "none": 65,
+        "basic_headband": 28,
+        "riverlandskasa_low": 3.5,
+        "riverlandskasa_wide": 3.5
+      },
+      "hairFront": {
+        "none": 5,
+        "smooth_striped": 5,
+        "tuft": 30,
+        "forwardtuft_long": 30,
+        "forwardtuft_short": 30
+      },
+      "hairBack": {
+        "none": 50,
+        "long_ponytail": 25,
+        "splayedknot_medium": 25
+      }
+    },
     "bodyColorRanges": {
       "A": {
         "minH": -100,

@@ -326,9 +326,10 @@ async function loadPortraitCosmetics(configBase) {
     else if (cat === 'facialhair') facialHairOptions.push(opt);
   }
 
-  // Load species body color ranges and allowed cosmetics, keyed by fighter ID
+  // Load species body color ranges, allowed cosmetics, and cosmetic weights, keyed by fighter ID
   const bodyColorRangesByGender = {};
   const allowedCosmeticsByFighter = {};
+  const cosmeticWeightsByFighter = {};
   try {
     const speciesIdxUrl = new URL(configBase + 'species/index.json', window.location.href).toString();
     const speciesIdxResp = await fetch(speciesIdxUrl);
@@ -349,6 +350,9 @@ async function loadPortraitCosmetics(configBase) {
                 genderData.allowedCosmetics.map(id => id.split('::').pop().replace(/^mao-ao_/i, ''))
               );
             }
+            if (genderData.cosmeticWeights) {
+              cosmeticWeightsByFighter[fighter.id] = genderData.cosmeticWeights;
+            }
           }
         }
       }));
@@ -357,7 +361,7 @@ async function loadPortraitCosmetics(configBase) {
     console.warn('[portrait] Could not load species data', e);
   }
 
-  return { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter };
+  return { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter };
 }
 
 // ── Seeded randomisation ───────────────────────────────────
@@ -400,14 +404,47 @@ function randomBodyColorsSeeded(rng, bodyColorRanges) {
 }
 
 /**
+ * Weighted random pick from an array, driven by rng().
+ * weights: object mapping item.id to a numeric weight (items absent from the map default to 1).
+ * Falls back to uniform pick when weights is null/undefined.
+ *
+ * To tune cosmetic odds, add a "cosmeticWeights" block to the species JSON (e.g. mao-ao.json)
+ * under the gender section:
+ *   "cosmeticWeights": {
+ *     "hat":       { "none": 65, "basic_headband": 28, "riverlandskasa_low": 3.5, ... },
+ *     "hairFront": { "none": 5, "smooth_striped": 5, "tuft": 30, ... },
+ *     "hairBack":  { "none": 50, "long_ponytail": 25, "splayedknot_medium": 25 },
+ *     "hairSide":  { "none": 90, "shoulder_length_drape": 10 }
+ *   }
+ * Unspecified categories use uniform random. Cosmetics missing from a weight map default to weight 1.
+ */
+function weightedPickRng(arr, weights, rng) {
+  if (!arr || arr.length === 0) return undefined;
+  if (!weights) return arr[Math.floor(rng() * arr.length)];
+  const w = arr.map(o => (weights[o.id] != null ? weights[o.id] : 1));
+  const total = w.reduce((a, b) => a + b, 0);
+  if (total <= 0) return arr[Math.floor(rng() * arr.length)];
+  let r = rng() * total;
+  for (let i = 0; i < arr.length; i++) {
+    r -= w[i];
+    if (r <= 0) return arr[i];
+  }
+  return arr[arr.length - 1];
+}
+
+/**
  * Generate a fully deterministic random profile using a provided rng() function.
  * All option arrays must be supplied by the caller.
+ * cosmeticWeightsByFighter (optional): object keyed by fighter.id, each value being a
+ *   per-category weights map (see weightedPickRng docs above). When omitted the selection
+ *   falls back to the original uniform-random behaviour.
  */
-function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions) {
-  const pickRng  = (arr) => arr[Math.floor(rng() * arr.length)];
+function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter) {
+  const pickRng   = (arr) => arr[Math.floor(rng() * arr.length)];
   const filterArr = (arr) => arr && allowed ? arr.filter(o => o.id === 'none' || allowed.has(o.id)) : arr;
-  const fighter  = pickRng(fighters);
-  const allowed  = allowedCosmeticsByFighter?.[fighter.id];
+  const fighter   = pickRng(fighters);
+  const allowed   = allowedCosmeticsByFighter?.[fighter.id];
+  const weights   = cosmeticWeightsByFighter?.[fighter.id] ?? null;
 
   const filteredHairFront  = filterArr(hairFrontOptions)  ?? [];
   const filteredHairBack   = filterArr(hairBackOptions)   ?? [];
@@ -416,14 +453,18 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   const filteredFacialHair = filterArr(facialHairOptions) ?? [];
   const filteredHat        = filterArr(hatOptions) ?? [{ id: 'none', label: 'No Hat', tintSlot: null, layers: [] }];
 
-  const hairFront  = pickRng(filteredHairFront.length  ? filteredHairFront  : [{ id: 'none', label: 'No Front Hair', tintSlot: null, layers: [] }]);
-  const hairBack   = pickRng(filteredHairBack.length   ? filteredHairBack   : [{ id: 'none', label: 'No Back Hair',  tintSlot: null, layers: [] }]);
-  const hairSide   = pickRng(filteredHairSide.length   ? filteredHairSide   : [{ id: 'none', label: 'No Side Hair',  tintSlot: null, layers: [] }]);
-  const eyes       = pickRng(filteredEyes.length       ? filteredEyes       : [{ id: 'none', label: 'No Eye Mark',   tintSlot: null, layers: [] }]);
+  const hairFront  = weightedPickRng(filteredHairFront.length  ? filteredHairFront  : [{ id: 'none', label: 'No Front Hair', tintSlot: null, layers: [] }], weights?.hairFront,  rng);
+  const hairBack   = weightedPickRng(filteredHairBack.length   ? filteredHairBack   : [{ id: 'none', label: 'No Back Hair',  tintSlot: null, layers: [] }], weights?.hairBack,   rng);
+  const hairSide   = weightedPickRng(filteredHairSide.length   ? filteredHairSide   : [{ id: 'none', label: 'No Side Hair',  tintSlot: null, layers: [] }], weights?.hairSide,   rng);
+  const eyes       = weightedPickRng(filteredEyes.length       ? filteredEyes       : [{ id: 'none', label: 'No Eye Mark',   tintSlot: null, layers: [] }], weights?.eyes,       rng);
   const noFacialHair = filteredFacialHair.find(o => o.id === 'none') ?? filteredFacialHair[0] ?? { id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] };
   const facialHair = rng() < 0.35 ? pickRng(filteredFacialHair.length ? filteredFacialHair : [noFacialHair]) : noFacialHair;
   const noHat      = filteredHat.find(o => o.id === 'none') ?? filteredHat[0];
-  const hat        = rng() < 0.5 ? pickRng(filteredHat) : noHat;
+  // When hat weights are configured, use a single weighted pick (weights include 'none').
+  // Otherwise fall back to the original 50%-skip + uniform-pick behaviour.
+  const hat = weights?.hat
+    ? weightedPickRng(filteredHat.length ? filteredHat : [noHat], weights.hat, rng)
+    : (rng() < 0.5 ? pickRng(filteredHat) : noHat);
   const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id]);
   if (hat && hat.colorRange) bodyColors.HAT = randomColorFromRangeSeeded(hat.colorRange, rng);
   return { fighter, hairFront, hairBack, hairSide, eyes, facialHair, hat, bodyColors };
