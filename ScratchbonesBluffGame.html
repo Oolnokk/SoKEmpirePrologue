@@ -35,7 +35,7 @@
   </script>
 
   <script src="docs/config/portrait-config.js"></script>
-  <script src="docs/config/scratchbones-portrait-config.js"></script>
+  <script src="docs/config/scratchbones-config.js"></script>
   <script src="docs/js/portrait-utils.js"></script>
   <style>
     @font-face {
@@ -3156,12 +3156,13 @@
     let _portraitCosmetics = null;
 
     if (window.setPortraitAssetBase && window.loadPortraitCosmetics) {
-      if (window.SCRATCHBONES_PORTRAIT_CONFIG && window.setPortraitConfig) {
-        setPortraitConfig(window.SCRATCHBONES_PORTRAIT_CONFIG);
+      const scratchbonesPortraitConfig = window.SCRATCHBONES_CONFIG?.portrait || null;
+      if (scratchbonesPortraitConfig && window.setPortraitConfig) {
+        setPortraitConfig(scratchbonesPortraitConfig);
       }
-      setPortraitAssetBase(window.SCRATCHBONES_PORTRAIT_CONFIG?.assetBase || './docs/assets/');
+      setPortraitAssetBase(scratchbonesPortraitConfig?.assetBase || './docs/assets/');
 
-      loadPortraitCosmetics(window.SCRATCHBONES_PORTRAIT_CONFIG?.configBase || './docs/config/').then(cosmetics => {
+      loadPortraitCosmetics(scratchbonesPortraitConfig?.configBase || './docs/config/').then(cosmetics => {
         _portraitCosmetics = cosmetics;
         if (state.players.length) {
           for (const p of state.players) p.profile = generatePlayerProfile(p);
