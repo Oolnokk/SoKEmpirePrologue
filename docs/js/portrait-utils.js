@@ -21,24 +21,37 @@ const HEAD_XFORM = { ax: 0, ay: -0.1, sx: 0.95, sy: 1.14 };
 
 const FIGHTERS = [
   {
-    id:      'M',
-    label:   'Mao-ao (M)',
-    headUrl: 'fightersprites/mao-ao-m/head_mint.png',
+    id:       'M',
+    label:    'Mao-ao (M)',
+    headUrl:  'fightersprites/mao-ao-m/head_mint.png',
+    torsoUrl: 'bonesplayersprites/torso_mao-ao_m.png',
+    armLUrl:  'bonesplayersprites/arm-L_mao-ao_m.png',
+    armRUrl:  'bonesplayersprites/arm-R_mao-ao_m.png',
     urLayers: [
       { url: 'fightersprites/mao-ao-m/untinted_regions/ur-head.png' },
     ],
   },
   {
-    id:      'F',
-    label:   'Mao-ao (F)',
-    headUrl: 'fightersprites/mao-ao-f/head.png',
+    id:       'F',
+    label:    'Mao-ao (F)',
+    headUrl:  'fightersprites/mao-ao-f/head.png',
+    torsoUrl: 'bonesplayersprites/torso_mao-ao_f.png',
+    armLUrl:  'bonesplayersprites/arm-L_mao-ao_f.png',
+    armRUrl:  'bonesplayersprites/arm-R_mao-ao_f.png',
     urLayers: [
       { url: 'fightersprites/mao-ao-f/untinted_regions/ur-head.png' },
     ],
   },
 ];
 
-// ── Body color limits ──────────────────────────────────────
+// Probability of randomly assigning an overwear item when no cosmeticWeights are
+// configured. Lower than the hat probability (0.5) because overwear covers more of
+// the portrait and is expected to be rarer in the default look.
+const OVERWEAR_DEFAULT_PROBABILITY = 0.4;
+// Arms and legs are excluded because those body parts are not rendered in portraits.
+const PORTRAIT_CLOTHING_SLOTS_HAT      = new Set(['hat', 'hood']);
+const PORTRAIT_CLOTHING_SLOTS_OVERWEAR = new Set(['overwear']);
+const PORTRAIT_CLOTHING_SLOTS_EXCLUDED = new Set(['arms', 'legs']);
 
 const BODYCOLOR_LIMITS = {
   A: { hMin: -100, hMax:  -30, sMin: 0.05, sMax: 0.75, vMin: -0.50, vMax: 0.20 },
@@ -121,8 +134,9 @@ function drawPortraitLayer(ctx, img, xform, cssFilter) {
 
 // ── Rendering ──────────────────────────────────────────────
 
-async function renderProfile(canvas, profile) {
-  const { fighter, hair, hairFront, hairBack, hairSide, eyes, facialHair, hat, bodyColors } = profile;
+async function renderProfile(canvas, profile, opts = {}) {
+  const showBody = opts.showBody === true;
+  const { fighter, hair, hairFront, hairBack, hairSide, eyes, facialHair, hat, overwear, bodyColors } = profile;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
 
@@ -131,25 +145,40 @@ async function renderProfile(canvas, profile) {
 
   // Support both three-slot (hairBack/hairSide/hairFront) and legacy single-slot (hair).
   const allCosmeticGroups = hairFront !== undefined
-    ? [hairBack, hairSide, eyes, facialHair, hairFront, hat]
-    : [hair, eyes, facialHair, hat];
-  const backLayers  = [];
-  const frontLayers = [];
+    ? [hairBack, hairSide, eyes, facialHair, hairFront, hat, overwear]
+    : [hair, eyes, facialHair, hat, overwear];
+
+  // Separate layers by body slot and front/back position.
+  const headBackLayers  = [];  // head-level back (e.g. hair back)
+  const headFrontLayers = [];  // head-level front (e.g. hair front, eyes, hat)
+  const bodyBackLayers  = [];  // body-level back (e.g. overwear poncho back panel)
+  const bodyFrontLayers = [];  // body-level front (e.g. overwear poncho front panel)
 
   for (const group of allCosmeticGroups) {
     if (!group || !group.layers.length) continue;
     for (const layer of group.layers) {
-      const target = layer.pos === 'back' ? backLayers : frontLayers;
-      target.push({ layer, filter: filterFor(group.tintSlot) });
+      const filter = filterFor(group.tintSlot);
+      if (layer.bodySlot === 'torso') {
+        (layer.pos === 'back' ? bodyBackLayers : bodyFrontLayers).push({ layer, filter });
+      } else {
+        (layer.pos === 'back' ? headBackLayers : headFrontLayers).push({ layer, filter });
+      }
     }
   }
 
   const neededUrls = new Set([
     fighter.headUrl,
     ...(fighter.urLayers || []).map(m => m.url),
-    ...backLayers.map(({ layer }) => layer.url),
-    ...frontLayers.map(({ layer }) => layer.url),
+    ...headBackLayers.map(({ layer }) => layer.url),
+    ...headFrontLayers.map(({ layer }) => layer.url),
   ]);
+
+  if (showBody) {
+    if (fighter.armRUrl)  neededUrls.add(fighter.armRUrl);
+    if (fighter.armLUrl)  neededUrls.add(fighter.armLUrl);
+    if (fighter.torsoUrl) neededUrls.add(fighter.torsoUrl);
+    for (const { layer } of [...bodyBackLayers, ...bodyFrontLayers]) neededUrls.add(layer.url);
+  }
 
   let imgMap;
   try {
@@ -166,16 +195,52 @@ async function renderProfile(canvas, profile) {
     return;
   }
 
-  for (const { layer, filter } of backLayers) {
+  // ── Render order ───────────────────────────────────────────
+  // 1. Head-level back layers (hair back)
+  for (const { layer, filter } of headBackLayers) {
     const img = imgMap.get(layer.url);
     if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
   }
+
+  if (showBody) {
+    // 2. Body-level back layers (overwear back panel, behind arms/torso)
+    for (const { layer, filter } of bodyBackLayers) {
+      const img = imgMap.get(layer.url);
+      if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
+    }
+    // 3. Arm-R (behind torso)
+    if (fighter.armRUrl) {
+      const img = imgMap.get(fighter.armRUrl);
+      if (img) drawPortraitLayer(ctx, img, HEAD_XFORM, filterA);
+    }
+    // 4. Arm-L (behind head, in front of arm-R)
+    if (fighter.armLUrl) {
+      const img = imgMap.get(fighter.armLUrl);
+      if (img) drawPortraitLayer(ctx, img, HEAD_XFORM, filterA);
+    }
+    // 5. Torso
+    if (fighter.torsoUrl) {
+      const img = imgMap.get(fighter.torsoUrl);
+      if (img) drawPortraitLayer(ctx, img, HEAD_XFORM, filterA);
+    }
+    // 6. Body-level front layers (overwear front panel, over torso/arms but under head)
+    for (const { layer, filter } of bodyFrontLayers) {
+      const img = imgMap.get(layer.url);
+      if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
+    }
+  }
+
+  // 7. Head
   { const img = imgMap.get(fighter.headUrl); if (img) drawPortraitLayer(ctx, img, HEAD_XFORM, filterA); }
+
+  // 8. Untinted-region overlays (preserves flesh-toned areas on tinted head)
   for (const mid of (fighter.urLayers || [])) {
     const img = imgMap.get(mid.url);
     if (img) drawPortraitLayer(ctx, img, mid.xform || HEAD_XFORM, 'none');
   }
-  for (const { layer, filter } of frontLayers) {
+
+  // 9. Head-level front layers (eyes, hair front, hat)
+  for (const { layer, filter } of headFrontLayers) {
     const img = imgMap.get(layer.url);
     if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
   }
@@ -207,6 +272,7 @@ function portraitOptionFromJson(entry, json) {
 
   const layers = [];
   const head   = json.parts && json.parts.head;
+  const torso  = json.parts && json.parts.torso;
 
   if (head) {
     if (head.layers) {
@@ -217,12 +283,13 @@ function portraitOptionFromJson(entry, json) {
         const imgUrl = layer.image && layer.image.url;
         if (imgUrl) {
           layers.push({
-            url: portraitRelPath(imgUrl),
-            ax:  xf.ax     ?? 0,
-            ay:  xf.ay     ?? 0,
-            sx:  xf.scaleX ?? 1,
-            sy:  xf.scaleY ?? 1,
-            pos: layerName === 'back' ? 'back' : 'front',
+            url:      portraitRelPath(imgUrl),
+            ax:       xf.ax     ?? 0,
+            ay:       xf.ay     ?? 0,
+            sx:       xf.scaleX ?? 1,
+            sy:       xf.scaleY ?? 1,
+            pos:      layerName === 'back' ? 'back' : 'front',
+            bodySlot: 'head',
           });
         }
       }
@@ -231,12 +298,36 @@ function portraitOptionFromJson(entry, json) {
       const imgUrl = head.image.url;
       if (imgUrl) {
         layers.push({
-          url: portraitRelPath(imgUrl),
-          ax:  xf.ax     ?? 0,
-          ay:  xf.ay     ?? 0,
-          sx:  xf.scaleX ?? 1,
-          sy:  xf.scaleY ?? 1,
-          pos: 'front',
+          url:      portraitRelPath(imgUrl),
+          ax:       xf.ax     ?? 0,
+          ay:       xf.ay     ?? 0,
+          sx:       xf.scaleX ?? 1,
+          sy:       xf.scaleY ?? 1,
+          pos:      'front',
+          bodySlot: 'head',
+        });
+      }
+    }
+  }
+
+  if (torso && torso.layers) {
+    for (const [layerName, layer] of Object.entries(torso.layers)) {
+      const xf =
+        (layer.spriteStyle && layer.spriteStyle.base && layer.spriteStyle.base.xform && layer.spriteStyle.base.xform.torso) ||
+        (layer.spriteStyle && layer.spriteStyle.xform && layer.spriteStyle.xform.torso) || {};
+      const imgUrl = layer.image && layer.image.url;
+      if (imgUrl) {
+        layers.push({
+          url:      portraitRelPath(imgUrl),
+          ax:       xf.ax ?? 0,
+          ay:       xf.ay ?? 0,
+          // Existing fighting-game torso configs use scaleMulX/scaleMulY (bone-relative
+          // multipliers). For the static portrait frame they are treated as direct sx/sy
+          // values; portrait-specific cosmetics should use scaleX/scaleY instead.
+          sx:       xf.scaleX ?? xf.scaleMulX ?? 1,
+          sy:       xf.scaleY ?? xf.scaleMulY ?? 1,
+          pos:      layerName === 'back' ? 'back' : 'front',
+          bodySlot: 'torso',
         });
       }
     }
@@ -306,6 +397,7 @@ async function loadPortraitCosmetics(configBase) {
   const eyesOptions       = [{ id: 'none', label: 'No Eye Mark',    tintSlot: null, layers: [] }];
   const facialHairOptions = [{ id: 'none', label: 'No Facial Hair', tintSlot: null, layers: [] }];
   const hatOptions        = [{ id: 'none', label: 'No Hat',         tintSlot: null, layers: [] }];
+  const overwearOptions   = [{ id: 'none', label: 'No Overwear',    tintSlot: null, layers: [] }];
   const seenIds = new Set();
 
   for (const entry of indexEntries) {
@@ -325,6 +417,43 @@ async function loadPortraitCosmetics(configBase) {
     else if (cat === 'eyes')       eyesOptions.push(opt);
     else if (cat === 'facialhair') facialHairOptions.push(opt);
   }
+
+  // Also load non-appearance clothing entries: hat, hood, and overwear slots
+  // (arms and legs slots are excluded as they are not rendered in portraits).
+  const clothingEntries = (data.entries || []).filter(e => e.id && !e.id.startsWith('appearance::'));
+  const clothingPathMap = new Map();
+  for (const entry of clothingEntries) {
+    if (!clothingPathMap.has(entry.path)) clothingPathMap.set(entry.path, []);
+    clothingPathMap.get(entry.path).push(entry);
+  }
+  const clothingSeenIds = new Set(seenIds);
+
+  await Promise.all([...clothingPathMap.entries()].map(async ([path, entries]) => {
+    const jsonUrl = new URL(path, indexBaseUrl).toString();
+    let json;
+    try {
+      const resp = await fetch(jsonUrl);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' for ' + path);
+      json = await resp.json();
+    } catch (e) {
+      console.warn('[portrait] Could not load clothing JSON:', path, e);
+      return;
+    }
+    const slot = json.slot || (Array.isArray(json.slots) ? json.slots[0] : null);
+    if (!slot || PORTRAIT_CLOTHING_SLOTS_EXCLUDED.has(slot)) return;
+    const isHat      = PORTRAIT_CLOTHING_SLOTS_HAT.has(slot);
+    const isOverwear = PORTRAIT_CLOTHING_SLOTS_OVERWEAR.has(slot);
+    if (!isHat && !isOverwear) return;
+
+    for (const entry of entries) {
+      const opt = portraitOptionFromJson(entry, json);
+      if (!opt.layers.length) continue;
+      if (clothingSeenIds.has(opt.id)) continue;
+      clothingSeenIds.add(opt.id);
+      if (isHat)      hatOptions.push(opt);
+      else            overwearOptions.push(opt);
+    }
+  }));
 
   // Load species body color ranges, allowed cosmetics, and cosmetic weights, keyed by fighter ID
   const bodyColorRangesByGender = {};
@@ -367,7 +496,7 @@ async function loadPortraitCosmetics(configBase) {
     console.warn('[portrait] Could not load species data', e);
   }
 
-  return { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter };
+  return { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, overwearOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter };
 }
 
 // ── Seeded randomisation ───────────────────────────────────
@@ -445,8 +574,10 @@ function weightedPickRng(arr, weights, rng) {
  * cosmeticWeightsByFighter (optional): object keyed by fighter.id, each value being a
  *   per-category weights map (see weightedPickRng docs above). When omitted the selection
  *   falls back to the original uniform-random behaviour.
+ * overwearOptions (optional): array of overwear cosmetic options (ponchos, cloaks, etc.).
+ *   When omitted or empty, overwear defaults to none.
  */
-function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter) {
+function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter, overwearOptions) {
   const pickRng   = (arr) => arr[Math.floor(rng() * arr.length)];
   const fighter   = pickRng(fighters);
   const fighterEntry = allowedCosmeticsByFighter?.[fighter.id];
@@ -474,6 +605,13 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   const hat = weights?.hat
     ? weightedPickRng(filteredHat.length ? filteredHat : [noHat], weights.hat, rng)
     : (rng() < 0.5 ? pickRng(filteredHat) : noHat);
+
+  // Overwear: not filtered by allowedCosmetics (it is a separate slot category).
+  const noOverwear = { id: 'none', label: 'No Overwear', tintSlot: null, layers: [] };
+  const overwearPool = (overwearOptions && overwearOptions.length) ? overwearOptions : [noOverwear];
+  const overwear = weights?.overwear
+    ? weightedPickRng(overwearPool, weights.overwear, rng)
+    : (rng() < OVERWEAR_DEFAULT_PROBABILITY ? pickRng(overwearPool) : noOverwear);
 
   // Enforce disallowed cosmetic combination rules.
   // Each rule specifies conditions (slot-value pairs that must all match) and
@@ -507,5 +645,5 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
 
   const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id]);
   if (hat && hat.colorRange) bodyColors.HAT = randomColorFromRangeSeeded(hat.colorRange, rng);
-  return { fighter, hairFront, hairBack, hairSide, eyes, facialHair, hat, bodyColors };
+  return { fighter, hairFront, hairBack, hairSide, eyes, facialHair, hat, overwear, bodyColors };
 }
