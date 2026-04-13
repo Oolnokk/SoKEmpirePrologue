@@ -34,6 +34,8 @@
   })();
   </script>
 
+  <script src="docs/config/portrait-config.js"></script>
+  <script src="docs/config/scratchbones-config.js"></script>
   <script src="docs/js/portrait-utils.js"></script>
   <style>
     @font-face {
@@ -3154,9 +3156,13 @@
     let _portraitCosmetics = null;
 
     if (window.setPortraitAssetBase && window.loadPortraitCosmetics) {
-      setPortraitAssetBase('./docs/assets/');
+      const scratchbonesPortraitConfig = window.SCRATCHBONES_CONFIG?.portrait || null;
+      if (scratchbonesPortraitConfig && window.setPortraitConfig) {
+        setPortraitConfig(scratchbonesPortraitConfig);
+      }
+      setPortraitAssetBase(scratchbonesPortraitConfig?.assetBase || './docs/assets/');
 
-      loadPortraitCosmetics('./docs/config/').then(cosmetics => {
+      loadPortraitCosmetics(scratchbonesPortraitConfig?.configBase || './docs/config/').then(cosmetics => {
         _portraitCosmetics = cosmetics;
         if (state.players.length) {
           for (const p of state.players) p.profile = generatePlayerProfile(p);
@@ -3170,13 +3176,13 @@
 
     function generatePlayerProfile(player) {
       if (!_portraitCosmetics) return null;
-      const { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter } = _portraitCosmetics;
+      const { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, torsoPortraitOptions, armPortraitOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter } = _portraitCosmetics;
       const seedStr = player.seed || `player-${player.id}`;
       const rng = mulberry32(hashStringToSeed(seedStr));
       const fighterPool = player.gender === 'male'   ? FIGHTERS.filter(f => f.id === 'M')
                         : player.gender === 'female' ? FIGHTERS.filter(f => f.id === 'F')
                         : FIGHTERS;
-      return randomProfileSeeded(rng, fighterPool.length ? fighterPool : FIGHTERS, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter);
+      return randomProfileSeeded(rng, fighterPool.length ? fighterPool : FIGHTERS, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter, torsoPortraitOptions, armPortraitOptions);
     }
 
     function renderSeatPortraits() {
