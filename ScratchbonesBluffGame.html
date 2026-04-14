@@ -1007,111 +1007,6 @@
       font-style: italic;
     }
 
-    /* ── 3D Scratchbone Overlay ─────────────────────────────────── */
-    /* Canvas sits above cards (z 150) but below challenge box / cinematic (z 200).
-       pointer-events:none lets all clicks pass through to the 2D UI. */
-    #threeCanvas {
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      z-index: 150;
-      pointer-events: none;
-      display: none; /* hidden until toggled on */
-    }
-
-    /* 3D toggle button – fixed bottom-right */
-    #tableToggleBtn {
-      position: fixed;
-      bottom: calc(10px + var(--safe)); right: 62px;
-      z-index: 200;
-      padding: 6px 14px;
-      border-radius: 20px;
-      background: rgba(46,34,30,0.94);
-      border: 1px solid rgba(200,153,82,0.55);
-      color: var(--accent);
-      font-size: 0.78rem;
-      cursor: pointer;
-      letter-spacing: 0.05em;
-    }
-    #tableToggleBtn:hover { background: rgba(67,49,43,0.97); }
-
-    /* Gear button to open popout */
-    #tablePopoutToggle {
-      position: fixed;
-      bottom: calc(10px + var(--safe)); right: 10px;
-      z-index: 200;
-      padding: 6px 10px;
-      border-radius: 20px;
-      background: rgba(46,34,30,0.92);
-      border: 1px solid rgba(255,255,255,0.12);
-      color: var(--muted);
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    #tablePopoutToggle:hover { background: rgba(67,49,43,0.97); }
-
-    /* Popout panel */
-    #tablePopout {
-      position: fixed;
-      bottom: calc(50px + var(--safe)); right: 10px;
-      z-index: 200;
-      width: 238px;
-      display: none;
-      background: rgba(20,12,8,0.97);
-      border: 1px solid rgba(200,153,82,0.35);
-      border-radius: 12px;
-      padding: 12px 14px 14px;
-      backdrop-filter: blur(6px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-    }
-    #tablePopout h3 {
-      margin: 0 0 9px;
-      font-size: 0.82rem;
-      color: var(--accent);
-      letter-spacing: 0.06em;
-    }
-    .ts-row {
-      display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
-    }
-    .ts-label {
-      font-size: 0.67rem; color: var(--muted);
-      width: 38px; flex-shrink: 0;
-    }
-    .ts-range {
-      flex: 1; min-width: 0;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
-    .ts-val {
-      font-size: 0.67rem; color: var(--accent-2);
-      width: 38px; text-align: right; font-variant-numeric: tabular-nums;
-    }
-    .ts-btn {
-      display: block; width: 100%;
-      padding: 5px 8px; margin-bottom: 6px;
-      border-radius: 7px;
-      background: rgba(67,49,43,0.9);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: var(--text); font-size: 0.72rem;
-      cursor: pointer; text-align: left;
-    }
-    .ts-btn:hover { background: rgba(90,66,55,0.95); }
-    .ts-divider {
-      border: none; border-top: 1px solid rgba(255,255,255,0.08);
-      margin: 8px 0;
-    }
-    .ts-file-label {
-      display: block; font-size: 0.72rem; color: var(--muted);
-      margin-bottom: 8px; cursor: pointer;
-    }
-    .ts-file-label input[type=file] {
-      display: block; margin-top: 4px;
-      font-size: 0.68rem; color: var(--muted); width: 100%;
-    }
-    .ts-section-title {
-      font-size: 0.67rem; color: var(--accent); letter-spacing: 0.08em;
-      margin: 4px 0 5px; font-weight: 700;
-    }
-
     /* ── Debug log panel ─────────────────────────────────────────── */
     #_dbgBtn {
       position: fixed;
@@ -1222,14 +1117,6 @@
       margin-top: 4px;
     }
   </style>
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-    }
-  }
-  </script>
 </head>
 <body>
   <div id="app"></div>
@@ -1256,28 +1143,6 @@
 
   <!-- Challenge cinematic overlay — populated by JS -->
   <div id="challengeCinematic" data-proj-id="cinematic"></div>
-
-  <!-- 3D scratchbone overlay canvas – sits above the UI, pointer-events none -->
-  <canvas id="threeCanvas"></canvas>
-
-  <!-- 3D mode toggle + settings popout -->
-  <button id="tableToggleBtn" title="Toggle 3D table view">3D</button>
-  <button id="tablePopoutToggle" title="3D table settings">⚙</button>
-
-  <div id="tablePopout" role="dialog" aria-label="3D table settings">
-    <h3>3D Table</h3>
-
-    <button class="ts-btn" id="gltfLoadDefault">↓ Load ScratchbonesTableV1</button>
-
-    <label class="ts-file-label">
-      Import GLTF / GLB…
-      <input type="file" id="gltfFileInput" accept=".gltf,.glb">
-    </label>
-
-    <hr class="ts-divider">
-    <div class="ts-section-title">TRANSFORM</div>
-    <div id="tableSliders"><!-- populated by module script --></div>
-  </div>
 
   <!-- UI projection mapping mode -->
   <button id="projMapBtn" title="Inspect panel projection IDs">Map</button>
@@ -3711,317 +3576,30 @@
       }, true);
     })();
 
-    // ── Bridge for Three.js module ────────────────────────────────────────
-    window._scratchbones = {
-      get state()      { return state; },
-      toggleSelect,
-    };
+    // ── debug log panel ────────────────────────────────────────────────────
+    document.getElementById('_dbgBtn')?.addEventListener('click', () => {
+      document.getElementById('_dbgPanel').classList.toggle('open');
+    });
+
+    document.getElementById('_dbgCopyBtn')?.addEventListener('click', () => {
+      const text = (window._debugLogs || [])
+        .map(e => `[${e.lvl.toUpperCase()}] ${e.line}`)
+        .join('\n');
+      navigator.clipboard?.writeText(text).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      });
+      const btn = document.getElementById('_dbgCopyBtn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    });
 
     startGame();
 
-  </script>
-
-  <script type="module">
-  /**
-   * ScratchbonesBluffGame – 3D scratchbone UI overlay
-   *
-   * Responsibilities:
-   *   • Render a Three.js scene on top of the HTML UI (canvas z-index 150,
-   *     pointer-events none so clicks pass through to the 2D UI unchanged).
-   *   • Orthographic camera mapped 1:1 to screen pixels.
-   *   • Per-frame CardTracker: for every visible .card[data-card-id] (hand)
-   *     and .cin-card-wrap[data-card-rank] (cinematic) element, maintain one
-   *     scratchbone mesh centred on the element's screen-space position.
-   *     Face-down elements (no .flip-it) rotate PI around Y.
-   *     Selected hand cards receive a blue emissive tint.
-   *   • Toggle button shows/hides the overlay – no game state changes.
-   */
-  import * as THREE from 'three';
-  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-  console.log('[3DOverlay] module started, THREE r' + THREE.REVISION);
-
-  // ─── renderer / scene / camera ──────────────────────────────────────────
-  // Canvas sits above the 2D UI (z-index 150) with a fully transparent
-  // background, so the HTML layout is completely unchanged.
-
-  const canvas   = document.getElementById('threeCanvas');
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x000000, 0);   // transparent – 2D UI shows through
-
-  // Orthographic camera in screen-pixel space.
-  // left=0, right=W, top=H, bottom=0  →  world y=H at top of screen, y=0 at bottom.
-  // +x goes right, +y goes up (standard Three.js).
-  // Convert DOM coords (y=0 at top):  worldY = H - domY.
-  function makeOrthoCamera() {
-    const W = window.innerWidth, H = window.innerHeight;
-    return new THREE.OrthographicCamera(0, W, H, 0, -1000, 1000);
-  }
-  let camera = makeOrthoCamera();
-
-  const scene = new THREE.Scene();
-  scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-  const sun = new THREE.DirectionalLight(0xfff2cc, 1.4);
-  sun.position.set(0.3, 0.5, 1);  // slightly off-centre, shining toward the screen
-  scene.add(sun);
-
-  function resizeRenderer() {
-    const W = window.innerWidth, H = window.innerHeight;
-    renderer.setSize(W, H);
-    camera.right  = W;
-    camera.top    = H;
-    camera.updateProjectionMatrix();
-  }
-  resizeRenderer();
-  window.addEventListener('resize', resizeRenderer);
-
-  // ─── scratchbone asset cache ─────────────────────────────────────────────
-
-  const SCRATCHBONE_BASE = 'docs/assets/3D/3DProps/';
-  const sbCache       = new Map();   // rank 1–10 → THREE.Group template
-  const sbNaturalSize = new Map();   // rank 1–10 → largest axis length in model units
-
-  function preloadScratchbones() {
-    console.log('[3DOverlay] preloading scratchbones from', SCRATCHBONE_BASE);
-    const loader = new GLTFLoader();
-    for (let rank = 1; rank <= 10; rank++) {
-      loader.load(
-        `${SCRATCHBONE_BASE}3DScratchbone${rank}.glb`,
-        gltf => {
-          console.log('[3DOverlay] sb', rank, 'loaded');
-          const box  = new THREE.Box3().setFromObject(gltf.scene);
-          const size = new THREE.Vector3();
-          box.getSize(size);
-          sbNaturalSize.set(rank, size);
-          sbCache.set(rank, gltf.scene);
-        },
-        undefined,
-        err => console.warn(`[3DOverlay] scratchbone ${rank} load error:`, err)
-      );
-    }
-  }
-
-  preloadScratchbones();
-
-  // ─── CardTracker ─────────────────────────────────────────────────────────
-  //
-  // Every frame we scan all .card[data-card-id] (hand) and
-  // .cin-card-wrap[data-card-rank] (cinematic) elements.  For each visible
-  // element we maintain one scratchbone mesh centred on it.
-  //
-  //   Face-down  →  rotation.y = Math.PI   (back of model faces camera)
-  //   Face-up    →  rotation.y = 0
-  //   Selected   →  blue emissive tint
-
-  const trackedMeshes = new Map(); // Element → { obj, rank }
-
-  // User-tunable scale multiplier exposed in the popout
-  let boneSizeMultiplier = 1.0;
-
-  function disposeMesh(obj) {
-    obj.traverse(c => {
-      if (!c.isMesh) return;
-      c.geometry?.dispose();
-      if (c.material) c.material.dispose();
-    });
-  }
-
-  // Returns the rank (1–10) for a card object, used in both hand and cinematic contexts.
-  function resolveRank(card) {
-    return card.wild ? ((card.id - 1) % 10) + 1 : Math.max(1, Math.min(10, card.rank));
-  }
-
-  function buildMesh(rank, cardHeight) {
-    const template = sbCache.get(rank);
-    if (!template) return null;
-
-    const obj = template.clone(true);
-
-    // Scale: fit the model's largest natural axis to cardHeight pixels,
-    // then apply the user multiplier.
-    const nat = sbNaturalSize.get(rank);
-    if (nat) {
-      const modelMaxDim = Math.max(nat.x, nat.y, nat.z, 1e-6);
-      obj.scale.setScalar((cardHeight / modelMaxDim) * boneSizeMultiplier);
-    }
-
-    // Clone materials so each instance can be tinted independently
-    obj.traverse(child => {
-      if (child.isMesh && child.material) child.material = child.material.clone();
-    });
-    return obj;
-  }
-
-  function applyTint(obj, selected) {
-    obj.traverse(child => {
-      if (!child.isMesh || !child.material) return;
-      if (child.material.emissive) {
-        child.material.emissive.setHex(selected ? 0x1a3a8a : 0x000000);
-        child.material.emissiveIntensity = selected ? 0.75 : 0;
-      }
-    });
-  }
-
-  function cardTrackerUpdate() {
-    const W = window.innerWidth, H = window.innerHeight;
-
-    // Collect every live card element
-    const currentEls = new Set();
-    document.querySelectorAll('.card[data-card-id]').forEach(el => currentEls.add(el));
-    document.querySelectorAll('.cin-card-wrap[data-card-rank]').forEach(el => currentEls.add(el));
-
-    // Remove meshes for elements that left the DOM or scrolled off-screen
-    for (const [el, tracked] of trackedMeshes) {
-      if (!currentEls.has(el)) {
-        scene.remove(tracked.obj);
-        disposeMesh(tracked.obj);
-        trackedMeshes.delete(el);
-      }
-    }
-
-    for (const el of currentEls) {
-      const rect = el.getBoundingClientRect();
-      const cx   = rect.left + rect.width  / 2;
-      const cy   = rect.top  + rect.height / 2;
-
-      // Cull elements that are fully outside the viewport or have no size
-      if (rect.width === 0 || rect.height === 0 ||
-          rect.right < 0 || rect.left > W || rect.bottom < 0 || rect.top > H) {
-        if (trackedMeshes.has(el)) {
-          const t = trackedMeshes.get(el);
-          scene.remove(t.obj);
-          disposeMesh(t.obj);
-          trackedMeshes.delete(el);
-        }
-        continue;
-      }
-
-      // Resolve rank, face state, and selection state
-      let rank, faceDown, selected;
-      if (el.classList.contains('card')) {
-        // Hand card
-        const cardId = Number(el.dataset.cardId);
-        const card   = window._scratchbones?.state?.players?.[0]?.hand?.find(c => c.id === cardId);
-        if (!card) continue;
-        rank     = resolveRank(card);
-        faceDown = false;
-        selected = el.classList.contains('selected');
-      } else {
-        // Cinematic card
-        rank     = Number(el.dataset.cardRank);
-        faceDown = !el.classList.contains('flip-it');
-        selected = false;
-      }
-
-      if (!sbCache.has(rank)) continue;   // model not yet loaded
-
-      const existing = trackedMeshes.get(el);
-
-      // Rebuild mesh if rank changed or first appearance
-      if (!existing || existing.rank !== rank) {
-        if (existing) { scene.remove(existing.obj); disposeMesh(existing.obj); }
-        const obj = buildMesh(rank, rect.height);
-        if (!obj) continue;
-        scene.add(obj);
-        trackedMeshes.set(el, { obj, rank });
-      }
-
-      const { obj } = trackedMeshes.get(el);
-
-      // Refresh scale (handles resize or multiplier change)
-      const nat = sbNaturalSize.get(rank);
-      if (nat) {
-        const modelMaxDim = Math.max(nat.x, nat.y, nat.z, 1e-6);
-        obj.scale.setScalar((rect.height / modelMaxDim) * boneSizeMultiplier);
-      }
-
-      // Position at card centre.  Camera: left=0,right=W,top=H,bottom=0
-      // → worldY = H - domY
-      obj.position.set(cx, H - cy, 0);
-
-      // Face orientation
-      obj.rotation.set(0, faceDown ? Math.PI : 0, 0);
-
-      // Selection tint
-      applyTint(obj, selected);
-    }
-  }
-
-  // ─── popout – bone scale slider ──────────────────────────────────────────
-
-  function buildPopout() {
-    const container = document.getElementById('tablePopout');
-    if (!container) return;
-    container.innerHTML = `
-      <h3>3D Overlay</h3>
-      <div class="ts-section-title">BONE SCALE</div>
-      <div class="ts-row">
-        <span class="ts-label">Scale</span>
-        <input class="ts-range" type="range" id="ts_boneScale"
-               min="0.1" max="4" step="0.05" value="1.00">
-        <span class="ts-val" id="tsv_boneScale">1.00</span>
-      </div>`;
-    document.getElementById('ts_boneScale')?.addEventListener('input', ev => {
-      boneSizeMultiplier = parseFloat(ev.target.value);
-      document.getElementById('tsv_boneScale').textContent =
-        boneSizeMultiplier.toFixed(2);
-    });
-  }
-
-  buildPopout();
-
-  // ─── toggle + popout event wiring ────────────────────────────────────────
-
-  let overlayVisible = false;
-
-  document.getElementById('tableToggleBtn')?.addEventListener('click', () => {
-    overlayVisible = !overlayVisible;
-    canvas.style.display = overlayVisible ? 'block' : 'none';
-    document.getElementById('tableToggleBtn').textContent = overlayVisible ? '✕ 3D' : '3D';
-    if (!overlayVisible) {
-      // Dispose all tracked meshes when the overlay is hidden
-      for (const [, tracked] of trackedMeshes) {
-        scene.remove(tracked.obj);
-        disposeMesh(tracked.obj);
-      }
-      trackedMeshes.clear();
-      document.getElementById('tablePopout').style.display = 'none';
-    }
-  });
-
-  document.getElementById('tablePopoutToggle')?.addEventListener('click', () => {
-    const pop = document.getElementById('tablePopout');
-    pop.style.display = pop.style.display === 'block' ? 'none' : 'block';
-  });
-
-  // ─── debug log panel ────────────────────────────────────────────────────
-
-  document.getElementById('_dbgBtn')?.addEventListener('click', () => {
-    document.getElementById('_dbgPanel').classList.toggle('open');
-  });
-
-  document.getElementById('_dbgCopyBtn')?.addEventListener('click', () => {
-    const text = (window._debugLogs || [])
-      .map(e => `[${e.lvl.toUpperCase()}] ${e.line}`)
-      .join('\n');
-    navigator.clipboard?.writeText(text).catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = text; document.body.appendChild(ta);
-      ta.select(); document.execCommand('copy');
-      document.body.removeChild(ta);
-    });
-    const btn = document.getElementById('_dbgCopyBtn');
-    btn.textContent = 'Copied!';
-    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
-  });
-
-  // ─── animation loop ──────────────────────────────────────────────────────
-
-  (function animate() {
-    requestAnimationFrame(animate);
-    if (overlayVisible) cardTrackerUpdate();
-    renderer.render(scene, camera);
-  })();
   </script>
 </body>
 </html>
