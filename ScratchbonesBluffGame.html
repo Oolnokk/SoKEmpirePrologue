@@ -1180,7 +1180,7 @@
       <div id="challengeBoxInfo" class="tiny"></div>
       <div class="challengeTimerRow">
         <div class="timerLabel">
-          <span>Auto: let it stand</span>
+          <span id="challengeTimerTitle">Auto: let it stand</span>
           <span id="challengeTimerLabel"></span>
         </div>
         <div class="timerTrack"><div class="timerFill" id="challengeTimerBar"></div></div>
@@ -1212,7 +1212,54 @@
   <script>
 
     const DEBUG_ENABLED = true;
-    const CHALLENGE_TIMER_SECS = 8;
+
+    const scratchbonesRootConfig = window.SCRATCHBONES_CONFIG || {};
+    const scratchbonesGameConfig = scratchbonesRootConfig.game || {};
+    const scratchbonesLegacyGameplayConfig = scratchbonesRootConfig.gameplay || {};
+
+    const SCRATCHBONES_GAME = {
+      deck: {
+        rankCount: scratchbonesGameConfig.deck?.rankCount ?? scratchbonesLegacyGameplayConfig.deckRankCount ?? 10,
+        copiesPerRank: scratchbonesGameConfig.deck?.copiesPerRank ?? scratchbonesLegacyGameplayConfig.deckCopiesPerRank ?? 4,
+        handSize: scratchbonesGameConfig.deck?.handSize ?? scratchbonesLegacyGameplayConfig.startHandSize ?? 10,
+        wildCount: scratchbonesGameConfig.deck?.wildCount ?? scratchbonesLegacyGameplayConfig.wildCount ?? 10,
+        playerCount: scratchbonesGameConfig.deck?.playerCount ?? scratchbonesLegacyGameplayConfig.playerCount ?? 4,
+        humanNames: scratchbonesGameConfig.deck?.humanNames ?? scratchbonesLegacyGameplayConfig.playerNames ?? ['You'],
+      },
+      chips: {
+        startingChips: scratchbonesGameConfig.chips?.starting ?? scratchbonesLegacyGameplayConfig.startingChips ?? 12,
+        challengeBaseTransfer: scratchbonesGameConfig.chips?.challengeBaseTransfer ?? scratchbonesLegacyGameplayConfig.challengeBaseTransfer ?? 1,
+        concedeRoundChipLoss: scratchbonesGameConfig.chips?.concedeRoundChipLoss ?? scratchbonesLegacyGameplayConfig.concedeRoundChipLoss ?? 1,
+        maxRaiseAmount: scratchbonesGameConfig.chips?.raise?.maxAmount ?? scratchbonesLegacyGameplayConfig.maxRaiseAmount ?? 3,
+        maxRaisesPerPlayer: scratchbonesGameConfig.chips?.raise?.maxPerPlayer ?? scratchbonesLegacyGameplayConfig.maxRaisesPerPlayer ?? 3,
+        clearBonusBase: scratchbonesGameConfig.chips?.clearReward?.base ?? scratchbonesLegacyGameplayConfig.clearBonusBase ?? 1,
+        clearBonusIncrement: scratchbonesGameConfig.chips?.clearReward?.increment ?? scratchbonesLegacyGameplayConfig.clearBonusIncrement ?? 1,
+        maxChallengeBet: scratchbonesGameConfig.chips?.maxChallengeBet ?? scratchbonesLegacyGameplayConfig.maxChallengeBet ?? 13,
+      },
+      timers: {
+        challengeTimerSecs: scratchbonesGameConfig.timers?.challengeSeconds ?? scratchbonesLegacyGameplayConfig.challengeTimerSecs ?? 8,
+        aiThinkMs: scratchbonesGameConfig.timers?.aiThinkMs ?? scratchbonesLegacyGameplayConfig.aiThinkMs ?? 650,
+      },
+      uiText: {
+        initialBanner: scratchbonesGameConfig.uiText?.initialBanner ?? scratchbonesLegacyGameplayConfig.initialBanner ?? 'Open a round by selecting one or more cards, then declare a number.',
+        yourLeadBanner: scratchbonesGameConfig.uiText?.yourLeadBanner ?? scratchbonesLegacyGameplayConfig.yourLeadBanner ?? 'Your lead. Select cards and declare any number.',
+        pickCardWarning: scratchbonesGameConfig.uiText?.pickCardWarning ?? scratchbonesLegacyGameplayConfig.pickCardWarning ?? 'Pick at least one card before playing.',
+        challengeTimerLabel: scratchbonesGameConfig.uiText?.challengeTimerLabel ?? scratchbonesLegacyGameplayConfig.challengeTimerLabel ?? 'Auto: let it stand',
+        challengePromptTemplate: scratchbonesGameConfig.uiText?.challengePromptTemplate ?? scratchbonesLegacyGameplayConfig.challengePromptTemplate ?? '{seat} declared {count} × {rank}. Challenge before the timer runs out, or let it stand.',
+        letStandButton: scratchbonesGameConfig.uiText?.letStandButton ?? scratchbonesLegacyGameplayConfig.letStandButton ?? 'Let it stand',
+      },
+      assets: {
+        cardHudBasePath: scratchbonesGameConfig.assets?.cards?.hudBasePath ?? scratchbonesLegacyGameplayConfig.cardsHudBasePath ?? './docs/assets/hud/',
+        wildCardSrc: scratchbonesGameConfig.assets?.cards?.wild?.src ?? scratchbonesLegacyGameplayConfig.wildCardAsset ?? '2DScratchBoneWild.png',
+        wildCardFallbackSrc: scratchbonesGameConfig.assets?.cards?.wild?.fallbackSrc ?? scratchbonesLegacyGameplayConfig.wildCardAssetFallback ?? '2DScratchBoneWild.png',
+        flippedCardSrc: scratchbonesGameConfig.assets?.cards?.flipped?.src ?? scratchbonesLegacyGameplayConfig.flippedCardAsset ?? '2DScratchboneFlipped.png',
+        flippedCardFallbackSrc: scratchbonesGameConfig.assets?.cards?.flipped?.fallbackSrc ?? scratchbonesLegacyGameplayConfig.flippedCardAssetFallback ?? '2DScratchBoneFlipped.png',
+        rankCardTemplateSrc: scratchbonesGameConfig.assets?.cards?.rankTemplate?.src ?? scratchbonesLegacyGameplayConfig.rankCardTemplate ?? '2DScratchbone{rank}.png',
+        rankCardTemplateFallbackSrc: scratchbonesGameConfig.assets?.cards?.rankTemplate?.fallbackSrc ?? scratchbonesLegacyGameplayConfig.rankCardTemplateFallback ?? '2DScratchbones{rank}.png',
+      },
+    };
+
+    const CHALLENGE_TIMER_SECS = SCRATCHBONES_GAME.timers.challengeTimerSecs;
 
     const MAO_AO_CULTURE = {
       id: "mao_ao",
@@ -1566,20 +1613,22 @@
       return tags.length ? tags.join(' · ') : 'Balanced';
     }
  // Used by: debug panel rendering and state dumps.
-    const AI_THINK_MS = 650; // Used by: AI turn pacing so mobile play stays readable.
-    const START_HAND_SIZE = 10; // Used by: dealing fresh hands at match start and after a clear.
-    const WILD_COUNT = 10; // Used by: deck construction and bluff validation. Increased so rounds have more wildcard pressure and more explosive truthful hands.
-    const PLAYER_NAMES = ['You']; // Used by: seat labels and logs. AI seats generate Mao-ao names at match start.
+    const AI_THINK_MS = SCRATCHBONES_GAME.timers.aiThinkMs; // Used by: AI turn pacing so mobile play stays readable.
+    const START_HAND_SIZE = SCRATCHBONES_GAME.deck.handSize; // Used by: dealing fresh hands at match start and after a clear.
+    const WILD_COUNT = SCRATCHBONES_GAME.deck.wildCount; // Used by: deck construction and bluff validation.
+    const RANK_COUNT = SCRATCHBONES_GAME.deck.rankCount;
+    const COPIES_PER_RANK = SCRATCHBONES_GAME.deck.copiesPerRank;
+    const PLAYER_NAMES = SCRATCHBONES_GAME.deck.humanNames; // Used by: seat labels and logs. AI seats generate Mao-ao names at match start.
 
     const CONFIG = {
-      startingChips: 12, // Used by: initial bankroll for every player.
-      challengeBaseTransfer: 1, // Used by: the minimum chip swing on a challenge fold or unresolved minimum stake.
-      concedeRoundChipLoss: 1, // Used by: cost to concede the active claim and open a new round.
-      maxRaiseAmount: 3, // Used by: the maximum automatic raise step available in the fixed +1/+2/+3 ladder.
-      maxRaisesPerPlayer: 3, // Used by: limiting each bettor to three raises per challenge duel.
-      clearBonusBase: 1, // Used by: chips taken from each opponent on a player's first clear.
-      clearBonusIncrement: 1, // Used by: added chips taken from each opponent on each later clear.
-      maxChallengeBet: 13, // Used by: safety cap for UI and AI betting loops. Sized to allow the full per-player +1/+2/+3 raise ladder for both sides in one duel.
+      startingChips: SCRATCHBONES_GAME.chips.startingChips,
+      challengeBaseTransfer: SCRATCHBONES_GAME.chips.challengeBaseTransfer,
+      concedeRoundChipLoss: SCRATCHBONES_GAME.chips.concedeRoundChipLoss,
+      maxRaiseAmount: SCRATCHBONES_GAME.chips.maxRaiseAmount,
+      maxRaisesPerPlayer: SCRATCHBONES_GAME.chips.maxRaisesPerPlayer,
+      clearBonusBase: SCRATCHBONES_GAME.chips.clearBonusBase,
+      clearBonusIncrement: SCRATCHBONES_GAME.chips.clearBonusIncrement,
+      maxChallengeBet: SCRATCHBONES_GAME.chips.maxChallengeBet,
     };
 
     const state = {
@@ -1593,7 +1642,7 @@
       betting: null,
       gameOver: false,
       winnerIndex: null,
-      banner: 'Open a round by selecting one or more cards, then declare a number.',
+      banner: SCRATCHBONES_GAME.uiText.initialBanner,
       logs: [],
       seed: Math.floor(Math.random() * 1e9),
       round: 1,
@@ -1637,8 +1686,8 @@
     function createDeck() {
       const deck = [];
       let id = 1;
-      for (let rank = 1; rank <= 10; rank++) {
-        for (let copy = 0; copy < 4; copy++) {
+      for (let rank = 1; rank <= RANK_COUNT; rank++) {
+        for (let copy = 0; copy < COPIES_PER_RANK; copy++) {
           deck.push({ id: id++, rank, wild: false });
         }
       }
@@ -1654,7 +1703,7 @@
     }
 
     function makePlayers() {
-      return Array.from({ length: 4 }, (_, index) => {
+      return Array.from({ length: SCRATCHBONES_GAME.deck.playerCount }, (_, index) => {
         if (index === 0) {
           return {
             id: index,
@@ -1797,7 +1846,7 @@
       for (const p of state.players) p.profile = generatePlayerProfile(p);
       state.leaderIndex = rngInt(0, state.players.length - 1);
       state.currentTurn = state.leaderIndex;
-      setBanner(state.currentTurn === 0 ? 'Your lead. Select cards and declare any number.' : `${seatLabel(state.currentTurn)} opens the round.`);
+      setBanner(state.currentTurn === 0 ? SCRATCHBONES_GAME.uiText.yourLeadBanner : `${seatLabel(state.currentTurn)} opens the round.`);
       addLog(`A new match begins. ${seatLabel(state.leaderIndex)} leads the first round.`);
       render();
       if (state.currentTurn !== 0) scheduleAiTurn();
@@ -1815,7 +1864,7 @@
       const cards = selectedCards();
       const declaredRank = Number(document.getElementById('declareRank').value);
       if (!cards.length) {
-        setBanner('Pick at least one card before playing.', 'warn');
+        setBanner(SCRATCHBONES_GAME.uiText.pickCardWarning, 'warn');
         render();
         return;
       }
@@ -2548,7 +2597,7 @@
       let bestRank = 1;
       let bestCount = -1;
       let bestNatural = -1;
-      for (let rank = 1; rank <= 10; rank++) {
+      for (let rank = 1; rank <= RANK_COUNT; rank++) {
         const natural = cardsOfRank(player, rank).length;
         const total = natural + allWilds;
         if (total > bestCount || (total === bestCount && natural > bestNatural)) {
@@ -2837,23 +2886,47 @@
       return card.wild ? 'Wild' : String(card.rank);
     }
 
+    function normalizedAssetPath(basePath, fileName) {
+      const safeBase = String(basePath || '').replace(/\/+$/, '');
+      const safeFile = String(fileName || '').replace(/^\/+/, '');
+      return `${safeBase}/${safeFile}`;
+    }
+
+    function rankAssetFromTemplate(template, rank) {
+      return String(template || '').replaceAll('{rank}', String(rank));
+    }
+
+    function formatChallengePrompt(lastPlay) {
+      return SCRATCHBONES_GAME.uiText.challengePromptTemplate
+        .replaceAll('{seat}', seatLabel(lastPlay.playerIndex))
+        .replaceAll('{count}', String(lastPlay.cards.length))
+        .replaceAll('{rank}', String(lastPlay.declaredRank));
+    }
+
+    function applyConfiguredUiText() {
+      const timerTitle = document.getElementById('challengeTimerTitle');
+      if (timerTitle) timerTitle.textContent = SCRATCHBONES_GAME.uiText.challengeTimerLabel;
+      const letStandBtn = document.getElementById('letPassBtnFixed');
+      if (letStandBtn) letStandBtn.textContent = SCRATCHBONES_GAME.uiText.letStandButton;
+    }
+
     function resolveScratchbone2DAsset(card, { flipped = false } = {}) {
-      const clampedRank = Math.max(1, Math.min(10, Number(card?.rank) || 1));
+      const clampedRank = Math.max(1, Math.min(RANK_COUNT, Number(card?.rank) || 1));
       if (card?.wild) {
         return {
-          src: './docs/assets/hud/2DScratchBoneWild.png',
-          fallbackSrc: './docs/assets/hud/2DScratchBoneWild.png',
+          src: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.wildCardSrc),
+          fallbackSrc: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.wildCardFallbackSrc),
         };
       }
       if (flipped) {
         return {
-          src: './docs/assets/hud/2DScratchboneFlipped.png',
-          fallbackSrc: './docs/assets/hud/2DScratchBoneFlipped.png',
+          src: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.flippedCardSrc),
+          fallbackSrc: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.flippedCardFallbackSrc),
         };
       }
       return {
-        src: `./docs/assets/hud/2DScratchbone${clampedRank}.png`,
-        fallbackSrc: `./docs/assets/hud/2DScratchbones${clampedRank}.png`,
+        src: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, rankAssetFromTemplate(SCRATCHBONES_GAME.assets.rankCardTemplateSrc, clampedRank)),
+        fallbackSrc: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, rankAssetFromTemplate(SCRATCHBONES_GAME.assets.rankCardTemplateFallbackSrc, clampedRank)),
       };
     }
 
@@ -2913,7 +2986,7 @@
       const lastPlay = cw.lastPlay;
       const info = document.getElementById('challengeBoxInfo');
       if (info) {
-        info.textContent = `${seatLabel(lastPlay.playerIndex)} declared ${lastPlay.cards.length} × ${lastPlay.declaredRank}. Challenge before the timer runs out, or let it stand.`;
+        info.textContent = formatChallengePrompt(lastPlay);
       }
       updateChallengeBoxTimer();
       document.getElementById('challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
@@ -2925,7 +2998,7 @@
       const player = state.players[0] || { hand: [], chips: 0, clears: 0 };
       const selected = selectedCards();
       const canHumanAct = !state.gameOver && state.currentTurn === 0 && !state.challengeWindow && !state.betting && !hasConcededThisRound(0);
-      const declareOptions = Array.from({ length: 10 }, (_, i) => i + 1)
+      const declareOptions = Array.from({ length: RANK_COUNT }, (_, i) => i + 1)
         .map(rank => `<option value="${rank}" ${state.declaredRank === rank ? 'selected' : ''}>${rank}</option>`)
         .join('');
       const backupHumanEligible = !!state.betting && eligibleBackupIds(state.betting.challengerId, state.betting.challengedId).includes(0) && !state.betting.backupQueue.includes(0);
@@ -3167,7 +3240,7 @@
     let _portraitCosmetics = null;
 
     if (window.setPortraitAssetBase && window.loadPortraitCosmetics) {
-      const scratchbonesPortraitConfig = window.SCRATCHBONES_CONFIG?.portrait || null;
+      const scratchbonesPortraitConfig = window.SCRATCHBONES_CONFIG?.game?.assets?.portrait || window.SCRATCHBONES_CONFIG?.portrait || null;
       if (scratchbonesPortraitConfig && window.setPortraitConfig) {
         setPortraitConfig(scratchbonesPortraitConfig);
       }
@@ -3653,6 +3726,7 @@
       setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
     });
 
+    applyConfiguredUiText();
     startGame();
 
   </script>
