@@ -53,6 +53,26 @@ let _portraitConfig = {
   ...(window.PORTRAIT_CONFIG || {})
 };
 
+function normalizePortraitLayerXform(layer) {
+  if (!layer || typeof layer !== 'object') return layer;
+  const next = { ...layer };
+  const xf = (layer.xform && typeof layer.xform === 'object') ? layer.xform : null;
+  if (next.ax == null) next.ax = xf?.ax ?? 0;
+  if (next.ay == null) next.ay = xf?.ay ?? 0;
+  if (next.sx == null) next.sx = xf?.sx ?? xf?.scaleX ?? xf?.scaleMulX ?? 1;
+  if (next.sy == null) next.sy = xf?.sy ?? xf?.scaleY ?? xf?.scaleMulY ?? 1;
+  return next;
+}
+
+function normalizedFighterPortrait(fighter) {
+  if (!fighter || typeof fighter !== 'object') return fighter;
+  if (!Array.isArray(fighter.bodyLayers)) return fighter;
+  return {
+    ...fighter,
+    bodyLayers: fighter.bodyLayers.map(normalizePortraitLayerXform),
+  };
+}
+
 function setPortraitConfig(overrides) {
   _portraitConfig = {
     ..._PORTRAIT_DEFAULTS,
@@ -63,7 +83,7 @@ function setPortraitConfig(overrides) {
   PORTRAIT_CH = _portraitConfig.canvas?.height ?? 200;
   PORTRAIT_L = _portraitConfig.canvas?.layerSize ?? 80;
   HEAD_XFORM = _portraitConfig.headXform || _PORTRAIT_DEFAULTS.headXform;
-  FIGHTERS = _portraitConfig.fighters || _PORTRAIT_DEFAULTS.fighters;
+  FIGHTERS = (_portraitConfig.fighters || _PORTRAIT_DEFAULTS.fighters).map(normalizedFighterPortrait);
   BODYCOLOR_LIMITS = _portraitConfig.bodyColorLimits || _PORTRAIT_DEFAULTS.bodyColorLimits;
 }
 
@@ -71,7 +91,7 @@ let PORTRAIT_CW = _portraitConfig.canvas?.width ?? 200;
 let PORTRAIT_CH = _portraitConfig.canvas?.height ?? 200;
 let PORTRAIT_L  = _portraitConfig.canvas?.layerSize ?? 80;
 let HEAD_XFORM = _portraitConfig.headXform || _PORTRAIT_DEFAULTS.headXform;
-let FIGHTERS = _portraitConfig.fighters || _PORTRAIT_DEFAULTS.fighters;
+let FIGHTERS = (_portraitConfig.fighters || _PORTRAIT_DEFAULTS.fighters).map(normalizedFighterPortrait);
 let BODYCOLOR_LIMITS = _portraitConfig.bodyColorLimits || _PORTRAIT_DEFAULTS.bodyColorLimits;
 
 // ── Image loading ──────────────────────────────────────────
@@ -151,6 +171,7 @@ function drawPortraitLayer(ctx, img, xform, cssFilter) {
 
 async function renderProfile(canvas, profile) {
   const { fighter, hair, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic, bodyColors } = profile;
+  const headXform = fighter?.headXform || HEAD_XFORM;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
 
@@ -212,24 +233,24 @@ async function renderProfile(canvas, profile) {
 
   for (const { layer, filter } of bodyBackLayers) {
     const img = imgMap.get(layer.url);
-    if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
+    if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
   }
   for (const { layer, filter } of backLayers) {
     const img = imgMap.get(layer.url);
-    if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
+    if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
   }
-  { const img = imgMap.get(fighter.headUrl); if (img) drawPortraitLayer(ctx, img, HEAD_XFORM, filterA); }
+  { const img = imgMap.get(fighter.headUrl); if (img) drawPortraitLayer(ctx, img, headXform, filterA); }
   for (const mid of (fighter.urLayers || [])) {
     const img = imgMap.get(mid.url);
-    if (img) drawPortraitLayer(ctx, img, mid.xform || HEAD_XFORM, 'none');
+    if (img) drawPortraitLayer(ctx, img, mid.xform || headXform, 'none');
   }
   for (const { layer, filter } of frontLayers) {
     const img = imgMap.get(layer.url);
-    if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
+    if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
   }
   for (const { layer, filter } of bodyFrontLayers) {
     const img = imgMap.get(layer.url);
-    if (img) drawPortraitLayer(ctx, img, composeXform(HEAD_XFORM, layer), filter);
+    if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
   }
 }
 
@@ -417,6 +438,7 @@ async function loadPortraitCosmetics(configBase) {
   const bodyColorRangesByGender = {};
   const allowedCosmeticsByFighter = {};
   const cosmeticWeightsByFighter = {};
+  const fighterPortraitOverrides = {};
   try {
     const speciesIdxUrl = new URL(configBase + 'species/index.json', window.location.href).toString();
     const speciesIdxResp = await fetch(speciesIdxUrl);
@@ -432,6 +454,13 @@ async function loadPortraitCosmetics(configBase) {
           const fighter = FIGHTERS.find(f => genderData.headSprite && f.headUrl === genderData.headSprite);
           if (fighter) {
             bodyColorRangesByGender[fighter.id] = genderData.bodyColorRanges;
+            fighterPortraitOverrides[fighter.id] = {
+              ...(fighterPortraitOverrides[fighter.id] || {}),
+              ...(genderData.headXform ? { headXform: genderData.headXform } : {}),
+              ...(Array.isArray(genderData.portraitBodyLayers) ? {
+                bodyLayers: genderData.portraitBodyLayers.map(normalizePortraitLayerXform)
+              } : {})
+            };
             if (genderData.allowedCosmetics) {
               allowedCosmeticsByFighter[fighter.id] = {
                 set: new Set(
@@ -452,6 +481,18 @@ async function loadPortraitCosmetics(configBase) {
     }
   } catch (e) {
     console.warn('[portrait] Could not load species data', e);
+  }
+
+  if (Object.keys(fighterPortraitOverrides).length) {
+    FIGHTERS = FIGHTERS.map(fighter => {
+      const override = fighterPortraitOverrides[fighter.id];
+      if (!override) return fighter;
+      return normalizedFighterPortrait({
+        ...fighter,
+        ...(override.headXform ? { headXform: override.headXform } : {}),
+        ...(override.bodyLayers ? { bodyLayers: override.bodyLayers } : {})
+      });
+    });
   }
 
   return { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, torsoPortraitOptions, armPortraitOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter };
