@@ -64,12 +64,19 @@ function normalizePortraitLayerXform(layer) {
   return next;
 }
 
+function normalizePortraitMaskLayer(maskLayer) {
+  if (!maskLayer || typeof maskLayer !== 'object') return null;
+  return normalizePortraitLayerXform(maskLayer);
+}
+
 function normalizedFighterPortrait(fighter) {
   if (!fighter || typeof fighter !== 'object') return fighter;
-  if (!Array.isArray(fighter.bodyLayers)) return fighter;
   return {
     ...fighter,
-    bodyLayers: fighter.bodyLayers.map(normalizePortraitLayerXform),
+    bodyLayers: Array.isArray(fighter.bodyLayers)
+      ? fighter.bodyLayers.map(normalizePortraitLayerXform)
+      : fighter.bodyLayers,
+    opacityMaskLayer: normalizePortraitMaskLayer(fighter.opacityMaskLayer),
   };
 }
 
@@ -167,11 +174,24 @@ function drawPortraitLayer(ctx, img, xform, cssFilter) {
   ctx.restore();
 }
 
+function applyPortraitOpacityMask(ctx, img, xform) {
+  const { ax, ay, sx, sy } = xform;
+  const h  = PORTRAIT_L * sy;
+  const w  = (img.naturalWidth / img.naturalHeight) * PORTRAIT_L * sx;
+  const cx = PORTRAIT_CW / 2 + ay * PORTRAIT_L;
+  const cy = PORTRAIT_CH / 2 - ax * PORTRAIT_L;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+  ctx.restore();
+}
+
 // ── Rendering ──────────────────────────────────────────────
 
 async function renderProfile(canvas, profile) {
   const { fighter, hair, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic, bodyColors } = profile;
   const headXform = fighter?.headXform || HEAD_XFORM;
+  const opacityMaskLayer = fighter?.opacityMaskLayer || null;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
 
@@ -214,6 +234,7 @@ async function renderProfile(canvas, profile) {
     ...backLayers.map(({ layer }) => layer.url),
     ...frontLayers.map(({ layer }) => layer.url),
     ...bodyFrontLayers.map(({ layer }) => layer.url),
+    ...(opacityMaskLayer?.url ? [opacityMaskLayer.url] : []),
   ]);
 
   let imgMap;
@@ -251,6 +272,10 @@ async function renderProfile(canvas, profile) {
   for (const { layer, filter } of bodyFrontLayers) {
     const img = imgMap.get(layer.url);
     if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
+  }
+  if (opacityMaskLayer?.url) {
+    const maskImg = imgMap.get(opacityMaskLayer.url);
+    if (maskImg) applyPortraitOpacityMask(ctx, maskImg, composeXform(headXform, opacityMaskLayer));
   }
 }
 
@@ -459,6 +484,9 @@ async function loadPortraitCosmetics(configBase) {
               ...(genderData.headXform ? { headXform: genderData.headXform } : {}),
               ...(Array.isArray(genderData.portraitBodyLayers) ? {
                 bodyLayers: genderData.portraitBodyLayers.map(normalizePortraitLayerXform)
+              } : {}),
+              ...(genderData.portraitOpacityMaskLayer ? {
+                opacityMaskLayer: normalizePortraitMaskLayer(genderData.portraitOpacityMaskLayer)
               } : {})
             };
             if (genderData.allowedCosmetics) {
