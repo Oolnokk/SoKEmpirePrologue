@@ -1083,6 +1083,41 @@ details.diag-details[open] > summary::after { content: '▼'; }
       </div>
     </div>
 
+    <!-- Portrait opacity mask placer -->
+    <div class="cos-section">
+      <h2>Portrait Opacity Mask Placer</h2>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+        Adjust the species portrait opacity mask transform used in final destination-out compositing.
+      </div>
+      <label>Mask Sprite URL</label>
+      <input type="text" id="spe-mask-url" readonly>
+      <div class="cos-slider-row">
+        <label>ax</label>
+        <input type="range" id="spe-mask-ax" min="-5" max="5" step="0.01" value="0">
+        <input type="number" id="spe-mask-ax-n" min="-5" max="5" step="0.01" value="0">
+      </div>
+      <div class="cos-slider-row">
+        <label>ay</label>
+        <input type="range" id="spe-mask-ay" min="-5" max="5" step="0.01" value="0">
+        <input type="number" id="spe-mask-ay-n" min="-5" max="5" step="0.01" value="0">
+      </div>
+      <div class="cos-slider-row">
+        <label>scaleX</label>
+        <input type="range" id="spe-mask-sx" min="0.1" max="10" step="0.01" value="1">
+        <input type="number" id="spe-mask-sx-n" min="0.1" max="10" step="0.01" value="1">
+      </div>
+      <div class="cos-slider-row">
+        <label>scaleY</label>
+        <input type="range" id="spe-mask-sy" min="0.1" max="10" step="0.01" value="1">
+        <input type="number" id="spe-mask-sy-n" min="0.1" max="10" step="0.01" value="1">
+      </div>
+      <div class="cos-slider-row">
+        <label>rotDeg</label>
+        <input type="range" id="spe-mask-rot" min="-180" max="180" step="1" value="0">
+        <input type="number" id="spe-mask-rot-n" min="-180" max="180" step="1" value="0">
+      </div>
+    </div>
+
     <!-- Export -->
     <div class="cos-section">
       <h2>Export</h2>
@@ -2855,6 +2890,11 @@ function speGetCurrentPortraitLayer() {
   return layers[speSelectedBodyLayerIndex] || null;
 }
 
+function speGetCurrentOpacityMaskLayer() {
+  const gender = document.getElementById('spe-gender').value;
+  return speWorkingOpacityMaskLayer[gender] || null;
+}
+
 function speNormalizePortraitBodyLayers(gData) {
   const fallback = (FIGHTERS.find(f => f.headUrl === gData?.headSprite) || {}).bodyLayers || [];
   const src = Array.isArray(gData?.portraitBodyLayers) && gData.portraitBodyLayers.length
@@ -2934,6 +2974,34 @@ function speSetBodyLayerField(field, value) {
   speRenderHeadPreview();
 }
 
+function speWriteOpacityMaskXformControls() {
+  const layer = speGetCurrentOpacityMaskLayer();
+  document.getElementById('spe-mask-url').value = layer ? (layer.url || '') : '';
+  const disabled = !layer;
+  const fields = [
+    ['ax', 'spe-mask-ax', 'spe-mask-ax-n'],
+    ['ay', 'spe-mask-ay', 'spe-mask-ay-n'],
+    ['scaleX', 'spe-mask-sx', 'spe-mask-sx-n'],
+    ['scaleY', 'spe-mask-sy', 'spe-mask-sy-n'],
+    ['rotDeg', 'spe-mask-rot', 'spe-mask-rot-n'],
+  ];
+  for (const [key, sliderId, numId] of fields) {
+    const val = Number(layer?.xform?.[key] ?? (key.includes('scale') ? 1 : 0));
+    document.getElementById(sliderId).value = val;
+    document.getElementById(numId).value = val;
+    document.getElementById(sliderId).disabled = disabled;
+    document.getElementById(numId).disabled = disabled;
+  }
+}
+
+function speSetOpacityMaskField(field, value) {
+  const layer = speGetCurrentOpacityMaskLayer();
+  if (!layer) return;
+  layer.xform[field] = value;
+  speWriteOpacityMaskXformControls();
+  speRenderHeadPreview();
+}
+
 async function speLoadPortraitLayerImagesForGender(gender) {
   const layers = speWorkingPortraitLayers[gender] || [];
   spePortraitLayerImages[gender] = new Array(layers.length).fill(null);
@@ -3001,6 +3069,7 @@ function speLoadIntoEditor(json) {
     .finally(() => speRenderHeadPreview());
   speRefreshEditorUI();
   speUpdateBodyLayerControls();
+  speWriteOpacityMaskXformControls();
 }
 
 function speRefreshEditorUI() {
@@ -3330,6 +3399,7 @@ document.getElementById('spe-gender').addEventListener('change',  () => {
   speSelectedBodyLayerIndex = 0;
   speRefreshEditorUI();
   speUpdateBodyLayerControls();
+  speWriteOpacityMaskXformControls();
   speRenderHeadPreview();
   // Sync gender to Cosmetic Placer
   if (!_speciesSyncInProgress) {
@@ -3372,6 +3442,28 @@ for (const [key, sliderId, numberId] of SPE_BODY_FIELDS) {
     if (!Number.isFinite(v)) return;
     document.getElementById(sliderId).value = v;
     speSetBodyLayerField(key, v);
+  });
+}
+
+const SPE_MASK_FIELDS = [
+  ['ax', 'spe-mask-ax', 'spe-mask-ax-n'],
+  ['ay', 'spe-mask-ay', 'spe-mask-ay-n'],
+  ['scaleX', 'spe-mask-sx', 'spe-mask-sx-n'],
+  ['scaleY', 'spe-mask-sy', 'spe-mask-sy-n'],
+  ['rotDeg', 'spe-mask-rot', 'spe-mask-rot-n'],
+];
+for (const [key, sliderId, numberId] of SPE_MASK_FIELDS) {
+  document.getElementById(sliderId).addEventListener('input', () => {
+    const v = parseFloat(document.getElementById(sliderId).value);
+    if (!Number.isFinite(v)) return;
+    document.getElementById(numberId).value = v;
+    speSetOpacityMaskField(key, v);
+  });
+  document.getElementById(numberId).addEventListener('input', () => {
+    const v = parseFloat(document.getElementById(numberId).value);
+    if (!Number.isFinite(v)) return;
+    document.getElementById(sliderId).value = v;
+    speSetOpacityMaskField(key, v);
   });
 }
 
