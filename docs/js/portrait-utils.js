@@ -518,7 +518,8 @@ async function loadPortraitCosmetics(configBase) {
       return normalizedFighterPortrait({
         ...fighter,
         ...(override.headXform ? { headXform: override.headXform } : {}),
-        ...(override.bodyLayers ? { bodyLayers: override.bodyLayers } : {})
+        ...(override.bodyLayers ? { bodyLayers: override.bodyLayers } : {}),
+        ...(override.opacityMaskLayer ? { opacityMaskLayer: override.opacityMaskLayer } : {})
       });
     });
   }
