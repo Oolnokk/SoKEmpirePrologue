@@ -201,21 +201,84 @@
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
     .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 8px; }
 
-    .centerInfo {
-      display: grid;
-      gap: 8px;
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .bigInfo {
+    .actionFocus {
       background: rgba(255,255,255,0.04);
       border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
       padding: 10px;
+      display: grid;
+      gap: 8px;
     }
-
-    .bigLabel { font-size: 0.76rem; color: var(--muted); }
-    .bigValue { font-size: 1.1rem; font-weight: 800; margin-top: 4px; }
-    .smallText { font-size: 0.85rem; color: var(--muted); }
+    .actionFocusHeader {
+      font-size: 0.72rem;
+      color: var(--accent-2);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .actionFocusMain {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr) 72px;
+      align-items: center;
+      gap: 8px;
+    }
+    .focusAvatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.04);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      text-align: center;
+      padding: 0 4px;
+    }
+    .focusAvatar canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: block;
+    }
+    .focusTextWrap {
+      text-align: center;
+      min-width: 0;
+    }
+    .focusActionText {
+      font-size: 1.16rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+    .focusSubtext {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .focusMiniCards {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .focusMiniCard {
+      width: 28px;
+      height: 40px;
+      border-radius: 7px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.06);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.25);
+    }
+    .focusMiniCard img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
 
     .controls {
       grid-area: controls;
@@ -318,9 +381,10 @@
       padding: 8px 12px;
       display: grid;
       gap: 6px;
-      max-height: 96px;
+      max-height: 78px;
       min-height: 0;
       overflow-y: auto;
+      opacity: 0.84;
     }
 
     .logItem {
@@ -330,17 +394,6 @@
       font-size: 0.84rem;
       color: var(--text);
     }
-
-    .banner {
-      padding: 10px 12px;
-      border-radius: 14px;
-      font-size: 0.9rem;
-      background: rgba(200, 153, 82, 0.12);
-      border: 1px solid rgba(200, 153, 82, 0.25);
-    }
-
-    .banner.warn { background: rgba(200,90,90,0.14); border-color: rgba(200,90,90,0.3); }
-    .banner.good { background: rgba(102,177,124,0.14); border-color: rgba(102,177,124,0.3); }
 
     .challengeBar {
       display: flex;
@@ -1625,7 +1678,6 @@
       gameOver: false,
       winnerIndex: null,
       banner: 'Open a round by selecting one or more cards, then declare a number.',
-      bannerType: 'normal',
       logs: [],
       seed: Math.floor(Math.random() * 1e9),
       round: 1,
@@ -1793,9 +1845,8 @@
       return `Seat ${seatNumber} · ${player.name}`;
     }
 
-    function setBanner(text, type = 'normal') {
+    function setBanner(text) {
       state.banner = text;
-      state.bannerType = type;
     }
 
     function dealFreshHands() {
@@ -2961,12 +3012,49 @@
       const declareOptions = Array.from({ length: 10 }, (_, i) => i + 1)
         .map(rank => `<option value="${rank}" ${state.declaredRank === rank ? 'selected' : ''}>${rank}</option>`)
         .join('');
-      const bannerClass = state.bannerType === 'warn' ? 'warn' : state.bannerType === 'good' ? 'good' : '';
       const backupHumanEligible = !!state.betting && eligibleBackupIds(state.betting.challengerId, state.betting.challengedId).includes(0) && !state.betting.backupQueue.includes(0);
       const bettingActorHuman = !!state.betting && state.betting.currentActorId === 0;
       const humanCallAmount = state.betting ? amountToCall(0) : 0;
       const humanRaiseAmount = state.betting && bettingActorHuman ? nextRaiseAmountForPlayer(0) : 0;
       const humanCanRaise = humanRaiseAmount > 0;
+      const latestPilePlay = state.pile.at(-1) || null;
+      const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || latestPilePlay;
+      const actionFocus = (() => {
+        if (!latestPlay) {
+          return {
+            actorId: state.currentTurn,
+            reactorId: null,
+            actionVerb: 'is opening the round',
+            declaredRank: state.declaredRank,
+            cardCount: 0,
+            cards: [],
+            subtext: 'Select cards and declare a number to begin the next claim.'
+          };
+        }
+        const actorId = state.betting ? state.betting.currentActorId : latestPlay.playerIndex;
+        let reactorId = null;
+        if (state.betting) reactorId = actorId === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
+        else if (state.challengeWindow) reactorId = latestPlay.playerIndex === 0 ? (state.challengeWindow.challengerOptions.find(id => id !== 0) ?? null) : 0;
+        const actionVerb = state.betting ? 'is betting the challenge' : (state.challengeWindow ? 'declared' : 'played');
+        const declaredRank = latestPlay.declaredRank ?? state.declaredRank;
+        const cardCount = latestPlay.cards?.length || 0;
+        const cards = latestPlay.cards || [];
+        const subtext = state.betting
+          ? `Stake ${state.betting.stake} · ${seatLabel(state.betting.currentActorId)} to act`
+          : (state.challengeWindow ? 'Challenge window is open.' : `Latest claim from ${seatLabel(latestPlay.playerIndex)}.`);
+        return { actorId, reactorId, actionVerb, declaredRank, cardCount, cards, subtext };
+      })();
+      const focusActor = state.players[actionFocus.actorId];
+      const focusReactor = actionFocus.reactorId !== null ? state.players[actionFocus.reactorId] : null;
+      const focusCardsHtml = actionFocus.cards.length
+        ? actionFocus.cards.map(card => {
+            const art = resolveScratchbone2DAsset(card);
+            return `<div class="focusMiniCard"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`}"></div>`;
+          }).join('')
+        : '<div class="tiny">No cards in focus.</div>';
+      const focusRankText = actionFocus.declaredRank === null || actionFocus.declaredRank === undefined ? 'open claim' : actionFocus.declaredRank;
+      const focusActionText = `${seatLabel(focusActor || actionFocus.actorId)} ${actionFocus.actionVerb} ${actionFocus.cardCount} × ${focusRankText}`;
+      const recentLogs = state.logs.slice(0, 4);
 
       app.innerHTML = `
         <div class="topbar" data-proj-id="topbar">
@@ -3010,26 +3098,25 @@
         </div>
 
         <div class="panel" data-proj-id="panel">
-          <div class="centerInfo">
-            <div class="bigInfo">
-              <div class="bigLabel">Current claim</div>
-              <div class="bigValue">${state.declaredRank === null ? 'Open round' : state.declaredRank}</div>
-              <div class="smallText">A challenge ends the round. If everyone else concedes first, the declarer wins it uncontested.</div>
+          <div class="actionFocus">
+            <div class="actionFocusHeader">Action Focus</div>
+            <div class="actionFocusMain">
+              <div class="focusAvatar" title="${seatLabel(focusActor || actionFocus.actorId)}">
+                <canvas class="seatPortrait" data-seat-id="${actionFocus.actorId}" width="72" height="72"></canvas>
+              </div>
+              <div class="focusTextWrap">
+                <div class="focusActionText">${focusActionText}</div>
+                <div class="focusSubtext">${actionFocus.subtext}</div>
+              </div>
+              <div class="focusAvatar" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
+                ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="72" height="72"></canvas>` : '—'}
+              </div>
             </div>
-            <div class="bigInfo">
-              <div class="bigLabel">Your standing</div>
-              <div class="bigValue">${player.hand.length} cards · ${player.chips} chips</div>
-              <div class="smallText">Clear reward starts at ${CONFIG.clearBonusBase} and grows by ${CONFIG.clearBonusIncrement} each clear.</div>
-            </div>
+            <div class="focusMiniCards">${focusCardsHtml}</div>
           </div>
-          <div class="banner ${bannerClass}">${state.banner || ''}</div>
-          ${state.challengeWindow && state.challengeWindow.lastPlay.playerIndex === 0 ? `
-            <div class="tiny" style="padding:6px 2px;">Opponents are considering whether to challenge your play…</div>
-          ` : ''}
           ${state.betting ? `
             <div>
               <div class="sectionTitle">Challenge betting</div>
-              <div class="tiny">Challenger: ${seatLabel(state.betting.challengerId)} · Challenged: ${seatLabel(state.betting.challengedId)} · Current stake: ${state.betting.stake}</div>
               <div class="tiny" style="margin-top:6px;">Contributions — ${seatLabel(state.betting.challengerId)}: ${getContribution(state.betting.challengerId)} (${getRaiseCount(state.betting.challengerId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengerId) || 0}) · ${seatLabel(state.betting.challengedId)}: ${getContribution(state.betting.challengedId)} (${getRaiseCount(state.betting.challengedId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengedId) || 0}) · Backup queue: ${state.betting.backupQueue.map(id => seatLabel(id)).join(', ') || 'none'}</div>
               <div class="challengeBar" style="margin-top:8px;">
                 ${bettingActorHuman ? `
@@ -3067,7 +3154,7 @@
 
         <div class="eventLog" data-proj-id="log">
           <div class="sectionTitle">Recent events</div>
-          ${state.logs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
+          ${recentLogs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
         </div>
 
         <div class="controls" data-proj-id="controls">
@@ -3194,7 +3281,7 @@
     function renderSeatPortraits() {
       const root = document.getElementById('app');
       if (!root) return;
-      for (const p of state.players.slice(1)) {
+      for (const p of state.players) {
         if (!p.profile) continue;
         const canvas = root.querySelector(`canvas[data-seat-id="${p.id}"]`);
         if (canvas && window.renderProfile) renderProfile(canvas, p.profile);
