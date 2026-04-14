@@ -1497,6 +1497,7 @@ function getBuilderProfile() {
   const gData     = bGetCurrentSpeciesData();
   const speciesId = document.getElementById('b-species') ? document.getElementById('b-species').value : '';
   const gender    = document.getElementById('b-gender')  ? document.getElementById('b-gender').value  : 'male';
+  const fallbackFighter = FIGHTERS.find(f => f.headUrl === gData?.headSprite) || FIGHTERS[0];
   const fighter = gData
     ? {
         id:       speciesId + '-' + gender,
@@ -1505,8 +1506,15 @@ function getBuilderProfile() {
                     : speciesId) + ' (' + gender + ')',
         headUrl:  gData.headSprite,
         urLayers: gData.headUrLayers || [],
+        headXform: gData.headXform || fallbackFighter?.headXform || HEAD_XFORM,
+        bodyLayers: Array.isArray(gData.portraitBodyLayers) && gData.portraitBodyLayers.length
+          ? gData.portraitBodyLayers.map(normalizePortraitLayerXform)
+          : (fallbackFighter?.bodyLayers || []),
+        opacityMaskLayer: gData.portraitOpacityMaskLayer
+          ? normalizePortraitMaskLayer(gData.portraitOpacityMaskLayer)
+          : (fallbackFighter?.opacityMaskLayer ? normalizePortraitMaskLayer(fallbackFighter.opacityMaskLayer) : null),
       }
-    : FIGHTERS[0];
+    : fallbackFighter;
   const hair       = HAIR_OPTIONS.find(o => o.id === document.getElementById('b-hair').value) ?? HAIR_OPTIONS[0];
   const eyes       = EYES_OPTIONS.find(o => o.id === document.getElementById('b-eyes').value) ?? EYES_OPTIONS[0];
   const facialHair = FACIAL_HAIR_OPTIONS.find(o => o.id === document.getElementById('b-facial').value) ?? FACIAL_HAIR_OPTIONS[0];
@@ -1524,9 +1532,26 @@ async function renderBuilderPreview() {
 
 function buildRenderChain(profile) {
   const { fighter, hair, eyes, facialHair, bodyColors } = profile;
+  const headXform = fighter?.headXform || HEAD_XFORM;
   const filterFor = (slot) => slot ? makeCSSFilter(bodyColors[slot]) : 'none';
+  const bodyLayers = fighter?.bodyLayers || [];
   const cosGroups = [{ group: hair, category: 'Hair' }, { group: eyes, category: 'Eyes' }, { group: facialHair, category: 'Facial Hair' }];
-  const backEntries = [], frontEntries = [];
+  const backEntries = [], frontEntries = [], bodyBackEntries = [], bodyFrontEntries = [];
+
+  for (let i = 0; i < bodyLayers.length; i++) {
+    const layer = bodyLayers[i];
+    const entry = {
+      category:    `Body Layer ${i + 1} (${layer.pos === 'front' ? 'front' : 'back'})`,
+      optionId:    layer.id || `bodyLayer${i + 1}`,
+      optionLabel: layer.id || `Body Layer ${i + 1}`,
+      tintSlot:    layer.tintSlot || 'A',
+      filter:      filterFor(layer.tintSlot || 'A'),
+      relPath:     layer.url,
+      resolvedUrl: ASSET_BASE + layer.url,
+      transform:   composeXform(headXform, layer),
+    };
+    (layer.pos === 'front' ? bodyFrontEntries : bodyBackEntries).push(entry);
+  }
 
   for (const { group, category } of cosGroups) {
     if (!group || !group.layers.length) continue;
@@ -1541,18 +1566,30 @@ function buildRenderChain(profile) {
         filter:      filterFor(group.tintSlot),
         relPath:     layer.url,
         resolvedUrl: ASSET_BASE + layer.url,
-        transform:   composeXform(HEAD_XFORM, layer),
+        transform:   composeXform(headXform, layer),
       };
       (layer.pos === 'back' ? backEntries : frontEntries).push(entry);
     }
   }
 
-  const chain = [...backEntries];
-  chain.push({ category: 'Head Base', optionId: fighter.id, optionLabel: fighter.label, tintSlot: 'A', filter: filterFor('A'), relPath: fighter.headUrl, resolvedUrl: ASSET_BASE + fighter.headUrl, transform: { ...HEAD_XFORM } });
+  const chain = [...bodyBackEntries, ...backEntries];
+  chain.push({ category: 'Head Base', optionId: fighter.id, optionLabel: fighter.label, tintSlot: 'A', filter: filterFor('A'), relPath: fighter.headUrl, resolvedUrl: ASSET_BASE + fighter.headUrl, transform: { ...headXform } });
   for (const mid of (fighter.urLayers || [])) {
-    chain.push({ category: 'Head Overlay (untinted)', optionId: fighter.id, optionLabel: fighter.label, tintSlot: null, filter: 'none', relPath: mid.url, resolvedUrl: ASSET_BASE + mid.url, transform: { ...(mid.xform || HEAD_XFORM) } });
+    chain.push({ category: 'Head Overlay (untinted)', optionId: fighter.id, optionLabel: fighter.label, tintSlot: null, filter: 'none', relPath: mid.url, resolvedUrl: ASSET_BASE + mid.url, transform: { ...(mid.xform || headXform) } });
   }
-  chain.push(...frontEntries);
+  chain.push(...frontEntries, ...bodyFrontEntries);
+  if (fighter.opacityMaskLayer?.url) {
+    chain.push({
+      category: 'Opacity Mask (destination-out)',
+      optionId: fighter.opacityMaskLayer.id || 'opacityMask',
+      optionLabel: 'Opacity Mask',
+      tintSlot: null,
+      filter: 'none',
+      relPath: fighter.opacityMaskLayer.url,
+      resolvedUrl: ASSET_BASE + fighter.opacityMaskLayer.url,
+      transform: composeXform(headXform, fighter.opacityMaskLayer),
+    });
+  }
   return chain;
 }
 
@@ -2785,7 +2822,9 @@ let speActiveSlot     = 'A';
 let speSelectedStop   = -1;     // index into current slot's stops array
 let speWorkingRanges  = {};     // { male: { A:{...}, B:{...}, C:{...} }, female: {...} }
 let speWorkingPortraitLayers = {}; // { male:[{id,url,tintSlot,pos,xform}], female:[...] }
+let speWorkingOpacityMaskLayer = {}; // { male:{id,url,xform}|null, female:{...}|null }
 let spePortraitLayerImages = {};   // { male:[img|null], female:[...] }
+let speOpacityMaskImages = {};      // { male:img|null, female:img|null }
 let speSelectedBodyLayerIndex = 0;
 let speLoadedJson     = null;   // original (unmodified) species JSON for the current species
 
@@ -2834,6 +2873,23 @@ function speNormalizePortraitBodyLayers(gData) {
       rotDeg: Number(layer.xform?.rotDeg ?? layer.rotDeg ?? 0),
     },
   }));
+}
+
+function speNormalizePortraitOpacityMaskLayer(gData) {
+  const fallback = (FIGHTERS.find(f => f.headUrl === gData?.headSprite) || {}).opacityMaskLayer || null;
+  const src = gData?.portraitOpacityMaskLayer || fallback;
+  if (!src) return null;
+  return {
+    id: src.id || 'opacityMask',
+    url: String(src.url || '').trim(),
+    xform: {
+      ax: Number(src.xform?.ax ?? src.ax ?? 0),
+      ay: Number(src.xform?.ay ?? src.ay ?? 0),
+      scaleX: Number(src.xform?.scaleX ?? src.xform?.sx ?? src.scaleX ?? src.sx ?? 1),
+      scaleY: Number(src.xform?.scaleY ?? src.xform?.sy ?? src.scaleY ?? src.sy ?? 1),
+      rotDeg: Number(src.xform?.rotDeg ?? src.rotDeg ?? 0),
+    },
+  };
 }
 
 function speWriteBodyLayerXformControls() {
@@ -2895,6 +2951,20 @@ async function speLoadPortraitLayerImagesForGender(gender) {
       console.warn('[spe] portrait body layer load failed:', url, e);
     }
   }));
+  speOpacityMaskImages[gender] = null;
+  const maskLayer = speWorkingOpacityMaskLayer[gender];
+  const maskUrl = String(maskLayer?.url || '').trim();
+  if (!maskUrl) return;
+  try {
+    if (maskUrl.startsWith('http://') || maskUrl.startsWith('https://')) {
+      speOpacityMaskImages[gender] = await cosLoadImageAbsolute(maskUrl);
+    } else {
+      const relPath = maskUrl.startsWith('./assets/') ? maskUrl.slice('./assets/'.length) : maskUrl;
+      speOpacityMaskImages[gender] = await cosLoadImage(relPath);
+    }
+  } catch (e) {
+    console.warn('[spe] portrait opacity mask load failed:', maskUrl, e);
+  }
 }
 
 // ── Loading species into editor ────────────────────────────
@@ -2903,7 +2973,9 @@ function speLoadIntoEditor(json) {
   speLoadedJson    = json;
   speWorkingRanges = {};
   speWorkingPortraitLayers = {};
+  speWorkingOpacityMaskLayer = {};
   spePortraitLayerImages = {};
+  speOpacityMaskImages = {};
   const defaultRange = (minH, maxH) => ({
     minH, maxH, subdivisions: 2,
     stops: [
@@ -2915,6 +2987,7 @@ function speLoadIntoEditor(json) {
     speWorkingRanges[gender] = {};
     const gData = json[gender];
     speWorkingPortraitLayers[gender] = speNormalizePortraitBodyLayers(gData);
+    speWorkingOpacityMaskLayer[gender] = speNormalizePortraitOpacityMaskLayer(gData);
     for (const slot of ['A', 'B', 'C']) {
       const src = gData && gData.bodyColorRanges && gData.bodyColorRanges[slot];
       speWorkingRanges[gender][slot] = src
@@ -3102,6 +3175,22 @@ function speBuildExportJson() {
         rotDeg: cosRound4(layer.xform.rotDeg || 0),
       },
     }));
+    const opacityMaskLayer = speWorkingOpacityMaskLayer[gender];
+    if (opacityMaskLayer && opacityMaskLayer.url) {
+      result[gender].portraitOpacityMaskLayer = {
+        id: opacityMaskLayer.id || 'opacityMask',
+        url: opacityMaskLayer.url,
+        xform: {
+          ax: cosRound4(opacityMaskLayer.xform?.ax ?? 0),
+          ay: cosRound4(opacityMaskLayer.xform?.ay ?? 0),
+          scaleX: cosRound4(opacityMaskLayer.xform?.scaleX ?? 1),
+          scaleY: cosRound4(opacityMaskLayer.xform?.scaleY ?? 1),
+          rotDeg: cosRound4(opacityMaskLayer.xform?.rotDeg ?? 0),
+        },
+      };
+    } else {
+      delete result[gender].portraitOpacityMaskLayer;
+    }
   }
   return JSON.stringify(result, null, 2);
 }
@@ -3201,6 +3290,22 @@ async function speRenderHeadPreview() {
     }
   }
   drawPortraitLayersAtPos('front');
+
+  const maskLayer = speWorkingOpacityMaskLayer[gender];
+  const maskImg = speOpacityMaskImages[gender];
+  if (maskLayer && maskImg) {
+    const x = maskLayer.xform || {};
+    const d = composeXform(xf, {
+      ax: Number(x.ax ?? 0),
+      ay: Number(x.ay ?? 0),
+      sx: Number(x.scaleX ?? 1),
+      sy: Number(x.scaleY ?? 1),
+    });
+    speCtx.save();
+    speCtx.globalCompositeOperation = 'destination-out';
+    drawLayerFn(maskImg, d.ax, d.ay, d.sx, d.sy, 'none', Number(x.rotDeg ?? 0));
+    speCtx.restore();
+  }
 }
 
 function speOnSpeciesOrGenderChanged() {
