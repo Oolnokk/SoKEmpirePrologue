@@ -170,12 +170,13 @@
       background: var(--panel-soft);
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 14px;
-      padding: 10px;
+      padding: 9px;
       min-width: 0;
       display: flex;
       flex-direction: row;
       align-items: flex-start;
       gap: 8px;
+      opacity: 0.88;
     }
 
     .seatInfo {
@@ -186,11 +187,45 @@
     }
 
     .seatAvatarBox {
-      width: 192px;
-      height: 192px;
+      width: 132px;
+      height: 132px;
       flex-shrink: 0;
       overflow: hidden;
       border-radius: 8px;
+    }
+    .humanSeatCard {
+      margin-top: 8px;
+      background: linear-gradient(170deg, rgba(67,49,43,0.95), rgba(50,37,33,0.98));
+      border: 1px solid rgba(242,208,143,0.28);
+      border-radius: 16px;
+      padding: 12px;
+      min-width: 0;
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      overflow: visible;
+      z-index: 3;
+    }
+    .humanSeatCard .seatAvatarBox {
+      width: 204px;
+      height: 204px;
+      border-radius: 12px;
+      border: 1px solid rgba(242,208,143,0.32);
+    }
+    .humanSeatChipBadge {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      border-radius: 999px;
+      background: rgba(21,17,15,0.94);
+      color: var(--accent-2);
+      border: 1px solid rgba(242,208,143,0.35);
+      font-size: 0.8rem;
+      padding: 6px 10px;
+      font-weight: 700;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.35);
+      pointer-events: none;
     }
 
     .seatName { font-weight: 700; font-size: 0.92rem; }
@@ -1111,11 +1146,6 @@
       pointer-events: none !important;
     }
 
-    /* Human player row in sidebar (same as aiSeat) */
-    .humanSeat {
-      border-top: 1px solid rgba(200,153,82,0.22);
-      margin-top: 4px;
-    }
   </style>
 </head>
 <body>
@@ -2951,15 +2981,6 @@
               </div>
             </div>
           `).join('')}
-          <div class="aiSeat humanSeat" data-proj-id="humaninfo">
-            <div class="seatInfo">
-              <div class="seatName">${seatLabel(player)}</div>
-              <div class="seatMeta">Cards ${player.hand.length} · Chips ${player.chips}</div>
-            </div>
-            <div class="seatAvatarBox" data-proj-id="avatar-human">
-              <canvas class="seatPortrait" data-seat-id="0" width="200" height="200"></canvas>
-            </div>
-          </div>
         </div>
 
         <div class="panel" data-proj-id="panel">
@@ -3014,6 +3035,17 @@
               </button>
             `;
             }).join('')}
+          </div>
+          <div class="humanSeatCard ${player.eliminated ? 'eliminated' : ''}" data-proj-id="human-seat">
+            <div class="seatInfo">
+              <div class="seatName">${seatLabel(player)}</div>
+              <div class="seatMeta">Cards ${player.hand.length} · Clears ${player.clears}</div>
+              <div class="seatStatus">${player.lastAction}</div>
+            </div>
+            <div class="seatAvatarBox" data-proj-id="avatar-human">
+              <canvas class="seatPortrait" data-seat-id="0" width="220" height="220"></canvas>
+            </div>
+            <div class="humanSeatChipBadge">Chips ${player.chips}</div>
           </div>
         </div>
 
@@ -3148,8 +3180,10 @@
       if (!root) return;
       for (const p of state.players) {
         if (!p.profile) continue;
-        const canvas = root.querySelector(`canvas[data-seat-id="${p.id}"]`);
-        if (canvas && window.renderProfile) renderProfile(canvas, p.profile);
+        const canvases = root.querySelectorAll(`canvas[data-seat-id="${p.id}"]`);
+        for (const canvas of canvases) {
+          if (window.renderProfile) renderProfile(canvas, p.profile);
+        }
       }
     }
 
