@@ -4,14 +4,16 @@
   "male": {
     "headSprite": "fightersprites/mao-ao-m/head_mint.png",
     "headUrLayers": [
-      { "url": "fightersprites/mao-ao-m/untinted_regions/ur-head.png" }
+      {
+        "url": "fightersprites/mao-ao-m/untinted_regions/ur-head.png"
+      }
     ],
-    "headXform": { "ax": 0, "ay": -0.1, "sx": 0.95, "sy": 1.14 },
-    "portraitBodyLayers": [
-      { "id": "torso", "url": "portraitsprites/torso_mao-ao_m.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } },
-      { "id": "armL", "url": "portraitsprites/arm-L_mao-ao_m.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } },
-      { "id": "armR", "url": "portraitsprites/arm-R_mao-ao_m.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } }
-    ],
+    "headXform": {
+      "ax": 0,
+      "ay": -0.1,
+      "sx": 0.95,
+      "sy": 1.14
+    },
     "allowedCosmetics": [
       "appearance::Mao-ao_M::mao-ao_circled_eyes",
       "appearance::Mao-ao_M::mao-ao_circled_eye_L",
@@ -49,47 +51,174 @@
         "minH": -100,
         "maxH": 90,
         "stops": [
-          { "h": -115, "sMin": -0.50, "sMax":  0.95, "vMin": -0.35, "vMax":  0.55 },
-          { "h":  -88, "sMin": -0.30, "sMax":  0.55, "vMin": -0.72, "vMax":  0.15 },
-          { "h":  -60, "sMin": -0.95, "sMax": -0.60, "vMin": -0.92, "vMax":  0.65 },
-          { "h":    0, "sMin": -1.00, "sMax": -0.45, "vMin": -0.95, "vMax":  0.85 },
-          { "h":   90, "sMin": -1.00, "sMax": -0.25, "vMin": -0.45, "vMax":  0.12 }
+          {
+            "h": -115,
+            "sMin": -0.5,
+            "sMax": 0.95,
+            "vMin": -0.35,
+            "vMax": 0.55
+          },
+          {
+            "h": -88,
+            "sMin": -0.3,
+            "sMax": 0.55,
+            "vMin": -0.72,
+            "vMax": 0.15
+          },
+          {
+            "h": -60,
+            "sMin": -0.95,
+            "sMax": -0.6,
+            "vMin": -0.92,
+            "vMax": 0.65
+          },
+          {
+            "h": 0,
+            "sMin": -1,
+            "sMax": -0.45,
+            "vMin": -0.95,
+            "vMax": 0.85
+          },
+          {
+            "h": 90,
+            "sMin": -1,
+            "sMax": -0.25,
+            "vMin": -0.45,
+            "vMax": 0.12
+          }
         ]
       },
       "B": {
         "minH": -100,
         "maxH": 90,
         "stops": [
-          { "h": -115, "sMin": -0.10, "sMax":  1.00, "vMin": -0.70, "vMax":  0.10 },
-          { "h":  -88, "sMin": -0.25, "sMax":  0.55, "vMin": -0.90, "vMax": -0.20 },
-          { "h":  -60, "sMin": -0.95, "sMax": -0.40, "vMin": -0.97, "vMax":  0.30 },
-          { "h":    0, "sMin": -1.00, "sMax": -0.45, "vMin": -0.97, "vMax":  0.50 },
-          { "h":   90, "sMin": -1.00, "sMax": -0.25, "vMin": -0.65, "vMax": -0.05 }
+          {
+            "h": -115,
+            "sMin": -0.1,
+            "sMax": 1,
+            "vMin": -0.7,
+            "vMax": 0.1
+          },
+          {
+            "h": -88,
+            "sMin": -0.25,
+            "sMax": 0.55,
+            "vMin": -0.9,
+            "vMax": -0.2
+          },
+          {
+            "h": -60,
+            "sMin": -0.95,
+            "sMax": -0.4,
+            "vMin": -0.97,
+            "vMax": 0.3
+          },
+          {
+            "h": 0,
+            "sMin": -1,
+            "sMax": -0.45,
+            "vMin": -0.97,
+            "vMax": 0.5
+          },
+          {
+            "h": 90,
+            "sMin": -1,
+            "sMax": -0.25,
+            "vMin": -0.65,
+            "vMax": -0.05
+          }
         ]
       },
       "C": {
         "minH": -100,
         "maxH": 90,
         "stops": [
-          { "h": -115, "sMin": -0.60, "sMax":  0.70, "vMin": -0.20, "vMax":  0.60 },
-          { "h":  -70, "sMin": -0.90, "sMax": -0.10, "vMin":  0.00, "vMax":  0.75 },
-          { "h":    0, "sMin": -1.00, "sMax": -0.50, "vMin":  0.10, "vMax":  0.90 },
-          { "h":   90, "sMin": -1.00, "sMax": -0.40, "vMin": -0.05, "vMax":  0.35 }
+          {
+            "h": -115,
+            "sMin": -0.6,
+            "sMax": 0.7,
+            "vMin": -0.2,
+            "vMax": 0.6
+          },
+          {
+            "h": -70,
+            "sMin": -0.9,
+            "sMax": -0.1,
+            "vMin": 0,
+            "vMax": 0.75
+          },
+          {
+            "h": 0,
+            "sMin": -1,
+            "sMax": -0.5,
+            "vMin": 0.1,
+            "vMax": 0.9
+          },
+          {
+            "h": 90,
+            "sMin": -1,
+            "sMax": -0.4,
+            "vMin": -0.05,
+            "vMax": 0.35
+          }
         ]
       }
-    }
+    },
+    "portraitBodyLayers": [
+      {
+        "id": "torso",
+        "url": "portraitsprites/torso_mao-ao_m.png",
+        "tintSlot": "A",
+        "pos": "back",
+        "xform": {
+          "ax": -0.085,
+          "ay": -0.06,
+          "scaleX": 2.55,
+          "scaleY": 2.55,
+          "rotDeg": 0
+        }
+      },
+      {
+        "id": "armL",
+        "url": "portraitsprites/arm-L_mao-ao_m.png",
+        "tintSlot": "A",
+        "pos": "back",
+        "xform": {
+          "ax": -0.085,
+          "ay": -0.06,
+          "scaleX": 2.55,
+          "scaleY": 2.55,
+          "rotDeg": 0
+        }
+      },
+      {
+        "id": "armR",
+        "url": "portraitsprites/arm-R_mao-ao_m.png",
+        "tintSlot": "A",
+        "pos": "back",
+        "xform": {
+          "ax": -0.085,
+          "ay": -0.06,
+          "scaleX": 2.55,
+          "scaleY": 2.55,
+          "rotDeg": 0
+        }
+      }
+    ]
   },
   "female": {
     "headSprite": "fightersprites/mao-ao-f/head.png",
     "headUrLayers": [
-      { "url": "fightersprites/mao-ao-f/untinted_regions/ur-head.png" }
+      {
+        "url": "fightersprites/mao-ao-f/untinted_regions/ur-head.png"
+      }
     ],
-    "headXform": { "ax": 0, "ay": -0.1, "sx": 0.95, "sy": 1.14 },
-    "portraitBodyLayers": [
-      { "id": "torso", "url": "portraitsprites/torso_mao-ao_f.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } },
-      { "id": "armL", "url": "portraitsprites/arm-L_mao-ao_f.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } },
-      { "id": "armR", "url": "portraitsprites/arm-R_mao-ao_f.png", "tintSlot": "A", "pos": "back", "xform": { "ax": 0, "ay": 0, "scaleX": 1, "scaleY": 1, "rotDeg": 0 } }
-    ],
+    "headXform": {
+      "ax": 0,
+      "ay": -0.1,
+      "sx": 0.95,
+      "sy": 1.14
+    },
     "allowedCosmetics": [
       "appearance::Mao-ao_F::mao-ao_circled_eyes_f",
       "appearance::Mao-ao_F::mao-ao_smooth_striped",
@@ -125,12 +254,26 @@
     },
     "disallowedCosmeticCombos": [
       {
-        "conditions": { "hairFront": "none", "hairSide": "none", "hairBack": "none" },
-        "repairSlots": ["hairSide", "hairBack"]
+        "conditions": {
+          "hairFront": "none",
+          "hairSide": "none",
+          "hairBack": "none"
+        },
+        "repairSlots": [
+          "hairSide",
+          "hairBack"
+        ]
       },
       {
-        "conditions": { "hairFront": "smooth_striped", "hairSide": "none", "hairBack": "none" },
-        "repairSlots": ["hairSide", "hairBack"]
+        "conditions": {
+          "hairFront": "smooth_striped",
+          "hairSide": "none",
+          "hairBack": "none"
+        },
+        "repairSlots": [
+          "hairSide",
+          "hairBack"
+        ]
       }
     ],
     "bodyColorRanges": {
@@ -138,34 +281,159 @@
         "minH": -100,
         "maxH": 90,
         "stops": [
-          { "h": -115, "sMin": -0.50, "sMax":  0.95, "vMin": -0.35, "vMax":  0.55 },
-          { "h":  -88, "sMin": -0.30, "sMax":  0.55, "vMin": -0.72, "vMax":  0.15 },
-          { "h":  -60, "sMin": -0.95, "sMax": -0.60, "vMin": -0.92, "vMax":  0.65 },
-          { "h":    0, "sMin": -1.00, "sMax": -0.45, "vMin": -0.95, "vMax":  0.85 },
-          { "h":   90, "sMin": -1.00, "sMax": -0.25, "vMin": -0.45, "vMax":  0.12 }
+          {
+            "h": -115,
+            "sMin": -0.5,
+            "sMax": 0.95,
+            "vMin": -0.35,
+            "vMax": 0.55
+          },
+          {
+            "h": -88,
+            "sMin": -0.3,
+            "sMax": 0.55,
+            "vMin": -0.72,
+            "vMax": 0.15
+          },
+          {
+            "h": -60,
+            "sMin": -0.95,
+            "sMax": -0.6,
+            "vMin": -0.92,
+            "vMax": 0.65
+          },
+          {
+            "h": 0,
+            "sMin": -1,
+            "sMax": -0.45,
+            "vMin": -0.95,
+            "vMax": 0.85
+          },
+          {
+            "h": 90,
+            "sMin": -1,
+            "sMax": -0.25,
+            "vMin": -0.45,
+            "vMax": 0.12
+          }
         ]
       },
       "B": {
         "minH": -100,
         "maxH": 90,
         "stops": [
-          { "h": -115, "sMin": -0.10, "sMax":  1.00, "vMin": -0.70, "vMax":  0.10 },
-          { "h":  -88, "sMin": -0.25, "sMax":  0.55, "vMin": -0.90, "vMax": -0.20 },
-          { "h":  -60, "sMin": -0.95, "sMax": -0.40, "vMin": -0.97, "vMax":  0.30 },
-          { "h":    0, "sMin": -1.00, "sMax": -0.45, "vMin": -0.97, "vMax":  0.50 },
-          { "h":   90, "sMin": -1.00, "sMax": -0.25, "vMin": -0.65, "vMax": -0.05 }
+          {
+            "h": -115,
+            "sMin": -0.1,
+            "sMax": 1,
+            "vMin": -0.7,
+            "vMax": 0.1
+          },
+          {
+            "h": -88,
+            "sMin": -0.25,
+            "sMax": 0.55,
+            "vMin": -0.9,
+            "vMax": -0.2
+          },
+          {
+            "h": -60,
+            "sMin": -0.95,
+            "sMax": -0.4,
+            "vMin": -0.97,
+            "vMax": 0.3
+          },
+          {
+            "h": 0,
+            "sMin": -1,
+            "sMax": -0.45,
+            "vMin": -0.97,
+            "vMax": 0.5
+          },
+          {
+            "h": 90,
+            "sMin": -1,
+            "sMax": -0.25,
+            "vMin": -0.65,
+            "vMax": -0.05
+          }
         ]
       },
       "C": {
         "minH": -100,
         "maxH": 90,
         "stops": [
-          { "h": -115, "sMin": -0.60, "sMax":  0.70, "vMin": -0.20, "vMax":  0.60 },
-          { "h":  -70, "sMin": -0.90, "sMax": -0.10, "vMin":  0.00, "vMax":  0.75 },
-          { "h":    0, "sMin": -1.00, "sMax": -0.50, "vMin":  0.10, "vMax":  0.90 },
-          { "h":   90, "sMin": -1.00, "sMax": -0.40, "vMin": -0.05, "vMax":  0.35 }
+          {
+            "h": -115,
+            "sMin": -0.6,
+            "sMax": 0.7,
+            "vMin": -0.2,
+            "vMax": 0.6
+          },
+          {
+            "h": -70,
+            "sMin": -0.9,
+            "sMax": -0.1,
+            "vMin": 0,
+            "vMax": 0.75
+          },
+          {
+            "h": 0,
+            "sMin": -1,
+            "sMax": -0.5,
+            "vMin": 0.1,
+            "vMax": 0.9
+          },
+          {
+            "h": 90,
+            "sMin": -1,
+            "sMax": -0.4,
+            "vMin": -0.05,
+            "vMax": 0.35
+          }
         ]
       }
-    }
+    },
+    "portraitBodyLayers": [
+      {
+        "id": "torso",
+        "url": "portraitsprites/torso_mao-ao_f.png",
+        "tintSlot": "A",
+        "pos": "back",
+        "xform": {
+          "ax": 0,
+          "ay": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "rotDeg": 0
+        }
+      },
+      {
+        "id": "armL",
+        "url": "portraitsprites/arm-L_mao-ao_f.png",
+        "tintSlot": "A",
+        "pos": "back",
+        "xform": {
+          "ax": 0,
+          "ay": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "rotDeg": 0
+        }
+      },
+      {
+        "id": "armR",
+        "url": "portraitsprites/arm-R_mao-ao_f.png",
+        "tintSlot": "A",
+        "pos": "back",
+        "xform": {
+          "ax": 0,
+          "ay": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "rotDeg": 0
+        }
+      }
+    ]
   }
 }
