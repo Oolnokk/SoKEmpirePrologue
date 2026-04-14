@@ -19,8 +19,8 @@ const _PORTRAIT_DEFAULTS = {
       label:   'Mao-ao (M)',
       headUrl: 'fightersprites/mao-ao-m/head_mint.png',
       bodyLayers: [
-        { id: 'torso', url: 'portraitsprites/torso_mao-ao_m.png', tintSlot: 'A', pos: 'back' },
         { id: 'armL', url: 'portraitsprites/arm-L_mao-ao_m.png', tintSlot: 'A', pos: 'back' },
+        { id: 'torso', url: 'portraitsprites/torso_mao-ao_m.png', tintSlot: 'A', pos: 'back' },
         { id: 'armR', url: 'portraitsprites/arm-R_mao-ao_m.png', tintSlot: 'A', pos: 'back' },
       ],
       urLayers: [
@@ -32,8 +32,8 @@ const _PORTRAIT_DEFAULTS = {
       label:   'Mao-ao (F)',
       headUrl: 'fightersprites/mao-ao-f/head.png',
       bodyLayers: [
-        { id: 'torso', url: 'portraitsprites/torso_mao-ao_f.png', tintSlot: 'A', pos: 'back' },
         { id: 'armL', url: 'portraitsprites/arm-L_mao-ao_f.png', tintSlot: 'A', pos: 'back' },
+        { id: 'torso', url: 'portraitsprites/torso_mao-ao_f.png', tintSlot: 'A', pos: 'back' },
         { id: 'armR', url: 'portraitsprites/arm-R_mao-ao_f.png', tintSlot: 'A', pos: 'back' },
       ],
       urLayers: [
