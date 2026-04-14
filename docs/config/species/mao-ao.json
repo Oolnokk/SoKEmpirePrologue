@@ -166,8 +166,8 @@
     },
     "portraitBodyLayers": [
       {
-        "id": "torso",
-        "url": "portraitsprites/torso_mao-ao_m.png",
+        "id": "armL",
+        "url": "portraitsprites/arm-L_mao-ao_m.png",
         "tintSlot": "A",
         "pos": "back",
         "xform": {
@@ -179,8 +179,8 @@
         }
       },
       {
-        "id": "armL",
-        "url": "portraitsprites/arm-L_mao-ao_m.png",
+        "id": "torso",
+        "url": "portraitsprites/torso_mao-ao_m.png",
         "tintSlot": "A",
         "pos": "back",
         "xform": {
@@ -396,8 +396,8 @@
     },
     "portraitBodyLayers": [
       {
-        "id": "torso",
-        "url": "portraitsprites/torso_mao-ao_f.png",
+        "id": "armL",
+        "url": "portraitsprites/arm-L_mao-ao_f.png",
         "tintSlot": "A",
         "pos": "back",
         "xform": {
@@ -409,8 +409,8 @@
         }
       },
       {
-        "id": "armL",
-        "url": "portraitsprites/arm-L_mao-ao_f.png",
+        "id": "torso",
+        "url": "portraitsprites/torso_mao-ao_f.png",
         "tintSlot": "A",
         "pos": "back",
         "xform": {
