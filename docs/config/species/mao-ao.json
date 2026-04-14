@@ -401,10 +401,10 @@
         "tintSlot": "A",
         "pos": "back",
         "xform": {
-          "ax": 0,
-          "ay": 0,
-          "scaleX": 1,
-          "scaleY": 1,
+          "ax": -0.085,
+          "ay": -0.06,
+          "scaleX": 2.55,
+          "scaleY": 2.55,
           "rotDeg": 0
         }
       },
@@ -414,10 +414,10 @@
         "tintSlot": "A",
         "pos": "back",
         "xform": {
-          "ax": 0,
-          "ay": 0,
-          "scaleX": 1,
-          "scaleY": 1,
+          "ax": -0.085,
+          "ay": -0.06,
+          "scaleX": 2.55,
+          "scaleY": 2.55,
           "rotDeg": 0
         }
       },
@@ -427,10 +427,10 @@
         "tintSlot": "A",
         "pos": "back",
         "xform": {
-          "ax": 0,
-          "ay": 0,
-          "scaleX": 1,
-          "scaleY": 1,
+          "ax": -0.085,
+          "ay": -0.06,
+          "scaleX": 2.55,
+          "scaleY": 2.55,
           "rotDeg": 0
         }
       }
