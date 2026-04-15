@@ -1604,9 +1604,9 @@ if (cv) cv.style.background = 'transparent';
 // - Canvas element's width and height attributes
 // This ensures aspect ratio consistency across config, CSS, and canvas.
 (function syncCanvasDimensions() {
-  // Default fallback values (matching original hardcoded values)
-  const DEFAULT_WIDTH = 720;
-  const DEFAULT_HEIGHT = 460;
+  // Default fallback values (matches CONFIG.canvas default 16:9 gameplay layout)
+  const DEFAULT_WIDTH = 1280;
+  const DEFAULT_HEIGHT = 720;
   
   // Read dimensions from CONFIG.canvas
   let canvasWidth = DEFAULT_WIDTH;
