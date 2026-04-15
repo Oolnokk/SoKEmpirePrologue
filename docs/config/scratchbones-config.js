@@ -71,6 +71,16 @@ window.SCRATCHBONES_CONFIG.game = {
         cardMinHeightPx: __existingGameConfig.layout?.hand?.compact?.cardMinHeightPx ?? 128,
       },
     },
+    tableView: {
+      desiredHeightFrac: __existingGameConfig.layout?.tableView?.desiredHeightFrac ?? 0.58,
+      minHeightPx: __existingGameConfig.layout?.tableView?.minHeightPx ?? 260,
+      maxHeightPx: __existingGameConfig.layout?.tableView?.maxHeightPx ?? 680,
+      cardVisualMode: __existingGameConfig.layout?.tableView?.cardVisualMode ?? 'faceDown',
+      cinematic: {
+        enabled: __existingGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
+        showEffects: __existingGameConfig.layout?.tableView?.cinematic?.showEffects ?? true,
+      },
+    },
     controlsToHandRelationship: __existingGameConfig.layout?.controlsToHandRelationship ?? __legacyGameplayConfig.controlsToHandRelationship ?? 'below',
     allowChallengeOverflow: __existingGameConfig.layout?.allowChallengeOverflow ?? __legacyGameplayConfig.allowChallengeOverflow ?? true,
     fitter: {

@@ -104,6 +104,9 @@
       --layout-event-log-gap: 6px;
       --layout-log-item-padding-y: 9px;
       --layout-log-item-padding-x: 10px;
+      --layout-table-view-height: 420px;
+      --layout-table-view-min-height: 260px;
+      --layout-table-view-max-height: 680px;
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -190,6 +193,65 @@
       min-height: 0;
       overflow-y: auto;
     }
+
+    .tableView {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+      min-height: var(--layout-table-view-min-height);
+      height: var(--layout-table-view-height);
+      max-height: var(--layout-table-view-max-height);
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: radial-gradient(ellipse at 50% 30%, rgba(56,38,31,0.72), rgba(29,21,18,0.94));
+      padding: 10px;
+      overflow: hidden;
+      isolation: isolate;
+    }
+    .tableViewHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      z-index: 1;
+    }
+    .tableViewCards {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      min-height: 0;
+    }
+    .tableViewCard {
+      width: calc(78px * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
+      height: calc(110px * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.22);
+      background: rgba(255,255,255,0.05);
+      box-shadow: 0 8px 14px rgba(0,0,0,0.26);
+      overflow: hidden;
+    }
+    .tableViewCard img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    #tableCinematicHost {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      overflow: hidden;
+    }
+    #tableCinematicHost.cin-active { display: flex; }
 
     .sectionTitle {
       font-weight: 700;
@@ -747,19 +809,10 @@
     }
 
     /* ===== CHALLENGE CINEMATIC OVERLAY ===== */
-    #challengeCinematic {
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      display: none;
+    #tableCinematicHost {
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
       gap: 18px;
-      padding: 28px 20px calc(32px + var(--safe));
-      overflow: hidden;
     }
-    #challengeCinematic.cin-active { display: flex; }
 
     .cin-bg {
       position: absolute;
@@ -796,7 +849,7 @@
     @keyframes cinEmberRise {
       0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0.8; }
       60%  { opacity: 0.6; }
-      100% { transform: translateY(-110vh) translateX(var(--drift,20px)) scale(0.2); opacity: 0; }
+      100% { transform: translateY(-100%) translateX(var(--drift,20px)) scale(0.2); opacity: 0; }
     }
 
     /* Horizontal shimmer line */
@@ -1397,9 +1450,6 @@
     </div>
   </div>
 
-  <!-- Challenge cinematic overlay — populated by JS -->
-  <div id="challengeCinematic" data-proj-id="cinematic"></div>
-
   <!-- UI projection mapping mode -->
   <button id="projMapBtn" title="Inspect panel projection IDs">Map</button>
   <div id="projMapTip"></div>
@@ -1483,6 +1533,16 @@
             cardMinWidthPx: scratchbonesGameConfig.layout?.hand?.compact?.cardMinWidthPx ?? 64,
             cardGapPx: scratchbonesGameConfig.layout?.hand?.compact?.cardGapPx ?? 6,
             cardMinHeightPx: scratchbonesGameConfig.layout?.hand?.compact?.cardMinHeightPx ?? 128,
+          },
+        },
+        tableView: {
+          desiredHeightFrac: scratchbonesGameConfig.layout?.tableView?.desiredHeightFrac ?? 0.58,
+          minHeightPx: scratchbonesGameConfig.layout?.tableView?.minHeightPx ?? 260,
+          maxHeightPx: scratchbonesGameConfig.layout?.tableView?.maxHeightPx ?? 680,
+          cardVisualMode: scratchbonesGameConfig.layout?.tableView?.cardVisualMode ?? 'faceDown',
+          cinematic: {
+            enabled: scratchbonesGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
+            showEffects: scratchbonesGameConfig.layout?.tableView?.cinematic?.showEffects ?? true,
           },
         },
         controlsToHandRelationship: scratchbonesGameConfig.layout?.controlsToHandRelationship ?? scratchbonesLegacyGameplayConfig.controlsToHandRelationship ?? 'below',
@@ -3334,6 +3394,7 @@
       const layout = SCRATCHBONES_GAME.layout || {};
       const layoutSizing = layout.sizing || {};
       const handLayout = layout.hand || {};
+      const tableViewLayout = layout.tableView || {};
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
       const desiredWidthFrac = clampNumber(Number(handLayout.desiredWidthFrac) || 0.50, 0.25, 1);
       const minHeightPx = Math.max(80, Number(handLayout.minHeightPx) || 160);
@@ -3344,6 +3405,13 @@
       const compactCardMinWidthPx = clampNumber(Number(handLayout.compact?.cardMinWidthPx) || 64, 48, 120);
       const compactCardGapPx = clampNumber(Number(handLayout.compact?.cardGapPx) || 6, 2, 16);
       const compactCardMinHeightPx = clampNumber(Number(handLayout.compact?.cardMinHeightPx) || 128, 96, 240);
+      const tableViewDesiredHeightFrac = clampNumber(Number(tableViewLayout.desiredHeightFrac) || 0.58, 0.51, 0.9);
+      const tableViewMinHeightPx = clampNumber(Number(tableViewLayout.minHeightPx) || 260, 180, 1200);
+      const tableViewMaxHeightPx = Math.max(tableViewMinHeightPx, clampNumber(Number(tableViewLayout.maxHeightPx) || 680, tableViewMinHeightPx, 1600));
+      const tableCardVisualMode = ['facedown', 'faceup'].includes(String(tableViewLayout.cardVisualMode || '').toLowerCase())
+        ? String(tableViewLayout.cardVisualMode).toLowerCase()
+        : 'facedown';
+      const cinematicEnabled = tableViewLayout.cinematic?.enabled !== false;
       const root = document.documentElement;
       const cssTargets = [root, app];
       const setCssVar = (name, value) => {
@@ -3377,6 +3445,8 @@
       setCssVar('--layout-hand-min-height', `${Math.round(minHeightPx)}px`);
       setCssVar('--layout-hand-max-height', `${Math.round(maxHeightPx)}px`);
       setCssVar('--layout-hand-width-frac', desiredWidthFrac.toFixed(3));
+      setCssVar('--layout-table-view-min-height', `${Math.round(tableViewMinHeightPx)}px`);
+      setCssVar('--layout-table-view-max-height', `${Math.round(tableViewMaxHeightPx)}px`);
       setCssVar('--hand-compact-card-min', `${Math.round(compactCardMinWidthPx)}px`);
       setCssVar('--hand-compact-card-gap', `${compactCardGapPx.toFixed(2)}px`);
       setCssVar('--hand-compact-card-min-height', `${Math.round(compactCardMinHeightPx)}px`);
@@ -3407,7 +3477,16 @@
       app.classList.toggle('layout-controls-above-hand', !controlsBelow);
       app.classList.toggle('layout-hand-force-all-visible', forceAllVisible);
       app.classList.toggle('layout-hand-compact', compactEnabled);
-      return { allowChallengeOverflow: layout.allowChallengeOverflow !== false };
+      return {
+        allowChallengeOverflow: layout.allowChallengeOverflow !== false,
+        tableView: {
+          desiredHeightFrac: tableViewDesiredHeightFrac,
+          minHeightPx: tableViewMinHeightPx,
+          maxHeightPx: tableViewMaxHeightPx,
+          cardVisualMode: tableCardVisualMode,
+          cinematicEnabled,
+        },
+      };
     }
 
     function resolveChallengeLayoutPressure(app, allowChallengeOverflow = true) {
@@ -3452,6 +3531,29 @@
       app.style.setProperty('--layout-parent-height-scale', clampNumber(parentHeightScale, 0.80, 1).toFixed(3));
     }
 
+    function updateTableViewHeight(app, tableLayoutPolicy) {
+      if (!app || !tableLayoutPolicy) return;
+      const topbar = app.querySelector('.topbar');
+      const topbarHeight = topbar?.offsetHeight || 0;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const availableHeight = Math.max(0, viewportHeight - topbarHeight);
+      const desiredHeightPx = availableHeight * tableLayoutPolicy.desiredHeightFrac;
+      const tableViewHeightPx = clampNumber(desiredHeightPx, tableLayoutPolicy.minHeightPx, tableLayoutPolicy.maxHeightPx);
+      app.style.setProperty('--layout-table-view-height', `${Math.round(tableViewHeightPx)}px`);
+    }
+
+    function getCinematicRoot() {
+      return document.getElementById('tableCinematicHost');
+    }
+
+    function isTableCinematicEnabled() {
+      return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.enabled !== false;
+    }
+
+    function isTableCinematicEffectsEnabled() {
+      return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.showEffects !== false;
+    }
+
     function renderChallengeBox() {
       const box = document.getElementById('challengeBox');
       if (!box) return;
@@ -3485,6 +3587,9 @@
       const humanCanRaise = humanRaiseAmount > 0;
       const latestPilePlay = state.pile.at(-1) || null;
       const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || latestPilePlay;
+      const tableViewPolicy = layoutPolicy?.tableView || {};
+      const tableCardVisualMode = tableViewPolicy.cardVisualMode || 'facedown';
+      const tableCardFaceDown = tableCardVisualMode !== 'faceup';
       const actionFocus = (() => {
         if (!latestPlay) {
           return {
@@ -3520,6 +3625,12 @@
         : '<div class="tiny">No cards in focus.</div>';
       const focusRankText = actionFocus.declaredRank === null || actionFocus.declaredRank === undefined ? 'open claim' : actionFocus.declaredRank;
       const focusActionText = `${seatLabel(focusActor || actionFocus.actorId)} ${actionFocus.actionVerb} ${actionFocus.cardCount} × ${focusRankText}`;
+      const tableCardsHtml = latestPlay?.cards?.length
+        ? latestPlay.cards.map(card => {
+            const art = resolveScratchbone2DAsset(card, { flipped: tableCardFaceDown });
+            return `<div class="tableViewCard"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${tableCardFaceDown ? 'Face-down scratchbone card' : (card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`)}"></div>`;
+          }).join('')
+        : '<div class="tiny">No cards on the table yet.</div>';
       const recentLogs = state.logs.slice(0, 4);
 
       app.innerHTML = `
@@ -3555,6 +3666,14 @@
         </div>
 
         <div class="panel" data-proj-id="panel">
+          <div class="tableView fit-target fit-0" data-proj-id="table-view">
+            <div class="tableViewHeader">
+              <div class="sectionTitle">Table View</div>
+              <div class="tiny">${latestPlay ? `Latest: ${seatLabel(latestPlay.playerIndex)} · ${latestPlay.cards?.length || 0} card(s)` : 'Waiting for opening play'}</div>
+            </div>
+            <div class="tableViewCards">${tableCardsHtml}</div>
+            <div id="tableCinematicHost" data-proj-id="cinematic"></div>
+          </div>
           <div class="actionFocus fit-target fit-0">
             <div class="actionFocusHeader">Action Focus</div>
             <div class="actionFocusMain">
@@ -3664,6 +3783,7 @@
       wireScratchboneImageFallbacks(app);
       renderChallengeBox();
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
+      updateTableViewHeight(app, tableViewPolicy);
       refreshCinematicBettingZone();
       renderSeatPortraits();
       applyResponsiveFit(app);
@@ -3767,7 +3887,7 @@
     }
 
     function renderCinematicPortraits() {
-      const root = document.getElementById('challengeCinematic');
+      const root = getCinematicRoot();
       if (!root || !root.classList.contains('cin-active')) return;
       for (const p of state.players) {
         if (!p.profile) continue;
@@ -3785,7 +3905,7 @@
 
     function closeCinematic() {
       _clearCinTimeout();
-      const el = document.getElementById('challengeCinematic');
+      const el = getCinematicRoot();
       if (el) el.classList.remove('cin-active');
     }
 
@@ -3858,7 +3978,7 @@
 
     // ── Cinematic bet-action announcement (burst + tankan columns) ──
     function _announceCinematicBetAction(playerId, command) {
-      const cin = document.getElementById('challengeCinematic');
+      const cin = getCinematicRoot();
       if (!cin || !cin.classList.contains('cin-active')) return;
 
       // Burst word above the avatar
@@ -3940,8 +4060,6 @@
     // Chip fill colors
     const CHIP_GOLD   = '#c89952';
     const CHIP_BANK   = '#7a8fa0';
-    const CHIP_GOOD   = '#4fa06e';
-    const CHIP_DANGER = '#b04444';
 
     // Tankanscript labels for bet actions — swap strings for conlang equivalents
     const TANKAN_STRINGS = {
@@ -4033,18 +4151,20 @@
 
     // Phase 1: Challenge announced
     function showChallengeCinematic(challengerIndex, challengedIndex, play) {
-      const cin = document.getElementById('challengeCinematic');
-      if (!cin) return;
+      const cin = getCinematicRoot();
+      if (!cin || !isTableCinematicEnabled()) return;
       _clearCinTimeout();
 
       const challenger = state.players[challengerIndex];
       const challenged = state.players[challengedIndex];
       const humanInvolved = challengerIndex === 0 || challengedIndex === 0;
+      const fxMarkup = isTableCinematicEffectsEnabled()
+        ? `${_cinEmbersHtml(10)}<div class="cin-shimmer"></div>`
+        : '';
 
       cin.innerHTML = `
         <div class="cin-bg"></div>
-        ${_cinEmbersHtml(10)}
-        <div class="cin-shimmer"></div>
+        ${fxMarkup}
         <div class="cin-headline cin-announce">⚔ Challenge ⚔</div>
         <div class="cin-players">
           ${_cinPlayerHtml(challenger, 'challenger')}
@@ -4073,8 +4193,8 @@
 
     // Phase 2a: Reveal (no fold)
     function showRevealCinematic(challengerIndex, challengedIndex, play, success) {
-      const cin = document.getElementById('challengeCinematic');
-      if (!cin) return;
+      const cin = getCinematicRoot();
+      if (!cin || !isTableCinematicEnabled()) return;
       _clearCinTimeout();
 
       const challenger = state.players[challengerIndex];
@@ -4089,12 +4209,13 @@
       const resultText    = (winner.isHuman ? 'You win' : `${winner.name} wins`) + ' the challenge.';
       const resClass      = humanWon ? 'res-good' : humanLost ? 'res-warn' : 'res-neutral';
       const emberHue      = success ? 10 : 130;
-      const winChipColor  = humanWon ? CHIP_GOOD : CHIP_DANGER;
+      const fxMarkup = isTableCinematicEffectsEnabled()
+        ? `${_cinEmbersHtml(emberHue)}<div class="cin-shimmer"></div>`
+        : '';
 
       cin.innerHTML = `
         <div class="cin-bg"></div>
-        ${_cinEmbersHtml(emberHue)}
-        <div class="cin-shimmer"></div>
+        ${fxMarkup}
         <div class="cin-headline ${headlineClass}">${headlineText}</div>
         <div class="cin-players">
           ${_cinPlayerHtml(challenger, 'challenger')}
@@ -4116,8 +4237,8 @@
 
     // Phase 2b: Fold resolution
     function showFoldCinematic(winnerId, loserId) {
-      const cin = document.getElementById('challengeCinematic');
-      if (!cin) return;
+      const cin = getCinematicRoot();
+      if (!cin || !isTableCinematicEnabled()) return;
       _clearCinTimeout();
 
       const winner    = state.players[winnerId];
@@ -4127,11 +4248,13 @@
       const humanWon   = winnerId === 0;
       const humanLost  = loserId  === 0;
       const resClass   = humanWon ? 'res-good' : humanLost ? 'res-warn' : 'res-neutral';
+      const fxMarkup = isTableCinematicEffectsEnabled()
+        ? `${_cinEmbersHtml(30)}<div class="cin-shimmer"></div>`
+        : '';
 
       cin.innerHTML = `
         <div class="cin-bg"></div>
-        ${_cinEmbersHtml(30)}
-        <div class="cin-shimmer"></div>
+        ${fxMarkup}
         <div class="cin-headline cin-fold">🏳 Fold</div>
         <div class="cin-result ${resClass}" style="max-width:360px;text-align:center;">
           ${loserName} folds — ${winnerName} takes the pot.
@@ -4217,7 +4340,10 @@
       const fitDebounceMs = Math.max(0, Number(SCRATCHBONES_GAME.layout?.fitter?.reflowDebounceMs) || 120);
       fitReflowHandle = setTimeout(() => {
         fitReflowHandle = null;
-        applyResponsiveFit(document.getElementById('app'));
+        const app = document.getElementById('app');
+        const layoutPolicy = applyLayoutContract(app);
+        updateTableViewHeight(app, layoutPolicy?.tableView);
+        applyResponsiveFit(app);
       }, fitDebounceMs);
     }
     window.addEventListener('resize', scheduleResponsiveFitPass, { passive: true });
