@@ -130,6 +130,18 @@
       --layout-hand-max-row-height: 50dvh;
       --layout-action-column-max-height: 25dvh;
       --layout-log-max-row-height: 25dvh;
+      --layout-turn-spotlight-avatar-size: 180px;
+      --layout-claim-cluster-center-x: 0.5;
+      --layout-claim-cluster-center-y: 0.54;
+      --layout-claim-cluster-width: 78;
+      --layout-claim-cluster-height: 48;
+      --layout-claim-cluster-scale: 1;
+      --layout-table-card-container-scale: 1.25;
+      --layout-table-card-content-scale: 0.8;
+      --layout-claim-avatar-container-scale: 1.25;
+      --layout-claim-avatar-content-scale: 0.8;
+      --layout-turn-spotlight-offset-x: 10px;
+      --layout-turn-spotlight-offset-y: 10px;
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -152,8 +164,8 @@
       grid-template-areas:
         "topbar   sidebar"
         "panel    sidebar"
-        "action   human"
-        "log      right-gap";
+        "context  human"
+        "log      human";
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
     }
@@ -234,6 +246,75 @@
       isolation: isolate;
       contain: layout paint style;
     }
+    .claimCluster {
+      position: absolute;
+      left: calc(var(--layout-claim-cluster-center-x, 0.5) * 100%);
+      top: calc(var(--layout-claim-cluster-center-y, 0.54) * 100%);
+      width: calc(var(--layout-claim-cluster-width, 78) * 1%);
+      height: calc(var(--layout-claim-cluster-height, 48) * 1%);
+      transform: translate(-50%, -50%) scale(var(--layout-claim-cluster-scale, 1));
+      transform-origin: center center;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .claimCluster > * {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      min-height: 0;
+    }
+    .floatingTransparentShell {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    .claimRankBox,
+    .claimTimesBoxLeft,
+    .claimCountBoxLeft,
+    .claimTimesBoxRight,
+    .claimCountBoxRight {
+      font-weight: 800;
+      color: var(--accent-2);
+      text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      font-size: calc(1.3rem * var(--layout-fit-font-scale));
+      letter-spacing: 0.04em;
+    }
+    .claimHandBar {
+      overflow: visible;
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+      justify-content: center;
+      align-items: center;
+      padding: 2px;
+    }
+    .claimHandBar .tableViewCard {
+      width: calc(var(--layout-card-mini-base-width) * var(--layout-card-scale) * var(--layout-table-card-container-scale));
+      height: calc(var(--layout-card-mini-base-height) * var(--layout-card-scale) * var(--layout-table-card-container-scale));
+      margin-left: -8px;
+    }
+    .claimHandBar .tableViewCard:first-child {
+      margin-left: 0;
+    }
+    .actorAvatarFloat,
+    .reactorAvatarFloat {
+      overflow: hidden;
+      padding: 0;
+      transform: translate(-50%, -50%) scale(var(--layout-claim-avatar-container-scale));
+      transform-origin: center center;
+    }
+    .actorAvatarFloat canvas,
+    .reactorAvatarFloat canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 10px;
+      transform: scale(var(--layout-claim-avatar-content-scale));
+      transform-origin: center center;
+    }
     .tableViewHeader {
       display: flex;
       align-items: center;
@@ -252,8 +333,8 @@
       min-height: 0;
     }
     .tableViewCard {
-      width: calc(var(--layout-card-table-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
-      height: calc(var(--layout-card-table-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
+      width: calc(var(--layout-card-table-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale));
+      height: calc(var(--layout-card-table-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale));
       border-radius: 0;
       border: 0;
       background: transparent;
@@ -265,6 +346,8 @@
       height: 100%;
       object-fit: cover;
       display: block;
+      transform: scale(var(--layout-table-card-content-scale));
+      transform-origin: center center;
     }
     #tableCinematicHost {
       position: absolute;
@@ -306,10 +389,52 @@
       justify-content: stretch;
     }
 
-    .rightGap {
-      grid-area: right-gap;
+    .turnSpotlight {
+      position: absolute;
+      top: var(--layout-turn-spotlight-offset-y);
+      right: var(--layout-turn-spotlight-offset-x);
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      padding: 10px;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 8px;
       min-height: 0;
-      pointer-events: none;
+      width: min(36%, 220px);
+      z-index: 4;
+    }
+    .turnSpotlightAvatar {
+      width: min(100%, var(--layout-turn-spotlight-avatar-size));
+      aspect-ratio: 1;
+      justify-self: center;
+      overflow: hidden;
+      border-radius: 12px;
+      border: 1px solid rgba(242,208,143,0.28);
+      background: rgba(22,16,14,0.72);
+    }
+    .turnSpotlightNameBar {
+      border-radius: 10px;
+      padding: 8px 10px;
+      text-align: center;
+      color: var(--accent-2);
+      background: rgba(27,20,18,0.85);
+      border: 1px solid rgba(242,208,143,0.25);
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+
+    .contextBox {
+      grid-area: context;
+      min-height: 0;
+      max-height: var(--layout-action-column-max-height);
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px;
+      contain: layout paint style;
     }
 
     .aiSeat {
@@ -347,7 +472,8 @@
       min-width: 0;
       position: relative;
       display: flex;
-      align-items: flex-start;
+      align-items: center;
+      justify-content: space-between;
       gap: 10px;
       overflow: visible;
       z-index: 3;
@@ -357,6 +483,8 @@
       height: var(--layout-human-seat-avatar-size);
       border-radius: 12px;
       border: 1px solid rgba(242,208,143,0.32);
+      margin-left: auto;
+      flex: 0 0 auto;
     }
     .humanSeatChipBadge {
       position: absolute;
@@ -372,6 +500,14 @@
       box-shadow: 0 8px 16px rgba(0,0,0,0.35);
       pointer-events: none;
     }
+    #aiSidebar {
+      margin-bottom: calc(var(--layout-app-gap) * -1);
+      padding-bottom: var(--layout-app-gap);
+    }
+    .humanSeatZone {
+      margin-top: calc(var(--layout-app-gap) * -1);
+      padding-top: var(--layout-app-gap);
+    }
 
     .seatName { font-weight: 700; font-size: 0.92rem; }
     .seatMeta { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
@@ -380,98 +516,6 @@
     .seatTags { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
     .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 8px; }
-
-    .actionFocus {
-      background: rgba(255,255,255,0.04);
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,0.08);
-      padding: 10px;
-      display: grid;
-      gap: 8px;
-    }
-    .actionFocusHeader {
-      font-size: 0.72rem;
-      color: var(--accent-2);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .actionFocusMain {
-      display: grid;
-      grid-template-columns: 72px minmax(0, 1fr) 72px;
-      align-items: center;
-      gap: 8px;
-    }
-    .focusAvatar {
-      width: 72px;
-      height: 72px;
-      border-radius: 0;
-      overflow: hidden;
-      border: 0;
-      background: transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      font-size: 0.62rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      text-align: center;
-      padding: 0 4px;
-    }
-    .focusAvatar canvas {
-      width: 100%;
-      height: 100%;
-      border-radius: 0;
-      display: block;
-    }
-    .focusTextWrap {
-      text-align: center;
-      min-width: 0;
-    }
-    .focusActionText {
-      font-size: 1.16rem;
-      font-weight: 800;
-      line-height: 1.2;
-    }
-    .focusSubtext {
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-top: 4px;
-    }
-    .focusMiniCards {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .focusMiniCard {
-      width: calc(var(--layout-card-mini-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
-      height: calc(var(--layout-card-mini-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
-      border-radius: 0;
-      overflow: visible;
-      border: 0;
-      background: transparent;
-      box-shadow: none;
-    }
-    .focusMiniCard img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-
-    .actionColumn {
-      grid-area: action;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-height: 0;
-      max-height: var(--layout-action-column-max-height);
-      overflow: auto;
-      padding: 8px;
-      contain: layout paint style;
-    }
 
     .controls {
       padding: calc(var(--layout-controls-padding-y) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale))
@@ -486,18 +530,6 @@
       overflow: auto;
       contain: layout paint style;
     }
-    .controlsChallengeRow {
-      display: grid;
-      gap: 8px;
-      grid-template-columns: minmax(0, 1fr);
-      align-items: start;
-    }
-    @media (min-width: 860px) {
-      .controlsChallengeRow.hasChallengePane {
-        grid-template-columns: minmax(0, 1fr) minmax(240px, 0.9fr);
-      }
-    }
-
     .controlsRow > * { flex: 1 1 0; min-width: 0; }
     .controls label { display: grid; gap: 6px; font-size: 0.8rem; color: var(--muted); }
 
@@ -729,8 +761,6 @@
 
     .tiny { font-size: calc(0.74rem * var(--layout-challenge-font-scale) * var(--layout-fit-font-scale)); color: var(--muted); }
     .layout-challenge-wrap .tiny,
-    .layout-challenge-wrap .focusActionText,
-    .layout-challenge-wrap .focusSubtext,
     .layout-challenge-wrap .challengePromptInfo,
     .layout-challenge-wrap .seatMeta,
     .layout-challenge-wrap .seatStatus {
@@ -738,12 +768,10 @@
       word-break: break-word;
       hyphens: auto;
     }
-     #app.layout-controls-above-hand .actionColumn {
+     #app.layout-controls-above-hand .contextBox {
       flex-direction: column-reverse;
     }
 
-    .focusActionText,
-    .focusSubtext,
     .sectionTitle,
     .seatMeta,
     .seatStatus,
@@ -752,8 +780,7 @@
     select {
       font-size: calc(1em * var(--layout-challenge-font-scale) * var(--layout-fit-font-scale));
     }
-    .seatAvatarBox,
-    .focusAvatar {
+    .seatAvatarBox {
       transform: scale(calc(var(--layout-challenge-image-scale) * var(--layout-fit-image-scale)));
       transform-origin: top center;
     }
@@ -841,10 +868,7 @@
 
     @container (max-width: 980px) {
       #app {
-        grid-template-columns: minmax(0, 1fr) minmax(110px, 0.35fr);
-      }
-      .actionFocusMain {
-        grid-template-columns: 56px minmax(0, 1fr) 56px;
+        grid-template-columns: minmax(0, 1fr) minmax(120px, 0.42fr);
       }
       .handScroll {
         --hand-card-min: clamp(72px, 18vw, 92px);
@@ -863,14 +887,17 @@
           minmax(0, var(--layout-log-max-row-height));
         grid-template-areas:
           "topbar"
-          "panel"
           "sidebar"
+          "panel"
           "human"
-          "action"
+          "context"
           "log";
       }
       .handWrap {
         max-width: 100%;
+      }
+      .contextBox .handWrap {
+        max-height: unset;
       }
     }
 
@@ -1687,10 +1714,58 @@
           minHeightPx: scratchbonesGameConfig.layout?.tableView?.minHeightPx ?? 260,
           maxHeightPx: scratchbonesGameConfig.layout?.tableView?.maxHeightPx ?? 680,
           cardVisualMode: scratchbonesGameConfig.layout?.tableView?.cardVisualMode ?? 'faceDown',
+          turnSpotlight: {
+            embedded: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.embedded ?? true,
+            pinCorner: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.pinCorner ?? 'top-right',
+            offsetXPx: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.offsetXPx ?? 10,
+            offsetYPx: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.offsetYPx ?? 10,
+          },
+          visualFit: {
+            tableCardContainerScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.tableCardContainerScale ?? 1.25,
+            tableCardContentScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.tableCardContentScale ?? 0.8,
+            claimAvatarContainerScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.claimAvatarContainerScale ?? 1.25,
+            claimAvatarContentScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.claimAvatarContentScale ?? 0.8,
+          },
           cinematic: {
             enabled: scratchbonesGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
             showEffects: scratchbonesGameConfig.layout?.tableView?.cinematic?.showEffects ?? true,
           },
+        },
+        regions: {
+          actionFocus: {
+            enabled: scratchbonesGameConfig.layout?.regions?.actionFocus?.enabled ?? false,
+            replaceWithFloatingClaimCluster: scratchbonesGameConfig.layout?.regions?.actionFocus?.replaceWithFloatingClaimCluster ?? true,
+          },
+          turnSpotlight: {
+            enabled: scratchbonesGameConfig.layout?.regions?.turnSpotlight?.enabled ?? true,
+            mustStayVisible: scratchbonesGameConfig.layout?.regions?.turnSpotlight?.mustStayVisible ?? true,
+            avatarSizePx: scratchbonesGameConfig.layout?.regions?.turnSpotlight?.avatarSizePx ?? 180,
+            nameBarBelowAvatar: scratchbonesGameConfig.layout?.regions?.turnSpotlight?.nameBarBelowAvatar ?? true,
+          },
+          contextBox: {
+            enabled: scratchbonesGameConfig.layout?.regions?.contextBox?.enabled ?? true,
+            sharedDeclareAndChallengeSlot: scratchbonesGameConfig.layout?.regions?.contextBox?.sharedDeclareAndChallengeSlot ?? true,
+            mustStayVisible: scratchbonesGameConfig.layout?.regions?.contextBox?.mustStayVisible ?? true,
+          },
+        },
+        claimCluster: {
+          enabled: scratchbonesGameConfig.layout?.claimCluster?.enabled ?? true,
+          anchor: scratchbonesGameConfig.layout?.claimCluster?.anchor ?? 'tableView',
+          scaleAsOne: scratchbonesGameConfig.layout?.claimCluster?.scaleAsOne ?? true,
+          preserveRelativePositions: scratchbonesGameConfig.layout?.claimCluster?.preserveRelativePositions ?? true,
+          mustStayVisible: scratchbonesGameConfig.layout?.claimCluster?.mustStayVisible ?? true,
+          transparentShells: scratchbonesGameConfig.layout?.claimCluster?.transparentShells ?? true,
+          geometry: {
+            centerXPct: scratchbonesGameConfig.layout?.claimCluster?.geometry?.centerXPct ?? 0.50,
+            centerYPct: scratchbonesGameConfig.layout?.claimCluster?.geometry?.centerYPct ?? 0.54,
+            widthPctOfTableView: scratchbonesGameConfig.layout?.claimCluster?.geometry?.widthPctOfTableView ?? 0.78,
+            heightPctOfTableView: scratchbonesGameConfig.layout?.claimCluster?.geometry?.heightPctOfTableView ?? 0.48,
+          },
+          elements: scratchbonesGameConfig.layout?.claimCluster?.elements ?? {},
+        },
+        shells: {
+          transparentFloatingBoxes: scratchbonesGameConfig.layout?.shells?.transparentFloatingBoxes ?? true,
+          disablePanelChromeForFloatingBoxes: scratchbonesGameConfig.layout?.shells?.disablePanelChromeForFloatingBoxes ?? true,
         },
         controlsToHandRelationship: scratchbonesGameConfig.layout?.controlsToHandRelationship ?? scratchbonesLegacyGameplayConfig.controlsToHandRelationship ?? 'below',
         actionColumn: {
@@ -2117,7 +2192,7 @@
         totalClears: 0,
         chipsMovedByChallenges: 0,
       },
-      recentChange: "AI portraits now render in both the table seats and the cinematic avatar rings, while cinematic overlays still fall back to initials if portrait cosmetics are unavailable.",
+      recentChange: "Layout refinement: turn spotlight is now pinned inside table view, table visuals use fit scaling with larger containers, the human seat is an explicit text-left/avatar-right rectangle, and sidebar/human alignment is tightened.",
       challengeTimer: null,
       challengeTimeLeft: 0,
       roundConcessions: new Set(), // Used by: skipping players who have conceded the current claim until the round ends.
@@ -3674,9 +3749,69 @@
       return state.layoutFitStages;
     }
 
+    function getLayoutRegionsConfig() {
+      const layoutRegions = SCRATCHBONES_GAME.layout?.regions || {};
+      return {
+        actionFocus: {
+          enabled: layoutRegions.actionFocus?.enabled === true,
+          replaceWithFloatingClaimCluster: layoutRegions.actionFocus?.replaceWithFloatingClaimCluster !== false,
+        },
+        turnSpotlight: {
+          enabled: layoutRegions.turnSpotlight?.enabled !== false,
+          mustStayVisible: layoutRegions.turnSpotlight?.mustStayVisible !== false,
+          avatarSizePx: Number(layoutRegions.turnSpotlight?.avatarSizePx) || 180,
+          nameBarBelowAvatar: layoutRegions.turnSpotlight?.nameBarBelowAvatar !== false,
+        },
+        contextBox: {
+          enabled: layoutRegions.contextBox?.enabled !== false,
+          sharedDeclareAndChallengeSlot: layoutRegions.contextBox?.sharedDeclareAndChallengeSlot !== false,
+          mustStayVisible: layoutRegions.contextBox?.mustStayVisible !== false,
+        },
+      };
+    }
+
+    function getClaimClusterConfig() {
+      const claimCluster = SCRATCHBONES_GAME.layout?.claimCluster || {};
+      const elements = claimCluster.elements || {};
+      return {
+        enabled: claimCluster.enabled !== false,
+        anchor: claimCluster.anchor || 'tableView',
+        scaleAsOne: claimCluster.scaleAsOne !== false,
+        preserveRelativePositions: claimCluster.preserveRelativePositions !== false,
+        mustStayVisible: claimCluster.mustStayVisible !== false,
+        transparentShells: claimCluster.transparentShells !== false,
+        geometry: {
+          centerXPct: Number(claimCluster.geometry?.centerXPct ?? 0.50),
+          centerYPct: Number(claimCluster.geometry?.centerYPct ?? 0.54),
+          widthPctOfTableView: Number(claimCluster.geometry?.widthPctOfTableView ?? 0.78),
+          heightPctOfTableView: Number(claimCluster.geometry?.heightPctOfTableView ?? 0.48),
+        },
+        elements: {
+          claimRankBox: elements.claimRankBox || { xPct: 0.50, yPct: 0.08, wPct: 0.12, hPct: 0.18 },
+          claimHandBar: elements.claimHandBar || { xPct: 0.50, yPct: 0.52, wPct: 0.42, hPct: 0.30 },
+          actorAvatarFloat: elements.actorAvatarFloat || { xPct: 0.14, yPct: 0.52, wPct: 0.16, hPct: 0.24 },
+          reactorAvatarFloat: elements.reactorAvatarFloat || { xPct: 0.86, yPct: 0.52, wPct: 0.16, hPct: 0.24 },
+          claimTimesBoxLeft: elements.claimTimesBoxLeft || { xPct: 0.26, yPct: 0.52, wPct: 0.07, hPct: 0.13 },
+          claimCountBoxLeft: elements.claimCountBoxLeft || { xPct: 0.26, yPct: 0.66, wPct: 0.07, hPct: 0.13 },
+          claimTimesBoxRight: elements.claimTimesBoxRight || { xPct: 0.74, yPct: 0.52, wPct: 0.07, hPct: 0.13 },
+          claimCountBoxRight: elements.claimCountBoxRight || { xPct: 0.74, yPct: 0.66, wPct: 0.07, hPct: 0.13 },
+        },
+      };
+    }
+
+    function claimClusterElementStyle(elementLayout) {
+      const xPct = clampNumber(Number(elementLayout?.xPct ?? 0.5), 0, 1);
+      const yPct = clampNumber(Number(elementLayout?.yPct ?? 0.5), 0, 1);
+      const wPct = clampNumber(Number(elementLayout?.wPct ?? 0.1), 0.01, 1);
+      const hPct = clampNumber(Number(elementLayout?.hPct ?? 0.1), 0.01, 1);
+      return `left:${(xPct * 100).toFixed(2)}%;top:${(yPct * 100).toFixed(2)}%;width:${(wPct * 100).toFixed(2)}%;height:${(hPct * 100).toFixed(2)}%;`;
+    }
+
     function applyLayoutContract(app) {
       if (!app) return null;
       const layout = SCRATCHBONES_GAME.layout || {};
+      const layoutRegions = getLayoutRegionsConfig();
+      const claimCluster = getClaimClusterConfig();
       const layoutSizing = layout.sizing || {};
       const layoutCards = layout.cards || {};
       const handLayout = layout.hand || {};
@@ -3696,6 +3831,8 @@
       const tableMinDominanceFrac = clampNumber(Number(tableViewLayout.minDominanceFrac) || 0.56, 0.51, 0.9);
       const tableViewMinHeightPx = clampNumber(Number(tableViewLayout.minHeightPx) || 260, 180, 1200);
       const tableViewMaxHeightPx = Math.max(tableViewMinHeightPx, clampNumber(Number(tableViewLayout.maxHeightPx) || 680, tableViewMinHeightPx, 1600));
+      const turnSpotlightLayout = tableViewLayout.turnSpotlight || {};
+      const tableVisualFit = tableViewLayout.visualFit || {};
       const tableCardVisualMode = ['facedown', 'faceup'].includes(String(tableViewLayout.cardVisualMode || '').toLowerCase())
         ? String(tableViewLayout.cardVisualMode).toLowerCase()
         : 'facedown';
@@ -3722,6 +3859,13 @@
       const seatAvatarPx = clampNumber(Number(layoutSizing.seatAvatarPx) || 132, 72, 280);
       const humanSeatAvatarPx = clampNumber(Number(layoutSizing.humanSeatAvatarPx) || 204, seatAvatarPx, 360);
       const cinematicAvatarPx = clampNumber(Number(layoutSizing.cinematicAvatarPx) || seatAvatarPx, 72, 320);
+      const turnSpotlightAvatarPx = clampNumber(Number(layoutRegions.turnSpotlight.avatarSizePx) || 180, 80, 320);
+      const turnSpotlightOffsetXPx = clampNumber(Number(turnSpotlightLayout.offsetXPx) || 10, 0, 120);
+      const turnSpotlightOffsetYPx = clampNumber(Number(turnSpotlightLayout.offsetYPx) || 10, 0, 120);
+      const tableCardContainerScale = clampNumber(Number(tableVisualFit.tableCardContainerScale) || 1.25, 0.75, 2.25);
+      const tableCardContentScale = clampNumber(Number(tableVisualFit.tableCardContentScale) || 0.8, 0.45, 1);
+      const claimAvatarContainerScale = clampNumber(Number(tableVisualFit.claimAvatarContainerScale) || 1.25, 0.75, 2.25);
+      const claimAvatarContentScale = clampNumber(Number(tableVisualFit.claimAvatarContentScale) || 0.8, 0.45, 1);
       const handCardMinWidthPx = clampNumber(Number(layoutSizing.handCardMinWidthPx) || 74, 48, 180);
       const handCardMaxWidthPx = clampNumber(Number(layoutSizing.handCardMaxWidthPx) || 104, handCardMinWidthPx, 220);
       const handCardMinHeightPx = clampNumber(Number(layoutSizing.handCardMinHeightPx) || 146, 88, 280);
@@ -3749,6 +3893,18 @@
       setCssVar('--layout-hand-max-height', `${Math.round(maxHeightPx)}px`);
       setCssVar('--layout-table-view-min-height', `${Math.round(tableViewMinHeightPx)}px`);
       setCssVar('--layout-table-view-max-height', `${Math.round(tableViewMaxHeightPx)}px`);
+      setCssVar('--layout-turn-spotlight-avatar-size', `${Math.round(turnSpotlightAvatarPx)}px`);
+      setCssVar('--layout-turn-spotlight-offset-x', `${Math.round(turnSpotlightOffsetXPx)}px`);
+      setCssVar('--layout-turn-spotlight-offset-y', `${Math.round(turnSpotlightOffsetYPx)}px`);
+      setCssVar('--layout-claim-cluster-center-x', clampNumber(claimCluster.geometry.centerXPct, 0, 1).toFixed(3));
+      setCssVar('--layout-claim-cluster-center-y', clampNumber(claimCluster.geometry.centerYPct, 0, 1).toFixed(3));
+      setCssVar('--layout-claim-cluster-width', (clampNumber(claimCluster.geometry.widthPctOfTableView, 0.05, 1) * 100).toFixed(3));
+      setCssVar('--layout-claim-cluster-height', (clampNumber(claimCluster.geometry.heightPctOfTableView, 0.05, 1) * 100).toFixed(3));
+      setCssVar('--layout-claim-cluster-scale', claimCluster.scaleAsOne ? '1' : '1');
+      setCssVar('--layout-table-card-container-scale', tableCardContainerScale.toFixed(3));
+      setCssVar('--layout-table-card-content-scale', tableCardContentScale.toFixed(3));
+      setCssVar('--layout-claim-avatar-container-scale', claimAvatarContainerScale.toFixed(3));
+      setCssVar('--layout-claim-avatar-content-scale', claimAvatarContentScale.toFixed(3));
       setCssVar('--layout-table-dominance-frac', tableMinDominanceFrac.toFixed(3));
       setCssVar('--layout-action-column-height-scale', actionColumnHeightScale.toFixed(3));
       setCssVar('--layout-controls-height-scale', controlsHeightScale.toFixed(3));
@@ -3797,11 +3953,25 @@
           minHeightPx: tableViewMinHeightPx,
           maxHeightPx: tableViewMaxHeightPx,
           cardVisualMode: tableCardVisualMode,
+          turnSpotlight: {
+            embedded: turnSpotlightLayout.embedded !== false,
+            pinCorner: String(turnSpotlightLayout.pinCorner || 'top-right'),
+            offsetXPx: turnSpotlightOffsetXPx,
+            offsetYPx: turnSpotlightOffsetYPx,
+          },
+          visualFit: {
+            tableCardContainerScale,
+            tableCardContentScale,
+            claimAvatarContainerScale,
+            claimAvatarContentScale,
+          },
           cinematicEnabled,
         },
         actionColumn: {
           heightScale: actionColumnHeightScale,
         },
+        regions: layoutRegions,
+        claimCluster,
         controls: {
           heightScale: controlsHeightScale,
         },
@@ -3904,50 +4074,108 @@
       const latestPilePlay = state.pile.at(-1) || null;
       const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || latestPilePlay;
       const tableViewPolicy = layoutPolicy?.tableView || {};
+      const regionsPolicy = layoutPolicy?.regions || getLayoutRegionsConfig();
+      const claimClusterPolicy = layoutPolicy?.claimCluster || getClaimClusterConfig();
+      const claimClusterEnabled = claimClusterPolicy.enabled;
+      const turnSpotlightEnabled = regionsPolicy.turnSpotlight?.enabled;
+      const turnSpotlightEmbedded = tableViewPolicy.turnSpotlight?.embedded !== false;
+      const contextBoxEnabled = regionsPolicy.contextBox?.enabled;
+      const sharedContextBox = regionsPolicy.contextBox?.sharedDeclareAndChallengeSlot;
+      const showLegacyActionFocus = !claimClusterEnabled && !regionsPolicy.actionFocus?.replaceWithFloatingClaimCluster && regionsPolicy.actionFocus?.enabled;
       const tableCardVisualMode = tableViewPolicy.cardVisualMode || 'facedown';
       const tableCardFaceDown = tableCardVisualMode !== 'faceup';
-      const actionFocus = (() => {
+      const claimFocus = (() => {
         if (!latestPlay) {
           return {
             actorId: state.currentTurn,
             reactorId: null,
-            actionVerb: 'is opening the round',
             declaredRank: state.declaredRank,
             cardCount: 0,
             cards: [],
             subtext: 'Select cards and declare a number to begin the next claim.'
           };
         }
-        const actorId = state.betting ? state.betting.currentActorId : latestPlay.playerIndex;
+        const actorId = latestPlay.playerIndex;
         let reactorId = null;
         if (state.betting) reactorId = actorId === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
         else if (state.challengeWindow) reactorId = latestPlay.playerIndex === 0 ? (state.challengeWindow.challengerOptions.find(id => id !== 0) ?? null) : 0;
-        const actionVerb = state.betting ? 'is betting the challenge' : (state.challengeWindow ? 'declared' : 'played');
         const declaredRank = latestPlay.declaredRank ?? state.declaredRank;
         const cardCount = latestPlay.cards?.length || 0;
         const cards = latestPlay.cards || [];
-        const subtext = state.betting
-          ? `Stake ${state.betting.stake} · ${seatLabel(state.betting.currentActorId)} to act`
-          : (state.challengeWindow ? 'Challenge window is open.' : `Latest claim from ${seatLabel(latestPlay.playerIndex)}.`);
-        return { actorId, reactorId, actionVerb, declaredRank, cardCount, cards, subtext };
+        return { actorId, reactorId, declaredRank, cardCount, cards };
       })();
-      const focusActor = state.players[actionFocus.actorId];
-      const focusReactor = actionFocus.reactorId !== null ? state.players[actionFocus.reactorId] : null;
-      const focusCardsHtml = actionFocus.cards.length
-        ? actionFocus.cards.map(card => {
-            const art = resolveScratchbone2DAsset(card);
-            return `<div class="focusMiniCard"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`}"></div>`;
+      const focusActor = state.players[claimFocus.actorId];
+      const focusReactor = claimFocus.reactorId !== null ? state.players[claimFocus.reactorId] : null;
+      const claimRankText = claimFocus.declaredRank === null || claimFocus.declaredRank === undefined ? '—' : String(claimFocus.declaredRank);
+      const claimCountText = String(claimFocus.cards?.length || 0);
+      const claimHandCardsHtml = (claimFocus.cards?.length
+        ? claimFocus.cards.map(card => {
+            const art = resolveScratchbone2DAsset(card, { flipped: true });
+            return `<div class="tableViewCard"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Face-down scratchbone card"></div>`;
           }).join('')
-        : '<div class="tiny">No cards in focus.</div>';
-      const focusRankText = actionFocus.declaredRank === null || actionFocus.declaredRank === undefined ? 'open claim' : actionFocus.declaredRank;
-      const focusActionText = `${seatLabel(focusActor || actionFocus.actorId)} ${actionFocus.actionVerb} ${actionFocus.cardCount} × ${focusRankText}`;
+        : '<div class="tiny">No claim yet.</div>');
+      const claimClusterShellClass = claimClusterPolicy.transparentShells ? 'floatingTransparentShell' : '';
       const tableCardsHtml = latestPlay?.cards?.length
-        ? latestPlay.cards.map(card => {
-            const art = resolveScratchbone2DAsset(card, { flipped: tableCardFaceDown });
-            return `<div class="tableViewCard"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${tableCardFaceDown ? 'Face-down scratchbone card' : (card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`)}"></div>`;
-          }).join('')
+        ? (claimClusterEnabled
+          ? `<div class="tiny">Claim cluster visualization active.</div>`
+          : latestPlay.cards.map(card => {
+              const art = resolveScratchbone2DAsset(card, { flipped: tableCardFaceDown });
+              return `<div class="tableViewCard"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${tableCardFaceDown ? 'Face-down scratchbone card' : (card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`)}"></div>`;
+            }).join(''))
         : '<div class="tiny">No cards on the table yet.</div>';
       const recentLogs = state.logs.slice(0, 4);
+      const turnPlayer = state.players[state.currentTurn];
+      const turnSpotlightTitle = `${seatLabel(turnPlayer)}'s turn`;
+      const renderDeclareControls = () => `
+        <div class="controls fit-target fit-0" data-proj-id="controls">
+          <div class="controlsRow">
+            <label>
+              Declare number
+              <select id="declareRank" ${!canHumanAct ? 'disabled' : ''}>
+                ${declareOptions}
+              </select>
+            </label>
+          </div>
+          <div class="bottomActions">
+            <button id="playBtn" ${!canHumanAct ? 'disabled' : ''}>Play Selected</button>
+            <button class="secondary" id="concedeBtn" ${!canHumanAct || state.declaredRank === null ? 'disabled' : ''}>Concede Round</button>
+          </div>
+        </div>
+      `;
+      const renderChallengePrompt = () => `
+        <div class="challengePromptPane fit-target fit-0" id="challengePromptPane" data-proj-id="challenge-prompt">
+          <div class="challengeBoxHeader">
+            <div class="sectionTitle" style="color:var(--danger);">Challenge window</div>
+            <div id="challengeTimerCount" style="font-size:1.05rem;font-weight:800;color:var(--danger);"></div>
+          </div>
+          <div id="challengeBoxInfo" class="tiny challengePromptInfo">${challengePromptText}</div>
+          <div class="challengeTimerRow">
+            <div class="timerLabel">
+              <span id="challengeTimerTitle">${escapeHtml(SCRATCHBONES_GAME.uiText.challengeTimerLabel)}</span>
+              <span id="challengeTimerLabel"></span>
+            </div>
+            <div class="timerTrack"><div class="timerFill" id="challengeTimerBar"></div></div>
+          </div>
+          <div class="challengePromptBtns">
+            <button class="danger" id="challengeBtnFixed">⚔ Challenge</button>
+            <button class="secondary" id="letPassBtnFixed">${escapeHtml(SCRATCHBONES_GAME.uiText.letStandButton)}</button>
+          </div>
+        </div>
+      `;
+      const renderBettingControls = () => `
+        <div class="controls fit-target fit-0" data-proj-id="controls">
+          <div class="sectionTitle">Challenge betting</div>
+          <div class="tiny" style="margin-top:6px;">Contributions — ${seatLabel(state.betting.challengerId)}: ${getContribution(state.betting.challengerId)} (${getRaiseCount(state.betting.challengerId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengerId) || 0}) · ${seatLabel(state.betting.challengedId)}: ${getContribution(state.betting.challengedId)} (${getRaiseCount(state.betting.challengedId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengedId) || 0}) · Backup queue: ${state.betting.backupQueue.map(id => seatLabel(id)).join(', ') || 'none'}</div>
+          <div class="challengeBar" style="margin-top:8px;">
+            ${bettingActorHuman ? `
+              <button class="secondary" id="betCallBtn">${humanCallAmount > 0 ? `Call ${humanCallAmount}` : 'Check'}</button>
+              <button id="betRaiseBtn" ${!humanCanRaise ? 'disabled' : ''}>Raise +${humanRaiseAmount || 0}</button>
+              <button class="danger" id="betFoldBtn">Fold</button>
+            ` : `<div class="tiny">${seatLabel(state.betting.currentActorId)} is deciding the next betting action.</div>`}
+            ${backupHumanEligible ? `<button class="ghost" id="joinBackupBtn">Join as backup caller</button>` : ''}
+          </div>
+        </div>
+      `;
 
       app.innerHTML = `
         <div class="topbar" data-proj-id="topbar">
@@ -3997,41 +4225,41 @@
 
         <div class="panel" data-proj-id="panel">
           <div class="tableView fit-target fit-0" data-proj-id="table-view">
+            ${(turnSpotlightEnabled && turnSpotlightEmbedded) ? `
+              <div class="turnSpotlight fit-target fit-0" data-proj-id="turn-spotlight">
+                <div class="turnSpotlightAvatar">
+                  <canvas class="seatPortrait" data-seat-id="${state.currentTurn}" width="220" height="220"></canvas>
+                </div>
+                <div class="turnSpotlightNameBar">${turnSpotlightTitle}</div>
+              </div>
+            ` : ''}
             <div class="tableViewHeader">
               <div class="sectionTitle">Table View</div>
-              <div class="tiny">${latestPlay ? `Latest: ${seatLabel(latestPlay.playerIndex)} · ${latestPlay.cards?.length || 0} card(s)` : 'Waiting for opening play'}</div>
+              <div class="tiny">${claimClusterEnabled ? 'Visual claim cluster active' : (latestPlay ? `Latest: ${seatLabel(latestPlay.playerIndex)} · ${latestPlay.cards?.length || 0} card(s)` : 'Waiting for opening play')}</div>
             </div>
             <div class="tableViewCards">${tableCardsHtml}</div>
+            ${claimClusterEnabled ? `
+              <div class="claimCluster fit-target fit-0 ${claimClusterPolicy.mustStayVisible ? 'must-stay-visible' : ''}" data-proj-id="claim-cluster">
+                <div class="claimRankAnchorTop" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}"></div>
+                <div class="claimRankBox ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankText}</div>
+                <div class="claimHandBar ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimHandBar)}">${claimHandCardsHtml}</div>
+                <div class="claimTimesBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxLeft)}">×</div>
+                <div class="claimCountBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountText}</div>
+                <div class="claimTimesBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxRight)}">×</div>
+                <div class="claimCountBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountText}</div>
+                <div class="actorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
+                  <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="140" height="140"></canvas>
+                </div>
+                <div class="reactorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
+                  ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="140" height="140"></canvas>` : ''}
+                </div>
+              </div>
+            ` : ''}
             <div id="tableCinematicHost" data-proj-id="cinematic"></div>
           </div>
-          <div class="actionFocus fit-target fit-0">
-            <div class="actionFocusHeader">Action Focus</div>
-            <div class="actionFocusMain">
-              <div class="focusAvatar" title="${seatLabel(focusActor || actionFocus.actorId)}">
-                <canvas class="seatPortrait" data-seat-id="${actionFocus.actorId}" width="72" height="72"></canvas>
-              </div>
-              <div class="focusTextWrap">
-                <div class="focusActionText">${focusActionText}</div>
-                <div class="focusSubtext">${actionFocus.subtext}</div>
-              </div>
-              <div class="focusAvatar" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
-                ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="72" height="72"></canvas>` : '—'}
-              </div>
-            </div>
-            <div class="focusMiniCards">${focusCardsHtml}</div>
-          </div>
-          ${state.betting ? `
-            <div>
-              <div class="sectionTitle">Challenge betting</div>
-              <div class="tiny" style="margin-top:6px;">Contributions — ${seatLabel(state.betting.challengerId)}: ${getContribution(state.betting.challengerId)} (${getRaiseCount(state.betting.challengerId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengerId) || 0}) · ${seatLabel(state.betting.challengedId)}: ${getContribution(state.betting.challengedId)} (${getRaiseCount(state.betting.challengedId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengedId) || 0}) · Backup queue: ${state.betting.backupQueue.map(id => seatLabel(id)).join(', ') || 'none'}</div>
-              <div class="challengeBar" style="margin-top:8px;">
-                ${bettingActorHuman ? `
-                  <button class="secondary" id="betCallBtn">${humanCallAmount > 0 ? `Call ${humanCallAmount}` : 'Check'}</button>
-                  <button id="betRaiseBtn" ${!humanCanRaise ? 'disabled' : ''}>Raise +${humanRaiseAmount || 0}</button>
-                  <button class="danger" id="betFoldBtn">Fold</button>
-                ` : `<div class="tiny">${seatLabel(state.betting.currentActorId)} is deciding the next betting action.</div>`}
-                ${backupHumanEligible ? `<button class="ghost" id="joinBackupBtn">Join as backup caller</button>` : ''}
-              </div>
+          ${showLegacyActionFocus ? `
+            <div class="actionFocus fit-target fit-0">
+              <div class="tiny">Legacy action focus mode enabled.</div>
             </div>
           ` : ''}
           <details class="debug">
@@ -4041,44 +4269,12 @@
           </details>
         </div>
 
-        <div class="actionColumn" data-proj-id="action-column">
-          <div class="controlsChallengeRow ${humanCanDecideChallenge ? 'hasChallengePane' : ''}">
-            <div class="controls fit-target fit-0" data-proj-id="controls">
-              <div class="controlsRow">
-                <label>
-                  Declare number
-                  <select id="declareRank" ${!canHumanAct ? 'disabled' : ''}>
-                    ${declareOptions}
-                  </select>
-                </label>
-              </div>
-              <div class="bottomActions">
-                <button id="playBtn" ${!canHumanAct ? 'disabled' : ''}>Play Selected</button>
-                <button class="secondary" id="concedeBtn" ${!canHumanAct || state.declaredRank === null ? 'disabled' : ''}>Concede Round</button>
-              </div>
-            </div>
-            ${humanCanDecideChallenge ? `
-              <div class="challengePromptPane fit-target fit-0" id="challengePromptPane" data-proj-id="challenge-prompt">
-                <div class="challengeBoxHeader">
-                  <div class="sectionTitle" style="color:var(--danger);">Challenge window</div>
-                  <div id="challengeTimerCount" style="font-size:1.05rem;font-weight:800;color:var(--danger);"></div>
-                </div>
-                <div id="challengeBoxInfo" class="tiny challengePromptInfo">${challengePromptText}</div>
-                <div class="challengeTimerRow">
-                  <div class="timerLabel">
-                    <span id="challengeTimerTitle">${escapeHtml(SCRATCHBONES_GAME.uiText.challengeTimerLabel)}</span>
-                    <span id="challengeTimerLabel"></span>
-                  </div>
-                  <div class="timerTrack"><div class="timerFill" id="challengeTimerBar"></div></div>
-                </div>
-                <div class="challengePromptBtns">
-                  <button class="danger" id="challengeBtnFixed">⚔ Challenge</button>
-                  <button class="secondary" id="letPassBtnFixed">${escapeHtml(SCRATCHBONES_GAME.uiText.letStandButton)}</button>
-                </div>
-              </div>
-            ` : ''}
-          </div>
-
+        <div class="contextBox ${contextBoxEnabled ? 'must-stay-visible' : ''}" data-proj-id="context-box">
+          ${state.betting
+            ? renderBettingControls()
+            : (sharedContextBox && humanCanDecideChallenge
+              ? renderChallengePrompt()
+              : renderDeclareControls())}
           <div class="handWrap fit-target fit-0" data-proj-id="hand">
             <div class="handHeader">
               <div class="sectionTitle">Your hand</div>
@@ -4104,8 +4300,6 @@
           <div class="sectionTitle">Recent events</div>
           ${recentLogs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
         </div>
-
-        <div class="rightGap" aria-hidden="true"></div>
       `;
 
       if (state.declaredRank !== null) {
@@ -4135,6 +4329,8 @@
     }
 
     function debugSnapshot() {
+      const regionsConfig = getLayoutRegionsConfig();
+      const claimClusterConfig = getClaimClusterConfig();
       return {
         seed: state.seed,
         round: state.round,
@@ -4173,6 +4369,11 @@
         config: CONFIG,
         fitStages: state.layoutFitStages,
         overlapDiagnostics: state.layoutOverlapDiagnostics,
+        layoutNotes: {
+          claimClusterEnabled: claimClusterConfig.enabled,
+          turnSpotlightEnabled: regionsConfig.turnSpotlight.enabled,
+          contextBoxMode: regionsConfig.contextBox.sharedDeclareAndChallengeSlot ? 'shared' : 'split',
+        },
         stats: state.stats,
         recentChange: state.recentChange,
       };
@@ -4720,7 +4921,7 @@
         if (sourceEl.matches('.seatPortrait, .seatAvatarBox')) return 'avatar scope';
         if (sourceEl.matches('.cardArt, .tableViewCard img, .tableViewCard')) return 'card image scope';
         if (sourceEl.matches('.cardLabel, .cardGlyph, .cardText')) return 'card text scope';
-        if (sourceEl.matches('.seatName, .seatMeta, .seatStatus, .seatSeed, .seatTags, .focusActionText, .focusSubtext')) return 'text scope';
+        if (sourceEl.matches('.seatName, .seatMeta, .seatStatus, .seatSeed, .seatTags, .turnSpotlightNameBar, .claimRankBox, .claimCountBoxLeft, .claimCountBoxRight')) return 'text scope';
         return '';
       };
 
