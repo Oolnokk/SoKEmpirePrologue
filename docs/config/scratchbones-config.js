@@ -198,6 +198,7 @@ window.SCRATCHBONES_CONFIG.game = {
         '--layout-hand-card-max-height',
         '--layout-event-log-max-height',
       ],
+
     },
   },
   uiText: {

@@ -1696,7 +1696,7 @@ canvas#game{
 }
 
 @media (max-width: 960px){
-  :root{--control-scale:clamp(0.58,4vw,0.75);--stage-bottom-offset:clamp(12px,3vw,20px);}
+  :root{--control-scale-base:clamp(0.58,4vw,0.75);--stage-bottom-offset:clamp(12px,3vw,20px);}
 }
 
 @media (max-width: 768px){
@@ -1705,7 +1705,7 @@ canvas#game{
 }
 
 @media (max-width: 520px){
-  :root{--control-scale:0.62;--stage-bottom-offset:clamp(10px,3vh,18px);}
+  :root{--control-scale-base:0.62;--stage-bottom-offset:clamp(10px,3vh,18px);}
   .health-bar,.stamina-bar{width:200px;}
   .top-ui{left:12px;right:auto;}
 }
