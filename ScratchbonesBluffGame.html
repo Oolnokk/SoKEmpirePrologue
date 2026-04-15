@@ -69,6 +69,14 @@
       --shadow: 0 10px 24px rgba(0,0,0,0.28);
       --radius: 18px;
       --safe: env(safe-area-inset-bottom, 0px);
+      --layout-hand-height: 220px;
+      --layout-hand-min-height: 160px;
+      --layout-hand-max-height: 360px;
+      --layout-hand-width-frac: 0.5;
+      --layout-challenge-font-scale: 1;
+      --layout-challenge-image-scale: 1;
+      --layout-challenge-gap-scale: 1;
+      --layout-parent-height-scale: 1;
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -81,8 +89,14 @@
       height: 100dvh;
       overflow: hidden;
       display: grid;
+      container-type: size;
       grid-template-columns: minmax(0, 1fr) 280px;
-      grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+      grid-template-rows:
+        auto
+        minmax(0, 1fr)
+        minmax(var(--layout-hand-min-height), calc(var(--layout-hand-height) * var(--layout-parent-height-scale)))
+        minmax(0, auto)
+        minmax(0, auto);
       grid-template-areas:
         "topbar   sidebar"
         "panel    sidebar"
@@ -98,6 +112,7 @@
       border: 1px solid rgba(255,255,255,0.08);
       box-shadow: var(--shadow);
       border-radius: var(--radius);
+      min-width: 0;
     }
 
     .topbar {
@@ -300,8 +315,8 @@
       justify-content: center;
     }
     .focusMiniCard {
-      width: 28px;
-      height: 40px;
+      width: calc(28px * var(--layout-challenge-image-scale));
+      height: calc(40px * var(--layout-challenge-image-scale));
       border-radius: 7px;
       overflow: hidden;
       border: 1px solid rgba(255,255,255,0.18);
@@ -317,9 +332,9 @@
 
     .controls {
       grid-area: controls;
-      padding: 12px;
+      padding: calc(12px * var(--layout-challenge-gap-scale));
       display: grid;
-      gap: 10px;
+      gap: calc(10px * var(--layout-challenge-gap-scale));
       z-index: 4;
       background: linear-gradient(180deg, rgba(46,34,30,0.96), rgba(37,28,25,0.98));
       backdrop-filter: blur(8px);
@@ -340,11 +355,13 @@
     button {
       border: none;
       border-radius: 14px;
-      padding: 12px 14px;
+      padding: calc(12px * var(--layout-challenge-gap-scale)) calc(14px * var(--layout-challenge-gap-scale));
       color: #1d140f;
       background: var(--accent);
       font-weight: 800;
       box-shadow: var(--shadow);
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     button.secondary { background: #8f7761; color: #fff6ea; }
@@ -355,10 +372,11 @@
 
     .handWrap {
       grid-area: hand;
-      padding: 8px 12px;
+      padding: calc(8px * var(--layout-challenge-gap-scale)) calc(12px * var(--layout-challenge-gap-scale));
       display: grid;
-      gap: 6px;
+      gap: calc(6px * var(--layout-challenge-gap-scale));
       min-height: 0;
+      max-width: calc(100% * var(--layout-hand-width-frac));
     }
 
     .handHeader {
@@ -370,7 +388,7 @@
 
     .handScroll {
       --hand-card-min: clamp(74px, 14vw, 104px);
-      --hand-card-gap: clamp(8px, 1.6vw, 12px);
+      --hand-card-gap: calc(clamp(8px, 1.6vw, 12px) * var(--layout-challenge-gap-scale));
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(var(--hand-card-min), 1fr));
       gap: var(--hand-card-gap);
@@ -382,7 +400,7 @@
     .card {
       width: 100%;
       min-width: 0;
-      min-height: clamp(146px, 20vh, 186px);
+      min-height: calc(clamp(146px, 20vh, 186px) * var(--layout-parent-height-scale));
       padding: 0;
       background: transparent;
       color: var(--card-text);
@@ -434,9 +452,9 @@
 
     .eventLog {
       grid-area: log;
-      padding: 8px 12px;
+      padding: calc(8px * var(--layout-challenge-gap-scale)) calc(12px * var(--layout-challenge-gap-scale));
       display: grid;
-      gap: 6px;
+      gap: calc(6px * var(--layout-challenge-gap-scale));
       max-height: 78px;
       min-height: 0;
       overflow-y: auto;
@@ -446,8 +464,8 @@
     .logItem {
       background: rgba(255,255,255,0.05);
       border-radius: 12px;
-      padding: 9px 10px;
-      font-size: 0.84rem;
+      padding: calc(9px * var(--layout-challenge-gap-scale)) calc(10px * var(--layout-challenge-gap-scale));
+      font-size: calc(0.84rem * var(--layout-challenge-font-scale));
       color: var(--text);
     }
 
@@ -457,7 +475,40 @@
       flex-wrap: wrap;
     }
 
-    .tiny { font-size: 0.74rem; color: var(--muted); }
+    .tiny { font-size: calc(0.74rem * var(--layout-challenge-font-scale)); color: var(--muted); }
+    .layout-challenge-wrap .tiny,
+    .layout-challenge-wrap .focusActionText,
+    .layout-challenge-wrap .focusSubtext,
+    .layout-challenge-wrap #challengeBoxInfo,
+    .layout-challenge-wrap .seatMeta,
+    .layout-challenge-wrap .seatStatus {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      hyphens: auto;
+    }
+    .focusActionText,
+    .focusSubtext,
+    .sectionTitle,
+    .seatMeta,
+    .seatStatus,
+    .timerLabel,
+    button,
+    select {
+      font-size: calc(1em * var(--layout-challenge-font-scale));
+    }
+    .seatAvatarBox,
+    .focusAvatar {
+      transform: scale(var(--layout-challenge-image-scale));
+      transform-origin: top center;
+    }
+    #app.layout-controls-above-hand {
+      grid-template-areas:
+        "topbar   sidebar"
+        "panel    sidebar"
+        "controls sidebar"
+        "hand     sidebar"
+        "log      sidebar";
+    }
 
     details.debug {
       background: rgba(255,255,255,0.04);
@@ -539,6 +590,50 @@
       #app { max-width: 980px; margin: 0 auto; }
       #challengeBox { max-width: 980px; left: 50%; transform: translateX(-50%); }
       .card { min-width: 96px; }
+    }
+
+    @container (max-width: 980px) {
+      #app {
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr);
+      }
+      .actionFocusMain {
+        grid-template-columns: 56px minmax(0, 1fr) 56px;
+      }
+      .handScroll {
+        --hand-card-min: clamp(72px, 18vw, 92px);
+      }
+    }
+
+    @container (max-width: 760px) {
+      #app {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows:
+          auto
+          minmax(0, 1fr)
+          minmax(var(--layout-hand-min-height), calc(var(--layout-hand-height) * var(--layout-parent-height-scale)))
+          auto
+          auto
+          minmax(0, auto);
+        grid-template-areas:
+          "topbar"
+          "panel"
+          "hand"
+          "controls"
+          "log"
+          "sidebar";
+      }
+      #app.layout-controls-above-hand {
+        grid-template-areas:
+          "topbar"
+          "panel"
+          "controls"
+          "hand"
+          "log"
+          "sidebar";
+      }
+      .handWrap {
+        max-width: 100%;
+      }
     }
 
     /* ===== CHALLENGE CINEMATIC OVERLAY ===== */
@@ -1239,6 +1334,16 @@
       timers: {
         challengeTimerSecs: scratchbonesGameConfig.timers?.challengeSeconds ?? scratchbonesLegacyGameplayConfig.challengeTimerSecs ?? 8,
         aiThinkMs: scratchbonesGameConfig.timers?.aiThinkMs ?? scratchbonesLegacyGameplayConfig.aiThinkMs ?? 650,
+      },
+      layout: {
+        hand: {
+          desiredHeightFrac: scratchbonesGameConfig.layout?.hand?.desiredHeightFrac ?? scratchbonesLegacyGameplayConfig.handDesiredHeightFrac ?? 0.20,
+          desiredWidthFrac: scratchbonesGameConfig.layout?.hand?.desiredWidthFrac ?? scratchbonesLegacyGameplayConfig.handDesiredWidthFrac ?? 0.50,
+          minHeightPx: scratchbonesGameConfig.layout?.hand?.minHeightPx ?? scratchbonesLegacyGameplayConfig.handMinHeightPx ?? 160,
+          maxHeightPx: scratchbonesGameConfig.layout?.hand?.maxHeightPx ?? scratchbonesLegacyGameplayConfig.handMaxHeightPx ?? 360,
+        },
+        controlsToHandRelationship: scratchbonesGameConfig.layout?.controlsToHandRelationship ?? scratchbonesLegacyGameplayConfig.controlsToHandRelationship ?? 'below',
+        allowChallengeOverflow: scratchbonesGameConfig.layout?.allowChallengeOverflow ?? scratchbonesLegacyGameplayConfig.allowChallengeOverflow ?? true,
       },
       uiText: {
         initialBanner: scratchbonesGameConfig.uiText?.initialBanner ?? scratchbonesLegacyGameplayConfig.initialBanner ?? 'Open a round by selecting one or more cards, then declare a number.',
@@ -2976,6 +3081,71 @@
       if (label) label.textContent = state.challengeTimeLeft + 's';
     }
 
+    function clampNumber(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function applyLayoutContract(app) {
+      if (!app) return null;
+      const layout = SCRATCHBONES_GAME.layout || {};
+      const handLayout = layout.hand || {};
+      const viewportHeight = window.innerHeight || app.clientHeight || 0;
+      const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
+      const desiredWidthFrac = clampNumber(Number(handLayout.desiredWidthFrac) || 0.50, 0.25, 1);
+      const minHeightPx = Math.max(80, Number(handLayout.minHeightPx) || 160);
+      const maxHeightPx = Math.max(minHeightPx, Number(handLayout.maxHeightPx) || 360);
+      const desiredHandHeight = clampNumber(viewportHeight * desiredHeightFrac, minHeightPx, maxHeightPx);
+      const controlsBelow = String(layout.controlsToHandRelationship || 'below').toLowerCase() === 'below';
+      app.style.setProperty('--layout-hand-height', `${Math.round(desiredHandHeight)}px`);
+      app.style.setProperty('--layout-hand-min-height', `${Math.round(minHeightPx)}px`);
+      app.style.setProperty('--layout-hand-max-height', `${Math.round(maxHeightPx)}px`);
+      app.style.setProperty('--layout-hand-width-frac', desiredWidthFrac.toFixed(3));
+      app.classList.toggle('layout-controls-above-hand', !controlsBelow);
+      return { allowChallengeOverflow: layout.allowChallengeOverflow !== false };
+    }
+
+    function resolveChallengeLayoutPressure(app, allowChallengeOverflow = true) {
+      if (!app) return;
+      if (!allowChallengeOverflow) {
+        app.classList.remove('layout-challenge-wrap');
+        app.style.setProperty('--layout-challenge-font-scale', '1');
+        app.style.setProperty('--layout-challenge-image-scale', '1');
+        app.style.setProperty('--layout-challenge-gap-scale', '1');
+        app.style.setProperty('--layout-parent-height-scale', '1');
+        return;
+      }
+      const challengeBox = document.getElementById('challengeBox');
+      const challengeInner = challengeBox?.querySelector('.challengeBoxInner');
+      const challengeActive = !!(challengeBox && challengeBox.style.display !== 'none' && challengeInner);
+      if (!challengeActive) {
+        app.classList.remove('layout-challenge-wrap');
+        app.style.setProperty('--layout-challenge-font-scale', '1');
+        app.style.setProperty('--layout-challenge-image-scale', '1');
+        app.style.setProperty('--layout-challenge-gap-scale', '1');
+        app.style.setProperty('--layout-parent-height-scale', '1');
+        return;
+      }
+
+      const overflowPx = Math.max(0, challengeInner.scrollHeight - challengeInner.clientHeight);
+      const severity = clampNumber(overflowPx / 220, 0, 1);
+
+      // Deterministic resolver order:
+      // 1) wrap text
+      // 2) reduce font scale
+      // 3) reduce image scale
+      // 4) reduce internal gaps/padding
+      // 5) reduce parent height proportionally
+      app.classList.toggle('layout-challenge-wrap', overflowPx > 0);
+      const fontScale = overflowPx > 0 ? (1 - (0.14 * severity)) : 1;
+      const imageScale = overflowPx > 0 ? (1 - (0.16 * severity)) : 1;
+      const gapScale = overflowPx > 0 ? (1 - (0.24 * severity)) : 1;
+      const parentHeightScale = overflowPx > 0 ? (1 - (0.18 * severity)) : 1;
+      app.style.setProperty('--layout-challenge-font-scale', clampNumber(fontScale, 0.82, 1).toFixed(3));
+      app.style.setProperty('--layout-challenge-image-scale', clampNumber(imageScale, 0.78, 1).toFixed(3));
+      app.style.setProperty('--layout-challenge-gap-scale', clampNumber(gapScale, 0.72, 1).toFixed(3));
+      app.style.setProperty('--layout-parent-height-scale', clampNumber(parentHeightScale, 0.80, 1).toFixed(3));
+    }
+
     function renderChallengeBox() {
       const box = document.getElementById('challengeBox');
       if (!box) return;
@@ -2995,6 +3165,7 @@
 
     function render() {
       const app = document.getElementById('app');
+      const layoutPolicy = applyLayoutContract(app);
       const player = state.players[0] || { hand: [], chips: 0, clears: 0 };
       const selected = selectedCards();
       const canHumanAct = !state.gameOver && state.currentTurn === 0 && !state.challengeWindow && !state.betting && !hasConcededThisRound(0);
@@ -3181,6 +3352,7 @@
       });
       wireScratchboneImageFallbacks(app);
       renderChallengeBox();
+      resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
       refreshCinematicBettingZone();
       renderSeatPortraits();
     }
