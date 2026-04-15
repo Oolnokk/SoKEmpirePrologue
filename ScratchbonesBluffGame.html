@@ -136,6 +136,12 @@
       --layout-claim-cluster-width: 78;
       --layout-claim-cluster-height: 48;
       --layout-claim-cluster-scale: 1;
+      --layout-table-card-container-scale: 1.25;
+      --layout-table-card-content-scale: 0.8;
+      --layout-claim-avatar-container-scale: 1.25;
+      --layout-claim-avatar-content-scale: 0.8;
+      --layout-turn-spotlight-offset-x: 10px;
+      --layout-turn-spotlight-offset-y: 10px;
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -156,10 +162,10 @@
         minmax(0, min(var(--layout-action-column-max-height), calc((1 - var(--layout-table-dominance-frac)) * 100dvh)))
         minmax(0, min(var(--layout-log-max-row-height), calc((1 - var(--layout-table-dominance-frac)) * 100dvh)));
       grid-template-areas:
-        "topbar   topbar        sidebar"
-        "panel    turnSpotlight sidebar"
-        "context  human         sidebar"
-        "log      log           sidebar";
+        "topbar   sidebar"
+        "panel    sidebar"
+        "context  human"
+        "log      human";
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
     }
@@ -286,8 +292,8 @@
       padding: 2px;
     }
     .claimHandBar .tableViewCard {
-      width: calc(var(--layout-card-mini-base-width) * var(--layout-card-scale) * 1.1);
-      height: calc(var(--layout-card-mini-base-height) * var(--layout-card-scale) * 1.1);
+      width: calc(var(--layout-card-mini-base-width) * var(--layout-card-scale) * var(--layout-table-card-container-scale));
+      height: calc(var(--layout-card-mini-base-height) * var(--layout-card-scale) * var(--layout-table-card-container-scale));
       margin-left: -8px;
     }
     .claimHandBar .tableViewCard:first-child {
@@ -297,6 +303,8 @@
     .reactorAvatarFloat {
       overflow: hidden;
       padding: 0;
+      transform: translate(-50%, -50%) scale(var(--layout-claim-avatar-container-scale));
+      transform-origin: center center;
     }
     .actorAvatarFloat canvas,
     .reactorAvatarFloat canvas {
@@ -304,6 +312,8 @@
       height: 100%;
       display: block;
       border-radius: 10px;
+      transform: scale(var(--layout-claim-avatar-content-scale));
+      transform-origin: center center;
     }
     .tableViewHeader {
       display: flex;
@@ -323,8 +333,8 @@
       min-height: 0;
     }
     .tableViewCard {
-      width: calc(var(--layout-card-table-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
-      height: calc(var(--layout-card-table-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
+      width: calc(var(--layout-card-table-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale));
+      height: calc(var(--layout-card-table-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale));
       border-radius: 0;
       border: 0;
       background: transparent;
@@ -336,6 +346,8 @@
       height: 100%;
       object-fit: cover;
       display: block;
+      transform: scale(var(--layout-table-card-content-scale));
+      transform-origin: center center;
     }
     #tableCinematicHost {
       position: absolute;
@@ -378,7 +390,9 @@
     }
 
     .turnSpotlight {
-      grid-area: turnSpotlight;
+      position: absolute;
+      top: var(--layout-turn-spotlight-offset-y);
+      right: var(--layout-turn-spotlight-offset-x);
       background: var(--panel);
       border: 1px solid rgba(255,255,255,0.08);
       box-shadow: var(--shadow);
@@ -388,6 +402,8 @@
       grid-template-rows: minmax(0, 1fr) auto;
       gap: 8px;
       min-height: 0;
+      width: min(36%, 220px);
+      z-index: 4;
     }
     .turnSpotlightAvatar {
       width: min(100%, var(--layout-turn-spotlight-avatar-size));
@@ -456,7 +472,8 @@
       min-width: 0;
       position: relative;
       display: flex;
-      align-items: flex-start;
+      align-items: center;
+      justify-content: space-between;
       gap: 10px;
       overflow: visible;
       z-index: 3;
@@ -466,6 +483,8 @@
       height: var(--layout-human-seat-avatar-size);
       border-radius: 12px;
       border: 1px solid rgba(242,208,143,0.32);
+      margin-left: auto;
+      flex: 0 0 auto;
     }
     .humanSeatChipBadge {
       position: absolute;
@@ -480,6 +499,14 @@
       font-weight: 700;
       box-shadow: 0 8px 16px rgba(0,0,0,0.35);
       pointer-events: none;
+    }
+    #aiSidebar {
+      margin-bottom: calc(var(--layout-app-gap) * -1);
+      padding-bottom: var(--layout-app-gap);
+    }
+    .humanSeatZone {
+      margin-top: calc(var(--layout-app-gap) * -1);
+      padding-top: var(--layout-app-gap);
     }
 
     .seatName { font-weight: 700; font-size: 0.92rem; }
@@ -841,7 +868,7 @@
 
     @container (max-width: 980px) {
       #app {
-        grid-template-columns: minmax(0, 1fr) minmax(180px, 0.36fr) minmax(110px, 0.35fr);
+        grid-template-columns: minmax(0, 1fr) minmax(120px, 0.42fr);
       }
       .handScroll {
         --hand-card-min: clamp(72px, 18vw, 92px);
@@ -861,9 +888,8 @@
           minmax(0, var(--layout-log-max-row-height));
         grid-template-areas:
           "topbar"
-          "panel"
-          "turnSpotlight"
           "sidebar"
+          "panel"
           "human"
           "context"
           "log";
@@ -1689,6 +1715,18 @@
           minHeightPx: scratchbonesGameConfig.layout?.tableView?.minHeightPx ?? 260,
           maxHeightPx: scratchbonesGameConfig.layout?.tableView?.maxHeightPx ?? 680,
           cardVisualMode: scratchbonesGameConfig.layout?.tableView?.cardVisualMode ?? 'faceDown',
+          turnSpotlight: {
+            embedded: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.embedded ?? true,
+            pinCorner: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.pinCorner ?? 'top-right',
+            offsetXPx: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.offsetXPx ?? 10,
+            offsetYPx: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.offsetYPx ?? 10,
+          },
+          visualFit: {
+            tableCardContainerScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.tableCardContainerScale ?? 1.25,
+            tableCardContentScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.tableCardContentScale ?? 0.8,
+            claimAvatarContainerScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.claimAvatarContainerScale ?? 1.25,
+            claimAvatarContentScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.claimAvatarContentScale ?? 0.8,
+          },
           cinematic: {
             enabled: scratchbonesGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
             showEffects: scratchbonesGameConfig.layout?.tableView?.cinematic?.showEffects ?? true,
@@ -2155,7 +2193,7 @@
         totalClears: 0,
         chipsMovedByChallenges: 0,
       },
-      recentChange: "Layout refactor: standalone action focus moved into a floating claim cluster, turn spotlight added near the sidebar, and declare/challenge/betting controls now share a single context box.",
+      recentChange: "Layout refinement: turn spotlight is now pinned inside table view, table visuals use fit scaling with larger containers, the human seat is an explicit text-left/avatar-right rectangle, and sidebar/human alignment is tightened.",
       challengeTimer: null,
       challengeTimeLeft: 0,
       roundConcessions: new Set(), // Used by: skipping players who have conceded the current claim until the round ends.
@@ -3794,6 +3832,8 @@
       const tableMinDominanceFrac = clampNumber(Number(tableViewLayout.minDominanceFrac) || 0.56, 0.51, 0.9);
       const tableViewMinHeightPx = clampNumber(Number(tableViewLayout.minHeightPx) || 260, 180, 1200);
       const tableViewMaxHeightPx = Math.max(tableViewMinHeightPx, clampNumber(Number(tableViewLayout.maxHeightPx) || 680, tableViewMinHeightPx, 1600));
+      const turnSpotlightLayout = tableViewLayout.turnSpotlight || {};
+      const tableVisualFit = tableViewLayout.visualFit || {};
       const tableCardVisualMode = ['facedown', 'faceup'].includes(String(tableViewLayout.cardVisualMode || '').toLowerCase())
         ? String(tableViewLayout.cardVisualMode).toLowerCase()
         : 'facedown';
@@ -3821,6 +3861,12 @@
       const humanSeatAvatarPx = clampNumber(Number(layoutSizing.humanSeatAvatarPx) || 204, seatAvatarPx, 360);
       const cinematicAvatarPx = clampNumber(Number(layoutSizing.cinematicAvatarPx) || seatAvatarPx, 72, 320);
       const turnSpotlightAvatarPx = clampNumber(Number(layoutRegions.turnSpotlight.avatarSizePx) || 180, 80, 320);
+      const turnSpotlightOffsetXPx = clampNumber(Number(turnSpotlightLayout.offsetXPx) || 10, 0, 120);
+      const turnSpotlightOffsetYPx = clampNumber(Number(turnSpotlightLayout.offsetYPx) || 10, 0, 120);
+      const tableCardContainerScale = clampNumber(Number(tableVisualFit.tableCardContainerScale) || 1.25, 0.75, 2.25);
+      const tableCardContentScale = clampNumber(Number(tableVisualFit.tableCardContentScale) || 0.8, 0.45, 1);
+      const claimAvatarContainerScale = clampNumber(Number(tableVisualFit.claimAvatarContainerScale) || 1.25, 0.75, 2.25);
+      const claimAvatarContentScale = clampNumber(Number(tableVisualFit.claimAvatarContentScale) || 0.8, 0.45, 1);
       const handCardMinWidthPx = clampNumber(Number(layoutSizing.handCardMinWidthPx) || 74, 48, 180);
       const handCardMaxWidthPx = clampNumber(Number(layoutSizing.handCardMaxWidthPx) || 104, handCardMinWidthPx, 220);
       const handCardMinHeightPx = clampNumber(Number(layoutSizing.handCardMinHeightPx) || 146, 88, 280);
@@ -3849,11 +3895,17 @@
       setCssVar('--layout-table-view-min-height', `${Math.round(tableViewMinHeightPx)}px`);
       setCssVar('--layout-table-view-max-height', `${Math.round(tableViewMaxHeightPx)}px`);
       setCssVar('--layout-turn-spotlight-avatar-size', `${Math.round(turnSpotlightAvatarPx)}px`);
+      setCssVar('--layout-turn-spotlight-offset-x', `${Math.round(turnSpotlightOffsetXPx)}px`);
+      setCssVar('--layout-turn-spotlight-offset-y', `${Math.round(turnSpotlightOffsetYPx)}px`);
       setCssVar('--layout-claim-cluster-center-x', clampNumber(claimCluster.geometry.centerXPct, 0, 1).toFixed(3));
       setCssVar('--layout-claim-cluster-center-y', clampNumber(claimCluster.geometry.centerYPct, 0, 1).toFixed(3));
       setCssVar('--layout-claim-cluster-width', (clampNumber(claimCluster.geometry.widthPctOfTableView, 0.05, 1) * 100).toFixed(3));
       setCssVar('--layout-claim-cluster-height', (clampNumber(claimCluster.geometry.heightPctOfTableView, 0.05, 1) * 100).toFixed(3));
       setCssVar('--layout-claim-cluster-scale', claimCluster.scaleAsOne ? '1' : '1');
+      setCssVar('--layout-table-card-container-scale', tableCardContainerScale.toFixed(3));
+      setCssVar('--layout-table-card-content-scale', tableCardContentScale.toFixed(3));
+      setCssVar('--layout-claim-avatar-container-scale', claimAvatarContainerScale.toFixed(3));
+      setCssVar('--layout-claim-avatar-content-scale', claimAvatarContentScale.toFixed(3));
       setCssVar('--layout-table-dominance-frac', tableMinDominanceFrac.toFixed(3));
       setCssVar('--layout-action-column-height-scale', actionColumnHeightScale.toFixed(3));
       setCssVar('--layout-controls-height-scale', controlsHeightScale.toFixed(3));
@@ -3902,6 +3954,18 @@
           minHeightPx: tableViewMinHeightPx,
           maxHeightPx: tableViewMaxHeightPx,
           cardVisualMode: tableCardVisualMode,
+          turnSpotlight: {
+            embedded: turnSpotlightLayout.embedded !== false,
+            pinCorner: String(turnSpotlightLayout.pinCorner || 'top-right'),
+            offsetXPx: turnSpotlightOffsetXPx,
+            offsetYPx: turnSpotlightOffsetYPx,
+          },
+          visualFit: {
+            tableCardContainerScale,
+            tableCardContentScale,
+            claimAvatarContainerScale,
+            claimAvatarContentScale,
+          },
           cinematicEnabled,
         },
         actionColumn: {
@@ -4015,6 +4079,7 @@
       const claimClusterPolicy = layoutPolicy?.claimCluster || getClaimClusterConfig();
       const claimClusterEnabled = claimClusterPolicy.enabled;
       const turnSpotlightEnabled = regionsPolicy.turnSpotlight?.enabled;
+      const turnSpotlightEmbedded = tableViewPolicy.turnSpotlight?.embedded !== false;
       const contextBoxEnabled = regionsPolicy.contextBox?.enabled;
       const sharedContextBox = regionsPolicy.contextBox?.sharedDeclareAndChallengeSlot;
       const showLegacyActionFocus = !claimClusterEnabled && !regionsPolicy.actionFocus?.replaceWithFloatingClaimCluster && regionsPolicy.actionFocus?.enabled;
@@ -4170,6 +4235,14 @@
 
         <div class="panel" data-proj-id="panel">
           <div class="tableView fit-target fit-0" data-proj-id="table-view">
+            ${(turnSpotlightEnabled && turnSpotlightEmbedded) ? `
+              <div class="turnSpotlight fit-target fit-0" data-proj-id="turn-spotlight">
+                <div class="turnSpotlightAvatar">
+                  <canvas class="seatPortrait" data-seat-id="${state.currentTurn}" width="220" height="220"></canvas>
+                </div>
+                <div class="turnSpotlightNameBar">${turnSpotlightTitle}</div>
+              </div>
+            ` : ''}
             <div class="tableViewHeader">
               <div class="sectionTitle">Table View</div>
               <div class="tiny">${claimClusterEnabled ? 'Visual claim cluster active' : (latestPlay ? `Latest: ${seatLabel(latestPlay.playerIndex)} · ${latestPlay.cards?.length || 0} card(s)` : 'Waiting for opening play')}</div>

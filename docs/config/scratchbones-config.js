@@ -82,6 +82,18 @@ window.SCRATCHBONES_CONFIG.game = {
       minHeightPx: __existingGameConfig.layout?.tableView?.minHeightPx ?? 260,
       maxHeightPx: __existingGameConfig.layout?.tableView?.maxHeightPx ?? 680,
       cardVisualMode: __existingGameConfig.layout?.tableView?.cardVisualMode ?? 'faceDown',
+      turnSpotlight: {
+        embedded: __existingGameConfig.layout?.tableView?.turnSpotlight?.embedded ?? true,
+        pinCorner: __existingGameConfig.layout?.tableView?.turnSpotlight?.pinCorner ?? 'top-right',
+        offsetXPx: __existingGameConfig.layout?.tableView?.turnSpotlight?.offsetXPx ?? 10,
+        offsetYPx: __existingGameConfig.layout?.tableView?.turnSpotlight?.offsetYPx ?? 10,
+      },
+      visualFit: {
+        tableCardContainerScale: __existingGameConfig.layout?.tableView?.visualFit?.tableCardContainerScale ?? 1.25,
+        tableCardContentScale: __existingGameConfig.layout?.tableView?.visualFit?.tableCardContentScale ?? 0.8,
+        claimAvatarContainerScale: __existingGameConfig.layout?.tableView?.visualFit?.claimAvatarContainerScale ?? 1.25,
+        claimAvatarContentScale: __existingGameConfig.layout?.tableView?.visualFit?.claimAvatarContentScale ?? 0.8,
+      },
       cinematic: {
         enabled: __existingGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
         showEffects: __existingGameConfig.layout?.tableView?.cinematic?.showEffects ?? true,
