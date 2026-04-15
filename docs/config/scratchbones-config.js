@@ -32,6 +32,9 @@ window.SCRATCHBONES_CONFIG.game = {
     aiThinkMs: __existingGameConfig.timers?.aiThinkMs ?? __legacyGameplayConfig.aiThinkMs ?? 650,
   },
   layout: {
+    cards: {
+      baseScale: __existingGameConfig.layout?.cards?.baseScale ?? 0.25,
+    },
     sizing: {
       sidebarWidthPx: __existingGameConfig.layout?.sizing?.sidebarWidthPx ?? __legacyGameplayConfig.sidebarWidthPx ?? 280,
       appGapPx: __existingGameConfig.layout?.sizing?.appGapPx ?? __legacyGameplayConfig.appGapPx ?? 8,
