@@ -155,7 +155,7 @@
       overflow: hidden;
       display: grid;
       container-type: size;
-      grid-template-columns: minmax(0, 1fr) var(--layout-sidebar-width);
+      grid-template-columns: minmax(0, 1fr) minmax(220px, 0.4fr) var(--layout-sidebar-width);
       grid-template-rows:
         auto
         minmax(0, calc(var(--layout-table-dominance-frac) * 1fr))
@@ -881,6 +881,7 @@
         grid-template-rows:
           auto
           minmax(0, calc(var(--layout-table-dominance-frac) * 1fr))
+          minmax(0, auto)
           minmax(0, auto)
           minmax(0, auto)
           minmax(0, var(--layout-action-column-max-height))
@@ -4222,6 +4223,15 @@
             <div class="humanSeatChipBadge">Chips ${player.chips}</div>
           </div>
         </div>
+
+        ${turnSpotlightEnabled ? `
+          <div class="turnSpotlight fit-target fit-0" data-proj-id="turn-spotlight">
+            <div class="turnSpotlightAvatar">
+              <canvas class="seatPortrait" data-seat-id="${state.currentTurn}" width="220" height="220"></canvas>
+            </div>
+            <div class="turnSpotlightNameBar">${turnSpotlightTitle}</div>
+          </div>
+        ` : ''}
 
         <div class="panel" data-proj-id="panel">
           <div class="tableView fit-target fit-0" data-proj-id="table-view">
