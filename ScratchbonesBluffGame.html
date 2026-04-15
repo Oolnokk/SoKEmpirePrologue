@@ -152,8 +152,8 @@
       grid-template-areas:
         "topbar   sidebar"
         "panel    sidebar"
-        "action   sidebar"
-        "log      sidebar";
+        "action   human"
+        "log      right-gap";
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
     }
@@ -289,8 +289,25 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      max-height: 100%;
       overflow-y: auto;
+      overflow-x: hidden;
       min-height: 0;
+    }
+
+    .humanSeatZone {
+      grid-area: human;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: stretch;
+    }
+
+    .rightGap {
+      grid-area: right-gap;
+      min-height: 0;
+      pointer-events: none;
     }
 
     .aiSeat {
@@ -321,7 +338,7 @@
       border-radius: 8px;
     }
     .humanSeatCard {
-      margin-top: 8px;
+      height: 100%;
       background: linear-gradient(170deg, rgba(67,49,43,0.95), rgba(50,37,33,0.98));
       border: 1px solid rgba(242,208,143,0.28);
       border-radius: 16px;
@@ -835,15 +852,17 @@
         grid-template-rows:
           auto
           minmax(0, calc(var(--layout-table-dominance-frac) * 1fr))
+          minmax(0, auto)
+          minmax(0, auto)
           minmax(0, var(--layout-action-column-max-height))
-          minmax(0, var(--layout-log-max-row-height))
-          minmax(0, auto);
+          minmax(0, var(--layout-log-max-row-height));
         grid-template-areas:
           "topbar"
           "panel"
+          "sidebar"
+          "human"
           "action"
-          "log"
-          "sidebar";
+          "log";
       }
       .handWrap {
         max-width: 100%;
@@ -1505,6 +1524,7 @@
           baseScale: scratchbonesGameConfig.layout?.cards?.baseScale ?? 0.25,
         },
         sizing: {
+          sidebarWidthFrac: scratchbonesGameConfig.layout?.sizing?.sidebarWidthFrac ?? scratchbonesLegacyGameplayConfig.sidebarWidthFrac ?? 0.75,
           sidebarWidthPx: scratchbonesGameConfig.layout?.sizing?.sidebarWidthPx ?? scratchbonesLegacyGameplayConfig.sidebarWidthPx ?? 280,
           appGapPx: scratchbonesGameConfig.layout?.sizing?.appGapPx ?? scratchbonesLegacyGameplayConfig.appGapPx ?? 8,
           appPaddingPx: scratchbonesGameConfig.layout?.sizing?.appPaddingPx ?? scratchbonesLegacyGameplayConfig.appPaddingPx ?? 8,
@@ -3431,7 +3451,15 @@
       const setCssVar = (name, value) => {
         for (const target of cssTargets) target.style.setProperty(name, value);
       };
-      const sidebarWidthPx = clampNumber(Number(layoutSizing.sidebarWidthPx) || 280, 180, 520);
+      const appWidthPx = Math.max(320, Number(app?.clientWidth) || Number(window?.innerWidth) || 0);
+      const sidebarWidthFracRaw = Number(layoutSizing.sidebarWidthFrac);
+      const sidebarWidthFrac = Number.isFinite(sidebarWidthFracRaw)
+        ? clampNumber(sidebarWidthFracRaw, 0.25, 0.9)
+        : null;
+      const sidebarWidthTargetPx = sidebarWidthFrac !== null
+        ? appWidthPx * sidebarWidthFrac
+        : (Number(layoutSizing.sidebarWidthPx) || 280);
+      const sidebarWidthPx = clampNumber(sidebarWidthTargetPx, 180, Math.max(220, appWidthPx - 140));
       const appGapPx = clampNumber(Number(layoutSizing.appGapPx) || 8, 0, 40);
       const appPaddingPx = clampNumber(Number(layoutSizing.appPaddingPx) || 8, 0, 48);
       const seatAvatarPx = clampNumber(Number(layoutSizing.seatAvatarPx) || 132, 72, 280);
@@ -3697,6 +3725,20 @@
           `).join('')}
         </div>
 
+        <div class="humanSeatZone fit-target fit-0" data-proj-id="human-seat-zone">
+          <div class="humanSeatCard ${player.eliminated ? 'eliminated' : ''}" data-proj-id="human-seat">
+            <div class="seatInfo">
+              <div class="seatName">${seatLabel(player)}</div>
+              <div class="seatMeta">Cards ${player.hand.length} · Clears ${player.clears}</div>
+              <div class="seatStatus">${player.lastAction}</div>
+            </div>
+            <div class="seatAvatarBox" data-proj-id="avatar-human">
+              <canvas class="seatPortrait" data-seat-id="0" width="220" height="220"></canvas>
+            </div>
+            <div class="humanSeatChipBadge">Chips ${player.chips}</div>
+          </div>
+        </div>
+
         <div class="panel" data-proj-id="panel">
           <div class="tableView fit-target fit-0" data-proj-id="table-view">
             <div class="tableViewHeader">
@@ -3799,17 +3841,6 @@
               `;
               }).join('')}
             </div>
-            <div class="humanSeatCard ${player.eliminated ? 'eliminated' : ''}" data-proj-id="human-seat">
-              <div class="seatInfo">
-                <div class="seatName">${seatLabel(player)}</div>
-                <div class="seatMeta">Cards ${player.hand.length} · Clears ${player.clears}</div>
-                <div class="seatStatus">${player.lastAction}</div>
-              </div>
-              <div class="seatAvatarBox" data-proj-id="avatar-human">
-                <canvas class="seatPortrait" data-seat-id="0" width="220" height="220"></canvas>
-              </div>
-              <div class="humanSeatChipBadge">Chips ${player.chips}</div>
-            </div>
           </div>
         </div>
 
@@ -3817,6 +3848,8 @@
           <div class="sectionTitle">Recent events</div>
           ${recentLogs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
         </div>
+
+        <div class="rightGap" aria-hidden="true"></div>
       `;
 
       if (state.declaredRank !== null) {
