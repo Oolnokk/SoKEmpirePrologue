@@ -441,7 +441,7 @@ main.stack{
   padding:var(--pad);
 }
 
-/* In landscape orientation: lock to container width, maintain aspect ratio */
+/* In landscape orientation: hide non-game widgets for focused gameplay */
 @media (orientation: landscape) {
   :root{
     --control-scale-base:clamp(0.75,2.8vw,1.0);
@@ -473,10 +473,13 @@ main.stack{
   }
 
   .stage{
-    /* Lock width to 100vw to match container, calculate height from aspect ratio */
-    width:100vw !important;
+    /*
+      Keep a fixed aspect ratio and uniformly scale to fit the screen.
+      This avoids stretching/cropping when viewport aspect is not equal to game aspect.
+    */
+    width:min(100vw,calc(100vh * var(--stage-aspect-width) / var(--stage-aspect-height))) !important;
     max-width:100vw !important;
-    height:calc(100vw * var(--stage-aspect-height) / var(--stage-aspect-width)) !important;
+    height:auto !important;
     max-height:100vh !important;
     margin:0 !important;
     border-radius:0;
@@ -502,8 +505,8 @@ main.stack{
 
 .stage{
   /* Default fallback values - dynamically overridden by app.js from CONFIG.canvas */
-  --stage-aspect-width:720;
-  --stage-aspect-height:460;
+  --stage-aspect-width:1280;
+  --stage-aspect-height:720;
   /* Max height allows stage to scale responsively while maintaining aspect ratio */
   --stage-max-height:min(96vh,1200px);
   position:relative;
@@ -520,13 +523,11 @@ main.stack{
   place-items:center;
 }
 
-/* In fullscreen, use all available space */
+/* In fullscreen, preserve fixed aspect ratio and uniformly fit viewport */
 .stage:fullscreen{
-  --stage-max-height:100vh;
-  width:100vw !important;
+  width:min(100vw,calc(100vh * var(--stage-aspect-width) / var(--stage-aspect-height))) !important;
   max-width:100vw !important;
-  height:100vh !important;
-  aspect-ratio:auto !important;
+  max-height:100vh !important;
   border-radius:0;
   outline:none;
 }
