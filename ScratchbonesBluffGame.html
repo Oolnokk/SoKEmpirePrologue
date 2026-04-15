@@ -1519,13 +1519,29 @@
     .projVarHint { color: #cdbb9f; line-height: 1.35; }
     .projVarRow {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(70px, 94px) minmax(70px, 94px);
+      grid-template-columns: minmax(0, 1fr) minmax(76px, 100px) minmax(76px, 100px) minmax(76px, 100px);
       gap: 6px;
       align-items: center;
+      border: 1px solid rgba(200,150,80,0.12);
+      border-radius: 7px;
+      padding: 6px;
     }
     .projVarLabel {
       color: #f4e8d0;
       overflow-wrap: anywhere;
+    }
+    .projVarLabelHint {
+      color: #d0c0a4;
+      font-size: 0.62rem;
+      display: block;
+      margin-top: 2px;
+    }
+    .projVarRow.sizePosVar {
+      border-color: rgba(228, 198, 88, 0.55);
+      background: rgba(126, 106, 20, 0.18);
+    }
+    .projVarRow.sizePosVar .projVarLabel {
+      color: #f8e57e;
     }
     .projVarInput {
       width: 100%;
@@ -4573,14 +4589,24 @@
 
       let active = false;
       let lastSelectedProjId = null;
+      let lastSelectedSourceEl = null;
       const projectionMapConfig = SCRATCHBONES_GAME.layout?.projectionMapping || {};
       const projectionEditorConfig = projectionMapConfig.editor || {};
       const varStep = Number(projectionEditorConfig.step) || 0.01;
       const basePanelTitle = String(projectionEditorConfig.panelTitle || 'Projection Vars');
       const editedVars = new Map();
+      const sliderClamp = projectionEditorConfig.sliderClamp || {};
+      const multiplierVarHints = Array.isArray(projectionEditorConfig.multiplierVarHints) ? projectionEditorConfig.multiplierVarHints : ['scale', 'frac', 'ratio', 'multiplier'];
+      const sizePositionVarHints = Array.isArray(projectionEditorConfig.sizePositionVarHints) ? projectionEditorConfig.sizePositionVarHints : ['width', 'height', 'size', 'scale', 'gap', 'padding', 'min', 'max', 'offset', 'top', 'right', 'bottom', 'left', 'x', 'y', 'row', 'column', 'frac', 'avatar', 'card'];
       const varsByProjId = projectionMapConfig.varsByProjId || projectionMapConfig.relatedVarsByProjId || {};
+      const selectorVarsByProjId = projectionMapConfig.selectorVarsByProjId || {};
       const sharedVars = Array.isArray(projectionMapConfig.sharedVars) ? projectionMapConfig.sharedVars : [];
       const fallbackVars = Array.isArray(projectionMapConfig.fallbackVars) ? projectionMapConfig.fallbackVars : [];
+      const DEFAULT_SLIDER_MIN = Number.isFinite(Number(sliderClamp.absoluteMin)) ? Number(sliderClamp.absoluteMin) : -2000;
+      const DEFAULT_SLIDER_MAX = Number.isFinite(Number(sliderClamp.absoluteMax)) ? Number(sliderClamp.absoluteMax) : 2000;
+      const MULTIPLIER_SLIDER_MIN = Number.isFinite(Number(sliderClamp.multiplierMin)) ? Number(sliderClamp.multiplierMin) : 0;
+      const MULTIPLIER_SLIDER_MAX = Number.isFinite(Number(sliderClamp.multiplierMax)) ? Number(sliderClamp.multiplierMax) : 5;
+      let lastSelectionDetail = '';
 
       const copyToClipboard = (text) => {
         const payload = String(text ?? '');
@@ -4594,17 +4620,34 @@
         });
       };
 
-      const resolveRelatedVars = (projId) => {
+      const matchesProjPattern = (pattern, projId) => {
+        if (typeof pattern !== 'string' || !pattern) return false;
+        if (pattern.endsWith('*')) return projId.startsWith(pattern.slice(0, -1));
+        return pattern === projId;
+      };
+
+      const resolveRelatedVars = (projId, sourceEl) => {
         if (!projId) return [];
         const result = new Set(sharedVars);
         for (const [pattern, vars] of Object.entries(varsByProjId)) {
           const normalizedVars = Array.isArray(vars) ? vars : [];
-          const isMatch = pattern.endsWith('*')
-            ? projId.startsWith(pattern.slice(0, -1))
-            : pattern === projId;
-          if (!isMatch) continue;
+          if (!matchesProjPattern(pattern, projId)) continue;
           for (const varName of normalizedVars) {
             if (typeof varName === 'string' && varName.startsWith('--')) result.add(varName);
+          }
+        }
+        if (sourceEl) {
+          for (const [pattern, selectorMapping] of Object.entries(selectorVarsByProjId)) {
+            if (!matchesProjPattern(pattern, projId) || !selectorMapping || typeof selectorMapping !== 'object') continue;
+            for (const [selector, vars] of Object.entries(selectorMapping)) {
+              if (typeof selector !== 'string' || !selector.trim()) continue;
+              const matchesSelector = sourceEl.matches(selector) || !!sourceEl.closest(selector);
+              if (!matchesSelector) continue;
+              const normalizedVars = Array.isArray(vars) ? vars : [];
+              for (const varName of normalizedVars) {
+                if (typeof varName === 'string' && varName.startsWith('--')) result.add(varName);
+              }
+            }
           }
         }
         if (!result.size) {
@@ -4624,6 +4667,13 @@
         return [...result];
       };
 
+      const escapeHtml = (value) => String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+
       const normalizeCssVarValue = (rawValue) => {
         const value = String(rawValue || '').trim();
         if (!value) return '';
@@ -4641,15 +4691,48 @@
         return Number.isFinite(value) ? value : null;
       };
 
+      const cssVarSuffix = (value) => {
+        const suffixMatch = String(value ?? '').trim().match(/[a-z%]+$/i);
+        return suffixMatch ? suffixMatch[0] : '';
+      };
+
+      const isMultiplierVar = (varName, currentValue) => {
+        const normalizedName = String(varName || '').toLowerCase();
+        const hintMatch = multiplierVarHints.some((hint) => normalizedName.includes(String(hint || '').toLowerCase()));
+        const suffix = cssVarSuffix(currentValue);
+        return hintMatch || !suffix;
+      };
+
+      const isSizeOrPositionVar = (varName) => {
+        const normalizedName = String(varName || '').toLowerCase();
+        return sizePositionVarHints.some((hint) => normalizedName.includes(String(hint || '').toLowerCase()));
+      };
+
+      const resolveSliderBounds = (varName, currentValue) => {
+        if (isMultiplierVar(varName, currentValue)) {
+          return { min: MULTIPLIER_SLIDER_MIN, max: MULTIPLIER_SLIDER_MAX };
+        }
+        return { min: DEFAULT_SLIDER_MIN, max: DEFAULT_SLIDER_MAX };
+      };
+
+      const inferSelectionDetail = (sourceEl) => {
+        if (!sourceEl || !(sourceEl instanceof Element)) return '';
+        if (sourceEl.matches('.seatPortrait, .seatAvatarBox')) return 'avatar scope';
+        if (sourceEl.matches('.cardArt, .tableViewCard img, .tableViewCard')) return 'card image scope';
+        if (sourceEl.matches('.cardLabel, .cardGlyph, .cardText')) return 'card text scope';
+        if (sourceEl.matches('.seatName, .seatMeta, .seatStatus, .seatSeed, .seatTags, .focusActionText, .focusSubtext')) return 'text scope';
+        return '';
+      };
+
       const renderVarEditor = () => {
         varsPanelTitle.textContent = lastSelectedProjId
-          ? `${basePanelTitle} · ${lastSelectedProjId}`
+          ? `${basePanelTitle} · ${lastSelectedProjId}${lastSelectionDetail ? ` (${lastSelectionDetail})` : ''}`
           : basePanelTitle;
         if (!lastSelectedProjId) {
           varsPanelBody.innerHTML = '<div class="projVarHint">Select an outlined element in map mode, then open Vars.</div>';
           return;
         }
-        const relatedVars = resolveRelatedVars(lastSelectedProjId);
+        const relatedVars = resolveRelatedVars(lastSelectedProjId, lastSelectedSourceEl);
         if (!relatedVars.length) {
           varsPanelBody.innerHTML = '<div class="projVarHint">No configured variables for this element yet.</div>';
           return;
@@ -4658,13 +4741,19 @@
         const rows = relatedVars.map((varName) => {
           const value = normalizeCssVarValue(editedVars.get(varName) ?? computedRootStyles.getPropertyValue(varName));
           const numericValue = parseNumericCssVar(value);
+          const bounds = resolveSliderBounds(varName, value);
           const sliderMarkup = numericValue === null
             ? '<span class="projVarHint">n/a</span>'
-            : `<input class="projVarInput" data-proj-kind="range" data-proj-var="${varName}" type="range" min="-2000" max="2000" step="${varStep}" value="${numericValue}">`;
+            : `<input class="projVarInput" data-proj-kind="range" data-proj-var="${escapeHtml(varName)}" type="range" min="${bounds.min}" max="${bounds.max}" step="${varStep}" value="${Math.max(bounds.min, Math.min(bounds.max, numericValue))}">`;
+          const numberMarkup = numericValue === null
+            ? '<span class="projVarHint">n/a</span>'
+            : `<input class="projVarInput" data-proj-kind="number" data-proj-var="${escapeHtml(varName)}" type="number" step="${varStep}" value="${numericValue}">`;
+          const rowClass = isSizeOrPositionVar(varName) ? 'projVarRow sizePosVar' : 'projVarRow';
           return `
-            <label class="projVarRow">
-              <span class="projVarLabel">${varName}</span>
-              <input class="projVarInput" data-proj-kind="text" data-proj-var="${varName}" type="text" value="${value}">
+            <label class="${rowClass}">
+              <span class="projVarLabel">${escapeHtml(varName)}${isSizeOrPositionVar(varName) ? '<span class="projVarLabelHint">size/position</span>' : ''}</span>
+              <input class="projVarInput" data-proj-kind="text" data-proj-var="${escapeHtml(varName)}" type="text" value="${escapeHtml(value)}">
+              ${numberMarkup}
               ${sliderMarkup}
             </label>
           `;
@@ -4721,10 +4810,10 @@
         e.stopImmediatePropagation();
         const id = el.getAttribute('data-proj-id');
         lastSelectedProjId = id;
+        lastSelectedSourceEl = e.target instanceof Element ? e.target : el;
+        lastSelectionDetail = inferSelectionDetail(lastSelectedSourceEl);
         if (varsPanel.classList.contains('open')) renderVarEditor();
-        copyToClipboard(id);
-        tip.textContent = id + '  ✓ copied';
-        setTimeout(() => { if (active) tip.textContent = el.getAttribute('data-proj-id'); }, 1400);
+        tip.textContent = lastSelectionDetail ? `${id} · ${lastSelectionDetail}` : id;
       }, true);
 
       varsPanelBody.addEventListener('input', (event) => {
@@ -4735,20 +4824,35 @@
         const kind = input.getAttribute('data-proj-kind');
         const rows = varsPanelBody.querySelectorAll(`.projVarInput[data-proj-var="${varName}"]`);
         let nextValue = String(input.value ?? '').trim();
-        if (kind === 'range') {
+        if (kind === 'range' || kind === 'number') {
           const computed = getComputedStyle(document.documentElement).getPropertyValue(varName);
-          const suffixMatch = String(editedVars.get(varName) ?? computed).trim().match(/[a-z%]+$/i);
-          const suffix = suffixMatch ? suffixMatch[0] : '';
-          nextValue = `${Number.parseFloat(nextValue).toFixed(2)}${suffix}`;
+          const suffix = cssVarSuffix(editedVars.get(varName) ?? computed);
+          const numeric = Number.parseFloat(nextValue);
+          if (!Number.isFinite(numeric)) return;
+          nextValue = `${numeric.toFixed(2)}${suffix}`;
+        }
+        if (kind === 'range') {
+          const bounds = resolveSliderBounds(varName, nextValue);
+          const numeric = Number.parseFloat(nextValue);
+          nextValue = `${Math.max(bounds.min, Math.min(bounds.max, numeric)).toFixed(2)}${cssVarSuffix(nextValue)}`;
+        }
+        if (kind === 'text') {
+          const parsedText = parseNumericCssVar(nextValue);
+          if (parsedText !== null) {
+            const suffix = cssVarSuffix(nextValue);
+            nextValue = `${parsedText.toFixed(2)}${suffix}`;
+          }
         }
         editedVars.set(varName, nextValue);
         document.documentElement.style.setProperty(varName, nextValue);
         const asNumber = parseNumericCssVar(nextValue);
+        const bounds = resolveSliderBounds(varName, nextValue);
         rows.forEach((rowInput) => {
           if (rowInput === input) return;
           const rowKind = rowInput.getAttribute('data-proj-kind');
           if (rowKind === 'text') rowInput.value = nextValue;
-          if (rowKind === 'range' && asNumber !== null) rowInput.value = String(asNumber);
+          if (rowKind === 'number' && asNumber !== null) rowInput.value = String(asNumber);
+          if (rowKind === 'range' && asNumber !== null) rowInput.value = String(Math.max(bounds.min, Math.min(bounds.max, asNumber)));
         });
       });
 
