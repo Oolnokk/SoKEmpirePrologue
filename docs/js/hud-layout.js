@@ -17,6 +17,9 @@ export const DEFAULT_BOTTOM_BUTTON_ACTIONS = {
 export const DEFAULT_BOTTOM_HUD_CONFIG = {
   width: 360,
   height: 200,
+  handHeight: 124,
+  lowerBandGap: 14,
+  challengePaneWidth: 300,
   edgeHeight: 90,
   apexHeight: 140,
   offsetY: 0,
@@ -143,6 +146,9 @@ export function computeBottomHudConfig(raw = null, defaults = DEFAULT_BOTTOM_HUD
   const src = raw || window.CONFIG?.hud?.bottomButtons || {};
   const width = clampNumber(coerceNumber(src.width, defaults.width), 220, 720);
   const height = clampNumber(coerceNumber(src.height, defaults.height), 140, 320);
+  const handHeight = clampNumber(coerceNumber(src.handHeight, defaults.handHeight), 60, 360);
+  const lowerBandGap = clampNumber(coerceNumber(src.lowerBandGap, defaults.lowerBandGap), 0, 60);
+  const challengePaneWidth = clampNumber(coerceNumber(src.challengePaneWidth, defaults.challengePaneWidth), 120, 640);
   const edgeHeight = clampNumber(coerceNumber(src.edgeHeight, defaults.edgeHeight), 24, height);
   const apexHeight = clampNumber(coerceNumber(src.apexHeight, defaults.apexHeight), edgeHeight + 8, height + 220);
   const offsetY = coerceNumber(src.offsetY, defaults.offsetY) || 0;
@@ -150,7 +156,20 @@ export function computeBottomHudConfig(raw = null, defaults = DEFAULT_BOTTOM_HUD
   const scaleWithActor = src.scaleWithActor !== false;
   const buttons = normalizeButtonLayout(src.buttons || src.buttonLayout || {}, defaults.buttons);
   const actions = { ...defaults.actions, ...(src.actions || {}) };
-  return { width, height, edgeHeight, apexHeight, offsetY, scale, scaleWithActor, buttons, actions };
+  return {
+    width,
+    height,
+    handHeight,
+    lowerBandGap,
+    challengePaneWidth,
+    edgeHeight,
+    apexHeight,
+    offsetY,
+    scale,
+    scaleWithActor,
+    buttons,
+    actions,
+  };
 }
 
 export function applyBottomHudCss(config, rootElement = typeof document !== 'undefined' ? document.documentElement : null) {
@@ -158,6 +177,9 @@ export function applyBottomHudCss(config, rootElement = typeof document !== 'und
   const root = rootElement.style;
   root.setProperty('--hud-panel-width', `${config.width}px`);
   root.setProperty('--hud-panel-height', `${config.height}px`);
+  root.setProperty('--hud-hand-height', `${config.handHeight}px`);
+  root.setProperty('--hud-lower-band-gap', `${config.lowerBandGap}px`);
+  root.setProperty('--challenge-pane-width', `${config.challengePaneWidth}px`);
   root.setProperty('--hud-panel-offset-y', `${config.offsetY}px`);
   const buttonSize = Math.max(54, config.height * 0.45);
   root.setProperty('--hud-button-diameter', `${buttonSize}px`);
