@@ -412,7 +412,7 @@
     .card {
       width: 100%;
       min-width: 0;
-      min-height: calc(clamp(146px, 20vh, 186px) * var(--layout-parent-height-scale));
+      min-height: calc(var(--hand-card-min-height, clamp(146px, 20vh, 186px)) * var(--layout-parent-height-scale));
       padding: 0;
       background: transparent;
       color: var(--card-text);
@@ -429,6 +429,15 @@
 
     .card.wild { box-shadow: 0 10px 16px rgba(241, 211, 71, 0.18); }
     .card.selected { transform: translateY(-4px); border-color: transparent; }
+    .card.selected::after {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      border-radius: inherit;
+      border: 2px solid rgba(98, 176, 255, 0.95);
+      box-shadow: 0 0 0 1px rgba(14, 25, 41, 0.78), 0 0 8px rgba(98, 176, 255, 0.66);
+      pointer-events: none;
+    }
     .card.selected .cardArt {
       filter:
         drop-shadow(0 0 1px rgba(98, 176, 255, 0.95))
@@ -444,21 +453,87 @@
       pointer-events: none;
     }
 
-    @media (max-width: 430px) {
-      .handScroll {
-        display: flex;
-        gap: 10px;
-        overflow-x: auto;
-        scroll-snap-type: x proximity;
-        padding-bottom: 6px;
-      }
+    .cardLabel {
+      position: absolute;
+      left: 6px;
+      bottom: 6px;
+      max-width: calc(100% - 12px);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 10px;
+      padding: 4px 6px;
+      background: rgba(23, 16, 13, 0.74);
+      color: #f8f1df;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.42);
+      font-size: 0.72rem;
+      line-height: 1.1;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+    }
 
-      .card {
-        width: auto;
-        min-width: 94px;
-        min-height: 176px;
-        scroll-snap-align: start;
-        flex: 0 0 auto;
+    .cardGlyph {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.35em;
+      height: 1.35em;
+      border-radius: 999px;
+      padding: 0 0.25em;
+      background: rgba(248, 241, 223, 0.2);
+      font-weight: 800;
+      text-transform: uppercase;
+      flex: 0 0 auto;
+    }
+
+    .cardText {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .layout-hand-force-all-visible .handScroll {
+      overflow: visible;
+      scroll-snap-type: none;
+      grid-auto-flow: row dense;
+    }
+
+    .layout-hand-compact .handScroll {
+      --hand-card-min: var(--hand-compact-card-min, 64px);
+      --hand-card-gap: calc(var(--hand-compact-card-gap, 6px) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
+      grid-template-columns: repeat(auto-fit, minmax(var(--hand-card-min), 1fr));
+      align-content: start;
+    }
+
+    .layout-hand-compact .card {
+      min-height: calc(var(--hand-compact-card-min-height, 128px) * var(--layout-parent-height-scale));
+      border-radius: 18px 18px 26px 26px / 20px 20px 52px 52px;
+    }
+
+    .layout-hand-compact .cardLabel {
+      font-size: 0.64rem;
+      padding: 3px 5px;
+      max-width: calc(100% - 8px);
+      left: 4px;
+      bottom: 4px;
+    }
+
+    .layout-hand-compact .cardText {
+      display: none;
+    }
+
+    .layout-hand-compact .cardGlyph {
+      min-width: 1.2em;
+      height: 1.2em;
+      padding: 0 0.2em;
+    }
+
+    @media (max-width: 430px) {
+      .layout-hand-force-all-visible .handScroll,
+      .layout-hand-compact .handScroll {
+        overflow: visible;
+        grid-template-columns: repeat(auto-fit, minmax(var(--hand-card-min), 1fr));
       }
     }
 
@@ -1348,6 +1423,13 @@
           desiredWidthFrac: scratchbonesGameConfig.layout?.hand?.desiredWidthFrac ?? scratchbonesLegacyGameplayConfig.handDesiredWidthFrac ?? 0.50,
           minHeightPx: scratchbonesGameConfig.layout?.hand?.minHeightPx ?? scratchbonesLegacyGameplayConfig.handMinHeightPx ?? 160,
           maxHeightPx: scratchbonesGameConfig.layout?.hand?.maxHeightPx ?? scratchbonesLegacyGameplayConfig.handMaxHeightPx ?? 360,
+          forceAllVisible: scratchbonesGameConfig.layout?.hand?.forceAllVisible ?? true,
+          compact: {
+            enabled: scratchbonesGameConfig.layout?.hand?.compact?.enabled ?? true,
+            cardMinWidthPx: scratchbonesGameConfig.layout?.hand?.compact?.cardMinWidthPx ?? 64,
+            cardGapPx: scratchbonesGameConfig.layout?.hand?.compact?.cardGapPx ?? 6,
+            cardMinHeightPx: scratchbonesGameConfig.layout?.hand?.compact?.cardMinHeightPx ?? 128,
+          },
         },
         controlsToHandRelationship: scratchbonesGameConfig.layout?.controlsToHandRelationship ?? scratchbonesLegacyGameplayConfig.controlsToHandRelationship ?? 'below',
         allowChallengeOverflow: scratchbonesGameConfig.layout?.allowChallengeOverflow ?? scratchbonesLegacyGameplayConfig.allowChallengeOverflow ?? true,
@@ -3202,11 +3284,21 @@
       const minHeightPx = Math.max(80, Number(handLayout.minHeightPx) || 160);
       const maxHeightPx = Math.max(minHeightPx, Number(handLayout.maxHeightPx) || 360);
       const controlsBelow = String(layout.controlsToHandRelationship || 'below').toLowerCase() === 'below';
+      const forceAllVisible = handLayout.forceAllVisible !== false;
+      const compactEnabled = forceAllVisible && handLayout.compact?.enabled !== false;
+      const compactCardMinWidthPx = clampNumber(Number(handLayout.compact?.cardMinWidthPx) || 64, 48, 120);
+      const compactCardGapPx = clampNumber(Number(handLayout.compact?.cardGapPx) || 6, 2, 16);
+      const compactCardMinHeightPx = clampNumber(Number(handLayout.compact?.cardMinHeightPx) || 128, 96, 240);
       app.style.setProperty('--hand-height-frac', desiredHeightFrac.toFixed(3));
       app.style.setProperty('--layout-hand-min-height', `${Math.round(minHeightPx)}px`);
       app.style.setProperty('--layout-hand-max-height', `${Math.round(maxHeightPx)}px`);
       app.style.setProperty('--layout-hand-width-frac', desiredWidthFrac.toFixed(3));
+      app.style.setProperty('--hand-compact-card-min', `${Math.round(compactCardMinWidthPx)}px`);
+      app.style.setProperty('--hand-compact-card-gap', `${compactCardGapPx.toFixed(2)}px`);
+      app.style.setProperty('--hand-compact-card-min-height', `${Math.round(compactCardMinHeightPx)}px`);
       app.classList.toggle('layout-controls-above-hand', !controlsBelow);
+      app.classList.toggle('layout-hand-force-all-visible', forceAllVisible);
+      app.classList.toggle('layout-hand-compact', compactEnabled);
       return { allowChallengeOverflow: layout.allowChallengeOverflow !== false };
     }
 
@@ -3416,9 +3508,12 @@
             <div class="handScroll">
               ${player.hand.map(card => {
                 const art = resolveScratchbone2DAsset(card);
+                const cardLabel = card.wild ? 'Wild' : `Rank ${card.rank}`;
+                const cardGlyph = card.wild ? 'W' : String(card.rank);
                 return `
                 <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}" title="${card.wild ? 'Wild card' : `Scratchbone ${card.rank}`}">
                   <img class="cardArt" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`}">
+                  <span class="cardLabel" aria-hidden="true"><span class="cardGlyph">${cardGlyph}</span><span class="cardText">${cardLabel}</span></span>
                 </button>
               `;
               }).join('')}
