@@ -72,7 +72,6 @@
       --hand-height-frac: 0.20;
       --layout-hand-min-height: 160px;
       --layout-hand-max-height: 360px;
-      --layout-hand-width-frac: 0.5;
       --layout-challenge-font-scale: 1;
       --layout-challenge-image-scale: 1;
       --layout-challenge-gap-scale: 1;
@@ -119,6 +118,7 @@
       --layout-event-log-gap: 6px;
       --layout-log-item-padding-y: 9px;
       --layout-log-item-padding-x: 10px;
+      --layout-sidebar-content-scale: 0.5;
       --layout-table-view-height: 420px;
       --layout-table-view-min-height: 260px;
       --layout-table-view-max-height: 680px;
@@ -254,10 +254,10 @@
     .tableViewCard {
       width: calc(var(--layout-card-table-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
       height: calc(var(--layout-card-table-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.22);
-      background: rgba(255,255,255,0.05);
-      box-shadow: 0 8px 14px rgba(0,0,0,0.26);
+      border-radius: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
       overflow: hidden;
     }
     .tableViewCard img {
@@ -288,11 +288,12 @@
       grid-area: sidebar;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: calc(8px * var(--layout-sidebar-content-scale));
       max-height: 100%;
       overflow-y: auto;
       overflow-x: hidden;
       min-height: 0;
+      font-size: calc(1rem * var(--layout-sidebar-content-scale));
     }
 
     .humanSeatZone {
@@ -314,12 +315,12 @@
       background: var(--panel-soft);
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 14px;
-      padding: 9px;
+      padding: calc(9px * var(--layout-sidebar-content-scale));
       min-width: 0;
       display: flex;
       flex-direction: row;
       align-items: flex-start;
-      gap: 8px;
+      gap: calc(8px * var(--layout-sidebar-content-scale));
       opacity: 0.88;
     }
 
@@ -331,8 +332,8 @@
     }
 
     .seatAvatarBox {
-      width: var(--layout-seat-avatar-size);
-      height: var(--layout-seat-avatar-size);
+      width: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
+      height: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
       flex-shrink: 0;
       overflow: hidden;
       border-radius: 8px;
@@ -403,10 +404,10 @@
     .focusAvatar {
       width: 72px;
       height: 72px;
-      border-radius: 50%;
+      border-radius: 0;
       overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(255,255,255,0.04);
+      border: 0;
+      background: transparent;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -420,7 +421,7 @@
     .focusAvatar canvas {
       width: 100%;
       height: 100%;
-      border-radius: 50%;
+      border-radius: 0;
       display: block;
     }
     .focusTextWrap {
@@ -446,11 +447,11 @@
     .focusMiniCard {
       width: calc(var(--layout-card-mini-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
       height: calc(var(--layout-card-mini-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
-      border-radius: 7px;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.18);
-      background: rgba(255,255,255,0.06);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.25);
+      border-radius: 0;
+      overflow: visible;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
     }
     .focusMiniCard img {
       width: 100%;
@@ -535,7 +536,8 @@
       min-height: var(--layout-hand-min-height);
       max-height: min(var(--layout-hand-max-height), var(--layout-hand-max-row-height));
       flex: 0 0 calc(var(--hand-height-frac) * 100dvh);
-      max-width: calc(100% * var(--layout-hand-width-frac));
+      width: 100%;
+      max-width: 100%;
       min-width: 0;
       overflow: hidden;
       contain: layout paint style;
@@ -575,23 +577,23 @@
       background: transparent;
       color: var(--card-text);
       border: 3px solid transparent;
-      border-radius: 22px 22px 38px 38px / 26px 26px 86px 86px;
-      box-shadow: 0 10px 14px rgba(0,0,0,0.18);
+      border-radius: 0;
+      box-shadow: none;
       display: flex;
       align-items: stretch;
       justify-content: stretch;
       position: relative;
-      overflow: hidden;
+      overflow: visible;
       isolation: isolate;
     }
 
-    .card.wild { box-shadow: 0 10px 16px rgba(241, 211, 71, 0.18); }
+    .card.wild { box-shadow: none; }
     .card.selected { transform: translateY(-4px); border-color: transparent; }
     .card.selected::after {
       content: '';
       position: absolute;
       inset: 4px;
-      border-radius: inherit;
+      border-radius: 0;
       border: 2px solid rgba(98, 176, 255, 0.95);
       box-shadow: 0 0 0 1px rgba(14, 25, 41, 0.78), 0 0 8px rgba(98, 176, 255, 0.66);
       pointer-events: none;
@@ -607,7 +609,7 @@
       height: 100%;
       object-fit: cover;
       display: block;
-      border-radius: inherit;
+      border-radius: 0;
       pointer-events: none;
     }
 
@@ -836,7 +838,7 @@
 
     @container (max-width: 980px) {
       #app {
-        grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr);
+        grid-template-columns: minmax(0, 1fr) minmax(110px, 0.35fr);
       }
       .actionFocusMain {
         grid-template-columns: 56px minmax(0, 1fr) 56px;
@@ -1552,7 +1554,6 @@
         },
         hand: {
           desiredHeightFrac: scratchbonesGameConfig.layout?.hand?.desiredHeightFrac ?? scratchbonesLegacyGameplayConfig.handDesiredHeightFrac ?? 0.20,
-          desiredWidthFrac: scratchbonesGameConfig.layout?.hand?.desiredWidthFrac ?? scratchbonesLegacyGameplayConfig.handDesiredWidthFrac ?? 0.50,
           heightScale: scratchbonesGameConfig.layout?.hand?.heightScale ?? scratchbonesLegacyGameplayConfig.handHeightScale ?? 0.5,
           minHeightPx: scratchbonesGameConfig.layout?.hand?.minHeightPx ?? scratchbonesLegacyGameplayConfig.handMinHeightPx ?? 160,
           maxHeightPx: scratchbonesGameConfig.layout?.hand?.maxHeightPx ?? scratchbonesLegacyGameplayConfig.handMaxHeightPx ?? 360,
@@ -3586,7 +3587,6 @@
       const tableViewLayout = layout.tableView || {};
       const cardBaseScale = clampNumber(Number(layoutCards.baseScale) || 0.25, 0.1, 0.75);
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
-      const desiredWidthFrac = clampNumber(Number(handLayout.desiredWidthFrac) || 0.50, 0.25, 1);
       const handHeightScale = clampNumber(Number(handLayout.heightScale) || 0.5, 0.2, 0.75);
       const minHeightPx = Math.max(80, Number(handLayout.minHeightPx) || 160);
       const maxHeightPx = Math.max(minHeightPx, Number(handLayout.maxHeightPx) || 360);
@@ -3619,7 +3619,8 @@
       const sidebarWidthTargetPx = sidebarWidthFrac !== null
         ? appWidthPx * sidebarWidthFrac
         : (Number(layoutSizing.sidebarWidthPx) || 280);
-      const sidebarWidthPx = clampNumber(sidebarWidthTargetPx, 180, Math.max(220, appWidthPx - 140));
+      const sidebarWidthPxRaw = clampNumber(sidebarWidthTargetPx, 120, Math.max(220, appWidthPx - 140));
+      const sidebarWidthPx = clampNumber(sidebarWidthPxRaw * 0.5, 90, Math.max(140, appWidthPx - 140));
       const appGapPx = clampNumber(Number(layoutSizing.appGapPx) || 8, 0, 40);
       const appPaddingPx = clampNumber(Number(layoutSizing.appPaddingPx) || 8, 0, 48);
       const seatAvatarPx = clampNumber(Number(layoutSizing.seatAvatarPx) || 132, 72, 280);
@@ -3650,7 +3651,6 @@
       setCssVar('--hand-height-frac', desiredHeightFrac.toFixed(3));
       setCssVar('--layout-hand-min-height', `${Math.round(minHeightPx)}px`);
       setCssVar('--layout-hand-max-height', `${Math.round(maxHeightPx)}px`);
-      setCssVar('--layout-hand-width-frac', desiredWidthFrac.toFixed(3));
       setCssVar('--layout-table-view-min-height', `${Math.round(tableViewMinHeightPx)}px`);
       setCssVar('--layout-table-view-max-height', `${Math.round(tableViewMaxHeightPx)}px`);
       setCssVar('--layout-table-dominance-frac', tableMinDominanceFrac.toFixed(3));
