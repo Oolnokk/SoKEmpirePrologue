@@ -1440,6 +1440,20 @@
     #projMapBtn:hover { background: rgba(67,49,43,0.97); }
     #projMapBtn.active { background: #c89952; color: #15110f; }
     #projMapBtn.active:hover { background: #e0ad60; }
+    #projVarBtn {
+      position: fixed;
+      bottom: calc(10px + var(--safe)); right: 56px;
+      z-index: 1000;
+      background: rgba(30,20,18,0.92);
+      border: 1px solid rgba(200,150,80,0.4);
+      color: #c89952; font-size: 0.72rem;
+      padding: 6px 11px; border-radius: 8px;
+      cursor: pointer; letter-spacing: 0.05em;
+      display: none;
+    }
+    #projVarBtn:hover { background: rgba(67,49,43,0.97); }
+    #projVarBtn.active { background: #c89952; color: #15110f; }
+    #projVarBtn.active:hover { background: #e0ad60; }
 
     #projMapTip {
       position: fixed; z-index: 9997;
@@ -1450,6 +1464,76 @@
       font-family: 'Courier New', monospace;
       font-size: 0.82rem; color: #f2d08f;
       white-space: nowrap; display: none;
+    }
+    #projVarPanel {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: min(420px, calc(100vw - 20px));
+      max-height: min(80vh, 760px);
+      background: rgba(14,10,9,0.97);
+      border: 1px solid rgba(200,150,80,0.4);
+      border-radius: 10px;
+      z-index: 9999;
+      display: none;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    }
+    #projVarPanel.open { display: flex; flex-direction: column; }
+    .projVarPanelHead {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(200,150,80,0.15);
+      background: rgba(30,20,18,0.92);
+    }
+    #projVarPanelTitle {
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      color: #f2d08f;
+    }
+    .projVarPanelActions { display: flex; gap: 6px; }
+    .projVarActionBtn {
+      font-size: 0.68rem;
+      padding: 3px 8px;
+      background: rgba(67,49,43,0.9);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text);
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .projVarActionBtn:hover { background: rgba(90,66,55,0.95); }
+    #projVarPanelBody {
+      overflow: auto;
+      padding: 8px 10px 12px;
+      display: grid;
+      gap: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.70rem;
+    }
+    .projVarHint { color: #cdbb9f; line-height: 1.35; }
+    .projVarRow {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(70px, 94px) minmax(70px, 94px);
+      gap: 6px;
+      align-items: center;
+    }
+    .projVarLabel {
+      color: #f4e8d0;
+      overflow-wrap: anywhere;
+    }
+    .projVarInput {
+      width: 100%;
+      min-width: 0;
+      background: rgba(26,18,15,0.95);
+      border: 1px solid rgba(200,150,80,0.35);
+      border-radius: 6px;
+      color: #f4e8d0;
+      padding: 4px 6px;
+      font-size: 0.68rem;
+      font-family: inherit;
     }
 
     /* Outline all projectable elements in mapping mode */
@@ -1464,9 +1548,9 @@
       background: rgba(200,153,82,0.09) !important;
     }
     /* Freeze game interaction while mapping */
-    body.proj-mapping button:not(#projMapBtn),
+    body.proj-mapping button:not(#projMapBtn):not(#projVarBtn):not(#projVarCopyBtn):not(#projVarCloseBtn),
     body.proj-mapping select,
-    body.proj-mapping input,
+    body.proj-mapping input:not(.projVarInput),
     body.proj-mapping .card {
       pointer-events: none !important;
     }
@@ -1478,7 +1562,20 @@
 
   <!-- UI projection mapping mode -->
   <button id="projMapBtn" title="Inspect panel projection IDs">Map</button>
+  <button id="projVarBtn" title="Edit CSS vars for last selected projection element">Vars</button>
   <div id="projMapTip"></div>
+  <div id="projVarPanel" aria-live="polite">
+    <div class="projVarPanelHead">
+      <div id="projVarPanelTitle">Projection Vars</div>
+      <div class="projVarPanelActions">
+        <button id="projVarCopyBtn" class="projVarActionBtn">Copy</button>
+        <button id="projVarCloseBtn" class="projVarActionBtn">Close</button>
+      </div>
+    </div>
+    <div id="projVarPanelBody">
+      <div class="projVarHint">Select an outlined element in map mode, then open Vars.</div>
+    </div>
+  </div>
 
   <!-- Debug log panel -->
   <button id="_dbgBtn" title="Toggle debug log">Log</button>
@@ -1585,6 +1682,7 @@
         },
         allowChallengeOverflow: scratchbonesGameConfig.layout?.allowChallengeOverflow ?? scratchbonesLegacyGameplayConfig.allowChallengeOverflow ?? true,
         fitter: scratchbonesGameConfig.layout?.fitter ?? null,
+        projectionMapping: scratchbonesGameConfig.layout?.projectionMapping ?? {},
       },
       uiText: {
         initialBanner: scratchbonesGameConfig.uiText?.initialBanner ?? scratchbonesLegacyGameplayConfig.initialBanner ?? 'Open a round by selecting one or more cards, then declare a number.',
@@ -4482,16 +4580,124 @@
     // ── UI projection mapping mode ────────────────────────────────────────
     (function initProjMap() {
       const btn = document.getElementById('projMapBtn');
+      const varsBtn = document.getElementById('projVarBtn');
       const tip = document.getElementById('projMapTip');
-      if (!btn || !tip) return;
+      const varsPanel = document.getElementById('projVarPanel');
+      const varsPanelTitle = document.getElementById('projVarPanelTitle');
+      const varsPanelBody = document.getElementById('projVarPanelBody');
+      const varsCopyBtn = document.getElementById('projVarCopyBtn');
+      const varsCloseBtn = document.getElementById('projVarCloseBtn');
+      if (!btn || !tip || !varsBtn || !varsPanel || !varsPanelTitle || !varsPanelBody || !varsCopyBtn || !varsCloseBtn) return;
 
       let active = false;
+      let lastSelectedProjId = null;
+      const projectionMapConfig = SCRATCHBONES_GAME.layout?.projectionMapping || {};
+      const projectionEditorConfig = projectionMapConfig.editor || {};
+      const varStep = Number(projectionEditorConfig.step) || 0.01;
+      const basePanelTitle = String(projectionEditorConfig.panelTitle || 'Projection Vars');
+      const editedVars = new Map();
+      const varsByProjId = projectionMapConfig.varsByProjId || {};
+      const sharedVars = Array.isArray(projectionMapConfig.sharedVars) ? projectionMapConfig.sharedVars : [];
+
+      const copyToClipboard = (text) => {
+        const payload = String(text ?? '');
+        return navigator.clipboard?.writeText(payload).catch(() => {
+          const ta = document.createElement('textarea');
+          ta.value = payload;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        });
+      };
+
+      const resolveRelatedVars = (projId) => {
+        if (!projId) return [];
+        const result = new Set(sharedVars);
+        for (const [pattern, vars] of Object.entries(varsByProjId)) {
+          const normalizedVars = Array.isArray(vars) ? vars : [];
+          const isMatch = pattern.endsWith('*')
+            ? projId.startsWith(pattern.slice(0, -1))
+            : pattern === projId;
+          if (!isMatch) continue;
+          for (const varName of normalizedVars) {
+            if (typeof varName === 'string' && varName.startsWith('--')) result.add(varName);
+          }
+        }
+        return [...result];
+      };
+
+      const normalizeCssVarValue = (rawValue) => {
+        const value = String(rawValue || '').trim();
+        if (!value) return '';
+        const parsed = Number.parseFloat(value);
+        if (!Number.isFinite(parsed)) return value;
+        if (/dvh$/i.test(value)) return `${parsed.toFixed(2)}dvh`;
+        if (/px$/i.test(value)) return `${parsed.toFixed(2)}px`;
+        return parsed.toFixed(3);
+      };
+
+      const parseNumericCssVar = (rawValue) => {
+        const match = String(rawValue || '').trim().match(/-?\d+(\.\d+)?/);
+        if (!match) return null;
+        const value = Number.parseFloat(match[0]);
+        return Number.isFinite(value) ? value : null;
+      };
+
+      const renderVarEditor = () => {
+        varsPanelTitle.textContent = lastSelectedProjId
+          ? `${basePanelTitle} · ${lastSelectedProjId}`
+          : basePanelTitle;
+        if (!lastSelectedProjId) {
+          varsPanelBody.innerHTML = '<div class="projVarHint">Select an outlined element in map mode, then open Vars.</div>';
+          return;
+        }
+        const relatedVars = resolveRelatedVars(lastSelectedProjId);
+        if (!relatedVars.length) {
+          varsPanelBody.innerHTML = '<div class="projVarHint">No configured variables for this element yet.</div>';
+          return;
+        }
+        const computedRootStyles = getComputedStyle(document.documentElement);
+        const rows = relatedVars.map((varName) => {
+          const value = normalizeCssVarValue(editedVars.get(varName) ?? computedRootStyles.getPropertyValue(varName));
+          const numericValue = parseNumericCssVar(value);
+          const sliderMarkup = numericValue === null
+            ? '<span class="projVarHint">n/a</span>'
+            : `<input class="projVarInput" data-proj-kind="range" data-proj-var="${varName}" type="range" min="-2000" max="2000" step="${varStep}" value="${numericValue}">`;
+          return `
+            <label class="projVarRow">
+              <span class="projVarLabel">${varName}</span>
+              <input class="projVarInput" data-proj-kind="text" data-proj-var="${varName}" type="text" value="${value}">
+              ${sliderMarkup}
+            </label>
+          `;
+        });
+        varsPanelBody.innerHTML = rows.join('');
+      };
 
       btn.addEventListener('click', () => {
         active = !active;
         document.body.classList.toggle('proj-mapping', active);
         btn.classList.toggle('active', active);
-        if (!active) tip.style.display = 'none';
+        varsBtn.style.display = active ? 'block' : 'none';
+        if (!active) {
+          tip.style.display = 'none';
+          varsPanel.classList.remove('open');
+          varsBtn.classList.remove('active');
+        }
+      });
+
+      varsBtn.addEventListener('click', () => {
+        if (!active) return;
+        const opening = !varsPanel.classList.contains('open');
+        varsPanel.classList.toggle('open', opening);
+        varsBtn.classList.toggle('active', opening);
+        if (opening) renderVarEditor();
+      });
+
+      varsCloseBtn.addEventListener('click', () => {
+        varsPanel.classList.remove('open');
+        varsBtn.classList.remove('active');
       });
 
       document.addEventListener('mousemove', e => {
@@ -4511,15 +4717,59 @@
       document.addEventListener('click', e => {
         if (!active) return;
         if (e.target.closest('#projMapBtn')) return;
+        if (e.target.closest('#projVarBtn') || e.target.closest('#projVarPanel')) return;
         const el = e.target.closest('[data-proj-id]');
         if (!el) return;
         e.preventDefault();
         e.stopImmediatePropagation();
         const id = el.getAttribute('data-proj-id');
-        navigator.clipboard?.writeText(id).catch(() => {});
+        lastSelectedProjId = id;
+        if (varsPanel.classList.contains('open')) renderVarEditor();
+        copyToClipboard(id);
         tip.textContent = id + '  ✓ copied';
         setTimeout(() => { if (active) tip.textContent = el.getAttribute('data-proj-id'); }, 1400);
       }, true);
+
+      varsPanelBody.addEventListener('input', (event) => {
+        const input = event.target.closest('.projVarInput');
+        if (!input) return;
+        const varName = input.getAttribute('data-proj-var');
+        if (!varName) return;
+        const kind = input.getAttribute('data-proj-kind');
+        const rows = varsPanelBody.querySelectorAll(`.projVarInput[data-proj-var="${varName}"]`);
+        let nextValue = String(input.value ?? '').trim();
+        if (kind === 'range') {
+          const computed = getComputedStyle(document.documentElement).getPropertyValue(varName);
+          const suffixMatch = String(editedVars.get(varName) ?? computed).trim().match(/[a-z%]+$/i);
+          const suffix = suffixMatch ? suffixMatch[0] : '';
+          nextValue = `${Number.parseFloat(nextValue).toFixed(2)}${suffix}`;
+        }
+        editedVars.set(varName, nextValue);
+        document.documentElement.style.setProperty(varName, nextValue);
+        const asNumber = parseNumericCssVar(nextValue);
+        rows.forEach((rowInput) => {
+          if (rowInput === input) return;
+          const rowKind = rowInput.getAttribute('data-proj-kind');
+          if (rowKind === 'text') rowInput.value = nextValue;
+          if (rowKind === 'range' && asNumber !== null) rowInput.value = String(asNumber);
+        });
+      });
+
+      varsCopyBtn.addEventListener('click', () => {
+        const entries = [...editedVars.entries()];
+        const payload = entries.length
+          ? [
+            `/* Projection map vars for ${lastSelectedProjId || 'selection'} */`,
+            ':root {',
+            ...entries.map(([varName, value]) => `  ${varName}: ${value};`),
+            '}',
+          ].join('\n')
+          : '/* No projection variable overrides yet. */';
+        copyToClipboard(payload);
+        const prevText = varsCopyBtn.textContent;
+        varsCopyBtn.textContent = 'Copied!';
+        setTimeout(() => { varsCopyBtn.textContent = prevText; }, 1200);
+      });
     })();
 
     // ── debug log panel ────────────────────────────────────────────────────
