@@ -140,6 +140,8 @@
       --layout-table-card-content-scale: 0.8;
       --layout-claim-avatar-container-scale: 1.25;
       --layout-claim-avatar-content-scale: 0.8;
+      --layout-table-card-auto-scale: 1;
+      --layout-fit-additive-avatar-zoom: 1;
       --layout-turn-spotlight-offset-x: 10px;
       --layout-turn-spotlight-offset-y: 10px;
     }
@@ -333,13 +335,15 @@
       min-height: 0;
     }
     .tableViewCard {
-      width: calc(var(--layout-card-table-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale));
-      height: calc(var(--layout-card-table-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale));
+      width: calc(var(--layout-card-table-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale));
+      height: calc(var(--layout-card-table-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale));
       border-radius: 0;
       border: 0;
       background: transparent;
       box-shadow: none;
       overflow: hidden;
+      flex: 0 1 auto;
+      max-width: 100%;
     }
     .tableViewCard img {
       width: 100%;
@@ -360,6 +364,14 @@
       overflow: hidden;
     }
     #tableCinematicHost.cin-active { display: flex; }
+    .tableView.cinematic-active > .tableViewHeader,
+    .tableView.cinematic-active > .tableViewCards,
+    .tableView.cinematic-active > .claimCluster,
+    .tableView.cinematic-active > .turnSpotlight {
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
 
     .sectionTitle {
       font-weight: 700;
@@ -413,6 +425,8 @@
       border-radius: 12px;
       border: 1px solid rgba(242,208,143,0.28);
       background: rgba(22,16,14,0.72);
+      transform: scale(var(--layout-fit-additive-avatar-zoom));
+      transform-origin: center center;
     }
     .turnSpotlightNameBar {
       border-radius: 10px;
@@ -781,7 +795,7 @@
       font-size: calc(1em * var(--layout-challenge-font-scale) * var(--layout-fit-font-scale));
     }
     .seatAvatarBox {
-      transform: scale(calc(var(--layout-challenge-image-scale) * var(--layout-fit-image-scale)));
+      transform: scale(calc(var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-fit-additive-avatar-zoom)));
       transform-origin: top center;
     }
 
@@ -3867,6 +3881,7 @@
       const tableCardContentScale = clampNumber(Number(tableVisualFit.tableCardContentScale) || 0.8, 0.45, 1);
       const claimAvatarContainerScale = clampNumber(Number(tableVisualFit.claimAvatarContainerScale) || 1.25, 0.75, 2.25);
       const claimAvatarContentScale = clampNumber(Number(tableVisualFit.claimAvatarContentScale) || 0.8, 0.45, 1);
+      const avatarAdditiveZoomScale = clampNumber(Number(tableVisualFit.avatarAdditiveZoomScale) || 1.2, 0.8, 1.6);
       const handCardMinWidthPx = clampNumber(Number(layoutSizing.handCardMinWidthPx) || 74, 48, 180);
       const handCardMaxWidthPx = clampNumber(Number(layoutSizing.handCardMaxWidthPx) || 104, handCardMinWidthPx, 220);
       const handCardMinHeightPx = clampNumber(Number(layoutSizing.handCardMinHeightPx) || 146, 88, 280);
@@ -3906,6 +3921,7 @@
       setCssVar('--layout-table-card-content-scale', tableCardContentScale.toFixed(3));
       setCssVar('--layout-claim-avatar-container-scale', claimAvatarContainerScale.toFixed(3));
       setCssVar('--layout-claim-avatar-content-scale', claimAvatarContentScale.toFixed(3));
+      setCssVar('--layout-fit-additive-avatar-zoom', avatarAdditiveZoomScale.toFixed(3));
       setCssVar('--layout-table-dominance-frac', tableMinDominanceFrac.toFixed(3));
       setCssVar('--layout-action-column-height-scale', actionColumnHeightScale.toFixed(3));
       setCssVar('--layout-controls-height-scale', controlsHeightScale.toFixed(3));
@@ -3965,6 +3981,7 @@
             tableCardContentScale,
             claimAvatarContainerScale,
             claimAvatarContentScale,
+            avatarAdditiveZoomScale,
           },
           cinematicEnabled,
         },
@@ -4128,7 +4145,7 @@
       const turnPlayer = state.players[state.currentTurn];
       const turnSpotlightTitle = `${seatLabel(turnPlayer)}'s turn`;
       const renderDeclareControls = () => `
-        <div class="controls fit-target fit-0" data-proj-id="controls">
+        <div class="controls fit-target fit-0" data-proj-id="challenge-prompt">
           <div class="controlsRow">
             <label>
               Declare number
@@ -4223,15 +4240,6 @@
             <div class="humanSeatChipBadge">Chips ${player.chips}</div>
           </div>
         </div>
-
-        ${turnSpotlightEnabled ? `
-          <div class="turnSpotlight fit-target fit-0" data-proj-id="turn-spotlight">
-            <div class="turnSpotlightAvatar">
-              <canvas class="seatPortrait" data-seat-id="${state.currentTurn}" width="220" height="220"></canvas>
-            </div>
-            <div class="turnSpotlightNameBar">${turnSpotlightTitle}</div>
-          </div>
-        ` : ''}
 
         <div class="panel" data-proj-id="panel">
           <div class="tableView fit-target fit-0" data-proj-id="table-view">
@@ -4336,6 +4344,7 @@
       refreshCinematicBettingZone();
       renderSeatPortraits();
       applyResponsiveFit(app);
+      updateTableCardAutoScale(app);
     }
 
     function debugSnapshot() {
@@ -4466,6 +4475,44 @@
       if (!el) return;
       el.classList.remove('cin-active');
       el.innerHTML = '';
+      const tableView = el.closest('.tableView');
+      if (tableView) tableView.classList.remove('cinematic-active');
+    }
+
+    function activateTableCinematicMode() {
+      const cinematicRoot = getCinematicRoot();
+      if (!cinematicRoot) return;
+      const tableView = cinematicRoot.closest('.tableView');
+      if (tableView) tableView.classList.add('cinematic-active');
+    }
+
+    function updateTableCardAutoScale(root = document.getElementById('app')) {
+      const tableView = root?.querySelector?.('.tableView');
+      const cardsContainer = tableView?.querySelector?.('.tableViewCards');
+      const cards = cardsContainer ? Array.from(cardsContainer.querySelectorAll('.tableViewCard')) : [];
+      if (!tableView || !cardsContainer || !cards.length) {
+        if (tableView) tableView.style.setProperty('--layout-table-card-auto-scale', '1');
+        return;
+      }
+      const firstCard = cards[0];
+      const cardWidth = firstCard.offsetWidth || 1;
+      const cardHeight = firstCard.offsetHeight || 1;
+      const availableWidth = Math.max(1, cardsContainer.clientWidth);
+      const availableHeight = Math.max(1, cardsContainer.clientHeight);
+      const gap = Number.parseFloat(getComputedStyle(cardsContainer).gap) || 0;
+      const cardCount = cards.length;
+      let bestScale = 1;
+      for (let rows = 1; rows <= cardCount; rows++) {
+        const cols = Math.ceil(cardCount / rows);
+        const requiredWidth = cols * cardWidth + Math.max(0, cols - 1) * gap;
+        const requiredHeight = rows * cardHeight + Math.max(0, rows - 1) * gap;
+        const candidate = Math.min(
+          availableWidth / Math.max(1, requiredWidth),
+          availableHeight / Math.max(1, requiredHeight)
+        );
+        if (candidate > bestScale) bestScale = candidate;
+      }
+      tableView.style.setProperty('--layout-table-card-auto-scale', clampNumber(bestScale, 0.35, 1).toFixed(3));
     }
 
     function refreshCinematicBettingZone() {
@@ -4745,6 +4792,7 @@
         <button class="cin-continue" id="cinContinueBtn">Continue →</button>
       `;
       wireScratchboneImageFallbacks(cin);
+      activateTableCinematicMode();
       cin.classList.add('cin-active');
       renderCinematicPortraits();
 
@@ -4779,6 +4827,7 @@
         <button class="cin-continue" id="cinContinueBtn">Continue →</button>
       `;
       wireScratchboneImageFallbacks(cin);
+      activateTableCinematicMode();
       cin.classList.add('cin-active');
       renderCinematicPortraits();
 

@@ -93,6 +93,7 @@ window.SCRATCHBONES_CONFIG.game = {
         tableCardContentScale: __existingGameConfig.layout?.tableView?.visualFit?.tableCardContentScale ?? 0.8,
         claimAvatarContainerScale: __existingGameConfig.layout?.tableView?.visualFit?.claimAvatarContainerScale ?? 1.25,
         claimAvatarContentScale: __existingGameConfig.layout?.tableView?.visualFit?.claimAvatarContentScale ?? 0.8,
+        avatarAdditiveZoomScale: __existingGameConfig.layout?.tableView?.visualFit?.avatarAdditiveZoomScale ?? 1.2,
       },
       cinematic: {
         enabled: __existingGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
@@ -227,11 +228,11 @@ window.SCRATCHBONES_CONFIG.game = {
         'human-seat-zone': ['--layout-human-seat-avatar-size'],
         'human-seat': ['--layout-human-seat-avatar-size', '--layout-sidebar-content-scale'],
         panel: ['--layout-table-dominance-frac', '--layout-table-view-height', '--layout-table-view-min-height', '--layout-table-view-max-height'],
-        'table-view': ['--layout-table-view-height', '--layout-table-view-min-height', '--layout-table-view-max-height', '--layout-card-base-scale', '--layout-card-scale', '--layout-card-table-base-width', '--layout-card-table-base-height', '--layout-card-mini-base-width', '--layout-card-mini-base-height'],
+        'table-view': ['--layout-table-view-height', '--layout-table-view-min-height', '--layout-table-view-max-height', '--layout-card-base-scale', '--layout-card-scale', '--layout-card-table-base-width', '--layout-card-table-base-height', '--layout-card-mini-base-width', '--layout-card-mini-base-height', '--layout-table-card-auto-scale', '--layout-fit-additive-avatar-zoom'],
         cinematic: ['--layout-cinematic-avatar-size'],
         'action-column': ['--layout-action-column-height-scale', '--layout-action-column-max-height'],
         controls: ['--layout-controls-height-scale', '--layout-controls-max-height', '--layout-controls-padding-y', '--layout-controls-padding-x', '--layout-controls-gap'],
-        'challenge-prompt': ['--layout-challenge-font-scale', '--layout-challenge-image-scale', '--layout-challenge-gap-scale'],
+        'challenge-prompt': ['--layout-challenge-font-scale', '--layout-challenge-image-scale', '--layout-challenge-gap-scale', '--layout-controls-height-scale', '--layout-controls-max-height', '--layout-controls-padding-y', '--layout-controls-padding-x', '--layout-controls-gap'],
         hand: [
           '--hand-height-frac',
           '--layout-hand-height-scale',
