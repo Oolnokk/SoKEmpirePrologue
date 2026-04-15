@@ -107,6 +107,14 @@
       --layout-table-view-height: 420px;
       --layout-table-view-min-height: 260px;
       --layout-table-view-max-height: 680px;
+      --layout-table-dominance-frac: 0.56;
+      --layout-action-column-height-scale: 0.25;
+      --layout-controls-height-scale: 0.5;
+      --layout-hand-height-scale: 0.5;
+      --layout-controls-max-height: 50dvh;
+      --layout-hand-max-row-height: 50dvh;
+      --layout-action-column-max-height: 25dvh;
+      --layout-log-max-row-height: 25dvh;
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -123,9 +131,9 @@
       grid-template-columns: minmax(0, 1fr) var(--layout-sidebar-width);
       grid-template-rows:
         auto
-        minmax(0, 1fr)
-        minmax(0, auto)
-        minmax(0, auto);
+        minmax(0, calc(var(--layout-table-dominance-frac) * 1fr))
+        minmax(0, min(var(--layout-action-column-max-height), calc((1 - var(--layout-table-dominance-frac)) * 100dvh)))
+        minmax(0, min(var(--layout-log-max-row-height), calc((1 - var(--layout-table-dominance-frac)) * 100dvh)));
       grid-template-areas:
         "topbar   sidebar"
         "panel    sidebar"
@@ -191,7 +199,8 @@
       display: grid;
       gap: 8px;
       min-height: 0;
-      overflow-y: auto;
+      overflow: hidden;
+      contain: layout paint style;
     }
 
     .tableView {
@@ -208,6 +217,7 @@
       padding: 10px;
       overflow: hidden;
       isolation: isolate;
+      contain: layout paint style;
     }
     .tableViewHeader {
       display: flex;
@@ -424,8 +434,10 @@
       flex-direction: column;
       gap: 8px;
       min-height: 0;
-      overflow: hidden;
+      max-height: var(--layout-action-column-max-height);
+      overflow: auto;
       padding: 8px;
+      contain: layout paint style;
     }
 
     .controls {
@@ -436,6 +448,10 @@
       z-index: 4;
       background: linear-gradient(180deg, rgba(46,34,30,0.96), rgba(37,28,25,0.98));
       backdrop-filter: blur(8px);
+      min-height: 0;
+      max-height: var(--layout-controls-max-height);
+      overflow: auto;
+      contain: layout paint style;
     }
     .controlsChallengeRow {
       display: grid;
@@ -485,9 +501,12 @@
       display: grid;
       gap: calc(var(--layout-hand-wrap-gap) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
       min-height: var(--layout-hand-min-height);
-      max-height: var(--layout-hand-max-height);
+      max-height: min(var(--layout-hand-max-height), var(--layout-hand-max-row-height));
       flex: 0 0 calc(var(--hand-height-frac) * 100dvh);
       max-width: calc(100% * var(--layout-hand-width-frac));
+      min-width: 0;
+      overflow: hidden;
+      contain: layout paint style;
     }
 
     .handHeader {
@@ -504,8 +523,9 @@
       grid-template-columns: repeat(auto-fit, minmax(var(--hand-card-min), 1fr));
       gap: var(--hand-card-gap);
       align-content: start;
-      overflow: visible;
+      overflow: auto;
       padding-bottom: 4px;
+      min-height: 0;
     }
 
     .card {
@@ -646,6 +666,8 @@
       min-height: 0;
       overflow-y: auto;
       opacity: 0.84;
+      max-height: var(--layout-log-max-row-height);
+      contain: layout paint style;
     }
 
     .logItem {
@@ -790,9 +812,9 @@
         grid-template-columns: minmax(0, 1fr);
         grid-template-rows:
           auto
-          minmax(0, 1fr)
-          minmax(0, auto)
-          auto
+          minmax(0, calc(var(--layout-table-dominance-frac) * 1fr))
+          minmax(0, var(--layout-action-column-max-height))
+          minmax(0, var(--layout-log-max-row-height))
           minmax(0, auto);
         grid-template-areas:
           "topbar"
@@ -1486,6 +1508,7 @@
         hand: {
           desiredHeightFrac: scratchbonesGameConfig.layout?.hand?.desiredHeightFrac ?? scratchbonesLegacyGameplayConfig.handDesiredHeightFrac ?? 0.20,
           desiredWidthFrac: scratchbonesGameConfig.layout?.hand?.desiredWidthFrac ?? scratchbonesLegacyGameplayConfig.handDesiredWidthFrac ?? 0.50,
+          heightScale: scratchbonesGameConfig.layout?.hand?.heightScale ?? scratchbonesLegacyGameplayConfig.handHeightScale ?? 0.5,
           minHeightPx: scratchbonesGameConfig.layout?.hand?.minHeightPx ?? scratchbonesLegacyGameplayConfig.handMinHeightPx ?? 160,
           maxHeightPx: scratchbonesGameConfig.layout?.hand?.maxHeightPx ?? scratchbonesLegacyGameplayConfig.handMaxHeightPx ?? 360,
           forceAllVisible: scratchbonesGameConfig.layout?.hand?.forceAllVisible ?? true,
@@ -1498,6 +1521,7 @@
         },
         tableView: {
           desiredHeightFrac: scratchbonesGameConfig.layout?.tableView?.desiredHeightFrac ?? 0.58,
+          minDominanceFrac: scratchbonesGameConfig.layout?.tableView?.minDominanceFrac ?? scratchbonesLegacyGameplayConfig.tableViewMinDominanceFrac ?? 0.56,
           minHeightPx: scratchbonesGameConfig.layout?.tableView?.minHeightPx ?? 260,
           maxHeightPx: scratchbonesGameConfig.layout?.tableView?.maxHeightPx ?? 680,
           cardVisualMode: scratchbonesGameConfig.layout?.tableView?.cardVisualMode ?? 'faceDown',
@@ -1507,6 +1531,12 @@
           },
         },
         controlsToHandRelationship: scratchbonesGameConfig.layout?.controlsToHandRelationship ?? scratchbonesLegacyGameplayConfig.controlsToHandRelationship ?? 'below',
+        actionColumn: {
+          heightScale: scratchbonesGameConfig.layout?.actionColumn?.heightScale ?? scratchbonesLegacyGameplayConfig.actionColumnHeightScale ?? 0.25,
+        },
+        controls: {
+          heightScale: scratchbonesGameConfig.layout?.controls?.heightScale ?? scratchbonesLegacyGameplayConfig.controlsHeightScale ?? 0.5,
+        },
         allowChallengeOverflow: scratchbonesGameConfig.layout?.allowChallengeOverflow ?? scratchbonesLegacyGameplayConfig.allowChallengeOverflow ?? true,
         fitter: scratchbonesGameConfig.layout?.fitter ?? null,
       },
@@ -3350,6 +3380,7 @@
       const tableViewLayout = layout.tableView || {};
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
       const desiredWidthFrac = clampNumber(Number(handLayout.desiredWidthFrac) || 0.50, 0.25, 1);
+      const handHeightScale = clampNumber(Number(handLayout.heightScale) || 0.5, 0.2, 0.75);
       const minHeightPx = Math.max(80, Number(handLayout.minHeightPx) || 160);
       const maxHeightPx = Math.max(minHeightPx, Number(handLayout.maxHeightPx) || 360);
       const controlsBelow = String(layout.controlsToHandRelationship || 'below').toLowerCase() === 'below';
@@ -3359,12 +3390,15 @@
       const compactCardGapPx = clampNumber(Number(handLayout.compact?.cardGapPx) || 6, 2, 16);
       const compactCardMinHeightPx = clampNumber(Number(handLayout.compact?.cardMinHeightPx) || 128, 96, 240);
       const tableViewDesiredHeightFrac = clampNumber(Number(tableViewLayout.desiredHeightFrac) || 0.58, 0.51, 0.9);
+      const tableMinDominanceFrac = clampNumber(Number(tableViewLayout.minDominanceFrac) || 0.56, 0.51, 0.9);
       const tableViewMinHeightPx = clampNumber(Number(tableViewLayout.minHeightPx) || 260, 180, 1200);
       const tableViewMaxHeightPx = Math.max(tableViewMinHeightPx, clampNumber(Number(tableViewLayout.maxHeightPx) || 680, tableViewMinHeightPx, 1600));
       const tableCardVisualMode = ['facedown', 'faceup'].includes(String(tableViewLayout.cardVisualMode || '').toLowerCase())
         ? String(tableViewLayout.cardVisualMode).toLowerCase()
         : 'facedown';
       const cinematicEnabled = tableViewLayout.cinematic?.enabled !== false;
+      const actionColumnHeightScale = clampNumber(Number(layout.actionColumn?.heightScale) || 0.25, 0.1, 0.75);
+      const controlsHeightScale = clampNumber(Number(layout.controls?.heightScale) || 0.5, 0.2, 0.9);
       const root = document.documentElement;
       const cssTargets = [root, app];
       const setCssVar = (name, value) => {
@@ -3400,6 +3434,14 @@
       setCssVar('--layout-hand-width-frac', desiredWidthFrac.toFixed(3));
       setCssVar('--layout-table-view-min-height', `${Math.round(tableViewMinHeightPx)}px`);
       setCssVar('--layout-table-view-max-height', `${Math.round(tableViewMaxHeightPx)}px`);
+      setCssVar('--layout-table-dominance-frac', tableMinDominanceFrac.toFixed(3));
+      setCssVar('--layout-action-column-height-scale', actionColumnHeightScale.toFixed(3));
+      setCssVar('--layout-controls-height-scale', controlsHeightScale.toFixed(3));
+      setCssVar('--layout-hand-height-scale', handHeightScale.toFixed(3));
+      setCssVar('--layout-action-column-max-height', `${(actionColumnHeightScale * 100).toFixed(2)}dvh`);
+      setCssVar('--layout-controls-max-height', `${(controlsHeightScale * 100).toFixed(2)}dvh`);
+      setCssVar('--layout-hand-max-row-height', `${(handHeightScale * 100).toFixed(2)}dvh`);
+      setCssVar('--layout-log-max-row-height', `${(actionColumnHeightScale * 100).toFixed(2)}dvh`);
       setCssVar('--hand-compact-card-min', `${Math.round(compactCardMinWidthPx)}px`);
       setCssVar('--hand-compact-card-gap', `${compactCardGapPx.toFixed(2)}px`);
       setCssVar('--hand-compact-card-min-height', `${Math.round(compactCardMinHeightPx)}px`);
@@ -3434,10 +3476,20 @@
         allowChallengeOverflow: layout.allowChallengeOverflow !== false,
         tableView: {
           desiredHeightFrac: tableViewDesiredHeightFrac,
+          minDominanceFrac: tableMinDominanceFrac,
           minHeightPx: tableViewMinHeightPx,
           maxHeightPx: tableViewMaxHeightPx,
           cardVisualMode: tableCardVisualMode,
           cinematicEnabled,
+        },
+        actionColumn: {
+          heightScale: actionColumnHeightScale,
+        },
+        controls: {
+          heightScale: controlsHeightScale,
+        },
+        hand: {
+          heightScale: handHeightScale,
         },
       };
     }
@@ -3487,10 +3539,19 @@
       if (!app || !tableLayoutPolicy) return;
       const topbar = app.querySelector('.topbar');
       const topbarHeight = topbar?.offsetHeight || 0;
+      const appStyles = window.getComputedStyle(app);
+      const safeInsetBottom = Number.parseFloat(appStyles.getPropertyValue('--safe')) || 0;
+      const appGap = Number.parseFloat(appStyles.getPropertyValue('--layout-app-gap')) || 0;
+      const appPadding = Number.parseFloat(appStyles.getPropertyValue('--layout-app-padding')) || 0;
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-      const availableHeight = Math.max(0, viewportHeight - topbarHeight);
+      const availableHeight = Math.max(0, viewportHeight - topbarHeight - (appPadding * 2) - safeInsetBottom - (appGap * 3));
       const desiredHeightPx = availableHeight * tableLayoutPolicy.desiredHeightFrac;
-      const tableViewHeightPx = clampNumber(desiredHeightPx, tableLayoutPolicy.minHeightPx, tableLayoutPolicy.maxHeightPx);
+      const dominantHeightPx = availableHeight * (tableLayoutPolicy.minDominanceFrac || 0.56);
+      const tableViewHeightPx = clampNumber(
+        Math.max(desiredHeightPx, dominantHeightPx),
+        tableLayoutPolicy.minHeightPx,
+        tableLayoutPolicy.maxHeightPx
+      );
       app.style.setProperty('--layout-table-view-height', `${Math.round(tableViewHeightPx)}px`);
     }
 

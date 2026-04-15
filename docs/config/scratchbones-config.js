@@ -61,6 +61,7 @@ window.SCRATCHBONES_CONFIG.game = {
     hand: {
       desiredHeightFrac: __existingGameConfig.layout?.hand?.desiredHeightFrac ?? __legacyGameplayConfig.handDesiredHeightFrac ?? 0.20,
       desiredWidthFrac: __existingGameConfig.layout?.hand?.desiredWidthFrac ?? __legacyGameplayConfig.handDesiredWidthFrac ?? 0.50,
+      heightScale: __existingGameConfig.layout?.hand?.heightScale ?? __legacyGameplayConfig.handHeightScale ?? 0.5,
       minHeightPx: __existingGameConfig.layout?.hand?.minHeightPx ?? __legacyGameplayConfig.handMinHeightPx ?? 160,
       maxHeightPx: __existingGameConfig.layout?.hand?.maxHeightPx ?? __legacyGameplayConfig.handMaxHeightPx ?? 360,
       forceAllVisible: __existingGameConfig.layout?.hand?.forceAllVisible ?? true,
@@ -73,6 +74,7 @@ window.SCRATCHBONES_CONFIG.game = {
     },
     tableView: {
       desiredHeightFrac: __existingGameConfig.layout?.tableView?.desiredHeightFrac ?? 0.58,
+      minDominanceFrac: __existingGameConfig.layout?.tableView?.minDominanceFrac ?? __legacyGameplayConfig.tableViewMinDominanceFrac ?? 0.56,
       minHeightPx: __existingGameConfig.layout?.tableView?.minHeightPx ?? 260,
       maxHeightPx: __existingGameConfig.layout?.tableView?.maxHeightPx ?? 680,
       cardVisualMode: __existingGameConfig.layout?.tableView?.cardVisualMode ?? 'faceDown',
@@ -82,6 +84,12 @@ window.SCRATCHBONES_CONFIG.game = {
       },
     },
     controlsToHandRelationship: __existingGameConfig.layout?.controlsToHandRelationship ?? __legacyGameplayConfig.controlsToHandRelationship ?? 'below',
+    actionColumn: {
+      heightScale: __existingGameConfig.layout?.actionColumn?.heightScale ?? __legacyGameplayConfig.actionColumnHeightScale ?? 0.25,
+    },
+    controls: {
+      heightScale: __existingGameConfig.layout?.controls?.heightScale ?? __legacyGameplayConfig.controlsHeightScale ?? 0.5,
+    },
     allowChallengeOverflow: __existingGameConfig.layout?.allowChallengeOverflow ?? __legacyGameplayConfig.allowChallengeOverflow ?? true,
     fitter: {
       enabled: __existingGameConfig.layout?.fitter?.enabled ?? true,
@@ -95,7 +103,9 @@ window.SCRATCHBONES_CONFIG.game = {
         { fontScale: 0.84, imageScale: 0.82, gapScale: 0.76 },
       ],
       targets: __existingGameConfig.layout?.fitter?.targets ?? {
+        tableView: { selector: '.tableView', containmentSelector: '.tableViewCards', maxStage: 4, minReadableFontScale: 0.80 },
         actionFocus: { selector: '.actionFocus', containmentSelector: '.actionFocusMain', maxStage: 4, minReadableFontScale: 0.80 },
+        actionColumn: { selector: '.actionColumn', maxStage: 4, minReadableFontScale: 0.80 },
         sidebarSeats: { selector: '#aiSidebar', maxStage: 4, minReadableFontScale: 0.78 },
         handCards: { selector: '.handWrap', containmentSelector: '.handScroll', maxStage: 4, minReadableFontScale: 0.78 },
         logs: { selector: '.eventLog', maxStage: 4, minReadableFontScale: 0.80 },
