@@ -2004,6 +2004,7 @@
       challengeTimeLeft: 0,
       roundConcessions: new Set(), // Used by: skipping players who have conceded the current claim until the round ends.
       layoutFitStages: {},
+      layoutOverlapDiagnostics: { overlaps: [], stage: 'none' },
     };
 
     function mulberry32(a) {
@@ -3340,7 +3341,90 @@
         overflowTolerancePx: Math.max(0, Number(policy.overflowTolerancePx) || 1),
         minReadableFontScale: clampNumber(Number(policy.minReadableFontScale) || 0.76, 0.5, 1),
         targets: policy.targets || {},
+        overlap: policy.overlap || {},
       };
+    }
+
+    function normalizeOverlapPolicy(overlapPolicy, normalizedPolicy) {
+      if (!overlapPolicy || overlapPolicy.enabled === false) return null;
+      const criticalRegions = overlapPolicy.criticalRegions && typeof overlapPolicy.criticalRegions === 'object'
+        ? overlapPolicy.criticalRegions
+        : {};
+      return {
+        criticalRegions,
+        tolerancePx: Math.max(0, Number(overlapPolicy.tolerancePx) || 0),
+        collapseOrder: Array.isArray(overlapPolicy.collapseOrder) ? overlapPolicy.collapseOrder : [],
+        preserveRegions: Array.isArray(overlapPolicy.preserveRegions) ? overlapPolicy.preserveRegions : [],
+        minContainerScale: clampNumber(Number(overlapPolicy.minContainerScale) || normalizedPolicy.minReadableFontScale, 0.5, 1),
+        containerScaleStep: clampNumber(Number(overlapPolicy.containerScaleStep) || 0.04, 0.01, 0.2),
+      };
+    }
+
+    function rectsIntersect(rectA, rectB, tolerancePx = 0) {
+      if (!rectA || !rectB) return false;
+      return (
+        rectA.left < (rectB.right - tolerancePx)
+        && (rectA.right - tolerancePx) > rectB.left
+        && rectA.top < (rectB.bottom - tolerancePx)
+        && (rectA.bottom - tolerancePx) > rectB.top
+      );
+    }
+
+    function collectCriticalRegionRects(rootEl, overlapPolicy) {
+      const entries = Object.entries(overlapPolicy.criticalRegions || {});
+      const regions = [];
+      for (const [key, selector] of entries) {
+        if (!selector || typeof selector !== 'string') continue;
+        const node = rootEl.querySelector(selector);
+        if (!node || node.dataset.layoutCollapsed === 'true') continue;
+        const rect = node.getBoundingClientRect();
+        if (!(rect.width > 0) || !(rect.height > 0)) continue;
+        regions.push({ key, selector, node, rect });
+      }
+      return regions;
+    }
+
+    function detectCriticalOverlaps(regions, tolerancePx = 0) {
+      const overlaps = [];
+      for (let i = 0; i < regions.length; i++) {
+        for (let j = i + 1; j < regions.length; j++) {
+          const regionA = regions[i];
+          const regionB = regions[j];
+          if (rectsIntersect(regionA.rect, regionB.rect, tolerancePx)) {
+            overlaps.push({
+              a: { key: regionA.key, selector: regionA.selector },
+              b: { key: regionB.key, selector: regionB.selector },
+            });
+          }
+        }
+      }
+      return overlaps;
+    }
+
+    function applyFitStageClass(targetNode, stageClassNames, stage) {
+      if (!targetNode) return;
+      targetNode.classList.remove(...stageClassNames, 'fit-0');
+      targetNode.classList.add('fit-target');
+      if (stage > 0) targetNode.classList.add(`fit-${stage}`);
+      else targetNode.classList.add('fit-0');
+    }
+
+    function tryCollapseNonCriticalPanels(rootEl, overlapPolicy, overlaps) {
+      const preserve = new Set(overlapPolicy.preserveRegions || []);
+      const collapsed = [];
+      for (const selector of overlapPolicy.collapseOrder || []) {
+        const node = rootEl.querySelector(selector);
+        if (!node || node.dataset.layoutCollapsed === 'true') continue;
+        const regionEntry = Object.entries(overlapPolicy.criticalRegions || {}).find(([, mappedSelector]) => mappedSelector === selector);
+        const regionKey = regionEntry?.[0];
+        if (regionKey && preserve.has(regionKey)) continue;
+
+        node.dataset.layoutCollapsed = 'true';
+        node.style.setProperty('display', 'none');
+        collapsed.push({ selector, regionKey: regionKey || null });
+        if (overlaps.length === 0) break;
+      }
+      return collapsed;
     }
 
     function fitContainer(rootEl, policy) {
@@ -3351,6 +3435,8 @@
       const stageClassNames = normalizedPolicy.stages.map((_, index) => `fit-${index + 1}`);
       const targetEntries = Object.entries(normalizedPolicy.targets || {});
       const fitSummary = {};
+      const overlapPolicy = normalizeOverlapPolicy(normalizedPolicy.overlap, normalizedPolicy);
+      const overlapSnapshot = [];
 
       for (const [targetKey, targetPolicy] of targetEntries) {
         const selector = targetPolicy?.selector;
@@ -3375,18 +3461,14 @@
         }, 0);
         const maxStage = Math.min(configuredMaxStage, floorLimitedStage > 0 ? floorLimitedStage : 0);
 
-        targetNode.classList.remove(...stageClassNames, 'fit-0');
-        targetNode.classList.add('fit-target');
-
         let stage = 0;
+        applyFitStageClass(targetNode, stageClassNames, stage);
         let overflowing = isOverflowing(containmentNode, normalizedPolicy.overflowTolerancePx);
         while (overflowing && stage < maxStage) {
           stage++;
-          targetNode.classList.remove(...stageClassNames, 'fit-0');
-          targetNode.classList.add(`fit-${stage}`);
+          applyFitStageClass(targetNode, stageClassNames, stage);
           overflowing = isOverflowing(containmentNode, normalizedPolicy.overflowTolerancePx);
         }
-        if (stage === 0) targetNode.classList.add('fit-0');
 
         fitSummary[targetKey] = {
           selector,
@@ -3402,7 +3484,83 @@
         };
       }
 
-      return fitSummary;
+      if (!overlapPolicy) {
+        return { fitSummary, overlap: { overlaps: [], stage: 'disabled', snapshot: [] } };
+      }
+
+      const stageOrder = ['text', 'image', 'gap', 'container'];
+      let activeStage = 'none';
+      let regions = collectCriticalRegionRects(rootEl, overlapPolicy);
+      let overlaps = detectCriticalOverlaps(regions, overlapPolicy.tolerancePx);
+
+      for (const stageName of stageOrder) {
+        if (!overlaps.length) break;
+        activeStage = stageName;
+        for (const [targetKey, targetPolicy] of targetEntries) {
+          if (!overlaps.length) break;
+          const targetNode = rootEl.querySelector(targetPolicy?.selector || '');
+          const fitInfo = fitSummary[targetKey];
+          if (!targetNode || !fitInfo) continue;
+          if (fitInfo.stage >= fitInfo.maxStage) continue;
+          fitInfo.stage += 1;
+          applyFitStageClass(targetNode, stageClassNames, fitInfo.stage);
+          fitInfo.overflowing = isOverflowing(
+            targetPolicy?.containmentSelector
+              ? (targetNode.querySelector(targetPolicy.containmentSelector) || targetNode)
+              : targetNode,
+            normalizedPolicy.overflowTolerancePx
+          );
+          regions = collectCriticalRegionRects(rootEl, overlapPolicy);
+          overlaps = detectCriticalOverlaps(regions, overlapPolicy.tolerancePx);
+        }
+        overlapSnapshot.push({
+          kind: 'fit-stage-pass',
+          stage: stageName,
+          overlaps: overlaps.map((entry) => ({ offending: [entry.a.key, entry.b.key], selectors: [entry.a.selector, entry.b.selector] })),
+        });
+      }
+
+      let containerScale = 1;
+      if (overlaps.length) {
+        activeStage = 'container-floor';
+      }
+      while (overlaps.length && containerScale > overlapPolicy.minContainerScale) {
+        containerScale = clampNumber(containerScale - overlapPolicy.containerScaleStep, overlapPolicy.minContainerScale, 1);
+        rootEl.style.setProperty('--layout-parent-height-scale', containerScale.toFixed(3));
+        regions = collectCriticalRegionRects(rootEl, overlapPolicy);
+        overlaps = detectCriticalOverlaps(regions, overlapPolicy.tolerancePx);
+        overlapSnapshot.push({
+          kind: 'container-scale',
+          stage: 'container',
+          containerScale: Number(containerScale.toFixed(3)),
+          overlaps: overlaps.map((entry) => ({ offending: [entry.a.key, entry.b.key], selectors: [entry.a.selector, entry.b.selector] })),
+        });
+      }
+
+      const collapsed = overlaps.length
+        ? tryCollapseNonCriticalPanels(rootEl, overlapPolicy, overlaps)
+        : [];
+      if (collapsed.length) {
+        regions = collectCriticalRegionRects(rootEl, overlapPolicy);
+        overlaps = detectCriticalOverlaps(regions, overlapPolicy.tolerancePx);
+        overlapSnapshot.push({
+          kind: 'fail-safe-collapse',
+          stage: 'fail-safe',
+          collapsed,
+          overlaps: overlaps.map((entry) => ({ offending: [entry.a.key, entry.b.key], selectors: [entry.a.selector, entry.b.selector] })),
+        });
+      }
+
+      return {
+        fitSummary,
+        overlap: {
+          overlaps,
+          stage: overlaps.length ? (collapsed.length ? 'fail-safe' : activeStage) : 'resolved',
+          containerScale: Number(containerScale.toFixed(3)),
+          collapsed,
+          snapshot: overlapSnapshot,
+        },
+      };
     }
 
     function syncDebugSnapshotPre() {
@@ -3412,7 +3570,9 @@
     }
 
     function applyResponsiveFit(rootEl = document.getElementById('app')) {
-      state.layoutFitStages = fitContainer(rootEl, SCRATCHBONES_GAME.layout?.fitter);
+      const layoutResult = fitContainer(rootEl, SCRATCHBONES_GAME.layout?.fitter);
+      state.layoutFitStages = layoutResult.fitSummary || {};
+      state.layoutOverlapDiagnostics = layoutResult.overlap || { overlaps: [], stage: 'none', snapshot: [] };
       syncDebugSnapshotPre();
       return state.layoutFitStages;
     }
@@ -3916,6 +4076,7 @@
         })),
         config: CONFIG,
         fitStages: state.layoutFitStages,
+        overlapDiagnostics: state.layoutOverlapDiagnostics,
         stats: state.stats,
         recentChange: state.recentChange,
       };
