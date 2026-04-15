@@ -437,6 +437,17 @@
       background: linear-gradient(180deg, rgba(46,34,30,0.96), rgba(37,28,25,0.98));
       backdrop-filter: blur(8px);
     }
+    .controlsChallengeRow {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: start;
+    }
+    @media (min-width: 860px) {
+      .controlsChallengeRow.hasChallengePane {
+        grid-template-columns: minmax(0, 1fr) minmax(240px, 0.9fr);
+      }
+    }
 
     .controlsRow > * { flex: 1 1 0; min-width: 0; }
     .controls label { display: grid; gap: 6px; font-size: 0.8rem; color: var(--muted); }
@@ -656,7 +667,7 @@
     .layout-challenge-wrap .tiny,
     .layout-challenge-wrap .focusActionText,
     .layout-challenge-wrap .focusSubtext,
-    .layout-challenge-wrap #challengeBoxInfo,
+    .layout-challenge-wrap .challengePromptInfo,
     .layout-challenge-wrap .seatMeta,
     .layout-challenge-wrap .seatStatus {
       overflow-wrap: anywhere;
@@ -707,27 +718,15 @@
       margin: 8px 0 0;
     }
 
-    #challengeBox {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      z-index: 20;
-      padding: 0 12px calc(12px + var(--safe));
-      display: none;
-      pointer-events: none;
-    }
-
-    .challengeBoxInner {
+    .challengePromptPane {
       background: linear-gradient(170deg, rgba(46,28,22,0.98), rgba(28,18,14,0.99));
       border: 1px solid rgba(200,90,90,0.3);
-      border-radius: var(--radius) var(--radius) 0 0;
-      box-shadow: 0 -8px 32px rgba(0,0,0,0.55);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
       backdrop-filter: blur(14px);
       padding: 14px 16px 16px;
       display: grid;
       gap: 10px;
-      pointer-events: all;
     }
 
     .challengeBoxHeader {
@@ -762,16 +761,15 @@
       transition: width 0.85s linear;
     }
 
-    .challengeBoxBtns {
+    .challengePromptBtns {
       display: flex;
       gap: 10px;
     }
 
-    .challengeBoxBtns button { flex: 1 1 0; min-width: 0; }
+    .challengePromptBtns button { flex: 1 1 0; min-width: 0; }
 
     @media (min-width: 880px) {
       #app { max-width: 980px; margin: 0 auto; }
-      #challengeBox { max-width: 980px; left: 50%; transform: translateX(-50%); }
       .card { min-width: 96px; }
     }
 
@@ -878,11 +876,6 @@
       from { transform: scale(0.55); opacity:0; }
       to   { transform: scale(1); opacity:1; }
     }
-    .cin-headline.cin-announce {
-      color: var(--danger);
-      text-shadow: 0 0 28px rgba(200,90,90,0.85), 0 0 56px rgba(200,90,90,0.35);
-      animation: cinHeadlineIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both, cinPulse 1.2s ease-in-out 0.5s infinite;
-    }
     .cin-headline.cin-caught {
       color: var(--danger);
       text-shadow: 0 0 28px rgba(200,90,90,0.85), 0 0 56px rgba(200,90,90,0.35);
@@ -897,11 +890,6 @@
       text-shadow: none;
       letter-spacing: 0.08em;
     }
-    @keyframes cinPulse {
-      0%,100% { text-shadow: 0 0 28px rgba(200,90,90,0.85), 0 0 56px rgba(200,90,90,0.35); }
-      50%      { text-shadow: 0 0 44px rgba(200,90,90,1),    0 0 90px rgba(200,90,90,0.55); }
-    }
-
     .cin-players {
       display: flex;
       align-items: flex-start;
@@ -1114,13 +1102,6 @@
     .cin-result.res-good   { background:rgba(102,177,124,0.18); border:1px solid rgba(102,177,124,0.4); color:var(--ok); }
     .cin-result.res-warn   { background:rgba(200,90,90,0.18);   border:1px solid rgba(200,90,90,0.4);   color:var(--danger); }
     .cin-result.res-neutral{ background:rgba(200,153,82,0.12);  border:1px solid rgba(200,153,82,0.28); color:var(--accent-2); }
-
-    .cin-status-line {
-      font-size: 0.7rem;
-      color: var(--muted);
-      font-style: italic;
-      text-align: center;
-    }
 
     /* ── Bet-action burst (Call! / Raise! / Fold!) over avatar ── */
     .cin-action-burst {
@@ -1429,26 +1410,6 @@
 </head>
 <body>
   <div id="app"></div>
-  <div id="challengeBox">
-    <div class="challengeBoxInner">
-      <div class="challengeBoxHeader">
-        <div class="sectionTitle" style="color:var(--danger);">Challenge window</div>
-        <div id="challengeTimerCount" style="font-size:1.05rem;font-weight:800;color:var(--danger);"></div>
-      </div>
-      <div id="challengeBoxInfo" class="tiny"></div>
-      <div class="challengeTimerRow">
-        <div class="timerLabel">
-          <span id="challengeTimerTitle">Auto: let it stand</span>
-          <span id="challengeTimerLabel"></span>
-        </div>
-        <div class="timerTrack"><div class="timerFill" id="challengeTimerBar"></div></div>
-      </div>
-      <div class="challengeBoxBtns">
-        <button class="danger" id="challengeBtnFixed">⚔ Challenge</button>
-        <button class="secondary" id="letPassBtnFixed">Let it stand</button>
-      </div>
-    </div>
-  </div>
 
   <!-- UI projection mapping mode -->
   <button id="projMapBtn" title="Inspect panel projection IDs">Map</button>
@@ -2452,7 +2413,6 @@
       }
       setBanner(`${seatLabel(challengerIndex)} and ${seatLabel(challengedIndex)} are betting on the challenge.`);
       render();
-      showChallengeCinematic(challengerIndex, challengedIndex, play);
       scheduleBettingAiIfNeeded();
     }
 
@@ -3213,13 +3173,6 @@
         .replaceAll('{rank}', String(lastPlay.declaredRank));
     }
 
-    function applyConfiguredUiText() {
-      const timerTitle = document.getElementById('challengeTimerTitle');
-      if (timerTitle) timerTitle.textContent = SCRATCHBONES_GAME.uiText.challengeTimerLabel;
-      const letStandBtn = document.getElementById('letPassBtnFixed');
-      if (letStandBtn) letStandBtn.textContent = SCRATCHBONES_GAME.uiText.letStandButton;
-    }
-
     function resolveScratchbone2DAsset(card, { flipped = false } = {}) {
       const clampedRank = Math.max(1, Math.min(RANK_COUNT, Number(card?.rank) || 1));
       if (card?.wild) {
@@ -3499,9 +3452,8 @@
         app.style.setProperty('--layout-parent-height-scale', '1');
         return;
       }
-      const challengeBox = document.getElementById('challengeBox');
-      const challengeInner = challengeBox?.querySelector('.challengeBoxInner');
-      const challengeActive = !!(challengeBox && challengeBox.style.display !== 'none' && challengeInner);
+      const challengePane = app.querySelector('#challengePromptPane');
+      const challengeActive = !!(challengePane && challengePane.style.display !== 'none');
       if (!challengeActive) {
         app.classList.remove('layout-challenge-wrap');
         app.style.setProperty('--layout-challenge-font-scale', '1');
@@ -3511,7 +3463,7 @@
         return;
       }
 
-      const overflowPx = Math.max(0, challengeInner.scrollHeight - challengeInner.clientHeight);
+      const overflowPx = Math.max(0, challengePane.scrollHeight - challengePane.clientHeight);
       const severity = clampNumber(overflowPx / 220, 0, 1);
 
       // Deterministic resolver order:
@@ -3554,23 +3506,6 @@
       return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.showEffects !== false;
     }
 
-    function renderChallengeBox() {
-      const box = document.getElementById('challengeBox');
-      if (!box) return;
-      const cw = state.challengeWindow;
-      const humanCanDecide = cw && !state.betting && !state.gameOver && cw.lastPlay.playerIndex !== 0;
-      box.style.display = humanCanDecide ? 'block' : 'none';
-      if (!humanCanDecide) return;
-      const lastPlay = cw.lastPlay;
-      const info = document.getElementById('challengeBoxInfo');
-      if (info) {
-        info.textContent = formatChallengePrompt(lastPlay);
-      }
-      updateChallengeBoxTimer();
-      document.getElementById('challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
-      document.getElementById('letPassBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanAcceptNoChallenge(); });
-    }
-
     function render() {
       const app = document.getElementById('app');
       const layoutPolicy = applyLayoutContract(app);
@@ -3585,6 +3520,9 @@
       const humanCallAmount = state.betting ? amountToCall(0) : 0;
       const humanRaiseAmount = state.betting && bettingActorHuman ? nextRaiseAmountForPlayer(0) : 0;
       const humanCanRaise = humanRaiseAmount > 0;
+      const challengeWindow = state.challengeWindow;
+      const humanCanDecideChallenge = !!(challengeWindow && !state.betting && !state.gameOver && challengeWindow.lastPlay.playerIndex !== 0);
+      const challengePromptText = humanCanDecideChallenge ? formatChallengePrompt(challengeWindow.lastPlay) : '';
       const latestPilePlay = state.pile.at(-1) || null;
       const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || latestPilePlay;
       const tableViewPolicy = layoutPolicy?.tableView || {};
@@ -3712,19 +3650,41 @@
         </div>
 
         <div class="actionColumn" data-proj-id="action-column">
-          <div class="controls fit-target fit-0" data-proj-id="controls">
-            <div class="controlsRow">
-              <label>
-                Declare number
-                <select id="declareRank" ${!canHumanAct ? 'disabled' : ''}>
-                  ${declareOptions}
-                </select>
-              </label>
+          <div class="controlsChallengeRow ${humanCanDecideChallenge ? 'hasChallengePane' : ''}">
+            <div class="controls fit-target fit-0" data-proj-id="controls">
+              <div class="controlsRow">
+                <label>
+                  Declare number
+                  <select id="declareRank" ${!canHumanAct ? 'disabled' : ''}>
+                    ${declareOptions}
+                  </select>
+                </label>
+              </div>
+              <div class="bottomActions">
+                <button id="playBtn" ${!canHumanAct ? 'disabled' : ''}>Play Selected</button>
+                <button class="secondary" id="concedeBtn" ${!canHumanAct || state.declaredRank === null ? 'disabled' : ''}>Concede Round</button>
+              </div>
             </div>
-            <div class="bottomActions">
-              <button id="playBtn" ${!canHumanAct ? 'disabled' : ''}>Play Selected</button>
-              <button class="secondary" id="concedeBtn" ${!canHumanAct || state.declaredRank === null ? 'disabled' : ''}>Concede Round</button>
-            </div>
+            ${humanCanDecideChallenge ? `
+              <div class="challengePromptPane fit-target fit-0" id="challengePromptPane" data-proj-id="challenge-prompt">
+                <div class="challengeBoxHeader">
+                  <div class="sectionTitle" style="color:var(--danger);">Challenge window</div>
+                  <div id="challengeTimerCount" style="font-size:1.05rem;font-weight:800;color:var(--danger);"></div>
+                </div>
+                <div id="challengeBoxInfo" class="tiny challengePromptInfo">${challengePromptText}</div>
+                <div class="challengeTimerRow">
+                  <div class="timerLabel">
+                    <span id="challengeTimerTitle">${escapeHtml(SCRATCHBONES_GAME.uiText.challengeTimerLabel)}</span>
+                    <span id="challengeTimerLabel"></span>
+                  </div>
+                  <div class="timerTrack"><div class="timerFill" id="challengeTimerBar"></div></div>
+                </div>
+                <div class="challengePromptBtns">
+                  <button class="danger" id="challengeBtnFixed">⚔ Challenge</button>
+                  <button class="secondary" id="letPassBtnFixed">${escapeHtml(SCRATCHBONES_GAME.uiText.letStandButton)}</button>
+                </div>
+              </div>
+            ` : ''}
           </div>
 
           <div class="handWrap fit-target fit-0" data-proj-id="hand">
@@ -3777,11 +3737,13 @@
       document.getElementById('betRaiseBtn')?.addEventListener('click', humanRaiseSelected);
       document.getElementById('betFoldBtn')?.addEventListener('click', () => humanBetAction('fold'));
       document.getElementById('joinBackupBtn')?.addEventListener('click', humanJoinBackup);
+      document.getElementById('challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
+      document.getElementById('letPassBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanAcceptNoChallenge(); });
+      if (humanCanDecideChallenge) updateChallengeBoxTimer();
       app.querySelectorAll('[data-card-id]').forEach(el => {
         el.addEventListener('click', () => toggleSelect(Number(el.getAttribute('data-card-id'))));
       });
       wireScratchboneImageFallbacks(app);
-      renderChallengeBox();
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
       updateTableViewHeight(app, tableViewPolicy);
       refreshCinematicBettingZone();
@@ -3906,7 +3868,9 @@
     function closeCinematic() {
       _clearCinTimeout();
       const el = getCinematicRoot();
-      if (el) el.classList.remove('cin-active');
+      if (!el) return;
+      el.classList.remove('cin-active');
+      el.innerHTML = '';
     }
 
     function refreshCinematicBettingZone() {
@@ -4149,48 +4113,6 @@
         </div>`;
     }
 
-    // Phase 1: Challenge announced
-    function showChallengeCinematic(challengerIndex, challengedIndex, play) {
-      const cin = getCinematicRoot();
-      if (!cin || !isTableCinematicEnabled()) return;
-      _clearCinTimeout();
-
-      const challenger = state.players[challengerIndex];
-      const challenged = state.players[challengedIndex];
-      const humanInvolved = challengerIndex === 0 || challengedIndex === 0;
-      const fxMarkup = isTableCinematicEffectsEnabled()
-        ? `${_cinEmbersHtml(10)}<div class="cin-shimmer"></div>`
-        : '';
-
-      cin.innerHTML = `
-        <div class="cin-bg"></div>
-        ${fxMarkup}
-        <div class="cin-headline cin-announce">⚔ Challenge ⚔</div>
-        <div class="cin-players">
-          ${_cinPlayerHtml(challenger, 'challenger')}
-          <div class="cin-vs">VS</div>
-          ${_cinPlayerHtml(challenged, 'challenged')}
-        </div>
-        <div class="cin-divider"></div>
-        ${_cinCardsHtml(play, false)}
-        ${humanInvolved
-          ? `<div id="cin-betting-zone"></div>`
-          : `<div class="cin-status-line">Cards face‑down — betting underway…</div>`
-        }
-      `;
-      wireScratchboneImageFallbacks(cin);
-      cin.classList.add('cin-active');
-      renderCinematicPortraits();
-
-      if (humanInvolved) {
-        // Stay open — betting UI lives inside; refreshed by refreshCinematicBettingZone()
-        refreshCinematicBettingZone();
-      } else {
-        // AI vs AI: auto-dismiss after a beat
-        _cinTimeout = setTimeout(() => cin.classList.remove('cin-active'), 2000);
-      }
-    }
-
     // Phase 2a: Reveal (no fold)
     function showRevealCinematic(challengerIndex, challengedIndex, play, success) {
       const cin = getCinematicRoot();
@@ -4349,7 +4271,6 @@
     window.addEventListener('resize', scheduleResponsiveFitPass, { passive: true });
     window.addEventListener('orientationchange', scheduleResponsiveFitPass, { passive: true });
 
-    applyConfiguredUiText();
     startGame();
 
   </script>
