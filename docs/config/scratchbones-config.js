@@ -115,6 +115,23 @@ window.SCRATCHBONES_CONFIG.game = {
         logs: { selector: '.eventLog', maxStage: 4, minReadableFontScale: 0.80 },
         controls: { selector: '.controls', maxStage: 4, minReadableFontScale: 0.80 },
       },
+      overlap: __existingGameConfig.layout?.fitter?.overlap ?? {
+        enabled: true,
+        tolerancePx: 0,
+        criticalRegions: {
+          tableView: '.tableView',
+          controls: '.controls',
+          hand: '.handWrap',
+          actionColumn: '.actionColumn',
+          log: '.eventLog',
+          sidebar: '#aiSidebar',
+          challenge: '#challengePromptPane',
+        },
+        collapseOrder: ['#challengePromptPane', '.actionFocus', '.eventLog', '#aiSidebar'],
+        preserveRegions: ['tableView', 'controls'],
+        minContainerScale: 0.82,
+        containerScaleStep: 0.04,
+      },
     },
   },
   uiText: {
