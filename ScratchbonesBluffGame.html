@@ -77,6 +77,9 @@
       --layout-challenge-image-scale: 1;
       --layout-challenge-gap-scale: 1;
       --layout-parent-height-scale: 1;
+      --layout-fit-font-scale: 1;
+      --layout-fit-image-scale: 1;
+      --layout-fit-gap-scale: 1;
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -313,8 +316,8 @@
       justify-content: center;
     }
     .focusMiniCard {
-      width: calc(28px * var(--layout-challenge-image-scale));
-      height: calc(40px * var(--layout-challenge-image-scale));
+      width: calc(28px * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
+      height: calc(40px * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
       border-radius: 7px;
       overflow: hidden;
       border: 1px solid rgba(255,255,255,0.18);
@@ -340,9 +343,9 @@
     }
 
     .controls {
-      padding: calc(12px * var(--layout-challenge-gap-scale));
+      padding: calc(12px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
       display: grid;
-      gap: calc(10px * var(--layout-challenge-gap-scale));
+      gap: calc(10px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
       z-index: 4;
       background: linear-gradient(180deg, rgba(46,34,30,0.96), rgba(37,28,25,0.98));
       backdrop-filter: blur(8px);
@@ -363,7 +366,7 @@
     button {
       border: none;
       border-radius: 14px;
-      padding: calc(12px * var(--layout-challenge-gap-scale)) calc(14px * var(--layout-challenge-gap-scale));
+      padding: calc(12px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale)) calc(14px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
       color: #1d140f;
       background: var(--accent);
       font-weight: 800;
@@ -379,9 +382,9 @@
     button:disabled { opacity: 0.45; box-shadow: none; }
 
     .handWrap {
-      padding: calc(8px * var(--layout-challenge-gap-scale)) calc(12px * var(--layout-challenge-gap-scale));
+      padding: calc(8px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale)) calc(12px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
       display: grid;
-      gap: calc(6px * var(--layout-challenge-gap-scale));
+      gap: calc(6px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
       min-height: var(--layout-hand-min-height);
       max-height: var(--layout-hand-max-height);
       flex: 0 0 calc(var(--hand-height-frac) * 100dvh);
@@ -397,7 +400,7 @@
 
     .handScroll {
       --hand-card-min: clamp(74px, 14vw, 104px);
-      --hand-card-gap: calc(clamp(8px, 1.6vw, 12px) * var(--layout-challenge-gap-scale));
+      --hand-card-gap: calc(clamp(8px, 1.6vw, 12px) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(var(--hand-card-min), 1fr));
       gap: var(--hand-card-gap);
@@ -461,9 +464,9 @@
 
     .eventLog {
       grid-area: log;
-      padding: calc(8px * var(--layout-challenge-gap-scale)) calc(12px * var(--layout-challenge-gap-scale));
+      padding: calc(8px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale)) calc(12px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
       display: grid;
-      gap: calc(6px * var(--layout-challenge-gap-scale));
+      gap: calc(6px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
       max-height: 78px;
       min-height: 0;
       overflow-y: auto;
@@ -473,8 +476,8 @@
     .logItem {
       background: rgba(255,255,255,0.05);
       border-radius: 12px;
-      padding: calc(9px * var(--layout-challenge-gap-scale)) calc(10px * var(--layout-challenge-gap-scale));
-      font-size: calc(0.84rem * var(--layout-challenge-font-scale));
+      padding: calc(9px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale)) calc(10px * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
+      font-size: calc(0.84rem * var(--layout-challenge-font-scale) * var(--layout-fit-font-scale));
       color: var(--text);
     }
 
@@ -484,7 +487,7 @@
       flex-wrap: wrap;
     }
 
-    .tiny { font-size: calc(0.74rem * var(--layout-challenge-font-scale)); color: var(--muted); }
+    .tiny { font-size: calc(0.74rem * var(--layout-challenge-font-scale) * var(--layout-fit-font-scale)); color: var(--muted); }
     .layout-challenge-wrap .tiny,
     .layout-challenge-wrap .focusActionText,
     .layout-challenge-wrap .focusSubtext,
@@ -507,13 +510,23 @@
     .timerLabel,
     button,
     select {
-      font-size: calc(1em * var(--layout-challenge-font-scale));
+      font-size: calc(1em * var(--layout-challenge-font-scale) * var(--layout-fit-font-scale));
     }
     .seatAvatarBox,
     .focusAvatar {
-      transform: scale(var(--layout-challenge-image-scale));
+      transform: scale(calc(var(--layout-challenge-image-scale) * var(--layout-fit-image-scale)));
       transform-origin: top center;
     }
+
+    .fit-target.fit-0 {
+      --layout-fit-font-scale: 1;
+      --layout-fit-image-scale: 1;
+      --layout-fit-gap-scale: 1;
+    }
+    .fit-target.fit-1 { --layout-fit-font-scale: 0.96; --layout-fit-image-scale: 0.95; --layout-fit-gap-scale: 0.94; }
+    .fit-target.fit-2 { --layout-fit-font-scale: 0.92; --layout-fit-image-scale: 0.90; --layout-fit-gap-scale: 0.88; }
+    .fit-target.fit-3 { --layout-fit-font-scale: 0.88; --layout-fit-image-scale: 0.86; --layout-fit-gap-scale: 0.82; }
+    .fit-target.fit-4 { --layout-fit-font-scale: 0.84; --layout-fit-image-scale: 0.82; --layout-fit-gap-scale: 0.76; }
 
     details.debug {
       background: rgba(255,255,255,0.04);
@@ -1338,6 +1351,7 @@
         },
         controlsToHandRelationship: scratchbonesGameConfig.layout?.controlsToHandRelationship ?? scratchbonesLegacyGameplayConfig.controlsToHandRelationship ?? 'below',
         allowChallengeOverflow: scratchbonesGameConfig.layout?.allowChallengeOverflow ?? scratchbonesLegacyGameplayConfig.allowChallengeOverflow ?? true,
+        fitter: scratchbonesGameConfig.layout?.fitter ?? null,
       },
       uiText: {
         initialBanner: scratchbonesGameConfig.uiText?.initialBanner ?? scratchbonesLegacyGameplayConfig.initialBanner ?? 'Open a round by selecting one or more cards, then declare a number.',
@@ -1757,6 +1771,7 @@
       challengeTimer: null,
       challengeTimeLeft: 0,
       roundConcessions: new Set(), // Used by: skipping players who have conceded the current claim until the round ends.
+      layoutFitStages: {},
     };
 
     function mulberry32(a) {
@@ -3079,6 +3094,105 @@
       return Math.min(max, Math.max(min, value));
     }
 
+    function isOverflowing(node, tolerancePx = 1) {
+      if (!node) return false;
+      const overflowY = (node.scrollHeight - node.clientHeight) > tolerancePx;
+      const overflowX = (node.scrollWidth - node.clientWidth) > tolerancePx;
+      return overflowX || overflowY;
+    }
+
+    function normalizeFitPolicy(policy) {
+      if (!policy || policy.enabled === false) return null;
+      const stages = Array.isArray(policy.stages) && policy.stages.length
+        ? policy.stages
+        : [
+            { fontScale: 0.96, imageScale: 0.95, gapScale: 0.94 },
+            { fontScale: 0.92, imageScale: 0.90, gapScale: 0.88 },
+            { fontScale: 0.88, imageScale: 0.86, gapScale: 0.82 },
+            { fontScale: 0.84, imageScale: 0.82, gapScale: 0.76 },
+          ];
+      return {
+        stages,
+        overflowTolerancePx: Math.max(0, Number(policy.overflowTolerancePx) || 1),
+        minReadableFontScale: clampNumber(Number(policy.minReadableFontScale) || 0.76, 0.5, 1),
+        targets: policy.targets || {},
+      };
+    }
+
+    function fitContainer(rootEl, policy) {
+      if (!rootEl) return {};
+      const normalizedPolicy = normalizeFitPolicy(policy);
+      if (!normalizedPolicy) return {};
+
+      const stageClassNames = normalizedPolicy.stages.map((_, index) => `fit-${index + 1}`);
+      const targetEntries = Object.entries(normalizedPolicy.targets || {});
+      const fitSummary = {};
+
+      for (const [targetKey, targetPolicy] of targetEntries) {
+        const selector = targetPolicy?.selector;
+        if (!selector) continue;
+        const targetNode = rootEl.querySelector(selector);
+        if (!targetNode) {
+          fitSummary[targetKey] = { selector, found: false, stage: 0, overflowing: false };
+          continue;
+        }
+
+        const containmentNode = targetPolicy?.containmentSelector
+          ? (targetNode.querySelector(targetPolicy.containmentSelector) || targetNode)
+          : targetNode;
+        const targetFloor = clampNumber(
+          Number(targetPolicy?.minReadableFontScale) || normalizedPolicy.minReadableFontScale,
+          0.5,
+          1
+        );
+        const configuredMaxStage = Math.max(0, Number(targetPolicy?.maxStage) || normalizedPolicy.stages.length);
+        const floorLimitedStage = normalizedPolicy.stages.reduce((maxAllowed, stageConfig, stageIndex) => {
+          return Number(stageConfig.fontScale) >= targetFloor ? stageIndex + 1 : maxAllowed;
+        }, 0);
+        const maxStage = Math.min(configuredMaxStage, floorLimitedStage > 0 ? floorLimitedStage : 0);
+
+        targetNode.classList.remove(...stageClassNames, 'fit-0');
+        targetNode.classList.add('fit-target');
+
+        let stage = 0;
+        let overflowing = isOverflowing(containmentNode, normalizedPolicy.overflowTolerancePx);
+        while (overflowing && stage < maxStage) {
+          stage++;
+          targetNode.classList.remove(...stageClassNames, 'fit-0');
+          targetNode.classList.add(`fit-${stage}`);
+          overflowing = isOverflowing(containmentNode, normalizedPolicy.overflowTolerancePx);
+        }
+        if (stage === 0) targetNode.classList.add('fit-0');
+
+        fitSummary[targetKey] = {
+          selector,
+          containmentSelector: targetPolicy?.containmentSelector || null,
+          stage,
+          maxStage,
+          floor: targetFloor,
+          overflowing,
+          scrollHeight: containmentNode.scrollHeight,
+          clientHeight: containmentNode.clientHeight,
+          scrollWidth: containmentNode.scrollWidth,
+          clientWidth: containmentNode.clientWidth,
+        };
+      }
+
+      return fitSummary;
+    }
+
+    function syncDebugSnapshotPre() {
+      const debugPre = document.getElementById('debugSnapshotData');
+      if (!debugPre || !DEBUG_ENABLED) return;
+      debugPre.textContent = JSON.stringify(debugSnapshot(), null, 2);
+    }
+
+    function applyResponsiveFit(rootEl = document.getElementById('app')) {
+      state.layoutFitStages = fitContainer(rootEl, SCRATCHBONES_GAME.layout?.fitter);
+      syncDebugSnapshotPre();
+      return state.layoutFitStages;
+    }
+
     function applyLayoutContract(app) {
       if (!app) return null;
       const layout = SCRATCHBONES_GAME.layout || {};
@@ -3222,7 +3336,7 @@
           </div>
         </div>
 
-        <div id="aiSidebar" data-proj-id="sidebar">
+        <div id="aiSidebar" class="fit-target fit-0" data-proj-id="sidebar">
           <div class="sectionTitle" style="padding:6px 10px 2px;color:var(--accent-2);">Table</div>
           ${state.players.slice(1).map(p => `
             <div class="aiSeat ${p.eliminated ? 'eliminated' : ''}" data-proj-id="seat-${p.id}">
@@ -3241,7 +3355,7 @@
         </div>
 
         <div class="panel" data-proj-id="panel">
-          <div class="actionFocus">
+          <div class="actionFocus fit-target fit-0">
             <div class="actionFocusHeader">Action Focus</div>
             <div class="actionFocusMain">
               <div class="focusAvatar" title="${seatLabel(focusActor || actionFocus.actorId)}">
@@ -3274,12 +3388,12 @@
           <details class="debug">
             <summary>Debug tools</summary>
             <div class="tiny" style="margin-top:8px;">Recent change: ${state.recentChange}</div>
-            <pre>${DEBUG_ENABLED ? escapeHtml(JSON.stringify(debugSnapshot(), null, 2)) : 'Debug disabled.'}</pre>
+            <pre id="debugSnapshotData">${DEBUG_ENABLED ? escapeHtml(JSON.stringify(debugSnapshot(), null, 2)) : 'Debug disabled.'}</pre>
           </details>
         </div>
 
         <div class="actionColumn" data-proj-id="action-column">
-          <div class="controls" data-proj-id="controls">
+          <div class="controls fit-target fit-0" data-proj-id="controls">
             <div class="controlsRow">
               <label>
                 Declare number
@@ -3294,7 +3408,7 @@
             </div>
           </div>
 
-          <div class="handWrap" data-proj-id="hand">
+          <div class="handWrap fit-target fit-0" data-proj-id="hand">
             <div class="handHeader">
               <div class="sectionTitle">Your hand</div>
               <div class="tiny">Selected: ${selected.length}</div>
@@ -3323,7 +3437,7 @@
           </div>
         </div>
 
-        <div class="eventLog" data-proj-id="log">
+        <div class="eventLog fit-target fit-0" data-proj-id="log">
           <div class="sectionTitle">Recent events</div>
           ${recentLogs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
         </div>
@@ -3349,6 +3463,7 @@
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
       refreshCinematicBettingZone();
       renderSeatPortraits();
+      applyResponsiveFit(app);
     }
 
     function debugSnapshot() {
@@ -3388,6 +3503,7 @@
           reads: Object.fromEntries(Object.entries(p.reads || {}).map(([id, read]) => [seatLabel(Number(id)), { truthfulCount: read.truthfulCount, bluffCount: read.bluffCount, repeatRankCount: read.repeatRankCount, quickJudgmentBias: Number(read.quickJudgmentBias.toFixed(2)), currentTruthStreak: read.currentTruthStreak, currentBluffStreak: read.currentBluffStreak, challengeWins: read.challengeWins, challengeLosses: read.challengeLosses }])),
         })),
         config: CONFIG,
+        fitStages: state.layoutFitStages,
         stats: state.stats,
         recentChange: state.recentChange,
       };
@@ -3891,6 +4007,18 @@
       btn.textContent = 'Copied!';
       setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
     });
+
+    let fitReflowHandle = null;
+    function scheduleResponsiveFitPass() {
+      if (fitReflowHandle) clearTimeout(fitReflowHandle);
+      const fitDebounceMs = Math.max(0, Number(SCRATCHBONES_GAME.layout?.fitter?.reflowDebounceMs) || 120);
+      fitReflowHandle = setTimeout(() => {
+        fitReflowHandle = null;
+        applyResponsiveFit(document.getElementById('app'));
+      }, fitDebounceMs);
+    }
+    window.addEventListener('resize', scheduleResponsiveFitPass, { passive: true });
+    window.addEventListener('orientationchange', scheduleResponsiveFitPass, { passive: true });
 
     applyConfiguredUiText();
     startGame();

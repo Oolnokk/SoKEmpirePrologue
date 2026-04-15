@@ -40,6 +40,25 @@ window.SCRATCHBONES_CONFIG.game = {
     },
     controlsToHandRelationship: __existingGameConfig.layout?.controlsToHandRelationship ?? __legacyGameplayConfig.controlsToHandRelationship ?? 'below',
     allowChallengeOverflow: __existingGameConfig.layout?.allowChallengeOverflow ?? __legacyGameplayConfig.allowChallengeOverflow ?? true,
+    fitter: {
+      enabled: __existingGameConfig.layout?.fitter?.enabled ?? true,
+      reflowDebounceMs: __existingGameConfig.layout?.fitter?.reflowDebounceMs ?? 120,
+      overflowTolerancePx: __existingGameConfig.layout?.fitter?.overflowTolerancePx ?? 1,
+      minReadableFontScale: __existingGameConfig.layout?.fitter?.minReadableFontScale ?? 0.76,
+      stages: __existingGameConfig.layout?.fitter?.stages ?? [
+        { fontScale: 0.96, imageScale: 0.95, gapScale: 0.94 },
+        { fontScale: 0.92, imageScale: 0.90, gapScale: 0.88 },
+        { fontScale: 0.88, imageScale: 0.86, gapScale: 0.82 },
+        { fontScale: 0.84, imageScale: 0.82, gapScale: 0.76 },
+      ],
+      targets: __existingGameConfig.layout?.fitter?.targets ?? {
+        actionFocus: { selector: '.actionFocus', containmentSelector: '.actionFocusMain', maxStage: 4, minReadableFontScale: 0.80 },
+        sidebarSeats: { selector: '#aiSidebar', maxStage: 4, minReadableFontScale: 0.78 },
+        handCards: { selector: '.handWrap', containmentSelector: '.handScroll', maxStage: 4, minReadableFontScale: 0.78 },
+        logs: { selector: '.eventLog', maxStage: 4, minReadableFontScale: 0.80 },
+        controls: { selector: '.controls', maxStage: 4, minReadableFontScale: 0.80 },
+      },
+    },
   },
   uiText: {
     initialBanner: __existingGameConfig.uiText?.initialBanner ?? __legacyGameplayConfig.initialBanner ?? 'Open a round by selecting one or more cards, then declare a number.',
