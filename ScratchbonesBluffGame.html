@@ -80,6 +80,21 @@
       --layout-fit-font-scale: 1;
       --layout-fit-image-scale: 1;
       --layout-fit-gap-scale: 1;
+      --layout-card-base-scale: 0.25;
+      --layout-card-hand-scale: 1;
+      --layout-card-scale: calc((var(--layout-card-base-scale) / 0.25) * var(--layout-card-hand-scale));
+      --layout-card-hit-min-width: 44px;
+      --layout-card-hit-min-height: 44px;
+      --layout-card-table-base-width: 312px;
+      --layout-card-table-base-height: 440px;
+      --layout-card-mini-base-width: 112px;
+      --layout-card-mini-base-height: 160px;
+      --layout-card-label-font-base: 2.88rem;
+      --layout-card-label-gap-base: 24px;
+      --layout-card-label-padding-y-base: 16px;
+      --layout-card-label-padding-x-base: 24px;
+      --layout-card-label-offset-base: 24px;
+      --layout-card-label-radius-base: 40px;
       --layout-sidebar-width: 280px;
       --layout-app-gap: 8px;
       --layout-app-padding: 8px;
@@ -237,8 +252,8 @@
       min-height: 0;
     }
     .tableViewCard {
-      width: calc(78px * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
-      height: calc(110px * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
+      width: calc(var(--layout-card-table-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
+      height: calc(var(--layout-card-table-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.22);
       background: rgba(255,255,255,0.05);
@@ -412,8 +427,8 @@
       justify-content: center;
     }
     .focusMiniCard {
-      width: calc(28px * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
-      height: calc(40px * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
+      width: calc(var(--layout-card-mini-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
+      height: calc(var(--layout-card-mini-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale));
       border-radius: 7px;
       overflow: hidden;
       border: 1px solid rgba(255,255,255,0.18);
@@ -517,7 +532,11 @@
     }
 
     .handScroll {
-      --hand-card-min: clamp(var(--layout-hand-card-min-width), 14vw, var(--layout-hand-card-max-width));
+      --hand-card-min: clamp(
+        var(--layout-hand-card-min-width),
+        14vw,
+        var(--layout-hand-card-max-width)
+      );
       --hand-card-gap: calc(clamp(var(--layout-hand-card-gap-min), 1.6vw, var(--layout-hand-card-gap-max)) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(var(--hand-card-min), 1fr));
@@ -530,8 +549,11 @@
 
     .card {
       width: 100%;
-      min-width: 0;
-      min-height: calc(var(--hand-card-min-height, clamp(var(--layout-hand-card-min-height), 20vh, var(--layout-hand-card-max-height))) * var(--layout-parent-height-scale));
+      min-width: var(--layout-card-hit-min-width);
+      min-height: max(
+        var(--layout-card-hit-min-height),
+        calc(var(--hand-card-min-height, clamp(var(--layout-hand-card-min-height), 20vh, var(--layout-hand-card-max-height))))
+      );
       padding: 0;
       background: transparent;
       color: var(--card-text);
@@ -574,18 +596,18 @@
 
     .cardLabel {
       position: absolute;
-      left: 6px;
-      bottom: 6px;
-      max-width: calc(100% - 12px);
+      left: calc(var(--layout-card-label-offset-base) * var(--layout-card-scale));
+      bottom: calc(var(--layout-card-label-offset-base) * var(--layout-card-scale));
+      max-width: calc(100% - calc(var(--layout-card-label-offset-base) * var(--layout-card-scale) * 2));
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      border-radius: 10px;
-      padding: 4px 6px;
+      gap: calc(var(--layout-card-label-gap-base) * var(--layout-card-scale));
+      border-radius: calc(var(--layout-card-label-radius-base) * var(--layout-card-scale));
+      padding: calc(var(--layout-card-label-padding-y-base) * var(--layout-card-scale)) calc(var(--layout-card-label-padding-x-base) * var(--layout-card-scale));
       background: rgba(23, 16, 13, 0.74);
       color: #f8f1df;
       text-shadow: 0 1px 0 rgba(0, 0, 0, 0.42);
-      font-size: 0.72rem;
+      font-size: calc(var(--layout-card-label-font-base) * var(--layout-card-scale));
       line-height: 1.1;
       letter-spacing: 0.04em;
       pointer-events: none;
@@ -626,12 +648,12 @@
     }
 
     .layout-hand-compact .card {
-      min-height: calc(var(--hand-compact-card-min-height, 128px) * var(--layout-parent-height-scale));
+      min-height: max(var(--layout-card-hit-min-height), calc(var(--hand-compact-card-min-height, 128px) * var(--layout-card-scale)));
       border-radius: 18px 18px 26px 26px / 20px 20px 52px 52px;
     }
 
     .layout-hand-compact .cardLabel {
-      font-size: 0.64rem;
+      font-size: calc(var(--layout-card-label-font-base) * var(--layout-card-scale) * 0.9);
       padding: 3px 5px;
       max-width: calc(100% - 8px);
       left: 4px;
@@ -1479,6 +1501,9 @@
         aiThinkMs: scratchbonesGameConfig.timers?.aiThinkMs ?? scratchbonesLegacyGameplayConfig.aiThinkMs ?? 650,
       },
       layout: {
+        cards: {
+          baseScale: scratchbonesGameConfig.layout?.cards?.baseScale ?? 0.25,
+        },
         sizing: {
           sidebarWidthPx: scratchbonesGameConfig.layout?.sizing?.sidebarWidthPx ?? scratchbonesLegacyGameplayConfig.sidebarWidthPx ?? 280,
           appGapPx: scratchbonesGameConfig.layout?.sizing?.appGapPx ?? scratchbonesLegacyGameplayConfig.appGapPx ?? 8,
@@ -3376,8 +3401,10 @@
       if (!app) return null;
       const layout = SCRATCHBONES_GAME.layout || {};
       const layoutSizing = layout.sizing || {};
+      const layoutCards = layout.cards || {};
       const handLayout = layout.hand || {};
       const tableViewLayout = layout.tableView || {};
+      const cardBaseScale = clampNumber(Number(layoutCards.baseScale) || 0.25, 0.1, 0.75);
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
       const desiredWidthFrac = clampNumber(Number(handLayout.desiredWidthFrac) || 0.50, 0.25, 1);
       const handHeightScale = clampNumber(Number(handLayout.heightScale) || 0.5, 0.2, 0.75);
@@ -3428,6 +3455,10 @@
       const eventLogGapPx = clampNumber(Number(layoutSizing.eventLogGapPx) || 6, 0, 24);
       const logItemPaddingYpx = clampNumber(Number(layoutSizing.logItemPaddingYpx) || 9, 0, 40);
       const logItemPaddingXpx = clampNumber(Number(layoutSizing.logItemPaddingXpx) || 10, 0, 40);
+      const scaledCardMinWidthPx = clampNumber(handCardMinWidthPx * (cardBaseScale / 0.25), 44, 320);
+      const scaledCardMaxWidthPx = Math.max(scaledCardMinWidthPx, clampNumber(handCardMaxWidthPx * (cardBaseScale / 0.25), scaledCardMinWidthPx, 400));
+      const scaledCardMinHeightPx = clampNumber(handCardMinHeightPx * (cardBaseScale / 0.25), 44, 420);
+      const scaledCardMaxHeightPx = Math.max(scaledCardMinHeightPx, clampNumber(handCardMaxHeightPx * (cardBaseScale / 0.25), scaledCardMinHeightPx, 520));
       setCssVar('--hand-height-frac', desiredHeightFrac.toFixed(3));
       setCssVar('--layout-hand-min-height', `${Math.round(minHeightPx)}px`);
       setCssVar('--layout-hand-max-height', `${Math.round(maxHeightPx)}px`);
@@ -3438,6 +3469,8 @@
       setCssVar('--layout-action-column-height-scale', actionColumnHeightScale.toFixed(3));
       setCssVar('--layout-controls-height-scale', controlsHeightScale.toFixed(3));
       setCssVar('--layout-hand-height-scale', handHeightScale.toFixed(3));
+      setCssVar('--layout-card-hand-scale', clampNumber(handHeightScale, 0.2, 1).toFixed(3));
+      setCssVar('--layout-card-base-scale', cardBaseScale.toFixed(3));
       setCssVar('--layout-action-column-max-height', `${(actionColumnHeightScale * 100).toFixed(2)}dvh`);
       setCssVar('--layout-controls-max-height', `${(controlsHeightScale * 100).toFixed(2)}dvh`);
       setCssVar('--layout-hand-max-row-height', `${(handHeightScale * 100).toFixed(2)}dvh`);
@@ -3451,10 +3484,10 @@
       setCssVar('--layout-seat-avatar-size', `${Math.round(seatAvatarPx)}px`);
       setCssVar('--layout-human-seat-avatar-size', `${Math.round(humanSeatAvatarPx)}px`);
       setCssVar('--layout-cinematic-avatar-size', `${Math.round(cinematicAvatarPx)}px`);
-      setCssVar('--layout-hand-card-min-width', `${Math.round(handCardMinWidthPx)}px`);
-      setCssVar('--layout-hand-card-max-width', `${Math.round(handCardMaxWidthPx)}px`);
-      setCssVar('--layout-hand-card-min-height', `${Math.round(handCardMinHeightPx)}px`);
-      setCssVar('--layout-hand-card-max-height', `${Math.round(handCardMaxHeightPx)}px`);
+      setCssVar('--layout-hand-card-min-width', `${Math.round(scaledCardMinWidthPx)}px`);
+      setCssVar('--layout-hand-card-max-width', `${Math.round(scaledCardMaxWidthPx)}px`);
+      setCssVar('--layout-hand-card-min-height', `${Math.round(scaledCardMinHeightPx)}px`);
+      setCssVar('--layout-hand-card-max-height', `${Math.round(scaledCardMaxHeightPx)}px`);
       setCssVar('--layout-hand-card-gap-min', `${handCardGapMinPx.toFixed(2)}px`);
       setCssVar('--layout-hand-card-gap-max', `${handCardGapMaxPx.toFixed(2)}px`);
       setCssVar('--layout-event-log-max-height', `${Math.round(eventLogMaxHeightPx)}px`);
