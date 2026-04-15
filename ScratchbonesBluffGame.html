@@ -4501,7 +4501,7 @@
       const availableHeight = Math.max(1, cardsContainer.clientHeight);
       const gap = Number.parseFloat(getComputedStyle(cardsContainer).gap) || 0;
       const cardCount = cards.length;
-      let bestScale = 1;
+      let bestScale = 0;
       for (let rows = 1; rows <= cardCount; rows++) {
         const cols = Math.ceil(cardCount / rows);
         const requiredWidth = cols * cardWidth + Math.max(0, cols - 1) * gap;
