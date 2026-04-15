@@ -36,6 +36,7 @@ window.SCRATCHBONES_CONFIG.game = {
       baseScale: __existingGameConfig.layout?.cards?.baseScale ?? 0.25,
     },
     sizing: {
+      sidebarWidthFrac: __existingGameConfig.layout?.sizing?.sidebarWidthFrac ?? __legacyGameplayConfig.sidebarWidthFrac ?? 0.75,
       sidebarWidthPx: __existingGameConfig.layout?.sizing?.sidebarWidthPx ?? __legacyGameplayConfig.sidebarWidthPx ?? 280,
       appGapPx: __existingGameConfig.layout?.sizing?.appGapPx ?? __legacyGameplayConfig.appGapPx ?? 8,
       appPaddingPx: __existingGameConfig.layout?.sizing?.appPaddingPx ?? __legacyGameplayConfig.appPaddingPx ?? 8,
