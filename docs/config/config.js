@@ -945,6 +945,9 @@ window.CONFIG = {
     bottomButtons: {
       width: 180,
       height: 100,
+      handHeight: 62,
+      lowerBandGap: 8,
+      challengePaneWidth: 180,
       edgeHeight: 47,
       apexHeight: 70,
       offsetY: 0,

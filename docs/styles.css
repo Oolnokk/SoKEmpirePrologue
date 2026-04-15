@@ -10,9 +10,22 @@
   --actor-scale:1;
   --hud-panel-scale:1;
   --control-scale-base:clamp(0.62,2.4vw,0.85);
-  --control-scale:calc(var(--control-scale-base) * var(--actor-scale) * var(--hud-panel-scale));
+  --controls-scale-base:var(--control-scale-base);
+  --controls-scale: max(
+    calc(var(--controls-scale-base) * 0.5),
+    calc(var(--controls-scale-base) * var(--actor-scale) * var(--hud-panel-scale))
+  );
+  --hand-scale-base:1;
+  --hand-scale: max(
+    calc(var(--hand-scale-base) * 0.5),
+    calc(var(--hand-scale-base) * var(--actor-scale) * var(--hud-panel-scale))
+  );
+  --control-scale:var(--controls-scale);
   --hud-panel-width:360px;
   --hud-panel-height:200px;
+  --hud-hand-height:124px;
+  --hud-lower-band-gap:14px;
+  --challenge-pane-width:clamp(220px, 24vw, 360px);
   --hud-panel-offset-y:0px;
   --hud-button-diameter:82px;
   --resource-bar-bg:rgba(5,7,11,0.78);
@@ -852,18 +865,72 @@ canvas#game{
 }
 
 .action-buttons{
-  position:absolute;
+  position:relative;
   display:none;
   width:var(--hud-panel-width);
   height:var(--hud-panel-height);
   pointer-events:none;
 }
 
-.curved-hud{
+.lower-band{
+  position:absolute;
   left:50%;
   bottom:calc(var(--stage-bottom-offset) + var(--hud-panel-offset-y));
-  transform:translateX(-50%) scale(var(--control-scale));
+  transform:translateX(-50%);
+  display:none;
+  grid-template-columns:auto minmax(0, var(--challenge-pane-width));
+  gap:var(--hud-lower-band-gap);
+  align-items:end;
+  z-index:5;
+  pointer-events:none;
+}
+
+.action-stack{
+  width:calc(var(--hud-panel-width) * var(--controls-scale));
+  display:grid;
+  grid-template-rows:calc(var(--hud-panel-height) * var(--controls-scale)) calc(var(--hud-hand-height) * var(--hand-scale));
+  justify-items:center;
+  align-items:end;
+}
+
+.action-stack .action-buttons{
+  width:var(--hud-panel-width);
+  height:var(--hud-panel-height);
+  transform:scale(var(--controls-scale));
   transform-origin:bottom center;
+}
+
+.hand-card-container{
+  width:calc(var(--hud-panel-width) * var(--controls-scale));
+  min-height:calc(var(--hud-hand-height) * var(--hand-scale));
+  border-radius:14px;
+  border:1px dashed rgba(148,163,184,0.22);
+  background:rgba(9,11,18,0.35);
+  backdrop-filter:blur(6px);
+}
+
+.challenge-prompt-pane{
+  width:100%;
+  min-height:calc((var(--hud-panel-height) * var(--controls-scale)) + (var(--hud-hand-height) * var(--hand-scale)));
+  border-radius:14px;
+  border:1px solid rgba(148,163,184,0.24);
+  background:linear-gradient(160deg, rgba(15,23,42,0.62), rgba(2,6,23,0.42));
+  box-shadow:0 14px 30px rgba(0,0,0,0.28);
+  padding:12px;
+}
+
+.challenge-prompt-pane.is-empty{
+  padding:0;
+}
+
+.lower-band > *{
+  pointer-events:auto;
+}
+
+.curved-hud{
+  left:auto;
+  bottom:auto;
+  transform:none;
   z-index:5;
 }
 
@@ -942,8 +1009,7 @@ canvas#game{
 
 .interact-btn:active{transform:scale(0.95);background:rgba(34,197,94,0.36);}
 
-.controls-overlay .joystick-area{left:0;bottom:0;transform:scale(var(--control-scale));transform-origin:center;}
-.controls-overlay .action-buttons{left:50%;right:auto;bottom:calc(var(--stage-bottom-offset) + var(--hud-panel-offset-y));transform:translateX(-50%) scale(var(--control-scale));transform-origin:bottom center;}
+.controls-overlay .joystick-area{left:0;bottom:0;transform:scale(var(--controls-scale));transform-origin:center;}
 .controls-overlay .interact-btn{right:var(--controls-gap);bottom:calc(var(--stage-bottom-offset) + var(--hud-panel-offset-y) + (var(--hud-panel-height) * var(--control-scale)) + (var(--interact-gap) * var(--control-scale)));transform:scale(var(--control-scale));transform-origin:bottom right;}
 
 @supports not (bottom:calc(10px * 0.5)){
@@ -951,7 +1017,7 @@ canvas#game{
 }
 
 @supports (padding:max(0px)){
-  .controls-overlay .action-buttons{
+  .controls-overlay .lower-band{
     bottom:calc(var(--stage-bottom-offset) + var(--hud-panel-offset-y) + env(safe-area-inset-bottom,0px));
   }
   .controls-overlay .interact-btn{
@@ -962,10 +1028,12 @@ canvas#game{
 /* Touch visibility helpers */
 @media (hover:none), (max-width:768px){
   .joystick-area{display:block;}
+  .lower-band{display:grid;}
   .action-buttons{display:block;}
   .interact-btn{display:block;}
 }
 .is-touch .joystick-area{display:block;}
+.is-touch .lower-band{display:grid;}
 .is-touch .action-buttons{display:block;}
 .is-touch .interact-btn{display:block;}
 

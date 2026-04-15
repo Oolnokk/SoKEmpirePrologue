@@ -2017,6 +2017,7 @@ const fullscreenBtn = $$('#btnFullscreen');
 const actionButtonsContainer = document.querySelector('.controls-overlay .action-buttons');
 const actionHudSvg = actionButtonsContainer?.querySelector('.action-hud-bg');
 const actionHudPath = actionButtonsContainer?.querySelector('.action-hud-path');
+const challengePromptPane = document.getElementById('challengePromptPane');
 const actionButtonRefs = {
   jump: document.getElementById('btnJump'),
   attackA: document.getElementById('btnAttackA'),
@@ -2033,6 +2034,17 @@ const hudLayout = createHudLayoutController({
 });
 const playerStatsEvents = window.GAME.playerStatsEvents || new EventTarget();
 window.GAME.playerStatsEvents = playerStatsEvents;
+
+function setChallengePromptPane(content = '') {
+  if (!challengePromptPane) return;
+  const hasContent = typeof content === 'string' && content.trim().length > 0;
+  challengePromptPane.textContent = hasContent ? content.trim() : '';
+  challengePromptPane.classList.toggle('is-empty', !hasContent);
+}
+
+window.GAME.ui = window.GAME.ui || {};
+window.GAME.ui.setChallengePromptPane = setChallengePromptPane;
+setChallengePromptPane('');
 let resourceBarConfig = hudLayout.getResourceBarConfig();
 resourceBarLayer.setBars(resourceBarConfig);
 const fpsHud = $$('#fpsHud');
