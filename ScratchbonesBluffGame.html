@@ -3412,7 +3412,9 @@
     function tryCollapseNonCriticalPanels(rootEl, overlapPolicy, overlaps) {
       const preserve = new Set(overlapPolicy.preserveRegions || []);
       const collapsed = [];
+      let activeOverlaps = Array.isArray(overlaps) ? overlaps : [];
       for (const selector of overlapPolicy.collapseOrder || []) {
+        if (!activeOverlaps.length) break;
         const node = rootEl.querySelector(selector);
         if (!node || node.dataset.layoutCollapsed === 'true') continue;
         const regionEntry = Object.entries(overlapPolicy.criticalRegions || {}).find(([, mappedSelector]) => mappedSelector === selector);
@@ -3422,9 +3424,10 @@
         node.dataset.layoutCollapsed = 'true';
         node.style.setProperty('display', 'none');
         collapsed.push({ selector, regionKey: regionKey || null });
-        if (overlaps.length === 0) break;
+        const updatedRegions = collectCriticalRegionRects(rootEl, overlapPolicy);
+        activeOverlaps = detectCriticalOverlaps(updatedRegions, overlapPolicy.tolerancePx);
       }
-      return collapsed;
+      return { collapsed, overlaps: activeOverlaps };
     }
 
     function fitContainer(rootEl, policy) {
@@ -3537,9 +3540,11 @@
         });
       }
 
-      const collapsed = overlaps.length
+      const collapseResult = overlaps.length
         ? tryCollapseNonCriticalPanels(rootEl, overlapPolicy, overlaps)
-        : [];
+        : { collapsed: [], overlaps };
+      const collapsed = collapseResult.collapsed;
+      overlaps = collapseResult.overlaps;
       if (collapsed.length) {
         regions = collectCriticalRegionRects(rootEl, overlapPolicy);
         overlaps = detectCriticalOverlaps(regions, overlapPolicy.tolerancePx);
