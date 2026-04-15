@@ -766,6 +766,8 @@
     .fit-target.fit-2 { --layout-fit-font-scale: 0.92; --layout-fit-image-scale: 0.90; --layout-fit-gap-scale: 0.88; }
     .fit-target.fit-3 { --layout-fit-font-scale: 0.88; --layout-fit-image-scale: 0.86; --layout-fit-gap-scale: 0.82; }
     .fit-target.fit-4 { --layout-fit-font-scale: 0.84; --layout-fit-image-scale: 0.82; --layout-fit-gap-scale: 0.76; }
+    .fit-target.fit-5 { --layout-fit-font-scale: 0.80; --layout-fit-image-scale: 0.78; --layout-fit-gap-scale: 0.70; }
+    .fit-target.fit-6 { --layout-fit-font-scale: 0.76; --layout-fit-image-scale: 0.74; --layout-fit-gap-scale: 0.64; }
 
     details.debug {
       background: rgba(255,255,255,0.04);
@@ -3509,24 +3511,14 @@
     }
 
     function tryCollapseNonCriticalPanels(rootEl, overlapPolicy, overlaps) {
-      const preserve = new Set(overlapPolicy.preserveRegions || []);
-      const collapsed = [];
-      let activeOverlaps = Array.isArray(overlaps) ? overlaps : [];
-      for (const selector of overlapPolicy.collapseOrder || []) {
-        if (!activeOverlaps.length) break;
-        const node = rootEl.querySelector(selector);
-        if (!node || node.dataset.layoutCollapsed === 'true') continue;
-        const regionEntry = Object.entries(overlapPolicy.criticalRegions || {}).find(([, mappedSelector]) => mappedSelector === selector);
-        const regionKey = regionEntry?.[0];
-        if (regionKey && preserve.has(regionKey)) continue;
-
-        node.dataset.layoutCollapsed = 'true';
-        node.style.setProperty('display', 'none');
-        collapsed.push({ selector, regionKey: regionKey || null });
-        const updatedRegions = collectCriticalRegionRects(rootEl, overlapPolicy);
-        activeOverlaps = detectCriticalOverlaps(updatedRegions, overlapPolicy.tolerancePx);
+      const activeOverlaps = Array.isArray(overlaps) ? overlaps : [];
+      if (activeOverlaps.length) {
+        console.warn('[layout] overlap unresolved after shrink passes; keeping panels visible.', {
+          overlaps: activeOverlaps,
+          collapseOrder: overlapPolicy?.collapseOrder || [],
+        });
       }
-      return { collapsed, overlaps: activeOverlaps };
+      return { collapsed: [], overlaps: activeOverlaps };
     }
 
     function fitContainer(rootEl, policy) {
@@ -3591,13 +3583,11 @@
       }
 
       const stageOrder = ['text', 'image', 'gap', 'container'];
-      let activeStage = 'none';
       let regions = collectCriticalRegionRects(rootEl, overlapPolicy);
       let overlaps = detectCriticalOverlaps(regions, overlapPolicy.tolerancePx);
 
       for (const stageName of stageOrder) {
         if (!overlaps.length) break;
-        activeStage = stageName;
         for (const [targetKey, targetPolicy] of targetEntries) {
           if (!overlaps.length) break;
           const targetNode = rootEl.querySelector(targetPolicy?.selector || '');
@@ -3623,9 +3613,6 @@
       }
 
       let containerScale = 1;
-      if (overlaps.length) {
-        activeStage = 'container-floor';
-      }
       while (overlaps.length && containerScale > overlapPolicy.minContainerScale) {
         containerScale = clampNumber(containerScale - overlapPolicy.containerScaleStep, overlapPolicy.minContainerScale, 1);
         rootEl.style.setProperty('--layout-parent-height-scale', containerScale.toFixed(3));
@@ -3642,26 +3629,15 @@
       const collapseResult = overlaps.length
         ? tryCollapseNonCriticalPanels(rootEl, overlapPolicy, overlaps)
         : { collapsed: [], overlaps };
-      const collapsed = collapseResult.collapsed;
       overlaps = collapseResult.overlaps;
-      if (collapsed.length) {
-        regions = collectCriticalRegionRects(rootEl, overlapPolicy);
-        overlaps = detectCriticalOverlaps(regions, overlapPolicy.tolerancePx);
-        overlapSnapshot.push({
-          kind: 'fail-safe-collapse',
-          stage: 'fail-safe',
-          collapsed,
-          overlaps: overlaps.map((entry) => ({ offending: [entry.a.key, entry.b.key], selectors: [entry.a.selector, entry.b.selector] })),
-        });
-      }
 
       return {
         fitSummary,
         overlap: {
           overlaps,
-          stage: overlaps.length ? (collapsed.length ? 'fail-safe' : activeStage) : 'resolved',
+          stage: overlaps.length ? 'unresolved-visible' : 'resolved',
           containerScale: Number(containerScale.toFixed(3)),
-          collapsed,
+          collapsed: [],
           snapshot: overlapSnapshot,
         },
       };
