@@ -69,7 +69,7 @@
       --shadow: 0 10px 24px rgba(0,0,0,0.28);
       --radius: 18px;
       --safe: env(safe-area-inset-bottom, 0px);
-      --layout-hand-height: 220px;
+      --hand-height-frac: 0.20;
       --layout-hand-min-height: 160px;
       --layout-hand-max-height: 360px;
       --layout-hand-width-frac: 0.5;
@@ -94,15 +94,13 @@
       grid-template-rows:
         auto
         minmax(0, 1fr)
-        minmax(var(--layout-hand-min-height), calc(var(--layout-hand-height) * var(--layout-parent-height-scale)))
         minmax(0, auto)
         minmax(0, auto);
       grid-template-areas:
         "topbar   sidebar"
         "panel    sidebar"
-        "hand     sidebar"
-        "log      sidebar"
-        "controls sidebar";
+        "action   sidebar"
+        "log      sidebar";
       gap: 8px;
       padding: 8px 8px calc(8px + var(--safe));
     }
@@ -330,8 +328,18 @@
       display: block;
     }
 
+
+    .actionColumn {
+      grid-area: action;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      overflow: hidden;
+      padding: 8px;
+    }
+
     .controls {
-      grid-area: controls;
       padding: calc(12px * var(--layout-challenge-gap-scale));
       display: grid;
       gap: calc(10px * var(--layout-challenge-gap-scale));
@@ -371,11 +379,12 @@
     button:disabled { opacity: 0.45; box-shadow: none; }
 
     .handWrap {
-      grid-area: hand;
       padding: calc(8px * var(--layout-challenge-gap-scale)) calc(12px * var(--layout-challenge-gap-scale));
       display: grid;
       gap: calc(6px * var(--layout-challenge-gap-scale));
-      min-height: 0;
+      min-height: var(--layout-hand-min-height);
+      max-height: var(--layout-hand-max-height);
+      flex: 0 0 calc(var(--hand-height-frac) * 100dvh);
       max-width: calc(100% * var(--layout-hand-width-frac));
     }
 
@@ -486,6 +495,10 @@
       word-break: break-word;
       hyphens: auto;
     }
+     #app.layout-controls-above-hand .actionColumn {
+      flex-direction: column-reverse;
+    }
+
     .focusActionText,
     .focusSubtext,
     .sectionTitle,
@@ -500,14 +513,6 @@
     .focusAvatar {
       transform: scale(var(--layout-challenge-image-scale));
       transform-origin: top center;
-    }
-    #app.layout-controls-above-hand {
-      grid-template-areas:
-        "topbar   sidebar"
-        "panel    sidebar"
-        "controls sidebar"
-        "hand     sidebar"
-        "log      sidebar";
     }
 
     details.debug {
@@ -610,24 +615,13 @@
         grid-template-rows:
           auto
           minmax(0, 1fr)
-          minmax(var(--layout-hand-min-height), calc(var(--layout-hand-height) * var(--layout-parent-height-scale)))
-          auto
+          minmax(0, auto)
           auto
           minmax(0, auto);
         grid-template-areas:
           "topbar"
           "panel"
-          "hand"
-          "controls"
-          "log"
-          "sidebar";
-      }
-      #app.layout-controls-above-hand {
-        grid-template-areas:
-          "topbar"
-          "panel"
-          "controls"
-          "hand"
+          "action"
           "log"
           "sidebar";
       }
@@ -3089,14 +3083,12 @@
       if (!app) return null;
       const layout = SCRATCHBONES_GAME.layout || {};
       const handLayout = layout.hand || {};
-      const viewportHeight = window.innerHeight || app.clientHeight || 0;
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
       const desiredWidthFrac = clampNumber(Number(handLayout.desiredWidthFrac) || 0.50, 0.25, 1);
       const minHeightPx = Math.max(80, Number(handLayout.minHeightPx) || 160);
       const maxHeightPx = Math.max(minHeightPx, Number(handLayout.maxHeightPx) || 360);
-      const desiredHandHeight = clampNumber(viewportHeight * desiredHeightFrac, minHeightPx, maxHeightPx);
       const controlsBelow = String(layout.controlsToHandRelationship || 'below').toLowerCase() === 'below';
-      app.style.setProperty('--layout-hand-height', `${Math.round(desiredHandHeight)}px`);
+      app.style.setProperty('--hand-height-frac', desiredHeightFrac.toFixed(3));
       app.style.setProperty('--layout-hand-min-height', `${Math.round(minHeightPx)}px`);
       app.style.setProperty('--layout-hand-max-height', `${Math.round(maxHeightPx)}px`);
       app.style.setProperty('--layout-hand-width-frac', desiredWidthFrac.toFixed(3));
@@ -3286,52 +3278,54 @@
           </details>
         </div>
 
-        <div class="handWrap" data-proj-id="hand">
-          <div class="handHeader">
-            <div class="sectionTitle">Your hand</div>
-            <div class="tiny">Selected: ${selected.length}</div>
-          </div>
-          <div class="handScroll">
-            ${player.hand.map(card => {
-              const art = resolveScratchbone2DAsset(card);
-              return `
-              <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}" title="${card.wild ? 'Wild card' : `Scratchbone ${card.rank}`}">
-                <img class="cardArt" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`}">
-              </button>
-            `;
-            }).join('')}
-          </div>
-          <div class="humanSeatCard ${player.eliminated ? 'eliminated' : ''}" data-proj-id="human-seat">
-            <div class="seatInfo">
-              <div class="seatName">${seatLabel(player)}</div>
-              <div class="seatMeta">Cards ${player.hand.length} · Clears ${player.clears}</div>
-              <div class="seatStatus">${player.lastAction}</div>
+        <div class="actionColumn" data-proj-id="action-column">
+          <div class="controls" data-proj-id="controls">
+            <div class="controlsRow">
+              <label>
+                Declare number
+                <select id="declareRank" ${!canHumanAct ? 'disabled' : ''}>
+                  ${declareOptions}
+                </select>
+              </label>
             </div>
-            <div class="seatAvatarBox" data-proj-id="avatar-human">
-              <canvas class="seatPortrait" data-seat-id="0" width="220" height="220"></canvas>
+            <div class="bottomActions">
+              <button id="playBtn" ${!canHumanAct ? 'disabled' : ''}>Play Selected</button>
+              <button class="secondary" id="concedeBtn" ${!canHumanAct || state.declaredRank === null ? 'disabled' : ''}>Concede Round</button>
             </div>
-            <div class="humanSeatChipBadge">Chips ${player.chips}</div>
+          </div>
+
+          <div class="handWrap" data-proj-id="hand">
+            <div class="handHeader">
+              <div class="sectionTitle">Your hand</div>
+              <div class="tiny">Selected: ${selected.length}</div>
+            </div>
+            <div class="handScroll">
+              ${player.hand.map(card => {
+                const art = resolveScratchbone2DAsset(card);
+                return `
+                <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}" title="${card.wild ? 'Wild card' : `Scratchbone ${card.rank}`}">
+                  <img class="cardArt" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`}">
+                </button>
+              `;
+              }).join('')}
+            </div>
+            <div class="humanSeatCard ${player.eliminated ? 'eliminated' : ''}" data-proj-id="human-seat">
+              <div class="seatInfo">
+                <div class="seatName">${seatLabel(player)}</div>
+                <div class="seatMeta">Cards ${player.hand.length} · Clears ${player.clears}</div>
+                <div class="seatStatus">${player.lastAction}</div>
+              </div>
+              <div class="seatAvatarBox" data-proj-id="avatar-human">
+                <canvas class="seatPortrait" data-seat-id="0" width="220" height="220"></canvas>
+              </div>
+              <div class="humanSeatChipBadge">Chips ${player.chips}</div>
+            </div>
           </div>
         </div>
 
         <div class="eventLog" data-proj-id="log">
           <div class="sectionTitle">Recent events</div>
           ${recentLogs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
-        </div>
-
-        <div class="controls" data-proj-id="controls">
-          <div class="controlsRow">
-            <label>
-              Declare number
-              <select id="declareRank" ${!canHumanAct ? 'disabled' : ''}>
-                ${declareOptions}
-              </select>
-            </label>
-          </div>
-          <div class="bottomActions">
-            <button id="playBtn" ${!canHumanAct ? 'disabled' : ''}>Play Selected</button>
-            <button class="secondary" id="concedeBtn" ${!canHumanAct || state.declaredRank === null ? 'disabled' : ''}>Concede Round</button>
-          </div>
         </div>
       `;
 
