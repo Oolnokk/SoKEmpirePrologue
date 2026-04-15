@@ -164,10 +164,10 @@
         minmax(0, min(var(--layout-action-column-max-height), calc((1 - var(--layout-table-dominance-frac)) * 100dvh)))
         minmax(0, min(var(--layout-log-max-row-height), calc((1 - var(--layout-table-dominance-frac)) * 100dvh)));
       grid-template-areas:
-        "topbar   sidebar"
-        "panel    sidebar"
-        "context  human"
-        "log      human";
+        "topbar  topbar  sidebar"
+        "panel   panel   sidebar"
+        "context context human"
+        "log     log     human";
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
     }
@@ -883,6 +883,11 @@
     @container (max-width: 980px) {
       #app {
         grid-template-columns: minmax(0, 1fr) minmax(120px, 0.42fr);
+        grid-template-areas:
+          "topbar  sidebar"
+          "panel   sidebar"
+          "context human"
+          "log     human";
       }
       .handScroll {
         --hand-card-min: clamp(72px, 18vw, 92px);
@@ -895,7 +900,6 @@
         grid-template-rows:
           auto
           minmax(0, calc(var(--layout-table-dominance-frac) * 1fr))
-          minmax(0, auto)
           minmax(0, auto)
           minmax(0, auto)
           minmax(0, var(--layout-action-column-max-height))
