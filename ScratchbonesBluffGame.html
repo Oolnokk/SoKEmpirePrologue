@@ -4601,8 +4601,9 @@
       const varStep = Number(projectionEditorConfig.step) || 0.01;
       const basePanelTitle = String(projectionEditorConfig.panelTitle || 'Projection Vars');
       const editedVars = new Map();
-      const varsByProjId = projectionMapConfig.varsByProjId || {};
+      const varsByProjId = projectionMapConfig.varsByProjId || projectionMapConfig.relatedVarsByProjId || {};
       const sharedVars = Array.isArray(projectionMapConfig.sharedVars) ? projectionMapConfig.sharedVars : [];
+      const fallbackVars = Array.isArray(projectionMapConfig.fallbackVars) ? projectionMapConfig.fallbackVars : [];
 
       const copyToClipboard = (text) => {
         const payload = String(text ?? '');
@@ -4629,6 +4630,20 @@
             if (typeof varName === 'string' && varName.startsWith('--')) result.add(varName);
           }
         }
+        if (!result.size) {
+          for (const varName of fallbackVars) {
+            if (typeof varName === 'string' && varName.startsWith('--')) result.add(varName);
+          }
+        }
+        if (!result.size) {
+          const computedRootStyles = getComputedStyle(document.documentElement);
+          for (const varName of computedRootStyles) {
+            if (typeof varName === 'string' && (varName.startsWith('--layout-') || varName.startsWith('--hand-'))) {
+              result.add(varName);
+            }
+          }
+        }
+
         return [...result];
       };
 
