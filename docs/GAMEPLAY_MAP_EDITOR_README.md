@@ -29,6 +29,7 @@ The Gameplay Map Editor now supports loading 3D visual maps as a background refe
 
 4. **Editing**
    - Place gameplay entities (spawners, patrols, colliders) on the 2D canvas
+   - Selection/drag hit detection follows the same world-space bounds shown on canvas (collider rectangles/circles and patrol/door footprint boxes), so dragging an entity from within its rendered box moves the correct record
    - The 3D background helps visualize where these elements fit in the actual environment
    - The 2D canvas is transparent, allowing you to see the 3D scene beneath
 

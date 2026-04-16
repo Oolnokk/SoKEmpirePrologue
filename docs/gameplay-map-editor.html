@@ -682,24 +682,38 @@
     }
 
     function isPointInEntity(wx, wy, entity) {
-      if (entity.type === 'collider') {
+      const normalizedType = normalizeEntityType(entity.type);
+
+      if (normalizedType === 'collider') {
         const shape = entity.meta.shape || 'rectangle';
         if (shape === 'rectangle') {
-          const w = entity.meta.width || 100;
-          const h = entity.meta.height || 100;
-          return wx >= entity.x - w/2 && wx <= entity.x + w/2 &&
-                 wy >= entity.y - h/2 && wy <= entity.y + h/2;
-        } else if (shape === 'circle') {
-          const r = entity.meta.radius || 50;
+          const w = Number(entity.meta.width) || 100;
+          const h = Number(entity.meta.height) || 100;
+          return wx >= entity.x - w / 2 && wx <= entity.x + w / 2 &&
+                 wy >= entity.y - h / 2 && wy <= entity.y + h / 2;
+        }
+        if (shape === 'circle') {
+          const r = Number(entity.meta.radius) || 50;
           const dx = wx - entity.x;
           const dy = wy - entity.y;
-          return Math.sqrt(dx*dx + dy*dy) <= r;
+          return Math.sqrt(dx * dx + dy * dy) <= r;
         }
+      } else if (normalizedType === 'patrolpoint' || normalizedType === 'door') {
+        const scale = entity.meta.scale || {};
+        const scaleX = Number(scale.x) || 1;
+        const scaleY = Number(scale.y) || 1;
+        const heightWorld = (tileSize || 0) * scaleY;
+        const widthWorld = (tileSize || 0) * scaleX;
+        const left = entity.x - (widthWorld / 2);
+        const right = entity.x + (widthWorld / 2);
+        const top = entity.y - heightWorld;
+        const bottom = entity.y;
+        return wx >= left && wx <= right && wy >= top && wy <= bottom;
       } else {
         // Point entities - check within 20 world units
         const dx = wx - entity.x;
         const dy = wy - entity.y;
-        return Math.sqrt(dx*dx + dy*dy) <= 20;
+        return Math.sqrt(dx * dx + dy * dy) <= 20;
       }
       return false;
     }
