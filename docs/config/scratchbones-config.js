@@ -29,28 +29,28 @@ window.SCRATCHBONES_CONFIG = {
       "aiThinkMs": 650
     },
     "layout": {
-      "mode": "responsive",
+      "mode": "authored",
       "viewport": {
         "widthPx": 1920,
         "heightPx": 1080
       },
       "authored": {
         "enabled": true,
-        "designWidthPx": 1920,
-        "designHeightPx": 1080,
+        "designWidthPx": 1600,
+        "designHeightPx": 900,
         "scaleMode": "contain",
         "boxes": {
-          "topbar": { "x": 8, "y": 8, "width": 1624, "height": 120 },
-          "sidebar": { "x": 1640, "y": 8, "width": 272, "height": 780 },
-          "panel": { "x": 8, "y": 136, "width": 1624, "height": 560 },
-          "humanSeat": { "x": 1640, "y": 796, "width": 272, "height": 176 },
-          "contextBox": { "x": 8, "y": 704, "width": 1624, "height": 196 },
-          "hand": { "x": 8, "y": 912, "width": 1624, "height": 160 },
-          "log": { "x": 8, "y": 968, "width": 1624, "height": 104 },
-          "tableView": { "x": 18, "y": 146, "width": 1604, "height": 540 },
-          "turnSpotlight": { "x": 1380, "y": 164, "width": 220, "height": 220 },
-          "claimCluster": { "x": 490, "y": 220, "width": 620, "height": 320 },
-          "challengePrompt": { "x": 8, "y": 704, "width": 1624, "height": 196 }
+          "topbar": { "x": 0, "y": 20, "width": 1220, "height": 80 },
+          "sidebar": { "x": 1360, "y": 20, "width": 240, "height": 210 },
+          "panel": { "x": 220, "y": 240, "width": 960, "height": 260 },
+          "humanSeat": { "x": 1180, "y": 620, "width": 420, "height": 220 },
+          "contextBox": { "x": 20, "y": 700, "width": 1240, "height": 140 },
+          "hand": { "x": 20, "y": 700, "width": 940, "height": 140 },
+          "log": { "x": 20, "y": 850, "width": 1240, "height": 40 },
+          "tableView": { "x": 220, "y": 240, "width": 960, "height": 260 },
+          "turnSpotlight": { "x": 1220, "y": 20, "width": 160, "height": 180 },
+          "claimCluster": { "x": 220, "y": 240, "width": 960, "height": 260 },
+          "challengePrompt": { "x": 960, "y": 700, "width": 280, "height": 140 }
         }
       },
       "cards": {
@@ -147,58 +147,58 @@ window.SCRATCHBONES_CONFIG = {
         "transparentShells": true,
         "geometry": {
           "centerXPct": 0.5,
-          "centerYPct": 0.54,
-          "widthPctOfTableView": 0.78,
-          "heightPctOfTableView": 0.48
+          "centerYPct": 0.5,
+          "widthPctOfTableView": 1.0,
+          "heightPctOfTableView": 1.0
         },
         "elements": {
           "claimRankBox": {
-            "xPct": 0.5,
-            "yPct": 0.08,
-            "wPct": 0.12,
-            "hPct": 0.18
+            "xPct": 0.489583,
+            "yPct": 0.115385,
+            "wPct": 0.0625,
+            "hPct": 0.230769
           },
           "claimHandBar": {
             "xPct": 0.5,
-            "yPct": 0.52,
-            "wPct": 0.42,
-            "hPct": 0.3
+            "yPct": 0.538462,
+            "wPct": 0.5,
+            "hPct": 0.461538
           },
           "actorAvatarFloat": {
-            "xPct": 0.14,
-            "yPct": 0.52,
-            "wPct": 0.16,
-            "hPct": 0.24
+            "xPct": 0.0625,
+            "yPct": 0.538462,
+            "wPct": 0.125,
+            "hPct": 0.461538
           },
           "reactorAvatarFloat": {
-            "xPct": 0.86,
-            "yPct": 0.52,
-            "wPct": 0.16,
-            "hPct": 0.24
+            "xPct": 0.9375,
+            "yPct": 0.538462,
+            "wPct": 0.125,
+            "hPct": 0.461538
           },
           "claimTimesBoxLeft": {
-            "xPct": 0.26,
-            "yPct": 0.52,
-            "wPct": 0.07,
-            "hPct": 0.13
+            "xPct": 0.1875,
+            "yPct": 0.538462,
+            "wPct": 0.041667,
+            "hPct": 0.153846
           },
           "claimCountBoxLeft": {
-            "xPct": 0.26,
-            "yPct": 0.66,
-            "wPct": 0.07,
-            "hPct": 0.13
+            "xPct": 0.1875,
+            "yPct": 0.846154,
+            "wPct": 0.083333,
+            "hPct": 0.307692
           },
           "claimTimesBoxRight": {
-            "xPct": 0.74,
-            "yPct": 0.52,
-            "wPct": 0.07,
-            "hPct": 0.13
+            "xPct": 0.8125,
+            "yPct": 0.538462,
+            "wPct": 0.041667,
+            "hPct": 0.153846
           },
           "claimCountBoxRight": {
-            "xPct": 0.74,
-            "yPct": 0.66,
-            "wPct": 0.07,
-            "hPct": 0.13
+            "xPct": 0.8125,
+            "yPct": 0.846154,
+            "wPct": 0.083333,
+            "hPct": 0.307692
           }
         }
       },
