@@ -2003,6 +2003,8 @@
       const scale = computeAuthoredScale(liveWidth, liveHeight, authoredConfig.designWidthPx, authoredConfig.designHeightPx);
       const translatedX = Math.round((liveWidth - (authoredConfig.designWidthPx * scale)) / 2);
       const translatedY = Math.round((liveHeight - (authoredConfig.designHeightPx * scale)) / 2);
+      app.style.width = `${Math.round(authoredConfig.designWidthPx)}px`;
+      app.style.height = `${Math.round(authoredConfig.designHeightPx)}px`;
       app.style.transform = `translate(${translatedX}px, ${translatedY}px) scale(${scale.toFixed(5)})`;
       app.style.transformOrigin = 'top left';
       const mapped = new Map();
@@ -4355,6 +4357,8 @@
         applyAuthoredLayoutMode(app, getScratchbonesAuthoredConfig());
         state.layoutFitStages = {};
       } else {
+        app.style.width = '';
+        app.style.height = '';
         app.style.transform = '';
         app.style.transformOrigin = '';
         applyResponsiveFit(app);
