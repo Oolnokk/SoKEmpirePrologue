@@ -9,6 +9,7 @@ import {
 const {
   sourceId: SOURCE_ID,
   fallbackBoxMinWidth: FALLBACK_BOX_MIN_WIDTH,
+  defaultGridUnit: DEFAULT_GRID_UNIT,
   tagInstanceIdMapping: TAG_INSTANCE_ID_MAPPING,
 } = mapBuilderConfig;
 
@@ -187,56 +188,6 @@ function resolveInstanceId(rawInstance, context) {
   return { instanceId, source };
 }
 
-function computeColliderBounds(colliders) {
-  if (!Array.isArray(colliders) || colliders.length === 0) {
-    return null;
-  }
-  let minLeft = Infinity;
-  let maxRight = -Infinity;
-  for (const col of colliders) {
-    if (!col || typeof col !== 'object') continue;
-    const left = Number(col.left);
-    const width = Number(col.width);
-    if (!Number.isFinite(left) || !Number.isFinite(width)) continue;
-    const right = left + width;
-    minLeft = Math.min(minLeft, Math.min(left, right));
-    maxRight = Math.max(maxRight, Math.max(left, right));
-  }
-  if (!Number.isFinite(minLeft) || !Number.isFinite(maxRight) || maxRight <= minLeft) {
-    return null;
-  }
-  return { left: minLeft, right: maxRight };
-}
-
-// eslint-disable-next-line no-unused-vars
-function normalizePlayableBounds(rawBounds, colliders = [], warnings = null) {
-  const addWarning = (message) => {
-    if (Array.isArray(warnings)) warnings.push(message);
-  };
-
-  const safe = rawBounds && typeof rawBounds === 'object' ? rawBounds : null;
-  const left = toNumber(safe?.left ?? safe?.min, NaN);
-  const right = toNumber(safe?.right ?? safe?.max, NaN);
-
-  if (Number.isFinite(left) && Number.isFinite(right) && right > left) {
-    return { left, right, source: PLAYABLE_BOUNDS_SOURCE.LAYOUT };
-  }
-
-  if (safe) {
-    addWarning('playableBounds provided but invalid – expected finite left/right');
-  }
-
-  const colliderBounds = computeColliderBounds(colliders);
-  if (colliderBounds) {
-    return { ...colliderBounds, source: PLAYABLE_BOUNDS_SOURCE.COLLIDERS };
-  }
-
-  if (Array.isArray(colliders) && colliders.length) {
-    addWarning('playableBounds unavailable – no usable colliders to derive bounds');
-  }
-  return null;
-}
-
 function validateExplicitGeometry(playableBounds, colliders, warnings = [], { allowDerivedPlayableBounds = false } = {}) {
   if (!playableBounds) {
     warnings.push('Missing playableBounds – provide explicit bounds for geometry service consumption');
@@ -287,7 +238,7 @@ function normalizeMapEntityType(value) {
   return normalized;
 }
 
-function normalizeMapEntities(rawList = [], { gridUnit = 30 } = {}) {
+function normalizeMapEntities(rawList = [], { gridUnit = DEFAULT_GRID_UNIT } = {}) {
   const list = [];
   const byId = new Map();
   rawList.forEach((raw, index) => {
@@ -349,7 +300,7 @@ function mapEntitiesToPathTargets(mapEntities = [], warnings = []) {
     .filter(Boolean);
 }
 
-function mapEntitiesToDoors(mapEntities = [], { gridUnit = 30 } = {}) {
+function mapEntitiesToDoors(mapEntities = [], { gridUnit = DEFAULT_GRID_UNIT } = {}) {
   const doors = [];
   const doorPois = [];
   for (const entity of mapEntities.filter((entry) => entry.kind === 'door')) {
@@ -976,7 +927,7 @@ function normalizeAreaDescriptor(area, options = {}) {
     }))
     .filter(Boolean);
   const rawEntities = Array.isArray(area.entities) ? area.entities : [];
-  const resolvedGridUnit = resolveGridUnit(area) ?? 30;
+  const resolvedGridUnit = resolveGridUnit(area);
   const mapEntities = normalizeMapEntities(rawEntities, { gridUnit: resolvedGridUnit });
   const mapEntitySpawners = mapEntitiesToSpawnerList(mapEntities.list, warnings);
   const mapEntityPathTargets = mapEntitiesToPathTargets(mapEntities.list, warnings);
@@ -1216,7 +1167,7 @@ export function convertLayoutToArea(layout, options = {}) {
     }))
     .filter(Boolean);
   const rawEntities = Array.isArray(layout.entities) ? layout.entities : [];
-  const gridUnit = toNumber(layout.gridUnit ?? layout.meta?.gridUnit, 30);
+  const gridUnit = resolveGridUnit(layout);
   const mapEntities = normalizeMapEntities(rawEntities, { gridUnit });
   const mapEntitySpawners = mapEntitiesToSpawnerList(mapEntities.list, warnings);
   const mapEntityPathTargets = mapEntitiesToPathTargets(mapEntities.list, warnings);
@@ -1627,6 +1578,18 @@ function computeLayerSlotCenters(instances) {
 function toNumber(value, fallback) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function resolveGridUnit(layout) {
+  const layoutUnit = toNumber(layout?.gridUnit, undefined);
+  const metaUnit = toNumber(layout?.meta?.gridUnit, undefined);
+  const globalUnit = toNumber(
+    typeof globalThis !== 'undefined'
+      ? (globalThis.GRID_UNIT_WORLD_SIZE ?? globalThis.CONFIG?.map?.gridUnit)
+      : undefined,
+    undefined,
+  );
+  return layoutUnit ?? metaUnit ?? globalUnit ?? DEFAULT_GRID_UNIT;
 }
 
 function clampScale(value, fallback = 1) {

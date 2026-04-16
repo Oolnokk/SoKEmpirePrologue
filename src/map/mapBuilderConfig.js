@@ -1,5 +1,6 @@
 const DEFAULT_SOURCE_ID = 'map-builder-layered-v15f';
 const DEFAULT_FALLBACK_BOX_MIN_WIDTH = 18;
+const DEFAULT_GRID_UNIT = 30;
 const DEFAULT_TAG_INSTANCE_ID_MAPPING = new Map([
   ['spawn:player', 'player_spawn'],
   ['spawn:npc', 'npc_spawn'],
@@ -22,6 +23,14 @@ const normalizeFallbackWidth = (value) => {
     return Math.max(4, Math.floor(size));
   }
   return DEFAULT_FALLBACK_BOX_MIN_WIDTH;
+};
+
+const normalizeGridUnit = (value) => {
+  const unit = Number(value);
+  if (Number.isFinite(unit) && unit > 0) {
+    return unit;
+  }
+  return DEFAULT_GRID_UNIT;
 };
 
 const normalizeMapping = (rawMapping) => {
@@ -56,6 +65,7 @@ const readRawConfig = () => {
 export const getDefaultMapBuilderConfig = () => ({
   sourceId: DEFAULT_SOURCE_ID,
   fallbackBoxMinWidth: DEFAULT_FALLBACK_BOX_MIN_WIDTH,
+  defaultGridUnit: DEFAULT_GRID_UNIT,
   tagInstanceIdMapping: cloneDefaultMapping(),
 });
 
@@ -68,6 +78,9 @@ export const loadMapBuilderConfig = (rawConfig = readRawConfig()) => {
     fallbackBoxMinWidth: normalizeFallbackWidth(
       config.fallbackBoxMinWidth ?? config.FALLBACK_BOX_MIN_WIDTH,
     ),
+    defaultGridUnit: normalizeGridUnit(
+      config.defaultGridUnit ?? config.gridUnit ?? config.DEFAULT_GRID_UNIT,
+    ),
     tagInstanceIdMapping: normalizeMapping(
       config.tagInstanceIdMapping ?? config.tagToInstanceIdMapping,
     ),
@@ -76,4 +89,3 @@ export const loadMapBuilderConfig = (rawConfig = readRawConfig()) => {
 };
 
 export const mapBuilderConfig = loadMapBuilderConfig();
-
