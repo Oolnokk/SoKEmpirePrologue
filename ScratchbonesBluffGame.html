@@ -1583,26 +1583,6 @@
       border-radius: 7px;
       padding: 6px;
     }
-    .projVarMeta {
-      grid-column: 1 / -1;
-      border-top: 1px dashed rgba(200,150,80,0.24);
-      padding-top: 5px;
-      margin-top: 2px;
-      color: #d0c0a4;
-    }
-    .projVarMeta > summary {
-      cursor: pointer;
-      user-select: none;
-      color: #e8d2ac;
-      font-size: 0.62rem;
-      letter-spacing: 0.01em;
-    }
-    .projVarMeta > summary::marker {
-      color: #c89952;
-    }
-    .projVarMetaBody {
-      margin-top: 4px;
-    }
     .projVarLabel {
       color: #f4e8d0;
       overflow-wrap: anywhere;
@@ -4962,10 +4942,6 @@
       const basePanelTitle = String(projectionEditorConfig.panelTitle || 'Projection Vars');
       const sliderClamp = projectionEditorConfig.sliderClamp || {};
       const multiplierVarHints = Array.isArray(projectionEditorConfig.multiplierVarHints) ? projectionEditorConfig.multiplierVarHints : ['scale', 'frac', 'ratio', 'multiplier'];
-      const sizePositionVarHints = Array.isArray(projectionEditorConfig.sizePositionVarHints) ? projectionEditorConfig.sizePositionVarHints : ['width', 'height', 'size', 'gap', 'padding', 'offset', 'top', 'right', 'bottom', 'left', 'x', 'y', 'row', 'column'];
-      const varDescriptions = projectionEditorConfig.varDescriptions && typeof projectionEditorConfig.varDescriptions === 'object'
-        ? projectionEditorConfig.varDescriptions
-        : {};
       const varsByProjId = projectionMapConfig.varsByProjId || projectionMapConfig.relatedVarsByProjId || {};
       const selectorVarsByProjId = projectionMapConfig.selectorVarsByProjId || {};
       const sharedVars = Array.isArray(projectionMapConfig.sharedVars) ? projectionMapConfig.sharedVars : [];
@@ -4992,16 +4968,6 @@
       };
       const cssVarSuffix = (value) => (String(value ?? '').trim().match(/[a-z%]+$/i) || [])[0] || '';
       const isMultiplierVar = (varName, currentValue) => multiplierVarHints.some((hint) => String(varName || '').toLowerCase().includes(String(hint || '').toLowerCase())) || !cssVarSuffix(currentValue);
-      const isSizeOrPositionVar = (varName) => sizePositionVarHints.some((hint) => String(varName || '').toLowerCase().includes(String(hint || '').toLowerCase()));
-      const fallbackVarDescription = (varName) => {
-        if (!varName) return 'Adjusts a projection/layout CSS variable used by the selected UI region.';
-        const normalizedName = String(varName).replace(/^--/, '').replace(/^layout-/, '').replace(/-/g, ' ');
-        return `Adjusts ${normalizedName} for the selected UI region.`;
-      };
-      const describeVarPurpose = (varName) => {
-        const configured = varDescriptions[varName];
-        return configured ? String(configured) : fallbackVarDescription(varName);
-      };
       const resolveSliderBounds = (varName, currentValue) => isMultiplierVar(varName, currentValue)
         ? { min: MULTIPLIER_SLIDER_MIN, max: MULTIPLIER_SLIDER_MAX }
         : { min: DEFAULT_SLIDER_MIN, max: DEFAULT_SLIDER_MAX };
@@ -5046,9 +5012,7 @@
           const value = normalizeCssVarValue(projectionUiState.editedVars.get(varName) ?? computedRootStyles.getPropertyValue(varName));
           const numericValue = parseNumericCssVar(value);
           const bounds = resolveSliderBounds(varName, value);
-          const rowClass = isSizeOrPositionVar(varName) ? 'projVarRow sizePosVar' : 'projVarRow';
-          const purpose = describeVarPurpose(varName);
-          return `<label class="${rowClass}"><span class="projVarLabel">${escapeHtml(varName)}</span><input class="projVarInput" data-proj-kind="text" data-proj-var="${escapeHtml(varName)}" type="text" value="${escapeHtml(value)}"><input class="projVarInput" data-proj-kind="number" data-proj-var="${escapeHtml(varName)}" type="number" step="${varStep}" value="${numericValue ?? ''}"><input class="projVarInput" data-proj-kind="range" data-proj-var="${escapeHtml(varName)}" type="range" min="${bounds.min}" max="${bounds.max}" step="${varStep}" value="${numericValue ?? bounds.min}"><details class="projVarMeta"><summary>Purpose</summary><div class="projVarHint projVarMetaBody">${escapeHtml(purpose)}</div></details></label>`;
+          return `<label class="projVarRow"><span class="projVarLabel">${escapeHtml(varName)}</span><input class="projVarInput" data-proj-kind="text" data-proj-var="${escapeHtml(varName)}" type="text" value="${escapeHtml(value)}"><input class="projVarInput" data-proj-kind="number" data-proj-var="${escapeHtml(varName)}" type="number" step="${varStep}" value="${numericValue ?? ''}"><input class="projVarInput" data-proj-kind="range" data-proj-var="${escapeHtml(varName)}" type="range" min="${bounds.min}" max="${bounds.max}" step="${varStep}" value="${numericValue ?? bounds.min}"></label>`;
         }).join('');
       };
       btn.addEventListener('click', () => {
