@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Madiao Mobile Challenge</title>
-
   <!-- ── Debug log interceptor – runs before everything else ── -->
   <script>
   (function() {
@@ -33,7 +32,6 @@
     window._debugLogs = _logs;
   })();
   </script>
-
   <script src="docs/config/scratchbones-config.js"></script>
   <script src="docs/js/portrait-utils.js"></script>
   <style>
@@ -50,7 +48,6 @@
       font-weight: normal;
       font-style: normal;
     }
-
     :root {
       --bg: #15110f;
       --bg2: #221917;
@@ -146,13 +143,16 @@
       --layout-turn-spotlight-offset-x: 10px;
       --layout-turn-spotlight-offset-y: 10px;
     }
-
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%); color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
     body { overscroll-behavior: none; overflow: hidden; display: grid; place-items: center; }
-
     button, select, input { font: inherit; }
-
+    #authoredRoot {
+      width: 100vw;
+      height: 100dvh;
+      position: relative;
+      overflow: hidden;
+    }
     #app {
       width: min(100vw, calc(100dvh * (var(--layout-viewport-width) / var(--layout-viewport-height))));
       height: min(100dvh, calc(100vw * (var(--layout-viewport-height) / var(--layout-viewport-width))));
@@ -175,7 +175,6 @@
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
     }
-
     .topbar, .panel, .controls, .handWrap, .eventLog {
       background: var(--panel);
       border: 1px solid rgba(255,255,255,0.08);
@@ -183,40 +182,34 @@
       border-radius: var(--radius);
       min-width: 0;
     }
-
     .topbar {
       grid-area: topbar;
       padding: 8px 12px;
       display: grid;
       gap: 6px;
     }
-
     .titleRow {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
     }
-
     h1 {
       font-size: 1.15rem;
       line-height: 1.1;
       margin: 0;
       letter-spacing: 0.02em;
     }
-
     .subtitle {
       color: var(--muted);
       font-size: 0.85rem;
       margin-top: 4px;
     }
-
     .chipRow, .riskBar, .aiRow, .selectionRow, .controlsRow, .bottomActions {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
     }
-
     .chip {
       padding: 8px 10px;
       border-radius: 999px;
@@ -225,7 +218,6 @@
       font-size: 0.8rem;
       border: 1px solid rgba(255,255,255,0.08);
     }
-
     .panel {
       grid-area: panel;
       padding: 10px 12px;
@@ -235,7 +227,6 @@
       overflow: hidden;
       contain: layout paint style;
     }
-
     .tableView {
       position: relative;
       display: grid;
@@ -376,13 +367,11 @@
       opacity: 0;
       pointer-events: none;
     }
-
     .sectionTitle {
       font-weight: 700;
       font-size: 0.95rem;
       color: var(--accent-2);
     }
-
     #aiSidebar {
       grid-area: sidebar;
       display: flex;
@@ -394,7 +383,6 @@
       min-height: 0;
       font-size: calc(1rem * var(--layout-sidebar-content-scale));
     }
-
     .humanSeatZone {
       grid-area: human;
       min-height: 0;
@@ -404,7 +392,6 @@
       flex-direction: column;
       justify-content: stretch;
     }
-
     .turnSpotlight {
       position: absolute;
       top: var(--layout-turn-spotlight-offset-y);
@@ -442,7 +429,6 @@
       font-weight: 700;
       font-size: 0.92rem;
     }
-
     .contextBox {
       grid-area: context;
       min-height: 0;
@@ -454,7 +440,6 @@
       padding: 8px;
       contain: layout paint style;
     }
-
     .aiSeat {
       background: var(--panel-soft);
       border: 1px solid rgba(255,255,255,0.06);
@@ -467,14 +452,12 @@
       gap: calc(8px * var(--layout-sidebar-content-scale));
       opacity: 0.88;
     }
-
     .seatInfo {
       flex: 2;
       min-width: 0;
       display: flex;
       flex-direction: column;
     }
-
     .seatAvatarBox {
       width: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
       height: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
@@ -526,7 +509,6 @@
       margin-top: calc(var(--layout-app-gap) * -1);
       padding-top: var(--layout-app-gap);
     }
-
     .seatName { font-weight: 700; font-size: 0.92rem; }
     .seatMeta { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
     .seatStatus { margin-top: 6px; font-size: 0.8rem; }
@@ -534,7 +516,6 @@
     .seatTags { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
     .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 8px; }
-
     .controls {
       padding: calc(var(--layout-controls-padding-y) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale))
                calc(var(--layout-controls-padding-x) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
@@ -550,7 +531,6 @@
     }
     .controlsRow > * { flex: 1 1 0; min-width: 0; }
     .controls label { display: grid; gap: 6px; font-size: 0.8rem; color: var(--muted); }
-
     select {
       width: 100%;
       border-radius: 12px;
@@ -559,7 +539,6 @@
       color: var(--text);
       padding: 11px 12px;
     }
-
     button {
       border: none;
       border-radius: 14px;
@@ -571,13 +550,11 @@
       white-space: normal;
       overflow-wrap: anywhere;
     }
-
     button.secondary { background: #8f7761; color: #fff6ea; }
     button.danger { background: var(--danger); color: white; }
     button.ok { background: var(--ok); color: #102314; }
     button.ghost { background: rgba(255,255,255,0.08); color: var(--text); box-shadow: none; border: 1px solid rgba(255,255,255,0.08); }
     button:disabled { opacity: 0.45; box-shadow: none; }
-
     .handWrap {
       padding: calc(var(--layout-hand-wrap-padding-y) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale))
                calc(var(--layout-hand-wrap-padding-x) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
@@ -592,14 +569,12 @@
       overflow: hidden;
       contain: layout paint style;
     }
-
     .handHeader {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
     }
-
     .handScroll {
       --hand-card-min: clamp(
         var(--layout-hand-card-min-width),
@@ -615,7 +590,6 @@
       padding-bottom: 4px;
       min-height: 0;
     }
-
     .card {
       width: 100%;
       min-width: var(--layout-card-hit-min-width);
@@ -636,7 +610,6 @@
       overflow: hidden;
       isolation: isolate;
     }
-
     .card.wild { box-shadow: none; }
     .card.selected { transform: translateY(-4px); border-color: transparent; }
     .card.selected::after {
@@ -663,7 +636,6 @@
       border-radius: 0;
       pointer-events: none;
     }
-
     .cardLabel {
       position: absolute;
       left: calc(var(--layout-card-label-offset-base) * var(--layout-card-scale));
@@ -682,7 +654,6 @@
       letter-spacing: 0.04em;
       pointer-events: none;
     }
-
     .cardGlyph {
       display: inline-flex;
       align-items: center;
@@ -696,32 +667,27 @@
       text-transform: uppercase;
       flex: 0 0 auto;
     }
-
     .cardText {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-
     .layout-hand-force-all-visible .handScroll {
       overflow: visible;
       scroll-snap-type: none;
       grid-auto-flow: row dense;
     }
-
     .layout-hand-compact .handScroll {
       --hand-card-min: var(--hand-compact-card-min, 64px);
       --hand-card-gap: calc(var(--hand-compact-card-gap, 6px) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
       grid-template-columns: repeat(auto-fit, minmax(var(--hand-card-min), 1fr));
       align-content: start;
     }
-
     .layout-hand-compact .card {
       min-height: max(var(--layout-card-hit-min-height), calc(var(--hand-compact-card-min-height, 128px) * var(--layout-card-scale)));
       border-radius: 18px 18px 26px 26px / 20px 20px 52px 52px;
     }
-
     .layout-hand-compact .cardLabel {
       font-size: calc(var(--layout-card-label-font-base) * var(--layout-card-scale) * 0.9);
       padding: 3px 5px;
@@ -729,17 +695,14 @@
       left: 4px;
       bottom: 4px;
     }
-
     .layout-hand-compact .cardText {
       display: none;
     }
-
     .layout-hand-compact .cardGlyph {
       min-width: 1.2em;
       height: 1.2em;
       padding: 0 0.2em;
     }
-
     @media (max-width: 430px) {
       .layout-hand-force-all-visible .handScroll,
       .layout-hand-compact .handScroll {
@@ -747,7 +710,6 @@
         grid-template-columns: repeat(auto-fit, minmax(var(--hand-card-min), 1fr));
       }
     }
-
     .eventLog {
       grid-area: log;
       padding: calc(var(--layout-event-log-padding-y) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale))
@@ -761,7 +723,6 @@
       max-height: var(--layout-log-max-row-height);
       contain: layout paint style;
     }
-
     .logItem {
       background: rgba(255,255,255,0.05);
       border-radius: 12px;
@@ -770,13 +731,11 @@
       font-size: calc(0.84rem * var(--layout-challenge-font-scale) * var(--layout-fit-font-scale));
       color: var(--text);
     }
-
     .challengeBar {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
     }
-
     .tiny { font-size: calc(0.74rem * var(--layout-challenge-font-scale) * var(--layout-fit-font-scale)); color: var(--muted); }
     .layout-challenge-wrap .tiny,
     .layout-challenge-wrap .challengePromptInfo,
@@ -789,7 +748,6 @@
      #app.layout-controls-above-hand .contextBox {
       flex-direction: column-reverse;
     }
-
     .sectionTitle,
     .seatMeta,
     .seatStatus,
@@ -802,7 +760,6 @@
       transform: scale(calc(var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-fit-additive-avatar-zoom)));
       transform-origin: top center;
     }
-
     .fit-target.fit-0 {
       --layout-fit-font-scale: 1;
       --layout-fit-image-scale: 1;
@@ -814,7 +771,6 @@
     .fit-target.fit-4 { --layout-fit-font-scale: 0.84; --layout-fit-image-scale: 0.82; --layout-fit-gap-scale: 0.76; }
     .fit-target.fit-5 { --layout-fit-font-scale: 0.80; --layout-fit-image-scale: 0.78; --layout-fit-gap-scale: 0.70; }
     .fit-target.fit-6 { --layout-fit-font-scale: 0.76; --layout-fit-image-scale: 0.74; --layout-fit-gap-scale: 0.64; }
-
     details.debug {
       background: rgba(255,255,255,0.04);
       border-radius: 14px;
@@ -828,7 +784,6 @@
       color: #f4eeda;
       margin: 8px 0 0;
     }
-
     .challengePromptPane {
       background: linear-gradient(170deg, rgba(46,28,22,0.98), rgba(28,18,14,0.99));
       border: 1px solid rgba(200,90,90,0.3);
@@ -839,51 +794,42 @@
       display: grid;
       gap: 10px;
     }
-
     .challengeBoxHeader {
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-
     .challengeTimerRow {
       display: grid;
       gap: 4px;
     }
-
     .timerLabel {
       font-size: 0.72rem;
       color: var(--muted);
       display: flex;
       justify-content: space-between;
     }
-
     .timerTrack {
       height: 6px;
       background: rgba(255,255,255,0.1);
       border-radius: 999px;
       overflow: hidden;
     }
-
     .timerFill {
       height: 100%;
       background: var(--danger);
       border-radius: 999px;
       transition: width 0.85s linear;
     }
-
     .challengePromptBtns {
       display: flex;
       gap: 10px;
     }
-
     .challengePromptBtns button { flex: 1 1 0; min-width: 0; }
-
     @media (min-width: 880px) {
       #app { max-width: 980px; margin: 0 auto; }
       .card { min-width: 96px; }
     }
-
     @container (max-width: 980px) {
       #app {
         grid-template-columns: minmax(0, 1fr) minmax(120px, 0.42fr);
@@ -897,7 +843,6 @@
         --hand-card-min: clamp(72px, 18vw, 92px);
       }
     }
-
     @container (max-width: 760px) {
       #app {
         grid-template-columns: minmax(0, 1fr);
@@ -923,13 +868,11 @@
         max-height: unset;
       }
     }
-
     /* ===== CHALLENGE CINEMATIC OVERLAY ===== */
     #tableCinematicHost {
       flex-direction: column;
       gap: 18px;
     }
-
     .cin-bg {
       position: absolute;
       inset: 0;
@@ -938,7 +881,6 @@
       animation: cinBgIn 0.28s ease both;
     }
     @keyframes cinBgIn { from { opacity:0; } to { opacity:1; } }
-
     /* Vignette ring */
     .cin-bg::after {
       content: '';
@@ -946,7 +888,6 @@
       inset: 0;
       background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0,0,0,0.55) 100%);
     }
-
     /* Floating ember particles */
     .cin-embers {
       position: absolute;
@@ -967,7 +908,6 @@
       60%  { opacity: 0.6; }
       100% { transform: translateY(-100%) translateX(var(--drift,20px)) scale(0.2); opacity: 0; }
     }
-
     /* Horizontal shimmer line */
     .cin-shimmer {
       position: absolute;
@@ -981,7 +921,6 @@
       0%,100% { top: 35%; opacity:0.4; }
       50%      { top: 65%; opacity:0.9; }
     }
-
     .cin-headline {
       font-size: 2rem;
       font-weight: 900;
@@ -1032,7 +971,6 @@
     }
     @keyframes cinSlideL { from { transform:translateX(-40px); opacity:0; } to { transform:translateX(0); opacity:1; } }
     @keyframes cinSlideR { from { transform:translateX( 40px); opacity:0; } to { transform:translateX(0); opacity:1; } }
-
     .cin-role {
       font-size: 0.6rem;
       font-weight: 700;
@@ -1101,7 +1039,6 @@
       text-align: center;
       line-height: 1.4;
     }
-
     .cin-vs {
       font-size: 1.35rem;
       font-weight: 900;
@@ -1110,14 +1047,12 @@
       align-self: center;
       flex-shrink: 0;
     }
-
     .cin-divider {
       width: 100%;
       max-width: 520px;
       height: 1px;
       background: linear-gradient(90deg, transparent, rgba(200,153,82,0.28), transparent);
     }
-
     /* Card flip layout */
     .cin-cards-wrap {
       display: flex;
@@ -1142,7 +1077,6 @@
       flex-wrap: wrap;
       justify-content: center;
     }
-
     /* 3-D card flip */
     .cin-card-wrap {
       perspective: 640px;
@@ -1162,7 +1096,6 @@
       0%   { transform: rotateY(0deg); }
       100% { transform: rotateY(180deg); }
     }
-
     .cin-card-back, .cin-card-face {
       position: absolute;
       inset: 0;
@@ -1204,7 +1137,6 @@
     .face-truth .cin-card-sub { color: var(--ok); }
     .face-lie   .cin-card-sub { color: var(--danger); }
     .face-wild  .cin-card-sub { color: var(--wild); }
-
     .cin-result {
       padding: 10px 26px;
       border-radius: 999px;
@@ -1220,7 +1152,6 @@
     .cin-result.res-good   { background:rgba(102,177,124,0.18); border:1px solid rgba(102,177,124,0.4); color:var(--ok); }
     .cin-result.res-warn   { background:rgba(200,90,90,0.18);   border:1px solid rgba(200,90,90,0.4);   color:var(--danger); }
     .cin-result.res-neutral{ background:rgba(200,153,82,0.12);  border:1px solid rgba(200,153,82,0.28); color:var(--accent-2); }
-
     /* ── Bet-action burst (Call! / Raise! / Fold!) over avatar ── */
     .cin-action-burst {
       position: absolute;
@@ -1246,7 +1177,6 @@
              animation-timing-function: ease-in; }
       100% { transform: translate(-50%, -105%) scale(2.28); opacity: 0; }
     }
-
     /* ── Tankanscript vertical side columns ── */
     .cin-tankan {
       position: absolute;
@@ -1284,7 +1214,6 @@
       }
       65% { filter: brightness(0.8); }
     }
-
     .cin-continue {
       padding: 11px 34px;
       background: var(--accent);
@@ -1301,7 +1230,6 @@
       from { opacity:0; transform:translateY(10px); }
       to   { opacity:1; transform:translateY(0); }
     }
-
     /* Betting zone inside cinematic */
     #cin-betting-zone {
       width: 100%;
@@ -1355,7 +1283,6 @@
     .cin-bet-backup {
       width: 100%;
     }
-
     /* ── Chip sprites ── */
     .cin-chip-row {
       display: flex;
@@ -1375,7 +1302,6 @@
       color: var(--muted);
       margin-left: 2px;
     }
-
     /* Three-column chip summary */
     .cin-chip-table {
       display: grid;
@@ -1419,7 +1345,79 @@
       color: var(--muted);
       font-style: italic;
     }
-
+    body.layout-mode-authored #app {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: var(--layout-viewport-width);
+      height: var(--layout-viewport-height);
+      max-width: none;
+      max-height: none;
+      transform-origin: top left;
+      will-change: transform;
+    }
+    .authored-box-selected {
+      outline: 3px solid rgba(242, 208, 143, 0.95) !important;
+      outline-offset: 1px;
+      box-shadow: 0 0 0 2px rgba(27, 19, 15, 0.9) inset;
+    }
+    #authoredOverlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9996;
+      display: none;
+    }
+    #authoredOverlay.active { display: block; }
+    .authoredBoxOverlay {
+      position: absolute;
+      border: 2px dashed rgba(200,153,82,0.75);
+      background: rgba(200,153,82,0.08);
+      pointer-events: auto;
+      touch-action: none;
+    }
+    .authoredBoxOverlay.selected {
+      border-color: #f2d08f;
+      background: rgba(242,208,143,0.14);
+    }
+    .authoredBoxLabel {
+      position: absolute;
+      top: -24px;
+      left: 0;
+      background: rgba(14,10,9,0.96);
+      border: 1px solid rgba(200,150,80,0.45);
+      border-radius: 6px;
+      padding: 2px 8px;
+      color: #f2d08f;
+      font: 700 11px/1.1 'Courier New', monospace;
+      white-space: nowrap;
+    }
+    .authoredResizeHandle {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      right: -9px;
+      bottom: -9px;
+      border-radius: 4px;
+      border: 2px solid rgba(14,10,9,0.95);
+      background: #f2d08f;
+      cursor: nwse-resize;
+      pointer-events: auto;
+      touch-action: none;
+    }
+    #editorStatus {
+      position: fixed;
+      right: 10px;
+      bottom: calc(46px + var(--safe));
+      z-index: 9999;
+      max-width: min(560px, calc(100vw - 20px));
+      background: rgba(14,10,9,0.96);
+      border: 1px solid rgba(200,150,80,0.35);
+      border-radius: 8px;
+      padding: 6px 10px;
+      color: #f2d08f;
+      font: 12px/1.3 'Courier New', monospace;
+    }
     /* ── Debug log panel ─────────────────────────────────────────── */
     #_dbgBtn {
       position: fixed;
@@ -1435,7 +1433,6 @@
       letter-spacing: 0.05em;
     }
     #_dbgBtn:hover { background: rgba(67,49,43,0.97); }
-
     #_dbgPanel {
       position: fixed;
       bottom: calc(50px + var(--safe)); left: 10px;
@@ -1478,7 +1475,6 @@
     ._dl-log  { color: #c8bfaf; }
     ._dl-warn { color: #e6b84a; }
     ._dl-error{ color: #e05555; }
-
     /* ── Projection mapping mode ─────────────────────────────── */
     #projMapBtn {
       position: fixed;
@@ -1507,7 +1503,18 @@
     #projVarBtn:hover { background: rgba(67,49,43,0.97); }
     #projVarBtn.active { background: #c89952; color: #15110f; }
     #projVarBtn.active:hover { background: #e0ad60; }
-
+    #projExportBtn {
+      position: fixed;
+      bottom: calc(10px + var(--safe)); right: 10px;
+      z-index: 1000;
+      background: rgba(30,20,18,0.92);
+      border: 1px solid rgba(200,150,80,0.4);
+      color: #c89952; font-size: 0.72rem;
+      padding: 6px 11px; border-radius: 8px;
+      cursor: pointer; letter-spacing: 0.05em;
+      display: none;
+    }
+    #projExportBtn:hover { background: rgba(67,49,43,0.97); }
     #projMapTip {
       position: fixed; z-index: 9997;
       background: rgba(14,10,9,0.97);
@@ -1604,7 +1611,6 @@
       font-size: 0.68rem;
       font-family: inherit;
     }
-
     /* Outline all projectable elements in mapping mode */
     body.proj-mapping [data-proj-id] {
       outline: 2px dashed rgba(200,153,82,0.55) !important;
@@ -1617,22 +1623,25 @@
       background: rgba(200,153,82,0.09) !important;
     }
     /* Freeze game interaction while mapping */
-    body.proj-mapping button:not(#projMapBtn):not(#projVarBtn):not(#projVarCopyBtn):not(#projVarCloseBtn),
+    body.proj-mapping button:not(#projMapBtn):not(#projVarBtn):not(#projExportBtn):not(#projVarCopyBtn):not(#projVarCloseBtn),
     body.proj-mapping select,
     body.proj-mapping input:not(.projVarInput),
     body.proj-mapping .card {
       pointer-events: none !important;
     }
-
   </style>
 </head>
 <body>
-  <div id="app"></div>
-
+  <div id="authoredRoot">
+    <div id="app"></div>
+    <div id="authoredOverlay"></div>
+  </div>
   <!-- UI projection mapping mode -->
   <button id="projMapBtn" title="Inspect panel projection IDs">Map</button>
   <button id="projVarBtn" title="Edit CSS vars for last selected projection element">Vars</button>
+  <button id="projExportBtn" title="Copy authored layout config">Export</button>
   <div id="projMapTip"></div>
+  <div id="editorStatus" aria-live="polite">Editor idle.</div>
   <div id="projVarPanel" aria-live="polite">
     <div class="projVarPanelHead">
       <div id="projVarPanelTitle">Projection Vars</div>
@@ -1645,7 +1654,6 @@
       <div class="projVarHint">Select an outlined element in map mode, then open Vars.</div>
     </div>
   </div>
-
   <!-- Debug log panel -->
   <button id="_dbgBtn" title="Toggle debug log">Log</button>
   <div id="_dbgPanel">
@@ -1655,13 +1663,9 @@
     </div>
     <div id="_dbgBody"></div>
   </div>
-
   <script>
-
     const DEBUG_ENABLED = true;
-
     const scratchbonesRootConfig = window.SCRATCHBONES_CONFIG || {};
-
     function reportScratchbonesConfigError(message) {
       const fullMessage = `[scratchbones config] ${message}`;
       console.error(fullMessage);
@@ -1678,7 +1682,6 @@
       }
       return fullMessage;
     }
-
     function validateScratchbonesGameConfig(rootConfig) {
       const hasGameConfig = rootConfig && typeof rootConfig.game === 'object' && rootConfig.game !== null;
       if (hasGameConfig) return true;
@@ -1686,7 +1689,6 @@
       if (DEBUG_ENABLED) throw new Error(message);
       return false;
     }
-
     function normalizeScratchbonesGameConfig(rawGameConfig = {}) {
       return {
         deck: {
@@ -1712,9 +1714,17 @@
           aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 650,
         },
         layout: {
+          mode: String(rawGameConfig.layout?.mode || 'responsive').toLowerCase(),
           viewport: {
             widthPx: rawGameConfig.layout?.viewport?.widthPx,
             heightPx: rawGameConfig.layout?.viewport?.heightPx,
+          },
+          authored: {
+            enabled: rawGameConfig.layout?.authored?.enabled !== false,
+            designWidthPx: Number(rawGameConfig.layout?.authored?.designWidthPx) || 1920,
+            designHeightPx: Number(rawGameConfig.layout?.authored?.designHeightPx) || 1080,
+            scaleMode: String(rawGameConfig.layout?.authored?.scaleMode || 'contain').toLowerCase(),
+            boxes: rawGameConfig.layout?.authored?.boxes || {},
           },
           cards: {
             baseScale: rawGameConfig.layout?.cards?.baseScale ?? 0.25,
@@ -1848,17 +1858,169 @@
         },
       };
     }
-
     function getScratchbonesGameConfig() {
       validateScratchbonesGameConfig(scratchbonesRootConfig);
       return normalizeScratchbonesGameConfig(scratchbonesRootConfig.game || {});
     }
-
     // Most recent config-boundary cleanup: Scratchbones now reads only SCRATCHBONES_CONFIG.game.
     const SCRATCHBONES_GAME = getScratchbonesGameConfig();
-
+    const AUTHORED_BOX_KEY_BY_PROJ_ID = {
+      'topbar': 'topbar',
+      'sidebar': 'sidebar',
+      'panel': 'panel',
+      'human-seat-zone': 'humanSeat',
+      'human-seat': 'humanSeat',
+      'context-box': 'contextBox',
+      'hand': 'hand',
+      'log': 'log',
+      'table-view': 'tableView',
+      'turn-spotlight': 'turnSpotlight',
+      'claim-cluster': 'claimCluster',
+      'challenge-prompt': 'challengePrompt',
+      'controls': 'challengePrompt',
+    };
+    const AUTHORED_PARENT_BOX = {
+      tableView: 'panel',
+      turnSpotlight: 'tableView',
+      claimCluster: 'tableView',
+      challengePrompt: 'contextBox',
+      hand: 'contextBox',
+    };
+    const DEFAULT_AUTHORED_BOXES = {
+      topbar: { x: 8, y: 8, width: 1624, height: 120 },
+      sidebar: { x: 1640, y: 8, width: 272, height: 780 },
+      panel: { x: 8, y: 136, width: 1624, height: 560 },
+      humanSeat: { x: 1640, y: 796, width: 272, height: 176 },
+      contextBox: { x: 8, y: 704, width: 1624, height: 196 },
+      hand: { x: 8, y: 912, width: 1624, height: 160 },
+      log: { x: 8, y: 968, width: 1624, height: 104 },
+      tableView: { x: 18, y: 146, width: 1604, height: 540 },
+      turnSpotlight: { x: 1380, y: 164, width: 220, height: 220 },
+      claimCluster: { x: 490, y: 220, width: 620, height: 320 },
+      challengePrompt: { x: 8, y: 704, width: 1624, height: 196 },
+    };
+    const authoredEditorState = {
+      selectedId: null,
+      pointerDrag: null,
+      mode: 'none',
+      lastChange: 'Editor idle.',
+      gridEnabled: false,
+      gridSize: 8,
+    };
+    function getScratchbonesLayoutMode() {
+      const rawMode = String(SCRATCHBONES_GAME.layout?.mode || 'responsive').toLowerCase();
+      return rawMode === 'authored' ? 'authored' : 'responsive';
+    }
+    function getScratchbonesAuthoredConfig() {
+      const authored = SCRATCHBONES_GAME.layout?.authored || {};
+      const boxes = authored.boxes && typeof authored.boxes === 'object' ? authored.boxes : {};
+      const normalizedBoxes = {};
+      for (const [id, fallback] of Object.entries(DEFAULT_AUTHORED_BOXES)) {
+        const source = boxes[id] || {};
+        normalizedBoxes[id] = {
+          x: Number.isFinite(Number(source.x)) ? Number(source.x) : fallback.x,
+          y: Number.isFinite(Number(source.y)) ? Number(source.y) : fallback.y,
+          width: Math.max(24, Number.isFinite(Number(source.width)) ? Number(source.width) : fallback.width),
+          height: Math.max(24, Number.isFinite(Number(source.height)) ? Number(source.height) : fallback.height),
+        };
+      }
+      SCRATCHBONES_GAME.layout.authored = {
+        enabled: authored.enabled !== false,
+        designWidthPx: Math.max(320, Number(authored.designWidthPx) || 1920),
+        designHeightPx: Math.max(180, Number(authored.designHeightPx) || 1080),
+        scaleMode: String(authored.scaleMode || 'contain').toLowerCase(),
+        boxes: normalizedBoxes,
+      };
+      return SCRATCHBONES_GAME.layout.authored;
+    }
+    function computeAuthoredScale(liveWidth, liveHeight, designWidth, designHeight) {
+      const sx = Math.max(0.001, liveWidth / Math.max(1, designWidth));
+      const sy = Math.max(0.001, liveHeight / Math.max(1, designHeight));
+      return Math.min(sx, sy);
+    }
+    function applyAuthoredBoxStyles(element, box, origin = null) {
+      if (!element || !box) return;
+      const left = Math.round(box.x - (origin?.x || 0));
+      const top = Math.round(box.y - (origin?.y || 0));
+      element.style.position = 'absolute';
+      element.style.left = `${left}px`;
+      element.style.top = `${top}px`;
+      element.style.width = `${Math.round(box.width)}px`;
+      element.style.height = `${Math.round(box.height)}px`;
+    }
+    function updateEditorStatus(message) {
+      authoredEditorState.lastChange = String(message || 'Editor idle.');
+      const statusEl = document.getElementById('editorStatus');
+      if (statusEl) statusEl.textContent = authoredEditorState.lastChange;
+    }
+    function getSelectedAuthoredBox() {
+      return authoredEditorState.selectedId;
+    }
+    function selectAuthoredBox(id) {
+      authoredEditorState.selectedId = id && DEFAULT_AUTHORED_BOXES[id] ? id : null;
+      renderAuthoredOverlays();
+      renderAuthoredInspector();
+    }
+    function updateAuthoredBox(id, patch = {}) {
+      const authoredConfig = getScratchbonesAuthoredConfig();
+      if (!authoredConfig.boxes[id]) return;
+      const current = authoredConfig.boxes[id];
+      authoredConfig.boxes[id] = {
+        x: Math.round(Number.isFinite(Number(patch.x)) ? Number(patch.x) : current.x),
+        y: Math.round(Number.isFinite(Number(patch.y)) ? Number(patch.y) : current.y),
+        width: Math.max(24, Math.round(Number.isFinite(Number(patch.width)) ? Number(patch.width) : current.width)),
+        height: Math.max(24, Math.round(Number.isFinite(Number(patch.height)) ? Number(patch.height) : current.height)),
+      };
+      applyAuthoredLayoutMode(document.getElementById('app'), authoredConfig);
+      renderAuthoredOverlays();
+      renderAuthoredInspector();
+    }
+    function buildAuthoredLayoutExport() {
+      const authored = getScratchbonesAuthoredConfig();
+      return JSON.stringify({
+        layout: {
+          mode: getScratchbonesLayoutMode(),
+          authored,
+        },
+      }, null, 2);
+    }
+    function copyTextToClipboard(payload) {
+      const text = String(payload || '');
+      return navigator.clipboard?.writeText(text).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      });
+    }
+    function applyAuthoredLayoutMode(app, authoredConfig) {
+      if (!app || !authoredConfig) return;
+      const authoredRoot = document.getElementById('authoredRoot');
+      const liveWidth = authoredRoot?.clientWidth || window.innerWidth || authoredConfig.designWidthPx;
+      const liveHeight = authoredRoot?.clientHeight || window.innerHeight || authoredConfig.designHeightPx;
+      const scale = computeAuthoredScale(liveWidth, liveHeight, authoredConfig.designWidthPx, authoredConfig.designHeightPx);
+      const translatedX = Math.round((liveWidth - (authoredConfig.designWidthPx * scale)) / 2);
+      const translatedY = Math.round((liveHeight - (authoredConfig.designHeightPx * scale)) / 2);
+      app.style.transform = `translate(${translatedX}px, ${translatedY}px) scale(${scale.toFixed(5)})`;
+      app.style.transformOrigin = 'top left';
+      const mapped = new Map();
+      app.querySelectorAll('[data-proj-id]').forEach((el) => {
+        const projId = el.getAttribute('data-proj-id');
+        const boxId = AUTHORED_BOX_KEY_BY_PROJ_ID[projId];
+        if (!boxId || mapped.has(boxId)) return;
+        mapped.set(boxId, el);
+      });
+      for (const [boxId, box] of Object.entries(authoredConfig.boxes || {})) {
+        const el = mapped.get(boxId);
+        if (!el) continue;
+        const parentId = AUTHORED_PARENT_BOX[boxId];
+        const origin = parentId ? authoredConfig.boxes[parentId] : null;
+        applyAuthoredBoxStyles(el, box, origin);
+      }
+    }
     const CHALLENGE_TIMER_SECS = SCRATCHBONES_GAME.timers.challengeTimerSecs;
-
     const MAO_AO_CULTURE = {
       id: "mao_ao",
       displayName: "Mao-ao",
@@ -1900,42 +2062,34 @@
         },
       },
     };
-
     function pickFromRng(rng, arr) {
       if (!arr || arr.length === 0) throw new Error('pickFromRng() called with empty array');
       return arr[Math.floor(rng() * arr.length)];
     }
-
     function titleCase(s) {
       if (!s) return s;
       return s[0].toUpperCase() + s.slice(1).toLowerCase();
     }
-
     function applyCasing(s, casing) {
       if (!casing) return s;
       if (casing === 'lower') return s.toLowerCase();
       if (casing === 'upper') return s.toUpperCase();
       return titleCase(s);
     }
-
     function clampInt(n, min, max) {
       return Math.max(min, Math.min(max, Math.floor(n)));
     }
-
     function tokenListSortedLongestFirst(tokens) {
       return (tokens || []).slice().sort((a, b) => b.length - a.length);
     }
-
     function startsWithAnyToken(str, tokens) {
       for (const token of tokens) if (str.startsWith(token)) return token;
       return null;
     }
-
     function endsWithAnyToken(str, tokens) {
       for (const token of tokens) if (str.endsWith(token)) return token;
       return null;
     }
-
     function joinSyllablesWithHiatus(syllables, pools) {
       if (syllables.length <= 1) return syllables.join('');
       const vowelTokens = tokenListSortedLongestFirst(pools.vowels);
@@ -1951,15 +2105,12 @@
       }
       return out;
     }
-
     function isVariablePattern(pattern) {
       return pattern.includes('V');
     }
-
     function isOnsetlessVPattern(pattern) {
       return isVariablePattern(pattern) && pattern.startsWith('V');
     }
-
     function parseForcedVowel(pattern) {
       const match = pattern.match(/^(.*)\{([^}]+)\}$/);
       if (!match) return { basePattern: pattern, forcedVowels: null };
@@ -1968,21 +2119,17 @@
         forcedVowels: match[2].split('|').map(s => s.trim()).filter(Boolean),
       };
     }
-
     function syllableEndsWithN(syllable) {
       return /n$/i.test(syllable || '') && !/ng$/i.test(syllable || '');
     }
-
     function syllableHasDiphthong(syllable, pools) {
       if (!syllable) return false;
       const diphthongs = [...(pools.diphthongs || []), 'ei'];
       return diphthongs.some(d => syllable.includes(d));
     }
-
     function patternHasDiphthong(pattern) {
       return pattern.includes('{ai}') || pattern.includes('{ao}') || pattern.includes('ei');
     }
-
     function constrainLastPatterns(patterns, previousSyllable, ctx = {}) {
       return patterns.filter(pattern => {
         if (pattern.includes('{ai}') && !syllableEndsWithN(previousSyllable)) return false;
@@ -1991,7 +2138,6 @@
         return true;
       });
     }
-
     function getVowelPoolForPattern(pools, hasConsonantEnding, forcedVowels, ctx = {}) {
       let pool = pools.vowels.slice();
       const diphthongs = pools.diphthongs || [];
@@ -2003,7 +2149,6 @@
       const monophthongs = pool.filter(v => !diphthongs.includes(v));
       return monophthongs.length ? monophthongs : pool;
     }
-
     function buildSyllableFromPattern(rng, pools, pattern, opts = {}) {
       if (!isVariablePattern(pattern)) return pattern;
       const { basePattern, forcedVowels } = parseForcedVowel(pattern);
@@ -2021,13 +2166,11 @@
       }
       return nucleus + coda;
     }
-
     function pickPattern(rng, patterns, { allowOnsetlessV }) {
       const filtered = allowOnsetlessV ? patterns : patterns.filter(p => !isOnsetlessVPattern(parseForcedVowel(p).basePattern));
       if (!filtered.length) throw new Error(`No valid patterns after filtering.`);
       return pickFromRng(rng, filtered);
     }
-
     function buildPositionedFirstName(rng, positioned, gender, opt = {}) {
       const pools = positioned.pools;
       const rules = positioned.firstName;
@@ -2037,7 +2180,6 @@
       const middleSet = gender === 'male' ? rules.middle.male : rules.middle.female;
       const lastSetBase = gender === 'male' ? rules.last.male : rules.last.female;
       const syllableCount = clampInt(rules.syllables.min, rules.syllables.min, rules.syllables.max);
-
       const firstPattern = pickPattern(rng, firstSet.patterns, { allowOnsetlessV: gender === 'female' });
       const firstSyllable = buildSyllableFromPattern(rng, pools, firstPattern, {
         forceOnsetInitialLetter: gender === 'male' ? opt.forceFirstNameInitialLetter : undefined,
@@ -2047,7 +2189,6 @@
       });
       syllables.push(firstSyllable);
       usedDiphthong = usedDiphthong || syllableHasDiphthong(firstSyllable, pools);
-
       const middleCount = Math.max(0, syllableCount - 2);
       for (let i = 0; i < middleCount; i++) {
         const middlePattern = pickPattern(rng, middleSet.patterns, { allowOnsetlessV: false });
@@ -2059,7 +2200,6 @@
         syllables.push(middleSyllable);
         usedDiphthong = usedDiphthong || syllableHasDiphthong(middleSyllable, pools);
       }
-
       const lastPatternOptions = constrainLastPatterns(lastSetBase.patterns, syllables[syllables.length - 1] || '', { usedDiphthong, allowInitialJ: false });
       const lastPattern = pickPattern(rng, lastPatternOptions, { allowOnsetlessV: false });
       const lastSyllable = buildSyllableFromPattern(rng, pools, lastPattern, {
@@ -2070,13 +2210,11 @@
       syllables.push(lastSyllable);
       return joinSyllablesWithHiatus(syllables, pools);
     }
-
     function buildMaoAoSurname(rng, positioned) {
       const pools = positioned.pools;
       const firstNameRules = positioned.firstName;
       const syllables = [];
       let usedDiphthong = false;
-
       const firstPattern = pickPattern(rng, firstNameRules.first.male.patterns, { allowOnsetlessV: false });
       const firstSyllable = buildSyllableFromPattern(rng, pools, firstPattern, {
         position: 'first',
@@ -2085,7 +2223,6 @@
       });
       syllables.push(firstSyllable);
       usedDiphthong = usedDiphthong || syllableHasDiphthong(firstSyllable, pools);
-
       const lastPatternOptions = constrainLastPatterns(firstNameRules.last.male.patterns, syllables[0] || '', { usedDiphthong, allowInitialJ: false });
       const lastPattern = pickPattern(rng, lastPatternOptions, { allowOnsetlessV: false });
       const lastSyllable = buildSyllableFromPattern(rng, pools, lastPattern, {
@@ -2096,7 +2233,6 @@
       syllables.push(lastSyllable);
       return joinSyllablesWithHiatus(syllables, pools);
     }
-
     function generateMaoAoNameFromSeed(seedString, gender = 'male') {
       const numericSeed = hashStringToSeed(seedString);
       const rng = mulberry32(numericSeed);
@@ -2109,7 +2245,6 @@
       });
       return [applyCasing(firstName, MAO_AO_CULTURE.casing), applyCasing(surname, MAO_AO_CULTURE.casing)].filter(Boolean).join(' ');
     }
-
     function hashStringToSeed(text) {
       let h = 2166136261 >>> 0;
       const input = String(text || '');
@@ -2119,7 +2254,6 @@
       }
       return h >>> 0;
     }
-
     function generateAiIdentity(index) {
       const identitySeed = `madiao-ai-${state.seed}-${index}`;
       const gender = (hashStringToSeed(identitySeed) & 1) === 0 ? 'male' : 'female';
@@ -2131,7 +2265,6 @@
         personality: derivePersonality(name),
       };
     }
-
     // Deterministic hash: same seed string always yields same personality
     function hashSeed(seed, salt) {
       let h = (salt * 2654435761) >>> 0;
@@ -2141,11 +2274,9 @@
       }
       return h / 4294967296;
     }
-
     function clamp01(n) {
       return Math.max(0, Math.min(1, n));
     }
-
     function derivePersonality(seed) {
       const roleCycle = ['bold_liar', 'tricky_neutral', 'careful_honest'];
       const roleIndex = Math.floor(hashSeed(seed, 97) * roleCycle.length);
@@ -2156,7 +2287,6 @@
       const solidarityBase = hashSeed(seed, 4);
       const greedBase = hashSeed(seed, 5);
       const honestyBase = hashSeed(seed, 6);
-
       if (role === 'bold_liar') {
         return {
           archetype: 'Bold liar',
@@ -2169,7 +2299,6 @@
           overSuspects: suspicionBase > 0.45,
         };
       }
-
       if (role === 'tricky_neutral') {
         return {
           archetype: 'Tricky neutral',
@@ -2182,7 +2311,6 @@
           overSuspects: suspicionBase > 0.25,
         };
       }
-
       return {
         archetype: 'Careful honest',
         aggression: clamp01(0.1 + aggressionBase * 0.18),
@@ -2194,7 +2322,6 @@
         overSuspects: suspicionBase > 0.7,
       };
     }
-
     function personalityTags(p) {
       const tags = [];
       if (p.archetype) tags.push(p.archetype);
@@ -2217,7 +2344,6 @@
     const RANK_COUNT = SCRATCHBONES_GAME.deck.rankCount;
     const COPIES_PER_RANK = SCRATCHBONES_GAME.deck.copiesPerRank;
     const PLAYER_NAMES = SCRATCHBONES_GAME.deck.humanNames; // Used by: seat labels and logs. AI seats generate Mao-ao names at match start.
-
     const CONFIG = {
       startingChips: SCRATCHBONES_GAME.chips.startingChips,
       challengeBaseTransfer: SCRATCHBONES_GAME.chips.challengeBaseTransfer,
@@ -2228,7 +2354,6 @@
       clearBonusIncrement: SCRATCHBONES_GAME.chips.clearBonusIncrement,
       maxChallengeBet: SCRATCHBONES_GAME.chips.maxChallengeBet,
     };
-
     const state = {
       players: [],
       leaderIndex: 0,
@@ -2259,7 +2384,6 @@
       layoutFitStages: {},
       layoutOverlapDiagnostics: { overlaps: [], stage: 'none' },
     };
-
     function mulberry32(a) {
       return function() {
         let t = a += 0x6D2B79F5;
@@ -2268,13 +2392,10 @@
         return ((t ^ t >>> 14) >>> 0) / 4294967296;
       }
     }
-
     let rand = mulberry32(state.seed);
-
     function rngInt(min, max) {
       return Math.floor(rand() * (max - min + 1)) + min;
     }
-
     function shuffle(arr) {
       for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(rand() * (i + 1));
@@ -2282,7 +2403,6 @@
       }
       return arr;
     }
-
     function createDeck() {
       const deck = [];
       let id = 1;
@@ -2294,14 +2414,12 @@
       for (let i = 0; i < WILD_COUNT; i++) deck.push({ id: id++, rank: null, wild: true });
       return shuffle(deck);
     }
-
     function sortCards(a, b) {
       if (a.wild && !b.wild) return 1;
       if (!a.wild && b.wild) return -1;
       if (a.wild && b.wild) return a.id - b.id;
       return a.rank - b.rank || a.id - b.id;
     }
-
     function makePlayers() {
       return Array.from({ length: SCRATCHBONES_GAME.deck.playerCount }, (_, index) => {
         if (index === 0) {
@@ -2336,11 +2454,9 @@
         };
       });
     }
-
     function alivePlayers() {
       return state.players.filter(p => !p.eliminated);
     }
-
     function nextAliveIndex(start) {
       let i = start;
       for (let steps = 0; steps < state.players.length; steps++) {
@@ -2349,7 +2465,6 @@
       }
       return start;
     }
-
     function previousAliveIndex(start) {
       let i = start;
       for (let steps = 0; steps < state.players.length; steps++) {
@@ -2358,17 +2473,13 @@
       }
       return start;
     }
-
-
     function hasConcededThisRound(playerIndex) {
       return state.roundConcessions.has(playerIndex);
     }
-
     function isEligibleForCurrentRound(playerIndex) {
       const player = state.players[playerIndex];
       return !!player && !player.eliminated && !hasConcededThisRound(playerIndex);
     }
-
     function nextRoundEligibleIndex(start) {
       let i = start;
       for (let steps = 0; steps < state.players.length; steps++) {
@@ -2377,12 +2488,10 @@
       }
       return null;
     }
-
     function currentDeclarerIndex() {
       const lastPlay = state.pile[state.pile.length - 1];
       return lastPlay ? lastPlay.playerIndex : state.leaderIndex;
     }
-
     function maybeEndRoundFromConcessions() {
       if (state.declaredRank === null || !state.pile.length) return false;
       const declarerId = currentDeclarerIndex();
@@ -2392,28 +2501,22 @@
       openNewRound(declarerId);
       return true;
     }
-
     function selectedCards() {
       return state.players[0].hand.filter(c => state.selectedCardIds.has(c.id));
     }
-
-
     function addLog(text) {
       state.logs.unshift({ text, ts: Date.now() });
       state.logs = state.logs.slice(0, 30);
     }
-
     function seatLabel(playerOrIndex) {
       const player = typeof playerOrIndex === 'number' ? state.players[playerOrIndex] : playerOrIndex;
       if (!player) return 'Seat ?';
       const seatNumber = Number(player.id) + 1;
       return `Seat ${seatNumber} · ${player.name}`;
     }
-
     function setBanner(text) {
       state.banner = text;
     }
-
     function dealFreshHands() {
       const deck = createDeck();
       for (const player of state.players) {
@@ -2425,7 +2528,6 @@
         player.lastAction = player.lastAction === 'Out of chips' ? player.lastAction : 'Waiting';
       }
     }
-
     function startGame() {
       clearChallengeTimer();
       state.players = makePlayers();
@@ -2451,14 +2553,12 @@
       render();
       if (state.currentTurn !== 0) scheduleAiTurn();
     }
-
     function toggleSelect(cardId) {
       if (state.gameOver || state.currentTurn !== 0 || state.challengeWindow || state.betting) return;
       if (state.selectedCardIds.has(cardId)) state.selectedCardIds.delete(cardId);
       else state.selectedCardIds.add(cardId);
       render();
     }
-
     function humanPlay() {
       if (state.betting) return;
       const cards = selectedCards();
@@ -2475,7 +2575,6 @@
       }
       performPlay(0, cards.map(c => c.id), declaredRank);
     }
-
     function humanConcedeRound() {
       if (state.gameOver || state.currentTurn !== 0 || state.challengeWindow || state.betting) return;
       if (state.declaredRank === null) {
@@ -2498,15 +2597,12 @@
       render();
       if (nextPlayer !== 0) scheduleAiTurn();
     }
-
     function performPlay(playerIndex, cardIds, declaredRank) {
       const player = state.players[playerIndex];
       const cards = player.hand.filter(c => cardIds.includes(c.id));
       if (!cards.length) return;
-
       player.hand = player.hand.filter(c => !cardIds.includes(c.id));
       player.hand.sort(sortCards);
-
       const truthful = cards.every(c => c.wild || c.rank === declaredRank);
       state.declaredRank = declaredRank;
       const play = {
@@ -2520,13 +2616,11 @@
       observePlayForReads(play);
       player.lastAction = truthful ? `Played ${cards.length}` : `Bluffed ${cards.length}`;
       if (truthful) state.stats.safeTruths += 1;
-
       state.selectedCardIds.clear();
       addLog(`${seatLabel(player)} declares ${cards.length} × ${declaredRank}.`);
       setBanner(player.isHuman
         ? `You declared ${cards.length} × ${declaredRank}. Opponents may challenge.`
         : `${seatLabel(player)} declared ${cards.length} × ${declaredRank}. You may challenge now.`);
-
       const backups = alivePlayers().map(p => p.id).filter(id => id !== playerIndex && !hasConcededThisRound(id));
       state.challengeWindow = {
         lastPlay: play,
@@ -2534,23 +2628,19 @@
         backupCandidates: backups,
       };
       render();
-
       if (playerIndex !== 0) {
         startChallengeTimer();
       }
-
       window.setTimeout(() => {
         if (state.challengeWindow && !state.betting && state.challengeWindow.lastPlay.playerIndex === playerIndex && !state.gameOver) {
           maybeAiRespondToLatestPlay(playerIndex);
         }
       }, AI_THINK_MS);
     }
-
     function maybeAiRespondToLatestPlay(playerIndex) {
       if (!state.challengeWindow || state.betting) return;
       const lastPlay = state.challengeWindow.lastPlay;
       if (!lastPlay || lastPlay.playerIndex !== playerIndex) return;
-
       const possibleChallengers = state.challengeWindow.challengerOptions.filter(idx => idx !== 0 && !state.players[idx].eliminated);
       let chosenChallenger = null;
       for (const idx of possibleChallengers) {
@@ -2565,7 +2655,6 @@
         advanceAfterNoChallenge(playerIndex);
       }
     }
-
     function countKnownRank(rank) {
       let count = 0;
       for (const play of state.pile) {
@@ -2575,7 +2664,6 @@
       }
       return count;
     }
-
     function countVisibleWilds() {
       let count = 0;
       for (const play of state.pile) {
@@ -2583,7 +2671,6 @@
       }
       return count;
     }
-
     function ensureReadProfile(observerIndex, targetIndex) {
       const observer = state.players[observerIndex];
       if (!observer) return null;
@@ -2605,7 +2692,6 @@
       }
       return observer.reads[targetIndex];
     }
-
     function observePlayForReads(play) {
       for (const observer of state.players) {
         if (observer.eliminated || observer.id === play.playerIndex) continue;
@@ -2636,7 +2722,6 @@
         read.quickJudgmentBias = clamp01((read.quickJudgmentBias + 1) / 2) * 2 - 1;
       }
     }
-
     function noteChallengeReadResult(challengerIndex, targetIndex, challengeSucceeded) {
       const read = ensureReadProfile(challengerIndex, targetIndex);
       if (!read) return;
@@ -2649,7 +2734,6 @@
       }
       read.quickJudgmentBias = Math.max(-1, Math.min(1, read.quickJudgmentBias));
     }
-
     function suspicionFromReadProfile(read, pers) {
       if (!read) return 0;
       const seenTotal = read.truthfulCount + read.bluffCount;
@@ -2666,7 +2750,6 @@
         read.quickJudgmentBias * snapWeight
       );
     }
-
     function aiShouldChallenge(challengerIndex, play) {
       const challenger = state.players[challengerIndex];
       const pers = challenger.personality;
@@ -2691,7 +2774,6 @@
       }
       return suspicion >= 0.52;
     }
-
     function humanChallenge() {
       if (!state.challengeWindow || state.gameOver || state.betting) return;
       const target = state.challengeWindow.lastPlay.playerIndex;
@@ -2699,18 +2781,15 @@
       clearChallengeTimer();
       startChallenge(0, target);
     }
-
     function humanAcceptNoChallenge() {
       if (!state.challengeWindow || state.gameOver || state.betting) return;
       clearChallengeTimer();
       const target = state.challengeWindow.lastPlay.playerIndex;
       advanceAfterNoChallenge(target);
     }
-
     function eligibleBackupIds(challengerId, challengedId) {
       return alivePlayers().map(p => p.id).filter(id => id !== challengerId && id !== challengedId);
     }
-
     function startChallenge(challengerIndex, challengedIndex) {
       if (!state.challengeWindow || state.gameOver || state.betting) return;
       clearChallengeTimer();
@@ -2736,7 +2815,6 @@
         pendingAutoReveal: false,
       };
       state.challengeWindow = null;
-
       for (const id of eligibleBackupIds(challengerIndex, challengedIndex)) {
         if (id !== 0 && aiShouldJoinBackup(id, play)) state.betting.backupQueue.push(id);
       }
@@ -2744,7 +2822,6 @@
       render();
       scheduleBettingAiIfNeeded();
     }
-
     function aiShouldJoinBackup(playerIndex, play) {
       const p = state.players[playerIndex];
       let score = 0.15 + rand() * 0.22;
@@ -2754,15 +2831,12 @@
       if (p.personality) score += (p.personality.solidarity - 0.5) * 0.3;
       return score > 0.35;
     }
-
     function getContribution(id) {
       return state.betting?.contributions?.[id] || 0;
     }
-
     function getRaiseCount(id) {
       return state.betting?.raiseCounts?.[id] || 0;
     }
-
     function nextRaiseAmountForPlayer(id) {
       if (!state.betting) return 0;
       const player = state.players[id];
@@ -2776,26 +2850,21 @@
       const scheduledRaise = Math.min(CONFIG.maxRaiseAmount, raiseCount + 1);
       return Math.max(0, Math.min(scheduledRaise, CONFIG.maxChallengeBet - state.betting.stake, maxByBankroll));
     }
-
     function getRaiseOptionsForPlayer(id) {
       const nextRaise = nextRaiseAmountForPlayer(id);
       return nextRaise > 0 ? [nextRaise] : [];
     }
-
     function getOpponentId(id) {
       if (!state.betting) return null;
       return id === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
     }
-
     function amountToCall(id) {
       if (!state.betting) return 0;
       return Math.max(0, state.betting.stake - getContribution(id));
     }
-
     function canPlayerAfford(id, amount) {
       return state.players[id] && !state.players[id].eliminated && state.players[id].chips >= amount;
     }
-
     function recordContribution(id, amount) {
       if (!state.betting || amount <= 0) return 0;
       const player = state.players[id];
@@ -2805,7 +2874,6 @@
       eliminateIfNeeded(id, `${seatLabel(player)} ran out of chips during the challenge.`);
       return paid;
     }
-
     function transferToBank(playerIndex, amount, logMessage) {
       const player = state.players[playerIndex];
       if (player.eliminated) return 0;
@@ -2816,7 +2884,6 @@
       render();
       return paid;
     }
-
     function eliminateIfNeeded(playerIndex, logMessage) {
       const player = state.players[playerIndex];
       if (!player || player.eliminated || player.chips > 0) return false;
@@ -2828,7 +2895,6 @@
       if (state.currentTurn === playerIndex) state.currentTurn = nextAliveIndex(playerIndex);
       return checkGameOverBySurvivors();
     }
-
     function maybeAutoRevealAfterMatchedBet() {
       if (!state.betting) return;
       const a = state.betting.challengerId;
@@ -2837,7 +2903,6 @@
         revealChallenge();
       }
     }
-
     function resolveBetAction(playerId, action) {
       if (!state.betting || state.gameOver) return;
       if (state.betting.currentActorId !== playerId) return;
@@ -2846,7 +2911,6 @@
       const opponentId = getOpponentId(playerId);
       const opponent = state.players[opponentId];
       const toCall = amountToCall(playerId);
-
       if (command === 'joinBackup') {
         if (state.betting.backupQueue.includes(playerId) || playerId === state.betting.challengerId || playerId === state.betting.challengedId || player.eliminated) return;
         state.betting.backupQueue.push(playerId);
@@ -2854,10 +2918,8 @@
         render();
         return;
       }
-
       // Show cinematic burst + tankan for call/raise/fold
       _announceCinematicBetAction(playerId, command);
-
       if (command === 'checkcall') {
         const paid = recordContribution(playerId, toCall);
         if (toCall > 0) addLog(`${seatLabel(player)} calls for ${paid} chip${paid === 1 ? '' : 's'}.`);
@@ -2875,7 +2937,6 @@
         scheduleBettingAiIfNeeded();
         return;
       }
-
       if (command === 'raise') {
         const raiseBy = nextRaiseAmountForPlayer(playerId);
         const newStake = Math.min(CONFIG.maxChallengeBet, state.betting.stake + raiseBy);
@@ -2900,7 +2961,6 @@
         scheduleBettingAiIfNeeded();
         return;
       }
-
       if (command === 'fold') {
         player.lastAction = 'Folded challenge';
         const immediate = state.betting.stake <= CONFIG.challengeBaseTransfer && getContribution(playerId) === 0 && getContribution(opponentId) === 0;
@@ -2937,7 +2997,6 @@
         finalizeChallengeByFold(opponentId, playerId, immediate ? 'folded immediately' : 'folded the betting duel');
       }
     }
-
     function pullNextViableBackup() {
       if (!state.betting) return null;
       while (state.betting.backupQueue.length) {
@@ -2947,18 +3006,15 @@
       }
       return null;
     }
-
     function challengePotTotal() {
       if (!state.betting) return 0;
       return Object.values(state.betting.contributions).reduce((sum, val) => sum + val, 0);
     }
-
     function netChallengeGainFor(winnerId, grossAward) {
       if (!state.betting) return grossAward;
       const ownContribution = state.betting.contributions?.[winnerId] || 0;
       return Math.max(0, grossAward - ownContribution);
     }
-
     function finalizeChallengeByFold(winnerId, loserId, reason) {
       if (!state.betting || state.gameOver) return;
       const winner = state.players[winnerId];
@@ -2980,7 +3036,6 @@
       state.betting = null;
       concludeChallengeFlow(winnerId);
     }
-
     function revealChallenge() {
       if (!state.betting || state.gameOver) return;
       const play = state.betting.play;
@@ -2995,7 +3050,6 @@
       const netGain = netChallengeGainFor(winnerId, pot);
       winner.chips += pot;
       state.stats.chipsMovedByChallenges += pot;
-
       if (success) {
         state.stats.successfulChallenges += 1;
         state.stats.bluffsCaught += 1;
@@ -3013,7 +3067,6 @@
       state.betting = null;
       concludeChallengeFlow(winnerId);
     }
-
     function concludeChallengeFlow(winnerId) {
       if (state.gameOver) return;
       if (checkGameOverBySurvivors()) return;
@@ -3023,7 +3076,6 @@
       }
       openNewRound(winnerId);
     }
-
     function collectPileCards() {
       const cards = [];
       for (const play of state.pile) cards.push(...play.cards);
@@ -3031,7 +3083,6 @@
       state.declaredRank = null;
       return cards;
     }
-
     function advanceAfterNoChallenge(lastPlayerIndex) {
       if (!state.challengeWindow || state.gameOver || state.betting) return;
       state.challengeWindow = null;
@@ -3049,11 +3100,9 @@
       render();
       if (state.currentTurn !== 0) scheduleAiTurn();
     }
-
     function clearRewardForPlayer(player) {
       return CONFIG.clearBonusBase + (player.clears * CONFIG.clearBonusIncrement);
     }
-
     function checkForClearAndRedeal(playerIndex) {
       const player = state.players[playerIndex];
       if (player.eliminated || player.hand.length !== 0) return false;
@@ -3070,7 +3119,6 @@
       player.clears += 1;
       state.stats.totalClears += 1;
       addLog(`${seatLabel(player)} clears their hand and collects ${totalWon} chip${totalWon === 1 ? '' : 's'} total.`);
-
       let ended = false;
       for (const p of state.players) {
         if (eliminateIfNeeded(p.id, `${seatLabel(p)} is out of chips after the clear payout.`)) ended = true;
@@ -3079,7 +3127,6 @@
         render();
         return true;
       }
-
       dealFreshHands();
       state.pile = [];
       state.declaredRank = null;
@@ -3095,7 +3142,6 @@
       if (state.currentTurn !== 0) scheduleAiTurn();
       return true;
     }
-
     function openNewRound(leaderIndex) {
       if (state.gameOver) return;
       if (checkGameOverBySurvivors()) return;
@@ -3115,7 +3161,6 @@
       render();
       if (state.currentTurn !== 0) scheduleAiTurn();
     }
-
     function checkGameOverBySurvivors() {
       const survivors = alivePlayers();
       if (survivors.length === 1) {
@@ -3128,7 +3173,6 @@
       }
       return false;
     }
-
     function scheduleAiTurn() {
       if (state.gameOver) return;
       window.setTimeout(() => {
@@ -3137,7 +3181,6 @@
         }
       }, AI_THINK_MS);
     }
-
     function scheduleBettingAiIfNeeded() {
       if (!state.betting || state.gameOver) return;
       const actorId = state.betting.currentActorId;
@@ -3148,7 +3191,6 @@
         }
       }, AI_THINK_MS);
     }
-
     function aiTakeTurn(playerIndex) {
       const player = state.players[playerIndex];
       if (player.eliminated || state.gameOver || state.challengeWindow || state.betting) return;
@@ -3174,23 +3216,18 @@
       }
       performPlay(playerIndex, decision.cardIds, decision.declaredRank);
     }
-
-
     function getAiHonesty(player) {
       const explicitHonesty = player?.personality?.honesty;
       if (typeof explicitHonesty === 'number') return clamp01(explicitHonesty);
       const aggression = player?.personality?.aggression ?? 0.5;
       return Math.max(0.08, Math.min(0.92, 1 - aggression));
     }
-
     function cardsOfRank(player, rank) {
       return player.hand.filter(c => !c.wild && c.rank === rank);
     }
-
     function wildCards(player) {
       return player.hand.filter(c => c.wild);
     }
-
     function bestTruthfulOpeningRank(player) {
       const allWilds = wildCards(player).length;
       let bestRank = 1;
@@ -3211,45 +3248,37 @@
         totalTruthfulCount: bestCount,
       };
     }
-
     function buildTruthfulPlayForRank(player, rank, desiredCount, opts = {}) {
       const saveWilds = !!opts.saveWilds;
       const natural = cardsOfRank(player, rank).slice();
       const wilds = wildCards(player).slice();
       const chosen = [];
-
       while (natural.length && chosen.length < desiredCount) chosen.push(natural.shift());
       if (!saveWilds || chosen.length < desiredCount) {
         while (wilds.length && chosen.length < desiredCount) chosen.push(wilds.shift());
       }
       return chosen.slice(0, desiredCount);
     }
-
     function buildBluffPlay(player, declaredRank, desiredCount = 1) {
       const offRank = player.hand.filter(c => !c.wild && c.rank !== declaredRank);
       const wilds = wildCards(player).slice();
       const chosen = [];
-
       while (offRank.length && chosen.length < desiredCount) chosen.push(offRank.shift());
       while (chosen.length < desiredCount && wilds.length) chosen.push(wilds.shift());
-
       if (!chosen.length && player.hand.length) chosen.push(player.hand[0]);
       return chosen.slice(0, Math.max(1, desiredCount));
     }
-
     function chooseAiPlay(player) {
       const targetRank = state.declaredRank;
       const pers = player.personality;
       const honesty = getAiHonesty(player);
       const greed = pers ? pers.greed : 0.5;
       const aggression = pers ? pers.aggression : 0.5;
-
       if (targetRank === null) {
         const openingPlan = bestTruthfulOpeningRank(player);
         const canMakeHugeTruth = openingPlan.totalTruthfulCount >= 5;
         const wantsTruthBait = honesty >= 0.68 && canMakeHugeTruth;
         let desiredCount;
-
         if (wantsTruthBait) {
           desiredCount = Math.min(openingPlan.totalTruthfulCount, Math.max(5, Math.min(6, openingPlan.totalTruthfulCount)));
         } else if (openingPlan.naturalCount >= 3 && rand() < 0.52 + greed * 0.22) {
@@ -3259,11 +3288,9 @@
         } else {
           desiredCount = 1;
         }
-
         const openingCards = buildTruthfulPlayForRank(player, openingPlan.rank, desiredCount, {
           saveWilds: honesty >= 0.62 && !wantsTruthBait,
         });
-
         if (openingCards.length) {
           return {
             type: 'play',
@@ -3271,18 +3298,15 @@
             cardIds: openingCards.map(c => c.id),
           };
         }
-
         const fallbackCard = player.hand[0];
         return { type: 'play', declaredRank: rngInt(1, 10), cardIds: [fallbackCard.id] };
       }
-
       const normalMatches = cardsOfRank(player, targetRank);
       const wilds = wildCards(player);
       const maxTruthful = normalMatches.length + wilds.length;
       const hasHugeTruth = maxTruthful >= 5;
       const wantsTruthBait = honesty >= 0.68 && hasHugeTruth;
       const shouldPreserveWilds = honesty >= 0.62 && wilds.length > 0 && normalMatches.length > 0;
-
       if (wantsTruthBait) {
         const baitCount = Math.min(maxTruthful, Math.max(5, Math.min(6, maxTruthful)));
         const baitCards = buildTruthfulPlayForRank(player, targetRank, baitCount, { saveWilds: false });
@@ -3290,7 +3314,6 @@
           return { type: 'play', declaredRank: targetRank, cardIds: baitCards.map(c => c.id) };
         }
       }
-
       if (normalMatches.length) {
         let desiredCount = 1;
         if (normalMatches.length >= 3 && rand() < 0.42 + greed * 0.22) {
@@ -3304,7 +3327,6 @@
           cardIds: normalMatches.slice(0, desiredCount).map(c => c.id),
         };
       }
-
       if (wilds.length) {
         if (honesty >= 0.74) {
           const bluffRiskTolerance = player.chips <= 2
@@ -3317,13 +3339,11 @@
           }
           return { type: 'concede' };
         }
-
         const useWildsNow = player.hand.length <= 2 || rand() < (0.18 + (1 - honesty) * 0.38);
         if (useWildsNow) {
           return { type: 'play', declaredRank: targetRank, cardIds: [wilds[0].id] };
         }
       }
-
       const bluffCountCap = aggression > 0.74 ? 4 : aggression > 0.52 ? 3 : 2;
       const bluffCount = Math.min(
         bluffCountCap,
@@ -3334,7 +3354,6 @@
         : player.chips <= 5
           ? 0.24 + aggression * 0.58
           : Math.min(0.95, 0.4 + aggression * 0.72);
-
       if (honesty <= 0.32 && rand() < bluffRiskTolerance) {
         return {
           type: 'play',
@@ -3342,7 +3361,6 @@
           cardIds: buildBluffPlay(player, targetRank, Math.max(2, bluffCount)).map(c => c.id),
         };
       }
-
       if (honesty > 0.32 && honesty < 0.68) {
         const trickyRate = Math.min(0.7, 0.18 + aggression * 0.34 + greed * 0.16);
         if (rand() < trickyRate) {
@@ -3353,7 +3371,6 @@
           };
         }
       }
-
       if (rand() < bluffRiskTolerance * 0.72) {
         return {
           type: 'play',
@@ -3361,14 +3378,12 @@
           cardIds: buildBluffPlay(player, targetRank, 1).map(c => c.id),
         };
       }
-
       if (shouldPreserveWilds && wilds.length) {
         return { type: 'concede' };
       }
       if (wilds.length) return { type: 'play', declaredRank: targetRank, cardIds: [wilds[0].id] };
       return { type: 'concede' };
     }
-
     function estimateFoldPressureAgainst(actorId, opponentId) {
       const actor = state.players[actorId];
       const opponent = state.players[opponentId];
@@ -3384,7 +3399,6 @@
       pressure += state.betting ? Math.min(0.14, Math.max(0, state.betting.stake - CONFIG.challengeBaseTransfer) * 0.05) : 0;
       return Math.max(0.05, Math.min(0.95, pressure));
     }
-
     function aiBetIntent(actorId) {
       const b = state.betting;
       if (!b) {
@@ -3402,16 +3416,13 @@
       const bankrollBoost = Math.min(0.18, player.chips / 40);
       const couragePush = pers ? (pers.courage - 0.5) * 0.22 : 0;
       const randomNudge = rand() * 0.12 - 0.06;
-
       let confidence = actorId === b.challengerId
         ? (play.truthful ? 0.3 : 0.74)
         : (play.truthful ? 0.74 : 0.24);
       confidence += bankrollBoost + couragePush + randomNudge;
-
       let raiseDrive = confidence;
       let foldFloor = pers ? 0.32 - (pers.courage - 0.5) * 0.18 : 0.32;
       let mode = actorId === b.challengerId ? 'challenge_pressure' : (play.truthful ? 'truth_value_raise' : 'bluff_escape_raise');
-
       if (actorId === b.challengerId) {
         confidence += suspicionFromReadProfile(playerRead, pers) * 0.18;
         raiseDrive += foldPressure * 0.45;
@@ -3428,7 +3439,6 @@
         raiseDrive += opponentPers ? (0.5 - opponentPers.courage) * 0.16 : 0;
         foldFloor += 0.06;
       }
-
       return {
         confidence: Math.max(0.05, Math.min(0.95, confidence)),
         raiseDrive: Math.max(0.05, Math.min(0.98, raiseDrive)),
@@ -3436,7 +3446,6 @@
         mode,
       };
     }
-
     function aiTakeBettingAction(actorId) {
       if (!state.betting || state.gameOver || state.betting.currentActorId !== actorId) return;
       const intent = aiBetIntent(actorId);
@@ -3448,18 +3457,15 @@
       const canRaise = raiseOptions.length > 0;
       const raiseThresh = pers ? 0.68 - (pers.courage - 0.5) * 0.18 : 0.68;
       const hardRaiseThresh = raiseThresh + 0.08;
-
       if (toCall === 0) {
         if (canRaise && intent.raiseDrive > raiseThresh) resolveBetAction(actorId, 'raise');
         else resolveBetAction(actorId, 'checkcall');
         return;
       }
-
       if (toCall > player.chips) {
         resolveBetAction(actorId, 'fold');
         return;
       }
-
       if (confidence < intent.foldFloor) {
         resolveBetAction(actorId, 'fold');
       } else if (canRaise && intent.raiseDrive > hardRaiseThresh && player.chips > toCall) {
@@ -3468,40 +3474,32 @@
         resolveBetAction(actorId, 'checkcall');
       }
     }
-
     function humanBetAction(action) {
       resolveBetAction(0, action);
     }
-
     function humanRaiseSelected() {
       resolveBetAction(0, 'raise');
     }
-
     function humanJoinBackup() {
       resolveBetAction(0, 'joinBackup');
     }
-
     function cardLabel(card) {
       return card.wild ? 'Wild' : String(card.rank);
     }
-
     function normalizedAssetPath(basePath, fileName) {
       const safeBase = String(basePath || '').replace(/\/+$/, '');
       const safeFile = String(fileName || '').replace(/^\/+/, '');
       return `${safeBase}/${safeFile}`;
     }
-
     function rankAssetFromTemplate(template, rank) {
       return String(template || '').replaceAll('{rank}', String(rank));
     }
-
     function formatChallengePrompt(lastPlay) {
       return SCRATCHBONES_GAME.uiText.challengePromptTemplate
         .replaceAll('{seat}', seatLabel(lastPlay.playerIndex))
         .replaceAll('{count}', String(lastPlay.cards.length))
         .replaceAll('{rank}', String(lastPlay.declaredRank));
     }
-
     function resolveScratchbone2DAsset(card, { flipped = false } = {}) {
       const clampedRank = Math.max(1, Math.min(RANK_COUNT, Number(card?.rank) || 1));
       if (card?.wild) {
@@ -3521,7 +3519,6 @@
         fallbackSrc: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, rankAssetFromTemplate(SCRATCHBONES_GAME.assets.rankCardTemplateFallbackSrc, clampedRank)),
       };
     }
-
     function wireScratchboneImageFallbacks(root = document) {
       root.querySelectorAll('img[data-fallback-src]').forEach(img => {
         const fallbackSrc = img.getAttribute('data-fallback-src');
@@ -3533,7 +3530,6 @@
         }, { once: true });
       });
     }
-
     function startChallengeTimer() {
       clearChallengeTimer();
       state.challengeTimeLeft = CHALLENGE_TIMER_SECS;
@@ -3549,7 +3545,6 @@
         }
       }, 1000);
     }
-
     function clearChallengeTimer() {
       if (state.challengeTimer) {
         clearInterval(state.challengeTimer);
@@ -3557,7 +3552,6 @@
       }
       state.challengeTimeLeft = 0;
     }
-
     function updateChallengeBoxTimer() {
       const pct = (state.challengeTimeLeft / CHALLENGE_TIMER_SECS) * 100;
       const bar = document.getElementById('challengeTimerBar');
@@ -3567,18 +3561,15 @@
       if (count) count.textContent = state.challengeTimeLeft + 's';
       if (label) label.textContent = state.challengeTimeLeft + 's';
     }
-
     function clampNumber(value, min, max) {
       return Math.min(max, Math.max(min, value));
     }
-
     function isOverflowing(node, tolerancePx = 1) {
       if (!node) return false;
       const overflowY = (node.scrollHeight - node.clientHeight) > tolerancePx;
       const overflowX = (node.scrollWidth - node.clientWidth) > tolerancePx;
       return overflowX || overflowY;
     }
-
     function normalizeFitPolicy(policy) {
       if (!policy || policy.enabled === false) return null;
       const stages = Array.isArray(policy.stages) && policy.stages.length
@@ -3597,7 +3588,6 @@
         overlap: policy.overlap || {},
       };
     }
-
     function normalizeOverlapPolicy(overlapPolicy, normalizedPolicy) {
       if (!overlapPolicy || overlapPolicy.enabled === false) return null;
       const criticalRegions = overlapPolicy.criticalRegions && typeof overlapPolicy.criticalRegions === 'object'
@@ -3612,7 +3602,6 @@
         containerScaleStep: clampNumber(Number(overlapPolicy.containerScaleStep) || 0.04, 0.01, 0.2),
       };
     }
-
     function rectsIntersect(rectA, rectB, tolerancePx = 0) {
       if (!rectA || !rectB) return false;
       return (
@@ -3622,7 +3611,6 @@
         && (rectA.bottom - tolerancePx) > rectB.top
       );
     }
-
     function collectCriticalRegionRects(rootEl, overlapPolicy) {
       const entries = Object.entries(overlapPolicy.criticalRegions || {});
       const regions = [];
@@ -3636,7 +3624,6 @@
       }
       return regions;
     }
-
     function detectCriticalOverlaps(regions, tolerancePx = 0) {
       const overlaps = [];
       for (let i = 0; i < regions.length; i++) {
@@ -3653,7 +3640,6 @@
       }
       return overlaps;
     }
-
     function applyFitStageClass(targetNode, stageClassNames, stage) {
       if (!targetNode) return;
       targetNode.classList.remove(...stageClassNames, 'fit-0');
@@ -3661,7 +3647,6 @@
       if (stage > 0) targetNode.classList.add(`fit-${stage}`);
       else targetNode.classList.add('fit-0');
     }
-
     function tryCollapseNonCriticalPanels(rootEl, overlapPolicy, overlaps) {
       const activeOverlaps = Array.isArray(overlaps) ? overlaps : [];
       if (activeOverlaps.length) {
@@ -3672,18 +3657,15 @@
       }
       return { collapsed: [], overlaps: activeOverlaps };
     }
-
     function fitContainer(rootEl, policy) {
       if (!rootEl) return {};
       const normalizedPolicy = normalizeFitPolicy(policy);
       if (!normalizedPolicy) return {};
-
       const stageClassNames = normalizedPolicy.stages.map((_, index) => `fit-${index + 1}`);
       const targetEntries = Object.entries(normalizedPolicy.targets || {});
       const fitSummary = {};
       const overlapPolicy = normalizeOverlapPolicy(normalizedPolicy.overlap, normalizedPolicy);
       const overlapSnapshot = [];
-
       for (const [targetKey, targetPolicy] of targetEntries) {
         const selector = targetPolicy?.selector;
         if (!selector) continue;
@@ -3692,7 +3674,6 @@
           fitSummary[targetKey] = { selector, found: false, stage: 0, overflowing: false };
           continue;
         }
-
         const containmentNode = targetPolicy?.containmentSelector
           ? (targetNode.querySelector(targetPolicy.containmentSelector) || targetNode)
           : targetNode;
@@ -3706,7 +3687,6 @@
           return Number(stageConfig.fontScale) >= targetFloor ? stageIndex + 1 : maxAllowed;
         }, 0);
         const maxStage = Math.min(configuredMaxStage, floorLimitedStage > 0 ? floorLimitedStage : 0);
-
         let stage = 0;
         applyFitStageClass(targetNode, stageClassNames, stage);
         let overflowing = isOverflowing(containmentNode, normalizedPolicy.overflowTolerancePx);
@@ -3715,7 +3695,6 @@
           applyFitStageClass(targetNode, stageClassNames, stage);
           overflowing = isOverflowing(containmentNode, normalizedPolicy.overflowTolerancePx);
         }
-
         fitSummary[targetKey] = {
           selector,
           containmentSelector: targetPolicy?.containmentSelector || null,
@@ -3729,15 +3708,12 @@
           clientWidth: containmentNode.clientWidth,
         };
       }
-
       if (!overlapPolicy) {
         return { fitSummary, overlap: { overlaps: [], stage: 'disabled', snapshot: [] } };
       }
-
       const stageOrder = ['text', 'image', 'gap', 'container'];
       let regions = collectCriticalRegionRects(rootEl, overlapPolicy);
       let overlaps = detectCriticalOverlaps(regions, overlapPolicy.tolerancePx);
-
       for (const stageName of stageOrder) {
         if (!overlaps.length) break;
         for (const [targetKey, targetPolicy] of targetEntries) {
@@ -3763,7 +3739,6 @@
           overlaps: overlaps.map((entry) => ({ offending: [entry.a.key, entry.b.key], selectors: [entry.a.selector, entry.b.selector] })),
         });
       }
-
       let containerScale = 1;
       while (overlaps.length && containerScale > overlapPolicy.minContainerScale) {
         containerScale = clampNumber(containerScale - overlapPolicy.containerScaleStep, overlapPolicy.minContainerScale, 1);
@@ -3777,12 +3752,10 @@
           overlaps: overlaps.map((entry) => ({ offending: [entry.a.key, entry.b.key], selectors: [entry.a.selector, entry.b.selector] })),
         });
       }
-
       const collapseResult = overlaps.length
         ? tryCollapseNonCriticalPanels(rootEl, overlapPolicy, overlaps)
         : { collapsed: [], overlaps };
       overlaps = collapseResult.overlaps;
-
       return {
         fitSummary,
         overlap: {
@@ -3794,13 +3767,11 @@
         },
       };
     }
-
     function syncDebugSnapshotPre() {
       const debugPre = document.getElementById('debugSnapshotData');
       if (!debugPre || !DEBUG_ENABLED) return;
       debugPre.textContent = JSON.stringify(debugSnapshot(), null, 2);
     }
-
     function applyResponsiveFit(rootEl = document.getElementById('app')) {
       const layoutResult = fitContainer(rootEl, SCRATCHBONES_GAME.layout?.fitter);
       state.layoutFitStages = layoutResult.fitSummary || {};
@@ -3808,7 +3779,6 @@
       syncDebugSnapshotPre();
       return state.layoutFitStages;
     }
-
     function getLayoutRegionsConfig() {
       const layoutRegions = SCRATCHBONES_GAME.layout?.regions || {};
       return {
@@ -3829,7 +3799,6 @@
         },
       };
     }
-
     function getClaimClusterConfig() {
       const claimCluster = SCRATCHBONES_GAME.layout?.claimCluster || {};
       const elements = claimCluster.elements || {};
@@ -3858,7 +3827,6 @@
         },
       };
     }
-
     function claimClusterElementStyle(elementLayout) {
       const xPct = clampNumber(Number(elementLayout?.xPct ?? 0.5), 0, 1);
       const yPct = clampNumber(Number(elementLayout?.yPct ?? 0.5), 0, 1);
@@ -3866,7 +3834,6 @@
       const hPct = clampNumber(Number(elementLayout?.hPct ?? 0.1), 0.01, 1);
       return `left:${(xPct * 100).toFixed(2)}%;top:${(yPct * 100).toFixed(2)}%;width:${(wPct * 100).toFixed(2)}%;height:${(hPct * 100).toFixed(2)}%;`;
     }
-
     function applyLayoutContract(app) {
       if (!app) return null;
       const layout = SCRATCHBONES_GAME.layout || {};
@@ -4053,7 +4020,6 @@
         },
       };
     }
-
     function resolveChallengeLayoutPressure(app, allowChallengeOverflow = true) {
       if (!app) return;
       if (!allowChallengeOverflow) {
@@ -4074,10 +4040,8 @@
         app.style.setProperty('--layout-parent-height-scale', '1');
         return;
       }
-
       const overflowPx = Math.max(0, challengePane.scrollHeight - challengePane.clientHeight);
       const severity = clampNumber(overflowPx / 220, 0, 1);
-
       // Deterministic resolver order:
       // 1) wrap text
       // 2) reduce font scale
@@ -4094,7 +4058,6 @@
       app.style.setProperty('--layout-challenge-gap-scale', clampNumber(gapScale, 0.72, 1).toFixed(3));
       app.style.setProperty('--layout-parent-height-scale', clampNumber(parentHeightScale, 0.80, 1).toFixed(3));
     }
-
     function updateTableViewHeight(app, tableLayoutPolicy) {
       if (!app || !tableLayoutPolicy) return;
       const topbar = app.querySelector('.topbar');
@@ -4114,19 +4077,15 @@
       );
       app.style.setProperty('--layout-table-view-height', `${Math.round(tableViewHeightPx)}px`);
     }
-
     function getCinematicRoot() {
       return document.getElementById('tableCinematicHost');
     }
-
     function isTableCinematicEnabled() {
       return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.enabled !== false;
     }
-
     function isTableCinematicEffectsEnabled() {
       return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.showEffects !== false;
     }
-
     function render() {
       const app = document.getElementById('app');
       const layoutPolicy = applyLayoutContract(app);
@@ -4249,7 +4208,6 @@
           </div>
         </div>
       `;
-
       app.innerHTML = `
         <div class="topbar" data-proj-id="topbar">
           <div class="titleRow">
@@ -4263,7 +4221,6 @@
             <div class="chip">Pile Plays: ${state.pile.length}</div>
           </div>
         </div>
-
         <div id="aiSidebar" class="fit-target fit-0" data-proj-id="sidebar">
           <div class="sectionTitle" style="padding:6px 10px 2px;color:var(--accent-2);">Table</div>
           ${state.players.slice(1).map(p => `
@@ -4281,7 +4238,6 @@
             </div>
           `).join('')}
         </div>
-
         <div class="humanSeatZone fit-target fit-0" data-proj-id="human-seat-zone">
           <div class="humanSeatCard ${player.eliminated ? 'eliminated' : ''}" data-proj-id="human-seat">
             <div class="seatInfo">
@@ -4295,7 +4251,6 @@
             <div class="humanSeatChipBadge">Chips ${player.chips}</div>
           </div>
         </div>
-
         <div class="panel" data-proj-id="panel">
           <div class="tableView fit-target fit-0" data-proj-id="table-view">
             ${(turnSpotlightEnabled && turnSpotlightEmbedded) ? `
@@ -4341,7 +4296,6 @@
             <pre id="debugSnapshotData">${DEBUG_ENABLED ? escapeHtml(JSON.stringify(debugSnapshot(), null, 2)) : 'Debug disabled.'}</pre>
           </details>
         </div>
-
         <div class="contextBox ${contextBoxEnabled ? 'must-stay-visible' : ''}" data-proj-id="context-box">
           ${state.betting
             ? renderBettingControls()
@@ -4368,18 +4322,15 @@
             </div>
           </div>
         </div>
-
         <div class="eventLog fit-target fit-0" data-proj-id="log">
           <div class="sectionTitle">Recent events</div>
           ${recentLogs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
         </div>
       `;
-
       if (state.declaredRank !== null) {
         const select = document.getElementById('declareRank');
         if (select) select.value = String(state.declaredRank);
       }
-
       document.getElementById('restartBtn')?.addEventListener('click', startGame);
       document.getElementById('playBtn')?.addEventListener('click', humanPlay);
       document.getElementById('concedeBtn')?.addEventListener('click', humanConcedeRound);
@@ -4398,10 +4349,20 @@
       updateTableViewHeight(app, tableViewPolicy);
       refreshCinematicBettingZone();
       renderSeatPortraits();
-      applyResponsiveFit(app);
+      const layoutMode = getScratchbonesLayoutMode();
+      document.body.classList.toggle('layout-mode-authored', layoutMode === 'authored');
+      if (layoutMode === 'authored') {
+        applyAuthoredLayoutMode(app, getScratchbonesAuthoredConfig());
+        state.layoutFitStages = {};
+      } else {
+        app.style.transform = '';
+        app.style.transformOrigin = '';
+        applyResponsiveFit(app);
+      }
+      renderAuthoredOverlays();
+      renderAuthoredInspector();
       updateTableCardAutoScale(app);
     }
-
     function debugSnapshot() {
       const regionsConfig = getLayoutRegionsConfig();
       const claimClusterConfig = getClaimClusterConfig();
@@ -4452,7 +4413,6 @@
         recentChange: state.recentChange,
       };
     }
-
     function escapeHtml(str) {
       return String(str)
         .replaceAll('&', '&amp;')
@@ -4460,18 +4420,14 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;');
     }
-
-
     // ── Portrait generation ────────────────────────────────
     let _portraitCosmetics = null;
-
     if (window.setPortraitAssetBase && window.loadPortraitCosmetics) {
       const scratchbonesPortraitConfig = window.SCRATCHBONES_CONFIG?.game?.assets?.portrait || null;
       if (scratchbonesPortraitConfig && window.setPortraitConfig) {
         setPortraitConfig(scratchbonesPortraitConfig);
       }
       setPortraitAssetBase(scratchbonesPortraitConfig?.assetBase || './docs/assets/');
-
       loadPortraitCosmetics(scratchbonesPortraitConfig?.configBase || './docs/config/').then(cosmetics => {
         _portraitCosmetics = cosmetics;
         if (state.players.length) {
@@ -4483,7 +4439,6 @@
     } else {
       console.warn('[game] portrait utils unavailable; falling back to initials.');
     }
-
     function generatePlayerProfile(player) {
       if (!_portraitCosmetics) return null;
       const { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, torsoPortraitOptions, armPortraitOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter } = _portraitCosmetics;
@@ -4494,7 +4449,6 @@
                         : FIGHTERS;
       return randomProfileSeeded(rng, fighterPool.length ? fighterPool : FIGHTERS, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter, torsoPortraitOptions, armPortraitOptions);
     }
-
     function renderSeatPortraits() {
       const root = document.getElementById('app');
       if (!root) return;
@@ -4506,7 +4460,6 @@
         }
       }
     }
-
     function renderCinematicPortraits() {
       const root = getCinematicRoot();
       if (!root || !root.classList.contains('cin-active')) return;
@@ -4516,14 +4469,11 @@
         if (canvas && window.renderProfile) renderProfile(canvas, p.profile);
       }
     }
-
     // ===== CHALLENGE CINEMATIC =====
     let _cinTimeout = null;
-
     function _clearCinTimeout() {
       if (_cinTimeout) { clearTimeout(_cinTimeout); _cinTimeout = null; }
     }
-
     function closeCinematic() {
       _clearCinTimeout();
       const el = getCinematicRoot();
@@ -4533,14 +4483,12 @@
       const tableView = el.closest('.tableView');
       if (tableView) tableView.classList.remove('cinematic-active');
     }
-
     function activateTableCinematicMode() {
       const cinematicRoot = getCinematicRoot();
       if (!cinematicRoot) return;
       const tableView = cinematicRoot.closest('.tableView');
       if (tableView) tableView.classList.add('cinematic-active');
     }
-
     function updateTableCardAutoScale(root = document.getElementById('app')) {
       const tableView = root?.querySelector?.('.tableView');
       const cardsContainer = tableView?.querySelector?.('.tableViewCards');
@@ -4569,11 +4517,9 @@
       }
       tableView.style.setProperty('--layout-table-card-auto-scale', clampNumber(bestScale, 0.35, 1).toFixed(3));
     }
-
     function refreshCinematicBettingZone() {
       const zone = document.getElementById('cin-betting-zone');
       if (!zone || !state.betting) return;
-
       const b = state.betting;
       const humanActor    = b.currentActorId === 0;
       const callAmt       = amountToCall(0);
@@ -4582,13 +4528,11 @@
       const actorPlayer   = state.players[b.currentActorId];
       const actorName     = actorPlayer?.isHuman ? 'You' : (actorPlayer?.name || '?');
       const backupEligible = eligibleBackupIds(b.challengerId, b.challengedId).includes(0) && !b.backupQueue.includes(0);
-
       const cPlayer = state.players[b.challengerId];
       const dPlayer = state.players[b.challengedId];
       const cContrib = getContribution(b.challengerId);
       const dContrib = getContribution(b.challengedId);
       const potTotal  = cContrib + dContrib;
-
       // Left: challenger bank | Middle: pot pile | Right: declared bank
       const chipTable = `
         <div class="cin-chip-table">
@@ -4598,13 +4542,11 @@
             <div class="cin-chip-sublabel">bet in</div>
             ${_chipPileHtml(cContrib, CHIP_GOLD)}
           </div>
-
           <div class="cin-chip-col-mid">
             <div class="cin-chip-pot-label">Pot</div>
             ${_chipPileHtml(potTotal, CHIP_GOLD)}
             <div style="font-size:0.6rem;color:var(--muted);">stake ${b.stake}</div>
           </div>
-
           <div class="cin-chip-col right">
             <div class="cin-chip-label">${dPlayer?.isHuman ? 'Your' : dPlayer?.name?.split(' ')[0]} bank</div>
             ${_chipWalletHtml(dPlayer?.chips || 0, CHIP_BANK)}
@@ -4612,7 +4554,6 @@
             ${_chipPileHtml(dContrib, CHIP_GOLD)}
           </div>
         </div>`;
-
       zone.innerHTML = `
         <div class="cin-divider"></div>
         <div class="cin-bet-header">⚖ Betting on the challenge</div>
@@ -4628,7 +4569,6 @@
         }
       `;
       wireScratchboneImageFallbacks(zone);
-
       if (humanActor) {
         document.getElementById('cinCallBtn')?.addEventListener('click', () => humanBetAction('checkcall'));
         document.getElementById('cinRaiseBtn')?.addEventListener('click', humanRaiseSelected);
@@ -4636,12 +4576,10 @@
         document.getElementById('cinBackupBtn')?.addEventListener('click', humanJoinBackup);
       }
     }
-
     // ── Cinematic bet-action announcement (burst + tankan columns) ──
     function _announceCinematicBetAction(playerId, command) {
       const cin = getCinematicRoot();
       if (!cin || !cin.classList.contains('cin-active')) return;
-
       // Burst word above the avatar
       const playerEl = cin.querySelector(`.cin-player[data-player-id="${playerId}"]`);
       if (playerEl) {
@@ -4654,7 +4592,6 @@
         playerEl.appendChild(burst);
         burst.addEventListener('animationend', () => burst.remove());
       }
-
       // Tankanscript vertical side columns — persist until next action or cinematic close
       const tankanText = TANKAN_STRINGS[command] || '';
       if (tankanText) {
@@ -4667,7 +4604,6 @@
         }
       }
     }
-
     // ── Chip sprite helpers ──
     function _chipSvg(fill, size) {
       size = size || 20;
@@ -4691,12 +4627,10 @@
         + `<ellipse cx="${glintX}" cy="${glintY}" rx="${glintRX}" ry="${glintRY}" fill="rgba(255,255,255,0.28)"/>`
         + `</svg>`;
     }
-
     // Single chip + bold number — for bankroll display
     function _chipWalletHtml(count, fill) {
       return `<span style="display:inline-flex;align-items:center;gap:5px;">${_chipSvg(fill, 20)}<span style="font-size:0.95rem;font-weight:800;color:var(--text);">${count}</span></span>`;
     }
-
     // Overlapping spread pile — for pot / contributions
     function _chipPileHtml(count, fill) {
       if (count <= 0) return `<span style="font-size:0.8rem;color:var(--muted);font-style:italic;">—</span>`;
@@ -4717,25 +4651,21 @@
         : '';
       return `<div style="position:relative;display:inline-block;width:${w}px;height:${h}px;">${inner}${extra}</div>`;
     }
-
     // Chip fill colors
     const CHIP_GOLD   = '#c89952';
     const CHIP_BANK   = '#7a8fa0';
-
     // Tankanscript labels for bet actions — swap strings for conlang equivalents
     const TANKAN_STRINGS = {
       checkcall: 'Call',
       raise:     'Raise',
       fold:      'Fold',
     };
-
     // Deterministic hue from a string (for avatar colors)
     function _avatarHue(name) {
       let h = 0;
       for (let i = 0; i < (name || '').length; i++) h = (h * 37 + name.charCodeAt(i)) % 360;
       return h;
     }
-
     // Build player profile HTML for cinematic — chip count as single chip + number
     function _cinPlayerHtml(player, role) {
       const hue = player.isHuman ? 210 : _avatarHue(player.name);
@@ -4758,7 +4688,6 @@
           ${tags ? `<div class="cin-tags">${tags}</div>` : ''}
         </div>`;
     }
-
     // Build ember particles HTML
     function _cinEmbersHtml(colorHue) {
       const embers = [];
@@ -4773,7 +4702,6 @@
       }
       return `<div class="cin-embers">${embers.join('')}</div>`;
     }
-
     // Build card row HTML (face-down or revealed)
     function _cinCardsHtml(play, revealed) {
       if (!play) return '';
@@ -4809,20 +4737,17 @@
           <div class="cin-cards-row">${rowItems}</div>
         </div>`;
     }
-
     // Phase 2a: Reveal (no fold)
     function showRevealCinematic(challengerIndex, challengedIndex, play, success) {
       const cin = getCinematicRoot();
       if (!cin || !isTableCinematicEnabled()) return;
       _clearCinTimeout();
-
       const challenger = state.players[challengerIndex];
       const challenged = state.players[challengedIndex];
       const winnerId  = success ? challengerIndex : challengedIndex;
       const winner    = state.players[winnerId];
       const humanWon  = winnerId === 0;
       const humanLost = !humanWon && (challengerIndex === 0 || challengedIndex === 0);
-
       const headlineText  = success ? '🎯 Bluff Caught!' : '✔ Truthful Play!';
       const headlineClass = success ? 'cin-caught' : 'cin-defended';
       const resultText    = (winner.isHuman ? 'You win' : `${winner.name} wins`) + ' the challenge.';
@@ -4831,7 +4756,6 @@
       const fxMarkup = isTableCinematicEffectsEnabled()
         ? `${_cinEmbersHtml(emberHue)}<div class="cin-shimmer"></div>`
         : '';
-
       cin.innerHTML = `
         <div class="cin-bg"></div>
         ${fxMarkup}
@@ -4850,17 +4774,14 @@
       activateTableCinematicMode();
       cin.classList.add('cin-active');
       renderCinematicPortraits();
-
       document.getElementById('cinContinueBtn')?.addEventListener('click', closeCinematic);
       _cinTimeout = setTimeout(closeCinematic, 4200);
     }
-
     // Phase 2b: Fold resolution
     function showFoldCinematic(winnerId, loserId) {
       const cin = getCinematicRoot();
       if (!cin || !isTableCinematicEnabled()) return;
       _clearCinTimeout();
-
       const winner    = state.players[winnerId];
       const loser     = state.players[loserId];
       const winnerName = winner.isHuman ? 'You' : winner.name;
@@ -4871,7 +4792,6 @@
       const fxMarkup = isTableCinematicEffectsEnabled()
         ? `${_cinEmbersHtml(30)}<div class="cin-shimmer"></div>`
         : '';
-
       cin.innerHTML = `
         <div class="cin-bg"></div>
         ${fxMarkup}
@@ -4885,34 +4805,143 @@
       activateTableCinematicMode();
       cin.classList.add('cin-active');
       renderCinematicPortraits();
-
       document.getElementById('cinContinueBtn')?.addEventListener('click', closeCinematic);
       _cinTimeout = setTimeout(closeCinematic, 2600);
     }
-
     // ── UI projection mapping mode ────────────────────────────────────────
+    const projectionUiState = {
+      active: false,
+      varsPanelOpen: false,
+      lastSelectedProjId: null,
+      lastSelectedSourceEl: null,
+      editedVars: new Map(),
+      ui: null,
+    };
+    function renderAuthoredOverlays() {
+      const overlay = document.getElementById('authoredOverlay');
+      const app = document.getElementById('app');
+      if (!overlay || !app) return;
+      const mode = getScratchbonesLayoutMode();
+      const isActive = projectionUiState.active && mode === 'authored';
+      overlay.classList.toggle('active', isActive);
+      overlay.innerHTML = '';
+      app.querySelectorAll('[data-proj-id]').forEach((el) => el.classList.remove('authored-box-selected'));
+      if (!isActive) return;
+      const authored = getScratchbonesAuthoredConfig();
+      const root = document.getElementById('authoredRoot');
+      const liveWidth = root?.clientWidth || window.innerWidth || authored.designWidthPx;
+      const liveHeight = root?.clientHeight || window.innerHeight || authored.designHeightPx;
+      const scale = computeAuthoredScale(liveWidth, liveHeight, authored.designWidthPx, authored.designHeightPx);
+      const offsetX = (liveWidth - (authored.designWidthPx * scale)) / 2;
+      const offsetY = (liveHeight - (authored.designHeightPx * scale)) / 2;
+      for (const [boxId, box] of Object.entries(authored.boxes)) {
+        const node = document.createElement('div');
+        node.className = `authoredBoxOverlay${authoredEditorState.selectedId === boxId ? ' selected' : ''}`;
+        node.dataset.boxId = boxId;
+        node.style.left = `${Math.round(offsetX + (box.x * scale))}px`;
+        node.style.top = `${Math.round(offsetY + (box.y * scale))}px`;
+        node.style.width = `${Math.max(12, Math.round(box.width * scale))}px`;
+        node.style.height = `${Math.max(12, Math.round(box.height * scale))}px`;
+        node.innerHTML = `<div class="authoredBoxLabel">${escapeHtml(boxId)}</div><div class="authoredResizeHandle" data-resize-handle="se"></div>`;
+        overlay.appendChild(node);
+      }
+      if (authoredEditorState.selectedId) {
+        for (const [projId, boxId] of Object.entries(AUTHORED_BOX_KEY_BY_PROJ_ID)) {
+          if (boxId !== authoredEditorState.selectedId) continue;
+          const match = app.querySelector(`[data-proj-id="${projId}"]`);
+          if (match) {
+            match.classList.add('authored-box-selected');
+            break;
+          }
+        }
+      }
+    }
+    function renderAuthoredInspector() {
+      const varsPanelBody = projectionUiState.ui?.varsPanelBody;
+      const varsPanelTitle = projectionUiState.ui?.varsPanelTitle;
+      if (!varsPanelBody || !varsPanelTitle || !projectionUiState.varsPanelOpen) return;
+      const selectedId = getSelectedAuthoredBox();
+      if (!selectedId) return;
+      const authored = getScratchbonesAuthoredConfig();
+      const box = authored.boxes[selectedId];
+      if (!box) return;
+      varsPanelTitle.textContent = `Authored Box · ${selectedId}`;
+      const field = (key) => `<label class="projVarRow sizePosVar"><span class="projVarLabel">${key}</span><input class="projVarInput" data-authored-field="${key}" type="number" step="1" value="${Math.round(box[key])}"><span class="projVarHint">px</span><span class="projVarHint">direct</span></label>`;
+      varsPanelBody.innerHTML = `
+        <div class="projVarHint">Selected authored box is the primary editor target.</div>
+        ${field('x')}
+        ${field('y')}
+        ${field('width')}
+        ${field('height')}
+      `;
+    }
+    function bindAuthoredDragAndResize(event) {
+      if (!projectionUiState.active || getScratchbonesLayoutMode() !== 'authored') return false;
+      const overlay = event.target.closest('.authoredBoxOverlay');
+      if (!overlay) return false;
+      const boxId = overlay.dataset.boxId;
+      if (!boxId) return false;
+      selectAuthoredBox(boxId);
+      const authored = getScratchbonesAuthoredConfig();
+      const box = authored.boxes[boxId];
+      if (!box) return false;
+      const root = document.getElementById('authoredRoot');
+      const liveWidth = root?.clientWidth || window.innerWidth || authored.designWidthPx;
+      const liveHeight = root?.clientHeight || window.innerHeight || authored.designHeightPx;
+      const scale = computeAuthoredScale(liveWidth, liveHeight, authored.designWidthPx, authored.designHeightPx);
+      const isResize = !!event.target.closest('[data-resize-handle]');
+      authoredEditorState.pointerDrag = {
+        boxId,
+        mode: isResize ? 'resize' : 'move',
+        startX: event.clientX,
+        startY: event.clientY,
+        startBox: { ...box },
+        scale,
+      };
+      overlay.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      return true;
+    }
+    function updateAuthoredPointer(event) {
+      const drag = authoredEditorState.pointerDrag;
+      if (!drag) return;
+      const dx = (event.clientX - drag.startX) / drag.scale;
+      const dy = (event.clientY - drag.startY) / drag.scale;
+      const next = { ...drag.startBox };
+      if (drag.mode === 'resize') {
+        next.width = Math.max(24, drag.startBox.width + dx);
+        next.height = Math.max(24, drag.startBox.height + dy);
+      } else {
+        next.x = drag.startBox.x + dx;
+        next.y = drag.startBox.y + dy;
+      }
+      updateAuthoredBox(drag.boxId, next);
+      updateEditorStatus(`Updated ${drag.boxId}: x=${Math.round(next.x)} y=${Math.round(next.y)} w=${Math.round(next.width)} h=${Math.round(next.height)}`);
+    }
+    function finishAuthoredPointer(event) {
+      if (!authoredEditorState.pointerDrag) return;
+      const overlay = event.target.closest('.authoredBoxOverlay');
+      if (overlay?.hasPointerCapture?.(event.pointerId)) overlay.releasePointerCapture(event.pointerId);
+      authoredEditorState.pointerDrag = null;
+    }
     (function initProjMap() {
       const btn = document.getElementById('projMapBtn');
       const varsBtn = document.getElementById('projVarBtn');
+      const exportBtn = document.getElementById('projExportBtn');
       const tip = document.getElementById('projMapTip');
       const varsPanel = document.getElementById('projVarPanel');
       const varsPanelTitle = document.getElementById('projVarPanelTitle');
       const varsPanelBody = document.getElementById('projVarPanelBody');
       const varsCopyBtn = document.getElementById('projVarCopyBtn');
       const varsCloseBtn = document.getElementById('projVarCloseBtn');
-      if (!btn || !tip || !varsBtn || !varsPanel || !varsPanelTitle || !varsPanelBody || !varsCopyBtn || !varsCloseBtn) return;
-
-      let active = false;
-      let lastSelectedProjId = null;
-      let lastSelectedSourceEl = null;
+      if (!btn || !tip || !varsBtn || !exportBtn || !varsPanel || !varsPanelTitle || !varsPanelBody || !varsCopyBtn || !varsCloseBtn) return;
+      projectionUiState.ui = { varsPanelBody, varsPanelTitle };
       const projectionMapConfig = SCRATCHBONES_GAME.layout?.projectionMapping || {};
       const projectionEditorConfig = projectionMapConfig.editor || {};
       const varStep = Number(projectionEditorConfig.step) || 0.01;
       const basePanelTitle = String(projectionEditorConfig.panelTitle || 'Projection Vars');
-      const editedVars = new Map();
       const sliderClamp = projectionEditorConfig.sliderClamp || {};
       const multiplierVarHints = Array.isArray(projectionEditorConfig.multiplierVarHints) ? projectionEditorConfig.multiplierVarHints : ['scale', 'frac', 'ratio', 'multiplier'];
-      const sizePositionVarHints = Array.isArray(projectionEditorConfig.sizePositionVarHints) ? projectionEditorConfig.sizePositionVarHints : ['width', 'height', 'size', 'scale', 'gap', 'padding', 'min', 'max', 'offset', 'top', 'right', 'bottom', 'left', 'x', 'y', 'row', 'column', 'frac', 'avatar', 'card'];
       const varsByProjId = projectionMapConfig.varsByProjId || projectionMapConfig.relatedVarsByProjId || {};
       const selectorVarsByProjId = projectionMapConfig.selectorVarsByProjId || {};
       const sharedVars = Array.isArray(projectionMapConfig.sharedVars) ? projectionMapConfig.sharedVars : [];
@@ -4921,74 +4950,7 @@
       const DEFAULT_SLIDER_MAX = Number.isFinite(Number(sliderClamp.absoluteMax)) ? Number(sliderClamp.absoluteMax) : 2000;
       const MULTIPLIER_SLIDER_MIN = Number.isFinite(Number(sliderClamp.multiplierMin)) ? Number(sliderClamp.multiplierMin) : 0;
       const MULTIPLIER_SLIDER_MAX = Number.isFinite(Number(sliderClamp.multiplierMax)) ? Number(sliderClamp.multiplierMax) : 5;
-      let lastSelectionDetail = '';
-
-      const copyToClipboard = (text) => {
-        const payload = String(text ?? '');
-        return navigator.clipboard?.writeText(payload).catch(() => {
-          const ta = document.createElement('textarea');
-          ta.value = payload;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-        });
-      };
-
-      const matchesProjPattern = (pattern, projId) => {
-        if (typeof pattern !== 'string' || !pattern) return false;
-        if (pattern.endsWith('*')) return projId.startsWith(pattern.slice(0, -1));
-        return pattern === projId;
-      };
-
-      const resolveRelatedVars = (projId, sourceEl) => {
-        if (!projId) return [];
-        const result = new Set(sharedVars);
-        for (const [pattern, vars] of Object.entries(varsByProjId)) {
-          const normalizedVars = Array.isArray(vars) ? vars : [];
-          if (!matchesProjPattern(pattern, projId)) continue;
-          for (const varName of normalizedVars) {
-            if (typeof varName === 'string' && varName.startsWith('--')) result.add(varName);
-          }
-        }
-        if (sourceEl) {
-          for (const [pattern, selectorMapping] of Object.entries(selectorVarsByProjId)) {
-            if (!matchesProjPattern(pattern, projId) || !selectorMapping || typeof selectorMapping !== 'object') continue;
-            for (const [selector, vars] of Object.entries(selectorMapping)) {
-              if (typeof selector !== 'string' || !selector.trim()) continue;
-              const matchesSelector = sourceEl.matches(selector) || !!sourceEl.closest(selector);
-              if (!matchesSelector) continue;
-              const normalizedVars = Array.isArray(vars) ? vars : [];
-              for (const varName of normalizedVars) {
-                if (typeof varName === 'string' && varName.startsWith('--')) result.add(varName);
-              }
-            }
-          }
-        }
-        if (!result.size) {
-          for (const varName of fallbackVars) {
-            if (typeof varName === 'string' && varName.startsWith('--')) result.add(varName);
-          }
-        }
-        if (!result.size) {
-          const computedRootStyles = getComputedStyle(document.documentElement);
-          for (const varName of computedRootStyles) {
-            if (typeof varName === 'string' && (varName.startsWith('--layout-') || varName.startsWith('--hand-'))) {
-              result.add(varName);
-            }
-          }
-        }
-
-        return [...result];
-      };
-
-      const escapeHtml = (value) => String(value ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
-
+      const matchesProjPattern = (pattern, projId) => (typeof pattern === 'string' && pattern.endsWith('*')) ? projId.startsWith(pattern.slice(0, -1)) : pattern === projId;
       const normalizeCssVarValue = (rawValue) => {
         const value = String(rawValue || '').trim();
         if (!value) return '';
@@ -4998,201 +4960,181 @@
         if (/px$/i.test(value)) return `${parsed.toFixed(2)}px`;
         return parsed.toFixed(3);
       };
-
       const parseNumericCssVar = (rawValue) => {
         const match = String(rawValue || '').trim().match(/-?\d+(\.\d+)?/);
         if (!match) return null;
         const value = Number.parseFloat(match[0]);
         return Number.isFinite(value) ? value : null;
       };
-
-      const cssVarSuffix = (value) => {
-        const suffixMatch = String(value ?? '').trim().match(/[a-z%]+$/i);
-        return suffixMatch ? suffixMatch[0] : '';
-      };
-
-      const isMultiplierVar = (varName, currentValue) => {
-        const normalizedName = String(varName || '').toLowerCase();
-        const hintMatch = multiplierVarHints.some((hint) => normalizedName.includes(String(hint || '').toLowerCase()));
-        const suffix = cssVarSuffix(currentValue);
-        return hintMatch || !suffix;
-      };
-
-      const isSizeOrPositionVar = (varName) => {
-        const normalizedName = String(varName || '').toLowerCase();
-        return sizePositionVarHints.some((hint) => normalizedName.includes(String(hint || '').toLowerCase()));
-      };
-
-      const resolveSliderBounds = (varName, currentValue) => {
-        if (isMultiplierVar(varName, currentValue)) {
-          return { min: MULTIPLIER_SLIDER_MIN, max: MULTIPLIER_SLIDER_MAX };
+      const cssVarSuffix = (value) => (String(value ?? '').trim().match(/[a-z%]+$/i) || [])[0] || '';
+      const isMultiplierVar = (varName, currentValue) => multiplierVarHints.some((hint) => String(varName || '').toLowerCase().includes(String(hint || '').toLowerCase())) || !cssVarSuffix(currentValue);
+      const resolveSliderBounds = (varName, currentValue) => isMultiplierVar(varName, currentValue)
+        ? { min: MULTIPLIER_SLIDER_MIN, max: MULTIPLIER_SLIDER_MAX }
+        : { min: DEFAULT_SLIDER_MIN, max: DEFAULT_SLIDER_MAX };
+      const resolveRelatedVars = (projId, sourceEl) => {
+        if (!projId) return [];
+        const result = new Set(sharedVars);
+        for (const [pattern, vars] of Object.entries(varsByProjId)) {
+          if (!matchesProjPattern(pattern, projId)) continue;
+          for (const varName of (Array.isArray(vars) ? vars : [])) if (String(varName).startsWith('--')) result.add(varName);
         }
-        return { min: DEFAULT_SLIDER_MIN, max: DEFAULT_SLIDER_MAX };
+        if (sourceEl) {
+          for (const [pattern, selectorMapping] of Object.entries(selectorVarsByProjId)) {
+            if (!matchesProjPattern(pattern, projId) || !selectorMapping || typeof selectorMapping !== 'object') continue;
+            for (const [selector, vars] of Object.entries(selectorMapping)) {
+              if (!selector || !(sourceEl.matches(selector) || sourceEl.closest(selector))) continue;
+              for (const varName of (Array.isArray(vars) ? vars : [])) if (String(varName).startsWith('--')) result.add(varName);
+            }
+          }
+        }
+        if (!result.size) for (const varName of fallbackVars) if (String(varName).startsWith('--')) result.add(varName);
+        return [...result];
       };
-
-      const inferSelectionDetail = (sourceEl) => {
-        if (!sourceEl || !(sourceEl instanceof Element)) return '';
-        if (sourceEl.matches('.seatPortrait, .seatAvatarBox')) return 'avatar scope';
-        if (sourceEl.matches('.cardArt, .tableViewCard img, .tableViewCard')) return 'card image scope';
-        if (sourceEl.matches('.cardLabel, .cardGlyph, .cardText')) return 'card text scope';
-        if (sourceEl.matches('.seatName, .seatMeta, .seatStatus, .seatSeed, .seatTags, .turnSpotlightNameBar, .claimRankBox, .claimCountBoxLeft, .claimCountBoxRight')) return 'text scope';
-        return '';
-      };
-
       const renderVarEditor = () => {
-        varsPanelTitle.textContent = lastSelectedProjId
-          ? `${basePanelTitle} · ${lastSelectedProjId}${lastSelectionDetail ? ` (${lastSelectionDetail})` : ''}`
+        if (getScratchbonesLayoutMode() === 'authored' && getSelectedAuthoredBox()) {
+          renderAuthoredInspector();
+          return;
+        }
+        varsPanelTitle.textContent = projectionUiState.lastSelectedProjId
+          ? `${basePanelTitle} · ${projectionUiState.lastSelectedProjId}`
           : basePanelTitle;
-        if (!lastSelectedProjId) {
+        if (!projectionUiState.lastSelectedProjId) {
           varsPanelBody.innerHTML = '<div class="projVarHint">Select an outlined element in map mode, then open Vars.</div>';
           return;
         }
-        const relatedVars = resolveRelatedVars(lastSelectedProjId, lastSelectedSourceEl);
+        const relatedVars = resolveRelatedVars(projectionUiState.lastSelectedProjId, projectionUiState.lastSelectedSourceEl);
         if (!relatedVars.length) {
           varsPanelBody.innerHTML = '<div class="projVarHint">No configured variables for this element yet.</div>';
           return;
         }
         const computedRootStyles = getComputedStyle(document.documentElement);
-        const rows = relatedVars.map((varName) => {
-          const value = normalizeCssVarValue(editedVars.get(varName) ?? computedRootStyles.getPropertyValue(varName));
+        varsPanelBody.innerHTML = relatedVars.map((varName) => {
+          const value = normalizeCssVarValue(projectionUiState.editedVars.get(varName) ?? computedRootStyles.getPropertyValue(varName));
           const numericValue = parseNumericCssVar(value);
           const bounds = resolveSliderBounds(varName, value);
-          const sliderMarkup = numericValue === null
-            ? '<span class="projVarHint">n/a</span>'
-            : `<input class="projVarInput" data-proj-kind="range" data-proj-var="${escapeHtml(varName)}" type="range" min="${bounds.min}" max="${bounds.max}" step="${varStep}" value="${Math.max(bounds.min, Math.min(bounds.max, numericValue))}">`;
-          const numberMarkup = numericValue === null
-            ? '<span class="projVarHint">n/a</span>'
-            : `<input class="projVarInput" data-proj-kind="number" data-proj-var="${escapeHtml(varName)}" type="number" step="${varStep}" value="${numericValue}">`;
-          const rowClass = isSizeOrPositionVar(varName) ? 'projVarRow sizePosVar' : 'projVarRow';
-          return `
-            <label class="${rowClass}">
-              <span class="projVarLabel">${escapeHtml(varName)}${isSizeOrPositionVar(varName) ? '<span class="projVarLabelHint">size/position</span>' : ''}</span>
-              <input class="projVarInput" data-proj-kind="text" data-proj-var="${escapeHtml(varName)}" type="text" value="${escapeHtml(value)}">
-              ${numberMarkup}
-              ${sliderMarkup}
-            </label>
-          `;
-        });
-        varsPanelBody.innerHTML = rows.join('');
+          return `<label class="projVarRow"><span class="projVarLabel">${escapeHtml(varName)}</span><input class="projVarInput" data-proj-kind="text" data-proj-var="${escapeHtml(varName)}" type="text" value="${escapeHtml(value)}"><input class="projVarInput" data-proj-kind="number" data-proj-var="${escapeHtml(varName)}" type="number" step="${varStep}" value="${numericValue ?? ''}"><input class="projVarInput" data-proj-kind="range" data-proj-var="${escapeHtml(varName)}" type="range" min="${bounds.min}" max="${bounds.max}" step="${varStep}" value="${numericValue ?? bounds.min}"></label>`;
+        }).join('');
       };
-
       btn.addEventListener('click', () => {
-        active = !active;
-        document.body.classList.toggle('proj-mapping', active);
-        btn.classList.toggle('active', active);
-        varsBtn.style.display = active ? 'block' : 'none';
-        if (!active) {
+        projectionUiState.active = !projectionUiState.active;
+        document.body.classList.toggle('proj-mapping', projectionUiState.active);
+        btn.classList.toggle('active', projectionUiState.active);
+        varsBtn.style.display = projectionUiState.active ? 'block' : 'none';
+        exportBtn.style.display = projectionUiState.active ? 'block' : 'none';
+        if (!projectionUiState.active) {
           tip.style.display = 'none';
           varsPanel.classList.remove('open');
           varsBtn.classList.remove('active');
+          projectionUiState.varsPanelOpen = false;
         }
+        renderAuthoredOverlays();
       });
-
       varsBtn.addEventListener('click', () => {
-        if (!active) return;
-        const opening = !varsPanel.classList.contains('open');
-        varsPanel.classList.toggle('open', opening);
-        varsBtn.classList.toggle('active', opening);
-        if (opening) renderVarEditor();
+        if (!projectionUiState.active) return;
+        projectionUiState.varsPanelOpen = !varsPanel.classList.contains('open');
+        varsPanel.classList.toggle('open', projectionUiState.varsPanelOpen);
+        varsBtn.classList.toggle('active', projectionUiState.varsPanelOpen);
+        if (projectionUiState.varsPanelOpen) renderVarEditor();
       });
-
       varsCloseBtn.addEventListener('click', () => {
         varsPanel.classList.remove('open');
         varsBtn.classList.remove('active');
+        projectionUiState.varsPanelOpen = false;
       });
-
-      document.addEventListener('mousemove', e => {
-        if (!active) return;
-        const el = e.target.closest('[data-proj-id]');
+      exportBtn.addEventListener('click', () => {
+        copyTextToClipboard(buildAuthoredLayoutExport());
+        updateEditorStatus('Copied authored layout export JSON.');
+      });
+      document.addEventListener('pointerdown', (event) => {
+        if (bindAuthoredDragAndResize(event)) return;
+      });
+      document.addEventListener('pointermove', (event) => {
+        if (authoredEditorState.pointerDrag) {
+          updateAuthoredPointer(event);
+          return;
+        }
+        if (!projectionUiState.active) return;
+        const el = event.target.closest('[data-proj-id]');
         if (el) {
           tip.textContent = el.getAttribute('data-proj-id');
           tip.style.display = 'block';
-          tip.style.left = (e.clientX + 16) + 'px';
-          tip.style.top  = Math.max(8, e.clientY - 42) + 'px';
-        } else {
-          tip.style.display = 'none';
-        }
+          tip.style.left = (event.clientX + 16) + 'px';
+          tip.style.top = Math.max(8, event.clientY - 42) + 'px';
+        } else tip.style.display = 'none';
       });
-
-      // Capture phase: intercept clicks on projectable elements
-      document.addEventListener('click', e => {
-        if (!active) return;
-        if (e.target.closest('#projMapBtn')) return;
-        if (e.target.closest('#projVarBtn') || e.target.closest('#projVarPanel')) return;
-        const el = e.target.closest('[data-proj-id]');
+      document.addEventListener('pointerup', finishAuthoredPointer);
+      document.addEventListener('click', (event) => {
+        if (!projectionUiState.active) return;
+        if (event.target.closest('#projMapBtn,#projVarBtn,#projVarPanel,#projExportBtn')) return;
+        const el = event.target.closest('[data-proj-id]');
         if (!el) return;
-        e.preventDefault();
-        e.stopImmediatePropagation();
+        event.preventDefault();
+        event.stopImmediatePropagation();
         const id = el.getAttribute('data-proj-id');
-        lastSelectedProjId = id;
-        lastSelectedSourceEl = e.target instanceof Element ? e.target : el;
-        lastSelectionDetail = inferSelectionDetail(lastSelectedSourceEl);
-        if (varsPanel.classList.contains('open')) renderVarEditor();
-        tip.textContent = lastSelectionDetail ? `${id} · ${lastSelectionDetail}` : id;
+        projectionUiState.lastSelectedProjId = id;
+        projectionUiState.lastSelectedSourceEl = event.target instanceof Element ? event.target : el;
+        const authoredBoxId = AUTHORED_BOX_KEY_BY_PROJ_ID[id];
+        if (getScratchbonesLayoutMode() === 'authored' && authoredBoxId) {
+          selectAuthoredBox(authoredBoxId);
+          updateEditorStatus(`Selected ${authoredBoxId}.`);
+        }
+        if (projectionUiState.varsPanelOpen) renderVarEditor();
       }, true);
-
       varsPanelBody.addEventListener('input', (event) => {
+        const authoredField = event.target.getAttribute('data-authored-field');
+        if (authoredField && getSelectedAuthoredBox()) {
+          const numeric = Number(event.target.value);
+          if (!Number.isFinite(numeric)) return;
+          updateAuthoredBox(getSelectedAuthoredBox(), { [authoredField]: numeric });
+          updateEditorStatus(`Inspector updated ${getSelectedAuthoredBox()}.${authoredField}=${Math.round(numeric)}.`);
+          return;
+        }
         const input = event.target.closest('.projVarInput');
         if (!input) return;
         const varName = input.getAttribute('data-proj-var');
         if (!varName) return;
         const kind = input.getAttribute('data-proj-kind');
-        const rows = varsPanelBody.querySelectorAll(`.projVarInput[data-proj-var="${varName}"]`);
         let nextValue = String(input.value ?? '').trim();
         if (kind === 'range' || kind === 'number') {
-          const computed = getComputedStyle(document.documentElement).getPropertyValue(varName);
-          const suffix = cssVarSuffix(editedVars.get(varName) ?? computed);
+          const suffix = cssVarSuffix(projectionUiState.editedVars.get(varName) ?? getComputedStyle(document.documentElement).getPropertyValue(varName));
           const numeric = Number.parseFloat(nextValue);
           if (!Number.isFinite(numeric)) return;
           nextValue = `${numeric.toFixed(2)}${suffix}`;
         }
-        if (kind === 'range') {
-          const bounds = resolveSliderBounds(varName, nextValue);
-          const numeric = Number.parseFloat(nextValue);
-          nextValue = `${Math.max(bounds.min, Math.min(bounds.max, numeric)).toFixed(2)}${cssVarSuffix(nextValue)}`;
-        }
-        if (kind === 'text') {
-          const parsedText = parseNumericCssVar(nextValue);
-          if (parsedText !== null) {
-            const suffix = cssVarSuffix(nextValue);
-            nextValue = `${parsedText.toFixed(2)}${suffix}`;
-          }
-        }
-        editedVars.set(varName, nextValue);
+        projectionUiState.editedVars.set(varName, nextValue);
         document.documentElement.style.setProperty(varName, nextValue);
-        const asNumber = parseNumericCssVar(nextValue);
-        const bounds = resolveSliderBounds(varName, nextValue);
-        rows.forEach((rowInput) => {
-          if (rowInput === input) return;
-          const rowKind = rowInput.getAttribute('data-proj-kind');
-          if (rowKind === 'text') rowInput.value = nextValue;
-          if (rowKind === 'number' && asNumber !== null) rowInput.value = String(asNumber);
-          if (rowKind === 'range' && asNumber !== null) rowInput.value = String(Math.max(bounds.min, Math.min(bounds.max, asNumber)));
-        });
       });
-
       varsCopyBtn.addEventListener('click', () => {
-        const entries = [...editedVars.entries()];
-        const payload = entries.length
-          ? [
-            `/* Projection map vars for ${lastSelectedProjId || 'selection'} */`,
-            ':root {',
-            ...entries.map(([varName, value]) => `  ${varName}: ${value};`),
-            '}',
-          ].join('\n')
-          : '/* No projection variable overrides yet. */';
-        copyToClipboard(payload);
-        const prevText = varsCopyBtn.textContent;
-        varsCopyBtn.textContent = 'Copied!';
-        setTimeout(() => { varsCopyBtn.textContent = prevText; }, 1200);
+        if (getScratchbonesLayoutMode() === 'authored') {
+          copyTextToClipboard(buildAuthoredLayoutExport());
+          updateEditorStatus('Copied authored layout export JSON.');
+        } else {
+          const entries = [...projectionUiState.editedVars.entries()];
+          const payload = entries.length ? [':root {', ...entries.map(([k,v]) => `  ${k}: ${v};`), '}'].join('\n') : '/* No projection variable overrides yet. */';
+          copyTextToClipboard(payload);
+          updateEditorStatus('Copied variable overrides.');
+        }
+      });
+      document.addEventListener('keydown', (event) => {
+        if (!projectionUiState.active || getScratchbonesLayoutMode() !== 'authored') return;
+        const selected = getSelectedAuthoredBox();
+        if (!selected) return;
+        const delta = event.shiftKey ? 10 : 1;
+        const patch = {};
+        if (event.key === 'ArrowLeft') patch.x = getScratchbonesAuthoredConfig().boxes[selected].x - delta;
+        else if (event.key === 'ArrowRight') patch.x = getScratchbonesAuthoredConfig().boxes[selected].x + delta;
+        else if (event.key === 'ArrowUp') patch.y = getScratchbonesAuthoredConfig().boxes[selected].y - delta;
+        else if (event.key === 'ArrowDown') patch.y = getScratchbonesAuthoredConfig().boxes[selected].y + delta;
+        else return;
+        event.preventDefault();
+        updateAuthoredBox(selected, patch);
+        updateEditorStatus(`Nudged ${selected} by ${delta}px.`);
       });
     })();
-
     // ── debug log panel ────────────────────────────────────────────────────
     document.getElementById('_dbgBtn')?.addEventListener('click', () => {
       document.getElementById('_dbgPanel').classList.toggle('open');
     });
-
     document.getElementById('_dbgCopyBtn')?.addEventListener('click', () => {
       const text = (window._debugLogs || [])
         .map(e => `[${e.lvl.toUpperCase()}] ${e.line}`)
@@ -5209,7 +5151,6 @@
       btn.textContent = 'Copied!';
       setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
     });
-
     let fitReflowHandle = null;
     function scheduleResponsiveFitPass() {
       if (fitReflowHandle) clearTimeout(fitReflowHandle);
@@ -5219,14 +5160,17 @@
         const app = document.getElementById('app');
         const layoutPolicy = applyLayoutContract(app);
         updateTableViewHeight(app, layoutPolicy?.tableView);
-        applyResponsiveFit(app);
+        if (getScratchbonesLayoutMode() === 'authored') {
+          applyAuthoredLayoutMode(app, getScratchbonesAuthoredConfig());
+          renderAuthoredOverlays();
+        } else {
+          applyResponsiveFit(app);
+        }
       }, fitDebounceMs);
     }
     window.addEventListener('resize', scheduleResponsiveFitPass, { passive: true });
     window.addEventListener('orientationchange', scheduleResponsiveFitPass, { passive: true });
-
     startGame();
-
   </script>
 </body>
 </html>

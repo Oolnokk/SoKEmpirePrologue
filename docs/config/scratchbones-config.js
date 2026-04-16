@@ -29,9 +29,29 @@ window.SCRATCHBONES_CONFIG = {
       "aiThinkMs": 650
     },
     "layout": {
+      "mode": "responsive",
       "viewport": {
         "widthPx": 1920,
         "heightPx": 1080
+      },
+      "authored": {
+        "enabled": true,
+        "designWidthPx": 1920,
+        "designHeightPx": 1080,
+        "scaleMode": "contain",
+        "boxes": {
+          "topbar": { "x": 8, "y": 8, "width": 1624, "height": 120 },
+          "sidebar": { "x": 1640, "y": 8, "width": 272, "height": 780 },
+          "panel": { "x": 8, "y": 136, "width": 1624, "height": 560 },
+          "humanSeat": { "x": 1640, "y": 796, "width": 272, "height": 176 },
+          "contextBox": { "x": 8, "y": 704, "width": 1624, "height": 196 },
+          "hand": { "x": 8, "y": 912, "width": 1624, "height": 160 },
+          "log": { "x": 8, "y": 968, "width": 1624, "height": 104 },
+          "tableView": { "x": 18, "y": 146, "width": 1604, "height": 540 },
+          "turnSpotlight": { "x": 1380, "y": 164, "width": 220, "height": 220 },
+          "claimCluster": { "x": 490, "y": 220, "width": 620, "height": 320 },
+          "challengePrompt": { "x": 8, "y": 704, "width": 1624, "height": 196 }
+        }
       },
       "cards": {
         "baseScale": 0.25
@@ -607,7 +627,7 @@ window.SCRATCHBONES_CONFIG = {
 };
 
 // Future Scratchbones-authored UI modes live under SCRATCHBONES_CONFIG.game.layout.
-window.SCRATCHBONES_CONFIG.game.layout.mode = window.SCRATCHBONES_CONFIG.game.layout.mode || 'fitter';
+window.SCRATCHBONES_CONFIG.game.layout.mode = window.SCRATCHBONES_CONFIG.game.layout.mode || 'responsive';
 window.SCRATCHBONES_CONFIG.game.layout.authored = window.SCRATCHBONES_CONFIG.game.layout.authored || {};
 window.SCRATCHBONES_CONFIG.game.layout.fitter = window.SCRATCHBONES_CONFIG.game.layout.fitter || {};
 
