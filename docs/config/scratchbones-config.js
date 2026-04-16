@@ -1,357 +1,614 @@
-window.SCRATCHBONES_CONFIG = window.SCRATCHBONES_CONFIG || {};
-
-const __existingScratchbonesConfig = window.SCRATCHBONES_CONFIG;
-const __legacyGameplayConfig = __existingScratchbonesConfig.gameplay || {};
-const __existingGameConfig = __existingScratchbonesConfig.game || {};
-
-window.SCRATCHBONES_CONFIG.game = {
-  deck: {
-    rankCount: __existingGameConfig.deck?.rankCount ?? __legacyGameplayConfig.deckRankCount ?? 10,
-    copiesPerRank: __existingGameConfig.deck?.copiesPerRank ?? __legacyGameplayConfig.deckCopiesPerRank ?? 4,
-    handSize: __existingGameConfig.deck?.handSize ?? __legacyGameplayConfig.startHandSize ?? 10,
-    wildCount: __existingGameConfig.deck?.wildCount ?? __legacyGameplayConfig.wildCount ?? 10,
-    playerCount: __existingGameConfig.deck?.playerCount ?? __legacyGameplayConfig.playerCount ?? 4,
-    humanNames: __existingGameConfig.deck?.humanNames ?? __legacyGameplayConfig.playerNames ?? ['You'],
-  },
-  chips: {
-    starting: __existingGameConfig.chips?.starting ?? __legacyGameplayConfig.startingChips ?? 12,
-    challengeBaseTransfer: __existingGameConfig.chips?.challengeBaseTransfer ?? __legacyGameplayConfig.challengeBaseTransfer ?? 1,
-    concedeRoundChipLoss: __existingGameConfig.chips?.concedeRoundChipLoss ?? __legacyGameplayConfig.concedeRoundChipLoss ?? 1,
-    maxChallengeBet: __existingGameConfig.chips?.maxChallengeBet ?? __legacyGameplayConfig.maxChallengeBet ?? 13,
-    raise: {
-      maxAmount: __existingGameConfig.chips?.raise?.maxAmount ?? __legacyGameplayConfig.maxRaiseAmount ?? 3,
-      maxPerPlayer: __existingGameConfig.chips?.raise?.maxPerPlayer ?? __legacyGameplayConfig.maxRaisesPerPlayer ?? 3,
+window.SCRATCHBONES_CONFIG = {
+  game: {
+    "deck": {
+      "rankCount": 10,
+      "copiesPerRank": 4,
+      "handSize": 10,
+      "wildCount": 10,
+      "playerCount": 4,
+      "humanNames": [
+        "You"
+      ]
     },
-    clearReward: {
-      base: __existingGameConfig.chips?.clearReward?.base ?? __legacyGameplayConfig.clearBonusBase ?? 1,
-      increment: __existingGameConfig.chips?.clearReward?.increment ?? __legacyGameplayConfig.clearBonusIncrement ?? 1,
-    },
-  },
-  timers: {
-    challengeSeconds: __existingGameConfig.timers?.challengeSeconds ?? __legacyGameplayConfig.challengeTimerSecs ?? 8,
-    aiThinkMs: __existingGameConfig.timers?.aiThinkMs ?? __legacyGameplayConfig.aiThinkMs ?? 650,
-  },
-  layout: {
-    viewport: {
-      widthPx: __existingGameConfig.layout?.viewport?.widthPx ?? 1920,
-      heightPx: __existingGameConfig.layout?.viewport?.heightPx ?? 1080,
-    },
-    cards: {
-      baseScale: __existingGameConfig.layout?.cards?.baseScale ?? 0.25,
-    },
-    sizing: {
-      sidebarWidthFrac: __existingGameConfig.layout?.sizing?.sidebarWidthFrac ?? __legacyGameplayConfig.sidebarWidthFrac ?? 0.15,
-      sidebarWidthPx: __existingGameConfig.layout?.sizing?.sidebarWidthPx ?? __legacyGameplayConfig.sidebarWidthPx ?? 280,
-      appGapPx: __existingGameConfig.layout?.sizing?.appGapPx ?? __legacyGameplayConfig.appGapPx ?? 8,
-      appPaddingPx: __existingGameConfig.layout?.sizing?.appPaddingPx ?? __legacyGameplayConfig.appPaddingPx ?? 8,
-      seatAvatarPx: __existingGameConfig.layout?.sizing?.seatAvatarPx ?? __legacyGameplayConfig.seatAvatarPx ?? 132,
-      humanSeatAvatarPx: __existingGameConfig.layout?.sizing?.humanSeatAvatarPx ?? __legacyGameplayConfig.humanSeatAvatarPx ?? 204,
-      cinematicAvatarPx: __existingGameConfig.layout?.sizing?.cinematicAvatarPx ?? __legacyGameplayConfig.cinematicAvatarPx ?? 132,
-      handCardMinWidthPx: __existingGameConfig.layout?.sizing?.handCardMinWidthPx ?? __legacyGameplayConfig.handCardMinWidthPx ?? 74,
-      handCardMaxWidthPx: __existingGameConfig.layout?.sizing?.handCardMaxWidthPx ?? __legacyGameplayConfig.handCardMaxWidthPx ?? 104,
-      handCardMinHeightPx: __existingGameConfig.layout?.sizing?.handCardMinHeightPx ?? __legacyGameplayConfig.handCardMinHeightPx ?? 146,
-      handCardMaxHeightPx: __existingGameConfig.layout?.sizing?.handCardMaxHeightPx ?? __legacyGameplayConfig.handCardMaxHeightPx ?? 186,
-      handCardGapMinPx: __existingGameConfig.layout?.sizing?.handCardGapMinPx ?? __legacyGameplayConfig.handCardGapMinPx ?? 8,
-      handCardGapMaxPx: __existingGameConfig.layout?.sizing?.handCardGapMaxPx ?? __legacyGameplayConfig.handCardGapMaxPx ?? 12,
-      eventLogMaxHeightPx: __existingGameConfig.layout?.sizing?.eventLogMaxHeightPx ?? __legacyGameplayConfig.eventLogMaxHeightPx ?? 78,
-      controlsPaddingYpx: __existingGameConfig.layout?.sizing?.controlsPaddingYpx ?? __legacyGameplayConfig.controlsPaddingYpx ?? 12,
-      controlsPaddingXpx: __existingGameConfig.layout?.sizing?.controlsPaddingXpx ?? __legacyGameplayConfig.controlsPaddingXpx ?? 12,
-      controlsGapPx: __existingGameConfig.layout?.sizing?.controlsGapPx ?? __legacyGameplayConfig.controlsGapPx ?? 10,
-      handWrapPaddingYpx: __existingGameConfig.layout?.sizing?.handWrapPaddingYpx ?? __legacyGameplayConfig.handWrapPaddingYpx ?? 8,
-      handWrapPaddingXpx: __existingGameConfig.layout?.sizing?.handWrapPaddingXpx ?? __legacyGameplayConfig.handWrapPaddingXpx ?? 12,
-      handWrapGapPx: __existingGameConfig.layout?.sizing?.handWrapGapPx ?? __legacyGameplayConfig.handWrapGapPx ?? 6,
-      eventLogPaddingYpx: __existingGameConfig.layout?.sizing?.eventLogPaddingYpx ?? __legacyGameplayConfig.eventLogPaddingYpx ?? 8,
-      eventLogPaddingXpx: __existingGameConfig.layout?.sizing?.eventLogPaddingXpx ?? __legacyGameplayConfig.eventLogPaddingXpx ?? 12,
-      eventLogGapPx: __existingGameConfig.layout?.sizing?.eventLogGapPx ?? __legacyGameplayConfig.eventLogGapPx ?? 6,
-      logItemPaddingYpx: __existingGameConfig.layout?.sizing?.logItemPaddingYpx ?? __legacyGameplayConfig.logItemPaddingYpx ?? 9,
-      logItemPaddingXpx: __existingGameConfig.layout?.sizing?.logItemPaddingXpx ?? __legacyGameplayConfig.logItemPaddingXpx ?? 10,
-    },
-    hand: {
-      desiredHeightFrac: __existingGameConfig.layout?.hand?.desiredHeightFrac ?? __legacyGameplayConfig.handDesiredHeightFrac ?? 0.20,
-      desiredWidthFrac: __existingGameConfig.layout?.hand?.desiredWidthFrac ?? __legacyGameplayConfig.handDesiredWidthFrac ?? 0.50,
-      heightScale: __existingGameConfig.layout?.hand?.heightScale ?? __legacyGameplayConfig.handHeightScale ?? 0.5,
-      minHeightPx: __existingGameConfig.layout?.hand?.minHeightPx ?? __legacyGameplayConfig.handMinHeightPx ?? 160,
-      maxHeightPx: __existingGameConfig.layout?.hand?.maxHeightPx ?? __legacyGameplayConfig.handMaxHeightPx ?? 360,
-      forceAllVisible: __existingGameConfig.layout?.hand?.forceAllVisible ?? true,
-      compact: {
-        enabled: __existingGameConfig.layout?.hand?.compact?.enabled ?? true,
-        cardMinWidthPx: __existingGameConfig.layout?.hand?.compact?.cardMinWidthPx ?? 64,
-        cardGapPx: __existingGameConfig.layout?.hand?.compact?.cardGapPx ?? 6,
-        cardMinHeightPx: __existingGameConfig.layout?.hand?.compact?.cardMinHeightPx ?? 128,
+    "chips": {
+      "starting": 12,
+      "challengeBaseTransfer": 1,
+      "concedeRoundChipLoss": 1,
+      "maxChallengeBet": 13,
+      "raise": {
+        "maxAmount": 3,
+        "maxPerPlayer": 3
       },
+      "clearReward": {
+        "base": 1,
+        "increment": 1
+      }
     },
-    tableView: {
-      desiredHeightFrac: __existingGameConfig.layout?.tableView?.desiredHeightFrac ?? 0.58,
-      minDominanceFrac: __existingGameConfig.layout?.tableView?.minDominanceFrac ?? __legacyGameplayConfig.tableViewMinDominanceFrac ?? 0.56,
-      minHeightPx: __existingGameConfig.layout?.tableView?.minHeightPx ?? 260,
-      maxHeightPx: __existingGameConfig.layout?.tableView?.maxHeightPx ?? 680,
-      cardVisualMode: __existingGameConfig.layout?.tableView?.cardVisualMode ?? 'faceDown',
-      turnSpotlight: {
-        embedded: __existingGameConfig.layout?.tableView?.turnSpotlight?.embedded ?? true,
-        pinCorner: __existingGameConfig.layout?.tableView?.turnSpotlight?.pinCorner ?? 'top-right',
-        offsetXPx: __existingGameConfig.layout?.tableView?.turnSpotlight?.offsetXPx ?? 10,
-        offsetYPx: __existingGameConfig.layout?.tableView?.turnSpotlight?.offsetYPx ?? 10,
-      },
-      visualFit: {
-        tableCardContainerScale: __existingGameConfig.layout?.tableView?.visualFit?.tableCardContainerScale ?? 1.25,
-        tableCardContentScale: __existingGameConfig.layout?.tableView?.visualFit?.tableCardContentScale ?? 0.8,
-        claimAvatarContainerScale: __existingGameConfig.layout?.tableView?.visualFit?.claimAvatarContainerScale ?? 1.25,
-        claimAvatarContentScale: __existingGameConfig.layout?.tableView?.visualFit?.claimAvatarContentScale ?? 0.8,
-        avatarAdditiveZoomScale: __existingGameConfig.layout?.tableView?.visualFit?.avatarAdditiveZoomScale ?? 1.2,
-      },
-      cinematic: {
-        enabled: __existingGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
-        showEffects: __existingGameConfig.layout?.tableView?.cinematic?.showEffects ?? true,
-      },
+    "timers": {
+      "challengeSeconds": 8,
+      "aiThinkMs": 650
     },
-    regions: {
-      actionFocus: {
-        enabled: __existingGameConfig.layout?.regions?.actionFocus?.enabled ?? false,
-        replaceWithFloatingClaimCluster: __existingGameConfig.layout?.regions?.actionFocus?.replaceWithFloatingClaimCluster ?? true,
+    "layout": {
+      "viewport": {
+        "widthPx": 1920,
+        "heightPx": 1080
       },
-      turnSpotlight: {
-        enabled: __existingGameConfig.layout?.regions?.turnSpotlight?.enabled ?? true,
-        mustStayVisible: __existingGameConfig.layout?.regions?.turnSpotlight?.mustStayVisible ?? true,
-        avatarSizePx: __existingGameConfig.layout?.regions?.turnSpotlight?.avatarSizePx ?? 180,
-        nameBarBelowAvatar: __existingGameConfig.layout?.regions?.turnSpotlight?.nameBarBelowAvatar ?? true,
+      "cards": {
+        "baseScale": 0.25
       },
-      contextBox: {
-        enabled: __existingGameConfig.layout?.regions?.contextBox?.enabled ?? true,
-        sharedDeclareAndChallengeSlot: __existingGameConfig.layout?.regions?.contextBox?.sharedDeclareAndChallengeSlot ?? true,
-        mustStayVisible: __existingGameConfig.layout?.regions?.contextBox?.mustStayVisible ?? true,
+      "sizing": {
+        "sidebarWidthFrac": 0.15,
+        "sidebarWidthPx": 280,
+        "appGapPx": 8,
+        "appPaddingPx": 8,
+        "seatAvatarPx": 132,
+        "humanSeatAvatarPx": 204,
+        "cinematicAvatarPx": 132,
+        "handCardMinWidthPx": 74,
+        "handCardMaxWidthPx": 104,
+        "handCardMinHeightPx": 146,
+        "handCardMaxHeightPx": 186,
+        "handCardGapMinPx": 8,
+        "handCardGapMaxPx": 12,
+        "eventLogMaxHeightPx": 78,
+        "controlsPaddingYpx": 12,
+        "controlsPaddingXpx": 12,
+        "controlsGapPx": 10,
+        "handWrapPaddingYpx": 8,
+        "handWrapPaddingXpx": 12,
+        "handWrapGapPx": 6,
+        "eventLogPaddingYpx": 8,
+        "eventLogPaddingXpx": 12,
+        "eventLogGapPx": 6,
+        "logItemPaddingYpx": 9,
+        "logItemPaddingXpx": 10
       },
-    },
-    claimCluster: {
-      enabled: __existingGameConfig.layout?.claimCluster?.enabled ?? true,
-      anchor: __existingGameConfig.layout?.claimCluster?.anchor ?? 'tableView',
-      scaleAsOne: __existingGameConfig.layout?.claimCluster?.scaleAsOne ?? true,
-      preserveRelativePositions: __existingGameConfig.layout?.claimCluster?.preserveRelativePositions ?? true,
-      mustStayVisible: __existingGameConfig.layout?.claimCluster?.mustStayVisible ?? true,
-      transparentShells: __existingGameConfig.layout?.claimCluster?.transparentShells ?? true,
-      geometry: {
-        centerXPct: __existingGameConfig.layout?.claimCluster?.geometry?.centerXPct ?? 0.50,
-        centerYPct: __existingGameConfig.layout?.claimCluster?.geometry?.centerYPct ?? 0.54,
-        widthPctOfTableView: __existingGameConfig.layout?.claimCluster?.geometry?.widthPctOfTableView ?? 0.78,
-        heightPctOfTableView: __existingGameConfig.layout?.claimCluster?.geometry?.heightPctOfTableView ?? 0.48,
+      "hand": {
+        "desiredHeightFrac": 0.2,
+        "desiredWidthFrac": 0.5,
+        "heightScale": 0.5,
+        "minHeightPx": 160,
+        "maxHeightPx": 360,
+        "forceAllVisible": true,
+        "compact": {
+          "enabled": true,
+          "cardMinWidthPx": 64,
+          "cardGapPx": 6,
+          "cardMinHeightPx": 128
+        }
       },
-      elements: {
-        claimRankBox: __existingGameConfig.layout?.claimCluster?.elements?.claimRankBox ?? { xPct: 0.50, yPct: 0.08, wPct: 0.12, hPct: 0.18 },
-        claimHandBar: __existingGameConfig.layout?.claimCluster?.elements?.claimHandBar ?? { xPct: 0.50, yPct: 0.52, wPct: 0.42, hPct: 0.30 },
-        actorAvatarFloat: __existingGameConfig.layout?.claimCluster?.elements?.actorAvatarFloat ?? { xPct: 0.14, yPct: 0.52, wPct: 0.16, hPct: 0.24 },
-        reactorAvatarFloat: __existingGameConfig.layout?.claimCluster?.elements?.reactorAvatarFloat ?? { xPct: 0.86, yPct: 0.52, wPct: 0.16, hPct: 0.24 },
-        claimTimesBoxLeft: __existingGameConfig.layout?.claimCluster?.elements?.claimTimesBoxLeft ?? { xPct: 0.26, yPct: 0.52, wPct: 0.07, hPct: 0.13 },
-        claimCountBoxLeft: __existingGameConfig.layout?.claimCluster?.elements?.claimCountBoxLeft ?? { xPct: 0.26, yPct: 0.66, wPct: 0.07, hPct: 0.13 },
-        claimTimesBoxRight: __existingGameConfig.layout?.claimCluster?.elements?.claimTimesBoxRight ?? { xPct: 0.74, yPct: 0.52, wPct: 0.07, hPct: 0.13 },
-        claimCountBoxRight: __existingGameConfig.layout?.claimCluster?.elements?.claimCountBoxRight ?? { xPct: 0.74, yPct: 0.66, wPct: 0.07, hPct: 0.13 },
-      },
-    },
-    shells: {
-      transparentFloatingBoxes: __existingGameConfig.layout?.shells?.transparentFloatingBoxes ?? true,
-      disablePanelChromeForFloatingBoxes: __existingGameConfig.layout?.shells?.disablePanelChromeForFloatingBoxes ?? true,
-    },
-    controlsToHandRelationship: __existingGameConfig.layout?.controlsToHandRelationship ?? __legacyGameplayConfig.controlsToHandRelationship ?? 'below',
-    actionColumn: {
-      heightScale: __existingGameConfig.layout?.actionColumn?.heightScale ?? __legacyGameplayConfig.actionColumnHeightScale ?? 0.25,
-    },
-    controls: {
-      heightScale: __existingGameConfig.layout?.controls?.heightScale ?? __legacyGameplayConfig.controlsHeightScale ?? 0.5,
-    },
-    allowChallengeOverflow: __existingGameConfig.layout?.allowChallengeOverflow ?? __legacyGameplayConfig.allowChallengeOverflow ?? true,
-    fitter: {
-      enabled: __existingGameConfig.layout?.fitter?.enabled ?? true,
-      reflowDebounceMs: __existingGameConfig.layout?.fitter?.reflowDebounceMs ?? 90,
-      overflowTolerancePx: __existingGameConfig.layout?.fitter?.overflowTolerancePx ?? 1,
-      minReadableFontScale: __existingGameConfig.layout?.fitter?.minReadableFontScale ?? 0.72,
-      stages: __existingGameConfig.layout?.fitter?.stages ?? [
-        { fontScale: 0.96, imageScale: 0.95, gapScale: 0.94 },
-        { fontScale: 0.92, imageScale: 0.90, gapScale: 0.88 },
-        { fontScale: 0.88, imageScale: 0.86, gapScale: 0.82 },
-        { fontScale: 0.84, imageScale: 0.82, gapScale: 0.76 },
-        { fontScale: 0.80, imageScale: 0.78, gapScale: 0.70 },
-        { fontScale: 0.76, imageScale: 0.74, gapScale: 0.64 },
-      ],
-      targets: __existingGameConfig.layout?.fitter?.targets ?? {
-        tableView: { selector: '.tableView', containmentSelector: '.tableViewCards', maxStage: 4, minReadableFontScale: 0.80 },
-        actionFocus: { selector: '.actionFocus', containmentSelector: '.actionFocusMain', maxStage: 6, minReadableFontScale: 0.72 },
-        actionColumn: { selector: '.actionColumn', maxStage: 4, minReadableFontScale: 0.76 },
-        contextBox: { selector: '.contextBox', maxStage: 5, minReadableFontScale: 0.74 },
-        turnSpotlight: { selector: '.turnSpotlight', maxStage: 5, minReadableFontScale: 0.74 },
-        claimCluster: { selector: '.claimCluster', maxStage: 4, minReadableFontScale: 0.72 },
-        sidebarSeats: { selector: '#aiSidebar', maxStage: 6, minReadableFontScale: 0.72 },
-        handCards: { selector: '.handWrap', containmentSelector: '.handScroll', maxStage: 6, minReadableFontScale: 0.76 },
-        logs: { selector: '.eventLog', maxStage: 4, minReadableFontScale: 0.78 },
-        controls: { selector: '.controls', maxStage: 6, minReadableFontScale: 0.78 },
-      },
-      overlap: __existingGameConfig.layout?.fitter?.overlap ?? {
-        enabled: true,
-        tolerancePx: 0,
-        criticalRegions: {
-          tableView: '.tableView',
-          controls: '.controls',
-          hand: '.handWrap',
-          actionColumn: '.actionColumn',
-          contextBox: '.contextBox',
-          log: '.eventLog',
-          sidebar: '#aiSidebar',
-          turnSpotlight: '.turnSpotlight',
-          claimCluster: '.claimCluster',
-          challenge: '#challengePromptPane',
+      "tableView": {
+        "desiredHeightFrac": 0.58,
+        "minDominanceFrac": 0.56,
+        "minHeightPx": 260,
+        "maxHeightPx": 680,
+        "cardVisualMode": "faceDown",
+        "turnSpotlight": {
+          "embedded": true,
+          "pinCorner": "top-right",
+          "offsetXPx": 10,
+          "offsetYPx": 10
         },
-        collapseOrder: [],
-        preserveRegions: ['tableView', 'controls', 'sidebar', 'turnSpotlight', 'claimCluster', 'contextBox'],
-        minContainerScale: 0.70,
-        containerScaleStep: 0.02,
-      },
-    },
-    projectionMapping: {
-      editor: {
-        step: __existingGameConfig.layout?.projectionMapping?.editor?.step ?? 0.01,
-        panelTitle: __existingGameConfig.layout?.projectionMapping?.editor?.panelTitle ?? 'Projection Vars',
-        sliderClamp: {
-          multiplierMin: __existingGameConfig.layout?.projectionMapping?.editor?.sliderClamp?.multiplierMin ?? 0,
-          multiplierMax: __existingGameConfig.layout?.projectionMapping?.editor?.sliderClamp?.multiplierMax ?? 5,
-          absoluteMin: __existingGameConfig.layout?.projectionMapping?.editor?.sliderClamp?.absoluteMin ?? -2000,
-          absoluteMax: __existingGameConfig.layout?.projectionMapping?.editor?.sliderClamp?.absoluteMax ?? 2000,
+        "visualFit": {
+          "tableCardContainerScale": 1.25,
+          "tableCardContentScale": 0.8,
+          "claimAvatarContainerScale": 1.25,
+          "claimAvatarContentScale": 0.8,
+          "avatarAdditiveZoomScale": 1.2
         },
-        multiplierVarHints: __existingGameConfig.layout?.projectionMapping?.editor?.multiplierVarHints ?? ['scale', 'frac', 'ratio', 'multiplier'],
-        sizePositionVarHints: __existingGameConfig.layout?.projectionMapping?.editor?.sizePositionVarHints ?? ['width', 'height', 'size', 'scale', 'gap', 'padding', 'min', 'max', 'offset', 'top', 'right', 'bottom', 'left', 'x', 'y', 'row', 'column', 'frac', 'avatar', 'card'],
+        "cinematic": {
+          "enabled": true,
+          "showEffects": true
+        }
       },
-      sharedVars: __existingGameConfig.layout?.projectionMapping?.sharedVars ?? [
-        '--layout-challenge-font-scale',
-        '--layout-challenge-image-scale',
-        '--layout-challenge-gap-scale',
-        '--layout-fit-font-scale',
-        '--layout-fit-image-scale',
-        '--layout-fit-gap-scale',
-      ],
-      varsByProjId: __existingGameConfig.layout?.projectionMapping?.varsByProjId ?? {
-        topbar: ['--layout-app-gap', '--layout-app-padding'],
-        sidebar: ['--layout-sidebar-width', '--layout-sidebar-content-scale', '--layout-seat-avatar-size'],
-        'seat-*': ['--layout-seat-avatar-size', '--layout-sidebar-content-scale'],
-        'avatar-*': ['--layout-seat-avatar-size', '--layout-human-seat-avatar-size', '--layout-cinematic-avatar-size'],
-        'human-seat-zone': ['--layout-human-seat-avatar-size'],
-        'human-seat': ['--layout-human-seat-avatar-size', '--layout-sidebar-content-scale'],
-        panel: ['--layout-table-dominance-frac', '--layout-table-view-height', '--layout-table-view-min-height', '--layout-table-view-max-height'],
-        'table-view': ['--layout-table-view-height', '--layout-table-view-min-height', '--layout-table-view-max-height', '--layout-card-base-scale', '--layout-card-scale', '--layout-card-table-base-width', '--layout-card-table-base-height', '--layout-card-mini-base-width', '--layout-card-mini-base-height', '--layout-table-card-auto-scale', '--layout-fit-additive-avatar-zoom'],
-        cinematic: ['--layout-cinematic-avatar-size'],
-        'action-column': ['--layout-action-column-height-scale', '--layout-action-column-max-height'],
-        controls: ['--layout-controls-height-scale', '--layout-controls-max-height', '--layout-controls-padding-y', '--layout-controls-padding-x', '--layout-controls-gap'],
-        'challenge-prompt': ['--layout-challenge-font-scale', '--layout-challenge-image-scale', '--layout-challenge-gap-scale', '--layout-controls-height-scale', '--layout-controls-max-height', '--layout-controls-padding-y', '--layout-controls-padding-x', '--layout-controls-gap'],
-        hand: [
-          '--hand-height-frac',
-          '--layout-hand-height-scale',
-          '--layout-hand-min-height',
-          '--layout-hand-max-height',
-          '--layout-hand-max-row-height',
-          '--layout-hand-card-min-width',
-          '--layout-hand-card-max-width',
-          '--layout-hand-card-min-height',
-          '--layout-hand-card-max-height',
-          '--layout-hand-card-gap-min',
-          '--layout-hand-card-gap-max',
-          '--layout-hand-wrap-padding-y',
-          '--layout-hand-wrap-padding-x',
-          '--layout-hand-wrap-gap',
-          '--layout-card-base-scale',
-          '--layout-card-hand-scale',
-          '--layout-card-scale',
-          '--layout-card-hit-min-width',
-          '--layout-card-hit-min-height',
-          '--layout-card-label-font-base',
-          '--layout-card-label-gap-base',
-          '--layout-card-label-padding-y-base',
-          '--layout-card-label-padding-x-base',
-          '--layout-card-label-offset-base',
-          '--layout-card-label-radius-base',
+      "regions": {
+        "actionFocus": {
+          "enabled": false,
+          "replaceWithFloatingClaimCluster": true
+        },
+        "turnSpotlight": {
+          "enabled": true,
+          "mustStayVisible": true,
+          "avatarSizePx": 180,
+          "nameBarBelowAvatar": true
+        },
+        "contextBox": {
+          "enabled": true,
+          "sharedDeclareAndChallengeSlot": true,
+          "mustStayVisible": true
+        }
+      },
+      "claimCluster": {
+        "enabled": true,
+        "anchor": "tableView",
+        "scaleAsOne": true,
+        "preserveRelativePositions": true,
+        "mustStayVisible": true,
+        "transparentShells": true,
+        "geometry": {
+          "centerXPct": 0.5,
+          "centerYPct": 0.54,
+          "widthPctOfTableView": 0.78,
+          "heightPctOfTableView": 0.48
+        },
+        "elements": {
+          "claimRankBox": {
+            "xPct": 0.5,
+            "yPct": 0.08,
+            "wPct": 0.12,
+            "hPct": 0.18
+          },
+          "claimHandBar": {
+            "xPct": 0.5,
+            "yPct": 0.52,
+            "wPct": 0.42,
+            "hPct": 0.3
+          },
+          "actorAvatarFloat": {
+            "xPct": 0.14,
+            "yPct": 0.52,
+            "wPct": 0.16,
+            "hPct": 0.24
+          },
+          "reactorAvatarFloat": {
+            "xPct": 0.86,
+            "yPct": 0.52,
+            "wPct": 0.16,
+            "hPct": 0.24
+          },
+          "claimTimesBoxLeft": {
+            "xPct": 0.26,
+            "yPct": 0.52,
+            "wPct": 0.07,
+            "hPct": 0.13
+          },
+          "claimCountBoxLeft": {
+            "xPct": 0.26,
+            "yPct": 0.66,
+            "wPct": 0.07,
+            "hPct": 0.13
+          },
+          "claimTimesBoxRight": {
+            "xPct": 0.74,
+            "yPct": 0.52,
+            "wPct": 0.07,
+            "hPct": 0.13
+          },
+          "claimCountBoxRight": {
+            "xPct": 0.74,
+            "yPct": 0.66,
+            "wPct": 0.07,
+            "hPct": 0.13
+          }
+        }
+      },
+      "shells": {
+        "transparentFloatingBoxes": true,
+        "disablePanelChromeForFloatingBoxes": true
+      },
+      "controlsToHandRelationship": "below",
+      "actionColumn": {
+        "heightScale": 0.25
+      },
+      "controls": {
+        "heightScale": 0.5
+      },
+      "allowChallengeOverflow": true,
+      "fitter": {
+        "enabled": true,
+        "reflowDebounceMs": 90,
+        "overflowTolerancePx": 1,
+        "minReadableFontScale": 0.72,
+        "stages": [
+          {
+            "fontScale": 0.96,
+            "imageScale": 0.95,
+            "gapScale": 0.94
+          },
+          {
+            "fontScale": 0.92,
+            "imageScale": 0.9,
+            "gapScale": 0.88
+          },
+          {
+            "fontScale": 0.88,
+            "imageScale": 0.86,
+            "gapScale": 0.82
+          },
+          {
+            "fontScale": 0.84,
+            "imageScale": 0.82,
+            "gapScale": 0.76
+          },
+          {
+            "fontScale": 0.8,
+            "imageScale": 0.78,
+            "gapScale": 0.7
+          },
+          {
+            "fontScale": 0.76,
+            "imageScale": 0.74,
+            "gapScale": 0.64
+          }
         ],
-        log: ['--layout-event-log-max-height', '--layout-event-log-padding-y', '--layout-event-log-padding-x', '--layout-event-log-gap', '--layout-log-item-padding-y', '--layout-log-item-padding-x', '--layout-log-max-row-height'],
+        "targets": {
+          "tableView": {
+            "selector": ".tableView",
+            "containmentSelector": ".tableViewCards",
+            "maxStage": 4,
+            "minReadableFontScale": 0.8
+          },
+          "actionFocus": {
+            "selector": ".actionFocus",
+            "containmentSelector": ".actionFocusMain",
+            "maxStage": 6,
+            "minReadableFontScale": 0.72
+          },
+          "actionColumn": {
+            "selector": ".actionColumn",
+            "maxStage": 4,
+            "minReadableFontScale": 0.76
+          },
+          "contextBox": {
+            "selector": ".contextBox",
+            "maxStage": 5,
+            "minReadableFontScale": 0.74
+          },
+          "turnSpotlight": {
+            "selector": ".turnSpotlight",
+            "maxStage": 5,
+            "minReadableFontScale": 0.74
+          },
+          "claimCluster": {
+            "selector": ".claimCluster",
+            "maxStage": 4,
+            "minReadableFontScale": 0.72
+          },
+          "sidebarSeats": {
+            "selector": "#aiSidebar",
+            "maxStage": 6,
+            "minReadableFontScale": 0.72
+          },
+          "handCards": {
+            "selector": ".handWrap",
+            "containmentSelector": ".handScroll",
+            "maxStage": 6,
+            "minReadableFontScale": 0.76
+          },
+          "logs": {
+            "selector": ".eventLog",
+            "maxStage": 4,
+            "minReadableFontScale": 0.78
+          },
+          "controls": {
+            "selector": ".controls",
+            "maxStage": 6,
+            "minReadableFontScale": 0.78
+          }
+        },
+        "overlap": {
+          "enabled": true,
+          "tolerancePx": 0,
+          "criticalRegions": {
+            "tableView": ".tableView",
+            "controls": ".controls",
+            "hand": ".handWrap",
+            "actionColumn": ".actionColumn",
+            "contextBox": ".contextBox",
+            "log": ".eventLog",
+            "sidebar": "#aiSidebar",
+            "turnSpotlight": ".turnSpotlight",
+            "claimCluster": ".claimCluster",
+            "challenge": "#challengePromptPane"
+          },
+          "collapseOrder": [],
+          "preserveRegions": [
+            "tableView",
+            "controls",
+            "sidebar",
+            "turnSpotlight",
+            "claimCluster",
+            "contextBox"
+          ],
+          "minContainerScale": 0.7,
+          "containerScaleStep": 0.02
+        }
       },
-      selectorVarsByProjId: __existingGameConfig.layout?.projectionMapping?.selectorVarsByProjId ?? {
-        // NOTE FOR AI/TOOLS: whenever layout vars change, update projectionMapping vars/selectorVars so the in-game vars tool stays in sync.
-        'table-view': {
-          '.tableViewCard, .tableViewCard img': ['--layout-card-base-scale', '--layout-card-scale', '--layout-card-table-base-width', '--layout-card-table-base-height'],
-          '.claimHandBar, .claimHandBar .tableViewCard, .claimHandBar .tableViewCard img': ['--layout-card-mini-base-width', '--layout-card-mini-base-height', '--layout-card-scale'],
-          '.actorAvatarFloat, .reactorAvatarFloat, .actorAvatarFloat canvas, .reactorAvatarFloat canvas, .seatPortrait': ['--layout-seat-avatar-size', '--layout-human-seat-avatar-size', '--layout-cinematic-avatar-size', '--layout-sidebar-content-scale'],
-          '.claimRankBox, .claimCountBoxLeft, .claimCountBoxRight, .turnSpotlightNameBar': ['--layout-challenge-font-scale', '--layout-fit-font-scale'],
+      "projectionMapping": {
+        "editor": {
+          "step": 0.01,
+          "panelTitle": "Projection Vars",
+          "sliderClamp": {
+            "multiplierMin": 0,
+            "multiplierMax": 5,
+            "absoluteMin": -2000,
+            "absoluteMax": 2000
+          },
+          "multiplierVarHints": [
+            "scale",
+            "frac",
+            "ratio",
+            "multiplier"
+          ],
+          "sizePositionVarHints": [
+            "width",
+            "height",
+            "size",
+            "scale",
+            "gap",
+            "padding",
+            "min",
+            "max",
+            "offset",
+            "top",
+            "right",
+            "bottom",
+            "left",
+            "x",
+            "y",
+            "row",
+            "column",
+            "frac",
+            "avatar",
+            "card"
+          ]
         },
-        sidebar: {
-          '.seatAvatarBox, .seatPortrait': ['--layout-seat-avatar-size', '--layout-sidebar-content-scale'],
-          '.seatName, .seatMeta, .seatStatus, .seatSeed, .seatTags': ['--layout-sidebar-content-scale'],
+        "sharedVars": [
+          "--layout-challenge-font-scale",
+          "--layout-challenge-image-scale",
+          "--layout-challenge-gap-scale",
+          "--layout-fit-font-scale",
+          "--layout-fit-image-scale",
+          "--layout-fit-gap-scale"
+        ],
+        "varsByProjId": {
+          "topbar": [
+            "--layout-app-gap",
+            "--layout-app-padding"
+          ],
+          "sidebar": [
+            "--layout-sidebar-width",
+            "--layout-sidebar-content-scale",
+            "--layout-seat-avatar-size"
+          ],
+          "seat-*": [
+            "--layout-seat-avatar-size",
+            "--layout-sidebar-content-scale"
+          ],
+          "avatar-*": [
+            "--layout-seat-avatar-size",
+            "--layout-human-seat-avatar-size",
+            "--layout-cinematic-avatar-size"
+          ],
+          "human-seat-zone": [
+            "--layout-human-seat-avatar-size"
+          ],
+          "human-seat": [
+            "--layout-human-seat-avatar-size",
+            "--layout-sidebar-content-scale"
+          ],
+          "panel": [
+            "--layout-table-dominance-frac",
+            "--layout-table-view-height",
+            "--layout-table-view-min-height",
+            "--layout-table-view-max-height"
+          ],
+          "table-view": [
+            "--layout-table-view-height",
+            "--layout-table-view-min-height",
+            "--layout-table-view-max-height",
+            "--layout-card-base-scale",
+            "--layout-card-scale",
+            "--layout-card-table-base-width",
+            "--layout-card-table-base-height",
+            "--layout-card-mini-base-width",
+            "--layout-card-mini-base-height",
+            "--layout-table-card-auto-scale",
+            "--layout-fit-additive-avatar-zoom"
+          ],
+          "cinematic": [
+            "--layout-cinematic-avatar-size"
+          ],
+          "action-column": [
+            "--layout-action-column-height-scale",
+            "--layout-action-column-max-height"
+          ],
+          "controls": [
+            "--layout-controls-height-scale",
+            "--layout-controls-max-height",
+            "--layout-controls-padding-y",
+            "--layout-controls-padding-x",
+            "--layout-controls-gap"
+          ],
+          "challenge-prompt": [
+            "--layout-challenge-font-scale",
+            "--layout-challenge-image-scale",
+            "--layout-challenge-gap-scale",
+            "--layout-controls-height-scale",
+            "--layout-controls-max-height",
+            "--layout-controls-padding-y",
+            "--layout-controls-padding-x",
+            "--layout-controls-gap"
+          ],
+          "hand": [
+            "--hand-height-frac",
+            "--layout-hand-height-scale",
+            "--layout-hand-min-height",
+            "--layout-hand-max-height",
+            "--layout-hand-max-row-height",
+            "--layout-hand-card-min-width",
+            "--layout-hand-card-max-width",
+            "--layout-hand-card-min-height",
+            "--layout-hand-card-max-height",
+            "--layout-hand-card-gap-min",
+            "--layout-hand-card-gap-max",
+            "--layout-hand-wrap-padding-y",
+            "--layout-hand-wrap-padding-x",
+            "--layout-hand-wrap-gap",
+            "--layout-card-base-scale",
+            "--layout-card-hand-scale",
+            "--layout-card-scale",
+            "--layout-card-hit-min-width",
+            "--layout-card-hit-min-height",
+            "--layout-card-label-font-base",
+            "--layout-card-label-gap-base",
+            "--layout-card-label-padding-y-base",
+            "--layout-card-label-padding-x-base",
+            "--layout-card-label-offset-base",
+            "--layout-card-label-radius-base"
+          ],
+          "log": [
+            "--layout-event-log-max-height",
+            "--layout-event-log-padding-y",
+            "--layout-event-log-padding-x",
+            "--layout-event-log-gap",
+            "--layout-log-item-padding-y",
+            "--layout-log-item-padding-x",
+            "--layout-log-max-row-height"
+          ]
         },
-        'seat-*': {
-          '.seatAvatarBox, .seatPortrait': ['--layout-seat-avatar-size', '--layout-sidebar-content-scale'],
-          '.seatName, .seatMeta, .seatStatus, .seatSeed, .seatTags': ['--layout-sidebar-content-scale'],
+        "selectorVarsByProjId": {
+          "table-view": {
+            ".tableViewCard, .tableViewCard img": [
+              "--layout-card-base-scale",
+              "--layout-card-scale",
+              "--layout-card-table-base-width",
+              "--layout-card-table-base-height"
+            ],
+            ".claimHandBar, .claimHandBar .tableViewCard, .claimHandBar .tableViewCard img": [
+              "--layout-card-mini-base-width",
+              "--layout-card-mini-base-height",
+              "--layout-card-scale"
+            ],
+            ".actorAvatarFloat, .reactorAvatarFloat, .actorAvatarFloat canvas, .reactorAvatarFloat canvas, .seatPortrait": [
+              "--layout-seat-avatar-size",
+              "--layout-human-seat-avatar-size",
+              "--layout-cinematic-avatar-size",
+              "--layout-sidebar-content-scale"
+            ],
+            ".claimRankBox, .claimCountBoxLeft, .claimCountBoxRight, .turnSpotlightNameBar": [
+              "--layout-challenge-font-scale",
+              "--layout-fit-font-scale"
+            ]
+          },
+          "sidebar": {
+            ".seatAvatarBox, .seatPortrait": [
+              "--layout-seat-avatar-size",
+              "--layout-sidebar-content-scale"
+            ],
+            ".seatName, .seatMeta, .seatStatus, .seatSeed, .seatTags": [
+              "--layout-sidebar-content-scale"
+            ]
+          },
+          "seat-*": {
+            ".seatAvatarBox, .seatPortrait": [
+              "--layout-seat-avatar-size",
+              "--layout-sidebar-content-scale"
+            ],
+            ".seatName, .seatMeta, .seatStatus, .seatSeed, .seatTags": [
+              "--layout-sidebar-content-scale"
+            ]
+          },
+          "human-seat": {
+            ".seatAvatarBox, .seatPortrait": [
+              "--layout-human-seat-avatar-size"
+            ],
+            ".seatName, .seatMeta, .seatStatus, .humanSeatChipBadge": [
+              "--layout-sidebar-content-scale"
+            ]
+          },
+          "hand": {
+            ".card, .cardArt": [
+              "--layout-card-base-scale",
+              "--layout-card-hand-scale",
+              "--layout-card-scale",
+              "--layout-hand-card-min-width",
+              "--layout-hand-card-max-width",
+              "--layout-hand-card-min-height",
+              "--layout-hand-card-max-height",
+              "--layout-card-hit-min-width",
+              "--layout-card-hit-min-height"
+            ],
+            ".cardLabel, .cardGlyph, .cardText": [
+              "--layout-card-label-font-base",
+              "--layout-card-label-gap-base",
+              "--layout-card-label-padding-y-base",
+              "--layout-card-label-padding-x-base",
+              "--layout-card-label-offset-base",
+              "--layout-card-label-radius-base",
+              "--layout-card-scale"
+            ],
+            ".handScroll": [
+              "--layout-hand-card-gap-min",
+              "--layout-hand-card-gap-max"
+            ]
+          }
         },
-        'human-seat': {
-          '.seatAvatarBox, .seatPortrait': ['--layout-human-seat-avatar-size'],
-          '.seatName, .seatMeta, .seatStatus, .humanSeatChipBadge': ['--layout-sidebar-content-scale'],
-        },
-        hand: {
-          '.card, .cardArt': ['--layout-card-base-scale', '--layout-card-hand-scale', '--layout-card-scale', '--layout-hand-card-min-width', '--layout-hand-card-max-width', '--layout-hand-card-min-height', '--layout-hand-card-max-height', '--layout-card-hit-min-width', '--layout-card-hit-min-height'],
-          '.cardLabel, .cardGlyph, .cardText': ['--layout-card-label-font-base', '--layout-card-label-gap-base', '--layout-card-label-padding-y-base', '--layout-card-label-padding-x-base', '--layout-card-label-offset-base', '--layout-card-label-radius-base', '--layout-card-scale'],
-          '.handScroll': ['--layout-hand-card-gap-min', '--layout-hand-card-gap-max'],
-        },
-      },
-      fallbackVars: __existingGameConfig.layout?.projectionMapping?.fallbackVars ?? [
-        '--layout-app-gap',
-        '--layout-app-padding',
-        '--layout-sidebar-width',
-        '--layout-sidebar-content-scale',
-        '--layout-table-view-height',
-        '--layout-table-view-min-height',
-        '--layout-table-view-max-height',
-        '--layout-table-dominance-frac',
-        '--layout-action-column-height-scale',
-        '--layout-action-column-max-height',
-        '--layout-controls-height-scale',
-        '--layout-controls-max-height',
-        '--layout-hand-height-scale',
-        '--layout-card-base-scale',
-        '--layout-card-hand-scale',
-        '--layout-hand-min-height',
-        '--layout-hand-max-height',
-        '--layout-hand-card-min-width',
-        '--layout-hand-card-max-width',
-        '--layout-hand-card-min-height',
-        '--layout-hand-card-max-height',
-        '--layout-hand-wrap-padding-y',
-        '--layout-hand-wrap-padding-x',
-        '--layout-hand-wrap-gap',
-        '--layout-event-log-max-height',
-        '--layout-log-max-row-height',
-      ],
-
+        "fallbackVars": [
+          "--layout-app-gap",
+          "--layout-app-padding",
+          "--layout-sidebar-width",
+          "--layout-sidebar-content-scale",
+          "--layout-table-view-height",
+          "--layout-table-view-min-height",
+          "--layout-table-view-max-height",
+          "--layout-table-dominance-frac",
+          "--layout-action-column-height-scale",
+          "--layout-action-column-max-height",
+          "--layout-controls-height-scale",
+          "--layout-controls-max-height",
+          "--layout-hand-height-scale",
+          "--layout-card-base-scale",
+          "--layout-card-hand-scale",
+          "--layout-hand-min-height",
+          "--layout-hand-max-height",
+          "--layout-hand-card-min-width",
+          "--layout-hand-card-max-width",
+          "--layout-hand-card-min-height",
+          "--layout-hand-card-max-height",
+          "--layout-hand-wrap-padding-y",
+          "--layout-hand-wrap-padding-x",
+          "--layout-hand-wrap-gap",
+          "--layout-event-log-max-height",
+          "--layout-log-max-row-height"
+        ]
+      }
     },
-  },
-  uiText: {
-    initialBanner: __existingGameConfig.uiText?.initialBanner ?? __legacyGameplayConfig.initialBanner ?? 'Open a round by selecting one or more cards, then declare a number.',
-    yourLeadBanner: __existingGameConfig.uiText?.yourLeadBanner ?? __legacyGameplayConfig.yourLeadBanner ?? 'Your lead. Select cards and declare any number.',
-    pickCardWarning: __existingGameConfig.uiText?.pickCardWarning ?? __legacyGameplayConfig.pickCardWarning ?? 'Pick at least one card before playing.',
-    challengeTimerLabel: __existingGameConfig.uiText?.challengeTimerLabel ?? __legacyGameplayConfig.challengeTimerLabel ?? 'Auto: let it stand',
-    challengePromptTemplate: __existingGameConfig.uiText?.challengePromptTemplate ?? __legacyGameplayConfig.challengePromptTemplate ?? '{seat} declared {count} × {rank}. Challenge before the timer runs out, or let it stand.',
-    letStandButton: __existingGameConfig.uiText?.letStandButton ?? __legacyGameplayConfig.letStandButton ?? 'Let it stand',
-  },
-  assets: {
-    cards: {
-      hudBasePath: __existingGameConfig.assets?.cards?.hudBasePath ?? __legacyGameplayConfig.cardsHudBasePath ?? './docs/assets/hud/',
-      wild: {
-        src: __existingGameConfig.assets?.cards?.wild?.src ?? __legacyGameplayConfig.wildCardAsset ?? '2DScratchBoneWild.png',
-        fallbackSrc: __existingGameConfig.assets?.cards?.wild?.fallbackSrc ?? __legacyGameplayConfig.wildCardAssetFallback ?? '2DScratchBoneWild.png',
-      },
-      flipped: {
-        src: __existingGameConfig.assets?.cards?.flipped?.src ?? __legacyGameplayConfig.flippedCardAsset ?? '2DScratchboneFlipped.png',
-        fallbackSrc: __existingGameConfig.assets?.cards?.flipped?.fallbackSrc ?? __legacyGameplayConfig.flippedCardAssetFallback ?? '2DScratchBoneFlipped.png',
-      },
-      rankTemplate: {
-        src: __existingGameConfig.assets?.cards?.rankTemplate?.src ?? __legacyGameplayConfig.rankCardTemplate ?? '2DScratchbone{rank}.png',
-        fallbackSrc: __existingGameConfig.assets?.cards?.rankTemplate?.fallbackSrc ?? __legacyGameplayConfig.rankCardTemplateFallback ?? '2DScratchbones{rank}.png',
-      },
+    "uiText": {
+      "initialBanner": "Open a round by selecting one or more cards, then declare a number.",
+      "yourLeadBanner": "Your lead. Select cards and declare any number.",
+      "pickCardWarning": "Pick at least one card before playing.",
+      "challengeTimerLabel": "Auto: let it stand",
+      "challengePromptTemplate": "{seat} declared {count} × {rank}. Challenge before the timer runs out, or let it stand.",
+      "letStandButton": "Let it stand"
     },
-    portrait: {
-      assetBase: __existingGameConfig.assets?.portrait?.assetBase ?? __existingScratchbonesConfig.portrait?.assetBase ?? './docs/assets/',
-      configBase: __existingGameConfig.assets?.portrait?.configBase ?? __existingScratchbonesConfig.portrait?.configBase ?? './docs/config/',
-    },
-  },
+    "assets": {
+      "cards": {
+        "hudBasePath": "./docs/assets/hud/",
+        "wild": {
+          "src": "2DScratchBoneWild.png",
+          "fallbackSrc": "2DScratchBoneWild.png"
+        },
+        "flipped": {
+          "src": "2DScratchboneFlipped.png",
+          "fallbackSrc": "2DScratchBoneFlipped.png"
+        },
+        "rankTemplate": {
+          "src": "2DScratchbone{rank}.png",
+          "fallbackSrc": "2DScratchbones{rank}.png"
+        }
+      },
+      "portrait": {
+        "assetBase": "./docs/assets/",
+        "configBase": "./docs/config/"
+      }
+    }
+  }
 };
 
-window.SCRATCHBONES_CONFIG.portrait = window.SCRATCHBONES_CONFIG.game.assets.portrait;
+// Future Scratchbones-authored UI modes live under SCRATCHBONES_CONFIG.game.layout.
+window.SCRATCHBONES_CONFIG.game.layout.mode = window.SCRATCHBONES_CONFIG.game.layout.mode || 'fitter';
+window.SCRATCHBONES_CONFIG.game.layout.authored = window.SCRATCHBONES_CONFIG.game.layout.authored || {};
+window.SCRATCHBONES_CONFIG.game.layout.fitter = window.SCRATCHBONES_CONFIG.game.layout.fitter || {};
+
+// Most recent config-boundary cleanup: this file is now the authoritative Scratchbones-only config source.

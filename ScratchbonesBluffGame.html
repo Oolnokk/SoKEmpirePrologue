@@ -34,7 +34,6 @@
   })();
   </script>
 
-  <script src="docs/config/portrait-config.js"></script>
   <script src="docs/config/scratchbones-config.js"></script>
   <script src="docs/js/portrait-utils.js"></script>
   <style>
@@ -1662,168 +1661,201 @@
     const DEBUG_ENABLED = true;
 
     const scratchbonesRootConfig = window.SCRATCHBONES_CONFIG || {};
-    const scratchbonesGameConfig = scratchbonesRootConfig.game || {};
-    const scratchbonesLegacyGameplayConfig = scratchbonesRootConfig.gameplay || {};
 
-    const SCRATCHBONES_GAME = {
-      deck: {
-        rankCount: scratchbonesGameConfig.deck?.rankCount ?? scratchbonesLegacyGameplayConfig.deckRankCount ?? 10,
-        copiesPerRank: scratchbonesGameConfig.deck?.copiesPerRank ?? scratchbonesLegacyGameplayConfig.deckCopiesPerRank ?? 4,
-        handSize: scratchbonesGameConfig.deck?.handSize ?? scratchbonesLegacyGameplayConfig.startHandSize ?? 10,
-        wildCount: scratchbonesGameConfig.deck?.wildCount ?? scratchbonesLegacyGameplayConfig.wildCount ?? 10,
-        playerCount: scratchbonesGameConfig.deck?.playerCount ?? scratchbonesLegacyGameplayConfig.playerCount ?? 4,
-        humanNames: scratchbonesGameConfig.deck?.humanNames ?? scratchbonesLegacyGameplayConfig.playerNames ?? ['You'],
-      },
-      chips: {
-        startingChips: scratchbonesGameConfig.chips?.starting ?? scratchbonesLegacyGameplayConfig.startingChips ?? 12,
-        challengeBaseTransfer: scratchbonesGameConfig.chips?.challengeBaseTransfer ?? scratchbonesLegacyGameplayConfig.challengeBaseTransfer ?? 1,
-        concedeRoundChipLoss: scratchbonesGameConfig.chips?.concedeRoundChipLoss ?? scratchbonesLegacyGameplayConfig.concedeRoundChipLoss ?? 1,
-        maxRaiseAmount: scratchbonesGameConfig.chips?.raise?.maxAmount ?? scratchbonesLegacyGameplayConfig.maxRaiseAmount ?? 3,
-        maxRaisesPerPlayer: scratchbonesGameConfig.chips?.raise?.maxPerPlayer ?? scratchbonesLegacyGameplayConfig.maxRaisesPerPlayer ?? 3,
-        clearBonusBase: scratchbonesGameConfig.chips?.clearReward?.base ?? scratchbonesLegacyGameplayConfig.clearBonusBase ?? 1,
-        clearBonusIncrement: scratchbonesGameConfig.chips?.clearReward?.increment ?? scratchbonesLegacyGameplayConfig.clearBonusIncrement ?? 1,
-        maxChallengeBet: scratchbonesGameConfig.chips?.maxChallengeBet ?? scratchbonesLegacyGameplayConfig.maxChallengeBet ?? 13,
-      },
-      timers: {
-        challengeTimerSecs: scratchbonesGameConfig.timers?.challengeSeconds ?? scratchbonesLegacyGameplayConfig.challengeTimerSecs ?? 8,
-        aiThinkMs: scratchbonesGameConfig.timers?.aiThinkMs ?? scratchbonesLegacyGameplayConfig.aiThinkMs ?? 650,
-      },
-      layout: {
-        viewport: {
-          widthPx: scratchbonesGameConfig.layout?.viewport?.widthPx,
-          heightPx: scratchbonesGameConfig.layout?.viewport?.heightPx,
+    function reportScratchbonesConfigError(message) {
+      const fullMessage = `[scratchbones config] ${message}`;
+      console.error(fullMessage);
+      const debugBody = document.getElementById('_dbgBody');
+      if (debugBody) {
+        const row = document.createElement('div');
+        row.className = '_dl _dl-error';
+        row.textContent = fullMessage;
+        debugBody.appendChild(row);
+      }
+      const appRoot = document.getElementById('app');
+      if (appRoot) {
+        appRoot.innerHTML = `<div style="padding:16px;background:#2a1414;border:1px solid #c85a5a;border-radius:12px;color:#ffdede;">${escapeHtml(fullMessage)}</div>`;
+      }
+      return fullMessage;
+    }
+
+    function validateScratchbonesGameConfig(rootConfig) {
+      const hasGameConfig = rootConfig && typeof rootConfig.game === 'object' && rootConfig.game !== null;
+      if (hasGameConfig) return true;
+      const message = reportScratchbonesConfigError('Missing required window.SCRATCHBONES_CONFIG.game object from docs/config/scratchbones-config.js.');
+      if (DEBUG_ENABLED) throw new Error(message);
+      return false;
+    }
+
+    function normalizeScratchbonesGameConfig(rawGameConfig = {}) {
+      return {
+        deck: {
+          rankCount: rawGameConfig.deck?.rankCount ?? 10,
+          copiesPerRank: rawGameConfig.deck?.copiesPerRank ?? 4,
+          handSize: rawGameConfig.deck?.handSize ?? 10,
+          wildCount: rawGameConfig.deck?.wildCount ?? 10,
+          playerCount: rawGameConfig.deck?.playerCount ?? 4,
+          humanNames: rawGameConfig.deck?.humanNames ?? ['You'],
         },
-        cards: {
-          baseScale: scratchbonesGameConfig.layout?.cards?.baseScale ?? 0.25,
+        chips: {
+          startingChips: rawGameConfig.chips?.starting ?? 12,
+          challengeBaseTransfer: rawGameConfig.chips?.challengeBaseTransfer ?? 1,
+          concedeRoundChipLoss: rawGameConfig.chips?.concedeRoundChipLoss ?? 1,
+          maxRaiseAmount: rawGameConfig.chips?.raise?.maxAmount ?? 3,
+          maxRaisesPerPlayer: rawGameConfig.chips?.raise?.maxPerPlayer ?? 3,
+          clearBonusBase: rawGameConfig.chips?.clearReward?.base ?? 1,
+          clearBonusIncrement: rawGameConfig.chips?.clearReward?.increment ?? 1,
+          maxChallengeBet: rawGameConfig.chips?.maxChallengeBet ?? 13,
         },
-        sizing: {
-          sidebarWidthFrac: scratchbonesGameConfig.layout?.sizing?.sidebarWidthFrac ?? scratchbonesLegacyGameplayConfig.sidebarWidthFrac ?? 0.75,
-          sidebarWidthPx: scratchbonesGameConfig.layout?.sizing?.sidebarWidthPx ?? scratchbonesLegacyGameplayConfig.sidebarWidthPx ?? 280,
-          appGapPx: scratchbonesGameConfig.layout?.sizing?.appGapPx ?? scratchbonesLegacyGameplayConfig.appGapPx ?? 8,
-          appPaddingPx: scratchbonesGameConfig.layout?.sizing?.appPaddingPx ?? scratchbonesLegacyGameplayConfig.appPaddingPx ?? 8,
-          seatAvatarPx: scratchbonesGameConfig.layout?.sizing?.seatAvatarPx ?? scratchbonesLegacyGameplayConfig.seatAvatarPx ?? 132,
-          humanSeatAvatarPx: scratchbonesGameConfig.layout?.sizing?.humanSeatAvatarPx ?? scratchbonesLegacyGameplayConfig.humanSeatAvatarPx ?? 204,
-          cinematicAvatarPx: scratchbonesGameConfig.layout?.sizing?.cinematicAvatarPx ?? scratchbonesLegacyGameplayConfig.cinematicAvatarPx ?? 132,
-          handCardMinWidthPx: scratchbonesGameConfig.layout?.sizing?.handCardMinWidthPx ?? scratchbonesLegacyGameplayConfig.handCardMinWidthPx ?? 74,
-          handCardMaxWidthPx: scratchbonesGameConfig.layout?.sizing?.handCardMaxWidthPx ?? scratchbonesLegacyGameplayConfig.handCardMaxWidthPx ?? 104,
-          handCardMinHeightPx: scratchbonesGameConfig.layout?.sizing?.handCardMinHeightPx ?? scratchbonesLegacyGameplayConfig.handCardMinHeightPx ?? 146,
-          handCardMaxHeightPx: scratchbonesGameConfig.layout?.sizing?.handCardMaxHeightPx ?? scratchbonesLegacyGameplayConfig.handCardMaxHeightPx ?? 186,
-          handCardGapMinPx: scratchbonesGameConfig.layout?.sizing?.handCardGapMinPx ?? scratchbonesLegacyGameplayConfig.handCardGapMinPx ?? 8,
-          handCardGapMaxPx: scratchbonesGameConfig.layout?.sizing?.handCardGapMaxPx ?? scratchbonesLegacyGameplayConfig.handCardGapMaxPx ?? 12,
-          eventLogMaxHeightPx: scratchbonesGameConfig.layout?.sizing?.eventLogMaxHeightPx ?? scratchbonesLegacyGameplayConfig.eventLogMaxHeightPx ?? 78,
-          controlsPaddingYpx: scratchbonesGameConfig.layout?.sizing?.controlsPaddingYpx ?? scratchbonesLegacyGameplayConfig.controlsPaddingYpx ?? 12,
-          controlsPaddingXpx: scratchbonesGameConfig.layout?.sizing?.controlsPaddingXpx ?? scratchbonesLegacyGameplayConfig.controlsPaddingXpx ?? 12,
-          controlsGapPx: scratchbonesGameConfig.layout?.sizing?.controlsGapPx ?? scratchbonesLegacyGameplayConfig.controlsGapPx ?? 10,
-          handWrapPaddingYpx: scratchbonesGameConfig.layout?.sizing?.handWrapPaddingYpx ?? scratchbonesLegacyGameplayConfig.handWrapPaddingYpx ?? 8,
-          handWrapPaddingXpx: scratchbonesGameConfig.layout?.sizing?.handWrapPaddingXpx ?? scratchbonesLegacyGameplayConfig.handWrapPaddingXpx ?? 12,
-          handWrapGapPx: scratchbonesGameConfig.layout?.sizing?.handWrapGapPx ?? scratchbonesLegacyGameplayConfig.handWrapGapPx ?? 6,
-          eventLogPaddingYpx: scratchbonesGameConfig.layout?.sizing?.eventLogPaddingYpx ?? scratchbonesLegacyGameplayConfig.eventLogPaddingYpx ?? 8,
-          eventLogPaddingXpx: scratchbonesGameConfig.layout?.sizing?.eventLogPaddingXpx ?? scratchbonesLegacyGameplayConfig.eventLogPaddingXpx ?? 12,
-          eventLogGapPx: scratchbonesGameConfig.layout?.sizing?.eventLogGapPx ?? scratchbonesLegacyGameplayConfig.eventLogGapPx ?? 6,
-          logItemPaddingYpx: scratchbonesGameConfig.layout?.sizing?.logItemPaddingYpx ?? scratchbonesLegacyGameplayConfig.logItemPaddingYpx ?? 9,
-          logItemPaddingXpx: scratchbonesGameConfig.layout?.sizing?.logItemPaddingXpx ?? scratchbonesLegacyGameplayConfig.logItemPaddingXpx ?? 10,
+        timers: {
+          challengeTimerSecs: rawGameConfig.timers?.challengeSeconds ?? 8,
+          aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 650,
         },
-        hand: {
-          desiredHeightFrac: scratchbonesGameConfig.layout?.hand?.desiredHeightFrac ?? scratchbonesLegacyGameplayConfig.handDesiredHeightFrac ?? 0.20,
-          heightScale: scratchbonesGameConfig.layout?.hand?.heightScale ?? scratchbonesLegacyGameplayConfig.handHeightScale ?? 0.5,
-          minHeightPx: scratchbonesGameConfig.layout?.hand?.minHeightPx ?? scratchbonesLegacyGameplayConfig.handMinHeightPx ?? 160,
-          maxHeightPx: scratchbonesGameConfig.layout?.hand?.maxHeightPx ?? scratchbonesLegacyGameplayConfig.handMaxHeightPx ?? 360,
-          forceAllVisible: scratchbonesGameConfig.layout?.hand?.forceAllVisible ?? true,
-          compact: {
-            enabled: scratchbonesGameConfig.layout?.hand?.compact?.enabled ?? true,
-            cardMinWidthPx: scratchbonesGameConfig.layout?.hand?.compact?.cardMinWidthPx ?? 64,
-            cardGapPx: scratchbonesGameConfig.layout?.hand?.compact?.cardGapPx ?? 6,
-            cardMinHeightPx: scratchbonesGameConfig.layout?.hand?.compact?.cardMinHeightPx ?? 128,
+        layout: {
+          viewport: {
+            widthPx: rawGameConfig.layout?.viewport?.widthPx,
+            heightPx: rawGameConfig.layout?.viewport?.heightPx,
           },
-        },
-        tableView: {
-          desiredHeightFrac: scratchbonesGameConfig.layout?.tableView?.desiredHeightFrac ?? 0.58,
-          minDominanceFrac: scratchbonesGameConfig.layout?.tableView?.minDominanceFrac ?? scratchbonesLegacyGameplayConfig.tableViewMinDominanceFrac ?? 0.56,
-          minHeightPx: scratchbonesGameConfig.layout?.tableView?.minHeightPx ?? 260,
-          maxHeightPx: scratchbonesGameConfig.layout?.tableView?.maxHeightPx ?? 680,
-          cardVisualMode: scratchbonesGameConfig.layout?.tableView?.cardVisualMode ?? 'faceDown',
-          turnSpotlight: {
-            embedded: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.embedded ?? true,
-            pinCorner: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.pinCorner ?? 'top-right',
-            offsetXPx: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.offsetXPx ?? 10,
-            offsetYPx: scratchbonesGameConfig.layout?.tableView?.turnSpotlight?.offsetYPx ?? 10,
+          cards: {
+            baseScale: rawGameConfig.layout?.cards?.baseScale ?? 0.25,
           },
-          visualFit: {
-            tableCardContainerScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.tableCardContainerScale ?? 1.25,
-            tableCardContentScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.tableCardContentScale ?? 0.8,
-            claimAvatarContainerScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.claimAvatarContainerScale ?? 1.25,
-            claimAvatarContentScale: scratchbonesGameConfig.layout?.tableView?.visualFit?.claimAvatarContentScale ?? 0.8,
+          sizing: {
+            sidebarWidthFrac: rawGameConfig.layout?.sizing?.sidebarWidthFrac ?? 0.75,
+            sidebarWidthPx: rawGameConfig.layout?.sizing?.sidebarWidthPx ?? 280,
+            appGapPx: rawGameConfig.layout?.sizing?.appGapPx ?? 8,
+            appPaddingPx: rawGameConfig.layout?.sizing?.appPaddingPx ?? 8,
+            seatAvatarPx: rawGameConfig.layout?.sizing?.seatAvatarPx ?? 132,
+            humanSeatAvatarPx: rawGameConfig.layout?.sizing?.humanSeatAvatarPx ?? 204,
+            cinematicAvatarPx: rawGameConfig.layout?.sizing?.cinematicAvatarPx ?? 132,
+            handCardMinWidthPx: rawGameConfig.layout?.sizing?.handCardMinWidthPx ?? 74,
+            handCardMaxWidthPx: rawGameConfig.layout?.sizing?.handCardMaxWidthPx ?? 104,
+            handCardMinHeightPx: rawGameConfig.layout?.sizing?.handCardMinHeightPx ?? 146,
+            handCardMaxHeightPx: rawGameConfig.layout?.sizing?.handCardMaxHeightPx ?? 186,
+            handCardGapMinPx: rawGameConfig.layout?.sizing?.handCardGapMinPx ?? 8,
+            handCardGapMaxPx: rawGameConfig.layout?.sizing?.handCardGapMaxPx ?? 12,
+            eventLogMaxHeightPx: rawGameConfig.layout?.sizing?.eventLogMaxHeightPx ?? 78,
+            controlsPaddingYpx: rawGameConfig.layout?.sizing?.controlsPaddingYpx ?? 12,
+            controlsPaddingXpx: rawGameConfig.layout?.sizing?.controlsPaddingXpx ?? 12,
+            controlsGapPx: rawGameConfig.layout?.sizing?.controlsGapPx ?? 10,
+            handWrapPaddingYpx: rawGameConfig.layout?.sizing?.handWrapPaddingYpx ?? 8,
+            handWrapPaddingXpx: rawGameConfig.layout?.sizing?.handWrapPaddingXpx ?? 12,
+            handWrapGapPx: rawGameConfig.layout?.sizing?.handWrapGapPx ?? 6,
+            eventLogPaddingYpx: rawGameConfig.layout?.sizing?.eventLogPaddingYpx ?? 8,
+            eventLogPaddingXpx: rawGameConfig.layout?.sizing?.eventLogPaddingXpx ?? 12,
+            eventLogGapPx: rawGameConfig.layout?.sizing?.eventLogGapPx ?? 6,
+            logItemPaddingYpx: rawGameConfig.layout?.sizing?.logItemPaddingYpx ?? 9,
+            logItemPaddingXpx: rawGameConfig.layout?.sizing?.logItemPaddingXpx ?? 10,
           },
-          cinematic: {
-            enabled: scratchbonesGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
-            showEffects: scratchbonesGameConfig.layout?.tableView?.cinematic?.showEffects ?? true,
+          hand: {
+            desiredHeightFrac: rawGameConfig.layout?.hand?.desiredHeightFrac ?? 0.20,
+            heightScale: rawGameConfig.layout?.hand?.heightScale ?? 0.5,
+            minHeightPx: rawGameConfig.layout?.hand?.minHeightPx ?? 160,
+            maxHeightPx: rawGameConfig.layout?.hand?.maxHeightPx ?? 360,
+            forceAllVisible: rawGameConfig.layout?.hand?.forceAllVisible ?? true,
+            compact: {
+              enabled: rawGameConfig.layout?.hand?.compact?.enabled ?? true,
+              cardMinWidthPx: rawGameConfig.layout?.hand?.compact?.cardMinWidthPx ?? 64,
+              cardGapPx: rawGameConfig.layout?.hand?.compact?.cardGapPx ?? 6,
+              cardMinHeightPx: rawGameConfig.layout?.hand?.compact?.cardMinHeightPx ?? 128,
+            },
           },
-        },
-        regions: {
-          actionFocus: {
-            enabled: scratchbonesGameConfig.layout?.regions?.actionFocus?.enabled ?? false,
-            replaceWithFloatingClaimCluster: scratchbonesGameConfig.layout?.regions?.actionFocus?.replaceWithFloatingClaimCluster ?? true,
+          tableView: {
+            desiredHeightFrac: rawGameConfig.layout?.tableView?.desiredHeightFrac ?? 0.58,
+            minDominanceFrac: rawGameConfig.layout?.tableView?.minDominanceFrac ?? 0.56,
+            minHeightPx: rawGameConfig.layout?.tableView?.minHeightPx ?? 260,
+            maxHeightPx: rawGameConfig.layout?.tableView?.maxHeightPx ?? 680,
+            cardVisualMode: rawGameConfig.layout?.tableView?.cardVisualMode ?? 'faceDown',
+            turnSpotlight: {
+              embedded: rawGameConfig.layout?.tableView?.turnSpotlight?.embedded ?? true,
+              pinCorner: rawGameConfig.layout?.tableView?.turnSpotlight?.pinCorner ?? 'top-right',
+              offsetXPx: rawGameConfig.layout?.tableView?.turnSpotlight?.offsetXPx ?? 10,
+              offsetYPx: rawGameConfig.layout?.tableView?.turnSpotlight?.offsetYPx ?? 10,
+            },
+            visualFit: {
+              tableCardContainerScale: rawGameConfig.layout?.tableView?.visualFit?.tableCardContainerScale ?? 1.25,
+              tableCardContentScale: rawGameConfig.layout?.tableView?.visualFit?.tableCardContentScale ?? 0.8,
+              claimAvatarContainerScale: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarContainerScale ?? 1.25,
+              claimAvatarContentScale: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarContentScale ?? 0.8,
+            },
+            cinematic: {
+              enabled: rawGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
+              showEffects: rawGameConfig.layout?.tableView?.cinematic?.showEffects ?? true,
+            },
           },
-          turnSpotlight: {
-            enabled: scratchbonesGameConfig.layout?.regions?.turnSpotlight?.enabled ?? true,
-            mustStayVisible: scratchbonesGameConfig.layout?.regions?.turnSpotlight?.mustStayVisible ?? true,
-            avatarSizePx: scratchbonesGameConfig.layout?.regions?.turnSpotlight?.avatarSizePx ?? 180,
-            nameBarBelowAvatar: scratchbonesGameConfig.layout?.regions?.turnSpotlight?.nameBarBelowAvatar ?? true,
+          regions: {
+            actionFocus: {
+              enabled: rawGameConfig.layout?.regions?.actionFocus?.enabled ?? false,
+              replaceWithFloatingClaimCluster: rawGameConfig.layout?.regions?.actionFocus?.replaceWithFloatingClaimCluster ?? true,
+            },
+            turnSpotlight: {
+              enabled: rawGameConfig.layout?.regions?.turnSpotlight?.enabled ?? true,
+              mustStayVisible: rawGameConfig.layout?.regions?.turnSpotlight?.mustStayVisible ?? true,
+              avatarSizePx: rawGameConfig.layout?.regions?.turnSpotlight?.avatarSizePx ?? 180,
+              nameBarBelowAvatar: rawGameConfig.layout?.regions?.turnSpotlight?.nameBarBelowAvatar ?? true,
+            },
+            contextBox: {
+              enabled: rawGameConfig.layout?.regions?.contextBox?.enabled ?? true,
+              sharedDeclareAndChallengeSlot: rawGameConfig.layout?.regions?.contextBox?.sharedDeclareAndChallengeSlot ?? true,
+              mustStayVisible: rawGameConfig.layout?.regions?.contextBox?.mustStayVisible ?? true,
+            },
           },
-          contextBox: {
-            enabled: scratchbonesGameConfig.layout?.regions?.contextBox?.enabled ?? true,
-            sharedDeclareAndChallengeSlot: scratchbonesGameConfig.layout?.regions?.contextBox?.sharedDeclareAndChallengeSlot ?? true,
-            mustStayVisible: scratchbonesGameConfig.layout?.regions?.contextBox?.mustStayVisible ?? true,
+          claimCluster: {
+            enabled: rawGameConfig.layout?.claimCluster?.enabled ?? true,
+            anchor: rawGameConfig.layout?.claimCluster?.anchor ?? 'tableView',
+            scaleAsOne: rawGameConfig.layout?.claimCluster?.scaleAsOne ?? true,
+            preserveRelativePositions: rawGameConfig.layout?.claimCluster?.preserveRelativePositions ?? true,
+            mustStayVisible: rawGameConfig.layout?.claimCluster?.mustStayVisible ?? true,
+            transparentShells: rawGameConfig.layout?.claimCluster?.transparentShells ?? true,
+            geometry: {
+              centerXPct: rawGameConfig.layout?.claimCluster?.geometry?.centerXPct ?? 0.50,
+              centerYPct: rawGameConfig.layout?.claimCluster?.geometry?.centerYPct ?? 0.54,
+              widthPctOfTableView: rawGameConfig.layout?.claimCluster?.geometry?.widthPctOfTableView ?? 0.78,
+              heightPctOfTableView: rawGameConfig.layout?.claimCluster?.geometry?.heightPctOfTableView ?? 0.48,
+            },
+            elements: rawGameConfig.layout?.claimCluster?.elements ?? {},
           },
-        },
-        claimCluster: {
-          enabled: scratchbonesGameConfig.layout?.claimCluster?.enabled ?? true,
-          anchor: scratchbonesGameConfig.layout?.claimCluster?.anchor ?? 'tableView',
-          scaleAsOne: scratchbonesGameConfig.layout?.claimCluster?.scaleAsOne ?? true,
-          preserveRelativePositions: scratchbonesGameConfig.layout?.claimCluster?.preserveRelativePositions ?? true,
-          mustStayVisible: scratchbonesGameConfig.layout?.claimCluster?.mustStayVisible ?? true,
-          transparentShells: scratchbonesGameConfig.layout?.claimCluster?.transparentShells ?? true,
-          geometry: {
-            centerXPct: scratchbonesGameConfig.layout?.claimCluster?.geometry?.centerXPct ?? 0.50,
-            centerYPct: scratchbonesGameConfig.layout?.claimCluster?.geometry?.centerYPct ?? 0.54,
-            widthPctOfTableView: scratchbonesGameConfig.layout?.claimCluster?.geometry?.widthPctOfTableView ?? 0.78,
-            heightPctOfTableView: scratchbonesGameConfig.layout?.claimCluster?.geometry?.heightPctOfTableView ?? 0.48,
+          shells: {
+            transparentFloatingBoxes: rawGameConfig.layout?.shells?.transparentFloatingBoxes ?? true,
+            disablePanelChromeForFloatingBoxes: rawGameConfig.layout?.shells?.disablePanelChromeForFloatingBoxes ?? true,
           },
-          elements: scratchbonesGameConfig.layout?.claimCluster?.elements ?? {},
+          controlsToHandRelationship: rawGameConfig.layout?.controlsToHandRelationship ?? 'below',
+          actionColumn: {
+            heightScale: rawGameConfig.layout?.actionColumn?.heightScale ?? 0.25,
+          },
+          controls: {
+            heightScale: rawGameConfig.layout?.controls?.heightScale ?? 0.5,
+          },
+          allowChallengeOverflow: rawGameConfig.layout?.allowChallengeOverflow ?? true,
+          fitter: rawGameConfig.layout?.fitter ?? null,
+          projectionMapping: rawGameConfig.layout?.projectionMapping ?? {},
         },
-        shells: {
-          transparentFloatingBoxes: scratchbonesGameConfig.layout?.shells?.transparentFloatingBoxes ?? true,
-          disablePanelChromeForFloatingBoxes: scratchbonesGameConfig.layout?.shells?.disablePanelChromeForFloatingBoxes ?? true,
+        uiText: {
+          initialBanner: rawGameConfig.uiText?.initialBanner ?? 'Open a round by selecting one or more cards, then declare a number.',
+          yourLeadBanner: rawGameConfig.uiText?.yourLeadBanner ?? 'Your lead. Select cards and declare any number.',
+          pickCardWarning: rawGameConfig.uiText?.pickCardWarning ?? 'Pick at least one card before playing.',
+          challengeTimerLabel: rawGameConfig.uiText?.challengeTimerLabel ?? 'Auto: let it stand',
+          challengePromptTemplate: rawGameConfig.uiText?.challengePromptTemplate ?? '{seat} declared {count} × {rank}. Challenge before the timer runs out, or let it stand.',
+          letStandButton: rawGameConfig.uiText?.letStandButton ?? 'Let it stand',
         },
-        controlsToHandRelationship: scratchbonesGameConfig.layout?.controlsToHandRelationship ?? scratchbonesLegacyGameplayConfig.controlsToHandRelationship ?? 'below',
-        actionColumn: {
-          heightScale: scratchbonesGameConfig.layout?.actionColumn?.heightScale ?? scratchbonesLegacyGameplayConfig.actionColumnHeightScale ?? 0.25,
+        assets: {
+          cardHudBasePath: rawGameConfig.assets?.cards?.hudBasePath ?? './docs/assets/hud/',
+          wildCardSrc: rawGameConfig.assets?.cards?.wild?.src ?? '2DScratchBoneWild.png',
+          wildCardFallbackSrc: rawGameConfig.assets?.cards?.wild?.fallbackSrc ?? '2DScratchBoneWild.png',
+          flippedCardSrc: rawGameConfig.assets?.cards?.flipped?.src ?? '2DScratchboneFlipped.png',
+          flippedCardFallbackSrc: rawGameConfig.assets?.cards?.flipped?.fallbackSrc ?? '2DScratchBoneFlipped.png',
+          rankCardTemplateSrc: rawGameConfig.assets?.cards?.rankTemplate?.src ?? '2DScratchbone{rank}.png',
+          rankCardTemplateFallbackSrc: rawGameConfig.assets?.cards?.rankTemplate?.fallbackSrc ?? '2DScratchbones{rank}.png',
         },
-        controls: {
-          heightScale: scratchbonesGameConfig.layout?.controls?.heightScale ?? scratchbonesLegacyGameplayConfig.controlsHeightScale ?? 0.5,
-        },
-        allowChallengeOverflow: scratchbonesGameConfig.layout?.allowChallengeOverflow ?? scratchbonesLegacyGameplayConfig.allowChallengeOverflow ?? true,
-        fitter: scratchbonesGameConfig.layout?.fitter ?? null,
-        projectionMapping: scratchbonesGameConfig.layout?.projectionMapping ?? {},
-      },
-      uiText: {
-        initialBanner: scratchbonesGameConfig.uiText?.initialBanner ?? scratchbonesLegacyGameplayConfig.initialBanner ?? 'Open a round by selecting one or more cards, then declare a number.',
-        yourLeadBanner: scratchbonesGameConfig.uiText?.yourLeadBanner ?? scratchbonesLegacyGameplayConfig.yourLeadBanner ?? 'Your lead. Select cards and declare any number.',
-        pickCardWarning: scratchbonesGameConfig.uiText?.pickCardWarning ?? scratchbonesLegacyGameplayConfig.pickCardWarning ?? 'Pick at least one card before playing.',
-        challengeTimerLabel: scratchbonesGameConfig.uiText?.challengeTimerLabel ?? scratchbonesLegacyGameplayConfig.challengeTimerLabel ?? 'Auto: let it stand',
-        challengePromptTemplate: scratchbonesGameConfig.uiText?.challengePromptTemplate ?? scratchbonesLegacyGameplayConfig.challengePromptTemplate ?? '{seat} declared {count} × {rank}. Challenge before the timer runs out, or let it stand.',
-        letStandButton: scratchbonesGameConfig.uiText?.letStandButton ?? scratchbonesLegacyGameplayConfig.letStandButton ?? 'Let it stand',
-      },
-      assets: {
-        cardHudBasePath: scratchbonesGameConfig.assets?.cards?.hudBasePath ?? scratchbonesLegacyGameplayConfig.cardsHudBasePath ?? './docs/assets/hud/',
-        wildCardSrc: scratchbonesGameConfig.assets?.cards?.wild?.src ?? scratchbonesLegacyGameplayConfig.wildCardAsset ?? '2DScratchBoneWild.png',
-        wildCardFallbackSrc: scratchbonesGameConfig.assets?.cards?.wild?.fallbackSrc ?? scratchbonesLegacyGameplayConfig.wildCardAssetFallback ?? '2DScratchBoneWild.png',
-        flippedCardSrc: scratchbonesGameConfig.assets?.cards?.flipped?.src ?? scratchbonesLegacyGameplayConfig.flippedCardAsset ?? '2DScratchboneFlipped.png',
-        flippedCardFallbackSrc: scratchbonesGameConfig.assets?.cards?.flipped?.fallbackSrc ?? scratchbonesLegacyGameplayConfig.flippedCardAssetFallback ?? '2DScratchBoneFlipped.png',
-        rankCardTemplateSrc: scratchbonesGameConfig.assets?.cards?.rankTemplate?.src ?? scratchbonesLegacyGameplayConfig.rankCardTemplate ?? '2DScratchbone{rank}.png',
-        rankCardTemplateFallbackSrc: scratchbonesGameConfig.assets?.cards?.rankTemplate?.fallbackSrc ?? scratchbonesLegacyGameplayConfig.rankCardTemplateFallback ?? '2DScratchbones{rank}.png',
-      },
-    };
+      };
+    }
+
+    function getScratchbonesGameConfig() {
+      validateScratchbonesGameConfig(scratchbonesRootConfig);
+      return normalizeScratchbonesGameConfig(scratchbonesRootConfig.game || {});
+    }
+
+    // Most recent config-boundary cleanup: Scratchbones now reads only SCRATCHBONES_CONFIG.game.
+    const SCRATCHBONES_GAME = getScratchbonesGameConfig();
 
     const CHALLENGE_TIMER_SECS = SCRATCHBONES_GAME.timers.challengeTimerSecs;
 
@@ -4434,7 +4466,7 @@
     let _portraitCosmetics = null;
 
     if (window.setPortraitAssetBase && window.loadPortraitCosmetics) {
-      const scratchbonesPortraitConfig = window.SCRATCHBONES_CONFIG?.game?.assets?.portrait || window.SCRATCHBONES_CONFIG?.portrait || null;
+      const scratchbonesPortraitConfig = window.SCRATCHBONES_CONFIG?.game?.assets?.portrait || null;
       if (scratchbonesPortraitConfig && window.setPortraitConfig) {
         setPortraitConfig(scratchbonesPortraitConfig);
       }
