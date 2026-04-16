@@ -48,7 +48,7 @@ window.SCRATCHBONES_CONFIG = {
           "hand": { "x": 20, "y": 700, "width": 940, "height": 140 },
           "log": { "x": 20, "y": 850, "width": 1240, "height": 40 },
           "tableView": { "x": 220, "y": 240, "width": 960, "height": 260 },
-          "turnSpotlight": { "x": 1220, "y": 20, "width": 160, "height": 180 },
+          "turnSpotlight": { "x": 790, "y": 10, "width": 160, "height": 180 },
           "claimCluster": { "x": 220, "y": 240, "width": 960, "height": 260 },
           "challengePrompt": { "x": 960, "y": 700, "width": 280, "height": 140 }
         }
