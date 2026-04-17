@@ -262,6 +262,7 @@
       justify-content: center;
       align-items: center;
       padding: 2px;
+      height: auto !important;
     }
     .claimHandBar .tableViewCard {
       width: calc(var(--layout-card-mini-base-width) * var(--layout-card-scale) * var(--layout-table-card-container-scale));
@@ -273,7 +274,7 @@
     }
     .actorAvatarFloat,
     .reactorAvatarFloat {
-      overflow: hidden;
+      overflow: visible;
       padding: 0;
       transform: translate(-50%, -50%) scale(var(--layout-claim-avatar-container-scale));
       transform-origin: center center;
@@ -286,6 +287,9 @@
       border-radius: 10px;
       transform: scale(var(--layout-claim-avatar-content-scale));
       transform-origin: center center;
+    }
+    .reactorAvatarFloat canvas {
+      transform: scale(var(--layout-claim-avatar-content-scale)) scaleX(-1);
     }
     .tableViewHeader {
       display: flex;
@@ -326,7 +330,7 @@
     #tableCinematicHost {
       position: absolute;
       inset: 0;
-      z-index: 2;
+      z-index: 20;
       display: none;
       align-items: center;
       justify-content: center;
@@ -334,10 +338,7 @@
       overflow: hidden;
     }
     #tableCinematicHost.cin-active { display: flex; }
-    #app.cinematic-active > .tableViewHeader,
-    #app.cinematic-active > .tableViewCards,
-    #app.cinematic-active > .claimCluster,
-    #app.cinematic-active > .turnSpotlight {
+    #app.cinematic-active > *:not(#tableCinematicHost) {
       visibility: hidden;
       opacity: 0;
       pointer-events: none;
@@ -412,21 +413,21 @@
       min-width: 0;
       display: flex;
       flex-direction: row;
-      align-items: flex-start;
+      align-items: stretch;
       gap: calc(8px * var(--layout-sidebar-content-scale));
       opacity: 0.88;
     }
     .seatInfo {
-      flex: 2;
+      flex: 1;
       min-width: 0;
       display: flex;
       flex-direction: column;
     }
     .seatAvatarBox {
       width: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
-      height: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
+      height: auto;
       flex-shrink: 0;
-      overflow: hidden;
+      overflow: visible;
       border-radius: 8px;
     }
     .humanSeatCard {
