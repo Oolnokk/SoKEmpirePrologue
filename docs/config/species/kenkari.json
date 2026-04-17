@@ -20,6 +20,19 @@
       "appearance::hat::riverlandskasa_low",
       "appearance::hat::riverlandskasa_wide"
     ],
+    "forcedCosmetics": {
+      "eyes": "kenk_eyedisks"
+    },
+    "conditionalCosmetics": [
+      {
+        "slot": "facialHair",
+        "cosmeticId": "kenk_shirtbeard",
+        "conditions": {
+          "facialHair": "none",
+          "anyClothingTag": "collared"
+        }
+      }
+    ],
     "cosmeticWeights": {
       "hat": {
         "none": 30,
@@ -29,8 +42,13 @@
       },
       "hairFront": {
         "none": 10,
-        "forwardtuft_long": 45,
-        "fowardtuft": 45
+        "kenk_forwardtuft_long": 45,
+        "kenk_fowardtuft": 45
+      },
+      "facialHair": {
+        "none": 65,
+        "kenk_wildbeard": 35,
+        "kenk_shirtbeard": 0
       }
     },
     "bodyColorRanges": {
