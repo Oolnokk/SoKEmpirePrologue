@@ -1902,6 +1902,8 @@
     const authoredEditorState = {
       selectedId: null,
       pointerDrag: null,
+      pointerCaptureTarget: null,
+      pointerCaptureId: null,
       mode: 'none',
       lastChange: 'Editor idle.',
       gridEnabled: false,
@@ -4885,7 +4887,7 @@
       if (!overlay) return false;
       const boxId = overlay.dataset.boxId;
       if (!boxId) return false;
-      selectAuthoredBox(boxId);
+      if (authoredEditorState.selectedId !== boxId) selectAuthoredBox(boxId);
       const authored = getScratchbonesAuthoredConfig();
       const box = authored.boxes[boxId];
       if (!box) return false;
@@ -4902,7 +4904,16 @@
         startBox: { ...box },
         scale,
       };
-      overlay.setPointerCapture(event.pointerId);
+      authoredEditorState.pointerCaptureTarget = overlay;
+      authoredEditorState.pointerCaptureId = event.pointerId;
+      if (typeof overlay.setPointerCapture === 'function') {
+        try {
+          overlay.setPointerCapture(event.pointerId);
+        } catch {
+          authoredEditorState.pointerCaptureTarget = null;
+          authoredEditorState.pointerCaptureId = null;
+        }
+      }
       event.preventDefault();
       return true;
     }
@@ -4922,11 +4933,14 @@
       updateAuthoredBox(drag.boxId, next);
       updateEditorStatus(`Updated ${drag.boxId}: x=${Math.round(next.x)} y=${Math.round(next.y)} w=${Math.round(next.width)} h=${Math.round(next.height)}`);
     }
-    function finishAuthoredPointer(event) {
+    function finishAuthoredPointer() {
       if (!authoredEditorState.pointerDrag) return;
-      const overlay = event.target.closest('.authoredBoxOverlay');
-      if (overlay?.hasPointerCapture?.(event.pointerId)) overlay.releasePointerCapture(event.pointerId);
+      const captureTarget = authoredEditorState.pointerCaptureTarget;
+      const captureId = authoredEditorState.pointerCaptureId;
+      if (captureId != null && captureTarget?.hasPointerCapture?.(captureId)) captureTarget.releasePointerCapture(captureId);
       authoredEditorState.pointerDrag = null;
+      authoredEditorState.pointerCaptureTarget = null;
+      authoredEditorState.pointerCaptureId = null;
     }
     (function initProjMap() {
       const btn = document.getElementById('projMapBtn');
@@ -5067,6 +5081,7 @@
         } else tip.style.display = 'none';
       });
       document.addEventListener('pointerup', finishAuthoredPointer);
+      document.addEventListener('pointercancel', finishAuthoredPointer);
       document.addEventListener('click', (event) => {
         if (!projectionUiState.active) return;
         if (event.target.closest('#projMapBtn,#projVarBtn,#projVarPanel,#projExportBtn')) return;
