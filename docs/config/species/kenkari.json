@@ -18,7 +18,8 @@
       "appearance::Kenkari_M::kenk_wildbeard",
       "appearance::hat::basic_headband",
       "appearance::hat::riverlandskasa_low",
-      "appearance::hat::riverlandskasa_wide"
+      "appearance::hat::riverlandskasa_wide",
+      "tankanbodywrap_kenk_m"
     ],
     "forcedCosmetics": {
       "eyes": "kenk_eyedisks"

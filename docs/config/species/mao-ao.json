@@ -25,7 +25,10 @@
       "appearance::Mao-ao_M::mao-ao_wildbeard",
       "appearance::hat::basic_headband",
       "appearance::hat::riverlandskasa_low",
-      "appearance::hat::riverlandskasa_wide"
+      "appearance::hat::riverlandskasa_wide",
+      "tankantunic_mao-ao_m",
+      "bandolier1_mao-ao_m",
+      "tankanbodywrap_mao-ao"
     ],
     "cosmeticWeights": {
       "hat": {
@@ -241,7 +244,10 @@
       "appearance::Mao-ao_F::mao-ao_long_ponytail",
       "appearance::hat::basic_headband",
       "appearance::hat::riverlandskasa_low",
-      "appearance::hat::riverlandskasa_wide"
+      "appearance::hat::riverlandskasa_wide",
+      "tankantunic_mao-ao_f",
+      "bandolier1_mao-ao_f",
+      "tankanbodywrap_mao-ao"
     ],
     "cosmeticWeights": {
       "hat": {

@@ -1,0 +1,23 @@
+{
+  "slot": "torso",
+  "tags": ["collared"],
+  "meta": { "name": "Tankan Tunic" },
+  "parts": {
+    "torso": {
+      "layers": {
+        "back": {
+          "image": {
+            "url": "./assets/cosmetics/clothes/torso/portrait/tankantunic_tl_m.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "torso": { "ax": -0.2, "ay": 0, "scaleX": 2.55, "scaleY": 2.55 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

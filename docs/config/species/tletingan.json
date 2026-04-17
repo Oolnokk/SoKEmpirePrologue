@@ -22,7 +22,10 @@
       "appearance::Tletingan_M::tl_wildbeard",
       "appearance::hat::basic_headband",
       "appearance::hat::riverlandskasa_low",
-      "appearance::hat::riverlandskasa_wide"
+      "appearance::hat::riverlandskasa_wide",
+      "tankantunic_tl_m",
+      "bandolier1_tl_m",
+      "tankanbodywrap_tl_m"
     ],
     "cosmeticWeights": {
       "hat": {

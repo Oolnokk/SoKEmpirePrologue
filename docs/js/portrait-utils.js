@@ -455,7 +455,7 @@ async function loadPortraitCosmetics(configBase) {
 
     if (!entry.id.startsWith('appearance::')) {
       const lowerLayers = opt.layers.map(l => (l.url || '').toLowerCase());
-      if (lowerLayers.some(u => u.includes('/torso/portrait/'))) torsoPortraitOptions.push(opt);
+      if (lowerLayers.some(u => u.includes('/torso/portrait/') || u.includes('/overwear/portrait/'))) torsoPortraitOptions.push(opt);
       if (lowerLayers.some(u => u.includes('/arms/portrait/'))) armPortraitOptions.push(opt);
     }
   }
@@ -686,8 +686,10 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
     }
   }
 
-  const torsoCosmetic = weightedPickRng((torsoPortraitOptions && torsoPortraitOptions.length) ? torsoPortraitOptions : [{ id: 'none', label: 'No Torso Clothing', tintSlot: null, layers: [] }], null, rng);
-  const armCosmetic = weightedPickRng((armPortraitOptions && armPortraitOptions.length) ? armPortraitOptions : [{ id: 'none', label: 'No Arm Clothing', tintSlot: null, layers: [] }], null, rng);
+  const filteredTorso = filterArr(torsoPortraitOptions) ?? [];
+  const filteredArm   = filterArr(armPortraitOptions)   ?? [];
+  const torsoCosmetic = weightedPickRng(filteredTorso.length ? filteredTorso : [{ id: 'none', label: 'No Torso Clothing', tintSlot: null, layers: [] }], null, rng);
+  const armCosmetic   = weightedPickRng(filteredArm.length   ? filteredArm   : [{ id: 'none', label: 'No Arm Clothing',   tintSlot: null, layers: [] }], null, rng);
 
   // Apply forced cosmetics — species-level slots that always override random selection.
   const forced = forcedCosmeticsByFighter?.[fighter.id];

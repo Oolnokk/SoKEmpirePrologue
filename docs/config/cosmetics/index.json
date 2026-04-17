@@ -45,6 +45,15 @@
     { "id": "appearance::Kenkari_M::kenk_forwardtuft_long",  "path": "./appearance/kenkari/forwardtuft_long.json" },
     { "id": "appearance::Kenkari_M::kenk_fowardtuft",        "path": "./appearance/kenkari/fowardtuft.json" },
     { "id": "appearance::Kenkari_M::kenk_shirtbeard",        "path": "./appearance/kenkari/shirtbeard.json" },
-    { "id": "appearance::Kenkari_M::kenk_wildbeard",         "path": "./appearance/kenkari/wildbeard.json" }
+    { "id": "appearance::Kenkari_M::kenk_wildbeard",         "path": "./appearance/kenkari/wildbeard.json" },
+    { "id": "tankantunic_mao-ao_m",   "path": "./clothes/torso/tankantunic_mao-ao_m.json" },
+    { "id": "tankantunic_mao-ao_f",   "path": "./clothes/torso/tankantunic_mao-ao_f.json" },
+    { "id": "tankantunic_tl_m",       "path": "./clothes/torso/tankantunic_tl_m.json" },
+    { "id": "bandolier1_mao-ao_m",    "path": "./clothes/torso/bandolier1_mao-ao_m.json" },
+    { "id": "bandolier1_mao-ao_f",    "path": "./clothes/torso/bandolier1_mao-ao_f.json" },
+    { "id": "bandolier1_tl_m",        "path": "./clothes/torso/bandolier1_tl_m.json" },
+    { "id": "tankanbodywrap_mao-ao",  "path": "./clothes/overwear/tankanbodywrap_mao-ao.json" },
+    { "id": "tankanbodywrap_tl_m",    "path": "./clothes/overwear/tankanbodywrap_tl_m.json" },
+    { "id": "tankanbodywrap_kenk_m",  "path": "./clothes/overwear/tankanbodywrap_kenk_m.json" }
   ]
 }
