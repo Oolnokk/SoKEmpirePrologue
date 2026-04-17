@@ -1,5 +1,7 @@
 {
   "entries": [
-    { "speciesId": "mao-ao", "label": "Mao-ao", "path": "./mao-ao.json" }
+    { "speciesId": "mao-ao",    "label": "Mao-ao",    "path": "./mao-ao.json" },
+    { "speciesId": "tletingan", "label": "Tletingan", "path": "./tletingan.json" },
+    { "speciesId": "kenkari",   "label": "Kenkari",   "path": "./kenkari.json" }
   ]
 }

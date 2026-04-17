@@ -1,0 +1,31 @@
+{
+  "slot": "torso",
+  "tags": ["collared"],
+  "colorRange": {
+    "minH": -180, "maxH": 180,
+    "stops": [
+      { "h": -180, "sMin": 0.05, "sMax": 0.85, "vMin": -0.10, "vMax": 0.35 },
+      { "h":    0, "sMin": 0.05, "sMax": 0.85, "vMin": -0.10, "vMax": 0.35 },
+      { "h":  180, "sMin": 0.05, "sMax": 0.85, "vMin": -0.10, "vMax": 0.35 }
+    ]
+  },
+  "meta": { "name": "Tankan Tunic" },
+  "parts": {
+    "torso": {
+      "layers": {
+        "back": {
+          "image": {
+            "url": "./assets/cosmetics/clothes/torso/portrait/tankantunic_mao-ao_m.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "torso": { "ax": -0.2, "ay": 0, "scaleX": 2.55, "scaleY": 2.55 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

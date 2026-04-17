@@ -1,0 +1,34 @@
+{
+  "meta": { "name": "Forward Tuft (Long)" },
+  "type": "appearance",
+  "hairSlot": "front",
+  "appearance": {
+    "inheritSprite": "head",
+    "bodyColors": ["A"],
+    "originalId": "tl_forwardtuft_long"
+  },
+  "parts": {
+    "head": {
+      "layers": {
+        "front": {
+          "image": {
+            "url": "./assets/cosmetics/appearance/tletingan/tl_forwardtuft_long.png"
+          },
+          "spriteStyle": {
+            "base": {
+              "xform": {
+                "head": {
+                  "ax": -0.1,
+                  "ay": -0.1,
+                  "scaleX": 2,
+                  "scaleY": 2,
+                  "rotDeg": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
