@@ -3019,8 +3019,8 @@
         addLog(`Challenge fails. ${state.players[challengedId].name} was truthful.`);
       }
       addLog(`${seatLabel(winner)} wins ${netGain} net chip${netGain === 1 ? '' : 's'} from the challenge.`);
+      state.betting = null;
       showRevealCinematic(challengerId, challengedId, play, success, () => {
-        state.betting = null;
         concludeChallengeFlow(winnerId);
       });
     }
@@ -4449,6 +4449,8 @@
         if (root) root.style.setProperty('--layout-table-card-auto-scale', '1');
         return;
       }
+      // Reset to scale=1 first so we measure intrinsic card dimensions
+      root.style.setProperty('--layout-table-card-auto-scale', '1');
       const firstCard = cards[0];
       const cardWidth = firstCard.offsetWidth || 1;
       const cardHeight = firstCard.offsetHeight || 1;
@@ -4456,7 +4458,7 @@
       const availableHeight = Math.max(1, cardsContainer.clientHeight);
       const gap = Number.parseFloat(getComputedStyle(cardsContainer).gap) || 0;
       const cardCount = cards.length;
-      let bestScale = 1;
+      let bestScale = 0;
       for (let rows = 1; rows <= cardCount; rows++) {
         const cols = Math.ceil(cardCount / rows);
         const requiredWidth = cols * cardWidth + Math.max(0, cols - 1) * gap;
