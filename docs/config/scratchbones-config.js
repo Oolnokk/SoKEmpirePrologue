@@ -44,10 +44,8 @@ window.SCRATCHBONES_CONFIG = {
           "sidebar": { "x": 1360, "y": 20, "width": 240, "height": 210 },
           "panel": { "x": 220, "y": 240, "width": 960, "height": 260 },
           "humanSeat": { "x": 1180, "y": 620, "width": 420, "height": 220 },
-          "contextBox": { "x": 20, "y": 700, "width": 1240, "height": 140 },
           "hand": { "x": 20, "y": 700, "width": 940, "height": 140 },
           "log": { "x": 20, "y": 850, "width": 1240, "height": 40 },
-          "tableView": { "x": 220, "y": 240, "width": 960, "height": 260 },
           "turnSpotlight": { "x": 1010, "y": 250, "width": 160, "height": 180 },
           "claimCluster": { "x": 220, "y": 240, "width": 960, "height": 260 },
           "challengePrompt": { "x": 960, "y": 700, "width": 280, "height": 140 }
