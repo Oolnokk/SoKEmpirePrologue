@@ -1,0 +1,216 @@
+{
+  "speciesId": "tletingan",
+  "label": "Tletingan",
+  "male": {
+    "headSprite": "fightersprites/tletingan/head_mint.png",
+    "headUrLayers": [
+      {
+        "url": "fightersprites/tletingan/untinted_regions/ur-head.png"
+      }
+    ],
+    "headXform": {
+      "ax": 0,
+      "ay": -0.1,
+      "sx": 0.95,
+      "sy": 1.14
+    },
+    "allowedCosmetics": [
+      "appearance::Tletingan_M::tl_forwardtuft_long",
+      "appearance::Tletingan_M::tl_forwardtuft_short",
+      "appearance::Tletingan_M::tl_longponytail",
+      "appearance::Tletingan_M::tl_splayedknot",
+      "appearance::Tletingan_M::tl_wildbeard",
+      "appearance::hat::basic_headband",
+      "appearance::hat::riverlandskasa_low",
+      "appearance::hat::riverlandskasa_wide"
+    ],
+    "cosmeticWeights": {
+      "hat": {
+        "none": 30,
+        "basic_headband": 30,
+        "riverlandskasa_low": 20,
+        "riverlandskasa_wide": 20
+      },
+      "hairFront": {
+        "none": 10,
+        "forwardtuft_long": 45,
+        "forwardtuft_short": 45
+      },
+      "hairBack": {
+        "none": 50,
+        "longponytail": 25,
+        "splayedknot": 25
+      }
+    },
+    "bodyColorRanges": {
+      "A": {
+        "minH": -100,
+        "maxH": 90,
+        "stops": [
+          {
+            "h": -115,
+            "sMin": -0.5,
+            "sMax": 0.95,
+            "vMin": -0.35,
+            "vMax": 0.55
+          },
+          {
+            "h": -88,
+            "sMin": -0.3,
+            "sMax": 0.55,
+            "vMin": -0.72,
+            "vMax": 0.15
+          },
+          {
+            "h": -60,
+            "sMin": -0.95,
+            "sMax": -0.6,
+            "vMin": -0.92,
+            "vMax": 0.65
+          },
+          {
+            "h": 0,
+            "sMin": -1,
+            "sMax": -0.45,
+            "vMin": -0.95,
+            "vMax": 0.85
+          },
+          {
+            "h": 90,
+            "sMin": -1,
+            "sMax": -0.25,
+            "vMin": -0.45,
+            "vMax": 0.12
+          }
+        ]
+      },
+      "B": {
+        "minH": -100,
+        "maxH": 90,
+        "stops": [
+          {
+            "h": -115,
+            "sMin": -0.1,
+            "sMax": 1,
+            "vMin": -0.7,
+            "vMax": 0.1
+          },
+          {
+            "h": -88,
+            "sMin": -0.25,
+            "sMax": 0.55,
+            "vMin": -0.9,
+            "vMax": -0.2
+          },
+          {
+            "h": -60,
+            "sMin": -0.95,
+            "sMax": -0.4,
+            "vMin": -0.97,
+            "vMax": 0.3
+          },
+          {
+            "h": 0,
+            "sMin": -1,
+            "sMax": -0.45,
+            "vMin": -0.97,
+            "vMax": 0.5
+          },
+          {
+            "h": 90,
+            "sMin": -1,
+            "sMax": -0.25,
+            "vMin": -0.65,
+            "vMax": -0.05
+          }
+        ]
+      },
+      "C": {
+        "minH": -100,
+        "maxH": 90,
+        "stops": [
+          {
+            "h": -115,
+            "sMin": -0.6,
+            "sMax": 0.7,
+            "vMin": -0.2,
+            "vMax": 0.6
+          },
+          {
+            "h": -70,
+            "sMin": -0.9,
+            "sMax": -0.1,
+            "vMin": 0,
+            "vMax": 0.75
+          },
+          {
+            "h": 0,
+            "sMin": -1,
+            "sMax": -0.5,
+            "vMin": 0.1,
+            "vMax": 0.9
+          },
+          {
+            "h": 90,
+            "sMin": -1,
+            "sMax": -0.4,
+            "vMin": -0.05,
+            "vMax": 0.35
+          }
+        ]
+      }
+    },
+    "portraitBodyLayers": [
+      {
+        "id": "armL",
+        "url": "portraitsprites/arm-L_tl_m.png",
+        "tintSlot": "A",
+        "pos": "back",
+        "xform": {
+          "ax": -0.2,
+          "ay": 0,
+          "scaleX": 2.55,
+          "scaleY": 2.55,
+          "rotDeg": 0
+        }
+      },
+      {
+        "id": "torso",
+        "url": "portraitsprites/torso_tl_m.png",
+        "tintSlot": "A",
+        "pos": "back",
+        "xform": {
+          "ax": -0.2,
+          "ay": 0,
+          "scaleX": 2.55,
+          "scaleY": 2.55,
+          "rotDeg": 0
+        }
+      },
+      {
+        "id": "armR",
+        "url": "portraitsprites/arm-R_tl-m.png",
+        "tintSlot": "A",
+        "pos": "back",
+        "xform": {
+          "ax": -0.2,
+          "ay": 0,
+          "scaleX": 2.55,
+          "scaleY": 2.55,
+          "rotDeg": 0
+        }
+      }
+    ],
+    "portraitOpacityMaskLayer": {
+      "id": "opacityMask",
+      "url": "hud/spriteopacitymask_cloud.png",
+      "xform": {
+        "ax": 0,
+        "ay": 0,
+        "scaleX": 2.55,
+        "scaleY": 2.55,
+        "rotDeg": 0
+      }
+    }
+  }
+}

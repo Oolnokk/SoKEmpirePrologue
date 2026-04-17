@@ -35,6 +35,16 @@
     { "id": "appearance::Mao-ao_F::mao-ao_wildbeard",             "path": "./appearance/mao-ao/wildbeard.json" },
     { "id": "appearance::Mao-ao_F::mao-ao_forwardtuft_long",      "path": "./appearance/mao-ao/forwardtuft_long.json" },
     { "id": "appearance::Mao-ao_F::mao-ao_forwardtuft_short",     "path": "./appearance/mao-ao/forwardtuft_short.json" },
-    { "id": "appearance::Mao-ao_F::mao-ao_splayedknot_medium",    "path": "./appearance/mao-ao/splayedknot_medium.json" }
+    { "id": "appearance::Mao-ao_F::mao-ao_splayedknot_medium",    "path": "./appearance/mao-ao/splayedknot_medium.json" },
+    { "id": "appearance::Tletingan_M::tl_forwardtuft_long",  "path": "./appearance/tletingan/forwardtuft_long.json" },
+    { "id": "appearance::Tletingan_M::tl_forwardtuft_short", "path": "./appearance/tletingan/forwardtuft_short.json" },
+    { "id": "appearance::Tletingan_M::tl_longponytail",      "path": "./appearance/tletingan/longponytail.json" },
+    { "id": "appearance::Tletingan_M::tl_splayedknot",       "path": "./appearance/tletingan/splayedknot.json" },
+    { "id": "appearance::Tletingan_M::tl_wildbeard",         "path": "./appearance/tletingan/wildbeard.json" },
+    { "id": "appearance::Kenkari_M::kenk_eyedisks",          "path": "./appearance/kenkari/eyedisks.json" },
+    { "id": "appearance::Kenkari_M::kenk_forwardtuft_long",  "path": "./appearance/kenkari/forwardtuft_long.json" },
+    { "id": "appearance::Kenkari_M::kenk_fowardtuft",        "path": "./appearance/kenkari/fowardtuft.json" },
+    { "id": "appearance::Kenkari_M::kenk_shirtbeard",        "path": "./appearance/kenkari/shirtbeard.json" },
+    { "id": "appearance::Kenkari_M::kenk_wildbeard",         "path": "./appearance/kenkari/wildbeard.json" }
   ]
 }

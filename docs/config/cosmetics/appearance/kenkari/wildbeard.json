@@ -1,0 +1,27 @@
+{
+  "meta": { "name": "Wildbeard" },
+  "type": "appearance",
+  "appearance": {
+    "inheritSprite": "head",
+    "bodyColors": ["A"],
+    "originalId": "kenk_wildbeard"
+  },
+  "parts": {
+    "head": {
+      "image": {
+        "url": "./assets/cosmetics/appearance/kenkari/kenk_wildbeard.png"
+      },
+      "spriteStyle": {
+        "xform": {
+          "head": {
+            "ax": -0.15,
+            "ay": -0.09,
+            "scaleX": 2.3,
+            "scaleY": 2.5,
+            "rotDeg": 0
+          }
+        }
+      }
+    }
+  }
+}
