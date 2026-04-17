@@ -175,7 +175,7 @@
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
     }
-    .topbar, .panel, .controls, .handWrap, .eventLog {
+    .topbar, .controls, .handWrap, .eventLog {
       background: var(--panel);
       border: 1px solid rgba(255,255,255,0.08);
       box-shadow: var(--shadow);
@@ -217,15 +217,6 @@
       color: var(--text);
       font-size: 0.8rem;
       border: 1px solid rgba(255,255,255,0.08);
-    }
-    .panel {
-      grid-area: panel;
-      padding: 10px 12px;
-      display: grid;
-      gap: 8px;
-      min-height: 0;
-      overflow: hidden;
-      contain: layout paint style;
     }
     .claimCluster {
       position: absolute;
@@ -343,10 +334,10 @@
       overflow: hidden;
     }
     #tableCinematicHost.cin-active { display: flex; }
-    .panel.cinematic-active > .tableViewHeader,
-    .panel.cinematic-active > .tableViewCards,
-    .panel.cinematic-active > .claimCluster,
-    .panel.cinematic-active > .turnSpotlight {
+    #app.cinematic-active > .tableViewHeader,
+    #app.cinematic-active > .tableViewCards,
+    #app.cinematic-active > .claimCluster,
+    #app.cinematic-active > .turnSpotlight {
       visibility: hidden;
       opacity: 0;
       pointer-events: none;
@@ -1834,7 +1825,6 @@
     const AUTHORED_BOX_KEY_BY_PROJ_ID = {
       'topbar': 'topbar',
       'sidebar': 'sidebar',
-      'panel': 'panel',
       'human-seat-zone': 'humanSeat',
       'human-seat': 'humanSeat',
       'hand': 'hand',
@@ -1844,14 +1834,10 @@
       'challenge-prompt': 'challengePrompt',
       'controls': 'challengePrompt',
     };
-    const AUTHORED_PARENT_BOX = {
-      turnSpotlight: 'panel',
-      claimCluster: 'panel',
-    };
+    const AUTHORED_PARENT_BOX = {};
     const DEFAULT_AUTHORED_BOXES = {
       topbar: { x: 8, y: 8, width: 1624, height: 120 },
       sidebar: { x: 1640, y: 8, width: 272, height: 780 },
-      panel: { x: 8, y: 136, width: 1624, height: 560 },
       humanSeat: { x: 1640, y: 796, width: 272, height: 176 },
       hand: { x: 8, y: 912, width: 1624, height: 160 },
       log: { x: 8, y: 968, width: 1624, height: 104 },
@@ -4221,49 +4207,47 @@
             <div class="humanSeatChipBadge">Chips ${player.chips}</div>
           </div>
         </div>
-        <div class="panel" data-proj-id="panel">
-          ${(turnSpotlightEnabled && turnSpotlightEmbedded) ? `
-            <div class="turnSpotlight fit-target fit-0" data-proj-id="turn-spotlight">
-              <div class="turnSpotlightAvatar">
-                <canvas class="seatPortrait" data-seat-id="${state.currentTurn}" width="220" height="220"></canvas>
-              </div>
-              <div class="turnSpotlightNameBar">${turnSpotlightTitle}</div>
+        ${(turnSpotlightEnabled && turnSpotlightEmbedded) ? `
+          <div class="turnSpotlight fit-target fit-0" data-proj-id="turn-spotlight">
+            <div class="turnSpotlightAvatar">
+              <canvas class="seatPortrait" data-seat-id="${state.currentTurn}" width="220" height="220"></canvas>
             </div>
-          ` : ''}
-          <div class="tableViewHeader">
-            <div class="sectionTitle">Table View</div>
-            <div class="tiny">${claimClusterEnabled ? 'Visual claim cluster active' : (latestPlay ? `Latest: ${seatLabel(latestPlay.playerIndex)} · ${latestPlay.cards?.length || 0} card(s)` : 'Waiting for opening play')}</div>
+            <div class="turnSpotlightNameBar">${turnSpotlightTitle}</div>
           </div>
-          <div class="tableViewCards">${tableCardsHtml}</div>
-          ${claimClusterEnabled ? `
-            <div class="claimCluster fit-target fit-0 ${claimClusterPolicy.mustStayVisible ? 'must-stay-visible' : ''}" data-proj-id="claim-cluster">
-              <div class="claimRankAnchorTop" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}"></div>
-              <div class="claimRankBox ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankText}</div>
-              <div class="claimHandBar ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimHandBar)}">${claimHandCardsHtml}</div>
-              <div class="claimTimesBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxLeft)}">×</div>
-              <div class="claimCountBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountText}</div>
-              <div class="claimTimesBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxRight)}">×</div>
-              <div class="claimCountBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountText}</div>
-              <div class="actorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
-                <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="140" height="140"></canvas>
-              </div>
-              <div class="reactorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
-                ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="140" height="140"></canvas>` : ''}
-              </div>
-            </div>
-          ` : ''}
-          <div id="tableCinematicHost" data-proj-id="cinematic"></div>
-          ${showLegacyActionFocus ? `
-            <div class="actionFocus fit-target fit-0">
-              <div class="tiny">Legacy action focus mode enabled.</div>
-            </div>
-          ` : ''}
-          <details class="debug">
-            <summary>Debug tools</summary>
-            <div class="tiny" style="margin-top:8px;">Recent change: ${state.recentChange}</div>
-            <pre id="debugSnapshotData">${DEBUG_ENABLED ? escapeHtml(JSON.stringify(debugSnapshot(), null, 2)) : 'Debug disabled.'}</pre>
-          </details>
+        ` : ''}
+        <div class="tableViewHeader">
+          <div class="sectionTitle">Table View</div>
+          <div class="tiny">${claimClusterEnabled ? 'Visual claim cluster active' : (latestPlay ? `Latest: ${seatLabel(latestPlay.playerIndex)} · ${latestPlay.cards?.length || 0} card(s)` : 'Waiting for opening play')}</div>
         </div>
+        <div class="tableViewCards">${tableCardsHtml}</div>
+        ${claimClusterEnabled ? `
+          <div class="claimCluster fit-target fit-0 ${claimClusterPolicy.mustStayVisible ? 'must-stay-visible' : ''}" data-proj-id="claim-cluster">
+            <div class="claimRankAnchorTop" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}"></div>
+            <div class="claimRankBox ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankText}</div>
+            <div class="claimHandBar ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimHandBar)}">${claimHandCardsHtml}</div>
+            <div class="claimTimesBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxLeft)}">×</div>
+            <div class="claimCountBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountText}</div>
+            <div class="claimTimesBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxRight)}">×</div>
+            <div class="claimCountBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountText}</div>
+            <div class="actorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
+              <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="140" height="140"></canvas>
+            </div>
+            <div class="reactorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
+              ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="140" height="140"></canvas>` : ''}
+            </div>
+          </div>
+        ` : ''}
+        <div id="tableCinematicHost" data-proj-id="cinematic"></div>
+        ${showLegacyActionFocus ? `
+          <div class="actionFocus fit-target fit-0">
+            <div class="tiny">Legacy action focus mode enabled.</div>
+          </div>
+        ` : ''}
+        <details class="debug">
+          <summary>Debug tools</summary>
+          <div class="tiny" style="margin-top:8px;">Recent change: ${state.recentChange}</div>
+          <pre id="debugSnapshotData">${DEBUG_ENABLED ? escapeHtml(JSON.stringify(debugSnapshot(), null, 2)) : 'Debug disabled.'}</pre>
+        </details>
         ${state.betting
           ? renderBettingControls()
           : (sharedContextBox && humanCanDecideChallenge
@@ -4448,21 +4432,20 @@
       if (!el) return;
       el.classList.remove('cin-active');
       el.innerHTML = '';
-      const panel = el.closest('.panel');
-      if (panel) panel.classList.remove('cinematic-active');
+      const app = el.closest('#app');
+      if (app) app.classList.remove('cinematic-active');
     }
     function activateTableCinematicMode() {
       const cinematicRoot = getCinematicRoot();
       if (!cinematicRoot) return;
-      const panel = cinematicRoot.closest('.panel');
-      if (panel) panel.classList.add('cinematic-active');
+      const app = cinematicRoot.closest('#app');
+      if (app) app.classList.add('cinematic-active');
     }
     function updateTableCardAutoScale(root = document.getElementById('app')) {
-      const panel = root?.querySelector?.('.panel');
-      const cardsContainer = panel?.querySelector?.('.tableViewCards');
+      const cardsContainer = root?.querySelector?.('.tableViewCards');
       const cards = cardsContainer ? Array.from(cardsContainer.querySelectorAll('.tableViewCard')) : [];
-      if (!panel || !cardsContainer || !cards.length) {
-        if (panel) panel.style.setProperty('--layout-table-card-auto-scale', '1');
+      if (!cardsContainer || !cards.length) {
+        if (root) root.style.setProperty('--layout-table-card-auto-scale', '1');
         return;
       }
       const firstCard = cards[0];
@@ -4483,7 +4466,7 @@
         );
         if (candidate > bestScale) bestScale = candidate;
       }
-      panel.style.setProperty('--layout-table-card-auto-scale', clampNumber(bestScale, 0.35, 1).toFixed(3));
+      root.style.setProperty('--layout-table-card-auto-scale', clampNumber(bestScale, 0.35, 1).toFixed(3));
     }
     function refreshCinematicBettingZone() {
       const zone = document.getElementById('cin-betting-zone');

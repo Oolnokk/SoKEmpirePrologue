@@ -42,7 +42,6 @@ window.SCRATCHBONES_CONFIG = {
         "boxes": {
           "topbar": { "x": 0, "y": 20, "width": 1220, "height": 80 },
           "sidebar": { "x": 1360, "y": 20, "width": 240, "height": 210 },
-          "panel": { "x": 220, "y": 240, "width": 960, "height": 260 },
           "humanSeat": { "x": 1180, "y": 620, "width": 420, "height": 220 },
           "hand": { "x": 20, "y": 700, "width": 940, "height": 140 },
           "log": { "x": 20, "y": 850, "width": 1240, "height": 40 },
