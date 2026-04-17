@@ -1894,6 +1894,7 @@
       // Without this, sidebar/humanSeat (col 3) and contextBox/log (rows 3-4) are offset by their
       // grid area's position within #app, placing them hundreds of pixels off-screen.
       element.style.gridArea = 'auto';
+      element.style.transform = 'none';
       element.style.position = 'absolute';
       element.style.left = `${left}px`;
       element.style.top = `${top}px`;
