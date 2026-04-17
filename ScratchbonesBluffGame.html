@@ -1944,6 +1944,10 @@
       if (!element || !box) return;
       const left = Math.round(box.x - (origin?.x || 0));
       const top = Math.round(box.y - (origin?.y || 0));
+      // Clear grid-area so the containing block is #app's padding edge, not the named grid area.
+      // Without this, sidebar/humanSeat (col 3) and contextBox/log (rows 3-4) are offset by their
+      // grid area's position within #app, placing them hundreds of pixels off-screen.
+      element.style.gridArea = 'auto';
       element.style.position = 'absolute';
       element.style.left = `${left}px`;
       element.style.top = `${top}px`;
