@@ -477,9 +477,22 @@ async function loadPortraitCosmetics(configBase) {
         const sResp = await fetch(sUrl);
         if (!sResp.ok) return;
         const sData = await sResp.json();
-        for (const genderData of Object.values(sData)) {
+        for (const [genderKey, genderData] of Object.entries(sData)) {
           if (!genderData || typeof genderData !== 'object' || !genderData.bodyColorRanges) continue;
-          const fighter = FIGHTERS.find(f => genderData.headSprite && f.headUrl === genderData.headSprite);
+          let fighter = FIGHTERS.find(f => genderData.headSprite && f.headUrl === genderData.headSprite);
+          if (!fighter && genderData.headSprite && Array.isArray(genderData.portraitBodyLayers)) {
+            fighter = normalizedFighterPortrait({
+              id: `${sData.speciesId}_${genderKey}`,
+              gender: genderKey,
+              label: `${sData.label || entry.label} (${genderKey === 'male' ? 'M' : 'F'})`,
+              headUrl: genderData.headSprite,
+              bodyLayers: genderData.portraitBodyLayers.map(normalizePortraitLayerXform),
+              urLayers: (genderData.headUrLayers || []).map(l => ({ url: l.url })),
+              headXform: genderData.headXform ? normalizePortraitLayerXform(genderData.headXform) : null,
+              opacityMaskLayer: genderData.portraitOpacityMaskLayer ? normalizePortraitMaskLayer(genderData.portraitOpacityMaskLayer) : null,
+            });
+            FIGHTERS.push(fighter);
+          }
           if (fighter) {
             bodyColorRangesByGender[fighter.id] = genderData.bodyColorRanges;
             fighterPortraitOverrides[fighter.id] = {
