@@ -175,7 +175,7 @@
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
     }
-    .topbar, .panel, .controls, .handWrap, .eventLog {
+    .topbar, .controls, .handWrap, .eventLog {
       background: var(--panel);
       border: 1px solid rgba(255,255,255,0.08);
       box-shadow: var(--shadow);
@@ -217,31 +217,6 @@
       color: var(--text);
       font-size: 0.8rem;
       border: 1px solid rgba(255,255,255,0.08);
-    }
-    .panel {
-      grid-area: panel;
-      padding: 10px 12px;
-      display: grid;
-      gap: 8px;
-      min-height: 0;
-      overflow: hidden;
-      contain: layout paint style;
-    }
-    .tableView {
-      position: relative;
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
-      gap: 10px;
-      min-height: var(--layout-table-view-min-height);
-      height: var(--layout-table-view-height);
-      max-height: var(--layout-table-view-max-height);
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: radial-gradient(ellipse at 50% 30%, rgba(56,38,31,0.72), rgba(29,21,18,0.94));
-      padding: 10px;
-      overflow: hidden;
-      isolation: isolate;
-      contain: layout paint style;
     }
     .claimCluster {
       position: absolute;
@@ -298,7 +273,7 @@
     }
     .actorAvatarFloat,
     .reactorAvatarFloat {
-      overflow: hidden;
+      overflow: visible;
       padding: 0;
       transform: translate(-50%, -50%) scale(var(--layout-claim-avatar-container-scale));
       transform-origin: center center;
@@ -311,6 +286,9 @@
       border-radius: 10px;
       transform: scale(var(--layout-claim-avatar-content-scale));
       transform-origin: center center;
+    }
+    .reactorAvatarFloat canvas {
+      transform: scale(var(--layout-claim-avatar-content-scale)) scaleX(-1);
     }
     .tableViewHeader {
       display: flex;
@@ -351,7 +329,7 @@
     #tableCinematicHost {
       position: absolute;
       inset: 0;
-      z-index: 2;
+      z-index: 20;
       display: none;
       align-items: center;
       justify-content: center;
@@ -359,10 +337,7 @@
       overflow: hidden;
     }
     #tableCinematicHost.cin-active { display: flex; }
-    .tableView.cinematic-active > .tableViewHeader,
-    .tableView.cinematic-active > .tableViewCards,
-    .tableView.cinematic-active > .claimCluster,
-    .tableView.cinematic-active > .turnSpotlight {
+    #app.cinematic-active > *:not(#tableCinematicHost) {
       visibility: hidden;
       opacity: 0;
       pointer-events: none;
@@ -429,17 +404,6 @@
       font-weight: 700;
       font-size: 0.92rem;
     }
-    .contextBox {
-      grid-area: context;
-      min-height: 0;
-      max-height: var(--layout-action-column-max-height);
-      overflow: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 8px;
-      contain: layout paint style;
-    }
     .aiSeat {
       background: var(--panel-soft);
       border: 1px solid rgba(255,255,255,0.06);
@@ -448,21 +412,21 @@
       min-width: 0;
       display: flex;
       flex-direction: row;
-      align-items: flex-start;
+      align-items: stretch;
       gap: calc(8px * var(--layout-sidebar-content-scale));
       opacity: 0.88;
     }
     .seatInfo {
-      flex: 2;
+      flex: 1;
       min-width: 0;
       display: flex;
       flex-direction: column;
     }
     .seatAvatarBox {
       width: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
-      height: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
+      height: auto;
       flex-shrink: 0;
-      overflow: hidden;
+      overflow: visible;
       border-radius: 8px;
     }
     .humanSeatCard {
@@ -745,9 +709,6 @@
       word-break: break-word;
       hyphens: auto;
     }
-     #app.layout-controls-above-hand .contextBox {
-      flex-direction: column-reverse;
-    }
     .sectionTitle,
     .seatMeta,
     .seatStatus,
@@ -863,9 +824,6 @@
       }
       .handWrap {
         max-width: 100%;
-      }
-      .contextBox .handWrap {
-        max-height: unset;
       }
     }
     /* ===== CHALLENGE CINEMATIC OVERLAY ===== */
@@ -1867,34 +1825,22 @@
     const AUTHORED_BOX_KEY_BY_PROJ_ID = {
       'topbar': 'topbar',
       'sidebar': 'sidebar',
-      'panel': 'panel',
       'human-seat-zone': 'humanSeat',
       'human-seat': 'humanSeat',
-      'context-box': 'contextBox',
       'hand': 'hand',
       'log': 'log',
-      'table-view': 'tableView',
       'turn-spotlight': 'turnSpotlight',
       'claim-cluster': 'claimCluster',
       'challenge-prompt': 'challengePrompt',
       'controls': 'challengePrompt',
     };
-    const AUTHORED_PARENT_BOX = {
-      tableView: 'panel',
-      turnSpotlight: 'tableView',
-      claimCluster: 'tableView',
-      challengePrompt: 'contextBox',
-      hand: 'contextBox',
-    };
+    const AUTHORED_PARENT_BOX = {};
     const DEFAULT_AUTHORED_BOXES = {
       topbar: { x: 8, y: 8, width: 1624, height: 120 },
       sidebar: { x: 1640, y: 8, width: 272, height: 780 },
-      panel: { x: 8, y: 136, width: 1624, height: 560 },
       humanSeat: { x: 1640, y: 796, width: 272, height: 176 },
-      contextBox: { x: 8, y: 704, width: 1624, height: 196 },
       hand: { x: 8, y: 912, width: 1624, height: 160 },
       log: { x: 8, y: 968, width: 1624, height: 104 },
-      tableView: { x: 18, y: 146, width: 1604, height: 540 },
       turnSpotlight: { x: 1380, y: 164, width: 220, height: 220 },
       claimCluster: { x: 490, y: 220, width: 620, height: 320 },
       challengePrompt: { x: 8, y: 704, width: 1624, height: 196 },
@@ -1944,6 +1890,11 @@
       if (!element || !box) return;
       const left = Math.round(box.x - (origin?.x || 0));
       const top = Math.round(box.y - (origin?.y || 0));
+      // Clear grid-area so the containing block is #app's padding edge, not the named grid area.
+      // Without this, sidebar/humanSeat (col 3) and contextBox/log (rows 3-4) are offset by their
+      // grid area's position within #app, placing them hundreds of pixels off-screen.
+      element.style.gridArea = 'auto';
+      element.style.transform = 'none';
       element.style.position = 'absolute';
       element.style.left = `${left}px`;
       element.style.top = `${top}px`;
@@ -3036,9 +2987,10 @@
         state.stats.failedChallenges += 1;
         noteChallengeReadResult(state.betting.challengerId, state.betting.challengedId, false);
       }
-      showFoldCinematic(winnerId, loserId);
-      state.betting = null;
-      concludeChallengeFlow(winnerId);
+      showFoldCinematic(winnerId, loserId, () => {
+        state.betting = null;
+        concludeChallengeFlow(winnerId);
+      });
     }
     function revealChallenge() {
       if (!state.betting || state.gameOver) return;
@@ -3067,9 +3019,10 @@
         addLog(`Challenge fails. ${state.players[challengedId].name} was truthful.`);
       }
       addLog(`${seatLabel(winner)} wins ${netGain} net chip${netGain === 1 ? '' : 's'} from the challenge.`);
-      showRevealCinematic(challengerId, challengedId, play, success);
-      state.betting = null;
-      concludeChallengeFlow(winnerId);
+      showRevealCinematic(challengerId, challengedId, play, success, () => {
+        state.betting = null;
+        concludeChallengeFlow(winnerId);
+      });
     }
     function concludeChallengeFlow(winnerId) {
       if (state.gameOver) return;
@@ -3835,8 +3788,7 @@
       const xPct = clampNumber(Number(elementLayout?.xPct ?? 0.5), 0, 1);
       const yPct = clampNumber(Number(elementLayout?.yPct ?? 0.5), 0, 1);
       const wPct = clampNumber(Number(elementLayout?.wPct ?? 0.1), 0.01, 1);
-      const hPct = clampNumber(Number(elementLayout?.hPct ?? 0.1), 0.01, 1);
-      return `left:${(xPct * 100).toFixed(2)}%;top:${(yPct * 100).toFixed(2)}%;width:${(wPct * 100).toFixed(2)}%;height:${(hPct * 100).toFixed(2)}%;`;
+      return `left:${(xPct * 100).toFixed(2)}%;top:${(yPct * 100).toFixed(2)}%;width:${(wPct * 100).toFixed(2)}%;`;
     }
     function applyLayoutContract(app) {
       if (!app) return null;
@@ -4255,63 +4207,58 @@
             <div class="humanSeatChipBadge">Chips ${player.chips}</div>
           </div>
         </div>
-        <div class="panel" data-proj-id="panel">
-          <div class="tableView fit-target fit-0" data-proj-id="table-view">
-            ${(turnSpotlightEnabled && turnSpotlightEmbedded) ? `
-              <div class="turnSpotlight fit-target fit-0" data-proj-id="turn-spotlight">
-                <div class="turnSpotlightAvatar">
-                  <canvas class="seatPortrait" data-seat-id="${state.currentTurn}" width="220" height="220"></canvas>
-                </div>
-                <div class="turnSpotlightNameBar">${turnSpotlightTitle}</div>
-              </div>
-            ` : ''}
-            <div class="tableViewHeader">
-              <div class="sectionTitle">Table View</div>
-              <div class="tiny">${claimClusterEnabled ? 'Visual claim cluster active' : (latestPlay ? `Latest: ${seatLabel(latestPlay.playerIndex)} · ${latestPlay.cards?.length || 0} card(s)` : 'Waiting for opening play')}</div>
+        ${(turnSpotlightEnabled && turnSpotlightEmbedded) ? `
+          <div class="turnSpotlight fit-target fit-0" data-proj-id="turn-spotlight">
+            <div class="turnSpotlightAvatar">
+              <canvas class="seatPortrait" data-seat-id="${state.currentTurn}" width="220" height="220"></canvas>
             </div>
-            <div class="tableViewCards">${tableCardsHtml}</div>
-            ${claimClusterEnabled ? `
-              <div class="claimCluster fit-target fit-0 ${claimClusterPolicy.mustStayVisible ? 'must-stay-visible' : ''}" data-proj-id="claim-cluster">
-                <div class="claimRankAnchorTop" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}"></div>
-                <div class="claimRankBox ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankText}</div>
-                <div class="claimHandBar ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimHandBar)}">${claimHandCardsHtml}</div>
-                <div class="claimTimesBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxLeft)}">×</div>
-                <div class="claimCountBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountText}</div>
-                <div class="claimTimesBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxRight)}">×</div>
-                <div class="claimCountBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountText}</div>
-                <div class="actorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
-                  <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="140" height="140"></canvas>
-                </div>
-                <div class="reactorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
-                  ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="140" height="140"></canvas>` : ''}
-                </div>
-              </div>
-            ` : ''}
-            <div id="tableCinematicHost" data-proj-id="cinematic"></div>
+            <div class="turnSpotlightNameBar">${turnSpotlightTitle}</div>
           </div>
-          ${showLegacyActionFocus ? `
-            <div class="actionFocus fit-target fit-0">
-              <div class="tiny">Legacy action focus mode enabled.</div>
-            </div>
-          ` : ''}
-          <details class="debug">
-            <summary>Debug tools</summary>
-            <div class="tiny" style="margin-top:8px;">Recent change: ${state.recentChange}</div>
-            <pre id="debugSnapshotData">${DEBUG_ENABLED ? escapeHtml(JSON.stringify(debugSnapshot(), null, 2)) : 'Debug disabled.'}</pre>
-          </details>
+        ` : ''}
+        <div class="tableViewHeader">
+          <div class="sectionTitle">Table View</div>
+          <div class="tiny">${claimClusterEnabled ? 'Visual claim cluster active' : (latestPlay ? `Latest: ${seatLabel(latestPlay.playerIndex)} · ${latestPlay.cards?.length || 0} card(s)` : 'Waiting for opening play')}</div>
         </div>
-        <div class="contextBox ${contextBoxEnabled ? 'must-stay-visible' : ''}" data-proj-id="context-box">
-          ${state.betting
-            ? renderBettingControls()
-            : (sharedContextBox && humanCanDecideChallenge
-              ? renderChallengePrompt()
-              : renderDeclareControls())}
-          <div class="handWrap fit-target fit-0" data-proj-id="hand">
-            <div class="handHeader">
-              <div class="sectionTitle">Your hand</div>
-              <div class="tiny">Selected: ${selected.length}</div>
+        <div class="tableViewCards">${tableCardsHtml}</div>
+        ${claimClusterEnabled ? `
+          <div class="claimCluster fit-target fit-0 ${claimClusterPolicy.mustStayVisible ? 'must-stay-visible' : ''}" data-proj-id="claim-cluster">
+            <div class="claimRankAnchorTop" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}"></div>
+            <div class="claimRankBox ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankText}</div>
+            <div class="claimHandBar ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimHandBar)}">${claimHandCardsHtml}</div>
+            <div class="claimTimesBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxLeft)}">×</div>
+            <div class="claimCountBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountText}</div>
+            <div class="claimTimesBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxRight)}">×</div>
+            <div class="claimCountBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountText}</div>
+            <div class="actorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
+              <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="140" height="140"></canvas>
             </div>
-            <div class="handScroll">
+            <div class="reactorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
+              ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="140" height="140"></canvas>` : ''}
+            </div>
+          </div>
+        ` : ''}
+        <div id="tableCinematicHost" data-proj-id="cinematic"></div>
+        ${showLegacyActionFocus ? `
+          <div class="actionFocus fit-target fit-0">
+            <div class="tiny">Legacy action focus mode enabled.</div>
+          </div>
+        ` : ''}
+        <details class="debug">
+          <summary>Debug tools</summary>
+          <div class="tiny" style="margin-top:8px;">Recent change: ${state.recentChange}</div>
+          <pre id="debugSnapshotData">${DEBUG_ENABLED ? escapeHtml(JSON.stringify(debugSnapshot(), null, 2)) : 'Debug disabled.'}</pre>
+        </details>
+        ${state.betting
+          ? renderBettingControls()
+          : (sharedContextBox && humanCanDecideChallenge
+            ? renderChallengePrompt()
+            : renderDeclareControls())}
+        <div class="handWrap fit-target fit-0" data-proj-id="hand">
+          <div class="handHeader">
+            <div class="sectionTitle">Your hand</div>
+            <div class="tiny">Selected: ${selected.length}</div>
+          </div>
+          <div class="handScroll">
               ${player.hand.map(card => {
                 const art = resolveScratchbone2DAsset(card);
                 const cardLabel = card.wild ? 'Wild' : `Rank ${card.rank}`;
@@ -4350,7 +4297,6 @@
       });
       wireScratchboneImageFallbacks(app);
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
-      updateTableViewHeight(app, tableViewPolicy);
       refreshCinematicBettingZone();
       renderSeatPortraits();
       const layoutMode = getScratchbonesLayoutMode();
@@ -4486,21 +4432,20 @@
       if (!el) return;
       el.classList.remove('cin-active');
       el.innerHTML = '';
-      const tableView = el.closest('.tableView');
-      if (tableView) tableView.classList.remove('cinematic-active');
+      const app = el.closest('#app');
+      if (app) app.classList.remove('cinematic-active');
     }
     function activateTableCinematicMode() {
       const cinematicRoot = getCinematicRoot();
       if (!cinematicRoot) return;
-      const tableView = cinematicRoot.closest('.tableView');
-      if (tableView) tableView.classList.add('cinematic-active');
+      const app = cinematicRoot.closest('#app');
+      if (app) app.classList.add('cinematic-active');
     }
     function updateTableCardAutoScale(root = document.getElementById('app')) {
-      const tableView = root?.querySelector?.('.tableView');
-      const cardsContainer = tableView?.querySelector?.('.tableViewCards');
+      const cardsContainer = root?.querySelector?.('.tableViewCards');
       const cards = cardsContainer ? Array.from(cardsContainer.querySelectorAll('.tableViewCard')) : [];
-      if (!tableView || !cardsContainer || !cards.length) {
-        if (tableView) tableView.style.setProperty('--layout-table-card-auto-scale', '1');
+      if (!cardsContainer || !cards.length) {
+        if (root) root.style.setProperty('--layout-table-card-auto-scale', '1');
         return;
       }
       const firstCard = cards[0];
@@ -4521,7 +4466,7 @@
         );
         if (candidate > bestScale) bestScale = candidate;
       }
-      tableView.style.setProperty('--layout-table-card-auto-scale', clampNumber(bestScale, 0.35, 1).toFixed(3));
+      root.style.setProperty('--layout-table-card-auto-scale', clampNumber(bestScale, 0.35, 1).toFixed(3));
     }
     function refreshCinematicBettingZone() {
       const zone = document.getElementById('cin-betting-zone');
@@ -4744,7 +4689,7 @@
         </div>`;
     }
     // Phase 2a: Reveal (no fold)
-    function showRevealCinematic(challengerIndex, challengedIndex, play, success) {
+    function showRevealCinematic(challengerIndex, challengedIndex, play, success, onClose) {
       const cin = getCinematicRoot();
       if (!cin || !isTableCinematicEnabled()) return;
       _clearCinTimeout();
@@ -4780,11 +4725,13 @@
       activateTableCinematicMode();
       cin.classList.add('cin-active');
       renderCinematicPortraits();
-      document.getElementById('cinContinueBtn')?.addEventListener('click', closeCinematic);
-      _cinTimeout = setTimeout(closeCinematic, 4200);
+      let done = false;
+      const cleanup = () => { if (done) return; done = true; closeCinematic(); onClose?.(); };
+      document.getElementById('cinContinueBtn')?.addEventListener('click', cleanup);
+      _cinTimeout = setTimeout(cleanup, 4200);
     }
     // Phase 2b: Fold resolution
-    function showFoldCinematic(winnerId, loserId) {
+    function showFoldCinematic(winnerId, loserId, onClose) {
       const cin = getCinematicRoot();
       if (!cin || !isTableCinematicEnabled()) return;
       _clearCinTimeout();
@@ -4811,8 +4758,10 @@
       activateTableCinematicMode();
       cin.classList.add('cin-active');
       renderCinematicPortraits();
-      document.getElementById('cinContinueBtn')?.addEventListener('click', closeCinematic);
-      _cinTimeout = setTimeout(closeCinematic, 2600);
+      let done = false;
+      const cleanup = () => { if (done) return; done = true; closeCinematic(); onClose?.(); };
+      document.getElementById('cinContinueBtn')?.addEventListener('click', cleanup);
+      _cinTimeout = setTimeout(cleanup, 2600);
     }
     // ── UI projection mapping mode ────────────────────────────────────────
     const projectionUiState = {
@@ -5178,7 +5127,6 @@
         fitReflowHandle = null;
         const app = document.getElementById('app');
         const layoutPolicy = applyLayoutContract(app);
-        updateTableViewHeight(app, layoutPolicy?.tableView);
         if (getScratchbonesLayoutMode() === 'authored') {
           applyAuthoredLayoutMode(app, getScratchbonesAuthoredConfig());
           renderAuthoredOverlays();

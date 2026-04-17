@@ -40,17 +40,14 @@ window.SCRATCHBONES_CONFIG = {
         "designHeightPx": 900,
         "scaleMode": "contain",
         "boxes": {
-          "topbar": { "x": 0, "y": 20, "width": 1220, "height": 80 },
-          "sidebar": { "x": 1360, "y": 20, "width": 240, "height": 210 },
-          "panel": { "x": 220, "y": 240, "width": 960, "height": 260 },
-          "humanSeat": { "x": 1180, "y": 620, "width": 420, "height": 220 },
-          "contextBox": { "x": 20, "y": 700, "width": 1240, "height": 140 },
-          "hand": { "x": 20, "y": 700, "width": 940, "height": 140 },
-          "log": { "x": 20, "y": 850, "width": 1240, "height": 40 },
-          "tableView": { "x": 220, "y": 240, "width": 960, "height": 260 },
-          "turnSpotlight": { "x": 1010, "y": 250, "width": 160, "height": 180 },
-          "claimCluster": { "x": 220, "y": 240, "width": 960, "height": 260 },
-          "challengePrompt": { "x": 960, "y": 700, "width": 280, "height": 140 }
+          "topbar":         { "x": -2,   "y": 11,  "width": 1123, "height": 106 },
+          "sidebar":        { "x": 1354, "y": 14,  "width": 251,  "height": 681 },
+          "humanSeat":      { "x": 1260, "y": 701, "width": 373,  "height": 187 },
+          "hand":           { "x": 109,  "y": 698, "width": 853,  "height": 144 },
+          "log":            { "x": 20,   "y": 850, "width": 1240, "height": 40  },
+          "turnSpotlight":  { "x": 1122, "y": 12,  "width": 230,  "height": 200 },
+          "claimCluster":   { "x": 187,  "y": 290, "width": 1037, "height": 275 },
+          "challengePrompt":{ "x": 960,  "y": 699, "width": 280,  "height": 140 }
         }
       },
       "cards": {
