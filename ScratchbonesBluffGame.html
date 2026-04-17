@@ -262,7 +262,6 @@
       justify-content: center;
       align-items: center;
       padding: 2px;
-      height: auto !important;
     }
     .claimHandBar .tableViewCard {
       width: calc(var(--layout-card-mini-base-width) * var(--layout-card-scale) * var(--layout-table-card-container-scale));
@@ -3789,8 +3788,7 @@
       const xPct = clampNumber(Number(elementLayout?.xPct ?? 0.5), 0, 1);
       const yPct = clampNumber(Number(elementLayout?.yPct ?? 0.5), 0, 1);
       const wPct = clampNumber(Number(elementLayout?.wPct ?? 0.1), 0.01, 1);
-      const hPct = clampNumber(Number(elementLayout?.hPct ?? 0.1), 0.01, 1);
-      return `left:${(xPct * 100).toFixed(2)}%;top:${(yPct * 100).toFixed(2)}%;width:${(wPct * 100).toFixed(2)}%;height:${(hPct * 100).toFixed(2)}%;`;
+      return `left:${(xPct * 100).toFixed(2)}%;top:${(yPct * 100).toFixed(2)}%;width:${(wPct * 100).toFixed(2)}%;`;
     }
     function applyLayoutContract(app) {
       if (!app) return null;
