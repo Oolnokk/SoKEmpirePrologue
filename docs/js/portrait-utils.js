@@ -367,8 +367,11 @@ function portraitOptionFromJson(entry, json) {
     }
   }
 
-  const colorRange = (json.slot === 'hat' && json.colorRange) ? json.colorRange : null;
-  const resolvedTintSlot = colorRange ? 'HAT' : tintSlot;
+  const colorRange = json.colorRange || null;
+  const resolvedTintSlot = json.slot === 'hat' && colorRange ? 'HAT'
+                         : !json.appearance && colorRange ? 'CLOTH'
+                         : !json.appearance && json.tintSlot != null ? json.tintSlot
+                         : tintSlot;
   const hairSlot = json.hairSlot || null; // 'front' | 'back' | 'side'
   const tags = Array.isArray(json.tags) ? json.tags : [];
   return { id: shortId, label, tintSlot: resolvedTintSlot, layers, slot: json.slot || null, colorRange, hairSlot, tags };
@@ -731,6 +734,7 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
 
   const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id]);
   if (hat && hat.colorRange) bodyColors.HAT = randomColorFromRangeSeeded(hat.colorRange, rng);
+  if (torsoCosmetic?.colorRange) bodyColors.CLOTH = randomColorFromRangeSeeded(torsoCosmetic.colorRange, rng);
   return { fighter, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic, bodyColors };
 }
 

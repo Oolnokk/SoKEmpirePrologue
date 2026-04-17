@@ -1,5 +1,6 @@
 {
   "slot": "torso",
+  "tintSlot": "none",
   "meta": { "name": "Bandolier" },
   "parts": {
     "torso": {
