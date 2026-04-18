@@ -496,7 +496,7 @@ async function loadPortraitCosmetics(configBase) {
               label: `${sData.label || entry.label} (${genderKey === 'male' ? 'M' : 'F'})`,
               headUrl: genderData.headSprite,
               bodyLayers: genderData.portraitBodyLayers.map(normalizePortraitLayerXform),
-              urLayers: (genderData.headUrLayers || []).map(l => ({ url: l.url })),
+              urLayers: (genderData.headUrLayers || []).map(l => ({ url: l.url, renderOrder: l.renderOrder })),
               headXform: genderData.headXform ? normalizePortraitLayerXform(genderData.headXform) : null,
               opacityMaskLayer: genderData.portraitOpacityMaskLayer ? normalizePortraitMaskLayer(genderData.portraitOpacityMaskLayer) : null,
             });

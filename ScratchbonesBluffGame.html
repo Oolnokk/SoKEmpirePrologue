@@ -1506,6 +1506,20 @@
       display: none;
     }
     #projExportBtn:hover { background: rgba(67,49,43,0.97); }
+    #projSubBtn {
+      position: fixed;
+      bottom: calc(10px + var(--safe)); right: 170px;
+      z-index: 1000;
+      background: rgba(30,20,18,0.92);
+      border: 1px solid rgba(100,200,220,0.4);
+      color: #7ee8f8; font-size: 0.72rem;
+      padding: 6px 11px; border-radius: 8px;
+      cursor: pointer; letter-spacing: 0.05em;
+      display: none;
+    }
+    #projSubBtn:hover { background: rgba(20,40,50,0.97); }
+    #projSubBtn.active { background: #7ee8f8; color: #0e0a09; }
+    #projSubBtn.active:hover { background: #a8f0ff; }
     #projMapTip {
       position: fixed; z-index: 9997;
       background: rgba(14,10,9,0.97);
@@ -1614,7 +1628,7 @@
       background: rgba(200,153,82,0.09) !important;
     }
     /* Freeze game interaction while mapping */
-    body.proj-mapping button:not(#projMapBtn):not(#projVarBtn):not(#projExportBtn):not(#projVarCopyBtn):not(#projVarCloseBtn),
+    body.proj-mapping button:not(#projMapBtn):not(#projVarBtn):not(#projExportBtn):not(#projSubBtn):not(#projVarCopyBtn):not(#projVarCloseBtn),
     body.proj-mapping select,
     body.proj-mapping input:not(.projVarInput),
     body.proj-mapping .card {
@@ -4480,7 +4494,7 @@
       if (_cinTimeout) { clearTimeout(_cinTimeout); _cinTimeout = null; }
     }
     function ensureChallengeCinematic() {
-      if (!state.betting || !isTableCinematicEnabled()) return;
+      if (!state.betting || state.gameOver || !isTableCinematicEnabled()) return;
       const cin = getCinematicRoot();
       if (!cin) return;
       _clearCinTimeout();
