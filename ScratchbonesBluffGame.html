@@ -1468,60 +1468,38 @@
     ._dl-log  { color: #c8bfaf; }
     ._dl-warn { color: #e6b84a; }
     ._dl-error{ color: #e05555; }
-    /* ── Projection mapping mode ─────────────────────────────── */
-    #projMapBtn {
-      position: fixed;
-      bottom: calc(10px + var(--safe)); right: 116px;
-      z-index: 1000;
-      background: rgba(30,20,18,0.92);
-      border: 1px solid rgba(200,150,80,0.4);
-      color: #c89952; font-size: 0.72rem;
-      padding: 6px 11px; border-radius: 8px;
-      cursor: pointer; letter-spacing: 0.05em;
-    }
-    #projMapBtn:hover { background: rgba(67,49,43,0.97); }
-    #projMapBtn.active { background: #c89952; color: #15110f; }
-    #projMapBtn.active:hover { background: #e0ad60; }
-    #projVarBtn {
-      position: fixed;
-      bottom: calc(10px + var(--safe)); right: 56px;
-      z-index: 1000;
-      background: rgba(30,20,18,0.92);
-      border: 1px solid rgba(200,150,80,0.4);
-      color: #c89952; font-size: 0.72rem;
-      padding: 6px 11px; border-radius: 8px;
-      cursor: pointer; letter-spacing: 0.05em;
-      display: none;
-    }
-    #projVarBtn:hover { background: rgba(67,49,43,0.97); }
-    #projVarBtn.active { background: #c89952; color: #15110f; }
-    #projVarBtn.active:hover { background: #e0ad60; }
-    #projExportBtn {
+    /* ── Projection mapping toolbar ──────────────────────────── */
+    #projToolbar {
       position: fixed;
       bottom: calc(10px + var(--safe)); right: 10px;
       z-index: 1000;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .proj-btn {
       background: rgba(30,20,18,0.92);
       border: 1px solid rgba(200,150,80,0.4);
       color: #c89952; font-size: 0.72rem;
       padding: 6px 11px; border-radius: 8px;
       cursor: pointer; letter-spacing: 0.05em;
-      display: none;
     }
-    #projExportBtn:hover { background: rgba(67,49,43,0.97); }
+    .proj-btn:hover { background: rgba(67,49,43,0.97); }
+    .proj-btn.active { background: #c89952; color: #15110f; }
+    .proj-btn.active:hover { background: #e0ad60; }
     #projSubBtn {
-      position: fixed;
-      bottom: calc(10px + var(--safe)); right: 170px;
-      z-index: 1000;
-      background: rgba(30,20,18,0.92);
-      border: 1px solid rgba(100,200,220,0.4);
-      color: #7ee8f8; font-size: 0.72rem;
-      padding: 6px 11px; border-radius: 8px;
-      cursor: pointer; letter-spacing: 0.05em;
-      display: none;
+      border-color: rgba(100,200,220,0.4);
+      color: #7ee8f8;
     }
     #projSubBtn:hover { background: rgba(20,40,50,0.97); }
     #projSubBtn.active { background: #7ee8f8; color: #0e0a09; }
     #projSubBtn.active:hover { background: #a8f0ff; }
+    .proj-secondary { display: none; }
+    body.proj-mapping .proj-secondary { display: block; }
+    .proj-toolbar-sep {
+      width: 1px; height: 20px;
+      background: rgba(200,150,80,0.25);
+      display: none; margin: 0 2px;
+    }
+    body.proj-mapping .proj-toolbar-sep { display: block; }
     #projMapTip {
       position: fixed; z-index: 9997;
       background: rgba(14,10,9,0.97);
@@ -1643,11 +1621,14 @@
     <div id="app"></div>
     <div id="authoredOverlay"></div>
   </div>
-  <!-- UI projection mapping mode -->
-  <button id="projMapBtn" title="Inspect panel projection IDs">Map</button>
-  <button id="projVarBtn" title="Edit CSS vars for last selected projection element">Vars</button>
-  <button id="projSubBtn" title="Toggle sub-layer mode: manipulate elements nested inside major boxes">Sub</button>
-  <button id="projExportBtn" title="Copy authored layout config">Export</button>
+  <!-- Projection mapping toolbar -->
+  <div id="projToolbar">
+    <button id="projMapBtn" class="proj-btn" title="Inspect panel projection IDs">Map</button>
+    <div class="proj-toolbar-sep"></div>
+    <button id="projSubBtn" class="proj-btn proj-secondary" title="Toggle sub-layer mode: manipulate elements nested inside major boxes">Sub</button>
+    <button id="projVarBtn" class="proj-btn proj-secondary" title="Edit CSS vars for last selected projection element">Vars</button>
+    <button id="projExportBtn" class="proj-btn proj-secondary" title="Copy authored layout config">Export</button>
+  </div>
   <div id="projMapTip"></div>
   <div id="editorStatus" aria-live="polite">Editor idle.</div>
   <div id="projVarPanel" aria-live="polite">
@@ -5173,9 +5154,6 @@
         projectionUiState.active = !projectionUiState.active;
         document.body.classList.toggle('proj-mapping', projectionUiState.active);
         btn.classList.toggle('active', projectionUiState.active);
-        varsBtn.style.display = projectionUiState.active ? 'block' : 'none';
-        exportBtn.style.display = projectionUiState.active ? 'block' : 'none';
-        if (subBtn) subBtn.style.display = projectionUiState.active ? 'block' : 'none';
         if (!projectionUiState.active) {
           tip.style.display = 'none';
           varsPanel.classList.remove('open');
@@ -5188,7 +5166,6 @@
         renderAuthoredOverlays();
       });
       if (subBtn) {
-        subBtn.style.display = 'none';
         subBtn.addEventListener('click', () => {
           if (!projectionUiState.active) return;
           authoredEditorState.subLayerMode = !authoredEditorState.subLayerMode;

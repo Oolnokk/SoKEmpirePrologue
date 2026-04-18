@@ -815,6 +815,7 @@ details.diag-details[open] > summary::after { content: '▼'; }
       <div class="cos-slot-tabs">
         <button class="cos-slot-tab" data-slot="hairBack">Hair Back</button>
         <button class="cos-slot-tab" data-slot="eyes">Eyes</button>
+        <button class="cos-slot-tab" data-slot="facialHair">Facial Hair</button>
         <button class="cos-slot-tab active" data-slot="hairFront">Hair Front</button>
       </div>
       <div id="cos-slot-hint">Editing: Hair Front · category: Hair</div>
@@ -1892,9 +1893,10 @@ let cosUrImgsTop  = [];   // UR overlay images drawn AFTER front cosmetics (rend
  * decoded layer list, rendered image, xform, baseline, and tint.
  */
 const SLOT_DEFS = [
-  { key: 'hairBack',  label: 'Hair Back',  cat: 'hair' },
-  { key: 'eyes',      label: 'Eyes',       cat: 'eyes' },
-  { key: 'hairFront', label: 'Hair Front', cat: 'hair' },
+  { key: 'hairBack',   label: 'Hair Back',   cat: 'hair' },
+  { key: 'eyes',       label: 'Eyes',        cat: 'eyes' },
+  { key: 'facialHair', label: 'Facial Hair', cat: 'facialhair' },
+  { key: 'hairFront',  label: 'Hair Front',  cat: 'hair' },
 ];
 
 const SLOTS = {};
@@ -2251,25 +2253,28 @@ function cosRender() {
   cosCtx.restore();
 
   // Helper: draw a slot's image with its composed xform
+  const speciesData = cosGetCurrentSpeciesData();
+  const headXform = (speciesData && speciesData.headXform) ? speciesData.headXform : HEAD_XFORM;
   const drawSlot = (key) => {
     const s = SLOTS[key];
     if (!s.img) return;
-    const d = composeXform(HEAD_XFORM, s.xf);
+    const d = composeXform(headXform, s.xf);
     cosDrawLayer(s.img, d.ax, d.ay, d.sx, d.sy, cosSlotFilter(key));
   };
 
-  // Render order: Hair Back → Head → UR overlays → Eyes → Hair Front → UR topLayer overlays
+  // Render order: Hair Back → Head → UR overlays → Eyes → Hair Front → Facial Hair → UR topLayer overlays
   drawSlot('hairBack');
   if (cosHeadImg) {
-    cosDrawLayer(cosHeadImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
+    cosDrawLayer(cosHeadImg, headXform.ax, headXform.ay, headXform.sx, headXform.sy, 'none');
     for (const urImg of cosUrImgs) {
-      cosDrawLayer(urImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
+      cosDrawLayer(urImg, headXform.ax, headXform.ay, headXform.sx, headXform.sy, 'none');
     }
   }
   drawSlot('eyes');
   drawSlot('hairFront');
+  drawSlot('facialHair');
   for (const urImg of cosUrImgsTop) {
-    cosDrawLayer(urImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
+    cosDrawLayer(urImg, headXform.ax, headXform.ay, headXform.sx, headXform.sy, 'none');
   }
 
   cosUpdateDiff();
