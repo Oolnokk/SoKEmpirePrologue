@@ -1610,9 +1610,14 @@ function buildRenderChain(profile) {
   const chain = [...bodyBackEntries, ...backEntries];
   chain.push({ category: 'Head Base', optionId: fighter.id, optionLabel: fighter.label, tintSlot: 'A', filter: filterFor('A'), relPath: fighter.headUrl, resolvedUrl: ASSET_BASE + fighter.headUrl, transform: { ...headXform } });
   for (const mid of (fighter.urLayers || [])) {
+    if (mid.renderOrder === 'topLayer') continue;
     chain.push({ category: 'Head Overlay (untinted)', optionId: fighter.id, optionLabel: fighter.label, tintSlot: null, filter: 'none', relPath: mid.url, resolvedUrl: ASSET_BASE + mid.url, transform: { ...(mid.xform || headXform) } });
   }
   chain.push(...frontEntries, ...bodyFrontEntries);
+  for (const mid of (fighter.urLayers || [])) {
+    if (mid.renderOrder !== 'topLayer') continue;
+    chain.push({ category: 'Head Overlay (untinted, topLayer)', optionId: fighter.id, optionLabel: fighter.label, tintSlot: null, filter: 'none', relPath: mid.url, resolvedUrl: ASSET_BASE + mid.url, transform: { ...(mid.xform || headXform) } });
+  }
   if (fighter.opacityMaskLayer?.url) {
     chain.push({
       category: 'Opacity Mask (destination-out)',
@@ -1742,6 +1747,8 @@ function bUpdateSliderLimits() {
  * regenerates the gallery so everything stays within the selected species/gender.
  */
 function bOnSpeciesChanged() {
+  const speciesId = document.getElementById('b-species')?.value;
+  if (speciesId) speUpdateGenderAvailability(speciesId);
   portraitRefreshCosmeticOptions();
   bUpdateSliderLimits();
   populateBuilderDropdowns();
@@ -1873,8 +1880,9 @@ const cosCV  = document.getElementById('cos-cv');
 const cosCtx = cosCV.getContext('2d');
 
 let cosCW = 300, cosCH = 300, cosL = 80;
-let cosHeadImg = null;
-let cosUrImgs  = [];   // UR overlay HTMLImageElement[] for the currently loaded head
+let cosHeadImg    = null;
+let cosUrImgs     = [];   // UR overlay images drawn BEFORE front cosmetics
+let cosUrImgsTop  = [];   // UR overlay images drawn AFTER front cosmetics (renderOrder:'topLayer')
 
 // ── Slot state ─────────────────────────────────────────────
 
@@ -2188,15 +2196,20 @@ async function cosLoadAssets() {
   const headPath = document.getElementById('cos-headPath').value.trim();
   const cosUrl   = cosGetCurrentLayerUrl();
   const slot     = SLOTS[cosActiveSlotKey];
-  cosHeadImg = null;
-  slot.img   = null;
-  cosUrImgs  = [];
+  cosHeadImg   = null;
+  slot.img     = null;
+  cosUrImgs    = [];
+  cosUrImgsTop = [];
   try { cosHeadImg = await cosLoadImage(headPath); } catch (e) { console.warn(e); }
   // Use species-defined headUrLayers when available; fall back to FIGHTERS-based lookup
   const speciesData = cosGetCurrentSpeciesData();
   const urLayers = speciesData ? (speciesData.headUrLayers || []) : getFighterUrLayers(headPath);
   for (const mid of urLayers) {
-    try { cosUrImgs.push(await cosLoadImage(mid.url)); } catch (e) { console.warn('[cos] UR overlay load failed:', mid.url, e); }
+    try {
+      const img = await cosLoadImage(mid.url);
+      if (mid.renderOrder === 'topLayer') cosUrImgsTop.push(img);
+      else cosUrImgs.push(img);
+    } catch (e) { console.warn('[cos] UR overlay load failed:', mid.url, e); }
   }
   if (cosUrl) {
     try { slot.img = await cosLoadImageAbsolute(cosUrl); } catch (e) { console.warn(e); }
@@ -2245,18 +2258,19 @@ function cosRender() {
     cosDrawLayer(s.img, d.ax, d.ay, d.sx, d.sy, cosSlotFilter(key));
   };
 
-  // Render order: Hair Back → Head → UR overlays → Eyes → Hair Front
+  // Render order: Hair Back → Head → UR overlays → Eyes → Hair Front → UR topLayer overlays
   drawSlot('hairBack');
   if (cosHeadImg) {
     cosDrawLayer(cosHeadImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
-    // Draw untinted-region overlays immediately after the head (same render
-    // position) so flesh-toned areas are preserved when the head has a tint.
     for (const urImg of cosUrImgs) {
       cosDrawLayer(urImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
     }
   }
   drawSlot('eyes');
   drawSlot('hairFront');
+  for (const urImg of cosUrImgsTop) {
+    cosDrawLayer(urImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
+  }
 
   cosUpdateDiff();
 }
@@ -2749,6 +2763,8 @@ function speGetCurrentSpeciesData() {
  * Updates the hidden head-path input, re-filters cosmetics, and reloads assets.
  */
 function cosOnSpeciesChanged() {
+  const speciesId = document.getElementById('cos-species')?.value;
+  if (speciesId) speUpdateGenderAvailability(speciesId);
   const data = cosGetCurrentSpeciesData();
   if (data && data.headSprite) {
     document.getElementById('cos-headPath').value = data.headSprite;
@@ -2834,6 +2850,30 @@ function spePopulateSpeciesDropdowns() {
   if (speEl) { const prev = speEl.value; speEl.innerHTML = opts; if (prev) speEl.value = prev; }
   const bEl   = document.getElementById('b-species');
   if (bEl)  { const prev = bEl.value;   bEl.innerHTML = opts;   if (prev) bEl.value = prev; }
+}
+
+/**
+ * Update all gender <select> elements to reflect which genders are actually
+ * defined in the species JSON. Options for missing genders are disabled so the
+ * user can't select a gender that produces blank/fallback data.
+ */
+function speUpdateGenderAvailability(speciesId) {
+  const json = speAllSpecies[speciesId] || null;
+  const hasMale   = !!(json && json.male);
+  const hasFemale = !!(json && json.female);
+  for (const elId of ['b-gender', 'cos-gender', 'spe-gender']) {
+    const el = document.getElementById(elId);
+    if (!el) continue;
+    for (const opt of el.options) {
+      if (opt.value === 'male')   opt.disabled = !hasMale;
+      if (opt.value === 'female') opt.disabled = !hasFemale;
+    }
+    // If the currently selected gender is now disabled, switch to the first available
+    if (el.options[el.selectedIndex]?.disabled) {
+      const first = Array.from(el.options).find(o => !o.disabled);
+      if (first) el.value = first.value;
+    }
+  }
 }
 
 // Wire species/gender dropdowns in Cosmetic Placer
@@ -3282,9 +3322,13 @@ async function speRenderHeadPreview() {
   try { headImg = await cosLoadImage(data.headSprite); } catch (e) { console.warn('[spe] Head sprite load failed:', data.headSprite, e); }
   if (!headImg || gen !== speRenderGen) return;
 
-  const urImgs = [];
+  const urImgs = [], urImgsTop = [];
   for (const mid of (data.headUrLayers || [])) {
-    try { urImgs.push(await cosLoadImage(mid.url)); } catch (e) { console.warn('[spe] UR overlay load failed:', mid.url, e); }
+    try {
+      const img = await cosLoadImage(mid.url);
+      if (mid.renderOrder === 'topLayer') urImgsTop.push(img);
+      else urImgs.push(img);
+    } catch (e) { console.warn('[spe] UR overlay load failed:', mid.url, e); }
   }
   if (gen !== speRenderGen) return;
 
@@ -3344,7 +3388,7 @@ async function speRenderHeadPreview() {
     }
   }
 
-  // Head sprite with preview tint, then untinted overlays
+  // Head sprite with preview tint, then untinted overlays (normal order)
   drawLayerFn(headImg, xf.ax, xf.ay, xf.sx, xf.sy, previewFilter);
   for (const urImg of urImgs) {
     drawLayerFn(urImg, xf.ax, xf.ay, xf.sx, xf.sy, 'none');
@@ -3357,6 +3401,10 @@ async function speRenderHeadPreview() {
       const d = composeXform(xf, s.xf);
       drawLayerFn(s.img, d.ax, d.ay, d.sx, d.sy, cosSlotFilter(key));
     }
+  }
+  // topLayer UR overlays drawn after front cosmetics
+  for (const urImg of urImgsTop) {
+    drawLayerFn(urImg, xf.ax, xf.ay, xf.sx, xf.sy, 'none');
   }
   drawPortraitLayersAtPos('front');
 
@@ -3380,6 +3428,7 @@ async function speRenderHeadPreview() {
 function speOnSpeciesOrGenderChanged() {
   const speciesId = document.getElementById('spe-species').value;
   if (!speciesId || !speAllSpecies[speciesId]) return;
+  speUpdateGenderAvailability(speciesId);
   speLoadIntoEditor(speAllSpecies[speciesId]);
   speUpdateBodyLayerControls();
   speRenderHeadPreview();
