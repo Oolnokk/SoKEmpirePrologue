@@ -211,6 +211,9 @@ window.SCRATCHBONES_CONFIG = {
         "heightScale": 0.5
       },
       "allowChallengeOverflow": true,
+      "background": {
+        "tabletopImageSrc": "./docs/assets/hud/tabletop.png"
+      },
       "fitter": {
         "enabled": true,
         "reflowDebounceMs": 90,
