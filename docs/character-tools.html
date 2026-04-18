@@ -2224,6 +2224,9 @@ async function cosLoadAssets() {
 /** Return the CSS filter for any slot using its stored tint. */
 function cosSlotFilter(key) {
   const t = SLOTS[key].tint;
+  // Cosmetic base pixels are near-black by design (they receive body-color tinting at runtime).
+  // When the tint is untouched, boost brightness so shapes are visible on the dark canvas.
+  if (t.h === 0 && t.s === 0 && t.v === 0) return 'brightness(6)';
   return buildCSSFilter(t.h, t.s, t.v);
 }
 
