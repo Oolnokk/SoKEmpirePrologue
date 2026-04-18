@@ -905,6 +905,11 @@
       text-shadow: none;
       letter-spacing: 0.08em;
     }
+    .cin-headline.cin-challenge {
+      color: var(--accent-2);
+      font-size: 1.5rem;
+      text-shadow: 0 0 22px rgba(242,208,143,0.55);
+    }
     .cin-players {
       display: flex;
       align-items: flex-start;
@@ -1363,6 +1368,34 @@
       pointer-events: auto;
       touch-action: none;
     }
+    .authoredSubOverlay {
+      position: absolute;
+      border: 2px dashed rgba(100,200,220,0.75);
+      background: rgba(100,200,220,0.07);
+      pointer-events: auto;
+      touch-action: none;
+    }
+    .authoredSubOverlay.selected {
+      border-color: #7ee8f8;
+      background: rgba(126,232,248,0.14);
+    }
+    .authoredSubLabel {
+      position: absolute;
+      top: -24px;
+      left: 0;
+      background: rgba(14,10,9,0.96);
+      border: 1px solid rgba(100,200,220,0.45);
+      border-radius: 6px;
+      padding: 2px 8px;
+      color: #7ee8f8;
+      font: 700 11px/1.1 'Courier New', monospace;
+      white-space: nowrap;
+    }
+    .authoredBoxOverlay.sub-mode-dimmed {
+      border-color: rgba(200,153,82,0.28);
+      background: rgba(200,153,82,0.03);
+      pointer-events: none;
+    }
     #editorStatus {
       position: fixed;
       right: 10px;
@@ -1597,6 +1630,7 @@
   <!-- UI projection mapping mode -->
   <button id="projMapBtn" title="Inspect panel projection IDs">Map</button>
   <button id="projVarBtn" title="Edit CSS vars for last selected projection element">Vars</button>
+  <button id="projSubBtn" title="Toggle sub-layer mode: manipulate elements nested inside major boxes">Sub</button>
   <button id="projExportBtn" title="Copy authored layout config">Export</button>
   <div id="projMapTip"></div>
   <div id="editorStatus" aria-live="polite">Editor idle.</div>
@@ -1847,6 +1881,8 @@
     };
     const authoredEditorState = {
       selectedId: null,
+      selectedSubId: null,
+      subLayerMode: false,
       pointerDrag: null,
       pointerCaptureTarget: null,
       pointerCaptureId: null,
@@ -1872,12 +1908,21 @@
           height: Math.max(24, Number.isFinite(Number(source.height)) ? Number(source.height) : fallback.height),
         };
       }
+      const rawSubOffsets = authored.subOffsets && typeof authored.subOffsets === 'object' ? authored.subOffsets : {};
+      const subOffsets = {};
+      for (const [projId, raw] of Object.entries(rawSubOffsets)) {
+        subOffsets[projId] = {
+          dx: Number.isFinite(Number(raw.dx)) ? Number(raw.dx) : 0,
+          dy: Number.isFinite(Number(raw.dy)) ? Number(raw.dy) : 0,
+        };
+      }
       SCRATCHBONES_GAME.layout.authored = {
         enabled: authored.enabled !== false,
         designWidthPx: Math.max(320, Number(authored.designWidthPx) || 1920),
         designHeightPx: Math.max(180, Number(authored.designHeightPx) || 1080),
         scaleMode: String(authored.scaleMode || 'contain').toLowerCase(),
         boxes: normalizedBoxes,
+        subOffsets,
       };
       return SCRATCHBONES_GAME.layout.authored;
     }
@@ -1973,6 +2018,13 @@
         const parentId = AUTHORED_PARENT_BOX[boxId];
         const origin = parentId ? authoredConfig.boxes[parentId] : null;
         applyAuthoredBoxStyles(el, box, origin);
+      }
+      // Apply sub-element translate offsets (move within their parent's layout)
+      for (const [projId, offset] of Object.entries(authoredConfig.subOffsets || {})) {
+        if (AUTHORED_BOX_KEY_BY_PROJ_ID[projId]) continue; // skip major boxes
+        const el = app.querySelector(`[data-proj-id="${projId}"]`);
+        if (!el) continue;
+        el.style.transform = `translate(${Math.round(offset.dx)}px, ${Math.round(offset.dy)}px)`;
       }
     }
     const CHALLENGE_TIMER_SECS = SCRATCHBONES_GAME.timers.challengeTimerSecs;
@@ -4181,7 +4233,7 @@
           <div class="sectionTitle" style="padding:6px 10px 2px;color:var(--accent-2);">Table</div>
           ${state.players.slice(1).map(p => `
             <div class="aiSeat ${p.eliminated ? 'eliminated' : ''}" data-proj-id="seat-${p.id}">
-              <div class="seatInfo">
+              <div class="seatInfo" data-proj-id="info-${p.id}">
                 <div class="seatName">${seatLabel(p)}</div>
                 <div class="seatMeta">Cards ${p.hand.length} · Chips ${p.chips} · Clears ${p.clears}</div>
                 ${p.seed ? `<div class="seatSeed">${p.seed}</div>` : ''}
@@ -4196,7 +4248,7 @@
         </div>
         <div class="humanSeatZone fit-target fit-0" data-proj-id="human-seat-zone">
           <div class="humanSeatCard ${player.eliminated ? 'eliminated' : ''}" data-proj-id="human-seat">
-            <div class="seatInfo">
+            <div class="seatInfo" data-proj-id="info-human">
               <div class="seatName">${seatLabel(player)}</div>
               <div class="seatMeta">Cards ${player.hand.length} · Clears ${player.clears}</div>
               <div class="seatStatus">${player.lastAction}</div>
@@ -4297,7 +4349,7 @@
       });
       wireScratchboneImageFallbacks(app);
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
-      refreshCinematicBettingZone();
+      ensureChallengeCinematic();
       renderSeatPortraits();
       const layoutMode = getScratchbonesLayoutMode();
       document.body.classList.toggle('layout-mode-authored', layoutMode === 'authored');
@@ -4426,6 +4478,34 @@
     let _cinTimeout = null;
     function _clearCinTimeout() {
       if (_cinTimeout) { clearTimeout(_cinTimeout); _cinTimeout = null; }
+    }
+    function ensureChallengeCinematic() {
+      if (!state.betting || !isTableCinematicEnabled()) return;
+      const cin = getCinematicRoot();
+      if (!cin) return;
+      _clearCinTimeout();
+      const { challengerId, challengedId } = state.betting;
+      const challenger = state.players[challengerId];
+      const challenged = state.players[challengedId];
+      const fxMarkup = isTableCinematicEffectsEnabled()
+        ? `${_cinEmbersHtml(45)}<div class="cin-shimmer"></div>`
+        : '';
+      cin.innerHTML = `
+        <div class="cin-bg"></div>
+        ${fxMarkup}
+        <div class="cin-headline cin-challenge">⚔ Challenge</div>
+        <div class="cin-players">
+          ${_cinPlayerHtml(challenger, 'challenger')}
+          <div class="cin-vs">VS</div>
+          ${_cinPlayerHtml(challenged, 'challenged')}
+        </div>
+        <div id="cin-betting-zone"></div>
+      `;
+      wireScratchboneImageFallbacks(cin);
+      activateTableCinematicMode();
+      cin.classList.add('cin-active');
+      renderCinematicPortraits();
+      refreshCinematicBettingZone();
     }
     function closeCinematic() {
       _clearCinTimeout();
@@ -4792,32 +4872,78 @@
       const scale = computeAuthoredScale(liveWidth, liveHeight, authored.designWidthPx, authored.designHeightPx);
       const offsetX = (liveWidth - (authored.designWidthPx * scale)) / 2;
       const offsetY = (liveHeight - (authored.designHeightPx * scale)) / 2;
+      const subMode = authoredEditorState.subLayerMode;
+      // Major box overlays — always shown, dimmed (non-interactive) in sub-layer mode
       for (const [boxId, box] of Object.entries(authored.boxes)) {
         const node = document.createElement('div');
-        node.className = `authoredBoxOverlay${authoredEditorState.selectedId === boxId ? ' selected' : ''}`;
+        const isSelected = !subMode && authoredEditorState.selectedId === boxId;
+        node.className = `authoredBoxOverlay${isSelected ? ' selected' : ''}${subMode ? ' sub-mode-dimmed' : ''}`;
         node.dataset.boxId = boxId;
         node.style.left = `${Math.round(offsetX + (box.x * scale))}px`;
         node.style.top = `${Math.round(offsetY + (box.y * scale))}px`;
         node.style.width = `${Math.max(12, Math.round(box.width * scale))}px`;
         node.style.height = `${Math.max(12, Math.round(box.height * scale))}px`;
-        node.innerHTML = `<div class="authoredBoxLabel">${escapeHtml(boxId)}</div><div class="authoredResizeHandle" data-resize-handle="se"></div>`;
+        if (!subMode) {
+          node.innerHTML = `<div class="authoredBoxLabel">${escapeHtml(boxId)}</div><div class="authoredResizeHandle" data-resize-handle="se"></div>`;
+        }
         overlay.appendChild(node);
       }
-      if (authoredEditorState.selectedId) {
+      // Sub-element overlays — only in sub-layer mode
+      if (subMode) {
+        app.querySelectorAll('[data-proj-id]').forEach((el) => {
+          const projId = el.getAttribute('data-proj-id');
+          if (AUTHORED_BOX_KEY_BY_PROJ_ID[projId]) return; // skip major boxes
+          const rect = el.getBoundingClientRect();
+          const rootRect = root.getBoundingClientRect();
+          const node = document.createElement('div');
+          const isSelected = authoredEditorState.selectedSubId === projId;
+          node.className = `authoredSubOverlay${isSelected ? ' selected' : ''}`;
+          node.dataset.subProjId = projId;
+          node.style.left = `${Math.round(rect.left - rootRect.left)}px`;
+          node.style.top = `${Math.round(rect.top - rootRect.top)}px`;
+          node.style.width = `${Math.max(12, Math.round(rect.width))}px`;
+          node.style.height = `${Math.max(12, Math.round(rect.height))}px`;
+          node.innerHTML = `<div class="authoredSubLabel">${escapeHtml(projId)}</div>`;
+          overlay.appendChild(node);
+        });
+      }
+      if (!subMode && authoredEditorState.selectedId) {
         for (const [projId, boxId] of Object.entries(AUTHORED_BOX_KEY_BY_PROJ_ID)) {
           if (boxId !== authoredEditorState.selectedId) continue;
           const match = app.querySelector(`[data-proj-id="${projId}"]`);
-          if (match) {
-            match.classList.add('authored-box-selected');
-            break;
-          }
+          if (match) { match.classList.add('authored-box-selected'); break; }
         }
       }
+    }
+    function updateAuthoredSubOffset(projId, dx, dy) {
+      const authored = getScratchbonesAuthoredConfig();
+      if (!authored.subOffsets) authored.subOffsets = {};
+      authored.subOffsets[projId] = { dx: Math.round(dx), dy: Math.round(dy) };
+      const app = document.getElementById('app');
+      if (app) {
+        const el = app.querySelector(`[data-proj-id="${projId}"]`);
+        if (el) el.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`;
+      }
+      renderAuthoredOverlays();
     }
     function renderAuthoredInspector() {
       const varsPanelBody = projectionUiState.ui?.varsPanelBody;
       const varsPanelTitle = projectionUiState.ui?.varsPanelTitle;
       if (!varsPanelBody || !varsPanelTitle || !projectionUiState.varsPanelOpen) return;
+      const subMode = authoredEditorState.subLayerMode;
+      if (subMode && authoredEditorState.selectedSubId) {
+        const projId = authoredEditorState.selectedSubId;
+        const authored = getScratchbonesAuthoredConfig();
+        const offset = authored.subOffsets?.[projId] || { dx: 0, dy: 0 };
+        varsPanelTitle.textContent = `Sub Element · ${projId}`;
+        const field = (key, label) => `<label class="projVarRow sizePosVar"><span class="projVarLabel">${label}</span><input class="projVarInput" data-authored-sub-field="${key}" data-sub-proj-id="${escapeHtml(projId)}" type="number" step="1" value="${Math.round(offset[key] ?? 0)}"><span class="projVarHint">px</span></label>`;
+        varsPanelBody.innerHTML = `
+          <div class="projVarHint">Sub-element offset (translate within parent).</div>
+          ${field('dx', 'dx')}
+          ${field('dy', 'dy')}
+        `;
+        return;
+      }
       const selectedId = getSelectedAuthoredBox();
       if (!selectedId) return;
       const authored = getScratchbonesAuthoredConfig();
@@ -4835,6 +4961,37 @@
     }
     function bindAuthoredDragAndResize(event) {
       if (!projectionUiState.active || getScratchbonesLayoutMode() !== 'authored') return false;
+      // Sub-layer mode: drag sub-element overlays
+      if (authoredEditorState.subLayerMode) {
+        const subOverlay = event.target.closest('.authoredSubOverlay');
+        if (!subOverlay) return false;
+        const projId = subOverlay.dataset.subProjId;
+        if (!projId) return false;
+        if (authoredEditorState.selectedSubId !== projId) {
+          authoredEditorState.selectedSubId = projId;
+          renderAuthoredOverlays();
+          renderAuthoredInspector();
+        }
+        const authored = getScratchbonesAuthoredConfig();
+        const current = authored.subOffsets?.[projId] || { dx: 0, dy: 0 };
+        authoredEditorState.pointerDrag = {
+          subMode: true,
+          projId,
+          startX: event.clientX,
+          startY: event.clientY,
+          startDx: current.dx,
+          startDy: current.dy,
+          scale: 1,
+        };
+        authoredEditorState.pointerCaptureTarget = subOverlay;
+        authoredEditorState.pointerCaptureId = event.pointerId;
+        if (typeof subOverlay.setPointerCapture === 'function') {
+          try { subOverlay.setPointerCapture(event.pointerId); } catch { authoredEditorState.pointerCaptureTarget = null; authoredEditorState.pointerCaptureId = null; }
+        }
+        event.preventDefault();
+        return true;
+      }
+      // Normal mode: drag major box overlays
       const overlay = event.target.closest('.authoredBoxOverlay');
       if (!overlay) return false;
       const boxId = overlay.dataset.boxId;
@@ -4872,6 +5029,16 @@
     function updateAuthoredPointer(event) {
       const drag = authoredEditorState.pointerDrag;
       if (!drag) return;
+      if (drag.subMode) {
+        const ddx = event.clientX - drag.startX;
+        const ddy = event.clientY - drag.startY;
+        const newDx = drag.startDx + ddx;
+        const newDy = drag.startDy + ddy;
+        updateAuthoredSubOffset(drag.projId, newDx, newDy);
+        updateEditorStatus(`Sub offset ${drag.projId}: dx=${Math.round(newDx)} dy=${Math.round(newDy)}`);
+        if (projectionUiState.varsPanelOpen) renderAuthoredInspector();
+        return;
+      }
       const dx = (event.clientX - drag.startX) / drag.scale;
       const dy = (event.clientY - drag.startY) / drag.scale;
       const next = { ...drag.startBox };
@@ -4904,6 +5071,7 @@
       const varsPanelBody = document.getElementById('projVarPanelBody');
       const varsCopyBtn = document.getElementById('projVarCopyBtn');
       const varsCloseBtn = document.getElementById('projVarCloseBtn');
+      const subBtn = document.getElementById('projSubBtn');
       if (!btn || !tip || !varsBtn || !exportBtn || !varsPanel || !varsPanelTitle || !varsPanelBody || !varsCopyBtn || !varsCloseBtn) return;
       projectionUiState.ui = { varsPanelBody, varsPanelTitle };
       const projectionMapConfig = SCRATCHBONES_GAME.layout?.projectionMapping || {};
@@ -4961,7 +5129,7 @@
         return [...result];
       };
       const renderVarEditor = () => {
-        if (getScratchbonesLayoutMode() === 'authored' && getSelectedAuthoredBox()) {
+        if (getScratchbonesLayoutMode() === 'authored' && (getSelectedAuthoredBox() || authoredEditorState.subLayerMode)) {
           renderAuthoredInspector();
           return;
         }
@@ -4991,14 +5159,30 @@
         btn.classList.toggle('active', projectionUiState.active);
         varsBtn.style.display = projectionUiState.active ? 'block' : 'none';
         exportBtn.style.display = projectionUiState.active ? 'block' : 'none';
+        if (subBtn) subBtn.style.display = projectionUiState.active ? 'block' : 'none';
         if (!projectionUiState.active) {
           tip.style.display = 'none';
           varsPanel.classList.remove('open');
           varsBtn.classList.remove('active');
           projectionUiState.varsPanelOpen = false;
+          authoredEditorState.subLayerMode = false;
+          authoredEditorState.selectedSubId = null;
+          if (subBtn) subBtn.classList.remove('active');
         }
         renderAuthoredOverlays();
       });
+      if (subBtn) {
+        subBtn.style.display = 'none';
+        subBtn.addEventListener('click', () => {
+          if (!projectionUiState.active) return;
+          authoredEditorState.subLayerMode = !authoredEditorState.subLayerMode;
+          if (!authoredEditorState.subLayerMode) authoredEditorState.selectedSubId = null;
+          subBtn.classList.toggle('active', authoredEditorState.subLayerMode);
+          renderAuthoredOverlays();
+          renderAuthoredInspector();
+          updateEditorStatus(authoredEditorState.subLayerMode ? 'Sub-layer mode: drag nested elements.' : 'Sub-layer mode off.');
+        });
+      }
       varsBtn.addEventListener('click', () => {
         if (!projectionUiState.active) return;
         projectionUiState.varsPanelOpen = !varsPanel.classList.contains('open');
@@ -5036,7 +5220,24 @@
       document.addEventListener('pointercancel', finishAuthoredPointer);
       document.addEventListener('click', (event) => {
         if (!projectionUiState.active) return;
-        if (event.target.closest('#projMapBtn,#projVarBtn,#projVarPanel,#projExportBtn')) return;
+        if (event.target.closest('#projMapBtn,#projVarBtn,#projVarPanel,#projExportBtn,#projSubBtn')) return;
+        // Sub-layer mode: select sub overlays
+        if (authoredEditorState.subLayerMode) {
+          const subOverlay = event.target.closest('.authoredSubOverlay');
+          if (subOverlay) {
+            const projId = subOverlay.dataset.subProjId;
+            if (projId && authoredEditorState.selectedSubId !== projId) {
+              authoredEditorState.selectedSubId = projId;
+              renderAuthoredOverlays();
+              if (projectionUiState.varsPanelOpen) renderAuthoredInspector();
+              updateEditorStatus(`Selected sub ${projId}.`);
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+          }
+          return;
+        }
         const el = event.target.closest('[data-proj-id]');
         if (!el) return;
         event.preventDefault();
@@ -5052,6 +5253,18 @@
         if (projectionUiState.varsPanelOpen) renderVarEditor();
       }, true);
       varsPanelBody.addEventListener('input', (event) => {
+        const authoredSubField = event.target.getAttribute('data-authored-sub-field');
+        if (authoredSubField) {
+          const projId = event.target.getAttribute('data-sub-proj-id');
+          if (!projId) return;
+          const numeric = Number(event.target.value);
+          if (!Number.isFinite(numeric)) return;
+          const authored = getScratchbonesAuthoredConfig();
+          const current = authored.subOffsets?.[projId] || { dx: 0, dy: 0 };
+          updateAuthoredSubOffset(projId, authoredSubField === 'dx' ? numeric : current.dx, authoredSubField === 'dy' ? numeric : current.dy);
+          updateEditorStatus(`Sub offset ${projId}.${authoredSubField}=${Math.round(numeric)}.`);
+          return;
+        }
         const authoredField = event.target.getAttribute('data-authored-field');
         if (authoredField && getSelectedAuthoredBox()) {
           const numeric = Number(event.target.value);
@@ -5088,6 +5301,24 @@
       });
       document.addEventListener('keydown', (event) => {
         if (!projectionUiState.active || getScratchbonesLayoutMode() !== 'authored') return;
+        if (authoredEditorState.subLayerMode) {
+          const projId = authoredEditorState.selectedSubId;
+          if (!projId) return;
+          const delta = event.shiftKey ? 10 : 1;
+          const authored = getScratchbonesAuthoredConfig();
+          const cur = authored.subOffsets?.[projId] || { dx: 0, dy: 0 };
+          let ndx = cur.dx, ndy = cur.dy;
+          if (event.key === 'ArrowLeft') ndx -= delta;
+          else if (event.key === 'ArrowRight') ndx += delta;
+          else if (event.key === 'ArrowUp') ndy -= delta;
+          else if (event.key === 'ArrowDown') ndy += delta;
+          else return;
+          event.preventDefault();
+          updateAuthoredSubOffset(projId, ndx, ndy);
+          if (projectionUiState.varsPanelOpen) renderAuthoredInspector();
+          updateEditorStatus(`Nudged sub ${projId}: dx=${Math.round(ndx)} dy=${Math.round(ndy)}`);
+          return;
+        }
         const selected = getSelectedAuthoredBox();
         if (!selected) return;
         const delta = event.shiftKey ? 10 : 1;
