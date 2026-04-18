@@ -3,7 +3,12 @@
   "label": "Kenkari",
   "male": {
     "headSprite": "fightersprites/kenkari-m/head.png",
-    "headUrLayers": [],
+    "headUrLayers": [
+      {
+        "url": "fightersprites/kenkari-m/untinted_regions/ur-head.png",
+        "renderOrder": "topLayer"
+      }
+    ],
     "headXform": {
       "ax": 0,
       "ay": -0.1,

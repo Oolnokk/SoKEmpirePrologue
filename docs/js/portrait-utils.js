@@ -262,12 +262,18 @@ async function renderProfile(canvas, profile) {
   }
   { const img = imgMap.get(fighter.headUrl); if (img) drawPortraitLayer(ctx, img, headXform, filterA); }
   for (const mid of (fighter.urLayers || [])) {
+    if (mid.renderOrder === 'topLayer') continue;
     const img = imgMap.get(mid.url);
     if (img) drawPortraitLayer(ctx, img, mid.xform || headXform, 'none');
   }
   for (const { layer, filter } of frontLayers) {
     const img = imgMap.get(layer.url);
     if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
+  }
+  for (const mid of (fighter.urLayers || [])) {
+    if (mid.renderOrder !== 'topLayer') continue;
+    const img = imgMap.get(mid.url);
+    if (img) drawPortraitLayer(ctx, img, mid.xform || headXform, 'none');
   }
   for (const { layer, filter } of bodyFrontLayers) {
     const img = imgMap.get(layer.url);
@@ -490,7 +496,7 @@ async function loadPortraitCosmetics(configBase) {
               label: `${sData.label || entry.label} (${genderKey === 'male' ? 'M' : 'F'})`,
               headUrl: genderData.headSprite,
               bodyLayers: genderData.portraitBodyLayers.map(normalizePortraitLayerXform),
-              urLayers: (genderData.headUrLayers || []).map(l => ({ url: l.url })),
+              urLayers: (genderData.headUrLayers || []).map(l => ({ url: l.url, renderOrder: l.renderOrder })),
               headXform: genderData.headXform ? normalizePortraitLayerXform(genderData.headXform) : null,
               opacityMaskLayer: genderData.portraitOpacityMaskLayer ? normalizePortraitMaskLayer(genderData.portraitOpacityMaskLayer) : null,
             });
