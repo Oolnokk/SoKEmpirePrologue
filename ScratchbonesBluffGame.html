@@ -483,6 +483,24 @@
     .seatStatus { margin-top: 6px; font-size: 0.68rem; }
     .seatSeed { font-size: 0.68rem; color: var(--accent); font-style: italic; margin-top: 3px; letter-spacing: 0.01em; }
     .seatTags { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+    .seatHandPreview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      margin-top: 5px;
+    }
+    .seatHandCard {
+      width: 14px;
+      aspect-ratio: 312 / 440;
+      flex: 0 0 auto;
+      overflow: visible;
+    }
+    .seatHandCard img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
     .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 8px; }
     .controls {
@@ -4115,47 +4133,74 @@
       return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.showEffects !== false;
     }
     const seatAvatarAnim = (() => {
-      const DIM_MS = 400;
-      const UNDIM_MS = 267;     // 1.5x faster
-      const FADE_IN_MS = 400;
-      const FADE_OUT_MS = 267;
+      const DIM_MS = 200;
+      const UNDIM_MS = 134;
+      const FADE_IN_MS = 200;
+      const FADE_OUT_MS = 134;
+      const PREVIEW_DARK_MS = 200;
+      const CARD_STAGGER_MS = 40;
 
       let trackedActorId = null;
-      let clusterSnapshot = null; // { src, rect } from pre-render capture
+      let clusterSnapshot = null; // { src, rect }
+      let seatPreviewCaptures = new Map(); // playerId → [{rect,src}]
+      let activeClone = null;
+      let activeDarkClones = [];
+      let genId = 0;
 
       function actorFromState() {
         const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || state.pile.at(-1) || null;
         return latestPlay ? latestPlay.playerIndex : null;
       }
-
       function seatCanvas(id) {
         return document.querySelector(`.seatAvatarBox canvas.seatPortrait[data-seat-id="${id}"]`);
       }
-
       function clusterCanvas() {
         return document.querySelector('.actorAvatarFloat canvas.seatPortrait');
       }
+      function getPreRenderClusterRect() {
+        return clusterSnapshot?.rect || null;
+      }
 
       function capturePreRender() {
+        // Cancel any in-flight clones from previous animation
+        if (activeClone) { activeClone.remove(); activeClone = null; }
+        activeDarkClones.forEach(c => c.remove());
+        activeDarkClones = [];
+
+        // Always capture cluster canvas (not gated on trackedActorId)
         const canvas = clusterCanvas();
-        if (canvas && trackedActorId !== null) {
+        if (canvas) {
           try {
             clusterSnapshot = { src: canvas.toDataURL(), rect: canvas.getBoundingClientRect() };
           } catch (_) { clusterSnapshot = null; }
         } else {
           clusterSnapshot = null;
         }
+
+        // Capture seat hand preview positions for all players
+        seatPreviewCaptures.clear();
+        document.querySelectorAll('.seatHandPreview[data-seat-id]').forEach(container => {
+          const id = Number(container.dataset.seatId);
+          const cards = [];
+          container.querySelectorAll('.seatHandCard img').forEach(img => {
+            cards.push({ rect: img.getBoundingClientRect(), src: img.src });
+          });
+          seatPreviewCaptures.set(id, cards);
+        });
       }
 
       function animatePostRender() {
-        if (document.getElementById('tableCinematicHost')?.classList.contains('cin-active')) return;
+        if (document.getElementById('tableCinematicHost')?.classList.contains('cin-active')) {
+          clusterSnapshot = null;
+          return;
+        }
 
+        const myGen = ++genId;
         const prev = trackedActorId;
         const next = actorFromState();
         trackedActorId = next;
 
         if (prev === next) {
-          // Same actor — restore dim/opacity states on freshly rebuilt canvases
           if (next !== null) {
             const sc = seatCanvas(next);
             if (sc) { sc.style.transition = 'none'; sc.style.filter = 'brightness(0)'; }
@@ -4166,7 +4211,7 @@
           return;
         }
 
-        // Set initial visual states synchronously before the next paint
+        // Set initial states synchronously before first paint
         if (prev !== null) {
           const sc = seatCanvas(prev);
           if (sc) { sc.style.transition = 'none'; sc.style.filter = 'brightness(0)'; }
@@ -4178,47 +4223,87 @@
           if (cc) { cc.style.transition = 'none'; cc.style.opacity = '0'; }
         }
 
-        // Clone old cluster canvas into a fade-out overlay
+        // Spawn fade-out clone of old cluster canvas
         let cloneEl = null;
-        if (clusterSnapshot && prev !== null) {
+        if (clusterSnapshot) {
           cloneEl = document.createElement('img');
           cloneEl.src = clusterSnapshot.src;
           const r = clusterSnapshot.rect;
           cloneEl.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;pointer-events:none;z-index:9998;border-radius:10px;object-fit:cover;opacity:1;transition:none;`;
           document.body.appendChild(cloneEl);
+          activeClone = cloneEl;
         }
         clusterSnapshot = null;
 
+        // Spawn darkening clones for opponent's played hand-preview cards
+        const playedPreviewClones = [];
+        if (next !== null && next !== 0) {
+          const oldCards = seatPreviewCaptures.get(next) || [];
+          const newCount = state.players[next]?.hand.length ?? 0;
+          const playedCount = Math.max(0, oldCards.length - newCount);
+          for (let i = 0; i < playedCount; i++) {
+            const cd = oldCards[oldCards.length - 1 - i];
+            if (!cd) continue;
+            const dc = document.createElement('img');
+            dc.src = cd.src;
+            const r = cd.rect;
+            dc.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;pointer-events:none;z-index:9997;object-fit:contain;opacity:1;transition:none;`;
+            document.body.appendChild(dc);
+            activeDarkClones.push(dc);
+            playedPreviewClones.push({ el: dc, delay: i * CARD_STAGGER_MS });
+          }
+        }
+
         requestAnimationFrame(() => {
-          // Fade out old cluster clone
+          if (genId !== myGen) {
+            if (cloneEl) cloneEl.remove();
+            playedPreviewClones.forEach(({ el }) => el.remove());
+            return;
+          }
+
           if (cloneEl) {
             cloneEl.style.transition = `opacity ${FADE_OUT_MS}ms ease`;
             cloneEl.style.opacity = '0';
-            const rm = () => cloneEl?.remove();
+            const rm = () => { cloneEl.remove(); if (activeClone === cloneEl) activeClone = null; };
             cloneEl.addEventListener('transitionend', rm, { once: true });
             setTimeout(rm, FADE_OUT_MS + 50);
           }
-          // Undim old actor's seat
           if (prev !== null) {
             const sc = seatCanvas(prev);
             if (sc) { sc.style.transition = `filter ${UNDIM_MS}ms ease`; sc.style.filter = ''; }
           }
-          // Dim new actor's seat + fade in new cluster canvas
           if (next !== null) {
             const sc = seatCanvas(next);
             if (sc) { sc.style.transition = `filter ${DIM_MS}ms ease`; sc.style.filter = 'brightness(0)'; }
             const cc = clusterCanvas();
             if (cc) { cc.style.transition = `opacity ${FADE_IN_MS}ms ease`; cc.style.opacity = '1'; }
           }
+
+          playedPreviewClones.forEach(({ el, delay }) => {
+            setTimeout(() => {
+              requestAnimationFrame(() => {
+                el.style.transition = `filter ${PREVIEW_DARK_MS}ms ease, opacity ${PREVIEW_DARK_MS}ms ease`;
+                el.style.filter = 'brightness(0)';
+                el.style.opacity = '0';
+                const rm = () => { el.remove(); activeDarkClones = activeDarkClones.filter(c => c !== el); };
+                el.addEventListener('transitionend', rm, { once: true });
+                setTimeout(rm, PREVIEW_DARK_MS + 50);
+              });
+            }, delay);
+          });
         });
       }
 
-      return { capturePreRender, animatePostRender };
+      return { capturePreRender, animatePostRender, getPreRenderClusterRect };
     })();
 
     const cardAnimator = (() => {
+      const FLY_MS = 225;
+      const FADE_MS = 150;
+      const OPPONENT_STAGGER_MS = 40;
       const snapshots = new Map();
       const activeClones = new Map();
+
       function getContainerType(el) {
         if (el.closest('.handScroll')) return 'hand';
         if (el.closest('.tableViewCards')) return 'table';
@@ -4243,25 +4328,79 @@
           snapshots.clear();
           return;
         }
+
+        // Determine if an opponent just played (for avatar-origin card flights)
+        const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || state.pile.at(-1) || null;
+        const actorIsOpponent = !!(latestPlay && latestPlay.playerIndex !== 0);
+        const actorRect = actorIsOpponent ? seatAvatarAnim.getPreRenderClusterRect() : null;
+
         const newCards = [];
         document.querySelectorAll('[data-card-id]').forEach(el => {
           const id = el.dataset.cardId;
           const img = el.querySelector('img.cardArt') || el.querySelector('img');
           if (img) newCards.push({ id, img, containerType: getContainerType(el) });
         });
+
         requestAnimationFrame(() => requestAnimationFrame(() => {
+          let opponentCardIdx = 0;
+
           newCards.forEach(({ id, img, containerType }) => {
             const snapshot = snapshots.get(id);
             const newRect = img.getBoundingClientRect();
+
             if (!snapshot) {
-              img.style.opacity = '0';
-              requestAnimationFrame(() => {
-                img.style.transition = 'opacity 0.3s ease';
-                img.style.opacity = '';
-                img.addEventListener('transitionend', () => { img.style.transition = ''; }, { once: true });
-              });
+              const isClaimOrTable = containerType === 'claim' || containerType === 'table';
+              if (actorRect && isClaimOrTable) {
+                // Opponent card: fly from cluster avatar center, start tiny
+                const staggerDelay = opponentCardIdx * OPPONENT_STAGGER_MS;
+                opponentCardIdx++;
+                const existing = activeClones.get(id);
+                if (existing) existing.remove();
+                const avatarCx = actorRect.left + actorRect.width / 2;
+                const avatarCy = actorRect.top + actorRect.height / 2;
+                const cardCx = newRect.left + newRect.width / 2;
+                const cardCy = newRect.top + newRect.height / 2;
+                const dx = avatarCx - cardCx;
+                const dy = avatarCy - cardCy;
+                const clone = document.createElement('img');
+                clone.src = img.src;
+                clone.style.cssText = [
+                  'position:fixed',
+                  `left:${newRect.left}px`, `top:${newRect.top}px`,
+                  `width:${newRect.width}px`, `height:${newRect.height}px`,
+                  'object-fit:contain', 'pointer-events:none', 'z-index:9999',
+                  'transform-origin:center center',
+                  `transform:translate(${dx}px,${dy}px) scale(0.08)`,
+                  'transition:none',
+                ].join(';');
+                document.body.appendChild(clone);
+                activeClones.set(id, clone);
+                img.style.opacity = '0';
+                setTimeout(() => {
+                  requestAnimationFrame(() => {
+                    clone.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.4,0,0.2,1)`;
+                    clone.style.transform = 'none';
+                    const done = () => {
+                      clone.remove();
+                      if (activeClones.get(id) === clone) activeClones.delete(id);
+                      img.style.opacity = '';
+                    };
+                    clone.addEventListener('transitionend', done, { once: true });
+                    setTimeout(done, FLY_MS + 100);
+                  });
+                }, staggerDelay);
+              } else {
+                // Normal fade-in for new cards with no prior position
+                img.style.opacity = '0';
+                requestAnimationFrame(() => {
+                  img.style.transition = `opacity ${FADE_MS}ms ease`;
+                  img.style.opacity = '';
+                  img.addEventListener('transitionend', () => { img.style.transition = ''; }, { once: true });
+                });
+              }
               return;
             }
+
             if (snapshot.containerType === containerType) return;
             const existing = activeClones.get(id);
             if (existing) existing.remove();
@@ -4285,7 +4424,7 @@
             activeClones.set(id, clone);
             img.style.opacity = '0';
             requestAnimationFrame(() => {
-              clone.style.transition = 'transform 0.45s cubic-bezier(0.4,0,0.2,1)';
+              clone.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.4,0,0.2,1)`;
               clone.style.transform = 'none';
               const done = () => {
                 clone.remove();
@@ -4293,7 +4432,7 @@
                 img.style.opacity = '';
               };
               clone.addEventListener('transitionend', done, { once: true });
-              setTimeout(done, 600);
+              setTimeout(done, FLY_MS + 100);
             });
           });
           snapshots.clear();
@@ -4449,6 +4588,7 @@
                 ${p.seed ? `<div class="seatSeed">${p.seed}</div>` : ''}
                 ${p.personality ? `<div class="seatTags">${personalityTags(p.personality)}</div>` : ''}
                 <div class="seatStatus">${p.lastAction}</div>
+                ${!p.eliminated && p.hand.length > 0 ? `<div class="seatHandPreview" data-seat-id="${p.id}">${p.hand.map((card, i) => { const art = resolveScratchbone2DAsset(card, { flipped: true }); return `<div class="seatHandCard" data-seat-hand-id="${p.id}-${i}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Hidden card"></div>`; }).join('')}</div>` : ''}
               </div>
               <div class="seatAvatarBox" data-proj-id="avatar-${p.id}">
                 <canvas class="seatPortrait" data-seat-id="${p.id}" width="200" height="200"></canvas>
