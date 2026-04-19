@@ -160,12 +160,10 @@
       inset: 0;
       z-index: -1;
       pointer-events: none;
-      background-image:
-        var(--layout-ui-tabletop-url),
-        radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%);
-      background-position: center center, center center;
-      background-repeat: no-repeat, no-repeat;
-      background-size: cover, cover;
+      background-image: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%);
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-size: cover;
     }
     button, select, input { font: inherit; }
     #authoredRoot {
@@ -180,6 +178,10 @@
       max-width: var(--layout-viewport-width);
       max-height: var(--layout-viewport-height);
       overflow: hidden;
+      background-image: var(--layout-ui-tabletop-url);
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-size: 100% 100%;
       display: grid;
       container-type: size;
       grid-template-columns: minmax(0, 1fr) minmax(220px, 0.4fr) var(--layout-sidebar-width);
