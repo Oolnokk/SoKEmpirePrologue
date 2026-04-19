@@ -503,18 +503,16 @@
     }
     @keyframes claimGlowGreen {
       0%   { filter: drop-shadow(0 0 0px rgba(0,255,80,0)); }
-      30%  { filter: drop-shadow(0 0 14px rgba(0,255,80,1)); }
-      60%  { filter: drop-shadow(0 0 6px rgba(0,255,80,0.4)); }
-      100% { filter: drop-shadow(0 0 16px rgba(0,255,80,0.9)); }
+      45%  { filter: drop-shadow(0 0 30px rgba(0,255,80,1)) drop-shadow(0 0 12px rgba(0,255,80,0.7)); }
+      100% { filter: drop-shadow(0 0 0px rgba(0,255,80,0)); }
     }
     @keyframes claimGlowRed {
       0%   { filter: drop-shadow(0 0 0px rgba(255,50,50,0)); }
-      30%  { filter: drop-shadow(0 0 14px rgba(255,50,50,1)); }
-      60%  { filter: drop-shadow(0 0 6px rgba(255,50,50,0.4)); }
-      100% { filter: drop-shadow(0 0 16px rgba(255,50,50,0.9)); }
+      45%  { filter: drop-shadow(0 0 30px rgba(255,50,50,1)) drop-shadow(0 0 12px rgba(255,50,50,0.7)); }
+      100% { filter: drop-shadow(0 0 0px rgba(255,50,50,0)); }
     }
-    .claimHandBar.glow-green .tableViewCard { animation: claimGlowGreen 0.55s ease-in-out 3 both; }
-    .claimHandBar.glow-red .tableViewCard   { animation: claimGlowRed   0.55s ease-in-out 3 both; }
+    .claimHandBar.glow-green .tableViewCard { animation: claimGlowGreen 1.5s ease-in-out 1 both; }
+    .claimHandBar.glow-red .tableViewCard   { animation: claimGlowRed   0.8s ease-in-out 3 both; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
     .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 8px; }
     .controls {
@@ -3113,7 +3111,7 @@
       const loser = state.players[loserId];
       const pot = challengePotTotal();
       const netGain = netChallengeGainFor(winnerId, pot);
-      showClaimGlow('red', 1650, () => {
+      showClaimGlow('red', 2500, () => {
         winner.chips += pot;
         state.stats.chipsMovedByChallenges += pot;
         if (success) {
@@ -3166,7 +3164,7 @@
       if (!state.challengeWindow || state.gameOver || state.betting) return;
       clearChallengeTimer();
       state.challengeWindow = null;
-      showClaimGlow('green', 1650, () => {
+      showClaimGlow('green', 1600, () => {
         if (state.gameOver) return;
         if (checkForClearAndRedeal(lastPlayerIndex)) return;
         if (maybeEndRoundFromConcessions()) return;
@@ -4179,8 +4177,9 @@
       let genId = 0;
 
       function actorFromState() {
-        const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || state.pile.at(-1) || null;
-        return latestPlay ? latestPlay.playerIndex : null;
+        if (state.betting?.play) return state.betting.play.playerIndex;
+        if (state.challengeWindow?.lastPlay) return state.challengeWindow.lastPlay.playerIndex;
+        return state.currentTurn ?? null;
       }
       function seatCanvas(id) {
         return document.querySelector(`.seatAvatarBox canvas.seatPortrait[data-seat-id="${id}"]`);
@@ -4526,9 +4525,9 @@
             subtext: 'Select cards and declare a number to begin the next claim.'
           };
         }
-        const actorId = latestPlay.playerIndex;
+        const actorId = (state.betting || state.challengeWindow) ? latestPlay.playerIndex : state.currentTurn;
         let reactorId = null;
-        if (state.betting) reactorId = actorId === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
+        if (state.betting) reactorId = latestPlay.playerIndex === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
         else if (state.challengeWindow) reactorId = latestPlay.playerIndex === 0 ? (state.challengeWindow.challengerOptions.find(id => id !== 0) ?? null) : 0;
         const declaredRank = latestPlay.declaredRank ?? state.declaredRank;
         const cardCount = latestPlay.cards?.length || 0;
