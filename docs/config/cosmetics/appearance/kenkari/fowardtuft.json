@@ -1,10 +1,14 @@
 {
-  "meta": { "name": "Forward Tuft" },
+  "meta": {
+    "name": "Forward Tuft"
+  },
   "type": "appearance",
   "hairSlot": "front",
   "appearance": {
     "inheritSprite": "head",
-    "bodyColors": ["A"],
+    "bodyColors": [
+      "A"
+    ],
     "originalId": "kenk_fowardtuft"
   },
   "parts": {
@@ -18,10 +22,10 @@
             "base": {
               "xform": {
                 "head": {
-                  "ax": -0.1,
-                  "ay": -0.1,
-                  "scaleX": 2,
-                  "scaleY": 2,
+                  "ax": -0.0983,
+                  "ay": -0.0809,
+                  "scaleX": 2.49,
+                  "scaleY": 2.49,
                   "rotDeg": 0
                 }
               }

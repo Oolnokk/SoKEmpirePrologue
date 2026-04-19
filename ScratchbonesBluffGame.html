@@ -134,6 +134,7 @@
       --layout-claim-cluster-width: 78;
       --layout-claim-cluster-height: 48;
       --layout-claim-cluster-scale: 1;
+      --layout-ui-tabletop-url: none;
       --layout-table-card-container-scale: 1.25;
       --layout-table-card-content-scale: 0.8;
       --layout-claim-avatar-container-scale: 1.25;
@@ -144,8 +145,26 @@
       --layout-turn-spotlight-offset-y: 10px;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { margin: 0; background: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%); color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
-    body { overscroll-behavior: none; overflow: hidden; display: grid; place-items: center; }
+    html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
+    body {
+      overscroll-behavior: none;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      position: relative;
+      isolation: isolate;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background-image: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%);
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-size: cover;
+    }
     button, select, input { font: inherit; }
     #authoredRoot {
       width: 100vw;
@@ -158,7 +177,11 @@
       height: min(100dvh, calc(100vw * (var(--layout-viewport-height) / var(--layout-viewport-width))));
       max-width: var(--layout-viewport-width);
       max-height: var(--layout-viewport-height);
-      overflow: visible;
+      overflow: hidden;
+      background-image: var(--layout-ui-tabletop-url);
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-size: 100% 100%;
       display: grid;
       container-type: size;
       grid-template-columns: minmax(0, 1fr) minmax(220px, 0.4fr) var(--layout-sidebar-width);
@@ -243,6 +266,13 @@
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
+    }
+    .claimCluster,
+    .claimCluster > .floatingTransparentShell,
+    .claimCluster > .floatingTransparentShell * {
+      background: transparent !important;
+      box-shadow: none !important;
+      border-color: transparent !important;
     }
     .claimRankBox,
     .claimTimesBoxLeft,
@@ -1883,6 +1913,9 @@
             heightScale: rawGameConfig.layout?.controls?.heightScale ?? 0.5,
           },
           allowChallengeOverflow: rawGameConfig.layout?.allowChallengeOverflow ?? true,
+          background: {
+            tabletopImageSrc: rawGameConfig.layout?.background?.tabletopImageSrc ?? './docs/assets/hud/tabletop.png',
+          },
           fitter: rawGameConfig.layout?.fitter ?? null,
           projectionMapping: rawGameConfig.layout?.projectionMapping ?? {},
         },
@@ -3924,6 +3957,7 @@
       const viewportLayout = layout.viewport || {};
       const handLayout = layout.hand || {};
       const tableViewLayout = layout.tableView || {};
+      const backgroundLayout = layout.background || {};
       const cardBaseScale = clampNumber(Number(layoutCards.baseScale) || 0.25, 0.1, 0.75);
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
       const handHeightScale = clampNumber(Number(handLayout.heightScale) || 0.5, 0.2, 0.75);
@@ -3982,6 +4016,8 @@
       const claimAvatarContainerScale = clampNumber(Number(tableVisualFit.claimAvatarContainerScale) || 1.25, 0.75, 2.25);
       const claimAvatarContentScale = clampNumber(Number(tableVisualFit.claimAvatarContentScale) || 0.8, 0.45, 1);
       const avatarAdditiveZoomScale = clampNumber(Number(tableVisualFit.avatarAdditiveZoomScale) || 1.2, 0.8, 1.6);
+      const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
+      const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
       const handCardMinWidthPx = clampNumber(Number(layoutSizing.handCardMinWidthPx) || 74, 48, 180);
       const handCardMaxWidthPx = clampNumber(Number(layoutSizing.handCardMaxWidthPx) || 104, handCardMinWidthPx, 220);
       const handCardMinHeightPx = clampNumber(Number(layoutSizing.handCardMinHeightPx) || 146, 88, 280);
@@ -4024,6 +4060,7 @@
       setCssVar('--layout-claim-avatar-container-scale', claimAvatarContainerScale.toFixed(3));
       setCssVar('--layout-claim-avatar-content-scale', claimAvatarContentScale.toFixed(3));
       setCssVar('--layout-fit-additive-avatar-zoom', avatarAdditiveZoomScale.toFixed(3));
+      setCssVar('--layout-ui-tabletop-url', tabletopImageSrc ? `url("${tabletopImageSrc}")` : 'none');
       setCssVar('--layout-table-dominance-frac', tableMinDominanceFrac.toFixed(3));
       setCssVar('--layout-action-column-height-scale', actionColumnHeightScale.toFixed(3));
       setCssVar('--layout-controls-height-scale', controlsHeightScale.toFixed(3));

@@ -2241,6 +2241,11 @@ function cosDrawLayer(img, ax, ay, sx, sy, filter) {
 function cosRender() {
   cosCtx.clearRect(0, 0, cosCW, cosCH);
 
+  const headPath = document.getElementById('cos-headPath')?.value || '';
+  const speciesData = cosGetCurrentSpeciesData();
+  const fighter = FIGHTERS.find(f => f.headUrl === headPath.trim());
+  const headXform = (speciesData && speciesData.headXform) || fighter?.headXform || HEAD_XFORM;
+
   // Centre cross guide
   cosCtx.save();
   cosCtx.strokeStyle = '#1e2836'; cosCtx.lineWidth = 1;
@@ -2254,22 +2259,22 @@ function cosRender() {
   const drawSlot = (key) => {
     const s = SLOTS[key];
     if (!s.img) return;
-    const d = composeXform(HEAD_XFORM, s.xf);
+    const d = composeXform(headXform, s.xf);
     cosDrawLayer(s.img, d.ax, d.ay, d.sx, d.sy, cosSlotFilter(key));
   };
 
   // Render order: Hair Back → Head → UR overlays → Eyes → Hair Front → UR topLayer overlays
   drawSlot('hairBack');
   if (cosHeadImg) {
-    cosDrawLayer(cosHeadImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
+    cosDrawLayer(cosHeadImg, headXform.ax, headXform.ay, headXform.sx, headXform.sy, 'none');
     for (const urImg of cosUrImgs) {
-      cosDrawLayer(urImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
+      cosDrawLayer(urImg, headXform.ax, headXform.ay, headXform.sx, headXform.sy, 'none');
     }
   }
   drawSlot('eyes');
   drawSlot('hairFront');
   for (const urImg of cosUrImgsTop) {
-    cosDrawLayer(urImg, HEAD_XFORM.ax, HEAD_XFORM.ay, HEAD_XFORM.sx, HEAD_XFORM.sy, 'none');
+    cosDrawLayer(urImg, headXform.ax, headXform.ay, headXform.sx, headXform.sy, 'none');
   }
 
   cosUpdateDiff();
