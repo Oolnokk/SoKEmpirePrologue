@@ -135,9 +135,6 @@
       --layout-claim-cluster-height: 48;
       --layout-claim-cluster-scale: 1;
       --layout-ui-tabletop-url: none;
-      --layout-ui-tabletop-rotation: 90deg;
-      --layout-ui-tabletop-scale-x: 1;
-      --layout-ui-tabletop-scale-y: 1;
       --layout-table-card-container-scale: 1.25;
       --layout-table-card-content-scale: 0.8;
       --layout-claim-avatar-container-scale: 1.25;
@@ -182,8 +179,6 @@
       height: min(100dvh, calc(100vw * (var(--layout-viewport-height) / var(--layout-viewport-width))));
       max-width: var(--layout-viewport-width);
       max-height: var(--layout-viewport-height);
-      position: relative;
-      isolation: isolate;
       overflow: hidden;
       display: grid;
       container-type: size;
@@ -200,20 +195,6 @@
         "log     log     human";
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
-    }
-    #app::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      pointer-events: none;
-      background-image: var(--layout-ui-tabletop-url);
-      background-position: center center;
-      background-repeat: no-repeat;
-      background-size: 100% 100%;
-      transform-origin: center center;
-      transform: rotate(var(--layout-ui-tabletop-rotation))
-                 scale(var(--layout-ui-tabletop-scale-x), var(--layout-ui-tabletop-scale-y));
     }
     .topbar, .controls, .handWrap, .eventLog {
       background: var(--panel);
@@ -1893,8 +1874,6 @@
           allowChallengeOverflow: rawGameConfig.layout?.allowChallengeOverflow ?? true,
           background: {
             tabletopImageSrc: rawGameConfig.layout?.background?.tabletopImageSrc ?? './docs/assets/hud/tabletop.png',
-            tabletopRotationDeg: Number(rawGameConfig.layout?.background?.tabletopRotationDeg ?? 90),
-            tabletopStretchToFit: rawGameConfig.layout?.background?.tabletopStretchToFit !== false,
           },
           fitter: rawGameConfig.layout?.fitter ?? null,
           projectionMapping: rawGameConfig.layout?.projectionMapping ?? {},
@@ -3981,12 +3960,6 @@
       const avatarAdditiveZoomScale = clampNumber(Number(tableVisualFit.avatarAdditiveZoomScale) || 1.2, 0.8, 1.6);
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
       const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
-      const tabletopRotationDeg = Number.isFinite(Number(backgroundLayout.tabletopRotationDeg))
-        ? Number(backgroundLayout.tabletopRotationDeg)
-        : 90;
-      const tabletopStretchToFit = backgroundLayout.tabletopStretchToFit !== false;
-      const tabletopScaleX = tabletopStretchToFit ? (viewportWidthPx / viewportHeightPx) : 1;
-      const tabletopScaleY = tabletopStretchToFit ? (viewportHeightPx / viewportWidthPx) : 1;
       const handCardMinWidthPx = clampNumber(Number(layoutSizing.handCardMinWidthPx) || 74, 48, 180);
       const handCardMaxWidthPx = clampNumber(Number(layoutSizing.handCardMaxWidthPx) || 104, handCardMinWidthPx, 220);
       const handCardMinHeightPx = clampNumber(Number(layoutSizing.handCardMinHeightPx) || 146, 88, 280);
@@ -4030,9 +4003,6 @@
       setCssVar('--layout-claim-avatar-content-scale', claimAvatarContentScale.toFixed(3));
       setCssVar('--layout-fit-additive-avatar-zoom', avatarAdditiveZoomScale.toFixed(3));
       setCssVar('--layout-ui-tabletop-url', tabletopImageSrc ? `url("${tabletopImageSrc}")` : 'none');
-      setCssVar('--layout-ui-tabletop-rotation', `${tabletopRotationDeg.toFixed(3)}deg`);
-      setCssVar('--layout-ui-tabletop-scale-x', tabletopScaleX.toFixed(6));
-      setCssVar('--layout-ui-tabletop-scale-y', tabletopScaleY.toFixed(6));
       setCssVar('--layout-table-dominance-frac', tableMinDominanceFrac.toFixed(3));
       setCssVar('--layout-action-column-height-scale', actionColumnHeightScale.toFixed(3));
       setCssVar('--layout-controls-height-scale', controlsHeightScale.toFixed(3));
