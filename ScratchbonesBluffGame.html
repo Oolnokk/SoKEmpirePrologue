@@ -501,6 +501,20 @@
       object-fit: contain;
       display: block;
     }
+    @keyframes claimGlowGreen {
+      0%   { filter: drop-shadow(0 0 0px rgba(0,255,80,0)); }
+      30%  { filter: drop-shadow(0 0 14px rgba(0,255,80,1)); }
+      60%  { filter: drop-shadow(0 0 6px rgba(0,255,80,0.4)); }
+      100% { filter: drop-shadow(0 0 16px rgba(0,255,80,0.9)); }
+    }
+    @keyframes claimGlowRed {
+      0%   { filter: drop-shadow(0 0 0px rgba(255,50,50,0)); }
+      30%  { filter: drop-shadow(0 0 14px rgba(255,50,50,1)); }
+      60%  { filter: drop-shadow(0 0 6px rgba(255,50,50,0.4)); }
+      100% { filter: drop-shadow(0 0 16px rgba(255,50,50,0.9)); }
+    }
+    .claimHandBar.glow-green .tableViewCard { animation: claimGlowGreen 0.55s ease-in-out 3 both; }
+    .claimHandBar.glow-red .tableViewCard   { animation: claimGlowRed   0.55s ease-in-out 3 both; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
     .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 8px; }
     .controls {
@@ -1740,8 +1754,8 @@
           maxChallengeBet: rawGameConfig.chips?.maxChallengeBet ?? 13,
         },
         timers: {
-          challengeTimerSecs: rawGameConfig.timers?.challengeSeconds ?? 8,
-          aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 650,
+          challengeTimerSecs: rawGameConfig.timers?.challengeSeconds ?? 6,
+          aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 6000,
         },
         layout: {
           mode: String(rawGameConfig.layout?.mode || 'responsive').toLowerCase(),
@@ -1758,6 +1772,11 @@
           },
           cards: {
             baseScale: rawGameConfig.layout?.cards?.baseScale ?? 0.25,
+          },
+          animation: {
+            baseDurationMs: rawGameConfig.layout?.animation?.baseDurationMs ?? 400,
+            fadeInSpeed: rawGameConfig.layout?.animation?.fadeInSpeed ?? 1.5,
+            fadeOutSpeed: rawGameConfig.layout?.animation?.fadeOutSpeed ?? 2.0,
           },
           sizing: {
             sidebarWidthFrac: rawGameConfig.layout?.sizing?.sidebarWidthFrac ?? 0.75,
@@ -3094,24 +3113,26 @@
       const loser = state.players[loserId];
       const pot = challengePotTotal();
       const netGain = netChallengeGainFor(winnerId, pot);
-      winner.chips += pot;
-      state.stats.chipsMovedByChallenges += pot;
-      if (success) {
-        state.stats.successfulChallenges += 1;
-        state.stats.bluffsCaught += 1;
-        noteChallengeReadResult(challengerId, challengedId, true);
-        loser.lastAction = 'Caught bluffing';
-        addLog(`Challenge succeeds. ${seatLabel(loser)} was bluffing.`);
-        loser.hand.push(...collectPileCards());
-        loser.hand.sort(sortCards);
-      } else {
-        state.stats.failedChallenges += 1;
-        addLog(`Challenge fails. ${state.players[challengedId].name} was truthful.`);
-      }
-      addLog(`${seatLabel(winner)} wins ${netGain} net chip${netGain === 1 ? '' : 's'} from the challenge.`);
-      state.betting = null;
-      showRevealCinematic(challengerId, challengedId, play, success, () => {
-        concludeChallengeFlow(winnerId);
+      showClaimGlow('red', 1650, () => {
+        winner.chips += pot;
+        state.stats.chipsMovedByChallenges += pot;
+        if (success) {
+          state.stats.successfulChallenges += 1;
+          state.stats.bluffsCaught += 1;
+          noteChallengeReadResult(challengerId, challengedId, true);
+          loser.lastAction = 'Caught bluffing';
+          addLog(`Challenge succeeds. ${seatLabel(loser)} was bluffing.`);
+          loser.hand.push(...collectPileCards());
+          loser.hand.sort(sortCards);
+        } else {
+          state.stats.failedChallenges += 1;
+          addLog(`Challenge fails. ${state.players[challengedId].name} was truthful.`);
+        }
+        addLog(`${seatLabel(winner)} wins ${netGain} net chip${netGain === 1 ? '' : 's'} from the challenge.`);
+        state.betting = null;
+        showRevealCinematic(challengerId, challengedId, play, success, () => {
+          concludeChallengeFlow(winnerId);
+        });
       });
     }
     function concludeChallengeFlow(winnerId) {
@@ -3130,22 +3151,37 @@
       state.declaredRank = null;
       return cards;
     }
+    function showClaimGlow(type, durationMs, callback) {
+      const bar = document.querySelector('.claimHandBar');
+      if (!bar || !bar.querySelector('.tableViewCard')) { callback(); return; }
+      bar.classList.remove('glow-green', 'glow-red');
+      void bar.offsetWidth;
+      bar.classList.add(`glow-${type}`);
+      setTimeout(() => {
+        bar.classList.remove('glow-green', 'glow-red');
+        callback();
+      }, durationMs);
+    }
     function advanceAfterNoChallenge(lastPlayerIndex) {
       if (!state.challengeWindow || state.gameOver || state.betting) return;
+      clearChallengeTimer();
       state.challengeWindow = null;
-      if (checkForClearAndRedeal(lastPlayerIndex)) return;
-      if (maybeEndRoundFromConcessions()) return;
-      const nextPlayer = nextRoundEligibleIndex(lastPlayerIndex);
-      if (nextPlayer === null) {
-        openNewRound(currentDeclarerIndex());
-        return;
-      }
-      state.currentTurn = nextPlayer;
-      setBanner(state.currentTurn === 0
-        ? `Your turn. Match ${state.declaredRank}, bluff, or concede the round.`
-        : `${seatLabel(state.players[state.currentTurn])} is thinking about ${state.declaredRank}.`);
-      render();
-      if (state.currentTurn !== 0) scheduleAiTurn();
+      showClaimGlow('green', 1650, () => {
+        if (state.gameOver) return;
+        if (checkForClearAndRedeal(lastPlayerIndex)) return;
+        if (maybeEndRoundFromConcessions()) return;
+        const nextPlayer = nextRoundEligibleIndex(lastPlayerIndex);
+        if (nextPlayer === null) {
+          openNewRound(currentDeclarerIndex());
+          return;
+        }
+        state.currentTurn = nextPlayer;
+        setBanner(state.currentTurn === 0
+          ? `Your turn. Match ${state.declaredRank}, bluff, or concede the round.`
+          : `${seatLabel(state.players[state.currentTurn])} is thinking about ${state.declaredRank}.`);
+        render();
+        if (state.currentTurn !== 0) scheduleAiTurn();
+      });
     }
     function clearRewardForPlayer(player) {
       return CONFIG.clearBonusBase + (player.clears * CONFIG.clearBonusIncrement);
@@ -4133,11 +4169,6 @@
       return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.showEffects !== false;
     }
     const seatAvatarAnim = (() => {
-      const DIM_MS = 200;
-      const UNDIM_MS = 134;
-      const FADE_IN_MS = 200;
-      const FADE_OUT_MS = 134;
-      const PREVIEW_DARK_MS = 200;
       const CARD_STAGGER_MS = 40;
 
       let trackedActorId = null;
@@ -4194,6 +4225,14 @@
           clusterSnapshot = null;
           return;
         }
+
+        const animCfg = SCRATCHBONES_GAME.layout.animation;
+        const base = animCfg.baseDurationMs;
+        const DIM_MS = base;
+        const UNDIM_MS = base;
+        const FADE_IN_MS = Math.round(base / animCfg.fadeInSpeed);
+        const FADE_OUT_MS = Math.round(base / animCfg.fadeOutSpeed);
+        const PREVIEW_DARK_MS = base;
 
         const myGen = ++genId;
         const prev = trackedActorId;
@@ -4298,8 +4337,6 @@
     })();
 
     const cardAnimator = (() => {
-      const FLY_MS = 225;
-      const FADE_MS = 150;
       const OPPONENT_STAGGER_MS = 40;
       const snapshots = new Map();
       const activeClones = new Map();
@@ -4328,6 +4365,11 @@
           snapshots.clear();
           return;
         }
+
+        const animCfg = SCRATCHBONES_GAME.layout.animation;
+        const base = animCfg.baseDurationMs;
+        const FLY_MS = base;
+        const FADE_MS = Math.round(base / animCfg.fadeInSpeed);
 
         // Determine if an opponent just played (for avatar-origin card flights)
         const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || state.pile.at(-1) || null;
