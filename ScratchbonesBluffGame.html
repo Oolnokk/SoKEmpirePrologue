@@ -4114,6 +4114,108 @@
     function isTableCinematicEffectsEnabled() {
       return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.showEffects !== false;
     }
+    const seatAvatarAnim = (() => {
+      const DIM_MS = 400;
+      const UNDIM_MS = 267;     // 1.5x faster
+      const FADE_IN_MS = 400;
+      const FADE_OUT_MS = 267;
+
+      let trackedActorId = null;
+      let clusterSnapshot = null; // { src, rect } from pre-render capture
+
+      function actorFromState() {
+        const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || state.pile.at(-1) || null;
+        return latestPlay ? latestPlay.playerIndex : null;
+      }
+
+      function seatCanvas(id) {
+        return document.querySelector(`.seatAvatarBox canvas.seatPortrait[data-seat-id="${id}"]`);
+      }
+
+      function clusterCanvas() {
+        return document.querySelector('.actorAvatarFloat canvas.seatPortrait');
+      }
+
+      function capturePreRender() {
+        const canvas = clusterCanvas();
+        if (canvas && trackedActorId !== null) {
+          try {
+            clusterSnapshot = { src: canvas.toDataURL(), rect: canvas.getBoundingClientRect() };
+          } catch (_) { clusterSnapshot = null; }
+        } else {
+          clusterSnapshot = null;
+        }
+      }
+
+      function animatePostRender() {
+        if (document.getElementById('tableCinematicHost')?.classList.contains('cin-active')) return;
+
+        const prev = trackedActorId;
+        const next = actorFromState();
+        trackedActorId = next;
+
+        if (prev === next) {
+          // Same actor — restore dim/opacity states on freshly rebuilt canvases
+          if (next !== null) {
+            const sc = seatCanvas(next);
+            if (sc) { sc.style.transition = 'none'; sc.style.filter = 'brightness(0)'; }
+            const cc = clusterCanvas();
+            if (cc) { cc.style.transition = 'none'; cc.style.opacity = '1'; }
+          }
+          clusterSnapshot = null;
+          return;
+        }
+
+        // Set initial visual states synchronously before the next paint
+        if (prev !== null) {
+          const sc = seatCanvas(prev);
+          if (sc) { sc.style.transition = 'none'; sc.style.filter = 'brightness(0)'; }
+        }
+        if (next !== null) {
+          const sc = seatCanvas(next);
+          if (sc) { sc.style.transition = 'none'; sc.style.filter = ''; }
+          const cc = clusterCanvas();
+          if (cc) { cc.style.transition = 'none'; cc.style.opacity = '0'; }
+        }
+
+        // Clone old cluster canvas into a fade-out overlay
+        let cloneEl = null;
+        if (clusterSnapshot && prev !== null) {
+          cloneEl = document.createElement('img');
+          cloneEl.src = clusterSnapshot.src;
+          const r = clusterSnapshot.rect;
+          cloneEl.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;pointer-events:none;z-index:9998;border-radius:10px;object-fit:cover;opacity:1;transition:none;`;
+          document.body.appendChild(cloneEl);
+        }
+        clusterSnapshot = null;
+
+        requestAnimationFrame(() => {
+          // Fade out old cluster clone
+          if (cloneEl) {
+            cloneEl.style.transition = `opacity ${FADE_OUT_MS}ms ease`;
+            cloneEl.style.opacity = '0';
+            const rm = () => cloneEl?.remove();
+            cloneEl.addEventListener('transitionend', rm, { once: true });
+            setTimeout(rm, FADE_OUT_MS + 50);
+          }
+          // Undim old actor's seat
+          if (prev !== null) {
+            const sc = seatCanvas(prev);
+            if (sc) { sc.style.transition = `filter ${UNDIM_MS}ms ease`; sc.style.filter = ''; }
+          }
+          // Dim new actor's seat + fade in new cluster canvas
+          if (next !== null) {
+            const sc = seatCanvas(next);
+            if (sc) { sc.style.transition = `filter ${DIM_MS}ms ease`; sc.style.filter = 'brightness(0)'; }
+            const cc = clusterCanvas();
+            if (cc) { cc.style.transition = `opacity ${FADE_IN_MS}ms ease`; cc.style.opacity = '1'; }
+          }
+        });
+      }
+
+      return { capturePreRender, animatePostRender };
+    })();
+
     const cardAnimator = (() => {
       const snapshots = new Map();
       const activeClones = new Map();
@@ -4201,6 +4303,7 @@
     })();
 
     function render() {
+      seatAvatarAnim.capturePreRender();
       cardAnimator.capturePreRender();
       const app = document.getElementById('app');
       const layoutPolicy = applyLayoutContract(app);
@@ -4474,6 +4577,7 @@
       renderAuthoredInspector();
       updateTableCardAutoScale(app);
       cardAnimator.animatePostRender();
+      seatAvatarAnim.animatePostRender();
     }
     function debugSnapshot() {
       const regionsConfig = getLayoutRegionsConfig();
