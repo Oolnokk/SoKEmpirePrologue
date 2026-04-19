@@ -148,8 +148,28 @@
       --layout-turn-spotlight-offset-y: 10px;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { margin: 0; background: radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%); color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
-    body { overscroll-behavior: none; overflow: hidden; display: grid; place-items: center; }
+    html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
+    body {
+      overscroll-behavior: none;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      position: relative;
+      isolation: isolate;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background-image:
+        var(--layout-ui-tabletop-url),
+        radial-gradient(circle at top, #30211d 0%, var(--bg) 42%, #0f0c0b 100%);
+      background-position: center center, center center;
+      background-repeat: no-repeat, no-repeat;
+      background-size: cover, cover;
+    }
     button, select, input { font: inherit; }
     #authoredRoot {
       width: 100vw;
