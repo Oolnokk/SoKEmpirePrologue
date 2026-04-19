@@ -51,7 +51,7 @@ window.SCRATCHBONES_CONFIG = {
         }
       },
       "cards": {
-        "baseScale": 0.25
+        "baseScale": 0.5
       },
       "sizing": {
         "sidebarWidthFrac": 0.15,
