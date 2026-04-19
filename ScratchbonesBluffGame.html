@@ -3527,16 +3527,16 @@
     }
     function resolveScratchbone2DAsset(card, { flipped = false } = {}) {
       const clampedRank = Math.max(1, Math.min(RANK_COUNT, Number(card?.rank) || 1));
-      if (card?.wild) {
-        return {
-          src: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.wildCardSrc),
-          fallbackSrc: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.wildCardFallbackSrc),
-        };
-      }
       if (flipped) {
         return {
           src: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.flippedCardSrc),
           fallbackSrc: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.flippedCardFallbackSrc),
+        };
+      }
+      if (card?.wild) {
+        return {
+          src: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.wildCardSrc),
+          fallbackSrc: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.wildCardFallbackSrc),
         };
       }
       return {
