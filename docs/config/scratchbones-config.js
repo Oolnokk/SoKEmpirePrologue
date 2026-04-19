@@ -212,7 +212,9 @@ window.SCRATCHBONES_CONFIG = {
       },
       "allowChallengeOverflow": true,
       "background": {
-        "tabletopImageSrc": "./docs/assets/hud/tabletop.png"
+        "tabletopImageSrc": "./docs/assets/hud/tabletop.png",
+        "tabletopRotationDeg": 90,
+        "tabletopStretchToFit": true
       },
       "fitter": {
         "enabled": true,
