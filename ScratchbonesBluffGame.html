@@ -306,13 +306,15 @@
     .reactorAvatarFloat {
       overflow: visible;
       padding: 0;
+      aspect-ratio: 1;
       transform: translate(-50%, -50%) scale(var(--layout-claim-avatar-container-scale));
       transform-origin: center center;
     }
     .actorAvatarFloat canvas,
     .reactorAvatarFloat canvas {
       width: 100%;
-      height: 100%;
+      height: auto;
+      aspect-ratio: 1;
       display: block;
       border-radius: 10px;
       transform: scale(var(--layout-claim-avatar-content-scale));
@@ -352,7 +354,7 @@
     .tableViewCard img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       display: block;
       transform: scale(var(--layout-table-card-content-scale));
       transform-origin: center center;
@@ -448,15 +450,17 @@
       opacity: 0.88;
     }
     .seatInfo {
-      flex: 1;
+      flex: 0 1 auto;
+      width: 48%;
       min-width: 0;
       display: flex;
       flex-direction: column;
     }
     .seatAvatarBox {
-      width: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
+      flex: 1 0 auto;
+      min-width: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
+      max-width: 52%;
       height: auto;
-      flex-shrink: 0;
       overflow: visible;
       border-radius: 8px;
     }
@@ -504,11 +508,41 @@
       margin-top: calc(var(--layout-app-gap) * -1);
       padding-top: var(--layout-app-gap);
     }
-    .seatName { font-weight: 700; font-size: 0.92rem; }
-    .seatMeta { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
-    .seatStatus { margin-top: 6px; font-size: 0.8rem; }
+    .seatName { font-weight: 700; font-size: 0.78rem; }
+    .seatMeta { color: var(--muted); font-size: 0.68rem; margin-top: 4px; }
+    .seatStatus { margin-top: 6px; font-size: 0.68rem; }
     .seatSeed { font-size: 0.68rem; color: var(--accent); font-style: italic; margin-top: 3px; letter-spacing: 0.01em; }
     .seatTags { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+    .seatHandPreview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      margin-top: 5px;
+    }
+    .seatHandCard {
+      width: 14px;
+      aspect-ratio: 312 / 440;
+      flex: 0 0 auto;
+      overflow: visible;
+    }
+    .seatHandCard img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    @keyframes claimGlowGreen {
+      0%   { filter: drop-shadow(0 0 0px rgba(0,255,80,0)); }
+      45%  { filter: drop-shadow(0 0 30px rgba(0,255,80,1)) drop-shadow(0 0 12px rgba(0,255,80,0.7)); }
+      100% { filter: drop-shadow(0 0 0px rgba(0,255,80,0)); }
+    }
+    @keyframes claimGlowRed {
+      0%   { filter: drop-shadow(0 0 0px rgba(255,50,50,0)); }
+      45%  { filter: drop-shadow(0 0 30px rgba(255,50,50,1)) drop-shadow(0 0 12px rgba(255,50,50,0.7)); }
+      100% { filter: drop-shadow(0 0 0px rgba(255,50,50,0)); }
+    }
+    .claimHandBar.glow-green .tableViewCard { animation: claimGlowGreen 1.5s ease-in-out 1 both; }
+    .claimHandBar.glow-red .tableViewCard   { animation: claimGlowRed   0.8s ease-in-out 3 both; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
     .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 8px; }
     .controls {
@@ -1748,8 +1782,8 @@
           maxChallengeBet: rawGameConfig.chips?.maxChallengeBet ?? 13,
         },
         timers: {
-          challengeTimerSecs: rawGameConfig.timers?.challengeSeconds ?? 8,
-          aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 650,
+          challengeTimerSecs: rawGameConfig.timers?.challengeSeconds ?? 6,
+          aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 6000,
         },
         layout: {
           mode: String(rawGameConfig.layout?.mode || 'responsive').toLowerCase(),
@@ -1766,6 +1800,11 @@
           },
           cards: {
             baseScale: rawGameConfig.layout?.cards?.baseScale ?? 0.25,
+          },
+          animation: {
+            baseDurationMs: rawGameConfig.layout?.animation?.baseDurationMs ?? 400,
+            fadeInSpeed: rawGameConfig.layout?.animation?.fadeInSpeed ?? 1.5,
+            fadeOutSpeed: rawGameConfig.layout?.animation?.fadeOutSpeed ?? 2.0,
           },
           sizing: {
             sidebarWidthFrac: rawGameConfig.layout?.sizing?.sidebarWidthFrac ?? 0.75,
@@ -3105,24 +3144,26 @@
       const loser = state.players[loserId];
       const pot = challengePotTotal();
       const netGain = netChallengeGainFor(winnerId, pot);
-      winner.chips += pot;
-      state.stats.chipsMovedByChallenges += pot;
-      if (success) {
-        state.stats.successfulChallenges += 1;
-        state.stats.bluffsCaught += 1;
-        noteChallengeReadResult(challengerId, challengedId, true);
-        loser.lastAction = 'Caught bluffing';
-        addLog(`Challenge succeeds. ${seatLabel(loser)} was bluffing.`);
-        loser.hand.push(...collectPileCards());
-        loser.hand.sort(sortCards);
-      } else {
-        state.stats.failedChallenges += 1;
-        addLog(`Challenge fails. ${state.players[challengedId].name} was truthful.`);
-      }
-      addLog(`${seatLabel(winner)} wins ${netGain} net chip${netGain === 1 ? '' : 's'} from the challenge.`);
-      state.betting = null;
-      showRevealCinematic(challengerId, challengedId, play, success, () => {
-        concludeChallengeFlow(winnerId);
+      showClaimGlow('red', 2500, () => {
+        winner.chips += pot;
+        state.stats.chipsMovedByChallenges += pot;
+        if (success) {
+          state.stats.successfulChallenges += 1;
+          state.stats.bluffsCaught += 1;
+          noteChallengeReadResult(challengerId, challengedId, true);
+          loser.lastAction = 'Caught bluffing';
+          addLog(`Challenge succeeds. ${seatLabel(loser)} was bluffing.`);
+          loser.hand.push(...collectPileCards());
+          loser.hand.sort(sortCards);
+        } else {
+          state.stats.failedChallenges += 1;
+          addLog(`Challenge fails. ${state.players[challengedId].name} was truthful.`);
+        }
+        addLog(`${seatLabel(winner)} wins ${netGain} net chip${netGain === 1 ? '' : 's'} from the challenge.`);
+        state.betting = null;
+        showRevealCinematic(challengerId, challengedId, play, success, () => {
+          concludeChallengeFlow(winnerId);
+        });
       });
     }
     function concludeChallengeFlow(winnerId) {
@@ -3141,22 +3182,37 @@
       state.declaredRank = null;
       return cards;
     }
+    function showClaimGlow(type, durationMs, callback) {
+      const bar = document.querySelector('.claimHandBar');
+      if (!bar || !bar.querySelector('.tableViewCard')) { callback(); return; }
+      bar.classList.remove('glow-green', 'glow-red');
+      void bar.offsetWidth;
+      bar.classList.add(`glow-${type}`);
+      setTimeout(() => {
+        bar.classList.remove('glow-green', 'glow-red');
+        callback();
+      }, durationMs);
+    }
     function advanceAfterNoChallenge(lastPlayerIndex) {
       if (!state.challengeWindow || state.gameOver || state.betting) return;
+      clearChallengeTimer();
       state.challengeWindow = null;
-      if (checkForClearAndRedeal(lastPlayerIndex)) return;
-      if (maybeEndRoundFromConcessions()) return;
-      const nextPlayer = nextRoundEligibleIndex(lastPlayerIndex);
-      if (nextPlayer === null) {
-        openNewRound(currentDeclarerIndex());
-        return;
-      }
-      state.currentTurn = nextPlayer;
-      setBanner(state.currentTurn === 0
-        ? `Your turn. Match ${state.declaredRank}, bluff, or concede the round.`
-        : `${seatLabel(state.players[state.currentTurn])} is thinking about ${state.declaredRank}.`);
-      render();
-      if (state.currentTurn !== 0) scheduleAiTurn();
+      showClaimGlow('green', 1600, () => {
+        if (state.gameOver) return;
+        if (checkForClearAndRedeal(lastPlayerIndex)) return;
+        if (maybeEndRoundFromConcessions()) return;
+        const nextPlayer = nextRoundEligibleIndex(lastPlayerIndex);
+        if (nextPlayer === null) {
+          openNewRound(currentDeclarerIndex());
+          return;
+        }
+        state.currentTurn = nextPlayer;
+        setBanner(state.currentTurn === 0
+          ? `Your turn. Match ${state.declaredRank}, bluff, or concede the round.`
+          : `${seatLabel(state.players[state.currentTurn])} is thinking about ${state.declaredRank}.`);
+        render();
+        if (state.currentTurn !== 0) scheduleAiTurn();
+      });
     }
     function clearRewardForPlayer(player) {
       return CONFIG.clearBonusBase + (player.clears * CONFIG.clearBonusIncrement);
@@ -3560,16 +3616,16 @@
     }
     function resolveScratchbone2DAsset(card, { flipped = false } = {}) {
       const clampedRank = Math.max(1, Math.min(RANK_COUNT, Number(card?.rank) || 1));
-      if (card?.wild) {
-        return {
-          src: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.wildCardSrc),
-          fallbackSrc: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.wildCardFallbackSrc),
-        };
-      }
       if (flipped) {
         return {
           src: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.flippedCardSrc),
           fallbackSrc: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.flippedCardFallbackSrc),
+        };
+      }
+      if (card?.wild) {
+        return {
+          src: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.wildCardSrc),
+          fallbackSrc: normalizedAssetPath(SCRATCHBONES_GAME.assets.cardHudBasePath, SCRATCHBONES_GAME.assets.wildCardFallbackSrc),
         };
       }
       return {
@@ -4147,7 +4203,348 @@
     function isTableCinematicEffectsEnabled() {
       return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.showEffects !== false;
     }
+    const seatAvatarAnim = (() => {
+      const CARD_STAGGER_MS = 40;
+
+      let trackedActorId = null;
+      let clusterSnapshot = null; // { src, rect }
+      let seatPreviewCaptures = new Map(); // playerId → [{rect,src}]
+      let activeClone = null;
+      let activeDarkClones = [];
+      let genId = 0;
+
+      function actorFromState() {
+        if (state.betting?.play) return state.betting.play.playerIndex;
+        if (state.challengeWindow?.lastPlay) return state.challengeWindow.lastPlay.playerIndex;
+        return state.currentTurn ?? null;
+      }
+      function seatCanvas(id) {
+        return document.querySelector(`.seatAvatarBox canvas.seatPortrait[data-seat-id="${id}"]`);
+      }
+      function clusterCanvas() {
+        return document.querySelector('.actorAvatarFloat canvas.seatPortrait');
+      }
+      function getPreRenderClusterRect() {
+        return clusterSnapshot?.rect || null;
+      }
+
+      function capturePreRender() {
+        // Cancel any in-flight clones from previous animation
+        if (activeClone) { activeClone.remove(); activeClone = null; }
+        activeDarkClones.forEach(c => c.remove());
+        activeDarkClones = [];
+
+        // Always capture cluster canvas (not gated on trackedActorId)
+        const canvas = clusterCanvas();
+        if (canvas) {
+          try {
+            clusterSnapshot = { src: canvas.toDataURL(), rect: canvas.getBoundingClientRect() };
+          } catch (_) { clusterSnapshot = null; }
+        } else {
+          clusterSnapshot = null;
+        }
+
+        // Capture seat hand preview positions for all players
+        seatPreviewCaptures.clear();
+        document.querySelectorAll('.seatHandPreview[data-seat-id]').forEach(container => {
+          const id = Number(container.dataset.seatId);
+          const cards = [];
+          container.querySelectorAll('.seatHandCard img').forEach(img => {
+            cards.push({ rect: img.getBoundingClientRect(), src: img.src });
+          });
+          seatPreviewCaptures.set(id, cards);
+        });
+      }
+
+      function animatePostRender() {
+        if (document.getElementById('tableCinematicHost')?.classList.contains('cin-active')) {
+          clusterSnapshot = null;
+          return;
+        }
+
+        const animCfg = SCRATCHBONES_GAME.layout.animation;
+        const base = animCfg.baseDurationMs;
+        const DIM_MS = base;
+        const UNDIM_MS = base;
+        const FADE_IN_MS = Math.round(base / animCfg.fadeInSpeed);
+        const FADE_OUT_MS = Math.round(base / animCfg.fadeOutSpeed);
+        const PREVIEW_DARK_MS = base;
+
+        const myGen = ++genId;
+        const prev = trackedActorId;
+        const next = actorFromState();
+        trackedActorId = next;
+
+        if (prev === next) {
+          if (next !== null) {
+            const sc = seatCanvas(next);
+            if (sc) { sc.style.transition = 'none'; sc.style.filter = 'brightness(0)'; }
+            const cc = clusterCanvas();
+            if (cc) { cc.style.transition = 'none'; cc.style.opacity = '1'; }
+          }
+          clusterSnapshot = null;
+          return;
+        }
+
+        // Set initial states synchronously before first paint
+        if (prev !== null) {
+          const sc = seatCanvas(prev);
+          if (sc) { sc.style.transition = 'none'; sc.style.filter = 'brightness(0)'; }
+        }
+        if (next !== null) {
+          const sc = seatCanvas(next);
+          if (sc) { sc.style.transition = 'none'; sc.style.filter = ''; }
+          const cc = clusterCanvas();
+          if (cc) { cc.style.transition = 'none'; cc.style.opacity = '0'; }
+        }
+
+        // Spawn fade-out clone of old cluster canvas
+        let cloneEl = null;
+        if (clusterSnapshot) {
+          cloneEl = document.createElement('img');
+          cloneEl.src = clusterSnapshot.src;
+          const r = clusterSnapshot.rect;
+          cloneEl.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;pointer-events:none;z-index:9998;border-radius:10px;object-fit:cover;opacity:1;transition:none;`;
+          document.body.appendChild(cloneEl);
+          activeClone = cloneEl;
+        }
+        clusterSnapshot = null;
+
+        // Spawn darkening clones for opponent's played hand-preview cards
+        const playedPreviewClones = [];
+        if (next !== null && next !== 0) {
+          const oldCards = seatPreviewCaptures.get(next) || [];
+          const newCount = state.players[next]?.hand.length ?? 0;
+          const playedCount = Math.max(0, oldCards.length - newCount);
+          for (let i = 0; i < playedCount; i++) {
+            const cd = oldCards[oldCards.length - 1 - i];
+            if (!cd) continue;
+            const dc = document.createElement('img');
+            dc.src = cd.src;
+            const r = cd.rect;
+            dc.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;pointer-events:none;z-index:9997;object-fit:contain;opacity:1;transition:none;`;
+            document.body.appendChild(dc);
+            activeDarkClones.push(dc);
+            playedPreviewClones.push({ el: dc, delay: i * CARD_STAGGER_MS });
+          }
+        }
+
+        requestAnimationFrame(() => {
+          if (genId !== myGen) {
+            if (cloneEl) cloneEl.remove();
+            playedPreviewClones.forEach(({ el }) => el.remove());
+            return;
+          }
+
+          if (cloneEl) {
+            cloneEl.style.transition = `opacity ${FADE_OUT_MS}ms ease`;
+            cloneEl.style.opacity = '0';
+            const rm = () => { cloneEl.remove(); if (activeClone === cloneEl) activeClone = null; };
+            cloneEl.addEventListener('transitionend', rm, { once: true });
+            setTimeout(rm, FADE_OUT_MS + 50);
+          }
+          if (prev !== null) {
+            const sc = seatCanvas(prev);
+            if (sc) { sc.style.transition = `filter ${UNDIM_MS}ms ease`; sc.style.filter = ''; }
+          }
+          if (next !== null) {
+            const sc = seatCanvas(next);
+            if (sc) { sc.style.transition = `filter ${DIM_MS}ms ease`; sc.style.filter = 'brightness(0)'; }
+            const cc = clusterCanvas();
+            if (cc) { cc.style.transition = `opacity ${FADE_IN_MS}ms ease`; cc.style.opacity = '1'; }
+          }
+
+          playedPreviewClones.forEach(({ el, delay }) => {
+            setTimeout(() => {
+              requestAnimationFrame(() => {
+                el.style.transition = `filter ${PREVIEW_DARK_MS}ms ease, opacity ${PREVIEW_DARK_MS}ms ease`;
+                el.style.filter = 'brightness(0)';
+                el.style.opacity = '0';
+                const rm = () => { el.remove(); activeDarkClones = activeDarkClones.filter(c => c !== el); };
+                el.addEventListener('transitionend', rm, { once: true });
+                setTimeout(rm, PREVIEW_DARK_MS + 50);
+              });
+            }, delay);
+          });
+        });
+      }
+
+      return { capturePreRender, animatePostRender, getPreRenderClusterRect };
+    })();
+
+    const cardAnimator = (() => {
+      const OPPONENT_STAGGER_MS = 40;
+      const snapshots = new Map();
+      const activeClones = new Map();
+
+      function getContainerType(el) {
+        if (el.closest('.handScroll')) return 'hand';
+        if (el.closest('.tableViewCards')) return 'table';
+        if (el.closest('.claimHandBar')) return 'claim';
+        return 'other';
+      }
+      function capturePreRender() {
+        snapshots.clear();
+        document.querySelectorAll('[data-card-id]').forEach(el => {
+          const id = el.dataset.cardId;
+          const img = el.querySelector('img.cardArt') || el.querySelector('img');
+          if (!img) return;
+          snapshots.set(id, {
+            rect: img.getBoundingClientRect(),
+            src: img.src,
+            containerType: getContainerType(el),
+          });
+        });
+      }
+      function animatePostRender() {
+        if (document.getElementById('tableCinematicHost')?.classList.contains('cin-active')) {
+          snapshots.clear();
+          return;
+        }
+
+        const animCfg = SCRATCHBONES_GAME.layout.animation;
+        const base = animCfg.baseDurationMs;
+        const FLY_MS = base;
+        const FADE_MS = Math.round(base / animCfg.fadeInSpeed);
+
+        // Determine if an opponent just played (for avatar-origin card flights)
+        const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || state.pile.at(-1) || null;
+        const actorIsOpponent = !!(latestPlay && latestPlay.playerIndex !== 0);
+        const actorRect = actorIsOpponent ? seatAvatarAnim.getPreRenderClusterRect() : null;
+
+        const newCards = [];
+        document.querySelectorAll('[data-card-id]').forEach(el => {
+          const id = el.dataset.cardId;
+          const img = el.querySelector('img.cardArt') || el.querySelector('img');
+          if (img) newCards.push({ id, img, containerType: getContainerType(el) });
+        });
+
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          let opponentCardIdx = 0;
+
+          newCards.forEach(({ id, img, containerType }) => {
+            const snapshot = snapshots.get(id);
+            const newRect = img.getBoundingClientRect();
+
+            if (!snapshot) {
+              const isClaimOrTable = containerType === 'claim' || containerType === 'table';
+              if (actorRect && isClaimOrTable) {
+                // Opponent card: fly from cluster avatar center, start tiny
+                const staggerDelay = opponentCardIdx * OPPONENT_STAGGER_MS;
+                opponentCardIdx++;
+                const existing = activeClones.get(id);
+                if (existing) existing.remove();
+                const avatarCx = actorRect.left + actorRect.width / 2;
+                const avatarCy = actorRect.top + actorRect.height / 2;
+                const cardCx = newRect.left + newRect.width / 2;
+                const cardCy = newRect.top + newRect.height / 2;
+                const dx = avatarCx - cardCx;
+                const dy = avatarCy - cardCy;
+                const clone = document.createElement('img');
+                clone.src = img.src;
+                clone.style.cssText = [
+                  'position:fixed',
+                  `left:${newRect.left}px`, `top:${newRect.top}px`,
+                  `width:${newRect.width}px`, `height:${newRect.height}px`,
+                  'object-fit:contain', 'pointer-events:none', 'z-index:9999',
+                  'transform-origin:center center',
+                  `transform:translate(${dx}px,${dy}px) scale(0.08)`,
+                  'transition:none',
+                ].join(';');
+                document.body.appendChild(clone);
+                activeClones.set(id, clone);
+                img.style.opacity = '0';
+                setTimeout(() => {
+                  requestAnimationFrame(() => {
+                    clone.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.4,0,0.2,1)`;
+                    clone.style.transform = 'none';
+                    const done = () => {
+                      clone.remove();
+                      if (activeClones.get(id) === clone) activeClones.delete(id);
+                      img.style.opacity = '';
+                    };
+                    clone.addEventListener('transitionend', done, { once: true });
+                    setTimeout(done, FLY_MS + 100);
+                  });
+                }, staggerDelay);
+              } else {
+                // Normal fade-in for new cards with no prior position
+                img.style.opacity = '0';
+                requestAnimationFrame(() => {
+                  img.style.transition = `opacity ${FADE_MS}ms ease`;
+                  img.style.opacity = '';
+                  img.addEventListener('transitionend', () => { img.style.transition = ''; }, { once: true });
+                });
+              }
+              return;
+            }
+
+            if (snapshot.containerType === containerType) return;
+            const existing = activeClones.get(id);
+            if (existing) existing.remove();
+            const dx = snapshot.rect.left - newRect.left;
+            const dy = snapshot.rect.top - newRect.top;
+            const scaleX = snapshot.rect.width / (newRect.width || 1);
+            const scaleY = snapshot.rect.height / (newRect.height || 1);
+            if (Math.abs(dx) < 2 && Math.abs(dy) < 2 && Math.abs(scaleX - 1) < 0.05) return;
+            const clone = document.createElement('img');
+            clone.src = snapshot.src;
+            clone.style.cssText = [
+              'position:fixed',
+              `left:${newRect.left}px`, `top:${newRect.top}px`,
+              `width:${newRect.width}px`, `height:${newRect.height}px`,
+              'object-fit:contain', 'pointer-events:none', 'z-index:9999',
+              'transform-origin:top left',
+              `transform:translate(${dx}px,${dy}px) scale(${scaleX},${scaleY})`,
+              'transition:none',
+            ].join(';');
+            document.body.appendChild(clone);
+            activeClones.set(id, clone);
+            img.style.opacity = '0';
+            requestAnimationFrame(() => {
+              clone.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.4,0,0.2,1)`;
+              clone.style.transform = 'none';
+              const done = () => {
+                clone.remove();
+                if (activeClones.get(id) === clone) activeClones.delete(id);
+                img.style.opacity = '';
+              };
+              clone.addEventListener('transitionend', done, { once: true });
+              setTimeout(done, FLY_MS + 100);
+            });
+          });
+          snapshots.clear();
+        }));
+      }
+      return { capturePreRender, animatePostRender };
+    })();
+
+    function moveAvatarFloatsToOverlay(app) {
+      const claimCluster = app.querySelector('.claimCluster');
+      if (!claimCluster) return;
+      const overlayParent = document.getElementById('authoredRoot') || document.body;
+      ['.actorAvatarFloat', '.reactorAvatarFloat'].forEach(sel => {
+        const float = claimCluster.querySelector(sel);
+        if (!float) return;
+        const rect = float.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        float.style.position = 'fixed';
+        float.style.left = `${rect.left}px`;
+        float.style.top = `${rect.top}px`;
+        float.style.width = `${rect.width}px`;
+        float.style.height = `${rect.height}px`;
+        float.style.transform = 'none';
+        float.style.transformOrigin = 'top left';
+        float.style.zIndex = '9990';
+        float.dataset.clusterAvatarOverlay = '1';
+        overlayParent.appendChild(float);
+      });
+    }
+
     function render() {
+      document.querySelectorAll('[data-cluster-avatar-overlay]').forEach(el => el.remove());
+      seatAvatarAnim.capturePreRender();
+      cardAnimator.capturePreRender();
       const app = document.getElementById('app');
       const layoutPolicy = applyLayoutContract(app);
       const player = state.players[0] || { hand: [], chips: 0, clears: 0 };
@@ -4188,9 +4585,9 @@
             subtext: 'Select cards and declare a number to begin the next claim.'
           };
         }
-        const actorId = latestPlay.playerIndex;
+        const actorId = (state.betting || state.challengeWindow) ? latestPlay.playerIndex : state.currentTurn;
         let reactorId = null;
-        if (state.betting) reactorId = actorId === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
+        if (state.betting) reactorId = latestPlay.playerIndex === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
         else if (state.challengeWindow) reactorId = latestPlay.playerIndex === 0 ? (state.challengeWindow.challengerOptions.find(id => id !== 0) ?? null) : 0;
         const declaredRank = latestPlay.declaredRank ?? state.declaredRank;
         const cardCount = latestPlay.cards?.length || 0;
@@ -4204,7 +4601,7 @@
       const claimHandCardsHtml = (claimFocus.cards?.length
         ? claimFocus.cards.map(card => {
             const art = resolveScratchbone2DAsset(card, { flipped: true });
-            return `<div class="tableViewCard"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Face-down scratchbone card"></div>`;
+            return `<div class="tableViewCard" data-card-id="${card.id}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Face-down scratchbone card"></div>`;
           }).join('')
         : '<div class="tiny">No claim yet.</div>');
       const claimClusterShellClass = claimClusterPolicy.transparentShells ? 'floatingTransparentShell' : '';
@@ -4213,7 +4610,7 @@
           ? `<div class="tiny">Claim cluster visualization active.</div>`
           : latestPlay.cards.map(card => {
               const art = resolveScratchbone2DAsset(card, { flipped: tableCardFaceDown });
-              return `<div class="tableViewCard"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${tableCardFaceDown ? 'Face-down scratchbone card' : (card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`)}"></div>`;
+              return `<div class="tableViewCard" data-card-id="${card.id}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${tableCardFaceDown ? 'Face-down scratchbone card' : (card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`)}"></div>`;
             }).join(''))
         : '<div class="tiny">No cards on the table yet.</div>';
       const recentLogs = state.logs.slice(0, 4);
@@ -4292,6 +4689,7 @@
                 ${p.seed ? `<div class="seatSeed">${p.seed}</div>` : ''}
                 ${p.personality ? `<div class="seatTags">${personalityTags(p.personality)}</div>` : ''}
                 <div class="seatStatus">${p.lastAction}</div>
+                ${!p.eliminated && p.hand.length > 0 ? `<div class="seatHandPreview" data-seat-id="${p.id}">${p.hand.map((card, i) => { const art = resolveScratchbone2DAsset(card, { flipped: true }); return `<div class="seatHandCard" data-seat-hand-id="${p.id}-${i}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Hidden card"></div>`; }).join('')}</div>` : ''}
               </div>
               <div class="seatAvatarBox" data-proj-id="avatar-${p.id}">
                 <canvas class="seatPortrait" data-seat-id="${p.id}" width="200" height="200"></canvas>
@@ -4397,7 +4795,7 @@
       document.getElementById('challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
       document.getElementById('letPassBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanAcceptNoChallenge(); });
       if (humanCanDecideChallenge) updateChallengeBoxTimer();
-      app.querySelectorAll('[data-card-id]').forEach(el => {
+      app.querySelectorAll('.card[data-card-id]').forEach(el => {
         el.addEventListener('click', () => toggleSelect(Number(el.getAttribute('data-card-id'))));
       });
       wireScratchboneImageFallbacks(app);
@@ -4419,6 +4817,9 @@
       renderAuthoredOverlays();
       renderAuthoredInspector();
       updateTableCardAutoScale(app);
+      moveAvatarFloatsToOverlay(app);
+      cardAnimator.animatePostRender();
+      seatAvatarAnim.animatePostRender();
     }
     function debugSnapshot() {
       const regionsConfig = getLayoutRegionsConfig();
