@@ -322,7 +322,7 @@
     .tableViewCard img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       display: block;
       transform: scale(var(--layout-table-card-content-scale));
       transform-origin: center center;
@@ -4110,7 +4110,94 @@
     function isTableCinematicEffectsEnabled() {
       return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.showEffects !== false;
     }
+    const cardAnimator = (() => {
+      const snapshots = new Map();
+      const activeClones = new Map();
+      function getContainerType(el) {
+        if (el.closest('.handScroll')) return 'hand';
+        if (el.closest('.tableViewCards')) return 'table';
+        if (el.closest('.claimHandBar')) return 'claim';
+        return 'other';
+      }
+      function capturePreRender() {
+        snapshots.clear();
+        document.querySelectorAll('[data-card-id]').forEach(el => {
+          const id = el.dataset.cardId;
+          const img = el.querySelector('img.cardArt') || el.querySelector('img');
+          if (!img) return;
+          snapshots.set(id, {
+            rect: img.getBoundingClientRect(),
+            src: img.src,
+            containerType: getContainerType(el),
+          });
+        });
+      }
+      function animatePostRender() {
+        if (document.getElementById('tableCinematicHost')?.classList.contains('cin-active')) {
+          snapshots.clear();
+          return;
+        }
+        const newCards = [];
+        document.querySelectorAll('[data-card-id]').forEach(el => {
+          const id = el.dataset.cardId;
+          const img = el.querySelector('img.cardArt') || el.querySelector('img');
+          if (img) newCards.push({ id, img, containerType: getContainerType(el) });
+        });
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          newCards.forEach(({ id, img, containerType }) => {
+            const snapshot = snapshots.get(id);
+            const newRect = img.getBoundingClientRect();
+            if (!snapshot) {
+              img.style.opacity = '0';
+              requestAnimationFrame(() => {
+                img.style.transition = 'opacity 0.3s ease';
+                img.style.opacity = '';
+                img.addEventListener('transitionend', () => { img.style.transition = ''; }, { once: true });
+              });
+              return;
+            }
+            if (snapshot.containerType === containerType) return;
+            const existing = activeClones.get(id);
+            if (existing) existing.remove();
+            const dx = snapshot.rect.left - newRect.left;
+            const dy = snapshot.rect.top - newRect.top;
+            const scaleX = snapshot.rect.width / (newRect.width || 1);
+            const scaleY = snapshot.rect.height / (newRect.height || 1);
+            if (Math.abs(dx) < 2 && Math.abs(dy) < 2 && Math.abs(scaleX - 1) < 0.05) return;
+            const clone = document.createElement('img');
+            clone.src = snapshot.src;
+            clone.style.cssText = [
+              'position:fixed',
+              `left:${newRect.left}px`, `top:${newRect.top}px`,
+              `width:${newRect.width}px`, `height:${newRect.height}px`,
+              'object-fit:contain', 'pointer-events:none', 'z-index:9999',
+              'transform-origin:top left',
+              `transform:translate(${dx}px,${dy}px) scale(${scaleX},${scaleY})`,
+              'transition:none',
+            ].join(';');
+            document.body.appendChild(clone);
+            activeClones.set(id, clone);
+            img.style.opacity = '0';
+            requestAnimationFrame(() => {
+              clone.style.transition = 'transform 0.45s cubic-bezier(0.4,0,0.2,1)';
+              clone.style.transform = 'none';
+              const done = () => {
+                clone.remove();
+                if (activeClones.get(id) === clone) activeClones.delete(id);
+                img.style.opacity = '';
+              };
+              clone.addEventListener('transitionend', done, { once: true });
+              setTimeout(done, 600);
+            });
+          });
+          snapshots.clear();
+        }));
+      }
+      return { capturePreRender, animatePostRender };
+    })();
+
     function render() {
+      cardAnimator.capturePreRender();
       const app = document.getElementById('app');
       const layoutPolicy = applyLayoutContract(app);
       const player = state.players[0] || { hand: [], chips: 0, clears: 0 };
@@ -4167,7 +4254,7 @@
       const claimHandCardsHtml = (claimFocus.cards?.length
         ? claimFocus.cards.map(card => {
             const art = resolveScratchbone2DAsset(card, { flipped: true });
-            return `<div class="tableViewCard"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Face-down scratchbone card"></div>`;
+            return `<div class="tableViewCard" data-card-id="${card.id}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Face-down scratchbone card"></div>`;
           }).join('')
         : '<div class="tiny">No claim yet.</div>');
       const claimClusterShellClass = claimClusterPolicy.transparentShells ? 'floatingTransparentShell' : '';
@@ -4176,7 +4263,7 @@
           ? `<div class="tiny">Claim cluster visualization active.</div>`
           : latestPlay.cards.map(card => {
               const art = resolveScratchbone2DAsset(card, { flipped: tableCardFaceDown });
-              return `<div class="tableViewCard"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${tableCardFaceDown ? 'Face-down scratchbone card' : (card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`)}"></div>`;
+              return `<div class="tableViewCard" data-card-id="${card.id}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${tableCardFaceDown ? 'Face-down scratchbone card' : (card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`)}"></div>`;
             }).join(''))
         : '<div class="tiny">No cards on the table yet.</div>';
       const recentLogs = state.logs.slice(0, 4);
@@ -4360,7 +4447,7 @@
       document.getElementById('challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
       document.getElementById('letPassBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanAcceptNoChallenge(); });
       if (humanCanDecideChallenge) updateChallengeBoxTimer();
-      app.querySelectorAll('[data-card-id]').forEach(el => {
+      app.querySelectorAll('.card[data-card-id]').forEach(el => {
         el.addEventListener('click', () => toggleSelect(Number(el.getAttribute('data-card-id'))));
       });
       wireScratchboneImageFallbacks(app);
@@ -4382,6 +4469,7 @@
       renderAuthoredOverlays();
       renderAuthoredInspector();
       updateTableCardAutoScale(app);
+      cardAnimator.animatePostRender();
     }
     function debugSnapshot() {
       const regionsConfig = getLayoutRegionsConfig();
