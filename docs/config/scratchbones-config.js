@@ -11,7 +11,7 @@ window.SCRATCHBONES_CONFIG = {
       ]
     },
     "chips": {
-      "starting": 12,
+      "starting": 30,
       "challengeBaseTransfer": 1,
       "concedeRoundChipLoss": 1,
       "maxChallengeBet": 13,
