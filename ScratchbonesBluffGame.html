@@ -4482,7 +4482,30 @@
       return { capturePreRender, animatePostRender };
     })();
 
+    function moveAvatarFloatsToOverlay(app) {
+      const claimCluster = app.querySelector('.claimCluster');
+      if (!claimCluster) return;
+      const overlayParent = document.getElementById('authoredRoot') || document.body;
+      ['.actorAvatarFloat', '.reactorAvatarFloat'].forEach(sel => {
+        const float = claimCluster.querySelector(sel);
+        if (!float) return;
+        const rect = float.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        float.style.position = 'fixed';
+        float.style.left = `${rect.left}px`;
+        float.style.top = `${rect.top}px`;
+        float.style.width = `${rect.width}px`;
+        float.style.height = `${rect.height}px`;
+        float.style.transform = 'none';
+        float.style.transformOrigin = 'top left';
+        float.style.zIndex = '9990';
+        float.dataset.clusterAvatarOverlay = '1';
+        overlayParent.appendChild(float);
+      });
+    }
+
     function render() {
+      document.querySelectorAll('[data-cluster-avatar-overlay]').forEach(el => el.remove());
       seatAvatarAnim.capturePreRender();
       cardAnimator.capturePreRender();
       const app = document.getElementById('app');
@@ -4757,6 +4780,7 @@
       renderAuthoredOverlays();
       renderAuthoredInspector();
       updateTableCardAutoScale(app);
+      moveAvatarFloatsToOverlay(app);
       cardAnimator.animatePostRender();
       seatAvatarAnim.animatePostRender();
     }
