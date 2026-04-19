@@ -276,13 +276,15 @@
     .reactorAvatarFloat {
       overflow: visible;
       padding: 0;
+      aspect-ratio: 1;
       transform: translate(-50%, -50%) scale(var(--layout-claim-avatar-container-scale));
       transform-origin: center center;
     }
     .actorAvatarFloat canvas,
     .reactorAvatarFloat canvas {
       width: 100%;
-      height: 100%;
+      height: auto;
+      aspect-ratio: 1;
       display: block;
       border-radius: 10px;
       transform: scale(var(--layout-claim-avatar-content-scale));
@@ -418,15 +420,17 @@
       opacity: 0.88;
     }
     .seatInfo {
-      flex: 1;
+      flex: 0 1 auto;
+      width: 48%;
       min-width: 0;
       display: flex;
       flex-direction: column;
     }
     .seatAvatarBox {
-      width: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
+      flex: 1 0 auto;
+      min-width: calc(var(--layout-seat-avatar-size) * var(--layout-sidebar-content-scale));
+      max-width: 52%;
       height: auto;
-      flex-shrink: 0;
       overflow: visible;
       border-radius: 8px;
     }
@@ -474,9 +478,9 @@
       margin-top: calc(var(--layout-app-gap) * -1);
       padding-top: var(--layout-app-gap);
     }
-    .seatName { font-weight: 700; font-size: 0.92rem; }
-    .seatMeta { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
-    .seatStatus { margin-top: 6px; font-size: 0.8rem; }
+    .seatName { font-weight: 700; font-size: 0.78rem; }
+    .seatMeta { color: var(--muted); font-size: 0.68rem; margin-top: 4px; }
+    .seatStatus { margin-top: 6px; font-size: 0.68rem; }
     .seatSeed { font-size: 0.68rem; color: var(--accent); font-style: italic; margin-top: 3px; letter-spacing: 0.01em; }
     .seatTags { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
