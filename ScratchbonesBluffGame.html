@@ -143,6 +143,18 @@
       --layout-fit-additive-avatar-zoom: 1;
       --layout-turn-spotlight-offset-x: 10px;
       --layout-turn-spotlight-offset-y: 10px;
+      --layout-flame-x: 50%;
+      --layout-flame-y: -12%;
+      --layout-flame-core-alpha: 0.2;
+      --layout-flame-mid-alpha: 0.12;
+      --layout-flame-far-alpha: 0.05;
+      --layout-flame-flicker-seconds: 2.9s;
+      --layout-card-shadow-offset-x: 1.5px;
+      --layout-card-shadow-offset-y: 9px;
+      --layout-card-shadow-blur: 12px;
+      --layout-card-shadow-spread: -2px;
+      --layout-card-shadow-alpha: 0.34;
+      --layout-card-contact-alpha: 0.2;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
@@ -177,6 +189,8 @@
       height: min(100dvh, calc(100vw * (var(--layout-viewport-height) / var(--layout-viewport-width))));
       max-width: var(--layout-viewport-width);
       max-height: var(--layout-viewport-height);
+      position: relative;
+      isolation: isolate;
       overflow: hidden;
       background-image: var(--layout-ui-tabletop-url);
       background-position: center center;
@@ -197,6 +211,40 @@
         "log     log     human";
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
+    }
+    #app::before {
+      content: '';
+      position: absolute;
+      inset: -20% -12% 0;
+      pointer-events: none;
+      z-index: 2;
+      mix-blend-mode: screen;
+      background:
+        radial-gradient(60% 40% at var(--layout-flame-x) var(--layout-flame-y), rgba(255, 214, 132, var(--layout-flame-core-alpha)) 0%, transparent 56%),
+        radial-gradient(82% 55% at var(--layout-flame-x) var(--layout-flame-y), rgba(255, 172, 88, var(--layout-flame-mid-alpha)) 0%, transparent 70%),
+        radial-gradient(100% 72% at var(--layout-flame-x) var(--layout-flame-y), rgba(255, 124, 56, var(--layout-flame-far-alpha)) 0%, transparent 80%);
+      animation: tableFlameFlicker var(--layout-flame-flicker-seconds) infinite ease-in-out alternate;
+    }
+    #app::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      background:
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.18), transparent 30%),
+        linear-gradient(120deg, transparent 34%, rgba(0, 0, 0, 0.08) 50%, transparent 65%);
+      animation: tableFlameShadowDrift calc(var(--layout-flame-flicker-seconds) * 1.5) infinite ease-in-out alternate;
+      opacity: 0.62;
+    }
+    @keyframes tableFlameFlicker {
+      0%   { transform: translateX(-0.35%) translateY(0.25%); opacity: 0.86; filter: brightness(0.95) saturate(1); }
+      42%  { transform: translateX(0.4%) translateY(-0.2%); opacity: 0.94; filter: brightness(1.05) saturate(1.08); }
+      100% { transform: translateX(-0.25%) translateY(0.15%); opacity: 0.88; filter: brightness(0.92) saturate(0.98); }
+    }
+    @keyframes tableFlameShadowDrift {
+      0% { transform: translateX(-0.7%); opacity: 0.56; }
+      100% { transform: translateX(0.7%); opacity: 0.68; }
     }
     .topbar, .controls, .handWrap, .eventLog {
       background: var(--panel);
@@ -631,7 +679,9 @@
       color: var(--card-text);
       border: 3px solid transparent;
       border-radius: 0;
-      box-shadow: none;
+      box-shadow:
+        var(--layout-card-shadow-offset-x) var(--layout-card-shadow-offset-y) var(--layout-card-shadow-blur) var(--layout-card-shadow-spread) rgba(0, 0, 0, var(--layout-card-shadow-alpha)),
+        calc(var(--layout-card-shadow-offset-x) * 0.35) calc(var(--layout-card-shadow-offset-y) * 0.35) calc(var(--layout-card-shadow-blur) * 0.35) calc(var(--layout-card-shadow-spread) * 0.6) rgba(0, 0, 0, var(--layout-card-contact-alpha));
       display: flex;
       align-items: stretch;
       justify-content: stretch;
@@ -639,7 +689,6 @@
       overflow: hidden;
       isolation: isolate;
     }
-    .card.wild { box-shadow: none; }
     .card.selected { transform: translateY(-4px); border-color: transparent; }
     .card.selected::after {
       content: '';
@@ -1915,6 +1964,24 @@
           allowChallengeOverflow: rawGameConfig.layout?.allowChallengeOverflow ?? true,
           background: {
             tabletopImageSrc: rawGameConfig.layout?.background?.tabletopImageSrc ?? './docs/assets/hud/tabletop.png',
+          },
+          lighting: {
+            flame: {
+              xPct: rawGameConfig.layout?.lighting?.flame?.xPct ?? 0.5,
+              yPct: rawGameConfig.layout?.lighting?.flame?.yPct ?? -0.12,
+              coreAlpha: rawGameConfig.layout?.lighting?.flame?.coreAlpha ?? 0.2,
+              midAlpha: rawGameConfig.layout?.lighting?.flame?.midAlpha ?? 0.12,
+              farAlpha: rawGameConfig.layout?.lighting?.flame?.farAlpha ?? 0.05,
+              flickerSeconds: rawGameConfig.layout?.lighting?.flame?.flickerSeconds ?? 2.9,
+            },
+            cardShadow: {
+              offsetXPx: rawGameConfig.layout?.lighting?.cardShadow?.offsetXPx ?? 1.5,
+              offsetYPx: rawGameConfig.layout?.lighting?.cardShadow?.offsetYPx ?? 9,
+              blurPx: rawGameConfig.layout?.lighting?.cardShadow?.blurPx ?? 12,
+              spreadPx: rawGameConfig.layout?.lighting?.cardShadow?.spreadPx ?? -2,
+              alpha: rawGameConfig.layout?.lighting?.cardShadow?.alpha ?? 0.34,
+              contactAlpha: rawGameConfig.layout?.lighting?.cardShadow?.contactAlpha ?? 0.2,
+            },
           },
           fitter: rawGameConfig.layout?.fitter ?? null,
           projectionMapping: rawGameConfig.layout?.projectionMapping ?? {},
@@ -3958,6 +4025,9 @@
       const handLayout = layout.hand || {};
       const tableViewLayout = layout.tableView || {};
       const backgroundLayout = layout.background || {};
+      const lightingLayout = layout.lighting || {};
+      const flameLighting = lightingLayout.flame || {};
+      const cardShadowLighting = lightingLayout.cardShadow || {};
       const cardBaseScale = clampNumber(Number(layoutCards.baseScale) || 0.25, 0.1, 0.75);
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
       const handHeightScale = clampNumber(Number(handLayout.heightScale) || 0.5, 0.2, 0.75);
@@ -3985,6 +4055,10 @@
       const cssTargets = [root, app];
       const setCssVar = (name, value) => {
         for (const target of cssTargets) target.style.setProperty(name, value);
+      };
+      const numberOrDefault = (value, fallback) => {
+        const numericValue = Number(value);
+        return Number.isFinite(numericValue) ? numericValue : fallback;
       };
       const viewportWidthPx = Math.max(320, Number(viewportLayout.widthPx) || Number(app?.clientWidth) || 320);
       const viewportHeightPx = Math.max(180, Number(viewportLayout.heightPx) || Number(app?.clientHeight) || 180);
@@ -4018,6 +4092,18 @@
       const avatarAdditiveZoomScale = clampNumber(Number(tableVisualFit.avatarAdditiveZoomScale) || 1.2, 0.8, 1.6);
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
       const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
+      const flameXPct = clampNumber(numberOrDefault(flameLighting.xPct, 0.5), 0, 1);
+      const flameYPct = clampNumber(numberOrDefault(flameLighting.yPct, -0.12), -0.5, 0.35);
+      const flameCoreAlpha = clampNumber(numberOrDefault(flameLighting.coreAlpha, 0.2), 0, 0.45);
+      const flameMidAlpha = clampNumber(numberOrDefault(flameLighting.midAlpha, 0.12), 0, 0.35);
+      const flameFarAlpha = clampNumber(numberOrDefault(flameLighting.farAlpha, 0.05), 0, 0.2);
+      const flameFlickerSeconds = clampNumber(numberOrDefault(flameLighting.flickerSeconds, 2.9), 1.2, 8);
+      const cardShadowOffsetXPx = clampNumber(numberOrDefault(cardShadowLighting.offsetXPx, 1.5), -18, 18);
+      const cardShadowOffsetYPx = clampNumber(numberOrDefault(cardShadowLighting.offsetYPx, 9), 0, 28);
+      const cardShadowBlurPx = clampNumber(numberOrDefault(cardShadowLighting.blurPx, 12), 0, 40);
+      const cardShadowSpreadPx = clampNumber(numberOrDefault(cardShadowLighting.spreadPx, -2), -24, 24);
+      const cardShadowAlpha = clampNumber(numberOrDefault(cardShadowLighting.alpha, 0.34), 0, 0.7);
+      const cardShadowContactAlpha = clampNumber(numberOrDefault(cardShadowLighting.contactAlpha, 0.2), 0, 0.65);
       const handCardMinWidthPx = clampNumber(Number(layoutSizing.handCardMinWidthPx) || 74, 48, 180);
       const handCardMaxWidthPx = clampNumber(Number(layoutSizing.handCardMaxWidthPx) || 104, handCardMinWidthPx, 220);
       const handCardMinHeightPx = clampNumber(Number(layoutSizing.handCardMinHeightPx) || 146, 88, 280);
@@ -4061,6 +4147,18 @@
       setCssVar('--layout-claim-avatar-content-scale', claimAvatarContentScale.toFixed(3));
       setCssVar('--layout-fit-additive-avatar-zoom', avatarAdditiveZoomScale.toFixed(3));
       setCssVar('--layout-ui-tabletop-url', tabletopImageSrc ? `url("${tabletopImageSrc}")` : 'none');
+      setCssVar('--layout-flame-x', `${(flameXPct * 100).toFixed(2)}%`);
+      setCssVar('--layout-flame-y', `${(flameYPct * 100).toFixed(2)}%`);
+      setCssVar('--layout-flame-core-alpha', flameCoreAlpha.toFixed(3));
+      setCssVar('--layout-flame-mid-alpha', flameMidAlpha.toFixed(3));
+      setCssVar('--layout-flame-far-alpha', flameFarAlpha.toFixed(3));
+      setCssVar('--layout-flame-flicker-seconds', `${flameFlickerSeconds.toFixed(3)}s`);
+      setCssVar('--layout-card-shadow-offset-x', `${cardShadowOffsetXPx.toFixed(2)}px`);
+      setCssVar('--layout-card-shadow-offset-y', `${cardShadowOffsetYPx.toFixed(2)}px`);
+      setCssVar('--layout-card-shadow-blur', `${cardShadowBlurPx.toFixed(2)}px`);
+      setCssVar('--layout-card-shadow-spread', `${cardShadowSpreadPx.toFixed(2)}px`);
+      setCssVar('--layout-card-shadow-alpha', cardShadowAlpha.toFixed(3));
+      setCssVar('--layout-card-contact-alpha', cardShadowContactAlpha.toFixed(3));
       setCssVar('--layout-table-dominance-frac', tableMinDominanceFrac.toFixed(3));
       setCssVar('--layout-action-column-height-scale', actionColumnHeightScale.toFixed(3));
       setCssVar('--layout-controls-height-scale', controlsHeightScale.toFixed(3));

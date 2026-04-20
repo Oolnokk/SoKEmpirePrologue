@@ -214,6 +214,24 @@ window.SCRATCHBONES_CONFIG = {
       "background": {
         "tabletopImageSrc": "./docs/assets/hud/tabletop.png"
       },
+      "lighting": {
+        "flame": {
+          "xPct": 0.5,
+          "yPct": -0.12,
+          "coreAlpha": 0.2,
+          "midAlpha": 0.12,
+          "farAlpha": 0.05,
+          "flickerSeconds": 2.9
+        },
+        "cardShadow": {
+          "offsetXPx": 1.5,
+          "offsetYPx": 9,
+          "blurPx": 12,
+          "spreadPx": -2,
+          "alpha": 0.34,
+          "contactAlpha": 0.2
+        }
+      },
       "fitter": {
         "enabled": true,
         "reflowDebounceMs": 90,
