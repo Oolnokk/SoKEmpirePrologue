@@ -190,8 +190,12 @@ function applyPortraitOpacityMask(ctx, img, xform) {
 
 async function renderProfile(canvas, profile) {
   const { fighter, hair, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic, bodyColors } = profile;
-  const headXform = fighter?.headXform || HEAD_XFORM;
-  const opacityMaskLayer = fighter?.opacityMaskLayer || null;
+  const resolvedFighter = resolvePortraitFighter(fighter) || fighter;
+  const headXform = resolvedFighter?.headXform || fighter?.headXform || HEAD_XFORM;
+  const opacityMaskLayer = resolvedFighter?.opacityMaskLayer || fighter?.opacityMaskLayer || null;
+  const headUrl = resolvedFighter?.headUrl || fighter?.headUrl;
+  const bodyLayerSource = resolvedFighter?.bodyLayers || fighter?.bodyLayers || [];
+  const urLayerSource = resolvedFighter?.urLayers || fighter?.urLayers || [];
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
 
@@ -200,7 +204,7 @@ async function renderProfile(canvas, profile) {
 
   const bodyBackLayers = [];
   const bodyFrontLayers = [];
-  for (const layer of (fighter.bodyLayers || [])) {
+  for (const layer of bodyLayerSource) {
     const target = layer.pos === 'front' ? bodyFrontLayers : bodyBackLayers;
     target.push({ layer, filter: filterFor(layer.tintSlot || 'A') });
   }
@@ -228,8 +232,8 @@ async function renderProfile(canvas, profile) {
   }
 
   const neededUrls = new Set([
-    fighter.headUrl,
-    ...(fighter.urLayers || []).map(m => m.url),
+    headUrl,
+    ...urLayerSource.map(m => m.url),
     ...bodyBackLayers.map(({ layer }) => layer.url),
     ...backLayers.map(({ layer }) => layer.url),
     ...frontLayers.map(({ layer }) => layer.url),
@@ -260,8 +264,8 @@ async function renderProfile(canvas, profile) {
     const img = imgMap.get(layer.url);
     if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
   }
-  { const img = imgMap.get(fighter.headUrl); if (img) drawPortraitLayer(ctx, img, headXform, filterA); }
-  for (const mid of (fighter.urLayers || [])) {
+  { const img = imgMap.get(headUrl); if (img) drawPortraitLayer(ctx, img, headXform, filterA); }
+  for (const mid of urLayerSource) {
     if (mid.renderOrder === 'topLayer') continue;
     const img = imgMap.get(mid.url);
     if (img) drawPortraitLayer(ctx, img, mid.xform || headXform, 'none');
@@ -270,7 +274,7 @@ async function renderProfile(canvas, profile) {
     const img = imgMap.get(layer.url);
     if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
   }
-  for (const mid of (fighter.urLayers || [])) {
+  for (const mid of urLayerSource) {
     if (mid.renderOrder !== 'topLayer') continue;
     const img = imgMap.get(mid.url);
     if (img) drawPortraitLayer(ctx, img, mid.xform || headXform, 'none');
