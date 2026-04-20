@@ -188,7 +188,7 @@ function applyPortraitOpacityMask(ctx, img, xform) {
 
 // ── Rendering ──────────────────────────────────────────────
 
-async function renderProfile(canvas, profile) {
+async function renderProfile(canvas, profile, opts = null) {
   const { fighter, hair, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic, bodyColors } = profile;
   const resolvedFighter = resolvePortraitFighter(fighter) || fighter;
   const headXform = resolvedFighter?.headXform || fighter?.headXform || HEAD_XFORM;
@@ -199,8 +199,67 @@ async function renderProfile(canvas, profile) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
 
+  const pipeline = opts?.pipeline || (window.SCRATCHBONES_CONFIG?.game ? 'cosmeticPlacer' : 'default');
   const filterFor = (slot) => slot ? makeCSSFilter(bodyColors[slot]) : 'none';
   const filterA   = makeCSSFilter(bodyColors.A);
+
+  if (pipeline === 'cosmeticPlacer') {
+    const allCosmeticGroups = hairFront !== undefined
+      ? [hairBack, hairSide, eyes, facialHair, hairFront, hat]
+      : [hair, eyes, facialHair, hat];
+    const backLayers = [];
+    const frontLayers = [];
+    for (const group of allCosmeticGroups) {
+      if (!group || !group.layers.length) continue;
+      for (const layer of group.layers) {
+        const target = layer.pos === 'back' ? backLayers : frontLayers;
+        target.push({ layer, filter: filterFor(group.tintSlot) });
+      }
+    }
+
+    const neededUrls = new Set([
+      headUrl,
+      ...urLayerSource.map(m => m.url),
+      ...backLayers.map(({ layer }) => layer.url),
+      ...frontLayers.map(({ layer }) => layer.url),
+    ]);
+
+    let imgMap;
+    try {
+      const entries = await Promise.all(
+        [...neededUrls].map(async (url) => [url, await loadImg(url)])
+      );
+      imgMap = new Map(entries);
+    } catch (err) {
+      console.warn('[portrait] image load error', err);
+      ctx.fillStyle = '#220000'; ctx.fillRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
+      ctx.fillStyle = '#ff4444'; ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Load error', PORTRAIT_CW / 2, PORTRAIT_CH / 2);
+      return;
+    }
+
+    for (const { layer, filter } of backLayers) {
+      const img = imgMap.get(layer.url);
+      if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
+    }
+    { const img = imgMap.get(headUrl); if (img) drawPortraitLayer(ctx, img, headXform, 'none'); }
+    for (const mid of urLayerSource) {
+      if (mid.renderOrder === 'topLayer') continue;
+      const img = imgMap.get(mid.url);
+      if (img) drawPortraitLayer(ctx, img, headXform, 'none');
+    }
+    for (const { layer, filter } of frontLayers) {
+      const img = imgMap.get(layer.url);
+      if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
+    }
+    for (const mid of urLayerSource) {
+      if (mid.renderOrder !== 'topLayer') continue;
+      const img = imgMap.get(mid.url);
+      if (img) drawPortraitLayer(ctx, img, headXform, 'none');
+    }
+    return;
+  }
 
   const bodyBackLayers = [];
   const bodyFrontLayers = [];
