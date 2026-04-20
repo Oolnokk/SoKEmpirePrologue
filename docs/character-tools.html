@@ -931,6 +931,11 @@ details.diag-details[open] > summary::after { content: '▼'; }
       <button id="cos-copyFullBtn" class="btn-accent" style="width:100%">⎘ Copy full cosmetic JSON</button>
       <button id="cos-copyCombinedBtn" style="width:100%;margin-top:4px">⎘ Copy combined appearance JSON</button>
       <div id="cosCopyStatus"></div>
+
+      <details style="margin-top:8px">
+        <summary style="cursor:pointer;font-size:12px;color:var(--muted)">Debug render log</summary>
+        <pre id="cos-debugLog" style="margin-top:6px;max-height:180px;overflow:auto;background:#0b1020;border:1px solid #21304d;border-radius:8px;padding:8px;font-size:11px;color:#b9d3ff;white-space:pre-wrap">No debug data yet.</pre>
+      </details>
     </div>
 
   </aside>
@@ -1883,6 +1888,8 @@ let cosCW = 300, cosCH = 300, cosL = 80;
 let cosHeadImg    = null;
 let cosUrImgs     = [];   // UR overlay images drawn BEFORE front cosmetics
 let cosUrImgsTop  = [];   // UR overlay images drawn AFTER front cosmetics (renderOrder:'topLayer')
+let cosLastUrLayers = [];
+let cosLastUrLayerSource = 'unknown';
 
 // ── Slot state ─────────────────────────────────────────────
 
@@ -2032,7 +2039,7 @@ async function cosLoadSelectedCosmetic() {
   slot.cosEntryId = entryId;
   if (!entryId) return;
   const entry = cosIndexEntries.find(e => e.id === entryId);
-  if (!entry) return;
+  if (!entry) { cosUpdateDebugLog('cosLoadSelectedCosmetic: entry not found'); return; }
 
   const cosJsonUrl = new URL(entry.path, cosIndexBaseUrl).toString();
   let json;
@@ -2045,6 +2052,7 @@ async function cosLoadSelectedCosmetic() {
     slot.loadedJson    = null;
     slot.currentLayers = [];
     cosPopulateLayerSelect();
+    cosUpdateDebugLog('cosLoadSelectedCosmetic: json load failed');
     return;
   }
   slot.loadedJson    = json;
@@ -2058,6 +2066,28 @@ function cosGetCurrentLayerUrl() {
   const slot  = SLOTS[cosActiveSlotKey];
   const layer = slot.currentLayers[slot.layerIdx];
   return layer ? layer.url : null;
+}
+
+function cosUpdateDebugLog(reason = '') {
+  const out = document.getElementById('cos-debugLog');
+  if (!out) return;
+  const species = document.getElementById('cos-species')?.value || '(none)';
+  const gender = document.getElementById('cos-gender')?.value || '(none)';
+  const slot = SLOTS[cosActiveSlotKey];
+  const itemSel = document.getElementById('cos-cosSelect');
+  const selectedOptionLabel = itemSel?.selectedOptions?.[0]?.textContent || '(none)';
+  const layer = slot.currentLayers[slot.layerIdx] || null;
+  const layerUrl = layer?.url || '(none)';
+  const lines = [
+    `[cos-debug] ${reason || 'state update'}`,
+    `species=${species} gender=${gender} activeSlot=${slot.key}`,
+    `selectedCosmetic=${slot.cosEntryId || '(none)'} label=${selectedOptionLabel}`,
+    `layerIdx=${slot.layerIdx} layerCount=${slot.currentLayers.length} layerUrl=${layerUrl}`,
+    `head=${document.getElementById('cos-headPath')?.value || '(none)'}`,
+    `urSource=${cosLastUrLayerSource} urCount=${cosLastUrLayers.length}`,
+    ...cosLastUrLayers.map((mid, i) => `  ur[${i}] ${mid.url || '(no-url)'} renderOrder=${mid.renderOrder || 'normal'}`),
+  ];
+  out.textContent = lines.join('\n');
 }
 
 /** Set xform sliders/baseline from a specific layer index in the active slot's currentLayers. */
@@ -2201,9 +2231,13 @@ async function cosLoadAssets() {
   cosUrImgs    = [];
   cosUrImgsTop = [];
   try { cosHeadImg = await cosLoadImage(headPath); } catch (e) { console.warn(e); }
-  // Use species-defined headUrLayers when available; fall back to FIGHTERS-based lookup
+  // Match game portrait rendering: prefer fighter.urLayers when the head sprite maps to a fighter.
+  // Fall back to species headUrLayers for species that are not present in portrait-config.
   const speciesData = cosGetCurrentSpeciesData();
-  const urLayers = speciesData ? (speciesData.headUrLayers || []) : getFighterUrLayers(headPath);
+  const fighterUrLayers = getFighterUrLayers(headPath);
+  const urLayers = fighterUrLayers.length ? fighterUrLayers : (speciesData ? (speciesData.headUrLayers || []) : []);
+  cosLastUrLayers = urLayers;
+  cosLastUrLayerSource = fighterUrLayers.length ? 'portrait-config fighter.urLayers' : 'species.headUrLayers';
   for (const mid of urLayers) {
     try {
       const img = await cosLoadImage(mid.url);
@@ -2214,6 +2248,7 @@ async function cosLoadAssets() {
   if (cosUrl) {
     try { slot.img = await cosLoadImageAbsolute(cosUrl); } catch (e) { console.warn(e); }
   }
+  cosUpdateDebugLog('cosLoadAssets');
   cosRender();
 }
 
@@ -2700,6 +2735,7 @@ function cosActivateSlot(newKey) {
   document.getElementById('cos-tintS').value = slot.tint.s;
   document.getElementById('cos-tintV').value = slot.tint.v;
 
+  cosUpdateDebugLog('cosActivateSlot');
   cosRender();
 }
 
@@ -2767,15 +2803,23 @@ function speGetCurrentSpeciesData() {
  * Called when the species or gender dropdown in the Cosmetic Placer changes.
  * Updates the hidden head-path input, re-filters cosmetics, and reloads assets.
  */
-function cosOnSpeciesChanged() {
+async function cosOnSpeciesChanged() {
   const speciesId = document.getElementById('cos-species')?.value;
   if (speciesId) speUpdateGenderAvailability(speciesId);
   const data = cosGetCurrentSpeciesData();
+  const activeSlot = SLOTS[cosActiveSlotKey];
   if (data && data.headSprite) {
     document.getElementById('cos-headPath').value = data.headSprite;
   }
   cosPopulateItemSelect();
-  cosLoadAssets();
+  const itemSel = document.getElementById('cos-cosSelect');
+  if (activeSlot.cosEntryId && Array.from(itemSel.options).some(o => o.value === activeSlot.cosEntryId)) {
+    itemSel.value = activeSlot.cosEntryId;
+  } else if (itemSel.options.length) {
+    itemSel.value = itemSel.options[0].value;
+  }
+  await cosLoadSelectedCosmetic();
+  cosUpdateDebugLog('cosOnSpeciesChanged');
   // Sync species/gender dropdowns to Species Editor (prevent circular call with flag)
   if (!_speciesSyncInProgress) {
     _speciesSyncInProgress = true;
