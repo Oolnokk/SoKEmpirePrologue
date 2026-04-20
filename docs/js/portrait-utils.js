@@ -214,8 +214,8 @@ async function renderProfile(canvas, profile) {
 
   // Support both three-slot (hairBack/hairSide/hairFront) and legacy single-slot (hair).
   const allCosmeticGroups = hairFront !== undefined
-    ? [hairBack, hairSide, eyes, facialHair, hairFront, hat]
-    : [hair, eyes, facialHair, hat];
+  ? [hairBack, hairSide, facialHair, eyes, hairFront, hat]
+  : [hair, facialHair, eyes, hat];
   const backLayers  = [];
   const frontLayers = [];
 
