@@ -4520,25 +4520,44 @@
     })();
 
     function moveAvatarFloatsToOverlay(app) {
-      const claimCluster = app.querySelector('.claimCluster');
-      if (!claimCluster) return;
-      const overlayParent = document.getElementById('authoredRoot') || document.body;
-      ['.actorAvatarFloat', '.reactorAvatarFloat'].forEach(sel => {
-        const float = claimCluster.querySelector(sel);
-        if (!float) return;
-        const rect = float.getBoundingClientRect();
-        if (!rect.width || !rect.height) return;
-        float.style.position = 'fixed';
-        float.style.left = `${rect.left}px`;
-        float.style.top = `${rect.top}px`;
-        float.style.width = `${rect.width}px`;
-        float.style.height = `${rect.height}px`;
-        float.style.transform = 'none';
-        float.style.transformOrigin = 'top left';
-        float.style.zIndex = '9990';
-        float.dataset.clusterAvatarOverlay = '1';
-        overlayParent.appendChild(float);
-      });
+  const claimCluster = app.querySelector('.claimCluster');
+  if (!claimCluster) return;
+
+  const overlayParent = document.getElementById('authoredRoot') || document.body;
+
+  ['.actorAvatarFloat', '.reactorAvatarFloat'].forEach((sel) => {
+    const float = claimCluster.querySelector(sel);
+    if (!float) return;
+
+    const rect = float.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const isReactor = float.matches('.reactorAvatarFloat');
+    const canvas = float.querySelector('canvas.seatPortrait');
+
+    float.style.position = 'fixed';
+    float.style.left = `${rect.left}px`;
+    float.style.top = `${rect.top}px`;
+    float.style.width = `${rect.width}px`;
+    float.style.height = `${rect.height}px`;
+    float.style.transform = 'none';
+    float.style.transformOrigin = 'top left';
+    float.style.zIndex = '9990';
+    float.dataset.clusterAvatarOverlay = '1';
+
+    // Make the moved cluster avatar canvas behave like the seat portrait canvas.
+    if (canvas) {
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.aspectRatio = '1';
+      canvas.style.display = 'block';
+      canvas.style.borderRadius = '0';
+      canvas.style.transform = isReactor ? 'scaleX(-1)' : 'none';
+      canvas.style.transformOrigin = 'center center';
+    }
+
+    overlayParent.appendChild(float);
+  });
     }
 
     function render() {
