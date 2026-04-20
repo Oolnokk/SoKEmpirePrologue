@@ -190,8 +190,12 @@ function applyPortraitOpacityMask(ctx, img, xform) {
 
 async function renderProfile(canvas, profile) {
   const { fighter, hair, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic, bodyColors } = profile;
-  const headXform = fighter?.headXform || HEAD_XFORM;
-  const opacityMaskLayer = fighter?.opacityMaskLayer || null;
+  const resolvedFighter = resolvePortraitFighter(fighter) || fighter;
+  const headXform = resolvedFighter?.headXform || fighter?.headXform || HEAD_XFORM;
+  const opacityMaskLayer = resolvedFighter?.opacityMaskLayer || fighter?.opacityMaskLayer || null;
+  const headUrl = resolvedFighter?.headUrl || fighter?.headUrl;
+  const bodyLayerSource = resolvedFighter?.bodyLayers || fighter?.bodyLayers || [];
+  const urLayerSource = resolvedFighter?.urLayers || fighter?.urLayers || [];
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
 
@@ -200,7 +204,7 @@ async function renderProfile(canvas, profile) {
 
   const bodyBackLayers = [];
   const bodyFrontLayers = [];
-  for (const layer of (fighter.bodyLayers || [])) {
+  for (const layer of bodyLayerSource) {
     const target = layer.pos === 'front' ? bodyFrontLayers : bodyBackLayers;
     target.push({ layer, filter: filterFor(layer.tintSlot || 'A') });
   }
@@ -228,8 +232,8 @@ async function renderProfile(canvas, profile) {
   }
 
   const neededUrls = new Set([
-    fighter.headUrl,
-    ...(fighter.urLayers || []).map(m => m.url),
+    headUrl,
+    ...urLayerSource.map(m => m.url),
     ...bodyBackLayers.map(({ layer }) => layer.url),
     ...backLayers.map(({ layer }) => layer.url),
     ...frontLayers.map(({ layer }) => layer.url),
@@ -260,8 +264,8 @@ async function renderProfile(canvas, profile) {
     const img = imgMap.get(layer.url);
     if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
   }
-  { const img = imgMap.get(fighter.headUrl); if (img) drawPortraitLayer(ctx, img, headXform, filterA); }
-  for (const mid of (fighter.urLayers || [])) {
+  { const img = imgMap.get(headUrl); if (img) drawPortraitLayer(ctx, img, headXform, filterA); }
+  for (const mid of urLayerSource) {
     if (mid.renderOrder === 'topLayer') continue;
     const img = imgMap.get(mid.url);
     if (img) drawPortraitLayer(ctx, img, mid.xform || headXform, 'none');
@@ -270,7 +274,7 @@ async function renderProfile(canvas, profile) {
     const img = imgMap.get(layer.url);
     if (img) drawPortraitLayer(ctx, img, composeXform(headXform, layer), filter);
   }
-  for (const mid of (fighter.urLayers || [])) {
+  for (const mid of urLayerSource) {
     if (mid.renderOrder !== 'topLayer') continue;
     const img = imgMap.get(mid.url);
     if (img) drawPortraitLayer(ctx, img, mid.xform || headXform, 'none');
@@ -627,6 +631,16 @@ function weightedPickRng(arr, weights, rng) {
   return arr[arr.length - 1];
 }
 
+function resolvePortraitFighter(fighter) {
+  if (!fighter) return fighter;
+  const byId = FIGHTERS.find((candidate) => candidate?.id === fighter.id);
+  if (byId) return byId;
+  const byHead = fighter.headUrl
+    ? FIGHTERS.find((candidate) => candidate?.headUrl === fighter.headUrl)
+    : null;
+  return byHead || fighter;
+}
+
 /**
  * Generate a fully deterministic random profile using a provided rng() function.
  * All option arrays must be supplied by the caller.
@@ -636,12 +650,13 @@ function weightedPickRng(arr, weights, rng) {
  */
 function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter, torsoPortraitOptions, armPortraitOptions, forcedCosmeticsByFighter, conditionalCosmeticsByFighter) {
   const pickRng   = (arr) => arr[Math.floor(rng() * arr.length)];
-  const fighter   = pickRng(fighters);
-  const fighterEntry = allowedCosmeticsByFighter?.[fighter.id];
+  const fighterInput = pickRng(fighters);
+  const fighter = resolvePortraitFighter(fighterInput);
+  const fighterEntry = allowedCosmeticsByFighter?.[fighter.id] ?? allowedCosmeticsByFighter?.[fighterInput?.id];
   const allowed   = fighterEntry instanceof Set ? fighterEntry : (fighterEntry?.set ?? null);
   const disallowedCombos = (fighterEntry instanceof Set ? [] : (fighterEntry?.disallowedCombos ?? []));
   const filterArr = (arr) => arr && allowed ? arr.filter(o => o.id === 'none' || allowed.has(o.id)) : arr;
-  const weights   = cosmeticWeightsByFighter?.[fighter.id] ?? null;
+  const weights   = cosmeticWeightsByFighter?.[fighter.id] ?? cosmeticWeightsByFighter?.[fighterInput?.id] ?? null;
 
   const filteredHairFront  = filterArr(hairFrontOptions)  ?? [];
   const filteredHairBack   = filterArr(hairBackOptions)   ?? [];
@@ -701,7 +716,7 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   const armCosmetic   = weightedPickRng(filteredArm.length   ? filteredArm   : [{ id: 'none', label: 'No Arm Clothing',   tintSlot: null, layers: [] }], null, rng);
 
   // Apply forced cosmetics — species-level slots that always override random selection.
-  const forced = forcedCosmeticsByFighter?.[fighter.id];
+  const forced = forcedCosmeticsByFighter?.[fighter.id] ?? forcedCosmeticsByFighter?.[fighterInput?.id];
   if (forced) {
     const filteredBySlot = { eyes: filteredEyes, facialHair: filteredFacialHair, hairFront: filteredHairFront, hairBack: filteredHairBack, hairSide: filteredHairSide, hat: filteredHat };
     for (const [slot, id] of Object.entries(forced)) {
@@ -717,7 +732,7 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   }
 
   // Apply conditional cosmetics — rules that fire based on current slot state and clothing tags.
-  const conditionals = conditionalCosmeticsByFighter?.[fighter.id];
+  const conditionals = conditionalCosmeticsByFighter?.[fighter.id] ?? conditionalCosmeticsByFighter?.[fighterInput?.id];
   if (conditionals) {
     const curSlots = { hairFront, hairBack, hairSide, eyes, facialHair, hat };
     const filteredBySlot = { eyes: filteredEyes, facialHair: filteredFacialHair, hairFront: filteredHairFront, hairBack: filteredHairBack, hairSide: filteredHairSide, hat: filteredHat };
@@ -738,7 +753,7 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
     }
   }
 
-  const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id]);
+  const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id] ?? bodyColorRangesByGender?.[fighterInput?.id]);
   if (hat && hat.colorRange) bodyColors.HAT = randomColorFromRangeSeeded(hat.colorRange, rng);
   if (torsoCosmetic?.colorRange) bodyColors.CLOTH = randomColorFromRangeSeeded(torsoCosmetic.colorRange, rng);
   return { fighter, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic, bodyColors };
