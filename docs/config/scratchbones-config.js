@@ -108,8 +108,8 @@ window.SCRATCHBONES_CONFIG = {
         },
         "visualFit": {
           "tableCardContainerScale": 1.25,
-          "tableCardContentScale": 0.8,
-          "claimAvatarContainerScale": 1.25,
+          "tableCardContentScale": 1,
+          "claimAvatarContainerScale": 2,
           "claimAvatarContentScale": 0.8,
           "avatarAdditiveZoomScale": 1.2
         },
