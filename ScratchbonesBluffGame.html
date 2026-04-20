@@ -4056,6 +4056,10 @@
       const setCssVar = (name, value) => {
         for (const target of cssTargets) target.style.setProperty(name, value);
       };
+      const numberOrDefault = (value, fallback) => {
+        const numericValue = Number(value);
+        return Number.isFinite(numericValue) ? numericValue : fallback;
+      };
       const viewportWidthPx = Math.max(320, Number(viewportLayout.widthPx) || Number(app?.clientWidth) || 320);
       const viewportHeightPx = Math.max(180, Number(viewportLayout.heightPx) || Number(app?.clientHeight) || 180);
       const appWidthPx = Math.max(320, Number(app?.clientWidth) || Number(window?.innerWidth) || 0);
@@ -4088,18 +4092,18 @@
       const avatarAdditiveZoomScale = clampNumber(Number(tableVisualFit.avatarAdditiveZoomScale) || 1.2, 0.8, 1.6);
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
       const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
-      const flameXPct = clampNumber(Number(flameLighting.xPct) || 0.5, 0, 1);
-      const flameYPct = clampNumber(Number(flameLighting.yPct) || -0.12, -0.5, 0.35);
-      const flameCoreAlpha = clampNumber(Number(flameLighting.coreAlpha) || 0.2, 0, 0.45);
-      const flameMidAlpha = clampNumber(Number(flameLighting.midAlpha) || 0.12, 0, 0.35);
-      const flameFarAlpha = clampNumber(Number(flameLighting.farAlpha) || 0.05, 0, 0.2);
-      const flameFlickerSeconds = clampNumber(Number(flameLighting.flickerSeconds) || 2.9, 1.2, 8);
-      const cardShadowOffsetXPx = clampNumber(Number(cardShadowLighting.offsetXPx) || 1.5, -18, 18);
-      const cardShadowOffsetYPx = clampNumber(Number(cardShadowLighting.offsetYPx) || 9, 0, 28);
-      const cardShadowBlurPx = clampNumber(Number(cardShadowLighting.blurPx) || 12, 0, 40);
-      const cardShadowSpreadPx = clampNumber(Number(cardShadowLighting.spreadPx) || -2, -24, 24);
-      const cardShadowAlpha = clampNumber(Number(cardShadowLighting.alpha) || 0.34, 0, 0.7);
-      const cardShadowContactAlpha = clampNumber(Number(cardShadowLighting.contactAlpha) || 0.2, 0, 0.65);
+      const flameXPct = clampNumber(numberOrDefault(flameLighting.xPct, 0.5), 0, 1);
+      const flameYPct = clampNumber(numberOrDefault(flameLighting.yPct, -0.12), -0.5, 0.35);
+      const flameCoreAlpha = clampNumber(numberOrDefault(flameLighting.coreAlpha, 0.2), 0, 0.45);
+      const flameMidAlpha = clampNumber(numberOrDefault(flameLighting.midAlpha, 0.12), 0, 0.35);
+      const flameFarAlpha = clampNumber(numberOrDefault(flameLighting.farAlpha, 0.05), 0, 0.2);
+      const flameFlickerSeconds = clampNumber(numberOrDefault(flameLighting.flickerSeconds, 2.9), 1.2, 8);
+      const cardShadowOffsetXPx = clampNumber(numberOrDefault(cardShadowLighting.offsetXPx, 1.5), -18, 18);
+      const cardShadowOffsetYPx = clampNumber(numberOrDefault(cardShadowLighting.offsetYPx, 9), 0, 28);
+      const cardShadowBlurPx = clampNumber(numberOrDefault(cardShadowLighting.blurPx, 12), 0, 40);
+      const cardShadowSpreadPx = clampNumber(numberOrDefault(cardShadowLighting.spreadPx, -2), -24, 24);
+      const cardShadowAlpha = clampNumber(numberOrDefault(cardShadowLighting.alpha, 0.34), 0, 0.7);
+      const cardShadowContactAlpha = clampNumber(numberOrDefault(cardShadowLighting.contactAlpha, 0.2), 0, 0.65);
       const handCardMinWidthPx = clampNumber(Number(layoutSizing.handCardMinWidthPx) || 74, 48, 180);
       const handCardMaxWidthPx = clampNumber(Number(layoutSizing.handCardMaxWidthPx) || 104, handCardMinWidthPx, 220);
       const handCardMinHeightPx = clampNumber(Number(layoutSizing.handCardMinHeightPx) || 146, 88, 280);
