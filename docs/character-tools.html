@@ -2823,10 +2823,13 @@ async function cosOnSpeciesChanged() {
   // Sync species/gender dropdowns to Species Editor (prevent circular call with flag)
   if (!_speciesSyncInProgress) {
     _speciesSyncInProgress = true;
-    document.getElementById('spe-species').value = document.getElementById('cos-species').value;
-    document.getElementById('spe-gender').value  = document.getElementById('cos-gender').value;
-    speOnSpeciesOrGenderChanged();
-    _speciesSyncInProgress = false;
+    try {
+      document.getElementById('spe-species').value = document.getElementById('cos-species').value;
+      document.getElementById('spe-gender').value  = document.getElementById('cos-gender').value;
+      await speOnSpeciesOrGenderChanged();
+    } finally {
+      _speciesSyncInProgress = false;
+    }
   }
 }
 
@@ -2872,8 +2875,8 @@ async function speLoadSpeciesIndex() {
   // After all JSONs are loaded, trigger initial state for all three modes
   _portraitSpeciesLoadAttempted = true;
   spePopulateSpeciesDropdowns();
-  cosOnSpeciesChanged();
-  speOnSpeciesOrGenderChanged();
+  await cosOnSpeciesChanged();
+  await speOnSpeciesOrGenderChanged();
   bOnSpeciesChanged();
 }
 
@@ -3474,7 +3477,7 @@ async function speRenderHeadPreview() {
   }
 }
 
-function speOnSpeciesOrGenderChanged() {
+async function speOnSpeciesOrGenderChanged() {
   const speciesId = document.getElementById('spe-species').value;
   if (!speciesId || !speAllSpecies[speciesId]) return;
   speUpdateGenderAvailability(speciesId);
@@ -3484,15 +3487,20 @@ function speOnSpeciesOrGenderChanged() {
   // Sync species/gender dropdowns to Cosmetic Placer (prevent circular call with flag)
   if (!_speciesSyncInProgress) {
     _speciesSyncInProgress = true;
-    document.getElementById('cos-species').value = document.getElementById('spe-species').value;
-    document.getElementById('cos-gender').value  = document.getElementById('spe-gender').value;
-    cosOnSpeciesChanged();
-    _speciesSyncInProgress = false;
+    try {
+      document.getElementById('cos-species').value = document.getElementById('spe-species').value;
+      document.getElementById('cos-gender').value  = document.getElementById('spe-gender').value;
+      await cosOnSpeciesChanged();
+    } finally {
+      _speciesSyncInProgress = false;
+    }
   }
 }
 
-document.getElementById('spe-species').addEventListener('change', speOnSpeciesOrGenderChanged);
-document.getElementById('spe-gender').addEventListener('change',  () => {
+document.getElementById('spe-species').addEventListener('change', () => {
+  speOnSpeciesOrGenderChanged();
+});
+document.getElementById('spe-gender').addEventListener('change', async () => {
   speSelectedStop = -1;
   speSelectedBodyLayerIndex = 0;
   speRefreshEditorUI();
@@ -3502,9 +3510,12 @@ document.getElementById('spe-gender').addEventListener('change',  () => {
   // Sync gender to Cosmetic Placer
   if (!_speciesSyncInProgress) {
     _speciesSyncInProgress = true;
-    document.getElementById('cos-gender').value = document.getElementById('spe-gender').value;
-    cosOnSpeciesChanged();
-    _speciesSyncInProgress = false;
+    try {
+      document.getElementById('cos-gender').value = document.getElementById('spe-gender').value;
+      await cosOnSpeciesChanged();
+    } finally {
+      _speciesSyncInProgress = false;
+    }
   }
 });
 document.getElementById('spe-slot').addEventListener('change', () => {
