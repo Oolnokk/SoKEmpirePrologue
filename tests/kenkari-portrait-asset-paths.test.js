@@ -50,11 +50,13 @@ function loadKenkariCosmeticUrls() {
     ok(entryPath, `Missing cosmetics index entry for "${cosmeticId}".`);
     const resolvedPath = path.resolve(COSMETICS_CONFIG_ROOT, entryPath);
     const cosmeticJson = readJson(resolvedPath);
-    const head = cosmeticJson?.parts?.head;
-    if (!head) continue;
-    if (head.image?.url) urls.push(head.image.url);
-    for (const layer of Object.values(head.layers || {})) {
-      if (layer?.image?.url) urls.push(layer.image.url);
+    const parts = cosmeticJson?.parts || {};
+    for (const part of Object.values(parts)) {
+      if (!part || typeof part !== 'object') continue;
+      if (part.image?.url) urls.push(part.image.url);
+      for (const layer of Object.values(part.layers || {})) {
+        if (layer?.image?.url) urls.push(layer.image.url);
+      }
     }
   }
   return urls;
