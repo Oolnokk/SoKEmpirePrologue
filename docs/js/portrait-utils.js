@@ -114,27 +114,47 @@ function setPortraitAssetBase(base) {
 }
 
 function loadImg(relPath) {
-  const url = _puAssetBase + relPath;
-  if (IMG_CACHE.has(url)) return IMG_CACHE.get(url);
-  const promise = new Promise((resolve, reject) => {
+  if (IMG_CACHE.has(relPath)) return IMG_CACHE.get(relPath);
+
+  const ensureTrailingSlash = (base) => String(base || './assets/').replace(/\/?$/, '/');
+  const localBase = ensureTrailingSlash(_puAssetBase);
+  const fallbackBase = localBase.includes('/docs/assets/')
+    ? localBase.replace('/docs/assets/', '/assets/')
+    : localBase.replace('/assets/', '/docs/assets/');
+
+  const candidateUrls = [
+    localBase + relPath,
+    fallbackBase + relPath,
+    'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/assets/' + relPath,
+  ];
+
+  const seen = new Set();
+  const uniqueCandidates = candidateUrls.filter((url) => {
+    if (!url || seen.has(url)) return false;
+    seen.add(url);
+    return true;
+  });
+
+  const tryLoadUrl = (url) => new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload  = () => resolve(img);
-    img.onerror = () => {
-      if (!url.startsWith('https://raw.githubusercontent.com')) {
-        const rawUrl = 'https://raw.githubusercontent.com/Oolnokk/SoKEmpirePrologue/main/docs/assets/' + relPath;
-        const img2 = new Image();
-        img2.crossOrigin = 'anonymous';
-        img2.onload  = () => resolve(img2);
-        img2.onerror = () => reject(new Error('Failed: ' + relPath));
-        img2.src = rawUrl;
-      } else {
-        reject(new Error('Failed: ' + relPath));
-      }
-    };
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(url);
     img.src = url;
   });
-  IMG_CACHE.set(url, promise);
+
+  const promise = (async () => {
+    for (const url of uniqueCandidates) {
+      try {
+        return await tryLoadUrl(url);
+      } catch (_) {
+        // Try next candidate URL.
+      }
+    }
+    throw new Error(`Failed to load portrait asset "${relPath}" from candidates: ${uniqueCandidates.join(', ')}`);
+  })();
+
+  IMG_CACHE.set(relPath, promise);
   return promise;
 }
 
