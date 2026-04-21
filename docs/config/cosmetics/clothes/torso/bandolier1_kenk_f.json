@@ -1,27 +1,20 @@
 {
+  "slot": "torso",
+  "tintSlot": "none",
   "meta": {
-    "name": "Forward Tuft"
-  },
-  "type": "appearance",
-  "hairSlot": "front",
-  "appearance": {
-    "inheritSprite": "head",
-    "bodyColors": [
-      "A"
-    ],
-    "originalId": "kenk_fowardtuft"
+    "name": "Bandolier"
   },
   "parts": {
-    "head": {
+    "torso": {
       "layers": {
-        "front": {
+        "back": {
           "image": {
-            "url": "./assets/cosmetics/appearance/kenkari/headhair/kenk_m_fowardtuft_short.png"
+            "url": "./assets/cosmetics/clothes/torso/portrait/bandolier1_kenk_f.png"
           },
           "spriteStyle": {
             "base": {
               "xform": {
-                "head": {
+                "torso": {
                   "ax": -0.0983,
                   "ay": -0.0809,
                   "scaleX": 2.49,

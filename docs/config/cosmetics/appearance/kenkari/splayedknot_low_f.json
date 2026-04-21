@@ -1,22 +1,22 @@
 {
   "meta": {
-    "name": "Forward Tuft"
+    "name": "Splayed Knot (Low)"
   },
   "type": "appearance",
-  "hairSlot": "front",
+  "hairSlot": "back",
   "appearance": {
     "inheritSprite": "head",
     "bodyColors": [
       "A"
     ],
-    "originalId": "kenk_fowardtuft"
+    "originalId": "kenk_splayedknot_low_f"
   },
   "parts": {
     "head": {
       "layers": {
-        "front": {
+        "back": {
           "image": {
-            "url": "./assets/cosmetics/appearance/kenkari/headhair/kenk_m_fowardtuft_short.png"
+            "url": "./assets/cosmetics/appearance/kenkari/headhair/splayedknot_low_kenk_f.png"
           },
           "spriteStyle": {
             "base": {

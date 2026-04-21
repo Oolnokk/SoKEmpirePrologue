@@ -1,6 +1,6 @@
 {
   "meta": {
-    "name": "Wildbeard"
+    "name": "Shirtbeard"
   },
   "type": "appearance",
   "appearance": {
@@ -8,12 +8,12 @@
     "bodyColors": [
       "A"
     ],
-    "originalId": "kenk_wildbeard"
+    "originalId": "kenk_shirtbeard_f"
   },
   "parts": {
     "head": {
       "image": {
-        "url": "./assets/cosmetics/appearance/kenkari/facialhair/kenk_wildbeard.png"
+        "url": "./assets/cosmetics/appearance/kenkari/shirtbeard_kenk_f.png"
       },
       "spriteStyle": {
         "xform": {
