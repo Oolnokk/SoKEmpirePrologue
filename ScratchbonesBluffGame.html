@@ -34,6 +34,7 @@
   </script>
   <script src="docs/config/scratchbones-config.js"></script>
   <script src="docs/js/portrait-utils.js"></script>
+  <script src="docs/js/scratchbones-name-generator.js"></script>
   <style>
     @font-face {
       font-family: 'Khymeryyanroman4';
@@ -1820,6 +1821,11 @@
           playerCount: rawGameConfig.deck?.playerCount ?? 4,
           humanNames: rawGameConfig.deck?.humanNames ?? ['You'],
         },
+        nameGeneration: {
+          defaultCultureId: rawGameConfig.nameGeneration?.defaultCultureId ?? 'mao_ao',
+          seedPrefix: rawGameConfig.nameGeneration?.seedPrefix ?? 'madiao-player',
+          cultures: rawGameConfig.nameGeneration?.cultures ?? {},
+        },
         chips: {
           startingChips: rawGameConfig.chips?.starting ?? 12,
           challengeBaseTransfer: rawGameConfig.chips?.challengeBaseTransfer ?? 1,
@@ -1832,7 +1838,7 @@
         },
         timers: {
           challengeTimerSecs: rawGameConfig.timers?.challengeSeconds ?? 6,
-          aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 6000,
+          aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 650,
         },
         layout: {
           mode: String(rawGameConfig.layout?.mode || 'responsive').toLowerCase(),
@@ -2325,241 +2331,14 @@
         stopChallengeMusic,
       };
     })();
-    const MAO_AO_CULTURE = {
-      id: "mao_ao",
-      displayName: "Mao-ao",
-      casing: "title",
-      birthRules: {
-        surnameFromParent: false,
-        maleFirstInitialMatchesSurnameFirstLetter: true,
-      },
-      marriageRules: {
-        wifeTakesHusbandSurname: true,
-        wifePrefixesHusbandFirstInitial: true,
-      },
-      positionedSyllables: {
-        pools: {
-          consonants: ["w", "r", "t", "y", "p", "s", "f", "g", "h", "b", "n", "m", "k"],
-          clusters: ["sh", "hy"],
-          vowels: ["a", "e", "i", "o", "u", "ai", "ao"],
-          diphthongs: ["ai", "ao"],
-        },
-        firstName: {
-          syllables: { min: 3, max: 3 },
-          first: {
-            female: { patterns: ["V", "Vn", "Vng"] },
-            male: { patterns: ["CV", "CVn", "CVng", "CVr"] },
-          },
-          middle: {
-            female: { patterns: ["CV", "CVn"] },
-            male: { patterns: ["CV", "CVn", "CVr"] },
-          },
-          last: {
-            male: { patterns: ["jei", "ji", "jo", "CV{e}", "CV{i}", "CV{o}", "CV{u}", "CV{ai}"] },
-            female: { patterns: ["CV{a}", "CV{i}", "CV{ai}"] },
-          },
-          conditionalLast: {},
-        },
-        lastName: {
-          syllables: { exact: 2 },
-          deriveFromFirstNameMaleRules: true,
-        },
-      },
-    };
-    function pickFromRng(rng, arr) {
-      if (!arr || arr.length === 0) throw new Error('pickFromRng() called with empty array');
-      return arr[Math.floor(rng() * arr.length)];
-    }
-    function titleCase(s) {
-      if (!s) return s;
-      return s[0].toUpperCase() + s.slice(1).toLowerCase();
-    }
-    function applyCasing(s, casing) {
-      if (!casing) return s;
-      if (casing === 'lower') return s.toLowerCase();
-      if (casing === 'upper') return s.toUpperCase();
-      return titleCase(s);
-    }
-    function clampInt(n, min, max) {
-      return Math.max(min, Math.min(max, Math.floor(n)));
-    }
-    function tokenListSortedLongestFirst(tokens) {
-      return (tokens || []).slice().sort((a, b) => b.length - a.length);
-    }
-    function startsWithAnyToken(str, tokens) {
-      for (const token of tokens) if (str.startsWith(token)) return token;
-      return null;
-    }
-    function endsWithAnyToken(str, tokens) {
-      for (const token of tokens) if (str.endsWith(token)) return token;
-      return null;
-    }
-    function joinSyllablesWithHiatus(syllables, pools) {
-      if (syllables.length <= 1) return syllables.join('');
-      const vowelTokens = tokenListSortedLongestFirst(pools.vowels);
-      let out = syllables[0];
-      for (let i = 1; i < syllables.length; i++) {
-        let next = syllables[i];
-        if (out.endsWith('n') && next.startsWith('n') && !next.startsWith('ng')) {
-          next = next.slice(1);
-        }
-        const prevEndsVowel = !!endsWithAnyToken(out, vowelTokens);
-        const nextStartsVowel = !!startsWithAnyToken(next, vowelTokens);
-        out += (prevEndsVowel && nextStartsVowel) ? "'" + next : next;
-      }
-      return out;
-    }
-    function isVariablePattern(pattern) {
-      return pattern.includes('V');
-    }
-    function isOnsetlessVPattern(pattern) {
-      return isVariablePattern(pattern) && pattern.startsWith('V');
-    }
-    function parseForcedVowel(pattern) {
-      const match = pattern.match(/^(.*)\{([^}]+)\}$/);
-      if (!match) return { basePattern: pattern, forcedVowels: null };
-      return {
-        basePattern: match[1],
-        forcedVowels: match[2].split('|').map(s => s.trim()).filter(Boolean),
-      };
-    }
-    function syllableEndsWithN(syllable) {
-      return /n$/i.test(syllable || '') && !/ng$/i.test(syllable || '');
-    }
-    function syllableHasDiphthong(syllable, pools) {
-      if (!syllable) return false;
-      const diphthongs = [...(pools.diphthongs || []), 'ei'];
-      return diphthongs.some(d => syllable.includes(d));
-    }
-    function patternHasDiphthong(pattern) {
-      return pattern.includes('{ai}') || pattern.includes('{ao}') || pattern.includes('ei');
-    }
-    function constrainLastPatterns(patterns, previousSyllable, ctx = {}) {
-      return patterns.filter(pattern => {
-        if (pattern.includes('{ai}') && !syllableEndsWithN(previousSyllable)) return false;
-        if (/^j/.test(pattern) && !(ctx.allowInitialJ || syllableEndsWithN(previousSyllable))) return false;
-        if (ctx.usedDiphthong && patternHasDiphthong(pattern)) return false;
-        return true;
-      });
-    }
-    function getVowelPoolForPattern(pools, hasConsonantEnding, forcedVowels, ctx = {}) {
-      let pool = pools.vowels.slice();
-      const diphthongs = pools.diphthongs || [];
-      if (ctx.position === 'middle') pool = pool.filter(v => !diphthongs.includes(v));
-      if (ctx.usedDiphthong) pool = pool.filter(v => !diphthongs.includes(v));
-      if (ctx.nameType === 'last' && ctx.position === 'first') pool = pool.filter(v => v !== 'ai');
-      if (forcedVowels && forcedVowels.length) pool = pool.filter(v => forcedVowels.includes(v));
-      if (!hasConsonantEnding || diphthongs.length === 0) return pool;
-      const monophthongs = pool.filter(v => !diphthongs.includes(v));
-      return monophthongs.length ? monophthongs : pool;
-    }
-    function buildSyllableFromPattern(rng, pools, pattern, opts = {}) {
-      if (!isVariablePattern(pattern)) return pattern;
-      const { basePattern, forcedVowels } = parseForcedVowel(pattern);
-      const onsetPool = pools.consonants.concat(pools.clusters);
-      const startsWithCV = basePattern.startsWith('CV');
-      const startsWithV = basePattern.startsWith('V');
-      if (!startsWithCV && !startsWithV) throw new Error(`Unsupported pattern "${pattern}".`);
-      const coda = basePattern.slice(startsWithCV ? 2 : 1);
-      const vowelPool = getVowelPoolForPattern(pools, coda.length > 0, forcedVowels, opts);
-      const nucleus = pickFromRng(rng, vowelPool);
-      if (startsWithCV) {
-        const forcedOnset = opts.forceOnsetInitialLetter ? String(opts.forceOnsetInitialLetter).toLowerCase() : '';
-        const onset = forcedOnset && pools.consonants.includes(forcedOnset) ? forcedOnset : pickFromRng(rng, onsetPool);
-        return onset + nucleus + coda;
-      }
-      return nucleus + coda;
-    }
-    function pickPattern(rng, patterns, { allowOnsetlessV }) {
-      const filtered = allowOnsetlessV ? patterns : patterns.filter(p => !isOnsetlessVPattern(parseForcedVowel(p).basePattern));
-      if (!filtered.length) throw new Error(`No valid patterns after filtering.`);
-      return pickFromRng(rng, filtered);
-    }
-    function buildPositionedFirstName(rng, positioned, gender, opt = {}) {
-      const pools = positioned.pools;
-      const rules = positioned.firstName;
-      const syllables = [];
-      let usedDiphthong = false;
-      const firstSet = gender === 'male' ? rules.first.male : rules.first.female;
-      const middleSet = gender === 'male' ? rules.middle.male : rules.middle.female;
-      const lastSetBase = gender === 'male' ? rules.last.male : rules.last.female;
-      const syllableCount = clampInt(rules.syllables.min, rules.syllables.min, rules.syllables.max);
-      const firstPattern = pickPattern(rng, firstSet.patterns, { allowOnsetlessV: gender === 'female' });
-      const firstSyllable = buildSyllableFromPattern(rng, pools, firstPattern, {
-        forceOnsetInitialLetter: gender === 'male' ? opt.forceFirstNameInitialLetter : undefined,
-        position: 'first',
-        nameType: 'first',
-        usedDiphthong,
-      });
-      syllables.push(firstSyllable);
-      usedDiphthong = usedDiphthong || syllableHasDiphthong(firstSyllable, pools);
-      const middleCount = Math.max(0, syllableCount - 2);
-      for (let i = 0; i < middleCount; i++) {
-        const middlePattern = pickPattern(rng, middleSet.patterns, { allowOnsetlessV: false });
-        const middleSyllable = buildSyllableFromPattern(rng, pools, middlePattern, {
-          position: 'middle',
-          nameType: 'first',
-          usedDiphthong,
-        });
-        syllables.push(middleSyllable);
-        usedDiphthong = usedDiphthong || syllableHasDiphthong(middleSyllable, pools);
-      }
-      const lastPatternOptions = constrainLastPatterns(lastSetBase.patterns, syllables[syllables.length - 1] || '', { usedDiphthong, allowInitialJ: false });
-      const lastPattern = pickPattern(rng, lastPatternOptions, { allowOnsetlessV: false });
-      const lastSyllable = buildSyllableFromPattern(rng, pools, lastPattern, {
-        position: 'last',
-        nameType: 'first',
-        usedDiphthong,
-      });
-      syllables.push(lastSyllable);
-      return joinSyllablesWithHiatus(syllables, pools);
-    }
-    function buildMaoAoSurname(rng, positioned) {
-      const pools = positioned.pools;
-      const firstNameRules = positioned.firstName;
-      const syllables = [];
-      let usedDiphthong = false;
-      const firstPattern = pickPattern(rng, firstNameRules.first.male.patterns, { allowOnsetlessV: false });
-      const firstSyllable = buildSyllableFromPattern(rng, pools, firstPattern, {
-        position: 'first',
-        nameType: 'last',
-        usedDiphthong,
-      });
-      syllables.push(firstSyllable);
-      usedDiphthong = usedDiphthong || syllableHasDiphthong(firstSyllable, pools);
-      const lastPatternOptions = constrainLastPatterns(firstNameRules.last.male.patterns, syllables[0] || '', { usedDiphthong, allowInitialJ: false });
-      const lastPattern = pickPattern(rng, lastPatternOptions, { allowOnsetlessV: false });
-      const lastSyllable = buildSyllableFromPattern(rng, pools, lastPattern, {
-        position: 'last',
-        nameType: 'last',
-        usedDiphthong,
-      });
-      syllables.push(lastSyllable);
-      return joinSyllablesWithHiatus(syllables, pools);
+    function hashStringToSeed(text) {
+      return window.SCRATCHBONES_NAME_GENERATOR.hashStringToSeed(text);
     }
     function generateMaoAoNameFromSeed(seedString, gender = 'male') {
-      const numericSeed = hashStringToSeed(seedString);
-      const rng = mulberry32(numericSeed);
-      const surname = buildMaoAoSurname(rng, MAO_AO_CULTURE.positionedSyllables);
-      const forceInitial = MAO_AO_CULTURE.birthRules?.maleFirstInitialMatchesSurnameFirstLetter && gender === 'male' && surname
-        ? String(surname[0]).toLowerCase()
-        : undefined;
-      const firstName = buildPositionedFirstName(rng, MAO_AO_CULTURE.positionedSyllables, gender, {
-        forceFirstNameInitialLetter: forceInitial,
-      });
-      return [applyCasing(firstName, MAO_AO_CULTURE.casing), applyCasing(surname, MAO_AO_CULTURE.casing)].filter(Boolean).join(' ');
-    }
-    function hashStringToSeed(text) {
-      let h = 2166136261 >>> 0;
-      const input = String(text || '');
-      for (let i = 0; i < input.length; i++) {
-        h ^= input.charCodeAt(i);
-        h = Math.imul(h, 16777619) >>> 0;
-      }
-      return h >>> 0;
+      return window.SCRATCHBONES_NAME_GENERATOR.generateIdentityFromSeed(seedString, gender);
     }
     function generateAiIdentity(index) {
-      const identitySeed = `madiao-ai-${state.seed}-${index}`;
+      const identitySeed = `${NAME_SEED_PREFIX}-${state.seed}-${index}`;
       const gender = (hashStringToSeed(identitySeed) & 1) === 0 ? 'male' : 'female';
       const name = generateMaoAoNameFromSeed(identitySeed, gender);
       return {
@@ -2647,7 +2426,8 @@
     const WILD_COUNT = SCRATCHBONES_GAME.deck.wildCount; // Used by: deck construction and bluff validation.
     const RANK_COUNT = SCRATCHBONES_GAME.deck.rankCount;
     const COPIES_PER_RANK = SCRATCHBONES_GAME.deck.copiesPerRank;
-    const PLAYER_NAMES = SCRATCHBONES_GAME.deck.humanNames; // Used by: seat labels and logs. AI seats generate Mao-ao names at match start.
+    const PLAYER_NAMES = SCRATCHBONES_GAME.deck.humanNames; // Optional authored names; Mao-ao generation is the fallback for any seat.
+    const NAME_SEED_PREFIX = SCRATCHBONES_GAME.nameGeneration?.seedPrefix || 'madiao-player';
     const CONFIG = {
       startingChips: SCRATCHBONES_GAME.chips.startingChips,
       challengeBaseTransfer: SCRATCHBONES_GAME.chips.challengeBaseTransfer,
@@ -2724,36 +2504,26 @@
       if (a.wild && b.wild) return a.id - b.id;
       return a.rank - b.rank || a.id - b.id;
     }
+    function resolveSeatName(index, generatedName) {
+      const configuredName = PLAYER_NAMES[index] || (index === 0 ? PLAYER_NAMES[0] : null);
+      if (typeof configuredName === 'string' && configuredName.trim()) return configuredName;
+      return generatedName;
+    }
     function makePlayers() {
       return Array.from({ length: SCRATCHBONES_GAME.deck.playerCount }, (_, index) => {
-        if (index === 0) {
-          return {
-            id: index,
-            name: PLAYER_NAMES[0],
-            hand: [],
-            chips: CONFIG.startingChips,
-            eliminated: false,
-            isHuman: true,
-            lastAction: 'Ready',
-            clears: 0,
-            seed: null,
-            personality: null,
-            reads: {},
-          };
-        }
         const aiIdentity = generateAiIdentity(index);
         return {
           id: index,
-          name: aiIdentity.name,
+          name: resolveSeatName(index, aiIdentity.name),
           hand: [],
           chips: CONFIG.startingChips,
           eliminated: false,
-          isHuman: false,
+          isHuman: index === 0,
           lastAction: 'Ready',
           clears: 0,
           seed: aiIdentity.seed,
           gender: aiIdentity.gender,
-          personality: aiIdentity.personality,
+          personality: index === 0 ? null : aiIdentity.personality,
           reads: {},
         };
       });
@@ -4819,9 +4589,9 @@
     }
 
     function render() {
-      document.querySelectorAll('[data-cluster-avatar-overlay]').forEach(el => el.remove());
       seatAvatarAnim.capturePreRender();
       cardAnimator.capturePreRender();
+      document.querySelectorAll('[data-cluster-avatar-overlay]').forEach(el => el.remove());
       const app = document.getElementById('app');
       const layoutPolicy = applyLayoutContract(app);
       const player = state.players[0] || { hand: [], chips: 0, clears: 0 };
