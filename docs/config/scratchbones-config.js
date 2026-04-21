@@ -10,6 +10,53 @@ window.SCRATCHBONES_CONFIG = {
         "You"
       ]
     },
+    "nameGeneration": {
+      "defaultCultureId": "mao_ao",
+      "seedPrefix": "madiao-player",
+      "cultures": {
+        "mao_ao": {
+          "id": "mao_ao",
+          "displayName": "Mao-ao",
+          "casing": "title",
+          "birthRules": {
+            "surnameFromParent": false,
+            "maleFirstInitialMatchesSurnameFirstLetter": true
+          },
+          "marriageRules": {
+            "wifeTakesHusbandSurname": true,
+            "wifePrefixesHusbandFirstInitial": true
+          },
+          "positionedSyllables": {
+            "pools": {
+              "consonants": ["w", "r", "t", "y", "p", "s", "f", "g", "h", "b", "n", "m", "k"],
+              "clusters": ["sh", "hy"],
+              "vowels": ["a", "e", "i", "o", "u", "ai", "ao"],
+              "diphthongs": ["ai", "ao"]
+            },
+            "firstName": {
+              "syllables": { "min": 3, "max": 3 },
+              "first": {
+                "female": { "patterns": ["V", "Vn", "Vng"] },
+                "male": { "patterns": ["CV", "CVn", "CVng", "CVr"] }
+              },
+              "middle": {
+                "female": { "patterns": ["CV", "CVn"] },
+                "male": { "patterns": ["CV", "CVn", "CVr"] }
+              },
+              "last": {
+                "male": { "patterns": ["jei", "ji", "jo", "CV{e}", "CV{i}", "CV{o}", "CV{u}", "CV{ai}"] },
+                "female": { "patterns": ["CV{a}", "CV{i}", "CV{ai}"] }
+              },
+              "conditionalLast": {}
+            },
+            "lastName": {
+              "syllables": { "exact": 2 },
+              "deriveFromFirstNameMaleRules": true
+            }
+          }
+        }
+      }
+    },
     "chips": {
       "starting": 30,
       "challengeBaseTransfer": 1,
