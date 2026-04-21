@@ -268,7 +268,7 @@ async function renderProfile(canvas, profile) {
   for (const mid of urLayerSource) {
     if (mid.renderOrder === 'topLayer') continue;
     const img = imgMap.get(mid.url);
-    if (img) drawPortraitLayer(ctx, img, mid.xform || headXform, 'none');
+    if (img) drawPortraitLayer(ctx, img, headXform, 'none');
   }
   for (const { layer, filter } of frontLayers) {
     const img = imgMap.get(layer.url);
@@ -277,7 +277,7 @@ async function renderProfile(canvas, profile) {
   for (const mid of urLayerSource) {
     if (mid.renderOrder !== 'topLayer') continue;
     const img = imgMap.get(mid.url);
-    if (img) drawPortraitLayer(ctx, img, mid.xform || headXform, 'none');
+    if (img) drawPortraitLayer(ctx, img, headXform, 'none');
   }
   for (const { layer, filter } of bodyFrontLayers) {
     const img = imgMap.get(layer.url);
