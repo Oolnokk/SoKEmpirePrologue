@@ -934,6 +934,7 @@ details.diag-details[open] > summary::after { content: '▼'; }
 
       <details style="margin-top:8px">
         <summary style="cursor:pointer;font-size:12px;color:var(--muted)">Debug render log</summary>
+        <button id="cos-rereadXformsBtn" style="width:100%;margin-top:6px">↻ Reread sprite xforms</button>
         <pre id="cos-debugLog" style="margin-top:6px;max-height:180px;overflow:auto;background:#0b1020;border:1px solid #21304d;border-radius:8px;padding:8px;font-size:11px;color:#b9d3ff;white-space:pre-wrap">No debug data yet.</pre>
       </details>
     </div>
@@ -1425,6 +1426,26 @@ function makeLabel(profile) {
   return parts.join('\n');
 }
 
+function logPortraitCardXforms(profile, label) {
+  if (!window.getProfileSpriteXforms) return;
+  const rows = getProfileSpriteXforms(profile).map((entry, index) => {
+    const xf = entry.xform || {};
+    return {
+      sprite: index + 1,
+      part: entry.part || '',
+      group: entry.group || '',
+      pos: entry.pos || '',
+      renderOrder: entry.renderOrder || '',
+      url: entry.url || '',
+      ax: Number(xf.ax ?? 0).toFixed(3),
+      ay: Number(xf.ay ?? 0).toFixed(3),
+      sx: Number(xf.sx ?? 1).toFixed(3),
+      sy: Number(xf.sy ?? 1).toFixed(3),
+    };
+  });
+  console.debug(`[portrait-xform] ${label}`, rows);
+}
+
 function createCard(profile) {
   const card   = document.createElement('div');
   card.className = 'portrait-card loading';
@@ -1449,6 +1470,7 @@ function createCard(profile) {
   });
 
   label.textContent = makeLabel(profile);
+  logPortraitCardXforms(profile, label.textContent.replace(/\s+/g, ' ').trim() || 'portrait');
   renderProfile(canvas, profile).finally(() => card.classList.remove('loading'));
 
   return card;
@@ -2058,6 +2080,7 @@ async function cosLoadSelectedCosmetic() {
   slot.loadedJson    = json;
   slot.currentLayers = cosExtractLayers(json);
   cosPopulateLayerSelect();
+  cosRereadSpriteXforms('loaded cosmetic JSON');
   await cosLoadAssets();
 }
 
@@ -2088,6 +2111,29 @@ function cosUpdateDebugLog(reason = '') {
     ...cosLastUrLayers.map((mid, i) => `  ur[${i}] ${mid.url || '(no-url)'} renderOrder=${mid.renderOrder || 'normal'}`),
   ];
   out.textContent = lines.join('\n');
+}
+
+function cosRereadSpriteXforms(reason = 'manual reread') {
+  const out = document.getElementById('cos-debugLog');
+  if (!out) return;
+  const lines = [`[cos-xform] ${reason}`];
+  for (const def of SLOT_DEFS) {
+    const slot = SLOTS[def.key];
+    if (!slot.loadedJson) {
+      lines.push(`${def.label}: no loaded cosmetic JSON`);
+      continue;
+    }
+    const layers = cosExtractLayers(slot.loadedJson);
+    lines.push(`${def.label}: ${slot.cosEntryId || '(none)'} layers=${layers.length}`);
+    layers.forEach((layer, index) => {
+      const xf = layer.xform || {};
+      lines.push(
+        `  [${index}] ${layer.name || `layer${index + 1}`} ax=${Number(xf.ax ?? 0).toFixed(3)} ay=${Number(xf.ay ?? 0).toFixed(3)} scaleX=${Number(xf.scaleX ?? 1).toFixed(3)} scaleY=${Number(xf.scaleY ?? 1).toFixed(3)} url=${layer.url || '(none)'}`
+      );
+    });
+  }
+  out.textContent = lines.join('\n');
+  console.debug('[cos-xform] reread sprite xforms', lines);
 }
 
 /** Set xform sliders/baseline from a specific layer index in the active slot's currentLayers. */
@@ -2591,6 +2637,10 @@ document.getElementById('cos-copyXformBtn').addEventListener('click', () => {
       setTimeout(() => { status.textContent = ''; }, 2500);
     }
   );
+});
+
+document.getElementById('cos-rereadXformsBtn').addEventListener('click', () => {
+  cosRereadSpriteXforms('manual reread button');
 });
 
 // Paste xform button — apply internal clipboard xform to active slot

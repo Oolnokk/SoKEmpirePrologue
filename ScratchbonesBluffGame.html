@@ -2625,6 +2625,7 @@
       rand = mulberry32(state.seed);
       dealFreshHands();
       for (const p of state.players) p.profile = generatePlayerProfile(p);
+      for (const p of state.players) logPlayerPortraitXforms(p);
       state.leaderIndex = rngInt(0, state.players.length - 1);
       state.currentTurn = state.leaderIndex;
       setBanner(state.currentTurn === 0 ? SCRATCHBONES_GAME.uiText.yourLeadBanner : `${seatLabel(state.currentTurn)} opens the round.`);
@@ -4993,6 +4994,26 @@
                         : player.gender === 'female' ? FIGHTERS.filter(f => fighterGender(f) === 'female')
                         : FIGHTERS;
       return randomProfileSeeded(rng, fighterPool.length ? fighterPool : FIGHTERS, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter, torsoPortraitOptions, armPortraitOptions, forcedCosmeticsByFighter, conditionalCosmeticsByFighter);
+    }
+    function logPlayerPortraitXforms(player) {
+      if (!player?.profile || !window.getProfileSpriteXforms) return;
+      const rows = getProfileSpriteXforms(player.profile).map((entry, index) => {
+        const xf = entry.xform || {};
+        return {
+          sprite: index + 1,
+          part: entry.part || '',
+          group: entry.group || '',
+          id: entry.id || '',
+          pos: entry.pos || '',
+          renderOrder: entry.renderOrder || '',
+          url: entry.url || '',
+          ax: Number(xf.ax ?? 0).toFixed(3),
+          ay: Number(xf.ay ?? 0).toFixed(3),
+          sx: Number(xf.sx ?? 1).toFixed(3),
+          sy: Number(xf.sy ?? 1).toFixed(3),
+        };
+      });
+      console.debug(`[portrait-xform] ${seatLabel(player)} initial portrait sprites`, rows);
     }
     function renderSeatPortraits() {
       const root = document.getElementById('app');
