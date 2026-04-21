@@ -1838,7 +1838,7 @@
         },
         timers: {
           challengeTimerSecs: rawGameConfig.timers?.challengeSeconds ?? 6,
-          aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 6000,
+          aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 650,
         },
         layout: {
           mode: String(rawGameConfig.layout?.mode || 'responsive').toLowerCase(),
@@ -4589,9 +4589,9 @@
     }
 
     function render() {
-      document.querySelectorAll('[data-cluster-avatar-overlay]').forEach(el => el.remove());
       seatAvatarAnim.capturePreRender();
       cardAnimator.capturePreRender();
+      document.querySelectorAll('[data-cluster-avatar-overlay]').forEach(el => el.remove());
       const app = document.getElementById('app');
       const layoutPolicy = applyLayoutContract(app);
       const player = state.players[0] || { hand: [], chips: 0, clears: 0 };
