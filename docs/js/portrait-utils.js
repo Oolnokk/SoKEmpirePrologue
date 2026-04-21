@@ -910,13 +910,14 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   const syncAcrossPieces = clothingRule?.syncAcrossPieces === true;
   const ruleRange = clothingRule?.range || null;
   const clothSourceRange = ruleRange || torsoCosmetic?.colorRange || armCosmetic?.colorRange || null;
-  const hatSourceRange = materialColorRangeFor(hat) || hat?.colorRange || null;
+  const hatMaterialRange = materialColorRangeFor(hat);
+  const hatSourceRange = hatMaterialRange || hat?.colorRange || null;
 
   if (hasClothPiece && clothSourceRange) {
     bodyColors.CLOTH = randomColorFromRangeSeeded(clothSourceRange, rng);
   }
   if (hatSourceRange) {
-    bodyColors.HAT = (syncAcrossPieces && bodyColors.CLOTH)
+    bodyColors.HAT = (syncAcrossPieces && bodyColors.CLOTH && !hatMaterialRange)
       ? bodyColors.CLOTH
       : randomColorFromRangeSeeded(hatSourceRange, rng);
   }
