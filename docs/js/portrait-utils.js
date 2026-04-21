@@ -633,14 +633,6 @@ function applyBodyColorRulesSeeded(bodyColors, rules, rng) {
   return result;
 }
 
-function resolveClothingColorRangeSeeded(hat, torsoCosmetic, armCosmetic, clothingRule) {
-  return clothingRule?.range
-    || torsoCosmetic?.colorRange
-    || armCosmetic?.colorRange
-    || hat?.colorRange
-    || null;
-}
-
 /**
  * Weighted random pick from an array, driven by rng().
  * weights: object mapping item.id to a numeric weight (items absent from the map default to 1).
@@ -799,22 +791,19 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   bodyColors = applyBodyColorRulesSeeded(bodyColors, randomizationRules, rng);
 
   const clothingRule = randomizationRules?.clothingColors;
-  const clothingRange = resolveClothingColorRangeSeeded(hat, torsoCosmetic, armCosmetic, clothingRule);
   const hasClothPiece = Boolean(torsoCosmetic?.colorRange || armCosmetic?.colorRange);
   const syncAcrossPieces = clothingRule?.syncAcrossPieces === true;
+  const ruleRange = clothingRule?.range || null;
+  const clothSourceRange = ruleRange || torsoCosmetic?.colorRange || armCosmetic?.colorRange || null;
+  const hatSourceRange = ruleRange || hat?.colorRange || null;
 
-  if (clothingRange && (hasClothPiece || hat?.colorRange)) {
-    const clothColor = randomColorFromRangeSeeded(clothingRange, rng);
-    if (hasClothPiece) bodyColors.CLOTH = clothColor;
-    if (hat?.colorRange) {
-      bodyColors.HAT = syncAcrossPieces ? clothColor : randomColorFromRangeSeeded(clothingRange, rng);
-    }
-  } else {
-    if (hat?.colorRange) bodyColors.HAT = randomColorFromRangeSeeded(hat.colorRange, rng);
-    if (torsoCosmetic?.colorRange || armCosmetic?.colorRange) {
-      const sourceRange = torsoCosmetic?.colorRange || armCosmetic?.colorRange;
-      bodyColors.CLOTH = randomColorFromRangeSeeded(sourceRange, rng);
-    }
+  if (hasClothPiece && clothSourceRange) {
+    bodyColors.CLOTH = randomColorFromRangeSeeded(clothSourceRange, rng);
+  }
+  if (hat?.colorRange && hatSourceRange) {
+    bodyColors.HAT = (syncAcrossPieces && bodyColors.CLOTH)
+      ? bodyColors.CLOTH
+      : randomColorFromRangeSeeded(hatSourceRange, rng);
   }
   return { fighter, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic, bodyColors };
 }
