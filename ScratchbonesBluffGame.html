@@ -1821,6 +1821,11 @@
           playerCount: rawGameConfig.deck?.playerCount ?? 4,
           humanNames: rawGameConfig.deck?.humanNames ?? ['You'],
         },
+        nameGeneration: {
+          defaultCultureId: rawGameConfig.nameGeneration?.defaultCultureId ?? 'mao_ao',
+          seedPrefix: rawGameConfig.nameGeneration?.seedPrefix ?? 'madiao-player',
+          cultures: rawGameConfig.nameGeneration?.cultures ?? {},
+        },
         chips: {
           startingChips: rawGameConfig.chips?.starting ?? 12,
           challengeBaseTransfer: rawGameConfig.chips?.challengeBaseTransfer ?? 1,
