@@ -186,6 +186,46 @@ function applyPortraitOpacityMask(ctx, img, xform) {
   ctx.restore();
 }
 
+function getProfileSpriteXforms(profile) {
+  if (!profile) return [];
+  const { fighter, hair, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic } = profile;
+  const resolvedFighter = resolvePortraitFighter(fighter) || fighter;
+  const headXform = resolvedFighter?.headXform || fighter?.headXform || HEAD_XFORM;
+  const opacityMaskLayer = resolvedFighter?.opacityMaskLayer || fighter?.opacityMaskLayer || null;
+  const headUrl = resolvedFighter?.headUrl || fighter?.headUrl;
+  const bodyLayerSource = resolvedFighter?.bodyLayers || fighter?.bodyLayers || [];
+  const urLayerSource = resolvedFighter?.urLayers || fighter?.urLayers || [];
+  const toRecord = (part, layer, extra = {}) => ({
+    part,
+    url: layer?.url || null,
+    xform: composeXform(headXform, layer || {}),
+    ...extra,
+  });
+  const records = [];
+  for (const layer of bodyLayerSource) records.push(toRecord('body', layer, { pos: layer.pos || 'back', id: layer.id || null }));
+  for (const group of [torsoCosmetic, armCosmetic]) {
+    if (!group?.layers?.length) continue;
+    for (const layer of group.layers) {
+      records.push(toRecord('bodyCosmetic', layer, { group: group.id || null, pos: layer.pos || 'front' }));
+    }
+  }
+  const allCosmeticGroups = hairFront !== undefined
+    ? [hairBack, hairSide, facialHair, eyes, hairFront, hat]
+    : [hair, facialHair, eyes, hat];
+  for (const group of allCosmeticGroups) {
+    if (!group?.layers?.length) continue;
+    for (const layer of group.layers) {
+      records.push(toRecord('cosmetic', layer, { group: group.id || null, pos: layer.pos || 'front' }));
+    }
+  }
+  if (headUrl) records.push({ part: 'head', url: headUrl, xform: { ...headXform } });
+  for (const layer of urLayerSource) {
+    records.push({ part: 'headOverlay', url: layer.url || null, renderOrder: layer.renderOrder || 'normal', xform: { ...(layer.xform || headXform) } });
+  }
+  if (opacityMaskLayer?.url) records.push(toRecord('opacityMask', opacityMaskLayer));
+  return records;
+}
+
 // ── Rendering ──────────────────────────────────────────────
 
 async function renderProfile(canvas, profile) {
