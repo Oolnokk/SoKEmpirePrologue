@@ -672,7 +672,17 @@ function applyBodyColorRulesSeeded(bodyColors, rules, rng) {
 function weightedPickRng(arr, weights, rng) {
   if (!arr || arr.length === 0) return undefined;
   if (!weights) return arr[Math.floor(rng() * arr.length)];
-  const w = arr.map(o => (weights[o.id] != null ? weights[o.id] : 1));
+  const hasWeightKey = (key) => Object.prototype.hasOwnProperty.call(weights, key);
+  const resolveWeight = (optionId) => {
+    if (hasWeightKey(optionId)) return weights[optionId];
+    const underscoreIndex = typeof optionId === 'string' ? optionId.indexOf('_') : -1;
+    if (underscoreIndex > 0) {
+      const suffixId = optionId.slice(underscoreIndex + 1);
+      if (hasWeightKey(suffixId)) return weights[suffixId];
+    }
+    return 1;
+  };
+  const w = arr.map(o => resolveWeight(o.id));
   const total = w.reduce((a, b) => a + b, 0);
   if (total <= 0) return arr[Math.floor(rng() * arr.length)];
   let r = rng() * total;
@@ -707,7 +717,26 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   const fighterEntry = allowedCosmeticsByFighter?.[fighter.id] ?? allowedCosmeticsByFighter?.[fighterInput?.id];
   const allowed   = fighterEntry instanceof Set ? fighterEntry : (fighterEntry?.set ?? null);
   const disallowedCombos = (fighterEntry instanceof Set ? [] : (fighterEntry?.disallowedCombos ?? []));
-  const filterArr = (arr) => arr && allowed ? arr.filter(o => o.id === 'none' || allowed.has(o.id)) : arr;
+  const allowedPrefixes = allowed
+    ? new Set(
+      Array.from(allowed)
+        .filter(id => typeof id === 'string' && id.includes('_'))
+        .map(id => id.slice(0, id.indexOf('_')))
+    )
+    : null;
+  const isAllowedId = (optionId) => {
+    if (!allowed) return true;
+    if (allowed.has(optionId)) return true;
+    const underscoreIndex = typeof optionId === 'string' ? optionId.indexOf('_') : -1;
+    if (underscoreIndex > 0) {
+      const prefixId = optionId.slice(0, underscoreIndex);
+      if (!allowedPrefixes?.has(prefixId)) return false;
+      const suffixId = optionId.slice(underscoreIndex + 1);
+      if (allowed.has(suffixId)) return true;
+    }
+    return false;
+  };
+  const filterArr = (arr) => arr && allowed ? arr.filter(o => o.id === 'none' || isAllowedId(o.id)) : arr;
   const weights   = cosmeticWeightsByFighter?.[fighter.id] ?? cosmeticWeightsByFighter?.[fighterInput?.id] ?? null;
 
   const filteredHairFront  = filterArr(hairFrontOptions)  ?? [];
