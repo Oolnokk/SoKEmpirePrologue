@@ -2202,6 +2202,8 @@
       let bgmAudio = null;
       let bgmPlaylistIndex = 0;
       let challengeBgmActive = false;
+      const failedPlaylistTracks = new Set();
+      let playlistExhausted = false;
 
       function buildAudio(url, volume) {
         if (!cfg.enabled || !isUrl(url)) return null;
@@ -2253,7 +2255,10 @@
         if (!next) return;
         next.loop = !!loop;
         next.addEventListener('error', () => {
-          if (!challengeBgmActive) playNextPlaylistTrack();
+          if (!challengeBgmActive && !loop) {
+            failedPlaylistTracks.add(url);
+            playNextPlaylistTrack();
+          }
         }, { once: true });
         safePlay(next);
         bgmAudio = next;
@@ -2267,14 +2272,25 @@
       }
       function playNextPlaylistTrack() {
         const playlist = cfg.bgm?.playlist || [];
-        if (!cfg.enabled || challengeBgmActive || !playlist.length) return;
+        if (!cfg.enabled || challengeBgmActive || !playlist.length || playlistExhausted) return;
+        const availableTracks = playlist.filter((url) => isUrl(url) && !failedPlaylistTracks.has(url));
+        if (!availableTracks.length) {
+          playlistExhausted = true;
+          if (bgmAudio) {
+            bgmAudio.pause();
+            bgmAudio.src = '';
+            bgmAudio = null;
+          }
+          console.warn('[scratchbones audio] Disabling playlist BGM after all configured tracks failed to load.');
+          return;
+        }
         let attempts = playlist.length;
         while (attempts > 0) {
           const idx = bgmPlaylistIndex % playlist.length;
           bgmPlaylistIndex += 1;
           attempts -= 1;
           const url = playlist[idx];
-          if (!isUrl(url)) continue;
+          if (!isUrl(url) || failedPlaylistTracks.has(url)) continue;
           setTrack(url, { loop: false });
           if (bgmAudio) {
             bgmAudio.onended = () => {
