@@ -343,8 +343,8 @@
       padding: 2px;
     }
     .claimHandBar .tableViewCard {
-      width: calc(var(--layout-card-mini-base-width) * var(--layout-card-scale) * var(--layout-table-card-container-scale));
-      height: calc(var(--layout-card-mini-base-height) * var(--layout-card-scale) * var(--layout-table-card-container-scale));
+      width: calc(clamp(var(--layout-hand-card-min-width), 14vw, var(--layout-hand-card-max-width)) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale));
+      height: calc(clamp(var(--layout-hand-card-min-height), 20vh, var(--layout-hand-card-max-height)) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale));
       margin-left: -8px;
     }
     .claimHandBar .tableViewCard:first-child {
@@ -389,8 +389,8 @@
       min-height: 0;
     }
     .tableViewCard {
-      width: calc(var(--layout-card-table-base-width) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale));
-      height: calc(var(--layout-card-table-base-height) * var(--layout-card-scale) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale));
+      width: calc(clamp(var(--layout-hand-card-min-width), 14vw, var(--layout-hand-card-max-width)) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale));
+      height: calc(clamp(var(--layout-hand-card-min-height), 20vh, var(--layout-hand-card-max-height)) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale));
       border-radius: 0;
       border: 0;
       background: transparent;
@@ -2002,6 +2002,18 @@
           flippedCardFallbackSrc: rawGameConfig.assets?.cards?.flipped?.fallbackSrc ?? '2DScratchBoneFlipped.png',
           rankCardTemplateSrc: rawGameConfig.assets?.cards?.rankTemplate?.src ?? '2DScratchbone{rank}.png',
           rankCardTemplateFallbackSrc: rawGameConfig.assets?.cards?.rankTemplate?.fallbackSrc ?? '2DScratchbones{rank}.png',
+          audio: {
+            enabled: rawGameConfig.assets?.audio?.enabled !== false,
+            sfxVolume: rawGameConfig.assets?.audio?.sfxVolume ?? 0.92,
+            bgmVolume: rawGameConfig.assets?.audio?.bgmVolume ?? 0.48,
+            musicFadeMs: rawGameConfig.assets?.audio?.musicFadeMs ?? 280,
+            movement: rawGameConfig.assets?.audio?.movement || {},
+            challenge: rawGameConfig.assets?.audio?.challenge || {},
+            bgm: {
+              playlist: Array.isArray(rawGameConfig.assets?.audio?.bgm?.playlist) ? rawGameConfig.assets.audio.bgm.playlist : [],
+              challenge: rawGameConfig.assets?.audio?.bgm?.challenge || '',
+            },
+          },
         },
       };
     }
@@ -2183,6 +2195,136 @@
       }
     }
     const CHALLENGE_TIMER_SECS = SCRATCHBONES_GAME.timers.challengeTimerSecs;
+    const SCRATCHBONES_AUDIO = (() => {
+      const cfg = SCRATCHBONES_GAME.assets?.audio || {};
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
+      const isUrl = (value) => typeof value === 'string' && value.trim().length > 0;
+      let bgmAudio = null;
+      let bgmPlaylistIndex = 0;
+      let challengeBgmActive = false;
+      const failedPlaylistTracks = new Set();
+      let playlistExhausted = false;
+
+      function buildAudio(url, volume) {
+        if (!cfg.enabled || !isUrl(url)) return null;
+        try {
+          const audio = new Audio(url);
+          audio.preload = 'auto';
+          audio.volume = clamp(volume, 0, 1);
+          return audio;
+        } catch (error) {
+          console.warn('[scratchbones audio] Failed to construct audio element.', error);
+          return null;
+        }
+      }
+      function safePlay(audio) {
+        if (!audio) return;
+        const p = audio.play?.();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      }
+      function playSfx(entry) {
+        if (!cfg.enabled || !entry || !isUrl(entry.url)) return;
+        const playbackRate = clamp((Number(entry.pitch) || 1) * (Number(entry.tempo) || 1), 0.5, 2);
+        const baseVolume = clamp(cfg.sfxVolume ?? 1, 0, 1);
+        const volume = clamp(baseVolume * (Number(entry.volume) || 1), 0, 1);
+        const audio = buildAudio(entry.url, volume);
+        if (!audio) return;
+        audio.playbackRate = playbackRate;
+        safePlay(audio);
+      }
+      function fadeTo(audio, targetVolume, durationMs, onDone) {
+        if (!audio) { onDone?.(); return; }
+        const duration = Math.max(1, Number(durationMs) || 1);
+        const start = performance.now();
+        const from = Number(audio.volume) || 0;
+        const to = clamp(targetVolume, 0, 1);
+        function tick(now) {
+          const t = clamp((now - start) / duration, 0, 1);
+          audio.volume = from + (to - from) * t;
+          if (t < 1) requestAnimationFrame(tick);
+          else onDone?.();
+        }
+        requestAnimationFrame(tick);
+      }
+      function setTrack(url, { loop = false } = {}) {
+        if (!cfg.enabled || !isUrl(url)) return;
+        const fadeMs = Math.max(40, Number(cfg.musicFadeMs) || 280);
+        const targetVolume = clamp(cfg.bgmVolume ?? 0.45, 0, 1);
+        const old = bgmAudio;
+        const next = buildAudio(url, 0);
+        if (!next) return;
+        next.loop = !!loop;
+        next.addEventListener('error', () => {
+          if (!challengeBgmActive && !loop) {
+            failedPlaylistTracks.add(url);
+            playNextPlaylistTrack();
+          }
+        }, { once: true });
+        safePlay(next);
+        bgmAudio = next;
+        fadeTo(next, targetVolume, fadeMs);
+        if (old) {
+          fadeTo(old, 0, fadeMs, () => {
+            old.pause();
+            old.src = '';
+          });
+        }
+      }
+      function playNextPlaylistTrack() {
+        const playlist = cfg.bgm?.playlist || [];
+        if (!cfg.enabled || challengeBgmActive || !playlist.length || playlistExhausted) return;
+        const availableTracks = playlist.filter((url) => isUrl(url) && !failedPlaylistTracks.has(url));
+        if (!availableTracks.length) {
+          playlistExhausted = true;
+          if (bgmAudio) {
+            bgmAudio.pause();
+            bgmAudio.src = '';
+            bgmAudio = null;
+          }
+          console.warn('[scratchbones audio] Disabling playlist BGM after all configured tracks failed to load.');
+          return;
+        }
+        let attempts = playlist.length;
+        while (attempts > 0) {
+          const idx = bgmPlaylistIndex % playlist.length;
+          bgmPlaylistIndex += 1;
+          attempts -= 1;
+          const url = playlist[idx];
+          if (!isUrl(url) || failedPlaylistTracks.has(url)) continue;
+          setTrack(url, { loop: false });
+          if (bgmAudio) {
+            bgmAudio.onended = () => {
+              if (!challengeBgmActive) playNextPlaylistTrack();
+            };
+          }
+          return;
+        }
+      }
+      function startPlaylist() {
+        if (!cfg.enabled || challengeBgmActive) return;
+        if (bgmAudio && !bgmAudio.paused) return;
+        playNextPlaylistTrack();
+      }
+      function startChallengeMusic() {
+        const url = cfg.bgm?.challenge;
+        if (!cfg.enabled || !isUrl(url)) return;
+        challengeBgmActive = true;
+        setTrack(url, { loop: true });
+      }
+      function stopChallengeMusic() {
+        if (!cfg.enabled) return;
+        challengeBgmActive = false;
+        playNextPlaylistTrack();
+      }
+      return {
+        playMovement(type) { playSfx(cfg.movement?.[type]); },
+        playChallengeStart() { playSfx(cfg.challenge?.start); },
+        playChallengeEnd() { playSfx(cfg.challenge?.end); },
+        startPlaylist,
+        startChallengeMusic,
+        stopChallengeMusic,
+      };
+    })();
     const MAO_AO_CULTURE = {
       id: "mao_ao",
       displayName: "Mao-ao",
@@ -2691,6 +2833,7 @@
       }
     }
     function startGame() {
+      SCRATCHBONES_AUDIO.startPlaylist();
       clearChallengeTimer();
       state.players = makePlayers();
       state.selectedCardIds.clear();
@@ -2955,6 +3098,8 @@
     function startChallenge(challengerIndex, challengedIndex) {
       if (!state.challengeWindow || state.gameOver || state.betting) return;
       clearChallengeTimer();
+      SCRATCHBONES_AUDIO.playChallengeStart();
+      SCRATCHBONES_AUDIO.startChallengeMusic();
       const play = state.challengeWindow.lastPlay;
       addLog(`${seatLabel(challengerIndex)} challenges ${seatLabel(challengedIndex)}.`);
       state.betting = {
@@ -3179,6 +3324,8 @@
     }
     function finalizeChallengeByFold(winnerId, loserId, reason) {
       if (!state.betting || state.gameOver) return;
+      SCRATCHBONES_AUDIO.playChallengeEnd();
+      SCRATCHBONES_AUDIO.stopChallengeMusic();
       const winner = state.players[winnerId];
       const loser = state.players[loserId];
       let award = challengePotTotal();
@@ -3201,6 +3348,8 @@
     }
     function revealChallenge() {
       if (!state.betting || state.gameOver) return;
+      SCRATCHBONES_AUDIO.playChallengeEnd();
+      SCRATCHBONES_AUDIO.stopChallengeMusic();
       const play = state.betting.play;
       const challengerId = state.betting.challengerId;
       const challengedId = state.betting.challengedId;
@@ -4528,6 +4677,7 @@
               const isClaimOrTable = containerType === 'claim' || containerType === 'table';
               if (actorRect && isClaimOrTable) {
                 // Opponent card: fly from cluster avatar center, start tiny
+                SCRATCHBONES_AUDIO.playMovement('opponentToTable');
                 const staggerDelay = opponentCardIdx * OPPONENT_STAGGER_MS;
                 opponentCardIdx++;
                 const existing = activeClones.get(id);
@@ -4567,6 +4717,7 @@
                 }, staggerDelay);
               } else {
                 // Normal fade-in for new cards with no prior position
+                SCRATCHBONES_AUDIO.playMovement('fadeIn');
                 img.style.opacity = '0';
                 requestAnimationFrame(() => {
                   img.style.transition = `opacity ${FADE_MS}ms ease`;
@@ -4578,6 +4729,15 @@
             }
 
             if (snapshot.containerType === containerType) return;
+            const movementType =
+              snapshot.containerType === 'hand' && (containerType === 'table' || containerType === 'claim')
+                ? 'handToTable'
+                : (snapshot.containerType === 'table' && containerType === 'claim')
+                  ? 'tableToClaim'
+                  : ((snapshot.containerType === 'claim' || snapshot.containerType === 'table') && containerType === 'hand')
+                    ? 'claimToHand'
+                    : 'fadeIn';
+            SCRATCHBONES_AUDIO.playMovement(movementType);
             const existing = activeClones.get(id);
             if (existing) existing.remove();
             const dx = snapshot.rect.left - newRect.left;
@@ -5942,6 +6102,8 @@
     }
     window.addEventListener('resize', scheduleResponsiveFitPass, { passive: true });
     window.addEventListener('orientationchange', scheduleResponsiveFitPass, { passive: true });
+    window.addEventListener('pointerdown', () => SCRATCHBONES_AUDIO.startPlaylist(), { once: true, passive: true });
+    window.addEventListener('keydown', () => SCRATCHBONES_AUDIO.startPlaylist(), { once: true, passive: true });
     startGame();
   </script>
 </body>
