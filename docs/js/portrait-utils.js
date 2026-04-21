@@ -717,11 +717,20 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   const fighterEntry = allowedCosmeticsByFighter?.[fighter.id] ?? allowedCosmeticsByFighter?.[fighterInput?.id];
   const allowed   = fighterEntry instanceof Set ? fighterEntry : (fighterEntry?.set ?? null);
   const disallowedCombos = (fighterEntry instanceof Set ? [] : (fighterEntry?.disallowedCombos ?? []));
+  const allowedPrefixes = allowed
+    ? new Set(
+      Array.from(allowed)
+        .filter(id => typeof id === 'string' && id.includes('_'))
+        .map(id => id.slice(0, id.indexOf('_')))
+    )
+    : null;
   const isAllowedId = (optionId) => {
     if (!allowed) return true;
     if (allowed.has(optionId)) return true;
     const underscoreIndex = typeof optionId === 'string' ? optionId.indexOf('_') : -1;
     if (underscoreIndex > 0) {
+      const prefixId = optionId.slice(0, underscoreIndex);
+      if (!allowedPrefixes?.has(prefixId)) return false;
       const suffixId = optionId.slice(underscoreIndex + 1);
       if (allowed.has(suffixId)) return true;
     }
