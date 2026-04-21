@@ -344,8 +344,8 @@
       padding: 2px;
     }
     .claimHandBar .tableViewCard {
-      width: calc(clamp(var(--layout-hand-card-min-width), 14vw, var(--layout-hand-card-max-width)) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale));
-      height: calc(clamp(var(--layout-hand-card-min-height), 20vh, var(--layout-hand-card-max-height)) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale));
+      width: var(--layout-claim-card-width, calc(clamp(var(--layout-hand-card-min-width), 14vw, var(--layout-hand-card-max-width)) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale)));
+      height: var(--layout-claim-card-height, calc(clamp(var(--layout-hand-card-min-height), 20vh, var(--layout-hand-card-max-height)) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale)));
       margin-left: -8px;
     }
     .claimHandBar .tableViewCard:first-child {
@@ -358,6 +358,10 @@
       aspect-ratio: 1;
       transform: translate(-50%, -50%) scale(var(--layout-claim-avatar-container-scale));
       transform-origin: center center;
+      border-radius: 12px;
+      border: 1px solid rgba(242,208,143,0.28);
+      background: rgba(22,16,14,0.72);
+      overflow: hidden;
     }
     .actorAvatarFloat canvas,
     .reactorAvatarFloat canvas {
@@ -4552,6 +4556,12 @@
   if (!claimCluster) return;
 
   const overlayParent = document.getElementById('authoredRoot') || document.body;
+  const spotlightAvatarRect = app.querySelector('.turnSpotlightAvatar')?.getBoundingClientRect();
+  const spotlightAvatarSize = Math.max(
+    0,
+    Number(spotlightAvatarRect?.width) || 0,
+    Number(spotlightAvatarRect?.height) || 0
+  );
 
   ['.actorAvatarFloat', '.reactorAvatarFloat'].forEach((sel) => {
     const float = claimCluster.querySelector(sel);
@@ -4564,13 +4574,20 @@
     const canvas = float.querySelector('canvas.seatPortrait');
 
     float.style.position = 'fixed';
-    float.style.left = `${rect.left}px`;
-    float.style.top = `${rect.top}px`;
-    float.style.width = `${rect.width}px`;
-    float.style.height = `${rect.height}px`;
+    const targetSize = spotlightAvatarSize || Math.max(rect.width, rect.height);
+    const centerX = rect.left + (rect.width * 0.5);
+    const centerY = rect.top + (rect.height * 0.5);
+    float.style.left = `${centerX - (targetSize * 0.5)}px`;
+    float.style.top = `${centerY - (targetSize * 0.5)}px`;
+    float.style.width = `${targetSize}px`;
+    float.style.height = `${targetSize}px`;
     float.style.transform = 'none';
     float.style.transformOrigin = 'top left';
     float.style.zIndex = '9990';
+    float.style.borderRadius = '12px';
+    float.style.border = '1px solid rgba(242,208,143,0.28)';
+    float.style.background = 'rgba(22,16,14,0.72)';
+    float.style.overflow = 'hidden';
     float.dataset.clusterAvatarOverlay = '1';
 
     // Make the moved cluster avatar canvas behave like the seat portrait canvas.
@@ -4586,6 +4603,27 @@
 
     overlayParent.appendChild(float);
   });
+    }
+
+    function syncClaimClusterCardSizeFromHand(app) {
+      if (!app) return;
+      const cssTargets = [document.documentElement, app];
+      const handCardArt = app.querySelector('.handScroll .card .cardArt');
+      if (!handCardArt) {
+        for (const target of cssTargets) {
+          target.style.removeProperty('--layout-claim-card-width');
+          target.style.removeProperty('--layout-claim-card-height');
+        }
+        return;
+      }
+      const rect = handCardArt.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const claimCardWidth = `${rect.width.toFixed(2)}px`;
+      const claimCardHeight = `${rect.height.toFixed(2)}px`;
+      for (const target of cssTargets) {
+        target.style.setProperty('--layout-claim-card-width', claimCardWidth);
+        target.style.setProperty('--layout-claim-card-height', claimCardHeight);
+      }
     }
 
     function render() {
@@ -4864,6 +4902,7 @@
       renderAuthoredOverlays();
       renderAuthoredInspector();
       updateTableCardAutoScale(app);
+      syncClaimClusterCardSizeFromHand(app);
       moveAvatarFloatsToOverlay(app);
       cardAnimator.animatePostRender();
       seatAvatarAnim.animatePostRender();
