@@ -13,7 +13,7 @@
   "parts": {
     "head": {
       "image": {
-        "url": "./assets/cosmetics/appearance/kenkari/kenk_eyedisks.png"
+        "url": "./assets/cosmetics/appearance/kenkari/kenk_m_eyedisks.png"
       },
       "spriteStyle": {
         "xform": {

@@ -1,22 +1,22 @@
 {
   "meta": {
-    "name": "Forward Tuft"
+    "name": "Long Ponytail"
   },
   "type": "appearance",
-  "hairSlot": "front",
+  "hairSlot": "back",
   "appearance": {
     "inheritSprite": "head",
     "bodyColors": [
       "A"
     ],
-    "originalId": "kenk_fowardtuft"
+    "originalId": "kenk_longponytail_f"
   },
   "parts": {
     "head": {
       "layers": {
-        "front": {
+        "back": {
           "image": {
-            "url": "./assets/cosmetics/appearance/kenkari/headhair/kenk_m_fowardtuft_short.png"
+            "url": "./assets/cosmetics/appearance/kenkari/headhair/longponytail_kenk_f.png"
           },
           "spriteStyle": {
             "base": {
