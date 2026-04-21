@@ -1,5 +1,6 @@
 {
   "slot": "hat",
+  "tags": ["material:reed"],
   "colorRange": {
     "minH": -100,
     "maxH":  -45,

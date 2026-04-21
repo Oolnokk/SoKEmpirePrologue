@@ -225,6 +225,26 @@ const MATERIALS = {
 };
 window.CONFIG = window.CONFIG || {};
 window.CONFIG.materials = MATERIALS;
+window.CONFIG.cosmeticMaterialPalettes = {
+  reed: {
+    minH: 26,
+    maxH: 58,
+    stops: [
+      { h: 26, sMin: 0.12, sMax: 0.42, vMin: -0.42, vMax: 0.06 },
+      { h: 42, sMin: 0.10, sMax: 0.38, vMin: -0.38, vMax: 0.10 },
+      { h: 58, sMin: 0.08, sMax: 0.34, vMin: -0.32, vMax: 0.16 }
+    ]
+  },
+  wood: {
+    minH: 12,
+    maxH: 42,
+    stops: [
+      { h: 12, sMin: 0.20, sMax: 0.48, vMin: -0.52, vMax: 0.02 },
+      { h: 26, sMin: 0.16, sMax: 0.42, vMin: -0.46, vMax: 0.08 },
+      { h: 42, sMin: 0.10, sMax: 0.34, vMin: -0.40, vMax: 0.14 }
+    ]
+  }
+};
 
 const abilityKnockback = window.abilityKnockback || ((base, { clamp } = {}) => {
   return (context, opponent) => {

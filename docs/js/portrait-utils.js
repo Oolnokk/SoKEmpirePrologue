@@ -450,13 +450,20 @@ function portraitOptionFromJson(entry, json) {
   }
 
   const colorRange = json.colorRange || null;
+  const tags = Array.isArray(json.tags) ? json.tags : [];
+  const materialTag = (typeof json.material === 'string' && json.material.trim())
+    ? json.material.trim().toLowerCase()
+    : (tags.find(tag => typeof tag === 'string' && tag.toLowerCase().startsWith('material:')) || '')
+      .split(':')[1]
+      ?.trim()
+      ?.toLowerCase()
+      || null;
   const resolvedTintSlot = json.slot === 'hat' && colorRange ? 'HAT'
                          : !json.appearance && colorRange ? 'CLOTH'
                          : !json.appearance && json.tintSlot != null ? json.tintSlot
                          : tintSlot;
   const hairSlot = json.hairSlot || null; // 'front' | 'back' | 'side'
-  const tags = Array.isArray(json.tags) ? json.tags : [];
-  return { id: shortId, label, tintSlot: resolvedTintSlot, layers, slot: json.slot || null, colorRange, hairSlot, tags };
+  return { id: shortId, label, tintSlot: resolvedTintSlot, layers, slot: json.slot || null, colorRange, hairSlot, tags, materialTag };
 }
 
 /**
@@ -683,6 +690,14 @@ function randomInRange(rng, lo, hi) {
   return lo + rng() * (hi - lo);
 }
 
+function materialColorRangeFor(option) {
+  const materialTag = option?.materialTag;
+  if (!materialTag) return null;
+  const materialPalettes = window.CONFIG?.cosmeticMaterialPalettes;
+  if (!materialPalettes || typeof materialPalettes !== 'object') return null;
+  return materialPalettes[materialTag] || null;
+}
+
 function applyBodyColorRulesSeeded(bodyColors, rules, rng) {
   if (!bodyColors || !rules || typeof rules !== 'object') return bodyColors;
   const result = {
@@ -891,17 +906,18 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   bodyColors = applyBodyColorRulesSeeded(bodyColors, randomizationRules, rng);
 
   const clothingRule = randomizationRules?.clothingColors;
-  const hasClothPiece = Boolean(torsoCosmetic?.colorRange || armCosmetic?.colorRange);
+  const hasClothPiece = Boolean(torsoCosmetic?.layers?.length || armCosmetic?.layers?.length);
   const syncAcrossPieces = clothingRule?.syncAcrossPieces === true;
   const ruleRange = clothingRule?.range || null;
   const clothSourceRange = ruleRange || torsoCosmetic?.colorRange || armCosmetic?.colorRange || null;
-  const hatSourceRange = ruleRange || hat?.colorRange || null;
+  const hatMaterialRange = materialColorRangeFor(hat);
+  const hatSourceRange = hatMaterialRange || hat?.colorRange || null;
 
   if (hasClothPiece && clothSourceRange) {
     bodyColors.CLOTH = randomColorFromRangeSeeded(clothSourceRange, rng);
   }
-  if (hat?.colorRange && hatSourceRange) {
-    bodyColors.HAT = (syncAcrossPieces && bodyColors.CLOTH)
+  if (hatSourceRange) {
+    bodyColors.HAT = (syncAcrossPieces && bodyColors.CLOTH && !hatMaterialRange)
       ? bodyColors.CLOTH
       : randomColorFromRangeSeeded(hatSourceRange, rng);
   }
