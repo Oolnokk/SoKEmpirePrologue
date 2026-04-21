@@ -259,7 +259,6 @@
       "sy": 1
     },
     "allowedCosmetics": [
-      "appearance::Kenkari_F::kenk_eyedisks",
       "appearance::Kenkari_F::kenk_longponytail_f",
       "appearance::Kenkari_F::kenk_splayedknot_high_f",
       "appearance::Kenkari_F::kenk_splayedknot_low_f",
@@ -272,7 +271,6 @@
       "tankanwrap_kenk_f"
     ],
     "forcedCosmetics": {
-      "eyes": "kenk_eyedisks"
     },
     "conditionalCosmetics": [
       {
