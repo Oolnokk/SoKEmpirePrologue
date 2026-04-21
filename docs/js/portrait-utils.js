@@ -100,6 +100,7 @@ let PORTRAIT_L  = _portraitConfig.canvas?.layerSize ?? 80;
 let HEAD_XFORM = _portraitConfig.headXform || _PORTRAIT_DEFAULTS.headXform;
 let FIGHTERS = (_portraitConfig.fighters || _PORTRAIT_DEFAULTS.fighters).map(normalizedFighterPortrait);
 let BODYCOLOR_LIMITS = _portraitConfig.bodyColorLimits || _PORTRAIT_DEFAULTS.bodyColorLimits;
+let LAST_RANDOMIZATION_RULES_BY_FIGHTER = {};
 
 // ── Image loading ──────────────────────────────────────────
 
@@ -480,6 +481,7 @@ async function loadPortraitCosmetics(configBase) {
   const fighterPortraitOverrides = {};
   const forcedCosmeticsByFighter = {};
   const conditionalCosmeticsByFighter = {};
+  const randomizationRulesByFighter = {};
   try {
     const speciesIdxUrl = new URL(configBase + 'species/index.json', window.location.href).toString();
     const speciesIdxResp = await fetch(speciesIdxUrl);
@@ -538,6 +540,9 @@ async function loadPortraitCosmetics(configBase) {
             if (Array.isArray(genderData.conditionalCosmetics)) {
               conditionalCosmeticsByFighter[fighter.id] = genderData.conditionalCosmetics;
             }
+            if (genderData.randomizationRules && typeof genderData.randomizationRules === 'object') {
+              randomizationRulesByFighter[fighter.id] = genderData.randomizationRules;
+            }
           }
         }
       }));
@@ -559,7 +564,9 @@ async function loadPortraitCosmetics(configBase) {
     });
   }
 
-  return { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, torsoPortraitOptions, armPortraitOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter, forcedCosmeticsByFighter, conditionalCosmeticsByFighter };
+  LAST_RANDOMIZATION_RULES_BY_FIGHTER = randomizationRulesByFighter;
+
+  return { hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, hatOptions, torsoPortraitOptions, armPortraitOptions, indexEntries, optionCache, bodyColorRangesByGender, allowedCosmeticsByFighter, cosmeticWeightsByFighter, forcedCosmeticsByFighter, conditionalCosmeticsByFighter, randomizationRulesByFighter };
 }
 
 // ── Seeded randomisation ───────────────────────────────────
@@ -599,6 +606,39 @@ function randomBodyColorsSeeded(rng, bodyColorRanges) {
     B: bodyColorRanges && bodyColorRanges.B ? randomColorFromRangeSeeded(bodyColorRanges.B, rng) : fallback('B'),
     C: bodyColorRanges && bodyColorRanges.C ? randomColorFromRangeSeeded(bodyColorRanges.C, rng) : fallback('C'),
   };
+}
+
+function randomInRange(rng, lo, hi) {
+  return lo + rng() * (hi - lo);
+}
+
+function applyBodyColorRulesSeeded(bodyColors, rules, rng) {
+  if (!bodyColors || !rules || typeof rules !== 'object') return bodyColors;
+  const result = {
+    ...bodyColors,
+    A: bodyColors.A ? { ...bodyColors.A } : bodyColors.A,
+    B: bodyColors.B ? { ...bodyColors.B } : bodyColors.B,
+    C: bodyColors.C ? { ...bodyColors.C } : bodyColors.C
+  };
+  const brightnessRule = rules.brightnessContrastAB;
+  if (!brightnessRule || !result.A || !result.B) return result;
+  const medium = brightnessRule.medium;
+  const bright = brightnessRule.bright;
+  if (!medium || !bright) return result;
+  const flip = rng() < 0.5;
+  const slotA = flip ? 'A' : 'B';
+  const slotB = flip ? 'B' : 'A';
+  result[slotA].v = randomInRange(rng, medium.min, medium.max);
+  result[slotB].v = randomInRange(rng, bright.min, bright.max);
+  return result;
+}
+
+function resolveClothingColorRangeSeeded(hat, torsoCosmetic, armCosmetic, clothingRule) {
+  return clothingRule?.range
+    || torsoCosmetic?.colorRange
+    || armCosmetic?.colorRange
+    || hat?.colorRange
+    || null;
 }
 
 /**
@@ -648,7 +688,7 @@ function resolvePortraitFighter(fighter) {
  *   per-category weights map (see weightedPickRng docs above). When omitted the selection
  *   falls back to the original uniform-random behaviour.
  */
-function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter, torsoPortraitOptions, armPortraitOptions, forcedCosmeticsByFighter, conditionalCosmeticsByFighter) {
+function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, hairSideOptions, eyesOptions, facialHairOptions, bodyColorRangesByGender, allowedCosmeticsByFighter, hatOptions, cosmeticWeightsByFighter, torsoPortraitOptions, armPortraitOptions, forcedCosmeticsByFighter, conditionalCosmeticsByFighter, randomizationRulesByFighter) {
   const pickRng   = (arr) => arr[Math.floor(rng() * arr.length)];
   const fighterInput = pickRng(fighters);
   const fighter = resolvePortraitFighter(fighterInput);
@@ -753,9 +793,29 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
     }
   }
 
-  const bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id] ?? bodyColorRangesByGender?.[fighterInput?.id]);
-  if (hat && hat.colorRange) bodyColors.HAT = randomColorFromRangeSeeded(hat.colorRange, rng);
-  if (torsoCosmetic?.colorRange) bodyColors.CLOTH = randomColorFromRangeSeeded(torsoCosmetic.colorRange, rng);
+  const ruleMap = randomizationRulesByFighter || LAST_RANDOMIZATION_RULES_BY_FIGHTER || null;
+  const randomizationRules = ruleMap?.[fighter.id] ?? ruleMap?.[fighterInput?.id] ?? null;
+  let bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id] ?? bodyColorRangesByGender?.[fighterInput?.id]);
+  bodyColors = applyBodyColorRulesSeeded(bodyColors, randomizationRules, rng);
+
+  const clothingRule = randomizationRules?.clothingColors;
+  const clothingRange = resolveClothingColorRangeSeeded(hat, torsoCosmetic, armCosmetic, clothingRule);
+  const hasClothPiece = Boolean(torsoCosmetic?.colorRange || armCosmetic?.colorRange);
+  const syncAcrossPieces = clothingRule?.syncAcrossPieces === true;
+
+  if (clothingRange && (hasClothPiece || hat?.colorRange)) {
+    const clothColor = randomColorFromRangeSeeded(clothingRange, rng);
+    if (hasClothPiece) bodyColors.CLOTH = clothColor;
+    if (hat?.colorRange) {
+      bodyColors.HAT = syncAcrossPieces ? clothColor : randomColorFromRangeSeeded(clothingRange, rng);
+    }
+  } else {
+    if (hat?.colorRange) bodyColors.HAT = randomColorFromRangeSeeded(hat.colorRange, rng);
+    if (torsoCosmetic?.colorRange || armCosmetic?.colorRange) {
+      const sourceRange = torsoCosmetic?.colorRange || armCosmetic?.colorRange;
+      bodyColors.CLOTH = randomColorFromRangeSeeded(sourceRange, rng);
+    }
+  }
   return { fighter, hairFront, hairBack, hairSide, eyes, facialHair, hat, torsoCosmetic, armCosmetic, bodyColors };
 }
 
