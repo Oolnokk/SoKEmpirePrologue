@@ -5900,13 +5900,16 @@
       fitReflowHandle = setTimeout(() => {
         fitReflowHandle = null;
         const app = document.getElementById('app');
-        const layoutPolicy = applyLayoutContract(app);
+        if (!app) return;
+        applyLayoutContract(app);
         if (getScratchbonesLayoutMode() === 'authored') {
           applyAuthoredLayoutMode(app, getScratchbonesAuthoredConfig());
           renderAuthoredOverlays();
         } else {
           applyResponsiveFit(app);
         }
+        updateTableCardAutoScale(app);
+        syncClaimClusterCardSizeFromHand(app);
       }, fitDebounceMs);
     }
     window.addEventListener('resize', scheduleResponsiveFitPass, { passive: true });
