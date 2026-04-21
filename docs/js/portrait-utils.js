@@ -144,14 +144,20 @@ function loadImg(relPath) {
   });
 
   const promise = (async () => {
+    const attemptedUrls = [];
     for (const url of uniqueCandidates) {
+      attemptedUrls.push(url);
       try {
         return await tryLoadUrl(url);
       } catch (_) {
         // Try next candidate URL.
       }
     }
-    throw new Error(`Failed to load portrait asset "${relPath}" from candidates: ${uniqueCandidates.join(', ')}`);
+    const error = new Error(`Failed to load portrait asset "${relPath}"`);
+    error.name = 'PortraitImageLoadError';
+    error.relPath = relPath;
+    error.attemptedUrls = attemptedUrls;
+    throw error;
   })();
 
   IMG_CACHE.set(relPath, promise);
@@ -309,7 +315,12 @@ async function renderProfile(canvas, profile) {
     );
     imgMap = new Map(entries);
   } catch (err) {
-    console.warn('[portrait] image load error', err);
+    console.warn('[portrait] image load error', {
+      message: err?.message || String(err),
+      name: err?.name || 'Error',
+      relPath: err?.relPath || null,
+      attemptedUrls: Array.isArray(err?.attemptedUrls) ? err.attemptedUrls : [],
+    });
     ctx.fillStyle = '#220000'; ctx.fillRect(0, 0, PORTRAIT_CW, PORTRAIT_CH);
     ctx.fillStyle = '#ff4444'; ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
