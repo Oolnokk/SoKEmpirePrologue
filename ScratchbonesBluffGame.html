@@ -4020,6 +4020,11 @@
       const claimAvatarContainerScale = clampNumber(Number(tableVisualFit.claimAvatarContainerScale) || 1.25, 0.75, 2.25);
       const claimAvatarContentScale = clampNumber(Number(tableVisualFit.claimAvatarContentScale) || 0.8, 0.45, 1);
       const avatarAdditiveZoomScale = clampNumber(Number(tableVisualFit.avatarAdditiveZoomScale) || 1.2, 0.8, 1.6);
+      const claimAvatarOverlayMatchSpotlightSize = tableVisualFit.claimAvatarOverlayMatchSpotlightSize !== false;
+      const claimAvatarOverlayZIndex = Math.max(1, Math.round(Number(tableVisualFit.claimAvatarOverlayZIndex) || 9990));
+      const claimAvatarOverlayBorderRadiusPx = clampNumber(Number(tableVisualFit.claimAvatarOverlayBorderRadiusPx) || 12, 0, 48);
+      const claimAvatarOverlayBorderColor = String(tableVisualFit.claimAvatarOverlayBorderColor || 'rgba(242,208,143,0.28)');
+      const claimAvatarOverlayBackground = String(tableVisualFit.claimAvatarOverlayBackground || 'rgba(22,16,14,0.72)');
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
       const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
       const flameXPct = clampNumber(numberOrDefault(flameLighting.xPct, 0.5), 0, 1);
@@ -4149,6 +4154,11 @@
             claimAvatarContainerScale,
             claimAvatarContentScale,
             avatarAdditiveZoomScale,
+            claimAvatarOverlayMatchSpotlightSize,
+            claimAvatarOverlayZIndex,
+            claimAvatarOverlayBorderRadiusPx,
+            claimAvatarOverlayBorderColor,
+            claimAvatarOverlayBackground,
           },
           cinematicEnabled,
         },
