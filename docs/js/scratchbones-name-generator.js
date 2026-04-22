@@ -1,46 +1,5 @@
 (function initScratchbonesNameGenerator(global) {
   const root = global || window;
-  const DEFAULT_MAO_AO_CULTURE = {
-    id: 'mao_ao',
-    displayName: 'Mao-ao',
-    casing: 'title',
-    birthRules: {
-      surnameFromParent: false,
-      maleFirstInitialMatchesSurnameFirstLetter: true,
-    },
-    marriageRules: {
-      wifeTakesHusbandSurname: true,
-      wifePrefixesHusbandFirstInitial: true,
-    },
-    positionedSyllables: {
-      pools: {
-        consonants: ['w', 'r', 't', 'y', 'p', 's', 'f', 'g', 'h', 'b', 'n', 'm', 'k'],
-        clusters: ['sh', 'hy'],
-        vowels: ['a', 'e', 'i', 'o', 'u', 'ai', 'ao'],
-        diphthongs: ['ai', 'ao'],
-      },
-      firstName: {
-        syllables: { min: 3, max: 3 },
-        first: {
-          female: { patterns: ['V', 'Vn', 'Vng'] },
-          male: { patterns: ['CV', 'CVn', 'CVng', 'CVr'] },
-        },
-        middle: {
-          female: { patterns: ['CV', 'CVn'] },
-          male: { patterns: ['CV', 'CVn', 'CVr'] },
-        },
-        last: {
-          male: { patterns: ['jei', 'ji', 'jo', 'CV{e}', 'CV{i}', 'CV{o}', 'CV{u}', 'CV{ai}'] },
-          female: { patterns: ['CV{a}', 'CV{i}', 'CV{ai}'] },
-        },
-        conditionalLast: {},
-      },
-      lastName: {
-        syllables: { exact: 2 },
-        deriveFromFirstNameMaleRules: true,
-      },
-    },
-  };
 
   function pickFromRng(rng, arr) {
     if (!arr || arr.length === 0) throw new Error('pickFromRng() called with empty array');
@@ -265,10 +224,152 @@
     };
   }
 
-  function generateMaoAoNameFromSeed(seedString, gender = 'male', culture) {
+  function formatPatronymicSurname(prefix, fatherFirstName, casing) {
+    const formattedFather = applyCasing(fatherFirstName, casing);
+    return `${String(prefix || '').toLowerCase()} ${formattedFather}`;
+  }
+
+  function weightedPick(rng, entries) {
+    const totalWeight = entries.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = rng() * totalWeight;
+    for (const entry of entries) {
+      roll -= entry.weight;
+      if (roll <= 0) return entry;
+    }
+    return entries[entries.length - 1];
+  }
+
+  function weightedPickValue(rng, values, weightMap) {
+    const entries = values
+      .map((value) => ({ value, weight: Number((weightMap || {})[value] ?? 1) }))
+      .filter((entry) => entry.weight > 0);
+    if (!entries.length) throw new Error('weightedPickValue() received no positive-weight values.');
+    return weightedPick(rng, entries).value;
+  }
+
+  function getKenkariVowelPool(phonology, opts = {}) {
+    const isFinal = !!opts.isFinal;
+    const allowMarked = !!opts.allowMarked;
+    let pool = phonology.vowels.slice();
+    if (!allowMarked) pool = pool.filter((v) => v !== 'ai' && v !== 'ey');
+    if (isFinal) {
+      return pool
+        .filter((v) => v !== 'e')
+        .concat((phonology.finalOnlyVowels || []).filter((v) => v !== 'e' && (allowMarked || v !== 'ao')));
+    }
+    return pool.filter((v) => !(phonology.finalOnlyVowels || []).includes(v));
+  }
+
+  function chooseKenkariTemplate(rng, phonology) {
+    return weightedPick(rng, phonology.templateWeights).pattern.slice();
+  }
+
+  function buildKenkariPhonemeByType(rng, phonology, type, opts = {}) {
+    const vowelPool = getKenkariVowelPool(phonology, opts);
+    const vowelWeightMap = opts.isFinal ? (phonology.finalVowelWeights || phonology.vowelWeights) : phonology.vowelWeights;
+    const vowel = weightedPickValue(rng, vowelPool, vowelWeightMap);
+    const position = Number.isFinite(opts.position) ? opts.position : 0;
+
+    if (type === 'V') {
+      if (position > 0) throw new Error('Kenkari lone vowels may only appear at the beginning of a name.');
+      return vowel;
+    }
+    if (type === 'CV') {
+      const consonantWeightMap = opts.afterGlottal && opts.isFinal
+        ? (phonology.postGlottalFinalConsonantWeights || phonology.finalConsonantWeights || phonology.consonantWeights)
+        : (opts.isFinal ? (phonology.finalConsonantWeights || phonology.consonantWeights) : phonology.consonantWeights);
+      return weightedPickValue(rng, phonology.consonants, consonantWeightMap) + vowel;
+    }
+    if (type === "'V") return "'" + vowel;
+
+    throw new Error(`Unsupported Kenkari phoneme type: ${type}`);
+  }
+
+  function countApostrophes(value) {
+    return (String(value || '').match(/'/g) || []).length;
+  }
+
+  function countMarkedVowels(value) {
+    return (String(value || '').match(/ai|ey|ao/g) || []).length;
+  }
+
+  function hasIVowelBeforeAVowel(phonemes) {
+    let seenI = false;
+    for (const phoneme of phonemes || []) {
+      const lower = String(phoneme || '').toLowerCase();
+      if (seenI && /a/.test(lower)) return true;
+      if (/i/.test(lower)) seenI = true;
+    }
+    return false;
+  }
+
+  function getKenkariGenderConflict(name, gender, phonemes = []) {
+    const lower = String(name || '').toLowerCase();
+    const firstPhoneme = String(phonemes[0] || '').toLowerCase();
+    const firstConsonant = /^[bgkhmnprt]/.test(firstPhoneme) ? firstPhoneme[0] : '';
+    if (gender === 'female' && lower.includes('p')) return true;
+    if (gender === 'female' && (firstConsonant === 'r' || firstConsonant === 't')) return true;
+    if (gender === 'male' && /(?:mi|mey)$/i.test(lower)) return true;
+    return false;
+  }
+
+  function buildKenkariGivenName(rng, culture, gender) {
+    const phonology = culture.kenkariRules.phonology;
+    for (let attempt = 1; attempt <= 40; attempt++) {
+      const template = chooseKenkariTemplate(rng, phonology);
+      const phonemes = [];
+
+      for (let i = 0; i < template.length; i++) {
+        const type = template[i];
+        const isFinal = i === template.length - 1;
+        const usedMarkedEarlier = phonemes.some((p) => /ai|ey|ao/.test(p));
+        const previousType = i > 0 ? template[i - 1] : null;
+        const allowMarked = isFinal ? (rng() < 0.28) : (!usedMarkedEarlier && rng() < 0.18);
+        phonemes.push(buildKenkariPhonemeByType(rng, phonology, type, {
+          isFinal,
+          allowMarked,
+          position: i,
+          afterGlottal: previousType === "'V",
+        }));
+      }
+
+      let name = phonemes.join('');
+      name = name.replace(/e(?=')/g, 'ey');
+      const validName = (
+        phonemes.length >= phonology.minPhonemes
+        && phonemes.length <= phonology.maxPhonemes
+        && !/e$/i.test(name)
+        && countApostrophes(name) <= 1
+        && countMarkedVowels(name) <= 1
+        && template.every((part, index) => index === 0 || part !== 'V')
+        && !/(pey|ora)$/i.test(name)
+        && !hasIVowelBeforeAVowel(phonemes)
+        && !getKenkariGenderConflict(name, gender, phonemes)
+      );
+      if (validName) return name;
+    }
+    throw new Error('Could not generate a Kenkari name within the current template rules.');
+  }
+
+  function generateCultureNameFromSeed(seedString, gender = 'male', culture, options = {}) {
     const resolvedCulture = culture || {};
     const numericSeed = hashStringToSeed(seedString);
     const rng = mulberry32(numericSeed);
+    if (resolvedCulture.kenkariRules) {
+      const firstName = buildKenkariGivenName(rng, resolvedCulture, gender);
+      const providedFather = String(options.fatherFirstName || '').trim();
+      const fatherFirstName = providedFather || buildKenkariGivenName(rng, resolvedCulture, 'male');
+      const prefix = gender === 'female'
+        ? resolvedCulture.kenkariRules.surnameRules?.femalePrefix
+        : resolvedCulture.kenkariRules.surnameRules?.malePrefix;
+      const surname = formatPatronymicSurname(prefix, fatherFirstName, resolvedCulture.casing);
+      return [applyCasing(firstName, resolvedCulture.casing), surname].filter(Boolean).join(' ');
+    }
+
+    if (!resolvedCulture.positionedSyllables) {
+      throw new Error(`Culture "${resolvedCulture.id || 'unknown'}" has no supported name generation rules.`);
+    }
+
     const surname = buildMaoAoSurname(rng, resolvedCulture.positionedSyllables);
     const forceInitial = resolvedCulture.birthRules?.maleFirstInitialMatchesSurnameFirstLetter && gender === 'male' && surname
       ? String(surname[0]).toLowerCase()
@@ -284,16 +385,20 @@
     const generationConfig = gameConfig.nameGeneration || {};
     const cultures = generationConfig.cultures || {};
     const defaultCultureId = generationConfig.defaultCultureId || 'mao_ao';
-    const defaultCulture = cultures[defaultCultureId] || cultures.mao_ao || DEFAULT_MAO_AO_CULTURE;
+    const defaultCulture = cultures[defaultCultureId] || cultures.mao_ao;
     return {
+      cultures,
+      defaultCultureId,
       defaultCulture,
     };
   }
 
-  function generateIdentityFromSeed(seedString, gender = 'male') {
-    const { defaultCulture } = resolveConfig();
+  function generateIdentityFromSeed(seedString, gender = 'male', cultureId, options = {}) {
+    const { cultures, defaultCulture, defaultCultureId } = resolveConfig();
     if (!defaultCulture) throw new Error('Missing scratchbones name generation culture configuration.');
-    return generateMaoAoNameFromSeed(seedString, gender, defaultCulture);
+    const selectedCultureId = cultureId || defaultCultureId;
+    const selectedCulture = cultures[selectedCultureId] || defaultCulture;
+    return generateCultureNameFromSeed(seedString, gender, selectedCulture, options);
   }
 
   root.SCRATCHBONES_NAME_GENERATOR = {
