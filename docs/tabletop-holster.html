@@ -383,11 +383,12 @@
       function buildBillboardRules() {
         const selectorRules = (Array.isArray(billboardConfig.selectors) ? billboardConfig.selectors : []).map((selector) => ({
           selector,
-          scale: 1
+          scale: 1,
+          isAvatar: false
         }));
         const avatarRules = (Array.isArray(billboardConfig.avatars) ? billboardConfig.avatars : [])
           .filter((rule) => typeof rule?.selector === 'string' && rule.selector.length > 0)
-          .map((rule) => ({ ...rule }));
+          .map((rule) => ({ ...rule, isAvatar: true }));
         return [...selectorRules, ...avatarRules];
       }
 
@@ -413,18 +414,31 @@
         return { x: resolvedX, y: resolvedY };
       }
 
-      function buildBillboardVisual(matchedElement, selector) {
-        const sourceCanvas = matchedElement instanceof HTMLCanvasElement
+      function buildBillboardVisual(rule, matchedElement, childDocument) {
+        const selector = rule.selector;
+        let sourceCanvas = matchedElement instanceof HTMLCanvasElement
           ? matchedElement
           : matchedElement.querySelector('canvas');
+        if (!(sourceCanvas instanceof HTMLCanvasElement) && rule.isAvatar) {
+          const projId = matchedElement.getAttribute('data-proj-id') || '';
+          const seatIdFromProj = projId.startsWith('avatar-') ? projId.slice('avatar-'.length) : '';
+          const seatId = rule.seatId ?? seatIdFromProj;
+          if (seatId) {
+            sourceCanvas = childDocument.querySelector(`canvas.seatPortrait[data-seat-id="${seatId}"]`);
+          }
+        }
         if (sourceCanvas instanceof HTMLCanvasElement) {
-          const canvasImage = document.createElement('img');
-          canvasImage.src = sourceCanvas.toDataURL();
-          canvasImage.alt = matchedElement.getAttribute('aria-label') || matchedElement.title || selector;
-          canvasImage.style.maxWidth = 'none';
-          canvasImage.style.width = `${Math.max(1, sourceCanvas.clientWidth || sourceCanvas.width || 64)}px`;
-          canvasImage.style.height = `${Math.max(1, sourceCanvas.clientHeight || sourceCanvas.height || 64)}px`;
-          return canvasImage;
+          const clonedCanvas = document.createElement('canvas');
+          clonedCanvas.width = Math.max(1, sourceCanvas.width || sourceCanvas.clientWidth || 64);
+          clonedCanvas.height = Math.max(1, sourceCanvas.height || sourceCanvas.clientHeight || 64);
+          const context2d = clonedCanvas.getContext('2d');
+          if (context2d) {
+            context2d.clearRect(0, 0, clonedCanvas.width, clonedCanvas.height);
+            context2d.drawImage(sourceCanvas, 0, 0, clonedCanvas.width, clonedCanvas.height);
+          }
+          clonedCanvas.style.width = `${Math.max(1, sourceCanvas.clientWidth || sourceCanvas.width || 64)}px`;
+          clonedCanvas.style.height = `${Math.max(1, sourceCanvas.clientHeight || sourceCanvas.height || 64)}px`;
+          return clonedCanvas;
         }
 
         const imageSource = matchedElement instanceof HTMLImageElement
@@ -441,6 +455,9 @@
           return imageElement;
         }
 
+        if (rule.isAvatar) {
+          return null;
+        }
         const labelElement = document.createElement('div');
         labelElement.className = 'billboard-item';
         labelElement.textContent = matchedElement.getAttribute('aria-label') || matchedElement.title || matchedElement.textContent?.trim() || selector;
@@ -466,14 +483,18 @@
             if (rect.width <= 0 || rect.height <= 0) {
               return;
             }
-            const sourceCenterX = rect.left + rect.width * 0.5;
-            const sourceCenterY = rect.top + rect.height * 0.5;
+            const frameRect = frameElement.getBoundingClientRect();
+            const sourceCenterX = rect.left - frameRect.left + rect.width * 0.5;
+            const sourceCenterY = rect.top - frameRect.top + rect.height * 0.5;
             const projectedCenter = applyHomographyToPoint(latestHomography, sourceCenterX, sourceCenterY);
             if (!projectedCenter) {
               return;
             }
             const positionedCenter = resolveBillboardPosition(rule, projectedCenter, latestTargetQuad);
-            const visualElement = buildBillboardVisual(matchedElement, rule.selector);
+            const visualElement = buildBillboardVisual(rule, matchedElement, childDocument);
+            if (!visualElement) {
+              return;
+            }
             const scale = Number.isFinite(rule.scale) ? rule.scale : 1;
             visualElement.style.position = 'absolute';
             visualElement.style.left = `${positionedCenter.x.toFixed(2)}px`;
