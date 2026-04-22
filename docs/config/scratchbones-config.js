@@ -54,6 +54,37 @@ window.SCRATCHBONES_CONFIG = {
               "deriveFromFirstNameMaleRules": true
             }
           }
+        },
+        "kenkari": {
+          "id": "kenkari",
+          "displayName": "Kenkari",
+          "casing": "title",
+          "kenkariRules": {
+            "phonology": {
+              "consonants": ["b", "g", "h", "k", "m", "n", "p", "r", "t"],
+              "consonantWeights": { "b": 1, "g": 7, "h": 7, "k": 11, "m": 10, "n": 10, "p": 8, "r": 8, "t": 8 },
+              "finalConsonantWeights": { "b": 1, "g": 4, "h": 3, "k": 12, "m": 12, "n": 13, "p": 5, "r": 3, "t": 4 },
+              "postGlottalFinalConsonantWeights": { "b": 1, "g": 3, "h": 2, "k": 12, "m": 12, "n": 14, "p": 3, "r": 1, "t": 2 },
+              "vowels": ["a", "e", "i", "o", "u", "ai", "ey"],
+              "vowelWeights": { "a": 11, "e": 4, "i": 11, "o": 8, "u": 10, "ai": 4, "ey": 4 },
+              "finalVowelWeights": { "a": 12, "i": 13, "o": 4, "u": 11, "ai": 5, "ey": 0, "ao": 5 },
+              "finalOnlyVowels": ["ao"],
+              "minPhonemes": 2,
+              "maxPhonemes": 4,
+              "templateWeights": [
+                { "pattern": ["V", "'V", "CV"], "weight": 18, "label": "V'CV" },
+                { "pattern": ["CV", "'V"], "weight": 18, "label": "CV'V" },
+                { "pattern": ["CV", "CV"], "weight": 18, "label": "CVCV" },
+                { "pattern": ["CV", "'V", "CV"], "weight": 16, "label": "CV'VCV" },
+                { "pattern": ["CV", "CV", "CV"], "weight": 12, "label": "CVCVCV" },
+                { "pattern": ["V", "'V", "CV", "CV"], "weight": 8, "label": "V'VCVCV" }
+              ]
+            },
+            "surnameRules": {
+              "malePrefix": "ao",
+              "femalePrefix": "u"
+            }
+          }
         }
       }
     },
