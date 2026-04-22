@@ -162,9 +162,12 @@
       const linearSolveEpsilon = 1e-9;
       let latestHomography = null;
       let latestInverseHomography = null;
+      let latestTargetQuad = null;
 
       function setStatusText() {
-        statusElement.textContent = `src=${requestedSource} | design=${Math.round(designedViewportWidth)}x${Math.round(designedViewportHeight)} | directInput=${Boolean(interactionConfig.directIframeInput)} | forwardedInput=${Boolean(interactionConfig.forwardPointerEvents)} | billboards=${(billboardConfig.selectors || []).length}`;
+        const selectorCount = (billboardConfig.selectors || []).length;
+        const avatarCount = (billboardConfig.avatars || []).length;
+        statusElement.textContent = `src=${requestedSource} | design=${Math.round(designedViewportWidth)}x${Math.round(designedViewportHeight)} | directInput=${Boolean(interactionConfig.directIframeInput)} | forwardedInput=${Boolean(interactionConfig.forwardPointerEvents)} | billboards=${selectorCount + avatarCount}`;
       }
 
       function readDesignedViewportFromChild() {
@@ -371,15 +374,70 @@
         if (homography) {
           latestHomography = homography;
           latestInverseHomography = invertHomography(homography);
+          latestTargetQuad = targetQuad;
           projectionElement.style.transform = homographyToCssMatrix3d(homography);
         }
         projectionElement.style.boxShadow = transformConfig.tabletopShadow || '';
       }
 
+      function buildBillboardRules() {
+        const selectorRules = (Array.isArray(billboardConfig.selectors) ? billboardConfig.selectors : []).map((selector) => ({
+          selector,
+          scale: 1
+        }));
+        const avatarRules = (Array.isArray(billboardConfig.avatars) ? billboardConfig.avatars : [])
+          .filter((rule) => typeof rule?.selector === 'string' && rule.selector.length > 0)
+          .map((rule) => ({ ...rule }));
+        return [...selectorRules, ...avatarRules];
+      }
+
+      function resolveBillboardPosition(rule, projectedCenter, quad) {
+        if (!quad) {
+          return projectedCenter;
+        }
+
+        const quadBounds = {
+          left: Math.min(quad[0].x, quad[1].x, quad[2].x, quad[3].x),
+          top: Math.min(quad[0].y, quad[1].y, quad[2].y, quad[3].y),
+          right: Math.max(quad[0].x, quad[1].x, quad[2].x, quad[3].x),
+          bottom: Math.max(quad[0].y, quad[1].y, quad[2].y, quad[3].y)
+        };
+
+        const resolvedX = Number.isFinite(rule.fromLeftPx)
+          ? quadBounds.left + rule.fromLeftPx
+          : (Number.isFinite(rule.fromRightPx) ? quadBounds.right - rule.fromRightPx : projectedCenter.x);
+        const resolvedY = Number.isFinite(rule.fromTopPx)
+          ? quadBounds.top + rule.fromTopPx
+          : (Number.isFinite(rule.fromBottomPx) ? quadBounds.bottom - rule.fromBottomPx : projectedCenter.y);
+
+        return { x: resolvedX, y: resolvedY };
+      }
+
+      function buildBillboardVisual(matchedElement, selector) {
+        const imageSource = matchedElement instanceof HTMLImageElement
+          ? matchedElement.currentSrc || matchedElement.src
+          : null;
+
+        if (imageSource) {
+          const imageElement = document.createElement('img');
+          imageElement.src = imageSource;
+          imageElement.alt = matchedElement.alt || selector;
+          imageElement.style.maxWidth = 'none';
+          imageElement.style.width = `${Math.max(1, matchedElement.clientWidth || matchedElement.naturalWidth || 42)}px`;
+          imageElement.style.height = `${Math.max(1, matchedElement.clientHeight || matchedElement.naturalHeight || 42)}px`;
+          return imageElement;
+        }
+
+        const labelElement = document.createElement('div');
+        labelElement.className = 'billboard-item';
+        labelElement.textContent = matchedElement.getAttribute('aria-label') || matchedElement.title || matchedElement.textContent?.trim() || selector;
+        return labelElement;
+      }
+
       function syncBillboardElements() {
-        const selectors = Array.isArray(billboardConfig.selectors) ? billboardConfig.selectors : [];
+        const billboardRules = buildBillboardRules();
         billboardLayerElement.innerHTML = '';
-        if (!selectors.length || !latestHomography) {
+        if (!billboardRules.length || !latestHomography) {
           return;
         }
 
@@ -388,8 +446,8 @@
           return;
         }
 
-        selectors.forEach((selector) => {
-          const matchedElements = childDocument.querySelectorAll(selector);
+        billboardRules.forEach((rule) => {
+          const matchedElements = childDocument.querySelectorAll(rule.selector);
           matchedElements.forEach((matchedElement) => {
             const rect = matchedElement.getBoundingClientRect();
             if (rect.width <= 0 || rect.height <= 0) {
@@ -402,19 +460,22 @@
             if (!projectedCenter) {
               return;
             }
-
-            const label = document.createElement('div');
-            label.className = 'billboard-item';
-            label.textContent = matchedElement.getAttribute('aria-label') || matchedElement.title || matchedElement.textContent?.trim() || selector;
-            label.style.left = `${projectedCenter.x.toFixed(2)}px`;
-            label.style.top = `${projectedCenter.y.toFixed(2)}px`;
-            billboardLayerElement.appendChild(label);
+            const positionedCenter = resolveBillboardPosition(rule, projectedCenter, latestTargetQuad);
+            const visualElement = buildBillboardVisual(matchedElement, rule.selector);
+            const scale = Number.isFinite(rule.scale) ? rule.scale : 1;
+            visualElement.style.position = 'absolute';
+            visualElement.style.left = `${positionedCenter.x.toFixed(2)}px`;
+            visualElement.style.top = `${positionedCenter.y.toFixed(2)}px`;
+            visualElement.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            visualElement.style.transformOrigin = '50% 50%';
+            visualElement.style.pointerEvents = 'none';
+            billboardLayerElement.appendChild(visualElement);
           });
         });
       }
 
       function hideBillboardedElementsInFrame() {
-        const selectors = Array.isArray(billboardConfig.selectors) ? billboardConfig.selectors : [];
+        const selectors = buildBillboardRules().map((rule) => rule.selector);
         if (!selectors.length) {
           return;
         }
