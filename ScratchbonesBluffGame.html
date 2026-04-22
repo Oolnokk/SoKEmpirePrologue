@@ -1922,6 +1922,12 @@
               tableCardContentScale: rawGameConfig.layout?.tableView?.visualFit?.tableCardContentScale ?? 0.8,
               claimAvatarContainerScale: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarContainerScale ?? 1.25,
               claimAvatarContentScale: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarContentScale ?? 0.8,
+              avatarAdditiveZoomScale: rawGameConfig.layout?.tableView?.visualFit?.avatarAdditiveZoomScale ?? 1.2,
+              claimAvatarOverlayMatchSpotlightSize: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayMatchSpotlightSize !== false,
+              claimAvatarOverlayZIndex: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayZIndex ?? 9990,
+              claimAvatarOverlayBorderRadiusPx: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayBorderRadiusPx ?? 12,
+              claimAvatarOverlayBorderColor: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayBorderColor ?? 'rgba(242,208,143,0.28)',
+              claimAvatarOverlayBackground: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayBackground ?? 'rgba(22,16,14,0.72)',
             },
             cinematic: {
               enabled: rawGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
@@ -4552,7 +4558,7 @@
       return { capturePreRender, animatePostRender };
     })();
 
-    function moveAvatarFloatsToOverlay(app) {
+    function moveAvatarFloatsToOverlay(app, layoutPolicy = null) {
   const claimCluster = app.querySelector('.claimCluster');
   if (!claimCluster) return;
 
@@ -4563,6 +4569,13 @@
     Number(spotlightAvatarRect?.width) || 0,
     Number(spotlightAvatarRect?.height) || 0
   );
+  const visualFit = layoutPolicy?.tableView?.visualFit || {};
+  const claimAvatarContentScale = clampNumber(Number(visualFit.claimAvatarContentScale) || 0.8, 0.45, 1);
+  const matchSpotlightSize = visualFit.claimAvatarOverlayMatchSpotlightSize !== false;
+  const overlayZIndex = Math.max(1, Math.round(Number(visualFit.claimAvatarOverlayZIndex) || 9990));
+  const overlayBorderRadiusPx = clampNumber(Number(visualFit.claimAvatarOverlayBorderRadiusPx) || 12, 0, 48);
+  const overlayBorderColor = String(visualFit.claimAvatarOverlayBorderColor || 'rgba(242,208,143,0.28)');
+  const overlayBackground = String(visualFit.claimAvatarOverlayBackground || 'rgba(22,16,14,0.72)');
 
   ['.actorAvatarFloat', '.reactorAvatarFloat'].forEach((sel) => {
     const float = claimCluster.querySelector(sel);
@@ -4575,7 +4588,7 @@
     const canvas = float.querySelector('canvas.seatPortrait');
 
     float.style.position = 'fixed';
-    const targetSize = spotlightAvatarSize || Math.max(rect.width, rect.height);
+    const targetSize = (matchSpotlightSize && spotlightAvatarSize) ? spotlightAvatarSize : Math.max(rect.width, rect.height);
     const centerX = rect.left + (rect.width * 0.5);
     const centerY = rect.top + (rect.height * 0.5);
     float.style.left = `${centerX - (targetSize * 0.5)}px`;
@@ -4584,10 +4597,10 @@
     float.style.height = `${targetSize}px`;
     float.style.transform = 'none';
     float.style.transformOrigin = 'top left';
-    float.style.zIndex = '9990';
-    float.style.borderRadius = '12px';
-    float.style.border = '1px solid rgba(242,208,143,0.28)';
-    float.style.background = 'rgba(22,16,14,0.72)';
+    float.style.zIndex = String(overlayZIndex);
+    float.style.borderRadius = `${overlayBorderRadiusPx}px`;
+    float.style.border = `1px solid ${overlayBorderColor}`;
+    float.style.background = overlayBackground;
     float.style.overflow = 'hidden';
     float.dataset.clusterAvatarOverlay = '1';
 
@@ -4598,7 +4611,9 @@
       canvas.style.aspectRatio = '1';
       canvas.style.display = 'block';
       canvas.style.borderRadius = '0';
-      canvas.style.transform = isReactor ? 'scaleX(-1)' : 'none';
+      canvas.style.transform = isReactor
+        ? `scale(${claimAvatarContentScale}) scaleX(-1)`
+        : `scale(${claimAvatarContentScale})`;
       canvas.style.transformOrigin = 'center center';
     }
 
@@ -4811,17 +4826,17 @@
         <div class="tableViewCards">${tableCardsHtml}</div>
         ${claimClusterEnabled ? `
           <div class="claimCluster fit-target fit-0 ${claimClusterPolicy.mustStayVisible ? 'must-stay-visible' : ''}" data-proj-id="claim-cluster">
-            <div class="claimRankAnchorTop" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}"></div>
-            <div class="claimRankBox ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankText}</div>
-            <div class="claimHandBar ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimHandBar)}">${claimHandCardsHtml}</div>
-            <div class="claimTimesBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxLeft)}">×</div>
-            <div class="claimCountBoxLeft ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountText}</div>
-            <div class="claimTimesBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxRight)}">×</div>
-            <div class="claimCountBoxRight ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountText}</div>
-            <div class="actorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
+            <div class="claimRankAnchorTop" data-proj-id="claim-rank-anchor" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}"></div>
+            <div class="claimRankBox ${claimClusterShellClass}" data-proj-id="claim-rank-box" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankText}</div>
+            <div class="claimHandBar ${claimClusterShellClass}" data-proj-id="claim-hand-bar" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimHandBar)}">${claimHandCardsHtml}</div>
+            <div class="claimTimesBoxLeft ${claimClusterShellClass}" data-proj-id="claim-times-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxLeft)}">×</div>
+            <div class="claimCountBoxLeft ${claimClusterShellClass}" data-proj-id="claim-count-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountText}</div>
+            <div class="claimTimesBoxRight ${claimClusterShellClass}" data-proj-id="claim-times-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxRight)}">×</div>
+            <div class="claimCountBoxRight ${claimClusterShellClass}" data-proj-id="claim-count-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountText}</div>
+            <div class="actorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-actor" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
               <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="140" height="140"></canvas>
             </div>
-            <div class="reactorAvatarFloat ${claimClusterShellClass}" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
+            <div class="reactorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-reactor" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
               ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="140" height="140"></canvas>` : ''}
             </div>
           </div>
@@ -4904,7 +4919,7 @@
       renderAuthoredInspector();
       updateTableCardAutoScale(app);
       syncClaimClusterCardSizeFromHand(app);
-      moveAvatarFloatsToOverlay(app);
+      moveAvatarFloatsToOverlay(app, layoutPolicy);
       cardAnimator.animatePostRender();
       seatAvatarAnim.animatePostRender();
     }
@@ -5491,17 +5506,47 @@
       const varsPanelBody = projectionUiState.ui?.varsPanelBody;
       const varsPanelTitle = projectionUiState.ui?.varsPanelTitle;
       if (!varsPanelBody || !varsPanelTitle || !projectionUiState.varsPanelOpen) return;
+      const projectionMapConfig = SCRATCHBONES_GAME.layout?.projectionMapping || {};
+      const varsByProjId = projectionMapConfig.varsByProjId || projectionMapConfig.relatedVarsByProjId || {};
+      const sharedVars = Array.isArray(projectionMapConfig.sharedVars) ? projectionMapConfig.sharedVars : [];
+      const fallbackVars = Array.isArray(projectionMapConfig.fallbackVars) ? projectionMapConfig.fallbackVars : [];
+      const matchesProjPattern = (pattern, projId) => (typeof pattern === 'string' && pattern.endsWith('*'))
+        ? projId.startsWith(pattern.slice(0, -1))
+        : pattern === projId;
+      const resolveVarsForProjId = (projId) => {
+        const result = new Set(sharedVars);
+        for (const [pattern, vars] of Object.entries(varsByProjId)) {
+          if (!matchesProjPattern(pattern, projId)) continue;
+          for (const varName of (Array.isArray(vars) ? vars : [])) {
+            if (String(varName).startsWith('--')) result.add(varName);
+          }
+        }
+        if (!result.size) {
+          for (const varName of fallbackVars) {
+            if (String(varName).startsWith('--')) result.add(varName);
+          }
+        }
+        return [...result];
+      };
       const subMode = authoredEditorState.subLayerMode;
       if (subMode && authoredEditorState.selectedSubId) {
         const projId = authoredEditorState.selectedSubId;
         const authored = getScratchbonesAuthoredConfig();
         const offset = authored.subOffsets?.[projId] || { dx: 0, dy: 0 };
+        const relatedVars = resolveVarsForProjId(projId);
+        const computedRootStyles = getComputedStyle(document.documentElement);
+        const varRows = relatedVars.map((varName) => {
+          const rawValue = projectionUiState.editedVars.get(varName) ?? computedRootStyles.getPropertyValue(varName);
+          const value = String(rawValue ?? '').trim();
+          return `<label class="projVarRow"><span class="projVarLabel">${escapeHtml(varName)}</span><input class="projVarInput" data-proj-kind="text" data-proj-var="${escapeHtml(varName)}" type="text" value="${escapeHtml(value)}"></label>`;
+        }).join('');
         varsPanelTitle.textContent = `Sub Element · ${projId}`;
         const field = (key, label) => `<label class="projVarRow sizePosVar"><span class="projVarLabel">${label}</span><input class="projVarInput" data-authored-sub-field="${key}" data-sub-proj-id="${escapeHtml(projId)}" type="number" step="1" value="${Math.round(offset[key] ?? 0)}"><span class="projVarHint">px</span></label>`;
         varsPanelBody.innerHTML = `
           <div class="projVarHint">Sub-element offset (translate within parent).</div>
           ${field('dx', 'dx')}
           ${field('dy', 'dy')}
+          ${varRows ? `<div class="projVarHint" style="margin-top:8px;">Linked CSS vars for ${escapeHtml(projId)}.</div>${varRows}` : ''}
         `;
         return;
       }

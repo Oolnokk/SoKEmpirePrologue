@@ -158,7 +158,12 @@ window.SCRATCHBONES_CONFIG = {
           "tableCardContentScale": 1,
           "claimAvatarContainerScale": 2,
           "claimAvatarContentScale": 0.8,
-          "avatarAdditiveZoomScale": 1.2
+          "avatarAdditiveZoomScale": 1.2,
+          "claimAvatarOverlayMatchSpotlightSize": true,
+          "claimAvatarOverlayZIndex": 9990,
+          "claimAvatarOverlayBorderRadiusPx": 12,
+          "claimAvatarOverlayBorderColor": "rgba(242,208,143,0.28)",
+          "claimAvatarOverlayBackground": "rgba(22,16,14,0.72)"
         },
         "cinematic": {
           "enabled": true,
@@ -490,6 +495,45 @@ window.SCRATCHBONES_CONFIG = {
             "--layout-card-mini-base-height",
             "--layout-table-card-auto-scale",
             "--layout-fit-additive-avatar-zoom"
+          ],
+          "claim-cluster": [
+            "--layout-claim-cluster-center-x",
+            "--layout-claim-cluster-center-y",
+            "--layout-claim-cluster-width",
+            "--layout-claim-cluster-height",
+            "--layout-claim-avatar-container-scale",
+            "--layout-claim-avatar-content-scale",
+            "--layout-fit-additive-avatar-zoom"
+          ],
+          "claim-avatar-*": [
+            "--layout-claim-avatar-container-scale",
+            "--layout-claim-avatar-content-scale",
+            "--layout-fit-additive-avatar-zoom"
+          ],
+          "claim-hand-bar": [
+            "--layout-card-mini-base-width",
+            "--layout-card-mini-base-height",
+            "--layout-card-scale"
+          ],
+          "claim-rank-box": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
+          "claim-count-left": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
+          "claim-times-left": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
+          "claim-count-right": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
+          "claim-times-right": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
           ],
           "cinematic": [
             "--layout-cinematic-avatar-size"
