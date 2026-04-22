@@ -143,10 +143,14 @@
       --layout-claim-avatar-border-radius: 12px;
       --layout-claim-avatar-border-color: rgba(242,208,143,0.28);
       --layout-claim-avatar-background: rgba(22,16,14,0.72);
+      --layout-claim-avatar-first-name-offset: 26px;
+      --layout-claim-avatar-first-name-font: 1.34rem;
       --layout-table-card-auto-scale: 1;
       --layout-fit-additive-avatar-zoom: 1;
       --layout-turn-spotlight-offset-x: 10px;
       --layout-turn-spotlight-offset-y: 10px;
+      --layout-cinematic-player-info-offset: 12px;
+      --layout-cinematic-player-info-font: 1.05rem;
       --layout-flame-x: 50%;
       --layout-flame-y: -12%;
       --layout-flame-core-alpha: 0.2;
@@ -379,6 +383,21 @@
       height: auto;
       aspect-ratio: 1;
       display: block;
+    }
+    .claimAvatarFirstName {
+      position: absolute;
+      top: calc(100% + var(--layout-claim-avatar-first-name-offset));
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: max-content;
+      font-size: var(--layout-claim-avatar-first-name-font);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: 0.02em;
+      color: var(--accent-2);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.72);
+      text-align: center;
+      pointer-events: none;
     }
     .reactorAvatarFloat canvas {
       transform: scaleX(-1);
@@ -1068,6 +1087,13 @@
       text-transform: uppercase;
       color: var(--muted);
     }
+    .cin-player-info {
+      margin-top: var(--layout-cinematic-player-info-offset);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
     .cin-avatar {
       width: var(--layout-cinematic-avatar-size);
       height: var(--layout-cinematic-avatar-size);
@@ -1113,18 +1139,18 @@
       50%      { transform:scale(1.07); opacity:0.9; }
     }
     .cin-name {
-      font-size: 0.86rem;
+      font-size: var(--layout-cinematic-player-info-font);
       font-weight: 700;
       text-align: center;
       color: var(--text);
     }
     .cin-arch {
-      font-size: 0.68rem;
+      font-size: calc(var(--layout-cinematic-player-info-font) * 0.8);
       color: var(--accent);
       text-align: center;
     }
     .cin-tags {
-      font-size: 0.6rem;
+      font-size: calc(var(--layout-cinematic-player-info-font) * 0.72);
       color: var(--muted);
       text-align: center;
       line-height: 1.4;
@@ -1942,12 +1968,17 @@
               claimAvatarBorderRadiusPx: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarBorderRadiusPx ?? 12,
               claimAvatarBorderColor: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarBorderColor ?? 'rgba(242,208,143,0.28)',
               claimAvatarBackground: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarBackground ?? 'rgba(22,16,14,0.72)',
+              claimAvatarFirstNameOffsetPx: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarFirstNameOffsetPx ?? 26,
+              claimAvatarFirstNameFontRem: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarFirstNameFontRem ?? 1.34,
               avatarAdditiveZoomScale: rawGameConfig.layout?.tableView?.visualFit?.avatarAdditiveZoomScale ?? 1.2,
               claimAvatarOverlayZIndex: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayZIndex ?? 9990,
             },
             cinematic: {
               enabled: rawGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
               showEffects: rawGameConfig.layout?.tableView?.cinematic?.showEffects ?? true,
+              showAvatars: rawGameConfig.layout?.tableView?.cinematic?.showAvatars ?? false,
+              playerInfoOffsetPx: rawGameConfig.layout?.tableView?.cinematic?.playerInfoOffsetPx ?? 12,
+              playerInfoFontRem: rawGameConfig.layout?.tableView?.cinematic?.playerInfoFontRem ?? 1.05,
             },
           },
           regions: {
@@ -2636,6 +2667,12 @@
       if (!player) return 'Seat ?';
       const seatNumber = Number(player.id) + 1;
       return `Seat ${seatNumber} · ${player.name}`;
+    }
+    function seatFirstName(playerOrIndex) {
+      const player = typeof playerOrIndex === 'number' ? state.players[playerOrIndex] : playerOrIndex;
+      if (!player) return 'Seat ?';
+      if (player.isHuman) return 'You';
+      return String(player.name || '').trim().split(/\s+/)[0] || `Seat ${Number(player.id) + 1}`;
     }
     function setBanner(text) {
       state.banner = text;
@@ -4062,8 +4099,13 @@
       const claimAvatarBorderRadiusPx = clampNumber(Number(tableVisualFit.claimAvatarBorderRadiusPx) || 12, 0, 48);
       const claimAvatarBorderColor = String(tableVisualFit.claimAvatarBorderColor || 'rgba(242,208,143,0.28)');
       const claimAvatarBackground = String(tableVisualFit.claimAvatarBackground || 'rgba(22,16,14,0.72)');
+      const claimAvatarFirstNameOffsetPx = clampNumber(Number(tableVisualFit.claimAvatarFirstNameOffsetPx) || 26, -30, 120);
+      const claimAvatarFirstNameFontRem = clampNumber(Number(tableVisualFit.claimAvatarFirstNameFontRem) || 1.34, 0.7, 3);
       const avatarAdditiveZoomScale = clampNumber(Number(tableVisualFit.avatarAdditiveZoomScale) || 1.2, 0.8, 1.6);
       const claimAvatarOverlayZIndex = Math.max(1, Math.round(Number(tableVisualFit.claimAvatarOverlayZIndex) || 9990));
+      const cinematicLayout = tableViewLayout.cinematic || {};
+      const cinematicPlayerInfoOffsetPx = clampNumber(Number(cinematicLayout.playerInfoOffsetPx) || 12, -40, 160);
+      const cinematicPlayerInfoFontRem = clampNumber(Number(cinematicLayout.playerInfoFontRem) || 1.05, 0.6, 3);
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
       const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
       const flameXPct = clampNumber(numberOrDefault(flameLighting.xPct, 0.5), 0, 1);
@@ -4122,7 +4164,11 @@
       setCssVar('--layout-claim-avatar-border-radius', `${claimAvatarBorderRadiusPx.toFixed(2)}px`);
       setCssVar('--layout-claim-avatar-border-color', claimAvatarBorderColor);
       setCssVar('--layout-claim-avatar-background', claimAvatarBackground);
+      setCssVar('--layout-claim-avatar-first-name-offset', `${claimAvatarFirstNameOffsetPx.toFixed(2)}px`);
+      setCssVar('--layout-claim-avatar-first-name-font', `${claimAvatarFirstNameFontRem.toFixed(3)}rem`);
       setCssVar('--layout-fit-additive-avatar-zoom', avatarAdditiveZoomScale.toFixed(3));
+      setCssVar('--layout-cinematic-player-info-offset', `${cinematicPlayerInfoOffsetPx.toFixed(2)}px`);
+      setCssVar('--layout-cinematic-player-info-font', `${cinematicPlayerInfoFontRem.toFixed(3)}rem`);
       setCssVar('--layout-ui-tabletop-url', tabletopImageSrc ? `url("${tabletopImageSrc}")` : 'none');
       setCssVar('--layout-flame-x', `${(flameXPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-y', `${(flameYPct * 100).toFixed(2)}%`);
@@ -4887,11 +4933,13 @@
               <div class="claimAvatarShell">
                 <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="220" height="220"></canvas>
               </div>
+              <div class="claimAvatarFirstName">${escapeHtml(seatFirstName(focusActor || claimFocus.actorId))}</div>
             </div>
             <div class="reactorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-reactor" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
               <div class="claimAvatarShell">
                 ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="220" height="220"></canvas>` : ''}
               </div>
+              ${focusReactor ? `<div class="claimAvatarFirstName">${escapeHtml(seatFirstName(focusReactor))}</div>` : ''}
             </div>
           </div>
         ` : ''}
@@ -5333,24 +5381,33 @@
     }
     // Build player profile HTML for cinematic — chip count as single chip + number
     function _cinPlayerHtml(player, role) {
-      const hue = player.isHuman ? 210 : _avatarHue(player.name);
-      const sat = player.isHuman ? 50 : 58;
-      const lig = player.isHuman ? 38 : 36;
-      const color = `hsl(${hue},${sat}%,${lig}%)`;
-      const initial = player.isHuman ? 'Y' : (player.name || '?')[0].toUpperCase();
+      const cinematicConfig = SCRATCHBONES_GAME.layout?.tableView?.cinematic || {};
+      const showAvatars = cinematicConfig.showAvatars === true;
       const roleLabel = role === 'challenger' ? '⚔ Challenger' : '🃏 Declared';
       const arch = player.personality?.archetype || '';
       const tags = player.personality ? personalityTags(player.personality) : '';
-      const portraitMarkup = player.profile
-        ? `<canvas data-cin-player-id="${player.id}" width="200" height="200" aria-label="${escapeHtml(player.name || 'Player')} portrait"></canvas>`
-        : `<span class="cin-avatar-fallback">${initial}</span>`;
+      const portraitMarkup = showAvatars
+        ? (() => {
+            const hue = player.isHuman ? 210 : _avatarHue(player.name);
+            const sat = player.isHuman ? 50 : 58;
+            const lig = player.isHuman ? 38 : 36;
+            const color = `hsl(${hue},${sat}%,${lig}%)`;
+            const initial = player.isHuman ? 'Y' : (player.name || '?')[0].toUpperCase();
+            const innerPortraitMarkup = player.profile
+              ? `<canvas data-cin-player-id="${player.id}" width="200" height="200" aria-label="${escapeHtml(player.name || 'Player')} portrait"></canvas>`
+              : `<span class="cin-avatar-fallback">${initial}</span>`;
+            return `<div class="cin-avatar avatar-glow" style="background:${color};">${innerPortraitMarkup}</div>`;
+          })()
+        : '';
       return `
         <div class="cin-player ${role}" data-player-id="${player.id}">
-          <div class="cin-role">${roleLabel}</div>
-          <div class="cin-avatar avatar-glow" style="background:${color};">${portraitMarkup}</div>
-          <div class="cin-name">${player.isHuman ? 'You' : player.name}</div>
-          ${arch ? `<div class="cin-arch">${arch}</div>` : ''}
-          ${tags ? `<div class="cin-tags">${tags}</div>` : ''}
+          ${portraitMarkup}
+          <div class="cin-player-info">
+            <div class="cin-role">${roleLabel}</div>
+            <div class="cin-name">${player.isHuman ? 'You' : player.name}</div>
+            ${arch ? `<div class="cin-arch">${arch}</div>` : ''}
+            ${tags ? `<div class="cin-tags">${tags}</div>` : ''}
+          </div>
         </div>`;
     }
     // Build ember particles HTML
