@@ -196,14 +196,13 @@ window.SCRATCHBONES_CONFIG = {
         "visualFit": {
           "tableCardContainerScale": 1.25,
           "tableCardContentScale": 1,
-          "claimAvatarContainerScale": 2,
-          "claimAvatarContentScale": 0.8,
+          "claimAvatarSizePx": 180,
+          "claimAvatarZoomScale": 1.2,
+          "claimAvatarBorderRadiusPx": 12,
+          "claimAvatarBorderColor": "transparent",
+          "claimAvatarBackground": "transparent",
           "avatarAdditiveZoomScale": 1.2,
-          "claimAvatarOverlayMatchSpotlightSize": true,
-          "claimAvatarOverlayZIndex": 9990,
-          "claimAvatarOverlayBorderRadiusPx": 12,
-          "claimAvatarOverlayBorderColor": "rgba(242,208,143,0.28)",
-          "claimAvatarOverlayBackground": "rgba(22,16,14,0.72)"
+          "claimAvatarOverlayZIndex": 9990
         },
         "cinematic": {
           "enabled": true,
@@ -541,14 +540,18 @@ window.SCRATCHBONES_CONFIG = {
             "--layout-claim-cluster-center-y",
             "--layout-claim-cluster-width",
             "--layout-claim-cluster-height",
-            "--layout-claim-avatar-container-scale",
-            "--layout-claim-avatar-content-scale",
-            "--layout-fit-additive-avatar-zoom"
+            "--layout-claim-avatar-size",
+            "--layout-claim-avatar-zoom",
+            "--layout-claim-avatar-border-radius",
+            "--layout-claim-avatar-border-color",
+            "--layout-claim-avatar-background"
           ],
           "claim-avatar-*": [
-            "--layout-claim-avatar-container-scale",
-            "--layout-claim-avatar-content-scale",
-            "--layout-fit-additive-avatar-zoom"
+            "--layout-claim-avatar-size",
+            "--layout-claim-avatar-zoom",
+            "--layout-claim-avatar-border-radius",
+            "--layout-claim-avatar-border-color",
+            "--layout-claim-avatar-background"
           ],
           "claim-hand-bar": [
             "--layout-card-mini-base-width",
