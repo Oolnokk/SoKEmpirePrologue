@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tabletop Holster Host</title>
+  <script src="./config/tabletop-host-config.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --felt-base: #2a3f35;
+      --felt-shadow: #1b261f;
+      --wood-edge: #3f2f25;
+      --table-glow: rgba(230, 196, 133, 0.18);
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 25%, var(--felt-base), var(--felt-shadow));
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+
+    .host {
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      place-items: center;
+      position: relative;
+      isolation: isolate;
+    }
+
+    .projection {
+      position: relative;
+      transform-style: preserve-3d;
+      will-change: transform, clip-path, width, height;
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.18), 0 0 0 8px rgba(0, 0, 0, 0.12);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
+        linear-gradient(120deg, var(--wood-edge), rgba(24, 16, 11, 0.95));
+      overflow: hidden;
+    }
+
+    .projection::before {
+      content: '';
+      position: absolute;
+      inset: -5%;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 40%, transparent 46%, rgba(0, 0, 0, 0.22) 100%);
+      z-index: 1;
+    }
+
+    .projection iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #111;
+      pointer-events: auto;
+    }
+
+    .host-glow {
+      position: absolute;
+      width: 64vmin;
+      height: 42vmin;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, var(--table-glow), rgba(0, 0, 0, 0));
+      filter: blur(28px);
+      transform: translate3d(0, 12vmin, -1px);
+      pointer-events: none;
+    }
+
+    .status {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.45);
+      color: #e6dbc7;
+      font-size: 12px;
+      letter-spacing: 0.01em;
+      z-index: 5;
+      max-width: min(75ch, 70vw);
+      backdrop-filter: blur(3px);
+    }
+  </style>
+</head>
+<body>
+  <main id="host" class="host">
+    <div class="host-glow" aria-hidden="true"></div>
+    <section id="projection" class="projection" aria-label="Projected game surface">
+      <iframe id="tabletopFrame" title="Projected tabletop game" allow="fullscreen"></iframe>
+    </section>
+    <output id="status" class="status" aria-live="polite"></output>
+  </main>
+
+  <script>
+    (function initTabletopHolster() {
+      const config = window.TABLETOP_HOST_CONFIG || {};
+      const url = new URL(window.location.href);
+      const query = url.searchParams;
+
+      const hostElement = document.getElementById('host');
+      const projectionElement = document.getElementById('projection');
+      const frameElement = document.getElementById('tabletopFrame');
+      const statusElement = document.getElementById('status');
+
+      const sourceParamName = config.srcParamName || 'src';
+      const fallbackSource = config.fallbackSrc || '../ScratchbonesBluffGame.html';
+      const requestedSource = query.get(sourceParamName) || fallbackSource;
+
+      const viewportWidthParamName = config.viewportWidthParamName || 'vw';
+      const viewportHeightParamName = config.viewportHeightParamName || 'vh';
+      let designedViewportWidth = Number(query.get(viewportWidthParamName)) || Number(config.defaultDesignedViewportWidth) || 1920;
+      let designedViewportHeight = Number(query.get(viewportHeightParamName)) || Number(config.defaultDesignedViewportHeight) || 1080;
+
+      const clamp = (value, minValue, maxValue) => Math.min(maxValue, Math.max(minValue, value));
+
+      function setStatusText() {
+        statusElement.textContent = `src=${requestedSource} | design=${Math.round(designedViewportWidth)}x${Math.round(designedViewportHeight)}`;
+      }
+
+      function readDesignedViewportFromChild() {
+        const childWindow = frameElement.contentWindow;
+        if (!childWindow) {
+          return;
+        }
+
+        try {
+          const childDocument = childWindow.document;
+          const rootStyle = childWindow.getComputedStyle(childDocument.documentElement);
+          const cssWidth = parseFloat(rootStyle.getPropertyValue('--layout-viewport-width'));
+          const cssHeight = parseFloat(rootStyle.getPropertyValue('--layout-viewport-height'));
+          if (Number.isFinite(cssWidth) && cssWidth > 0) {
+            designedViewportWidth = cssWidth;
+          }
+          if (Number.isFinite(cssHeight) && cssHeight > 0) {
+            designedViewportHeight = cssHeight;
+          }
+        } catch (_crossOriginError) {
+          // If the iframe ever becomes cross-origin, query params and defaults still work.
+        }
+      }
+
+      function computeProjectionGeometry() {
+        const hostRect = hostElement.getBoundingClientRect();
+        const hostWidth = hostRect.width;
+        const hostHeight = hostRect.height;
+
+        const designedAspectRatio = designedViewportWidth / designedViewportHeight;
+        const availableWidth = hostWidth - clamp(hostWidth * 0.06, config.minHostPaddingPx || 10, config.maxHostPaddingPx || 64) * 2;
+        const availableHeight = hostHeight - clamp(hostHeight * 0.08, config.minHostPaddingPx || 10, config.maxHostPaddingPx || 64) * 2;
+
+        let projectedWidth = availableWidth;
+        let projectedHeight = projectedWidth / designedAspectRatio;
+        if (projectedHeight > availableHeight) {
+          projectedHeight = availableHeight;
+          projectedWidth = projectedHeight * designedAspectRatio;
+        }
+
+        const topEdgeRatio = clamp(
+          (config.topEdgeRatioByWidth || 0.78) * (projectedWidth / Math.max(hostWidth, 1)),
+          config.minTopEdgeRatio || 0.62,
+          config.maxTopEdgeRatio || 0.95
+        );
+
+        const sideInsetPercent = (1 - topEdgeRatio) * 50;
+        const tiltDeg = clamp(
+          (config.tiltDegByHeight || 26) * (projectedHeight / Math.max(hostHeight, 1)),
+          config.minTiltDeg || 18,
+          config.maxTiltDeg || 36
+        );
+
+        const perspectivePx = clamp(
+          (config.perspectivePxByWidth || 1000) * (hostWidth / 1280),
+          config.minPerspectivePx || 700,
+          config.maxPerspectivePx || 2200
+        );
+
+        const borderRadiusPx = clamp(
+          (config.borderRadiusPxByWidth || 22) * (projectedWidth / 1000),
+          config.minBorderRadiusPx || 10,
+          config.maxBorderRadiusPx || 34
+        );
+
+        projectionElement.style.width = `${Math.round(projectedWidth)}px`;
+        projectionElement.style.height = `${Math.round(projectedHeight)}px`;
+        projectionElement.style.borderRadius = `${borderRadiusPx.toFixed(1)}px`;
+        projectionElement.style.clipPath = `polygon(${sideInsetPercent.toFixed(2)}% 0%, ${(100 - sideInsetPercent).toFixed(2)}% 0%, 100% 100%, 0% 100%)`;
+        projectionElement.style.transform = `perspective(${perspectivePx.toFixed(1)}px) rotateX(${tiltDeg.toFixed(2)}deg)`;
+        projectionElement.style.boxShadow = config.tabletopShadow || '';
+      }
+
+      function scheduleProjectionUpdate() {
+        window.requestAnimationFrame(() => {
+          readDesignedViewportFromChild();
+          computeProjectionGeometry();
+          setStatusText();
+        });
+      }
+
+      const hostResizeObserver = new ResizeObserver(() => {
+        scheduleProjectionUpdate();
+      });
+
+      frameElement.addEventListener('load', () => {
+        scheduleProjectionUpdate();
+      });
+
+      window.addEventListener('resize', scheduleProjectionUpdate);
+      hostResizeObserver.observe(hostElement);
+
+      frameElement.src = requestedSource;
+      scheduleProjectionUpdate();
+    })();
+  </script>
+</body>
+</html>
