@@ -2587,7 +2587,7 @@
       recentChange: "Layout refinement: turn spotlight is now pinned inside table view, table visuals use fit scaling with larger containers, the human seat is an explicit text-left/avatar-right rectangle, and sidebar/human alignment is tightened.",
       challengeTimer: null,
       challengeTimeLeft: 0,
-      pendingReactorEntrance: null,
+      pendingReactorEntrance: false,
       roundConcessions: new Set(), // Used by: skipping players who have conceded the current claim until the round ends.
       layoutFitStages: {},
       layoutOverlapDiagnostics: { overlaps: [], stage: 'none' },
@@ -2765,7 +2765,7 @@
       state.pile = [];
       state.challengeWindow = null;
       state.betting = null;
-      state.pendingReactorEntrance = null;
+      state.pendingReactorEntrance = false;
       state.declaredRank = null;
       state.gameOver = false;
       state.winnerIndex = null;
@@ -3048,11 +3048,7 @@
         pendingAutoReveal: false,
       };
       state.challengeWindow = null;
-      state.pendingReactorEntrance = {
-        challengerId: challengerIndex,
-        challengedId: challengedIndex,
-        createdAt: Date.now(),
-      };
+      state.pendingReactorEntrance = true;
       for (const id of eligibleBackupIds(challengerIndex, challengedIndex)) {
         if (id !== 0 && aiShouldJoinBackup(id, play)) state.betting.backupQueue.push(id);
       }
@@ -3393,7 +3389,7 @@
       state.declaredRank = null;
       state.challengeWindow = null;
       state.betting = null;
-      state.pendingReactorEntrance = null;
+      state.pendingReactorEntrance = false;
       state.round += 1;
       state.leaderIndex = playerIndex;
       state.currentTurn = playerIndex;
@@ -3412,7 +3408,7 @@
       state.declaredRank = null;
       state.challengeWindow = null;
       state.betting = null;
-      state.pendingReactorEntrance = null;
+      state.pendingReactorEntrance = false;
       state.pile = [];
       state.roundConcessions.clear();
       state.round += 1;
@@ -4577,13 +4573,17 @@
     })();
 
     function triggerReactorEntranceAnimation(app) {
-      const pending = state.pendingReactorEntrance;
-      if (!pending) return;
+      if (!state.pendingReactorEntrance) return;
       if (!state.betting) {
-        state.pendingReactorEntrance = null;
+        state.pendingReactorEntrance = false;
         return;
       }
-      const reactorId = state.betting.challengerId === pending.challengerId
+      const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || state.pile.at(-1) || null;
+      if (!latestPlay) {
+        state.pendingReactorEntrance = false;
+        return;
+      }
+      const reactorId = latestPlay.playerIndex === state.betting.challengerId
         ? state.betting.challengedId
         : state.betting.challengerId;
       const seatCanvas = app.querySelector(`.seatAvatarBox canvas.seatPortrait[data-seat-id="${reactorId}"]`);
@@ -4665,7 +4665,7 @@
         }
       }, travelMs + 40);
 
-      state.pendingReactorEntrance = null;
+      state.pendingReactorEntrance = false;
     }
 
     const cardAnimator = (() => {
