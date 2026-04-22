@@ -158,7 +158,12 @@ window.SCRATCHBONES_CONFIG = {
           "tableCardContentScale": 1,
           "claimAvatarContainerScale": 2,
           "claimAvatarContentScale": 0.8,
-          "avatarAdditiveZoomScale": 1.2
+          "avatarAdditiveZoomScale": 1.2,
+          "claimAvatarOverlayMatchSpotlightSize": true,
+          "claimAvatarOverlayZIndex": 9990,
+          "claimAvatarOverlayBorderRadiusPx": 12,
+          "claimAvatarOverlayBorderColor": "rgba(242,208,143,0.28)",
+          "claimAvatarOverlayBackground": "rgba(22,16,14,0.72)"
         },
         "cinematic": {
           "enabled": true,
