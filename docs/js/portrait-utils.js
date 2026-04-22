@@ -69,9 +69,25 @@ function normalizePortraitMaskLayer(maskLayer) {
   return normalizePortraitLayerXform(maskLayer);
 }
 
+function hasExplicitPortraitLayerXform(layer) {
+  if (!layer || typeof layer !== 'object') return false;
+  const xform = (layer.xform && typeof layer.xform === 'object') ? layer.xform : null;
+  return (
+    layer.ax != null || layer.ay != null || layer.sx != null || layer.sy != null ||
+    layer.x != null || layer.y != null ||
+    layer.scaleX != null || layer.scaleY != null ||
+    layer.scaleMulX != null || layer.scaleMulY != null ||
+    xform?.ax != null || xform?.ay != null || xform?.sx != null || xform?.sy != null ||
+    xform?.x != null || xform?.y != null ||
+    xform?.scaleX != null || xform?.scaleY != null ||
+    xform?.scaleMulX != null || xform?.scaleMulY != null
+  );
+}
+
 function toRelativePortraitLayerXform(layer, parentXform) {
   const normalizedLayer = normalizePortraitLayerXform(layer);
   if (!normalizedLayer || typeof normalizedLayer !== 'object') return normalizedLayer;
+  if (!hasExplicitPortraitLayerXform(layer)) return normalizedLayer;
   const base = normalizePortraitLayerXform(parentXform) || { ax: 0, ay: 0, sx: 1, sy: 1 };
   const baseSx = Number(base.sx) || 1;
   const baseSy = Number(base.sy) || 1;
