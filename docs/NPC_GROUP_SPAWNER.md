@@ -5,7 +5,7 @@ A comprehensive system for spawning groups of NPCs with procedurally generated n
 ## Features
 
 - ✅ **Group-based NPC spawning** from spawn points with group metadata
-- ✅ **Procedural name generation** using the Mao-ao culture naming system
+- ✅ **Procedural name generation** using culture-specific naming systems (Mao-ao + Kenkari)
 - ✅ **Deterministic generation** - same spawner always produces same names
 - ✅ **Family relationships** - support for inherited surnames and marriage rules
 - ✅ **Debug controls** - toggle logging for names, patterns, and generation steps
@@ -22,7 +22,7 @@ A comprehensive system for spawning groups of NPCs with procedurally generated n
   - `generateNpcName(options)` - Generate a single name
 
 - **`docs/js/namegen.js`** - Name generation engine
-  - Mao-ao culture implementation with syllable patterns
+  - Mao-ao and Kenkari culture implementations
   - Birth rules (surname inheritance, initial matching)
   - Marriage rules (surname adoption, initial prefixing)
 
@@ -142,8 +142,8 @@ const spawners = [
 
 Names are automatically generated based on the fighter's culture and gender, which are encoded in the fighter name using suffixes:
 
-- **`_m`** = Male (e.g., `Mao-ao_m`)
-- **`_f`** = Female (e.g., `Mao-ao_f`)
+- **`_m` / `_male`** = Male (e.g., `Mao-ao_m`, `Kenkari_male`)
+- **`_f` / `_female`** = Female (e.g., `Mao-ao_f`, `Kenkari_female`)
 
 The prefix determines the culture (e.g., `Mao-ao` → `mao_ao` culture).
 
@@ -208,6 +208,10 @@ window.CONFIG.characterTemplates = {
 
 **Female:**
 - A'eynga Kayao (married to a K-named husband)
+
+### Kenkari Culture Rules
+
+Kenkari names use dedicated phonology and patronymic surname rules implemented in `namegen.js` (for example, `Kenkari_m` / `Kenkari_f` resolve to the `kenkari` culture).
 - Oshinga Oshim
 - E'ira Hoshey
 

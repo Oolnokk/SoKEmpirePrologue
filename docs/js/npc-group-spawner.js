@@ -109,8 +109,8 @@ function parseFighterName(fighterName) {
     return { culture: null, gender: null };
   }
 
-  // Check for _m (male) or _f (female) suffix
-  const genderMatch = fighterName.match(/^(.+?)_([mf])$/i);
+  // Check for _m/_male (male) or _f/_female (female) suffix
+  const genderMatch = fighterName.match(/^(.+?)_(m|f|male|female)$/i);
   if (!genderMatch) {
     return { culture: null, gender: null };
   }
@@ -120,9 +120,17 @@ function parseFighterName(fighterName) {
 
   // Normalize culture name (e.g., "Mao-ao" → "mao_ao")
   const cultureName = culturePart.toLowerCase().replace(/-/g, '_');
-  const gender = genderPart === 'm' ? 'male' : 'female';
+  const gender = genderPart === 'm' || genderPart === 'male' ? 'male' : 'female';
 
   return { culture: cultureName, gender };
+}
+
+function resolveDefaultCultureId() {
+  return ROOT.CONFIG?.npc?.nameGeneration?.defaultCultureId || 'mao_ao';
+}
+
+function resolveCultureAliasMap() {
+  return ROOT.CONFIG?.npc?.nameGeneration?.cultureAliases || {};
 }
 
 /**
@@ -132,16 +140,20 @@ function parseFighterName(fighterName) {
 function resolveCulture(fighterName, groupMeta, member) {
   // Try to parse from fighter name first (e.g., "Mao-ao_m" → "mao_ao")
   const parsed = parseFighterName(fighterName);
-  const cultureName = parsed.culture
+  const aliasMap = resolveCultureAliasMap();
+  const configuredDefaultCultureId = resolveDefaultCultureId();
+  const rawCultureName = parsed.culture
     || member?.culture
     || groupMeta?.culture
     || groupMeta?.meta?.culture
-    || 'mao_ao';
+    || configuredDefaultCultureId;
+  const cultureName = aliasMap[rawCultureName] || rawCultureName;
 
   const culture = CULTURES[cultureName];
   if (!culture) {
-    debugLog(`Culture "${cultureName}" not found, falling back to mao_ao`);
-    return CULTURES.mao_ao;
+    const fallbackCulture = CULTURES[configuredDefaultCultureId] || CULTURES.mao_ao;
+    debugLog(`Culture "${cultureName}" not found, falling back to ${fallbackCulture?.id || 'mao_ao'}`);
+    return fallbackCulture;
   }
   return culture;
 }
@@ -188,7 +200,8 @@ function resolveGender(fighterName, member, templateResult, rng) {
  * @returns {object} Generated name result with {name, parts, seed, debug?}
  */
 export function generateNpcName(options = {}) {
-  const culture = CULTURES[options.culture] || CULTURES.mao_ao;
+  const configuredDefaultCultureId = resolveDefaultCultureId();
+  const culture = CULTURES[options.culture] || CULTURES[configuredDefaultCultureId] || CULTURES.mao_ao;
 
   const nameResult = generateName(culture, {
     gender: options.gender || 'male',
