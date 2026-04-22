@@ -1922,6 +1922,12 @@
               tableCardContentScale: rawGameConfig.layout?.tableView?.visualFit?.tableCardContentScale ?? 0.8,
               claimAvatarContainerScale: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarContainerScale ?? 1.25,
               claimAvatarContentScale: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarContentScale ?? 0.8,
+              avatarAdditiveZoomScale: rawGameConfig.layout?.tableView?.visualFit?.avatarAdditiveZoomScale ?? 1.2,
+              claimAvatarOverlayMatchSpotlightSize: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayMatchSpotlightSize !== false,
+              claimAvatarOverlayZIndex: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayZIndex ?? 9990,
+              claimAvatarOverlayBorderRadiusPx: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayBorderRadiusPx ?? 12,
+              claimAvatarOverlayBorderColor: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayBorderColor ?? 'rgba(242,208,143,0.28)',
+              claimAvatarOverlayBackground: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayBackground ?? 'rgba(22,16,14,0.72)',
             },
             cinematic: {
               enabled: rawGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
@@ -4552,7 +4558,7 @@
       return { capturePreRender, animatePostRender };
     })();
 
-    function moveAvatarFloatsToOverlay(app) {
+    function moveAvatarFloatsToOverlay(app, layoutPolicy = null) {
   const claimCluster = app.querySelector('.claimCluster');
   if (!claimCluster) return;
 
@@ -4563,6 +4569,13 @@
     Number(spotlightAvatarRect?.width) || 0,
     Number(spotlightAvatarRect?.height) || 0
   );
+  const visualFit = layoutPolicy?.tableView?.visualFit || {};
+  const claimAvatarContentScale = clampNumber(Number(visualFit.claimAvatarContentScale) || 0.8, 0.45, 1);
+  const matchSpotlightSize = visualFit.claimAvatarOverlayMatchSpotlightSize !== false;
+  const overlayZIndex = Math.max(1, Math.round(Number(visualFit.claimAvatarOverlayZIndex) || 9990));
+  const overlayBorderRadiusPx = clampNumber(Number(visualFit.claimAvatarOverlayBorderRadiusPx) || 12, 0, 48);
+  const overlayBorderColor = String(visualFit.claimAvatarOverlayBorderColor || 'rgba(242,208,143,0.28)');
+  const overlayBackground = String(visualFit.claimAvatarOverlayBackground || 'rgba(22,16,14,0.72)');
 
   ['.actorAvatarFloat', '.reactorAvatarFloat'].forEach((sel) => {
     const float = claimCluster.querySelector(sel);
@@ -4575,7 +4588,7 @@
     const canvas = float.querySelector('canvas.seatPortrait');
 
     float.style.position = 'fixed';
-    const targetSize = spotlightAvatarSize || Math.max(rect.width, rect.height);
+    const targetSize = (matchSpotlightSize && spotlightAvatarSize) ? spotlightAvatarSize : Math.max(rect.width, rect.height);
     const centerX = rect.left + (rect.width * 0.5);
     const centerY = rect.top + (rect.height * 0.5);
     float.style.left = `${centerX - (targetSize * 0.5)}px`;
@@ -4584,10 +4597,10 @@
     float.style.height = `${targetSize}px`;
     float.style.transform = 'none';
     float.style.transformOrigin = 'top left';
-    float.style.zIndex = '9990';
-    float.style.borderRadius = '12px';
-    float.style.border = '1px solid rgba(242,208,143,0.28)';
-    float.style.background = 'rgba(22,16,14,0.72)';
+    float.style.zIndex = String(overlayZIndex);
+    float.style.borderRadius = `${overlayBorderRadiusPx}px`;
+    float.style.border = `1px solid ${overlayBorderColor}`;
+    float.style.background = overlayBackground;
     float.style.overflow = 'hidden';
     float.dataset.clusterAvatarOverlay = '1';
 
@@ -4598,7 +4611,9 @@
       canvas.style.aspectRatio = '1';
       canvas.style.display = 'block';
       canvas.style.borderRadius = '0';
-      canvas.style.transform = isReactor ? 'scaleX(-1)' : 'none';
+      canvas.style.transform = isReactor
+        ? `scale(${claimAvatarContentScale}) scaleX(-1)`
+        : `scale(${claimAvatarContentScale})`;
       canvas.style.transformOrigin = 'center center';
     }
 
@@ -4904,7 +4919,7 @@
       renderAuthoredInspector();
       updateTableCardAutoScale(app);
       syncClaimClusterCardSizeFromHand(app);
-      moveAvatarFloatsToOverlay(app);
+      moveAvatarFloatsToOverlay(app, layoutPolicy);
       cardAnimator.animatePostRender();
       seatAvatarAnim.animatePostRender();
     }
