@@ -73,7 +73,6 @@ function normalizedFighterPortrait(fighter) {
   if (!fighter || typeof fighter !== 'object') return fighter;
   return {
     ...fighter,
-    headXform: normalizePortraitLayerXform(fighter.headXform),
     bodyLayers: Array.isArray(fighter.bodyLayers)
       ? fighter.bodyLayers.map(normalizePortraitLayerXform)
       : fighter.bodyLayers,
@@ -591,7 +590,7 @@ async function loadPortraitCosmetics(configBase) {
             bodyColorRangesByGender[fighter.id] = genderData.bodyColorRanges;
             fighterPortraitOverrides[fighter.id] = {
               ...(fighterPortraitOverrides[fighter.id] || {}),
-              ...(genderData.headXform ? { headXform: normalizePortraitLayerXform(genderData.headXform) } : {}),
+              ...(genderData.headXform ? { headXform: genderData.headXform } : {}),
               ...(Array.isArray(genderData.portraitBodyLayers) ? {
                 bodyLayers: genderData.portraitBodyLayers.map(normalizePortraitLayerXform)
               } : {}),
