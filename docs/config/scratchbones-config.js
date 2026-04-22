@@ -199,8 +199,8 @@ window.SCRATCHBONES_CONFIG = {
           "claimAvatarSizePx": 180,
           "claimAvatarZoomScale": 1.2,
           "claimAvatarBorderRadiusPx": 12,
-          "claimAvatarBorderColor": "rgba(242,208,143,0.28)",
-          "claimAvatarBackground": "rgba(22,16,14,0.72)",
+          "claimAvatarBorderColor": "transparent",
+          "claimAvatarBackground": "transparent",
           "avatarAdditiveZoomScale": 1.2,
           "claimAvatarOverlayZIndex": 9990
         },
