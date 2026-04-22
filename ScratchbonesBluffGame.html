@@ -145,6 +145,8 @@
       --layout-claim-avatar-background: rgba(22,16,14,0.72);
       --layout-claim-avatar-first-name-offset: 26px;
       --layout-claim-avatar-first-name-font: 1.34rem;
+      --layout-claim-reactor-haze-color: rgba(200, 36, 36, 0.14);
+      --layout-claim-reactor-haze-blur: 16px;
       --layout-table-card-auto-scale: 1;
       --layout-fit-additive-avatar-zoom: 1;
       --layout-turn-spotlight-offset-x: 10px;
@@ -376,6 +378,36 @@
       background: var(--layout-claim-avatar-background);
       transform: scale(var(--layout-claim-avatar-zoom));
       transform-origin: center center;
+    }
+    .claimAvatarShell.reactor-seat-empty {
+      opacity: 0.25;
+      border-style: dashed;
+      border-color: rgba(200, 90, 90, 0.38);
+      background: rgba(48, 14, 14, 0.2);
+    }
+    .claimAvatarShell.reactor-seat-empty::after {
+      content: 'Awaiting challenge';
+      font-size: 0.64rem;
+      letter-spacing: 0.05em;
+      color: rgba(232, 165, 165, 0.82);
+      text-transform: uppercase;
+      text-align: center;
+      padding: 0 8px;
+    }
+    .claimAvatarShell.reactor-seat-empty canvas,
+    .claimAvatarShell.reactor-seat-empty + .claimAvatarFirstName {
+      display: none;
+    }
+    .claimAvatarHaze {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      border-radius: inherit;
+      background: radial-gradient(circle at 50% 54%, var(--layout-claim-reactor-haze-color) 0%, rgba(180, 20, 20, 0.03) 58%, transparent 76%);
+      filter: blur(var(--layout-claim-reactor-haze-blur));
+      opacity: 0.8;
+      mix-blend-mode: screen;
     }
     .actorAvatarFloat canvas,
     .reactorAvatarFloat canvas {
@@ -1293,6 +1325,36 @@
              animation-timing-function: ease-in; }
       100% { transform: translate(-50%, -105%) scale(2.28); opacity: 0; }
     }
+    .claim-liar-burst {
+      position: absolute;
+      left: 50%;
+      top: 44%;
+      transform: translate(-50%, -50%) scale(0.15);
+      color: #ff6767;
+      font-size: clamp(2.2rem, 10vw, 7.4rem);
+      font-weight: 900;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      text-shadow: 0 0 24px rgba(255, 42, 42, 0.95), 0 0 68px rgba(180, 12, 12, 0.72);
+      pointer-events: none;
+      z-index: 10020;
+      opacity: 0;
+      animation: claimLiarBurst 850ms cubic-bezier(0.15, 1.2, 0.3, 1) forwards;
+    }
+    @keyframes claimLiarBurst {
+      0% {
+        opacity: 0.12;
+        transform: translate(-50%, -50%) scale(0.15);
+      }
+      34% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.56);
+      }
+      100% {
+        opacity: 0.94;
+        transform: translate(-50%, -50%) scale(1.2);
+      }
+    }
     /* ── Tankanscript vertical side columns ── */
     .cin-tankan {
       position: absolute;
@@ -1972,6 +2034,8 @@
               claimAvatarFirstNameFontRem: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarFirstNameFontRem ?? 1.34,
               avatarAdditiveZoomScale: rawGameConfig.layout?.tableView?.visualFit?.avatarAdditiveZoomScale ?? 1.2,
               claimAvatarOverlayZIndex: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayZIndex ?? 9990,
+              reactorHazeColor: rawGameConfig.layout?.tableView?.visualFit?.reactorHazeColor ?? 'rgba(200,36,36,0.14)',
+              reactorHazeBlurPx: rawGameConfig.layout?.tableView?.visualFit?.reactorHazeBlurPx ?? 16,
             },
             cinematic: {
               enabled: rawGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
@@ -1979,6 +2043,8 @@
               showAvatars: rawGameConfig.layout?.tableView?.cinematic?.showAvatars ?? false,
               playerInfoOffsetPx: rawGameConfig.layout?.tableView?.cinematic?.playerInfoOffsetPx ?? 12,
               playerInfoFontRem: rawGameConfig.layout?.tableView?.cinematic?.playerInfoFontRem ?? 1.05,
+              liarBurstText: rawGameConfig.layout?.tableView?.cinematic?.liarBurstText ?? 'LIAR!',
+              liarBurstHoldMs: rawGameConfig.layout?.tableView?.cinematic?.liarBurstHoldMs ?? 900,
             },
           },
           regions: {
@@ -2521,6 +2587,7 @@
       recentChange: "Layout refinement: turn spotlight is now pinned inside table view, table visuals use fit scaling with larger containers, the human seat is an explicit text-left/avatar-right rectangle, and sidebar/human alignment is tightened.",
       challengeTimer: null,
       challengeTimeLeft: 0,
+      pendingReactorEntrance: null,
       roundConcessions: new Set(), // Used by: skipping players who have conceded the current claim until the round ends.
       layoutFitStages: {},
       layoutOverlapDiagnostics: { overlaps: [], stage: 'none' },
@@ -2698,6 +2765,7 @@
       state.pile = [];
       state.challengeWindow = null;
       state.betting = null;
+      state.pendingReactorEntrance = null;
       state.declaredRank = null;
       state.gameOver = false;
       state.winnerIndex = null;
@@ -2980,6 +3048,11 @@
         pendingAutoReveal: false,
       };
       state.challengeWindow = null;
+      state.pendingReactorEntrance = {
+        challengerId: challengerIndex,
+        challengedId: challengedIndex,
+        createdAt: Date.now(),
+      };
       for (const id of eligibleBackupIds(challengerIndex, challengedIndex)) {
         if (id !== 0 && aiShouldJoinBackup(id, play)) state.betting.backupQueue.push(id);
       }
@@ -3320,6 +3393,7 @@
       state.declaredRank = null;
       state.challengeWindow = null;
       state.betting = null;
+      state.pendingReactorEntrance = null;
       state.round += 1;
       state.leaderIndex = playerIndex;
       state.currentTurn = playerIndex;
@@ -3338,6 +3412,7 @@
       state.declaredRank = null;
       state.challengeWindow = null;
       state.betting = null;
+      state.pendingReactorEntrance = null;
       state.pile = [];
       state.roundConcessions.clear();
       state.round += 1;
@@ -4102,6 +4177,8 @@
       const claimAvatarFirstNameOffsetPx = clampNumber(Number(tableVisualFit.claimAvatarFirstNameOffsetPx) || 26, -30, 120);
       const claimAvatarFirstNameFontRem = clampNumber(Number(tableVisualFit.claimAvatarFirstNameFontRem) || 1.34, 0.7, 3);
       const avatarAdditiveZoomScale = clampNumber(Number(tableVisualFit.avatarAdditiveZoomScale) || 1.2, 0.8, 1.6);
+      const reactorHazeColor = String(tableVisualFit.reactorHazeColor || 'rgba(200,36,36,0.14)');
+      const reactorHazeBlurPx = clampNumber(Number(tableVisualFit.reactorHazeBlurPx) || 16, 0, 48);
       const claimAvatarOverlayZIndex = Math.max(1, Math.round(Number(tableVisualFit.claimAvatarOverlayZIndex) || 9990));
       const cinematicLayout = tableViewLayout.cinematic || {};
       const cinematicPlayerInfoOffsetPx = clampNumber(Number(cinematicLayout.playerInfoOffsetPx) || 12, -40, 160);
@@ -4166,6 +4243,8 @@
       setCssVar('--layout-claim-avatar-background', claimAvatarBackground);
       setCssVar('--layout-claim-avatar-first-name-offset', `${claimAvatarFirstNameOffsetPx.toFixed(2)}px`);
       setCssVar('--layout-claim-avatar-first-name-font', `${claimAvatarFirstNameFontRem.toFixed(3)}rem`);
+      setCssVar('--layout-claim-reactor-haze-color', reactorHazeColor);
+      setCssVar('--layout-claim-reactor-haze-blur', `${reactorHazeBlurPx.toFixed(2)}px`);
       setCssVar('--layout-fit-additive-avatar-zoom', avatarAdditiveZoomScale.toFixed(3));
       setCssVar('--layout-cinematic-player-info-offset', `${cinematicPlayerInfoOffsetPx.toFixed(2)}px`);
       setCssVar('--layout-cinematic-player-info-font', `${cinematicPlayerInfoFontRem.toFixed(3)}rem`);
@@ -4497,6 +4576,98 @@
       return { capturePreRender, animatePostRender, getPreRenderClusterRect };
     })();
 
+    function triggerReactorEntranceAnimation(app) {
+      const pending = state.pendingReactorEntrance;
+      if (!pending) return;
+      if (!state.betting) {
+        state.pendingReactorEntrance = null;
+        return;
+      }
+      const reactorId = state.betting.challengerId === pending.challengerId
+        ? state.betting.challengedId
+        : state.betting.challengerId;
+      const seatCanvas = app.querySelector(`.seatAvatarBox canvas.seatPortrait[data-seat-id="${reactorId}"]`);
+      const reactorCanvas = app.querySelector('.reactorAvatarFloat canvas.seatPortrait');
+      if (!seatCanvas || !reactorCanvas) return;
+      const fromRect = seatCanvas.getBoundingClientRect();
+      const toRect = reactorCanvas.getBoundingClientRect();
+      if (!fromRect.width || !toRect.width) return;
+      let dataUrl = '';
+      try { dataUrl = seatCanvas.toDataURL(); } catch (_) { return; }
+
+      const animCfg = SCRATCHBONES_GAME.layout?.animation || {};
+      const cinematicCfg = SCRATCHBONES_GAME.layout?.tableView?.cinematic || {};
+      const travelMs = Math.max(320, Math.round((Number(animCfg.baseDurationMs) || 400) * 1.35));
+      const liarHoldMs = Math.max(600, Number(cinematicCfg.liarBurstHoldMs) || 900);
+      const liarText = String(cinematicCfg.liarBurstText || 'LIAR!');
+
+      const flight = document.createElement('img');
+      flight.src = dataUrl;
+      flight.style.cssText = [
+        'position:fixed',
+        `left:${fromRect.left}px`,
+        `top:${fromRect.top}px`,
+        `width:${fromRect.width}px`,
+        `height:${fromRect.height}px`,
+        'object-fit:cover',
+        'border-radius:12px',
+        'pointer-events:none',
+        'z-index:10018',
+        'filter:drop-shadow(0 0 16px rgba(255, 44, 44, 0.95)) saturate(1.25)',
+        'transition:none',
+      ].join(';');
+
+      const trail = document.createElement('div');
+      trail.style.cssText = [
+        'position:fixed',
+        `left:${fromRect.left + (fromRect.width * 0.42)}px`,
+        `top:${fromRect.top + (fromRect.height * 0.5)}px`,
+        'height:3px',
+        'width:0px',
+        'transform-origin:left center',
+        'background:linear-gradient(90deg, rgba(255,88,88,0.95), rgba(255,20,20,0.52), transparent)',
+        'pointer-events:none',
+        'z-index:10017',
+        'filter:blur(1px)',
+      ].join(';');
+
+      const dx = (toRect.left + (toRect.width * 0.5)) - (fromRect.left + (fromRect.width * 0.5));
+      const dy = (toRect.top + (toRect.height * 0.5)) - (fromRect.top + (fromRect.height * 0.5));
+      const distance = Math.hypot(dx, dy);
+      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+      trail.style.transform = `rotate(${angle.toFixed(2)}deg)`;
+
+      document.body.appendChild(trail);
+      document.body.appendChild(flight);
+      reactorCanvas.style.opacity = '0';
+      seatCanvas.style.opacity = '0';
+      requestAnimationFrame(() => {
+        trail.style.transition = `width ${travelMs}ms ease-out, opacity ${Math.round(travelMs * 0.55)}ms ease-out`;
+        trail.style.width = `${distance.toFixed(2)}px`;
+        trail.style.opacity = '0.2';
+        flight.style.transition = `transform ${travelMs}ms cubic-bezier(0.2,0.9,0.2,1), filter ${travelMs}ms ease`;
+        flight.style.transform = `translate(${dx.toFixed(2)}px,${dy.toFixed(2)}px) scale(${(toRect.width / fromRect.width).toFixed(3)})`;
+        flight.style.filter = 'drop-shadow(0 0 28px rgba(255, 32, 32, 1)) saturate(1.35)';
+      });
+
+      setTimeout(() => {
+        flight.remove();
+        trail.remove();
+        seatCanvas.style.opacity = '';
+        reactorCanvas.style.opacity = '';
+        const reactorFloat = app.querySelector('.reactorAvatarFloat');
+        if (reactorFloat) {
+          const liarBurst = document.createElement('div');
+          liarBurst.className = 'claim-liar-burst';
+          liarBurst.textContent = liarText;
+          reactorFloat.appendChild(liarBurst);
+          setTimeout(() => liarBurst.remove(), liarHoldMs);
+        }
+      }, travelMs + 40);
+
+      state.pendingReactorEntrance = null;
+    }
+
     const cardAnimator = (() => {
       const OPPONENT_STAGGER_MS = 40;
       const snapshots = new Map();
@@ -4785,7 +4956,7 @@
         const actorId = (state.betting || state.challengeWindow) ? latestPlay.playerIndex : state.currentTurn;
         let reactorId = null;
         if (state.betting) reactorId = latestPlay.playerIndex === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
-        else if (state.challengeWindow) reactorId = latestPlay.playerIndex === 0 ? (state.challengeWindow.challengerOptions.find(id => id !== 0) ?? null) : 0;
+        else if (state.challengeWindow) reactorId = null;
         const declaredRank = latestPlay.declaredRank ?? state.declaredRank;
         const cardCount = latestPlay.cards?.length || 0;
         const cards = latestPlay.cards || [];
@@ -4932,12 +5103,14 @@
             <div class="actorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-actor" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
               <div class="claimAvatarShell">
                 <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="220" height="220"></canvas>
+                <div class="claimAvatarHaze" aria-hidden="true"></div>
               </div>
               <div class="claimAvatarFirstName">${escapeHtml(seatFirstName(focusActor || claimFocus.actorId))}</div>
             </div>
             <div class="reactorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-reactor" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
-              <div class="claimAvatarShell">
+              <div class="claimAvatarShell ${focusReactor ? '' : 'reactor-seat-empty'}">
                 ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="220" height="220"></canvas>` : ''}
+                <div class="claimAvatarHaze" aria-hidden="true"></div>
               </div>
               ${focusReactor ? `<div class="claimAvatarFirstName">${escapeHtml(seatFirstName(focusReactor))}</div>` : ''}
             </div>
@@ -5022,6 +5195,7 @@
       updateTableCardAutoScale(app);
       syncClaimClusterCardSizeFromHand(app);
       moveAvatarFloatsToOverlay(app, layoutPolicy);
+      triggerReactorEntranceAnimation(app);
       cardAnimator.animatePostRender();
       seatAvatarAnim.animatePostRender();
     }

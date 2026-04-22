@@ -134,7 +134,7 @@ window.SCRATCHBONES_CONFIG = {
           "log":            { "x": 20,   "y": 850, "width": 1240, "height": 40  },
           "turnSpotlight":  { "x": 1122, "y": 12,  "width": 230,  "height": 200 },
           "claimCluster":   { "x": 187,  "y": 290, "width": 1037, "height": 275 },
-          "challengePrompt":{ "x": 960,  "y": 699, "width": 280,  "height": 140 }
+          "challengePrompt":{ "x": 468,  "y": 584, "width": 472,  "height": 194 }
         }
       },
       "cards": {
@@ -204,14 +204,18 @@ window.SCRATCHBONES_CONFIG = {
           "claimAvatarFirstNameOffsetPx": 26,
           "claimAvatarFirstNameFontRem": 1.34,
           "avatarAdditiveZoomScale": 1.2,
-          "claimAvatarOverlayZIndex": 9990
+          "claimAvatarOverlayZIndex": 9990,
+          "reactorHazeColor": "rgba(205, 42, 42, 0.12)",
+          "reactorHazeBlurPx": 18
         },
         "cinematic": {
           "enabled": true,
           "showEffects": true,
           "showAvatars": false,
           "playerInfoOffsetPx": 12,
-          "playerInfoFontRem": 1.05
+          "playerInfoFontRem": 1.05,
+          "liarBurstText": "LIAR!",
+          "liarBurstHoldMs": 950
         }
       },
       "regions": {
