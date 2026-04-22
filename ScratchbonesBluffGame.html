@@ -1828,6 +1828,15 @@
         nameGeneration: {
           defaultCultureId: rawGameConfig.nameGeneration?.defaultCultureId ?? 'mao_ao',
           seedPrefix: rawGameConfig.nameGeneration?.seedPrefix ?? 'madiao-player',
+          aiCultureSelection: {
+            usePortraitSpeciesCulture: rawGameConfig.nameGeneration?.aiCultureSelection?.usePortraitSpeciesCulture ?? true,
+            fallbackCultureId: rawGameConfig.nameGeneration?.aiCultureSelection?.fallbackCultureId ?? (rawGameConfig.nameGeneration?.defaultCultureId ?? 'mao_ao'),
+            speciesToCultureId: rawGameConfig.nameGeneration?.aiCultureSelection?.speciesToCultureId ?? {
+              mao_ao: 'mao_ao',
+              'mao-ao': 'mao_ao',
+              kenkari: 'kenkari',
+            },
+          },
           cultures: rawGameConfig.nameGeneration?.cultures ?? {},
         },
         chips: {
@@ -2344,13 +2353,13 @@
     function hashStringToSeed(text) {
       return window.SCRATCHBONES_NAME_GENERATOR.hashStringToSeed(text);
     }
-    function generateMaoAoNameFromSeed(seedString, gender = 'male') {
-      return window.SCRATCHBONES_NAME_GENERATOR.generateIdentityFromSeed(seedString, gender);
+    function generateNameFromSeed(seedString, gender = 'male', cultureId) {
+      return window.SCRATCHBONES_NAME_GENERATOR.generateIdentityFromSeed(seedString, gender, cultureId);
     }
-    function generateAiIdentity(index) {
+    function generateAiIdentity(index, cultureId) {
       const identitySeed = `${NAME_SEED_PREFIX}-${state.seed}-${index}`;
       const gender = (hashStringToSeed(identitySeed) & 1) === 0 ? 'male' : 'female';
-      const name = generateMaoAoNameFromSeed(identitySeed, gender);
+      const name = generateNameFromSeed(identitySeed, gender, cultureId);
       return {
         name,
         seed: name,
@@ -2538,6 +2547,29 @@
         };
       });
     }
+    function inferPlayerCultureFromProfile(player) {
+      const cultureCfg = SCRATCHBONES_GAME.nameGeneration?.aiCultureSelection || {};
+      const speciesToCultureId = cultureCfg.speciesToCultureId || {};
+      const fallbackCultureId = cultureCfg.fallbackCultureId || SCRATCHBONES_GAME.nameGeneration?.defaultCultureId;
+      if (!cultureCfg.usePortraitSpeciesCulture) return fallbackCultureId;
+      const fighter = player?.profile?.fighter;
+      const speciesId = fighter?.speciesId || null;
+      if (speciesId && speciesToCultureId[speciesId]) return speciesToCultureId[speciesId];
+      const fighterId = String(fighter?.id || '').toLowerCase();
+      if ((fighterId === 'm' || fighterId === 'f') && speciesToCultureId.mao_ao) return speciesToCultureId.mao_ao;
+      return fallbackCultureId;
+    }
+    function applyAiNamesByPortraitCulture() {
+      for (const player of state.players) {
+        if (player.isHuman) continue;
+        const cultureId = inferPlayerCultureFromProfile(player);
+        const aiIdentity = generateAiIdentity(player.id, cultureId);
+        player.name = resolveSeatName(player.id, aiIdentity.name);
+        player.seed = aiIdentity.seed;
+        player.gender = aiIdentity.gender;
+        player.personality = aiIdentity.personality;
+      }
+    }
     function alivePlayers() {
       return state.players.filter(p => !p.eliminated);
     }
@@ -2615,6 +2647,8 @@
     function startGame() {
       SCRATCHBONES_AUDIO.startPlaylist();
       clearChallengeTimer();
+      state.seed = Math.floor(Math.random() * 1e9);
+      rand = mulberry32(state.seed);
       state.players = makePlayers();
       state.selectedCardIds.clear();
       state.pile = [];
@@ -2627,10 +2661,9 @@
       state.round = 1;
       state.roundConcessions.clear();
       state.stats = { successfulChallenges: 0, failedChallenges: 0, bluffsCaught: 0, safeTruths: 0, totalClears: 0, chipsMovedByChallenges: 0 };
-      state.seed = Math.floor(Math.random() * 1e9);
-      rand = mulberry32(state.seed);
       dealFreshHands();
       for (const p of state.players) p.profile = generatePlayerProfile(p);
+      applyAiNamesByPortraitCulture();
       for (const p of state.players) logPlayerPortraitXforms(p);
       state.leaderIndex = rngInt(0, state.players.length - 1);
       state.currentTurn = state.leaderIndex;
@@ -5002,6 +5035,7 @@
         _portraitCosmetics = cosmetics;
         if (state.players.length) {
           for (const p of state.players) p.profile = generatePlayerProfile(p);
+          applyAiNamesByPortraitCulture();
           renderSeatPortraits();
           renderCinematicPortraits();
         }
