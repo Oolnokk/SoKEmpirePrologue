@@ -57,16 +57,31 @@ function normalizePortraitLayerXform(layer) {
   if (!layer || typeof layer !== 'object') return layer;
   const next = { ...layer };
   const xf = (layer.xform && typeof layer.xform === 'object') ? layer.xform : null;
-  if (next.ax == null) next.ax = xf?.ax ?? 0;
-  if (next.ay == null) next.ay = xf?.ay ?? 0;
-  if (next.sx == null) next.sx = xf?.sx ?? xf?.scaleX ?? xf?.scaleMulX ?? 1;
-  if (next.sy == null) next.sy = xf?.sy ?? xf?.scaleY ?? xf?.scaleMulY ?? 1;
+  if (next.ax == null) next.ax = next.x ?? xf?.ax ?? xf?.x ?? 0;
+  if (next.ay == null) next.ay = next.y ?? xf?.ay ?? xf?.y ?? 0;
+  if (next.sx == null) next.sx = next.scaleX ?? next.scaleMulX ?? xf?.sx ?? xf?.scaleX ?? xf?.scaleMulX ?? 1;
+  if (next.sy == null) next.sy = next.scaleY ?? next.scaleMulY ?? xf?.sy ?? xf?.scaleY ?? xf?.scaleMulY ?? 1;
   return next;
 }
 
 function normalizePortraitMaskLayer(maskLayer) {
   if (!maskLayer || typeof maskLayer !== 'object') return null;
   return normalizePortraitLayerXform(maskLayer);
+}
+
+function toRelativePortraitLayerXform(layer, parentXform) {
+  const normalizedLayer = normalizePortraitLayerXform(layer);
+  if (!normalizedLayer || typeof normalizedLayer !== 'object') return normalizedLayer;
+  const base = normalizePortraitLayerXform(parentXform) || { ax: 0, ay: 0, sx: 1, sy: 1 };
+  const baseSx = Number(base.sx) || 1;
+  const baseSy = Number(base.sy) || 1;
+  return {
+    ...normalizedLayer,
+    ax: (normalizedLayer.ax ?? 0) - (base.ax ?? 0),
+    ay: (normalizedLayer.ay ?? 0) - (base.ay ?? 0),
+    sx: (normalizedLayer.sx ?? 1) / baseSx,
+    sy: (normalizedLayer.sy ?? 1) / baseSy,
+  };
 }
 
 function normalizedFighterPortrait(fighter) {
@@ -573,6 +588,7 @@ async function loadPortraitCosmetics(configBase) {
         const sData = await sResp.json();
         for (const [genderKey, genderData] of Object.entries(sData)) {
           if (!genderData || typeof genderData !== 'object' || !genderData.bodyColorRanges) continue;
+          const normalizedSpeciesHeadXform = genderData.headXform ? normalizePortraitLayerXform(genderData.headXform) : null;
           let fighter = FIGHTERS.find(f => genderData.headSprite && f.headUrl === genderData.headSprite);
           if (!fighter && genderData.headSprite && Array.isArray(genderData.portraitBodyLayers)) {
             fighter = normalizedFighterPortrait({
@@ -580,10 +596,16 @@ async function loadPortraitCosmetics(configBase) {
               gender: genderKey,
               label: `${sData.label || entry.label} (${genderKey === 'male' ? 'M' : 'F'})`,
               headUrl: genderData.headSprite,
-              bodyLayers: genderData.portraitBodyLayers.map(normalizePortraitLayerXform),
+              bodyLayers: genderData.portraitBodyLayers.map(layer => normalizedSpeciesHeadXform
+                ? toRelativePortraitLayerXform(layer, normalizedSpeciesHeadXform)
+                : normalizePortraitLayerXform(layer)),
               urLayers: (genderData.headUrLayers || []).map(l => ({ url: l.url, renderOrder: l.renderOrder })),
-              headXform: genderData.headXform ? normalizePortraitLayerXform(genderData.headXform) : null,
-              opacityMaskLayer: genderData.portraitOpacityMaskLayer ? normalizePortraitMaskLayer(genderData.portraitOpacityMaskLayer) : null,
+              headXform: normalizedSpeciesHeadXform,
+              opacityMaskLayer: genderData.portraitOpacityMaskLayer
+                ? (normalizedSpeciesHeadXform
+                  ? toRelativePortraitLayerXform(genderData.portraitOpacityMaskLayer, normalizedSpeciesHeadXform)
+                  : normalizePortraitMaskLayer(genderData.portraitOpacityMaskLayer))
+                : null,
             });
             FIGHTERS.push(fighter);
           }
@@ -591,12 +613,16 @@ async function loadPortraitCosmetics(configBase) {
             bodyColorRangesByGender[fighter.id] = genderData.bodyColorRanges;
             fighterPortraitOverrides[fighter.id] = {
               ...(fighterPortraitOverrides[fighter.id] || {}),
-              ...(genderData.headXform ? { headXform: normalizePortraitLayerXform(genderData.headXform) } : {}),
+              ...(normalizedSpeciesHeadXform ? { headXform: normalizedSpeciesHeadXform } : {}),
               ...(Array.isArray(genderData.portraitBodyLayers) ? {
-                bodyLayers: genderData.portraitBodyLayers.map(normalizePortraitLayerXform)
+                bodyLayers: genderData.portraitBodyLayers.map(layer => normalizedSpeciesHeadXform
+                  ? toRelativePortraitLayerXform(layer, normalizedSpeciesHeadXform)
+                  : normalizePortraitLayerXform(layer))
               } : {}),
               ...(genderData.portraitOpacityMaskLayer ? {
-                opacityMaskLayer: normalizePortraitMaskLayer(genderData.portraitOpacityMaskLayer)
+                opacityMaskLayer: normalizedSpeciesHeadXform
+                  ? toRelativePortraitLayerXform(genderData.portraitOpacityMaskLayer, normalizedSpeciesHeadXform)
+                  : normalizePortraitMaskLayer(genderData.portraitOpacityMaskLayer)
               } : {})
             };
             if (genderData.allowedCosmetics) {
