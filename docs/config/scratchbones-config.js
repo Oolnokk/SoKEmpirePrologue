@@ -496,6 +496,45 @@ window.SCRATCHBONES_CONFIG = {
             "--layout-table-card-auto-scale",
             "--layout-fit-additive-avatar-zoom"
           ],
+          "claim-cluster": [
+            "--layout-claim-cluster-center-x",
+            "--layout-claim-cluster-center-y",
+            "--layout-claim-cluster-width",
+            "--layout-claim-cluster-height",
+            "--layout-claim-avatar-container-scale",
+            "--layout-claim-avatar-content-scale",
+            "--layout-fit-additive-avatar-zoom"
+          ],
+          "claim-avatar-*": [
+            "--layout-claim-avatar-container-scale",
+            "--layout-claim-avatar-content-scale",
+            "--layout-fit-additive-avatar-zoom"
+          ],
+          "claim-hand-bar": [
+            "--layout-card-mini-base-width",
+            "--layout-card-mini-base-height",
+            "--layout-card-scale"
+          ],
+          "claim-rank-box": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
+          "claim-count-left": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
+          "claim-times-left": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
+          "claim-count-right": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
+          "claim-times-right": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
           "cinematic": [
             "--layout-cinematic-avatar-size"
           ],
