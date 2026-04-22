@@ -202,6 +202,29 @@
       }
     },
     "randomizationRules": {
+      "hatHideRules": {
+        "basic_headband": {
+          "hideSlots": []
+        },
+        "riverlandskasa_low": {
+          "hideSlots": [
+            "hairFront",
+            "hairBack"
+          ]
+        },
+        "riverlandskasa_tight": {
+          "hideSlots": [
+            "hairFront",
+            "hairBack"
+          ]
+        },
+        "riverlandskasa_wide": {
+          "hideSlots": [
+            "hairFront",
+            "hairBack"
+          ]
+        }
+      },
       "clothingColors": {
         "syncAcrossPieces": true,
         "range": {
