@@ -138,8 +138,11 @@
       --layout-ui-tabletop-url: none;
       --layout-table-card-container-scale: 1.25;
       --layout-table-card-content-scale: 0.8;
-      --layout-claim-avatar-container-scale: 1.25;
-      --layout-claim-avatar-content-scale: 0.8;
+      --layout-claim-avatar-size: 180px;
+      --layout-claim-avatar-zoom: 1.2;
+      --layout-claim-avatar-border-radius: 12px;
+      --layout-claim-avatar-border-color: rgba(242,208,143,0.28);
+      --layout-claim-avatar-background: rgba(22,16,14,0.72);
       --layout-table-card-auto-scale: 1;
       --layout-fit-additive-avatar-zoom: 1;
       --layout-turn-spotlight-offset-x: 10px;
@@ -355,13 +358,20 @@
     .reactorAvatarFloat {
       overflow: visible;
       padding: 0;
-      aspect-ratio: 1;
-      transform: translate(-50%, -50%) scale(var(--layout-claim-avatar-container-scale));
+      transform: translate(-50%, -50%);
       transform-origin: center center;
-      border-radius: 12px;
-      border: 1px solid rgba(242,208,143,0.28);
-      background: rgba(22,16,14,0.72);
+      display: grid;
+      place-items: center;
+    }
+    .claimAvatarShell {
+      width: min(100%, var(--layout-claim-avatar-size));
+      aspect-ratio: 1;
       overflow: hidden;
+      border-radius: var(--layout-claim-avatar-border-radius);
+      border: 1px solid var(--layout-claim-avatar-border-color);
+      background: var(--layout-claim-avatar-background);
+      transform: scale(var(--layout-claim-avatar-zoom));
+      transform-origin: center center;
     }
     .actorAvatarFloat canvas,
     .reactorAvatarFloat canvas {
@@ -369,12 +379,10 @@
       height: auto;
       aspect-ratio: 1;
       display: block;
-      border-radius: 10px;
-      transform: scale(var(--layout-claim-avatar-content-scale));
-      transform-origin: center center;
     }
     .reactorAvatarFloat canvas {
-      transform: scale(var(--layout-claim-avatar-content-scale)) scaleX(-1);
+      transform: scaleX(-1);
+      transform-origin: center center;
     }
     .tableViewHeader {
       display: flex;
@@ -1929,14 +1937,13 @@
             visualFit: {
               tableCardContainerScale: rawGameConfig.layout?.tableView?.visualFit?.tableCardContainerScale ?? 1.25,
               tableCardContentScale: rawGameConfig.layout?.tableView?.visualFit?.tableCardContentScale ?? 0.8,
-              claimAvatarContainerScale: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarContainerScale ?? 1.25,
-              claimAvatarContentScale: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarContentScale ?? 0.8,
+              claimAvatarSizePx: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarSizePx ?? 180,
+              claimAvatarZoomScale: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarZoomScale ?? 1.2,
+              claimAvatarBorderRadiusPx: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarBorderRadiusPx ?? 12,
+              claimAvatarBorderColor: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarBorderColor ?? 'rgba(242,208,143,0.28)',
+              claimAvatarBackground: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarBackground ?? 'rgba(22,16,14,0.72)',
               avatarAdditiveZoomScale: rawGameConfig.layout?.tableView?.visualFit?.avatarAdditiveZoomScale ?? 1.2,
-              claimAvatarOverlayMatchSpotlightSize: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayMatchSpotlightSize !== false,
               claimAvatarOverlayZIndex: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayZIndex ?? 9990,
-              claimAvatarOverlayBorderRadiusPx: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayBorderRadiusPx ?? 12,
-              claimAvatarOverlayBorderColor: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayBorderColor ?? 'rgba(242,208,143,0.28)',
-              claimAvatarOverlayBackground: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarOverlayBackground ?? 'rgba(22,16,14,0.72)',
             },
             cinematic: {
               enabled: rawGameConfig.layout?.tableView?.cinematic?.enabled ?? true,
@@ -4050,14 +4057,13 @@
       const turnSpotlightOffsetYPx = clampNumber(Number(turnSpotlightLayout.offsetYPx) || 10, 0, 120);
       const tableCardContainerScale = clampNumber(Number(tableVisualFit.tableCardContainerScale) || 1.25, 0.75, 2.25);
       const tableCardContentScale = clampNumber(Number(tableVisualFit.tableCardContentScale) || 0.8, 0.45, 1);
-      const claimAvatarContainerScale = clampNumber(Number(tableVisualFit.claimAvatarContainerScale) || 1.25, 0.75, 2.25);
-      const claimAvatarContentScale = clampNumber(Number(tableVisualFit.claimAvatarContentScale) || 0.8, 0.45, 1);
+      const claimAvatarSizePx = clampNumber(Number(tableVisualFit.claimAvatarSizePx) || 180, 80, 320);
+      const claimAvatarZoomScale = clampNumber(Number(tableVisualFit.claimAvatarZoomScale) || 1.2, 0.8, 1.6);
+      const claimAvatarBorderRadiusPx = clampNumber(Number(tableVisualFit.claimAvatarBorderRadiusPx) || 12, 0, 48);
+      const claimAvatarBorderColor = String(tableVisualFit.claimAvatarBorderColor || 'rgba(242,208,143,0.28)');
+      const claimAvatarBackground = String(tableVisualFit.claimAvatarBackground || 'rgba(22,16,14,0.72)');
       const avatarAdditiveZoomScale = clampNumber(Number(tableVisualFit.avatarAdditiveZoomScale) || 1.2, 0.8, 1.6);
-      const claimAvatarOverlayMatchSpotlightSize = tableVisualFit.claimAvatarOverlayMatchSpotlightSize !== false;
       const claimAvatarOverlayZIndex = Math.max(1, Math.round(Number(tableVisualFit.claimAvatarOverlayZIndex) || 9990));
-      const claimAvatarOverlayBorderRadiusPx = clampNumber(Number(tableVisualFit.claimAvatarOverlayBorderRadiusPx) || 12, 0, 48);
-      const claimAvatarOverlayBorderColor = String(tableVisualFit.claimAvatarOverlayBorderColor || 'rgba(242,208,143,0.28)');
-      const claimAvatarOverlayBackground = String(tableVisualFit.claimAvatarOverlayBackground || 'rgba(22,16,14,0.72)');
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
       const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
       const flameXPct = clampNumber(numberOrDefault(flameLighting.xPct, 0.5), 0, 1);
@@ -4111,8 +4117,11 @@
       setCssVar('--layout-claim-cluster-scale', claimCluster.scaleAsOne ? '1' : '1');
       setCssVar('--layout-table-card-container-scale', tableCardContainerScale.toFixed(3));
       setCssVar('--layout-table-card-content-scale', tableCardContentScale.toFixed(3));
-      setCssVar('--layout-claim-avatar-container-scale', claimAvatarContainerScale.toFixed(3));
-      setCssVar('--layout-claim-avatar-content-scale', claimAvatarContentScale.toFixed(3));
+      setCssVar('--layout-claim-avatar-size', `${Math.round(claimAvatarSizePx)}px`);
+      setCssVar('--layout-claim-avatar-zoom', claimAvatarZoomScale.toFixed(3));
+      setCssVar('--layout-claim-avatar-border-radius', `${claimAvatarBorderRadiusPx.toFixed(2)}px`);
+      setCssVar('--layout-claim-avatar-border-color', claimAvatarBorderColor);
+      setCssVar('--layout-claim-avatar-background', claimAvatarBackground);
       setCssVar('--layout-fit-additive-avatar-zoom', avatarAdditiveZoomScale.toFixed(3));
       setCssVar('--layout-ui-tabletop-url', tabletopImageSrc ? `url("${tabletopImageSrc}")` : 'none');
       setCssVar('--layout-flame-x', `${(flameXPct * 100).toFixed(2)}%`);
@@ -4184,14 +4193,13 @@
           visualFit: {
             tableCardContainerScale,
             tableCardContentScale,
-            claimAvatarContainerScale,
-            claimAvatarContentScale,
+            claimAvatarSizePx,
+            claimAvatarZoomScale,
+            claimAvatarBorderRadiusPx,
+            claimAvatarBorderColor,
+            claimAvatarBackground,
             avatarAdditiveZoomScale,
-            claimAvatarOverlayMatchSpotlightSize,
             claimAvatarOverlayZIndex,
-            claimAvatarOverlayBorderRadiusPx,
-            claimAvatarOverlayBorderColor,
-            claimAvatarOverlayBackground,
           },
           cinematicEnabled,
         },
@@ -4606,19 +4614,13 @@
   if (!claimCluster) return;
 
   const overlayParent = document.getElementById('authoredRoot') || document.body;
-  const spotlightAvatarRect = app.querySelector('.turnSpotlightAvatar')?.getBoundingClientRect();
-  const spotlightAvatarSize = Math.max(
-    0,
-    Number(spotlightAvatarRect?.width) || 0,
-    Number(spotlightAvatarRect?.height) || 0
-  );
   const visualFit = layoutPolicy?.tableView?.visualFit || {};
-  const claimAvatarContentScale = clampNumber(Number(visualFit.claimAvatarContentScale) || 0.8, 0.45, 1);
-  const matchSpotlightSize = visualFit.claimAvatarOverlayMatchSpotlightSize !== false;
+  const claimAvatarSizePx = clampNumber(Number(visualFit.claimAvatarSizePx) || 180, 80, 320);
+  const claimAvatarZoomScale = clampNumber(Number(visualFit.claimAvatarZoomScale) || 1.2, 0.8, 1.6);
+  const claimAvatarBorderRadiusPx = clampNumber(Number(visualFit.claimAvatarBorderRadiusPx) || 12, 0, 48);
+  const claimAvatarBorderColor = String(visualFit.claimAvatarBorderColor || 'rgba(242,208,143,0.28)');
+  const claimAvatarBackground = String(visualFit.claimAvatarBackground || 'rgba(22,16,14,0.72)');
   const overlayZIndex = Math.max(1, Math.round(Number(visualFit.claimAvatarOverlayZIndex) || 9990));
-  const overlayBorderRadiusPx = clampNumber(Number(visualFit.claimAvatarOverlayBorderRadiusPx) || 12, 0, 48);
-  const overlayBorderColor = String(visualFit.claimAvatarOverlayBorderColor || 'rgba(242,208,143,0.28)');
-  const overlayBackground = String(visualFit.claimAvatarOverlayBackground || 'rgba(22,16,14,0.72)');
 
   ['.actorAvatarFloat', '.reactorAvatarFloat'].forEach((sel) => {
     const float = claimCluster.querySelector(sel);
@@ -4629,9 +4631,10 @@
 
     const isReactor = float.matches('.reactorAvatarFloat');
     const canvas = float.querySelector('canvas.seatPortrait');
+    const shell = float.querySelector('.claimAvatarShell');
 
     float.style.position = 'fixed';
-    const targetSize = (matchSpotlightSize && spotlightAvatarSize) ? spotlightAvatarSize : Math.max(rect.width, rect.height);
+    const targetSize = claimAvatarSizePx;
     const centerX = rect.left + (rect.width * 0.5);
     const centerY = rect.top + (rect.height * 0.5);
     float.style.left = `${centerX - (targetSize * 0.5)}px`;
@@ -4641,11 +4644,17 @@
     float.style.transform = 'none';
     float.style.transformOrigin = 'top left';
     float.style.zIndex = String(overlayZIndex);
-    float.style.borderRadius = `${overlayBorderRadiusPx}px`;
-    float.style.border = `1px solid ${overlayBorderColor}`;
-    float.style.background = overlayBackground;
-    float.style.overflow = 'hidden';
+    float.style.overflow = 'visible';
     float.dataset.clusterAvatarOverlay = '1';
+
+    if (shell) {
+      shell.style.width = '100%';
+      shell.style.height = '100%';
+      shell.style.borderRadius = `${claimAvatarBorderRadiusPx}px`;
+      shell.style.border = `1px solid ${claimAvatarBorderColor}`;
+      shell.style.background = claimAvatarBackground;
+      shell.style.transform = `scale(${claimAvatarZoomScale})`;
+    }
 
     // Make the moved cluster avatar canvas behave like the seat portrait canvas.
     if (canvas) {
@@ -4654,9 +4663,7 @@
       canvas.style.aspectRatio = '1';
       canvas.style.display = 'block';
       canvas.style.borderRadius = '0';
-      canvas.style.transform = isReactor
-        ? `scale(${claimAvatarContentScale}) scaleX(-1)`
-        : `scale(${claimAvatarContentScale})`;
+      canvas.style.transform = isReactor ? 'scaleX(-1)' : 'none';
       canvas.style.transformOrigin = 'center center';
     }
 
@@ -4877,10 +4884,14 @@
             <div class="claimTimesBoxRight ${claimClusterShellClass}" data-proj-id="claim-times-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxRight)}">×</div>
             <div class="claimCountBoxRight ${claimClusterShellClass}" data-proj-id="claim-count-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountText}</div>
             <div class="actorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-actor" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
-              <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="140" height="140"></canvas>
+              <div class="claimAvatarShell">
+                <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="220" height="220"></canvas>
+              </div>
             </div>
             <div class="reactorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-reactor" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
-              ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="140" height="140"></canvas>` : ''}
+              <div class="claimAvatarShell">
+                ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="220" height="220"></canvas>` : ''}
+              </div>
             </div>
           </div>
         ` : ''}
