@@ -47,9 +47,9 @@
     billboard: {
       selectors: [],
       avatars: [
-        { selector: '#avatar-1', scale: 3, fromLeftPx: 28, fromTopPx: 24 },
-        { selector: '#avatar-2', scale: 3, fromLeftPx: 220, fromTopPx: 20 },
-        { selector: '#avatar-3', scale: 3, fromRightPx: 28, fromTopPx: 24 }
+        { selector: '[data-proj-id="avatar-1"]', scale: 3, fromLeftPx: 28, fromTopPx: 24 },
+        { selector: '[data-proj-id="avatar-2"]', scale: 3, fromLeftPx: 220, fromTopPx: 20 },
+        { selector: '[data-proj-id="avatar-3"]', scale: 3, fromRightPx: 28, fromTopPx: 24 }
       ]
     }
   };

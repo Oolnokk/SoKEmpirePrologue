@@ -414,6 +414,19 @@
       }
 
       function buildBillboardVisual(matchedElement, selector) {
+        const sourceCanvas = matchedElement instanceof HTMLCanvasElement
+          ? matchedElement
+          : matchedElement.querySelector('canvas');
+        if (sourceCanvas instanceof HTMLCanvasElement) {
+          const canvasImage = document.createElement('img');
+          canvasImage.src = sourceCanvas.toDataURL();
+          canvasImage.alt = matchedElement.getAttribute('aria-label') || matchedElement.title || selector;
+          canvasImage.style.maxWidth = 'none';
+          canvasImage.style.width = `${Math.max(1, sourceCanvas.clientWidth || sourceCanvas.width || 64)}px`;
+          canvasImage.style.height = `${Math.max(1, sourceCanvas.clientHeight || sourceCanvas.height || 64)}px`;
+          return canvasImage;
+        }
+
         const imageSource = matchedElement instanceof HTMLImageElement
           ? matchedElement.currentSrc || matchedElement.src
           : null;
@@ -453,8 +466,9 @@
             if (rect.width <= 0 || rect.height <= 0) {
               return;
             }
-            const sourceCenterX = rect.left + rect.width * 0.5;
-            const sourceCenterY = rect.top + rect.height * 0.5;
+            const frameRect = frameElement.getBoundingClientRect();
+            const sourceCenterX = rect.left - frameRect.left + rect.width * 0.5;
+            const sourceCenterY = rect.top - frameRect.top + rect.height * 0.5;
             const projectedCenter = applyHomographyToPoint(latestHomography, sourceCenterX, sourceCenterY);
             if (!projectedCenter) {
               return;
@@ -518,12 +532,23 @@
         });
       }
 
+      let billboardRefreshHandle = null;
+      function startBillboardRefreshLoop() {
+        if (billboardRefreshHandle !== null) {
+          window.clearInterval(billboardRefreshHandle);
+        }
+        billboardRefreshHandle = window.setInterval(() => {
+          syncBillboardElements();
+        }, 120);
+      }
+
       const hostResizeObserver = new ResizeObserver(() => {
         scheduleProjectionUpdate();
       });
 
       frameElement.addEventListener('load', () => {
         scheduleProjectionUpdate();
+        startBillboardRefreshLoop();
       });
 
       window.addEventListener('resize', scheduleProjectionUpdate);
