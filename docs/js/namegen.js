@@ -102,6 +102,10 @@ function initialOf(first) {
   const c = String(first || "").trim().slice(0, 1);
   return c ? c.toUpperCase() : "";
 }
+function formatPatronymicSurname(prefix, fatherFirstName, casing) {
+  const formattedFather = applyCasing(fatherFirstName, casing);
+  return `${String(prefix || "").toLowerCase()} ${formattedFather}`;
+}
 
 /// ------------------------- Syllable count helpers -------------------------
 function pickSyllableCount(rng, cfg, debugSteps, label) {
@@ -247,6 +251,169 @@ function pickPattern(rng, patterns, { allowOnsetlessV, debugSteps, debugLabel })
   const chosen = pick(rng, filtered);
   debugSteps && debugSteps.push({ label: debugLabel, data: chosen });
   return chosen;
+}
+
+function weightedPick(rng, entries) {
+  const totalWeight = entries.reduce((sum, entry) => sum + entry.weight, 0);
+  let roll = rng() * totalWeight;
+  for (const entry of entries) {
+    roll -= entry.weight;
+    if (roll <= 0) return entry;
+  }
+  return entries[entries.length - 1];
+}
+function weightedPickValue(rng, values, weightMap) {
+  const entries = values
+    .map(value => ({ value, weight: Number((weightMap || {})[value] ?? 1) }))
+    .filter(entry => entry.weight > 0);
+  if (!entries.length) throw new Error('weightedPickValue() received no positive-weight values.');
+  return weightedPick(rng, entries).value;
+}
+
+function getKenkariVowelPool(phonology, opts = {}) {
+  const isFinal = !!opts.isFinal;
+  const allowMarked = !!opts.allowMarked;
+  let pool = phonology.vowels.slice();
+  if (!allowMarked) {
+    pool = pool.filter(v => v !== "ai" && v !== "ey");
+  }
+  if (isFinal) {
+    return pool
+      .filter(v => v !== "e")
+      .concat((phonology.finalOnlyVowels || []).filter(v => v !== "e" && (allowMarked || v !== "ao")));
+  }
+  return pool.filter(v => !(phonology.finalOnlyVowels || []).includes(v));
+}
+
+function chooseKenkariTemplate(rng, phonology, debugSteps) {
+  const entry = weightedPick(rng, phonology.templateWeights);
+  debugSteps && debugSteps.push({ label: "firstName.template", data: { label: entry.label, pattern: entry.pattern } });
+  return entry.pattern.slice();
+}
+
+function buildKenkariPhonemeByType(rng, phonology, type, opts = {}) {
+  const vowelPool = getKenkariVowelPool(phonology, opts);
+  const vowelWeightMap = opts.isFinal ? (phonology.finalVowelWeights || phonology.vowelWeights) : phonology.vowelWeights;
+  const vowel = weightedPickValue(rng, vowelPool, vowelWeightMap);
+  const position = Number.isFinite(opts.position) ? opts.position : 0;
+  let consonant = null;
+  let phoneme = "";
+
+  if (type === "V") {
+    if (position > 0) throw new Error('Kenkari lone vowels may only appear at the beginning of a name.');
+    phoneme = vowel;
+  } else if (type === "CV") {
+    const consonantWeightMap = opts.afterGlottal && opts.isFinal
+      ? (phonology.postGlottalFinalConsonantWeights || phonology.finalConsonantWeights || phonology.consonantWeights)
+      : (opts.isFinal ? (phonology.finalConsonantWeights || phonology.consonantWeights) : phonology.consonantWeights);
+    consonant = weightedPickValue(rng, phonology.consonants, consonantWeightMap);
+    phoneme = consonant + vowel;
+  } else if (type === "'V") {
+    phoneme = "'" + vowel;
+  } else {
+    throw new Error(`Unsupported Kenkari phoneme type: ${type}`);
+  }
+
+  return { type, consonant, vowel, phoneme };
+}
+
+function countApostrophes(s) {
+  return (String(s || "").match(/'/g) || []).length;
+}
+function countMarkedVowels(s) {
+  return (String(s || "").match(/ai|ey|ao/g) || []).length;
+}
+function getKenkariGenderConflict(name, gender, phonemes = []) {
+  const lower = String(name || '').toLowerCase();
+  const firstPhoneme = String(phonemes[0] || '').toLowerCase();
+  const firstConsonant = /^[bgkhmnprt]/.test(firstPhoneme) ? firstPhoneme[0] : '';
+  const hasMaleOnlyP = lower.includes('p');
+  const hasMaleOnlyInitial = firstConsonant === 'r' || firstConsonant === 't';
+  const hasFemaleOnlyEnding = /(?:mi|mey)$/i.test(lower);
+
+  if (gender === 'female' && hasMaleOnlyP) return { code: 'female_has_male_only_p' };
+  if (gender === 'female' && hasMaleOnlyInitial) return { code: 'female_has_male_only_initial' };
+  if (gender === 'male' && hasFemaleOnlyEnding) return { code: 'male_has_female_only_ending' };
+  return null;
+}
+function phonemeHasIVowel(phoneme) {
+  return /i/.test(String(phoneme || '').toLowerCase());
+}
+function phonemeHasAVowel(phoneme) {
+  return /a/.test(String(phoneme || '').toLowerCase());
+}
+function hasIVowelBeforeAVowel(phonemes) {
+  let seenI = false;
+  for (const phoneme of phonemes || []) {
+    if (seenI && phonemeHasAVowel(phoneme)) return true;
+    if (phonemeHasIVowel(phoneme)) seenI = true;
+  }
+  return false;
+}
+
+function buildKenkariGivenName(rng, culture, gender, debugSteps) {
+  const phonology = culture.kenkariRules.phonology;
+  let lastAttempt = null;
+
+  for (let attempt = 1; attempt <= 40; attempt++) {
+    const template = chooseKenkariTemplate(rng, phonology, debugSteps);
+    const phonemes = [];
+    const localDebug = [];
+    let apostropheCount = 0;
+
+    for (let i = 0; i < template.length; i++) {
+      const type = template[i];
+      const isFinal = i === template.length - 1;
+      const usedMarkedEarlier = phonemes.some(p => /ai|ey|ao/.test(p));
+      const previousType = i > 0 ? template[i - 1] : null;
+      const allowMarked = isFinal ? (rng() < 0.28) : (!usedMarkedEarlier && rng() < 0.18);
+      const built = buildKenkariPhonemeByType(rng, phonology, type, {
+        isFinal,
+        allowMarked,
+        position: i,
+        afterGlottal: previousType === "'V"
+      });
+      if (type === "'V") apostropheCount += 1;
+      phonemes.push(built.phoneme);
+      localDebug.push({
+        label: `firstName.phoneme[${i}]`,
+        data: { position: i, totalCount: template.length, isFinal, allowMarked, ...built }
+      });
+    }
+
+    let name = phonemes.join("");
+    name = name.replace(/e(?=')/g, 'ey');
+    const markedCount = countMarkedVowels(name);
+    const validLength = phonemes.length >= phonology.minPhonemes && phonemes.length <= phonology.maxPhonemes;
+    const validFinal = !/e$/i.test(name);
+    const validApostrophes = apostropheCount <= 1;
+    const validMarked = markedCount <= 1;
+    const validInternalLoneVowels = template.every((part, index) => index === 0 || part !== 'V');
+    const validEndingShape = !/(pey|ora)$/i.test(name);
+    const validIVowelSequence = !hasIVowelBeforeAVowel(phonemes);
+    const genderConflict = getKenkariGenderConflict(name, gender, phonemes);
+    const validGenderMarkers = !genderConflict;
+
+    lastAttempt = { attempt, template, phonemes, name, apostropheCount, markedCount, validLength, validFinal, validApostrophes, validMarked, validInternalLoneVowels, validEndingShape, validIVowelSequence, validGenderMarkers, genderConflict };
+
+    if (validLength && validFinal && validApostrophes && validMarked && validInternalLoneVowels && validEndingShape && validIVowelSequence && validGenderMarkers) {
+      debugSteps && debugSteps.push({ label: "firstName.phonemeCount", data: { count: phonemes.length, gender, min: phonology.minPhonemes, max: phonology.maxPhonemes, attempt } });
+      if (debugSteps) debugSteps.push(...localDebug);
+      debugSteps && debugSteps.push({ label: "firstName.compound", data: { template, phonemes, name, apostropheCount, markedCount, genderConflict: null } });
+      return name;
+    }
+  }
+
+  throw new Error(`Could not generate a Kenkari name within the current template rules. Last attempt: ${JSON.stringify(lastAttempt)}`);
+}
+
+function buildKenkariPatronymicSurname(culture, gender, fatherFirstName, debugSteps) {
+  const prefix = gender === "female"
+    ? culture.kenkariRules.surnameRules.femalePrefix
+    : culture.kenkariRules.surnameRules.malePrefix;
+  const surname = formatPatronymicSurname(prefix, fatherFirstName, culture.casing);
+  debugSteps && debugSteps.push({ label: "lastName.patronymic", data: { prefix, fatherFirstName, surname } });
+  return surname;
 }
 
 /// --------------------- Mao-ao name construction ---------------------------
@@ -403,6 +570,22 @@ export function generateName(culture, opts) {
   const rng = mulberry32(seed);
   const debugSteps = opts.debug ? [] : undefined;
 
+  if (culture.kenkariRules) {
+    const firstName = buildKenkariGivenName(rng, culture, opts.gender, debugSteps);
+    const suppliedFather = String(opts.fatherFirstName || "").trim();
+    const fatherFirstName = suppliedFather
+      ? (parseName(suppliedFather).first || suppliedFather)
+      : buildKenkariGivenName(rng, culture, "male", debugSteps);
+    debugSteps && debugSteps.push({ label: suppliedFather ? "lastName.father.supplied" : "lastName.father.generated", data: fatherFirstName });
+
+    const surname = buildKenkariPatronymicSurname(culture, opts.gender, fatherFirstName, debugSteps);
+    const parts = {
+      first: applyCasing(firstName, culture.casing),
+      last: surname,
+    };
+    return { name: [parts.first, parts.last].filter(Boolean).join(" "), parts, seed, debug: debugSteps };
+  }
+
   if (!culture.positionedSyllables) throw new Error(`Culture "${culture.id}" has no positionedSyllables rules.`);
 
   // surname inherited or generated
@@ -492,6 +675,37 @@ export const CULTURES = {
       lastName: {
         syllables: { exact: 2 },
         deriveFromFirstNameMaleRules: true,
+      },
+    },
+  },
+  kenkari: {
+    id: "kenkari",
+    displayName: "Kenkari",
+    casing: "title",
+    kenkariRules: {
+      phonology: {
+        consonants: ["b", "g", "h", "k", "m", "n", "p", "r", "t"],
+        consonantWeights: { b: 1, g: 7, h: 7, k: 11, m: 10, n: 10, p: 8, r: 8, t: 8 },
+        finalConsonantWeights: { b: 1, g: 4, h: 3, k: 12, m: 12, n: 13, p: 5, r: 3, t: 4 },
+        postGlottalFinalConsonantWeights: { b: 1, g: 3, h: 2, k: 12, m: 12, n: 14, p: 3, r: 1, t: 2 },
+        vowels: ["a", "e", "i", "o", "u", "ai", "ey"],
+        vowelWeights: { a: 11, e: 4, i: 11, o: 8, u: 10, ai: 4, ey: 4 },
+        finalVowelWeights: { a: 12, i: 13, o: 4, u: 11, ai: 5, ey: 0, ao: 5 },
+        finalOnlyVowels: ["ao"],
+        minPhonemes: 2,
+        maxPhonemes: 4,
+        templateWeights: [
+          { pattern: ["V", "'V", "CV"], weight: 18, label: "V'CV" },
+          { pattern: ["CV", "'V"], weight: 18, label: "CV'V" },
+          { pattern: ["CV", "CV"], weight: 18, label: "CVCV" },
+          { pattern: ["CV", "'V", "CV"], weight: 16, label: "CV'VCV" },
+          { pattern: ["CV", "CV", "CV"], weight: 12, label: "CVCVCV" },
+          { pattern: ["V", "'V", "CV", "CV"], weight: 8, label: "V'VCVCV" }
+        ],
+      },
+      surnameRules: {
+        malePrefix: "ao",
+        femalePrefix: "u",
       },
     },
   },
