@@ -1,5 +1,6 @@
 {
   "slot": "hat",
+  "tags": ["material:cloth"],
   "colorRange": {
     "minH": -180,
     "maxH": 180,

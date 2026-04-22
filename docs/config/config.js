@@ -225,6 +225,11 @@ const MATERIALS = {
 };
 window.CONFIG = window.CONFIG || {};
 window.CONFIG.materials = MATERIALS;
+window.CONFIG.portraitRandomization = window.CONFIG.portraitRandomization || {};
+window.CONFIG.portraitRandomization.materialTags = {
+  cloth: 'cloth',
+  ...(window.CONFIG.portraitRandomization.materialTags || {})
+};
 window.CONFIG.cosmeticMaterialPalettes = {
   reed: {
     minH: 26,

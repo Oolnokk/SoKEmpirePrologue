@@ -698,6 +698,11 @@ function materialColorRangeFor(option) {
   return materialPalettes[materialTag] || null;
 }
 
+function isMaterialTag(option, expectedTag) {
+  if (!expectedTag || typeof expectedTag !== 'string') return false;
+  return String(option?.materialTag || '').trim().toLowerCase() === expectedTag.trim().toLowerCase();
+}
+
 function applyBodyColorRulesSeeded(bodyColors, rules, rng) {
   if (!bodyColors || !rules || typeof rules !== 'object') return bodyColors;
   const result = {
@@ -955,14 +960,17 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   const syncAcrossPieces = clothingRule?.syncAcrossPieces === true;
   const ruleRange = clothingRule?.range || null;
   const clothSourceRange = ruleRange || torsoCosmetic?.colorRange || armCosmetic?.colorRange || null;
+  const clothMaterialTag = window.CONFIG?.portraitRandomization?.materialTags?.cloth || 'cloth';
+  const hatUsesClothMaterial = isMaterialTag(hat, clothMaterialTag);
   const hatMaterialRange = materialColorRangeFor(hat);
-  const hatSourceRange = hatMaterialRange || hat?.colorRange || null;
+  const hatSourceRange = hatMaterialRange
+    || (hatUsesClothMaterial ? (ruleRange || hat?.colorRange || null) : (hat?.colorRange || null));
 
   if (hasClothPiece && clothSourceRange) {
     bodyColors.CLOTH = randomColorFromRangeSeeded(clothSourceRange, rng);
   }
   if (hatSourceRange) {
-    bodyColors.HAT = (syncAcrossPieces && bodyColors.CLOTH && !hatMaterialRange)
+    bodyColors.HAT = (syncAcrossPieces && hatUsesClothMaterial && bodyColors.CLOTH)
       ? bodyColors.CLOTH
       : randomColorFromRangeSeeded(hatSourceRange, rng);
   }
