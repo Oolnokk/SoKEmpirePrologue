@@ -34,9 +34,11 @@
     }
 
     .projection {
-      position: relative;
-      transform-style: preserve-3d;
-      will-change: transform, clip-path, width, height;
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform-origin: 0 0;
+      will-change: transform, width, height;
       box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.18), 0 0 0 8px rgba(0, 0, 0, 0.12);
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
@@ -61,6 +63,32 @@
       border: 0;
       background: #111;
       pointer-events: auto;
+    }
+
+    .billboard-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .billboard-item {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      max-width: min(36ch, 40vw);
+      padding: 4px 8px;
+      border-radius: 7px;
+      background: rgba(18, 14, 9, 0.72);
+      border: 1px solid rgba(230, 196, 133, 0.44);
+      color: #f6e9d0;
+      font-size: 12px;
+      line-height: 1.2;
+      letter-spacing: 0.01em;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.58);
+      backdrop-filter: blur(2px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .host-glow {
@@ -96,6 +124,7 @@
     <section id="projection" class="projection" aria-label="Projected game surface">
       <iframe id="tabletopFrame" title="Projected tabletop game" allow="fullscreen"></iframe>
     </section>
+    <section id="billboardLayer" class="billboard-layer" aria-label="Billboard UI layer"></section>
     <output id="status" class="status" aria-live="polite"></output>
   </main>
 
@@ -111,6 +140,7 @@
       const perspectiveConfig = geometryConfig.perspective || {};
       const transformConfig = geometryConfig.transform || {};
       const interactionConfig = config.interaction || {};
+      const billboardConfig = config.billboard || {};
 
       const url = new URL(window.location.href);
       const query = url.searchParams;
@@ -118,6 +148,7 @@
       const hostElement = document.getElementById('host');
       const projectionElement = document.getElementById('projection');
       const frameElement = document.getElementById('tabletopFrame');
+      const billboardLayerElement = document.getElementById('billboardLayer');
       const statusElement = document.getElementById('status');
 
       const requestedSource = query.get(sourceConfig.srcParamName) || sourceConfig.fallbackSrc;
@@ -128,9 +159,15 @@
       frameElement.style.pointerEvents = interactionConfig.directIframeInput ? 'auto' : 'none';
 
       const clamp = (value, minValue, maxValue) => Math.min(maxValue, Math.max(minValue, value));
+      const linearSolveEpsilon = 1e-9;
+      let latestHomography = null;
+      let latestInverseHomography = null;
+      let latestTargetQuad = null;
 
       function setStatusText() {
-        statusElement.textContent = `src=${requestedSource} | design=${Math.round(designedViewportWidth)}x${Math.round(designedViewportHeight)} | directInput=${Boolean(interactionConfig.directIframeInput)} | forwardedInput=${Boolean(interactionConfig.forwardPointerEvents)}`;
+        const selectorCount = (billboardConfig.selectors || []).length;
+        const avatarCount = (billboardConfig.avatars || []).length;
+        statusElement.textContent = `src=${requestedSource} | design=${Math.round(designedViewportWidth)}x${Math.round(designedViewportHeight)} | directInput=${Boolean(interactionConfig.directIframeInput)} | forwardedInput=${Boolean(interactionConfig.forwardPointerEvents)} | billboards=${selectorCount + avatarCount}`;
       }
 
       function readDesignedViewportFromChild() {
@@ -155,6 +192,129 @@
         }
       }
 
+      function solveLinearSystem8x8(matrix, vector) {
+        const augmented = matrix.map((row, rowIndex) => [...row, vector[rowIndex]]);
+        const size = 8;
+
+        for (let pivotIndex = 0; pivotIndex < size; pivotIndex += 1) {
+          let bestRow = pivotIndex;
+          for (let row = pivotIndex + 1; row < size; row += 1) {
+            if (Math.abs(augmented[row][pivotIndex]) > Math.abs(augmented[bestRow][pivotIndex])) {
+              bestRow = row;
+            }
+          }
+
+          const pivotValue = augmented[bestRow][pivotIndex];
+          if (!Number.isFinite(pivotValue) || Math.abs(pivotValue) < linearSolveEpsilon) {
+            return null;
+          }
+
+          if (bestRow !== pivotIndex) {
+            const temp = augmented[pivotIndex];
+            augmented[pivotIndex] = augmented[bestRow];
+            augmented[bestRow] = temp;
+          }
+
+          for (let row = pivotIndex + 1; row < size; row += 1) {
+            const factor = augmented[row][pivotIndex] / augmented[pivotIndex][pivotIndex];
+            for (let column = pivotIndex; column <= size; column += 1) {
+              augmented[row][column] -= factor * augmented[pivotIndex][column];
+            }
+          }
+        }
+
+        const solution = new Array(size).fill(0);
+        for (let row = size - 1; row >= 0; row -= 1) {
+          let subtotal = augmented[row][size];
+          for (let column = row + 1; column < size; column += 1) {
+            subtotal -= augmented[row][column] * solution[column];
+          }
+          const diagonalValue = augmented[row][row];
+          if (!Number.isFinite(diagonalValue) || Math.abs(diagonalValue) < linearSolveEpsilon) {
+            return null;
+          }
+          solution[row] = subtotal / diagonalValue;
+        }
+
+        return solution;
+      }
+
+      function solveHomography(sourceQuad, targetQuad) {
+        const matrix = [];
+        const vector = [];
+
+        for (let index = 0; index < 4; index += 1) {
+          const sourcePoint = sourceQuad[index];
+          const targetPoint = targetQuad[index];
+          const sx = sourcePoint.x;
+          const sy = sourcePoint.y;
+          const tx = targetPoint.x;
+          const ty = targetPoint.y;
+
+          matrix.push([sx, sy, 1, 0, 0, 0, -sx * tx, -sy * tx]);
+          vector.push(tx);
+          matrix.push([0, 0, 0, sx, sy, 1, -sx * ty, -sy * ty]);
+          vector.push(ty);
+        }
+
+        const solution = solveLinearSystem8x8(matrix, vector);
+        if (!solution) {
+          return null;
+        }
+
+        return {
+          h11: solution[0], h12: solution[1], h13: solution[2],
+          h21: solution[3], h22: solution[4], h23: solution[5],
+          h31: solution[6], h32: solution[7], h33: 1
+        };
+      }
+
+      function invertHomography(homography) {
+        if (!homography) {
+          return null;
+        }
+        const a = homography.h11; const b = homography.h12; const c = homography.h13;
+        const d = homography.h21; const e = homography.h22; const f = homography.h23;
+        const g = homography.h31; const h = homography.h32; const i = homography.h33;
+
+        const A = e * i - f * h;
+        const B = -(d * i - f * g);
+        const C = d * h - e * g;
+        const D = -(b * i - c * h);
+        const E = a * i - c * g;
+        const F = -(a * h - b * g);
+        const G = b * f - c * e;
+        const H = -(a * f - c * d);
+        const I = a * e - b * d;
+        const determinant = a * A + b * B + c * C;
+
+        if (!Number.isFinite(determinant) || Math.abs(determinant) < linearSolveEpsilon) {
+          return null;
+        }
+
+        const invDet = 1 / determinant;
+        return {
+          h11: A * invDet, h12: D * invDet, h13: G * invDet,
+          h21: B * invDet, h22: E * invDet, h23: H * invDet,
+          h31: C * invDet, h32: F * invDet, h33: I * invDet
+        };
+      }
+
+      function applyHomographyToPoint(homography, pointX, pointY) {
+        const denominator = (homography.h31 * pointX) + (homography.h32 * pointY) + homography.h33;
+        if (!Number.isFinite(denominator) || Math.abs(denominator) < linearSolveEpsilon) {
+          return null;
+        }
+        return {
+          x: ((homography.h11 * pointX) + (homography.h12 * pointY) + homography.h13) / denominator,
+          y: ((homography.h21 * pointX) + (homography.h22 * pointY) + homography.h23) / denominator
+        };
+      }
+
+      function homographyToCssMatrix3d(homography) {
+        return `matrix3d(${homography.h11},${homography.h21},0,${homography.h31},${homography.h12},${homography.h22},0,${homography.h32},0,0,1,0,${homography.h13},${homography.h23},0,${homography.h33})`;
+      }
+
       function computeProjectionGeometry() {
         const hostRect = hostElement.getBoundingClientRect();
         const hostWidth = hostRect.width;
@@ -177,17 +337,13 @@
           trapezoidConfig.maxTopEdgeRatio
         );
 
-        const sideInsetPercent = (1 - topEdgeRatio) * 50;
-        const tiltDeg = clamp(
-          transformConfig.tiltDegByHeight * (projectedHeight / Math.max(hostHeight, 1)),
-          transformConfig.minTiltDeg,
-          transformConfig.maxTiltDeg
-        );
-
-        const perspectivePx = clamp(
-          perspectiveConfig.perspectivePxByWidth * (hostWidth / 1280),
-          perspectiveConfig.minPx,
-          perspectiveConfig.maxPx
+        const sideInset = (1 - topEdgeRatio) * projectedWidth * 0.5;
+        const baseLeft = (hostWidth - projectedWidth) * 0.5 + transformConfig.offsetXPx;
+        const baseTop = (hostHeight - projectedHeight) * 0.5 + transformConfig.offsetYPx;
+        const topDepth = clamp(
+          perspectiveConfig.depthPxByWidth * (projectedWidth / Math.max(hostWidth, 1)),
+          perspectiveConfig.minDepthPx,
+          perspectiveConfig.maxDepthPx
         );
 
         const borderRadiusPx = clamp(
@@ -199,17 +355,191 @@
         projectionElement.style.width = `${Math.round(projectedWidth)}px`;
         projectionElement.style.height = `${Math.round(projectedHeight)}px`;
         projectionElement.style.borderRadius = `${borderRadiusPx.toFixed(1)}px`;
-        projectionElement.style.clipPath = `polygon(${sideInsetPercent.toFixed(2)}% 0%, ${(100 - sideInsetPercent).toFixed(2)}% 0%, 100% 100%, 0% 100%)`;
-        projectionElement.style.transform = `translate3d(${transformConfig.offsetXPx}px, ${transformConfig.offsetYPx}px, 0) perspective(${perspectivePx.toFixed(1)}px) scale(${transformConfig.scale}) rotateX(${tiltDeg.toFixed(2)}deg) rotateY(${transformConfig.yawDeg}deg)`;
+        projectionElement.style.left = '0px';
+        projectionElement.style.top = '0px';
+
+        const sourceQuad = [
+          { x: 0, y: 0 },
+          { x: projectedWidth, y: 0 },
+          { x: projectedWidth, y: projectedHeight },
+          { x: 0, y: projectedHeight }
+        ];
+        const targetQuad = [
+          { x: baseLeft + sideInset, y: baseTop - topDepth },
+          { x: baseLeft + projectedWidth - sideInset, y: baseTop - topDepth },
+          { x: baseLeft + projectedWidth, y: baseTop + projectedHeight },
+          { x: baseLeft, y: baseTop + projectedHeight }
+        ];
+        const homography = solveHomography(sourceQuad, targetQuad);
+        if (homography) {
+          latestHomography = homography;
+          latestInverseHomography = invertHomography(homography);
+          latestTargetQuad = targetQuad;
+          projectionElement.style.transform = homographyToCssMatrix3d(homography);
+        }
         projectionElement.style.boxShadow = transformConfig.tabletopShadow || '';
+      }
+
+      function buildBillboardRules() {
+        const selectorRules = (Array.isArray(billboardConfig.selectors) ? billboardConfig.selectors : []).map((selector) => ({
+          selector,
+          scale: 1
+        }));
+        const avatarRules = (Array.isArray(billboardConfig.avatars) ? billboardConfig.avatars : [])
+          .filter((rule) => typeof rule?.selector === 'string' && rule.selector.length > 0)
+          .map((rule) => ({ ...rule }));
+        return [...selectorRules, ...avatarRules];
+      }
+
+      function resolveBillboardPosition(rule, projectedCenter, quad) {
+        if (!quad) {
+          return projectedCenter;
+        }
+
+        const quadBounds = {
+          left: Math.min(quad[0].x, quad[1].x, quad[2].x, quad[3].x),
+          top: Math.min(quad[0].y, quad[1].y, quad[2].y, quad[3].y),
+          right: Math.max(quad[0].x, quad[1].x, quad[2].x, quad[3].x),
+          bottom: Math.max(quad[0].y, quad[1].y, quad[2].y, quad[3].y)
+        };
+
+        const resolvedX = Number.isFinite(rule.fromLeftPx)
+          ? quadBounds.left + rule.fromLeftPx
+          : (Number.isFinite(rule.fromRightPx) ? quadBounds.right - rule.fromRightPx : projectedCenter.x);
+        const resolvedY = Number.isFinite(rule.fromTopPx)
+          ? quadBounds.top + rule.fromTopPx
+          : (Number.isFinite(rule.fromBottomPx) ? quadBounds.bottom - rule.fromBottomPx : projectedCenter.y);
+
+        return { x: resolvedX, y: resolvedY };
+      }
+
+      function buildBillboardVisual(matchedElement, selector) {
+        const sourceCanvas = matchedElement instanceof HTMLCanvasElement
+          ? matchedElement
+          : matchedElement.querySelector('canvas');
+        if (sourceCanvas instanceof HTMLCanvasElement) {
+          const canvasImage = document.createElement('img');
+          canvasImage.src = sourceCanvas.toDataURL();
+          canvasImage.alt = matchedElement.getAttribute('aria-label') || matchedElement.title || selector;
+          canvasImage.style.maxWidth = 'none';
+          canvasImage.style.width = `${Math.max(1, sourceCanvas.clientWidth || sourceCanvas.width || 64)}px`;
+          canvasImage.style.height = `${Math.max(1, sourceCanvas.clientHeight || sourceCanvas.height || 64)}px`;
+          return canvasImage;
+        }
+
+        const imageSource = matchedElement instanceof HTMLImageElement
+          ? matchedElement.currentSrc || matchedElement.src
+          : null;
+
+        if (imageSource) {
+          const imageElement = document.createElement('img');
+          imageElement.src = imageSource;
+          imageElement.alt = matchedElement.alt || selector;
+          imageElement.style.maxWidth = 'none';
+          imageElement.style.width = `${Math.max(1, matchedElement.clientWidth || matchedElement.naturalWidth || 42)}px`;
+          imageElement.style.height = `${Math.max(1, matchedElement.clientHeight || matchedElement.naturalHeight || 42)}px`;
+          return imageElement;
+        }
+
+        const labelElement = document.createElement('div');
+        labelElement.className = 'billboard-item';
+        labelElement.textContent = matchedElement.getAttribute('aria-label') || matchedElement.title || matchedElement.textContent?.trim() || selector;
+        return labelElement;
+      }
+
+      function syncBillboardElements() {
+        const billboardRules = buildBillboardRules();
+        billboardLayerElement.innerHTML = '';
+        if (!billboardRules.length || !latestHomography) {
+          return;
+        }
+
+        const childDocument = frameElement.contentDocument;
+        if (!childDocument) {
+          return;
+        }
+
+        billboardRules.forEach((rule) => {
+          const matchedElements = childDocument.querySelectorAll(rule.selector);
+          matchedElements.forEach((matchedElement) => {
+            const rect = matchedElement.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) {
+              return;
+            }
+            const frameRect = frameElement.getBoundingClientRect();
+            const sourceCenterX = rect.left - frameRect.left + rect.width * 0.5;
+            const sourceCenterY = rect.top - frameRect.top + rect.height * 0.5;
+            const projectedCenter = applyHomographyToPoint(latestHomography, sourceCenterX, sourceCenterY);
+            if (!projectedCenter) {
+              return;
+            }
+            const positionedCenter = resolveBillboardPosition(rule, projectedCenter, latestTargetQuad);
+            const visualElement = buildBillboardVisual(matchedElement, rule.selector);
+            const scale = Number.isFinite(rule.scale) ? rule.scale : 1;
+            visualElement.style.position = 'absolute';
+            visualElement.style.left = `${positionedCenter.x.toFixed(2)}px`;
+            visualElement.style.top = `${positionedCenter.y.toFixed(2)}px`;
+            visualElement.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            visualElement.style.transformOrigin = '50% 50%';
+            visualElement.style.pointerEvents = 'none';
+            billboardLayerElement.appendChild(visualElement);
+          });
+        });
+      }
+
+      function hideBillboardedElementsInFrame() {
+        const selectors = buildBillboardRules().map((rule) => rule.selector);
+        if (!selectors.length) {
+          return;
+        }
+        const childDocument = frameElement.contentDocument;
+        if (!childDocument || childDocument.getElementById('holsterBillboardStyle')) {
+          return;
+        }
+        const styleTag = childDocument.createElement('style');
+        styleTag.id = 'holsterBillboardStyle';
+        styleTag.textContent = `${selectors.join(',')} { visibility: hidden !important; }`;
+        childDocument.head.appendChild(styleTag);
+      }
+
+      function forwardPointerToChild(pointerEvent) {
+        if (!interactionConfig.forwardPointerEvents || !latestInverseHomography) {
+          return;
+        }
+        const hostRect = hostElement.getBoundingClientRect();
+        const localX = pointerEvent.clientX - hostRect.left;
+        const localY = pointerEvent.clientY - hostRect.top;
+        const sourcePoint = applyHomographyToPoint(latestInverseHomography, localX, localY);
+        if (!sourcePoint || !frameElement.contentWindow) {
+          return;
+        }
+        frameElement.contentWindow.dispatchEvent(new CustomEvent('holster-pointer', {
+          detail: {
+            type: pointerEvent.type,
+            sourceX: sourcePoint.x,
+            sourceY: sourcePoint.y
+          }
+        }));
       }
 
       function scheduleProjectionUpdate() {
         window.requestAnimationFrame(() => {
           readDesignedViewportFromChild();
           computeProjectionGeometry();
+          hideBillboardedElementsInFrame();
+          syncBillboardElements();
           setStatusText();
         });
+      }
+
+      let billboardRefreshHandle = null;
+      function startBillboardRefreshLoop() {
+        if (billboardRefreshHandle !== null) {
+          window.clearInterval(billboardRefreshHandle);
+        }
+        billboardRefreshHandle = window.setInterval(() => {
+          syncBillboardElements();
+        }, 120);
       }
 
       const hostResizeObserver = new ResizeObserver(() => {
@@ -218,9 +548,13 @@
 
       frameElement.addEventListener('load', () => {
         scheduleProjectionUpdate();
+        startBillboardRefreshLoop();
       });
 
       window.addEventListener('resize', scheduleProjectionUpdate);
+      hostElement.addEventListener('pointerdown', forwardPointerToChild, true);
+      hostElement.addEventListener('pointermove', forwardPointerToChild, true);
+      hostElement.addEventListener('pointerup', forwardPointerToChild, true);
       hostResizeObserver.observe(hostElement);
 
       frameElement.src = requestedSource;
