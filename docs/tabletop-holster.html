@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tabletop Holster Host</title>
-  <script src="./config/tabletop-host-config.js"></script>
+  <script src="./config/holster-config.js"></script>
   <style>
     :root {
       color-scheme: dark;
@@ -101,7 +101,17 @@
 
   <script>
     (function initTabletopHolster() {
-      const config = window.TABLETOP_HOST_CONFIG || {};
+      const config = window.CONFIG?.holster || {};
+      const sourceConfig = config.source || {};
+      const viewportConfig = config.viewport || {};
+      const geometryConfig = config.geometry || {};
+      const hostPaddingConfig = geometryConfig.hostPadding || {};
+      const trapezoidConfig = geometryConfig.trapezoid || {};
+      const borderRadiusConfig = geometryConfig.borderRadius || {};
+      const perspectiveConfig = geometryConfig.perspective || {};
+      const transformConfig = geometryConfig.transform || {};
+      const interactionConfig = config.interaction || {};
+
       const url = new URL(window.location.href);
       const query = url.searchParams;
 
@@ -110,19 +120,17 @@
       const frameElement = document.getElementById('tabletopFrame');
       const statusElement = document.getElementById('status');
 
-      const sourceParamName = config.srcParamName || 'src';
-      const fallbackSource = config.fallbackSrc || '../ScratchbonesBluffGame.html';
-      const requestedSource = query.get(sourceParamName) || fallbackSource;
+      const requestedSource = query.get(sourceConfig.srcParamName) || sourceConfig.fallbackSrc;
 
-      const viewportWidthParamName = config.viewportWidthParamName || 'vw';
-      const viewportHeightParamName = config.viewportHeightParamName || 'vh';
-      let designedViewportWidth = Number(query.get(viewportWidthParamName)) || Number(config.defaultDesignedViewportWidth) || 1920;
-      let designedViewportHeight = Number(query.get(viewportHeightParamName)) || Number(config.defaultDesignedViewportHeight) || 1080;
+      let designedViewportWidth = Number(query.get(viewportConfig.widthParamName)) || Number(viewportConfig.defaultDesignedViewportWidth);
+      let designedViewportHeight = Number(query.get(viewportConfig.heightParamName)) || Number(viewportConfig.defaultDesignedViewportHeight);
+
+      frameElement.style.pointerEvents = interactionConfig.directIframeInput ? 'auto' : 'none';
 
       const clamp = (value, minValue, maxValue) => Math.min(maxValue, Math.max(minValue, value));
 
       function setStatusText() {
-        statusElement.textContent = `src=${requestedSource} | design=${Math.round(designedViewportWidth)}x${Math.round(designedViewportHeight)}`;
+        statusElement.textContent = `src=${requestedSource} | design=${Math.round(designedViewportWidth)}x${Math.round(designedViewportHeight)} | directInput=${Boolean(interactionConfig.directIframeInput)} | forwardedInput=${Boolean(interactionConfig.forwardPointerEvents)}`;
       }
 
       function readDesignedViewportFromChild() {
@@ -153,8 +161,8 @@
         const hostHeight = hostRect.height;
 
         const designedAspectRatio = designedViewportWidth / designedViewportHeight;
-        const availableWidth = hostWidth - clamp(hostWidth * 0.06, config.minHostPaddingPx || 10, config.maxHostPaddingPx || 64) * 2;
-        const availableHeight = hostHeight - clamp(hostHeight * 0.08, config.minHostPaddingPx || 10, config.maxHostPaddingPx || 64) * 2;
+        const availableWidth = hostWidth - clamp(hostWidth * hostPaddingConfig.widthRatio, hostPaddingConfig.minPx, hostPaddingConfig.maxPx) * 2;
+        const availableHeight = hostHeight - clamp(hostHeight * hostPaddingConfig.heightRatio, hostPaddingConfig.minPx, hostPaddingConfig.maxPx) * 2;
 
         let projectedWidth = availableWidth;
         let projectedHeight = projectedWidth / designedAspectRatio;
@@ -164,36 +172,36 @@
         }
 
         const topEdgeRatio = clamp(
-          (config.topEdgeRatioByWidth || 0.78) * (projectedWidth / Math.max(hostWidth, 1)),
-          config.minTopEdgeRatio || 0.62,
-          config.maxTopEdgeRatio || 0.95
+          trapezoidConfig.topEdgeRatioByWidth * (projectedWidth / Math.max(hostWidth, 1)),
+          trapezoidConfig.minTopEdgeRatio,
+          trapezoidConfig.maxTopEdgeRatio
         );
 
         const sideInsetPercent = (1 - topEdgeRatio) * 50;
         const tiltDeg = clamp(
-          (config.tiltDegByHeight || 26) * (projectedHeight / Math.max(hostHeight, 1)),
-          config.minTiltDeg || 18,
-          config.maxTiltDeg || 36
+          transformConfig.tiltDegByHeight * (projectedHeight / Math.max(hostHeight, 1)),
+          transformConfig.minTiltDeg,
+          transformConfig.maxTiltDeg
         );
 
         const perspectivePx = clamp(
-          (config.perspectivePxByWidth || 1000) * (hostWidth / 1280),
-          config.minPerspectivePx || 700,
-          config.maxPerspectivePx || 2200
+          perspectiveConfig.perspectivePxByWidth * (hostWidth / 1280),
+          perspectiveConfig.minPx,
+          perspectiveConfig.maxPx
         );
 
         const borderRadiusPx = clamp(
-          (config.borderRadiusPxByWidth || 22) * (projectedWidth / 1000),
-          config.minBorderRadiusPx || 10,
-          config.maxBorderRadiusPx || 34
+          borderRadiusConfig.radiusPxByWidth * (projectedWidth / 1000),
+          borderRadiusConfig.minPx,
+          borderRadiusConfig.maxPx
         );
 
         projectionElement.style.width = `${Math.round(projectedWidth)}px`;
         projectionElement.style.height = `${Math.round(projectedHeight)}px`;
         projectionElement.style.borderRadius = `${borderRadiusPx.toFixed(1)}px`;
         projectionElement.style.clipPath = `polygon(${sideInsetPercent.toFixed(2)}% 0%, ${(100 - sideInsetPercent).toFixed(2)}% 0%, 100% 100%, 0% 100%)`;
-        projectionElement.style.transform = `perspective(${perspectivePx.toFixed(1)}px) rotateX(${tiltDeg.toFixed(2)}deg)`;
-        projectionElement.style.boxShadow = config.tabletopShadow || '';
+        projectionElement.style.transform = `translate3d(${transformConfig.offsetXPx}px, ${transformConfig.offsetYPx}px, 0) perspective(${perspectivePx.toFixed(1)}px) scale(${transformConfig.scale}) rotateX(${tiltDeg.toFixed(2)}deg) rotateY(${transformConfig.yawDeg}deg)`;
+        projectionElement.style.boxShadow = transformConfig.tabletopShadow || '';
       }
 
       function scheduleProjectionUpdate() {
