@@ -1552,6 +1552,16 @@ window.CONFIG = {
       minProgress: 4,
       minDistance: 18
     },
+    nameGeneration: {
+      defaultCultureId: 'mao_ao',
+      cultureAliases: {
+        mao_ao: 'mao_ao',
+        'mao-ao': 'mao_ao',
+        kenkari: 'kenkari',
+        'kenkari_m': 'kenkari',
+        'kenkari_f': 'kenkari'
+      }
+    },
     schedule: {
       // POI names to use when NPCs are off-duty (only used if their main schedule has no matches).
       // Example: ['idle', 'barracks']
