@@ -732,6 +732,11 @@ function applyBodyColorRulesSeeded(bodyColors, rules, rng) {
  *     "hairBack":  { "none": 50, "long_ponytail": 25, "splayedknot_medium": 25 },
  *     "hairSide":  { "none": 90, "shoulder_length_drape": 10 }
  *   }
+ * Optional per-hat occlusion can be configured under "randomizationRules.hatHideRules":
+ *   "hatHideRules": {
+ *     "riverlandskasa_low": { "hideSlots": ["hairFront", "hairBack"] },
+ *     "basic_headband": { "hideSlots": [] }
+ *   }
  * Unspecified categories use uniform random. Cosmetics missing from a weight map default to weight 1.
  * Weight 0 excludes an item from selection entirely.
  */
@@ -767,6 +772,30 @@ function resolvePortraitFighter(fighter) {
     ? FIGHTERS.find((candidate) => candidate?.headUrl === fighter.headUrl)
     : null;
   return byHead || fighter;
+}
+
+function noneOptionForSlot(options, fallbackLabel) {
+  return options.find((option) => option?.id === 'none')
+    ?? options[0]
+    ?? { id: 'none', label: fallbackLabel, tintSlot: null, layers: [] };
+}
+
+function toHiddenSlotSet(rule) {
+  if (!rule) return null;
+  if (Array.isArray(rule.hideSlots)) {
+    return new Set(rule.hideSlots.filter((slot) => typeof slot === 'string'));
+  }
+  if (Array.isArray(rule)) {
+    return new Set(rule.filter((slot) => typeof slot === 'string'));
+  }
+  return null;
+}
+
+function hatHideRuleFor(hatId, randomizationRules) {
+  if (!hatId || hatId === 'none') return null;
+  const map = randomizationRules?.hatHideRules;
+  if (!map || typeof map !== 'object') return null;
+  return map[hatId] || null;
 }
 
 /**
@@ -902,6 +931,22 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
 
   const ruleMap = randomizationRulesByFighter || LAST_RANDOMIZATION_RULES_BY_FIGHTER || null;
   const randomizationRules = ruleMap?.[fighter.id] ?? ruleMap?.[fighterInput?.id] ?? null;
+  const hatHideSlots = toHiddenSlotSet(hatHideRuleFor(hat?.id, randomizationRules));
+  if (hatHideSlots?.size) {
+    if (hatHideSlots.has('hairFront')) {
+      hairFront = noneOptionForSlot(filteredHairFront, 'No Front Hair');
+    }
+    if (hatHideSlots.has('hairBack')) {
+      hairBack = noneOptionForSlot(filteredHairBack, 'No Back Hair');
+    }
+    if (hatHideSlots.has('hairSide')) {
+      hairSide = noneOptionForSlot(filteredHairSide, 'No Side Hair');
+    }
+    if (hatHideSlots.has('facialHair')) {
+      facialHair = noneOptionForSlot(filteredFacialHair, 'No Facial Hair');
+    }
+  }
+
   let bodyColors = randomBodyColorsSeeded(rng, bodyColorRangesByGender?.[fighter.id] ?? bodyColorRangesByGender?.[fighterInput?.id]);
   bodyColors = applyBodyColorRulesSeeded(bodyColors, randomizationRules, rng);
 
