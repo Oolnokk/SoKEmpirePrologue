@@ -133,6 +133,13 @@ function resolveCultureAliasMap() {
   return ROOT.CONFIG?.npc?.nameGeneration?.cultureAliases || {};
 }
 
+function normalizeCultureId(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.toLowerCase().replace(/-/g, '_');
+}
+
 /**
  * Resolve the culture for name generation
  * Defaults to mao_ao if not specified
@@ -141,13 +148,14 @@ function resolveCulture(fighterName, groupMeta, member) {
   // Try to parse from fighter name first (e.g., "Mao-ao_m" → "mao_ao")
   const parsed = parseFighterName(fighterName);
   const aliasMap = resolveCultureAliasMap();
-  const configuredDefaultCultureId = resolveDefaultCultureId();
+  const configuredDefaultCultureId = normalizeCultureId(resolveDefaultCultureId()) || 'mao_ao';
   const rawCultureName = parsed.culture
     || member?.culture
     || groupMeta?.culture
     || groupMeta?.meta?.culture
     || configuredDefaultCultureId;
-  const cultureName = aliasMap[rawCultureName] || rawCultureName;
+  const normalizedRawCultureName = normalizeCultureId(rawCultureName) || configuredDefaultCultureId;
+  const cultureName = normalizeCultureId(aliasMap[normalizedRawCultureName]) || normalizedRawCultureName;
 
   const culture = CULTURES[cultureName];
   if (!culture) {
@@ -200,8 +208,11 @@ function resolveGender(fighterName, member, templateResult, rng) {
  * @returns {object} Generated name result with {name, parts, seed, debug?}
  */
 export function generateNpcName(options = {}) {
-  const configuredDefaultCultureId = resolveDefaultCultureId();
-  const culture = CULTURES[options.culture] || CULTURES[configuredDefaultCultureId] || CULTURES.mao_ao;
+  const configuredDefaultCultureId = normalizeCultureId(resolveDefaultCultureId()) || 'mao_ao';
+  const aliasMap = resolveCultureAliasMap();
+  const normalizedOptionCulture = normalizeCultureId(options.culture);
+  const resolvedOptionCulture = normalizeCultureId(aliasMap[normalizedOptionCulture]) || normalizedOptionCulture;
+  const culture = CULTURES[resolvedOptionCulture] || CULTURES[configuredDefaultCultureId] || CULTURES.mao_ao;
 
   const nameResult = generateName(culture, {
     gender: options.gender || 'male',

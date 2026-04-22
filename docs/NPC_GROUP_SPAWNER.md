@@ -146,6 +146,7 @@ Names are automatically generated based on the fighter's culture and gender, whi
 - **`_f` / `_female`** = Female (e.g., `Mao-ao_f`, `Kenkari_female`)
 
 The prefix determines the culture (e.g., `Mao-ao` → `mao_ao` culture).
+Culture metadata values from templates/groups are normalized the same way (case-insensitive, `-` and `_` treated equivalently).
 
 ### Example Fighter Names
 
