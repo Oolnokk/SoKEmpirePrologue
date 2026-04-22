@@ -395,9 +395,8 @@
             if (rect.width <= 0 || rect.height <= 0) {
               return;
             }
-            const frameRect = frameElement.getBoundingClientRect();
-            const sourceCenterX = rect.left - frameRect.left + rect.width * 0.5;
-            const sourceCenterY = rect.top - frameRect.top + rect.height * 0.5;
+            const sourceCenterX = rect.left + rect.width * 0.5;
+            const sourceCenterY = rect.top + rect.height * 0.5;
             const projectedCenter = applyHomographyToPoint(latestHomography, sourceCenterX, sourceCenterY);
             if (!projectedCenter) {
               return;
