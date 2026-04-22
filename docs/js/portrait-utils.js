@@ -16,6 +16,7 @@ const _PORTRAIT_DEFAULTS = {
   fighters: [
     {
       id:      'M',
+      speciesId: 'mao_ao',
       label:   'Mao-ao (M)',
       headUrl: 'fightersprites/mao-ao-m/head_mint.png',
       bodyLayers: [
@@ -29,6 +30,7 @@ const _PORTRAIT_DEFAULTS = {
     },
     {
       id:      'F',
+      speciesId: 'mao_ao',
       label:   'Mao-ao (F)',
       headUrl: 'fightersprites/mao-ao-f/head.png',
       bodyLayers: [
@@ -576,6 +578,7 @@ async function loadPortraitCosmetics(configBase) {
           if (!fighter && genderData.headSprite && Array.isArray(genderData.portraitBodyLayers)) {
             fighter = normalizedFighterPortrait({
               id: `${sData.speciesId}_${genderKey}`,
+              speciesId: sData.speciesId,
               gender: genderKey,
               label: `${sData.label || entry.label} (${genderKey === 'male' ? 'M' : 'F'})`,
               headUrl: genderData.headSprite,

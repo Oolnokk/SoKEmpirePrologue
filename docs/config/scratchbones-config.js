@@ -13,6 +13,15 @@ window.SCRATCHBONES_CONFIG = {
     "nameGeneration": {
       "defaultCultureId": "mao_ao",
       "seedPrefix": "madiao-player",
+      "aiCultureSelection": {
+        "usePortraitSpeciesCulture": true,
+        "fallbackCultureId": "mao_ao",
+        "speciesToCultureId": {
+          "mao_ao": "mao_ao",
+          "mao-ao": "mao_ao",
+          "kenkari": "kenkari"
+        }
+      },
       "cultures": {
         "mao_ao": {
           "id": "mao_ao",
