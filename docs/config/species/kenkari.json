@@ -255,9 +255,8 @@
     "headXform": {
       "ax": -0.0983,
       "ay": -0.0809,
-      "scaleX": 2.49,
-      "scaleY": 2.49,
-      "rotDeg": 0
+      "sx": 2.49,
+      "sy": 2.49
     },
     "allowedCosmetics": [
       "appearance::Kenkari_F::kenk_longponytail_f",
