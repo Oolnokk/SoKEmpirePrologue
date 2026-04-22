@@ -30,16 +30,11 @@
         maxPx: 34
       },
       perspective: {
-        perspectivePxByWidth: 1000,
-        minPx: 700,
-        maxPx: 2200
+        depthPxByWidth: 56,
+        minDepthPx: 16,
+        maxDepthPx: 180
       },
       transform: {
-        scale: 1,
-        tiltDegByHeight: 26,
-        minTiltDeg: 18,
-        maxTiltDeg: 36,
-        yawDeg: 0,
         offsetXPx: 0,
         offsetYPx: 0,
         tabletopShadow: '0 34px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.16)'
@@ -48,6 +43,14 @@
     interaction: {
       directIframeInput: true,
       forwardPointerEvents: false
+    },
+    billboard: {
+      selectors: [],
+      avatars: [
+        { selector: '[data-proj-id="avatar-1"]', scale: 3, fromLeftPx: 28, fromTopPx: 24 },
+        { selector: '[data-proj-id="avatar-2"]', scale: 3, fromLeftPx: 220, fromTopPx: 20 },
+        { selector: '[data-proj-id="avatar-3"]', scale: 3, fromRightPx: 28, fromTopPx: 24 }
+      ]
     }
   };
 
@@ -90,6 +93,10 @@
     interaction: {
       ...defaultHolsterConfig.interaction,
       ...(existingHolsterConfig.interaction || {})
+    },
+    billboard: {
+      ...defaultHolsterConfig.billboard,
+      ...(existingHolsterConfig.billboard || {})
     }
   };
 })(window);
