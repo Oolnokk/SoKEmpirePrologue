@@ -347,8 +347,8 @@
       padding: 2px;
     }
     .claimHandBar .tableViewCard {
-      width: var(--layout-claim-card-width, calc(clamp(var(--layout-hand-card-min-width), 14vw, var(--layout-hand-card-max-width)) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale)));
-      height: var(--layout-claim-card-height, calc(clamp(var(--layout-hand-card-min-height), 20vh, var(--layout-hand-card-max-height)) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale)));
+      width: var(--layout-claim-card-width, clamp(var(--layout-hand-card-min-width), 14vw, var(--layout-hand-card-max-width)));
+      height: var(--layout-claim-card-height, clamp(var(--layout-hand-card-min-height), 20vh, var(--layout-hand-card-max-height)));
       margin-left: -8px;
     }
     .claimHandBar .tableViewCard:first-child {
