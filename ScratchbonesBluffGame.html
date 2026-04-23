@@ -1910,8 +1910,8 @@
             turnMaxMs: rawGameConfig.timers?.aiDecisionDelays?.turnMaxMs ?? 1300,
             challengeMinMs: rawGameConfig.timers?.aiDecisionDelays?.challengeMinMs ?? 360,
             challengeMaxMs: rawGameConfig.timers?.aiDecisionDelays?.challengeMaxMs ?? 2200,
-            bettingMinMs: rawGameConfig.timers?.aiDecisionDelays?.bettingMinMs ?? 360,
-            bettingMaxMs: rawGameConfig.timers?.aiDecisionDelays?.bettingMaxMs ?? 1200,
+            bettingMinMs: rawGameConfig.timers?.aiDecisionDelays?.bettingMinMs ?? 200,
+            bettingMaxMs: rawGameConfig.timers?.aiDecisionDelays?.bettingMaxMs ?? 650,
             challengeStaggerMs: rawGameConfig.timers?.aiDecisionDelays?.challengeStaggerMs ?? 220,
           },
         },
@@ -2537,7 +2537,12 @@
       clearBonusBase: SCRATCHBONES_GAME.chips.clearBonusBase,
       clearBonusIncrement: SCRATCHBONES_GAME.chips.clearBonusIncrement,
       maxChallengeBet: SCRATCHBONES_GAME.chips.maxChallengeBet,
-      assets: SCRATCHBONES_GAME.assets || {},
+      aiChallengeThreshold: Number(AI_CONFIG.challengeThreshold) || 0.52,
+      aiChallengeRandomNudgeMax: Number(AI_CONFIG.challengeRandomNudgeMax) || 0.16,
+      aiBackupJoinBaseScore: Number(AI_CONFIG.backupJoinBaseScore) || 0.15,
+      aiBackupJoinRandomMax: Number(AI_CONFIG.backupJoinRandomMax) || 0.22,
+      aiBackupJoinSuspicionWeight: Number(AI_CONFIG.backupJoinSuspicionWeight) || 0.2,
+      aiBettingConfidenceSuspicionWeight: Number(AI_CONFIG.bettingConfidenceSuspicionWeight) || 0.55,
     };
     const state = {
       players: [],
@@ -3010,9 +3015,14 @@
         const stakePressure = state.betting ? Math.min(0.25, Math.max(0, state.betting.stake - CONFIG.challengeBaseTransfer) * 0.03) : 0;
         const styleTempo = 1 - ((pers.courage ?? 0.5) * 0.5 + (pers.aggression ?? 0.5) * 0.3 + (pers.greed ?? 0.5) * 0.2);
         const uncertainty = clamp01(0.42 - confidenceGap * 0.6 + Math.min(0.2, toCall * 0.05) + stakePressure + rand() * 0.08);
+        const canRaise = getRaiseOptionsForPlayer(actorId).length > 0;
+        const decisiveSpot = (toCall === 0 && !canRaise) || confidenceGap >= 0.42;
         const pace = clamp01(uncertainty * 0.66 + styleTempo * 0.34);
-        const minMs = Number(AI_DECISION_DELAYS.bettingMinMs) || 360;
-        const maxMs = Number(AI_DECISION_DELAYS.bettingMaxMs) || 1200;
+        const minMs = Number(AI_DECISION_DELAYS.bettingMinMs) || 200;
+        const maxMs = Number(AI_DECISION_DELAYS.bettingMaxMs) || 650;
+        if (decisiveSpot) {
+          return clampMs(minMs + Math.max(20, (maxMs - minMs) * 0.12), minMs, maxMs);
+        }
         return clampMs(minMs + (maxMs - minMs) * pace, minMs, maxMs);
       }
       return AI_THINK_MS;
@@ -3184,7 +3194,6 @@
       const command = typeof action === 'string' ? action : action?.type;
       const player = state.players[playerId];
       const opponentId = getOpponentId(playerId);
-      const opponent = state.players[opponentId];
       const toCall = amountToCall(playerId);
       if (command === 'joinBackup') {
         if (state.betting.backupQueue.includes(playerId) || playerId === state.betting.challengerId || playerId === state.betting.challengedId || player.eliminated) return;
@@ -3486,6 +3495,7 @@
       if (!state.betting || state.gameOver) return;
       const actorId = state.betting.currentActorId;
       if (actorId === 0) return;
+      const intent = aiBetIntent(actorId);
       const thinkMs = aiDecisionDelayMs('betting', actorId);
       window.setTimeout(() => {
         if (state.betting && !state.gameOver && state.betting.currentActorId === actorId) {
@@ -3687,7 +3697,6 @@
       return { type: 'concede' };
     }
     function estimateFoldPressureAgainst(actorId, opponentId) {
-      const actor = state.players[actorId];
       const opponent = state.players[opponentId];
       const actorRead = ensureReadProfile(actorId, opponentId);
       const opponentPers = opponent?.personality;
