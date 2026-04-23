@@ -201,12 +201,20 @@ window.SCRATCHBONES_CONFIG = {
           "claimAvatarBorderRadiusPx": 12,
           "claimAvatarBorderColor": "transparent",
           "claimAvatarBackground": "transparent",
+          "claimAvatarFirstNameOffsetPx": 26,
+          "claimAvatarFirstNameFontRem": 1.34,
           "avatarAdditiveZoomScale": 1.2,
           "claimAvatarOverlayZIndex": 9990
         },
         "cinematic": {
           "enabled": true,
-          "showEffects": true
+          "showEffects": true,
+          "showAvatars": false,
+          "playerInfoOffsetPx": 12,
+          "playerInfoFontRem": 1.05,
+          "betActionBurstTopPct": 24,
+          "betActionBurstFontRem": 2,
+          "betActionBurstDurationSec": 2.1
         }
       },
       "regions": {
