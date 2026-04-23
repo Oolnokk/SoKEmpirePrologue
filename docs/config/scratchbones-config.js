@@ -231,7 +231,9 @@ window.SCRATCHBONES_CONFIG = {
           "playerInfoFontRem": 1.05,
           "betActionBurstFontRem": 2,
           "betActionBurstDurationSec": 2.1,
-          "betActionBurstClampInsetPx": 24
+          "betActionBurstClampInsetPx": 24,
+          "revealDurationMs": 4200,
+          "foldDurationMs": 2600
         }
       },
       "regions": {

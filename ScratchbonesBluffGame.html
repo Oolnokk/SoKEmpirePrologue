@@ -454,21 +454,44 @@
       transform: scale(var(--layout-table-card-content-scale));
       transform-origin: center center;
     }
-    #tableCinematicHost {
-      position: absolute;
-      inset: 0;
-      z-index: 20;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 12px;
-      overflow: hidden;
+    #app.cinematic-mode-active .topbar,
+    #app.cinematic-mode-active #aiSidebar,
+    #app.cinematic-mode-active .humanSeatZone,
+    #app.cinematic-mode-active .turnSpotlight,
+    #app.cinematic-mode-active .tableViewHeader,
+    #app.cinematic-mode-active .tableViewCards,
+    #app.cinematic-mode-active .handWrap,
+    #app.cinematic-mode-active .eventLog,
+    #app.cinematic-mode-active details.debug {
+      display: none !important;
     }
-    #tableCinematicHost.cin-active { display: flex; }
-    #app.cinematic-active > *:not(#tableCinematicHost) {
-      visibility: hidden;
-      opacity: 0;
-      pointer-events: none;
+    #app.cinematic-mode-active .controls {
+      border-color: rgba(242,208,143,0.35);
+      box-shadow: 0 0 0 1px rgba(242,208,143,0.14), 0 18px 42px rgba(0,0,0,0.45);
+    }
+    .cinematic-resolution-pane .cin-result-copy {
+      margin-top: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent-2);
+    }
+    .cinematic-pane-title {
+      animation: cinHeadlineIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .cinematic-vs-line {
+      animation: cinCardsIn 0.32s ease 0.08s both;
+    }
+    .cinematic-resolution-pane .cin-result-copy.cin-result {
+      margin-top: 12px;
+      color: inherit;
+    }
+    .claimHandBar .tableViewCard.cin-reveal-card {
+      animation: claimRevealCardIn 0.26s ease both;
+      animation-delay: var(--fd, 0s);
+    }
+    @keyframes claimRevealCardIn {
+      from { transform: translateY(10px) scale(0.94); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
     }
     .sectionTitle {
       font-weight: 700;
@@ -2018,6 +2041,8 @@
               betActionBurstFontRem: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstFontRem ?? 2,
               betActionBurstDurationSec: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstDurationSec ?? 2.1,
               betActionBurstClampInsetPx: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstClampInsetPx ?? 24,
+              revealDurationMs: rawGameConfig.layout?.tableView?.cinematic?.revealDurationMs ?? 4200,
+              foldDurationMs: rawGameConfig.layout?.tableView?.cinematic?.foldDurationMs ?? 2600,
             },
           },
           regions: {
@@ -2572,6 +2597,9 @@
       challengeTimer: null,
       challengeTimeLeft: 0,
       challengeDecisionSession: 0,
+      cinematicMode: null,
+      cinematicTimeout: null,
+      pendingCinematicBetAction: null,
       roundConcessions: new Set(), // Used by: skipping players who have conceded the current claim until the round ends.
       layoutFitStages: {},
       layoutOverlapDiagnostics: { overlaps: [], stage: 'none' },
@@ -3203,8 +3231,8 @@
         render();
         return;
       }
-      // Show cinematic burst + tankan for call/raise/fold
-      _announceCinematicBetAction(playerId, command);
+      // Queue cinematic text effects; render() will fire them after DOM/layout update.
+      state.pendingCinematicBetAction = { playerId, command };
       if (command === 'checkcall') {
         const paid = recordContribution(playerId, toCall);
         if (toCall > 0) addLog(`${seatLabel(player)} calls for ${paid} chip${paid === 1 ? '' : 's'}.`);
@@ -4447,9 +4475,6 @@
       );
       app.style.setProperty('--layout-table-view-height', `${Math.round(tableViewHeightPx)}px`);
     }
-    function getCinematicRoot() {
-      return document.getElementById('tableCinematicHost');
-    }
     function getClaimClusterAvatarRect(playerId) {
       const avatarCanvas = document.querySelector(`.claimCluster canvas.seatPortrait[data-seat-id="${playerId}"]`);
       if (!avatarCanvas) return null;
@@ -4459,9 +4484,6 @@
     }
     function isTableCinematicEnabled() {
       return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.enabled !== false;
-    }
-    function isTableCinematicEffectsEnabled() {
-      return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.showEffects !== false;
     }
     const seatAvatarAnim = (() => {
       const CARD_STAGGER_MS = 40;
@@ -4517,7 +4539,7 @@
       }
 
       function animatePostRender() {
-        if (document.getElementById('tableCinematicHost')?.classList.contains('cin-active')) {
+        if (state.cinematicMode) {
           clusterSnapshot = null;
           return;
         }
@@ -4657,7 +4679,7 @@
         });
       }
       function animatePostRender() {
-        if (document.getElementById('tableCinematicHost')?.classList.contains('cin-active')) {
+        if (state.cinematicMode) {
           snapshots.clear();
           return;
         }
@@ -4906,6 +4928,12 @@
       const showLegacyActionFocus = !claimClusterEnabled && !regionsPolicy.actionFocus?.replaceWithFloatingClaimCluster && regionsPolicy.actionFocus?.enabled;
       const tableCardVisualMode = tableViewPolicy.cardVisualMode || 'facedown';
       const tableCardFaceDown = tableCardVisualMode !== 'faceup';
+      const cinematicMode = isTableCinematicEnabled() ? state.cinematicMode : null;
+      const cinematicPhase = cinematicMode?.mode || null;
+      const cinematicFocusActorId = Number.isInteger(cinematicMode?.actorId) ? cinematicMode.actorId : null;
+      const cinematicFocusReactorId = Number.isInteger(cinematicMode?.reactorId) ? cinematicMode.reactorId : null;
+      const cinematicRevealPlay = cinematicMode?.play || null;
+      const cinematicRevealActive = cinematicPhase === 'reveal' && !!cinematicRevealPlay;
       const claimFocus = (() => {
         if (!latestPlay) {
           return {
@@ -4917,13 +4945,15 @@
             subtext: 'Select cards and declare a number to begin the next claim.'
           };
         }
-        const actorId = (state.betting || state.challengeWindow) ? latestPlay.playerIndex : state.currentTurn;
+        let actorId = (state.betting || state.challengeWindow) ? latestPlay.playerIndex : state.currentTurn;
         let reactorId = null;
         if (state.betting) reactorId = latestPlay.playerIndex === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
         else if (state.challengeWindow) reactorId = latestPlay.playerIndex === 0 ? (state.challengeWindow.challengerOptions.find(id => id !== 0) ?? null) : 0;
         const declaredRank = latestPlay.declaredRank ?? state.declaredRank;
         const cardCount = latestPlay.cards?.length || 0;
         const cards = latestPlay.cards || [];
+        if (cinematicFocusActorId !== null) actorId = cinematicFocusActorId;
+        if (cinematicFocusReactorId !== null) reactorId = cinematicFocusReactorId;
         return { actorId, reactorId, declaredRank, cardCount, cards };
       })();
       const focusActor = state.players[claimFocus.actorId];
@@ -4938,10 +4968,17 @@
       const claimRankGlyphHtml = claimRankGlyphSrc
         ? `<img class="claimRankGlyph" src="${claimRankGlyphSrc}" alt="Declared rank ${claimRankNumeric}" loading="lazy">`
         : claimRankText;
-      const claimHandCardsHtml = (claimFocus.cards?.length
-        ? claimFocus.cards.map(card => {
-            const art = resolveScratchbone2DAsset(card, { flipped: true });
-            return `<div class="tableViewCard" data-card-id="${card.id}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Face-down scratchbone card"></div>`;
+      const claimHandCardsSource = cinematicRevealActive ? cinematicRevealPlay.cards : claimFocus.cards;
+      const claimHandCardsHtml = (claimHandCardsSource?.length
+        ? claimHandCardsSource.map((card, index) => {
+            const revealCard = cinematicRevealActive;
+            const art = resolveScratchbone2DAsset(card, { flipped: !revealCard });
+            const revealClass = revealCard ? 'cin-reveal-card flip-it' : '';
+            const delaySec = revealCard ? (index * 0.09).toFixed(2) : '0';
+            const cardAlt = revealCard
+              ? (card.wild ? 'Revealed wild scratchbone card' : `Revealed scratchbone ${card.rank} card`)
+              : 'Face-down scratchbone card';
+            return `<div class="tableViewCard ${revealClass}" style="--fd:${delaySec}s;" data-card-id="${card.id}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${cardAlt}"></div>`;
           }).join('')
         : '<div class="tiny">No claim yet.</div>');
       const claimClusterShellClass = claimClusterPolicy.transparentShells ? 'floatingTransparentShell' : '';
@@ -4993,8 +5030,8 @@
         </div>
       `;
       const renderBettingControls = () => `
-        <div class="controls fit-target fit-0" data-proj-id="controls">
-          <div class="sectionTitle">Challenge betting</div>
+        <div class="controls fit-target fit-0 cinematic-betting-pane" data-proj-id="controls">
+          <div class="sectionTitle cinematic-pane-title cin-headline cin-challenge">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div>
           <div class="tiny" style="margin-top:6px;">Contributions — ${seatLabel(state.betting.challengerId)}: ${getContribution(state.betting.challengerId)} (${getRaiseCount(state.betting.challengerId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengerId) || 0}) · ${seatLabel(state.betting.challengedId)}: ${getContribution(state.betting.challengedId)} (${getRaiseCount(state.betting.challengedId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengedId) || 0}) · Backup queue: ${state.betting.backupQueue.map(id => seatLabel(id)).join(', ') || 'none'}</div>
           <div class="challengeBar" style="margin-top:8px;">
             ${bettingActorHuman ? `
@@ -5006,6 +5043,34 @@
           </div>
         </div>
       `;
+      const renderCinematicResolutionPane = () => {
+        if (!cinematicMode || (cinematicPhase !== 'reveal' && cinematicPhase !== 'fold')) return '';
+        const challenger = state.players[cinematicMode.challengerId];
+        const challenged = state.players[cinematicMode.challengedId];
+        const winner = state.players[cinematicMode.winnerId];
+        const loser = state.players[cinematicMode.loserId];
+        const winnerName = winner?.isHuman ? 'You' : (winner?.name || 'Unknown');
+        const loserName = loser?.isHuman ? 'You' : (loser?.name || 'Unknown');
+        const resultToneClass = cinematicMode.winnerId === 0
+          ? 'res-good'
+          : (cinematicMode.loserId === 0 ? 'res-warn' : 'res-neutral');
+        const headlineClass = cinematicPhase === 'reveal'
+          ? (cinematicMode.winnerId === cinematicMode.challengerId ? 'cin-caught' : 'cin-defended')
+          : 'cin-fold';
+        const subtitle = cinematicPhase === 'reveal'
+          ? `${winnerName} wins the challenge.`
+          : `${loserName} folds — ${winnerName} takes the pot.`;
+        return `
+          <div class="controls fit-target fit-0 cinematic-resolution-pane" data-proj-id="controls">
+            <div class="sectionTitle cinematic-pane-title cin-headline ${headlineClass}">${escapeHtml(cinematicMode.headline || 'Challenge result')}</div>
+            <div class="tiny cinematic-vs-line" style="margin-top:6px;">${escapeHtml((challenger?.isHuman ? 'You' : challenger?.name || '?'))} vs ${escapeHtml((challenged?.isHuman ? 'You' : challenged?.name || '?'))}</div>
+            <div class="cin-result-copy cin-result ${resultToneClass}">${escapeHtml(subtitle)}</div>
+            <div class="challengeBar" style="margin-top:8px;">
+              <button id="cinContinueBtn">Continue →</button>
+            </div>
+          </div>
+        `;
+      };
       app.innerHTML = `
         <div class="topbar" data-proj-id="topbar">
           <div class="titleRow">
@@ -5086,7 +5151,6 @@
             </div>
           </div>
         ` : ''}
-        <div id="tableCinematicHost" data-proj-id="cinematic"></div>
         ${showLegacyActionFocus ? `
           <div class="actionFocus fit-target fit-0">
             <div class="tiny">Legacy action focus mode enabled.</div>
@@ -5097,7 +5161,9 @@
           <div class="tiny" style="margin-top:8px;">Recent change: ${state.recentChange}</div>
           <pre id="debugSnapshotData">${DEBUG_ENABLED ? escapeHtml(JSON.stringify(debugSnapshot(), null, 2)) : 'Debug disabled.'}</pre>
         </details>
-        ${state.betting
+        ${(cinematicPhase === 'reveal' || cinematicPhase === 'fold')
+          ? renderCinematicResolutionPane()
+          : state.betting
           ? renderBettingControls()
           : (sharedContextBox && humanCanDecideChallenge
             ? renderChallengePrompt()
@@ -5138,6 +5204,7 @@
       document.getElementById('betRaiseBtn')?.addEventListener('click', humanRaiseSelected);
       document.getElementById('betFoldBtn')?.addEventListener('click', () => humanBetAction('fold'));
       document.getElementById('joinBackupBtn')?.addEventListener('click', humanJoinBackup);
+      document.getElementById('cinContinueBtn')?.addEventListener('click', () => closeCinematic(true));
       document.getElementById('challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
       document.getElementById('letPassBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanAcceptNoChallenge(); });
       if (humanCanDecideChallenge) updateChallengeBoxTimer();
@@ -5165,6 +5232,15 @@
       updateTableCardAutoScale(app);
       syncClaimClusterCardSizeFromHand(app);
       moveAvatarFloatsToOverlay(app, layoutPolicy);
+      if (state.pendingCinematicBetAction) {
+        const actionFx = state.pendingCinematicBetAction;
+        state.pendingCinematicBetAction = null;
+        if (typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(() => _announceCinematicBetAction(actionFx.playerId, actionFx.command));
+        } else {
+          setTimeout(() => _announceCinematicBetAction(actionFx.playerId, actionFx.command), 0);
+        }
+      }
       cardAnimator.animatePostRender();
       seatAvatarAnim.animatePostRender();
     }
@@ -5239,7 +5315,6 @@
           for (const p of state.players) p.profile = generatePlayerProfile(p);
           applyAiNamesByPortraitCulture();
           renderSeatPortraits();
-          renderCinematicPortraits();
         }
       }).catch(e => console.warn('[game] portrait cosmetics failed to load', e));
     } else {
@@ -5287,62 +5362,49 @@
         }
       }
     }
-    function renderCinematicPortraits() {
-      const root = getCinematicRoot();
-      if (!root || !root.classList.contains('cin-active')) return;
-      for (const p of state.players) {
-        if (!p.profile) continue;
-        const canvas = root.querySelector(`canvas[data-cin-player-id="${p.id}"]`);
-        if (canvas && window.renderProfile) renderProfile(canvas, p.profile);
+    // ===== CHALLENGE CINEMATIC MODE =====
+    function clearCinematicTimeout() {
+      if (state.cinematicTimeout) {
+        clearTimeout(state.cinematicTimeout);
+        state.cinematicTimeout = null;
       }
     }
-    // ===== CHALLENGE CINEMATIC =====
-    let _cinTimeout = null;
-    function _clearCinTimeout() {
-      if (_cinTimeout) { clearTimeout(_cinTimeout); _cinTimeout = null; }
+    function closeCinematic(invokeOnClose = true) {
+      clearCinematicTimeout();
+      const onClose = state.cinematicMode?.onClose;
+      state.cinematicMode = null;
+      if (invokeOnClose && typeof onClose === 'function') onClose();
+      render();
+    }
+    function setCinematicMode(mode, payload = {}, options = {}) {
+      clearCinematicTimeout();
+      state.cinematicMode = {
+        mode,
+        ...payload,
+        onClose: options.onClose || null,
+      };
+      if (options.durationMs && Number(options.durationMs) > 0) {
+        state.cinematicTimeout = setTimeout(() => closeCinematic(true), Number(options.durationMs));
+      }
+      render();
     }
     function ensureChallengeCinematic() {
-      if (!state.betting || state.gameOver || !isTableCinematicEnabled()) return;
-      const cin = getCinematicRoot();
-      if (!cin) return;
-      _clearCinTimeout();
-      const { challengerId, challengedId } = state.betting;
-      const challenger = state.players[challengerId];
-      const challenged = state.players[challengedId];
-      const fxMarkup = isTableCinematicEffectsEnabled()
-        ? `${_cinEmbersHtml(45)}<div class="cin-shimmer"></div>`
-        : '';
-      cin.innerHTML = `
-        <div class="cin-bg"></div>
-        ${fxMarkup}
-        <div class="cin-headline cin-challenge">⚔ Challenge</div>
-        <div class="cin-players">
-          ${_cinPlayerHtml(challenger, 'challenger')}
-          <div class="cin-vs">VS</div>
-          ${_cinPlayerHtml(challenged, 'challenged')}
-        </div>
-        <div id="cin-betting-zone"></div>
-      `;
-      wireScratchboneImageFallbacks(cin);
-      activateTableCinematicMode();
-      cin.classList.add('cin-active');
-      renderCinematicPortraits();
-      refreshCinematicBettingZone();
-    }
-    function closeCinematic() {
-      _clearCinTimeout();
-      const el = getCinematicRoot();
-      if (!el) return;
-      el.classList.remove('cin-active');
-      el.innerHTML = '';
-      const app = el.closest('#app');
-      if (app) app.classList.remove('cinematic-active');
-    }
-    function activateTableCinematicMode() {
-      const cinematicRoot = getCinematicRoot();
-      if (!cinematicRoot) return;
-      const app = cinematicRoot.closest('#app');
-      if (app) app.classList.add('cinematic-active');
+      const app = document.getElementById('app');
+      if (!app) return;
+      const bettingModeActive = !!(state.betting && !state.gameOver && isTableCinematicEnabled());
+      if (bettingModeActive && state.cinematicMode?.mode !== 'betting') {
+        setCinematicMode('betting', {
+          actorId: state.betting.challengerId,
+          reactorId: state.betting.challengedId,
+          headline: '⚔ Challenge betting',
+        });
+        return;
+      }
+      if ((!bettingModeActive) && state.cinematicMode?.mode === 'betting') {
+        closeCinematic(false);
+        return;
+      }
+      app.classList.toggle('cinematic-mode-active', bettingModeActive || !!state.cinematicMode);
     }
     function updateTableCardAutoScale(root = document.getElementById('app')) {
       const cardsContainer = root?.querySelector?.('.tableViewCards');
@@ -5373,329 +5435,91 @@
       }
       root.style.setProperty('--layout-table-card-auto-scale', clampNumber(bestScale, 0.35, 1).toFixed(3));
     }
-    function refreshCinematicBettingZone() {
-      const zone = document.getElementById('cin-betting-zone');
-      if (!zone || !state.betting) return;
-      const b = state.betting;
-      const humanActor    = b.currentActorId === 0;
-      const callAmt       = amountToCall(0);
-      const raiseAmt      = nextRaiseAmountForPlayer(0);
-      const canRaise      = raiseAmt > 0;
-      const actorPlayer   = state.players[b.currentActorId];
-      const actorName     = actorPlayer?.isHuman ? 'You' : (actorPlayer?.name || '?');
-      const backupEligible = eligibleBackupIds(b.challengerId, b.challengedId).includes(0) && !b.backupQueue.includes(0);
-      const cPlayer = state.players[b.challengerId];
-      const dPlayer = state.players[b.challengedId];
-      const cContrib = getContribution(b.challengerId);
-      const dContrib = getContribution(b.challengedId);
-      const potTotal  = cContrib + dContrib;
-      // Left: challenger bank | Middle: pot pile | Right: declared bank
-      const chipTable = `
-        <div class="cin-chip-table">
-          <div class="cin-chip-col left">
-            <div class="cin-chip-label">${cPlayer?.isHuman ? 'Your' : cPlayer?.name?.split(' ')[0]} bank</div>
-            ${_chipWalletHtml(cPlayer?.chips || 0)}
-            <div class="cin-chip-sublabel">bet in</div>
-            ${_chipPileHtml(cContrib, CHIP_GOLD)}
-          </div>
-          <div class="cin-chip-col-mid">
-            <div class="cin-chip-pot-label">Pot</div>
-            ${_chipPileHtml(potTotal, CHIP_GOLD)}
-            <div style="font-size:0.6rem;color:var(--muted);">stake ${b.stake}</div>
-          </div>
-          <div class="cin-chip-col right">
-            <div class="cin-chip-label">${dPlayer?.isHuman ? 'Your' : dPlayer?.name?.split(' ')[0]} bank</div>
-            ${_chipWalletHtml(dPlayer?.chips || 0)}
-            <div class="cin-chip-sublabel">bet in</div>
-            ${_chipPileHtml(dContrib, CHIP_GOLD)}
-          </div>
-        </div>`;
-      zone.innerHTML = `
-        <div class="cin-divider"></div>
-        <div class="cin-bet-header">⚖ Betting on the challenge</div>
-        ${chipTable}
-        ${humanActor
-          ? `<div class="cin-bet-actions">
-               <button class="secondary" id="cinCallBtn">${callAmt > 0 ? `Call ${callAmt}` : 'Check'}</button>
-               <button id="cinRaiseBtn" ${!canRaise ? 'disabled' : ''}>Raise +${raiseAmt || 0}</button>
-               <button class="danger" id="cinFoldBtn">Fold</button>
-             </div>
-             ${backupEligible ? `<button class="ghost cin-bet-backup" id="cinBackupBtn">Join as backup caller</button>` : ''}`
-          : `<div class="cin-waiting">${actorName} is deciding…</div>`
-        }
-      `;
-      wireScratchboneImageFallbacks(zone);
-      if (humanActor) {
-        document.getElementById('cinCallBtn')?.addEventListener('click', () => humanBetAction('checkcall'));
-        document.getElementById('cinRaiseBtn')?.addEventListener('click', humanRaiseSelected);
-        document.getElementById('cinFoldBtn')?.addEventListener('click', () => humanBetAction('fold'));
-        document.getElementById('cinBackupBtn')?.addEventListener('click', humanJoinBackup);
-      }
-    }
-    // ── Cinematic bet-action announcement (burst + tankan columns) ──
-    function _announceCinematicBetAction(playerId, command) {
-      const cin = getCinematicRoot();
-      if (!cin || !cin.classList.contains('cin-active')) return;
-      // Burst word anchored to the claim-cluster avatar (fallback: cinematic player slot)
-      const playerEl = cin.querySelector(`.cin-player[data-player-id="${playerId}"]`);
-      cin.querySelectorAll('.cin-action-burst').forEach(el => el.remove());
-      const label = command === 'checkcall' ? 'Call!' : command === 'raise' ? 'Raise!' : 'Fold!';
-      const cls   = command === 'checkcall' ? 'burst-call' : command === 'raise' ? 'burst-raise' : 'burst-fold';
-      const burst = document.createElement('div');
-      burst.className = `cin-action-burst ${cls}`;
-      burst.textContent = label;
-      const cinRect = cin.getBoundingClientRect();
-      const fallbackRect = playerEl?.getBoundingClientRect?.() || {
-        left: cinRect.left + (cinRect.width * 0.5) - 1,
-        top: cinRect.top + (cinRect.height * 0.5) - 1,
-        width: 2,
-        height: 2,
-      };
-      const avatarRect = getClaimClusterAvatarRect(playerId);
-      const sourceRect = avatarRect || fallbackRect;
-      const sourceX = sourceRect.left + (sourceRect.width * 0.5);
-      const sourceY = sourceRect.top + (sourceRect.height * 0.5);
-      const clampInsetPxRaw = Number(SCRATCHBONES_GAME.layout?.tableView?.cinematic?.betActionBurstClampInsetPx);
-      const clampInsetPx = Number.isFinite(clampInsetPxRaw) ? clampNumber(clampInsetPxRaw, 0, 320) : 24;
-      const minX = clampInsetPx;
-      const maxX = Math.max(minX, cinRect.width - clampInsetPx);
-      const minY = clampInsetPx;
-      const maxY = Math.max(minY, cinRect.height - clampInsetPx);
-      const localX = clampNumber(sourceX - cinRect.left, minX, maxX);
-      const localY = clampNumber(sourceY - cinRect.top, minY, maxY);
-      burst.style.left = `${localX.toFixed(2)}px`;
-      burst.style.top = `${localY.toFixed(2)}px`;
-      cin.appendChild(burst);
-      burst.addEventListener('animationend', () => burst.remove());
-      // Tankanscript vertical side columns — persist until next action or cinematic close
-      const tankanText = TANKAN_STRINGS[command] || '';
-      if (tankanText) {
-        cin.querySelectorAll('.cin-tankan').forEach(el => el.remove());
-        for (const side of ['left', 'right']) {
-          const el = document.createElement('div');
-          el.className = `cin-tankan ${side}`;
-          el.textContent = tankanText;
-          cin.appendChild(el);
-        }
-      }
-    }
-    // ── Chip sprite helpers ──
-    function _chipSvg(fill, size) {
-      size = size || 20;
-      const cx = size / 2;
-      const rOut  = cx - 0.8;
-      const rRing = rOut * 0.80;
-      const rIn   = rOut * 0.58;
-      const notches = [];
-      for (let a = 0; a < 360; a += 30) {
-        const rad = a * Math.PI / 180;
-        notches.push(`<circle cx="${(cx + Math.cos(rad)*rRing).toFixed(1)}" cy="${(cx + Math.sin(rad)*rRing).toFixed(1)}" r="${(size*0.076).toFixed(1)}" fill="rgba(0,0,0,0.28)"/>`);
-      }
-      const glintX = (cx - size * 0.07).toFixed(1);
-      const glintY = (cx - size * 0.16).toFixed(1);
-      const glintRX = (size * 0.14).toFixed(1);
-      const glintRY = (size * 0.07).toFixed(1);
-      return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="display:inline-block;flex-shrink:0;vertical-align:middle;">`
-        + `<circle cx="${cx}" cy="${cx}" r="${rOut.toFixed(1)}" fill="${fill}" stroke="rgba(0,0,0,0.38)" stroke-width="0.9"/>`
-        + notches.join('')
-        + `<circle cx="${cx}" cy="${cx}" r="${rIn.toFixed(1)}" fill="${fill}" stroke="rgba(0,0,0,0.22)" stroke-width="0.7"/>`
-        + `<ellipse cx="${glintX}" cy="${glintY}" rx="${glintRX}" ry="${glintRY}" fill="rgba(255,255,255,0.28)"/>`
-        + `</svg>`;
-    }
-    // Single chip + bold number — for bankroll display
-    function _chipWalletHtml(count) {
-      const tokenIconSrc = String(CONFIG.assets.cinematicTokenIconSrc || '');
-      return `<span style="display:inline-flex;align-items:center;gap:5px;"><img class="cin-token-icon" src="${tokenIconSrc}" alt="Token icon" loading="lazy"><span style="font-size:0.95rem;font-weight:800;color:var(--text);">${count}</span></span>`;
-    }
-    // Overlapping spread pile — for pot / contributions
-    function _chipPileHtml(count, fill) {
-      if (count <= 0) return `<span style="font-size:0.8rem;color:var(--muted);font-style:italic;">—</span>`;
-      const chipSize = 22;
-      const spread   = 10;
-      const show     = Math.min(count, 13);
-      const w        = (show - 1) * spread + chipSize;
-      const h        = chipSize + 6;
-      let inner = '';
-      for (let i = 0; i < show; i++) {
-        const x    = i * spread;
-        const rot  = (((i * 7) % 10) - 5) * 2.2;   // deterministic wobble −11°…+11°
-        const yOff = (((i * 3) % 4)) * 0.9;          // subtle vertical stagger 0–2.7px
-        inner += `<div style="position:absolute;left:${x}px;top:${yOff.toFixed(1)}px;transform:rotate(${rot.toFixed(1)}deg);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.45));">${_chipSvg(fill, chipSize)}</div>`;
-      }
-      const extra = count > 13
-        ? `<span style="position:absolute;right:-26px;top:50%;transform:translateY(-50%);font-size:0.6rem;color:var(--muted);">+${count-13}</span>`
-        : '';
-      return `<div style="position:relative;display:inline-block;width:${w}px;height:${h}px;">${inner}${extra}</div>`;
-    }
-    // Chip fill colors
-    const CHIP_GOLD   = '#c89952';
-    const CHIP_BANK   = '#7a8fa0';
     // Tankanscript labels for bet actions — swap strings for conlang equivalents
     const TANKAN_STRINGS = {
       checkcall: 'Call',
       raise:     'Raise',
       fold:      'Fold',
     };
-    // Deterministic hue from a string (for avatar colors)
-    function _avatarHue(name) {
-      let h = 0;
-      for (let i = 0; i < (name || '').length; i++) h = (h * 37 + name.charCodeAt(i)) % 360;
-      return h;
-    }
-    // Build player profile HTML for cinematic — chip count as single chip + number
-    function _cinPlayerHtml(player, role) {
-      const cinematicConfig = SCRATCHBONES_GAME.layout?.tableView?.cinematic || {};
-      const showAvatars = cinematicConfig.showAvatars === true;
-      const roleLabel = role === 'challenger' ? '⚔ Challenger' : '🃏 Declared';
-      const arch = player.personality?.archetype || '';
-      const tags = player.personality ? personalityTags(player.personality) : '';
-      const portraitMarkup = showAvatars
-        ? (() => {
-            const hue = player.isHuman ? 210 : _avatarHue(player.name);
-            const sat = player.isHuman ? 50 : 58;
-            const lig = player.isHuman ? 38 : 36;
-            const color = `hsl(${hue},${sat}%,${lig}%)`;
-            const initial = player.isHuman ? 'Y' : (player.name || '?')[0].toUpperCase();
-            const innerPortraitMarkup = player.profile
-              ? `<canvas data-cin-player-id="${player.id}" width="200" height="200" aria-label="${escapeHtml(player.name || 'Player')} portrait"></canvas>`
-              : `<span class="cin-avatar-fallback">${initial}</span>`;
-            return `<div class="cin-avatar avatar-glow" style="background:${color};">${innerPortraitMarkup}</div>`;
-          })()
-        : '';
-      return `
-        <div class="cin-player ${role} ${showAvatars ? '' : 'no-avatar'}" data-player-id="${player.id}">
-          ${portraitMarkup}
-          <div class="cin-player-info">
-            <div class="cin-role">${roleLabel}</div>
-            <div class="cin-name">${player.isHuman ? 'You' : player.name}</div>
-            ${arch ? `<div class="cin-arch">${arch}</div>` : ''}
-            ${tags ? `<div class="cin-tags">${tags}</div>` : ''}
-          </div>
-        </div>`;
-    }
-    // Build ember particles HTML
-    function _cinEmbersHtml(colorHue) {
-      const embers = [];
-      for (let i = 0; i < 18; i++) {
-        const left  = (10 + Math.random() * 80).toFixed(1);
-        const delay = (Math.random() * 2.5).toFixed(2);
-        const dur   = (2.2 + Math.random() * 1.8).toFixed(2);
-        const drift = ((Math.random() - 0.5) * 80).toFixed(1);
-        const sat   = 60 + Math.floor(Math.random() * 30);
-        const lig   = 55 + Math.floor(Math.random() * 20);
-        embers.push(`<div class="cin-ember" style="left:${left}%;bottom:0;background:hsl(${colorHue},${sat}%,${lig}%);--delay:${delay}s;--dur:${dur}s;--drift:${drift}px;"></div>`);
-      }
-      return `<div class="cin-embers">${embers.join('')}</div>`;
-    }
-    // Build card row HTML (face-down or revealed)
-    function _cinCardsHtml(play, revealed) {
-      if (!play) return '';
-      const cards = play.cards;
-      const rowItems = cards.map((card, i) => {
-        const cardRank = card.wild ? ((card.id - 1) % 10) + 1 : Math.max(1, Math.min(10, card.rank));
-        const art = resolveScratchbone2DAsset({ ...card, rank: cardRank }, { flipped: !revealed });
-        if (!revealed) {
-          return `<div class="cin-card-wrap" data-card-rank="${cardRank}" data-card-wild="${card.wild ? 'true' : 'false'}">
-            <div class="cin-card-inner">
-              <div class="cin-card-back"><img class="cin-card-image" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Hidden scratchbone card"></div>
-              <div class="cin-card-face"></div>
-            </div>
-          </div>`;
+    // ── Cinematic bet-action announcement (burst + tankan columns) ──
+    function _announceCinematicBetAction(playerId, command) {
+      const claimCluster = document.querySelector('.claimCluster');
+      if (!claimCluster) return;
+      claimCluster.querySelectorAll('.cin-action-burst').forEach(el => el.remove());
+      claimCluster.querySelectorAll('.cin-tankan').forEach(el => el.remove());
+      const label = command === 'checkcall' ? 'Call!' : command === 'raise' ? 'Raise!' : 'Fold!';
+      const cls   = command === 'checkcall' ? 'burst-call' : command === 'raise' ? 'burst-raise' : 'burst-fold';
+      const burst = document.createElement('div');
+      burst.className = `cin-action-burst ${cls}`;
+      burst.textContent = label;
+      const clusterRect = claimCluster.getBoundingClientRect();
+      const avatarRect = getClaimClusterAvatarRect(playerId);
+      if (!avatarRect) return;
+      const sourceX = avatarRect.left + (avatarRect.width * 0.5);
+      const sourceY = avatarRect.top + (avatarRect.height * 0.5);
+      const clampInsetPxRaw = Number(SCRATCHBONES_GAME.layout?.tableView?.cinematic?.betActionBurstClampInsetPx);
+      const clampInsetPx = Number.isFinite(clampInsetPxRaw) ? clampNumber(clampInsetPxRaw, 0, 320) : 24;
+      const minX = clampInsetPx;
+      const maxX = Math.max(minX, clusterRect.width - clampInsetPx);
+      const minY = clampInsetPx;
+      const maxY = Math.max(minY, clusterRect.height - clampInsetPx);
+      const localX = clampNumber(sourceX - clusterRect.left, minX, maxX);
+      const localY = clampNumber(sourceY - clusterRect.top, minY, maxY);
+      burst.style.left = `${localX.toFixed(2)}px`;
+      burst.style.top = `${localY.toFixed(2)}px`;
+      claimCluster.appendChild(burst);
+      burst.addEventListener('animationend', () => burst.remove());
+      const tankanText = TANKAN_STRINGS[command] || '';
+      if (tankanText) {
+        for (const side of ['left', 'right']) {
+          const el = document.createElement('div');
+          el.className = `cin-tankan ${side}`;
+          el.textContent = tankanText;
+          claimCluster.appendChild(el);
         }
-        const isWild = card.wild;
-        const matchesClaim = card.wild || card.rank === play.declaredRank;
-        const faceClass = isWild ? 'face-wild' : (matchesClaim ? 'face-truth' : 'face-lie');
-        const sub = isWild ? 'Wild' : (matchesClaim ? 'True' : 'Lie!');
-        return `<div class="cin-card-wrap flip-it" style="--fd:${(i * 0.09).toFixed(2)}s;" data-card-rank="${cardRank}" data-card-wild="${isWild ? 'true' : 'false'}">
-          <div class="cin-card-inner">
-            <div class="cin-card-back"><img class="cin-card-image" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="Hidden scratchbone card"></div>
-            <div class="cin-card-face ${faceClass}">
-              <img class="cin-card-image" src="${resolveScratchbone2DAsset({ ...card, rank: cardRank }, { flipped: false }).src}" data-fallback-src="${resolveScratchbone2DAsset({ ...card, rank: cardRank }, { flipped: false }).fallbackSrc}" alt="${isWild ? 'Revealed wild scratchbone card' : `Revealed scratchbone ${cardRank} card`}">
-              <div class="cin-card-sub">${sub}</div>
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-      return `
-        <div class="cin-cards-wrap">
-          <div class="cin-cards-label">Claimed — ${cards.length} × ${play.declaredRank}</div>
-          <div class="cin-cards-row">${rowItems}</div>
-        </div>`;
+      }
     }
     // Phase 2a: Reveal (no fold)
     function showRevealCinematic(challengerIndex, challengedIndex, play, success, onClose) {
-      const cin = getCinematicRoot();
-      if (!cin || !isTableCinematicEnabled()) return;
-      _clearCinTimeout();
-      const challenger = state.players[challengerIndex];
-      const challenged = state.players[challengedIndex];
-      const winnerId  = success ? challengerIndex : challengedIndex;
-      const winner    = state.players[winnerId];
-      const humanWon  = winnerId === 0;
-      const humanLost = !humanWon && (challengerIndex === 0 || challengedIndex === 0);
-      const headlineText  = success ? '🎯 Bluff Caught!' : '✔ Truthful Play!';
-      const headlineClass = success ? 'cin-caught' : 'cin-defended';
-      const resultText    = (winner.isHuman ? 'You win' : `${winner.name} wins`) + ' the challenge.';
-      const resClass      = humanWon ? 'res-good' : humanLost ? 'res-warn' : 'res-neutral';
-      const emberHue      = success ? 10 : 130;
-      const fxMarkup = isTableCinematicEffectsEnabled()
-        ? `${_cinEmbersHtml(emberHue)}<div class="cin-shimmer"></div>`
-        : '';
-      cin.innerHTML = `
-        <div class="cin-bg"></div>
-        ${fxMarkup}
-        <div class="cin-headline ${headlineClass}">${headlineText}</div>
-        <div class="cin-players">
-          ${_cinPlayerHtml(challenger, 'challenger')}
-          <div class="cin-vs">VS</div>
-          ${_cinPlayerHtml(challenged, 'challenged')}
-        </div>
-        <div class="cin-divider"></div>
-        ${_cinCardsHtml(play, true)}
-        <div class="cin-result ${resClass}">${resultText}</div>
-        <button class="cin-continue" id="cinContinueBtn">Continue →</button>
-      `;
-      wireScratchboneImageFallbacks(cin);
-      activateTableCinematicMode();
-      cin.classList.add('cin-active');
-      renderCinematicPortraits();
-      let done = false;
-      const cleanup = () => { if (done) return; done = true; closeCinematic(); onClose?.(); };
-      document.getElementById('cinContinueBtn')?.addEventListener('click', cleanup);
-      _cinTimeout = setTimeout(cleanup, 4200);
+      if (!isTableCinematicEnabled()) {
+        onClose?.();
+        return;
+      }
+      const winnerId = success ? challengerIndex : challengedIndex;
+      const loserId = success ? challengedIndex : challengerIndex;
+      const headline = success ? '🎯 Bluff Caught!' : '✔ Truthful Play!';
+      setCinematicMode('reveal', {
+        challengerId: challengerIndex,
+        challengedId: challengedIndex,
+        actorId: challengerIndex,
+        reactorId: challengedIndex,
+        winnerId,
+        loserId,
+        play,
+        headline,
+      }, {
+        onClose,
+        durationMs: Number(SCRATCHBONES_GAME.layout?.tableView?.cinematic?.revealDurationMs) || 4200,
+      });
     }
     // Phase 2b: Fold resolution
     function showFoldCinematic(winnerId, loserId, onClose) {
-      const cin = getCinematicRoot();
-      if (!cin || !isTableCinematicEnabled()) return;
-      _clearCinTimeout();
-      const winner    = state.players[winnerId];
-      const loser     = state.players[loserId];
-      const winnerName = winner.isHuman ? 'You' : winner.name;
-      const loserName  = loser.isHuman  ? 'You' : loser.name;
-      const humanWon   = winnerId === 0;
-      const humanLost  = loserId  === 0;
-      const resClass   = humanWon ? 'res-good' : humanLost ? 'res-warn' : 'res-neutral';
-      const fxMarkup = isTableCinematicEffectsEnabled()
-        ? `${_cinEmbersHtml(30)}<div class="cin-shimmer"></div>`
-        : '';
-      cin.innerHTML = `
-        <div class="cin-bg"></div>
-        ${fxMarkup}
-        <div class="cin-headline cin-fold">🏳 Fold</div>
-        <div class="cin-result ${resClass}" style="max-width:360px;text-align:center;">
-          ${loserName} folds — ${winnerName} takes the pot.
-        </div>
-        <button class="cin-continue" id="cinContinueBtn">Continue →</button>
-      `;
-      wireScratchboneImageFallbacks(cin);
-      activateTableCinematicMode();
-      cin.classList.add('cin-active');
-      renderCinematicPortraits();
-      let done = false;
-      const cleanup = () => { if (done) return; done = true; closeCinematic(); onClose?.(); };
-      document.getElementById('cinContinueBtn')?.addEventListener('click', cleanup);
-      _cinTimeout = setTimeout(cleanup, 2600);
+      if (!isTableCinematicEnabled()) {
+        onClose?.();
+        return;
+      }
+      setCinematicMode('fold', {
+        winnerId,
+        loserId,
+        challengerId: state.betting?.challengerId ?? winnerId,
+        challengedId: state.betting?.challengedId ?? loserId,
+        actorId: state.betting?.challengerId ?? winnerId,
+        reactorId: state.betting?.challengedId ?? loserId,
+        headline: '🏳 Fold',
+      }, {
+        onClose,
+        durationMs: Number(SCRATCHBONES_GAME.layout?.tableView?.cinematic?.foldDurationMs) || 2600,
+      });
     }
     // ── UI projection mapping mode ────────────────────────────────────────
     const projectionUiState = {
