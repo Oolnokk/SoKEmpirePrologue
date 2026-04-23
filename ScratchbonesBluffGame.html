@@ -2543,6 +2543,7 @@
       aiBackupJoinRandomMax: Number(AI_CONFIG.backupJoinRandomMax) || 0.22,
       aiBackupJoinSuspicionWeight: Number(AI_CONFIG.backupJoinSuspicionWeight) || 0.2,
       aiBettingConfidenceSuspicionWeight: Number(AI_CONFIG.bettingConfidenceSuspicionWeight) || 0.55,
+      assets: SCRATCHBONES_GAME.assets || {},
     };
     const state = {
       players: [],
@@ -4926,7 +4927,7 @@
       const claimRankText = claimFocus.declaredRank === null || claimFocus.declaredRank === undefined ? '—' : String(claimFocus.declaredRank);
       const claimCount = claimFocus.cards?.length || 0;
       const claimCountText = String(claimCount);
-      const claimCountGlyphSrc = (CONFIG.assets.claimCountGlyphTemplateSrc || './docs/assets/symbols/boneglyph{count}.png')
+      const claimCountGlyphSrc = String(CONFIG.assets.claimCountGlyphTemplateSrc || '')
         .replace('{count}', String(Math.min(Math.max(claimCount, 1), 10)));
       const claimCountGlyphHtml = claimCount > 0
         ? `<img class="claimCountGlyph" src="${claimCountGlyphSrc}" alt="Declared count ${claimCount}" loading="lazy">`
@@ -5497,7 +5498,7 @@
     }
     // Single chip + bold number — for bankroll display
     function _chipWalletHtml(count) {
-      const tokenIconSrc = CONFIG.assets.cinematicTokenIconSrc || './docs/assets/hud/coin_tinmoon.png';
+      const tokenIconSrc = String(CONFIG.assets.cinematicTokenIconSrc || '');
       return `<span style="display:inline-flex;align-items:center;gap:5px;"><img class="cin-token-icon" src="${tokenIconSrc}" alt="Token icon" loading="lazy"><span style="font-size:0.95rem;font-weight:800;color:var(--text);">${count}</span></span>`;
     }
     // Overlapping spread pile — for pot / contributions
