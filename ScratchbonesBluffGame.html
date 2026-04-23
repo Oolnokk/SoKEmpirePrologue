@@ -1987,6 +1987,7 @@
               playerInfoFontRem: rawGameConfig.layout?.tableView?.cinematic?.playerInfoFontRem ?? 1.05,
               betActionBurstFontRem: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstFontRem ?? 2,
               betActionBurstDurationSec: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstDurationSec ?? 2.1,
+              betActionBurstClampInsetPx: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstClampInsetPx ?? 24,
             },
           },
           regions: {
@@ -5314,24 +5315,35 @@
       if (!cin || !cin.classList.contains('cin-active')) return;
       // Burst word anchored to the claim-cluster avatar (fallback: cinematic player slot)
       const playerEl = cin.querySelector(`.cin-player[data-player-id="${playerId}"]`);
-      if (playerEl) {
-        cin.querySelectorAll('.cin-action-burst').forEach(el => el.remove());
-        const label = command === 'checkcall' ? 'Call!' : command === 'raise' ? 'Raise!' : 'Fold!';
-        const cls   = command === 'checkcall' ? 'burst-call' : command === 'raise' ? 'burst-raise' : 'burst-fold';
-        const burst = document.createElement('div');
-        burst.className = `cin-action-burst ${cls}`;
-        burst.textContent = label;
-        const cinRect = cin.getBoundingClientRect();
-        const avatarRect = getClaimClusterAvatarRect(playerId);
-        const fallbackRect = playerEl.getBoundingClientRect();
-        const sourceRect = avatarRect || fallbackRect;
-        const sourceX = sourceRect.left + (sourceRect.width * 0.5);
-        const sourceY = sourceRect.top + (sourceRect.height * 0.5);
-        burst.style.left = `${(sourceX - cinRect.left).toFixed(2)}px`;
-        burst.style.top = `${(sourceY - cinRect.top).toFixed(2)}px`;
-        cin.appendChild(burst);
-        burst.addEventListener('animationend', () => burst.remove());
-      }
+      cin.querySelectorAll('.cin-action-burst').forEach(el => el.remove());
+      const label = command === 'checkcall' ? 'Call!' : command === 'raise' ? 'Raise!' : 'Fold!';
+      const cls   = command === 'checkcall' ? 'burst-call' : command === 'raise' ? 'burst-raise' : 'burst-fold';
+      const burst = document.createElement('div');
+      burst.className = `cin-action-burst ${cls}`;
+      burst.textContent = label;
+      const cinRect = cin.getBoundingClientRect();
+      const fallbackRect = playerEl?.getBoundingClientRect?.() || {
+        left: cinRect.left + (cinRect.width * 0.5) - 1,
+        top: cinRect.top + (cinRect.height * 0.5) - 1,
+        width: 2,
+        height: 2,
+      };
+      const avatarRect = getClaimClusterAvatarRect(playerId);
+      const sourceRect = avatarRect || fallbackRect;
+      const sourceX = sourceRect.left + (sourceRect.width * 0.5);
+      const sourceY = sourceRect.top + (sourceRect.height * 0.5);
+      const clampInsetPxRaw = Number(SCRATCHBONES_GAME.layout?.tableView?.cinematic?.betActionBurstClampInsetPx);
+      const clampInsetPx = Number.isFinite(clampInsetPxRaw) ? clampNumber(clampInsetPxRaw, 0, 320) : 24;
+      const minX = clampInsetPx;
+      const maxX = Math.max(minX, cinRect.width - clampInsetPx);
+      const minY = clampInsetPx;
+      const maxY = Math.max(minY, cinRect.height - clampInsetPx);
+      const localX = clampNumber(sourceX - cinRect.left, minX, maxX);
+      const localY = clampNumber(sourceY - cinRect.top, minY, maxY);
+      burst.style.left = `${localX.toFixed(2)}px`;
+      burst.style.top = `${localY.toFixed(2)}px`;
+      cin.appendChild(burst);
+      burst.addEventListener('animationend', () => burst.remove());
       // Tankanscript vertical side columns — persist until next action or cinematic close
       const tankanText = TANKAN_STRINGS[command] || '';
       if (tankanText) {
