@@ -212,7 +212,6 @@ window.SCRATCHBONES_CONFIG = {
           "showAvatars": false,
           "playerInfoOffsetPx": 12,
           "playerInfoFontRem": 1.05,
-          "betActionBurstTopPct": 24,
           "betActionBurstFontRem": 2,
           "betActionBurstDurationSec": 2.1
         }

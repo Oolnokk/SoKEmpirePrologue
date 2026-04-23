@@ -151,7 +151,6 @@
       --layout-turn-spotlight-offset-y: 10px;
       --layout-cinematic-player-info-offset: 12px;
       --layout-cinematic-player-info-font: 1.05rem;
-      --layout-cinematic-burst-top: 24%;
       --layout-cinematic-burst-font: 2rem;
       --layout-cinematic-burst-duration: 2.1s;
       --layout-flame-x: 50%;
@@ -1278,7 +1277,7 @@
     /* ── Bet-action burst (Call! / Raise! / Fold!) over avatar ── */
     .cin-action-burst {
       position: absolute;
-      top: var(--layout-cinematic-burst-top);
+      top: 50%;
       left: 50%;
       z-index: 20;
       pointer-events: none;
@@ -1986,7 +1985,6 @@
               showAvatars: rawGameConfig.layout?.tableView?.cinematic?.showAvatars ?? false,
               playerInfoOffsetPx: rawGameConfig.layout?.tableView?.cinematic?.playerInfoOffsetPx ?? 12,
               playerInfoFontRem: rawGameConfig.layout?.tableView?.cinematic?.playerInfoFontRem ?? 1.05,
-              betActionBurstTopPct: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstTopPct ?? 24,
               betActionBurstFontRem: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstFontRem ?? 2,
               betActionBurstDurationSec: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstDurationSec ?? 2.1,
             },
@@ -4116,7 +4114,6 @@
       const cinematicLayout = tableViewLayout.cinematic || {};
       const cinematicPlayerInfoOffsetPx = clampNumber(Number(cinematicLayout.playerInfoOffsetPx) || 12, -40, 160);
       const cinematicPlayerInfoFontRem = clampNumber(Number(cinematicLayout.playerInfoFontRem) || 1.05, 0.6, 3);
-      const cinematicBurstTopPct = clampNumber(Number(cinematicLayout.betActionBurstTopPct) || 24, -20, 120);
       const cinematicBurstFontRem = clampNumber(Number(cinematicLayout.betActionBurstFontRem) || 2, 0.75, 5);
       const cinematicBurstDurationSec = clampNumber(Number(cinematicLayout.betActionBurstDurationSec) || 2.1, 0.4, 6);
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
@@ -4182,7 +4179,6 @@
       setCssVar('--layout-fit-additive-avatar-zoom', avatarAdditiveZoomScale.toFixed(3));
       setCssVar('--layout-cinematic-player-info-offset', `${cinematicPlayerInfoOffsetPx.toFixed(2)}px`);
       setCssVar('--layout-cinematic-player-info-font', `${cinematicPlayerInfoFontRem.toFixed(3)}rem`);
-      setCssVar('--layout-cinematic-burst-top', `${cinematicBurstTopPct.toFixed(2)}%`);
       setCssVar('--layout-cinematic-burst-font', `${cinematicBurstFontRem.toFixed(3)}rem`);
       setCssVar('--layout-cinematic-burst-duration', `${cinematicBurstDurationSec.toFixed(3)}s`);
       setCssVar('--layout-ui-tabletop-url', tabletopImageSrc ? `url("${tabletopImageSrc}")` : 'none');
@@ -4337,6 +4333,13 @@
     }
     function getCinematicRoot() {
       return document.getElementById('tableCinematicHost');
+    }
+    function getClaimClusterAvatarRect(playerId) {
+      const avatarCanvas = document.querySelector(`.claimCluster canvas.seatPortrait[data-seat-id="${playerId}"]`);
+      if (!avatarCanvas) return null;
+      const rect = avatarCanvas.getBoundingClientRect();
+      if (!rect || !Number.isFinite(rect.left) || !Number.isFinite(rect.top)) return null;
+      return rect;
     }
     function isTableCinematicEnabled() {
       return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.enabled !== false;
@@ -5309,16 +5312,24 @@
     function _announceCinematicBetAction(playerId, command) {
       const cin = getCinematicRoot();
       if (!cin || !cin.classList.contains('cin-active')) return;
-      // Burst word above the avatar
+      // Burst word anchored to the claim-cluster avatar (fallback: cinematic player slot)
       const playerEl = cin.querySelector(`.cin-player[data-player-id="${playerId}"]`);
       if (playerEl) {
-        playerEl.querySelectorAll('.cin-action-burst').forEach(el => el.remove());
+        cin.querySelectorAll('.cin-action-burst').forEach(el => el.remove());
         const label = command === 'checkcall' ? 'Call!' : command === 'raise' ? 'Raise!' : 'Fold!';
         const cls   = command === 'checkcall' ? 'burst-call' : command === 'raise' ? 'burst-raise' : 'burst-fold';
         const burst = document.createElement('div');
         burst.className = `cin-action-burst ${cls}`;
         burst.textContent = label;
-        playerEl.appendChild(burst);
+        const cinRect = cin.getBoundingClientRect();
+        const avatarRect = getClaimClusterAvatarRect(playerId);
+        const fallbackRect = playerEl.getBoundingClientRect();
+        const sourceRect = avatarRect || fallbackRect;
+        const sourceX = sourceRect.left + (sourceRect.width * 0.5);
+        const sourceY = sourceRect.top + (sourceRect.height * 0.5);
+        burst.style.left = `${(sourceX - cinRect.left).toFixed(2)}px`;
+        burst.style.top = `${(sourceY - cinRect.top).toFixed(2)}px`;
+        cin.appendChild(burst);
         burst.addEventListener('animationend', () => burst.remove());
       }
       // Tankanscript vertical side columns — persist until next action or cinematic close
