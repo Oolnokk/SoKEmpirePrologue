@@ -4596,15 +4596,13 @@
         state.reactorEntranceInProgress = false;
         return;
       }
-      const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || state.pile.at(-1) || null;
-      if (!latestPlay) {
+      const claimFocus = resolveClaimFocusFromState();
+      if (!claimFocus.latestPlay || claimFocus.reactorId === null || claimFocus.reactorId === undefined) {
         state.pendingReactorEntrance = false;
         state.reactorEntranceInProgress = false;
         return;
       }
-      const reactorId = latestPlay.playerIndex === state.betting.challengerId
-        ? state.betting.challengedId
-        : state.betting.challengerId;
+      const reactorId = claimFocus.reactorId;
       const seatCanvas = app.querySelector(`.seatAvatarBox canvas.seatPortrait[data-seat-id="${reactorId}"]`);
       const reactorCanvas = app.querySelector('.reactorAvatarFloat canvas.seatPortrait');
       if (!seatCanvas || !reactorCanvas) {
@@ -4946,6 +4944,40 @@
         target.style.setProperty('--layout-claim-card-height', claimCardHeight);
       }
     }
+    function latestClaimPlayFromState() {
+      return state.betting?.play || state.challengeWindow?.lastPlay || state.pile.at(-1) || null;
+    }
+    function resolveClaimFocusFromState() {
+      const latestPlay = latestClaimPlayFromState();
+      if (!latestPlay) {
+        return {
+          latestPlay: null,
+          actorId: state.currentTurn,
+          reactorId: null,
+          declaredRank: state.declaredRank,
+          cardCount: 0,
+          cards: [],
+          subtext: 'Select cards and declare a number to begin the next claim.',
+        };
+      }
+      const actorId = (state.betting || state.challengeWindow) ? latestPlay.playerIndex : state.currentTurn;
+      let reactorId = null;
+      if (state.betting) {
+        reactorId = latestPlay.playerIndex === state.betting.challengerId
+          ? state.betting.challengedId
+          : state.betting.challengerId;
+      }
+      const declaredRank = latestPlay.declaredRank ?? state.declaredRank;
+      const cards = latestPlay.cards || [];
+      return {
+        latestPlay,
+        actorId,
+        reactorId,
+        declaredRank,
+        cardCount: cards.length,
+        cards,
+      };
+    }
 
     function render() {
       seatAvatarAnim.capturePreRender();
@@ -4967,8 +4999,8 @@
       const challengeWindow = state.challengeWindow;
       const humanCanDecideChallenge = !!(challengeWindow && !state.betting && !state.gameOver && challengeWindow.lastPlay.playerIndex !== 0);
       const challengePromptText = humanCanDecideChallenge ? formatChallengePrompt(challengeWindow.lastPlay) : '';
-      const latestPilePlay = state.pile.at(-1) || null;
-      const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || latestPilePlay;
+      const claimFocus = resolveClaimFocusFromState();
+      const latestPlay = claimFocus.latestPlay;
       const tableViewPolicy = layoutPolicy?.tableView || {};
       const regionsPolicy = layoutPolicy?.regions || getLayoutRegionsConfig();
       const claimClusterPolicy = layoutPolicy?.claimCluster || getClaimClusterConfig();
@@ -4980,26 +5012,6 @@
       const showLegacyActionFocus = !claimClusterEnabled && !regionsPolicy.actionFocus?.replaceWithFloatingClaimCluster && regionsPolicy.actionFocus?.enabled;
       const tableCardVisualMode = tableViewPolicy.cardVisualMode || 'facedown';
       const tableCardFaceDown = tableCardVisualMode !== 'faceup';
-      const claimFocus = (() => {
-        if (!latestPlay) {
-          return {
-            actorId: state.currentTurn,
-            reactorId: null,
-            declaredRank: state.declaredRank,
-            cardCount: 0,
-            cards: [],
-            subtext: 'Select cards and declare a number to begin the next claim.'
-          };
-        }
-        const actorId = (state.betting || state.challengeWindow) ? latestPlay.playerIndex : state.currentTurn;
-        let reactorId = null;
-        if (state.betting) reactorId = latestPlay.playerIndex === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
-        else if (state.challengeWindow) reactorId = null;
-        const declaredRank = latestPlay.declaredRank ?? state.declaredRank;
-        const cardCount = latestPlay.cards?.length || 0;
-        const cards = latestPlay.cards || [];
-        return { actorId, reactorId, declaredRank, cardCount, cards };
-      })();
       const focusActor = state.players[claimFocus.actorId];
       const focusReactor = claimFocus.reactorId !== null ? state.players[claimFocus.reactorId] : null;
       const claimRankText = claimFocus.declaredRank === null || claimFocus.declaredRank === undefined ? '—' : String(claimFocus.declaredRank);
