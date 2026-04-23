@@ -222,6 +222,13 @@
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
     }
+    #cinematicFxLayer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 120;
+      overflow: hidden;
+    }
     #app::before {
       content: '';
       position: absolute;
@@ -1310,6 +1317,63 @@
     .cin-result.res-good   { background:rgba(102,177,124,0.18); border:1px solid rgba(102,177,124,0.4); color:var(--ok); }
     .cin-result.res-warn   { background:rgba(200,90,90,0.18);   border:1px solid rgba(200,90,90,0.4);   color:var(--danger); }
     .cin-result.res-neutral{ background:rgba(200,153,82,0.12);  border:1px solid rgba(200,153,82,0.28); color:var(--accent-2); }
+    .fx-avatar-shell {
+      position: absolute;
+      width: var(--layout-cinematic-avatar-size);
+      height: var(--layout-cinematic-avatar-size);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 8;
+    }
+    .fx-avatar-shell .cin-avatar {
+      width: 100%;
+      height: 100%;
+    }
+    .fx-avatar-shell.challenged .cin-avatar { transform: scaleX(-1); }
+    .fx-card-shell {
+      position: absolute;
+      width: 54px;
+      height: 84px;
+      transform: translate(-50%, -50%);
+      perspective: 640px;
+      pointer-events: none;
+      z-index: 9;
+    }
+    .fx-card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+    .fx-card-shell.flip-it .fx-card-inner {
+      animation: cinFlip 0.58s cubic-bezier(0.4, 0, 0.2, 1) var(--fd, 0s) both;
+    }
+    .fx-card-back,
+    .fx-card-face {
+      position: absolute;
+      inset: 0;
+      border-radius: 11px;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      overflow: hidden;
+    }
+    .fx-card-face { transform: rotateY(180deg); }
+    .fx-card-back img,
+    .fx-card-face img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border-radius: inherit;
+    }
+    .fx-burst-shell {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 10;
+    }
     /* ── Bet-action burst (Call! / Raise! / Fold!) over avatar ── */
     .cin-action-burst {
       position: absolute;
@@ -1835,6 +1899,7 @@
 <body>
   <div id="authoredRoot">
     <div id="app"></div>
+    <div id="cinematicFxLayer" aria-hidden="true"></div>
     <div id="authoredOverlay"></div>
   </div>
   <!-- UI projection mapping mode -->
@@ -4474,13 +4539,6 @@
       );
       app.style.setProperty('--layout-table-view-height', `${Math.round(tableViewHeightPx)}px`);
     }
-    function getClaimClusterAvatarRect(playerId) {
-      const avatarCanvas = document.querySelector(`.claimCluster canvas.seatPortrait[data-seat-id="${playerId}"]`);
-      if (!avatarCanvas) return null;
-      const rect = avatarCanvas.getBoundingClientRect();
-      if (!rect || !Number.isFinite(rect.left) || !Number.isFinite(rect.top)) return null;
-      return rect;
-    }
     function isTableCinematicEnabled() {
       return SCRATCHBONES_GAME.layout?.tableView?.cinematic?.enabled !== false;
     }
@@ -4969,15 +5027,13 @@
         : claimRankText;
       const claimHandCardsSource = cinematicRevealActive ? cinematicRevealPlay.cards : claimFocus.cards;
       const claimHandCardsHtml = (claimHandCardsSource?.length
-        ? claimHandCardsSource.map((card, index) => {
+        ? claimHandCardsSource.map((card) => {
             const revealCard = cinematicRevealActive;
             const art = resolveScratchbone2DAsset(card, { flipped: !revealCard });
-            const revealClass = revealCard ? 'cin-reveal-card flip-it' : '';
-            const delaySec = revealCard ? (index * 0.09).toFixed(2) : '0';
             const cardAlt = revealCard
               ? (card.wild ? 'Revealed wild scratchbone card' : `Revealed scratchbone ${card.rank} card`)
               : 'Face-down scratchbone card';
-            return `<div class="tableViewCard ${revealClass}" style="--fd:${delaySec}s;" data-card-id="${card.id}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${cardAlt}"></div>`;
+            return `<div class="tableViewCard" style="--fd:0s;" data-card-id="${card.id}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${cardAlt}"></div>`;
           }).join('')
         : '<div class="tiny">No claim yet.</div>');
       const claimClusterShellClass = claimClusterPolicy.transparentShells ? 'floatingTransparentShell' : '';
@@ -5214,6 +5270,39 @@
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
       ensureChallengeCinematic();
       renderSeatPortraits();
+      const fxLayer = document.getElementById('cinematicFxLayer');
+      if (app && fxLayer) {
+        if (!clusterCinematicFxRuntime.adapter) {
+          clusterCinematicFxRuntime.adapter = createClusterAnimationAdapter({ appEl: app, layerEl: fxLayer, stateRef: state });
+        }
+        const adapter = clusterCinematicFxRuntime.adapter;
+        if (adapter) {
+          if (!cinematicMode) {
+            if (clusterCinematicFxRuntime.phaseKey !== null) {
+              adapter.clear();
+              clusterCinematicFxRuntime.phaseKey = null;
+            }
+          } else {
+            const actorAnchor = app.querySelector('.actorAvatarFloat');
+            const reactorAnchor = app.querySelector('.reactorAvatarFloat');
+            const claimHandAnchor = app.querySelector('.claimHandBar');
+            const phaseKey = `${cinematicPhase}:${cinematicMode?.actorId ?? 'na'}:${cinematicMode?.reactorId ?? 'na'}:${cinematicRevealPlay?.cards?.map(c => c.id).join('-') || 'none'}`;
+            if (phaseKey !== clusterCinematicFxRuntime.phaseKey) {
+              adapter.clear();
+              clusterCinematicFxRuntime.phaseKey = phaseKey;
+              if (cinematicPhase === 'betting') {
+                console.debug('[cinematic-fx-adapter] challenge intro');
+                if (actorAnchor && Number.isInteger(cinematicMode?.actorId)) adapter.animateAvatarAt(actorAnchor, cinematicMode.actorId, 'challenger');
+                if (reactorAnchor && Number.isInteger(cinematicMode?.reactorId)) adapter.animateAvatarAt(reactorAnchor, cinematicMode.reactorId, 'challenged');
+              } else if (cinematicPhase === 'reveal') {
+                if (actorAnchor && Number.isInteger(cinematicMode?.actorId)) adapter.animateAvatarAt(actorAnchor, cinematicMode.actorId, 'challenger');
+                if (reactorAnchor && Number.isInteger(cinematicMode?.reactorId)) adapter.animateAvatarAt(reactorAnchor, cinematicMode.reactorId, 'challenged');
+                if (claimHandAnchor) adapter.animateRevealCardsAt(claimHandAnchor, cinematicRevealPlay?.cards || [], cinematicRevealPlay?.declaredRank);
+              }
+            }
+          }
+        }
+      }
       const layoutMode = getScratchbonesLayoutMode();
       document.body.classList.toggle('layout-mode-authored', layoutMode === 'authored');
       if (layoutMode === 'authored') {
@@ -5432,49 +5521,128 @@
       }
       root.style.setProperty('--layout-table-card-auto-scale', clampNumber(bestScale, 0.35, 1).toFixed(3));
     }
-    // Tankanscript labels for bet actions — swap strings for conlang equivalents
-    const TANKAN_STRINGS = {
-      checkcall: 'Call',
-      raise:     'Raise',
-      fold:      'Fold',
+    // Bridged the new claim-cluster layout to the old cinematic animation style by adding a measured FX overlay layer driven by cluster anchor positions.
+    function createClusterAnimationAdapter({ appEl, layerEl, stateRef }) {
+      if (!appEl || !layerEl) return null;
+      const cleanupTimers = new Set();
+      const scheduleCleanup = (fn, delayMs) => {
+        const t = setTimeout(() => {
+          cleanupTimers.delete(t);
+          fn();
+        }, delayMs);
+        cleanupTimers.add(t);
+      };
+      const toAppCenter = (anchorEl) => {
+        if (!anchorEl || !appEl.isConnected) return null;
+        const appRect = appEl.getBoundingClientRect();
+        const rect = anchorEl.getBoundingClientRect();
+        if (!Number.isFinite(rect.left) || !Number.isFinite(rect.top) || rect.width <= 0 || rect.height <= 0) return null;
+        return {
+          x: (rect.left - appRect.left) + (rect.width * 0.5),
+          y: (rect.top - appRect.top) + (rect.height * 0.5),
+          rect,
+          appRect,
+        };
+      };
+      const makeShellAt = (className, anchorEl) => {
+        const center = toAppCenter(anchorEl);
+        if (!center) return null;
+        const shell = document.createElement('div');
+        shell.className = className;
+        shell.style.left = `${center.x.toFixed(2)}px`;
+        shell.style.top = `${center.y.toFixed(2)}px`;
+        layerEl.appendChild(shell);
+        return { shell, center };
+      };
+      return {
+        clear() {
+          console.debug('[cinematic-fx-adapter] clear');
+          cleanupTimers.forEach((timerId) => clearTimeout(timerId));
+          cleanupTimers.clear();
+          layerEl.innerHTML = '';
+          appEl.classList.remove('overlay-reveal-active');
+        },
+        animateAvatarAt(anchorEl, playerId, extraClass = '') {
+          const built = makeShellAt(`fx-avatar-shell ${extraClass}`.trim(), anchorEl);
+          if (!built) return null;
+          const player = stateRef.players[playerId];
+          built.shell.innerHTML = `<div class="cin-avatar avatar-glow"><canvas class="seatPortrait" data-seat-id="${playerId}" width="220" height="220"></canvas></div>`;
+          const canvas = built.shell.querySelector('canvas');
+          if (canvas && player?.profile && window.renderProfile) {
+            renderProfile(canvas, player.profile);
+          } else {
+            const avatar = built.shell.querySelector('.cin-avatar');
+            if (avatar) avatar.innerHTML = `<span class="cin-avatar-fallback">${escapeHtml(player?.name?.charAt(0) || '?')}</span>`;
+          }
+          return built.shell;
+        },
+        animateBurstAt(anchorEl, label, kind) {
+          const built = makeShellAt('fx-burst-shell', anchorEl);
+          if (!built) return null;
+          const cls = kind === 'checkcall' ? 'burst-call' : kind === 'raise' ? 'burst-raise' : 'burst-fold';
+          built.shell.innerHTML = `<div class="cin-action-burst ${cls}">${escapeHtml(label)}</div>`;
+          console.debug('[cinematic-fx-adapter] action burst', { label, kind });
+          const burstNode = built.shell.firstElementChild;
+          if (burstNode) {
+            burstNode.addEventListener('animationend', () => built.shell.remove(), { once: true });
+            scheduleCleanup(() => built.shell.remove(), 2400);
+          }
+          return built.shell;
+        },
+        animateRevealCardsAt(containerEl, cards, declaredRank) {
+          const center = toAppCenter(containerEl);
+          if (!center || !Array.isArray(cards) || !cards.length) return;
+          const gap = 8;
+          const cardWidth = 54;
+          const spread = ((cards.length - 1) * (cardWidth + gap));
+          appEl.classList.add('overlay-reveal-active');
+          cards.forEach((card, index) => {
+            const shell = document.createElement('div');
+            shell.className = 'fx-card-shell';
+            shell.style.setProperty('--fd', `${(index * 0.09).toFixed(2)}s`);
+            shell.style.left = `${(center.x - (spread / 2) + (index * (cardWidth + gap)) + (cardWidth / 2)).toFixed(2)}px`;
+            shell.style.top = `${center.y.toFixed(2)}px`;
+            const backArt = resolveScratchbone2DAsset(card, { flipped: true });
+            const faceArt = resolveScratchbone2DAsset(card, { flipped: false });
+            const verdictClass = card.wild ? 'face-wild' : (Number(card.rank) === Number(declaredRank) ? 'face-truth' : 'face-lie');
+            shell.innerHTML = `
+              <div class="fx-card-inner">
+                <div class="fx-card-back"><img src="${backArt.src}" data-fallback-src="${backArt.fallbackSrc}" alt="Face-down scratchbone card"></div>
+                <div class="fx-card-face ${verdictClass}"><img src="${faceArt.src}" data-fallback-src="${faceArt.fallbackSrc}" alt="${card.wild ? 'Revealed wild scratchbone card' : `Revealed scratchbone ${card.rank} card`}"></div>
+              </div>`;
+            layerEl.appendChild(shell);
+            wireScratchboneImageFallbacks(shell);
+            requestAnimationFrame(() => shell.classList.add('flip-it'));
+          });
+          console.debug('[cinematic-fx-adapter] reveal', { count: cards.length });
+          scheduleCleanup(() => {
+            layerEl.querySelectorAll('.fx-card-shell').forEach((node) => node.remove());
+            appEl.classList.remove('overlay-reveal-active');
+          }, 4200);
+        },
+      };
+    }
+    const clusterCinematicFxRuntime = {
+      adapter: null,
+      phaseKey: null,
     };
-    // ── Cinematic bet-action announcement (burst + tankan columns) ──
+    function claimClusterAvatarAnchorForPlayer(playerId, root = document.getElementById('app')) {
+      if (!root) return null;
+      const actorCanvas = root.querySelector('.actorAvatarFloat canvas.seatPortrait');
+      if (actorCanvas && Number(actorCanvas.getAttribute('data-seat-id')) === Number(playerId)) return actorCanvas.closest('.actorAvatarFloat');
+      const reactorCanvas = root.querySelector('.reactorAvatarFloat canvas.seatPortrait');
+      if (reactorCanvas && Number(reactorCanvas.getAttribute('data-seat-id')) === Number(playerId)) return reactorCanvas.closest('.reactorAvatarFloat');
+      return null;
+    }
+    // ── Cinematic bet-action announcement (burst overlay adapter) ──
     function _announceCinematicBetAction(playerId, command) {
-      const claimCluster = document.querySelector('.claimCluster');
-      if (!claimCluster) return;
-      claimCluster.querySelectorAll('.cin-action-burst').forEach(el => el.remove());
-      claimCluster.querySelectorAll('.cin-tankan').forEach(el => el.remove());
+      const app = document.getElementById('app');
+      const adapter = clusterCinematicFxRuntime.adapter;
+      if (!app || !adapter) return;
+      const anchor = claimClusterAvatarAnchorForPlayer(playerId, app);
+      if (!anchor) return;
       const label = command === 'checkcall' ? 'Call!' : command === 'raise' ? 'Raise!' : 'Fold!';
-      const cls   = command === 'checkcall' ? 'burst-call' : command === 'raise' ? 'burst-raise' : 'burst-fold';
-      const burst = document.createElement('div');
-      burst.className = `cin-action-burst ${cls}`;
-      burst.textContent = label;
-      const clusterRect = claimCluster.getBoundingClientRect();
-      const avatarRect = getClaimClusterAvatarRect(playerId);
-      if (!avatarRect) return;
-      const sourceX = avatarRect.left + (avatarRect.width * 0.5);
-      const sourceY = avatarRect.top + (avatarRect.height * 0.5);
-      const clampInsetPxRaw = Number(SCRATCHBONES_GAME.layout?.tableView?.cinematic?.betActionBurstClampInsetPx);
-      const clampInsetPx = Number.isFinite(clampInsetPxRaw) ? clampNumber(clampInsetPxRaw, 0, 320) : 24;
-      const minX = clampInsetPx;
-      const maxX = Math.max(minX, clusterRect.width - clampInsetPx);
-      const minY = clampInsetPx;
-      const maxY = Math.max(minY, clusterRect.height - clampInsetPx);
-      const localX = clampNumber(sourceX - clusterRect.left, minX, maxX);
-      const localY = clampNumber(sourceY - clusterRect.top, minY, maxY);
-      burst.style.left = `${localX.toFixed(2)}px`;
-      burst.style.top = `${localY.toFixed(2)}px`;
-      claimCluster.appendChild(burst);
-      burst.addEventListener('animationend', () => burst.remove());
-      const tankanText = TANKAN_STRINGS[command] || '';
-      if (tankanText) {
-        for (const side of ['left', 'right']) {
-          const el = document.createElement('div');
-          el.className = `cin-tankan ${side}`;
-          el.textContent = tankanText;
-          claimCluster.appendChild(el);
-        }
-      }
+      adapter.animateBurstAt(anchor, label, command);
     }
     // Phase 2a: Reveal (no fold)
     function showRevealCinematic(challengerIndex, challengedIndex, play, success, onClose) {
