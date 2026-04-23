@@ -3230,8 +3230,8 @@
         render();
         return;
       }
-      // Show cinematic burst + tankan for call/raise/fold
-      _announceCinematicBetAction(playerId, command);
+      // Queue cinematic text effects; render() will fire them after DOM/layout update.
+      state.pendingCinematicBetAction = { playerId, command };
       if (command === 'checkcall') {
         const paid = recordContribution(playerId, toCall);
         if (toCall > 0) addLog(`${seatLabel(player)} calls for ${paid} chip${paid === 1 ? '' : 's'}.`);
@@ -5231,6 +5231,15 @@
       updateTableCardAutoScale(app);
       syncClaimClusterCardSizeFromHand(app);
       moveAvatarFloatsToOverlay(app, layoutPolicy);
+      if (state.pendingCinematicBetAction) {
+        const actionFx = state.pendingCinematicBetAction;
+        state.pendingCinematicBetAction = null;
+        if (typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(() => _announceCinematicBetAction(actionFx.playerId, actionFx.command));
+        } else {
+          setTimeout(() => _announceCinematicBetAction(actionFx.playerId, actionFx.command), 0);
+        }
+      }
       cardAnimator.animatePostRender();
       seatAvatarAnim.animatePostRender();
     }
