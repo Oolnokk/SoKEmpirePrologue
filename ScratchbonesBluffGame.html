@@ -343,12 +343,12 @@
       font-size: calc(1.3rem * var(--layout-fit-font-scale));
       letter-spacing: 0.04em;
     }
-    .claimCountGlyph {
+    .claimRankGlyph {
       width: auto;
-      height: calc(1.45rem * var(--layout-fit-font-scale));
+      height: calc(2.9rem * var(--layout-fit-font-scale));
       max-width: 100%;
       object-fit: contain;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.45));
+      filter: invert(1) brightness(2.1) drop-shadow(0 2px 6px rgba(0,0,0,0.45));
     }
     .cin-token-icon {
       width: 20px;
@@ -2104,7 +2104,7 @@
           flippedCardFallbackSrc: rawGameConfig.assets?.cards?.flipped?.fallbackSrc ?? '2DScratchBoneFlipped.png',
           rankCardTemplateSrc: rawGameConfig.assets?.cards?.rankTemplate?.src ?? '2DScratchbone{rank}.png',
           rankCardTemplateFallbackSrc: rawGameConfig.assets?.cards?.rankTemplate?.fallbackSrc ?? '2DScratchbones{rank}.png',
-          claimCountGlyphTemplateSrc: rawGameConfig.assets?.symbols?.claimCountGlyphTemplateSrc ?? './docs/assets/symbols/boneglyph{count}.png',
+          claimRankGlyphTemplateSrc: rawGameConfig.assets?.symbols?.claimRankGlyphTemplateSrc ?? './docs/assets/symbols/boneglyph{rank}.png',
           cinematicTokenIconSrc: rawGameConfig.assets?.hud?.cinematicTokenIconSrc ?? './docs/assets/hud/coin_tinmoon.png',
           audio: {
             enabled: rawGameConfig.assets?.audio?.enabled !== false,
@@ -2537,12 +2537,6 @@
       clearBonusBase: SCRATCHBONES_GAME.chips.clearBonusBase,
       clearBonusIncrement: SCRATCHBONES_GAME.chips.clearBonusIncrement,
       maxChallengeBet: SCRATCHBONES_GAME.chips.maxChallengeBet,
-      aiChallengeThreshold: Number(AI_CONFIG.challengeThreshold) || 0.52,
-      aiChallengeRandomNudgeMax: Number(AI_CONFIG.challengeRandomNudgeMax) || 0.16,
-      aiBackupJoinBaseScore: Number(AI_CONFIG.backupJoinBaseScore) || 0.15,
-      aiBackupJoinRandomMax: Number(AI_CONFIG.backupJoinRandomMax) || 0.22,
-      aiBackupJoinSuspicionWeight: Number(AI_CONFIG.backupJoinSuspicionWeight) || 0.2,
-      aiBettingConfidenceSuspicionWeight: Number(AI_CONFIG.bettingConfidenceSuspicionWeight) || 0.55,
       assets: SCRATCHBONES_GAME.assets || {},
     };
     const state = {
@@ -4927,11 +4921,14 @@
       const claimRankText = claimFocus.declaredRank === null || claimFocus.declaredRank === undefined ? '—' : String(claimFocus.declaredRank);
       const claimCount = claimFocus.cards?.length || 0;
       const claimCountText = String(claimCount);
-      const claimCountGlyphSrc = String(CONFIG.assets.claimCountGlyphTemplateSrc || '')
-        .replace('{count}', String(Math.min(Math.max(claimCount, 1), 10)));
-      const claimCountGlyphHtml = claimCount > 0
-        ? `<img class="claimCountGlyph" src="${claimCountGlyphSrc}" alt="Declared count ${claimCount}" loading="lazy">`
-        : claimCountText;
+      const claimRankNumeric = Number(claimFocus.declaredRank);
+      const claimRankGlyphSrc = Number.isFinite(claimRankNumeric)
+        ? String(CONFIG.assets.claimRankGlyphTemplateSrc || '')
+          .replace('{rank}', String(Math.min(Math.max(claimRankNumeric, 1), 10)))
+        : '';
+      const claimRankGlyphHtml = claimRankGlyphSrc
+        ? `<img class="claimRankGlyph" src="${claimRankGlyphSrc}" alt="Declared rank ${claimRankNumeric}" loading="lazy">`
+        : claimRankText;
       const claimHandCardsHtml = (claimFocus.cards?.length
         ? claimFocus.cards.map(card => {
             const art = resolveScratchbone2DAsset(card, { flipped: true });
@@ -5060,7 +5057,7 @@
         ${claimClusterEnabled ? `
           <div class="claimCluster fit-target fit-0 ${claimClusterPolicy.mustStayVisible ? 'must-stay-visible' : ''}" data-proj-id="claim-cluster">
             <div class="claimRankAnchorTop" data-proj-id="claim-rank-anchor" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}"></div>
-            <div class="claimRankBox ${claimClusterShellClass}" data-proj-id="claim-rank-box" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankText}</div>
+            <div class="claimRankBox ${claimClusterShellClass}" data-proj-id="claim-rank-box" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankGlyphHtml}</div>
             <div class="claimHandBar ${claimClusterShellClass}" data-proj-id="claim-hand-bar" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimHandBar)}">${claimHandCardsHtml}</div>
             <div class="claimTimesBoxLeft ${claimClusterShellClass}" data-proj-id="claim-times-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxLeft)}">×</div>
             <div class="claimCountBoxLeft ${claimClusterShellClass}" data-proj-id="claim-count-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountGlyphHtml}</div>
