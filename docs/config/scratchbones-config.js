@@ -314,6 +314,12 @@ window.SCRATCHBONES_CONFIG = {
             "yPct": 0.846154,
             "wPct": 0.083333,
             "hPct": 0.307692
+          },
+          "cinematicPane": {
+            "xPct": 0.5,
+            "yPct": 0.91,
+            "wPct": 0.5,
+            "hPct": 0.28
           }
         }
       },
