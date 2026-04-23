@@ -1892,6 +1892,15 @@
         timers: {
           challengeTimerSecs: rawGameConfig.timers?.challengeSeconds ?? 6,
           aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 650,
+          aiDecisionDelays: {
+            turnMinMs: rawGameConfig.timers?.aiDecisionDelays?.turnMinMs ?? 420,
+            turnMaxMs: rawGameConfig.timers?.aiDecisionDelays?.turnMaxMs ?? 1300,
+            challengeMinMs: rawGameConfig.timers?.aiDecisionDelays?.challengeMinMs ?? 360,
+            challengeMaxMs: rawGameConfig.timers?.aiDecisionDelays?.challengeMaxMs ?? 2200,
+            bettingMinMs: rawGameConfig.timers?.aiDecisionDelays?.bettingMinMs ?? 360,
+            bettingMaxMs: rawGameConfig.timers?.aiDecisionDelays?.bettingMaxMs ?? 1200,
+            challengeStaggerMs: rawGameConfig.timers?.aiDecisionDelays?.challengeStaggerMs ?? 220,
+          },
         },
         layout: {
           mode: String(rawGameConfig.layout?.mode || 'responsive').toLowerCase(),
@@ -2488,6 +2497,7 @@
     }
  // Used by: debug panel rendering and state dumps.
     const AI_THINK_MS = SCRATCHBONES_GAME.timers.aiThinkMs; // Used by: AI turn pacing so mobile play stays readable.
+    const AI_DECISION_DELAYS = SCRATCHBONES_GAME.timers.aiDecisionDelays || {};
     const START_HAND_SIZE = SCRATCHBONES_GAME.deck.handSize; // Used by: dealing fresh hands at match start and after a clear.
     const WILD_COUNT = SCRATCHBONES_GAME.deck.wildCount; // Used by: deck construction and bluff validation.
     const RANK_COUNT = SCRATCHBONES_GAME.deck.rankCount;
@@ -2530,6 +2540,7 @@
       recentChange: "Layout refinement: turn spotlight is now pinned inside table view, table visuals use fit scaling with larger containers, the human seat is an explicit text-left/avatar-right rectangle, and sidebar/human alignment is tightened.",
       challengeTimer: null,
       challengeTimeLeft: 0,
+      challengeDecisionSession: 0,
       roundConcessions: new Set(), // Used by: skipping players who have conceded the current claim until the round ends.
       layoutFitStages: {},
       layoutOverlapDiagnostics: { overlaps: [], stage: 'none' },
@@ -2803,29 +2814,7 @@
       if (playerIndex !== 0) {
         startChallengeTimer();
       }
-      window.setTimeout(() => {
-        if (state.challengeWindow && !state.betting && state.challengeWindow.lastPlay.playerIndex === playerIndex && !state.gameOver) {
-          maybeAiRespondToLatestPlay(playerIndex);
-        }
-      }, AI_THINK_MS);
-    }
-    function maybeAiRespondToLatestPlay(playerIndex) {
-      if (!state.challengeWindow || state.betting) return;
-      const lastPlay = state.challengeWindow.lastPlay;
-      if (!lastPlay || lastPlay.playerIndex !== playerIndex) return;
-      const possibleChallengers = state.challengeWindow.challengerOptions.filter(idx => idx !== 0 && !state.players[idx].eliminated);
-      let chosenChallenger = null;
-      for (const idx of possibleChallengers) {
-        if (aiShouldChallenge(idx, lastPlay)) {
-          chosenChallenger = idx;
-          break;
-        }
-      }
-      if (chosenChallenger !== null) {
-        startChallenge(chosenChallenger, playerIndex);
-      } else if (playerIndex === 0) {
-        advanceAfterNoChallenge(playerIndex);
-      }
+      scheduleAiChallengeWindowDecisions(playerIndex);
     }
     function countKnownRank(rank) {
       let count = 0;
@@ -2945,6 +2934,83 @@
         if (pers.overSuspects) suspicion += 0.1;
       }
       return suspicion >= 0.52;
+    }
+    function clampMs(value, minMs, maxMs) {
+      return Math.max(minMs, Math.min(maxMs, Math.round(value)));
+    }
+    function aiDecisionDelayMs(kind, actorId, context = {}) {
+      const actor = state.players[actorId];
+      const pers = actor?.personality || {};
+      if (kind === 'turn') {
+        const targetRank = state.declaredRank;
+        const handSize = actor?.hand?.length || 0;
+        const matches = targetRank === null ? 0 : cardsOfRank(actor, targetRank).length + wildCards(actor).length;
+        const opponentCount = state.players.filter(p => !p.eliminated && p.id !== actorId).length;
+        const styleTempo = 1 - ((pers.courage ?? 0.5) * 0.4 + (pers.aggression ?? 0.5) * 0.3 + (pers.honesty ?? 0.5) * 0.3);
+        const complexity = clamp01(0.22 + (handSize / Math.max(1, START_HAND_SIZE)) * 0.32 + (targetRank === null ? 0.18 : 0.12) + (matches <= 1 ? 0.15 : 0.05) + opponentCount * 0.04);
+        const pace = clamp01(complexity * 0.7 + styleTempo * 0.3 + rand() * 0.12);
+        const minMs = Number(AI_DECISION_DELAYS.turnMinMs) || 420;
+        const maxMs = Number(AI_DECISION_DELAYS.turnMaxMs) || 1300;
+        return clampMs(minMs + (maxMs - minMs) * pace, minMs, maxMs);
+      }
+      if (kind === 'challenge') {
+        const play = context.play;
+        if (!play) return Number(AI_DECISION_DELAYS.challengeMinMs) || AI_THINK_MS;
+        const read = ensureReadProfile(actorId, play.playerIndex);
+        const knownRankCount = countKnownRank(play.declaredRank);
+        const visibleWilds = countVisibleWilds();
+        const impossibleOverage = Math.max(0, knownRankCount + play.cards.length - 4 - visibleWilds);
+        const readSuspicion = suspicionFromReadProfile(read, pers);
+        const handPressure = state.declaredRank === null ? 0.08 : Math.max(0, 0.2 - (cardsOfRank(actor, state.declaredRank).length * 0.05));
+        const uncertainty = clamp01(0.45 - impossibleOverage * 0.14 + Math.max(0, 0.18 - Math.abs(readSuspicion) * 0.6) + handPressure + rand() * 0.08);
+        const styleTempo = 1 - ((pers.courage ?? 0.5) * 0.46 + (pers.suspicion ?? 0.5) * 0.34 + (pers.aggression ?? 0.5) * 0.2);
+        const pace = clamp01(uncertainty * 0.72 + styleTempo * 0.28);
+        const minMs = Number(AI_DECISION_DELAYS.challengeMinMs) || 360;
+        const maxMs = Number(AI_DECISION_DELAYS.challengeMaxMs) || 2200;
+        return clampMs(minMs + (maxMs - minMs) * pace, minMs, maxMs);
+      }
+      if (kind === 'betting') {
+        const intent = aiBetIntent(actorId);
+        const toCall = amountToCall(actorId);
+        const confidenceGap = Math.abs((intent.confidence ?? 0.5) - (intent.foldFloor ?? 0.32));
+        const stakePressure = state.betting ? Math.min(0.25, Math.max(0, state.betting.stake - CONFIG.challengeBaseTransfer) * 0.03) : 0;
+        const styleTempo = 1 - ((pers.courage ?? 0.5) * 0.5 + (pers.aggression ?? 0.5) * 0.3 + (pers.greed ?? 0.5) * 0.2);
+        const uncertainty = clamp01(0.42 - confidenceGap * 0.6 + Math.min(0.2, toCall * 0.05) + stakePressure + rand() * 0.08);
+        const pace = clamp01(uncertainty * 0.66 + styleTempo * 0.34);
+        const minMs = Number(AI_DECISION_DELAYS.bettingMinMs) || 360;
+        const maxMs = Number(AI_DECISION_DELAYS.bettingMaxMs) || 1200;
+        return clampMs(minMs + (maxMs - minMs) * pace, minMs, maxMs);
+      }
+      return AI_THINK_MS;
+    }
+    function scheduleAiChallengeWindowDecisions(playerIndex) {
+      if (!state.challengeWindow || state.betting || state.gameOver) return;
+      const lastPlay = state.challengeWindow.lastPlay;
+      if (!lastPlay || lastPlay.playerIndex !== playerIndex) return;
+      const possibleChallengers = state.challengeWindow.challengerOptions.filter(idx => idx !== 0 && !state.players[idx].eliminated);
+      const challengeSessionId = ++state.challengeDecisionSession;
+      let cumulativeDelay = 0;
+      const staggerMs = Number(AI_DECISION_DELAYS.challengeStaggerMs) || 220;
+      for (const idx of possibleChallengers) {
+        const thinkMs = aiDecisionDelayMs('challenge', idx, { play: lastPlay });
+        cumulativeDelay += thinkMs + staggerMs;
+        setTimeout(() => {
+          if (state.challengeDecisionSession !== challengeSessionId) return;
+          if (!state.challengeWindow || state.betting || state.gameOver) return;
+          if (state.challengeWindow.lastPlay?.playerIndex !== playerIndex) return;
+          if (aiShouldChallenge(idx, lastPlay)) {
+            startChallenge(idx, playerIndex);
+          }
+        }, cumulativeDelay);
+      }
+      if (playerIndex === 0) {
+        setTimeout(() => {
+          if (state.challengeDecisionSession !== challengeSessionId) return;
+          if (state.challengeWindow && !state.betting && !state.gameOver && state.challengeWindow.lastPlay?.playerIndex === playerIndex) {
+            advanceAfterNoChallenge(playerIndex);
+          }
+        }, cumulativeDelay + 30);
+      }
     }
     function humanChallenge() {
       if (!state.challengeWindow || state.gameOver || state.betting) return;
@@ -3372,21 +3438,24 @@
     }
     function scheduleAiTurn() {
       if (state.gameOver) return;
+      const actorId = state.currentTurn;
+      const thinkMs = aiDecisionDelayMs('turn', actorId);
       window.setTimeout(() => {
         if (!state.gameOver && state.currentTurn !== 0 && !state.challengeWindow && !state.betting) {
           aiTakeTurn(state.currentTurn);
         }
-      }, AI_THINK_MS);
+      }, thinkMs);
     }
     function scheduleBettingAiIfNeeded() {
       if (!state.betting || state.gameOver) return;
       const actorId = state.betting.currentActorId;
       if (actorId === 0) return;
+      const thinkMs = aiDecisionDelayMs('betting', actorId);
       window.setTimeout(() => {
         if (state.betting && !state.gameOver && state.betting.currentActorId === actorId) {
           aiTakeBettingAction(actorId);
         }
-      }, AI_THINK_MS);
+      }, thinkMs);
     }
     function aiTakeTurn(playerIndex) {
       const player = state.players[playerIndex];
@@ -3599,7 +3668,7 @@
     function aiBetIntent(actorId) {
       const b = state.betting;
       if (!b) {
-        return { confidence: 0.5, raiseDrive: 0.5, foldFloor: 0.32, mode: 'neutral' };
+        return { confidence: 0.5, raiseDrive: 0.5, foldFloor: 0.32 };
       }
       const play = b.play;
       const player = state.players[actorId];
@@ -3619,7 +3688,6 @@
       confidence += bankrollBoost + couragePush + randomNudge;
       let raiseDrive = confidence;
       let foldFloor = pers ? 0.32 - (pers.courage - 0.5) * 0.18 : 0.32;
-      let mode = actorId === b.challengerId ? 'challenge_pressure' : (play.truthful ? 'truth_value_raise' : 'bluff_escape_raise');
       if (actorId === b.challengerId) {
         confidence += suspicionFromReadProfile(playerRead, pers) * 0.18;
         raiseDrive += foldPressure * 0.45;
@@ -3640,7 +3708,6 @@
         confidence: Math.max(0.05, Math.min(0.95, confidence)),
         raiseDrive: Math.max(0.05, Math.min(0.98, raiseDrive)),
         foldFloor: Math.max(0.08, Math.min(0.7, foldFloor)),
-        mode,
       };
     }
     function aiTakeBettingAction(actorId) {
