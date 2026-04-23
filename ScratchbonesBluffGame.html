@@ -339,6 +339,26 @@
       box-shadow: none !important;
       border-color: transparent !important;
     }
+    .claimClusterCinematicPane {
+      pointer-events: auto;
+      display: grid;
+      gap: calc(var(--layout-controls-gap) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
+      padding: calc(var(--layout-controls-padding-y) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale))
+               calc(var(--layout-controls-padding-x) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
+      background: linear-gradient(180deg, rgba(46,34,30,0.96), rgba(37,28,25,0.98));
+      border: 1px solid rgba(242,208,143,0.35);
+      box-shadow: 0 0 0 1px rgba(242,208,143,0.14), 0 18px 42px rgba(0,0,0,0.45);
+      border-radius: var(--radius);
+      max-width: 100%;
+      z-index: 6;
+      contain: layout paint style;
+    }
+    .claimClusterCinematicPane .challengeBar {
+      justify-content: center;
+    }
+    .claimClusterCinematicPane .challengeBar button {
+      min-width: 140px;
+    }
     .claimRankBox,
     .claimTimesBoxLeft,
     .claimCountBoxLeft,
@@ -4229,6 +4249,7 @@
           claimCountBoxLeft: elements.claimCountBoxLeft || { xPct: 0.26, yPct: 0.66, wPct: 0.07, hPct: 0.13 },
           claimTimesBoxRight: elements.claimTimesBoxRight || { xPct: 0.74, yPct: 0.52, wPct: 0.07, hPct: 0.13 },
           claimCountBoxRight: elements.claimCountBoxRight || { xPct: 0.74, yPct: 0.66, wPct: 0.07, hPct: 0.13 },
+          cinematicPane: elements.cinematicPane || { xPct: 0.50, yPct: 0.91, wPct: 0.50, hPct: 0.28 },
         },
       };
     }
@@ -5085,8 +5106,8 @@
           </div>
         </div>
       `;
-      const renderBettingControls = () => `
-        <div class="controls fit-target fit-0 cinematic-betting-pane" data-proj-id="controls">
+      const renderBettingControls = (renderAsClusterOverlay = false) => `
+        <div class="${renderAsClusterOverlay ? 'claimClusterCinematicPane' : 'controls'} fit-target fit-0 cinematic-betting-pane" data-proj-id="${renderAsClusterOverlay ? 'claim-cinematic-pane' : 'controls'}" ${renderAsClusterOverlay ? `style="${claimClusterElementStyle(claimClusterPolicy.elements.cinematicPane)}"` : ''}>
           <div class="sectionTitle cinematic-pane-title cin-headline cin-challenge">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div>
           <div class="tiny" style="margin-top:6px;">Contributions — ${seatLabel(state.betting.challengerId)}: ${getContribution(state.betting.challengerId)} (${getRaiseCount(state.betting.challengerId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengerId) || 0}) · ${seatLabel(state.betting.challengedId)}: ${getContribution(state.betting.challengedId)} (${getRaiseCount(state.betting.challengedId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengedId) || 0}) · Backup queue: ${state.betting.backupQueue.map(id => seatLabel(id)).join(', ') || 'none'}</div>
           <div class="challengeBar" style="margin-top:8px;">
@@ -5099,7 +5120,7 @@
           </div>
         </div>
       `;
-      const renderCinematicResolutionPane = () => {
+      const renderCinematicResolutionPane = (renderAsClusterOverlay = false) => {
         if (!cinematicMode || (cinematicPhase !== 'reveal' && cinematicPhase !== 'fold')) return '';
         const challenger = state.players[cinematicMode.challengerId];
         const challenged = state.players[cinematicMode.challengedId];
@@ -5117,7 +5138,7 @@
           ? `${winnerName} wins the challenge.`
           : `${loserName} folds — ${winnerName} takes the pot.`;
         return `
-          <div class="controls fit-target fit-0 cinematic-resolution-pane" data-proj-id="controls">
+          <div class="${renderAsClusterOverlay ? 'claimClusterCinematicPane' : 'controls'} fit-target fit-0 cinematic-resolution-pane" data-proj-id="${renderAsClusterOverlay ? 'claim-cinematic-pane' : 'controls'}" ${renderAsClusterOverlay ? `style="${claimClusterElementStyle(claimClusterPolicy.elements.cinematicPane)}"` : ''}>
             <div class="sectionTitle cinematic-pane-title cin-headline ${headlineClass}">${escapeHtml(cinematicMode.headline || 'Challenge result')}</div>
             <div class="tiny cinematic-vs-line" style="margin-top:6px;">${escapeHtml((challenger?.isHuman ? 'You' : challenger?.name || '?'))} vs ${escapeHtml((challenged?.isHuman ? 'You' : challenged?.name || '?'))}</div>
             <div class="cin-result-copy cin-result ${resultToneClass}">${escapeHtml(subtitle)}</div>
@@ -5127,6 +5148,7 @@
           </div>
         `;
       };
+      const renderCinematicInsideClaimCluster = claimClusterEnabled && (cinematicPhase === 'reveal' || cinematicPhase === 'fold' || Boolean(state.betting));
       app.innerHTML = `
         <div class="topbar" data-proj-id="topbar">
           <div class="titleRow">
@@ -5205,6 +5227,11 @@
               </div>
               ${focusReactor ? `<div class="claimAvatarFirstName">${escapeHtml(seatFirstName(focusReactor))}</div>` : ''}
             </div>
+            ${renderCinematicInsideClaimCluster
+              ? ((cinematicPhase === 'reveal' || cinematicPhase === 'fold')
+                ? renderCinematicResolutionPane(true)
+                : (state.betting ? renderBettingControls(true) : ''))
+              : ''}
           </div>
         ` : ''}
         ${showLegacyActionFocus ? `
@@ -5217,13 +5244,13 @@
           <div class="tiny" style="margin-top:8px;">Recent change: ${state.recentChange}</div>
           <pre id="debugSnapshotData">${DEBUG_ENABLED ? escapeHtml(JSON.stringify(debugSnapshot(), null, 2)) : 'Debug disabled.'}</pre>
         </details>
-        ${(cinematicPhase === 'reveal' || cinematicPhase === 'fold')
+        ${renderCinematicInsideClaimCluster ? '' : ((cinematicPhase === 'reveal' || cinematicPhase === 'fold')
           ? renderCinematicResolutionPane()
           : state.betting
           ? renderBettingControls()
           : (sharedContextBox && humanCanDecideChallenge
             ? renderChallengePrompt()
-            : renderDeclareControls())}
+            : renderDeclareControls()))}
         <div class="handWrap fit-target fit-0" data-proj-id="hand">
           <div class="handHeader">
             <div class="sectionTitle">Your hand</div>
