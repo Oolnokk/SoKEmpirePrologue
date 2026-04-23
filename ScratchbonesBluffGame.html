@@ -1915,6 +1915,14 @@
             challengeStaggerMs: rawGameConfig.timers?.aiDecisionDelays?.challengeStaggerMs ?? 220,
           },
         },
+        ai: {
+          challengeThreshold: rawGameConfig.ai?.challengeThreshold ?? 0.52,
+          challengeRandomNudgeMax: rawGameConfig.ai?.challengeRandomNudgeMax ?? 0.16,
+          backupJoinBaseScore: rawGameConfig.ai?.backupJoinBaseScore ?? 0.15,
+          backupJoinRandomMax: rawGameConfig.ai?.backupJoinRandomMax ?? 0.22,
+          backupJoinSuspicionWeight: rawGameConfig.ai?.backupJoinSuspicionWeight ?? 0.2,
+          bettingConfidenceSuspicionWeight: rawGameConfig.ai?.bettingConfidenceSuspicionWeight ?? 0.55,
+        },
         layout: {
           mode: String(rawGameConfig.layout?.mode || 'responsive').toLowerCase(),
           viewport: {
@@ -2513,6 +2521,7 @@
  // Used by: debug panel rendering and state dumps.
     const AI_THINK_MS = SCRATCHBONES_GAME.timers.aiThinkMs; // Used by: AI turn pacing so mobile play stays readable.
     const AI_DECISION_DELAYS = SCRATCHBONES_GAME.timers.aiDecisionDelays || {};
+    const AI_CONFIG = SCRATCHBONES_GAME.ai || {};
     const START_HAND_SIZE = SCRATCHBONES_GAME.deck.handSize; // Used by: dealing fresh hands at match start and after a clear.
     const WILD_COUNT = SCRATCHBONES_GAME.deck.wildCount; // Used by: deck construction and bluff validation.
     const RANK_COUNT = SCRATCHBONES_GAME.deck.rankCount;
@@ -2812,7 +2821,7 @@
         actualSummary: cards.map(c => c.wild ? 'W' : String(c.rank)).join(', '),
       };
       state.pile.push(play);
-      observePlayForReads(play);
+      observeClaimForReads(play);
       player.lastAction = truthful ? `Played ${cards.length}` : `Bluffed ${cards.length}`;
       if (truthful) state.stats.safeTruths += 1;
       state.selectedCardIds.clear();
@@ -2864,17 +2873,33 @@
           currentTruthStreak: 0,
           currentBluffStreak: 0,
           lastDeclaredRank: null,
-          lastTruthful: null,
         };
       }
       return observer.reads[targetIndex];
     }
-    function observePlayForReads(play) {
+    function observeClaimForReads(play) {
       for (const observer of state.players) {
         if (observer.eliminated || observer.id === play.playerIndex) continue;
         const read = ensureReadProfile(observer.id, play.playerIndex);
         if (!read) continue;
-        if (play.truthful) {
+        if (read.lastDeclaredRank === play.declaredRank) {
+          read.repeatRankCount += 1;
+          read.repeatedCount += 1;
+          read.quickJudgmentBias += 0.06;
+        } else {
+          read.repeatRankCount = 0;
+        }
+        read.quickJudgmentBias += Math.max(0, play.cards.length - 2) * 0.015;
+        read.lastDeclaredRank = play.declaredRank;
+        read.quickJudgmentBias = clamp01((read.quickJudgmentBias + 1) / 2) * 2 - 1;
+      }
+    }
+    function observeRevealedTruthForReads(play, wasTruthful) {
+      for (const observer of state.players) {
+        if (observer.eliminated || observer.id === play.playerIndex) continue;
+        const read = ensureReadProfile(observer.id, play.playerIndex);
+        if (!read) continue;
+        if (wasTruthful) {
           read.truthfulCount += 1;
           read.currentTruthStreak += 1;
           read.currentBluffStreak = 0;
@@ -2887,16 +2912,7 @@
           if (read.quickJudgmentBias > 0) read.quickJudgmentBias *= 0.55;
           read.quickJudgmentBias += 0.14;
         }
-        if (read.lastDeclaredRank === play.declaredRank) {
-          read.repeatRankCount += 1;
-          read.repeatedCount += 1;
-          read.quickJudgmentBias += 0.06;
-        } else {
-          read.repeatRankCount = 0;
-        }
-        read.lastDeclaredRank = play.declaredRank;
-        read.lastTruthful = play.truthful;
-        read.quickJudgmentBias = clamp01((read.quickJudgmentBias + 1) / 2) * 2 - 1;
+        read.quickJudgmentBias = Math.max(-1, Math.min(1, read.quickJudgmentBias));
       }
     }
     function noteChallengeReadResult(challengerIndex, targetIndex, challengeSucceeded) {
@@ -2927,7 +2943,7 @@
         read.quickJudgmentBias * snapWeight
       );
     }
-    function aiShouldChallenge(challengerIndex, play) {
+    function challengeSuspicionScore(challengerIndex, play, { includeRandom = true } = {}) {
       const challenger = state.players[challengerIndex];
       const pers = challenger.personality;
       const knownRankCount = countKnownRank(play.declaredRank);
@@ -2935,7 +2951,6 @@
       const impossibleOverage = Math.max(0, knownRankCount + play.cards.length - 4 - visibleWilds);
       const read = ensureReadProfile(challengerIndex, play.playerIndex);
       let suspicion = 0;
-      if (!play.truthful) suspicion += 0.24;
       suspicion += impossibleOverage * 0.27;
       suspicion += play.cards.length >= 3 ? 0.1 : 0;
       suspicion += play.cards.length >= 5 ? 0.08 : 0;
@@ -2943,13 +2958,16 @@
       suspicion += challenger.chips >= 8 ? 0.05 : 0;
       suspicion += play.playerIndex === 0 ? 0.1 : 0;
       suspicion += suspicionFromReadProfile(read, pers);
-      suspicion += rand() * 0.16;
+      if (includeRandom) suspicion += rand() * CONFIG.aiChallengeRandomNudgeMax;
       if (pers) {
         suspicion += (pers.suspicion  - 0.5) * 0.34;
         suspicion += (pers.aggression - 0.5) * 0.08;
         if (pers.overSuspects) suspicion += 0.1;
       }
-      return suspicion >= 0.52;
+      return suspicion;
+    }
+    function aiShouldChallenge(challengerIndex, play) {
+      return challengeSuspicionScore(challengerIndex, play, { includeRandom: true }) >= CONFIG.aiChallengeThreshold;
     }
     function clampMs(value, minMs, maxMs) {
       return Math.max(minMs, Math.min(maxMs, Math.round(value)));
@@ -2986,7 +3004,7 @@
         return clampMs(minMs + (maxMs - minMs) * pace, minMs, maxMs);
       }
       if (kind === 'betting') {
-        const intent = context.intent || aiBetIntent(actorId);
+        const intent = aiBetIntent(actorId);
         const toCall = amountToCall(actorId);
         const confidenceGap = Math.abs((intent.confidence ?? 0.5) - (intent.foldFloor ?? 0.32));
         const stakePressure = state.betting ? Math.min(0.25, Math.max(0, state.betting.stake - CONFIG.challengeBaseTransfer) * 0.03) : 0;
@@ -3080,8 +3098,9 @@
     }
     function aiShouldJoinBackup(playerIndex, play) {
       const p = state.players[playerIndex];
-      let score = 0.15 + rand() * 0.22;
-      if (!play.truthful) score += 0.22;
+      const suspicion = challengeSuspicionScore(playerIndex, play, { includeRandom: false });
+      let score = CONFIG.aiBackupJoinBaseScore + rand() * CONFIG.aiBackupJoinRandomMax;
+      score += suspicion * CONFIG.aiBackupJoinSuspicionWeight;
       if (p.chips <= 2) score -= 0.18;
       if (play.playerIndex === 0) score += 0.05;
       if (p.personality) score += (p.personality.solidarity - 0.5) * 0.3;
@@ -3312,6 +3331,7 @@
       showClaimGlow('red', 2500, () => {
         winner.chips += pot;
         state.stats.chipsMovedByChallenges += pot;
+        observeRevealedTruthForReads(play, play.truthful);
         if (success) {
           state.stats.successfulChallenges += 1;
           state.stats.bluffsCaught += 1;
@@ -3466,8 +3486,7 @@
       if (!state.betting || state.gameOver) return;
       const actorId = state.betting.currentActorId;
       if (actorId === 0) return;
-      const intent = aiBetIntent(actorId);
-      const thinkMs = aiDecisionDelayMs('betting', actorId, { intent });
+      const thinkMs = aiDecisionDelayMs('betting', actorId);
       window.setTimeout(() => {
         if (state.betting && !state.gameOver && state.betting.currentActorId === actorId) {
           aiTakeBettingAction(actorId, intent);
@@ -3685,7 +3704,7 @@
     function aiBetIntent(actorId) {
       const b = state.betting;
       if (!b) {
-        return { confidence: 0.5, raiseDrive: 0.5, foldFloor: 0.32, mode: 'neutral' };
+        return { confidence: 0.5, raiseDrive: 0.5, foldFloor: 0.32 };
       }
       const play = b.play;
       const player = state.players[actorId];
@@ -3699,19 +3718,20 @@
       const bankrollBoost = Math.min(0.18, player.chips / 40);
       const couragePush = pers ? (pers.courage - 0.5) * 0.22 : 0;
       const randomNudge = rand() * 0.12 - 0.06;
+      const challengerSuspicion = challengeSuspicionScore(b.challengerId, play, { includeRandom: false });
+      const suspicionWeight = CONFIG.aiBettingConfidenceSuspicionWeight;
       let confidence = actorId === b.challengerId
-        ? (play.truthful ? 0.3 : 0.74)
-        : (play.truthful ? 0.74 : 0.24);
+        ? (0.5 + challengerSuspicion * suspicionWeight)
+        : (0.5 - challengerSuspicion * suspicionWeight);
       confidence += bankrollBoost + couragePush + randomNudge;
       let raiseDrive = confidence;
       let foldFloor = pers ? 0.32 - (pers.courage - 0.5) * 0.18 : 0.32;
-      let mode = actorId === b.challengerId ? 'challenge_pressure' : (play.truthful ? 'truth_value_raise' : 'bluff_escape_raise');
       if (actorId === b.challengerId) {
         confidence += suspicionFromReadProfile(playerRead, pers) * 0.18;
         raiseDrive += foldPressure * 0.45;
         raiseDrive += opponentRead && opponentRead.currentBluffStreak > 0 ? Math.min(0.12, opponentRead.currentBluffStreak * 0.05) : 0;
-        raiseDrive -= play.truthful ? 0.14 : 0;
-      } else if (play.truthful) {
+        raiseDrive -= challengerSuspicion < 0 ? Math.min(0.14, Math.abs(challengerSuspicion) * 0.2) : 0;
+      } else if (challengerSuspicion < 0) {
         raiseDrive += (1 - foldPressure) * 0.34;
         raiseDrive += opponentPers ? opponentPers.aggression * 0.12 : 0;
         raiseDrive += Math.min(0.12, Math.max(0, b.stake - CONFIG.challengeBaseTransfer) * 0.04);
@@ -3726,7 +3746,6 @@
         confidence: Math.max(0.05, Math.min(0.95, confidence)),
         raiseDrive: Math.max(0.05, Math.min(0.98, raiseDrive)),
         foldFloor: Math.max(0.08, Math.min(0.7, foldFloor)),
-        mode,
       };
     }
     function aiTakeBettingAction(actorId, precomputedIntent = null) {
@@ -5041,9 +5060,9 @@
             <div class="claimRankBox ${claimClusterShellClass}" data-proj-id="claim-rank-box" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankGlyphHtml}</div>
             <div class="claimHandBar ${claimClusterShellClass}" data-proj-id="claim-hand-bar" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimHandBar)}">${claimHandCardsHtml}</div>
             <div class="claimTimesBoxLeft ${claimClusterShellClass}" data-proj-id="claim-times-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxLeft)}">×</div>
-            <div class="claimCountBoxLeft ${claimClusterShellClass}" data-proj-id="claim-count-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountText}</div>
+            <div class="claimCountBoxLeft ${claimClusterShellClass}" data-proj-id="claim-count-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountGlyphHtml}</div>
             <div class="claimTimesBoxRight ${claimClusterShellClass}" data-proj-id="claim-times-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxRight)}">×</div>
-            <div class="claimCountBoxRight ${claimClusterShellClass}" data-proj-id="claim-count-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountText}</div>
+            <div class="claimCountBoxRight ${claimClusterShellClass}" data-proj-id="claim-count-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountGlyphHtml}</div>
             <div class="actorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-actor" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
               <div class="claimAvatarShell">
                 <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="220" height="220"></canvas>
