@@ -112,8 +112,17 @@ window.SCRATCHBONES_CONFIG = {
       }
     },
     "timers": {
-      "challengeSeconds": 8,
-      "aiThinkMs": 650
+      "challengeSeconds": 3,
+      "aiThinkMs": 650,
+      "aiDecisionDelays": {
+        "turnMinMs": 420,
+        "turnMaxMs": 1300,
+        "challengeMinMs": 360,
+        "challengeMaxMs": 2200,
+        "bettingMinMs": 360,
+        "bettingMaxMs": 1200,
+        "challengeStaggerMs": 220
+      }
     },
     "layout": {
       "mode": "authored",
