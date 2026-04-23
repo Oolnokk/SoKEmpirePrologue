@@ -1898,8 +1898,9 @@
 </head>
 <body>
   <div id="authoredRoot">
-    <div id="app"></div>
-    <div id="cinematicFxLayer" aria-hidden="true"></div>
+    <div id="app">
+      <div id="cinematicFxLayer" aria-hidden="true"></div>
+    </div>
     <div id="authoredOverlay"></div>
   </div>
   <!-- UI projection mapping mode -->
@@ -2658,7 +2659,7 @@
         totalClears: 0,
         chipsMovedByChallenges: 0,
       },
-      recentChange: "Layout refinement: turn spotlight is now pinned inside table view, table visuals use fit scaling with larger containers, the human seat is an explicit text-left/avatar-right rectangle, and sidebar/human alignment is tightened.",
+      recentChange: "Fixed cinematic FX shell positioning by rendering the overlay layer inside #app and measuring all anchor geometry relative to that same layer, eliminating the mobile vertical offset.",
       challengeTimer: null,
       challengeTimeLeft: 0,
       challengeDecisionSession: 0,
@@ -5247,6 +5248,7 @@
           <div class="sectionTitle">Recent events</div>
           ${recentLogs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
         </div>
+        <div id="cinematicFxLayer" aria-hidden="true"></div>
       `;
       if (state.declaredRank !== null) {
         const select = document.getElementById('declareRank');
@@ -5298,6 +5300,8 @@
                 if (actorAnchor && Number.isInteger(cinematicMode?.actorId)) adapter.animateAvatarAt(actorAnchor, cinematicMode.actorId, 'challenger');
                 if (reactorAnchor && Number.isInteger(cinematicMode?.reactorId)) adapter.animateAvatarAt(reactorAnchor, cinematicMode.reactorId, 'challenged');
                 if (claimHandAnchor) adapter.animateRevealCardsAt(claimHandAnchor, cinematicRevealPlay?.cards || [], cinematicRevealPlay?.declaredRank);
+              } else if (cinematicPhase === 'fold') {
+                console.debug('[cinematic-fx-adapter] fold-resolution phase reset');
               }
             }
           }
@@ -5532,27 +5536,62 @@
         }, delayMs);
         cleanupTimers.add(t);
       };
-      const toAppCenter = (anchorEl) => {
-        if (!anchorEl || !appEl.isConnected) return null;
-        const appRect = appEl.getBoundingClientRect();
-        const rect = anchorEl.getBoundingClientRect();
-        if (!Number.isFinite(rect.left) || !Number.isFinite(rect.top) || rect.width <= 0 || rect.height <= 0) return null;
+      const getRelativeRect = (el, rootEl) => {
+        if (!el || !rootEl) return null;
+        const r = el.getBoundingClientRect();
+        const rr = rootEl.getBoundingClientRect();
+        if (!Number.isFinite(r.left) || !Number.isFinite(r.top) || r.width <= 0 || r.height <= 0) return null;
         return {
-          x: (rect.left - appRect.left) + (rect.width * 0.5),
-          y: (rect.top - appRect.top) + (rect.height * 0.5),
-          rect,
-          appRect,
+          left: r.left - rr.left,
+          top: r.top - rr.top,
+          width: r.width,
+          height: r.height,
+          cx: r.left - rr.left + (r.width * 0.5),
+          cy: r.top - rr.top + (r.height * 0.5),
+          anchorRect: r,
+          rootRect: rr,
         };
       };
+      const logGeometry = (label, anchorEl, relRect) => {
+        if (!anchorEl || !relRect) return;
+        const appRect = appEl.getBoundingClientRect();
+        const fxRect = layerEl.getBoundingClientRect();
+        const anchorRect = anchorEl.getBoundingClientRect();
+        console.log('[cinematic-fx-geometry]', {
+          path: label,
+          appRect: {
+            top: Number(appRect.top.toFixed(2)),
+            left: Number(appRect.left.toFixed(2)),
+            width: Number(appRect.width.toFixed(2)),
+            height: Number(appRect.height.toFixed(2)),
+          },
+          fxLayerRect: {
+            top: Number(fxRect.top.toFixed(2)),
+            left: Number(fxRect.left.toFixed(2)),
+            width: Number(fxRect.width.toFixed(2)),
+            height: Number(fxRect.height.toFixed(2)),
+          },
+          anchorRect: {
+            top: Number(anchorRect.top.toFixed(2)),
+            left: Number(anchorRect.left.toFixed(2)),
+            width: Number(anchorRect.width.toFixed(2)),
+            height: Number(anchorRect.height.toFixed(2)),
+          },
+          center: {
+            x: Number(relRect.cx.toFixed(2)),
+            y: Number(relRect.cy.toFixed(2)),
+          },
+        });
+      };
       const makeShellAt = (className, anchorEl) => {
-        const center = toAppCenter(anchorEl);
-        if (!center) return null;
+        const rect = getRelativeRect(anchorEl, layerEl);
+        if (!rect) return null;
         const shell = document.createElement('div');
         shell.className = className;
-        shell.style.left = `${center.x.toFixed(2)}px`;
-        shell.style.top = `${center.y.toFixed(2)}px`;
+        shell.style.left = `${rect.cx.toFixed(2)}px`;
+        shell.style.top = `${rect.cy.toFixed(2)}px`;
         layerEl.appendChild(shell);
-        return { shell, center };
+        return { shell, rect };
       };
       return {
         clear() {
@@ -5565,6 +5604,7 @@
         animateAvatarAt(anchorEl, playerId, extraClass = '') {
           const built = makeShellAt(`fx-avatar-shell ${extraClass}`.trim(), anchorEl);
           if (!built) return null;
+          logGeometry('avatar-shell-spawn', anchorEl, built.rect);
           const player = stateRef.players[playerId];
           built.shell.innerHTML = `<div class="cin-avatar avatar-glow"><canvas class="seatPortrait" data-seat-id="${playerId}" width="220" height="220"></canvas></div>`;
           const canvas = built.shell.querySelector('canvas');
@@ -5579,6 +5619,7 @@
         animateBurstAt(anchorEl, label, kind) {
           const built = makeShellAt('fx-burst-shell', anchorEl);
           if (!built) return null;
+          logGeometry('burst-shell-spawn', anchorEl, built.rect);
           const cls = kind === 'checkcall' ? 'burst-call' : kind === 'raise' ? 'burst-raise' : 'burst-fold';
           built.shell.innerHTML = `<div class="cin-action-burst ${cls}">${escapeHtml(label)}</div>`;
           console.debug('[cinematic-fx-adapter] action burst', { label, kind });
@@ -5590,8 +5631,9 @@
           return built.shell;
         },
         animateRevealCardsAt(containerEl, cards, declaredRank) {
-          const center = toAppCenter(containerEl);
-          if (!center || !Array.isArray(cards) || !cards.length) return;
+          const rect = getRelativeRect(containerEl, layerEl);
+          if (!rect || !Array.isArray(cards) || !cards.length) return;
+          logGeometry('card-reveal-shell-spawn', containerEl, rect);
           const gap = 8;
           const cardWidth = 54;
           const spread = ((cards.length - 1) * (cardWidth + gap));
@@ -5600,8 +5642,8 @@
             const shell = document.createElement('div');
             shell.className = 'fx-card-shell';
             shell.style.setProperty('--fd', `${(index * 0.09).toFixed(2)}s`);
-            shell.style.left = `${(center.x - (spread / 2) + (index * (cardWidth + gap)) + (cardWidth / 2)).toFixed(2)}px`;
-            shell.style.top = `${center.y.toFixed(2)}px`;
+            shell.style.left = `${(rect.cx - (spread / 2) + (index * (cardWidth + gap)) + (cardWidth / 2)).toFixed(2)}px`;
+            shell.style.top = `${rect.cy.toFixed(2)}px`;
             const backArt = resolveScratchbone2DAsset(card, { flipped: true });
             const faceArt = resolveScratchbone2DAsset(card, { flipped: false });
             const verdictClass = card.wild ? 'face-wild' : (Number(card.rank) === Number(declaredRank) ? 'face-truth' : 'face-lie');
@@ -5639,6 +5681,11 @@
       const app = document.getElementById('app');
       const adapter = clusterCinematicFxRuntime.adapter;
       if (!app || !adapter) return;
+      adapter.clear();
+      const actorAnchor = app.querySelector('.actorAvatarFloat');
+      const reactorAnchor = app.querySelector('.reactorAvatarFloat');
+      if (actorAnchor && Number.isInteger(state.cinematicMode?.actorId)) adapter.animateAvatarAt(actorAnchor, state.cinematicMode.actorId, 'challenger');
+      if (reactorAnchor && Number.isInteger(state.cinematicMode?.reactorId)) adapter.animateAvatarAt(reactorAnchor, state.cinematicMode.reactorId, 'challenged');
       const anchor = claimClusterAvatarAnchorForPlayer(playerId, app);
       if (!anchor) return;
       const label = command === 'checkcall' ? 'Call!' : command === 'raise' ? 'Raise!' : 'Fold!';
@@ -5650,6 +5697,7 @@
         onClose?.();
         return;
       }
+      clusterCinematicFxRuntime.adapter?.clear?.();
       const winnerId = success ? challengerIndex : challengedIndex;
       const loserId = success ? challengedIndex : challengerIndex;
       const headline = success ? '🎯 Bluff Caught!' : '✔ Truthful Play!';
@@ -5673,6 +5721,7 @@
         onClose?.();
         return;
       }
+      clusterCinematicFxRuntime.adapter?.clear?.();
       setCinematicMode('fold', {
         winnerId,
         loserId,
