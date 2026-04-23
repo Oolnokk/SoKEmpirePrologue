@@ -119,10 +119,18 @@ window.SCRATCHBONES_CONFIG = {
         "turnMaxMs": 1300,
         "challengeMinMs": 360,
         "challengeMaxMs": 2200,
-        "bettingMinMs": 360,
-        "bettingMaxMs": 1200,
+        "bettingMinMs": 200,
+        "bettingMaxMs": 650,
         "challengeStaggerMs": 220
       }
+    },
+    "ai": {
+      "challengeThreshold": 0.52,
+      "challengeRandomNudgeMax": 0.16,
+      "backupJoinBaseScore": 0.15,
+      "backupJoinRandomMax": 0.22,
+      "backupJoinSuspicionWeight": 0.2,
+      "bettingConfidenceSuspicionWeight": 0.55
     },
     "layout": {
       "mode": "authored",
