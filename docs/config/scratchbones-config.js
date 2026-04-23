@@ -796,7 +796,7 @@ window.SCRATCHBONES_CONFIG = {
         }
       },
       "symbols": {
-        "claimCountGlyphTemplateSrc": "./docs/assets/symbols/boneglyph{count}.png"
+        "claimRankGlyphTemplateSrc": "./docs/assets/symbols/boneglyph{rank}.png"
       },
       "hud": {
         "cinematicTokenIconSrc": "./docs/assets/hud/coin_tinmoon.png"
