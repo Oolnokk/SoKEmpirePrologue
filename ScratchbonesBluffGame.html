@@ -343,6 +343,19 @@
       font-size: calc(1.3rem * var(--layout-fit-font-scale));
       letter-spacing: 0.04em;
     }
+    .claimCountGlyph {
+      width: auto;
+      height: calc(1.45rem * var(--layout-fit-font-scale));
+      max-width: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.45));
+    }
+    .cin-token-icon {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
+    }
     .claimHandBar {
       overflow: visible;
       display: flex;
@@ -2083,6 +2096,8 @@
           flippedCardFallbackSrc: rawGameConfig.assets?.cards?.flipped?.fallbackSrc ?? '2DScratchBoneFlipped.png',
           rankCardTemplateSrc: rawGameConfig.assets?.cards?.rankTemplate?.src ?? '2DScratchbone{rank}.png',
           rankCardTemplateFallbackSrc: rawGameConfig.assets?.cards?.rankTemplate?.fallbackSrc ?? '2DScratchbones{rank}.png',
+          claimCountGlyphTemplateSrc: rawGameConfig.assets?.symbols?.claimCountGlyphTemplateSrc ?? './docs/assets/symbols/boneglyph{count}.png',
+          cinematicTokenIconSrc: rawGameConfig.assets?.hud?.cinematicTokenIconSrc ?? './docs/assets/hud/coin_tinmoon.png',
           audio: {
             enabled: rawGameConfig.assets?.audio?.enabled !== false,
             sfxVolume: rawGameConfig.assets?.audio?.sfxVolume ?? 0.92,
@@ -3453,7 +3468,7 @@
       const thinkMs = aiDecisionDelayMs('betting', actorId);
       window.setTimeout(() => {
         if (state.betting && !state.gameOver && state.betting.currentActorId === actorId) {
-          aiTakeBettingAction(actorId);
+          aiTakeBettingAction(actorId, intent);
         }
       }, thinkMs);
     }
@@ -3710,9 +3725,9 @@
         foldFloor: Math.max(0.08, Math.min(0.7, foldFloor)),
       };
     }
-    function aiTakeBettingAction(actorId) {
+    function aiTakeBettingAction(actorId, precomputedIntent = null) {
       if (!state.betting || state.gameOver || state.betting.currentActorId !== actorId) return;
-      const intent = aiBetIntent(actorId);
+      const intent = precomputedIntent || aiBetIntent(actorId);
       const confidence = intent.confidence;
       const toCall = amountToCall(actorId);
       const player = state.players[actorId];
@@ -4881,7 +4896,13 @@
       const focusActor = state.players[claimFocus.actorId];
       const focusReactor = claimFocus.reactorId !== null ? state.players[claimFocus.reactorId] : null;
       const claimRankText = claimFocus.declaredRank === null || claimFocus.declaredRank === undefined ? '—' : String(claimFocus.declaredRank);
-      const claimCountText = String(claimFocus.cards?.length || 0);
+      const claimCount = claimFocus.cards?.length || 0;
+      const claimCountText = String(claimCount);
+      const claimCountGlyphSrc = (CONFIG.assets.claimCountGlyphTemplateSrc || './docs/assets/symbols/boneglyph{count}.png')
+        .replace('{count}', String(Math.min(Math.max(claimCount, 1), 10)));
+      const claimCountGlyphHtml = claimCount > 0
+        ? `<img class="claimCountGlyph" src="${claimCountGlyphSrc}" alt="Declared count ${claimCount}" loading="lazy">`
+        : claimCountText;
       const claimHandCardsHtml = (claimFocus.cards?.length
         ? claimFocus.cards.map(card => {
             const art = resolveScratchbone2DAsset(card, { flipped: true });
@@ -5013,9 +5034,9 @@
             <div class="claimRankBox ${claimClusterShellClass}" data-proj-id="claim-rank-box" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankText}</div>
             <div class="claimHandBar ${claimClusterShellClass}" data-proj-id="claim-hand-bar" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimHandBar)}">${claimHandCardsHtml}</div>
             <div class="claimTimesBoxLeft ${claimClusterShellClass}" data-proj-id="claim-times-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxLeft)}">×</div>
-            <div class="claimCountBoxLeft ${claimClusterShellClass}" data-proj-id="claim-count-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountText}</div>
+            <div class="claimCountBoxLeft ${claimClusterShellClass}" data-proj-id="claim-count-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountGlyphHtml}</div>
             <div class="claimTimesBoxRight ${claimClusterShellClass}" data-proj-id="claim-times-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxRight)}">×</div>
-            <div class="claimCountBoxRight ${claimClusterShellClass}" data-proj-id="claim-count-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountText}</div>
+            <div class="claimCountBoxRight ${claimClusterShellClass}" data-proj-id="claim-count-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCountGlyphHtml}</div>
             <div class="actorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-actor" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
               <div class="claimAvatarShell">
                 <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="220" height="220"></canvas>
@@ -5338,7 +5359,7 @@
         <div class="cin-chip-table">
           <div class="cin-chip-col left">
             <div class="cin-chip-label">${cPlayer?.isHuman ? 'Your' : cPlayer?.name?.split(' ')[0]} bank</div>
-            ${_chipWalletHtml(cPlayer?.chips || 0, CHIP_BANK)}
+            ${_chipWalletHtml(cPlayer?.chips || 0)}
             <div class="cin-chip-sublabel">bet in</div>
             ${_chipPileHtml(cContrib, CHIP_GOLD)}
           </div>
@@ -5349,7 +5370,7 @@
           </div>
           <div class="cin-chip-col right">
             <div class="cin-chip-label">${dPlayer?.isHuman ? 'Your' : dPlayer?.name?.split(' ')[0]} bank</div>
-            ${_chipWalletHtml(dPlayer?.chips || 0, CHIP_BANK)}
+            ${_chipWalletHtml(dPlayer?.chips || 0)}
             <div class="cin-chip-sublabel">bet in</div>
             ${_chipPileHtml(dContrib, CHIP_GOLD)}
           </div>
@@ -5447,8 +5468,9 @@
         + `</svg>`;
     }
     // Single chip + bold number — for bankroll display
-    function _chipWalletHtml(count, fill) {
-      return `<span style="display:inline-flex;align-items:center;gap:5px;">${_chipSvg(fill, 20)}<span style="font-size:0.95rem;font-weight:800;color:var(--text);">${count}</span></span>`;
+    function _chipWalletHtml(count) {
+      const tokenIconSrc = CONFIG.assets.cinematicTokenIconSrc || './docs/assets/hud/coin_tinmoon.png';
+      return `<span style="display:inline-flex;align-items:center;gap:5px;"><img class="cin-token-icon" src="${tokenIconSrc}" alt="Token icon" loading="lazy"><span style="font-size:0.95rem;font-weight:800;color:var(--text);">${count}</span></span>`;
     }
     // Overlapping spread pile — for pot / contributions
     function _chipPileHtml(count, fill) {
