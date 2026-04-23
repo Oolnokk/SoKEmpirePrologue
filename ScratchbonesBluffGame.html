@@ -2045,6 +2045,9 @@
               playerInfoFontRem: rawGameConfig.layout?.tableView?.cinematic?.playerInfoFontRem ?? 1.05,
               liarBurstText: rawGameConfig.layout?.tableView?.cinematic?.liarBurstText ?? 'LIAR!',
               liarBurstHoldMs: rawGameConfig.layout?.tableView?.cinematic?.liarBurstHoldMs ?? 900,
+              reactorEntranceTravelScale: rawGameConfig.layout?.tableView?.cinematic?.reactorEntranceTravelScale ?? 1.35,
+              reactorEntranceLeadPadMs: rawGameConfig.layout?.tableView?.cinematic?.reactorEntranceLeadPadMs ?? 80,
+              reactorEntranceSettlePadMs: rawGameConfig.layout?.tableView?.cinematic?.reactorEntranceSettlePadMs ?? 60,
             },
           },
           regions: {
@@ -2588,6 +2591,7 @@
       challengeTimer: null,
       challengeTimeLeft: 0,
       pendingReactorEntrance: false,
+      reactorEntranceInProgress: false,
       roundConcessions: new Set(), // Used by: skipping players who have conceded the current claim until the round ends.
       layoutFitStages: {},
       layoutOverlapDiagnostics: { overlaps: [], stage: 'none' },
@@ -2766,6 +2770,7 @@
       state.challengeWindow = null;
       state.betting = null;
       state.pendingReactorEntrance = false;
+      state.reactorEntranceInProgress = false;
       state.declaredRank = null;
       state.gameOver = false;
       state.winnerIndex = null;
@@ -3049,6 +3054,7 @@
       };
       state.challengeWindow = null;
       state.pendingReactorEntrance = true;
+      state.reactorEntranceInProgress = false;
       for (const id of eligibleBackupIds(challengerIndex, challengedIndex)) {
         if (id !== 0 && aiShouldJoinBackup(id, play)) state.betting.backupQueue.push(id);
       }
@@ -3390,6 +3396,7 @@
       state.challengeWindow = null;
       state.betting = null;
       state.pendingReactorEntrance = false;
+      state.reactorEntranceInProgress = false;
       state.round += 1;
       state.leaderIndex = playerIndex;
       state.currentTurn = playerIndex;
@@ -3409,6 +3416,7 @@
       state.challengeWindow = null;
       state.betting = null;
       state.pendingReactorEntrance = false;
+      state.reactorEntranceInProgress = false;
       state.pile = [];
       state.roundConcessions.clear();
       state.round += 1;
@@ -3444,11 +3452,20 @@
       if (!state.betting || state.gameOver) return;
       const actorId = state.betting.currentActorId;
       if (actorId === 0) return;
+      const animationCfg = SCRATCHBONES_GAME.layout?.animation || {};
+      const cinematicCfg = SCRATCHBONES_GAME.layout?.tableView?.cinematic || {};
+      const reactorEntranceTravelScale = Math.max(0.5, Number(cinematicCfg.reactorEntranceTravelScale) || 1.35);
+      const reactorEntranceLeadPadMs = Math.max(0, Number(cinematicCfg.reactorEntranceLeadPadMs) || 80);
+      const travelMs = Math.max(320, Math.round((Number(animationCfg.baseDurationMs) || 400) * reactorEntranceTravelScale));
+      const liarHoldMs = Math.max(600, Number(cinematicCfg.liarBurstHoldMs) || 900);
+      const entranceLeadMs = (state.pendingReactorEntrance || state.reactorEntranceInProgress)
+        ? (travelMs + liarHoldMs + reactorEntranceLeadPadMs)
+        : 0;
       window.setTimeout(() => {
         if (state.betting && !state.gameOver && state.betting.currentActorId === actorId) {
           aiTakeBettingAction(actorId);
         }
-      }, AI_THINK_MS);
+      }, AI_THINK_MS + entranceLeadMs);
     }
     function aiTakeTurn(playerIndex) {
       const player = state.players[playerIndex];
@@ -4576,11 +4593,13 @@
       if (!state.pendingReactorEntrance) return;
       if (!state.betting) {
         state.pendingReactorEntrance = false;
+        state.reactorEntranceInProgress = false;
         return;
       }
       const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || state.pile.at(-1) || null;
       if (!latestPlay) {
         state.pendingReactorEntrance = false;
+        state.reactorEntranceInProgress = false;
         return;
       }
       const reactorId = latestPlay.playerIndex === state.betting.challengerId
@@ -4588,18 +4607,35 @@
         : state.betting.challengerId;
       const seatCanvas = app.querySelector(`.seatAvatarBox canvas.seatPortrait[data-seat-id="${reactorId}"]`);
       const reactorCanvas = app.querySelector('.reactorAvatarFloat canvas.seatPortrait');
-      if (!seatCanvas || !reactorCanvas) return;
+      if (!seatCanvas || !reactorCanvas) {
+        state.pendingReactorEntrance = false;
+        state.reactorEntranceInProgress = false;
+        return;
+      }
       const fromRect = seatCanvas.getBoundingClientRect();
       const toRect = reactorCanvas.getBoundingClientRect();
-      if (!fromRect.width || !toRect.width) return;
+      if (!fromRect.width || !toRect.width) {
+        state.pendingReactorEntrance = false;
+        state.reactorEntranceInProgress = false;
+        return;
+      }
       let dataUrl = '';
-      try { dataUrl = seatCanvas.toDataURL(); } catch (_) { return; }
+      try { dataUrl = seatCanvas.toDataURL(); } catch (_) {
+        state.pendingReactorEntrance = false;
+        state.reactorEntranceInProgress = false;
+        return;
+      }
 
       const animCfg = SCRATCHBONES_GAME.layout?.animation || {};
       const cinematicCfg = SCRATCHBONES_GAME.layout?.tableView?.cinematic || {};
-      const travelMs = Math.max(320, Math.round((Number(animCfg.baseDurationMs) || 400) * 1.35));
+      const reactorEntranceTravelScale = Math.max(0.5, Number(cinematicCfg.reactorEntranceTravelScale) || 1.35);
+      const reactorEntranceSettlePadMs = Math.max(0, Number(cinematicCfg.reactorEntranceSettlePadMs) || 60);
+      const travelMs = Math.max(320, Math.round((Number(animCfg.baseDurationMs) || 400) * reactorEntranceTravelScale));
       const liarHoldMs = Math.max(600, Number(cinematicCfg.liarBurstHoldMs) || 900);
       const liarText = String(cinematicCfg.liarBurstText || 'LIAR!');
+      const settleDelayMs = travelMs + liarHoldMs + reactorEntranceSettlePadMs;
+      state.pendingReactorEntrance = false;
+      state.reactorEntranceInProgress = true;
 
       const flight = document.createElement('img');
       flight.src = dataUrl;
@@ -4664,8 +4700,10 @@
           setTimeout(() => liarBurst.remove(), liarHoldMs);
         }
       }, travelMs + 40);
-
-      state.pendingReactorEntrance = false;
+      setTimeout(() => {
+        state.reactorEntranceInProgress = false;
+        if (state.betting && !state.gameOver) ensureChallengeCinematic();
+      }, settleDelayMs);
     }
 
     const cardAnimator = (() => {
@@ -5176,7 +5214,6 @@
       });
       wireScratchboneImageFallbacks(app);
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
-      ensureChallengeCinematic();
       renderSeatPortraits();
       const layoutMode = getScratchbonesLayoutMode();
       document.body.classList.toggle('layout-mode-authored', layoutMode === 'authored');
@@ -5196,6 +5233,7 @@
       syncClaimClusterCardSizeFromHand(app);
       moveAvatarFloatsToOverlay(app, layoutPolicy);
       triggerReactorEntranceAnimation(app);
+      ensureChallengeCinematic();
       cardAnimator.animatePostRender();
       seatAvatarAnim.animatePostRender();
     }
@@ -5334,6 +5372,7 @@
     }
     function ensureChallengeCinematic() {
       if (!state.betting || state.gameOver || !isTableCinematicEnabled()) return;
+      if (state.pendingReactorEntrance || state.reactorEntranceInProgress) return;
       const cin = getCinematicRoot();
       if (!cin) return;
       _clearCinTimeout();

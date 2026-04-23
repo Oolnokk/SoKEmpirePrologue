@@ -215,7 +215,10 @@ window.SCRATCHBONES_CONFIG = {
           "playerInfoOffsetPx": 12,
           "playerInfoFontRem": 1.05,
           "liarBurstText": "LIAR!",
-          "liarBurstHoldMs": 950
+          "liarBurstHoldMs": 950,
+          "reactorEntranceTravelScale": 1.35,
+          "reactorEntranceLeadPadMs": 80,
+          "reactorEntranceSettlePadMs": 60
         }
       },
       "regions": {
