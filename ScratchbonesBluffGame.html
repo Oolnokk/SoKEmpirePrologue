@@ -343,6 +343,19 @@
       font-size: calc(1.3rem * var(--layout-fit-font-scale));
       letter-spacing: 0.04em;
     }
+    .claimRankGlyph {
+      width: auto;
+      height: calc(2.9rem * var(--layout-fit-font-scale));
+      max-width: 100%;
+      object-fit: contain;
+      filter: invert(1) brightness(2.1) drop-shadow(0 2px 6px rgba(0,0,0,0.45));
+    }
+    .cin-token-icon {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
+    }
     .claimHandBar {
       overflow: visible;
       display: flex;
@@ -2083,6 +2096,8 @@
           flippedCardFallbackSrc: rawGameConfig.assets?.cards?.flipped?.fallbackSrc ?? '2DScratchBoneFlipped.png',
           rankCardTemplateSrc: rawGameConfig.assets?.cards?.rankTemplate?.src ?? '2DScratchbone{rank}.png',
           rankCardTemplateFallbackSrc: rawGameConfig.assets?.cards?.rankTemplate?.fallbackSrc ?? '2DScratchbones{rank}.png',
+          claimRankGlyphTemplateSrc: rawGameConfig.assets?.symbols?.claimRankGlyphTemplateSrc ?? './docs/assets/symbols/boneglyph{rank}.png',
+          cinematicTokenIconSrc: rawGameConfig.assets?.hud?.cinematicTokenIconSrc ?? './docs/assets/hud/coin_tinmoon.png',
           audio: {
             enabled: rawGameConfig.assets?.audio?.enabled !== false,
             sfxVolume: rawGameConfig.assets?.audio?.sfxVolume ?? 0.92,
@@ -2513,6 +2528,7 @@
       clearBonusBase: SCRATCHBONES_GAME.chips.clearBonusBase,
       clearBonusIncrement: SCRATCHBONES_GAME.chips.clearBonusIncrement,
       maxChallengeBet: SCRATCHBONES_GAME.chips.maxChallengeBet,
+      assets: SCRATCHBONES_GAME.assets || {},
     };
     const state = {
       players: [],
@@ -4884,7 +4900,16 @@
       const focusActor = state.players[claimFocus.actorId];
       const focusReactor = claimFocus.reactorId !== null ? state.players[claimFocus.reactorId] : null;
       const claimRankText = claimFocus.declaredRank === null || claimFocus.declaredRank === undefined ? '—' : String(claimFocus.declaredRank);
-      const claimCountText = String(claimFocus.cards?.length || 0);
+      const claimCount = claimFocus.cards?.length || 0;
+      const claimCountText = String(claimCount);
+      const claimRankNumeric = Number(claimFocus.declaredRank);
+      const claimRankGlyphSrc = Number.isFinite(claimRankNumeric)
+        ? String(CONFIG.assets.claimRankGlyphTemplateSrc || '')
+          .replace('{rank}', String(Math.min(Math.max(claimRankNumeric, 1), 10)))
+        : '';
+      const claimRankGlyphHtml = claimRankGlyphSrc
+        ? `<img class="claimRankGlyph" src="${claimRankGlyphSrc}" alt="Declared rank ${claimRankNumeric}" loading="lazy">`
+        : claimRankText;
       const claimHandCardsHtml = (claimFocus.cards?.length
         ? claimFocus.cards.map(card => {
             const art = resolveScratchbone2DAsset(card, { flipped: true });
@@ -5013,7 +5038,7 @@
         ${claimClusterEnabled ? `
           <div class="claimCluster fit-target fit-0 ${claimClusterPolicy.mustStayVisible ? 'must-stay-visible' : ''}" data-proj-id="claim-cluster">
             <div class="claimRankAnchorTop" data-proj-id="claim-rank-anchor" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}"></div>
-            <div class="claimRankBox ${claimClusterShellClass}" data-proj-id="claim-rank-box" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankText}</div>
+            <div class="claimRankBox ${claimClusterShellClass}" data-proj-id="claim-rank-box" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimRankBox)}">${claimRankGlyphHtml}</div>
             <div class="claimHandBar ${claimClusterShellClass}" data-proj-id="claim-hand-bar" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimHandBar)}">${claimHandCardsHtml}</div>
             <div class="claimTimesBoxLeft ${claimClusterShellClass}" data-proj-id="claim-times-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxLeft)}">×</div>
             <div class="claimCountBoxLeft ${claimClusterShellClass}" data-proj-id="claim-count-left" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxLeft)}">${claimCountText}</div>
@@ -5341,7 +5366,7 @@
         <div class="cin-chip-table">
           <div class="cin-chip-col left">
             <div class="cin-chip-label">${cPlayer?.isHuman ? 'Your' : cPlayer?.name?.split(' ')[0]} bank</div>
-            ${_chipWalletHtml(cPlayer?.chips || 0, CHIP_BANK)}
+            ${_chipWalletHtml(cPlayer?.chips || 0)}
             <div class="cin-chip-sublabel">bet in</div>
             ${_chipPileHtml(cContrib, CHIP_GOLD)}
           </div>
@@ -5352,7 +5377,7 @@
           </div>
           <div class="cin-chip-col right">
             <div class="cin-chip-label">${dPlayer?.isHuman ? 'Your' : dPlayer?.name?.split(' ')[0]} bank</div>
-            ${_chipWalletHtml(dPlayer?.chips || 0, CHIP_BANK)}
+            ${_chipWalletHtml(dPlayer?.chips || 0)}
             <div class="cin-chip-sublabel">bet in</div>
             ${_chipPileHtml(dContrib, CHIP_GOLD)}
           </div>
@@ -5450,8 +5475,9 @@
         + `</svg>`;
     }
     // Single chip + bold number — for bankroll display
-    function _chipWalletHtml(count, fill) {
-      return `<span style="display:inline-flex;align-items:center;gap:5px;">${_chipSvg(fill, 20)}<span style="font-size:0.95rem;font-weight:800;color:var(--text);">${count}</span></span>`;
+    function _chipWalletHtml(count) {
+      const tokenIconSrc = String(CONFIG.assets.cinematicTokenIconSrc || '');
+      return `<span style="display:inline-flex;align-items:center;gap:5px;"><img class="cin-token-icon" src="${tokenIconSrc}" alt="Token icon" loading="lazy"><span style="font-size:0.95rem;font-weight:800;color:var(--text);">${count}</span></span>`;
     }
     // Overlapping spread pile — for pot / contributions
     function _chipPileHtml(count, fill) {

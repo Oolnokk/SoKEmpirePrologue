@@ -787,6 +787,12 @@ window.SCRATCHBONES_CONFIG = {
           "fallbackSrc": "2DScratchbones{rank}.png"
         }
       },
+      "symbols": {
+        "claimRankGlyphTemplateSrc": "./docs/assets/symbols/boneglyph{rank}.png"
+      },
+      "hud": {
+        "cinematicTokenIconSrc": "./docs/assets/hud/coin_tinmoon.png"
+      },
       "audio": {
         "enabled": true,
         "sfxVolume": 0.92,
