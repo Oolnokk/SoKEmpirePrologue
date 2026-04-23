@@ -124,6 +124,14 @@ window.SCRATCHBONES_CONFIG = {
         "challengeStaggerMs": 220
       }
     },
+    "ai": {
+      "challengeThreshold": 0.52,
+      "challengeRandomNudgeMax": 0.16,
+      "backupJoinBaseScore": 0.15,
+      "backupJoinRandomMax": 0.22,
+      "backupJoinSuspicionWeight": 0.2,
+      "bettingConfidenceSuspicionWeight": 0.55
+    },
     "layout": {
       "mode": "authored",
       "viewport": {
