@@ -5274,8 +5274,15 @@
       renderSeatPortraits();
       const fxLayer = document.getElementById('cinematicFxLayer');
       if (app && fxLayer) {
-        if (!clusterCinematicFxRuntime.adapter) {
+        const shouldRebindAdapter = !clusterCinematicFxRuntime.adapter
+          || clusterCinematicFxRuntime.layerEl !== fxLayer
+          || clusterCinematicFxRuntime.appEl !== app;
+        if (shouldRebindAdapter) {
+          clusterCinematicFxRuntime.adapter?.clear?.();
           clusterCinematicFxRuntime.adapter = createClusterAnimationAdapter({ appEl: app, layerEl: fxLayer, stateRef: state });
+          clusterCinematicFxRuntime.layerEl = fxLayer;
+          clusterCinematicFxRuntime.appEl = app;
+          clusterCinematicFxRuntime.phaseKey = null;
         }
         const adapter = clusterCinematicFxRuntime.adapter;
         if (adapter) {
@@ -5667,6 +5674,8 @@
     const clusterCinematicFxRuntime = {
       adapter: null,
       phaseKey: null,
+      appEl: null,
+      layerEl: null,
     };
     function claimClusterAvatarAnchorForPlayer(playerId, root = document.getElementById('app')) {
       if (!root) return null;
