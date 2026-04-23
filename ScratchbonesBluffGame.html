@@ -2986,7 +2986,7 @@
         return clampMs(minMs + (maxMs - minMs) * pace, minMs, maxMs);
       }
       if (kind === 'betting') {
-        const intent = context.intent || aiBetIntent(actorId);
+        const intent = aiBetIntent(actorId);
         const toCall = amountToCall(actorId);
         const confidenceGap = Math.abs((intent.confidence ?? 0.5) - (intent.foldFloor ?? 0.32));
         const stakePressure = state.betting ? Math.min(0.25, Math.max(0, state.betting.stake - CONFIG.challengeBaseTransfer) * 0.03) : 0;
@@ -3466,8 +3466,7 @@
       if (!state.betting || state.gameOver) return;
       const actorId = state.betting.currentActorId;
       if (actorId === 0) return;
-      const intent = aiBetIntent(actorId);
-      const thinkMs = aiDecisionDelayMs('betting', actorId, { intent });
+      const thinkMs = aiDecisionDelayMs('betting', actorId);
       window.setTimeout(() => {
         if (state.betting && !state.gameOver && state.betting.currentActorId === actorId) {
           aiTakeBettingAction(actorId, intent);
@@ -3685,7 +3684,7 @@
     function aiBetIntent(actorId) {
       const b = state.betting;
       if (!b) {
-        return { confidence: 0.5, raiseDrive: 0.5, foldFloor: 0.32, mode: 'neutral' };
+        return { confidence: 0.5, raiseDrive: 0.5, foldFloor: 0.32 };
       }
       const play = b.play;
       const player = state.players[actorId];
@@ -3705,7 +3704,6 @@
       confidence += bankrollBoost + couragePush + randomNudge;
       let raiseDrive = confidence;
       let foldFloor = pers ? 0.32 - (pers.courage - 0.5) * 0.18 : 0.32;
-      let mode = actorId === b.challengerId ? 'challenge_pressure' : (play.truthful ? 'truth_value_raise' : 'bluff_escape_raise');
       if (actorId === b.challengerId) {
         confidence += suspicionFromReadProfile(playerRead, pers) * 0.18;
         raiseDrive += foldPressure * 0.45;
@@ -3726,7 +3724,6 @@
         confidence: Math.max(0.05, Math.min(0.95, confidence)),
         raiseDrive: Math.max(0.05, Math.min(0.98, raiseDrive)),
         foldFloor: Math.max(0.08, Math.min(0.7, foldFloor)),
-        mode,
       };
     }
     function aiTakeBettingAction(actorId, precomputedIntent = null) {
