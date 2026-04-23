@@ -5382,17 +5382,15 @@
       const app = document.getElementById('app');
       if (!app) return;
       const bettingModeActive = !!(state.betting && !state.gameOver && isTableCinematicEnabled());
-      if (bettingModeActive && state.cinematicMode?.mode !== 'betting') {
+      if (bettingModeActive && !state.cinematicMode) {
         setCinematicMode('betting', {
           actorId: state.betting.challengerId,
           reactorId: state.betting.challengedId,
           headline: '⚔ Challenge betting',
         });
-        return;
       }
       if ((!bettingModeActive) && state.cinematicMode?.mode === 'betting') {
         closeCinematic(false);
-        return;
       }
       app.classList.toggle('cinematic-mode-active', bettingModeActive || !!state.cinematicMode);
     }
