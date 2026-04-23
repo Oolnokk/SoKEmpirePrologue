@@ -147,6 +147,7 @@
       --layout-claim-avatar-first-name-font: 1.34rem;
       --layout-claim-reactor-haze-color: rgba(200, 36, 36, 0.14);
       --layout-claim-reactor-haze-blur: 16px;
+      --layout-claim-liar-burst-ms: 850ms;
       --layout-table-card-auto-scale: 1;
       --layout-fit-additive-avatar-zoom: 1;
       --layout-turn-spotlight-offset-x: 10px;
@@ -1339,7 +1340,7 @@
       pointer-events: none;
       z-index: 10020;
       opacity: 0;
-      animation: claimLiarBurst 850ms cubic-bezier(0.15, 1.2, 0.3, 1) forwards;
+      animation: claimLiarBurst var(--layout-claim-liar-burst-ms) cubic-bezier(0.15, 1.2, 0.3, 1) forwards;
     }
     @keyframes claimLiarBurst {
       0% {
@@ -2045,6 +2046,7 @@
               playerInfoFontRem: rawGameConfig.layout?.tableView?.cinematic?.playerInfoFontRem ?? 1.05,
               liarBurstText: rawGameConfig.layout?.tableView?.cinematic?.liarBurstText ?? 'LIAR!',
               liarBurstHoldMs: rawGameConfig.layout?.tableView?.cinematic?.liarBurstHoldMs ?? 900,
+              liarBurstAnimMs: rawGameConfig.layout?.tableView?.cinematic?.liarBurstAnimMs ?? 850,
               reactorEntranceTravelScale: rawGameConfig.layout?.tableView?.cinematic?.reactorEntranceTravelScale ?? 1.35,
               reactorEntranceLeadPadMs: rawGameConfig.layout?.tableView?.cinematic?.reactorEntranceLeadPadMs ?? 80,
               reactorEntranceSettlePadMs: rawGameConfig.layout?.tableView?.cinematic?.reactorEntranceSettlePadMs ?? 60,
@@ -4196,6 +4198,7 @@
       const cinematicLayout = tableViewLayout.cinematic || {};
       const cinematicPlayerInfoOffsetPx = clampNumber(Number(cinematicLayout.playerInfoOffsetPx) || 12, -40, 160);
       const cinematicPlayerInfoFontRem = clampNumber(Number(cinematicLayout.playerInfoFontRem) || 1.05, 0.6, 3);
+      const liarBurstAnimMs = clampNumber(Number(cinematicLayout.liarBurstAnimMs) || 850, 300, 4000);
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
       const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
       const flameXPct = clampNumber(numberOrDefault(flameLighting.xPct, 0.5), 0, 1);
@@ -4261,6 +4264,7 @@
       setCssVar('--layout-fit-additive-avatar-zoom', avatarAdditiveZoomScale.toFixed(3));
       setCssVar('--layout-cinematic-player-info-offset', `${cinematicPlayerInfoOffsetPx.toFixed(2)}px`);
       setCssVar('--layout-cinematic-player-info-font', `${cinematicPlayerInfoFontRem.toFixed(3)}rem`);
+      setCssVar('--layout-claim-liar-burst-ms', `${Math.round(liarBurstAnimMs)}ms`);
       setCssVar('--layout-ui-tabletop-url', tabletopImageSrc ? `url("${tabletopImageSrc}")` : 'none');
       setCssVar('--layout-flame-x', `${(flameXPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-y', `${(flameYPct * 100).toFixed(2)}%`);
