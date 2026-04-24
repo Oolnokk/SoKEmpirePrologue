@@ -260,10 +260,10 @@
       background-image: none;
       background-color: #170808;
     }
-    #app.cinematic-mode-active::before {
+     #app.challenge-visuals-active::before {
       opacity: 1;
     }
-    #app.cinematic-mode-active::after {
+     #app.challenge-visuals-active::after {
       opacity: 0.72;
     }
     @keyframes tableFlameFlicker {
@@ -2716,6 +2716,10 @@
       tinmoon: './docs/assets/hud/coin_tinmoon.png',
       eclipse: './docs/assets/hud/coin_eclipse.png',
     };
+    function stakeCoinSrcForTier(tierId) {
+      const fallback = STAKE_COIN_SRC.tinmoon || CONFIG.assets?.cinematicTokenIconSrc || './docs/assets/hud/coin_tinmoon.png';
+      return STAKE_COIN_SRC[tierId] || fallback;
+    }
     const state = {
       players: [],
       leaderIndex: 0,
@@ -2739,7 +2743,7 @@
         totalClears: 0,
         chipsMovedByChallenges: 0,
       },
-      recentChange: "Fixed cinematic FX shell positioning by rendering the overlay layer inside #app and measuring all anchor geometry relative to that same layer, eliminating the mobile vertical offset.",
+      recentChange: "Implemented stake-tier coin betting with real coin PNG buttons and replacement animations, moved betting UI onto the active claim-cluster challenge path, and restricted the red animated overlay so it only appears during challenge states instead of constantly across the app.",
       challengeTimer: null,
       challengeTimeLeft: 0,
       challengeDecisionSession: 0,
@@ -3448,15 +3452,18 @@
       await animateCoinCloneToTarget(coinButtonForTier(tierId), potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.callMs });
     }
     async function animateStakeRaise(playerId, newTierId) {
+      console.log('[stake-anim] raise animation start', { playerId, newTierId });
       const currentStakeCoin = document.querySelector('[data-stake-current-coin]');
       if (currentStakeCoin) {
         await animateCoinCloneToTarget(currentStakeCoin, contributionAnchorForPlayer(playerId), {
           durationMs: CONFIG.challengeStakeAnimation.raiseOutMs,
           replaceOut: true,
         });
+        console.log('[stake-anim] old tier coin removed', { playerId });
       }
       await animateCoinCloneToTarget(coinButtonForTier(newTierId), stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
       await animateCoinCloneToTarget(coinButtonForTier(newTierId), potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
+      console.log('[stake-anim] new tier coin inserted', { playerId, newTierId });
     }
     async function resolveBetAction(playerId, action, options = {}) {
       if (!state.betting || state.gameOver) return;
@@ -3479,6 +3486,7 @@
           const chosenTierId = targetTierId;
           const chosenTierValue = stakeTierValueById(chosenTierId);
           if (!chosenTierValue || !canPlayerAfford(playerId, chosenTierValue)) return;
+          console.log('[betting-tier] selected tier', { playerId, tierId: chosenTierId, value: chosenTierValue, action: 'open-tier' });
           await animateStakeOpen(playerId, chosenTierId);
           state.betting.currentTierId = chosenTierId;
           state.betting.currentTierValue = chosenTierValue;
@@ -3514,6 +3522,7 @@
         if (command === 'raise-tier') {
           const newTierId = targetTierId;
           const newStake = stakeTierValueById(newTierId);
+          console.log('[betting-tier] selected tier', { playerId, tierId: newTierId, value: newStake, action: 'raise-tier' });
           if (!newStake || newStake <= state.betting.currentTierValue) {
             await resolveBetAction(playerId, 'call', { allowWhileLocked: true });
             return;
@@ -5226,7 +5235,7 @@
         const locked = !!state.betting?.actionInFlight;
         return `<div class="stakeTierBtnRow">${STAKE_TIERS.map((tier) => {
           const enabled = allowedTierIds.includes(tier.id) && !locked;
-          return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(STAKE_COIN_SRC[tier.id] || STAKE_COIN_SRC.tinmoon || CONFIG.assets.cinematicTokenIconSrc)}" alt="${escapeHtml(tier.id)} coin"><span>${escapeHtml(tier.id)} · ${tier.value}</span></button>`;
+          return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(stakeCoinSrcForTier(tier.id))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="${escapeHtml(tier.id)} coin"><span>${escapeHtml(tier.id)} · ${tier.value}</span></button>`;
         }).join('')}</div>`;
       };
       const renderStakeVisual = () => `
@@ -5235,18 +5244,18 @@
           <div class="stakeVisualRow">
             <div class="stakeContribCol">
               <div class="tiny">${seatLabel(state.betting.challengerId)} contribution</div>
-              <div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengerId}">${state.betting.currentTierId ? `<img src="${escapeHtml(STAKE_COIN_SRC[state.betting.currentTierId] || '')}" alt="challenger coin">` : ''}</div>
+              <div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengerId}">${state.betting.currentTierId ? `<img src="${escapeHtml(stakeCoinSrcForTier(state.betting.currentTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenger coin">` : ''}</div>
               <div class="tiny">${getContribution(state.betting.challengerId)}</div>
             </div>
             <div class="stakeCenterCol">
-              <div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(STAKE_COIN_SRC[state.betting.displayedTierId] || '')}" alt="current stake coin">` : ''}</div>
+              <div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div>
               <div class="tiny">Stake: ${state.betting.currentTierId || '—'} (${state.betting.currentTierValue || 0})</div>
               <div class="stakeAnchor stakePot" data-stake-pot-anchor></div>
               <div class="tiny">Pot: ${challengePotTotal()}</div>
             </div>
             <div class="stakeContribCol">
               <div class="tiny">${seatLabel(state.betting.challengedId)} contribution</div>
-              <div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengedId}">${getContribution(state.betting.challengedId) > 0 && state.betting.currentTierId ? `<img src="${escapeHtml(STAKE_COIN_SRC[state.betting.currentTierId] || '')}" alt="challenged coin">` : ''}</div>
+              <div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengedId}">${getContribution(state.betting.challengedId) > 0 && state.betting.currentTierId ? `<img src="${escapeHtml(stakeCoinSrcForTier(state.betting.currentTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenged coin">` : ''}</div>
               <div class="tiny">${getContribution(state.betting.challengedId)}</div>
             </div>
           </div>
@@ -5608,7 +5617,13 @@
       if ((!bettingModeActive) && state.cinematicMode?.mode === 'betting') {
         closeCinematic(false);
       }
+      const challengeVisualsActive = !!(state.challengeWindow || state.betting || state.cinematicMode);
+      const hadChallengeVisuals = app.classList.contains('challenge-visuals-active');
       app.classList.toggle('cinematic-mode-active', bettingModeActive || !!state.cinematicMode);
+      app.classList.toggle('challenge-visuals-active', challengeVisualsActive);
+      if (hadChallengeVisuals !== challengeVisualsActive) {
+        console.log(`[challenge-visuals] ${challengeVisualsActive ? 'activated' : 'deactivated'}`);
+      }
     }
     function updateTableCardAutoScale(root = document.getElementById('app')) {
       const cardsContainer = root?.querySelector?.('.tableViewCards');
@@ -5642,6 +5657,7 @@
     const clusterCinematicStageRuntime = {
       phaseKey: null,
       revealSpawnKey: null,
+      bettingUiKey: null,
     };
     function clearAvatarCinematics(app = document.getElementById('app')) {
       if (!app) return;
@@ -5666,6 +5682,7 @@
       textAnchor.innerHTML = '';
       textAnchor.classList.remove('claimClusterCinematicPane', 'cinematic-betting-pane', 'cinematic-resolution-pane');
       textAnchor.style.pointerEvents = 'none';
+      clusterCinematicStageRuntime.bettingUiKey = null;
     }
     function ensureAvatarOverlay(anchorEl) {
       if (!anchorEl) return null;
@@ -5724,7 +5741,6 @@
     function mountClusterHeadlineCinematic(app, { cinematicMode, cinematicPhase, bettingActorHuman, humanCallAmount }) {
       const textAnchor = app?.querySelector('.claimClusterTextAnchor');
       if (!textAnchor || !cinematicMode) return;
-      clearHeadlineCinematics(app);
       if (cinematicPhase === 'betting') {
         const bettingActorId = state.betting.currentActorId;
         const openingMode = state.betting.phase === 'opening';
@@ -5735,27 +5751,42 @@
         const bettingLocked = !!state.betting.actionInFlight;
         const renderTierButtons = (mode) => `<div class="stakeTierBtnRow">${STAKE_TIERS.map((tier) => {
           const enabled = legalTierIds.includes(tier.id) && !bettingLocked;
-          return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(STAKE_COIN_SRC[tier.id] || STAKE_COIN_SRC.tinmoon || CONFIG.assets.cinematicTokenIconSrc)}" alt="${escapeHtml(tier.id)} coin"><span>${escapeHtml(tier.id)} · ${tier.value}</span></button>`;
+          const coinSrc = stakeCoinSrcForTier(tier.id);
+          return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(coinSrc)}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="${escapeHtml(tier.id)} coin"><span>${escapeHtml(tier.id)} · ${tier.value}</span></button>`;
         }).join('')}</div>`;
         const bettingActionsHtml = actorCanAct
           ? (openingMode
             ? `${renderTierButtons('open')}<button class="danger" id="betFoldBtn" ${bettingLocked ? 'disabled' : ''}>Fold</button>`
             : `<button class="secondary" id="betCallBtn" ${bettingLocked ? 'disabled' : ''}>Call ${humanCallAmount}</button>${canRaise ? renderTierButtons('raise') : ''}<button class="danger" id="betFoldBtn" ${bettingLocked ? 'disabled' : ''}>Fold</button>`)
           : `<div class="tiny">${seatLabel(bettingActorId)} is deciding the next betting action.</div>`;
-        const stakeCoinSrc = STAKE_COIN_SRC[state.betting.currentTierId] || '';
-        textAnchor.classList.add('claimClusterCinematicPane', 'cinematic-betting-pane');
-        textAnchor.style.pointerEvents = 'auto';
-        textAnchor.innerHTML = `<div class="sectionTitle cinematic-pane-title cin-headline cin-challenge">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="tiny cinematic-vs-line" style="margin-top:6px;">${escapeHtml(seatLabel(state.betting.challengerId))} vs ${escapeHtml(seatLabel(state.betting.challengedId))}</div><div class="tiny" style="margin-top:6px;">Stake: ${escapeHtml(state.betting.currentTierId || 'pending')} (${state.betting.currentTierValue || 0}) · Pot: ${challengePotTotal()} · Legal: ${legalActions.join(', ') || 'none'} · Raises used — challenger: ${state.betting.challengerHasRaised ? 'yes' : 'no'}, challenged: ${state.betting.challengedHasRaised ? 'yes' : 'no'}</div><div class="stakeVisualPanel"><div class="stakeVisualHeader tiny">Current stake</div><div class="stakeVisualRow"><div class="stakeContribCol"><div class="tiny">${seatLabel(state.betting.challengerId)} contribution</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengerId}">${state.betting.currentTierId ? `<img src="${escapeHtml(stakeCoinSrc)}" alt="challenger coin">` : ''}</div><div class="tiny">${getContribution(state.betting.challengerId)}</div></div><div class="stakeCenterCol"><div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(STAKE_COIN_SRC[state.betting.displayedTierId] || '')}" alt="current stake coin">` : ''}</div><div class="tiny">Stake: ${state.betting.currentTierId || '—'} (${state.betting.currentTierValue || 0})</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div><div class="tiny">Pot: ${challengePotTotal()}</div></div><div class="stakeContribCol"><div class="tiny">${seatLabel(state.betting.challengedId)} contribution</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengedId}">${getContribution(state.betting.challengedId) > 0 && state.betting.currentTierId ? `<img src="${escapeHtml(stakeCoinSrc)}" alt="challenged coin">` : ''}</div><div class="tiny">${getContribution(state.betting.challengedId)}</div></div></div></div><div class="challengeBar cinBettingActionsOffset">${bettingActionsHtml}</div>`;
-        console.debug('[betting-ui-cinematic]', {
+        const stakeCoinSrc = stakeCoinSrcForTier(state.betting.currentTierId);
+        const bettingUiKey = JSON.stringify({
+          actor: bettingActorId,
           openingMode,
-          actorCanAct,
-          actorId: bettingActorId,
           legalActions,
           legalTierIds,
+          currentTierId: state.betting.currentTierId,
+          currentTierValue: state.betting.currentTierValue,
+          displayedTierId: state.betting.displayedTierId,
+          contributions: state.betting.contributions,
+          challengerHasRaised: state.betting.challengerHasRaised,
+          challengedHasRaised: state.betting.challengedHasRaised,
+          actionInFlight: bettingLocked,
         });
+        if (clusterCinematicStageRuntime.bettingUiKey !== bettingUiKey) {
+          textAnchor.classList.add('claimClusterCinematicPane', 'cinematic-betting-pane');
+          textAnchor.style.pointerEvents = 'auto';
+          textAnchor.innerHTML = `<div class="sectionTitle cinematic-pane-title cin-headline cin-challenge">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="tiny cinematic-vs-line" style="margin-top:6px;">${escapeHtml(seatLabel(state.betting.challengerId))} vs ${escapeHtml(seatLabel(state.betting.challengedId))}</div><div class="tiny" style="margin-top:6px;">Stake: ${escapeHtml(state.betting.currentTierId || 'pending')} (${state.betting.currentTierValue || 0}) · Pot: ${challengePotTotal()} · Legal: ${legalActions.join(', ') || 'none'} · Raises used — challenger: ${state.betting.challengerHasRaised ? 'yes' : 'no'}, challenged: ${state.betting.challengedHasRaised ? 'yes' : 'no'}</div><div class="stakeVisualPanel"><div class="stakeVisualHeader tiny">Current stake</div><div class="stakeVisualRow"><div class="stakeContribCol"><div class="tiny">${seatLabel(state.betting.challengerId)} contribution</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengerId}">${state.betting.currentTierId ? `<img src="${escapeHtml(stakeCoinSrc)}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenger coin">` : ''}</div><div class="tiny">${getContribution(state.betting.challengerId)}</div></div><div class="stakeCenterCol"><div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div><div class="tiny">Stake: ${state.betting.currentTierId || '—'} (${state.betting.currentTierValue || 0})</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div><div class="tiny">Pot: ${challengePotTotal()}</div></div><div class="stakeContribCol"><div class="tiny">${seatLabel(state.betting.challengedId)} contribution</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengedId}">${getContribution(state.betting.challengedId) > 0 && state.betting.currentTierId ? `<img src="${escapeHtml(stakeCoinSrc)}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenged coin">` : ''}</div><div class="tiny">${getContribution(state.betting.challengedId)}</div></div></div></div><div class="challengeBar cinBettingActionsOffset">${bettingActionsHtml}</div>`;
+          const coinButtons = [...textAnchor.querySelectorAll('[data-stake-tier-btn] img')].map((img) => ({ src: img.getAttribute('src'), fallback: img.getAttribute('data-fallback-src') }));
+          console.log('[betting-branch] mounted claim-cluster betting branch', { actorId: bettingActorId, openingMode });
+          console.log('[betting-coins] coin buttons mounted', { paths: coinButtons });
+          console.log('[betting-legal] current legal tiers', { actorId: bettingActorId, legalTierIds, legalActions });
+          clusterCinematicStageRuntime.bettingUiKey = bettingUiKey;
+        }
         return;
       }
       if (cinematicPhase === 'reveal' || cinematicPhase === 'fold') {
+        if (clusterCinematicStageRuntime.bettingUiKey !== null) clearHeadlineCinematics(app);
         const challenger = state.players[cinematicMode.challengerId];
         const challenged = state.players[cinematicMode.challengedId];
         const winner = state.players[cinematicMode.winnerId];
@@ -5787,6 +5818,7 @@
           clearHeadlineCinematics(app);
           clusterCinematicStageRuntime.phaseKey = null;
           clusterCinematicStageRuntime.revealSpawnKey = null;
+          clusterCinematicStageRuntime.bettingUiKey = null;
           console.debug('[cinematic-cluster-stage] anchor-local cinematic cleared');
         }
         return;
@@ -5798,6 +5830,7 @@
         clearHeadlineCinematics(app);
         clusterCinematicStageRuntime.phaseKey = phaseKey;
         clusterCinematicStageRuntime.revealSpawnKey = null;
+        clusterCinematicStageRuntime.bettingUiKey = null;
         console.debug('[cinematic-cluster-stage] anchor-local cinematic phase reset');
       }
       mountActorAvatarCinematic(app, cinematicMode);
