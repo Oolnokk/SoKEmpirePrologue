@@ -138,11 +138,13 @@
       --layout-ui-tabletop-url: none;
       --layout-table-card-container-scale: 1.25;
       --layout-table-card-content-scale: 0.8;
-      --layout-claim-avatar-size: 180px;
+      --layout-claim-avatar-size: 270px;
       --layout-claim-avatar-zoom: 1.2;
       --layout-claim-avatar-border-radius: 12px;
       --layout-claim-avatar-border-color: rgba(242,208,143,0.28);
       --layout-claim-avatar-background: rgba(22,16,14,0.72);
+      --layout-claim-title-offset-y: -150px;
+      --layout-claim-title-scale: 1.5;
       --layout-table-card-auto-scale: 1;
       --layout-fit-additive-avatar-zoom: 1;
       --layout-turn-spotlight-offset-x: 10px;
@@ -152,10 +154,10 @@
       --layout-cinematic-burst-font: 2rem;
       --layout-cinematic-burst-duration: 2.1s;
       --layout-flame-x: 50%;
-      --layout-flame-y: -12%;
-      --layout-flame-core-alpha: 0.2;
-      --layout-flame-mid-alpha: 0.12;
-      --layout-flame-far-alpha: 0.05;
+      --layout-flame-y: 14%;
+      --layout-flame-core-alpha: 0.4;
+      --layout-flame-mid-alpha: 0.27;
+      --layout-flame-far-alpha: 0.14;
       --layout-flame-flicker-seconds: 2.9s;
       --layout-card-shadow-offset-x: 1.5px;
       --layout-card-shadow-offset-y: 9px;
@@ -223,14 +225,15 @@
     #app::before {
       content: '';
       position: absolute;
-      inset: -20% -12% 0;
+      inset: -18% -12% -14%;
       pointer-events: none;
       z-index: 2;
       mix-blend-mode: screen;
       background:
-        radial-gradient(60% 40% at var(--layout-flame-x) var(--layout-flame-y), rgba(255, 214, 132, var(--layout-flame-core-alpha)) 0%, transparent 56%),
-        radial-gradient(82% 55% at var(--layout-flame-x) var(--layout-flame-y), rgba(255, 172, 88, var(--layout-flame-mid-alpha)) 0%, transparent 70%),
-        radial-gradient(100% 72% at var(--layout-flame-x) var(--layout-flame-y), rgba(255, 124, 56, var(--layout-flame-far-alpha)) 0%, transparent 80%);
+        radial-gradient(70% 52% at var(--layout-flame-x) var(--layout-flame-y), rgba(255, 218, 142, var(--layout-flame-core-alpha)) 0%, rgba(255, 120, 58, calc(var(--layout-flame-core-alpha) * 0.66)) 34%, transparent 72%),
+        radial-gradient(96% 74% at var(--layout-flame-x) calc(var(--layout-flame-y) + 10%), rgba(255, 86, 36, var(--layout-flame-mid-alpha)) 0%, transparent 76%),
+        radial-gradient(128% 106% at var(--layout-flame-x) calc(var(--layout-flame-y) + 20%), rgba(202, 30, 28, var(--layout-flame-far-alpha)) 0%, transparent 86%),
+        linear-gradient(180deg, rgba(188, 24, 24, calc(var(--layout-flame-far-alpha) * 0.76)) 0%, rgba(121, 17, 17, calc(var(--layout-flame-far-alpha) * 0.56)) 52%, rgba(76, 12, 12, calc(var(--layout-flame-far-alpha) * 0.4)) 100%);
       animation: tableFlameFlicker var(--layout-flame-flicker-seconds) infinite ease-in-out alternate;
     }
     #app::after {
@@ -444,9 +447,11 @@
       display: grid;
       place-items: center;
       z-index: 12;
+      transform: translate(-50%, -50%) translateY(var(--layout-claim-title-offset-y, -150px)) scale(var(--layout-claim-title-scale, 1.5));
+      transform-origin: center center;
     }
     .claimAvatarShell {
-      width: min(100%, var(--layout-claim-avatar-size));
+      width: var(--layout-claim-avatar-size);
       aspect-ratio: 1;
       overflow: hidden;
       border-radius: var(--layout-claim-avatar-border-radius);
@@ -2093,7 +2098,7 @@
             visualFit: {
               tableCardContainerScale: rawGameConfig.layout?.tableView?.visualFit?.tableCardContainerScale ?? 1.25,
               tableCardContentScale: rawGameConfig.layout?.tableView?.visualFit?.tableCardContentScale ?? 0.8,
-              claimAvatarSizePx: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarSizePx ?? 180,
+              claimAvatarSizePx: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarSizePx ?? 270,
               claimAvatarZoomScale: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarZoomScale ?? 1.2,
               claimAvatarBorderRadiusPx: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarBorderRadiusPx ?? 12,
               claimAvatarBorderColor: rawGameConfig.layout?.tableView?.visualFit?.claimAvatarBorderColor ?? 'rgba(242,208,143,0.28)',
@@ -2107,6 +2112,8 @@
               showAvatars: rawGameConfig.layout?.tableView?.cinematic?.showAvatars ?? false,
               playerInfoOffsetPx: rawGameConfig.layout?.tableView?.cinematic?.playerInfoOffsetPx ?? 12,
               playerInfoFontRem: rawGameConfig.layout?.tableView?.cinematic?.playerInfoFontRem ?? 1.05,
+              claimTitleOffsetYPx: rawGameConfig.layout?.tableView?.cinematic?.claimTitleOffsetYPx ?? -150,
+              claimTitleScale: rawGameConfig.layout?.tableView?.cinematic?.claimTitleScale ?? 1.5,
               betActionBurstFontRem: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstFontRem ?? 2,
               betActionBurstDurationSec: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstDurationSec ?? 2.1,
               betActionBurstClampInsetPx: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstClampInsetPx ?? 24,
@@ -2164,10 +2171,10 @@
           lighting: {
             flame: {
               xPct: rawGameConfig.layout?.lighting?.flame?.xPct ?? 0.5,
-              yPct: rawGameConfig.layout?.lighting?.flame?.yPct ?? -0.12,
-              coreAlpha: rawGameConfig.layout?.lighting?.flame?.coreAlpha ?? 0.2,
-              midAlpha: rawGameConfig.layout?.lighting?.flame?.midAlpha ?? 0.12,
-              farAlpha: rawGameConfig.layout?.lighting?.flame?.farAlpha ?? 0.05,
+              yPct: rawGameConfig.layout?.lighting?.flame?.yPct ?? 0.14,
+              coreAlpha: rawGameConfig.layout?.lighting?.flame?.coreAlpha ?? 0.4,
+              midAlpha: rawGameConfig.layout?.lighting?.flame?.midAlpha ?? 0.27,
+              farAlpha: rawGameConfig.layout?.lighting?.flame?.farAlpha ?? 0.14,
               flickerSeconds: rawGameConfig.layout?.lighting?.flame?.flickerSeconds ?? 2.9,
             },
             cardShadow: {
@@ -4315,7 +4322,7 @@
       const turnSpotlightOffsetYPx = clampNumber(Number(turnSpotlightLayout.offsetYPx) || 10, 0, 120);
       const tableCardContainerScale = clampNumber(Number(tableVisualFit.tableCardContainerScale) || 1.25, 0.75, 2.25);
       const tableCardContentScale = clampNumber(Number(tableVisualFit.tableCardContentScale) || 0.8, 0.45, 1);
-      const claimAvatarSizePx = clampNumber(Number(tableVisualFit.claimAvatarSizePx) || 180, 80, 320);
+      const claimAvatarSizePx = clampNumber(Number(tableVisualFit.claimAvatarSizePx) || 270, 80, 320);
       const claimAvatarZoomScale = clampNumber(Number(tableVisualFit.claimAvatarZoomScale) || 1.2, 0.8, 1.6);
       const claimAvatarBorderRadiusPx = clampNumber(Number(tableVisualFit.claimAvatarBorderRadiusPx) || 12, 0, 48);
       const claimAvatarBorderColor = String(tableVisualFit.claimAvatarBorderColor || 'rgba(242,208,143,0.28)');
@@ -4325,15 +4332,17 @@
       const cinematicLayout = tableViewLayout.cinematic || {};
       const cinematicPlayerInfoOffsetPx = clampNumber(Number(cinematicLayout.playerInfoOffsetPx) || 12, -40, 160);
       const cinematicPlayerInfoFontRem = clampNumber(Number(cinematicLayout.playerInfoFontRem) || 1.05, 0.6, 3);
+      const claimTitleOffsetYPx = clampNumber(Number(cinematicLayout.claimTitleOffsetYPx) || -150, -420, 160);
+      const claimTitleScale = clampNumber(Number(cinematicLayout.claimTitleScale) || 1.5, 0.6, 3.2);
       const cinematicBurstFontRem = clampNumber(Number(cinematicLayout.betActionBurstFontRem) || 2, 0.75, 5);
       const cinematicBurstDurationSec = clampNumber(Number(cinematicLayout.betActionBurstDurationSec) || 2.1, 0.4, 6);
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
       const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
       const flameXPct = clampNumber(numberOrDefault(flameLighting.xPct, 0.5), 0, 1);
-      const flameYPct = clampNumber(numberOrDefault(flameLighting.yPct, -0.12), -0.5, 0.35);
-      const flameCoreAlpha = clampNumber(numberOrDefault(flameLighting.coreAlpha, 0.2), 0, 0.45);
-      const flameMidAlpha = clampNumber(numberOrDefault(flameLighting.midAlpha, 0.12), 0, 0.35);
-      const flameFarAlpha = clampNumber(numberOrDefault(flameLighting.farAlpha, 0.05), 0, 0.2);
+      const flameYPct = clampNumber(numberOrDefault(flameLighting.yPct, 0.14), -0.5, 0.35);
+      const flameCoreAlpha = clampNumber(numberOrDefault(flameLighting.coreAlpha, 0.4), 0, 0.45);
+      const flameMidAlpha = clampNumber(numberOrDefault(flameLighting.midAlpha, 0.27), 0, 0.35);
+      const flameFarAlpha = clampNumber(numberOrDefault(flameLighting.farAlpha, 0.14), 0, 0.2);
       const flameFlickerSeconds = clampNumber(numberOrDefault(flameLighting.flickerSeconds, 2.9), 1.2, 8);
       const cardShadowOffsetXPx = clampNumber(numberOrDefault(cardShadowLighting.offsetXPx, 1.5), -18, 18);
       const cardShadowOffsetYPx = clampNumber(numberOrDefault(cardShadowLighting.offsetYPx, 9), 0, 28);
@@ -4388,6 +4397,8 @@
       setCssVar('--layout-fit-additive-avatar-zoom', avatarAdditiveZoomScale.toFixed(3));
       setCssVar('--layout-cinematic-player-info-offset', `${cinematicPlayerInfoOffsetPx.toFixed(2)}px`);
       setCssVar('--layout-cinematic-player-info-font', `${cinematicPlayerInfoFontRem.toFixed(3)}rem`);
+      setCssVar('--layout-claim-title-offset-y', `${claimTitleOffsetYPx.toFixed(2)}px`);
+      setCssVar('--layout-claim-title-scale', claimTitleScale.toFixed(3));
       setCssVar('--layout-cinematic-burst-font', `${cinematicBurstFontRem.toFixed(3)}rem`);
       setCssVar('--layout-cinematic-burst-duration', `${cinematicBurstDurationSec.toFixed(3)}s`);
       setCssVar('--layout-ui-tabletop-url', tabletopImageSrc ? `url("${tabletopImageSrc}")` : 'none');
