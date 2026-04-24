@@ -3268,6 +3268,7 @@
         challengedHasRaised: false,
         phase: 'opening',
         pendingAutoReveal: false,
+        actionInFlight: false,
       };
       state.challengeWindow = null;
       setBanner(`${seatLabel(challengerIndex)} and ${seatLabel(challengedIndex)} are betting on the challenge.`);
@@ -3457,88 +3458,100 @@
       await animateCoinCloneToTarget(coinButtonForTier(newTierId), stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
       await animateCoinCloneToTarget(coinButtonForTier(newTierId), potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
     }
-    async function resolveBetAction(playerId, action) {
+    async function resolveBetAction(playerId, action, options = {}) {
       if (!state.betting || state.gameOver) return;
       if (state.betting.pendingAutoReveal) return;
+      if (state.betting.actionInFlight && !options.allowWhileLocked) return;
       if (state.betting.currentActorId !== playerId) return;
       const command = typeof action === 'string' ? action : action?.type;
       const targetTierId = typeof action === 'object' ? action?.tierId : null;
       const player = state.players[playerId];
       const opponentId = getOpponentId(playerId);
       const toCall = amountToCall(playerId);
+      if (!options.allowWhileLocked) {
+        state.betting.actionInFlight = true;
+        render();
+      }
       // Queue cinematic text effects; render() will fire them after DOM/layout update.
       state.pendingCinematicBetAction = { playerId, command };
-      if (command === 'open-tier' && state.betting.phase === 'opening') {
-        const chosenTierId = targetTierId;
-        const chosenTierValue = stakeTierValueById(chosenTierId);
-        if (!chosenTierValue || !canPlayerAfford(playerId, chosenTierValue)) return;
-        await animateStakeOpen(playerId, chosenTierId);
-        state.betting.currentTierId = chosenTierId;
-        state.betting.currentTierValue = chosenTierValue;
-        state.betting.displayedTierId = chosenTierId;
-        state.betting.displayedTierValue = chosenTierValue;
-        const paid = recordContribution(playerId, chosenTierValue);
-        addLog(`${seatLabel(player)} opens the challenge stake at ${chosenTierValue}.`);
-        player.lastAction = `Opened ${chosenTierValue}`;
-        if (paid < chosenTierValue) {
-          finalizeChallengeByFold(opponentId, playerId, 'could not fund the opening stake');
+      try {
+        if (command === 'open-tier' && state.betting.phase === 'opening') {
+          const chosenTierId = targetTierId;
+          const chosenTierValue = stakeTierValueById(chosenTierId);
+          if (!chosenTierValue || !canPlayerAfford(playerId, chosenTierValue)) return;
+          await animateStakeOpen(playerId, chosenTierId);
+          state.betting.currentTierId = chosenTierId;
+          state.betting.currentTierValue = chosenTierValue;
+          state.betting.displayedTierId = chosenTierId;
+          state.betting.displayedTierValue = chosenTierValue;
+          const paid = recordContribution(playerId, chosenTierValue);
+          addLog(`${seatLabel(player)} opens the challenge stake at ${chosenTierValue}.`);
+          player.lastAction = `Opened ${chosenTierValue}`;
+          if (paid < chosenTierValue) {
+            finalizeChallengeByFold(opponentId, playerId, 'could not fund the opening stake');
+            return;
+          }
+          state.betting.phase = 'response';
+          state.betting.currentActorId = opponentId;
+          render();
+          scheduleBettingAiIfNeeded();
           return;
         }
-        state.betting.phase = 'response';
-        state.betting.currentActorId = opponentId;
-        render();
-        scheduleBettingAiIfNeeded();
-        return;
-      }
-      if (command === 'call') {
-        const tierId = state.betting.currentTierId;
-        await animateStakeCall(playerId, tierId);
-        const paid = recordContribution(playerId, toCall);
-        addLog(`${seatLabel(player)} calls ${state.betting.currentTierValue}.`);
-        player.lastAction = 'Called';
-        if (state.gameOver) return;
-        if (getContribution(playerId) < state.betting.currentTierValue) {
-          finalizeChallengeByFold(opponentId, playerId, 'could not cover the call');
+        if (command === 'call') {
+          const tierId = state.betting.currentTierId;
+          await animateStakeCall(playerId, tierId);
+          const paid = recordContribution(playerId, toCall);
+          addLog(`${seatLabel(player)} calls ${state.betting.currentTierValue}.`);
+          player.lastAction = 'Called';
+          if (state.gameOver) return;
+          if (getContribution(playerId) < state.betting.currentTierValue) {
+            finalizeChallengeByFold(opponentId, playerId, 'could not cover the call');
+            return;
+          }
+          if (maybeAutoRevealAfterMatchedBet()) return;
           return;
         }
-        if (maybeAutoRevealAfterMatchedBet()) return;
-        return;
-      }
-      if (command === 'raise-tier') {
-        const newTierId = targetTierId;
-        const newStake = stakeTierValueById(newTierId);
-        if (!newStake || newStake <= state.betting.currentTierValue) {
-          await resolveBetAction(playerId, 'call');
+        if (command === 'raise-tier') {
+          const newTierId = targetTierId;
+          const newStake = stakeTierValueById(newTierId);
+          if (!newStake || newStake <= state.betting.currentTierValue) {
+            await resolveBetAction(playerId, 'call', { allowWhileLocked: true });
+            return;
+          }
+          const amountNeeded = newStake - getContribution(playerId);
+          if (!canPlayerAfford(playerId, amountNeeded)) {
+            await resolveBetAction(playerId, 'fold', { allowWhileLocked: true });
+            return;
+          }
+          await animateStakeRaise(playerId, newTierId);
+          state.betting.currentTierId = newTierId;
+          state.betting.currentTierValue = newStake;
+          state.betting.displayedTierId = newTierId;
+          state.betting.displayedTierValue = newStake;
+          if (playerId === state.betting.challengerId) state.betting.challengerHasRaised = true;
+          if (playerId === state.betting.challengedId) state.betting.challengedHasRaised = true;
+          const paid = recordContribution(playerId, amountNeeded);
+          player.lastAction = `Raised to ${newStake}`;
+          addLog(`${seatLabel(player)} raises the stake to ${newStake}.`);
+          if (state.gameOver) return;
+          if (paid < amountNeeded) {
+            finalizeChallengeByFold(opponentId, playerId, 'could not fund the raise');
+            return;
+          }
+          state.betting.currentActorId = opponentId;
+          render();
+          scheduleBettingAiIfNeeded();
           return;
         }
-        const amountNeeded = newStake - getContribution(playerId);
-        if (!canPlayerAfford(playerId, amountNeeded)) {
-          await resolveBetAction(playerId, 'fold');
-          return;
+        if (command === 'fold') {
+          player.lastAction = 'Folded challenge';
+          finalizeChallengeByFold(opponentId, playerId, 'folded');
         }
-        await animateStakeRaise(playerId, newTierId);
-        state.betting.currentTierId = newTierId;
-        state.betting.currentTierValue = newStake;
-        state.betting.displayedTierId = newTierId;
-        state.betting.displayedTierValue = newStake;
-        if (playerId === state.betting.challengerId) state.betting.challengerHasRaised = true;
-        if (playerId === state.betting.challengedId) state.betting.challengedHasRaised = true;
-        const paid = recordContribution(playerId, amountNeeded);
-        player.lastAction = `Raised to ${newStake}`;
-        addLog(`${seatLabel(player)} raises the stake to ${newStake}.`);
-        if (state.gameOver) return;
-        if (paid < amountNeeded) {
-          finalizeChallengeByFold(opponentId, playerId, 'could not fund the raise');
-          return;
+      } finally {
+        if (!options.allowWhileLocked && state.betting) {
+          state.betting.actionInFlight = false;
+          render();
         }
-        state.betting.currentActorId = opponentId;
-        render();
-        scheduleBettingAiIfNeeded();
-        return;
-      }
-      if (command === 'fold') {
-        player.lastAction = 'Folded challenge';
-        finalizeChallengeByFold(opponentId, playerId, 'folded');
       }
     }
     function challengePotTotal() {
@@ -5210,8 +5223,9 @@
       `;
       const renderStakeTierButtons = (mode) => {
         const allowedTierIds = mode === 'open' ? legalStakeTierIdsForPlayer(0) : humanRaiseTierIds;
+        const locked = !!state.betting?.actionInFlight;
         return `<div class="stakeTierBtnRow">${STAKE_TIERS.map((tier) => {
-          const enabled = allowedTierIds.includes(tier.id);
+          const enabled = allowedTierIds.includes(tier.id) && !locked;
           return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(STAKE_COIN_SRC[tier.id] || STAKE_COIN_SRC.tinmoon || CONFIG.assets.cinematicTokenIconSrc)}" alt="${escapeHtml(tier.id)} coin"><span>${escapeHtml(tier.id)} · ${tier.value}</span></button>`;
         }).join('')}</div>`;
       };
@@ -5245,11 +5259,11 @@
             ${bettingActorHuman ? `
               ${state.betting.phase === 'opening'
                 ? renderStakeTierButtons('open')
-                : `<button class="secondary" id="betCallBtn">Call ${humanCallAmount}</button>
+                : `<button class="secondary" id="betCallBtn" ${state.betting.actionInFlight ? 'disabled' : ''}>Call ${humanCallAmount}</button>
                    ${humanCanRaise ? renderStakeTierButtons('raise') : ''}
-                   <button class="danger" id="betFoldBtn">Fold</button>`}
+                   <button class="danger" id="betFoldBtn" ${state.betting.actionInFlight ? 'disabled' : ''}>Fold</button>`}
             ` : `<div class="tiny">${seatLabel(state.betting.currentActorId)} is deciding the next betting action.</div>`}
-            ${bettingActorHuman && state.betting.phase === 'opening' ? `<button class="danger" id="betFoldBtn">Fold</button>` : ''}
+            ${bettingActorHuman && state.betting.phase === 'opening' ? `<button class="danger" id="betFoldBtn" ${state.betting.actionInFlight ? 'disabled' : ''}>Fold</button>` : ''}
           </div>
         </div>
       `;
@@ -5718,14 +5732,15 @@
         const legalTierIds = legalStakeTierIdsForPlayer(bettingActorId);
         const canRaise = legalActions.includes('raise-tier') && legalTierIds.length > 0;
         const actorCanAct = bettingActorHuman;
+        const bettingLocked = !!state.betting.actionInFlight;
         const renderTierButtons = (mode) => `<div class="stakeTierBtnRow">${STAKE_TIERS.map((tier) => {
-          const enabled = legalTierIds.includes(tier.id);
+          const enabled = legalTierIds.includes(tier.id) && !bettingLocked;
           return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(STAKE_COIN_SRC[tier.id] || STAKE_COIN_SRC.tinmoon || CONFIG.assets.cinematicTokenIconSrc)}" alt="${escapeHtml(tier.id)} coin"><span>${escapeHtml(tier.id)} · ${tier.value}</span></button>`;
         }).join('')}</div>`;
         const bettingActionsHtml = actorCanAct
           ? (openingMode
-            ? `${renderTierButtons('open')}<button class="danger" id="betFoldBtn">Fold</button>`
-            : `<button class="secondary" id="betCallBtn">Call ${humanCallAmount}</button>${canRaise ? renderTierButtons('raise') : ''}<button class="danger" id="betFoldBtn">Fold</button>`)
+            ? `${renderTierButtons('open')}<button class="danger" id="betFoldBtn" ${bettingLocked ? 'disabled' : ''}>Fold</button>`
+            : `<button class="secondary" id="betCallBtn" ${bettingLocked ? 'disabled' : ''}>Call ${humanCallAmount}</button>${canRaise ? renderTierButtons('raise') : ''}<button class="danger" id="betFoldBtn" ${bettingLocked ? 'disabled' : ''}>Fold</button>`)
           : `<div class="tiny">${seatLabel(bettingActorId)} is deciding the next betting action.</div>`;
         const stakeCoinSrc = STAKE_COIN_SRC[state.betting.currentTierId] || '';
         textAnchor.classList.add('claimClusterCinematicPane', 'cinematic-betting-pane');
