@@ -3392,6 +3392,7 @@
         setTimeout(() => {
           if (state.challengeDecisionSession !== challengeSessionId) return;
           if (!state.challengeWindow || state.betting || state.gameOver) return;
+          if (state.challengeIntro) return;
           if (state.challengeWindow.lastPlay?.playerIndex !== playerIndex) return;
           if (aiShouldChallenge(idx, lastPlay)) {
             startChallenge(idx, playerIndex);
@@ -3401,7 +3402,7 @@
       if (playerIndex === 0) {
         setTimeout(() => {
           if (state.challengeDecisionSession !== challengeSessionId) return;
-          if (state.challengeWindow && !state.betting && !state.gameOver && state.challengeWindow.lastPlay?.playerIndex === playerIndex) {
+          if (state.challengeWindow && !state.challengeIntro && !state.betting && !state.gameOver && state.challengeWindow.lastPlay?.playerIndex === playerIndex) {
             advanceAfterNoChallenge(playerIndex);
           }
         }, cumulativeDelay + 30);
@@ -3462,7 +3463,7 @@
       scheduleBettingAiIfNeeded();
     }
     function startChallenge(challengerIndex, challengedIndex) {
-      if (!state.challengeWindow || state.gameOver || state.betting) return;
+      if (!state.challengeWindow || state.gameOver || state.betting || state.challengeIntro) return;
       clearChallengeTimer();
       clearChallengeIntro();
       state.challengeIntro = {
@@ -5578,17 +5579,17 @@
             <div class="claimTimesBoxRight ${claimClusterShellClass}" data-proj-id="claim-times-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimTimesBoxRight)}">×</div>
             <div class="claimCountBoxRight ${claimClusterShellClass}" data-proj-id="claim-count-right" style="${claimClusterElementStyle(claimClusterPolicy.elements.claimCountBoxRight)}">${claimCount}</div>
             <div class="actorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-actor" style="${claimClusterElementStyle(claimClusterPolicy.elements.actorAvatarFloat)}" title="${seatLabel(focusActor || claimFocus.actorId)}">
-              <div class="claimAvatarShell">
+              <div class="claimAvatarShell ${(challengeIntro && focusActor) ? 'alert-pulse' : ''}">
                 <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="220" height="220"></canvas>
               </div>
-              ${(!challengeVisualsActive && focusActor) ? `<div class="claimAvatarNameTag">${escapeHtml(seatFirstName(focusActor))}</div>` : ''}
+              ${focusActor ? `<div class="claimAvatarNameTag">${escapeHtml(seatFirstName(focusActor))}</div>` : ''}
               <div class="claimAvatarLocalOverlay" aria-hidden="true"></div>
             </div>
             <div class="reactorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-reactor" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
-              <div class="claimAvatarShell ${(challengeIntro && focusReactor) ? 'alert-pulse' : ''}">
+              <div class="claimAvatarShell">
                 ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="220" height="220"></canvas>` : ''}
               </div>
-              ${(!challengeVisualsActive && focusReactor) ? `<div class="claimAvatarNameTag">${escapeHtml(seatFirstName(focusReactor))}</div>` : ''}
+              ${focusReactor ? `<div class="claimAvatarNameTag">${escapeHtml(seatFirstName(focusReactor))}</div>` : ''}
               ${(challengeIntro && focusReactor) ? `<div class="fx-burst-shell"><div class="cin-action-burst burst-liar">${escapeHtml(challengeIntro.burstText || 'LIAR!!!')}</div></div>` : ''}
               <div class="claimAvatarLocalOverlay" aria-hidden="true"></div>
             </div>
@@ -5855,8 +5856,10 @@
       const bettingModeActive = !!(state.betting && !state.gameOver && isTableCinematicEnabled());
       if (bettingModeActive && !state.cinematicMode) {
         setCinematicMode('betting', {
-          actorId: state.betting.challengerId,
-          reactorId: state.betting.challengedId,
+          actorId: state.betting.challengedId,
+          reactorId: state.betting.challengerId,
+          actorRole: 'Challenged',
+          reactorRole: 'Challenger',
           headline: '⚔ Challenge betting',
         });
       }
@@ -5965,12 +5968,12 @@
     function mountActorAvatarCinematic(app, cinematicMode) {
       const anchor = app?.querySelector('.actorAvatarFloat');
       if (!anchor) return;
-      mountAvatarCinematic(anchor, cinematicMode?.actorId, 'Challenger');
+      mountAvatarCinematic(anchor, cinematicMode?.actorId, cinematicMode?.actorRole || 'Challenger');
     }
     function mountReactorAvatarCinematic(app, cinematicMode) {
       const anchor = app?.querySelector('.reactorAvatarFloat');
       if (!anchor) return;
-      mountAvatarCinematic(anchor, cinematicMode?.reactorId, 'Challenged');
+      mountAvatarCinematic(anchor, cinematicMode?.reactorId, cinematicMode?.reactorRole || 'Challenged');
     }
     function mountClaimHandCinematic(app, { cinematicPhase, cinematicMode, cinematicRevealPlay }) {
       const claimHandAnchor = app?.querySelector('.claimHandBar');
@@ -6156,8 +6159,10 @@
       setCinematicMode('reveal', {
         challengerId: challengerIndex,
         challengedId: challengedIndex,
-        actorId: challengerIndex,
-        reactorId: challengedIndex,
+        actorId: challengedIndex,
+        reactorId: challengerIndex,
+        actorRole: 'Challenged',
+        reactorRole: 'Challenger',
         winnerId,
         loserId,
         play,
@@ -6180,8 +6185,10 @@
         loserId,
         challengerId: state.betting?.challengerId ?? winnerId,
         challengedId: state.betting?.challengedId ?? loserId,
-        actorId: state.betting?.challengerId ?? winnerId,
-        reactorId: state.betting?.challengedId ?? loserId,
+        actorId: state.betting?.challengedId ?? loserId,
+        reactorId: state.betting?.challengerId ?? winnerId,
+        actorRole: 'Challenged',
+        reactorRole: 'Challenger',
         headline: '🏳 Fold',
       }, {
         onClose,
