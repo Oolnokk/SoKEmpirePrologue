@@ -802,30 +802,6 @@ window.SCRATCHBONES_CONFIG = {
         ]
       }
     },
-    "pngElevation": {
-      "enabled": true,
-      "debug": false,
-      "cards": {
-        "enabled": true,
-        "perspectiveDepthPx": 920,
-        "physicalFace": {
-          "enabled": true,
-          "offsetFactor": 0
-        }
-      },
-      "coins": {
-        "enabled": true,
-        "perspectiveDepthPx": 1900,
-        "physicalFace": {
-          "enabled": true,
-          "offsetFactor": 0
-        }
-      },
-      "easing": {
-        "enabled": true,
-        "speed": 0.18
-      }
-    },
     "uiText": {
       "initialBanner": "Open a round by selecting one or more cards, then declare a number.",
       "yourLeadBanner": "Your lead. Select cards and declare any number.",
