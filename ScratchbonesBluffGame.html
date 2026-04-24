@@ -3376,7 +3376,7 @@
       return AI_THINK_MS;
     }
     function scheduleAiChallengeWindowDecisions(playerIndex) {
-      if (!state.challengeWindow || state.betting || state.gameOver) return;
+      if (!state.challengeWindow || state.betting || state.challengeIntro || state.gameOver) return;
       const lastPlay = state.challengeWindow.lastPlay;
       if (!lastPlay || lastPlay.playerIndex !== playerIndex) return;
       const possibleChallengers = state.challengeWindow.challengerOptions.filter(idx => idx !== 0 && !state.players[idx].eliminated);
@@ -3388,7 +3388,7 @@
         cumulativeDelay += thinkMs + staggerMs;
         setTimeout(() => {
           if (state.challengeDecisionSession !== challengeSessionId) return;
-          if (!state.challengeWindow || state.betting || state.gameOver) return;
+          if (!state.challengeWindow || state.betting || state.challengeIntro || state.gameOver) return;
           if (state.challengeWindow.lastPlay?.playerIndex !== playerIndex) return;
           if (aiShouldChallenge(idx, lastPlay)) {
             startChallenge(idx, playerIndex);
@@ -3398,21 +3398,21 @@
       if (playerIndex === 0) {
         setTimeout(() => {
           if (state.challengeDecisionSession !== challengeSessionId) return;
-          if (state.challengeWindow && !state.betting && !state.gameOver && state.challengeWindow.lastPlay?.playerIndex === playerIndex) {
+          if (state.challengeWindow && !state.betting && !state.challengeIntro && !state.gameOver && state.challengeWindow.lastPlay?.playerIndex === playerIndex) {
             advanceAfterNoChallenge(playerIndex);
           }
         }, cumulativeDelay + 30);
       }
     }
     function humanChallenge() {
-      if (!state.challengeWindow || state.gameOver || state.betting) return;
+      if (!state.challengeWindow || state.gameOver || state.betting || state.challengeIntro) return;
       const target = state.challengeWindow.lastPlay.playerIndex;
       if (target === 0) return;
       clearChallengeTimer();
       startChallenge(0, target);
     }
     function humanAcceptNoChallenge() {
-      if (!state.challengeWindow || state.gameOver || state.betting) return;
+      if (!state.challengeWindow || state.gameOver || state.betting || state.challengeIntro) return;
       clearChallengeTimer();
       const target = state.challengeWindow.lastPlay.playerIndex;
       advanceAfterNoChallenge(target);
@@ -3459,7 +3459,7 @@
       scheduleBettingAiIfNeeded();
     }
     function startChallenge(challengerIndex, challengedIndex) {
-      if (!state.challengeWindow || state.gameOver || state.betting) return;
+      if (!state.challengeWindow || state.gameOver || state.betting || state.challengeIntro) return;
       clearChallengeTimer();
       clearChallengeIntro();
       state.challengeIntro = {
