@@ -235,6 +235,7 @@ window.SCRATCHBONES_CONFIG = {
           "playerInfoOffsetPx": 12,
           "playerInfoFontRem": 1.05,
           "claimTitleOffsetYPx": -150,
+          "betControlsOffsetYPx": 150,
           "claimTitleScale": 1.5,
           "betActionBurstFontRem": 2,
           "betActionBurstDurationSec": 2.1,
