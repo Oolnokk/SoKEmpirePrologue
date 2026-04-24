@@ -152,6 +152,7 @@
       --layout-betting-left-slot-offset-y: -6%;
       --layout-betting-right-slot-offset-x: 52%;
       --layout-betting-right-slot-offset-y: -6%;
+      --layout-betting-pot-offset-y: 90%;
       --layout-betting-coin-button-size: clamp(58px, 8.6vw, 86px);
       --layout-betting-contribution-coin-size: clamp(48px, 6.7vw, 72px);
       --layout-betting-tier-gap: clamp(10px, 2.2vw, 20px);
@@ -537,9 +538,23 @@
     }
     .centerPotAnchor {
       left: 50%;
-      top: calc(50% + 4%);
+      top: calc(50% + var(--layout-betting-pot-offset-y));
       pointer-events: none;
       text-align: center;
+    }
+    .potCoinRow {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+    }
+    .potCoinRow .stakeAnchor {
+      border: none;
+      background: none;
+      box-shadow: none;
+    }
+    .potCoinRow .stakeAnchor + .stakeAnchor {
+      margin-left: -10px;
     }
     .bettingChoiceAnchor {
       left: 50%;
@@ -1593,6 +1608,11 @@
       text-shadow: 0 0 16px rgba(255,70,70,0.98), 0 0 34px rgba(220,10,10,0.7);
       font-size: var(--layout-liar-burst-font);
       animation: cinBurstLiar var(--layout-liar-burst-duration) both;
+    }
+    .cin-action-burst.burst-countdown {
+      color: #f2c06a;
+      text-shadow: 0 0 18px rgba(255,180,60,0.95), 0 0 40px rgba(200,100,0,0.6);
+      font-size: 5.5rem;
     }
     @keyframes cinBurst {
       0%   { transform: translate(-50%, -50%) scale(0.3);  opacity: 1;
@@ -2916,6 +2936,8 @@
       },
       recentChange: "Implemented stake-tier coin betting with real coin PNG buttons and replacement animations, moved betting UI onto the active claim-cluster challenge path, and restricted the red animated overlay so it only appears during challenge states instead of constantly across the app.",
       challengeTimer: null,
+      challengeTimerT1: null,
+      challengeTimerT2: null,
       challengeTimeLeft: 0,
       challengeDecisionSession: 0,
       challengeIntro: null,
@@ -4342,37 +4364,44 @@
         }, { once: true });
       });
     }
+    function showChallengeCountdownBurst(count, durationMs) {
+      const cluster = document.querySelector('.claimCluster');
+      if (!cluster) return;
+      cluster.querySelectorAll('.challenge-countdown-burst').forEach(el => el.remove());
+      const shell = document.createElement('div');
+      shell.className = 'fx-burst-shell challenge-countdown-burst';
+      const inner = document.createElement('div');
+      inner.className = 'cin-action-burst burst-countdown';
+      inner.textContent = count;
+      inner.style.animation = `cinBurst ${(durationMs / 1000).toFixed(2)}s both`;
+      shell.appendChild(inner);
+      cluster.appendChild(shell);
+      setTimeout(() => { if (shell.parentNode) shell.remove(); }, durationMs + 100);
+    }
     function startChallengeTimer() {
       clearChallengeTimer();
-      state.challengeTimeLeft = CHALLENGE_TIMER_SECS;
-      updateChallengeBoxTimer();
-      state.challengeTimer = setInterval(() => {
-        state.challengeTimeLeft--;
-        updateChallengeBoxTimer();
-        if (state.challengeTimeLeft <= 0) {
-          clearChallengeTimer();
-          if (state.challengeWindow && !state.betting && !state.gameOver) {
-            humanAcceptNoChallenge();
-          }
+      const durationMs = CHALLENGE_TIMER_SECS * 1000;
+      const tickMs = Math.round(durationMs / 3);
+      showChallengeCountdownBurst(3, tickMs - 80);
+      state.challengeTimerT1 = setTimeout(() => showChallengeCountdownBurst(2, tickMs - 80), tickMs);
+      state.challengeTimerT2 = setTimeout(() => showChallengeCountdownBurst(1, tickMs - 80), tickMs * 2);
+      state.challengeTimer = setTimeout(() => {
+        state.challengeTimer = null;
+        if (state.challengeWindow && !state.betting && !state.gameOver) {
+          humanAcceptNoChallenge();
         }
-      }, 1000);
+      }, durationMs);
     }
     function clearChallengeTimer() {
-      if (state.challengeTimer) {
-        clearInterval(state.challengeTimer);
-        state.challengeTimer = null;
-      }
+      clearTimeout(state.challengeTimer);
+      state.challengeTimer = null;
+      clearTimeout(state.challengeTimerT1);
+      state.challengeTimerT1 = null;
+      clearTimeout(state.challengeTimerT2);
+      state.challengeTimerT2 = null;
       state.challengeTimeLeft = 0;
     }
-    function updateChallengeBoxTimer() {
-      const pct = (state.challengeTimeLeft / CHALLENGE_TIMER_SECS) * 100;
-      const bar = document.getElementById('challengeTimerBar');
-      const count = document.getElementById('challengeTimerCount');
-      const label = document.getElementById('challengeTimerLabel');
-      if (bar) bar.style.width = pct + '%';
-      if (count) count.textContent = state.challengeTimeLeft + 's';
-      if (label) label.textContent = state.challengeTimeLeft + 's';
-    }
+    function updateChallengeBoxTimer() {}
     function clampNumber(value, min, max) {
       return Math.min(max, Math.max(min, value));
     }
@@ -5452,16 +5481,8 @@
         <div class="challengePromptPane fit-target fit-0" id="challengePromptPane" data-proj-id="challenge-prompt">
           <div class="challengeBoxHeader">
             <div class="sectionTitle" style="color:var(--danger);">Challenge window</div>
-            <div id="challengeTimerCount" style="font-size:1.05rem;font-weight:800;color:var(--danger);"></div>
           </div>
           <div id="challengeBoxInfo" class="tiny challengePromptInfo">${challengePromptText}</div>
-          <div class="challengeTimerRow">
-            <div class="timerLabel">
-              <span id="challengeTimerTitle">${escapeHtml(SCRATCHBONES_GAME.uiText.challengeTimerLabel)}</span>
-              <span id="challengeTimerLabel"></span>
-            </div>
-            <div class="timerTrack"><div class="timerFill" id="challengeTimerBar"></div></div>
-          </div>
           <div class="challengePromptBtns">
             <button class="danger" id="challengeBtnFixed">⚔ Challenge</button>
             <button class="secondary" id="letPassBtnFixed">${escapeHtml(SCRATCHBONES_GAME.uiText.letStandButton)}</button>
@@ -5622,7 +5643,7 @@
             ? ''
             : state.betting
             ? renderBettingControls()
-            : (sharedContextBox && humanCanDecideChallenge && !claimClusterEnabled
+            : (sharedContextBox && humanCanDecideChallenge
               ? renderChallengePrompt()
               : renderDeclareControls()))}
         <div class="handWrap fit-target fit-0" data-proj-id="hand">
@@ -5668,33 +5689,6 @@
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
       renderSeatPortraits();
       mountClaimClusterCinematicStage(app, { cinematicMode, cinematicPhase, cinematicRevealPlay, bettingActorHuman, humanCallAmount });
-      if (humanCanDecideChallenge && claimClusterEnabled) {
-        const bettingLayer = app.querySelector('.claimClusterBettingLayer');
-        const statusAnchor = bettingLayer?.querySelector('[data-stake-betting-status-anchor]');
-        const choiceAnchor = bettingLayer?.querySelector('[data-stake-betting-choice-anchor]');
-        if (bettingLayer && choiceAnchor) {
-          bettingLayer.style.pointerEvents = 'auto';
-          if (statusAnchor) {
-            statusAnchor.innerHTML = `<div class="bettingStatusTitle" style="color:var(--danger);">Challenge Window</div><div id="challengeTimerCount" style="font-size:1rem;font-weight:800;color:var(--danger);"></div>`;
-          }
-          choiceAnchor.innerHTML = `
-            <div id="challengeBoxInfo" class="tiny" style="text-align:center;max-width:36ch;">${escapeHtml(challengePromptText)}</div>
-            <div class="challengeTimerRow">
-              <div class="timerLabel"><span id="challengeTimerTitle">${escapeHtml(SCRATCHBONES_GAME.uiText.challengeTimerLabel)}</span><span id="challengeTimerLabel"></span></div>
-              <div class="timerTrack"><div class="timerFill" id="challengeTimerBar"></div></div>
-            </div>
-            <div class="challengePromptBtns">
-              <button class="danger" id="challengeBtnFixed">⚔ Challenge</button>
-              <button class="secondary" id="letPassBtnFixed">${escapeHtml(SCRATCHBONES_GAME.uiText.letStandButton)}</button>
-            </div>
-          `;
-          choiceAnchor.querySelector('#challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
-          choiceAnchor.querySelector('#letPassBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanAcceptNoChallenge(); });
-          updateChallengeBoxTimer();
-        }
-      } else if (humanCanDecideChallenge) {
-        updateChallengeBoxTimer();
-      }
       document.getElementById('betCallBtn')?.addEventListener('click', () => humanBetAction('call'));
       document.getElementById('betFoldBtn')?.addEventListener('click', () => humanBetAction('fold'));
       app.querySelectorAll('[data-stake-tier-action="open"]').forEach((btn) => {
@@ -6082,7 +6076,7 @@
           statusAnchor.innerHTML = `<div class="bettingStatusTitle">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="bettingStatusLine">${escapeHtml(seatFirstName(state.betting.currentActorId))} to act · Stake ${escapeHtml(state.betting.currentTierId || 'pending')} (${state.betting.currentTierValue || 0})</div>`;
           leftAnchor.innerHTML = `<div class="stakeSlotLabel">Challenger</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengerId}">${challengerContributionTierId ? `<img data-stake-contrib-coin="${state.betting.challengerId}" src="${escapeHtml(stakeCoinSrcForTier(challengerContributionTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenger contribution coin">` : ''}</div><div class="stakeSlotValue">${getContribution(state.betting.challengerId)}</div>`;
           rightAnchor.innerHTML = `<div class="stakeSlotLabel">Challenged</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengedId}">${challengedContributionTierId ? `<img data-stake-contrib-coin="${state.betting.challengedId}" src="${escapeHtml(stakeCoinSrcForTier(challengedContributionTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenged contribution coin">` : ''}</div><div class="stakeSlotValue">${getContribution(state.betting.challengedId)}</div>`;
-          potCenterAnchor.innerHTML = `<div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div><div class="stakePotReadout">Pot ${challengePotTotal()}</div>`;
+          potCenterAnchor.innerHTML = `<div class="potCoinRow"><div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div></div><div class="stakePotReadout">Pot ${challengePotTotal()}</div>`;
           choiceAnchor.innerHTML = bettingActionsHtml;
           const coinButtons = [...choiceAnchor.querySelectorAll('[data-stake-tier-btn] img')].map((img) => ({ src: img.getAttribute('src'), fallback: img.getAttribute('data-fallback-src') }));
           const slotRects = {
