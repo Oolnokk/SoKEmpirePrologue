@@ -502,6 +502,7 @@
       inset: 0;
       pointer-events: none;
       z-index: 13;
+      transform: none;
     }
     .claimClusterBettingLayer > * {
       position: absolute;
@@ -5896,7 +5897,7 @@
         clearCinematicTimeout();
         state.cinematicMode = null;
       }
-      const challengeVisualsActive = !!(state.challengeWindow || state.betting || state.cinematicMode || state.challengeIntro);
+      const challengeVisualsActive = !!(state.betting || state.cinematicMode || state.challengeIntro);
       const hadChallengeVisuals = app.classList.contains('challenge-visuals-active');
       app.classList.toggle('cinematic-mode-active', bettingModeActive || !!state.cinematicMode);
       app.classList.toggle('challenge-visuals-active', challengeVisualsActive);
