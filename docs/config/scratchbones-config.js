@@ -161,15 +161,7 @@ window.SCRATCHBONES_CONFIG = {
         }
       },
       "cards": {
-        "baseScale": 0.5,
-        "depth": {
-          "perspectivePx": 1180,
-          "originXPct": 0.5,
-          "originYPct": 1.18,
-          "tiltXDeg": 15,
-          "depthZPx": 14,
-          "artLiftZPx": 5
-        }
+        "baseScale": 0.5
       },
       "sizing": {
         "sidebarWidthFrac": 0.15,
