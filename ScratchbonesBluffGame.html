@@ -471,6 +471,20 @@
       font-size: calc(var(--layout-cinematic-player-info-font) * 0.72);
       color: var(--accent);
     }
+    .claimAvatarNameTag {
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: max-content;
+      pointer-events: none;
+      color: var(--accent-2);
+      font-weight: 800;
+      font-size: 1rem;
+      letter-spacing: 0.06em;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.72);
+      z-index: 5;
+    }
     .claimClusterTextAnchor {
       pointer-events: none;
       overflow: visible;
@@ -589,16 +603,15 @@
       transform: scale(var(--layout-claim-avatar-zoom));
       transform-origin: center center;
     }
+    .claimAvatarShell.alert-pulse {
+      animation: claimGlowRed 0.8s ease-in-out infinite;
+    }
     .actorAvatarFloat canvas,
     .reactorAvatarFloat canvas {
       width: 100%;
       height: auto;
       aspect-ratio: 1;
       display: block;
-    }
-    .reactorAvatarFloat canvas {
-      transform: scaleX(-1);
-      transform-origin: center center;
     }
     .tableViewHeader {
       display: flex;
@@ -844,7 +857,15 @@
     .claimHandBar.glow-green .tableViewCard { animation: claimGlowGreen 1.5s ease-in-out 1 both; }
     .claimHandBar.glow-red .tableViewCard   { animation: claimGlowRed   0.8s ease-in-out 3 both; }
     .eliminated { opacity: 0.55; filter: grayscale(0.4); }
-    .seatPortrait { display: block; width: 100%; aspect-ratio: 1; height: auto; border-radius: 8px; }
+    .seatPortrait {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      height: auto;
+      border-radius: 8px;
+      transform: scaleX(-1);
+      transform-origin: center center;
+    }
     .controls {
       padding: calc(var(--layout-controls-padding-y) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale))
                calc(var(--layout-controls-padding-x) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
@@ -1556,6 +1577,7 @@
     .cin-action-burst.burst-call  { color: #88ccff; text-shadow: 0 0 14px rgba(100,180,255,0.9), 0 0 32px rgba(60,140,255,0.5); }
     .cin-action-burst.burst-raise { color: #f2d08f; text-shadow: 0 0 14px rgba(242,160,40,0.95), 0 0 32px rgba(200,110,10,0.6); }
     .cin-action-burst.burst-fold  { color: #ff9090; text-shadow: 0 0 14px rgba(255,70,70,0.95),  0 0 32px rgba(200,30,30,0.6); }
+    .cin-action-burst.burst-liar  { color: #ff6f6f; text-shadow: 0 0 16px rgba(255,70,70,0.98), 0 0 34px rgba(220,10,10,0.7); }
     @keyframes cinBurst {
       0%   { transform: translate(-50%, -50%) scale(0.3);  opacity: 1;
              animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
@@ -1859,6 +1881,7 @@
       border-radius: 8px;
       cursor: pointer;
       letter-spacing: 0.05em;
+      display: none;
     }
     #_dbgBtn:hover { background: rgba(67,49,43,0.97); }
     #_dbgPanel {
@@ -1866,7 +1889,7 @@
       bottom: calc(50px + var(--safe)); left: 10px;
       width: min(420px, calc(100vw - 20px));
       max-height: 55vh;
-      display: none;
+      display: none !important;
       flex-direction: column;
       background: rgba(14,10,9,0.96);
       border: 1px solid rgba(200,150,80,0.3);
@@ -1875,7 +1898,7 @@
       overflow: hidden;
       box-shadow: 0 8px 24px rgba(0,0,0,0.6);
     }
-    #_dbgPanel.open { display: flex; }
+    #_dbgPanel.open { display: none !important; }
     #_dbgPanelHead {
       display: flex; align-items: center; justify-content: space-between;
       padding: 6px 10px;
@@ -2099,8 +2122,8 @@
     </div>
   </div>
   <!-- Debug log panel -->
-  <button id="_dbgBtn" title="Toggle debug log">Log</button>
-  <div id="_dbgPanel">
+  <button id="_dbgBtn" title="Toggle debug log" hidden aria-hidden="true">Log</button>
+  <div id="_dbgPanel" hidden aria-hidden="true">
     <div id="_dbgPanelHead">
       <span>DEBUG LOG</span>
       <button id="_dbgCopyBtn">Copy</button>
@@ -2177,6 +2200,7 @@
         },
         timers: {
           challengeTimerSecs: rawGameConfig.timers?.challengeSeconds ?? 6,
+          challengeIntroMs: rawGameConfig.timers?.challengeIntroMs ?? 1350,
           aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 650,
           aiDecisionDelays: {
             turnMinMs: rawGameConfig.timers?.aiDecisionDelays?.turnMinMs ?? 420,
@@ -2366,6 +2390,7 @@
           pickCardWarning: rawGameConfig.uiText?.pickCardWarning ?? 'Pick at least one card before playing.',
           challengeTimerLabel: rawGameConfig.uiText?.challengeTimerLabel ?? 'Auto: let it stand',
           challengePromptTemplate: rawGameConfig.uiText?.challengePromptTemplate ?? '{seat} declared {count} × {rank}. Challenge before the timer runs out, or let it stand.',
+          challengeBurstText: rawGameConfig.uiText?.challengeBurstText ?? 'LIAR!!!',
           letStandButton: rawGameConfig.uiText?.letStandButton ?? 'Let it stand',
         },
         assets: {
@@ -2862,6 +2887,8 @@
       challengeTimer: null,
       challengeTimeLeft: 0,
       challengeDecisionSession: 0,
+      challengeIntro: null,
+      challengeIntroTimeout: null,
       cinematicMode: null,
       cinematicTimeout: null,
       bettingUiDebugKey: null,
@@ -3042,6 +3069,7 @@
       state.pile = [];
       state.challengeWindow = null;
       state.betting = null;
+      clearChallengeIntro();
       state.declaredRank = null;
       state.gameOver = false;
       state.winnerIndex = null;
@@ -3363,12 +3391,22 @@
       const target = state.challengeWindow.lastPlay.playerIndex;
       advanceAfterNoChallenge(target);
     }
-    function startChallenge(challengerIndex, challengedIndex) {
-      if (!state.challengeWindow || state.gameOver || state.betting) return;
-      clearChallengeTimer();
+    function clearChallengeIntro() {
+      if (state.challengeIntroTimeout) {
+        clearTimeout(state.challengeIntroTimeout);
+        state.challengeIntroTimeout = null;
+      }
+      state.challengeIntro = null;
+    }
+    function startChallengeBetting(challengerIndex, challengedIndex) {
+      const play = state.challengeWindow?.lastPlay;
+      if (!play) {
+        clearChallengeIntro();
+        return;
+      }
+      clearChallengeIntro();
       SCRATCHBONES_AUDIO.playChallengeStart();
       SCRATCHBONES_AUDIO.startChallengeMusic();
-      const play = state.challengeWindow.lastPlay;
       addLog(`${seatLabel(challengerIndex)} challenges ${seatLabel(challengedIndex)}.`);
       state.betting = {
         play,
@@ -3393,6 +3431,24 @@
       setBanner(`${seatLabel(challengerIndex)} and ${seatLabel(challengedIndex)} are betting on the challenge.`);
       render();
       scheduleBettingAiIfNeeded();
+    }
+    function startChallenge(challengerIndex, challengedIndex) {
+      if (!state.challengeWindow || state.gameOver || state.betting) return;
+      clearChallengeTimer();
+      clearChallengeIntro();
+      state.challengeIntro = {
+        challengerId: challengerIndex,
+        challengedId: challengedIndex,
+        burstText: String(CONFIG.uiText?.challengeBurstText || 'LIAR!!!'),
+      };
+      setBanner(`${seatFirstName(challengerIndex)} calls liar! Challenge begins...`);
+      render();
+      const introMs = Math.max(0, Number(CONFIG.timers?.challengeIntroMs) || 1350);
+      state.challengeIntroTimeout = setTimeout(() => {
+        if (!state.challengeWindow || state.gameOver || state.betting) return;
+        if (!state.challengeIntro || state.challengeIntro.challengerId !== challengerIndex || state.challengeIntro.challengedId !== challengedIndex) return;
+        startChallengeBetting(challengerIndex, challengedIndex);
+      }, introMs);
     }
     function stakeTierValueById(tierId) {
       return STAKE_TIER_BY_ID[tierId]?.value ?? 0;
@@ -3796,6 +3852,7 @@
     function advanceAfterNoChallenge(lastPlayerIndex) {
       if (!state.challengeWindow || state.gameOver || state.betting) return;
       clearChallengeTimer();
+      clearChallengeIntro();
       state.challengeWindow = null;
       showClaimGlow('green', 1600, () => {
         if (state.gameOver) return;
@@ -3846,6 +3903,7 @@
       state.declaredRank = null;
       state.challengeWindow = null;
       state.betting = null;
+      clearChallengeIntro();
       state.round += 1;
       state.leaderIndex = playerIndex;
       state.currentTurn = playerIndex;
@@ -3864,6 +3922,7 @@
       state.declaredRank = null;
       state.challengeWindow = null;
       state.betting = null;
+      clearChallengeIntro();
       state.pile = [];
       state.roundConcessions.clear();
       state.round += 1;
@@ -5270,6 +5329,8 @@
       const cinematicFocusReactorId = Number.isInteger(cinematicMode?.reactorId) ? cinematicMode.reactorId : null;
       const cinematicRevealPlay = cinematicMode?.play || null;
       const cinematicRevealActive = cinematicPhase === 'reveal' && !!cinematicRevealPlay;
+      const challengeIntro = state.challengeIntro;
+      const challengeVisualsActive = !!(state.challengeWindow || state.betting || state.cinematicMode || challengeIntro);
       const claimFocus = (() => {
         if (!latestPlay) {
           return {
@@ -5281,10 +5342,10 @@
             subtext: 'Select cards and declare a number to begin the next claim.'
           };
         }
-        let actorId = (state.betting || state.challengeWindow) ? latestPlay.playerIndex : state.currentTurn;
+        let actorId = (state.betting || state.challengeWindow || challengeIntro) ? latestPlay.playerIndex : state.currentTurn;
         let reactorId = null;
         if (state.betting) reactorId = latestPlay.playerIndex === state.betting.challengerId ? state.betting.challengedId : state.betting.challengerId;
-        else if (state.challengeWindow) reactorId = latestPlay.playerIndex === 0 ? (state.challengeWindow.challengerOptions.find(id => id !== 0) ?? null) : 0;
+        else if (challengeIntro) reactorId = challengeIntro.challengerId;
         const declaredRank = latestPlay.declaredRank ?? state.declaredRank;
         const cardCount = latestPlay.cards?.length || 0;
         const cards = latestPlay.cards || [];
@@ -5480,12 +5541,15 @@
               <div class="claimAvatarShell">
                 <canvas class="seatPortrait" data-seat-id="${claimFocus.actorId}" width="220" height="220"></canvas>
               </div>
+              ${(!challengeVisualsActive && focusActor) ? `<div class="claimAvatarNameTag">${escapeHtml(seatFirstName(focusActor))}</div>` : ''}
               <div class="claimAvatarLocalOverlay" aria-hidden="true"></div>
             </div>
             <div class="reactorAvatarFloat ${claimClusterShellClass}" data-proj-id="claim-avatar-reactor" style="${claimClusterElementStyle(claimClusterPolicy.elements.reactorAvatarFloat)}" title="${focusReactor ? seatLabel(focusReactor) : 'No reactor'}">
-              <div class="claimAvatarShell">
+              <div class="claimAvatarShell ${(challengeIntro && focusReactor) ? 'alert-pulse' : ''}">
                 ${focusReactor ? `<canvas class="seatPortrait" data-seat-id="${focusReactor.id}" width="220" height="220"></canvas>` : ''}
               </div>
+              ${(!challengeVisualsActive && focusReactor) ? `<div class="claimAvatarNameTag">${escapeHtml(seatFirstName(focusReactor))}</div>` : ''}
+              ${(challengeIntro && focusReactor) ? `<div class="fx-burst-shell"><div class="cin-action-burst burst-liar">${escapeHtml(challengeIntro.burstText || 'LIAR!!!')}</div></div>` : ''}
               <div class="claimAvatarLocalOverlay" aria-hidden="true"></div>
             </div>
             <div class="claimClusterTextAnchor ${claimClusterShellClass}" data-proj-id="claim-cinematic-text" style="${claimClusterElementStyle(claimClusterPolicy.elements.cinematicPane)}"></div>
@@ -5757,7 +5821,7 @@
       if ((!bettingModeActive) && state.cinematicMode?.mode === 'betting') {
         closeCinematic(false);
       }
-      const challengeVisualsActive = !!(state.challengeWindow || state.betting || state.cinematicMode);
+      const challengeVisualsActive = !!(state.challengeWindow || state.betting || state.cinematicMode || state.challengeIntro);
       const hadChallengeVisuals = app.classList.contains('challenge-visuals-active');
       app.classList.toggle('cinematic-mode-active', bettingModeActive || !!state.cinematicMode);
       app.classList.toggle('challenge-visuals-active', challengeVisualsActive);
