@@ -169,6 +169,7 @@
       --layout-flame-mid-alpha: 0.27;
       --layout-flame-far-alpha: 0.14;
       --layout-flame-flicker-seconds: 2.9s;
+      --layout-flame-enabled: 1;
       --layout-card-shadow-offset-x: 1.5px;
       --layout-card-shadow-offset-y: 9px;
       --layout-card-shadow-blur: 12px;
@@ -270,10 +271,10 @@
       background-color: #170808;
     }
      #app.challenge-visuals-active::before {
-      opacity: 1;
+      opacity: calc(1 * var(--layout-flame-enabled));
     }
      #app.challenge-visuals-active::after {
-      opacity: 0.72;
+      opacity: calc(0.72 * var(--layout-flame-enabled));
     }
     @keyframes tableFlameFlicker {
       0%   { transform: translateX(-0.35%) translateY(0.25%); opacity: 0.86; filter: brightness(0.95) saturate(1); }
@@ -2341,6 +2342,7 @@
           },
           lighting: {
             flame: {
+              enabled: rawGameConfig.layout?.lighting?.flame?.enabled !== false,
               xPct: rawGameConfig.layout?.lighting?.flame?.xPct ?? 0.5,
               yPct: rawGameConfig.layout?.lighting?.flame?.yPct ?? 0.14,
               coreAlpha: rawGameConfig.layout?.lighting?.flame?.coreAlpha ?? 0.4,
@@ -4645,11 +4647,12 @@
       const cinematicBurstDurationSec = clampNumber(Number(cinematicLayout.betActionBurstDurationSec) || 2.1, 0.4, 6);
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
       const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
+      const flameEnabled = flameLighting.enabled !== false;
       const flameXPct = clampNumber(numberOrDefault(flameLighting.xPct, 0.5), 0, 1);
       const flameYPct = clampNumber(numberOrDefault(flameLighting.yPct, 0.14), -0.5, 0.35);
-      const flameCoreAlpha = clampNumber(numberOrDefault(flameLighting.coreAlpha, 0.4), 0, 0.45);
-      const flameMidAlpha = clampNumber(numberOrDefault(flameLighting.midAlpha, 0.27), 0, 0.35);
-      const flameFarAlpha = clampNumber(numberOrDefault(flameLighting.farAlpha, 0.14), 0, 0.2);
+      const flameCoreAlpha = flameEnabled ? clampNumber(numberOrDefault(flameLighting.coreAlpha, 0.4), 0, 0.45) : 0;
+      const flameMidAlpha = flameEnabled ? clampNumber(numberOrDefault(flameLighting.midAlpha, 0.27), 0, 0.35) : 0;
+      const flameFarAlpha = flameEnabled ? clampNumber(numberOrDefault(flameLighting.farAlpha, 0.14), 0, 0.2) : 0;
       const flameFlickerSeconds = clampNumber(numberOrDefault(flameLighting.flickerSeconds, 2.9), 1.2, 8);
       const cardShadowOffsetXPx = clampNumber(numberOrDefault(cardShadowLighting.offsetXPx, 1.5), -18, 18);
       const cardShadowOffsetYPx = clampNumber(numberOrDefault(cardShadowLighting.offsetYPx, 9), 0, 28);
@@ -4716,6 +4719,7 @@
       setCssVar('--layout-flame-mid-alpha', flameMidAlpha.toFixed(3));
       setCssVar('--layout-flame-far-alpha', flameFarAlpha.toFixed(3));
       setCssVar('--layout-flame-flicker-seconds', `${flameFlickerSeconds.toFixed(3)}s`);
+      setCssVar('--layout-flame-enabled', flameEnabled ? '1' : '0');
       setCssVar('--layout-card-shadow-offset-x', `${cardShadowOffsetXPx.toFixed(2)}px`);
       setCssVar('--layout-card-shadow-offset-y', `${cardShadowOffsetYPx.toFixed(2)}px`);
       setCssVar('--layout-card-shadow-blur', `${cardShadowBlurPx.toFixed(2)}px`);

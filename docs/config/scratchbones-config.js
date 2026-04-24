@@ -348,6 +348,7 @@ window.SCRATCHBONES_CONFIG = {
       },
       "lighting": {
         "flame": {
+          "enabled": false,
           "xPct": 0.5,
           "yPct": 0.14,
           "coreAlpha": 0.4,
