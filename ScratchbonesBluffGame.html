@@ -3285,15 +3285,20 @@
       return checkGameOverBySurvivors();
     }
     function maybeAutoRevealAfterMatchedBet() {
-      if (!state.betting) return;
+      if (!state.betting) return false;
       const a = state.betting.challengerId;
       const b = state.betting.challengedId;
       if (getContribution(a) === state.betting.stake && getContribution(b) === state.betting.stake) {
+        if (state.betting.pendingAutoReveal) return true;
+        state.betting.pendingAutoReveal = true;
         revealChallenge();
+        return true;
       }
+      return false;
     }
     function resolveBetAction(playerId, action) {
       if (!state.betting || state.gameOver) return;
+      if (state.betting.pendingAutoReveal) return;
       if (state.betting.currentActorId !== playerId) return;
       const command = typeof action === 'string' ? action : action?.type;
       const player = state.players[playerId];
@@ -3318,7 +3323,7 @@
           finalizeChallengeByFold(opponentId, playerId, 'could not cover the call');
           return;
         }
-        maybeAutoRevealAfterMatchedBet();
+        if (maybeAutoRevealAfterMatchedBet()) return;
         if (!state.betting) return;
         state.betting.currentActorId = opponentId;
         render();
@@ -3374,7 +3379,7 @@
               finalizeChallengeByFold(state.betting.challengedId, backupId, 'could not cover the backup call');
               return;
             }
-            maybeAutoRevealAfterMatchedBet();
+            if (maybeAutoRevealAfterMatchedBet()) return;
             if (!state.betting) return;
             state.betting.currentActorId = state.betting.challengedId;
             render();
