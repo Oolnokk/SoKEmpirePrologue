@@ -222,31 +222,48 @@
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
     }
+    #app > * {
+      position: relative;
+      z-index: 1;
+    }
     #app::before {
       content: '';
       position: absolute;
       inset: -18% -12% -14%;
       pointer-events: none;
-      z-index: 2;
-      mix-blend-mode: screen;
+      z-index: 0;
+      mix-blend-mode: normal;
       background:
         radial-gradient(70% 52% at var(--layout-flame-x) var(--layout-flame-y), rgba(255, 218, 142, var(--layout-flame-core-alpha)) 0%, rgba(255, 120, 58, calc(var(--layout-flame-core-alpha) * 0.66)) 34%, transparent 72%),
         radial-gradient(96% 74% at var(--layout-flame-x) calc(var(--layout-flame-y) + 10%), rgba(255, 86, 36, var(--layout-flame-mid-alpha)) 0%, transparent 76%),
         radial-gradient(128% 106% at var(--layout-flame-x) calc(var(--layout-flame-y) + 20%), rgba(202, 30, 28, var(--layout-flame-far-alpha)) 0%, transparent 86%),
         linear-gradient(180deg, rgba(188, 24, 24, calc(var(--layout-flame-far-alpha) * 0.76)) 0%, rgba(121, 17, 17, calc(var(--layout-flame-far-alpha) * 0.56)) 52%, rgba(76, 12, 12, calc(var(--layout-flame-far-alpha) * 0.4)) 100%);
       animation: tableFlameFlicker var(--layout-flame-flicker-seconds) infinite ease-in-out alternate;
+      opacity: 0;
+      transition: opacity 220ms ease;
     }
     #app::after {
       content: '';
       position: absolute;
       inset: 0;
       pointer-events: none;
-      z-index: 1;
+      z-index: 0;
       background:
         linear-gradient(to bottom, rgba(0, 0, 0, 0.18), transparent 30%),
         linear-gradient(120deg, transparent 34%, rgba(0, 0, 0, 0.08) 50%, transparent 65%);
       animation: tableFlameShadowDrift calc(var(--layout-flame-flicker-seconds) * 1.5) infinite ease-in-out alternate;
-      opacity: 0.62;
+      opacity: 0;
+      transition: opacity 220ms ease;
+    }
+    #app.cinematic-mode-active {
+      background-image: none;
+      background-color: #170808;
+    }
+    #app.cinematic-mode-active::before {
+      opacity: 1;
+    }
+    #app.cinematic-mode-active::after {
+      opacity: 0.72;
     }
     @keyframes tableFlameFlicker {
       0%   { transform: translateX(-0.35%) translateY(0.25%); opacity: 0.86; filter: brightness(0.95) saturate(1); }
