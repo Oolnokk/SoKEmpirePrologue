@@ -178,6 +178,12 @@
       --layout-card-shadow-spread: -2px;
       --layout-card-shadow-alpha: 0.34;
       --layout-card-contact-alpha: 0.2;
+      --layout-card-perspective: 1180px;
+      --layout-card-perspective-origin-x: 50%;
+      --layout-card-perspective-origin-y: 118%;
+      --layout-card-tilt-x: 15deg;
+      --layout-card-depth-z: 14px;
+      --layout-card-art-z: 5px;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
@@ -219,6 +225,9 @@
       background-position: center center;
       background-repeat: no-repeat;
       background-size: 100% 100%;
+      perspective: var(--layout-card-perspective);
+      perspective-origin: var(--layout-card-perspective-origin-x) var(--layout-card-perspective-origin-y);
+      transform-style: preserve-3d;
       display: grid;
       container-type: size;
       grid-template-columns: minmax(0, 1fr) minmax(220px, 0.4fr) var(--layout-sidebar-width);
@@ -950,6 +959,7 @@
       min-height: 0;
     }
     .card {
+      --card-lift-y: 0px;
       width: 100%;
       min-width: var(--layout-card-hit-min-width);
       min-height: max(
@@ -970,8 +980,12 @@
       position: relative;
       overflow: hidden;
       isolation: isolate;
+      transform: translateY(var(--card-lift-y)) translateZ(var(--layout-card-depth-z)) rotateX(var(--layout-card-tilt-x));
+      transform-origin: 50% 56%;
+      transform-style: preserve-3d;
+      transition: transform 140ms ease-out, filter 140ms ease-out;
     }
-    .card.selected { transform: translateY(-4px); border-color: transparent; }
+    .card.selected { --card-lift-y: -4px; border-color: transparent; }
     .card.selected::after {
       content: '';
       position: absolute;
@@ -995,6 +1009,8 @@
       display: block;
       border-radius: 0;
       pointer-events: none;
+      transform: translateZ(var(--layout-card-art-z));
+      transform-origin: center;
     }
     .cardLabel {
       position: absolute;
@@ -1013,6 +1029,7 @@
       line-height: 1.1;
       letter-spacing: 0.04em;
       pointer-events: none;
+      transform: translateZ(calc(var(--layout-card-art-z) + 1px));
     }
     .cardGlyph {
       display: inline-flex;
@@ -2255,6 +2272,14 @@
           },
           cards: {
             baseScale: rawGameConfig.layout?.cards?.baseScale ?? 0.25,
+            depth: {
+              perspectivePx: rawGameConfig.layout?.cards?.depth?.perspectivePx ?? 1180,
+              originXPct: rawGameConfig.layout?.cards?.depth?.originXPct ?? 0.5,
+              originYPct: rawGameConfig.layout?.cards?.depth?.originYPct ?? 1.18,
+              tiltXDeg: rawGameConfig.layout?.cards?.depth?.tiltXDeg ?? 15,
+              depthZPx: rawGameConfig.layout?.cards?.depth?.depthZPx ?? 14,
+              artLiftZPx: rawGameConfig.layout?.cards?.depth?.artLiftZPx ?? 5,
+            },
           },
           animation: {
             baseDurationMs: rawGameConfig.layout?.animation?.baseDurationMs ?? 400,
@@ -4654,6 +4679,7 @@
       const claimCluster = getClaimClusterConfig();
       const layoutSizing = layout.sizing || {};
       const layoutCards = layout.cards || {};
+      const layoutCardDepth = layoutCards.depth || {};
       const viewportLayout = layout.viewport || {};
       const handLayout = layout.hand || {};
       const tableViewLayout = layout.tableView || {};
@@ -4662,6 +4688,12 @@
       const flameLighting = lightingLayout.flame || {};
       const cardShadowLighting = lightingLayout.cardShadow || {};
       const cardBaseScale = clampNumber(Number(layoutCards.baseScale) || 0.25, 0.1, 0.75);
+      const cardPerspectivePx = clampNumber(Number(layoutCardDepth.perspectivePx) || 1180, 500, 3000);
+      const cardPerspectiveOriginXPct = clampNumber(Number(layoutCardDepth.originXPct) || 0.5, -0.2, 1.2);
+      const cardPerspectiveOriginYPct = clampNumber(Number(layoutCardDepth.originYPct) || 1.18, 0.8, 1.8);
+      const cardTiltXDeg = clampNumber(Number(layoutCardDepth.tiltXDeg) || 15, -8, 30);
+      const cardDepthZPx = clampNumber(Number(layoutCardDepth.depthZPx) || 14, -24, 60);
+      const cardArtLiftZPx = clampNumber(Number(layoutCardDepth.artLiftZPx) || 5, -8, 28);
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
       const handHeightScale = clampNumber(Number(handLayout.heightScale) || 0.5, 0.2, 0.75);
       const configuredHandMinHeightPx = Math.max(80, Number(handLayout.minHeightPx) || 160);
@@ -4809,6 +4841,12 @@
       setCssVar('--layout-liar-burst-duration', `${liarBurstDurationSec.toFixed(3)}s`);
       setCssVar('--layout-liar-burst-end-y', `${liarBurstEndYPct.toFixed(2)}%`);
       setCssVar('--layout-ui-tabletop-url', tabletopImageSrc ? `url("${tabletopImageSrc}")` : 'none');
+      setCssVar('--layout-card-perspective', `${cardPerspectivePx.toFixed(2)}px`);
+      setCssVar('--layout-card-perspective-origin-x', `${(cardPerspectiveOriginXPct * 100).toFixed(2)}%`);
+      setCssVar('--layout-card-perspective-origin-y', `${(cardPerspectiveOriginYPct * 100).toFixed(2)}%`);
+      setCssVar('--layout-card-tilt-x', `${cardTiltXDeg.toFixed(2)}deg`);
+      setCssVar('--layout-card-depth-z', `${cardDepthZPx.toFixed(2)}px`);
+      setCssVar('--layout-card-art-z', `${cardArtLiftZPx.toFixed(2)}px`);
       setCssVar('--layout-flame-x', `${(flameXPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-y', `${(flameYPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-core-alpha', flameCoreAlpha.toFixed(3));
