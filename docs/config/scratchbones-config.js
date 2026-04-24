@@ -263,6 +263,9 @@ window.SCRATCHBONES_CONFIG = {
           "enabled": true,
           "sharedDeclareAndChallengeSlot": true,
           "mustStayVisible": true
+        },
+        "log": {
+          "enabled": false
         }
       },
       "claimCluster": {

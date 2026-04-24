@@ -2358,6 +2358,9 @@
               sharedDeclareAndChallengeSlot: rawGameConfig.layout?.regions?.contextBox?.sharedDeclareAndChallengeSlot ?? true,
               mustStayVisible: rawGameConfig.layout?.regions?.contextBox?.mustStayVisible ?? true,
             },
+            log: {
+              enabled: rawGameConfig.layout?.regions?.log?.enabled ?? false,
+            },
           },
           claimCluster: {
             enabled: rawGameConfig.layout?.claimCluster?.enabled ?? true,
@@ -4603,6 +4606,9 @@
           sharedDeclareAndChallengeSlot: layoutRegions.contextBox?.sharedDeclareAndChallengeSlot !== false,
           mustStayVisible: layoutRegions.contextBox?.mustStayVisible !== false,
         },
+        log: {
+          enabled: layoutRegions.log?.enabled === true,
+        },
       };
     }
     function getClaimClusterConfig() {
@@ -4677,6 +4683,7 @@
       const cinematicEnabled = tableViewLayout.cinematic?.enabled !== false;
       const actionColumnHeightScale = clampNumber(Number(layout.actionColumn?.heightScale) || 0.25, 0.1, 0.75);
       const controlsHeightScale = clampNumber(Number(layout.controls?.heightScale) || 0.5, 0.2, 0.9);
+      const logRegionEnabled = layoutRegions.log?.enabled === true;
       const root = document.documentElement;
       const cssTargets = [root, app];
       const setCssVar = (name, value) => {
@@ -4822,7 +4829,7 @@
       setCssVar('--layout-action-column-max-height', `${(actionColumnHeightScale * 100).toFixed(2)}%`);
       setCssVar('--layout-controls-max-height', `${(controlsHeightScale * 100).toFixed(2)}%`);
       setCssVar('--layout-hand-max-row-height', `${(handHeightScale * 100).toFixed(2)}%`);
-      setCssVar('--layout-log-max-row-height', `${(actionColumnHeightScale * 100).toFixed(2)}%`);
+      setCssVar('--layout-log-max-row-height', logRegionEnabled ? `${(actionColumnHeightScale * 100).toFixed(2)}%` : '0px');
       setCssVar('--hand-compact-card-min', `${Math.round(compactCardMinWidthPx)}px`);
       setCssVar('--hand-compact-card-gap', `${compactCardGapPx.toFixed(2)}px`);
       setCssVar('--hand-compact-card-min-height', `${Math.round(compactCardMinHeightPx)}px`);
@@ -5352,6 +5359,7 @@
       const turnSpotlightEmbedded = tableViewPolicy.turnSpotlight?.embedded !== false;
       const contextBoxEnabled = regionsPolicy.contextBox?.enabled;
       const sharedContextBox = regionsPolicy.contextBox?.sharedDeclareAndChallengeSlot;
+      const eventLogEnabled = regionsPolicy.log?.enabled === true;
       const showLegacyActionFocus = !claimClusterEnabled && !regionsPolicy.actionFocus?.replaceWithFloatingClaimCluster && regionsPolicy.actionFocus?.enabled;
       const tableCardVisualMode = tableViewPolicy.cardVisualMode || 'facedown';
       const tableCardFaceDown = tableCardVisualMode !== 'faceup';
@@ -5417,7 +5425,7 @@
               return `<div class="tableViewCard" data-card-id="${card.id}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${tableCardFaceDown ? 'Face-down scratchbone card' : (card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`)}"></div>`;
             }).join(''))
         : '<div class="tiny">No cards on the table yet.</div>';
-      const recentLogs = state.logs.slice(0, 4);
+      const recentLogs = eventLogEnabled ? state.logs.slice(0, 4) : [];
       const turnPlayer = state.players[state.currentTurn];
       const turnSpotlightTitle = `${seatLabel(turnPlayer)}'s turn`;
       const renderDeclareControls = () => `
@@ -5633,10 +5641,12 @@
             </div>
           </div>
         </div>
-        <div class="eventLog fit-target fit-0" data-proj-id="log">
-          <div class="sectionTitle">Recent events</div>
-          ${recentLogs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
-        </div>
+        ${eventLogEnabled ? `
+          <div class="eventLog fit-target fit-0" data-proj-id="log">
+            <div class="sectionTitle">Recent events</div>
+            ${recentLogs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
+          </div>
+        ` : ''}
       `;
       if (state.declaredRank !== null) {
         const select = document.getElementById('declareRank');
