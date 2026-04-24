@@ -163,7 +163,7 @@ window.SCRATCHBONES_CONFIG = {
       "cards": {
         "baseScale": 0.5,
         "depth": {
-          "perspectivePx": 900,
+          "perspectivePx": 620,
           "originXPct": 0.5,
           "originYPct": 0.92,
           "tiltXDeg": 8,
@@ -175,7 +175,11 @@ window.SCRATCHBONES_CONFIG = {
           "shapeLayerOffsetXPx": 0.32,
           "shapeLayerOffsetYPx": 1.05,
           "shapeLayerSkewXDeg": -0.35,
-          "shapeLayerAlpha": 0.14
+          "shapeLayerAlpha": 0.14,
+          "bottomLayerOffsetXPx": 1.1,
+          "bottomLayerOffsetYPx": 4.2,
+          "bottomLayerSkewXDeg": -1.8,
+          "bottomLayerAlpha": 0.34
         }
       },
       "sizing": {
@@ -818,7 +822,7 @@ window.SCRATCHBONES_CONFIG = {
           "fallbackSrc": "2DScratchBoneWild.png"
         },
         "flipped": {
-          "src": "2DScratchboneFlipped.png",
+          "src": "2DScratchBoneFlipped.png",
           "fallbackSrc": "2DScratchBoneFlipped.png"
         },
         "rankTemplate": {

@@ -172,7 +172,7 @@
       --layout-flame-mid-alpha: 0.27;
       --layout-flame-far-alpha: 0.14;
       --layout-flame-flicker-seconds: 2.9s;
-      --layout-card-perspective: 900px;
+      --layout-card-perspective: 620px;
       --layout-card-perspective-origin-x: 50%;
       --layout-card-perspective-origin-y: 92%;
       --layout-card-tilt-x: 8deg;
@@ -184,6 +184,10 @@
       --layout-card-shape-layer-offset-y: 1.05px;
       --layout-card-shape-layer-skew-x: -0.35deg;
       --layout-card-shape-layer-alpha: 0.14;
+      --layout-card-bottom-layer-offset-x: 1.1px;
+      --layout-card-bottom-layer-offset-y: 4.2px;
+      --layout-card-bottom-layer-skew-x: -1.8deg;
+      --layout-card-bottom-layer-alpha: 0.34;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
@@ -1006,6 +1010,21 @@
       inset: 0;
       pointer-events: none;
       transform: translateZ(calc(var(--layout-card-art-z) - 1px));
+      transform-origin: center;
+    }
+    .cardDepthBase {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      pointer-events: none;
+      opacity: var(--layout-card-bottom-layer-alpha);
+      filter: brightness(0.06) saturate(0.35);
+      transform:
+        translate(var(--layout-card-bottom-layer-offset-x), var(--layout-card-bottom-layer-offset-y))
+        skewX(var(--layout-card-bottom-layer-skew-x));
       transform-origin: center;
     }
     .cardDepthLayer {
@@ -2320,7 +2339,7 @@
           cards: {
             baseScale: rawGameConfig.layout?.cards?.baseScale ?? 0.25,
             depth: {
-              perspectivePx: rawGameConfig.layout?.cards?.depth?.perspectivePx ?? 900,
+              perspectivePx: rawGameConfig.layout?.cards?.depth?.perspectivePx ?? 620,
               originXPct: rawGameConfig.layout?.cards?.depth?.originXPct ?? 0.5,
               originYPct: rawGameConfig.layout?.cards?.depth?.originYPct ?? 0.92,
               tiltXDeg: rawGameConfig.layout?.cards?.depth?.tiltXDeg ?? 8,
@@ -2333,6 +2352,10 @@
               shapeLayerOffsetYPx: rawGameConfig.layout?.cards?.depth?.shapeLayerOffsetYPx ?? 1.05,
               shapeLayerSkewXDeg: rawGameConfig.layout?.cards?.depth?.shapeLayerSkewXDeg ?? -0.35,
               shapeLayerAlpha: rawGameConfig.layout?.cards?.depth?.shapeLayerAlpha ?? 0.14,
+              bottomLayerOffsetXPx: rawGameConfig.layout?.cards?.depth?.bottomLayerOffsetXPx ?? 1.1,
+              bottomLayerOffsetYPx: rawGameConfig.layout?.cards?.depth?.bottomLayerOffsetYPx ?? 4.2,
+              bottomLayerSkewXDeg: rawGameConfig.layout?.cards?.depth?.bottomLayerSkewXDeg ?? -1.8,
+              bottomLayerAlpha: rawGameConfig.layout?.cards?.depth?.bottomLayerAlpha ?? 0.34,
             },
           },
           animation: {
@@ -2497,7 +2520,7 @@
           cardHudBasePath: rawGameConfig.assets?.cards?.hudBasePath ?? './docs/assets/hud/',
           wildCardSrc: rawGameConfig.assets?.cards?.wild?.src ?? '2DScratchBoneWild.png',
           wildCardFallbackSrc: rawGameConfig.assets?.cards?.wild?.fallbackSrc ?? '2DScratchBoneWild.png',
-          flippedCardSrc: rawGameConfig.assets?.cards?.flipped?.src ?? '2DScratchboneFlipped.png',
+          flippedCardSrc: rawGameConfig.assets?.cards?.flipped?.src ?? '2DScratchBoneFlipped.png',
           flippedCardFallbackSrc: rawGameConfig.assets?.cards?.flipped?.fallbackSrc ?? '2DScratchBoneFlipped.png',
           rankCardTemplateSrc: rawGameConfig.assets?.cards?.rankTemplate?.src ?? '2DScratchbone{rank}.png',
           rankCardTemplateFallbackSrc: rawGameConfig.assets?.cards?.rankTemplate?.fallbackSrc ?? '2DScratchbones{rank}.png',
@@ -4367,10 +4390,14 @@
     function cardLabel(card) {
       return card.wild ? 'Wild' : String(card.rank);
     }
-    function renderCardDepthLayers(art, layerCount) {
+    function renderCardDepthLayers(art, flippedArt, layerCount) {
       const safeLayerCount = Math.max(0, Math.min(8, Number(layerCount) || 0));
-      if (safeLayerCount < 1) return '';
+      const hasFlippedArt = Boolean(flippedArt?.src && flippedArt?.fallbackSrc);
+      if (safeLayerCount < 1 && !hasFlippedArt) return '';
       const layers = [];
+      if (hasFlippedArt) {
+        layers.push(`<img class="cardDepthBase" src="${flippedArt.src}" data-fallback-src="${flippedArt.fallbackSrc}" alt="" aria-hidden="true">`);
+      }
       for (let index = 1; index <= safeLayerCount; index += 1) {
         layers.push(`<img class="cardDepthLayer" data-depth-layer="${index}" style="--depth-layer-index:${index};" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="" aria-hidden="true">`);
       }
@@ -4746,7 +4773,7 @@
         return Number.isFinite(numericValue) ? numericValue : fallback;
       };
       const cardBaseScale = clampNumber(Number(layoutCards.baseScale) || 0.25, 0.1, 0.75);
-      const cardPerspectivePx = clampNumber(numberOrDefault(layoutCardDepth.perspectivePx, 900), 500, 3000);
+      const cardPerspectivePx = clampNumber(numberOrDefault(layoutCardDepth.perspectivePx, 620), 420, 3000);
       const cardPerspectiveOriginXPct = clampNumber(numberOrDefault(layoutCardDepth.originXPct, 0.5), -0.2, 1.2);
       const cardPerspectiveOriginYPct = clampNumber(numberOrDefault(layoutCardDepth.originYPct, 0.92), 0.8, 1.8);
       const cardTiltXDeg = clampNumber(numberOrDefault(layoutCardDepth.tiltXDeg, 8), -8, 30);
@@ -4758,6 +4785,10 @@
       const cardShapeLayerOffsetYPx = clampNumber(numberOrDefault(layoutCardDepth.shapeLayerOffsetYPx, 1.05), -6, 8);
       const cardShapeLayerSkewXDeg = clampNumber(numberOrDefault(layoutCardDepth.shapeLayerSkewXDeg, -0.35), -4, 4);
       const cardShapeLayerAlpha = clampNumber(numberOrDefault(layoutCardDepth.shapeLayerAlpha, 0.14), 0, 0.6);
+      const cardBottomLayerOffsetXPx = clampNumber(numberOrDefault(layoutCardDepth.bottomLayerOffsetXPx, 1.1), -6, 8);
+      const cardBottomLayerOffsetYPx = clampNumber(numberOrDefault(layoutCardDepth.bottomLayerOffsetYPx, 4.2), -8, 16);
+      const cardBottomLayerSkewXDeg = clampNumber(numberOrDefault(layoutCardDepth.bottomLayerSkewXDeg, -1.8), -8, 8);
+      const cardBottomLayerAlpha = clampNumber(numberOrDefault(layoutCardDepth.bottomLayerAlpha, 0.34), 0, 0.95);
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
       const handHeightScale = clampNumber(Number(handLayout.heightScale) || 0.5, 0.2, 0.75);
       const configuredHandMinHeightPx = Math.max(80, Number(handLayout.minHeightPx) || 160);
@@ -4907,6 +4938,10 @@
       setCssVar('--layout-card-shape-layer-offset-y', `${cardShapeLayerOffsetYPx.toFixed(2)}px`);
       setCssVar('--layout-card-shape-layer-skew-x', `${cardShapeLayerSkewXDeg.toFixed(2)}deg`);
       setCssVar('--layout-card-shape-layer-alpha', cardShapeLayerAlpha.toFixed(3));
+      setCssVar('--layout-card-bottom-layer-offset-x', `${cardBottomLayerOffsetXPx.toFixed(2)}px`);
+      setCssVar('--layout-card-bottom-layer-offset-y', `${cardBottomLayerOffsetYPx.toFixed(2)}px`);
+      setCssVar('--layout-card-bottom-layer-skew-x', `${cardBottomLayerSkewXDeg.toFixed(2)}deg`);
+      setCssVar('--layout-card-bottom-layer-alpha', cardBottomLayerAlpha.toFixed(3));
       setCssVar('--layout-flame-x', `${(flameXPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-y', `${(flameYPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-core-alpha', flameCoreAlpha.toFixed(3));
@@ -5722,12 +5757,13 @@
           <div class="handScroll">
               ${player.hand.map(card => {
                 const art = resolveScratchbone2DAsset(card);
+                const flippedArt = resolveScratchbone2DAsset(card, { flipped: true });
                 const cardLabel = card.wild ? 'Wild' : `Rank ${card.rank}`;
                 const cardGlyph = card.wild ? 'W' : String(card.rank);
                 const cardDepthLayerCount = Math.max(0, Math.min(8, Number(SCRATCHBONES_GAME.layout?.cards?.depth?.shapeLayerCount) || 0));
                 return `
                 <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}" data-depth-layers="${cardDepthLayerCount}" title="${card.wild ? 'Wild card' : `Scratchbone ${card.rank}`}">
-                  ${renderCardDepthLayers(art, cardDepthLayerCount)}
+                  ${renderCardDepthLayers(art, flippedArt, cardDepthLayerCount)}
                   <img class="cardArt" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`}">
                   <span class="cardLabel" aria-hidden="true"><span class="cardGlyph">${cardGlyph}</span><span class="cardText">${cardLabel}</span></span>
                 </button>
