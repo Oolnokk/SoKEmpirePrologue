@@ -642,6 +642,7 @@
       border-radius: 0;
       border: 0;
       background: transparent;
+      position: relative;
       box-shadow:
         var(--layout-card-shadow-offset-x) var(--layout-card-shadow-offset-y) var(--layout-card-shadow-blur) var(--layout-card-shadow-spread) rgba(0, 0, 0, var(--layout-card-shadow-alpha)),
         calc(var(--layout-card-shadow-offset-x) * 0.4) calc(var(--layout-card-shadow-offset-y) * 0.34) calc(var(--layout-card-shadow-blur) * 0.56) calc(var(--layout-card-shadow-spread) * 0.72) rgba(0, 0, 0, var(--layout-card-shadow-contact-alpha));
@@ -1006,7 +1007,8 @@
       opacity: var(--layout-card-underlay-alpha);
       transform:
         translate(var(--card-underlay-offset-x, 0px), var(--card-underlay-offset-y, 0px))
-        skewX(var(--card-underlay-skew-x, 0deg));
+        skewX(var(--card-underlay-skew-x, 0deg))
+        scaleX(var(--card-underlay-flip-x, 1));
       transform-origin: 50% 100%;
       filter: brightness(0.42) saturate(0.7);
       z-index: 0;
@@ -4335,7 +4337,7 @@
       const appRect = root.getBoundingClientRect();
       const anchorX = appRect.left + appRect.width * 0.5;
       const anchorY = appRect.bottom;
-      root.querySelectorAll('.card[data-card-id]').forEach((cardEl) => {
+      root.querySelectorAll('.card[data-card-id], .tableViewCard[data-card-id]').forEach((cardEl) => {
         const rect = cardEl.getBoundingClientRect();
         const centerX = rect.left + rect.width * 0.5;
         const centerY = rect.top + rect.height * 0.5;
@@ -4344,9 +4346,11 @@
         const distance = Math.hypot(dx, dy) || 1;
         const dirX = dx / distance;
         const dirY = dy / distance;
+        const topIsFlipped = cardEl.getAttribute('data-card-is-flipped') === 'true';
         cardEl.style.setProperty('--card-underlay-offset-x', `calc(var(--layout-card-underlay-strength) * ${dirX.toFixed(4)})`);
         cardEl.style.setProperty('--card-underlay-offset-y', `calc(var(--layout-card-underlay-strength) * ${dirY.toFixed(4)})`);
         cardEl.style.setProperty('--card-underlay-skew-x', `calc(var(--layout-card-underlay-skew-max) * ${dirX.toFixed(4)})`);
+        cardEl.style.setProperty('--card-underlay-flip-x', topIsFlipped ? '1' : '-1');
       });
     }
     function normalizedAssetPath(basePath, fileName) {
@@ -5471,10 +5475,11 @@
         ? claimHandCardsSource.map((card) => {
             const revealCard = cinematicRevealActive;
             const art = resolveScratchbone2DAsset(card, { flipped: !revealCard });
+            const underlayArt = resolveScratchbone2DAsset(card, { flipped: true });
             const cardAlt = revealCard
               ? (card.wild ? 'Revealed wild scratchbone card' : `Revealed scratchbone ${card.rank} card`)
               : 'Face-down scratchbone card';
-            return `<div class="tableViewCard" style="--fd:0s;" data-card-id="${card.id}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${cardAlt}"></div>`;
+            return `<div class="tableViewCard" style="--fd:0s;" data-card-id="${card.id}" data-card-is-flipped="${!revealCard ? 'true' : 'false'}"><img class="cardUnderlay" src="${underlayArt.src}" data-fallback-src="${underlayArt.fallbackSrc}" alt="" aria-hidden="true"><img class="cardTopArt" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${cardAlt}"></div>`;
           }).join('')
         : '<div class="tiny">No claim yet.</div>');
       const claimClusterShellClass = claimClusterPolicy.transparentShells ? 'floatingTransparentShell' : '';
@@ -5483,7 +5488,8 @@
           ? `<div class="tiny">Claim cluster visualization active.</div>`
           : latestPlay.cards.map(card => {
               const art = resolveScratchbone2DAsset(card, { flipped: tableCardFaceDown });
-              return `<div class="tableViewCard" data-card-id="${card.id}"><img src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${tableCardFaceDown ? 'Face-down scratchbone card' : (card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`)}"></div>`;
+              const underlayArt = resolveScratchbone2DAsset(card, { flipped: true });
+              return `<div class="tableViewCard" data-card-id="${card.id}" data-card-is-flipped="${tableCardFaceDown ? 'true' : 'false'}"><img class="cardUnderlay" src="${underlayArt.src}" data-fallback-src="${underlayArt.fallbackSrc}" alt="" aria-hidden="true"><img class="cardTopArt" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${tableCardFaceDown ? 'Face-down scratchbone card' : (card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`)}"></div>`;
             }).join(''))
         : '<div class="tiny">No cards on the table yet.</div>';
       const recentLogs = eventLogEnabled ? state.logs.slice(0, 4) : [];
@@ -5694,7 +5700,7 @@
                 const cardLabel = card.wild ? 'Wild' : `Rank ${card.rank}`;
                 const cardGlyph = card.wild ? 'W' : String(card.rank);
                 return `
-                <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}" title="${card.wild ? 'Wild card' : `Scratchbone ${card.rank}`}">
+                <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}" data-card-is-flipped="false" title="${card.wild ? 'Wild card' : `Scratchbone ${card.rank}`}">
                   <img class="cardUnderlay" src="${underlayArt.src}" data-fallback-src="${underlayArt.fallbackSrc}" alt="" aria-hidden="true">
                   <img class="cardArt" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`}">
                   <span class="cardLabel" aria-hidden="true"><span class="cardGlyph">${cardGlyph}</span><span class="cardText">${cardLabel}</span></span>
