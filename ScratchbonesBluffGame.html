@@ -5134,6 +5134,17 @@
       const OPPONENT_STAGGER_MS = 40;
       const snapshots = new Map();
       const activeClones = new Map();
+      function scheduleLerpCompletionAudio(cardCount, flyDurationMs) {
+        if (!Number.isFinite(cardCount) || cardCount <= 0) return;
+        const lerpAudioCfg = SCRATCHBONES_GAME.assets?.audio?.movement?.lerpComplete || {};
+        const leadMs = Math.max(0, Number(lerpAudioCfg.leadMs) || 500);
+        const extraCardDelayMs = Math.max(0, Number(lerpAudioCfg.extraCardDelayMs) || 35);
+        const firstDelayMs = Math.max(0, Number(flyDurationMs) - leadMs);
+        for (let i = 0; i < cardCount; i++) {
+          const delayMs = firstDelayMs + (i * extraCardDelayMs);
+          setTimeout(() => SCRATCHBONES_AUDIO.playMovement('lerpComplete'), delayMs);
+        }
+      }
 
       function getContainerType(el) {
         if (el.closest('.handScroll')) return 'hand';
@@ -5179,6 +5190,7 @@
 
         requestAnimationFrame(() => requestAnimationFrame(() => {
           let opponentCardIdx = 0;
+          let lerpCardCount = 0;
 
           newCards.forEach(({ id, img, containerType }) => {
             const snapshot = snapshots.get(id);
@@ -5191,6 +5203,7 @@
                 SCRATCHBONES_AUDIO.playMovement('opponentToTable');
                 const staggerDelay = opponentCardIdx * OPPONENT_STAGGER_MS;
                 opponentCardIdx++;
+                lerpCardCount += 1;
                 const existing = activeClones.get(id);
                 if (existing) existing.remove();
                 const avatarCx = actorRect.left + actorRect.width / 2;
@@ -5274,6 +5287,7 @@
             document.body.appendChild(clone);
             activeClones.set(id, clone);
             img.style.opacity = '0';
+            lerpCardCount += 1;
             requestAnimationFrame(() => {
               clone.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.4,0,0.2,1)`;
               clone.style.transform = 'none';
@@ -5290,6 +5304,7 @@
               setTimeout(done, FLY_MS + 100);
             });
           });
+          scheduleLerpCompletionAudio(lerpCardCount, FLY_MS);
           snapshots.clear();
         }));
       }
