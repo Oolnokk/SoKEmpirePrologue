@@ -954,6 +954,39 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+    .stakeVisualPanel {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(242,208,143,0.2);
+      border-radius: 12px;
+      padding: 8px;
+      margin-bottom: 8px;
+    }
+    .stakeVisualRow { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; }
+    .stakeContribCol, .stakeCenterCol { display: grid; gap: 4px; justify-items: center; }
+    .stakeAnchor {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 1px dashed rgba(242,208,143,0.32);
+      background: rgba(20,14,11,0.5);
+      display: grid;
+      place-items: center;
+    }
+    .stakeAnchor img { width: 42px; height: 42px; object-fit: contain; }
+    .stakeTierBtnRow { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+    .stakeTierBtn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(242,208,143,0.35);
+      background: rgba(30,20,16,0.8);
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .stakeTierBtn img { width: 26px; height: 26px; object-fit: contain; }
     .tiny { font-size: calc(0.74rem * var(--layout-challenge-font-scale) * var(--layout-fit-font-scale)); color: var(--muted); }
     .layout-challenge-wrap .tiny,
     .layout-challenge-wrap .challengePromptInfo,
@@ -1530,9 +1563,6 @@
       0%,100% { opacity:0.5; }
       50%      { opacity:1; }
     }
-    .cin-bet-backup {
-      width: 100%;
-    }
     /* ── Chip sprites ── */
     .cin-chip-row {
       display: flex;
@@ -2009,14 +2039,22 @@
           cultures: rawGameConfig.nameGeneration?.cultures ?? {},
         },
         chips: {
-          startingChips: rawGameConfig.chips?.starting ?? 12,
+          startingChips: rawGameConfig.chips?.starting ?? 30,
           challengeBaseTransfer: rawGameConfig.chips?.challengeBaseTransfer ?? 1,
           concedeRoundChipLoss: rawGameConfig.chips?.concedeRoundChipLoss ?? 1,
-          maxRaiseAmount: rawGameConfig.chips?.raise?.maxAmount ?? 3,
-          maxRaisesPerPlayer: rawGameConfig.chips?.raise?.maxPerPlayer ?? 3,
+          challengeStakeTiers: rawGameConfig.chips?.challengeStake?.tiers ?? [
+            { id: 'sun', value: 1 },
+            { id: 'tinmoon', value: 5 },
+            { id: 'eclipse', value: 20 },
+          ],
+          challengeStakeAnimation: {
+            openMs: rawGameConfig.chips?.challengeStake?.animation?.openMs ?? 280,
+            callMs: rawGameConfig.chips?.challengeStake?.animation?.callMs ?? 280,
+            raiseOutMs: rawGameConfig.chips?.challengeStake?.animation?.raiseOutMs ?? 190,
+            raiseInMs: rawGameConfig.chips?.challengeStake?.animation?.raiseInMs ?? 300,
+          },
           clearBonusBase: rawGameConfig.chips?.clearReward?.base ?? 1,
           clearBonusIncrement: rawGameConfig.chips?.clearReward?.increment ?? 1,
-          maxChallengeBet: rawGameConfig.chips?.maxChallengeBet ?? 13,
         },
         timers: {
           challengeTimerSecs: rawGameConfig.timers?.challengeSeconds ?? 6,
@@ -2034,9 +2072,6 @@
         ai: {
           challengeThreshold: rawGameConfig.ai?.challengeThreshold ?? 0.52,
           challengeRandomNudgeMax: rawGameConfig.ai?.challengeRandomNudgeMax ?? 0.16,
-          backupJoinBaseScore: rawGameConfig.ai?.backupJoinBaseScore ?? 0.15,
-          backupJoinRandomMax: rawGameConfig.ai?.backupJoinRandomMax ?? 0.22,
-          backupJoinSuspicionWeight: rawGameConfig.ai?.backupJoinSuspicionWeight ?? 0.2,
           bettingConfidenceSuspicionWeight: rawGameConfig.ai?.bettingConfidenceSuspicionWeight ?? 0.55,
         },
         layout: {
@@ -2224,6 +2259,11 @@
           rankCardTemplateFallbackSrc: rawGameConfig.assets?.cards?.rankTemplate?.fallbackSrc ?? '2DScratchbones{rank}.png',
           claimRankGlyphTemplateSrc: rawGameConfig.assets?.symbols?.claimRankGlyphTemplateSrc ?? './docs/assets/symbols/boneglyph{rank}.png',
           cinematicTokenIconSrc: rawGameConfig.assets?.hud?.cinematicTokenIconSrc ?? './docs/assets/hud/coin_tinmoon.png',
+          stakeTierCoinSrc: rawGameConfig.assets?.hud?.stakeTierCoinSrc ?? {
+            sun: './docs/assets/hud/coin_sun.png',
+            tinmoon: './docs/assets/hud/coin_tinmoon.png',
+            eclipse: './docs/assets/hud/coin_eclipse.png',
+          },
           audio: {
             enabled: rawGameConfig.assets?.audio?.enabled !== false,
             sfxVolume: rawGameConfig.assets?.audio?.sfxVolume ?? 0.92,
@@ -2650,18 +2690,27 @@
       startingChips: SCRATCHBONES_GAME.chips.startingChips,
       challengeBaseTransfer: SCRATCHBONES_GAME.chips.challengeBaseTransfer,
       concedeRoundChipLoss: SCRATCHBONES_GAME.chips.concedeRoundChipLoss,
-      maxRaiseAmount: SCRATCHBONES_GAME.chips.maxRaiseAmount,
-      maxRaisesPerPlayer: SCRATCHBONES_GAME.chips.maxRaisesPerPlayer,
+      challengeStakeTiers: SCRATCHBONES_GAME.chips.challengeStakeTiers,
+      challengeStakeAnimation: SCRATCHBONES_GAME.chips.challengeStakeAnimation,
       clearBonusBase: SCRATCHBONES_GAME.chips.clearBonusBase,
       clearBonusIncrement: SCRATCHBONES_GAME.chips.clearBonusIncrement,
-      maxChallengeBet: SCRATCHBONES_GAME.chips.maxChallengeBet,
       aiChallengeThreshold: Number(AI_CONFIG.challengeThreshold) || 0.52,
       aiChallengeRandomNudgeMax: Number(AI_CONFIG.challengeRandomNudgeMax) || 0.16,
-      aiBackupJoinBaseScore: Number(AI_CONFIG.backupJoinBaseScore) || 0.15,
-      aiBackupJoinRandomMax: Number(AI_CONFIG.backupJoinRandomMax) || 0.22,
-      aiBackupJoinSuspicionWeight: Number(AI_CONFIG.backupJoinSuspicionWeight) || 0.2,
       aiBettingConfidenceSuspicionWeight: Number(AI_CONFIG.bettingConfidenceSuspicionWeight) || 0.55,
       assets: SCRATCHBONES_GAME.assets,
+    };
+    const STAKE_TIERS = (Array.isArray(CONFIG.challengeStakeTiers) ? CONFIG.challengeStakeTiers : [])
+      .map((tier) => ({
+        id: String(tier?.id || ''),
+        value: Number(tier?.value) || 0,
+      }))
+      .filter((tier) => tier.id && tier.value > 0)
+      .sort((a, b) => a.value - b.value);
+    const STAKE_TIER_BY_ID = Object.fromEntries(STAKE_TIERS.map((tier) => [tier.id, tier]));
+    const STAKE_COIN_SRC = CONFIG.assets?.stakeTierCoinSrc || {
+      sun: './docs/assets/hud/coin_sun.png',
+      tinmoon: './docs/assets/hud/coin_tinmoon.png',
+      eclipse: './docs/assets/hud/coin_eclipse.png',
     };
     const state = {
       players: [],
@@ -3133,7 +3182,7 @@
         const intent = aiBetIntent(actorId);
         const toCall = amountToCall(actorId);
         const confidenceGap = Math.abs((intent.confidence ?? 0.5) - (intent.foldFloor ?? 0.32));
-        const stakePressure = state.betting ? Math.min(0.25, Math.max(0, state.betting.stake - CONFIG.challengeBaseTransfer) * 0.03) : 0;
+        const stakePressure = state.betting ? Math.min(0.25, Math.max(0, state.betting.currentTierValue - CONFIG.challengeBaseTransfer) * 0.03) : 0;
         const styleTempo = 1 - ((pers.courage ?? 0.5) * 0.5 + (pers.aggression ?? 0.5) * 0.3 + (pers.greed ?? 0.5) * 0.2);
         const uncertainty = clamp01(0.42 - confidenceGap * 0.6 + Math.min(0.2, toCall * 0.05) + stakePressure + rand() * 0.08);
         const canRaise = getRaiseOptionsForPlayer(actorId).length > 0;
@@ -3190,9 +3239,6 @@
       const target = state.challengeWindow.lastPlay.playerIndex;
       advanceAfterNoChallenge(target);
     }
-    function eligibleBackupIds(challengerId, challengedId) {
-      return alivePlayers().map(p => p.id).filter(id => id !== challengerId && id !== challengedId);
-    }
     function startChallenge(challengerIndex, challengedIndex) {
       if (!state.challengeWindow || state.gameOver || state.betting) return;
       clearChallengeTimer();
@@ -3205,60 +3251,76 @@
         challengerId: challengerIndex,
         challengedId: challengedIndex,
         currentActorId: challengerIndex,
-        stake: CONFIG.challengeBaseTransfer,
+        currentTierId: null,
+        currentTierValue: 0,
+        displayedTierId: null,
+        displayedTierValue: 0,
         contributions: {
           [challengerIndex]: 0,
           [challengedIndex]: 0,
         },
-        raiseCounts: {
-          [challengerIndex]: 0,
-          [challengedIndex]: 0,
-        },
-        backupQueue: [],
-        phase: 'betting',
-        lastRaiseBy: null,
+        challengerHasRaised: false,
+        challengedHasRaised: false,
+        phase: 'opening',
         pendingAutoReveal: false,
       };
       state.challengeWindow = null;
-      for (const id of eligibleBackupIds(challengerIndex, challengedIndex)) {
-        if (id !== 0 && aiShouldJoinBackup(id, play)) state.betting.backupQueue.push(id);
-      }
       setBanner(`${seatLabel(challengerIndex)} and ${seatLabel(challengedIndex)} are betting on the challenge.`);
       render();
       scheduleBettingAiIfNeeded();
     }
-    function aiShouldJoinBackup(playerIndex, play) {
-      const p = state.players[playerIndex];
-      const suspicion = challengeSuspicionScore(playerIndex, play, { includeRandom: false });
-      let score = CONFIG.aiBackupJoinBaseScore + rand() * CONFIG.aiBackupJoinRandomMax;
-      score += suspicion * CONFIG.aiBackupJoinSuspicionWeight;
-      if (p.chips <= 2) score -= 0.18;
-      if (play.playerIndex === 0) score += 0.05;
-      if (p.personality) score += (p.personality.solidarity - 0.5) * 0.3;
-      return score > 0.35;
+    function stakeTierValueById(tierId) {
+      return STAKE_TIER_BY_ID[tierId]?.value ?? 0;
+    }
+    function currentStakeTier() {
+      return STAKE_TIER_BY_ID[state.betting?.currentTierId] || STAKE_TIERS[0] || null;
+    }
+    function legalStakeTierIdsForPlayer(playerId) {
+      if (!state.betting) return [];
+      const player = state.players[playerId];
+      if (!player || player.eliminated) return [];
+      const currentTier = currentStakeTier();
+      if (state.betting.phase === 'opening') {
+        return STAKE_TIERS.filter((tier) => player.chips >= tier.value).map((tier) => tier.id);
+      }
+      return STAKE_TIERS
+        .filter((tier) => tier.value > currentTier.value)
+        .filter((tier) => player.chips >= Math.max(0, tier.value - getContribution(playerId)))
+        .map((tier) => tier.id);
+    }
+    function legalBettingActionsFor(playerId) {
+      if (!state.betting) return [];
+      const player = state.players[playerId];
+      if (!player || player.eliminated) return [];
+      if (state.betting.phase === 'opening') {
+        const tiers = legalStakeTierIdsForPlayer(playerId);
+        return tiers.length ? ['open-tier'] : ['fold'];
+      }
+      const actions = [];
+      const toCall = amountToCall(playerId);
+      if (toCall <= player.chips) actions.push('call');
+      actions.push('fold');
+      const higherTiers = legalStakeTierIdsForPlayer(playerId);
+      const isChallenger = playerId === state.betting.challengerId;
+      const isChallenged = playerId === state.betting.challengedId;
+      if (higherTiers.length) {
+        if (isChallenged && state.betting.challengerHasRaised) {
+          // Final response window: challenged can only call/fold.
+        } else if (isChallenger && state.betting.challengerHasRaised) {
+          // Challenger already spent raise.
+        } else if (isChallenged && state.betting.challengedHasRaised) {
+          // Challenged already spent raise.
+        } else {
+          actions.push('raise-tier');
+        }
+      }
+      return actions;
     }
     function getContribution(id) {
       return state.betting?.contributions?.[id] || 0;
     }
-    function getRaiseCount(id) {
-      return state.betting?.raiseCounts?.[id] || 0;
-    }
-    function nextRaiseAmountForPlayer(id) {
-      if (!state.betting) return 0;
-      const player = state.players[id];
-      if (!player || player.eliminated) return 0;
-      const raiseCount = getRaiseCount(id);
-      if (raiseCount >= CONFIG.maxRaisesPerPlayer) return 0;
-      if (state.betting.stake >= CONFIG.maxChallengeBet) return 0;
-      const toCall = amountToCall(id);
-      const maxByBankroll = player.chips - toCall;
-      if (maxByBankroll <= 0) return 0;
-      const scheduledRaise = Math.min(CONFIG.maxRaiseAmount, raiseCount + 1);
-      return Math.max(0, Math.min(scheduledRaise, CONFIG.maxChallengeBet - state.betting.stake, maxByBankroll));
-    }
     function getRaiseOptionsForPlayer(id) {
-      const nextRaise = nextRaiseAmountForPlayer(id);
-      return nextRaise > 0 ? [nextRaise] : [];
+      return legalStakeTierIdsForPlayer(id).map((tierId) => STAKE_TIER_BY_ID[tierId]?.value).filter(Boolean);
     }
     function getOpponentId(id) {
       if (!state.betting) return null;
@@ -3266,7 +3328,7 @@
     }
     function amountToCall(id) {
       if (!state.betting) return 0;
-      return Math.max(0, state.betting.stake - getContribution(id));
+      return Math.max(0, state.betting.currentTierValue - getContribution(id));
     }
     function canPlayerAfford(id, amount) {
       return state.players[id] && !state.players[id].eliminated && state.players[id].chips >= amount;
@@ -3305,7 +3367,7 @@
       if (!state.betting) return false;
       const a = state.betting.challengerId;
       const b = state.betting.challengedId;
-      if (getContribution(a) === state.betting.stake && getContribution(b) === state.betting.stake) {
+      if (getContribution(a) === state.betting.currentTierValue && getContribution(b) === state.betting.currentTierValue) {
         if (state.betting.pendingAutoReveal) return true;
         state.betting.pendingAutoReveal = true;
         revealChallenge();
@@ -3313,54 +3375,136 @@
       }
       return false;
     }
-    function resolveBetAction(playerId, action) {
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+    async function animateCoinCloneToTarget(sourceEl, targetEl, { durationMs = 280, replaceOut = false } = {}) {
+      if (!sourceEl || !targetEl) return;
+      const sourceRect = sourceEl.getBoundingClientRect();
+      const targetRect = targetEl.getBoundingClientRect();
+      if (!sourceRect.width || !sourceRect.height || !targetRect.width || !targetRect.height) return;
+      const clone = sourceEl.cloneNode(true);
+      clone.style.position = 'fixed';
+      clone.style.left = `${sourceRect.left}px`;
+      clone.style.top = `${sourceRect.top}px`;
+      clone.style.width = `${sourceRect.width}px`;
+      clone.style.height = `${sourceRect.height}px`;
+      clone.style.pointerEvents = 'none';
+      clone.style.margin = '0';
+      clone.style.zIndex = '10010';
+      clone.style.transition = 'none';
+      document.body.appendChild(clone);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      clone.style.transition = `transform ${durationMs}ms ease, opacity ${durationMs}ms ease`;
+      const dx = (targetRect.left + targetRect.width / 2) - (sourceRect.left + sourceRect.width / 2);
+      const dy = (targetRect.top + targetRect.height / 2) - (sourceRect.top + sourceRect.height / 2);
+      const targetScale = Math.max(0.74, Math.min(1.1, targetRect.width / Math.max(1, sourceRect.width)));
+      clone.style.transform = `translate(${dx}px, ${dy}px) scale(${replaceOut ? 0.84 : targetScale})`;
+      clone.style.opacity = replaceOut ? '0.18' : '1';
+      await sleep(durationMs + 30);
+      clone.remove();
+    }
+    function coinButtonForTier(tierId) {
+      return document.querySelector(`[data-stake-tier-btn="${tierId}"]`);
+    }
+    function contributionAnchorForPlayer(playerId) {
+      return document.querySelector(`[data-stake-contrib-anchor="${playerId}"]`);
+    }
+    function stakeAnchor() {
+      return document.querySelector('[data-stake-current-anchor]');
+    }
+    function potAnchor() {
+      return document.querySelector('[data-stake-pot-anchor]');
+    }
+    async function animateStakeOpen(playerId, tierId) {
+      await animateCoinCloneToTarget(coinButtonForTier(tierId), contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.openMs });
+      await animateCoinCloneToTarget(coinButtonForTier(tierId), stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.openMs });
+      await animateCoinCloneToTarget(coinButtonForTier(tierId), potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.openMs });
+    }
+    async function animateStakeCall(playerId, tierId) {
+      await animateCoinCloneToTarget(coinButtonForTier(tierId), contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.callMs });
+      await animateCoinCloneToTarget(coinButtonForTier(tierId), potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.callMs });
+    }
+    async function animateStakeRaise(playerId, newTierId) {
+      const currentStakeCoin = document.querySelector('[data-stake-current-coin]');
+      if (currentStakeCoin) {
+        await animateCoinCloneToTarget(currentStakeCoin, contributionAnchorForPlayer(playerId), {
+          durationMs: CONFIG.challengeStakeAnimation.raiseOutMs,
+          replaceOut: true,
+        });
+      }
+      await animateCoinCloneToTarget(coinButtonForTier(newTierId), stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
+      await animateCoinCloneToTarget(coinButtonForTier(newTierId), potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
+    }
+    async function resolveBetAction(playerId, action) {
       if (!state.betting || state.gameOver) return;
       if (state.betting.pendingAutoReveal) return;
       if (state.betting.currentActorId !== playerId) return;
       const command = typeof action === 'string' ? action : action?.type;
+      const targetTierId = typeof action === 'object' ? action?.tierId : null;
       const player = state.players[playerId];
       const opponentId = getOpponentId(playerId);
       const toCall = amountToCall(playerId);
-      if (command === 'joinBackup') {
-        if (state.betting.backupQueue.includes(playerId) || playerId === state.betting.challengerId || playerId === state.betting.challengedId || player.eliminated) return;
-        state.betting.backupQueue.push(playerId);
-        addLog(`${seatLabel(player)} lines up behind the challenger as a backup caller.`);
-        render();
-        return;
-      }
       // Queue cinematic text effects; render() will fire them after DOM/layout update.
       state.pendingCinematicBetAction = { playerId, command };
-      if (command === 'checkcall') {
-        const paid = recordContribution(playerId, toCall);
-        if (toCall > 0) addLog(`${seatLabel(player)} calls for ${paid} chip${paid === 1 ? '' : 's'}.`);
-        else addLog(`${seatLabel(player)} checks.`);
-        player.lastAction = toCall > 0 ? 'Called' : 'Checked';
-        if (state.gameOver) return;
-        if (getContribution(playerId) < state.betting.stake) {
-          finalizeChallengeByFold(opponentId, playerId, 'could not cover the call');
+      if (command === 'open-tier' && state.betting.phase === 'opening') {
+        const chosenTierId = targetTierId;
+        const chosenTierValue = stakeTierValueById(chosenTierId);
+        if (!chosenTierValue || !canPlayerAfford(playerId, chosenTierValue)) return;
+        await animateStakeOpen(playerId, chosenTierId);
+        state.betting.currentTierId = chosenTierId;
+        state.betting.currentTierValue = chosenTierValue;
+        state.betting.displayedTierId = chosenTierId;
+        state.betting.displayedTierValue = chosenTierValue;
+        const paid = recordContribution(playerId, chosenTierValue);
+        addLog(`${seatLabel(player)} opens the challenge stake at ${chosenTierValue}.`);
+        player.lastAction = `Opened ${chosenTierValue}`;
+        if (paid < chosenTierValue) {
+          finalizeChallengeByFold(opponentId, playerId, 'could not fund the opening stake');
           return;
         }
-        if (maybeAutoRevealAfterMatchedBet()) return;
-        if (!state.betting) return;
+        state.betting.phase = 'response';
         state.betting.currentActorId = opponentId;
         render();
         scheduleBettingAiIfNeeded();
         return;
       }
-      if (command === 'raise') {
-        const raiseBy = nextRaiseAmountForPlayer(playerId);
-        const newStake = Math.min(CONFIG.maxChallengeBet, state.betting.stake + raiseBy);
-        const amountNeeded = newStake - getContribution(playerId);
-        if (!canPlayerAfford(playerId, amountNeeded) || newStake <= state.betting.stake || raiseBy <= 0) {
-          resolveBetAction(playerId, 'checkcall');
+      if (command === 'call') {
+        const tierId = state.betting.currentTierId;
+        await animateStakeCall(playerId, tierId);
+        const paid = recordContribution(playerId, toCall);
+        addLog(`${seatLabel(player)} calls ${state.betting.currentTierValue}.`);
+        player.lastAction = 'Called';
+        if (state.gameOver) return;
+        if (getContribution(playerId) < state.betting.currentTierValue) {
+          finalizeChallengeByFold(opponentId, playerId, 'could not cover the call');
           return;
         }
-        state.betting.stake = newStake;
-        state.betting.raiseCounts[playerId] = getRaiseCount(playerId) + 1;
+        if (maybeAutoRevealAfterMatchedBet()) return;
+        return;
+      }
+      if (command === 'raise-tier') {
+        const newTierId = targetTierId;
+        const newStake = stakeTierValueById(newTierId);
+        if (!newStake || newStake <= state.betting.currentTierValue) {
+          await resolveBetAction(playerId, 'call');
+          return;
+        }
+        const amountNeeded = newStake - getContribution(playerId);
+        if (!canPlayerAfford(playerId, amountNeeded)) {
+          await resolveBetAction(playerId, 'fold');
+          return;
+        }
+        await animateStakeRaise(playerId, newTierId);
+        state.betting.currentTierId = newTierId;
+        state.betting.currentTierValue = newStake;
+        state.betting.displayedTierId = newTierId;
+        state.betting.displayedTierValue = newStake;
+        if (playerId === state.betting.challengerId) state.betting.challengerHasRaised = true;
+        if (playerId === state.betting.challengedId) state.betting.challengedHasRaised = true;
         const paid = recordContribution(playerId, amountNeeded);
-        state.betting.lastRaiseBy = playerId;
-        player.lastAction = `Raised +${raiseBy}`;
-        addLog(`${seatLabel(player)} raises the challenge stake by ${raiseBy} to ${newStake}.`);
+        player.lastAction = `Raised to ${newStake}`;
+        addLog(`${seatLabel(player)} raises the stake to ${newStake}.`);
         if (state.gameOver) return;
         if (paid < amountNeeded) {
           finalizeChallengeByFold(opponentId, playerId, 'could not fund the raise');
@@ -3373,48 +3517,8 @@
       }
       if (command === 'fold') {
         player.lastAction = 'Folded challenge';
-        const immediate = state.betting.stake <= CONFIG.challengeBaseTransfer && getContribution(playerId) === 0 && getContribution(opponentId) === 0;
-        if (immediate) {
-          const penalty = recordContribution(playerId, CONFIG.challengeBaseTransfer);
-          if (playerId === state.betting.challengedId) {
-            addLog(`${seatLabel(player)} folds immediately and pays ${penalty} chip${penalty === 1 ? '' : 's'} for backing down from the challenged claim.`);
-          } else {
-            addLog(`${seatLabel(player)} folds immediately and pays ${penalty} chip${penalty === 1 ? '' : 's'} for backing down from the challenge.`);
-          }
-        }
-        if (playerId === state.betting.challengerId) {
-          const backupId = pullNextViableBackup();
-          if (backupId !== null) {
-            addLog(`${seatLabel(player)} folds, but ${seatLabel(backupId)} steps in behind the challenge.`);
-            state.betting.challengerId = backupId;
-            state.betting.contributions[backupId] = state.betting.contributions[backupId] || 0;
-            const needed = amountToCall(backupId);
-            const paid = recordContribution(backupId, needed);
-            state.players[backupId].lastAction = 'Backup called';
-            addLog(`${seatLabel(backupId)} matches ${paid} chip${paid === 1 ? '' : 's'} as the backup caller.`);
-            if (getContribution(backupId) < state.betting.stake) {
-              finalizeChallengeByFold(state.betting.challengedId, backupId, 'could not cover the backup call');
-              return;
-            }
-            if (maybeAutoRevealAfterMatchedBet()) return;
-            if (!state.betting) return;
-            state.betting.currentActorId = state.betting.challengedId;
-            render();
-            scheduleBettingAiIfNeeded();
-            return;
-          }
-        }
-        finalizeChallengeByFold(opponentId, playerId, immediate ? 'folded immediately' : 'folded the betting duel');
+        finalizeChallengeByFold(opponentId, playerId, 'folded');
       }
-    }
-    function pullNextViableBackup() {
-      if (!state.betting) return null;
-      while (state.betting.backupQueue.length) {
-        const id = state.betting.backupQueue.shift();
-        const p = state.players[id];
-        if (p && !p.eliminated && p.chips > 0) return id;
-      }
-      return null;
     }
     function challengePotTotal() {
       if (!state.betting) return 0;
@@ -3833,7 +3937,7 @@
       pressure += opponentPers?.overSuspects ? -0.06 : 0;
       pressure += opponent && opponent.chips <= 2 ? 0.08 : 0;
       pressure += opponent && opponent.chips >= 8 ? -0.04 : 0;
-      pressure += state.betting ? Math.min(0.14, Math.max(0, state.betting.stake - CONFIG.challengeBaseTransfer) * 0.05) : 0;
+      pressure += state.betting ? Math.min(0.14, Math.max(0, state.betting.currentTierValue - CONFIG.challengeBaseTransfer) * 0.05) : 0;
       return Math.max(0.05, Math.min(0.95, pressure));
     }
     function aiBetIntent(actorId) {
@@ -3869,7 +3973,7 @@
       } else if (challengerSuspicion < 0) {
         raiseDrive += (1 - foldPressure) * 0.34;
         raiseDrive += opponentPers ? opponentPers.aggression * 0.12 : 0;
-        raiseDrive += Math.min(0.12, Math.max(0, b.stake - CONFIG.challengeBaseTransfer) * 0.04);
+        raiseDrive += Math.min(0.12, Math.max(0, b.currentTierValue - CONFIG.challengeBaseTransfer) * 0.04);
         confidence += 0.06;
       } else {
         raiseDrive += foldPressure * 0.58;
@@ -3886,19 +3990,23 @@
     function aiTakeBettingAction(actorId, precomputedIntent = null) {
       if (!state.betting || state.gameOver || state.betting.currentActorId !== actorId) return;
       const intent = precomputedIntent || aiBetIntent(actorId);
+      const legalActions = legalBettingActionsFor(actorId);
+      if (!legalActions.length) return;
+      if (state.betting.phase === 'opening') {
+        const tierIds = legalStakeTierIdsForPlayer(actorId);
+        if (!tierIds.length) { resolveBetAction(actorId, 'fold'); return; }
+        const selected = tierIds[tierIds.length - 1];
+        resolveBetAction(actorId, { type: 'open-tier', tierId: selected });
+        return;
+      }
       const confidence = intent.confidence;
       const toCall = amountToCall(actorId);
       const player = state.players[actorId];
       const pers = player.personality;
-      const raiseOptions = getRaiseOptionsForPlayer(actorId);
-      const canRaise = raiseOptions.length > 0;
+      const raiseTierIds = legalStakeTierIdsForPlayer(actorId);
+      const canRaise = legalActions.includes('raise-tier') && raiseTierIds.length > 0;
       const raiseThresh = pers ? 0.68 - (pers.courage - 0.5) * 0.18 : 0.68;
       const hardRaiseThresh = raiseThresh + 0.08;
-      if (toCall === 0) {
-        if (canRaise && intent.raiseDrive > raiseThresh) resolveBetAction(actorId, 'raise');
-        else resolveBetAction(actorId, 'checkcall');
-        return;
-      }
       if (toCall > player.chips) {
         resolveBetAction(actorId, 'fold');
         return;
@@ -3906,19 +4014,19 @@
       if (confidence < intent.foldFloor) {
         resolveBetAction(actorId, 'fold');
       } else if (canRaise && intent.raiseDrive > hardRaiseThresh && player.chips > toCall) {
-        resolveBetAction(actorId, 'raise');
+        resolveBetAction(actorId, { type: 'raise-tier', tierId: raiseTierIds[raiseTierIds.length - 1] });
       } else {
-        resolveBetAction(actorId, 'checkcall');
+        resolveBetAction(actorId, 'call');
       }
     }
     function humanBetAction(action) {
       resolveBetAction(0, action);
     }
-    function humanRaiseSelected() {
-      resolveBetAction(0, 'raise');
+    function humanOpenTierSelected(tierId) {
+      resolveBetAction(0, { type: 'open-tier', tierId });
     }
-    function humanJoinBackup() {
-      resolveBetAction(0, 'joinBackup');
+    function humanRaiseTierSelected(tierId) {
+      resolveBetAction(0, { type: 'raise-tier', tierId });
     }
     function cardLabel(card) {
       return card.wild ? 'Wild' : String(card.rank);
@@ -4935,11 +5043,11 @@
       const declareOptions = Array.from({ length: RANK_COUNT }, (_, i) => i + 1)
         .map(rank => `<option value="${rank}" ${state.declaredRank === rank ? 'selected' : ''}>${rank}</option>`)
         .join('');
-      const backupHumanEligible = !!state.betting && eligibleBackupIds(state.betting.challengerId, state.betting.challengedId).includes(0) && !state.betting.backupQueue.includes(0);
       const bettingActorHuman = !!state.betting && state.betting.currentActorId === 0;
       const humanCallAmount = state.betting ? amountToCall(0) : 0;
-      const humanRaiseAmount = state.betting && bettingActorHuman ? nextRaiseAmountForPlayer(0) : 0;
-      const humanCanRaise = humanRaiseAmount > 0;
+      const humanLegalActions = state.betting && bettingActorHuman ? legalBettingActionsFor(0) : [];
+      const humanRaiseTierIds = state.betting && bettingActorHuman ? legalStakeTierIdsForPlayer(0) : [];
+      const humanCanRaise = humanLegalActions.includes('raise-tier') && humanRaiseTierIds.length > 0;
       const challengeWindow = state.challengeWindow;
       const humanCanDecideChallenge = !!(challengeWindow && !state.betting && !state.gameOver && challengeWindow.lastPlay.playerIndex !== 0);
       const challengePromptText = humanCanDecideChallenge ? formatChallengePrompt(challengeWindow.lastPlay) : '';
@@ -5055,15 +5163,48 @@
           </div>
         </div>
       `;
+      const renderStakeTierButtons = (mode) => {
+        const allowedTierIds = mode === 'open' ? legalStakeTierIdsForPlayer(0) : humanRaiseTierIds;
+        return `<div class="stakeTierBtnRow">${STAKE_TIERS.map((tier) => {
+          const enabled = allowedTierIds.includes(tier.id);
+          return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(STAKE_COIN_SRC[tier.id] || STAKE_COIN_SRC.tinmoon || CONFIG.assets.cinematicTokenIconSrc)}" alt="${escapeHtml(tier.id)} coin"><span>${escapeHtml(tier.id)} · ${tier.value}</span></button>`;
+        }).join('')}</div>`;
+      };
+      const renderStakeVisual = () => `
+        <div class="stakeVisualPanel">
+          <div class="stakeVisualHeader tiny">Current stake</div>
+          <div class="stakeVisualRow">
+            <div class="stakeContribCol">
+              <div class="tiny">${seatLabel(state.betting.challengerId)} contribution</div>
+              <div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengerId}">${state.betting.currentTierId ? `<img src="${escapeHtml(STAKE_COIN_SRC[state.betting.currentTierId] || '')}" alt="challenger coin">` : ''}</div>
+              <div class="tiny">${getContribution(state.betting.challengerId)}</div>
+            </div>
+            <div class="stakeCenterCol">
+              <div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(STAKE_COIN_SRC[state.betting.displayedTierId] || '')}" alt="current stake coin">` : ''}</div>
+              <div class="tiny">Stake: ${state.betting.currentTierId || '—'} (${state.betting.currentTierValue || 0})</div>
+              <div class="stakeAnchor stakePot" data-stake-pot-anchor></div>
+              <div class="tiny">Pot: ${challengePotTotal()}</div>
+            </div>
+            <div class="stakeContribCol">
+              <div class="tiny">${seatLabel(state.betting.challengedId)} contribution</div>
+              <div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengedId}">${getContribution(state.betting.challengedId) > 0 && state.betting.currentTierId ? `<img src="${escapeHtml(STAKE_COIN_SRC[state.betting.currentTierId] || '')}" alt="challenged coin">` : ''}</div>
+              <div class="tiny">${getContribution(state.betting.challengedId)}</div>
+            </div>
+          </div>
+        </div>
+      `;
       const renderBettingControls = () => `
         <div class="controls fit-target fit-0" data-proj-id="controls">
+          ${renderStakeVisual()}
           <div class="challengeBar">
             ${bettingActorHuman ? `
-              <button class="secondary" id="betCallBtn">${humanCallAmount > 0 ? `Call ${humanCallAmount}` : 'Check'}</button>
-              <button id="betRaiseBtn" ${!humanCanRaise ? 'disabled' : ''}>Raise +${humanRaiseAmount || 0}</button>
-              <button class="danger" id="betFoldBtn">Fold</button>
+              ${state.betting.phase === 'opening'
+                ? renderStakeTierButtons('open')
+                : `<button class="secondary" id="betCallBtn">Call ${humanCallAmount}</button>
+                   ${humanCanRaise ? renderStakeTierButtons('raise') : ''}
+                   <button class="danger" id="betFoldBtn">Fold</button>`}
             ` : `<div class="tiny">${seatLabel(state.betting.currentActorId)} is deciding the next betting action.</div>`}
-            ${backupHumanEligible ? `<button class="ghost" id="joinBackupBtn">Join as backup caller</button>` : ''}
+            ${bettingActorHuman && state.betting.phase === 'opening' ? `<button class="danger" id="betFoldBtn">Fold</button>` : ''}
           </div>
         </div>
       `;
@@ -5210,11 +5351,15 @@
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
       ensureChallengeCinematic();
       renderSeatPortraits();
-      mountClaimClusterCinematicStage(app, { cinematicMode, cinematicPhase, cinematicRevealPlay, backupHumanEligible, bettingActorHuman, humanCallAmount, humanCanRaise, humanRaiseAmount });
-      document.getElementById('betCallBtn')?.addEventListener('click', () => humanBetAction('checkcall'));
-      document.getElementById('betRaiseBtn')?.addEventListener('click', humanRaiseSelected);
+      mountClaimClusterCinematicStage(app, { cinematicMode, cinematicPhase, cinematicRevealPlay, bettingActorHuman, humanCallAmount });
+      document.getElementById('betCallBtn')?.addEventListener('click', () => humanBetAction('call'));
       document.getElementById('betFoldBtn')?.addEventListener('click', () => humanBetAction('fold'));
-      document.getElementById('joinBackupBtn')?.addEventListener('click', humanJoinBackup);
+      app.querySelectorAll('[data-stake-tier-action="open"]').forEach((btn) => {
+        btn.addEventListener('click', () => humanOpenTierSelected(btn.getAttribute('data-stake-tier-id')));
+      });
+      app.querySelectorAll('[data-stake-tier-action="raise"]').forEach((btn) => {
+        btn.addEventListener('click', () => humanRaiseTierSelected(btn.getAttribute('data-stake-tier-id')));
+      });
       document.getElementById('cinContinueBtn')?.addEventListener('click', () => closeCinematic(true));
       const layoutMode = getScratchbonesLayoutMode();
       document.body.classList.toggle('layout-mode-authored', layoutMode === 'authored');
@@ -5258,10 +5403,12 @@
           challenger: state.players[state.betting.challengerId]?.name,
           challenged: state.players[state.betting.challengedId]?.name,
           currentActor: state.players[state.betting.currentActorId]?.name,
-          stake: state.betting.stake,
+          currentTier: state.betting.currentTierId,
+          currentTierValue: state.betting.currentTierValue,
+          legalActions: legalBettingActionsFor(state.betting.currentActorId),
+          challengerHasRaised: !!state.betting.challengerHasRaised,
+          challengedHasRaised: !!state.betting.challengedHasRaised,
           contributions: Object.fromEntries(Object.entries(state.betting.contributions).map(([id, value]) => [state.players[Number(id)]?.name || id, value])),
-          raiseCounts: Object.fromEntries(Object.entries(state.betting.raiseCounts || {}).map(([id, value]) => [state.players[Number(id)]?.name || id, value])),
-          backupQueue: state.betting.backupQueue.map(id => state.players[id]?.name),
           playTruthful: state.betting.play.truthful,
         } : null,
         pile: state.pile.map(p => ({
@@ -5515,14 +5662,14 @@
         cardEl.appendChild(verdict);
       });
     }
-    function mountClusterHeadlineCinematic(app, { cinematicMode, cinematicPhase, backupHumanEligible, bettingActorHuman, humanCallAmount, humanCanRaise, humanRaiseAmount }) {
+    function mountClusterHeadlineCinematic(app, { cinematicMode, cinematicPhase, bettingActorHuman, humanCallAmount }) {
       const textAnchor = app?.querySelector('.claimClusterTextAnchor');
       if (!textAnchor || !cinematicMode) return;
       clearHeadlineCinematics(app);
       if (cinematicPhase === 'betting') {
         textAnchor.classList.add('claimClusterCinematicPane', 'cinematic-betting-pane');
         textAnchor.style.pointerEvents = 'auto';
-        textAnchor.innerHTML = `<div class="sectionTitle cinematic-pane-title cin-headline cin-challenge">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="tiny cinematic-vs-line" style="margin-top:6px;">${escapeHtml(seatLabel(state.betting.challengerId))} vs ${escapeHtml(seatLabel(state.betting.challengedId))}</div><div class="tiny" style="margin-top:6px;">Contributions — ${seatLabel(state.betting.challengerId)}: ${getContribution(state.betting.challengerId)} (${getRaiseCount(state.betting.challengerId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengerId) || 0}) · ${seatLabel(state.betting.challengedId)}: ${getContribution(state.betting.challengedId)} (${getRaiseCount(state.betting.challengedId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengedId) || 0}) · Backup queue: ${state.betting.backupQueue.map(id => seatLabel(id)).join(', ') || 'none'}</div><div class="challengeBar" style="margin-top:8px;">${bettingActorHuman ? `<button class="secondary" id="betCallBtn">${humanCallAmount > 0 ? `Call ${humanCallAmount}` : 'Check'}</button><button id="betRaiseBtn" ${!humanCanRaise ? 'disabled' : ''}>Raise +${humanRaiseAmount || 0}</button><button class="danger" id="betFoldBtn">Fold</button>` : `<div class="tiny">${seatLabel(state.betting.currentActorId)} is deciding the next betting action.</div>`}${backupHumanEligible ? `<button class="ghost" id="joinBackupBtn">Join as backup caller</button>` : ''}</div>`;
+        textAnchor.innerHTML = `<div class="sectionTitle cinematic-pane-title cin-headline cin-challenge">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="tiny cinematic-vs-line" style="margin-top:6px;">${escapeHtml(seatLabel(state.betting.challengerId))} vs ${escapeHtml(seatLabel(state.betting.challengedId))}</div><div class="tiny" style="margin-top:6px;">Stake: ${escapeHtml(state.betting.currentTierId || 'pending')} (${state.betting.currentTierValue || 0}) · Pot: ${challengePotTotal()} · Legal: ${legalBettingActionsFor(state.betting.currentActorId).join(', ') || 'none'} · Raises used — challenger: ${state.betting.challengerHasRaised ? 'yes' : 'no'}, challenged: ${state.betting.challengedHasRaised ? 'yes' : 'no'}</div><div class="challengeBar" style="margin-top:8px;">${bettingActorHuman && state.betting.phase !== 'opening' ? `<button class="secondary" id="betCallBtn">Call ${humanCallAmount}</button><button class="danger" id="betFoldBtn">Fold</button>` : `<div class="tiny">${seatLabel(state.betting.currentActorId)} is deciding the next betting action.</div>`}</div>`;
         return;
       }
       if (cinematicPhase === 'reveal' || cinematicPhase === 'fold') {
@@ -5549,7 +5696,7 @@
       return null;
     }
     function mountClaimClusterCinematicStage(app, context = {}) {
-      const { cinematicMode, cinematicPhase, cinematicRevealPlay, backupHumanEligible, bettingActorHuman, humanCallAmount, humanCanRaise, humanRaiseAmount } = context;
+      const { cinematicMode, cinematicPhase, cinematicRevealPlay, bettingActorHuman, humanCallAmount } = context;
       if (!cinematicMode) {
         if (clusterCinematicStageRuntime.phaseKey !== null) {
           clearAvatarCinematics(app);
@@ -5572,7 +5719,7 @@
       }
       mountActorAvatarCinematic(app, cinematicMode);
       mountReactorAvatarCinematic(app, cinematicMode);
-      mountClusterHeadlineCinematic(app, { cinematicMode, cinematicPhase, backupHumanEligible, bettingActorHuman, humanCallAmount, humanCanRaise, humanRaiseAmount });
+      mountClusterHeadlineCinematic(app, { cinematicMode, cinematicPhase, bettingActorHuman, humanCallAmount });
       if (cinematicPhase === 'reveal') {
         const revealKey = phaseKey;
         if (revealKey !== clusterCinematicStageRuntime.revealSpawnKey) {
@@ -5589,11 +5736,11 @@
       if (!app || !state.cinematicMode) return;
       const anchor = claimClusterAvatarAnchorForPlayer(playerId, app);
       if (!anchor) return;
-      const label = command === 'checkcall' ? 'Call!' : command === 'raise' ? 'Raise!' : 'Fold!';
+      const label = command === 'call' ? 'Call!' : command === 'raise-tier' ? 'Raise!' : command === 'open-tier' ? 'Stake!' : 'Fold!';
       const overlay = ensureAvatarOverlay(anchor);
       if (!overlay) return;
       const burstShell = document.createElement('div');
-      const cls = command === 'checkcall' ? 'burst-call' : command === 'raise' ? 'burst-raise' : 'burst-fold';
+      const cls = command === 'call' ? 'burst-call' : (command === 'raise-tier' || command === 'open-tier') ? 'burst-raise' : 'burst-fold';
       burstShell.className = 'fx-burst-shell';
       burstShell.innerHTML = `<div class="cin-action-burst ${cls}">${escapeHtml(label)}</div>`;
       overlay.appendChild(burstShell);
