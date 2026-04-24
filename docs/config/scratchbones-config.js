@@ -170,7 +170,12 @@ window.SCRATCHBONES_CONFIG = {
           "depthZPx": 18,
           "artLiftZPx": 6,
           "shapeExtrudePx": 4,
-          "shapeShadowAlpha": 0.32
+          "shapeShadowAlpha": 0.32,
+          "shapeLayerCount": 4,
+          "shapeLayerOffsetXPx": 0.32,
+          "shapeLayerOffsetYPx": 1.05,
+          "shapeLayerSkewXDeg": -0.35,
+          "shapeLayerAlpha": 0.14
         }
       },
       "sizing": {
