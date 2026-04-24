@@ -146,6 +146,15 @@
       --layout-claim-title-offset-y: -150px;
       --layout-claim-bet-controls-offset-y: 150px;
       --layout-claim-title-scale: 1.5;
+      --layout-betting-title-offset-y: -30%;
+      --layout-betting-choice-offset-y: 34%;
+      --layout-betting-left-slot-offset-x: -30%;
+      --layout-betting-left-slot-offset-y: -6%;
+      --layout-betting-right-slot-offset-x: 30%;
+      --layout-betting-right-slot-offset-y: -6%;
+      --layout-betting-coin-button-size: clamp(58px, 8.6vw, 86px);
+      --layout-betting-contribution-coin-size: clamp(48px, 6.7vw, 72px);
+      --layout-betting-tier-gap: clamp(10px, 2.2vw, 20px);
       --layout-table-card-auto-scale: 1;
       --layout-fit-additive-avatar-zoom: 1;
       --layout-turn-spotlight-offset-x: 10px;
@@ -470,6 +479,105 @@
       z-index: 12;
       transform: translate(-50%, -50%) translateY(var(--layout-claim-title-offset-y, -150px)) scale(var(--layout-claim-title-scale, 1.5));
       transform-origin: center center;
+    }
+    .claimClusterBettingLayer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 13;
+    }
+    .claimClusterBettingLayer > * {
+      position: absolute;
+      transform: translate(-50%, -50%);
+    }
+    .bettingStatusAnchor {
+      left: 50%;
+      top: calc(50% + var(--layout-betting-title-offset-y));
+      width: min(86%, 640px);
+      pointer-events: none;
+      text-align: center;
+    }
+    .bettingStatusTitle {
+      font-weight: 800;
+      color: var(--accent-2);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+      font-size: clamp(0.95rem, 2.6vw, 1.28rem);
+      letter-spacing: 0.06em;
+    }
+    .bettingStatusLine {
+      margin-top: 4px;
+      font-size: clamp(0.68rem, 1.8vw, 0.88rem);
+      color: var(--muted);
+    }
+    .leftContributionAnchor {
+      left: calc(50% + var(--layout-betting-left-slot-offset-x));
+      top: calc(50% + var(--layout-betting-left-slot-offset-y));
+    }
+    .rightContributionAnchor {
+      left: calc(50% + var(--layout-betting-right-slot-offset-x));
+      top: calc(50% + var(--layout-betting-right-slot-offset-y));
+    }
+    .centerPotAnchor {
+      left: 50%;
+      top: calc(50% + 4%);
+      pointer-events: none;
+      text-align: center;
+    }
+    .bettingChoiceAnchor {
+      left: 50%;
+      top: calc(50% + var(--layout-betting-choice-offset-y));
+      width: min(92%, 760px);
+      pointer-events: auto;
+      display: grid;
+      justify-items: center;
+      gap: 10px;
+      padding-bottom: calc(var(--safe) + 8px);
+    }
+    .duelChoiceControls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+    .duelChoiceControls button {
+      min-width: 116px;
+    }
+    .stakeSlotLabel {
+      font-size: clamp(0.58rem, 1.55vw, 0.74rem);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+      text-align: center;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+    }
+    .stakeSlotValue {
+      margin-top: 6px;
+      text-align: center;
+      font-size: clamp(0.62rem, 1.7vw, 0.8rem);
+      color: var(--accent);
+    }
+    .stakeAnchor {
+      width: calc(var(--layout-betting-contribution-coin-size) + 14px);
+      height: calc(var(--layout-betting-contribution-coin-size) + 14px);
+      border-radius: 50%;
+      border: 1px dashed rgba(242,208,143,0.38);
+      background: radial-gradient(circle at 35% 30%, rgba(55,38,30,0.96), rgba(19,12,10,0.8));
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 12px rgba(0,0,0,0.35), 0 6px 14px rgba(0,0,0,0.28);
+    }
+    .stakeAnchor img {
+      width: var(--layout-betting-contribution-coin-size);
+      height: var(--layout-betting-contribution-coin-size);
+      object-fit: contain;
+      filter: drop-shadow(0 2px 5px rgba(0,0,0,0.55));
+    }
+    .stakePotReadout {
+      margin-top: 6px;
+      font-size: clamp(0.6rem, 1.6vw, 0.76rem);
+      color: var(--muted);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.65);
     }
     .claimAvatarShell {
       width: var(--layout-claim-avatar-size);
@@ -958,39 +1066,46 @@
       gap: 8px;
       flex-wrap: wrap;
     }
-    .stakeVisualPanel {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(242,208,143,0.2);
-      border-radius: 12px;
-      padding: 8px;
-      margin-bottom: 8px;
-    }
-    .stakeVisualRow { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; }
-    .stakeContribCol, .stakeCenterCol { display: grid; gap: 4px; justify-items: center; }
-    .stakeAnchor {
-      width: 52px;
-      height: 52px;
-      border-radius: 50%;
-      border: 1px dashed rgba(242,208,143,0.32);
-      background: rgba(20,14,11,0.5);
-      display: grid;
-      place-items: center;
-    }
-    .stakeAnchor img { width: 42px; height: 42px; object-fit: contain; }
-    .stakeTierBtnRow { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
-    .stakeTierBtn {
+    .stakeTierBtnRow {
       display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 10px;
-      border-radius: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: var(--layout-betting-tier-gap);
+      width: 100%;
+    }
+    .stakeTierBtn {
+      width: var(--layout-betting-coin-button-size);
+      min-height: calc(var(--layout-betting-coin-button-size) + 18px);
+      padding: 8px 6px;
+      border-radius: 14px;
       border: 1px solid rgba(242,208,143,0.35);
       background: rgba(30,20,16,0.8);
       color: var(--text);
-      font-size: 0.82rem;
+      font-size: clamp(0.62rem, 1.8vw, 0.82rem);
       font-weight: 700;
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      gap: 4px;
+      text-align: center;
     }
-    .stakeTierBtn img { width: 26px; height: 26px; object-fit: contain; }
+    .stakeTierBtn:disabled {
+      opacity: 0.42;
+      filter: saturate(0.28);
+    }
+    .stakeTierBtn:not(:disabled) {
+      cursor: pointer;
+      box-shadow: 0 0 0 1px rgba(242,208,143,0.12), 0 8px 14px rgba(0,0,0,0.3);
+    }
+    .stakeTierBtn:not(:disabled):active {
+      transform: translateY(1px) scale(0.98);
+    }
+    .stakeTierBtn img {
+      width: calc(var(--layout-betting-coin-button-size) * 0.62);
+      height: calc(var(--layout-betting-coin-button-size) * 0.62);
+      object-fit: contain;
+      pointer-events: none;
+    }
     .tiny { font-size: calc(0.74rem * var(--layout-challenge-font-scale) * var(--layout-fit-font-scale)); color: var(--muted); }
     .layout-challenge-wrap .tiny,
     .layout-challenge-wrap .challengePromptInfo,
@@ -3285,6 +3400,11 @@
     function currentStakeTier() {
       return STAKE_TIER_BY_ID[state.betting?.currentTierId] || STAKE_TIERS[0] || null;
     }
+    function tierIdForContributionValue(value) {
+      if (!value) return null;
+      const exact = STAKE_TIERS.find((tier) => tier.value === Number(value));
+      return exact?.id || null;
+    }
     function legalStakeTierIdsForPlayer(playerId) {
       if (!state.betting) return [];
       const player = state.players[playerId];
@@ -3436,6 +3556,9 @@
     function contributionAnchorForPlayer(playerId) {
       return document.querySelector(`[data-stake-contrib-anchor="${playerId}"]`);
     }
+    function contributionCoinForPlayer(playerId) {
+      return document.querySelector(`[data-stake-contrib-coin="${playerId}"]`);
+    }
     function stakeAnchor() {
       return document.querySelector('[data-stake-current-anchor]');
     }
@@ -3453,16 +3576,26 @@
     }
     async function animateStakeRaise(playerId, newTierId) {
       console.log('[stake-anim] raise animation start', { playerId, newTierId });
+      const tierBtn = coinButtonForTier(newTierId);
       const currentStakeCoin = document.querySelector('[data-stake-current-coin]');
-      if (currentStakeCoin) {
-        await animateCoinCloneToTarget(currentStakeCoin, contributionAnchorForPlayer(playerId), {
+      const existingContributionCoin = contributionCoinForPlayer(playerId);
+      if (existingContributionCoin && tierBtn) {
+        await animateCoinCloneToTarget(existingContributionCoin, tierBtn, {
           durationMs: CONFIG.challengeStakeAnimation.raiseOutMs,
           replaceOut: true,
         });
-        console.log('[stake-anim] old tier coin removed', { playerId });
+        console.log('[stake-anim] old contribution coin backed out', { playerId });
       }
-      await animateCoinCloneToTarget(coinButtonForTier(newTierId), stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
-      await animateCoinCloneToTarget(coinButtonForTier(newTierId), potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
+      if (currentStakeCoin && tierBtn) {
+        await animateCoinCloneToTarget(currentStakeCoin, tierBtn, {
+          durationMs: CONFIG.challengeStakeAnimation.raiseOutMs,
+          replaceOut: true,
+        });
+        console.log('[stake-anim] center stake coin backed out', { playerId });
+      }
+      await animateCoinCloneToTarget(tierBtn, contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
+      await animateCoinCloneToTarget(tierBtn, stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
+      await animateCoinCloneToTarget(tierBtn, potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
       console.log('[stake-anim] new tier coin inserted', { playerId, newTierId });
     }
     async function resolveBetAction(playerId, action, options = {}) {
@@ -5356,6 +5489,13 @@
               <div class="claimAvatarLocalOverlay" aria-hidden="true"></div>
             </div>
             <div class="claimClusterTextAnchor ${claimClusterShellClass}" data-proj-id="claim-cinematic-text" style="${claimClusterElementStyle(claimClusterPolicy.elements.cinematicPane)}"></div>
+            <div class="claimClusterBettingLayer" data-proj-id="claim-cluster-betting-layer">
+              <div class="bettingStatusAnchor" data-stake-betting-status-anchor></div>
+              <div class="leftContributionAnchor" data-stake-left-contribution-anchor></div>
+              <div class="rightContributionAnchor" data-stake-right-contribution-anchor></div>
+              <div class="centerPotAnchor" data-stake-pot-center-anchor></div>
+              <div class="bettingChoiceAnchor" data-stake-betting-choice-anchor></div>
+            </div>
           </div>
         ` : ''}
         ${showLegacyActionFocus ? `
@@ -5684,6 +5824,15 @@
       textAnchor.style.pointerEvents = 'none';
       clusterCinematicStageRuntime.bettingUiKey = null;
     }
+    function clearClaimClusterBettingLayer(app = document.getElementById('app')) {
+      if (!app) return;
+      const bettingLayer = app.querySelector('.claimClusterBettingLayer');
+      if (!bettingLayer) return;
+      bettingLayer.querySelectorAll('[data-stake-betting-status-anchor], [data-stake-left-contribution-anchor], [data-stake-right-contribution-anchor], [data-stake-pot-center-anchor], [data-stake-betting-choice-anchor]').forEach((node) => {
+        node.innerHTML = '';
+      });
+      bettingLayer.style.pointerEvents = 'none';
+    }
     function ensureAvatarOverlay(anchorEl) {
       if (!anchorEl) return null;
       let overlay = anchorEl.querySelector('.claimAvatarLocalOverlay');
@@ -5742,6 +5891,13 @@
       const textAnchor = app?.querySelector('.claimClusterTextAnchor');
       if (!textAnchor || !cinematicMode) return;
       if (cinematicPhase === 'betting') {
+        clearHeadlineCinematics(app);
+        const bettingLayer = app.querySelector('.claimClusterBettingLayer');
+        const statusAnchor = bettingLayer?.querySelector('[data-stake-betting-status-anchor]');
+        const leftAnchor = bettingLayer?.querySelector('[data-stake-left-contribution-anchor]');
+        const rightAnchor = bettingLayer?.querySelector('[data-stake-right-contribution-anchor]');
+        const potCenterAnchor = bettingLayer?.querySelector('[data-stake-pot-center-anchor]');
+        const choiceAnchor = bettingLayer?.querySelector('[data-stake-betting-choice-anchor]');
         const bettingActorId = state.betting.currentActorId;
         const openingMode = state.betting.phase === 'opening';
         const legalActions = legalBettingActionsFor(bettingActorId);
@@ -5752,14 +5908,15 @@
         const renderTierButtons = (mode) => `<div class="stakeTierBtnRow">${STAKE_TIERS.map((tier) => {
           const enabled = legalTierIds.includes(tier.id) && !bettingLocked;
           const coinSrc = stakeCoinSrcForTier(tier.id);
-          return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(coinSrc)}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="${escapeHtml(tier.id)} coin"><span>${escapeHtml(tier.id)} · ${tier.value}</span></button>`;
+          return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(coinSrc)}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="${escapeHtml(tier.id)} coin"><span>${tier.value}</span></button>`;
         }).join('')}</div>`;
         const bettingActionsHtml = actorCanAct
           ? (openingMode
-            ? `${renderTierButtons('open')}<button class="danger" id="betFoldBtn" ${bettingLocked ? 'disabled' : ''}>Fold</button>`
-            : `<button class="secondary" id="betCallBtn" ${bettingLocked ? 'disabled' : ''}>Call ${humanCallAmount}</button>${canRaise ? renderTierButtons('raise') : ''}<button class="danger" id="betFoldBtn" ${bettingLocked ? 'disabled' : ''}>Fold</button>`)
+            ? `${renderTierButtons('open')}<div class="duelChoiceControls"><button class="danger" id="betFoldBtn" ${bettingLocked ? 'disabled' : ''}>Fold</button></div>`
+            : `${canRaise ? renderTierButtons('raise') : ''}<div class="duelChoiceControls"><button class="secondary" id="betCallBtn" ${bettingLocked ? 'disabled' : ''}>Call ${humanCallAmount}</button><button class="danger" id="betFoldBtn" ${bettingLocked ? 'disabled' : ''}>Fold</button></div>`)
           : `<div class="tiny">${seatLabel(bettingActorId)} is deciding the next betting action.</div>`;
-        const stakeCoinSrc = stakeCoinSrcForTier(state.betting.currentTierId);
+        const challengerContributionTierId = tierIdForContributionValue(getContribution(state.betting.challengerId));
+        const challengedContributionTierId = tierIdForContributionValue(getContribution(state.betting.challengedId));
         const bettingUiKey = JSON.stringify({
           actor: bettingActorId,
           openingMode,
@@ -5774,17 +5931,32 @@
           actionInFlight: bettingLocked,
         });
         if (clusterCinematicStageRuntime.bettingUiKey !== bettingUiKey) {
-          textAnchor.classList.add('claimClusterCinematicPane', 'cinematic-betting-pane');
-          textAnchor.style.pointerEvents = 'auto';
-          textAnchor.innerHTML = `<div class="sectionTitle cinematic-pane-title cin-headline cin-challenge">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="tiny cinematic-vs-line" style="margin-top:6px;">${escapeHtml(seatLabel(state.betting.challengerId))} vs ${escapeHtml(seatLabel(state.betting.challengedId))}</div><div class="tiny" style="margin-top:6px;">Stake: ${escapeHtml(state.betting.currentTierId || 'pending')} (${state.betting.currentTierValue || 0}) · Pot: ${challengePotTotal()} · Legal: ${legalActions.join(', ') || 'none'} · Raises used — challenger: ${state.betting.challengerHasRaised ? 'yes' : 'no'}, challenged: ${state.betting.challengedHasRaised ? 'yes' : 'no'}</div><div class="stakeVisualPanel"><div class="stakeVisualHeader tiny">Current stake</div><div class="stakeVisualRow"><div class="stakeContribCol"><div class="tiny">${seatLabel(state.betting.challengerId)} contribution</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengerId}">${state.betting.currentTierId ? `<img src="${escapeHtml(stakeCoinSrc)}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenger coin">` : ''}</div><div class="tiny">${getContribution(state.betting.challengerId)}</div></div><div class="stakeCenterCol"><div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div><div class="tiny">Stake: ${state.betting.currentTierId || '—'} (${state.betting.currentTierValue || 0})</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div><div class="tiny">Pot: ${challengePotTotal()}</div></div><div class="stakeContribCol"><div class="tiny">${seatLabel(state.betting.challengedId)} contribution</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengedId}">${getContribution(state.betting.challengedId) > 0 && state.betting.currentTierId ? `<img src="${escapeHtml(stakeCoinSrc)}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenged coin">` : ''}</div><div class="tiny">${getContribution(state.betting.challengedId)}</div></div></div></div><div class="challengeBar cinBettingActionsOffset">${bettingActionsHtml}</div>`;
-          const coinButtons = [...textAnchor.querySelectorAll('[data-stake-tier-btn] img')].map((img) => ({ src: img.getAttribute('src'), fallback: img.getAttribute('data-fallback-src') }));
-          console.log('[betting-branch] mounted claim-cluster betting branch', { actorId: bettingActorId, openingMode });
+          if (!bettingLayer || !statusAnchor || !leftAnchor || !rightAnchor || !potCenterAnchor || !choiceAnchor) {
+            console.warn('[betting-cluster] layer mount failed', { mounted: false });
+            return;
+          }
+          bettingLayer.style.pointerEvents = 'auto';
+          statusAnchor.innerHTML = `<div class="bettingStatusTitle">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="bettingStatusLine">${escapeHtml(seatFirstName(state.betting.currentActorId))} to act · Stake ${escapeHtml(state.betting.currentTierId || 'pending')} (${state.betting.currentTierValue || 0})</div>`;
+          leftAnchor.innerHTML = `<div class="stakeSlotLabel">Challenger</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengerId}">${challengerContributionTierId ? `<img data-stake-contrib-coin="${state.betting.challengerId}" src="${escapeHtml(stakeCoinSrcForTier(challengerContributionTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenger contribution coin">` : ''}</div><div class="stakeSlotValue">${getContribution(state.betting.challengerId)}</div>`;
+          rightAnchor.innerHTML = `<div class="stakeSlotLabel">Challenged</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengedId}">${challengedContributionTierId ? `<img data-stake-contrib-coin="${state.betting.challengedId}" src="${escapeHtml(stakeCoinSrcForTier(challengedContributionTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenged contribution coin">` : ''}</div><div class="stakeSlotValue">${getContribution(state.betting.challengedId)}</div>`;
+          potCenterAnchor.innerHTML = `<div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div><div class="stakePotReadout">Pot ${challengePotTotal()}</div>`;
+          choiceAnchor.innerHTML = bettingActionsHtml;
+          const coinButtons = [...choiceAnchor.querySelectorAll('[data-stake-tier-btn] img')].map((img) => ({ src: img.getAttribute('src'), fallback: img.getAttribute('data-fallback-src') }));
+          const slotRects = {
+            left: contributionAnchorForPlayer(state.betting.challengerId)?.getBoundingClientRect() || null,
+            right: contributionAnchorForPlayer(state.betting.challengedId)?.getBoundingClientRect() || null,
+          };
+          console.log('[betting-cluster] mounted successfully', { mounted: true, actorId: bettingActorId, currentTier: state.betting.currentTierId, legalTierIds, legalActions });
+          console.log('[betting-cluster] contribution slot positions', {
+            left: slotRects.left ? { x: Math.round(slotRects.left.left), y: Math.round(slotRects.left.top) } : null,
+            right: slotRects.right ? { x: Math.round(slotRects.right.left), y: Math.round(slotRects.right.top) } : null,
+          });
           console.log('[betting-coins] coin buttons mounted', { paths: coinButtons });
-          console.log('[betting-legal] current legal tiers', { actorId: bettingActorId, legalTierIds, legalActions });
           clusterCinematicStageRuntime.bettingUiKey = bettingUiKey;
         }
         return;
       }
+      clearClaimClusterBettingLayer(app);
       if (cinematicPhase === 'reveal' || cinematicPhase === 'fold') {
         if (clusterCinematicStageRuntime.bettingUiKey !== null) clearHeadlineCinematics(app);
         const challenger = state.players[cinematicMode.challengerId];
@@ -5816,6 +5988,7 @@
           clearAvatarCinematics(app);
           clearHandCinematics(app);
           clearHeadlineCinematics(app);
+          clearClaimClusterBettingLayer(app);
           clusterCinematicStageRuntime.phaseKey = null;
           clusterCinematicStageRuntime.revealSpawnKey = null;
           clusterCinematicStageRuntime.bettingUiKey = null;
@@ -5828,6 +6001,7 @@
         clearAvatarCinematics(app);
         clearHandCinematics(app);
         clearHeadlineCinematics(app);
+        clearClaimClusterBettingLayer(app);
         clusterCinematicStageRuntime.phaseKey = phaseKey;
         clusterCinematicStageRuntime.revealSpawnKey = null;
         clusterCinematicStageRuntime.bettingUiKey = null;
