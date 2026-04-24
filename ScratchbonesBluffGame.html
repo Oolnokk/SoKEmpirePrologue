@@ -146,8 +146,8 @@
       --layout-claim-title-offset-y: -150px;
       --layout-claim-bet-controls-offset-y: 150px;
       --layout-claim-title-scale: 1.5;
-      --layout-betting-title-offset-y: -56%;
-      --layout-betting-choice-offset-y: 68%;
+      --layout-betting-title-offset-y: -80%;
+      --layout-betting-choice-offset-y: 115%;
       --layout-betting-left-slot-offset-x: -52%;
       --layout-betting-left-slot-offset-y: -6%;
       --layout-betting-right-slot-offset-x: 52%;
@@ -242,7 +242,7 @@
     #app::before {
       content: '';
       position: absolute;
-      inset: -18% -12% -14%;
+      inset: 0;
       pointer-events: none;
       z-index: 0;
       mix-blend-mode: normal;
@@ -519,7 +519,7 @@
       font-weight: 800;
       color: var(--accent-2);
       text-shadow: 0 2px 8px rgba(0,0,0,0.7);
-      font-size: clamp(0.95rem, 2.6vw, 1.28rem);
+      font-size: clamp(1.7rem, 4.2vw, 2.4rem);
       letter-spacing: 0.06em;
     }
     .bettingStatusLine {
@@ -826,6 +826,7 @@
       padding-top: var(--layout-app-gap);
     }
     .seatName { font-weight: 700; font-size: 0.78rem; }
+    #app.challenge-flow-active .seatName { visibility: hidden; }
     .seatMeta { color: var(--muted); font-size: 0.68rem; margin-top: 4px; }
     .seatStatus { margin-top: 6px; font-size: 0.68rem; }
     .seatSeed { font-size: 0.68rem; color: var(--accent); font-style: italic; margin-top: 3px; letter-spacing: 0.01em; }
@@ -5897,9 +5898,11 @@
         clearCinematicTimeout();
         state.cinematicMode = null;
       }
+      const challengeFlowActive = !!(state.challengeWindow || state.betting || state.cinematicMode || state.challengeIntro);
       const challengeVisualsActive = !!(state.betting || state.cinematicMode || state.challengeIntro);
       const hadChallengeVisuals = app.classList.contains('challenge-visuals-active');
       app.classList.toggle('cinematic-mode-active', bettingModeActive || !!state.cinematicMode);
+      app.classList.toggle('challenge-flow-active', challengeFlowActive);
       app.classList.toggle('challenge-visuals-active', challengeVisualsActive);
       if (hadChallengeVisuals !== challengeVisualsActive) {
         console.log(`[challenge-visuals] ${challengeVisualsActive ? 'activated' : 'deactivated'}`);
