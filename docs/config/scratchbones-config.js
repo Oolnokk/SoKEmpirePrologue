@@ -169,6 +169,11 @@ window.SCRATCHBONES_CONFIG = {
           "spreadPx": -6,
           "alpha": 0.44,
           "contactAlpha": 0.28
+        },
+        "underlay": {
+          "strengthPx": 20,
+          "skewMaxDeg": 12,
+          "alpha": 0.94
         }
       },
       "sizing": {

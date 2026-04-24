@@ -178,6 +178,9 @@
       --layout-card-shadow-spread: -6px;
       --layout-card-shadow-alpha: 0.44;
       --layout-card-shadow-contact-alpha: 0.28;
+      --layout-card-underlay-strength: 20px;
+      --layout-card-underlay-skew-max: 12deg;
+      --layout-card-underlay-alpha: 0.94;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
@@ -992,6 +995,22 @@
         drop-shadow(0 0 4px rgba(98, 176, 255, 0.85))
         drop-shadow(0 0 9px rgba(98, 176, 255, 0.72));
     }
+    .cardUnderlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      pointer-events: none;
+      opacity: var(--layout-card-underlay-alpha);
+      transform:
+        translate(var(--card-underlay-offset-x, 0px), var(--card-underlay-offset-y, 0px))
+        skewX(var(--card-underlay-skew-x, 0deg));
+      transform-origin: 50% 100%;
+      filter: brightness(0.42) saturate(0.7);
+      z-index: 0;
+    }
     .cardArt {
       width: 100%;
       height: 100%;
@@ -1001,6 +1020,8 @@
       border-radius: 0;
       pointer-events: none;
       filter: none;
+      position: relative;
+      z-index: 1;
     }
     .cardLabel {
       position: absolute;
@@ -1020,6 +1041,7 @@
       letter-spacing: 0.04em;
       pointer-events: none;
       transform: none;
+      z-index: 2;
     }
     .cardGlyph {
       display: inline-flex;
@@ -2269,6 +2291,11 @@
               spreadPx: rawGameConfig.layout?.cards?.shadow?.spreadPx ?? -6,
               alpha: rawGameConfig.layout?.cards?.shadow?.alpha ?? 0.44,
               contactAlpha: rawGameConfig.layout?.cards?.shadow?.contactAlpha ?? 0.28,
+            },
+            underlay: {
+              strengthPx: rawGameConfig.layout?.cards?.underlay?.strengthPx ?? 20,
+              skewMaxDeg: rawGameConfig.layout?.cards?.underlay?.skewMaxDeg ?? 12,
+              alpha: rawGameConfig.layout?.cards?.underlay?.alpha ?? 0.94,
             },
           },
           animation: {
@@ -4303,6 +4330,25 @@
     function cardLabel(card) {
       return card.wild ? 'Wild' : String(card.rank);
     }
+    function updateCardUnderlayDirection(root = document.getElementById('app')) {
+      if (!root) return;
+      const appRect = root.getBoundingClientRect();
+      const anchorX = appRect.left + appRect.width * 0.5;
+      const anchorY = appRect.bottom;
+      root.querySelectorAll('.card[data-card-id]').forEach((cardEl) => {
+        const rect = cardEl.getBoundingClientRect();
+        const centerX = rect.left + rect.width * 0.5;
+        const centerY = rect.top + rect.height * 0.5;
+        const dx = centerX - anchorX;
+        const dy = centerY - anchorY;
+        const distance = Math.hypot(dx, dy) || 1;
+        const dirX = dx / distance;
+        const dirY = dy / distance;
+        cardEl.style.setProperty('--card-underlay-offset-x', `calc(var(--layout-card-underlay-strength) * ${dirX.toFixed(4)})`);
+        cardEl.style.setProperty('--card-underlay-offset-y', `calc(var(--layout-card-underlay-strength) * ${dirY.toFixed(4)})`);
+        cardEl.style.setProperty('--card-underlay-skew-x', `calc(var(--layout-card-underlay-skew-max) * ${dirX.toFixed(4)})`);
+      });
+    }
     function normalizedAssetPath(basePath, fileName) {
       const safeBase = String(basePath || '').replace(/\/+$/, '');
       const safeFile = String(fileName || '').replace(/^\/+/, '');
@@ -4662,6 +4708,7 @@
       const layoutSizing = layout.sizing || {};
       const layoutCards = layout.cards || {};
       const layoutCardShadow = layoutCards.shadow || {};
+      const layoutCardUnderlay = layoutCards.underlay || {};
       const viewportLayout = layout.viewport || {};
       const handLayout = layout.hand || {};
       const tableViewLayout = layout.tableView || {};
@@ -4679,6 +4726,9 @@
       const cardShadowSpreadPx = clampNumber(numberOrDefault(layoutCardShadow.spreadPx, -6), -24, 24);
       const cardShadowAlpha = clampNumber(numberOrDefault(layoutCardShadow.alpha, 0.44), 0, 0.9);
       const cardShadowContactAlpha = clampNumber(numberOrDefault(layoutCardShadow.contactAlpha, 0.28), 0, 0.9);
+      const cardUnderlayStrengthPx = clampNumber(numberOrDefault(layoutCardUnderlay.strengthPx, 20), 0, 48);
+      const cardUnderlaySkewMaxDeg = clampNumber(numberOrDefault(layoutCardUnderlay.skewMaxDeg, 12), 0, 36);
+      const cardUnderlayAlpha = clampNumber(numberOrDefault(layoutCardUnderlay.alpha, 0.94), 0, 1);
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
       const handHeightScale = clampNumber(Number(handLayout.heightScale) || 0.5, 0.2, 0.75);
       const configuredHandMinHeightPx = Math.max(80, Number(handLayout.minHeightPx) || 160);
@@ -4822,6 +4872,9 @@
       setCssVar('--layout-card-shadow-spread', `${cardShadowSpreadPx.toFixed(2)}px`);
       setCssVar('--layout-card-shadow-alpha', cardShadowAlpha.toFixed(3));
       setCssVar('--layout-card-shadow-contact-alpha', cardShadowContactAlpha.toFixed(3));
+      setCssVar('--layout-card-underlay-strength', `${cardUnderlayStrengthPx.toFixed(2)}px`);
+      setCssVar('--layout-card-underlay-skew-max', `${cardUnderlaySkewMaxDeg.toFixed(2)}deg`);
+      setCssVar('--layout-card-underlay-alpha', cardUnderlayAlpha.toFixed(3));
       setCssVar('--layout-flame-x', `${(flameXPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-y', `${(flameYPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-core-alpha', flameCoreAlpha.toFixed(3));
@@ -5637,10 +5690,12 @@
           <div class="handScroll">
               ${player.hand.map(card => {
                 const art = resolveScratchbone2DAsset(card);
+                const underlayArt = resolveScratchbone2DAsset(card, { flipped: true });
                 const cardLabel = card.wild ? 'Wild' : `Rank ${card.rank}`;
                 const cardGlyph = card.wild ? 'W' : String(card.rank);
                 return `
                 <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}" title="${card.wild ? 'Wild card' : `Scratchbone ${card.rank}`}">
+                  <img class="cardUnderlay" src="${underlayArt.src}" data-fallback-src="${underlayArt.fallbackSrc}" alt="" aria-hidden="true">
                   <img class="cardArt" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`}">
                   <span class="cardLabel" aria-hidden="true"><span class="cardGlyph">${cardGlyph}</span><span class="cardText">${cardLabel}</span></span>
                 </button>
@@ -5699,6 +5754,10 @@
       renderAuthoredInspector();
       updateTableCardAutoScale(app);
       syncClaimClusterCardSizeFromHand(app);
+      updateCardUnderlayDirection(app);
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => updateCardUnderlayDirection(app));
+      }
       if (state.pendingCinematicBetAction) {
         const actionFx = state.pendingCinematicBetAction;
         state.pendingCinematicBetAction = null;
@@ -6756,6 +6815,7 @@
         }
         updateTableCardAutoScale(app);
         syncClaimClusterCardSizeFromHand(app);
+        updateCardUnderlayDirection(app);
       }, fitDebounceMs);
     }
     window.addEventListener('resize', scheduleResponsiveFitPass, { passive: true });
