@@ -121,6 +121,7 @@ window.SCRATCHBONES_CONFIG = {
     },
     "timers": {
       "challengeSeconds": 3,
+      "challengeIntroMs": 1350,
       "aiThinkMs": 650,
       "aiDecisionDelays": {
         "turnMinMs": 420,
@@ -793,6 +794,7 @@ window.SCRATCHBONES_CONFIG = {
       "pickCardWarning": "Pick at least one card before playing.",
       "challengeTimerLabel": "Auto: let it stand",
       "challengePromptTemplate": "{seat} declared {count} × {rank}. Challenge before the timer runs out, or let it stand.",
+      "challengeBurstText": "LIAR!!!",
       "letStandButton": "Let it stand"
     },
     "assets": {
