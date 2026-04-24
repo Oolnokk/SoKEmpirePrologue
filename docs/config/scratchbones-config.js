@@ -162,24 +162,13 @@ window.SCRATCHBONES_CONFIG = {
       },
       "cards": {
         "baseScale": 0.5,
-        "depth": {
-          "perspectivePx": 620,
-          "originXPct": 0.5,
-          "originYPct": 0.92,
-          "tiltXDeg": 8,
-          "depthZPx": 18,
-          "artLiftZPx": 6,
-          "shapeExtrudePx": 4,
-          "shapeShadowAlpha": 0.32,
-          "shapeLayerCount": 4,
-          "shapeLayerOffsetXPx": 0.32,
-          "shapeLayerOffsetYPx": 1.05,
-          "shapeLayerSkewXDeg": -0.35,
-          "shapeLayerAlpha": 0.14,
-          "bottomLayerOffsetXPx": 1.1,
-          "bottomLayerOffsetYPx": 4.2,
-          "bottomLayerSkewXDeg": -1.8,
-          "bottomLayerAlpha": 0.34
+        "shadow": {
+          "offsetXPx": 2,
+          "offsetYPx": 18,
+          "blurPx": 24,
+          "spreadPx": -6,
+          "alpha": 0.44,
+          "contactAlpha": 0.28
         }
       },
       "sizing": {

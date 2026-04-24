@@ -172,22 +172,12 @@
       --layout-flame-mid-alpha: 0.27;
       --layout-flame-far-alpha: 0.14;
       --layout-flame-flicker-seconds: 2.9s;
-      --layout-card-perspective: 620px;
-      --layout-card-perspective-origin-x: 50%;
-      --layout-card-perspective-origin-y: 92%;
-      --layout-card-tilt-x: 8deg;
-      --layout-card-depth-z: 18px;
-      --layout-card-art-z: 6px;
-      --layout-card-shape-extrude: 4px;
-      --layout-card-shape-shadow-alpha: 0.32;
-      --layout-card-shape-layer-offset-x: 0.32px;
-      --layout-card-shape-layer-offset-y: 1.05px;
-      --layout-card-shape-layer-skew-x: -0.35deg;
-      --layout-card-shape-layer-alpha: 0.14;
-      --layout-card-bottom-layer-offset-x: 1.1px;
-      --layout-card-bottom-layer-offset-y: 4.2px;
-      --layout-card-bottom-layer-skew-x: -1.8deg;
-      --layout-card-bottom-layer-alpha: 0.34;
+      --layout-card-shadow-offset-x: 2px;
+      --layout-card-shadow-offset-y: 18px;
+      --layout-card-shadow-blur: 24px;
+      --layout-card-shadow-spread: -6px;
+      --layout-card-shadow-alpha: 0.44;
+      --layout-card-shadow-contact-alpha: 0.28;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
@@ -229,9 +219,6 @@
       background-position: center center;
       background-repeat: no-repeat;
       background-size: 100% 100%;
-      perspective: var(--layout-card-perspective);
-      perspective-origin: var(--layout-card-perspective-origin-x) var(--layout-card-perspective-origin-y);
-      transform-style: preserve-3d;
       display: grid;
       container-type: size;
       grid-template-columns: minmax(0, 1fr) minmax(220px, 0.4fr) var(--layout-sidebar-width);
@@ -652,7 +639,9 @@
       border-radius: 0;
       border: 0;
       background: transparent;
-      box-shadow: none;
+      box-shadow:
+        var(--layout-card-shadow-offset-x) var(--layout-card-shadow-offset-y) var(--layout-card-shadow-blur) var(--layout-card-shadow-spread) rgba(0, 0, 0, var(--layout-card-shadow-alpha)),
+        calc(var(--layout-card-shadow-offset-x) * 0.4) calc(var(--layout-card-shadow-offset-y) * 0.34) calc(var(--layout-card-shadow-blur) * 0.56) calc(var(--layout-card-shadow-spread) * 0.72) rgba(0, 0, 0, var(--layout-card-shadow-contact-alpha));
       overflow: hidden;
       flex: 0 1 auto;
       max-width: 100%;
@@ -975,16 +964,16 @@
       color: var(--card-text);
       border: 3px solid transparent;
       border-radius: 0;
-      box-shadow: none;
+      box-shadow:
+        var(--layout-card-shadow-offset-x) var(--layout-card-shadow-offset-y) var(--layout-card-shadow-blur) var(--layout-card-shadow-spread) rgba(0, 0, 0, var(--layout-card-shadow-alpha)),
+        calc(var(--layout-card-shadow-offset-x) * 0.4) calc(var(--layout-card-shadow-offset-y) * 0.34) calc(var(--layout-card-shadow-blur) * 0.56) calc(var(--layout-card-shadow-spread) * 0.72) rgba(0, 0, 0, var(--layout-card-shadow-contact-alpha));
       display: flex;
       align-items: stretch;
       justify-content: stretch;
       position: relative;
       overflow: hidden;
       isolation: isolate;
-      transform: translateY(var(--card-lift-y)) translateZ(var(--layout-card-depth-z)) rotateX(var(--layout-card-tilt-x));
-      transform-origin: 50% 56%;
-      transform-style: preserve-3d;
+      transform: translateY(var(--card-lift-y));
       transition: transform 140ms ease-out, filter 140ms ease-out;
     }
     .card.selected { --card-lift-y: -4px; border-color: transparent; }
@@ -999,70 +988,9 @@
     }
     .card.selected .cardArt {
       filter:
-        drop-shadow(0 calc(var(--layout-card-shape-extrude) * 0.45) 0 rgba(0, 0, 0, var(--layout-card-shape-shadow-alpha)))
-        drop-shadow(0 calc(var(--layout-card-shape-extrude) * 0.9) calc(var(--layout-card-shape-extrude) * 0.95) rgba(0, 0, 0, calc(var(--layout-card-shape-shadow-alpha) * 0.76)))
         drop-shadow(0 0 1px rgba(98, 176, 255, 0.95))
         drop-shadow(0 0 4px rgba(98, 176, 255, 0.85))
         drop-shadow(0 0 9px rgba(98, 176, 255, 0.72));
-    }
-    .cardDepthStack {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      transform: translateZ(calc(var(--layout-card-art-z) - 1px));
-      transform-origin: center;
-    }
-    .cardDepthBase {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      object-position: center;
-      pointer-events: none;
-      opacity: var(--layout-card-bottom-layer-alpha);
-      filter: brightness(0.06) saturate(0.35);
-      transform:
-        translate(var(--layout-card-bottom-layer-offset-x), var(--layout-card-bottom-layer-offset-y))
-        skewX(var(--layout-card-bottom-layer-skew-x));
-      transform-origin: center;
-    }
-    .cardDepthLayer {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      object-position: center;
-      pointer-events: none;
-      opacity: 0;
-      transform-origin: center;
-      filter: brightness(0.04) saturate(0.25);
-      transform:
-        translate(
-          calc(var(--layout-card-shape-layer-offset-x) * var(--depth-layer-index)),
-          calc(var(--layout-card-shape-layer-offset-y) * var(--depth-layer-index))
-        )
-        skewX(calc(var(--layout-card-shape-layer-skew-x) * var(--depth-layer-index)));
-    }
-    .cardDepthLayer[data-depth-layer="1"] { opacity: var(--layout-card-shape-layer-alpha); }
-    .cardDepthLayer[data-depth-layer="2"] { opacity: calc(var(--layout-card-shape-layer-alpha) * 0.92); }
-    .cardDepthLayer[data-depth-layer="3"] { opacity: calc(var(--layout-card-shape-layer-alpha) * 0.86); }
-    .cardDepthLayer[data-depth-layer="4"] { opacity: calc(var(--layout-card-shape-layer-alpha) * 0.80); }
-    .cardDepthLayer[data-depth-layer="5"] { opacity: calc(var(--layout-card-shape-layer-alpha) * 0.74); }
-    .cardDepthLayer[data-depth-layer="6"] { opacity: calc(var(--layout-card-shape-layer-alpha) * 0.68); }
-    .cardDepthLayer[data-depth-layer="7"] { opacity: calc(var(--layout-card-shape-layer-alpha) * 0.62); }
-    .cardDepthLayer[data-depth-layer="8"] { opacity: calc(var(--layout-card-shape-layer-alpha) * 0.56); }
-    .card[data-depth-layers="0"] .cardDepthStack,
-    .card[data-depth-layers="1"] .cardDepthLayer:nth-child(n+2),
-    .card[data-depth-layers="2"] .cardDepthLayer:nth-child(n+3),
-    .card[data-depth-layers="3"] .cardDepthLayer:nth-child(n+4),
-    .card[data-depth-layers="4"] .cardDepthLayer:nth-child(n+5),
-    .card[data-depth-layers="5"] .cardDepthLayer:nth-child(n+6),
-    .card[data-depth-layers="6"] .cardDepthLayer:nth-child(n+7),
-    .card[data-depth-layers="7"] .cardDepthLayer:nth-child(n+8),
-    .card[data-depth-layers="8"] .cardDepthLayer:nth-child(n+9) {
-      display: none;
     }
     .cardArt {
       width: 100%;
@@ -1072,11 +1000,7 @@
       display: block;
       border-radius: 0;
       pointer-events: none;
-      transform: translateZ(var(--layout-card-art-z));
-      transform-origin: center;
-      filter:
-        drop-shadow(0 calc(var(--layout-card-shape-extrude) * 0.45) 0 rgba(0, 0, 0, var(--layout-card-shape-shadow-alpha)))
-        drop-shadow(0 calc(var(--layout-card-shape-extrude) * 0.9) calc(var(--layout-card-shape-extrude) * 0.95) rgba(0, 0, 0, calc(var(--layout-card-shape-shadow-alpha) * 0.76)));
+      filter: none;
     }
     .cardLabel {
       position: absolute;
@@ -1095,7 +1019,7 @@
       line-height: 1.1;
       letter-spacing: 0.04em;
       pointer-events: none;
-      transform: translateZ(calc(var(--layout-card-art-z) + 1px));
+      transform: none;
     }
     .cardGlyph {
       display: inline-flex;
@@ -2338,24 +2262,13 @@
           },
           cards: {
             baseScale: rawGameConfig.layout?.cards?.baseScale ?? 0.25,
-            depth: {
-              perspectivePx: rawGameConfig.layout?.cards?.depth?.perspectivePx ?? 620,
-              originXPct: rawGameConfig.layout?.cards?.depth?.originXPct ?? 0.5,
-              originYPct: rawGameConfig.layout?.cards?.depth?.originYPct ?? 0.92,
-              tiltXDeg: rawGameConfig.layout?.cards?.depth?.tiltXDeg ?? 8,
-              depthZPx: rawGameConfig.layout?.cards?.depth?.depthZPx ?? 18,
-              artLiftZPx: rawGameConfig.layout?.cards?.depth?.artLiftZPx ?? 6,
-              shapeExtrudePx: rawGameConfig.layout?.cards?.depth?.shapeExtrudePx ?? 4,
-              shapeShadowAlpha: rawGameConfig.layout?.cards?.depth?.shapeShadowAlpha ?? 0.32,
-              shapeLayerCount: rawGameConfig.layout?.cards?.depth?.shapeLayerCount ?? 4,
-              shapeLayerOffsetXPx: rawGameConfig.layout?.cards?.depth?.shapeLayerOffsetXPx ?? 0.32,
-              shapeLayerOffsetYPx: rawGameConfig.layout?.cards?.depth?.shapeLayerOffsetYPx ?? 1.05,
-              shapeLayerSkewXDeg: rawGameConfig.layout?.cards?.depth?.shapeLayerSkewXDeg ?? -0.35,
-              shapeLayerAlpha: rawGameConfig.layout?.cards?.depth?.shapeLayerAlpha ?? 0.14,
-              bottomLayerOffsetXPx: rawGameConfig.layout?.cards?.depth?.bottomLayerOffsetXPx ?? 1.1,
-              bottomLayerOffsetYPx: rawGameConfig.layout?.cards?.depth?.bottomLayerOffsetYPx ?? 4.2,
-              bottomLayerSkewXDeg: rawGameConfig.layout?.cards?.depth?.bottomLayerSkewXDeg ?? -1.8,
-              bottomLayerAlpha: rawGameConfig.layout?.cards?.depth?.bottomLayerAlpha ?? 0.34,
+            shadow: {
+              offsetXPx: rawGameConfig.layout?.cards?.shadow?.offsetXPx ?? 2,
+              offsetYPx: rawGameConfig.layout?.cards?.shadow?.offsetYPx ?? 18,
+              blurPx: rawGameConfig.layout?.cards?.shadow?.blurPx ?? 24,
+              spreadPx: rawGameConfig.layout?.cards?.shadow?.spreadPx ?? -6,
+              alpha: rawGameConfig.layout?.cards?.shadow?.alpha ?? 0.44,
+              contactAlpha: rawGameConfig.layout?.cards?.shadow?.contactAlpha ?? 0.28,
             },
           },
           animation: {
@@ -4390,19 +4303,6 @@
     function cardLabel(card) {
       return card.wild ? 'Wild' : String(card.rank);
     }
-    function renderCardDepthLayers(art, flippedArt, layerCount) {
-      const safeLayerCount = Math.max(0, Math.min(8, Number(layerCount) || 0));
-      const hasFlippedArt = Boolean(flippedArt?.src && flippedArt?.fallbackSrc);
-      if (safeLayerCount < 1 && !hasFlippedArt) return '';
-      const layers = [];
-      if (hasFlippedArt) {
-        layers.push(`<img class="cardDepthBase" src="${flippedArt.src}" data-fallback-src="${flippedArt.fallbackSrc}" alt="" aria-hidden="true">`);
-      }
-      for (let index = 1; index <= safeLayerCount; index += 1) {
-        layers.push(`<img class="cardDepthLayer" data-depth-layer="${index}" style="--depth-layer-index:${index};" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="" aria-hidden="true">`);
-      }
-      return `<span class="cardDepthStack" aria-hidden="true">${layers.join('')}</span>`;
-    }
     function normalizedAssetPath(basePath, fileName) {
       const safeBase = String(basePath || '').replace(/\/+$/, '');
       const safeFile = String(fileName || '').replace(/^\/+/, '');
@@ -4761,7 +4661,7 @@
       const claimCluster = getClaimClusterConfig();
       const layoutSizing = layout.sizing || {};
       const layoutCards = layout.cards || {};
-      const layoutCardDepth = layoutCards.depth || {};
+      const layoutCardShadow = layoutCards.shadow || {};
       const viewportLayout = layout.viewport || {};
       const handLayout = layout.hand || {};
       const tableViewLayout = layout.tableView || {};
@@ -4773,22 +4673,12 @@
         return Number.isFinite(numericValue) ? numericValue : fallback;
       };
       const cardBaseScale = clampNumber(Number(layoutCards.baseScale) || 0.25, 0.1, 0.75);
-      const cardPerspectivePx = clampNumber(numberOrDefault(layoutCardDepth.perspectivePx, 620), 420, 3000);
-      const cardPerspectiveOriginXPct = clampNumber(numberOrDefault(layoutCardDepth.originXPct, 0.5), -0.2, 1.2);
-      const cardPerspectiveOriginYPct = clampNumber(numberOrDefault(layoutCardDepth.originYPct, 0.92), 0.8, 1.8);
-      const cardTiltXDeg = clampNumber(numberOrDefault(layoutCardDepth.tiltXDeg, 8), -8, 30);
-      const cardDepthZPx = clampNumber(numberOrDefault(layoutCardDepth.depthZPx, 18), -24, 60);
-      const cardArtLiftZPx = clampNumber(numberOrDefault(layoutCardDepth.artLiftZPx, 6), -8, 28);
-      const cardShapeExtrudePx = clampNumber(numberOrDefault(layoutCardDepth.shapeExtrudePx, 4), 0, 16);
-      const cardShapeShadowAlpha = clampNumber(numberOrDefault(layoutCardDepth.shapeShadowAlpha, 0.32), 0, 0.9);
-      const cardShapeLayerOffsetXPx = clampNumber(numberOrDefault(layoutCardDepth.shapeLayerOffsetXPx, 0.32), -4, 4);
-      const cardShapeLayerOffsetYPx = clampNumber(numberOrDefault(layoutCardDepth.shapeLayerOffsetYPx, 1.05), -6, 8);
-      const cardShapeLayerSkewXDeg = clampNumber(numberOrDefault(layoutCardDepth.shapeLayerSkewXDeg, -0.35), -4, 4);
-      const cardShapeLayerAlpha = clampNumber(numberOrDefault(layoutCardDepth.shapeLayerAlpha, 0.14), 0, 0.6);
-      const cardBottomLayerOffsetXPx = clampNumber(numberOrDefault(layoutCardDepth.bottomLayerOffsetXPx, 1.1), -6, 8);
-      const cardBottomLayerOffsetYPx = clampNumber(numberOrDefault(layoutCardDepth.bottomLayerOffsetYPx, 4.2), -8, 16);
-      const cardBottomLayerSkewXDeg = clampNumber(numberOrDefault(layoutCardDepth.bottomLayerSkewXDeg, -1.8), -8, 8);
-      const cardBottomLayerAlpha = clampNumber(numberOrDefault(layoutCardDepth.bottomLayerAlpha, 0.34), 0, 0.95);
+      const cardShadowOffsetXPx = clampNumber(numberOrDefault(layoutCardShadow.offsetXPx, 2), -24, 24);
+      const cardShadowOffsetYPx = clampNumber(numberOrDefault(layoutCardShadow.offsetYPx, 18), 0, 48);
+      const cardShadowBlurPx = clampNumber(numberOrDefault(layoutCardShadow.blurPx, 24), 0, 64);
+      const cardShadowSpreadPx = clampNumber(numberOrDefault(layoutCardShadow.spreadPx, -6), -24, 24);
+      const cardShadowAlpha = clampNumber(numberOrDefault(layoutCardShadow.alpha, 0.44), 0, 0.9);
+      const cardShadowContactAlpha = clampNumber(numberOrDefault(layoutCardShadow.contactAlpha, 0.28), 0, 0.9);
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
       const handHeightScale = clampNumber(Number(handLayout.heightScale) || 0.5, 0.2, 0.75);
       const configuredHandMinHeightPx = Math.max(80, Number(handLayout.minHeightPx) || 160);
@@ -4926,22 +4816,12 @@
       setCssVar('--layout-liar-burst-duration', `${liarBurstDurationSec.toFixed(3)}s`);
       setCssVar('--layout-liar-burst-end-y', `${liarBurstEndYPct.toFixed(2)}%`);
       setCssVar('--layout-ui-tabletop-url', tabletopImageSrc ? `url("${tabletopImageSrc}")` : 'none');
-      setCssVar('--layout-card-perspective', `${cardPerspectivePx.toFixed(2)}px`);
-      setCssVar('--layout-card-perspective-origin-x', `${(cardPerspectiveOriginXPct * 100).toFixed(2)}%`);
-      setCssVar('--layout-card-perspective-origin-y', `${(cardPerspectiveOriginYPct * 100).toFixed(2)}%`);
-      setCssVar('--layout-card-tilt-x', `${cardTiltXDeg.toFixed(2)}deg`);
-      setCssVar('--layout-card-depth-z', `${cardDepthZPx.toFixed(2)}px`);
-      setCssVar('--layout-card-art-z', `${cardArtLiftZPx.toFixed(2)}px`);
-      setCssVar('--layout-card-shape-extrude', `${cardShapeExtrudePx.toFixed(2)}px`);
-      setCssVar('--layout-card-shape-shadow-alpha', cardShapeShadowAlpha.toFixed(3));
-      setCssVar('--layout-card-shape-layer-offset-x', `${cardShapeLayerOffsetXPx.toFixed(2)}px`);
-      setCssVar('--layout-card-shape-layer-offset-y', `${cardShapeLayerOffsetYPx.toFixed(2)}px`);
-      setCssVar('--layout-card-shape-layer-skew-x', `${cardShapeLayerSkewXDeg.toFixed(2)}deg`);
-      setCssVar('--layout-card-shape-layer-alpha', cardShapeLayerAlpha.toFixed(3));
-      setCssVar('--layout-card-bottom-layer-offset-x', `${cardBottomLayerOffsetXPx.toFixed(2)}px`);
-      setCssVar('--layout-card-bottom-layer-offset-y', `${cardBottomLayerOffsetYPx.toFixed(2)}px`);
-      setCssVar('--layout-card-bottom-layer-skew-x', `${cardBottomLayerSkewXDeg.toFixed(2)}deg`);
-      setCssVar('--layout-card-bottom-layer-alpha', cardBottomLayerAlpha.toFixed(3));
+      setCssVar('--layout-card-shadow-offset-x', `${cardShadowOffsetXPx.toFixed(2)}px`);
+      setCssVar('--layout-card-shadow-offset-y', `${cardShadowOffsetYPx.toFixed(2)}px`);
+      setCssVar('--layout-card-shadow-blur', `${cardShadowBlurPx.toFixed(2)}px`);
+      setCssVar('--layout-card-shadow-spread', `${cardShadowSpreadPx.toFixed(2)}px`);
+      setCssVar('--layout-card-shadow-alpha', cardShadowAlpha.toFixed(3));
+      setCssVar('--layout-card-shadow-contact-alpha', cardShadowContactAlpha.toFixed(3));
       setCssVar('--layout-flame-x', `${(flameXPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-y', `${(flameYPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-core-alpha', flameCoreAlpha.toFixed(3));
@@ -5757,13 +5637,10 @@
           <div class="handScroll">
               ${player.hand.map(card => {
                 const art = resolveScratchbone2DAsset(card);
-                const flippedArt = resolveScratchbone2DAsset(card, { flipped: true });
                 const cardLabel = card.wild ? 'Wild' : `Rank ${card.rank}`;
                 const cardGlyph = card.wild ? 'W' : String(card.rank);
-                const cardDepthLayerCount = Math.max(0, Math.min(8, Number(SCRATCHBONES_GAME.layout?.cards?.depth?.shapeLayerCount) || 0));
                 return `
-                <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}" data-depth-layers="${cardDepthLayerCount}" title="${card.wild ? 'Wild card' : `Scratchbone ${card.rank}`}">
-                  ${renderCardDepthLayers(art, flippedArt, cardDepthLayerCount)}
+                <button class="card ${card.wild ? 'wild' : ''} ${state.selectedCardIds.has(card.id) ? 'selected' : ''}" data-card-id="${card.id}" title="${card.wild ? 'Wild card' : `Scratchbone ${card.rank}`}">
                   <img class="cardArt" src="${art.src}" data-fallback-src="${art.fallbackSrc}" alt="${card.wild ? 'Wild scratchbone card' : `Scratchbone ${card.rank} card`}">
                   <span class="cardLabel" aria-hidden="true"><span class="cardGlyph">${cardGlyph}</span><span class="cardText">${cardLabel}</span></span>
                 </button>
