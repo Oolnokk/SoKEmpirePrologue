@@ -3660,52 +3660,115 @@
       await sleep(durationMs + 30);
       clone.remove();
     }
-    function coinButtonForTier(tierId) {
-      return document.querySelector(`[data-stake-tier-btn="${tierId}"]`);
-    }
-    function contributionAnchorForPlayer(playerId) {
-      return document.querySelector(`[data-stake-contrib-anchor="${playerId}"]`);
-    }
-    function contributionCoinForPlayer(playerId) {
-      return document.querySelector(`[data-stake-contrib-coin="${playerId}"]`);
-    }
-    function stakeAnchor() {
-      return document.querySelector('[data-stake-current-anchor]');
-    }
-    function potAnchor() {
-      return document.querySelector('[data-stake-pot-anchor]');
+    // Fly a coin image (by tier) between any two elements.
+    // avatarOrigin: starts tiny at fromEl center, grows to target size.
+    // avatarDest: starts at fromEl size, shrinks/fades to toEl center.
+    async function animateCoinBetween(tierId, fromEl, toEl, { durationMs = 280, avatarOrigin = false, avatarDest = false } = {}) {
+      if (!fromEl || !toEl) return;
+      const fromRect = fromEl.getBoundingClientRect();
+      const toRect = toEl.getBoundingClientRect();
+      if (!fromRect.width || !toRect.width) return;
+      const coinSrc = stakeCoinSrcForTier(tierId);
+      const fallback = stakeCoinSrcForTier('tinmoon');
+      const fromCx = fromRect.left + fromRect.width / 2;
+      const fromCy = fromRect.top + fromRect.height / 2;
+      const toCx = toRect.left + toRect.width / 2;
+      const toCy = toRect.top + toRect.height / 2;
+      let size, startScale, endScale, startOpacity, endOpacity;
+      if (avatarOrigin) {
+        size = Math.max(toRect.width, 24);
+        startScale = 0.08; endScale = 1;
+        startOpacity = 0.25; endOpacity = 1;
+      } else if (avatarDest) {
+        size = Math.max(fromRect.width, 24);
+        startScale = 1; endScale = 0.08;
+        startOpacity = 1; endOpacity = 0;
+      } else {
+        size = Math.max(fromRect.width, 24);
+        startScale = 1; endScale = toRect.width / size;
+        startOpacity = 1; endOpacity = 1;
+      }
+      const clone = document.createElement('img');
+      clone.src = coinSrc;
+      clone.onerror = () => { clone.src = fallback; };
+      clone.style.cssText = [
+        'position:fixed',
+        `left:${fromCx - size / 2}px`, `top:${fromCy - size / 2}px`,
+        `width:${size}px`, `height:${size}px`,
+        'object-fit:contain', 'pointer-events:none', 'z-index:10010',
+        'transform-origin:center center',
+        `transform:scale(${startScale})`, `opacity:${startOpacity}`,
+        'transition:none',
+      ].join(';');
+      document.body.appendChild(clone);
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const dx = toCx - fromCx;
+      const dy = toCy - fromCy;
+      clone.style.transition = `transform ${durationMs}ms ease, opacity ${durationMs}ms ease`;
+      clone.style.transform = `translate(${dx}px, ${dy}px) scale(${endScale})`;
+      clone.style.opacity = String(endOpacity);
+      await sleep(durationMs + 30);
+      clone.remove();
     }
     async function animateStakeOpen(playerId, tierId) {
-      await animateCoinCloneToTarget(coinButtonForTier(tierId), contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.openMs });
-      await animateCoinCloneToTarget(coinButtonForTier(tierId), stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.openMs });
-      await animateCoinCloneToTarget(coinButtonForTier(tierId), potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.openMs });
+      const isHuman = playerId === 0;
+      if (isHuman) {
+        const btn = coinButtonForTier(tierId);
+        await animateCoinCloneToTarget(btn, contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.openMs });
+        await animateCoinCloneToTarget(btn, stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.openMs });
+        await animateCoinCloneToTarget(btn, potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.openMs });
+      } else {
+        const avatar = claimClusterAvatarAnchorForPlayer(playerId);
+        await animateCoinBetween(tierId, avatar, contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.openMs, avatarOrigin: true });
+        await animateCoinBetween(tierId, avatar, stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.openMs, avatarOrigin: true });
+        await animateCoinBetween(tierId, avatar, potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.openMs, avatarOrigin: true });
+      }
     }
     async function animateStakeCall(playerId, tierId) {
-      await animateCoinCloneToTarget(coinButtonForTier(tierId), contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.callMs });
-      await animateCoinCloneToTarget(coinButtonForTier(tierId), potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.callMs });
+      const isHuman = playerId === 0;
+      if (isHuman) {
+        const btn = coinButtonForTier(tierId);
+        await animateCoinCloneToTarget(btn, contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.callMs });
+        await animateCoinCloneToTarget(btn, potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.callMs });
+      } else {
+        const avatar = claimClusterAvatarAnchorForPlayer(playerId);
+        await animateCoinBetween(tierId, avatar, contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.callMs, avatarOrigin: true });
+        await animateCoinBetween(tierId, avatar, potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.callMs, avatarOrigin: true });
+      }
     }
     async function animateStakeRaise(playerId, newTierId) {
       console.log('[stake-anim] raise animation start', { playerId, newTierId });
-      const tierBtn = coinButtonForTier(newTierId);
+      const isHuman = playerId === 0;
+      const prevTierId = state.betting?.currentTierId;
       const currentStakeCoin = document.querySelector('[data-stake-current-coin]');
       const existingContributionCoin = contributionCoinForPlayer(playerId);
-      if (existingContributionCoin && tierBtn) {
-        await animateCoinCloneToTarget(existingContributionCoin, tierBtn, {
-          durationMs: CONFIG.challengeStakeAnimation.raiseOutMs,
-          replaceOut: true,
-        });
-        console.log('[stake-anim] old contribution coin backed out', { playerId });
+      if (isHuman) {
+        const btn = coinButtonForTier(newTierId);
+        if (existingContributionCoin && btn) {
+          await animateCoinCloneToTarget(existingContributionCoin, btn, { durationMs: CONFIG.challengeStakeAnimation.raiseOutMs, replaceOut: true });
+          console.log('[stake-anim] old contribution coin backed out', { playerId });
+        }
+        if (currentStakeCoin && btn) {
+          await animateCoinCloneToTarget(currentStakeCoin, btn, { durationMs: CONFIG.challengeStakeAnimation.raiseOutMs, replaceOut: true });
+          console.log('[stake-anim] center stake coin backed out', { playerId });
+        }
+        await animateCoinCloneToTarget(btn, contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
+        await animateCoinCloneToTarget(btn, stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
+        await animateCoinCloneToTarget(btn, potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
+      } else {
+        const avatar = claimClusterAvatarAnchorForPlayer(playerId);
+        if (existingContributionCoin && avatar) {
+          await animateCoinBetween(prevTierId || newTierId, existingContributionCoin, avatar, { durationMs: CONFIG.challengeStakeAnimation.raiseOutMs, avatarDest: true });
+          console.log('[stake-anim] AI old contribution coin backed out to avatar', { playerId });
+        }
+        if (currentStakeCoin && avatar) {
+          await animateCoinBetween(prevTierId || newTierId, currentStakeCoin, avatar, { durationMs: CONFIG.challengeStakeAnimation.raiseOutMs, avatarDest: true });
+          console.log('[stake-anim] AI center stake coin backed out to avatar', { playerId });
+        }
+        await animateCoinBetween(newTierId, avatar, contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs, avatarOrigin: true });
+        await animateCoinBetween(newTierId, avatar, stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs, avatarOrigin: true });
+        await animateCoinBetween(newTierId, avatar, potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs, avatarOrigin: true });
       }
-      if (currentStakeCoin && tierBtn) {
-        await animateCoinCloneToTarget(currentStakeCoin, tierBtn, {
-          durationMs: CONFIG.challengeStakeAnimation.raiseOutMs,
-          replaceOut: true,
-        });
-        console.log('[stake-anim] center stake coin backed out', { playerId });
-      }
-      await animateCoinCloneToTarget(tierBtn, contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
-      await animateCoinCloneToTarget(tierBtn, stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
-      await animateCoinCloneToTarget(tierBtn, potAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
       console.log('[stake-anim] new tier coin inserted', { playerId, newTierId });
     }
     async function resolveBetAction(playerId, action, options = {}) {
