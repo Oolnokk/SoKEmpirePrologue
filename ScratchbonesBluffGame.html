@@ -172,18 +172,14 @@
       --layout-flame-mid-alpha: 0.27;
       --layout-flame-far-alpha: 0.14;
       --layout-flame-flicker-seconds: 2.9s;
-      --layout-card-shadow-offset-x: 1.5px;
-      --layout-card-shadow-offset-y: 9px;
-      --layout-card-shadow-blur: 12px;
-      --layout-card-shadow-spread: -2px;
-      --layout-card-shadow-alpha: 0.34;
-      --layout-card-contact-alpha: 0.2;
       --layout-card-perspective: 900px;
       --layout-card-perspective-origin-x: 50%;
       --layout-card-perspective-origin-y: 92%;
       --layout-card-tilt-x: 8deg;
       --layout-card-depth-z: 18px;
       --layout-card-art-z: 6px;
+      --layout-card-shape-extrude: 4px;
+      --layout-card-shape-shadow-alpha: 0.32;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
@@ -971,9 +967,7 @@
       color: var(--card-text);
       border: 3px solid transparent;
       border-radius: 0;
-      box-shadow:
-        var(--layout-card-shadow-offset-x) var(--layout-card-shadow-offset-y) var(--layout-card-shadow-blur) var(--layout-card-shadow-spread) rgba(0, 0, 0, var(--layout-card-shadow-alpha)),
-        calc(var(--layout-card-shadow-offset-x) * 0.35) calc(var(--layout-card-shadow-offset-y) * 0.35) calc(var(--layout-card-shadow-blur) * 0.35) calc(var(--layout-card-shadow-spread) * 0.6) rgba(0, 0, 0, var(--layout-card-contact-alpha));
+      box-shadow: none;
       display: flex;
       align-items: stretch;
       justify-content: stretch;
@@ -997,6 +991,8 @@
     }
     .card.selected .cardArt {
       filter:
+        drop-shadow(0 calc(var(--layout-card-shape-extrude) * 0.45) 0 rgba(0, 0, 0, var(--layout-card-shape-shadow-alpha)))
+        drop-shadow(0 calc(var(--layout-card-shape-extrude) * 0.9) calc(var(--layout-card-shape-extrude) * 0.95) rgba(0, 0, 0, calc(var(--layout-card-shape-shadow-alpha) * 0.76)))
         drop-shadow(0 0 1px rgba(98, 176, 255, 0.95))
         drop-shadow(0 0 4px rgba(98, 176, 255, 0.85))
         drop-shadow(0 0 9px rgba(98, 176, 255, 0.72));
@@ -1011,6 +1007,9 @@
       pointer-events: none;
       transform: translateZ(var(--layout-card-art-z));
       transform-origin: center;
+      filter:
+        drop-shadow(0 calc(var(--layout-card-shape-extrude) * 0.45) 0 rgba(0, 0, 0, var(--layout-card-shape-shadow-alpha)))
+        drop-shadow(0 calc(var(--layout-card-shape-extrude) * 0.9) calc(var(--layout-card-shape-extrude) * 0.95) rgba(0, 0, 0, calc(var(--layout-card-shape-shadow-alpha) * 0.76)));
     }
     .cardLabel {
       position: absolute;
@@ -2279,6 +2278,8 @@
               tiltXDeg: rawGameConfig.layout?.cards?.depth?.tiltXDeg ?? 8,
               depthZPx: rawGameConfig.layout?.cards?.depth?.depthZPx ?? 18,
               artLiftZPx: rawGameConfig.layout?.cards?.depth?.artLiftZPx ?? 6,
+              shapeExtrudePx: rawGameConfig.layout?.cards?.depth?.shapeExtrudePx ?? 4,
+              shapeShadowAlpha: rawGameConfig.layout?.cards?.depth?.shapeShadowAlpha ?? 0.32,
             },
           },
           animation: {
@@ -2425,14 +2426,6 @@
               midAlpha: rawGameConfig.layout?.lighting?.flame?.midAlpha ?? 0.27,
               farAlpha: rawGameConfig.layout?.lighting?.flame?.farAlpha ?? 0.14,
               flickerSeconds: rawGameConfig.layout?.lighting?.flame?.flickerSeconds ?? 2.9,
-            },
-            cardShadow: {
-              offsetXPx: rawGameConfig.layout?.lighting?.cardShadow?.offsetXPx ?? 1.5,
-              offsetYPx: rawGameConfig.layout?.lighting?.cardShadow?.offsetYPx ?? 9,
-              blurPx: rawGameConfig.layout?.lighting?.cardShadow?.blurPx ?? 12,
-              spreadPx: rawGameConfig.layout?.lighting?.cardShadow?.spreadPx ?? -2,
-              alpha: rawGameConfig.layout?.lighting?.cardShadow?.alpha ?? 0.34,
-              contactAlpha: rawGameConfig.layout?.lighting?.cardShadow?.contactAlpha ?? 0.2,
             },
           },
           fitter: rawGameConfig.layout?.fitter ?? null,
@@ -4686,7 +4679,6 @@
       const backgroundLayout = layout.background || {};
       const lightingLayout = layout.lighting || {};
       const flameLighting = lightingLayout.flame || {};
-      const cardShadowLighting = lightingLayout.cardShadow || {};
       const numberOrDefault = (value, fallback) => {
         const numericValue = Number(value);
         return Number.isFinite(numericValue) ? numericValue : fallback;
@@ -4698,6 +4690,8 @@
       const cardTiltXDeg = clampNumber(numberOrDefault(layoutCardDepth.tiltXDeg, 8), -8, 30);
       const cardDepthZPx = clampNumber(numberOrDefault(layoutCardDepth.depthZPx, 18), -24, 60);
       const cardArtLiftZPx = clampNumber(numberOrDefault(layoutCardDepth.artLiftZPx, 6), -8, 28);
+      const cardShapeExtrudePx = clampNumber(numberOrDefault(layoutCardDepth.shapeExtrudePx, 4), 0, 16);
+      const cardShapeShadowAlpha = clampNumber(numberOrDefault(layoutCardDepth.shapeShadowAlpha, 0.32), 0, 0.9);
       const desiredHeightFrac = clampNumber(Number(handLayout.desiredHeightFrac) || 0.20, 0.08, 0.60);
       const handHeightScale = clampNumber(Number(handLayout.heightScale) || 0.5, 0.2, 0.75);
       const configuredHandMinHeightPx = Math.max(80, Number(handLayout.minHeightPx) || 160);
@@ -4779,12 +4773,6 @@
       const flameMidAlpha = clampNumber(numberOrDefault(flameLighting.midAlpha, 0.27), 0, 0.35);
       const flameFarAlpha = clampNumber(numberOrDefault(flameLighting.farAlpha, 0.14), 0, 0.2);
       const flameFlickerSeconds = clampNumber(numberOrDefault(flameLighting.flickerSeconds, 2.9), 1.2, 8);
-      const cardShadowOffsetXPx = clampNumber(numberOrDefault(cardShadowLighting.offsetXPx, 1.5), -18, 18);
-      const cardShadowOffsetYPx = clampNumber(numberOrDefault(cardShadowLighting.offsetYPx, 9), 0, 28);
-      const cardShadowBlurPx = clampNumber(numberOrDefault(cardShadowLighting.blurPx, 12), 0, 40);
-      const cardShadowSpreadPx = clampNumber(numberOrDefault(cardShadowLighting.spreadPx, -2), -24, 24);
-      const cardShadowAlpha = clampNumber(numberOrDefault(cardShadowLighting.alpha, 0.34), 0, 0.7);
-      const cardShadowContactAlpha = clampNumber(numberOrDefault(cardShadowLighting.contactAlpha, 0.2), 0, 0.65);
       const handCardMinWidthPx = clampNumber(Number(layoutSizing.handCardMinWidthPx) || 74, 48, 180);
       const handCardMaxWidthPx = clampNumber(Number(layoutSizing.handCardMaxWidthPx) || 104, handCardMinWidthPx, 220);
       const handCardMinHeightPx = clampNumber(Number(layoutSizing.handCardMinHeightPx) || 146, 88, 280);
@@ -4847,18 +4835,14 @@
       setCssVar('--layout-card-tilt-x', `${cardTiltXDeg.toFixed(2)}deg`);
       setCssVar('--layout-card-depth-z', `${cardDepthZPx.toFixed(2)}px`);
       setCssVar('--layout-card-art-z', `${cardArtLiftZPx.toFixed(2)}px`);
+      setCssVar('--layout-card-shape-extrude', `${cardShapeExtrudePx.toFixed(2)}px`);
+      setCssVar('--layout-card-shape-shadow-alpha', cardShapeShadowAlpha.toFixed(3));
       setCssVar('--layout-flame-x', `${(flameXPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-y', `${(flameYPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-core-alpha', flameCoreAlpha.toFixed(3));
       setCssVar('--layout-flame-mid-alpha', flameMidAlpha.toFixed(3));
       setCssVar('--layout-flame-far-alpha', flameFarAlpha.toFixed(3));
       setCssVar('--layout-flame-flicker-seconds', `${flameFlickerSeconds.toFixed(3)}s`);
-      setCssVar('--layout-card-shadow-offset-x', `${cardShadowOffsetXPx.toFixed(2)}px`);
-      setCssVar('--layout-card-shadow-offset-y', `${cardShadowOffsetYPx.toFixed(2)}px`);
-      setCssVar('--layout-card-shadow-blur', `${cardShadowBlurPx.toFixed(2)}px`);
-      setCssVar('--layout-card-shadow-spread', `${cardShadowSpreadPx.toFixed(2)}px`);
-      setCssVar('--layout-card-shadow-alpha', cardShadowAlpha.toFixed(3));
-      setCssVar('--layout-card-contact-alpha', cardShadowContactAlpha.toFixed(3));
       setCssVar('--layout-table-dominance-frac', tableMinDominanceFrac.toFixed(3));
       setCssVar('--layout-action-column-height-scale', actionColumnHeightScale.toFixed(3));
       setCssVar('--layout-controls-height-scale', controlsHeightScale.toFixed(3));

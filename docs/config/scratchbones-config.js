@@ -168,7 +168,9 @@ window.SCRATCHBONES_CONFIG = {
           "originYPct": 0.92,
           "tiltXDeg": 8,
           "depthZPx": 18,
-          "artLiftZPx": 6
+          "artLiftZPx": 6,
+          "shapeExtrudePx": 4,
+          "shapeShadowAlpha": 0.32
         }
       },
       "sizing": {
@@ -369,14 +371,6 @@ window.SCRATCHBONES_CONFIG = {
           "midAlpha": 0.27,
           "farAlpha": 0.14,
           "flickerSeconds": 2.9
-        },
-        "cardShadow": {
-          "offsetXPx": 1.5,
-          "offsetYPx": 9,
-          "blurPx": 12,
-          "spreadPx": -2,
-          "alpha": 0.34,
-          "contactAlpha": 0.2
         }
       },
       "fitter": {
