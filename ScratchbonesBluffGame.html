@@ -163,6 +163,9 @@
       --layout-cinematic-player-info-font: 1.05rem;
       --layout-cinematic-burst-font: 2rem;
       --layout-cinematic-burst-duration: 2.1s;
+      --layout-liar-burst-font: 3.2rem;
+      --layout-liar-burst-duration: 3.2s;
+      --layout-liar-burst-end-y: -180%;
       --layout-flame-x: 50%;
       --layout-flame-y: 14%;
       --layout-flame-core-alpha: 0.4;
@@ -865,6 +868,12 @@
       border-radius: 8px;
       transform: scaleX(-1);
       transform-origin: center center;
+    }
+    .actorAvatarFloat .seatPortrait {
+      transform: none;
+    }
+    .reactorAvatarFloat .seatPortrait {
+      transform: scaleX(-1);
     }
     .controls {
       padding: calc(var(--layout-controls-padding-y) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale))
@@ -1577,7 +1586,12 @@
     .cin-action-burst.burst-call  { color: #88ccff; text-shadow: 0 0 14px rgba(100,180,255,0.9), 0 0 32px rgba(60,140,255,0.5); }
     .cin-action-burst.burst-raise { color: #f2d08f; text-shadow: 0 0 14px rgba(242,160,40,0.95), 0 0 32px rgba(200,110,10,0.6); }
     .cin-action-burst.burst-fold  { color: #ff9090; text-shadow: 0 0 14px rgba(255,70,70,0.95),  0 0 32px rgba(200,30,30,0.6); }
-    .cin-action-burst.burst-liar  { color: #ff6f6f; text-shadow: 0 0 16px rgba(255,70,70,0.98), 0 0 34px rgba(220,10,10,0.7); }
+    .cin-action-burst.burst-liar  {
+      color: #ff6f6f;
+      text-shadow: 0 0 16px rgba(255,70,70,0.98), 0 0 34px rgba(220,10,10,0.7);
+      font-size: var(--layout-liar-burst-font);
+      animation: cinBurstLiar var(--layout-liar-burst-duration) both;
+    }
     @keyframes cinBurst {
       0%   { transform: translate(-50%, -50%) scale(0.3);  opacity: 1;
              animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
@@ -1586,6 +1600,15 @@
       67%  { transform: translate(-50%, -50%) scale(1.5);  opacity: 1;
              animation-timing-function: ease-in; }
       100% { transform: translate(-50%, -105%) scale(2.28); opacity: 0; }
+    }
+    @keyframes cinBurstLiar {
+      0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 1;
+             animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+      20%  { transform: translate(-50%, -50%) scale(2.2); opacity: 1;
+             animation-timing-function: linear; }
+      82%  { transform: translate(-50%, -50%) scale(2.2); opacity: 1;
+             animation-timing-function: ease-in; }
+      100% { transform: translate(-50%, var(--layout-liar-burst-end-y)) scale(2.95); opacity: 0; }
     }
     .cin-reveal-label {
       position: absolute;
@@ -2200,7 +2223,7 @@
         },
         timers: {
           challengeTimerSecs: rawGameConfig.timers?.challengeSeconds ?? 6,
-          challengeIntroMs: rawGameConfig.timers?.challengeIntroMs ?? 1350,
+          challengeIntroMs: rawGameConfig.timers?.challengeIntroMs ?? 2200,
           aiThinkMs: rawGameConfig.timers?.aiThinkMs ?? 650,
           aiDecisionDelays: {
             turnMinMs: rawGameConfig.timers?.aiDecisionDelays?.turnMinMs ?? 420,
@@ -2311,6 +2334,9 @@
               claimTitleScale: rawGameConfig.layout?.tableView?.cinematic?.claimTitleScale ?? 1.5,
               betActionBurstFontRem: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstFontRem ?? 2,
               betActionBurstDurationSec: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstDurationSec ?? 2.1,
+              liarBurstFontRem: rawGameConfig.layout?.tableView?.cinematic?.liarBurstFontRem ?? 3.2,
+              liarBurstDurationSec: rawGameConfig.layout?.tableView?.cinematic?.liarBurstDurationSec ?? 3.2,
+              liarBurstEndYPct: rawGameConfig.layout?.tableView?.cinematic?.liarBurstEndYPct ?? -180,
               betActionBurstClampInsetPx: rawGameConfig.layout?.tableView?.cinematic?.betActionBurstClampInsetPx ?? 24,
               revealDurationMs: rawGameConfig.layout?.tableView?.cinematic?.revealDurationMs ?? 4200,
               foldDurationMs: rawGameConfig.layout?.tableView?.cinematic?.foldDurationMs ?? 2600,
@@ -3443,7 +3469,7 @@
       };
       setBanner(`${seatFirstName(challengerIndex)} calls liar! Challenge begins...`);
       render();
-      const introMs = Math.max(0, Number(CONFIG.timers?.challengeIntroMs) || 1350);
+      const introMs = Math.max(0, Number(CONFIG.timers?.challengeIntroMs) || 2200);
       state.challengeIntroTimeout = setTimeout(() => {
         if (!state.challengeWindow || state.gameOver || state.betting) return;
         if (!state.challengeIntro || state.challengeIntro.challengerId !== challengerIndex || state.challengeIntro.challengedId !== challengedIndex) return;
@@ -4702,6 +4728,9 @@
       const claimTitleScale = clampNumber(Number(cinematicLayout.claimTitleScale) || 1.5, 0.6, 3.2);
       const cinematicBurstFontRem = clampNumber(Number(cinematicLayout.betActionBurstFontRem) || 2, 0.75, 5);
       const cinematicBurstDurationSec = clampNumber(Number(cinematicLayout.betActionBurstDurationSec) || 2.1, 0.4, 6);
+      const liarBurstFontRem = clampNumber(Number(cinematicLayout.liarBurstFontRem) || 3.2, 1, 7);
+      const liarBurstDurationSec = clampNumber(Number(cinematicLayout.liarBurstDurationSec) || 3.2, 0.6, 8);
+      const liarBurstEndYPct = clampNumber(Number(cinematicLayout.liarBurstEndYPct) || -180, -320, -110);
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
       const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
       const flameXPct = clampNumber(numberOrDefault(flameLighting.xPct, 0.5), 0, 1);
@@ -4768,6 +4797,9 @@
       setCssVar('--layout-claim-title-scale', claimTitleScale.toFixed(3));
       setCssVar('--layout-cinematic-burst-font', `${cinematicBurstFontRem.toFixed(3)}rem`);
       setCssVar('--layout-cinematic-burst-duration', `${cinematicBurstDurationSec.toFixed(3)}s`);
+      setCssVar('--layout-liar-burst-font', `${liarBurstFontRem.toFixed(3)}rem`);
+      setCssVar('--layout-liar-burst-duration', `${liarBurstDurationSec.toFixed(3)}s`);
+      setCssVar('--layout-liar-burst-end-y', `${liarBurstEndYPct.toFixed(2)}%`);
       setCssVar('--layout-ui-tabletop-url', tabletopImageSrc ? `url("${tabletopImageSrc}")` : 'none');
       setCssVar('--layout-flame-x', `${(flameXPct * 100).toFixed(2)}%`);
       setCssVar('--layout-flame-y', `${(flameYPct * 100).toFixed(2)}%`);
