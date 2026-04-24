@@ -121,6 +121,7 @@ window.SCRATCHBONES_CONFIG = {
     },
     "timers": {
       "challengeSeconds": 3,
+      "challengeIntroMs": 2200,
       "aiThinkMs": 650,
       "aiDecisionDelays": {
         "turnMinMs": 420,
@@ -239,6 +240,9 @@ window.SCRATCHBONES_CONFIG = {
           "claimTitleScale": 1.5,
           "betActionBurstFontRem": 2,
           "betActionBurstDurationSec": 2.1,
+          "liarBurstFontRem": 3.2,
+          "liarBurstDurationSec": 3.2,
+          "liarBurstEndYPct": -180,
           "betActionBurstClampInsetPx": 24,
           "revealDurationMs": 4200,
           "foldDurationMs": 2600
@@ -259,6 +263,9 @@ window.SCRATCHBONES_CONFIG = {
           "enabled": true,
           "sharedDeclareAndChallengeSlot": true,
           "mustStayVisible": true
+        },
+        "log": {
+          "enabled": false
         }
       },
       "claimCluster": {
@@ -793,6 +800,7 @@ window.SCRATCHBONES_CONFIG = {
       "pickCardWarning": "Pick at least one card before playing.",
       "challengeTimerLabel": "Auto: let it stand",
       "challengePromptTemplate": "{seat} declared {count} × {rank}. Challenge before the timer runs out, or let it stand.",
+      "challengeBurstText": "LIAR!!!",
       "letStandButton": "Let it stand"
     },
     "assets": {
