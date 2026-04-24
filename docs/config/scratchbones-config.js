@@ -101,10 +101,18 @@ window.SCRATCHBONES_CONFIG = {
       "starting": 30,
       "challengeBaseTransfer": 1,
       "concedeRoundChipLoss": 1,
-      "maxChallengeBet": 13,
-      "raise": {
-        "maxAmount": 3,
-        "maxPerPlayer": 3
+      "challengeStake": {
+        "tiers": [
+          { "id": "sun", "value": 1 },
+          { "id": "tinmoon", "value": 5 },
+          { "id": "eclipse", "value": 20 }
+        ],
+        "animation": {
+          "openMs": 280,
+          "callMs": 280,
+          "raiseOutMs": 190,
+          "raiseInMs": 300
+        }
       },
       "clearReward": {
         "base": 1,
@@ -127,9 +135,6 @@ window.SCRATCHBONES_CONFIG = {
     "ai": {
       "challengeThreshold": 0.52,
       "challengeRandomNudgeMax": 0.16,
-      "backupJoinBaseScore": 0.15,
-      "backupJoinRandomMax": 0.22,
-      "backupJoinSuspicionWeight": 0.2,
       "bettingConfidenceSuspicionWeight": 0.55
     },
     "layout": {
@@ -230,6 +235,7 @@ window.SCRATCHBONES_CONFIG = {
           "playerInfoOffsetPx": 12,
           "playerInfoFontRem": 1.05,
           "claimTitleOffsetYPx": -150,
+          "betControlsOffsetYPx": 150,
           "claimTitleScale": 1.5,
           "betActionBurstFontRem": 2,
           "betActionBurstDurationSec": 2.1,
@@ -809,7 +815,12 @@ window.SCRATCHBONES_CONFIG = {
         "claimRankGlyphTemplateSrc": "./docs/assets/symbols/boneglyph{rank}.png"
       },
       "hud": {
-        "cinematicTokenIconSrc": "./docs/assets/hud/coin_tinmoon.png"
+        "cinematicTokenIconSrc": "./docs/assets/hud/coin_tinmoon.png",
+        "stakeTierCoinSrc": {
+          "sun": "./docs/assets/hud/coin_sun.png",
+          "tinmoon": "./docs/assets/hud/coin_tinmoon.png",
+          "eclipse": "./docs/assets/hud/coin_eclipse.png"
+        }
       },
       "audio": {
         "enabled": true,
