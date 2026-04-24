@@ -5370,9 +5370,7 @@
         </details>
         ${(clusterCinematicActive && (cinematicPhase === 'reveal' || cinematicPhase === 'fold'))
           ? (() => { console.debug('[cinematic-cluster-stage] legacy boxed cinematic branch blocked', { phase: cinematicPhase }); return ''; })()
-          : ((clusterCinematicActive && cinematicPhase === 'betting')
-            ? ''
-            : state.betting
+          : (state.betting
             ? renderBettingControls()
             : (sharedContextBox && humanCanDecideChallenge
               ? renderChallengePrompt()
@@ -5617,7 +5615,7 @@
       if ((!bettingModeActive) && state.cinematicMode?.mode === 'betting') {
         closeCinematic(false);
       }
-      const challengeVisualsActive = !!(state.challengeWindow || state.betting || state.cinematicMode);
+      const challengeVisualsActive = !!(state.betting || state.cinematicMode);
       const hadChallengeVisuals = app.classList.contains('challenge-visuals-active');
       app.classList.toggle('cinematic-mode-active', bettingModeActive || !!state.cinematicMode);
       app.classList.toggle('challenge-visuals-active', challengeVisualsActive);
