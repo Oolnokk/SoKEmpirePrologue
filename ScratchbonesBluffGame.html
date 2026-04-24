@@ -279,13 +279,13 @@
       opacity: 0.72;
     }
     @keyframes tableFlameFlicker {
-      0%   { transform: translateX(-0.35%) translateY(0.25%); opacity: 0.86; filter: brightness(0.95) saturate(1); }
-      42%  { transform: translateX(0.4%) translateY(-0.2%); opacity: 0.94; filter: brightness(1.05) saturate(1.08); }
-      100% { transform: translateX(-0.25%) translateY(0.15%); opacity: 0.88; filter: brightness(0.92) saturate(0.98); }
+      0%   { transform: translateX(-0.35%) translateY(0.25%); filter: brightness(0.95) saturate(1); }
+      42%  { transform: translateX(0.4%) translateY(-0.2%); filter: brightness(1.05) saturate(1.08); }
+      100% { transform: translateX(-0.25%) translateY(0.15%); filter: brightness(0.92) saturate(0.98); }
     }
     @keyframes tableFlameShadowDrift {
-      0% { transform: translateX(-0.7%); opacity: 0.56; }
-      100% { transform: translateX(0.7%); opacity: 0.68; }
+      0% { transform: translateX(-0.7%); }
+      100% { transform: translateX(0.7%); }
     }
     .topbar, .controls, .handWrap, .eventLog {
       background: var(--panel);
@@ -5364,6 +5364,7 @@
       const showLegacyActionFocus = !claimClusterEnabled && !regionsPolicy.actionFocus?.replaceWithFloatingClaimCluster && regionsPolicy.actionFocus?.enabled;
       const tableCardVisualMode = tableViewPolicy.cardVisualMode || 'facedown';
       const tableCardFaceDown = tableCardVisualMode !== 'faceup';
+      ensureChallengeCinematic();
       const cinematicMode = isTableCinematicEnabled() ? state.cinematicMode : null;
       const cinematicPhase = cinematicMode?.mode || null;
       const cinematicFocusActorId = Number.isInteger(cinematicMode?.actorId) ? cinematicMode.actorId : null;
@@ -5619,7 +5620,7 @@
             ? ''
             : state.betting
             ? renderBettingControls()
-            : (sharedContextBox && humanCanDecideChallenge
+            : (sharedContextBox && humanCanDecideChallenge && !claimClusterEnabled
               ? renderChallengePrompt()
               : renderDeclareControls()))}
         <div class="handWrap fit-target fit-0" data-proj-id="hand">
@@ -5658,15 +5659,40 @@
       document.getElementById('concedeBtn')?.addEventListener('click', humanConcedeRound);
       document.getElementById('challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
       document.getElementById('letPassBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanAcceptNoChallenge(); });
-      if (humanCanDecideChallenge) updateChallengeBoxTimer();
       app.querySelectorAll('.card[data-card-id]').forEach(el => {
         el.addEventListener('click', () => toggleSelect(Number(el.getAttribute('data-card-id'))));
       });
       wireScratchboneImageFallbacks(app);
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
-      ensureChallengeCinematic();
       renderSeatPortraits();
       mountClaimClusterCinematicStage(app, { cinematicMode, cinematicPhase, cinematicRevealPlay, bettingActorHuman, humanCallAmount });
+      if (humanCanDecideChallenge && claimClusterEnabled) {
+        const bettingLayer = app.querySelector('.claimClusterBettingLayer');
+        const statusAnchor = bettingLayer?.querySelector('[data-stake-betting-status-anchor]');
+        const choiceAnchor = bettingLayer?.querySelector('[data-stake-betting-choice-anchor]');
+        if (bettingLayer && choiceAnchor) {
+          bettingLayer.style.pointerEvents = 'auto';
+          if (statusAnchor) {
+            statusAnchor.innerHTML = `<div class="bettingStatusTitle" style="color:var(--danger);">Challenge Window</div><div id="challengeTimerCount" style="font-size:1rem;font-weight:800;color:var(--danger);"></div>`;
+          }
+          choiceAnchor.innerHTML = `
+            <div id="challengeBoxInfo" class="tiny" style="text-align:center;max-width:36ch;">${escapeHtml(challengePromptText)}</div>
+            <div class="challengeTimerRow">
+              <div class="timerLabel"><span id="challengeTimerTitle">${escapeHtml(SCRATCHBONES_GAME.uiText.challengeTimerLabel)}</span><span id="challengeTimerLabel"></span></div>
+              <div class="timerTrack"><div class="timerFill" id="challengeTimerBar"></div></div>
+            </div>
+            <div class="challengePromptBtns">
+              <button class="danger" id="challengeBtnFixed">⚔ Challenge</button>
+              <button class="secondary" id="letPassBtnFixed">${escapeHtml(SCRATCHBONES_GAME.uiText.letStandButton)}</button>
+            </div>
+          `;
+          choiceAnchor.querySelector('#challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
+          choiceAnchor.querySelector('#letPassBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanAcceptNoChallenge(); });
+          updateChallengeBoxTimer();
+        }
+      } else if (humanCanDecideChallenge) {
+        updateChallengeBoxTimer();
+      }
       document.getElementById('betCallBtn')?.addEventListener('click', () => humanBetAction('call'));
       document.getElementById('betFoldBtn')?.addEventListener('click', () => humanBetAction('fold'));
       app.querySelectorAll('[data-stake-tier-action="open"]').forEach((btn) => {
@@ -5855,16 +5881,20 @@
       if (!app) return;
       const bettingModeActive = !!(state.betting && !state.gameOver && isTableCinematicEnabled());
       if (bettingModeActive && !state.cinematicMode) {
-        setCinematicMode('betting', {
+        clearCinematicTimeout();
+        state.cinematicMode = {
+          mode: 'betting',
           actorId: state.betting.challengedId,
           reactorId: state.betting.challengerId,
           actorRole: 'Challenged',
           reactorRole: 'Challenger',
           headline: '⚔ Challenge betting',
-        });
+          onClose: null,
+        };
       }
-      if ((!bettingModeActive) && state.cinematicMode?.mode === 'betting') {
-        closeCinematic(false);
+      if (!bettingModeActive && state.cinematicMode?.mode === 'betting') {
+        clearCinematicTimeout();
+        state.cinematicMode = null;
       }
       const challengeVisualsActive = !!(state.challengeWindow || state.betting || state.cinematicMode || state.challengeIntro);
       const hadChallengeVisuals = app.classList.contains('challenge-visuals-active');
