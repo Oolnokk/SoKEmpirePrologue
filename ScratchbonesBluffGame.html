@@ -222,13 +222,6 @@
       gap: var(--layout-app-gap);
       padding: var(--layout-app-padding) var(--layout-app-padding) calc(var(--layout-app-padding) + var(--safe));
     }
-    #cinematicFxLayer {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 120;
-      overflow: hidden;
-    }
     #app::before {
       content: '';
       position: absolute;
@@ -326,6 +319,14 @@
       justify-content: center;
       min-width: 0;
       min-height: 0;
+    }
+    .claimCluster > #claimClusterCinematicStage {
+      position: absolute;
+      inset: 0;
+      transform: none;
+      pointer-events: none;
+      z-index: 20;
+      overflow: hidden;
     }
     .floatingTransparentShell {
       background: transparent !important;
@@ -1919,7 +1920,6 @@
 <body>
   <div id="authoredRoot">
     <div id="app">
-      <div id="cinematicFxLayer" aria-hidden="true"></div>
     </div>
     <div id="authoredOverlay"></div>
   </div>
@@ -4891,68 +4891,6 @@
       return { capturePreRender, animatePostRender };
     })();
 
-    function moveAvatarFloatsToOverlay(app, layoutPolicy = null) {
-  const claimCluster = app.querySelector('.claimCluster');
-  if (!claimCluster) return;
-
-  const overlayParent = document.getElementById('authoredRoot') || document.body;
-  const visualFit = layoutPolicy?.tableView?.visualFit || {};
-  const claimAvatarSizePx = clampNumber(Number(visualFit.claimAvatarSizePx) || 180, 80, 320);
-  const claimAvatarZoomScale = clampNumber(Number(visualFit.claimAvatarZoomScale) || 1.2, 0.8, 1.6);
-  const claimAvatarBorderRadiusPx = clampNumber(Number(visualFit.claimAvatarBorderRadiusPx) || 12, 0, 48);
-  const claimAvatarBorderColor = String(visualFit.claimAvatarBorderColor || 'rgba(242,208,143,0.28)');
-  const claimAvatarBackground = String(visualFit.claimAvatarBackground || 'rgba(22,16,14,0.72)');
-  const overlayZIndex = Math.max(1, Math.round(Number(visualFit.claimAvatarOverlayZIndex) || 9990));
-
-  ['.actorAvatarFloat', '.reactorAvatarFloat'].forEach((sel) => {
-    const float = claimCluster.querySelector(sel);
-    if (!float) return;
-
-    const rect = float.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-
-    const isReactor = float.matches('.reactorAvatarFloat');
-    const canvas = float.querySelector('canvas.seatPortrait');
-    const shell = float.querySelector('.claimAvatarShell');
-
-    float.style.position = 'fixed';
-    const targetSize = claimAvatarSizePx;
-    const centerX = rect.left + (rect.width * 0.5);
-    const centerY = rect.top + (rect.height * 0.5);
-    float.style.left = `${centerX - (targetSize * 0.5)}px`;
-    float.style.top = `${centerY - (targetSize * 0.5)}px`;
-    float.style.width = `${targetSize}px`;
-    float.style.height = `${targetSize}px`;
-    float.style.transform = 'none';
-    float.style.transformOrigin = 'top left';
-    float.style.zIndex = String(overlayZIndex);
-    float.style.overflow = 'visible';
-    float.dataset.clusterAvatarOverlay = '1';
-
-    if (shell) {
-      shell.style.width = '100%';
-      shell.style.height = '100%';
-      shell.style.borderRadius = `${claimAvatarBorderRadiusPx}px`;
-      shell.style.border = `1px solid ${claimAvatarBorderColor}`;
-      shell.style.background = claimAvatarBackground;
-      shell.style.transform = `scale(${claimAvatarZoomScale})`;
-    }
-
-    // Make the moved cluster avatar canvas behave like the seat portrait canvas.
-    if (canvas) {
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
-      canvas.style.aspectRatio = '1';
-      canvas.style.display = 'block';
-      canvas.style.borderRadius = '0';
-      canvas.style.transform = isReactor ? 'scaleX(-1)' : 'none';
-      canvas.style.transformOrigin = 'center center';
-    }
-
-    overlayParent.appendChild(float);
-  });
-    }
-
     function syncClaimClusterCardSizeFromHand(app) {
       if (!app) return;
       const cssTargets = [document.documentElement, app];
@@ -4977,7 +4915,6 @@
     function render() {
       seatAvatarAnim.capturePreRender();
       cardAnimator.capturePreRender();
-      document.querySelectorAll('[data-cluster-avatar-overlay]').forEach(el => el.remove());
       const app = document.getElementById('app');
       const layoutPolicy = applyLayoutContract(app);
       const player = state.players[0] || { hand: [], chips: 0, clears: 0 };
@@ -5106,11 +5043,9 @@
           </div>
         </div>
       `;
-      const renderBettingControls = (renderAsClusterOverlay = false) => `
-        <div class="${renderAsClusterOverlay ? 'claimClusterCinematicPane' : 'controls'} fit-target fit-0 cinematic-betting-pane" data-proj-id="${renderAsClusterOverlay ? 'claim-cinematic-pane' : 'controls'}" ${renderAsClusterOverlay ? `style="${claimClusterElementStyle(claimClusterPolicy.elements.cinematicPane)}"` : ''}>
-          <div class="sectionTitle cinematic-pane-title cin-headline cin-challenge">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div>
-          <div class="tiny" style="margin-top:6px;">Contributions — ${seatLabel(state.betting.challengerId)}: ${getContribution(state.betting.challengerId)} (${getRaiseCount(state.betting.challengerId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengerId) || 0}) · ${seatLabel(state.betting.challengedId)}: ${getContribution(state.betting.challengedId)} (${getRaiseCount(state.betting.challengedId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengedId) || 0}) · Backup queue: ${state.betting.backupQueue.map(id => seatLabel(id)).join(', ') || 'none'}</div>
-          <div class="challengeBar" style="margin-top:8px;">
+      const renderBettingControls = () => `
+        <div class="controls fit-target fit-0" data-proj-id="controls">
+          <div class="challengeBar">
             ${bettingActorHuman ? `
               <button class="secondary" id="betCallBtn">${humanCallAmount > 0 ? `Call ${humanCallAmount}` : 'Check'}</button>
               <button id="betRaiseBtn" ${!humanCanRaise ? 'disabled' : ''}>Raise +${humanRaiseAmount || 0}</button>
@@ -5120,35 +5055,7 @@
           </div>
         </div>
       `;
-      const renderCinematicResolutionPane = (renderAsClusterOverlay = false) => {
-        if (!cinematicMode || (cinematicPhase !== 'reveal' && cinematicPhase !== 'fold')) return '';
-        const challenger = state.players[cinematicMode.challengerId];
-        const challenged = state.players[cinematicMode.challengedId];
-        const winner = state.players[cinematicMode.winnerId];
-        const loser = state.players[cinematicMode.loserId];
-        const winnerName = winner?.isHuman ? 'You' : (winner?.name || 'Unknown');
-        const loserName = loser?.isHuman ? 'You' : (loser?.name || 'Unknown');
-        const resultToneClass = cinematicMode.winnerId === 0
-          ? 'res-good'
-          : (cinematicMode.loserId === 0 ? 'res-warn' : 'res-neutral');
-        const headlineClass = cinematicPhase === 'reveal'
-          ? (cinematicMode.winnerId === cinematicMode.challengerId ? 'cin-caught' : 'cin-defended')
-          : 'cin-fold';
-        const subtitle = cinematicPhase === 'reveal'
-          ? `${winnerName} wins the challenge.`
-          : `${loserName} folds — ${winnerName} takes the pot.`;
-        return `
-          <div class="${renderAsClusterOverlay ? 'claimClusterCinematicPane' : 'controls'} fit-target fit-0 cinematic-resolution-pane" data-proj-id="${renderAsClusterOverlay ? 'claim-cinematic-pane' : 'controls'}" ${renderAsClusterOverlay ? `style="${claimClusterElementStyle(claimClusterPolicy.elements.cinematicPane)}"` : ''}>
-            <div class="sectionTitle cinematic-pane-title cin-headline ${headlineClass}">${escapeHtml(cinematicMode.headline || 'Challenge result')}</div>
-            <div class="tiny cinematic-vs-line" style="margin-top:6px;">${escapeHtml((challenger?.isHuman ? 'You' : challenger?.name || '?'))} vs ${escapeHtml((challenged?.isHuman ? 'You' : challenged?.name || '?'))}</div>
-            <div class="cin-result-copy cin-result ${resultToneClass}">${escapeHtml(subtitle)}</div>
-            <div class="challengeBar" style="margin-top:8px;">
-              <button id="cinContinueBtn">Continue →</button>
-            </div>
-          </div>
-        `;
-      };
-      const renderCinematicInsideClaimCluster = claimClusterEnabled && (cinematicPhase === 'reveal' || cinematicPhase === 'fold' || Boolean(state.betting));
+      const clusterCinematicActive = claimClusterEnabled && !!cinematicMode;
       app.innerHTML = `
         <div class="topbar" data-proj-id="topbar">
           <div class="titleRow">
@@ -5227,11 +5134,7 @@
               </div>
               ${focusReactor ? `<div class="claimAvatarFirstName">${escapeHtml(seatFirstName(focusReactor))}</div>` : ''}
             </div>
-            ${renderCinematicInsideClaimCluster
-              ? ((cinematicPhase === 'reveal' || cinematicPhase === 'fold')
-                ? renderCinematicResolutionPane(true)
-                : (state.betting ? renderBettingControls(true) : ''))
-              : ''}
+            <div id="claimClusterCinematicStage" aria-hidden="true"></div>
           </div>
         ` : ''}
         ${showLegacyActionFocus ? `
@@ -5244,13 +5147,15 @@
           <div class="tiny" style="margin-top:8px;">Recent change: ${state.recentChange}</div>
           <pre id="debugSnapshotData">${DEBUG_ENABLED ? escapeHtml(JSON.stringify(debugSnapshot(), null, 2)) : 'Debug disabled.'}</pre>
         </details>
-        ${renderCinematicInsideClaimCluster ? '' : ((cinematicPhase === 'reveal' || cinematicPhase === 'fold')
-          ? renderCinematicResolutionPane()
-          : state.betting
-          ? renderBettingControls()
-          : (sharedContextBox && humanCanDecideChallenge
-            ? renderChallengePrompt()
-            : renderDeclareControls()))}
+        ${(clusterCinematicActive && (cinematicPhase === 'reveal' || cinematicPhase === 'fold'))
+          ? (() => { console.debug('[cinematic-cluster-stage] legacy boxed cinematic branch blocked', { phase: cinematicPhase }); return ''; })()
+          : ((clusterCinematicActive && cinematicPhase === 'betting')
+            ? ''
+            : state.betting
+            ? renderBettingControls()
+            : (sharedContextBox && humanCanDecideChallenge
+              ? renderChallengePrompt()
+              : renderDeclareControls()))}
         <div class="handWrap fit-target fit-0" data-proj-id="hand">
           <div class="handHeader">
             <div class="sectionTitle">Your hand</div>
@@ -5275,7 +5180,6 @@
           <div class="sectionTitle">Recent events</div>
           ${recentLogs.map(item => `<div class="logItem">${escapeHtml(item.text)}</div>`).join('')}
         </div>
-        <div id="cinematicFxLayer" aria-hidden="true"></div>
       `;
       if (state.declaredRank !== null) {
         const select = document.getElementById('declareRank');
@@ -5284,11 +5188,6 @@
       document.getElementById('restartBtn')?.addEventListener('click', startGame);
       document.getElementById('playBtn')?.addEventListener('click', humanPlay);
       document.getElementById('concedeBtn')?.addEventListener('click', humanConcedeRound);
-      document.getElementById('betCallBtn')?.addEventListener('click', () => humanBetAction('checkcall'));
-      document.getElementById('betRaiseBtn')?.addEventListener('click', humanRaiseSelected);
-      document.getElementById('betFoldBtn')?.addEventListener('click', () => humanBetAction('fold'));
-      document.getElementById('joinBackupBtn')?.addEventListener('click', humanJoinBackup);
-      document.getElementById('cinContinueBtn')?.addEventListener('click', () => closeCinematic(true));
       document.getElementById('challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
       document.getElementById('letPassBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanAcceptNoChallenge(); });
       if (humanCanDecideChallenge) updateChallengeBoxTimer();
@@ -5299,41 +5198,12 @@
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
       ensureChallengeCinematic();
       renderSeatPortraits();
-      const fxLayer = document.getElementById('cinematicFxLayer');
-      if (app && fxLayer) {
-        if (!clusterCinematicFxRuntime.adapter) {
-          clusterCinematicFxRuntime.adapter = createClusterAnimationAdapter({ appEl: app, layerEl: fxLayer, stateRef: state });
-        }
-        const adapter = clusterCinematicFxRuntime.adapter;
-        if (adapter) {
-          if (!cinematicMode) {
-            if (clusterCinematicFxRuntime.phaseKey !== null) {
-              adapter.clear();
-              clusterCinematicFxRuntime.phaseKey = null;
-            }
-          } else {
-            const actorAnchor = app.querySelector('.actorAvatarFloat');
-            const reactorAnchor = app.querySelector('.reactorAvatarFloat');
-            const claimHandAnchor = app.querySelector('.claimHandBar');
-            const phaseKey = `${cinematicPhase}:${cinematicMode?.actorId ?? 'na'}:${cinematicMode?.reactorId ?? 'na'}:${cinematicRevealPlay?.cards?.map(c => c.id).join('-') || 'none'}`;
-            if (phaseKey !== clusterCinematicFxRuntime.phaseKey) {
-              adapter.clear();
-              clusterCinematicFxRuntime.phaseKey = phaseKey;
-              if (cinematicPhase === 'betting') {
-                console.debug('[cinematic-fx-adapter] challenge intro');
-                if (actorAnchor && Number.isInteger(cinematicMode?.actorId)) adapter.animateAvatarAt(actorAnchor, cinematicMode.actorId, 'challenger');
-                if (reactorAnchor && Number.isInteger(cinematicMode?.reactorId)) adapter.animateAvatarAt(reactorAnchor, cinematicMode.reactorId, 'challenged');
-              } else if (cinematicPhase === 'reveal') {
-                if (actorAnchor && Number.isInteger(cinematicMode?.actorId)) adapter.animateAvatarAt(actorAnchor, cinematicMode.actorId, 'challenger');
-                if (reactorAnchor && Number.isInteger(cinematicMode?.reactorId)) adapter.animateAvatarAt(reactorAnchor, cinematicMode.reactorId, 'challenged');
-                if (claimHandAnchor) adapter.animateRevealCardsAt(claimHandAnchor, cinematicRevealPlay?.cards || [], cinematicRevealPlay?.declaredRank);
-              } else if (cinematicPhase === 'fold') {
-                console.debug('[cinematic-fx-adapter] fold-resolution phase reset');
-              }
-            }
-          }
-        }
-      }
+      mountClaimClusterCinematicStage(app, { cinematicMode, cinematicPhase, cinematicRevealPlay, backupHumanEligible, bettingActorHuman, humanCallAmount, humanCanRaise, humanRaiseAmount });
+      document.getElementById('betCallBtn')?.addEventListener('click', () => humanBetAction('checkcall'));
+      document.getElementById('betRaiseBtn')?.addEventListener('click', humanRaiseSelected);
+      document.getElementById('betFoldBtn')?.addEventListener('click', () => humanBetAction('fold'));
+      document.getElementById('joinBackupBtn')?.addEventListener('click', humanJoinBackup);
+      document.getElementById('cinContinueBtn')?.addEventListener('click', () => closeCinematic(true));
       const layoutMode = getScratchbonesLayoutMode();
       document.body.classList.toggle('layout-mode-authored', layoutMode === 'authored');
       if (layoutMode === 'authored') {
@@ -5350,7 +5220,6 @@
       renderAuthoredInspector();
       updateTableCardAutoScale(app);
       syncClaimClusterCardSizeFromHand(app);
-      moveAvatarFloatsToOverlay(app, layoutPolicy);
       if (state.pendingCinematicBetAction) {
         const actionFx = state.pendingCinematicBetAction;
         state.pendingCinematicBetAction = null;
@@ -5552,119 +5421,52 @@
       }
       root.style.setProperty('--layout-table-card-auto-scale', clampNumber(bestScale, 0.35, 1).toFixed(3));
     }
-    // Bridged the new claim-cluster layout to the old cinematic animation style by adding a measured FX overlay layer driven by cluster anchor positions.
-    function createClusterAnimationAdapter({ appEl, layerEl, stateRef }) {
-      if (!appEl || !layerEl) return null;
-      const cleanupTimers = new Set();
-      const scheduleCleanup = (fn, delayMs) => {
-        const t = setTimeout(() => {
-          cleanupTimers.delete(t);
-          fn();
-        }, delayMs);
-        cleanupTimers.add(t);
-      };
-      const getRelativeRect = (el, rootEl) => {
-        if (!el || !rootEl) return null;
+    // Cluster-local cinematic stage controller: mounts intro/betting/reveal/fold visuals into #claimClusterCinematicStage.
+    function createClaimClusterStageAdapter({ stageEl, stateRef }) {
+      if (!stageEl) return null;
+      const getRelativeRect = (el) => {
+        if (!el || !stageEl) return null;
         const r = el.getBoundingClientRect();
-        const rr = rootEl.getBoundingClientRect();
+        const rr = stageEl.getBoundingClientRect();
         if (!Number.isFinite(r.left) || !Number.isFinite(r.top) || r.width <= 0 || r.height <= 0) return null;
-        return {
-          left: r.left - rr.left,
-          top: r.top - rr.top,
-          width: r.width,
-          height: r.height,
-          cx: r.left - rr.left + (r.width * 0.5),
-          cy: r.top - rr.top + (r.height * 0.5),
-          anchorRect: r,
-          rootRect: rr,
-        };
-      };
-      const logGeometry = (label, anchorEl, relRect) => {
-        if (!anchorEl || !relRect) return;
-        const appRect = appEl.getBoundingClientRect();
-        const fxRect = layerEl.getBoundingClientRect();
-        const anchorRect = anchorEl.getBoundingClientRect();
-        console.log('[cinematic-fx-geometry]', {
-          path: label,
-          appRect: {
-            top: Number(appRect.top.toFixed(2)),
-            left: Number(appRect.left.toFixed(2)),
-            width: Number(appRect.width.toFixed(2)),
-            height: Number(appRect.height.toFixed(2)),
-          },
-          fxLayerRect: {
-            top: Number(fxRect.top.toFixed(2)),
-            left: Number(fxRect.left.toFixed(2)),
-            width: Number(fxRect.width.toFixed(2)),
-            height: Number(fxRect.height.toFixed(2)),
-          },
-          anchorRect: {
-            top: Number(anchorRect.top.toFixed(2)),
-            left: Number(anchorRect.left.toFixed(2)),
-            width: Number(anchorRect.width.toFixed(2)),
-            height: Number(anchorRect.height.toFixed(2)),
-          },
-          center: {
-            x: Number(relRect.cx.toFixed(2)),
-            y: Number(relRect.cy.toFixed(2)),
-          },
-        });
+        return { cx: r.left - rr.left + (r.width * 0.5), cy: r.top - rr.top + (r.height * 0.5), width: r.width, height: r.height };
       };
       const makeShellAt = (className, anchorEl) => {
-        const rect = getRelativeRect(anchorEl, layerEl);
+        const rect = getRelativeRect(anchorEl);
         if (!rect) return null;
         const shell = document.createElement('div');
         shell.className = className;
         shell.style.left = `${rect.cx.toFixed(2)}px`;
         shell.style.top = `${rect.cy.toFixed(2)}px`;
-        layerEl.appendChild(shell);
+        stageEl.appendChild(shell);
         return { shell, rect };
       };
       return {
         clear() {
-          console.debug('[cinematic-fx-adapter] clear');
-          cleanupTimers.forEach((timerId) => clearTimeout(timerId));
-          cleanupTimers.clear();
-          layerEl.innerHTML = '';
-          appEl.classList.remove('overlay-reveal-active');
+          stageEl.innerHTML = '';
         },
         animateAvatarAt(anchorEl, playerId, extraClass = '') {
           const built = makeShellAt(`fx-avatar-shell ${extraClass}`.trim(), anchorEl);
           if (!built) return null;
-          logGeometry('avatar-shell-spawn', anchorEl, built.rect);
           const player = stateRef.players[playerId];
           built.shell.innerHTML = `<div class="cin-avatar avatar-glow"><canvas class="seatPortrait" data-seat-id="${playerId}" width="220" height="220"></canvas></div>`;
           const canvas = built.shell.querySelector('canvas');
-          if (canvas && player?.profile && window.renderProfile) {
-            renderProfile(canvas, player.profile);
-          } else {
-            const avatar = built.shell.querySelector('.cin-avatar');
-            if (avatar) avatar.innerHTML = `<span class="cin-avatar-fallback">${escapeHtml(player?.name?.charAt(0) || '?')}</span>`;
-          }
+          if (canvas && player?.profile && window.renderProfile) renderProfile(canvas, player.profile);
           return built.shell;
         },
         animateBurstAt(anchorEl, label, kind) {
           const built = makeShellAt('fx-burst-shell', anchorEl);
           if (!built) return null;
-          logGeometry('burst-shell-spawn', anchorEl, built.rect);
           const cls = kind === 'checkcall' ? 'burst-call' : kind === 'raise' ? 'burst-raise' : 'burst-fold';
           built.shell.innerHTML = `<div class="cin-action-burst ${cls}">${escapeHtml(label)}</div>`;
-          console.debug('[cinematic-fx-adapter] action burst', { label, kind });
-          const burstNode = built.shell.firstElementChild;
-          if (burstNode) {
-            burstNode.addEventListener('animationend', () => built.shell.remove(), { once: true });
-            scheduleCleanup(() => built.shell.remove(), 2400);
-          }
           return built.shell;
         },
         animateRevealCardsAt(containerEl, cards, declaredRank) {
-          const rect = getRelativeRect(containerEl, layerEl);
+          const rect = getRelativeRect(containerEl);
           if (!rect || !Array.isArray(cards) || !cards.length) return;
-          logGeometry('card-reveal-shell-spawn', containerEl, rect);
           const gap = 8;
           const cardWidth = 54;
           const spread = ((cards.length - 1) * (cardWidth + gap));
-          appEl.classList.add('overlay-reveal-active');
           cards.forEach((card, index) => {
             const shell = document.createElement('div');
             shell.className = 'fx-card-shell';
@@ -5674,26 +5476,17 @@
             const backArt = resolveScratchbone2DAsset(card, { flipped: true });
             const faceArt = resolveScratchbone2DAsset(card, { flipped: false });
             const verdictClass = card.wild ? 'face-wild' : (Number(card.rank) === Number(declaredRank) ? 'face-truth' : 'face-lie');
-            shell.innerHTML = `
-              <div class="fx-card-inner">
-                <div class="fx-card-back"><img src="${backArt.src}" data-fallback-src="${backArt.fallbackSrc}" alt="Face-down scratchbone card"></div>
-                <div class="fx-card-face ${verdictClass}"><img src="${faceArt.src}" data-fallback-src="${faceArt.fallbackSrc}" alt="${card.wild ? 'Revealed wild scratchbone card' : `Revealed scratchbone ${card.rank} card`}"></div>
-              </div>`;
-            layerEl.appendChild(shell);
+            shell.innerHTML = `<div class="fx-card-inner"><div class="fx-card-back"><img src="${backArt.src}" data-fallback-src="${backArt.fallbackSrc}" alt="Face-down scratchbone card"></div><div class="fx-card-face ${verdictClass}"><img src="${faceArt.src}" data-fallback-src="${faceArt.fallbackSrc}" alt="${card.wild ? 'Revealed wild scratchbone card' : `Revealed scratchbone ${card.rank} card`}"></div></div>`;
+            stageEl.appendChild(shell);
             wireScratchboneImageFallbacks(shell);
             requestAnimationFrame(() => shell.classList.add('flip-it'));
           });
-          console.debug('[cinematic-fx-adapter] reveal', { count: cards.length });
-          scheduleCleanup(() => {
-            layerEl.querySelectorAll('.fx-card-shell').forEach((node) => node.remove());
-            appEl.classList.remove('overlay-reveal-active');
-          }, 4200);
         },
       };
     }
-    const clusterCinematicFxRuntime = {
-      adapter: null,
+    const clusterCinematicStageRuntime = {
       phaseKey: null,
+      revealSpawnKey: null,
     };
     function claimClusterAvatarAnchorForPlayer(playerId, root = document.getElementById('app')) {
       if (!root) return null;
@@ -5703,28 +5496,91 @@
       if (reactorCanvas && Number(reactorCanvas.getAttribute('data-seat-id')) === Number(playerId)) return reactorCanvas.closest('.reactorAvatarFloat');
       return null;
     }
-    // ── Cinematic bet-action announcement (burst overlay adapter) ──
-    function _announceCinematicBetAction(playerId, command) {
-      const app = document.getElementById('app');
-      const adapter = clusterCinematicFxRuntime.adapter;
-      if (!app || !adapter) return;
-      adapter.clear();
+    function mountClaimClusterCinematicStage(app, context = {}) {
+      const { cinematicMode, cinematicPhase, cinematicRevealPlay, backupHumanEligible, bettingActorHuman, humanCallAmount, humanCanRaise, humanRaiseAmount } = context;
+      const stageEl = app?.querySelector('#claimClusterCinematicStage');
+      if (!stageEl) return;
+      const adapter = createClaimClusterStageAdapter({ stageEl, stateRef: state });
+      if (!cinematicMode) {
+        if (clusterCinematicStageRuntime.phaseKey !== null) {
+          adapter?.clear();
+          clusterCinematicStageRuntime.phaseKey = null;
+          clusterCinematicStageRuntime.revealSpawnKey = null;
+          console.debug('[cinematic-cluster-stage] stage cleared');
+        }
+        return;
+      }
+      const phaseKey = `${cinematicPhase}:${cinematicMode?.actorId ?? 'na'}:${cinematicMode?.reactorId ?? 'na'}:${cinematicRevealPlay?.cards?.map(c => c.id).join('-') || 'none'}`;
+      if (phaseKey !== clusterCinematicStageRuntime.phaseKey) {
+        adapter?.clear();
+        clusterCinematicStageRuntime.phaseKey = phaseKey;
+        clusterCinematicStageRuntime.revealSpawnKey = null;
+        console.debug('[cinematic-cluster-stage] stage cleared');
+      }
       const actorAnchor = app.querySelector('.actorAvatarFloat');
       const reactorAnchor = app.querySelector('.reactorAvatarFloat');
-      if (actorAnchor && Number.isInteger(state.cinematicMode?.actorId)) adapter.animateAvatarAt(actorAnchor, state.cinematicMode.actorId, 'challenger');
-      if (reactorAnchor && Number.isInteger(state.cinematicMode?.reactorId)) adapter.animateAvatarAt(reactorAnchor, state.cinematicMode.reactorId, 'challenged');
+      if (actorAnchor && Number.isInteger(cinematicMode?.actorId) && !stageEl.querySelector('.fx-avatar-shell.challenger')) adapter.animateAvatarAt(actorAnchor, cinematicMode.actorId, 'challenger');
+      if (reactorAnchor && Number.isInteger(cinematicMode?.reactorId) && !stageEl.querySelector('.fx-avatar-shell.challenged')) adapter.animateAvatarAt(reactorAnchor, cinematicMode.reactorId, 'challenged');
+      if (cinematicPhase === 'betting') {
+        if (!stageEl.querySelector('.claimClusterCinematicPane.cinematic-betting-pane')) {
+          const pane = document.createElement('div');
+          pane.className = 'claimClusterCinematicPane cinematic-betting-pane';
+          pane.style.cssText = claimClusterElementStyle(getClaimClusterConfig().elements.cinematicPane);
+          pane.style.pointerEvents = 'auto';
+          pane.innerHTML = `<div class="sectionTitle cinematic-pane-title cin-headline cin-challenge">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="tiny" style="margin-top:6px;">Contributions — ${seatLabel(state.betting.challengerId)}: ${getContribution(state.betting.challengerId)} (${getRaiseCount(state.betting.challengerId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengerId) || 0}) · ${seatLabel(state.betting.challengedId)}: ${getContribution(state.betting.challengedId)} (${getRaiseCount(state.betting.challengedId)}/${CONFIG.maxRaisesPerPlayer} raises used, next +${nextRaiseAmountForPlayer(state.betting.challengedId) || 0}) · Backup queue: ${state.betting.backupQueue.map(id => seatLabel(id)).join(', ') || 'none'}</div><div class="challengeBar" style="margin-top:8px;">${bettingActorHuman ? `<button class="secondary" id="betCallBtn">${humanCallAmount > 0 ? `Call ${humanCallAmount}` : 'Check'}</button><button id="betRaiseBtn" ${!humanCanRaise ? 'disabled' : ''}>Raise +${humanRaiseAmount || 0}</button><button class="danger" id="betFoldBtn">Fold</button>` : `<div class="tiny">${seatLabel(state.betting.currentActorId)} is deciding the next betting action.</div>`}${backupHumanEligible ? `<button class="ghost" id="joinBackupBtn">Join as backup caller</button>` : ''}</div>`;
+          stageEl.appendChild(pane);
+          console.debug('[cinematic-cluster-stage] betting mounted');
+        }
+      } else if (cinematicPhase === 'reveal' || cinematicPhase === 'fold') {
+        if (!stageEl.querySelector('.claimClusterCinematicPane.cinematic-resolution-pane')) {
+          const challenger = state.players[cinematicMode.challengerId];
+          const challenged = state.players[cinematicMode.challengedId];
+          const winner = state.players[cinematicMode.winnerId];
+          const loser = state.players[cinematicMode.loserId];
+          const winnerName = winner?.isHuman ? 'You' : (winner?.name || 'Unknown');
+          const loserName = loser?.isHuman ? 'You' : (loser?.name || 'Unknown');
+          const resultToneClass = cinematicMode.winnerId === 0 ? 'res-good' : (cinematicMode.loserId === 0 ? 'res-warn' : 'res-neutral');
+          const headlineClass = cinematicPhase === 'reveal' ? (cinematicMode.winnerId === cinematicMode.challengerId ? 'cin-caught' : 'cin-defended') : 'cin-fold';
+          const subtitle = cinematicPhase === 'reveal' ? `${winnerName} wins the challenge.` : `${loserName} folds — ${winnerName} takes the pot.`;
+          const pane = document.createElement('div');
+          pane.className = 'claimClusterCinematicPane cinematic-resolution-pane';
+          pane.style.cssText = claimClusterElementStyle(getClaimClusterConfig().elements.cinematicPane);
+          pane.style.pointerEvents = 'auto';
+          pane.innerHTML = `<div class="sectionTitle cinematic-pane-title cin-headline ${headlineClass}">${escapeHtml(cinematicMode.headline || 'Challenge result')}</div><div class="tiny cinematic-vs-line" style="margin-top:6px;">${escapeHtml((challenger?.isHuman ? 'You' : challenger?.name || '?'))} vs ${escapeHtml((challenged?.isHuman ? 'You' : challenged?.name || '?'))}</div><div class="cin-result-copy cin-result ${resultToneClass}">${escapeHtml(subtitle)}</div><div class="challengeBar" style="margin-top:8px;"><button id="cinContinueBtn">Continue →</button></div>`;
+          stageEl.appendChild(pane);
+          console.debug(`[cinematic-cluster-stage] ${cinematicPhase} mounted`);
+        }
+        if (cinematicPhase === 'reveal') {
+          const revealKey = phaseKey;
+          if (revealKey !== clusterCinematicStageRuntime.revealSpawnKey) {
+            const claimHandAnchor = app.querySelector('.claimHandBar');
+            if (claimHandAnchor) adapter.animateRevealCardsAt(claimHandAnchor, cinematicRevealPlay?.cards || [], cinematicRevealPlay?.declaredRank);
+            clusterCinematicStageRuntime.revealSpawnKey = revealKey;
+          }
+        }
+      } else if (cinematicPhase === 'intro') {
+        console.debug('[cinematic-cluster-stage] intro mounted');
+      }
+    }
+    // ── Cinematic bet-action announcement (cluster stage) ──
+    function _announceCinematicBetAction(playerId, command) {
+      const app = document.getElementById('app');
+      const stageEl = app?.querySelector('#claimClusterCinematicStage');
+      if (!app || !stageEl || !state.cinematicMode) return;
+      const adapter = createClaimClusterStageAdapter({ stageEl, stateRef: state });
       const anchor = claimClusterAvatarAnchorForPlayer(playerId, app);
       if (!anchor) return;
       const label = command === 'checkcall' ? 'Call!' : command === 'raise' ? 'Raise!' : 'Fold!';
-      adapter.animateBurstAt(anchor, label, command);
+      adapter?.animateBurstAt(anchor, label, command);
     }
-    // Phase 2a: Reveal (no fold)
+// Phase 2a: Reveal (no fold)
     function showRevealCinematic(challengerIndex, challengedIndex, play, success, onClose) {
       if (!isTableCinematicEnabled()) {
         onClose?.();
         return;
       }
-      clusterCinematicFxRuntime.adapter?.clear?.();
+      clusterCinematicStageRuntime.phaseKey = null;
+      clusterCinematicStageRuntime.revealSpawnKey = null;
       const winnerId = success ? challengerIndex : challengedIndex;
       const loserId = success ? challengedIndex : challengerIndex;
       const headline = success ? '🎯 Bluff Caught!' : '✔ Truthful Play!';
@@ -5748,7 +5604,8 @@
         onClose?.();
         return;
       }
-      clusterCinematicFxRuntime.adapter?.clear?.();
+      clusterCinematicStageRuntime.phaseKey = null;
+      clusterCinematicStageRuntime.revealSpawnKey = null;
       setCinematicMode('fold', {
         winnerId,
         loserId,
