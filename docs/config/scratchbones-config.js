@@ -213,7 +213,7 @@ window.SCRATCHBONES_CONFIG = {
         "visualFit": {
           "tableCardContainerScale": 1.25,
           "tableCardContentScale": 1,
-          "claimAvatarSizePx": 180,
+          "claimAvatarSizePx": 270,
           "claimAvatarZoomScale": 1.2,
           "claimAvatarBorderRadiusPx": 12,
           "claimAvatarBorderColor": "transparent",
@@ -229,6 +229,8 @@ window.SCRATCHBONES_CONFIG = {
           "showAvatars": false,
           "playerInfoOffsetPx": 12,
           "playerInfoFontRem": 1.05,
+          "claimTitleOffsetYPx": -150,
+          "claimTitleScale": 1.5,
           "betActionBurstFontRem": 2,
           "betActionBurstDurationSec": 2.1,
           "betActionBurstClampInsetPx": 24,
@@ -317,7 +319,7 @@ window.SCRATCHBONES_CONFIG = {
           },
           "cinematicPane": {
             "xPct": 0.5,
-            "yPct": 0.91,
+            "yPct": 0.66,
             "wPct": 0.5,
             "hPct": 0.28
           }
@@ -341,10 +343,10 @@ window.SCRATCHBONES_CONFIG = {
       "lighting": {
         "flame": {
           "xPct": 0.5,
-          "yPct": -0.12,
-          "coreAlpha": 0.2,
-          "midAlpha": 0.12,
-          "farAlpha": 0.05,
+          "yPct": 0.14,
+          "coreAlpha": 0.4,
+          "midAlpha": 0.27,
+          "farAlpha": 0.14,
           "flickerSeconds": 2.9
         },
         "cardShadow": {
