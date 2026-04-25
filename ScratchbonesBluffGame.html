@@ -7202,6 +7202,7 @@
           faceEl = document.createElement('img');
           faceEl.className = `physFace physFace-${kind}`;
           faceEl.setAttribute('aria-hidden', 'true');
+          faceEl.src = img.src;
           layer.appendChild(faceEl);
           faceMap.set(key, faceEl);
           const src = img.src ? img.src.split('/').pop() : '(no src)';
@@ -7211,7 +7212,7 @@
         if (faceEl.src !== img.src) {
           const oldSrc = faceEl.src ? faceEl.src.split('/').pop() : '(none)';
           const newSrc = img.src ? img.src.split('/').pop() : '(no src)';
-          console.log(`[physFace] SRC UPDATE ${key} — ${oldSrc} → ${newSrc}`);
+          console.log(`[physFace] SRC SWAP ${key} — ${oldSrc} → ${newSrc}`);
           faceEl.src = img.src;
         }
 
