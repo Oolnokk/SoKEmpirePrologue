@@ -2659,8 +2659,33 @@
       let bgmAudio = null;
       let bgmPlaylistIndex = 0;
       let challengeBgmActive = false;
+      let unlockListenersAttached = false;
+      let audioUnlocked = false;
+      const pendingSfx = [];
       const failedPlaylistTracks = new Set();
       let playlistExhausted = false;
+
+      function markAudioUnlocked() {
+        if (audioUnlocked) return;
+        audioUnlocked = true;
+        while (pendingSfx.length) {
+          const entry = pendingSfx.shift();
+          playSfx(entry);
+        }
+      }
+      function attachUnlockListeners() {
+        if (unlockListenersAttached) return;
+        unlockListenersAttached = true;
+        const unlock = () => {
+          markAudioUnlocked();
+          window.removeEventListener('pointerdown', unlock);
+          window.removeEventListener('keydown', unlock);
+          window.removeEventListener('touchstart', unlock);
+        };
+        window.addEventListener('pointerdown', unlock, { once: true });
+        window.addEventListener('keydown', unlock, { once: true });
+        window.addEventListener('touchstart', unlock, { once: true });
+      }
 
       function buildAudio(url, volume) {
         if (!cfg.enabled || !isUrl(url)) return null;
@@ -2674,10 +2699,16 @@
           return null;
         }
       }
-      function safePlay(audio) {
-        if (!audio) return;
+      function safePlay(audio, { onBlocked = null } = {}) {
+        if (!audio) return Promise.resolve();
         const p = audio.play?.();
-        if (p && typeof p.catch === 'function') p.catch(() => {});
+        if (p && typeof p.catch === 'function') {
+          return p.catch((error) => {
+            const blocked = error?.name === 'NotAllowedError';
+            if (blocked) onBlocked?.();
+          });
+        }
+        return Promise.resolve();
       }
       function playSfx(entry) {
         if (!cfg.enabled || !entry || !isUrl(entry.url)) return;
@@ -2687,7 +2718,12 @@
         const audio = buildAudio(entry.url, volume);
         if (!audio) return;
         audio.playbackRate = playbackRate;
-        safePlay(audio);
+        safePlay(audio, {
+          onBlocked: () => {
+            attachUnlockListeners();
+            if (!audioUnlocked && pendingSfx.length < 8) pendingSfx.push(entry);
+          },
+        });
       }
       function playSfxDelayed(entry, delayMs = 0) {
         if (!cfg.enabled || !entry || !isUrl(entry.url)) return;
@@ -2770,6 +2806,7 @@
       }
       function startPlaylist() {
         if (!cfg.enabled || challengeBgmActive) return;
+        attachUnlockListeners();
         if (bgmAudio && !bgmAudio.paused) return;
         playNextPlaylistTrack();
       }
@@ -2803,6 +2840,7 @@
         startPlaylist,
         startChallengeMusic,
         stopChallengeMusic,
+        attachUnlockListeners,
       };
     })();
     function hashStringToSeed(text) {
@@ -3431,11 +3469,12 @@
       if (!lastPlay || lastPlay.playerIndex !== playerIndex) return;
       const possibleChallengers = state.challengeWindow.challengerOptions.filter(idx => idx !== 0 && !state.players[idx].eliminated);
       const challengeSessionId = ++state.challengeDecisionSession;
-      let cumulativeDelay = 0;
       const staggerMs = Number(AI_DECISION_DELAYS.challengeStaggerMs) || 220;
-      for (const idx of possibleChallengers) {
+      let maxDecisionDelay = 0;
+      possibleChallengers.forEach((idx, order) => {
         const thinkMs = aiDecisionDelayMs('challenge', idx, { play: lastPlay });
-        cumulativeDelay += thinkMs + staggerMs;
+        const delayMs = Math.max(0, thinkMs + (order * staggerMs));
+        maxDecisionDelay = Math.max(maxDecisionDelay, delayMs);
         setTimeout(() => {
           if (state.challengeDecisionSession !== challengeSessionId) return;
           if (!state.challengeWindow || state.betting || state.gameOver) return;
@@ -3444,10 +3483,11 @@
           if (aiShouldChallenge(idx, lastPlay)) {
             startChallenge(idx, playerIndex);
           }
-        }, cumulativeDelay);
-      }
+        }, delayMs);
+      });
       if (playerIndex === 0) {
-        const countdownDurationMs = cumulativeDelay + 30;
+        const baseChallengeDurationMs = CHALLENGE_TIMER_SECS * 1000;
+        const countdownDurationMs = Math.min(baseChallengeDurationMs, maxDecisionDelay + 30);
         startChallengeTimer({
           durationMs: countdownDurationMs,
           onExpire: () => {
@@ -5425,7 +5465,7 @@
       const humanCanDecideChallenge = !!(challengeWindow && !state.betting && !state.gameOver && challengeWindow.lastPlay.playerIndex !== 0);
       const challengePromptText = humanCanDecideChallenge ? formatChallengePrompt(challengeWindow.lastPlay) : '';
       const latestPilePlay = state.pile.at(-1) || null;
-      const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || latestPilePlay;
+      const latestPlay = state.betting?.play || state.challengeWindow?.lastPlay || (state.challengeIntro ? latestPilePlay : null);
       const tableViewPolicy = layoutPolicy?.tableView || {};
       const regionsPolicy = layoutPolicy?.regions || getLayoutRegionsConfig();
       const claimClusterPolicy = layoutPolicy?.claimCluster || getClaimClusterConfig();
