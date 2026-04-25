@@ -186,8 +186,8 @@
       --card-elev-shadow-x: 2px;
       --card-elev-shadow-y: 14px;
       --card-elev-shadow-blur: 15px;
-      --card-elev-shadow-alpha: 0.42;
-      --card-elev-contact-alpha: 0.44;
+      --card-elev-shadow-alpha: 0.78;
+      --card-elev-contact-alpha: 0.62;
       --card-elev-contact-blur: 6px;
       --card-elev-dupe-alpha: 0.56;
       --card-elev-dupe-scale: 0.985;
@@ -199,8 +199,8 @@
       --coin-elev-shadow-x: 2px;
       --coin-elev-shadow-y: 14px;
       --coin-elev-shadow-blur: 15px;
-      --coin-elev-shadow-alpha: 0.42;
-      --coin-elev-contact-alpha: 0.44;
+      --coin-elev-shadow-alpha: 0.78;
+      --coin-elev-contact-alpha: 0.62;
       --coin-elev-contact-blur: 6px;
       --coin-elev-dupe-alpha: 0.56;
       --coin-elev-dupe-scale: 0.985;
@@ -981,8 +981,8 @@
       width: 100%;
       max-width: 100%;
       min-width: 0;
-      overflow: hidden;
-      contain: layout paint style;
+      overflow: clip;
+      contain: layout style;
     }
     .handHeader {
       display: flex;
@@ -1002,7 +1002,7 @@
       gap: var(--hand-card-gap);
       align-content: start;
       overflow: auto;
-      padding-bottom: 4px;
+      padding-bottom: 32px;
       min-height: 0;
       perspective: var(--card-elev-perspective);
       perspective-origin: var(--card-elev-origin-x) var(--card-elev-origin-y);
@@ -2224,16 +2224,16 @@
       transform-origin: center center;
     }
     .physFace-card {
-      opacity: var(--card-elev-dupe-alpha);
-      filter: brightness(0.5) saturate(0.85);
-      mix-blend-mode: multiply;
-      transform: scale(var(--card-elev-dupe-scale));
+      opacity: 0.28;
+      filter: blur(10px) brightness(0.9) saturate(0.65);
+      mix-blend-mode: screen;
+      transform: scale(1.12) translateY(5px);
     }
     .physFace-coin {
-      opacity: var(--coin-elev-dupe-alpha);
-      filter: brightness(0.5) saturate(0.85);
-      mix-blend-mode: multiply;
-      transform: scale(var(--coin-elev-dupe-scale));
+      opacity: 0.26;
+      filter: blur(8px) brightness(0.9) saturate(0.65);
+      mix-blend-mode: screen;
+      transform: scale(1.1) translateY(4px);
     }
   </style>
 </head>
