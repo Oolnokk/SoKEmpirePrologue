@@ -158,6 +158,16 @@ window.SCRATCHBONES_CONFIG = {
           "turnSpotlight":  { "x": 1122, "y": 12,  "width": 230,  "height": 200 },
           "claimCluster":   { "x": 187,  "y": 290, "width": 1037, "height": 275 },
           "challengePrompt":{ "x": 960,  "y": 699, "width": 280,  "height": 140 }
+        },
+        "subOffsets": {
+          "betting-left-contribution-anchor": { "dx": 515, "dy": 166 },
+          "betting-tier-buttons": { "dx": 8, "dy": 4 },
+          "betting-right-contribution-anchor": { "dx": -515, "dy": 166 },
+          "betting-choice-anchor": { "dx": -385, "dy": -40 }
+        },
+        "subSizes": {
+          "betting-right-contribution-anchor": { "width": 92, "height": 114 },
+          "betting-left-contribution-anchor": { "width": 92, "height": 114 }
         }
       },
       "cards": {
@@ -670,16 +680,6 @@ window.SCRATCHBONES_CONFIG = {
             "--layout-betting-right-slot-offset-x",
             "--layout-betting-right-slot-offset-y",
             "--layout-betting-contribution-coin-size"
-          ],
-          "betting-pot-anchor": [
-            "--layout-betting-pot-offset-y"
-          ],
-          "betting-pot-coins": [
-            "--layout-betting-contribution-coin-size"
-          ],
-          "betting-pot-readout": [
-            "--layout-challenge-font-scale",
-            "--layout-fit-font-scale"
           ],
           "betting-choice-anchor": [
             "--layout-betting-choice-offset-y"
