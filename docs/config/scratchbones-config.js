@@ -846,7 +846,7 @@ window.SCRATCHBONES_CONFIG = {
             "pitch": 1.0,
             "tempo": 1.0,
             "volume": 0.9,
-            "leadMs": 500,
+            "leadMs": 120,
             "extraCardDelayMs": 35
           }
         },
