@@ -4763,6 +4763,7 @@
       const claimCluster = getClaimClusterConfig();
       const layoutSizing = layout.sizing || {};
       const layoutCards = layout.cards || {};
+      const bettingLayout = layout.betting || {};
       const viewportLayout = layout.viewport || {};
       const handLayout = layout.hand || {};
       const tableViewLayout = layout.tableView || {};
@@ -4802,6 +4803,13 @@
       const numberOrDefault = (value, fallback) => {
         const numericValue = Number(value);
         return Number.isFinite(numericValue) ? numericValue : fallback;
+      };
+      const cssLengthOrDefault = (value, fallback) => {
+        const raw = String(value ?? '').trim();
+        if (!raw) return fallback;
+        if (/^clamp\(.+\)$/i.test(raw)) return raw;
+        if (/^-?\d+(\.\d+)?(px|%|rem|em|vw|vh)$/.test(raw)) return raw;
+        return fallback;
       };
       const viewportWidthPx = Math.max(320, Number(viewportLayout.widthPx) || Number(app?.clientWidth) || 320);
       const viewportHeightPx = Math.max(180, Number(viewportLayout.heightPx) || Number(app?.clientHeight) || 180);
@@ -4848,6 +4856,15 @@
       const liarBurstFontRem = clampNumber(Number(cinematicLayout.liarBurstFontRem) || 3.2, 1, 7);
       const liarBurstDurationSec = clampNumber(Number(cinematicLayout.liarBurstDurationSec) || 3.2, 0.6, 8);
       const liarBurstEndYPct = clampNumber(Number(cinematicLayout.liarBurstEndYPct) || -180, -320, -110);
+      const bettingTitleOffsetY = cssLengthOrDefault(bettingLayout.titleOffsetY, '-80%');
+      const bettingChoiceOffsetY = cssLengthOrDefault(bettingLayout.choiceOffsetY, '115%');
+      const bettingLeftSlotOffsetX = cssLengthOrDefault(bettingLayout.leftSlotOffsetX, '-52%');
+      const bettingLeftSlotOffsetY = cssLengthOrDefault(bettingLayout.leftSlotOffsetY, '-6%');
+      const bettingRightSlotOffsetX = cssLengthOrDefault(bettingLayout.rightSlotOffsetX, '52%');
+      const bettingRightSlotOffsetY = cssLengthOrDefault(bettingLayout.rightSlotOffsetY, '-6%');
+      const bettingCoinButtonSize = cssLengthOrDefault(bettingLayout.coinButtonSize, 'clamp(58px, 8.6vw, 86px)');
+      const bettingContributionCoinSize = cssLengthOrDefault(bettingLayout.contributionCoinSize, 'clamp(48px, 6.7vw, 72px)');
+      const bettingTierGap = cssLengthOrDefault(bettingLayout.tierGap, 'clamp(10px, 2.2vw, 20px)');
       const tabletopImageSrcRaw = String(backgroundLayout.tabletopImageSrc || '').trim();
       const tabletopImageSrc = tabletopImageSrcRaw.replace(/["\\]/g, '');
       const flameXPct = clampNumber(numberOrDefault(flameLighting.xPct, 0.5), 0, 1);
@@ -4912,6 +4929,15 @@
       setCssVar('--layout-claim-title-offset-y', `${claimTitleOffsetYPx.toFixed(2)}px`);
       setCssVar('--layout-claim-bet-controls-offset-y', `${claimBetControlsOffsetYPx.toFixed(2)}px`);
       setCssVar('--layout-claim-title-scale', claimTitleScale.toFixed(3));
+      setCssVar('--layout-betting-title-offset-y', bettingTitleOffsetY);
+      setCssVar('--layout-betting-choice-offset-y', bettingChoiceOffsetY);
+      setCssVar('--layout-betting-left-slot-offset-x', bettingLeftSlotOffsetX);
+      setCssVar('--layout-betting-left-slot-offset-y', bettingLeftSlotOffsetY);
+      setCssVar('--layout-betting-right-slot-offset-x', bettingRightSlotOffsetX);
+      setCssVar('--layout-betting-right-slot-offset-y', bettingRightSlotOffsetY);
+      setCssVar('--layout-betting-coin-button-size', bettingCoinButtonSize);
+      setCssVar('--layout-betting-contribution-coin-size', bettingContributionCoinSize);
+      setCssVar('--layout-betting-tier-gap', bettingTierGap);
       setCssVar('--layout-cinematic-burst-font', `${cinematicBurstFontRem.toFixed(3)}rem`);
       setCssVar('--layout-cinematic-burst-duration', `${cinematicBurstDurationSec.toFixed(3)}s`);
       setCssVar('--layout-liar-burst-font', `${liarBurstFontRem.toFixed(3)}rem`);

@@ -359,6 +359,17 @@ window.SCRATCHBONES_CONFIG = {
       "controls": {
         "heightScale": 0.5
       },
+      "betting": {
+        "titleOffsetY": "-80%",
+        "choiceOffsetY": "115%",
+        "leftSlotOffsetX": "260px",
+        "leftSlotOffsetY": "150px",
+        "rightSlotOffsetX": "-260px",
+        "rightSlotOffsetY": "150px",
+        "coinButtonSize": "clamp(58px, 8.6vw, 86px)",
+        "contributionCoinSize": "clamp(48px, 6.7vw, 72px)",
+        "tierGap": "clamp(10px, 2.2vw, 20px)"
+      },
       "allowChallengeOverflow": true,
       "background": {
         "tabletopImageSrc": "./docs/assets/hud/tabletop.png"
