@@ -5952,7 +5952,7 @@
       }
       cardAnimator.animatePostRender();
       seatAvatarAnim.animatePostRender();
-      physicalFaceSystem?.sync();
+      physicalFaceSystem?.scheduleAnimationSync();
     }
     function debugSnapshot() {
       const regionsConfig = getLayoutRegionsConfig();
@@ -7067,6 +7067,12 @@
     // Mirrors the z-duplicate layer from the elevation demo: a flat-layer copy
     // of each card/coin PNG rendered with brightness 0.5 + multiply blend at the
     // element's 2D footprint, grounding the elevated image on the surface.
+    //
+    // Uses a rAF burst loop started by scheduleAnimationSync() so that:
+    //   • CSS animations (claimRevealCardIn slide-in, cinematic transitions) are
+    //     tracked per-frame for the duration of the longest animation.
+    //   • img.style.opacity is mirrored so physical faces hide while cardAnimator
+    //     has set the real image invisible during a clone-flight lerp.
     const physicalFaceSystem = (() => {
       const CARD_SELECTORS = '#app .card img.cardArt, #app .tableViewCard img, #app .claimHandBar img';
       const COIN_SELECTORS = '#app .stakeTierBtn img, #app .stakeAnchor img';
@@ -7078,11 +7084,12 @@
 
       const faceMap = new Map();
       let nextFaceId = 1;
+      let rafHandle = 0;
+      let loopUntil = 0;
 
-      function processImg(img, kind) {
+      function processImg(img, kind, appRect) {
         const rect = img.getBoundingClientRect();
         if (!rect.width || !rect.height) return null;
-        const appRect = app.getBoundingClientRect();
 
         let key = img.dataset.physFaceId;
         if (!key) {
@@ -7100,10 +7107,13 @@
         }
 
         if (faceEl.src !== img.src) faceEl.src = img.src;
-        faceEl.style.left   = `${(rect.left - appRect.left).toFixed(1)}px`;
-        faceEl.style.top    = `${(rect.top  - appRect.top).toFixed(1)}px`;
-        faceEl.style.width  = `${rect.width.toFixed(1)}px`;
-        faceEl.style.height = `${rect.height.toFixed(1)}px`;
+        faceEl.style.left    = `${(rect.left - appRect.left).toFixed(1)}px`;
+        faceEl.style.top     = `${(rect.top  - appRect.top).toFixed(1)}px`;
+        faceEl.style.width   = `${rect.width.toFixed(1)}px`;
+        faceEl.style.height  = `${rect.height.toFixed(1)}px`;
+        // Mirror cardAnimator's opacity-0 hide so the face doesn't ghost at
+        // the destination while a clone is still in flight.
+        faceEl.style.opacity = img.style.opacity === '0' ? '0' : '';
         return key;
       }
 
@@ -7113,11 +7123,11 @@
         const processedKeys = new Set();
 
         document.querySelectorAll(CARD_SELECTORS).forEach(img => {
-          const k = processImg(img, 'card');
+          const k = processImg(img, 'card', appRect);
           if (k) processedKeys.add(k);
         });
         document.querySelectorAll(COIN_SELECTORS).forEach(img => {
-          const k = processImg(img, 'coin');
+          const k = processImg(img, 'coin', appRect);
           if (k) processedKeys.add(k);
         });
 
@@ -7129,8 +7139,24 @@
         }
       }
 
-      window.addEventListener('resize', sync, { passive: true });
-      return { sync };
+      // Start/extend a rAF burst loop so CSS animations are tracked per-frame.
+      // durationMs should cover the longest animation triggered by that render.
+      function scheduleAnimationSync(durationMs = 700) {
+        loopUntil = Math.max(loopUntil, performance.now() + durationMs);
+        if (rafHandle) return;
+        function loop() {
+          sync();
+          if (performance.now() < loopUntil) {
+            rafHandle = requestAnimationFrame(loop);
+          } else {
+            rafHandle = 0;
+          }
+        }
+        rafHandle = requestAnimationFrame(loop);
+      }
+
+      window.addEventListener('resize', () => scheduleAnimationSync(300), { passive: true });
+      return { sync, scheduleAnimationSync };
     })();
 
     startGame();
