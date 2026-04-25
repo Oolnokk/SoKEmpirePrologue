@@ -2634,11 +2634,58 @@
       const cfg = SCRATCHBONES_GAME.assets?.audio || {};
       const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
       const isUrl = (value) => typeof value === 'string' && value.trim().length > 0;
+      const unlockEvents = ['pointerdown', 'keydown', 'touchstart', 'mousedown'];
       let bgmAudio = null;
       let bgmPlaylistIndex = 0;
       let challengeBgmActive = false;
       const failedPlaylistTracks = new Set();
       let playlistExhausted = false;
+      let unlockHooksAttached = false;
+      let audioUnlocked = false;
+      const pendingSfx = [];
+
+      function cloneSfxEntry(entry) {
+        if (!entry) return null;
+        return {
+          url: entry.url,
+          pitch: entry.pitch,
+          tempo: entry.tempo,
+          volume: entry.volume,
+        };
+      }
+
+      function queuePendingSfx(entry) {
+        const pendingEntry = cloneSfxEntry(entry);
+        if (!pendingEntry) return;
+        pendingSfx.push(pendingEntry);
+        if (pendingSfx.length > 16) pendingSfx.shift();
+      }
+
+      function flushPendingSfx() {
+        if (!audioUnlocked || !pendingSfx.length) return;
+        const queued = pendingSfx.splice(0, pendingSfx.length);
+        queued.forEach((entry) => playSfx(entry, { queueIfBlocked: false }));
+      }
+
+      function markAudioUnlocked() {
+        if (audioUnlocked) return;
+        audioUnlocked = true;
+        flushPendingSfx();
+      }
+
+      function attachAudioUnlockHooks() {
+        if (unlockHooksAttached || !cfg.enabled) return;
+        unlockHooksAttached = true;
+        const unlock = () => {
+          unlockEvents.forEach((eventName) => {
+            window.removeEventListener(eventName, unlock, true);
+          });
+          markAudioUnlocked();
+        };
+        unlockEvents.forEach((eventName) => {
+          window.addEventListener(eventName, unlock, { once: true, passive: true, capture: true });
+        });
+      }
 
       function buildAudio(url, volume) {
         if (!cfg.enabled || !isUrl(url)) return null;
@@ -2652,12 +2699,19 @@
           return null;
         }
       }
-      function safePlay(audio) {
+      function safePlay(audio, { onBlocked } = {}) {
         if (!audio) return;
         const p = audio.play?.();
-        if (p && typeof p.catch === 'function') p.catch(() => {});
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            markAudioUnlocked();
+          }).catch((error) => {
+            const blockedByPolicy = error?.name === 'NotAllowedError';
+            if (blockedByPolicy) onBlocked?.();
+          });
+        }
       }
-      function playSfx(entry) {
+      function playSfx(entry, { queueIfBlocked = true } = {}) {
         if (!cfg.enabled || !entry || !isUrl(entry.url)) return;
         const playbackRate = clamp((Number(entry.pitch) || 1) * (Number(entry.tempo) || 1), 0.5, 2);
         const baseVolume = clamp(cfg.sfxVolume ?? 1, 0, 1);
@@ -2665,7 +2719,11 @@
         const audio = buildAudio(entry.url, volume);
         if (!audio) return;
         audio.playbackRate = playbackRate;
-        safePlay(audio);
+        safePlay(audio, {
+          onBlocked: () => {
+            if (queueIfBlocked) queuePendingSfx(entry);
+          },
+        });
       }
       function fadeTo(audio, targetVolume, durationMs, onDone) {
         if (!audio) { onDone?.(); return; }
@@ -2751,6 +2809,7 @@
         challengeBgmActive = false;
         playNextPlaylistTrack();
       }
+      attachAudioUnlockHooks();
       return {
         playMovement(type) { playSfx(cfg.movement?.[type]); },
         playChallengeStart() { playSfx(cfg.challenge?.start); },
