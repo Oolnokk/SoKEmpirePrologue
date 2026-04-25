@@ -184,7 +184,7 @@
       --card-elev-origin-y: 100%;
       --card-elev-lift-z: 24px;
       --card-elev-shadow-x: 2px;
-      --card-elev-shadow-y: 14px;
+      --card-elev-shadow-y: -10px;
       --card-elev-shadow-blur: 15px;
       --card-elev-shadow-alpha: 0.78;
       --card-elev-contact-alpha: 0.62;
@@ -197,7 +197,7 @@
       --coin-elev-origin-y: 100%;
       --coin-elev-lift-z: 24px;
       --coin-elev-shadow-x: 2px;
-      --coin-elev-shadow-y: 14px;
+      --coin-elev-shadow-y: -10px;
       --coin-elev-shadow-blur: 15px;
       --coin-elev-shadow-alpha: 0.78;
       --coin-elev-contact-alpha: 0.62;
@@ -2225,14 +2225,12 @@
     }
     .physFace-card {
       opacity: var(--card-elev-dupe-alpha);
-      filter: blur(0.35px) brightness(0.5) saturate(0.85);
-      mix-blend-mode: screen;
+      filter: brightness(0.5) saturate(0.85);
       transform: scale(var(--card-elev-dupe-scale));
     }
     .physFace-coin {
       opacity: var(--coin-elev-dupe-alpha);
-      filter: blur(0.35px) brightness(0.5) saturate(0.85);
-      mix-blend-mode: screen;
+      filter: brightness(0.5) saturate(0.85);
       transform: scale(var(--coin-elev-dupe-scale));
     }
   </style>
@@ -7108,22 +7106,25 @@
 
         if (faceEl.src !== img.src) faceEl.src = img.src;
 
-        // The face must sit at the ground-level (un-elevated) position so the
-        // perspective-lifted card appears to float above its own shadow.
-        // Invert the perspective projection using #app's bottom-centre as origin,
-        // which is where the vanishing point is (perspective-origin 50% 100%).
+        // The face sits at the ground-level (un-elevated) position so the
+        // perspective-lifted card appears to float above its own solid shadow.
+        // Offset toward the vanishing point (#app bottom-centre) using the true
+        // perspective ratio amplified 10× so the separation is clearly visible.
         const perspective = kind === 'coin' ? 1900 : 920;
         const lift = 24;
-        const invScale = (perspective - lift) / perspective;
+        const amplify = 10;
+        const liftFactor = (lift / perspective) * amplify;
+        const invScale = (perspective - lift) / perspective; // size stays near 1:1
 
         const perspOriginX = appRect.left + appRect.width  * 0.5;
-        const perspOriginY = appRect.top  + appRect.height;      // 100% of #app = bottom
+        const perspOriginY = appRect.top  + appRect.height; // 100% = bottom of #app
 
         const projCx = projRect.left + projRect.width  * 0.5;
         const projCy = projRect.top  + projRect.height * 0.5;
 
-        const groundCx = perspOriginX + (projCx - perspOriginX) * invScale;
-        const groundCy = perspOriginY + (projCy - perspOriginY) * invScale;
+        // Move face toward the vanishing origin (downward) relative to card
+        const groundCx = projCx + (perspOriginX - projCx) * liftFactor;
+        const groundCy = projCy + (perspOriginY - projCy) * liftFactor;
         const groundW  = projRect.width  * invScale;
         const groundH  = projRect.height * invScale;
 
