@@ -5134,11 +5134,15 @@
       const OPPONENT_STAGGER_MS = 40;
       const snapshots = new Map();
       const activeClones = new Map();
+      function readNonNegativeNumber(rawValue, fallbackValue) {
+        const parsedValue = Number(rawValue);
+        return Number.isFinite(parsedValue) && parsedValue >= 0 ? parsedValue : fallbackValue;
+      }
       function scheduleLerpCompletionAudio(cardCount, flyDurationMs) {
         if (!Number.isFinite(cardCount) || cardCount <= 0) return;
         const lerpAudioCfg = SCRATCHBONES_GAME.assets?.audio?.movement?.lerpComplete || {};
-        const leadMs = Math.max(0, Number(lerpAudioCfg.leadMs) || 500);
-        const extraCardDelayMs = Math.max(0, Number(lerpAudioCfg.extraCardDelayMs) || 35);
+        const leadMs = readNonNegativeNumber(lerpAudioCfg.leadMs, 0);
+        const extraCardDelayMs = readNonNegativeNumber(lerpAudioCfg.extraCardDelayMs, 0);
         const firstDelayMs = Math.max(0, Number(flyDurationMs) - leadMs);
         for (let i = 0; i < cardCount; i++) {
           const delayMs = firstDelayMs + (i * extraCardDelayMs);
