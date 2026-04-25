@@ -146,12 +146,13 @@
       --layout-claim-title-offset-y: -150px;
       --layout-claim-bet-controls-offset-y: 150px;
       --layout-claim-title-scale: 1.5;
-      --layout-betting-title-offset-y: -30%;
-      --layout-betting-choice-offset-y: 34%;
-      --layout-betting-left-slot-offset-x: -30%;
+      --layout-betting-title-offset-y: -80%;
+      --layout-betting-choice-offset-y: 115%;
+      --layout-betting-left-slot-offset-x: -52%;
       --layout-betting-left-slot-offset-y: -6%;
-      --layout-betting-right-slot-offset-x: 30%;
+      --layout-betting-right-slot-offset-x: 52%;
       --layout-betting-right-slot-offset-y: -6%;
+      --layout-betting-pot-offset-y: 90%;
       --layout-betting-coin-button-size: clamp(58px, 8.6vw, 86px);
       --layout-betting-contribution-coin-size: clamp(48px, 6.7vw, 72px);
       --layout-betting-tier-gap: clamp(10px, 2.2vw, 20px);
@@ -242,7 +243,7 @@
     #app::before {
       content: '';
       position: absolute;
-      inset: -18% -12% -14%;
+      inset: 0;
       pointer-events: none;
       z-index: 0;
       mix-blend-mode: normal;
@@ -279,13 +280,13 @@
       opacity: 0.72;
     }
     @keyframes tableFlameFlicker {
-      0%   { transform: translateX(-0.35%) translateY(0.25%); opacity: 0.86; filter: brightness(0.95) saturate(1); }
-      42%  { transform: translateX(0.4%) translateY(-0.2%); opacity: 0.94; filter: brightness(1.05) saturate(1.08); }
-      100% { transform: translateX(-0.25%) translateY(0.15%); opacity: 0.88; filter: brightness(0.92) saturate(0.98); }
+      0%   { transform: translateX(-0.35%) translateY(0.25%); filter: brightness(0.95) saturate(1); }
+      42%  { transform: translateX(0.4%) translateY(-0.2%); filter: brightness(1.05) saturate(1.08); }
+      100% { transform: translateX(-0.25%) translateY(0.15%); filter: brightness(0.92) saturate(0.98); }
     }
     @keyframes tableFlameShadowDrift {
-      0% { transform: translateX(-0.7%); opacity: 0.56; }
-      100% { transform: translateX(0.7%); opacity: 0.68; }
+      0% { transform: translateX(-0.7%); }
+      100% { transform: translateX(0.7%); }
     }
     .topbar, .controls, .handWrap, .eventLog {
       background: var(--panel);
@@ -483,7 +484,7 @@
       pointer-events: none;
       color: var(--accent-2);
       font-weight: 800;
-      font-size: 1rem;
+      font-size: 1.5rem;
       letter-spacing: 0.06em;
       text-shadow: 0 2px 8px rgba(0,0,0,0.72);
       z-index: 5;
@@ -502,6 +503,7 @@
       inset: 0;
       pointer-events: none;
       z-index: 13;
+      transform: none;
     }
     .claimClusterBettingLayer > * {
       position: absolute;
@@ -518,7 +520,7 @@
       font-weight: 800;
       color: var(--accent-2);
       text-shadow: 0 2px 8px rgba(0,0,0,0.7);
-      font-size: clamp(0.95rem, 2.6vw, 1.28rem);
+      font-size: clamp(1.7rem, 4.2vw, 2.4rem);
       letter-spacing: 0.06em;
     }
     .bettingStatusLine {
@@ -536,9 +538,23 @@
     }
     .centerPotAnchor {
       left: 50%;
-      top: calc(50% + 4%);
+      top: calc(50% + var(--layout-betting-pot-offset-y));
       pointer-events: none;
       text-align: center;
+    }
+    .potCoinRow {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+    }
+    .potCoinRow .stakeAnchor {
+      border: none;
+      background: none;
+      box-shadow: none;
+    }
+    .potCoinRow .stakeAnchor + .stakeAnchor {
+      margin-left: -10px;
     }
     .bettingChoiceAnchor {
       left: 50%;
@@ -825,6 +841,7 @@
       padding-top: var(--layout-app-gap);
     }
     .seatName { font-weight: 700; font-size: 0.78rem; }
+    #app.challenge-flow-active .seatName { visibility: hidden; }
     .seatMeta { color: var(--muted); font-size: 0.68rem; margin-top: 4px; }
     .seatStatus { margin-top: 6px; font-size: 0.68rem; }
     .seatSeed { font-size: 0.68rem; color: var(--accent); font-style: italic; margin-top: 3px; letter-spacing: 0.01em; }
@@ -1591,6 +1608,11 @@
       text-shadow: 0 0 16px rgba(255,70,70,0.98), 0 0 34px rgba(220,10,10,0.7);
       font-size: var(--layout-liar-burst-font);
       animation: cinBurstLiar var(--layout-liar-burst-duration) both;
+    }
+    .cin-action-burst.burst-countdown {
+      color: #f2c06a;
+      text-shadow: 0 0 18px rgba(255,180,60,0.95), 0 0 40px rgba(200,100,0,0.6);
+      font-size: 5.5rem;
     }
     @keyframes cinBurst {
       0%   { transform: translate(-50%, -50%) scale(0.3);  opacity: 1;
@@ -2634,58 +2656,11 @@
       const cfg = SCRATCHBONES_GAME.assets?.audio || {};
       const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
       const isUrl = (value) => typeof value === 'string' && value.trim().length > 0;
-      const unlockEvents = ['pointerdown', 'keydown', 'touchstart', 'mousedown'];
       let bgmAudio = null;
       let bgmPlaylistIndex = 0;
       let challengeBgmActive = false;
       const failedPlaylistTracks = new Set();
       let playlistExhausted = false;
-      let unlockHooksAttached = false;
-      let audioUnlocked = false;
-      const pendingSfx = [];
-
-      function cloneSfxEntry(entry) {
-        if (!entry) return null;
-        return {
-          url: entry.url,
-          pitch: entry.pitch,
-          tempo: entry.tempo,
-          volume: entry.volume,
-        };
-      }
-
-      function queuePendingSfx(entry) {
-        const pendingEntry = cloneSfxEntry(entry);
-        if (!pendingEntry) return;
-        pendingSfx.push(pendingEntry);
-        if (pendingSfx.length > 16) pendingSfx.shift();
-      }
-
-      function flushPendingSfx() {
-        if (!audioUnlocked || !pendingSfx.length) return;
-        const queued = pendingSfx.splice(0, pendingSfx.length);
-        queued.forEach((entry) => playSfx(entry, { queueIfBlocked: false }));
-      }
-
-      function markAudioUnlocked() {
-        if (audioUnlocked) return;
-        audioUnlocked = true;
-        flushPendingSfx();
-      }
-
-      function attachAudioUnlockHooks() {
-        if (unlockHooksAttached || !cfg.enabled) return;
-        unlockHooksAttached = true;
-        const unlock = () => {
-          unlockEvents.forEach((eventName) => {
-            window.removeEventListener(eventName, unlock, true);
-          });
-          markAudioUnlocked();
-        };
-        unlockEvents.forEach((eventName) => {
-          window.addEventListener(eventName, unlock, { once: true, passive: true, capture: true });
-        });
-      }
 
       function buildAudio(url, volume) {
         if (!cfg.enabled || !isUrl(url)) return null;
@@ -2699,19 +2674,12 @@
           return null;
         }
       }
-      function safePlay(audio, { onBlocked } = {}) {
+      function safePlay(audio) {
         if (!audio) return;
         const p = audio.play?.();
-        if (p && typeof p.then === 'function') {
-          p.then(() => {
-            markAudioUnlocked();
-          }).catch((error) => {
-            const blockedByPolicy = error?.name === 'NotAllowedError';
-            if (blockedByPolicy) onBlocked?.();
-          });
-        }
+        if (p && typeof p.catch === 'function') p.catch(() => {});
       }
-      function playSfx(entry, { queueIfBlocked = true } = {}) {
+      function playSfx(entry) {
         if (!cfg.enabled || !entry || !isUrl(entry.url)) return;
         const playbackRate = clamp((Number(entry.pitch) || 1) * (Number(entry.tempo) || 1), 0.5, 2);
         const baseVolume = clamp(cfg.sfxVolume ?? 1, 0, 1);
@@ -2719,11 +2687,7 @@
         const audio = buildAudio(entry.url, volume);
         if (!audio) return;
         audio.playbackRate = playbackRate;
-        safePlay(audio, {
-          onBlocked: () => {
-            if (queueIfBlocked) queuePendingSfx(entry);
-          },
-        });
+        safePlay(audio);
       }
       function fadeTo(audio, targetVolume, durationMs, onDone) {
         if (!audio) { onDone?.(); return; }
@@ -2809,7 +2773,6 @@
         challengeBgmActive = false;
         playNextPlaylistTrack();
       }
-      attachAudioUnlockHooks();
       return {
         playMovement(type) { playSfx(cfg.movement?.[type]); },
         playChallengeStart() { playSfx(cfg.challenge?.start); },
@@ -2973,6 +2936,8 @@
       },
       recentChange: "Implemented stake-tier coin betting with real coin PNG buttons and replacement animations, moved betting UI onto the active claim-cluster challenge path, and restricted the red animated overlay so it only appears during challenge states instead of constantly across the app.",
       challengeTimer: null,
+      challengeTimerT1: null,
+      challengeTimerT2: null,
       challengeTimeLeft: 0,
       challengeDecisionSession: 0,
       challengeIntro: null,
@@ -4399,37 +4364,44 @@
         }, { once: true });
       });
     }
+    function showChallengeCountdownBurst(count, durationMs) {
+      const cluster = document.querySelector('.claimCluster');
+      if (!cluster) return;
+      cluster.querySelectorAll('.challenge-countdown-burst').forEach(el => el.remove());
+      const shell = document.createElement('div');
+      shell.className = 'fx-burst-shell challenge-countdown-burst';
+      const inner = document.createElement('div');
+      inner.className = 'cin-action-burst burst-countdown';
+      inner.textContent = count;
+      inner.style.animation = `cinBurst ${(durationMs / 1000).toFixed(2)}s both`;
+      shell.appendChild(inner);
+      cluster.appendChild(shell);
+      setTimeout(() => { if (shell.parentNode) shell.remove(); }, durationMs + 100);
+    }
     function startChallengeTimer() {
       clearChallengeTimer();
-      state.challengeTimeLeft = CHALLENGE_TIMER_SECS;
-      updateChallengeBoxTimer();
-      state.challengeTimer = setInterval(() => {
-        state.challengeTimeLeft--;
-        updateChallengeBoxTimer();
-        if (state.challengeTimeLeft <= 0) {
-          clearChallengeTimer();
-          if (state.challengeWindow && !state.betting && !state.gameOver) {
-            humanAcceptNoChallenge();
-          }
+      const durationMs = CHALLENGE_TIMER_SECS * 1000;
+      const tickMs = Math.round(durationMs / 3);
+      showChallengeCountdownBurst(3, tickMs - 80);
+      state.challengeTimerT1 = setTimeout(() => showChallengeCountdownBurst(2, tickMs - 80), tickMs);
+      state.challengeTimerT2 = setTimeout(() => showChallengeCountdownBurst(1, tickMs - 80), tickMs * 2);
+      state.challengeTimer = setTimeout(() => {
+        state.challengeTimer = null;
+        if (state.challengeWindow && !state.betting && !state.gameOver) {
+          humanAcceptNoChallenge();
         }
-      }, 1000);
+      }, durationMs);
     }
     function clearChallengeTimer() {
-      if (state.challengeTimer) {
-        clearInterval(state.challengeTimer);
-        state.challengeTimer = null;
-      }
+      clearTimeout(state.challengeTimer);
+      state.challengeTimer = null;
+      clearTimeout(state.challengeTimerT1);
+      state.challengeTimerT1 = null;
+      clearTimeout(state.challengeTimerT2);
+      state.challengeTimerT2 = null;
       state.challengeTimeLeft = 0;
     }
-    function updateChallengeBoxTimer() {
-      const pct = (state.challengeTimeLeft / CHALLENGE_TIMER_SECS) * 100;
-      const bar = document.getElementById('challengeTimerBar');
-      const count = document.getElementById('challengeTimerCount');
-      const label = document.getElementById('challengeTimerLabel');
-      if (bar) bar.style.width = pct + '%';
-      if (count) count.textContent = state.challengeTimeLeft + 's';
-      if (label) label.textContent = state.challengeTimeLeft + 's';
-    }
+    function updateChallengeBoxTimer() {}
     function clampNumber(value, min, max) {
       return Math.min(max, Math.max(min, value));
     }
@@ -5193,6 +5165,7 @@
       const OPPONENT_STAGGER_MS = 40;
       const snapshots = new Map();
       const activeClones = new Map();
+
       function getContainerType(el) {
         if (el.closest('.handScroll')) return 'hand';
         if (el.closest('.tableViewCards')) return 'table';
@@ -5275,14 +5248,10 @@
                   requestAnimationFrame(() => {
                     clone.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.4,0,0.2,1)`;
                     clone.style.transform = 'none';
-                    let finished = false;
                     const done = () => {
-                      if (finished) return;
-                      finished = true;
                       clone.remove();
                       if (activeClones.get(id) === clone) activeClones.delete(id);
                       img.style.opacity = '';
-                      SCRATCHBONES_AUDIO.playMovement('lerpComplete');
                     };
                     clone.addEventListener('transitionend', done, { once: true });
                     setTimeout(done, FLY_MS + 100);
@@ -5335,14 +5304,10 @@
             requestAnimationFrame(() => {
               clone.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.4,0,0.2,1)`;
               clone.style.transform = 'none';
-              let finished = false;
               const done = () => {
-                if (finished) return;
-                finished = true;
                 clone.remove();
                 if (activeClones.get(id) === clone) activeClones.delete(id);
                 img.style.opacity = '';
-                SCRATCHBONES_AUDIO.playMovement('lerpComplete');
               };
               clone.addEventListener('transitionend', done, { once: true });
               setTimeout(done, FLY_MS + 100);
@@ -5430,6 +5395,7 @@
       const showLegacyActionFocus = !claimClusterEnabled && !regionsPolicy.actionFocus?.replaceWithFloatingClaimCluster && regionsPolicy.actionFocus?.enabled;
       const tableCardVisualMode = tableViewPolicy.cardVisualMode || 'facedown';
       const tableCardFaceDown = tableCardVisualMode !== 'faceup';
+      ensureChallengeCinematic();
       const cinematicMode = isTableCinematicEnabled() ? state.cinematicMode : null;
       const cinematicPhase = cinematicMode?.mode || null;
       const cinematicFocusActorId = Number.isInteger(cinematicMode?.actorId) ? cinematicMode.actorId : null;
@@ -5515,16 +5481,8 @@
         <div class="challengePromptPane fit-target fit-0" id="challengePromptPane" data-proj-id="challenge-prompt">
           <div class="challengeBoxHeader">
             <div class="sectionTitle" style="color:var(--danger);">Challenge window</div>
-            <div id="challengeTimerCount" style="font-size:1.05rem;font-weight:800;color:var(--danger);"></div>
           </div>
           <div id="challengeBoxInfo" class="tiny challengePromptInfo">${challengePromptText}</div>
-          <div class="challengeTimerRow">
-            <div class="timerLabel">
-              <span id="challengeTimerTitle">${escapeHtml(SCRATCHBONES_GAME.uiText.challengeTimerLabel)}</span>
-              <span id="challengeTimerLabel"></span>
-            </div>
-            <div class="timerTrack"><div class="timerFill" id="challengeTimerBar"></div></div>
-          </div>
           <div class="challengePromptBtns">
             <button class="danger" id="challengeBtnFixed">⚔ Challenge</button>
             <button class="secondary" id="letPassBtnFixed">${escapeHtml(SCRATCHBONES_GAME.uiText.letStandButton)}</button>
@@ -5724,13 +5682,11 @@
       document.getElementById('concedeBtn')?.addEventListener('click', humanConcedeRound);
       document.getElementById('challengeBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanChallenge(); });
       document.getElementById('letPassBtnFixed')?.addEventListener('click', () => { clearChallengeTimer(); humanAcceptNoChallenge(); });
-      if (humanCanDecideChallenge) updateChallengeBoxTimer();
       app.querySelectorAll('.card[data-card-id]').forEach(el => {
         el.addEventListener('click', () => toggleSelect(Number(el.getAttribute('data-card-id'))));
       });
       wireScratchboneImageFallbacks(app);
       resolveChallengeLayoutPressure(app, layoutPolicy?.allowChallengeOverflow !== false);
-      ensureChallengeCinematic();
       renderSeatPortraits();
       mountClaimClusterCinematicStage(app, { cinematicMode, cinematicPhase, cinematicRevealPlay, bettingActorHuman, humanCallAmount });
       document.getElementById('betCallBtn')?.addEventListener('click', () => humanBetAction('call'));
@@ -5921,20 +5877,26 @@
       if (!app) return;
       const bettingModeActive = !!(state.betting && !state.gameOver && isTableCinematicEnabled());
       if (bettingModeActive && !state.cinematicMode) {
-        setCinematicMode('betting', {
+        clearCinematicTimeout();
+        state.cinematicMode = {
+          mode: 'betting',
           actorId: state.betting.challengedId,
           reactorId: state.betting.challengerId,
           actorRole: 'Challenged',
           reactorRole: 'Challenger',
           headline: '⚔ Challenge betting',
-        });
+          onClose: null,
+        };
       }
-      if ((!bettingModeActive) && state.cinematicMode?.mode === 'betting') {
-        closeCinematic(false);
+      if (!bettingModeActive && state.cinematicMode?.mode === 'betting') {
+        clearCinematicTimeout();
+        state.cinematicMode = null;
       }
-      const challengeVisualsActive = !!(state.challengeWindow || state.betting || state.cinematicMode || state.challengeIntro);
+      const challengeFlowActive = !!(state.challengeWindow || state.betting || state.cinematicMode || state.challengeIntro);
+      const challengeVisualsActive = !!(state.betting || state.cinematicMode || state.challengeIntro);
       const hadChallengeVisuals = app.classList.contains('challenge-visuals-active');
       app.classList.toggle('cinematic-mode-active', bettingModeActive || !!state.cinematicMode);
+      app.classList.toggle('challenge-flow-active', challengeFlowActive);
       app.classList.toggle('challenge-visuals-active', challengeVisualsActive);
       if (hadChallengeVisuals !== challengeVisualsActive) {
         console.log(`[challenge-visuals] ${challengeVisualsActive ? 'activated' : 'deactivated'}`);
@@ -6114,7 +6076,7 @@
           statusAnchor.innerHTML = `<div class="bettingStatusTitle">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="bettingStatusLine">${escapeHtml(seatFirstName(state.betting.currentActorId))} to act · Stake ${escapeHtml(state.betting.currentTierId || 'pending')} (${state.betting.currentTierValue || 0})</div>`;
           leftAnchor.innerHTML = `<div class="stakeSlotLabel">Challenger</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengerId}">${challengerContributionTierId ? `<img data-stake-contrib-coin="${state.betting.challengerId}" src="${escapeHtml(stakeCoinSrcForTier(challengerContributionTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenger contribution coin">` : ''}</div><div class="stakeSlotValue">${getContribution(state.betting.challengerId)}</div>`;
           rightAnchor.innerHTML = `<div class="stakeSlotLabel">Challenged</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengedId}">${challengedContributionTierId ? `<img data-stake-contrib-coin="${state.betting.challengedId}" src="${escapeHtml(stakeCoinSrcForTier(challengedContributionTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenged contribution coin">` : ''}</div><div class="stakeSlotValue">${getContribution(state.betting.challengedId)}</div>`;
-          potCenterAnchor.innerHTML = `<div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div><div class="stakePotReadout">Pot ${challengePotTotal()}</div>`;
+          potCenterAnchor.innerHTML = `<div class="potCoinRow"><div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div></div><div class="stakePotReadout">Pot ${challengePotTotal()}</div>`;
           choiceAnchor.innerHTML = bettingActionsHtml;
           const coinButtons = [...choiceAnchor.querySelectorAll('[data-stake-tier-btn] img')].map((img) => ({ src: img.getAttribute('src'), fallback: img.getAttribute('data-fallback-src') }));
           const slotRects = {
