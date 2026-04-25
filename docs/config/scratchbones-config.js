@@ -160,9 +160,9 @@ window.SCRATCHBONES_CONFIG = {
           "challengePrompt":{ "x": 960,  "y": 699, "width": 280,  "height": 140 }
         },
         "subOffsets": {
-          "betting-left-contribution-anchor": { "dx": 515, "dy": 166 },
+          "betting-left-contribution-anchor": { "dx": 260, "dy": 150 },
           "betting-tier-buttons": { "dx": 8, "dy": 4 },
-          "betting-right-contribution-anchor": { "dx": -515, "dy": 166 },
+          "betting-right-contribution-anchor": { "dx": -260, "dy": 150 },
           "betting-choice-anchor": { "dx": -385, "dy": -40 }
         },
         "subSizes": {

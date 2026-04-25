@@ -3743,12 +3743,20 @@
     function stakeAnchor() {
       return document.querySelector('[data-stake-current-anchor]');
     }
+    function contributionLerpAnchorForPlayer(playerId) {
+      if (!state.betting) return null;
+      if (playerId === state.betting.challengerId) return document.querySelector('[data-stake-left-contribution-anchor]');
+      if (playerId === state.betting.challengedId) return document.querySelector('[data-stake-right-contribution-anchor]');
+      return null;
+    }
     async function animateStakeOpen(playerId, tierId) {
       await animateCoinCloneToTarget(coinButtonForTier(tierId), contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.openMs });
       await animateCoinCloneToTarget(coinButtonForTier(tierId), stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.openMs });
+      await animateCoinCloneToTarget(coinButtonForTier(tierId), contributionLerpAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.openMs });
     }
     async function animateStakeCall(playerId, tierId) {
       await animateCoinCloneToTarget(coinButtonForTier(tierId), contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.callMs });
+      await animateCoinCloneToTarget(coinButtonForTier(tierId), contributionLerpAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.callMs });
     }
     async function animateStakeRaise(playerId, newTierId) {
       console.log('[stake-anim] raise animation start', { playerId, newTierId });
@@ -3771,6 +3779,7 @@
       }
       await animateCoinCloneToTarget(tierBtn, contributionAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
       await animateCoinCloneToTarget(tierBtn, stakeAnchor(), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
+      await animateCoinCloneToTarget(tierBtn, contributionLerpAnchorForPlayer(playerId), { durationMs: CONFIG.challengeStakeAnimation.raiseInMs });
       console.log('[stake-anim] new tier coin inserted', { playerId, newTierId });
     }
     async function resolveBetAction(playerId, action, options = {}) {
