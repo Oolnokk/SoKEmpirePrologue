@@ -931,6 +931,9 @@
     button.ok { background: var(--ok); color: #102314; }
     button.ghost { background: rgba(255,255,255,0.08); color: var(--text); box-shadow: none; border: 1px solid rgba(255,255,255,0.08); }
     button:disabled { opacity: 0.45; box-shadow: none; }
+    #app.betting-overlay-active [disabled] {
+      display: none !important;
+    }
     .handWrap {
       padding: calc(var(--layout-hand-wrap-padding-y) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale))
                calc(var(--layout-hand-wrap-padding-x) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
@@ -2533,11 +2536,19 @@
         };
       }
       const rawSubOffsets = authored.subOffsets && typeof authored.subOffsets === 'object' ? authored.subOffsets : {};
+      const rawSubSizes = authored.subSizes && typeof authored.subSizes === 'object' ? authored.subSizes : {};
       const subOffsets = {};
+      const subSizes = {};
       for (const [projId, raw] of Object.entries(rawSubOffsets)) {
         subOffsets[projId] = {
           dx: Number.isFinite(Number(raw.dx)) ? Number(raw.dx) : 0,
           dy: Number.isFinite(Number(raw.dy)) ? Number(raw.dy) : 0,
+        };
+      }
+      for (const [projId, raw] of Object.entries(rawSubSizes)) {
+        subSizes[projId] = {
+          width: Math.max(12, Number.isFinite(Number(raw.width)) ? Number(raw.width) : 12),
+          height: Math.max(12, Number.isFinite(Number(raw.height)) ? Number(raw.height) : 12),
         };
       }
       SCRATCHBONES_GAME.layout.authored = {
@@ -2547,6 +2558,7 @@
         scaleMode: String(authored.scaleMode || 'contain').toLowerCase(),
         boxes: normalizedBoxes,
         subOffsets,
+        subSizes,
       };
       return SCRATCHBONES_GAME.layout.authored;
     }
@@ -2643,12 +2655,25 @@
         const origin = parentId ? authoredConfig.boxes[parentId] : null;
         applyAuthoredBoxStyles(el, box, origin);
       }
-      // Apply sub-element translate offsets (move within their parent's layout)
-      for (const [projId, offset] of Object.entries(authoredConfig.subOffsets || {})) {
+      // Apply sub-element size + translate offsets (for nested mapping edits).
+      const subLayoutKeys = new Set([
+        ...Object.keys(authoredConfig.subOffsets || {}),
+        ...Object.keys(authoredConfig.subSizes || {}),
+      ]);
+      for (const projId of subLayoutKeys) {
         if (AUTHORED_BOX_KEY_BY_PROJ_ID[projId]) continue; // skip major boxes
         const el = app.querySelector(`[data-proj-id="${projId}"]`);
         if (!el) continue;
-        el.style.transform = `translate(${Math.round(offset.dx)}px, ${Math.round(offset.dy)}px)`;
+        const hasOffset = Object.prototype.hasOwnProperty.call(authoredConfig.subOffsets || {}, projId);
+        const offset = hasOffset ? authoredConfig.subOffsets?.[projId] : null;
+        const size = authoredConfig.subSizes?.[projId];
+        if (size) {
+          el.style.width = `${Math.max(12, Math.round(size.width))}px`;
+          el.style.height = `${Math.max(12, Math.round(size.height))}px`;
+        }
+        if (hasOffset && offset) {
+          el.style.transform = `translate(${Math.round(offset.dx)}px, ${Math.round(offset.dy)}px)`;
+        }
       }
     }
     const CHALLENGE_TIMER_SECS = SCRATCHBONES_GAME.timers.challengeTimerSecs;
@@ -5575,7 +5600,7 @@
       const renderStakeTierButtons = (mode) => {
         const allowedTierIds = mode === 'open' ? legalStakeTierIdsForPlayer(0) : humanRaiseTierIds;
         const locked = !!state.betting?.actionInFlight;
-        return `<div class="stakeTierBtnRow">${STAKE_TIERS.map((tier) => {
+        return `<div class="stakeTierBtnRow" data-proj-id="betting-tier-buttons">${STAKE_TIERS.map((tier) => {
           const enabled = allowedTierIds.includes(tier.id) && !locked;
           return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(stakeCoinSrcForTier(tier.id))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="${escapeHtml(tier.id)} coin"><span>${escapeHtml(tier.id)} · ${tier.value}</span></button>`;
         }).join('')}</div>`;
@@ -5702,11 +5727,11 @@
             </div>
             <div class="claimClusterTextAnchor ${claimClusterShellClass}" data-proj-id="claim-cinematic-text" style="${claimClusterElementStyle(claimClusterPolicy.elements.cinematicPane)}"></div>
             <div class="claimClusterBettingLayer" data-proj-id="claim-cluster-betting-layer">
-              <div class="bettingStatusAnchor" data-stake-betting-status-anchor></div>
-              <div class="leftContributionAnchor" data-stake-left-contribution-anchor></div>
-              <div class="rightContributionAnchor" data-stake-right-contribution-anchor></div>
-              <div class="centerPotAnchor" data-stake-pot-center-anchor></div>
-              <div class="bettingChoiceAnchor" data-stake-betting-choice-anchor></div>
+              <div class="bettingStatusAnchor" data-stake-betting-status-anchor data-proj-id="betting-status-anchor"></div>
+              <div class="leftContributionAnchor" data-stake-left-contribution-anchor data-proj-id="betting-left-contribution-anchor"></div>
+              <div class="rightContributionAnchor" data-stake-right-contribution-anchor data-proj-id="betting-right-contribution-anchor"></div>
+              <div class="centerPotAnchor" data-stake-pot-center-anchor data-proj-id="betting-pot-anchor"></div>
+              <div class="bettingChoiceAnchor" data-stake-betting-choice-anchor data-proj-id="betting-choice-anchor"></div>
             </div>
           </div>
         ` : ''}
@@ -5981,6 +6006,7 @@
       app.classList.toggle('cinematic-mode-active', bettingModeActive || !!state.cinematicMode);
       app.classList.toggle('challenge-flow-active', challengeFlowActive);
       app.classList.toggle('challenge-visuals-active', challengeVisualsActive);
+      app.classList.toggle('betting-overlay-active', bettingModeActive);
       if (hadChallengeVisuals !== challengeVisualsActive) {
         console.log(`[challenge-visuals] ${challengeVisualsActive ? 'activated' : 'deactivated'}`);
       }
@@ -6125,7 +6151,7 @@
         const canRaise = legalActions.includes('raise-tier') && legalTierIds.length > 0;
         const actorCanAct = bettingActorHuman;
         const bettingLocked = !!state.betting.actionInFlight;
-        const renderTierButtons = (mode) => `<div class="stakeTierBtnRow">${STAKE_TIERS.map((tier) => {
+        const renderTierButtons = (mode) => `<div class="stakeTierBtnRow" data-proj-id="betting-tier-buttons">${STAKE_TIERS.map((tier) => {
           const enabled = legalTierIds.includes(tier.id) && !bettingLocked;
           const coinSrc = stakeCoinSrcForTier(tier.id);
           return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(coinSrc)}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="${escapeHtml(tier.id)} coin"><span>${tier.value}</span></button>`;
@@ -6156,10 +6182,10 @@
             return;
           }
           bettingLayer.style.pointerEvents = 'auto';
-          statusAnchor.innerHTML = `<div class="bettingStatusTitle">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="bettingStatusLine">${escapeHtml(seatFirstName(state.betting.currentActorId))} to act · Stake ${escapeHtml(state.betting.currentTierId || 'pending')} (${state.betting.currentTierValue || 0})</div>`;
+          statusAnchor.innerHTML = `<div class="bettingStatusTitle" data-proj-id="betting-status-title">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="bettingStatusLine" data-proj-id="betting-status-line">${escapeHtml(seatFirstName(state.betting.currentActorId))} to act · Stake ${escapeHtml(state.betting.currentTierId || 'pending')} (${state.betting.currentTierValue || 0})</div>`;
           leftAnchor.innerHTML = `<div class="stakeSlotLabel">Challenger</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengerId}">${challengerContributionTierId ? `<img data-stake-contrib-coin="${state.betting.challengerId}" src="${escapeHtml(stakeCoinSrcForTier(challengerContributionTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenger contribution coin">` : ''}</div><div class="stakeSlotValue">${getContribution(state.betting.challengerId)}</div>`;
           rightAnchor.innerHTML = `<div class="stakeSlotLabel">Challenged</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengedId}">${challengedContributionTierId ? `<img data-stake-contrib-coin="${state.betting.challengedId}" src="${escapeHtml(stakeCoinSrcForTier(challengedContributionTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenged contribution coin">` : ''}</div><div class="stakeSlotValue">${getContribution(state.betting.challengedId)}</div>`;
-          potCenterAnchor.innerHTML = `<div class="potCoinRow"><div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div></div><div class="stakePotReadout">Pot ${challengePotTotal()}</div>`;
+          potCenterAnchor.innerHTML = `<div class="potCoinRow" data-proj-id="betting-pot-coins"><div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div></div><div class="stakePotReadout" data-proj-id="betting-pot-readout">Pot ${challengePotTotal()}</div>`;
           choiceAnchor.innerHTML = bettingActionsHtml;
           const coinButtons = [...choiceAnchor.querySelectorAll('[data-stake-tier-btn] img')].map((img) => ({ src: img.getAttribute('src'), fallback: img.getAttribute('data-fallback-src') }));
           const slotRects = {
@@ -6363,7 +6389,7 @@
           node.style.top = `${Math.round(rect.top - rootRect.top)}px`;
           node.style.width = `${Math.max(12, Math.round(rect.width))}px`;
           node.style.height = `${Math.max(12, Math.round(rect.height))}px`;
-          node.innerHTML = `<div class="authoredSubLabel">${escapeHtml(projId)}</div>`;
+          node.innerHTML = `<div class="authoredSubLabel">${escapeHtml(projId)}</div><div class="authoredResizeHandle" data-resize-handle="se"></div>`;
           overlay.appendChild(node);
         });
       }
@@ -6385,6 +6411,30 @@
         if (el) el.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`;
       }
       renderAuthoredOverlays();
+    }
+    function updateAuthoredSubSize(projId, width, height) {
+      const authored = getScratchbonesAuthoredConfig();
+      if (!authored.subSizes) authored.subSizes = {};
+      authored.subSizes[projId] = {
+        width: Math.max(12, Math.round(width)),
+        height: Math.max(12, Math.round(height)),
+      };
+      const app = document.getElementById('app');
+      if (app) {
+        const el = app.querySelector(`[data-proj-id="${projId}"]`);
+        if (el) {
+          el.style.width = `${Math.max(12, Math.round(width))}px`;
+          el.style.height = `${Math.max(12, Math.round(height))}px`;
+        }
+      }
+      renderAuthoredOverlays();
+    }
+    function getLiveSubElementSize(projId) {
+      const el = document.getElementById('app')?.querySelector?.(`[data-proj-id="${projId}"]`);
+      return {
+        width: Math.max(12, Math.round(el?.offsetWidth || 12)),
+        height: Math.max(12, Math.round(el?.offsetHeight || 12)),
+      };
     }
     function renderAuthoredInspector() {
       const varsPanelBody = projectionUiState.ui?.varsPanelBody;
@@ -6425,11 +6475,15 @@
           return `<label class="projVarRow"><span class="projVarLabel">${escapeHtml(varName)}</span><input class="projVarInput" data-proj-kind="text" data-proj-var="${escapeHtml(varName)}" type="text" value="${escapeHtml(value)}"></label>`;
         }).join('');
         varsPanelTitle.textContent = `Sub Element · ${projId}`;
-        const field = (key, label) => `<label class="projVarRow sizePosVar"><span class="projVarLabel">${label}</span><input class="projVarInput" data-authored-sub-field="${key}" data-sub-proj-id="${escapeHtml(projId)}" type="number" step="1" value="${Math.round(offset[key] ?? 0)}"><span class="projVarHint">px</span></label>`;
+        const subSize = authored.subSizes?.[projId] || { width: 0, height: 0 };
+        const liveSize = getLiveSubElementSize(projId);
+        const field = (key, label, value) => `<label class="projVarRow sizePosVar"><span class="projVarLabel">${label}</span><input class="projVarInput" data-authored-sub-field="${key}" data-sub-proj-id="${escapeHtml(projId)}" type="number" step="1" value="${Math.round(value)}"><span class="projVarHint">px</span></label>`;
         varsPanelBody.innerHTML = `
           <div class="projVarHint">Sub-element offset (translate within parent).</div>
-          ${field('dx', 'dx')}
-          ${field('dy', 'dy')}
+          ${field('dx', 'dx', offset.dx ?? 0)}
+          ${field('dy', 'dy', offset.dy ?? 0)}
+          ${field('width', 'width', subSize.width || liveSize.width)}
+          ${field('height', 'height', subSize.height || liveSize.height)}
           ${varRows ? `<div class="projVarHint" style="margin-top:8px;">Linked CSS vars for ${escapeHtml(projId)}.</div>${varRows}` : ''}
         `;
         return;
@@ -6464,14 +6518,23 @@
         }
         const authored = getScratchbonesAuthoredConfig();
         const current = authored.subOffsets?.[projId] || { dx: 0, dy: 0 };
+        const currentSize = authored.subSizes?.[projId] || getLiveSubElementSize(projId);
+        const root = document.getElementById('authoredRoot');
+        const liveWidth = root?.clientWidth || window.innerWidth || authored.designWidthPx;
+        const liveHeight = root?.clientHeight || window.innerHeight || authored.designHeightPx;
+        const scale = computeAuthoredScale(liveWidth, liveHeight, authored.designWidthPx, authored.designHeightPx);
+        const isResize = !!event.target.closest('[data-resize-handle]');
         authoredEditorState.pointerDrag = {
           subMode: true,
+          mode: isResize ? 'resize' : 'move',
           projId,
           startX: event.clientX,
           startY: event.clientY,
           startDx: current.dx,
           startDy: current.dy,
-          scale: 1,
+          startWidth: currentSize.width,
+          startHeight: currentSize.height,
+          scale,
         };
         authoredEditorState.pointerCaptureTarget = subOverlay;
         authoredEditorState.pointerCaptureId = event.pointerId;
@@ -6520,12 +6583,19 @@
       const drag = authoredEditorState.pointerDrag;
       if (!drag) return;
       if (drag.subMode) {
-        const ddx = event.clientX - drag.startX;
-        const ddy = event.clientY - drag.startY;
-        const newDx = drag.startDx + ddx;
-        const newDy = drag.startDy + ddy;
-        updateAuthoredSubOffset(drag.projId, newDx, newDy);
-        updateEditorStatus(`Sub offset ${drag.projId}: dx=${Math.round(newDx)} dy=${Math.round(newDy)}`);
+        const ddx = (event.clientX - drag.startX) / drag.scale;
+        const ddy = (event.clientY - drag.startY) / drag.scale;
+        if (drag.mode === 'resize') {
+          const newWidth = Math.max(12, drag.startWidth + ddx);
+          const newHeight = Math.max(12, drag.startHeight + ddy);
+          updateAuthoredSubSize(drag.projId, newWidth, newHeight);
+          updateEditorStatus(`Sub size ${drag.projId}: w=${Math.round(newWidth)} h=${Math.round(newHeight)}`);
+        } else {
+          const newDx = drag.startDx + ddx;
+          const newDy = drag.startDy + ddy;
+          updateAuthoredSubOffset(drag.projId, newDx, newDy);
+          updateEditorStatus(`Sub offset ${drag.projId}: dx=${Math.round(newDx)} dy=${Math.round(newDy)}`);
+        }
         if (projectionUiState.varsPanelOpen) renderAuthoredInspector();
         return;
       }
@@ -6751,8 +6821,16 @@
           if (!Number.isFinite(numeric)) return;
           const authored = getScratchbonesAuthoredConfig();
           const current = authored.subOffsets?.[projId] || { dx: 0, dy: 0 };
-          updateAuthoredSubOffset(projId, authoredSubField === 'dx' ? numeric : current.dx, authoredSubField === 'dy' ? numeric : current.dy);
-          updateEditorStatus(`Sub offset ${projId}.${authoredSubField}=${Math.round(numeric)}.`);
+          const currentSize = authored.subSizes?.[projId] || getLiveSubElementSize(projId);
+          if (authoredSubField === 'dx' || authoredSubField === 'dy') {
+            updateAuthoredSubOffset(projId, authoredSubField === 'dx' ? numeric : current.dx, authoredSubField === 'dy' ? numeric : current.dy);
+            updateEditorStatus(`Sub offset ${projId}.${authoredSubField}=${Math.round(numeric)}.`);
+            return;
+          }
+          if (authoredSubField === 'width' || authoredSubField === 'height') {
+            updateAuthoredSubSize(projId, authoredSubField === 'width' ? numeric : currentSize.width, authoredSubField === 'height' ? numeric : currentSize.height);
+            updateEditorStatus(`Sub size ${projId}.${authoredSubField}=${Math.round(numeric)}.`);
+          }
           return;
         }
         const authoredField = event.target.getAttribute('data-authored-field');
