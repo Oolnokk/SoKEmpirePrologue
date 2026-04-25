@@ -931,6 +931,9 @@
     button.ok { background: var(--ok); color: #102314; }
     button.ghost { background: rgba(255,255,255,0.08); color: var(--text); box-shadow: none; border: 1px solid rgba(255,255,255,0.08); }
     button:disabled { opacity: 0.45; box-shadow: none; }
+    #app.betting-overlay-active [disabled] {
+      display: none !important;
+    }
     .handWrap {
       padding: calc(var(--layout-hand-wrap-padding-y) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale))
                calc(var(--layout-hand-wrap-padding-x) * var(--layout-challenge-gap-scale) * var(--layout-fit-gap-scale));
@@ -2533,11 +2536,19 @@
         };
       }
       const rawSubOffsets = authored.subOffsets && typeof authored.subOffsets === 'object' ? authored.subOffsets : {};
+      const rawSubSizes = authored.subSizes && typeof authored.subSizes === 'object' ? authored.subSizes : {};
       const subOffsets = {};
+      const subSizes = {};
       for (const [projId, raw] of Object.entries(rawSubOffsets)) {
         subOffsets[projId] = {
           dx: Number.isFinite(Number(raw.dx)) ? Number(raw.dx) : 0,
           dy: Number.isFinite(Number(raw.dy)) ? Number(raw.dy) : 0,
+        };
+      }
+      for (const [projId, raw] of Object.entries(rawSubSizes)) {
+        subSizes[projId] = {
+          width: Math.max(12, Number.isFinite(Number(raw.width)) ? Number(raw.width) : 12),
+          height: Math.max(12, Number.isFinite(Number(raw.height)) ? Number(raw.height) : 12),
         };
       }
       SCRATCHBONES_GAME.layout.authored = {
@@ -2547,6 +2558,7 @@
         scaleMode: String(authored.scaleMode || 'contain').toLowerCase(),
         boxes: normalizedBoxes,
         subOffsets,
+        subSizes,
       };
       return SCRATCHBONES_GAME.layout.authored;
     }
@@ -2643,11 +2655,21 @@
         const origin = parentId ? authoredConfig.boxes[parentId] : null;
         applyAuthoredBoxStyles(el, box, origin);
       }
-      // Apply sub-element translate offsets (move within their parent's layout)
-      for (const [projId, offset] of Object.entries(authoredConfig.subOffsets || {})) {
+      // Apply sub-element size + translate offsets (for nested mapping edits).
+      const subLayoutKeys = new Set([
+        ...Object.keys(authoredConfig.subOffsets || {}),
+        ...Object.keys(authoredConfig.subSizes || {}),
+      ]);
+      for (const projId of subLayoutKeys) {
         if (AUTHORED_BOX_KEY_BY_PROJ_ID[projId]) continue; // skip major boxes
         const el = app.querySelector(`[data-proj-id="${projId}"]`);
         if (!el) continue;
+        const offset = authoredConfig.subOffsets?.[projId] || { dx: 0, dy: 0 };
+        const size = authoredConfig.subSizes?.[projId];
+        if (size) {
+          el.style.width = `${Math.max(12, Math.round(size.width))}px`;
+          el.style.height = `${Math.max(12, Math.round(size.height))}px`;
+        }
         el.style.transform = `translate(${Math.round(offset.dx)}px, ${Math.round(offset.dy)}px)`;
       }
     }
@@ -5927,6 +5949,7 @@
       app.classList.toggle('cinematic-mode-active', bettingModeActive || !!state.cinematicMode);
       app.classList.toggle('challenge-flow-active', challengeFlowActive);
       app.classList.toggle('challenge-visuals-active', challengeVisualsActive);
+      app.classList.toggle('betting-overlay-active', bettingModeActive);
       if (hadChallengeVisuals !== challengeVisualsActive) {
         console.log(`[challenge-visuals] ${challengeVisualsActive ? 'activated' : 'deactivated'}`);
       }
@@ -6309,7 +6332,7 @@
           node.style.top = `${Math.round(rect.top - rootRect.top)}px`;
           node.style.width = `${Math.max(12, Math.round(rect.width))}px`;
           node.style.height = `${Math.max(12, Math.round(rect.height))}px`;
-          node.innerHTML = `<div class="authoredSubLabel">${escapeHtml(projId)}</div>`;
+          node.innerHTML = `<div class="authoredSubLabel">${escapeHtml(projId)}</div><div class="authoredResizeHandle" data-resize-handle="se"></div>`;
           overlay.appendChild(node);
         });
       }
@@ -6329,6 +6352,23 @@
       if (app) {
         const el = app.querySelector(`[data-proj-id="${projId}"]`);
         if (el) el.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`;
+      }
+      renderAuthoredOverlays();
+    }
+    function updateAuthoredSubSize(projId, width, height) {
+      const authored = getScratchbonesAuthoredConfig();
+      if (!authored.subSizes) authored.subSizes = {};
+      authored.subSizes[projId] = {
+        width: Math.max(12, Math.round(width)),
+        height: Math.max(12, Math.round(height)),
+      };
+      const app = document.getElementById('app');
+      if (app) {
+        const el = app.querySelector(`[data-proj-id="${projId}"]`);
+        if (el) {
+          el.style.width = `${Math.max(12, Math.round(width))}px`;
+          el.style.height = `${Math.max(12, Math.round(height))}px`;
+        }
       }
       renderAuthoredOverlays();
     }
@@ -6371,11 +6411,17 @@
           return `<label class="projVarRow"><span class="projVarLabel">${escapeHtml(varName)}</span><input class="projVarInput" data-proj-kind="text" data-proj-var="${escapeHtml(varName)}" type="text" value="${escapeHtml(value)}"></label>`;
         }).join('');
         varsPanelTitle.textContent = `Sub Element · ${projId}`;
-        const field = (key, label) => `<label class="projVarRow sizePosVar"><span class="projVarLabel">${label}</span><input class="projVarInput" data-authored-sub-field="${key}" data-sub-proj-id="${escapeHtml(projId)}" type="number" step="1" value="${Math.round(offset[key] ?? 0)}"><span class="projVarHint">px</span></label>`;
+        const subSize = authored.subSizes?.[projId] || { width: 0, height: 0 };
+        const currentEl = document.getElementById('app')?.querySelector?.(`[data-proj-id="${projId}"]`);
+        const fallbackWidth = currentEl?.offsetWidth || 0;
+        const fallbackHeight = currentEl?.offsetHeight || 0;
+        const field = (key, label, value) => `<label class="projVarRow sizePosVar"><span class="projVarLabel">${label}</span><input class="projVarInput" data-authored-sub-field="${key}" data-sub-proj-id="${escapeHtml(projId)}" type="number" step="1" value="${Math.round(value)}"><span class="projVarHint">px</span></label>`;
         varsPanelBody.innerHTML = `
           <div class="projVarHint">Sub-element offset (translate within parent).</div>
-          ${field('dx', 'dx')}
-          ${field('dy', 'dy')}
+          ${field('dx', 'dx', offset.dx ?? 0)}
+          ${field('dy', 'dy', offset.dy ?? 0)}
+          ${field('width', 'width', subSize.width || fallbackWidth || 12)}
+          ${field('height', 'height', subSize.height || fallbackHeight || 12)}
           ${varRows ? `<div class="projVarHint" style="margin-top:8px;">Linked CSS vars for ${escapeHtml(projId)}.</div>${varRows}` : ''}
         `;
         return;
@@ -6410,14 +6456,27 @@
         }
         const authored = getScratchbonesAuthoredConfig();
         const current = authored.subOffsets?.[projId] || { dx: 0, dy: 0 };
+        const targetEl = document.getElementById('app')?.querySelector?.(`[data-proj-id="${projId}"]`);
+        const currentSize = authored.subSizes?.[projId] || {
+          width: targetEl?.offsetWidth || 12,
+          height: targetEl?.offsetHeight || 12,
+        };
+        const root = document.getElementById('authoredRoot');
+        const liveWidth = root?.clientWidth || window.innerWidth || authored.designWidthPx;
+        const liveHeight = root?.clientHeight || window.innerHeight || authored.designHeightPx;
+        const scale = computeAuthoredScale(liveWidth, liveHeight, authored.designWidthPx, authored.designHeightPx);
+        const isResize = !!event.target.closest('[data-resize-handle]');
         authoredEditorState.pointerDrag = {
           subMode: true,
+          mode: isResize ? 'resize' : 'move',
           projId,
           startX: event.clientX,
           startY: event.clientY,
           startDx: current.dx,
           startDy: current.dy,
-          scale: 1,
+          startWidth: currentSize.width,
+          startHeight: currentSize.height,
+          scale,
         };
         authoredEditorState.pointerCaptureTarget = subOverlay;
         authoredEditorState.pointerCaptureId = event.pointerId;
@@ -6466,12 +6525,19 @@
       const drag = authoredEditorState.pointerDrag;
       if (!drag) return;
       if (drag.subMode) {
-        const ddx = event.clientX - drag.startX;
-        const ddy = event.clientY - drag.startY;
-        const newDx = drag.startDx + ddx;
-        const newDy = drag.startDy + ddy;
-        updateAuthoredSubOffset(drag.projId, newDx, newDy);
-        updateEditorStatus(`Sub offset ${drag.projId}: dx=${Math.round(newDx)} dy=${Math.round(newDy)}`);
+        const ddx = (event.clientX - drag.startX) / drag.scale;
+        const ddy = (event.clientY - drag.startY) / drag.scale;
+        if (drag.mode === 'resize') {
+          const newWidth = Math.max(12, drag.startWidth + ddx);
+          const newHeight = Math.max(12, drag.startHeight + ddy);
+          updateAuthoredSubSize(drag.projId, newWidth, newHeight);
+          updateEditorStatus(`Sub size ${drag.projId}: w=${Math.round(newWidth)} h=${Math.round(newHeight)}`);
+        } else {
+          const newDx = drag.startDx + ddx;
+          const newDy = drag.startDy + ddy;
+          updateAuthoredSubOffset(drag.projId, newDx, newDy);
+          updateEditorStatus(`Sub offset ${drag.projId}: dx=${Math.round(newDx)} dy=${Math.round(newDy)}`);
+        }
         if (projectionUiState.varsPanelOpen) renderAuthoredInspector();
         return;
       }
@@ -6697,8 +6763,16 @@
           if (!Number.isFinite(numeric)) return;
           const authored = getScratchbonesAuthoredConfig();
           const current = authored.subOffsets?.[projId] || { dx: 0, dy: 0 };
-          updateAuthoredSubOffset(projId, authoredSubField === 'dx' ? numeric : current.dx, authoredSubField === 'dy' ? numeric : current.dy);
-          updateEditorStatus(`Sub offset ${projId}.${authoredSubField}=${Math.round(numeric)}.`);
+          const currentSize = authored.subSizes?.[projId] || { width: 12, height: 12 };
+          if (authoredSubField === 'dx' || authoredSubField === 'dy') {
+            updateAuthoredSubOffset(projId, authoredSubField === 'dx' ? numeric : current.dx, authoredSubField === 'dy' ? numeric : current.dy);
+            updateEditorStatus(`Sub offset ${projId}.${authoredSubField}=${Math.round(numeric)}.`);
+            return;
+          }
+          if (authoredSubField === 'width' || authoredSubField === 'height') {
+            updateAuthoredSubSize(projId, authoredSubField === 'width' ? numeric : currentSize.width, authoredSubField === 'height' ? numeric : currentSize.height);
+            updateEditorStatus(`Sub size ${projId}.${authoredSubField}=${Math.round(numeric)}.`);
+          }
           return;
         }
         const authoredField = event.target.getAttribute('data-authored-field');
