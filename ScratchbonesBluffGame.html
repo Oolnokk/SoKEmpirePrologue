@@ -181,7 +181,7 @@
       /* Scratchbone card 3-D elevation */
       --card-elev-perspective: 920px;
       --card-elev-origin-x: 50%;
-      --card-elev-origin-y: 78%;
+      --card-elev-origin-y: 100%;
       --card-elev-lift-z: 24px;
       --card-elev-shadow-x: 2px;
       --card-elev-shadow-y: 14px;
@@ -194,7 +194,7 @@
       /* Coin 3-D elevation */
       --coin-elev-perspective: 1900px;
       --coin-elev-origin-x: 50%;
-      --coin-elev-origin-y: 78%;
+      --coin-elev-origin-y: 100%;
       --coin-elev-lift-z: 24px;
       --coin-elev-shadow-x: 2px;
       --coin-elev-shadow-y: 14px;
@@ -2224,16 +2224,16 @@
       transform-origin: center center;
     }
     .physFace-card {
-      opacity: 0.28;
-      filter: blur(10px) brightness(0.9) saturate(0.65);
+      opacity: var(--card-elev-dupe-alpha);
+      filter: blur(0.35px) brightness(0.5) saturate(0.85);
       mix-blend-mode: screen;
-      transform: scale(1.12) translateY(5px);
+      transform: scale(var(--card-elev-dupe-scale));
     }
     .physFace-coin {
-      opacity: 0.26;
-      filter: blur(8px) brightness(0.9) saturate(0.65);
+      opacity: var(--coin-elev-dupe-alpha);
+      filter: blur(0.35px) brightness(0.5) saturate(0.85);
       mix-blend-mode: screen;
-      transform: scale(1.1) translateY(4px);
+      transform: scale(var(--coin-elev-dupe-scale));
     }
   </style>
 </head>
@@ -7088,8 +7088,8 @@
       let loopUntil = 0;
 
       function processImg(img, kind, appRect) {
-        const rect = img.getBoundingClientRect();
-        if (!rect.width || !rect.height) return null;
+        const projRect = img.getBoundingClientRect();
+        if (!projRect.width || !projRect.height) return null;
 
         let key = img.dataset.physFaceId;
         if (!key) {
@@ -7107,10 +7107,31 @@
         }
 
         if (faceEl.src !== img.src) faceEl.src = img.src;
-        faceEl.style.left    = `${(rect.left - appRect.left).toFixed(1)}px`;
-        faceEl.style.top     = `${(rect.top  - appRect.top).toFixed(1)}px`;
-        faceEl.style.width   = `${rect.width.toFixed(1)}px`;
-        faceEl.style.height  = `${rect.height.toFixed(1)}px`;
+
+        // The face must sit at the ground-level (un-elevated) position so the
+        // perspective-lifted card appears to float above its own shadow.
+        // Invert the perspective projection using #app's bottom-centre as origin,
+        // which is where the vanishing point is (perspective-origin 50% 100%).
+        const perspective = kind === 'coin' ? 1900 : 920;
+        const lift = 24;
+        const invScale = (perspective - lift) / perspective;
+
+        const perspOriginX = appRect.left + appRect.width  * 0.5;
+        const perspOriginY = appRect.top  + appRect.height;      // 100% of #app = bottom
+
+        const projCx = projRect.left + projRect.width  * 0.5;
+        const projCy = projRect.top  + projRect.height * 0.5;
+
+        const groundCx = perspOriginX + (projCx - perspOriginX) * invScale;
+        const groundCy = perspOriginY + (projCy - perspOriginY) * invScale;
+        const groundW  = projRect.width  * invScale;
+        const groundH  = projRect.height * invScale;
+
+        faceEl.style.left   = `${(groundCx - groundW * 0.5 - appRect.left).toFixed(1)}px`;
+        faceEl.style.top    = `${(groundCy - groundH * 0.5 - appRect.top ).toFixed(1)}px`;
+        faceEl.style.width  = `${groundW.toFixed(1)}px`;
+        faceEl.style.height = `${groundH.toFixed(1)}px`;
+
         // Mirror cardAnimator's opacity-0 hide so the face doesn't ghost at
         // the destination while a clone is still in flight.
         faceEl.style.opacity = img.style.opacity === '0' ? '0' : '';
