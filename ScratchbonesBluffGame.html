@@ -2233,6 +2233,25 @@
       filter: brightness(0.5) saturate(0.85);
       transform: scale(var(--coin-elev-dupe-scale));
     }
+    /* ── Global elevation variable sections (Vars panel, nothing selected) ── */
+    .globalVarSection { border-bottom: 1px solid rgba(200,170,120,0.12); }
+    .globalVarSectionHead {
+      width: 100%; display: flex; align-items: center; gap: 6px;
+      padding: 7px 10px; background: none; border: 0;
+      color: #cdbb9f; font: inherit; font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.08em; text-align: left; cursor: pointer;
+      text-transform: uppercase;
+    }
+    .globalVarSectionHead:hover { color: #e8d5a8; background: rgba(255,255,255,0.04); }
+    .globalVarSectionCaret { display: inline-block; font-size: 0.58rem; transition: transform 0.15s; flex-shrink: 0; }
+    .globalVarSection.open > .globalVarSectionHead .globalVarSectionCaret { transform: rotate(90deg); }
+    .globalVarSectionBody { display: none; padding: 0 10px 8px; }
+    .globalVarSection.open > .globalVarSectionBody { display: block; }
+    .sliderVarRow { padding: 4px 0 2px; }
+    .sliderVarRowTop { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
+    .sliderVarLabel { font-size: 0.68rem; color: #a09080; }
+    .sliderVarValue { font-size: 0.68rem; color: #e0c990; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .sliderVarInput { width: 100%; height: 14px; margin: 3px 0 0; accent-color: #c89952; cursor: pointer; display: block; }
   </style>
 </head>
 <body>
@@ -6804,6 +6823,61 @@
         if (!result.size) for (const varName of fallbackVars) if (String(varName).startsWith('--')) result.add(varName);
         return [...result];
       };
+      // ── Global elevation slider sections ──────────────────────────────────
+      const ELEV_SECTIONS = [
+        { id: 'card-elev', label: 'Card Elevation', sliders: [
+          { v: '--card-elev-perspective',  label: 'Perspective',  min: 200,  max: 4000, step: 10,    unit: 'px' },
+          { v: '--card-elev-lift-z',       label: 'Lift Z',       min: 0,    max: 80,   step: 1,     unit: 'px' },
+          { v: '--card-elev-shadow-x',     label: 'Shadow X',     min: -20,  max: 20,   step: 1,     unit: 'px' },
+          { v: '--card-elev-shadow-y',     label: 'Shadow Y',     min: -30,  max: 30,   step: 1,     unit: 'px' },
+          { v: '--card-elev-shadow-blur',  label: 'Shadow Blur',  min: 0,    max: 40,   step: 1,     unit: 'px' },
+          { v: '--card-elev-shadow-alpha', label: 'Shadow Alpha', min: 0,    max: 1,    step: 0.01,  unit: '' },
+          { v: '--card-elev-contact-alpha',label: 'Contact Alpha',min: 0,    max: 1,    step: 0.01,  unit: '' },
+          { v: '--card-elev-contact-blur', label: 'Contact Blur', min: 0,    max: 20,   step: 1,     unit: 'px' },
+          { v: '--card-elev-dupe-alpha',   label: 'Dupe Alpha',   min: 0,    max: 1,    step: 0.01,  unit: '' },
+          { v: '--card-elev-dupe-scale',   label: 'Dupe Scale',   min: 0.5,  max: 1.5,  step: 0.005, unit: '' },
+        ]},
+        { id: 'coin-elev', label: 'Coin Elevation', sliders: [
+          { v: '--coin-elev-perspective',  label: 'Perspective',  min: 200,  max: 6000, step: 10,    unit: 'px' },
+          { v: '--coin-elev-lift-z',       label: 'Lift Z',       min: 0,    max: 80,   step: 1,     unit: 'px' },
+          { v: '--coin-elev-shadow-x',     label: 'Shadow X',     min: -20,  max: 20,   step: 1,     unit: 'px' },
+          { v: '--coin-elev-shadow-y',     label: 'Shadow Y',     min: -30,  max: 30,   step: 1,     unit: 'px' },
+          { v: '--coin-elev-shadow-blur',  label: 'Shadow Blur',  min: 0,    max: 40,   step: 1,     unit: 'px' },
+          { v: '--coin-elev-shadow-alpha', label: 'Shadow Alpha', min: 0,    max: 1,    step: 0.01,  unit: '' },
+          { v: '--coin-elev-contact-alpha',label: 'Contact Alpha',min: 0,    max: 1,    step: 0.01,  unit: '' },
+          { v: '--coin-elev-contact-blur', label: 'Contact Blur', min: 0,    max: 20,   step: 1,     unit: 'px' },
+          { v: '--coin-elev-dupe-alpha',   label: 'Dupe Alpha',   min: 0,    max: 1,    step: 0.01,  unit: '' },
+          { v: '--coin-elev-dupe-scale',   label: 'Dupe Scale',   min: 0.5,  max: 1.5,  step: 0.005, unit: '' },
+        ]},
+      ];
+      const elevSectionOpen = {};
+      const fmtElevVal = (n, step, unit) => `${Number(n).toFixed(step < 0.1 ? (step < 0.01 ? 3 : 2) : 0)}${unit}`;
+      const renderGlobalVarSections = () => {
+        const cs = getComputedStyle(document.documentElement);
+        varsPanelTitle.textContent = 'Global Variables';
+        varsPanelBody.innerHTML = ELEV_SECTIONS.map(sec => {
+          const isOpen = elevSectionOpen[sec.id] !== false;
+          const rows = sec.sliders.map(s => {
+            const raw = projectionUiState.editedVars.get(s.v) ?? cs.getPropertyValue(s.v);
+            const numVal = Number.parseFloat(String(raw ?? '').trim()) || 0;
+            return `<div class="sliderVarRow">
+              <div class="sliderVarRowTop">
+                <span class="sliderVarLabel">${escapeHtml(s.label)}</span>
+                <span class="sliderVarValue" data-elev-val="${escapeHtml(s.v)}">${escapeHtml(fmtElevVal(numVal, s.step, s.unit))}</span>
+              </div>
+              <input type="range" class="sliderVarInput" data-elev-var="${escapeHtml(s.v)}" data-elev-unit="${escapeHtml(s.unit)}" data-elev-step="${s.step}" min="${s.min}" max="${s.max}" step="${s.step}" value="${numVal}">
+            </div>`;
+          }).join('');
+          return `<div class="globalVarSection${isOpen ? ' open' : ''}" data-section-id="${escapeHtml(sec.id)}">
+            <button class="globalVarSectionHead" type="button" data-section-toggle="${escapeHtml(sec.id)}">
+              <span class="globalVarSectionCaret">▶</span>${escapeHtml(sec.label)}
+            </button>
+            <div class="globalVarSectionBody">${rows}</div>
+          </div>`;
+        }).join('');
+      };
+      // ─────────────────────────────────────────────────────────────────────
+
       const renderVarEditor = () => {
         if (getScratchbonesLayoutMode() === 'authored' && (getSelectedAuthoredBox() || authoredEditorState.subLayerMode)) {
           renderAuthoredInspector();
@@ -6813,7 +6887,7 @@
           ? `${basePanelTitle} · ${projectionUiState.lastSelectedProjId}`
           : basePanelTitle;
         if (!projectionUiState.lastSelectedProjId) {
-          varsPanelBody.innerHTML = '<div class="projVarHint">Select an outlined element in map mode, then open Vars.</div>';
+          renderGlobalVarSections();
           return;
         }
         const relatedVars = resolveRelatedVars(projectionUiState.lastSelectedProjId, projectionUiState.lastSelectedSourceEl);
@@ -6928,7 +7002,31 @@
         }
         if (projectionUiState.varsPanelOpen) renderVarEditor();
       }, true);
+      varsPanelBody.addEventListener('click', (event) => {
+        const toggle = event.target.closest('[data-section-toggle]');
+        if (!toggle) return;
+        const secId = toggle.getAttribute('data-section-toggle');
+        const secEl = varsPanelBody.querySelector(`[data-section-id="${CSS.escape(secId)}"]`);
+        if (secEl) {
+          const isOpen = secEl.classList.toggle('open');
+          elevSectionOpen[secId] = isOpen;
+        }
+      });
       varsPanelBody.addEventListener('input', (event) => {
+        const elevVar = event.target.getAttribute('data-elev-var');
+        if (elevVar) {
+          const unit = event.target.getAttribute('data-elev-unit') || '';
+          const step = Number(event.target.getAttribute('data-elev-step')) || 0.01;
+          const numVal = Number.parseFloat(event.target.value);
+          if (!Number.isFinite(numVal)) return;
+          const strVal = `${numVal}${unit}`;
+          projectionUiState.editedVars.set(elevVar, strVal);
+          document.documentElement.style.setProperty(elevVar, strVal);
+          const valEl = varsPanelBody.querySelector(`[data-elev-val="${CSS.escape(elevVar)}"]`);
+          if (valEl) valEl.textContent = fmtElevVal(numVal, step, unit);
+          physicalFaceSystem?.scheduleAnimationSync(300);
+          return;
+        }
         const authoredSubField = event.target.getAttribute('data-authored-sub-field');
         if (authoredSubField) {
           const projId = event.target.getAttribute('data-sub-proj-id');
