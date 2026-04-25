@@ -158,6 +158,16 @@ window.SCRATCHBONES_CONFIG = {
           "turnSpotlight":  { "x": 1122, "y": 12,  "width": 230,  "height": 200 },
           "claimCluster":   { "x": 187,  "y": 290, "width": 1037, "height": 275 },
           "challengePrompt":{ "x": 960,  "y": 699, "width": 280,  "height": 140 }
+        },
+        "subOffsets": {
+          "betting-left-contribution-anchor": { "dx": 260, "dy": 150 },
+          "betting-tier-buttons": { "dx": 8, "dy": 4 },
+          "betting-right-contribution-anchor": { "dx": -260, "dy": 150 },
+          "betting-choice-anchor": { "dx": -385, "dy": -40 }
+        },
+        "subSizes": {
+          "betting-right-contribution-anchor": { "width": 92, "height": 114 },
+          "betting-left-contribution-anchor": { "width": 92, "height": 114 }
         }
       },
       "cards": {
@@ -348,6 +358,17 @@ window.SCRATCHBONES_CONFIG = {
       },
       "controls": {
         "heightScale": 0.5
+      },
+      "betting": {
+        "titleOffsetY": "-80%",
+        "choiceOffsetY": "115%",
+        "leftSlotOffsetX": "260px",
+        "leftSlotOffsetY": "150px",
+        "rightSlotOffsetX": "-260px",
+        "rightSlotOffsetY": "150px",
+        "coinButtonSize": "clamp(58px, 8.6vw, 86px)",
+        "contributionCoinSize": "clamp(48px, 6.7vw, 72px)",
+        "tierGap": "clamp(10px, 2.2vw, 20px)"
       },
       "allowChallengeOverflow": true,
       "background": {
@@ -670,16 +691,6 @@ window.SCRATCHBONES_CONFIG = {
             "--layout-betting-right-slot-offset-x",
             "--layout-betting-right-slot-offset-y",
             "--layout-betting-contribution-coin-size"
-          ],
-          "betting-pot-anchor": [
-            "--layout-betting-pot-offset-y"
-          ],
-          "betting-pot-coins": [
-            "--layout-betting-contribution-coin-size"
-          ],
-          "betting-pot-readout": [
-            "--layout-challenge-font-scale",
-            "--layout-fit-font-scale"
           ],
           "betting-choice-anchor": [
             "--layout-betting-choice-offset-y"
