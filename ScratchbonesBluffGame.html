@@ -5241,6 +5241,7 @@
                       clone.remove();
                       if (activeClones.get(id) === clone) activeClones.delete(id);
                       img.style.opacity = '';
+                      SCRATCHBONES_AUDIO.playMovement('lerpComplete');
                     };
                     clone.addEventListener('transitionend', done, { once: true });
                     setTimeout(done, FLY_MS + 100);
@@ -5301,6 +5302,7 @@
                 clone.remove();
                 if (activeClones.get(id) === clone) activeClones.delete(id);
                 img.style.opacity = '';
+                SCRATCHBONES_AUDIO.playMovement('lerpComplete');
               };
               clone.addEventListener('transitionend', done, { once: true });
               setTimeout(done, FLY_MS + 100);
