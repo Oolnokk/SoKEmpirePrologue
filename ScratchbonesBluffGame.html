@@ -5546,7 +5546,7 @@
       const renderStakeTierButtons = (mode) => {
         const allowedTierIds = mode === 'open' ? legalStakeTierIdsForPlayer(0) : humanRaiseTierIds;
         const locked = !!state.betting?.actionInFlight;
-        return `<div class="stakeTierBtnRow">${STAKE_TIERS.map((tier) => {
+        return `<div class="stakeTierBtnRow" data-proj-id="betting-tier-buttons">${STAKE_TIERS.map((tier) => {
           const enabled = allowedTierIds.includes(tier.id) && !locked;
           return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(stakeCoinSrcForTier(tier.id))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="${escapeHtml(tier.id)} coin"><span>${escapeHtml(tier.id)} · ${tier.value}</span></button>`;
         }).join('')}</div>`;
@@ -5673,11 +5673,11 @@
             </div>
             <div class="claimClusterTextAnchor ${claimClusterShellClass}" data-proj-id="claim-cinematic-text" style="${claimClusterElementStyle(claimClusterPolicy.elements.cinematicPane)}"></div>
             <div class="claimClusterBettingLayer" data-proj-id="claim-cluster-betting-layer">
-              <div class="bettingStatusAnchor" data-stake-betting-status-anchor></div>
-              <div class="leftContributionAnchor" data-stake-left-contribution-anchor></div>
-              <div class="rightContributionAnchor" data-stake-right-contribution-anchor></div>
-              <div class="centerPotAnchor" data-stake-pot-center-anchor></div>
-              <div class="bettingChoiceAnchor" data-stake-betting-choice-anchor></div>
+              <div class="bettingStatusAnchor" data-stake-betting-status-anchor data-proj-id="betting-status-anchor"></div>
+              <div class="leftContributionAnchor" data-stake-left-contribution-anchor data-proj-id="betting-left-contribution-anchor"></div>
+              <div class="rightContributionAnchor" data-stake-right-contribution-anchor data-proj-id="betting-right-contribution-anchor"></div>
+              <div class="centerPotAnchor" data-stake-pot-center-anchor data-proj-id="betting-pot-anchor"></div>
+              <div class="bettingChoiceAnchor" data-stake-betting-choice-anchor data-proj-id="betting-choice-anchor"></div>
             </div>
           </div>
         ` : ''}
@@ -6097,7 +6097,7 @@
         const canRaise = legalActions.includes('raise-tier') && legalTierIds.length > 0;
         const actorCanAct = bettingActorHuman;
         const bettingLocked = !!state.betting.actionInFlight;
-        const renderTierButtons = (mode) => `<div class="stakeTierBtnRow">${STAKE_TIERS.map((tier) => {
+        const renderTierButtons = (mode) => `<div class="stakeTierBtnRow" data-proj-id="betting-tier-buttons">${STAKE_TIERS.map((tier) => {
           const enabled = legalTierIds.includes(tier.id) && !bettingLocked;
           const coinSrc = stakeCoinSrcForTier(tier.id);
           return `<button class="stakeTierBtn" data-stake-tier-btn="${tier.id}" data-stake-tier-action="${mode}" data-stake-tier-id="${tier.id}" ${!enabled ? 'disabled' : ''}><img src="${escapeHtml(coinSrc)}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="${escapeHtml(tier.id)} coin"><span>${tier.value}</span></button>`;
@@ -6128,10 +6128,10 @@
             return;
           }
           bettingLayer.style.pointerEvents = 'auto';
-          statusAnchor.innerHTML = `<div class="bettingStatusTitle">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="bettingStatusLine">${escapeHtml(seatFirstName(state.betting.currentActorId))} to act · Stake ${escapeHtml(state.betting.currentTierId || 'pending')} (${state.betting.currentTierValue || 0})</div>`;
+          statusAnchor.innerHTML = `<div class="bettingStatusTitle" data-proj-id="betting-status-title">${escapeHtml(cinematicMode?.headline || 'Challenge betting')}</div><div class="bettingStatusLine" data-proj-id="betting-status-line">${escapeHtml(seatFirstName(state.betting.currentActorId))} to act · Stake ${escapeHtml(state.betting.currentTierId || 'pending')} (${state.betting.currentTierValue || 0})</div>`;
           leftAnchor.innerHTML = `<div class="stakeSlotLabel">Challenger</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengerId}">${challengerContributionTierId ? `<img data-stake-contrib-coin="${state.betting.challengerId}" src="${escapeHtml(stakeCoinSrcForTier(challengerContributionTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenger contribution coin">` : ''}</div><div class="stakeSlotValue">${getContribution(state.betting.challengerId)}</div>`;
           rightAnchor.innerHTML = `<div class="stakeSlotLabel">Challenged</div><div class="stakeAnchor" data-stake-contrib-anchor="${state.betting.challengedId}">${challengedContributionTierId ? `<img data-stake-contrib-coin="${state.betting.challengedId}" src="${escapeHtml(stakeCoinSrcForTier(challengedContributionTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="challenged contribution coin">` : ''}</div><div class="stakeSlotValue">${getContribution(state.betting.challengedId)}</div>`;
-          potCenterAnchor.innerHTML = `<div class="potCoinRow"><div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div></div><div class="stakePotReadout">Pot ${challengePotTotal()}</div>`;
+          potCenterAnchor.innerHTML = `<div class="potCoinRow" data-proj-id="betting-pot-coins"><div class="stakeAnchor stakeCurrent" data-stake-current-anchor>${state.betting.displayedTierId ? `<img data-stake-current-coin src="${escapeHtml(stakeCoinSrcForTier(state.betting.displayedTierId))}" data-fallback-src="${escapeHtml(stakeCoinSrcForTier('tinmoon'))}" alt="current stake coin">` : ''}</div><div class="stakeAnchor stakePot" data-stake-pot-anchor></div></div><div class="stakePotReadout" data-proj-id="betting-pot-readout">Pot ${challengePotTotal()}</div>`;
           choiceAnchor.innerHTML = bettingActionsHtml;
           const coinButtons = [...choiceAnchor.querySelectorAll('[data-stake-tier-btn] img')].map((img) => ({ src: img.getAttribute('src'), fallback: img.getAttribute('data-fallback-src') }));
           const slotRects = {

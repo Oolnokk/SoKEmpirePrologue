@@ -650,6 +650,44 @@ window.SCRATCHBONES_CONFIG = {
             "--layout-controls-padding-x",
             "--layout-controls-gap"
           ],
+          "betting-status-anchor": [
+            "--layout-betting-title-offset-y"
+          ],
+          "betting-status-title": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
+          "betting-status-line": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
+          "betting-left-contribution-anchor": [
+            "--layout-betting-left-slot-offset-x",
+            "--layout-betting-left-slot-offset-y",
+            "--layout-betting-contribution-coin-size"
+          ],
+          "betting-right-contribution-anchor": [
+            "--layout-betting-right-slot-offset-x",
+            "--layout-betting-right-slot-offset-y",
+            "--layout-betting-contribution-coin-size"
+          ],
+          "betting-pot-anchor": [
+            "--layout-betting-pot-offset-y"
+          ],
+          "betting-pot-coins": [
+            "--layout-betting-contribution-coin-size"
+          ],
+          "betting-pot-readout": [
+            "--layout-challenge-font-scale",
+            "--layout-fit-font-scale"
+          ],
+          "betting-choice-anchor": [
+            "--layout-betting-choice-offset-y"
+          ],
+          "betting-tier-buttons": [
+            "--layout-betting-coin-button-size",
+            "--layout-betting-tier-gap"
+          ],
           "hand": [
             "--hand-height-frac",
             "--layout-hand-height-scale",
