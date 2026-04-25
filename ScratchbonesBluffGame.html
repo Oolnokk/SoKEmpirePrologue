@@ -178,6 +178,32 @@
       --layout-card-shadow-spread: -2px;
       --layout-card-shadow-alpha: 0.34;
       --layout-card-contact-alpha: 0.2;
+      /* Scratchbone card 3-D elevation */
+      --card-elev-perspective: 920px;
+      --card-elev-origin-x: 50%;
+      --card-elev-origin-y: 78%;
+      --card-elev-lift-z: 24px;
+      --card-elev-shadow-x: 2px;
+      --card-elev-shadow-y: 14px;
+      --card-elev-shadow-blur: 15px;
+      --card-elev-shadow-alpha: 0.42;
+      --card-elev-contact-alpha: 0.44;
+      --card-elev-contact-blur: 6px;
+      --card-elev-dupe-alpha: 0.56;
+      --card-elev-dupe-scale: 0.985;
+      /* Coin 3-D elevation */
+      --coin-elev-perspective: 1900px;
+      --coin-elev-origin-x: 50%;
+      --coin-elev-origin-y: 78%;
+      --coin-elev-lift-z: 24px;
+      --coin-elev-shadow-x: 2px;
+      --coin-elev-shadow-y: 14px;
+      --coin-elev-shadow-blur: 15px;
+      --coin-elev-shadow-alpha: 0.42;
+      --coin-elev-contact-alpha: 0.44;
+      --coin-elev-contact-blur: 6px;
+      --coin-elev-dupe-alpha: 0.56;
+      --coin-elev-dupe-scale: 0.985;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
@@ -418,6 +444,8 @@
       justify-content: center;
       align-items: center;
       padding: 2px;
+      perspective: var(--card-elev-perspective);
+      perspective-origin: var(--card-elev-origin-x) var(--card-elev-origin-y);
     }
     .claimHandBar .tableViewCard {
       width: var(--layout-claim-card-width, clamp(var(--layout-hand-card-min-width), 14vw, var(--layout-hand-card-max-width)));
@@ -578,12 +606,17 @@
       display: grid;
       place-items: center;
       box-shadow: inset 0 0 12px rgba(0,0,0,0.35), 0 6px 14px rgba(0,0,0,0.28);
+      perspective: var(--coin-elev-perspective);
+      perspective-origin: var(--coin-elev-origin-x) var(--coin-elev-origin-y);
     }
     .stakeAnchor img {
       width: var(--layout-betting-contribution-coin-size);
       height: var(--layout-betting-contribution-coin-size);
       object-fit: contain;
-      filter: drop-shadow(0 2px 5px rgba(0,0,0,0.55));
+      transform: translateZ(var(--coin-elev-lift-z));
+      filter:
+        drop-shadow(var(--coin-elev-shadow-x) var(--coin-elev-shadow-y) var(--coin-elev-shadow-blur) rgba(0,0,0,var(--coin-elev-shadow-alpha)))
+        drop-shadow(0 1px 0 rgba(255,255,255,0.18));
     }
     .stakePotReadout {
       margin-top: 6px;
@@ -627,6 +660,8 @@
       flex-wrap: wrap;
       gap: 10px;
       min-height: 0;
+      perspective: var(--card-elev-perspective);
+      perspective-origin: var(--card-elev-origin-x) var(--card-elev-origin-y);
     }
     .tableViewCard {
       width: calc(clamp(var(--layout-hand-card-min-width), 14vw, var(--layout-hand-card-max-width)) * var(--layout-challenge-image-scale) * var(--layout-fit-image-scale) * var(--layout-table-card-container-scale) * var(--layout-table-card-auto-scale));
@@ -635,9 +670,28 @@
       border: 0;
       background: transparent;
       box-shadow: none;
-      overflow: hidden;
+      overflow: visible;
       flex: 0 1 auto;
       max-width: 100%;
+      position: relative;
+      transform: translateZ(var(--card-elev-lift-z));
+      will-change: transform;
+    }
+    .tableViewCard::before {
+      content: '';
+      position: absolute;
+      left: 16%; right: 16%;
+      bottom: 0;
+      height: 12%;
+      border-radius: 999px;
+      background: radial-gradient(ellipse at center,
+        rgba(0,0,0,var(--card-elev-contact-alpha)) 0%,
+        rgba(0,0,0,calc(var(--card-elev-contact-alpha) * 0.46)) 44%,
+        transparent 78%
+      );
+      filter: blur(var(--card-elev-contact-blur));
+      pointer-events: none;
+      z-index: -1;
     }
     .tableViewCard img {
       width: 100%;
@@ -646,6 +700,9 @@
       display: block;
       transform: scale(var(--layout-table-card-content-scale));
       transform-origin: center center;
+      filter:
+        drop-shadow(var(--card-elev-shadow-x) var(--card-elev-shadow-y) var(--card-elev-shadow-blur) rgba(0,0,0,var(--card-elev-shadow-alpha)))
+        drop-shadow(0 1px 0 rgba(255,255,255,0.12));
     }
     #app.cinematic-mode-active .topbar,
     #app.cinematic-mode-active #aiSidebar,
@@ -947,6 +1004,8 @@
       overflow: auto;
       padding-bottom: 4px;
       min-height: 0;
+      perspective: var(--card-elev-perspective);
+      perspective-origin: var(--card-elev-origin-x) var(--card-elev-origin-y);
     }
     .card {
       width: 100%;
@@ -960,17 +1019,33 @@
       color: var(--card-text);
       border: 3px solid transparent;
       border-radius: 0;
-      box-shadow:
-        var(--layout-card-shadow-offset-x) var(--layout-card-shadow-offset-y) var(--layout-card-shadow-blur) var(--layout-card-shadow-spread) rgba(0, 0, 0, var(--layout-card-shadow-alpha)),
-        calc(var(--layout-card-shadow-offset-x) * 0.35) calc(var(--layout-card-shadow-offset-y) * 0.35) calc(var(--layout-card-shadow-blur) * 0.35) calc(var(--layout-card-shadow-spread) * 0.6) rgba(0, 0, 0, var(--layout-card-contact-alpha));
+      box-shadow: none;
       display: flex;
       align-items: stretch;
       justify-content: stretch;
       position: relative;
-      overflow: hidden;
+      overflow: visible;
       isolation: isolate;
+      transform: translateZ(var(--card-elev-lift-z));
+      will-change: transform;
     }
-    .card.selected { transform: translateY(-4px); border-color: transparent; }
+    .card::before {
+      content: '';
+      position: absolute;
+      left: 16%; right: 16%;
+      bottom: 0;
+      height: 12%;
+      border-radius: 999px;
+      background: radial-gradient(ellipse at center,
+        rgba(0,0,0,var(--card-elev-contact-alpha)) 0%,
+        rgba(0,0,0,calc(var(--card-elev-contact-alpha) * 0.46)) 44%,
+        transparent 78%
+      );
+      filter: blur(var(--card-elev-contact-blur));
+      pointer-events: none;
+      z-index: -1;
+    }
+    .card.selected { transform: translateZ(var(--card-elev-lift-z)) translateY(-4px); border-color: transparent; }
     .card.selected::after {
       content: '';
       position: absolute;
@@ -984,7 +1059,8 @@
       filter:
         drop-shadow(0 0 1px rgba(98, 176, 255, 0.95))
         drop-shadow(0 0 4px rgba(98, 176, 255, 0.85))
-        drop-shadow(0 0 9px rgba(98, 176, 255, 0.72));
+        drop-shadow(0 0 9px rgba(98, 176, 255, 0.72))
+        drop-shadow(var(--card-elev-shadow-x) var(--card-elev-shadow-y) var(--card-elev-shadow-blur) rgba(0,0,0,var(--card-elev-shadow-alpha)));
     }
     .cardArt {
       width: 100%;
@@ -994,6 +1070,9 @@
       display: block;
       border-radius: 0;
       pointer-events: none;
+      filter:
+        drop-shadow(var(--card-elev-shadow-x) var(--card-elev-shadow-y) var(--card-elev-shadow-blur) rgba(0,0,0,var(--card-elev-shadow-alpha)))
+        drop-shadow(0 1px 0 rgba(255,255,255,0.15));
     }
     .cardLabel {
       position: absolute;
@@ -1117,6 +1196,9 @@
       align-content: center;
       gap: 4px;
       text-align: center;
+      perspective: var(--coin-elev-perspective);
+      perspective-origin: var(--coin-elev-origin-x) var(--coin-elev-origin-y);
+      overflow: visible;
     }
     .stakeTierBtn:disabled {
       opacity: 0.42;
@@ -1134,6 +1216,10 @@
       height: calc(var(--layout-betting-coin-button-size) * 0.62);
       object-fit: contain;
       pointer-events: none;
+      transform: translateZ(var(--coin-elev-lift-z));
+      filter:
+        drop-shadow(var(--coin-elev-shadow-x) var(--coin-elev-shadow-y) var(--coin-elev-shadow-blur) rgba(0,0,0,var(--coin-elev-shadow-alpha)))
+        drop-shadow(0 1px 0 rgba(255,255,255,0.18));
     }
     .tiny { font-size: calc(0.74rem * var(--layout-challenge-font-scale) * var(--layout-fit-font-scale)); color: var(--muted); }
     .layout-challenge-wrap .tiny,
@@ -2120,6 +2206,34 @@
     body.proj-mapping input:not(.projVarInput),
     body.proj-mapping .card {
       pointer-events: none !important;
+    }
+    /* Physical face layer – flat darkened duplicates of cards and coins at z=0 */
+    #physFaceLayer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 15;
+      overflow: hidden;
+    }
+    .physFace {
+      position: absolute;
+      object-fit: contain;
+      pointer-events: none;
+      -webkit-user-drag: none;
+      user-select: none;
+      transform-origin: center center;
+    }
+    .physFace-card {
+      opacity: var(--card-elev-dupe-alpha);
+      filter: brightness(0.5) saturate(0.85);
+      mix-blend-mode: multiply;
+      transform: scale(var(--card-elev-dupe-scale));
+    }
+    .physFace-coin {
+      opacity: var(--coin-elev-dupe-alpha);
+      filter: brightness(0.5) saturate(0.85);
+      mix-blend-mode: multiply;
+      transform: scale(var(--coin-elev-dupe-scale));
     }
   </style>
 </head>
@@ -5838,6 +5952,7 @@
       }
       cardAnimator.animatePostRender();
       seatAvatarAnim.animatePostRender();
+      physicalFaceSystem?.sync();
     }
     function debugSnapshot() {
       const regionsConfig = getLayoutRegionsConfig();
@@ -6947,6 +7062,77 @@
     window.addEventListener('orientationchange', scheduleResponsiveFitPass, { passive: true });
     window.addEventListener('pointerdown', () => SCRATCHBONES_AUDIO.startPlaylist(), { once: true, passive: true });
     window.addEventListener('keydown', () => SCRATCHBONES_AUDIO.startPlaylist(), { once: true, passive: true });
+
+    // ── Physical face layer ──────────────────────────────────────────────────
+    // Mirrors the z-duplicate layer from the elevation demo: a flat-layer copy
+    // of each card/coin PNG rendered with brightness 0.5 + multiply blend at the
+    // element's 2D footprint, grounding the elevated image on the surface.
+    const physicalFaceSystem = (() => {
+      const CARD_SELECTORS = '#app .card img.cardArt, #app .tableViewCard img, #app .claimHandBar img';
+      const COIN_SELECTORS = '#app .stakeTierBtn img, #app .stakeAnchor img';
+
+      const layer = document.createElement('div');
+      layer.id = 'physFaceLayer';
+      layer.setAttribute('aria-hidden', 'true');
+      app.insertBefore(layer, app.firstChild);
+
+      const faceMap = new Map();
+      let nextFaceId = 1;
+
+      function processImg(img, kind) {
+        const rect = img.getBoundingClientRect();
+        if (!rect.width || !rect.height) return null;
+        const appRect = app.getBoundingClientRect();
+
+        let key = img.dataset.physFaceId;
+        if (!key) {
+          key = `pf${nextFaceId++}`;
+          img.dataset.physFaceId = key;
+        }
+
+        let faceEl = faceMap.get(key);
+        if (!faceEl) {
+          faceEl = document.createElement('img');
+          faceEl.className = `physFace physFace-${kind}`;
+          faceEl.setAttribute('aria-hidden', 'true');
+          layer.appendChild(faceEl);
+          faceMap.set(key, faceEl);
+        }
+
+        if (faceEl.src !== img.src) faceEl.src = img.src;
+        faceEl.style.left   = `${(rect.left - appRect.left).toFixed(1)}px`;
+        faceEl.style.top    = `${(rect.top  - appRect.top).toFixed(1)}px`;
+        faceEl.style.width  = `${rect.width.toFixed(1)}px`;
+        faceEl.style.height = `${rect.height.toFixed(1)}px`;
+        return key;
+      }
+
+      function sync() {
+        const appRect = app.getBoundingClientRect();
+        if (!appRect.width) return;
+        const processedKeys = new Set();
+
+        document.querySelectorAll(CARD_SELECTORS).forEach(img => {
+          const k = processImg(img, 'card');
+          if (k) processedKeys.add(k);
+        });
+        document.querySelectorAll(COIN_SELECTORS).forEach(img => {
+          const k = processImg(img, 'coin');
+          if (k) processedKeys.add(k);
+        });
+
+        for (const [key, faceEl] of faceMap) {
+          if (!processedKeys.has(key)) {
+            faceEl.remove();
+            faceMap.delete(key);
+          }
+        }
+      }
+
+      window.addEventListener('resize', sync, { passive: true });
+      return { sync };
+    })();
+
     startGame();
   </script>
 </body>
