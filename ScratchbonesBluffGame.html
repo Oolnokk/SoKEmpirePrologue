@@ -1994,7 +1994,7 @@
       border-radius: 8px;
       cursor: pointer;
       letter-spacing: 0.05em;
-      display: none;
+      display: block;
     }
     #_dbgBtn:hover { background: rgba(67,49,43,0.97); }
     #_dbgPanel {
@@ -2002,7 +2002,7 @@
       bottom: calc(50px + var(--safe)); left: 10px;
       width: min(420px, calc(100vw - 20px));
       max-height: 55vh;
-      display: none !important;
+      display: none;
       flex-direction: column;
       background: rgba(14,10,9,0.96);
       border: 1px solid rgba(200,150,80,0.3);
@@ -2011,7 +2011,7 @@
       overflow: hidden;
       box-shadow: 0 8px 24px rgba(0,0,0,0.6);
     }
-    #_dbgPanel.open { display: none !important; }
+    #_dbgPanel.open { display: flex; }
     #_dbgPanelHead {
       display: flex; align-items: center; justify-content: space-between;
       padding: 6px 10px;
@@ -2234,7 +2234,7 @@
       transform: scale(var(--coin-elev-dupe-scale));
     }
     /* ── Global elevation variable sections (Vars panel, nothing selected) ── */
-    .globalVarSection { border-bottom: 1px solid rgba(200,170,120,0.12); }
+    .globalVarSection { border-bottom: 1px solid rgba(200,170,120,0.12); grid-column: 1 / -1; }
     .globalVarSectionHead {
       width: 100%; display: flex; align-items: center; gap: 6px;
       padding: 7px 10px; background: none; border: 0;
@@ -2280,8 +2280,8 @@
     </div>
   </div>
   <!-- Debug log panel -->
-  <button id="_dbgBtn" title="Toggle debug log" hidden aria-hidden="true">Log</button>
-  <div id="_dbgPanel" hidden aria-hidden="true">
+  <button id="_dbgBtn" title="Toggle debug log">Log</button>
+  <div id="_dbgPanel" aria-hidden="true">
     <div id="_dbgPanelHead">
       <span>DEBUG LOG</span>
       <button id="_dbgCopyBtn">Copy</button>
@@ -7185,7 +7185,11 @@
 
       function processImg(img, kind, appRect) {
         const projRect = img.getBoundingClientRect();
-        if (!projRect.width || !projRect.height) return null;
+        if (!projRect.width || !projRect.height) {
+          const src = img.src ? img.src.split('/').pop() : '(no src)';
+          console.warn(`[physFace] SKIP ${kind} — zero rect: ${src}`);
+          return null;
+        }
 
         let key = img.dataset.physFaceId;
         if (!key) {
@@ -7200,9 +7204,16 @@
           faceEl.setAttribute('aria-hidden', 'true');
           layer.appendChild(faceEl);
           faceMap.set(key, faceEl);
+          const src = img.src ? img.src.split('/').pop() : '(no src)';
+          console.log(`[physFace] CREATE ${key} (${kind}) — ${src}`);
         }
 
-        if (faceEl.src !== img.src) faceEl.src = img.src;
+        if (faceEl.src !== img.src) {
+          const oldSrc = faceEl.src ? faceEl.src.split('/').pop() : '(none)';
+          const newSrc = img.src ? img.src.split('/').pop() : '(no src)';
+          console.log(`[physFace] SRC UPDATE ${key} — ${oldSrc} → ${newSrc}`);
+          faceEl.src = img.src;
+        }
 
         // The face sits at the ground-level (un-elevated) position so the
         // perspective-lifted card appears to float above its own solid shadow.
@@ -7237,25 +7248,38 @@
         return key;
       }
 
+      let _lastSyncCount = -1;
       function sync() {
         const appRect = app.getBoundingClientRect();
-        if (!appRect.width) return;
+        if (!appRect.width) {
+          console.warn('[physFace] sync — #app has no width, skipping');
+          return;
+        }
         const processedKeys = new Set();
+        let cardCount = 0, coinCount = 0, skipCount = 0;
 
         document.querySelectorAll(CARD_SELECTORS).forEach(img => {
           const k = processImg(img, 'card', appRect);
-          if (k) processedKeys.add(k);
+          if (k) { processedKeys.add(k); cardCount++; } else { skipCount++; }
         });
         document.querySelectorAll(COIN_SELECTORS).forEach(img => {
           const k = processImg(img, 'coin', appRect);
-          if (k) processedKeys.add(k);
+          if (k) { processedKeys.add(k); coinCount++; } else { skipCount++; }
         });
 
+        let removedCount = 0;
         for (const [key, faceEl] of faceMap) {
           if (!processedKeys.has(key)) {
             faceEl.remove();
             faceMap.delete(key);
+            removedCount++;
           }
+        }
+
+        const total = cardCount + coinCount;
+        if (total !== _lastSyncCount || removedCount || skipCount) {
+          console.log(`[physFace] sync — ${cardCount} cards + ${coinCount} coins = ${total} active${skipCount ? ` | ${skipCount} skipped (zero-rect)` : ''}${removedCount ? ` | ${removedCount} removed` : ''}`);
+          _lastSyncCount = total;
         }
       }
 
