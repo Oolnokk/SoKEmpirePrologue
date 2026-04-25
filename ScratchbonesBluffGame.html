@@ -2664,13 +2664,16 @@
         if (AUTHORED_BOX_KEY_BY_PROJ_ID[projId]) continue; // skip major boxes
         const el = app.querySelector(`[data-proj-id="${projId}"]`);
         if (!el) continue;
-        const offset = authoredConfig.subOffsets?.[projId] || { dx: 0, dy: 0 };
+        const hasOffset = Object.prototype.hasOwnProperty.call(authoredConfig.subOffsets || {}, projId);
+        const offset = hasOffset ? authoredConfig.subOffsets?.[projId] : null;
         const size = authoredConfig.subSizes?.[projId];
         if (size) {
           el.style.width = `${Math.max(12, Math.round(size.width))}px`;
           el.style.height = `${Math.max(12, Math.round(size.height))}px`;
         }
-        el.style.transform = `translate(${Math.round(offset.dx)}px, ${Math.round(offset.dy)}px)`;
+        if (hasOffset && offset) {
+          el.style.transform = `translate(${Math.round(offset.dx)}px, ${Math.round(offset.dy)}px)`;
+        }
       }
     }
     const CHALLENGE_TIMER_SECS = SCRATCHBONES_GAME.timers.challengeTimerSecs;
@@ -6372,6 +6375,13 @@
       }
       renderAuthoredOverlays();
     }
+    function getLiveSubElementSize(projId) {
+      const el = document.getElementById('app')?.querySelector?.(`[data-proj-id="${projId}"]`);
+      return {
+        width: Math.max(12, Math.round(el?.offsetWidth || 12)),
+        height: Math.max(12, Math.round(el?.offsetHeight || 12)),
+      };
+    }
     function renderAuthoredInspector() {
       const varsPanelBody = projectionUiState.ui?.varsPanelBody;
       const varsPanelTitle = projectionUiState.ui?.varsPanelTitle;
@@ -6412,16 +6422,14 @@
         }).join('');
         varsPanelTitle.textContent = `Sub Element · ${projId}`;
         const subSize = authored.subSizes?.[projId] || { width: 0, height: 0 };
-        const currentEl = document.getElementById('app')?.querySelector?.(`[data-proj-id="${projId}"]`);
-        const fallbackWidth = currentEl?.offsetWidth || 0;
-        const fallbackHeight = currentEl?.offsetHeight || 0;
+        const liveSize = getLiveSubElementSize(projId);
         const field = (key, label, value) => `<label class="projVarRow sizePosVar"><span class="projVarLabel">${label}</span><input class="projVarInput" data-authored-sub-field="${key}" data-sub-proj-id="${escapeHtml(projId)}" type="number" step="1" value="${Math.round(value)}"><span class="projVarHint">px</span></label>`;
         varsPanelBody.innerHTML = `
           <div class="projVarHint">Sub-element offset (translate within parent).</div>
           ${field('dx', 'dx', offset.dx ?? 0)}
           ${field('dy', 'dy', offset.dy ?? 0)}
-          ${field('width', 'width', subSize.width || fallbackWidth || 12)}
-          ${field('height', 'height', subSize.height || fallbackHeight || 12)}
+          ${field('width', 'width', subSize.width || liveSize.width)}
+          ${field('height', 'height', subSize.height || liveSize.height)}
           ${varRows ? `<div class="projVarHint" style="margin-top:8px;">Linked CSS vars for ${escapeHtml(projId)}.</div>${varRows}` : ''}
         `;
         return;
@@ -6456,11 +6464,7 @@
         }
         const authored = getScratchbonesAuthoredConfig();
         const current = authored.subOffsets?.[projId] || { dx: 0, dy: 0 };
-        const targetEl = document.getElementById('app')?.querySelector?.(`[data-proj-id="${projId}"]`);
-        const currentSize = authored.subSizes?.[projId] || {
-          width: targetEl?.offsetWidth || 12,
-          height: targetEl?.offsetHeight || 12,
-        };
+        const currentSize = authored.subSizes?.[projId] || getLiveSubElementSize(projId);
         const root = document.getElementById('authoredRoot');
         const liveWidth = root?.clientWidth || window.innerWidth || authored.designWidthPx;
         const liveHeight = root?.clientHeight || window.innerHeight || authored.designHeightPx;
@@ -6763,7 +6767,7 @@
           if (!Number.isFinite(numeric)) return;
           const authored = getScratchbonesAuthoredConfig();
           const current = authored.subOffsets?.[projId] || { dx: 0, dy: 0 };
-          const currentSize = authored.subSizes?.[projId] || { width: 12, height: 12 };
+          const currentSize = authored.subSizes?.[projId] || getLiveSubElementSize(projId);
           if (authoredSubField === 'dx' || authoredSubField === 'dy') {
             updateAuthoredSubOffset(projId, authoredSubField === 'dx' ? numeric : current.dx, authoredSubField === 'dy' ? numeric : current.dy);
             updateEditorStatus(`Sub offset ${projId}.${authoredSubField}=${Math.round(numeric)}.`);
