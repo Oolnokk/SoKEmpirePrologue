@@ -2028,6 +2028,14 @@
       color: var(--text); border-radius: 5px; cursor: pointer;
     }
     #_dbgCopyBtn:hover { background: rgba(90,66,55,0.95); }
+    #_dbgPhysBtn {
+      font-size: 0.68rem; padding: 3px 8px;
+      background: rgba(67,49,43,0.9);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text); border-radius: 5px; cursor: pointer;
+    }
+    #_dbgPhysBtn:hover { background: rgba(90,66,55,0.95); }
+    #_dbgPhysBtn.active { background: #8b1a1a; border-color: red; color: #ffaaaa; }
     #_dbgBody {
       flex: 1; overflow-y: auto;
       padding: 7px 10px;
@@ -2292,6 +2300,7 @@
   <div id="_dbgPanel" aria-hidden="true">
     <div id="_dbgPanelHead">
       <span>DEBUG LOG</span>
+      <button id="_dbgPhysBtn">PhysFace</button>
       <button id="_dbgCopyBtn">Copy</button>
     </div>
     <div id="_dbgBody"></div>
@@ -7126,6 +7135,12 @@
     // ── debug log panel ────────────────────────────────────────────────────
     document.getElementById('_dbgBtn')?.addEventListener('click', () => {
       document.getElementById('_dbgPanel').classList.toggle('open');
+    });
+    document.getElementById('_dbgPhysBtn')?.addEventListener('click', function() {
+      const on = !document.body.classList.contains('phys-debug');
+      window.physDebug?.(on);
+      this.classList.toggle('active', on);
+      this.textContent = on ? 'PhysFace ON' : 'PhysFace';
     });
     document.getElementById('_dbgCopyBtn')?.addEventListener('click', () => {
       const text = (window._debugLogs || [])
