@@ -1004,8 +1004,6 @@
       overflow: auto;
       padding-bottom: 32px;
       min-height: 0;
-      perspective: var(--card-elev-perspective);
-      perspective-origin: var(--card-elev-origin-x) var(--card-elev-origin-y);
     }
     .card {
       width: 100%;
@@ -1026,8 +1024,6 @@
       position: relative;
       overflow: visible;
       isolation: isolate;
-      transform: translateZ(var(--card-elev-lift-z));
-      will-change: transform;
     }
     .card::before {
       content: '';
@@ -1045,7 +1041,7 @@
       pointer-events: none;
       z-index: -1;
     }
-    .card.selected { transform: translateZ(var(--card-elev-lift-z)) translateY(-4px); border-color: transparent; }
+    .card.selected { transform: translateY(-4px); border-color: transparent; }
     .card.selected::after {
       content: '';
       position: absolute;
@@ -7206,7 +7202,7 @@
       let rafHandle = 0;
       let loopUntil = 0;
 
-      function processImg(img, kind, appRect) {
+      function processImg(img, kind, appRect, cfg) {
         const projRect = img.getBoundingClientRect();
         if (!projRect.width || !projRect.height) {
           const src = img.src ? img.src.split('/').pop() : '(no src)';
@@ -7239,13 +7235,7 @@
           faceEl.src = img.src;
         }
 
-        // The face sits at the ground-level (un-elevated) position so the
-        // perspective-lifted card appears to float above its own solid shadow.
-        // Offset toward the vanishing point (#app bottom-centre) using the true
-        // perspective ratio amplified 10× so the separation is clearly visible.
-        const perspective = kind === 'coin' ? 1900 : 920;
-        const lift = 24;
-        const amplify = 10;
+        const { perspective, lift, amplify } = cfg;
         const liftFactor = (lift / perspective) * amplify;
         const invScale = (perspective - lift) / perspective; // size stays near 1:1
 
@@ -7274,20 +7264,34 @@
 
       let _lastSyncCount = -1;
       function sync() {
+        // app.innerHTML wipes #physFaceLayer on every render — re-insert if evicted
+        if (layer.parentNode !== app) {
+          faceMap.clear();
+          _lastSyncCount = -1;
+          app.insertBefore(layer, app.firstChild);
+          console.log('[physFace] layer re-inserted after render wipe');
+        }
+
         const appRect = app.getBoundingClientRect();
         if (!appRect.width) {
           console.warn('[physFace] sync — #app has no width, skipping');
           return;
         }
+
+        const cs = getComputedStyle(document.documentElement);
+        const pv = n => parseFloat(cs.getPropertyValue(n)) || 0;
+        const cardCfg = { perspective: pv('--card-elev-perspective') || 920, lift: pv('--card-elev-lift-z') || 24, amplify: 10 };
+        const coinCfg = { perspective: pv('--coin-elev-perspective') || 1900, lift: pv('--coin-elev-lift-z') || 24, amplify: 10 };
+
         const processedKeys = new Set();
         let cardCount = 0, coinCount = 0, skipCount = 0;
 
         document.querySelectorAll(CARD_SELECTORS).forEach(img => {
-          const k = processImg(img, 'card', appRect);
+          const k = processImg(img, 'card', appRect, cardCfg);
           if (k) { processedKeys.add(k); cardCount++; } else { skipCount++; }
         });
         document.querySelectorAll(COIN_SELECTORS).forEach(img => {
-          const k = processImg(img, 'coin', appRect);
+          const k = processImg(img, 'coin', appRect, coinCfg);
           if (k) { processedKeys.add(k); coinCount++; } else { skipCount++; }
         });
 
