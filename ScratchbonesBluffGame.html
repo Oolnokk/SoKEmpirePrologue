@@ -2121,6 +2121,21 @@
     body.proj-mapping .card {
       pointer-events: none !important;
     }
+    /* ── Candlelight overlay canvases ─────────────────────────────────────── */
+    /* Injected into #app via JS; inline styles set position/z-index but these
+       rules ensure mix-blend-mode is applied even before paint. */
+    #candleDarknessCanvas,
+    #candleGlowCanvas {
+      position: absolute !important;
+      inset: 0;
+      width: 100% !important;
+      height: 100% !important;
+      pointer-events: none !important;
+      z-index: 2 !important;
+      border-radius: inherit;
+    }
+    #candleDarknessCanvas { mix-blend-mode: multiply; }
+    #candleGlowCanvas     { mix-blend-mode: screen; }
   </style>
 </head>
 <body>
@@ -6948,6 +6963,201 @@
     window.addEventListener('pointerdown', () => SCRATCHBONES_AUDIO.startPlaylist(), { once: true, passive: true });
     window.addEventListener('keydown', () => SCRATCHBONES_AUDIO.startPlaylist(), { once: true, passive: true });
     startGame();
+  </script>
+
+  <!-- ── Candlelight overlay ─────────────────────────────────────────────────
+       Two canvas layers inside #app that survive innerHTML replacements via a
+       MutationObserver.  They blend directly with cards, coins, and the tabletop
+       PNG without touching game logic.
+
+       Positions and rendering settings come from the exported tablelight2.json:
+         light  x: 61 px  →  6.1 / 1920  ≈ 3.2 % of #app width
+                y: 360 px →  360 / 1080  = 33.3 % of #app height
+         intensity  : 0.77   radius (ref) : 1200 px @ 1080 px height
+         speed      : 4.17   turbulence   : 1.0
+  ──────────────────────────────────────────────────────────────────────────── -->
+  <script>
+  (function initCandleLight() {
+    const APP_REF_W = 1920, APP_REF_H = 1080;
+
+    // Light position normalised from tablelight2.json (x:61, y:360) @ 1920×1080
+    const LIGHT_NORM_X = 61  / APP_REF_W;   // ≈ 0.032
+    const LIGHT_NORM_Y = 360 / APP_REF_H;   // ≈ 0.333
+
+    // Controls from tablelight2.json
+    const INTENSITY  = 0.77;
+    const RADIUS_REF = 1200;   // px measured at APP_REF_H
+    const SPEED      = 4.17;
+    const TURBULENCE = 1.0;
+
+    function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+    function smoothNoise(t) {
+      return (
+        Math.sin(t * 1.7)         * 0.44 +
+        Math.sin(t * 4.9  + 1.8) * 0.31 +
+        Math.sin(t * 9.3  + 4.2) * 0.18 +
+        Math.sin(t * 17.1 + 0.7) * 0.07
+      );
+    }
+
+    let w = 0, h = 0;
+
+    // ── Canvas: darkness / depth vignette (mix-blend-mode: multiply) ────────
+    // Warm amber near candle → deep dark at edges.
+    // multiply(white card, warm-amber) = warm-tinted card near candle.
+    // multiply(white card, near-black) = dark card far from candle.
+    const darkCanvas = document.createElement('canvas');
+    darkCanvas.id = 'candleDarknessCanvas';
+    darkCanvas.setAttribute('aria-hidden', 'true');
+
+    // ── Canvas: warm glow (mix-blend-mode: screen) ───────────────────────────
+    // Adds bright amber light on dark surfaces (panels, tabletop PNG) near candle.
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.id = 'candleGlowCanvas';
+    glowCanvas.setAttribute('aria-hidden', 'true');
+
+    const darkCtx = darkCanvas.getContext('2d', { alpha: true });
+    const glowCtx = glowCanvas.getContext('2d', { alpha: true });
+
+    // Off-screen work buffers (no DPR scaling, drawn then blitted)
+    const workDark = document.createElement('canvas');
+    const workGlow = document.createElement('canvas');
+    const wdCtx    = workDark.getContext('2d', { alpha: true });
+    const wgCtx    = workGlow.getContext('2d', { alpha: true });
+
+    function resize(app) {
+      const rect = app.getBoundingClientRect();
+      w = Math.max(1, Math.round(rect.width));
+      h = Math.max(1, Math.round(rect.height));
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      for (const cv of [darkCanvas, glowCanvas]) {
+        cv.width  = w * dpr;
+        cv.height = h * dpr;
+        cv.style.width  = w + 'px';
+        cv.style.height = h + 'px';
+      }
+      darkCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      glowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      workDark.width = w;  workDark.height = h;
+      workGlow.width = w;  workGlow.height = h;
+    }
+
+    function ensureInApp(app) {
+      if (darkCanvas.parentNode !== app) app.appendChild(darkCanvas);
+      if (glowCanvas.parentNode !== app) app.appendChild(glowCanvas);
+    }
+
+    function draw(time) {
+      requestAnimationFrame(ms => draw(ms / 1000));
+      if (!w || !h) return;
+
+      // Scale radius to match the current #app height vs reference
+      const radius = RADIUS_REF * (h / APP_REF_H);
+
+      // Flicker
+      const noise  = smoothNoise(time * SPEED);
+      const qp     = Math.sin(time * 31.0) * 0.025;
+      const flick  = clamp(1 + noise * 0.16 * TURBULENCE + qp, 0.72, 1.28);
+      const driftX = Math.sin(time * 2.2) * 16 * TURBULENCE + noise * 10 * TURBULENCE;
+      const driftY = Math.cos(time * 2.9) * 10 * TURBULENCE;
+      const lx     = LIGHT_NORM_X * w + driftX;
+      const ly     = LIGHT_NORM_Y * h - 12 + driftY;
+      const pulse  = clamp(0.86 + (flick - 1) * 0.8, 0.68, 1.18);
+      const alpha  = clamp(0.5 * INTENSITY * pulse, 0.08, 1.25);
+
+      // ── Darkness layer ─────────────────────────────────────────────────────
+      // Radial: warm amber at candle → deep dark at edges.
+      // Warm amber × white card = amber-tinted card (depth & warmth near candle).
+      // Near-black × white card = darkened card (shadow far from candle).
+      wdCtx.clearRect(0, 0, w, h);
+      const dg = wdCtx.createRadialGradient(lx, ly, 0, lx, ly, radius * 1.45);
+      dg.addColorStop(0,    `rgba(255, 200, 100, ${0.04 * flick})`);  // faint warm glow at candle
+      dg.addColorStop(0.18, 'rgba(200, 140, 60, 0.18)');              // warm mid-distance
+      dg.addColorStop(0.40, 'rgba(60, 36, 14, 0.54)');               // warm-dark transition
+      dg.addColorStop(0.68, 'rgba(16, 10, 4, 0.76)');                // deep shadow
+      dg.addColorStop(1,    'rgba(6, 3, 1, 0.88)');                  // near-black edge
+      wdCtx.fillStyle = dg;
+      wdCtx.fillRect(0, 0, w, h);
+      darkCtx.clearRect(0, 0, w, h);
+      darkCtx.drawImage(workDark, 0, 0);
+
+      // ── Glow layer ─────────────────────────────────────────────────────────
+      // Adds warm amber light on dark surfaces (tabletop, panels) near candle.
+      wgCtx.clearRect(0, 0, w, h);
+      wgCtx.globalCompositeOperation = 'source-over';
+
+      // Main warm elliptical pool
+      wgCtx.save();
+      wgCtx.translate(lx, ly + radius * 0.12);
+      wgCtx.scale(1.12, 0.72);
+      const gg = wgCtx.createRadialGradient(0, 0, 0, 0, 0, radius);
+      gg.addColorStop(0,    `rgba(255, 223, 136, ${alpha})`);
+      gg.addColorStop(0.14, `rgba(255, 223, 136, ${alpha})`);
+      gg.addColorStop(0.55, `rgba(255, 166, 54, ${alpha * 0.5})`);
+      gg.addColorStop(1,    'rgba(255, 120, 16, 0)');
+      wgCtx.fillStyle = gg;
+      wgCtx.beginPath();
+      wgCtx.arc(0, 0, radius, 0, Math.PI * 2);
+      wgCtx.fill();
+      wgCtx.restore();
+
+      // Bright core flare
+      const cg = wgCtx.createRadialGradient(lx, ly - 18, 0, lx, ly - 18, radius * 0.07);
+      cg.addColorStop(0, `rgba(255, 248, 200, ${alpha * 0.9})`);
+      cg.addColorStop(1, 'rgba(255, 145, 32, 0)');
+      wgCtx.fillStyle = cg;
+      wgCtx.beginPath();
+      wgCtx.arc(lx, ly - 18, radius * 0.07, 0, Math.PI * 2);
+      wgCtx.fill();
+
+      // Specular streaks
+      wgCtx.globalCompositeOperation = 'screen';
+      wgCtx.lineWidth = 1;
+      for (let i = 0; i < 14; i++) {
+        const ang    = (i / 14) * Math.PI * 2 + Math.sin(time + i) * 0.08;
+        const len    = radius * (0.42 + (i % 4) * 0.055);
+        const start  = 34 + (i % 3) * 10;
+        const wobble = Math.sin(time * (2.1 + i * 0.13) + i) * 18 * TURBULENCE;
+        const x1 = lx + Math.cos(ang) * start  + wobble;
+        const y1 = ly + Math.sin(ang) * start  * 0.64;
+        const x2 = lx + Math.cos(ang) * len    + wobble * 0.45;
+        const y2 = ly + Math.sin(ang) * len    * 0.64;
+        const sg = wgCtx.createLinearGradient(x1, y1, x2, y2);
+        sg.addColorStop(0, `rgba(255, 221, 140, ${alpha * 0.11})`);
+        sg.addColorStop(1, 'rgba(255, 130, 28, 0)');
+        wgCtx.strokeStyle = sg;
+        wgCtx.beginPath();
+        wgCtx.moveTo(x1, y1);
+        wgCtx.lineTo(x2, y2);
+        wgCtx.stroke();
+      }
+
+      glowCtx.clearRect(0, 0, w, h);
+      glowCtx.drawImage(workGlow, 0, 0);
+    }
+
+    function start() {
+      const app = document.getElementById('app');
+      if (!app) { setTimeout(start, 80); return; }
+
+      resize(app);
+      ensureInApp(app);
+
+      new ResizeObserver(() => resize(app)).observe(app);
+
+      // Re-inject canvases each time app.innerHTML is replaced
+      new MutationObserver(() => ensureInApp(app)).observe(app, { childList: true });
+
+      requestAnimationFrame(ms => draw(ms / 1000));
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', start);
+    } else {
+      start();
+    }
+  })();
   </script>
 </body>
 </html>
